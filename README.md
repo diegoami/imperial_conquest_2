@@ -6,7 +6,7 @@ The first milestone is a C#/.NET parser for the shared world prefix in the origi
 
 ## Godot map viewer
 
-After setting `assets.local.ini`, open `godot/project.godot` with the Godot .NET edition (currently 4.7.2) and run the project. The viewer reads the original DAT from the configured external directory and draws its 320 × 140 map and 334 cities. Use the mouse wheel to zoom toward the cursor and drag with the left mouse button to move around the map. A short click on a city shows its name, coordinates, and initial supply stock; clicking elsewhere shows the raw map-cell value. The map stays within the viewing area as you pan and zoom. Terrain colors are provisional, and the viewer does not yet implement turns or combat. It does not copy original assets into the repository.
+After setting `assets.local.ini`, open `godot/project.godot` with the Godot .NET edition (currently 4.7.2) and run the project. The viewer reads the original DAT from the configured external directory and draws its 320 × 140 map and 334 cities. It opens in a maximized window with a closer view near Rome, so the tiles are easier to see; **Show whole map** returns to the overview. Use the mouse wheel to zoom toward the cursor and drag with the left mouse button to move around the map. A short click on a city shows its name, coordinates, and initial supply stock; clicking elsewhere shows the raw map-cell value. The map stays within the viewing area as you pan and zoom. Terrain colors are provisional, and the viewer does not yet implement turns or combat. It does not copy original assets into the repository.
 
 ## Requirements
 

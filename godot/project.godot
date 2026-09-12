@@ -10,6 +10,7 @@ config/features=PackedStringArray("4.7", "C#")
 
 window/size/viewport_width=1500
 window/size/viewport_height=850
+window/size/mode=2
 window/stretch/mode="canvas_items"
 
 [dotnet]

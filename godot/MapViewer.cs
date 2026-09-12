@@ -7,6 +7,7 @@ public partial class MapViewer : Control
 {
     private const float ZoomStep = 1.25f;
     private const float MaximumZoom = 10f;
+    private const float InitialZoom = 2.5f;
     private const float DragThreshold = 4f;
     private static readonly Color Background = new(0.07f, 0.11f, 0.15f);
     private static readonly Color CityColor = new(1.0f, 0.97f, 0.86f);
@@ -17,6 +18,7 @@ public partial class MapViewer : Control
     private CityRecord? _selected;
     private Label _title = null!;
     private Label _status = null!;
+    private Button _fitButton = null!;
     private float _zoom = 1f;
     private Vector2 _pan = Vector2.Zero;
     private Vector2 _pressPosition;
@@ -25,10 +27,14 @@ public partial class MapViewer : Control
 
     public override void _Ready()
     {
+        GetWindow().Mode = Window.ModeEnum.Maximized;
         TextureFilter = TextureFilterEnum.Nearest;
         _title = MakeLabel("Imperial Conquest 2 · world map", 25);
         _status = MakeLabel("Loading original data…", 17);
         _title.Position = new Vector2(24, 16);
+        _fitButton = new Button { Text = "Show whole map", CustomMinimumSize = new Vector2(170f, 38f) };
+        _fitButton.Pressed += FitWholeMap;
+        AddChild(_fitButton);
 
         try
         {
@@ -40,7 +46,8 @@ public partial class MapViewer : Control
                 for (var x = 0; x < WorldPrefix.MapWidth; x++)
                     image.SetPixel(x, y, TerrainColor(_world.CellAt(x, y)));
             _terrain = ImageTexture.CreateFromImage(image);
-            _status.Text = "Mouse wheel: zoom · then drag to move map · click: inspect city · colors provisional";
+            _status.Text = "Near Rome · mouse wheel: zoom · drag: move map · click: inspect city · colors provisional";
+            FocusOnRome();
             GD.Print($"Loaded {WorldPrefix.MapCellCount} map cells and {_world.Cities.Count} cities from the configured DAT.");
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
@@ -50,13 +57,15 @@ public partial class MapViewer : Control
         }
 
         PlaceStatus();
+        PlaceFitButton();
         QueueRedraw();
     }
 
     public override void _Notification(int what)
     {
-        if (what != NotificationResized || _status is null) return;
+        if (what != NotificationResized || _status is null || _fitButton is null) return;
         PlaceStatus();
+        PlaceFitButton();
         ClampPan();
         QueueRedraw();
     }
@@ -178,6 +187,31 @@ public partial class MapViewer : Control
         QueueRedraw();
     }
 
+    private void FocusOnRome()
+    {
+        if (_world is null) return;
+        foreach (var city in _world.Cities)
+        {
+            if (city.Name != "Rome") continue;
+            _zoom = InitialZoom;
+            var viewport = MapViewportRect();
+            var baseRect = BaseMapRect();
+            var cityPosition = new Vector2((city.X + 0.5f) / WorldPrefix.MapWidth,
+                (city.Y + 0.5f) / WorldPrefix.MapHeight);
+            _pan = viewport.Position + viewport.Size / 2f - baseRect.Position - cityPosition * baseRect.Size * _zoom;
+            ClampPan();
+            return;
+        }
+    }
+
+    private void FitWholeMap()
+    {
+        _zoom = 1f;
+        _pan = Vector2.Zero;
+        ClampPan();
+        QueueRedraw();
+    }
+
     private Rect2 MapViewportRect() => new(new Vector2(24f, 80f),
         new Vector2(MathF.Max(1f, Size.X - 48f), MathF.Max(1f, Size.Y - 150f)));
 
@@ -210,6 +244,8 @@ public partial class MapViewer : Control
     }
 
     private void PlaceStatus() => _status.Position = new Vector2(24, MathF.Max(64f, Size.Y - 48f));
+
+    private void PlaceFitButton() => _fitButton.Position = new Vector2(MathF.Max(24f, Size.X - 194f), 16f);
 
     private Label MakeLabel(string text, int fontSize)
     {

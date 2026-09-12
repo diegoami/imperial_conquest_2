@@ -62,7 +62,7 @@ The order matters: verify each file format and rule before depending on it in th
 ## 5. Build the Godot desktop interface
 
 - [x] Add a Godot 4.7.2 .NET project targeting .NET 10 and referencing the C# data library. Verify it builds and loads the configured DAT without copying assets.
-- [x] Draw the DAT terrain and city coordinates in a click-to-inspect map viewer with mouse-wheel zoom and drag-to-pan; label provisional colors and fields.
+- [x] Draw the DAT terrain and city coordinates in a click-to-inspect map viewer with mouse-wheel zoom and drag-to-pan; start near Rome in a maximized window and retain a whole-map button. Label provisional colors and fields.
 - [ ] Add army/fleet markers, tooltips, and clear ownership and terrain cues to the map. Keep map rendering separate from game rules.
 - [ ] Add the main gameplay screens: nation setup, city details, army/fleet details, orders, economy, diplomacy, news, and end-turn flow.
 - [ ] Route toolbar shortcuts and menu entries through the same command definitions, following the original interface's shared actions.
