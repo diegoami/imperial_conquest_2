@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using Godot;
 using IC2.Data;
@@ -7,18 +8,28 @@ public partial class MapViewer : Control
 {
     private const float ZoomStep = 1.25f;
     private const float MaximumZoom = 10f;
-    private const float InitialZoom = 2.5f;
+    private const float InitialZoom = 4f;
     private const float DragThreshold = 4f;
     private static readonly Color Background = new(0.07f, 0.11f, 0.15f);
     private static readonly Color CityColor = new(1.0f, 0.97f, 0.86f);
     private static readonly Color SelectedColor = new(1.0f, 0.40f, 0.25f);
+    private static readonly Color RiverColor = new(0.05f, 0.16f, 0.58f);
+    private static readonly Color MarkerOutline = new(0.07f, 0.09f, 0.14f);
+    private static readonly Color FleetColor = new(0.88f, 0.96f, 1.0f);
 
+    private WorldPrefix? _initialWorld;
     private WorldPrefix? _world;
     private ImageTexture? _terrain;
     private CityRecord? _selected;
+    private UnitMarker? _selectedUnit;
+    private readonly List<UnitMarker> _units = new();
+    private readonly List<(int X, int Y, ushort Code)> _rivers = new();
+    private readonly List<string> _sourcePaths = new();
     private Label _title = null!;
+    private Label _legend = null!;
     private Label _status = null!;
     private Button _fitButton = null!;
+    private OptionButton _sourcePicker = null!;
     private float _zoom = 1f;
     private Vector2 _pan = Vector2.Zero;
     private Vector2 _pressPosition;
@@ -30,25 +41,44 @@ public partial class MapViewer : Control
         GetWindow().Mode = Window.ModeEnum.Maximized;
         TextureFilter = TextureFilterEnum.Nearest;
         _title = MakeLabel("Imperial Conquest 2 · world map", 25);
+        _legend = MakeLabel("Colored squares: cities  ·  flags: armies  ·  sails: fleets  ·  blue lines: rivers", 14);
         _status = MakeLabel("Loading original data…", 17);
         _title.Position = new Vector2(24, 16);
+        _legend.Position = new Vector2(24, 53);
         _fitButton = new Button { Text = "Show whole map", CustomMinimumSize = new Vector2(170f, 38f) };
         _fitButton.Pressed += FitWholeMap;
         AddChild(_fitButton);
+        _sourcePicker = new OptionButton { CustomMinimumSize = new Vector2(170f, 38f) };
+        _sourcePicker.ItemSelected += index => LoadSource((int)index);
+        AddChild(_sourcePicker);
 
         try
         {
             var repositoryRoot = Path.GetFullPath(Path.Combine(ProjectSettings.GlobalizePath("res://"), ".."));
             var settings = AssetSettings.Load(Path.Combine(repositoryRoot, "assets.local.ini"));
-            _world = WorldPrefix.Parse(File.ReadAllBytes(settings.DatPath));
-            var image = Image.CreateEmpty(WorldPrefix.MapWidth, WorldPrefix.MapHeight, false, Image.Format.Rgba8);
+            _initialWorld = WorldPrefix.Parse(File.ReadAllBytes(settings.DatPath));
             for (var y = 0; y < WorldPrefix.MapHeight; y++)
                 for (var x = 0; x < WorldPrefix.MapWidth; x++)
-                    image.SetPixel(x, y, TerrainColor(_world.CellAt(x, y)));
-            _terrain = ImageTexture.CreateFromImage(image);
-            _status.Text = "Near Rome · mouse wheel: zoom · drag: move map · click: inspect city · colors provisional";
+                {
+                    var code = _initialWorld.CellAt(x, y);
+                    if (code is >= 6 and <= 11) _rivers.Add((x, y, code));
+                }
+            _sourcePaths.Add(settings.DatPath);
+            _sourcePicker.AddItem("Initial world");
+            var savesDirectory = Path.Combine(settings.DirectoryPath, "saves");
+            if (Directory.Exists(savesDirectory))
+            {
+                var saves = Directory.GetFiles(savesDirectory, "*.sav");
+                Array.Sort(saves, StringComparer.OrdinalIgnoreCase);
+                foreach (var save in saves)
+                {
+                    _sourcePaths.Add(save);
+                    _sourcePicker.AddItem(Path.GetFileName(save));
+                }
+            }
+            LoadSource(0);
             FocusOnRome();
-            GD.Print($"Loaded {WorldPrefix.MapCellCount} map cells and {_world.Cities.Count} cities from the configured DAT.");
+            GD.Print($"Loaded {WorldPrefix.MapCellCount} map cells, {_initialWorld.Cities.Count} cities, and {_rivers.Count} river tiles from the configured DAT.");
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
         {
@@ -57,15 +87,15 @@ public partial class MapViewer : Control
         }
 
         PlaceStatus();
-        PlaceFitButton();
+        PlaceHeaderControls();
         QueueRedraw();
     }
 
     public override void _Notification(int what)
     {
-        if (what != NotificationResized || _status is null || _fitButton is null) return;
+        if (what != NotificationResized || _status is null || _fitButton is null || _sourcePicker is null) return;
         PlaceStatus();
-        PlaceFitButton();
+        PlaceHeaderControls();
         ClampPan();
         QueueRedraw();
     }
@@ -84,20 +114,92 @@ public partial class MapViewer : Control
             visible.Size / mapRect.Size * new Vector2(WorldPrefix.MapWidth, WorldPrefix.MapHeight));
         DrawTextureRectRegion(_terrain, visible, source);
         var step = mapRect.Size.X / WorldPrefix.MapWidth;
-        var cityRadius = Math.Clamp(step * 0.48f, 2f, 6f);
+        foreach (var (x, y, code) in _rivers)
+        {
+            var point = mapRect.Position + new Vector2((x + 0.5f) * step, (y + 0.5f) * step);
+            if (viewport.Grow(step / 2f).HasPoint(point)) DrawRiver(point, step, code);
+        }
         foreach (var city in _world.Cities)
         {
             var point = mapRect.Position + new Vector2((city.X + 0.5f) * step, (city.Y + 0.5f) * step);
-            if (!viewport.Grow(-cityRadius).HasPoint(point)) continue;
-            DrawCircle(point, cityRadius, CityColor);
+            if (viewport.HasPoint(point)) DrawCity(point, step, city.OwnerCode);
         }
-        if (_selected is not null)
+        foreach (var unit in _units)
         {
-            var point = mapRect.Position + new Vector2((_selected.X + 0.5f) * step, (_selected.Y + 0.5f) * step);
-            var radius = Math.Clamp(step * 1.1f, 6f, 14f);
-            if (viewport.Grow(-radius).HasPoint(point))
-                DrawArc(point, radius, 0, MathF.Tau, 32, SelectedColor, 2f);
+            var point = mapRect.Position + new Vector2((unit.X + 0.5f) * step, (unit.Y + 0.5f) * step);
+            if (!viewport.HasPoint(point)) continue;
+            if (unit.Fleet) DrawFleet(point, step, unit.OwnerCode);
+            else DrawArmy(point, step, unit.OwnerCode);
         }
+        if (_selected is not null) DrawSelection(mapRect, step, _selected.X, _selected.Y);
+        if (_selectedUnit is { } selectedUnit) DrawSelection(mapRect, step, selectedUnit.X, selectedUnit.Y);
+        DrawFrameMasks(viewport);
+    }
+
+    private void DrawRiver(Vector2 center, float step, ushort code)
+    {
+        var half = step / 2f;
+        var width = MathF.Max(1.4f, step * 0.34f);
+        if (code is 6 or 8 or 9) DrawLine(center, center + Vector2.Right * half, RiverColor, width);
+        if (code is 6 or 10 or 11) DrawLine(center, center + Vector2.Left * half, RiverColor, width);
+        if (code is 7 or 8 or 11) DrawLine(center, center + Vector2.Up * half, RiverColor, width);
+        if (code is 7 or 9 or 10) DrawLine(center, center + Vector2.Down * half, RiverColor, width);
+    }
+
+    private void DrawCity(Vector2 center, float step, ushort ownerCode)
+    {
+        var side = Math.Clamp(step * 0.8f, 3f, 17f);
+        var rect = new Rect2(center - Vector2.One * side / 2f, Vector2.One * side);
+        DrawRect(rect, OwnerColor(ownerCode));
+        DrawRect(rect, MarkerOutline, false, 1f);
+        if (side < 10f) return;
+        var glyphColor = ownerCode is 4 or 5 or 7 or 8 or 13 or 14 ? MarkerOutline : CityColor;
+        var roofY = center.Y - side * 0.22f;
+        DrawLine(new Vector2(center.X - side * 0.28f, roofY), new Vector2(center.X + side * 0.28f, roofY), glyphColor, 1.5f);
+        DrawLine(new Vector2(center.X - side * 0.22f, roofY), new Vector2(center.X - side * 0.22f, center.Y + side * 0.26f), glyphColor, 1.5f);
+        DrawLine(new Vector2(center.X + side * 0.22f, roofY), new Vector2(center.X + side * 0.22f, center.Y + side * 0.26f), glyphColor, 1.5f);
+    }
+
+    private void DrawArmy(Vector2 center, float step, ushort ownerCode)
+    {
+        var radius = Math.Clamp(step * 0.46f, 3f, 12f);
+        DrawCircle(center, radius, MarkerOutline);
+        var poleX = center.X - radius * 0.22f;
+        DrawLine(new Vector2(poleX, center.Y - radius * 0.65f), new Vector2(poleX, center.Y + radius * 0.65f), FleetColor, MathF.Max(1f, radius * 0.16f));
+        DrawColoredPolygon(new[] {
+            new Vector2(poleX, center.Y - radius * 0.7f),
+            new Vector2(center.X + radius * 0.7f, center.Y - radius * 0.27f),
+            new Vector2(poleX, center.Y + radius * 0.1f)
+        }, OwnerColor(ownerCode));
+    }
+
+    private void DrawFleet(Vector2 center, float step, ushort ownerCode)
+    {
+        var radius = Math.Clamp(step * 0.46f, 3f, 12f);
+        DrawCircle(center, radius, OwnerColor(ownerCode));
+        DrawLine(center + new Vector2(-radius * 0.7f, radius * 0.35f),
+            center + new Vector2(radius * 0.7f, radius * 0.35f), FleetColor, MathF.Max(1.4f, radius * 0.22f));
+        DrawColoredPolygon(new[] {
+            center + new Vector2(0f, -radius * 0.7f),
+            center + new Vector2(0f, radius * 0.18f),
+            center + new Vector2(radius * 0.6f, radius * 0.18f)
+        }, FleetColor);
+    }
+
+    private void DrawSelection(Rect2 mapRect, float step, int x, int y)
+    {
+        var point = mapRect.Position + new Vector2((x + 0.5f) * step, (y + 0.5f) * step);
+        var radius = Math.Clamp(step * 0.85f, 7f, 20f);
+        if (MapViewportRect().Grow(-radius).HasPoint(point))
+            DrawArc(point, radius, 0, MathF.Tau, 32, SelectedColor, 2f);
+    }
+
+    private void DrawFrameMasks(Rect2 viewport)
+    {
+        DrawRect(new Rect2(0, 0, Size.X, viewport.Position.Y), Background);
+        DrawRect(new Rect2(0, viewport.End.Y, Size.X, Size.Y - viewport.End.Y), Background);
+        DrawRect(new Rect2(0, viewport.Position.Y, viewport.Position.X, viewport.Size.Y), Background);
+        DrawRect(new Rect2(viewport.End.X, viewport.Position.Y, Size.X - viewport.End.X, viewport.Size.Y), Background);
     }
 
     public override void _GuiInput(InputEvent @event)
@@ -148,6 +250,25 @@ public partial class MapViewer : Control
         if (!mapRect.HasPoint(position)) return;
 
         var step = mapRect.Size.X / WorldPrefix.MapWidth;
+        UnitMarker? nearestUnit = null;
+        var unitDistanceSquared = float.MaxValue;
+        foreach (var unit in _units)
+        {
+            var point = mapRect.Position + new Vector2((unit.X + 0.5f) * step, (unit.Y + 0.5f) * step);
+            var distanceSquared = point.DistanceSquaredTo(position);
+            if (distanceSquared >= unitDistanceSquared) continue;
+            nearestUnit = unit;
+            unitDistanceSquared = distanceSquared;
+        }
+        if (nearestUnit is { } hitUnit && unitDistanceSquared <= MathF.Pow(MathF.Max(8f, step * 0.5f), 2f))
+        {
+            _selected = null;
+            _selectedUnit = hitUnit;
+            _status.Text = $"{(hitUnit.Fleet ? "Fleet" : "Army")} marker at ({hitUnit.X}, {hitUnit.Y}) · owner code {hitUnit.OwnerCode} · unit details still under study";
+            QueueRedraw();
+            return;
+        }
+        _selectedUnit = null;
         var cell = (position - mapRect.Position) / step;
         CityRecord? nearest = null;
         var nearestSquared = float.MaxValue;
@@ -212,6 +333,50 @@ public partial class MapViewer : Control
         QueueRedraw();
     }
 
+    private void LoadSource(int index)
+    {
+        if (_initialWorld is null || (uint)index >= _sourcePaths.Count) return;
+        try
+        {
+            var world = index == 0 ? _initialWorld : WorldPrefix.Parse(File.ReadAllBytes(_sourcePaths[index]));
+            var image = Image.CreateEmpty(WorldPrefix.MapWidth, WorldPrefix.MapHeight, false, Image.Format.Rgba8);
+            var units = new List<UnitMarker>();
+            for (var y = 0; y < WorldPrefix.MapHeight; y++)
+            {
+                for (var x = 0; x < WorldPrefix.MapWidth; x++)
+                {
+                    var code = world.CellAt(x, y);
+                    var backgroundCode = code;
+                    if (code >= 20)
+                    {
+                        var originalCode = _initialWorld.CellAt(x, y);
+                        backgroundCode = originalCode < 20 ? originalCode : (ushort)(code >= 300 ? 0 : 2);
+                    }
+                    image.SetPixel(x, y, TerrainColor(backgroundCode));
+                    if (code is >= 200 and < 300)
+                        units.Add(new UnitMarker(x, y, code, (ushort)((code - 200) % 16), false));
+                    else if (code is >= 332 and < 348)
+                        units.Add(new UnitMarker(x, y, code, (ushort)(code - 332), true));
+                }
+            }
+            _world = world;
+            _terrain = ImageTexture.CreateFromImage(image);
+            _units.Clear();
+            _units.AddRange(units);
+            _selected = null;
+            _selectedUnit = null;
+            var armies = 0;
+            foreach (var unit in _units) if (!unit.Fleet) armies++;
+            _status.Text = $"{_sourcePicker.GetItemText(index)} · {armies} army and {_units.Count - armies} fleet markers · wheel: zoom · drag: move";
+            QueueRedraw();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            _status.Text = $"Could not load {Path.GetFileName(_sourcePaths[index])}: {ex.Message}";
+            GD.PushError(_status.Text);
+        }
+    }
+
     private Rect2 MapViewportRect() => new(new Vector2(24f, 80f),
         new Vector2(MathF.Max(1f, Size.X - 48f), MathF.Max(1f, Size.Y - 150f)));
 
@@ -245,7 +410,34 @@ public partial class MapViewer : Control
 
     private void PlaceStatus() => _status.Position = new Vector2(24, MathF.Max(64f, Size.Y - 48f));
 
-    private void PlaceFitButton() => _fitButton.Position = new Vector2(MathF.Max(24f, Size.X - 194f), 16f);
+    private void PlaceHeaderControls()
+    {
+        _fitButton.Position = new Vector2(MathF.Max(24f, Size.X - 194f), 16f);
+        _sourcePicker.Position = new Vector2(MathF.Max(24f, Size.X - 380f), 16f);
+    }
+
+    private readonly record struct UnitMarker(int X, int Y, ushort Code, ushort OwnerCode, bool Fleet);
+
+    private static Color OwnerColor(ushort code) => code switch
+    {
+        0 => new Color(0.50f, 0f, 0.50f),
+        1 => new Color(1f, 0f, 0f),
+        2 => new Color(0.50f, 0.50f, 0f),
+        3 => new Color(0f, 0f, 0.50f),
+        4 => new Color(1f, 1f, 1f),
+        5 => new Color(0f, 1f, 0f),
+        6 => new Color(0.50f, 0f, 0f),
+        7 => new Color(0f, 1f, 1f),
+        8 => new Color(1f, 0f, 1f),
+        9 => new Color(0f, 0f, 0.50f),
+        10 => new Color(0f, 0.50f, 0f),
+        11 => new Color(0f, 0.50f, 0.50f),
+        12 => new Color(0f, 0f, 1f),
+        13 => new Color(1f, 1f, 0f),
+        14 => new Color(0.75f, 0.75f, 0.75f),
+        15 => new Color(0.50f, 0.50f, 0.50f),
+        _ => new Color(0.72f, 0.71f, 0.59f)
+    };
 
     private Label MakeLabel(string text, int fontSize)
     {
@@ -258,13 +450,14 @@ public partial class MapViewer : Control
     private static Color TerrainColor(ushort value) => value switch
     {
         0 => new Color(0.13f, 0.30f, 0.49f),
+        1 => new Color(0.09f, 0.20f, 0.42f),
         2 => new Color(0.46f, 0.66f, 0.37f),
         3 => new Color(0.89f, 0.80f, 0.49f),
         4 => new Color(0.26f, 0.42f, 0.26f),
         5 => new Color(0.65f, 0.66f, 0.67f),
-        >= 6 and <= 11 => new Color(0.30f, 0.47f, 0.31f),
-        >= 20 and < 200 => new Color(0.78f, 0.28f, 0.28f),
-        >= 200 => new Color(0.93f, 0.15f, 0.70f),
+        >= 6 and <= 11 => new Color(0.26f, 0.42f, 0.26f),
+        >= 20 and < 300 => new Color(0.46f, 0.66f, 0.37f),
+        >= 300 => new Color(0.13f, 0.30f, 0.49f),
         _ => new Color(0.72f, 0.53f, 0.33f)
     };
 }

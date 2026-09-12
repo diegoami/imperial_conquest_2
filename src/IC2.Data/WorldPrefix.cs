@@ -94,6 +94,9 @@ public sealed class CityRecord
     /// <summary>City supply stock at record offset +24, corroborated by a controlled army-supply transfer.</summary>
     public ushort Supplies => BinaryPrimitives.ReadUInt16LittleEndian(_raw.AsSpan(24, 2));
 
+    /// <summary>Owner code at record offset +18, corroborated by named city captures in saves and screenshots.</summary>
+    public ushort OwnerCode => BinaryPrimitives.ReadUInt16LittleEndian(_raw.AsSpan(18, 2));
+
     /// <summary>Returns an unlabelled raw byte from this 34-byte record.</summary>
     public byte RawByteAt(int offset)
     {

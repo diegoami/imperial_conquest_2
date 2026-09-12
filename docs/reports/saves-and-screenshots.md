@@ -43,12 +43,12 @@ Comparing the dominant screen color for tiles at these registered coordinates gi
 | `4` | Dark green `#008000` | Forest | 403 of 407 in `7.4.png` |
 | `5` | Gray `#808080` | Mountains | 293 of 297 in `7.2.png` |
 
-The interpretation names come from the visible tile art as well as color. Other values need more controlled samples. Values `6`–`11` often display dark green but may encode variants or overlays. Many values above `20` coincide with colored settlement markers, borders, or other special graphics; they should not yet be treated as plain terrain. The repository renderer now uses colors that approximately match these five screenshot-backed terrain classes while leaving other meanings provisional.
+The interpretation names come from the visible tile art as well as color. Later [river and marker analysis](rivers-and-map-markers.md) identifies values `6`–`11` as six river shapes: their green tile background can be dominant even though every sampled tile contains dark-blue river pixels. Values `20`–`199` coincide exactly with city positions, and sparse `200`–`299` values plus observed `333`/`335` align with candidate army and fleet icons. Their deeper encodings remain to be recovered. The repository viewer uses approximate terrain colors and new vector markers, not original art.
 
 The screenshots' information panel visibly reaches `Week 11 Spring 270BC`, matching the week label and trailer byte in `7.sav`. This validates the user's screenshot/save pairing for this set, though the screenshots may have been captured minutes after the save and are not a binary snapshot of every game action.
 
 ## Next checks
 
-1. Classify values `6`–`11` and special codes with multiple registered screenshots, then compare help descriptions and map art.
+1. Check water value `1` and the meaning of city and unit marker codes against further screenshots, help descriptions, and map art.
 2. Locate the start and count of the news list and dynamic post-city records, which shift between later saves.
 3. Use one-city screenshots or controlled captures to confirm the full owner-code table and explain how city supplies at `+24` change during a turn.

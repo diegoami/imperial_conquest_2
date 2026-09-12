@@ -29,7 +29,8 @@ The order matters: verify each file format and rule before depending on it in th
 
 - [x] Render the candidate 320 × 140 map and overlay all city coordinates; column-major storage and coordinate orientation are strongly supported by geography.
 - [x] Match five common cell values to original screen terrain through registered screenshots.
-- [ ] Determine the remaining tile meanings and whether the grid includes dynamic markers.
+- [x] Identify river values `6`–`11` and distinguish city (`20`–`199`), candidate army (`200`–`299`), and observed fleet (`333`, `335`) markers using [registered screenshots and map coordinates](reports/rivers-and-map-markers.md).
+- [ ] Determine the remaining tile meanings, including water value `1`, and decode marker-to-record identities.
 - [ ] Identify every field in the 34-byte city record by comparing saves, the help file, form labels, and executable references. Verify field width, signedness, units, and allowed range. City word `+24` is now strongly identified as a 16-bit supply stock in tons.
 - [ ] Map the DAT regions after the cities: nation, army, fleet, unit, leader, and other tables; establish record boundaries and counts before assigning meanings.
 - [ ] Map the remaining SAV regions, including mutable entities, calendar, turn order, diplomacy, event log, and any checks or version markers. The aligned trailer byte `+40` follows the displayed week and resets at Spring→Summer; `+44` is a candidate season index. Confirm autumn/winter and year boundaries.
@@ -62,8 +63,8 @@ The order matters: verify each file format and rule before depending on it in th
 ## 5. Build the Godot desktop interface
 
 - [x] Add a Godot 4.7.2 .NET project targeting .NET 10 and referencing the C# data library. Verify it builds and loads the configured DAT without copying assets.
-- [x] Draw the DAT terrain and city coordinates in a click-to-inspect map viewer with mouse-wheel zoom and drag-to-pan; start near Rome in a maximized window and retain a whole-map button. Label provisional colors and fields.
-- [ ] Add army/fleet markers, tooltips, and clear ownership and terrain cues to the map. Keep map rendering separate from game rules.
+- [x] Draw terrain, rivers, city coordinates, candidate army/fleet markers, and locally selected save states in a click-to-inspect map viewer with mouse-wheel zoom and drag-to-pan. Start near Rome in a maximized window and retain a whole-map button.
+- [ ] Add unit detail tooltips and verified ownership colors and terrain art. Keep map rendering separate from game rules.
 - [ ] Add the main gameplay screens: nation setup, city details, army/fleet details, orders, economy, diplomacy, news, and end-turn flow.
 - [ ] Route toolbar shortcuts and menu entries through the same command definitions, following the original interface's shared actions.
 - [ ] Add tactical battle presentation and controls after the headless battle model is testable.
