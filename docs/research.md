@@ -2,6 +2,8 @@
 
 All observations below come from reading the supplied demo ZIP, full-version ZIP, and one save as data. No game binary was executed. Field labels beyond city names and the candidate coordinates remain provisional.
 
+Detailed evidence and per-file hashes are preserved in the [demo static-analysis report](reports/impconq2-initial-report.md) and [full-version/save analysis](reports/impconq2-full-save-analysis.md).
+
 ## Known inputs
 
 | Input | SHA-256 | Notes |
