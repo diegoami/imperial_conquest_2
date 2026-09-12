@@ -16,7 +16,7 @@ The 334-city table ends at `0x18A5C`. In the known **SAV** files, a little-endia
 | `+14` | 2 | unknown | Do not label yet |
 | `+16` | 640 | twenty 32-byte unit slots | Thirteen occupied slots in the Roman army; exact screenshot match |
 
-Each unit slot contains an unknown word at `+0`, a type code at `+2`, troop count at `+4`, quality code at `+6`, and a 24-byte name area beginning at `+8`. A slot with zero troops can still retain a name or filler bytes, so zero-troop slots are not shown as active units. The observed names are NUL-terminated ASCII. The screenshot identifies type codes `0` as light infantry, `1` as heavy infantry, `3` as light cavalry, and `4` as heavy cavalry. Type `2` occurs elsewhere in the saves but is not identified by these screenshots. Quality codes `6`, `7`, `8`, and `9` map to **average**, **good**, **very good**, and **elite** respectively. Code `5` occurs elsewhere but is not identified here.
+Each unit slot contains an unknown word at `+0`, a type code at `+2`, troop count at `+4`, quality code at `+6`, and a 24-byte name area beginning at `+8`. A slot with zero troops can still retain a name or filler bytes, so zero-troop slots are not shown as active units. The observed names are NUL-terminated ASCII. This screenshot identifies type codes `0` as light infantry, `1` as heavy infantry, `3` as light cavalry, and `4` as heavy cavalry. [Later recruitment screenshots](rome-city-recruitment-and-nations.md) identify code `2` as archers. Quality codes `6`, `7`, `8`, and `9` map to **average**, **good**, **very good**, and **elite** respectively. Code `5` occurs elsewhere but is not identified here.
 
 ## First army in `11_supply.sav`
 
@@ -46,7 +46,7 @@ The same count plus 656-byte-record layout parses all ten available saves (`1`, 
 
 An independent battle cross-check supports the troop fields: the first Roman army in `7.sav` is at `(102, 44)` with **14 units and 50,700 troops**, while in `8.sav` it remains at `(102, 44)` with **11 units and 39,941 troops**. Those are the exact pre-battle and surviving troop totals reported in the [battle observation](battle-observation.md). The inspector also parses the first army in every available save without an active-unit layout error.
 
-The initial **DAT** differs at this boundary: its word at `0x18A5C` is `100`, and treating it as the SAV army count does not produce valid records. The new army parser therefore applies to known saves only. Unknown header and unit-slot words, fleet records, type `2`, quality `5`, combat stats, and army orders still need decoding. The Godot viewer now displays a save army's known roster when its flag is clicked, and the inspector can reproduce the Roman record with:
+The initial **DAT** differs at this boundary: its word at `0x18A5C` is `100`, and treating it as the SAV army count does not produce valid records. The new army parser therefore applies to known saves only. Unknown header and unit-slot words, fleet records, quality `5`, combat stats, and army orders still need decoding. The Godot viewer now displays a save army's known roster when its flag is clicked, and the inspector can reproduce the Roman record with:
 
 ```text
 dotnet run --project src/IC2.Inspect/IC2.Inspect.csproj -- --inspect-army saves/11_supply.sav 100 42

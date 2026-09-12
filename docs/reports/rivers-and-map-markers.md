@@ -23,7 +23,7 @@ The exceptions are mostly map-edge or endpoint cells and a few intersections wit
 
 In both the initial DAT and `7.sav`, exactly **334 cells** have values from `20` through `199`, and all 334 coincide with the parsed city coordinates. These values are city map markers. More specifically, every `7.sav` city satisfies `map code = 20 + owner code + 16 × variant`, with variants 0–4. The owner code is the separate city-record word at `+18`; its relation to the map code holds for **334/334 cities**. The variant's meaning (city size, icon, or another display category) still needs confirmation.
 
-Sampling the corners of registered city tiles gives the following screenshot colors by owner code: `0` purple `#800080`, `1` red `#FF0000`, `2` olive `#808000`, `3` navy `#000080`, `4` white, `5` lime, `6` maroon, `7` aqua, `9` navy, `10` green, `11` teal, `12` blue, and `15` gray. Codes `8`, `13`, and `14` were not represented in the sampled screenshot views; their viewer colors remain provisional. The code-to-nation names are also incomplete.
+Sampling the corners of registered city tiles gives the following screenshot colors by owner code: `0` purple `#800080`, `1` red `#FF0000`, `2` olive `#808000`, `3` navy `#000080`, `4` white, `5` lime, `6` maroon, `7` aqua, `9` navy, `10` green, `11` teal, `12` blue, and `15` gray. [Later screenshots](rome-city-recruitment-and-nations.md) provide the complete code-to-nation and icon-color mapping, including `8` yellow, `13` magenta, and `14` red.
 
 The remaining sparse high-valued cells are consistent with unit overlays:
 
@@ -40,4 +40,4 @@ The Godot viewer keeps original data outside Git, offers the initial DAT and loc
 
 1. Correlate fleet markers with their post-city records and screenshot detail panels; the army table and Roman roster are now located.
 2. Verify the meaning of water value `1` and how overlapping army and fleet entities are represented.
-3. Confirm unsampled owner colors and the city-marker variant meanings from more screenshots and executable resources before calling the displayed icons compatible.
+3. Confirm the city-marker variant meanings and compare exact icon shapes with original resources before calling the displayed icons compatible.

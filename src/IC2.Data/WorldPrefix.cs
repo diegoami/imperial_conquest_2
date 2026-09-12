@@ -97,6 +97,24 @@ public sealed class CityRecord
     /// <summary>Owner code at record offset +18, corroborated by named city captures in saves and screenshots.</summary>
     public ushort OwnerCode => BinaryPrimitives.ReadUInt16LittleEndian(_raw.AsSpan(18, 2));
 
+    /// <summary>Allegiance nation code at +20. Captured cities can retain their original allegiance.</summary>
+    public ushort AllegianceCode => BinaryPrimitives.ReadUInt16LittleEndian(_raw.AsSpan(20, 2));
+
+    /// <summary>Candidate numeric loyalty at +22; screenshot label thresholds are not yet known.</summary>
+    public ushort LoyaltyValue => BinaryPrimitives.ReadUInt16LittleEndian(_raw.AsSpan(22, 2));
+
+    /// <summary>Displayed fortification percentage at +26.</summary>
+    public ushort FortificationPercent => BinaryPrimitives.ReadUInt16LittleEndian(_raw.AsSpan(26, 2));
+
+    /// <summary>Displayed population in thousands at +28.</summary>
+    public ushort PopulationThousands => BinaryPrimitives.ReadUInt16LittleEndian(_raw.AsSpan(28, 2));
+
+    /// <summary>Candidate reference population in thousands at +30; all known save values are at least the current population.</summary>
+    public ushort ReferencePopulationThousands => BinaryPrimitives.ReadUInt16LittleEndian(_raw.AsSpan(30, 2));
+
+    /// <summary>Displayed city tribute in talents at +32.</summary>
+    public ushort TributeTalents => BinaryPrimitives.ReadUInt16LittleEndian(_raw.AsSpan(32, 2));
+
     /// <summary>Returns an unlabelled raw byte from this 34-byte record.</summary>
     public byte RawByteAt(int offset)
     {

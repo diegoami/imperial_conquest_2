@@ -1,5 +1,44 @@
 using IC2.Data;
 
+if ((args.Length == 3 && args[0] == "--inspect-city") ||
+    (args.Length == 5 && args[0] == "--config" && args[2] == "--inspect-city"))
+{
+    try
+    {
+        var configured = args[0] == "--config";
+        var settings = AssetSettings.Load(configured ? args[1] : "assets.local.ini");
+        var argStart = configured ? 3 : 1;
+        var inspectedSavePath = settings.ResolveSavePath(args[argStart]);
+        var data = File.ReadAllBytes(inspectedSavePath);
+        var world = WorldPrefix.Parse(data);
+        var queue = SaveRecruitmentTable.Parse(data);
+        CityRecord? city = null;
+        foreach (var candidate in world.Cities)
+            if (string.Equals(candidate.Name, args[argStart + 1], StringComparison.OrdinalIgnoreCase))
+            {
+                city = candidate;
+                break;
+            }
+        if (city is null) throw new ArgumentException($"City {args[argStart + 1]} was not found in {Path.GetFileName(inspectedSavePath)}.");
+        Console.WriteLine($"{city.Name} at ({city.X}, {city.Y}) · controlled by {NationCatalog.Name(city.OwnerCode)} · allegiance to {NationCatalog.Name(city.AllegianceCode)}");
+        Console.WriteLine($"Population {city.PopulationThousands * 1000:N0} · fortification {city.FortificationPercent}% · tribute {city.TributeTalents} talents · supplies {city.Supplies} tons · loyalty value {city.LoyaltyValue}");
+        var found = 0;
+        foreach (var entry in queue.Entries)
+        {
+            if (entry.CityIndex != city.Index) continue;
+            if (found++ == 0) Console.WriteLine("Recruitment:");
+            Console.WriteLine($"  {UnitCatalog.TypeName(entry.TypeCode)} · {entry.Troops:N0} troops · state code {entry.StateCode}");
+        }
+        if (found == 0) Console.WriteLine("No active recruitment entries were found for this city.");
+        return 0;
+    }
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+    {
+        Console.Error.WriteLine(ex.Message);
+        return 1;
+    }
+}
+
 if ((args.Length == 4 && args[0] == "--inspect-army") ||
     (args.Length == 6 && args[0] == "--config" && args[2] == "--inspect-army"))
 {
@@ -21,23 +60,7 @@ if ((args.Length == 4 && args[0] == "--inspect-army") ||
             Console.WriteLine($"{army.Units.Count} units · {army.TotalTroops:N0} troops · {army.Supplies} tons supply · {army.Money} money");
             foreach (var unit in army.Units)
             {
-                var type = unit.TypeCode switch
-                {
-                    0 => "light infantry",
-                    1 => "heavy infantry",
-                    3 => "light cavalry",
-                    4 => "heavy cavalry",
-                    _ => $"type {unit.TypeCode}"
-                };
-                var quality = unit.QualityCode switch
-                {
-                    6 => "average",
-                    7 => "good",
-                    8 => "very good",
-                    9 => "elite",
-                    _ => $"quality {unit.QualityCode}"
-                };
-                Console.WriteLine($"  {unit.Name} · {type} · {unit.Troops:N0} · {quality}");
+                Console.WriteLine($"  {unit.Name} · {UnitCatalog.TypeName(unit.TypeCode)} · {unit.Troops:N0} · {UnitCatalog.QualityName(unit.QualityCode)}");
             }
         }
         if (!found) throw new ArgumentException($"No army record at ({x}, {y}) in {Path.GetFileName(inspectedSavePath)}.");
@@ -114,7 +137,7 @@ else if (args.Length is 1 or 2 && args[0] != "--save" && args[0] != "--config")
 }
 else
 {
-    Console.Error.WriteLine("Usage: IC2.Inspect [--save <save.sav>] | [--config <assets.ini> [--save <save.sav>]] | [--config <assets.ini>] --compare-saves <first.sav> <second.sav> | [--config <assets.ini>] --inspect-army <save.sav> <x> <y> | [--config <assets.ini>] --render-map <output.svg> | <data.dat> [save.sav]");
+    Console.Error.WriteLine("Usage: IC2.Inspect [--save <save.sav>] | [--config <assets.ini> [--save <save.sav>]] | [--config <assets.ini>] --compare-saves <first.sav> <second.sav> | [--config <assets.ini>] --inspect-city <save.sav> <city-name> | [--config <assets.ini>] --inspect-army <save.sav> <x> <y> | [--config <assets.ini>] --render-map <output.svg> | <data.dat> [save.sav]");
     return 2;
 }
 
