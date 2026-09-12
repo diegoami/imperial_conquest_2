@@ -2,6 +2,8 @@
 
 This repository contains original research code and documentation toward a modern reimplementation of Imperial Conquest 2. It does **not** contain the game's executables, data, help files, sounds, or saves. Supply files from your own installation when using the tools.
 
+For a concise current-state summary and the next steps, start with the [project handover](docs/HANDOVER.md).
+
 The first milestone is a C#/.NET parser for the shared world prefix in the original `.DAT` and `.sav` files and the army, nation, recruitment, and current-turn structures in known saves. A Godot map viewer uses that parser to show terrain, cities, army rosters, nation details, and the save's calendar. Godot is not required to build or run the command-line inspector.
 
 ## Godot map viewer
