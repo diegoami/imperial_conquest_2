@@ -46,7 +46,7 @@ This is an exact, code-level confirmation of the pattern `rome-tax-increase-and-
 ## What this does not establish
 
 - The exact per-season growth-rate and supply-consumption table values (the tables' addresses are known, their contents weren't extracted this pass, unlike the unit-type table which was found in the DAT file).
-- `FUN_00451304`'s role (called once per weekly tick, not decompiled — plausibly treasury/tax collection, given its position in the sequence right after city/army/fleet processing).
+- Treasury/tax collection's exact location in the weekly tick — `FUN_00451304` (the step right after city/army/fleet processing) turned out **not** to be this; it's a seasonal weather-event system instead. See `decompiled-weather-events.md`.
 - The exact conditions in `FUN_0045af00` gating the end-turn refusal.
 - `FUN_0044a050` (fleet construction completion) itself was not decompiled, only inferred from its call site and countdown-reaches-zero trigger.
 
@@ -57,5 +57,5 @@ Found via the recovered RTTI symbol list (`TPremierForm_EndTurn`, `TPremierForm_
 ## Next checks
 
 1. Extract the per-season growth-rate and supply-consumption tables (`DAT_004794a8`/`DAT_004794a0`, 10-byte stride, 4 seasons) the same way the unit-type table was found in the DAT file, if they live there too.
-2. Decompile `FUN_00451304` to find the treasury/tax-collection step, if that's what it is.
+2. Find the real treasury/tax-collection step in the weekly tick — not `FUN_00451304`, which turned out to be a weather-event system (see `decompiled-weather-events.md`).
 3. Test the storm/loss mechanic's odds against a controlled multi-turn save sequence with a fleet at sea over a Winter transition, if one becomes available.
