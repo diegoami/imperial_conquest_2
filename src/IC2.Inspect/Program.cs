@@ -135,6 +135,32 @@ if ((args.Length == 3 && args[0] == "--list-armies") ||
     }
 }
 
+if ((args.Length == 2 && args[0] == "--list-fleets") ||
+    (args.Length == 4 && args[0] == "--config" && args[2] == "--list-fleets"))
+{
+    try
+    {
+        var configured = args[0] == "--config";
+        var settings = AssetSettings.Load(configured ? args[1] : "assets.local.ini");
+        var argStart = configured ? 3 : 1;
+        var inspectedSavePath = settings.ResolveSavePath(args[argStart]);
+        var data = File.ReadAllBytes(inspectedSavePath);
+        var world = WorldPrefix.Parse(data);
+        var fleets = SaveFleetTable.Parse(data);
+        foreach (var fleet in fleets.Fleets)
+        {
+            var cityName = fleet.CityIndex < WorldPrefix.CityCount ? world.Cities[fleet.CityIndex].Name : "(out of range)";
+            Console.WriteLine($"Fleet {fleet.Index} at ({fleet.X}, {fleet.Y}) · ship count {fleet.ShipCount} · city index {fleet.CityIndex} ({cityName})");
+        }
+        return 0;
+    }
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+    {
+        Console.Error.WriteLine(ex.Message);
+        return 1;
+    }
+}
+
 if ((args.Length == 4 && args[0] == "--inspect-army") ||
     (args.Length == 6 && args[0] == "--config" && args[2] == "--inspect-army"))
 {
@@ -234,7 +260,7 @@ else if (args.Length is 1 or 2 && args[0] != "--save" && args[0] != "--config")
 }
 else
 {
-    Console.Error.WriteLine("Usage: IC2.Inspect [--save <save.sav>] | [--config <assets.ini> [--save <save.sav>]] | [--config <assets.ini>] --compare-saves <first.sav> <second.sav> | [--config <assets.ini>] --inspect-turn <save.sav> | [--config <assets.ini>] --inspect-nation <save.sav> <nation-name> | [--config <assets.ini>] --inspect-city <save.sav> <city-name> | [--config <assets.ini>] --inspect-army <save.sav> <x> <y> | [--config <assets.ini>] --list-armies <save.sav> <nation-name> | [--config <assets.ini>] --render-map <output.svg> | <data.dat> [save.sav]");
+    Console.Error.WriteLine("Usage: IC2.Inspect [--save <save.sav>] | [--config <assets.ini> [--save <save.sav>]] | [--config <assets.ini>] --compare-saves <first.sav> <second.sav> | [--config <assets.ini>] --inspect-turn <save.sav> | [--config <assets.ini>] --inspect-nation <save.sav> <nation-name> | [--config <assets.ini>] --inspect-city <save.sav> <city-name> | [--config <assets.ini>] --inspect-army <save.sav> <x> <y> | [--config <assets.ini>] --list-armies <save.sav> <nation-name> | [--config <assets.ini>] --list-fleets <save.sav> | [--config <assets.ini>] --render-map <output.svg> | <data.dat> [save.sav]");
     return 2;
 }
 
