@@ -7,11 +7,12 @@ namespace IC2.Data;
 
 /// <summary>
 /// The 12-byte mercenary-offer records at the start of the region between the end of the nation table and
-/// the 55-byte turn trailer. That region is exactly 3,042 bytes in every save sampled so far, but only its
-/// first 600 bytes (50 records) hold plausible data (map-range coordinates, type 0-4, quality 0/5-9); record
-/// 50 onward is implausible in every save checked (e.g. y-coordinates and type/quality codes far outside any
-/// valid range), so the mercenary table's fixed capacity is 50 slots, not the whole 3,042-byte region. The
-/// remaining ~2,442 bytes are a distinct, still-unidentified structure — see docs/roadmap.md.
+/// the 55-byte turn trailer. The fixed 50-slot capacity, first found empirically (only the first 600 of the
+/// region's 3,042 bytes hold plausible data in every save checked), is now also confirmed directly from the
+/// game's own save/load code: docs/reports/decompiled-sav-file-layout.md decompiled the exact read/write
+/// function pair, which loops a hard-coded 50 times over 12-byte records at this position. The remaining
+/// ~2,442 bytes hold a distinct, now partially-identified structure (a count-prefixed run of 61-byte
+/// records, still unidentified) — see that report and docs/roadmap.md.
 ///
 /// Record layout and the troops-become-0xFFFF-on-hire behavior are confirmed by a controlled pair: in
 /// `1_rome_270_winter_1.sav`, record 33 read (x=98, y=31, label=11, type=0, troops=6438, quality=8) —
