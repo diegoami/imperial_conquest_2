@@ -17,7 +17,7 @@ Rome is city record **85** at `(101, 43)`. The panel reads: controlled by Rome, 
 | `+30` | 181 | candidate reference population in thousands | Medium; `181/181 = 100%` matches the panel, and current ≤ reference for all 334 cities in this save |
 | `+32` | 317 | tribute in talents | High; exact screen value |
 
-The parenthetical **85,000** beside fortification has not been located in this city record. The user suggests it may be soldiers in town; that is a plausible hypothesis, not yet a decoded field. The value is absent as a literal 32-bit `85,000` in `11_supply.sav`, so it may be derived from other values. Do not interpret it as the `+30` word, which is 181. Rome's allegiance and controller being identical cannot alone distinguish their fields, but captured cities whose `+18` controller changes while `+20` remains with the original nation support the `+20` interpretation.
+The parenthetical **85,000** beside fortification is **the sum of the twelve unit troop counts assigned to Rome below**. A later 15,000-soldier transfer changes this displayed number to **70,000** without changing Rome's 34-byte city record, and Masada independently shows **49,800**, exactly the sum of its six city units. The user's soldiers-in-town hypothesis is thus supported and the number is computed from nation-record city-unit slots. It includes a unit marked “not ready.” See the [controlled transfer report](city-units-army-transfer-and-mercenaries.md). Rome's allegiance and controller being identical cannot alone distinguish their fields, but captured cities whose `+18` controller changes while `+20` remains with the original nation support the `+20` interpretation.
 
 ## Recruiting troops
 
@@ -34,7 +34,7 @@ The screenshot quantities and types match twelve consecutive nonempty 8-byte ent
 | 6–10 | Archers | 2 | 3,500 each | 18 | very poor |
 | 11 | Light cavalry | 3 | 7,000 | 2 | not ready |
 
-This establishes type code **2 = archers**, completing the five type labels seen in these screens. The first-word difference correlates with the two displayed labels in this one save, but its general semantics and transition rules are not yet proven. In particular, the word should not be treated as a direct quality score or countdown without a controlled comparison. The Godot viewer shows the known type and troop quantities; the inspector also prints the raw state code.
+This establishes type code **2 = archers**, completing the five type labels seen in these screens. The first-word difference correlates with the two displayed labels in this one save, but its general semantics and transition rules are not yet proven. In particular, the word should not be treated as a direct quality score or countdown without a controlled comparison. A later transfer confirms that these slots represent units **at the city**, including one marked “not ready”; they are visible in the Army recruits dialog but are not all necessarily still recruiting. The Godot viewer shows their type, troop quantities, and summed city-unit troops; the inspector also prints the raw state code.
 
 ## Nation identifiers and exact icon colors
 

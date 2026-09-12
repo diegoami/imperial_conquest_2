@@ -81,15 +81,15 @@ if ((args.Length == 3 && args[0] == "--inspect-city") ||
             }
         if (city is null) throw new ArgumentException($"City {args[argStart + 1]} was not found in {Path.GetFileName(inspectedSavePath)}.");
         Console.WriteLine($"{city.Name} at ({city.X}, {city.Y}) · controlled by {NationCatalog.Name(city.OwnerCode)} · allegiance to {NationCatalog.Name(city.AllegianceCode)}");
-        Console.WriteLine($"Population {city.PopulationThousands * 1000:N0} · fortification {city.FortificationPercent}% · tribute {city.TributeTalents} talents · supplies {city.Supplies} tons · loyalty value {city.LoyaltyValue}");
+        Console.WriteLine($"Population {city.PopulationThousands * 1000:N0} · fortification {city.FortificationPercent}% ({queue.TroopsAtCity(city.Index):N0} city-unit troops) · tribute {city.TributeTalents} talents · supplies {city.Supplies} tons · loyalty value {city.LoyaltyValue}");
         var found = 0;
         foreach (var entry in queue.Entries)
         {
             if (entry.CityIndex != city.Index) continue;
-            if (found++ == 0) Console.WriteLine("Recruitment:");
+            if (found++ == 0) Console.WriteLine("Units at city:");
             Console.WriteLine($"  {UnitCatalog.TypeName(entry.TypeCode)} · {entry.Troops:N0} troops · state code {entry.StateCode}");
         }
-        if (found == 0) Console.WriteLine("No active recruitment entries were found for this city.");
+        if (found == 0) Console.WriteLine("No city-unit entries were found for this city.");
         return 0;
     }
     catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)

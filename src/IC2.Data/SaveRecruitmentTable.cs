@@ -5,7 +5,7 @@ using System.IO;
 
 namespace IC2.Data;
 
-/// <summary>The 40 recruitment slots embedded in each nation record in known SAV files.</summary>
+/// <summary>The 40 city-unit slots embedded in each nation record in known SAV files; shown in the recruitment dialog.</summary>
 public sealed class SaveRecruitmentTable
 {
     public const int SlotCount = 40;
@@ -14,6 +14,16 @@ public sealed class SaveRecruitmentTable
     private SaveRecruitmentTable(RecruitmentEntry[] entries) => Entries = entries;
 
     public IReadOnlyList<RecruitmentEntry> Entries { get; }
+
+    /// <summary>Sum of unit troop counts assigned to a city, matching the number beside fortification in sampled city panels.</summary>
+    public int TroopsAtCity(int cityIndex)
+    {
+        if ((uint)cityIndex >= WorldPrefix.CityCount) throw new ArgumentOutOfRangeException(nameof(cityIndex));
+        var total = 0;
+        foreach (var entry in Entries)
+            if (entry.CityIndex == cityIndex) total += entry.Troops;
+        return total;
+    }
 
     public static SaveRecruitmentTable Parse(byte[] data)
     {

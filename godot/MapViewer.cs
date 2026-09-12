@@ -561,13 +561,16 @@ public partial class MapViewer : Control
         text.AppendLine($"Controlled by {NationCatalog.Name(city.OwnerCode)}");
         text.AppendLine($"Allegiance to {NationCatalog.Name(city.AllegianceCode)}");
         text.AppendLine($"Population {city.PopulationThousands * 1000:N0}");
-        text.AppendLine($"Fortification {city.FortificationPercent}%");
+        var cityUnitTroops = _recruitmentTable?.TroopsAtCity(city.Index);
+        text.AppendLine(cityUnitTroops is null
+            ? $"Fortification {city.FortificationPercent}%"
+            : $"Fortification {city.FortificationPercent}% ({cityUnitTroops.Value:N0} city-unit troops)");
         text.AppendLine($"Tribute {city.TributeTalents} talents");
         text.AppendLine($"Supply {city.Supplies} tons");
         text.AppendLine($"Loyalty value {city.LoyaltyValue}");
         if (_recruitmentTable is null)
         {
-            if (_armyTable is not null) text.AppendLine("Recruitment details unavailable for this save");
+            if (_armyTable is not null) text.AppendLine("City-unit details unavailable for this save");
             return text.ToString();
         }
         var count = 0;
@@ -575,7 +578,7 @@ public partial class MapViewer : Control
             if (entry.CityIndex == city.Index) count++;
         if (count == 0) return text.ToString();
         text.AppendLine();
-        text.AppendLine($"Recruiting {count} units:");
+        text.AppendLine($"Units at city ({count}):");
         foreach (var entry in _recruitmentTable.Entries)
         {
             if (entry.CityIndex != city.Index) continue;

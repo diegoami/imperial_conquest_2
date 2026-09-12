@@ -15,6 +15,7 @@ public static class UnitCatalog
 
     public static string QualityName(ushort code) => code switch
     {
+        5 => "poor",
         6 => "average",
         7 => "good",
         8 => "very good",
