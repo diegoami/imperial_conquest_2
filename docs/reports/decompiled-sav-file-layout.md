@@ -14,7 +14,7 @@ The single strongest confirmation this project has produced. Tracing forward fro
 | Fleet records × count | 26 each | `SaveFleetTable.RecordLength` — exact |
 | Nation table | 18,752 | `16 × 1,172` (`SaveNationLayout.NationRecordLength`) — exact |
 | **Mercenary table** | **50 × 12 bytes, fixed** | **`SaveMercenaryTable`'s 50-slot, 12-byte-record structure — confirmed directly in code**, not just inferred from where plausible data stopped in `mercenary-pool-record.md`. This is no longer a "candidate" finding. |
-| A count field, then `(count+1)` records | 61 bytes each | **New, previously unidentified.** See below. |
+| A count field, then `(count+1)` records | 61 bytes each | **The news/event log — identified in [decompiled-news-log-identified.md](decompiled-news-log-identified.md).** A 40-slot ring buffer of news messages; the "count" field is actually the index of the most-recently-used slot, not a record count. |
 | Fixed block | 32 | unidentified |
 | Fixed block | 4 | unidentified |
 | Current nation | 2 | matches `DAT_004a0320`, used throughout this project's decompiled code as "current nation index" |
@@ -23,9 +23,9 @@ The single strongest confirmation this project has produced. Tracing forward fro
 | **Battle-in-progress flag** | 1 | **New finding: the code path exists, but the user confirms saving during a battle is not possible in the game's UI** — there's no save option while the battle screen is open. So while this branch is real and the format technically supports it, it's not something any normal save file will ever contain; it may be dead code, or reachable only through some non-standard path this project hasn't identified. |
 | *(conditional, only if battle flag set)* | 2+2+2+1+2+1,760+336 | Tactical battle state — unit placement array (`0x6e0` = 1,760 bytes) and grid state (`0x150` = 336 bytes). Structurally interesting (it tells us the in-memory layout of an active battle) but not something to expect in any real save. |
 
-## A brand-new record type: 61 bytes, count-prefixed
+## The 61-byte record type: the news log (resolved)
 
-Immediately after the (now code-confirmed) mercenary table, the save reads a 2-byte count, then `count + 1` records of exactly 61 bytes each. This wasn't visible in prior save-diffing work, which only established that *something* occupied the ~2,442 bytes between the mercenary table and the trailer, without knowing its shape. 61 bytes per record is large enough to plausibly hold a name plus several numeric stats — a leader record is one candidate, given the `TPickLeaders` form already recovered in the RTTI symbol scan, though this isn't confirmed.
+Immediately after the (now code-confirmed) mercenary table, the save reads a 2-byte value, then that-value-plus-1 records of exactly 61 bytes each. **Identified in a follow-up pass:** this is the game's news/event log, a 40-slot ring buffer where every capture, defection, and battle-result message this project has decompiled gets appended, and the "count" field is actually the index of the most-recently-used slot (not a record count) — see `decompiled-news-log-identified.md` for the confirming code.
 
 **Reconciliation gap, stated honestly:** the previously-measured constant 3,042-byte gap (mercenary-table-end to trailer-start, from `mercenary-pool-record.md`) should equal `600 (mercenary table) + 2 (count field) + 55 (the fixed tail: 32+4+10+8+1) + (count+1)×61`. Solving gives `(count+1) = 2385/61 ≈ 39.1` — **not a whole number**, off by about 6 bytes from the nearest fit (39 records = 2,379 bytes). This is left unresolved rather than forced to fit; a small field was likely miscounted on one side of this reconciliation (either in this report's byte tally or the original 3,042 measurement), and it should be re-checked before treating either number as final.
 
@@ -35,7 +35,7 @@ This single pair of functions independently reconfirms, from the actual serializ
 
 ## What this does not establish
 
-- The identity of the 61-byte record type, or what the count field (`DAT_004a031e`) actually counts.
+- The exact byte layout within one 61-byte news-log slot (string encoding/header details).
 - The identity of the 32-byte and 4-byte fixed blocks, or the four remaining 2-byte fields before the calendar block.
 - Whether the 8-byte "calendar" block here is the same data as the known 55-byte trailer's week/season/year/nation fields, or separate UI display state.
 - The 6-byte reconciliation gap noted above.
@@ -51,5 +51,5 @@ analyzeHeadless <project> IC2 -process "Imperial Conquest 2.exe" -noanalysis -sc
 ## Next checks
 
 1. Resolve the 6-byte reconciliation gap by recounting both the code-derived tail and the original 3,042-byte measurement carefully.
-2. Identify the 61-byte record type — cross-reference against `TPickLeaders`'s fields, or find a save with a known number of leaders/other countable entities to solve for what `DAT_004a031e` counts.
+2. Decode the exact byte layout of one 61-byte news-log slot, and re-check the ~6-byte reconciliation gap now that the "count" field is known to mean max-used-index rather than a record count.
 3. The battle-state block cannot be tested against a real save (saving mid-battle isn't possible in the game). If it matters later, it would need to be understood from the code alone, cross-referenced against the tactical battle mechanics already decompiled in `decompiled-combat-formula-structure.md`, rather than from a save example.
