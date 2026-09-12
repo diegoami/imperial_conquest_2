@@ -13,6 +13,7 @@ internal static class SaveJsonExporter
         var recruitment = SaveRecruitmentTable.Parse(data);
         var armies = SaveArmyTable.Parse(data);
         var fleets = SaveFleetTable.Parse(data);
+        var mercenaries = SaveMercenaryTable.Parse(data);
 
         var document = new
         {
@@ -92,6 +93,18 @@ internal static class SaveJsonExporter
                 shipCount = f.ShipCount,
                 cityIndex = f.CityIndex,
                 cityName = f.CityIndex < WorldPrefix.CityCount ? world.Cities[f.CityIndex].Name : null
+            }),
+            mercenaryOffers = mercenaries.Records.Where(m => !m.IsEmpty).Select(m => new
+            {
+                index = m.Index,
+                x = m.X,
+                y = m.Y,
+                label = m.Label,
+                typeCode = m.TypeCode,
+                typeName = UnitCatalog.TypeName(m.TypeCode),
+                troops = m.Troops,
+                qualityCode = m.QualityCode,
+                qualityName = UnitCatalog.QualityName(m.QualityCode)
             })
         };
 

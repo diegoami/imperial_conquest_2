@@ -1,4 +1,4 @@
-# Field recruitment, a uniform attrition signature, and a fleet-record correction
+# A mercenary hire, a uniform attrition signature, and a fleet-record correction
 
 One more turn in the same session, `1_rome_270_winter_1.sav → 1_rome_270_winter_3.sav`:
 
@@ -11,7 +11,7 @@ One more turn in the same session, `1_rome_270_winter_1.sav → 1_rome_270_winte
 
 Note this packs two Taurasia events into one turn — it defects to Rome, then falls back to Gaul — so its *net* state in the save reflects only the final outcome.
 
-## Field recruitment: an exact three-way match, and a new unit-naming pattern
+## This was a mercenary hire, not generic field recruitment
 
 Army 0's unit list gained a 13th slot between `winter_1` and `winter_3` that wasn't there before, with every pre-existing unit's troop count unchanged:
 
@@ -19,7 +19,7 @@ Army 0's unit list gained a 13th slot between `winter_1` and `winter_3` that was
 new slot 12: "Gallic" · light infantry · 6,438 troops · quality 8 ("very good")
 ```
 
-`6,438` and `"very good"` match the note exactly, and `light infantry` matches "Lit Inf." This is a new confirmed mechanic, distinct from both prior army-growth cases: unlike mobilizing a city's own garrison ([conserves troops exactly](mobilization-movement-and-city-capture-modes.md)) or creating a fresh army (fixed 410-supply/0-money template), a field army recruiting locally at an occupied city gets a **brand new unit slot** named after the local nation ("Gallic," not a Roman battalion name like the other eleven slots), at the quality and quantity reported in-game. Rome's treasury moved `-904 → -818` (+86) that turn, but the note's "51 quarterly" reads as a recurring upkeep charge rather than a one-time cost, and a single turn isn't enough to isolate a quarterly charge from ordinary income — left open.
+`6,438` and `"very good"` match the note exactly, and `light infantry` matches "Lit Inf." **The user confirmed this was a mercenary hire**, not a standing recruitment mechanic — correcting this report's original framing. This connects directly to the older, never-followed-up [mercenary finding](city-units-army-transfer-and-mercenaries.md): a candidate 12-byte record (`x, y, label, type, troops, quality`) located once, just after the nation table, reproducing Alexandria's "9,056 good Egyptian light infantry" listing, but never confirmed with a before/after pair or built into a parser. A hired mercenary group becomes a regular `ArmyUnit` slot in the hiring army's 656-byte record — named after the local nation ("Gallic") instead of a Roman battalion name — exactly like the newly observed slot 12 here. Unlike mobilizing a city's own garrison ([conserves troops exactly](mobilization-movement-and-city-capture-modes.md)) or creating a fresh army (fixed 410-supply/0-money template), hiring adds a new unit slot at the hired quantity and quality directly. Rome's treasury moved `-904 → -818` (+86) that turn, but the note's "51 quarterly" reads as a recurring upkeep charge rather than a one-time hiring cost, and a single turn isn't enough to isolate a quarterly charge from ordinary income — left open. See the [follow-up mercenary-pool investigation](mercenary-pool-record.md) prompted by this correction.
 
 ## A uniform ~2.7% troop loss across every unit in the other army
 
