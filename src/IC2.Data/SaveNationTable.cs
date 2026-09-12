@@ -13,6 +13,8 @@ public sealed class SaveNationTable
 
     public IReadOnlyList<NationRecord> Nations { get; }
 
+    public const ushort NoCapitalSentinel = 0xFFFF;
+
     public static SaveNationTable Parse(byte[] data)
     {
         var start = SaveNationLayout.Locate(data);
@@ -27,7 +29,10 @@ public sealed class SaveNationTable
             var capitalCity = ReadWord(data, offset + 0x444);
             var cities = ReadWord(data, offset + 0x446);
             var human = ReadWord(data, offset + 0x490);
-            if (capitalCity >= WorldPrefix.CityCount || cities > WorldPrefix.CityCount || human > 1)
+            // 0xFFFF marks an eliminated nation (no capital left); confirmed against Galatia's
+            // elimination by Seleucid in docs/reports/galatia-elimination-confirmed.md.
+            if ((capitalCity >= WorldPrefix.CityCount && capitalCity != NoCapitalSentinel) ||
+                cities > WorldPrefix.CityCount || human > 1)
                 throw new InvalidDataException($"Nation record {i} has invalid capital, city count, or player flag.");
             nations[i] = new NationRecord((ushort)i, name, leader,
                 BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(offset + 0x438, 4)),
@@ -78,6 +83,9 @@ public sealed class NationRecord
     public ushort CityCount { get; }
     public ushort TaxRatePercent { get; }
     public bool HumanPlayer { get; }
+
+    /// <summary>True once a nation has lost its last city (capital reads the 0xFFFF sentinel).</summary>
+    public bool IsEliminated => CapitalCityIndex == SaveNationTable.NoCapitalSentinel;
 }
 
 internal static class SaveNationLayout

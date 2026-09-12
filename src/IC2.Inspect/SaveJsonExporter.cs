@@ -112,6 +112,7 @@ internal static class SaveJsonExporter
         File.WriteAllText(outputPath, JsonSerializer.Serialize(document, options));
 
         static object NationRef(ushort code) => new { code, name = NationCatalog.Name(code) };
-        static object CityRef(WorldPrefix world, ushort index) => new { index, name = world.Cities[index].Name };
+        static object? CityRef(WorldPrefix world, ushort index) =>
+            index == SaveNationTable.NoCapitalSentinel ? null : new { index, name = world.Cities[index].Name };
     }
 }
