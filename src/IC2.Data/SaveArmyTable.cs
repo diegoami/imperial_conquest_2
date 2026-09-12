@@ -10,6 +10,10 @@ namespace IC2.Data;
 public sealed class SaveArmyTable
 {
     public const int RecordLength = 656;
+    /// <summary>Bytes 14-15 of the header (immediately after <see cref="ArmyRecord.Money"/>, before the
+    /// first unit slot) are NOT unused padding: they hold a real, changing value (confirmed non-zero and
+    /// decompiled as an "army experience"-shaped field feeding into a unit's starting battle morale) whose
+    /// exact meaning isn't identified yet. See docs/reports/battle-quality-promotion-and-morale-array-decompiled.md.</summary>
     public const int HeaderLength = 16;
     public const int UnitSlotLength = 32;
     public const int UnitSlotsPerArmy = 20;

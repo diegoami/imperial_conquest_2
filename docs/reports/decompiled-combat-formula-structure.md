@@ -61,7 +61,7 @@ target.<field @ +0x350>   += (the other adjustment)
 ## What this does not establish
 
 - `FUN_0043845c` (shooting range), `FUN_00438420` (melee defense factor), and the `typeTable` matrix's actual values — needed to predict a specific numeric outcome rather than just confirm the formula's shape.
-- Whether the `+0x350` field is morale specifically, or something else.
+- ~~Whether the `+0x350` field is morale specifically, or something else.~~ **Resolved:** it's the flat array `DAT_004a0350` (not a struct offset), confirmed as the exact source of the "Morale" line in the tactical combat info panel, with its full initialization formula and byte-level struct mapping traced. See `battle-quality-promotion-and-morale-array-decompiled.md`.
 - Terrain, initiative/turn-order, and surrender/rout conditions beyond "troops reach 0."
 - The random-number source itself (`FUN_0040284c`) — assumed to be a bounded uniform RNG call from its usage pattern, not independently verified.
 
