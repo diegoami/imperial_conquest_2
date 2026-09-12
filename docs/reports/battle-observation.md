@@ -1,5 +1,7 @@
 # Rome–Gaul battle: recorded behavior
 
+The [first static battle-code entry points](battle-code-entry-points.md) identify methods in the full EXE that can be traced to recover the simulator's rules.
+
 This report describes a user-made battle recording and three screenshots associated with `7.sav`. The media and save stay in the local asset directory, outside Git. We inspected the video as data and in a video player; we did not run the game binary.
 
 ## Evidence
