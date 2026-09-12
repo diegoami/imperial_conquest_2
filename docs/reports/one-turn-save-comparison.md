@@ -9,7 +9,7 @@ This is a static, read-only comparison of the two saves supplied with the full v
 
 The saves have the same 9,646-byte prefix. The size grows by 183 bytes, exactly three 61-byte slots. The existing news slots at offsets 131075, 131136, and 131197 are byte-identical in both saves. The later save appends slots at 131258 (blank), 131319 (`Week  3      Spring      270BC`), and 131380 (`Sidon   (Ptolemaic)  falls to Seleucid.`). The first save's last visible dated slot says `Week 1      Spring      270 BC`. The added blank slot may be a separator; its role is unverified.
 
-The final 55 bytes align after accounting for the three inserted slots: offsets 131258–131312 in `1.sav` and 131441–131495 in `4.sav`. They differ at only one position, trailer offset `+40` (absolute 131298 and 131481), whose byte is `1` then `3`. This correlates with the week labels and is a candidate calendar field, not yet a proven turn counter. A single reported turn appears to advance the displayed week from 1 to 3 in this scenario; more samples are needed to determine the general calendar rule.
+The final 55 bytes align after accounting for the three inserted slots: offsets 131258–131312 in `1.sav` and 131441–131495 in `4.sav`. They differ at only one position, trailer offset `+40` (absolute 131298 and 131481), whose byte is `1` then `3`. This correlates with the week labels and is a candidate calendar field, not yet a proven turn counter. A single reported turn appears to advance the displayed week from 1 to 3 in this scenario; more samples are needed to determine the general calendar rule. **Later check:** three more saves carry weeks 7, 9, and 11 at the same trailer position; see [later saves and screenshots](saves-and-screenshots.md).
 
 ## Shared world prefix
 

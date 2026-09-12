@@ -57,7 +57,7 @@ internal static class MapRenderer
             writer.WriteLine($"<text x=\"{textX}\" y=\"{cy - 7}\" text-anchor=\"{anchor}\" fill=\"#fffdf7\" stroke=\"#172430\" stroke-width=\"3\" paint-order=\"stroke\" font-family=\"Segoe UI, Arial, sans-serif\" font-size=\"15\" font-weight=\"700\">{label}</text>");
         }
 
-        writer.WriteLine("<text x=\"28\" y=\"818\" fill=\"#c3d0da\" font-family=\"Segoe UI, Arial, sans-serif\" font-size=\"14\">Each white dot is a candidate city coordinate. Cell values 20+ are highlighted; terrain meanings remain unverified.</text>");
+        writer.WriteLine("<text x=\"28\" y=\"818\" fill=\"#c3d0da\" font-family=\"Segoe UI, Arial, sans-serif\" font-size=\"14\">Each white dot is a city coordinate. Values 0, 2, 3, 4, and 5 are screenshot-backed; other values remain provisional.</text>");
         writer.WriteLine("</svg>");
         Console.WriteLine($"Rendered {world.Cells.Count} cells and {world.Cities.Count} cities to {fullOutput}");
     }
@@ -66,15 +66,15 @@ internal static class MapRenderer
     {
         0 => "#214c7c",
         2 => "#76a85e",
-        3 => "#d2b97b",
-        4 => "#967e5a",
-        5 => "#b9c6c0",
-        6 => "#d0a560",
-        7 => "#4b844b",
-        8 => "#786446",
-        9 => "#975d37",
-        10 => "#507d69",
-        11 => "#9b7850",
+        3 => "#e3cc7d",
+        4 => "#426b42",
+        5 => "#a7a8ab",
+        6 => "#4d7950",
+        7 => "#4d7950",
+        8 => "#4d7950",
+        9 => "#4d7950",
+        10 => "#4d7950",
+        11 => "#4d7950",
         >= 20 and < 200 => "#c84748",
         >= 200 => "#ee27b2",
         _ => "#b78654"
