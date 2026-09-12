@@ -30,4 +30,4 @@ dotnet run --project src/IC2.Inspect/IC2.Inspect.csproj -- --save "saves/1,sav.s
 
 Run these commands from the repository root. The inspector validates the 320 × 140 grid and 334 city records, then reports changed cells and city records if a save is supplied. A relative save path is resolved under the configured asset directory. For automation, `--config <path>` selects a different INI; the original positional DAT/SAV paths still work. The inspector prints findings only; it does not execute or modify the original game.
 
-See [research notes](docs/research.md) for evidence, uncertain fields, archive hashes, and next steps. The original files are intentionally excluded by `.gitignore`.
+See the [roadmap](docs/roadmap.md) for the full development sequence and [research notes](docs/research.md) for evidence, uncertain fields, and archive hashes. The original files are intentionally excluded by `.gitignore`.
