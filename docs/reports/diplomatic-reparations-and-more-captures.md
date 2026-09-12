@@ -3,7 +3,7 @@
 Three more saves continue the same Rome session, again with notes but no screenshots this time:
 
 ```text
-1_rome_270_autumn_9.sav: 19 ships will be built in Cerae. The two armies have been reorganized. Galatia destroys army of Seleucid.
+1_rome_270_autumn_9.sav: 10 ships will be built in Cerae. The two armies have been reorganized. Galatia destroys army of Seleucid.
 1_rome_270_autumn_11.sav: Armies move north. One army conquers Brixia, the other one Verona. Seleucid destroys army of Ptolemaic.
     Ptolemaic sues Seleucid for peace, ends all agreements, pays reparation of 2269 talents. Laranda (Seleucid) falls to Galatia.
 1_rome_270_winter_1.sav: Both armies resupply at Brixia and Verona. Macedonia forms an alliance with Illyria. Macedonia declares
@@ -42,7 +42,7 @@ This is now four independent forced captures (Sidon, Felsina, Brixia, Verona) al
 
 Supply again does not cleanly conserve with the resupplying armies: Brixia and Verona lost 88 and 9 tons respectively that turn (`autumn_11 → winter_1`) while Rome's two armies gained 22 and 102 tons — neither the per-city nor the total (97 lost vs. 124 gained) lines up, reinforcing that multi-turn pairs aren't suited to isolating the resupply mechanic (as already noted in the mobilization report).
 
-## Fleet record: a plausible init flag and a decrementing field, but the "19 ships" note doesn't match the data
+## Fleet record: a plausible init flag and a decrementing field
 
 The Caere fleet record (index 3, from the [previous report](fleet-order-at-caere.md)) between `autumn_7_fleet` and `autumn_9`:
 
@@ -53,7 +53,7 @@ after:  00 00 00 00 FF FF 00 00 00 00 16 00 00 00 00 00 00 00 0A 00 52 00 FF FF 
 
 Two words changed: `+4` went `0 → 0xFFFF`, and `+10` went `24 → 22`. `ShipCount` (+18, still 10) and `CityIndex` (+20, still 82/Caere) are unchanged. The `+4` word matches the value already seen in all three other fleet records (`0xFFFF`), so a fresh order reading `0` there and flipping to the common `0xFFFF` after one turn is consistent with an "order now registered" flag rather than a real quantity. The `+10` word decreasing by exactly 2 in one turn is the mirror image of the city-garrison `StateCode` seen incrementing by 2 per turn in the [mobilization report](mobilization-movement-and-city-capture-modes.md) — both candidates for a per-turn counter, one counting up (elapsed time in a state) and one counting down (a plausible remaining-production-time counter), though neither is confirmed.
 
-**What doesn't match:** the note for this turn says "19 ships will be built in Cerae," but `ShipCount` for the Caere record is still exactly 10 in both saves, no second fleet record appeared (fleet count stayed at 4 throughout this whole batch), and Rome's treasury didn't move between `autumn_7_fleet` and `autumn_9` (`-795` in both) the way it moved by a clean -100 for the original 10-ship order. Nothing in the save reflects a 19-ship order. This is left open rather than guessed at — it's possible the in-game dialog was only previewing a number (e.g. total ships buildable given current resources) rather than confirming a new order, but that's a guess, not a finding.
+The note originally read "19 ships" (a typo for 10, confirmed by the user) — no new order was placed this turn, which is exactly why `ShipCount` stayed at 10, no second fleet record appeared, and Rome's treasury didn't move between `autumn_7_fleet` and `autumn_9` (`-795` in both, unlike the clean -100-talent cost recorded for the original order). The data is consistent; there was no discrepancy to resolve.
 
 ## Season boundary: Autumn's last week is also 11
 
@@ -70,6 +70,5 @@ Then compare nation treasuries, city records, and fleet records across the JSON 
 
 ## Next checks
 
-1. Ask what exactly was clicked/confirmed for the "19 ships" note, since the save shows no corresponding change — needed before treating this as a real discrepancy in the game rather than a note/UI misunderstanding.
-2. A same-day reparation payment (save immediately before/after accepting an AI peace offer, if the player can trigger or observe one directly) would give a truly clean payer/receiver pair, the diplomatic-payment equivalent of the fleet-order pair.
-3. Track the Caere fleet record's `+10` word over more turns to see whether it reaches 0 when the ships actually complete and get an X/Y.
+1. A same-day reparation payment (save immediately before/after accepting an AI peace offer, if the player can trigger or observe one directly) would give a truly clean payer/receiver pair, the diplomatic-payment equivalent of the fleet-order pair.
+2. Track the Caere fleet record's `+10` word over more turns to see whether it reaches 0 when the ships actually complete and get an X/Y.
