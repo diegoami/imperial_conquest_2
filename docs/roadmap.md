@@ -51,6 +51,7 @@ The melee 40%-loss-cap formula (`floor(0.4 × defenderTroops) + 1`) is now confi
 - [ ] Map the remaining SAV regions: the rest of the fleet record (owner, and what the all-zero words hold), other mutable entities, and any checks or version markers. The 61-byte count-prefixed record type is now identified as the news/event log (a 40-slot ring buffer) — see [decompiled-news-log-identified.md](reports/decompiled-news-log-identified.md); its exact within-slot byte layout is still open.
 - [ ] Continue replacing provisional offset-based access in `IC2.Data` with typed models only when field meanings are supported. `CityRecord.Supplies` and the known SAV army fields have direct controlled-action or screenshot evidence; preserve other unknown bytes and validate file sizes and bounds.
 - [ ] Add focused parser tests for truncated/corrupt files and known real-file summaries.
+- [x] Confirm the army-to-army transfer dialog (`TArmyToArmy`) exactly, via a new video-plus-save-pair methodology: troop/money transfers are exactly reciprocal, staged then committed on `OK`, which also auto-disbands an emptied army and can rebalance supply. See [army-to-army-transfer-confirmed.md](reports/army-to-army-transfer-confirmed.md).
 
 **Done when:** The parser can load the full DAT and all known saves into a documented world snapshot, and every parsed field has an evidence trail and a confidence level.
 
