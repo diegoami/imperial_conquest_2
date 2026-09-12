@@ -17,10 +17,10 @@ The order matters: verify each file format and rule before depending on it in th
 
 ## 1. Build a trustworthy sample set
 
-- [ ] Inventory and hash every available save, including the three files now in the `saves` folder. Record which game version and action produced each save, when known.
+- [x] Inventory and hash the two available saves. Record the reported one-turn relationship and [initial differences](reports/one-turn-save-comparison.md).
 - [ ] Keep a read-only copy of each original file. Use temporary working copies for experiments; never overwrite the originals.
 - [ ] Create small synthetic files for parser tests. Keep hashes, sizes, and expected summaries for real files in the repository, while the binary fixtures stay outside Git.
-- [ ] Add a command that compares any two saves by region and field, not just DAT versus one save.
+- [x] Add a command that compares any two saves in the established map and city regions, not just DAT versus one save. Post-city sections still need record boundaries.
 
 **Done when:** A second person can reproduce every stated offset and byte count with the documented commands and their own copy of the game files.
 
@@ -94,7 +94,7 @@ The order matters: verify each file format and rule before depending on it in th
 
 ## Immediate next milestone
 
-Compare the three available saves, make a labeled map visualization, and decode enough of the post-city records to locate nations and armies. This will turn the current prefix reader into a useful world-state viewer and give the later game model validated inputs.
+Make a labeled map visualization and decode enough of the post-city records to locate nations and armies. The two available saves already reveal candidate city ownership, turn-wide city changes, 61-byte news slots, and a calendar byte. These steps will turn the current prefix reader into a useful world-state viewer and give the later game model validated inputs.
 
 ## Scope decisions to revisit at the right time
 

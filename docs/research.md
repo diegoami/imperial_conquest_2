@@ -1,8 +1,8 @@
 # Static research notes
 
-All observations below come from reading the supplied demo ZIP, full-version ZIP, and one save as data. No game binary was executed. Field labels beyond city names and the candidate coordinates remain provisional.
+All observations below come from reading the supplied demo ZIP, full-version ZIP, and two saves as data. No game binary was executed. Field labels beyond city names and the candidate coordinates remain provisional.
 
-Detailed evidence and per-file hashes are preserved in the [demo static-analysis report](reports/impconq2-initial-report.md) and [full-version/save analysis](reports/impconq2-full-save-analysis.md).
+Detailed evidence and per-file hashes are preserved in the [demo static-analysis report](reports/impconq2-initial-report.md), [full-version/save analysis](reports/impconq2-full-save-analysis.md), and [one-turn save comparison](reports/one-turn-save-comparison.md).
 
 ## Known inputs
 
@@ -11,7 +11,8 @@ Detailed evidence and per-file hashes are preserved in the [demo static-analysis
 | Demo `impconq2.zip` | `5a996fee02c28c818b47ab13ec884907c2b5f620fff5267dd8c9b652ca1fe45f` | Shareware v0.99 |
 | Full `2_imperial2.zip` | `f58a2cf8102fc1c79da8c7ceece12b1bbda2401d9c72af63cc0174ac4440d02a` | Readme calls it full freeware v1.01, repacked August 2001 |
 | Full/demo `Imperial Conquest 2.dat` | `94d0ccfc67148d727de4c4e60aefc3c53ba9e67775bd689f0fcb2e23c12e5fbd` | Byte-identical in both packages |
-| Supplied `1,sav.sav` | `d20971d5c73a39c82bb9a6c76413394d1d6fc8174bf5ae857a8161eaba5d7c10` | One observed game state |
+| Supplied `1.sav` (same contents as earlier `1,sav.sav`) | `d20971d5c73a39c82bb9a6c76413394d1d6fc8174bf5ae857a8161eaba5d7c10` | Before the reported turn |
+| Supplied `4.sav` | `e1d5f0489f4f24544a70af8c26b14a0d2d14e3acba20a614a0ae79da412d0b32` | After the reported turn |
 
 ## Executable and resources
 
@@ -33,9 +34,11 @@ The save is 131,313 bytes and begins with the same world-prefix layout. Compared
 
 Some city-name padding and later blocks in both DAT and SAV contain unrelated-looking Windows/MSN text. Parsers should not infer field boundaries from printable strings alone.
 
+Comparing the two saves after one reported turn shows 331 city records change at word `+24`, and Sidon's word `+18` changes `3 → 2` alongside a news report of a Ptolemaic-to-Seleucid capture. The later save adds three 61-byte news slots and a candidate week byte changes `1 → 3` in a 55-byte trailer. These are correlations, not yet a complete field specification; see the detailed comparison linked above.
+
 ## Next checks
 
 1. Render the candidate 320 × 140 grid and overlay all 334 city coordinates to verify orientation and cell semantics.
 2. Decode full-version WinHelp topics and Delphi form streams to inventory rules and UI actions.
-3. Obtain paired saves around one controlled action at a time, then compare bytes to identify state fields.
+3. Obtain more paired saves around one controlled action at a time, then compare bytes to identify state fields.
 4. Map full-version executable references to DAT and SAV structures before implementing turn, economy, diplomacy, and combat rules.

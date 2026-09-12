@@ -1,5 +1,24 @@
 using IC2.Data;
 
+if ((args.Length == 3 && args[0] == "--compare-saves") ||
+    (args.Length == 5 && args[0] == "--config" && args[2] == "--compare-saves"))
+{
+    try
+    {
+        var configured = args[0] == "--config";
+        var settings = AssetSettings.Load(configured ? args[1] : "assets.local.ini");
+        var first = settings.ResolveSavePath(args[configured ? 3 : 1]);
+        var second = settings.ResolveSavePath(args[configured ? 4 : 2]);
+        SaveComparer.Compare(first, second);
+        return 0;
+    }
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+    {
+        Console.Error.WriteLine(ex.Message);
+        return 1;
+    }
+}
+
 string datPath;
 string? savePath = null;
 if (args.Length == 0 || (args.Length == 2 && args[0] == "--save") ||
@@ -27,7 +46,7 @@ else if (args.Length is 1 or 2 && args[0] != "--save" && args[0] != "--config")
 }
 else
 {
-    Console.Error.WriteLine("Usage: IC2.Inspect [--save <save.sav>] | [--config <assets.ini> [--save <save.sav>]] | <data.dat> [save.sav]");
+    Console.Error.WriteLine("Usage: IC2.Inspect [--save <save.sav>] | [--config <assets.ini> [--save <save.sav>]] | [--config <assets.ini>] --compare-saves <first.sav> <second.sav> | <data.dat> [save.sav]");
     return 2;
 }
 
