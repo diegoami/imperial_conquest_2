@@ -1,5 +1,23 @@
 using IC2.Data;
 
+if ((args.Length == 2 && args[0] == "--render-map") ||
+    (args.Length == 4 && args[0] == "--config" && args[2] == "--render-map"))
+{
+    try
+    {
+        var configured = args[0] == "--config";
+        var settings = AssetSettings.Load(configured ? args[1] : "assets.local.ini");
+        var outputPath = args[configured ? 3 : 1];
+        MapRenderer.Render(settings.DatPath, outputPath);
+        return 0;
+    }
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+    {
+        Console.Error.WriteLine(ex.Message);
+        return 1;
+    }
+}
+
 if ((args.Length == 3 && args[0] == "--compare-saves") ||
     (args.Length == 5 && args[0] == "--config" && args[2] == "--compare-saves"))
 {
@@ -46,7 +64,7 @@ else if (args.Length is 1 or 2 && args[0] != "--save" && args[0] != "--config")
 }
 else
 {
-    Console.Error.WriteLine("Usage: IC2.Inspect [--save <save.sav>] | [--config <assets.ini> [--save <save.sav>]] | [--config <assets.ini>] --compare-saves <first.sav> <second.sav> | <data.dat> [save.sav]");
+    Console.Error.WriteLine("Usage: IC2.Inspect [--save <save.sav>] | [--config <assets.ini> [--save <save.sav>]] | [--config <assets.ini>] --compare-saves <first.sav> <second.sav> | [--config <assets.ini>] --render-map <output.svg> | <data.dat> [save.sav]");
     return 2;
 }
 

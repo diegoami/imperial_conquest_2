@@ -13,7 +13,7 @@ The order matters: verify each file format and rule before depending on it in th
 - [x] Read the candidate 320 × 140 map and 334 city records from DAT and SAV.
 - [x] Confirm that the first supplied save changes 326 map cells and 12 city records relative to the DAT.
 
-**Baseline limit:** These are static findings. Neither game EXE has been executed for this project; the map dimensions and coordinate meanings are strong hypotheses, not yet visual proof.
+**Baseline limit:** These are static findings. Neither game EXE has been executed for this project. The later column-major rendering strongly supports the map dimensions and coordinate meanings, while terrain codes and many dynamic fields remain unverified.
 
 ## 1. Build a trustworthy sample set
 
@@ -26,7 +26,8 @@ The order matters: verify each file format and rule before depending on it in th
 
 ## 2. Finish the DAT and SAV format specification
 
-- [ ] Render the candidate 320 × 140 map, overlay all city coordinates, and determine row direction, tile meanings, and whether the grid includes dynamic markers.
+- [x] Render the candidate 320 × 140 map and overlay all city coordinates; column-major storage and coordinate orientation are strongly supported by geography.
+- [ ] Determine tile meanings and whether the grid includes dynamic markers.
 - [ ] Identify every field in the 34-byte city record by comparing saves, the help file, form labels, and executable references. Verify field width, signedness, units, and allowed range.
 - [ ] Map the DAT regions after the cities: nation, army, fleet, unit, leader, and other tables; establish record boundaries and counts before assigning meanings.
 - [ ] Map the remaining SAV regions, including mutable entities, calendar, turn order, diplomacy, event log, and any checks or version markers.
@@ -94,7 +95,7 @@ The order matters: verify each file format and rule before depending on it in th
 
 ## Immediate next milestone
 
-Make a labeled map visualization and decode enough of the post-city records to locate nations and armies. The two available saves already reveal candidate city ownership, turn-wide city changes, 61-byte news slots, and a calendar byte. These steps will turn the current prefix reader into a useful world-state viewer and give the later game model validated inputs.
+Decode enough of the post-city records to locate nations and armies, and identify terrain values by comparing the rendered map with the help files. The two available saves already reveal candidate city ownership, turn-wide city changes, 61-byte news slots, and a calendar byte. These steps will turn the current prefix reader into a useful world-state viewer and give the later game model validated inputs.
 
 ## Scope decisions to revisit at the right time
 

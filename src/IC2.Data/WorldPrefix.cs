@@ -35,7 +35,7 @@ public sealed class WorldPrefix
     {
         if ((uint)x >= MapWidth || (uint)y >= MapHeight)
             throw new ArgumentOutOfRangeException(nameof(x), "Cell coordinates must be within the candidate 320 × 140 grid.");
-        return _cells[y * MapWidth + x];
+        return _cells[x * MapHeight + y];
     }
 
     public static WorldPrefix Parse(byte[] data)
@@ -99,4 +99,3 @@ public sealed class CityRecord
         return _raw[offset];
     }
 }
-
