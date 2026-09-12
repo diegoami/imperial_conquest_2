@@ -30,11 +30,12 @@ The order matters: verify each file format and rule before depending on it in th
 - [x] Render the candidate 320 × 140 map and overlay all city coordinates; column-major storage and coordinate orientation are strongly supported by geography.
 - [x] Match five common cell values to original screen terrain through registered screenshots.
 - [x] Identify river values `6`–`11` and distinguish city (`20`–`199`), candidate army (`200`–`299`), and observed fleet (`333`, `335`) markers using [registered screenshots and map coordinates](reports/rivers-and-map-markers.md).
-- [ ] Determine the remaining tile meanings, including water value `1`, and decode marker-to-record identities.
+- [x] Locate the [656-byte SAV army records](reports/army-records-and-roman-roster.md), match coordinates and owner codes to map markers, and reproduce the Roman army's 13-unit roster, supplies, and money from the user's screenshots. Armies can share a cell with a fleet overlay.
+- [ ] Determine the remaining tile meanings, including water value `1`, and decode fleet marker-to-record identities.
 - [ ] Identify every field in the 34-byte city record by comparing saves, the help file, form labels, and executable references. Verify field width, signedness, units, and allowed range. City word `+24` is now strongly identified as a 16-bit supply stock in tons.
 - [ ] Map the DAT regions after the cities: nation, army, fleet, unit, leader, and other tables; establish record boundaries and counts before assigning meanings.
-- [ ] Map the remaining SAV regions, including mutable entities, calendar, turn order, diplomacy, event log, and any checks or version markers. The aligned trailer byte `+40` follows the displayed week and resets at Spring→Summer; `+44` is a candidate season index. Confirm autumn/winter and year boundaries.
-- [ ] Replace provisional offset-based access in `IC2.Data` with typed models only when field meanings are supported. `CityRecord.Supplies` is the first controlled-action-backed field; preserve other unknown bytes and validate file sizes and bounds.
+- [ ] Map the remaining SAV regions, including fleets, other mutable entities, calendar, turn order, diplomacy, event log, and any checks or version markers. The aligned trailer byte `+40` follows the displayed week and resets at Spring→Summer; `+44` is a candidate season index. Confirm autumn/winter and year boundaries.
+- [ ] Continue replacing provisional offset-based access in `IC2.Data` with typed models only when field meanings are supported. `CityRecord.Supplies` and the known SAV army fields have direct controlled-action or screenshot evidence; preserve other unknown bytes and validate file sizes and bounds.
 - [ ] Add focused parser tests for truncated/corrupt files and known real-file summaries.
 
 **Done when:** The parser can load the full DAT and all known saves into a documented world snapshot, and every parsed field has an evidence trail and a confidence level.
@@ -64,7 +65,8 @@ The order matters: verify each file format and rule before depending on it in th
 
 - [x] Add a Godot 4.7.2 .NET project targeting .NET 10 and referencing the C# data library. Verify it builds and loads the configured DAT without copying assets.
 - [x] Draw terrain, rivers, city coordinates, candidate army/fleet markers, and locally selected save states in a click-to-inspect map viewer with mouse-wheel zoom and drag-to-pan. Start near Rome in a maximized window and retain a whole-map button.
-- [ ] Add unit detail tooltips and verified ownership colors and terrain art. Keep map rendering separate from game rules.
+- [x] Show the known save army roster, troop total, supplies, and money when an army marker is clicked.
+- [ ] Add fuller unit and fleet details, verified ownership colors, and terrain art. Keep map rendering separate from game rules.
 - [ ] Add the main gameplay screens: nation setup, city details, army/fleet details, orders, economy, diplomacy, news, and end-turn flow.
 - [ ] Route toolbar shortcuts and menu entries through the same command definitions, following the original interface's shared actions.
 - [ ] Add tactical battle presentation and controls after the headless battle model is testable.
@@ -101,7 +103,7 @@ The order matters: verify each file format and rule before depending on it in th
 
 ## Immediate next milestone
 
-Decode enough of the post-city records to locate nations and armies, especially the army-supply word identified by the controlled `11.sav` pair and the Rome–Gaul battle outcome. The available saves now support city ownership codes, city supplies, turn-wide city changes, local 61-byte news slots, a week-within-season byte, and a candidate season index. A second transfer involving another army or city will help establish whether the observed post-city offset belongs to a repeating army record. These steps will turn the current prefix reader into a useful world-state viewer and give the later game model validated inputs.
+The SAV army table is now located and parsed, including 20 unit slots per army. Next, identify the fleet table immediately after it, decode type `2` and quality `5` from further screenshots or original help text, and map the DAT's different post-city layout. A second controlled transfer involving another army or city would test the now-known `+10` supply field across records. The available saves also support city ownership codes, city supplies, turn-wide city changes, local 61-byte news slots, a week-within-season byte, and a candidate season index. The larger goal remains a useful world-state viewer backed by validated inputs before implementing game rules.
 
 ## Scope decisions to revisit at the right time
 

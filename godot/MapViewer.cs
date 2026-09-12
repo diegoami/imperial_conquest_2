@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using Godot;
 using IC2.Data;
 
@@ -19,6 +20,7 @@ public partial class MapViewer : Control
 
     private WorldPrefix? _initialWorld;
     private WorldPrefix? _world;
+    private SaveArmyTable? _armyTable;
     private ImageTexture? _terrain;
     private CityRecord? _selected;
     private UnitMarker? _selectedUnit;
@@ -30,6 +32,8 @@ public partial class MapViewer : Control
     private Label _status = null!;
     private Button _fitButton = null!;
     private OptionButton _sourcePicker = null!;
+    private PanelContainer _armyPanel = null!;
+    private Label _armyDetails = null!;
     private float _zoom = 1f;
     private Vector2 _pan = Vector2.Zero;
     private Vector2 _pressPosition;
@@ -51,6 +55,13 @@ public partial class MapViewer : Control
         _sourcePicker = new OptionButton { CustomMinimumSize = new Vector2(170f, 38f) };
         _sourcePicker.ItemSelected += index => LoadSource((int)index);
         AddChild(_sourcePicker);
+        _armyPanel = new PanelContainer { Visible = false, MouseFilter = MouseFilterEnum.Stop };
+        var armyScroll = new ScrollContainer();
+        _armyDetails = new Label { MouseFilter = MouseFilterEnum.Ignore };
+        _armyDetails.AddThemeFontSizeOverride("font_size", 15);
+        armyScroll.AddChild(_armyDetails);
+        _armyPanel.AddChild(armyScroll);
+        AddChild(_armyPanel);
 
         try
         {
@@ -88,6 +99,7 @@ public partial class MapViewer : Control
 
         PlaceStatus();
         PlaceHeaderControls();
+        PlaceArmyPanel();
         QueueRedraw();
     }
 
@@ -96,6 +108,7 @@ public partial class MapViewer : Control
         if (what != NotificationResized || _status is null || _fitButton is null || _sourcePicker is null) return;
         PlaceStatus();
         PlaceHeaderControls();
+        PlaceArmyPanel();
         ClampPan();
         QueueRedraw();
     }
@@ -264,10 +277,22 @@ public partial class MapViewer : Control
         {
             _selected = null;
             _selectedUnit = hitUnit;
-            _status.Text = $"{(hitUnit.Fleet ? "Fleet" : "Army")} marker at ({hitUnit.X}, {hitUnit.Y}) · owner code {hitUnit.OwnerCode} · unit details still under study";
+            var army = !hitUnit.Fleet ? FindArmy(hitUnit.X, hitUnit.Y) : null;
+            if (army is not null)
+            {
+                _status.Text = $"Army at ({army.X}, {army.Y}) · {army.Units.Count} units · {army.TotalTroops:N0} troops · {army.Supplies} tons supply · {army.Money} money";
+                _armyDetails.Text = FormatArmy(army);
+                _armyPanel.Visible = true;
+            }
+            else
+            {
+                _armyPanel.Visible = false;
+                _status.Text = $"{(hitUnit.Fleet ? "Fleet" : "Army")} marker at ({hitUnit.X}, {hitUnit.Y}) · owner code {hitUnit.OwnerCode} · details still under study";
+            }
             QueueRedraw();
             return;
         }
+        _armyPanel.Visible = false;
         _selectedUnit = null;
         var cell = (position - mapRect.Position) / step;
         CityRecord? nearest = null;
@@ -338,7 +363,9 @@ public partial class MapViewer : Control
         if (_initialWorld is null || (uint)index >= _sourcePaths.Count) return;
         try
         {
-            var world = index == 0 ? _initialWorld : WorldPrefix.Parse(File.ReadAllBytes(_sourcePaths[index]));
+            var saveData = index == 0 ? null : File.ReadAllBytes(_sourcePaths[index]);
+            var world = saveData is null ? _initialWorld : WorldPrefix.Parse(saveData);
+            var armyTable = saveData is null ? null : SaveArmyTable.Parse(saveData);
             var image = Image.CreateEmpty(WorldPrefix.MapWidth, WorldPrefix.MapHeight, false, Image.Format.Rgba8);
             var units = new List<UnitMarker>();
             for (var y = 0; y < WorldPrefix.MapHeight; y++)
@@ -360,11 +387,13 @@ public partial class MapViewer : Control
                 }
             }
             _world = world;
+            _armyTable = armyTable;
             _terrain = ImageTexture.CreateFromImage(image);
             _units.Clear();
             _units.AddRange(units);
             _selected = null;
             _selectedUnit = null;
+            _armyPanel.Visible = false;
             var armies = 0;
             foreach (var unit in _units) if (!unit.Fleet) armies++;
             _status.Text = $"{_sourcePicker.GetItemText(index)} · {armies} army and {_units.Count - armies} fleet markers · wheel: zoom · drag: move";
@@ -414,6 +443,51 @@ public partial class MapViewer : Control
     {
         _fitButton.Position = new Vector2(MathF.Max(24f, Size.X - 194f), 16f);
         _sourcePicker.Position = new Vector2(MathF.Max(24f, Size.X - 380f), 16f);
+    }
+
+    private void PlaceArmyPanel()
+    {
+        _armyPanel.Position = new Vector2(MathF.Max(24f, Size.X - 414f), 80f);
+        _armyPanel.Size = new Vector2(MathF.Min(390f, Size.X - 48f), MathF.Max(100f, Size.Y - 160f));
+    }
+
+    private ArmyRecord? FindArmy(int x, int y)
+    {
+        if (_armyTable is null) return null;
+        foreach (var army in _armyTable.Armies)
+            if (army.X == x && army.Y == y) return army;
+        return null;
+    }
+
+    private static string FormatArmy(ArmyRecord army)
+    {
+        var text = new StringBuilder();
+        text.AppendLine($"Army at ({army.X}, {army.Y}) · owner {army.OwnerCode}");
+        text.AppendLine($"{army.Units.Count} units · {army.TotalTroops:N0} troops");
+        text.AppendLine($"Supply {army.Supplies} tons · money {army.Money}");
+        text.AppendLine();
+        foreach (var unit in army.Units)
+        {
+            var type = unit.TypeCode switch
+            {
+                0 => "light infantry",
+                1 => "heavy infantry",
+                3 => "light cavalry",
+                4 => "heavy cavalry",
+                _ => $"type {unit.TypeCode}"
+            };
+            var quality = unit.QualityCode switch
+            {
+                6 => "average",
+                7 => "good",
+                8 => "very good",
+                9 => "elite",
+                _ => $"quality {unit.QualityCode}"
+            };
+            text.AppendLine(unit.Name);
+            text.AppendLine($"  {unit.Troops:N0} · {type} · {quality}");
+        }
+        return text.ToString();
     }
 
     private readonly record struct UnitMarker(int X, int Y, ushort Code, ushort OwnerCode, bool Fleet);

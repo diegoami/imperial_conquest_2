@@ -1,5 +1,55 @@
 using IC2.Data;
 
+if ((args.Length == 4 && args[0] == "--inspect-army") ||
+    (args.Length == 6 && args[0] == "--config" && args[2] == "--inspect-army"))
+{
+    try
+    {
+        var configured = args[0] == "--config";
+        var settings = AssetSettings.Load(configured ? args[1] : "assets.local.ini");
+        var argStart = configured ? 3 : 1;
+        if (!ushort.TryParse(args[argStart + 1], out var x) || !ushort.TryParse(args[argStart + 2], out var y))
+            throw new ArgumentException("Army coordinates must be nonnegative whole numbers.");
+        var inspectedSavePath = settings.ResolveSavePath(args[argStart]);
+        var table = SaveArmyTable.Parse(File.ReadAllBytes(inspectedSavePath));
+        var found = false;
+        foreach (var army in table.Armies)
+        {
+            if (army.X != x || army.Y != y) continue;
+            found = true;
+            Console.WriteLine($"Army {army.Index} at ({x}, {y}) · owner code {army.OwnerCode}");
+            Console.WriteLine($"{army.Units.Count} units · {army.TotalTroops:N0} troops · {army.Supplies} tons supply · {army.Money} money");
+            foreach (var unit in army.Units)
+            {
+                var type = unit.TypeCode switch
+                {
+                    0 => "light infantry",
+                    1 => "heavy infantry",
+                    3 => "light cavalry",
+                    4 => "heavy cavalry",
+                    _ => $"type {unit.TypeCode}"
+                };
+                var quality = unit.QualityCode switch
+                {
+                    6 => "average",
+                    7 => "good",
+                    8 => "very good",
+                    9 => "elite",
+                    _ => $"quality {unit.QualityCode}"
+                };
+                Console.WriteLine($"  {unit.Name} · {type} · {unit.Troops:N0} · {quality}");
+            }
+        }
+        if (!found) throw new ArgumentException($"No army record at ({x}, {y}) in {Path.GetFileName(inspectedSavePath)}.");
+        return 0;
+    }
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+    {
+        Console.Error.WriteLine(ex.Message);
+        return 1;
+    }
+}
+
 if ((args.Length == 2 && args[0] == "--render-map") ||
     (args.Length == 4 && args[0] == "--config" && args[2] == "--render-map"))
 {
@@ -64,7 +114,7 @@ else if (args.Length is 1 or 2 && args[0] != "--save" && args[0] != "--config")
 }
 else
 {
-    Console.Error.WriteLine("Usage: IC2.Inspect [--save <save.sav>] | [--config <assets.ini> [--save <save.sav>]] | [--config <assets.ini>] --compare-saves <first.sav> <second.sav> | [--config <assets.ini>] --render-map <output.svg> | <data.dat> [save.sav]");
+    Console.Error.WriteLine("Usage: IC2.Inspect [--save <save.sav>] | [--config <assets.ini> [--save <save.sav>]] | [--config <assets.ini>] --compare-saves <first.sav> <second.sav> | [--config <assets.ini>] --inspect-army <save.sav> <x> <y> | [--config <assets.ini>] --render-map <output.svg> | <data.dat> [save.sav]");
     return 2;
 }
 

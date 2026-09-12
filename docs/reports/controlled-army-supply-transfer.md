@@ -14,7 +14,7 @@ The files differ in **three bytes at two locations**. The map, all other city fi
 | Rome city record 85, word `+24`; absolute `0x16962` (92,514) | `0x0712` = 1,810 → `0x06C3` = 1,731 | −79 | City's supply stock in tons |
 | Word at absolute `0x18A68` (100,968), 12 bytes after the 334-city table | `0x0193` = 403 → `0x01E2` = 482 | +79 | Supplied army's stock in tons |
 
-The city word changes in both bytes; the army word changes only in its low byte, so the whole-file byte difference is three rather than four. Rome's record is at `0x1694A`, with candidate coordinates `(101, 43)`. The city table ends at `0x18A5C` (100,956). We have not yet established the complete structure following that boundary or proved that the army-supply word always occupies `post-city +12` in other saves. This pair does establish the two values and exact conservation of the 79-ton transfer in this scenario.
+The city word changes in both bytes; the army word changes only in its low byte, so the whole-file byte difference is three rather than four. Rome's record is at `0x1694A`, with candidate coordinates `(101, 43)`. The city table ends at `0x18A5C` (100,956). A later [Roman roster comparison](army-records-and-roman-roster.md) established a SAV army count at that boundary and 656-byte army records. The word at `0x18A68` is the first army record's `+10` supply field. Its coordinates `(100, 42)` and the user's panel showing 482 tons confirm the identification. The pair establishes exact conservation of the 79-ton transfer in this scenario; general transfer rules remain unknown.
 
 Earlier multi-turn comparisons showed city word `+24` changing widely but could not identify it. This controlled action now strongly identifies it as **city supplies**. The parser exposes that word as `CityRecord.Supplies`, while preserving the remaining unknown city bytes. The inspector's equal-length save comparison also reports exact changed post-city byte runs, so another controlled pair can be reproduced without a separate script.
 
@@ -28,4 +28,4 @@ dotnet run --project src/IC2.Inspect/IC2.Inspect.csproj -- --compare-saves saves
 
 1. Supply a different army at a different city with a known amount. Verify that the city's `+24` word and the corresponding army word again change by opposite amounts, and locate that second army word.
 2. Use a pair that transfers money separately from supplies to distinguish adjacent post-city fields.
-3. Identify army-record boundaries before treating `0x18A68` as a general record-relative offset.
+3. Compare additional controlled transfers to verify that the `+10` army supply field changes consistently in other army records.
