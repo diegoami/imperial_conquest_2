@@ -69,8 +69,13 @@ target.<field @ +0x350>   += (the other adjustment)
 
 Same toolchain as prior decompilation reports. This pass required `getFunctionContaining()` instead of `getFunctionAt()`/`createFunction()` in `ExportAddresses.java`, since the known string-reference addresses (`0x00439205`, `0x004396a7`) point mid-function, not to function entry points.
 
+## Update: the 40%-cap confirmed exactly against new recorded exchanges
+
+`battle-recording-melee-cap-confirmed.md` extracted six fresh combat-resolution panels from `bandicam 2026-09-12 05-27-11-464.mp4` (a stretch never sampled in `battle-observation.md`) via frame extraction. Four of five melee exchanges hit the defender-loss cap `floor(0.4 × defenderTroops) + 1` **exactly**, and the fifth falls below it exactly where the formula predicts it should (attacker too weak relative to defender to force the cap). This is the strongest numeric confirmation of any combat constant in this project — not simulated, directly observed.
+
 ## Next checks
 
-1. Decompile `FUN_0043845c`, `FUN_00438420`, and extract the `DAT_0047946c` type-effectiveness table to get concrete numbers, then simulate the full recorded battle from `battle-observation.md` (which has complete before/after troop totals by class for both sides) and compare.
+1. Decompile `FUN_0043845c`, `FUN_00438420`, and extract the `DAT_0047946c` type-effectiveness table to get concrete numbers, then simulate the full recorded battle from `battle-observation.md` (which has complete before/after troop totals by class for both sides) and compare. **Update: `FUN_0043845c`/`FUN_00438420` are now decompiled and the matrix is now located — see `unit-type-stat-table-in-dat.md` and `combat-type-effectiveness-matrix.md`.**
 2. Identify the `+0x350` field by cross-referencing it against a save-observable morale value across a controlled single-battle save pair.
 3. Trace `FUN_0043a31c` (the other branch `FUN_00439ce8` can take) to see whether it's an alternate AI mode or the human-move-confirmation path.
+4. A closer, more evenly-matched recorded fight (not one side heavily favored) would exercise the un-capped formula branch and could resolve the effectiveness matrix's attacker/defender axis ambiguity, which this lopsided dataset couldn't.

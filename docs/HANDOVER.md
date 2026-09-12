@@ -22,6 +22,7 @@ Read [the roadmap](roadmap.md) for the full sequence, [the decompilation plan](d
 ## Local tooling (all outside the repo, all still present)
 
 - `gh` (GitHub CLI, authenticated as `diegoami`), `jq`, Python 3.14, Node.
+- **`ffmpeg`** at `%LOCALAPPDATA%\ReTools\ffmpeg-master-latest-win64-gpl\bin\ffmpeg.exe` — for extracting frames from the recordings in `imp_conq_original\recordings\`. Used as `ffmpeg -ss <startSeconds> -i "<recording.mp4>" -vf fps=1 -frames:v <N> <outdir>/f_%03d.png`, then read the PNGs with the Read tool. The tactical battle UI's combat-resolution panel (`ATTACKS`/`SHOOTS AT` + `UNIT LOSSES`/`TROOP LOSSES`) gives exact before/after troop counts per exchange — this is a much richer source of controlled combat data than manual video scrubbing, and the user is willing to record more battles on request.
 - **`%LOCALAPPDATA%\ReTools\`**: Temurin JDK 21 (`jdk-21.0.12.1+1\`), Ghidra 12.1.3 (`ghidra_12.1.3_PUBLIC\`), an imported+analyzed Ghidra project (`ghidra_projects\IC2\`), and `scripts\`:
   - `ExportFunctions.java` — dump all named functions to text.
   - `ExportAddresses.java` — decompile specific addresses; uses `getFunctionContaining()` so it works on mid-function addresses (e.g. string xrefs), not just function starts.
@@ -50,7 +51,7 @@ Map markers `333`/`335` = fleet positions (exact coordinate match). Fleet `CityI
 - Defection (unlike forced capture) never touches population/fortification — exact match to the empirical Modena finding.
 - Population/fortification loss traces to two functions run on *every* siege attempt (win or lose): random army casualties, and a smoothing/decay adjustment to city-stat fields — meaning a capture's visible loss may be accumulated across multiple attempts, not a one-time penalty.
 - Combat: melee hits both sides simultaneously per exchange, scaled by a unit-type effectiveness ratio (the 5×5 matrix is located in the DAT file, right after the unit-type table), capped at 30,000 and 40% of own troops. Shooting has a real range mechanic (in-range shots double). A "focus-fire" counter scales losses when multiple attackers target one defender.
-- **Not yet done: a full numeric simulation against the one recorded battle** in `battle-observation.md` — all formula constants are now in hand, this just hasn't been run.
+- **The 40% melee-loss cap is now confirmed exactly** (`floor(0.4 × defenderTroops) + 1`, matching 4 of 5 fresh recorded exchanges precisely) — see `battle-recording-melee-cap-confirmed.md`. A closer, more evenly-matched recorded fight would exercise the un-capped formula branch and could resolve the effectiveness matrix's attacker/defender axis ambiguity, which this lopsided dataset couldn't.
 
 ### Economy (`decompiled-fleet-tax-and-mercenary-formulas.md`, `decompiled-recruitment-cost-formula.md`, `unit-type-stat-table-in-dat.md`, `decompiled-quarterly-billing-and-economy.md`)
 - Fleet order: `cost = ships×10`, `capacity = ships×500`, `upkeep = ships×3/quarter` — all three now confirmed exactly.
@@ -68,7 +69,7 @@ Week `+2 mod 12`, season advances at 11→1, year decrements at Winter→Spring 
 - Diplomacy reparation formula — dead end via `TPolitics_MakePeace` (player-only); lives in unnamed AI code, not reachable by name.
 - Mercenary hiring's exact cost-table values; two unidentified unit-type-table fields (`+0x20`, `+0x26`).
 - The rebellion check (`FUN_0044c204`) and weather-event effect (`FUN_004511bc`) internals — not decompiled.
-- A full numeric combat simulation against `battle-observation.md`'s recorded battle.
+- The un-capped melee formula's exact random-roll term (the cap itself is now confirmed exactly, see above); the effectiveness matrix's attacker/defender axis; a full simulation of the whole multi-round recorded battle in `battle-observation.md`.
 - A ~6-byte reconciliation gap in the SAV layout's news-log region sizing.
 - `ComputerGeneral`'s actual AI decision-making (only its dispatch chain was traced; the roadmap's own scope decision favors faithful *rules* over a byte-exact AI port anyway).
 
