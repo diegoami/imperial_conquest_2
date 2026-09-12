@@ -22,6 +22,8 @@ public partial class MapViewer : Control
     private WorldPrefix? _world;
     private SaveArmyTable? _armyTable;
     private SaveRecruitmentTable? _recruitmentTable;
+    private SaveNationTable? _nationTable;
+    private SaveTurnState? _turn;
     private ImageTexture? _terrain;
     private CityRecord? _selected;
     private UnitMarker? _selectedUnit;
@@ -33,6 +35,7 @@ public partial class MapViewer : Control
     private Label _status = null!;
     private Button _fitButton = null!;
     private OptionButton _sourcePicker = null!;
+    private OptionButton _nationPicker = null!;
     private PanelContainer _detailPanel = null!;
     private Label _detailText = null!;
     private float _zoom = 1f;
@@ -56,6 +59,11 @@ public partial class MapViewer : Control
         _sourcePicker = new OptionButton { CustomMinimumSize = new Vector2(170f, 38f) };
         _sourcePicker.ItemSelected += index => LoadSource((int)index);
         AddChild(_sourcePicker);
+        _nationPicker = new OptionButton { CustomMinimumSize = new Vector2(170f, 38f) };
+        _nationPicker.AddItem("Nations");
+        for (ushort nation = 0; nation < 16; nation++) _nationPicker.AddItem(NationCatalog.Name(nation));
+        _nationPicker.ItemSelected += index => ShowNation((int)index);
+        AddChild(_nationPicker);
         _detailPanel = new PanelContainer { Visible = false, MouseFilter = MouseFilterEnum.Stop };
         var detailScroll = new ScrollContainer();
         _detailText = new Label { MouseFilter = MouseFilterEnum.Ignore };
@@ -106,7 +114,7 @@ public partial class MapViewer : Control
 
     public override void _Notification(int what)
     {
-        if (what != NotificationResized || _status is null || _fitButton is null || _sourcePicker is null) return;
+        if (what != NotificationResized || _status is null || _fitButton is null || _sourcePicker is null || _nationPicker is null) return;
         PlaceStatus();
         PlaceHeaderControls();
         PlaceDetailPanel();
@@ -262,6 +270,7 @@ public partial class MapViewer : Control
         if (_world is null || !MapViewportRect().HasPoint(position)) return;
         var mapRect = MapRect();
         if (!mapRect.HasPoint(position)) return;
+        _nationPicker.Select(0);
 
         var step = mapRect.Size.X / WorldPrefix.MapWidth;
         UnitMarker? nearestUnit = null;
@@ -372,10 +381,16 @@ public partial class MapViewer : Control
             var world = saveData is null ? _initialWorld : WorldPrefix.Parse(saveData);
             var armyTable = saveData is null ? null : SaveArmyTable.Parse(saveData);
             SaveRecruitmentTable? recruitmentTable = null;
+            SaveNationTable? nationTable = null;
+            SaveTurnState? turn = null;
             if (saveData is not null)
             {
                 try { recruitmentTable = SaveRecruitmentTable.Parse(saveData); }
                 catch (InvalidDataException ex) { GD.Print($"Recruitment details unavailable for {Path.GetFileName(_sourcePaths[index])}: {ex.Message}"); }
+                try { nationTable = SaveNationTable.Parse(saveData); }
+                catch (InvalidDataException ex) { GD.Print($"Nation details unavailable for {Path.GetFileName(_sourcePaths[index])}: {ex.Message}"); }
+                try { turn = SaveTurnState.Parse(saveData); }
+                catch (InvalidDataException ex) { GD.Print($"Calendar details unavailable for {Path.GetFileName(_sourcePaths[index])}: {ex.Message}"); }
             }
             var image = Image.CreateEmpty(WorldPrefix.MapWidth, WorldPrefix.MapHeight, false, Image.Format.Rgba8);
             var units = new List<UnitMarker>();
@@ -400,15 +415,19 @@ public partial class MapViewer : Control
             _world = world;
             _armyTable = armyTable;
             _recruitmentTable = recruitmentTable;
+            _nationTable = nationTable;
+            _turn = turn;
             _terrain = ImageTexture.CreateFromImage(image);
             _units.Clear();
             _units.AddRange(units);
             _selected = null;
             _selectedUnit = null;
+            _nationPicker.Select(0);
             _detailPanel.Visible = false;
             var armies = 0;
             foreach (var unit in _units) if (!unit.Fleet) armies++;
-            _status.Text = $"{_sourcePicker.GetItemText(index)} · {armies} army and {_units.Count - armies} fleet markers · wheel: zoom · drag: move";
+            var calendar = turn is null ? "" : $" · Week {turn.Week} {turn.SeasonName} {turn.YearBc} BC · {NationCatalog.Name(turn.CurrentNationCode)} turn";
+            _status.Text = $"{_sourcePicker.GetItemText(index)}{calendar} · {armies} army and {_units.Count - armies} fleet markers · wheel: zoom · drag: move";
             QueueRedraw();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
@@ -455,6 +474,7 @@ public partial class MapViewer : Control
     {
         _fitButton.Position = new Vector2(MathF.Max(24f, Size.X - 194f), 16f);
         _sourcePicker.Position = new Vector2(MathF.Max(24f, Size.X - 380f), 16f);
+        _nationPicker.Position = new Vector2(MathF.Max(24f, Size.X - 566f), 16f);
     }
 
     private void PlaceDetailPanel()
@@ -471,12 +491,60 @@ public partial class MapViewer : Control
         return null;
     }
 
-    private static string FormatArmy(ArmyRecord army)
+    private void ShowNation(int index)
+    {
+        if (index == 0)
+        {
+            _detailPanel.Visible = false;
+            return;
+        }
+        if (_nationTable is null || _world is null)
+        {
+            _status.Text = "Select a saved game to inspect nations.";
+            _nationPicker.Select(0);
+            return;
+        }
+        var nation = _nationTable.Nations[index - 1];
+        _selected = null;
+        _selectedUnit = null;
+        _detailText.Text = FormatNation(nation);
+        _detailPanel.Visible = true;
+        _status.Text = $"{nation.Name} · {(nation.HumanPlayer ? "human player" : "computer player")} · {nation.CityCount} cities · {nation.Treasury} talents treasury";
+        QueueRedraw();
+    }
+
+    private string FormatNation(NationRecord nation)
+    {
+        var text = new StringBuilder();
+        text.AppendLine($"{nation.Name} · {(nation.HumanPlayer ? "human player" : "computer player")}");
+        text.AppendLine($"Leader {nation.Leader}");
+        text.AppendLine($"Capital {_world!.Cities[nation.CapitalCityIndex].Name}");
+        text.AppendLine($"Cities {nation.CityCount}");
+        var cityPopulation = 0;
+        foreach (var city in _world.Cities)
+            if (city.OwnerCode == nation.Code) cityPopulation += city.PopulationThousands;
+        text.AppendLine($"Estimated population {cityPopulation * 3000:N0}");
+        text.AppendLine($"Tax rate {nation.TaxRatePercent}%");
+        text.AppendLine($"Mobilized {nation.MobilizedPercent}%");
+        text.AppendLine($"Treasury {nation.Treasury} talents");
+        text.AppendLine($"Unity value {nation.UnityValue}");
+        return text.ToString();
+    }
+
+    private string FormatArmy(ArmyRecord army)
     {
         var text = new StringBuilder();
         text.AppendLine($"{NationCatalog.Name(army.OwnerCode)} army at ({army.X}, {army.Y})");
         text.AppendLine($"{army.Units.Count} units · {army.TotalTroops:N0} troops");
+        text.AppendLine($"Moves {army.Moves} · morale value {army.MoraleValue}");
         text.AppendLine($"Supply {army.Supplies} tons · money {army.Money}");
+        if (_initialWorld is not null && _initialWorld.CellAt(army.X, army.Y) is >= 6 and <= 11)
+            text.AppendLine("Terrain river");
+        var troopTotals = new int[5];
+        foreach (var unit in army.Units) troopTotals[unit.TypeCode] += unit.Troops;
+        text.AppendLine();
+        for (ushort type = 0; type < troopTotals.Length; type++)
+            text.AppendLine($"{UnitCatalog.TypeName(type)}: {troopTotals[type]:N0}");
         text.AppendLine();
         foreach (var unit in army.Units)
         {

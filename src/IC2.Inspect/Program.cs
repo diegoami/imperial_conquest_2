@@ -1,5 +1,65 @@
 using IC2.Data;
 
+if ((args.Length == 2 && args[0] == "--inspect-turn") ||
+    (args.Length == 4 && args[0] == "--config" && args[2] == "--inspect-turn"))
+{
+    try
+    {
+        var configured = args[0] == "--config";
+        var settings = AssetSettings.Load(configured ? args[1] : "assets.local.ini");
+        var inspectedSavePath = settings.ResolveSavePath(args[configured ? 3 : 1]);
+        var data = File.ReadAllBytes(inspectedSavePath);
+        var turn = SaveTurnState.Parse(data);
+        Console.WriteLine($"Week {turn.Week} {turn.SeasonName} {turn.YearBc} BC · current nation {NationCatalog.Name(turn.CurrentNationCode)} ({turn.CurrentNationCode})");
+        return 0;
+    }
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+    {
+        Console.Error.WriteLine(ex.Message);
+        return 1;
+    }
+}
+
+if ((args.Length == 3 && args[0] == "--inspect-nation") ||
+    (args.Length == 5 && args[0] == "--config" && args[2] == "--inspect-nation"))
+{
+    try
+    {
+        var configured = args[0] == "--config";
+        var settings = AssetSettings.Load(configured ? args[1] : "assets.local.ini");
+        var argStart = configured ? 3 : 1;
+        var inspectedSavePath = settings.ResolveSavePath(args[argStart]);
+        var data = File.ReadAllBytes(inspectedSavePath);
+        var world = WorldPrefix.Parse(data);
+        var nations = SaveNationTable.Parse(data);
+        NationRecord? nation = null;
+        foreach (var candidate in nations.Nations)
+            if (string.Equals(candidate.Name, args[argStart + 1], StringComparison.OrdinalIgnoreCase))
+            {
+                nation = candidate;
+                break;
+            }
+        if (nation is null) throw new ArgumentException($"Nation {args[argStart + 1]} was not found in {Path.GetFileName(inspectedSavePath)}.");
+        var capital = world.Cities[nation.CapitalCityIndex].Name;
+        var cityCount = 0;
+        var cityPopulation = 0;
+        foreach (var city in world.Cities)
+            if (city.OwnerCode == nation.Code)
+            {
+                cityCount++;
+                cityPopulation += city.PopulationThousands;
+            }
+        Console.WriteLine($"{nation.Name} · {(nation.HumanPlayer ? "human player" : "computer player")} · leader {nation.Leader} · capital {capital}");
+        Console.WriteLine($"{nation.CityCount} cities (map count {cityCount}) · candidate population {cityPopulation * 3000:N0} · tax {nation.TaxRatePercent}% · mobilized {nation.MobilizedPercent}% · treasury {nation.Treasury} talents · unity value {nation.UnityValue}");
+        return 0;
+    }
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+    {
+        Console.Error.WriteLine(ex.Message);
+        return 1;
+    }
+}
+
 if ((args.Length == 3 && args[0] == "--inspect-city") ||
     (args.Length == 5 && args[0] == "--config" && args[2] == "--inspect-city"))
 {
@@ -58,6 +118,7 @@ if ((args.Length == 4 && args[0] == "--inspect-army") ||
             found = true;
             Console.WriteLine($"Army {army.Index} at ({x}, {y}) · owner code {army.OwnerCode}");
             Console.WriteLine($"{army.Units.Count} units · {army.TotalTroops:N0} troops · {army.Supplies} tons supply · {army.Money} money");
+            Console.WriteLine($"Moves {army.Moves} · morale value {army.MoraleValue}");
             foreach (var unit in army.Units)
             {
                 Console.WriteLine($"  {unit.Name} · {UnitCatalog.TypeName(unit.TypeCode)} · {unit.Troops:N0} · {UnitCatalog.QualityName(unit.QualityCode)}");
@@ -137,7 +198,7 @@ else if (args.Length is 1 or 2 && args[0] != "--save" && args[0] != "--config")
 }
 else
 {
-    Console.Error.WriteLine("Usage: IC2.Inspect [--save <save.sav>] | [--config <assets.ini> [--save <save.sav>]] | [--config <assets.ini>] --compare-saves <first.sav> <second.sav> | [--config <assets.ini>] --inspect-city <save.sav> <city-name> | [--config <assets.ini>] --inspect-army <save.sav> <x> <y> | [--config <assets.ini>] --render-map <output.svg> | <data.dat> [save.sav]");
+    Console.Error.WriteLine("Usage: IC2.Inspect [--save <save.sav>] | [--config <assets.ini> [--save <save.sav>]] | [--config <assets.ini>] --compare-saves <first.sav> <second.sav> | [--config <assets.ini>] --inspect-turn <save.sav> | [--config <assets.ini>] --inspect-nation <save.sav> <nation-name> | [--config <assets.ini>] --inspect-city <save.sav> <city-name> | [--config <assets.ini>] --inspect-army <save.sav> <x> <y> | [--config <assets.ini>] --render-map <output.svg> | <data.dat> [save.sav]");
     return 2;
 }
 

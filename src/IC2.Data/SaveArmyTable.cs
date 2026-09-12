@@ -57,7 +57,8 @@ public sealed class SaveArmyTable
                 var name = Encoding.ASCII.GetString(data, nameStart, nameEnd - nameStart).Trim();
                 units.Add(new ArmyUnit(slot, name, type, troops, quality));
             }
-            armies[i] = new ArmyRecord(i, x, y, owner, ReadWord(data, offset + 10),
+            armies[i] = new ArmyRecord(i, x, y, owner, ReadWord(data, offset + 6),
+                ReadWord(data, offset + 8), ReadWord(data, offset + 10),
                 ReadWord(data, offset + 12), units.ToArray());
         }
         return new SaveArmyTable(armies);
@@ -69,13 +70,15 @@ public sealed class SaveArmyTable
 
 public sealed class ArmyRecord
 {
-    internal ArmyRecord(int index, ushort x, ushort y, ushort ownerCode, ushort supplies,
-        ushort money, ArmyUnit[] units)
+    internal ArmyRecord(int index, ushort x, ushort y, ushort ownerCode, ushort moves,
+        ushort moraleValue, ushort supplies, ushort money, ArmyUnit[] units)
     {
         Index = index;
         X = x;
         Y = y;
         OwnerCode = ownerCode;
+        Moves = moves;
+        MoraleValue = moraleValue;
         Supplies = supplies;
         Money = money;
         Units = units;
@@ -86,6 +89,8 @@ public sealed class ArmyRecord
     public ushort X { get; }
     public ushort Y { get; }
     public ushort OwnerCode { get; }
+    public ushort Moves { get; }
+    public ushort MoraleValue { get; }
     public ushort Supplies { get; }
     public ushort Money { get; }
     public IReadOnlyList<ArmyUnit> Units { get; }

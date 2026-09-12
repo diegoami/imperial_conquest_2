@@ -10,7 +10,8 @@ The 334-city table ends at `0x18A5C`. In the known **SAV** files, a little-endia
 | ---: | ---: | --- | --- |
 | `+0`, `+2` | 2 each | `x`, `y` | All ten `11_supply.sav` records match map positions |
 | `+4` | 2 | owner code | All ten match their map marker owner residue; Roman army is `0` |
-| `+6`, `+8` | 2 each | unknown | Do not label yet |
+| `+6` | 2 | moves remaining | `8` matches the `11_supply.8.png` army information panel |
+| `+8` | 2 | candidate morale value | `9` displays as “very high”; thresholds remain unknown |
 | `+10` | 2 | supplies, tons | `403 → 482` controlled transfer; user panel reads `482` |
 | `+12` | 2 | money | Roman field is `296`, matching the user panel |
 | `+14` | 2 | unknown | Do not label yet |
@@ -20,7 +21,7 @@ Each unit slot contains an unknown word at `+0`, a type code at `+2`, troop coun
 
 ## First army in `11_supply.sav`
 
-The first record is the Roman army at `(100, 42)`, owner `0`. Its header has supply `482` and money `296`. Its thirteen nonzero unit slots reproduce the user's list, although the original screen sorts the list differently from the file order:
+The first record is the Roman army at `(100, 42)`, owner `0`. Its header has moves `8`, candidate morale value `9`, supply `482`, and money `296`. Its thirteen nonzero unit slots reproduce the user's list, although the original screen sorts the list differently from the file order:
 
 | File slot | Name | Type | Troops | Quality |
 | ---: | --- | --- | ---: | --- |
@@ -39,6 +40,8 @@ The first record is the Roman army at `(100, 42)`, owner `0`. Its header has sup
 | 12 | 2nd Foot Battalion | light infantry | 5,500 | average |
 
 The troop counts sum exactly to **48,173**. The next slot has zero troops but retains a `4th Guards Battalion` name; this is not counted as a current unit. `11.sav` has the same army structure and troop roster, with supply `403` before the user's 79-ton transfer.
+
+The later army-information screenshot breaks that total into **9,710 light infantry**, **35,250 heavy infantry**, **0 archers**, **900 light cavalry**, and **2,313 heavy cavalry**; all five totals match the parsed slots. It identifies the underlying terrain at `(100, 42)` as **River**, matching river code `9` in the initial DAT. The displayed regular cost of **442 talents per quarter**, mercenary pay of **0**, and supply percentage of **100%** are not yet decoded as stored fields or formulas. See the [Ptolemaic player and Week 9 report](ptolemaic-player-and-week9.md) for the full panel and new save pair.
 
 ## Cross-save checks and limits
 

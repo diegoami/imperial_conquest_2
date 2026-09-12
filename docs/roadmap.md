@@ -31,11 +31,13 @@ The order matters: verify each file format and rule before depending on it in th
 - [x] Match five common cell values to original screen terrain through registered screenshots.
 - [x] Identify river values `6`–`11` and distinguish city (`20`–`199`), candidate army (`200`–`299`), and observed fleet (`333`, `335`) markers using [registered screenshots and map coordinates](reports/rivers-and-map-markers.md).
 - [x] Locate the [656-byte SAV army records](reports/army-records-and-roman-roster.md), match coordinates and owner codes to map markers, and reproduce the Roman army's 13-unit roster, supplies, and money from the user's screenshots. Armies can share a cell with a fleet overlay.
-- [x] Match the [Rome city panel and recruiting list](reports/rome-city-recruitment-and-nations.md) to city fields and a 40-slot SAV recruitment section; identify unit type `2` as archers and all 16 nation names and colors.
+- [x] Match the [Rome city panel and recruiting list](reports/rome-city-recruitment-and-nations.md) to city fields and 40 recruitment slots embedded in each SAV nation record; identify unit type `2` as archers and all 16 nation names and colors.
+- [x] Locate the [16 × 1,172-byte SAV nation table](reports/ptolemaic-player-and-week9.md), match leader, capital, city count, tax rate, mobilization, and treasury to nation panels, and isolate Ptolemaic's human-player flag in a controlled save pair.
+- [x] Read the active nation, week, season, and year in the save trailer, matching the Week 9 Ptolemaic screenshot. Match the Roman army information panel's moves, supplies, money, terrain, and troop-class totals.
 - [ ] Determine the remaining tile meanings, including water value `1`, and decode fleet marker-to-record identities.
 - [ ] Identify every field in the 34-byte city record by comparing saves, the help file, form labels, and executable references. Verify field width, signedness, units, and allowed range. The Rome screenshot supports city supplies, population, fortification percentage, and tribute; loyalty thresholds and the fortification parenthetical remain open.
 - [ ] Map the DAT regions after the cities: nation, army, fleet, unit, leader, and other tables; establish record boundaries and counts before assigning meanings.
-- [ ] Map the remaining SAV regions, including fleets, other mutable entities, calendar, turn order, diplomacy, event log, and any checks or version markers. The aligned trailer byte `+40` follows the displayed week and resets at Spring→Summer; `+44` is a candidate season index. Confirm autumn/winter and year boundaries.
+- [ ] Map the remaining SAV regions, including fleet internals, other mutable entities, full turn order, diplomacy, event log, and any checks or version markers. Trailer fields now match active nation, displayed week, season, and year in the controlled Week 7→9 pair; confirm autumn/winter and year boundaries.
 - [ ] Continue replacing provisional offset-based access in `IC2.Data` with typed models only when field meanings are supported. `CityRecord.Supplies` and the known SAV army fields have direct controlled-action or screenshot evidence; preserve other unknown bytes and validate file sizes and bounds.
 - [ ] Add focused parser tests for truncated/corrupt files and known real-file summaries.
 
@@ -66,7 +68,7 @@ The order matters: verify each file format and rule before depending on it in th
 
 - [x] Add a Godot 4.7.2 .NET project targeting .NET 10 and referencing the C# data library. Verify it builds and loads the configured DAT without copying assets.
 - [x] Draw terrain, rivers, city coordinates, candidate army/fleet markers, and locally selected save states in a click-to-inspect map viewer with mouse-wheel zoom and drag-to-pan. Start near Rome in a maximized window and retain a whole-map button.
-- [x] Show known save army rosters and Rome city fields plus recruitment quantities when their map markers are clicked.
+- [x] Show known save army rosters and Rome city fields plus recruitment quantities when their map markers are clicked. Add a nation selector and current calendar/active-nation display for supported saves.
 - [ ] Add fuller unit and fleet details, verified ownership colors, and terrain art. Keep map rendering separate from game rules.
 - [ ] Add the main gameplay screens: nation setup, city details, army/fleet details, orders, economy, diplomacy, news, and end-turn flow.
 - [ ] Route toolbar shortcuts and menu entries through the same command definitions, following the original interface's shared actions.
@@ -104,7 +106,7 @@ The order matters: verify each file format and rule before depending on it in th
 
 ## Immediate next milestone
 
-The SAV army table and a 40-slot recruitment section are now located and parsed. Next, identify the intervening fleet and leader structures, decode quality `5` and the recruitment state word, explain the parenthetical `85,000` in Rome's fortification display, and map the DAT's different post-city layout. A second controlled transfer involving another army or city would test the known `+10` supply field across records. The available saves also support city ownership codes, city supplies, turn-wide city changes, local 61-byte news slots, a week-within-season byte, and a candidate season index. The larger goal remains a useful world-state viewer backed by validated inputs before implementing game rules.
+The SAV army and nation tables, per-nation recruitment slots, and current turn trailer are now parsed for the sampled saves. Next, identify fleet internals, decode quality `5` and recruitment state words, test the user's hypothesis that the parenthetical `85,000` in Rome's fortification display counts soldiers in town, and map the DAT's different post-city layout. A second controlled transfer involving another army or city would test the known `+10` supply field across records. A controlled tax or recruitment action would help separate nation fields and economic formulas. Routine checks should use three or four relevant saves; larger scans need a specific reason. The larger goal remains a useful world-state viewer backed by validated inputs before implementing game rules.
 
 ## Scope decisions to revisit at the right time
 
