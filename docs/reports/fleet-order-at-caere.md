@@ -1,6 +1,6 @@
 # A controlled fleet order decodes the fleet table and confirms map markers 333/335
 
-The user placed an order for 10 ships (loaded with 5,000 soldiers) at Caere and saved immediately, with no turn advance: `1_rome_270_autumn_7_fleet.sav` against the existing `1_rome_270_autumn_7.sav`. This is the cleanest controlled pair in the project so far.
+The user placed an order for 10 ships at Caere and saved immediately, with no turn advance: `1_rome_270_autumn_7_fleet.sav` against the existing `1_rome_270_autumn_7.sav`. This is the cleanest controlled pair in the project so far. The order's UI also showed "5,000 soldiers"; the user clarified this is the ships' transport capacity (500 troops/ship × 10), not a stored troop count, which explains why no such value appears anywhere in the diff below.
 
 | Save | Bytes | SHA-256 |
 | --- | ---: | --- |
@@ -62,7 +62,6 @@ Both match exactly. This directly confirms `333` and `335` are fleet map markers
 ## What this does not establish
 
 - Fleet ownership: no field was confidently identified as owner code from this single order (the record has several all-zero words besides the two confirmed fields, and the pre-existing fleets differ from each other in ways not yet explained).
-- The 5,000 soldiers the user also ordered do not appear anywhere in this record or in Caere's city-unit table (unchanged). They are presumably not represented until the ships are actually built and crewed — an open question for a follow-up save once construction completes.
 - Whether the 100-talent cost is flat or per-ship (`10 talents/ship` is consistent with this single data point but unverified).
 - The exact meaning of the `333` vs `335` distinction.
 
@@ -77,6 +76,6 @@ dotnet run --project src/IC2.Inspect -- --inspect-nation saves/1_rome_270_autumn
 
 ## Next checks
 
-1. Save again once the 10-ship order at Caere finishes construction, to see the record's X/Y populate and to find where (if anywhere) the 5,000 soldiers get stored.
-2. Place a second, differently-sized order (e.g. 5 ships, no soldiers) at a different city to test whether the 100-talent cost is flat or scales with ship count, and to get a second independent `CityIndex` confirmation.
+1. Save again once the 10-ship order at Caere finishes construction, to see the record's X/Y populate.
+2. Place a second, differently-sized order (e.g. 5 ships) at a different city to test whether the 100-talent cost is flat or scales with ship count (500 troops/ship capacity implies 5 ships ⇒ 2,500-troop capacity, worth confirming in the UI too), and to get a second independent `CityIndex` confirmation.
 3. Correlate a fleet's owner: compare an AI nation's fleet order (fleet 2, at Athens) against that nation's identity to find which unexplained word is the owner code.
