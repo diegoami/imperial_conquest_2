@@ -5,6 +5,9 @@ using IC2.Data;
 
 public partial class MapViewer : Control
 {
+    private const float ZoomStep = 1.25f;
+    private const float MaximumZoom = 10f;
+    private const float DragThreshold = 4f;
     private static readonly Color Background = new(0.07f, 0.11f, 0.15f);
     private static readonly Color CityColor = new(1.0f, 0.97f, 0.86f);
     private static readonly Color SelectedColor = new(1.0f, 0.40f, 0.25f);
@@ -14,6 +17,11 @@ public partial class MapViewer : Control
     private CityRecord? _selected;
     private Label _title = null!;
     private Label _status = null!;
+    private float _zoom = 1f;
+    private Vector2 _pan = Vector2.Zero;
+    private Vector2 _pressPosition;
+    private bool _dragging;
+    private bool _dragMoved;
 
     public override void _Ready()
     {
@@ -32,7 +40,7 @@ public partial class MapViewer : Control
                 for (var x = 0; x < WorldPrefix.MapWidth; x++)
                     image.SetPixel(x, y, TerrainColor(_world.CellAt(x, y)));
             _terrain = ImageTexture.CreateFromImage(image);
-            _status.Text = "334 cities · click a city to inspect it · colors are provisional";
+            _status.Text = "Mouse wheel: zoom · then drag to move map · click: inspect city · colors provisional";
             GD.Print($"Loaded {WorldPrefix.MapCellCount} map cells and {_world.Cities.Count} cities from the configured DAT.");
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
@@ -49,6 +57,7 @@ public partial class MapViewer : Control
     {
         if (what != NotificationResized || _status is null) return;
         PlaceStatus();
+        ClampPan();
         QueueRedraw();
     }
 
@@ -58,29 +67,79 @@ public partial class MapViewer : Control
         if (_world is null || _terrain is null) return;
 
         var mapRect = MapRect();
-        DrawTextureRect(_terrain, mapRect, false);
+        var viewport = MapViewportRect();
+        var visible = mapRect.Intersection(viewport);
+        if (visible.Size.X <= 0 || visible.Size.Y <= 0) return;
+        var source = new Rect2(
+            (visible.Position - mapRect.Position) / mapRect.Size * new Vector2(WorldPrefix.MapWidth, WorldPrefix.MapHeight),
+            visible.Size / mapRect.Size * new Vector2(WorldPrefix.MapWidth, WorldPrefix.MapHeight));
+        DrawTextureRectRegion(_terrain, visible, source);
         var step = mapRect.Size.X / WorldPrefix.MapWidth;
+        var cityRadius = Math.Clamp(step * 0.48f, 2f, 6f);
         foreach (var city in _world.Cities)
         {
             var point = mapRect.Position + new Vector2((city.X + 0.5f) * step, (city.Y + 0.5f) * step);
-            DrawCircle(point, MathF.Max(2f, step * 0.48f), CityColor);
+            if (!viewport.Grow(-cityRadius).HasPoint(point)) continue;
+            DrawCircle(point, cityRadius, CityColor);
         }
         if (_selected is not null)
         {
             var point = mapRect.Position + new Vector2((_selected.X + 0.5f) * step, (_selected.Y + 0.5f) * step);
-            DrawArc(point, MathF.Max(6f, step * 1.1f), 0, MathF.Tau, 32, SelectedColor, 2f);
+            var radius = Math.Clamp(step * 1.1f, 6f, 14f);
+            if (viewport.Grow(-radius).HasPoint(point))
+                DrawArc(point, radius, 0, MathF.Tau, 32, SelectedColor, 2f);
         }
     }
 
     public override void _GuiInput(InputEvent @event)
     {
-        if (@event is not InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } click || _world is null)
+        if (_world is null) return;
+        if (@event is InputEventMouseMotion motion && _dragging)
+        {
+            if (!_dragMoved && motion.Position.DistanceTo(_pressPosition) > DragThreshold)
+                _dragMoved = true;
+            if (_dragMoved)
+            {
+                _pan += motion.Relative;
+                ClampPan();
+                QueueRedraw();
+            }
+            AcceptEvent();
             return;
+        }
+        if (@event is not InputEventMouseButton click) return;
+
+        if (click.Pressed && click.ButtonIndex is MouseButton.WheelUp or MouseButton.WheelDown)
+        {
+            if (MapViewportRect().HasPoint(click.Position) && MapRect().HasPoint(click.Position))
+                ZoomAt(click.Position, click.ButtonIndex == MouseButton.WheelUp ? ZoomStep : 1f / ZoomStep);
+            AcceptEvent();
+            return;
+        }
+        if (click.ButtonIndex != MouseButton.Left) return;
+        if (click.Pressed)
+        {
+            _dragging = MapViewportRect().HasPoint(click.Position) && MapRect().HasPoint(click.Position);
+            _dragMoved = false;
+            _pressPosition = click.Position;
+            if (_dragging) AcceptEvent();
+            return;
+        }
+        if (!_dragging) return;
+        _dragging = false;
+        if (!_dragMoved && click.Position.DistanceTo(_pressPosition) <= DragThreshold)
+            SelectAt(click.Position);
+        AcceptEvent();
+    }
+
+    private void SelectAt(Vector2 position)
+    {
+        if (_world is null || !MapViewportRect().HasPoint(position)) return;
         var mapRect = MapRect();
-        if (!mapRect.HasPoint(click.Position)) return;
+        if (!mapRect.HasPoint(position)) return;
 
         var step = mapRect.Size.X / WorldPrefix.MapWidth;
-        var cell = (click.Position - mapRect.Position) / step;
+        var cell = (position - mapRect.Position) / step;
         CityRecord? nearest = null;
         var nearestSquared = float.MaxValue;
         foreach (var city in _world.Cities)
@@ -93,7 +152,8 @@ public partial class MapViewer : Control
             nearestSquared = distanceSquared;
         }
 
-        _selected = nearestSquared <= 9f ? nearest : null;
+        var hitRadius = MathF.Max(8f, Math.Clamp(step * 0.48f, 2f, 6f) + 3f) / step;
+        _selected = nearestSquared <= hitRadius * hitRadius ? nearest : null;
         if (_selected is not null)
             _status.Text = $"{_selected.Name} · ({_selected.X}, {_selected.Y}) · initial supplies: {_selected.Supplies} tons";
         else
@@ -105,14 +165,48 @@ public partial class MapViewer : Control
         QueueRedraw();
     }
 
+    private void ZoomAt(Vector2 cursor, float factor)
+    {
+        var oldRect = MapRect();
+        var normalized = (cursor - oldRect.Position) / oldRect.Size;
+        var nextZoom = Math.Clamp(_zoom * factor, 1f, MaximumZoom);
+        if (MathF.Abs(nextZoom - _zoom) < 0.0001f) return;
+        _zoom = nextZoom;
+        var baseRect = BaseMapRect();
+        _pan = cursor - normalized * baseRect.Size * _zoom - baseRect.Position;
+        ClampPan();
+        QueueRedraw();
+    }
+
+    private Rect2 MapViewportRect() => new(new Vector2(24f, 80f),
+        new Vector2(MathF.Max(1f, Size.X - 48f), MathF.Max(1f, Size.Y - 150f)));
+
+    private Rect2 BaseMapRect()
+    {
+        var viewport = MapViewportRect();
+        var scale = MathF.Min(viewport.Size.X / WorldPrefix.MapWidth, viewport.Size.Y / WorldPrefix.MapHeight);
+        var size = new Vector2(WorldPrefix.MapWidth * scale, WorldPrefix.MapHeight * scale);
+        return new Rect2(viewport.Position + (viewport.Size - size) / 2f, size);
+    }
+
     private Rect2 MapRect()
     {
-        var usableWidth = MathF.Max(1f, Size.X - 48f);
-        var usableHeight = MathF.Max(1f, Size.Y - 150f);
-        var scale = MathF.Min(usableWidth / WorldPrefix.MapWidth, usableHeight / WorldPrefix.MapHeight);
-        var width = WorldPrefix.MapWidth * scale;
-        var height = WorldPrefix.MapHeight * scale;
-        return new Rect2(new Vector2((Size.X - width) / 2f, 80f + (usableHeight - height) / 2f), new Vector2(width, height));
+        var baseRect = BaseMapRect();
+        return new Rect2(baseRect.Position + _pan, baseRect.Size * _zoom);
+    }
+
+    private void ClampPan()
+    {
+        var viewport = MapViewportRect();
+        var baseRect = BaseMapRect();
+        var mapSize = baseRect.Size * _zoom;
+        var x = mapSize.X <= viewport.Size.X
+            ? viewport.Position.X + (viewport.Size.X - mapSize.X) / 2f
+            : Math.Clamp(baseRect.Position.X + _pan.X, viewport.End.X - mapSize.X, viewport.Position.X);
+        var y = mapSize.Y <= viewport.Size.Y
+            ? viewport.Position.Y + (viewport.Size.Y - mapSize.Y) / 2f
+            : Math.Clamp(baseRect.Position.Y + _pan.Y, viewport.End.Y - mapSize.Y, viewport.Position.Y);
+        _pan = new Vector2(x, y) - baseRect.Position;
     }
 
     private void PlaceStatus() => _status.Position = new Vector2(24, MathF.Max(64f, Size.Y - 48f));
