@@ -16,7 +16,9 @@ obj/
 *.wav
 *.WAV
 *.zip
+*.mp4
 /assets.local.ini
 /private-assets/
 /rendered/
 /screenshots/
+/recordings/

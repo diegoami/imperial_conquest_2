@@ -1,8 +1,8 @@
 # Static research notes
 
-All observations below come from reading the supplied demo ZIP, full-version ZIP, five saves, and five paired screenshots as data. The user created the screenshots; no game binary was executed for this research. Field labels beyond city names, coordinates, and screenshot-backed terrain classes remain provisional.
+All observations below come from reading the supplied demo ZIP, full-version ZIP, eight saves, eight paired screenshots, and two user recordings as data or media. No game binary was executed for this research. Field labels beyond city names, coordinates, screenshot-backed terrain classes, and strongly corroborated owner codes remain provisional.
 
-Detailed evidence and per-file hashes are preserved in the [demo static-analysis report](reports/impconq2-initial-report.md), [full-version/save analysis](reports/impconq2-full-save-analysis.md), [one-turn save comparison](reports/one-turn-save-comparison.md), [map-layout notes](reports/map-layout.md), and [save/screenshot analysis](reports/saves-and-screenshots.md).
+Detailed evidence and per-file hashes are preserved in the [demo static-analysis report](reports/impconq2-initial-report.md), [full-version/save analysis](reports/impconq2-full-save-analysis.md), [one-turn save comparison](reports/one-turn-save-comparison.md), [map-layout notes](reports/map-layout.md), [save/screenshot analysis](reports/saves-and-screenshots.md), [battle observation](reports/battle-observation.md), and [strategic recording and summer saves](reports/strategic-recording-and-summer-saves.md).
 
 ## Known inputs
 
@@ -16,6 +16,9 @@ Detailed evidence and per-file hashes are preserved in the [demo static-analysis
 | Supplied `5.sav` | `3581c50662719bf9dee3682aff1001cd6f00cb0a228c3df717c39b3e8cb8b4bf` | Week 7 label |
 | Supplied `6.sav` | `ecc3008e2d6f69118d42e52e0b503710111b56c951a667198e71c0287d50c321` | Week 9 label |
 | Supplied `7.sav` | `733a16aa7ee5aeacbca9e689b0d5465c277af5402683860df0e8dfb8fde2c93b` | Week 11; five paired screenshots |
+| Supplied `8.sav` | `e45d3b17fd4b7b95d74a3a2919ec2dd4089f708a60318fb0ca24698db0c78bf1` | Week 1 Summer; news of Rome defeating Gaul |
+| Supplied `9.sav` | `2171344c4cbef87f90944d02c873a21d507475e8dbefa6f4cac7cb27bb069e25` | Week 3 Summer |
+| Supplied `10.sav` | `2d42dc110a3f2cd8058c4e7d6626c299fca17c4885ee4bb058767d2dd6d917b3` | Week 5 Summer; three Gaul→Rome ownership changes |
 
 ## Executable and resources
 
@@ -41,9 +44,11 @@ Comparing the two saves after one reported turn shows 331 city records change at
 
 Additional saves and matching screenshots strengthen two interpretations: the trailer byte at `+40` matches displayed weeks 1, 3, 7, 9, and 11, and city word `+18` tracks ownership changes for Rome/Gaul as well as Ptolemaic/Seleucid. Registered screenshots also establish original terrain colors for cell values `0`, `2`, `3`, `4`, and `5`. See the save/screenshot analysis for exact evidence and limitations.
 
+The later saves confirm that the trailer's `+40` byte resets from 11 to 1 at the Spring→Summer boundary and then advances to 3 and 5. It is a displayed week-within-season candidate, not a monotonic turn counter. Trailer `+44` is 0 in every Spring save and 1 in every Summer save, strongly suggesting a season index. `10.sav` changes Tarquinii, Caere, and Ariminum from owner code 6 to 0; the news explicitly reports Tarquinii and Ariminum defecting from Gaul to Rome. The battle recording ends in a Rome victory with 39,941 of 50,700 Rome troops surviving, and `8.sav` records “Rome destroys army of Gaul.” See the two recording reports for exact evidence and limits.
+
 ## Next checks
 
 1. Identify the remaining terrain and special-cell meanings, using the registered screenshots and original help files.
 2. Decode full-version WinHelp topics and Delphi form streams to inventory rules and UI actions.
-3. Obtain more paired saves around one controlled action at a time, then compare bytes to identify state fields.
+3. Obtain more paired saves around one controlled action at a time, including a city-management change and a season boundary, then compare bytes to identify state fields.
 4. Map full-version executable references to DAT and SAV structures before implementing turn, economy, diplomacy, and combat rules.
