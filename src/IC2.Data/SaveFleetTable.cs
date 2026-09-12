@@ -77,7 +77,11 @@ public sealed class FleetRecord
     /// <summary>Ship count at +18, confirmed by a controlled 10-ship order at Caere.</summary>
     public ushort ShipCount => BinaryPrimitives.ReadUInt16LittleEndian(_raw.AsSpan(18, 2));
 
-    /// <summary>City-table index at +20, confirmed by a controlled order placed at Caere (city index 82).</summary>
+    /// <summary>City-table index at +20. A controlled order at Caere confirmed this field, but a later turn
+    /// showed two already-deployed fleets' CityIndex change (one of them without moving at all), so this is
+    /// NOT a fixed home port/construction origin — read it as "some city this fleet is currently associated
+    /// with," candidate meaning "most recently resupplied at." See docs/reports/fleet-order-at-caere.md and
+    /// docs/reports/field-recruitment-uniform-attrition-and-fleet-drift.md.</summary>
     public ushort CityIndex => BinaryPrimitives.ReadUInt16LittleEndian(_raw.AsSpan(20, 2));
 
     /// <summary>Returns an unlabelled raw byte from this 26-byte record.</summary>
