@@ -96,9 +96,11 @@ internal static class SaveNationLayout
         var fleetCountOffset = WorldPrefix.SharedPrefixLength + 2 + armyCount * SaveArmyTable.RecordLength;
         if (fleetCountOffset + 2 > data.Length)
             throw new InvalidDataException("Save ends before the fleet count.");
+        // Formula confirmed for fleetCount 2 and 3: the nation table's leading name always matched
+        // NationCatalog.Name(0) at the computed offset (see docs/reports/rome-tax-increase-and-sidon-capture.md).
         var fleetCount = BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(fleetCountOffset, 2));
-        if (fleetCount != 2)
-            throw new InvalidDataException($"Nation-table layout is validated only for saves with two fleets; got {fleetCount}.");
+        if (fleetCount > WorldPrefix.CityCount)
+            throw new InvalidDataException($"Implausible fleet count {fleetCount}.");
         var start = fleetCountOffset + 2 + fleetCount * FleetRecordLength;
         if (start + NationCount * NationRecordLength > data.Length)
             throw new InvalidDataException("Save ends before the complete nation table.");

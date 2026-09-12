@@ -97,10 +97,12 @@ public sealed class CityRecord
     /// <summary>Owner code at record offset +18, corroborated by named city captures in saves and screenshots.</summary>
     public ushort OwnerCode => BinaryPrimitives.ReadUInt16LittleEndian(_raw.AsSpan(18, 2));
 
-    /// <summary>Allegiance nation code at +20. Captured cities can retain their original allegiance.</summary>
+    /// <summary>Allegiance nation code at +20. A controlled capture (Sidon, Seleucid → Ptolemaic) changed
+    /// OwnerCode but left this field unchanged, confirming captured cities can retain their original allegiance.</summary>
     public ushort AllegianceCode => BinaryPrimitives.ReadUInt16LittleEndian(_raw.AsSpan(20, 2));
 
-    /// <summary>Candidate numeric loyalty at +22; screenshot label thresholds are not yet known.</summary>
+    /// <summary>Candidate numeric loyalty at +22; screenshot label thresholds are not yet known.
+    /// The same controlled capture dropped this value 90 → 40, consistent with a loyalty measure.</summary>
     public ushort LoyaltyValue => BinaryPrimitives.ReadUInt16LittleEndian(_raw.AsSpan(22, 2));
 
     /// <summary>Displayed fortification percentage at +26.</summary>
