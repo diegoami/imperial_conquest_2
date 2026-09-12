@@ -1,8 +1,8 @@
 # Static research notes
 
-All observations below come from reading the supplied demo ZIP, full-version ZIP, eight saves, eight paired screenshots, and three user recordings as data or media. No game binary was executed for this research. Field labels beyond city names, coordinates, screenshot-backed terrain classes, and strongly corroborated owner codes remain provisional.
+All observations below come from reading the supplied demo ZIP, full-version ZIP, ten saves, eight paired screenshots, and three user recordings as data or media. No game binary was executed for this research. Field labels beyond city names, coordinates, screenshot-backed terrain classes, owner codes, and the controlled supply fields remain provisional.
 
-Detailed evidence and per-file hashes are preserved in the [demo static-analysis report](reports/impconq2-initial-report.md), [full-version/save analysis](reports/impconq2-full-save-analysis.md), [one-turn save comparison](reports/one-turn-save-comparison.md), [map-layout notes](reports/map-layout.md), [save/screenshot analysis](reports/saves-and-screenshots.md), [battle observation](reports/battle-observation.md), [strategic recording and summer saves](reports/strategic-recording-and-summer-saves.md), and [menu/toolbar inventory](reports/menu-and-toolbar-inventory.md).
+Detailed evidence and per-file hashes are preserved in the [demo static-analysis report](reports/impconq2-initial-report.md), [full-version/save analysis](reports/impconq2-full-save-analysis.md), [one-turn save comparison](reports/one-turn-save-comparison.md), [map-layout notes](reports/map-layout.md), [save/screenshot analysis](reports/saves-and-screenshots.md), [battle observation](reports/battle-observation.md), [strategic recording and summer saves](reports/strategic-recording-and-summer-saves.md), [menu/toolbar inventory](reports/menu-and-toolbar-inventory.md), and [controlled army-supply transfer](reports/controlled-army-supply-transfer.md).
 
 ## Known inputs
 
@@ -19,6 +19,8 @@ Detailed evidence and per-file hashes are preserved in the [demo static-analysis
 | Supplied `8.sav` | `e45d3b17fd4b7b95d74a3a2919ec2dd4089f708a60318fb0ca24698db0c78bf1` | Week 1 Summer; news of Rome defeating Gaul |
 | Supplied `9.sav` | `2171344c4cbef87f90944d02c873a21d507475e8dbefa6f4cac7cb27bb069e25` | Week 3 Summer |
 | Supplied `10.sav` | `2d42dc110a3f2cd8058c4e7d6626c299fca17c4885ee4bb058767d2dd6d917b3` | Week 5 Summer; three Gaul→Rome ownership changes |
+| Supplied `11.sav` | `e21ce740295c51f55758c26776e6e485f0a7e7e1106bc133d2f0bf0c0073f77d` | Before the 79-ton army-supply transfer |
+| Supplied `11_supply.sav` | `7608ea62372f8dacba3af38698e7462b111b96e488062ab2c3479ca34128d6f0` | After the transfer; same week |
 
 ## Executable and resources
 
@@ -36,7 +38,7 @@ The full ZIP places the ten WAV files at the archive root, while the EXE contain
 
 In each city record, bytes `0..13` contain a NUL-terminated ASCII name and little-endian words at `+14` and `+16` fall within `x=9..317`, `y=2..136`. Rendering the grid column-major places Rome, Carthago, Alexandria, Sidon, and Rhagae at geographically plausible locations, strongly supporting these as map coordinates. The parser validates that layout and preserves the remaining city bytes without naming their fields.
 
-The save is 131,313 bytes and begins with the same world-prefix layout. Compared with the DAT, it has 326 changed map cells; 311 transitions are `0 → 1`. All 334 city names and candidate coordinates agree. Twelve cities have byte changes in the word beginning at city-record offset `+24` (13 changed bytes in total). Later save data differs substantially and includes text news/events and a visible `Week 1      Spring      270 BC` label. The `+24` field and cell transitions are mutable but their meanings are unknown.
+The first save is 131,313 bytes and begins with the same world-prefix layout. Compared with the DAT, it has 326 changed map cells; 311 transitions are `0 → 1`. All 334 city names and candidate coordinates agree. Twelve cities have byte changes in the word beginning at city-record offset `+24` (13 changed bytes in total). Later save data differs substantially and includes text news/events and a visible `Week 1      Spring      270 BC` label. The map-cell transitions remain unexplained. A later controlled transfer identified city word `+24` as supplies; see below.
 
 Some city-name padding and later blocks in both DAT and SAV contain unrelated-looking Windows/MSN text. Parsers should not infer field boundaries from printable strings alone.
 
@@ -48,9 +50,11 @@ The later saves confirm that the trailer's `+40` byte resets from 11 to 1 at the
 
 A third user recording walks through the menus and shortcut icon rows. It confirms the main UI's File, Game, Strategy, Nations, Area map, Unit map, and Help command groups. Static reading of the full EXE's Delphi menu stream fills in submenu captions for fleet orders, city fortification, and mercenary filters. The recruitment and supply dialogs expose distinct unit counts, costs, stocks, and balances that can guide controlled save comparisons. See the menu/toolbar inventory; no game binary was run.
 
+The controlled `11.sav` → `11_supply.sav` pair differs in only three bytes. Rome city word `+24` falls **1,810 → 1,731**, and a post-city word at absolute `0x18A68` rises **403 → 482**. Both changes are 79 tons, matching the user's army-supply action. This strongly identifies city word `+24` as city supplies and the post-city word as that army's supplies. It does not yet establish general army-record boundaries or supply-transfer rules. The parser now exposes `CityRecord.Supplies`; see the [controlled-pair report](reports/controlled-army-supply-transfer.md).
+
 ## Next checks
 
 1. Identify the remaining terrain and special-cell meanings, using the registered screenshots and original help files.
 2. Decode full-version WinHelp topics and Delphi form streams to inventory rules and UI actions.
-3. Obtain more paired saves around one controlled action at a time, including a city-management change and a season boundary, then compare bytes to identify state fields.
+3. Obtain more paired saves around one controlled action at a time, especially a second supply transfer at another city/army, a money transfer, and recruitment, then compare bytes to identify state fields.
 4. Map full-version executable references to DAT and SAV structures before implementing turn, economy, diplomacy, and combat rules.

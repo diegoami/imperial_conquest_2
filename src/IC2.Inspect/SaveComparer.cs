@@ -35,9 +35,9 @@ internal static class SaveComparer
 
         var changedCities = 0;
         var changedOffsets = new int[WorldPrefix.CityRecordLength];
-        var changedWord24 = 0;
-        var increasedWord24 = 0;
-        var decreasedWord24 = 0;
+        var changedSupplies = new List<(string City, ushort Before, ushort After)>();
+        var increasedSupplies = 0;
+        var decreasedSupplies = 0;
         for (var i = 0; i < WorldPrefix.CityCount; i++)
         {
             var before = first.Cities[i];
@@ -58,17 +58,35 @@ internal static class SaveComparer
             if (unusualOffsets.Count > 0)
                 Console.WriteLine($"City {i} {before.Name}: additional changed record byte offsets {string.Join(", ", unusualOffsets)}");
 
-            var oldWord24 = (ushort)(before.RawByteAt(24) | before.RawByteAt(25) << 8);
-            var newWord24 = (ushort)(after.RawByteAt(24) | after.RawByteAt(25) << 8);
-            if (oldWord24 == newWord24) continue;
-            changedWord24++;
-            if (newWord24 > oldWord24) increasedWord24++;
-            else decreasedWord24++;
+            if (before.Supplies == after.Supplies) continue;
+            changedSupplies.Add((before.Name, before.Supplies, after.Supplies));
+            if (after.Supplies > before.Supplies) increasedSupplies++;
+            else decreasedSupplies++;
         }
         Console.WriteLine($"City records: {changedCities} changed of {WorldPrefix.CityCount}");
-        Console.WriteLine($"Unlabelled word +24: {changedWord24} changed ({increasedWord24} rose, {decreasedWord24} fell)");
+        Console.WriteLine($"City supplies (+24): {changedSupplies.Count} changed ({increasedSupplies} rose, {decreasedSupplies} fell)");
+        if (changedSupplies.Count <= 10)
+            foreach (var (city, before, after) in changedSupplies)
+                Console.WriteLine($"  {city}: {before} → {after} ({after - before:+#;-#;0})");
         Console.WriteLine("Changed city-record byte offsets (number of cities):");
         for (var j = 0; j < changedOffsets.Length; j++)
             if (changedOffsets[j] > 0) Console.WriteLine($"  +{j}: {changedOffsets[j]}");
+
+        if (firstBytes.Length != secondBytes.Length) return;
+        var changedTailBytes = 0;
+        var tailRuns = new List<(int Start, int End)>();
+        for (var i = WorldPrefix.SharedPrefixLength; i < firstBytes.Length; i++)
+        {
+            if (firstBytes[i] == secondBytes[i]) continue;
+            changedTailBytes++;
+            if (tailRuns.Count > 0 && tailRuns[^1].End == i - 1)
+                tailRuns[^1] = (tailRuns[^1].Start, i);
+            else
+                tailRuns.Add((i, i));
+        }
+        Console.WriteLine($"Post-city region: {changedTailBytes} changed bytes in {tailRuns.Count} runs (equal-length files only)");
+        if (changedTailBytes <= 32 && tailRuns.Count <= 10)
+            foreach (var (start, end) in tailRuns)
+                Console.WriteLine($"  0x{start:X}–0x{end:X}: {Convert.ToHexString(firstBytes.AsSpan(start, end - start + 1))} → {Convert.ToHexString(secondBytes.AsSpan(start, end - start + 1))}");
     }
 }

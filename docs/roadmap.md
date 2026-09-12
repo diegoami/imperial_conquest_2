@@ -17,7 +17,8 @@ The order matters: verify each file format and rule before depending on it in th
 
 ## 1. Build a trustworthy sample set
 
-- [x] Inventory and hash eight available saves. Record the reported one-turn relationship, [initial differences](reports/one-turn-save-comparison.md), [screenshot pairings](reports/saves-and-screenshots.md), [battle evidence](reports/battle-observation.md), and [strategic recording](reports/strategic-recording-and-summer-saves.md).
+- [x] Inventory and hash ten available saves. Record the reported one-turn relationship, [initial differences](reports/one-turn-save-comparison.md), [screenshot pairings](reports/saves-and-screenshots.md), [battle evidence](reports/battle-observation.md), [strategic recording](reports/strategic-recording-and-summer-saves.md), and [controlled supply transfer](reports/controlled-army-supply-transfer.md).
+- [x] Analyze the [controlled 79-ton army-supply transfer](reports/controlled-army-supply-transfer.md): Rome's city stock falls by 79 and the supplied army's stock rises by 79, with no other state bytes changing.
 - [ ] Keep a read-only copy of each original file. Use temporary working copies for experiments; never overwrite the originals.
 - [ ] Create small synthetic files for parser tests. Keep hashes, sizes, and expected summaries for real files in the repository, while the binary fixtures stay outside Git.
 - [x] Add a command that compares any two saves in the established map and city regions, not just DAT versus one save. Post-city sections still need record boundaries.
@@ -29,10 +30,10 @@ The order matters: verify each file format and rule before depending on it in th
 - [x] Render the candidate 320 × 140 map and overlay all city coordinates; column-major storage and coordinate orientation are strongly supported by geography.
 - [x] Match five common cell values to original screen terrain through registered screenshots.
 - [ ] Determine the remaining tile meanings and whether the grid includes dynamic markers.
-- [ ] Identify every field in the 34-byte city record by comparing saves, the help file, form labels, and executable references. Verify field width, signedness, units, and allowed range.
+- [ ] Identify every field in the 34-byte city record by comparing saves, the help file, form labels, and executable references. Verify field width, signedness, units, and allowed range. City word `+24` is now strongly identified as a 16-bit supply stock in tons.
 - [ ] Map the DAT regions after the cities: nation, army, fleet, unit, leader, and other tables; establish record boundaries and counts before assigning meanings.
 - [ ] Map the remaining SAV regions, including mutable entities, calendar, turn order, diplomacy, event log, and any checks or version markers. The aligned trailer byte `+40` follows the displayed week and resets at Spring→Summer; `+44` is a candidate season index. Confirm autumn/winter and year boundaries.
-- [ ] Replace provisional offset-based access in `IC2.Data` with typed models only when field meanings are supported. Preserve and reject unknown data safely; validate file sizes and bounds.
+- [ ] Replace provisional offset-based access in `IC2.Data` with typed models only when field meanings are supported. `CityRecord.Supplies` is the first controlled-action-backed field; preserve other unknown bytes and validate file sizes and bounds.
 - [ ] Add focused parser tests for truncated/corrupt files and known real-file summaries.
 
 **Done when:** The parser can load the full DAT and all known saves into a documented world snapshot, and every parsed field has an evidence trail and a confidence level.
@@ -98,7 +99,7 @@ The order matters: verify each file format and rule before depending on it in th
 
 ## Immediate next milestone
 
-Decode enough of the post-city records to locate nations and armies, especially the Rome–Gaul battle outcome, and identify the remaining terrain values with screenshots and help files. The eight available saves now support city ownership codes, turn-wide city changes, local 61-byte news slots, a week-within-season byte, and a candidate season index. The recorded city-management dialog provides a specific target for the next controlled comparison. These steps will turn the current prefix reader into a useful world-state viewer and give the later game model validated inputs.
+Decode enough of the post-city records to locate nations and armies, especially the army-supply word identified by the controlled `11.sav` pair and the Rome–Gaul battle outcome. The available saves now support city ownership codes, city supplies, turn-wide city changes, local 61-byte news slots, a week-within-season byte, and a candidate season index. A second transfer involving another army or city will help establish whether the observed post-city offset belongs to a repeating army record. These steps will turn the current prefix reader into a useful world-state viewer and give the later game model validated inputs.
 
 ## Scope decisions to revisit at the right time
 

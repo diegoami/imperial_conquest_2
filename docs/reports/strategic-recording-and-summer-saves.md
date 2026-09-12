@@ -17,7 +17,7 @@ The recording is H.264 at 1920 × 1080 with AAC audio. Its sampled frames show t
 
 The previous `7.sav` ends at **Week 11 Spring 270 BC**. The sequence then reads **Week 1 Summer**, **Week 3 Summer**, and **Week 5 Summer**. The byte at `+40` of the aligned final 55-byte save trailer reads `11, 1, 3, 5` respectively, matching the displayed week within a season. It is therefore a week-of-season candidate, not a monotonically increasing campaign-turn counter. Trailer `+44` is `0` in all five Spring saves and `1` in all three Summer saves; it is a strong candidate for the season index (`0 = Spring`, `1 = Summer`). Between `7.sav` and `8.sav`, these are the only two bytes in the aligned trailer that change. Autumn/Winter values and year storage remain unverified.
 
-| Comparison | Changed map cells | Changed city records | City word `+24` changes | City owner word `+18` |
+| Comparison | Changed map cells | Changed city records | City supplies `+24` changes | City owner word `+18` |
 | --- | ---: | ---: | ---: | --- |
 | `7.sav` → `8.sav` | 124 | 307 | 279 | None |
 | `8.sav` → `9.sav` | 70 | 251 | 250 | None |

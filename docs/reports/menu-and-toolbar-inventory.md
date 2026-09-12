@@ -39,5 +39,5 @@ The nation-coloured icon row corresponds to the Nations selection menu; the area
 
 1. Model commands independently of presentation: File/game flow, national strategy, map filters, army/fleet/city orders, and help. Menu entries and their shortcut icons should call the same command handler.
 2. Decode the full main-form stream to map toolbar button names and hints to menu handlers, then document exact icon-to-command matches. The EXE contains event-handler names such as `StrategicDecision`, `ChangeNation`, `ShowOnAreaMap`, and `UnitMapAction`; those names show routing but not gameplay effects.
-3. Compare a save immediately before and after one recruitment or supply action to identify the matching unit, city, money, and supply fields. The recording alone cannot isolate those changes from turn processing.
+3. The [first controlled supply pair](controlled-army-supply-transfer.md) identifies Rome's city supply word and one army supply word. Repeat at another city/army, then compare a separate recruitment or money-transfer pair to identify the remaining fields.
 4. Decode help topics for preconditions and costs before implementing each command in the headless engine.
