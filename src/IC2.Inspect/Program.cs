@@ -1,21 +1,46 @@
 using IC2.Data;
 
-if (args.Length is < 1 or > 2)
+string datPath;
+string? savePath = null;
+if (args.Length == 0 || (args.Length == 2 && args[0] == "--save") ||
+    (args.Length == 2 && args[0] == "--config") ||
+    (args.Length == 4 && args[0] == "--config" && args[2] == "--save"))
 {
-    Console.Error.WriteLine("Usage: IC2.Inspect <Imperial Conquest 2.dat> [save.sav]");
+    try
+    {
+        var configPath = args.Length >= 2 && args[0] == "--config" ? args[1] : "assets.local.ini";
+        var settings = AssetSettings.Load(configPath);
+        datPath = settings.DatPath;
+        if (args.Length >= 2 && args[^2] == "--save")
+            savePath = settings.ResolveSavePath(args[^1]);
+    }
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+    {
+        Console.Error.WriteLine(ex.Message);
+        return 1;
+    }
+}
+else if (args.Length is 1 or 2 && args[0] != "--save" && args[0] != "--config")
+{
+    datPath = args[0];
+    if (args.Length == 2) savePath = args[1];
+}
+else
+{
+    Console.Error.WriteLine("Usage: IC2.Inspect [--save <save.sav>] | [--config <assets.ini> [--save <save.sav>]] | <data.dat> [save.sav]");
     return 2;
 }
 
 try
 {
-    var dat = WorldPrefix.Parse(File.ReadAllBytes(args[0]));
+    var dat = WorldPrefix.Parse(File.ReadAllBytes(datPath));
     Console.WriteLine($"DAT: {dat.Cells.Count} map cells, {dat.Cities.Count} city records");
     Console.WriteLine($"Candidate map: {WorldPrefix.MapWidth} × {WorldPrefix.MapHeight}");
     Console.WriteLine($"First/last city: {dat.Cities[0].Name} / {dat.Cities[^1].Name}");
 
-    if (args.Length == 2)
+    if (savePath is not null)
     {
-        var save = WorldPrefix.Parse(File.ReadAllBytes(args[1]));
+        var save = WorldPrefix.Parse(File.ReadAllBytes(savePath));
         var changedCells = 0;
         var zeroToOne = 0;
         for (var i = 0; i < dat.Cells.Count; i++)
@@ -48,4 +73,3 @@ catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or A
     Console.Error.WriteLine(ex.Message);
     return 1;
 }
-

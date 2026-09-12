@@ -16,4 +16,6 @@ obj/
 *.wav
 *.WAV
 *.zip
+/assets.local.ini
+/private-assets/
 

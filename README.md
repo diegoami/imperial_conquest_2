@@ -9,13 +9,25 @@ The first milestone is a C#/.NET parser for the shared world prefix in the origi
 - .NET 10 SDK to build and run the parser and command-line inspector. A future Godot C# project must target a compatible .NET version to reference the parser library.
 - A copy of `Imperial Conquest 2.dat`; optionally, a `.sav` file for comparison.
 
+## Point the inspector at your original files
+
+Keep the original game files in a folder outside this repository. Copy `assets.example.ini` to `assets.local.ini` in the repository root, then set `directory` to the folder containing `Imperial Conquest 2.dat`. For example:
+
+```ini
+[assets]
+directory = C:\path\to\imp_conq_original
+```
+
+`assets.local.ini` is Git-ignored because it is specific to your computer. The tracked example is safe to share. Saves may be placed in a `saves` subfolder of the asset directory; sound files can remain in `WAVS`. The inspector reads the DAT and optional save only. It does not need the EXE, help, or sounds.
+
 From the repository root:
 
 ```text
 dotnet build src/IC2.Inspect/IC2.Inspect.csproj
-dotnet run --project src/IC2.Inspect/IC2.Inspect.csproj -- "path/to/Imperial Conquest 2.dat" "path/to/a-save.sav"
+dotnet run --project src/IC2.Inspect/IC2.Inspect.csproj
+dotnet run --project src/IC2.Inspect/IC2.Inspect.csproj -- --save "saves/1,sav.sav"
 ```
 
-The inspector validates the 320 × 140 grid and 334 city records, then reports changed cells and city records if a save is supplied. It prints findings only; it does not execute or modify the original game.
+Run these commands from the repository root. The inspector validates the 320 × 140 grid and 334 city records, then reports changed cells and city records if a save is supplied. A relative save path is resolved under the configured asset directory. For automation, `--config <path>` selects a different INI; the original positional DAT/SAV paths still work. The inspector prints findings only; it does not execute or modify the original game.
 
 See [research notes](docs/research.md) for evidence, uncertain fields, archive hashes, and next steps. The original files are intentionally excluded by `.gitignore`.
