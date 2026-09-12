@@ -20,8 +20,8 @@ The single strongest confirmation this project has produced. Tracing forward fro
 | Current nation | 2 | matches `DAT_004a0320`, used throughout this project's decompiled code as "current nation index" |
 | Fixed fields | 2+2+2+2 | unidentified |
 | Calendar/turn block | 8 | plausibly related to the known week/season/year/active-nation trailer fields — the save code reads these directly from UI state (`FUN_00412880`, map scroll position getters) rather than from a stored struct, suggesting this may be display state, not the turn trailer itself |
-| **Battle-in-progress flag** | 1 | **New finding: if set, additional battle-state data follows** |
-| *(conditional, only if battle flag set)* | 2+2+2+1+2+1,760+336 | Tactical battle state — unit placement array (`0x6e0` = 1,760 bytes) and grid state (`0x150` = 336 bytes). **This means a save made mid-battle is a different length than every sample this project has examined so far** — none of the sampled saves were taken mid-battle. |
+| **Battle-in-progress flag** | 1 | **New finding: the code path exists, but the user confirms saving during a battle is not possible in the game's UI** — there's no save option while the battle screen is open. So while this branch is real and the format technically supports it, it's not something any normal save file will ever contain; it may be dead code, or reachable only through some non-standard path this project hasn't identified. |
+| *(conditional, only if battle flag set)* | 2+2+2+1+2+1,760+336 | Tactical battle state — unit placement array (`0x6e0` = 1,760 bytes) and grid state (`0x150` = 336 bytes). Structurally interesting (it tells us the in-memory layout of an active battle) but not something to expect in any real save. |
 
 ## A brand-new record type: 61 bytes, count-prefixed
 
@@ -31,7 +31,7 @@ Immediately after the (now code-confirmed) mercenary table, the save reads a 2-b
 
 ## Why this matters
 
-This single pair of functions independently reconfirms, from the actual serialization code rather than inference, nearly every structural fact this project has built up from save-diffing over many reports: the map size, city table size and stride, the army/fleet/nation table record lengths, and — most importantly — the mercenary table's 50-slot capacity that `mercenary-pool-record.md` had to discover empirically by testing where plausible data stopped. It also explains something no prior report could: **why a save's total length might vary in ways not accounted for by army/fleet/city-unit counts alone** — a save taken during an active battle carries an entire extra block of tactical state that every sample examined so far (none mid-battle) simply never had.
+This single pair of functions independently reconfirms, from the actual serialization code rather than inference, nearly every structural fact this project has built up from save-diffing over many reports: the map size, city table size and stride, the army/fleet/nation table record lengths, and — most importantly — the mercenary table's 50-slot capacity that `mercenary-pool-record.md` had to discover empirically by testing where plausible data stopped. It also reveals a code path — the battle-state block — that will never actually appear in a real save file, since the user confirms the game doesn't allow saving while a battle is in progress. That's still useful: it means every save's length is fully accounted for by the fields above it (map/city/army/fleet/nation/mercenary/the new 61-byte records/the fixed tail), with no need to consider a battle-state variant when reasoning about file sizes.
 
 ## What this does not establish
 
@@ -52,4 +52,4 @@ analyzeHeadless <project> IC2 -process "Imperial Conquest 2.exe" -noanalysis -sc
 
 1. Resolve the 6-byte reconciliation gap by recounting both the code-derived tail and the original 3,042-byte measurement carefully.
 2. Identify the 61-byte record type — cross-reference against `TPickLeaders`'s fields, or find a save with a known number of leaders/other countable entities to solve for what `DAT_004a031e` counts.
-3. If a save is ever taken mid-battle, use it to confirm the conditional battle-state block's exact layout (unit placement array, grid state) against the tactical battle mechanics already decompiled in `decompiled-combat-formula-structure.md`.
+3. The battle-state block cannot be tested against a real save (saving mid-battle isn't possible in the game). If it matters later, it would need to be understood from the code alone, cross-referenced against the tactical battle mechanics already decompiled in `decompiled-combat-formula-structure.md`, rather than from a save example.
