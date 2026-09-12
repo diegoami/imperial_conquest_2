@@ -40,6 +40,7 @@ The order matters: verify each file format and rule before depending on it in th
 ## 3. Recover the game rules and UI behavior
 
 - [ ] Decode the full-version WinHelp topics and Delphi `TPF0` form resources. Use the help contents and UI event names to build a feature inventory.
+- [x] Inventory the main menu from the user walkthrough and embedded `TMainMenu` stream; [record command groups and observed dialogs](reports/menu-and-toolbar-inventory.md). Full form/help decoding and exact toolbar mappings remain open.
 - [ ] Analyze the full v1.01 EXE statically, starting from DAT/SAV I/O, end-turn, city changes, movement, combat, diplomacy, AI, and victory messages. Use the demo EXE to isolate demo-only behavior.
 - [ ] Write a rules specification for the turn sequence, calendar, economy/taxation, city management, recruitment, armies/fleets, terrain and supply, diplomacy, tactical battle, AI, and victory/defeat.
 - [ ] Record each formula or rule with its source: manual topic, executable location, save comparison, or observed behavior. Mark guesses separately.
@@ -62,6 +63,7 @@ The order matters: verify each file format and rule before depending on it in th
 - [ ] Pin compatible Godot .NET and .NET versions, then add a Godot project that references the C# data/core libraries.
 - [ ] Draw the world map with pan/zoom, city/army/fleet markers, selection, tooltips, and clear ownership and terrain cues. Keep map rendering separate from game rules.
 - [ ] Add the main gameplay screens: nation setup, city details, army/fleet details, orders, economy, diplomacy, news, and end-turn flow.
+- [ ] Route toolbar shortcuts and menu entries through the same command definitions, following the original interface's shared actions.
 - [ ] Add tactical battle presentation and controls after the headless battle model is testable.
 - [ ] Make keyboard and mouse interaction, scaling, and basic accessibility usable on modern desktops.
 

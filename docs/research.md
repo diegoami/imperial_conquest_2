@@ -1,8 +1,8 @@
 # Static research notes
 
-All observations below come from reading the supplied demo ZIP, full-version ZIP, eight saves, eight paired screenshots, and two user recordings as data or media. No game binary was executed for this research. Field labels beyond city names, coordinates, screenshot-backed terrain classes, and strongly corroborated owner codes remain provisional.
+All observations below come from reading the supplied demo ZIP, full-version ZIP, eight saves, eight paired screenshots, and three user recordings as data or media. No game binary was executed for this research. Field labels beyond city names, coordinates, screenshot-backed terrain classes, and strongly corroborated owner codes remain provisional.
 
-Detailed evidence and per-file hashes are preserved in the [demo static-analysis report](reports/impconq2-initial-report.md), [full-version/save analysis](reports/impconq2-full-save-analysis.md), [one-turn save comparison](reports/one-turn-save-comparison.md), [map-layout notes](reports/map-layout.md), [save/screenshot analysis](reports/saves-and-screenshots.md), [battle observation](reports/battle-observation.md), and [strategic recording and summer saves](reports/strategic-recording-and-summer-saves.md).
+Detailed evidence and per-file hashes are preserved in the [demo static-analysis report](reports/impconq2-initial-report.md), [full-version/save analysis](reports/impconq2-full-save-analysis.md), [one-turn save comparison](reports/one-turn-save-comparison.md), [map-layout notes](reports/map-layout.md), [save/screenshot analysis](reports/saves-and-screenshots.md), [battle observation](reports/battle-observation.md), [strategic recording and summer saves](reports/strategic-recording-and-summer-saves.md), and [menu/toolbar inventory](reports/menu-and-toolbar-inventory.md).
 
 ## Known inputs
 
@@ -45,6 +45,8 @@ Comparing the two saves after one reported turn shows 331 city records change at
 Additional saves and matching screenshots strengthen two interpretations: the trailer byte at `+40` matches displayed weeks 1, 3, 7, 9, and 11, and city word `+18` tracks ownership changes for Rome/Gaul as well as Ptolemaic/Seleucid. Registered screenshots also establish original terrain colors for cell values `0`, `2`, `3`, `4`, and `5`. See the save/screenshot analysis for exact evidence and limitations.
 
 The later saves confirm that the trailer's `+40` byte resets from 11 to 1 at the Spring→Summer boundary and then advances to 3 and 5. It is a displayed week-within-season candidate, not a monotonic turn counter. Trailer `+44` is 0 in every Spring save and 1 in every Summer save, strongly suggesting a season index. `10.sav` changes Tarquinii, Caere, and Ariminum from owner code 6 to 0; the news explicitly reports Tarquinii and Ariminum defecting from Gaul to Rome. The battle recording ends in a Rome victory with 39,941 of 50,700 Rome troops surviving, and `8.sav` records “Rome destroys army of Gaul.” See the two recording reports for exact evidence and limits.
+
+A third user recording walks through the menus and shortcut icon rows. It confirms the main UI's File, Game, Strategy, Nations, Area map, Unit map, and Help command groups. Static reading of the full EXE's Delphi menu stream fills in submenu captions for fleet orders, city fortification, and mercenary filters. The recruitment and supply dialogs expose distinct unit counts, costs, stocks, and balances that can guide controlled save comparisons. See the menu/toolbar inventory; no game binary was run.
 
 ## Next checks
 
