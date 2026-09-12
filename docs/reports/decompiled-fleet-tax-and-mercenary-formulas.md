@@ -6,7 +6,7 @@ The first real decompilation pass (see [decompilation-plan.md](../decompilation-
 
 Delphi 2 stores a per-class method table in the binary: a `Word Count` followed by `Count` entries of `{Word EntrySize; Pointer CodeAddress; Byte NameLen; Char Name[NameLen]}` (`EntrySize` includes its own 2 bytes, i.e. `EntrySize = 7 + NameLen`), immediately followed by the class name as the same length-prefixed string format. This was confirmed byte-for-byte against the seven addresses `battle-code-entry-points.md` had already found by hand (e.g. `StartBattle` at `0x00436fb4`), then used to scan the entire 1,166,336-byte EXE. Every plausible `{Count, entries...}` region that parsed completely (all entries structurally valid, all addresses inside the CODE section, all names printable ASCII) was accepted; **31 tables, 282 methods, every one matching a real class name** — all 30 `TPF0` form resources from `impconq2-initial-report.md` plus `TObject`'s base table. This is a general-purpose technique, not specific to battle code: it recovered `TChangeTax`, `TBuildFleet`, and `TRecruitMercs`'s methods along with everything else, none of which had known addresses before. The 282 symbols were imported into the Ghidra project as `ClassName_MethodName`.
 
-## Fleet order: cost, capacity, and one unexplained number
+## Fleet order: cost, capacity, and quarterly upkeep
 
 `TBuildFleet_ChangeFleetSize` clamps the ship-count spinner to `[10, 100]` via two calls that read as `min`/`max` helpers — matching the "100 ships when combining fleets" error string from `impconq2-initial-report.md`, now also confirmed as the single-order cap, with 10 as the floor (i.e. **not** a value the user chose arbitrarily when testing — it's the dialog's minimum).
 
@@ -16,7 +16,7 @@ Delphi 2 stores a per-class method table in the binary: a `Word Count` followed 
 | --- | --- | --- |
 | `n` | ship count, displayed as-is | — |
 | `n * 10` | **cost in talents** | Exactly the 100-talent cost for the user's 10-ship order ([fleet-order-at-caere.md](fleet-order-at-caere.md)) |
-| `n * 3` | unlabelled | Not yet matched to any observation — candidate quarterly upkeep per ship, unconfirmed |
+| `n * 3` | **quarterly upkeep in talents** | Confirmed: [decompiled-quarterly-billing-and-economy.md](decompiled-quarterly-billing-and-economy.md) found the exact deduction `owner.treasury -= shipCount × 3` charged once per season for every deployed fleet — this dialog value was previewing that ongoing cost, not a one-time charge |
 | `n * 500` | **troop capacity** | Exactly the 500-troops/ship capacity the user reported |
 
 Two of three known quantities land exactly on formulas now confirmed from real code, and `n * 500` also reappears independently in the mercenary-hiring capacity check below (see next section) — the same constant showing up twice from two different form classes is good corroboration it's a fixed, general fleet-capacity constant rather than coincidence.
