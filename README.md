@@ -2,7 +2,11 @@
 
 This repository contains original research code and documentation toward a modern reimplementation of Imperial Conquest 2. It does **not** contain the game's executables, data, help files, sounds, or saves. Supply files from your own installation when using the tools.
 
-The first milestone is a C#/.NET parser for the shared world prefix in the original `.DAT` and `.sav` files. Godot will be used later for the map and interface; it is not required to build or run this parser.
+The first milestone is a C#/.NET parser for the shared world prefix in the original `.DAT` and `.sav` files. A first Godot map viewer now uses that parser to show terrain and cities. Godot is not required to build or run the command-line inspector.
+
+## Godot map viewer
+
+After setting `assets.local.ini`, open `godot/project.godot` with the Godot .NET edition (currently 4.7.2) and run the project. The viewer reads the original DAT from the configured external directory, draws its 320 × 140 map and 334 cities, and lets you click a city to see its name, coordinates, and initial supply stock. Click elsewhere to inspect a raw map-cell value. Terrain colors are provisional, and the viewer does not yet implement turns or combat. It does not copy original assets into the repository.
 
 ## Requirements
 
