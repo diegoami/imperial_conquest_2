@@ -416,11 +416,12 @@ Conventions used by every entry:
 - **Branch**: `task/T11-asset-pack` · **Model/effort**: **Haiku / Medium** · **Reviewer**: Sonnet / Medium
 - **Start after**: T02 · **Merge after**: T02
 - **Owns**: `src/IC2.Engine/Assets/**`, `assets/packs/placeholder/**`, `scripts/generate-placeholder-assets.*`, `tests/IC2.Engine.Tests/Assets/**`
-- **Scope**: The manifest loader mapping stable keys to files, plus a **deterministic generator script** producing the placeholder pack (flat-colour unit icons, terrain tiles, silent-but-valid audio stubs). No copyrighted original asset ever enters the repo — the existing `.gitignore` policy is unchanged and unchallenged.
+- **Scope**: The manifest loader mapping stable keys to files, plus a **deterministic generator script** producing the placeholder pack (flat-colour unit icons, terrain tiles, silent-but-valid audio stubs). Includes the **size-tiered city/army/fleet icon set** (`game-design.md` §"City and army markers scale with size") — a small ordered set of `city.tierN.icon`/`army.tierN.icon`/`fleet.tierN.icon` keys plus `city.capital.icon`, each a distinct (not just recoloured) placeholder shape so the tiers are visually distinguishable at a glance even in flat placeholder art. No copyrighted original asset ever enters the repo — the existing `.gitignore` policy is unchanged and unchallenged.
 - **Done when**:
   1. Every key in the engine's `AssetKeys` constant list resolves to a file that exists in the placeholder pack.
   2. A missing key raises a typed error naming the key, not a null.
   3. Re-running the generator produces byte-identical files (`git status` clean after a re-run) — asserted by the test running the generator into a temp dir and comparing hashes.
+  4. `AssetKeys` includes the full city/army/fleet tier set from `game-design.md`, and a test asserts each tier's icon file is pixel-different from its neighbouring tiers (not the same placeholder shape re-exported under a different key).
 
 #### T12 Victory conditions
 
@@ -610,12 +611,13 @@ Conventions used by every entry:
 - **Branch**: `task/T24-godot-main-screen` · **Model/effort**: Sonnet / High · **Reviewer**: Sonnet / High **+ human visual review**
 - **Start after**: T23 · **Merge after**: T11, T23
 - **Owns**: `godot/**`, `tests/IC2.Engine.Tests/Ui/**`
-- **Scope**: The **main menu and New Game flow** (previously unowned by any task — added here because it gates every screen after it) — New Game / Load / Settings / Quit, with the **ruleset chooser as the flow's first, most prominent screen**: a two-card `Classical Faithful` vs `Improved` picker with a plain-language summary of what each changes, shown before scenario/seat selection, `Classical Faithful` pre-highlighted as the default (`game-design.md` §UI item 1). Also: top bar, the persistent contextual side panel, the bottom filter toolbar, the non-modal news log, and extending the existing `MapViewer` from read-only to issuing commands. Follows the published mockup's **layout intent**, not its markup (`game-design.md` §UI names the artifact URL).
+- **Scope**: The **main menu and New Game flow** (previously unowned by any task — added here because it gates every screen after it) — New Game / Load / Settings / Quit, with the **ruleset chooser as the flow's first, most prominent screen**: a two-card `Classical Faithful` vs `Improved` picker with a plain-language summary of what each changes, shown before scenario/seat selection, `Classical Faithful` pre-highlighted as the default (`game-design.md` §UI item 1). Also: top bar, the persistent contextual side panel, the bottom filter toolbar, the non-modal news log, and extending the existing `MapViewer` from read-only to issuing commands — including replacing `MapViewer`'s current size-blind `DrawCity`/`DrawArmy`/`DrawFleet` with the **size-tiered markers** from T11's asset pack (`game-design.md` §"City and army markers scale with size"): city tier picked from `PopulationThousands`, army/fleet tier from troop/ship count, capital called out separately. Follows the published mockup's **layout intent**, not its markup (`game-design.md` §UI names the artifact URL).
 - **Done when**:
   1. `Godot_..._console.exe --headless --path godot --quit-after 2` exits 0.
   2. A scripted headless Godot run loads a scenario, issues one order of each type through the command layer, and ends a turn, exiting 0.
   3. `scripts/check-godot-churn.ps1` reports a clean tree after that run (the HANDOVER `project.godot`/line-ending caveat is handled, not left to a human to remember).
   4. A scripted headless run reaches the New Game flow and asserts the ruleset chooser renders both `Classical Faithful` and `Improved` as equally-weighted, labelled options **before** any scenario/seat control is reachable, and that `Classical Faithful` is the pre-selected default; picking either value is what the scenario bootstrap actually reads (not a cosmetic control disconnected from the loaded `Ruleset`).
+  5. A test asserts the map marker for a low-population city and a high-population city resolve to different asset keys (and likewise for a small vs. large army/fleet), driven by the loaded `GameState`'s actual numbers, not a fixed marker per owner.
 - **Constraints**: `single-instance` — the only Godot-touching task that may be in flight. Needs human visual sign-off; see [§11](#11-open-questions-for-the-user) question 2.
 
 #### T25 Battle result, diplomacy, and hotseat handoff screens
