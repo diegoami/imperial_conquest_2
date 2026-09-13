@@ -24,11 +24,11 @@ namespace IC2.Engine.Core;
 /// TPremierForm_EndTurn     -> FUN_0045af00 end-turn validity check,
 ///                             then nationTurnIndex = (index + 1) mod 16    -> SeatEnd
 /// if nationTurnIndex == 0: FUN_004514ec, the global weekly tick:
-///     week/season/year advance                                             -> CalendarAdvance
 ///     loop all cities: population growth, StateCode += 2 capped at 24      -> CityTick
 ///     loop all armies: seasonal supply consumption, moves recomputed       -> ArmyTick
 ///     loop all fleets: construction countdown, storms and losses at sea    -> FleetTick
 ///     FUN_00451304: the seasonal weather-event system                      -> WeatherEvents
+///     week/season/year advance                                             -> CalendarAdvance
 /// </code>
 /// <para>
 /// Two departures from that trace, both deliberate and both stated so a reviewer can check them:
@@ -42,11 +42,24 @@ namespace IC2.Engine.Core;
 /// win check is evaluated relative to them.
 /// </para>
 /// <para>
-/// The ordering inside <c>FUN_004514ec</c> — calendar first, then cities, armies, fleets — is the order
-/// that report lists the steps in. It does not state outright that the calendar advance precedes the
-/// three loops, but seasonal population growth and seasonal supply consumption both read the season,
-/// so any other reading would have them read the previous season's row. Flagged here rather than
-/// asserted silently.
+/// <strong>The calendar advance runs last within the tick, not first — corrected from T03's original
+/// order by T06 (see <c>docs/build-orchestration-plan.md</c> §"T06 Calendar and turn sequencing" DoD
+/// 6).</strong> T03 originally placed <see cref="CalendarAdvance"/> before <see cref="CityTick"/>,
+/// <see cref="ArmyTick"/> and <see cref="FleetTick"/>, and said so explicitly as an unconfirmed guess:
+/// "It does not state outright that the calendar advance precedes the three loops... Flagged here
+/// rather than asserted silently." <c>docs/investigations/thracia-supply-morale.md</c> — a pass
+/// commissioned after T03 merged, specifically to trace the supply→morale rule — settles it the other
+/// way, from the same decompiled dump T03 could not fully resolve: "The calendar update at the end of
+/// the tick is <c>week = (week + 2) % 12</c>" (line offsets 54663-54677, versus the army loop at
+/// 54501-54529), and "<c>FUN_00451304</c> [the weather system]... the only other function the tick
+/// calls <em>between the army loop and the calendar update</em>." <c>docs/design-audit.md</c> §2.9a
+/// states the same order in prose: "the original's tick <c>FUN_004514ec</c> runs its army loop, then
+/// its fleet loop, then the weather system, and only then updates the calendar." Getting this backwards
+/// is not cosmetic: seasonal population growth, seasonal army supply consumption and the weather system
+/// all read the season value, and T08's per-season consumption figures are wrong by 7× if they read the
+/// season <em>after</em> it has already advanced rather than the one the turn actually ran under. The
+/// <see cref="TurnPhases.Ordered"/> array below reflects the corrected order; the enum's underlying
+/// integer values were renumbered alongside it so the numbers do not keep telling the old, wrong story.
 /// </para>
 /// </remarks>
 public enum TurnPhase
@@ -72,34 +85,39 @@ public enum TurnPhase
     SeatEnd = 30,
 
     /// <summary>
-    /// Round scope. The week/season/year advance: <c>week = (week + 2) mod 12</c>, season on the 11→1
-    /// wrap, year decrement on the Winter→Spring wrap. The quarterly hook fires from inside this phase —
-    /// see <see cref="IQuarterBoundaryHandler"/>. Consumer: T06.
-    /// </summary>
-    CalendarAdvance = 40,
-
-    /// <summary>
     /// Round scope. Every city: seasonal, loyalty-modulated population growth, and the city-unit
     /// <c>StateCode</c> step. Consumers: T08 economy, T13 recruitment, T18 city orders.
     /// </summary>
-    CityTick = 50,
+    CityTick = 40,
 
     /// <summary>
     /// Round scope. Every army: seasonal supply consumption (different at a city and in the field) and
-    /// the weekly recomputation of available moves. Consumers: T08 economy, T09 movement.
+    /// the weekly recomputation of available moves — the attrition phase T08's supply/morale rule
+    /// registers into. Runs against the season that is ending, before <see cref="CalendarAdvance"/>
+    /// moves it on; see this enum's remarks. Consumers: T08 economy, T09 movement.
     /// </summary>
-    ArmyTick = 60,
+    ArmyTick = 50,
 
     /// <summary>
     /// Round scope. Every fleet: the construction countdown and its completion, and the storm/lost-at-sea
-    /// rolls for fleets already at sea. Consumer: T14 naval.
+    /// rolls for fleets already at sea — the attrition phase T14's fleet attrition registers into. Also
+    /// runs before <see cref="CalendarAdvance"/>; see this enum's remarks. Consumer: T14 naval.
     /// </summary>
-    FleetTick = 70,
+    FleetTick = 60,
 
     /// <summary>
     /// Round scope. The seasonal weather-event system (<c>FUN_00451304</c>). Consumer: T08 economy.
     /// </summary>
-    WeatherEvents = 80,
+    WeatherEvents = 70,
+
+    /// <summary>
+    /// Round scope. The week/season/year advance: <c>week = (week + 2) mod 12</c>, season on the 11→1
+    /// wrap, year decrement on the Winter→Spring wrap. Runs <em>last</em> in the global tick — after
+    /// <see cref="CityTick"/>, <see cref="ArmyTick"/>, <see cref="FleetTick"/> and
+    /// <see cref="WeatherEvents"/>, not before them; see this enum's remarks. The quarterly hook fires
+    /// from inside this phase — see <see cref="IQuarterBoundaryHandler"/>. Consumer: T06.
+    /// </summary>
+    CalendarAdvance = 80,
 
     /// <summary>
     /// Round scope, <strong>[designed]</strong> — see this enum's remarks. Everything that must be
@@ -134,11 +152,11 @@ public static class TurnPhases
         TurnPhase.SeatStart,
         TurnPhase.Orders,
         TurnPhase.SeatEnd,
-        TurnPhase.CalendarAdvance,
         TurnPhase.CityTick,
         TurnPhase.ArmyTick,
         TurnPhase.FleetTick,
         TurnPhase.WeatherEvents,
+        TurnPhase.CalendarAdvance,
         TurnPhase.RoundEnd,
     };
 
