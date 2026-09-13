@@ -19,6 +19,9 @@ indent_size = 4
 
 [*.{sln,slnx}]
 indent_style = tab
+# dotnet/Visual Studio always writes .sln with a UTF-8 BOM; without this override the repo-wide
+# `charset = utf-8` (no BOM) above could make an editorconfig-aware editor strip it on save.
+charset = utf-8-bom
 
 [*.{json,yml,yaml}]
 indent_size = 2

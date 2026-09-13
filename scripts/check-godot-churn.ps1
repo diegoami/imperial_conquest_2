@@ -50,6 +50,14 @@ function Test-HasDiffFromHead {
 }
 
 function Test-WhitespaceOnlyDiff {
+    # NOTE: on a machine with `core.autocrlf=true` (this repo's default, no .gitattributes overrides
+    # it for godot/MapViewer.cs), git already normalises CRLF<->LF on the way into the index/diff,
+    # so a *pure* line-ending flip is frequently invisible to `git diff --quiet` before this function
+    # even runs - Test-HasDiffFromHead already returns $false and the caller never gets here. This
+    # function's --ignore-all-space/--ignore-blank-lines check is not dead code, though: it still
+    # earns its keep for a mixed change (real whitespace edits alongside a CRLF flip, or a checkout
+    # from a machine with a different autocrlf setting) where a diff from HEAD does exist but is
+    # still whitespace-only.
     param([string]$RepoRoot, [string]$RelativePath)
     git -C $RepoRoot diff --quiet --ignore-all-space --ignore-blank-lines HEAD -- $RelativePath
     return ($LASTEXITCODE -eq 0)
@@ -124,7 +132,12 @@ foreach ($target in $targets) {
     }
 
     if ($isBenign) {
-        git -C $repoRoot checkout -- $rel
+        # Must restore from HEAD, not just `checkout -- <path>` (which restores from the INDEX).
+        # If the churn was already staged - e.g. `git add -A` before committing, the ordinary
+        # workflow right after a Godot headless run - `checkout -- <path>` would silently restore
+        # the staged churn over itself, leaving it staged and reporting a false "reverted".
+        # `checkout HEAD -- <path>` updates both the index and the working tree to match HEAD.
+        git -C $repoRoot checkout HEAD -- $rel
         $reverted.Add($rel)
         $statusLines.Add("${rel}: reverted (whitespace/header-only churn from a Godot headless run)")
     }
