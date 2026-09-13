@@ -10,7 +10,7 @@ It changes **no design decision**. Every rule, constant, and *done when* here tr
 >
 > Task scope, Definition of Done, model, effort, dependencies and branch names live here and change only by a deliberate commit to `main`. Progress — what is queued, in flight, in review, merged, blocked or escalated — lives entirely in GitHub issue/PR labels. Nothing in this repository is edited to track progress, because a progress file on `main` would conflict with every task branch in flight.
 >
-> **Live state**: [issue #29, the pinned build tracker](https://github.com/diegoami/imperial_conquest_2/issues/29). The 28 task issues are #1–#28, numbered to match their task ids.
+> **Live state**: [issue #29, the pinned build tracker](https://github.com/diegoami/imperial_conquest_2/issues/29). Task issues #1–#28 are numbered to match their task ids; T29 (added after the tracker claimed #29) is the one exception — it's [issue #32](https://github.com/diegoami/imperial_conquest_2/issues/32).
 
 Related reading, in order: [HANDOVER.md](HANDOVER.md) (current state) → [game-design.md](game-design.md) (what is being built) → [design-audit.md](design-audit.md) (what the evidence actually supports) → this document (how it gets built).
 
@@ -154,6 +154,8 @@ graph TD
   T01[T01 scaffolding+CI] --> T02[T02 domain model]
   T01 --> T04[T04 fixtures corpus]
   T02 --> T03[T03 engine seams]
+  T02 --> T29[T29 export classical world]
+  T04 --> T29
   T05[T05 .github hygiene]
 
   T03 --> T06[T06 calendar]
@@ -211,7 +213,7 @@ graph TD
 | --- | --- | --- |
 | 0 | **T01, T05** | Disjoint file sets (`/`+`tests/` vs `.github/`). |
 | 1 | **T02, T04** | T04 needs only the test project from T01. |
-| 2 | **T03** | The single serialization point of the whole plan. Nothing else runs. |
+| 2 | **T03, T29** | T03 is the single serialization point for engine code; T29 only needs T02's schema and T04's corpus, and owns disjoint paths (`data/worlds/classical-mediterranean.json`, `data/rulesets/classical-faithful.json`, `scripts/**`, `tests/IC2.Engine.Tests/Export/**`), so it runs alongside T03 rather than blocking on it. |
 | 3 | **T06, T07, T08, T09, T10, T11, T12** | Seven-way fan-out; the widest point. Concurrency-capped to 3 at a time. |
 | 4 | **T13, T14, T15, T16** | T16 is the long pole. |
 | 5 | **T17, T18, T19, T20, T21, T22** | Internally ordered: T17 first, then T18/T19/T20 in parallel, then T21 and T22. T22 is the long pole. |
@@ -222,14 +224,14 @@ graph TD
 ### 4.2 Parallel-safe vs strictly sequential, stated plainly
 
 - **Strictly sequential, no alternative**: T01 → T02 → T03. Also T16 → T17 (a siege *is* a battle), T17 → T18 (a siege wipes a pending fortify order, which is T18's DoD), T08 → T13 (mercenary hire debits the army purse that T08 defines), T24 → T25 → T27 (Godot, single-instance).
-- **Parallel-safe, genuinely**: the whole of wave 3 (seven independent pure-rules systems over disjoint directories); T13/T14/T15 against each other; T18/T19/T20/T21 against each other; T26 against the Godot lane.
+- **Parallel-safe, genuinely**: the whole of wave 3 (seven independent pure-rules systems over disjoint directories); T13/T14/T15 against each other; T18/T19/T20/T21 against each other; T26 against the Godot lane; T29 against T03 (disjoint paths, and T29 needs only T02's schema and T04's corpus, not T03's engine seams).
 - **Looks parallel but is not**: T12 (victory) reads city counts and could be written any time, but it is gated behind T06 because its 250 BC condition needs the calendar's year; T20 (save/load) could be written early but its DoD ("a mid-game state round-trips after N turns") is only meaningful once the state is largely complete.
 
 ---
 
 ## 5. The task catalogue
 
-28 tasks covering all 20 design milestones plus five pieces of scaffolding the milestone list assumes but never produces (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate).
+29 tasks covering all 20 design milestones plus six pieces of scaffolding the milestone list assumes but never produces (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, and the one-time export of the shipped `classical-mediterranean` world/ruleset).
 
 Conventions used by every entry:
 
@@ -261,7 +263,7 @@ Conventions used by every entry:
 - **Design milestone**: M1 (types half). **Labels**: `phase:0 lane:engine`
 - **Branch**: `task/T02-domain-model` · **Model/effort**: **Opus / High** · **Reviewer**: Opus / High **+ `/code-review --effort ultra`**
 - **Start after**: T01 · **Merge after**: T01
-- **Owns**: `src/IC2.Engine/Model/**`, `src/IC2.Engine/Serialization/**`, `data/worlds/**`, `data/rulesets/**`, `data/scenarios/**`, `tests/IC2.Engine.Tests/Model/**`
+- **Owns**: `src/IC2.Engine/Model/**`, `src/IC2.Engine/Serialization/**`, `data/worlds/toy-3city.json`, `data/rulesets/toy-ruleset.json`, `data/scenarios/toy-3city.json`, `tests/IC2.Engine.Tests/Model/**` (file-level, not `data/worlds/**`/`data/rulesets/**` wildcards — see T29, which owns the real shipped world/ruleset data under the same directories without overlapping these specific files)
 - **Scope**: The four file kinds from `game-design.md` §"The core data model" — `World`, `Ruleset`, `Scenario`, `SaveGame` — as C# records with `System.Text.Json` contracts, plus the `GameState` tree they produce. Must carry, from day one, every field later tasks need so they do not have to widen the model: per-army and per-fleet **money purse and supply stock**, army morale (`+14` semantics), the unit slot's regular/mercenary marker, city fortification with its `>100` in-progress encoding, fleet condition, the symmetric N×N diplomatic relation matrix with negative cooldowns, and the news ring buffer's storage. Support a `"_provenance"` key per field as `game-design.md` §"Ruleset format" specifies. Ship the toy 3-city / 2-nation `World`+`Ruleset`+`Scenario` under `data/`. Terrain tile types are an **open list** (12 codes shipped, not hardcoded to 12).
 - **Done when**:
   1. Round-trip equality tests pass for each of `World`, `Ruleset`, `Scenario`, `SaveGame` (serialize → deserialize → serialize produces identical JSON).
@@ -270,6 +272,21 @@ Conventions used by every entry:
   4. `GameState` is a fully serializable tree: a test constructs a non-trivial state, serializes it, deserializes it, and asserts deep equality.
   5. No gameplay constant is hardcoded in C#: a test asserts that every ruleset-governed number the model exposes is sourced from the loaded `Ruleset` object.
 - **Hazards**: this is the widest-blast-radius diff in the plan. Nothing else may be in flight that touches `src/IC2.Engine`.
+
+#### T29 Export the shipped classical-mediterranean world and ruleset
+
+- **Design milestone**: none explicitly — closes a real gap `game-design.md` §"The core data model" describes in prose ("the original's actual data becomes one shipped `World`... produced by a one-time export tool") but never turns into a scheduled deliverable. Surfaced by the user asking, after wave 0, whether the reimplementation ends up depending on original assets at all. **Labels**: `phase:0 lane:data local-only`
+- **Branch**: `task/T29-export-classical-world` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
+- **Start after**: T02, T04 · **Merge after**: T02, T04
+- **Owns**: `data/worlds/classical-mediterranean.json`, `data/rulesets/classical-faithful.json`, `scripts/export-classical-world.*`, `tests/IC2.Engine.Tests/Export/**` (file-level within `data/worlds/**`/`data/rulesets/**` — does not touch T02's toy fixtures)
+- **Scope**: A one-time, re-runnable export script, built on the existing `IC2.Data` parsers, that reads the original DAT (and the classical-faithful ruleset's constants, sourced from the T04 fixtures corpus) and writes `data/worlds/classical-mediterranean.json` and `data/rulesets/classical-faithful.json` conforming to T02's `World`/`Ruleset` schema. **This is the only step in the whole plan that reads the user's original game files to produce something that ships** — every later build, test, and play session uses the committed JSON output, never the original DAT again. Run once by whoever has `assets.local.ini` configured (today, that's this machine); the *output* is what everyone else, including CI, depends on.
+- **Done when**:
+  1. Running the script against the configured original DAT produces `data/worlds/classical-mediterranean.json` with exactly 334 cities, 16 nations, and the confirmed 320×140 map — cross-checked against `IC2.Data`'s own parse of the same file (same city count, same nation names, same map dimensions), not re-derived independently.
+  2. `data/rulesets/classical-faithful.json` contains every constant in the T04 fixtures corpus tagged `confirmed`, with each value traced to its fixture id in `_provenance` — no value invented here that isn't already in the corpus.
+  3. The committed JSON round-trips through T02's `World`/`Ruleset` loaders with no schema errors.
+  4. Re-running the script against the same DAT produces byte-identical JSON (deterministic — same test pattern as T11's asset generator).
+  5. **Every test in this task skips with an explicit "original files not configured" result when `assets.local.ini` is absent**, exactly like T21 — CI stays green on a machine without the original files, because CI only ever needs the *committed output*, not the ability to regenerate it.
+- **Hazards**: do not hand-edit the committed JSON to fix a mismatch found after export — fix the export script and re-run, so the committed data always has a reproducible source. If the original DAT ever needs re-reading (a corrected field, a newly-decompiled table), this is the one task whose branch gets reopened, not a one-off patch to the JSON.
 
 #### T03 Engine seams: RNG, turn pipeline, commands, events
 
@@ -841,7 +858,7 @@ Distinct from [§6.6](#66-when-to-escalate-to-the-human-instead-of-auto-merging)
 - The [task index](#12-task-index) in this document carries the issue number for each task, so the doc links back to GitHub.
 - The pinned tracking issue links to this document, and this document links to the tracking issue.
 
-**Should the issues be opened now?** Yes, and they have been — they are the orchestrator's state store, so the pipeline literally cannot start without them, and unlike opening real feature PRs they are cheap, reversible (close or delete) and touch no code. Created as part of delivering this plan: 29 labels, the four phase milestones, the 28 task issues (**#1–#28, numbered to match their task ids**), and the pinned [tracking issue #29](https://github.com/diegoami/imperial_conquest_2/issues/29). `#1` (T01) and `#5` (T05) are labelled `status:ready`; the other 26 are `status:blocked` until their dependencies merge.
+**Should the issues be opened now?** Yes, and they have been — they are the orchestrator's state store, so the pipeline literally cannot start without them, and unlike opening real feature PRs they are cheap, reversible (close or delete) and touch no code. Created as part of delivering this plan: 29 labels, the four phase milestones, the 28 task issues (**#1–#28, numbered to match their task ids**), and the pinned [tracking issue #29](https://github.com/diegoami/imperial_conquest_2/issues/29). `#1` (T01) and `#5` (T05) are labelled `status:ready`; the other 26 are `status:blocked` until their dependencies merge. **T29** (this plan's later addition) is [issue #32](https://github.com/diegoami/imperial_conquest_2/issues/32), `status:blocked` until T02 and T04 both merge.
 
 ---
 
@@ -849,7 +866,7 @@ Distinct from [§6.6](#66-when-to-escalate-to-the-human-instead-of-auto-merging)
 
 - **Revised cap: exactly one code-modifying agent at a time, full stop** — no concurrent implementers, no implementer running alongside a reviewer. This superseded the original "3 concurrent implementers + up to 2 reviewers" figure after worktree-based isolation proved fragile in practice ([§7.1](#71-who-actually-runs-it)'s note); without per-task worktrees, two agents touching the same checkout at once is unsafe regardless of Owns-list discipline, not just slower. The remaining bullets in this section (single-instance Godot tasks, local-only tasks) are now a subset of this stricter rule rather than an additional constraint on top of a concurrency cap.
 - **Never two `single-instance` tasks at once**: T24, T25, T27. They launch or export Godot 4.7.2; two concurrent headless Godot runs against sibling worktrees fight over the `.godot` import cache and the `project.godot` header rewrite that `HANDOVER.md` documents. The whole Godot lane is therefore a single serial chain regardless of the cap.
-- **`local-only` tasks**: T21 (needs the user's `imp_conq_original` saves) and, in practice, T24/T25/T27 (need a Godot install). Their tests must **skip explicitly**, never fail, when the local prerequisite is absent — otherwise CI on GitHub's runners can never be green and the whole gate loses its meaning.
+- **`local-only` tasks**: T21 and T29 (both need the user's `imp_conq_original` DAT/saves via `assets.local.ini`) and, in practice, T24/T25/T27 (need a Godot install). Their tests must **skip explicitly**, never fail, when the local prerequisite is absent — otherwise CI on GitHub's runners can never be green and the whole gate loses its meaning.
 - **Nothing else is machine-bound.** T01–T20, T22, T23, T26 and T28 build and test on a plain .NET 10 runner.
 - **While T03 is in flight, nothing else is dispatched.** It defines the interfaces everything else compiles against.
 
@@ -921,8 +938,9 @@ Issue numbers are filled in from GitHub; this table is the doc→GitHub half of 
 | T26 | Scenario docs and examples | M19 | **Haiku** | Medium | Sonnet/Medium | T23 | #26 |
 | T27 | Packaging | M20 | Sonnet | Medium | Sonnet/High | T25, T26 | #27 |
 | T28 | Nightly gate | — | **Haiku** | Low | Sonnet/Medium | T22 | #28 |
+| T29 | Export classical-mediterranean world | — | Sonnet | High | **Opus**/Medium | T02, T04 | [#32](https://github.com/diegoami/imperial_conquest_2/issues/32) |
 
-**Totals** — 28 tasks: 4 Opus, 18 Sonnet, 5 Haiku, 1 Fable. Effort: 2 Ultrahigh, 12 High, 12 Medium, 2 Low. Structure: 3 strictly sequential foundation tasks, a 7-wide parallel wave, a 4-wide wave, a 6-wide wave, and a 4-task serial Godot/delivery tail. Critical path: 11 of 28; the other 17 are slack that fills the concurrency budget around it.
+**Totals** — 29 tasks: 4 Opus, 19 Sonnet, 5 Haiku, 1 Fable. Effort: 2 Ultrahigh, 13 High, 12 Medium, 2 Low. Structure: 3 strictly sequential foundation tasks, a 7-wide parallel wave, a 4-wide wave, a 6-wide wave, and a 4-task serial Godot/delivery tail, plus T29 running alongside the T03 serialization point. Critical path: 11 of 29; the other 18 are slack that fills the concurrency budget around it.
 
 ---
 
