@@ -199,7 +199,8 @@ if ((args.Length == 2 && args[0] == "--list-fleets") ||
         foreach (var fleet in fleets.Fleets)
         {
             var cityName = fleet.CityIndex < WorldPrefix.CityCount ? world.Cities[fleet.CityIndex].Name : "(out of range)";
-            Console.WriteLine($"Fleet {fleet.Index} at ({fleet.X}, {fleet.Y}) · ship count {fleet.ShipCount} · city index {fleet.CityIndex} ({cityName})");
+            var ownerName = NationCatalog.Name(fleet.OwnerCode);
+            Console.WriteLine($"Fleet {fleet.Index} ({ownerName}) at ({fleet.X}, {fleet.Y}) · ship count {fleet.ShipCount} · city index {fleet.CityIndex} ({cityName})");
         }
         return 0;
     }

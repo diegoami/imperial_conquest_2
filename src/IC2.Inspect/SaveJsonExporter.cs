@@ -88,6 +88,7 @@ internal static class SaveJsonExporter
             fleets = fleets.Fleets.Select(f => new
             {
                 index = f.Index,
+                owner = new { code = f.OwnerCode, name = NationCatalog.Name(f.OwnerCode) },
                 x = f.X,
                 y = f.Y,
                 shipCount = f.ShipCount,
