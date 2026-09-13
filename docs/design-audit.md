@@ -251,7 +251,7 @@ This resolves the apparent contradiction cleanly rather than picking a side: the
 
 **Still open, not yet decompiled or observed directly**: the exact mechanics of the *paid* case — buying from a city that isn't yours. Whether that is a genuinely different dialog/code path (a "purchase" distinct from the free "resupply" transfer), where the debited talents end up (the foreign city's owner's treasury, or nowhere), and whether the `amount / 5` constant from the code is that path's real formula, all remain to verify. The user's rule is authoritative on the free/costly split; the paid case's exact bookkeeping is a smaller remaining gap, not blocking implementation — see the T08 reconciliation note below.
 
-### Q10. Does the newly-found rout mechanic change `combat.onDefeat`'s `improved` design? — **NEW, open**
+### Q10. Does the newly-found rout mechanic change `combat.onDefeat`'s `improved` design? — **ANSWERED: no change**
 
 `combat.onDefeat` (Q1's follow-up, above) was designed on a stated premise: that total annihilation of the loser "reads as unusually harsh" and is an artefact of the *instant* resolver's coarseness, so `improved` should soften it into a partial-casualty-plus-scatter outcome. The rout mechanic found in [`battle-replayed-rout-mechanic-and-combat-constants.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/battle-replayed-rout-mechanic-and-combat-constants.md) puts a dent in that premise, and it is a design call rather than a fact, so it is posed here rather than decided.
 
@@ -263,7 +263,13 @@ The question, then:
 2. **If scatter stays, should it be re-grounded on the rout mechanic instead of on a `[designed]` placeholder?** The current spec applies a mirrored `loserPower × 40 / winnerPower` casualty ratio with a `_provenance` of "no original analogue". There *is* now something adjacent to an analogue: the fraction of a routed army that would have been below its per-type rout threshold is computable from confirmed constants (`standardBattalionSize / 25` per type). That would replace an invented survivor fraction with a derived one — at the cost of dragging per-unit-type detail into a resolver deliberately kept aggregate, which cuts against `BattleResult`'s presentation-agnostic design and against T16's "no tactical research in this diff" hazard.
 3. **Does any of this reopen the reserve?** Option C (ship both resolvers) was declined partly on cost. The reserve is now materially more complete than when that was decided — the rout mechanic, the matrix's orientation, `+0x20`, and both loss caps are all settled, and the per-exchange log is legible on demand now that the pacing delay is known to be a settable preference. Nothing *forces* a revisit; noting it so the decision is re-made on current information if it ever is.
 
-**Nothing is blocked on this.** T16 as specified is internally consistent and implementable exactly as written; all three sub-questions only affect the `improved` half of `combat.onDefeat`, and answering "no change" is a perfectly good answer.
+**User's answer**: `improved`'s softer defeat doesn't need to be *earned* by a faithfulness argument in the first place — it's an optional ruleset a player chooses instead of `classical-faithful`, not a claim about what the original actually did. Whether or not the premise that motivated it originally still holds is beside the point; its job is to offer an alternative, and it keeps doing that regardless. So, sub-question by sub-question:
+
+1. **Scatter stays as specified.** Not because the faithfulness argument survived (it didn't), but because that was never the actual bar for an *optional* ruleset to clear.
+2. **Not re-grounded on the rout mechanic for now.** The project's priority for this first implementation pass is getting the confirmed/faithful rules right, not refining `improved`'s already-`[designed]` placeholders — swapping an invented survivor fraction for a derived one is a real future improvement, not now.
+3. **Option C (ship both resolvers) stays declined.** Consistent with the same first-pass priority: implement what's confirmed as faithfully as possible before expanding scope.
+
+T16 ships exactly as already specified. No task or DoD line changes as a result of this question.
 
 ---
 
