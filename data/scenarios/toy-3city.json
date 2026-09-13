@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "id": "toy-3city",
+  "name": "Toy 3-city skirmish",
+  "worldId": "toy-3city",
+  "rulesetId": "toy-ruleset",
+  "seats": [
+    {
+      "nation": "north",
+      "control": "human",
+      "personality": null
+    },
+    {
+      "nation": "south",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.8,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.25
+      }
+    }
+  ],
+  "victory": {
+    "type": "totalConquest",
+    "goal": null
+  },
+  "turnLimit": 50,
+  "blindHotseat": false,
+  "randomSeed": 20250913,
+  "_provenance": {
+    "seats": "Shape per docs/game-design.md §'The scenario system' — a scenario names one world, one ruleset, and a control assignment per nation. Personality values are docs/game-design.md §AI's designed 0-1 parameters; there is no original analogue, since docs/design-audit.md §1 records that the original's TPickLeaders screen assigns a nation to a human or the computer and a leader name only, with no per-nation AI tuning at all.",
+    "turnLimit": "designed: a short limit so an all-AI soak over this scenario terminates. Searched docs/reports/ for a turn limit in the original and found only the year-250 comparison on the game-over screen (decompiled-diplomacy-peace-terms-and-instant-battles.md), which is a year test rather than a turn count, so there is no original turn limit to transcribe.",
+    "randomSeed": "A fixed seed so every test run over this scenario is reproducible, per docs/game-design.md principle 4. The value itself carries no meaning."
+  }
+}

@@ -1,0 +1,467 @@
+{
+  "schemaVersion": 1,
+  "id": "toy-ruleset",
+  "name": "Toy ruleset",
+  "description": "The fast unit-test ruleset. Its constants are the original's confirmed values, transcribed from the reports in the research repository's docs/reports/ and cited per field in the sibling \"_provenance\" blocks; its flags are set the way the shipped classical-faithful preset sets them. It exists so tests do not depend on the full classical-mediterranean world, which task T29 exports separately.",
+  "calendar": {
+    "weekStep": 2,
+    "weekModulus": 12,
+    "seasonAdvanceFromWeek": 11,
+    "seasonsPerYear": 4,
+    "startWeek": 1,
+    "startSeasonIndex": 0,
+    "startYearBc": 270,
+    "cityUnitStateCodeStep": 2,
+    "cityUnitStateCodeCap": 24,
+    "_provenance": {
+      "weekStep": "confirmed: decompiled-turn-and-calendar-sequencing.md — the week advances by +2 each turn cycle.",
+      "weekModulus": "confirmed: decompiled-turn-and-calendar-sequencing.md — week is +2 mod 12.",
+      "seasonAdvanceFromWeek": "confirmed: decompiled-turn-and-calendar-sequencing.md — the season advances at the 11 to 1 wrap.",
+      "seasonsPerYear": "confirmed: decompiled-quarterly-billing-and-economy.md — 'quarterly' is once per season, four times a year; the year decrements at the Winter to Spring wrap.",
+      "startWeek": "confirmed: impconq2-full-save-analysis.md and one-turn-save-comparison.md — the earliest news slot in the sample saves reads 'Week 1      Spring      270 BC', and the next turn's slot reads 'Week  3      Spring      270BC'. The parity is load-bearing rather than cosmetic: decompiled-turn-and-calendar-sequencing.md gives the cycle as 'week = (week + 2) mod 12; if week == 1: season++', so only an odd start ever reaches the season boundary. Every dated save in the project (weeks 1, 3, 5, 7, 9, 11 — saves-and-screenshots.md, strategic-recording-and-summer-saves.md) is on that odd parity.",
+      "startSeasonIndex": "confirmed: saves-and-screenshots.md and strategic-recording-and-summer-saves.md — the save trailer's +44 byte is 0 in all five Spring saves and 1 in all three Summer saves, so season index 0 is Spring; impconq2-full-save-analysis.md shows the campaign's first dated news slot as Spring 270 BC.",
+      "startYearBc": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — THumanFalls_InitializeForm reports the reign length as 270 minus the current year, confirming the 270 BC start.",
+      "cityUnitStateCodeStep": "confirmed: decompiled-turn-and-calendar-sequencing.md — city-unit StateCode increments by 2 per week.",
+      "cityUnitStateCodeCap": "confirmed: decompiled-turn-and-calendar-sequencing.md — capped at 24 (a cap, not a starting value)."
+    }
+  },
+  "unitTypes": [
+    {
+      "id": "light_infantry",
+      "name": "Light infantry",
+      "abbreviation": "Lit inf",
+      "moves": 4,
+      "standardBattalionSize": 15000,
+      "shots": 7,
+      "range": 1,
+      "recruitCost": 2,
+      "quarterlyPrice": 1,
+      "combatPowerWeight": 20,
+      "_provenance": {
+        "moves": "confirmed: unit-type-stat-table-in-dat.md — unit-type table +0x18.",
+        "standardBattalionSize": "confirmed: unit-type-stat-table-in-dat.md — +0x1A.",
+        "shots": "confirmed: unit-type-stat-table-in-dat.md — +0x1C.",
+        "range": "confirmed: unit-type-stat-table-in-dat.md — +0x1E.",
+        "recruitCost": "confirmed: unit-type-stat-table-in-dat.md — +0x22, the initial recruit cost.",
+        "quarterlyPrice": "confirmed: unit-type-stat-table-in-dat.md — +0x24, the quarterly price used by upkeep and mercenary hire.",
+        "combatPowerWeight": "confirmed: decompiled-unit-map-orders-and-record-fields.md — +0x26, identified there as the per-type combat-power weight used by field-battle strength."
+      }
+    },
+    {
+      "id": "heavy_infantry",
+      "name": "Heavy infantry",
+      "abbreviation": "Hvy inf",
+      "moves": 2,
+      "standardBattalionSize": 6000,
+      "shots": 0,
+      "range": 0,
+      "recruitCost": 20,
+      "quarterlyPrice": 2,
+      "combatPowerWeight": 100,
+      "_provenance": {
+        "moves": "confirmed: unit-type-stat-table-in-dat.md",
+        "standardBattalionSize": "confirmed: unit-type-stat-table-in-dat.md",
+        "shots": "confirmed: unit-type-stat-table-in-dat.md — 0 means melee-only.",
+        "recruitCost": "confirmed: unit-type-stat-table-in-dat.md",
+        "quarterlyPrice": "confirmed: unit-type-stat-table-in-dat.md",
+        "combatPowerWeight": "confirmed: decompiled-unit-map-orders-and-record-fields.md"
+      }
+    },
+    {
+      "id": "archers",
+      "name": "Archers",
+      "abbreviation": "Archers",
+      "moves": 4,
+      "standardBattalionSize": 3500,
+      "shots": 25,
+      "range": 2,
+      "recruitCost": 4,
+      "quarterlyPrice": 1,
+      "combatPowerWeight": 40,
+      "_provenance": {
+        "moves": "confirmed: unit-type-stat-table-in-dat.md",
+        "standardBattalionSize": "confirmed: unit-type-stat-table-in-dat.md",
+        "shots": "confirmed: unit-type-stat-table-in-dat.md",
+        "range": "confirmed: unit-type-stat-table-in-dat.md",
+        "recruitCost": "confirmed: unit-type-stat-table-in-dat.md",
+        "quarterlyPrice": "confirmed: unit-type-stat-table-in-dat.md",
+        "combatPowerWeight": "confirmed: decompiled-unit-map-orders-and-record-fields.md"
+      }
+    },
+    {
+      "id": "light_cavalry",
+      "name": "Light cavalry",
+      "abbreviation": "Lit cav",
+      "moves": 6,
+      "standardBattalionSize": 7000,
+      "shots": 9,
+      "range": 1,
+      "recruitCost": 15,
+      "quarterlyPrice": 3,
+      "combatPowerWeight": 60,
+      "_provenance": {
+        "moves": "confirmed: unit-type-stat-table-in-dat.md",
+        "standardBattalionSize": "confirmed: unit-type-stat-table-in-dat.md",
+        "shots": "confirmed: unit-type-stat-table-in-dat.md — matches the '1st Lancers Battalion ... 9 shots' screenshot in battle-observation.md.",
+        "range": "confirmed: unit-type-stat-table-in-dat.md",
+        "recruitCost": "confirmed: unit-type-stat-table-in-dat.md — independently solved from two save-diffs in decompiled-recruitment-cost-formula.md before the table was found.",
+        "quarterlyPrice": "confirmed: unit-type-stat-table-in-dat.md",
+        "combatPowerWeight": "confirmed: decompiled-unit-map-orders-and-record-fields.md"
+      }
+    },
+    {
+      "id": "heavy_cavalry",
+      "name": "Heavy cavalry",
+      "abbreviation": "Hvy cav",
+      "moves": 5,
+      "standardBattalionSize": 2500,
+      "shots": 0,
+      "range": 0,
+      "recruitCost": 30,
+      "quarterlyPrice": 4,
+      "combatPowerWeight": 120,
+      "_provenance": {
+        "moves": "confirmed: unit-type-stat-table-in-dat.md",
+        "standardBattalionSize": "confirmed: unit-type-stat-table-in-dat.md",
+        "shots": "confirmed: unit-type-stat-table-in-dat.md — 0 means melee-only.",
+        "recruitCost": "confirmed: unit-type-stat-table-in-dat.md",
+        "quarterlyPrice": "confirmed: unit-type-stat-table-in-dat.md",
+        "combatPowerWeight": "confirmed: decompiled-unit-map-orders-and-record-fields.md"
+      }
+    }
+  ],
+  "terrain": {
+    "moveCosts": [
+      { "tileTypeId": "sea_coastal", "moveCost": 1 },
+      { "tileTypeId": "sea_deep", "moveCost": 3 },
+      { "tileTypeId": "plain", "moveCost": 1 },
+      { "tileTypeId": "desert", "moveCost": 1 },
+      { "tileTypeId": "forest", "moveCost": 2 },
+      { "tileTypeId": "mountains", "moveCost": 4 },
+      { "tileTypeId": "river_1", "moveCost": 4 },
+      { "tileTypeId": "river_2", "moveCost": 4 },
+      { "tileTypeId": "river_3", "moveCost": 4 },
+      { "tileTypeId": "river_4", "moveCost": 4 },
+      { "tileTypeId": "river_5", "moveCost": 4 },
+      { "tileTypeId": "river_6", "moveCost": 4 }
+    ],
+    "defaultMoveCost": 1,
+    "_provenance": {
+      "moveCosts": "confirmed: terrain-move-cost-table-in-dat.md — the original's twelve-entry terrain table at DAT offset 0x1F622, verbatim: Sea 1, Sea 3, Plain 1, Desert 1, Forest 2, Mountains 4, and six River codes at 4. The table is keyed by tile-type id rather than by cell code so that a world with different or additional terrain types can be priced by the same ruleset shape; the twelve entries are shipped values, not a fixed size.",
+      "defaultMoveCost": "designed: docs/game-design.md §Movement — 'A custom World's new terrain types default to cost 1 unless a ruleset explicitly prices them'. Searched docs/reports/ for any original handling of an unpriced terrain code and found none to transcribe: terrain-move-cost-table-in-dat.md establishes that the original's table covers exactly codes 0-11 and that codes 12 and above are city/army/fleet markers rather than terrain, so the original has no unpriced-terrain case to copy."
+    }
+  },
+  "economy": {
+    "taxRateDivisor": 100,
+    "shipUpkeepPerQuarter": 3,
+    "unityDecayPerQuarter": 3,
+    "unityCap": 990,
+    "purseCapPerUnit": 1000,
+    "supplyTonsPerTalent": 5,
+    "armySupplyTonsPerTroops": 100,
+    "fleetSupplyTonsPerShip": 8,
+    "supplyPercentNumerator": 10000,
+    "_provenance": {
+      "taxRateDivisor": "confirmed: decompiled-quarterly-billing-and-economy.md and decompiled-fleet-tax-and-mercenary-formulas.md — income = nationTaxBase × taxRate / 100.",
+      "shipUpkeepPerQuarter": "confirmed: fleet-order-at-caere.md and decompiled-fleet-tax-and-mercenary-formulas.md — ships cost 3 talents each per quarter.",
+      "unityDecayPerQuarter": "confirmed: decompiled-quarterly-billing-and-economy.md — unity decays 3 per quarter.",
+      "unityCap": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — the instant resolver clamps the winner's unity with min(990, ...).",
+      "purseCapPerUnit": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TAFSupply_ChangeMoney caps an army's or fleet's own purse at 1,000 talents.",
+      "supplyTonsPerTalent": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TAFSupply_TransferSupply charges amount / 5, i.e. 1 talent per 5 tons, from the buyer's purse to the selling city's owner. Note the open evidence gap recorded in docs/design-audit.md Q9: three video frames show an army's money unchanged across a 100-ton purchase, so whether the charge is always applied is not yet settled. The formula transcribed here is the one in the code.",
+      "armySupplyTonsPerTroops": "confirmed: decompiled-unit-map-orders-and-record-fields.md — army supply capacity is troops / 100 tons, reproducing all four recorded percentage readings.",
+      "fleetSupplyTonsPerShip": "confirmed: decompiled-unit-map-orders-and-record-fields.md — fleet supply capacity is ships × 8 tons.",
+      "supplyPercentNumerator": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TInformation_ShowArmyDetails prints the supply percentage as supplies × 10000 / troops."
+    }
+  },
+  "recruitment": {
+    "troopsPerCostUnit": 200,
+    "mercenaryPoolSlots": 50,
+    "mercenaryHireTroopDivisor": 1000,
+    "mercenaryUpkeepQualityDivisor": 5,
+    "_provenance": {
+      "troopsPerCostUnit": "confirmed: decompiled-recruitment-cost-formula.md — cost = (troops / 200) × priceTable[unitType], the same table for initial recruitment and quarterly upkeep.",
+      "mercenaryPoolSlots": "confirmed: decompiled-sav-file-layout.md — the mercenary table is exactly 50 slots of 12 bytes, hard-coded in the save/load code (mercenary-pool-record.md had found the same figure empirically).",
+      "mercenaryHireTroopDivisor": "confirmed: decompiled-unit-map-orders-and-record-fields.md — hire cost = (troops × quarterlyPrice[type]) / 1000 × quality, paid from the hiring army's own purse.",
+      "mercenaryUpkeepQualityDivisor": "confirmed: decompiled-unit-map-orders-and-record-fields.md — mercenary upkeep is ((troops / 200) × price[type] × quality) / 5 against a regular's (troops / 200) × price[type]."
+    }
+  },
+  "armyManagement": {
+    "maxUnitsPerArmy": 20,
+    "maxTroopsPerArmy": 100000,
+    "maxArmies": 198,
+    "splitMinUnits": 2,
+    "newArmyMorale": 59,
+    "newArmyMovesHumanSeat": 0,
+    "newArmyMovesAiSeat": 1,
+    "_provenance": {
+      "maxUnitsPerArmy": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TUnitMap_JoinArmies caps the combined army at 20 units.",
+      "maxTroopsPerArmy": "confirmed: decompiled-unit-map-orders-and-record-fields.md — and the same 100,000 cap is enforced on mercenary hire.",
+      "maxArmies": "confirmed: decompiled-unit-map-orders-and-record-fields.md — FUN_00449F08 refuses to create an army once 198 exist (< 0xC6).",
+      "splitMinUnits": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TUnitMap_SplitArmy needs at least 2 units.",
+      "newArmyMorale": "confirmed: decompiled-unit-map-orders-and-record-fields.md — a freshly split army is created with morale 0x3B = 59.",
+      "newArmyMovesHumanSeat": "confirmed: decompiled-unit-map-orders-and-record-fields.md — 0 moves for a human nation.",
+      "newArmyMovesAiSeat": "confirmed: decompiled-unit-map-orders-and-record-fields.md — 1 move for an AI one. This is one of the seat asymmetries the flags block selects between."
+    }
+  },
+  "naval": {
+    "buildCostPerShip": 10,
+    "orderMinShips": 10,
+    "orderMaxShips": 100,
+    "constructionTicks": 24,
+    "launchConditionPercent": 100,
+    "launchSupplyTons": 50,
+    "transportTroopsPerShip": 500,
+    "repairCostDivisor": 5,
+    "joinMaxShips": 100,
+    "splitMinShips": 20,
+    "maxConditionPercent": 100,
+    "_provenance": {
+      "buildCostPerShip": "confirmed: fleet-order-at-caere.md and decompiled-unit-map-orders-and-record-fields.md — a fleet order costs ships × 10 talents.",
+      "orderMinShips": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TBuildFleet_ChangeFleetSize clamps an order to 10..100 ships.",
+      "orderMaxShips": "confirmed: decompiled-unit-map-orders-and-record-fields.md",
+      "constructionTicks": "confirmed: decompiled-unit-map-orders-and-record-fields.md — the construction counter starts at 24 and decrements weekly; the Caere order's 12-ticks-to-go reading twelve weeks later confirms it in save data.",
+      "launchConditionPercent": "confirmed: decompiled-unit-map-orders-and-record-fields.md — FUN_0044A050 sets fleet +20 to 100 on launch.",
+      "launchSupplyTons": "confirmed: decompiled-unit-map-orders-and-record-fields.md — and money to 0.",
+      "transportTroopsPerShip": "confirmed: decompiled-unit-map-orders-and-record-fields.md — the embark check refuses when ships < troops / 500.",
+      "repairCostDivisor": "confirmed: decompiled-unit-map-orders-and-record-fields.md — repair costs ships × points / 5 talents and zeroes the fleet's moves.",
+      "joinMaxShips": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TUnitMap_JoinFleets refuses a combined fleet above 100 ships.",
+      "splitMinShips": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TUnitMap_SplitFleet needs at least 20 ships.",
+      "maxConditionPercent": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TRepairFleet clamps a repair order to 0..(100 - condition)."
+    }
+  },
+  "combat": {
+    "powerTroopDivisor": 100,
+    "powerDivisor": 80,
+    "winnerCasualtyNumerator": 40,
+    "absorbedSupplyTroopDivisor": 100,
+    "qualityFloor": 6,
+    "qualityCap": 9,
+    "promotionChanceDenominator": 4,
+    "unitySwing": 25,
+    "autoPeaceChanceNumerator": 2,
+    "autoPeaceChanceDenominator": 5,
+    "autoPeaceLoserUnityThreshold": 500,
+    "autoPeaceLoserCityThreshold": 7,
+    "naval": {
+      "conditionDivisor": 10,
+      "carriedArmyPowerDivisor": 50,
+      "randomBandCount": 4,
+      "randomBandPercent": 10,
+      "winnerDamageDivisor": 300,
+      "damageRatioScale": 100,
+      "unitLossDamageThreshold": 70,
+      "unitLossDivisor": 250,
+      "unitySwingShipDivisor": 2,
+      "_provenance": {
+        "unitySwingShipDivisor": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — a naval battle moves unity by plus or minus floor(loserShips / 2), not by the field battle's flat 25.",
+        "conditionDivisor": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — base strength = ships × condition / 10.",
+        "carriedArmyPowerDivisor": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — a carried army adds armyPower / 50.",
+        "randomBandCount": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — random(4) picks one of four bands.",
+        "randomBandPercent": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — each band is 10% of the base, giving a 0/10/20/30% bonus.",
+        "winnerDamageDivisor": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — FUN_0044B4F8 costs the winner ships × d / 300 and condition × d / 300.",
+        "damageRatioScale": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — r = max(1, loserStrength × 100 / winnerStrength) and d = r squared / 100.",
+        "unitLossDamageThreshold": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — above d = 70 a carried army also loses whole units.",
+        "unitLossDivisor": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — unitCount × d / 250 units are lost at random."
+      }
+    },
+    "scatteredDefeat": {
+      "survivorCasualtyNumerator": 40,
+      "scatterTilesMin": 2,
+      "scatterTilesMax": 4,
+      "_provenance": {
+        "survivorCasualtyNumerator": "designed: docs/game-design.md §'The defeated side's fate' — the improved ruleset mirrors the winner's own confirmed casualty ratio onto the loser instead of destroying it. Searched docs/reports/ for any partial-defeat or retreat outcome in the original and found none: all three decompiled resolvers (decompiled-diplomacy-peace-terms-and-instant-battles.md) annihilate the loser unconditionally, so there is no original number to transcribe. Default chosen to equal the winner's cap so only one number needs retuning.",
+        "scatterTilesMin": "designed: docs/game-design.md §'The defeated side's fate' — survivors relocate 2 to 4 tiles from the battle site. Same search as above: the original has no relocation-on-defeat behaviour to measure, so this is a documented placeholder meant to be retuned from play.",
+        "scatterTilesMax": "designed: docs/game-design.md §'The defeated side's fate'. Same search and same status as scatterTilesMin."
+      }
+    },
+    "detailedResolver": {
+      "meleeLossCapPercent": 40,
+      "meleeLossCapOffset": 1,
+      "meleeLossHardCap": 30000,
+      "meleeBasePowerFloor": 12,
+      "meleePowerDivisor": 2000,
+      "inRangeShotMultiplier": 2,
+      "typeEffectivenessOrder": [
+        "light_infantry",
+        "heavy_infantry",
+        "archers",
+        "light_cavalry",
+        "heavy_cavalry"
+      ],
+      "typeEffectiveness": [
+        [4, 1, 0, 3, 0],
+        [1, 4, 3, 3, 4],
+        [0, 1, 3, 0, 1],
+        [4, 4, 3, 1, 0],
+        [1, 4, 3, 0, 2]
+      ],
+      "_provenance": {
+        "meleeLossCapPercent": "confirmed: battle-recording-melee-cap-confirmed.md — the melee loss cap is floor(0.4 × defenderTroops) + 1, matching four of five recorded exchanges exactly and the fifth being below the cap.",
+        "meleeLossCapOffset": "confirmed: battle-recording-melee-cap-confirmed.md — the '+ 1' of the same expression.",
+        "meleeLossHardCap": "confirmed: decompiled-combat-formula-structure.md — melee losses are additionally capped at 30,000.",
+        "meleeBasePowerFloor": "confirmed: combat-type-effectiveness-matrix.md, quoting decompiled-combat-formula-structure.md — the melee power term ends '+ 12', so a zero-effectiveness matchup still deals minimum damage.",
+        "meleePowerDivisor": "confirmed: combat-type-effectiveness-matrix.md — (matrix × troops × qualityTerm) / 2000 + 12.",
+        "inRangeShotMultiplier": "confirmed: decompiled-combat-formula-structure.md — shots that are in range are doubled.",
+        "typeEffectiveness": "confirmed values, candidate orientation: combat-type-effectiveness-matrix.md — the 25 values are read directly from the DAT file immediately after the unit-type table, but that report is explicit that the attacker-row versus defender-row assignment is a reasoned inference, not re-traced index arithmetic. Rows are read here as the attacker, matching the report's chosen orientation; typeEffectivenessOrder records which axis order the rows and columns use so a later correction is a data change.",
+        "_group": "This whole block belongs to the optional 'detailed' resolver held in reserve by docs/game-design.md §Combat. The shipped instant resolver does not read any of it; it is carried here so that adding the reserve resolver later is a ruleset change rather than a model change."
+      }
+    },
+    "_provenance": {
+      "powerTroopDivisor": "confirmed: decompiled-unit-map-orders-and-record-fields.md — field-battle strength is (sum of powerWeight[type] × troops / 100) / 80 × morale.",
+      "powerDivisor": "confirmed: decompiled-unit-map-orders-and-record-fields.md — the / 80 of the same expression, shared by both army-strength functions.",
+      "winnerCasualtyNumerator": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — the winner takes loserPower × 40 / winnerPower casualties.",
+      "absorbedSupplyTroopDivisor": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — absorbed supplies are capped at winnerTroops / 100, the same capacity rule as buying supply.",
+      "qualityFloor": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — every surviving unit is raised to at least quality 6 ('average').",
+      "qualityCap": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — the further promotion is clamped at 9 ('elite').",
+      "promotionChanceDenominator": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — random(4) == 0, a 1-in-4 further promotion.",
+      "unitySwing": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — the loser's nation loses 25 unity and the winner's gains 25.",
+      "autoPeaceChanceNumerator": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — random(5) < 2, a 2-in-5 chance of an automatic peace treaty after a decisive AI-versus-AI field battle.",
+      "autoPeaceChanceDenominator": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md",
+      "autoPeaceLoserUnityThreshold": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — gated on the loser's unity above 500.",
+      "autoPeaceLoserCityThreshold": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — and on the loser holding more than 7 cities."
+    }
+  },
+  "siege": {
+    "archerStrengthMultiplier": 3,
+    "powerDivisor": 80,
+    "defenderFortificationWeight": 150,
+    "defenderLoyaltyWeight": 250,
+    "defenderUnidentifiedFieldWeight": 200,
+    "highFortificationThreshold": 59,
+    "highFortificationBonusNumerator": 5,
+    "highFortificationBonusDenominator": 3,
+    "defenderGarrisonTroopDivisor": 2,
+    "defenderOwnerNotAllegiancePenaltyPercent": 20,
+    "attackerIsAllegianceDefenderReductionPercent": 10,
+    "_provenance": {
+      "archerStrengthMultiplier": "confirmed: decompiled-unit-map-orders-and-record-fields.md — siege strength is (sum of troops, archers counted three times) / 80 × morale; also stated in decompiled-city-capture-resolution.md.",
+      "powerDivisor": "confirmed: decompiled-unit-map-orders-and-record-fields.md — the / 80 of the same expression.",
+      "defenderFortificationWeight": "confirmed: decompiled-city-capture-resolution.md — FUN_0044a98c computes defender strength as fortification × 150 + loyalty × 250 + <third field> × 200.",
+      "defenderLoyaltyWeight": "confirmed: decompiled-city-capture-resolution.md — the loyalty × 250 term of the same expression.",
+      "defenderUnidentifiedFieldWeight": "confirmed weight, UNIDENTIFIED field: decompiled-city-capture-resolution.md records the third term as '<third field> × 200' without naming which city field it reads. The weight is transcribed; the field it multiplies is not known, so the name says so rather than guessing at one. T17 needs to identify it before this term can be implemented.",
+      "highFortificationThreshold": "confirmed: decompiled-city-capture-resolution.md — 'if <condition> and fortification > 59: strength = strength × 5 / 3'. The report is explicit that the branch carries a further condition it did not recover, so the threshold is confirmed but the branch's full guard is not.",
+      "highFortificationBonusNumerator": "confirmed: decompiled-city-capture-resolution.md — the × 5 / 3 of the same branch. See highFortificationThreshold for the unrecovered guard.",
+      "highFortificationBonusDenominator": "confirmed: decompiled-city-capture-resolution.md — the / 3 of the same branch.",
+      "defenderGarrisonTroopDivisor": "confirmed: decompiled-city-capture-resolution.md — 'strength += (garrison troops assigned to this city) / 2'.",
+      "defenderOwnerNotAllegiancePenaltyPercent": "confirmed as read, but UNRECONCILED: decompiled-city-capture-resolution.md describes a 20% defender penalty when the city's owner is not its allegiance. docs/design-audit.md §2.13 flags that the siege entry point FUN_0044B27C instead applies a 10% reduction when the ATTACKING nation equals the city's allegiance, and that FUN_0044A98C (defender strength) was never decompiled, so the two readings may be one adjustment or two. Both are carried here as separate fields, unresolved, rather than one being silently dropped. This is an evidence conflict for whoever implements siege resolution (task T17) to settle, not for this task to pick.",
+      "attackerIsAllegianceDefenderReductionPercent": "confirmed as read, but UNRECONCILED: see the note on defenderOwnerNotAllegiancePenaltyPercent. Source: docs/design-audit.md §2.13 reporting FUN_0044B27C's ×9/10 branch."
+    }
+  },
+  "loyalty": {
+    "forcedCaptureFloor": 40,
+    "defectionFloor": 65,
+    "allegiantRecaptureTarget": 90,
+    "tierDivisor": 10,
+    "_provenance": {
+      "forcedCaptureFloor": "confirmed: decompiled-defection-and-siege-attrition.md — a forced capture pulls loyalty toward a floor of 40.",
+      "defectionFloor": "confirmed: decompiled-defection-and-siege-attrition.md — a defection pulls loyalty toward 65 and changes neither population nor fortification.",
+      "allegiantRecaptureTarget": "confirmed: galatia-elimination-and-city-resupply-confirmed.md — loyalty moves toward 90 when the allegiant nation recaptures its own city.",
+      "tierDivisor": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TInformation_ShowCityDetails picks the loyalty tier string as names[loyalty / 10]."
+    }
+  },
+  "diplomacy": {
+    "stateCodes": {
+      "peace": 0,
+      "trade": 1,
+      "alliance": 2,
+      "war": 3
+    },
+    "cooldownAfterBrokenTrade": -8,
+    "cooldownAfterBrokenAlliance": -24,
+    "cooldownAfterEndedWar": -18,
+    "cooldownAfterPeaceTerms": -10,
+    "cooldownAfterAllyPeace": -8,
+    "thawPerQuarter": 1,
+    "thawBonus": 3,
+    "thawBonusChanceDenominator": 3,
+    "maxTradePartners": 3,
+    "faithfulThawColumnLimit": 8,
+    "reparationsWealthDivisor": 4,
+    "reparationsPerCity": 10,
+    "_provenance": {
+      "stateCodes": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — nation record +0x26 holds a symmetric relation row with 0 peace, 1 trade, 2 alliance, 3 war, and negative values as cooldown counters.",
+      "cooldownAfterBrokenTrade": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — FUN_00449B40 writes -8 when trade is broken.",
+      "cooldownAfterBrokenAlliance": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — -24 when an alliance is broken.",
+      "cooldownAfterEndedWar": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — -18 when a war ends.",
+      "cooldownAfterPeaceTerms": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — the loser's surviving trade and alliance relations are set to -10 by the peace terms.",
+      "cooldownAfterAllyPeace": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — an ally of either side still at war with the other is set to -8.",
+      "thawPerQuarter": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — each negative entry gains +1 per quarter.",
+      "thawBonus": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — and, with probability 1/3, min(0, v + 3).",
+      "thawBonusChanceDenominator": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md",
+      "maxTradePartners": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — TPolitics_MakeTrade allows at most 3 trade partners.",
+      "faithfulThawColumnLimit": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — the quarterly thaw loop runs 'while (sVar6 != 8)', so only the first 8 relation columns of each row ever decay. This is the original bug that the flags block's bugPolicyDiplomaticThaw selects between reproducing and fixing.",
+      "reparationsWealthDivisor": "confirmed formula, unverified against the one observation: decompiled-diplomacy-peace-terms-and-instant-battles.md — reparations = W/4 + random(W/4) + cityCount × 10, where W is nation field +0x44C. docs/design-audit.md §2.5 notes the single observed payment was never re-derived from the save's field values.",
+      "reparationsPerCity": "confirmed formula, unverified against the one observation: see reparationsWealthDivisor."
+    }
+  },
+  "cityOrders": {
+    "orders": [
+      {
+        "id": "fortify",
+        "maxPercent": 100,
+        "inProgressEncodingRadix": 100,
+        "costPerPointPerPopulationThousand": 1,
+        "refusedWhileUnderSiege": true,
+        "wipedBySiegeAttempt": true,
+        "_provenance": {
+          "maxPercent": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TFortifyCity offers 0 to (100 - current) points and refuses a city already at 100.",
+          "inProgressEncodingRadix": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TFortifyCity_OK writes 'fortification += points × 100', which is the dual encoding: at or below 100 the word is a finished percentage, above 100 it encodes an order in progress.",
+          "costPerPointPerPopulationThousand": "confirmed: decompiled-unit-map-orders-and-record-fields.md — the price is cityRecord[+18] × points, and +18 is the population in thousands, so one talent per point per thousand population.",
+          "refusedWhileUnderSiege": "confirmed: decompiled-unit-map-orders-and-record-fields.md — 'You cannot fortify a city which is under siege.'",
+          "wipedBySiegeAttempt": "confirmed: decompiled-unit-map-orders-and-record-fields.md — FUN_0044B27C begins with 'if (fort > 100) fort = fort % 100'."
+        }
+      }
+    ],
+    "_provenance": {
+      "orders": "Shape per docs/design-audit.md §3 Q7, answered by the user: ship a generic, data-driven cityOrders table with fortify as the only shipped entry rather than hardcoding fortification as the only possible city order. docs/design-audit.md §1 also records that the original has no city improvements other than fortification, so one entry is the complete confirmed set, not an omission."
+    }
+  },
+  "newsLog": {
+    "ringBufferSlots": 40,
+    "messageByteLength": 61,
+    "_provenance": {
+      "ringBufferSlots": "confirmed: decompiled-news-log-identified.md — FUN_00449240 keeps 40 slots (indices 0-39) and shifts the oldest out once full.",
+      "messageByteLength": "confirmed: decompiled-news-log-identified.md and decompiled-sav-file-layout.md — each slot is a fixed 61-byte (0x3D) string buffer."
+    }
+  },
+  "mapMarkers": {
+    "armyTroopTierThresholds": [25000, 50000],
+    "fleetShipTierThresholds": [25, 50],
+    "cityPopulationTierThresholds": [],
+    "_provenance": {
+      "armyTroopTierThresholds": "confirmed: decompiled-unit-map-orders-and-record-fields.md part 3 — FUN_0044A80C picks the army marker band from troops / 1000 being under 25, under 50, or at least 50, i.e. three size classes split at 25,000 and 50,000 troops.",
+      "fleetShipTierThresholds": "confirmed: decompiled-unit-map-orders-and-record-fields.md part 3 — FUN_0044A878 splits fleets at 25 and 50 ships.",
+      "cityPopulationTierThresholds": "OMITTED (ships empty) — and here is exactly what was searched and exactly what was found, because an earlier revision of this note claimed the search came up empty when it had not. What the reports DO establish: rivers-and-map-markers.md ('City and unit overlays') finds that all 334 city cells satisfy 'map code = 20 + owner code + 16 × variant' with variants 0-4, holding for 334/334 cities in the checked save — so a five-value display axis on city markers is well evidenced, the direct counterpart of the three army bands and three fleet bands in decompiled-unit-map-orders-and-record-fields.md part 3. What the reports do NOT establish: that same sentence says the variant's meaning — 'city size, icon, or another display category' — still needs confirmation, and the report's own next-check item 3 is 'confirm the city-marker variant meanings'. There is no decompiled banding function for cities analogous to FUN_0044A80C/FUN_0044A878, so no population boundary is recorded anywhere. Shipping 5 as a size-tier count would assert the unconfirmed half (that the variant means size); shipping any threshold would invent a number outright. So this ships empty and docs/game-design.md §'City and army markers scale with size' is left standing as a requirement rather than a spec. Closing it needs that report's next-check item 3, after which the thresholds arrive as data with no model change."
+    }
+  },
+  "victory": {
+    "defaultCondition": "totalConquest",
+    "totalConquestRequiresEveryCity": true,
+    "hardEndYearBc": 250,
+    "defaultTurnLimit": null,
+    "_provenance": {
+      "defaultCondition": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — THumanFalls_InitializeForm awards the win only for holding every city on the map, which is the original's sole victory condition and therefore the classical-faithful default (docs/design-audit.md §3 Q5, answered).",
+      "totalConquestRequiresEveryCity": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — the test is cityCount against 334, the total number of cities on the original map, so the rule is 'every city', not a fixed count.",
+      "hardEndYearBc": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — the same screen compares the year against 250 (0xFA). That report is explicit that whether this is the actual end-of-game trigger or only the screen's wording was not re-checked in the turn loop.",
+      "defaultTurnLimit": "null because the original has no turn limit distinct from the year comparison above; docs/game-design.md leaves a shorter default limit to the improved preset."
+    }
+  },
+  "flags": {
+    "diplomacyModel": "confirmedStateMachine",
+    "economyPurses": "perUnitPurses",
+    "seatAsymmetry": "faithful",
+    "bugPolicyDiplomaticThaw": "reproduceEightColumnBug",
+    "combatOnDefeat": "destroyed",
+    "_provenance": {
+      "diplomacyModel": "docs/game-design.md §'Two shipped presets' — this toy ruleset is set the way classical-faithful is set, so tests exercise the confirmed behaviour by default (audit Q3).",
+      "economyPurses": "docs/game-design.md §'Two shipped presets' — per-army and per-fleet purses, as the original has (audit Q4).",
+      "seatAsymmetry": "docs/game-design.md §'Two shipped presets' — reproduce the confirmed human/AI rule differences (audit Q6).",
+      "bugPolicyDiplomaticThaw": "docs/game-design.md §'Two shipped presets' — reproduce the 8-column thaw bug (audit Q8).",
+      "combatOnDefeat": "docs/game-design.md §'The defeated side's fate' — the original annihilates the loser; the scatter alternative belongs to the improved preset."
+    }
+  },
+  "_provenance": {
+    "id": "This is not one of the two shipped presets. docs/game-design.md ships classical-faithful and improved; task T29 exports classical-faithful from the original data. This ruleset exists only so unit tests have a small, fully-populated ruleset to load, as docs/game-design.md §'Testing and determinism' asks for.",
+    "unitTypes": "confirmed: unit-type-stat-table-in-dat.md — the five unit types and their stat table, transcribed whole. The list is data, not a fixed size: a ruleset may define any number of unit types. One field of the original table is deliberately NOT carried: +0x20 (Light inf 18, Heavy inf 2, Archers 18, Light cav 15, Heavy cav 4) is listed as unidentified in that report and is still open in docs/HANDOVER.md, so transcribing it into a named property would be inventing a meaning for it. When it is identified it becomes a new UnitTypeRules field."
+  }
+}

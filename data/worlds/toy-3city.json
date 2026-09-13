@@ -1,0 +1,387 @@
+{
+  "schemaVersion": 1,
+  "id": "toy-3city",
+  "name": "Toy 3-city, 2-nation world",
+  "width": 8,
+  "height": 6,
+  "terrain": {
+    "encoding": "runLength",
+    "runs": [
+      { "code": 0, "count": 2 },
+      { "code": 2, "count": 3 },
+      { "code": 4, "count": 1 },
+      { "code": 5, "count": 1 },
+      { "code": 0, "count": 1 },
+
+      { "code": 0, "count": 1 },
+      { "code": 2, "count": 2 },
+      { "code": 3, "count": 1 },
+      { "code": 2, "count": 1 },
+      { "code": 4, "count": 1 },
+      { "code": 5, "count": 1 },
+      { "code": 0, "count": 1 },
+
+      { "code": 0, "count": 1 },
+      { "code": 2, "count": 1 },
+      { "code": 6, "count": 1 },
+      { "code": 2, "count": 3 },
+      { "code": 4, "count": 1 },
+      { "code": 0, "count": 1 },
+
+      { "code": 0, "count": 1 },
+      { "code": 2, "count": 3 },
+      { "code": 5, "count": 1 },
+      { "code": 2, "count": 2 },
+      { "code": 0, "count": 1 },
+
+      { "code": 0, "count": 2 },
+      { "code": 2, "count": 4 },
+      { "code": 0, "count": 2 },
+
+      { "code": 1, "count": 1 },
+      { "code": 0, "count": 6 },
+      { "code": 1, "count": 1 }
+    ],
+    "data": null
+  },
+  "tileTypes": [
+    {
+      "id": "sea_coastal",
+      "code": 0,
+      "name": "Sea",
+      "passableByArmies": false,
+      "passableByFleets": true,
+      "_provenance": {
+        "code": "confirmed: terrain-move-cost-table-in-dat.md — cell code 0, named 'Sea' in the DAT terrain table at 0x1F622",
+        "name": "confirmed: terrain-move-cost-table-in-dat.md",
+        "passableByArmies": "confirmed: terrain-move-cost-table-in-dat.md — the army step guard accepts cell codes 2..11 only",
+        "passableByFleets": "confirmed: terrain-move-cost-table-in-dat.md — the fleet step guard accepts cell < 2 only"
+      }
+    },
+    {
+      "id": "sea_deep",
+      "code": 1,
+      "name": "Sea",
+      "passableByArmies": false,
+      "passableByFleets": true,
+      "_provenance": {
+        "code": "confirmed: terrain-move-cost-table-in-dat.md — cell code 1, a second 'Sea' entry distinguished only by its higher move cost",
+        "passableByFleets": "confirmed: terrain-move-cost-table-in-dat.md"
+      }
+    },
+    {
+      "id": "plain",
+      "code": 2,
+      "name": "Plain",
+      "passableByArmies": true,
+      "passableByFleets": false,
+      "_provenance": {
+        "code": "confirmed: terrain-move-cost-table-in-dat.md",
+        "passableByArmies": "confirmed: terrain-move-cost-table-in-dat.md"
+      }
+    },
+    {
+      "id": "desert",
+      "code": 3,
+      "name": "Desert",
+      "passableByArmies": true,
+      "passableByFleets": false,
+      "_provenance": {
+        "code": "confirmed: terrain-move-cost-table-in-dat.md"
+      }
+    },
+    {
+      "id": "forest",
+      "code": 4,
+      "name": "Forest",
+      "passableByArmies": true,
+      "passableByFleets": false,
+      "_provenance": {
+        "code": "confirmed: terrain-move-cost-table-in-dat.md"
+      }
+    },
+    {
+      "id": "mountains",
+      "code": 5,
+      "name": "Mountains",
+      "passableByArmies": true,
+      "passableByFleets": false,
+      "_provenance": {
+        "code": "confirmed: terrain-move-cost-table-in-dat.md"
+      }
+    },
+    {
+      "id": "river_1",
+      "code": 6,
+      "name": "River",
+      "passableByArmies": true,
+      "passableByFleets": false,
+      "_provenance": {
+        "code": "confirmed: terrain-move-cost-table-in-dat.md — six distinct river codes, 6..11, all named 'River'"
+      }
+    },
+    {
+      "id": "river_2",
+      "code": 7,
+      "name": "River",
+      "passableByArmies": true,
+      "passableByFleets": false,
+      "_provenance": {
+        "code": "confirmed: terrain-move-cost-table-in-dat.md"
+      }
+    },
+    {
+      "id": "river_3",
+      "code": 8,
+      "name": "River",
+      "passableByArmies": true,
+      "passableByFleets": false,
+      "_provenance": {
+        "code": "confirmed: terrain-move-cost-table-in-dat.md"
+      }
+    },
+    {
+      "id": "river_4",
+      "code": 9,
+      "name": "River",
+      "passableByArmies": true,
+      "passableByFleets": false,
+      "_provenance": {
+        "code": "confirmed: terrain-move-cost-table-in-dat.md"
+      }
+    },
+    {
+      "id": "river_5",
+      "code": 10,
+      "name": "River",
+      "passableByArmies": true,
+      "passableByFleets": false,
+      "_provenance": {
+        "code": "confirmed: terrain-move-cost-table-in-dat.md"
+      }
+    },
+    {
+      "id": "river_6",
+      "code": 11,
+      "name": "River",
+      "passableByArmies": true,
+      "passableByFleets": false,
+      "_provenance": {
+        "code": "confirmed: terrain-move-cost-table-in-dat.md"
+      }
+    }
+  ],
+  "nations": [
+    {
+      "id": "north",
+      "name": "Northern League",
+      "colorHex": "#c62828",
+      "leaderName": "Toy Leader of the North",
+      "capitalCityId": "arx",
+      "treasury": 500,
+      "unity": 600,
+      "wealth": 400,
+      "taxRatePercent": 15,
+      "population": 260,
+      "_provenance": {
+        "treasury": "designed: a toy fixture value, not a transcribed original figure. Nothing in docs/reports/ records a starting treasury for an invented 2-nation map, because no such map exists there; the shipped classical-mediterranean world (task T29) is the one that carries real starting figures.",
+        "unity": "designed: toy fixture value, chosen above the 500 auto-peace gate in decompiled-diplomacy-peace-terms-and-instant-battles.md so tests can exercise both sides of it.",
+        "taxRatePercent": "confirmed shape: decompiled-quarterly-billing-and-economy.md — 15% is one of the two rates solved for Rome against nationTaxBase 2,440; used here as a plausible toy rate, not as this nation's researched value."
+      }
+    },
+    {
+      "id": "south",
+      "name": "Southern League",
+      "colorHex": "#1565c0",
+      "leaderName": "Toy Leader of the South",
+      "capitalCityId": "meridia",
+      "treasury": 450,
+      "unity": 520,
+      "wealth": 360,
+      "taxRatePercent": 20,
+      "population": 180,
+      "_provenance": {
+        "treasury": "designed: toy fixture value, see the 'north' nation's note.",
+        "taxRatePercent": "confirmed shape: decompiled-quarterly-billing-and-economy.md — 20% is the second solved Roman rate, reused here as a toy value."
+      }
+    }
+  ],
+  "cities": [
+    {
+      "id": "arx",
+      "name": "Arx",
+      "x": 2,
+      "y": 1,
+      "owner": "north",
+      "allegiance": "north",
+      "loyalty": 90,
+      "supplyTons": 400,
+      "fortificationCode": 60,
+      "populationThousands": 220,
+      "maxPopulationThousands": 300,
+      "tribute": 40,
+      "garrison": [
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "heavy_infantry",
+          "troops": 6000,
+          "quality": 6,
+          "name": "1st Guards Battalion"
+        }
+      ],
+      "_provenance": {
+        "fortificationCode": "confirmed encoding: decompiled-unit-map-orders-and-record-fields.md — a value of 100 or less is a finished fortification percentage. 60 itself is a toy fixture value.",
+        "garrison[0].troops": "confirmed: unit-type-stat-table-in-dat.md — 6,000 is heavy infantry's standard battalion size (+0x1A)."
+      }
+    },
+    {
+      "id": "portus",
+      "name": "Portus",
+      "x": 5,
+      "y": 2,
+      "owner": "north",
+      "allegiance": "north",
+      "loyalty": 70,
+      "supplyTons": 250,
+      "fortificationCode": 340,
+      "populationThousands": 80,
+      "maxPopulationThousands": 150,
+      "tribute": 15,
+      "garrison": [
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "archers",
+          "troops": 3500,
+          "quality": 5,
+          "name": "1st Bowmen Battalion"
+        }
+      ],
+      "_provenance": {
+        "fortificationCode": "confirmed encoding: decompiled-unit-map-orders-and-record-fields.md — TFortifyCity_OK writes 'fortification += points × 100', so a value above 100 encodes an order in progress. 340 is 40% finished with a 3-point order pending; the fixture exists so the >100 encoding is exercised by a loaded file, not only by a unit test.",
+        "garrison[0].troops": "confirmed: unit-type-stat-table-in-dat.md — archers' standard battalion size (+0x1A) is 3,500."
+      }
+    },
+    {
+      "id": "meridia",
+      "name": "Meridia",
+      "x": 3,
+      "y": 4,
+      "owner": "south",
+      "allegiance": "south",
+      "loyalty": 65,
+      "supplyTons": 300,
+      "fortificationCode": 100,
+      "populationThousands": 140,
+      "maxPopulationThousands": 200,
+      "tribute": 25,
+      "garrison": [
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "light_infantry",
+          "troops": 15000,
+          "quality": 6,
+          "name": "1st Foot Battalion"
+        }
+      ],
+      "_provenance": {
+        "loyalty": "confirmed: decompiled-defection-and-siege-attrition.md — 65 is the defection loyalty floor, used here so a defection test has a city sitting exactly on it.",
+        "fortificationCode": "confirmed encoding: decompiled-unit-map-orders-and-record-fields.md — 100 is a fully fortified city, the state that refuses any further fortify order.",
+        "garrison[0].troops": "confirmed: unit-type-stat-table-in-dat.md — light infantry's standard battalion size (+0x1A) is 15,000."
+      }
+    }
+  ],
+  "startingArmies": [
+    {
+      "id": "north-army-1",
+      "nation": "north",
+      "x": 3,
+      "y": 2,
+      "morale": 68,
+      "money": 256,
+      "supplyTons": 185,
+      "moves": 5,
+      "units": [
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "light_infantry",
+          "troops": 15000,
+          "quality": 6,
+          "name": "2nd Foot Battalion"
+        },
+        {
+          "mercenaryLabel": 11,
+          "unitTypeId": "archers",
+          "troops": 3500,
+          "quality": 7,
+          "name": "Gallic Bowmen"
+        }
+      ],
+      "_provenance": {
+        "morale": "confirmed field: decompiled-unit-map-orders-and-record-fields.md — army record +14 is morale; 68 is the value read from Rome's armies in 1_rome_270_winter_7.sav, reused here as a realistic toy value.",
+        "money": "confirmed field and value shape: decompiled-unit-map-orders-and-record-fields.md — Army 0's purse read 256 in the same save; the purse itself is capped at 1,000.",
+        "units[1].mercenaryLabel": "confirmed: decompiled-unit-map-orders-and-record-fields.md — the unit slot's +0 word is the regular/mercenary marker, non-zero being a mercenary name-table index; 11 is the confirmed index for 'Gallic'."
+      }
+    },
+    {
+      "id": "south-army-1",
+      "nation": "south",
+      "x": 4,
+      "y": 4,
+      "morale": 59,
+      "money": 40,
+      "supplyTons": 60,
+      "moves": 9,
+      "units": [
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "heavy_infantry",
+          "troops": 6000,
+          "quality": 6,
+          "name": "1st Guards Battalion"
+        }
+      ],
+      "_provenance": {
+        "morale": "confirmed: decompiled-unit-map-orders-and-record-fields.md — 59 (0x3B) is the morale a freshly split army is created with.",
+        "money": "confirmed field: decompiled-unit-map-orders-and-record-fields.md — Army 2's purse read 40 in 1_rome_270_winter_7.sav."
+      }
+    }
+  ],
+  "startingFleets": [
+    {
+      "id": "north-fleet-1",
+      "nation": "north",
+      "x": 0,
+      "y": 3,
+      "ships": 10,
+      "conditionPercent": 100,
+      "money": 0,
+      "supplyTons": 50,
+      "moves": 4,
+      "_provenance": {
+        "ships": "confirmed: decompiled-unit-map-orders-and-record-fields.md — 10 is the minimum fleet order size.",
+        "conditionPercent": "confirmed: decompiled-unit-map-orders-and-record-fields.md — FUN_0044A050 launches a completed fleet at condition 100.",
+        "supplyTons": "confirmed: decompiled-unit-map-orders-and-record-fields.md — a newly launched fleet is given 50 tons of supply and no money."
+      }
+    },
+    {
+      "id": "south-fleet-1",
+      "nation": "south",
+      "x": 7,
+      "y": 4,
+      "ships": 12,
+      "conditionPercent": 97,
+      "money": 200,
+      "supplyTons": 96,
+      "moves": 4,
+      "_provenance": {
+        "conditionPercent": "confirmed field: decompiled-unit-map-orders-and-record-fields.md — fleet record +20 is the condition percentage once launched; 97 is the value read for the Ptolemaic fleet in 1_rome_270_winter_7.sav, reused as a realistic toy value.",
+        "supplyTons": "confirmed cap: decompiled-unit-map-orders-and-record-fields.md — fleet supply capacity is ships × 8 tons, so 12 ships hold at most 96."
+      }
+    }
+  ],
+  "turnOrder": ["north", "south"],
+  "_provenance": {
+    "width": "designed: a deliberately tiny map so unit tests stay fast. docs/game-design.md §'Testing and determinism' asks for exactly this — 'a minimal synthetic World+Ruleset (a 3-city, 2-nation toy scenario) should exist purely for fast unit tests that don't depend on the full classical map'.",
+    "turnOrder": "confirmed shape: decompiled-turn-and-calendar-sequencing.md — the save carries a nation turn-order table (16 entries in the original); generalised here to one entry per nation in the world."
+  }
+}
