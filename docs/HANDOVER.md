@@ -73,6 +73,15 @@ Week `+2 mod 12`, season advances at 11→1, year decrements at Winter→Spring 
 - A ~6-byte reconciliation gap in the SAV layout's news-log region sizing.
 - `ComputerGeneral`'s actual AI decision-making (only its dispatch chain was traced; the roadmap's own scope decision favors faithful *rules* over a byte-exact AI port anyway).
 
+## The battle-freeze investigation (not a decompilation item, but real project history)
+
+The game reliably freezes/becomes unresponsive during manual tactical battles (see `battle-freeze-diagnosed-procmon.md`). What's been tried:
+
+- **Procmon diagnosis**: found ~3.02-second dead-silence stalls (zero syscalls) recurring throughout a battle, each right after a short sound-effect playback thread exits. Consistent with either a hardcoded pacing delay or a blocking wait — Procmon can't distinguish a benign `Sleep` from a CPU-spinning busy-wait, since both look identical (silence) from a syscall trace.
+- **WAV format conversion tried, did not fix it**: the game's `WAVS` files were legacy 8-bit unsigned PCM at 5512/11025/22050 Hz; converted all to 16-bit/44.1kHz PCM (originals preserved in `WAVS - Copy`) in case the odd format was forcing an expensive converter-chain rebuild in the modern audio engine. No improvement.
+- **A Windows 98 SE VM was attempted (VirtualBox) and specifically ruled out — do not re-suggest this without the underlying condition changing.** Two Windows 98 installs both hit `SHELL32.DLL is linked to missing export SHLWAPI.DLL` crashes, even from a completely fresh disk with VirtualBox's own hardware-virtualization setting already disabled. Root cause confirmed directly in `VBox.log`: `HM: HMR3Init: Attempting fall back to NEM: VT-x is not available` — the host's WSL2 install requires Windows' Virtual Machine Platform (Hyper-V-based), which exclusively claims VT-x, forcing VirtualBox onto Microsoft's Windows Hypervisor Platform (WHP) backend regardless of any per-VM setting. WHP's real-mode/V86 CPU emulation is known to be less accurate than VirtualBox's native engine, which plausibly explains both crashes. The real fix (`bcdedit /set hypervisorlaunchtype off` + reboot, disabling WSL2 until reverted) was declined by the user — **they explicitly do not want WSL2 disabled**, so a Win9x-native VM is off the table on this machine. The VM (`ImpConq2-Win98`) has been fully removed (unregistered + disk deleted).
+- **Net effect**: the freeze must continue to be characterized from modern-Windows data only (Procmon traces, video recordings, in-game battle-resolution screens) — there's no clean native-OS reference environment available to compare against on this machine.
+
 ## Build and verification
 
 ```text
