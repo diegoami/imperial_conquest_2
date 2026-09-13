@@ -77,9 +77,13 @@ public static class ToyFixtures
             .Append(new NewsEntry("north destroys army of south."), ruleset.NewsLog)
             .Append(new NewsEntry("A fleet belonging to south is lost at sea."), ruleset.NewsLog);
 
+        // The calendar is ADVANCED from the initial one, never replaced with hand-written literals.
+        // A previous revision wrote a fresh CalendarState here, which masked a wrong starting week in
+        // GameStateFactory from every test that used this fixture. Deriving it means the start values
+        // stay visible, and AdvanceWeeks below walks the confirmed cycle rather than assuming a result.
         return initial with
         {
-            Calendar = new CalendarState(Week: 7, SeasonIndex: 2, YearBc: 269, TurnIndex: 19),
+            Calendar = AdvanceWeeks(initial.Calendar, ruleset.Calendar, turns: 19),
             ActiveSeatIndex = 1,
             Armies = ValueList.From(armies),
             Fleets = ValueList.From(fleets),
@@ -88,6 +92,41 @@ public static class ToyFixtures
             Relations = relations,
             NewsLog = news,
         };
+    }
+
+    /// <summary>
+    /// Walks the confirmed calendar cycle — <c>week = (week + step) mod modulus</c>, season advancing on
+    /// the step that departs <see cref="CalendarRules.SeasonAdvanceFromWeek"/>, year decrementing on the
+    /// season wrap — purely so the fixtures and the DoD tests have a mid-game calendar that was reached
+    /// rather than asserted.
+    /// </summary>
+    /// <remarks>
+    /// This is a test helper, not an implementation: the calendar engine is task T06's, and this
+    /// deliberately lives here rather than in <c>src/IC2.Engine</c> so it cannot be mistaken for one.
+    /// </remarks>
+    public static CalendarState AdvanceWeeks(CalendarState from, CalendarRules rules, int turns)
+    {
+        var week = from.Week;
+        var season = from.SeasonIndex;
+        var year = from.YearBc;
+
+        for (var turn = 0; turn < turns; turn++)
+        {
+            var wraps = week == rules.SeasonAdvanceFromWeek;
+            week = (week + rules.WeekStep) % rules.WeekModulus;
+            if (!wraps)
+            {
+                continue;
+            }
+
+            season = (season + 1) % rules.SeasonsPerYear;
+            if (season == 0)
+            {
+                year--;
+            }
+        }
+
+        return new CalendarState(week, season, year, from.TurnIndex + turns);
     }
 
     /// <summary>A save wrapping <see cref="NonTrivialState"/>.</summary>

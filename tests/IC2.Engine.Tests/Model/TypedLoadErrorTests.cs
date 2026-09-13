@@ -134,6 +134,139 @@ public class TypedLoadErrorTests
         Assert.Contains("blindHotseat", error.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void An_overlong_terrain_run_is_malformed_not_an_untyped_runtime_exception()
+    {
+        // The run count is chosen to overflow `written + run.Count` if the guard adds rather than
+        // subtracts: the sum wraps negative, slips past the check, and the fill loop runs off the end
+        // of the array as an IndexOutOfRangeException, which is outside the typed hierarchy DoD 3
+        // requires every load failure to stay inside.
+        var document = LoadToyWorldNode();
+        document["terrain"] = new JsonObject
+        {
+            ["encoding"] = "runLength",
+            ["runs"] = new JsonArray(
+                new JsonObject { ["code"] = 2, ["count"] = 1 },
+                new JsonObject { ["code"] = 2, ["count"] = int.MaxValue }),
+            ["data"] = null,
+        };
+
+        var error = Assert.Throws<MalformedGameDataException>(
+            () => GameDataLoader.Load<World>("toy-3city.json", document.ToJsonString()));
+
+        Assert.Contains("cells", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_terrain_grid_of_the_wrong_length_is_malformed()
+    {
+        var document = LoadToyWorldNode();
+        document["terrain"] = new JsonObject
+        {
+            ["encoding"] = "runLength",
+            ["runs"] = new JsonArray(new JsonObject { ["code"] = 2, ["count"] = 3 }),
+            ["data"] = null,
+        };
+
+        Assert.Throws<MalformedGameDataException>(
+            () => GameDataLoader.Load<World>("toy-3city.json", document.ToJsonString()));
+    }
+
+    [Fact]
+    public void A_state_naming_a_nation_that_does_not_exist_does_not_load()
+    {
+        var save = ToyFixtures.NonTrivialSave();
+        var cities = save.State.Cities.ToList();
+        cities[0] = cities[0] with { Owner = "atlantis" };
+        var broken = save with { State = save.State with { Cities = ValueList.From(cities) } };
+
+        var error = Assert.Throws<UnresolvedReferenceException>(
+            () => GameDataLoader.Load<SaveGame>("save.json", GameJson.Serialize(broken)));
+
+        Assert.Equal("nation", error.Kind);
+        Assert.Equal("atlantis", error.Id);
+    }
+
+    [Fact]
+    public void An_army_whose_nation_does_not_exist_does_not_load()
+    {
+        var save = ToyFixtures.NonTrivialSave();
+        var armies = save.State.Armies.ToList();
+        armies[0] = armies[0] with { Nation = "atlantis" };
+        var broken = save with { State = save.State with { Armies = ValueList.From(armies) } };
+
+        Assert.Throws<UnresolvedReferenceException>(
+            () => GameDataLoader.Load<SaveGame>("save.json", GameJson.Serialize(broken)));
+    }
+
+    [Fact]
+    public void A_one_sided_embark_link_does_not_load()
+    {
+        var save = ToyFixtures.NonTrivialSave();
+        var fleets = save.State.Fleets.ToList();
+        var index = fleets.FindIndex(f => f.IsCarryingArmy);
+        fleets[index] = fleets[index] with { CarriedArmyId = null };
+        var broken = save with { State = save.State with { Fleets = ValueList.From(fleets) } };
+
+        var error = Assert.Throws<MalformedGameDataException>(
+            () => GameDataLoader.Load<SaveGame>("save.json", GameJson.Serialize(broken)));
+
+        Assert.Contains("no army", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_news_log_whose_index_disagrees_with_its_slots_does_not_load()
+    {
+        var save = ToyFixtures.NonTrivialSave();
+        var broken = save with
+        {
+            State = save.State with { NewsLog = save.State.NewsLog with { MostRecentSlot = 0 } },
+        };
+
+        Assert.Throws<MalformedGameDataException>(
+            () => GameDataLoader.Load<SaveGame>("save.json", GameJson.Serialize(broken)));
+    }
+
+    [Fact]
+    public void A_saves_nested_state_version_is_checked_too()
+    {
+        var save = ToyFixtures.NonTrivialSave();
+        var broken = save with { State = save.State with { SchemaVersion = GameDataSchema.CurrentVersion + 98 } };
+
+        var error = Assert.Throws<SchemaVersionMismatchException>(
+            () => GameDataLoader.Load<SaveGame>("save.json", GameJson.Serialize(broken)));
+
+        Assert.Equal(GameDataSchema.CurrentVersion + 98, error.Found);
+    }
+
+    [Fact]
+    public void A_calendar_whose_start_week_can_never_reach_the_season_boundary_does_not_load()
+    {
+        var document = LoadToyRulesetNode();
+        ((JsonObject)document["calendar"]!)["startWeek"] = 2;
+
+        var error = Assert.Throws<MalformedGameDataException>(
+            () => GameDataLoader.Load<Ruleset>("toy-ruleset.json", document.ToJsonString()));
+
+        Assert.Contains("never reaches", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Reading_a_directory_instead_of_a_file_is_a_typed_error()
+    {
+        // File.ReadAllText throws UnauthorizedAccessException here, not IOException; if the loader only
+        // caught IOException this would escape the GameDataException hierarchy that
+        // GameDataRepository.Load's contract promises.
+        Assert.Throws<MalformedGameDataException>(
+            () => GameDataLoader.LoadFile<World>(TestPaths.DataRoot));
+    }
+
     private static JsonObject LoadToyScenarioNode() =>
         (JsonObject)JsonNode.Parse(File.ReadAllText(TestPaths.ToyScenarioFile))!;
+
+    private static JsonObject LoadToyWorldNode() =>
+        (JsonObject)JsonNode.Parse(File.ReadAllText(TestPaths.ToyWorldFile))!;
+
+    private static JsonObject LoadToyRulesetNode() =>
+        (JsonObject)JsonNode.Parse(File.ReadAllText(TestPaths.ToyRulesetFile))!;
 }

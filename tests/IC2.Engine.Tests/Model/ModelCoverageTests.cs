@@ -97,9 +97,41 @@ public class ModelCoverageTests
 
         Assert.Equal(340, ordered);
         Assert.Equal(40, FortificationCode.AfterSiegeAttempt(ordered, fortify));
-        Assert.Equal(60, FortificationCode.MaxOrderablePoints(ordered, fortify));
         Assert.True(fortify.WipedBySiegeAttempt);
         Assert.True(fortify.RefusedWhileUnderSiege);
+
+        // A second order is refused outright while one is pending, exactly as the original's
+        // "This city is already being fortified." does. Returning the 60 points that are nominally
+        // unfortified would let a caller push finished-plus-pending to 103%.
+        Assert.False(FortificationCode.CanPlaceOrder(ordered, fortify));
+        Assert.Equal(0, FortificationCode.MaxOrderablePoints(ordered, fortify));
+
+        // Once the siege wipes the pending order, the city can be ordered again.
+        var wiped = FortificationCode.AfterSiegeAttempt(ordered, fortify);
+        Assert.True(FortificationCode.CanPlaceOrder(wiped, fortify));
+        Assert.Equal(60, FortificationCode.MaxOrderablePoints(wiped, fortify));
+
+        // And a city already at the maximum can never be ordered further.
+        Assert.False(FortificationCode.CanPlaceOrder(fortify.MaxPercent, fortify));
+    }
+
+    [Fact]
+    public void The_in_progress_threshold_is_the_maximum_not_the_encoding_radix()
+    {
+        var fortify = ToyFixtures.Toy.Ruleset.CityOrders.Orders.FindById(o => o.Id, "fortify")!;
+
+        // The two are both 100 in the original, but they mean different things. A ruleset that separates
+        // them must still decode correctly, which it only does if the "is an order pending?" test uses
+        // maxPercent and the arithmetic uses the radix.
+        var separated = fortify with { MaxPercent = 100, InProgressEncodingRadix = 1000 };
+
+        var ordered = FortificationCode.WithOrder(40, points: 3, separated);
+
+        Assert.Equal(3040, ordered);
+        Assert.True(FortificationCode.IsOrderInProgress(ordered, separated));
+        Assert.Equal(40, FortificationCode.FinishedPercent(ordered, separated));
+        Assert.Equal(3, FortificationCode.PendingPoints(ordered, separated));
+        Assert.Equal(40, FortificationCode.AfterSiegeAttempt(ordered, separated));
     }
 
     [Fact]

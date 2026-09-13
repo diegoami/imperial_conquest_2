@@ -54,6 +54,72 @@ public class ScenarioLoadingTests
     }
 
     [Fact]
+    public void The_initial_calendar_comes_entirely_from_the_loaded_ruleset()
+    {
+        var repository = GameDataRepository.Load(TestPaths.DataRoot);
+        var ruleset = repository.RulesetById("toy-ruleset")!;
+
+        var state = repository.CreateInitialState("toy-3city");
+
+        Assert.Equal(ruleset.Calendar.StartWeek, state.Calendar.Week);
+        Assert.Equal(ruleset.Calendar.StartSeasonIndex, state.Calendar.SeasonIndex);
+        Assert.Equal(ruleset.Calendar.StartYearBc, state.Calendar.YearBc);
+        Assert.Equal(0, state.Calendar.TurnIndex);
+
+        // Not the week STEP, which is a different field entirely and has the wrong parity - the defect
+        // this assertion exists to prevent from coming back.
+        Assert.NotEqual(ruleset.Calendar.WeekStep, state.Calendar.Week);
+    }
+
+    [Fact]
+    public void The_initial_week_can_actually_reach_the_season_boundary()
+    {
+        var repository = GameDataRepository.Load(TestPaths.DataRoot);
+        var ruleset = repository.RulesetById("toy-ruleset")!;
+        var calendar = ruleset.Calendar;
+
+        var week = repository.CreateInitialState("toy-3city").Calendar.Week;
+        var reached = false;
+        var visited = new List<int>();
+        for (var step = 0; step < calendar.WeekModulus; step++)
+        {
+            visited.Add(week);
+            if (week == calendar.SeasonAdvanceFromWeek)
+            {
+                reached = true;
+                break;
+            }
+
+            week = (week + calendar.WeekStep) % calendar.WeekModulus;
+        }
+
+        Assert.True(
+            reached,
+            $"Starting at week {calendar.StartWeek} and stepping by {calendar.WeekStep} mod "
+            + $"{calendar.WeekModulus} visits {string.Join(", ", visited)} and never reaches "
+            + $"{calendar.SeasonAdvanceFromWeek}, so the season and year could never advance.");
+    }
+
+    [Fact]
+    public void Advancing_the_shipped_start_advances_the_season_and_then_the_year()
+    {
+        var repository = GameDataRepository.Load(TestPaths.DataRoot);
+        var ruleset = repository.RulesetById("toy-ruleset")!;
+        var start = repository.CreateInitialState("toy-3city").Calendar;
+
+        // Six weekly steps per season (12 / 2), four seasons per year.
+        var afterOneSeason = ToyFixtures.AdvanceWeeks(start, ruleset.Calendar, turns: 6);
+        var afterOneYear = ToyFixtures.AdvanceWeeks(start, ruleset.Calendar, turns: 24);
+
+        Assert.Equal(start.Week, afterOneSeason.Week);
+        Assert.Equal(1, afterOneSeason.SeasonIndex);
+        Assert.Equal(start.YearBc, afterOneSeason.YearBc);
+
+        Assert.Equal(start.SeasonIndex, afterOneYear.SeasonIndex);
+        Assert.Equal(start.YearBc - 1, afterOneYear.YearBc);
+    }
+
+    [Fact]
     public void An_unknown_scenario_id_is_an_unresolved_reference_not_a_null()
     {
         var repository = GameDataRepository.Load(TestPaths.DataRoot);

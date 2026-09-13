@@ -129,6 +129,7 @@ public static class GameDataValidation
 
     private static void ValidateRuleset(string documentPath, Ruleset ruleset)
     {
+        ValidateCalendar(documentPath, ruleset.Calendar);
         RequireDistinct(documentPath, ruleset.UnitTypes, u => u.Id, "unitTypes");
         RequireDistinct(documentPath, ruleset.Terrain.MoveCosts, m => m.TileTypeId, "terrain.moveCosts");
         RequireDistinct(documentPath, ruleset.CityOrders.Orders, o => o.Id, "cityOrders.orders");
@@ -160,6 +161,61 @@ public static class GameDataValidation
         }
     }
 
+    /// <summary>
+    /// Checks that the calendar can actually turn over. The season advances only when the weekly step
+    /// lands exactly on <see cref="CalendarRules.SeasonAdvanceFromWeek"/>, so a start week of the wrong
+    /// parity produces a game whose season — and therefore whose year — never moves, with no visible
+    /// error anywhere. That is a data mistake worth catching at load rather than months later.
+    /// </summary>
+    private static void ValidateCalendar(string documentPath, CalendarRules calendar)
+    {
+        if (calendar.WeekModulus <= 0 || calendar.WeekStep <= 0 || calendar.SeasonsPerYear <= 0)
+        {
+            throw new MalformedGameDataException(
+                documentPath, "calendar.weekModulus, calendar.weekStep and calendar.seasonsPerYear must all be positive.");
+        }
+
+        if (calendar.StartWeek < 0 || calendar.StartWeek >= calendar.WeekModulus)
+        {
+            throw new MalformedGameDataException(
+                documentPath,
+                $"calendar.startWeek {calendar.StartWeek} is outside the 0..{calendar.WeekModulus - 1} week cycle.");
+        }
+
+        if (calendar.SeasonAdvanceFromWeek < 0 || calendar.SeasonAdvanceFromWeek >= calendar.WeekModulus)
+        {
+            throw new MalformedGameDataException(
+                documentPath,
+                $"calendar.seasonAdvanceFromWeek {calendar.SeasonAdvanceFromWeek} is outside the "
+                + $"0..{calendar.WeekModulus - 1} week cycle.");
+        }
+
+        if (calendar.StartSeasonIndex < 0 || calendar.StartSeasonIndex >= calendar.SeasonsPerYear)
+        {
+            throw new MalformedGameDataException(
+                documentPath,
+                $"calendar.startSeasonIndex {calendar.StartSeasonIndex} is outside the "
+                + $"0..{calendar.SeasonsPerYear - 1} season cycle.");
+        }
+
+        var week = calendar.StartWeek;
+        for (var step = 0; step < calendar.WeekModulus; step++)
+        {
+            if (week == calendar.SeasonAdvanceFromWeek)
+            {
+                return;
+            }
+
+            week = (week + calendar.WeekStep) % calendar.WeekModulus;
+        }
+
+        throw new MalformedGameDataException(
+            documentPath,
+            $"calendar.startWeek {calendar.StartWeek} advancing by {calendar.WeekStep} never reaches "
+            + $"calendar.seasonAdvanceFromWeek {calendar.SeasonAdvanceFromWeek} in a {calendar.WeekModulus}-week "
+            + "cycle, so the season and the year could never advance.");
+    }
+
     private static void ValidateScenario(string documentPath, Scenario scenario)
     {
         RequireDistinct(documentPath, scenario.Seats, s => s.Nation, "seats");
@@ -183,6 +239,13 @@ public static class GameDataValidation
 
     private static void ValidateSave(string documentPath, SaveGame save)
     {
+        // The loader checks the schema version of the root object only, so the nested state's own
+        // version is checked here, beside the ids it is already cross-checked against.
+        if (save.State.SchemaVersion != save.SchemaVersion)
+        {
+            throw new SchemaVersionMismatchException(documentPath, save.State.SchemaVersion, save.SchemaVersion);
+        }
+
         ValidateState(documentPath, save.State);
 
         if (!string.Equals(save.WorldId, save.State.WorldId, StringComparison.Ordinal)
@@ -235,18 +298,42 @@ public static class GameDataValidation
             }
         }
 
-        if (state.NewsLog.MostRecentSlot < -1 || state.NewsLog.MostRecentSlot >= state.NewsLog.Slots.Count)
+        // The ring buffer's index and its payload have to agree, or NewsLog.Append would be deciding
+        // fullness from one and writing the other.
+        if (!state.NewsLog.IsConsistent())
         {
             throw new MalformedGameDataException(
                 documentPath,
-                $"newsLog.mostRecentSlot {state.NewsLog.MostRecentSlot} does not address one of its {state.NewsLog.Slots.Count} slots.");
+                $"newsLog.mostRecentSlot {state.NewsLog.MostRecentSlot} does not address the last of its "
+                + $"{state.NewsLog.Slots.Count} slots.");
+        }
+
+        // Every later system will reach for state.NationById(city.Owner) and dereference it. The world
+        // loader already resolves these; a state loaded from a save has to be held to the same rule.
+        foreach (var city in state.Cities)
+        {
+            RequireStateNation(documentPath, state, city.Owner);
+            RequireStateNation(documentPath, state, city.Allegiance);
         }
 
         foreach (var army in state.Armies)
         {
-            if (army.AboardFleetId is { } fleetId && state.FleetById(fleetId) is null)
+            RequireStateNation(documentPath, state, army.Nation);
+
+            if (army.AboardFleetId is { } fleetId)
             {
-                throw new UnresolvedReferenceException(documentPath, "fleet", fleetId);
+                var carrier = state.FleetById(fleetId)
+                              ?? throw new UnresolvedReferenceException(documentPath, "fleet", fleetId);
+
+                // The link has to be mutual, or two armies could both claim the one fleet that
+                // FleetState documents as carrying a single army.
+                if (!string.Equals(carrier.CarriedArmyId, army.Id, StringComparison.Ordinal))
+                {
+                    throw new MalformedGameDataException(
+                        documentPath,
+                        $"army '{army.Id}' is aboard fleet '{fleetId}', but that fleet carries "
+                        + $"'{carrier.CarriedArmyId ?? "no army"}'.");
+                }
             }
 
             if ((army.AboardFleetId is not null) != (army.CoveredTileCode is null))
@@ -259,9 +346,20 @@ public static class GameDataValidation
 
         foreach (var fleet in state.Fleets)
         {
-            if (fleet.CarriedArmyId is { } armyId && state.ArmyById(armyId) is null)
+            RequireStateNation(documentPath, state, fleet.Nation);
+
+            if (fleet.CarriedArmyId is { } armyId)
             {
-                throw new UnresolvedReferenceException(documentPath, "army", armyId);
+                var carried = state.ArmyById(armyId)
+                              ?? throw new UnresolvedReferenceException(documentPath, "army", armyId);
+
+                if (!string.Equals(carried.AboardFleetId, fleet.Id, StringComparison.Ordinal))
+                {
+                    throw new MalformedGameDataException(
+                        documentPath,
+                        $"fleet '{fleet.Id}' carries army '{armyId}', but that army is aboard "
+                        + $"'{carried.AboardFleetId ?? "no fleet"}'.");
+                }
             }
 
             if (fleet.BuildCityId is { } cityId && state.CityById(cityId) is null)
@@ -277,6 +375,20 @@ public static class GameDataValidation
         }
     }
 
+    private static void RequireStateNation(string documentPath, GameState state, string nationId)
+    {
+        if (state.NationById(nationId) is null)
+        {
+            throw new UnresolvedReferenceException(documentPath, "nation", nationId);
+        }
+    }
+
+    /// <remarks>
+    /// The 0-1 bound is a schema bound, not a tunable rule: <see cref="AiPersonality"/>'s parameters are
+    /// <em>defined</em> as fractions in <c>docs/game-design.md</c> §AI, so a value outside that range is
+    /// a malformed document rather than an unusual ruleset. It is therefore deliberately not a
+    /// <see cref="Ruleset"/> field.
+    /// </remarks>
     private static void RequireUnitRange(string documentPath, double value, string field)
     {
         if (value is < 0 or > 1 || double.IsNaN(value))

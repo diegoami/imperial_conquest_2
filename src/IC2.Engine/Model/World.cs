@@ -83,7 +83,17 @@ public sealed record TerrainGrid(
     /// <exception cref="InvalidOperationException">The encoding is inconsistent or the wrong length.</exception>
     public int[] Decode(int width, int height)
     {
-        var expected = checked(width * height);
+        // Computed as a long and range-checked rather than with `checked`, so an absurd map size is an
+        // InvalidOperationException the loader turns into a typed MalformedGameDataException, not an
+        // OverflowException escaping untyped past GameDataValidation's catch.
+        var cellCount = (long)width * height;
+        if (width < 0 || height < 0 || cellCount > Array.MaxLength)
+        {
+            throw new InvalidOperationException(
+                $"A {width}×{height} map is not a size this engine can hold.");
+        }
+
+        var expected = (int)cellCount;
         switch (Encoding)
         {
             case TerrainEncoding.RunLength:
@@ -107,7 +117,9 @@ public sealed record TerrainGrid(
                         throw new InvalidOperationException("A terrain run count may not be negative.");
                     }
 
-                    if (written + run.Count > expected)
+                    // Compared as a subtraction, never as `written + run.Count`: the sum overflows for a
+                    // large count, wraps negative, and slips past the guard into an out-of-range write.
+                    if (run.Count > expected - written)
                     {
                         throw new InvalidOperationException(
                             $"Terrain runs describe more than {expected} cells for a {width}×{height} map.");
@@ -150,7 +162,7 @@ public sealed record TerrainGrid(
                     throw new InvalidOperationException("The terrain grid's \"data\" is not valid base64.", ex);
                 }
 
-                if (bytes.Length != expected * 2)
+                if (bytes.Length != (long)expected * 2)
                 {
                     throw new InvalidOperationException(
                         $"Terrain data holds {bytes.Length / 2} cells; a {width}×{height} map needs {expected}.");

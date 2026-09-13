@@ -24,10 +24,23 @@ namespace IC2.Engine.Tests.Model;
 /// rather than coincidence.
 /// </description></item>
 /// <item><description>
-/// No numeric constant exists anywhere in the model or serialization namespaces, apart from one
-/// explicitly allowlisted schema-version identifier, which is a file contract rather than a rule.
+/// No numeric <em>field</em> that is <c>const</c>, or <c>static readonly</c>, exists anywhere in the
+/// model or serialization namespaces, apart from one explicitly allowlisted schema-version identifier,
+/// which is a file contract rather than a rule.
 /// </description></item>
 /// </list>
+/// <para>
+/// Stated precisely because the scope matters: check 3 reads fields by reflection, so it sees
+/// <c>const</c> and <c>static readonly</c> numeric fields and nothing else — not an instance
+/// <c>readonly</c> field, not an expression-bodied property, and not a bare literal inside a method
+/// body. Checks 1 and 2 are what actually cover the values, by proving each one tracks the file it was
+/// loaded from. The structural reason the remaining gap is narrow is that the model has almost no
+/// behaviour: the one place engine code could embed a rule is <see cref="FortificationCode"/>, whose
+/// methods take the <see cref="CityOrderRule"/> from the ruleset, which
+/// <see cref="Two_rulesets_with_different_numbers_drive_the_model_differently"/> pins down. A general
+/// source-text sweep for stray literals belongs with T03's determinism guard, which already scans
+/// <c>src/IC2.Engine</c>.
+/// </para>
 /// </remarks>
 public class NoHardcodedConstantsTests
 {
@@ -115,7 +128,21 @@ public class NoHardcodedConstantsTests
     }
 
     [Fact]
-    public void The_model_declares_no_numeric_constants_beyond_the_allowlist()
+    public void The_calendars_starting_week_is_ruleset_data_not_an_engine_value()
+    {
+        var ruleset = GameDataLoader.LoadFile<Ruleset>(TestPaths.ToyRulesetFile);
+        var paths = RulesetNumbers.Enumerate(ruleset).Select(n => n.Path).ToHashSet(StringComparer.Ordinal);
+
+        // The whole starting calendar is data. This is called out separately from the coverage test
+        // above because improvising the start week in C# is what DoD 5's first clause forbids, and
+        // because the field's parity decides whether the season can advance at all.
+        Assert.Contains("calendar.startWeek", paths);
+        Assert.Contains("calendar.startSeasonIndex", paths);
+        Assert.Contains("calendar.startYearBc", paths);
+    }
+
+    [Fact]
+    public void The_model_declares_no_numeric_constant_fields_beyond_the_allowlist()
     {
         var assembly = typeof(Ruleset).Assembly;
         var offenders = new List<string>();

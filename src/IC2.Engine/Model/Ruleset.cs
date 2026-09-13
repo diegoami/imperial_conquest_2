@@ -71,11 +71,22 @@ public sealed record Ruleset(
 }
 
 /// <summary>Week/season/year advance, and the quarterly boundary everything economic hangs off.</summary>
+/// <param name="StartWeek">
+/// The week a scenario begins on. It is ruleset data rather than an engine value because the cycle's
+/// <em>parity</em> is load-bearing: with <see cref="WeekStep"/> 2 and <see cref="WeekModulus"/> 12, only
+/// an odd start ever reaches <see cref="SeasonAdvanceFromWeek"/>, so an even one would leave the season
+/// — and therefore the year — unable to advance at all.
+/// <see cref="IC2.Engine.Serialization.GameDataValidation"/> rejects a calendar whose start cannot
+/// reach the season boundary.
+/// </param>
+/// <param name="StartSeasonIndex">The season a scenario begins in, zero-based.</param>
 public sealed record CalendarRules(
     int WeekStep,
     int WeekModulus,
     int SeasonAdvanceFromWeek,
     int SeasonsPerYear,
+    int StartWeek,
+    int StartSeasonIndex,
     int StartYearBc,
     int CityUnitStateCodeStep,
     int CityUnitStateCodeCap,
@@ -171,6 +182,10 @@ public sealed record CombatRules(
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>The naval variant of the instant resolver.</summary>
+/// <param name="UnitySwingShipDivisor">
+/// A naval battle moves unity by <c>floor(loserShips / this)</c>, rather than by the field battle's
+/// flat <see cref="CombatRules.UnitySwing"/>.
+/// </param>
 public sealed record NavalCombatRules(
     int ConditionDivisor,
     int CarriedArmyPowerDivisor,
@@ -180,6 +195,7 @@ public sealed record NavalCombatRules(
     int DamageRatioScale,
     int UnitLossDamageThreshold,
     int UnitLossDivisor,
+    int UnitySwingShipDivisor,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>
@@ -209,9 +225,25 @@ public sealed record DetailedResolverRules(
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>Siege resolution — the third variant of the instant resolver.</summary>
+/// <param name="DefenderUnidentifiedFieldWeight">
+/// The weight of the third city field in the defender-strength sum. The field itself has not been
+/// identified in the research reports, only its weight, so the name says so rather than guessing.
+/// </param>
+/// <param name="HighFortificationThreshold">
+/// The fortification value above which the defender's strength is scaled up. The decompiled branch is
+/// additionally guarded by a condition that was not recovered, which
+/// <see cref="HighFortificationBonusNumerator"/>'s provenance records.
+/// </param>
 public sealed record SiegeRules(
     int ArcherStrengthMultiplier,
     int PowerDivisor,
+    int DefenderFortificationWeight,
+    int DefenderLoyaltyWeight,
+    int DefenderUnidentifiedFieldWeight,
+    int HighFortificationThreshold,
+    int HighFortificationBonusNumerator,
+    int HighFortificationBonusDenominator,
+    int DefenderGarrisonTroopDivisor,
     int DefenderOwnerNotAllegiancePenaltyPercent,
     int AttackerIsAllegianceDefenderReductionPercent,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);

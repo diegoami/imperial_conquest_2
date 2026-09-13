@@ -106,9 +106,18 @@ public sealed class JsonContract
             return null;
         }
 
+        // Reflection's constructor order is undocumented, and this is the one place the whole schema is
+        // derived from, so the choice is made deterministic: most parameters first, then by the
+        // parameter-type signature as a tie-break. Every model record has exactly one public
+        // constructor today; the tie-break exists so that stays true if one ever gains a second.
         var constructors = candidate.GetConstructors(BindingFlags.Public | BindingFlags.Instance);
         var constructor = constructors.FirstOrDefault(c => c.GetCustomAttribute<JsonConstructorAttribute>() is not null)
-                          ?? constructors.OrderByDescending(c => c.GetParameters().Length).FirstOrDefault();
+                          ?? constructors
+                              .OrderByDescending(c => c.GetParameters().Length)
+                              .ThenBy(
+                                  c => string.Join(",", c.GetParameters().Select(p => p.ParameterType.FullName)),
+                                  StringComparer.Ordinal)
+                              .FirstOrDefault();
         if (constructor is null || constructor.GetParameters().Length == 0)
         {
             return null;

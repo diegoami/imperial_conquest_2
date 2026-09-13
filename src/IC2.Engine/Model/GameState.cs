@@ -371,17 +371,25 @@ public sealed record NewsLog(int MostRecentSlot, ValueList<NewsEntry> Slots)
             throw new ArgumentOutOfRangeException(nameof(rules), capacity, "The news ring buffer needs at least one slot.");
         }
 
+        // Fullness is decided from the number of slots actually held, not from MostRecentSlot: the two
+        // agree for any log this type produced (and GameDataValidation requires them to agree for any
+        // log it loaded), but keying off the payload rather than the index means a log that somehow
+        // arrives inconsistent still cannot grow past the ring buffer's capacity.
         var current = Slots.ToList();
-        if (MostRecentSlot >= capacity - 1)
+        while (current.Count >= capacity)
         {
             current.RemoveAt(0);
-            current.Add(entry);
-            return new NewsLog(capacity - 1, ValueList.From(current));
         }
 
         current.Add(entry);
-        return new NewsLog(MostRecentSlot + 1, ValueList.From(current));
+        return new NewsLog(current.Count - 1, ValueList.From(current));
     }
+
+    /// <summary>
+    /// Whether <see cref="MostRecentSlot"/> addresses the last of <see cref="Slots"/>, which is the
+    /// invariant every log this type produces holds and the one the loader enforces.
+    /// </summary>
+    public bool IsConsistent() => MostRecentSlot == Slots.Count - 1;
 }
 
 /// <summary>One news-log message.</summary>

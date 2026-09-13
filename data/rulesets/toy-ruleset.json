@@ -8,6 +8,8 @@
     "weekModulus": 12,
     "seasonAdvanceFromWeek": 11,
     "seasonsPerYear": 4,
+    "startWeek": 1,
+    "startSeasonIndex": 0,
     "startYearBc": 270,
     "cityUnitStateCodeStep": 2,
     "cityUnitStateCodeCap": 24,
@@ -16,6 +18,8 @@
       "weekModulus": "confirmed: decompiled-turn-and-calendar-sequencing.md — week is +2 mod 12.",
       "seasonAdvanceFromWeek": "confirmed: decompiled-turn-and-calendar-sequencing.md — the season advances at the 11 to 1 wrap.",
       "seasonsPerYear": "confirmed: decompiled-quarterly-billing-and-economy.md — 'quarterly' is once per season, four times a year; the year decrements at the Winter to Spring wrap.",
+      "startWeek": "confirmed: impconq2-full-save-analysis.md and one-turn-save-comparison.md — the earliest news slot in the sample saves reads 'Week 1      Spring      270 BC', and the next turn's slot reads 'Week  3      Spring      270BC'. The parity is load-bearing rather than cosmetic: decompiled-turn-and-calendar-sequencing.md gives the cycle as 'week = (week + 2) mod 12; if week == 1: season++', so only an odd start ever reaches the season boundary. Every dated save in the project (weeks 1, 3, 5, 7, 9, 11 — saves-and-screenshots.md, strategic-recording-and-summer-saves.md) is on that odd parity.",
+      "startSeasonIndex": "confirmed: saves-and-screenshots.md and strategic-recording-and-summer-saves.md — the save trailer's +44 byte is 0 in all five Spring saves and 1 in all three Summer saves, so season index 0 is Spring; impconq2-full-save-analysis.md shows the campaign's first dated news slot as Spring 270 BC.",
       "startYearBc": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — THumanFalls_InitializeForm reports the reign length as 270 minus the current year, confirming the 270 BC start.",
       "cityUnitStateCodeStep": "confirmed: decompiled-turn-and-calendar-sequencing.md — city-unit StateCode increments by 2 per week.",
       "cityUnitStateCodeCap": "confirmed: decompiled-turn-and-calendar-sequencing.md — capped at 24 (a cap, not a starting value)."
@@ -247,7 +251,9 @@
       "damageRatioScale": 100,
       "unitLossDamageThreshold": 70,
       "unitLossDivisor": 250,
+      "unitySwingShipDivisor": 2,
       "_provenance": {
+        "unitySwingShipDivisor": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — a naval battle moves unity by plus or minus floor(loserShips / 2), not by the field battle's flat 25.",
         "conditionDivisor": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — base strength = ships × condition / 10.",
         "carriedArmyPowerDivisor": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — a carried army adds armyPower / 50.",
         "randomBandCount": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — random(4) picks one of four bands.",
@@ -318,11 +324,25 @@
   "siege": {
     "archerStrengthMultiplier": 3,
     "powerDivisor": 80,
+    "defenderFortificationWeight": 150,
+    "defenderLoyaltyWeight": 250,
+    "defenderUnidentifiedFieldWeight": 200,
+    "highFortificationThreshold": 59,
+    "highFortificationBonusNumerator": 5,
+    "highFortificationBonusDenominator": 3,
+    "defenderGarrisonTroopDivisor": 2,
     "defenderOwnerNotAllegiancePenaltyPercent": 20,
     "attackerIsAllegianceDefenderReductionPercent": 10,
     "_provenance": {
       "archerStrengthMultiplier": "confirmed: decompiled-unit-map-orders-and-record-fields.md — siege strength is (sum of troops, archers counted three times) / 80 × morale; also stated in decompiled-city-capture-resolution.md.",
       "powerDivisor": "confirmed: decompiled-unit-map-orders-and-record-fields.md — the / 80 of the same expression.",
+      "defenderFortificationWeight": "confirmed: decompiled-city-capture-resolution.md — FUN_0044a98c computes defender strength as fortification × 150 + loyalty × 250 + <third field> × 200.",
+      "defenderLoyaltyWeight": "confirmed: decompiled-city-capture-resolution.md — the loyalty × 250 term of the same expression.",
+      "defenderUnidentifiedFieldWeight": "confirmed weight, UNIDENTIFIED field: decompiled-city-capture-resolution.md records the third term as '<third field> × 200' without naming which city field it reads. The weight is transcribed; the field it multiplies is not known, so the name says so rather than guessing at one. T17 needs to identify it before this term can be implemented.",
+      "highFortificationThreshold": "confirmed: decompiled-city-capture-resolution.md — 'if <condition> and fortification > 59: strength = strength × 5 / 3'. The report is explicit that the branch carries a further condition it did not recover, so the threshold is confirmed but the branch's full guard is not.",
+      "highFortificationBonusNumerator": "confirmed: decompiled-city-capture-resolution.md — the × 5 / 3 of the same branch. See highFortificationThreshold for the unrecovered guard.",
+      "highFortificationBonusDenominator": "confirmed: decompiled-city-capture-resolution.md — the / 3 of the same branch.",
+      "defenderGarrisonTroopDivisor": "confirmed: decompiled-city-capture-resolution.md — 'strength += (garrison troops assigned to this city) / 2'.",
       "defenderOwnerNotAllegiancePenaltyPercent": "confirmed as read, but UNRECONCILED: decompiled-city-capture-resolution.md describes a 20% defender penalty when the city's owner is not its allegiance. docs/design-audit.md §2.13 flags that the siege entry point FUN_0044B27C instead applies a 10% reduction when the ATTACKING nation equals the city's allegiance, and that FUN_0044A98C (defender strength) was never decompiled, so the two readings may be one adjustment or two. Both are carried here as separate fields, unresolved, rather than one being silently dropped. This is an evidence conflict for whoever implements siege resolution (task T17) to settle, not for this task to pick.",
       "attackerIsAllegianceDefenderReductionPercent": "confirmed as read, but UNRECONCILED: see the note on defenderOwnerNotAllegiancePenaltyPercent. Source: docs/design-audit.md §2.13 reporting FUN_0044B27C's ×9/10 branch."
     }
@@ -411,7 +431,7 @@
     "_provenance": {
       "armyTroopTierThresholds": "confirmed: decompiled-unit-map-orders-and-record-fields.md part 3 — FUN_0044A80C picks the army marker band from troops / 1000 being under 25, under 50, or at least 50, i.e. three size classes split at 25,000 and 50,000 troops.",
       "fleetShipTierThresholds": "confirmed: decompiled-unit-map-orders-and-record-fields.md part 3 — FUN_0044A878 splits fleets at 25 and 50 ships.",
-      "cityPopulationTierThresholds": "OMITTED, no source found. docs/game-design.md §'City and army markers scale with size' records size-tiered city markers as a real requirement but states plainly that 'the exact tier boundaries and how many tiers the original used are not yet decompiled'. Searched docs/reports/ for a city-marker banding rule the way the army and fleet bands were found: the city marker codes 20-99 appear in terrain-move-cost-table-in-dat.md and decompiled-unit-map-orders-and-record-fields.md only as a range the movement walk refuses to step on, with no decompiled banding function analogous to FUN_0044A80C/FUN_0044A878. Rather than invent thresholds, this ships empty; whoever draws the map (task T24) or a later decompilation pass supplies the values as data, without a model change."
+      "cityPopulationTierThresholds": "OMITTED (ships empty) — and here is exactly what was searched and exactly what was found, because an earlier revision of this note claimed the search came up empty when it had not. What the reports DO establish: rivers-and-map-markers.md ('City and unit overlays') finds that all 334 city cells satisfy 'map code = 20 + owner code + 16 × variant' with variants 0-4, holding for 334/334 cities in the checked save — so a five-value display axis on city markers is well evidenced, the direct counterpart of the three army bands and three fleet bands in decompiled-unit-map-orders-and-record-fields.md part 3. What the reports do NOT establish: that same sentence says the variant's meaning — 'city size, icon, or another display category' — still needs confirmation, and the report's own next-check item 3 is 'confirm the city-marker variant meanings'. There is no decompiled banding function for cities analogous to FUN_0044A80C/FUN_0044A878, so no population boundary is recorded anywhere. Shipping 5 as a size-tier count would assert the unconfirmed half (that the variant means size); shipping any threshold would invent a number outright. So this ships empty and docs/game-design.md §'City and army markers scale with size' is left standing as a requirement rather than a spec. Closing it needs that report's next-check item 3, after which the thresholds arrive as data with no model change."
     }
   },
   "victory": {
@@ -442,6 +462,6 @@
   },
   "_provenance": {
     "id": "This is not one of the two shipped presets. docs/game-design.md ships classical-faithful and improved; task T29 exports classical-faithful from the original data. This ruleset exists only so unit tests have a small, fully-populated ruleset to load, as docs/game-design.md §'Testing and determinism' asks for.",
-    "unitTypes": "confirmed: unit-type-stat-table-in-dat.md — the five unit types and their stat table, transcribed whole. The list is data, not a fixed size: a ruleset may define any number of unit types."
+    "unitTypes": "confirmed: unit-type-stat-table-in-dat.md — the five unit types and their stat table, transcribed whole. The list is data, not a fixed size: a ruleset may define any number of unit types. One field of the original table is deliberately NOT carried: +0x20 (Light inf 18, Heavy inf 2, Archers 18, Light cav 15, Heavy cav 4) is listed as unidentified in that report and is still open in docs/HANDOVER.md, so transcribing it into a named property would be inventing a meaning for it. When it is identified it becomes a new UnitTypeRules field."
   }
 }

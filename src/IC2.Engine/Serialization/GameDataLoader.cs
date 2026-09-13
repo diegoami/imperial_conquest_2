@@ -25,9 +25,12 @@ public static class GameDataLoader
         {
             json = File.ReadAllText(path);
         }
-        catch (IOException ex)
+        // Every way File.ReadAllText can fail has to land inside the typed hierarchy, or
+        // GameDataRepository.Load's documented "throws GameDataException" contract is not true:
+        // a path that is a directory or is ACL-denied throws UnauthorizedAccessException, not IOException.
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
         {
-            throw new MalformedGameDataException(path, "the file could not be read.", ex);
+            throw new MalformedGameDataException(path, $"the file could not be read: {ex.Message}", ex);
         }
 
         return Load<T>(path, json);

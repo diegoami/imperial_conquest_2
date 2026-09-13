@@ -16,7 +16,19 @@ namespace IC2.Engine.Model;
 public static class FortificationCode
 {
     /// <summary>Whether the stored word encodes a fortification order still under construction.</summary>
-    public static bool IsOrderInProgress(int code, CityOrderRule rule) => code > rule.InProgressEncodingRadix;
+    /// <remarks>
+    /// The threshold is the order's <see cref="CityOrderRule.MaxPercent"/>, not its
+    /// <see cref="CityOrderRule.InProgressEncodingRadix"/>: the two happen to both be 100 in the
+    /// original, but they mean different things, and a ruleset is free to set them apart. The radix is
+    /// used for the arithmetic only.
+    /// <para>
+    /// One ambiguity is inherited deliberately: a city at 0% ordering exactly one point stores
+    /// <c>0 + 1 × 100 = 100</c>, which reads back as "fortified to 100%, nothing pending". The original
+    /// has the identical ambiguity in its own <c>fort &gt; 100</c> test, so reproducing it is faithful
+    /// rather than a defect.
+    /// </para>
+    /// </remarks>
+    public static bool IsOrderInProgress(int code, CityOrderRule rule) => code > rule.MaxPercent;
 
     /// <summary>The completed fortification percentage the stored word represents.</summary>
     public static int FinishedPercent(int code, CityOrderRule rule) =>
@@ -25,6 +37,17 @@ public static class FortificationCode
     /// <summary>The number of points still under construction, or zero when no order is pending.</summary>
     public static int PendingPoints(int code, CityOrderRule rule) =>
         IsOrderInProgress(code, rule) ? code / rule.InProgressEncodingRadix : 0;
+
+    /// <summary>
+    /// Whether a further fortification order may be placed at all. The original refuses outright while
+    /// an order is already pending (<em>"This city is already being fortified."</em>) and at the
+    /// maximum (<em>"This city cannot be fortified any further."</em>)
+    /// <strong>[confirmed: decompiled-unit-map-orders-and-record-fields.md]</strong>. Sieges are the
+    /// caller's business: the rule carries <see cref="CityOrderRule.RefusedWhileUnderSiege"/> and the
+    /// besieged flag lives on the city, not in the stored word.
+    /// </summary>
+    public static bool CanPlaceOrder(int code, CityOrderRule rule) =>
+        !IsOrderInProgress(code, rule) && FinishedPercent(code, rule) < rule.MaxPercent;
 
     /// <summary>
     /// The word that results from placing an order for <paramref name="points"/> further points on top
@@ -40,7 +63,17 @@ public static class FortificationCode
     public static int AfterSiegeAttempt(int code, CityOrderRule rule) =>
         IsOrderInProgress(code, rule) ? code % rule.InProgressEncodingRadix : code;
 
-    /// <summary>The largest order, in points, that may still be placed on this city.</summary>
+    /// <summary>
+    /// The largest order, in points, that may still be placed on this city — zero while an order is
+    /// already pending, since the original refuses a second one outright.
+    /// </summary>
+    /// <remarks>
+    /// It returns zero rather than <c>maxPercent − finished − pending</c> on purpose. Allowing a
+    /// top-up would let the finished-plus-pending total exceed
+    /// <see cref="CityOrderRule.MaxPercent"/>, which the original's single-order-at-a-time rule makes
+    /// unreachable; handing a caller a number that overshoots the maximum would be a trap for whoever
+    /// implements city orders.
+    /// </remarks>
     public static int MaxOrderablePoints(int code, CityOrderRule rule) =>
-        rule.MaxPercent - FinishedPercent(code, rule);
+        CanPlaceOrder(code, rule) ? rule.MaxPercent - FinishedPercent(code, rule) : 0;
 }

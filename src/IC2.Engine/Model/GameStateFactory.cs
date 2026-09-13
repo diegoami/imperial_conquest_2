@@ -13,7 +13,10 @@ public static class GameStateFactory
 {
     /// <summary>Creates the starting state for a scenario.</summary>
     /// <exception cref="ArgumentException">
-    /// The scenario and world disagree — an unknown nation, a missing seat, or a duplicate id.
+    /// The scenario and world disagree: the scenario seats a nation the world does not define, or the
+    /// world defines a nation the scenario gives no seat, or a starting unit sits off the map.
+    /// Duplicate ids are not re-checked here — <see cref="IC2.Engine.Serialization.GameDataValidation"/>
+    /// rejects those when the world is loaded.
     /// </exception>
     public static GameState CreateInitial(World world, Ruleset ruleset, Scenario scenario)
     {
@@ -130,9 +133,13 @@ public static class GameStateFactory
                 CoveredTileCode: CellAt(terrain, world, definition.X, definition.Y));
         }
 
+        // Every field here is read from the ruleset, including the starting week. Seeding it from
+        // anything else is not a cosmetic choice: with the confirmed `week = (week + 2) mod 12` cycle,
+        // only an odd start ever reaches the season boundary, so a wrong start week silently freezes
+        // the season and the year for the whole game.
         var calendar = new CalendarState(
-            Week: ruleset.Calendar.WeekStep,
-            SeasonIndex: 0,
+            Week: ruleset.Calendar.StartWeek,
+            SeasonIndex: ruleset.Calendar.StartSeasonIndex,
             YearBc: ruleset.Calendar.StartYearBc,
             TurnIndex: 0);
 

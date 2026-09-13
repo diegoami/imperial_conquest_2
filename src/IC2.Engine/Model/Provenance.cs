@@ -98,6 +98,7 @@ public sealed class ProvenanceMap : IReadOnlyList<ProvenanceEntry>, IEquatable<P
     public override int GetHashCode()
     {
         var hash = new HashCode();
+        hash.Add(_entries.Length);
         foreach (var entry in _entries)
         {
             hash.Add(entry);
