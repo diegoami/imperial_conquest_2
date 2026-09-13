@@ -241,9 +241,13 @@ Fortification is the original's only city improvement: a paid, queued, populatio
 
 Two are now identified. The quarterly diplomatic-thaw loop iterates only the **first 8 columns** of each nation's 16-entry relation row, so a cooldown between two nations both indexed ≥ 8 never decays. The fleet record's `+20` word does double duty as build-city-index and condition-percentage, which is fragile rather than wrong (an engineering hazard to document, not a ruleset choice).
 
-### Q9. One evidence gap worth a five-minute play session
+### Q9. ANSWERED, from the user's own play experience: free at your own cities, costs money elsewhere
 
-The code says buying supply costs `amount / 5` from the army's money purse, but the three frames tabulated in [`galatia-elimination-and-city-resupply-confirmed.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/galatia-elimination-and-city-resupply-confirmed.md) show Army 0's money unchanged at 256 across a 100-ton purchase. One controlled same-turn save pair around a single supply purchase would settle it. Worth capturing before the economy milestone is implemented, since it is the difference between "supply is a cost" and "supply is free".
+**The user's rule, stated directly**: buying supply costs money only when buying from a city that does **not** belong to you; resupplying at your own cities is free.
+
+This resolves the apparent contradiction cleanly rather than picking a side: the code's `amount / 5` debit and the Galatia report's unchanged-money frames were never actually in conflict — they're two different situations. [`galatia-elimination-and-city-resupply-confirmed.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/galatia-elimination-and-city-resupply-confirmed.md) shows Army 0 (that nation's own army) resupplying at Mediolanum (a friendly city, reached by marching there specifically to resupply) via what the report calls a city-to-army **resupply dialog** — a `TArmyToArmy`-shaped transfer of supply tons between city stock and army stock, with *both* the army's money (256) and the "national balance" (treasury, −818) unchanged across all three sampled frames. That is exactly the free, own-city case.
+
+**Still open, not yet decompiled or observed directly**: the exact mechanics of the *paid* case — buying from a city that isn't yours. Whether that is a genuinely different dialog/code path (a "purchase" distinct from the free "resupply" transfer), where the debited talents end up (the foreign city's owner's treasury, or nowhere), and whether the `amount / 5` constant from the code is that path's real formula, all remain to verify. The user's rule is authoritative on the free/costly split; the paid case's exact bookkeeping is a smaller remaining gap, not blocking implementation — see the T08 reconciliation note below.
 
 ---
 
