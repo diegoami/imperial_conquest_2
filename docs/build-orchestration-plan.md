@@ -10,7 +10,7 @@ It changes **no design decision**. Every rule, constant, and *done when* here tr
 >
 > Task scope, Definition of Done, model, effort, dependencies and branch names live here and change only by a deliberate commit to `main`. Progress — what is queued, in flight, in review, merged, blocked or escalated — lives entirely in GitHub issue/PR labels. Nothing in this repository is edited to track progress, because a progress file on `main` would conflict with every task branch in flight.
 >
-> **Live state**: [issue #29, the pinned build tracker](https://github.com/diegoami/imperial_conquest_2/issues/29). Task issues #1–#28 are numbered to match their task ids; T29 (added after the tracker claimed #29) is the one exception — it's [issue #32](https://github.com/diegoami/imperial_conquest_2/issues/32).
+> **Live state**: [issue #29, the pinned build tracker](https://github.com/diegoami/imperial_conquest_2/issues/29). Task issues #1–#28 are numbered to match their task ids; the two later additions are the exceptions, because the numbering had already moved on — T29 is [issue #32](https://github.com/diegoami/imperial_conquest_2/issues/32) and T30 is [issue #37](https://github.com/diegoami/imperial_conquest_2/issues/37).
 
 Related reading, in order: [HANDOVER.md](HANDOVER.md) (current state) → [game-design.md](game-design.md) (what is being built) → [design-audit.md](design-audit.md) (what the evidence actually supports) → this document (how it gets built).
 
@@ -158,6 +158,7 @@ graph TD
   T02 --> T03[T03 engine seams]
   T02 --> T29[T29 export classical world]
   T04 --> T29
+  T01 --> T30[T30 IC2.Data tombstones]
   T05[T05 .github hygiene]
 
   T03 --> T06[T06 calendar]
@@ -191,6 +192,7 @@ graph TD
   T15 --> T20
   T20 --> T21[T21 original-save import]
   T10 --> T21
+  T30 --> T21
 
   T17 --> T22[T22 AI]
   T18 --> T22
@@ -233,7 +235,7 @@ graph TD
 
 ## 5. The task catalogue
 
-29 tasks covering all 20 design milestones plus six pieces of scaffolding the milestone list assumes but never produces (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, and the one-time export of the shipped `classical-mediterranean` world/ruleset).
+30 tasks covering all 20 design milestones plus seven pieces of scaffolding the milestone list assumes but never produces (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, and hardening the existing `IC2.Data` parsers that two of those tasks are built on).
 
 Conventions used by every entry:
 
@@ -289,6 +291,21 @@ Conventions used by every entry:
   4. Re-running the script against the same DAT produces byte-identical JSON (deterministic — same test pattern as T11's asset generator).
   5. **Every test in this task skips with an explicit "original files not configured" result when `assets.local.ini` is absent**, exactly like T21 — CI stays green on a machine without the original files, because CI only ever needs the *committed output*, not the ability to regenerate it.
 - **Hazards**: do not hand-edit the committed JSON to fix a mismatch found after export — fix the export script and re-run, so the committed data always has a reproducible source. If the original DAT ever needs re-reading (a corrected field, a newly-decompiled table), this is the one task whose branch gets reopened, not a one-off patch to the JSON.
+
+#### T30 Harden `IC2.Data` against tombstone and sentinel records
+
+- **Design milestone**: none — closes a **backlog gap**, not a milestone. T01 explicitly rules `IC2.Data`/`IC2.Inspect` out of scope ("do not 'fix' existing code"), and no other task owns `src/IC2.Data/**`; yet **T21 and T29 are both built directly on those parsers**. Nothing in the plan currently owns fixing them. Surfaced by [`docs/investigations/thracia-supply-morale.md`](investigations/thracia-supply-morale.md), which hit the bug on real saves. **Labels**: `phase:2 lane:data local-only`
+- **Branch**: `task/T30-data-tombstone-records` · **Model/effort**: **Haiku** / Medium · **Reviewer**: Sonnet / Medium
+- **Start after**: T01 · **Merge after**: T01 (before T21 — see Hazards)
+- **Owns**: `src/IC2.Data/**`, `src/IC2.Inspect/**`, `tests/IC2.Data.Tests/**` (the test project T01 already pre-declares in `IC2.sln`, so this task edits no solution file)
+- **Scope**: `SaveArmyTable.Parse` rejects any army record whose owner word exceeds 15 and throws `InvalidDataException`, which aborts the parse of the **entire save** — so one bad record makes a whole file unreadable to every tool built on it. Real saves contain such records legitimately: `0xFFFF` is the established **no-owner sentinel** (the same one [`galatia-elimination-and-city-resupply-confirmed.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/galatia-elimination-and-city-resupply-confirmed.md) already had to special-case for the *capital* field), marking an army slot merged or eliminated during the turn and not yet compacted. Two of the thirteen saves in one ordinary 13-turn series are unreadable for this reason. Treat such a record as a **tombstone**: skip it, keep parsing, and surface it as data rather than as a fatal error. Audit the other tables for the same pattern — the fleet, city and nation parsers all apply similar range checks — rather than patching only the one site that happens to be known.
+- **Done when**:
+  1. `1_thracia_271_spring_3.sav` and `1_thracia_271_autumn_1.sav` both parse; `--list-armies … Thracia` prints the Thracian army for each instead of aborting.
+  2. Tombstoned records are **excluded from `Armies`** (not returned as degenerate entries with owner 65535) and exposed separately — e.g. a `SkippedRecords` count — so a caller can tell "clean parse" from "parse with tombstones" without re-reading bytes.
+  3. A record that is malformed for any *other* reason still throws, with a message naming the record index and the failing field. Tombstone tolerance must not become blanket tolerance for corruption.
+  4. Every other save already in the corpus still parses to the same results as before this change — a regression fixture over the existing `saves/` directory, asserting per-save army/fleet/city counts.
+  5. **Every test in this task skips with an explicit "original files not configured" result when `assets.local.ini` is absent**, exactly like T21 and T29.
+- **Hazards**: **merge this before T21 starts.** T21's DoD line 1 imports "three or four representative saves" and its line 2 requires an import report with zero unmapped fields — both are unreachable if the parser can still abort on a real save, and an implementer who meets them by sampling only clean saves will have satisfied the letter of the DoD while leaving the defect in place. Do **not** widen the owner check to accept all values ≤ 65535; `0xFFFF` is a specific sentinel and every other out-of-range owner is still a genuine parse failure.
 
 #### T03 Engine seams: RNG, turn pipeline, commands, events
 
@@ -884,7 +901,7 @@ Distinct from [§6.6](#66-when-to-escalate-to-the-human-instead-of-auto-merging)
 
 - **Revised cap: exactly one code-modifying agent at a time, full stop** — no concurrent implementers, no implementer running alongside a reviewer. This superseded the original "3 concurrent implementers + up to 2 reviewers" figure after worktree-based isolation proved fragile in practice ([§7.1](#71-who-actually-runs-it)'s note); without per-task worktrees, two agents touching the same checkout at once is unsafe regardless of Owns-list discipline, not just slower. The remaining bullets in this section (single-instance Godot tasks, local-only tasks) are now a subset of this stricter rule rather than an additional constraint on top of a concurrency cap.
 - **Never two `single-instance` tasks at once**: T24, T25, T27. They launch or export Godot 4.7.2; two concurrent headless Godot runs against sibling worktrees fight over the `.godot` import cache and the `project.godot` header rewrite that `HANDOVER.md` documents. The whole Godot lane is therefore a single serial chain regardless of the cap.
-- **`local-only` tasks**: T21 and T29 (both need the user's `imp_conq_original` DAT/saves via `assets.local.ini`) and, in practice, T24/T25/T27 (need a Godot install). Their tests must **skip explicitly**, never fail, when the local prerequisite is absent — otherwise CI on GitHub's runners can never be green and the whole gate loses its meaning.
+- **`local-only` tasks**: T21, T29 and T30 (all need the user's `imp_conq_original` DAT/saves via `assets.local.ini`) and, in practice, T24/T25/T27 (need a Godot install). Their tests must **skip explicitly**, never fail, when the local prerequisite is absent — otherwise CI on GitHub's runners can never be green and the whole gate loses its meaning.
 - **Nothing else is machine-bound.** T01–T20, T22, T23, T26 and T28 build and test on a plain .NET 10 runner.
 - **While T03 is in flight, nothing else is dispatched.** It defines the interfaces everything else compiles against.
 
@@ -957,6 +974,7 @@ Issue numbers are filled in from GitHub; this table is the doc→GitHub half of 
 | T27 | Packaging | M20 | Sonnet | Medium | Sonnet/High | T25, T26 | #27 |
 | T28 | Nightly gate | — | **Haiku** | Low | Sonnet/Medium | T22 | #28 |
 | T29 | Export classical-mediterranean world | — | Sonnet | High | **Opus**/Medium | T02, T04 | [#32](https://github.com/diegoami/imperial_conquest_2/issues/32) |
+| T30 | `IC2.Data` tombstone records | — | **Haiku** | Medium | Sonnet/Medium | T01 | [#37](https://github.com/diegoami/imperial_conquest_2/issues/37) |
 
 **Totals** — 29 tasks: 4 Opus, 19 Sonnet, 5 Haiku, 1 Fable. Effort: 2 Ultrahigh, 13 High, 12 Medium, 2 Low. Structure: 3 strictly sequential foundation tasks, a 7-wide parallel wave, a 4-wide wave, a 6-wide wave, and a 4-task serial Godot/delivery tail, plus T29 running alongside the T03 serialization point. Critical path: 11 of 29; the other 18 are slack that fills the concurrency budget around it.
 
