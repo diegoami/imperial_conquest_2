@@ -72,5 +72,6 @@ After setting `assets.local.ini`, open `godot/project.godot` with Godot .NET 4.7
 - [Project handover](docs/HANDOVER.md) — concise current-state summary, start here for "what's next."
 - [Game design](docs/game-design.md) and its [design audit](docs/design-audit.md) — what the reimplementation will be, and what the evidence actually supports.
 - [Build orchestration plan](docs/build-orchestration-plan.md) — how the build is split into agent-run tasks; **§0 is the status/testing guide**.
+- [Evidence pipeline](docs/evidence-pipeline.md) — the separate `/process-evidence` skill that turns new saves/recordings/notes into research-repo findings and then game-design implications.
 - [Release plan](docs/release-plan.md) — how tasks turn into version tags and releases.
 - Research repository ([diegoami/imperial-conquest-2-research](https://github.com/diegoami/imperial-conquest-2-research)): [roadmap](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/roadmap.md), [research notes](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/research.md), and the full [reports index](https://github.com/diegoami/imperial-conquest-2-research/tree/main/docs/reports) — 46 evidence-based findings the design cites throughout.
