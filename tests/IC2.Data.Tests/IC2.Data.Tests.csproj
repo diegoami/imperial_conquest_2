@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    T01 pre-declares this test project (docs/build-orchestration-plan.md "T01 Build scaffolding
+    and CI"). TargetFramework/Nullable/ImplicitUsings/TreatWarningsAsErrors come from the
+    repo-root Directory.Build.props (conditioned on this project's name) - note this applies only
+    to this test project's own code, not to the existing IC2.Data project it references, which
+    keeps its own settings unchanged. Only a placeholder test lives here; later tasks that need
+    IC2.Data coverage add their own test files here without editing this project's .csproj.
+  -->
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/IC2.Data/IC2.Data.csproj" />
+  </ItemGroup>
+
+</Project>
