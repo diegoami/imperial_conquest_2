@@ -82,9 +82,12 @@ Only field *identity* changed. All three weight magnitudes (150 / 250 / 200) are
 the defect was never in the numbers, only in which city field each one multiplies. The fortification
 term is decoded through the guarded rule `FortificationCode.FinishedPercent` already implements
 (`code > MaxPercent ? code % radix : code`) — never the raw stored word and never an unguarded
-`% 100`, which would silently mis-decode a city with a fortification order in progress (a stored value
-above 100). `FortificationCode.cs` itself needed no change: it was already correct, and this task's
-corrected provenance now points callers at it explicitly.
+`% 100`. The raw word is wrong for a city with a fortification order in progress: it stores
+`finishedPercent + pendingPoints × radix` (e.g. 250 for 50% finished with an order pending), so reading
+it raw overstates the finished amount by a full order. An unguarded `% 100` is wrong at exactly one
+point instead: a fully-finished city stores 100, and `100 % 100 = 0` would silently turn a finished
+100% fortification into 0%. `FortificationCode.cs` itself needed no change: it was already correct, and
+this task's corrected provenance now points callers at it explicitly.
 
 ## Two further defects surfaced here, deliberately not fixed by this task
 

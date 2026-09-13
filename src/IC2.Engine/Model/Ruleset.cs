@@ -232,10 +232,13 @@ public sealed record DetailedResolverRules(
 /// <see cref="DefenderFortificationWeight"/> + populationThousands × <see cref="DefenderPopulationWeight"/></c>.
 /// The fortification term is the city's stored fortification word decoded through
 /// <see cref="FortificationCode.FinishedPercent"/> — the guarded <c>code &gt; MaxPercent ? code % radix :
-/// code</c> — never the raw stored word and never an unguarded <c>% 100</c>, because a city with a
-/// fortification order in progress stores a value above 100 that an unguarded modulo would silently
-/// mis-decode. See <c>docs/investigations/siege-defender-strength.md</c> for the full decompilation and
-/// the panel-based (<c>TInformation_ShowCityDetails</c>, <c>0x0043BE5C</c>) field-identity evidence.
+/// code</c> — never the raw stored word and never an unguarded <c>% 100</c>. The raw word is wrong for a
+/// city with a fortification order in progress: it stores <c>finishedPercent + pendingPoints × radix</c>
+/// (e.g. 250 for 50% finished with an order pending), so reading it raw overstates the finished amount by
+/// a full order. An unguarded <c>% 100</c> is wrong at exactly one point instead: a fully-finished city
+/// stores 100, and <c>100 % 100 = 0</c> would silently turn a finished 100% fortification into 0%. See
+/// <c>docs/investigations/siege-defender-strength.md</c> for the full decompilation and the panel-based
+/// (<c>TInformation_ShowCityDetails</c>, <c>0x0043BE5C</c>) field-identity evidence.
 /// </summary>
 /// <param name="DefenderFortificationWeight">
 /// The weight of the city's finished-fortification-percent term in the defender-strength sum

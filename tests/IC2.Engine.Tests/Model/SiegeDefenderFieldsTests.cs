@@ -58,13 +58,16 @@ public class SiegeDefenderFieldsTests
         var ruleset = GameDataLoader.LoadFile<Ruleset>(TestPaths.ToyRulesetFile);
         var fortify = ruleset.CityOrders.Orders.FindById(o => o.Id, "fortify")!;
 
-        // At or below MaxPercent: the word IS the finished percentage, unchanged.
+        // At MaxPercent exactly: a fully-finished city. The guard (code > MaxPercent) is false here, so
+        // the word is returned unchanged. An UNGUARDED "% 100" would instead compute 100 % 100 = 0,
+        // silently turning a finished 100% fortification into 0% -- this is the case the guard exists
+        // to protect, and DoD 3 pins it down so the guard cannot be lost later.
         Assert.Equal(100, FortificationCode.FinishedPercent(100, fortify));
 
-        // Above MaxPercent: an order is in progress, and the guarded decode strips it via
-        // "% InProgressEncodingRadix" -- an unguarded "% 100" would give the same answer only by
-        // coincidence for this particular ruleset's radix, which is exactly the ambiguity DoD 3 exists
-        // to pin down before it can be lost.
+        // Above MaxPercent: an order is in progress, and the guarded decode strips the pending points
+        // via "% InProgressEncodingRadix", giving the correct finished percentage (0, here). Reading the
+        // RAW stored word instead (200) would misreport it as 200% finished with no pending order,
+        // rather than 0% finished with one order's worth of points pending.
         Assert.Equal(0, FortificationCode.FinishedPercent(200, fortify));
     }
 }
