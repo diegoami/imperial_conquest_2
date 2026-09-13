@@ -536,7 +536,10 @@ public partial class MapViewer : Control
         var text = new StringBuilder();
         text.AppendLine($"{NationCatalog.Name(army.OwnerCode)} army at ({army.X}, {army.Y})");
         text.AppendLine($"{army.Units.Count} units · {army.TotalTroops:N0} troops");
-        text.AppendLine($"Moves {army.Moves} · morale value {army.MoraleValue}");
+        text.AppendLine($"Moves {army.Moves} · morale {army.Morale}");
+        text.AppendLine(army.IsAboardFleet
+            ? "Aboard a fleet"
+            : $"Supply {army.Supplies}/{army.SupplyCapacityTons} tons ({army.SupplyPercent}%)");
         text.AppendLine($"Supply {army.Supplies} tons · money {army.Money}");
         if (_initialWorld is not null && _initialWorld.CellAt(army.X, army.Y) is >= 6 and <= 11)
             text.AppendLine("Terrain river");

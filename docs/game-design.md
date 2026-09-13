@@ -9,7 +9,7 @@ This is a **design document, not an implementation plan**. It translates everyth
 
 Every rule below is tagged **[confirmed]** (has direct RE evidence, cited), **[derived]** (a reasonable extrapolation from confirmed data, e.g. filling in a formula's shape where only some constants were pinned down), or **[designed]** (no RE evidence exists or it was intentionally left out of scope; this is new game design). Nothing is presented as RE'd when it isn't.
 
-> **Read [design-audit.md](design-audit.md) alongside this document.** A systematic audit found several whole subsystems this design is silent on (naval transport and naval combat, fleet condition and repair, supply as a purchased economy with per-army money purses, city fortification orders, army/unit management), corrected four sections that were written on assumptions rather than evidence (Movement, Recruitment's mercenary claims, Diplomacy, Victory conditions — all fixed in place below), and raised nine open questions that need the user's decision before the build starts. The milestone list at the end of this document has not yet been revised for any of it.
+> **Read [design-audit.md](design-audit.md) alongside this document.** A systematic audit found several whole subsystems this design was silent on (naval transport and naval combat, fleet condition and repair, supply as a purchased economy with per-army money purses, city fortification orders, army/unit management) and corrected four sections that were written on assumptions rather than evidence (Movement, Recruitment's mercenary claims, Diplomacy, Victory conditions — all fixed in place below). **Two of its nine open questions are now answered by the user and folded in here**: the auto-resolve uses the original's own instant battle resolver (Q1), and naval is in scope for the first playable version (Q2). The milestone list at the end has been revised for both. The remaining seven questions are still open in the audit document.
 
 ## Design principles
 
@@ -110,15 +110,51 @@ This section was originally written from a generic "terrain costs movement point
 
 Attacker strength (archers tripled) vs. defender strength (fortification/loyalty-based, −20% if owner≠allegiance) **[confirmed: decompiled-city-capture-resolution.md]**; forced capture changes population/fortification and pulls loyalty toward a 40 floor, defection changes neither and pulls loyalty toward a 65 floor **[confirmed: decompiled-defection-and-siege-attrition.md, galatia-elimination-and-city-resupply-confirmed.md]**; a successful capture can cascade into nearby, weakly-defended, low-loyalty cities of the same nation defecting automatically **[confirmed]**; a nation that loses its last city is eliminated (capital sentinel, unity reset) **[confirmed: galatia-elimination-and-city-resupply-confirmed.md]**. This is ready to implement close to verbatim — siege *resolution* now folds into the instant-battle-resolution engine below rather than being a separate code path, since a siege is just "attacker army vs. city garrison," resolved the same way as a field battle.
 
-### Combat — **[derived from confirmed formulas, redesigned presentation]**
+### Combat — **[confirmed: the original's own instant resolver, ported]**
 
-This is where the freedom to redesign matters most. The plan preserves every confirmed number while dropping the interactive tactical shell entirely:
+Dropping the interactive tactical shell turned out *not* to mean inventing an auto-resolve — the original has one already, and this is now a port rather than a redesign.
 
-- **What's reused as-is**: the type-effectiveness matrix **[confirmed: combat-type-effectiveness-matrix.md]**, the melee formula's shape and its exactly-confirmed 40%-of-own-troops loss cap **[confirmed: decompiled-combat-formula-structure.md, battle-recording-melee-cap-confirmed.md]**, the morale mechanic (`±2`/`−3` per exchange depending on power ratio, clamped) **[confirmed: battle-quality-promotion-and-morale-array-decompiled.md]**, and the empirically-found quality-promotion rule (an average-quality unit adjacent to a casualty gets promoted) **[confirmed, one battle's evidence]**.
-- **What's redesigned**: instead of a human placing 20 units on a grid and stepping through individual shoot/melee actions with UI pacing, the engine runs the *same underlying exchange math* internally, headlessly, for as many rounds as it takes for one side to break or a round cap to hit — using unit **pairing by matching order** (largest-vs-largest by default) rather than manual placement, since there's no grid to place units on. Pairing strategy is a named, swappable ruleset field (`"pairing": "largest-vs-largest"`, `"counter-optimized"`, etc.) — **[designed]**.
-- **Caveat, found after this section was written**: the justification above ("the original's own placement-driven pairing doesn't translate to an instant-resolve model") is false. The original **already has an instant, non-tactical resolver** — it uses it for every battle in which no human is involved — and its math is completely different and much simpler: a single `strength = Σ(powerWeight[type] × troops / 100) / 80 × armyMorale` comparison, the loser's army annihilated, the winner taking `loserPower × 40 / winnerPower` casualties, ties to the defender **[confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md]**. There is a third resolver again for naval battles. Which of these the reimplementation's auto-resolve should use is **open question Q1** in [design-audit.md](design-audit.md) and should be settled before milestone 7 starts.
-- The result is a single-shot `BattleResult` with a full per-unit-type before/after breakdown, in exactly the shape already captured from a real battle in `full-battle-resolution-rome-vs-gaul.md` — that report's numbers are a natural **regression fixture** for this engine (see "Testing" below).
-- "Adjacent to a casualty" for the promotion rule needs a redefinition too, since there's no army-slot grid anymore — **[designed]**: reinterpret it as "a unit that fought in the same round as one that was destroyed," which preserves the spirit (survivors of a rough exchange get battle-hardened) without depending on a slot-index adjacency that no longer has meaning outside the original's UI.
+- **Two morales, not one — do not merge them.** The **strategic army morale** is army record `+14`, a direct multiplier in the power formulas below **[confirmed: decompiled-unit-map-orders-and-record-fields.md]**. The **per-unit tactical morale** is a separate runtime array that the `±2`/`−3`-per-exchange rule operates on **[confirmed: battle-quality-promotion-and-morale-array-decompiled.md]**. Only the first is used by the shipped resolver. They were conflated in earlier drafts because one report called `+14` "army experience".
+- **Held in reserve for a future optional "detailed" resolver, not used by the shipped one**: the type-effectiveness matrix **[confirmed: combat-type-effectiveness-matrix.md]**, the melee formula's shape and its exactly-confirmed 40%-of-own-troops loss cap **[confirmed: decompiled-combat-formula-structure.md, battle-recording-melee-cap-confirmed.md]**, the tactical morale rule above, and the empirically-found quality-promotion rule (an average-quality unit adjacent to a casualty gets promoted) **[derived: one battle, 13 units, exact implementing code never located]**.
+- **What's redesigned — decided (audit Q1): use the original's own instant resolver.** An earlier draft of this section proposed running the tactical exchange math headlessly with an invented `"pairing"` rule, on the stated grounds that "the original's own placement-driven pairing doesn't translate to an instant-resolve model". That premise was false: the original **already has an instant, non-tactical resolver** and uses it for every battle in which no human is involved. The reimplementation adopts it, so the auto-resolve is confirmed RE'd math rather than an invention **[confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md]**:
+
+```text
+armyPower(a)  = ( Σ_units powerWeight[type] × troops / 100 ) / 80 × armyMorale
+fleetPower(f) = ships × condition / 10 + (carriedArmy ? armyPower/50 : 0)
+                then × (1 + random(4)/10)
+
+field battle   winner = higher armyPower, ties to the defender
+               loser's army destroyed outright
+               winner casualties  = applyLosses(loserPower × 40 / winnerPower)
+               winner absorbs loser's money and supplies (supplies capped at troops/100)
+               every surviving unit: quality = max(quality, average); 1-in-4 → quality + 1 (cap elite)
+               unity: loser −25, winner +25 (cap 990)
+               2-in-5 chance of an automatic peace treaty if loser unity > 500 and cities > 7
+
+siege          attackerPower vs. defenderPower (fortification/loyalty-based), archers tripled
+               — already the model in decompiled-city-capture-resolution.md, now consistent with the above
+
+naval battle   winner = higher fleetPower, ties to the defender; loser's fleet (and any army
+               aboard it) destroyed; winner loses ships and condition in proportion to how close
+               the fight was; unity ± floor(loserShips / 2)
+```
+
+- **Consequence to accept deliberately**: the `full-battle-resolution-rome-vs-gaul.md` numbers (99,882 → 63,282, per-type) came from the **tactical** path and **cannot** be reproduced by this resolver — it annihilates the loser rather than producing a per-type attrition breakdown. That fixture therefore stops being a milestone-7 acceptance test and becomes evidence for a *possible later* optional "detailed" resolver (the `Ruleset` formula-variant mechanism already covers adding one without an engine change). Milestone 7's *done when* has to be restated against the instant resolver's own arithmetic instead — see the build-harness section.
+- The type-effectiveness matrix, the melee 40% cap and the tactical morale rules stay recorded as confirmed research; they are inputs to that future detailed resolver, not to the shipped one.
+- The result is a single-shot `BattleResult` carrying both sides' power values, the winner, the losing army's destruction, the winner's per-unit casualties and promotions, the absorbed money/supplies, the unity swing, and whether the automatic peace treaty fired. The battle-result screen presents that, not the original tactical dialog's per-type attrition table — which the shipped resolver does not produce **[designed presentation, confirmed contents]**.
+- The promotion rule the shipped resolver uses is the **instant path's own**, which needs no reinterpretation: every surviving unit is raised to at least "average", then 1-in-4 gains a further tier, capped at "elite" **[confirmed]**. The tactical path's slot-adjacency promotion rule is not used and needs no grid-free redefinition.
+
+### Naval — **[confirmed; in scope for the first playable version (audit Q2)]**
+
+Decided: naval is in, not deferred. Without transport, large parts of the classical Mediterranean map are unreachable, so this is load-bearing rather than a side feature. Everything here is confirmed **[decompiled-unit-map-orders-and-record-fields.md, decompiled-diplomacy-peace-terms-and-instant-battles.md]**:
+
+- **Building**: orders are 10–100 ships, cost `ships × 10`, and take a 24-tick construction countdown at a named coastal city; only nations with coastal cities can build. The fleet appears on the map on completion with condition 100%, 50 tons of supply, and no money.
+- **Upkeep and supply**: `ships × 3` per quarter from the treasury; supply capacity `ships × 8` tons, bought at 1 talent per 5 tons out of the fleet's own purse (cap 1,000).
+- **Movement**: sea tiles only, paying the terrain table's sea costs (1 for the common code, 3 for the slower one); the same one-click Bresenham walk as armies.
+- **Transport**: one army per fleet, capacity `ships × 500` troops. An embarked army leaves the map, moves with the fleet, and is lost if the fleet is lost.
+- **Condition and repair**: condition is a 0–100% multiplier on combat strength, damaged by battle (and by storms, via the confirmed weather system), repaired only at one of your own cities at `ships × points / 5` talents, which costs the fleet its remaining moves.
+- **Combat**: the naval resolver in the Combat section above. A fleet docked at its own city cannot be attacked.
+- **Fleet management**: join (≤ 100 ships combined), split (≥ 20 ships), fleet-to-fleet transfer, and scuttle (near your own city; money to the treasury, supplies to the city). None of these work while carrying an army.
 
 ### Diplomacy — **[mostly confirmed; only the AI's decision-making is designed]**
 
@@ -230,21 +266,28 @@ Given the "large autonomous chunks" preference, the actual build should proceed 
 
 Proposed milestone order:
 
-1. **Data model + loader**: `World`/`Ruleset`/`Scenario`/`SaveGame` types, JSON (de)serialization, the toy 3-city/2-nation fixture. *Done when*: round-trip tests pass.
-2. **Turn/calendar engine**: week/season/year advance, active-seat rotation (including hotseat). *Done when*: a CLI can advance N turns on the toy scenario and print the calendar state.
-3. **Economy**: tax, upkeep, tribute, loyalty drift. *Done when*: golden-fixture tests against the real confirmed formulas pass.
-4. **Recruitment and mercenaries**. *Done when*: cost-formula tests pass against the already-solved values.
-5. **Movement, supply, and fleets** (the now-confirmed river-cost movement rule, the confirmed fleet owner field). *Done when*: a fixture with a river tile reproduces the confirmed cost-then-zero-out behavior; plain-terrain movement costs nothing, matching the decompiled code.
-6. **City capture/siege and defection cascade**. *Done when*: a scripted scenario reproduces the Galatia-elimination pattern.
-7. **Instant battle resolution**. *Done when*: the Rome/Gaul fixture reproduces the real recorded numbers within the formula's own randomness bounds, and the melee-cap fixture hits the cap where expected.
-8. **Diplomacy** (new design). *Done when*: two AI nations can reach peace and a reparations payment occurs.
-9. **AI** (heuristic, start simple). *Done when*: an all-AI toy scenario runs to completion (a victory condition is reached) without crashing or stalling, across many seeds.
-10. **Victory conditions**.
-11. **Godot UI**, incrementally layered on the by-then-solid headless engine — map rendering already exists and needs extending to commands, not replacing.
-12. **Original-save import bridge** using `IC2.Data` directly.
-13. **New-format save/load**.
-14. **Scenario authoring docs and a couple of example custom scenarios** (proof that the moddability goal actually works, not just designed).
-15. **Packaging/polish**.
+Revised after the audit (`design-audit.md` §4 found missing milestones, three dependency inversions, and seven *done when* criteria that an autonomous loop could not actually check). Naval is now a first-class milestone (audit Q2), and battle resolution is the original's instant resolver (audit Q1), so milestone 7's acceptance test changed.
+
+1. **Data model + loader**: `World`/`Ruleset`/`Scenario`/`SaveGame` types, JSON (de)serialization, the toy 3-city/2-nation fixture, **and the fixtures file** — every exact number in `docs/reports/` transcribed once, so later milestones assert against data rather than hunting for it. *Done when*: round-trip tests pass and the fixtures file loads.
+2. **Turn/calendar engine**: week/season/year advance, active-seat rotation (including hotseat). *Done when*: a CLI advances N turns on the toy scenario and prints a calendar state matching a hand-computed expected sequence.
+3. **Economy**: tax, upkeep, tribute, loyalty drift, **supply purchase, per-army/fleet money purses**. *Done when*: Rome's `base = 2,440` reproduces both the 15% and 20% income figures; ship upkeep `= 3 × ships`; the 13-unit Roman roster's regular upkeep computes to **442**; that army's 482 tons reads **100%**; a 100-ton supply purchase costs **20** talents (pending the Q9 check).
+4. **Recruitment and mercenaries**: standing recruitment, the pool, hire-from-army-purse, the two upkeep formulas. *Done when*: `(troops/200) × price[type]` reproduces the solved values; the Felsina hire (6,438 "very good") produces the report's cost and empties the slot; a mercenary unit's upkeep is its regular cost × quality / 5.
+5. **Strength functions** (`armyPower`, `fleetPower`, siege defender strength). Extracted early because milestones 6, 7 and 9 all consume them. *Done when*: unit tests cover the archers-tripled rule, the `+0x26` power weights, and the morale multiplier.
+6. **Movement and terrain**. *Done when*: the 12-entry terrain table drives costs (Plain 1, Forest 2, Mountains 4, River 4); a marker tile blocks the walk; an unaffordable step aborts, and additionally zeroes moves for an AI seat only.
+7. **Naval**: construction countdown, condition and repair, transport, sea movement, join/split/scuttle. *Done when*: a 10-ship order costs 100 talents and launches after 24 ticks at 100% condition with 50 tons; an army of `> ships × 500` troops is refused embarkation; repair of N points costs `ships × N / 5`; a fleet carrying an army refuses repair, scuttle, split and join.
+8. **Battle resolution** (the original's instant resolver, all three variants — field, siege, naval). *Done when*, with a **fixed seed** and exact assertions: the higher-power side wins and ties go to the defender; winner casualties equal `loserPower × 40 / winnerPower`; absorbed supplies cap at `troops / 100`; every survivor is at least "average"; unity moves ±25 (±`floor(ships/2)` at sea) and clamps at 990. *Not* the Rome/Gaul per-type numbers — those came from the tactical path and are out of scope for this resolver by design.
+9. **City capture/siege and defection cascade**. *Done when*: a scripted scenario reproduces the Galatia-elimination pattern city by city (2 "falls to" with population/fortification loss, 7 "defects from" without), and the loyalty floors (40 / 65 / toward 90) hold.
+10. **City orders**: fortification, including the `> 100` in-progress encoding and a siege wiping a pending order. *Done when*: a fortify order costs `population × points`, reads back as in-progress, and is cleared by an attack.
+11. **Diplomacy** (the original's confirmed model). *Done when*: the relation state machine round-trips all four states; the three break-cooldowns are applied; the 3-trade-partner cap is enforced; alliance and war contagion fire; the quarterly thaw converges; and `reparations = W/4 + random(W/4) + cities × 10` is exact under a fixed seed. No AI required.
+12. **AI** (heuristic, start simple). *Done when*: **50 fixed seeds** each run an all-AI toy scenario to a victory condition **or a stated turn cap**, with zero crashes, stalls, or illegal commands.
+13. **Victory conditions**. *Done when*: one test per shipped condition (including the original's all-cities condition and the 250 BC limit), plus a scenario-custom goal firing.
+14. **Army/unit management**: join/split armies, join/split/rename/disband units. *Done when*: the 20-unit, 100,000-troop, 198-army and battalion-size merge caps are all enforced, and a merge averages quality.
+15. **Original-save import bridge** using `IC2.Data` directly. *Done when*: every save in the sample set imports and round-trips through the new world model without state loss.
+16. **New-format save/load**. *Done when*: a mid-game state round-trips byte-for-byte after N turns, plus a forward-compat test on an older version file.
+17. **News log**: the 40-slot ring buffer and the confirmed message texts. *Done when*: each confirmed event type appends its literal message.
+18. **Godot UI**, incrementally layered on the by-then-solid headless engine — map rendering already exists and needs extending to commands, not replacing. *Done when*: a scripted headless run loads a scenario, issues one order of each type through the command layer, and ends a turn.
+19. **Scenario authoring docs and a couple of example custom scenarios**. *Done when*: the example scenarios load and run 10 turns headlessly.
+20. **Packaging/polish**. *Done when*: the packaged build launches and loads a scenario on a machine without the dev toolchain.
 
 Recommended operating mode: work through this list using the `/loop` autonomous mode, committing and pushing after each milestone per the existing standing rule, running that milestone's tests plus a scripted demo before moving on. Surface back to the user only when: a milestone completes, a genuinely ambiguous design gap appears that this document doesn't cover, or a decision is more product/taste than engineering (art direction, a UX call, a scope trade-off). Everything else — including every `[designed]` placeholder above — is fair game to implement and iterate on autonomously, precisely because it's already documented as a deliberate, revisitable choice rather than an unstated assumption.
 

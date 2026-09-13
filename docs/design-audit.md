@@ -10,7 +10,7 @@ Three new reports came out of this pass and carry the evidence for everything ci
 - [decompiled-unit-map-orders-and-record-fields.md](reports/decompiled-unit-map-orders-and-record-fields.md)
 - [decompiled-diplomacy-peace-terms-and-instant-battles.md](reports/decompiled-diplomacy-peace-terms-and-instant-battles.md)
 
-Small, clearly-wrong things were corrected in place rather than only flagged: `game-design.md`'s Movement, Recruitment, Diplomacy and Victory sections, and correction notes in `army-records-and-roman-roster.md`, `fleet-order-at-caere.md` and `decompiled-army-movement-and-river-cost.md`. Everything larger is listed here for a decision.
+Small, clearly-wrong things were corrected in place rather than only flagged: `game-design.md`'s Movement, Recruitment, Diplomacy and Victory sections, and correction notes in `army-records-and-roman-roster.md`, `fleet-order-at-caere.md` and `decompiled-army-movement-and-river-cost.md`. `IC2.Data`'s two mislabelled record fields have since been fixed too, and the corrected parser re-validated against real saves (see part 4 of the unit-map report). Everything larger is listed here for a decision.
 
 ---
 
@@ -154,9 +154,15 @@ Two record-field labels the project is carrying that the code contradicts, both 
 
 ## 3. Open questions for the user
 
-These are the judgment calls this audit ran into that are genuinely product decisions, not engineering ones. None of them has been decided unilaterally. They are roughly in order of how much downstream work they gate.
+These are the judgment calls this audit ran into that are genuinely product decisions, not engineering ones. None of them was decided unilaterally. They are roughly in order of how much downstream work they gate.
 
-### Q1. Which battle model should auto-resolve actually use?
+**Q1 and Q2 have since been answered by the user** and folded into `game-design.md` (see the notes under each). Q3–Q9 are still open.
+
+### Q1. Which battle model should auto-resolve actually use? — **ANSWERED: option A, the original's instant resolver**
+
+> **User's decision: "use the original instant battle resolver, if possible."** It is possible — all three variants (field, siege, naval) are fully decompiled. Folded into `game-design.md`'s Combat section and milestone 8.
+>
+> **One consequence to be aware of**: the Rome/Gaul fixture (99,882 → 63,282, per-type) came from the *tactical* path and **cannot** be reproduced by this resolver, which annihilates the loser instead of producing a per-type attrition table. It has been removed as a milestone acceptance test and kept as evidence for a possible later optional "detailed" resolver, which the `Ruleset` formula-variant mechanism already supports adding without an engine change. The type-effectiveness matrix and the melee 40% cap move into that same reserve.
 
 `game-design.md` chose instant auto-resolve, assuming the original had nothing of the kind and therefore inventing a pairing rule over the tactical exchange math. The original in fact has **two** resolvers, and the design is currently proposing a third.
 
@@ -167,7 +173,9 @@ These are the judgment calls this audit ran into that are genuinely product deci
 | **C. Both, as named ruleset variants** | `"resolution": "quick"` (A) for AI-vs-AI, `"detailed"` (B) when a human seat is involved | This is **exactly what the original does** — it is the most faithful option. Costs two engines and two test suites |
 | **D. Restore a real tactical battle** | Keep the grid, placement and per-action play | The freeze that motivated dropping it was diagnosed as a hardcoded ~3.02 s pacing delay (`battle-freeze-diagnosed-procmon.md`) that a reimplementation simply would not have. This reopens a scope decision you already closed — flagged only because the justification for closing it has weakened |
 
-### Q2. Is the naval subsystem in scope for a first playable version?
+### Q2. Is the naval subsystem in scope for a first playable version? — **ANSWERED: yes, full naval**
+
+> **User's decision: "of course we need naval."** `game-design.md` now has a Naval subsystem section and milestone 7 covers construction, condition/repair, transport, sea movement, and join/split/scuttle; naval combat is one of the three variants in milestone 8.
 
 Fleets, army transport (1 army, 500 troops/ship), condition and paid repair, scuttling, 24-tick construction, naval battles, and storm losses are all confirmed and all absent from the design and from the milestone list. On the classical Mediterranean map, amphibious movement is not a side feature — without it, large parts of the map are unreachable. Options: full naval in v1; movement-and-transport only (defer combat/repair/condition); or defer naval entirely and ship a land-only first release.
 
@@ -202,6 +210,8 @@ The code says buying supply costs `amount / 5` from the army's money purse, but 
 ---
 
 ## 4. Review of the build harness and the 15-milestone backlog
+
+> **Status: the milestone list in `game-design.md` has since been revised against this whole section** — it is now 20 milestones, with naval and battle resolution reflecting the answers to Q1 and Q2, the three dependency inversions fixed, a strength-functions milestone extracted because three later milestones consume it, the fixtures file pulled into milestone 1, and a checkable *done when* on every entry. The findings below are kept as the record of what was wrong with the original 15.
 
 ### 4.1 Missing milestones
 

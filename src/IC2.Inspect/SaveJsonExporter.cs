@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 using IC2.Data;
 
@@ -70,8 +70,12 @@ internal static class SaveJsonExporter
                 y = a.Y,
                 owner = NationRef(a.OwnerCode),
                 moves = a.Moves,
-                moraleValue = a.MoraleValue,
+                morale = a.Morale,
+                coveredCell = a.CoveredCell,
+                aboardFleet = a.IsAboardFleet,
                 supplyTons = a.Supplies,
+                supplyCapacityTons = a.SupplyCapacityTons,
+                supplyPercent = a.SupplyPercent,
                 money = a.Money,
                 totalTroops = a.TotalTroops,
                 units = a.Units.Select(u => new
@@ -82,7 +86,9 @@ internal static class SaveJsonExporter
                     typeName = UnitCatalog.TypeName(u.TypeCode),
                     troops = u.Troops,
                     qualityCode = u.QualityCode,
-                    qualityName = UnitCatalog.QualityName(u.QualityCode)
+                    qualityName = UnitCatalog.QualityName(u.QualityCode),
+                    isMercenary = u.IsMercenary,
+                    mercenaryLabel = u.MercenaryLabel
                 })
             }),
             fleets = fleets.Fleets.Select(f => new
@@ -92,8 +98,17 @@ internal static class SaveJsonExporter
                 x = f.X,
                 y = f.Y,
                 shipCount = f.ShipCount,
-                cityIndex = f.CityIndex,
-                cityName = f.CityIndex < WorldPrefix.CityCount ? world.Cities[f.CityIndex].Name : null
+                launched = f.IsLaunched,
+                constructionCountdown = f.IsLaunched ? (int?)null : f.ConstructionCountdown,
+                buildCityIndex = f.BuildCityIndex,
+                buildCityName = f.BuildCityIndex is { } b && b < WorldPrefix.CityCount ? world.Cities[b].Name : null,
+                conditionPercent = f.ConditionPercent,
+                supplyTons = f.Supplies,
+                supplyCapacityTons = f.SupplyCapacityTons,
+                money = f.Money,
+                carriedArmyIndex = f.CarriedArmyIndex,
+                transportCapacityTroops = f.TransportCapacityTroops,
+                quarterlyUpkeep = f.QuarterlyUpkeep
             }),
             mercenaryOffers = mercenaries.Records.Where(m => !m.IsEmpty).Select(m => new
             {

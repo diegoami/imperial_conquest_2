@@ -1,4 +1,4 @@
-using IC2.Data;
+﻿using IC2.Data;
 
 if ((args.Length == 2 && args[0] == "--inspect-turn") ||
     (args.Length == 4 && args[0] == "--config" && args[2] == "--inspect-turn"))
@@ -123,7 +123,8 @@ if ((args.Length == 3 && args[0] == "--list-armies") ||
         {
             if (army.OwnerCode != ownerFilter) continue;
             found++;
-            Console.WriteLine($"Army {army.Index} at ({army.X}, {army.Y}) · {army.TotalTroops:N0} troops · {army.Supplies} tons supply · {army.Money} money · moves {army.Moves} · morale {army.MoraleValue}");
+            var aboard = army.IsAboardFleet ? " · aboard a fleet" : "";
+            Console.WriteLine($"Army {army.Index} at ({army.X}, {army.Y}) · {army.TotalTroops:N0} troops · {army.Supplies} tons supply ({army.SupplyPercent}%) · {army.Money} money · moves {army.Moves} · morale {army.Morale}{aboard}");
         }
         if (found == 0) Console.WriteLine($"No armies owned by {nationName} in {Path.GetFileName(inspectedSavePath)}.");
         return 0;
@@ -198,9 +199,19 @@ if ((args.Length == 2 && args[0] == "--list-fleets") ||
         var fleets = SaveFleetTable.Parse(data);
         foreach (var fleet in fleets.Fleets)
         {
-            var cityName = fleet.CityIndex < WorldPrefix.CityCount ? world.Cities[fleet.CityIndex].Name : "(out of range)";
             var ownerName = NationCatalog.Name(fleet.OwnerCode);
-            Console.WriteLine($"Fleet {fleet.Index} ({ownerName}) at ({fleet.X}, {fleet.Y}) · ship count {fleet.ShipCount} · city index {fleet.CityIndex} ({cityName})");
+            string state;
+            if (fleet.BuildCityIndex is { } buildCity)
+            {
+                var cityName = buildCity < WorldPrefix.CityCount ? world.Cities[buildCity].Name : "(out of range)";
+                state = $"under construction at {cityName} · {fleet.ConstructionCountdown} to go";
+            }
+            else
+            {
+                state = $"condition {fleet.ConditionPercent}%";
+                if (fleet.CarriedArmyIndex is { } carried) state += $" · carrying army {carried}";
+            }
+            Console.WriteLine($"Fleet {fleet.Index} ({ownerName}) at ({fleet.X}, {fleet.Y}) · ship count {fleet.ShipCount} · {fleet.Supplies} tons supply · {fleet.Money} money · {state}");
         }
         return 0;
     }
@@ -230,10 +241,14 @@ if ((args.Length == 4 && args[0] == "--inspect-army") ||
             found = true;
             Console.WriteLine($"Army {army.Index} at ({x}, {y}) · owner code {army.OwnerCode}");
             Console.WriteLine($"{army.Units.Count} units · {army.TotalTroops:N0} troops · {army.Supplies} tons supply · {army.Money} money");
-            Console.WriteLine($"Moves {army.Moves} · morale value {army.MoraleValue}");
+            Console.WriteLine($"Moves {army.Moves} · morale {army.Morale} · supply capacity {army.SupplyCapacityTons} tons ({army.SupplyPercent}%)");
+            Console.WriteLine(army.IsAboardFleet
+                ? "Aboard a fleet (no map cell of its own)"
+                : $"Covered map cell {army.CoveredCell}");
             foreach (var unit in army.Units)
             {
-                Console.WriteLine($"  {unit.Name} · {UnitCatalog.TypeName(unit.TypeCode)} · {unit.Troops:N0} · {UnitCatalog.QualityName(unit.QualityCode)}");
+                var kind = unit.IsMercenary ? $" · mercenary (label {unit.MercenaryLabel})" : "";
+                Console.WriteLine($"  {unit.Name} · {UnitCatalog.TypeName(unit.TypeCode)} · {unit.Troops:N0} · {UnitCatalog.QualityName(unit.QualityCode)}{kind}");
             }
         }
         if (!found) throw new ArgumentException($"No army record at ({x}, {y}) in {Path.GetFileName(inspectedSavePath)}.");

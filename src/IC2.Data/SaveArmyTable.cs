@@ -10,10 +10,9 @@ namespace IC2.Data;
 public sealed class SaveArmyTable
 {
     public const int RecordLength = 656;
-    /// <summary>Bytes 14-15 of the header (immediately after <see cref="ArmyRecord.Money"/>, before the
-    /// first unit slot) are NOT unused padding: they hold a real, changing value (confirmed non-zero and
-    /// decompiled as an "army experience"-shaped field feeding into a unit's starting battle morale) whose
-    /// exact meaning isn't identified yet. See docs/reports/battle-quality-promotion-and-morale-array-decompiled.md.</summary>
+    /// <summary>16 bytes: X(+0) Y(+2) Owner(+4) Moves(+6) CoveredCell(+8) Supplies(+10) Money(+12) Morale(+14).
+    /// Every field is now decompiled; no header byte is padding. See
+    /// docs/reports/decompiled-unit-map-orders-and-record-fields.md.</summary>
     public const int HeaderLength = 16;
     public const int UnitSlotLength = 32;
     public const int UnitSlotsPerArmy = 20;
@@ -59,11 +58,15 @@ public sealed class SaveArmyTable
                     if (data[p] < 0x20 || data[p] > 0x7e)
                         throw new InvalidDataException($"Army {i}, unit slot {slot} has a non-ASCII name.");
                 var name = Encoding.ASCII.GetString(data, nameStart, nameEnd - nameStart).Trim();
-                units.Add(new ArmyUnit(slot, name, type, troops, quality));
+                units.Add(new ArmyUnit(slot, name, type, troops, quality, ReadWord(data, unitOffset)));
             }
-            armies[i] = new ArmyRecord(i, x, y, owner, ReadWord(data, offset + 6),
-                ReadWord(data, offset + 8), ReadWord(data, offset + 10),
-                ReadWord(data, offset + 12), units.ToArray());
+            armies[i] = new ArmyRecord(i, x, y, owner,
+                moves: ReadWord(data, offset + 6),
+                coveredCell: ReadWord(data, offset + 8),
+                supplies: ReadWord(data, offset + 10),
+                money: ReadWord(data, offset + 12),
+                morale: ReadWord(data, offset + 14),
+                units: units.ToArray());
         }
         return new SaveArmyTable(armies);
     }
@@ -74,17 +77,22 @@ public sealed class SaveArmyTable
 
 public sealed class ArmyRecord
 {
+    /// <summary>Value of <see cref="CoveredCell"/> when the army is aboard a fleet and therefore
+    /// occupies no map cell of its own.</summary>
+    public const ushort AboardFleetSentinel = 0xFFFF;
+
     internal ArmyRecord(int index, ushort x, ushort y, ushort ownerCode, ushort moves,
-        ushort moraleValue, ushort supplies, ushort money, ArmyUnit[] units)
+        ushort coveredCell, ushort supplies, ushort money, ushort morale, ArmyUnit[] units)
     {
         Index = index;
         X = x;
         Y = y;
         OwnerCode = ownerCode;
         Moves = moves;
-        MoraleValue = moraleValue;
+        CoveredCell = coveredCell;
         Supplies = supplies;
         Money = money;
+        Morale = morale;
         Units = units;
         foreach (var unit in units) TotalTroops += unit.Troops;
     }
@@ -94,22 +102,49 @@ public sealed class ArmyRecord
     public ushort Y { get; }
     public ushort OwnerCode { get; }
     public ushort Moves { get; }
-    public ushort MoraleValue { get; }
+
+    /// <summary>Word +8: the map cell value this army's marker is covering, saved so it can be restored
+    /// when the army moves or is removed — NOT a morale value, as this field was labelled until the
+    /// movement/creation/removal code was decompiled. It is also what the army-information panel prints
+    /// as "Terrain". <see cref="AboardFleetSentinel"/> means the army is embarked on a fleet.
+    /// See docs/reports/decompiled-unit-map-orders-and-record-fields.md.</summary>
+    public ushort CoveredCell { get; }
+
+    /// <summary>True when <see cref="CoveredCell"/> is the aboard-a-fleet sentinel. Such an army has no
+    /// marker on the map and its coordinates track the carrying fleet's.</summary>
+    public bool IsAboardFleet => CoveredCell == AboardFleetSentinel;
+
     public ushort Supplies { get; }
     public ushort Money { get; }
+
+    /// <summary>Word +14: the army's morale, printed on the army-information panel as a tier via
+    /// <c>moraleNames[(v - 51) &gt;&gt; 2]</c> (falling back to <c>v - 48</c> below 51), used to seed each
+    /// unit's starting battle morale, and a direct multiplier in both army-strength formulas. Previously
+    /// treated as unused padding, then as an unidentified "army experience" field.</summary>
+    public ushort Morale { get; }
+
     public IReadOnlyList<ArmyUnit> Units { get; }
     public int TotalTroops { get; }
+
+    /// <summary>Supply capacity in tons, <c>troops / 100</c> — the cap the supply-purchase dialog enforces,
+    /// and the denominator behind the panel's supply percentage (<c>supplies * 10000 / troops</c>).</summary>
+    public int SupplyCapacityTons => TotalTroops / 100;
+
+    /// <summary>Supply as the whole percentage the original's army panel displays, or 0 for an empty army.</summary>
+    public int SupplyPercent => TotalTroops == 0 ? 0 : Supplies * 10000 / TotalTroops;
 }
 
 public sealed class ArmyUnit
 {
-    internal ArmyUnit(int slot, string name, ushort typeCode, ushort troops, ushort qualityCode)
+    internal ArmyUnit(int slot, string name, ushort typeCode, ushort troops, ushort qualityCode,
+        ushort mercenaryLabel)
     {
         Slot = slot;
         Name = name;
         TypeCode = typeCode;
         Troops = troops;
         QualityCode = qualityCode;
+        MercenaryLabel = mercenaryLabel;
     }
 
     public int Slot { get; }
@@ -117,4 +152,12 @@ public sealed class ArmyUnit
     public ushort TypeCode { get; }
     public ushort Troops { get; }
     public ushort QualityCode { get; }
+
+    /// <summary>Word +0 of the unit slot: 0 for a regular unit, otherwise the mercenary name-table index
+    /// copied from the pool record's Label when the unit was hired. It selects which of the two quarterly
+    /// upkeep formulas applies and blocks the unit from being merged with regulars.</summary>
+    public ushort MercenaryLabel { get; }
+
+    /// <summary>True when this unit was hired from the mercenary pool rather than recruited.</summary>
+    public bool IsMercenary => MercenaryLabel != 0;
 }

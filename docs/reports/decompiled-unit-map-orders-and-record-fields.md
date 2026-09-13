@@ -160,6 +160,44 @@ Checked against the two fleets in `fleet-order-at-caere.md`: the 90-ship fleet a
 
 A marker is only written when `army[+8] >= 0` (the army is not aboard a fleet), which is how embarked armies vanish from the map.
 
+## Part 4: the corrected labels, checked against real saves
+
+`IC2.Data` has been updated to the layout above and re-run over the existing saves. Every correction predicts something specific, and each prediction holds:
+
+```text
+$ --list-fleets saves/1_rome_270_winter_7.sav
+Fleet 0 (Carthage)  at (50, 53)  · 49 ships · 514 tons · 979 money · condition 49%
+Fleet 1 (Ptolemaic) at (189, 93) · 70 ships · 560 tons · 200 money · condition 97%
+Fleet 2 (Greece)    at (0, 0)    · 71 ships ·   0 tons ·   0 money · under construction at Athens · 6 to go
+Fleet 3 (Rome)      at (0, 0)    · 10 ships ·   0 tons ·   0 money · under construction at Caere  · 12 to go
+Fleet 4 (Macedonia) at (0, 0)    · 66 ships ·   0 tons ·   0 money · under construction at Pynda  · 18 to go
+Fleet 5 (Numidia)   at (0, 0)    · 58 ships ·   0 tons ·   0 money · under construction at Siga   · 18 to go
+```
+
+- The `(0,0)` fleets are exactly the four whose word +20 resolves to a city, and they carry **0 supplies and 0 money** — precisely what an unlaunched record should hold, since `FUN_0044A050` only initialises those on launch. The two deployed fleets carry real supplies and money and word +20 values inside `0..100`. The split predicted by the code is the split in the data, 6 for 6.
+- Rome's Caere order reads **12 ticks to go**; it was placed at Autumn week 7 with a starting countdown of 24, and this save is Winter week 7 — twelve weekly ticks later. The countdown field decrements exactly as claimed.
+- Carthage's fleet reads **condition 49%**, and it is the one that disappears in the very next save with the news-log line *"A fleet belonging to Carthage is lost at sea"* (`fleet-owner-field-confirmed.md`). A badly damaged fleet being the one lost to a storm is a much better story than "the fleet whose home port is city 49".
+
+```text
+$ --list-armies saves/1_rome_270_winter_7.sav Rome
+Army 0 at (90, 28) · 99,882 troops · 0 tons supply (0%)   · 256 money · moves 5 · morale 68
+Army 2 at (94, 36) · 28,227 troops · 185 tons supply (65%) · 40 money · moves 9 · morale 68
+```
+
+- Army 2's **65%** is computed from the record, and the video frame `f_010.png` in `galatia-elimination-and-city-resupply-confirmed.md` shows the original's own panel reading `"184 tons (65%)"` for this army. The capacity formula reproduces the game's own display.
+- **Morale 68** is exactly the `+14` value that `battle-quality-promotion-and-morale-array-decompiled.md` measured in this same save and could not name.
+- Army 2's covered cell reads **2** = `Plain`, a sane terrain code for its position.
+
+The mercenary marker was checked by scanning every unit in three saves for a non-zero slot `+0`:
+
+```text
+1_rome_270_winter_3    27 flagged   Gallic(11), Kardackian(30), Persian(5), Sarmatian(20), …
+1_rome_270_winter_9    26 flagged   Kardackian(30), Persian(5), Sarmatian(20), Scythian(19), …
+1_cartago_271_spring_1 38 flagged   Numidian(1), Celtiberian(3), Celtiberian(3), …
+```
+
+Every flagged unit has an **ethnic** name and every unflagged one has the auto-generated `Nth Foot/Guards/Bowmen/Lancers/Dragoons Battalion` name — no exceptions across 91 flagged units in three saves. The same label always maps to the same name (`Celtiberian` is 3 every time, `Kardackian` 30, `Persian` 5, `Sarmatian` 20, `Scythian` 19, `Gallic` 11), confirming both that the word is a name-table index and that it is the regular-versus-mercenary marker. `Gallic(11)` in `winter_3` is the field-recruited unit from `field-recruitment-uniform-attrition-and-fleet-drift.md`.
+
 ## What this does not establish
 
 - The one discrepancy this pass found and could not resolve: the code says buying supply costs `amount / 5` from the army's money, but the three frames tabulated in `galatia-elimination-and-city-resupply-confirmed.md` show Army 0's money unchanged at 256 across a 100-ton purchase (which should cost 20 talents). Either the frames are ordered differently than assumed or there is a path where the charge is skipped. **A controlled before/after save pair around one supply purchase would settle it** and is worth doing before any of this is implemented.
