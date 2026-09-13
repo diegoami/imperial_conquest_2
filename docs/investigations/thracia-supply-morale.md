@@ -29,7 +29,9 @@ the following turns — is exactly right, and is reproduced below in 13 consecut
 ## Sources and method
 
 - **Saves:** `C:\Users\diego\Documents\imp_conq_original\saves\1_thracia_271_{spring,summer,autumn}_N.sav`,
-  13 files, one per turn.
+  13 files, one per turn — the army evidence. Plus `1_cartago_271_*.sav`, 10 files, a second run
+  branching from the same `spring_1` state in which a fleet was deliberately starved at sea until it
+  sank — the fleet evidence.
 - **Decompiled code:** `%LOCALAPPDATA%\ReTools\all_app_functions.txt` (the whole-application dump
   described in `decompilation-plan.md`), line numbers given for reproducibility.
 - **DAT constants:** `C:\Users\diego\Documents\imp_conq_original\Imperial Conquest 2.dat`, byte
@@ -201,7 +203,8 @@ so do not appear in that grep). That is the complete set.
 
 ## Fleets: condition *is* the analog, and it degrades the same way [confirmed]
 
-Three questions were asked. All three now have code answers.
+Three questions were asked. All three have code answers, and the `1_cartago_271_*` series supplies
+the empirical test as well (§4 below).
 
 ### 1. Is there an undiscovered fleet morale field? No.
 
@@ -220,25 +223,49 @@ directly from the save data:
 
 ### 2. Does condition degrade with low fleet supply? Yes, but on different terms.
 
-Same function, fleet loop, `all_app_functions.txt:54534-54637`. Array base `DAT_0049C26C`, stride
-`0x1A` = 26 bytes:
+Same function, fleet loop, `all_app_functions.txt:54537-54632`. Array base `DAT_0049C26C`, stride
+`0x1A` = 26 bytes. The order matters and is easy to get wrong — the **storm pass runs first, on every
+at-sea fleet, regardless of supply**; the supply penalty is a smaller rider applied afterwards:
 
 ```c
-fleet[+14] = max(0, fleet[+14] - fleet[+18]);      // supplies -= ships, every turn
-...
-if (fleet[+10] == -1) {                            // launched and at sea
-    fleet[+12] = 30 - (fleet[+18] - 50) / 10;      // moves
-    if (fleet[+22] >= 0)                           // carrying an army
+fleet[+14] = max(0, fleet[+14] - fleet[+18]);        // supplies -= ships, EVERY turn, every fleet
+
+if (fleet[+10] == -1) {                              // launched and at sea
+    // ---- 1. STORM PASS (54553-54592) — unconditional, NOT supply-driven ----
+    dmg = max(1, FUN_0040284c(100 - fleet[+20]) / 10);    // scales with damage already taken
+    if (season == winter) dmg = min(5, dmg * 2);
+    if (fleet[+24] == 1)  dmg = min(8, dmg * 3);
+    if (FUN_004494e4(fleet[+8], &fleet[+0]) < 0) {        // "away from friendly coast" test
+        dmg = dmg * 2 + 1;                                // always ODD on this branch
+        if (season == winter && FUN_0040284c(20) == 0) dmg = 30;
+    } else dmg /= 2;
+    if (dmg < 6) fleet[+20] -= dmg;
+    else         FUN_0044b4f8(i, 100, dmg + 100);         // heavier: costs SHIPS as well
+
+    // ---- 2. DEATH CHECK (54593) ----
+    if (fleet[+20] < 40) { news("A fleet belonging to X is lost at sea."); destroy(i); }
+    else if (dmg > 5)    { news("A fleet belonging to X is damaged in a storm."); }
+
+    // ---- 3. MOVES (54607-54616) ----
+    fleet[+12] = 30 - (fleet[+18] - 50) / 10;
+    if (fleet[+22] >= 0)                                  // carrying an army
         fleet[+12] -= troops(fleet[+22]) / 100 / fleet[+18] + 1;
 
-    if (fleet[+14] == 0) {                         // ---- OUT OF SUPPLY ----
-        fleet[+12] -= 3;                           // three fewer moves
-        fleet[+20] -= FUN_0040284c(2);             // condition -= random(0..1)
+    // ---- 4. OUT OF SUPPLY (54618-54623) ----
+    if (fleet[+14] == 0) {
+        fleet[+12] -= 3;                                  // three fewer moves
+        fleet[+20] -= FUN_0040284c(2);                    // condition -= random(0..1)
     }
-    if (fleet[+20] < 70)                           // condition < 0x46
-        fleet[+12] -= (70 - fleet[+20] + 3) >> 2;  // damage costs moves too
+    // ---- 5. DAMAGE SLOWS YOU DOWN (54624-54631) ----
+    if (fleet[+20] < 70) fleet[+12] -= (70 - fleet[+20]) >> 2;
 }
 ```
+
+Two consequences of that ordering are worth keeping. The **death check precedes the supply penalty**,
+so `−random(0..1)` can leave a fleet below 40 without killing it until the *next* turn's check. And
+the storm term `random(100 − condition) / 10` **escalates as the fleet degrades**, which makes naval
+attrition a death spiral rather than a linear decline — the dominant effect by far, with the supply
+rider adding at most 1 per turn on top.
 
 So the **answer to the user's question is yes, condition is the fleet's analog to army morale** — and
 this is more than an analogy. `FUN_0044AA54` computes naval strength as `ships × condition / 10`,
@@ -281,14 +308,68 @@ no separate persisted field. A separate AI-side auto-repair exists at
 `all_app_functions.txt:53140-53146` (if `condition < 95`, pay `(100 − condition) × ships / 5` and set
 condition to 100), which is the same price formula.
 
-### Empirically, this save series cannot test the fleet rule [open]
+### 4. The empirical fleet test — a Carthaginian fleet starved at sea until it sank [confirmed]
 
-Honest limit: **no fleet in these 13 saves ever reaches 0 supply**, so there is no fleet counterpart
-to the Thracian table. The Carthaginian fleet bottoms out at 53 t (`spring_5`) and is resupplied; the
-Ptolemaic fleet sits parked at 490 t for eleven turns. Their conditions oscillate in the
-`85 … 100` band with no monotonic trend, consistent with storm damage and repair rather than
-starvation. The fleet rule above is `[confirmed]` **from code only**; an empirical confirmation needs
-a save series with a fleet held at sea, unsupplied, for several turns.
+No fleet in the *Thracian* series ever reaches 0 supply, so that series cannot test this. A second
+series does: `1_cartago_271_*.sav` (10 saves, `spring_1` … `summer_9`), the user's own run in which a
+fleet's supply was deliberately allowed to run out at sea. Both series branch from the same
+`spring_1` state, so the fleet starts identical in each — 90 ships, 80 t, condition 85 — and here it
+is simply never resupplied.
+
+Carthaginian fleet, index 0, owner 1, **90 ships in every save** (so `FUN_0044B4F8` never fired — the
+storm damage stayed under 6 throughout). Base moves `= 30 − (90 − 50)/10 = 26`.
+
+| Save | Supply | Cond | Δ cond | Moves | Moves predicted |
+| --- | ---: | ---: | ---: | ---: | --- |
+| `spring_1`  |  80 | 85 | — | 25 | (session start, pre-tick) |
+| `spring_1b` |  80 | 85 | — | 23 | (mid-turn reload, 2 moves spent) |
+| `spring_5`  | **0** | 79 | −6 / 2 turns | 23 | `26 − 3` ✓ |
+| `spring_7`  | **0** | 76 | −3 | 23 | `26 − 3` ✓ |
+| `spring_11` | **0** | 66 | −10 / 2 turns | 22 | `26 − 3 − (70−66)>>2` ✓ |
+| `summer_1`  | **0** | 62 | **−4** | 21 | `26 − 3 − (70−62)>>2` ✓ |
+| `summer_3`  | **0** | 56 | **−6** | 20 | `26 − 3 − (70−56)>>2` ✓ |
+| `summer_5`  | **0** | 51 | −5 | 19 | `26 − 3 − (70−51)>>2` ✓ |
+| `summer_7`  | **0** | 48 | −3 | 18 | `26 − 3 − (70−48)>>2` ✓ |
+| `summer_9`  | — | — | **destroyed** | — | *"lost at sea"* |
+
+Three separate confirmations come out of this table.
+
+**a. The `supply == 0` → `−3 moves` term, isolated exactly.** Seven of seven post-tick saves match to
+the move, and the term is deterministic, so unlike the condition term it is directly separable. The
+**control** is the Ptolemaic fleet in the same ten saves: 70 ships, supplied, condition 100, predicted
+`30 − (70−50)/10 = 28` with no penalties — and it reads **28 in all ten saves**. Same formula, same
+turns, one starved and one not.
+
+**b. The `supply == 0` → `−random(0..1)` condition term, isolated by parity.** This looked
+untestable, because the storm pass dominates. It isn't, because of the shape of the two terms. Ships
+never changed, so `dmg < 6` held every turn, and `FUN_004494e4` clearly returned `< 0` (open sea)
+given the magnitudes — which forces storm damage onto the `dmg × 2 + 1` branch, i.e. **always odd**,
+and bounded to `{3, 5}`. The supply rider adds `{0, 1}`. So each turn's total must lie in
+`{3, 4, 5, 6}`, and **any even total proves the supply roll came up 1**.
+
+All five single-turn observations — `−3, −4, −6, −5, −3` — fall inside `{3,4,5,6}`, and **two of them
+are even**. The two-turn gaps agree too (`−6 = 3+3`, `−10 = 5+5`). The supply term is real and
+behaves as the code says.
+
+**c. Destruction below condition 40, straight from the game's own news log.** `summer_7` leaves the
+fleet at condition **48**; in `summer_9` the fleet record is simply gone (2 fleets, not 3), with the
+ship count never having dropped — so not naval combat, which reduces `+18`. Reading the news-log ring
+buffer out of `1_cartago_271_summer_9.sav` directly gives the literal string:
+
+```
+A fleet belonging to Carthage is lost at sea.
+```
+
+which is exactly the message assembled at `all_app_functions.txt:54595-54597`, immediately before
+`FUN_0044AD38` deletes the fleet. That is the destruction branch firing, confirmed end to end.
+
+**What this does *not* show.** The fleet's death was driven mainly by the **storm** spiral, not by
+starvation: over the seven turns from condition 79 to 48, the storm term alone accounts for roughly
+`−28 … −35` of the `−31` observed, while the supply rider contributes at most `−7` and on average
+about `−3.5`. Zero supply is an aggravating factor and a real one, but a fleet parked at sea away
+from friendly coast will rot and sink whether or not it is fed. The starvation penalty that actually
+bites in play is the **−3 moves**, which is large against a base of 26 and which, combined with the
+damage-driven move loss, leaves a dying fleet progressively less able to reach a port to repair.
 
 ## A real parser bug found on the way
 
@@ -324,17 +405,28 @@ treat `owner == 0xFFFF` as a tombstone and skip the record rather than reject th
 3. **Seasonal supply consumption is `((90 − seasonVal) × troops) / 20000`, with the season table
    read out of the DAT at `0x1F7D8`.** `[confirmed]` — Spring 50, Summer 80, Autumn 80, Winter 20;
    winter costs 7× summer. Armies aboard a fleet use a flat `troops / 200` with no seasonal term.
-4. **Fleet condition is the naval analog and degrades on zero supply at sea** — `−random(0..1)` per
-   turn, no floor, no free regeneration, lethal below 40. `[confirmed]` from code;
-   `[open]` empirically. **There is no undiscovered fleet morale field** — `[confirmed]`, the record
-   is fully labelled and both remaining `?` words are ruled out from save data.
-5. **"Repair" is the condition dialog, not a new value.** `[confirmed]`.
+4. **Fleet condition is the naval analog and degrades on zero supply at sea** — `−3 moves` and
+   `−random(0..1)` condition per turn, no floor, no free regeneration, lethal below 40.
+   `[confirmed]` **from code and empirically**, on `1_cartago_271_*.sav`: the moves term matches 7/7
+   against a supplied control fleet that matches its own formula 10/10, the condition term is
+   isolated by the parity argument above, and the destruction branch is confirmed by the literal
+   *"A fleet belonging to Carthage is lost at sea."* string in `summer_9`'s news log.
+   **There is no undiscovered fleet morale field** — `[confirmed]`, the record is fully labelled and
+   both remaining `?` words are ruled out from save data.
+5. **Naval attrition is a storm-driven death spiral, and zero supply only aggravates it.**
+   `[confirmed]` — `random(100 − condition) / 10` escalates as the fleet degrades, doubled away from
+   friendly coast and again in winter. This, not starvation, is what actually sank the Carthaginian
+   fleet. Worth stating plainly because it is easy to over-read the Cartago series as "no supply
+   kills fleets": no supply costs a fleet **3 of its 26 moves** and about half a condition point per
+   turn; the sea does the rest.
+6. **"Repair" is the condition dialog, not a new value.** `[confirmed]`.
 
 ### Still open
 
-- **An empirical fleet test.** Needs a save series with a fleet kept at sea and unsupplied for
-  several turns; this series has none. Would also confirm the `random(0..1)` shape, which by
-  definition cannot be read off a single trajectory.
+- **The storm-damage constants, end to end.** `FUN_004494e4` (the "away from friendly coast" test
+  that doubles damage) and `fleet[+24] == 1` (which triples it) are both inferred from magnitudes
+  here, not decompiled. The Cartago series is consistent with the doubling branch being active
+  throughout but cannot prove which predicate selected it.
 - **The 2:1 decay-to-regen asymmetry is confirmed as code but unexplained as design.** Worth a
   deliberate decision in `game-design.md` rather than being inherited silently, since it makes
   starvation roughly twice as expensive to undo as to incur.
