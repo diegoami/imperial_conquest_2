@@ -4,6 +4,8 @@ This is a staged plan for a compatible, modern game that reads files from a user
 
 The order matters: verify each file format and rule before depending on it in the new engine. Unknown fields remain explicitly unknown. We can improve the interface without assuming that a visual change also changes the rules.
 
+**Sections 3–8 below are now superseded in detail by [game-design.md](game-design.md)**, which turns everything confirmed here into a concrete, moddable design (data-driven rulesets, arbitrary custom maps, instant abstracted battle resolution, local hotseat, a scenario system, asset packs) and lays out the actual build-milestone backlog. Keep this roadmap as the research-provenance record; treat `game-design.md` as the living reference once implementation starts.
+
 ## 0. Establish the baseline — complete
 
 - [x] Inventory and hash the demo, full package, and first save.

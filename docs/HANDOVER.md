@@ -93,8 +93,8 @@ Build `IC2.Data` before `IC2.Inspect` if both changed (shared `obj` dir). All bu
 
 ## Next useful work
 
-1. **New save/screenshot/note cycles take priority** over more static analysis — check `imp_conq_original/notes/1_rome.txt` for anything newer than the last-processed save first.
-2. Pick up any "What's still open" item above, per `docs/decompilation-plan.md`'s live status.
-3. Eventually: write the rules specification (`roadmap.md` §3, now has a large evidence base to draw from), then the headless C# rules model (§4).
+1. **`docs/game-design.md` now exists** — a full design (not implementation) for a moddable reimplementation: data-driven rulesets, arbitrary custom maps, instant abstracted battle resolution (no tactical grid, no pacing-freeze risk), local hotseat, a scenario system, asset packs, and a 15-milestone build backlog intended to be worked autonomously (`/loop`-style, large chunks, self-verifying via tests + golden fixtures from real captured saves/battles). **This is very likely the next real work**, not more static analysis, unless the user redirects.
+2. **New save/screenshot/note cycles still take priority if one shows up** — check `imp_conq_original/notes/2_rome.txt` for anything newer than the last-processed save first.
+3. Pick up any "What's still open" item above, per `docs/decompilation-plan.md`'s live status, if `game-design.md` isn't the priority.
 
 Keep original EXE, DAT, HLP, CNT, WAV, SAV, screenshots, and recordings outside the public repository — this also applies to the Ghidra project and decompiled-text dumps under `%LOCALAPPDATA%\ReTools`. Record exact file/hash/address/screenshot evidence for each new field or formula and mark inferred meanings as candidates until checked.
