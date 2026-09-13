@@ -89,8 +89,10 @@ Parallelism here is not "run agents and hope". It comes from four deliberate str
 
 | Role | Count | What it does |
 | --- | --- | --- |
-| **Implementer** | up to 3 concurrent | One task, one branch, one worktree, one PR. Writes code + tests, runs the DoD commands, pushes, opens the PR with evidence. |
-| **Reviewer** | 1–2 concurrent | Independently re-runs the DoD commands on the PR head, audits provenance and scope, posts a GitHub review (`--approve` / `--request-changes`). Never the same agent instance that implemented. |
+| **Implementer** | **One at a time** (revised — see note below) | One task, one branch, one PR, working directly in the main checkout. Writes code + tests, runs the DoD commands, pushes, opens the PR with evidence. |
+| **Reviewer** | **One at a time**, never concurrent with an implementer | Independently re-runs the DoD commands on the PR head, audits provenance and scope, posts findings as a PR comment and applies a `status:approved`/`status:rework` label. Never the same agent instance that implemented. |
+
+> **Revised after the first live run (T01/T05).** The plan originally specified up to 3 concurrent implementers, each in its own `isolation: "worktree"`. In practice the orchestrator struggled managing multiple worktrees (one was left `locked`), and the user asked for a simpler, more conservative model: **no worktrees, and never more than one code-modifying agent running on this machine at a time.** Every "concurrent" figure below is superseded by this — kept in place as the original reasoning, with the current rule stated alongside it, rather than silently rewritten.
 | **Orchestrator** | exactly 1 | Dispatches, tracks, merges, handles conflicts and escalations. Does not write task code. |
 
 ### 3.2 The effort scale
@@ -643,25 +645,30 @@ Conventions used by every entry:
 
 ```text
 issue status:ready
-  → orchestrator spawns implementer (Agent, isolation: "worktree", model per catalogue)
+  → orchestrator spawns implementer (Agent, model per catalogue, working in the main checkout —
+      no other code-modifying agent runs until this one finishes)
   → implementer: code + tests, runs DoD commands, pushes task/T<nn>-*, opens PR
       PR body: Closes #N, the Owns list it touched, and a fenced DoD-evidence block
       (the exact commands run and their output tails, one per DoD line)
   → label status:in-review
-  → orchestrator spawns reviewer (different model per §3.4, own worktree on the PR head)
-  → reviewer re-runs every DoD command itself and posts a GitHub review
-      approve          → label status:approved
-      request-changes  → label status:rework
+  → orchestrator spawns reviewer (different model per §3.4, checks out the PR head directly
+      in the main checkout — the implementer has finished and pushed by this point)
+  → reviewer re-runs every DoD command itself and posts its findings as a PR comment
+      (see §6.2's five gates), then applies the label itself:
+      all five gates pass  → label status:approved
+      any gate fails       → label status:rework
   → status:approved + CI green + mergeable
       → orchestrator squash-merges, closes the issue, deletes the branch, label status:merged
       → orchestrator updates docs indexes on main if needed, recomputes the ready set
 ```
 
+**Why a comment + label instead of a native GitHub review**: every agent in this pipeline authenticates as the same GitHub account, and GitHub refuses to let an account approve or request changes on its own pull request (`gh pr review` fails outright for any agent here, discovered live on T05's first review). The label is applied by the reviewer, exactly where a native review's `reviewDecision` would have landed — the orchestrator's drain step reads the label, not `reviewDecision`. This keeps the same two-party structure (a different agent instance checks and signs off, the orchestrator alone merges) at the cost of a real, acknowledged weakening: a label is not cryptographically or independently attributable to a review the way GitHub's own review feature is. See §6.3.
+
 ### 6.2 What the reviewer checks
 
 Five gates, in order; any failure is `request-changes`:
 
-1. **DoD, independently reproduced.** The reviewer runs the commands itself in its own worktree. The PR body's evidence is a convenience, never the proof. A DoD line with no runnable check is itself a finding.
+1. **DoD, independently reproduced.** The reviewer runs the commands itself, checked out at the PR head in the main checkout. The PR body's evidence is a convenience, never the proof. A DoD line with no runnable check is itself a finding.
 2. **Provenance.** Every constant traces to a `tests/fixtures` entry or a cited report. Any `[designed]` value must say *what was searched and came up empty* — `design-audit.md` §4.5's rule, promoted here to a hard merge gate, because it would have caught all four of that audit's bad `[designed]` tags.
 3. **Determinism.** No `System.Random`, wall-clock, `Guid.NewGuid`, or order-dependent iteration in gameplay paths; every random draw goes through `IRng`; a seeded test proves reproducibility.
 4. **Scope.** Every changed file is inside the task's declared **Owns** list. A change outside it is a finding even if it is a good change.
@@ -672,7 +679,7 @@ Five gates, in order; any failure is `request-changes`:
 **No third reviewer. But the reviewer does not merge — the orchestrator does.** The reasoning:
 
 - The reviewer's judgment is **local** to one PR. The merge decision is **global**: merge order across in-flight branches, whether a dependent task is waiting, whether `main` has moved since review. Only the orchestrator holds that state.
-- Separating *judge* from *executor* leaves a clean two-party audit trail on every merge (a GitHub review by one agent, a merge by another), which matters when the human is reconstructing what happened days later.
+- Separating *judge* from *executor* leaves a two-party audit trail on every merge (a labelled, commented review by one agent, a merge by another), which matters when the human is reconstructing what happened days later — weaker than a native GitHub review would be (see §6.1's note), but still two distinct agent actions, not one.
 - It costs nothing: the orchestrator is already running.
 
 The one place a third voice is bought is the four architecture PRs (T02, T03, T16, T22) and any PR at rework round 2, which additionally get `/code-review --effort ultra`. That is an *additional opinion*, not an additional gate — the human, not the ultrareview, is the tiebreaker if it disagrees with the reviewer.
@@ -685,7 +692,7 @@ This rule exists because the failure mode it prevents — an autonomous pipeline
 
 ### 6.5 Rework
 
-Reviewer requests changes → the orchestrator sends the findings to the **same implementer agent** via `SendMessage` (its worktree and context are intact, so the fix is cheap) → the agent pushes to the same branch and re-requests review. If that agent is gone, a fresh implementer is spawned with the PR, the review, and the task entry as input.
+Reviewer requests changes → the orchestrator sends the findings to the **same implementer agent** via `SendMessage` (its context is intact, so the fix is cheap) → the agent pushes to the same branch and re-requests review. If that agent is gone, a fresh implementer is spawned with the PR, the review, and the task entry as input.
 
 **Rework round 2 is the last one.** A third failing round escalates to the human with: the task entry, the diff, both reviews, and the reviewer's stated disagreement. Ping-pong between two agents that have each anchored on a different reading of the same report is the most expensive failure mode available, and two rounds is enough evidence that it is happening.
 
@@ -721,7 +728,7 @@ Everything else — including every `[designed]` placeholder `game-design.md` do
 
 | Option | Verdict |
 | --- | --- |
-| Long-lived session + `/loop` + `Agent` subagents with `isolation: "worktree"` | **Chosen.** Real per-branch worktrees on one machine without clobbering; subagent output stays out of the orchestrator's context; the user keeps the running narrative `AGENTS.md` asks for; recovers across sessions because all state is in GitHub. |
+| Long-lived session + `/loop` + `Agent` subagents, serialized in the main checkout (**revised** — originally `isolation: "worktree"`, one per task) | **Chosen, revised after the first live run.** Worktrees were dropped after the orchestrator struggled managing them on T01/T05 (one was left `locked`); running exactly one code-modifying agent at a time in the main checkout is simpler and cannot hit that failure mode, at the cost of wall-clock parallelism, which this project's pace can afford. Subagent output still stays out of the orchestrator's context; the user keeps the running narrative `AGENTS.md` asks for; still recovers across sessions because all state is in GitHub. |
 | A scheduled/cron cloud agent | Rejected as the primary driver: the Godot and original-save tasks are local-only, so a cloud session cannot run a large fraction of the DoDs. Useful later for the nightly gate (T28), which is a GitHub Actions workflow anyway. |
 | A PowerShell driver invoking `claude -p` headlessly, one process per task | Rejected as the *default*, kept as the documented escape hatch. It gives true OS-level parallelism and survives session death, but loses the interactive progress narrative and is harder to debug. It is also the **exact mechanism a second machine would use** ([§10](#10-adding-a-second-machine-later)), so the design keeps it viable rather than designing it out. |
 | Teammates / other live sessions coordinated by `SendMessage` | Used *within* the chosen option — `SendMessage` is how rework reaches a still-live implementer — not as the top-level driver. |
@@ -754,19 +761,22 @@ This is what makes the pipeline **resumable across sessions**: a brand-new Claud
      next tick). Skip steps 2-7. See §7.5.
 2. Reconcile crashes:
      for each issue status:in-progress or status:in-review with no live agent (ListAgents)
-     and no open PR  → reset to status:ready, `git worktree prune`, delete the stale branch.
+     and no open PR  → reset to status:ready, delete the stale branch if one exists.
 3. Drain finished PRs:
-     gh pr list --label task --json number,reviewDecision,statusCheckRollup,mergeable,labels
-     APPROVED + green + MERGEABLE   → squash-merge, close issue, delete branch, status:merged
-     CHANGES_REQUESTED              → status:rework, dispatch rework (§6.5)
-     CONFLICTING                    → conflict protocol (§7.4)
-     no review yet, no live reviewer → spawn reviewer
+     gh pr list --label task --json number,labels,statusCheckRollup,mergeable
+     status:approved + green + MERGEABLE  → squash-merge, close issue, delete branch, status:merged
+     status:rework                        → dispatch rework (§6.5)
+     CONFLICTING                          → conflict protocol (§7.4)
+     no status:approved/status:rework yet, no live reviewer → spawn reviewer
+     (the reviewer applies status:approved/status:rework itself — see §6.1's note on why this
+     is a label, not `gh pr review`, and `reviewDecision` is never read)
 4. Recompute the ready set:
      every status:blocked issue whose merge-after deps are all status:merged → status:ready
-5. Dispatch, respecting the caps (§9):
-     ≤ 3 concurrent implementers; ≤ 1 single-instance task; never two overlapping Owns lists;
-     never anything else while T03 is in flight.
-     Agent(subagent_type: general-purpose, model: <per catalogue>, isolation: "worktree",
+5. Dispatch **one task at a time only** — never a second code-modifying agent while one is
+     already running (implementer or reviewer), regardless of Owns-list overlap. Respect the
+     single-instance rule (§9) as a subset of this. Wait for the running agent to finish before
+     dispatching the next, even if its own tick reports back before this one does.
+     Agent(subagent_type: general-purpose, model: <per catalogue>,
            prompt: Appendix A filled in from this document's task entry)
 6. Post the tick's status table to the tracking issue.
 7. Escalate anything in §6.6; if the circuit breaker tripped, stop dispatching and report.
@@ -813,7 +823,7 @@ Distinct from [§6.6](#66-when-to-escalate-to-the-human-instead-of-auto-merging)
 | Commit trailer | `Refs #<issue>`, plus the attribution lines each agent's own harness provides |
 | PR title | `T09 Movement and terrain` |
 | PR body | The `.github/pull_request_template.md` from T05: `Closes #<issue>`, the Owns list touched, the fenced DoD-evidence block, the provenance checklist, the determinism checkbox |
-| Review | A real GitHub review (`gh pr review --approve` / `--request-changes`), never a plain comment — the orchestrator reads `reviewDecision`, which only reviews set |
+| Review | A PR comment with the five-gate findings, plus a `status:approved`/`status:rework` label applied by the reviewer itself (not a native GitHub review — every agent shares one GitHub account, which GitHub refuses to let review its own PR; see §6.1) — the orchestrator reads the label, never `reviewDecision` |
 | Merge | Squash, by the orchestrator, after CI green + approval + dependency order |
 | Issue title | `T09 Movement and terrain` |
 | Issue body | Scope, Owns, DoD as a checklist, model/effort, branch, `Blocked by #x` task list, a link to this document's anchor, and a link to the `game-design.md` milestone |
@@ -832,7 +842,7 @@ Distinct from [§6.6](#66-when-to-escalate-to-the-human-instead-of-auto-merging)
 
 ## 9. Concurrency, single-instance, and local-only
 
-- **Cap: 3 concurrent implementers + up to 2 reviewers.** The binding constraint is not agent capability but the machine: each worktree runs its own `dotnet restore`/`build`/`test`, and three of those plus the orchestrator's own work is a reasonable load for one developer box. Raising the cap mostly buys NuGet and disk contention.
+- **Revised cap: exactly one code-modifying agent at a time, full stop** — no concurrent implementers, no implementer running alongside a reviewer. This superseded the original "3 concurrent implementers + up to 2 reviewers" figure after worktree-based isolation proved fragile in practice ([§7.1](#71-who-actually-runs-it)'s note); without per-task worktrees, two agents touching the same checkout at once is unsafe regardless of Owns-list discipline, not just slower. The remaining bullets in this section (single-instance Godot tasks, local-only tasks) are now a subset of this stricter rule rather than an additional constraint on top of a concurrency cap.
 - **Never two `single-instance` tasks at once**: T24, T25, T27. They launch or export Godot 4.7.2; two concurrent headless Godot runs against sibling worktrees fight over the `.godot` import cache and the `project.godot` header rewrite that `HANDOVER.md` documents. The whole Godot lane is therefore a single serial chain regardless of the cap.
 - **`local-only` tasks**: T21 (needs the user's `imp_conq_original` saves) and, in practice, T24/T25/T27 (need a Godot install). Their tests must **skip explicitly**, never fail, when the local prerequisite is absent — otherwise CI on GitHub's runners can never be green and the whole gate loses its meaning.
 - **Nothing else is machine-bound.** T01–T20, T22, T23, T26 and T28 build and test on a plain .NET 10 runner.
@@ -844,7 +854,7 @@ Distinct from [§6.6](#66-when-to-escalate-to-the-human-instead-of-auto-merging)
 
 **Already generalises, with no change:** every piece of pipeline state (issues, labels, PRs, reviews, milestones), the branch-per-task model, the fixtures corpus and toy world (both in-repo, no original files needed), the CI gate, and the review contract. GitHub Actions is, in effect, already a second machine that runs a subset of the DoDs.
 
-**Currently coupled to this machine:** the orchestrator's worktree pool under one checkout; the Godot 4.7.2 install and its export templates (T24, T25, T27); the user's original saves at `C:\Users\diego\Documents\imp_conq_original` and the `assets.local.ini` that points at them (T21); and the in-process `Agent` dispatch, which cannot reach another host.
+**Currently coupled to this machine:** the orchestrator's single serialized checkout (no longer a worktree pool — see §7.1); the Godot 4.7.2 install and its export templates (T24, T25, T27); the user's original saves at `C:\Users\diego\Documents\imp_conq_original` and the `assets.local.ini` that points at them (T21); and the in-process `Agent` dispatch, which cannot reach another host.
 
 **What would have to change to add a second machine** — three things, none of them a redesign:
 
@@ -866,7 +876,7 @@ Four, all genuinely decisions rather than engineering.
 
 **Q-B. How should the Godot UI be reviewed visually? — ANSWERED: option (a), screenshot review per screen.** As T24 and T25 land, each posts a screenshot of every new screen to its PR for review, rather than batching visual review to the end of the lane or leaving it to a later manual pass. This catches a layout problem while the context for fixing it is still warm, and it is the option that best matches "large autonomous chunks, reviewed as they land" rather than a big pile of UI to review at once. The published mockup (`game-design.md` §UI) is the layout intent either way, but "looks right" is taste and stays the user's call on each screenshot.
 
-**Q-C. Is the proposed cost profile right? — ANSWERED: yes, as proposed.** Three concurrent implementers, Opus on four tasks and on the reviewer seat for nine fidelity-critical PRs, plus `/code-review --effort ultra` on four PRs. This project has already reached `main` with a wrong constant twice on a cheaper profile; the added Opus/reviewer cost buys down exactly that failure mode.
+**Q-C. Is the proposed cost profile right? — ANSWERED: yes, as proposed; the concurrency figure was since revised.** Opus on four tasks and on the reviewer seat for nine fidelity-critical PRs, plus `/code-review --effort ultra` on four PRs, all still stand. This project has already reached `main` with a wrong constant twice on a cheaper profile; the added Opus/reviewer cost buys down exactly that failure mode. **The "three concurrent implementers" half of this answer is superseded** by [§7.1](#71-who-actually-runs-it)'s and [§9](#9-concurrency-single-instance-and-local-only)'s revision to exactly one code-modifying agent at a time, after the first live run — kept here as the original record rather than silently edited.
 
 **Q-D. Should the seven open audit questions (Q3–Q9) be answered before their tasks dispatch, or implemented behind ruleset flags and retuned later? — ANSWERED: behind ruleset flags, and further formalized.** Every affected task ships the confirmed behaviour behind a named ruleset flag. This has since been formalized past "flags with defaults" into **two shipped, named, user-facing presets** — `classical-faithful` and `improved` — surfaced as a prominent New Game choice rather than left as scenario-JSON-only settings (`game-design.md` "Two shipped presets", `design-audit.md` Q3/Q4/Q5/Q6/Q8). Mapping: Q9 → T08's `supplyPurchaseCostsMoney` (still genuinely open, needs a play session, not a ruleset fork); Q8 → T19's `bugPolicy.diplomaticThaw`; Q7 → T18's generic `cityOrders` table (schema choice, not a preset fork); Q5 → T12's `victory.default`; Q3 → T19's `diplomacy.model`; Q4 → T08's `economy.purses`; Q6 → the new `seatAsymmetry` flag, owned wherever movement/embarkation/army-split logic lands (T09, T14, T15). A new item joined this same mechanism after the presets were formalized: `combat.onDefeat` (T16) — `classical-faithful` keeps the confirmed annihilation outcome, `improved` scatters the loser's field/naval army a few tiles away with its moves zeroed, so the victor cannot immediately re-catch it. See `design-audit.md` Q1's follow-up note.
 
@@ -914,7 +924,9 @@ Issue numbers are filled in from GitHub; this table is the doc→GitHub half of 
 ## Appendix A: implementer prompt template
 
 ```text
-You are implementing task T<nn> of the Imperial Conquest 2 build, working in your own git worktree.
+You are implementing task T<nn> of the Imperial Conquest 2 build, working directly in the main
+checkout. No other code-modifying agent runs at the same time as you — you have exclusive use of
+the working tree until you finish, push, and open your PR.
 
 Read first, in order:
   docs/build-orchestration-plan.md  — find your task entry, §<anchor>. It is the contract.
@@ -952,7 +964,8 @@ When done:
 
 ```text
 You are reviewing PR #<pr> for task T<nn> of the Imperial Conquest 2 build. You did not write it.
-Work in your own worktree checked out at the PR head.
+Check out the PR head directly in the main checkout (`gh pr checkout <pr>`) — the implementer has
+already finished and pushed, so no other code-modifying agent is running concurrently with you.
 
 Read: docs/build-orchestration-plan.md (the task entry, and §6.2 "What the reviewer checks"),
       docs/game-design.md (milestone M<n>), docs/design-audit.md.
@@ -971,10 +984,15 @@ Run five gates, in order. Any failure is request-changes:
     request-changes.
  5. Correctness. Run /code-review --effort high over the diff for ordinary bugs.
 
-Post a real GitHub review: `gh pr review <pr> --approve` or `--request-changes` with specific,
-actionable findings (file and line). Do not merge — the orchestrator merges. Do not fix the code
-yourself. If you and the implementer are on round 2 of disagreement, say so explicitly in the
-review so the orchestrator escalates rather than starting a round 3.
+Post your findings as a PR comment (`gh pr comment <pr> --body-file ...`) — specific, actionable,
+file and line — covering all five gates explicitly, then apply the label yourself:
+all five gates pass → `gh issue edit <issue> --add-label status:approved --remove-label status:in-review`
+any gate fails      → `gh issue edit <issue> --add-label status:rework --remove-label status:in-review`
+(NOT `gh pr review --approve`/`--request-changes` — every agent here shares one GitHub account,
+which GitHub refuses to let review its own PR; the label is the approval signal instead, and the
+orchestrator reads it, never `reviewDecision`.) Do not merge — the orchestrator merges. Do not fix
+the code yourself. If you and the implementer are on round 2 of disagreement, say so explicitly in
+your comment so the orchestrator escalates rather than starting a round 3.
 ```
 
 ## Appendix C: the `/build-tick` skill
@@ -997,26 +1015,31 @@ You do not write task code yourself.
    before anything else, every tick, no exceptions. See plan §7.5.
 
 2. RECONCILE. `gh issue list --label task --json number,title,labels` and
-   `gh pr list --label task --json number,headRefName,reviewDecision,statusCheckRollup,mergeable,labels`.
+   `gh pr list --label task --json number,headRefName,statusCheckRollup,mergeable,labels`.
    Compare with `ListAgents`. Any issue status:in-progress / status:in-review with no live agent
-   and no open PR → reset to status:ready, `git worktree prune`, delete the stale branch.
+   and no open PR → reset to status:ready, delete the stale branch if one exists.
 
-3. DRAIN. For each open task PR:
-   - APPROVED + checks green + MERGEABLE and all merge-after deps status:merged
+3. DRAIN. For each open task PR, read its issue's status:* label (the reviewer applies this
+   itself — see Appendix B; `reviewDecision` is never read, since `gh pr review` cannot work when
+   every agent shares one GitHub account):
+   - status:approved + checks green + MERGEABLE and all merge-after deps status:merged
        → `gh pr merge --squash --delete-branch`, close the issue, label status:merged.
-   - CHANGES_REQUESTED → label status:rework; SendMessage the findings to the live implementer,
-     or spawn a fresh one with the PR + review. Round 3 → escalate (plan §6.5).
+   - status:rework → SendMessage the findings to the live implementer, or spawn a fresh one with
+     the PR + review comment. Round 3 → escalate (plan §6.5).
    - CONFLICTING → conflict protocol (plan §7.4). Semantic conflict → escalate.
-   - No review and no live reviewer → spawn the reviewer (Appendix B, model per the catalogue).
+   - Neither label yet, no live reviewer → spawn the reviewer (Appendix B, model per the catalogue).
 
 4. UNBLOCK. Any status:blocked issue whose merge-after deps are all status:merged → status:ready.
 
-5. DISPATCH, respecting the caps in plan §9: ≤3 implementers, ≤1 single-instance task, no two
-   overlapping Owns lists, nothing at all while T03 is in flight, nothing local-only on a machine
-   without the prerequisite. Spawn with:
-     Agent(subagent_type: "general-purpose", model: <catalogue>, isolation: "worktree",
+5. DISPATCH **at most one task**, and only if no other code-modifying agent (implementer or
+   reviewer) is currently running (check `ListAgents`) — never two at once, regardless of Owns-list
+   overlap. This supersedes the plan §9 concurrency caps, which described a since-abandoned
+   worktree-per-task model. Nothing local-only on a machine without the prerequisite. Spawn with:
+     Agent(subagent_type: "general-purpose", model: <catalogue>,
            prompt: Appendix A filled in from the task entry)
-   Label the issue status:in-progress.
+   Label the issue status:in-progress. Wait for it to finish before this tick dispatches anything
+   else — do not poll for its completion; the next tick (or the completion notification) picks up
+   from there.
 
 6. REPORT. Post a status table (task, state, PR, agent, blocked-by) as a comment on the tracking
    issue, and summarise to the user: what merged, what started, what is blocked, what needs them.

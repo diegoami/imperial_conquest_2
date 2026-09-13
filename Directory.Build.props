@@ -1,0 +1,33 @@
+<Project>
+  <!--
+    T01 (docs/build-orchestration-plan.md, "Build scaffolding and CI"): centralised settings for
+    IC2.sln's *new* projects only.
+
+    This file deliberately applies NOTHING to the pre-existing projects (src/IC2.Data,
+    src/IC2.Inspect) or to godot/IC2.MapViewer.csproj: none of them are named in the condition
+    below, so each keeps exactly the TargetFramework/Nullable/ImplicitUsings it already declares in
+    its own .csproj, and none of them opt in to TreatWarningsAsErrors. This is intentional per the
+    T01 task entry ("existing IC2.Data/IC2.Inspect opt out, to avoid a scaffolding task turning into
+    a refactor") and its hazard note (do not "fix" existing IC2.Data/IC2.Inspect code).
+
+    godot/IC2.MapViewer.csproj is additionally EXCLUDED FROM IC2.sln entirely (see IC2.sln itself):
+    it requires the Godot 4.7.2 .NET SDK, which is not installed on CI runners, so it cannot build
+    there. That exclusion is independent of this file and would apply even if this condition matched
+    it (it does not — "IC2.MapViewer" is not in the list below).
+
+    New projects the backlog will need (src/IC2.Engine, src/IC2.Cli, tests/IC2.Engine.Tests,
+    tests/IC2.Data.Tests) are pre-declared here by T01 and opt in to the strict settings by project
+    name below, so that centralising them in one file does not require editing each new .csproj by
+    hand every time a later task adds files to one of these projects.
+  -->
+  <PropertyGroup Condition="
+      '$(MSBuildProjectName)' == 'IC2.Engine' OR
+      '$(MSBuildProjectName)' == 'IC2.Cli' OR
+      '$(MSBuildProjectName)' == 'IC2.Engine.Tests' OR
+      '$(MSBuildProjectName)' == 'IC2.Data.Tests'">
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,38 @@
+# EditorConfig for Imperial Conquest 2.
+#
+# T01 (docs/build-orchestration-plan.md "Build scaffolding and CI") keeps this deliberately
+# conservative: it sets whitespace/encoding conventions only, and every C# style/analyzer rule
+# below is a *suggestion* (severity "suggestion" or unset), never "warning" or "error" - the new
+# projects' TreatWarningsAsErrors=true (see Directory.Build.props) must not turn pre-existing
+# IC2.Data/IC2.Inspect code, or godot/IC2.MapViewer.csproj, into a build failure just because this
+# file applies repo-wide.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = crlf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{sln,slnx}]
+indent_style = tab
+# dotnet/Visual Studio always writes .sln with a UTF-8 BOM; without this override the repo-wide
+# `charset = utf-8` (no BOM) above could make an editorconfig-aware editor strip it on save.
+charset = utf-8-bom
+
+[*.{json,yml,yaml}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.cs]
+indent_size = 4
+# Style preferences only - intentionally not escalated to warning/error severity so they never
+# interact with TreatWarningsAsErrors on any project, new or existing.
+csharp_new_line_before_open_brace = all
+csharp_prefer_braces = true:suggestion
+dotnet_sort_system_directives_first = true:suggestion
