@@ -21,11 +21,25 @@ public enum FixtureTag
 /// "T04 Fixtures corpus").
 /// </summary>
 /// <remarks>
+/// <para>
 /// <see cref="Tag"/> is kept as the raw JSON string (rather than parsed straight into
 /// <see cref="FixtureTag"/>) so that a structurally-present-but-empty tag surfaces as a clean
 /// assertion failure in <c>FixturesCorpusTests</c> (Done-when line 1) instead of an exception
 /// thrown deep inside JSON deserialization. Use <see cref="ParsedTag"/> once that invariant is
 /// established.
+/// </para>
+/// <para>
+/// <b>Equality caveat (round-1 review finding, not fixed):</b> because this is a positional
+/// <c>record</c> containing a <see cref="JsonElement"/>, its compiler-synthesized
+/// <c>Equals</c>/<c>GetHashCode</c> compare <see cref="Value"/> by <see cref="JsonElement"/>'s own
+/// default equality, which is reference/cursor identity into the parsed document, not the JSON
+/// value it represents — two <see cref="FixtureEntry"/> instances holding numerically identical
+/// values will generally NOT compare equal via <c>Assert.Equal</c> or <c>==</c>. Nothing in this
+/// task uses entry-to-entry equality today (comparisons go through <see cref="AsNumber"/>,
+/// <see cref="AsString"/>, etc. instead), so a real fix (raw-text or semantic value comparison) is
+/// deferred rather than added speculatively; if a later task needs to compare two
+/// <see cref="FixtureEntry"/> values directly, override equality then.
+/// </para>
 /// </remarks>
 /// <param name="Id">Stable dotted identifier, e.g. <c>"tax.nationTaxBaseRome"</c> (see corpus.json).</param>
 /// <param name="Value">The transcribed value: a number, string, or boolean.</param>

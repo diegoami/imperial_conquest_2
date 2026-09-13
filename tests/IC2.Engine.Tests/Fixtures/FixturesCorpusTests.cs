@@ -16,25 +16,29 @@ public class FixturesCorpusTests
     [Fact]
     public void NoEntryHasAnEmptyValueSourceOrTag()
     {
-        var entries = Fixtures.All;
+        var entries = FixtureCorpus.All;
         Assert.NotEmpty(entries);
 
         var offenders = entries
-            .Where(e => string.IsNullOrWhiteSpace(e.Source)
+            .Where(e => string.IsNullOrWhiteSpace(e.Id)
+                        || string.IsNullOrWhiteSpace(e.Source)
                         || string.IsNullOrWhiteSpace(e.Tag)
                         || IsEmptyValue(e.Value))
-            .Select(e => e.Id)
+            .Select(e => string.IsNullOrWhiteSpace(e.Id) ? "<empty id>" : e.Id)
             .ToList();
 
         Assert.True(offenders.Count == 0,
-            $"Entries with an empty value/source/tag: {string.Join(", ", offenders)}");
+            $"Entries with an empty id/value/source/tag: {string.Join(", ", offenders)}");
     }
 
     private static bool IsEmptyValue(JsonElement value) => value.ValueKind switch
     {
         JsonValueKind.Undefined => true,
         JsonValueKind.Null => true,
-        JsonValueKind.String => string.IsNullOrEmpty(value.GetString()),
+        // Rework fix: was string.IsNullOrEmpty, inconsistent with Id/Source/Tag's
+        // IsNullOrWhiteSpace below -- a "value": "   " (whitespace-only) previously slipped
+        // past this check. Now consistent: whitespace-only counts as empty everywhere.
+        JsonValueKind.String => string.IsNullOrWhiteSpace(value.GetString()),
         JsonValueKind.Array => value.GetArrayLength() == 0,
         JsonValueKind.Object => !value.EnumerateObject().Any(),
         // Numbers and booleans (including 0 and false) are valid, non-empty values -- a
@@ -52,10 +56,10 @@ public class FixturesCorpusTests
     [Fact]
     public void EverySourceNamesAFileInTheKnownReportsManifest()
     {
-        var known = new HashSet<string>(Fixtures.KnownReportFilenames, StringComparer.Ordinal);
+        var known = new HashSet<string>(FixtureCorpus.KnownReportFilenames, StringComparer.Ordinal);
         Assert.NotEmpty(known);
 
-        var unknownSources = Fixtures.All
+        var unknownSources = FixtureCorpus.All
             .Select(e => e.Source)
             .Distinct(StringComparer.Ordinal)
             .Where(source => !known.Contains(source))
@@ -71,10 +75,10 @@ public class FixturesCorpusTests
     [Fact]
     public void CorpusContainsEveryRequiredId()
     {
-        var required = Fixtures.RequiredIds;
+        var required = FixtureCorpus.RequiredIds;
         Assert.NotEmpty(required);
 
-        var present = new HashSet<string>(Fixtures.All.Select(e => e.Id), StringComparer.Ordinal);
+        var present = new HashSet<string>(FixtureCorpus.All.Select(e => e.Id), StringComparer.Ordinal);
         var missing = required.Where(id => !present.Contains(id)).ToList();
 
         Assert.True(missing.Count == 0,
@@ -86,7 +90,7 @@ public class FixturesCorpusTests
     [Fact]
     public void NoTwoEntriesShareAnId()
     {
-        var duplicates = Fixtures.All
+        var duplicates = FixtureCorpus.All
             .GroupBy(e => e.Id, StringComparer.Ordinal)
             .Where(g => g.Count() > 1)
             .Select(g => g.Key)
@@ -106,7 +110,7 @@ public class FixturesCorpusTests
             Enum.GetNames<FixtureTag>().Select(n => n.ToLowerInvariant()),
             StringComparer.Ordinal);
 
-        var invalid = Fixtures.All
+        var invalid = FixtureCorpus.All
             .Where(e => !validTags.Contains(e.Tag.ToLowerInvariant()))
             .Select(e => $"{e.Id}={e.Tag}")
             .ToList();
@@ -119,16 +123,16 @@ public class FixturesCorpusTests
     public void ASampleOfEntriesResolveToTheExpectedTranscribedValues()
     {
         // A handful of spot checks that the loader round-trips the corpus correctly -- not a
-        // Done-when line, but cheap insurance that Fixtures.Get actually works the way later
-        // tasks (T06-T19) will rely on it working.
-        Assert.Equal(2440, Fixtures.Get("tax.nationTaxBaseRome").AsInt());
-        Assert.Equal(442, Fixtures.Get("roman13.regularUpkeepQuarterly").AsInt());
-        Assert.Equal(6438, Fixtures.Get("mercenary.felsina.troops").AsInt());
-        Assert.Equal(-8, Fixtures.Get("diplomacy.cooldown.brokenTrade").AsInt());
-        Assert.Equal(40, Fixtures.Get("loyalty.floor.forcedCapture").AsInt());
-        Assert.Equal("confirmed", Fixtures.Get("tax.nationTaxBaseRome").Tag);
-        Assert.Equal(FixtureTag.Confirmed, Fixtures.Get("tax.nationTaxBaseRome").ParsedTag());
-        Assert.Equal(4, Fixtures.Get("terrain.moveCost.code5").AsInt()); // Mountains
-        Assert.Throws<KeyNotFoundException>(() => Fixtures.Get("no.such.fixture.id"));
+        // Done-when line, but cheap insurance that FixtureCorpus.Get actually works the way
+        // later tasks (T06-T19) will rely on it working.
+        Assert.Equal(2440, FixtureCorpus.Get("tax.nationTaxBaseRome").AsInt());
+        Assert.Equal(442, FixtureCorpus.Get("roman13.regularUpkeepQuarterly").AsInt());
+        Assert.Equal(6438, FixtureCorpus.Get("mercenary.felsina.troops").AsInt());
+        Assert.Equal(-8, FixtureCorpus.Get("diplomacy.cooldown.brokenTrade").AsInt());
+        Assert.Equal(40, FixtureCorpus.Get("loyalty.floor.forcedCapture").AsInt());
+        Assert.Equal("confirmed", FixtureCorpus.Get("tax.nationTaxBaseRome").Tag);
+        Assert.Equal(FixtureTag.Confirmed, FixtureCorpus.Get("tax.nationTaxBaseRome").ParsedTag());
+        Assert.Equal(4, FixtureCorpus.Get("terrain.moveCost.code5").AsInt()); // Mountains
+        Assert.Throws<KeyNotFoundException>(() => FixtureCorpus.Get("no.such.fixture.id"));
     }
 }
