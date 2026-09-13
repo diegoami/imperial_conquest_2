@@ -4,6 +4,7 @@ obj/
 .godot/
 .vs/
 .vscode/
+__determinism-guard-scratch__/
 *.user
 *.sav
 *.dat
