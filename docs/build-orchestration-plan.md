@@ -9,6 +9,8 @@ It changes **no design decision**. Every rule, constant, and *done when* here tr
 > **This document is the intent. GitHub is the state.**
 >
 > Task scope, Definition of Done, model, effort, dependencies and branch names live here and change only by a deliberate commit to `main`. Progress — what is queued, in flight, in review, merged, blocked or escalated — lives entirely in GitHub issue/PR labels. Nothing in this repository is edited to track progress, because a progress file on `main` would conflict with every task branch in flight.
+>
+> **Live state**: [issue #29, the pinned build tracker](https://github.com/diegoami/imperial_conquest_2/issues/29). The 28 task issues are #1–#28, numbered to match their task ids.
 
 Related reading, in order: [HANDOVER.md](HANDOVER.md) (current state) → [game-design.md](game-design.md) (what is being built) → [design-audit.md](design-audit.md) (what the evidence actually supports) → this document (how it gets built).
 
@@ -761,7 +763,7 @@ Merge order is always **dependency order**, and a task is never merged while one
 - The [task index](#12-task-index) in this document carries the issue number for each task, so the doc links back to GitHub.
 - The pinned tracking issue links to this document, and this document links to the tracking issue.
 
-**Should the issues be opened now?** Yes, and they have been — they are the orchestrator's state store, so the pipeline literally cannot start without them, and unlike opening real feature PRs they are cheap, reversible (close or delete), and touch no code. Labels, the four phase milestones, the 28 task issues and the tracking issue were created as part of delivering this plan; see the index below for the numbers.
+**Should the issues be opened now?** Yes, and they have been — they are the orchestrator's state store, so the pipeline literally cannot start without them, and unlike opening real feature PRs they are cheap, reversible (close or delete) and touch no code. Created as part of delivering this plan: 29 labels, the four phase milestones, the 28 task issues (**#1–#28, numbered to match their task ids**), and the pinned [tracking issue #29](https://github.com/diegoami/imperial_conquest_2/issues/29). `#1` (T01) and `#5` (T05) are labelled `status:ready`; the other 26 are `status:blocked` until their dependencies merge.
 
 ---
 
@@ -811,34 +813,34 @@ Issue numbers are filled in from GitHub; this table is the doc→GitHub half of 
 
 | Task | Title | Design M | Model | Effort | Reviewer | Merge after | Issue |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T01 | Build scaffolding and CI | — | Sonnet | Medium | Sonnet/High | — | |
-| T02 | Core domain model | M1 | **Opus** | High | Opus/High + ultra | T01 | |
-| T03 | Engine seams | — | **Opus** | **Ultrahigh** | Opus/High + ultra | T02 | |
-| T04 | Fixtures corpus | M1 | Sonnet | High | **Opus**/Medium | T01 | |
-| T05 | GitHub hygiene | — | **Fable** | Low | Sonnet/Medium | — | |
-| T06 | Calendar and turns | M2 | Sonnet | Medium | Sonnet/High | T03, T04 | |
-| T07 | Strength functions | M5 | Sonnet | High | **Opus**/Medium | T03, T04 | |
-| T08 | Economy and purses | M3 | Sonnet | High | **Opus**/Medium | T03, T04, T06 | |
-| T09 | Movement and terrain | M6 | Sonnet | Medium | Sonnet/High | T03, T04 | |
-| T10 | News log | M17 | **Haiku** | Medium | Sonnet/Medium | T03, T04 | |
-| T11 | Asset pack | — | **Haiku** | Medium | Sonnet/Medium | T02 | |
-| T12 | Victory conditions | M13 | Sonnet | Medium | Sonnet/High | T03, T06 | |
-| T13 | Recruitment and mercenaries | M4 | Sonnet | High | **Opus**/Medium | T08 | |
-| T14 | Naval | M7 | Sonnet | High | **Opus**/Medium | T07, T08, T09 | |
-| T15 | Army/unit management | M14 | Sonnet | Medium | Sonnet/High | T08, T13 | |
-| T16 | Battle resolution | M8 | **Opus** | High | Opus/High + ultra | T07, T08, T14 | |
-| T17 | Capture, siege, defection | M9 | Sonnet | High | **Opus**/Medium | T16 | |
-| T18 | City orders | M10 | **Haiku** | Medium | Sonnet/Medium | T08, T17 | |
-| T19 | Diplomacy | M11 | Sonnet | High | **Opus**/Medium | T06, T16 | |
-| T20 | Save/load and versioning | M16 | Sonnet | High | **Opus**/Medium | T15, T17, T19 | |
-| T21 | Original-save import | M15 | Sonnet | High | **Opus**/Medium | T10, T20 | |
-| T22 | AI | M12 | **Opus** | **Ultrahigh** | Opus/High + ultra | T12, T15, T17, T18, T19 | |
-| T23 | Command layer and CLI | M18 | Sonnet | Medium | Sonnet/High | T17, T19 | |
-| T24 | Godot main screen | M18 | Sonnet | High | Sonnet/High + human | T11, T23 | |
-| T25 | Godot screens | M18 | Sonnet | Medium | Sonnet/High + human | T24 | |
-| T26 | Scenario docs and examples | M19 | **Haiku** | Medium | Sonnet/Medium | T23 | |
-| T27 | Packaging | M20 | Sonnet | Medium | Sonnet/High | T25, T26 | |
-| T28 | Nightly gate | — | **Haiku** | Low | Sonnet/Medium | T22 | |
+| T01 | Build scaffolding and CI | — | Sonnet | Medium | Sonnet/High | — | #1 |
+| T02 | Core domain model | M1 | **Opus** | High | Opus/High + ultra | T01 | #2 |
+| T03 | Engine seams | — | **Opus** | **Ultrahigh** | Opus/High + ultra | T02 | #3 |
+| T04 | Fixtures corpus | M1 | Sonnet | High | **Opus**/Medium | T01 | #4 |
+| T05 | GitHub hygiene | — | **Fable** | Low | Sonnet/Medium | — | #5 |
+| T06 | Calendar and turns | M2 | Sonnet | Medium | Sonnet/High | T03, T04 | #6 |
+| T07 | Strength functions | M5 | Sonnet | High | **Opus**/Medium | T03, T04 | #7 |
+| T08 | Economy and purses | M3 | Sonnet | High | **Opus**/Medium | T03, T04, T06 | #8 |
+| T09 | Movement and terrain | M6 | Sonnet | Medium | Sonnet/High | T03, T04 | #9 |
+| T10 | News log | M17 | **Haiku** | Medium | Sonnet/Medium | T03, T04 | #10 |
+| T11 | Asset pack | — | **Haiku** | Medium | Sonnet/Medium | T02 | #11 |
+| T12 | Victory conditions | M13 | Sonnet | Medium | Sonnet/High | T03, T06 | #12 |
+| T13 | Recruitment and mercenaries | M4 | Sonnet | High | **Opus**/Medium | T08 | #13 |
+| T14 | Naval | M7 | Sonnet | High | **Opus**/Medium | T07, T08, T09 | #14 |
+| T15 | Army/unit management | M14 | Sonnet | Medium | Sonnet/High | T08, T13 | #15 |
+| T16 | Battle resolution | M8 | **Opus** | High | Opus/High + ultra | T07, T08, T14 | #16 |
+| T17 | Capture, siege, defection | M9 | Sonnet | High | **Opus**/Medium | T16 | #17 |
+| T18 | City orders | M10 | **Haiku** | Medium | Sonnet/Medium | T08, T17 | #18 |
+| T19 | Diplomacy | M11 | Sonnet | High | **Opus**/Medium | T06, T16 | #19 |
+| T20 | Save/load and versioning | M16 | Sonnet | High | **Opus**/Medium | T15, T17, T19 | #20 |
+| T21 | Original-save import | M15 | Sonnet | High | **Opus**/Medium | T10, T20 | #21 |
+| T22 | AI | M12 | **Opus** | **Ultrahigh** | Opus/High + ultra | T12, T15, T17, T18, T19 | #22 |
+| T23 | Command layer and CLI | M18 | Sonnet | Medium | Sonnet/High | T17, T19 | #23 |
+| T24 | Godot main screen | M18 | Sonnet | High | Sonnet/High + human | T11, T23 | #24 |
+| T25 | Godot screens | M18 | Sonnet | Medium | Sonnet/High + human | T24 | #25 |
+| T26 | Scenario docs and examples | M19 | **Haiku** | Medium | Sonnet/Medium | T23 | #26 |
+| T27 | Packaging | M20 | Sonnet | Medium | Sonnet/High | T25, T26 | #27 |
+| T28 | Nightly gate | — | **Haiku** | Low | Sonnet/Medium | T22 | #28 |
 
 **Totals** — 28 tasks: 4 Opus, 18 Sonnet, 5 Haiku, 1 Fable. Effort: 2 Ultrahigh, 12 High, 12 Medium, 2 Low. Structure: 3 strictly sequential foundation tasks, a 7-wide parallel wave, a 4-wide wave, a 6-wide wave, and a 4-task serial Godot/delivery tail. Critical path: 11 of 28; the other 17 are slack that fills the concurrency budget around it.
 
