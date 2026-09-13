@@ -109,21 +109,38 @@ public sealed class TurnCoordinator
     /// </param>
     /// <returns>The state after every subscriber has run; with no subscribers, <paramref name="state"/>.</returns>
     /// <remarks>
-    /// This does not advance the root random value and does not run any phase. It is the same call T06's
-    /// calendar makes from inside <see cref="TurnPhase.CalendarAdvance"/> through
+    /// <para>
+    /// It runs no phase and leaves <paramref name="state"/>'s own <c>RandomSeed</c> untouched. It is the
+    /// same call T06's calendar makes from inside <see cref="TurnPhase.CalendarAdvance"/> through
     /// <see cref="SystemContext.QuarterBoundary"/>, exposed so that a subscriber — T08's quarterly
     /// billing, T19's thaw — is testable with no calendar implementation present.
+    /// </para>
+    /// <para>
+    /// <strong>Stream-identical to the in-pipeline path</strong>, deliberately: the hook is seeded with
+    /// the same turn seed a run starting from <paramref name="state"/> would have used, so a subscriber
+    /// fired directly draws exactly what it draws when T06's calendar fires it during
+    /// <c>RunTurn(state)</c> or <c>RunRoundTick(state)</c>. That matters because T08 and T19 are told to
+    /// write their fixtures against this path precisely because no calendar exists yet — if the two paths
+    /// used different seeds, every one of those fixtures would shift the day T06 merged.
+    /// </para>
     /// </remarks>
     public GameState FireQuarterBoundary(GameState state, int endingSeasonIndex)
     {
         ArgumentNullException.ThrowIfNull(state);
-        return new QuarterBoundaryHook(this, state.RandomSeed, _sink).Fire(state, endingSeasonIndex);
+        return new QuarterBoundaryHook(this, RngStreams.Advance(state.RandomSeed), _sink)
+            .Fire(state, endingSeasonIndex);
     }
 
     /// <summary>
-    /// The random stream a system draws from in a given phase. Includes the phase so that a system
-    /// registered in two phases draws independently in each.
+    /// The random stream a system draws from.
     /// </summary>
+    /// <remarks>
+    /// One class registers in exactly one phase — <see cref="GameSystemAttribute"/> is
+    /// <c>AllowMultiple = false</c> and ids are globally unique — so the phase in the name is not there to
+    /// separate two registrations of the same system. It is there so the name is unambiguous on sight, and
+    /// so that moving a system to a different phase shows up as a changed stream rather than silently
+    /// reusing the rolls it made somewhere else in the turn.
+    /// </remarks>
     public static string StreamNameFor(string systemId, TurnPhase phase) => $"system:{systemId}@{phase}";
 
     /// <summary>The random stream a quarter-boundary subscriber draws from.</summary>
@@ -180,6 +197,11 @@ public sealed class TurnCoordinator
         TurnSignals signals,
         List<SystemExecution> trace)
     {
+        // Bound to this run's sink, so an order a system places lands in TurnResult.Events alongside the
+        // events the systems themselves published. Without this, every event from every command T22's AI
+        // ever issues would reach the external sink and nothing else, which is exactly the observability
+        // SystemContext.Commands exists to preserve.
+        var boundCommands = new BoundCommandDispatch(_commands, events);
         var current = state;
         foreach (var phase in phases)
         {
@@ -197,7 +219,7 @@ public sealed class TurnCoordinator
                     SplitMix64Rng.ForStream(turnSeed, StreamNameFor(system.Id, phase)),
                     events,
                     new QuarterBoundaryHook(this, turnSeed, events),
-                    _commands,
+                    boundCommands,
                     signals);
 
                 GameState? produced = system.Instance.Execute(context);
@@ -214,6 +236,28 @@ public sealed class TurnCoordinator
         }
 
         return current;
+    }
+
+    /// <summary>
+    /// A dispatcher bound to one run's event sink, so a system's orders publish into that run rather than
+    /// into whatever sink the dispatcher was originally constructed with.
+    /// </summary>
+    private sealed class BoundCommandDispatch : ICommandDispatch
+    {
+        private readonly ICommandDispatch _inner;
+        private readonly IEventSink _events;
+
+        public BoundCommandDispatch(ICommandDispatch inner, IEventSink events)
+        {
+            _inner = inner;
+            _events = events;
+        }
+
+        public CommandResult Dispatch(GameState state, ICommand command) =>
+            _inner.Dispatch(state, command, _events);
+
+        public CommandResult Dispatch(GameState state, ICommand command, IEventSink events) =>
+            _inner.Dispatch(state, command, events);
     }
 
     /// <summary>

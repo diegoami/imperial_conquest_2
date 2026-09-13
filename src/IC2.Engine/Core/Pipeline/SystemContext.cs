@@ -10,8 +10,8 @@ namespace IC2.Engine.Core;
 /// Deliberately wide from day one. The T02 review's lesson applies to seams as much as to models: a
 /// context that later has to be widened forces every already-written system to be touched, which is
 /// exactly the cross-task edit the Owns lists exist to prevent. <see cref="World"/> is here because
-/// movement and battle need terrain; <see cref="Phase"/> is here because a system registered twice (once
-/// per phase) needs to know which run it is in.
+/// movement and battle need terrain; <see cref="Phase"/> is here because a system that logs, traces or
+/// publishes an event should be able to say which phase it was in without hard-coding its own declaration.
 /// </remarks>
 public sealed class SystemContext
 {

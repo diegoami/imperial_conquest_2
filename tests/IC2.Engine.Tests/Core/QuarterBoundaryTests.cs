@@ -123,4 +123,30 @@ public class QuarterBoundaryTests
         Assert.Equal(calendar.StartSeasonIndex, billed.EndingSeasonIndex);
         Assert.NotEqual(billed.EndingSeasonIndex, state.Calendar.SeasonIndex);
     }
+
+    [Fact]
+    public void Firing_the_hook_directly_draws_exactly_what_the_calendar_path_draws()
+    {
+        var coordinator = CoreTestbed.CoordinatorFor(QuarterBoundaryFixtures.FiredFromPhaseGroup);
+        var calendar = CoreTestbed.Toy.Ruleset.Calendar;
+
+        var initial = CoreTestbed.InitialState();
+
+        // Positioned on the week that wraps, so the fixture calendar fires the boundary on its first tick.
+        var atBoundary = initial with
+        {
+            Calendar = initial.Calendar with { Week = calendar.SeasonAdvanceFromWeek },
+        };
+
+        var direct = coordinator.FireQuarterBoundary(atBoundary, atBoundary.Calendar.SeasonIndex);
+        var viaCalendar = coordinator.RunRoundTick(atBoundary).State;
+
+        // The two paths must be stream-identical. T08 and T19 are told to write their fixtures against the
+        // direct path precisely because no calendar exists yet; if the seeds differed, every one of those
+        // fixtures would shift the day T06 merged. (Only the nations are compared: the calendar path also
+        // advances the week and the season, which the direct path deliberately does not.)
+        Assert.Equal(
+            direct.Nations.Select(nation => (nation.Id, nation.Unity)).ToArray(),
+            viaCalendar.Nations.Select(nation => (nation.Id, nation.Unity)).ToArray());
+    }
 }

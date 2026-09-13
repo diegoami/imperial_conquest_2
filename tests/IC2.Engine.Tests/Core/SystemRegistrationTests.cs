@@ -15,9 +15,11 @@ namespace IC2.Engine.Tests.Core;
 /// then searched for each name. A name that occurs in exactly one file cannot have been mentioned in a
 /// registration list, a wiring file, or anywhere else — which is the whole claim.
 /// </remarks>
+[Collection(RepositorySourcesCollection.Name)]
 public class SystemRegistrationTests
 {
     private const string Group = "phase-order";
+    private const string TieBreakGroup = "order-tie-break";
 
     [Fact]
     public void Systems_register_by_attribute_alone_and_run_in_the_declared_phase_order()
@@ -70,14 +72,30 @@ public class SystemRegistrationTests
     [Fact]
     public void A_systems_order_within_a_phase_is_total_even_when_two_declare_the_same_order()
     {
-        var registry = CoreTestbed.RegistryFor(Group);
+        var registry = CoreTestbed.RegistryFor(TieBreakGroup);
 
-        // Ids break ties, so the sequence is fully determined by the declarations and never by the order
-        // reflection happened to return two equally-ordered types in.
+        // Two systems, same phase, SAME Order — so only the id tie-break decides, and deleting that
+        // tie-break from SystemRegistry would make this test fail rather than leave it quietly green.
+        // Their declared Orders are equal and their file names sort in the opposite direction to their
+        // ids, so neither declaration order nor scan order could produce this result by accident.
         var seatStart = registry.InPhase(TurnPhase.SeatStart);
+        Assert.Equal(2, seatStart.Count);
+        Assert.Equal(seatStart[0].Order, seatStart[1].Order);
         Assert.Equal(
-            seatStart.OrderBy(s => s.Order).ThenBy(s => s.Id, StringComparer.Ordinal).Select(s => s.Id),
-            seatStart.Select(s => s.Id));
+            new[] { "test.tie-break.aardvark", "test.tie-break.zulu" },
+            seatStart.Select(s => s.Id).ToArray());
+    }
+
+    [Fact]
+    public void A_system_declaring_a_phase_that_does_not_exist_fails_loudly()
+    {
+        // [GameSystem((TurnPhase)0, "x.y")] compiles, and before this check such a system was silently
+        // dropped: no bucket for its phase, so nothing ever looked for it. A pipeline that quietly omits a
+        // system is the worst failure mode available to a build where 25 tasks each add one.
+        var error = Assert.Throws<InvalidOperationException>(
+            () => CoreTestbed.RegistryFor(UndeclaredPhaseFixture.Group));
+
+        Assert.Contains("not one of the declared turn phases", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

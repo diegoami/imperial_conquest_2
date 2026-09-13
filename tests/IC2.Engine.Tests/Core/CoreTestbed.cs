@@ -2,9 +2,28 @@ using System.Reflection;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
 using IC2.Engine.Serialization;
+using Xunit;
 using ModelTestPaths = IC2.Engine.Tests.Model.TestPaths;
 
 namespace IC2.Engine.Tests.Core;
+
+/// <summary>
+/// Serializes the test classes that touch the repository's own source tree.
+/// </summary>
+/// <remarks>
+/// <c>DeterminismGuardTests</c> writes and deletes a scratch <c>.cs</c> file under <c>src/</c>, while
+/// <c>SystemRegistrationTests</c> enumerates and then reads every <c>src/**/*.cs</c>. xUnit runs distinct
+/// test classes in parallel, so without this the second could enumerate a path the first deletes a moment
+/// later and fail with a <c>FileNotFoundException</c> having nothing to do with what it is testing. A
+/// narrow window, and one that did not reproduce in repeated runs — which is exactly the kind of flake
+/// that is cheapest to close now and most expensive to diagnose in CI six tasks from now.
+/// </remarks>
+[CollectionDefinition(RepositorySourcesCollection.Name)]
+public sealed class RepositorySourcesCollection
+{
+    /// <summary>The collection name both classes declare.</summary>
+    public const string Name = "repository-sources";
+}
 
 /// <summary>
 /// Scopes a test fixture's registrations to one named group.

@@ -69,7 +69,12 @@ public class TurnPipelineDeterminismTests
         Assert.NotEqual(baseline.FinalHash, other.FinalHash);
         Assert.NotEqual(baseline.SequenceHash, other.SequenceHash);
 
-        // ... but the pipeline itself is unchanged: the same systems ran, in the same order. Only the
+        // The hashes alone would differ even if no system ever drew anything, because RandomSeed is itself
+        // a serialized field. So assert on values the systems actually WROTE from their draws: the armies'
+        // purses and supplies, and the cities' loyalties. Those can only differ because the streams did.
+        Assert.NotEqual(DrawnValues(baseline.Final), DrawnValues(other.Final));
+
+        // ... while the pipeline itself is unchanged: the same systems ran, in the same order. Only the
         // numbers they drew moved.
         Assert.Equal(baseline.Trace, other.Trace);
     }
@@ -111,6 +116,27 @@ public class TurnPipelineDeterminismTests
         };
 
         Assert.NotEqual(GameStateHash.Compute(state), GameStateHash.Compute(nudged));
+    }
+
+    /// <summary>
+    /// Every value the scripted systems wrote from a random draw, so a test can assert on the draws
+    /// themselves rather than on a hash that <c>RandomSeed</c> alone would already have changed.
+    /// </summary>
+    private static IReadOnlyList<int> DrawnValues(GameState state)
+    {
+        var values = new List<int>();
+        foreach (var army in state.Armies)
+        {
+            values.Add(army.Money);
+            values.Add(army.SupplyTons);
+        }
+
+        foreach (var city in state.Cities)
+        {
+            values.Add(city.Loyalty);
+        }
+
+        return values;
     }
 
     /// <summary>

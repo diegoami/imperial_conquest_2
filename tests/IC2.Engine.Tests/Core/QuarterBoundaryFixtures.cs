@@ -97,7 +97,11 @@ public sealed class QuarterFiringCalendarSystem : IGameSystem
     }
 }
 
-/// <summary>A subscriber in the group whose hook is fired from inside a phase.</summary>
+/// <summary>
+/// A subscriber in the group whose hook is fired from inside a phase. It <em>draws</em>, so that the
+/// direct and in-pipeline firing paths can be compared on the values they produce rather than only on the
+/// fact that both ran.
+/// </summary>
 [TestFixtureGroup(QuarterBoundaryFixtures.FiredFromPhaseGroup)]
 [QuarterBoundaryHandler("test.quarter.from-phase")]
 public sealed class QuarterFromPhaseHandler : IQuarterBoundaryHandler
@@ -105,8 +109,12 @@ public sealed class QuarterFromPhaseHandler : IQuarterBoundaryHandler
     /// <inheritdoc/>
     public GameState OnQuarterBoundary(QuarterBoundaryContext context)
     {
+        var cap = context.Ruleset.Economy.UnityCap;
+        var nations = context.State.Nations.Select(nation =>
+            nation with { Unity = context.Rng.NextInt(cap + 1) });
+
         context.Events.Publish(new TestQuarterBilled(context.EndingSeasonIndex));
-        return context.State;
+        return context.State with { Nations = ValueList.From(nations) };
     }
 }
 

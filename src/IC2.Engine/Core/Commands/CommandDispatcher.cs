@@ -14,8 +14,23 @@ namespace IC2.Engine.Core;
 /// </remarks>
 public interface ICommandDispatch
 {
-    /// <summary>Decides one command against one state. Never throws for an illegal order.</summary>
+    /// <summary>
+    /// Decides one command against one state, publishing an accepted command's events to the dispatcher's
+    /// own sink. Never throws for an illegal order.
+    /// </summary>
     CommandResult Dispatch(GameState state, ICommand command);
+
+    /// <summary>
+    /// Decides one command, publishing an accepted command's events to <paramref name="events"/> instead
+    /// of to the dispatcher's own sink.
+    /// </summary>
+    /// <remarks>
+    /// This overload exists so that a command issued from <em>inside</em> a turn lands in that turn's event
+    /// stream. <see cref="TurnCoordinator"/> binds it to the run's sink before handing the dispatcher to a
+    /// system, which is what makes <see cref="TurnResult.Events"/> mean "everything published during the
+    /// run" even when some of it came from an order a system placed.
+    /// </remarks>
+    CommandResult Dispatch(GameState state, ICommand command, IEventSink events);
 }
 
 /// <summary>
@@ -41,6 +56,13 @@ public sealed class UnavailableCommandDispatch : ICommandDispatch
             CoreRejections.NoDispatcher,
             "This coordinator was built without a command dispatcher, so systems cannot issue commands. "
             + "Pass one to the TurnCoordinator constructor."));
+    }
+
+    /// <inheritdoc/>
+    public CommandResult Dispatch(GameState state, ICommand command, IEventSink events)
+    {
+        ArgumentNullException.ThrowIfNull(events);
+        return Dispatch(state, command);
     }
 }
 
@@ -90,7 +112,7 @@ public sealed class CommandDispatcher : ICommandDispatch
         _sink = sink;
     }
 
-    /// <summary>Decides one command against one state.</summary>
+    /// <summary>Decides one command against one state, publishing to this dispatcher's own sink.</summary>
     /// <param name="state">The state to decide against.</param>
     /// <param name="command">The request.</param>
     /// <returns>
@@ -99,8 +121,15 @@ public sealed class CommandDispatcher : ICommandDispatch
     /// </returns>
     /// <exception cref="ArgumentNullException"><paramref name="state"/> or <paramref name="command"/> is null.</exception>
     /// <exception cref="ArgumentException">The command's kind or issuing nation id is blank.</exception>
-    public CommandResult Dispatch(GameState state, ICommand command)
+    public CommandResult Dispatch(GameState state, ICommand command) => Dispatch(state, command, _sink);
+
+    /// <inheritdoc cref="Dispatch(GameState, ICommand)"/>
+    /// <param name="state">The state to decide against.</param>
+    /// <param name="command">The request.</param>
+    /// <param name="events">Where an accepted command's events are published.</param>
+    public CommandResult Dispatch(GameState state, ICommand command, IEventSink events)
     {
+        ArgumentNullException.ThrowIfNull(events);
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(command);
         ArgumentException.ThrowIfNullOrWhiteSpace(command.Kind, $"{nameof(command)}.{nameof(ICommand.Kind)}");
@@ -173,7 +202,7 @@ public sealed class CommandDispatcher : ICommandDispatch
         var published = buffer.Events.ToArray();
         foreach (var domainEvent in published)
         {
-            _sink.Publish(domainEvent);
+            events.Publish(domainEvent);
         }
 
         return CommandResult.Accepted(next, kind, ValueList<DomainEvent>.Of(published));

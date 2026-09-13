@@ -132,6 +132,7 @@ public sealed class SystemRegistry
             if (type.GetCustomAttribute<GameSystemAttribute>(inherit: false) is { } systemAttribute)
             {
                 RequireImplements<IGameSystem>(type, nameof(GameSystemAttribute));
+                RequireDeclaredPhase(type, systemAttribute.Phase);
                 systems.Add(new RegisteredSystem(
                     systemAttribute.Id,
                     systemAttribute.Phase,
@@ -198,6 +199,31 @@ public sealed class SystemRegistry
     {
         ArgumentNullException.ThrowIfNull(commandType);
         return _handlersByCommandType.TryGetValue(commandType, out var handler) ? handler : null;
+    }
+
+    /// <summary>
+    /// Rejects a system declaring a phase that is not in <see cref="TurnPhases.InOrder"/>.
+    /// </summary>
+    /// <remarks>
+    /// <c>[GameSystem((TurnPhase)0, "x.y")]</c> compiles — C# does not constrain an enum argument to its
+    /// declared members — and without this check such a system would simply never run: the phase has no
+    /// bucket, so nothing would ever look for it. A pipeline that silently omits a system is the worst
+    /// possible failure mode for a build where 25 tasks each add one.
+    /// </remarks>
+    private static void RequireDeclaredPhase(Type type, TurnPhase phase)
+    {
+        foreach (var declared in TurnPhases.InOrder)
+        {
+            if (declared == phase)
+            {
+                return;
+            }
+        }
+
+        throw new InvalidOperationException(
+            $"'{type.FullName}' declares phase '{(int)phase}', which is not one of the declared turn "
+            + $"phases ({string.Join(", ", TurnPhases.InOrder)}). The phase list is closed; adding one is "
+            + "an escalation, not a cast.");
     }
 
     private static void RequireImplements<TInterface>(Type type, string attributeName)

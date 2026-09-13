@@ -38,8 +38,14 @@ public readonly record struct RejectionCode
     /// <summary>The code string.</summary>
     public string Value { get; }
 
+    /// <summary>
+    /// Whether this is <c>default(RejectionCode)</c> — the one way to hold a code that never went through
+    /// the validating constructor, since C# does not let a struct suppress its default value.
+    /// </summary>
+    public bool IsEmpty => string.IsNullOrEmpty(Value);
+
     /// <inheritdoc/>
-    public override string ToString() => Value;
+    public override string ToString() => IsEmpty ? "<no code>" : Value;
 }
 
 /// <summary>

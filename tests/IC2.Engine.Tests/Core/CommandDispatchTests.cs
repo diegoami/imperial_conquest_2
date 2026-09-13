@@ -190,6 +190,51 @@ public class CommandDispatchTests
 
         Assert.Contains(sink.Events, e => e.Kind == "test.levy-collected");
         Assert.DoesNotContain(sink.Events, e => e.Kind == "test.seat-agent-refused");
+
+        // The finding this test used to miss: the dispatcher published to the external sink only, so
+        // TurnResult.Events came back empty and every event from every order an AI seat ever placed was
+        // lost. Both streams must carry it, and they must agree.
+        Assert.Contains(result.Events, e => e.Kind == "test.levy-collected");
+        Assert.Equal(
+            sink.Events.Select(e => e.Kind).ToArray(),
+            result.Events.Select(e => e.Kind).ToArray());
+    }
+
+    [Fact]
+    public void A_commands_events_reach_TurnResult_even_with_a_null_external_sink()
+    {
+        // TurnCoordinator's own doc says "Pass NullEventSink.Instance if only TurnResult.Events is wanted;
+        // the result carries its own copy either way". This is that exact configuration, asserted, so the
+        // documented advice cannot silently stop being true.
+        var coordinator = CoreTestbed.CoordinatorWithCommandsFor(CommandFixtures.Group);
+
+        var result = coordinator.RunTurn(CoreTestbed.InitialState());
+
+        var published = Assert.Single(result.Events);
+        Assert.Equal("test.levy-collected", published.Kind);
+    }
+
+    [Fact]
+    public void A_command_dispatched_outside_a_turn_still_publishes_to_the_dispatchers_own_sink()
+    {
+        // The other half of the binding: a dispatcher used standalone -- which is how T23's headless
+        // harness will drive it -- keeps publishing to the sink it was constructed with.
+        var sink = new RecordingEventSink();
+        var dispatcher = CoreTestbed.DispatcherFor(CommandFixtures.Group, sink);
+        var before = CoreTestbed.InitialState();
+
+        dispatcher.Dispatch(before, new LevyCommand(before.ActiveNationId, 1));
+
+        Assert.Contains(sink.Events, e => e.Kind == "test.levy-collected");
+    }
+
+    [Fact]
+    public void A_rejection_needs_a_real_code()
+    {
+        // default(RejectionCode) skips the validating constructor -- C# does not let a struct suppress its
+        // default value -- so the one place a handler produces a rejection catches it instead.
+        Assert.True(default(RejectionCode).IsEmpty);
+        Assert.Throws<ArgumentException>(() => CommandOutcome.Reject(default, "no code"));
     }
 
     [Fact]

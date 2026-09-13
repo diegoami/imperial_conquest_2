@@ -46,8 +46,23 @@ public readonly record struct CommandOutcome
     /// A human-readable explanation naming the actual values involved, for a log or a UI. Never the
     /// thing a caller branches on — that is <paramref name="code"/>.
     /// </param>
-    public static CommandOutcome Reject(RejectionCode code, string message) =>
-        new(null, new CommandRejection(code, message));
+    /// <exception cref="ArgumentException">
+    /// <paramref name="code"/> is <c>default(RejectionCode)</c>. A struct's default constructor cannot be
+    /// suppressed, so the validating constructor is reachable around — caught here instead, since this is
+    /// the one place a handler produces a rejection.
+    /// </exception>
+    public static CommandOutcome Reject(RejectionCode code, string message)
+    {
+        if (code.IsEmpty)
+        {
+            throw new ArgumentException(
+                "A rejection needs a real code. `default(RejectionCode)` skips the validating constructor "
+                + "and carries no value; declare one on your own task's rejections class instead.",
+                nameof(code));
+        }
+
+        return new CommandOutcome(null, new CommandRejection(code, message));
+    }
 }
 
 /// <summary>A refusal: the code a caller branches on, and the sentence a human reads.</summary>

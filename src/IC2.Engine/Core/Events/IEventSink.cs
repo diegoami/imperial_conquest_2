@@ -31,9 +31,21 @@ public interface IEventSink
 public sealed class RecordingEventSink : IEventSink
 {
     private readonly List<DomainEvent> _events = new();
+    private readonly IReadOnlyList<DomainEvent> _view;
 
-    /// <summary>Everything published so far, oldest first.</summary>
-    public IReadOnlyList<DomainEvent> Events => _events;
+    /// <summary>Creates an empty sink.</summary>
+    public RecordingEventSink() => _view = _events.AsReadOnly();
+
+    /// <summary>
+    /// Everything published so far, oldest first.
+    /// </summary>
+    /// <remarks>
+    /// A read-only view rather than the backing list itself: a consumer that cast the return value back to
+    /// <c>List&lt;DomainEvent&gt;</c> could otherwise rewrite the run's history, which for an event stream
+    /// that a replay depends on is worse than it sounds. The view is live, so it still reflects later
+    /// publications without copying.
+    /// </remarks>
+    public IReadOnlyList<DomainEvent> Events => _view;
 
     /// <inheritdoc/>
     public void Publish(DomainEvent domainEvent)
