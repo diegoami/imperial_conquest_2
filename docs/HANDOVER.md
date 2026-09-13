@@ -9,7 +9,8 @@ Read [the roadmap](roadmap.md) for the full sequence, [the decompilation plan](d
 - `src/IC2.Data/`: C#/.NET 10 parsers for DAT/SAV world prefix, army, nation, recruitment, fleet (`SaveFleetTable.cs`), and mercenary (`SaveMercenaryTable.cs`) tables, and turn state.
 - `src/IC2.Inspect/`: CLI inspection — `--inspect-turn/-nation/-city/-army`, `--list-armies <save> <nation>`, `--list-fleets <save>`, `--list-mercenaries <save>`, `--compare-saves`, `--render-map`, `--to-json <save> <output.json>` (dumps everything known about a save to one file). See [README](../README.md).
 - `godot/`: Godot 4.7.2 .NET viewer, references `IC2.Data` via `<ProjectReference>` — auto-picks-up `IC2.Data` source edits on next build. Headless check: `"<Godot install>\Godot_..._console.exe" --headless --path godot --quit-after 2`. **Caveat:** this regenerates `godot/project.godot`'s header and flips `godot/MapViewer.cs`'s line endings as a side effect — `git diff -w` before committing after a headless run and revert those two files if the diff is whitespace-only.
-- `docs/reports/`: 33 reports. 12 are `decompiled-*` (see below); the rest are save-diffing reports from earlier in the project.
+- `docs/reports/`: 43 reports. 15 are `decompiled-*` (see below); the rest are save-diffing and DAT-table reports.
+- `docs/design-audit.md`: the audit of `game-design.md` against the evidence base, and the nine open questions it raised. **Read it before acting on `game-design.md`.**
 - `docs/decompilation-plan.md`: **read this first** for static-analysis work — the original 7-item priority queue is fully done, live-updated with what's still open.
 - `AGENTS.md`: collaboration instructions (frequent progress updates, 3–4 relevant saves for routine checks).
 - User's checkout: `C:\Users\diego\projects\imperial_conquest_2`. Original game files: `C:\Users\diego\Documents\imp_conq_original` (its own git repo), with `saves/` (has a `processed/` subfolder the user moves analyzed saves into), `screenshots/`, `recordings/`, and `notes/1_rome.txt` (the user's action log for the ongoing "1_rome" play session — check for anything newer than last-processed before starting new decompilation work).
@@ -64,10 +65,27 @@ Map markers `333`/`335` = fleet positions (exact coordinate match). Fleet `CityI
 ### Turn/calendar (`decompiled-turn-and-calendar-sequencing.md`, `decompiled-weather-events.md`)
 Week `+2 mod 12`, season advances at 11→1, year decrements at Winter→Spring — this closes the project's original oldest open item. City-unit `StateCode` increments 2/week capped at 24 (24 is a cap, not a starting value). Fleet construction countdown and completion confirmed. Population growth is seasonal/loyalty-modulated with a Winter decline chance. Army supply consumption is seasonal. A previously-unknown **weather-event system** exists (~8× more frequent in Winter), very plausibly the source of a fleet storm/loss-at-sea mechanic.
 
+### The design audit (most recent work — read `docs/design-audit.md` first)
+
+`docs/game-design.md` got the movement rule wrong twice in a row (first from a generic 4X assumption, then from an over-correction), so the whole design was audited against the evidence base: every one of the 31 classes / 282 methods in `delphi_symbols.tsv` was swept for mechanics no report had touched, every tagged claim re-opened against its cited report, and the milestone backlog reviewed. `docs/design-audit.md` is the deliverable, in four parts (missing mechanics / claim audit / **nine open questions for you** / build-plan review). Three new reports carry the evidence: [terrain-move-cost-table-in-dat.md](reports/terrain-move-cost-table-in-dat.md), [decompiled-unit-map-orders-and-record-fields.md](reports/decompiled-unit-map-orders-and-record-fields.md), [decompiled-diplomacy-peace-terms-and-instant-battles.md](reports/decompiled-diplomacy-peace-terms-and-instant-battles.md).
+
+Headlines:
+
+- **The terrain/move-cost table is located** (DAT `0x1F622`): `Sea` 1 · `Sea` 3 · `Plain` 1 · `Desert` 1 · `Forest` 2 · `Mountains` 4 · six `River` codes at 4. **All land terrain costs moves** — the "rivers only" conclusion was wrong, and the moves-zeroing rule is AI-only.
+- **Diplomacy is not a dead end.** Relation matrix (nation `+0x26`), 4 states plus negative cooldowns (−8/−24/−18), 3-trade-partner cap, alliance/war contagion, attacking auto-declares war, post-battle peace terms, and **`reparations = W/4 + random(W/4) + cityCount × 10`**.
+- **The original has its own instant battle resolver** for AI-vs-AI fights (power comparison, loser annihilated), plus a third resolver for naval battles. Both were unknown.
+- **Whole subsystems the design is silent on**: naval transport (1 army/fleet, 500 troops/ship) and naval combat, fleet condition/repair/scuttle, supply as a *purchased* economy (1 talent per 5 tons, army/fleet money purses capped at 1,000, capacity `troops/100` and `ships×8`), city fortification orders, army/unit join-split-rename.
+- **Victory condition**: holding all 334 cities (`THumanFalls_InitializeForm`); 270 BC start, candidate 250 BC end.
+- **Confirmed absent**: no leader/general system, no technology or research, no espionage, no city improvements beyond fortification.
+- **Record-field corrections that `IC2.Data` still has wrong**: `ArmyRecord +8` is the covered map cell (not morale), `+14` is morale; `FleetRecord +20` is the fleet's condition % once launched (only a build-city index while under construction). Correction notes were added to `army-records-and-roman-roster.md` and `fleet-order-at-caere.md`; the C# was deliberately left alone (audit, not a code task).
+
 ## What's still open
 
-- Diplomacy reparation formula — dead end via `TPolitics_MakePeace` (player-only); lives in unnamed AI code, not reachable by name.
-- Mercenary hiring's exact cost-table values; two unidentified unit-type-table fields (`+0x20`, `+0x26`).
+- The nine open questions in `docs/design-audit.md` §3 — these need the user's answers before the build milestones are meaningful.
+- One evidence gap worth a controlled save: the code says buying supply costs `amount/5` from the army's money purse, but the frames in `galatia-elimination-and-city-resupply-confirmed.md` show army money unchanged.
+- The reparation formula has not been checked against the one observed payment's actual field values (a pure save-read, no new play session needed).
+- `FUN_0044A98C` (defender siege strength) — the −20%-if-owner≠allegiance claim in `decompiled-city-capture-resolution.md` and the ×9/10-if-attacker==allegiance branch in `FUN_0044B27C` need reconciling.
+- One unidentified unit-type-table field remains (`+0x20`); `+0x26` is now solved (per-type combat-power weight).
 - The rebellion check (`FUN_0044c204`) and weather-event effect (`FUN_004511bc`) internals — not decompiled.
 - The un-capped melee formula's exact random-roll term (the cap itself is now confirmed exactly, see above); the effectiveness matrix's attacker/defender axis; a full simulation of the whole multi-round recorded battle in `battle-observation.md`.
 - A ~6-byte reconciliation gap in the SAV layout's news-log region sizing.
@@ -93,8 +111,9 @@ Build `IC2.Data` before `IC2.Inspect` if both changed (shared `obj` dir). All bu
 
 ## Next useful work
 
-1. **`docs/game-design.md` now exists** — a full design (not implementation) for a moddable reimplementation: data-driven rulesets, arbitrary custom maps, instant abstracted battle resolution (no tactical grid, no pacing-freeze risk), local hotseat, a scenario system, asset packs, and a 15-milestone build backlog intended to be worked autonomously (`/loop`-style, large chunks, self-verifying via tests + golden fixtures from real captured saves/battles). **This is very likely the next real work**, not more static analysis, unless the user redirects.
-2. **New save/screenshot/note cycles still take priority if one shows up** — check `imp_conq_original/notes/2_rome.txt` for anything newer than the last-processed save first.
-3. Pick up any "What's still open" item above, per `docs/decompilation-plan.md`'s live status, if `game-design.md` isn't the priority.
+1. **Answer the nine open questions in `docs/design-audit.md` §3.** They gate real design decisions (which battle model auto-resolve uses, whether naval is in scope for v1, how faithful diplomacy should be, whether to keep per-army money purses, the default victory condition, whether to reproduce the human/AI asymmetries and the original's bugs). Then revise `docs/game-design.md`'s milestone list, which the audit found has missing milestones, three ordering problems, and seven unverifiable "done when" criteria.
+2. **`docs/game-design.md`** — a full design (not implementation) for a moddable reimplementation: data-driven rulesets, arbitrary custom maps, instant abstracted battle resolution (no tactical grid, no pacing-freeze risk), local hotseat, a scenario system, asset packs, and a 15-milestone build backlog intended to be worked autonomously (`/loop`-style, large chunks, self-verifying via tests + golden fixtures from real captured saves/battles). **Building this is very likely the next real work**, not more static analysis — but read the audit's corrections to it first.
+3. **New save/screenshot/note cycles still take priority if one shows up** — check `imp_conq_original/notes/2_rome.txt` for anything newer than the last-processed save first.
+4. Pick up any "What's still open" item above, per `docs/decompilation-plan.md`'s live status, if `game-design.md` isn't the priority.
 
 Keep original EXE, DAT, HLP, CNT, WAV, SAV, screenshots, and recordings outside the public repository — this also applies to the Ghidra project and decompiled-text dumps under `%LOCALAPPDATA%\ReTools`. Record exact file/hash/address/screenshot evidence for each new field or formula and mark inferred meanings as candidates until checked.

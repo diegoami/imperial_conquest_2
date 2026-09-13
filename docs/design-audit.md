@@ -1,0 +1,260 @@
+# Design audit: what `game-design.md` misses, over-claims, and silently decided
+
+`docs/game-design.md` was written quickly on top of a large but unevenly-explored evidence base. One failure mode has already been caught in play: its Movement section originally invented a generic per-terrain movement-cost table from "how these games usually work", without checking; decompiling the real code overturned it. This audit does that check systematically — it re-reads the recovered Delphi symbol table for mechanics nobody ever looked at, re-opens every `[confirmed]`/`[derived]` claim against its cited evidence, collects the judgment calls that are genuinely the user's to make, and reviews the build-milestone backlog.
+
+Same tagging convention as `game-design.md`: **[confirmed]** (direct RE evidence, cited), **[derived]** (extrapolation), **[designed]** (new design, no RE evidence), **[open]** (not established either way).
+
+Three new reports came out of this pass and carry the evidence for everything cited below:
+
+- [terrain-move-cost-table-in-dat.md](reports/terrain-move-cost-table-in-dat.md)
+- [decompiled-unit-map-orders-and-record-fields.md](reports/decompiled-unit-map-orders-and-record-fields.md)
+- [decompiled-diplomacy-peace-terms-and-instant-battles.md](reports/decompiled-diplomacy-peace-terms-and-instant-battles.md)
+
+Small, clearly-wrong things were corrected in place rather than only flagged: `game-design.md`'s Movement, Recruitment, Diplomacy and Victory sections, and correction notes in `army-records-and-roman-roster.md`, `fleet-order-at-caere.md` and `decompiled-army-movement-and-river-cost.md`. Everything larger is listed here for a decision.
+
+---
+
+## 1. Missing mechanics — things the game does that the design is silent on
+
+Method: every class prefix in `%LOCALAPPDATA%\ReTools\delphi_symbols.tsv` (31 classes, 282 methods) was listed, cross-referenced against `docs/reports/` and `game-design.md`, and anything neither mentioned was decompiled out of `all_app_functions.txt`. Two whole classes turned out to be non-gameplay (`TCellAuto` is a cellular-automaton toy with a `SaveBMP` button; `TBattleDelays` is a settings dialog for the tactical pacing pauses — incidentally the user-facing control for the delay diagnosed in `battle-freeze-diagnosed-procmon.md`). The rest are below.
+
+Explicitly checked for and **not found**: there is **no leader/general system** (`TPickLeaders` is the nation-setup screen that assigns each of the 16 nations to a human or the computer, and a per-nation leader *name* string; leaders have no stats and no battlefield effect), **no technology or research**, **no espionage**, and **no city improvements other than fortification**. Those four can be marked closed rather than left as unexamined possibilities.
+
+### 1.1 Naval transport and naval combat — an entire subsystem **[confirmed]**
+
+Nothing in `game-design.md` mentions armies travelling by sea or fleets fighting each other.
+
+- A fleet carries **one army**, capacity **500 troops per ship**, enforced with *"The army is too large for this fleet ?"* (`TUnitMap_SelectUnit` `0x004466CC`). Embarking sets `army[+8] = -1` and `fleet[+22] = armyIndex`; the army leaves the map and moves with the fleet.
+- An embarked army cannot be joined; a carrying fleet cannot be repaired, scuttled, split or joined; destroying the fleet destroys the army.
+- **Naval battle** (`FUN_0044B5D0`): `strength = ships × condition / 10 (+ carriedArmyPower / 50)`, plus a `random(4) × 10%` bonus; higher strength wins, ties to the defender, **the loser's fleet is annihilated**; the winner loses ships and condition proportional to how close the fight was; unity moves `± floor(loserShips / 2)`. News: *"`X` sinks fleet of `Y`."*
+- A fleet **docked at its own city cannot be attacked**.
+
+### 1.2 Fleet condition, repair, scuttling, construction **[confirmed]**
+
+- Every fleet has a **condition percentage** (record `+20`) that is a direct multiplier on its combat strength and is damaged by battle. `TRepairFleet` restores it at **`ships × points / 5` talents** and zeroes the fleet's moves.
+- **Scuttle** (`TUnitMap_ScuttleFleet`) must be done near one of your own cities and returns the fleet's money to the treasury and its supplies to the city.
+- **Build orders are clamped to 10–100 ships** (`TBuildFleet_ChangeFleetSize`) and take a **24-tick construction countdown** (record `+10`), during which the record sits at `(0,0)` with `+20` holding the build city.
+- **Join fleets** caps at 100 ships combined; **split fleet** needs ≥ 20 ships; neither works while carrying an army.
+
+### 1.3 Supply is an economy, not a resource pool **[confirmed]**
+
+`game-design.md` has no supply system at all beyond a one-line mention of seasonal consumption.
+
+- **Army supply capacity = `troops / 100` tons**; **fleet capacity = `ships × 8` tons** (`TAFSupply_ChangeBuyAmount`). The capacity formula reproduces all four percentage readings on record exactly — see the new report.
+- **Supply is bought, not transferred**: **1 talent per 5 tons**, debited from the **army's or fleet's own money purse** and credited to the **selling city's owner's treasury** — which may be a different nation.
+- Armies and fleets each carry their own **money purse, capped at 1,000 talents**, moved to/from the treasury (or a co-located fleet) in the same dialog.
+
+### 1.4 City fortification is a paid, queued build order **[confirmed]**
+
+- `TUnitMap_Fortify` → `TFortifyCity`: buy `0 … (100 − current)` percentage points at **`population(thousands) × points` talents**.
+- The city record's fortification word does **double duty**: `≤ 100` is a finished percentage, `> 100` encodes an order in progress (written as `fort += points × 100`), and the city panel appends *"(under construction)"*.
+- A siege attempt **wipes the pending order** (`fort %= 100`).
+- Refused while the city is under siege, or at 100%.
+
+### 1.5 Army and unit management orders **[confirmed]**
+
+- **Join armies**: ≤ 20 units and ≤ 100,000 troops combined, neither aboard a fleet, survivor's moves zeroed, money and supplies pooled.
+- **Split army**: needs ≥ 2 units; hard cap of **198 armies** in play; a new army starts with morale 59, no money, no supplies, and **0 moves for a human nation / 1 move for an AI one**.
+- **Disband army**: only near one of your own cities; money → treasury, supplies → that city.
+- **Unit-level join** (inside one army): regulars only, same type only, and the merged troop count must not exceed that type's **standard battalion size** (unit-type table `+0x1A`) — which is what that previously-purpose-less field is for. The merged unit's quality is the **arithmetic mean** of the merged qualities.
+- **Unit-level split/rename**, with the auto-naming scheme (`Nth Foot/Guards/Bowmen/Lancers/Dragoons Battalion`, ordinal counted across the whole nation) that every roster in `army-records-and-roman-roster.md` exhibits.
+
+### 1.6 Diplomacy is fully recoverable, not a dead end **[confirmed]**
+
+See §2.7 — this is both a missing mechanic and a wrong claim. Briefly: a symmetric 16×16 relation matrix at nation `+0x26` with states peace/trade/alliance/war and **negative cooldown values**; a **maximum of 3 trade partners**; alliance and war **propagate to allies**; attacking anything **auto-declares war**; and a confirmed **reparation formula**.
+
+### 1.7 Post-battle peace negotiation, including a human-vs-human variant **[confirmed]**
+
+`TBattlePols` offers the loser's terms after a battle (end all trade, end all alliances, pay reparations) — or *"An honourable peace with no reparations or penalties"* when the victor is the weaker nation on population×unity or total army strength. `THVHBatPols` is the **hotseat** equivalent: a freely negotiated talent payment between two human seats. `game-design.md`'s hotseat design has no such step.
+
+### 1.8 The original has its own instant battle resolver **[confirmed]**
+
+`FUN_0044AEE4` resolves an army-vs-army attack **without any tactical battle whenever both nations are computer-controlled** — a straight power comparison, loser annihilated, winner taking `loserPower × 40 / winnerPower` casualties, every surviving unit promoted to at least "average" with a further 1-in-4 promotion, `±25` unity. This matters a lot for §3's first open question, because `game-design.md` assumes no such model exists in the original.
+
+It also contains the **AI-to-AI reparation trigger** the project has been hunting: a 2-in-5 chance after a decisive AI-vs-AI battle, gated on the loser's unity > 500 and city count > 7.
+
+### 1.9 Victory condition and end year **[confirmed]**
+
+`THumanFalls_InitializeForm` tests `cityCount < 334` versus *"You have conquerred the Mediterranean, a unique achievement."* — the original's win condition is **holding every city on the map**. The same screen compares the current year against **250 BC** and reports the reign length as `270 − year`, confirming the 270 BC start and a candidate hard end year.
+
+### 1.10 Smaller confirmed details with no home in the design
+
+- **Map markers encode owner *and* size**: armies `200/216/232 + owner` for `<25k / 25–50k / ≥50k` troops, fleets `300/316/332 + owner` for `<25 / 25–50 / ≥50` ships. This closes `roadmap.md`'s `333`-vs-`335` open item: both are large fleets, of Carthage and Ptolemaic respectively.
+- **Unit slot `+0` is the regular/mercenary marker** (0 = regular, non-zero = a mercenary name-table index), which drives two different upkeep formulas and blocks unit merging.
+- **Mercenary hire cost = `(troops × quarterlyPrice[type]) / 1000 × quality`**, paid from the **army's** purse.
+- **Mercenary upkeep = `(troops / 200) × price[type] × quality / 5`**, versus `(troops / 200) × price[type]` for regulars. The regular formula reproduces the Roman army's screenshot value of **442 talents/quarter exactly** over its 13 published units.
+- **Unit-type table field `+0x26`** (LI 20 · HI 100 · Ar 40 · LC 60 · HC 120) is the per-type **combat-power weight** used by field-battle strength — one of the two fields `unit-type-stat-table-in-dat.md` left unidentified.
+- **Terrain table**: 12 cell codes, `Sea` 1 / `Sea` 3 / `Plain` 1 / `Desert` 1 / `Forest` 2 / `Mountains` 4 / `River` ×6 at 4.
+
+---
+
+## 2. Audit of existing `[confirmed]`/`[derived]` claims
+
+Ordered worst-first. Items marked **fixed in place** have already been corrected in `game-design.md`.
+
+### 2.1 Movement: "only river-coded tiles cost movement points" — **wrong [fixed in place]**
+
+`game-design.md` (and `decompiled-army-movement-and-river-cost.md` behind it) read `FUN_0044D420`'s guard `if (2 <= cell <= 11)` as "the confirmed river range", because `rivers-and-map-markers.md` and `roadmap.md` §2 both record rivers as values **6–11**. `2..11` is *all land terrain*. The table the guard indexes is now extracted from the DAT file at `0x1F622`: Plain 1, Desert 1, Forest 2, Mountains 4, River 4. Forests and mountains **do** slow you down. The correction session over-corrected: the original generic assumption was directionally right and was replaced with a narrower claim that the evidence does not support either.
+
+This is worth dwelling on, because it is the same failure in both directions: neither the original assumption nor its replacement was checked against the actual table, which was one string search away.
+
+### 2.2 Movement: "insufficient moves zeroes the army's remaining moves" — **AI-only [fixed in place]**
+
+The zeroing branch is guarded by `(&DAT_00474B00)[activeNation × 0x494] == '\0'`, the computer-controlled flag. For a human player the walk just stops.
+
+### 2.3 Movement ruleset default: "`moveCost` defaulting to 0 for everything except a river type, `[designed placeholder]`" — **superseded [fixed in place]**
+
+Real values now exist; no placeholder is needed.
+
+### 2.4 Diplomacy: "dead end in the original's code … genuinely not recoverable" — **wrong [fixed in place]**
+
+The prior conclusion came from decompiling `TPolitics_MakePeace` alone and finding no treasury math in it. The treasury math is in `TBattlePols` / `FUN_00450C68`, both named in the same symbol table. The whole player-facing model and the reparation formula are recoverable. `game-design.md`'s Diplomacy section was written from scratch on a false premise.
+
+### 2.5 Reparations: "`[derived]` … the exact formula was never isolated" — **now confirmed [fixed in place]**
+
+`reparations = W/4 + random(W/4) + cities × 10`, where `W` is nation field `+0x44C` (wealth). Caveat kept honest: this is confirmed **as code**, and is consistent in shape and magnitude with the single observed `−2269` payment, but the observation was **not** re-derived from the save's actual field values. Tagged `[confirmed formula, unverified against the one observation]` rather than plain `[confirmed]`.
+
+### 2.6 Victory conditions: "`[designed, never reverse-engineered]`" — **partly wrong [fixed in place]**
+
+The original's condition is in `THumanFalls_InitializeForm`. The *designed* alternatives in `game-design.md` remain fine as alternatives; what was wrong was the claim that nothing was recoverable.
+
+### 2.7 Recruitment: "mercenary hire with the same cost shape plus a distinct pool **[confirmed: mercenary-pool-record.md]**" — **citation did not support it [fixed in place]**
+
+`mercenary-pool-record.md` is a save-diff report about the 50-slot pool record; it says nothing about cost. `decompilation-plan.md` item 2 explicitly listed *"the mercenary cost formula's exact table values (does it use this same table?)"* as **open** at the time `game-design.md` was written. The claim happens to be true — it is confirmed now, with the actual formula — but it was tagged `[confirmed]` against a report that does not contain the evidence. This is the exact pattern worth watching for: a plausible statement wearing a citation that does not carry it.
+
+### 2.8 Recruitment: mercenary `Label` "non-gameplay-relevant, so this gap blocks nothing" — **wrong [fixed in place]**
+
+`Label` is copied into the army unit slot's `+0` word, and that word is the regular/mercenary marker. It changes the unit's quarterly upkeep formula and blocks it from being merged with regulars. It is gameplay-relevant.
+
+### 2.9 Combat: "the morale mechanic (`±2`/`−3` per exchange …) **[confirmed]**" — **right, but conflates two different morales [flagged, not fixed]**
+
+There are two: the **strategic army morale** at army record `+14` (displayed as a tier on the army panel, seeds tactical morale, multiplies both army-strength formulas), and the **per-unit tactical morale array** `DAT_004A0350` that the `±2`/`−3` rule operates on. `battle-quality-promotion-and-morale-array-decompiled.md` calls `+14` "army experience", which made the two look unrelated. Implementing this without separating them will produce a subtle, hard-to-find bug. Not a wrong claim — a naming hazard worth a note when the combat model is built.
+
+### 2.10 Combat: quality promotion tagged `[confirmed, one battle's evidence]` — **should be `[derived]` [flagged]**
+
+The cited report is explicit that the rule is empirical, from 13 units in one battle, with the exact implementing code never located, and that it cannot tell whether the rule generalises past the "average" tier. That is a textbook `[derived]`. Separately, a **second, code-level** promotion rule now exists on the instant-resolve path (promote to ≥ "average", then 1-in-4 further), which is *not* an adjacency rule — so "the" promotion rule is at least two rules on two code paths.
+
+### 2.11 Combat: "the original's own placement-driven pairing doesn't translate to an instant-resolve model" — **premise now false [flagged — see open question Q1]**
+
+The original *has* an instant-resolve model, with completely different and much simpler math. The design's proposed `"pairing": "largest-vs-largest"` invention is answering a question the original already answered differently. This is not a small correction; it is a design decision for the user.
+
+### 2.12 World format: "not fixed to the 5 confirmed original terrain values **[confirmed: rivers-and-map-markers.md]**" — **understated [flagged]**
+
+The engine's terrain table has **12 codes** and 6 distinct names. "5 values" came from how many were matched to screenshots, not from how many exist. The design's conclusion (tile types should be an open list) is unaffected and still right.
+
+### 2.13 Claims that hold up under checking
+
+Re-read against their cited reports and found to be as strong as stated: the calendar model (week `+2 mod 12`, season at the 11→1 wrap, year at Winter→Spring, quarterly billing on the season boundary); tax `income = base × rate / 100` with `base = 2,440` solved twice for Rome; ship upkeep `× 3`; recruitment `cost = (troops / 200) × price[type]`; the 100,000-troop army cap; the melee 40% cap `floor(0.4 × defenderTroops) + 1`; the 30,000 cap; the siege strength shape with archers tripled; the loyalty floors (40 forced capture / 65 defection / toward 90 when the allegiant nation recaptures); the cascading defection conditions; the nation-elimination cascade; the SAV layout; the news log as a 40-slot ring buffer; the `[open]` tags on the rebellion check `FUN_0044C204` and the weather-event effect `FUN_004511BC`.
+
+One item to re-check rather than trust: `decompiled-city-capture-resolution.md` describes a **−20% defender penalty when owner ≠ allegiance**, while the siege entry point `FUN_0044B27C` applies a **×9/10 (−10%) defender reduction when the *attacking nation* equals the city's allegiance**. These may be two separate adjustments in two functions, or one of the two readings may be off. `FUN_0044A98C` (defender strength) was not decompiled this pass. **[open]**
+
+Two record-field labels the project is carrying that the code contradicts, both corrected in their reports and **still wrong in `IC2.Data`** (not changed here — this is an audit, not a code task): `ArmyRecord +8` is the covered map cell, not morale (`+14` is morale); `FleetRecord +20` is the fleet's condition percentage once launched, and only a build-city index while under construction.
+
+---
+
+## 3. Open questions for the user
+
+These are the judgment calls this audit ran into that are genuinely product decisions, not engineering ones. None of them has been decided unilaterally. They are roughly in order of how much downstream work they gate.
+
+### Q1. Which battle model should auto-resolve actually use?
+
+`game-design.md` chose instant auto-resolve, assuming the original had nothing of the kind and therefore inventing a pairing rule over the tactical exchange math. The original in fact has **two** resolvers, and the design is currently proposing a third.
+
+| Option | What it means | Trade-off |
+| --- | --- | --- |
+| **A. Port the original's instant resolver** (`FUN_0044AEE4` / `FUN_0044B27C` / `FUN_0044B5D0`) | Single power comparison; loser's army annihilated; winner takes `loserPower × 40 / winnerPower` casualties; ties to the defender | Fully confirmed math, trivial to implement and test, no invented rules. But brutal (no partial defeats, no retreat) and it **cannot reproduce the Rome/Gaul golden fixture**, which came from the tactical path |
+| **B. The design's current plan** | Run the tactical melee/shooting exchange loop headlessly with an invented pairing rule | Preserves the rich per-unit-type result the design's battle screen is built around, and can reproduce the Rome/Gaul fixture. But the pairing rule is `[designed]` and directly determines outcomes |
+| **C. Both, as named ruleset variants** | `"resolution": "quick"` (A) for AI-vs-AI, `"detailed"` (B) when a human seat is involved | This is **exactly what the original does** — it is the most faithful option. Costs two engines and two test suites |
+| **D. Restore a real tactical battle** | Keep the grid, placement and per-action play | The freeze that motivated dropping it was diagnosed as a hardcoded ~3.02 s pacing delay (`battle-freeze-diagnosed-procmon.md`) that a reimplementation simply would not have. This reopens a scope decision you already closed — flagged only because the justification for closing it has weakened |
+
+### Q2. Is the naval subsystem in scope for a first playable version?
+
+Fleets, army transport (1 army, 500 troops/ship), condition and paid repair, scuttling, 24-tick construction, naval battles, and storm losses are all confirmed and all absent from the design and from the milestone list. On the classical Mediterranean map, amphibious movement is not a side feature — without it, large parts of the map are unreachable. Options: full naval in v1; movement-and-transport only (defer combat/repair/condition); or defer naval entirely and ship a land-only first release.
+
+### Q3. How faithful should diplomacy be, now that the original's model is recoverable?
+
+The confirmed model is: 4 states, symmetric matrix, max 3 trade partners, negative cooldowns of −8 (broken trade) / −24 (broken alliance) / −18 (ended war) that thaw quarterly, alliances and wars contagious to allies, attacking = declaring war, AI nations refuse peace while at war but human seats always accept, and a concrete reparation formula. `game-design.md` instead designed an opinion-score model from scratch. Do you want (a) the original's model as `classical-faithful`, (b) the designed opinion model, or (c) the original's model with the opinion score layered on top as the AI's *decision* input (the one part that genuinely is unnamed AI code)?
+
+### Q4. Keep per-army and per-fleet money purses?
+
+The original gives every army and fleet its own **supply stock** and its own **money purse (cap 1,000)**. Buying supply and hiring mercenaries spend *that* purse, not the national treasury, and the purchase price is paid to whoever owns the selling city. This is real logistical depth and also real micromanagement — and it means an army far from home can be unable to afford supply even when the treasury is full. Keep it faithfully, or centralise everything to one treasury for a cleaner modern UX?
+
+### Q5. Should "conquer every city" be the shipped default victory condition?
+
+That is the original's only win (334 of 334 cities), with a candidate hard end at 250 BC — roughly 20 in-game years. Faithful, but a very long and very demanding goal. Ship it as the `classical-faithful` default and make the designed alternatives (domination-over-hostiles, score-at-turn-limit) opt-in, or make one of the friendlier conditions the default and keep total conquest as a scenario option?
+
+### Q6. Reproduce the original's human-versus-AI asymmetries?
+
+Several confirmed rules differ by seat type, not by nation: only AI armies lose their whole turn's movement on a blocked step; only AI-vs-AI battles resolve instantly; AI nations refuse peace and alliance offers while human seats always accept; a newly split AI army starts with 1 move, a human's with 0; an over-capacity army is trimmed on embarkation only for AI nations. Faithfully reproducing these is authentic and affects balance in ways a player would feel; normalising them is cleaner and arguably fairer, especially in hotseat where "human seat" is no longer synonymous with "the player".
+
+### Q7. Is city development a direction to expand, or stay at exactly one order?
+
+Fortification is the original's only city improvement: a paid, queued, population-priced order, capped at 100%, wiped by a siege. The moddability goal makes "add more improvement types as ruleset data" cheap to support. Do you want the design to leave that door explicitly open (a generic `cityOrders` table with fortify as the only shipped entry), or keep the city layer exactly as the original has it?
+
+### Q8. What is the policy on reproducing original bugs?
+
+Two are now identified. The quarterly diplomatic-thaw loop iterates only the **first 8 columns** of each nation's 16-entry relation row, so a cooldown between two nations both indexed ≥ 8 never decays. The fleet record's `+20` word does double duty as build-city-index and condition-percentage, which is fragile rather than wrong. A blanket policy would save re-asking: faithful-to-bug in `classical-faithful`, fix silently, or expose each as a ruleset flag?
+
+### Q9. One evidence gap worth a five-minute play session
+
+The code says buying supply costs `amount / 5` from the army's money purse, but the three frames tabulated in `galatia-elimination-and-city-resupply-confirmed.md` show Army 0's money unchanged at 256 across a 100-ton purchase. One controlled same-turn save pair around a single supply purchase would settle it. Worth capturing before the economy milestone is implemented, since it is the difference between "supply is a cost" and "supply is free".
+
+---
+
+## 4. Review of the build harness and the 15-milestone backlog
+
+### 4.1 Missing milestones
+
+Given §1, the backlog has no milestone for:
+
+- **The naval subsystem** — transport, condition, repair, scuttle, construction countdown, naval battle. Milestone 5 is titled "Movement, supply, and fleets" but its *done when* mentions only river movement and the fleet owner field; nothing there would force any of the above to exist.
+- **Supply as an economy** — capacities, the 1-talent-per-5-tons purchase, per-army/fleet purses. Milestone 3 ("Economy") lists tax, upkeep, tribute and loyalty drift only.
+- **City orders** — fortification and its queued-order encoding.
+- **Army/unit management** — join/split armies, join/split/rename/disband units, the battalion-size merge cap, the quality-averaging rule, the 198-army and 20-unit caps.
+- **The news log** — a confirmed 40-slot ring buffer and a load-bearing element of the designed UI (§UI item 2), but no milestone produces it.
+- **Mercenaries beyond cost** — the pool, the hire-from-army-purse rule, the regular/mercenary upkeep split. Milestone 4's *done when* is cost-formula tests only.
+
+### 4.2 Ordering problems
+
+- **M6 (city capture/siege) depends on M7 (battle resolution).** Siege resolution *is* a battle: attacker strength versus defender strength, using army morale and the archers-tripled rule. M6's *done when* ("a scripted scenario reproduces the Galatia-elimination pattern") cannot be met without the combat layer that arrives a milestone later. Swap them, or split "strength functions" out of M7 into an earlier milestone that both consume.
+- **M8 (diplomacy) depends on M7 and M9.** Its *done when* — "two AI nations can reach peace and a reparations payment occurs" — requires AI nations (M9) and the battle that triggers the treaty (M7), since the AI-to-AI reparation is fired from inside the instant battle resolver. Either move M8 after M9 or restate its *done when* in terms the diplomacy layer can satisfy alone (e.g. the relation-matrix state machine, the cooldown values, the trade cap, the ally-contagion rules, and the reparation arithmetic as a pure function).
+- **M12 (original-save import) arrives after the milestones that need it.** M3–M7's golden-fixture tests are described as "load the equivalent starting state into the new engine" — the real states live in original `.sav` files. Either move the import bridge to right after M1, or state explicitly that fixtures are hand-authored JSON transcribed from the reports (which is viable for most of them and keeps the tests independent of the user owning game files — probably the better answer, and worth saying out loud).
+
+### 4.3 "Done when" criteria too vague to self-verify
+
+The stated purpose of these criteria is that an autonomous loop can check them without human judgment. Several cannot be:
+
+| Milestone | Problem | Suggested replacement |
+| --- | --- | --- |
+| 3 Economy | "golden-fixture tests against the real confirmed formulas pass" names no fixture | Assert exactly: Rome `base = 2,440` reproducing both the 15% and 20% income figures; ship upkeep `= 3 × ships`; the 13-unit Roman roster's regular upkeep `= 442`; a 100-ton supply purchase `= 20` talents (pending Q9) |
+| 7 Battle | "reproduces the real recorded numbers **within the formula's own randomness bounds**" — an unbounded, unfalsifiable criterion | With a **fixed seed**, assert the exact Rome/Gaul per-type before/after numbers (99,882 → 63,282); separately assert `floor(0.4 × def) + 1` on the 4 confirmed capped exchanges and the 5th below-cap case |
+| 9 AI | "runs to completion … across many seeds" — "many" unspecified, and with the original's all-cities victory condition it may never terminate | "N = 50 fixed seeds, each reaching a victory condition **or a stated turn cap** with no exception and no illegal command" |
+| 10 Victory conditions | **no *done when* at all** | One test per shipped condition, plus a test that a scenario-custom goal fires |
+| 11 Godot UI | **no *done when*** | A scripted headless smoke run that loads a scenario, issues one order of each type through the command layer, and ends a turn |
+| 13 New-format save/load | **no *done when*** | Round-trip equality of a mid-game state after N turns, plus a forward-compat test on an older version file |
+| 14, 15 | **no *done when*** | 14: the example scenarios load and run 10 turns headlessly. 15: the packaged build launches and loads a scenario on a clean machine |
+
+### 4.4 Golden fixtures are badly under-used
+
+The design names four. The reports contain at least a dozen more with exact numbers, several of which need **no original game files at all** — the numbers are published in the reports, so the test is pure data:
+
+| Fixture | Source | Exact assertion |
+| --- | --- | --- |
+| Roman army upkeep | `army-records-and-roman-roster.md` (roster published in full) | 13 units → **442** talents/quarter |
+| Roman army supply % | same | 482 t / 48,173 troops → **100%** |
+| Supply percentage triple | `galatia-elimination-and-city-resupply-confirmed.md` | 204/998 → **20%**, 344/998 → **34%**, 184/282 → **65%** |
+| Tax base | `rome-tax-increase-and-sidon-capture.md`, `decompiled-quarterly-billing-and-economy.md` | `2,440 × 15/100` and `× 20/100` |
+| Fleet order | `fleet-order-at-caere.md` | 10 ships → **100** talents, capacity **5,000**, upkeep **30** |
+| Fleet marker encoding | new, this pass | 90 ships owner 1 → **333**; 70 ships owner 3 → **335** |
+| Terrain costs | new, this pass | the 12-entry table verbatim |
+| Mercenary hire | `mercenary-pool-record.md` + new cost formula | Felsina 6,438 "very good" → cost, then `0xFFFF` sentinel |
+| Supply transfer conservation | `controlled-army-supply-transfer.md` | 79 tons, exactly reciprocal, nothing else changes |
+| Mobilization conservation | `city-units-army-transfer-and-mercenaries.md` | Rome 85,000 → 70,000; Masada's six units → 49,800 |
+| Reparation | `diplomatic-reparations-and-more-captures.md` | Ptolemaic 999 → −1270 (range assertion, given the random term) |
+| Elimination cascade | `galatia-elimination-and-city-resupply-confirmed.md` | 9 cities, 2 "falls to" with population/fortification loss, 7 "defects from" without |
+
+Recommendation: make "transcribe every exact number in `docs/reports/` into a fixtures file" an explicit early milestone task (part of M1), rather than leaving each milestone to find its own. It is a few hours of work that makes every later milestone's *done when* mechanically checkable.
+
+### 4.5 One structural note on the harness
+
+The operating mode says to surface to the user only on milestone completion, a genuine design gap, or a product/taste call — and that "every `[designed]` placeholder above is fair game to implement autonomously, precisely because it's already documented as a deliberate, revisitable choice rather than an unstated assumption". This audit found that four `[designed]` sections (Diplomacy, Victory, the battle pairing rule, the movement cost table) were **not** deliberate choices — they were assumptions made without checking whether evidence existed. Before the loop starts, it is worth adding one rule to the harness: **a `[designed]` tag is only valid if the document says what was searched and came up empty.** That single sentence would have caught all four.

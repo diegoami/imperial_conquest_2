@@ -9,6 +9,8 @@ This is a **design document, not an implementation plan**. It translates everyth
 
 Every rule below is tagged **[confirmed]** (has direct RE evidence, cited), **[derived]** (a reasonable extrapolation from confirmed data, e.g. filling in a formula's shape where only some constants were pinned down), or **[designed]** (no RE evidence exists or it was intentionally left out of scope; this is new game design). Nothing is presented as RE'd when it isn't.
 
+> **Read [design-audit.md](design-audit.md) alongside this document.** A systematic audit found several whole subsystems this design is silent on (naval transport and naval combat, fleet condition and repair, supply as a purchased economy with per-army money purses, city fortification orders, army/unit management), corrected four sections that were written on assumptions rather than evidence (Movement, Recruitment's mercenary claims, Diplomacy, Victory conditions — all fixed in place below), and raised nine open questions that need the user's decision before the build starts. The milestone list at the end of this document has not yet been revised for any of it.
+
 ## Design principles
 
 These are the load-bearing decisions everything else follows from:
@@ -47,7 +49,7 @@ SaveGame    = a live, versioned snapshot of a Scenario in progress (includes whi
 }
 ```
 
-Tile types are an open, extensible list — not fixed to the 5 confirmed original terrain values **[confirmed: rivers-and-map-markers.md]** — a custom world can define new ones (a ruleset/renderer just needs matching movement-cost and art-key entries for whatever it defines).
+Tile types are an open, extensible list — not fixed to the original's 12 terrain codes / 6 distinct terrain names **[confirmed: terrain-move-cost-table-in-dat.md; the earlier "5 values" figure was how many had been matched to screenshots in rivers-and-map-markers.md, not how many exist]** — a custom world can define new ones (a ruleset/renderer just needs matching movement-cost and art-key entries for whatever it defines).
 
 ### Ruleset format (sketch)
 
@@ -82,19 +84,27 @@ Week `+2 mod 12` per turn cycle, season advances at the 11→1 wrap, year decrem
 
 ### Recruitment — **[confirmed]**
 
-`cost = (troops / 200) × priceTable[unitType]` **[confirmed: decompiled-recruitment-cost-formula.md]**; 100,000-troop army cap **[confirmed]**; mercenary hire with the same cost shape plus a distinct pool **[confirmed: mercenary-pool-record.md]**. The mercenary `Label` field's exact meaning was never resolved **[open]** — treat it as a flavor name-table index only, non-gameplay-relevant, so this gap blocks nothing.
+`cost = (troops / 200) × priceTable[unitType]` **[confirmed: decompiled-recruitment-cost-formula.md]**; 100,000-troop army cap **[confirmed]**; a distinct mercenary pool of 50 slots **[confirmed: mercenary-pool-record.md]**.
+
+Mercenaries are a genuinely separate economy, not "the same cost shape" — that earlier claim carried a citation (`mercenary-pool-record.md`) that does not contain the evidence, and the real formulas are now decompiled **[confirmed: decompiled-unit-map-orders-and-record-fields.md]**:
+
+- Hire cost `= (troops × quarterlyPrice[unitType]) / 1000 × quality`, paid from the **hiring army's own money purse**, not the national treasury.
+- Quarterly upkeep `= (troops / 200) × price[unitType] × quality / 5`, versus `(troops / 200) × price[unitType]` for regulars.
+- The mercenary `Label` is an index into a name table **and** is copied into the army unit slot's `+0` word, which is the regular-versus-mercenary marker. It is gameplay-relevant, not flavour: it selects the upkeep formula and blocks the unit from being merged with regulars.
 
 ### Movement — **[confirmed structure, some numbers still open]**
 
-This section was originally written from a generic "terrain costs movement points" assumption, without checking whether the original actually works that way — a gap the user caught. It doesn't:
+This section was originally written from a generic "terrain costs movement points" assumption, without checking whether the original actually works that way — a gap the user caught. It was then *over*-corrected to "only rivers cost moves", which was also wrong. The real table has now been extracted from the DAT file **[confirmed: terrain-move-cost-table-in-dat.md]**:
 
 - A move order is issued once (click a destination) and the engine walks a straight-line path (Bresenham) to it in one step, not tile-by-tile player input **[confirmed: decompiled-army-movement-and-river-cost.md]**.
-- **Only river-coded tiles (map cell values 2–11) cost movement points**, looked up per exact river code in a small table; every other terrain code (plain, and whatever the unmapped non-river codes represent) costs nothing extra in this code path **[confirmed]**. This directly overturns the generic per-terrain-type cost table a typical-4X-conventions guess would have produced — there's no evidence for "forests/mountains cost more," only rivers do.
-- Attempting to cross a river without enough remaining moves doesn't just block that step — it **zeroes the army's remaining moves for the whole turn** **[confirmed]**.
+- **Every land tile costs its terrain type's move cost** — `Plain` 1, `Desert` 1, `Forest` 2, `Mountains` 4, `River` 4 (six distinct river codes, all costing 4) **[confirmed: terrain-move-cost-table-in-dat.md]**. The movement code's `2 ≤ cell ≤ 11` guard covers all land terrain, not just the river codes 6–11, which is what the earlier "rivers only" reading got wrong.
+- Water is traversable only by fleets, and costs 1 (cell code `0`, `Sea`) or 3 (cell code `1`, also named `Sea` — a deeper/slower water type) **[confirmed]**. Fleet movement uses the same table.
+- A city, army or fleet marker in the path **blocks the walk entirely** rather than costing moves; interactions with those happen at the destination **[confirmed]**.
+- Attempting a step you can't afford aborts the move — and **for AI-controlled nations only**, also zeroes the army's remaining moves for the whole turn **[confirmed: terrain-move-cost-table-in-dat.md]**. The earlier statement of this as a universal rule was wrong; the branch is guarded on the active nation's computer-control flag.
 - What sets an army's weekly `Moves` maximum in the first place is only partly known: it's recomputed weekly and reduced by a low per-army "readiness" value **[confirmed: decompiled-turn-and-calendar-sequencing.md]**; whether troop count or unit-type composition also factors in was never confirmed (two data points in `mobilization-movement-and-city-capture-modes.md` were consistent with "constant regardless of composition" but not conclusive) **[open]**.
 - Don't confuse this with the *tactical battle* per-unit `Moves` stat (light infantry 4, heavy infantry 2, archers 4, light cavalry 6, heavy cavalry 5 — `unit-type-stat-table-in-dat.md`) — that governs the now-abstracted instant battle resolution's internals, not the strategic map, and the two were easy to conflate before this pass separated them explicitly.
 
-**Ruleset default**: reuse the confirmed structure — a `moveCost` table keyed by terrain type (defaulting to 0 for everything except a `river` type, whose costs are `[designed placeholder]` until the real `DAT_004792f0` table is extracted from the DAT file) — rather than inventing generic terrain difficulty. A custom `World`'s new terrain types simply default to 0 cost unless a ruleset explicitly prices them, keeping the "arbitrary custom maps" goal from silently drifting away from what's actually confirmed.
+**Ruleset default**: a `moveCost` table keyed by terrain type, shipping the original's real twelve-entry table verbatim **[confirmed]** — no placeholder is needed any more. A custom `World`'s new terrain types default to cost 1 unless a ruleset explicitly prices them, keeping the "arbitrary custom maps" goal from silently drifting away from what's actually confirmed.
 
 ### City capture, siege, and defection — **[confirmed]**
 
@@ -105,17 +115,27 @@ Attacker strength (archers tripled) vs. defender strength (fortification/loyalty
 This is where the freedom to redesign matters most. The plan preserves every confirmed number while dropping the interactive tactical shell entirely:
 
 - **What's reused as-is**: the type-effectiveness matrix **[confirmed: combat-type-effectiveness-matrix.md]**, the melee formula's shape and its exactly-confirmed 40%-of-own-troops loss cap **[confirmed: decompiled-combat-formula-structure.md, battle-recording-melee-cap-confirmed.md]**, the morale mechanic (`±2`/`−3` per exchange depending on power ratio, clamped) **[confirmed: battle-quality-promotion-and-morale-array-decompiled.md]**, and the empirically-found quality-promotion rule (an average-quality unit adjacent to a casualty gets promoted) **[confirmed, one battle's evidence]**.
-- **What's redesigned**: instead of a human placing 20 units on a grid and stepping through individual shoot/melee actions with UI pacing, the engine runs the *same underlying exchange math* internally, headlessly, for as many rounds as it takes for one side to break or a round cap to hit — using unit **pairing by matching order** (largest-vs-largest by default) rather than manual placement, since there's no grid to place units on. Pairing strategy is a named, swappable ruleset field (`"pairing": "largest-vs-largest"`, `"counter-optimized"`, etc.) — **[designed]**, since the original's own placement-driven pairing doesn't translate to an instant-resolve model. This is a genuinely new mechanic layered on confirmed math, not a guess at what the original does internally during placement.
+- **What's redesigned**: instead of a human placing 20 units on a grid and stepping through individual shoot/melee actions with UI pacing, the engine runs the *same underlying exchange math* internally, headlessly, for as many rounds as it takes for one side to break or a round cap to hit — using unit **pairing by matching order** (largest-vs-largest by default) rather than manual placement, since there's no grid to place units on. Pairing strategy is a named, swappable ruleset field (`"pairing": "largest-vs-largest"`, `"counter-optimized"`, etc.) — **[designed]**.
+- **Caveat, found after this section was written**: the justification above ("the original's own placement-driven pairing doesn't translate to an instant-resolve model") is false. The original **already has an instant, non-tactical resolver** — it uses it for every battle in which no human is involved — and its math is completely different and much simpler: a single `strength = Σ(powerWeight[type] × troops / 100) / 80 × armyMorale` comparison, the loser's army annihilated, the winner taking `loserPower × 40 / winnerPower` casualties, ties to the defender **[confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md]**. There is a third resolver again for naval battles. Which of these the reimplementation's auto-resolve should use is **open question Q1** in [design-audit.md](design-audit.md) and should be settled before milestone 7 starts.
 - The result is a single-shot `BattleResult` with a full per-unit-type before/after breakdown, in exactly the shape already captured from a real battle in `full-battle-resolution-rome-vs-gaul.md` — that report's numbers are a natural **regression fixture** for this engine (see "Testing" below).
 - "Adjacent to a casualty" for the promotion rule needs a redefinition too, since there's no army-slot grid anymore — **[designed]**: reinterpret it as "a unit that fought in the same round as one that was destroyed," which preserves the spirit (survivors of a rough exchange get battle-hardened) without depending on a slot-index adjacency that no longer has meaning outside the original's UI.
 
-### Diplomacy — **[designed, dead end in the original's code]**
+### Diplomacy — **[mostly confirmed; only the AI's decision-making is designed]**
 
-`decompiled-city-capture-resolution.md`'s follow-up work confirmed this lives in unnamed AI-only code, never reached by name — genuinely not recoverable without much more decompilation effort, and the roadmap already treats faithful *rules* over a byte-exact AI port as the priority. Design from scratch:
+**This section's original premise was wrong.** It said diplomacy "lives in unnamed AI-only code, never reached by name — genuinely not recoverable". That conclusion came from decompiling `TPolitics_MakePeace` alone; the rest of the system is in `TPolitics`, `TBattlePols` and `FUN_00450C68`, all reachable by name. See [decompiled-diplomacy-peace-terms-and-instant-battles.md](reports/decompiled-diplomacy-peace-terms-and-instant-battles.md). What is actually confirmed:
 
-- Per-nation-pair relationship state: `war | peace | alliance`, plus a numeric "opinion" score.
-- Reparations on a peace treaty scale with the loser's treasury and the war's outcome — **[derived]**: an actual AI-to-AI reparation was observed exactly once (`diplomatic-reparations-and-more-captures.md`, Ptolemaic `999 → -1270`, a `-2269` payment), consistent with "loser pays a fraction of their pre-war treasury plus a war-outcome-scaled amount," but the exact formula was never isolated. Ship a **[designed]** formula with that single data point as a sanity check, tagged as inspired-by-evidence rather than confirmed.
-- AI willingness to seek peace scales with relative military/economic strength and war duration — standard 4X diplomacy heuristic, **[designed]**.
+- A symmetric 16×16 relation matrix (nation record `+0x26`) with states `0` peace, `1` trade, `2` alliance, `3` war, and **negative values as cooldown counters** — `−8` after breaking trade, `−24` after breaking an alliance, `−18` after ending a war — that thaw quarterly (`+1`, and `min(0, v+3)` with probability 1/3) **[confirmed]**.
+- **Maximum 3 trade partners** per nation; trade is refused while a cooldown is active or while allied/at war **[confirmed]**.
+- **Alliances and wars are contagious**: allying with a nation drags you into its wars; declaring war drags in the target's allies **[confirmed]**.
+- **Attacking anything auto-declares war** (`TUnitMap_SelectUnit` sets the relation to 3 before resolving) **[confirmed]**.
+- Post-battle peace terms: the loser ends **all** trade agreements and **all** alliances and pays reparations — unless the victor is the weaker nation on `population × unity` or on total army strength, in which case it is an "honourable peace with no reparations or penalties" **[confirmed]**.
+- `reparations = W/4 + random(W/4) + cityCount × 10`, where `W` is the loser's nation `+0x44C` wealth field **[confirmed formula, unverified against the one observation]** — consistent in shape and magnitude with the only observed payment (`diplomatic-reparations-and-more-captures.md`, Ptolemaic `999 → −1270`), but that save's field values were never read back to check the arithmetic.
+- The AI-to-AI reparation trigger is a 2-in-5 chance after a decisive AI-vs-AI field battle, gated on the loser's unity > 500 and city count > 7 **[confirmed]**.
+- Hotseat: `THVHBatPols` is a freely negotiated talent payment between two human seats after a battle, with no formula **[confirmed]**.
+
+Still genuinely **[designed]**: the AI's *willingness* to offer or accept a treaty outside the two hard triggers above (unnamed AI code, out of scope per the roadmap), and any numeric "opinion" score layered on top of the confirmed state machine.
+
+How faithfully to follow this model versus the opinion-score design is **open question Q3** in [design-audit.md](design-audit.md).
 
 ### AI — **[designed, intentionally out of scope for RE by the project's own standing decision]**
 
@@ -128,9 +148,11 @@ A rule-based (not ML) heuristic AI, tunable via per-nation "personality" paramet
 
 This is intentionally simple to start — a heuristic scoring function per candidate action, pick the highest score, no search/lookahead — because it's easy to reason about, easy to tune via data, and easy to unit-test (given a world state, assert the AI picks the expected action class). More sophistication (lookahead, learning) is explicitly future work, not needed for a first playable version.
 
-### Victory conditions — **[designed, never reverse-engineered]**
+### Victory conditions — **[the original's is confirmed; the alternatives are designed]**
 
-Scenario-configurable, default set to ship:
+The original's own condition *was* recoverable, contrary to this section's earlier claim: `THumanFalls_InitializeForm` (`0x00455E38`) tests the nation's city count against **334, the total number of cities on the map**, and awards *"You have conquerred the Mediterranean, a unique achievement."* — total conquest is the only win. The same screen compares the year against **250 BC** (start is 270 BC) and reports the reign's length, a candidate hard time limit **[confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md]**. Whether total conquest should be the shipped default is **open question Q5** in [design-audit.md](design-audit.md).
+
+Scenario-configurable, default set to ship **[designed]**:
 
 - **Domination**: control every city, or every city belonging to nations still at war with you.
 - **Score at turn limit**: a weighted sum of cities held, treasury, and unity, highest wins.

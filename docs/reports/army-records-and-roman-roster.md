@@ -1,5 +1,7 @@
 # Save army table and Roman roster at (100, 42)
 
+> **Correction (superseding two field labels in the table below).** Decompiling `TInformation_ShowArmyDetails` and the army create/move/delete functions shows that **`+8` is the map cell the army's marker covers, not morale** — the Roman army's `9` is terrain code 9, `River`, which is exactly the terrain this report itself reads off the panel — and that **`+14` (listed here as "unknown") is the army's morale**, displayed as a tier via `moraleNames[(v − 51) >> 2]`. `+8 == -1` additionally means "this army is aboard a fleet". The same pass decodes the panel's previously-undecoded lines: the supply percentage is `supplies × 10000 / troops` (482 / 48,173 → 100%, matching), and **"442 talents per quarter" is reproduced exactly** by summing `(troops / 200) × quarterlyPrice[type]` over the 13 units listed below. See [decompiled-unit-map-orders-and-record-fields.md](decompiled-unit-map-orders-and-record-fields.md) and [terrain-move-cost-table-in-dat.md](terrain-move-cost-table-in-dat.md). `IC2.Data` still carries the old labels.
+
 The user supplied three screenshots of the Roman army at `(100, 42)` in `11_supply.sav`: two composition lists and a panel reading **13 units**, **48,173 troops**, **482** tons of supply, and **296** money. This report compares those observations with the save bytes. The original game was not run for this analysis. Screenshots and saves remain outside Git.
 
 ## Repeating save layout
