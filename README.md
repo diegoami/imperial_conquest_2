@@ -4,35 +4,30 @@ A modern, moddable reimplementation of *Imperial Conquest 2* (1996) — the game
 
 **The reverse-engineering research lives in a separate repository: [diegoami/imperial-conquest-2-research](https://github.com/diegoami/imperial-conquest-2-research)** — save/DAT format writeups, decompiled formulas, evidence-based reports. This repo cites those reports directly.
 
-## Current status
+## Current state
 
-Being built by a multi-agent pipeline driven from GitHub issues. **As of commit `4f747fc`: the whole of Phase 0 is merged** — T01, T05, T02, T04 and T03. That is the foundation the other 24 tasks are written against:
+A snapshot, synced after every merge by the documentation step ([build-process.md §4.8](docs/build-process.md#48-documentation-update-after-every-merge)); the live per-tick status is [tracking issue #29](https://github.com/diegoami/imperial_conquest_2/issues/29).
 
-- **T01/T05** — `IC2.sln` pre-declaring `IC2.Data`, `IC2.Inspect`, `IC2.Engine`, `IC2.Cli` and their test projects, CI on every push/PR, plus the PR/issue templates and `CODEOWNERS`.
-- **T02** — the core domain model: `World`, `Ruleset`, `Scenario`, `SaveGame` and the `GameState` tree as immutable records with strict typed JSON loading, `_provenance` on every ruleset value, and a toy 3-city / 2-nation world under `data/`.
-- **T04** — the fixtures corpus: 355 entries transcribed verbatim from the 46 research reports, each carrying its source report and that report's own `confirmed`/`derived` tag, so later tasks assert against `FixtureCorpus.Get("rome.taxBase")` rather than each re-reading the reports and getting a fresh chance to misread them.
-- **T03** — the engine seams every gameplay system plugs into: a seeded `IRng` (hand-written SplitMix64, pinned to the published reference vector), an ordered nine-phase turn pipeline with the `OnQuarterBoundary` hook, `ICommand` → `CommandResult` with typed rejection, the domain-event sink, attribute-based system registration (so adding a system edits no shared file), and a determinism guard that fails the build on `System.Random`, wall-clock, `Guid.NewGuid` or unordered dictionary iteration in engine code.
-
-There is still nothing to play: this is data types, a loader, verified constants and the plumbing — not gameplay. The first runnable thing is `IC2.Cli` (T23).
-
-**Since then**, two evidence passes landed on `main` (supply confirmed to drive army morale every turn — [`thracia-supply-morale.md`](docs/investigations/thracia-supply-morale.md) — and the DAT's own file format fully decompiled — [`dat-file-layout.md`](docs/investigations/dat-file-layout.md), not a SAV with a different extension). **T30 (`2d50081`) fixed `IC2.Data`'s two parser defects** (the SAV army-tombstone abort, the DAT-vs-SAV layout mismatch), unblocking T29 and T21. **T06 (`8b8007a`) is now merged**: calendar/turn sequencing, seat rotation, and — as an authorized cross-task fix — corrected T03's merged turn-phase order, which had run the calendar advance *before* the army/fleet/weather ticks, backwards from the confirmed decompiled tick. T08 and T12 are unblocked as a result. T07/T08/T14 still carry the confirmed morale/supply/naval-attrition mechanics as DoD lines, not yet implemented. A separate `/process-evidence` skill ([`evidence-pipeline.md`](docs/evidence-pipeline.md)) now exists for turning new play evidence into research-repo findings and then game-design implications.
-
-- **Live tracker**: [issue #29](https://github.com/diegoami/imperial_conquest_2/issues/29). **Full guide to checking progress and what's actually runnable at each stage**: [`build-orchestration-plan.md` §0](docs/build-orchestration-plan.md#0-where-things-stand-and-what-you-can-test) — short version, nothing playable before `IC2.Cli` lands, nothing visual before the Godot screens do.
-- **To pause the build for any reason**: [§7.5](docs/build-orchestration-plan.md#75-user-initiated-pause) — `gh issue edit 29 --add-label orchestrator:pause`, from any session, no need to track down a running agent.
-- **To build and test what exists right now**:
+- **As of** `acd4098`: Phase 0 (foundation) merged except T29, Phase 1 (pure rules) under way — **9 of 31 build tasks merged**: T01–T07, T30, T31. Per-task status is in the [task index](docs/task-catalogue.md#3-task-index).
+- **What exists**: `IC2.Data` (the original `.sav`/`.dat` parsers), the domain model and toy world, the fixtures corpus (355 constants from the research reports), the engine seams (seeded RNG, turn pipeline, commands, events), calendar and turn sequencing, and the strength functions. No gameplay loop yet.
+- **Next**: T08 (economy, supply and purses) is in progress; T09–T12 and T29 are ready.
+- **Nothing is playable yet.** The first runnable program is the `IC2.Cli` harness (T23); the first screen is T24. What becomes runnable when: [operating-guide.md §1.1](docs/operating-guide.md#11-what-becomes-runnable-and-when).
+- **Build and test now**:
   ```bash
   dotnet build IC2.sln   # 0 warnings, 0 errors
-  dotnet test IC2.sln    # 157 tests, green (156 engine + 1 data)
+  dotnet test IC2.sln    # 271 tests: 193 engine, 78 data
   ```
-- **CI**: [Actions tab](https://github.com/diegoami/imperial_conquest_2/actions).
+  65 of the data tests read your original game files and skip without `assets.local.ini` (below). CI: [Actions](https://github.com/diegoami/imperial_conquest_2/actions).
+
+Operating the project — the build pipeline, the skills, where everything lives, pausing, bugs: [docs/operating-guide.md](docs/operating-guide.md).
 
 ## Building the reimplementation
 
-`IC2.Engine` (the headless game engine) currently holds T02's domain model and serialization layer plus T03's `Core/` seams — no gameplay rules yet. Phase 1 (calendar, strength functions, economy, movement, news log, victory) is what fills it. `IC2.Cli` (a scriptable play harness) is still a scaffolded stub; see the status section above for what to expect at each build stage. Once `IC2.Cli` lands (T23), this section will carry its usage.
+`IC2.Engine` is the headless game engine; its rules are being filled in task by task ([task-catalogue.md](docs/task-catalogue.md)). `IC2.Cli` (a scriptable play harness) is still a scaffolded stub; once it lands (T23), this section will carry its usage.
 
 The shipped data files are `data/worlds/toy-3city.json`, `data/rulesets/toy-ruleset.json` and `data/scenarios/toy-3city.json` — a deliberately small 3-city / 2-nation fixture for tests. The real 334-city `classical-mediterranean` world and the `classical-faithful` ruleset are exported later, by T29.
 
-`tests/fixtures/corpus.json` is the evidence base the rules are built against: every exact number from the research reports, transcribed once, each with its source report and tag. `tests/fixtures/known-reports.json` pins the 46 real report filenames so a typo'd or invented citation fails CI offline, without the research repo being cloned.
+`tests/fixtures/corpus.json` is the evidence base the rules are built against: every exact number from the research reports, transcribed once, each with its source report and tag. `tests/fixtures/known-reports.json` pins the real report filenames so a typo'd or invented citation fails CI offline, without the research repo being cloned.
 
 ## The research-inspector tools (`IC2.Inspect`)
 
@@ -69,9 +64,11 @@ After setting `assets.local.ini`, open `godot/project.godot` with Godot .NET 4.7
 
 ## Further reading
 
-- [Project handover](docs/HANDOVER.md) — concise current-state summary, start here for "what's next."
+- [Operating guide](docs/operating-guide.md) — start here: current state, where everything lives, how the sessions, skills and pipeline are run, what's still open.
 - [Game design](docs/game-design.md) and its [design audit](docs/design-audit.md) — what the reimplementation will be, and what the evidence actually supports.
-- [Build orchestration plan](docs/build-orchestration-plan.md) — how the build is split into agent-run tasks; **§0 is the status/testing guide**.
-- [Evidence pipeline](docs/evidence-pipeline.md) — the separate `/process-evidence` skill that turns new saves/recordings/notes into research-repo findings and then game-design implications.
+- [Task catalogue](docs/task-catalogue.md) — the 31 build tasks, their dependency graph and status.
+- [Build process](docs/build-process.md) — how tasks are dispatched, reviewed, merged and documented by the agent pipeline.
+- [Evidence pipeline](docs/evidence-pipeline.md) — the `/process-evidence` skill that turns new saves/recordings/notes into research-repo findings and then game-design implications.
+- [Investigations](docs/investigations/README.md) — this repository's own evidence write-ups.
 - [Release plan](docs/release-plan.md) — how tasks turn into version tags and releases.
-- Research repository ([diegoami/imperial-conquest-2-research](https://github.com/diegoami/imperial-conquest-2-research)): [roadmap](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/roadmap.md), [research notes](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/research.md), and the full [reports index](https://github.com/diegoami/imperial-conquest-2-research/tree/main/docs/reports) — 46 evidence-based findings the design cites throughout.
+- Research repository ([diegoami/imperial-conquest-2-research](https://github.com/diegoami/imperial-conquest-2-research)): [roadmap](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/roadmap.md), [research notes](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/research.md), and the full [reports index](https://github.com/diegoami/imperial-conquest-2-research/tree/main/docs/reports) — 47 evidence-based findings the design cites throughout.

@@ -1,55 +1,75 @@
 # The evidence-processing pipeline: `/process-evidence`
 
-A second pipeline, separate from [`build-orchestration-plan.md`](build-orchestration-plan.md)'s build pipeline. That one turns a settled design into code; this one turns new play evidence (saves, recordings, session notes) into settled design — the step that has to happen *before* the build pipeline's task catalogue can be trusted. Installed as a Claude Code skill (`.claude/skills/process-evidence/SKILL.md`), invoked as `/process-evidence [path or description]`. This document is the durable source of truth for the skill's content — same relationship `build-orchestration-plan.md` §Appendix C has to `/build-tick`; if the local install is ever lost, reinstall it from the fenced block below.
+A second pipeline, separate from the build pipeline in [build-process.md](build-process.md). That one turns a settled design into code; this one turns new play evidence (saves, recordings, session notes) into settled design — the step that has to happen *before* the task catalogue can be trusted. It runs as a Claude Code skill (`.claude/skills/process-evidence/SKILL.md`), invoked as `/process-evidence [path or description]`. This document is the source of truth for the skill's content, the same relationship [build-process.md Appendix C](build-process.md#appendix-c-the-build-tick-skill) has to `/build-tick`: the skill is a local, git-ignored install, reinstalled verbatim from the fenced block below if it is ever missing.
 
 ## What triggers it
 
-New files appearing in the **unprocessed** side of the original game directory's evidence folders — the ones with a `-processed/` sibling (`saves/`, `recordings/`, `screenshots/`) — plus new or updated files under `notes/`, which is where the user writes free-text session notes correlating a save pair with what happened between them (see `notes/2_rome_s.txt` for the shape: a save-pair, an optional recording filename, a list of observed events). A note file is the usual trigger, since it's what tells a save-diff *what to look for*; raw saves/recordings with no note are lower-priority and can sit until one is written.
+New files in the **unprocessed** side of the original game directory's evidence folders — the ones with a `-processed/` sibling (`saves/`, `recordings/`, `screenshots/`) — plus new or updated files under `notes/`, where the user writes free-text session notes correlating a save pair with what happened between them (see `notes/2_rome_s.txt` for the shape: a save pair, an optional recording filename, a list of observed events). A note file is the usual trigger, since it tells a save-diff *what to look for*; raw saves or recordings with no note are lower priority and can wait until one is written.
 
 ## Prerequisites, and where to get each one
 
 | Prerequisite | What it's for | Where it comes from |
 | --- | --- | --- |
-| **The research repo**, `diegoami/imperial-conquest-2-research` | Stage 1 writes new/updated reports here. | A public GitHub repo. Read via `gh api repos/diegoami/imperial-conquest-2-research/contents/<path>` (no local clone needed for reading). **Writing needs a real clone** — `gh api` can't commit — so stage 1 clones it fresh into a scratch directory (`git clone https://github.com/diegoami/imperial-conquest-2-research`), commits, and pushes directly to `main` there, matching this project's standing rule for RE work (commit and push without asking, established across many prior sessions). Do not reuse a stale local clone without verifying it has no uncommitted, unrelated state — see the `RE-imperial-conquest-2-work` incident in this repo's history for exactly what goes wrong when that's skipped. |
-| **`assets.local.ini`** (this repo's root, git-ignored) | Points at the user's own copy of the original game, where all raw evidence lives. | Supplied entirely by the user — copy `assets.example.ini`, set `directory` to the original installation path. Claude cannot obtain the original game files itself; if this file is missing, stop and ask the user to configure it rather than guessing a path. |
-| **The evidence folders themselves**, under that `directory` | The actual saves/recordings/screenshots/notes to process. | `saves/` + `saves-processed/`, `recordings/` + `recordings-processed/`, `screenshots/` + `screenshots-processed/`, `notes/` (no `-processed` sibling as of this writing — check current convention before assuming one exists). Unprocessed evidence sits in the non-`-processed` folder; move a file to its `-processed` sibling once a report cites it, matching the existing convention — don't invent a new one. |
-| **The Ghidra/JDK decompilation toolchain** (only if stage 1's evidence needs new code-level confirmation, not just a save-diff) | `%LOCALAPPDATA%\ReTools\` — JDK 21, Ghidra 12.1.3, the already-analyzed `ghidra_projects\IC2\` project, `delphi_symbols.tsv`/`.json` (282 known Delphi method names — look up an address here before hand-deriving one), and prior decompiled-function dumps. Headless analyzer: `support\analyzeHeadless.bat`. | Already set up on this machine. On a machine without it, this is a significant one-time setup (Ghidra + JDK install, import and auto-analyze the EXE) that the skill cannot bootstrap on its own — most evidence (a save-pair + a note) only needs save-diffing via `IC2.Inspect`, not decompilation, so don't reach for Ghidra unless the note's claim genuinely can't be settled by comparing saves. |
-| **`IC2.Inspect`**, this repo's own read-only CLI | The actual tool for comparing saves, listing armies/fleets/nations, rendering the map. Already built. | `dotnet build src/IC2.Inspect/IC2.Inspect.csproj`, then `--compare-saves`, `--inspect-army`, `--list-armies`, `--inspect-turn`, etc. — see this repo's `README.md` for the full command list. |
+| **The research repo**, `diegoami/imperial-conquest-2-research` | Stage 1 writes new or updated reports here. | Read via `gh api repos/diegoami/imperial-conquest-2-research/contents/<path>` (no clone needed). **Writing needs a real clone** — `gh api` can't commit — so stage 1 clones it fresh into a scratch directory (`git clone https://github.com/diegoami/imperial-conquest-2-research`), commits, and pushes directly to `main` there, per the standing rule for RE work ([operating-guide.md §4](operating-guide.md#4-standing-user-preferences)). Never reuse an existing local clone without first checking it has no uncommitted or unrelated state: a stale clone pushes whatever else is sitting in it along with the new report. |
+| **`assets.local.ini`** (this repo's root, git-ignored) | Points at the user's own copy of the original game, where all raw evidence lives. | Supplied by the user — copy `assets.example.ini`, set `directory` to the installation path. Claude cannot obtain the original files itself; if this file is missing, stop and ask the user rather than guessing a path. |
+| **The evidence folders**, under that `directory` | The saves, recordings, screenshots and notes to process. | `saves/` + `saves-processed/`, `recordings/` + `recordings-processed/`, `screenshots/` + `screenshots-processed/`, and `notes/` (no `-processed` sibling). Move a file to its `-processed` sibling once a report cites it — don't invent a new convention. |
+| **The Ghidra/JDK decompilation toolchain** (only when the evidence needs code-level confirmation, not just a save-diff) | `%LOCALAPPDATA%\ReTools\` — the full inventory and the headless command are in [operating-guide.md §2.3](operating-guide.md#23-local-toolchain-outside-both-repositories). Look an address up in `delphi_symbols.tsv` and grep `all_app_functions.txt` before running Ghidra at all. | Already set up on this machine. Elsewhere it is a significant one-time setup the skill cannot bootstrap. Most evidence (a save pair plus a note) only needs save-diffing with `IC2.Inspect`. |
+| **`IC2.Inspect`**, this repo's read-only CLI | Comparing saves, listing armies/fleets/nations, rendering the map. | `dotnet build src/IC2.Inspect/IC2.Inspect.csproj`, then `--compare-saves`, `--inspect-army`, `--list-armies`, `--inspect-turn`, etc. — the full list is in the [README](../README.md#the-research-inspector-tools-ic2inspect). |
 
 ## The two stages
 
-**Stage 1 — evidence → RE findings.** One Opus agent, dispatched fresh (no shared context assumed). Give it: the specific note file (or a description of what's new, if invoked without one), the research-repo clone/write instructions above, the local evidence-folder paths, and the Ghidra toolchain paths in case it needs them. Its job: read the note, correlate the named saves/recording, run controlled comparisons, decompile further only if the note's claim needs code-level confirmation and isn't already covered by an existing report, write a new report or update an existing one in the research repo following its established `[confirmed]`/`[derived]`/`[designed]` discipline (see any existing report for the house style), commit and push to the research repo's `main` directly (standing rule — no branch, no asking), move the now-cited save/recording files to their `-processed/` siblings. Report back: which report(s) changed, the commit hash, a plain summary of what was newly confirmed or corrected, and anything it could not settle.
+**Stage 1 — evidence → RE findings.** One Opus agent, dispatched fresh (no shared context assumed). Give it: the specific note file (or a description of what's new), the research-repo clone/write instructions above, the local evidence-folder paths, and the toolchain paths in case it needs them. Its job: read the note, correlate the named saves/recording, run controlled comparisons, decompile further only if the note's claim needs code-level confirmation and isn't already covered by an existing report, write a new report or update an existing one in the research repo following its `[confirmed]`/`[derived]`/`[designed]` discipline (any existing report shows the house style), commit and push to the research repo's `main` directly, and move the now-cited save/recording files to their `-processed/` siblings. Report back: which report(s) changed, the commit hash, a plain summary of what was newly confirmed or corrected, and anything it could not settle.
 
-**Stage 2 — RE findings → game design**, dispatched only after stage 1 reports back (never both at once — this is a real sequential dependency, not two parallel jobs). A second, fresh Opus agent. Give it: exactly what stage 1 changed (report names + commit hash — don't make it re-discover this), and this repo's `game-design.md`, `design-audit.md`, and `build-orchestration-plan.md`. Its job: read the new/changed report(s), decide whether they affect any existing `[confirmed]`/`[derived]`/`[designed]` claim, open question, or task DoD line in this repo. If they do and it's a plain factual correction (a wrong offset, a superseded guess), draft the fix. If it's a genuine judgment call (a design decision, not a fact), **do not decide it** — pose the question plainly, the same way `design-audit.md` §3's open questions were raised, and stop. Either way: push the work to a new branch (never `main` directly — this repo's convention throughout is draft-then-review for anything beyond a routine plan-catalogue correction), not merged. Report back: the branch, what changed and why, and any open question for the human.
+**Stage 2 — RE findings → this repository**, dispatched only after stage 1 reports back (never both at once — a real sequential dependency). A second, fresh Opus agent. Give it exactly what stage 1 changed (report names and commit hash — don't make it re-discover this). Its job is **part B of the post-merge documentation checklist** ([build-process.md §4.8](build-process.md#48-documentation-update-after-every-merge)), applied to the new evidence instead of a merged task. Each finding takes exactly one of four routes:
 
-**Whoever invokes `/process-evidence`** (the interactive session, not a subagent) is the one coordinating both dispatches — dispatch stage 1, wait for its async completion notification (don't poll), then dispatch stage 2 with stage 1's actual output as input, then relay the final branch/summary to the user. If stage 1 finds nothing worth writing up (the note doesn't add anything beyond what's already confirmed), stop there and say so — don't dispatch stage 2 over nothing.
+1. **Claims.** For each item of §4.8 part B — `design-audit.md` and `game-design.md` claims, the investigations index, release-plan gates, the operating guide's §7 open items, the README — decide whether the new evidence confirms, corrects or closes something, and draft the fix in place (current fact only, cited).
+2. **Defects in merged code.** A merged constant, field or rule the evidence shows to be wrong is **filed as a `bug` issue** with the evidence ([build-process.md §4.7](build-process.md#47-the-bug-list)), never patched — the planner pass decides what happens to it.
+3. **Tasks not yet dispatched.** A scope or DoD change to a task that has not started is drafted as a [task-catalogue.md](task-catalogue.md) edit on the same review branch; a DoD only changes by a reviewed commit ([build-process.md §4.4](build-process.md#44-the-dod-is-not-negotiable-by-an-agent)).
+4. **Design decisions.** A genuine judgment call is **not decided**: pose it plainly, the way `design-audit.md` §3's questions were raised, and stop.
+
+Stage 2 never touches the status snapshot (§4.8 part A) — status follows the labels, not evidence. It works in **its own worktree on a new branch** off `origin/main` (never the shared checkout, which a pipeline agent may be using), pushes that branch, and does not merge: evidence-driven changes are new content, so they go through review rather than straight to `main` ([operating-guide.md §3.3](operating-guide.md#33-working-rules)). Report back: the branch, what changed and why, any bug issues filed, and any open question for the human.
+
+**Whoever invokes `/process-evidence`** (the interactive session, not a subagent) coordinates both dispatches — dispatch stage 1, wait for its completion notification (don't poll), dispatch stage 2 with stage 1's actual output as input, then relay the result to the user. If stage 1 finds nothing worth writing up, stop there and say so — no stage 2 over nothing.
 
 ## The actual skill file
 
 ```markdown
 ---
 name: process-evidence
-description: Process new save/recording/note evidence into research-repo findings, then evaluate game-design implications. Two sequential Opus dispatches.
+description: Process new save/recording/note evidence into research-repo findings, then evaluate what they change in this repository. Two sequential Opus dispatches.
 ---
 
 # /process-evidence [path or description]
 
-Full context and prerequisites: `docs/evidence-pipeline.md` in `imperial_conquest_2` — read it in full before dispatching anything, it has the exact repo/toolchain paths and the standing conventions (commit-and-push to the research repo without asking; draft-then-review branch for anything in this repo).
+Full context and prerequisites: `docs/evidence-pipeline.md` in `imperial_conquest_2` — read it in
+full before dispatching anything. It has the repo and toolchain paths and the standing conventions
+(commit and push to the research repo without asking; a review branch for anything in this repo).
 
 ## Input
 
-If given a path (e.g. a `notes/*.txt` file) or a description, that's the evidence to process. If given nothing, scan the original game directory's `notes/` folder (path from this repo's `assets.local.ini`) for a note not yet cited by any research-repo report — check the research repo's existing reports for the note's referenced save names before assuming it's new.
+If given a path (e.g. a `notes/*.txt` file) or a description, that's the evidence to process. If
+given nothing, scan the original game directory's `notes/` folder (path from this repo's
+`assets.local.ini`) for a note not yet cited by any research-repo report — check the research repo's
+existing reports for the note's referenced save names before assuming it's new.
 
 ## Steps
 
-1. Verify prerequisites from `docs/evidence-pipeline.md`'s table: `assets.local.ini` configured, the named evidence files actually exist, `gh` can reach `diegoami/imperial-conquest-2-research`. Stop and ask the user if any are missing rather than guessing.
-2. Check `ListAgents`. If anything is running in `imperial_conquest_2`'s shared checkout, note it — stage 1/2 mostly work in the *research* repo (a separate clone, not this shared checkout) so this is lower-risk than a build-pipeline dispatch, but stage 2's this-repo changes still need the isolated-worktree treatment if the build orchestrator is active.
-3. Dispatch **stage 1** (Opus, fresh agent, full self-contained brief per `docs/evidence-pipeline.md`'s "Stage 1" section). Do not dispatch stage 2 yet.
-4. Wait for stage 1's async completion notification. Do not poll.
-5. If stage 1 found nothing worth writing up, stop and report that to the user — no stage 2.
-6. Otherwise dispatch **stage 2** (Opus, fresh agent, given exactly what stage 1 changed) per `docs/evidence-pipeline.md`'s "Stage 2" section.
-7. Wait for stage 2's async completion notification.
-8. Relay to the user: what stage 1 found and where (research-repo commit), what stage 2 proposes and where (this repo's branch, if any), and any open question stage 2 raised for a human decision.
+1. Verify the prerequisites in `docs/evidence-pipeline.md`'s table: `assets.local.ini` configured,
+   the named evidence files exist, `gh` can reach `diegoami/imperial-conquest-2-research`. Stop and
+   ask the user if any are missing rather than guessing.
+2. Dispatch **stage 1** (Opus, fresh agent, a full self-contained brief per the "Stage 1" section).
+   Do not dispatch stage 2 yet.
+3. Wait for stage 1's completion notification. Do not poll.
+4. If stage 1 found nothing worth writing up, stop and report that to the user — no stage 2.
+5. Otherwise dispatch **stage 2** (Opus, fresh agent, given exactly what stage 1 changed) per the
+   "Stage 2" section: build-process.md §4.8 part B applied to the new evidence, defects in merged
+   code filed as `bug` issues (never patched), catalogue edits only for tasks not yet dispatched,
+   design decisions posed and not made, no status edits. It works in its own worktree
+   (`git worktree add <sibling-path> -b evidence/<slug> origin/main`), never in the shared
+   checkout, and pushes that branch without merging.
+6. Wait for stage 2's completion notification.
+7. Relay to the user: what stage 1 found and where (research-repo commit), what stage 2 proposes and
+   where (this repo's branch), the bug issues it filed, and any open question for a human decision.
 ```
 
-Install this at `.claude/skills/process-evidence/SKILL.md` (local, git-ignored, machine-specific — reinstall from the block above if it's ever missing).
+Install this at `.claude/skills/process-evidence/SKILL.md` (local, git-ignored — reinstall from the block above if it is ever missing).
