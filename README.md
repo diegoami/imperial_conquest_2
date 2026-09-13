@@ -15,6 +15,8 @@ Being built by a multi-agent pipeline driven from GitHub issues. **As of commit 
 
 There is still nothing to play: this is data types, a loader, verified constants and the plumbing — not gameplay. The first runnable thing is `IC2.Cli` (T23).
 
+**Since then**, two evidence passes have landed on `main` without changing any code: supply is confirmed to drive army morale every turn ([`thracia-supply-morale.md`](docs/investigations/thracia-supply-morale.md)), and the DAT's own file format is now fully decompiled ([`dat-file-layout.md`](docs/investigations/dat-file-layout.md)) — it is **not** a SAV with a different extension, which is why six of `IC2.Data`'s seven parsers throw on it today. Both are now owned by tasks: **T30** (next up) fixes the parsers, and T06/T07/T08/T14 carry the confirmed mechanics.
+
 - **Live tracker**: [issue #29](https://github.com/diegoami/imperial_conquest_2/issues/29). **Full guide to checking progress and what's actually runnable at each stage**: [`build-orchestration-plan.md` §0](docs/build-orchestration-plan.md#0-where-things-stand-and-what-you-can-test) — short version, nothing playable before `IC2.Cli` lands, nothing visual before the Godot screens do.
 - **To pause the build for any reason**: [§7.5](docs/build-orchestration-plan.md#75-user-initiated-pause) — `gh issue edit 29 --add-label orchestrator:pause`, from any session, no need to track down a running agent.
 - **To build and test what exists right now**:
