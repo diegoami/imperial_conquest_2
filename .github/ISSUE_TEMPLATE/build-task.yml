@@ -1,0 +1,125 @@
+name: Build task
+description: One task of the Imperial Conquest 2 build, mirroring a catalogue entry in docs/build-orchestration-plan.md §5.
+title: "T<nn> <Task name>"
+labels: ["task"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        One issue per catalogue entry. Fill the fields exactly as the task's entry in
+        [`docs/build-orchestration-plan.md` §5](https://github.com/diegoami/imperial_conquest_2/blob/main/docs/build-orchestration-plan.md#5-the-task-catalogue)
+        states them — the plan is the binding contract, this issue is the orchestrator's copy of it.
+        The orchestrator manages the `status:*` labels; do not set them by hand.
+
+  - type: input
+    id: design-milestone
+    attributes:
+      label: Design milestone
+      description: The game-design.md milestone this task implements, or "none".
+      placeholder: "M2"
+    validations:
+      required: true
+
+  - type: input
+    id: labels
+    attributes:
+      label: Labels
+      description: The phase and lane labels from the catalogue entry (the orchestrator applies them).
+      placeholder: "phase:1 lane:engine"
+    validations:
+      required: true
+
+  - type: input
+    id: branch
+    attributes:
+      label: Branch
+      description: "`task/T<nn>-<slug>` — one per task, never reused, deleted on merge (plan §8)."
+      placeholder: "task/T09-movement"
+    validations:
+      required: true
+
+  - type: input
+    id: model-effort
+    attributes:
+      label: Model / effort
+      description: The implementer model and effort level from the catalogue entry.
+      placeholder: "Sonnet / Medium"
+    validations:
+      required: true
+
+  - type: input
+    id: reviewer
+    attributes:
+      label: Reviewer
+      description: The reviewer model and effort level (a different model from the implementer, plan §3.4).
+      placeholder: "Sonnet / High"
+    validations:
+      required: true
+
+  - type: input
+    id: start-after
+    attributes:
+      label: Start after
+      description: Task ids whose merge unblocks starting this one, or "—".
+      placeholder: "T03"
+    validations:
+      required: true
+
+  - type: input
+    id: merge-after
+    attributes:
+      label: Merge after
+      description: Task ids that must be merged before this one may merge, or "—".
+      placeholder: "T03, T04"
+    validations:
+      required: true
+
+  - type: textarea
+    id: owns
+    attributes:
+      label: Owns
+      description: The only paths the implementer may create or modify, one glob per line. Anything outside it is a review finding.
+      placeholder: |
+        src/IC2.Engine/Calendar/**
+        tests/IC2.Engine.Tests/Calendar/**
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: What the task builds, in the words of the catalogue entry.
+    validations:
+      required: true
+
+  - type: textarea
+    id: done-when
+    attributes:
+      label: Done when
+      description: The DoD as a checklist, one runnable check per line. An implementer may not weaken, skip, or edit these lines — it escalates instead (plan §6.4).
+      value: |
+        - [ ]
+      placeholder: |
+        - [ ] Advancing 48 turns produces a sequence byte-equal to the committed fixture.
+        - [ ] The quarterly hook fires exactly 4 times per in-game year, asserted by count.
+    validations:
+      required: true
+
+  - type: textarea
+    id: hazards
+    attributes:
+      label: Hazards
+      description: Known ways this task goes wrong silently, and what the reviewer should look at hardest. Write "none" if the entry lists none.
+    validations:
+      required: true
+
+  - type: input
+    id: plan-anchor
+    attributes:
+      label: Plan anchor
+      description: Link to this task's section in docs/build-orchestration-plan.md (two-way cross-referencing, plan §8).
+      placeholder: "https://github.com/diegoami/imperial_conquest_2/blob/main/docs/build-orchestration-plan.md#t09-movement-and-terrain"
+    validations:
+      required: true

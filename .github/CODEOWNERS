@@ -1,0 +1,7 @@
+# Code owners for Imperial Conquest 2.
+# Documentation and repository automation always notify a human reviewer
+# (docs/build-orchestration-plan.md, T05). Later patterns take precedence
+# over earlier ones; a path not listed here has no required owner.
+
+/docs/      @diegoami
+/.github/   @diegoami
