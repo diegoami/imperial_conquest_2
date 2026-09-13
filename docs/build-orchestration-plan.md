@@ -249,14 +249,14 @@ Conventions used by every entry:
 - **Design milestone**: none (prerequisite the backlog assumes). **Labels**: `phase:0 lane:infra`
 - **Branch**: `task/T01-build-scaffolding` · **Model/effort**: Sonnet / Medium · **Reviewer**: Sonnet / High
 - **Start after**: — · **Merge after**: —
-- **Owns**: `IC2.sln`, `Directory.Build.props`, `.editorconfig`, `tests/**`, `.github/workflows/**`, `scripts/**`
+- **Owns**: `IC2.sln`, `Directory.Build.props`, `.editorconfig`, `tests/**`, `.github/workflows/**`, `scripts/**`, `src/IC2.Engine/IC2.Engine.csproj`, `src/IC2.Cli/**` (the bare `.csproj`/stub `Program.cs` only — `src/IC2.Engine/Model/**` and `src/IC2.Engine/Serialization/**` are T02's, not touched here)
 - **Scope**: Create the solution and **pre-declare every project the backlog will ever need** so no later task edits `IC2.sln`: existing `IC2.Data`, `IC2.Inspect`; new `src/IC2.Engine`, `src/IC2.Cli`; new `tests/IC2.Engine.Tests`, `tests/IC2.Data.Tests`. `godot/IC2.MapViewer.csproj` is **excluded** from the solution (it needs the Godot SDK and cannot build in CI) and that exclusion is documented in the file. `Directory.Build.props` centralises `net10.0`, `Nullable=enable`, `ImplicitUsings=enable`, and `TreatWarningsAsErrors=true` **for the new projects only** (existing `IC2.Data`/`IC2.Inspect` opt out, to avoid a scaffolding task turning into a refactor). Add the CI workflow: restore, build the solution, `dotnet test`, on push and PR. Add `scripts/check-godot-churn.ps1` implementing the HANDOVER caveat — after a Godot headless run, revert `godot/project.godot` and `godot/MapViewer.cs` if their diff is whitespace/header-only.
 - **Done when**:
   1. `dotnet build IC2.sln` succeeds from a clean clone with zero warnings in the new projects.
   2. `dotnet test IC2.sln` runs and passes (a placeholder test in each new test project is acceptable).
   3. The CI workflow runs on the PR and is green; its job does **not** reference the Godot project.
   4. `scripts/check-godot-churn.ps1` exits 0 on a clean tree and exits non-zero (with the two filenames named) when `godot/project.godot`'s header alone has changed.
-- **Hazards**: do not "fix" existing `IC2.Data`/`IC2.Inspect` code; out of scope.
+- **Hazards**: do not "fix" existing `IC2.Data`/`IC2.Inspect` code; out of scope. **This PR is gated by the same CI workflow it adds — that is not a chicken-and-egg problem worth special-casing.** A same-repo (non-fork) branch's `pull_request`-triggered workflow runs using the workflow file *from that PR's head*, so T01's own PR does get checked by the workflow it introduces, same as every later task; an earlier belief that "T01 can't gate on its own CI" and needs a manual exception was simply wrong and should not be repeated.
 
 #### T02 Core domain model and JSON round-trip
 
@@ -330,7 +330,11 @@ Conventions used by every entry:
 - **Start after**: — · **Merge after**: — (fully disjoint; can merge first)
 - **Owns**: `.github/pull_request_template.md`, `.github/ISSUE_TEMPLATE/**`, `.github/CODEOWNERS`
 - **Scope**: The PR template carrying the review contract from [§6.2](#62-what-the-reviewer-checks): a DoD-evidence fenced block, a provenance checklist, a determinism checkbox, an Owns-list scope declaration, and `Closes #<issue>`. An issue template for a build task mirroring the catalogue entry shape. `CODEOWNERS` assigning `docs/` and `.github/` to the user so doc changes always notify a human.
-- **Done when**: `gh pr create` on a scratch branch picks up the template (verified by the created PR's body containing the DoD-evidence heading); the issue template appears in `gh issue create --web`'s list; all three files parse (`gh api` returns them without error).
+- **Done when** (headless-checkable, what the implementer and reviewer actually run):
+  1. All three files exist and parse without error (`gh api repos/<owner>/<repo>/contents/<path>` returns 200 for each).
+  2. `.github/pull_request_template.md`'s text contains the DoD-evidence heading, the provenance checklist, the determinism checkbox, the Owns-list scope declaration, and the literal string `Closes #` — a plain text/regex assertion against the file, not a behavioral PR-creation check.
+  3. The issue template's YAML front matter parses and its body fields mirror the catalogue entry shape (task/model/effort/DoD).
+  - **Not part of the headless gate — post-merge, human-verified only**: that `gh pr create` run interactively (no TTY in an agent's shell, so an agent cannot itself drive this) actually renders the template as the new PR's starting body, and that the issue template appears in `gh issue create --web`'s picker (opens a browser; unobservable to an agent). Noted here as a real check worth doing once, by hand, the next time a human opens an issue or PR — not a gate any agent can pass or fail.
 
 ---
 
@@ -783,6 +787,13 @@ This is what makes the pipeline **resumable across sessions**: a brand-new Claud
      and no open PR  → reset to status:ready, delete the stale branch if one exists.
 3. Drain finished PRs:
      gh pr list --label task --json number,labels,statusCheckRollup,mergeable
+     Before trusting a green statusCheckRollup: if any of this PR's merge-after deps merged to
+     main AFTER this PR's branch was cut (i.e. this branch predates that merge), its existing
+     "green" ran against a stale base and proves nothing about the merged code — GitHub does not
+     retroactively re-run checks on a branch when its base moves. Run `gh pr update-branch
+     <number>` first, then wait for the resulting fresh check run before treating it as green.
+     A task genuinely merged in dependency order with no intervening merge-after landing needs no
+     update — this only applies to the out-of-order case.
      status:approved + green + MERGEABLE  → squash-merge, close issue, delete branch, status:merged,
        **then update README.md's "Current status" section and HANDOVER.md's split/build-status
        callout and "Next useful work" #1, commit directly to main (not a task branch — §2.3), in
