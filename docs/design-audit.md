@@ -130,6 +130,22 @@ The original's condition is in `THumanFalls_InitializeForm`. The *designed* alte
 
 There are two: the **strategic army morale** at army record `+14` (displayed as a tier on the army panel, seeds tactical morale, multiplies both army-strength formulas), and the **per-unit tactical morale array** `DAT_004A0350` that the `±2`/`−3` rule operates on. [`battle-quality-promotion-and-morale-array-decompiled.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/battle-quality-promotion-and-morale-array-decompiled.md) calls `+14` "army experience", which made the two look unrelated. Implementing this without separating them will produce a subtle, hard-to-find bug. Not a wrong claim — a naming hazard worth a note when the combat model is built.
 
+### 2.9a Combat/Supply: strategic morale is **driven by supply**, every turn — a mechanic neither document has **[confirmed, new]**
+
+Separating the two morales (§2.9) exposed what the strategic one is actually *for*, and it is not combat bookkeeping. `FUN_004514ec` (`0x004514EC`), the turn tick, rewrites `ArmyRecord +14` on **every army, every turn**, from that army's supply percentage — computed after that turn's consumption:
+
+- `pct < 10` → **morale `−2`**, hard-floored at **51**, and the army loses **one move**.
+- `10 ≤ pct ≤ 15` → **no change** (a deliberate dead band).
+- `pct > 15` → **morale `+1`**, capped at **70**.
+
+`51 … 70` are the field's real bounds, and they are exactly the five 4-wide tiers the army panel prints via `moraleNames[(v − 51) >> 2]`; a fresh army starts at 59, mid-range. Note the **2:1 asymmetry** — recovery is half as fast as decay, so starvation costs roughly twice what it takes to undo.
+
+Per-turn supply consumption is `((90 − seasonVal) × troops) / 20000`, with the season table read straight out of the DAT at `0x1F7D8` (Spring 50 · Summer 80 · Autumn 80 · Winter 20) — so winter costs **7×** summer. An army aboard a fleet uses a flat `troops / 200`, no seasonal term.
+
+The naval side is the same idea on different terms, and must **not** share an implementation: a fleet at sea with **exactly 0** supplies loses `random(0..1)` **condition** per turn with no floor and no free regeneration, and is destroyed outright below 40 (*"is lost at sea"*). Condition occupies the structural role morale does — `ships × condition / 10` for naval strength against `(troops / 80) × morale` for land.
+
+This matters for the design: supply stops being an inert logistics counter and becomes the main peacetime pressure on army strength, since `+14` multiplies both army-strength formulas. Confirmed empirically turn-for-turn, 12 of 12 transitions with every confound excluded, in [`investigations/thracia-supply-morale.md`](investigations/thracia-supply-morale.md). `game-design.md`'s one-line "seasonal consumption" mention should be replaced by this; it is also a strong candidate for a new report in the research repo.
+
 ### 2.10 Combat: quality promotion tagged `[confirmed, one battle's evidence]` — **should be `[derived]` [flagged]**
 
 The cited report is explicit that the rule is empirical, from 13 units in one battle, with the exact implementing code never located, and that it cannot tell whether the rule generalises past the "average" tier. That is a textbook `[derived]`. Separately, a **second, code-level** promotion rule now exists on the instant-resolve path (promote to ≥ "average", then 1-in-4 further), which is *not* an adjacency rule — so "the" promotion rule is at least two rules on two code paths.
