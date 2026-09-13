@@ -12,7 +12,7 @@ public sealed class SaveArmyTable
     public const int RecordLength = 656;
     /// <summary>16 bytes: X(+0) Y(+2) Owner(+4) Moves(+6) CoveredCell(+8) Supplies(+10) Money(+12) Morale(+14).
     /// Every field is now decompiled; no header byte is padding. See
-    /// docs/reports/decompiled-unit-map-orders-and-record-fields.md.</summary>
+    /// https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-unit-map-orders-and-record-fields.md.</summary>
     public const int HeaderLength = 16;
     public const int UnitSlotLength = 32;
     public const int UnitSlotsPerArmy = 20;
@@ -107,7 +107,7 @@ public sealed class ArmyRecord
     /// when the army moves or is removed — NOT a morale value, as this field was labelled until the
     /// movement/creation/removal code was decompiled. It is also what the army-information panel prints
     /// as "Terrain". <see cref="AboardFleetSentinel"/> means the army is embarked on a fleet.
-    /// See docs/reports/decompiled-unit-map-orders-and-record-fields.md.</summary>
+    /// See https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-unit-map-orders-and-record-fields.md.</summary>
     public ushort CoveredCell { get; }
 
     /// <summary>True when <see cref="CoveredCell"/> is the aboard-a-fleet sentinel. Such an army has no

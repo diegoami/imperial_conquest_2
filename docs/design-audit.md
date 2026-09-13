@@ -6,17 +6,17 @@ Same tagging convention as `game-design.md`: **[confirmed]** (direct RE evidence
 
 Three new reports came out of this pass and carry the evidence for everything cited below:
 
-- [terrain-move-cost-table-in-dat.md](reports/terrain-move-cost-table-in-dat.md)
-- [decompiled-unit-map-orders-and-record-fields.md](reports/decompiled-unit-map-orders-and-record-fields.md)
-- [decompiled-diplomacy-peace-terms-and-instant-battles.md](reports/decompiled-diplomacy-peace-terms-and-instant-battles.md)
+- [terrain-move-cost-table-in-dat.md](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/terrain-move-cost-table-in-dat.md)
+- [decompiled-unit-map-orders-and-record-fields.md](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-unit-map-orders-and-record-fields.md)
+- [decompiled-diplomacy-peace-terms-and-instant-battles.md](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-diplomacy-peace-terms-and-instant-battles.md)
 
-Small, clearly-wrong things were corrected in place rather than only flagged: `game-design.md`'s Movement, Recruitment, Diplomacy and Victory sections, and correction notes in `army-records-and-roman-roster.md`, `fleet-order-at-caere.md` and `decompiled-army-movement-and-river-cost.md`. `IC2.Data`'s two mislabelled record fields have since been fixed too, and the corrected parser re-validated against real saves (see part 4 of the unit-map report). Everything larger is listed here for a decision.
+Small, clearly-wrong things were corrected in place rather than only flagged: `game-design.md`'s Movement, Recruitment, Diplomacy and Victory sections, and correction notes in [`army-records-and-roman-roster.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/army-records-and-roman-roster.md), [`fleet-order-at-caere.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/fleet-order-at-caere.md) and [`decompiled-army-movement-and-river-cost.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-army-movement-and-river-cost.md). `IC2.Data`'s two mislabelled record fields have since been fixed too, and the corrected parser re-validated against real saves (see part 4 of the unit-map report). Everything larger is listed here for a decision.
 
 ---
 
 ## 1. Missing mechanics — things the game does that the design is silent on
 
-Method: every class prefix in `%LOCALAPPDATA%\ReTools\delphi_symbols.tsv` (31 classes, 282 methods) was listed, cross-referenced against `docs/reports/` and `game-design.md`, and anything neither mentioned was decompiled out of `all_app_functions.txt`. Two whole classes turned out to be non-gameplay (`TCellAuto` is a cellular-automaton toy with a `SaveBMP` button; `TBattleDelays` is a settings dialog for the tactical pacing pauses — incidentally the user-facing control for the delay diagnosed in `battle-freeze-diagnosed-procmon.md`). The rest are below.
+Method: every class prefix in `%LOCALAPPDATA%\ReTools\delphi_symbols.tsv` (31 classes, 282 methods) was listed, cross-referenced against `docs/reports/` and `game-design.md`, and anything neither mentioned was decompiled out of `all_app_functions.txt`. Two whole classes turned out to be non-gameplay (`TCellAuto` is a cellular-automaton toy with a `SaveBMP` button; `TBattleDelays` is a settings dialog for the tactical pacing pauses — incidentally the user-facing control for the delay diagnosed in [`battle-freeze-diagnosed-procmon.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/battle-freeze-diagnosed-procmon.md)). The rest are below.
 
 Explicitly checked for and **not found**: there is **no leader/general system** (`TPickLeaders` is the nation-setup screen that assigns each of the 16 nations to a human or the computer, and a per-nation leader *name* string; leaders have no stats and no battlefield effect), **no technology or research**, **no espionage**, and **no city improvements other than fortification**. Those four can be marked closed rather than left as unexamined possibilities.
 
@@ -57,7 +57,7 @@ Nothing in `game-design.md` mentions armies travelling by sea or fleets fighting
 - **Split army**: needs ≥ 2 units; hard cap of **198 armies** in play; a new army starts with morale 59, no money, no supplies, and **0 moves for a human nation / 1 move for an AI one**.
 - **Disband army**: only near one of your own cities; money → treasury, supplies → that city.
 - **Unit-level join** (inside one army): regulars only, same type only, and the merged troop count must not exceed that type's **standard battalion size** (unit-type table `+0x1A`) — which is what that previously-purpose-less field is for. The merged unit's quality is the **arithmetic mean** of the merged qualities.
-- **Unit-level split/rename**, with the auto-naming scheme (`Nth Foot/Guards/Bowmen/Lancers/Dragoons Battalion`, ordinal counted across the whole nation) that every roster in `army-records-and-roman-roster.md` exhibits.
+- **Unit-level split/rename**, with the auto-naming scheme (`Nth Foot/Guards/Bowmen/Lancers/Dragoons Battalion`, ordinal counted across the whole nation) that every roster in [`army-records-and-roman-roster.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/army-records-and-roman-roster.md) exhibits.
 
 ### 1.6 Diplomacy is fully recoverable, not a dead end **[confirmed]**
 
@@ -79,11 +79,11 @@ It also contains the **AI-to-AI reparation trigger** the project has been huntin
 
 ### 1.10 Smaller confirmed details with no home in the design
 
-- **Map markers encode owner *and* size**: armies `200/216/232 + owner` for `<25k / 25–50k / ≥50k` troops, fleets `300/316/332 + owner` for `<25 / 25–50 / ≥50` ships. This closes `roadmap.md`'s `333`-vs-`335` open item: both are large fleets, of Carthage and Ptolemaic respectively.
+- **Map markers encode owner *and* size**: armies `200/216/232 + owner` for `<25k / 25–50k / ≥50k` troops, fleets `300/316/332 + owner` for `<25 / 25–50 / ≥50` ships. This closes [`roadmap.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/roadmap.md)'s `333`-vs-`335` open item: both are large fleets, of Carthage and Ptolemaic respectively.
 - **Unit slot `+0` is the regular/mercenary marker** (0 = regular, non-zero = a mercenary name-table index), which drives two different upkeep formulas and blocks unit merging.
 - **Mercenary hire cost = `(troops × quarterlyPrice[type]) / 1000 × quality`**, paid from the **army's** purse.
 - **Mercenary upkeep = `(troops / 200) × price[type] × quality / 5`**, versus `(troops / 200) × price[type]` for regulars. The regular formula reproduces the Roman army's screenshot value of **442 talents/quarter exactly** over its 13 published units.
-- **Unit-type table field `+0x26`** (LI 20 · HI 100 · Ar 40 · LC 60 · HC 120) is the per-type **combat-power weight** used by field-battle strength — one of the two fields `unit-type-stat-table-in-dat.md` left unidentified.
+- **Unit-type table field `+0x26`** (LI 20 · HI 100 · Ar 40 · LC 60 · HC 120) is the per-type **combat-power weight** used by field-battle strength — one of the two fields [`unit-type-stat-table-in-dat.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/unit-type-stat-table-in-dat.md) left unidentified.
 - **Terrain table**: 12 cell codes, `Sea` 1 / `Sea` 3 / `Plain` 1 / `Desert` 1 / `Forest` 2 / `Mountains` 4 / `River` ×6 at 4.
 
 ---
@@ -94,7 +94,7 @@ Ordered worst-first. Items marked **fixed in place** have already been corrected
 
 ### 2.1 Movement: "only river-coded tiles cost movement points" — **wrong [fixed in place]**
 
-`game-design.md` (and `decompiled-army-movement-and-river-cost.md` behind it) read `FUN_0044D420`'s guard `if (2 <= cell <= 11)` as "the confirmed river range", because `rivers-and-map-markers.md` and `roadmap.md` §2 both record rivers as values **6–11**. `2..11` is *all land terrain*. The table the guard indexes is now extracted from the DAT file at `0x1F622`: Plain 1, Desert 1, Forest 2, Mountains 4, River 4. Forests and mountains **do** slow you down. The correction session over-corrected: the original generic assumption was directionally right and was replaced with a narrower claim that the evidence does not support either.
+`game-design.md` (and [`decompiled-army-movement-and-river-cost.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-army-movement-and-river-cost.md) behind it) read `FUN_0044D420`'s guard `if (2 <= cell <= 11)` as "the confirmed river range", because [`rivers-and-map-markers.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/rivers-and-map-markers.md) and [`roadmap.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/roadmap.md) §2 both record rivers as values **6–11**. `2..11` is *all land terrain*. The table the guard indexes is now extracted from the DAT file at `0x1F622`: Plain 1, Desert 1, Forest 2, Mountains 4, River 4. Forests and mountains **do** slow you down. The correction session over-corrected: the original generic assumption was directionally right and was replaced with a narrower claim that the evidence does not support either.
 
 This is worth dwelling on, because it is the same failure in both directions: neither the original assumption nor its replacement was checked against the actual table, which was one string search away.
 
@@ -120,7 +120,7 @@ The original's condition is in `THumanFalls_InitializeForm`. The *designed* alte
 
 ### 2.7 Recruitment: "mercenary hire with the same cost shape plus a distinct pool **[confirmed: mercenary-pool-record.md]**" — **citation did not support it [fixed in place]**
 
-`mercenary-pool-record.md` is a save-diff report about the 50-slot pool record; it says nothing about cost. `decompilation-plan.md` item 2 explicitly listed *"the mercenary cost formula's exact table values (does it use this same table?)"* as **open** at the time `game-design.md` was written. The claim happens to be true — it is confirmed now, with the actual formula — but it was tagged `[confirmed]` against a report that does not contain the evidence. This is the exact pattern worth watching for: a plausible statement wearing a citation that does not carry it.
+[`mercenary-pool-record.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/mercenary-pool-record.md) is a save-diff report about the 50-slot pool record; it says nothing about cost. [`decompilation-plan.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/decompilation-plan.md) item 2 explicitly listed *"the mercenary cost formula's exact table values (does it use this same table?)"* as **open** at the time `game-design.md` was written. The claim happens to be true — it is confirmed now, with the actual formula — but it was tagged `[confirmed]` against a report that does not contain the evidence. This is the exact pattern worth watching for: a plausible statement wearing a citation that does not carry it.
 
 ### 2.8 Recruitment: mercenary `Label` "non-gameplay-relevant, so this gap blocks nothing" — **wrong [fixed in place]**
 
@@ -128,7 +128,7 @@ The original's condition is in `THumanFalls_InitializeForm`. The *designed* alte
 
 ### 2.9 Combat: "the morale mechanic (`±2`/`−3` per exchange …) **[confirmed]**" — **right, but conflates two different morales [flagged, not fixed]**
 
-There are two: the **strategic army morale** at army record `+14` (displayed as a tier on the army panel, seeds tactical morale, multiplies both army-strength formulas), and the **per-unit tactical morale array** `DAT_004A0350` that the `±2`/`−3` rule operates on. `battle-quality-promotion-and-morale-array-decompiled.md` calls `+14` "army experience", which made the two look unrelated. Implementing this without separating them will produce a subtle, hard-to-find bug. Not a wrong claim — a naming hazard worth a note when the combat model is built.
+There are two: the **strategic army morale** at army record `+14` (displayed as a tier on the army panel, seeds tactical morale, multiplies both army-strength formulas), and the **per-unit tactical morale array** `DAT_004A0350` that the `±2`/`−3` rule operates on. [`battle-quality-promotion-and-morale-array-decompiled.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/battle-quality-promotion-and-morale-array-decompiled.md) calls `+14` "army experience", which made the two look unrelated. Implementing this without separating them will produce a subtle, hard-to-find bug. Not a wrong claim — a naming hazard worth a note when the combat model is built.
 
 ### 2.10 Combat: quality promotion tagged `[confirmed, one battle's evidence]` — **should be `[derived]` [flagged]**
 
@@ -146,7 +146,7 @@ The engine's terrain table has **12 codes** and 6 distinct names. "5 values" cam
 
 Re-read against their cited reports and found to be as strong as stated: the calendar model (week `+2 mod 12`, season at the 11→1 wrap, year at Winter→Spring, quarterly billing on the season boundary); tax `income = base × rate / 100` with `base = 2,440` solved twice for Rome; ship upkeep `× 3`; recruitment `cost = (troops / 200) × price[type]`; the 100,000-troop army cap; the melee 40% cap `floor(0.4 × defenderTroops) + 1`; the 30,000 cap; the siege strength shape with archers tripled; the loyalty floors (40 forced capture / 65 defection / toward 90 when the allegiant nation recaptures); the cascading defection conditions; the nation-elimination cascade; the SAV layout; the news log as a 40-slot ring buffer; the `[open]` tags on the rebellion check `FUN_0044C204` and the weather-event effect `FUN_004511BC`.
 
-One item to re-check rather than trust: `decompiled-city-capture-resolution.md` describes a **−20% defender penalty when owner ≠ allegiance**, while the siege entry point `FUN_0044B27C` applies a **×9/10 (−10%) defender reduction when the *attacking nation* equals the city's allegiance**. These may be two separate adjustments in two functions, or one of the two readings may be off. `FUN_0044A98C` (defender strength) was not decompiled this pass. **[open]**
+One item to re-check rather than trust: [`decompiled-city-capture-resolution.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-city-capture-resolution.md) describes a **−20% defender penalty when owner ≠ allegiance**, while the siege entry point `FUN_0044B27C` applies a **×9/10 (−10%) defender reduction when the *attacking nation* equals the city's allegiance**. These may be two separate adjustments in two functions, or one of the two readings may be off. `FUN_0044A98C` (defender strength) was not decompiled this pass. **[open]**
 
 Two record-field labels the project is carrying that the code contradicts, both corrected in their reports and **still wrong in `IC2.Data`** (not changed here — this is an audit, not a code task): `ArmyRecord +8` is the covered map cell, not morale (`+14` is morale); `FleetRecord +20` is the fleet's condition percentage once launched, and only a build-city index while under construction.
 
@@ -171,7 +171,7 @@ These are the judgment calls this audit ran into that are genuinely product deci
 | **A. Port the original's instant resolver** (`FUN_0044AEE4` / `FUN_0044B27C` / `FUN_0044B5D0`) | Single power comparison; loser's army annihilated; winner takes `loserPower × 40 / winnerPower` casualties; ties to the defender | Fully confirmed math, trivial to implement and test, no invented rules. But brutal (no partial defeats, no retreat) and it **cannot reproduce the Rome/Gaul golden fixture**, which came from the tactical path |
 | **B. The design's current plan** | Run the tactical melee/shooting exchange loop headlessly with an invented pairing rule | Preserves the rich per-unit-type result the design's battle screen is built around, and can reproduce the Rome/Gaul fixture. But the pairing rule is `[designed]` and directly determines outcomes |
 | **C. Both, as named ruleset variants** | `"resolution": "quick"` (A) for AI-vs-AI, `"detailed"` (B) when a human seat is involved | This is **exactly what the original does** — it is the most faithful option. Costs two engines and two test suites |
-| **D. Restore a real tactical battle** | Keep the grid, placement and per-action play | The freeze that motivated dropping it was diagnosed as a hardcoded ~3.02 s pacing delay (`battle-freeze-diagnosed-procmon.md`) that a reimplementation simply would not have. This reopens a scope decision you already closed — flagged only because the justification for closing it has weakened |
+| **D. Restore a real tactical battle** | Keep the grid, placement and per-action play | The freeze that motivated dropping it was diagnosed as a hardcoded ~3.02 s pacing delay ([`battle-freeze-diagnosed-procmon.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/battle-freeze-diagnosed-procmon.md)) that a reimplementation simply would not have. This reopens a scope decision you already closed — flagged only because the justification for closing it has weakened |
 
 **Follow-up, new: what happens to the loser under option A, now that it's the only resolver in play.** Option A's `[confirmed]` math is annihilation, full stop — no partial defeats, no retreat, which reads as unusually harsh once it runs on *every* battle rather than the subset the original reserved it for. The user's follow-up decision: keep annihilation in `classical-faithful` (still fully confirmed, verbatim), and add a `[designed, no original analogue]` alternative in `improved` — the losing army/fleet survives at reduced strength and **scatters** 2–4 tiles away from the victor instead of being destroyed, with its moves zeroed for the rest of that turn so the victor (whose own move was already spent on the attack) cannot immediately give chase. Full spec in `game-design.md`'s Combat section, `combat.onDefeat` flag. Options D's tactical grid and option B/C's pairing rule stay declined for the reasons above; this only adds a third *outcome* on top of option A's math, not a fourth resolver. It also gives the held-in-reserve "detailed resolver" (type-effectiveness matrix, melee cap, tactical morale) a concrete future use beyond "possible": it is the natural foundation for the optional battle screen now noted in `game-design.md`'s "User interface" section, since it is the one candidate that can produce a per-unit-type exchange log to show.
 
@@ -219,7 +219,7 @@ Two are now identified. The quarterly diplomatic-thaw loop iterates only the **f
 
 ### Q9. One evidence gap worth a five-minute play session
 
-The code says buying supply costs `amount / 5` from the army's money purse, but the three frames tabulated in `galatia-elimination-and-city-resupply-confirmed.md` show Army 0's money unchanged at 256 across a 100-ton purchase. One controlled same-turn save pair around a single supply purchase would settle it. Worth capturing before the economy milestone is implemented, since it is the difference between "supply is a cost" and "supply is free".
+The code says buying supply costs `amount / 5` from the army's money purse, but the three frames tabulated in [`galatia-elimination-and-city-resupply-confirmed.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/galatia-elimination-and-city-resupply-confirmed.md) show Army 0's money unchanged at 256 across a 100-ton purchase. One controlled same-turn save pair around a single supply purchase would settle it. Worth capturing before the economy milestone is implemented, since it is the difference between "supply is a cost" and "supply is free".
 
 ---
 
@@ -264,18 +264,18 @@ The design names four. The reports contain at least a dozen more with exact numb
 
 | Fixture | Source | Exact assertion |
 | --- | --- | --- |
-| Roman army upkeep | `army-records-and-roman-roster.md` (roster published in full) | 13 units → **442** talents/quarter |
+| Roman army upkeep | [`army-records-and-roman-roster.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/army-records-and-roman-roster.md) (roster published in full) | 13 units → **442** talents/quarter |
 | Roman army supply % | same | 482 t / 48,173 troops → **100%** |
-| Supply percentage triple | `galatia-elimination-and-city-resupply-confirmed.md` | 204/998 → **20%**, 344/998 → **34%**, 184/282 → **65%** |
-| Tax base | `rome-tax-increase-and-sidon-capture.md`, `decompiled-quarterly-billing-and-economy.md` | `2,440 × 15/100` and `× 20/100` |
-| Fleet order | `fleet-order-at-caere.md` | 10 ships → **100** talents, capacity **5,000**, upkeep **30** |
+| Supply percentage triple | [`galatia-elimination-and-city-resupply-confirmed.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/galatia-elimination-and-city-resupply-confirmed.md) | 204/998 → **20%**, 344/998 → **34%**, 184/282 → **65%** |
+| Tax base | [`rome-tax-increase-and-sidon-capture.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/rome-tax-increase-and-sidon-capture.md), [`decompiled-quarterly-billing-and-economy.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-quarterly-billing-and-economy.md) | `2,440 × 15/100` and `× 20/100` |
+| Fleet order | [`fleet-order-at-caere.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/fleet-order-at-caere.md) | 10 ships → **100** talents, capacity **5,000**, upkeep **30** |
 | Fleet marker encoding | new, this pass | 90 ships owner 1 → **333**; 70 ships owner 3 → **335** |
 | Terrain costs | new, this pass | the 12-entry table verbatim |
-| Mercenary hire | `mercenary-pool-record.md` + new cost formula | Felsina 6,438 "very good" → cost, then `0xFFFF` sentinel |
-| Supply transfer conservation | `controlled-army-supply-transfer.md` | 79 tons, exactly reciprocal, nothing else changes |
-| Mobilization conservation | `city-units-army-transfer-and-mercenaries.md` | Rome 85,000 → 70,000; Masada's six units → 49,800 |
-| Reparation | `diplomatic-reparations-and-more-captures.md` | Ptolemaic 999 → −1270 (range assertion, given the random term) |
-| Elimination cascade | `galatia-elimination-and-city-resupply-confirmed.md` | 9 cities, 2 "falls to" with population/fortification loss, 7 "defects from" without |
+| Mercenary hire | [`mercenary-pool-record.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/mercenary-pool-record.md) + new cost formula | Felsina 6,438 "very good" → cost, then `0xFFFF` sentinel |
+| Supply transfer conservation | [`controlled-army-supply-transfer.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/controlled-army-supply-transfer.md) | 79 tons, exactly reciprocal, nothing else changes |
+| Mobilization conservation | [`city-units-army-transfer-and-mercenaries.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/city-units-army-transfer-and-mercenaries.md) | Rome 85,000 → 70,000; Masada's six units → 49,800 |
+| Reparation | [`diplomatic-reparations-and-more-captures.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/diplomatic-reparations-and-more-captures.md) | Ptolemaic 999 → −1270 (range assertion, given the random term) |
+| Elimination cascade | [`galatia-elimination-and-city-resupply-confirmed.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/galatia-elimination-and-city-resupply-confirmed.md) | 9 cities, 2 "falls to" with population/fortification loss, 7 "defects from" without |
 
 Recommendation: make "transcribe every exact number in `docs/reports/` into a fixtures file" an explicit early milestone task (part of M1), rather than leaving each milestone to find its own. It is a few hours of work that makes every later milestone's *done when* mechanically checkable.
 

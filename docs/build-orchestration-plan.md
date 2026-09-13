@@ -289,7 +289,7 @@ Conventions used by every entry:
 - **Owns**: `src/IC2.Engine/Calendar/**`, `tests/IC2.Engine.Tests/Calendar/**`
 - **Scope**: Week `+2 mod 12`; season advance at the 11→1 wrap; year *decrement* at Winter→Spring (270 BC counts down); the quarterly hook fired on the season boundary; active-seat rotation following the save's 16-entry turn-order table, with hotseat pause points surfaced as events (not UI). City-unit `StateCode` +2/week capped at 24. Parameterised by `weeksPerSeason`/`seasonsPerYear` from the ruleset.
 - **Done when**:
-  1. Advancing 48 turns from the shipped start produces a week/season/year sequence byte-equal to a committed expected-sequence fixture (hand-computed in the PR body from `decompiled-turn-and-calendar-sequencing.md`).
+  1. Advancing 48 turns from the shipped start produces a week/season/year sequence byte-equal to a committed expected-sequence fixture (hand-computed in the PR body from [`decompiled-turn-and-calendar-sequencing.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-turn-and-calendar-sequencing.md)).
   2. The quarterly hook fires **exactly 4 times per in-game year** over that 48-turn run — asserted by count, not by inspection.
   3. The year decrements only at the Winter→Spring wrap (a test walks every wrap and asserts on the other three that the year is unchanged).
   4. Seat rotation visits every seat once per calendar tick in turn-order-table order; a hotseat seat raises a handoff event and an AI seat does not.
@@ -325,7 +325,7 @@ Conventions used by every entry:
   5. A 100-ton supply purchase costs **20** talents, debited from the buying army's purse and credited to the **selling city's owner's** treasury — behind ruleset flag `supplyPurchaseCostsMoney` (default `true`, per the code), with the flag's existence and `design-audit.md` Q9 named in its `_provenance`.
   6. The purse cap of 1,000 is enforced on every path that credits a purse.
   7. An army whose upkeep cannot be paid loses troops (a real consequence, not a debt counter).
-  8. Weather events fire ~8× more often in Winter than Summer over a fixed-seed 400-quarter run (asserted as a ratio band, the only band assertion in the plan, because the underlying figure is itself approximate in `decompiled-weather-events.md`).
+  8. Weather events fire ~8× more often in Winter than Summer over a fixed-seed 400-quarter run (asserted as a ratio band, the only band assertion in the plan, because the underlying figure is itself approximate in [`decompiled-weather-events.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-weather-events.md)).
   9. Under `economy.purses = centralized` (`improved`), the same supply/mercenary purchase debits and credits the national treasury directly, with no per-army/per-fleet purse involved — asserted with a fixture that would fail item 5's purse-crediting assertion if run under the wrong flag, so the two paths can't silently collapse into one.
 - **Hazards**: Q9 is unresolved evidence, not an engineering unknown — implement the code's behaviour behind the flag and do **not** escalate; the flag is the resolution.
 
@@ -402,7 +402,7 @@ Conventions used by every entry:
 - **Branch**: `task/T14-naval` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
 - **Start after**: T09 · **Merge after**: T07, T08, T09
 - **Owns**: `src/IC2.Engine/Naval/**`, `tests/IC2.Engine.Tests/Naval/**`
-- **Scope**: Construction (10–100 clamp, `ships × 10`, 24-tick countdown at a named coastal city, coastal nations only); launch state (condition 100%, 50 tons, no money); condition as a strength multiplier and paid repair; transport; sea movement via T09's walker; join/split/transfer/scuttle. Naval **combat** is T16. Over-capacity embarkation is `seatAsymmetry`-gated per `design-audit.md` Q6 — if the original's own AI-only trimming behaviour is implemented at all, it sits behind this same flag rather than as a hardcoded AI special case; confirm against `mobilization-movement-and-city-capture-modes.md` before adding it, and escalate rather than guess if the evidence doesn't actually support a trim (as opposed to outright refusal) for either seat type.
+- **Scope**: Construction (10–100 clamp, `ships × 10`, 24-tick countdown at a named coastal city, coastal nations only); launch state (condition 100%, 50 tons, no money); condition as a strength multiplier and paid repair; transport; sea movement via T09's walker; join/split/transfer/scuttle. Naval **combat** is T16. Over-capacity embarkation is `seatAsymmetry`-gated per `design-audit.md` Q6 — if the original's own AI-only trimming behaviour is implemented at all, it sits behind this same flag rather than as a hardcoded AI special case; confirm against [`mobilization-movement-and-city-capture-modes.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/mobilization-movement-and-city-capture-modes.md) before adding it, and escalate rather than guess if the evidence doesn't actually support a trim (as opposed to outright refusal) for either seat type.
 - **Done when**:
   1. A 10-ship order costs **100** talents, has capacity **5,000** troops, and quarterly upkeep **30**.
   2. It launches after exactly 24 ticks at 100% condition with 50 tons and 0 money; before launch its record reads as under construction.
@@ -465,7 +465,7 @@ Conventions used by every entry:
   4. Losing the last city eliminates the nation (capital sentinel set, unity reset).
   5. Per-siege attrition runs on **every** attempt, win or lose.
   6. Emits the confirmed *"falls to"* / *"defects from"* messages.
-- **Known-open item to record, not resolve**: `decompiled-city-capture-resolution.md`'s −20%-if-owner≠allegiance and `FUN_0044B27C`'s ×9/10-if-attacker==allegiance are unreconciled (`HANDOVER.md` "What's still open"). Implement **both as separately-named ruleset flags**, default to the reports' stated behaviour, and document the ambiguity in the ruleset's `_provenance`. Do **not** escalate — the resolution needs new decompilation work, not a user decision.
+- **Known-open item to record, not resolve**: [`decompiled-city-capture-resolution.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-city-capture-resolution.md)'s −20%-if-owner≠allegiance and `FUN_0044B27C`'s ×9/10-if-attacker==allegiance are unreconciled (`HANDOVER.md` "What's still open"). Implement **both as separately-named ruleset flags**, default to the reports' stated behaviour, and document the ambiguity in the ruleset's `_provenance`. Do **not** escalate — the resolution needs new decompilation work, not a user decision.
 
 #### T18 City orders (fortification)
 

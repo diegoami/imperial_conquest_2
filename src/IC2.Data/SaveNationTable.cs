@@ -30,7 +30,7 @@ public sealed class SaveNationTable
             var cities = ReadWord(data, offset + 0x446);
             var human = ReadWord(data, offset + 0x490);
             // 0xFFFF marks an eliminated nation (no capital left); confirmed against Galatia's
-            // elimination by Seleucid in docs/reports/galatia-elimination-confirmed.md.
+            // elimination by Seleucid in https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/galatia-elimination-confirmed.md.
             if ((capitalCity >= WorldPrefix.CityCount && capitalCity != NoCapitalSentinel) ||
                 cities > WorldPrefix.CityCount || human > 1)
                 throw new InvalidDataException($"Nation record {i} has invalid capital, city count, or player flag.");
@@ -105,7 +105,7 @@ internal static class SaveNationLayout
         if (fleetCountOffset + 2 > data.Length)
             throw new InvalidDataException("Save ends before the fleet count.");
         // Formula confirmed for fleetCount 2 and 3: the nation table's leading name always matched
-        // NationCatalog.Name(0) at the computed offset (see docs/reports/rome-tax-increase-and-sidon-capture.md).
+        // NationCatalog.Name(0) at the computed offset (see https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/rome-tax-increase-and-sidon-capture.md).
         var fleetCount = BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(fleetCountOffset, 2));
         if (fleetCount > WorldPrefix.CityCount)
             throw new InvalidDataException($"Implausible fleet count {fleetCount}.");

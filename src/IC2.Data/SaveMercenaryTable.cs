@@ -9,7 +9,7 @@ namespace IC2.Data;
 /// The 12-byte mercenary-offer records at the start of the region between the end of the nation table and
 /// the 55-byte turn trailer. The fixed 50-slot capacity, first found empirically (only the first 600 of the
 /// region's 3,042 bytes hold plausible data in every save checked), is now also confirmed directly from the
-/// game's own save/load code: docs/reports/decompiled-sav-file-layout.md decompiled the exact read/write
+/// game's own save/load code: https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-sav-file-layout.md decompiled the exact read/write
 /// function pair, which loops a hard-coded 50 times over 12-byte records at this position. The remaining
 /// ~2,442 bytes hold a distinct, now partially-identified structure (a count-prefixed run of 61-byte
 /// records, still unidentified) — see that report and docs/roadmap.md.
@@ -19,9 +19,9 @@ namespace IC2.Data;
 /// exactly Felsina's coordinates, and exactly the troop count and quality ("very good") the user reported
 /// hiring as mercenaries there. In `1_rome_270_winter_3.sav`, taken immediately after that hire, the same
 /// record is unchanged except troops = 0xFFFF (65535), a sentinel marking the offer consumed/empty.
-/// See docs/reports/mercenary-pool-record.md. `Label` does not match the hiring nation's own code (Gaul is
+/// See https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/mercenary-pool-record.md. `Label` does not match the hiring nation's own code (Gaul is
 /// nation code 6, not 11) and is otherwise unidentified — likely a separate, larger ethnicity/flavor catalog,
-/// consistent with the older Alexandria case (docs/reports/city-units-army-transfer-and-mercenaries.md) where
+/// consistent with the older Alexandria case (https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/city-units-army-transfer-and-mercenaries.md) where
 /// label 35 similarly did not match Ptolemaic's nation code 3.
 /// </summary>
 public sealed class SaveMercenaryTable

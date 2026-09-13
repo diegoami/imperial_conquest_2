@@ -50,13 +50,13 @@ public sealed class SaveFleetTable
 
 /// <summary>
 /// A 26-byte fleet record, now decompiled field by field from the fleet order/launch/repair/combat code —
-/// see docs/reports/decompiled-unit-map-orders-and-record-fields.md. Layout: X(+0) Y(+2) ?(+4) ?(+6)
+/// see https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-unit-map-orders-and-record-fields.md. Layout: X(+0) Y(+2) ?(+4) ?(+6)
 /// Owner(+8) ConstructionCountdown(+10) Moves(+12) Supplies(+14) Money(+16) ShipCount(+18)
 /// BuildCityOrCondition(+20) CarriedArmyIndex(+22) CoveredCell(+24).
 /// The original controlled evidence still stands: a 10-ship order placed at Caere (city 82) with no turn
 /// advance added exactly one record with ShipCount 10, word +20 = 82, and OwnerCode matching the ordering
-/// nation, changing nothing else but that nation's treasury (docs/reports/fleet-order-at-caere.md,
-/// docs/reports/fleet-owner-field-confirmed.md) — but word +20 is reused once the fleet launches, which is
+/// nation, changing nothing else but that nation's treasury (https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/fleet-order-at-caere.md,
+/// https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/fleet-owner-field-confirmed.md) — but word +20 is reused once the fleet launches, which is
 /// why it was mislabelled a permanent CityIndex.
 /// </summary>
 public sealed class FleetRecord
@@ -89,7 +89,7 @@ public sealed class FleetRecord
     /// Andematunum fleet (owner known because the next save's news log reports "A fleet belonging to
     /// Carthage is lost at sea" for this exact record) reads 1 (Carthage). All 4 remaining in-port fleets in
     /// that same save also match their port city's current owner exactly. See
-    /// docs/reports/fleet-owner-field-confirmed.md.</summary>
+    /// https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/fleet-owner-field-confirmed.md.</summary>
     public ushort OwnerCode => BinaryPrimitives.ReadUInt16LittleEndian(_raw.AsSpan(8, 2));
 
     /// <summary>Construction countdown at +10, set to 24 when the order is placed and overwritten with
