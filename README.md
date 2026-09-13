@@ -6,20 +6,22 @@ A modern, moddable reimplementation of *Imperial Conquest 2* (1996) — the game
 
 ## Current status
 
-Being built by a multi-agent pipeline driven from GitHub issues. **As of commit `4ab3344`: wave 0 (build scaffolding + GitHub hygiene) is merged** — `IC2.sln` now exists, pre-declaring `IC2.Data`, `IC2.Inspect`, `IC2.Engine`, `IC2.Cli`, and their test projects; CI runs on every push/PR.
+Being built by a multi-agent pipeline driven from GitHub issues. **As of commit `fea39d8`: wave 0 and the domain model are merged.** T01/T05 gave `IC2.sln` (pre-declaring `IC2.Data`, `IC2.Inspect`, `IC2.Engine`, `IC2.Cli` and their test projects) plus CI on every push/PR. **T02** then landed the core domain model — `World`, `Ruleset`, `Scenario`, `SaveGame` and the `GameState` tree as immutable records with strict, typed JSON loading, `_provenance` on every ruleset value, and a toy 3-city / 2-nation world under `data/`. There is still nothing to play: this is data types and a loader, not gameplay.
 
 - **Live tracker**: [issue #29](https://github.com/diegoami/imperial_conquest_2/issues/29). **Full guide to checking progress and what's actually runnable at each stage**: [`build-orchestration-plan.md` §0](docs/build-orchestration-plan.md#0-where-things-stand-and-what-you-can-test) — short version, nothing playable before `IC2.Cli` lands, nothing visual before the Godot screens do.
 - **To pause the build for any reason**: [§7.5](docs/build-orchestration-plan.md#75-user-initiated-pause) — `gh issue edit 29 --add-label orchestrator:pause`, from any session, no need to track down a running agent.
 - **To build and test what exists right now**:
   ```bash
   dotnet build IC2.sln   # 0 warnings, 0 errors
-  dotnet test IC2.sln    # placeholder tests, green
+  dotnet test IC2.sln    # 60 tests, green (59 engine + 1 data)
   ```
 - **CI**: [Actions tab](https://github.com/diegoami/imperial_conquest_2/actions).
 
 ## Building the reimplementation
 
-`IC2.Engine` (the headless game engine) and `IC2.Cli` (a scriptable play harness) are scaffolded but not yet implemented — see the status section above for what to expect at each build stage. Once `IC2.Cli` lands, this section will carry its usage.
+`IC2.Engine` (the headless game engine) currently holds T02's domain model and serialization layer only — no gameplay rules yet. `IC2.Cli` (a scriptable play harness) is still a scaffolded stub; see the status section above for what to expect at each build stage. Once `IC2.Cli` lands (T23), this section will carry its usage.
+
+The shipped data files are `data/worlds/toy-3city.json`, `data/rulesets/toy-ruleset.json` and `data/scenarios/toy-3city.json` — a deliberately small 3-city / 2-nation fixture for tests. The real 334-city `classical-mediterranean` world and the `classical-faithful` ruleset are exported later, by T29.
 
 ## The research-inspector tools (`IC2.Inspect`)
 
