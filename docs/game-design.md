@@ -84,6 +84,18 @@ Week `+2 mod 12` per turn cycle, season advances at the 11→1 wrap, year decrem
 
 `cost = (troops / 200) × priceTable[unitType]` **[confirmed: decompiled-recruitment-cost-formula.md]**; 100,000-troop army cap **[confirmed]**; mercenary hire with the same cost shape plus a distinct pool **[confirmed: mercenary-pool-record.md]**. The mercenary `Label` field's exact meaning was never resolved **[open]** — treat it as a flavor name-table index only, non-gameplay-relevant, so this gap blocks nothing.
 
+### Movement — **[confirmed structure, some numbers still open]**
+
+This section was originally written from a generic "terrain costs movement points" assumption, without checking whether the original actually works that way — a gap the user caught. It doesn't:
+
+- A move order is issued once (click a destination) and the engine walks a straight-line path (Bresenham) to it in one step, not tile-by-tile player input **[confirmed: decompiled-army-movement-and-river-cost.md]**.
+- **Only river-coded tiles (map cell values 2–11) cost movement points**, looked up per exact river code in a small table; every other terrain code (plain, and whatever the unmapped non-river codes represent) costs nothing extra in this code path **[confirmed]**. This directly overturns the generic per-terrain-type cost table a typical-4X-conventions guess would have produced — there's no evidence for "forests/mountains cost more," only rivers do.
+- Attempting to cross a river without enough remaining moves doesn't just block that step — it **zeroes the army's remaining moves for the whole turn** **[confirmed]**.
+- What sets an army's weekly `Moves` maximum in the first place is only partly known: it's recomputed weekly and reduced by a low per-army "readiness" value **[confirmed: decompiled-turn-and-calendar-sequencing.md]**; whether troop count or unit-type composition also factors in was never confirmed (two data points in `mobilization-movement-and-city-capture-modes.md` were consistent with "constant regardless of composition" but not conclusive) **[open]**.
+- Don't confuse this with the *tactical battle* per-unit `Moves` stat (light infantry 4, heavy infantry 2, archers 4, light cavalry 6, heavy cavalry 5 — `unit-type-stat-table-in-dat.md`) — that governs the now-abstracted instant battle resolution's internals, not the strategic map, and the two were easy to conflate before this pass separated them explicitly.
+
+**Ruleset default**: reuse the confirmed structure — a `moveCost` table keyed by terrain type (defaulting to 0 for everything except a `river` type, whose costs are `[designed placeholder]` until the real `DAT_004792f0` table is extracted from the DAT file) — rather than inventing generic terrain difficulty. A custom `World`'s new terrain types simply default to 0 cost unless a ruleset explicitly prices them, keeping the "arbitrary custom maps" goal from silently drifting away from what's actually confirmed.
+
 ### City capture, siege, and defection — **[confirmed]**
 
 Attacker strength (archers tripled) vs. defender strength (fortification/loyalty-based, −20% if owner≠allegiance) **[confirmed: decompiled-city-capture-resolution.md]**; forced capture changes population/fortification and pulls loyalty toward a 40 floor, defection changes neither and pulls loyalty toward a 65 floor **[confirmed: decompiled-defection-and-siege-attrition.md, galatia-elimination-and-city-resupply-confirmed.md]**; a successful capture can cascade into nearby, weakly-defended, low-loyalty cities of the same nation defecting automatically **[confirmed]**; a nation that loses its last city is eliminated (capital sentinel, unity reset) **[confirmed: galatia-elimination-and-city-resupply-confirmed.md]**. This is ready to implement close to verbatim — siege *resolution* now folds into the instant-battle-resolution engine below rather than being a separate code path, since a siege is just "attacker army vs. city garrison," resolved the same way as a field battle.
@@ -200,7 +212,7 @@ Proposed milestone order:
 2. **Turn/calendar engine**: week/season/year advance, active-seat rotation (including hotseat). *Done when*: a CLI can advance N turns on the toy scenario and print the calendar state.
 3. **Economy**: tax, upkeep, tribute, loyalty drift. *Done when*: golden-fixture tests against the real confirmed formulas pass.
 4. **Recruitment and mercenaries**. *Done when*: cost-formula tests pass against the already-solved values.
-5. **Movement, supply, and fleets** (including the now-confirmed fleet owner field).
+5. **Movement, supply, and fleets** (the now-confirmed river-cost movement rule, the confirmed fleet owner field). *Done when*: a fixture with a river tile reproduces the confirmed cost-then-zero-out behavior; plain-terrain movement costs nothing, matching the decompiled code.
 6. **City capture/siege and defection cascade**. *Done when*: a scripted scenario reproduces the Galatia-elimination pattern.
 7. **Instant battle resolution**. *Done when*: the Rome/Gaul fixture reproduces the real recorded numbers within the formula's own randomness bounds, and the melee-cap fixture hits the cap where expected.
 8. **Diplomacy** (new design). *Done when*: two AI nations can reach peace and a reparations payment occurs.
