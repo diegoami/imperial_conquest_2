@@ -1,5 +1,5 @@
 name: Build task
-description: One task of the Imperial Conquest 2 build, mirroring a catalogue entry in docs/build-orchestration-plan.md §5.
+description: One task of the Imperial Conquest 2 build, mirroring an entry in docs/task-catalogue.md §2.
 title: "T<nn> <Task name>"
 labels: ["task"]
 body:
@@ -7,7 +7,7 @@ body:
     attributes:
       value: |
         One issue per catalogue entry. Fill the fields exactly as the task's entry in
-        [`docs/build-orchestration-plan.md` §5](https://github.com/diegoami/imperial_conquest_2/blob/main/docs/build-orchestration-plan.md#5-the-task-catalogue)
+        [`docs/task-catalogue.md` §2](https://github.com/diegoami/imperial_conquest_2/blob/main/docs/task-catalogue.md#2-the-tasks)
         states them — the plan is the binding contract, this issue is the orchestrator's copy of it.
         The orchestrator manages the `status:*` labels; do not set them by hand.
 
@@ -119,7 +119,7 @@ body:
     id: plan-anchor
     attributes:
       label: Plan anchor
-      description: Link to this task's section in docs/build-orchestration-plan.md (two-way cross-referencing, plan §8).
-      placeholder: "https://github.com/diegoami/imperial_conquest_2/blob/main/docs/build-orchestration-plan.md#t09-movement-and-terrain"
+      description: Link to this task's entry in docs/task-catalogue.md (two-way cross-referencing, build-process.md §6).
+      placeholder: "https://github.com/diegoami/imperial_conquest_2/blob/main/docs/task-catalogue.md#t09-movement-and-terrain"
     validations:
       required: true

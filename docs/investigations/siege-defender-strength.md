@@ -92,7 +92,7 @@ this task's corrected provenance now points callers at it explicitly.
 ## Two further defects surfaced here, deliberately not fixed by this task
 
 Reading `FUN_0044A98C` end to end surfaces two more real defects in the currently-shipped
-`SiegeRules`, both filed as bugs (`build-orchestration-plan.md` §6.7) rather than folded into this
+`SiegeRules`, both filed as bugs ([build-process.md §4.7](../build-process.md#47-the-bug-list)) rather than folded into this
 task's scope, per the project's standing rule that a task fixes only what is in its Owns list:
 
 - **[issue #46](https://github.com/diegoami/imperial_conquest_2/issues/46)** —

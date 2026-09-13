@@ -1,10 +1,10 @@
 name: CI
 
-# T01 (docs/build-orchestration-plan.md "Build scaffolding and CI"): restore, build and test
+# T01 (docs/task-catalogue.md "Build scaffolding and CI"): restore, build and test
 # IC2.sln on every push and pull request. This job intentionally never references
 # godot/IC2.MapViewer.csproj - it requires the Godot 4.7.2 .NET SDK, which is not installed on
-# GitHub-hosted runners and cannot build here. See IC2.sln's header comment and docs/HANDOVER.md
-# for the Godot-headless-run caveat that scripts/check-godot-churn.ps1 guards against locally;
+# GitHub-hosted runners and cannot build here. See IC2.sln's header comment and docs/operating-guide.md
+# section 6 for the Godot-headless-run caveat that scripts/check-godot-churn.ps1 guards against locally;
 # that script is not invoked by this workflow because no step here runs Godot.
 
 on:

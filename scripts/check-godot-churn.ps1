@@ -3,8 +3,8 @@
     Guards against benign Godot-headless-run churn in godot/project.godot and godot/MapViewer.cs.
 
 .DESCRIPTION
-    T01 (docs/build-orchestration-plan.md "Build scaffolding and CI") implements the caveat from
-    docs/HANDOVER.md: running Godot headless against this project (for example
+    T01 (docs/task-catalogue.md "Build scaffolding and CI") implements the caveat from
+    docs/operating-guide.md section 6: running Godot headless against this project (for example
     `"<Godot install>\Godot_..._console.exe" --headless --path godot --quit-after 2`) regenerates
     godot/project.godot's header and flips godot/MapViewer.cs's line endings as a side effect, even
     when nothing meaningful changed. Committing that noise pollutes history and hides real changes
