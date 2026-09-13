@@ -6,20 +6,27 @@ A modern, moddable reimplementation of *Imperial Conquest 2* (1996) — the game
 
 ## Current status
 
-Being built by a multi-agent pipeline driven from GitHub issues. **As of commit `e7cab0c`: wave 0 and wave 1 are merged.** T01/T05 gave `IC2.sln` (pre-declaring `IC2.Data`, `IC2.Inspect`, `IC2.Engine`, `IC2.Cli` and their test projects) plus CI on every push/PR. **T02** landed the core domain model — `World`, `Ruleset`, `Scenario`, `SaveGame` and the `GameState` tree as immutable records with strict, typed JSON loading, `_provenance` on every ruleset value, and a toy 3-city / 2-nation world under `data/`. **T04** landed the fixtures corpus: 355 entries transcribed verbatim from the 46 research reports, each carrying its `source` report and the report's own `confirmed`/`derived` tag, so every later task asserts against `FixtureCorpus.Get("rome.taxBase")` instead of re-reading the reports and getting a fresh chance to misread them. There is still nothing to play: this is data types, a loader, and a pile of verified constants — not gameplay.
+Being built by a multi-agent pipeline driven from GitHub issues. **As of commit `4f747fc`: the whole of Phase 0 is merged** — T01, T05, T02, T04 and T03. That is the foundation the other 24 tasks are written against:
+
+- **T01/T05** — `IC2.sln` pre-declaring `IC2.Data`, `IC2.Inspect`, `IC2.Engine`, `IC2.Cli` and their test projects, CI on every push/PR, plus the PR/issue templates and `CODEOWNERS`.
+- **T02** — the core domain model: `World`, `Ruleset`, `Scenario`, `SaveGame` and the `GameState` tree as immutable records with strict typed JSON loading, `_provenance` on every ruleset value, and a toy 3-city / 2-nation world under `data/`.
+- **T04** — the fixtures corpus: 355 entries transcribed verbatim from the 46 research reports, each carrying its source report and that report's own `confirmed`/`derived` tag, so later tasks assert against `FixtureCorpus.Get("rome.taxBase")` rather than each re-reading the reports and getting a fresh chance to misread them.
+- **T03** — the engine seams every gameplay system plugs into: a seeded `IRng` (hand-written SplitMix64, pinned to the published reference vector), an ordered nine-phase turn pipeline with the `OnQuarterBoundary` hook, `ICommand` → `CommandResult` with typed rejection, the domain-event sink, attribute-based system registration (so adding a system edits no shared file), and a determinism guard that fails the build on `System.Random`, wall-clock, `Guid.NewGuid` or unordered dictionary iteration in engine code.
+
+There is still nothing to play: this is data types, a loader, verified constants and the plumbing — not gameplay. The first runnable thing is `IC2.Cli` (T23).
 
 - **Live tracker**: [issue #29](https://github.com/diegoami/imperial_conquest_2/issues/29). **Full guide to checking progress and what's actually runnable at each stage**: [`build-orchestration-plan.md` §0](docs/build-orchestration-plan.md#0-where-things-stand-and-what-you-can-test) — short version, nothing playable before `IC2.Cli` lands, nothing visual before the Godot screens do.
 - **To pause the build for any reason**: [§7.5](docs/build-orchestration-plan.md#75-user-initiated-pause) — `gh issue edit 29 --add-label orchestrator:pause`, from any session, no need to track down a running agent.
 - **To build and test what exists right now**:
   ```bash
   dotnet build IC2.sln   # 0 warnings, 0 errors
-  dotnet test IC2.sln    # 67 tests, green (66 engine + 1 data)
+  dotnet test IC2.sln    # 157 tests, green (156 engine + 1 data)
   ```
 - **CI**: [Actions tab](https://github.com/diegoami/imperial_conquest_2/actions).
 
 ## Building the reimplementation
 
-`IC2.Engine` (the headless game engine) currently holds T02's domain model and serialization layer only — no gameplay rules yet. `IC2.Cli` (a scriptable play harness) is still a scaffolded stub; see the status section above for what to expect at each build stage. Once `IC2.Cli` lands (T23), this section will carry its usage.
+`IC2.Engine` (the headless game engine) currently holds T02's domain model and serialization layer plus T03's `Core/` seams — no gameplay rules yet. Phase 1 (calendar, strength functions, economy, movement, news log, victory) is what fills it. `IC2.Cli` (a scriptable play harness) is still a scaffolded stub; see the status section above for what to expect at each build stage. Once `IC2.Cli` lands (T23), this section will carry its usage.
 
 The shipped data files are `data/worlds/toy-3city.json`, `data/rulesets/toy-ruleset.json` and `data/scenarios/toy-3city.json` — a deliberately small 3-city / 2-nation fixture for tests. The real 334-city `classical-mediterranean` world and the `classical-faithful` ruleset are exported later, by T29.
 
