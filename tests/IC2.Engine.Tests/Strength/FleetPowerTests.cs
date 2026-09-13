@@ -57,20 +57,34 @@ public sealed class FleetPowerTests
     /// Done-when 3: the random bonus is applied through <see cref="IRng"/> and is exactly reproducible
     /// under a fixed seed -- two independent generators created from the same seed must produce the
     /// same <see cref="FleetPower"/> result, asserted twice (as two separate calls) in this one test.
-    /// A second, different seed is also checked to confirm the draw is genuinely seed-driven rather
-    /// than a constant that happens to satisfy the first assertion vacuously.
     /// </summary>
+    /// <remarks>
+    /// Round-1: rather than checking a second, arbitrarily-chosen seed happens to give a different
+    /// result (which is only a 3-in-4 event for a 4-band draw and would become a flake, not a bug fix,
+    /// if <c>SplitMix64Rng</c>'s stream is ever retuned), this replays the same seed's own draw
+    /// independently with a throwaway generator and hand-computes the expected result from it, proving
+    /// the draw genuinely reaches <see cref="FleetPower.Compute"/> rather than merely differing from one
+    /// other sample by chance.
+    /// </remarks>
     [Fact]
     public void Compute_RandomBonus_IsReproducibleUnderTheSameSeed()
     {
         var ruleset = StrengthTestbed.Ruleset;
+        const int ships = 90;
+        const int conditionPercent = 85;
+        const ulong seed = 12345UL;
 
-        var first = FleetPower.Compute(ships: 90, conditionPercent: 85, new SplitMix64Rng(12345UL), ruleset);
-        var second = FleetPower.Compute(ships: 90, conditionPercent: 85, new SplitMix64Rng(12345UL), ruleset);
+        var first = FleetPower.Compute(ships, conditionPercent, new SplitMix64Rng(seed), ruleset);
+        var second = FleetPower.Compute(ships, conditionPercent, new SplitMix64Rng(seed), ruleset);
         Assert.Equal(first, second);
 
-        var differentSeed = FleetPower.Compute(ships: 90, conditionPercent: 85, new SplitMix64Rng(999UL), ruleset);
-        Assert.NotEqual(first, differentSeed);
+        var naval = ruleset.Combat.Naval;
+        var expectedDraw = new SplitMix64Rng(seed).NextInt(naval.RandomBandCount);
+        var expectedBase = (ships * conditionPercent) / naval.ConditionDivisor;
+        var expectedBandAmount = (expectedBase * naval.RandomBandPercent) / 100;
+        var expected = expectedBase + (expectedDraw * expectedBandAmount);
+
+        Assert.Equal(expected, first);
     }
 
     /// <summary>
@@ -95,5 +109,30 @@ public sealed class FleetPowerTests
 
         Assert.Equal(20, power);
         Assert.NotEqual((int)Math.Round(17 * (1 + 3 / 10.0)), power);
+    }
+
+    /// <summary>
+    /// Round-1 review finding: <c>FleetPower.cs</c> used to compute the bonus as
+    /// <c>baseValue / rules.RandomBandPercent</c>, which is only correct for the shipped value of 10
+    /// (because <c>100 / 10 == 10</c>). A ruleset that sets <c>randomBandPercent</c> to 20, meaning
+    /// "20% bands", must actually add 20% of base per drawn band -- not the (very different) 1/20th a
+    /// divisor reading would give.
+    /// </summary>
+    [Fact]
+    public void Compute_RandomBandPercent_IsAPercentageNotADivisor()
+    {
+        var baseRuleset = StrengthTestbed.Ruleset;
+        var customNaval = baseRuleset.Combat.Naval with { RandomBandPercent = 20 };
+        var customRuleset = baseRuleset with { Combat = baseRuleset.Combat with { Naval = customNaval } };
+        var rng = new FixedDrawRng(fixedDraw: 1);
+
+        // ships=100, condition=10 -> base = 1000/10 = 100. One drawn band at 20% must add 20.
+        var power = FleetPower.Compute(ships: 100, conditionPercent: 10, rng, customRuleset);
+
+        Assert.Equal(120, power);
+
+        // The pre-fix (buggy) reading, kept here only to document what this test would have let through:
+        // baseValue / RandomBandPercent = 100 / 20 = 5, giving 105 instead of 120.
+        Assert.NotEqual(105, power);
     }
 }

@@ -23,8 +23,8 @@ namespace IC2.Engine.Strength;
 /// }
 /// </code>
 /// <para>
-/// <strong>Two details worth flagging explicitly, both confirmed from the raw decompiled function
-/// rather than from the shorter prose paraphrase in <c>docs/game-design.md</c>
+/// <strong>Three details worth flagging explicitly, confirmed from the raw decompiled function rather
+/// than from the shorter prose paraphrase in <c>docs/game-design.md</c>
 /// ("<c>fleetPower = ships × condition / 10 + (carriedArmy ? armyPower/50 : 0)</c> then
 /// <c>× (1 + random(4)/10)</c>"):</strong>
 /// </para>
@@ -40,6 +40,19 @@ namespace IC2.Engine.Strength;
 /// expression. Under integer truncation the two are not interchangeable: reading <c>draw / 10</c> as an
 /// integer division on its own would truncate to 0 for every draw in <c>[0, 4)</c> and silently delete
 /// the entire bonus. <c>tests/IC2.Engine.Tests/Strength/FleetPowerTests.cs</c> pins the correct order.
+/// </description></item>
+/// <item><description>
+/// <strong>Round-1 correction:</strong> the shipped constant is named <see cref="NavalCombatRules.RandomBandPercent"/>
+/// (its provenance: "each band is 10% of the base") but the original code's literal divisor is 10, and
+/// the first round of this file computed the bonus as <c>baseValue / rules.RandomBandPercent</c> —
+/// arithmetically correct only by coincidence, because the shipped value happens to be 10 and
+/// <c>100 / 10 == 10</c>. A ruleset that set this to 20, meaning "20% bands", would silently produce 5%
+/// bands instead: <c>base / 20</c> is a fifth of base, not a fifth of the way to doubling it. The
+/// expression below computes the percentage the field actually names —
+/// <c>baseValue * rules.RandomBandPercent / 100</c> — which reduces to the same
+/// <c>floor(baseValue / 10)</c> for the shipped value of 10 (10 and 100 share the factor that makes
+/// <c>10x/100</c> and <c>x/10</c> the exact same rational number, so no shipped test result changes) but
+/// behaves correctly if the ruleset value is ever changed.
 /// </description></item>
 /// </list>
 /// <para>
@@ -87,8 +100,12 @@ public static class FleetPower
 
         var draw = rng.NextInt(rules.RandomBandCount);
 
-        // base / 10 truncated first, then multiplied by the integer draw -- see class remarks.
-        return baseValue + (draw * (baseValue / rules.RandomBandPercent));
+        // baseValue * RandomBandPercent / 100, computed as one integer division so it reduces to
+        // exactly floor(baseValue / 10) for the shipped RandomBandPercent of 10 -- see class remarks,
+        // point 3, for why the earlier "baseValue / RandomBandPercent" was a latent bug rather than an
+        // equivalent rewrite.
+        var bandAmount = (baseValue * rules.RandomBandPercent) / 100;
+        return baseValue + (draw * bandAmount);
     }
 
     /// <summary>
@@ -96,8 +113,15 @@ public static class FleetPower
     /// via <see cref="SiegeStrength.Attacker"/> (the original's own choice of formula for this term — see
     /// class remarks, point 1).
     /// </summary>
+    /// <remarks>
+    /// A sealed reference type, not a <c>struct</c>: <see cref="Compute"/> takes this as
+    /// <c>CarriedArmyStrength?</c>, and a value-type record's own <c>default</c> is itself a valid
+    /// non-null value (with a null <see cref="Units"/>) that would satisfy a "has a value" pattern match
+    /// and only fail, opaquely, once <see cref="SiegeStrength.Attacker"/> tries to enumerate a null
+    /// sequence. A reference type's <see langword="null"/> is the only way to mean "no carried army".
+    /// </remarks>
     /// <param name="Units">The carried army's unit slots.</param>
     /// <param name="Morale">The carried army's strategic morale.</param>
     /// <param name="ArcherUnitTypeId">See <see cref="SiegeStrength.Attacker"/>.</param>
-    public readonly record struct CarriedArmyStrength(IEnumerable<UnitSlot> Units, int Morale, string ArcherUnitTypeId);
+    public sealed record CarriedArmyStrength(IEnumerable<UnitSlot> Units, int Morale, string ArcherUnitTypeId);
 }

@@ -34,6 +34,15 @@ internal sealed class FixedDrawRng : IRng
             throw new ArgumentOutOfRangeException(nameof(exclusiveUpperBound));
         }
 
+        // A real IRng can never draw outside [0, exclusiveUpperBound) -- if a test's fixed draw no
+        // longer fits (e.g. a ruleset lowers RandomBandCount below the draw this stub was built with),
+        // fail loudly here instead of quietly asserting a value the real contract forbids.
+        if (_fixedDraw >= exclusiveUpperBound)
+        {
+            throw new InvalidOperationException(
+                $"FixedDrawRng was constructed with draw {_fixedDraw}, which does not fit in the requested [0, {exclusiveUpperBound}) -- the real IRng contract could never produce this value here.");
+        }
+
         return _fixedDraw;
     }
 

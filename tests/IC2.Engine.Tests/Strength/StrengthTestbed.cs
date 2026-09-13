@@ -21,6 +21,15 @@ public static class StrengthTestbed
     /// </summary>
     public const string ArcherUnitTypeId = "archers";
 
+    /// <summary>
+    /// The shipped ruleset's one city order (<c>docs/design-audit.md</c> §3 Q7), needed by
+    /// <see cref="SiegeStrength.Defender"/> to decode a fortification word via
+    /// <see cref="FortificationCode.FinishedPercent"/>.
+    /// </summary>
+    public static CityOrderRule FortifyOrder =>
+        Ruleset.CityOrders.Orders.FindById(o => o.Id, "fortify")
+            ?? throw new InvalidOperationException("The shipped toy ruleset has no 'fortify' city order.");
+
     /// <summary>Builds a regular (non-mercenary) unit slot with a throwaway name.</summary>
     public static UnitSlot Unit(string unitTypeId, int troops, int quality = 6) =>
         new(MercenaryLabel: 0, UnitTypeId: unitTypeId, Troops: troops, Quality: quality, Name: "Test Battalion");

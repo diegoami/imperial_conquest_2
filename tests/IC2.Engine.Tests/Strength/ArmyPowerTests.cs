@@ -93,6 +93,10 @@ public sealed class ArmyPowerTests
 
         // (79 / 80) * 51 = 0. The sum-first alternative would give (80 / 80) * 51 = 51.
         Assert.Equal(0, power);
+
+        // Parity with the other two DoD 5 cases: also pin against the real-number evaluation directly
+        // (round-1 review finding) -- (8020 / 100.0 / 80.0) * 51 = 51.1275 -> rounds to 51, not 0.
+        Assert.NotEqual((int)Math.Round(8020 / 100.0 / 80.0 * 51), power);
     }
 
     /// <summary>
