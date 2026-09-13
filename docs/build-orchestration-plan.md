@@ -10,7 +10,7 @@ It changes **no design decision**. Every rule, constant, and *done when* here tr
 >
 > Task scope, Definition of Done, model, effort, dependencies and branch names live here and change only by a deliberate commit to `main`. Progress — what is queued, in flight, in review, merged, blocked or escalated — lives entirely in GitHub issue/PR labels. Nothing in this repository is edited to track progress, because a progress file on `main` would conflict with every task branch in flight.
 >
-> **Live state**: [issue #29, the pinned build tracker](https://github.com/diegoami/imperial_conquest_2/issues/29). Task issues #1–#28 are numbered to match their task ids; the two later additions are the exceptions, because the numbering had already moved on — T29 is [issue #32](https://github.com/diegoami/imperial_conquest_2/issues/32) and T30 is [issue #37](https://github.com/diegoami/imperial_conquest_2/issues/37).
+> **Live state**: [issue #29, the pinned build tracker](https://github.com/diegoami/imperial_conquest_2/issues/29). Task issues #1–#28 are numbered to match their task ids; the three later additions are the exceptions, because the numbering had already moved on — T29 is [issue #32](https://github.com/diegoami/imperial_conquest_2/issues/32), T30 is [issue #37](https://github.com/diegoami/imperial_conquest_2/issues/37), and T31 is [issue #45](https://github.com/diegoami/imperial_conquest_2/issues/45).
 
 Related reading, in order: [HANDOVER.md](HANDOVER.md) (current state) → [game-design.md](game-design.md) (what is being built) → [design-audit.md](design-audit.md) (what the evidence actually supports) → this document (how it gets built).
 
@@ -113,7 +113,7 @@ Four levels, mapped to the reasoning budget the agent is run at. The scale is de
 Per task, not uniform. The rationale, in one line each:
 
 - **Opus** — 4 implementation tasks (T02, T03, T16, T22) where an error is not local: the domain model and the engine seams are consumed by all 25 other tasks; battle resolution is consumed by five downstream systems and is the most integer-semantics-sensitive code in the project; the AI has the most design latitude and the hardest failure mode (a soak that never terminates).
-- **Sonnet** — 20 tasks. The default for "the design document already says what to build, and the hard part is building it correctly". **T30 moved here from Haiku** once its second defect class was understood: reading a file format off a decompiled loader at exact byte offsets is fidelity work of the same kind as T04's, not the mechanical one-line sentinel fix it was originally scoped as.
+- **Sonnet** — 21 tasks. The default for "the design document already says what to build, and the hard part is building it correctly". **T30 moved here from Haiku** once its second defect class was understood: reading a file format off a decompiled loader at exact byte offsets is fidelity work of the same kind as T04's, not the mechanical one-line sentinel fix it was originally scoped as. **T31 sits at the light end of the band**: it is fidelity work, but its evidence is fully pinned in the task entry (exact function, exact weights, exact field identities), so the implementer is transcribing a decided answer rather than reconciling reports — Medium, not T30's High.
 - **Haiku** — 5 tasks (T10, T11, T18, T26, T28) that are small, fully specified, and CI-gated, so a failure is cheap and caught before review.
 - **Fable** — 1 task (T05), pure templates and configuration with no judgment at all. Fable is deliberately not used for anything that must compile against the domain model.
 
@@ -130,7 +130,7 @@ Concrete assignment rule:
 | Implementer | Reviewer | Plus |
 | --- | --- | --- |
 | Opus (T02, T03, T16, T22) | Opus / High | **and** `/code-review --effort ultra` (cloud multi-agent) as a second pass — **not actually independent when run by the orchestrator**, see the note below |
-| Sonnet on fidelity-critical tasks (T04, T07, T08, T13, T14, T17, T19, T20, T21, T29, T30) | **Opus / Medium** | — |
+| Sonnet on fidelity-critical tasks (T04, T07, T08, T13, T14, T17, T19, T20, T21, T29, T30, T31) | **Opus / Medium** | — |
 | Sonnet on structural tasks (T01, T06, T09, T12, T15, T23, T24, T25, T27) | Sonnet / High | — |
 | Haiku / Fable (T05, T10, T11, T18, T26, T28) | Sonnet / Medium | — |
 
@@ -158,6 +158,7 @@ graph TD
   T01[T01 scaffolding+CI] --> T02[T02 domain model]
   T01 --> T04[T04 fixtures corpus]
   T02 --> T03[T03 engine seams]
+  T02 --> T31[T31 siege defender fields]
   T02 --> T29[T29 export classical world]
   T04 --> T29
   T01 --> T30[T30 IC2.Data parser hardening]
@@ -166,6 +167,8 @@ graph TD
 
   T03 --> T06[T06 calendar]
   T03 --> T07[T07 strength fns]
+  T31 --> T07
+  T31 --> T16
   T03 --> T09[T09 movement]
   T03 --> T10[T10 news log]
   T02 --> T11[T11 asset pack]
@@ -221,17 +224,18 @@ graph TD
 | 0 | **T01, T05** | Disjoint file sets (`/`+`tests/` vs `.github/`). |
 | 1 | **T02, T04, T30** | T04 needs only the test project from T01. **T30 added here** — it was labelled `phase:2`, sequenced only "before T21", and named in **no wave at all**, which is how it came to sit behind the task it actually gates: it needs nothing but T01, it owns `src/IC2.Data/**`+`src/IC2.Inspect/**`+`tests/IC2.Data.Tests/**` — disjoint from everything in this wave — and **T29 in wave 2 cannot meet its first DoD line until T30 merges**. Landing it here costs nothing and unblocks the wave after. |
 | 2 | **T03, T29** | T03 is the single serialization point for engine code; T29 needs T02's schema, T04's corpus and T30's DAT parse, and owns disjoint paths (`data/worlds/classical-mediterranean.json`, `data/rulesets/classical-faithful.json`, `scripts/**`, `tests/IC2.Engine.Tests/Export/**`), so it runs alongside T03 rather than blocking on it. |
-| 3 | **T06, T07, T08, T09, T10, T11, T12** | Seven-way fan-out; the widest point. Concurrency-capped to 3 at a time. |
+| 3 | **T06, T07, T08, T09, T10, T11, T12**, **T31** | Seven-way fan-out; the widest point. Concurrency-capped to 3 at a time. **T31 added here** — it is a `phase:0` correction to already-merged T02, so its own dependencies were satisfied the moment T02 landed, but it is listed in this wave because this is the wave it actually has to run *in*: **T07 is suspended on it** and cannot resume until it merges. It is small and goes ahead of the rest of the wave. One ordering constraint inside the wave: **T31 and T08 both write `tests/fixtures/**`**, so they never run concurrently. |
 | 4 | **T13, T14, T15, T16** | T16 is the long pole. |
 | 5 | **T17, T18, T19, T20, T21, T22** | Internally ordered: T17 first, then T18/T19/T20 in parallel, then T21 and T22. T22 is the long pole. |
 | 6 | **T23, T24, T25, T26, T27, T28** | T24/T25/T27 are single-instance (Godot); they serialize against each other regardless of the cap. |
 
-**Critical path**: `T01 → T02 → T03 → T07 → T14 → T16 → T17 → T23 → T24 → T25 → T27` — 11 of 28 tasks. The AI chain (`… → T17 → T18 → T22 → T28`, 10 tasks) runs alongside it and is not on the critical path, which is a good argument for *not* deferring T22: it has the most slack of any late task and the most uncertain duration. Everything else is slack that fills the concurrency budget around it. Note the practical consequence: **T03 blocks the entire project**, so it gets the most capable model at the highest effort and the heaviest review, and nothing else should be in flight while it is (its diff defines the interfaces everyone else will conflict with).
+**Critical path**: `T01 → T02 → T03 → T07 → T14 → T16 → T17 → T23 → T24 → T25 → T27`, now joined by **T31** on a second edge into T07 (`T02 → T31 → T07`) — 12 of 31 tasks. T31 is on the path because T03 and T04 are merged and T07's every other prerequisite is satisfied, so the only thing standing between T07 and resuming is a task that did not exist when the path was first drawn. That is worth stating plainly: a one-record data correction is currently the front of the project's critical path, which is a good argument for dispatching it on its own and immediately rather than batching it with anything. The AI chain (`… → T17 → T18 → T22 → T28`, 10 tasks) runs alongside it and is not on the critical path, which is a good argument for *not* deferring T22: it has the most slack of any late task and the most uncertain duration. Everything else is slack that fills the concurrency budget around it. Note the practical consequence: **T03 blocks the entire project**, so it gets the most capable model at the highest effort and the heaviest review, and nothing else should be in flight while it is (its diff defines the interfaces everyone else will conflict with).
 
 ### 4.2 Parallel-safe vs strictly sequential, stated plainly
 
 - **Strictly sequential, no alternative**: T01 → T02 → T03. Also T16 → T17 (a siege *is* a battle), T17 → T18 (a siege wipes a pending fortify order, which is T18's DoD), T08 → T13 (mercenary hire debits the army purse that T08 defines), T24 → T25 → T27 (Godot, single-instance).
 - **Parallel-safe, genuinely**: the whole of wave 3 (seven independent pure-rules systems over disjoint directories); T13/T14/T15 against each other; T18/T19/T20/T21 against each other; T26 against the Godot lane; T30 against T02/T04 (nothing but `src/IC2.Data`/`src/IC2.Inspect`); T29 against T03 (disjoint paths, and T29 needs T02's schema, T04's corpus and T30's DAT parse, not T03's engine seams).
+- **Looked like no dependency at all and is one, corrected**: T31 → T07 and T31 → T16. T02 merged, so nothing in wave 3 looked to depend on it any further; in fact T02 shipped three `Ruleset.Siege` defender weights attached to the wrong city fields, which T07 inherited and could not fix from inside its own Owns list. T31 is that correction, and both consumers of siege defender strength gain the edge — T07 because it is suspended on it today, T16 because it consumes the same numbers through T07 and would otherwise inherit the error silently four waves later.
 - **Looked parallel and is not, corrected**: T30 → T29. T30 was originally sequenced only "before T21", on the strength of the one defect then known (the army tombstone, which only affects `.sav` files). The second defect class — the DAT's own layout — makes T30 a hard prerequisite of T29 as well, because T29 reads the DAT and six of the seven parsers throw on it.
 - **Looks parallel but is not**: T12 (victory) reads city counts and could be written any time, but it is gated behind T06 because its 250 BC condition needs the calendar's year; T20 (save/load) could be written early but its DoD ("a mid-game state round-trips after N turns") is only meaningful once the state is largely complete.
 
@@ -239,7 +243,7 @@ graph TD
 
 ## 5. The task catalogue
 
-30 tasks covering all 20 design milestones plus seven pieces of scaffolding the milestone list assumes but never produces (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, and hardening the existing `IC2.Data` parsers that two of those tasks are built on).
+31 tasks covering all 20 design milestones, plus seven pieces of scaffolding the milestone list assumes but never produces (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, and hardening the existing `IC2.Data` parsers that two of those tasks are built on), plus one correction to an already-merged task (T31).
 
 Conventions used by every entry:
 
@@ -280,6 +284,45 @@ Conventions used by every entry:
   4. `GameState` is a fully serializable tree: a test constructs a non-trivial state, serializes it, deserializes it, and asserts deep equality.
   5. No gameplay constant is hardcoded in C#: a test asserts that every ruleset-governed number the model exposes is sourced from the loaded `Ruleset` object.
 - **Hazards**: this is the widest-blast-radius diff in the plan. Nothing else may be in flight that touches `src/IC2.Engine`.
+
+#### T31 Correct `Ruleset.Siege`'s defender-strength field identities
+
+- **Design milestone**: none — a **correction to already-merged T02**, not new work. Surfaced by T07's review ([PR #44](https://github.com/diegoami/imperial_conquest_2/pull/44) gate 2), which decompiled `FUN_0044A98C` and found T02's shipped `SiegeRules` attaches three of its defender weights to the wrong city fields. T07 inherited the error faithfully from its cited sources and **cannot** fix it — every affected file is outside `src/IC2.Engine/Strength/**`. Per the project's standing rule (never patch another task's Owns list ad-hoc; define a real correction task and sequence it in), this is that task. **Labels**: `phase:0 lane:engine`
+- **Branch**: `task/T31-siege-defender-fields` · **Model/effort**: Sonnet / Medium · **Reviewer**: **Opus / Medium**
+- **Start after**: T02 (merged) · **Merge after**: T02 (merged) — and **merged before T07 resumes, and before T16 starts** (see Hazards)
+- **Owns**: `src/IC2.Engine/Model/Ruleset.cs` (the `SiegeRules` record only — the rest of the file, and every other file under `src/IC2.Engine/Model/**`, is untouched), `data/rulesets/toy-ruleset.json`, `tests/IC2.Engine.Tests/Model/**`, `tests/fixtures/**` (the one mis-transcribed corpus entry only — a top-up under §2.4's standing contract, not a reopen of T04), `docs/investigations/siege-defender-strength.md` (new, the write-up)
+- **Scope**: **everything `FUN_0044A98C` says, and nothing else.** The defect is that `decompiled-city-capture-resolution.md` records the defender formula as `fortification × 150 + loyalty × 250 + <third field> × 200` without having decompiled the function — `design-audit.md` §2.13 says so in as many words (*"`FUN_0044A98C` (defender strength) was not decompiled this pass. **[open]**"*). T04's corpus transcribed that line verbatim, and T02 named its fields from the corpus, so a single unverified report line propagated into shipped model field names. The function, read directly:
+
+  ```c
+  int FUN_0044a98c(short city)
+  {
+    sVar6 = (&DAT_004795aa)[city*0x11];
+    if (sVar6 < 0x65) { iVar4 = sVar6; } else { iVar4 = sVar6 % 100; }   // the dual-encoding decode
+    iVar4 = (short)(&DAT_004795a6)[city*0x11] * 0x96      //  loyalty      × 150
+          + iVar4                             * 0xfa      //  fortification × 250  (decoded)
+          + (short)(&DAT_004795ac)[city*0x11] * 200;      //  population   × 200
+    if ((FUN_0044b8d0(city) != 0) && (0x3b < (short)(&DAT_004795a6)[city*0x11]))
+        iVar4 = (iVar4 * 5) / 3;                          //  capital AND loyalty > 59
+    if ((&DAT_004795a2)[city*0x11] != (&DAT_004795a4)[city*0x11])
+        iVar4 = (iVar4 << 2) / 5;                         //  owner != allegiance → × 4/5
+    /* … then, over the owner's 40 recruitment slots, += troops(+0x2e8) / 2 for slots targeting this city */
+  }
+  ```
+
+  The field identities are **not** inferred from magnitudes — they come from `TInformation_ShowCityDetails` @ `0x0043BE5C`, which is unambiguous because it prints its own UI labels next to each read: `"Loyalty -"` prints `loyaltyNames[DAT_004795a6 / 10]` (the same `/ 10` tiering T02 already ships as `LoyaltyRules.TierDivisor`); `"Fortification -"` prints `DAT_004795aa` with the identical `< 0x65` guard and appends `"  (under construction)"` on the `% 100` branch; `"Population -"` prints `DAT_004795ac × 1000` and `DAT_004795ac × 100 / DAT_004795ae` as a *"% of maximum"*; `"Controlled by -"` reads `DAT_004795a2` and `"Allegiance to -"` reads `DAT_004795a4`; and the `"  (capital of …)"` branch is gated on `FUN_0044b8d0(city)`, which identifies the previously-unrecovered guard on the `× 5/3` bonus as *"is this city its controlling nation's capital"*. Merged T02 code corroborates the fortification identity independently: `FortificationCode.AfterSiegeAttempt` already cites `FUN_0044B27C`'s `if (fort > 100) fort = fort % 100` on that same word.
+
+  This task changes **only** `SiegeRules`, the toy ruleset's `siege` block, the two corpus entries, and their provenance text. It writes no engine logic, touches no file under `src/IC2.Engine/Strength/**` (T07's) or `src/IC2.Engine/Cities/**` (T17's), and leaves `FortificationCode` exactly as it is — that helper is already correct and is the thing the corrected provenance points callers at.
+- **Done when**:
+  1. In `SiegeRules` and in `data/rulesets/toy-ruleset.json`, `DefenderLoyaltyWeight`/`defenderLoyaltyWeight` is **150** and `DefenderFortificationWeight`/`defenderFortificationWeight` is **250** — the swap of their currently-shipped 250 and 150. A test asserts both off the **loaded** `Ruleset`, never off a C# literal.
+  2. `DefenderUnidentifiedFieldWeight` is renamed **`DefenderPopulationWeight`** (JSON `defenderPopulationWeight`), value unchanged at **200**, and its doc comment and `_provenance` name the city's **population in thousands**, citing `0x0043BE5C`'s `"Population -"` read. No field whose name claims an unidentified field survives in `SiegeRules`; a round-trip test covers the renamed JSON key.
+  3. A doc comment on `SiegeRules` states the whole formula as `loyalty × 150 + finishedFortificationPercent × 250 + populationThousands × 200`, and states that the fortification term is the word decoded through **`FortificationCode.FinishedPercent`** — the guarded `code > MaxPercent ? code % radix : code`, matching the function's `if (fort < 0x65) fort else fort % 100` — **not** a raw stored word and **not** an unguarded `% 100`. A test pins `FinishedPercent(100, fortifyRule) == 100` and `FinishedPercent(200, fortifyRule) == 0`, so the difference between the guarded and unguarded decode cannot be lost later. `FortificationCode.cs` itself is unchanged.
+  4. The T04 corpus entry **`capture.siegeDefenderStrengthFormula`** is corrected in place — same id, so T04's required-ids and no-duplicate-ids checks stay green — to `loyalty*150 + fortification*250 + population*200` (with the decode noted). Keeps `tag: "confirmed"`; its `note` records that the value supersedes `decompiled-city-capture-resolution.md`'s own wording, naming `FUN_0044A98C` and `0x0043BE5C` as the superseding evidence. All four of T04's DoD checks are re-run and green. (`capture.fortBonusThreshold` is a related but separate defect — tracked as its own bug, not this task's to fix; see [§6.7](#67-the-bug-list).)
+  5. The unrelated-but-same-file provenance error the same review found is corrected while the file is open: `combat.naval._provenance.carriedArmyPowerDivisor` currently reads *"a carried army adds armyPower / 50"*; `FUN_0044AA54` calls `FUN_0044A930` (**siege** strength), not `FUN_0044A8CC` (`armyPower`), so it adds *siege* strength / 50. Value unchanged at 50; text corrected. This is the only change outside the `siege` block.
+  6. `docs/investigations/siege-defender-strength.md` records the decompilation, the panel-based field identification, the label-to-`DAT_*` table, and a one-line before/after for every field this task renamed or re-weighted — the same shape as `investigations/dat-file-layout.md`, so the evidence is in the repo rather than only in a PR comment.
+  7. `dotnet build IC2.sln` and `dotnet test IC2.sln` are green, and `git diff --name-only main...HEAD` lists only Owns paths — in particular **nothing** under `src/IC2.Engine/Strength/**`.
+  8. The PR body escalates, without fixing, the one correction this task deliberately does **not** own: `design-audit.md` §2.13's `[open]` tag on `FUN_0044A98C` (now closed by this evidence, including that the −20%-if-owner≠allegiance and ×9/10-if-attacker==allegiance readings are **two separate adjustments in two different functions**, not one mis-read) and T17's *"Known-open item to record, not resolve"*, which this settles. Doc edits on `main` are the orchestrator's, per [§2.3](#2-what-makes-the-parallelism-possible). (The research repo's own `decompiled-city-capture-resolution.md` is a separate, direct fix, made once and not part of any task's Owns list — see the commit history, not this plan.)
+- **Bugs logged, not fixed here** (see [§6.7](#67-the-bug-list) for the mechanism): [issue #46](https://github.com/diegoami/imperial_conquest_2/issues/46) — `HighFortificationThreshold`/`HighFortificationBonusNumerator`/`HighFortificationBonusDenominator` are misnamed (the branch they gate tests **loyalty** `> 59`, not fortification) and the `capital` guard on that same branch is now identifiable (`FUN_0044B8D0`) where the current text calls it unrecovered; [issue #47](https://github.com/diegoami/imperial_conquest_2/issues/47) — `DefenderOwnerNotAllegiancePenaltyPercent` (20) doesn't match the function's real `(strength << 2) / 5`, which truncates differently than a 20%-subtraction reading at some values. Both found reading the same function this task decompiles, both real, neither blocking — filed as bugs for the planner to prioritize rather than folded into this task's scope.
+- **Hazards**: **merge this before T07 resumes and before T16 starts.** T07 is suspended (`status:blocked`, deliberately *not* `status:rework`) on exactly this; its DoD 4 is unsatisfiable while the model's field names are wrong, and its `SiegeStrength.Defender` signature is the first place the swap becomes an executable API with parameter names. T16 consumes siege defender strength through T07 and inherits the same error, so it carries the edge too even though it is waves away. **Do not touch T07's branch, its PR, or `src/IC2.Engine/Strength/**`** — T07 rebases onto this and fixes its own file itself. **Concurrency**: this task and **T08** both write `tests/fixtures/**` (T08 DoD 13's 47th-report top-up), so the orchestrator must not dispatch them together — T31 is small and goes first. Do **not** "fix" the third weight by re-reading `decompiled-city-capture-resolution.md` more carefully: that report is the *source* of the error and re-deriving from it reproduces it. Do **not** touch `AttackerIsAllegianceDefenderReductionPercent` — that ×9/10 lives in `FUN_0044B27C`, is outside this function, and stays T17's to reconcile. Do **not** change any of the three values 150 / 250 / 200: only which field each one multiplies was ever wrong. **Two further defects this task's own decompilation surfaces are deliberately left unfixed here** — [#46](https://github.com/diegoami/imperial_conquest_2/issues/46) (`HighFortificationThreshold`'s misnaming) and [#47](https://github.com/diegoami/imperial_conquest_2/issues/47) (`DefenderOwnerNotAllegiancePenaltyPercent`'s wrong shape) — filed as bugs per [§6.7](#67-the-bug-list) rather than folded into this task's scope. **T17 still inherits `DefenderOwnerNotAllegiancePenaltyPercent`'s current, wrong shape** until #47 is resolved; see T17's own hazards.
 
 #### T30 Harden `IC2.Data`: army tombstones, and the DAT's own file layout
 
@@ -403,17 +446,17 @@ Conventions used by every entry:
 
 - **Design milestone**: **M5**. **Labels**: `phase:1 lane:engine`
 - **Branch**: `task/T07-strength-functions` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
-- **Start after**: T03 · **Merge after**: T03, T04
+- **Start after**: T03 · **Merge after**: T03, T04, **T31**
 - **Owns**: `src/IC2.Engine/Strength/**`, `tests/IC2.Engine.Tests/Strength/**`
 - **Scope**: The three pure functions that M8, M9 and M12 all consume, extracted early exactly as `game-design.md` M5 says: `armyPower`, `fleetPower`, and siege defender strength. **Integer semantics are part of the specification** — the original is Delphi and truncates; every division must be pinned by a test, not left to C# operator defaults.
 - **Done when**:
   1. `armyPower(a) = (Σ powerWeight[type] × troops / 100) / 80 × armyMorale` reproduces hand-computed values for the published 13-unit Roman roster, using the `+0x26` weights from the T04 corpus.
   2. `fleetPower(f) = ships × condition / 10 (+ carriedArmyPower / 50)` reproduces hand-computed values, including the carried-army term and its absence.
   3. The `× (1 + random(4)/10)` bonus is applied through `IRng` and is exactly reproducible under a fixed seed (same seed → same value, asserted twice in one test).
-  4. Siege defender strength triples archers, and applies the fortification/loyalty term.
+  4. Siege defender strength triples archers, and applies the city term. **Sharpened after T07's first review round, which found the original wording ("the fortification/loyalty term") was itself carrying T02's field-identity error** — see T31, which this task now merges after. The two clauses are two different decompiled functions and stay split: the attacker side is `FUN_0044A930` (archers ×3, no intermediate `/ 100`, `(total / 80) × morale`), and the defender side is `FUN_0044A98C`, which is `loyalty × 150 + finishedFortificationPercent × 250 + populationThousands × 200`, with **every weight read from T31's corrected `Ruleset.Siege`** and the fortification term decoded through `FortificationCode.FinishedPercent`, never the raw stored word. The third term is population; no parameter, field or doc comment in this diff may describe it as unidentified, and none may tell a caller to pass 0 for it.
   5. A truncation test: at least three cases where integer division differs from floating-point division assert the integer result.
   6. `armyPower` is exercised across the **full confirmed 51…70 morale range** and at both bounds, and the strength it returns is monotonic in morale over that range. `51 … 70` are the real bounds of the field, not a convention: `design-audit.md` §2.9a and [`investigations/thracia-supply-morale.md`](investigations/thracia-supply-morale.md) confirm the hard floor and ceiling in the turn tick, and the army panel prints the value as five 4-wide tiers via `moraleNames[(v − 51) >> 2]`. **This task does not implement the rule that moves morale** (that is T08) and does not clamp on its input; it is a pure function, and a morale outside 51…70 reaching it means an upstream bug rather than something to defend against here.
-- **Hazards**: `design-audit.md` §2.9 — **two different morales**. Only army record `+14` (strategic) feeds these functions; the per-unit tactical morale array must not appear here. A reviewer finding tactical morale in this diff rejects it. Equally, a reviewer finding the supply→morale *rule* implemented in this diff rejects it: T07 consumes the field, T08 writes it.
+- **Hazards**: `design-audit.md` §2.9 — **two different morales**. Only army record `+14` (strategic) feeds these functions; the per-unit tactical morale array must not appear here. A reviewer finding tactical morale in this diff rejects it. Equally, a reviewer finding the supply→morale *rule* implemented in this diff rejects it: T07 consumes the field, T08 writes it. **Rebase onto T31 before resuming**: the `Ruleset.Siege` field names this task compiles against change there (`DefenderPopulationWeight`, and the 150/250 swap between loyalty and fortification), and re-implementing DoD 4 against the old names reintroduces the exact defect T31 exists to remove. Fixing `Ruleset.Siege` from inside this task's Owns list is a scope failure, not a shortcut — that is what T31 is for.
 
 #### T08 Economy, supply, and purses
 
@@ -566,7 +609,7 @@ Conventions used by every entry:
 
 - **Design milestone**: **M8**. **Labels**: `phase:2 lane:engine`
 - **Branch**: `task/T16-battle-resolution` · **Model/effort**: **Opus / High** · **Reviewer**: Opus / High **+ `/code-review --effort ultra`, run by the user personally** (not the orchestrator — see [§3.5](#35-where-the-code-review-skill-fits), the orchestrator's own pass isn't independent)
-- **Start after**: T07 · **Merge after**: T07, T08, T14
+- **Start after**: T07 · **Merge after**: T07, T08, T14, **T31**
 - **Owns**: `src/IC2.Engine/Battle/**`, `tests/IC2.Engine.Tests/Battle/**`
 - **Scope**: The original's own instant resolver, ported — field, siege, and naval — producing one `BattleResult`. Emits a `PeaceTreatyTriggered` domain event rather than calling diplomacy, so this task and T19 do not depend on each other's internals. Also implements the `combat.onDefeat` ruleset flag (`game-design.md` Combat section, `design-audit.md` Q1 follow-up): `classical-faithful` keeps the confirmed annihilation outcome; `improved` scatters the loser's field/naval army instead. `BattleResult` must stay presentation-agnostic — nothing in its shape should need to change if a future optional battle screen is added later.
 - **Done when**, all under a **fixed seed** with exact assertions:
@@ -600,7 +643,7 @@ Conventions used by every entry:
   4. Losing the last city eliminates the nation (capital sentinel set, unity reset).
   5. Per-siege attrition runs on **every** attempt, win or lose.
   6. Emits the confirmed *"falls to"* / *"defects from"* messages.
-- **Known-open item to record, not resolve**: [`decompiled-city-capture-resolution.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-city-capture-resolution.md)'s −20%-if-owner≠allegiance and `FUN_0044B27C`'s ×9/10-if-attacker==allegiance are unreconciled (`HANDOVER.md` "What's still open"). Implement **both as separately-named ruleset flags**, default to the reports' stated behaviour, and document the ambiguity in the ruleset's `_provenance`. Do **not** escalate — the resolution needs new decompilation work, not a user decision.
+- **Known-open item to record, not resolve**: [`decompiled-city-capture-resolution.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-city-capture-resolution.md)'s −20%-if-owner≠allegiance and `FUN_0044B27C`'s ×9/10-if-attacker==allegiance are unreconciled (`HANDOVER.md` "What's still open"). Implement **both as separately-named ruleset flags**, default to the reports' stated behaviour, and document the ambiguity in the ruleset's `_provenance`. Do **not** escalate — the resolution needs new decompilation work, not a user decision. **Update: that decompilation work happened, in T31.** `FUN_0044A98C` applies `(strength << 2) / 5` when the city's owner ≠ its allegiance, and `FUN_0044B27C` separately applies ×9/10 when the *attacking* nation equals the city's allegiance — so they are **two separate adjustments in two different functions**, not one mis-read, and both apply. **T31 does not fix the first** — `Ruleset.Siege`'s `DefenderOwnerNotAllegiancePenaltyPercent` (20, a wrong "subtract 20%" shape) is filed as [issue #47](https://github.com/diegoami/imperial_conquest_2/issues/47) rather than folded into T31 (see [§6.7](#67-the-bug-list)). Before implementing this task's `_provenance`-documented flag for the owner≠allegiance side, check whether #47 has merged; if not, this task inherits the wrong shape from `Ruleset.Siege` and should escalate rather than silently ship a known-wrong constant a second time. The "implement both as separately-named ruleset flags" instruction above still stands for the ×9/10 side either way. See `docs/investigations/siege-defender-strength.md` for the exact evidence.
 
 #### T18 City orders (fortification)
 
@@ -811,6 +854,21 @@ The orchestrator stops and asks in any of these cases:
 
 Everything else — including every `[designed]` placeholder `game-design.md` documents as a deliberate, revisitable choice — merges autonomously, exactly as that document's operating-mode paragraph intends.
 
+### 6.7 The bug list
+
+**A defect found in already-merged code never gets patched by the task that found it, even narrowly, even when the fix is one line.** T06 got an ad-hoc, documented exception to fix T03's merged `TurnPhase.cs` — that fix was small and verified correct, but the *process* was wrong, and this is the corrected version, used starting with T31/T02: **suspend, file, plan, wait.**
+
+1. **Suspend.** The task that found the defect is blocked (`status:blocked`, never `status:rework` — it isn't the finding task's own defect), and stays that way until the correction merges. It does not touch the upstream Owns list, not even for the one line that would unblock it.
+2. **File.** The defect goes on GitHub as its own issue, labelled `bug` plus whatever `lane:*`/`phase:*` labels route it. A bug issue states: what's wrong, the exact decompiled evidence (function, address, cross-check — the same citation discipline as everything else in this plan), which file(s)/field(s) are affected, and which task(s) it's known to block, if any. It is **not** a task-catalogue entry by default — most bugs are smaller than a task.
+3. **Plan.** A planner pass (an Opus dispatch, same shape as the T29/T30/T31 rescoping work — not a routine orchestrator tick) reviews open `bug`-labelled issues, triggered by a new one being filed or a wave transition, and for each one decides:
+   - **Spin up a real correction task** (T3x-numbered, following T30/T31's catalogue shape exactly) when the fix is substantial enough to need its own Owns list, model/effort, and reviewer — as T30 and T31 both were.
+   - **Fold it into an upcoming, not-yet-dispatched task's DoD**, if the fix is naturally that task's territory and small enough not to need its own task (matching how T04/T08's fixture top-ups already work under §2.4).
+   - **Leave it open and deferred**, explicitly, with a stated reason, if it's genuinely non-blocking and low priority. Never silently drop a filed bug — closing one without a fix or a deferral reason is itself a finding for whoever reviews the planner's own work.
+   Whatever the planner decides, it pushes the resulting plan changes to a branch for review — the same standard every other plan-surgery pass in this project has been held to, not a fast path to `main`.
+4. **Resume.** The suspended task rebases onto the merged correction (or the task it got folded into) and continues.
+
+This is deliberately not a per-tick orchestrator responsibility — §7.3's tick doesn't scan the bug list. It runs when a bug is filed or when a wave transition is a natural checkpoint, dispatched the same way T29/T30/T31's rescoping was: a dedicated planning pass, not folded into routine dispatch.
+
 ---
 
 ## 7. The orchestrator
@@ -1004,7 +1062,7 @@ Issue numbers are filled in from GitHub; this table is the doc→GitHub half of 
 | T04 | Fixtures corpus | M1 | Sonnet | High | **Opus**/Medium | T01 | #4 |
 | T05 | GitHub hygiene | — | **Fable** | Low | Sonnet/Medium | — | #5 |
 | T06 | Calendar and turns | M2 | Sonnet | Medium | Sonnet/High | T03, T04 | #6 |
-| T07 | Strength functions | M5 | Sonnet | High | **Opus**/Medium | T03, T04 | #7 |
+| T07 | Strength functions | M5 | Sonnet | High | **Opus**/Medium | T03, T04, **T31** | #7 |
 | T08 | Economy and purses | M3 | Sonnet | High | **Opus**/Medium | T03, T04, T06 | #8 |
 | T09 | Movement and terrain | M6 | Sonnet | Medium | Sonnet/High | T03, T04 | #9 |
 | T10 | News log | M17 | **Haiku** | Medium | Sonnet/Medium | T03, T04 | #10 |
@@ -1013,7 +1071,7 @@ Issue numbers are filled in from GitHub; this table is the doc→GitHub half of 
 | T13 | Recruitment and mercenaries | M4 | Sonnet | High | **Opus**/Medium | T08 | #13 |
 | T14 | Naval | M7 | Sonnet | High | **Opus**/Medium | T07, T08, T09 | #14 |
 | T15 | Army/unit management | M14 | Sonnet | Medium | Sonnet/High | T08, T13 | #15 |
-| T16 | Battle resolution | M8 | **Opus** | High | Opus/High + ultra | T07, T08, T14 | #16 |
+| T16 | Battle resolution | M8 | **Opus** | High | Opus/High + ultra | T07, T08, T14, **T31** | #16 |
 | T17 | Capture, siege, defection | M9 | Sonnet | High | **Opus**/Medium | T16 | #17 |
 | T18 | City orders | M10 | **Haiku** | Medium | Sonnet/Medium | T08, T17 | #18 |
 | T19 | Diplomacy | M11 | Sonnet | High | **Opus**/Medium | T06, T16 | #19 |
@@ -1028,8 +1086,9 @@ Issue numbers are filled in from GitHub; this table is the doc→GitHub half of 
 | T28 | Nightly gate | — | **Haiku** | Low | Sonnet/Medium | T22 | #28 |
 | T29 | Export classical-mediterranean world | — | Sonnet | High | **Opus**/Medium | T02, T04, T30 | [#32](https://github.com/diegoami/imperial_conquest_2/issues/32) |
 | T30 | `IC2.Data`: tombstones + DAT layout | — | Sonnet | High | **Opus**/Medium | T01 | [#37](https://github.com/diegoami/imperial_conquest_2/issues/37) |
+| T31 | Correct `Ruleset.Siege` defender fields | — | Sonnet | Medium | **Opus**/Medium | T02 | [#45](https://github.com/diegoami/imperial_conquest_2/issues/45) |
 
-**Totals** — 30 tasks: 4 Opus, 20 Sonnet, 5 Haiku, 1 Fable. Effort: 2 Ultrahigh, 14 High, 12 Medium, 2 Low. Structure: 3 strictly sequential foundation tasks, a 7-wide parallel wave, a 4-wide wave, a 6-wide wave, and a 4-task serial Godot/delivery tail, plus T30 in wave 1 and T29 running alongside the T03 serialization point. Critical path: 11 of 30; the other 19 are slack that fills the concurrency budget around it. (These counts previously read "29 tasks" and omitted T30 from the model tally — corrected here rather than carried forward.)
+**Totals** — 31 tasks: 4 Opus, 21 Sonnet, 5 Haiku, 1 Fable. Effort: 2 Ultrahigh, 14 High, 13 Medium, 2 Low. Structure: 3 strictly sequential foundation tasks, a 7-wide parallel wave, a 4-wide wave, a 6-wide wave, and a 4-task serial Godot/delivery tail, plus T30 in wave 1, T29 running alongside the T03 serialization point, and T31 slotted into wave 3 ahead of the T07 it unblocks. Critical path: 12 of 31 — T31 joins it, because T07 cannot resume until it merges and T07 was already on the path. The other 19 are slack that fills the concurrency budget around it. (These counts previously read "29 tasks" and omitted T30 from the model tally — corrected at the time rather than carried forward, and extended here for T31.)
 
 ---
 
