@@ -8,30 +8,54 @@ internal static class SaveJsonExporter
     {
         var data = File.ReadAllBytes(savePath);
         var world = WorldPrefix.Parse(data);
-        var turn = SaveTurnState.Parse(data);
         var nations = SaveNationTable.Parse(data);
         var recruitment = SaveRecruitmentTable.Parse(data);
         var armies = SaveArmyTable.Parse(data);
         var fleets = SaveFleetTable.Parse(data);
-        var mercenaries = SaveMercenaryTable.Parse(data);
 
-        var document = new
+        // Neither the calendar/current-turn trailer nor the mercenary-offer pool exists in the DAT
+        // at all (see SaveTurnState/SaveMercenaryTable's own DatDataNotPresentException messages),
+        // so export null / an empty list for those rather than letting the whole export crash on a
+        // file every other section of this document parses cleanly.
+        object? turnJson = null;
+        try
         {
-            source = Path.GetFileName(savePath),
-            turn = new
+            var turn = SaveTurnState.Parse(data);
+            turnJson = new
             {
                 week = turn.Week,
                 season = turn.SeasonName,
                 year = turn.YearBc,
                 currentNation = NationRef(turn.CurrentNationCode)
-            },
+            };
+        }
+        catch (DatDataNotPresentException)
+        {
+        }
+
+        IReadOnlyList<MercenaryRecord> mercenaryRecords = Array.Empty<MercenaryRecord>();
+        try
+        {
+            mercenaryRecords = SaveMercenaryTable.Parse(data).Records;
+        }
+        catch (DatDataNotPresentException)
+        {
+        }
+
+        var document = new
+        {
+            source = Path.GetFileName(savePath),
+            turn = turnJson,
             map = new { width = WorldPrefix.MapWidth, height = WorldPrefix.MapHeight },
             nations = nations.Nations.Select(n => new
             {
                 code = n.Code,
                 name = n.Name,
+                // Both fields are genuinely absent from a DAT-origin record (see NationRecord.Leader /
+                // .HumanPlayer's own doc comments) — export null rather than touching the throwing
+                // HumanPlayer accessor or fabricating a value.
                 leader = n.Leader,
-                humanPlayer = n.HumanPlayer,
+                humanPlayer = n.Source == SaveFileFormat.Dat ? (bool?)null : n.HumanPlayer,
                 capital = CityRef(world, n.CapitalCityIndex),
                 cityCount = n.CityCount,
                 mapCityCount = world.Cities.Count(c => c.OwnerCode == n.Code),
@@ -110,7 +134,7 @@ internal static class SaveJsonExporter
                 transportCapacityTroops = f.TransportCapacityTroops,
                 quarterlyUpkeep = f.QuarterlyUpkeep
             }),
-            mercenaryOffers = mercenaries.Records.Where(m => !m.IsEmpty).Select(m => new
+            mercenaryOffers = mercenaryRecords.Where(m => !m.IsEmpty).Select(m => new
             {
                 index = m.Index,
                 x = m.X,

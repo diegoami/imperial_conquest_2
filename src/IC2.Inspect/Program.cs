@@ -13,7 +13,7 @@ if ((args.Length == 2 && args[0] == "--inspect-turn") ||
         Console.WriteLine($"Week {turn.Week} {turn.SeasonName} {turn.YearBc} BC · current nation {NationCatalog.Name(turn.CurrentNationCode)} ({turn.CurrentNationCode})");
         return 0;
     }
-    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or DatDataNotPresentException or UnrecognizedSaveFormatException)
     {
         Console.Error.WriteLine(ex.Message);
         return 1;
@@ -49,11 +49,15 @@ if ((args.Length == 3 && args[0] == "--inspect-nation") ||
                 cityCount++;
                 cityPopulation += city.PopulationThousands;
             }
-        Console.WriteLine($"{nation.Name} · {(nation.HumanPlayer ? "human player" : "computer player")} · leader {nation.Leader} · capital {capital}");
+        var control = nation.Source == SaveFileFormat.Dat
+            ? "not stored in the DAT"
+            : nation.HumanPlayer ? "human player" : "computer player";
+        var leader = nation.Source == SaveFileFormat.Dat ? "(not stored in the DAT)" : nation.Leader;
+        Console.WriteLine($"{nation.Name} · {control} · leader {leader} · capital {capital}");
         Console.WriteLine($"{nation.CityCount} cities (map count {cityCount}) · candidate population {cityPopulation * 3000:N0} · tax {nation.TaxRatePercent}% · mobilized {nation.MobilizedPercent}% · treasury {nation.Treasury} talents · unity value {nation.UnityValue}");
         return 0;
     }
-    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or DatDataNotPresentException or UnrecognizedSaveFormatException)
     {
         Console.Error.WriteLine(ex.Message);
         return 1;
@@ -92,7 +96,7 @@ if ((args.Length == 3 && args[0] == "--inspect-city") ||
         if (found == 0) Console.WriteLine("No city-unit entries were found for this city.");
         return 0;
     }
-    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or DatDataNotPresentException or UnrecognizedSaveFormatException)
     {
         Console.Error.WriteLine(ex.Message);
         return 1;
@@ -129,7 +133,7 @@ if ((args.Length == 3 && args[0] == "--list-armies") ||
         if (found == 0) Console.WriteLine($"No armies owned by {nationName} in {Path.GetFileName(inspectedSavePath)}.");
         return 0;
     }
-    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or DatDataNotPresentException or UnrecognizedSaveFormatException)
     {
         Console.Error.WriteLine(ex.Message);
         return 1;
@@ -150,7 +154,7 @@ if ((args.Length == 3 && args[0] == "--to-json") ||
         Console.WriteLine($"Wrote {outputPath}");
         return 0;
     }
-    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or DatDataNotPresentException or UnrecognizedSaveFormatException)
     {
         Console.Error.WriteLine(ex.Message);
         return 1;
@@ -178,7 +182,7 @@ if ((args.Length == 2 && args[0] == "--list-mercenaries") ||
         if (found == 0) Console.WriteLine("No available mercenary offers found.");
         return 0;
     }
-    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or DatDataNotPresentException or UnrecognizedSaveFormatException)
     {
         Console.Error.WriteLine(ex.Message);
         return 1;
@@ -215,7 +219,7 @@ if ((args.Length == 2 && args[0] == "--list-fleets") ||
         }
         return 0;
     }
-    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or DatDataNotPresentException or UnrecognizedSaveFormatException)
     {
         Console.Error.WriteLine(ex.Message);
         return 1;
@@ -254,7 +258,7 @@ if ((args.Length == 4 && args[0] == "--inspect-army") ||
         if (!found) throw new ArgumentException($"No army record at ({x}, {y}) in {Path.GetFileName(inspectedSavePath)}.");
         return 0;
     }
-    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or DatDataNotPresentException or UnrecognizedSaveFormatException)
     {
         Console.Error.WriteLine(ex.Message);
         return 1;
@@ -272,7 +276,7 @@ if ((args.Length == 2 && args[0] == "--render-map") ||
         MapRenderer.Render(settings.DatPath, outputPath);
         return 0;
     }
-    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or DatDataNotPresentException or UnrecognizedSaveFormatException)
     {
         Console.Error.WriteLine(ex.Message);
         return 1;
@@ -291,7 +295,7 @@ if ((args.Length == 3 && args[0] == "--compare-saves") ||
         SaveComparer.Compare(first, second);
         return 0;
     }
-    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or DatDataNotPresentException or UnrecognizedSaveFormatException)
     {
         Console.Error.WriteLine(ex.Message);
         return 1;
@@ -312,7 +316,7 @@ if (args.Length == 0 || (args.Length == 2 && args[0] == "--save") ||
         if (args.Length >= 2 && args[^2] == "--save")
             savePath = settings.ResolveSavePath(args[^1]);
     }
-    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or DatDataNotPresentException or UnrecognizedSaveFormatException)
     {
         Console.Error.WriteLine(ex.Message);
         return 1;
@@ -366,7 +370,7 @@ try
     }
     return 0;
 }
-catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or DatDataNotPresentException or UnrecognizedSaveFormatException)
 {
     Console.Error.WriteLine(ex.Message);
     return 1;

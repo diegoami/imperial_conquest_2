@@ -6,7 +6,7 @@ using System.Text;
 
 namespace IC2.Data;
 
-/// <summary>The fixed-size army table observed after the city table in known SAV files.</summary>
+/// <summary>The fixed-size army table observed after the city table in known SAV and DAT files.</summary>
 public sealed class SaveArmyTable
 {
     public const int RecordLength = 656;
@@ -17,30 +17,74 @@ public sealed class SaveArmyTable
     public const int UnitSlotLength = 32;
     public const int UnitSlotsPerArmy = 20;
 
-    private SaveArmyTable(ArmyRecord[] armies) => Armies = armies;
+    private SaveArmyTable(ArmyRecord[] armies, SkippedArmyRecord[] skippedRecords)
+    {
+        Armies = armies;
+        SkippedRecords = skippedRecords;
+    }
 
     public IReadOnlyList<ArmyRecord> Armies { get; }
+
+    /// <summary>Records whose owner word was the <see cref="ArmyRecord.TombstoneOwnerSentinel"/>
+    /// (0xFFFF) — an army slot merged or eliminated during the turn and not yet compacted. These are
+    /// deliberately excluded from <see cref="Armies"/> rather than returned as degenerate
+    /// owner-65535 entries; a caller can tell "clean parse" from "parse with tombstones" from this
+    /// list without re-reading bytes. See docs/investigations/thracia-supply-morale.md and
+    /// docs/investigations/dat-file-layout.md.</summary>
+    public IReadOnlyList<SkippedArmyRecord> SkippedRecords { get; }
 
     public static SaveArmyTable Parse(byte[] data)
     {
         if (data is null) throw new ArgumentNullException(nameof(data));
-        if (data.Length < WorldPrefix.SharedPrefixLength + 2)
-            throw new InvalidDataException("Save ends before the army count.");
 
-        var count = ReadWord(data, WorldPrefix.SharedPrefixLength);
-        var tableStart = WorldPrefix.SharedPrefixLength + 2;
-        if (count > (data.Length - tableStart) / RecordLength)
-            throw new InvalidDataException($"Army count {count} exceeds the available fixed-size records.");
+        int tableStart;
+        int count;
+        if (SaveFormat.Detect(data) == SaveFileFormat.Dat)
+        {
+            tableStart = DatLayout.ArmyTableStart;
+            count = DatLayout.ArmyRecordCount;
+            if (tableStart + count * RecordLength > data.Length)
+                throw new InvalidDataException("DAT ends before the complete fixed-size army table.");
+        }
+        else
+        {
+            if (data.Length < WorldPrefix.SharedPrefixLength + 2)
+                throw new InvalidDataException("Save ends before the army count.");
+            count = ReadWord(data, WorldPrefix.SharedPrefixLength);
+            tableStart = WorldPrefix.SharedPrefixLength + 2;
+            if (count > (data.Length - tableStart) / RecordLength)
+                throw new InvalidDataException($"Army count {count} exceeds the available fixed-size records.");
+        }
 
-        var armies = new ArmyRecord[count];
+        var armies = new List<ArmyRecord>(count);
+        var skipped = new List<SkippedArmyRecord>();
         for (var i = 0; i < count; i++)
         {
             var offset = tableStart + i * RecordLength;
             var x = ReadWord(data, offset);
             var y = ReadWord(data, offset + 2);
             var owner = ReadWord(data, offset + 4);
-            if (x >= WorldPrefix.MapWidth || y >= WorldPrefix.MapHeight || owner > 15)
-                throw new InvalidDataException($"Army {i} has invalid coordinates or owner code.");
+
+            // 0xFFFF is the established no-owner tombstone sentinel (also special-cased for the
+            // *capital* field in SaveNationTable): an army slot merged or eliminated during the turn
+            // and not yet compacted. Confirmed on 3 of 51 saves, always with otherwise-valid
+            // coordinates, in docs/investigations/thracia-supply-morale.md and counted properly
+            // across the whole corpus in docs/investigations/dat-file-layout.md. Skip it — do not
+            // validate its other fields, since they describe a slot that is not really an army — and
+            // keep parsing the rest of the file. Every OTHER out-of-range owner is still a genuine
+            // parse failure; this is a specific sentinel, not a widened range.
+            if (owner == ArmyRecord.TombstoneOwnerSentinel)
+            {
+                skipped.Add(new SkippedArmyRecord(i, x, y));
+                continue;
+            }
+
+            if (x >= WorldPrefix.MapWidth)
+                throw new InvalidDataException($"Army {i} has out-of-range X coordinate {x}.");
+            if (y >= WorldPrefix.MapHeight)
+                throw new InvalidDataException($"Army {i} has out-of-range Y coordinate {y}.");
+            if (owner > 15)
+                throw new InvalidDataException($"Army {i} has out-of-range owner code {owner}.");
 
             var units = new List<ArmyUnit>();
             for (var slot = 0; slot < UnitSlotsPerArmy; slot++)
@@ -52,27 +96,53 @@ public sealed class SaveArmyTable
                 var quality = ReadWord(data, unitOffset + 6);
                 var nameStart = unitOffset + 8;
                 var nameEnd = Array.IndexOf(data, (byte)0, nameStart, 24);
-                if (nameEnd <= nameStart || type > 4 || quality is < 5 or > 9)
-                    throw new InvalidDataException($"Army {i}, unit slot {slot} has an unsupported active-unit layout.");
+                if (nameEnd <= nameStart)
+                    throw new InvalidDataException($"Army {i}, unit slot {slot} is missing a nonempty unit name.");
+                if (type > 4)
+                    throw new InvalidDataException($"Army {i}, unit slot {slot} has out-of-range type code {type}.");
+                if (quality is < 5 or > 9)
+                    throw new InvalidDataException($"Army {i}, unit slot {slot} has out-of-range quality code {quality}.");
                 for (var p = nameStart; p < nameEnd; p++)
                     if (data[p] < 0x20 || data[p] > 0x7e)
                         throw new InvalidDataException($"Army {i}, unit slot {slot} has a non-ASCII name.");
                 var name = Encoding.ASCII.GetString(data, nameStart, nameEnd - nameStart).Trim();
                 units.Add(new ArmyUnit(slot, name, type, troops, quality, ReadWord(data, unitOffset)));
             }
-            armies[i] = new ArmyRecord(i, x, y, owner,
+            armies.Add(new ArmyRecord(i, x, y, owner,
                 moves: ReadWord(data, offset + 6),
                 coveredCell: ReadWord(data, offset + 8),
                 supplies: ReadWord(data, offset + 10),
                 money: ReadWord(data, offset + 12),
                 morale: ReadWord(data, offset + 14),
-                units: units.ToArray());
+                units: units.ToArray()));
         }
-        return new SaveArmyTable(armies);
+        return new SaveArmyTable(armies.ToArray(), skipped.ToArray());
     }
 
     private static ushort ReadWord(byte[] data, int offset) =>
         BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(offset, 2));
+}
+
+/// <summary>A skipped army-table record: the tombstone sentinel was found in the owner word, so the
+/// rest of the 656-byte record was never interpreted. See <see cref="SaveArmyTable.SkippedRecords"/>.</summary>
+public sealed class SkippedArmyRecord
+{
+    internal SkippedArmyRecord(int index, ushort x, ushort y)
+    {
+        Index = index;
+        X = x;
+        Y = y;
+    }
+
+    /// <summary>The record's position (0-based) in the army table.</summary>
+    public int Index { get; }
+
+    /// <summary>Map X at +0 — read for diagnostics even though the record is a tombstone; every
+    /// observed tombstone has otherwise-valid coordinates.</summary>
+    public ushort X { get; }
+
+    /// <summary>Map Y at +2. See <see cref="X"/>.</summary>
+    public ushort Y { get; }
 }
 
 public sealed class ArmyRecord
@@ -80,6 +150,12 @@ public sealed class ArmyRecord
     /// <summary>Value of <see cref="CoveredCell"/> when the army is aboard a fleet and therefore
     /// occupies no map cell of its own.</summary>
     public const ushort AboardFleetSentinel = 0xFFFF;
+
+    /// <summary>Value of the owner word (+4) that marks a tombstoned record rather than a real army —
+    /// see <see cref="SaveArmyTable.SkippedRecords"/>. Numerically the same 0xFFFF bit pattern as
+    /// <see cref="AboardFleetSentinel"/>, but a different field with a different meaning; kept as a
+    /// separate constant so the two are never conflated.</summary>
+    public const ushort TombstoneOwnerSentinel = 0xFFFF;
 
     internal ArmyRecord(int index, ushort x, ushort y, ushort ownerCode, ushort moves,
         ushort coveredCell, ushort supplies, ushort money, ushort morale, ArmyUnit[] units)

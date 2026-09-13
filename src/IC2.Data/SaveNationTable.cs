@@ -6,7 +6,8 @@ using System.Text;
 
 namespace IC2.Data;
 
-/// <summary>The 16 fixed-size nation records observed in known SAV files.</summary>
+/// <summary>The 16 fixed-size nation records observed in known SAV files, and at their own fixed
+/// offset and shorter record length in the DAT.</summary>
 public sealed class SaveNationTable
 {
     private SaveNationTable(NationRecord[] nations) => Nations = nations;
@@ -16,6 +17,12 @@ public sealed class SaveNationTable
     public const ushort NoCapitalSentinel = 0xFFFF;
 
     public static SaveNationTable Parse(byte[] data)
+    {
+        if (data is null) throw new ArgumentNullException(nameof(data));
+        return SaveFormat.Detect(data) == SaveFileFormat.Dat ? ParseDat(data) : ParseSav(data);
+    }
+
+    private static SaveNationTable ParseSav(byte[] data)
     {
         var start = SaveNationLayout.Locate(data);
         var nations = new NationRecord[SaveNationLayout.NationCount];
@@ -37,7 +44,36 @@ public sealed class SaveNationTable
             nations[i] = new NationRecord((ushort)i, name, leader,
                 BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(offset + 0x438, 4)),
                 ReadWord(data, offset + 0x440), ReadWord(data, offset + 0x442),
-                capitalCity, cities, ReadWord(data, offset + 0x44A), human == 1);
+                capitalCity, cities, ReadWord(data, offset + 0x44A), humanPlayer: human == 1,
+                source: SaveFileFormat.Sav);
+        }
+        return new SaveNationTable(nations);
+    }
+
+    /// <summary>Reads the DAT's own 1,055-byte nation record shape: everything <see cref="ParseSav"/>
+    /// reads except <c>Leader</c> and <c>HumanPlayer</c>, which the DAT genuinely does not store — see
+    /// <see cref="NationRecord.Leader"/> and <see cref="NationRecord.HumanPlayer"/>. Offsets are cited
+    /// in <see cref="DatLayout"/>. See docs/investigations/dat-file-layout.md.</summary>
+    private static SaveNationTable ParseDat(byte[] data)
+    {
+        var nations = new NationRecord[SaveNationLayout.NationCount];
+        for (var i = 0; i < nations.Length; i++)
+        {
+            var offset = DatLayout.NationTableStart + i * DatLayout.NationRecordLength;
+            var name = ReadName(data, offset + DatLayout.NationNameOffset, DatLayout.NationNameLength);
+            if (name != NationCatalog.Name((ushort)i))
+                throw new InvalidDataException($"DAT nation record {i} has unexpected name {name}.");
+            var capitalCity = ReadWord(data, offset + DatLayout.NationCapitalOffset);
+            var cities = ReadWord(data, offset + DatLayout.NationCitiesOffset);
+            if ((capitalCity >= WorldPrefix.CityCount && capitalCity != NoCapitalSentinel) ||
+                cities > WorldPrefix.CityCount)
+                throw new InvalidDataException($"DAT nation record {i} has invalid capital or city count.");
+            nations[i] = new NationRecord((ushort)i, name, leader: null,
+                BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(offset + DatLayout.NationTreasuryOffset, 4)),
+                ReadWord(data, offset + DatLayout.NationUnityOffset),
+                ReadWord(data, offset + DatLayout.NationMobilizedOffset),
+                capitalCity, cities, ReadWord(data, offset + DatLayout.NationTaxOffset),
+                humanPlayer: null, source: SaveFileFormat.Dat);
         }
         return new SaveNationTable(nations);
     }
@@ -58,8 +94,11 @@ public sealed class SaveNationTable
 
 public sealed class NationRecord
 {
-    internal NationRecord(ushort code, string name, string leader, int treasury, ushort unityValue,
-        ushort mobilizedPercent, ushort capitalCityIndex, ushort cityCount, ushort taxRatePercent, bool humanPlayer)
+    private readonly bool? _humanPlayer;
+
+    internal NationRecord(ushort code, string name, string? leader, int treasury, ushort unityValue,
+        ushort mobilizedPercent, ushort capitalCityIndex, ushort cityCount, ushort taxRatePercent,
+        bool? humanPlayer, SaveFileFormat source)
     {
         Code = code;
         Name = name;
@@ -70,19 +109,42 @@ public sealed class NationRecord
         CapitalCityIndex = capitalCityIndex;
         CityCount = cityCount;
         TaxRatePercent = taxRatePercent;
-        HumanPlayer = humanPlayer;
+        _humanPlayer = humanPlayer;
+        Source = source;
     }
 
     public ushort Code { get; }
     public string Name { get; }
-    public string Leader { get; }
+
+    /// <summary>The nation's leader name, or <c>null</c> when <see cref="Source"/> is
+    /// <see cref="SaveFileFormat.Dat"/> — the DAT genuinely does not store it. In the original,
+    /// <c>TPremierForm_NewGame</c>'s second helper (<c>FUN_00448aa4</c>) draws it at random from a
+    /// 12-candidate-per-nation pool only once a New Game actually starts; it is not world data. See
+    /// docs/investigations/dat-file-layout.md. Modelled as an explicit absence rather than an empty
+    /// string, precisely so a caller cannot mistake "not stored" for "stored and blank".</summary>
+    public string? Leader { get; }
+
     public int Treasury { get; }
     public ushort UnityValue { get; }
     public ushort MobilizedPercent { get; }
     public ushort CapitalCityIndex { get; }
     public ushort CityCount { get; }
     public ushort TaxRatePercent { get; }
-    public bool HumanPlayer { get; }
+
+    /// <summary>True if this is a human-controlled seat, false if AI-controlled. Throws
+    /// <see cref="DatDataNotPresentException"/> when <see cref="Source"/> is
+    /// <see cref="SaveFileFormat.Dat"/>: the DAT does not store this field either (the loader never
+    /// reads record offset +0x490 at all), and <c>FUN_00448aa4</c> only ever sets it to 0 ("nobody is
+    /// human yet") once a New Game starts — so there is no DAT-derived value that would not be a
+    /// fabricated, plausible-looking default. See docs/investigations/dat-file-layout.md.</summary>
+    public bool HumanPlayer => _humanPlayer ?? throw new DatDataNotPresentException(
+        "HumanPlayer is not stored in the DAT. TPremierForm_NewGame's FUN_00448aa4 sets it only once " +
+        "a New Game actually starts; see docs/investigations/dat-file-layout.md.");
+
+    /// <summary>Which file shape this record was parsed from — an explicit marker so a caller can
+    /// check before touching <see cref="Leader"/> or <see cref="HumanPlayer"/>, both of which are
+    /// absent by construction on a <see cref="SaveFileFormat.Dat"/> record.</summary>
+    public SaveFileFormat Source { get; }
 
     /// <summary>True once a nation has lost its last city (capital reads the 0xFFFF sentinel).</summary>
     public bool IsEliminated => CapitalCityIndex == SaveNationTable.NoCapitalSentinel;

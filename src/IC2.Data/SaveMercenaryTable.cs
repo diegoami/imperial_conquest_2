@@ -36,6 +36,14 @@ public sealed class SaveMercenaryTable
 
     public static SaveMercenaryTable Parse(byte[] data)
     {
+        if (data is null) throw new ArgumentNullException(nameof(data));
+        if (SaveFormat.Detect(data) == SaveFileFormat.Dat)
+            throw new DatDataNotPresentException(
+                "The DAT has no mercenary-offer pool. It is New Game state the original has not " +
+                "created yet when the DAT is loaded (offers are generated turn by turn); there is no " +
+                "DAT-derived value that would not be a fabricated 'empty pool'. See " +
+                "docs/investigations/dat-file-layout.md.");
+
         var nationStart = SaveNationLayout.Locate(data);
         var start = nationStart + SaveNationLayout.NationCount * SaveNationLayout.NationRecordLength;
         var end = start + RecordCount * RecordLength;

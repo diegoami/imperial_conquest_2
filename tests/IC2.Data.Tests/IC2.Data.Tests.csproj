@@ -5,8 +5,16 @@
     and CI"). TargetFramework/Nullable/ImplicitUsings/TreatWarningsAsErrors come from the
     repo-root Directory.Build.props (conditioned on this project's name) - note this applies only
     to this test project's own code, not to the existing IC2.Data project it references, which
-    keeps its own settings unchanged. Only a placeholder test lives here; later tasks that need
-    IC2.Data coverage add their own test files here without editing this project's .csproj.
+    keeps its own settings unchanged. Only a placeholder test lived here before T30; later tasks
+    that need IC2.Data coverage add their own test files here without editing this project's
+    .csproj.
+
+    T30 is the one exception: its Done-when line 8 requires every local-only test to report an
+    explicit "Skipped" test-runner result (not a silent pass) when assets.local.ini is absent.
+    xunit 2.9.2's plain [Fact] only supports a compile-time Skip string, not a runtime decision, so
+    T30 adds Xunit.SkippableFact ([SkippableFact] + Skip.If/Skip.IfNot) - a small, test-only,
+    widely-used xunit v2 extension - rather than inventing an ad hoc "print and return early"
+    convention that would just show as an ordinary pass.
   -->
 
   <PropertyGroup>
@@ -17,6 +25,7 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageReference Include="Xunit.SkippableFact" Version="1.5.85" />
   </ItemGroup>
 
   <ItemGroup>
