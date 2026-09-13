@@ -166,6 +166,14 @@ One item to re-check rather than trust: [`decompiled-city-capture-resolution.md`
 
 Two record-field labels the project is carrying that the code contradicts, both corrected in their reports and **still wrong in `IC2.Data`** (not changed here — this is an audit, not a code task): `ArmyRecord +8` is the covered map cell, not morale (`+14` is morale); `FleetRecord +20` is the fleet's condition percentage once launched, and only a build-city index while under construction.
 
+### 2.14 Data: the DAT is **not** a SAV with a different extension — a whole file format neither document has **[confirmed, new]**
+
+`IC2.Data` treats the DAT and the SAV as one layout with a shared 100,956-byte prefix, and `SaveNationLayout.Locate` walks army and fleet tables from a count word to find the nation table. That is the SAV's shape only. The DAT loader `FUN_004481a0` (`0x004481A0`, reached from `TPremierForm_NewGame`, `0x0045a9e0`) reads **no count words at all** — it reads exactly 15 army records and 2 fleet records and then assigns the counts itself (`DAT_004a0324 = 15`, `DAT_004a0326 = 2`) — and its nation record is **1,055 bytes, not 1,172**, missing 117 bytes in five separate places rather than being shifted by a constant. The consequence today is that **six of `IC2.Data`'s seven parsers throw on the DAT**; only `WorldPrefix` succeeds.
+
+The DAT **does** contain a full 16-record nation table (at `0x1B100`, names in `NationCatalog` order, with treasury, unity, mobilized %, capital, city count and tax rate all present at known offsets). What it does *not* contain is the **leader name** or the **human-player flag**: `FUN_00448aa4` writes both at New Game, the leader by a 1-in-12 draw from a 4,992-byte name pool. Any export of the original's world data has to source those from somewhere else, because the original does too.
+
+The complete read order — decompiled, and summing to all 140,706 bytes of the file exactly, with its season table landing on `0x1F7D8` and so independently corroborating §2.9a — is in [`investigations/dat-file-layout.md`](investigations/dat-file-layout.md). The same pass counted the `IC2.Data` failures properly across the whole local corpus: **3 of 51 saves** fail, all on a single `0xFFFF` army-owner tombstone record each (one more save than the earlier sampled count found), and the DAT fails for the unrelated reason above. Both are owned by build task **T30**.
+
 ---
 
 ## 3. Open questions for the user
