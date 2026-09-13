@@ -1,47 +1,42 @@
 # Imperial Conquest 2 research and reimplementation
 
-This repository contains the development of a modern reimplementation of Imperial Conquest 2 — the game design, the build/release plans, and all code (`IC2.Data`, `IC2.Inspect`, the Godot client). It does **not** contain the game's executables, data, help files, sounds, or saves. Supply files from your own installation when using the tools.
+A modern, moddable reimplementation of *Imperial Conquest 2* (1996) — the game design, the build/release plans, and all code. Does **not** contain the game's executables, data, help files, sounds, or saves; supply files from your own installation when using the tools that read them.
 
-**The reverse-engineering research itself now lives in a separate repository: [diegoami/imperial-conquest-2-research](https://github.com/diegoami/imperial-conquest-2-research)** — the save/DAT format writeups, decompiled formulas, and evidence-based reports this reimplementation is built from. This repo cites those reports directly; see them there for the full evidence trail behind any given rule.
+**The reverse-engineering research lives in a separate repository: [diegoami/imperial-conquest-2-research](https://github.com/diegoami/imperial-conquest-2-research)** — save/DAT format writeups, decompiled formulas, evidence-based reports. This repo cites those reports directly.
 
-For a concise current-state summary and the next steps, start with the [project handover](docs/HANDOVER.md).
+## Current status
 
-**Tracking the build**: the reimplementation is being built by a multi-agent pipeline driven from GitHub issues. **[Issue #29](https://github.com/diegoami/imperial_conquest_2/issues/29)** is the live status dashboard; [`build-orchestration-plan.md` §0](docs/build-orchestration-plan.md#0-where-things-stand-and-what-you-can-test) explains where to check progress and what's actually runnable at each stage (nothing playable until `IC2.Cli` lands, nothing visual until the Godot screens do). To pause the build for any reason, [§7.5](docs/build-orchestration-plan.md#75-user-initiated-pause) is the mechanism — no need to track down a running agent.
+Being built by a multi-agent pipeline driven from GitHub issues. **As of commit `4ab3344`: wave 0 (build scaffolding + GitHub hygiene) is merged** — `IC2.sln` now exists, pre-declaring `IC2.Data`, `IC2.Inspect`, `IC2.Engine`, `IC2.Cli`, and their test projects; CI runs on every push/PR.
 
-The first milestone is a C#/.NET parser for the shared world prefix in the original `.DAT` and `.sav` files and the army, nation, recruitment, and current-turn structures in known saves. A Godot map viewer uses that parser to show terrain, cities, army rosters, nation details, and the save's calendar. Godot is not required to build or run the command-line inspector.
+- **Live tracker**: [issue #29](https://github.com/diegoami/imperial_conquest_2/issues/29). **Full guide to checking progress and what's actually runnable at each stage**: [`build-orchestration-plan.md` §0](docs/build-orchestration-plan.md#0-where-things-stand-and-what-you-can-test) — short version, nothing playable before `IC2.Cli` lands, nothing visual before the Godot screens do.
+- **To pause the build for any reason**: [§7.5](docs/build-orchestration-plan.md#75-user-initiated-pause) — `gh issue edit 29 --add-label orchestrator:pause`, from any session, no need to track down a running agent.
+- **To build and test what exists right now**:
+  ```bash
+  dotnet build IC2.sln   # 0 warnings, 0 errors
+  dotnet test IC2.sln    # placeholder tests, green
+  ```
+- **CI**: [Actions tab](https://github.com/diegoami/imperial_conquest_2/actions).
 
-## Godot map viewer
+## Building the reimplementation
 
-After setting `assets.local.ini`, open `godot/project.godot` with the Godot .NET edition (currently 4.7.2) and run the project. The viewer reads the original DAT from the configured external directory and draws its 320 × 140 map and 334 cities. It opens in a maximized window near Rome; **Show whole map** returns to the overview. Use the source selector to view the initial world or any `.sav` files in the configured `saves` folder. The mouse wheel zooms toward the cursor, and dragging with the left mouse button moves around the map. In a save, click an army flag to see its troop roster, moves, supply, and money; click a city to see its controller, allegiance, population, fortification, tribute, supplies, and **total troops assigned to the city** beside the fortification percentage, followed by its unit list. The **Nations** selector shows a nation’s leader, capital, city count, tax rate, mobilization, treasury, and human-player status. The header shows the save’s week, season, year, and active nation. For example, select `12_ptol_b.sav` and click Masada to see **49,800** city-unit troops, or select `12_rom_a.sav` and click Rome to see **70,000** after the 15,000-soldier transfer. Fleet clicks show the information currently known for them. Rivers follow their six screenshot-backed blue shapes. The 16 nation names and icon colors follow the user's ordered screenshots; some marker details remain provisional. The viewer does not yet implement turns or combat and does not copy original assets into the repository.
+`IC2.Engine` (the headless game engine) and `IC2.Cli` (a scriptable play harness) are scaffolded but not yet implemented — see the status section above for what to expect at each build stage. Once `IC2.Cli` lands, this section will carry its usage.
 
-## Requirements
+## The research-inspector tools (`IC2.Inspect`)
 
-- .NET 10 SDK to build and run the parser, inspector, and Godot C# viewer. The viewer uses Godot .NET 4.7.2.
-- A copy of `Imperial Conquest 2.dat`; optionally, a `.sav` file for comparison.
-
-## Point the inspector at your original files
-
-Keep the original game files in a folder outside this repository. Copy `assets.example.ini` to `assets.local.ini` in the repository root, then set `directory` to the folder containing `Imperial Conquest 2.dat`. For example:
+Predates the reimplementation — a read-only C#/.NET CLI and Godot viewer for original `.DAT`/`.sav` files, built during the reverse-engineering phase and still useful for inspecting real save data. Point it at your own files:
 
 ```ini
+# assets.local.ini (copy from assets.example.ini; git-ignored, machine-specific)
 [assets]
 directory = C:\path\to\imp_conq_original
 ```
 
-`assets.local.ini` is Git-ignored because it is specific to your computer. The tracked example is safe to share. Saves may be placed in a `saves` subfolder of the asset directory; sound files can remain in `WAVS`. The inspector reads the DAT and optional save only. It does not need the EXE, help, or sounds.
-
-Screenshots can be kept in a `screenshots` subfolder beside `saves`. Name them `<save-number>.<image-number>.png`: for example, `screenshots/7.1.png` through `screenshots/7.5.png` correspond to `saves/7.sav`. These screenshots are reference material for research and remain outside Git; a `screenshots/` folder copied into the repository is also ignored.
-
-Recordings can be kept in a `recordings` subfolder beside `saves` and `screenshots`. MP4 files and the `recordings/` folder are Git-ignored. Research reports contain observations and hashes, not copies of the original media.
-
-From the repository root:
+Saves go in a `saves` subfolder of that directory; screenshots (`<save-number>.<image-number>.png`) and recordings (`.mp4`) in sibling `screenshots`/`recordings` folders — both git-ignored, reference material only.
 
 ```text
 dotnet build src/IC2.Inspect/IC2.Inspect.csproj
-dotnet run --project src/IC2.Inspect/IC2.Inspect.csproj
 dotnet run --project src/IC2.Inspect/IC2.Inspect.csproj -- --save "saves/1,sav.sav"
 dotnet run --project src/IC2.Inspect/IC2.Inspect.csproj -- --compare-saves saves/1.sav saves/4.sav
-dotnet run --project src/IC2.Inspect/IC2.Inspect.csproj -- --compare-saves saves/11.sav saves/11_supply.sav
 dotnet run --project src/IC2.Inspect/IC2.Inspect.csproj -- --inspect-city saves/11_supply.sav Rome
 dotnet run --project src/IC2.Inspect/IC2.Inspect.csproj -- --inspect-army saves/11_supply.sav 100 42
 dotnet run --project src/IC2.Inspect/IC2.Inspect.csproj -- --inspect-nation saves/11_ptol.sav Ptolemaic
@@ -53,6 +48,16 @@ dotnet run --project src/IC2.Inspect/IC2.Inspect.csproj -- --to-json saves/11_su
 dotnet run --project src/IC2.Inspect/IC2.Inspect.csproj -- --render-map rendered/map.svg
 ```
 
-Run these commands from the repository root. The inspector validates the 320 × 140 grid and 334 city records, then reports changed cells and city records if a save is supplied. With `--compare-saves`, it compares two original saves and reports hashes, map transitions, city supplies, and city-record byte changes. When the files have equal lengths, it also summarizes byte changes after the city table. `--inspect-city` reads a known save's city and units-at-city fields, including their total troop count; `--inspect-army` prints the army at the requested coordinates; `--list-armies` lists every army owned by a nation without needing coordinates. `--inspect-nation` shows the decoded nation panel fields; `--inspect-turn` prints the save's current calendar and active nation. `--list-fleets` lists every fleet's coordinates, ship count, and home city. `--list-mercenaries` lists every available (non-hired) mercenary offer from the fixed 50-slot table. `--to-json` writes every known field (turn, all 16 nations, all 334 cities with garrisons, all armies with units, all fleets, all mercenary offers) to one indented JSON file, for a full readable dump rather than one field at a time — it does not include raw map cells; use `--render-map` for the map itself. `--render-map` creates an SVG from the original DAT with provisional terrain colors and city markers. The `rendered/` folder is Git-ignored because generated maps derive from the original game data. A relative save path is resolved under the configured asset directory. For automation, `--config <path>` selects a different INI; the original positional DAT/SAV paths still work. The inspector does not execute or modify the original game.
+Run from the repository root. `--compare-saves` reports hashes, map transitions, and city/army/fleet-record byte changes between two saves. `--inspect-city`/`--inspect-army`/`--inspect-nation`/`--inspect-turn` print one entity's decoded fields. `--list-armies`/`--list-fleets`/`--list-mercenaries` enumerate without needing coordinates. `--to-json` dumps everything known about a save (turn, all nations, all cities with garrisons, all armies, all fleets, all mercenary offers) to one file. `--render-map` writes an SVG from the DAT's terrain/cities. `--config <path>` selects a different INI for automation. Never executes or modifies the original game.
 
-See the [roadmap](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/roadmap.md) for the full development sequence, the [game design](docs/game-design.md) and its [design audit](docs/design-audit.md) for what the reimplementation will be, the [build orchestration plan](docs/build-orchestration-plan.md) for how the build is split into parallel agent-run tasks, the [release plan](docs/release-plan.md) for how those tasks turn into version tags and releases, [research notes](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/research.md) for evidence and uncertain fields, [city units, army transfer, and mercenaries](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/city-units-army-transfer-and-mercenaries.md), [Ptolemaic player and Week 9 analysis](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/ptolemaic-player-and-week9.md), [map-layout notes](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/map-layout.md), [rivers and map markers](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/rivers-and-map-markers.md), [army-table analysis](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/army-records-and-roman-roster.md), [Rome city, recruitment, and nations](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/rome-city-recruitment-and-nations.md), [save/screenshot analysis](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/saves-and-screenshots.md), [one-turn save comparison](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/one-turn-save-comparison.md), [battle observation](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/battle-observation.md), [battle-code entry points](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/battle-code-entry-points.md), [strategic recording and summer saves](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/strategic-recording-and-summer-saves.md), [menu/toolbar inventory](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/menu-and-toolbar-inventory.md), and [controlled army-supply transfer](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/controlled-army-supply-transfer.md). The original files are intentionally excluded by `.gitignore`.
+### Godot map viewer (part of the inspector, not the reimplementation's UI yet)
+
+After setting `assets.local.ini`, open `godot/project.godot` with Godot .NET 4.7.2 and run the project — draws the 320×140 map and 334 cities, click a city/army/fleet marker for its decoded fields, a nation selector, and the save's calendar header. Read-only; no turns or commands yet (that's what `IC2.Cli`/the Godot screens in the build plan will add).
+
+## Further reading
+
+- [Project handover](docs/HANDOVER.md) — concise current-state summary, start here for "what's next."
+- [Game design](docs/game-design.md) and its [design audit](docs/design-audit.md) — what the reimplementation will be, and what the evidence actually supports.
+- [Build orchestration plan](docs/build-orchestration-plan.md) — how the build is split into agent-run tasks; **§0 is the status/testing guide**.
+- [Release plan](docs/release-plan.md) — how tasks turn into version tags and releases.
+- Research repository ([diegoami/imperial-conquest-2-research](https://github.com/diegoami/imperial-conquest-2-research)): [roadmap](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/roadmap.md), [research notes](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/research.md), and the full [reports index](https://github.com/diegoami/imperial-conquest-2-research/tree/main/docs/reports) — 46 evidence-based findings the design cites throughout.

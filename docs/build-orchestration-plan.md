@@ -764,7 +764,12 @@ This is what makes the pipeline **resumable across sessions**: a brand-new Claud
      and no open PR  → reset to status:ready, delete the stale branch if one exists.
 3. Drain finished PRs:
      gh pr list --label task --json number,labels,statusCheckRollup,mergeable
-     status:approved + green + MERGEABLE  → squash-merge, close issue, delete branch, status:merged
+     status:approved + green + MERGEABLE  → squash-merge, close issue, delete branch, status:merged,
+       **then update README.md's "Current status" section and HANDOVER.md's split/build-status
+       callout and "Next useful work" #1, commit directly to main (not a task branch — §2.3), in
+       the SAME tick as the merge.** This is not optional and not deferrable to a later tick — it
+       was skipped for the whole of wave 0 and had to be fixed by hand afterward. A merge without
+       the matching doc update is an incomplete tick.
      status:rework                        → dispatch rework (§6.5)
      CONFLICTING                          → conflict protocol (§7.4)
      no status:approved/status:rework yet, no live reviewer → spawn reviewer
@@ -1023,7 +1028,11 @@ You do not write task code yourself.
    itself — see Appendix B; `reviewDecision` is never read, since `gh pr review` cannot work when
    every agent shares one GitHub account):
    - status:approved + checks green + MERGEABLE and all merge-after deps status:merged
-       → `gh pr merge --squash --delete-branch`, close the issue, label status:merged.
+       → `gh pr merge --squash --delete-branch`, close the issue, label status:merged, THEN
+       update README.md's "Current status" section and HANDOVER.md's build-status callout and
+       "Next useful work" #1 to reflect the new state, and commit both directly to main in this
+       same tick. Do not defer this to a later tick or treat it as optional — the merge and the
+       doc update are one action, not two.
    - status:rework → SendMessage the findings to the live implementer, or spawn a fresh one with
      the PR + review comment. Round 3 → escalate (plan §6.5).
    - CONFLICTING → conflict protocol (plan §7.4). Semantic conflict → escalate.
