@@ -127,7 +127,7 @@ Concrete assignment rule:
 
 | Implementer | Reviewer | Plus |
 | --- | --- | --- |
-| Opus (T02, T03, T16, T22) | Opus / High | **and** `/code-review --effort ultra` (cloud multi-agent) as a second, independent pass |
+| Opus (T02, T03, T16, T22) | Opus / High | **and** `/code-review --effort ultra` (cloud multi-agent) as a second pass — **not actually independent when run by the orchestrator**, see the note below |
 | Sonnet on fidelity-critical tasks (T04, T07, T08, T13, T14, T17, T19, T20, T21) | **Opus / Medium** | — |
 | Sonnet on structural tasks (T01, T06, T09, T12, T15, T23, T24, T25, T27) | Sonnet / High | — |
 | Haiku / Fable (T05, T10, T11, T18, T26, T28) | Sonnet / Medium | — |
@@ -136,7 +136,9 @@ Concrete assignment rule:
 
 The purpose-built reviewer agent is the **default gate**, not `/code-review`, because three of this project's five review checks are project-specific and a general correctness reviewer will not perform them: provenance-to-report tracing, the `[designed]`-tag rule from `design-audit.md` §4.5, and the Owns-list scope check. The reviewer must also *re-run the DoD commands locally*, which includes Godot-headless runs and local-only fixtures that a cloud reviewer cannot reach.
 
-`/code-review` is used **inside** the reviewer's run, at `--effort high`, as a supplementary correctness sweep, and `--effort ultra` is used as a genuinely independent second opinion in exactly two situations: on the four Opus-implemented architecture PRs, and on any PR that has reached rework round 2 (where implementer and reviewer are visibly disagreeing and a third voice is worth the cost).
+`/code-review` is used **inside** the reviewer's run, at `--effort high`, as a supplementary correctness sweep, and `--effort ultra` is meant as a genuinely independent second opinion in exactly two situations: on the four Opus-implemented architecture PRs, and on any PR that has reached rework round 2 (where implementer and reviewer are visibly disagreeing and a third voice is worth the cost).
+
+**In practice, it isn't independent when the orchestrator runs it.** Both attempts during the Phase 0 run fell back to a local forked pass under the same shared account instead of posting as a real separate cloud review — the same account-sharing limitation that forced the label-based approval mechanism ([§6.1](#61-the-path-a-task-takes)) shows up here too. It still surfaced real defects (T03's RNG shift bug, among others), so it's kept as extra scrutiny, but nobody should read a green `--effort ultra` pass run by the orchestrator as an independent second opinion — it's the same reviewing context taking another look, not a different one. **For T16 and T22** — the two architecture-tier tasks still ahead, and the highest-stakes ones left — the user runs `/code-review --effort ultra` themselves, from their own session, when those PRs are up. That's genuinely independent exactly where it matters most; T02 and T03 already merged under the non-independent version and are not being revisited for it.
 
 ---
 
@@ -494,7 +496,7 @@ Conventions used by every entry:
 #### T16 Battle resolution — all three variants
 
 - **Design milestone**: **M8**. **Labels**: `phase:2 lane:engine`
-- **Branch**: `task/T16-battle-resolution` · **Model/effort**: **Opus / High** · **Reviewer**: Opus / High **+ `/code-review --effort ultra`**
+- **Branch**: `task/T16-battle-resolution` · **Model/effort**: **Opus / High** · **Reviewer**: Opus / High **+ `/code-review --effort ultra`, run by the user personally** (not the orchestrator — see [§3.5](#35-where-the-code-review-skill-fits), the orchestrator's own pass isn't independent)
 - **Start after**: T07 · **Merge after**: T07, T08, T14
 - **Owns**: `src/IC2.Engine/Battle/**`, `tests/IC2.Engine.Tests/Battle/**`
 - **Scope**: The original's own instant resolver, ported — field, siege, and naval — producing one `BattleResult`. Emits a `PeaceTreatyTriggered` domain event rather than calling diplomacy, so this task and T19 do not depend on each other's internals. Also implements the `combat.onDefeat` ruleset flag (`game-design.md` Combat section, `design-audit.md` Q1 follow-up): `classical-faithful` keeps the confirmed annihilation outcome; `improved` scatters the loser's field/naval army instead. `BattleResult` must stay presentation-agnostic — nothing in its shape should need to change if a future optional battle screen is added later.
@@ -588,7 +590,7 @@ Conventions used by every entry:
 #### T22 AI
 
 - **Design milestone**: **M12**. **Labels**: `phase:2 lane:engine`
-- **Branch**: `task/T22-ai` · **Model/effort**: **Opus / Ultrahigh** · **Reviewer**: Opus / High **+ `/code-review --effort ultra`**
+- **Branch**: `task/T22-ai` · **Model/effort**: **Opus / Ultrahigh** · **Reviewer**: Opus / High **+ `/code-review --effort ultra`, run by the user personally** (not the orchestrator — see [§3.5](#35-where-the-code-review-skill-fits), the orchestrator's own pass isn't independent)
 - **Start after**: T19 · **Merge after**: T12, T15, T17, T18, T19
 - **Owns**: `src/IC2.Engine/Ai/**`, `tests/IC2.Engine.Tests/Ai/**`
 - **Scope**: The heuristic four-phase AI from `game-design.md` §AI — economy, military, diplomacy, victory-awareness — scored per candidate action, no lookahead, tuned by per-nation personality parameters in scenario data.
@@ -708,7 +710,7 @@ Five gates, in order; any failure is `request-changes`:
 - Separating *judge* from *executor* leaves a two-party audit trail on every merge (a labelled, commented review by one agent, a merge by another), which matters when the human is reconstructing what happened days later — weaker than a native GitHub review would be (see §6.1's note), but still two distinct agent actions, not one.
 - It costs nothing: the orchestrator is already running.
 
-The one place a third voice is bought is the four architecture PRs (T02, T03, T16, T22) and any PR at rework round 2, which additionally get `/code-review --effort ultra`. That is an *additional opinion*, not an additional gate — the human, not the ultrareview, is the tiebreaker if it disagrees with the reviewer.
+The one place a third voice is bought is the four architecture PRs (T02, T03, T16, T22) and any PR at rework round 2, which additionally get `/code-review --effort ultra`. That is an *additional opinion*, not an additional gate — the human, not the ultrareview, is the tiebreaker if it disagrees with the reviewer. **When the orchestrator runs it, that third voice is not actually a third party** ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers)) — for T16 and T22, the user runs it personally instead, to get a real independent pass on the two architecture PRs still ahead.
 
 ### 6.4 The DoD is not negotiable by an agent
 
