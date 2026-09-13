@@ -6,6 +6,8 @@ This repository contains the development of a modern reimplementation of Imperia
 
 For a concise current-state summary and the next steps, start with the [project handover](docs/HANDOVER.md).
 
+**Tracking the build**: the reimplementation is being built by a multi-agent pipeline driven from GitHub issues. **[Issue #29](https://github.com/diegoami/imperial_conquest_2/issues/29)** is the live status dashboard; [`build-orchestration-plan.md` §0](docs/build-orchestration-plan.md#0-where-things-stand-and-what-you-can-test) explains where to check progress and what's actually runnable at each stage (nothing playable until `IC2.Cli` lands, nothing visual until the Godot screens do). To pause the build for any reason, [§7.5](docs/build-orchestration-plan.md#75-user-initiated-pause) is the mechanism — no need to track down a running agent.
+
 The first milestone is a C#/.NET parser for the shared world prefix in the original `.DAT` and `.sav` files and the army, nation, recruitment, and current-turn structures in known saves. A Godot map viewer uses that parser to show terrain, cities, army rosters, nation details, and the save's calendar. Godot is not required to build or run the command-line inspector.
 
 ## Godot map viewer

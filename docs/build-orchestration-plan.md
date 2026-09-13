@@ -16,6 +16,42 @@ Related reading, in order: [HANDOVER.md](HANDOVER.md) (current state) → [game-
 
 ---
 
+## 0. Where things stand, and what you can test
+
+This section exists so the answer to "where am I at?" is never "ask the orchestrator" — everything is visible on GitHub without needing a running agent at all.
+
+### 0.1 Where to look
+
+| Where | What it shows |
+| --- | --- |
+| **[Issue #29](https://github.com/diegoami/imperial_conquest_2/issues/29)**, the pinned tracker | The single dashboard. Every orchestrator tick posts an updated status table here (task / state / PR / agent / blocked-by) plus a plain-language summary of what merged, what started, what's blocked, what needs you. Start here. |
+| **Milestones tab** | One per phase — `Phase 0 Foundation`, `Phase 1 Pure rules`, `Phase 2 Systems`, `Phase 3 Delivery` — each a built-in GitHub progress bar over its issues. |
+| **Issues #1–28**, `status:*` label | Each task's exact stage: `ready` → `in-progress` → `in-review` → `rework` (changes requested) or `approved` (awaiting merge) → `merged`; or `escalated` if it's waiting on you. `gh issue list --label status:in-review` (etc.) filters directly; the GitHub UI's label filter does the same. |
+| **Pull requests tab** | One per dispatched task, with the reviewer's actual GitHub review (`Approved` / `Changes requested`) and live CI status inline. |
+| **Actions tab** | Once T01 merges, every push gets a real build+test run here. |
+| **`release:v0.1.0`…`v1.0.0` labels** | Which of the five planned releases a task belongs to, per [`release-plan.md`](release-plan.md) — the "how far to a usable version" view, orthogonal to the phase/milestone view. |
+
+### 0.2 What you can actually run, and when
+
+Most of the pipeline produces no visible game for quite a while — it's headless engine code with tests, by design (`game-design.md` principle 4, determinism first). Expect a long stretch of "PRs merging, tests passing, nothing to click on" before either of the two milestones below:
+
+| After | What exists | Can you run it? |
+| --- | --- | --- |
+| T01–T05 | Solution scaffolding, CI, templates | `dotnet build` / `dotnet test` only |
+| T02–T12 (waves 1–3) | Domain model + isolated rule subsystems (calendar, economy, combat math, movement, …) | Only via their own unit tests — nothing assembled yet |
+| T13–T22 (waves 4–5) | Recruitment, naval, battle resolution, diplomacy, AI — real gameplay logic, wired together | Still headless-only |
+| **T23** | `IC2.Cli`, a scriptable headless play harness | **First thing you can actually run**: load a scenario, issue orders, end turns, from a terminal — text output, no graphics |
+| **T24** | Godot main screen, New Game flow, the ruleset chooser, the map taking real commands | **First thing that looks like a game** — clicking around and playing a turn becomes possible |
+| T25–T28 | Remaining screens, packaging, the nightly regression gate | A complete, playable build |
+
+If you want the earliest hands-on checkpoint, watch for T23 rather than expecting anything playable before it.
+
+### 0.3 Pausing the build for any reason
+
+See [§7.5](#75-user-initiated-pause) for the mechanism. Short version: ask in any session (this one included) to pause, or run `gh issue edit 29 --add-label orchestrator:pause` yourself — no need to find or message the orchestrator's own agent. It stops dispatching new work at its next checkpoint (at most one `/loop` interval away, usually sooner) and leaves everything already in flight untouched.
+
+---
+
 ## 1. What the pipeline has to work around
 
 Four properties of this project shape the whole design.
@@ -712,24 +748,28 @@ This is what makes the pipeline **resumable across sessions**: a brand-new Claud
 ### 7.3 One tick
 
 ```text
-1. Reconcile crashes:
+1. Check for a pause request:
+     if issue #29 carries label `orchestrator:pause` → post a status comment noting the pause
+     and that nothing new will be dispatched, then stop the loop entirely (do not schedule the
+     next tick). Skip steps 2-7. See §7.5.
+2. Reconcile crashes:
      for each issue status:in-progress or status:in-review with no live agent (ListAgents)
      and no open PR  → reset to status:ready, `git worktree prune`, delete the stale branch.
-2. Drain finished PRs:
+3. Drain finished PRs:
      gh pr list --label task --json number,reviewDecision,statusCheckRollup,mergeable,labels
      APPROVED + green + MERGEABLE   → squash-merge, close issue, delete branch, status:merged
      CHANGES_REQUESTED              → status:rework, dispatch rework (§6.5)
      CONFLICTING                    → conflict protocol (§7.4)
      no review yet, no live reviewer → spawn reviewer
-3. Recompute the ready set:
+4. Recompute the ready set:
      every status:blocked issue whose merge-after deps are all status:merged → status:ready
-4. Dispatch, respecting the caps (§9):
+5. Dispatch, respecting the caps (§9):
      ≤ 3 concurrent implementers; ≤ 1 single-instance task; never two overlapping Owns lists;
      never anything else while T03 is in flight.
      Agent(subagent_type: general-purpose, model: <per catalogue>, isolation: "worktree",
            prompt: Appendix A filled in from this document's task entry)
-5. Post the tick's status table to the tracking issue.
-6. Escalate anything in §6.6; if the circuit breaker tripped, stop dispatching and report.
+6. Post the tick's status table to the tracking issue.
+7. Escalate anything in §6.6; if the circuit breaker tripped, stop dispatching and report.
 ```
 
 ### 7.4 Merge conflicts
@@ -743,6 +783,24 @@ When one happens anyway:
 3. **Repeated conflicts on one file** are a signal the Owns lists are wrong. Fix the plan (a commit to this document) rather than re-resolving the same conflict each time.
 
 Merge order is always **dependency order**, and a task is never merged while one of its `merge-after` dependencies is unmerged, even if its PR is green — that green is meaningless against the wrong base.
+
+### 7.5 User-initiated pause
+
+Distinct from [§6.6](#66-when-to-escalate-to-the-human-instead-of-auto-merging): that section is the orchestrator stopping itself because it detected a problem. This is the human stopping it for any reason, or no reason — no justification required, and it should not require finding or messaging the orchestrator's own running agent to work.
+
+**Mechanism**: the label `orchestrator:pause` on the pinned tracking issue (#29). `/build-tick`'s first action, every tick, before anything else, is to check for it ([§7.3](#73-one-tick) step 1). If present:
+
+1. Dispatch **zero** new tasks this tick (steps 2–7 are skipped entirely).
+2. Post a status comment to #29: what's still open for manual review/merge, and that nothing new will be dispatched until the label is removed.
+3. Call `stop: true` on the loop rather than scheduling the next tick — the orchestrator goes fully quiet instead of idling every 15 minutes doing nothing.
+
+**Nothing already running is killed.** Any implementer/reviewer subagents dispatched in an earlier tick finish naturally; their PRs simply sit unmerged instead of being auto-merged. This is safe by construction: [§6.6](#66-when-to-escalate-to-the-human-instead-of-auto-merging) item 10 already guarantees nothing destructive happens mid-tick without escalating, so there is no unsafe mid-flight state a pause could catch mid-way.
+
+**To pause**: ask in any Claude Code session, including one that isn't the orchestrator itself — it just needs to run `gh issue edit 29 --add-label orchestrator:pause`. No agent ID or session handle required. Optionally, if the orchestrator's own agent ID is known, `SendMessage` it directly to wake it immediately rather than waiting for its next scheduled tick (the label is still the authoritative signal; the message is only a faster trigger for the same check).
+
+**To resume**: `gh issue edit 29 --remove-label orchestrator:pause`, then restart `/loop 15m /build-tick`.
+
+**To stop faster than "next tick"**: ordinary session interruption (however the running session is stopped — a keyboard interrupt, or ending the session) always works too. Cruder — it doesn't post a status comment — but not unsafe, for the same §6.6-item-10 reason above.
 
 ---
 
@@ -760,7 +818,7 @@ Merge order is always **dependency order**, and a task is never merged while one
 | Issue title | `T09 Movement and terrain` |
 | Issue body | Scope, Owns, DoD as a checklist, model/effort, branch, `Blocked by #x` task list, a link to this document's anchor, and a link to the `game-design.md` milestone |
 | GitHub milestone | One per phase: `Phase 0 Foundation`, `Phase 1 Pure rules`, `Phase 2 Systems`, `Phase 3 Delivery` |
-| Labels | `task`; `phase:0..3`; `lane:engine|data|ui|infra`; `status:*`; `model:*`; `effort:*`; `local-only`; `single-instance`; `needs-human` |
+| Labels | `task`; `phase:0..3`; `lane:engine|data|ui|infra`; `status:*`; `model:*`; `effort:*`; `local-only`; `single-instance`; `needs-human`; `orchestrator:pause` (issue #29 only — see [§7.5](#75-user-initiated-pause)) |
 
 **Two-way cross-referencing**, so a human can follow progress from either side:
 
@@ -933,12 +991,17 @@ description: Run one orchestration tick of the Imperial Conquest 2 multi-agent b
 Read `docs/build-orchestration-plan.md` first; it is the contract. You are the orchestrator.
 You do not write task code yourself.
 
-1. RECONCILE. `gh issue list --label task --json number,title,labels` and
+1. CHECK PAUSE. `gh issue view 29 --json labels`. If it carries `orchestrator:pause`: post a
+   status comment to #29 (what's open for manual review/merge, nothing new will be dispatched),
+   then stop the loop entirely (do not schedule the next tick). Skip steps 2-7. This check runs
+   before anything else, every tick, no exceptions. See plan §7.5.
+
+2. RECONCILE. `gh issue list --label task --json number,title,labels` and
    `gh pr list --label task --json number,headRefName,reviewDecision,statusCheckRollup,mergeable,labels`.
    Compare with `ListAgents`. Any issue status:in-progress / status:in-review with no live agent
    and no open PR → reset to status:ready, `git worktree prune`, delete the stale branch.
 
-2. DRAIN. For each open task PR:
+3. DRAIN. For each open task PR:
    - APPROVED + checks green + MERGEABLE and all merge-after deps status:merged
        → `gh pr merge --squash --delete-branch`, close the issue, label status:merged.
    - CHANGES_REQUESTED → label status:rework; SendMessage the findings to the live implementer,
@@ -946,19 +1009,19 @@ You do not write task code yourself.
    - CONFLICTING → conflict protocol (plan §7.4). Semantic conflict → escalate.
    - No review and no live reviewer → spawn the reviewer (Appendix B, model per the catalogue).
 
-3. UNBLOCK. Any status:blocked issue whose merge-after deps are all status:merged → status:ready.
+4. UNBLOCK. Any status:blocked issue whose merge-after deps are all status:merged → status:ready.
 
-4. DISPATCH, respecting the caps in plan §9: ≤3 implementers, ≤1 single-instance task, no two
+5. DISPATCH, respecting the caps in plan §9: ≤3 implementers, ≤1 single-instance task, no two
    overlapping Owns lists, nothing at all while T03 is in flight, nothing local-only on a machine
    without the prerequisite. Spawn with:
      Agent(subagent_type: "general-purpose", model: <catalogue>, isolation: "worktree",
            prompt: Appendix A filled in from the task entry)
    Label the issue status:in-progress.
 
-5. REPORT. Post a status table (task, state, PR, agent, blocked-by) as a comment on the tracking
+6. REPORT. Post a status table (task, state, PR, agent, blocked-by) as a comment on the tracking
    issue, and summarise to the user: what merged, what started, what is blocked, what needs them.
 
-6. ESCALATE anything in plan §6.6. If the circuit breaker tripped (3 consecutive review failures
+7. ESCALATE anything in plan §6.6. If the circuit breaker tripped (3 consecutive review failures
    or 2 consecutive escalations), stop dispatching entirely and report.
 
 Never: merge without an approving review; weaken a Definition of Done; edit
