@@ -224,10 +224,35 @@ public sealed record DetailedResolverRules(
     ValueList<ValueList<int>> TypeEffectiveness,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
-/// <summary>Siege resolution — the third variant of the instant resolver.</summary>
-/// <param name="DefenderUnidentifiedFieldWeight">
-/// The weight of the third city field in the defender-strength sum. The field itself has not been
-/// identified in the research reports, only its weight, so the name says so rather than guessing.
+/// <summary>
+/// Siege resolution — the third variant of the instant resolver. The defender-strength sum, decompiled
+/// directly from <c>FUN_0044A98C</c> (T31, correcting T02's field identities, which had been transcribed
+/// from a report that guessed at this function rather than decompiling it), is
+/// <c>loyalty × <see cref="DefenderLoyaltyWeight"/> + finishedFortificationPercent ×
+/// <see cref="DefenderFortificationWeight"/> + populationThousands × <see cref="DefenderPopulationWeight"/></c>.
+/// The fortification term is the city's stored fortification word decoded through
+/// <see cref="FortificationCode.FinishedPercent"/> — the guarded <c>code &gt; MaxPercent ? code % radix :
+/// code</c> — never the raw stored word and never an unguarded <c>% 100</c>, because a city with a
+/// fortification order in progress stores a value above 100 that an unguarded modulo would silently
+/// mis-decode. See <c>docs/investigations/siege-defender-strength.md</c> for the full decompilation and
+/// the panel-based (<c>TInformation_ShowCityDetails</c>, <c>0x0043BE5C</c>) field-identity evidence.
+/// </summary>
+/// <param name="DefenderFortificationWeight">
+/// The weight of the city's finished-fortification-percent term in the defender-strength sum
+/// (<c>FUN_0044A98C</c>). Corrected by T31 from T02's swapped 150 to the function's actual 250 — see
+/// <c>docs/investigations/siege-defender-strength.md</c>.
+/// </param>
+/// <param name="DefenderLoyaltyWeight">
+/// The weight of the city's loyalty term in the defender-strength sum (<c>FUN_0044A98C</c>). Corrected
+/// by T31 from T02's swapped 250 to the function's actual 150 — see
+/// <c>docs/investigations/siege-defender-strength.md</c>.
+/// </param>
+/// <param name="DefenderPopulationWeight">
+/// The weight of the city's population-in-thousands term in the defender-strength sum
+/// (<c>FUN_0044A98C</c>). T02 shipped this as <c>DefenderUnidentifiedFieldWeight</c> because its cited
+/// report never named the field it multiplies; T31 renamed it after identifying the field directly from
+/// the decompiled function and from <c>TInformation_ShowCityDetails</c>'s own <c>"Population -"</c> label
+/// at <c>0x0043BE5C</c>, which prints the same <c>DAT_004795ac</c> read. The weight (200) is unchanged.
 /// </param>
 /// <param name="HighFortificationThreshold">
 /// The fortification value above which the defender's strength is scaled up. The decompiled branch is
@@ -239,7 +264,7 @@ public sealed record SiegeRules(
     int PowerDivisor,
     int DefenderFortificationWeight,
     int DefenderLoyaltyWeight,
-    int DefenderUnidentifiedFieldWeight,
+    int DefenderPopulationWeight,
     int HighFortificationThreshold,
     int HighFortificationBonusNumerator,
     int HighFortificationBonusDenominator,
