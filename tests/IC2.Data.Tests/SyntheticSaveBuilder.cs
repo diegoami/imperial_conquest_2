@@ -76,6 +76,20 @@ internal static class SyntheticSaveBuilder
         // Byte after the name is already 0 (NUL terminator) since the array starts zero-filled.
     }
 
+    /// <summary>Returns a copy of <paramref name="data"/> resized to exactly <paramref name="totalLength"/>
+    /// bytes, truncating or zero-padding at the end. The SAV structural walk
+    /// <see cref="SaveFormat.Detect"/> uses only ever requires the file to be AT LEAST long enough to
+    /// hold the nation table, so padding a structurally valid SAV out to an arbitrary total length — even
+    /// exactly <see cref="SaveFormat.DatFileLength"/> — must not change how it is classified or
+    /// parsed. Used to reproduce the coincidental-length misclassification the DAT-vs-SAV
+    /// discriminator must not make.</summary>
+    public static byte[] PadTo(byte[] data, int totalLength)
+    {
+        var padded = new byte[totalLength];
+        Array.Copy(data, padded, Math.Min(data.Length, totalLength));
+        return padded;
+    }
+
     private static void WriteUInt16(byte[] data, int offset, ushort value) =>
         BinaryPrimitives.WriteUInt16LittleEndian(data.AsSpan(offset, 2), value);
 }

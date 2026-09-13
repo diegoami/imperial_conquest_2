@@ -34,27 +34,37 @@ public static class SaveFormat
     /// the file exactly.</summary>
     public const int DatFileLength = 140706;
 
-    /// <summary>Detects whether <paramref name="data"/> is DAT-shaped or SAV-shaped. A DAT is
-    /// recognised by its fixed total length; a SAV is recognised by the same count-word-driven
-    /// army/fleet/nation-table walk <see cref="SaveNationLayout.Locate"/> already performs for every
-    /// SAV-consuming parser. A file that is neither throws
-    /// <see cref="UnrecognizedSaveFormatException"/> naming both checks that failed.</summary>
+    /// <summary>Detects whether <paramref name="data"/> is DAT-shaped or SAV-shaped. A SAV is
+    /// recognised by the same count-word-driven army/fleet/nation-table walk
+    /// <see cref="SaveNationLayout.Locate"/> already performs for every SAV-consuming parser; a DAT
+    /// is recognised by its fixed total length. The SAV structural check is tried FIRST and is
+    /// authoritative whenever it succeeds — the length check is a fallback, not a first cut. A bare
+    /// length comparison tried first would misclassify any real SAV that happens to be exactly
+    /// <see cref="DatFileLength"/> bytes (padding/trimming at the end does not disturb the
+    /// count-word walk, which only reaches into the file as far as the nation table). This ordering
+    /// is safe the other way too: a genuine DAT reliably FAILS the SAV walk, because the DAT's own
+    /// army-record-0 X word (100 in the shipped file) gets misread as a SAV army count, driving the
+    /// computed fleet-count offset past the end of the 140,706-byte file — exactly the cascade
+    /// docs/investigations/dat-file-layout.md's "The DAT's cascade" traces
+    /// (<c>SaveNationLayout.Locate</c> throws "Save ends before the fleet count"). A file that is
+    /// neither throws <see cref="UnrecognizedSaveFormatException"/> naming both checks that failed.</summary>
     public static SaveFileFormat Detect(byte[] data)
     {
         if (data is null) throw new ArgumentNullException(nameof(data));
-        if (data.Length == DatFileLength) return SaveFileFormat.Dat;
 
         try
         {
             SaveNationLayout.Locate(data);
             return SaveFileFormat.Sav;
         }
-        catch (InvalidDataException ex)
+        catch (InvalidDataException savFailure)
         {
+            if (data.Length == DatFileLength) return SaveFileFormat.Dat;
+
             throw new UnrecognizedSaveFormatException(
-                $"File is {data.Length} bytes: it does not match the DAT's fixed {DatFileLength} " +
-                $"bytes, and it does not check out as a SAV either — the army/fleet/nation-table " +
-                $"walk failed with: {ex.Message}", ex);
+                $"File is {data.Length} bytes: it does not check out as a SAV — the " +
+                $"army/fleet/nation-table walk failed with: {savFailure.Message} — and it does not " +
+                $"match the DAT's fixed {DatFileLength} bytes either.", savFailure);
         }
     }
 }

@@ -141,11 +141,51 @@ public class DatFormatTests
     [Fact]
     public void A_file_the_exact_dat_length_but_garbage_content_is_still_detected_as_dat_shaped()
     {
-        // The discriminator is length-based for the DAT (docs/investigations/dat-file-layout.md: the
-        // read order sums to all 140,706 bytes exactly), so garbage content of the right length is
-        // still classified as Dat by Detect() itself — it is the DAT-shaped parse paths' own field
-        // validation (e.g. nation name mismatches) that catches garbage content, exercised separately.
+        // The DAT length match is a FALLBACK, tried only once the SAV structural walk fails (see
+        // SaveFormat.Detect's remarks) — so this garbage content is filled with 0xFF words rather
+        // than left zeroed: an all-zero 140,706-byte array would read as a (degenerate but
+        // structurally valid) empty SAV, armies=0, fleets=0, which is a genuinely different, correct
+        // outcome, not a bug. 0xFFFF as the word at the SAV army-count offset drives the SAV walk's
+        // computed fleet-count offset past the end of the file, so it reliably fails and falls
+        // through to the DAT length match.
         var garbageDatShaped = new byte[SaveFormat.DatFileLength];
+        Array.Fill(garbageDatShaped, (byte)0xFF);
         Assert.Equal(SaveFileFormat.Dat, SaveFormat.Detect(garbageDatShaped));
+    }
+
+    [Fact]
+    public void An_all_zero_file_the_exact_dat_length_is_a_degenerate_but_valid_empty_sav()
+    {
+        // The flip side of the test above, spelled out explicitly: zero bytes everywhere means
+        // armyCount = 0 and fleetCount = 0, which is a structurally valid (if empty) SAV shape, and
+        // the SAV structural check is authoritative whenever it succeeds — even at exactly the DAT's
+        // own length. Neither this test nor the one above is "the" right answer in isolation; between
+        // them they pin that Detect() genuinely prefers the structural check over a bare length match.
+        var allZero = new byte[SaveFormat.DatFileLength];
+        Assert.Equal(SaveFileFormat.Sav, SaveFormat.Detect(allZero));
+    }
+
+    [Fact]
+    public void A_real_sized_sav_padded_to_the_dats_exact_length_is_still_detected_and_parsed_as_sav()
+    {
+        // Regression for the length-first misclassification found in review: a real, structurally
+        // valid SAV that happens to be exactly SaveFormat.DatFileLength bytes (here: padded, which
+        // does not disturb the count-word walk — see SyntheticSaveBuilder.PadTo) must still be
+        // classified and parsed as a SAV, not silently misread at DAT offsets.
+        var data = SyntheticSaveBuilder.MinimalSav(1,
+            (0, (d, off) => SyntheticSaveBuilder.WriteArmyHeader(d, off, x: 5, y: 9, owner: 2)));
+        var padded = SyntheticSaveBuilder.PadTo(data, SaveFormat.DatFileLength);
+        Assert.Equal(SaveFormat.DatFileLength, padded.Length);
+
+        Assert.Equal(SaveFileFormat.Sav, SaveFormat.Detect(padded));
+
+        var table = SaveArmyTable.Parse(padded);
+        var army = Assert.Single(table.Armies);
+        Assert.Equal((ushort)5, army.X);
+        Assert.Equal((ushort)9, army.Y);
+        Assert.Equal((ushort)2, army.OwnerCode);
+
+        var fleets = SaveFleetTable.Parse(padded);
+        Assert.Empty(fleets.Fleets);
     }
 }
