@@ -171,6 +171,25 @@ The SAV/DAT format itself is essentially fully mapped (`decompiled-sav-file-layo
   Each becomes a regression test: load the equivalent starting state into the new engine, run the equivalent action, assert the same numbers come out. This is unusually strong test coverage for a reimplementation, and it's a direct payoff of this session's save-diffing work.
 - Every `Ruleset`/`World` file should round-trip through (de)serialization in a test, and a minimal synthetic `World`+`Ruleset` (a 3-city, 2-nation toy scenario) should exist purely for fast unit tests that don't depend on the full classical map.
 
+## User interface — **[designed]**
+
+The original is pop-up-heavy: nearly every action (`TArmyToArmy`, the city resupply dialog, recruitment, diplomacy) opens a separate modal `TForm` on top of the strategic map, stacking dialogs as play goes on. The new design replaces most of that with a **persistent contextual side panel** next to the map — select something, the panel updates in place, nothing stacks or gets lost behind another window. Two moments stay as genuine full-screen/modal interruptions because the original's own design already earned them: the **battle result summary** (a real payoff moment, worth a dedicated screen) and the **hotseat handoff** (needs to be unmissable between human turns).
+
+Screen/flow:
+
+1. **Main menu** → New Game (pick a `Scenario`, assign human/AI per seat, tune AI personality sliders) / Load / Settings (asset-pack selection lives here) / Quit.
+2. **Main game screen** — the dominant, near-always-visible view:
+   - **Top bar**: calendar (week/season/year), active nation/seat (load-bearing for hotseat), End Turn.
+   - **Map**: directly extends the existing `MapViewer` (Godot `Control`, zoom/pan/click-to-select already built) — rendering isn't replaced, just given commands instead of being read-only.
+   - **Context panel** (right side, or below on narrow screens): swaps content by selection — a city (recruit, tax rate, garrison, the confirmed troop/money transfer-slider mechanic from `TArmyToArmy`/the resupply dialog), an army/fleet (move, mobilize, attack → triggers instant battle resolution, transfer, disband), or a nation overview (treasury, unity).
+   - **Bottom toolbar**: the original's city/army/fleet-type filter icons (`menu-and-toolbar-inventory.md`), reused as map-overlay toggles.
+   - **News log**: persistent and dismissible, not modal — built from the confirmed news-log content (`decompiled-news-log-identified.md`), browsed often but never blocking.
+3. **Battle result** (dedicated modal): the original's own layout, exactly as captured in `full-battle-resolution-rome-vs-gaul.md` — per-type start/finish numbers, captured money/supplies — just triggered instantly instead of after a placement/tactical phase.
+4. **Diplomacy screen**: the original's peace/trade/ally/war grid per nation (`menu-and-toolbar-inventory.md`'s International Relations screen) — already a clear, working UI pattern, reused as-is.
+5. **Hotseat handoff**: a blocking "Pass to [Nation]" screen between human turns, with the optional blind-info-hiding mode from the multiplayer design above.
+
+A concept mockup of the main game screen (real data, not lorem — Rome's actual 99,882-troop army composition, the actual Rome/Gaul battle numbers, real news-log text) is published as an artifact for visual reference during implementation: https://claude.ai/code/artifact/a10a8d52-fb69-4790-9394-ba6e80459aaf. It's a static/interactive mockup, not implementation — Godot scenes should follow its layout intent, not its markup.
+
 ## The build harness (once this design is agreed)
 
 Given the "large autonomous chunks" preference, the actual build should proceed as a backlog of milestones, each with a hard, checkable **definition of done** — a CLI-runnable demo plus passing tests — so progress is self-verifiable without a human watching every step.
