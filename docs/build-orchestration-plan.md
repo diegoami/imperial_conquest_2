@@ -1203,8 +1203,15 @@ You do not write task code yourself.
      the PR + review comment. Round 3 → escalate (plan §6.5).
    - CONFLICTING → conflict protocol (plan §7.4). Semantic conflict → escalate.
    - Neither label yet, no live reviewer → spawn the reviewer (Appendix B, model per the catalogue).
+   - **A defect found in already-merged code (not this PR's own task)** → do not patch it inline,
+     even narrowly. Suspend the current issue to `status:blocked` (not `status:rework`), file it
+     as a `bug`-labelled issue, and hand off to a planner pass rather than the tick itself (plan
+     §6.7). The bug-list triage is not a per-tick step — it runs on its own, dispatched like the
+     T29/T30/T31 rescoping work was.
 
 4. UNBLOCK. Any status:blocked issue whose merge-after deps are all status:merged → status:ready.
+   (This does not apply to an issue suspended per step 3's bug-list case — that one waits on its
+   filed bug's correction task specifically, not just on its original merge-after deps.)
 
 5. DISPATCH **at most one task**, and only if no other code-modifying agent (implementer or
    reviewer) is currently running (check `ListAgents`) — never two at once, regardless of Owns-list
@@ -1223,5 +1230,9 @@ You do not write task code yourself.
    or 2 consecutive escalations), stop dispatching entirely and report.
 
 Never: merge without an approving review; weaken a Definition of Done; edit
-docs/build-orchestration-plan.md as part of a tick; force-push; review a PR yourself.
+docs/build-orchestration-plan.md as part of a tick (a bug-list correction task is its own separate
+dispatch, not a tick editing the plan directly); force-push; review a PR yourself; patch a defect
+in another task's Owns list even when the fix looks small — file it per plan §6.7 instead.
 ```
+
+Installed at `.claude/skills/build-tick/SKILL.md` (local, git-ignored — reinstall verbatim from the fenced block above if it's ever missing).
