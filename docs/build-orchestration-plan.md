@@ -316,7 +316,7 @@ Conventions used by every entry:
 - **Branch**: `task/T08-economy` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
 - **Start after**: T03 · **Merge after**: T03, T04, T06
 - **Owns**: `src/IC2.Engine/Economy/**`, `tests/IC2.Engine.Tests/Economy/**`
-- **Scope**: Tax, quarterly upkeep with real non-payment consequences, tribute growth, loyalty drift and the rebellion check's *confirmed structure* with `_provenance`-tagged placeholder thresholds, the weather-event frequency curve with data-driven effects, **supply as a purchased economy**, and **per-army/per-fleet money purses**.
+- **Scope**: Tax, quarterly upkeep with real non-payment consequences, tribute growth, loyalty drift and the rebellion check's *confirmed structure* with `_provenance`-tagged placeholder thresholds, the weather-event frequency curve with data-driven effects, **supply as a purchased economy**, and per-army/per-fleet money purses gated by the `economy.purses` ruleset flag (`design-audit.md` Q4): `classical-faithful` keeps the confirmed per-army/per-fleet purses (cap 1,000); `improved` routes the same purchases straight to/from the national treasury instead.
 - **Done when** (sharpened from M3, which already names most of these):
   1. `income = 2440 × 15 / 100` and `× 20 / 100` reproduce both published Rome figures exactly.
   2. Ship upkeep `= 3 × ships` per quarter.
@@ -326,6 +326,7 @@ Conventions used by every entry:
   6. The purse cap of 1,000 is enforced on every path that credits a purse.
   7. An army whose upkeep cannot be paid loses troops (a real consequence, not a debt counter).
   8. Weather events fire ~8× more often in Winter than Summer over a fixed-seed 400-quarter run (asserted as a ratio band, the only band assertion in the plan, because the underlying figure is itself approximate in `decompiled-weather-events.md`).
+  9. Under `economy.purses = centralized` (`improved`), the same supply/mercenary purchase debits and credits the national treasury directly, with no per-army/per-fleet purse involved — asserted with a fixture that would fail item 5's purse-crediting assertion if run under the wrong flag, so the two paths can't silently collapse into one.
 - **Hazards**: Q9 is unresolved evidence, not an engineering unknown — implement the code's behaviour behind the flag and do **not** escalate; the flag is the resolution.
 
 #### T09 Movement and terrain
@@ -334,12 +335,12 @@ Conventions used by every entry:
 - **Branch**: `task/T09-movement` · **Model/effort**: Sonnet / Medium · **Reviewer**: Sonnet / High
 - **Start after**: T03 · **Merge after**: T03, T04
 - **Owns**: `src/IC2.Engine/Movement/**`, `tests/IC2.Engine.Tests/Movement/**`
-- **Scope**: The one-click Bresenham walk; the 12-entry terrain cost table from the corpus; blocking markers; the abort rule and its **AI-only** move-zeroing. Used by both armies (T09) and fleets (T14) — the walker is terrain-table-driven and does not special-case sea.
+- **Scope**: The one-click Bresenham walk; the 12-entry terrain cost table from the corpus; blocking markers; the abort rule and its move-zeroing, gated by the `seatAsymmetry` ruleset flag (`design-audit.md` Q6, `build-orchestration-plan.md` §11 Q-D): **AI-only** under `classical-faithful`, **every seat** under `improved`. Used by both armies (T09) and fleets (T14) — the walker is terrain-table-driven and does not special-case sea.
 - **Done when**:
   1. The 12-entry table drives costs: Sea 1, Sea 3, Plain 1, Desert 1, Forest 2, Mountains 4, and all six River codes 4.
   2. A Bresenham walk over a committed test grid produces a cell sequence byte-equal to a committed expected-path fixture.
   3. A city, army or fleet marker in the path blocks the walk entirely (the walk stops **before** the marker; no move cost is charged for it).
-  4. An unaffordable step aborts the move; the army's remaining moves are **unchanged for a human seat** and **zeroed for a computer-controlled seat**, asserted as two separate tests.
+  4. An unaffordable step aborts the move; under `classical-faithful` the army's remaining moves are **unchanged for a human seat** and **zeroed for a computer-controlled seat**; under `improved` moves are zeroed for **every** seat — asserted as separate tests per ruleset.
   5. A terrain type present in a world but absent from the ruleset's cost table defaults to 1 (the "arbitrary custom maps" guarantee), with a warning event.
 
 #### T10 News log ring buffer and message catalog
@@ -374,7 +375,7 @@ Conventions used by every entry:
 - **Owns**: `src/IC2.Engine/Victory/**`, `tests/IC2.Engine.Tests/Victory/**`
 - **Scope**: The four shipped conditions — the original's all-cities condition and its 250 BC year limit, domination-over-hostiles, score-at-turn-limit, and scenario-custom. Evaluated against a `GameState` constructed directly in tests; does **not** need capture logic merged.
 - **Done when**: one test per condition, each with a positive and a negative case; the all-cities test uses the shipped world's own city count (not a hardcoded 334); the year-limit test fires at 250 BC and not at 251 BC; a scenario-custom goal defined purely in scenario JSON fires.
-- **Note**: which condition is the shipped default is `design-audit.md` **Q5**, still open. The task implements all four and reads the default from the ruleset; it does not decide.
+- **Note**: which condition is the shipped default is `design-audit.md` **Q5**, now answered: `victory.default` is `all-cities` under `classical-faithful`, and `domination-over-hostiles` (or `score-at-limit`, ruleset's choice) under `improved`. The task implements all four conditions and reads the default from the ruleset per seat's chosen preset; it does not hardcode either.
 
 ---
 
@@ -401,11 +402,11 @@ Conventions used by every entry:
 - **Branch**: `task/T14-naval` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
 - **Start after**: T09 · **Merge after**: T07, T08, T09
 - **Owns**: `src/IC2.Engine/Naval/**`, `tests/IC2.Engine.Tests/Naval/**`
-- **Scope**: Construction (10–100 clamp, `ships × 10`, 24-tick countdown at a named coastal city, coastal nations only); launch state (condition 100%, 50 tons, no money); condition as a strength multiplier and paid repair; transport; sea movement via T09's walker; join/split/transfer/scuttle. Naval **combat** is T16.
+- **Scope**: Construction (10–100 clamp, `ships × 10`, 24-tick countdown at a named coastal city, coastal nations only); launch state (condition 100%, 50 tons, no money); condition as a strength multiplier and paid repair; transport; sea movement via T09's walker; join/split/transfer/scuttle. Naval **combat** is T16. Over-capacity embarkation is `seatAsymmetry`-gated per `design-audit.md` Q6 — if the original's own AI-only trimming behaviour is implemented at all, it sits behind this same flag rather than as a hardcoded AI special case; confirm against `mobilization-movement-and-city-capture-modes.md` before adding it, and escalate rather than guess if the evidence doesn't actually support a trim (as opposed to outright refusal) for either seat type.
 - **Done when**:
   1. A 10-ship order costs **100** talents, has capacity **5,000** troops, and quarterly upkeep **30**.
   2. It launches after exactly 24 ticks at 100% condition with 50 tons and 0 money; before launch its record reads as under construction.
-  3. An army of more than `ships × 500` troops is refused embarkation with a typed rejection; exactly `ships × 500` is accepted.
+  3. An army of more than `ships × 500` troops is refused embarkation with a typed rejection under both rulesets; exactly `ships × 500` is accepted.
   4. Repair of N points costs `ships × N / 5` and zeroes the fleet's moves; it is refused away from an owned city.
   5. A fleet carrying an army refuses repair, scuttle, split and join — four separate assertions.
   6. Join caps at 100 combined ships; split requires ≥ 20.
@@ -422,7 +423,7 @@ Conventions used by every entry:
 - **Scope**: Join/split armies, join/split/rename/disband units, the auto-naming scheme, and every cap.
 - **Done when**:
   1. Army join enforces ≤ 20 units **and** ≤ 100,000 troops combined, rejects either army being aboard a fleet, zeroes the survivor's moves, and pools money and supplies (conservation asserted exactly).
-  2. Army split requires ≥ 2 units, enforces the 198-army cap, and gives the new army morale 59, no money, no supplies, and **0 moves for a human seat / 1 move for an AI seat**.
+  2. Army split requires ≥ 2 units, enforces the 198-army cap, and gives the new army morale 59, no money, no supplies, and — `seatAsymmetry`-gated (`design-audit.md` Q6) — **0 moves for a human seat / 1 move for an AI seat under `classical-faithful`**, the same starting moves for every seat under `improved`.
   3. Disband is refused away from an owned city; money → treasury, supplies → that city, conserved exactly.
   4. Unit join requires same type, regulars only (mercenary marker blocks it), and merged troops ≤ the type's battalion size; merged quality is the **arithmetic mean**.
   5. Auto-naming produces the `Nth Foot/Guards/Bowmen/Lancers/Dragoons Battalion` ordinals counted across the whole nation, matching a published roster from the corpus.
@@ -433,19 +434,22 @@ Conventions used by every entry:
 - **Branch**: `task/T16-battle-resolution` · **Model/effort**: **Opus / High** · **Reviewer**: Opus / High **+ `/code-review --effort ultra`**
 - **Start after**: T07 · **Merge after**: T07, T08, T14
 - **Owns**: `src/IC2.Engine/Battle/**`, `tests/IC2.Engine.Tests/Battle/**`
-- **Scope**: The original's own instant resolver, ported — field, siege, and naval — producing one `BattleResult`. Emits a `PeaceTreatyTriggered` domain event rather than calling diplomacy, so this task and T19 do not depend on each other's internals.
+- **Scope**: The original's own instant resolver, ported — field, siege, and naval — producing one `BattleResult`. Emits a `PeaceTreatyTriggered` domain event rather than calling diplomacy, so this task and T19 do not depend on each other's internals. Also implements the `combat.onDefeat` ruleset flag (`game-design.md` Combat section, `design-audit.md` Q1 follow-up): `classical-faithful` keeps the confirmed annihilation outcome; `improved` scatters the loser's field/naval army instead. `BattleResult` must stay presentation-agnostic — nothing in its shape should need to change if a future optional battle screen is added later.
 - **Done when**, all under a **fixed seed** with exact assertions:
   1. The higher-power side wins; an exact tie goes to the defender (one test each).
-  2. The loser's army is destroyed outright.
-  3. Winner casualties equal `loserPower × 40 / winnerPower` (integer semantics pinned).
-  4. The winner absorbs the loser's money, and supplies capped at `troops / 100`.
+  2. Under `classical-faithful`, the loser's army is destroyed outright.
+  3. Winner casualties equal `loserPower × 40 / winnerPower` (integer semantics pinned) — unaffected by `combat.onDefeat`.
+  4. The winner absorbs the loser's money, and supplies capped at `troops / 100` — unaffected by `combat.onDefeat`.
   5. Every surviving unit ends at ≥ "average"; exactly the 1-in-4 further promotions fire for the seeded roll; quality is capped at "elite".
-  6. Unity moves loser −25 / winner +25, clamped at 990; at sea it moves `± floor(loserShips / 2)`.
-  7. The naval variant annihilates the loser's fleet **and any army aboard it**, and reduces the winner's ships and condition in proportion to the closeness of the fight.
+  6. Unity moves loser −25 / winner +25, clamped at 990; at sea it moves `± floor(loserShips / 2)` — unaffected by `combat.onDefeat`.
+  7. Under `classical-faithful`, the naval variant annihilates the loser's fleet **and any army aboard it**, and reduces the winner's ships and condition in proportion to the closeness of the fight.
   8. `PeaceTreatyTriggered` is emitted on a 2-in-5 roll gated on loser unity > 500 **and** city count > 7, and is observable in a test with no diplomacy system registered.
   9. Emits the confirmed news messages, including *"X sinks fleet of Y."*
+  10. Under `improved`, a lost field or naval battle applies the mirrored `loserPower × 40 / winnerPower`-shaped casualty ratio to the loser's own troops instead of destroying it, relocates the survivor 2–4 tiles from the battle site onto the nearest valid unoccupied tile of the right kind, and zeroes its moves for the remainder of that turn.
+  11. Under `improved`, when no valid tile exists even at distance 1 (fully boxed in), the outcome falls back to the `classical-faithful` destroyed result — assert this fallback with a scripted boxed-in fixture, not just the happy path.
+  12. `combat.onDefeat` has **no effect on siege resolution** under either ruleset — a siege's defender outcome is unchanged by this flag (assert directly, since T17 depends on this staying true).
 - **Explicitly not a DoD**: the Rome/Gaul per-type numbers (99,882 → 63,282). Per `design-audit.md` Q1's answer, they came from the *tactical* path and this resolver cannot produce them. An implementer that tries to make them pass has misread the task.
-- **Hazards**: the type-effectiveness matrix, the 40% melee cap and the tactical morale array are **research held in reserve** for a possible future detailed resolver — they must not appear in this diff. A reviewer finding them rejects it.
+- **Hazards**: the type-effectiveness matrix, the 40% melee cap and the tactical morale array are **research held in reserve** for a possible future detailed resolver — they must not appear in this diff. A reviewer finding them rejects it. The `improved` scatter outcome is `[designed, no original analogue]` — its survivor-fraction and scatter-tile-range constants are ruleset data with a documented placeholder default, not a value to hunt for in the decompilation.
 
 #### T17 City capture, siege, and the defection cascade
 
@@ -478,7 +482,7 @@ Conventions used by every entry:
 - **Branch**: `task/T19-diplomacy` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
 - **Start after**: T16 · **Merge after**: T06, T16
 - **Owns**: `src/IC2.Engine/Diplomacy/**`, `tests/IC2.Engine.Tests/Diplomacy/**`
-- **Scope**: The original's confirmed model — the symmetric relation matrix, negative cooldowns, the trade cap, contagion, auto-declaration, post-battle terms, and reparations. Subscribes to T16's `PeaceTreatyTriggered`. **No AI decision-making** (that is T22).
+- **Scope**: The original's confirmed model — the symmetric relation matrix, negative cooldowns, the trade cap, contagion, auto-declaration, post-battle terms, and reparations. Subscribes to T16's `PeaceTreatyTriggered`. **No AI decision-making** (that is T22) — this task's job for `diplomacy.model` (`design-audit.md` Q3) is only to make sure the confirmed state machine exposes whatever read surface T22's opinion-score layer will need under `improved`; it does not compute the score itself.
 - **Done when**:
   1. The state machine round-trips all four states (peace / trade / alliance / war) and the matrix stays symmetric under every transition.
   2. Breaking trade sets −8, breaking an alliance −24, ending a war −18.
@@ -551,11 +555,12 @@ Conventions used by every entry:
 - **Branch**: `task/T24-godot-main-screen` · **Model/effort**: Sonnet / High · **Reviewer**: Sonnet / High **+ human visual review**
 - **Start after**: T23 · **Merge after**: T11, T23
 - **Owns**: `godot/**`, `tests/IC2.Engine.Tests/Ui/**`
-- **Scope**: Top bar, the persistent contextual side panel, the bottom filter toolbar, the non-modal news log, and extending the existing `MapViewer` from read-only to issuing commands. Follows the published mockup's **layout intent**, not its markup (`game-design.md` §UI names the artifact URL).
+- **Scope**: The **main menu and New Game flow** (previously unowned by any task — added here because it gates every screen after it) — New Game / Load / Settings / Quit, with the **ruleset chooser as the flow's first, most prominent screen**: a two-card `Classical Faithful` vs `Improved` picker with a plain-language summary of what each changes, shown before scenario/seat selection, `Classical Faithful` pre-highlighted as the default (`game-design.md` §UI item 1). Also: top bar, the persistent contextual side panel, the bottom filter toolbar, the non-modal news log, and extending the existing `MapViewer` from read-only to issuing commands. Follows the published mockup's **layout intent**, not its markup (`game-design.md` §UI names the artifact URL).
 - **Done when**:
   1. `Godot_..._console.exe --headless --path godot --quit-after 2` exits 0.
   2. A scripted headless Godot run loads a scenario, issues one order of each type through the command layer, and ends a turn, exiting 0.
   3. `scripts/check-godot-churn.ps1` reports a clean tree after that run (the HANDOVER `project.godot`/line-ending caveat is handled, not left to a human to remember).
+  4. A scripted headless run reaches the New Game flow and asserts the ruleset chooser renders both `Classical Faithful` and `Improved` as equally-weighted, labelled options **before** any scenario/seat control is reachable, and that `Classical Faithful` is the pre-selected default; picking either value is what the scenario bootstrap actually reads (not a cosmetic control disconnected from the loaded `Ruleset`).
 - **Constraints**: `single-instance` — the only Godot-touching task that may be in flight. Needs human visual sign-off; see [§11](#11-open-questions-for-the-user) question 2.
 
 #### T25 Battle result, diplomacy, and hotseat handoff screens
@@ -564,8 +569,8 @@ Conventions used by every entry:
 - **Branch**: `task/T25-godot-screens` · **Model/effort**: Sonnet / Medium · **Reviewer**: Sonnet / High **+ human visual review**
 - **Start after**: T24 · **Merge after**: T24
 - **Owns**: `godot/Screens/**`, `tests/IC2.Engine.Tests/Ui/Screens/**`
-- **Scope**: The two deliberate modals (battle result, hotseat handoff) plus the diplomacy grid. The battle-result screen presents the **instant resolver's** contents — both power values, the winner, the destroyed army, the winner's casualties and promotions, absorbed money and supplies, the unity swing, and whether the automatic peace fired — not the original tactical dialog's per-type attrition table.
-- **Done when**: a headless run opens each of the three screens from a scripted state and exits 0; a test asserts the battle-result view model exposes every field of `BattleResult` (so a later resolver change cannot silently drop one); the blind-handoff toggle is read from the scenario.
+- **Scope**: The two deliberate modals (battle result, hotseat handoff) plus the diplomacy grid. The battle-result screen presents the **instant resolver's** contents — both power values, the winner, the loser's fate (destroyed under `classical-faithful`, scattered under `improved` — present whichever `BattleResult` actually reports, not a hardcoded "destroyed" string), the winner's casualties and promotions, absorbed money and supplies, the unity swing, and whether the automatic peace fired — not the original tactical dialog's per-type attrition table. Build this screen so a future optional alternate battle presentation (`game-design.md` §UI, reserved not built) could later be swapped in without changing what `T16` emits — no work item now, just don't paint this screen into a corner.
+- **Done when**: a headless run opens each of the three screens from a scripted state and exits 0; a test asserts the battle-result view model exposes every field of `BattleResult` (so a later resolver change cannot silently drop one), including the loser's-fate field under both a destroyed and a scattered fixture; the blind-handoff toggle is read from the scenario.
 
 #### T26 Scenario authoring docs and example scenarios
 
@@ -793,17 +798,19 @@ Deliberately **not** built now: a job queue, a work-stealing scheduler, a shared
 
 ---
 
-## 11. Open questions for the user
+## 11. Open questions for the user — **all four ANSWERED: proposed defaults accepted**
 
-Four, all genuinely decisions rather than engineering. None blocks writing this plan; the first three should be answered before the pipeline starts, the fourth before Phase 3.
+> **User's decision: "all as recommended."** All four proposed defaults below stand as written, with Q-B resolved to option (a). Kept in full below as the record of what was actually agreed, rather than trimmed to just the answer.
 
-**Q-A. How much merge autonomy do you want?** Proposed default, used unless you say otherwise: the orchestrator squash-merges any PR with a reviewer approval and green CI **without** human sign-off, *except* the four architecture PRs (T02, T03, T16, T22), which wait for your thumbs-up because everything downstream inherits them. The alternative ends of the range are "merge everything autonomously including those four" and "notify me on every merge". This is a risk-tolerance call, not a technical one.
+Four, all genuinely decisions rather than engineering.
 
-**Q-B. How should the Godot UI be reviewed visually?** An agent can prove a headless run exits 0; it cannot tell you the panel looks right. Options: (a) screenshot review per screen as T24/T25 land, (b) one review at the end of the UI lane, (c) you drive the UI yourself at the end and file findings as new tasks. The published mockup (`game-design.md` §UI) is the layout intent either way, but "looks right" is taste and stays yours.
+**Q-A. How much merge autonomy do you want? — ANSWERED: the proposed default.** The orchestrator squash-merges any PR with a reviewer approval and green CI **without** human sign-off, *except* the four architecture PRs (T02, T03, T16, T22), which wait for a thumbs-up because everything downstream inherits them.
 
-**Q-C. Is the proposed cost profile right?** Three concurrent implementers, Opus on four tasks and on the reviewer seat for nine fidelity-critical PRs, plus `/code-review --effort ultra` on four PRs. The cheaper profile is Sonnet reviewers throughout and one or two concurrent implementers — slower and with a materially higher chance of a wrong constant reaching `main`, which is the specific failure this project has already had twice. Your call on where to sit.
+**Q-B. How should the Godot UI be reviewed visually? — ANSWERED: option (a), screenshot review per screen.** As T24 and T25 land, each posts a screenshot of every new screen to its PR for review, rather than batching visual review to the end of the lane or leaving it to a later manual pass. This catches a layout problem while the context for fixing it is still warm, and it is the option that best matches "large autonomous chunks, reviewed as they land" rather than a big pile of UI to review at once. The published mockup (`game-design.md` §UI) is the layout intent either way, but "looks right" is taste and stays the user's call on each screenshot.
 
-**Q-D. Should the seven open audit questions (Q3–Q9) be answered before their tasks dispatch, or implemented behind ruleset flags and retuned later?** The plan assumes the second: every affected task ships the confirmed behaviour behind a named ruleset flag with `_provenance` pointing at the open question (Q9 → T08's `supplyPurchaseCostsMoney`, Q8 → T19's `faithfulThawColumnBug`, Q7 → T18's generic `cityOrders` table, Q5 → T12 reading the default from the ruleset, Q3/Q4/Q6 → data, not code shape). That keeps the whole backlog unblocked. If you would rather decide any of them up front, say which, and its tasks will wait instead.
+**Q-C. Is the proposed cost profile right? — ANSWERED: yes, as proposed.** Three concurrent implementers, Opus on four tasks and on the reviewer seat for nine fidelity-critical PRs, plus `/code-review --effort ultra` on four PRs. This project has already reached `main` with a wrong constant twice on a cheaper profile; the added Opus/reviewer cost buys down exactly that failure mode.
+
+**Q-D. Should the seven open audit questions (Q3–Q9) be answered before their tasks dispatch, or implemented behind ruleset flags and retuned later? — ANSWERED: behind ruleset flags, and further formalized.** Every affected task ships the confirmed behaviour behind a named ruleset flag. This has since been formalized past "flags with defaults" into **two shipped, named, user-facing presets** — `classical-faithful` and `improved` — surfaced as a prominent New Game choice rather than left as scenario-JSON-only settings (`game-design.md` "Two shipped presets", `design-audit.md` Q3/Q4/Q5/Q6/Q8). Mapping: Q9 → T08's `supplyPurchaseCostsMoney` (still genuinely open, needs a play session, not a ruleset fork); Q8 → T19's `bugPolicy.diplomaticThaw`; Q7 → T18's generic `cityOrders` table (schema choice, not a preset fork); Q5 → T12's `victory.default`; Q3 → T19's `diplomacy.model`; Q4 → T08's `economy.purses`; Q6 → the new `seatAsymmetry` flag, owned wherever movement/embarkation/army-split logic lands (T09, T14, T15). A new item joined this same mechanism after the presets were formalized: `combat.onDefeat` (T16) — `classical-faithful` keeps the confirmed annihilation outcome, `improved` scatters the loser's field/naval army a few tiles away with its moves zeroed, so the victor cannot immediately re-catch it. See `design-audit.md` Q1's follow-up note.
 
 ---
 

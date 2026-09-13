@@ -156,7 +156,7 @@ Two record-field labels the project is carrying that the code contradicts, both 
 
 These are the judgment calls this audit ran into that are genuinely product decisions, not engineering ones. None of them was decided unilaterally. They are roughly in order of how much downstream work they gate.
 
-**Q1 and Q2 have since been answered by the user** and folded into `game-design.md` (see the notes under each). Q3–Q9 are still open.
+**Q1 and Q2 have since been answered by the user** and folded into `game-design.md` (see the notes under each). **Q3, Q5, Q6 and Q8 are now also answered**, all the same way, folded into `game-design.md`'s new "Two shipped presets" table. Q4 is folded into that same table rather than left standalone. Q7 is answered independently. Q9 is the only one still genuinely open.
 
 ### Q1. Which battle model should auto-resolve actually use? — **ANSWERED: option A, the original's instant resolver**
 
@@ -173,35 +173,49 @@ These are the judgment calls this audit ran into that are genuinely product deci
 | **C. Both, as named ruleset variants** | `"resolution": "quick"` (A) for AI-vs-AI, `"detailed"` (B) when a human seat is involved | This is **exactly what the original does** — it is the most faithful option. Costs two engines and two test suites |
 | **D. Restore a real tactical battle** | Keep the grid, placement and per-action play | The freeze that motivated dropping it was diagnosed as a hardcoded ~3.02 s pacing delay (`battle-freeze-diagnosed-procmon.md`) that a reimplementation simply would not have. This reopens a scope decision you already closed — flagged only because the justification for closing it has weakened |
 
+**Follow-up, new: what happens to the loser under option A, now that it's the only resolver in play.** Option A's `[confirmed]` math is annihilation, full stop — no partial defeats, no retreat, which reads as unusually harsh once it runs on *every* battle rather than the subset the original reserved it for. The user's follow-up decision: keep annihilation in `classical-faithful` (still fully confirmed, verbatim), and add a `[designed, no original analogue]` alternative in `improved` — the losing army/fleet survives at reduced strength and **scatters** 2–4 tiles away from the victor instead of being destroyed, with its moves zeroed for the rest of that turn so the victor (whose own move was already spent on the attack) cannot immediately give chase. Full spec in `game-design.md`'s Combat section, `combat.onDefeat` flag. Options D's tactical grid and option B/C's pairing rule stay declined for the reasons above; this only adds a third *outcome* on top of option A's math, not a fourth resolver. It also gives the held-in-reserve "detailed resolver" (type-effectiveness matrix, melee cap, tactical morale) a concrete future use beyond "possible": it is the natural foundation for the optional battle screen now noted in `game-design.md`'s "User interface" section, since it is the one candidate that can produce a per-unit-type exchange log to show.
+
 ### Q2. Is the naval subsystem in scope for a first playable version? — **ANSWERED: yes, full naval**
 
 > **User's decision: "of course we need naval."** `game-design.md` now has a Naval subsystem section and milestone 7 covers construction, condition/repair, transport, sea movement, and join/split/scuttle; naval combat is one of the three variants in milestone 8.
 
 Fleets, army transport (1 army, 500 troops/ship), condition and paid repair, scuttling, 24-tick construction, naval battles, and storm losses are all confirmed and all absent from the design and from the milestone list. On the classical Mediterranean map, amphibious movement is not a side feature — without it, large parts of the map are unreachable. Options: full naval in v1; movement-and-transport only (defer combat/repair/condition); or defer naval entirely and ship a land-only first release.
 
-### Q3. How faithful should diplomacy be, now that the original's model is recoverable?
+### Q3. How faithful should diplomacy be, now that the original's model is recoverable? — **ANSWERED: ship both, as a ruleset flag**
 
-The confirmed model is: 4 states, symmetric matrix, max 3 trade partners, negative cooldowns of −8 (broken trade) / −24 (broken alliance) / −18 (ended war) that thaw quarterly, alliances and wars contagious to allies, attacking = declaring war, AI nations refuse peace while at war but human seats always accept, and a concrete reparation formula. `game-design.md` instead designed an opinion-score model from scratch. Do you want (a) the original's model as `classical-faithful`, (b) the designed opinion model, or (c) the original's model with the opinion score layered on top as the AI's *decision* input (the one part that genuinely is unnamed AI code)?
+> **User's decision: ship both, as a prominent, user-selectable ruleset choice, not a one-off pick.** `classical-faithful` uses the confirmed model exactly as coded (option a). `improved` uses the confirmed model with the opinion score layered on top as the AI's decision input (option c) — the strongest of the three options on offer, since it keeps every confirmed rule intact and only adds the one genuinely-missing piece (the AI's *willingness*), rather than replacing recovered mechanics with an invented model (option b, now dropped). See `game-design.md`'s `diplomacy.model` flag.
 
-### Q4. Keep per-army and per-fleet money purses?
+The confirmed model is: 4 states, symmetric matrix, max 3 trade partners, negative cooldowns of −8 (broken trade) / −24 (broken alliance) / −18 (ended war) that thaw quarterly, alliances and wars contagious to allies, attacking = declaring war, AI nations refuse peace while at war but human seats always accept, and a concrete reparation formula.
 
-The original gives every army and fleet its own **supply stock** and its own **money purse (cap 1,000)**. Buying supply and hiring mercenaries spend *that* purse, not the national treasury, and the purchase price is paid to whoever owns the selling city. This is real logistical depth and also real micromanagement — and it means an army far from home can be unable to afford supply even when the treasury is full. Keep it faithfully, or centralise everything to one treasury for a cleaner modern UX?
+### Q4. Keep per-army and per-fleet money purses? — **ANSWERED: ship both, as the same ruleset flag family**
 
-### Q5. Should "conquer every city" be the shipped default victory condition?
+> **User's decision: ship both.** `classical-faithful` keeps the per-army/per-fleet purses (cap 1,000) exactly as coded. `improved` centralises supply and mercenary purchases to the national treasury, trading logistical depth for less micromanagement. See `game-design.md`'s `economy.purses` flag.
 
-That is the original's only win (334 of 334 cities), with a candidate hard end at 250 BC — roughly 20 in-game years. Faithful, but a very long and very demanding goal. Ship it as the `classical-faithful` default and make the designed alternatives (domination-over-hostiles, score-at-turn-limit) opt-in, or make one of the friendlier conditions the default and keep total conquest as a scenario option?
+The original gives every army and fleet its own **supply stock** and its own **money purse (cap 1,000)**. Buying supply and hiring mercenaries spend *that* purse, not the national treasury, and the purchase price is paid to whoever owns the selling city — real logistical depth and real micromanagement, since an army far from home can be unable to afford supply even when the treasury is full.
 
-### Q6. Reproduce the original's human-versus-AI asymmetries?
+### Q5. Should "conquer every city" be the shipped default victory condition? — **ANSWERED: yes, as the `classical-faithful` default; `improved` defaults friendlier**
 
-Several confirmed rules differ by seat type, not by nation: only AI armies lose their whole turn's movement on a blocked step; only AI-vs-AI battles resolve instantly; AI nations refuse peace and alliance offers while human seats always accept; a newly split AI army starts with 1 move, a human's with 0; an over-capacity army is trimmed on embarkation only for AI nations. Faithfully reproducing these is authentic and affects balance in ways a player would feel; normalising them is cleaner and arguably fairer, especially in hotseat where "human seat" is no longer synonymous with "the player".
+> **User's decision: ship both, `classical-faithful` keeping the original's only win condition as its default.** `improved` defaults to domination-over-hostiles or score-at-turn-limit with a shorter default turn limit; either way the player can still pick any shipped victory condition per scenario. See `game-design.md`'s `victory.default` flag.
 
-### Q7. Is city development a direction to expand, or stay at exactly one order?
+That is the original's only win (334 of 334 cities), with a candidate hard end at 250 BC — roughly 20 in-game years. Faithful, but a very long and very demanding goal.
 
-Fortification is the original's only city improvement: a paid, queued, population-priced order, capped at 100%, wiped by a siege. The moddability goal makes "add more improvement types as ruleset data" cheap to support. Do you want the design to leave that door explicitly open (a generic `cityOrders` table with fortify as the only shipped entry), or keep the city layer exactly as the original has it?
+### Q6. Reproduce the original's human-versus-AI asymmetries? — **ANSWERED: `classical-faithful` reproduces them, `improved` normalises them**
 
-### Q8. What is the policy on reproducing original bugs?
+> **User's decision: ship both.** `classical-faithful` keeps every confirmed seat-type asymmetry (movement-zeroing, split-army starting moves, embarkation trimming) exactly as coded. `improved` applies the same rule to every seat regardless of human/AI control — a real fairness difference in hotseat, where "human seat" is no longer synonymous with "the player". See `game-design.md`'s `seatAsymmetry` flag. With the tactical shell dropped, the "only AI-vs-AI battles resolve instantly" asymmetry is currently moot either way — the instant resolver is the only resolver until/unless a future optional battle screen (see `game-design.md`, "User interface") reintroduces an alternative.
 
-Two are now identified. The quarterly diplomatic-thaw loop iterates only the **first 8 columns** of each nation's 16-entry relation row, so a cooldown between two nations both indexed ≥ 8 never decays. The fleet record's `+20` word does double duty as build-city-index and condition-percentage, which is fragile rather than wrong. A blanket policy would save re-asking: faithful-to-bug in `classical-faithful`, fix silently, or expose each as a ruleset flag?
+Several confirmed rules differ by seat type, not by nation: only AI armies lose their whole turn's movement on a blocked step; a newly split AI army starts with 1 move, a human's with 0; an over-capacity army is trimmed on embarkation only for AI nations.
+
+### Q7. Is city development a direction to expand, or stay at exactly one order? — **ANSWERED: leave the door open**
+
+> **User's decision, via the plan's Q-D default**: ship a generic, data-driven `cityOrders` table with fortify as the only shipped entry, rather than hardcoding "fortify" as the only possible city order. This is a schema/moddability choice, not a faithful-vs-improved fork, so it applies to both rulesets identically.
+
+Fortification is the original's only city improvement: a paid, queued, population-priced order, capped at 100%, wiped by a siege. The moddability goal makes "add more improvement types as ruleset data" cheap to support at no cost now.
+
+### Q8. What is the policy on reproducing original bugs? — **ANSWERED: `classical-faithful` reproduces them, `improved` fixes them silently**
+
+> **User's decision: ship both**, rather than picking one policy globally. `classical-faithful` reproduces the identified bugs verbatim — including the quarterly diplomatic-thaw loop only iterating the first 8 of each nation's 16 relation columns. `improved` fixes them silently (all 16 columns thaw). See `game-design.md`'s `bugPolicy.diplomaticThaw` flag; any further bug found later joins the same table rather than opening a new question.
+
+Two are now identified. The quarterly diplomatic-thaw loop iterates only the **first 8 columns** of each nation's 16-entry relation row, so a cooldown between two nations both indexed ≥ 8 never decays. The fleet record's `+20` word does double duty as build-city-index and condition-percentage, which is fragile rather than wrong (an engineering hazard to document, not a ruleset choice).
 
 ### Q9. One evidence gap worth a five-minute play session
 
