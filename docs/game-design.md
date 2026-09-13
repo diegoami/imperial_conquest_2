@@ -251,16 +251,20 @@ An `AssetPack` is a manifest mapping stable string keys to files:
 
 The repo ships a default pack built from freely-licensed/generated placeholder art and audio — good enough to play and test with, never blocking development on asset availability. A different pack (a fan-recreated "authentic style" set, or the user's own commissioned art) is a drop-in manifest + files; original copyrighted assets never enter the repo, consistent with the existing DAT/EXE/WAV policy already in place for the RE work.
 
-### City and army markers scale with size — **[designed, prompted by a confirmed-in-play recollection]**
+### Army and fleet markers scale with size — **[confirmed]**
 
-The original visually distinguished cities and armies by size on the map — a small town read differently from a metropolis, a scout party differently from a massed army — rather than every marker of a given owner looking identical regardless of what it actually held. The map is not just a click-target grid; size is information a player reads at a glance, and the current `MapViewer` (read-only inspector) does not yet do this: `DrawCity`/`DrawArmy` scale only with zoom level, not with the city's `PopulationThousands` or the army's troop count. The reimplementation should not regress behind that.
+Decompiled after this requirement was first raised from a confirmed-in-play recollection: `TUnitMap_SelectUnit`'s marker arithmetic proves the original map cell code itself encodes a **three-tier size band**, not just owner — see [`decompiled-unit-map-orders-and-record-fields.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-unit-map-orders-and-record-fields.md):
 
-The exact tier boundaries and how many tiers the original used are **not yet decompiled** — this is recorded here as a real requirement, not as a confirmed pixel-for-pixel spec, and the tiers below are a reasonable placeholder shape, not a reverse-engineered constant:
+```
+armyMarker  = owner + (troopsThousands < 25 ? 200 : troopsThousands < 50 ? 216 : 232)
+fleetMarker = owner + (shipCount       < 25 ? 300 : shipCount       < 50 ? 316 : 332)
+```
 
-- **Cities**: a small ordered set of tiers (village → town → city → metropolis, or similar) keyed off `PopulationThousands`, each with its own icon. Capital status is a separate, orthogonal marker (already implied by `NationRecord.CapitalCityIndex`), not a population tier.
-- **Armies/fleets**: a small ordered set of tiers keyed off troop count (armies) or ship count (fleets), each with its own icon — a handful of troops should not draw identically to a full stack.
-- Asset keys extend the existing pattern, e.g. `city.tier1.icon` … `city.tierN.icon`, `city.capital.icon`, `army.tier1.icon` … `army.tierN.icon`, `fleet.tier1.icon` … `fleet.tierN.icon` — resolved the same way as every other asset key (principle 5 above), so a different art pack can re-tier or reskin freely.
-- If a future decompilation pass in the [research repo](https://github.com/diegoami/imperial-conquest-2-research) recovers the original's actual tier thresholds or icon count, that supersedes the placeholder shape here — same treatment as every other `[designed]` value in this document once evidence arrives.
+Three army tiers (< 25,000 / 25,000–49,999 / ≥ 50,000 troops) and three fleet tiers (< 25 / 25–49 / ≥ 50 ships), each 16-wide (one slot per nation), which is also why `(code − 200) % 16` / `(code − 300) % 16` recovers the owner regardless of tier — the band was hiding in plain sight in the same arithmetic that gave the owner. `TUnitMap_SelectUnit` accepts exactly `200..247` for armies and `300..347` for fleets, matching. The reimplementation ships these exact three tiers per type: `army.tier1.icon`/`army.tier2.icon`/`army.tier3.icon`, `fleet.tier1.icon`/`fleet.tier2.icon`/`fleet.tier3.icon`, resolved the same way as every other asset key (principle 5 above) so a different art pack can reskin (but not re-tier — the thresholds are the original's, not a style choice) freely. The current `MapViewer` (read-only inspector) does not yet do this: `DrawArmy`/`DrawFleet` scale only with zoom level, not troop/ship count — the reimplementation should not regress behind evidence that's now in hand.
+
+### City markers — **[open]**, not the same claim
+
+The map cell code does **not** size-band cities the way it does armies/fleets: a city's code (20–199, per [`terrain-move-cost-table-in-dat.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/terrain-move-cost-table-in-dat.md)) is purely its identity/index, with no population term in the arithmetic. Whether the original's *rendering* code separately picks a different city sprite by `PopulationThousands` — the thing a player would actually see on screen — has not been decompiled or confirmed either way. Worth checking by eye in the running original (see the reply to "what else is worth investigating"); until then this stays `[designed]`, not `[confirmed]`: a small ordered set of tiers (village → town → city → metropolis, or similar) keyed off `PopulationThousands`, `city.tier1.icon` … `city.tierN.icon`, plus a separate `city.capital.icon` (capital status is orthogonal to population, already implied by `NationRecord.CapitalCityIndex`). If a future decompilation pass finds the original has no such visual distinction for cities at all, drop this section rather than keep a `[designed]` requirement evidence has actively contradicted.
 
 ## Original-save compatibility — **[confirmed format, designed policy]**
 
