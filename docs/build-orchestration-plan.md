@@ -79,7 +79,7 @@ Parallelism here is not "run agents and hope". It comes from four deliberate str
 
 **2.4 The fixtures corpus (T04) lands before the fan-out.** Every exact number from `docs/reports/` is transcribed once into a typed JSON corpus with per-entry provenance. Later tasks assert against `Fixtures.Get("rome.taxBase")` rather than each re-reading 46 reports and each getting a chance to misread them. This was `design-audit.md` §4.4's own recommendation; the multi-agent setting makes it mandatory rather than merely efficient, because *n* agents independently re-deriving the same constant is *n* chances to diverge.
 
-**2.5 Each system owns its own news messages.** Rather than one late milestone wiring every news-log message (a guaranteed conflict across a dozen files), T10 delivers the ring buffer and the message catalog, and **each gameplay task's DoD includes emitting its own confirmed message literal**. This is a deliberate sharpening of design milestone M17.
+**2.5 Each system owns its own news messages.** Rather than one late milestone wiring every news-log message (a guaranteed conflict across a dozen files), T10 delivers the ring buffer, the message catalog, **and the single writer that carries a news-worthy event from T03's event sink into `GameState.NewsLog`**, while **each gameplay task's DoD includes emitting its own confirmed message literal**. This is a deliberate sharpening of design milestone M17. The split matters: *emission* is per-task and therefore conflict-free, but *the path into state* must be exactly one piece of code, or the ordering of the news log becomes a function of which system happened to write first.
 
 ---
 
@@ -408,11 +408,14 @@ Conventions used by every entry:
 - **Branch**: `task/T10-news-log` · **Model/effort**: **Haiku / Medium** · **Reviewer**: Sonnet / Medium
 - **Start after**: T03 · **Merge after**: T03, T04
 - **Owns**: `src/IC2.Engine/News/**`, `tests/IC2.Engine.Tests/News/**`
-- **Scope**: The 40-slot ring buffer and the catalog of confirmed message templates with operand substitution. **Emission stays with each gameplay system** ([§2.5](#2-what-makes-the-parallelism-possible)); this task delivers the buffer, the catalog, and the coverage test that later tasks must keep green.
+- **Scope**: The 40-slot ring buffer, the catalog of confirmed message templates with operand substitution, **and the writer that carries a news-worthy domain event into `GameState.NewsLog`**. **Emission stays with each gameplay system** ([§2.5](#2-what-makes-the-parallelism-possible)); this task delivers the buffer, the catalog, the sink-to-state writer, and the coverage test that later tasks must keep green.
+  - **The writer** is a system registered through T03's attribute-based registration, subscribing to T03's domain-event sink: for each news-worthy event it resolves the catalog template, substitutes the operands, and appends the rendered message to `GameState.NewsLog` (the storage T02 already ships). This closes a real gap found during T03's review — T02 built the ring buffer's storage, T10 builds the buffer and catalog, and §2.5 gives every gameplay task its own *emission*, but until now **no task owned the step that puts an emitted event into game state**, so T20 would have round-tripped a news log nothing ever filled. It lands here because T10 already owns both ends it connects, and it needs no new Owns path.
 - **Done when**:
   1. 41 appends leave exactly the 40 newest, in order, oldest evicted.
   2. Every message literal in the T04 corpus's news section is present in the catalog and renders with its operands substituted (one test per literal, table-driven).
-  3. A coverage test asserts every member of the domain event enum that is marked news-worthy has a catalog entry — so a later task adding an event without a message fails CI.
+  3. A coverage test asserts every domain event kind returned by T03's `DomainEventCatalog.Discover` that is marked news-worthy has a catalog entry — so a later task adding an event without a message fails CI. (This line previously said "every member of the domain event **enum**". T03 deliberately shipped attribute-declared event subtypes plus `DomainEventCatalog.Discover(assemblies)` instead of an enum, because a single enum appended to by six tasks is precisely the shared-registry-file conflict [§2.3](#2-what-makes-the-parallelism-possible) exists to remove. The substance of the check is unchanged — iterate the discovered set rather than `Enum.GetValues`.)
+  4. A news-worthy event published to the sink during a turn appears as a rendered message in `GameState.NewsLog` at the end of that turn, asserted on the state itself rather than on the sink; a non-news-worthy event does not. **The 40-slot eviction is asserted end-to-end through the writer**, not only against the buffer in isolation.
+  5. The rendered log survives a `GameState` round-trip through T02's serialization — so T20's save/load inherits a news log that is actually populated.
 
 #### T11 Asset pack loader and generated placeholder pack
 
