@@ -27,15 +27,31 @@ public sealed class SaveRecruitmentTable
 
     public static SaveRecruitmentTable Parse(byte[] data)
     {
-        var start = SaveNationLayout.Locate(data);
+        if (data is null) throw new ArgumentNullException(nameof(data));
+
+        int nationTableStart, nationRecordLength, recruitmentOffset;
+        if (SaveFormat.Detect(data) == SaveFileFormat.Dat)
+        {
+            // The recruitment queue is embedded in each nation record in the DAT too, just at that
+            // format's own record length and offset. See DatLayout and docs/investigations/dat-file-layout.md.
+            nationTableStart = DatLayout.NationTableStart;
+            nationRecordLength = DatLayout.NationRecordLength;
+            recruitmentOffset = DatLayout.NationRecruitmentOffset;
+        }
+        else
+        {
+            nationTableStart = SaveNationLayout.Locate(data);
+            nationRecordLength = SaveNationLayout.NationRecordLength;
+            recruitmentOffset = SaveNationLayout.RecruitmentOffset;
+        }
 
         var entries = new List<RecruitmentEntry>();
         for (ushort nation = 0; nation < SaveNationLayout.NationCount; nation++)
         {
-            var nationStart = start + nation * SaveNationLayout.NationRecordLength;
+            var nationStart = nationTableStart + nation * nationRecordLength;
             for (var slot = 0; slot < SlotCount; slot++)
             {
-                var offset = nationStart + SaveNationLayout.RecruitmentOffset + slot * SlotLength;
+                var offset = nationStart + recruitmentOffset + slot * SlotLength;
                 var amount = ReadWord(data, offset + 4);
                 if (amount == 0) continue;
                 var state = ReadWord(data, offset);

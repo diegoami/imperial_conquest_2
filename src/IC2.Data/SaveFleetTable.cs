@@ -5,7 +5,8 @@ using System.IO;
 
 namespace IC2.Data;
 
-/// <summary>The 26-byte fleet records observed between the army table and the nation table in known SAV files.</summary>
+/// <summary>The 26-byte fleet records observed between the army table and the nation table in known
+/// SAV files, and at their own fixed offset in the DAT.</summary>
 public sealed class SaveFleetTable
 {
     public const int RecordLength = 26;
@@ -17,21 +18,35 @@ public sealed class SaveFleetTable
     public static SaveFleetTable Parse(byte[] data)
     {
         if (data is null) throw new ArgumentNullException(nameof(data));
-        if (data.Length < WorldPrefix.SharedPrefixLength + 2)
-            throw new InvalidDataException("Save ends before the army count.");
 
-        var armyCount = ReadWord(data, WorldPrefix.SharedPrefixLength);
-        var fleetCountOffset = WorldPrefix.SharedPrefixLength + 2 + armyCount * SaveArmyTable.RecordLength;
-        if (fleetCountOffset + 2 > data.Length)
-            throw new InvalidDataException("Save ends before the fleet count.");
+        int tableStart;
+        int fleetCount;
+        if (SaveFormat.Detect(data) == SaveFileFormat.Dat)
+        {
+            // DAT offset 0x1B0CC, 2 fixed records, no count word — see docs/investigations/dat-file-layout.md.
+            tableStart = DatLayout.FleetTableStart;
+            fleetCount = DatLayout.FleetRecordCount;
+            if (tableStart + fleetCount * RecordLength > data.Length)
+                throw new InvalidDataException("DAT ends before the complete fixed-size fleet table.");
+        }
+        else
+        {
+            if (data.Length < WorldPrefix.SharedPrefixLength + 2)
+                throw new InvalidDataException("Save ends before the army count.");
 
-        var fleetCount = ReadWord(data, fleetCountOffset);
-        if (fleetCount > WorldPrefix.CityCount)
-            throw new InvalidDataException($"Implausible fleet count {fleetCount}.");
+            var armyCount = ReadWord(data, WorldPrefix.SharedPrefixLength);
+            var fleetCountOffset = WorldPrefix.SharedPrefixLength + 2 + armyCount * SaveArmyTable.RecordLength;
+            if (fleetCountOffset + 2 > data.Length)
+                throw new InvalidDataException("Save ends before the fleet count.");
 
-        var tableStart = fleetCountOffset + 2;
-        if (tableStart + fleetCount * RecordLength > data.Length)
-            throw new InvalidDataException("Save ends before the complete fleet table.");
+            fleetCount = ReadWord(data, fleetCountOffset);
+            if (fleetCount > WorldPrefix.CityCount)
+                throw new InvalidDataException($"Implausible fleet count {fleetCount}.");
+
+            tableStart = fleetCountOffset + 2;
+            if (tableStart + fleetCount * RecordLength > data.Length)
+                throw new InvalidDataException("Save ends before the complete fleet table.");
+        }
 
         var fleets = new FleetRecord[fleetCount];
         for (var i = 0; i < fleetCount; i++)

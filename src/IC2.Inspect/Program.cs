@@ -49,7 +49,11 @@ if ((args.Length == 3 && args[0] == "--inspect-nation") ||
                 cityCount++;
                 cityPopulation += city.PopulationThousands;
             }
-        Console.WriteLine($"{nation.Name} · {(nation.HumanPlayer ? "human player" : "computer player")} · leader {nation.Leader} · capital {capital}");
+        var control = nation.Source == SaveFileFormat.Dat
+            ? "not stored in the DAT"
+            : nation.HumanPlayer ? "human player" : "computer player";
+        var leader = nation.Source == SaveFileFormat.Dat ? "(not stored in the DAT)" : nation.Leader;
+        Console.WriteLine($"{nation.Name} · {control} · leader {leader} · capital {capital}");
         Console.WriteLine($"{nation.CityCount} cities (map count {cityCount}) · candidate population {cityPopulation * 3000:N0} · tax {nation.TaxRatePercent}% · mobilized {nation.MobilizedPercent}% · treasury {nation.Treasury} talents · unity value {nation.UnityValue}");
         return 0;
     }

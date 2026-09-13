@@ -32,6 +32,12 @@ public sealed class SaveTurnState
     public static SaveTurnState Parse(byte[] data)
     {
         if (data is null) throw new ArgumentNullException(nameof(data));
+        if (SaveFormat.Detect(data) == SaveFileFormat.Dat)
+            throw new DatDataNotPresentException(
+                "The DAT has no calendar/current-turn trailer at all — no code assigns starting " +
+                "week/season/year/active-nation values when the DAT is loaded, so there is no " +
+                "DAT-derived value that would not be an invented default. See " +
+                "docs/investigations/dat-file-layout.md.");
         if (data.Length < 55) throw new InvalidDataException("Save ends before the calendar trailer.");
         var start = data.Length - 55;
         var currentNation = ReadWord(data, start + 36);

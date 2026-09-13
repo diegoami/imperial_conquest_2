@@ -1,0 +1,62 @@
+using System;
+
+namespace IC2.Data;
+
+/// <summary>
+/// The DAT's own fixed record layout — offsets and lengths decompiled from the New Game loader
+/// <c>FUN_004481a0</c> (<c>0x004481A0</c>), cited in full in docs/investigations/dat-file-layout.md.
+/// Every constant here is either a literal straight from that file's read-order table (or its
+/// "Mapped onto the DAT record's own offsets" paragraph for the six labelled nation fields), or the
+/// straightforward running sum of the ordered field lengths in that same table — never recovered by
+/// searching a SAV for matching values (see docs/build-orchestration-plan.md's T30 hazard note: a
+/// byte-search that lands on the same numbers is a [derived] result dressed as a [confirmed] one).
+/// </summary>
+internal static class DatLayout
+{
+    // ---- Army table: DAT offset 0x18A5C, 15 x 656-byte records, no count word ----
+    // 0x18A5C == WorldPrefix.SharedPrefixLength (100,956 = 89,600 map + 11,356 city table): the army
+    // table starts immediately after the shared map+city prefix, exactly as in a SAV, just without a
+    // leading count word.
+    internal const int ArmyTableStart = WorldPrefix.SharedPrefixLength;
+    internal const int ArmyRecordCount = 15; // DAT_004a0324 = 0xf, assigned by the loader itself
+
+    // ---- Fleet table: DAT offset 0x1B0CC, 2 x 26-byte records, no count word ----
+    internal const int FleetTableStart = 0x1B0CC;
+    internal const int FleetRecordCount = 2; // DAT_004a0326 = 2, assigned by the loader itself
+
+    // ---- Nation table: DAT offset 0x1B100, 16 x 1,055-byte records ----
+    internal const int NationTableStart = 0x1B100;
+    internal const int NationRecordLength = 1055;
+
+    // Field offsets within one 1,055-byte DAT nation record. Treasury/unity/mobilized/capital/
+    // cities/tax are cited verbatim: "Mapped onto the DAT record's own offsets: treasury +0x40d,
+    // unity +0x411, mobilized +0x413, capital +0x415, cities +0x417, tax +0x419." Name is the read
+    // order table's first row (11 bytes at the record's start in both formats). The recruitment
+    // queue's DAT-local offset is not separately spelled out in hex, but is the running sum of the
+    // read order table's preceding row lengths, exactly as the 1,055-byte record total itself is
+    // computed in that table: 11 (name) + 32 + 2 + 668 (three unlabelled reads) = 713 = 0x2C9,
+    // immediately followed by the 320-byte recruitment queue, ending at 1,033 — one byte before the
+    // unlabelled 4-byte field that precedes treasury at 0x40D (1,037), which checks out exactly.
+    internal const int NationNameOffset = 0x000;
+    internal const int NationNameLength = 11;
+    internal const int NationRecruitmentOffset = 0x2C9; // 713 decimal
+    internal const int NationTreasuryOffset = 0x40D;
+    internal const int NationUnityOffset = 0x411;
+    internal const int NationMobilizedOffset = 0x413;
+    internal const int NationCapitalOffset = 0x415;
+    internal const int NationCitiesOffset = 0x417;
+    internal const int NationTaxOffset = 0x419;
+}
+
+/// <summary>Thrown when code asks a parser for something the DAT genuinely does not store — a whole
+/// table (mercenary pool, calendar trailer) or a single nation-record field (leader name,
+/// human-player flag) that is New Game state the original assigns only once play actually starts
+/// (<c>TPremierForm_NewGame</c>'s second helper, <c>FUN_00448aa4</c> — see
+/// docs/investigations/dat-file-layout.md). Distinguishes "absent by construction" from a genuinely
+/// malformed record, which still throws <see cref="System.IO.InvalidDataException"/>.</summary>
+public sealed class DatDataNotPresentException : InvalidOperationException
+{
+    public DatDataNotPresentException(string message) : base(message)
+    {
+    }
+}
