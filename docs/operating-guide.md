@@ -23,7 +23,8 @@ On the web, use [task issues](https://github.com/diegoami/imperial_conquest_2/is
 | --- | --- | --- |
 | Phase 0 (T01–T05, T30, T31) | Solution, CI, domain model, fixtures corpus, engine seams, hardened `IC2.Data` | `dotnet build` / `dotnet test` only |
 | Phases 1–2 (T06–T22, T29, T32–T40) | The rule subsystems, then recruitment, naval, battle, diplomacy and the AI. Also the exported 334-city world, the `classical-faithful` ruleset and classical scenario (T29), and the `improved` preset (T36) | Only through their tests |
-| **T23** | `IC2.Cli`, a scriptable headless play harness | **The first thing you can run**: load a scenario, issue orders, end turns, read text output |
+| **T41** | A thin `IC2.Cli` demo on the toy 3-city world: move, buy supply, end turns, read the news | **The first thing you can run**: a text walking skeleton of the rules built so far |
+| **T23** | `IC2.Cli` as the full scriptable harness: every command type, plus the view models Godot binds to | Play any scenario from the command line |
 | **T24** | Godot main screen, New Game flow, the ruleset chooser | **The first thing that looks like a game** |
 | T25–T28 | The remaining screens, packaging, the nightly gate | A complete, playable build |
 
