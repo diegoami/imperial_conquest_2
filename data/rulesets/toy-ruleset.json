@@ -160,17 +160,83 @@
     "supplyTonsPerTalent": 5,
     "armySupplyTonsPerTroops": 100,
     "fleetSupplyTonsPerShip": 8,
+    "supplyDialogArmyCapacityBonus": 1,
     "supplyPercentNumerator": 10000,
+    "unpaidUpkeepTroopLossDivisor": 100,
+    "lowTaxLoyaltyThresholdPercent": 11,
+    "lowTaxLoyaltyCityThreshold": 80,
+    "rebellionLoyaltyThreshold": 30,
+    "supplyConsumption": {
+      "consumptionBaseValue": 90,
+      "consumptionDivisor": 20000,
+      "fleetEmbarkedDivisor": 200,
+      "seasonValues": [50, 80, 80, 20],
+      "_provenance": {
+        "consumptionBaseValue": "confirmed: investigations/thracia-supply-morale.md, citing decompiled-turn-and-calendar-sequencing.md's FUN_004514ec — per-turn consumption = ((90 - seasonVal) * troops) / 20000, decompiled directly and verified turn-for-turn against the Thracian army's spring consumption (142 -> 98 -> 54 -> 10, exactly -44 each turn).",
+        "consumptionDivisor": "confirmed: investigations/thracia-supply-morale.md — the 20000 divisor of the same expression.",
+        "fleetEmbarkedDivisor": "confirmed: investigations/thracia-supply-morale.md — an army aboard a fleet (army[+8] == -1) instead consumes max(0, supplies - troops/200), no seasonal term.",
+        "seasonValues": "confirmed: investigations/thracia-supply-morale.md — the season record at DAT offset 0x1F7D8, matching &DAT_004794a8 + season*10: Spring 50, Summer 80, Autumn 80, Winter 20, indexed by calendar.startSeasonIndex's convention (0=Spring). Winter costs 7x Summer, verified against the same investigation's seasonal-consumption table for a 22,000-troop army (44/11/11/77 tons)."
+      }
+    },
+    "supplyMorale": {
+      "decayThresholdPercent": 10,
+      "deadBandUpperPercent": 15,
+      "decayAmount": 2,
+      "moraleFloor": 51,
+      "regenAmount": 1,
+      "moraleCeiling": 70,
+      "movesPenaltyOnDecay": 1,
+      "baseMovesMax": 10,
+      "movesTroopDivisor": 20000,
+      "movesReductionCap": 5,
+      "_provenance": {
+        "decayThresholdPercent": "confirmed: investigations/thracia-supply-morale.md, FUN_004514ec — pct < 10 decays morale by 2 and costs one move; verified turn-for-turn against the Thracian army's 13-save series (12 of 12 transitions predicted exactly).",
+        "deadBandUpperPercent": "confirmed: investigations/thracia-supply-morale.md — 10 <= pct <= 15 is a deliberate dead band, no change.",
+        "decayAmount": "confirmed: investigations/thracia-supply-morale.md — army[+14] = max(51, army[+14] - 2).",
+        "moraleFloor": "confirmed: investigations/thracia-supply-morale.md — the real bound of the field: the army panel prints morale as a tier via moraleNames[(v-51)>>2], 51...70 being exactly five 4-wide tiers.",
+        "regenAmount": "confirmed: investigations/thracia-supply-morale.md — army[+14] += 1 when pct > 15, the confirmed 2:1 decay/regen asymmetry (decay is twice as fast as regen).",
+        "moraleCeiling": "confirmed: investigations/thracia-supply-morale.md — the real ceiling of the field.",
+        "movesPenaltyOnDecay": "confirmed: investigations/thracia-supply-morale.md — army[+6] -= 1 on the same pct < 10 branch that decays morale; verified against the Thracian series' moves column (9 while supplied, 8 from the first pct < 10 turn on).",
+        "baseMovesMax": "confirmed: investigations/thracia-supply-morale.md, FUN_004514ec — moves = 10 - min(5, troops / 20000), recomputed every turn before the decay penalty, not accumulated from the previous turn.",
+        "movesTroopDivisor": "confirmed: investigations/thracia-supply-morale.md — the troop divisor of the same base-moves expression; numerically the same 20000 as supplyConsumption.consumptionDivisor in the source pseudocode, kept as a separate field since the two formulas are conceptually distinct.",
+        "movesReductionCap": "confirmed: investigations/thracia-supply-morale.md — the min(5, ...) cap of the same expression."
+      }
+    },
+    "weather": {
+      "earlyLateWeekThreshold": 6,
+      "bySeason": [
+        { "seasonIndex": 0, "earlyNumerator": 1, "earlyDenominator": 15, "lateNumerator": 1, "lateDenominator": 30 },
+        { "seasonIndex": 1, "earlyNumerator": 1, "earlyDenominator": 40, "lateNumerator": 1, "lateDenominator": 40 },
+        { "seasonIndex": 2, "earlyNumerator": 1, "earlyDenominator": 30, "lateNumerator": 1, "lateDenominator": 15 },
+        { "seasonIndex": 3, "earlyNumerator": 1, "earlyDenominator": 5, "lateNumerator": 1, "lateDenominator": 5 }
+      ],
+      "locationCount": 20,
+      "effects": [
+        { "id": "storm-damages-fleet", "description": "A storm damages a fleet at sea.", "_provenance": { "_group": "designed: docs/game-design.md §Economy — 'implement as a data-driven table of possible weather effects (storm damages a fleet, drought reduces a region's supply, etc.) with the confirmed frequency curve and [designed] specific effects'. decompiled-weather-events.md confirms the frequency curve only; FUN_004511bc (the effect itself) was never decompiled, so no magnitude is transcribed here — this entry names the effect kind design-audit.md already suggests, nothing more." } },
+        { "id": "drought-reduces-supply", "description": "A drought reduces a region's supply.", "_provenance": { "_group": "designed: docs/game-design.md §Economy, same open item as storm-damages-fleet — no magnitude transcribed, effect internals unrecovered." } }
+      ],
+      "_provenance": {
+        "earlyLateWeekThreshold": "confirmed: decompiled-weather-events.md — Spring's 'early'/'late' boundary is week < 6; Autumn's is week < 7 (the report gives the two seasons different boundaries, not the same one). Represented here as a single field because on this engine's odd-week calendar (weeks 1, 3, 5, 7, 9, 11) the two readings pick out exactly the same set of weeks either way, so a single shared threshold of 6 is behaviourally equivalent to carrying 6 and 7 separately (review round 1, B5). Summer and Winter are flat for the whole season, so their early/late split never matters.",
+        "bySeason": "confirmed: decompiled-weather-events.md — Spring early 1-in-15 / late 1-in-30; Summer 1-in-40; Autumn early 1-in-30 / late 1-in-15; Winter 1-in-5. Winter is roughly 8x more frequent than Summer (1/5 vs 1/40), the source for T08's DoD 8 ratio-band assertion, itself approximate per that report.",
+        "locationCount": "confirmed: decompiled-weather-events.md, DAT_00479540 — the frequency curve above is rolled independently once per tracked location, every tick, not once per tick overall (review round 1, B4). The locations' own identity is [open], exactly as the report leaves it; only the roll count is transcribed here.",
+        "effects": "designed: docs/game-design.md §Economy — the frequency curve is confirmed but the effects were never decompiled (FUN_004511bc, [open] per docs/design-audit.md §2.13); this table exists so an effect can be added as data later without an engine change, not because these two entries' specifics are evidenced."
+      }
+    },
     "_provenance": {
       "taxRateDivisor": "confirmed: decompiled-quarterly-billing-and-economy.md and decompiled-fleet-tax-and-mercenary-formulas.md — income = nationTaxBase × taxRate / 100.",
       "shipUpkeepPerQuarter": "confirmed: fleet-order-at-caere.md and decompiled-fleet-tax-and-mercenary-formulas.md — ships cost 3 talents each per quarter.",
       "unityDecayPerQuarter": "confirmed: decompiled-quarterly-billing-and-economy.md — unity decays 3 per quarter.",
       "unityCap": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — the instant resolver clamps the winner's unity with min(990, ...).",
       "purseCapPerUnit": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TAFSupply_ChangeMoney caps an army's or fleet's own purse at 1,000 talents.",
-      "supplyTonsPerTalent": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TAFSupply_TransferSupply charges amount / 5, i.e. 1 talent per 5 tons, from the buyer's purse to the selling city's owner. Note the open evidence gap recorded in docs/design-audit.md Q9: three video frames show an army's money unchanged across a 100-ton purchase, so whether the charge is always applied is not yet settled. The formula transcribed here is the one in the code.",
+      "supplyTonsPerTalent": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TAFSupply_TransferSupply charges amount / 5, i.e. 1 talent per 5 tons, from the buyer's purse to the selling city's owner. docs/design-audit.md Q9 is now answered by the user's own play experience: resupplying at a city the buying army's nation owns is free (no talent debit at all, matching the Galatia frames' unchanged army money and treasury); this amount/5 constant applies only to the paid, foreign-city case. Where a foreign purchase's talents end up (the selling city owner's treasury, or nowhere) is still [open] — Ruleset.Economy has no field for a credit destination, deliberately: SupplyPurchase debits only and invents no destination.",
       "armySupplyTonsPerTroops": "confirmed: decompiled-unit-map-orders-and-record-fields.md — army supply capacity is troops / 100 tons, reproducing all four recorded percentage readings.",
-      "fleetSupplyTonsPerShip": "confirmed: decompiled-unit-map-orders-and-record-fields.md — fleet supply capacity is ships × 8 tons.",
-      "supplyPercentNumerator": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TInformation_ShowArmyDetails prints the supply percentage as supplies × 10000 / troops."
+      "fleetSupplyTonsPerShip": "confirmed: decompiled-unit-map-orders-and-record-fields.md — fleet supply capacity is ships × 8 tons; supply-capacity-rounding.md's instruction-level check confirms this same formula, with no +1, caps the supply dialog's fleet transfer on both the own-city (free) and foreign-city (paid) paths alike.",
+      "supplyDialogArmyCapacityBonus": "confirmed: supply-capacity-rounding.md — review round 3's resolution of round 2's R1. TAFSupply_ChangeSupply (own-city, free) and TAFSupply_ChangeBuyAmount (foreign, paid) both compute room as troops IDIV 100 then an unconditional INC, i.e. troops/100 + 1, with no FPU instruction and no Round/Trunc, applied identically on both paths. This is the supply *dialog's* cap only: armySupplyTonsPerTroops (troops/100, no +1) stays the general capacity every other path (automatic resupply, army-to-army rebalancing, battle absorption) uses, confirmed against 75 distinct army states in the saves; the dialog's own +1 is confirmed by exactly one state, the Roman 13-unit roster's 48,173-troop army going from 403 to 482 tons at Rome (controlled-army-supply-transfer.md, supplyTransfer.* in this corpus) — 481 + 1 = 482, one ton past the truncated 481 the general formula alone would give. Corrects the previous round's [derived] reconciliation, which cited docs/design-audit.md Q9 as establishing the free own-city case as a different, TArmyToArmy-shaped dialog from the paid TAFSupply purchase; Q9 itself (docs/design-audit.md:252) lists that exact question as still open, and decompiled-unit-map-orders-and-record-fields.md's own §'Supply is bought, not moved' names the free resupply dialog TAFSupply, the same dialog the cap comes from — so that reconciliation's premise was unsupported by either source it cited, not merely under-evidenced.",
+      "supplyPercentNumerator": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TInformation_ShowArmyDetails prints the supply percentage as supplies × 10000 / troops.",
+      "unpaidUpkeepTroopLossDivisor": "confirmed: decompiled-quarterly-billing-and-economy.md — army units lose troops, reduced by troops/100, when available upkeep funds drop below 1. A real consequence, not a debt counter.",
+      "lowTaxLoyaltyThresholdPercent": "confirmed: decompiled-quarterly-billing-and-economy.md — if a nation's tax rate is under 11% and a city's loyalty is below 80, there's a chance loyalty rises.",
+      "lowTaxLoyaltyCityThreshold": "confirmed: decompiled-quarterly-billing-and-economy.md — the city-loyalty side of the same condition.",
+      "rebellionLoyaltyThreshold": "designed, structure confirmed, exact thresholds not recovered: decompiled-quarterly-billing-and-economy.md — 'cities with loyalty under 30 can trigger it'; the rebellion check itself (FUN_0044c204) was never decompiled (it depends on an unidentified bitmask per game-design.md §Economy, which prescribes exactly this _provenance wording for this placeholder, review round 1, N4), so this is the confirmed structure's threshold, not the exact check. docs/design-audit.md §2 calls this out explicitly as needing a placeholder tagged accordingly. (Review round 2, NB5: the earlier text here pointed to a doc comment on EconomyRules.RebellionLoyaltyThreshold that does not exist; reference dropped rather than left dangling.)"
     }
   },
   "recruitment": {

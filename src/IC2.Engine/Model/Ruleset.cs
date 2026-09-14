@@ -116,6 +116,26 @@ public sealed record TerrainRules(
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>Tax, upkeep, supply purchase, and the per-army/per-fleet purses.</summary>
+/// <remarks>
+/// <see cref="SupplyConsumption"/>, <see cref="SupplyMorale"/> and <see cref="Weather"/> were added by
+/// <c>docs/task-catalogue.md</c> "T08 Economy, supply, and purses": the supply-driven
+/// strategic-morale rule and the weather frequency curve were previously unowned by any task (T02 shipped
+/// this record before <c>docs/investigations/thracia-supply-morale.md</c> existed), so T08 widens it here
+/// rather than leaving the constants as C# literals — the same additive pattern T31 used for
+/// <see cref="SiegeRules"/>.
+/// <para>
+/// <see cref="SupplyDialogArmyCapacityBonus"/> was added in review round 3 (R1's resolution,
+/// <c>supply-capacity-rounding.md</c> [confirmed]): the supply dialog's <c>TAFSupply_ChangeSupply</c> /
+/// <c>TAFSupply_ChangeBuyAmount</c> cap an army's dialog transfer at <c>troops / ArmySupplyTonsPerTroops
+/// + SupplyDialogArmyCapacityBonus</c> (an <c>IDIV</c> then an unconditional <c>INC</c>, no rounding), on
+/// both the free (own-city) and paid (foreign) paths alike — not <see cref="ArmySupplyTonsPerTroops"/>
+/// alone, which stays the general capacity every other path (automatic resupply, army-to-army rebalancing,
+/// battle absorption) uses unmodified. The fleet dialog cap needs no such field: it is exactly
+/// <c>ships × FleetSupplyTonsPerShip</c> on both paths, the same formula <see cref="FleetSupplyTonsPerShip"/>
+/// already describes.
+/// </para>
+/// Every other field, and every other record in this file, is unchanged.
+/// </remarks>
 public sealed record EconomyRules(
     int TaxRateDivisor,
     int ShipUpkeepPerQuarter,
@@ -126,6 +146,136 @@ public sealed record EconomyRules(
     int ArmySupplyTonsPerTroops,
     int FleetSupplyTonsPerShip,
     int SupplyPercentNumerator,
+    int UnpaidUpkeepTroopLossDivisor,
+    int LowTaxLoyaltyThresholdPercent,
+    int LowTaxLoyaltyCityThreshold,
+    int RebellionLoyaltyThreshold,
+    SupplyConsumptionRules SupplyConsumption,
+    SupplyMoraleRules SupplyMorale,
+    WeatherEventRules Weather,
+    [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null,
+    int SupplyDialogArmyCapacityBonus = 1);
+
+/// <summary>
+/// Per-turn supply consumption (<c>docs/design-audit.md</c> §2.9a, <c>investigations/thracia-supply-morale.md</c>).
+/// </summary>
+/// <param name="ConsumptionBaseValue">
+/// The <c>90</c> of <c>((90 − seasonVal) × troops) / consumptionDivisor</c> — confirmed alongside the
+/// season table and the city food term's mirrored <c>seasonVal − 40</c> shape in the same function.
+/// </param>
+/// <param name="ConsumptionDivisor">The <c>20000</c> divisor of the same expression.</param>
+/// <param name="FleetEmbarkedDivisor">
+/// An army aboard a fleet (<see cref="Model.ArmyState.AboardFleetId"/> non-null) consumes a flat
+/// <c>troops / this</c> instead, with no seasonal term at all.
+/// </param>
+/// <param name="SeasonValues">
+/// <c>seasonVal</c> by <see cref="Model.CalendarState.SeasonIndex"/> — Spring 50, Summer 80, Autumn 80,
+/// Winter 20, DAT offset <c>0x1F7D8</c>. Positional, sized to <see cref="CalendarRules.SeasonsPerYear"/>,
+/// exactly like <see cref="TerrainRules.MoveCosts"/> is keyed rather than hardcoded to a count.
+/// </param>
+public sealed record SupplyConsumptionRules(
+    int ConsumptionBaseValue,
+    int ConsumptionDivisor,
+    int FleetEmbarkedDivisor,
+    ValueList<int> SeasonValues,
+    [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
+
+/// <summary>
+/// The supply→strategic-morale rule (<c>docs/design-audit.md</c> §2.9a,
+/// <c>investigations/thracia-supply-morale.md</c>), run every <see cref="Core.TurnPhase.ArmyTick"/> after
+/// that turn's consumption. Writes only <see cref="Model.ArmyState.Morale"/> (army record <c>+14</c>,
+/// strategic) — never the per-unit tactical morale array, which this ruleset group does not model at all
+/// (<c>docs/design-audit.md</c> §2.9's two-morales hazard).
+/// </summary>
+/// <param name="DecayThresholdPercent">Below this supply percentage, morale decays: <c>pct &lt; 10</c>.</param>
+/// <param name="DeadBandUpperPercent">
+/// At or below this percentage (and at or above <see cref="DecayThresholdPercent"/>) morale is
+/// unchanged — the confirmed dead band, <c>10 ≤ pct ≤ 15</c>. Above it, morale regenerates.
+/// </param>
+/// <param name="DecayAmount">Morale lost per turn while starving, floored at <see cref="MoraleFloor"/>.</param>
+/// <param name="MoraleFloor">
+/// The hard floor, <c>51</c> — also the base of the army panel's five 4-wide morale tiers
+/// (<c>moraleNames[(v − 51) &gt;&gt; 2]</c>).
+/// </param>
+/// <param name="RegenAmount">
+/// Morale gained per turn while well supplied, capped at <see cref="MoraleCeiling"/>. Half
+/// <see cref="DecayAmount"/> — the confirmed 2:1 decay/regen asymmetry.
+/// </param>
+/// <param name="MoraleCeiling">The hard ceiling, <c>70</c>.</param>
+/// <param name="MovesPenaltyOnDecay">Moves lost, on top of <see cref="BaseMovesMax"/>, the turn morale decays.</param>
+/// <param name="BaseMovesMax">
+/// The <c>10</c> of <c>10 − min(<see cref="MovesReductionCap"/>, troops / <see cref="MovesTroopDivisor"/>)</c>,
+/// recomputed every turn before the decay penalty — not accumulated from the previous turn's value.
+/// </param>
+/// <param name="MovesTroopDivisor">
+/// The troop divisor of the base-moves formula above. Numerically the same <c>20000</c> as
+/// <see cref="SupplyConsumptionRules.ConsumptionDivisor"/> in the source pseudocode (both are literally
+/// <c>troops / 20000</c> in <c>FUN_004514ec</c>), kept as a separate field because the two formulas are
+/// conceptually distinct and either could be re-tuned independently by a future ruleset.
+/// </param>
+/// <param name="MovesReductionCap">The <c>5</c> cap on how much the base-moves formula can reduce moves by.</param>
+public sealed record SupplyMoraleRules(
+    int DecayThresholdPercent,
+    int DeadBandUpperPercent,
+    int DecayAmount,
+    int MoraleFloor,
+    int RegenAmount,
+    int MoraleCeiling,
+    int MovesPenaltyOnDecay,
+    int BaseMovesMax,
+    int MovesTroopDivisor,
+    int MovesReductionCap,
+    [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
+
+/// <summary>
+/// The confirmed weather-event frequency curve (<c>decompiled-weather-events.md</c>): a per-season,
+/// per-part-of-season odds table, data-driven so its <c>[designed]</c> effects table can grow without an
+/// engine change. Only the frequency is <c>[confirmed]</c>; what an event actually does is <c>[designed]</c>
+/// (<c>docs/game-design.md</c> §Economy: "effects not fully decompiled").
+/// </summary>
+/// <param name="EarlyLateWeekThreshold">
+/// Below this week number a season is in its "early" part; at or above it, "late". The report gives
+/// Spring's boundary as week 6 and Autumn's as week 7; both are represented by this single field
+/// because on this engine's odd-week calendar (weeks 1, 3, 5, 7, 9, 11) the two boundaries select the
+/// same weeks either way — see <c>toy-ruleset.json</c>'s <c>economy.weather._provenance</c> for the
+/// full 6/7 citation. Summer and Winter's <see cref="WeatherSeasonOdds.EarlyNumerator"/>/
+/// <see cref="WeatherSeasonOdds.EarlyDenominator"/> equal their late-part odds, since the source report
+/// gives them one flat rate for the whole season.
+/// </param>
+/// <param name="BySeason">One entry per <see cref="Model.CalendarState.SeasonIndex"/>.</param>
+/// <param name="LocationCount">
+/// Review round 1, B4: the report's frequency curve is a per-location roll, made independently for
+/// each of this many tracked locations every tick (<c>DAT_00479540</c>), not one roll per tick. Rolling
+/// once per tick understated the confirmed absolute frequency by this factor (the Winter/Summer
+/// <em>ratio</em> DoD 8 checks was unaffected, since both seasons were understated equally). The
+/// locations' own identity is <c>[open]</c>, exactly as the report leaves it — this field only fixes
+/// the roll count.
+/// </param>
+/// <param name="Effects">
+/// The data-driven effects table a fired event draws from — placeholder entries, each individually
+/// <c>_provenance</c>-tagged <c>designed</c>, since the report identifies the frequency curve but not the
+/// effects themselves (<c>docs/game-design.md</c> §Economy).
+/// </param>
+public sealed record WeatherEventRules(
+    int EarlyLateWeekThreshold,
+    ValueList<WeatherSeasonOdds> BySeason,
+    int LocationCount,
+    ValueList<WeatherEffectRule> Effects,
+    [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
+
+/// <summary>One season's weather-event odds, confirmed as an <c>numerator</c>-in-<c>denominator</c> roll.</summary>
+public sealed record WeatherSeasonOdds(
+    int SeasonIndex,
+    int EarlyNumerator,
+    int EarlyDenominator,
+    int LateNumerator,
+    int LateDenominator);
+
+/// <summary>One entry in the weather-effects table a fired event draws from.</summary>
+/// <param name="Id">Stable key, e.g. <c>"storm-damages-fleet"</c>.</param>
+public sealed record WeatherEffectRule(
+    string Id,
+    string Description,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>Standing recruitment and the mercenary economy.</summary>
