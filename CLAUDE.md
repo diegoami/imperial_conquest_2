@@ -10,3 +10,4 @@ Read [`docs/operating-guide.md`](docs/operating-guide.md) before doing anything 
 6. **Relay review findings verbatim** — the full list, never a subset ([build-process.md §4.5](docs/build-process.md#45-rework)).
 7. **Commit and push research-repo work without asking** ([operating-guide.md §4](docs/operating-guide.md#4-standing-user-preferences)).
 8. **Merge on GitHub's side, never by pulling into a checkout an agent is using** ([operating-guide.md §3.7](docs/operating-guide.md#37-merging-to-main-without-disturbing-running-agents)).
+9. **At session start, check the triage queue** — `gh issue list --label triage:needed --state open` — and triage it (or tell the user) before other work. Never spawn an orchestrator mandate while `gh issue list --label blocking --label triage:needed --state open` returns a bug whose `Blocks:` line names a task in its scope ([build-process.md §4.7](docs/build-process.md#the-triage-queue)).

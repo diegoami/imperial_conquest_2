@@ -45,7 +45,7 @@ It changes **no design decision**. Every rule, constant and *done when* traces b
 
 | Role | Who | What it does |
 | --- | --- | --- |
-| **Planner** | The main session, on Opus | Talks to the user. Owns [task-catalogue.md](task-catalogue.md) and this document: scope, DoD, dependencies and ordering changes, bug and follow-up triage ([§4.7](#47-the-bug-list)), `/process-evidence` coordination ([evidence-pipeline.md](evidence-pipeline.md)), design questions, and every documentation change beyond the routine post-merge sync. **Spawns the orchestrator with a bounded mandate** ([§5.1](#51-who-runs-it)) and takes its escalations to the user. **Never dispatches implementers or reviewers, and never runs `/build-tick` or a `/loop` of it.** |
+| **Planner** | The main session, on Opus | Talks to the user. Owns [task-catalogue.md](task-catalogue.md) and this document: scope, DoD, dependencies and ordering changes, bug and follow-up triage — the `triage:needed` queue, checked at every session start and before every mandate ([§4.7](#the-triage-queue)), `/process-evidence` coordination ([evidence-pipeline.md](evidence-pipeline.md)), design questions, and every documentation change beyond the routine post-merge sync. **Spawns the orchestrator with a bounded mandate** ([§5.1](#51-who-runs-it)) and takes its escalations to the user. **Never dispatches implementers or reviewers, and never runs `/build-tick` or a `/loop` of it.** |
 | **Orchestrator** | One agent at a time, spawned by the planner | Runs the tick ([Appendix C](#appendix-c-the-build-tick-skill)) within its mandate: dispatches implementers and reviewers, merges approved PRs, dispatches the post-merge documentation update, files follow-ups and bugs, and persists its state on GitHub ([§5.2](#52-where-the-state-lives)). Escalates to the planner, never to the user directly. Writes no task code and no documents. |
 | **Implementer** | One at a time | One task, one branch, one PR, working directly in the main checkout. Writes code + tests, runs the DoD commands, pushes work in progress as it goes, opens the PR with evidence and a "Docs affected" list. |
 | **Reviewer** | One at a time, never concurrent with an implementer | Independently re-runs the DoD commands on the PR head, audits provenance and scope, posts findings as a PR comment and applies a `status:approved`/`status:rework` label. Never the same agent instance that implemented. |
@@ -145,7 +145,7 @@ Reviewer requests changes → the orchestrator records the round on the task iss
 
 **Rework round 2 is the last one.** A review that fails while the issue carries `review-round:2` escalates ([§4.6](#46-when-to-escalate-to-the-human)) with the task entry, the diff, both reviews, and the stated disagreement.
 
-**Non-blocking findings.** A reviewer may approve with findings that fail no gate. The orchestrator collects them, at merge, into one `T<nn> follow-up` issue (the task's `phase:*`/`lane:*` labels, no `bug` label) linking the review comment. A follow-up is not a bug — nothing merged is wrong enough to block anything — and no task is suspended for it; the planner pass ([§4.7](#47-the-bug-list)) considers open follow-ups alongside bugs and folds each item into the next task that touches the files concerned. Open follow-ups: `gh issue list --search "follow-up in:title" --state open`.
+**Non-blocking findings.** A reviewer may approve with findings that fail no gate. The orchestrator collects them, at merge, into one `T<nn> follow-up` issue (the task's `phase:*`/`lane:*` labels plus `triage:needed`, no `bug` label) linking the review comment. A follow-up is not a bug — nothing merged is wrong enough to block anything — and no task is suspended for it; it goes through the same triage queue as bugs ([§4.7](#the-triage-queue)), where the default decision is to fold each item into the next task that touches the files concerned (`triage:scheduled`, naming that task). Open follow-ups: `gh issue list --search "follow-up in:title" --state open`.
 
 ### 4.6 When to escalate to the human
 
@@ -169,16 +169,43 @@ Everything else — including every `[designed]` placeholder `game-design.md` do
 **A defect found in already-merged code is never patched by the task that found it, even narrowly, even when the fix is one line.** The process is **suspend, file, plan, resume**:
 
 1. **Suspend.** The task that found the defect is set to `status:blocked` (not `status:rework` — the defect isn't its own) and stays blocked until the correction merges. It does not touch the upstream Owns list.
-2. **File.** The defect becomes its own GitHub issue labelled `bug` plus the `lane:*`/`phase:*` labels that route it, stating what is wrong, the exact evidence (function, address, cross-check), the affected files or fields, and which tasks it blocks. It is not a catalogue entry by default — most bugs are smaller than a task.
-3. **Plan.** A **planner pass** — run by the planner (the main session), or by an Opus subagent it dispatches for a large pass; never a routine tick — reviews open `bug` issues, triggered by a new one being filed or at a wave transition, and for each decides:
-   - **a correction task** (next free `T` number, full catalogue shape) when the fix needs its own Owns list, model and reviewer;
-   - **fold into an upcoming, not-yet-dispatched task's DoD** when the fix is naturally that task's territory and small;
-   - **defer explicitly**, with a stated reason, when it is genuinely non-blocking. A filed bug is never silently dropped.
-
-   The planner pushes its catalogue changes to a branch for human review, not straight to `main`.
+2. **File.** The defect becomes its own GitHub issue labelled `bug` **and `triage:needed`**, plus the `lane:*`/`phase:*` labels that route it, stating what is wrong, the exact evidence (function, address, cross-check), and the affected files or fields. When it blocks a task (below), it also carries the **`blocking`** label and its body **opens with a `Blocks: T<nn>[, T<nn>]` line**; the suspended task's issue references it ("suspended on #N"). It is not a catalogue entry by default — most bugs are smaller than a task.
+3. **Plan.** A **planner pass** — run by the planner (the main session), or by an Opus subagent it dispatches for a large pass; never a routine tick — triages the queue (below).
 4. **Resume.** The suspended task rebases onto the merged correction and continues.
 
-The tick ([Appendix C](#appendix-c-the-build-tick-skill)) does not scan the bug list; it only files bugs and suspends. Current open bugs: `gh issue list --label bug --state open`.
+#### What "blocking" means
+
+A bug **blocks** a task when that task cannot be finished correctly while the defect stands. Who decides depends on where the task is:
+
+- **Case 1 — a task in flight.** The finder's evidence decides: without the fix, the task cannot meet a DoD line or get CI green. The orchestrator suspends the task (`status:blocked`, "suspended on #N") and files the bug with `blocking` and the `Blocks:` line ([Appendix C](#appendix-c-the-build-tick-skill) step 3).
+- **Case 2 — a future task.** The planner decides during triage. The test: does any unmerged task's Owns list or DoD touch the file, field or rule the bug is in, so that the task would either fail or silently build on the defect? If so, the bug gets `blocking` and the `Blocks:` line, and triage **records it in [task-catalogue.md](task-catalogue.md)** — as a `merge-after` dependency on the correction (task or bug), or as a DoD line in the blocked task. From then on the orchestrator's normal unblock check ([Appendix C](#appendix-c-the-build-tick-skill) step 4) enforces it; nothing depends on anyone remembering.
+- **The user is the tiebreaker** only for a real trade-off — for example "ship with the known defect and fix it later?" — raised by the planner as an escalation ([§4.6](#46-when-to-escalate-to-the-human)), never decided silently. A `blocking` bug is never deferred without that decision.
+
+#### The triage queue
+
+Bugs and follow-ups ([§4.5](#45-rework)) share one queue, held in labels so it survives any session:
+
+| Label | Meaning |
+| --- | --- |
+| `triage:needed` | Filed, not yet triaged. **Whoever files a bug or a follow-up adds it**: the orchestrator ([Appendix C](#appendix-c-the-build-tick-skill) step 3), the follow-up filed at merge ([§4.5](#45-rework)), the documentation subagent ([§4.8](#48-documentation-update-after-every-merge)), and `/process-evidence` stage 2 ([evidence-pipeline.md](evidence-pipeline.md#the-two-stages)). |
+| `triage:scheduled` | Triaged into work, with a comment naming the task it is folded into or the new correction task's id. |
+| `triage:deferred` | Triaged as deliberately deferred, with a comment giving the reason. |
+| `blocking` | On a bug that blocks at least one task (above); its body opens with `Blocks: T<nn>[, T<nn>]`. Added by the finder (case 1) or by triage (case 2); the bug keeps it until its correction closes it. |
+
+**When the planner checks it** — `gh issue list --label triage:needed --state open` — at two fixed triggers:
+
+1. **At the start of every session**, before other work ([CLAUDE.md](../CLAUDE.md) rule 9).
+2. **Before spawning any orchestrator mandate** ([Appendix D](#appendix-d-orchestrator-mandate-template)): `gh issue list --label blocking --label triage:needed --state open`. **No mandate is spawned while any of those names a task in its scope in its `Blocks:` line** — triage it first, or drop the blocked task from the scope.
+
+**What triage decides**, for each item, removing `triage:needed` — and, for a bug, first applying the case-2 test above:
+
+- **a correction task** (next free `T` number, full catalogue shape) when the fix needs its own Owns list, model and reviewer → `triage:scheduled`, with each blocked task's `merge-after` in the catalogue gaining that task;
+- **fold into an upcoming, not-yet-dispatched task's DoD** when the fix is naturally that task's territory and small — the default for a follow-up, folded into the next task that touches its files → `triage:scheduled`, naming that task;
+- **defer explicitly** when it is genuinely non-blocking → `triage:deferred`, with the reason. A `blocking` bug is deferred only on the user's decision.
+
+An item is never closed, or left untriaged, without one of those two labels and its comment. The planner pushes any catalogue change the triage makes to a branch for human review, not straight to `main`.
+
+The tick does not triage; it files, labels `triage:needed`, suspends, and reports what it filed to the planner. The open items and their triage state are a status location ([§4.8](#48-documentation-update-after-every-merge) A2). Queue: `gh issue list --label triage:needed --state open`; all open bugs: `gh issue list --label bug --state open`.
 
 ### 4.8 Documentation update after every merge
 
@@ -207,7 +234,7 @@ Status appears in the documents in exactly these four places and nowhere else. E
 | # | Location | What it holds |
 | --- | --- | --- |
 | A1 | [task-catalogue.md](task-catalogue.md): each entry's `- **Status**:` line, the [task index](task-catalogue.md#3-task-index)'s **Status** column, and the index's **Totals** line | One value per task (mapping below); "`N` merged as of `<sha>`" |
-| A2 | [operating-guide.md §1 Current state](operating-guide.md#1-current-state) | As-of commit, phase, merged count and list, in progress, the ready set, open bugs and follow-ups, test counts |
+| A2 | [operating-guide.md §1 Current state](operating-guide.md#1-current-state) | As-of commit, phase, merged count and list, in progress, the ready set, open bugs and follow-ups (below), test counts |
 | A3 | [README.md "Current state"](../README.md#current-state) | Phase, merged count, what's next, how to build and test now, with the test counts |
 | A4 | [release-plan.md §2.1 Gate progress](release-plan.md#21-gate-progress) | Per release tag: the merged count and gate tasks, and every other gate task's value, the same mapping as A1 |
 
@@ -220,6 +247,8 @@ Status appears in the documents in exactly these four places and nowhere else. E
 | `status:ready` | `Ready` |
 | `status:blocked` | `Blocked` (append `— suspended on #<bug>` when suspended by §4.7) |
 | `status:escalated` | `Escalated` |
+
+**Open bugs and follow-ups (part of A2)** are rewritten on every run from `gh issue list --label bug --state open` and `gh issue list --search "follow-up in:title" --state open`, one line each for bugs and follow-ups, every item showing its triage state (`triage:needed`, `triage:scheduled` → task, or `triage:deferred`) and any task it blocks ([§4.7](#the-triage-queue)).
 
 The "as of" commit in A1–A4 is the newest merge commit the snapshot includes. Test counts are re-counted after every merge by running `dotnet test IC2.sln` in the documentation worktree — never copied from a PR body; a status-only resync leaves them unchanged.
 
@@ -234,7 +263,7 @@ Every item is checked, even when the answer is "no change":
 5. **[operating-guide.md §7 What's still open](operating-guide.md#7-whats-still-open)** — if the task closed or opened a research-level item.
 6. **[README.md](../README.md)** — the build/test instructions and the runnable surface, when they change (the first runnable CLI, the first UI).
 
-If the documentation subagent finds a defect in merged code while doing this, it files a bug ([§4.7](#47-the-bug-list)) rather than fixing it. The `/process-evidence` pipeline's stage 2 applies part B to new evidence ([evidence-pipeline.md](evidence-pipeline.md)); it never touches part A.
+If the documentation subagent finds a defect in merged code while doing this, it files a bug, labelled `bug` and `triage:needed` ([§4.7](#the-triage-queue)), rather than fixing it. The `/process-evidence` pipeline's stage 2 applies part B to new evidence ([evidence-pipeline.md](evidence-pipeline.md)); it never touches part A.
 
 #### How a missed update is caught
 
@@ -283,6 +312,8 @@ Alternatives considered and not used as the driver: a scheduled cloud agent (can
 | `status:escalated` | Waiting on the planner and the user |
 | `review-round:1`, `review-round:2` | How many rework rounds have been dispatched for the task. Set by the orchestrator when it dispatches rework; removed at merge. A review that fails while `review-round:2` is present escalates ([§4.5](#45-rework)). |
 | `docs:pending` | The task has merged but its documentation update ([§4.8](#48-documentation-update-after-every-merge)) has not landed. Added by the orchestrator at merge; removed by the documentation subagent once its push is on `main`. |
+| `triage:needed`, `triage:scheduled`, `triage:deferred` | On `bug` and follow-up issues, not task issues: the planner's triage queue ([§4.7](#the-triage-queue)). Added by whoever files the item; replaced by the planner's triage decision. |
+| `blocking` | On a `bug` that blocks at least one task; its body opens with `Blocks: T<nn>[, T<nn>]` ([§4.7](#what-blocking-means)). |
 
 Dependencies are recorded in each issue body as a task list of issue references. The pinned **tracking issue #29** also carries one status-table comment per tick — the readable log.
 
@@ -401,7 +432,7 @@ A branch is never deleted during recovery: pushed work is only ever resumed or e
 | Issue title | `T09 Movement and terrain` |
 | Issue body | Scope, Owns, DoD as a checklist, model/effort, branch, `Blocked by #x` task list, a link to the task's anchor in [task-catalogue.md](task-catalogue.md), and the design milestone |
 | GitHub milestone | One per phase: `Phase 0 Foundation`, `Phase 1 Pure rules`, `Phase 2 Systems`, `Phase 3 Delivery` |
-| Labels | `task`; `bug`; `phase:0..3`; `lane:engine\|data\|ui\|infra`; `status:*`; `review-round:1\|2`; `docs:pending`; `model:*`; `effort:*`; `release:*`; `local-only`; `single-instance`; `needs-human`; `orchestrator:pause` (issue #29 only) |
+| Labels | `task`; `bug`; `phase:0..3`; `lane:engine\|data\|ui\|infra`; `status:*`; `review-round:1\|2`; `docs:pending`; `triage:needed\|scheduled\|deferred`; `blocking`; `model:*`; `effort:*`; `release:*`; `local-only`; `single-instance`; `needs-human`; `orchestrator:pause` (issue #29 only) |
 | Orchestrator state | One comment on #29 starting `<!-- orchestrator-state -->`, edited in place every tick ([§5.2](#52-where-the-state-lives)) |
 | Documentation sync | `Docs: sync after T<nn> merged` (or `Docs: status resync`), pushed straight to `main` from a worktree ([§4.8](#48-documentation-update-after-every-merge)) |
 
@@ -582,8 +613,8 @@ checkout.
          wait for fresh green. Then `gh pr merge --squash --delete-branch`, close the issue,
          label status:merged, remove any `review-round:*`, add `docs:pending`. If the review
          approved with non-blocking findings, collect them in one "T<nn> follow-up" issue
-         (build-process.md §4.5). The merge's documentation update is dispatched in step 6 of
-         this same tick — a merge without it is an incomplete tick.
+         labelled `triage:needed` (build-process.md §4.5). The merge's documentation update is
+         dispatched in step 6 of this same tick — a merge without it is an incomplete tick.
    - status:rework → if the issue carries `review-round:2`, escalate (step 8): round 3 is never
      dispatched. Otherwise set the next round (no label → `review-round:1`; `review-round:1` →
      `review-round:2`), then SendMessage the reviewer's FULL findings (verbatim or linked, never
@@ -591,9 +622,10 @@ checkout.
    - CONFLICTING → conflict protocol (build-process.md §5.4). Semantic conflict → escalate.
    - Neither label yet, no live reviewer → spawn the reviewer (Appendix B, model per the catalogue).
    - A defect found in ALREADY-MERGED code (not this PR's own task) → do not patch it, even
-     narrowly. Set the finding task's issue to status:blocked (not status:rework), file a
-     `bug`-labelled issue with the evidence, and tell the planner in step 7; triage is a planner
-     pass (build-process.md §4.7), not a tick step.
+     narrowly. Set the finding task's issue to status:blocked (not status:rework), file an issue
+     labelled `bug`, `triage:needed` and `blocking`, whose body opens with "Blocks: T<nn>" and
+     gives the evidence, reference it from the task's issue ("suspended on #N"), and tell the
+     planner in step 7; triage is a planner pass (build-process.md §4.7), not a tick step.
 
 4. UNBLOCK. Any status:blocked issue whose merge-after deps are all status:merged → status:ready.
    An issue suspended on a bug waits for that bug's correction, not just its merge-after deps.
@@ -621,7 +653,8 @@ checkout.
 
 7. REPORT. Post a status table (task, state, PR, agent, blocked-by) as a comment on tracking
    issue #29, plus any drift found in step 2. Report to the PLANNER (not the user): what merged,
-   what started, what is blocked, what drifted, bugs and follow-ups filed. If the mandate is
+   what started, what is blocked, what drifted, and every bug and follow-up issue filed this tick
+   (number and one line each — they are all `triage:needed`, the planner's queue). If the mandate is
    complete (every task in scope merged and none still `docs:pending`), say so and end it.
 
 8. ESCALATE anything in build-process.md §4.6 to the planner: label the issue status:escalated,
@@ -644,6 +677,11 @@ build-process.md §4.7 instead.
 ## Appendix D: orchestrator mandate template
 
 The planner spawns the orchestrator with this prompt, filled in. To resume after an interruption, use the same template with the mandate copied from the state comment ([§5.2](#52-where-the-state-lives)).
+
+**Before spawning, the planner checks:**
+
+- [ ] The triage queue is checked (`gh issue list --label triage:needed --state open`), and **no untriaged blocking bug names a task in this mandate's scope** — `gh issue list --label blocking --label triage:needed --state open`, read each `Blocks:` line ([§4.7](#what-blocking-means)). Triage it first, or drop the blocked task from the scope.
+- [ ] `orchestrator:pause` is removed from #29 — otherwise the orchestrator ends the mandate on its first tick.
 
 ```text
 You are the orchestrator of the Imperial Conquest 2 build, spawned by the planner (the main

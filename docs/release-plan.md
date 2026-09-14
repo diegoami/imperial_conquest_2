@@ -81,7 +81,7 @@ A snapshot written by the documentation step ([build-process.md §4.8](build-pro
 
 | Tag | Gate tasks | Status (as of `acd4098`) |
 | --- | --- | --- |
-| `v0.1.0` | T01–T12, T29, T30, T31 (15) | **9 merged**: T01, T02, T03, T04, T05, T06, T07, T30, T31. In progress: T08. Ready: T09, T10, T11, T12, T29. |
+| `v0.1.0` | T01–T12, T29, T30, T31 (15) | **9 merged**: T01, T02, T03, T04, T05, T06, T07, T30, T31. Blocked: T08 — suspended on #50. Ready: T09, T10, T11, T12, T29. |
 | `v0.2.0` | T13–T17 (5) | 0 merged. Blocked: T13, T14, T15, T16, T17. |
 | `v0.3.0` | T18–T23 (6) | 0 merged. Blocked: T18, T19, T20, T21, T22, T23. |
 | `v0.4.0` | T24, T25, T26 (3) | 0 merged. Blocked: T24, T25, T26. |
