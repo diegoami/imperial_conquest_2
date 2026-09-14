@@ -104,11 +104,20 @@ public sealed class FixtureCorpusTopUpTests
         Assert.Equal("supply-driven-morale-and-fleet-attrition.md", FixtureCorpus.Get("fleet.storm.winterDoublingCap").Source);
     }
 
-    /// <summary>Review round 1, N5: the two inferred-predicate fleet-storm entries are now tagged derived, not confirmed.</summary>
+    /// <summary>
+    /// Review round 2, NB2: DoD 13 requires the 47th report's top-up entries "each a confirmed entry
+    /// citing that report", so all four fleet.storm.* entries whose arithmetic is confirmed code but
+    /// whose triggering predicate (FUN_004494e4 / fleet[+24] == 1) is inferred rather than decompiled
+    /// stay tagged confirmed, consistently -- the caveat lives in each entry's own note instead (the
+    /// round-1 N5 fix retagged two of the four to derived, which both broke that consistency and
+    /// contradicted DoD 13's own wording; reverted here).
+    /// </summary>
     [Fact]
-    public void InferredPredicateFleetStormConstants_AreTaggedDerivedNotConfirmed()
+    public void InferredPredicateFleetStormConstants_AreAllTaggedConfirmedConsistently()
     {
-        Assert.Equal("derived", FixtureCorpus.Get("fleet.storm.awayFromCoastMultiplier").Tag);
-        Assert.Equal("derived", FixtureCorpus.Get("fleet.storm.winterAndAwayRareCatastrophe").Tag);
+        Assert.Equal("confirmed", FixtureCorpus.Get("fleet.storm.awayFromCoastMultiplier").Tag);
+        Assert.Equal("confirmed", FixtureCorpus.Get("fleet.storm.winterAndAwayRareCatastrophe").Tag);
+        Assert.Equal("confirmed", FixtureCorpus.Get("fleet.storm.coveredCellTripleCap").Tag);
+        Assert.Equal("confirmed", FixtureCorpus.Get("fleet.storm.nearCoastDamageDivisor").Tag);
     }
 }
