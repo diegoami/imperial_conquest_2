@@ -12,9 +12,14 @@ namespace IC2.Engine.Tests.Economy;
 /// </summary>
 public sealed class SupplyPurchaseTests
 {
+    // Review round 1, B6: the army needs enough troops (capacity = troops / 100) to hold its starting
+    // 100 tons plus every test's 100-ton purchase, and enough money to afford the 20-talent paid case,
+    // so these tests exercise the confirmed purse-crediting/debit behaviour rather than tripping the
+    // capacity/affordability caps that behaviour is layered under.
     private static (ArmyState Army, CityState City, NationState Nation) Scenario(string cityOwner, int cityTons = 1000)
     {
-        var army = new ArmyState("a1", "north", 0, 0, 9, 60, 500, 100, null, null, ValueList<UnitSlot>.Empty);
+        var units = ValueList.Of(new UnitSlot(0, "light_infantry", 30_000, 6, "Test Battalion"));
+        var army = new ArmyState("a1", "north", 0, 0, 9, 60, 500, 100, null, null, units);
         var city = new CityState("c1", "Test City", 0, 0, cityOwner, cityOwner, 80, cityTons, 100, 10, 10, 0, false, ValueList<UnitSlot>.Empty);
         var nation = new NationState("north", "North", "#000", "Leader", null, SeatControl.Human, null, 500, 600, 0, 15, 100, 100, 500, 1, false);
         return (army, city, nation);
@@ -124,7 +129,9 @@ public sealed class SupplyPurchaseTests
     [Fact]
     public void BuyForFleet_MirrorsBuyForArmy()
     {
-        var fleet = new FleetState("f1", "north", 0, 0, 4, 10, 100, 500, 50, null, null, null, null);
+        // 50 ships -> 400 tons of capacity (review round 1, B6), enough to hold the starting 50 tons
+        // plus this test's 100-ton purchase.
+        var fleet = new FleetState("f1", "north", 0, 0, 4, 50, 100, 500, 50, null, null, null, null);
         var (_, city, nation) = Scenario(cityOwner: "south");
 
         var result = SupplyPurchase.BuyForFleet(fleet, city, nation, tons: 100, EconomyTestbed.Ruleset);
@@ -148,5 +155,71 @@ public sealed class SupplyPurchaseTests
         var (army, city, nation) = Scenario(cityOwner: "south", cityTons: 50);
         Assert.Throws<ArgumentException>(
             () => SupplyPurchase.BuyForArmy(army, city, nation, tons: 100, EconomyTestbed.Ruleset));
+    }
+
+    /// <summary>
+    /// Review round 1, B6: the source caps a paid purchase at the buyer's own money x
+    /// SupplyTonsPerTalent -- an army with no money and no troops (so the capacity cap cannot be what
+    /// stops it) buying 900 t abroad must be rejected, not left to drive its purse negative.
+    /// </summary>
+    [Fact]
+    public void BuyForArmy_MoreTonsThanPurseCanAfford_Throws()
+    {
+        var units = ValueList.Of(new UnitSlot(0, "light_infantry", 1_000_000, 6, "Huge Battalion"));
+        var poorArmy = new ArmyState("a2", "north", 0, 0, 9, 60, 10, 0, null, null, units);
+        var city = new CityState("c1", "Test City", 0, 0, "south", "south", 80, 1000, 100, 10, 10, 0, false, ValueList<UnitSlot>.Empty);
+        var nation = new NationState("north", "North", "#000", "Leader", null, SeatControl.Human, null, 500, 600, 0, 15, 100, 100, 500, 1, false);
+
+        // 900 t at amount/5 would cost 180 talents against a 10-talent purse.
+        Assert.Throws<ArgumentException>(
+            () => SupplyPurchase.BuyForArmy(poorArmy, city, nation, tons: 900, EconomyTestbed.Ruleset));
+    }
+
+    /// <summary>Review round 1, B6: a purchase that would push supply past the buyer's own capacity is rejected.</summary>
+    [Fact]
+    public void BuyForArmy_MoreTonsThanCapacityHolds_Throws()
+    {
+        var (army, city, nation) = Scenario(cityOwner: "north"); // free case: capacity, not money, is the only cap in play.
+        var armyCapacity = SupplyCapacity.ArmyCapacityTons(army.TotalTroops, EconomyTestbed.Ruleset);
+
+        Assert.Throws<ArgumentException>(
+            () => SupplyPurchase.BuyForArmy(army, city, nation, tons: armyCapacity - army.SupplyTons + 1, EconomyTestbed.Ruleset));
+    }
+
+    /// <summary>Review round 1, B6: the fleet twin of <see cref="BuyForArmy_MoreTonsThanCapacityHolds_Throws"/>.</summary>
+    [Fact]
+    public void BuyForFleet_MoreTonsThanCapacityHolds_Throws()
+    {
+        var fleet = new FleetState("f1", "north", 0, 0, 4, 10, 100, 500, 50, null, null, null, null);
+        var (_, city, nation) = Scenario(cityOwner: "north");
+        var fleetCapacity = SupplyCapacity.FleetCapacityTons(fleet.Ships, EconomyTestbed.Ruleset);
+
+        Assert.Throws<ArgumentException>(
+            () => SupplyPurchase.BuyForFleet(fleet, city, nation, tons: fleetCapacity - fleet.SupplyTons + 1, EconomyTestbed.Ruleset));
+    }
+
+    /// <summary>
+    /// Review round 1, B6: under centralized purses there is no per-unit purse to overdraw, so the
+    /// money-based cap does not apply -- only the physical capacity cap does. A purchase that a
+    /// per-unit purse could not afford still succeeds here, debiting the treasury instead (which the
+    /// confirmed evidence already shows going negative, so no cap is invented for it).
+    /// </summary>
+    [Fact]
+    public void BuyForArmy_UnderCentralizedPurses_MoneyCapDoesNotApply()
+    {
+        var units = ValueList.Of(new UnitSlot(0, "light_infantry", 1_000_000, 6, "Huge Battalion"));
+        var poorArmy = new ArmyState("a2", "north", 0, 0, 9, 60, 10, 0, null, null, units);
+        var city = new CityState("c1", "Test City", 0, 0, "south", "south", 80, 1000, 100, 10, 10, 0, false, ValueList<UnitSlot>.Empty);
+        var nation = new NationState("north", "North", "#000", "Leader", null, SeatControl.Human, null, 500, 600, 0, 15, 100, 100, 500, 1, false);
+        var centralized = EconomyTestbed.Ruleset with
+        {
+            Flags = EconomyTestbed.Ruleset.Flags with { EconomyPurses = EconomyPurseModel.CentralTreasury },
+        };
+
+        var result = SupplyPurchase.BuyForArmy(poorArmy, city, nation, tons: 900, centralized);
+
+        Assert.Equal(180, result.TalentsPaid); // 900 / 5
+        Assert.Equal(10, result.Army.Money); // per-unit purse untouched
+        Assert.Equal(500 - 180, result.BuyerNation.Treasury); // treasury absorbs it, uncapped
     }
 }

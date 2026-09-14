@@ -31,6 +31,22 @@ namespace IC2.Engine.Economy;
 /// nation's treasury instead, with no per-unit purse touched at all — Done-when 9's assertion that the two
 /// paths cannot silently collapse into one.
 /// </para>
+/// <para>
+/// <strong>Purchase caps (review round 1, B6)</strong>: <c>decompiled-unit-map-orders-and-record-fields.md</c>
+/// §TAFSupply confirms <c>TAFSupply_ChangeBuyAmount</c> caps a purchase at the buyer's
+/// <c>money × SupplyTonsPerTalent</c> (a talent buys a fixed number of tons, so the buyer cannot ask for
+/// more tons than its own money could ever pay for) and at the buyer's own supply capacity
+/// (<see cref="SupplyCapacity.ArmyCapacityTons"/> / <see cref="SupplyCapacity.FleetCapacityTons"/>) —
+/// neither of which the original pass enforced, letting a purchase drive a purse negative and a supply
+/// stock past capacity. Both methods below now reject a purchase that would violate either cap, exactly
+/// as they already reject a non-positive <c>tons</c> or a city that cannot sell that much. The
+/// money-based cap applies only under <see cref="EconomyPurseModel.PerUnitPurses"/>, for a paid (non-own-
+/// city) purchase — under <see cref="EconomyPurseModel.CentralTreasury"/> there is no per-unit purse to
+/// exceed, and the national treasury itself has no confirmed cap (it is observed negative in the
+/// fixtures corpus, see <see cref="PurseAccounting"/>'s own remark), so this is a deliberate
+/// <c>[designed]</c> choice not to invent a treasury-side funds cap; the capacity cap still applies
+/// regardless of purse model, since it is a physical stock limit, not a money one.
+/// </para>
 /// </remarks>
 public static class SupplyPurchase
 {
@@ -75,8 +91,23 @@ public static class SupplyPurchase
                 nameof(tons));
         }
 
+        var armyCapacity = SupplyCapacity.ArmyCapacityTons(army.TotalTroops, ruleset);
+        if (army.SupplyTons + tons > armyCapacity)
+        {
+            throw new ArgumentException(
+                $"Army '{army.Id}' has {armyCapacity - army.SupplyTons} tons of free supply capacity, cannot buy {tons}.",
+                nameof(tons));
+        }
+
         var isOwnCity = string.Equals(sellingCity.Owner, army.Nation, StringComparison.Ordinal);
         var talents = isOwnCity ? 0 : tons / ruleset.Economy.SupplyTonsPerTalent;
+
+        if (talents > 0 && ruleset.Flags.EconomyPurses == EconomyPurseModel.PerUnitPurses && talents > army.Money)
+        {
+            throw new ArgumentException(
+                $"Army '{army.Id}' has only {army.Money} talents, cannot pay {talents} for {tons} tons.",
+                nameof(tons));
+        }
 
         var updatedCity = sellingCity with { SupplyTons = sellingCity.SupplyTons - tons };
         var updatedArmy = army with { SupplyTons = army.SupplyTons + tons };
@@ -121,8 +152,23 @@ public static class SupplyPurchase
                 nameof(tons));
         }
 
+        var fleetCapacity = SupplyCapacity.FleetCapacityTons(fleet.Ships, ruleset);
+        if (fleet.SupplyTons + tons > fleetCapacity)
+        {
+            throw new ArgumentException(
+                $"Fleet '{fleet.Id}' has {fleetCapacity - fleet.SupplyTons} tons of free supply capacity, cannot buy {tons}.",
+                nameof(tons));
+        }
+
         var isOwnCity = string.Equals(sellingCity.Owner, fleet.Nation, StringComparison.Ordinal);
         var talents = isOwnCity ? 0 : tons / ruleset.Economy.SupplyTonsPerTalent;
+
+        if (talents > 0 && ruleset.Flags.EconomyPurses == EconomyPurseModel.PerUnitPurses && talents > fleet.Money)
+        {
+            throw new ArgumentException(
+                $"Fleet '{fleet.Id}' has only {fleet.Money} talents, cannot pay {talents} for {tons} tons.",
+                nameof(tons));
+        }
 
         var updatedCity = sellingCity with { SupplyTons = sellingCity.SupplyTons - tons };
         var updatedFleet = fleet with { SupplyTons = fleet.SupplyTons + tons };
