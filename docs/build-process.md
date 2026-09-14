@@ -169,9 +169,17 @@ Everything else — including every `[designed]` placeholder `game-design.md` do
 **A defect found in already-merged code is never patched by the task that found it, even narrowly, even when the fix is one line.** The process is **suspend, file, plan, resume**:
 
 1. **Suspend.** The task that found the defect is set to `status:blocked` (not `status:rework` — the defect isn't its own) and stays blocked until the correction merges. It does not touch the upstream Owns list.
-2. **File.** The defect becomes its own GitHub issue labelled `bug` **and `triage:needed`**, plus the `lane:*`/`phase:*` labels that route it, stating what is wrong, the exact evidence (function, address, cross-check), the affected files or fields, and which tasks it blocks. The suspended task's issue references it ("suspended on #N"). It is not a catalogue entry by default — most bugs are smaller than a task.
+2. **File.** The defect becomes its own GitHub issue labelled `bug` **and `triage:needed`**, plus the `lane:*`/`phase:*` labels that route it, stating what is wrong, the exact evidence (function, address, cross-check), and the affected files or fields. When it blocks a task (below), it also carries the **`blocking`** label and its body **opens with a `Blocks: T<nn>[, T<nn>]` line**; the suspended task's issue references it ("suspended on #N"). It is not a catalogue entry by default — most bugs are smaller than a task.
 3. **Plan.** A **planner pass** — run by the planner (the main session), or by an Opus subagent it dispatches for a large pass; never a routine tick — triages the queue (below).
 4. **Resume.** The suspended task rebases onto the merged correction and continues.
+
+#### What "blocking" means
+
+A bug **blocks** a task when that task cannot be finished correctly while the defect stands. Who decides depends on where the task is:
+
+- **Case 1 — a task in flight.** The finder's evidence decides: without the fix, the task cannot meet a DoD line or get CI green. The orchestrator suspends the task (`status:blocked`, "suspended on #N") and files the bug with `blocking` and the `Blocks:` line ([Appendix C](#appendix-c-the-build-tick-skill) step 3).
+- **Case 2 — a future task.** The planner decides during triage. The test: does any unmerged task's Owns list or DoD touch the file, field or rule the bug is in, so that the task would either fail or silently build on the defect? If so, the bug gets `blocking` and the `Blocks:` line, and triage **records it in [task-catalogue.md](task-catalogue.md)** — as a `merge-after` dependency on the correction (task or bug), or as a DoD line in the blocked task. From then on the orchestrator's normal unblock check ([Appendix C](#appendix-c-the-build-tick-skill) step 4) enforces it; nothing depends on anyone remembering.
+- **The user is the tiebreaker** only for a real trade-off — for example "ship with the known defect and fix it later?" — raised by the planner as an escalation ([§4.6](#46-when-to-escalate-to-the-human)), never decided silently. A `blocking` bug is never deferred without that decision.
 
 #### The triage queue
 
@@ -182,17 +190,18 @@ Bugs and follow-ups ([§4.5](#45-rework)) share one queue, held in labels so it 
 | `triage:needed` | Filed, not yet triaged. **Whoever files a bug or a follow-up adds it**: the orchestrator ([Appendix C](#appendix-c-the-build-tick-skill) step 3), the follow-up filed at merge ([§4.5](#45-rework)), the documentation subagent ([§4.8](#48-documentation-update-after-every-merge)), and `/process-evidence` stage 2 ([evidence-pipeline.md](evidence-pipeline.md#the-two-stages)). |
 | `triage:scheduled` | Triaged into work, with a comment naming the task it is folded into or the new correction task's id. |
 | `triage:deferred` | Triaged as deliberately deferred, with a comment giving the reason. |
+| `blocking` | On a bug that blocks at least one task (above); its body opens with `Blocks: T<nn>[, T<nn>]`. Added by the finder (case 1) or by triage (case 2); the bug keeps it until its correction closes it. |
 
 **When the planner checks it** — `gh issue list --label triage:needed --state open` — at two fixed triggers:
 
 1. **At the start of every session**, before other work ([CLAUDE.md](../CLAUDE.md) rule 9).
-2. **Before spawning any orchestrator mandate** ([Appendix D](#appendix-d-orchestrator-mandate-template)). **No mandate is spawned while an untriaged item blocks a task in its scope** — blocking meaning a task issue is `status:blocked` and references the item ("suspended on #N").
+2. **Before spawning any orchestrator mandate** ([Appendix D](#appendix-d-orchestrator-mandate-template)): `gh issue list --label blocking --label triage:needed --state open`. **No mandate is spawned while any of those names a task in its scope in its `Blocks:` line** — triage it first, or drop the blocked task from the scope.
 
-**What triage decides**, for each item, removing `triage:needed`:
+**What triage decides**, for each item, removing `triage:needed` — and, for a bug, first applying the case-2 test above:
 
-- **a correction task** (next free `T` number, full catalogue shape) when the fix needs its own Owns list, model and reviewer → `triage:scheduled`;
+- **a correction task** (next free `T` number, full catalogue shape) when the fix needs its own Owns list, model and reviewer → `triage:scheduled`, with each blocked task's `merge-after` in the catalogue gaining that task;
 - **fold into an upcoming, not-yet-dispatched task's DoD** when the fix is naturally that task's territory and small — the default for a follow-up, folded into the next task that touches its files → `triage:scheduled`, naming that task;
-- **defer explicitly** when it is genuinely non-blocking → `triage:deferred`, with the reason.
+- **defer explicitly** when it is genuinely non-blocking → `triage:deferred`, with the reason. A `blocking` bug is deferred only on the user's decision.
 
 An item is never closed, or left untriaged, without one of those two labels and its comment. The planner pushes any catalogue change the triage makes to a branch for human review, not straight to `main`.
 
@@ -304,6 +313,7 @@ Alternatives considered and not used as the driver: a scheduled cloud agent (can
 | `review-round:1`, `review-round:2` | How many rework rounds have been dispatched for the task. Set by the orchestrator when it dispatches rework; removed at merge. A review that fails while `review-round:2` is present escalates ([§4.5](#45-rework)). |
 | `docs:pending` | The task has merged but its documentation update ([§4.8](#48-documentation-update-after-every-merge)) has not landed. Added by the orchestrator at merge; removed by the documentation subagent once its push is on `main`. |
 | `triage:needed`, `triage:scheduled`, `triage:deferred` | On `bug` and follow-up issues, not task issues: the planner's triage queue ([§4.7](#the-triage-queue)). Added by whoever files the item; replaced by the planner's triage decision. |
+| `blocking` | On a `bug` that blocks at least one task; its body opens with `Blocks: T<nn>[, T<nn>]` ([§4.7](#what-blocking-means)). |
 
 Dependencies are recorded in each issue body as a task list of issue references. The pinned **tracking issue #29** also carries one status-table comment per tick — the readable log.
 
@@ -422,7 +432,7 @@ A branch is never deleted during recovery: pushed work is only ever resumed or e
 | Issue title | `T09 Movement and terrain` |
 | Issue body | Scope, Owns, DoD as a checklist, model/effort, branch, `Blocked by #x` task list, a link to the task's anchor in [task-catalogue.md](task-catalogue.md), and the design milestone |
 | GitHub milestone | One per phase: `Phase 0 Foundation`, `Phase 1 Pure rules`, `Phase 2 Systems`, `Phase 3 Delivery` |
-| Labels | `task`; `bug`; `phase:0..3`; `lane:engine\|data\|ui\|infra`; `status:*`; `review-round:1\|2`; `docs:pending`; `triage:needed\|scheduled\|deferred`; `model:*`; `effort:*`; `release:*`; `local-only`; `single-instance`; `needs-human`; `orchestrator:pause` (issue #29 only) |
+| Labels | `task`; `bug`; `phase:0..3`; `lane:engine\|data\|ui\|infra`; `status:*`; `review-round:1\|2`; `docs:pending`; `triage:needed\|scheduled\|deferred`; `blocking`; `model:*`; `effort:*`; `release:*`; `local-only`; `single-instance`; `needs-human`; `orchestrator:pause` (issue #29 only) |
 | Orchestrator state | One comment on #29 starting `<!-- orchestrator-state -->`, edited in place every tick ([§5.2](#52-where-the-state-lives)) |
 | Documentation sync | `Docs: sync after T<nn> merged` (or `Docs: status resync`), pushed straight to `main` from a worktree ([§4.8](#48-documentation-update-after-every-merge)) |
 
@@ -613,9 +623,9 @@ checkout.
    - Neither label yet, no live reviewer → spawn the reviewer (Appendix B, model per the catalogue).
    - A defect found in ALREADY-MERGED code (not this PR's own task) → do not patch it, even
      narrowly. Set the finding task's issue to status:blocked (not status:rework), file an issue
-     labelled `bug` and `triage:needed` with the evidence, reference it from the task's issue
-     ("suspended on #N"), and tell the planner in step 7; triage is a planner pass
-     (build-process.md §4.7), not a tick step.
+     labelled `bug`, `triage:needed` and `blocking`, whose body opens with "Blocks: T<nn>" and
+     gives the evidence, reference it from the task's issue ("suspended on #N"), and tell the
+     planner in step 7; triage is a planner pass (build-process.md §4.7), not a tick step.
 
 4. UNBLOCK. Any status:blocked issue whose merge-after deps are all status:merged → status:ready.
    An issue suspended on a bug waits for that bug's correction, not just its merge-after deps.
@@ -670,7 +680,7 @@ The planner spawns the orchestrator with this prompt, filled in. To resume after
 
 **Before spawning, the planner checks:**
 
-- [ ] The triage queue is checked (`gh issue list --label triage:needed --state open`), and **no untriaged item blocks a task in this mandate's scope** ([§4.7](#the-triage-queue)). Triage it first, or drop the blocked task from the scope.
+- [ ] The triage queue is checked (`gh issue list --label triage:needed --state open`), and **no untriaged blocking bug names a task in this mandate's scope** — `gh issue list --label blocking --label triage:needed --state open`, read each `Blocks:` line ([§4.7](#what-blocking-means)). Triage it first, or drop the blocked task from the scope.
 - [ ] `orchestrator:pause` is removed from #29 — otherwise the orchestrator ends the mandate on its first tick.
 
 ```text
