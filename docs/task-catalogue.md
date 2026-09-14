@@ -1,10 +1,10 @@
-# Task catalogue: the 35 build tasks
+# Task catalogue: the 36 build tasks
 
 Every build task's scope, **Owns** list, Definition of Done, model/effort, reviewer and dependencies, plus the dependency graph and the task index. **How** tasks are dispatched, reviewed and merged is in [build-process.md](build-process.md); operating the project day to day is in [operating-guide.md](operating-guide.md).
 
 **Status in this document** is a snapshot written from the GitHub `status:*` labels by the documentation step ([build-process.md §4.8](build-process.md#48-documentation-update-after-every-merge), location A1), and appears only in the **Status** line of each entry, the **Status** column of the [task index](#3-task-index) and the index's **Totals** line. Every orchestrator tick compares the index against the labels and resyncs on drift. Between syncs, GitHub labels and [tracking issue #29](https://github.com/diegoami/imperial_conquest_2/issues/29) are authoritative. Values: **Merged** (`commit`) · **In progress** (`status:in-progress`, `in-review`, `rework` or `approved`) · **Ready** · **Blocked** · **Escalated**.
 
-35 tasks: the 20 design milestones, seven pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, and hardening the `IC2.Data` parsers), and five corrections to already-merged code (T31–T35).
+36 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), and five corrections to already-merged code (T31–T35).
 
 ---
 
@@ -90,6 +90,8 @@ graph TD
   T19 --> T23
   T23 --> T24[T24 Godot main screen]
   T11 --> T24
+  T29 --> T36[T36 improved preset]
+  T36 --> T24
   T29 --> T24
   T34 --> T24
   T24 --> T25[T25 battle/diplo/handoff screens]
@@ -112,13 +114,13 @@ Waves are dependency layers, not concurrent batches: execution is serial, one co
 | 3 | T06, T07, T08, T09, T10, T11, T12, T31, T32, T33, T34 | The widest wave. T32 merges before T08; T33 before T16 and T17; T34 any time before T21 and T24. T08 and T33 both write `Ruleset.cs`, `toy-ruleset.json` and `tests/fixtures/**` — different records and entries, never in flight together. |
 | 4 | T13, T14, T15, T16, T35 | T35 follows T08 and gates T13, T17 and T19. T16 is the long pole. |
 | 5 | T17, T18, T19, T20, T29, T21, T22 | T17 first, then T18/T19/T20; T29 once T15, T17 and T19 have merged; then T21 and T22. T22 is the long pole. |
-| 6 | T23, T24, T25, T26, T27, T28 | T24/T25/T27 are single-instance (Godot) and form one serial chain. |
+| 6 | T23, T36, T24, T25, T26, T27, T28 | T36 follows T29 and precedes T24. T24/T25/T27 are single-instance (Godot) and form one serial chain. |
 
-**Critical path**: `T01 → T02 → T03 → T06 → T32 → T08 → T14 → T16 → T17 → T23 → T24 → T25 → T27` — 13 of 35 tasks — with `T08 → T35 → T17` and `T31 → T33 → T16` as parallel edges into it. The AI chain (`… → T17 → T18 → T22 → T28`) runs alongside it with the most slack and the most uncertain duration, which argues for not deferring T22.
+**Critical path**: `T01 → T02 → T03 → T06 → T32 → T08 → T14 → T16 → T17 → T29 → T36 → T24 → T25 → T27` — 14 of 36 tasks — with `T08 → T35 → T17` and `T31 → T33 → T16` as parallel edges into it; T29 also waits for T15 and T19, and `T17 → T23 → T24` runs one task shorter. The AI chain (`… → T17 → T18 → T22 → T28`) runs alongside it with the most slack and the most uncertain duration, which argues for not deferring T22.
 
 ### 1.2 Sequential and independent tasks
 
-- **Strictly sequential**: T01 → T02 → T03; T16 → T17 (a siege is a battle); T17 → T18 (a siege wipes a pending fortify order); T08 → T13 (mercenary hire debits the army purse T08 defines); T24 → T25 → T27 (Godot, single-instance); T30 → T29 (T29 reads the DAT through T30's parser); T31 → T07 and T31 → T16 (both consume the siege defender weights T31 corrects); T32 → T08 and T32 → T14 (T06's attrition-phase test must stop counting systems before either registers one); T33 → T16 and T33 → T17 (both consume the defender-strength shape T33 corrects); T35 → T13, T17, T19 (the model fields they read and write); T15, T17, T19 → T29 → T21, T24, T26 (the ruleset schema settles before the shipped rulesets are exported, and the shipped world, rulesets and scenario exist before anything consumes them — [build-process.md §2.6](build-process.md#2-how-the-build-avoids-conflicts)).
+- **Strictly sequential**: T01 → T02 → T03; T16 → T17 (a siege is a battle); T17 → T18 (a siege wipes a pending fortify order); T08 → T13 (mercenary hire debits the army purse T08 defines); T24 → T25 → T27 (Godot, single-instance); T30 → T29 (T29 reads the DAT through T30's parser); T31 → T07 and T31 → T16 (both consume the siege defender weights T31 corrects); T32 → T08 and T32 → T14 (T06's attrition-phase test must stop counting systems before either registers one); T33 → T16 and T33 → T17 (both consume the defender-strength shape T33 corrects); T35 → T13, T17, T19 (the model fields they read and write); T15, T17, T19 → T29 → T21, T24, T26 (the ruleset schema settles before the shipped ruleset is exported, and the shipped world, ruleset and scenario exist before anything consumes them — [build-process.md §2.6](build-process.md#2-how-the-build-avoids-conflicts)); T29 → T36 → T24 (the `improved` preset is authored from the exported constants, and the New Game chooser needs both presets).
 - **Independent**: wave 3's pure-rules systems over disjoint directories; T32, T33 and T34 against each other and against T09–T12; T13/T14/T15; T18/T19/T20; T26 against the Godot lane.
 - **Looks independent but is not**: T12 (victory) is gated behind T06 because its 250 BC condition needs the calendar's year; T20 (save/load) could be written early, but its DoD ("a mid-game state round-trips after N turns") is only meaningful once the state is largely complete.
 
@@ -387,20 +389,17 @@ Conventions used by every entry:
 #### T32 Make T06's calendar tests independent of later systems
 
 - **Status**: Ready
-- **Design milestone**: none — a correction to merged T06, bug [#50](https://github.com/diegoami/imperial_conquest_2/issues/50), plus T06's review follow-ups [#43](https://github.com/diegoami/imperial_conquest_2/issues/43). **Labels**: `phase:1 lane:engine`
-- **Branch**: `task/T32-calendar-test-independence` · **Model/effort**: Sonnet / Medium · **Reviewer**: Sonnet / High
+- **Design milestone**: none — a correction to merged T06, bug [#50](https://github.com/diegoami/imperial_conquest_2/issues/50), plus the test-only items of T06's review follow-ups [#43](https://github.com/diegoami/imperial_conquest_2/issues/43) (its seat-rotation items are T17's). **Labels**: `phase:1 lane:engine`
+- **Branch**: `task/T32-calendar-test-independence` · **Model/effort**: Sonnet / Low · **Reviewer**: Sonnet / High
 - **Start after**: T06 · **Merge after**: T06 — and merged before T08 and T14
-- **Owns**: `src/IC2.Engine/Calendar/**`, `tests/IC2.Engine.Tests/Calendar/**`
-- **Scope**: `AttritionPhaseOrderingTests.AttritionPhasesAcceptRegistrationWithNeitherT08NorT14Present` asserts `Assert.Single` over every system registered in `ArmyTick` and `FleetTick`, and `CalendarTestbed.RegistryFor` scans the whole engine assembly — so the test fails the moment T08 registers its supply/morale system, and will again when T14 registers fleet attrition. Make every Calendar test independent of which other systems exist, and fold in #43's items, which all sit in the same two directories.
+- **Owns**: `tests/IC2.Engine.Tests/Calendar/**`
+- **Scope**: `AttritionPhaseOrderingTests.AttritionPhasesAcceptRegistrationWithNeitherT08NorT14Present` asserts `Assert.Single` over every system registered in `ArmyTick` and `FleetTick`, and `CalendarTestbed.RegistryFor` scans the whole engine assembly — so the test fails the moment T08 registers its supply/morale system, and will again when T14 registers fleet attrition. Make every Calendar test independent of which other systems exist, and fold in #43's test-infrastructure items, which sit in the same directory. Test code only: no production file changes.
 - **Done when**:
   1. The attrition-phase registration test asserts that T06's two probe systems are registered in `ArmyTick` and `FleetTick` **by system id**, never by the phase's system count, and stays green with an additional test-local system registered into each phase — a fixture in this task's tests that stands in for T08 and T14.
   2. No test under `tests/IC2.Engine.Tests/Calendar/**` asserts the number of systems in a phase, and `CalendarTestbed` registers T06's own systems plus the test group's fixtures rather than every system in the engine assembly — so the DoD-6 attrition run gives the same result with the stand-in fixtures present, and no later task's system can change a Calendar test's outcome.
   3. #43's test-infrastructure items ([review](https://github.com/diegoami/imperial_conquest_2/pull/41#issuecomment-5656277822), gate 5): `CalendarTestbed` builds each group's `SystemRegistry` once rather than per call; `CalendarTestPaths.cs`'s repository-root walk and `CalendarTestbed`'s copy of `CoreTestbed`'s pattern call the existing helpers wherever they are reachable without editing another task's files; the duplicated probe systems in `AttritionProbeFixtures.cs` collapse into one fixture.
-  4. `SeatRotationSystem` skips a nation whose `NationState.Eliminated` is set: no `SeatHandoffRequested`, no AI turn, and the rotation continues in turn-order-table order. `[designed]` — the original's handling of an eliminated seat is not decompiled; the PR states what was searched.
-  5. An active seat whose nation id does not resolve fails with a typed invariant error naming the id, rather than being skipped silently.
-  6. A quarterly-boundary handler that writes `GameState.Calendar` cannot change that round's calendar advance — the advance reads the calendar once — asserted by a test handler that tries.
-  7. `dotnet build IC2.sln` and `dotnet test IC2.sln` are green, and `git diff --name-only main...HEAD` lists only Owns paths.
-- **Hazards**: T06's DoD 7 still holds — the attrition phases are declared, named phases a system registers into by attribute alone; this task changes how the tests prove it, not the phase order. `TurnPhase.cs` is T03's and is not touched.
+  4. `dotnet build IC2.sln` and `dotnet test IC2.sln` are green, and `git diff --name-only main...HEAD` lists only `tests/IC2.Engine.Tests/Calendar/**`.
+- **Hazards**: T06's DoD 7 still holds — the attrition phases are declared, named phases a system registers into by attribute alone; this task changes how the tests prove it, not the phase order. It is on the critical path: nothing beyond these items belongs in it.
 
 #### T33 Complete `Ruleset.Siege` and `SiegeStrength.Defender` against `FUN_0044A98C`
 
@@ -457,7 +456,7 @@ Conventions used by every entry:
   4. All three survive T02's round-trip and deep-equality tests, which are extended to cover them; T02's DoD 3 (a missing required field is a typed error) still holds.
   5. At each quarter boundary `QuarterlyEconomySystem` credits `TaxIncome.Compute(taxBase, taxRatePercent)` to the nation's treasury — an end-to-end test on a real `GameState` with Rome's figures (2,440 at 15 % → +366).
   6. `dotnet build IC2.sln` and `dotnet test IC2.sln` are green, and `git diff --name-only main...HEAD` lists only Owns paths.
-- **Hazards**: the tax base is **not** `Population`, `Wealth` or `Treasury` — do not derive it from any of them; the toy files carry designed test values with `_provenance` saying so. Where the original stores it is unidentified, which T29 and T21 need before they can export or import it — a research item, not this task's. `GameState.cs` is the most-shared file in the engine: nothing else that touches `src/IC2.Engine/Model/**` is in flight.
+- **Hazards**: the tax base is **not** `Population`, `Wealth` or `Treasury` — do not derive it from any of them; the toy files carry designed test values with `_provenance` saying so. Where the original stores it is pending a research pass in the research repository, which the planner dispatches outside the catalogue. This task does not need the location: it adds the field, and the toy files carry designed values. T29 and T21 do need it. `GameState.cs` is the most-shared file in the engine: nothing else that touches `src/IC2.Engine/Model/**` is in flight.
 
 #### T13 Recruitment and mercenaries
 
@@ -556,7 +555,7 @@ Conventions used by every entry:
 - **Design milestone**: **M9**. **Labels**: `phase:2 lane:engine`
 - **Branch**: `task/T17-capture-siege` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
 - **Start after**: T16 · **Merge after**: T16, **T33**, **T35**
-- **Owns**: `src/IC2.Engine/Cities/Capture/**`, `tests/IC2.Engine.Tests/Cities/Capture/**`, `src/IC2.Engine/Model/Ruleset.cs` (additive capture and per-siege constants in `SiegeRules` and `LoyaltyRules`, or one new record for them — no other record), `data/rulesets/toy-ruleset.json` (the matching blocks only)
+- **Owns**: `src/IC2.Engine/Cities/Capture/**`, `tests/IC2.Engine.Tests/Cities/Capture/**`, `src/IC2.Engine/Model/Ruleset.cs` (additive capture and per-siege constants in `SiegeRules` and `LoyaltyRules`, or one new record for them — no other record), `data/rulesets/toy-ruleset.json` (the matching blocks only), `src/IC2.Engine/Calendar/SeatRotationSystem.cs` (elimination-aware rotation only, DoD 8)
 - **Scope**: Siege resolution routed through T16's resolver; capture transfers; the cascading defection mechanic; nation elimination.
 - **Done when**:
   1. A scripted scenario reproduces the Galatia-elimination pattern **city by city**: exactly 2 *"falls to"* with population and fortification loss, and exactly 7 *"defects from"* with **neither** changed.
@@ -566,6 +565,7 @@ Conventions used by every entry:
   5. Per-siege attrition runs on **every** attempt, win or lose.
   6. Emits the confirmed *"falls to"* / *"defects from"* messages.
   7. A siege is resolved against the **complete** `FUN_0044A98C` defender strength: T33's `SiegeStrength.Defender` (the weighted sum, then ×5/3 for a capital with loyalty > 59, then ×4/5 when owner ≠ allegiance), then `+ troops / 2` for each of the owner's recruitment slots targeting the city (T35's slots, `SiegeRules.DefenderGarrisonTroopDivisor`). One test for the garrison term alone, one combining it with both branches.
+  8. **Elimination-aware seat rotation lands with elimination** (T06 follow-ups [#43](https://github.com/diegoami/imperial_conquest_2/issues/43)): a nation eliminated under DoD 4 gets no further `SeatHandoffRequested` and no AI turn, including one eliminated earlier in the same round, and an active seat whose nation id does not resolve fails with a typed invariant error rather than being skipped silently. How the original treats an eliminated seat is not decompiled: the rule cites evidence, or is tagged `[designed]` with what was searched, per `design-audit.md` §4.5.
 - **Siege adjustments** ([`investigations/siege-defender-strength.md`](investigations/siege-defender-strength.md)): `FUN_0044A98C`'s owner ≠ allegiance ×4/5 (T33) and `FUN_0044B27C`'s separate ×9/10 when the *attacking* nation equals the city's allegiance (`AttackerIsAllegianceDefenderReductionPercent`) are two adjustments in two functions; both apply, each read from its own ruleset field.
 
 #### T18 City orders (fortification)
@@ -618,9 +618,9 @@ Conventions used by every entry:
 - **Status**: Blocked
 - **Design milestone**: none explicitly — the one-time export tool `game-design.md` §"The core data model" describes. **Labels**: `phase:2 lane:data local-only`
 - **Branch**: `task/T29-export-classical-world` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
-- **Start after**: T02, T04, **T30**, T15, T17, T19 · **Merge after**: T02, T04, **T30**, T15, T17, T19 — and merged before T21, T24 and T26
-- **Owns**: `data/worlds/classical-mediterranean.json`, `data/rulesets/classical-faithful.json`, `data/rulesets/improved.json`, `data/scenarios/classical-mediterranean.json`, `scripts/export-classical-world.*`, `tests/IC2.Engine.Tests/Export/**` (file-level within `data/worlds/**`, `data/rulesets/**` and `data/scenarios/**` — does not touch T02's toy fixtures)
-- **Scope**: A one-time, re-runnable export script, built on the existing `IC2.Data` parsers, that reads the original DAT (and the classical-faithful ruleset's constants, sourced from the T04 fixtures corpus) and writes `data/worlds/classical-mediterranean.json` and `data/rulesets/classical-faithful.json` conforming to T02's `World`/`Ruleset` schema — plus the other preset, `data/rulesets/improved.json` (the `improved` column of `game-design.md` §"Two shipped presets" applied to the same constants), and `data/scenarios/classical-mediterranean.json`, the scenario that starts the original game on that world. **This is the only step in the whole build that reads the user's original game files to produce something that ships** — every later build, test, and play session uses the committed JSON output, never the original DAT again. Run once by whoever has `assets.local.ini` configured; the committed *output* is what everyone else, including CI, depends on. T30 provides the DAT parse this task builds on. It starts after T15, T17 and T19 because those are the last tasks that change the `Ruleset` schema ([build-process.md §2.6](build-process.md#2-how-the-build-avoids-conflicts)): the loader rejects a missing or unknown field, so an earlier export would stop loading at the next schema change.
+- **Start after**: T02, T04, **T30**, T15, T17, T19 · **Merge after**: T02, T04, **T30**, T15, T17, T19 — and merged before T21, T24, T26 and T36
+- **Owns**: `data/worlds/classical-mediterranean.json`, `data/rulesets/classical-faithful.json`, `data/scenarios/classical-mediterranean.json`, `scripts/export-classical-world.*`, `tests/IC2.Engine.Tests/Export/**` (file-level within `data/worlds/**`, `data/rulesets/**` and `data/scenarios/**` — does not touch T02's toy fixtures)
+- **Scope**: A one-time, re-runnable export script, built on the existing `IC2.Data` parsers, that reads the original DAT (and the classical-faithful ruleset's constants, sourced from the T04 fixtures corpus) and writes `data/worlds/classical-mediterranean.json` and `data/rulesets/classical-faithful.json` conforming to T02's `World`/`Ruleset` schema, plus `data/scenarios/classical-mediterranean.json`, the scenario that starts the original game on that world. The other preset, `improved.json`, is design rather than export and is T36's. **This is the only step in the whole build that reads the user's original game files to produce something that ships** — every later build, test, and play session uses the committed JSON output, never the original DAT again. Run once by whoever has `assets.local.ini` configured; the committed *output* is what everyone else, including CI, depends on. T30 provides the DAT parse this task builds on. It starts after T15, T17 and T19 because those are the last tasks that change the `Ruleset` schema ([build-process.md §2.6](build-process.md#2-how-the-build-avoids-conflicts)): the loader rejects a missing or unknown field, so an earlier export would stop loading at the next schema change.
 - **Done when**:
   1. Running the script against the configured original DAT produces `data/worlds/classical-mediterranean.json` with exactly 334 cities, 16 nations, and the confirmed 320×140 map — cross-checked against `IC2.Data`'s own parse of the same file, not re-derived independently: same map dimensions and city count from `WorldPrefix`, and the **same 16 nation names in the same order** from T30's DAT nation-table parse (the DAT's 16-record nation table at `0x1B100`; see [`investigations/dat-file-layout.md`](investigations/dat-file-layout.md)). The nation records' capital-city index, city count, treasury, unity, mobilized percentage and tax rate are likewise taken from that parse.
   2. **Leader names and the human-player flag are not exported from the DAT**, because they are not in it — `TPremierForm_NewGame` assigns both at New Game (see T30). The exported `World` either omits them or carries an explicit scenario-supplied value with `_provenance` saying so; a test asserts no leader string in the export claims DAT provenance. `NationCatalog`'s names remain a *cross-check* on the DAT parse, never the source of record for the export.
@@ -629,9 +629,23 @@ Conventions used by every entry:
   5. Re-running the script against the same DAT produces byte-identical JSON (deterministic — same test pattern as T11's asset generator).
   6. **Every test in this task skips with an explicit "original files not configured" result when `assets.local.ini` is absent**, exactly like T21 — CI stays green on a machine without the original files, because CI only ever needs the *committed output*, not the ability to regenerate it.
   7. The world's starting units are the DAT's **15 armies and 2 fleets**, unit slots included, taken from T30's parse rather than re-derived: army 14 is the Thracian army at `(160, 30)` with 22,000 troops, 142 tons and morale 65, and fleet 0 is 90 ships with 80 tons at condition 85 ([`investigations/dat-file-layout.md`](investigations/dat-file-layout.md)).
-  8. `data/rulesets/improved.json` is written by the same script and differs from `classical-faithful.json` only in the `improved` column of `game-design.md` §"Two shipped presets" — the `RulesetFlags` values and the `[designed]` constants those flags select (the `combat.onDefeat` scatter placeholders) — each difference's `_provenance` naming its audit question. A test diffs the two files and asserts the difference is exactly that set.
-  9. `data/scenarios/classical-mediterranean.json` references the exported world and `classical-faithful`, seats every nation (control defaulting to AI; New Game assigns the human seats), and loads through T02's loaders. Leader names and the turn order are not fixed in it, because the original assigns both at New Game (`FUN_00448aa4` draws each leader and shuffles the turn order — DoD 2).
-- **Hazards**: do not hand-edit the committed JSON to fix a mismatch found after export — fix the export script and re-run, so the committed data always has a reproducible source. If the original DAT ever needs re-reading (a corrected field, a newly-decompiled table), this is the one task whose branch gets reopened, not a one-off patch to the JSON. A task that changes the `Ruleset` schema after this merges also updates this script's corpus-to-field mapping and re-runs it ([build-process.md §2.6](build-process.md#2-how-the-build-avoids-conflicts)). Do **not** work around a DAT parse failure by falling back to `NationCatalog`'s hardcoded list and calling DoD line 1 satisfied — that turns the cross-check into a tautology. If T30's DAT path is missing something this task needs, escalate. T35's nation tax base has no identified original offset yet (`[open]` in [`decompiled-fleet-tax-and-mercenary-formulas.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-fleet-tax-and-mercenary-formulas.md)); if it is still unidentified when this task is dispatched, escalate rather than export a guessed value.
+  8. `data/scenarios/classical-mediterranean.json` references the exported world and `classical-faithful`, seats every nation (control defaulting to AI; New Game assigns the human seats), and loads through T02's loaders. Leader names and the turn order are not fixed in it, because the original assigns both at New Game (`FUN_00448aa4` draws each leader and shuffles the turn order — DoD 2).
+- **Hazards**: do not hand-edit the committed JSON to fix a mismatch found after export — fix the export script and re-run, so the committed data always has a reproducible source. If the original DAT ever needs re-reading (a corrected field, a newly-decompiled table), this is the one task whose branch gets reopened, not a one-off patch to the JSON. A task that changes the `Ruleset` schema after this merges also updates this script's corpus-to-field mapping and re-runs it, and updates T36's `improved.json` ([build-process.md §2.6](build-process.md#2-how-the-build-avoids-conflicts)). Do **not** work around a DAT parse failure by falling back to `NationCatalog`'s hardcoded list and calling DoD line 1 satisfied — that turns the cross-check into a tautology. If T30's DAT path is missing something this task needs, escalate. Where the original stores the nation tax base (T35's field; `[open]` in [`decompiled-fleet-tax-and-mercenary-formulas.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-fleet-tax-and-mercenary-formulas.md)) is pending a research pass the planner dispatches in the research repository; if it has not landed when this task is dispatched, escalate rather than export a guessed value.
+
+#### T36 Author the `improved` preset ruleset
+
+- **Status**: Blocked
+- **Design milestone**: none explicitly — the second of the two shipped presets, `game-design.md` §"Two shipped presets", which answers audit Q3, Q4, Q5, Q6 and Q8 and adds `combat.onDefeat`. **Labels**: `phase:2 lane:data`
+- **Branch**: `task/T36-improved-preset` · **Model/effort**: **Haiku / Medium** · **Reviewer**: Sonnet / Medium
+- **Start after**: T29 · **Merge after**: T29 — and merged before T24
+- **Owns**: `data/rulesets/improved.json`, `tests/IC2.Engine.Tests/Presets/**`
+- **Scope**: `improved.json` is design, not export: T29's `classical-faithful.json` with the `improved` column of `game-design.md` §"Two shipped presets" applied — `diplomacy.model`, `economy.purses`, `victory.default` and its shorter default turn limit, `seatAsymmetry`, `bugPolicy.diplomaticThaw` and `combat.onDefeat` — plus the `[designed]` constants those settings select (the `combat.onDefeat` scatter placeholders). It reads no original file.
+- **Done when**:
+  1. `data/rulesets/improved.json` has id `improved` and round-trips through T02's `Ruleset` loader with no schema errors.
+  2. A test diffs it against `classical-faithful.json` and asserts the difference is exactly the `improved` column: each flag at its `improved` value, the victory default and default turn limit, and the scatter constants. Every other constant equals `classical-faithful.json`'s.
+  3. Every differing value's `_provenance` names its audit question (or `game-design.md` §"The defeated side's fate" for the scatter), and every `[designed]` value says it is a placeholder and what was searched, per `design-audit.md` §4.5.
+  4. `dotnet build IC2.sln` and `dotnet test IC2.sln` are green, and `git diff --name-only main...HEAD` lists only Owns paths.
+- **Hazards**: never edit `classical-faithful.json` (T29's) to shrink the diff. Do not invent a value the design leaves open — the default turn limit and the scatter range are `[designed]` placeholders and say so. A task that changes the `Ruleset` schema after this merges updates this file too ([build-process.md §2.6](build-process.md#2-how-the-build-avoids-conflicts)).
 
 #### T21 Original-save import bridge
 
@@ -646,6 +660,7 @@ Conventions used by every entry:
   2. An import report lists zero unmapped fields for every table `IC2.Data` already parses.
   3. Importing onto a different ruleset or world id is rejected with the specified message.
   4. **Every test in this task skips with an explicit "original files not configured" result when `assets.local.ini` is absent**, so CI stays green on a machine without the user's files.
+- **Known-open item**: where the original stores the nation tax base (T35's field) is pending a research pass the planner dispatches in the research repository. If it has not landed when this task is dispatched, escalate rather than import a guessed value.
 - **Constraint**: `local-only`. Cannot be dispatched to a machine without `C:\Users\diego\Documents\imp_conq_original`. See [build-process.md §8](build-process.md#8-adding-a-second-machine-later).
 
 #### T22 AI
@@ -682,7 +697,7 @@ Conventions used by every entry:
 - **Status**: Blocked
 - **Design milestone**: **M18** (UI half). **Labels**: `phase:3 lane:ui single-instance`
 - **Branch**: `task/T24-godot-main-screen` · **Model/effort**: Sonnet / High · **Reviewer**: Sonnet / High **+ human visual review**
-- **Start after**: T23 · **Merge after**: T11, T23, T29, T34
+- **Start after**: T23 · **Merge after**: T11, T23, T29, T34, T36
 - **Owns**: `godot/**`, `tests/IC2.Engine.Tests/Ui/**`
 - **Scope**: The **main menu and New Game flow** — New Game / Load / Settings / Quit, with the **ruleset chooser as the flow's first, most prominent screen**: a two-card `Classical Faithful` vs `Improved` picker with a plain-language summary of what each changes, shown before scenario/seat selection, `Classical Faithful` pre-highlighted as the default (`game-design.md` §UI item 1). Also: top bar, the persistent contextual side panel, the bottom filter toolbar, the non-modal news log, and extending the existing `MapViewer` from read-only to issuing commands — including replacing `MapViewer`'s current size-blind `DrawArmy`/`DrawFleet` with the **confirmed three-tier markers** from T11's asset pack (`game-design.md` §"Army and fleet markers scale with size" — `troopsThousands < 25/50` and `shipCount < 25/50`, the original's own thresholds, not invented ones) and `DrawCity` with the placeholder city tier set (`game-design.md` §"City markers", `[designed]`), capital called out separately. Follows the published mockup's **layout intent**, not its markup (`game-design.md` §UI names the artifact URL).
 - **Done when**:
@@ -765,7 +780,7 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T21](#t21-original-save-import-bridge) | Original-save import | M15 | Sonnet | High | **Opus**/Medium | T10, T20, T29, T30, T34 | [#21](https://github.com/diegoami/imperial_conquest_2/issues/21) | Blocked |
 | [T22](#t22-ai) | AI | M12 | **Opus** | **Ultrahigh** | Opus/High + ultra | T12, T15, T17, T18, T19 | [#22](https://github.com/diegoami/imperial_conquest_2/issues/22) | Blocked |
 | [T23](#t23-command-layer-and-headless-cli-harness) | Command layer and CLI | M18 | Sonnet | Medium | Sonnet/High | T17, T19 | [#23](https://github.com/diegoami/imperial_conquest_2/issues/23) | Blocked |
-| [T24](#t24-godot-main-game-screen) | Godot main screen | M18 | Sonnet | High | Sonnet/High + human | T11, T23, T29, T34 | [#24](https://github.com/diegoami/imperial_conquest_2/issues/24) | Blocked |
+| [T24](#t24-godot-main-game-screen) | Godot main screen | M18 | Sonnet | High | Sonnet/High + human | T11, T23, T29, T34, T36 | [#24](https://github.com/diegoami/imperial_conquest_2/issues/24) | Blocked |
 | [T25](#t25-battle-result-diplomacy-and-hotseat-handoff-screens) | Godot screens | M18 | Sonnet | Medium | Sonnet/High + human | T24 | [#25](https://github.com/diegoami/imperial_conquest_2/issues/25) | Blocked |
 | [T26](#t26-scenario-authoring-docs-and-example-scenarios) | Scenario docs and examples | M19 | **Haiku** | Medium | Sonnet/Medium | T23, T29 | [#26](https://github.com/diegoami/imperial_conquest_2/issues/26) | Blocked |
 | [T27](#t27-packaging) | Packaging | M20 | Sonnet | Medium | Sonnet/High | T25, T26 | [#27](https://github.com/diegoami/imperial_conquest_2/issues/27) | Blocked |
@@ -773,9 +788,10 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T29](#t29-export-the-shipped-classical-mediterranean-world-and-ruleset) | Export classical-mediterranean world | — | Sonnet | High | **Opus**/Medium | T02, T04, T30, T15, T17, T19 | [#32](https://github.com/diegoami/imperial_conquest_2/issues/32) | Blocked |
 | [T30](#t30-harden-ic2data-army-tombstones-and-the-dats-own-file-layout) | `IC2.Data`: tombstones + DAT layout | — | Sonnet | High | **Opus**/Medium | T01 | [#37](https://github.com/diegoami/imperial_conquest_2/issues/37) | Merged (`2d50081`) |
 | [T31](#t31-correct-rulesetsieges-defender-strength-field-identities) | Correct `Ruleset.Siege` defender fields | — | Sonnet | Medium | **Opus**/Medium | T02 | [#45](https://github.com/diegoami/imperial_conquest_2/issues/45) | Merged (`27d7b41`) |
-| [T32](#t32-make-t06s-calendar-tests-independent-of-later-systems) | Calendar tests independent of later systems | — | Sonnet | Medium | Sonnet/High | T06 | — | Ready |
+| [T32](#t32-make-t06s-calendar-tests-independent-of-later-systems) | Calendar tests independent of later systems | — | Sonnet | Low | Sonnet/High | T06 | — | Ready |
 | [T33](#t33-complete-rulesetsiege-and-siegestrengthdefender-against-fun_0044a98c) | Complete `Ruleset.Siege` and `SiegeStrength.Defender` | — | Sonnet | Medium | **Opus**/Medium | T31, T07 | — | Ready |
 | [T34](#t34-ic2data-follow-ups-a-path-independent-corpus-fixture-and-the-pending-offer-block) | `IC2.Data` follow-ups + corpus fixture | — | Sonnet | Medium | **Opus**/Medium | T30 | — | Ready |
 | [T35](#t35-model-nation-tax-base-recruitment-slots-and-the-pending-diplomatic-offer) | Model: tax base, recruitment slots, pending offer | — | Sonnet | High | **Opus**/High | T08 | — | Blocked |
+| [T36](#t36-author-the-improved-preset-ruleset) | Author the `improved` preset | — | **Haiku** | Medium | Sonnet/Medium | T29 | — | Blocked |
 
-**Totals** — 35 tasks: 4 Opus, 25 Sonnet, 5 Haiku, 1 Fable. Effort: 2 Ultrahigh, 15 High, 16 Medium, 2 Low. 9 merged as of `acd4098`.
+**Totals** — 36 tasks: 4 Opus, 25 Sonnet, 6 Haiku, 1 Fable. Effort: 2 Ultrahigh, 15 High, 16 Medium, 3 Low. 9 merged as of `acd4098`.

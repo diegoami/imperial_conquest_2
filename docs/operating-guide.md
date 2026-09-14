@@ -10,12 +10,12 @@ A snapshot written by the documentation step ([build-process.md §4.8](build-pro
 
 - **As of**: `acd4098` (T07 merged).
 - **Phase**: Phase 0 (foundation) merged; Phase 1 (pure rules) under way.
-- **Merged — 9 of 35**: T01, T02, T03, T04, T05, T06, T07, T30, T31. Per-task status and merge commits: [task index](task-catalogue.md#3-task-index).
+- **Merged — 9 of 36**: T01, T02, T03, T04, T05, T06, T07, T30, T31. Per-task status and merge commits: [task index](task-catalogue.md#3-task-index).
 - **In progress**: none — dispatching is paused (`orchestrator:pause` on #29).
 - **Blocked**: T08 (economy, supply and purses) — suspended on [#50](https://github.com/diegoami/imperial_conquest_2/issues/50); its PR #53 is implemented but CI is red on that bug.
 - **Ready**: T09, T10, T11, T12, T32, T33, T34.
 - **Next (planner)**: apply the planner pass's GitHub side, then spawn a mandate:
-  1. File T32–T35's issues from their catalogue entries; relabel #32 (T29) `status:blocked`, `phase:2` and `release:v0.3.0` with milestone Phase 2 Systems, and give #37 (T30) milestone Phase 0 Foundation.
+  1. File T32–T36's issues from their catalogue entries; relabel #32 (T29) `status:blocked`, `phase:2` and `release:v0.3.0` with milestone Phase 2 Systems, and give #37 (T30) milestone Phase 0 Foundation.
   2. Apply the triage decisions to #40, #43, #46, #47, #49, #50 and #52 (`triage:scheduled` plus a comment naming the task; #50's `Blocks:` line becomes T08, T14; #46 and #47 gain `blocking` and `Blocks: T16, T17`), and file the corpus-sweep drift and the model gaps as bugs already scheduled into T34 and T35.
   3. Remove `orchestrator:pause` from #29 and spawn an orchestrator with a mandate ([build-process.md Appendix D](build-process.md#appendix-d-orchestrator-mandate-template)).
 - **Open bugs** ([build-process.md §4.7](build-process.md#the-triage-queue)), all `triage:needed`: [#46](https://github.com/diegoami/imperial_conquest_2/issues/46); [#47](https://github.com/diegoami/imperial_conquest_2/issues/47) (must be resolved before T17 — a case-2 blocking candidate for triage); [#50](https://github.com/diegoami/imperial_conquest_2/issues/50) (`blocking` — Blocks: T08); [#52](https://github.com/diegoami/imperial_conquest_2/issues/52).
@@ -27,7 +27,7 @@ A snapshot written by the documentation step ([build-process.md §4.8](build-pro
 | After | What exists | Can you run it? |
 | --- | --- | --- |
 | Phase 0 (T01–T05, T30, T31) | Solution, CI, domain model, fixtures corpus, engine seams, hardened `IC2.Data` | `dotnet build` / `dotnet test` only |
-| Phases 1–2 (T06–T22, T29, T32–T35) | The rule subsystems, then recruitment, naval, battle, diplomacy, AI; the exported 334-city world, both preset rulesets and the classical scenario (T29) | Only through their tests |
+| Phases 1–2 (T06–T22, T29, T32–T36) | The rule subsystems, then recruitment, naval, battle, diplomacy, AI; the exported 334-city world, `classical-faithful` ruleset and classical scenario (T29), and the `improved` preset (T36) | Only through their tests |
 | **T23** | `IC2.Cli`, a scriptable headless play harness | **First thing you can run**: load a scenario, issue orders, end turns, text output |
 | **T24** | Godot main screen, New Game flow, the ruleset chooser | **First thing that looks like a game** |
 | T25–T28 | Remaining screens, packaging, the nightly gate | A complete, playable build |
@@ -62,7 +62,7 @@ A snapshot written by the documentation step ([build-process.md §4.8](build-pro
 | [operating-guide.md](operating-guide.md) | This document |
 | [CLAUDE.md](../CLAUDE.md) | Auto-loaded into every Claude Code session: a pointer to this guide and the must-never-forget rules |
 | [build-process.md](build-process.md) | Process contract: roles, review and merge, orchestrator loop, bug list, documentation step, prompt templates, `/build-tick` |
-| [task-catalogue.md](task-catalogue.md) | The 35 tasks, the dependency graph, the task index and status |
+| [task-catalogue.md](task-catalogue.md) | The 36 tasks, the dependency graph, the task index and status |
 | [game-design.md](game-design.md) | What is being built |
 | [design-audit.md](design-audit.md) | What the evidence supports, and the design questions Q1–Q10 |
 | [release-plan.md](release-plan.md) | Versions, release gates, release notes, the release checklist |
