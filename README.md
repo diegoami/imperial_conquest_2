@@ -10,7 +10,7 @@ A snapshot, synced after every merge by the documentation step ([build-process.m
 
 - **As of** `acd4098`: Phase 0 (foundation) merged, Phase 1 (pure rules) under way — **9 of 36 build tasks merged**: T01–T07, T30, T31. Per-task status is in the [task index](docs/task-catalogue.md#3-task-index).
 - **What exists**: `IC2.Data` (the original `.sav`/`.dat` parsers), the domain model and toy world, the fixtures corpus (355 constants from the research reports), the engine seams (seeded RNG, turn pipeline, commands, events), calendar and turn sequencing, and the strength functions. No gameplay loop yet.
-- **Next**: dispatching is paused. T08 (economy, supply and purses) is implemented but blocked, suspended on bug #50; T09–T12 and T29 are ready.
+- **Next**: an orchestrator mandate is running — T32, T08, T33, T09, T10, T11, T12, T34, in order. T32 (calendar tests independent of later systems) is in progress. T08 (economy, supply and purses) is implemented but blocked, suspended on bug #50, and resumes once T32 merges. T29 is now blocked (waiting on T30, T34, T15, T17, T19); the ready set is T09, T10, T11, T12, T33, T34.
 - **Nothing is playable yet.** The first runnable program is the `IC2.Cli` harness (T23); the first screen is T24. What becomes runnable when: [operating-guide.md §1.1](docs/operating-guide.md#11-what-becomes-runnable-and-when).
 - **Build and test now**:
   ```bash
