@@ -1,156 +1,171 @@
 using IC2.Engine.Core;
-using IC2.Engine.Model;
 using IC2.Engine.News;
 using IC2.Engine.Tests.Core;
+using IC2.Engine.Tests.Fixtures;
 using Xunit;
 
 namespace IC2.Engine.Tests.News;
 
 /// <summary>
-/// Tests the news log writer system via real TurnCoordinator integration.
-/// DoD 4 — A news-worthy event published to the sink during a turn appears as a rendered message
-/// in GameState.NewsLog at the end of that turn; a non-news-worthy event does not. The 40-slot eviction
-/// is asserted end-to-end through the writer, not only against the buffer in isolation.
+/// DoD 4: "A news-worthy event published to the sink during a turn appears as a rendered message in
+/// <c>GameState.NewsLog</c> at the end of that turn, asserted on the state itself rather than on the sink;
+/// a non-news-worthy event does not. The 40-slot eviction is asserted end-to-end through the writer, not
+/// only against the buffer in isolation."
 /// </summary>
-[Collection("news-log-writer-integration")]
+/// <remarks>
+/// Every test here runs the real, registry-instantiated <see cref="NewsLogWriterSeatEnd"/> or
+/// <see cref="NewsLogWriterRoundEnd"/> through a real <see cref="TurnCoordinator"/>, and asserts on
+/// <c>result.State.NewsLog</c> — never on a copy of the rendering logic, and never by calling
+/// <see cref="NewsLogWriter.Append"/> directly (that is <c>NewsLogWriterAppendTests</c>'s job). Each
+/// coordinator is built over a <see cref="CompositeEventSink"/> of a recorder plus
+/// <see cref="RecordingUiStyleSink"/> — a realistic caller composition, not a bare sink — to make explicit
+/// that the writer's correctness does not depend on what else is chained after it (see
+/// <see cref="NewsLogWriterFixtures.RegistryFor"/> and <see cref="RecordingUiStyleSink"/>'s remarks; this
+/// is exactly where the first attempt's reflection-based design broke, R7).
+/// </remarks>
 public class NewsLogWriterTests
 {
-
-    /// <summary>
-    /// DoD 4(a): A news-worthy event published during a seat-scoped phase (Orders) appears in
-    /// GameState.NewsLog at the end of that seat's turn (after SeatEnd phase).
-    /// </summary>
-    [Fact]
-    public void NewsLogWriter_SeatScopedEventAppearsInLogAtSeatEnd()
+    private static TurnCoordinator CoordinatorFor(string group, out RecordingUiStyleSink uiSink)
     {
-        // Arrange: Get the writer instance from the registry (the exact same instance that runs as a system)
-        var registry = SystemRegistry.FromAssemblies(typeof(NewsLogWriter).Assembly);
-        var writerSystem = registry.Systems.First(s => s.Id == "news.writer");
-        var writer = (NewsLogWriter)writerSystem.Instance;
+        uiSink = new RecordingUiStyleSink();
+        return NewsLogWriterFixtures.CoordinatorFor(group, new CompositeEventSink(new RecordingEventSink(), uiSink));
+    }
 
-        var coordinator = new TurnCoordinator(registry, CoreTestbed.Toy.Ruleset, CoreTestbed.Toy.World, sink: writer);
+    /// <summary>DoD 4(a): a seat-scoped news-worthy event appears in the log at the end of that seat's turn.</summary>
+    [Fact]
+    public void SeatScopedEvent_AppearsInLog_AtSeatEnd()
+    {
+        var coordinator = CoordinatorFor(NewsLogWriterFixtures.SeatScopedGroup, out var uiSink);
+
+        var result = coordinator.RunTurn(CoreTestbed.InitialState());
+
+        Assert.Single(result.State.NewsLog.Slots);
+        Assert.Equal("City0   (Old)  falls to New.", result.State.NewsLog.Slots[0].Text);
+        // The composed "UI" sink still receives the raw event -- the writer's own rendering path never
+        // replaces or interferes with the caller's own consumer.
+        Assert.Contains(uiSink.Received, e => e is CityFallsToFixtureEvent);
+    }
+
+    /// <summary>DoD 4(b): a non-news-worthy event is published but never rendered.</summary>
+    [Fact]
+    public void NonNewsworthyEvent_NeverAppears()
+    {
+        var coordinator = CoordinatorFor(NewsLogWriterFixtures.NonNewsworthyGroup, out _);
         var state = CoreTestbed.InitialState();
 
-        // Act: Publish an event BEFORE running the turn, simulating publication during Orders phase
-        writer.Publish(new CityFallsToEvent("Rome", "Republic", "Empire"));
-
-        // Execute the turn (all phases including SeatEnd where the writer system runs)
         var result = coordinator.RunTurn(state);
 
-        // Assert: Event appears in the log with correct rendering
-        var newsLog = result.State.NewsLog;
-        Assert.NotEmpty(newsLog.Slots);
-        Assert.Single(newsLog.Slots, s => s.Text.Contains("Rome"));
+        Assert.Empty(result.State.NewsLog.Slots);
     }
 
     /// <summary>
-    /// DoD 4(b): A non-news-worthy event published to the sink does NOT appear in GameState.NewsLog.
+    /// DoD 4(c): a round-scoped event appears at the round boundary in the very same
+    /// <see cref="TurnCoordinator.RunRoundTick"/> call that published it -- not deferred to a later seat's
+    /// turn (the failure mode the first attempt's reflection-based design had under a realistic sink,
+    /// per PR #77's ultra-review addendum).
     /// </summary>
     [Fact]
-    public void NewsLogWriter_NonNewsworthyEventDoesNotAppear()
+    public void RoundScopedEvent_AppearsAtRoundBoundary_NotDeferred()
     {
-        // Arrange: Get the writer instance from the registry
-        var registry = SystemRegistry.FromAssemblies(typeof(NewsLogWriter).Assembly);
-        var writerSystem = registry.Systems.First(s => s.Id == "news.writer");
-        var writer = (NewsLogWriter)writerSystem.Instance;
+        var coordinator = CoordinatorFor(NewsLogWriterFixtures.RoundScopedGroup, out _);
 
-        var coordinator = new TurnCoordinator(registry, CoreTestbed.Toy.Ruleset, CoreTestbed.Toy.World, sink: writer);
-        var state = CoreTestbed.InitialState();
-        var initialLogCount = state.NewsLog.Slots.Count;
+        var result = coordinator.RunRoundTick(CoreTestbed.InitialState());
 
-        // Act: Publish a non-newsworthy event
-        writer.Publish(new NonNewsworthyTestEvent("should be ignored"));
-
-        // Execute the turn
-        var result = coordinator.RunTurn(state);
-
-        // Assert: Log size unchanged, event not rendered
-        Assert.Equal(initialLogCount, result.State.NewsLog.Slots.Count);
+        Assert.Single(result.State.NewsLog.Slots);
+        Assert.Equal("A fleet belonging to NavalNation is lost at sea", result.State.NewsLog.Slots[0].Text);
     }
 
     /// <summary>
-    /// DoD 4(c): A 40-slot ring buffer enforces capacity: 41 events through the writer results in
-    /// exactly 40 remaining, with the oldest evicted. Asserted end-to-end through real turns.
+    /// DoD 4(d): 41 seat-scoped events through 41 real turns leave exactly the ring buffer's own capacity
+    /// (<c>caps.maxNewsSlots</c>), oldest evicted -- proven end-to-end through the writer, not only against
+    /// <c>NewsLog.Append</c> in isolation (<c>NewsRingBufferTests</c> covers that separately, for DoD 1).
     /// </summary>
     [Fact]
-    public void NewsLogWriter_EnforcesCapacityThroughEvictionAcrossMultipleTurns()
+    public void FortyOneTurns_LeaveExactlyCapacity_OldestEvicted()
     {
-        // Arrange: Get the writer instance from the registry
-        var registry = SystemRegistry.FromAssemblies(typeof(NewsLogWriter).Assembly);
-        var writerSystem = registry.Systems.First(s => s.Id == "news.writer");
-        var writer = (NewsLogWriter)writerSystem.Instance;
-
-        var coordinator = new TurnCoordinator(registry, CoreTestbed.Toy.Ruleset, CoreTestbed.Toy.World, sink: writer);
+        var capacity = FixtureCorpus.Get("caps.maxNewsSlots").AsInt();
+        var coordinator = CoordinatorFor(NewsLogWriterFixtures.SeatScopedGroup, out _);
         var state = CoreTestbed.InitialState();
 
-        // Act: Publish 41 events across multiple turns to test eviction
-        for (var i = 0; i < 41; i++)
+        for (var turn = 0; turn < capacity + 1; turn++)
         {
-            // Reuse existing events with varying parameters to create distinct messages
-            writer.Publish(new CityFallsToEvent($"City{i}", "Old", "New"));
-            // Run one turn per event to flush through the system
-            var result = coordinator.RunTurn(state);
-            state = result.State;
+            state = coordinator.RunTurn(state).State;
         }
 
-        // Assert: Exactly 40 entries, oldest (City0) evicted, newest (City40) present
-        var newsLog = state.NewsLog;
-        Assert.Equal(40, newsLog.Slots.Count);
-        var texts = newsLog.Slots.Select(s => s.Text).ToList();
-        Assert.DoesNotContain(texts, t => t.Contains("City0"));
-        Assert.Contains(texts, t => t.Contains("City40"));
+        var texts = state.NewsLog.Slots.Select(s => s.Text).ToList();
+        Assert.Equal(capacity, texts.Count);
+        Assert.DoesNotContain(texts, t => t.StartsWith("City0 ", StringComparison.Ordinal));
+        Assert.Contains(texts, t => t.StartsWith($"City{capacity} ", StringComparison.Ordinal));
     }
 
     /// <summary>
-    /// DoD 4(d): Round-scoped events (published in WeatherEvents phase) appear at the round boundary
-    /// in RoundEnd phase, not deferred to a later seat's turn.
+    /// A seat's turn that always requests the round tick renders its seat-scoped event through
+    /// <see cref="NewsLogWriterSeatEnd"/> and its round-scoped event through
+    /// <see cref="NewsLogWriterRoundEnd"/> -- each exactly once, even though both writers see both events
+    /// in <see cref="SystemContext.PublishedEvents"/> by the time <c>RoundEnd</c> runs. Guards specifically
+    /// against the scope filter regressing into rendering the same seat-scoped event twice.
     /// </summary>
     [Fact]
-    public void NewsLogWriter_RoundScopedEventAppearsAtRoundBoundary()
+    public void FollowOnRoundTick_RendersEachScopedEvent_ExactlyOnce()
     {
-        // Arrange: Get the writer instance from the registry
-        var registry = SystemRegistry.FromAssemblies(typeof(NewsLogWriter).Assembly);
-        var writerSystem = registry.Systems.First(s => s.Id == "news.writer");
-        var writer = (NewsLogWriter)writerSystem.Instance;
+        var coordinator = CoordinatorFor(NewsLogWriterFixtures.FollowOnGroup, out _);
 
-        var coordinator = new TurnCoordinator(registry, CoreTestbed.Toy.Ruleset, CoreTestbed.Toy.World, sink: writer);
-        var state = CoreTestbed.InitialState();
+        var result = coordinator.RunTurn(CoreTestbed.InitialState());
 
-        // Act: Publish a round-scoped event and run a complete round
-        writer.Publish(new FleetLostAtSeaEvent("NavalNation"));
-        var result = coordinator.RunRoundTick(state);
-
-        // Assert: Event appears in the log (round boundary has been processed)
-        var newsLog = result.State.NewsLog;
-        Assert.NotEmpty(newsLog.Slots);
-        Assert.True(
-            newsLog.Slots.Any(s => s.Text.Contains("NavalNation")),
-            "Round-scoped event should appear after RoundEnd phase"
-        );
+        Assert.True(result.RoundTickRan);
+        var texts = result.State.NewsLog.Slots.Select(s => s.Text).ToList();
+        Assert.Equal(2, texts.Count);
+        Assert.Single(texts, t => t.Contains("FollowOnCity", StringComparison.Ordinal));
+        Assert.Single(texts, t => t.Contains("FollowOnFleetNation", StringComparison.Ordinal));
     }
 
     /// <summary>
-    /// Verification: The main writer system and its round-end helper are both discoverable and
-    /// correctly registered with the engine's system registry. The main system (IGameSystem) is
-    /// the exact same instance as wired to the coordinator as IEventSink.
+    /// Proves <c>news.writer</c>'s <c>Order = int.MaxValue</c> is load-bearing: a fixture registered in the
+    /// same phase (<c>SeatEnd</c>) whose id sorts <em>after</em> "news.writer" alphabetically still has its
+    /// event rendered, which is only possible if the writer runs after it despite the id ordering that
+    /// would otherwise apply at equal <c>Order</c>.
     /// </summary>
     [Fact]
-    public void NewsLogWriter_SystemsAreDiscoverableInRegistry()
+    public void NewsWriter_SeatEnd_RunsAfterAnEarlierSameNamedSystem()
     {
-        // Arrange
-        var assembly = typeof(NewsLogWriter).Assembly;
-        var registry = SystemRegistry.FromAssemblies(assembly);
+        var registry = NewsLogWriterFixtures.RegistryFor(NewsLogWriterFixtures.SeatOrderGroup);
+        var writer = registry.Systems.Single(s => s.Id == "news.writer");
+        Assert.Equal(int.MaxValue, writer.Order);
 
-        // Act: Find both systems
-        var seatEndSystem = registry.Systems.FirstOrDefault(s => s.Id == "news.writer");
-        var roundEndSystem = registry.Systems.FirstOrDefault(s => s.Id == "news.writer.round");
+        var coordinator = new TurnCoordinator(registry, CoreTestbed.Toy.Ruleset, CoreTestbed.Toy.World, NullEventSink.Instance);
 
-        // Assert: Both exist and are in correct phases, and the main system is a NewsLogWriter instance
-        Assert.NotNull(seatEndSystem);
-        Assert.NotNull(roundEndSystem);
-        Assert.Equal(TurnPhase.SeatEnd, seatEndSystem.Phase);
-        Assert.Equal(TurnPhase.RoundEnd, roundEndSystem.Phase);
-        Assert.IsType<NewsLogWriter>(seatEndSystem.Instance);
-        Assert.IsType<NewsLogWriterRoundEnd>(roundEndSystem.Instance);
+        var result = coordinator.RunTurn(CoreTestbed.InitialState());
+
+        Assert.Contains(result.State.NewsLog.Slots, s => s.Text.Contains("OrderProofCity", StringComparison.Ordinal));
+    }
+
+    /// <summary>The same proof as above, for <c>news.writer.round</c> within <c>RoundEnd</c>.</summary>
+    [Fact]
+    public void NewsWriter_RoundEnd_RunsAfterAnEarlierSameNamedSystem()
+    {
+        var registry = NewsLogWriterFixtures.RegistryFor(NewsLogWriterFixtures.RoundOrderGroup);
+        var writer = registry.Systems.Single(s => s.Id == "news.writer.round");
+        Assert.Equal(int.MaxValue, writer.Order);
+
+        var coordinator = new TurnCoordinator(registry, CoreTestbed.Toy.Ruleset, CoreTestbed.Toy.World, NullEventSink.Instance);
+
+        var result = coordinator.RunRoundTick(CoreTestbed.InitialState());
+
+        Assert.Contains(result.State.NewsLog.Slots, s => s.Text.Contains("RoundOrderProofNation", StringComparison.Ordinal));
+    }
+
+    /// <summary>Both writer systems are discoverable by attribute alone, in their declared phases.</summary>
+    [Fact]
+    public void BothWriterSystems_AreDiscoverableInRegistry()
+    {
+        var registry = NewsLogWriterFixtures.RegistryFor(NewsLogWriterFixtures.SeatScopedGroup);
+
+        var seatEnd = registry.Systems.Single(s => s.Id == "news.writer");
+        var roundEnd = registry.Systems.Single(s => s.Id == "news.writer.round");
+
+        Assert.Equal(TurnPhase.SeatEnd, seatEnd.Phase);
+        Assert.Equal(TurnPhase.RoundEnd, roundEnd.Phase);
+        Assert.IsType<NewsLogWriterSeatEnd>(seatEnd.Instance);
+        Assert.IsType<NewsLogWriterRoundEnd>(roundEnd.Instance);
     }
 }

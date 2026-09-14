@@ -43,22 +43,14 @@ public class NewsCoverageTests
     }
 
     /// <summary>
-    /// Test that a news-worthy event from the test events has a catalog entry.
-    /// (This is implicitly tested by AllNewsworthyEvents_HaveCatalogEntries, but explicit confirmation helps.)
+    /// A known corpus-derived kind has a catalog entry. (This is implicitly proven by
+    /// <see cref="AllNewsworthyEvents_HaveCatalogEntries"/> once a production event declares this kind;
+    /// explicit confirmation here does not depend on that.)
     /// </summary>
     [Fact]
-    public void TestEvent_CityFallsTo_HasCatalogEntry()
+    public void CityFallsTo_HasCatalogEntry()
     {
-        // Arrange
-        var evt = new CityFallsToEvent("Rome", "Republic", "Empire");
-        // Expect "city.falls-to" from the event
-        var expectedKind = "city.falls-to";
-
-        // Act
-        var hasEntry = NewsMessageCatalog.HasTemplate(expectedKind);
-
-        // Assert
-        Assert.True(hasEntry, $"Event kind '{expectedKind}' should have a catalog entry");
+        Assert.True(NewsMessageCatalog.HasTemplate("city.falls-to"));
     }
 
     /// <summary>

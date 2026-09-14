@@ -1,164 +1,273 @@
 using System.Globalization;
 using System.Reflection;
+using System.Text;
+using System.Text.RegularExpressions;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
 
 namespace IC2.Engine.News;
 
 /// <summary>
-/// Implements the domain-event sink that renders news-worthy events into GameState.NewsLog.
-/// Also implements IGameSystem to flush the buffer at SeatEnd and cooperates with
-/// <see cref="NewsLogWriterRoundEnd"/> to also flush at RoundEnd.
+/// The pure function that turns news-worthy domain events into rendered messages appended to
+/// <see cref="GameState.NewsLog"/>.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>The writer implements both IEventSink and IGameSystem, and is intentionally stateful.</strong>
-/// This is the only system in the engine that violates the "stateless shared instance" rule documented in
-/// <see cref="SystemRegistry"/>. It works <em>only</em> if the exact same instance is wired into both roles:
-/// the <c>IGameSystem</c> instance from the assembly scan and the <c>IEventSink</c> in the engine's event
-/// sink chain must be the same object. If a different instance is constructed for each role, every event
-/// will be silently dropped.
+/// <strong>This is the one path into <see cref="GameState.NewsLog"/></strong>
+/// (<c>docs/task-catalogue.md</c> "News log ring buffer and message catalog"): both
+/// <see cref="NewsLogWriterSeatEnd"/> and <see cref="NewsLogWriterRoundEnd"/> call
+/// <see cref="Append"/>, and nothing else writes to the news log. Commands dispatched outside a run (for
+/// example T23's human orders, via the two-argument <c>Dispatch</c>) never reach
+/// <see cref="SystemContext.PublishedEvents"/>, so T23 calls <see cref="Append"/> directly with a
+/// <c>CommandResult</c>'s own events — which is exactly why this is a public static method taking plain
+/// data, not something reachable only through <see cref="IGameSystem.Execute"/>.
 /// </para>
 /// <para>
-/// The dual-phase design ensures:
-/// (1) Events published during a seat-scoped phase (such as <see cref="TurnPhase.Orders"/>) appear in
-///     the news log "at the end of that turn" via this system at <see cref="TurnPhase.SeatEnd"/>,
-///     satisfying DoD 4(a).
-/// (2) Events published during a round-scoped phase (such as <see cref="TurnPhase.WeatherEvents"/>)
-///     appear at the round boundary via <see cref="NewsLogWriterRoundEnd"/> at <see cref="TurnPhase.RoundEnd"/>,
-///     not deferred to a later seat's turn, satisfying DoD 4(b).
+/// <see cref="Append"/> is a pure function: every input arrives as a parameter, nothing is held between
+/// calls, and the same inputs always produce the same output. That is what lets both registered systems
+/// below stay genuinely stateless (<c>docs/task-catalogue.md</c>'s hazard for this task, and
+/// <see cref="IGameSystem"/>'s own contract) while still sharing one rendering implementation.
 /// </para>
 /// </remarks>
-[GameSystem(TurnPhase.SeatEnd, "news.writer")]
-public sealed class NewsLogWriter : IEventSink, IGameSystem
+public static class NewsLogWriter
 {
-    private readonly List<DomainEvent> _pending = new();
-
-    /// <summary>Publishes an event for later rendering into the news log.</summary>
-    public void Publish(DomainEvent domainEvent)
-    {
-        ArgumentNullException.ThrowIfNull(domainEvent);
-        _pending.Add(domainEvent);
-    }
+    private static readonly Regex PlaceholderPattern = new(
+        @"\{(?<curly>[A-Za-z][A-Za-z0-9]*)\}|<(?<angle>[A-Za-z][A-Za-z0-9]*)(?:\[[^<>]*\])?>",
+        RegexOptions.Compiled);
 
     /// <summary>
-    /// Executes at the end of each seat's turn to flush pending events to the news log.
+    /// Renders every news-worthy event in <paramref name="events"/> and appends each rendered message to
+    /// <paramref name="state"/>'s news log, oldest-eviction included.
     /// </summary>
-    public GameState Execute(SystemContext context)
+    /// <param name="state">The state to append to.</param>
+    /// <param name="events">
+    /// The events to consider, in order. A non-news-worthy event (<see cref="DomainEvent.IsNewsWorthy"/>
+    /// false) is skipped.
+    /// </param>
+    /// <param name="rules">The ring-buffer geometry and message length, from the loaded ruleset.</param>
+    /// <param name="templateFor">
+    /// Resolves an event kind to its message template. Defaults to
+    /// <see cref="NewsMessageCatalog.GetTemplate"/>; a caller (a test, most often) may substitute its own
+    /// so it never has to add a fixture-only kind to the production catalog just to exercise this method.
+    /// </param>
+    /// <returns><paramref name="state"/> with every rendered message appended, in order.</returns>
+    public static GameState Append(
+        GameState state,
+        IEnumerable<DomainEvent> events,
+        NewsLogRules rules,
+        Func<string, string>? templateFor = null)
     {
-        ArgumentNullException.ThrowIfNull(context);
-        return FlushToNewsLog(context.State, context.Ruleset);
-    }
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(events);
+        ArgumentNullException.ThrowIfNull(rules);
 
-    /// <summary>
-    /// Renders all pending news-worthy events into GameState.NewsLog and clears the buffer.
-    /// Called by both this system at <see cref="TurnPhase.SeatEnd"/> and by
-    /// <see cref="NewsLogWriterRoundEnd"/> at <see cref="TurnPhase.RoundEnd"/>.
-    /// </summary>
-    internal GameState FlushToNewsLog(GameState state, Ruleset ruleset)
-    {
+        var resolveTemplate = templateFor ?? NewsMessageCatalog.GetTemplate;
         var newsLog = state.NewsLog;
-        var rules = ruleset.NewsLog;
 
-        foreach (var evt in _pending)
+        foreach (var domainEvent in events)
         {
-            if (!evt.IsNewsWorthy)
+            if (!domainEvent.IsNewsWorthy)
             {
                 continue;
             }
 
-            var rendered = RenderMessage(evt, rules);
-            newsLog = newsLog.Append(new NewsEntry(rendered), rules);
+            var template = resolveTemplate(domainEvent.Kind);
+            var rendered = RenderMessage(domainEvent, template);
+            var truncated = TruncateToByteLength(rendered, rules.MessageByteLength);
+            newsLog = newsLog.Append(new NewsEntry(truncated), rules);
         }
-
-        _pending.Clear();
 
         return state with { NewsLog = newsLog };
     }
 
     /// <summary>
-    /// Renders a news-worthy event into a message by substituting operands into the catalog
-    /// template, then truncates to the confirmed message byte length (61 bytes per
-    /// <c>decompiled-news-log-identified.md</c> and <c>decompiled-sav-file-layout.md</c>).
-    /// Rendering is deterministic: operand substitution uses invariant culture and occurs in
-    /// property-declaration order (not hash-based).
+    /// Substitutes a template's placeholders from <paramref name="domainEvent"/>'s own declared
+    /// properties, in a single left-to-right pass over the template.
     /// </summary>
-    private string RenderMessage(DomainEvent evt, NewsLogRules rules)
+    /// <remarks>
+    /// <para>
+    /// <strong>Single pass, not repeated <c>Replace</c> calls.</strong> Placeholder occurrences are found
+    /// by scanning <paramref name="domainEvent"/>'s <em>template</em> once; each match is resolved and
+    /// appended immediately, and the cursor only ever moves forward. An operand value that happens to
+    /// contain literal placeholder-looking text (for example a city named <c>{OldOwner}</c>) is therefore
+    /// never re-scanned and can never be substituted a second time.
+    /// </para>
+    /// <para>
+    /// <strong>Only the event's own declared properties are candidates</strong>
+    /// (<see cref="BindingFlags.DeclaredOnly"/>): <see cref="DomainEvent.Kind"/> and
+    /// <see cref="DomainEvent.IsNewsWorthy"/>, declared on the abstract base, are never treated as
+    /// operands even if a template happened to contain <c>{Kind}</c>.
+    /// </para>
+    /// <para>
+    /// Recognises two placeholder syntaxes, because the corpus's own source reports used both: a
+    /// curly-brace <c>{PascalCase}</c> token is matched case-sensitively against a property of that exact
+    /// name; an angle-bracket <c>&lt;lowercase&gt;</c> token — optionally followed by a
+    /// <c>[field[+offset]]</c> provenance annotation the source report included in its own quoted string —
+    /// is matched case-insensitively, and the annotation is consumed but never printed. A placeholder that
+    /// matches no declared property is left exactly as written in the template.
+    /// </para>
+    /// </remarks>
+    internal static string RenderMessage(DomainEvent domainEvent, string template)
     {
-        var kind = evt.Kind;
-        var template = NewsMessageCatalog.GetTemplate(kind);
+        ArgumentNullException.ThrowIfNull(domainEvent);
+        ArgumentNullException.ThrowIfNull(template);
 
-        // Find all placeholders in the template (e.g., {CityName}, {OldOwner})
-        var result = template;
-        var eventType = evt.GetType();
-        var properties = eventType.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+        var eventType = domainEvent.GetType();
+        var builder = new StringBuilder(template.Length);
+        var cursor = 0;
 
-        foreach (var prop in properties)
+        foreach (Match match in PlaceholderPattern.Matches(template))
         {
-            var placeholder = $"{{{prop.Name}}}";
-            if (result.Contains(placeholder, StringComparison.Ordinal))
+            builder.Append(template, cursor, match.Index - cursor);
+
+            var curlyGroup = match.Groups["curly"];
+            var isCurly = curlyGroup.Success;
+            var propertyName = isCurly ? curlyGroup.Value : match.Groups["angle"].Value;
+
+            var bindingFlags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly;
+            if (!isCurly)
             {
-                var value = prop.GetValue(evt);
-                var valueStr = value == null ? "" : string.Format(CultureInfo.InvariantCulture, "{0}", value);
-                result = result.Replace(placeholder, valueStr, StringComparison.Ordinal);
+                // The corpus's angle-bracket tokens are lowercase (<winner>, <nation>); the event's own
+                // property is PascalCase (Winner, Nation). The curly-brace tokens already match property
+                // casing exactly, so only this branch needs a case-insensitive lookup.
+                bindingFlags |= BindingFlags.IgnoreCase;
             }
+
+            var property = eventType.GetProperty(propertyName, bindingFlags);
+            if (property is not null)
+            {
+                var value = property.GetValue(domainEvent);
+                builder.Append(value is null
+                    ? string.Empty
+                    : string.Format(CultureInfo.InvariantCulture, "{0}", value));
+            }
+            else
+            {
+                // No declared property matches: leave the placeholder exactly as the template wrote it
+                // rather than guessing at a substitution.
+                builder.Append(match.Value);
+            }
+
+            cursor = match.Index + match.Length;
         }
 
-        // Truncate to the confirmed message buffer size (61 bytes)
-        // Note: Currently truncates by character count, not byte count (indistinguishable for ASCII)
-        if (result.Length > rules.MessageByteLength)
+        builder.Append(template, cursor, template.Length - cursor);
+        return builder.ToString();
+    }
+
+    /// <summary>
+    /// Truncates <paramref name="text"/> to at most <paramref name="maxBytes"/> UTF-8 bytes, never
+    /// splitting a multi-byte character.
+    /// </summary>
+    /// <remarks>
+    /// The original stores each news slot in a fixed 61-byte buffer
+    /// (<c>Ruleset.NewsLog.MessageByteLength</c>, confirmed: <c>decompiled-news-log-identified.md</c> and
+    /// <c>decompiled-sav-file-layout.md</c>). Truncating by <see cref="string.Length"/> instead of UTF-8
+    /// byte count is indistinguishable for the ASCII corpus text this task ships, but would silently
+    /// overrun the buffer's actual byte budget for any non-ASCII operand a later task substitutes in
+    /// (a nation or city name), so truncation counts bytes here rather than characters.
+    /// </remarks>
+    private static string TruncateToByteLength(string text, int maxBytes)
+    {
+        if (maxBytes < 0)
         {
-            result = result.Substring(0, rules.MessageByteLength);
+            throw new ArgumentOutOfRangeException(nameof(maxBytes), maxBytes, "Message byte length must be non-negative.");
         }
 
-        return result;
+        if (Encoding.UTF8.GetByteCount(text) <= maxBytes)
+        {
+            return text;
+        }
+
+        var bytes = Encoding.UTF8.GetBytes(text);
+        var length = maxBytes;
+
+        // A UTF-8 continuation byte has the high bits 10xxxxxx; back off until the cut lands on a
+        // sequence boundary rather than inside one.
+        while (length > 0 && (bytes[length] & 0xC0) == 0x80)
+        {
+            length--;
+        }
+
+        return Encoding.UTF8.GetString(bytes, 0, length);
     }
 }
 
 /// <summary>
-/// System that flushes pending news events to GameState.NewsLog at the end of each round.
-/// Runs in <see cref="TurnPhase.RoundEnd"/> so events published during a round-scoped phase
-/// (such as <see cref="TurnPhase.WeatherEvents"/>) are rendered at the round boundary, not
-/// deferred to a later seat's turn. Accesses the <see cref="NewsLogWriter"/> instance from
-/// the context's event sink via reflection on the <see cref="CompositeEventSink"/> wrapper.
+/// Flushes seat-scoped news at the end of each seat's turn.
 /// </summary>
-[GameSystem(TurnPhase.RoundEnd, "news.writer.round")]
-public sealed class NewsLogWriterRoundEnd : IGameSystem
+/// <remarks>
+/// <para>
+/// Reads <see cref="SystemContext.PublishedEvents"/> — T40's seam — filtered to the events published in a
+/// seat-scoped phase (<see cref="TurnPhase.SeatStart"/>, <see cref="TurnPhase.Orders"/> or an earlier
+/// system in <see cref="TurnPhase.SeatEnd"/> itself), and renders exactly those through
+/// <see cref="NewsLogWriter.Append"/>. No reflection over the sink chain, no static field, no buffering
+/// sink of its own: everything this system needs arrives on <see cref="SystemContext"/>, so it stays a
+/// genuinely stateless, attribute-discovered <see cref="IGameSystem"/> like any other.
+/// </para>
+/// <para>
+/// <strong>Must run last within <see cref="TurnPhase.SeatEnd"/>.</strong> <see cref="SystemContext.PublishedEvents"/>
+/// is a snapshot taken before this system runs, so an earlier system's ordering is what makes its events
+/// visible here at all. <see cref="GameSystemAttribute.Order"/> is set to <see cref="int.MaxValue"/> —
+/// not left at the default and relied on to sort after other <c>SeatEnd</c> systems by id, which is not
+/// guaranteed for every id a later task might choose — so this system runs after every other
+/// <c>SeatEnd</c> registration regardless of what it is named.
+/// <c>NewsLogWriterTests.NewsLogWriter_SeatEnd_RunsAfterAnEarlierSameNamedSystem</c> proves this against a
+/// fixture system whose id would otherwise sort before this one's.
+/// </para>
+/// </remarks>
+[GameSystem(TurnPhase.SeatEnd, "news.writer", Order = int.MaxValue)]
+public sealed class NewsLogWriterSeatEnd : IGameSystem
 {
+    /// <inheritdoc/>
     public GameState Execute(SystemContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        // The context.Events is a CompositeEventSink wrapping [RecordingEventSink, NewsLogWriter].
-        // We extract the writer via reflection to call FlushToNewsLog.
-        var writer = ExtractNewsLogWriter(context.Events);
-        if (writer is not null)
-        {
-            return writer.FlushToNewsLog(context.State, context.Ruleset);
-        }
+        var seatScopedEvents = context.PublishedEvents
+            .Where(published => TurnPhases.ScopeOf(published.Phase) == TurnPhaseScope.Seat)
+            .Select(published => published.Event);
 
-        // If extraction fails, this is silent — the seat-scoped flusher at SeatEnd already ran.
-        return context.State;
+        return NewsLogWriter.Append(context.State, seatScopedEvents, context.Ruleset.NewsLog);
     }
+}
 
-    /// <summary>
-    /// Extracts a NewsLogWriter instance from a CompositeEventSink by reflection.
-    /// The composite sink wraps [RecordingEventSink, NewsLogWriter] in its _sinks field.
-    /// </summary>
-    private static NewsLogWriter? ExtractNewsLogWriter(IEventSink sink)
+/// <summary>
+/// Flushes round-scoped news at the end of each completed round of seats.
+/// </summary>
+/// <remarks>
+/// <para>
+/// The seat-scoped writer (<see cref="NewsLogWriterSeatEnd"/>) alone would defer a round-scoped event
+/// (published in, for example, <see cref="TurnPhase.WeatherEvents"/>) to whichever seat's next turn
+/// happens to reach <see cref="TurnPhase.SeatEnd"/> — this system exists so it appears at the round
+/// boundary instead, never later.
+/// </para>
+/// <para>
+/// Filters <see cref="SystemContext.PublishedEvents"/> to round-scoped phases only. That filter matters
+/// even when <see cref="TurnCoordinator.RunTurn"/> follows a seat's turn straight on into the round tick:
+/// in that case this system's own view also includes the seat-scoped events from earlier in the same run
+/// (<see cref="SystemContext.PublishedEvents"/>'s own remarks) — which <see cref="NewsLogWriterSeatEnd"/>
+/// already rendered a moment earlier in that same run. Without the filter this system would render them a
+/// second time; with it, each event is rendered by exactly the writer whose scope it belongs to.
+/// </para>
+/// <para>
+/// <strong>Must run last within <see cref="TurnPhase.RoundEnd"/></strong>, for the same reason and by the
+/// same mechanism as <see cref="NewsLogWriterSeatEnd"/> — see its remarks.
+/// <c>NewsLogWriterTests.NewsLogWriter_RoundEnd_RunsAfterAnEarlierSameNamedSystem</c> proves it.
+/// </para>
+/// </remarks>
+[GameSystem(TurnPhase.RoundEnd, "news.writer.round", Order = int.MaxValue)]
+public sealed class NewsLogWriterRoundEnd : IGameSystem
+{
+    /// <inheritdoc/>
+    public GameState Execute(SystemContext context)
     {
-        if (sink is CompositeEventSink composite)
-        {
-            var sinksField = typeof(CompositeEventSink).GetField(
-                "_sinks",
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        ArgumentNullException.ThrowIfNull(context);
 
-            if (sinksField?.GetValue(composite) is IEventSink[] sinks && sinks.Length > 1)
-            {
-                return sinks[1] as NewsLogWriter;
-            }
-        }
+        var roundScopedEvents = context.PublishedEvents
+            .Where(published => TurnPhases.ScopeOf(published.Phase) == TurnPhaseScope.Round)
+            .Select(published => published.Event);
 
-        return null;
+        return NewsLogWriter.Append(context.State, roundScopedEvents, context.Ruleset.NewsLog);
     }
 }

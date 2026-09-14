@@ -1,16 +1,49 @@
 using System.Text.Json;
+using IC2.Engine.Core;
 using IC2.Engine.Model;
+using IC2.Engine.News;
 using IC2.Engine.Serialization;
+using IC2.Engine.Tests.Core;
+using IC2.Engine.Tests.Fixtures;
 using Xunit;
 
 namespace IC2.Engine.Tests.News;
 
 /// <summary>
-/// Tests round-trip serialization: DoD 5 — The rendered log survives a GameState round-trip
-/// through T02's serialization — so T20's save/load inherits a news log that is actually populated.
+/// Tests round-trip serialization: DoD 5 — "The rendered log survives a <c>GameState</c> round-trip
+/// through T02's serialization — so T20's save/load inherits a news log that is actually populated."
 /// </summary>
+/// <remarks>
+/// <see cref="GameState_WithARenderedNewsLog_RoundTrips"/> is what actually proves DoD 5's literal
+/// wording: a <c>GameState</c>, populated through the real <see cref="NewsLogWriter"/>, round-tripped as a
+/// whole. The other tests in this file round-trip a standalone <see cref="NewsLog"/> — a real, useful
+/// check, but on its own it does not exercise <c>GameState</c> at all (T02's own
+/// <c>GameStateSerializationTests</c> already proves the underlying mechanism separately, with a
+/// hand-populated news log).
+/// </remarks>
 public class NewsRoundTripTests
 {
+    /// <summary>
+    /// DoD 5, proven at the level the Definition of Done actually asks for: a <c>GameState</c> whose news
+    /// log was populated through the real writer survives a full <c>GameState</c> serialize/deserialize
+    /// round-trip, by value.
+    /// </summary>
+    [Fact]
+    public void GameState_WithARenderedNewsLog_RoundTrips()
+    {
+        var populated = NewsLogWriter.Append(
+            CoreTestbed.InitialState(),
+            new DomainEvent[] { new CityFallsToFixtureEvent("Rome", "Republic", "Empire") },
+            CoreTestbed.Toy.Ruleset.NewsLog);
+        Assert.NotEmpty(populated.NewsLog.Slots);
+
+        var json = GameJson.Serialize(populated);
+        var reloaded = GameDataLoader.Load<GameState>("state.json", json);
+
+        Assert.Equal(populated.NewsLog, reloaded.NewsLog);
+        Assert.Equal(populated, reloaded);
+    }
+
     /// <summary>
     /// DoD 5: A populated news log survives round-trip serialization (JSON -> NewsLog -> JSON).
     /// </summary>
@@ -63,16 +96,17 @@ public class NewsRoundTripTests
     }
 
     /// <summary>
-    /// Test that a full 40-slot buffer round-trips correctly.
+    /// Test that a full buffer, at the corpus-confirmed capacity, round-trips correctly.
     /// </summary>
     [Fact]
     public void FullNewsLog_RoundTrips()
     {
-        // Arrange: Create a full 40-slot buffer
-        var entries = Enumerable.Range(0, 40)
+        // Arrange: Create a full buffer at capacity.
+        var capacity = FixtureCorpus.Get("caps.maxNewsSlots").AsInt();
+        var entries = Enumerable.Range(0, capacity)
             .Select(i => new NewsEntry($"Message {i}"))
             .ToList();
-        var newsLog = new NewsLog(MostRecentSlot: 39, Slots: ValueList.From(entries));
+        var newsLog = new NewsLog(MostRecentSlot: capacity - 1, Slots: ValueList.From(entries));
 
         // Act
         var json = GameJson.Serialize(newsLog);
@@ -80,9 +114,9 @@ public class NewsRoundTripTests
 
         // Assert
         Assert.NotNull(deserialized);
-        Assert.Equal(40, deserialized.Slots.Count);
-        Assert.Equal(39, deserialized.MostRecentSlot);
-        for (var i = 0; i < 40; i++)
+        Assert.Equal(capacity, deserialized.Slots.Count);
+        Assert.Equal(capacity - 1, deserialized.MostRecentSlot);
+        for (var i = 0; i < capacity; i++)
         {
             Assert.Equal($"Message {i}", deserialized.Slots[i].Text);
         }
