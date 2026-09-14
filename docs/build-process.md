@@ -1,46 +1,67 @@
-# Build process: how the multi-agent build runs
+# Build process: how the build runs
 
-This document is the **process contract** for building the reimplementation: who does what, how a task goes from `status:ready` to merged, how the orchestrator loop works, how defects and documentation are handled, and the prompt templates and skill text the agents run from. **What** gets built — every task's scope, Owns list, Definition of Done and dependencies — lives in [task-catalogue.md](task-catalogue.md). **Why** — the design and the evidence behind it — lives in [game-design.md](game-design.md) and [design-audit.md](design-audit.md). How to operate the project day to day, and where everything lives, is in [operating-guide.md](operating-guide.md).
+This document is the **process contract** for building the reimplementation. It covers:
+- who does what;
+- how a task goes from `status:ready` to merged;
+- how defects and follow-ups are handled;
+- the prompt templates and the skill text the agents run from.
 
-It changes **no design decision**. Every rule, constant and *done when* traces back to `game-design.md` and `design-audit.md`; where a task would need a design decision those documents do not make, the task escalates to the user rather than inventing one ([§4.6](#46-when-to-escalate-to-the-human)).
+**What** gets built (every task's scope, Owns list, Definition of Done and dependencies) lives in [task-catalogue.md](task-catalogue.md). **Why** (the design and the evidence behind it) lives in [game-design.md](game-design.md) and [design-audit.md](design-audit.md). Day-to-day operation, and where everything lives, is in [operating-guide.md](operating-guide.md).
+
+This document changes **no design decision**. Every rule, constant and Done-when line traces back to `game-design.md` and `design-audit.md`. Where a task would need a design decision those documents don't make, it escalates to the user rather than inventing one ([§4.5](#45-when-to-escalate-to-the-user)).
 
 > **These documents are the intent. GitHub is the state.**
 >
-> Process, task scope, Definitions of Done, models, effort, dependencies and branch names live in this repository and change only by a deliberate commit to `main`. Progress — what is queued, in flight, in review, merged, blocked or escalated — lives in GitHub issue and PR labels, summarised per tick on the pinned **[tracking issue #29](https://github.com/diegoami/imperial_conquest_2/issues/29)**, and is authoritative there. The documents carry a **status snapshot** in exactly four named places, rewritten only by the post-merge documentation step and checked against the labels every tick ([§4.8](#48-documentation-update-after-every-merge)); task branches never touch it.
+> The following live in this repository and change only by a deliberate commit to `main`:
+> - the process;
+> - task scope and Definitions of Done;
+> - models, effort, dependencies and branch names.
+>
+> Progress lives **only** in GitHub issue and PR labels: what is ready, in flight, in review, merged, blocked or escalated. No document carries a status snapshot, so there is nothing to keep in sync and nothing to drift ([§5](#5-status-lives-on-github)).
 
 ---
 
 ## 1. Constraints the pipeline works around
 
-1. **The milestone list has real sequential dependencies.** Strength functions (M5) feed M8/M9/M12; economy (M3) gates recruitment (M4), naval (M7) and army management (M14); battle resolution (M8) gates siege (M9), diplomacy's reparation trigger (M11) and the AI (M12). The real graph is in [task-catalogue.md §1](task-catalogue.md#1-the-dependency-graph).
-2. **One Windows machine.** Godot 4.7.2 (.NET edition) and the .NET 10 SDK are installed locally; GitHub Actions can build and test everything *except* the Godot project. Anything that launches or exports Godot is **single-instance**; anything that reads the user's original `.sav`/`.dat` files is **local-only** (those files are, and stay, outside the repository).
-3. **Merge conflicts are a real cost**, not agent time. The foundation tasks (T01–T03) bought conflict-free seams so later tasks touch disjoint files.
-4. **Fidelity is the thing that can silently go wrong.** `design-audit.md` §2 is a catalogue of plausible-looking claims that did not survive checking, and §4.5 concluded with a hard rule promoted here to a review gate: *a `[designed]` tag is only valid if the document says what was searched and came up empty*. A pipeline that merges wrong constants quickly is worse than a slow one.
+1. **The milestone list has real sequential dependencies.** Strength functions (M5) feed M8, M9 and M12. Economy (M3) gates recruitment (M4), naval (M7) and army management (M14). Battle resolution (M8) gates siege (M9), diplomacy's reparation trigger (M11) and the AI (M12). The real graph is in [task-catalogue.md §1](task-catalogue.md#1-the-dependency-graph).
+2. **One Windows machine.** Godot 4.7.2 (.NET edition) and the .NET 10 SDK are installed locally. GitHub Actions can build and test everything *except* the Godot project.
+   - Anything that launches or exports Godot is **single-instance**.
+   - Anything that reads the user's original `.sav`/`.dat` files is **local-only**. Those files are, and stay, outside the repository.
+3. **Merge conflicts are a real cost**, not agent time. The foundation tasks (T01–T03) bought conflict-free seams so that later tasks touch disjoint files.
+4. **Fidelity is the thing that can silently go wrong.** `design-audit.md` §2 is a catalogue of plausible-looking claims that did not survive checking. §4.5 of that audit ends in a hard rule, promoted here to a review gate: *a `[designed]` tag is only valid if the document says what was searched and came up empty*. A pipeline that merges wrong constants quickly is worse than a slow one. Most of the corrections so far (T31–T35, T38–T40) came from reviews and research, not from the implementers.
 
 ---
 
 ## 2. How the build avoids conflicts
 
-**2.1 Pre-committed seams (T03).** The seeded RNG service, the turn coordinator's ordered phase pipeline, command dispatch with a typed rejection type, the domain-event/news sink, and the ruleset accessor. Every system is written *against these interfaces* and registers itself, so no two tasks edit a shared wiring file.
+**2.1 Pre-committed seams (T03).** T03 provides:
+- the seeded RNG service;
+- the turn coordinator's ordered phase pipeline;
+- command dispatch with a typed rejection type;
+- the domain-event/news sink, plus T40's read-only view of the run's published events;
+- the ruleset accessor.
 
-**2.2 Declared file ownership.** Every task has an **Owns** list of paths. An implementer may only create or modify files inside its Owns list plus its own tests; anything else is a review failure and an escalation. A defect found in another task's files goes through the bug list ([§4.7](#47-the-bug-list)), never an inline patch.
+Every system is written against these interfaces and registers itself, so no two tasks edit a shared wiring file.
 
-**2.3 No shared registry files.** Three files would otherwise be edited by nearly every task:
+**2.2 Declared file ownership.** Every task has an **Owns** list of paths. An implementer may only create or modify files inside its Owns list plus its own tests; anything else is a review failure. A defect found in another task's files goes through the bug list ([§4.6](#46-bugs-and-follow-ups)), never an inline patch.
 
-- `IC2.sln` — T01 pre-declared every project the backlog needs, so no later task edits the solution.
-- A system-registration list — replaced by assembly-scanned registration (each system declares itself via an attribute), so adding a system touches only that system's own file.
-- Documentation — `README.md`, `docs/*.md` and the catalogue index are updated by the post-merge documentation step ([§4.8](#48-documentation-update-after-every-merge)) directly on `main`, never by a task branch.
+**2.3 No shared registry files.** Three kinds of file would otherwise be edited by nearly every task:
+- **`IC2.sln`**: T01 pre-declared every project the backlog needs, so no later task edits the solution.
+- **A system-registration list**: replaced by assembly-scanned registration. Each system declares itself with an attribute, so adding a system touches only that system's own file.
+- **Documentation**: task branches never edit `docs/*.md` or `README.md`. The PR lists the document claims its change makes stale ("Docs affected"), and the main session applies them on `main` after the merge ([§4.7](#47-after-a-merge)).
 
-**2.4 The fixtures corpus (T04).** Every exact number from the research reports is transcribed once into a typed JSON corpus (`tests/fixtures/corpus.json`) with per-entry provenance. Later tasks assert against `FixtureCorpus.Get("rome.taxBase")` rather than each re-reading the reports and each getting a chance to misread them.
+**2.4 The fixtures corpus (T04).** Every exact number from the research reports is transcribed once into a typed JSON corpus (`tests/fixtures/corpus.json`), with provenance on each entry. Later tasks assert against `FixtureCorpus.Get("rome.taxBase")` instead of each re-reading the reports, with each re-read being another chance to misread them.
 
-> **Keeping the corpus current.** When a new research report lands, its constants are added by **whichever task owns the mechanic the report describes** — not by reopening T04, whose Owns list (`tests/fixtures/**`) already covers the addition and whose four DoD checks the top-up must keep green. Adding the report's filename to `tests/fixtures/known-reports.json` is part of that top-up. The 47th report, `supply-driven-morale-and-fleet-attrition.md`, is added by **T08** (DoD 13).
+> **Keeping the corpus current.** When a new research report lands, its constants are added by **whichever task owns the mechanic the report describes**, not by reopening T04. T04's Owns list (`tests/fixtures/**`) already covers the addition, and the top-up must keep T04's four DoD checks green. Adding the report's filename to `tests/fixtures/known-reports.json` is part of the top-up.
 
-**2.5 Each system owns its own news messages.** T10 delivers the ring buffer, the message catalog, and the single writer that carries a news-worthy event from T03's event sink into `GameState.NewsLog`; **each gameplay task's DoD includes emitting its own confirmed message literal**. Emission is per-task and conflict-free; the path into state is exactly one piece of code, so news-log ordering never depends on which system wrote first.
+**2.5 Each system owns its own news messages.** T10 delivers three things: the ring buffer, the message catalog, and the single writer that carries news-worthy events into `GameState.NewsLog`. **Each gameplay task's DoD includes emitting its own confirmed message literal.** Emission is per-task and conflict-free. The path into state is exactly one piece of code, so the news log's order never depends on which system wrote first.
 
-**2.6 Ruleset schema changes.** `Ruleset.cs` is shared: T02 created it, and each subsystem reads its own record. The loader rejects a missing or an unknown field, so a change to a record breaks every committed ruleset file that does not change with it. Two rules follow:
+**2.6 Ruleset schema changes.** `Ruleset.cs` is shared: T02 created it, and each subsystem reads its own record. The loader rejects a missing or unknown field, so changing a record breaks every committed ruleset file that doesn't change with it. Two rules follow:
 
-- A task whose DoD needs a constant its record does not carry adds it itself, and its Owns list names the record and the matching JSON block — for example `Ruleset.cs` (the `NavalRules` record only) and `toy-ruleset.json` (the `naval` block only). It never edits another task's record or block.
-- The shipped rulesets are `classical-faithful.json`, generated by T29, and `improved.json`, authored from it by T36; T29 merges after the last task that changes the schema (T15, T17, T19, T37). A task that changes the schema after T29 has merged also updates T29's export mapping and re-runs it — which makes it `local-only`, and the planner adds that to its entry — and updates `improved.json` to match.
+- A task whose DoD needs a constant its record doesn't carry adds the constant itself. Its Owns list names the record and the matching JSON block, for example `Ruleset.cs` (the `NavalRules` record only) and `toy-ruleset.json` (the `naval` block only). It never edits another task's record or block.
+- The shipped rulesets are `classical-faithful.json`, generated by T29, and `improved.json`, which T36 authors from it. T29 merges after the last task that changes the schema (T15, T17, T19, T37). Any task that changes the schema after T29 has merged must do two things:
+  - update T29's export mapping and re-run it, which makes the task `local-only`; the main session adds that to its entry;
+  - update `improved.json` to match.
 
 ---
 
@@ -50,377 +71,194 @@ It changes **no design decision**. Every rule, constant and *done when* traces b
 
 | Role | Who | What it does |
 | --- | --- | --- |
-| **Planner** | The main session, on Opus | Talks to the user. Owns [task-catalogue.md](task-catalogue.md) and this document: scope, DoD, dependencies and ordering changes, bug and follow-up triage — the `triage:needed` queue, checked at every session start and before every mandate ([§4.7](#the-triage-queue)), `/process-evidence` coordination ([evidence-pipeline.md](evidence-pipeline.md)), design questions, and every documentation change beyond the routine post-merge sync. **Spawns the orchestrator with a bounded mandate** ([§5.1](#51-who-runs-it)) and takes its escalations to the user. **Never dispatches implementers or reviewers, and never runs `/build-tick` or a `/loop` of it.** |
-| **Orchestrator** | One agent at a time, spawned by the planner | Runs the tick ([Appendix C](#appendix-c-the-build-tick-skill)) within its mandate: dispatches implementers and reviewers, merges approved PRs, dispatches the post-merge documentation update, files follow-ups and bugs, and persists its state on GitHub ([§5.2](#52-where-the-state-lives)). Escalates to the planner, never to the user directly. Writes no task code and no documents. |
-| **Implementer** | One at a time | One task, one branch, one PR, working directly in the main checkout. Writes code + tests, runs the DoD commands, pushes work in progress as it goes, opens the PR with evidence and a "Docs affected" list. |
-| **Reviewer** | One at a time, never concurrent with an implementer | Independently re-runs the DoD commands on the PR head, audits provenance and scope, posts findings as a PR comment and applies a `status:approved`/`status:rework` label. Never the same agent instance that implemented. |
-| **Documentation** | Sonnet subagent, dispatched by the orchestrator after a merge | The post-merge documentation update ([§4.8](#48-documentation-update-after-every-merge)). |
-| **Researcher** | Opus subagents, dispatched by the planner | The two `/process-evidence` stages ([evidence-pipeline.md](evidence-pipeline.md)). |
+| **Main session** | The session the user talks to, on Opus | Plans and runs the build. It owns [task-catalogue.md](task-catalogue.md) and this document: scope, Definitions of Done, dependencies and order. It triages bugs and follow-ups, coordinates `/process-evidence`, and brings design questions and escalations to the user. **It runs tasks with `/run-task`** ([Appendix C](#appendix-c-the-run-task-skill)): it dispatches the implementer, then an independent reviewer, relays rework, merges approved PRs, and applies the doc claims each merge makes stale. |
+| **Implementer** | A subagent, model per the catalogue | One task, one branch, one PR, **in its own worktree**. Writes code and tests, runs the DoD commands, pushes work in progress as it goes, and opens the PR with evidence and a "Docs affected" list. |
+| **Reviewer** | A subagent, a different model per [§3.4](#34-why-the-reviewers-model-differs-from-the-implementers) | Independently re-runs the DoD commands at the PR head **in its own worktree**, audits provenance and scope, posts its findings as a PR comment, and applies `status:approved` or `status:rework`. It is never the agent that implemented. |
+| **Researcher** | Opus subagents | Evidence work in the research repository: the two `/process-evidence` stages ([evidence-pipeline.md](evidence-pipeline.md)) and targeted research passes. |
 
-Exactly **one code-modifying agent** (implementer or reviewer) runs at a time, in the shared main checkout, with no worktree isolation for pipeline agents ([§7](#7-concurrency-single-instance-and-local-only)). The planner, the orchestrator, and the documentation and researcher subagents never write to the shared checkout — whatever they write goes in their own worktree ([operating-guide.md §3.3](operating-guide.md#33-working-rules)).
+**Only one task is in flight at a time**: its implementer, then its reviewer, then any rework. Pipeline agents never work in the main checkout (`C:\Users\diego\projects\imperial_conquest_2`). Each creates its own worktree ([§7](#7-concurrency-single-instance-and-local-only)). The main checkout belongs to the main session.
 
 ### 3.2 The effort scale
 
 | Level | Use when | Typical shape |
 | --- | --- | --- |
 | **Low** | Fully specified, mechanical, single-file, no judgment. A wrong answer is obvious immediately. | Config, templates, a workflow file. |
-| **Medium** | Multi-file but the design is fully given; judgment limited to code structure. | Implementing a described state machine with given constants. |
-| **High** | Requires reconciling evidence across several reports, or exact numeric/integer-semantics fidelity where a subtle error passes casual reading. | Economy, naval, siege, diplomacy. |
+| **Medium** | Multi-file, but the design is fully given; judgment is limited to code structure. | Implementing a described state machine with given constants. |
+| **High** | Needs evidence reconciled across several reports, or exact numeric and integer-semantics fidelity, where a subtle error passes a casual reading. | Economy, naval, siege, diplomacy. |
 | **Ultrahigh** | An error propagates across the entire remaining backlog, or the solution space is genuinely open. | Only T03 (engine seams) and T22 (AI). |
 
 ### 3.3 Model selection
 
-Per task, not uniform:
+Models are chosen per task, not uniformly:
 
-- **Opus** — 4 implementation tasks (T02, T03, T16, T22) where an error is not local: the domain model and engine seams are consumed by every other task; battle resolution is consumed by five downstream systems and is the most integer-semantics-sensitive code in the project; the AI has the most design latitude and the hardest failure mode (a soak that never terminates).
-- **Sonnet** — 26 tasks. The default for "the design document already says what to build, and the hard part is building it correctly". Correction tasks whose evidence is fully pinned in the entry (T31, T33, T34), and T37, a rule no task owned but fully pinned in its entry, sit at Medium; a test-only correction (T32) at Low; ones that must read a format off decompiled code (T30) or widen the shared domain model (T35) sit at High.
-- **Haiku** — 6 tasks (T10, T11, T18, T26, T28, T36) that are small, fully specified, and CI-gated.
-- **Fable** — 1 task (T05), pure templates and configuration. Never used for anything that must compile against the domain model.
+- **Opus: 4 implementation tasks** (T02, T03, T16, T22), where an error is not local.
+  - The domain model and engine seams are consumed by every other task.
+  - Battle resolution feeds five downstream systems and is the most integer-semantics-sensitive code in the project.
+  - The AI has the most design latitude and the hardest failure mode: a soak that never terminates.
+- **Sonnet: 30 tasks.** The default for "the design document already says what to build, and the hard part is building it correctly".
+  - Medium: correction tasks whose evidence is fully pinned in the entry (T31, T33, T34, T40), and T37, a rule no task owned.
+  - Low: a test-only correction (T32).
+  - High: tasks that must read a format off decompiled code (T30), widen the shared domain model (T35), or rework merged economy code (T38, T39).
+  - T10 moved from Haiku to Sonnet after its first attempt didn't converge. Integration design across the engine's seams is not Haiku work.
+- **Haiku: 5 tasks** (T11, T18, T26, T28, T36) that are small, fully specified and CI-gated.
+- **Fable: 1 task** (T05): pure templates and configuration. Never used for anything that must compile against the domain model.
 
 ### 3.4 Why the reviewer's model differs from the implementer's
 
-1. **Independence.** A reviewer running the same model tends to re-make the implementer's misreading of the same report — the failure mode `design-audit.md` §2.1 documents happening twice to the *same* claim. A different model reading the same evidence is the cheapest available independent perspective.
-2. **Cost asymmetry.** Reviewing a diff costs a fraction of producing it; upgrading the reviewer one tier is cheap leverage.
-3. **Task fit.** The reviewer's job is close reading and verification ("does this constant match the report it cites? does this integer division truncate the way Delphi's did?").
+1. **Independence.** A reviewer on the same model tends to repeat the implementer's misreading of the same report; `design-audit.md` §2.1 records this happening twice to the *same* claim. A different model reading the same evidence is the cheapest independent perspective available.
+2. **Cost asymmetry.** Reviewing a diff costs a fraction of producing it, so moving the reviewer up one tier is cheap leverage.
+3. **Task fit.** The reviewer's job is close reading and verification: "does this constant match the report it cites? does this integer division truncate the way Delphi's did?"
 
 | Implementer | Reviewer | Plus |
 | --- | --- | --- |
-| Opus (T02, T03, T16, T22) | Opus / High | `/code-review --effort ultra` — see [§3.5](#35-where-the-code-review-skill-fits) |
-| Sonnet on fidelity-critical tasks (T04, T07, T08, T13, T14, T17, T19, T20, T21, T29, T30, T31, T33, T34) | **Opus / Medium** | — |
+| Opus (T02, T03, T16, T22) | Opus / High | `/code-review --effort ultra` ([§3.5](#35-where-the-code-review-skill-fits)) |
+| Sonnet on fidelity-critical tasks (T04, T07, T08, T10, T13, T14, T17, T19, T20, T21, T29, T30, T31, T33, T34, T37, T38, T39, T40) | **Opus / Medium** | — |
 | Sonnet widening the shared domain model (T35) | **Opus / High** | — |
-| Sonnet on structural tasks (T01, T06, T09, T12, T15, T23, T24, T25, T27, T32) | Sonnet / High | — |
-| Haiku / Fable (T05, T10, T11, T18, T26, T28, T36) | Sonnet / Medium | — |
+| Sonnet on structural tasks (T01, T06, T09, T12, T15, T23, T24, T25, T27, T32) | Sonnet / High | human visual review on T24 and T25 |
+| Haiku / Fable (T05, T11, T18, T26, T28, T36) | Sonnet / Medium | — |
 
 ### 3.5 Where the `/code-review` skill fits
 
-The purpose-built reviewer agent is the **default gate**, not `/code-review`: three of the five review checks are project-specific (provenance-to-report tracing, the `[designed]`-tag rule, the Owns-list scope check), and the reviewer must re-run DoD commands locally, including Godot-headless runs and local-only fixtures a cloud reviewer cannot reach.
+The purpose-built reviewer agent is the **default gate**, not `/code-review`. Three of the five review checks are project-specific:
+- tracing provenance to the reports;
+- the `[designed]`-tag rule;
+- the Owns-list scope check.
 
-`/code-review --effort high` runs **inside** every reviewer's run as a correctness sweep. `/code-review --effort ultra` is extra scrutiny on the four Opus architecture PRs and on any PR at rework round 2. **When run by the orchestrator it is not independent** — every agent shares one GitHub account, so it falls back to a local pass under the same context. For **T16 and T22**, the user runs `/code-review --effort ultra` personally, from their own session, to get a genuinely independent pass.
+The reviewer must also re-run DoD commands locally, including Godot-headless runs and local-only fixtures that a cloud reviewer cannot reach.
+
+`/code-review --effort high` runs **inside** every reviewer's run as a correctness sweep. `/code-review --effort ultra` adds scrutiny on the four Opus architecture PRs and on any PR at rework round 2. Every agent shares one GitHub account, so an ultra review launched from inside the pipeline is not independent. For **T16 and T22**, the user runs `/code-review --effort ultra` personally, from their own session.
 
 ---
 
-## 4. The review and merge pipeline
+## 4. The task loop
 
 ### 4.1 The path a task takes
 
 ```text
-issue status:ready
-  → orchestrator spawns implementer (Agent, model per catalogue, working in the main checkout —
-      no other code-modifying agent runs until this one finishes)
-  → implementer: code + tests, runs DoD commands, pushes task/T<nn>-*, opens PR
-      PR body: Closes #N, the Owns list it touched, a fenced DoD-evidence block (the exact
-      commands run and their output tails, one per DoD line), and "Docs affected"
-  → label status:in-review
-  → orchestrator spawns reviewer (different model per §3.4, checks out the PR head in the
-      main checkout — the implementer has finished and pushed)
-  → reviewer re-runs every DoD command itself, posts findings as a PR comment (§4.2's five
-      gates), then applies the label itself:
-      all five gates pass  → status:approved
-      any gate fails       → status:rework
-  → status:approved + CI green + mergeable + all merge-after deps merged
-      → orchestrator squash-merges, closes the issue, deletes the branch, label status:merged
-      → orchestrator recomputes the ready set, dispatches the next task, then dispatches the
-        documentation update (§4.8), all in the same tick
+issue status:ready, every merge-after dependency merged
+  → the main session labels it status:in-progress and dispatches the implementer
+      (Agent, model per catalogue, Appendix A). It works in its own worktree.
+  → implementer: code + tests, runs the DoD commands, pushes task/T<nn>-*, opens the PR.
+      PR body: Closes #N, the Owns paths it touched, a fenced DoD-evidence block (the
+      exact commands run and the tails of their output, one per DoD line), "Docs affected"
+  → the main session labels status:in-review and dispatches the reviewer
+      (a different model per §3.4, Appendix B), in its own worktree at the PR head
+  → reviewer re-runs every DoD command itself, posts its findings as a PR comment
+      (§4.2's five gates), then applies the label itself:
+      all five gates pass → status:approved
+      any gate fails      → status:rework (→ §4.4)
+  → status:approved + CI green + mergeable
+      → the main session squash-merges, labels status:merged, and runs §4.7
 ```
 
-**Review is a comment plus a label, not a native GitHub review.** Every agent authenticates as the same GitHub account, and GitHub refuses to let an account approve or request changes on its own pull request, so `gh pr review` cannot work here. The reviewer applies `status:approved` or `status:rework` itself; the orchestrator reads the label, never `reviewDecision`. A label is not independently attributable the way a native review is — an accepted weakening.
+**Review is a comment plus a label, not a native GitHub review.** Every agent authenticates as the same GitHub account, and GitHub won't let an account approve or request changes on its own pull request, so `gh pr review` can't work here. The reviewer applies `status:approved` or `status:rework` itself, and the main session reads the label.
 
 ### 4.2 What the reviewer checks
 
-Five gates, in order; any failure is `status:rework`:
+Five gates, in order. Any failure means `status:rework`.
 
 1. **DoD, independently reproduced.** The reviewer runs the commands itself at the PR head. The PR body's evidence is a convenience, never the proof. A DoD line with no runnable check is itself a finding.
 2. **Provenance.** Every constant traces to a `tests/fixtures` entry, a cited report, or a `docs/investigations/` document. Any `[designed]` value must say *what was searched and came up empty* (`design-audit.md` §4.5).
-3. **Determinism.** No `System.Random`, wall-clock, `Guid.NewGuid`, or order-dependent iteration in gameplay paths; every random draw goes through `IRng`; a seeded test proves reproducibility.
-4. **Scope.** Every changed file is inside the task's Owns list. A change outside it is a finding even if it is a good change. The PR's "Docs affected" list is plausible for what the diff does.
+3. **Determinism.** Gameplay paths use no `System.Random`, no wall clock, no `Guid.NewGuid`, and no order-dependent iteration. Every random draw goes through `IRng`, and a seeded test proves reproducibility.
+4. **Scope.** Every changed file is inside the task's Owns list. A change outside it is a finding even if it's a good change. The PR's "Docs affected" list is plausible for what the diff does.
 5. **Correctness sweep.** `/code-review --effort high` over the diff.
 
-A defect the reviewer finds in **another, already-merged task's** code is not a finding against this PR: it goes to the bug list ([§4.7](#47-the-bug-list)).
+A defect the reviewer finds in **another task's already-merged** code is not a finding against this PR. It goes to the bug list ([§4.6](#46-bugs-and-follow-ups)).
 
-### 4.3 Is a third agent needed to merge?
+### 4.3 The DoD is not negotiable by an agent
 
-**No third reviewer, but the reviewer does not merge — the orchestrator does.** The reviewer's judgment is local to one PR; the merge decision is global (merge order, waiting dependents, whether `main` moved). Separating judge from executor leaves a two-party audit trail on every merge. The only third voice is `/code-review --effort ultra` on the architecture PRs and at rework round 2 ([§3.5](#35-where-the-code-review-skill-fits)) — an additional opinion, not a gate; the human is the tiebreaker.
+An implementer that can't satisfy a DoD line **stops and reports**. It never edits the DoD, never weakens an assertion to a range, never marks a test `Skip`, and never deletes a failing assertion. A DoD line changes only by a commit to [task-catalogue.md](task-catalogue.md) after a decision by the user. The reviewer treats any diff to `task-catalogue.md` or this document from a task branch as an automatic `status:rework`.
 
-### 4.4 The DoD is not negotiable by an agent
+### 4.4 Rework
 
-An implementer that cannot satisfy a DoD line **escalates**. It never edits the DoD, never weakens an assertion to a range, never marks a test `Skip`, never deletes a failing assertion. A DoD line changes only by a commit to [task-catalogue.md](task-catalogue.md) on `main` after a human decision. The reviewer treats any diff to `task-catalogue.md` or this document from a task branch as an automatic `status:rework`.
+When the reviewer asks for changes, the main session:
+1. records the round on the issue (`review-round:1`, then `review-round:2`);
+2. sends the implementer the **full findings, linked or verbatim, never a hand-picked subset**. It uses `SendMessage` if the implementer is still reachable. Otherwise it spawns a fresh implementer with the PR, the review comment URL and the task entry; the branch holds the earlier work.
 
-### 4.5 Rework
+The implementer pushes to the same branch, and the main session dispatches the reviewer again.
 
-Reviewer requests changes → the orchestrator records the round on the task issue (`review-round:1`, then `review-round:2` — [§5.2](#52-where-the-state-lives)) and sends the reviewer's findings to the **same implementer agent** via `SendMessage` — **the full findings list, verbatim or linked, never a hand-picked subset** → the agent pushes to the same branch and re-requests review. If that agent is gone, a fresh implementer is spawned with the PR, the review comment URL, and the task entry as input; the branch holds its earlier work.
+**Rework round 2 is the last.** A review that fails while the issue carries `review-round:2` escalates ([§4.5](#45-when-to-escalate-to-the-user)).
 
-**Rework round 2 is the last one.** A review that fails while the issue carries `review-round:2` escalates ([§4.6](#46-when-to-escalate-to-the-human)) with the task entry, the diff, both reviews, and the stated disagreement.
+### 4.5 When to escalate to the user
 
-**Non-blocking findings.** A reviewer may approve with findings that fail no gate. The orchestrator collects them, at merge, into one `T<nn> follow-up` issue (the task's `phase:*`/`lane:*` labels plus `triage:needed`, no `bug` label) linking the review comment. A follow-up is not a bug — nothing merged is wrong enough to block anything — and no task is suspended for it; it goes through the same triage queue as bugs ([§4.7](#the-triage-queue)), where the default decision is to fold each item into the next task that touches the files concerned (`triage:scheduled`, naming that task). Open follow-ups: `gh issue list --search "follow-up in:title" --state open`.
+The main session stops work on the task, labels its issue `status:escalated`, posts the evidence on the issue, and brings the decision to the user with the options and a recommendation, when:
 
-### 4.6 When to escalate to the human
-
-The orchestrator stops work on the task, labels its issue `status:escalated`, and escalates to the **planner**, which brings the decision to the user — never the orchestrator directly — when:
-
-1. Rework round 3 would be needed ([§4.5](#45-rework)).
-2. The task needs an answer to a `design-audit.md` §3 open question that its ruleset-flag workaround does not cover.
-3. A DoD would have to be weakened to pass ([§4.4](#44-the-dod-is-not-negotiable-by-an-agent)).
-4. Two reports disagree and the code must pick one.
-5. A merge conflict needs a **semantic** decision — two branches changed the same behaviour.
-6. A change would touch original game files, `assets.local.ini`, `.gitignore`'s exclusion policy, or anything in the research repo's `docs/reports/`.
+1. Rework round 3 would be needed.
+2. The task needs an answer to a `design-audit.md` §3 open question that its ruleset-flag workaround doesn't cover.
+3. A DoD would have to be weakened to pass ([§4.3](#43-the-dod-is-not-negotiable-by-an-agent)).
+4. Two reports disagree and the code must pick one. A short research pass often settles it; offer one.
+5. A merge conflict needs a **semantic** decision, because two branches changed the same behaviour.
+6. A change would touch any of these:
+   - original game files;
+   - `assets.local.ini`;
+   - `.gitignore`'s exclusion policy;
+   - anything in the research repo's `docs/reports/` other than through a research pass.
 7. A new external dependency (NuGet package, CDN asset, tool) would be added.
-8. CI cannot be made green for a reason outside the task (toolchain, runner, Godot).
-9. **Circuit breaker**: three consecutive tasks fail review, or two consecutive escalations occur — stop dispatching and report.
+8. CI can't be made green for a reason outside the task (toolchain, runner, Godot).
+9. Two escalations in a row in one run: stop and ask before dispatching anything else.
 10. Anything destructive: force-push, `reset --hard`, amending a pushed commit, rewriting `main`, deleting an issue.
 
-Everything else — including every `[designed]` placeholder `game-design.md` documents as a deliberate, revisitable choice — merges autonomously, subject to the architecture-PR sign-off in [§9](#9-standing-governance-decisions) Q-A.
+Everything else merges without the user, subject to [§9](#9-standing-governance-decisions) Q-A. That includes every `[designed]` placeholder that `game-design.md` documents as a deliberate, revisitable choice.
 
-### 4.7 The bug list
+### 4.6 Bugs and follow-ups
 
-**A defect found in already-merged code is never patched by the task that found it, even narrowly, even when the fix is one line.** The process is **suspend, file, plan, resume**:
+**A defect in already-merged code is never patched by the task that found it, even narrowly, even when the fix is one line.** The process is **suspend, file, plan, resume**:
 
-1. **Suspend.** The task that found the defect is set to `status:blocked` (not `status:rework` — the defect isn't its own) and stays blocked until the correction merges. It does not touch the upstream Owns list.
-2. **File.** The defect becomes its own GitHub issue labelled `bug` **and `triage:needed`**, plus the `lane:*`/`phase:*` labels that route it, stating what is wrong, the exact evidence (function, address, cross-check), and the affected files or fields. When it blocks a task (below), it also carries the **`blocking`** label and its body **opens with a `Blocks: T<nn>[, T<nn>]` line**; the suspended task's issue references it ("suspended on #N"). It is not a catalogue entry by default — most bugs are smaller than a task.
-3. **Plan.** A **planner pass** — run by the planner (the main session), or by an Opus subagent it dispatches for a large pass; never a routine tick — triages the queue (below).
+1. **Suspend.** The task that found it goes to `status:blocked` and its issue says "suspended on #N". It doesn't touch the upstream Owns list.
+2. **File.** The defect becomes a GitHub issue labelled `bug` and `triage:needed`. It states what is wrong, the exact evidence, and the affected files or fields. If it blocks tasks, its body opens with `Blocks: T<nn>[, T<nn>]`.
+3. **Plan.** The main session triages it. It picks one of:
+   - a **correction task**: the next free `T` number, in full catalogue shape, when the fix needs its own Owns list, model and reviewer;
+   - **folding it into an upcoming task's DoD**: the default for small fixes and for follow-ups, folded into the next task that touches those files;
+   - **deferring it**: close it as *not planned* with the reason. A bug that blocks a task is deferred only on the user's decision.
+
+   Blocking is recorded in [task-catalogue.md](task-catalogue.md): either as a `merge-after` dependency on the correction, or as a DoD line in the blocked task. After that, the normal ready check enforces it. Catalogue changes go to a branch for the user's review. When triage is done, the main session removes `triage:needed` and comments where the item went.
 4. **Resume.** The suspended task rebases onto the merged correction and continues.
 
-#### What "blocking" means
+**Follow-ups.** A reviewer may approve with findings that fail no gate. At merge, the main session collects them into one `T<nn> follow-up` issue labelled `triage:needed`, which links the review comments. A follow-up is not a bug, and no task is suspended for it. It is triaged the same way, usually folded into the next task that touches the files concerned.
 
-A bug **blocks** a task when that task cannot be finished correctly while the defect stands. Who decides depends on where the task is:
+**The queue** is `gh issue list --label triage:needed --state open`. It is checked at the start of every session, and before dispatching any task that an item names.
 
-- **Case 1 — a task in flight.** The finder's evidence decides: without the fix, the task cannot meet a DoD line or get CI green. The orchestrator suspends the task (`status:blocked`, "suspended on #N") and files the bug with `blocking` and the `Blocks:` line ([Appendix C](#appendix-c-the-build-tick-skill) step 3).
-- **Case 2 — a future task.** The planner decides during triage. The test: does any unmerged task's Owns list or DoD touch the file, field or rule the bug is in, so that the task would either fail or silently build on the defect? If so, the bug gets `blocking` and the `Blocks:` line, and triage **records it in [task-catalogue.md](task-catalogue.md)** — as a `merge-after` dependency on the correction (task or bug), or as a DoD line in the blocked task. From then on the orchestrator's normal unblock check ([Appendix C](#appendix-c-the-build-tick-skill) step 4) enforces it; nothing depends on anyone remembering.
-- **The user is the tiebreaker** only for a real trade-off — for example "ship with the known defect and fix it later?" — raised by the planner as an escalation ([§4.6](#46-when-to-escalate-to-the-human)), never decided silently. A `blocking` bug is never deferred without that decision.
+### 4.7 After a merge
 
-#### The triage queue
+In the same turn as the merge, the main session:
 
-Bugs and follow-ups ([§4.5](#45-rework)) share one queue, held in labels so it survives any session:
-
-| Label | Meaning |
-| --- | --- |
-| `triage:needed` | Filed, not yet triaged. **Whoever files a bug or a follow-up adds it**: the orchestrator ([Appendix C](#appendix-c-the-build-tick-skill) step 3), the follow-up filed at merge ([§4.5](#45-rework)), the documentation subagent ([§4.8](#48-documentation-update-after-every-merge)), and `/process-evidence` stage 2 ([evidence-pipeline.md](evidence-pipeline.md#the-two-stages)). |
-| `triage:scheduled` | Triaged into work, with a comment naming the task it is folded into or the new correction task's id. |
-| `triage:deferred` | Triaged as deliberately deferred, with a comment giving the reason. |
-| `blocking` | On a bug that blocks at least one task (above); its body opens with `Blocks: T<nn>[, T<nn>]`. Added by the finder (case 1) or by triage (case 2); the bug keeps it until its correction closes it. |
-
-**When the planner checks it** — `gh issue list --label triage:needed --state open` — at two fixed triggers:
-
-1. **At the start of every session**, before other work ([CLAUDE.md](../CLAUDE.md) rule 9).
-2. **Before spawning any orchestrator mandate** ([Appendix D](#appendix-d-orchestrator-mandate-template)): `gh issue list --label blocking --label triage:needed --state open`. **No mandate is spawned while any of those names a task in its scope in its `Blocks:` line** — triage it first, or drop the blocked task from the scope.
-
-**What triage decides**, for each item, removing `triage:needed` — and, for a bug, first applying the case-2 test above:
-
-- **a correction task** (next free `T` number, full catalogue shape) when the fix needs its own Owns list, model and reviewer → `triage:scheduled`, with each blocked task's `merge-after` in the catalogue gaining that task;
-- **fold into an upcoming, not-yet-dispatched task's DoD** when the fix is naturally that task's territory and small — the default for a follow-up, folded into the next task that touches its files → `triage:scheduled`, naming that task;
-- **defer explicitly** when it is genuinely non-blocking → `triage:deferred`, with the reason. A `blocking` bug is deferred only on the user's decision.
-
-An item is never closed, or left untriaged, without one of those two labels and its comment. The planner pushes any catalogue change the triage makes to a branch for human review, not straight to `main`.
-
-The tick does not triage; it files, labels `triage:needed`, suspends, and reports what it filed to the planner. The open items and their triage state are a status location ([§4.8](#48-documentation-update-after-every-merge) A2). Queue: `gh issue list --label triage:needed --state open`; all open bugs: `gh issue list --label bug --state open`.
-
-### 4.8 Documentation update after every merge
-
-Every merged task is followed by a **documentation update**, in the same tick as the merge. It is part of the merge, not an optional follow-up: a merge without its documentation update is an incomplete tick.
-
-**Who runs it.** The orchestrator **dispatches a documentation subagent** (Sonnet / Medium) rather than editing inline, so the orchestrator's context stays small. The documentation subagent does not modify code, so it may run while the next implementer is working — but it **never touches the shared checkout**: it works in its own worktree and pushes straight to `main`, as routine post-merge sync, following the general procedure for merging while an agent is live ([operating-guide.md §3.7](operating-guide.md#37-merging-to-main-without-disturbing-running-agents)):
-
-```text
-git -C <repo> fetch origin main
-git -C <repo> worktree add <scratch>/docs-sync-<id> -b docs/sync-<id> origin/main
-  … edit, commit ("Docs: sync after T<nn> merged" or "Docs: status resync") …
-git -C <scratch>/docs-sync-<id> push origin HEAD:main
-git -C <repo> worktree remove <scratch>/docs-sync-<id>; git -C <repo> branch -D docs/sync-<id>
-```
-
-`<id>` is `T<nn>` after a merge, or `resync-<yyyymmdd-hhmm>` for a status resync. If `main` moved meanwhile, rebase and push again; never force-push. **Once the push has landed on `main`**, the documentation subagent removes the `docs:pending` label from every merged issue it covered (`gh issue edit <n> --remove-label docs:pending`) — the label, not the orchestrator's memory, is what records that a merge's update is still owed ([§5.2](#52-where-the-state-lives)).
-
-**When it runs.** In the tick that merged the task, **after** that tick's unblock and dispatch steps, so the labels it snapshots are the ones the tick leaves behind ([Appendix C](#appendix-c-the-build-tick-skill) step 6). A tick that merges two tasks dispatches one documentation update covering both. The same step with only part A — a **status resync** — runs in any tick that changed a task's document value without merging (a dispatch, an unblock, a suspension, an escalation), and in any tick whose drift check fails (below).
-
-**Input.** The merged PR's **"Docs affected"** list (the implementer declares it, the reviewer checks it — [§4.2](#42-what-the-reviewer-checks) gate 4), the merge commit, the task entry, and the current labels (`gh issue list --label task --state all --json number,labels,state`).
-
-#### Part A — the status snapshot
-
-Status appears in the documents in exactly these four places and nowhere else. Every one is rewritten from the labels on every run, even when only one task moved:
-
-| # | Location | What it holds |
-| --- | --- | --- |
-| A1 | [task-catalogue.md](task-catalogue.md): each entry's `- **Status**:` line, the [task index](task-catalogue.md#3-task-index)'s **Status** column, and the index's **Totals** line | One value per task (mapping below); "`N` merged as of `<sha>`" |
-| A2 | [operating-guide.md §1 Current state](operating-guide.md#1-current-state) | As-of commit, phase, merged count and list, in progress, the ready set, open bugs and follow-ups (below), test counts |
-| A3 | [README.md "Current state"](../README.md#current-state) | Phase, merged count, what's next, how to build and test now, with the test counts |
-| A4 | [release-plan.md §2.1 Gate progress](release-plan.md#21-gate-progress) | Per release tag: the merged count and gate tasks, and every other gate task's value, the same mapping as A1 |
-
-**Label → document value** (the only mapping; anything else in a Status field is drift):
-
-| GitHub label | Document value |
-| --- | --- |
-| `status:merged` | `Merged (<short sha of the squash-merge commit>)` |
-| `status:in-progress`, `status:in-review`, `status:rework`, `status:approved` | `In progress` |
-| `status:ready` | `Ready` |
-| `status:blocked` | `Blocked` (append `— suspended on #<bug>` when suspended by §4.7) |
-| `status:escalated` | `Escalated` |
-
-**Open bugs and follow-ups (part of A2)** are rewritten on every run from `gh issue list --label bug --state open` and `gh issue list --search "follow-up in:title" --state open`, one line each for bugs and follow-ups, every item showing its triage state (`triage:needed`, `triage:scheduled` → task, or `triage:deferred`) and any task it blocks ([§4.7](#the-triage-queue)).
-
-The "as of" commit in A1–A4 is the newest merge commit the snapshot includes. Test counts are re-counted after every merge by running `dotnet test IC2.sln` in the documentation worktree — never copied from a PR body; a status-only resync leaves them unchanged.
-
-#### Part B — claims
-
-Every item is checked, even when the answer is "no change":
-
-1. **[task-catalogue.md](task-catalogue.md)** — dependency edges, wave notes or the critical path, if the task changed them.
-2. **[design-audit.md](design-audit.md) and [game-design.md](game-design.md)** — if the task closed an `[open]` item, confirmed or corrected a claim, or answered a question, update the claim in place (current fact only, no narrative). A change that would alter a *design decision* rather than record a fact is not made here: it is raised with the user.
-3. **[investigations/README.md](investigations/README.md)** — add a row if the task landed a new `docs/investigations/` document.
-4. **[release-plan.md](release-plan.md)** — the gate list itself, if the task adds or removes a gate (for example, a new correction task that gates a release).
-5. **[operating-guide.md §7 What's still open](operating-guide.md#7-whats-still-open)** — if the task closed or opened a research-level item.
-6. **[README.md](../README.md)** — the build/test instructions and the runnable surface, when they change (the first runnable CLI, the first UI).
-
-If the documentation subagent finds a defect in merged code while doing this, it files a bug, labelled `bug` and `triage:needed` ([§4.7](#the-triage-queue)), rather than fixing it. The `/process-evidence` pipeline's stage 2 applies part B to new evidence ([evidence-pipeline.md](evidence-pipeline.md)); it never touches part A.
-
-#### How a missed update is caught
-
-- **By the tick.** Every tick's RECONCILE step ([Appendix C](#appendix-c-the-build-tick-skill) step 2) reads the task index on `origin/main` and compares each task's **Status** cell (ignoring a `— suspended on #<bug>` suffix) with its label through the mapping above, and the Totals line's merged count with the number of `status:merged` issues. A mismatch is **drift**: the tick lists it in its #29 report and dispatches a status resync (part A only) in step 6. The check is skipped while a documentation subagent is still running, since its push is the fix in flight. Because every tick syncs the changes it makes itself, drift at the start of a tick always means something was missed — a documentation subagent that failed, or a label changed outside the tick.
-- **By the documentation subagent, before it commits, and by any later reader.** A1–A4 must agree with each other and name the same as-of commit. A disagreement, a Status value outside the mapping, or status written anywhere other than A1–A4 is a defect in the documentation commit that introduced it: fix it in the next documentation update, and report it in #29.
-- **By the `docs:pending` label.** A merged issue still carrying `docs:pending` while no documentation subagent is running means its update never landed — a failed subagent, or an interruption between merge and sync. The tick re-dispatches the full update (parts A and B) for it.
-- **By the Docs affected list.** Every part-B document the merged PR's "Docs affected" list names must either appear in the documentation commit or be stated in its message as checked with no change needed.
+1. **Unblocks.** Every `status:blocked` task whose merge-after dependencies are now all merged, and which isn't suspended on an open bug, becomes `status:ready`.
+2. **Files the follow-up** ([§4.6](#46-bugs-and-follow-ups)), if the review had non-blocking findings, and proposes where each item folds.
+3. **Applies "Docs affected".** It updates the document *claims* the merge made stale (a formula now implemented, an `[open]` item now closed, a new investigation's index row) in a small commit on `main`: `Docs: after T<nn>`. It writes no status: no task counts, no "as of" commits, no progress tables ([§5](#5-status-lives-on-github)).
+4. **Cleans up** the agents' worktrees for the task.
+5. **Reports to the user**: the merge commit, what the review found, the follow-ups filed, and what is ready next.
 
 ---
 
-## 5. The orchestrator
+## 5. Status lives on GitHub
 
-### 5.1 Who runs it
+Labels are the only status. The documents say what each task is. GitHub says where it stands:
 
-**An orchestrator agent, spawned by the planner** — the main Opus session ([§3.1](#31-the-roles)) — **with a bounded mandate**, using the template in [Appendix D](#appendix-d-orchestrator-mandate-template). The planner never runs `/build-tick` itself, and never runs a `/loop` of it.
-
-A mandate has three parts:
-
-- **Scope** — which tasks the orchestrator may carry: a list of task ids (`T09, T10, T11`) or a wave (`wave 3`). Tasks outside the scope are not dispatched, however ready they are.
-- **Stop conditions** — any one ends the mandate: the `orchestrator:pause` label ([§5.5](#55-user-initiated-pause)); an escalation ([§4.6](#46-when-to-escalate-to-the-human)); the circuit breaker (§4.6 case 9); or scope complete — every task in scope merged, with its documentation update landed. An escalation stops work on *that* task; the planner may let the mandate continue with the rest of its scope.
-- **Report back** — when the mandate ends, and at every escalation, the orchestrator reports to the planner: what merged (with merge commits), what is in flight and in which phase, open escalations with their evidence, follow-ups and bugs filed, and a link to its state comment. The planner takes decisions to the user and replies with `SendMessage`, or ends the mandate.
-
-**How the loop runs.** Each tick is the text of [Appendix C](#appendix-c-the-build-tick-skill). The orchestrator runs a tick when it starts, and again each time one of its own subagents (implementer, reviewer, documentation) completes and wakes it. It never polls and never sleeps. If it goes quiet with work outstanding — a missed notification, nothing in flight — the planner resumes it with `SendMessage`; the state comment ([§5.2](#52-where-the-state-lives)) tells it where it was.
-
-**If the session ends, the orchestrator ends with it.** Everything it needs to resume lives on GitHub, not in its context: the planner (in the same or a fresh session) spawns a new orchestrator with the mandate recorded in the state comment, and that orchestrator starts with the recovery procedure ([§5.6](#56-recovery-after-an-interruption)).
-
-`/build-tick` is a project skill whose full text is [Appendix C](#appendix-c-the-build-tick-skill). It is a local, git-ignored install at `.claude/skills/build-tick/SKILL.md`; reinstall it verbatim from Appendix C if missing. Skills load when a session starts, so a newly installed skill needs a fresh session; an orchestrator agent can equally be given Appendix C's text in its prompt.
-
-Alternatives considered and not used as the driver: a scheduled cloud agent (cannot run the local-only and Godot DoDs; fine later for T28's nightly gate) and a PowerShell driver invoking `claude -p` per task (kept as the escape hatch a second machine would use — [§8](#8-adding-a-second-machine-later)).
-
-### 5.2 Where the state lives
-
-**On GitHub, never in the repository** — a progress file on `main` would conflict with every task branch in flight. There are two kinds of state: **facts**, in labels and PR state, which are authoritative; and **intent**, in one comment on #29, which only the orchestrator writes. The repository carries nothing but the status snapshot derived from the labels ([§4.8](#48-documentation-update-after-every-merge) part A), which never feeds back into a decision: the tick reads labels, not documents.
-
-#### Labels — the facts
+```bash
+gh issue list --label task --state all --json number,title,labels --jq '.[] | "\(.number)\t\(.title)\t\([.labels[].name | select(startswith("status:"))] | join(","))"'
+gh issue list --label task --label status:ready          # what can run next
+gh issue list --label triage:needed --state open         # untriaged bugs and follow-ups
+gh issue list --label bug --state open                   # all open bugs
+gh issue list --label task --label release:v0.2.0 --state all   # a release gate's progress
+```
 
 | Label | Meaning |
 | --- | --- |
-| `status:ready` | Dependencies merged, not yet dispatched |
-| `status:blocked` | A `merge-after` dependency is unmerged, or suspended on a bug ([§4.7](#47-the-bug-list)) |
-| `status:in-progress` | An implementer is running, or a branch or PR exists without a review |
-| `status:in-review` | A reviewer is running, or is owed |
-| `status:rework` | Changes requested |
-| `status:approved` | Reviewed and approved, awaiting merge |
-| `status:merged` | Closed and merged |
-| `status:escalated` | Waiting on the planner and the user |
-| `review-round:1`, `review-round:2` | How many rework rounds have been dispatched for the task. Set by the orchestrator when it dispatches rework; removed at merge. A review that fails while `review-round:2` is present escalates ([§4.5](#45-rework)). |
-| `docs:pending` | The task has merged but its documentation update ([§4.8](#48-documentation-update-after-every-merge)) has not landed. Added by the orchestrator at merge; removed by the documentation subagent once its push is on `main`. |
-| `triage:needed`, `triage:scheduled`, `triage:deferred` | On `bug` and follow-up issues, not task issues: the planner's triage queue ([§4.7](#the-triage-queue)). Added by whoever files the item; replaced by the planner's triage decision. |
-| `blocking` | On a `bug` that blocks at least one task; its body opens with `Blocks: T<nn>[, T<nn>]` ([§4.7](#what-blocking-means)). |
+| `status:ready` | Every merge-after dependency is merged, and it isn't suspended on a bug. |
+| `status:in-progress` / `status:in-review` / `status:rework` / `status:approved` | In flight. |
+| `status:blocked` | Waiting on a dependency, or suspended on a bug (the issue says which). |
+| `status:escalated` | Waiting on the user. |
+| `status:merged` | Done; the issue is closed. |
+| `review-round:1` / `review-round:2` | Rework rounds used ([§4.4](#44-rework)). |
 
-Dependencies are recorded in each issue body as a task list of issue references. The pinned **tracking issue #29** also carries one status-table comment per tick — the readable log.
-
-#### The state comment — the intent
-
-Exactly one comment on #29 holds the orchestrator's state. It starts with the marker line `<!-- orchestrator-state -->` and is **edited in place at the end of every tick**, never re-posted:
-
-````markdown
-<!-- orchestrator-state -->
-**Orchestrator state** — edited in place every tick. Labels and PR state are the facts; this is intent.
-
-```yaml
-schema: 1
-updated: 2026-09-14T15:04:00Z        # UTC, ISO 8601, when this tick ended
-mandate:
-  scope: [T09, T10, T11]             # task ids, or a wave: "wave 3"
-  stop_when: [pause-label, escalation, circuit-breaker, scope-complete]
-  granted: 2026-09-14T14:00:00Z
-  report_to: planner
-current:
-  task: T09                          # null when idle
-  issue: 9
-  pr: 53                             # null until the PR exists
-  branch: task/T09-movement          # null until the branch exists
-  phase: reviewing                   # idle | implementing | reviewing | rework | merging | doc-update | paused | stopped
-  review_round: 1                    # mirrors the review-round:* label; 0 before any rework
-last_action: "dispatched the reviewer for PR #53"
-docs_pending: [7]                    # mirrors the docs:pending label
-escalations:                         # open, awaiting the planner
-  - issue: 17
-    reason: "rework round 3 would be needed"
-    since: 2026-09-14T13:10:00Z
-```
-````
-
-To find and rewrite it:
-
-```text
-# the comment id (the one starting with the marker; if more than one, take the newest and report the duplicate)
-gh api repos/diegoami/imperial_conquest_2/issues/29/comments --paginate \
-  --jq '[.[] | select(.body | startswith("<!-- orchestrator-state -->"))] | last | .id'
-# rewrite it from a local file
-gh api -X PATCH repos/diegoami/imperial_conquest_2/issues/comments/<id> -F body=@state.md
-# first run only, when no such comment exists
-gh issue comment 29 --body-file state.md
-```
-
-**The state comment is intent, not fact.** A comment edit is not transactional: if the orchestrator is interrupted mid-tick, the comment can lag the labels by one step. Every decision is taken from the labels and PR state; the comment contributes only what the labels cannot hold — the mandate, the current phase, and the open escalations' reasons. Where the two disagree, the labels win and the comment is rewritten to match.
-
-#### Work in progress — the task branch
-
-An implementer pushes its task branch as soon as it creates it, and again after every meaningful step ([Appendix A](#appendix-a-implementer-prompt-template)). Pushed commits are durable; an interrupted implementer's work is recovered from the branch, not redone.
-
-### 5.3 One tick
-
-One tick is exactly the text of [Appendix C](#appendix-c-the-build-tick-skill), which is the single source: check pause and read the state comment → reconcile interrupted work and check documentation drift → drain finished PRs (merge, rework, conflicts, reviewer dispatch, bug filing) → unblock → dispatch at most one task in scope → sync the docs (§4.8) → report to #29 → escalate to the planner → rewrite the state comment. Two details worth knowing without reading it:
-
-- **Stale green.** If a PR's branch predates the merge of one of its merge-after dependencies, its green CI ran against a stale base. Run `gh pr update-branch <number>` and wait for the fresh run before treating it as green.
-- **Merge order is dependency order.** A task is never merged while a merge-after dependency is unmerged, even if its PR is green.
-
-### 5.4 Merge conflicts
-
-Prevention first — Owns lists, the pre-declared solution, attribute registration, per-system news messages and documentation-only-on-`main` ([§2](#2-how-the-build-avoids-conflicts)) mean most task pairs cannot conflict. When one happens:
-
-1. **Mechanical conflict** (same file, different concerns): the implementer rebases on current `main` and re-runs its DoD. If the rebase changes nothing semantic, the approval stands.
-2. **Semantic conflict** (both branches changed the same behaviour): escalate ([§4.6](#46-when-to-escalate-to-the-human) case 5).
-3. **Repeated conflicts on one file** mean the Owns lists are wrong: fix the catalogue rather than re-resolving each time.
-
-### 5.5 User-initiated pause
-
-The human can stop dispatching for any reason, without finding the orchestrator's agent.
-
-**Mechanism**: the label `orchestrator:pause` on tracking issue #29. `/build-tick` checks it first, every tick. If present: dispatch nothing, post a status comment to #29 saying what is open for manual review, set the state comment's phase to `paused`, report to the planner, and end the mandate.
-
-- **To pause**: `gh issue edit 29 --add-label orchestrator:pause`, from any session. The planner may `SendMessage` the orchestrator to trigger the check sooner.
-- **To resume**: `gh issue edit 29 --remove-label orchestrator:pause`, then have the planner spawn (or resume) an orchestrator with a bounded mandate ([§5.1](#51-who-runs-it)). The previous mandate is in the state comment; the new orchestrator starts with the recovery procedure ([§5.6](#56-recovery-after-an-interruption)).
-- **Nothing already running is killed.** In-flight subagents finish; their PRs wait unmerged. Interrupting the session also works, without the status comment.
-
-### 5.6 Recovery after an interruption
-
-A fresh orchestrator — after the session ended, the agent was lost, or a pause — does this before its first normal tick. Nothing from the lost agent's context is needed.
-
-1. **Read the intent.** Find the state comment ([§5.2](#52-where-the-state-lives)) and take the mandate from it, unless the planner's spawn prompt gives a new one.
-2. **Read the facts.** `gh issue list --label task --state all --json number,labels,state`, `gh pr list --state open --json number,headRefName,labels`, the remote task branches (`git ls-remote --heads origin 'task/*'`), and `ListAgents`. After an interruption no pipeline agent is alive, so every in-flight task is treated as interrupted.
-3. **Reconcile each task**, taking labels and PR state as the truth:
-
-   | What the facts show | Action |
-   | --- | --- |
-   | `status:in-progress`, task branch pushed, no PR | Dispatch an implementer to **resume from the branch** (Appendix A's resume clause). Keep `status:in-progress`. |
-   | `status:in-progress`, no task branch on `origin` | Reset to `status:ready`; it is dispatched again in its turn. |
-   | `status:in-progress` or `status:in-review`, PR open, no verdict label | Set `status:in-review` and dispatch the reviewer. |
-   | `status:rework` | Dispatch an implementer with the review comment URL and the `review-round:*` count; the branch holds its earlier work. |
-   | `status:approved` | Merge per the DRAIN rules (stale-green check first). |
-   | Merged, still `docs:pending` | Dispatch the documentation update for it. |
-   | `status:escalated` | Leave it; it is in the planner's queue. |
-
-   Dispatches still follow [§7](#7-concurrency-single-instance-and-local-only): at most one code-modifying agent at a time, in dependency order. A documentation update may run alongside it.
-
-4. **Rewrite the state comment** to match the facts, then continue with normal ticks.
-
-A branch is never deleted during recovery: pushed work is only ever resumed or explicitly abandoned by the planner.
+**An interrupted session loses nothing.**
+- The facts are in the labels and the PRs.
+- An implementer pushes work in progress to its task branch as it goes.
+- A new session reads the labels, finds any task that is in flight with no live agent, and continues it:
+  - a pushed branch with no PR → resume the implementer from the branch;
+  - a PR with no verdict → dispatch the reviewer;
+  - `status:rework` → dispatch the implementer with the review URL;
+  - no branch at all → back to `status:ready`.
 
 ---
 
@@ -429,41 +267,52 @@ A branch is never deleted during recovery: pushed work is only ever resumed or e
 | Thing | Convention |
 | --- | --- |
 | Branch | `task/T<nn>-<slug>`, e.g. `task/T09-movement`. One per task, never reused, deleted on merge. |
+| Worktrees | Agents create their own under `C:\Users\diego\projects\ic2-work\` ([§7](#7-concurrency-single-instance-and-local-only)). The main session removes them after the merge. |
 | Commit subject | `T09: <imperative subject>` |
 | Commit trailer | `Refs #<issue>`, plus the attribution lines each agent's harness provides |
 | PR title | `T09 Movement and terrain` |
-| PR body | `.github/pull_request_template.md`: `Closes #<issue>`, the Owns list touched, the fenced DoD-evidence block, the provenance checklist, the determinism checkbox, **Docs affected** |
-| Review | A PR comment with the five-gate findings plus a `status:approved`/`status:rework` label applied by the reviewer ([§4.1](#41-the-path-a-task-takes)) |
-| Merge | Squash, by the orchestrator, after CI green + approval + dependency order |
+| PR body | `.github/pull_request_template.md`: `Closes #<issue>`, the Owns paths touched, the fenced DoD-evidence block, the provenance checklist, the determinism checkbox, **Docs affected** |
+| Review | A PR comment with the five-gate findings, plus a `status:approved`/`status:rework` label applied by the reviewer |
+| Merge | Squash, by the main session, after CI is green and the review approves |
 | Issue title | `T09 Movement and terrain` |
-| Issue body | Scope, Owns, DoD as a checklist, model/effort, branch, `Blocked by #x` task list, a link to the task's anchor in [task-catalogue.md](task-catalogue.md), and the design milestone |
+| Issue body | **A pointer, not a copy**: a link to the task's entry in [task-catalogue.md](task-catalogue.md), its branch, and the bugs it closes. The catalogue entry is the contract, so nothing needs to be kept in step. |
 | GitHub milestone | One per phase: `Phase 0 Foundation`, `Phase 1 Pure rules`, `Phase 2 Systems`, `Phase 3 Delivery` |
-| Labels | `task`; `bug`; `phase:0..3`; `lane:engine\|data\|ui\|infra`; `status:*`; `review-round:1\|2`; `docs:pending`; `triage:needed\|scheduled\|deferred`; `blocking`; `model:*`; `effort:*`; `release:*`; `local-only`; `single-instance`; `needs-human`; `orchestrator:pause` (issue #29 only) |
-| Orchestrator state | One comment on #29 starting `<!-- orchestrator-state -->`, edited in place every tick ([§5.2](#52-where-the-state-lives)) |
-| Documentation sync | `Docs: sync after T<nn> merged` (or `Docs: status resync`), pushed straight to `main` from a worktree ([§4.8](#48-documentation-update-after-every-merge)) |
+| Labels | `task`; `bug`; `phase:0..3`; `lane:engine\|data\|ui\|infra`; `status:*`; `review-round:1\|2`; `triage:needed`; `model:*`; `effort:*`; `release:*`; `local-only`; `single-instance`; `needs-human` |
 
-Issues link to their catalogue anchor (`docs/task-catalogue.md#t09-movement-and-terrain`); the [task index](task-catalogue.md#3-task-index) links back to each issue. Task issues #1–#28 match their task ids; T29 is #32, T30 is #37, T31 is #45.
+Retired labels from the orchestrator era: `docs:pending`, `orchestrator:pause`, `triage:scheduled`, `triage:deferred`, `blocking`. They stay on old issues as history and are no longer applied. Tracking issue #29 is closed.
 
 ---
 
 ## 7. Concurrency, single-instance, and local-only
 
-- **Exactly one code-modifying pipeline agent at a time** — no concurrent implementers, no implementer alongside a reviewer, all in the shared main checkout, no worktrees for pipeline agents. The rules below are subsets of this one.
-- **The planner, the orchestrator, and the documentation and researcher subagents** do not modify code and never write to the shared checkout; whatever they write goes in their own worktree, and they may run alongside the one code-modifying agent.
-- **`single-instance` tasks** — T24, T25, T27 launch or export Godot 4.7.2 and share its `.godot` import cache and the `project.godot` header rewrite; the Godot lane is one serial chain.
-- **`local-only` tasks** — T21, T29, T30 and T34 need the user's original DAT/saves via `assets.local.ini`; T24/T25/T27 need a Godot install. Their tests **skip explicitly** when the prerequisite is absent, so CI on GitHub's runners stays green.
-- **Two tasks that write `tests/fixtures/**`** (a corpus top-up) never run back to back without a rebase.
-- **While T03 was in flight nothing else was dispatched**; the same applies to any future task that redefines engine seams.
+- **One task in flight at a time**: its implementer, its reviewer, and its rework, one after another.
+- **Agents work in their own worktrees**, never in the main checkout:
+  - An implementer runs `git -C C:\Users\diego\projects\imperial_conquest_2 worktree add C:\Users\diego\projects\ic2-work\T<nn> task/T<nn>-<slug>`, creating the branch from `origin/main` if it doesn't exist yet.
+  - A reviewer checks out the PR head detached, in `...\ic2-work\T<nn>-review`.
+  - An implementer detaches its worktree (`git checkout --detach`) before it finishes, so the branch is free for the next checkout.
+- **`local-only` tasks** (T21, T29, T30, T34) need the user's original DAT and saves via `assets.local.ini`. The file is git-ignored, so the agent copies it from the main checkout into its worktree's root. T24, T25 and T27 need a Godot install. These tests **skip explicitly** when the prerequisite is absent, so CI on GitHub's runners stays green.
+- **`single-instance` tasks** (T24, T25, T27) launch or export Godot 4.7.2. The Godot lane is one serial chain.
+- **Two tasks that both write `tests/fixtures/**`** (corpus top-ups) never run back to back without a rebase.
+- **Tasks that redefine engine seams** (T03, T40) run with nothing else in flight.
 
 ---
 
 ## 8. Adding a second machine later
 
-**Already generalises:** all pipeline state (issues, labels, PRs, milestones), branch-per-task, the fixtures corpus and toy world, the CI gate, the review contract. GitHub Actions is already a second machine running a subset of the DoDs.
+**What already generalises:**
+- all pipeline state: issues, labels, PRs and milestones;
+- branch-per-task, with a worktree per agent;
+- the fixtures corpus and the toy world;
+- the CI gate and the review contract.
 
-**Coupled to this machine:** the orchestrator's single checkout, the Godot install and export templates (T24, T25, T27), the original saves and `assets.local.ini` (T21, T29, T30, T34), and in-process `Agent` dispatch.
+**What is tied to this machine:** the Godot install and export templates (T24, T25, T27), the original saves and `assets.local.ini` (T21, T29, T30, T34), and in-process `Agent` dispatch.
 
-**To add a second machine** — three additive changes: replace in-process dispatch with claim-based pull (`gh issue edit --add-assignee` as the atomic claim, each machine running a `claude -p` worker loop); add capability labels (`requires:godot`, `requires:original-saves`) that workers match against; make CI the authority on test results, with the reviewer's local run supplementing only the local-only subset. No queue, scheduler or service is built now.
+**To add a second machine**, make three changes:
+1. Use `gh issue edit --add-assignee` as an atomic claim on a task.
+2. Add capability labels (`requires:godot`, `requires:original-saves`).
+3. Make CI the authority on test results, with the reviewer's local run covering only the local-only subset.
+
+No queue, scheduler or service is built now.
 
 ---
 
@@ -471,242 +320,180 @@ Issues link to their catalogue anchor (`docs/task-catalogue.md#t09-movement-and-
 
 Decided by the user; in force until changed.
 
-- **Q-A — merge autonomy.** The orchestrator squash-merges any PR with reviewer approval and green CI without human sign-off, **except** the four architecture PRs (T02, T03, T16, T22), which wait for a human thumbs-up.
-- **Q-B — Godot visual review.** T24 and T25 post a screenshot of every new screen to their PR as they land; "looks right" is the user's call on each screenshot. The published mockup (`game-design.md` §UI) is the layout intent.
-- **Q-C — cost profile.** Opus on four implementation tasks and on the reviewer seat for the fidelity-critical PRs ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers)); `/code-review --effort ultra` on the architecture PRs ([§3.5](#35-where-the-code-review-skill-fits)); one code-modifying agent at a time ([§7](#7-concurrency-single-instance-and-local-only)).
-- **Q-D — open audit questions become ruleset flags.** Every affected task ships the confirmed behaviour behind a named ruleset flag, grouped into two user-facing presets, `classical-faithful` and `improved`, chosen at New Game (`game-design.md` "Two shipped presets"). Mapping: Q3 → T19's `diplomacy.model`; Q4 → T08's `economy.purses`; Q5 → T12's `victory.default`; Q6 → `seatAsymmetry` (T09, T14, T15); Q7 → T18's generic `cityOrders` table; Q8 → T19's `bugPolicy.diplomaticThaw`; Q9 → T08's supply-purchase rule (free at your own cities, costs money elsewhere, in both presets); Q1 follow-up → T16's `combat.onDefeat`; Q10 → no change to `combat.onDefeat`.
-- **Q-E — non-blocking review findings.** The orchestrator files one `T<nn> follow-up` issue per merge that has them, and the planner folds each item into the next task that touches those files ([§4.5](#45-rework)).
+- **Q-A, merge autonomy.** The main session squash-merges any PR that has an approving review and green CI without asking, **except** the architecture PRs T16 and T22. Those wait for the user's thumbs-up and the user's own `/code-review --effort ultra`. T02 and T03 are already merged.
+- **Q-B, Godot visual review.** T24 and T25 post a screenshot of every new screen to their PR as they land, and "looks right" is the user's call on each one. The published mockup (`game-design.md` §UI) is the layout intent.
+- **Q-C, cost profile.**
+  - Opus implements four tasks, and reviews the fidelity-critical PRs ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers)).
+  - `/code-review --effort ultra` runs on the architecture PRs.
+  - One task is in flight at a time.
+  - There is no orchestrator layer and no per-merge documentation agent (simplified 2026-09-14).
+- **Q-D, open audit questions become ruleset flags.** Every affected task ships the confirmed behaviour behind a named ruleset flag. The flags are grouped into two user-facing presets, `classical-faithful` and `improved`, chosen at New Game (`game-design.md` "Two shipped presets"). The mapping:
+  - Q3 → T19's `diplomacy.model`;
+  - Q4 → T08's `economy.purses`;
+  - Q5 → T12's `victory.default`;
+  - Q6 → `seatAsymmetry` (T09, T14, T15);
+  - Q7 → T18's generic `cityOrders` table;
+  - Q8 → T19's `bugPolicy.diplomaticThaw`;
+  - Q9 → T08 and T38's supply-purchase rule: free at your own cities, costs money elsewhere, in both presets;
+  - Q1 follow-up → T16's `combat.onDefeat`;
+  - Q10 → no change to `combat.onDefeat`.
+- **Q-E, non-blocking review findings.** At each merge that has any, the main session files one `T<nn> follow-up` issue, and folds each item into the next task that touches those files ([§4.6](#46-bugs-and-follow-ups)).
 
 ---
 
 ## Appendix A: implementer prompt template
 
 ```text
-You are implementing task T<nn> of the Imperial Conquest 2 build, working directly in the main
-checkout. No other code-modifying agent runs at the same time as you — you have exclusive use of
-the working tree until you finish, push, and open your PR.
+You are implementing task T<nn> of the Imperial Conquest 2 build. The repository is
+C:\Users\diego\projects\imperial_conquest_2 (GitHub diegoami/imperial_conquest_2). Do NOT work in
+that directory: it is the main session's checkout. Work in your own worktree:
+
+  git -C C:\Users\diego\projects\imperial_conquest_2 fetch origin
+  - If origin has task/T<nn>-<slug>, an earlier attempt exists: continue it, and don't start over.
+    Read its commits and any open PR first.
+      git -C C:\Users\diego\projects\imperial_conquest_2 worktree add C:\Users\diego\projects\ic2-work\T<nn> task/T<nn>-<slug>
+      git -C C:\Users\diego\projects\ic2-work\T<nn> merge --ff-only origin/task/T<nn>-<slug>   (a stale local copy catches up)
+  - Otherwise create the branch from origin/main, then push it at once:
+      git -C C:\Users\diego\projects\imperial_conquest_2 worktree add -b task/T<nn>-<slug> C:\Users\diego\projects\ic2-work\T<nn> origin/main
+      git -C C:\Users\diego\projects\ic2-work\T<nn> push -u origin task/T<nn>-<slug>
+  - <local-only tasks only> copy C:\Users\diego\projects\imperial_conquest_2\assets.local.ini into
+    the worktree root. It is git-ignored; never commit it.
 
 Read first, in order:
-  docs/task-catalogue.md     — find your task entry (#t<nn>-<slug>). It is the contract.
-  docs/build-process.md      — §4 (review pipeline) and §4.7 (the bug list).
-  docs/game-design.md        — design milestone M<n> and the Design principles at the top.
-  docs/design-audit.md       — what the evidence actually supports; §2 is a list of
-                               plausible-looking claims that did not survive checking.
-  docs/operating-guide.md    — §5, collaboration norms (progress updates, save sampling).
+  docs/task-catalogue.md  — your task entry (#t<nn>-<slug>). It is the contract.
+  docs/build-process.md   — §2 (ownership), §4 (the loop, the review gates, the bug list).
+  docs/game-design.md     — design milestone M<n> and the Design principles at the top.
+  docs/design-audit.md    — what the evidence actually supports. §2 lists plausible-looking
+                            claims that did not survive checking.
+<extra context: the previous attempt's review URLs for a resumed task, research reports to read, etc.>
 
-Your task entry gives Scope, Owns, and Done when. All three are binding:
+Your task entry gives Scope, Owns and Done when. All three are binding:
   - Create or modify files ONLY inside your Owns list, plus your own tests.
-  - Satisfy every "Done when" line with a runnable check.
-  - You may NOT edit any "Done when" line, weaken an assertion, skip a test, or edit
-    docs/task-catalogue.md or docs/build-process.md. If a line cannot be satisfied, STOP and
-    report why.
+  - Satisfy every Done-when line with a runnable check.
+  - Do NOT edit any Done-when line, weaken an assertion, skip a test, or edit any docs/*.md file.
+    If a line can't be satisfied, STOP and report why.
   - If you find a defect in another task's already-merged code, do NOT patch it. STOP and report
-    it; the orchestrator files it as a bug (build-process.md §4.7).
+    it; the main session files it as a bug (build-process.md §4.6).
 
-Work in progress — the branch is the durable record of your work:
-  - If `task/T<nn>-<slug>` already exists on origin, an earlier implementer was interrupted:
-    check it out and CONTINUE from it (read its commits and any open PR first). Do not start over.
-  - Otherwise create it from origin/main and push it at once: `git push -u origin task/T<nn>-<slug>`.
-  - Commit and push after every meaningful step, at least once per Done-when line you complete.
-    Never hold work only locally; if the session ends, pushed commits are what the next
-    implementer resumes from (build-process.md §5.6).
+Commit and push after every meaningful step, at least once per Done-when line you complete.
+Never hold work only locally. Pushed commits are what a later attempt resumes from.
 
-Rules that apply to all engine code:
+Rules for all engine code:
   - Every gameplay constant comes from the Ruleset or tests/fixtures, never a C# literal.
-  - Every random draw goes through IRng. No System.Random, DateTime.Now, Guid.NewGuid.
-  - Every number must trace to a research-repo report, a docs/investigations/ document, or the
-    fixtures corpus. If you cannot find evidence for a number, do NOT invent one: report it.
-    A [designed] value is only acceptable if you state what you searched and came up empty.
+  - Every random draw goes through IRng. No System.Random, DateTime.Now or Guid.NewGuid.
+  - Every number must trace to a research-repo report, a docs/investigations/ document or the
+    fixtures corpus. If you can't find evidence for a number, don't invent one: report it.
+    A [designed] value is acceptable only if you state what you searched and came up empty.
   - Original game files (EXE/DAT/SAV/WAV/screenshots/recordings) never enter the repository.
 
 When done:
-  1. `dotnet build IC2.sln` and `dotnet test IC2.sln` must pass.
-  2. Run each "Done when" check and capture its command and output.
-  3. Everything is committed on task/T<nn>-<slug> (subject "T<nn>: <subject>", trailer "Refs #<issue>")
-     and pushed.
-  4. Open a PR with `gh pr create`, using the repository PR template. The body must
-     contain "Closes #<issue>", the files you touched, a fenced DoD-evidence block with one
-     command+output per "Done when" line, and a "Docs affected" list: which of task-catalogue.md,
-     design-audit.md, game-design.md, investigations/README.md, release-plan.md,
-     operating-guide.md and README.md this task's merge should update, and why (or "none").
-  5. Report back: what you built, the DoD results, anything you could not verify, and any
-     evidence conflict you found. Do not merge. Do not review your own PR.
+  1. `dotnet build IC2.sln` and `dotnet test IC2.sln` pass in your worktree.
+  2. Run each Done-when check and capture its command and output.
+  3. Commit everything on task/T<nn>-<slug> (subject "T<nn>: <subject>", trailer "Refs #<issue>")
+     and push.
+  4. Open a PR with `gh pr create`, using the repository PR template. The body must contain:
+     "Closes #<issue>"; the files you touched; a fenced DoD-evidence block with one command+output
+     per Done-when line; and "Docs affected", which lists the document claims this merge makes
+     stale (file and what changes) or says "none".
+  5. Run `git checkout --detach` in your worktree so the branch is free for the reviewer.
+  6. Report back: what you built, the DoD results, anything you couldn't verify, and any evidence
+     conflict you found. Don't merge, and don't review your own PR.
 ```
 
 ## Appendix B: reviewer prompt template
 
 ```text
 You are reviewing PR #<pr> for task T<nn> of the Imperial Conquest 2 build. You did not write it.
-Check out the PR head directly in the main checkout (`gh pr checkout <pr>`) — the implementer has
-already finished and pushed, so no other code-modifying agent is running concurrently with you.
+Do NOT work in C:\Users\diego\projects\imperial_conquest_2 (the main session's checkout). Use your
+own worktree at the PR head:
+
+  git -C C:\Users\diego\projects\imperial_conquest_2 fetch origin task/T<nn>-<slug>
+  git -C C:\Users\diego\projects\imperial_conquest_2 worktree add --detach C:\Users\diego\projects\ic2-work\T<nn>-review origin/task/T<nn>-<slug>
+  <local-only tasks only> copy assets.local.ini from the main checkout into the worktree root.
 
 Read: docs/task-catalogue.md (the task entry), docs/build-process.md §4.2 "What the reviewer
       checks", docs/game-design.md (milestone M<n>), docs/design-audit.md.
+<extra context: earlier review rounds' URLs, if this is a re-review.>
 
 Run five gates, in order. Any failure is status:rework:
- 1. DoD, reproduced by you. Run every "Done when" check YOURSELF. Do not trust the PR body.
-    A "Done when" line with no runnable check is itself a finding.
+ 1. DoD, reproduced by you. Run every Done-when check YOURSELF; don't trust the PR body.
+    A Done-when line with no runnable check is itself a finding.
  2. Provenance. Every constant traces to tests/fixtures, a cited research-repo report, or a
     docs/investigations/ document. Re-derive a sample from the source itself. Any [designed]
     value must say what was searched and came up empty (design-audit.md §4.5). A citation that
-    does not contain the claim is a finding.
- 3. Determinism. No System.Random / wall clock / Guid.NewGuid / order-dependent iteration in
-    gameplay paths; randomness through IRng; seeded reproducibility proven by a test.
- 4. Scope. Every changed file is inside the task's declared Owns list. Outside it is a finding
-    even if the change is good. Any diff to docs/task-catalogue.md or docs/build-process.md is an
-    automatic rework. The PR's "Docs affected" list matches what the diff actually changes.
+    doesn't contain the claim is a finding.
+ 3. Determinism. No System.Random, wall clock, Guid.NewGuid or order-dependent iteration in
+    gameplay paths. Randomness goes through IRng, and a test proves seeded reproducibility.
+ 4. Scope. Every changed file is inside the task's declared Owns list. A file outside it is a
+    finding even if the change is good. Any diff to docs/*.md is an automatic rework. The PR's
+    "Docs affected" list matches what the diff actually changes.
  5. Correctness. Run /code-review --effort high over the diff for ordinary bugs.
 
-A defect you find in ANOTHER, already-merged task's code is not a finding against this PR:
-report it separately in your summary so the orchestrator files it as a bug (build-process.md §4.7).
+A defect you find in ANOTHER task's already-merged code is not a finding against this PR. Report
+it separately in your summary, so the main session files it as a bug (build-process.md §4.6).
+Mark each finding as blocking (fails a gate) or non-blocking.
 
-Post your findings as a PR comment (`gh pr comment <pr> --body-file ...`) — specific, actionable,
-file and line — covering all five gates explicitly, then apply the label yourself:
-all five gates pass → `gh issue edit <issue> --add-label status:approved --remove-label status:in-review`
-any gate fails      → `gh issue edit <issue> --add-label status:rework --remove-label status:in-review`
-(NOT `gh pr review` — every agent shares one GitHub account, which GitHub refuses to let review
-its own PR; the label is the approval signal.) Do not merge — the orchestrator merges. Do not fix
-the code yourself. If you and the implementer are on round 2 of disagreement, say so explicitly
-so the orchestrator escalates rather than starting a round 3. Leave the main checkout on `main`,
-tree clean, when you finish.
+Post your findings as a PR comment (`gh pr comment <pr> --body-file ...`): specific, actionable,
+with file and line, covering all five gates explicitly. Then apply the label yourself:
+  all five gates pass → gh issue edit <issue> --add-label status:approved --remove-label status:in-review
+  any gate fails      → gh issue edit <issue> --add-label status:rework --remove-label status:in-review
+Do NOT use `gh pr review`: every agent shares one GitHub account, and GitHub won't let an
+account review its own PR, so the label is the approval signal.
+Don't merge and don't fix the code yourself. When you finish, remove your worktree
+(`git -C C:\Users\diego\projects\imperial_conquest_2 worktree remove <path> --force`).
 ```
 
-## Appendix C: the `/build-tick` skill
+## Appendix C: the `/run-task` skill
 
-Installed locally (git-ignored) at `.claude/skills/build-tick/SKILL.md`; reinstall verbatim from this block if missing. One invocation = one tick. It is run **only by the orchestrator agent** the planner spawns ([§5.1](#51-who-runs-it)) — once when it starts, and again each time one of its subagents completes — never by the main session, and never in a `/loop`.
+The skill is installed locally (git-ignored) at `.claude/skills/run-task/SKILL.md`; reinstall it verbatim from this block if it's missing. Skills load when a session starts. It is run by the main session.
 
 ```markdown
 ---
-name: build-tick
-description: Run one orchestration tick of the Imperial Conquest 2 multi-agent build — reconcile
-  GitHub state, merge approved PRs and sync the docs, dispatch implementers and reviewers,
-  escalate to the planner, persist the orchestrator state. Orchestrator agent only.
+name: run-task
+description: Run Imperial Conquest 2 build tasks end to end — dispatch the implementer, then an
+  independent reviewer, relay rework, merge, apply doc claims, report. Main session only.
 ---
 
-Read `docs/build-process.md` (the process) and `docs/task-catalogue.md` (the tasks) first; they
-are the contract. You are the ORCHESTRATOR, spawned by the planner with a bounded mandate
-(build-process.md §5.1). If you are the main session, stop: the main session is the planner and
-does not run this skill. You do not write task code or documents. You never write to the shared
-checkout.
+# /run-task [T<nn> ...]
 
-1. CHECK PAUSE, READ STATE. `gh issue view 29 --json labels`. Find the state comment on #29
-   (the one starting `<!-- orchestrator-state -->`, build-process.md §5.2) and read its mandate.
-   If this is your first tick, take the mandate from your spawn prompt, run the recovery procedure
-   (build-process.md §5.6) instead of step 2, and create the state comment if none exists.
-   If #29 carries `orchestrator:pause`: post a status comment to #29 (what's open for manual
-   review/merge, nothing new will be dispatched), report to the planner, then run step 9 with
-   phase `paused` and end the mandate. Skip steps 2-8.
+Read docs/build-process.md §4 and each task's entry in docs/task-catalogue.md first. Given task
+ids, run them in that order; given none, take the first status:ready task in the catalogue index.
+Report to the user after each task; stop at any escalation.
 
-2. RECONCILE. `gh issue list --label task --state all --json number,title,labels,state`,
-   `gh pr list --label task --json number,headRefName,statusCheckRollup,mergeable,labels`,
-   `git ls-remote --heads origin 'task/*'`, and `ListAgents`. For each in-flight task with no live
-   agent, apply the recovery table (build-process.md §5.6): pushed branch, no PR → resume from the
-   branch; no branch → status:ready; PR without verdict → status:in-review and dispatch the
-   reviewer; status:rework → re-dispatch the implementer with the review comment URL; merged but
-   `docs:pending` → step 6 runs for it. Never delete a task branch.
-   DRIFT CHECK (skip it while a documentation subagent is still running): fetch origin/main and
-   read the Status column of docs/task-catalogue.md §3. Map each task's label to its document
-   value, per build-process.md §4.8: merged → "Merged (<sha>)"; in-progress / in-review / rework /
-   approved → "In progress"; ready → "Ready"; blocked → "Blocked", optionally with a
-   "— suspended on #<bug>" suffix; escalated → "Escalated". Any row that differs, or a Totals
-   merged count that differs from the number of status:merged issues, is drift: note it for
-   step 7 and make step 6 run.
+0. CHECK. `gh issue list --label triage:needed --state open`: triage anything that names this
+   task, or ask the user. Confirm every merge-after dependency is status:merged and the issue is
+   status:ready. Don't start a local-only or single-instance task whose prerequisite is missing.
+1. IMPLEMENT. Label status:in-progress. Dispatch the implementer: Agent(general-purpose, model =
+   the catalogue's, run_in_background, prompt = build-process.md Appendix A filled in from the
+   task entry, plus any review URLs from an earlier attempt). Wait for its completion
+   notification; don't poll. If it reports a defect in merged code, go to step 5 (bug).
+2. REVIEW. Check the PR exists and CI has run. Label status:in-review. Dispatch the reviewer:
+   Agent(model = the catalogue's reviewer model, prompt = Appendix B filled in). Wait.
+3. DECIDE on the label the reviewer applied:
+   - status:approved: wait for CI green. If the branch is behind main, run
+     `gh pr update-branch <pr>` and wait for green again. For T16 and T22, stop and get the
+     user's thumbs-up first. Then `gh pr merge <pr> --squash --delete-branch`, label
+     status:merged, remove review-round:*, and make sure the issue closed. Go to step 4.
+   - status:rework: if the issue carries review-round:2, escalate (step 5). Otherwise set the
+     next round (none → review-round:1 → review-round:2) and send the implementer the FULL
+     review comment URL: SendMessage if it is reachable, else a fresh implementer resuming the
+     branch. Then go back to step 2.
+4. AFTER THE MERGE (build-process.md §4.7):
+   - Unblock: each status:blocked task whose merge-after deps are all merged, and which isn't
+     suspended on an open bug, becomes status:ready.
+   - Follow-up: if the review had non-blocking findings, file one "T<nn> follow-up" issue
+     (triage:needed, linking the reviews) and propose where each item folds.
+   - Docs: apply the PR's "Docs affected" claims on main ("Docs: after T<nn>"). Write no status.
+   - Remove the task's worktrees under C:\Users\diego\projects\ic2-work\.
+   - Report: the merge commit, the review's findings, the follow-ups, and what's ready next.
+5. ESCALATE or BUG.
+   - Escalate (build-process.md §4.5): label status:escalated, comment the evidence on the
+     issue, and bring it to the user with options and a recommendation. Stop the run.
+   - Bug in merged code (§4.6): label the task status:blocked with "suspended on #N". File the
+     bug (bug, triage:needed; the body opens "Blocks: T<nn>"). Triage it, or bring it to the
+     user. Stop the run.
 
-3. DRAIN. For each open task PR, read its issue's status:* label (the reviewer applies it itself;
-   `reviewDecision` is never read):
-   - status:approved + checks green + MERGEABLE and all merge-after deps status:merged
-       → if the branch predates a merge-after dependency's merge, `gh pr update-branch` first and
-         wait for fresh green. Then `gh pr merge --squash --delete-branch`, close the issue,
-         label status:merged, remove any `review-round:*`, add `docs:pending`. If the review
-         approved with non-blocking findings, collect them in one "T<nn> follow-up" issue
-         labelled `triage:needed` (build-process.md §4.5). The merge's documentation update is
-         dispatched in step 6 of this same tick — a merge without it is an incomplete tick.
-   - status:rework → if the issue carries `review-round:2`, escalate (step 8): round 3 is never
-     dispatched. Otherwise set the next round (no label → `review-round:1`; `review-round:1` →
-     `review-round:2`), then SendMessage the reviewer's FULL findings (verbatim or linked, never
-     a subset) to the live implementer, or spawn a fresh one with the PR + review comment URL.
-   - CONFLICTING → conflict protocol (build-process.md §5.4). Semantic conflict → escalate.
-   - Neither label yet, no live reviewer → spawn the reviewer (Appendix B, model per the catalogue).
-   - A defect found in ALREADY-MERGED code (not this PR's own task) → do not patch it, even
-     narrowly. Set the finding task's issue to status:blocked (not status:rework), file an issue
-     labelled `bug`, `triage:needed` and `blocking`, whose body opens with "Blocks: T<nn>" and
-     gives the evidence, reference it from the task's issue ("suspended on #N"), and tell the
-     planner in step 7; triage is a planner pass (build-process.md §4.7), not a tick step.
-
-4. UNBLOCK. Any status:blocked issue whose merge-after deps are all status:merged → status:ready.
-   An issue suspended on a bug waits for that bug's correction, not just its merge-after deps.
-
-5. DISPATCH at most one task IN YOUR MANDATE'S SCOPE, and only if no other code-modifying agent
-   (implementer or reviewer) is running (check `ListAgents`). Nothing local-only on a machine
-   without the prerequisite.
-     Agent(subagent_type: "general-purpose", model: <catalogue>,
-           prompt: build-process.md Appendix A filled in from the task entry)
-   Label the issue status:in-progress. Do not poll for completion; the completion notification
-   wakes you for the next tick.
-
-6. SYNC DOCS (build-process.md §4.8). Run this step if, in this tick, anything merged, any task's
-   document value changed (dispatch, unblock, suspension, escalation), step 2 found drift, or a
-   merged issue still carries `docs:pending` with no documentation subagent running.
-   Dispatch ONE documentation subagent (Agent, model sonnet) with: the merged PRs and their
-   "Docs affected" lists (if any), the drift found (if any), and the instruction to work in its
-   own worktree off origin/main, never the shared checkout; rewrite all four status locations
-   (§4.8 part A: catalogue entry Status lines + index Status column + Totals, operating-guide §1,
-   README "Current state", release-plan §2.1 gate progress) from the labels as they are now;
-   for merges, also run §4.8 part B; commit "Docs: sync after T<nn> merged" (or "Docs: status
-   resync"), push straight to main, and only then remove `docs:pending` from each merged issue it
-   covered. It may run alongside a code-modifying agent, because it never touches the shared
-   checkout.
-
-7. REPORT. Post a status table (task, state, PR, agent, blocked-by) as a comment on tracking
-   issue #29, plus any drift found in step 2. Report to the PLANNER (not the user): what merged,
-   what started, what is blocked, what drifted, and every bug and follow-up issue filed this tick
-   (number and one line each — they are all `triage:needed`, the planner's queue). If the mandate is
-   complete (every task in scope merged and none still `docs:pending`), say so and end it.
-
-8. ESCALATE anything in build-process.md §4.6 to the planner: label the issue status:escalated,
-   state the evidence, and stop work on that task. If the circuit breaker tripped (3 consecutive
-   review failures or 2 consecutive escalations), stop dispatching and end the mandate.
-
-9. WRITE STATE. Rewrite the state comment on #29 in place (build-process.md §5.2 schema): mandate,
-   current task and phase, review round, last action, `docs_pending`, open escalations, and the
-   time. Every tick ends with this step, including paused and stopped ones. If the comment and
-   the labels ever disagree, the labels are right: write the comment to match them.
-
-Never: merge without an approving review; weaken a Definition of Done; edit docs yourself
-(status and claims go through the step-6 documentation subagent; plan changes — scope, DoD,
-dependencies — are a planner pass on a review branch); dispatch outside your mandate's scope;
-talk to the user directly (escalate to the planner); force-push; delete a task branch that holds
-unmerged work; review a PR yourself; patch a defect in another task's Owns list — file it per
-build-process.md §4.7 instead.
-```
-
-## Appendix D: orchestrator mandate template
-
-The planner spawns the orchestrator with this prompt, filled in. To resume after an interruption, use the same template with the mandate copied from the state comment ([§5.2](#52-where-the-state-lives)).
-
-**Before spawning, the planner checks:**
-
-- [ ] The triage queue is checked (`gh issue list --label triage:needed --state open`), and **no untriaged blocking bug names a task in this mandate's scope** — `gh issue list --label blocking --label triage:needed --state open`, read each `Blocks:` line ([§4.7](#what-blocking-means)). Triage it first, or drop the blocked task from the scope.
-- [ ] `orchestrator:pause` is removed from #29 — otherwise the orchestrator ends the mandate on its first tick.
-
-```text
-You are the orchestrator of the Imperial Conquest 2 build, spawned by the planner (the main
-session). Your instructions are docs/build-process.md Appendix C — the /build-tick skill — which
-you run as your own loop: one tick now, and one each time a subagent you dispatched completes.
-Read docs/build-process.md §3.1, §4, §5 and Appendix C, and docs/task-catalogue.md, first.
-
-Mandate:
-  scope:      <task ids, e.g. T09, T10, T11 — or a wave, e.g. "wave 3">
-  stop when:  the orchestrator:pause label is on #29; an escalation (build-process.md §4.6);
-              the circuit breaker; or every task in scope is merged with its docs update landed.
-  granted:    <UTC timestamp>
-  <any extra limit from the planner, e.g. "do not merge T16 — architecture PR, needs the user">
-
-This is <a fresh start | a resume after an interruption>. On your first tick, run the recovery
-procedure (build-process.md §5.6) and make sure the #29 state comment exists and matches.
-
-Report back to the planner — never to the user directly — at every escalation and when the
-mandate ends: what merged (with merge commits), what is in flight and in which phase, open
-escalations with their evidence, bugs and follow-ups filed, and the link to the state comment.
-Then stop.
+Never: merge without an approving review and green CI; weaken a DoD; let the implementing agent
+review its own PR; force-push; delete a task branch that holds unmerged work; patch a defect in
+another task's Owns list; relay only part of a review.
 ```

@@ -1,6 +1,6 @@
 <!--
 PR body contract for a build task (docs/build-process.md §4.1, §4.2 and §6).
-Keep every heading below: the orchestrator and the reviewer read them by name.
+Keep every heading below: the main session and the reviewer read them by name.
 Title convention: "T<nn> <Task name>", e.g. "T09 Movement and terrain".
 -->
 
@@ -22,7 +22,7 @@ Closes #<issue>
 | `<path>` | `<pattern>` |
 
 - [ ] Every changed file above is inside the task's declared **Owns** list.
-- [ ] No change to `docs/task-catalogue.md`, `docs/build-process.md` or any other document (documentation is updated on `main` after the merge, build-process.md §4.8), original game files, `assets.local.ini`, `.gitignore`'s exclusion policy, or the research repository's reports (each of those is an escalation, build-process.md §4.6).
+- [ ] No change to `docs/task-catalogue.md`, `docs/build-process.md` or any other document (the main session updates documentation on `main` after the merge, build-process.md §4.7), original game files, `assets.local.ini`, `.gitignore`'s exclusion policy, or the research repository's reports (each of those is an escalation, build-process.md §4.5).
 
 ## DoD evidence
 
@@ -61,7 +61,7 @@ Values omitted because no source was found (or "none"):
 
 ## Docs affected
 
-<!-- Input to the post-merge documentation update (build-process.md §4.8); the reviewer checks
+<!-- The document claims this merge makes stale, applied by the main session after the merge (build-process.md §4.7); the reviewer checks
      it is plausible for the diff (gate 4). Do NOT edit these documents in this PR. For each,
      say what should change after merge and why, or delete the line. Status (the catalogue's
      Status lines, operating-guide §1, README "Current state", release-plan §2.1) is

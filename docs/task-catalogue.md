@@ -1,10 +1,10 @@
-# Task catalogue: the 37 build tasks
+# Task catalogue: the 40 build tasks
 
 Every build task's scope, **Owns** list, Definition of Done, model/effort, reviewer and dependencies, plus the dependency graph and the task index. **How** tasks are dispatched, reviewed and merged is in [build-process.md](build-process.md); operating the project day to day is in [operating-guide.md](operating-guide.md).
 
-**Status in this document** is a snapshot written from the GitHub `status:*` labels by the documentation step ([build-process.md §4.8](build-process.md#48-documentation-update-after-every-merge), location A1), and appears only in the **Status** line of each entry, the **Status** column of the [task index](#3-task-index) and the index's **Totals** line. Every orchestrator tick compares the index against the labels and resyncs on drift. Between syncs, GitHub labels and [tracking issue #29](https://github.com/diegoami/imperial_conquest_2/issues/29) are authoritative. Values: **Merged** (`commit`) · **In progress** (`status:in-progress`, `in-review`, `rework` or `approved`) · **Ready** · **Blocked** · **Escalated**.
+**Status is not in this document.** Each task's stage (ready, in progress, merged, blocked, escalated) lives only in its GitHub issue's `status:*` label ([build-process.md §5](build-process.md#5-status-lives-on-github)). The index below links every issue.
 
-37 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), five corrections to already-merged code (T31–T35), and one rule no task owned (T37, the weekly city supply step).
+40 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), eight corrections to already-merged code (T31–T35, T38–T40), and one rule no task owned (T37, the weekly city supply step).
 
 ---
 
@@ -32,7 +32,8 @@ graph TD
   T31 --> T07
   T31 --> T16
   T03 --> T09[T09 movement]
-  T03 --> T10[T10 news log]
+  T03 --> T40[T40 published-events seam]
+  T40 --> T10[T10 news log]
   T02 --> T11[T11 asset pack]
   T03 --> T12[T12 victory]
   T04 --> T06
@@ -49,6 +50,11 @@ graph TD
   T30 --> T34[T34 IC2.Data follow-ups + corpus fixture]
 
   T08 --> T13[T13 recruitment+mercs]
+  T08 --> T38[T38 supply dialog follow-ups]
+  T38 --> T14
+  T35 --> T39[T39 upkeep billing correction]
+  T39 --> T13
+  T39 --> T22
   T08 --> T14[T14 naval]
   T32 --> T14
   T09 --> T14
@@ -115,16 +121,16 @@ Waves are dependency layers, not concurrent batches: execution is serial, one co
 | 0 | T01, T05 | Disjoint file sets. |
 | 1 | T02, T04, T30 | T04 and T30 need only T01. T30's merge gates T29, T21 and T34. |
 | 2 | T03 | The serialization point for engine code. |
-| 3 | T06, T07, T08, T09, T10, T11, T12, T31, T32, T33, T34 | The widest wave. T32 merges before T08; T33 before T16 and T17; T34 any time before T21, T24 and T29. T08 and T33 both write `Ruleset.cs`, `toy-ruleset.json` and `tests/fixtures/**` — different records and entries, never in flight together. |
-| 4 | T13, T14, T15, T16, T35, T37 | T35 follows T08 and gates T13, T17, T19 and T37. T37 must merge before T29. T16 is the long pole. |
+| 3 | T06, T07, T08, T09, T10, T11, T12, T31, T32, T33, T34, T40 | The widest wave. T40 merges before T10. T32 merges before T08; T33 before T16 and T17; T34 any time before T21, T24 and T29. T08 and T33 both write `Ruleset.cs`, `toy-ruleset.json` and `tests/fixtures/**` — different records and entries, never in flight together. |
+| 4 | T38, T13, T14, T15, T16, T35, T37, T39 | T38 follows T08 and precedes T14. T39 follows T35 and precedes T13 and T22. T35 follows T08 and gates T13, T17, T19 and T37. T37 must merge before T29. T16 is the long pole. |
 | 5 | T17, T18, T19, T20, T29, T21, T22 | T17 first, then T18/T19/T20; T29 once T15, T17, T19 and T37 have merged; then T21 and T22. T22 is the long pole. |
 | 6 | T23, T36, T24, T25, T26, T27, T28 | T36 follows T29 and precedes T24. T24/T25/T27 are single-instance (Godot) and form one serial chain. |
 
-**Critical path**: `T01 → T02 → T03 → T06 → T32 → T08 → T14 → T16 → T17 → T29 → T36 → T24 → T25 → T27` — 14 of 37 tasks — with `T08 → T35 → T17` and `T31 → T33 → T16` as parallel edges into it; T29 also waits for T15 and T19, and `T17 → T23 → T24` runs one task shorter. The AI chain (`… → T17 → T18 → T22 → T28`) runs alongside it with the most slack and the most uncertain duration, which argues for not deferring T22.
+**Critical path**: `T01 → T02 → T03 → T06 → T32 → T08 → T38 → T14 → T16 → T17 → T29 → T36 → T24 → T25 → T27` — 15 of 40 tasks — with `T08 → T35 → T17` and `T31 → T33 → T16` as parallel edges into it; T29 also waits for T15 and T19, and `T17 → T23 → T24` runs one task shorter. The AI chain (`… → T17 → T18 → T22 → T28`) runs alongside it with the most slack and the most uncertain duration, which argues for not deferring T22.
 
 ### 1.2 Sequential and independent tasks
 
-- **Strictly sequential**: T01 → T02 → T03; T16 → T17 (a siege is a battle); T17 → T18 (a siege wipes a pending fortify order); T08 → T13 (mercenary hire debits the army purse T08 defines); T24 → T25 → T27 (Godot, single-instance); T30 → T29 (T29 reads the DAT through T30's parser); T31 → T07 and T31 → T16 (both consume the siege defender weights T31 corrects); T32 → T08 and T32 → T14 (T06's attrition-phase test must stop counting systems before either registers one); T33 → T16 and T33 → T17 (both consume the defender-strength shape T33 corrects); T35 → T13, T17, T19, T37 (the model fields they read and write; T37 also reuses T35's threat predicate); T37 → T29 (it adds `EconomyRules` fields, and the ruleset schema settles before the export); T34 → T29 and T34 → T21 (both read the nation tax base through T34's parse); T15, T17, T19 → T29 → T21, T24, T26 (the ruleset schema settles before the shipped ruleset is exported, and the shipped world, ruleset and scenario exist before anything consumes them — [build-process.md §2.6](build-process.md#2-how-the-build-avoids-conflicts)); T29 → T36 → T24 (the `improved` preset is authored from the exported constants, and the New Game chooser needs both presets).
+- **Strictly sequential**: T01 → T02 → T03; T03 → T40 → T10 (the news writer reads the published-events view T40 adds); T16 → T17 (a siege is a battle); T17 → T18 (a siege wipes a pending fortify order); T08 → T13 (mercenary hire debits the army purse T08 defines); T08 → T38 → T14 (T14 is the first caller of the supply dialog T38 finishes); T35 → T39 → T13, T22 (billing is corrected before recruitment and the AI build on it); T24 → T25 → T27 (Godot, single-instance); T30 → T29 (T29 reads the DAT through T30's parser); T31 → T07 and T31 → T16 (both consume the siege defender weights T31 corrects); T32 → T08 and T32 → T14 (T06's attrition-phase test must stop counting systems before either registers one); T33 → T16 and T33 → T17 (both consume the defender-strength shape T33 corrects); T35 → T13, T17, T19, T37 (the model fields they read and write; T37 also reuses T35's threat predicate); T37 → T29 (it adds `EconomyRules` fields, and the ruleset schema settles before the export); T34 → T29 and T34 → T21 (both read the nation tax base through T34's parse); T15, T17, T19 → T29 → T21, T24, T26 (the ruleset schema settles before the shipped ruleset is exported, and the shipped world, ruleset and scenario exist before anything consumes them — [build-process.md §2.6](build-process.md#2-how-the-build-avoids-conflicts)); T29 → T36 → T24 (the `improved` preset is authored from the exported constants, and the New Game chooser needs both presets).
 - **Independent**: wave 3's pure-rules systems over disjoint directories; T32, T33 and T34 against each other and against T09–T12; T13/T14/T15; T18/T19/T20; T26 against the Godot lane.
 - **Looks independent but is not**: T12 (victory) is gated behind T06 because its 250 BC condition needs the calendar's year; T20 (save/load) could be written early, but its DoD ("a mid-game state round-trips after N turns") is only meaningful once the state is largely complete.
 
@@ -134,17 +140,15 @@ Waves are dependency layers, not concurrent batches: execution is serial, one co
 
 Conventions used by every entry:
 
-- **Status**: see the top of this document.
 - **Branch**: `task/T<nn>-<slug>`. One branch per task, never reused.
-- **Owns**: the only paths the implementer may create or modify, besides its own tests. Anything else → escalate; a defect in another task's files → the bug list ([build-process.md §4.7](build-process.md#47-the-bug-list)). A parenthesis narrows a shared file to the part the task may change — for example `Ruleset.cs` (the `NavalRules` record only); ruleset schema changes follow [build-process.md §2.6](build-process.md#2-how-the-build-avoids-conflicts).
-- **Done when**: each line is a single assertion an agent can check by running a command. A DoD line is **immutable to the implementer** — see [build-process.md §4.4](build-process.md#44-the-dod-is-not-negotiable-by-an-agent).
+- **Owns**: the only paths the implementer may create or modify, besides its own tests. Anything else → escalate; a defect in another task's files → the bug list ([build-process.md §4.6](build-process.md#46-bugs-and-follow-ups)). A parenthesis narrows a shared file to the part the task may change — for example `Ruleset.cs` (the `NavalRules` record only); ruleset schema changes follow [build-process.md §2.6](build-process.md#2-how-the-build-avoids-conflicts).
+- **Done when**: each line is a single assertion an agent can check by running a command. A DoD line is **immutable to the implementer** — see [build-process.md §4.3](build-process.md#43-the-dod-is-not-negotiable-by-an-agent).
 - Numbers cited without a report name are already cited in `game-design.md`/`design-audit.md` at the referenced milestone.
 
 ### Phase 0 — Foundation
 
 #### T01 Build scaffolding and CI
 
-- **Status**: Merged (`a17d6e7`)
 - **Design milestone**: none (prerequisite the backlog assumes). **Labels**: `phase:0 lane:infra`
 - **Branch**: `task/T01-build-scaffolding` · **Model/effort**: Sonnet / Medium · **Reviewer**: Sonnet / High
 - **Start after**: — · **Merge after**: —
@@ -159,7 +163,6 @@ Conventions used by every entry:
 
 #### T02 Core domain model and JSON round-trip
 
-- **Status**: Merged (`fea39d8`)
 - **Design milestone**: M1 (types half). **Labels**: `phase:0 lane:engine`
 - **Branch**: `task/T02-domain-model` · **Model/effort**: **Opus / High** · **Reviewer**: Opus / High **+ `/code-review --effort ultra`**
 - **Start after**: T01 · **Merge after**: T01
@@ -175,7 +178,6 @@ Conventions used by every entry:
 
 #### T31 Correct `Ruleset.Siege`'s defender-strength field identities
 
-- **Status**: Merged (`27d7b41`)
 - **Design milestone**: none — a correction to merged T02, found by T07's review. **Labels**: `phase:0 lane:engine`
 - **Branch**: `task/T31-siege-defender-fields` · **Model/effort**: Sonnet / Medium · **Reviewer**: **Opus / Medium**
 - **Start after**: T02 · **Merge after**: T02 — and merged before T07 and T16
@@ -190,12 +192,11 @@ Conventions used by every entry:
   6. `docs/investigations/siege-defender-strength.md` records the decompilation, the panel-based field identification, the label-to-`DAT_*` table, and a one-line before/after for every field this task renamed or re-weighted.
   7. `dotnet build IC2.sln` and `dotnet test IC2.sln` are green, and `git diff --name-only main...HEAD` lists only Owns paths — in particular **nothing** under `src/IC2.Engine/Strength/**`.
   8. The PR body lists, for the post-merge documentation step, the claims this evidence settles: `design-audit.md` §2.13's `FUN_0044A98C` item (including that the −20%-if-owner≠allegiance and ×9/10-if-attacker==allegiance readings are **two separate adjustments in two different functions**, not one mis-read) and T17's *"Known-open item to record, not resolve"*, which this settles.
-- **Out of scope, filed as bugs** ([build-process.md §4.7](build-process.md#47-the-bug-list)): [#46](https://github.com/diegoami/imperial_conquest_2/issues/46) — `HighFortificationThreshold`/`…BonusNumerator`/`…BonusDenominator` are misnamed (the branch tests **loyalty** `> 59`, gated on the capital predicate `FUN_0044B8D0`); [#47](https://github.com/diegoami/imperial_conquest_2/issues/47) — `DefenderOwnerNotAllegiancePenaltyPercent` (20) does not match the function's `(strength << 2) / 5`, which truncates differently from a 20% subtraction.
+- **Out of scope, filed as bugs** ([build-process.md §4.6](build-process.md#46-bugs-and-follow-ups)): [#46](https://github.com/diegoami/imperial_conquest_2/issues/46) — `HighFortificationThreshold`/`…BonusNumerator`/`…BonusDenominator` are misnamed (the branch tests **loyalty** `> 59`, gated on the capital predicate `FUN_0044B8D0`); [#47](https://github.com/diegoami/imperial_conquest_2/issues/47) — `DefenderOwnerNotAllegiancePenaltyPercent` (20) does not match the function's `(strength << 2) / 5`, which truncates differently from a 20% subtraction.
 - **Hazards**: do not touch T07's branch or `src/IC2.Engine/Strength/**`. Do not re-derive the weights from `decompiled-city-capture-resolution.md` — it was the source of the error. Do not touch `AttackerIsAllegianceDefenderReductionPercent` (`FUN_0044B27C`, T17's). The values 150 / 250 / 200 are unchanged; only which field each multiplies was wrong. T31 and T08 both write `tests/fixtures/**` and are never dispatched together.
 
 #### T30 Harden `IC2.Data`: army tombstones, and the DAT's own file layout
 
-- **Status**: Merged (`2d50081`)
 - **Design milestone**: none — the only task that owns `src/IC2.Data/**`, which T21 and T29 build on. Evidence: [`investigations/thracia-supply-morale.md`](investigations/thracia-supply-morale.md) (defect A) and [`investigations/dat-file-layout.md`](investigations/dat-file-layout.md) (defect B). **Labels**: `phase:0 lane:data local-only`
 - **Branch**: `task/T30-data-parser-hardening` · **Model/effort**: **Sonnet / High** · **Reviewer**: **Opus / Medium**
 - **Start after**: T01 · **Merge after**: T01 — and merged before T29 and T21 start
@@ -218,7 +219,6 @@ Conventions used by every entry:
 
 #### T03 Engine seams: RNG, turn pipeline, commands, events
 
-- **Status**: Merged (`4f747fc`)
 - **Design milestone**: none explicitly (implied by `game-design.md` §"Testing and determinism"). **Labels**: `phase:0 lane:engine`
 - **Branch**: `task/T03-engine-seams` · **Model/effort**: **Opus / Ultrahigh** · **Reviewer**: Opus / High **+ `/code-review --effort ultra`**
 - **Start after**: T02 · **Merge after**: T02
@@ -240,7 +240,6 @@ Conventions used by every entry:
 
 #### T04 Fixtures corpus
 
-- **Status**: Merged (`e7cab0c`)
 - **Design milestone**: M1 (fixtures half); implements `design-audit.md` §4.4's recommendation. **Labels**: `phase:0 lane:data`
 - **Branch**: `task/T04-fixtures-corpus` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
 - **Start after**: T01 · **Merge after**: T01 (independent of T02/T03 — disjoint paths)
@@ -255,7 +254,6 @@ Conventions used by every entry:
 
 #### T05 GitHub hygiene: templates, labels, CODEOWNERS
 
-- **Status**: Merged (`4ab3344`)
 - **Design milestone**: none. **Labels**: `phase:0 lane:infra`
 - **Branch**: `task/T05-github-hygiene` · **Model/effort**: **Fable / Low** · **Reviewer**: Sonnet / Medium
 - **Start after**: — · **Merge after**: — (fully disjoint; can merge first)
@@ -273,7 +271,6 @@ Conventions used by every entry:
 
 #### T06 Calendar and turn sequencing
 
-- **Status**: Merged (`8b8007a`)
 - **Design milestone**: **M2**. **Labels**: `phase:1 lane:engine`
 - **Branch**: `task/T06-calendar` · **Model/effort**: Sonnet / Medium · **Reviewer**: Sonnet / High
 - **Start after**: T03 · **Merge after**: T03, T04
@@ -290,7 +287,6 @@ Conventions used by every entry:
 
 #### T07 Strength functions
 
-- **Status**: Merged (`acd4098`)
 - **Design milestone**: **M5**. **Labels**: `phase:1 lane:engine`
 - **Branch**: `task/T07-strength-functions` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
 - **Start after**: T03 · **Merge after**: T03, T04, **T31**
@@ -307,7 +303,6 @@ Conventions used by every entry:
 
 #### T08 Economy, supply, and purses
 
-- **Status**: In progress
 - **Design milestone**: **M3**. **Labels**: `phase:1 lane:engine`
 - **Branch**: `task/T08-economy` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
 - **Start after**: T03 · **Merge after**: T03, T04, T06, **T32**
@@ -336,7 +331,6 @@ Conventions used by every entry:
 
 #### T09 Movement and terrain
 
-- **Status**: Merged (`e804f4f`)
 - **Design milestone**: **M6**. **Labels**: `phase:1 lane:engine`
 - **Branch**: `task/T09-movement` · **Model/effort**: Sonnet / Medium · **Reviewer**: Sonnet / High
 - **Start after**: T03 · **Merge after**: T03, T04
@@ -351,10 +345,9 @@ Conventions used by every entry:
 
 #### T10 News log ring buffer and message catalog
 
-- **Status**: Ready
 - **Design milestone**: **M17**. **Labels**: `phase:1 lane:engine`
-- **Branch**: `task/T10-news-log` · **Model/effort**: **Haiku / Medium** · **Reviewer**: Sonnet / Medium
-- **Start after**: T03 · **Merge after**: T03, T04
+- **Branch**: `task/T10-news-log` · **Model/effort**: Sonnet / Medium · **Reviewer**: **Opus / Medium**
+- **Start after**: T03 · **Merge after**: T03, T04, **T40**
 - **Owns**: `src/IC2.Engine/News/**`, `tests/IC2.Engine.Tests/News/**`
 - **Scope**: The 40-slot ring buffer, the catalog of confirmed message templates with operand substitution, **and the writer that carries a news-worthy domain event into `GameState.NewsLog`**. **Emission stays with each gameplay system** ([build-process.md §2.5](build-process.md#2-how-the-build-avoids-conflicts)); this task delivers the buffer, the catalog, the sink-to-state writer, and the coverage test that later tasks must keep green.
   - **The writer** is a system registered through T03's attribute-based registration, subscribing to T03's domain-event sink: for each news-worthy event it resolves the catalog template, substitutes the operands, and appends the rendered message to `GameState.NewsLog` (the storage T02 already ships). Without it, T20 would round-trip a news log nothing ever fills.
@@ -364,10 +357,10 @@ Conventions used by every entry:
   3. A coverage test asserts every domain event kind returned by T03's `DomainEventCatalog.Discover` that is marked news-worthy has a catalog entry — so a later task adding an event without a message fails CI. (T03 ships attribute-declared event subtypes, not an enum — iterate the discovered set.)
   4. A news-worthy event published to the sink during a turn appears as a rendered message in `GameState.NewsLog` at the end of that turn, asserted on the state itself rather than on the sink; a non-news-worthy event does not. **The 40-slot eviction is asserted end-to-end through the writer**, not only against the buffer in isolation.
   5. The rendered log survives a `GameState` round-trip through T02's serialization — so T20's save/load inherits a news log that is actually populated.
+- **Hazards**: The first attempt (PR #77, branch `task/T10-news-log`) escalated after three review rounds. It reached into T03's private `CompositeEventSink` by reflection (R7), and its only alternative was a mutable static (R4). **Resume from that branch** and take the open findings as the brief: R6 and R7, plus the non-blocking N1, N2, N6, N7, N8 and N10–N12 from https://github.com/diegoami/imperial_conquest_2/pull/77#issuecomment-5663984617 and https://github.com/diegoami/imperial_conquest_2/pull/77#issuecomment-5664079375. The writer is a **stateless system registered in `SeatEnd` and `RoundEnd`**. It reads T40's published-events view, renders the news-worthy events of its own scope (seat-scoped or round-scoped, by their phase tag), and appends them to `GameState.NewsLog`. No reflection, no static, no sink that buffers. The DoD-4 tests wire a realistic sink (the writer plus an extra UI-style sink), not a bare writer. Test event kinds live in a namespace-unique fixture group, so later tasks' fixtures can't collide with them (N10).
 
 #### T11 Asset pack loader and generated placeholder pack
 
-- **Status**: Ready
 - **Design milestone**: none explicitly (`game-design.md` §"Asset packs"). **Labels**: `phase:1 lane:data`
 - **Branch**: `task/T11-asset-pack` · **Model/effort**: **Haiku / Medium** · **Reviewer**: Sonnet / Medium
 - **Start after**: T02 · **Merge after**: T02
@@ -381,7 +374,6 @@ Conventions used by every entry:
 
 #### T12 Victory conditions
 
-- **Status**: Ready
 - **Design milestone**: **M13**. **Labels**: `phase:1 lane:engine`
 - **Branch**: `task/T12-victory` · **Model/effort**: Sonnet / Medium · **Reviewer**: Sonnet / High
 - **Start after**: T03 · **Merge after**: T03, T06
@@ -389,10 +381,10 @@ Conventions used by every entry:
 - **Scope**: The four shipped conditions — the original's all-cities condition and its 250 BC year limit, domination-over-hostiles, score-at-turn-limit, and scenario-custom. Evaluated against a `GameState` constructed directly in tests; does **not** need capture logic merged.
 - **Done when**: one test per condition, each with a positive and a negative case; the all-cities test uses the shipped world's own city count (not a hardcoded 334); the year-limit test fires at 250 BC and not at 251 BC; a scenario-custom goal defined purely in scenario JSON fires.
 - **Note**: which condition is the shipped default is `design-audit.md` **Q5**, now answered: `victory.default` is `all-cities` under `classical-faithful`, and `domination-over-hostiles` (or `score-at-limit`, ruleset's choice) under `improved`. The task implements all four conditions and reads the default from the ruleset per seat's chosen preset; it does not hardcode either.
+- **Hazards**: the original's start-of-turn check (`FUN_00452034`) also deposes a human nation that is in debt and hands its seat to the AI ([`upkeep-payment-and-desertion.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/upkeep-payment-and-desertion.md)). That is **T39's**, not this task's. Leave the start-of-turn evaluation open to a second check, and don't implement debt here.
 
 #### T32 Make T06's calendar tests independent of later systems
 
-- **Status**: Merged (`2d72f7f`)
 - **Design milestone**: none — a correction to merged T06, bug [#50](https://github.com/diegoami/imperial_conquest_2/issues/50), plus the test-only items of T06's review follow-ups [#43](https://github.com/diegoami/imperial_conquest_2/issues/43) (its seat-rotation items are T17's). **Labels**: `phase:1 lane:engine`
 - **Branch**: `task/T32-calendar-test-independence` · **Model/effort**: Sonnet / Low · **Reviewer**: Sonnet / High
 - **Start after**: T06 · **Merge after**: T06 — and merged before T08 and T14
@@ -407,7 +399,6 @@ Conventions used by every entry:
 
 #### T33 Complete `Ruleset.Siege` and `SiegeStrength.Defender` against `FUN_0044A98C`
 
-- **Status**: Ready
 - **Design milestone**: none — a correction to merged T31 and T07: bugs [#46](https://github.com/diegoami/imperial_conquest_2/issues/46), [#47](https://github.com/diegoami/imperial_conquest_2/issues/47) and [#52](https://github.com/diegoami/imperial_conquest_2/issues/52), plus T07's review follow-ups [#49](https://github.com/diegoami/imperial_conquest_2/issues/49). **Labels**: `phase:1 lane:engine`
 - **Branch**: `task/T33-siege-defender-shape` · **Model/effort**: Sonnet / Medium · **Reviewer**: **Opus / Medium**
 - **Start after**: T31, T07 · **Merge after**: T31, T07 — and merged before T16 and T17
@@ -425,7 +416,6 @@ Conventions used by every entry:
 
 #### T34 `IC2.Data` follow-ups, a path-independent corpus fixture, and the pending-offer block
 
-- **Status**: Ready
 - **Design milestone**: none — T30's review follow-ups [#40](https://github.com/diegoami/imperial_conquest_2/issues/40) (items 1–7; item 2's `MapViewer.cs` half is T24 DoD 6), the local corpus-sweep drift, and one confirmed SAV block no parser reads. **Labels**: `phase:1 lane:data local-only`
 - **Branch**: `task/T34-data-follow-ups` · **Model/effort**: Sonnet / Medium · **Reviewer**: **Opus / Medium**
 - **Start after**: T30 · **Merge after**: T30 — and merged before T21, T24 and T29
@@ -444,15 +434,32 @@ Conventions used by every entry:
 
 ---
 
+#### T40 Expose the run's published events to systems (a T03 seam)
+
+- **Design milestone**: none. A correction to merged T03: a registered system can't read the events published earlier in the same run without breaking T03's stateless-system contract (bug [#83](https://github.com/diegoami/imperial_conquest_2/issues/83)). T10's news writer needs exactly that. **Labels**: `phase:1 lane:engine`
+- **Branch**: `task/T40-published-events-seam` · **Model/effort**: Sonnet / Medium · **Reviewer**: **Opus / Medium**
+- **Start after**: T03 · **Merge after**: T03 — and merged before T10
+- **Owns**: `src/IC2.Engine/Core/Pipeline/SystemContext.cs`, `src/IC2.Engine/Core/Pipeline/TurnCoordinator.cs`, `src/IC2.Engine/Core/Events/**` (additive only), `tests/IC2.Engine.Tests/Core/**` (new tests only)
+- **Scope**: `TurnCoordinator.Run` already records every event of a run in a private `RecordingEventSink`. Expose that record, read-only, on `SystemContext`, so a system can see what earlier systems in the same run published without keeping state of its own. Each entry carries the phase it was published in, and the id of the system that published it. The change is additive: `SystemContext`'s constructor is internal, so no existing system changes.
+- **Done when**:
+  1. `SystemContext` exposes the events published **earlier in the current run**, in publication order, each tagged with its phase and publishing system id. The list is read-only; a system cannot modify it.
+  2. It includes events published through command dispatch and quarter-boundary handlers during the run, since they go through the same sink. One test for each source.
+  3. A system in `SeatEnd` sees the events of `SeatStart`, `Orders` and the systems before it in `SeatEnd`. A system in `RoundEnd` sees the round-scoped phases' events. When `RunTurn` follows on into the round tick, it also sees the seat-scoped events of the same run, told apart by their phase tag. A fresh run starts empty, so nothing carries over between turns.
+  4. The caller's own sink still receives every event exactly as before, and `TurnResult.Events` is unchanged. Existing golden runs keep the same `GameStateHash`, and every existing test stays green.
+  5. `dotnet build IC2.sln` and `dotnet test IC2.sln` are green, and `git diff --name-only main...HEAD` lists only Owns paths.
+- **Hazards**:
+  - Registered systems stay **stateless**: this seam exists so that T10 needs neither reflection over `CompositeEventSink` nor a static.
+  - Don't add a news-specific hook. This is a general read-only view that any system may use.
+  - Keep `SystemContext` wide but additive, per its own remarks.
+
 ### Phase 2 — Dependent systems
 
 #### T35 Model: nation tax base, recruitment slots, and the pending diplomatic offer
 
-- **Status**: Blocked
 - **Design milestone**: none — a correction to merged T02, whose model does not carry four pieces of state later tasks read and write, and to merged T04's corpus, which carries Rome's tax base as 2,440; also the quarterly tax-base rebuild and treasury credit, which T08 cannot wire without the first, and the rest of that quarterly step no task owned: city population growth, the mobilization decay and the unity update. **Labels**: `phase:2 lane:engine`
 - **Branch**: `task/T35-model-additions` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / High**
 - **Start after**: T08 · **Merge after**: T08 — and merged before T13, T17 and T19
-- **Owns**: `src/IC2.Engine/Model/**` and `src/IC2.Engine/Serialization/**` (the four additions below, and `NationState.Wealth`'s doc comment, only), `src/IC2.Engine/Model/Ruleset.cs` (additive `EconomyRules` fields for this task's constants, and DoD 10's rename of `UnityDecayPerQuarter`), `data/rulesets/toy-ruleset.json` (the `economy` block only), `data/worlds/toy-3city.json` and `data/scenarios/toy-3city.json` (their values for the new fields only), `tests/IC2.Engine.Tests/Model/**` (new tests only), `src/IC2.Engine/Economy/**` and `tests/IC2.Engine.Tests/Economy/**` (the quarterly rebuild, the treasury credit, the city-transfer adjustment, quarterly population growth, the quarterly mobilization and unity update, and the hostile-army-adjacent predicate only), `tests/fixtures/**` (DoD 8's entries only), `tests/IC2.Engine.Tests/Fixtures/FixturesCorpusTests.cs` and `tests/IC2.Engine.Tests/Fixtures/DownstreamNamespaceUsageTests.cs` (their `tax.nationTaxBaseRome` and `economy.unityDecayPerQuarter` assertions only), `tests/IC2.Engine.Tests/Core/DownstreamSeamUsageTests.cs` (DoD 10's rename only)
+- **Owns**: `src/IC2.Engine/Model/**` and `src/IC2.Engine/Serialization/**` (the four additions below, and `NationState.Wealth`'s doc comment, only), `src/IC2.Engine/Model/Ruleset.cs` (additive `EconomyRules` fields for this task's constants, and DoD 10's rename of `UnityDecayPerQuarter`), `data/rulesets/toy-ruleset.json` (the `economy` block only), `data/worlds/toy-3city.json` and `data/scenarios/toy-3city.json` (their values for the new fields only), `tests/IC2.Engine.Tests/Model/**` (new tests only), `src/IC2.Engine/Economy/**` and `tests/IC2.Engine.Tests/Economy/**` (the quarterly rebuild, the treasury credit, the city-transfer adjustment, quarterly population growth, the quarterly mobilization and unity update, the quarterly loyalty draws, and the hostile-army-adjacent predicate only), `tests/fixtures/**` (DoD 8's entries only), `tests/IC2.Engine.Tests/Fixtures/FixturesCorpusTests.cs` and `tests/IC2.Engine.Tests/Fixtures/DownstreamNamespaceUsageTests.cs` (their `tax.nationTaxBaseRome` and `economy.unityDecayPerQuarter` assertions only), `tests/IC2.Engine.Tests/Core/DownstreamSeamUsageTests.cs` (DoD 10's rename only)
 - **Scope**: `NationState` has no tax base, so T08's `TaxIncome.Compute` is never credited and T17's DoD 3 names a field that does not exist; `GameState` has no recruitment slots, which T13's standing recruitment, T06's `CityUnitStateCode` and T17's garrison addend all need; it has no pending diplomatic offer, which T19 DoD 10 and T34's parse need; and `NationState` has no mobilization, which population growth, the unity update, T37's city supply step and T13's recruitment cap all read. [`nation-tax-base-and-city-economy-fields.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/nation-tax-base-and-city-economy-fields.md) settles the tax base `[confirmed]` against 54 saves: it is persisted state — the signed 16-bit nation word at SAV `+0x44c` and DAT `+0x41b` — that `FUN_00451b40` zeroes and rebuilds every quarter and that city transfers adjust in between. [`city-population-growth.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/city-population-growth.md) gives the same function's population growth, mobilization decay, unity update and step order, all `[confirmed]` against saves except where DoD 9–10 say otherwise. **Every constant below is transcribed from those two reports, not re-derived.**
 - **Done when**:
   1. `NationState` carries the tax base as **persisted state**, never recomputed on demand. It also carries its **mobilization** percentage as persisted state: nation `+0x442`, `IC2.Data`'s `MobilizedPercent`, 0–100 (the cap is `recruitment.mobilizationCapPercent`). `Wealth` stays a separate field, and its doc comment says what it is — nation `+0x430`, `Σ population × 3000` — and that the reparation formula reads the tax base, not wealth.
@@ -460,9 +467,9 @@ Conventions used by every entry:
   3. `GameState` carries at most one pending diplomatic offer — proposing nation and proposed relation code — or none, as the pending-offer report describes.
   4. All four survive T02's round-trip and deep-equality tests, which are extended to cover them; T02's DoD 3 (a missing required field is a typed error) still holds.
   5. **The quarterly rebuild** (`FUN_00451b40`): at each quarter boundary every nation's tax base is zeroed and rebuilt as `Σ over the cities it owns of (tribute × population / maxPopulation) × 4`, and its wealth as `Σ population × 3000`, integer-truncating each city's contribution — a test on a scripted `GameState`.
-  6. **The quarterly treasury credit** (`FUN_00451b40`): `taxBase × taxRate / 100 + taxBase / 4 − cityCount × 7 − wealth / 20000`. The second term is `taxBase / 4`, not `mobilization / 4`, and the `× 7` is per city — both corrections of `decompiled-quarterly-billing-and-economy.md` in the report. The last term, `FUN_004499ec(nation)`, is undecompiled: it is left out with `_provenance` tagging it `[open]`, never guessed. One test per term. The credit reads the tax base and wealth **just rebuilt** by DoD 5 in the same quarter, not the stored values from before it (`city-population-growth.md`, the step order `[derived]` from the code).
+  6. **The quarterly treasury credit** (`FUN_00451b40`): `taxBase × taxRate / 100 + taxBase / 4 − cityCount × 7 − wealth / 20000`. The second term is `taxBase / 4`, not `mobilization / 4`, and the `× 7` is per city — both corrections of `decompiled-quarterly-billing-and-economy.md` in the report. The last term, `FUN_004499ec(nation)`, is **trade income**: `+ Σ over nations with relation 1 (trade) or 2 (alliance) of their taxBase / 12`, using the partners' tax bases as just rebuilt ([`upkeep-payment-and-desertion.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/upkeep-payment-and-desertion.md), `[confirmed]`; with it, the human nation's whole-quarter treasury change matches in 6 of 6 quarter pairs). One test per term. The credit reads the tax base and wealth **just rebuilt** by DoD 5 in the same quarter, not the stored values from before it (`city-population-growth.md`, the step order `[derived]` from the code).
   7. **City transfers** get one helper, for T17 and any later ownership change to call: the new owner's tax base `+= contribution × 4` and the old owner's `−= contribution × 4`, and wealth `± population × 3000`, with `contribution = tribute × population / maxPopulation` read at transfer time. It reproduces the report's Naupactus capture: tribute 15, population 25, maximum 30 → contribution 12; Illyria's tax base 396 → 444, Greece's 2,296 → 2,248; wealth 768,000 → 843,000 and 2,490,000 → 2,415,000.
-  8. **Corpus corrections**: `tax.nationTaxBaseRome` becomes **2,444** (the report reads it straight from Rome's saves; 2,440 and 2,444 both give 366 at 15 % and 488 at 20 %, so T08's DoD 1 is unaffected), and the two T04 tests that pin 2,440 pin 2,444. The entries that name the wrong field are corrected in place, same ids: `economy.wealthFormulaOnCapture` and `capture.wealthPerFortPoint` (population × 3000, not fortification), `capture.taxBaseMultiplier` (the city's contribution × 4, not a per-army value), `reparation.formula` and `diplomacy.maxTradePartners` (`+0x44C` is the tax base, not wealth). `economy.unityDecayPerQuarter` (3, "unity decays by 3 every quarter") is wrong: the `−3` is mobilization's. It is replaced by `economy.mobilizationDecayPerQuarter`, citing `city-population-growth.md`; if T04's required-id list or tests name the old id, they change in the same diff (bug [#68](https://github.com/diegoami/imperial_conquest_2/issues/68)). Both reports' constants are added, and both filenames join `tests/fixtures/known-reports.json`; T04's four checks stay green.
+  8. **Corpus corrections**: `tax.nationTaxBaseRome` becomes **2,444** (the report reads it straight from Rome's saves; 2,440 and 2,444 both give 366 at 15 % and 488 at 20 %, so T08's DoD 1 is unaffected), and the two T04 tests that pin 2,440 pin 2,444. The entries that name the wrong field are corrected in place, same ids: `economy.wealthFormulaOnCapture` and `capture.wealthPerFortPoint` (population × 3000, not fortification), `capture.taxBaseMultiplier` (the city's contribution × 4, not a per-army value), `reparation.formula` and `diplomacy.maxTradePartners` (`+0x44C` is the tax base, not wealth). `economy.unityDecayPerQuarter` (3, "unity decays by 3 every quarter") is wrong: the `−3` is mobilization's. It is replaced by `economy.mobilizationDecayPerQuarter`, citing `city-population-growth.md`; if T04's required-id list or tests name the old id, they change in the same diff (bug [#68](https://github.com/diegoami/imperial_conquest_2/issues/68)). `supply.capacityFormula.army` keeps its value (`troops / 100`) but is re-attributed to the non-dialog capacity paths: automatic resupply, army-to-army and battle absorption. The "482/481 = 100 %" reading is restated as the dialog cap `troops / 100 + 1` ([`supply-capacity-rounding.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/supply-capacity-rounding.md); bug [#75](https://github.com/diegoami/imperial_conquest_2/issues/75)). Both reports' constants are added, and both filenames join `tests/fixtures/known-reports.json`; T04's four checks stay green.
   9. **Quarterly population growth** (`FUN_00451b40`, [`city-population-growth.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/city-population-growth.md) `[confirmed]`: 494 of 494 growing cities and 1,497 of 1,497 at their maximum, over 6 save pairs). What grows is a city's **population** (`+0x1c`) toward its maximum (`+0x1e`). Tribute does not grow, and the season is not read. It is deterministic, with no random draw. For each city below its maximum that is not threatened:
      ```text
      d   = (maxPop − pop) / 4                        // truncated
@@ -491,19 +498,30 @@ Conventions used by every entry:
       - DoD 5's rebuild reads the **grown** population;
       - DoD 6's credit reads the **rebuilt** tax base and wealth;
       - the unity update reads the **decayed** mobilization.
-  11. `dotnet build IC2.sln` and `dotnet test IC2.sln` are green, and `git diff --name-only main...HEAD` lists only Owns paths.
+  11. **The quarterly loyalty draws** (`FUN_00451b40`'s city loop, `city-population-growth.md`, `[derived]` from the code, not save-checked; [#72](https://github.com/diegoami/imperial_conquest_2/issues/72) and T08 follow-up [#76](https://github.com/diegoami/imperial_conquest_2/issues/76) N1). T08 merged the thresholds as data that nothing reads: `LowTaxLoyaltyThresholdPercent` 11, `LowTaxLoyaltyCityThreshold` 80 and `RebellionLoyaltyThreshold` 30. It also merged `RebellionRiskDetected`, which nothing publishes. This task reads them. For each city, after its growth and tax-base contribution:
+      ```text
+      if taxRate < 11 and loyalty < 80:  loyalty += Random(4)                  // 0..3
+      if Random(3) == 0:                  loyalty −= Random(taxRate) / 8
+      if loyalty < 30 and the city is no nation's capital:  publish RebellionRiskDetected
+      ```
+      The new constants (4, 3 and 8) go in the ruleset with `_provenance` saying `[derived]`, code only. The rebellion itself, meaning which nation the city goes to (`FUN_0044c204` → `FUN_0044bed8`), is only partly traced (an unidentified bitmask). It stays with T17's known-open defection item: this task raises the event and changes no owner. Tests use a stub RNG:
+      - a low-tax city rises by exactly the draw;
+      - a city at 80 never rises;
+      - the loss is `Random(taxRate) / 8`;
+      - the event fires for a non-capital city at 29, not for one at 30, and never for a capital;
+      - the draws happen in city index order, one sequence per city, so a fixed seed reproduces exactly.
+  12. `dotnet build IC2.sln` and `dotnet test IC2.sln` are green, and `git diff --name-only main...HEAD` lists only Owns paths.
 - **Hazards**:
   - The tax base is **not** `Population`, `Wealth` or `Treasury`; the toy files carry designed test values with `_provenance` saying so.
   - A stored tax base legitimately differs from the rebuild until the next quarter. The DAT's starting values do (Rome 2,528 stored, 2,464 rebuilt), and so does a mid-quarter save, so loading a world or save never recomputes it.
   - The capture path's other terms (treasury credit, unity, city count) are T17's.
   - **Population grows only here, once a quarter.** `decompiled-turn-and-calendar-sequencing.md`'s "weekly, seasonal, loyalty-modulated population growth" is the weekly city **supply** step, corrected by `city-population-growth.md`. That step is T37's, not this task's, and it never touches population.
-  - **Order against T08's quarterly system.** In the original, upkeep runs first, then the city loop: growth, then the rebuild, then the loyalty and rebellion draws. T08 owns the upkeep and the loyalty draws. Growth and the rebuild must run after T08's upkeep. The loyalty draws read neither population nor the tax base, so their order relative to growth doesn't matter. Say in the PR how the quarter-boundary handlers are ordered, and why.
+  - **Order against T08's quarterly system.** In the original, upkeep runs first, then the city loop: growth, then the rebuild, then the loyalty and rebellion draws; the treasury credit comes after, in the nation loop (`city-population-growth.md`'s step order). T08 owns the upkeep; this task owns everything after it. T08's review (#76 N8) assumed income is credited before billing. The upkeep report settles it the other way: billing comes first and never checks the balance, so nothing that decides payment reads this quarter's income (T39). Say in the PR how the quarter-boundary handlers are ordered, and why.
   - T08 does not touch unity: it stopped applying the unity decay in its own review (PR #53). If T08 merged still applying it, that is a new bug, not this task's to patch silently.
   - `GameState.cs` is the most-shared file in the engine: nothing else that touches `src/IC2.Engine/Model/**` is in flight.
 
 #### T37 City supply production and famine unrest
 
-- **Status**: Blocked
 - **Design milestone**: none. This is a rule no task owned: the weekly city loop of `FUN_004514ec`, which the older calendar report misread as population growth. **Labels**: `phase:2 lane:engine`
 - **Branch**: `task/T37-city-supply` · **Model/effort**: Sonnet / Medium · **Reviewer**: **Opus / Medium**
 - **Start after**: T35 · **Merge after**: T08, T35 — and merged before T29
@@ -534,28 +552,119 @@ Conventions used by every entry:
   - The same original loop also advances fortify orders (`fortification > 100`). That is T18's, not this task's.
   - T08, T35 and this task all write `src/IC2.Engine/Economy/**`, `Ruleset.cs` and `toy-ruleset.json`, in different records and blocks. They are never in flight together.
 
+#### T38 Supply dialog follow-ups, treasury ↔ purse transfers, and automatic resupply
+
+- **Design milestone**: none. A correction to merged T08, from its follow-up [#76](https://github.com/diegoami/imperial_conquest_2/issues/76) and [`supply-capacity-rounding.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/supply-capacity-rounding.md) (research `c7dd688`), before T14 becomes the first caller of `SupplyPurchase`. **Labels**: `phase:2 lane:engine`
+- **Branch**: `task/T38-supply-followups` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
+- **Start after**: T08 · **Merge after**: T08 — and merged before T14
+- **Owns**: `src/IC2.Engine/Economy/**` and `tests/IC2.Engine.Tests/Economy/**` (`SupplyPurchase`, `SupplyCapacity`, the treasury ↔ purse transfer and automatic resupply only), `src/IC2.Engine/Model/Ruleset.cs` (the `EconomyRules` record only: additive fields, plus DoD 2's change to `SupplyDialogArmyCapacityBonus`), `data/rulesets/toy-ruleset.json` (the `economy` block only), `tests/fixtures/**` (DoD 7's entries only)
+- **Scope**: Finish the supply dialog as the original has it, and add the two supply and money paths no task owned. **Every rule below is transcribed from `supply-capacity-rounding.md`, not re-derived.** The dialog's two panels (`TAFSupply_FindProviders` offers every city within one tile whose owner is not at war with the buyer, and the buyer's own fleets within one tile):
+  ```text
+  own city / own fleet (free):   step = min(request, provider stock, cap − supplies)
+  foreign city (paid):           amount = min(request, city stock, cap − supplies, money × 5)
+                                 target.money −= amount / 5;  treasury[city owner] += amount / 5
+  cap: army = troops / 100 + 1 (the dialog only); fleet = ships × 8
+  ```
+  Automatic resupply (`FUN_0044F6D8` army, `FUN_0044F7E4` fleet) caps armies at `troops / 100`, with no `+ 1`:
+  ```text
+  tons = min(troops / 100 − supplies, city stock)        // fleet: ships × 8 − supplies
+  own city:     free; then purse > 1,000 → the excess to the treasury;
+                purse < 500 and treasury > 0 → the purse gains 500 from the treasury
+  foreign city: tons = min(tons, money / 5); cost tons / 5, to the city's owner
+  ```
+  The room term is **not floored at 0** in the original. An army above its cap gives the surplus back to the provider, and on the paid path the negative amount is refunded at `amount / 5`.
+- **Done when**:
+  1. **One clamping model** (#76 N9): a dialog purchase clamps the requested tons by stock, room and, on the paid path, `money × 5`, and moves the result. It never throws because a request exceeds a cap. Example: the Roman army with 79 t of room, requesting 100 t at a city holding 90 t, gets **79**. A request that clamps to 0 moves nothing and succeeds. Invalid calls, such as the wrong nation or a provider out of range, still throw.
+  2. **`SupplyDialogArmyCapacityBonus` becomes a required parameter** (#76 N10), placed before `Provenance`, so a ruleset without it fails `SchemaValidator`. T02's round-trip and no-hardcoded-constants tests stay green.
+  3. **No floor at 0** (#76 N12): an army holding 500 t at 40,000 troops (cap 401) that opens the dialog at its own city ends at **401**, and the city gains 99. On the paid path it is refunded `99 / 5 = 19`. The deviation T08 documented is removed.
+  4. **The result reports what moved** (#76 N13): `ArmyResult` / `FleetResult` carry `AdmittedTons` alongside `TalentsPaid`.
+  5. **The seller is paid** (T08 DoD 5's `[open]` credit side): a foreign purchase credits `amount / 5` to the selling city's owner's treasury. It is tagged `[derived]`, code only, because no save has a foreign purchase yet.
+  6. **Treasury ↔ purse transfer** (`TAFSupply_ChangeMoney`, #76 N2): moves talents between the national treasury (or a co-located own fleet) and an army or fleet in the dialog, in either direction. It never takes more than the source holds, and never takes a purse above **1,000**; conservation is asserted exactly. Where the report is silent (for example, whether the treasury may go negative), escalate rather than decide.
+  7. **Automatic resupply**, as pure functions for an army and for a fleet, with the rules above. Tests:
+     - a 48,173-troop army at its own city with 403 t goes to **481**, not 482;
+     - the purse top-up case (purse 300, treasury positive → 800);
+     - the purse excess case (purse 1,200 → 1,000, treasury +200);
+     - the foreign `money / 5` cap;
+     - an over-cap army trimmed back to `troops / 100`, with the surplus returned to the city;
+     - a fleet capped at `ships × 8`.
+     
+     Wiring the triggers is not this task's: a human army's move that ends against a non-hostile city is T23's, and the AI's per-turn pass is T22's.
+  8. The report's constants join the corpus as `confirmed` or `derived` entries matching its tags, and its filename joins `known-reports.json` if T08 has not already added it. T04's four checks stay green.
+  9. `dotnet build IC2.sln` and `dotnet test IC2.sln` are green, and `git diff --name-only main...HEAD` lists only Owns paths.
+- **Hazards**:
+  - Two caps, not one: the dialog's `troops / 100 + 1`, and `troops / 100` everywhere else. They must not collapse into one helper with a flag nobody sets.
+  - Automatic resupply's foreign cap is `money / 5`; the dialog's is `money × 5`. Both are in the report, and neither is a typo.
+  - T35, T37 and this task all write `src/IC2.Engine/Economy/**`, `Ruleset.cs` and `toy-ruleset.json`, in different records and blocks. They are never in flight together.
+  - The upkeep and purse questions still open in #76 N3 (where upkeep is paid from, and what non-payment does) are a separate research pass. They are not this task's.
+
+#### T39 Quarterly upkeep: who pays, mercenary desertion, and deposition for debt
+
+- **Design milestone**: none. A correction to merged T08. Its quarterly billing charges mercenaries to the treasury, skips garrisons, and "mutinies" every army on non-payment, a rule the original doesn't have (bug [#80](https://github.com/diegoami/imperial_conquest_2/issues/80)). **Labels**: `phase:2 lane:engine`
+- **Branch**: `task/T39-upkeep-billing` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
+- **Start after**: T35 · **Merge after**: T08, T35 — and merged before T13 and T22
+- **Owns**: `src/IC2.Engine/Economy/**` and `tests/IC2.Engine.Tests/Economy/**` (quarterly billing, upkeep enforcement, the debt test and deposition only), `src/IC2.Engine/Model/Ruleset.cs` (the `EconomyRules` record only: additive fields, plus removing `UnpaidUpkeepTroopLossDivisor`), `data/rulesets/toy-ruleset.json` (the `economy` block only), `tests/fixtures/**` (DoD 8's entries only), T10's message catalog (the deposition line only)
+- **Scope**: Replace T08's quarterly billing and its non-payment rule with the original's, from [`upkeep-payment-and-desertion.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/upkeep-payment-and-desertion.md) (research `f50a4f6`). **Every rule below is transcribed from that report, not re-derived.** Billing is the first step of the quarter, before T35's rebuild and credit:
+  ```text
+  1a ships:      for each launched fleet (none under construction): treasury[owner] −= 3 × ships
+  1b armies:     for each army, slots 0 → 19:
+                   regular:    treasury[owner] −= (troops / 200) × price[type]        // no balance check
+                   mercenary:  if purse ≤ 0: supplies −= troops / 100; remove the unit
+                               else: purse −= ((troops / 200) × price[type] × quality) / 5
+                 then purse = max(0, purse); supplies = max(0, supplies)
+  1c city units: for each nation, each of its recruitment slots with troops > 0:
+                   treasury −= (troops / 200) × price[type]
+  ```
+  **Removing a unit** (`FUN_0044ac3c`) copies the army's last occupied slot into the hole and empties the last slot. The loop does not go back over the moved unit. An army left empty is deleted.
+
+  **Debt** is `treasury < −(wealth / 500)`, or `treasury < −20,000`, or `unity < 400`. It leads to **deposition** (`FUN_0044c8f0`):
+  - For an AI nation: after the quarter's income and unity update, if `Random(9) == 0` and it is in debt. The news line is "X depose their leader Y.".
+  - For a human nation: at the start of each of its turns, deterministically. The human's leader falls and the seat passes to the AI.
+  - The effects: `unity = max(unity, min(550, unity + 150))`; `treasury = treasury < 0 ? 0 : treasury + 1000`; relations −5 … −1 reset to 0.
+- **Done when**:
+  1. **Who pays**: the treasury pays regulars, recruitment slots and launched ships, with no balance check, so it may go negative. The army's own purse pays its mercenaries, and the treasury is never charged for them. Worked values from the report: 15,000 light infantry → **75**; 6,000 heavy infantry → **60**; the Gallic 6,438 light infantry at quality 8 → **51** from the purse; 90 ships → **270**. A fleet under construction pays nothing.
+  2. **Mercenary desertion**:
+     - a mercenary reached with the purse at or below 0 leaves as a whole unit, and the army's supplies drop by its `troops / 100`;
+     - the mercenary that drives the purse negative is still paid, and the purse is floored at 0 after the army;
+     - the last unit fills the hole and is not revisited: a scripted army reproduces the Carthaginian case (`1_cartago_271_spring_11 → summer_1`), where the Numidian unit moves into the Moor's slot 3 and survives;
+     - an unpaid all-mercenary army of `n` units loses `⌈n / 2⌉` of them;
+     - an army emptied this way is deleted.
+  3. **Regulars never leave for lack of pay**: a nation 900 in debt keeps every regular unit. There is no morale write and no news message on desertion.
+  4. **T08's rule is removed**: `UpkeepEnforcement`'s troop loss, `ArmyMutinied`, `UnpaidUpkeepTroopLossDivisor`, and the tests asserting them. So is the doc comment that assumes income is credited before billing. T02's round-trip tests stay green without the removed field.
+  5. **Garrison upkeep** (T08 follow-up [#76](https://github.com/diegoami/imperial_conquest_2/issues/76) N3, moved here from T13): every recruitment slot with troops, "not ready" ones included, is charged at the regular rate.
+  6. **Debt and deposition**:
+     - the debt test's three arms, one test each;
+     - AI deposition fires only when in debt and `Random(9) == 0`, using a stub RNG;
+     - the effects: Gaul, with unity 470 and treasury −2,658, ends at unity **550** and treasury **0**; a nation with a positive treasury gains **+1,000**; a −3 relation becomes 0;
+     - a human nation in debt at the start of its turn is deposed and its seat passes to the AI, with `_provenance` `[derived]` (code only).
+  7. **The deposition news line** comes from T10's catalog. The report says the new leader is "a different random name from the nation's 12-name table". The pool is located in the DAT at `0x2089A` (16 nations × 12 names, [investigations/dat-file-layout.md](investigations/dat-file-layout.md)), but the world data carries only one `LeaderName`. So the rename is a known-open data gap: keep `LeaderName`, tag it `[open]`, and don't invent names. Exporting the pool would be a T29 change.
+  8. **Corpus**: `economy.unpaidUpkeepConsequence` is corrected in place, same id: mercenary desertion by purse, not a troop loss. The report's constants are added (the debt line's `500` and `20,000`, `400`, `9`, `550`, `150` and `1,000`), and its filename joins `known-reports.json`. T04's four checks stay green.
+  9. `dotnet build IC2.sln` and `dotnet test IC2.sln` are green, and `git diff --name-only main...HEAD` lists only Owns paths.
+- **Hazards**:
+  - **Order**: billing runs first in the quarter, before T35's rebuild and credit. Nothing that decides payment reads the treasury. Only the debt test sees the treasury after both upkeep and that quarter's income: at the quarter for the AI, and at the start of the next turn for a human.
+  - **Code-only parts**, so tag them `[derived]`: the supply deduction on desertion (both save cases already had 0 supplies), deleting an emptied army, the human game-over, and the relation reset.
+  - **Mercenaries desert; nothing else does.** Don't reintroduce a treasury fallback: Carthage had 11,000 talents when its Moor unit left.
+  - T35, T37, T38 and this task all write `src/IC2.Engine/Economy/**`, `Ruleset.cs` and `toy-ruleset.json`. They are never in flight together.
+
 #### T13 Recruitment and mercenaries
 
-- **Status**: Blocked
 - **Design milestone**: **M4**. **Labels**: `phase:2 lane:engine`
 - **Branch**: `task/T13-recruitment` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
-- **Start after**: T08 · **Merge after**: T08, **T35**
+- **Start after**: T08 · **Merge after**: T08, **T35**, **T39**
 - **Owns**: `src/IC2.Engine/Recruitment/**`, `tests/IC2.Engine.Tests/Recruitment/**`
 - **Scope**: Standing recruitment from the treasury, into the per-nation recruitment slots T35 adds to the model, advancing each slot's state code through T06's `CityUnitStateCode`; the 50-slot mercenary pool; hire **from the hiring army's own purse**; the two distinct upkeep formulas; the unit slot `+0` regular/mercenary marker and the merge block it implies.
 - **Done when**:
   1. `cost = (troops / 200) × price[type]` reproduces every solved value in the corpus.
   2. The Felsina hire (6,438 troops, "very good") costs `(troops × quarterlyPrice[type]) / 1000 × quality` exactly, is debited from the **army purse** (treasury unchanged), and leaves the pool slot at the `0xFFFF` sentinel.
-  3. Mercenary quarterly upkeep = `(troops / 200) × price[type] × quality / 5`; a regular of identical troops/type costs exactly 5×/quality as much (one test asserting both).
+  3. Mercenary quarterly upkeep = `(troops / 200) × price[type] × quality / 5` (T39 charges it to the army's own purse, not the treasury; garrison upkeep is also T39's); a regular of identical troops/type costs exactly 5×/quality as much (one test asserting both).
   4. The 100,000-troop army cap blocks an over-cap recruitment with a typed rejection.
   5. A mercenary unit's slot `+0` is non-zero and a regular's is zero; merging the two is rejected.
   6. Emits its confirmed news message(s) via T10's catalog.
 
 #### T14 Naval
 
-- **Status**: Blocked
 - **Design milestone**: **M7**. **Labels**: `phase:2 lane:engine`
 - **Branch**: `task/T14-naval` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
-- **Start after**: T09 · **Merge after**: T07, T08, T09, **T32**
+- **Start after**: T09 · **Merge after**: T07, T08, T09, **T32**, **T38**
 - **Owns**: `src/IC2.Engine/Naval/**`, `tests/IC2.Engine.Tests/Naval/**`, `src/IC2.Engine/Model/Ruleset.cs` (the `NavalRules` record only — additive fields for the at-sea attrition constants below), `data/rulesets/toy-ruleset.json` (the `naval` block only)
 - **Scope**: Construction (10–100 clamp, `ships × 10`, 24-tick countdown at a named coastal city, coastal nations only); launch state (condition 100%, 50 tons, no money); condition as a strength multiplier and paid repair; transport; sea movement via T09's walker; join/split/transfer/scuttle; **and the per-turn at-sea attrition pass — storm damage, the zero-supply penalty, and loss at sea**. Naval **combat** is T16.
   - **At-sea attrition** (`design-audit.md` §2.9a, [`investigations/thracia-supply-morale.md`](investigations/thracia-supply-morale.md) §"Fleets", `[confirmed]` from code **and** empirically on the ten-save `1_cartago_271_*` series). Registers into the attrition phase T06 declares, and runs in this order — the order is part of the specification, because two of its consequences depend on it:
@@ -583,10 +692,12 @@ Conventions used by every entry:
   13. A fleet crossing condition `< 40` is destroyed and emits the literal *"A fleet belonging to X is lost at sea."* via T10's catalog, with its **ship count unchanged** in the turn it dies (the death check reads condition, not ships) — the distinguishing signature confirmed in `1_cartago_271_summer_9.sav`'s own news log. A fleet at condition 41 taking `dmg` that ends below 40 survives that turn and dies on the **next** check, because the death check precedes the zero-supply condition penalty.
   14. **`combat.onDefeat` and the ruleset presets do not alter this pass** — at-sea attrition is faithful under both `classical-faithful` and `improved`, asserted directly, so a later preset change cannot silently disable it.
 - **Known-open items to record, not resolve**: `FUN_004494e4` (the "away from friendly coast" test that doubles damage) and the `FleetRecord +24 == 1` predicate that triples it are inferred from magnitudes in the Cartago series, not decompiled (`investigations/thracia-supply-morale.md` §"Still open"). Implement both as named, `_provenance`-tagged ruleset values defaulting to the reports' stated behaviour and mark them `[derived]`; do **not** escalate — resolving them needs new decompilation work, not a user decision.
+- **Hazards**:
+  - **Price sea moves through T09's `MovementWalker` / `TerrainCostLookup`, never T02's `Ruleset.MoveCostFor`.** Only the former raises `UnpricedTerrainEncountered`, the fallback warning T09's DoD 5 guarantees (T09 follow-up [#74](https://github.com/diegoami/imperial_conquest_2/issues/74) N1).
+  - **Fleet resupply uses T38's `SupplyPurchase` (dialog, capped at `ships × 8`) and its automatic-resupply function.** It reads the result's `AdmittedTons`, and never re-implements a cap.
 
 #### T15 Army and unit management
 
-- **Status**: Blocked
 - **Design milestone**: **M14**. **Labels**: `phase:2 lane:engine`
 - **Branch**: `task/T15-army-management` · **Model/effort**: Sonnet / Medium · **Reviewer**: Sonnet / High
 - **Start after**: T13 · **Merge after**: T08, T13
@@ -602,9 +713,8 @@ Conventions used by every entry:
 
 #### T16 Battle resolution — all three variants
 
-- **Status**: Blocked
 - **Design milestone**: **M8**. **Labels**: `phase:2 lane:engine`
-- **Branch**: `task/T16-battle-resolution` · **Model/effort**: **Opus / High** · **Reviewer**: Opus / High **+ `/code-review --effort ultra`, run by the user personally** (not the orchestrator — see [build-process.md §3.5](build-process.md#35-where-the-code-review-skill-fits), the orchestrator's own pass isn't independent)
+- **Branch**: `task/T16-battle-resolution` · **Model/effort**: **Opus / High** · **Reviewer**: Opus / High **+ `/code-review --effort ultra`, run by the user personally** ([build-process.md §3.5](build-process.md#35-where-the-code-review-skill-fits): a pass launched from inside the pipeline isn't independent)
 - **Start after**: T07 · **Merge after**: T07, T08, T14, **T31**, **T33**
 - **Owns**: `src/IC2.Engine/Battle/**`, `tests/IC2.Engine.Tests/Battle/**`
 - **Scope**: The original's own instant resolver, ported — field, siege, and naval — producing one `BattleResult`. Emits a `PeaceTreatyTriggered` domain event rather than calling diplomacy, so this task and T19 do not depend on each other's internals. Also implements the `combat.onDefeat` ruleset flag (`game-design.md` Combat section, `design-audit.md` Q1 follow-up): `classical-faithful` keeps the confirmed annihilation outcome; `improved` scatters the loser's field/naval army instead. `BattleResult` must stay presentation-agnostic — nothing in its shape should need to change if a future optional battle screen is added later.
@@ -622,12 +732,11 @@ Conventions used by every entry:
   11. Under `improved`, when no valid tile exists even at distance 1 (fully boxed in), the outcome falls back to the `classical-faithful` destroyed result — assert this fallback with a scripted boxed-in fixture, not just the happy path.
   12. `combat.onDefeat` has **no effect on siege resolution** under either ruleset — a siege's defender outcome is unchanged by this flag (assert directly, since T17 depends on this staying true).
 - **Explicitly not a DoD**: the Rome/Gaul per-type numbers (99,882 → 63,282). Per `design-audit.md` Q1's answer, they came from the *tactical* path and this resolver cannot produce them. An implementer that tries to make them pass has misread the task.
-- **Hazards**: the type-effectiveness matrix, the 40% melee cap, the tactical morale array, the per-type shooting-vulnerability weight (unit-type table `+0x20`) and the **rout mechanic** (`FUN_00438fb0` — removal below `standardBattalionSize / 25`, the morale checks, and the −6/+5 morale cascade) are all **research held in reserve** for a possible future detailed resolver — they must not appear in this diff. A reviewer finding them rejects it. The rout mechanic is the most tempting of the set; resist it — the instant resolver annihilates the loser wholesale and tracks no per-unit attrition. The `improved` scatter outcome is `[designed, no original analogue]` — its survivor-fraction and scatter-tile-range constants are ruleset data with a documented placeholder default, not a value to hunt for in the decompilation. (`design-audit.md` **Q10**: the placeholder stays; it is not re-grounded on the rout thresholds.)
+- **Hazards**: the type-effectiveness matrix, the 40% melee cap, the tactical morale array, the per-type shooting-vulnerability weight (unit-type table `+0x20`) and the **rout mechanic** (`FUN_00438fb0` — removal below `standardBattalionSize / 25`, the morale checks, and the −6/+5 morale cascade) are all **research held in reserve** for a possible future detailed resolver — they must not appear in this diff. A reviewer finding them rejects it. The rout mechanic is the most tempting of the set; resist it — the instant resolver annihilates the loser wholesale and tracks no per-unit attrition. The `improved` scatter outcome is `[designed, no original analogue]` — its survivor-fraction and scatter-tile-range constants are ruleset data with a documented placeholder default, not a value to hunt for in the decompilation. (`design-audit.md` **Q10**: the placeholder stays; it is not re-grounded on the rout thresholds.) **Supplies after a battle** ([`supply-capacity-rounding.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/supply-capacity-rounding.md), code-read): when a tactical winner absorbs the loser's supplies, and when an instant-battle attacker wins, the result is capped at `min(sum, troops / 100)`. When an instant-battle defender wins, the supplies are a plain sum with no cap. Copy those caps exactly; don't make them consistent.
 - **One fixtures-corpus correction this task must make first**, under T04's existing `tests/fixtures/**` contract and the same top-up mechanism T08 DoD 13 uses: the corpus entry `battle.tactical.adjacencyPromotionRule` transcribes a **withdrawn** rule (`design-audit.md` §2.10). Mark it withdrawn — or replace it with the uniform 1-in-4 rule already present as `battle.instantResolver.promotionChance` — and fix that sibling entry's `note`, which still describes the adjacency rule as a live second rule on a second code path. Stale test data in this task's subject area; equally fine as a standalone issue done before T16 dispatches.
 
 #### T17 City capture, siege, and the defection cascade
 
-- **Status**: Blocked
 - **Design milestone**: **M9**. **Labels**: `phase:2 lane:engine`
 - **Branch**: `task/T17-capture-siege` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
 - **Start after**: T16 · **Merge after**: T16, **T33**, **T35**
@@ -647,7 +756,6 @@ Conventions used by every entry:
 
 #### T18 City orders (fortification)
 
-- **Status**: Blocked
 - **Design milestone**: **M10**. **Labels**: `phase:2 lane:engine`
 - **Branch**: `task/T18-city-orders` · **Model/effort**: **Haiku / Medium** · **Reviewer**: Sonnet / Medium
 - **Start after**: T17 · **Merge after**: T08, T17
@@ -664,7 +772,6 @@ Conventions used by every entry:
 
 #### T19 Diplomacy
 
-- **Status**: Blocked
 - **Design milestone**: **M11**. **Labels**: `phase:2 lane:engine`
 - **Branch**: `task/T19-diplomacy` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
 - **Start after**: T16 · **Merge after**: T06, T16, **T35**
@@ -685,7 +792,6 @@ Conventions used by every entry:
 
 #### T20 New-format save/load and versioning
 
-- **Status**: Blocked
 - **Design milestone**: **M16**. **Labels**: `phase:2 lane:engine`
 - **Branch**: `task/T20-save-load` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
 - **Start after**: T17 · **Merge after**: T15, T17, T19
@@ -699,7 +805,6 @@ Conventions used by every entry:
 
 #### T29 Export the shipped classical-mediterranean world and ruleset
 
-- **Status**: Blocked
 - **Design milestone**: none explicitly — the one-time export tool `game-design.md` §"The core data model" describes. **Labels**: `phase:2 lane:data local-only`
 - **Branch**: `task/T29-export-classical-world` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
 - **Start after**: T02, T04, **T30**, T34, T15, T17, T19, **T37** · **Merge after**: T02, T04, **T30**, T34, T15, T17, T19, **T37** — and merged before T21, T24, T26 and T36
@@ -719,7 +824,6 @@ Conventions used by every entry:
 
 #### T36 Author the `improved` preset ruleset
 
-- **Status**: Blocked
 - **Design milestone**: none explicitly — the second of the two shipped presets, `game-design.md` §"Two shipped presets", which answers audit Q3, Q4, Q5, Q6 and Q8 and adds `combat.onDefeat`. **Labels**: `phase:2 lane:data`
 - **Branch**: `task/T36-improved-preset` · **Model/effort**: **Haiku / Medium** · **Reviewer**: Sonnet / Medium
 - **Start after**: T29 · **Merge after**: T29 — and merged before T24
@@ -734,7 +838,6 @@ Conventions used by every entry:
 
 #### T21 Original-save import bridge
 
-- **Status**: Blocked
 - **Design milestone**: **M15**. **Labels**: `phase:2 lane:data local-only`
 - **Branch**: `task/T21-save-import` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
 - **Start after**: T20 · **Merge after**: T10, T20, T29, T30, T34
@@ -750,10 +853,9 @@ Conventions used by every entry:
 
 #### T22 AI
 
-- **Status**: Blocked
 - **Design milestone**: **M12**. **Labels**: `phase:2 lane:engine`
-- **Branch**: `task/T22-ai` · **Model/effort**: **Opus / Ultrahigh** · **Reviewer**: Opus / High **+ `/code-review --effort ultra`, run by the user personally** (not the orchestrator — see [build-process.md §3.5](build-process.md#35-where-the-code-review-skill-fits), the orchestrator's own pass isn't independent)
-- **Start after**: T19 · **Merge after**: T12, T15, T17, T18, T19
+- **Branch**: `task/T22-ai` · **Model/effort**: **Opus / Ultrahigh** · **Reviewer**: Opus / High **+ `/code-review --effort ultra`, run by the user personally** ([build-process.md §3.5](build-process.md#35-where-the-code-review-skill-fits): a pass launched from inside the pipeline isn't independent)
+- **Start after**: T19 · **Merge after**: T12, T15, T17, T18, T19, **T39**
 - **Owns**: `src/IC2.Engine/Ai/**`, `tests/IC2.Engine.Tests/Ai/**`
 - **Scope**: The heuristic four-phase AI from `game-design.md` §AI — economy, military, diplomacy, victory-awareness — scored per candidate action, no lookahead, tuned by per-nation personality parameters in scenario data.
 - **Done when**:
@@ -761,6 +863,7 @@ Conventions used by every entry:
   2. The whole 50-seed soak completes inside a stated wall-clock budget (proposed: 5 minutes) so it can run in CI, with the budget asserted by the test.
   3. Personality parameters demonstrably change behaviour: an `aggression: 0.9` nation attacks in a scripted state where an `aggression: 0.1` nation does not.
   4. Per-seed logs are written as a test artifact so a failing seed is reproducible from its number alone.
+  5. **The AI resupply pass** ([`supply-capacity-rounding.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/supply-capacity-rounding.md)): every AI turn, each AI army calls T38's automatic resupply against every non-hostile city within **4** tiles (`FUN_0044F31C` → `FUN_0044E41C`), and each AI fleet calls the fleet version. The pass never re-implements the caps. One scripted-state test covers each.
 - **Hazards**: the highest risk of a non-terminating soak, because the original's victory condition is total conquest. The turn cap is mandatory, not optional.
 
 ---
@@ -769,17 +872,18 @@ Conventions used by every entry:
 
 #### T23 Command layer and headless CLI harness
 
-- **Status**: Blocked
 - **Design milestone**: **M18** (headless half). **Labels**: `phase:3 lane:engine`
 - **Branch**: `task/T23-command-layer` · **Model/effort**: Sonnet / Medium · **Reviewer**: Sonnet / High
 - **Start after**: T17 · **Merge after**: T17, T19
 - **Owns**: `src/IC2.Cli/**`, `src/IC2.Engine/Presentation/**`, `tests/IC2.Engine.Tests/Presentation/**`
 - **Scope**: The headless boundary the Godot UI will bind to — view models for the contextual panel's selections (city / army / fleet / nation), and `IC2.Cli` as a scriptable play harness. Splitting this out of M18 is what makes the Godot lane small enough to serialize cheaply.
-- **Done when**: a committed script drives `IC2.Cli` to load a scenario, issue **one order of each command type**, and end a turn, exiting 0; its output matches a committed golden transcript exactly (determinism proves itself here).
+- **Done when**:
+  1. A committed script drives `IC2.Cli` to load a scenario, issue **one order of each command type**, and end a turn, exiting 0. Its output matches a committed golden transcript exactly (determinism proves itself here).
+  2. **A human army's move that ends against a non-hostile city resupplies it automatically**, through T38's automatic-resupply function (`TUnitMap_MoveHumanArmy` → `FUN_0044D734`'s tail, [`supply-capacity-rounding.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/supply-capacity-rounding.md)). The golden transcript includes one such move.
+- **Hazards**: move orders are priced through T09's `MovementWalker` / `TerrainCostLookup`, never T02's `Ruleset.MoveCostFor`, so the unpriced-terrain warning always fires (T09 follow-up [#74](https://github.com/diegoami/imperial_conquest_2/issues/74) N1).
 
 #### T24 Godot main game screen
 
-- **Status**: Blocked
 - **Design milestone**: **M18** (UI half). **Labels**: `phase:3 lane:ui single-instance`
 - **Branch**: `task/T24-godot-main-screen` · **Model/effort**: Sonnet / High · **Reviewer**: Sonnet / High **+ human visual review**
 - **Start after**: T23 · **Merge after**: T11, T23, T29, T34, T36
@@ -796,7 +900,6 @@ Conventions used by every entry:
 
 #### T25 Battle result, diplomacy, and hotseat handoff screens
 
-- **Status**: Blocked
 - **Design milestone**: **M18** (remaining screens). **Labels**: `phase:3 lane:ui single-instance`
 - **Branch**: `task/T25-godot-screens` · **Model/effort**: Sonnet / Medium · **Reviewer**: Sonnet / High **+ human visual review**
 - **Start after**: T24 · **Merge after**: T24
@@ -806,7 +909,6 @@ Conventions used by every entry:
 
 #### T26 Scenario authoring docs and example scenarios
 
-- **Status**: Blocked
 - **Design milestone**: **M19**. **Labels**: `phase:3 lane:data`
 - **Branch**: `task/T26-scenario-docs` · **Model/effort**: **Haiku / Medium** · **Reviewer**: Sonnet / Medium
 - **Start after**: T23 · **Merge after**: T23, T29
@@ -816,7 +918,6 @@ Conventions used by every entry:
 
 #### T27 Packaging
 
-- **Status**: Blocked
 - **Design milestone**: **M20**. **Labels**: `phase:3 lane:ui single-instance`
 - **Branch**: `task/T27-packaging` · **Model/effort**: Sonnet / Medium · **Reviewer**: Sonnet / High
 - **Start after**: T25 · **Merge after**: T25, T26
@@ -826,7 +927,6 @@ Conventions used by every entry:
 
 #### T28 Nightly regression and soak gate
 
-- **Status**: Blocked
 - **Design milestone**: none. **Labels**: `phase:3 lane:infra`
 - **Branch**: `task/T28-nightly-gate` · **Model/effort**: **Haiku / Low** · **Reviewer**: Sonnet / Medium
 - **Start after**: T22 · **Merge after**: T22
@@ -838,46 +938,49 @@ Conventions used by every entry:
 
 ## 3. Task index
 
-The doc→GitHub half of the cross-reference; each issue links back to its entry above. The **Status** column is synced with each entry's Status line by the post-merge documentation step ([build-process.md §4.8](build-process.md#48-documentation-update-after-every-merge)).
+The doc→GitHub half of the cross-reference; each issue links back to its entry above. Status is on the issue ([build-process.md §5](build-process.md#5-status-lives-on-github)).
 
-| Task | Title | Design M | Model | Effort | Reviewer | Merge after | Issue | Status |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| [T01](#t01-build-scaffolding-and-ci) | Build scaffolding and CI | — | Sonnet | Medium | Sonnet/High | — | [#1](https://github.com/diegoami/imperial_conquest_2/issues/1) | Merged (`a17d6e7`) |
-| [T02](#t02-core-domain-model-and-json-round-trip) | Core domain model | M1 | **Opus** | High | Opus/High + ultra | T01 | [#2](https://github.com/diegoami/imperial_conquest_2/issues/2) | Merged (`fea39d8`) |
-| [T03](#t03-engine-seams-rng-turn-pipeline-commands-events) | Engine seams | — | **Opus** | **Ultrahigh** | Opus/High + ultra | T02 | [#3](https://github.com/diegoami/imperial_conquest_2/issues/3) | Merged (`4f747fc`) |
-| [T04](#t04-fixtures-corpus) | Fixtures corpus | M1 | Sonnet | High | **Opus**/Medium | T01 | [#4](https://github.com/diegoami/imperial_conquest_2/issues/4) | Merged (`e7cab0c`) |
-| [T05](#t05-github-hygiene-templates-labels-codeowners) | GitHub hygiene | — | **Fable** | Low | Sonnet/Medium | — | [#5](https://github.com/diegoami/imperial_conquest_2/issues/5) | Merged (`4ab3344`) |
-| [T06](#t06-calendar-and-turn-sequencing) | Calendar and turns | M2 | Sonnet | Medium | Sonnet/High | T03, T04 | [#6](https://github.com/diegoami/imperial_conquest_2/issues/6) | Merged (`8b8007a`) |
-| [T07](#t07-strength-functions) | Strength functions | M5 | Sonnet | High | **Opus**/Medium | T03, T04, T31 | [#7](https://github.com/diegoami/imperial_conquest_2/issues/7) | Merged (`acd4098`) |
-| [T08](#t08-economy-supply-and-purses) | Economy and purses | M3 | Sonnet | High | **Opus**/Medium | T03, T04, T06, T32 | [#8](https://github.com/diegoami/imperial_conquest_2/issues/8) | In progress |
-| [T09](#t09-movement-and-terrain) | Movement and terrain | M6 | Sonnet | Medium | Sonnet/High | T03, T04 | [#9](https://github.com/diegoami/imperial_conquest_2/issues/9) | Merged (`e804f4f`) |
-| [T10](#t10-news-log-ring-buffer-and-message-catalog) | News log | M17 | **Haiku** | Medium | Sonnet/Medium | T03, T04 | [#10](https://github.com/diegoami/imperial_conquest_2/issues/10) | Ready |
-| [T11](#t11-asset-pack-loader-and-generated-placeholder-pack) | Asset pack | — | **Haiku** | Medium | Sonnet/Medium | T02 | [#11](https://github.com/diegoami/imperial_conquest_2/issues/11) | Ready |
-| [T12](#t12-victory-conditions) | Victory conditions | M13 | Sonnet | Medium | Sonnet/High | T03, T06 | [#12](https://github.com/diegoami/imperial_conquest_2/issues/12) | Ready |
-| [T13](#t13-recruitment-and-mercenaries) | Recruitment and mercenaries | M4 | Sonnet | High | **Opus**/Medium | T08, T35 | [#13](https://github.com/diegoami/imperial_conquest_2/issues/13) | Blocked |
-| [T14](#t14-naval) | Naval | M7 | Sonnet | High | **Opus**/Medium | T07, T08, T09, T32 | [#14](https://github.com/diegoami/imperial_conquest_2/issues/14) | Blocked |
-| [T15](#t15-army-and-unit-management) | Army/unit management | M14 | Sonnet | Medium | Sonnet/High | T08, T13 | [#15](https://github.com/diegoami/imperial_conquest_2/issues/15) | Blocked |
-| [T16](#t16-battle-resolution--all-three-variants) | Battle resolution | M8 | **Opus** | High | Opus/High + ultra | T07, T08, T14, T31, T33 | [#16](https://github.com/diegoami/imperial_conquest_2/issues/16) | Blocked |
-| [T17](#t17-city-capture-siege-and-the-defection-cascade) | Capture, siege, defection | M9 | Sonnet | High | **Opus**/Medium | T16, T33, T35 | [#17](https://github.com/diegoami/imperial_conquest_2/issues/17) | Blocked |
-| [T18](#t18-city-orders-fortification) | City orders | M10 | **Haiku** | Medium | Sonnet/Medium | T08, T17 | [#18](https://github.com/diegoami/imperial_conquest_2/issues/18) | Blocked |
-| [T19](#t19-diplomacy) | Diplomacy | M11 | Sonnet | High | **Opus**/Medium | T06, T16, T35 | [#19](https://github.com/diegoami/imperial_conquest_2/issues/19) | Blocked |
-| [T20](#t20-new-format-saveload-and-versioning) | Save/load and versioning | M16 | Sonnet | High | **Opus**/Medium | T15, T17, T19 | [#20](https://github.com/diegoami/imperial_conquest_2/issues/20) | Blocked |
-| [T21](#t21-original-save-import-bridge) | Original-save import | M15 | Sonnet | High | **Opus**/Medium | T10, T20, T29, T30, T34 | [#21](https://github.com/diegoami/imperial_conquest_2/issues/21) | Blocked |
-| [T22](#t22-ai) | AI | M12 | **Opus** | **Ultrahigh** | Opus/High + ultra | T12, T15, T17, T18, T19 | [#22](https://github.com/diegoami/imperial_conquest_2/issues/22) | Blocked |
-| [T23](#t23-command-layer-and-headless-cli-harness) | Command layer and CLI | M18 | Sonnet | Medium | Sonnet/High | T17, T19 | [#23](https://github.com/diegoami/imperial_conquest_2/issues/23) | Blocked |
-| [T24](#t24-godot-main-game-screen) | Godot main screen | M18 | Sonnet | High | Sonnet/High + human | T11, T23, T29, T34, T36 | [#24](https://github.com/diegoami/imperial_conquest_2/issues/24) | Blocked |
-| [T25](#t25-battle-result-diplomacy-and-hotseat-handoff-screens) | Godot screens | M18 | Sonnet | Medium | Sonnet/High + human | T24 | [#25](https://github.com/diegoami/imperial_conquest_2/issues/25) | Blocked |
-| [T26](#t26-scenario-authoring-docs-and-example-scenarios) | Scenario docs and examples | M19 | **Haiku** | Medium | Sonnet/Medium | T23, T29 | [#26](https://github.com/diegoami/imperial_conquest_2/issues/26) | Blocked |
-| [T27](#t27-packaging) | Packaging | M20 | Sonnet | Medium | Sonnet/High | T25, T26 | [#27](https://github.com/diegoami/imperial_conquest_2/issues/27) | Blocked |
-| [T28](#t28-nightly-regression-and-soak-gate) | Nightly gate | — | **Haiku** | Low | Sonnet/Medium | T22 | [#28](https://github.com/diegoami/imperial_conquest_2/issues/28) | Blocked |
-| [T29](#t29-export-the-shipped-classical-mediterranean-world-and-ruleset) | Export classical-mediterranean world | — | Sonnet | High | **Opus**/Medium | T02, T04, T30, T34, T15, T17, T19, T37 | [#32](https://github.com/diegoami/imperial_conquest_2/issues/32) | Blocked |
-| [T30](#t30-harden-ic2data-army-tombstones-and-the-dats-own-file-layout) | `IC2.Data`: tombstones + DAT layout | — | Sonnet | High | **Opus**/Medium | T01 | [#37](https://github.com/diegoami/imperial_conquest_2/issues/37) | Merged (`2d50081`) |
-| [T31](#t31-correct-rulesetsieges-defender-strength-field-identities) | Correct `Ruleset.Siege` defender fields | — | Sonnet | Medium | **Opus**/Medium | T02 | [#45](https://github.com/diegoami/imperial_conquest_2/issues/45) | Merged (`27d7b41`) |
-| [T32](#t32-make-t06s-calendar-tests-independent-of-later-systems) | Calendar tests independent of later systems | — | Sonnet | Low | Sonnet/High | T06 | [#60](https://github.com/diegoami/imperial_conquest_2/issues/60) | Merged (`2d72f7f`) |
-| [T33](#t33-complete-rulesetsiege-and-siegestrengthdefender-against-fun_0044a98c) | Complete `Ruleset.Siege` and `SiegeStrength.Defender` | — | Sonnet | Medium | **Opus**/Medium | T31, T07 | [#61](https://github.com/diegoami/imperial_conquest_2/issues/61) | Ready |
-| [T34](#t34-ic2data-follow-ups-a-path-independent-corpus-fixture-and-the-pending-offer-block) | `IC2.Data` follow-ups + corpus fixture | — | Sonnet | Medium | **Opus**/Medium | T30 | [#62](https://github.com/diegoami/imperial_conquest_2/issues/62) | Ready |
-| [T35](#t35-model-nation-tax-base-recruitment-slots-and-the-pending-diplomatic-offer) | Model: tax base, recruitment slots, pending offer | — | Sonnet | High | **Opus**/High | T08 | [#63](https://github.com/diegoami/imperial_conquest_2/issues/63) | Blocked |
-| [T36](#t36-author-the-improved-preset-ruleset) | Author the `improved` preset | — | **Haiku** | Medium | Sonnet/Medium | T29 | [#64](https://github.com/diegoami/imperial_conquest_2/issues/64) | Blocked |
-| [T37](#t37-city-supply-production-and-famine-unrest) | City supply and famine unrest | — | Sonnet | Medium | **Opus**/Medium | T08, T35 | [#70](https://github.com/diegoami/imperial_conquest_2/issues/70) | Blocked |
+| Task | Title | Design M | Model | Effort | Reviewer | Merge after | Issue |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| [T01](#t01-build-scaffolding-and-ci) | Build scaffolding and CI | — | Sonnet | Medium | Sonnet/High | — | [#1](https://github.com/diegoami/imperial_conquest_2/issues/1) |
+| [T02](#t02-core-domain-model-and-json-round-trip) | Core domain model | M1 | **Opus** | High | Opus/High + ultra | T01 | [#2](https://github.com/diegoami/imperial_conquest_2/issues/2) |
+| [T03](#t03-engine-seams-rng-turn-pipeline-commands-events) | Engine seams | — | **Opus** | **Ultrahigh** | Opus/High + ultra | T02 | [#3](https://github.com/diegoami/imperial_conquest_2/issues/3) |
+| [T04](#t04-fixtures-corpus) | Fixtures corpus | M1 | Sonnet | High | **Opus**/Medium | T01 | [#4](https://github.com/diegoami/imperial_conquest_2/issues/4) |
+| [T05](#t05-github-hygiene-templates-labels-codeowners) | GitHub hygiene | — | **Fable** | Low | Sonnet/Medium | — | [#5](https://github.com/diegoami/imperial_conquest_2/issues/5) |
+| [T06](#t06-calendar-and-turn-sequencing) | Calendar and turns | M2 | Sonnet | Medium | Sonnet/High | T03, T04 | [#6](https://github.com/diegoami/imperial_conquest_2/issues/6) |
+| [T07](#t07-strength-functions) | Strength functions | M5 | Sonnet | High | **Opus**/Medium | T03, T04, T31 | [#7](https://github.com/diegoami/imperial_conquest_2/issues/7) |
+| [T08](#t08-economy-supply-and-purses) | Economy and purses | M3 | Sonnet | High | **Opus**/Medium | T03, T04, T06, T32 | [#8](https://github.com/diegoami/imperial_conquest_2/issues/8) |
+| [T09](#t09-movement-and-terrain) | Movement and terrain | M6 | Sonnet | Medium | Sonnet/High | T03, T04 | [#9](https://github.com/diegoami/imperial_conquest_2/issues/9) |
+| [T10](#t10-news-log-ring-buffer-and-message-catalog) | News log | M17 | Sonnet | Medium | **Opus**/Medium | T03, T04, T40 | [#10](https://github.com/diegoami/imperial_conquest_2/issues/10) |
+| [T11](#t11-asset-pack-loader-and-generated-placeholder-pack) | Asset pack | — | **Haiku** | Medium | Sonnet/Medium | T02 | [#11](https://github.com/diegoami/imperial_conquest_2/issues/11) |
+| [T12](#t12-victory-conditions) | Victory conditions | M13 | Sonnet | Medium | Sonnet/High | T03, T06 | [#12](https://github.com/diegoami/imperial_conquest_2/issues/12) |
+| [T13](#t13-recruitment-and-mercenaries) | Recruitment and mercenaries | M4 | Sonnet | High | **Opus**/Medium | T08, T35, T39 | [#13](https://github.com/diegoami/imperial_conquest_2/issues/13) |
+| [T14](#t14-naval) | Naval | M7 | Sonnet | High | **Opus**/Medium | T07, T08, T09, T32, T38 | [#14](https://github.com/diegoami/imperial_conquest_2/issues/14) |
+| [T15](#t15-army-and-unit-management) | Army/unit management | M14 | Sonnet | Medium | Sonnet/High | T08, T13 | [#15](https://github.com/diegoami/imperial_conquest_2/issues/15) |
+| [T16](#t16-battle-resolution--all-three-variants) | Battle resolution | M8 | **Opus** | High | Opus/High + ultra | T07, T08, T14, T31, T33 | [#16](https://github.com/diegoami/imperial_conquest_2/issues/16) |
+| [T17](#t17-city-capture-siege-and-the-defection-cascade) | Capture, siege, defection | M9 | Sonnet | High | **Opus**/Medium | T16, T33, T35 | [#17](https://github.com/diegoami/imperial_conquest_2/issues/17) |
+| [T18](#t18-city-orders-fortification) | City orders | M10 | **Haiku** | Medium | Sonnet/Medium | T08, T17 | [#18](https://github.com/diegoami/imperial_conquest_2/issues/18) |
+| [T19](#t19-diplomacy) | Diplomacy | M11 | Sonnet | High | **Opus**/Medium | T06, T16, T35 | [#19](https://github.com/diegoami/imperial_conquest_2/issues/19) |
+| [T20](#t20-new-format-saveload-and-versioning) | Save/load and versioning | M16 | Sonnet | High | **Opus**/Medium | T15, T17, T19 | [#20](https://github.com/diegoami/imperial_conquest_2/issues/20) |
+| [T21](#t21-original-save-import-bridge) | Original-save import | M15 | Sonnet | High | **Opus**/Medium | T10, T20, T29, T30, T34 | [#21](https://github.com/diegoami/imperial_conquest_2/issues/21) |
+| [T22](#t22-ai) | AI | M12 | **Opus** | **Ultrahigh** | Opus/High + ultra | T12, T15, T17, T18, T19, T39 | [#22](https://github.com/diegoami/imperial_conquest_2/issues/22) |
+| [T23](#t23-command-layer-and-headless-cli-harness) | Command layer and CLI | M18 | Sonnet | Medium | Sonnet/High | T17, T19 | [#23](https://github.com/diegoami/imperial_conquest_2/issues/23) |
+| [T24](#t24-godot-main-game-screen) | Godot main screen | M18 | Sonnet | High | Sonnet/High + human | T11, T23, T29, T34, T36 | [#24](https://github.com/diegoami/imperial_conquest_2/issues/24) |
+| [T25](#t25-battle-result-diplomacy-and-hotseat-handoff-screens) | Godot screens | M18 | Sonnet | Medium | Sonnet/High + human | T24 | [#25](https://github.com/diegoami/imperial_conquest_2/issues/25) |
+| [T26](#t26-scenario-authoring-docs-and-example-scenarios) | Scenario docs and examples | M19 | **Haiku** | Medium | Sonnet/Medium | T23, T29 | [#26](https://github.com/diegoami/imperial_conquest_2/issues/26) |
+| [T27](#t27-packaging) | Packaging | M20 | Sonnet | Medium | Sonnet/High | T25, T26 | [#27](https://github.com/diegoami/imperial_conquest_2/issues/27) |
+| [T28](#t28-nightly-regression-and-soak-gate) | Nightly gate | — | **Haiku** | Low | Sonnet/Medium | T22 | [#28](https://github.com/diegoami/imperial_conquest_2/issues/28) |
+| [T29](#t29-export-the-shipped-classical-mediterranean-world-and-ruleset) | Export classical-mediterranean world | — | Sonnet | High | **Opus**/Medium | T02, T04, T30, T34, T15, T17, T19, T37 | [#32](https://github.com/diegoami/imperial_conquest_2/issues/32) |
+| [T30](#t30-harden-ic2data-army-tombstones-and-the-dats-own-file-layout) | `IC2.Data`: tombstones + DAT layout | — | Sonnet | High | **Opus**/Medium | T01 | [#37](https://github.com/diegoami/imperial_conquest_2/issues/37) |
+| [T31](#t31-correct-rulesetsieges-defender-strength-field-identities) | Correct `Ruleset.Siege` defender fields | — | Sonnet | Medium | **Opus**/Medium | T02 | [#45](https://github.com/diegoami/imperial_conquest_2/issues/45) |
+| [T32](#t32-make-t06s-calendar-tests-independent-of-later-systems) | Calendar tests independent of later systems | — | Sonnet | Low | Sonnet/High | T06 | [#60](https://github.com/diegoami/imperial_conquest_2/issues/60) |
+| [T33](#t33-complete-rulesetsiege-and-siegestrengthdefender-against-fun_0044a98c) | Complete `Ruleset.Siege` and `SiegeStrength.Defender` | — | Sonnet | Medium | **Opus**/Medium | T31, T07 | [#61](https://github.com/diegoami/imperial_conquest_2/issues/61) |
+| [T34](#t34-ic2data-follow-ups-a-path-independent-corpus-fixture-and-the-pending-offer-block) | `IC2.Data` follow-ups + corpus fixture | — | Sonnet | Medium | **Opus**/Medium | T30 | [#62](https://github.com/diegoami/imperial_conquest_2/issues/62) |
+| [T35](#t35-model-nation-tax-base-recruitment-slots-and-the-pending-diplomatic-offer) | Model: tax base, recruitment slots, pending offer | — | Sonnet | High | **Opus**/High | T08 | [#63](https://github.com/diegoami/imperial_conquest_2/issues/63) |
+| [T36](#t36-author-the-improved-preset-ruleset) | Author the `improved` preset | — | **Haiku** | Medium | Sonnet/Medium | T29 | [#64](https://github.com/diegoami/imperial_conquest_2/issues/64) |
+| [T37](#t37-city-supply-production-and-famine-unrest) | City supply and famine unrest | — | Sonnet | Medium | **Opus**/Medium | T08, T35 | [#70](https://github.com/diegoami/imperial_conquest_2/issues/70) |
+| [T38](#t38-supply-dialog-follow-ups-treasury--purse-transfers-and-automatic-resupply) | Supply dialog follow-ups + auto-resupply | — | Sonnet | High | **Opus**/Medium | T08 | [#78](https://github.com/diegoami/imperial_conquest_2/issues/78) |
+| [T39](#t39-quarterly-upkeep-who-pays-mercenary-desertion-and-deposition-for-debt) | Upkeep billing correction | — | Sonnet | High | **Opus**/Medium | T08, T35 | [#81](https://github.com/diegoami/imperial_conquest_2/issues/81) |
+| [T40](#t40-expose-the-runs-published-events-to-systems-a-t03-seam) | Published-events seam (T03) | — | Sonnet | Medium | **Opus**/Medium | T03 | [#84](https://github.com/diegoami/imperial_conquest_2/issues/84) |
 
-**Totals** — 37 tasks: 4 Opus, 26 Sonnet, 6 Haiku, 1 Fable. Effort: 2 Ultrahigh, 15 High, 17 Medium, 3 Low. 11 merged as of `e804f4f`.
+**Totals** — 40 tasks: 4 Opus, 30 Sonnet, 5 Haiku, 1 Fable. Effort: 2 Ultrahigh, 17 High, 18 Medium, 3 Low.

@@ -1,47 +1,31 @@
 # Operating guide
 
-The entry point for anyone operating the Imperial Conquest 2 project — the user, and every agent session. It says where the build stands, where everything lives, how the sessions and skills are run, and which rules and preferences apply. The process contract is [build-process.md](build-process.md); the tasks are in [task-catalogue.md](task-catalogue.md).
+This is the entry point for anyone operating the Imperial Conquest 2 project: the user, and every agent session. It says where to find the build's status, where everything lives, how tasks are run, and which rules and preferences apply. The process contract is [build-process.md](build-process.md), and the tasks are in [task-catalogue.md](task-catalogue.md).
 
 ---
 
-## 1. Current state
+## 1. Where the build stands
 
-A snapshot written by the documentation step ([build-process.md §4.8](build-process.md#48-documentation-update-after-every-merge), location A2) and checked against the labels every tick; between syncs, [tracking issue #29](https://github.com/diegoami/imperial_conquest_2/issues/29) and the GitHub labels are authoritative.
+**GitHub labels are the only status.** No document carries a snapshot ([build-process.md §5](build-process.md#5-status-lives-on-github)). To see where things stand:
 
-- **As of**: `e804f4f` (T09 merged).
-- **Phase**: Phase 0 (foundation) merged; Phase 1 (pure rules) under way.
-- **Merged — 11 of 37**: T01, T02, T03, T04, T05, T06, T07, T09, T30, T31, T32. Per-task status and merge commits: [task index](task-catalogue.md#3-task-index).
-- **In progress**: T08 (#8) — economy, supply and purses, in user-authorized rework round 3, scope limited to review finding R1 (the one-ton supply-capacity disagreement between the decompiled `troops / 100` cap and the confirmed 482 t reading) and the provenance text it names — no longer escalated ([issue #8](https://github.com/diegoami/imperial_conquest_2/issues/8)).
-- **Ready**: T10, T11, T12, T33, T34.
-- **Next (planner)**: T08's round-3 implementer re-runs the DoD lines against the amended catalogue entry and re-requests review, scoped to finding R1 only; a further failing review escalates. T09 (#9) merged; its non-blocking review follow-up is filed as [#74](https://github.com/diegoami/imperial_conquest_2/issues/74), `triage:needed`. The orchestrator mandate continues dispatching the rest of scope: T10, T11, T12, T33, T34 remain to dispatch ([build-process.md §5.1](build-process.md#51-who-runs-it)).
-- **Open bugs** ([build-process.md §4.7](build-process.md#the-triage-queue)): [#46](https://github.com/diegoami/imperial_conquest_2/issues/46) `triage:scheduled` → T33 (Blocks: T16, T17); [#47](https://github.com/diegoami/imperial_conquest_2/issues/47) `triage:scheduled` → T33 (Blocks: T16, T17); [#52](https://github.com/diegoami/imperial_conquest_2/issues/52) `triage:scheduled` → T33 (not blocking); [#57](https://github.com/diegoami/imperial_conquest_2/issues/57) `triage:scheduled` → T34 (not blocking); [#58](https://github.com/diegoami/imperial_conquest_2/issues/58) `triage:scheduled` → T35 (`blocking` — Blocks: T13, T17, T19); [#59](https://github.com/diegoami/imperial_conquest_2/issues/59) `triage:scheduled` → T35 (not blocking); [#68](https://github.com/diegoami/imperial_conquest_2/issues/68) `triage:scheduled` → T35 (not blocking); [#69](https://github.com/diegoami/imperial_conquest_2/issues/69) `triage:scheduled` → T37 (not blocking).
-- **Open review follow-ups** (non-blocking, [build-process.md §4.5](build-process.md#45-rework)): [#40](https://github.com/diegoami/imperial_conquest_2/issues/40) (T30) `triage:scheduled` → T34 (items 1–7) and T24 (item 2's `MapViewer.cs` half, DoD 6); [#43](https://github.com/diegoami/imperial_conquest_2/issues/43) (T06) `triage:scheduled` → T32 (test-infra items, DoD 3) and T17 (seat-rotation elimination handling, DoD 8); [#49](https://github.com/diegoami/imperial_conquest_2/issues/49) (T07) `triage:scheduled` → T33 (DoD 6); [#67](https://github.com/diegoami/imperial_conquest_2/issues/67) (T32) `triage:deferred` — 1 non-blocking review item (testbed registry caching asymmetry), deliberately deferred (documented, intentional asymmetry vs. T03's `CoreTestbed`); [#72](https://github.com/diegoami/imperial_conquest_2/issues/72) (T08) `triage:scheduled` → T35 (exact quarterly loyalty draws, added once T08 merges); [#74](https://github.com/diegoami/imperial_conquest_2/issues/74) (T09) `triage:needed` — 2 non-blocking review items (N1: `TerrainCostLookup`/`Ruleset.MoveCostFor` duplication, candidate T14 or T23; N2: missing steep-Bresenham test case, candidate the next task touching `tests/IC2.Engine.Tests/Movement/**`), not yet triaged.
-- **Runnable today**: tests only. `dotnet build IC2.sln`; `dotnet test IC2.sln` — 319 tests (241 engine, 78 data); 65 of the data tests read the original files and skip without `assets.local.ini`. The first runnable program is T23's CLI; the first UI is T24.
+```bash
+gh issue list --label task --state all --json number,title,labels --jq '.[] | "\(.number)\t\(.title)\t\([.labels[].name | select(startswith("status:"))] | join(","))"'
+gh issue list --label task --label status:ready          # what can run next
+gh issue list --label triage:needed --state open         # untriaged bugs and follow-ups
+gh issue list --label bug --state open                   # all open bugs
+```
+
+On the web, use [task issues](https://github.com/diegoami/imperial_conquest_2/issues?q=label%3Atask), [pull requests](https://github.com/diegoami/imperial_conquest_2/pulls), [milestones](https://github.com/diegoami/imperial_conquest_2/milestones) (one per phase), and [Actions](https://github.com/diegoami/imperial_conquest_2/actions), which runs build and test on every push and PR. A release gate's progress is `gh issue list --label task --label release:<version> --state all` ([release-plan.md](release-plan.md)).
 
 ### 1.1 What becomes runnable, and when
 
 | After | What exists | Can you run it? |
 | --- | --- | --- |
 | Phase 0 (T01–T05, T30, T31) | Solution, CI, domain model, fixtures corpus, engine seams, hardened `IC2.Data` | `dotnet build` / `dotnet test` only |
-| Phases 1–2 (T06–T22, T29, T32–T36) | The rule subsystems, then recruitment, naval, battle, diplomacy, AI; the exported 334-city world, `classical-faithful` ruleset and classical scenario (T29), and the `improved` preset (T36) | Only through their tests |
-| **T23** | `IC2.Cli`, a scriptable headless play harness | **First thing you can run**: load a scenario, issue orders, end turns, text output |
-| **T24** | Godot main screen, New Game flow, the ruleset chooser | **First thing that looks like a game** |
-| T25–T28 | Remaining screens, packaging, the nightly gate | A complete, playable build |
-
-### 1.2 Where to look for live progress
-
-| Where | What it shows |
-| --- | --- |
-| [Issue #29](https://github.com/diegoami/imperial_conquest_2/issues/29), pinned | The dashboard: one status table per orchestrator tick. |
-| #29's orchestrator-state comment (starts `<!-- orchestrator-state -->`) | The orchestrator's mandate, current task and phase, and open escalations — intent only; the labels are the facts ([build-process.md §5.2](build-process.md#52-where-the-state-lives)). |
-| Task issues, `status:*` labels | Each task's exact stage (`gh issue list --label status:in-review`, etc.). |
-| `bug` label | Defects in merged code (`gh issue list --label bug --state open`). |
-| `triage:*` labels | The planner's queue of bugs and follow-ups: `triage:needed` (untriaged — `gh issue list --label triage:needed --state open`), `triage:scheduled` (folded into a task or given a correction task), `triage:deferred` (deferred with a reason) — [build-process.md §4.7](build-process.md#the-triage-queue). |
-| `blocking` label | Bugs that block at least one task; each opens with a `Blocks: T<nn>` line ([build-process.md §4.7](build-process.md#what-blocking-means)). `gh issue list --label blocking --state open`. |
-| Pull requests | One per dispatched task, with the reviewer's findings comment and CI. |
-| Milestones | One per phase, with GitHub's progress bar. |
-| `release:*` labels | Which release a task gates ([release-plan.md](release-plan.md)). |
-| [Actions](https://github.com/diegoami/imperial_conquest_2/actions) | Build and test on every push and PR. |
+| Phases 1–2 (T06–T22, T29, T32–T40) | The rule subsystems, then recruitment, naval, battle, diplomacy and the AI. Also the exported 334-city world, the `classical-faithful` ruleset and classical scenario (T29), and the `improved` preset (T36) | Only through their tests |
+| **T23** | `IC2.Cli`, a scriptable headless play harness | **The first thing you can run**: load a scenario, issue orders, end turns, read text output |
+| **T24** | Godot main screen, New Game flow, the ruleset chooser | **The first thing that looks like a game** |
+| T25–T28 | The remaining screens, packaging, the nightly gate | A complete, playable build |
 
 ---
 
@@ -49,128 +33,141 @@ A snapshot written by the documentation step ([build-process.md §4.8](build-pro
 
 ### 2.1 The two repositories
 
-- **This repository**, [`diegoami/imperial_conquest_2`](https://github.com/diegoami/imperial_conquest_2) — design, plans, and all code (`IC2.Data`, `IC2.Inspect`, `IC2.Engine`, `IC2.Cli`, `godot/`). Local checkout: `C:\Users\diego\projects\imperial_conquest_2`.
-- **The research repository**, [`diegoami/imperial-conquest-2-research`](https://github.com/diegoami/imperial-conquest-2-research) — every reverse-engineering report (`docs/reports/`, 47 reports), the roadmap, the decompilation plan, research notes. Read with `gh api repos/diegoami/imperial-conquest-2-research/contents/<path>`; writing needs a fresh clone into a scratch directory. For static-analysis work, start from its `docs/decompilation-plan.md`, the live record of what has been decompiled.
+- **This repository**, [`diegoami/imperial_conquest_2`](https://github.com/diegoami/imperial_conquest_2): design, plans, and all code (`IC2.Data`, `IC2.Inspect`, `IC2.Engine`, `IC2.Cli`, `godot/`).
+  - The main checkout is `C:\Users\diego\projects\imperial_conquest_2` and belongs to the main session.
+  - Agents' worktrees live under `C:\Users\diego\projects\ic2-work\`.
+- **The research repository**, [`diegoami/imperial-conquest-2-research`](https://github.com/diegoami/imperial-conquest-2-research): every reverse-engineering report (`docs/reports/`), the roadmap, the decompilation plan and the research notes.
+  - Its local checkout is `C:\Users\diego\projects\RE-imperial-conquest-2`. Run `git pull --ff-only` before writing to it.
+  - For static-analysis work, start from its `docs/decompilation-plan.md`, the live record of what has been decompiled.
 
 | Document | What it is |
 | --- | --- |
-| [README.md](../README.md) | Front door: what the project is, current state in brief, how to build, the inspector tools |
+| [README.md](../README.md) | The front door: what the project is, how to build it, the inspector tools |
 | [operating-guide.md](operating-guide.md) | This document |
-| [CLAUDE.md](../CLAUDE.md) | Auto-loaded into every Claude Code session: a pointer to this guide and the must-never-forget rules |
-| [build-process.md](build-process.md) | Process contract: roles, review and merge, orchestrator loop, bug list, documentation step, prompt templates, `/build-tick` |
-| [task-catalogue.md](task-catalogue.md) | The 37 tasks, the dependency graph, the task index and status |
+| [CLAUDE.md](../CLAUDE.md) | Auto-loaded into every Claude Code session: a pointer to this guide, and the rules that must never be forgotten |
+| [build-process.md](build-process.md) | The process contract: roles, the task loop, review gates, bugs and follow-ups, prompt templates, `/run-task` |
+| [task-catalogue.md](task-catalogue.md) | The tasks, the dependency graph, and the task index |
 | [game-design.md](game-design.md) | What is being built |
 | [design-audit.md](design-audit.md) | What the evidence supports, and the design questions Q1–Q10 |
 | [release-plan.md](release-plan.md) | Versions, release gates, release notes, the release checklist |
 | [evidence-pipeline.md](evidence-pipeline.md) | The `/process-evidence` pipeline and its skill text |
-| [investigations/README.md](investigations/README.md) | Index of this repo's evidence write-ups |
+| [investigations/README.md](investigations/README.md) | Index of this repository's own evidence write-ups |
 
 ### 2.2 The original game files
 
-Never in either repository — and neither is anything derived from them: the Ghidra project and the decompiled-text dumps under `%LOCALAPPDATA%\ReTools` stay local too. `assets.local.ini` at this repo's root (git-ignored, copied from `assets.example.ini`) points at the user's own installation, currently `C:\Users\diego\Documents\imp_conq_original` (a local git repository of its own). If it is missing, ask the user to configure it; never guess a path. Inside that directory:
+The original game files are never in either repository, and neither is anything derived from them. The Ghidra project and the decompiled-text dumps under `%LOCALAPPDATA%\ReTools` stay local too.
+
+`assets.local.ini` at this repository's root points at the user's own installation. It is git-ignored and copied from `assets.example.ini`. The installation is currently `C:\Users\diego\Documents\imp_conq_original`, which is a local git repository of its own. If the file is missing, ask the user to configure it; never guess a path.
+
+Inside that directory:
 
 | Folder | Holds |
 | --- | --- |
-| `saves/` + `saves-processed/` | Save files; move a save to `saves-processed/` once a report cites it |
+| `saves/` + `saves-processed/` | Save files. Move a save to `saves-processed/` once a report cites it. |
 | `recordings/` + `recordings-processed/` | Screen recordings (`.mp4`), same convention |
 | `screenshots/` + `screenshots-processed/` | Screenshots (`<save-number>.<image-number>.png`), same convention |
-| `notes/` | The user's session notes: a save pair, an optional recording, the events observed between them |
-| (root) | `Imperial Conquest 2.exe`/`.dat`/`.hlp`; `WAVS/` (converted to 16-bit/44.1 kHz PCM — the untouched originals are in `WAVS - Copy/`); `patch_exe.py` (builds instant-battle and message-pumping EXE variants for recording). The in-game battle pacing delay is a per-nation preference (`TBattleDelays` dialog) and can be set to zero from inside the game. |
+| `notes/` | The user's session notes: a save pair, an optional recording, and the events observed between them |
+| (root) | See below |
+
+The root holds:
+- `Imperial Conquest 2.exe`, `.dat` and `.hlp`;
+- `WAVS/`, converted to 16-bit/44.1 kHz PCM; the untouched originals are in `WAVS - Copy/`;
+- `patch_exe.py`, which builds instant-battle and message-pumping EXE variants for recording.
+
+The in-game battle pacing delay is a per-nation preference (the `TBattleDelays` dialog) and can be set to zero from inside the game.
 
 ### 2.3 Local toolchain (outside both repositories)
 
-- `gh` (authenticated as `diegoami`), `jq`, Python 3.14, Node, the .NET 10 SDK, Godot 4.7.2 (.NET).
-- **ffmpeg** at `%LOCALAPPDATA%\ReTools\ffmpeg-master-latest-win64-gpl\bin\ffmpeg.exe` — `ffmpeg -ss <startSeconds> -i "<recording.mp4>" -vf fps=1 -frames:v <N> <outdir>/f_%03d.png`, then read the frames. The tactical battle's combat-resolution panel gives exact per-exchange troop counts, and the user will record more battles on request.
-- **`%LOCALAPPDATA%\ReTools\`** — Temurin JDK 21 (`jdk-21.0.12.1+1\`), Ghidra 12.1.3 (`ghidra_12.1.3_PUBLIC\`), the imported and analysed project (`ghidra_projects\IC2\`), and `scripts\`: `ExportFunctions.java`, `ExportAddresses.java` (works on mid-function addresses), `ExportAllInRange.java`, `FindXrefs.java`, `FindCallers.java`, `FindString.java`, `DumpMemory.java`, `ImportDelphiSymbols.java`, plus `delphi_symbols.tsv`/`.json` (282 method names across 31 classes — look an address up here before deriving one) and `all_app_functions.txt` (every function in 0x401000–0x460000, decompiled — grep this before running Ghidra).
-- To run Ghidra headless: set `$env:JAVA_HOME` to the JDK, then `ghidra_12.1.3_PUBLIC\support\analyzeHeadless.bat <projectDir> IC2 -process "Imperial Conquest 2.exe" -noanalysis -scriptPath <scriptsDir> -postScript <Script>.java <args...>`.
+- **General tools:** `gh` (authenticated as `diegoami`), `jq`, Python 3.14, Node, the .NET 10 SDK, Godot 4.7.2 (.NET).
+- **ffmpeg** is at `%LOCALAPPDATA%\ReTools\ffmpeg-master-latest-win64-gpl\bin\ffmpeg.exe`. To extract frames: `ffmpeg -ss <startSeconds> -i "<recording.mp4>" -vf fps=1 -frames:v <N> <outdir>/f_%03d.png`, then read the frames. The tactical battle's combat-resolution panel gives exact per-exchange troop counts, and the user will record more battles on request.
+- **`%LOCALAPPDATA%\ReTools\`** holds:
+  - Temurin JDK 21 (`jdk-21.0.12.1+1\`) and Ghidra 12.1.3 (`ghidra_12.1.3_PUBLIC\`);
+  - the imported and analysed project (`ghidra_projects\IC2\`);
+  - `scripts\`: `ExportFunctions.java`, `ExportAddresses.java` (works on mid-function addresses), `ExportAllInRange.java`, `FindXrefs.java`, `FindCallers.java`, `FindString.java`, `DumpMemory.java`, `DumpListing.java` (machine-code listings), `ImportDelphiSymbols.java`;
+  - `delphi_symbols.tsv`/`.json`: 282 method names across 31 classes. Look an address up here before deriving one.
+  - `all_app_functions.txt`: every function in 0x401000–0x460000, decompiled. Grep this before running Ghidra.
+- **To run Ghidra headless:** set `$env:JAVA_HOME` to the JDK, then run `ghidra_12.1.3_PUBLIC\support\analyzeHeadless.bat %LOCALAPPDATA%\ReTools\ghidra_projects IC2 -process "Imperial Conquest 2.exe" -noanalysis -scriptPath <scriptsDir> -postScript <Script>.java <args...>`.
 
 ---
 
 ## 3. How to operate the project
 
-### 3.1 Sessions and roles
+### 3.1 Who does what
 
-The **main session runs on Opus and is the planner.** It talks to the user, owns the task catalogue and the process, triages bugs and follow-ups, runs `/process-evidence`, and brings design decisions to the user. **At the start of every session, and before spawning any orchestrator mandate, it checks the triage queue** (`gh issue list --label triage:needed --state open`) and triages it or tells the user; it never spawns a mandate while an untriaged `blocking` bug (`gh issue list --label blocking --label triage:needed --state open`) names a task in that mandate's scope in its `Blocks:` line ([build-process.md §4.7](build-process.md#what-blocking-means)). To advance the build it **spawns an orchestrator agent with a bounded mandate** — a scope, stop conditions, and a report-back contract ([build-process.md §5.1](build-process.md#51-who-runs-it), template in [Appendix D](build-process.md#appendix-d-orchestrator-mandate-template)). **It never runs `/build-tick` itself, and never a `/loop` of it.**
+The **main session runs on Opus** and is the one the user talks to. It plans, runs tasks, triages bugs and follow-ups, runs `/process-evidence`, and brings design decisions and escalations to the user. There is no orchestrator agent.
 
 | Role | Dispatched as | Works in | Reference |
 | --- | --- | --- | --- |
-| Planner | The main session | Its own worktree for anything it writes; plan changes go to a branch for review | [build-process.md §3.1](build-process.md#31-the-roles), [§4.7](build-process.md#47-the-bug-list) |
-| Orchestrator | Agent spawned by the planner, one at a time, bounded mandate | GitHub only (labels, PRs, #29); writes no repository files | [build-process.md §5](build-process.md#5-the-orchestrator), [Appendix C](build-process.md#appendix-c-the-build-tick-skill) |
-| Implementer | Subagent of the orchestrator, model per catalogue | The shared main checkout, alone | [build-process.md Appendix A](build-process.md#appendix-a-implementer-prompt-template) |
-| Reviewer | Subagent of the orchestrator, model per catalogue | The shared main checkout, alone | [build-process.md Appendix B](build-process.md#appendix-b-reviewer-prompt-template) |
-| Documentation | Sonnet subagent of the orchestrator, after every merge | Its own worktree; pushes straight to `main` | [build-process.md §4.8](build-process.md#48-documentation-update-after-every-merge) |
-| Researcher | Opus subagents of the planner, the two `/process-evidence` stages | A research-repo clone; stage 2 in its own worktree here | [evidence-pipeline.md](evidence-pipeline.md) |
+| Main session | — | The main checkout. Plan and design changes go on a branch for the user's review. | [build-process.md §3.1](build-process.md#31-the-roles) |
+| Implementer | Subagent, model per the catalogue | Its own worktree under `ic2-work\` | [build-process.md Appendix A](build-process.md#appendix-a-implementer-prompt-template) |
+| Reviewer | Subagent, a different model per the catalogue | Its own worktree at the PR head | [build-process.md Appendix B](build-process.md#appendix-b-reviewer-prompt-template) |
+| Researcher | Opus subagent: the `/process-evidence` stages and targeted research passes | The research repo's checkout; stage 2 in its own worktree here | [evidence-pipeline.md](evidence-pipeline.md) |
 
-The orchestrator escalates to the planner, never to the user; the planner brings the decision to the user and replies to the orchestrator.
+### 3.2 Running tasks
 
-### 3.2 The two skills
+`/run-task [T<nn> ...]` runs tasks end to end, one at a time ([build-process.md Appendix C](build-process.md#appendix-c-the-run-task-skill)):
+1. The implementer builds the task.
+2. An independent reviewer checks it.
+3. Any rework goes back to the implementer, at most two rounds.
+4. The main session merges it.
+5. The main session applies the doc claims the merge made stale, and reports to the user.
 
-Both are **local, git-ignored installs** under `.claude/skills/`; the fenced text in the repository is the source of truth. If a skill is missing, reinstall it verbatim from its fenced block. Skills load when a session starts, so a newly installed skill needs a fresh session.
+Give it task ids to run them in order, or nothing to take the next ready task. It stops at any escalation.
+
+### 3.3 The two skills
+
+Both are **local, git-ignored installs** under `.claude/skills/`, and the fenced text in the repository is the source of truth. If a skill is missing, reinstall it verbatim from its fenced block. Skills load when a session starts, so a newly installed skill needs a fresh session.
 
 | Skill | Installed at | Reinstall from | What it does |
 | --- | --- | --- | --- |
-| `/build-tick` | `.claude/skills/build-tick/SKILL.md` | [build-process.md Appendix C](build-process.md#appendix-c-the-build-tick-skill) | One orchestration tick — run only by the orchestrator agent, never by the main session |
-| `/process-evidence [path]` | `.claude/skills/process-evidence/SKILL.md` | [evidence-pipeline.md](evidence-pipeline.md#the-actual-skill-file) | New saves/recordings/notes → research findings → design implications |
+| `/run-task [T<nn> ...]` | `.claude/skills/run-task/SKILL.md` | [build-process.md Appendix C](build-process.md#appendix-c-the-run-task-skill) | Runs build tasks end to end |
+| `/process-evidence [path]` | `.claude/skills/process-evidence/SKILL.md` | [evidence-pipeline.md](evidence-pipeline.md#the-actual-skill-file) | Turns new saves, recordings and notes into research findings, then into design implications |
 
-### 3.3 Working rules
+### 3.4 Working rules
 
-- **One code-modifying pipeline agent at a time.** Implementers and reviewers work alone in the shared main checkout; no worktrees for pipeline agents ([build-process.md §7](build-process.md#7-concurrency-single-instance-and-local-only)).
-- **The planner's own writes go in a worktree on a new branch.** Before touching the shared checkout at all — any file, tracked or git-ignored — check `ListAgents`. If a pipeline agent is live there, do the work in `git worktree add <sibling-path> -b <new-branch> origin/main`. Even a read-only pass gets its own worktree and branch, because the edits that follow will need one. The orchestrator writes no repository files at all.
-- **Branch or `main` is decided case by case.** Routine post-merge documentation sync goes straight to `main` (from a worktree); new or substantive content (a design correction, a new mechanism, catalogue changes) goes to a branch for review. When unsure, ask.
-- **Review is a label, not a GitHub review.** The reviewer applies `status:approved` or `status:rework`; the orchestrator reads the label ([build-process.md §4.1](build-process.md#41-the-path-a-task-takes)).
-- **Relay reviewer findings verbatim.** On rework, the implementer gets the reviewer's full findings, never a hand-picked subset.
-- **Pausing**: `gh issue edit 29 --add-label orchestrator:pause`, from any session. To resume, remove the label, then have the planner spawn or resume an orchestrator with a bounded mandate ([build-process.md §5.5](build-process.md#55-user-initiated-pause)).
-- **If a session is interrupted**, nothing is lost: the facts are in the labels (`status:*`, `review-round:*`, `docs:pending`, and `triage:*` for the bug/follow-up queue), the orchestrator's mandate and phase are in #29's state comment, and implementers push work in progress to their task branch. The planner spawns a fresh orchestrator with the recorded mandate, and it runs the recovery procedure first ([build-process.md §5.6](build-process.md#56-recovery-after-an-interruption)).
+- **One task in flight at a time.** Agents never work in the main checkout ([build-process.md §7](build-process.md#7-concurrency-single-instance-and-local-only)).
+- **Branch or `main`, case by case.** A merge's routine doc claims go straight to `main`. New or substantive content goes to a branch for review: a design correction, a new mechanism, catalogue changes. When unsure, ask.
+- **Review is a label, not a GitHub review.** The reviewer applies `status:approved` or `status:rework`, and the main session reads the label.
+- **Relay reviewer findings in full** on rework, never a hand-picked subset.
+- **Merging** happens on GitHub's side: `gh pr merge --squash`. Afterwards, `git pull` in the main checkout is safe, because no agent uses it.
+- **If a session is interrupted**, nothing is lost. The facts are in the labels and the PRs, and implementers push work in progress to their task branch. A new session picks up any task left in flight ([build-process.md §5](build-process.md#5-status-lives-on-github)).
 
-### 3.4 Bugs
+### 3.5 Bugs and follow-ups
 
-A defect in already-merged code is filed as a `bug` issue and the task that found it is suspended — never patched from inside another task's Owns list. Non-blocking review findings go to a `T<nn> follow-up` issue instead ([build-process.md §4.5](build-process.md#45-rework)). **Both are filed with `triage:needed`** — by the orchestrator, the documentation subagent, or `/process-evidence` stage 2 — and that label is the planner's queue. Triage replaces it with `triage:scheduled` (folded into a task — for a follow-up, the next task that touches its files — or a new correction task, named in a comment) or `triage:deferred` (reason in a comment); nothing is closed without one of the two ([build-process.md §4.7](build-process.md#the-triage-queue)). A bug that blocks a task also carries `blocking` and opens with `Blocks: T<nn>` — set by the finder for a task in flight, by triage for a future task, which also records the dependency in the task catalogue ([build-process.md §4.7](build-process.md#what-blocking-means)). The open ones and their triage state are listed in [§1](#1-current-state).
+- **Bugs.** A defect in already-merged code is filed as a `bug` issue, and the task that found it is suspended. It is never patched from inside another task's Owns list.
+- **Follow-ups.** Non-blocking review findings go into one `T<nn> follow-up` issue per merge.
+- **Triage.** Both are filed with `triage:needed`, which is the main session's queue. Triage decides one of three outcomes: a correction task, folding the item into an upcoming task, or closing it with a reason. It records the outcome in a comment and removes the label. When a bug blocks a task, the catalogue records the dependency ([build-process.md §4.6](build-process.md#46-bugs-and-follow-ups)).
 
-### 3.5 New evidence and how it reaches the build
+### 3.6 New evidence and how it reaches the build
 
-`/process-evidence` runs two sequential Opus stages ([evidence-pipeline.md](evidence-pipeline.md)): stage 1 writes the research-repo report (straight to that repo's `main`); stage 2 applies the post-merge documentation checklist ([build-process.md §4.8](build-process.md#48-documentation-update-after-every-merge)) to the new evidence, on a review branch. Each finding takes one of four routes:
+`/process-evidence` runs two sequential Opus stages ([evidence-pipeline.md](evidence-pipeline.md)):
+1. Stage 1 writes the research-repo report, straight to that repo's `main`.
+2. Stage 2 checks every document claim the new evidence touches, on a review branch.
 
-- a corrected fact or closed `[open]` item in `design-audit.md` / `game-design.md` (or another part-B document);
-- a defect in merged code → a `bug` issue labelled `triage:needed`, triaged by the planner;
-- a change to a not-yet-dispatched task's scope or DoD → a catalogue edit on the review branch (a DoD only changes by a reviewed commit, [build-process.md §4.4](build-process.md#44-the-dod-is-not-negotiable-by-an-agent));
+Each finding takes one of four routes:
+
+- a corrected fact, or a closed `[open]` item, in `design-audit.md`, `game-design.md` or another document;
+- a defect in merged code → a `bug` issue labelled `triage:needed`;
+- a change to a not-yet-dispatched task's scope or DoD → a catalogue edit on the review branch;
 - a design decision → posed to the user, never decided.
 
-### 3.6 Keeping documentation current
-
-Every merge is followed, in the same tick, by the documentation step ([build-process.md §4.8](build-process.md#48-documentation-update-after-every-merge)), which syncs all status locations — the catalogue's entries and index, [§1](#1-current-state) of this guide, the README's current-state summary, and [release-plan.md §2.1](release-plan.md#21-gate-progress) — and applies its claim checklist. Every tick also checks the catalogue's status against the GitHub labels and resyncs on drift.
-
-### 3.7 Merging to main without disturbing running agents
-
-For any merge while a pipeline agent may be working — a docs branch, a planner branch, a task PR:
-
-1. **Check first.** Run `ListAgents`. If an implementer or reviewer is live in the shared checkout, don't touch that directory at all: no checkout, no pull, no file writes.
-2. **Confirm it's safe.**
-   - `git merge-tree $(git merge-base origin/main <branch>) origin/main <branch>` shows no conflicts.
-   - CI on the PR is green.
-   - The diff doesn't touch the running task's Owns paths ([task-catalogue.md](task-catalogue.md)).
-3. **Merge on GitHub's side.** Run `gh pr create` if there's no PR yet, then `gh pr merge --squash`. This touches no local working tree.
-4. **Prepare in isolation.** Any conflict resolution or fix-up happens in a separate `git worktree` on its own branch ([§3.3](#33-working-rules)). Push it, then merge through GitHub.
-5. **After merging:**
-   - Remove the worktree and delete the branch.
-   - Don't pull the new `main` into the shared checkout while an agent is live there. The running task's branch catches up by rebasing before its own merge, or through the drain step's `gh pr update-branch` ([build-process.md §5.3](build-process.md#53-one-tick)).
-   - The post-merge documentation update also runs in its own worktree and pushes straight to `main` ([build-process.md §4.8](build-process.md#48-documentation-update-after-every-merge)).
-6. **Caveat.** A merge can still reach a running task by changing a document it reads, for example a doc split or rename while an implementer is using it. Leave a redirect, or point the running agent at the new location.
+Targeted research passes (for example "what does the original do when upkeep can't be paid?") are dispatched the same way, straight to a researcher, when a task or a review needs an answer.
 
 ---
 
 ## 4. Standing user preferences
 
-Kept in step with the auto-memory feedback notes; when a preference changes, update it here in the same session.
+These are kept in step with the auto-memory feedback notes. When a preference changes, update it here in the same session.
 
-- **Commit and push reverse-engineering work without asking** — new reports, roadmap updates and research-repo fixes go straight to the research repo's `main`. Still no destructive git operations (force-push, amend, `reset --hard`) without an explicit request.
-- **A question is not a request to change files.** Answer it; if a fix turns up along the way, propose it and wait.
-- **Isolate your own writes when anything is running**: worktree plus new branch ([§3.3](#33-working-rules)).
-- **Branch or `main`, case by case**: routine post-merge doc sync straight to `main`; novel content on a branch for review; ask when unsure.
-- **Upstream defects go through the bug list** — suspend, file, plan, resume; never an ad-hoc cross-Owns-list patch.
-- **Evidence goes through the two-stage pipeline** — `/process-evidence`, stage 1 then stage 2, never combined.
-- **Relay reviewer findings verbatim** on rework.
-- **Non-blocking review findings become one follow-up issue per merge**, filed by the orchestrator; the planner folds each item into the next task that touches those files ([build-process.md §4.5](build-process.md#45-rework)).
-- **The main session is Opus and is the planner.** It spawns an orchestrator with a bounded mandate to run the build, and researcher subagents for evidence; it never runs `/build-tick` or dispatches implementers and reviewers itself.
+- **Commit and push reverse-engineering work without asking.** New reports, roadmap updates and research-repo fixes go straight to the research repo's `main`. Destructive git operations (force-push, amend, `reset --hard`) still need an explicit request.
+- **A question is not a request to change files.** Answer it. If a fix turns up along the way, propose it and wait.
+- **Branch or `main`, case by case.** Routine doc claims go straight to `main`; novel content goes on a branch for review; ask when unsure.
+- **Upstream defects go through the bug list**: suspend, file, plan, resume. Never an ad-hoc patch across Owns lists.
+- **Evidence goes through the two-stage pipeline**: `/process-evidence`, stage 1 then stage 2, never combined.
+- **Relay reviewer findings in full** on rework.
+- **Non-blocking review findings become one follow-up issue per merge**, and each item is folded into the next task that touches those files.
+- **The main session runs the build directly** with `/run-task`. There is no orchestrator layer; it was retired on 2026-09-14 as more overhead than value for serial execution.
+- **No status snapshots in documents.** Status lives in GitHub labels only.
 - When correcting a claim after user feedback, fix the document or report text itself, not only the chat.
 - Do not re-suggest a Windows 9x VM on this machine: WSL2's Hyper-V claims VT-x, and the user will not disable WSL2.
 
@@ -178,35 +175,43 @@ Kept in step with the auto-memory feedback notes; when a preference changes, upd
 
 ## 5. Collaboration norms
 
-- Keep the user informed while working: say what you intend to do, give short progress updates (what you examined, what the evidence shows, what changed and why, what remains uncertain), and end with the outcome, the verification done, the remaining limitations, and where to see the result. Do not go more than about a minute of active work without an update, and do not dump raw command output.
-- In reverse-engineering work, distinguish observations from inferences, and name the save, screenshot, recording or binary structure that supports each conclusion. Record exact file, hash, address or screenshot evidence for each new field or formula, and mark an inferred meaning as a candidate until it is checked.
-- For routine save-format checks, read and validate three or four representative saves, not every save. Choose samples that cover the relevant before/after event or format variation; widen the sample only when a discrepancy or specific question requires it, and say why.
+- **Keep the user informed while working.**
+  - Before starting, say what you intend to do.
+  - Give short progress updates: what you examined, what the evidence shows, what changed and why, and what remains uncertain.
+  - End with the outcome, the verification done, the remaining limitations, and where to see the result.
+  - Don't go more than about a minute of active work without an update, and don't dump raw command output.
+- **In reverse-engineering work, separate observations from inferences.** Name the save, screenshot, recording or binary structure that supports each conclusion. Record the exact file, hash, address or screenshot for each new field or formula, and mark an inferred meaning as a candidate until it's checked.
+- **For routine save-format checks, sample three or four representative saves, not every save.** Pick samples that cover the relevant before/after event or format variation. Widen the sample only when a discrepancy or a specific question requires it, and say why.
 
 ---
 
 ## 6. Practical caveats
 
-- **Godot headless churn.** Running Godot headless against `godot/` (`"<Godot install>\Godot_..._console.exe" --headless --path godot --quit-after 2`) regenerates `godot/project.godot`'s header and flips `godot/MapViewer.cs`'s line endings. `scripts/check-godot-churn.ps1` reverts the two files when the diff is header/whitespace-only; run it after any headless Godot run, before committing.
-- **Build order for the inspector.** Build `IC2.Data` before `IC2.Inspect` when both changed (shared `obj` directory). `IC2.Inspect` commands are listed in the [README](../README.md#the-research-inspector-tools-ic2inspect).
-- **Ghidra's reference manager misses some string references** in this Delphi build (for example the DAT filename and `"falls to"`). Grep `all_app_functions.txt` instead — the decompiler inlines string literals even when no reference was recorded. Call xrefs work, except across virtual method calls.
-- **Tables loaded from the DAT at runtime** (unit-type stats, the combat matrix, mercenary names) are uninitialised in the EXE; search the DAT by the data's known name strings instead.
-- **Mid-turn saves** can legitimately contain `0xFFFF` army tombstones (combat writes them, the end-of-turn tick compacts them); `IC2.Data` skips and reports them.
-- **Local corpus drift.** `IC2.Data.Tests`' corpus sweep compares the configured saves folders against a committed expected-outcome table; moving saves between `saves/` and `saves-processed/`, or adding new ones, makes it fail locally until the table is regenerated (CI skips it).
+- **Godot headless churn.** Running Godot headless against `godot/` (`"<Godot install>\Godot_..._console.exe" --headless --path godot --quit-after 2`) regenerates `godot/project.godot`'s header and flips `godot/MapViewer.cs`'s line endings. `scripts/check-godot-churn.ps1` reverts the two files when the diff is header/whitespace-only. Run it after any headless Godot run, before committing.
+- **Build order for the inspector.** Build `IC2.Data` before `IC2.Inspect` when both have changed, because they share an `obj` directory. The `IC2.Inspect` commands are listed in the [README](../README.md#the-research-inspector-tools-ic2inspect).
+- **Ghidra's reference manager misses some string references** in this Delphi build, for example the DAT filename and `"falls to"`. Grep `all_app_functions.txt` instead; the decompiler inlines string literals even when no reference was recorded. Call xrefs work, except across virtual method calls.
+- **Tables loaded from the DAT at runtime** (unit-type stats, the combat matrix, mercenary names) are uninitialised in the EXE. Search the DAT by the data's known name strings instead.
+- **Mid-turn saves** can legitimately contain `0xFFFF` army tombstones: combat writes them, and the end-of-turn tick compacts them. `IC2.Data` skips and reports them.
+- **Local corpus drift.** `IC2.Data.Tests`' corpus sweep compares the configured saves folders against a committed table of expected outcomes. Moving saves between `saves/` and `saves-processed/`, or adding new ones, makes it fail locally until the table is regenerated (bug #57, fixed by T34). CI skips it.
 
 ---
 
 ## 7. What's still open
 
-Research-level items not yet established — none blocks a dispatched task.
+These are research-level items not yet established. None of them blocks a dispatched task.
 
-- The un-capped melee formula's exact random-roll term; a full simulation of a recorded multi-round battle (validate as a distribution over seeds — the same save fought twice gives 63,282 and 75,536 survivors).
-- The rout mechanic's cascade (`FUN_00438fb0`) has not been observed directly — reserve research only; the shipped instant resolver does not use it.
-- The tactical post-battle promotion rule is a uniform 1-in-4 roll, empirical over 30 units in two battles; its implementing code has not been located.
-- The rebellion check (`FUN_0044C204`) and the weather-event effect (`FUN_004511BC`) — not decompiled.
-- The reparation formula has not been checked against the one observed payment's field values.
-- `design-audit.md` Q9's paid case: where a supply purchase at a foreign city sends its talents.
-- The DAT's static tables at `0x1F2F0` (fourteen small tables) and `0x1F8C6` (four larger ones) are mostly unidentified — only the season table and the leader-name pool are ([investigations/dat-file-layout.md](investigations/dat-file-layout.md)).
-- Storm-attrition predicates: `FUN_004494E4` (the away-from-friendly-coast doubling) and `FleetRecord +24 == 1` (the tripling) are inferred from magnitudes, not decompiled.
-- A ~6-byte reconciliation gap in the SAV news-log region sizing.
-- `ComputerGeneral`'s actual AI decision-making (only its dispatch chain was traced).
-- Whether the original draws different city icons by population (armies and fleets are confirmed three-tier; cities are not).
+- **Melee:** the un-capped melee formula's exact random-roll term. A full simulation of a recorded multi-round battle is also still to do; validate it as a distribution over seeds, since the same save fought twice gives 63,282 and 75,536 survivors.
+- **Rout:** the cascade (`FUN_00438fb0`) hasn't been observed directly. This is reserve research only; the shipped instant resolver doesn't use it.
+- **Promotion:** the tactical post-battle promotion rule is a uniform 1-in-4 roll, measured over 30 units in two battles. Its implementing code hasn't been located.
+- **Rebellion:** the new owner's choice (`FUN_0044c204`) is only partly traced, because it depends on an unidentified bitmask at nation `+0x46`.
+- **Weather:** the event effects (`FUN_004511BC`) haven't been decompiled.
+- **Controlled-save checks the user has offered**, none of them urgent. The recipes are in the reports:
+  - a second supply-dialog fill;
+  - a foreign purchase;
+  - the tax and mobilization divisors of population growth;
+  - mercenary desertion.
+- **DAT static tables:** the ones at `0x1F2F0` (fourteen small tables) and `0x1F8C6` (four larger ones) are mostly unidentified. Only the season table and the leader-name pool are known ([investigations/dat-file-layout.md](investigations/dat-file-layout.md)).
+- **Storm attrition:** two predicates are inferred from magnitudes, not decompiled: `FUN_004494E4` (the away-from-friendly-coast doubling) and `FleetRecord +24 == 1` (the tripling).
+- **News log:** a ~6-byte reconciliation gap in the SAV news-log region sizing.
+- **AI:** `ComputerGeneral`'s actual decision-making; only its dispatch chain has been traced.
+- **City icons:** whether the original draws different city icons by population. Armies and fleets are confirmed three-tier; cities are not.
