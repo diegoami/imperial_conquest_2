@@ -4,7 +4,7 @@ namespace IC2.Engine.Economy;
 
 /// <summary>
 /// The supply→strategic-morale rule and the weekly moves recomputation that runs alongside it —
-/// <c>docs/build-orchestration-plan.md</c> "T08 Economy, supply, and purses", Done-when 11 and 12.
+/// <c>docs/task-catalogue.md</c> "T08 Economy, supply, and purses", Done-when 11 and 12.
 /// Transcribed from <c>docs/investigations/thracia-supply-morale.md</c>, not re-derived.
 /// </summary>
 /// <remarks>
@@ -60,22 +60,38 @@ public static class SupplyMoraleRule
     /// <param name="supplyPercent">The supply percentage, computed after this turn's consumption.</param>
     /// <param name="ruleset">Supplies every constant of the rule — never a C# literal.</param>
     /// <returns>The new morale (hard-clamped to <c>[MoraleFloor, MoraleCeiling]</c>) and the moves penalty.</returns>
+    /// <remarks>
+    /// The clamp applies on <em>every</em> branch, including the dead band and the regen branch's floor
+    /// side — not only the branch whose own arithmetic happens to push past a bound. <c>currentMorale</c>
+    /// is not itself validated (a save, scenario, or a future battle-entry write such as the confirmed
+    /// <c>+= 3</c> in <c>FUN_00437DE4</c> could hand this an out-of-range value), and this is the one
+    /// function every write path funnels through, so the clamp belongs here rather than at each caller.
+    /// </remarks>
     public static (int Morale, int MovesPenalty) ApplyToMorale(int currentMorale, int supplyPercent, Ruleset ruleset)
     {
         ArgumentNullException.ThrowIfNull(ruleset);
         var rules = ruleset.Economy.SupplyMorale;
 
+        int unclamped;
+        int movesPenalty;
         if (supplyPercent < rules.DecayThresholdPercent)
         {
-            return (Math.Max(rules.MoraleFloor, currentMorale - rules.DecayAmount), rules.MovesPenaltyOnDecay);
+            unclamped = currentMorale - rules.DecayAmount;
+            movesPenalty = rules.MovesPenaltyOnDecay;
         }
-
-        if (supplyPercent > rules.DeadBandUpperPercent)
+        else if (supplyPercent > rules.DeadBandUpperPercent)
         {
-            return (Math.Min(rules.MoraleCeiling, currentMorale + rules.RegenAmount), 0);
+            unclamped = currentMorale + rules.RegenAmount;
+            movesPenalty = 0;
+        }
+        else
+        {
+            unclamped = currentMorale;
+            movesPenalty = 0;
         }
 
-        return (currentMorale, 0);
+        var clamped = Math.Clamp(unclamped, rules.MoraleFloor, rules.MoraleCeiling);
+        return (clamped, movesPenalty);
     }
 
     /// <summary>
