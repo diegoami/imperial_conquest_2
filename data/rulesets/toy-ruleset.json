@@ -209,13 +209,15 @@
         { "seasonIndex": 2, "earlyNumerator": 1, "earlyDenominator": 30, "lateNumerator": 1, "lateDenominator": 15 },
         { "seasonIndex": 3, "earlyNumerator": 1, "earlyDenominator": 5, "lateNumerator": 1, "lateDenominator": 5 }
       ],
+      "locationCount": 20,
       "effects": [
         { "id": "storm-damages-fleet", "description": "A storm damages a fleet at sea.", "_provenance": { "_group": "designed: docs/game-design.md §Economy — 'implement as a data-driven table of possible weather effects (storm damages a fleet, drought reduces a region's supply, etc.) with the confirmed frequency curve and [designed] specific effects'. decompiled-weather-events.md confirms the frequency curve only; FUN_004511bc (the effect itself) was never decompiled, so no magnitude is transcribed here — this entry names the effect kind design-audit.md already suggests, nothing more." } },
         { "id": "drought-reduces-supply", "description": "A drought reduces a region's supply.", "_provenance": { "_group": "designed: docs/game-design.md §Economy, same open item as storm-damages-fleet — no magnitude transcribed, effect internals unrecovered." } }
       ],
       "_provenance": {
-        "earlyLateWeekThreshold": "confirmed: decompiled-weather-events.md — Spring and Autumn each have a distinct 'early' (week < 6) and 'late' (week >= 6) odds band; Summer and Winter are flat for the whole season.",
+        "earlyLateWeekThreshold": "confirmed: decompiled-weather-events.md — Spring's 'early'/'late' boundary is week < 6; Autumn's is week < 7 (the report gives the two seasons different boundaries, not the same one). Represented here as a single field because on this engine's odd-week calendar (weeks 1, 3, 5, 7, 9, 11) the two readings pick out exactly the same set of weeks either way, so a single shared threshold of 6 is behaviourally equivalent to carrying 6 and 7 separately (review round 1, B5). Summer and Winter are flat for the whole season, so their early/late split never matters.",
         "bySeason": "confirmed: decompiled-weather-events.md — Spring early 1-in-15 / late 1-in-30; Summer 1-in-40; Autumn early 1-in-30 / late 1-in-15; Winter 1-in-5. Winter is roughly 8x more frequent than Summer (1/5 vs 1/40), the source for T08's DoD 8 ratio-band assertion, itself approximate per that report.",
+        "locationCount": "confirmed: decompiled-weather-events.md, DAT_00479540 — the frequency curve above is rolled independently once per tracked location, every tick, not once per tick overall (review round 1, B4). The locations' own identity is [open], exactly as the report leaves it; only the roll count is transcribed here.",
         "effects": "designed: docs/game-design.md §Economy — the frequency curve is confirmed but the effects were never decompiled (FUN_004511bc, [open] per docs/design-audit.md §2.13); this table exists so an effect can be added as data later without an engine change, not because these two entries' specifics are evidenced."
       }
     },

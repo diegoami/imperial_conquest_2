@@ -6,7 +6,7 @@ using Xunit;
 namespace IC2.Engine.Tests.Economy;
 
 /// <summary>
-/// <c>docs/build-orchestration-plan.md</c> "T08 Economy, supply, and purses", Done-when 8: "Weather
+/// <c>docs/task-catalogue.md</c> "T08 Economy, supply, and purses", Done-when 8: "Weather
 /// events fire ~8× more often in Winter than Summer over a fixed-seed 400-quarter run (asserted as a
 /// ratio band, the only band assertion in the plan, because the underlying figure is itself approximate
 /// in <c>decompiled-weather-events.md</c>)."
@@ -15,8 +15,11 @@ namespace IC2.Engine.Tests.Economy;
 /// A "quarter" is a season boundary, so a 400-quarter run is 400 seasons' worth of rounds — with the
 /// shipped calendar's <c>weekModulus / weekStep = 12 / 2 = 6</c> rounds per season (weeks 1,3,5,7,9,11
 /// before the wrap), that is <c>400 × 6 = 2400</c> rounds, computed from the ruleset rather than
-/// hardcoded. Over that run each of the four seasons gets exactly 600 rounds, giving stable expected
-/// counts (Winter 600 × 1/5 = 120, Summer 600 × 1/40 = 15) that a ratio band can be sensibly drawn around.
+/// hardcoded. Over that run each of the four seasons gets exactly 600 rounds. Review round 1, B4: each
+/// round now rolls independently for every one of <c>economy.weather.locationCount</c> (20) tracked
+/// locations, not once per round, so the stable expected counts are 20x what a single roll per round
+/// would give — Winter 600 × 20 × 1/5 = 2,400, Summer 600 × 20 × 1/40 = 300 — still stable enough for a
+/// ratio band to be sensibly drawn around.
 /// </remarks>
 public sealed class WeatherEventTests
 {

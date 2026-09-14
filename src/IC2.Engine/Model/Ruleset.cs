@@ -118,7 +118,7 @@ public sealed record TerrainRules(
 /// <summary>Tax, upkeep, supply purchase, and the per-army/per-fleet purses.</summary>
 /// <remarks>
 /// <see cref="SupplyConsumption"/>, <see cref="SupplyMorale"/> and <see cref="Weather"/> were added by
-/// <c>docs/build-orchestration-plan.md</c> "T08 Economy, supply, and purses": the supply-driven
+/// <c>docs/task-catalogue.md</c> "T08 Economy, supply, and purses": the supply-driven
 /// strategic-morale rule and the weather frequency curve were previously unowned by any task (T02 shipped
 /// this record before <c>docs/investigations/thracia-supply-morale.md</c> existed), so T08 widens it here
 /// rather than leaving the constants as C# literals — the same additive pattern T31 used for
@@ -221,12 +221,23 @@ public sealed record SupplyMoraleRules(
 /// (<c>docs/game-design.md</c> §Economy: "effects not fully decompiled").
 /// </summary>
 /// <param name="EarlyLateWeekThreshold">
-/// Below this week number a season is in its "early" part; at or above it, "late". Spring and Autumn have
-/// different odds for each part; Summer and Winter's <see cref="WeatherSeasonOdds.EarlyNumerator"/>/
+/// Below this week number a season is in its "early" part; at or above it, "late". The report gives
+/// Spring's boundary as week 6 and Autumn's as week 7; both are represented by this single field
+/// because on this engine's odd-week calendar (weeks 1, 3, 5, 7, 9, 11) the two boundaries select the
+/// same weeks either way — see <c>toy-ruleset.json</c>'s <c>economy.weather._provenance</c> for the
+/// full 6/7 citation. Summer and Winter's <see cref="WeatherSeasonOdds.EarlyNumerator"/>/
 /// <see cref="WeatherSeasonOdds.EarlyDenominator"/> equal their late-part odds, since the source report
 /// gives them one flat rate for the whole season.
 /// </param>
 /// <param name="BySeason">One entry per <see cref="Model.CalendarState.SeasonIndex"/>.</param>
+/// <param name="LocationCount">
+/// Review round 1, B4: the report's frequency curve is a per-location roll, made independently for
+/// each of this many tracked locations every tick (<c>DAT_00479540</c>), not one roll per tick. Rolling
+/// once per tick understated the confirmed absolute frequency by this factor (the Winter/Summer
+/// <em>ratio</em> DoD 8 checks was unaffected, since both seasons were understated equally). The
+/// locations' own identity is <c>[open]</c>, exactly as the report leaves it — this field only fixes
+/// the roll count.
+/// </param>
 /// <param name="Effects">
 /// The data-driven effects table a fired event draws from — placeholder entries, each individually
 /// <c>_provenance</c>-tagged <c>designed</c>, since the report identifies the frequency curve but not the
@@ -235,6 +246,7 @@ public sealed record SupplyMoraleRules(
 public sealed record WeatherEventRules(
     int EarlyLateWeekThreshold,
     ValueList<WeatherSeasonOdds> BySeason,
+    int LocationCount,
     ValueList<WeatherEffectRule> Effects,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
