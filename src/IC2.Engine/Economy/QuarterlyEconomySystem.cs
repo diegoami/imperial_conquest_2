@@ -5,7 +5,7 @@ namespace IC2.Engine.Economy;
 
 /// <summary>
 /// Quarterly ship and army upkeep, wired against real <see cref="GameState"/> — the part of
-/// <c>docs/build-orchestration-plan.md</c> "T08 Economy, supply, and purses" Done-when 2, 3 and 7 that
+/// <c>docs/task-catalogue.md</c> "T08 Economy, supply, and purses" Done-when 2, 3 and 7 that
 /// runs end to end through T06's quarterly boundary hook, not only as a pure formula.
 /// </summary>
 /// <remarks>
@@ -27,9 +27,20 @@ namespace IC2.Engine.Economy;
 /// against the nation's treasury every quarter — and, when the treasury cannot cover the total
 /// (<see cref="UpkeepEnforcement.NationCanPayUpkeep"/>), the mutiny consequence
 /// (<see cref="UpkeepEnforcement.ApplyMutinyToArmy"/>) applied to every one of that nation's armies, with
-/// an <see cref="ArmyMutinied"/> event per army. Unity also decays by
-/// <see cref="EconomyRules.UnityDecayPerQuarter"/>, floored at 0
-/// <strong>[confirmed: decompiled-quarterly-billing-and-economy.md]</strong>.
+/// an <see cref="ArmyMutinied"/> event per army.
+/// </para>
+/// <para>
+/// <strong>This system writes neither unity nor mobilization</strong> (review round 1, B3, and the
+/// planner's finding it is based on: research commit <c>fa23393</c>,
+/// <c>city-population-growth.md</c> §"Also in FUN_00451b40"). The quarterly <c>−3</c>
+/// <c>decompiled-quarterly-billing-and-economy.md</c> originally attributed to unity is really
+/// mobilization's (<c>mobilized = max(0, mobilized − 3)</c>); unity is instead recomputed as
+/// <c>min(990, max(300, unity + 25 − taxRate / 2 − mobilized / 5))</c>, drifting <em>up</em>, not
+/// down. No Done-when line of this task asks for a unity or mobilization rule — both are T35's
+/// (<c>docs/task-catalogue.md</c> T35 DoD 10). <see cref="EconomyRules.UnityDecayPerQuarter"/>, its
+/// <c>toy-ruleset.json</c> entry and the corpus entry <c>economy.unityDecayPerQuarter</c> are left
+/// exactly as T02/T04 shipped them — renaming or removing any of them is outside this task's
+/// additive Owns (bug <c>#68</c>, scheduled into T35).
 /// </para>
 /// <para>
 /// A fleet still under construction (<see cref="Model.FleetState.IsUnderConstruction"/>) is not yet
@@ -82,7 +93,6 @@ public sealed class QuarterlyEconomySystem : IQuarterBoundaryHandler
             var updatedNation = nation with
             {
                 Treasury = nation.Treasury - totalUpkeep,
-                Unity = Math.Max(0, nation.Unity - ruleset.Economy.UnityDecayPerQuarter),
             };
             nations.Add(updatedNation);
 

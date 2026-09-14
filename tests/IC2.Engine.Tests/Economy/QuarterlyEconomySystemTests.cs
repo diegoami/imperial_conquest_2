@@ -31,8 +31,12 @@ public sealed class QuarterlyEconomySystemTests
 
         var northAfter = after.NationById("north")!;
         Assert.Equal(north.Treasury - expectedShipUpkeep - expectedArmyUpkeep, northAfter.Treasury);
-        Assert.Equal(
-            Math.Max(0, north.Unity - EconomyTestbed.Ruleset.Economy.UnityDecayPerQuarter), northAfter.Unity);
+
+        // Review round 1, B3: this system writes neither unity nor mobilization -- both are T35's
+        // (the quarterly "-3" the older report attributed to unity is really mobilization's; unity
+        // has its own separate quarterly update). Pinned here so a future change to this system
+        // does not silently reintroduce a unity write.
+        Assert.Equal(north.Unity, northAfter.Unity);
 
         // No mutiny: the toy world's treasury comfortably covers upkeep, so every army's roster survives
         // unchanged (troop counts are exactly what they started with, unit for unit).
