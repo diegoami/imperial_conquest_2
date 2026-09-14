@@ -9,18 +9,15 @@ The entry point for anyone operating the Imperial Conquest 2 project — the use
 A snapshot written by the documentation step ([build-process.md §4.8](build-process.md#48-documentation-update-after-every-merge), location A2) and checked against the labels every tick; between syncs, [tracking issue #29](https://github.com/diegoami/imperial_conquest_2/issues/29) and the GitHub labels are authoritative.
 
 - **As of**: `acd4098` (T07 merged).
-- **Phase**: Phase 0 (foundation) merged except T29, the world export; Phase 1 (pure rules) under way.
-- **Merged — 9 of 31**: T01, T02, T03, T04, T05, T06, T07, T30, T31. Per-task status and merge commits: [task index](task-catalogue.md#3-task-index).
+- **Phase**: Phase 0 (foundation) merged; Phase 1 (pure rules) under way.
+- **Merged — 9 of 36**: T01, T02, T03, T04, T05, T06, T07, T30, T31. Per-task status and merge commits: [task index](task-catalogue.md#3-task-index).
 - **In progress**: none — dispatching is paused (`orchestrator:pause` on #29).
 - **Blocked**: T08 (economy, supply and purses) — suspended on [#50](https://github.com/diegoami/imperial_conquest_2/issues/50); its PR #53 is implemented but CI is red on that bug.
-- **Ready**: T09, T10, T11, T12, T29.
-- **Next (planner)**: a planner pass, on its own branch for the user's review, before any orchestrator is spawned:
-  1. Triage the queue, starting with #50 and T08's missing Owns entry for its `Ruleset.EconomyRules` fields, which together unblock T08.
-  2. Check the catalogue for consistency and completeness against every task, bug and follow-up.
-  3. Add tasks for gaps the four `docs/investigations/` found, including the local corpus-sweep drift that `/process-evidence` causes when it moves saves.
-  4. Check whether anything needs reordering.
-
-  After it merges: remove `orchestrator:pause` from #29 and spawn an orchestrator with a mandate ([build-process.md Appendix D](build-process.md#appendix-d-orchestrator-mandate-template)).
+- **Ready**: T09, T10, T11, T12, T32, T33, T34.
+- **Next (planner)**: apply the planner pass's GitHub side, then spawn a mandate:
+  1. File T32–T36's issues from their catalogue entries; relabel #32 (T29) `status:blocked`, `phase:2` and `release:v0.3.0` with milestone Phase 2 Systems, and give #37 (T30) milestone Phase 0 Foundation.
+  2. Apply the triage decisions to #40, #43, #46, #47, #49, #50 and #52 (`triage:scheduled` plus a comment naming the task; #50's `Blocks:` line becomes T08, T14; #46 and #47 gain `blocking` and `Blocks: T16, T17`), and file three bugs already scheduled — the corpus-sweep drift into T34, the model gaps into T35 (`blocking`, `Blocks: T13, T17, T19`), and the corpus's Rome tax base (2,440, really 2,444) and misnamed tax-base/wealth entries into T35.
+  3. Remove `orchestrator:pause` from #29 and spawn an orchestrator with a mandate ([build-process.md Appendix D](build-process.md#appendix-d-orchestrator-mandate-template)).
 - **Open bugs** ([build-process.md §4.7](build-process.md#the-triage-queue)), all `triage:needed`: [#46](https://github.com/diegoami/imperial_conquest_2/issues/46); [#47](https://github.com/diegoami/imperial_conquest_2/issues/47) (must be resolved before T17 — a case-2 blocking candidate for triage); [#50](https://github.com/diegoami/imperial_conquest_2/issues/50) (`blocking` — Blocks: T08); [#52](https://github.com/diegoami/imperial_conquest_2/issues/52).
 - **Open review follow-ups** (non-blocking, [build-process.md §4.5](build-process.md#45-rework)), all `triage:needed`: [#40](https://github.com/diegoami/imperial_conquest_2/issues/40) (T30), [#43](https://github.com/diegoami/imperial_conquest_2/issues/43) (T06), [#49](https://github.com/diegoami/imperial_conquest_2/issues/49) (T07).
 - **Runnable today**: tests only. `dotnet build IC2.sln`; `dotnet test IC2.sln` — 271 tests (193 engine, 78 data); 65 of the data tests read the original files and skip without `assets.local.ini`. The first runnable program is T23's CLI; the first UI is T24.
@@ -29,8 +26,8 @@ A snapshot written by the documentation step ([build-process.md §4.8](build-pro
 
 | After | What exists | Can you run it? |
 | --- | --- | --- |
-| Phase 0 (T01–T05, T29–T31) | Solution, CI, domain model, fixtures corpus, engine seams, hardened `IC2.Data`, the exported 334-city world and ruleset | `dotnet build` / `dotnet test` only |
-| Phases 1–2 (T06–T22) | The rule subsystems, then recruitment, naval, battle, diplomacy, AI | Only through their tests |
+| Phase 0 (T01–T05, T30, T31) | Solution, CI, domain model, fixtures corpus, engine seams, hardened `IC2.Data` | `dotnet build` / `dotnet test` only |
+| Phases 1–2 (T06–T22, T29, T32–T36) | The rule subsystems, then recruitment, naval, battle, diplomacy, AI; the exported 334-city world, `classical-faithful` ruleset and classical scenario (T29), and the `improved` preset (T36) | Only through their tests |
 | **T23** | `IC2.Cli`, a scriptable headless play harness | **First thing you can run**: load a scenario, issue orders, end turns, text output |
 | **T24** | Godot main screen, New Game flow, the ruleset chooser | **First thing that looks like a game** |
 | T25–T28 | Remaining screens, packaging, the nightly gate | A complete, playable build |
@@ -65,7 +62,7 @@ A snapshot written by the documentation step ([build-process.md §4.8](build-pro
 | [operating-guide.md](operating-guide.md) | This document |
 | [CLAUDE.md](../CLAUDE.md) | Auto-loaded into every Claude Code session: a pointer to this guide and the must-never-forget rules |
 | [build-process.md](build-process.md) | Process contract: roles, review and merge, orchestrator loop, bug list, documentation step, prompt templates, `/build-tick` |
-| [task-catalogue.md](task-catalogue.md) | The 31 tasks, the dependency graph, the task index and status |
+| [task-catalogue.md](task-catalogue.md) | The 36 tasks, the dependency graph, the task index and status |
 | [game-design.md](game-design.md) | What is being built |
 | [design-audit.md](design-audit.md) | What the evidence supports, and the design questions Q1–Q10 |
 | [release-plan.md](release-plan.md) | Versions, release gates, release notes, the release checklist |
