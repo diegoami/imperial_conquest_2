@@ -6,7 +6,7 @@ It **invents no new structure**. Every release gate below is a set of task issue
 
 > **Two different things both called "milestone".** `game-design.md` has **design milestones** M1–M20 (subsystems). The build has four **GitHub build-phase milestones** (Phase 0 Foundation, Phase 1 Pure rules, Phase 2 Systems, Phase 3 Delivery). This document adds a third axis — **release versions** — and deliberately does **not** turn them into GitHub milestones; see [§6](#6-what-was-created-in-github-and-what-was-not).
 
-Related reading, in order: [operating-guide.md](operating-guide.md) → [game-design.md](game-design.md) → [design-audit.md](design-audit.md) → [task-catalogue.md](task-catalogue.md) → [build-process.md](build-process.md) → this document. Live pipeline state: [tracking issue #29](https://github.com/diegoami/imperial_conquest_2/issues/29).
+Related reading, in order: [operating-guide.md](operating-guide.md) → [game-design.md](game-design.md) → [design-audit.md](design-audit.md) → [task-catalogue.md](task-catalogue.md) → [build-process.md](build-process.md) → this document. Live pipeline state: the task issues' labels ([operating-guide.md §1](operating-guide.md#1-where-the-build-stands)).
 
 ---
 
@@ -26,7 +26,7 @@ Related reading, in order: [operating-guide.md](operating-guide.md) → [game-de
 
 ### 1.2 What crosses each boundary — **DECIDED**
 
-Stated explicitly, because "what makes this a MINOR rather than a PATCH" is exactly the question an autonomous orchestrator will get wrong:
+Stated explicitly, because "what makes this a MINOR rather than a PATCH" is exactly the question an agent running the build autonomously will get wrong:
 
 - **A MINOR bump requires a new capability *reachable by a person*, or a preset change.** A merged task that only adds internal test coverage, refactors behind a seam, or fixes a constant is a PATCH, however large its diff. Conversely a one-line change to `data/rulesets/improved.json`'s `combat.onDefeat` scatter range is a **MINOR**, because it changes what a player experiences — see [§4.2](#42-what-a-release-note-must-contain).
 - **`1.0.0` is crossed by packaging, not by feature count.** The engine is feature-complete at `v0.3.0`; `v1.0.0` is reached when [T27](task-catalogue.md#t27-packaging)'s export launches on a machine with no Godot and no .NET SDK on `PATH` and [T28](task-catalogue.md#t28-nightly-regression-and-soak-gate)'s nightly gate is green. "Playable" means *installable and finishable*, not *implemented*.
@@ -77,15 +77,13 @@ Notes on the gates:
 
 ### 2.1 Gate progress
 
-A snapshot written by the documentation step ([build-process.md §4.8](build-process.md#48-documentation-update-after-every-merge), location A4), using the same status values as the [task index](task-catalogue.md#3-task-index); GitHub's `release:*` labels are authoritative.
+Not kept in this document; GitHub's `release:*` labels are the record. To see a gate:
 
-| Tag | Gate tasks | Status (as of `a53eaa5`) |
-| --- | --- | --- |
-| `v0.1.0` | T01–T12, T30–T34 (17) | **12 merged**: T01, T02, T03, T04, T05, T06, T07, T08, T09, T30, T31, T32. Escalated: T10. Ready: T11, T12, T33, T34. |
-| `v0.2.0` | T13–T17, T35, T38, T39 (8) | 0 merged. Ready: T35, T38. Blocked: T13, T14, T15, T16, T17, T39. |
-| `v0.3.0` | T18–T23, T29, T36, T37 (9) | 0 merged. Blocked: T18, T19, T20, T21, T22, T23, T29, T36, T37. |
-| `v0.4.0` | T24, T25, T26 (3) | 0 merged. Blocked: T24, T25, T26. |
-| `v1.0.0` | T27, T28 (2) | 0 merged. Blocked: T27, T28. |
+```bash
+gh issue list --label task --label release:v0.2.0 --state all --json number,title,labels --jq '.[] | "\(.number)\t\(.title)\t\([.labels[].name | select(startswith("status:"))] | join(","))"'
+```
+
+A gate is met when every issue it lists is closed as `status:merged`.
 
 ### 2.2 Patch releases
 
@@ -109,18 +107,18 @@ Nothing here commits to scope beyond `game-design.md`. The tactical/animated bat
 | Where | **`main` only**, always on a squash-merge commit — never on a task branch, never on a rebase artifact |
 | GitHub Release | One per tag, always; title = the tag plus the ladder's short name (`v0.3.0 — Headless playable`); body = [§4](#4-release-notes) |
 | Pre-1.0 marker | Every `0.x` release and every `-rc` is published with GitHub's **pre-release** flag set; only `v1.0.0` is a full release |
-| Moving a tag | **Never.** Re-pointing a published tag is a destructive git operation under [build-process.md §4.6](build-process.md#46-when-to-escalate-to-the-human) case 10. A mistake is corrected by a new PATCH tag. |
+| Moving a tag | **Never.** Re-pointing a published tag is a destructive git operation under [build-process.md §4.5](build-process.md#45-when-to-escalate-to-the-user) case 10. A mistake is corrected by a new PATCH tag. |
 
 ### 3.2 Who cuts the tag — **RECOMMENDED, consistent with Q-A**
 
-[Q-A](build-process.md#9-standing-governance-decisions) already granted the orchestrator full merge autonomy **except** the four architecture PRs (T02, T03, T16, T22), and [Q-B](build-process.md#9-standing-governance-decisions) reserved *visual* judgment to the user. The consistent extension:
+[Q-A](build-process.md#9-standing-governance-decisions) already granted the main session full merge autonomy **except** the four architecture PRs (T02, T03, T16, T22), and [Q-B](build-process.md#9-standing-governance-decisions) reserved *visual* judgment to the user. The consistent extension:
 
 | Release | Tag + draft Release | Publish |
 | --- | --- | --- |
-| `v0.1.0`, `v0.2.0`, `v0.3.0` | Orchestrator, autonomously | Orchestrator, autonomously |
-| `v0.4.0`, `v1.0.0` (and any `-rc`) | Orchestrator, autonomously, as a **draft** | **Human**, after the visual sign-off Q-B already requires |
+| `v0.1.0`, `v0.2.0`, `v0.3.0` | The main session, autonomously | The main session, autonomously |
+| `v0.4.0`, `v1.0.0` (and any `-rc`) | The main session, autonomously, as a **draft** | **Human**, after the visual sign-off Q-B already requires |
 
-The reasoning is that a tag is a *consequence* of merges, not a new decision. Every merge in a `0.1`–`0.3` gate was one the orchestrator was already authorized to make; refusing it the tag would add a human gate without adding a human judgment. `v0.4.0` and `v1.0.0` are different in kind: their gating tasks (T24, T25, T27) each carry "**+ human visual review**" in the task catalogue, so a person is in the loop *anyway* — the release simply inherits that gate rather than inventing a second one.
+The reasoning is that a tag is a *consequence* of merges, not a new decision. Every merge in a `0.1`–`0.3` gate was one the main session was already authorized to make; refusing it the tag would add a human gate without adding a human judgment. `v0.4.0` and `v1.0.0` are different in kind: their gating tasks (T24, T25, T27) each carry "**+ human visual review**" in the task catalogue, so a person is in the loop *anyway* — the release simply inherits that gate rather than inventing a second one.
 
 Worth noticing: **every release in the ladder already has a human touchpoint upstream of it**, with no new gate invented. `v0.1.0` inherits the T02/T03 architecture thumbs-up; `v0.2.0` inherits T16's; `v0.3.0` inherits T22's; `v0.4.0` and `v1.0.0` inherit the Q-B screenshot reviews.
 
@@ -128,10 +126,10 @@ Worth noticing: **every release in the ladder already has a human touchpoint ups
 
 [build-process.md §6](build-process.md#6-git-and-github-conventions) gives `main` a linear history of squash-merges, one per task. Tagging slots into that cleanly:
 
-1. **The tag is cut inside the same `/build-tick` that merges the last gating task**, on that task's squash-merge commit, before the tick's report step ([build-process.md Appendix C](build-process.md#appendix-c-the-build-tick-skill) step 7) — *not* as a separate later pass. The documentation update that follows the merge (step 6) is docs-only and lands after the tag.
-2. **Dispatch (step 5) is skipped for that tick.** No other PR is merged between the last gating merge and the tag, so the tagged tree is exactly the tree the release checklist was run against. This costs at most one tick of idle time and removes the entire class of "the tag has a commit nobody tested" bug.
-3. **No release branches.** Pre-1.0 with one machine and one orchestrator, a release branch would only create a second place for a fix to land and a merge-back to forget. If a `v1.0.x` line ever has to be maintained while `v1.1` develops, that is the moment to add one — not before.
-4. **A tag is never cut while a task branch is mid-rebase or a conflict is unresolved** ([build-process.md §5.4](build-process.md#54-merge-conflicts)), because merge order is dependency order and a conflicting branch means `main` is about to move for a reason the checklist did not see.
+1. **The tag is cut right after the `/run-task` merge of the last gating task**, on that task's squash-merge commit, before its report ([build-process.md Appendix C](build-process.md#appendix-c-the-run-task-skill) step 4). It is *not* a separate later pass. The doc claims applied after the merge are docs-only and land after the tag.
+2. **Nothing else is dispatched until the tag exists.** No other PR is merged between the last gating merge and the tag, so the tagged tree is exactly the tree the release checklist was run against. That removes the entire class of "the tag has a commit nobody tested" bug.
+3. **No release branches.** Pre-1.0 with one machine and one task in flight at a time, a release branch would only create a second place for a fix to land and a merge-back to forget. If a `v1.0.x` line ever has to be maintained while `v1.1` develops, that is the moment to add one — not before.
+4. **A tag is never cut while a task branch is mid-rebase or a conflict is unresolved** ([build-process.md §4.5](build-process.md#45-when-to-escalate-to-the-user)), because merge order is dependency order and a conflicting branch means `main` is about to move for a reason the checklist did not see.
 
 ---
 
@@ -139,7 +137,7 @@ Worth noticing: **every release in the ladder already has a human touchpoint ups
 
 ### 4.1 Where the note comes from — **DECIDED: generated at cut time from GitHub. No `CHANGELOG.md`.**
 
-A running `CHANGELOG.md` on `main` is rejected for the same reason [build-process.md §2.3](build-process.md#2-how-the-build-avoids-conflicts) rejects every other shared registry file: a file every task wants to append to conflicts with every task branch, and working around that by making the orchestrator the only writer just moves the same information into a second place that can drift from GitHub. GitHub is already the state.
+A running `CHANGELOG.md` on `main` is rejected for the same reason [build-process.md §2.3](build-process.md#2-how-the-build-avoids-conflicts) rejects every other shared registry file: a file every task wants to append to conflicts with every task branch, and working around that by making one agent the only writer just moves the same information into a second place that can drift from GitHub. GitHub is already the state.
 
 The note is **generated at cut time** from four sources, in this order:
 
@@ -163,7 +161,7 @@ Eight required sections. An agent drafting a note that omits one has not finishe
 5. **Fidelity statement** — which golden fixtures from real play pass ([`full-battle-resolution-rome-vs-gaul.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/full-battle-resolution-rome-vs-gaul.md), [`battle-recording-melee-cap-confirmed.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/battle-recording-melee-cap-confirmed.md), [`army-to-army-transfer-confirmed.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/army-to-army-transfer-confirmed.md), [`galatia-elimination-and-city-resupply-confirmed.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/galatia-elimination-and-city-resupply-confirmed.md), as each becomes applicable), the determinism guard's status, and from `v0.3.0` the 50-seed AI soak result. This is the section that distinguishes this project from a generic reimplementation and it should read as evidence, not as a claim.
 6. **Compatibility** — `SaveGame.schemaVersion`; whether the previous tag's saves load; whether original-`.sav` import still targets `classical-mediterranean` + `classical-faithful` only (it does, by policy).
 7. **Artifacts and how to run them** — what is attached, the runtime prerequisites, and the local-only caveats (original-save import needs `assets.local.ini`; before `v1.0.0`, a Godot install).
-8. **Open escalations** — any issue still labelled `status:escalated` or `needs-human` at cut time. A release that silently omits a known escalation is the same failure mode [build-process.md §4.4](build-process.md#44-the-dod-is-not-negotiable-by-an-agent) exists to prevent.
+8. **Open escalations** — any issue still labelled `status:escalated` or `needs-human` at cut time. A release that silently omits a known escalation is the same failure mode [build-process.md §4.3](build-process.md#43-the-dod-is-not-negotiable-by-an-agent) exists to prevent.
 
 Two standing prohibitions, inherited from the project's evidence rules: **no number in a release note that is not in the fixtures corpus or a cited report**, and **no claim that a mechanic is faithful unless the note can name the report**. `[designed]` stays visibly labelled all the way out to the player.
 
@@ -173,13 +171,13 @@ No new role. The pipeline's roles ([build-process.md §3.1](build-process.md#31-
 
 | Review gate | Applied to a release note |
 | --- | --- |
-| 1. DoD independently reproduced | The reviewer re-runs the [§5](#5-release-checklist) checklist commands itself, in the main checkout at the tag (nothing else is dispatched that tick). The draft's claims are a convenience, never the proof. |
+| 1. DoD independently reproduced | The reviewer re-runs the [§5](#5-release-checklist) checklist commands itself, in its own worktree at the tag (nothing else is dispatched meanwhile). The draft's claims are a convenience, never the proof. |
 | 2. Provenance | Every number and fidelity claim in the note traces to the fixtures corpus or a cited report; every `[designed]` mechanic is labelled as one. |
 | 3. Determinism | The determinism guard and the seeded-soak results are quoted from an actual run, not asserted. |
 | 4. Scope | The note describes only what merged in the range — no forward promises, nothing from `game-design.md`'s "left for later" list. |
 | 5. Correctness sweep | Not applicable; a release note has no code. |
 
-**Model for the seat**: the same rule the catalogue uses for fidelity-critical PRs — **Opus / Medium**, because the failure mode here (a wrong fidelity claim shipped to a player) is the one this project has already paid for. The reviewer approves by commenting on the draft Release or on the tracking issue; the orchestrator publishes (or, for `v0.4.0`/`v1.0.0`, hands to the human). This is the same *judge separate from executor* separation [build-process.md §4.3](build-process.md#43-is-a-third-agent-needed-to-merge) already argues for on merges, for the same audit-trail reason.
+**Model for the seat**: the same rule the catalogue uses for fidelity-critical PRs — **Opus / Medium**, because the failure mode here (a wrong fidelity claim shipped to a player) is the one this project has already paid for. The reviewer approves by commenting on the draft Release or on the gate's issues; the main session publishes (or, for `v0.4.0`/`v1.0.0`, hands to the human). This is the same *judge separate from executor* separation [build-process.md §4.1](build-process.md#41-the-path-a-task-takes) already argues for on merges, for the same audit-trail reason.
 
 ---
 
@@ -207,11 +205,11 @@ The concrete "done when" for cutting a release, in the task catalogue's style: *
 16. The reviewer agent ([§4.3](#43-who-reviews-it--the-existing-reviewer-role-on-the-draft-release-body)) has re-run items 4–13 itself and approved the draft.
 17. The tag is annotated, on `main`, on a squash-merge commit, matches the name pattern, and does not already exist — `git tag -l <tag>` is empty before `git tag -a`.
 18. **Human** *(v0.4.0, v1.0.0 only)*: visual sign-off given on every screenshot posted by T24/T25/T27, per [Q-B](build-process.md#9-standing-governance-decisions).
-19. **Human** *(v0.4.0, v1.0.0 only)*: the draft Release is published by the user. For `v0.1.0`–`v0.3.0`, the orchestrator publishes (see [§3.2](#32-who-cuts-the-tag--recommended-consistent-with-q-a)).
+19. **Human** *(v0.4.0, v1.0.0 only)*: the draft Release is published by the user. For `v0.1.0`–`v0.3.0`, the main session publishes (see [§3.2](#32-who-cuts-the-tag--recommended-consistent-with-q-a)).
 
 Items 1–17 are checkable by an agent. Items 18–19 are the only human steps, and neither is new — both are [Q-B](build-process.md#9-standing-governance-decisions)'s existing answer applied at the release boundary.
 
-**If a check fails**, the release does not get cut and nothing is tagged. Fix forward on `main` and re-run the checklist; a failed checklist is never worked around by weakening a line, for exactly the reason [build-process.md §4.4](build-process.md#44-the-dod-is-not-negotiable-by-an-agent) gives about DoDs.
+**If a check fails**, the release does not get cut and nothing is tagged. Fix forward on `main` and re-run the checklist; a failed checklist is never worked around by weakening a line, for exactly the reason [build-process.md §4.3](build-process.md#43-the-dod-is-not-negotiable-by-an-agent) gives about DoDs.
 
 ---
 
@@ -227,7 +225,7 @@ Items 1–17 are checkable by an agent. Items 18–19 are the only human steps, 
 | `release:v0.4.0` | #24, #25, #26 |
 | `release:v1.0.0` | #27, #28 |
 
-This makes checklist items 1 and 15 a single `gh issue list` query instead of a hand-maintained list, it is additive and reversible like every other label, and it does not disturb anything the orchestrator relies on.
+This makes checklist items 1 and 15 a single `gh issue list` query instead of a hand-maintained list, it is additive and reversible like every other label, and it does not disturb anything the task loop relies on.
 
 **Deliberately *not* created: GitHub milestones for the version tags.** A GitHub issue carries **exactly one** milestone, and task issues use theirs for the build **phase**, which [build-process.md §6](build-process.md#6-git-and-github-conventions) names as a convention. A version milestone could therefore only be empty — permanently 0/0, sitting in the milestone list next to the four meaningful phase ones and inviting exactly the phase-vs-version confusion this document opens by warning about — or it could displace a phase milestone, which would break a documented convention to gain nothing. Labels are multi-valued; milestones are not; the gate is a set, so it is a label. If a future release ever needs its own *new* issues (a `v1.0.1` bugfix batch, say), a milestone for that batch is the right tool at that time.
 
@@ -242,8 +240,8 @@ This makes checklist items 1 and 15 a single `gh issue list` query instead of a 
 | Scheme | SemVer 2.0.0, `v`-prefixed, annotated tags on `main` only; `0.x` through the build, `-rc.N` only ahead of `v1.0.0` |
 | Tags | Five: `v0.1.0`, `v0.2.0`, `v0.3.0`, `v0.4.0`, `v1.0.0` — at capability jumps, **not** at phase boundaries |
 | Gate | A set of merged task issues, tracked by a `release:*` label; never a date |
-| Cut by | The orchestrator, inside the tick that merges the last gating task, with dispatch paused for that tick |
-| Published by | The orchestrator for `v0.1.0`–`v0.3.0`; the **human** for `v0.4.0` and `v1.0.0`, inheriting Q-B's visual sign-off |
+| Cut by | The main session, right after merging the last gating task, before dispatching the next |
+| Published by | The main session for `v0.1.0`–`v0.3.0`; the **human** for `v0.4.0` and `v1.0.0`, inheriting Q-B's visual sign-off |
 | Notes | Generated at cut time from GitHub + the shipped ruleset JSON; no `CHANGELOG.md`; eight required sections, presets and `[designed]` mechanics among them |
 | Reviewed by | The existing reviewer role (Opus / Medium), applying build-process.md §4.2's gates to the draft Release body |
 | Blocking constraint | 19 checklist lines; 17 agent-checkable, 2 human, none of them new |
