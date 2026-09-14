@@ -82,4 +82,33 @@ public sealed class FixtureCorpusTopUpTests
         Assert.Equal(2, FixtureCorpus.Get("fleet.condition.movePenaltyShift").AsInt());
         Assert.Equal("supply-driven-morale-and-fleet-attrition.md", FixtureCorpus.Get("fleet.condition.deathThreshold").Source);
     }
+
+    /// <summary>
+    /// Review round 1, B2: the fleet loop's remaining constants T14 needs -- the per-turn drain, the
+    /// storm pass's winter/covered-cell multipliers, the near-coast halving, the ship-loss and
+    /// message thresholds, and the two moves formulas -- were confirmed in the 47th report but not
+    /// transcribed in the original pass. Spot-checked here the same way
+    /// <see cref="FleetConditionConstants_ArePresentForT14"/> already does for the entries it added.
+    /// </summary>
+    [Fact]
+    public void FleetStormAndMovesConstants_ArePresentForT14()
+    {
+        Assert.Equal("supplies -= ships", FixtureCorpus.Get("fleet.supply.drainFormula").AsString());
+        Assert.Equal(5, FixtureCorpus.Get("fleet.storm.winterDoublingCap").AsInt());
+        Assert.Equal(8, FixtureCorpus.Get("fleet.storm.coveredCellTripleCap").AsInt());
+        Assert.Equal(2, FixtureCorpus.Get("fleet.storm.nearCoastDamageDivisor").AsInt());
+        Assert.Equal(6, FixtureCorpus.Get("fleet.storm.shipLossDamageThreshold").AsInt());
+        Assert.Equal(5, FixtureCorpus.Get("fleet.storm.damagedMessageThreshold").AsInt());
+        Assert.Equal("30 - (ships - 50) / 10", FixtureCorpus.Get("fleet.moves.baseFormula").AsString());
+        Assert.Equal("troops / 100 / ships + 1", FixtureCorpus.Get("fleet.moves.carriedArmyPenaltyFormula").AsString());
+        Assert.Equal("supply-driven-morale-and-fleet-attrition.md", FixtureCorpus.Get("fleet.storm.winterDoublingCap").Source);
+    }
+
+    /// <summary>Review round 1, N5: the two inferred-predicate fleet-storm entries are now tagged derived, not confirmed.</summary>
+    [Fact]
+    public void InferredPredicateFleetStormConstants_AreTaggedDerivedNotConfirmed()
+    {
+        Assert.Equal("derived", FixtureCorpus.Get("fleet.storm.awayFromCoastMultiplier").Tag);
+        Assert.Equal("derived", FixtureCorpus.Get("fleet.storm.winterAndAwayRareCatastrophe").Tag);
+    }
 }
