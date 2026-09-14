@@ -1,13 +1,14 @@
 # Imperial Conquest 2
 
-Read [`docs/operating-guide.md`](docs/operating-guide.md) before doing anything — it is the entry point: current state, where everything lives, how the project is operated, and the standing preferences. This file only lists the rules that must never be forgotten.
+Read [`docs/operating-guide.md`](docs/operating-guide.md) before doing anything. It is the entry point: where everything lives, how the project is operated, and the standing preferences. This file lists only the rules that must never be forgotten.
 
-1. **The main session is the planner.** It spawns an orchestrator with a bounded mandate and never runs `/build-tick` itself ([build-process.md §5.1](docs/build-process.md#51-who-runs-it)).
-2. **Check `ListAgents` before touching the shared checkout.** If anything is running, work in a separate `git worktree` on a new branch ([operating-guide.md §3.3](docs/operating-guide.md#33-working-rules)).
-3. **Branch or `main` is decided case by case.** Only routine post-merge doc sync goes straight to `main` ([operating-guide.md §3.3](docs/operating-guide.md#33-working-rules)).
-4. **A question is not a request to edit files.** Answer it; propose any fix and wait ([operating-guide.md §4](docs/operating-guide.md#4-standing-user-preferences)).
-5. **Upstream defects go through the bug list.** Never patch another task's Owns list ([build-process.md §4.7](docs/build-process.md#47-the-bug-list)).
-6. **Relay review findings verbatim** — the full list, never a subset ([build-process.md §4.5](docs/build-process.md#45-rework)).
-7. **Commit and push research-repo work without asking** ([operating-guide.md §4](docs/operating-guide.md#4-standing-user-preferences)).
-8. **Merge on GitHub's side, never by pulling into a checkout an agent is using** ([operating-guide.md §3.7](docs/operating-guide.md#37-merging-to-main-without-disturbing-running-agents)).
-9. **At session start, check the triage queue** — `gh issue list --label triage:needed --state open` — and triage it (or tell the user) before other work. Never spawn an orchestrator mandate while `gh issue list --label blocking --label triage:needed --state open` returns a bug whose `Blocks:` line names a task in its scope ([build-process.md §4.7](docs/build-process.md#the-triage-queue)).
+1. **The main session runs the build.** It plans, runs tasks with `/run-task` (an implementer, then an independent reviewer, then the merge), triages bugs, and talks to the user. There is no orchestrator ([build-process.md §3.1](docs/build-process.md#31-the-roles), [Appendix C](docs/build-process.md#appendix-c-the-run-task-skill)).
+2. **Agents never work in the main checkout.** Implementers and reviewers use their own worktrees under `C:\Users\diego\projects\ic2-work\`, and the main checkout is the main session's ([build-process.md §7](docs/build-process.md#7-concurrency-single-instance-and-local-only)).
+3. **Status lives on GitHub labels only.** No document carries a status snapshot, so never add one ([build-process.md §5](docs/build-process.md#5-status-lives-on-github)).
+4. **Plan and design changes go to a branch for the user's review**; a merge's routine doc claims go straight to `main`. When unsure, ask.
+5. **A question is not a request to edit files.** Answer it; propose any fix and wait.
+6. **Upstream defects go through the bug list.** Suspend, file, plan, resume; never patch another task's Owns list ([build-process.md §4.6](docs/build-process.md#46-bugs-and-follow-ups)).
+7. **Relay review findings in full**: the whole list, linked or verbatim, never a subset.
+8. **Merge only with an approving review and green CI.** T16 and T22 also need the user's thumbs-up.
+9. **Commit and push research-repo work without asking.**
+10. **At session start**, check the triage queue (`gh issue list --label triage:needed --state open`) and any task left in flight (`status:in-progress`, `in-review`, `rework`, `escalated`), and tell the user where things stand.

@@ -1,27 +1,12 @@
-# Build orchestration plan (split)
+# Build orchestration plan (superseded)
 
-This document was split in two and holds no content of its own; follow the links. [build-process.md](build-process.md) is the process — roles, review and merge, the orchestrator, the bug list, the documentation step, the prompt templates and `/build-tick`. [task-catalogue.md](task-catalogue.md) is the tasks — the dependency graph, every task entry, the task index and status. [operating-guide.md](operating-guide.md) replaces the former `docs/HANDOVER.md` and `AGENTS.md`.
+This page holds no content of its own. It stays so that old references to it still resolve: in code comments, `_provenance` strings, closed issues and merged pull requests.
 
-The page stays so that references to it — in code comments, `_provenance` strings, closed issues and merged pull requests — still resolve. A reference to `build-orchestration-plan.md §N` maps as follows; a reference to a task entry (`T07 DoD 4`) is the same entry, same numbering, in the task catalogue.
+- **The process** (roles, the task loop, review, bugs, templates) is [build-process.md](build-process.md). The orchestrator layer this plan described was retired on 2026-09-14. The main session now runs tasks directly with `/run-task`.
+- **The tasks, their dependency graph and index** are in [task-catalogue.md](task-catalogue.md). Each task's entry anchor is unchanged (below).
+- **Where the build stands** is on GitHub's labels ([operating-guide.md §1](operating-guide.md#1-where-the-build-stands)).
 
-| Old section | Now |
-| --- | --- |
-| §0 Where things stand, and what you can test | [operating-guide.md §1](operating-guide.md#1-current-state) |
-| §1 What the pipeline has to work around | [build-process.md §1](build-process.md#1-constraints-the-pipeline-works-around) |
-| §2 What makes the parallelism possible (§2.1–§2.5) | [build-process.md §2](build-process.md#2-how-the-build-avoids-conflicts) (same 2.1–2.5 numbering) |
-| §3 Roles, models, and the effort scale (§3.1–§3.5) | [build-process.md §3](build-process.md#3-roles-models-and-the-effort-scale) (same numbering) |
-| §4 The dependency graph; §4.1 waves; §4.2 sequential vs parallel | [task-catalogue.md §1](task-catalogue.md#1-the-dependency-graph), §1.1, §1.2 |
-| §5 The task catalogue, and every T-entry | [task-catalogue.md §2](task-catalogue.md#2-the-tasks) — entry anchors unchanged (below) |
-| §6.1–§6.6 The review and merge pipeline | [build-process.md §4.1–§4.6](build-process.md#4-the-review-and-merge-pipeline) |
-| §6.7 The bug list | [build-process.md §4.7](build-process.md#47-the-bug-list) |
-| (new) Documentation update after every merge | [build-process.md §4.8](build-process.md#48-documentation-update-after-every-merge) |
-| §7.1–§7.5 The orchestrator (who runs it, state, one tick, conflicts, pause) | [build-process.md §5.1–§5.5](build-process.md#5-the-orchestrator) |
-| §8 Git and GitHub conventions | [build-process.md §6](build-process.md#6-git-and-github-conventions) |
-| §9 Concurrency, single-instance, and local-only | [build-process.md §7](build-process.md#7-concurrency-single-instance-and-local-only) |
-| §10 Adding a second machine later | [build-process.md §8](build-process.md#8-adding-a-second-machine-later) |
-| §11 Open questions for the user (Q-A–Q-D) | [build-process.md §9](build-process.md#9-standing-governance-decisions) |
-| §12 Task index | [task-catalogue.md §3](task-catalogue.md#3-task-index) |
-| Appendices A, B, C (prompt templates, `/build-tick`) | [build-process.md Appendix A](build-process.md#appendix-a-implementer-prompt-template), [B](build-process.md#appendix-b-reviewer-prompt-template), [C](build-process.md#appendix-c-the-build-tick-skill) |
+A reference to "`build-orchestration-plan.md` T<nn> … Done-when N" means the same Done-when line in that task's catalogue entry, unless the catalogue has since amended it.
 
 ## Task entries
 

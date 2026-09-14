@@ -2,7 +2,7 @@
 
 This repository's own evidence write-ups: questions the research repository's reports left open that a build task or an evidence pass had to settle before code could be written against them. They are cited as provenance exactly like a research-repo report ([build-process.md §4.2](../build-process.md#42-what-the-reviewer-checks) gate 2), and use the same tagging convention as `design-audit.md`: **[confirmed]**, **[derived]**, **[designed]**, **[open]**.
 
-A new investigation gets a row here in the same documentation update that lands it ([build-process.md §4.8](../build-process.md#48-documentation-update-after-every-merge) part B).
+A new investigation gets a row here when it lands: in the doc claims applied after its merge ([build-process.md §4.7](../build-process.md#47-after-a-merge)), or on the branch that adds it.
 
 | Document | Question | Result | Consumed by |
 | --- | --- | --- | --- |

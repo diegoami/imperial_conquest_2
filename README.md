@@ -6,20 +6,17 @@ A modern, moddable reimplementation of *Imperial Conquest 2* (1996) — the game
 
 ## Current state
 
-A snapshot, synced after every merge by the documentation step ([build-process.md §4.8](docs/build-process.md#48-documentation-update-after-every-merge)); the live per-tick status is [tracking issue #29](https://github.com/diegoami/imperial_conquest_2/issues/29).
+Progress lives on GitHub, not in this file: each [task issue](https://github.com/diegoami/imperial_conquest_2/issues?q=label%3Atask)'s `status:*` label, and the [pull requests](https://github.com/diegoami/imperial_conquest_2/pulls). The foundation (Phase 0) is merged, and the pure-rules subsystems (Phase 1) are being built task by task ([task catalogue](docs/task-catalogue.md)). How to query the board: [operating-guide.md §1](docs/operating-guide.md#1-where-the-build-stands).
 
-- **As of** `a53eaa5`: Phase 0 (foundation) merged, Phase 1 (pure rules) under way — **12 of 39 build tasks merged**: T01–T09, T30, T31, T32. Per-task status is in the [task index](docs/task-catalogue.md#3-task-index).
-- **What exists**: `IC2.Data` (the original `.sav`/`.dat` parsers), the domain model and toy world, the fixtures corpus (389 constants from the research reports), the engine seams (seeded RNG, turn pipeline, commands, events), calendar and turn sequencing, the strength functions, movement/terrain (the one-click Bresenham walker, terrain costs, blocking, abort rules), and economy, supply and purses (tax, quarterly upkeep, weather-event frequency, supply as a purchased economy with the dialog capacity cap, and the supply→army-morale rule). No gameplay loop yet.
-- **Next**: T10 (news log) is **escalated** — round-2 rework's review failed, PR [#77](https://github.com/diegoami/imperial_conquest_2/pull/77) kept unmerged, waiting on the planner and the user. Nothing is in progress. The ready set for a future mandate is T11, T12, T33, T34, T35, T38 (T14 waits for T38). T29 is still blocked (waiting on T30, T34, T15, T17, T19, T37).
 - **Nothing is playable yet.** The first runnable program is the `IC2.Cli` harness (T23); the first screen is T24. What becomes runnable when: [operating-guide.md §1.1](docs/operating-guide.md#11-what-becomes-runnable-and-when).
 - **Build and test now**:
   ```bash
   dotnet build IC2.sln   # 0 warnings, 0 errors
-  dotnet test IC2.sln    # 420 tests: 342 engine, 78 data
+  dotnet test IC2.sln
   ```
-  65 of the data tests read your original game files and skip without `assets.local.ini` (below). CI: [Actions](https://github.com/diegoami/imperial_conquest_2/actions).
+  The data tests that read your original game files skip without `assets.local.ini` (below). CI: [Actions](https://github.com/diegoami/imperial_conquest_2/actions).
 
-Operating the project — the build pipeline, the skills, where everything lives, pausing, bugs: [docs/operating-guide.md](docs/operating-guide.md).
+Operating the project — the task loop, the skills, where everything lives, bugs: [docs/operating-guide.md](docs/operating-guide.md).
 
 ## Building the reimplementation
 
@@ -66,9 +63,9 @@ After setting `assets.local.ini`, open `godot/project.godot` with Godot .NET 4.7
 
 - [Operating guide](docs/operating-guide.md) — start here: current state, where everything lives, how the sessions, skills and pipeline are run, what's still open.
 - [Game design](docs/game-design.md) and its [design audit](docs/design-audit.md) — what the reimplementation will be, and what the evidence actually supports.
-- [Task catalogue](docs/task-catalogue.md) — the 39 build tasks, their dependency graph and status.
+- [Task catalogue](docs/task-catalogue.md) — the build tasks and their dependency graph.
 - [Build process](docs/build-process.md) — how tasks are dispatched, reviewed, merged and documented by the agent pipeline.
 - [Evidence pipeline](docs/evidence-pipeline.md) — the `/process-evidence` skill that turns new saves/recordings/notes into research-repo findings and then game-design implications.
 - [Investigations](docs/investigations/README.md) — this repository's own evidence write-ups.
 - [Release plan](docs/release-plan.md) — how tasks turn into version tags and releases.
-- Research repository ([diegoami/imperial-conquest-2-research](https://github.com/diegoami/imperial-conquest-2-research)): [roadmap](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/roadmap.md), [research notes](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/research.md), and the full [reports index](https://github.com/diegoami/imperial-conquest-2-research/tree/main/docs/reports) — 49 evidence-based findings the design cites throughout.
+- Research repository ([diegoami/imperial-conquest-2-research](https://github.com/diegoami/imperial-conquest-2-research)): [roadmap](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/roadmap.md), [research notes](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/research.md), and the full [reports index](https://github.com/diegoami/imperial-conquest-2-research/tree/main/docs/reports) — the evidence-based findings the design cites throughout.
