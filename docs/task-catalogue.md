@@ -336,7 +336,7 @@ Conventions used by every entry:
 
 #### T09 Movement and terrain
 
-- **Status**: In progress
+- **Status**: Merged (`e804f4f`)
 - **Design milestone**: **M6**. **Labels**: `phase:1 lane:engine`
 - **Branch**: `task/T09-movement` · **Model/effort**: Sonnet / Medium · **Reviewer**: Sonnet / High
 - **Start after**: T03 · **Merge after**: T03, T04
@@ -850,7 +850,7 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T06](#t06-calendar-and-turn-sequencing) | Calendar and turns | M2 | Sonnet | Medium | Sonnet/High | T03, T04 | [#6](https://github.com/diegoami/imperial_conquest_2/issues/6) | Merged (`8b8007a`) |
 | [T07](#t07-strength-functions) | Strength functions | M5 | Sonnet | High | **Opus**/Medium | T03, T04, T31 | [#7](https://github.com/diegoami/imperial_conquest_2/issues/7) | Merged (`acd4098`) |
 | [T08](#t08-economy-supply-and-purses) | Economy and purses | M3 | Sonnet | High | **Opus**/Medium | T03, T04, T06, T32 | [#8](https://github.com/diegoami/imperial_conquest_2/issues/8) | In progress |
-| [T09](#t09-movement-and-terrain) | Movement and terrain | M6 | Sonnet | Medium | Sonnet/High | T03, T04 | [#9](https://github.com/diegoami/imperial_conquest_2/issues/9) | In progress |
+| [T09](#t09-movement-and-terrain) | Movement and terrain | M6 | Sonnet | Medium | Sonnet/High | T03, T04 | [#9](https://github.com/diegoami/imperial_conquest_2/issues/9) | Merged (`e804f4f`) |
 | [T10](#t10-news-log-ring-buffer-and-message-catalog) | News log | M17 | **Haiku** | Medium | Sonnet/Medium | T03, T04 | [#10](https://github.com/diegoami/imperial_conquest_2/issues/10) | Ready |
 | [T11](#t11-asset-pack-loader-and-generated-placeholder-pack) | Asset pack | — | **Haiku** | Medium | Sonnet/Medium | T02 | [#11](https://github.com/diegoami/imperial_conquest_2/issues/11) | Ready |
 | [T12](#t12-victory-conditions) | Victory conditions | M13 | Sonnet | Medium | Sonnet/High | T03, T06 | [#12](https://github.com/diegoami/imperial_conquest_2/issues/12) | Ready |
@@ -880,4 +880,4 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T36](#t36-author-the-improved-preset-ruleset) | Author the `improved` preset | — | **Haiku** | Medium | Sonnet/Medium | T29 | [#64](https://github.com/diegoami/imperial_conquest_2/issues/64) | Blocked |
 | [T37](#t37-city-supply-production-and-famine-unrest) | City supply and famine unrest | — | Sonnet | Medium | **Opus**/Medium | T08, T35 | [#70](https://github.com/diegoami/imperial_conquest_2/issues/70) | Blocked |
 
-**Totals** — 37 tasks: 4 Opus, 26 Sonnet, 6 Haiku, 1 Fable. Effort: 2 Ultrahigh, 15 High, 17 Medium, 3 Low. 10 merged as of `2d72f7f`.
+**Totals** — 37 tasks: 4 Opus, 26 Sonnet, 6 Haiku, 1 Fable. Effort: 2 Ultrahigh, 15 High, 17 Medium, 3 Low. 11 merged as of `e804f4f`.
