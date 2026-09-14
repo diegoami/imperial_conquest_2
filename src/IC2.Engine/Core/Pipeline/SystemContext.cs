@@ -25,7 +25,8 @@ public sealed class SystemContext
         IEventSink events,
         IQuarterBoundaryHook quarterBoundary,
         ICommandDispatch commands,
-        TurnSignals signals)
+        TurnSignals signals,
+        ValueList<PublishedEvent> publishedEvents)
     {
         State = state;
         Ruleset = ruleset;
@@ -37,6 +38,7 @@ public sealed class SystemContext
         QuarterBoundary = quarterBoundary;
         Commands = commands;
         Signals = signals;
+        PublishedEvents = publishedEvents;
     }
 
     /// <summary>The state as the previous system in the pipeline left it.</summary>
@@ -82,6 +84,36 @@ public sealed class SystemContext
 
     /// <summary>What this system can ask the coordinator to do once the phase finishes.</summary>
     public TurnSignals Signals { get; }
+
+    /// <summary>
+    /// Everything published earlier in the current run, in publication order, each tagged with the phase
+    /// it was published in and the id of the system that published it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The T40 seam: a stateless system that needs to see what earlier systems in the same run already
+    /// published reads this, instead of keeping state of its own, reaching into another sink's private
+    /// list by reflection, or sharing a mutable static. T10's news writer is the motivating case: running
+    /// in <see cref="TurnPhase.SeatEnd"/> it sees the events of <see cref="TurnPhase.SeatStart"/>,
+    /// <see cref="TurnPhase.Orders"/> and the systems before it in <see cref="TurnPhase.SeatEnd"/>;
+    /// running in <see cref="TurnPhase.RoundEnd"/> it sees every round-scoped phase's events, and — when
+    /// <see cref="TurnCoordinator.RunTurn"/> follows a seat's turn on into the round tick — the
+    /// seat-scoped phases' events too, told apart from the round-scoped ones by their <see cref="PublishedEvent.Phase"/> tag.
+    /// </para>
+    /// <para>
+    /// Covers events published directly by an earlier system, by a command that system issued through
+    /// <see cref="ICommandDispatch.Dispatch(GameState, ICommand)"/>, and by a quarter-boundary handler a
+    /// system's own phase fired through <see cref="QuarterBoundary"/> — all three publish through the same
+    /// run-bound, phase-and-system-tagging sink, so all three are recorded here. The exception is
+    /// <see cref="ICommandDispatch.Dispatch(GameState, ICommand, IEventSink)"/>: that overload lets the
+    /// caller name a different sink, so an event published through it is not tagged or recorded here,
+    /// exactly as it already does not reach <see cref="TurnResult.Events"/> unless the caller happens to
+    /// pass this run's own sink. It never includes anything <em>this</em> system is about to publish during
+    /// its own <see cref="IGameSystem.Execute"/>: the view is a snapshot taken before this system runs, not
+    /// a live one. A fresh run starts this list empty; nothing carries over from one turn to the next.
+    /// </para>
+    /// </remarks>
+    public ValueList<PublishedEvent> PublishedEvents { get; }
 
     /// <summary>The nation id whose seat is currently active.</summary>
     public string ActiveNationId => State.ActiveNationId;

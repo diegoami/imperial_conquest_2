@@ -173,16 +173,22 @@ public sealed class TurnCoordinator
         var signals = new TurnSignals();
         var trace = new List<SystemExecution>();
 
+        // T40's seam: every event published during this run, tagged with its phase and publishing system,
+        // for SystemContext.PublishedEvents. A fresh list per Run() call, so nothing carries over between
+        // turns; it is threaded through both RunPhases calls below so a round tick that follows on from a
+        // seat's turn still sees that turn's seat-scoped events.
+        var published = new List<PublishedEvent>();
+
         var current = AdvanceRootSeed(state);
         var turnSeed = current.RandomSeed;
 
-        current = RunPhases(current, turnSeed, phases, events, signals, trace);
+        current = RunPhases(current, turnSeed, phases, events, signals, trace, published);
 
         // A direct round tick is itself the round tick, so it reports one without being signalled.
         var roundTickRan = !mayFollowOnToRoundPhases;
         if (mayFollowOnToRoundPhases && signals.RoundTickRequested)
         {
-            current = RunPhases(current, turnSeed, TurnPhases.RoundScoped, events, signals, trace);
+            current = RunPhases(current, turnSeed, TurnPhases.RoundScoped, events, signals, trace, published);
             roundTickRan = true;
         }
 
@@ -195,18 +201,30 @@ public sealed class TurnCoordinator
         IReadOnlyList<TurnPhase> phases,
         IEventSink events,
         TurnSignals signals,
-        List<SystemExecution> trace)
+        List<SystemExecution> trace,
+        List<PublishedEvent> published)
     {
-        // Bound to this run's sink, so an order a system places lands in TurnResult.Events alongside the
-        // events the systems themselves published. Without this, every event from every command T22's AI
-        // ever issues would reach the external sink and nothing else, which is exactly the observability
-        // SystemContext.Commands exists to preserve.
-        var boundCommands = new BoundCommandDispatch(_commands, events);
         var current = state;
         foreach (var phase in phases)
         {
             foreach (var system in _registry.InPhase(phase))
             {
+                // Everything earlier systems published in this run, snapshotted before this one runs —
+                // never anything this system is about to publish itself. See SystemContext.PublishedEvents.
+                var publishedSoFar = ValueList.From(published);
+
+                // Tags everything this system contributes — direct publications, and anything it publishes
+                // indirectly through a command it issues or a quarter-boundary handler its own phase fires
+                // (both route through this same sink) — with this system's own phase and id, then forwards
+                // to the run's sink so TurnResult.Events and the caller's own sink see it exactly as before.
+                var taggedEvents = new TaggingEventSink(events, published, phase, system.Id);
+
+                // Bound to this run's sink, so an order a system places lands in TurnResult.Events alongside
+                // the events the systems themselves published. Without this, every event from every command
+                // T22's AI ever issues would reach the external sink and nothing else, which is exactly the
+                // observability SystemContext.Commands exists to preserve.
+                var boundCommands = new BoundCommandDispatch(_commands, taggedEvents);
+
                 // Streams are derived from the seed captured at the start of the run, never from the
                 // state a previous system returned. A system that writes to RandomSeed (it should not)
                 // therefore cannot shift anybody else's rolls.
@@ -217,10 +235,11 @@ public sealed class TurnCoordinator
                     phase,
                     system.Id,
                     SplitMix64Rng.ForStream(turnSeed, StreamNameFor(system.Id, phase)),
-                    events,
-                    new QuarterBoundaryHook(this, turnSeed, events),
+                    taggedEvents,
+                    new QuarterBoundaryHook(this, turnSeed, taggedEvents),
                     boundCommands,
-                    signals);
+                    signals,
+                    publishedSoFar);
 
                 GameState? produced = system.Instance.Execute(context);
                 if (produced is null)
@@ -308,6 +327,41 @@ public sealed class TurnCoordinator
             }
 
             return current;
+        }
+    }
+
+    /// <summary>
+    /// Wraps one run's own event sink so that everything published while one system is on the stack —
+    /// directly through <see cref="SystemContext.Events"/>, through a command it issues via
+    /// <see cref="SystemContext.Commands"/>, or through a quarter-boundary handler its own phase fires via
+    /// <see cref="SystemContext.QuarterBoundary"/> — is also recorded, tagged with the phase and the
+    /// system that was running at the moment of publication.
+    /// </summary>
+    /// <remarks>
+    /// This is what backs <see cref="SystemContext.PublishedEvents"/>: state that <see cref="Run"/> and
+    /// <see cref="RunPhases"/> already thread through the pipeline, not a static and not reflection over
+    /// another sink's private list. Publication still reaches <paramref name="inner"/> — and, through it,
+    /// <see cref="TurnResult.Events"/> and the caller's own sink — exactly as before; tagging is additive.
+    /// </remarks>
+    private sealed class TaggingEventSink : IEventSink
+    {
+        private readonly IEventSink _inner;
+        private readonly List<PublishedEvent> _published;
+        private readonly TurnPhase _phase;
+        private readonly string _systemId;
+
+        public TaggingEventSink(IEventSink inner, List<PublishedEvent> published, TurnPhase phase, string systemId)
+        {
+            _inner = inner;
+            _published = published;
+            _phase = phase;
+            _systemId = systemId;
+        }
+
+        public void Publish(DomainEvent domainEvent)
+        {
+            _inner.Publish(domainEvent);
+            _published.Add(new PublishedEvent(domainEvent, _phase, _systemId));
         }
     }
 }
