@@ -9,10 +9,21 @@ namespace IC2.Engine.Tests.Calendar;
 /// a system can register into with neither T08 nor T14 present.
 /// </summary>
 /// <remarks>
+/// <para>
 /// "Turn" here means one round -- see <see cref="CalendarSequenceTests"/>'s remarks for why. The two
 /// probe systems in <see cref="AttritionProbeFixtures"/> stand in for T08's supply/morale rule
 /// (<see cref="TurnPhase.ArmyTick"/>) and T14's fleet attrition (<see cref="TurnPhase.FleetTick"/>);
 /// neither task exists in this codebase, which is itself part of what DoD 7 requires this test to show.
+/// </para>
+/// <para>
+/// T32 (bug #50): every lookup below is **by system id**, never by a phase's system count. Bug #50 is
+/// exactly this file asserting <c>Assert.Single</c> over a whole phase, which broke the moment T08's real
+/// system registered into <see cref="TurnPhase.ArmyTick"/> alongside the probe. The first test also
+/// registers <see cref="LaterTaskStandIns"/> -- inert test-local stand-ins for a real future system --
+/// into the same two phases, so this file's own id-based lookups are proven robust to exactly the
+/// situation that broke them, and no later task's system landing in either phase can break a Calendar
+/// test again.
+/// </para>
 /// </remarks>
 public sealed class AttritionPhaseOrderingTests
 {
@@ -20,21 +31,29 @@ public sealed class AttritionPhaseOrderingTests
     /// DoD 7: the attrition phases are declared, named phases in T03's ordered pipeline that a system
     /// can register into with nothing else present -- not an implicit side effect of another phase.
     /// </summary>
+    /// <remarks>
+    /// DoD 1 (T32): the probes are found <em>by id</em>, and stay found once
+    /// <see cref="LaterTaskStandInArmySystem"/>/<see cref="LaterTaskStandInFleetSystem"/> -- this task's
+    /// own fixture standing in for T08 and T14 -- also occupy the phase. Nothing here counts how many
+    /// systems a phase holds.
+    /// </remarks>
     [Fact]
     public void AttritionPhasesAcceptRegistrationWithNeitherT08NorT14Present()
     {
         var registry = CalendarTestbed.RegistryFor(AttritionProbeFixtures.Group);
 
-        var armyTickSystems = registry.InPhase(TurnPhase.ArmyTick);
-        var fleetTickSystems = registry.InPhase(TurnPhase.FleetTick);
-
-        var armySystem = Assert.Single(armyTickSystems);
-        Assert.Equal("test.calendar.attrition-probe.army", armySystem.Id);
+        var armySystem = SystemWithId(registry.InPhase(TurnPhase.ArmyTick), "test.calendar.attrition-probe.army");
         Assert.IsType<ArmyAttritionProbeSystem>(armySystem.Instance);
 
-        var fleetSystem = Assert.Single(fleetTickSystems);
-        Assert.Equal("test.calendar.attrition-probe.fleet", fleetSystem.Id);
+        var fleetSystem = SystemWithId(registry.InPhase(TurnPhase.FleetTick), "test.calendar.attrition-probe.fleet");
         Assert.IsType<FleetAttritionProbeSystem>(fleetSystem.Instance);
+
+        // The stand-ins for a later task's real system (T08/T14) are registered into the very same
+        // phases as the probes above. The two lookups above already succeeded in their presence --
+        // finding them here too just confirms they are actually in the registry, not merely absent by
+        // an accident of scope.
+        Assert.Contains(registry.InPhase(TurnPhase.ArmyTick), s => s.Id == LaterTaskStandIns.ArmyId);
+        Assert.Contains(registry.InPhase(TurnPhase.FleetTick), s => s.Id == LaterTaskStandIns.FleetId);
     }
 
     /// <summary>
@@ -68,8 +87,8 @@ public sealed class AttritionPhaseOrderingTests
             Assert.True(armyIndex < calendarIndex, $"Round {round}: army attrition must run before the calendar advance.");
             Assert.True(fleetIndex < calendarIndex, $"Round {round}: fleet attrition must run before the calendar advance.");
 
-            var armyFired = Assert.Single(result.Events.OfType<ArmyAttritionProbeFired>());
-            var fleetFired = Assert.Single(result.Events.OfType<FleetAttritionProbeFired>());
+            var armyFired = Assert.Single(result.Events.OfType<AttritionProbeFired>(), e => e.ProbeId == "army");
+            var fleetFired = Assert.Single(result.Events.OfType<AttritionProbeFired>(), e => e.ProbeId == "fleet");
             armyFirings++;
             fleetFirings++;
 
@@ -105,6 +124,9 @@ public sealed class AttritionPhaseOrderingTests
         // Re-run is unnecessary -- already checked turn-by-turn above -- this is a plain-language
         // restatement of the DoD line for a reviewer scanning this file.
     }
+
+    private static RegisteredSystem SystemWithId(IReadOnlyList<RegisteredSystem> systems, string id) =>
+        systems.Single(s => s.Id == id);
 
     private static int IndexOfSystem(IReadOnlyList<SystemExecution> trace, string systemId)
     {
