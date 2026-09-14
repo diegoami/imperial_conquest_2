@@ -10,7 +10,7 @@ A snapshot, synced after every merge by the documentation step ([build-process.m
 
 - **As of** `a53eaa5`: Phase 0 (foundation) merged, Phase 1 (pure rules) under way — **12 of 39 build tasks merged**: T01–T09, T30, T31, T32. Per-task status is in the [task index](docs/task-catalogue.md#3-task-index).
 - **What exists**: `IC2.Data` (the original `.sav`/`.dat` parsers), the domain model and toy world, the fixtures corpus (389 constants from the research reports), the engine seams (seeded RNG, turn pipeline, commands, events), calendar and turn sequencing, the strength functions, movement/terrain (the one-click Bresenham walker, terrain costs, blocking, abort rules), and economy, supply and purses (tax, quarterly upkeep, weather-event frequency, supply as a purchased economy with the dialog capacity cap, and the supply→army-morale rule). No gameplay loop yet.
-- **Next**: T10 (news log) is **in progress**, in review. The ready set is T11, T12, T33, T34, T35, T38 — T08's merge unblocked T35 and T38; T14 now waits for T38. T29 is still blocked (waiting on T30, T34, T15, T17, T19, T37).
+- **Next**: T10 (news log) is **escalated** — round-2 rework's review failed, PR [#77](https://github.com/diegoami/imperial_conquest_2/pull/77) kept unmerged, waiting on the planner and the user. Nothing is in progress. The ready set for a future mandate is T11, T12, T33, T34, T35, T38 (T14 waits for T38). T29 is still blocked (waiting on T30, T34, T15, T17, T19, T37).
 - **Nothing is playable yet.** The first runnable program is the `IC2.Cli` harness (T23); the first screen is T24. What becomes runnable when: [operating-guide.md §1.1](docs/operating-guide.md#11-what-becomes-runnable-and-when).
 - **Build and test now**:
   ```bash
