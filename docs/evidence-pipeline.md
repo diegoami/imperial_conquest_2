@@ -27,9 +27,9 @@ New files in the **unprocessed** side of the original game directory's evidence 
 3. **Tasks not yet dispatched.** A scope or DoD change to a task that has not started is drafted as a [task-catalogue.md](task-catalogue.md) edit on the same review branch; a DoD only changes by a reviewed commit ([build-process.md §4.4](build-process.md#44-the-dod-is-not-negotiable-by-an-agent)).
 4. **Design decisions.** A genuine judgment call is **not decided**: pose it plainly, the way `design-audit.md` §3's questions were raised, and stop.
 
-Stage 2 never touches the status snapshot (§4.8 part A) — status follows the labels, not evidence. It works in **its own worktree on a new branch** off `origin/main` (never the shared checkout, which a pipeline agent may be using), pushes that branch, and does not merge: evidence-driven changes are new content, so they go through review rather than straight to `main` ([operating-guide.md §3.3](operating-guide.md#33-working-rules)). Report back: the branch, what changed and why, any bug issues filed, and any open question for the human.
+Stage 2 never touches the status snapshot (§4.8 part A) — status follows the labels, not evidence. It works in **its own worktree on a new branch** off `origin/main` (never the shared checkout, which a pipeline agent may be using), pushes that branch, and does not merge: evidence-driven changes are new content, so they go through review rather than straight to `main` ([operating-guide.md §3.3](operating-guide.md#33-working-rules)). **Report back to the planner**: the branch, what changed and why, any bug issues filed, and any open question for the human. The planner triages the bugs ([build-process.md §4.7](build-process.md#47-the-bug-list)), takes the branch and the open questions to the user, and decides what enters the build.
 
-**Whoever invokes `/process-evidence`** (the interactive session, not a subagent) coordinates both dispatches — dispatch stage 1, wait for its completion notification (don't poll), dispatch stage 2 with stage 1's actual output as input, then relay the result to the user. If stage 1 finds nothing worth writing up, stop there and say so — no stage 2 over nothing.
+**The planner — the main session — invokes `/process-evidence`** and coordinates both dispatches: dispatch stage 1, wait for its completion notification (don't poll), dispatch stage 2 with stage 1's actual output as input, then relay the result to the user. Neither stage reports to the orchestrator, and neither dispatches build tasks. If stage 1 finds nothing worth writing up, stop there and say so — no stage 2 over nothing.
 
 ## The actual skill file
 
@@ -67,9 +67,13 @@ existing reports for the note's referenced save names before assuming it's new.
    design decisions posed and not made, no status edits. It works in its own worktree
    (`git worktree add <sibling-path> -b evidence/<slug> origin/main`), never in the shared
    checkout, and pushes that branch without merging.
-6. Wait for stage 2's completion notification.
+6. Wait for stage 2's completion notification; stage 2 reports back to you, the planner.
 7. Relay to the user: what stage 1 found and where (research-repo commit), what stage 2 proposes and
-   where (this repo's branch), the bug issues it filed, and any open question for a human decision.
+   where (this repo's branch), the bug issues it filed (yours to triage, build-process.md §4.7),
+   and any open question for a human decision.
+
+This skill is run by the planner (the main session). It never dispatches build tasks; that is the
+orchestrator's job, under a mandate from the planner.
 ```
 
 Install this at `.claude/skills/process-evidence/SKILL.md` (local, git-ignored — reinstall from the block above if it is ever missing).

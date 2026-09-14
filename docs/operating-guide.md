@@ -32,6 +32,7 @@ A snapshot written by the documentation step ([build-process.md §4.8](build-pro
 | Where | What it shows |
 | --- | --- |
 | [Issue #29](https://github.com/diegoami/imperial_conquest_2/issues/29), pinned | The dashboard: one status table per orchestrator tick. |
+| #29's orchestrator-state comment (starts `<!-- orchestrator-state -->`) | The orchestrator's mandate, current task and phase, and open escalations — intent only; the labels are the facts ([build-process.md §5.2](build-process.md#52-where-the-state-lives)). |
 | Task issues, `status:*` labels | Each task's exact stage (`gh issue list --label status:in-review`, etc.). |
 | `bug` label | Defects in merged code awaiting triage (`gh issue list --label bug --state open`). |
 | Pull requests | One per dispatched task, with the reviewer's findings comment and CI. |
@@ -52,6 +53,7 @@ A snapshot written by the documentation step ([build-process.md §4.8](build-pro
 | --- | --- |
 | [README.md](../README.md) | Front door: what the project is, current state in brief, how to build, the inspector tools |
 | [operating-guide.md](operating-guide.md) | This document |
+| [CLAUDE.md](../CLAUDE.md) | Auto-loaded into every Claude Code session: a pointer to this guide and the must-never-forget rules |
 | [build-process.md](build-process.md) | Process contract: roles, review and merge, orchestrator loop, bug list, documentation step, prompt templates, `/build-tick` |
 | [task-catalogue.md](task-catalogue.md) | The 31 tasks, the dependency graph, the task index and status |
 | [game-design.md](game-design.md) | What is being built |
@@ -85,15 +87,18 @@ Never in either repository — and neither is anything derived from them: the Gh
 
 ### 3.1 Sessions and roles
 
-The **main session runs on Opus** and is the orchestrator: it runs the build loop and dispatches every other role as a subagent, keeping its own context small.
+The **main session runs on Opus and is the planner.** It talks to the user, owns the task catalogue and the process, triages bugs and follow-ups, runs `/process-evidence`, and brings design decisions to the user. To advance the build it **spawns an orchestrator agent with a bounded mandate** — a scope, stop conditions, and a report-back contract ([build-process.md §5.1](build-process.md#51-who-runs-it), template in [Appendix D](build-process.md#appendix-d-orchestrator-mandate-template)). **It never runs `/build-tick` itself, and never a `/loop` of it.**
 
 | Role | Dispatched as | Works in | Reference |
 | --- | --- | --- | --- |
-| Implementer | Subagent, model per catalogue | The shared main checkout, alone | [build-process.md Appendix A](build-process.md#appendix-a-implementer-prompt-template) |
-| Reviewer | Subagent, model per catalogue | The shared main checkout, alone | [build-process.md Appendix B](build-process.md#appendix-b-reviewer-prompt-template) |
-| Planner | Opus subagent — bug triage, catalogue changes, rescoping | Its own worktree; pushes a branch for review | [build-process.md §4.7](build-process.md#47-the-bug-list) |
-| Documentation | Sonnet subagent after every merge | Its own worktree; pushes straight to `main` | [build-process.md §4.8](build-process.md#48-documentation-update-after-every-merge) |
-| Researcher | Opus subagents, the two `/process-evidence` stages | A research-repo clone; stage 2 in its own worktree here | [evidence-pipeline.md](evidence-pipeline.md) |
+| Planner | The main session | Its own worktree for anything it writes; plan changes go to a branch for review | [build-process.md §3.1](build-process.md#31-the-roles), [§4.7](build-process.md#47-the-bug-list) |
+| Orchestrator | Agent spawned by the planner, one at a time, bounded mandate | GitHub only (labels, PRs, #29); writes no repository files | [build-process.md §5](build-process.md#5-the-orchestrator), [Appendix C](build-process.md#appendix-c-the-build-tick-skill) |
+| Implementer | Subagent of the orchestrator, model per catalogue | The shared main checkout, alone | [build-process.md Appendix A](build-process.md#appendix-a-implementer-prompt-template) |
+| Reviewer | Subagent of the orchestrator, model per catalogue | The shared main checkout, alone | [build-process.md Appendix B](build-process.md#appendix-b-reviewer-prompt-template) |
+| Documentation | Sonnet subagent of the orchestrator, after every merge | Its own worktree; pushes straight to `main` | [build-process.md §4.8](build-process.md#48-documentation-update-after-every-merge) |
+| Researcher | Opus subagents of the planner, the two `/process-evidence` stages | A research-repo clone; stage 2 in its own worktree here | [evidence-pipeline.md](evidence-pipeline.md) |
+
+The orchestrator escalates to the planner, never to the user; the planner brings the decision to the user and replies to the orchestrator.
 
 ### 3.2 The two skills
 
@@ -101,17 +106,18 @@ Both are **local, git-ignored installs** under `.claude/skills/`; the fenced tex
 
 | Skill | Installed at | Reinstall from | What it does |
 | --- | --- | --- | --- |
-| `/build-tick` | `.claude/skills/build-tick/SKILL.md` | [build-process.md Appendix C](build-process.md#appendix-c-the-build-tick-skill) | One orchestration tick; run continuously with `/loop 15m /build-tick` |
+| `/build-tick` | `.claude/skills/build-tick/SKILL.md` | [build-process.md Appendix C](build-process.md#appendix-c-the-build-tick-skill) | One orchestration tick — run only by the orchestrator agent, never by the main session |
 | `/process-evidence [path]` | `.claude/skills/process-evidence/SKILL.md` | [evidence-pipeline.md](evidence-pipeline.md#the-actual-skill-file) | New saves/recordings/notes → research findings → design implications |
 
 ### 3.3 Working rules
 
 - **One code-modifying pipeline agent at a time.** Implementers and reviewers work alone in the shared main checkout; no worktrees for pipeline agents ([build-process.md §7](build-process.md#7-concurrency-single-instance-and-local-only)).
-- **The orchestrator's own writes go in a worktree on a new branch.** Before touching the shared checkout at all — any file, tracked or git-ignored — check `ListAgents`. If a pipeline agent is live there, do the work in `git worktree add <sibling-path> -b <new-branch> origin/main`. Even a read-only pass gets its own worktree and branch, because the edits that follow will need one.
+- **The planner's own writes go in a worktree on a new branch.** Before touching the shared checkout at all — any file, tracked or git-ignored — check `ListAgents`. If a pipeline agent is live there, do the work in `git worktree add <sibling-path> -b <new-branch> origin/main`. Even a read-only pass gets its own worktree and branch, because the edits that follow will need one. The orchestrator writes no repository files at all.
 - **Branch or `main` is decided case by case.** Routine post-merge documentation sync goes straight to `main` (from a worktree); new or substantive content (a design correction, a new mechanism, catalogue changes) goes to a branch for review. When unsure, ask.
 - **Review is a label, not a GitHub review.** The reviewer applies `status:approved` or `status:rework`; the orchestrator reads the label ([build-process.md §4.1](build-process.md#41-the-path-a-task-takes)).
 - **Relay reviewer findings verbatim.** On rework, the implementer gets the reviewer's full findings, never a hand-picked subset.
-- **Pausing**: `gh issue edit 29 --add-label orchestrator:pause`, from any session; remove it and restart `/loop 15m /build-tick` to resume ([build-process.md §5.5](build-process.md#55-user-initiated-pause)).
+- **Pausing**: `gh issue edit 29 --add-label orchestrator:pause`, from any session. To resume, remove the label, then have the planner spawn or resume an orchestrator with a bounded mandate ([build-process.md §5.5](build-process.md#55-user-initiated-pause)).
+- **If a session is interrupted**, nothing is lost: the facts are in the labels (`status:*`, `review-round:*`, `docs:pending`), the orchestrator's mandate and phase are in #29's state comment, and implementers push work in progress to their task branch. The planner spawns a fresh orchestrator with the recorded mandate, and it runs the recovery procedure first ([build-process.md §5.6](build-process.md#56-recovery-after-an-interruption)).
 
 ### 3.4 Bugs
 
@@ -130,6 +136,23 @@ A defect in already-merged code is filed as a `bug` issue and the task that foun
 
 Every merge is followed, in the same tick, by the documentation step ([build-process.md §4.8](build-process.md#48-documentation-update-after-every-merge)), which syncs all status locations — the catalogue's entries and index, [§1](#1-current-state) of this guide, the README's current-state summary, and [release-plan.md §2.1](release-plan.md#21-gate-progress) — and applies its claim checklist. Every tick also checks the catalogue's status against the GitHub labels and resyncs on drift.
 
+### 3.7 Merging to main without disturbing running agents
+
+For any merge while a pipeline agent may be working — a docs branch, a planner branch, a task PR:
+
+1. **Check first.** Run `ListAgents`. If an implementer or reviewer is live in the shared checkout, don't touch that directory at all: no checkout, no pull, no file writes.
+2. **Confirm it's safe.**
+   - `git merge-tree $(git merge-base origin/main <branch>) origin/main <branch>` shows no conflicts.
+   - CI on the PR is green.
+   - The diff doesn't touch the running task's Owns paths ([task-catalogue.md](task-catalogue.md)).
+3. **Merge on GitHub's side.** Run `gh pr create` if there's no PR yet, then `gh pr merge --squash`. This touches no local working tree.
+4. **Prepare in isolation.** Any conflict resolution or fix-up happens in a separate `git worktree` on its own branch ([§3.3](#33-working-rules)). Push it, then merge through GitHub.
+5. **After merging:**
+   - Remove the worktree and delete the branch.
+   - Don't pull the new `main` into the shared checkout while an agent is live there. The running task's branch catches up by rebasing before its own merge, or through the drain step's `gh pr update-branch` ([build-process.md §5.3](build-process.md#53-one-tick)).
+   - The post-merge documentation update also runs in its own worktree and pushes straight to `main` ([build-process.md §4.8](build-process.md#48-documentation-update-after-every-merge)).
+6. **Caveat.** A merge can still reach a running task by changing a document it reads, for example a doc split or rename while an implementer is using it. Leave a redirect, or point the running agent at the new location.
+
 ---
 
 ## 4. Standing user preferences
@@ -143,7 +166,8 @@ Kept in step with the auto-memory feedback notes; when a preference changes, upd
 - **Upstream defects go through the bug list** — suspend, file, plan, resume; never an ad-hoc cross-Owns-list patch.
 - **Evidence goes through the two-stage pipeline** — `/process-evidence`, stage 1 then stage 2, never combined.
 - **Relay reviewer findings verbatim** on rework.
-- **The main session is Opus**, spawning planner/orchestrator, implementer/reviewer and researcher subagents.
+- **Non-blocking review findings become one follow-up issue per merge**, filed by the orchestrator; the planner folds each item into the next task that touches those files ([build-process.md §4.5](build-process.md#45-rework)).
+- **The main session is Opus and is the planner.** It spawns an orchestrator with a bounded mandate to run the build, and researcher subagents for evidence; it never runs `/build-tick` or dispatches implementers and reviewers itself.
 - When correcting a claim after user feedback, fix the document or report text itself, not only the chat.
 - Do not re-suggest a Windows 9x VM on this machine: WSL2's Hyper-V claims VT-x, and the user will not disable WSL2.
 

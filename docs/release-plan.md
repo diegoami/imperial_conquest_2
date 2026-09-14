@@ -169,7 +169,7 @@ Two standing prohibitions, inherited from the project's evidence rules: **no num
 
 ### 4.3 Who reviews it — **the existing reviewer role, on the draft Release body**
 
-No new role. The pipeline already has three roles ([build-process.md §3.1](build-process.md#31-the-three-roles)) and the review contract in [§4.2](build-process.md#42-what-the-reviewer-checks) transfers to a release note almost unchanged:
+No new role. The pipeline's roles ([build-process.md §3.1](build-process.md#31-the-roles)) already cover it, and the review contract in [§4.2](build-process.md#42-what-the-reviewer-checks) transfers to a release note almost unchanged:
 
 | Review gate | Applied to a release note |
 | --- | --- |
