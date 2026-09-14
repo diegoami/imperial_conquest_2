@@ -10,7 +10,7 @@ A snapshot written by the documentation step ([build-process.md §4.8](build-pro
 
 - **As of**: `e804f4f` (T09 merged).
 - **Phase**: Phase 0 (foundation) merged; Phase 1 (pure rules) under way.
-- **Merged — 11 of 37**: T01, T02, T03, T04, T05, T06, T07, T09, T30, T31, T32. Per-task status and merge commits: [task index](task-catalogue.md#3-task-index).
+- **Merged — 11 of 38**: T01, T02, T03, T04, T05, T06, T07, T09, T30, T31, T32. Per-task status and merge commits: [task index](task-catalogue.md#3-task-index).
 - **In progress**: T08 (#8) — economy, supply and purses, in user-authorized rework round 3, scope limited to review finding R1 (the one-ton supply-capacity disagreement between the decompiled `troops / 100` cap and the confirmed 482 t reading) and the provenance text it names — no longer escalated ([issue #8](https://github.com/diegoami/imperial_conquest_2/issues/8)).
 - **Ready**: T10, T11, T12, T33, T34.
 - **Next (planner)**: T08's round-3 implementer re-runs the DoD lines against the amended catalogue entry and re-requests review, scoped to finding R1 only; a further failing review escalates. T09 (#9) merged; its non-blocking review follow-up is filed as [#74](https://github.com/diegoami/imperial_conquest_2/issues/74), `triage:needed`. The orchestrator mandate continues dispatching the rest of scope: T10, T11, T12, T33, T34 remain to dispatch ([build-process.md §5.1](build-process.md#51-who-runs-it)).
@@ -58,7 +58,7 @@ A snapshot written by the documentation step ([build-process.md §4.8](build-pro
 | [operating-guide.md](operating-guide.md) | This document |
 | [CLAUDE.md](../CLAUDE.md) | Auto-loaded into every Claude Code session: a pointer to this guide and the must-never-forget rules |
 | [build-process.md](build-process.md) | Process contract: roles, review and merge, orchestrator loop, bug list, documentation step, prompt templates, `/build-tick` |
-| [task-catalogue.md](task-catalogue.md) | The 37 tasks, the dependency graph, the task index and status |
+| [task-catalogue.md](task-catalogue.md) | The 38 tasks, the dependency graph, the task index and status |
 | [game-design.md](game-design.md) | What is being built |
 | [design-audit.md](design-audit.md) | What the evidence supports, and the design questions Q1–Q10 |
 | [release-plan.md](release-plan.md) | Versions, release gates, release notes, the release checklist |

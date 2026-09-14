@@ -1,6 +1,6 @@
 # Release plan: versioning, tags, and release notes for the 31-task build
 
-This document says **when a version number changes, what it is called, who creates it, and what has to be true before it exists**. It sits alongside [game-design.md](game-design.md) (*what* is being built — 20 design milestones), [task-catalogue.md](task-catalogue.md) (the 37 tasks that build it, in 4 phases, with a critical path) and [build-process.md](build-process.md) (*how* — an implementer/reviewer/orchestrator pipeline over GitHub issues).
+This document says **when a version number changes, what it is called, who creates it, and what has to be true before it exists**. It sits alongside [game-design.md](game-design.md) (*what* is being built — 20 design milestones), [task-catalogue.md](task-catalogue.md) (the 38 tasks that build it, in 4 phases, with a critical path) and [build-process.md](build-process.md) (*how* — an implementer/reviewer/orchestrator pipeline over GitHub issues).
 
 It **invents no new structure**. Every release gate below is a set of task issues from the [task index](task-catalogue.md#3-task-index); every human sign-off is one the [standing governance decisions](build-process.md#9-standing-governance-decisions) already reserve to the user; the reviewer of a release note is the pipeline's existing reviewer role, not a new one. Where this document *decides* something, it says so; where it only *recommends*, it says that too.
 
@@ -50,7 +50,7 @@ The two schemes only differ in three places, which is worth knowing before disag
 | Phase 1 complete (T06–T12, T32–T34) | **Yes** — `v0.1.0` | Coincides with a real jump: the confirmed rules become executable. |
 | Phase 2 complete (T13–T22, T29, T35, T36, T37) | **Yes** — `v0.3.0`, *plus* T23 | Phase 2 alone still has no runnable program; the CLI (T23, Phase 3) is what makes it usable, so the tag waits one task. |
 | Phase 3 complete (T23–T28) | **Yes** — `v1.0.0` | The packaged build. |
-| *Mid-Phase 2* (T13–T17 and T35 merged) | **Yes** — `v0.2.0` | Not a phase boundary at all, but the largest fidelity jump in the build: naval + battle + capture. Waiting for all of Phase 2 would hide it behind the AI, which has the most uncertain duration of any task. |
+| *Mid-Phase 2* (T13–T17, T35 and T38 merged) | **Yes** — `v0.2.0` | Not a phase boundary at all, but the largest fidelity jump in the build: naval + battle + capture. Waiting for all of Phase 2 would hide it behind the AI, which has the most uncertain duration of any task. |
 
 So: three of five releases land on a phase boundary, one lands a task past one, and one lands mid-phase — which is the argument for tying tags to capability rather than to phase in the first place.
 
@@ -63,7 +63,7 @@ Five releases, anchored to merged task issues, not to dates — this project has
 | Tag | Gate: all of these `status:merged` | Design milestones complete | What a user can actually do |
 | --- | --- | --- | --- |
 | **`v0.1.0`** *The rules run* | #1–#12, #37, #45 and T32–T34's issues (T01–T12, T30–T34) — Phase 0 + Phase 1 | M1, M2, M3, M5, M6, M13; M17's buffer | **Nothing a player can do.** A developer clones, runs `dotnet test`, and watches the original's confirmed economy, calendar, movement, strength and victory numbers reproduce from the fixtures corpus. |
-| **`v0.2.0`** *A war is simulable* | + #13–#17 and T35's issue (T13–T17, T35) | + M4, M7, M8, M9, M14 | Still no runnable program. A developer can script a fixture in which an army is recruited, sails, fights a field/naval/siege battle under either preset, and takes a city with the defection cascade firing. |
+| **`v0.2.0`** *A war is simulable* | + #13–#17, #63 and #78 (T13–T17, T35, T38) | + M4, M7, M8, M9, M14 | Still no runnable program. A developer can script a fixture in which an army is recruited, sails, fights a field/naval/siege battle under either preset, and takes a city with the defection cascade firing. |
 | **`v0.3.0`** *Headless playable* | + #18–#23, #32, and T36's and T37's issues (T18–T23, T29, T36, T37) — Phase 2 complete + the CLI | + M10, M11, M12, M15, M16, M18 (headless half), M17 | **First downloadable thing anyone can run.** `IC2.Cli` loads a scenario, issues one order of every type, ends turns, and an all-AI toy scenario runs to a victory condition. Native saves round-trip; an original `.sav` imports (locally, with `assets.local.ini`); the exported `classical-mediterranean` world and both preset rulesets ship. No graphics. |
 | **`v0.4.0`** *Playable with a UI, from source* | + #24, #25, #26 (T24–T26) | + M18 (UI half), M19 | Launch the Godot project **from source** (needs Godot 4.7.2 + .NET 10 SDK), pick `Classical Faithful` or `Improved` at New Game, play the map with the contextual panel, news log, battle-result, diplomacy and hotseat-handoff screens. |
 | **`v1.0.0`** *First packaged playable release* | + #27, #28 (T27, T28) — everything | **All 20** (M1–M20) | Download an export, launch it on a machine with no dev toolchain, and play a scenario end to end to a victory condition. |
@@ -82,7 +82,7 @@ A snapshot written by the documentation step ([build-process.md §4.8](build-pro
 | Tag | Gate tasks | Status (as of `e804f4f`) |
 | --- | --- | --- |
 | `v0.1.0` | T01–T12, T30–T34 (17) | **11 merged**: T01, T02, T03, T04, T05, T06, T07, T09, T30, T31, T32. In progress: T08. Ready: T10, T11, T12, T33, T34. |
-| `v0.2.0` | T13–T17, T35 (6) | 0 merged. Blocked: T13, T14, T15, T16, T17, T35. |
+| `v0.2.0` | T13–T17, T35, T38 (7) | 0 merged. Ready: T35, T38. Blocked: T13, T14, T15, T16, T17. |
 | `v0.3.0` | T18–T23, T29, T36, T37 (9) | 0 merged. Blocked: T18, T19, T20, T21, T22, T23, T29, T36, T37. |
 | `v0.4.0` | T24, T25, T26 (3) | 0 merged. Blocked: T24, T25, T26. |
 | `v1.0.0` | T27, T28 (2) | 0 merged. Blocked: T27, T28. |
@@ -222,7 +222,7 @@ Items 1–17 are checkable by an agent. Items 18–19 are the only human steps, 
 | Label | Applied to |
 | --- | --- |
 | `release:v0.1.0` | #1–#12, #37 (T30), #45 (T31), #60–#62 (T32–T34) |
-| `release:v0.2.0` | #13–#17, #63 (T35) |
+| `release:v0.2.0` | #13–#17, #63 (T35), #78 (T38) |
 | `release:v0.3.0` | #18–#23, #32 (T29), #64 (T36), #70 (T37) |
 | `release:v0.4.0` | #24, #25, #26 |
 | `release:v1.0.0` | #27, #28 |
