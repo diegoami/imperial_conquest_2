@@ -9,3 +9,4 @@ Read [`docs/operating-guide.md`](docs/operating-guide.md) before doing anything 
 5. **Upstream defects go through the bug list.** Never patch another task's Owns list ([build-process.md §4.7](docs/build-process.md#47-the-bug-list)).
 6. **Relay review findings verbatim** — the full list, never a subset ([build-process.md §4.5](docs/build-process.md#45-rework)).
 7. **Commit and push research-repo work without asking** ([operating-guide.md §4](docs/operating-guide.md#4-standing-user-preferences)).
+8. **Merge on GitHub's side, never by pulling into a checkout an agent is using** ([operating-guide.md §3.7](docs/operating-guide.md#37-merging-to-main-without-disturbing-running-agents)).

@@ -136,6 +136,23 @@ A defect in already-merged code is filed as a `bug` issue and the task that foun
 
 Every merge is followed, in the same tick, by the documentation step ([build-process.md §4.8](build-process.md#48-documentation-update-after-every-merge)), which syncs all status locations — the catalogue's entries and index, [§1](#1-current-state) of this guide, the README's current-state summary, and [release-plan.md §2.1](release-plan.md#21-gate-progress) — and applies its claim checklist. Every tick also checks the catalogue's status against the GitHub labels and resyncs on drift.
 
+### 3.7 Merging to main without disturbing running agents
+
+For any merge while a pipeline agent may be working — a docs branch, a planner branch, a task PR:
+
+1. **Check first.** Run `ListAgents`. If an implementer or reviewer is live in the shared checkout, don't touch that directory at all: no checkout, no pull, no file writes.
+2. **Confirm it's safe.**
+   - `git merge-tree $(git merge-base origin/main <branch>) origin/main <branch>` shows no conflicts.
+   - CI on the PR is green.
+   - The diff doesn't touch the running task's Owns paths ([task-catalogue.md](task-catalogue.md)).
+3. **Merge on GitHub's side.** Run `gh pr create` if there's no PR yet, then `gh pr merge --squash`. This touches no local working tree.
+4. **Prepare in isolation.** Any conflict resolution or fix-up happens in a separate `git worktree` on its own branch ([§3.3](#33-working-rules)). Push it, then merge through GitHub.
+5. **After merging:**
+   - Remove the worktree and delete the branch.
+   - Don't pull the new `main` into the shared checkout while an agent is live there. The running task's branch catches up by rebasing before its own merge, or through the drain step's `gh pr update-branch` ([build-process.md §5.3](build-process.md#53-one-tick)).
+   - The post-merge documentation update also runs in its own worktree and pushes straight to `main` ([build-process.md §4.8](build-process.md#48-documentation-update-after-every-merge)).
+6. **Caveat.** A merge can still reach a running task by changing a document it reads, for example a doc split or rename while an implementer is using it. Leave a redirect, or point the running agent at the new location.
+
 ---
 
 ## 4. Standing user preferences
