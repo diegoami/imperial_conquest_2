@@ -4,7 +4,7 @@ using Xunit;
 namespace IC2.Engine.Tests.Economy;
 
 /// <summary>
-/// <c>docs/build-orchestration-plan.md</c> "T08 Economy, supply, and purses", Done-when 1:
+/// <c>docs/task-catalogue.md</c> "T08 Economy, supply, and purses", Done-when 1:
 /// "<c>income = 2440 × 15 / 100</c> and <c>× 20 / 100</c> reproduce both published Rome figures exactly."
 /// </summary>
 public sealed class TaxIncomeTests

@@ -4,7 +4,7 @@ using Xunit;
 namespace IC2.Engine.Tests.Economy;
 
 /// <summary>
-/// <c>docs/build-orchestration-plan.md</c> "T08 Economy, supply, and purses", Done-when 6: "The purse cap
+/// <c>docs/task-catalogue.md</c> "T08 Economy, supply, and purses", Done-when 6: "The purse cap
 /// of 1,000 is enforced on every path that credits a purse."
 /// </summary>
 /// <remarks>

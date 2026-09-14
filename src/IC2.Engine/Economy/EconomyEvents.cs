@@ -3,7 +3,7 @@ using IC2.Engine.Core;
 namespace IC2.Engine.Economy;
 
 /// <summary>
-/// This task's narration — <c>docs/game-design.md</c> §2.5: a system never touches the news log directly,
+/// This task's narration — <c>docs/build-process.md</c> §2.5: a system never touches the news log directly,
 /// it publishes an event, and T10's writer decides what (if anything) becomes a news-log line.
 /// </summary>
 /// <remarks>

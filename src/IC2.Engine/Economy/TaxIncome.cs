@@ -3,7 +3,7 @@ using IC2.Engine.Model;
 namespace IC2.Engine.Economy;
 
 /// <summary>
-/// The original's tax-income formula — <c>docs/build-orchestration-plan.md</c> "T08 Economy, supply, and
+/// The original's tax-income formula — <c>docs/task-catalogue.md</c> "T08 Economy, supply, and
 /// purses", Done-when 1.
 /// </summary>
 /// <remarks>

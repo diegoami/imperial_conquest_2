@@ -6,7 +6,7 @@ using Xunit;
 namespace IC2.Engine.Tests.Economy;
 
 /// <summary>
-/// <c>docs/build-orchestration-plan.md</c> "T08 Economy, supply, and purses", Done-when 3:
+/// <c>docs/task-catalogue.md</c> "T08 Economy, supply, and purses", Done-when 3:
 /// "The 13-unit Roman roster's regular upkeep computes to exactly <c>442</c>."
 /// </summary>
 /// <remarks>

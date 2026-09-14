@@ -5,7 +5,7 @@ using Xunit;
 namespace IC2.Engine.Tests.Economy;
 
 /// <summary>
-/// <c>docs/build-orchestration-plan.md</c> "T08 Economy, supply, and purses", Done-when 5 and 9.
+/// <c>docs/task-catalogue.md</c> "T08 Economy, supply, and purses", Done-when 5 and 9.
 /// Revised against <c>docs/design-audit.md</c> Q9: free at the buying army's own nation's city, costs
 /// money (<c>amount / 5</c>, debited only, credit destination deliberately <c>[open]</c>) at a foreign
 /// one.

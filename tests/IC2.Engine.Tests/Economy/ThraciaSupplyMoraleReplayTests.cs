@@ -7,7 +7,7 @@ using Xunit;
 namespace IC2.Engine.Tests.Economy;
 
 /// <summary>
-/// <c>docs/build-orchestration-plan.md</c> "T08 Economy, supply, and purses", Done-when 11: replays the
+/// <c>docs/task-catalogue.md</c> "T08 Economy, supply, and purses", Done-when 11: replays the
 /// thirteen recorded turns of <c>1_thracia_271_*</c> (<c>docs/investigations/thracia-supply-morale.md</c>)
 /// as a fixture, through the real <see cref="ArmySupplyAndMoraleSystem"/> registered in
 /// <see cref="TurnPhase.ArmyTick"/> and run via the real <see cref="TurnCoordinator"/> pipeline (T06's

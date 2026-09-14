@@ -3,7 +3,7 @@ using IC2.Engine.Model;
 namespace IC2.Engine.Economy;
 
 /// <summary>
-/// Supply as a purchased economy — <c>docs/build-orchestration-plan.md</c> "T08 Economy, supply, and
+/// Supply as a purchased economy — <c>docs/task-catalogue.md</c> "T08 Economy, supply, and
 /// purses", Done-when 5 and 9. Revised against <c>docs/design-audit.md</c> Q9, now answered from the
 /// user's own play experience: resupplying at a city the buying army's (or fleet's) nation <em>owns</em>
 /// is free; buying at a city it does not own costs money.

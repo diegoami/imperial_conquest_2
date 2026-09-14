@@ -3,7 +3,7 @@ using IC2.Engine.Model;
 namespace IC2.Engine.Economy;
 
 /// <summary>
-/// The real consequence of unpaid upkeep — <c>docs/build-orchestration-plan.md</c> "T08 Economy, supply,
+/// The real consequence of unpaid upkeep — <c>docs/task-catalogue.md</c> "T08 Economy, supply,
 /// and purses", Done-when 7: "an army whose upkeep cannot be paid loses troops (a real consequence, not a
 /// debt counter)."
 /// </summary>

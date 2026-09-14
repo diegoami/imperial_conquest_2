@@ -4,7 +4,7 @@ using Xunit;
 namespace IC2.Engine.Tests.Economy;
 
 /// <summary>
-/// <c>docs/build-orchestration-plan.md</c> "T08 Economy, supply, and purses", Done-when 13: the fixtures
+/// <c>docs/task-catalogue.md</c> "T08 Economy, supply, and purses", Done-when 13: the fixtures
 /// corpus is topped up from the 47th report, <c>supply-driven-morale-and-fleet-attrition.md</c>, which
 /// postdates T04's 355-entry / 46-report pass. This is a top-up under T04's existing contract
 /// (<c>tests/fixtures/**</c>), not a reopen of it: T04's own four Done-when checks

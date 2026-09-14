@@ -4,7 +4,7 @@ using Xunit;
 namespace IC2.Engine.Tests.Economy;
 
 /// <summary>
-/// <c>docs/build-orchestration-plan.md</c> "T08 Economy, supply, and purses", Done-when 4: "That army's
+/// <c>docs/task-catalogue.md</c> "T08 Economy, supply, and purses", Done-when 4: "That army's
 /// 482 tons against 48,173 troops reads exactly <c>100%</c>; the supply triple 204/998, 344/998, 184/282
 /// reads <c>20% / 34% / 65%</c>." Every value here is transcribed from <c>tests/fixtures/corpus.json</c>'s
 /// <c>roman13.*</c> and <c>supply.*</c> entries.

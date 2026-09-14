@@ -3,7 +3,7 @@ using IC2.Engine.Model;
 namespace IC2.Engine.Economy;
 
 /// <summary>
-/// Per-turn supply consumption — <c>docs/build-orchestration-plan.md</c> "T08 Economy, supply, and
+/// Per-turn supply consumption — <c>docs/task-catalogue.md</c> "T08 Economy, supply, and
 /// purses", Done-when 10. Transcribed from <c>docs/investigations/thracia-supply-morale.md</c>, not
 /// re-derived from the decompilation (the task's own instruction: "an implementer that goes back to the
 /// decompilation to rediscover them has misread the task").

@@ -3,7 +3,7 @@ using IC2.Engine.Model;
 namespace IC2.Engine.Economy;
 
 /// <summary>
-/// Quarterly army upkeep, both formulas — <c>docs/build-orchestration-plan.md</c> "T08 Economy, supply,
+/// Quarterly army upkeep, both formulas — <c>docs/task-catalogue.md</c> "T08 Economy, supply,
 /// and purses", Done-when 3.
 /// </summary>
 /// <remarks>

@@ -3,7 +3,7 @@ using IC2.Engine.Model;
 namespace IC2.Engine.Economy;
 
 /// <summary>
-/// Supply capacity and the panel's percentage readout — <c>docs/build-orchestration-plan.md</c>
+/// Supply capacity and the panel's percentage readout — <c>docs/task-catalogue.md</c>
 /// "T08 Economy, supply, and purses", Done-when 4.
 /// </summary>
 /// <remarks>

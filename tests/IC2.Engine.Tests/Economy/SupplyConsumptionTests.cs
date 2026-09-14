@@ -4,7 +4,7 @@ using Xunit;
 namespace IC2.Engine.Tests.Economy;
 
 /// <summary>
-/// <c>docs/build-orchestration-plan.md</c> "T08 Economy, supply, and purses", Done-when 10: "a
+/// <c>docs/task-catalogue.md</c> "T08 Economy, supply, and purses", Done-when 10: "a
 /// 22,000-troop army consumes exactly <c>44 / 11 / 11 / 77</c> tons per turn in Spring / Summer / Autumn /
 /// Winter, from the season values 50/80/80/20 read out of the ruleset (not hardcoded in C#); an army
 /// aboard a fleet consumes exactly <c>troops / 200</c> in every season, asserted separately."

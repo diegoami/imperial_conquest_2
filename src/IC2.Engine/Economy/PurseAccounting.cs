@@ -3,7 +3,7 @@ using IC2.Engine.Model;
 namespace IC2.Engine.Economy;
 
 /// <summary>
-/// The one place an army's or fleet's own money purse is credited — <c>docs/build-orchestration-plan.md</c>
+/// The one place an army's or fleet's own money purse is credited — <c>docs/task-catalogue.md</c>
 /// "T08 Economy, supply, and purses", Done-when 6: "the purse cap of 1,000 is enforced on every path that
 /// credits a purse."
 /// </summary>

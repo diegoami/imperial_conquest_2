@@ -4,7 +4,7 @@ using Xunit;
 namespace IC2.Engine.Tests.Economy;
 
 /// <summary>
-/// Confirms this task's systems register into exactly the phases <c>docs/build-orchestration-plan.md</c>
+/// Confirms this task's systems register into exactly the phases <c>docs/task-catalogue.md</c>
 /// names: T06's declared attrition phase for the supply/morale rule (Done-when 10, 11), and the seasonal
 /// weather-event phase (Done-when 8). Registered by attribute alone, discovered by scanning the real
 /// shipped engine assembly -- the same mechanism <c>AttritionPhaseOrderingTests</c> (T06) proved was

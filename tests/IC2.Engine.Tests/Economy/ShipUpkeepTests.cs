@@ -4,7 +4,7 @@ using Xunit;
 namespace IC2.Engine.Tests.Economy;
 
 /// <summary>
-/// <c>docs/build-orchestration-plan.md</c> "T08 Economy, supply, and purses", Done-when 2:
+/// <c>docs/task-catalogue.md</c> "T08 Economy, supply, and purses", Done-when 2:
 /// "Ship upkeep <c>= 3 × ships</c> per quarter."
 /// </summary>
 public sealed class ShipUpkeepTests

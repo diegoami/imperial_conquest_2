@@ -5,7 +5,7 @@ namespace IC2.Engine.Economy;
 
 /// <summary>
 /// Registers <see cref="SupplyMoraleRule.ApplyTurn"/> into the attrition phase T06 declared for exactly
-/// this rule — <c>docs/build-orchestration-plan.md</c> "T08 Economy, supply, and purses", Done-when 10
+/// this rule — <c>docs/task-catalogue.md</c> "T08 Economy, supply, and purses", Done-when 10
 /// and 11, and the phase T06's <c>AttritionPhaseOrderingTests</c> proved was registrable before this task
 /// existed.
 /// </summary>
