@@ -35,31 +35,51 @@ namespace IC2.Engine.Economy;
 /// <strong>Purchase caps (review round 1, B6)</strong>: <c>decompiled-unit-map-orders-and-record-fields.md</c>
 /// §TAFSupply confirms <c>TAFSupply_ChangeBuyAmount</c> caps a <em>paid</em> purchase at the buyer's
 /// <c>money × SupplyTonsPerTalent</c> tons (a talent buys a fixed number of tons, so the buyer cannot ask
-/// for more tons than its own money could ever pay for) and at the buyer's own supply capacity
-/// (<see cref="SupplyCapacity.ArmyCapacityTons"/> / <see cref="SupplyCapacity.FleetCapacityTons"/>).
-/// Neither cap was enforced before review round 1, letting a paid purchase drive a purse negative or a
-/// supply stock past capacity; both methods below now reject a paid purchase that would violate either.
+/// for more tons than its own money could ever pay for) and at the buyer's own supply capacity. Neither
+/// cap was enforced before review round 1, letting a paid purchase drive a purse negative or a supply
+/// stock past capacity; the money cap below still rejects a paid purchase that would violate it, and the
+/// capacity cap below (see the next paragraph, corrected in review round 3) clamps the transfer down
+/// instead of rejecting it, on both paths.
 /// </para>
 /// <para>
-/// <strong>The capacity cap is paid-purchase-only (review round 2, R1) — [derived]</strong>. Round 1
-/// applied the same <c>troops / ArmySupplyTonsPerTroops</c> cap to the free, own-city case too, and that
-/// regresses a confirmed observation: <c>controlled-army-supply-transfer.md</c>'s Roman 13-unit roster
-/// (<see cref="Model.ArmyState.TotalTroops"/> 48,173) transfers 79 t at its own city, going from 403 to
-/// 482 t (<c>supplyTransfer.*</c> in the fixtures corpus) — and <c>roman13.supplyPercent</c> independently
-/// confirms 482 t reads exactly 100% on the panel. <c>troops / 100</c> truncates to 481, one ton short of
-/// the observed, legal result. The two sources — the cap formula from <c>TAFSupply_ChangeBuyAmount</c>,
-/// and the free-transfer save data — disagree by exactly one ton, and neither says which rounding or
-/// which code path produced the extra one. The reconciling reading: <c>design-audit.md</c> Q9 already
-/// establishes that the free, own-city case is a <em>different, <c>TArmyToArmy</c>-shaped dialog</em>
-/// from the paid <c>TAFSupply</c> purchase this cap's formula was decompiled from — nothing in the cited
-/// report says <c>TArmyToArmy</c> enforces the same clamp, and the Roman transfer is direct evidence it
-/// does not (or enforces a differently-rounded one). Both methods below therefore skip the capacity check
-/// on the free path and apply it only to a paid one, which both keeps the confirmed cap where its evidence
-/// actually comes from and admits the confirmed free transfer. <c>SupplyCapacityTests</c>' own DoD 4
-/// values (998 for 99,882 troops, 282 for 28,227) are restatements of the formula's arithmetic in
-/// <c>decompiled-unit-map-orders-and-record-fields.md</c>, not an independently observed maximum fill the
-/// way the Roman transfer is, so they are not evidence the cap must also bind free transfers — they stay
-/// exactly as `troops / 100` describes, since nothing here changes <see cref="SupplyCapacity"/> itself.
+/// <strong>The capacity cap is the dialog cap, on both paths alike (review round 3, the resolution of
+/// round 2's R1) — [confirmed]</strong>. Round 2 restricted the capacity check to the paid path, reasoning
+/// that <c>design-audit.md</c> Q9 established the free, own-city case as a <em>different,
+/// <c>TArmyToArmy</c>-shaped dialog</em> from the paid <c>TAFSupply</c> purchase the cap's formula was
+/// decompiled from. That reading does not survive a check against either source it cited:
+/// <c>design-audit.md</c> Q9 (line 252) lists exactly that question — "whether that is a genuinely
+/// different dialog/code path" — as <em>still open</em>, not settled; and
+/// <c>decompiled-unit-map-orders-and-record-fields.md</c>'s own §"Supply is bought, not moved" names the
+/// free, own-city resupply dialog <c>TAFSupply</c> too, the very dialog the cap's formula comes from. The
+/// one-ton disagreement round 2 was reconciling — <c>troops / 100</c> gives 481 for the Roman 13-unit
+/// roster's 48,173 troops, one short of the confirmed 482 t at its own city
+/// (<c>controlled-army-supply-transfer.md</c>, <c>supplyTransfer.*</c> in the fixtures corpus, and
+/// <c>roman13.supplyPercent</c>'s independent 100% reading) — has an instruction-level answer instead:
+/// <c>supply-capacity-rounding.md</c> disassembled both <c>TAFSupply_ChangeSupply</c> (own-city, free) and
+/// <c>TAFSupply_ChangeBuyAmount</c> (foreign, paid) and found the identical sequence in each — <c>IDIV</c>
+/// by 100, then an unconditional <c>INC</c> — with no FPU instruction and no <c>Round</c>/<c>Trunc</c>
+/// anywhere. The dialog's real cap is <c>troops / ArmySupplyTonsPerTroops +
+/// SupplyDialogArmyCapacityBonus</c> (<see cref="SupplyCapacity.ArmyDialogCapacityTons"/>), applied
+/// identically on both paths — 481 + 1 = 482, exactly the observed transfer. It is a supply-dialog-only
+/// cap: <see cref="SupplyCapacity.ArmyCapacityTons"/> (<c>troops / 100</c>, no bonus) stays the general
+/// capacity every other path (automatic resupply, army-to-army rebalancing, battle absorption) uses
+/// unmodified, and <c>SupplyCapacityTests</c>' own DoD 4 values (998 for 99,882 troops, 282 for 28,227)
+/// are untouched by this change. The fleet dialog cap needed no such reconciliation and stays
+/// <see cref="SupplyCapacity.FleetCapacityTons"/> (<c>ships × 8</c>, no bonus) on both paths — the report
+/// found the identical fleet-branch instructions on both paths too, with no <c>INC</c> on either.
+/// </para>
+/// <para>
+/// <strong>The cap clamps the transfer; it does not reject it.</strong> Both dialogs implement the cap as
+/// a room computation — <c>room = capacity − currentSupplyTons</c>, then <c>step = min(requestedTons,
+/// room)</c> — exactly the shape <c>supply-capacity-rounding.md</c>'s own pseudocode gives for every one
+/// of the dialog's clamps (city stock, capacity, money). <see cref="BuyForArmy"/> and
+/// <see cref="BuyForFleet"/> apply that shape for the capacity room specifically: the room is floored at
+/// zero here (the source notes it is not floored in the original, but flooring only differs for an army
+/// already over its cap being pulled backwards, which is out of this round's scope), and the actually
+/// admitted tons — never more than the requested amount, possibly less — are what gets transferred and
+/// charged for. A request for more than the room allows is admitted at whatever the room is, down to
+/// zero, rather than throwing. The money and city-stock caps on the paid path are unchanged by this round
+/// and still throw exactly as before — only the capacity check changed shape.
 /// </para>
 /// <para>
 /// The money-based cap applies only under <see cref="EconomyPurseModel.PerUnitPurses"/>, for a paid
@@ -95,13 +115,17 @@ public static class SupplyPurchase
     /// and, under <see cref="EconomyPurseModel.CentralTreasury"/>, debited directly, so a caller passing
     /// the wrong nation would silently debit someone else's treasury.
     /// </param>
-    /// <param name="tons">Tons to buy. Must be positive.</param>
+    /// <param name="tons">
+    /// Tons requested. Must be positive. The <em>actual</em> transfer is clamped to the army's dialog
+    /// capacity room (review round 3) before any cost is computed, so this is a request, not a guarantee
+    /// — an army already at or past its dialog capacity buys nothing, rather than throwing.
+    /// </param>
     /// <param name="ruleset">Supplies every constant and the <see cref="RulesetFlags.EconomyPurses"/> flag — never a C# literal.</param>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="tons"/> is not positive.</exception>
     /// <exception cref="ArgumentException">
     /// <paramref name="buyerNation"/> is not <paramref name="army"/>'s own nation; or the city does not
-    /// hold <paramref name="tons"/> tons of supply to sell; or (paid case only) the purchase would exceed
-    /// the army's supply capacity or, under per-unit purses, its own purse.
+    /// hold <paramref name="tons"/> tons of supply to sell; or (paid case only) the room the dialog
+    /// capacity admits would cost more than, under per-unit purses, the army's own purse holds.
     /// </exception>
     public static ArmyResult BuyForArmy(ArmyState army, CityState sellingCity, NationState buyerNation, int tons, Ruleset ruleset)
     {
@@ -130,36 +154,32 @@ public static class SupplyPurchase
 
         var isOwnCity = string.Equals(sellingCity.Owner, army.Nation, StringComparison.Ordinal);
 
-        // Review round 2, R1: the capacity cap is confirmed only for the paid path (TAFSupply); the
-        // free, own-city resupply is a different dialog (TArmyToArmy, design-audit.md Q9) not shown to
-        // share it, and the confirmed Roman transfer (403 -> 482 t, its own city) exceeds troops/100 by
-        // a ton -- see the class remarks above.
-        if (!isOwnCity)
-        {
-            var armyCapacity = SupplyCapacity.ArmyCapacityTons(army.TotalTroops, ruleset);
-            if (army.SupplyTons + tons > armyCapacity)
-            {
-                throw new ArgumentException(
-                    $"Army '{army.Id}' has {armyCapacity - army.SupplyTons} tons of free supply capacity, cannot buy {tons}.",
-                    nameof(tons));
-            }
-        }
+        // Review round 3 (R1's resolution): the supply dialog clamps the requested transfer to the room
+        // left under troops/100 + SupplyDialogArmyCapacityBonus, identically on the free (own-city) and
+        // paid (foreign) paths -- see the class remarks above and supply-capacity-rounding.md. The room is
+        // floored at zero here (an army already at or past its cap admits nothing, rather than being
+        // pulled backwards, which is out of this round's scope); it is a clamp, not a rejection, so a
+        // request for more than the cap allows buys whatever room is left instead of throwing.
+        var dialogCapacity = SupplyCapacity.ArmyDialogCapacityTons(army.TotalTroops, ruleset);
+        var room = Math.Max(0, dialogCapacity - army.SupplyTons);
+        var admittedTons = Math.Min(tons, room);
 
-        var talents = isOwnCity ? 0 : tons / ruleset.Economy.SupplyTonsPerTalent;
+        var talents = isOwnCity || admittedTons == 0 ? 0 : admittedTons / ruleset.Economy.SupplyTonsPerTalent;
 
         // Review round 2, NB1: compare whole tons against whole talents (tons > money * SupplyTonsPerTalent)
         // rather than truncating tons to talents first, which let a purchase through for up to
-        // SupplyTonsPerTalent - 1 tons more than the buyer could actually pay for.
+        // SupplyTonsPerTalent - 1 tons more than the buyer could actually pay for. Compares against the
+        // capacity-clamped admittedTons (review round 3), the amount actually being charged for.
         if (!isOwnCity && ruleset.Flags.EconomyPurses == EconomyPurseModel.PerUnitPurses
-            && tons > army.Money * ruleset.Economy.SupplyTonsPerTalent)
+            && admittedTons > army.Money * ruleset.Economy.SupplyTonsPerTalent)
         {
             throw new ArgumentException(
-                $"Army '{army.Id}' has only {army.Money} talents, cannot pay for {tons} tons.",
+                $"Army '{army.Id}' has only {army.Money} talents, cannot pay for {admittedTons} tons.",
                 nameof(tons));
         }
 
-        var updatedCity = sellingCity with { SupplyTons = sellingCity.SupplyTons - tons };
-        var updatedArmy = army with { SupplyTons = army.SupplyTons + tons };
+        var updatedCity = sellingCity with { SupplyTons = sellingCity.SupplyTons - admittedTons };
+        var updatedArmy = army with { SupplyTons = army.SupplyTons + admittedTons };
         var updatedNation = buyerNation;
 
         if (talents > 0)
@@ -180,12 +200,16 @@ public static class SupplyPurchase
     /// <summary>The result of one fleet supply purchase — the naval twin of <see cref="ArmyResult"/>.</summary>
     public sealed record FleetResult(FleetState Fleet, CityState City, NationState BuyerNation, int TalentsPaid, bool WasFreeOwnCity);
 
-    /// <summary>Buys <paramref name="tons"/> of supply for a fleet from a city. See <see cref="BuyForArmy"/>.</summary>
+    /// <summary>
+    /// Buys <paramref name="tons"/> of supply for a fleet from a city. See <see cref="BuyForArmy"/> —
+    /// <paramref name="tons"/> is a request, clamped (review round 3) to the fleet's own capacity room
+    /// before any cost is computed.
+    /// </summary>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="tons"/> is not positive.</exception>
     /// <exception cref="ArgumentException">
     /// <paramref name="buyerNation"/> is not <paramref name="fleet"/>'s own nation; or the city does not
-    /// hold <paramref name="tons"/> tons of supply to sell; or (paid case only) the purchase would exceed
-    /// the fleet's supply capacity or, under per-unit purses, its own purse.
+    /// hold <paramref name="tons"/> tons of supply to sell; or (paid case only) the room the capacity
+    /// admits would cost more than, under per-unit purses, the fleet's own purse holds.
     /// </exception>
     public static FleetResult BuyForFleet(FleetState fleet, CityState sellingCity, NationState buyerNation, int tons, Ruleset ruleset)
     {
@@ -214,32 +238,27 @@ public static class SupplyPurchase
 
         var isOwnCity = string.Equals(sellingCity.Owner, fleet.Nation, StringComparison.Ordinal);
 
-        // Review round 2, R1 (see BuyForArmy and the class remarks): the capacity cap is confirmed only
-        // for the paid path.
-        if (!isOwnCity)
-        {
-            var fleetCapacity = SupplyCapacity.FleetCapacityTons(fleet.Ships, ruleset);
-            if (fleet.SupplyTons + tons > fleetCapacity)
-            {
-                throw new ArgumentException(
-                    $"Fleet '{fleet.Id}' has {fleetCapacity - fleet.SupplyTons} tons of free supply capacity, cannot buy {tons}.",
-                    nameof(tons));
-            }
-        }
+        // Review round 3 (see BuyForArmy and the class remarks): the supply dialog clamps the requested
+        // transfer to the room left under ships * FleetSupplyTonsPerShip, identically on both paths --
+        // no bonus on the fleet side, unlike the army's SupplyDialogArmyCapacityBonus.
+        var fleetCapacity = SupplyCapacity.FleetCapacityTons(fleet.Ships, ruleset);
+        var room = Math.Max(0, fleetCapacity - fleet.SupplyTons);
+        var admittedTons = Math.Min(tons, room);
 
-        var talents = isOwnCity ? 0 : tons / ruleset.Economy.SupplyTonsPerTalent;
+        var talents = isOwnCity || admittedTons == 0 ? 0 : admittedTons / ruleset.Economy.SupplyTonsPerTalent;
 
-        // Review round 2, NB1 (see BuyForArmy): compare whole tons against whole talents.
+        // Review round 2, NB1 (see BuyForArmy): compare whole tons against whole talents, against the
+        // capacity-clamped admittedTons (review round 3).
         if (!isOwnCity && ruleset.Flags.EconomyPurses == EconomyPurseModel.PerUnitPurses
-            && tons > fleet.Money * ruleset.Economy.SupplyTonsPerTalent)
+            && admittedTons > fleet.Money * ruleset.Economy.SupplyTonsPerTalent)
         {
             throw new ArgumentException(
-                $"Fleet '{fleet.Id}' has only {fleet.Money} talents, cannot pay for {tons} tons.",
+                $"Fleet '{fleet.Id}' has only {fleet.Money} talents, cannot pay for {admittedTons} tons.",
                 nameof(tons));
         }
 
-        var updatedCity = sellingCity with { SupplyTons = sellingCity.SupplyTons - tons };
-        var updatedFleet = fleet with { SupplyTons = fleet.SupplyTons + tons };
+        var updatedCity = sellingCity with { SupplyTons = sellingCity.SupplyTons - admittedTons };
+        var updatedFleet = fleet with { SupplyTons = fleet.SupplyTons + admittedTons };
         var updatedNation = buyerNation;
 
         if (talents > 0)

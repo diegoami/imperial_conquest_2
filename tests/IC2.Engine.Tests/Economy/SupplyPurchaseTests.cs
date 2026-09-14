@@ -200,57 +200,118 @@ public sealed class SupplyPurchaseTests
     }
 
     /// <summary>
-    /// Review round 2, R1: the capacity cap is confirmed only for the paid path, so this test (like
-    /// round 1's original) buys from a foreign city rather than the free, own-city one -- a purchase
-    /// that would push supply past the buyer's own capacity is rejected there.
+    /// Review round 3 (R1's resolution): the dialog capacity cap is now confirmed on both paths and is a
+    /// clamp, not a rejection (<c>supply-capacity-rounding.md</c>) -- a request for more than the room
+    /// allows is admitted at whatever room is left, not thrown away. This buys from a foreign city, so the
+    /// clamped amount is also what gets charged for (<c>admittedTons / 5</c>, not the requested tons).
     /// </summary>
     [Fact]
-    public void BuyForArmy_MoreTonsThanCapacityHolds_Throws()
+    public void BuyForArmy_MoreTonsThanCapacityHolds_ClampsToTheRoomInstead()
     {
         var (army, city, nation) = Scenario(cityOwner: "south");
-        var armyCapacity = SupplyCapacity.ArmyCapacityTons(army.TotalTroops, EconomyTestbed.Ruleset);
+        var dialogCapacity = SupplyCapacity.ArmyDialogCapacityTons(army.TotalTroops, EconomyTestbed.Ruleset);
+        var room = dialogCapacity - army.SupplyTons;
 
-        Assert.Throws<ArgumentException>(
-            () => SupplyPurchase.BuyForArmy(army, city, nation, tons: armyCapacity - army.SupplyTons + 1, EconomyTestbed.Ruleset));
+        var result = SupplyPurchase.BuyForArmy(army, city, nation, tons: room + 50, EconomyTestbed.Ruleset);
+
+        Assert.Equal(dialogCapacity, result.Army.SupplyTons); // clamped to exactly the dialog capacity, not thrown.
+        Assert.Equal(room / EconomyTestbed.Ruleset.Economy.SupplyTonsPerTalent, result.TalentsPaid); // charged for the admitted tons only.
+        Assert.Equal(army.Money - result.TalentsPaid, result.Army.Money);
+        Assert.Equal(city.SupplyTons - room, result.City.SupplyTons);
     }
 
-    /// <summary>Review round 1, B6 / round 2, R1: the fleet twin of <see cref="BuyForArmy_MoreTonsThanCapacityHolds_Throws"/>.</summary>
-    [Fact]
-    public void BuyForFleet_MoreTonsThanCapacityHolds_Throws()
+    /// <summary>Review round 1, B6 / round 3: the fleet twin of <see cref="BuyForArmy_MoreTonsThanCapacityHolds_ClampsToTheRoomInstead"/>, plus the same check at the fleet's own city, to cover "a 10-ship fleet -> 80 on both paths".</summary>
+    [Theory]
+    [InlineData("north")] // own city, free path.
+    [InlineData("south")] // foreign city, paid path.
+    public void BuyForFleet_MoreTonsThanCapacityHolds_ClampsToTheRoomOnBothPaths(string cityOwner)
     {
         var fleet = new FleetState("f1", "north", 0, 0, 4, 10, 100, 500, 50, null, null, null, null);
-        var (_, city, nation) = Scenario(cityOwner: "south");
+        var (_, city, nation) = Scenario(cityOwner);
         var fleetCapacity = SupplyCapacity.FleetCapacityTons(fleet.Ships, EconomyTestbed.Ruleset);
+        Assert.Equal(80, fleetCapacity); // 10 ships * 8, the same value on both paths.
+        var room = fleetCapacity - fleet.SupplyTons;
 
-        Assert.Throws<ArgumentException>(
-            () => SupplyPurchase.BuyForFleet(fleet, city, nation, tons: fleetCapacity - fleet.SupplyTons + 1, EconomyTestbed.Ruleset));
+        var result = SupplyPurchase.BuyForFleet(fleet, city, nation, tons: room + 50, EconomyTestbed.Ruleset);
+
+        Assert.Equal(80, result.Fleet.SupplyTons); // clamped to exactly the fleet capacity, not thrown.
+        Assert.Equal(city.SupplyTons - room, result.City.SupplyTons);
     }
 
     /// <summary>
-    /// Review round 2, R1: the confirmed Roman transfer (<c>controlled-army-supply-transfer.md</c>,
-    /// <c>supplyTransfer.*</c> in the fixtures corpus) that motivated exempting the free path from the
-    /// capacity cap. The Roman 13-unit roster (48,173 troops, <c>troops / 100</c> = 481) goes from 403 to
-    /// 482 t at its own city (Rome, 1,810 -> 1,731 t), reading exactly 100% on the panel
-    /// (<c>roman13.supplyPercent</c>) -- one ton past the truncated capacity, and this must succeed, not
-    /// throw.
+    /// Review round 3 (R1's resolution): the confirmed Roman transfer (<c>controlled-army-supply-transfer.md</c>,
+    /// <c>supplyTransfer.*</c> in the fixtures corpus). The Roman 13-unit roster (48,173 troops,
+    /// <c>troops / 100</c> = 481) goes from 403 to 482 t at its own city (Rome, 1,810 -> 1,731 t), reading
+    /// exactly 100% on the panel (<c>roman13.supplyPercent</c>) -- one ton past the truncated
+    /// <c>ArmyCapacityTons</c>, admitted by the dialog's own <c>troops / 100 + 1</c> cap
+    /// (<c>ArmyDialogCapacityTons</c>, <c>supply-capacity-rounding.md</c>). Requests 100 t (a dialog
+    /// "+100" step, <c>armyTransfer.stepperIncrements</c> in the corpus) to exercise the clamp itself: only
+    /// 79 of the 100 requested tons are admitted, landing exactly on the dialog capacity, not thrown.
     /// </summary>
     [Fact]
-    public void BuyForArmy_ReplaysTheConfirmedRomeTransfer_OwnCityExceedsTruncatedCapacity_Succeeds()
+    public void BuyForArmy_ReplaysTheConfirmedRomeTransfer_AtOwnCity_ClampsTheRequestTo482()
     {
         var units = ValueList.Of(new UnitSlot(0, "light_infantry", 48_173, 6, "Roman 13-Unit Roster"));
         var army = new ArmyState("roman13", "rome", 0, 0, 9, 60, 500, 403, null, null, units);
         var city = new CityState("rome-city", "Rome", 0, 0, "rome", "rome", 80, 1810, 100, 10, 10, 0, false, ValueList<UnitSlot>.Empty);
         var nation = new NationState("rome", "Rome", "#000", "Leader", null, SeatControl.Human, null, 500, 600, 0, 15, 100, 100, 500, 1, false);
 
-        Assert.Equal(481, SupplyCapacity.ArmyCapacityTons(army.TotalTroops, EconomyTestbed.Ruleset)); // the truncated formula, unchanged.
+        Assert.Equal(481, SupplyCapacity.ArmyCapacityTons(army.TotalTroops, EconomyTestbed.Ruleset)); // the general formula, unchanged.
+        Assert.Equal(482, SupplyCapacity.ArmyDialogCapacityTons(army.TotalTroops, EconomyTestbed.Ruleset)); // the dialog's own cap.
 
-        var result = SupplyPurchase.BuyForArmy(army, city, nation, tons: 79, EconomyTestbed.Ruleset);
+        var result = SupplyPurchase.BuyForArmy(army, city, nation, tons: 100, EconomyTestbed.Ruleset);
 
         Assert.True(result.WasFreeOwnCity);
         Assert.Equal(0, result.TalentsPaid);
-        Assert.Equal(482, result.Army.SupplyTons); // one ton past troops / 100 -- admitted, not rejected.
-        Assert.Equal(1731, result.City.SupplyTons);
+        Assert.Equal(482, result.Army.SupplyTons); // clamped from a 100-ton request to the 79 tons of room.
+        Assert.Equal(1731, result.City.SupplyTons); // only the 79 admitted tons left the city, not 100.
         Assert.Equal(100, SupplyCapacity.PercentFull(result.Army.SupplyTons, army.TotalTroops, EconomyTestbed.Ruleset));
+    }
+
+    /// <summary>
+    /// Review round 3: the same Roman transfer, but at a foreign city with enough money -- the dialog cap
+    /// (482) applies identically on the paid path, and the buyer is charged only for the 79 admitted tons
+    /// (<c>79 / 5 = 15</c> talents), not the 100 requested.
+    /// </summary>
+    [Fact]
+    public void BuyForArmy_ReplaysTheConfirmedRomeTransfer_AtForeignCityWithEnoughMoney_ClampsTheRequestTo482()
+    {
+        var units = ValueList.Of(new UnitSlot(0, "light_infantry", 48_173, 6, "Roman 13-Unit Roster"));
+        var army = new ArmyState("roman13", "rome", 0, 0, 9, 60, 500, 403, null, null, units);
+        var city = new CityState("carthage-city", "Carthage", 0, 0, "carthage", "carthage", 80, 1810, 100, 10, 10, 0, false, ValueList<UnitSlot>.Empty);
+        var nation = new NationState("rome", "Rome", "#000", "Leader", null, SeatControl.Human, null, 500, 600, 0, 15, 100, 100, 500, 1, false);
+
+        var result = SupplyPurchase.BuyForArmy(army, city, nation, tons: 100, EconomyTestbed.Ruleset);
+
+        Assert.False(result.WasFreeOwnCity);
+        Assert.Equal(15, result.TalentsPaid); // 79 / 5 = 15, the admitted tons, not 100 / 5 = 20.
+        Assert.Equal(army.Money - 15, result.Army.Money);
+        Assert.Equal(482, result.Army.SupplyTons);
+        Assert.Equal(1731, result.City.SupplyTons);
+    }
+
+    /// <summary>
+    /// Review round 3: an army already at its dialog capacity buys nothing -- the room is zero, so the
+    /// purchase succeeds with no state change and no charge, rather than throwing.
+    /// </summary>
+    [Theory]
+    [InlineData("rome")] // own city, free path.
+    [InlineData("carthage")] // foreign city, paid path.
+    public void BuyForArmy_AlreadyAtDialogCapacity_BuysNothing(string cityOwner)
+    {
+        var units = ValueList.Of(new UnitSlot(0, "light_infantry", 48_173, 6, "Roman 13-Unit Roster"));
+        var army = new ArmyState("roman13", "rome", 0, 0, 9, 60, 500, 482, null, null, units); // already at the dialog cap.
+        var city = new CityState("c1", "City", 0, 0, cityOwner, cityOwner, 80, 1810, 100, 10, 10, 0, false, ValueList<UnitSlot>.Empty);
+        var nation = new NationState("rome", "Rome", "#000", "Leader", null, SeatControl.Human, null, 500, 600, 0, 15, 100, 100, 500, 1, false);
+
+        Assert.Equal(482, SupplyCapacity.ArmyDialogCapacityTons(army.TotalTroops, EconomyTestbed.Ruleset));
+
+        var result = SupplyPurchase.BuyForArmy(army, city, nation, tons: 10, EconomyTestbed.Ruleset);
+
+        Assert.Equal(0, result.TalentsPaid);
+        Assert.Equal(482, result.Army.SupplyTons); // unchanged.
+        Assert.Equal(1810, result.City.SupplyTons); // unchanged: nothing sold.
+        Assert.Equal(army.Money, result.Army.Money); // unchanged: nothing charged.
     }
 
     /// <summary>Review round 2, NB4: a caller passing a nation that is not the army's own must be rejected, not silently misattributed.</summary>

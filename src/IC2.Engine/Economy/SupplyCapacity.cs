@@ -23,6 +23,26 @@ public static class SupplyCapacity
         return troops / ruleset.Economy.ArmySupplyTonsPerTroops;
     }
 
+    /// <summary>
+    /// An army's supply-<em>dialog</em> capacity, in tons — <see cref="ArmyCapacityTons"/> plus the
+    /// dialog's <c>+1</c> allowance (review round 3, R1's resolution; <c>supply-capacity-rounding.md</c>
+    /// [confirmed]). <c>TAFSupply_ChangeSupply</c> (own-city, free) and <c>TAFSupply_ChangeBuyAmount</c>
+    /// (foreign, paid) both cap a dialog transfer here, identically on both paths — an <c>IDIV</c> by
+    /// <see cref="EconomyRules.ArmySupplyTonsPerTroops"/> followed by an unconditional <c>INC</c>, not a
+    /// rounding of any kind. Every other writer (automatic resupply, army-to-army rebalancing, battle
+    /// absorption) uses <see cref="ArmyCapacityTons"/> alone, with no bonus — <see cref="SupplyPurchase"/>
+    /// is the only caller of this method.
+    /// </summary>
+    /// <param name="ruleset">
+    /// Supplies <see cref="EconomyRules.ArmySupplyTonsPerTroops"/> and
+    /// <see cref="EconomyRules.SupplyDialogArmyCapacityBonus"/> — never a C# literal.
+    /// </param>
+    public static int ArmyDialogCapacityTons(int troops, Ruleset ruleset)
+    {
+        ArgumentNullException.ThrowIfNull(ruleset);
+        return ArmyCapacityTons(troops, ruleset) + ruleset.Economy.SupplyDialogArmyCapacityBonus;
+    }
+
     /// <summary>A fleet's supply capacity, in tons.</summary>
     /// <param name="ruleset">Supplies <see cref="EconomyRules.FleetSupplyTonsPerShip"/> — never a C# literal.</param>
     public static int FleetCapacityTons(int ships, Ruleset ruleset)

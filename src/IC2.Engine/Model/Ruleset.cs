@@ -122,7 +122,19 @@ public sealed record TerrainRules(
 /// strategic-morale rule and the weather frequency curve were previously unowned by any task (T02 shipped
 /// this record before <c>docs/investigations/thracia-supply-morale.md</c> existed), so T08 widens it here
 /// rather than leaving the constants as C# literals — the same additive pattern T31 used for
-/// <see cref="SiegeRules"/>. Every other field, and every other record in this file, is unchanged.
+/// <see cref="SiegeRules"/>.
+/// <para>
+/// <see cref="SupplyDialogArmyCapacityBonus"/> was added in review round 3 (R1's resolution,
+/// <c>supply-capacity-rounding.md</c> [confirmed]): the supply dialog's <c>TAFSupply_ChangeSupply</c> /
+/// <c>TAFSupply_ChangeBuyAmount</c> cap an army's dialog transfer at <c>troops / ArmySupplyTonsPerTroops
+/// + SupplyDialogArmyCapacityBonus</c> (an <c>IDIV</c> then an unconditional <c>INC</c>, no rounding), on
+/// both the free (own-city) and paid (foreign) paths alike — not <see cref="ArmySupplyTonsPerTroops"/>
+/// alone, which stays the general capacity every other path (automatic resupply, army-to-army rebalancing,
+/// battle absorption) uses unmodified. The fleet dialog cap needs no such field: it is exactly
+/// <c>ships × FleetSupplyTonsPerShip</c> on both paths, the same formula <see cref="FleetSupplyTonsPerShip"/>
+/// already describes.
+/// </para>
+/// Every other field, and every other record in this file, is unchanged.
 /// </remarks>
 public sealed record EconomyRules(
     int TaxRateDivisor,
@@ -141,7 +153,8 @@ public sealed record EconomyRules(
     SupplyConsumptionRules SupplyConsumption,
     SupplyMoraleRules SupplyMorale,
     WeatherEventRules Weather,
-    [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
+    [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null,
+    int SupplyDialogArmyCapacityBonus = 1);
 
 /// <summary>
 /// Per-turn supply consumption (<c>docs/design-audit.md</c> §2.9a, <c>investigations/thracia-supply-morale.md</c>).
