@@ -47,6 +47,14 @@ public sealed class MoveArmyCommandHandler : ICommandHandler<MoveArmyCommand>
         }
 
         var world = context.World;
+        var destination = new GridPoint(command.X, command.Y);
+        if (!InBounds(destination, world))
+        {
+            return CommandOutcome.Reject(
+                MoveArmyRejections.OutOfBounds,
+                $"({command.X}, {command.Y}) is outside the {world.Width}x{world.Height} map.");
+        }
+
         var terrainCells = world.Terrain.Decode(world.Width, world.Height);
 
         string? TileTypeIdAt(GridPoint point)
@@ -92,9 +100,8 @@ public sealed class MoveArmyCommandHandler : ICommandHandler<MoveArmyCommand>
         }
 
         var from = new GridPoint(army.X, army.Y);
-        var to = new GridPoint(command.X, command.Y);
         var walk = MovementWalker.Walk(
-            from, to, army.Moves, context.Ruleset.Terrain, TileTypeIdAt, IsBlocked, context.Events);
+            from, destination, army.Moves, context.Ruleset.Terrain, TileTypeIdAt, IsBlocked, context.Events);
 
         var movesAfter = walk.StopReason == MovementStopReason.InsufficientMoves
             ? MovementAbortRule.MovesAfterAbortedStep(

@@ -70,6 +70,43 @@ public sealed class MoveArmyCommandHandlerTests
         Assert.Same(before, result.State);
     }
 
+    /// <summary>
+    /// Review round 1 (PR #94, finding 1): an out-of-bounds destination used to reach
+    /// <see cref="MovementWalker.Walk"/> and crash with an unhandled <see cref="InvalidOperationException"/>
+    /// instead of a typed rejection. The exact repro from the review.
+    /// </summary>
+    [Fact]
+    public void A_negative_coordinate_is_rejected_as_out_of_bounds_instead_of_crashing()
+    {
+        var dispatcher = Dispatcher();
+        var before = CoreTestbed.InitialState();
+        var army = before.ArmyById("north-army-1")!;
+
+        var thrown = Record.Exception(() =>
+            dispatcher.Dispatch(before, new MoveArmyCommand(before.ActiveNationId, army.Id, 3, -1)));
+
+        Assert.Null(thrown);
+        var result = dispatcher.Dispatch(before, new MoveArmyCommand(before.ActiveNationId, army.Id, 3, -1));
+        Assert.Equal(MoveArmyRejections.OutOfBounds, result.Code);
+        Assert.Same(before, result.State);
+    }
+
+    /// <summary>The other edge: a coordinate past the world's width/height, read off the loaded world.</summary>
+    [Fact]
+    public void A_coordinate_past_the_worlds_edge_is_rejected_as_out_of_bounds()
+    {
+        var dispatcher = Dispatcher();
+        var before = CoreTestbed.InitialState();
+        var army = before.ArmyById("north-army-1")!;
+        var world = CoreTestbed.Toy.World;
+
+        var result = dispatcher.Dispatch(
+            before, new MoveArmyCommand(before.ActiveNationId, army.Id, world.Width, world.Height));
+
+        Assert.Equal(MoveArmyRejections.OutOfBounds, result.Code);
+        Assert.Same(before, result.State);
+    }
+
     [Fact]
     public void A_legal_move_spends_exactly_the_walkers_cost_and_ends_where_it_stops()
     {

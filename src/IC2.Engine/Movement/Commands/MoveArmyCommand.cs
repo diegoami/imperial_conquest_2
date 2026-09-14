@@ -27,4 +27,15 @@ public static class MoveArmyRejections
 
     /// <summary>The army has no moves left this turn.</summary>
     public static readonly RejectionCode NoMovesLeft = new("movement.no-moves-left");
+
+    /// <summary>
+    /// The requested destination lies outside the world's grid. Checked before
+    /// <see cref="MovementWalker.Walk"/> ever runs: the walker's own contract requires a caller's
+    /// <c>tileTypeIdAt</c> lookup to resolve every cell the walk actually reaches, and throws
+    /// <see cref="InvalidOperationException"/> if it does not — a caller error for a pure function, not
+    /// something it can turn into a polite outcome itself. A destination off the map is exactly that
+    /// caller error made from user input, so the handler catches it first and reports it the same way
+    /// every other illegal order is reported: a typed rejection, never an exception.
+    /// </summary>
+    public static readonly RejectionCode OutOfBounds = new("movement.out-of-bounds");
 }

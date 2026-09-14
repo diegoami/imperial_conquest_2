@@ -95,4 +95,40 @@ public sealed class GameSessionTests
 
     private static string WithoutWeatherLines(string transcript) =>
         string.Join('\n', transcript.Split('\n').Where(line => !line.TrimStart().StartsWith("Weather:", StringComparison.Ordinal)));
+
+    /// <summary>
+    /// Review round 1: "make sure no other session command can throw on bad input: unknown army or
+    /// city ids, non-numeric or negative tons and coordinates, missing arguments." Every one of these
+    /// must come back as an ordinary printed line, never an exception escaping <see cref="GameSession.Submit"/>.
+    /// </summary>
+    [Theory]
+    [InlineData("move")]
+    [InlineData("move north-army-1")]
+    [InlineData("move north-army-1 4")]
+    [InlineData("move north-army-1 abc 2")]
+    [InlineData("move north-army-1 4 abc")]
+    [InlineData("move north-army-1 999999999999999999999 2")]
+    [InlineData("move ghost-army 4 2")]
+    [InlineData("move north-army-1 -1 -1")]
+    [InlineData("move north-army-1 999 999")]
+    [InlineData("buy")]
+    [InlineData("buy north-army-1")]
+    [InlineData("buy north-army-1 arx")]
+    [InlineData("buy north-army-1 arx abc")]
+    [InlineData("buy north-army-1 arx -5")]
+    [InlineData("buy north-army-1 arx 0")]
+    [InlineData("buy ghost-army arx 5")]
+    [InlineData("buy north-army-1 ghost-city 5")]
+    [InlineData("buy north-army-1 arx 999999999999999999999")]
+    [InlineData("gibberish")]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Submit_never_throws_on_malformed_or_illegal_input(string line)
+    {
+        var session = NewSession();
+
+        var thrown = Record.Exception(() => session.Submit(line));
+
+        Assert.Null(thrown);
+    }
 }

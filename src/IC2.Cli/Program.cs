@@ -54,6 +54,12 @@ internal static class Program
             }
         }
 
+        if (scriptPath is not null && !File.Exists(scriptPath))
+        {
+            Console.Error.WriteLine($"Could not find script file: {scriptPath}");
+            return 1;
+        }
+
         GameSession session;
         try
         {

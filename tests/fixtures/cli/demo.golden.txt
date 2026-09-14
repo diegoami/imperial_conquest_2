@@ -54,6 +54,9 @@ Move rejected (movement.unknown-army): 'ghost-army' is not a known army.
 > move south-army-1 0 0
 Move rejected (movement.not-your-army): Army 'south-army-1' belongs to 'south', not 'north'.
 
+> move north-army-1 3 -1
+Move rejected (movement.out-of-bounds): (3, -1) is outside the 8x6 map.
+
 > move north-army-1 4 4
 north-army-1 moved from (4,2) to (4,3), spending 4 of 4 moves.
 
