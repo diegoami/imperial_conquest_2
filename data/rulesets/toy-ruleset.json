@@ -234,7 +234,7 @@
       "unpaidUpkeepTroopLossDivisor": "confirmed: decompiled-quarterly-billing-and-economy.md — army units lose troops, reduced by troops/100, when available upkeep funds drop below 1. A real consequence, not a debt counter.",
       "lowTaxLoyaltyThresholdPercent": "confirmed: decompiled-quarterly-billing-and-economy.md — if a nation's tax rate is under 11% and a city's loyalty is below 80, there's a chance loyalty rises.",
       "lowTaxLoyaltyCityThreshold": "confirmed: decompiled-quarterly-billing-and-economy.md — the city-loyalty side of the same condition.",
-      "rebellionLoyaltyThreshold": "derived: decompiled-quarterly-billing-and-economy.md — 'cities with loyalty under 30 can trigger it'; the rebellion check itself (FUN_0044c204) was never decompiled, so this is the confirmed structure's threshold, not the exact check. docs/design-audit.md §2 calls this out explicitly as needing a placeholder tagged accordingly; see EconomyRules.RebellionLoyaltyThreshold's own doc comment."
+      "rebellionLoyaltyThreshold": "designed, structure confirmed, exact thresholds not recovered: decompiled-quarterly-billing-and-economy.md — 'cities with loyalty under 30 can trigger it'; the rebellion check itself (FUN_0044c204) was never decompiled (it depends on an unidentified bitmask per game-design.md §Economy, which prescribes exactly this _provenance wording for this placeholder, review round 1, N4), so this is the confirmed structure's threshold, not the exact check. docs/design-audit.md §2 calls this out explicitly as needing a placeholder tagged accordingly; see EconomyRules.RebellionLoyaltyThreshold's own doc comment."
     }
   },
   "recruitment": {
