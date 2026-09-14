@@ -307,7 +307,7 @@ Conventions used by every entry:
 
 #### T08 Economy, supply, and purses
 
-- **Status**: Escalated
+- **Status**: In progress
 - **Design milestone**: **M3**. **Labels**: `phase:1 lane:engine`
 - **Branch**: `task/T08-economy` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
 - **Start after**: T03 · **Merge after**: T03, T04, T06, **T32**
@@ -849,7 +849,7 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T05](#t05-github-hygiene-templates-labels-codeowners) | GitHub hygiene | — | **Fable** | Low | Sonnet/Medium | — | [#5](https://github.com/diegoami/imperial_conquest_2/issues/5) | Merged (`4ab3344`) |
 | [T06](#t06-calendar-and-turn-sequencing) | Calendar and turns | M2 | Sonnet | Medium | Sonnet/High | T03, T04 | [#6](https://github.com/diegoami/imperial_conquest_2/issues/6) | Merged (`8b8007a`) |
 | [T07](#t07-strength-functions) | Strength functions | M5 | Sonnet | High | **Opus**/Medium | T03, T04, T31 | [#7](https://github.com/diegoami/imperial_conquest_2/issues/7) | Merged (`acd4098`) |
-| [T08](#t08-economy-supply-and-purses) | Economy and purses | M3 | Sonnet | High | **Opus**/Medium | T03, T04, T06, T32 | [#8](https://github.com/diegoami/imperial_conquest_2/issues/8) | Escalated |
+| [T08](#t08-economy-supply-and-purses) | Economy and purses | M3 | Sonnet | High | **Opus**/Medium | T03, T04, T06, T32 | [#8](https://github.com/diegoami/imperial_conquest_2/issues/8) | In progress |
 | [T09](#t09-movement-and-terrain) | Movement and terrain | M6 | Sonnet | Medium | Sonnet/High | T03, T04 | [#9](https://github.com/diegoami/imperial_conquest_2/issues/9) | In progress |
 | [T10](#t10-news-log-ring-buffer-and-message-catalog) | News log | M17 | **Haiku** | Medium | Sonnet/Medium | T03, T04 | [#10](https://github.com/diegoami/imperial_conquest_2/issues/10) | Ready |
 | [T11](#t11-asset-pack-loader-and-generated-placeholder-pack) | Asset pack | — | **Haiku** | Medium | Sonnet/Medium | T02 | [#11](https://github.com/diegoami/imperial_conquest_2/issues/11) | Ready |
