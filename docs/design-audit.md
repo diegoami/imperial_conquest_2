@@ -112,7 +112,7 @@ The prior conclusion came from decompiling `TPolitics_MakePeace` alone and findi
 
 ### 2.5 Reparations: "`[derived]` … the exact formula was never isolated" — **now confirmed [fixed in place]**
 
-`reparations = W/4 + random(W/4) + cities × 10`, where `W` is nation field `+0x44C` (wealth). Caveat kept honest: this is confirmed **as code**, and is consistent in shape and magnitude with the single observed `−2269` payment, but the observation was **not** re-derived from the save's actual field values. Tagged `[confirmed formula, unverified against the one observation]` rather than plain `[confirmed]`.
+`reparations = W/4 + random(W/4) + cities × 10`, where `W` is nation field `+0x44C`, the **tax base**. Wealth is the separate `+0x430`, per [`nation-tax-base-and-city-economy-fields.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/nation-tax-base-and-city-economy-fields.md). **[confirmed]**, checked against the single observed `−2269` payment using the save's own field values. With W = 6,188 and 48 cities the range is 2,027–3,573, and 2,269 falls inside it. Because of the `random` term, this can be a range check only, not an exact reproduction.
 
 ### 2.6 Victory conditions: "`[designed, never reverse-engineered]`" — **partly wrong [fixed in place]**
 

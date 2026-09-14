@@ -23,13 +23,13 @@ New files in the **unprocessed** side of the original game directory's evidence 
 **Stage 2 — RE findings → this repository**, dispatched only after stage 1 reports back (never both at once — a real sequential dependency). A second, fresh Opus agent. Give it exactly what stage 1 changed (report names and commit hash — don't make it re-discover this). Its job is **part B of the post-merge documentation checklist** ([build-process.md §4.8](build-process.md#48-documentation-update-after-every-merge)), applied to the new evidence instead of a merged task. Each finding takes exactly one of four routes:
 
 1. **Claims.** For each item of §4.8 part B — `design-audit.md` and `game-design.md` claims, the investigations index, release-plan gates, the operating guide's §7 open items, the README — decide whether the new evidence confirms, corrects or closes something, and draft the fix in place (current fact only, cited).
-2. **Defects in merged code.** A merged constant, field or rule the evidence shows to be wrong is **filed as a `bug` issue** with the evidence ([build-process.md §4.7](build-process.md#47-the-bug-list)), never patched — the planner pass decides what happens to it.
+2. **Defects in merged code.** A merged constant, field or rule the evidence shows to be wrong is **filed as a `bug` issue, labelled `triage:needed`**, with the evidence ([build-process.md §4.7](build-process.md#the-triage-queue)), never patched — the planner's triage decides what happens to it.
 3. **Tasks not yet dispatched.** A scope or DoD change to a task that has not started is drafted as a [task-catalogue.md](task-catalogue.md) edit on the same review branch; a DoD only changes by a reviewed commit ([build-process.md §4.4](build-process.md#44-the-dod-is-not-negotiable-by-an-agent)).
 4. **Design decisions.** A genuine judgment call is **not decided**: pose it plainly, the way `design-audit.md` §3's questions were raised, and stop.
 
-Stage 2 never touches the status snapshot (§4.8 part A) — status follows the labels, not evidence. It works in **its own worktree on a new branch** off `origin/main` (never the shared checkout, which a pipeline agent may be using), pushes that branch, and does not merge: evidence-driven changes are new content, so they go through review rather than straight to `main` ([operating-guide.md §3.3](operating-guide.md#33-working-rules)). Report back: the branch, what changed and why, any bug issues filed, and any open question for the human.
+Stage 2 never touches the status snapshot (§4.8 part A) — status follows the labels, not evidence. It works in **its own worktree on a new branch** off `origin/main` (never the shared checkout, which a pipeline agent may be using), pushes that branch, and does not merge: evidence-driven changes are new content, so they go through review rather than straight to `main` ([operating-guide.md §3.3](operating-guide.md#33-working-rules)). **Report back to the planner**: the branch, what changed and why, any bug issues filed, and any open question for the human. The planner triages the bugs ([build-process.md §4.7](build-process.md#47-the-bug-list)), takes the branch and the open questions to the user, and decides what enters the build.
 
-**Whoever invokes `/process-evidence`** (the interactive session, not a subagent) coordinates both dispatches — dispatch stage 1, wait for its completion notification (don't poll), dispatch stage 2 with stage 1's actual output as input, then relay the result to the user. If stage 1 finds nothing worth writing up, stop there and say so — no stage 2 over nothing.
+**The planner — the main session — invokes `/process-evidence`** and coordinates both dispatches: dispatch stage 1, wait for its completion notification (don't poll), dispatch stage 2 with stage 1's actual output as input, then relay the result to the user. Neither stage reports to the orchestrator, and neither dispatches build tasks. If stage 1 finds nothing worth writing up, stop there and say so — no stage 2 over nothing.
 
 ## The actual skill file
 
@@ -63,13 +63,19 @@ existing reports for the note's referenced save names before assuming it's new.
 4. If stage 1 found nothing worth writing up, stop and report that to the user — no stage 2.
 5. Otherwise dispatch **stage 2** (Opus, fresh agent, given exactly what stage 1 changed) per the
    "Stage 2" section: build-process.md §4.8 part B applied to the new evidence, defects in merged
-   code filed as `bug` issues (never patched), catalogue edits only for tasks not yet dispatched,
+   code filed as `bug` issues labelled `triage:needed` (never patched), catalogue edits only for
+   tasks not yet dispatched,
    design decisions posed and not made, no status edits. It works in its own worktree
    (`git worktree add <sibling-path> -b evidence/<slug> origin/main`), never in the shared
    checkout, and pushes that branch without merging.
-6. Wait for stage 2's completion notification.
+6. Wait for stage 2's completion notification; stage 2 reports back to you, the planner.
 7. Relay to the user: what stage 1 found and where (research-repo commit), what stage 2 proposes and
-   where (this repo's branch), the bug issues it filed, and any open question for a human decision.
+   where (this repo's branch), the bug issues it filed (in your `triage:needed` queue,
+   build-process.md §4.7),
+   and any open question for a human decision.
+
+This skill is run by the planner (the main session). It never dispatches build tasks; that is the
+orchestrator's job, under a mandate from the planner.
 ```
 
 Install this at `.claude/skills/process-evidence/SKILL.md` (local, git-ignored — reinstall from the block above if it is ever missing).

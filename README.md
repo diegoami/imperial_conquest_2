@@ -8,9 +8,9 @@ A modern, moddable reimplementation of *Imperial Conquest 2* (1996) — the game
 
 A snapshot, synced after every merge by the documentation step ([build-process.md §4.8](docs/build-process.md#48-documentation-update-after-every-merge)); the live per-tick status is [tracking issue #29](https://github.com/diegoami/imperial_conquest_2/issues/29).
 
-- **As of** `acd4098`: Phase 0 (foundation) merged except T29, Phase 1 (pure rules) under way — **9 of 31 build tasks merged**: T01–T07, T30, T31. Per-task status is in the [task index](docs/task-catalogue.md#3-task-index).
+- **As of** `acd4098`: Phase 0 (foundation) merged, Phase 1 (pure rules) under way — **9 of 36 build tasks merged**: T01–T07, T30, T31. Per-task status is in the [task index](docs/task-catalogue.md#3-task-index).
 - **What exists**: `IC2.Data` (the original `.sav`/`.dat` parsers), the domain model and toy world, the fixtures corpus (355 constants from the research reports), the engine seams (seeded RNG, turn pipeline, commands, events), calendar and turn sequencing, and the strength functions. No gameplay loop yet.
-- **Next**: T08 (economy, supply and purses) is in progress; T09–T12 and T29 are ready.
+- **Next**: an orchestrator mandate is running — T32, T08, T33, T09, T10, T11, T12, T34, in order. T32 (calendar tests independent of later systems) is in progress. T08 (economy, supply and purses) is implemented but blocked, suspended on bug #50, and resumes once T32 merges. T29 is now blocked (waiting on T30, T34, T15, T17, T19); the ready set is T09, T10, T11, T12, T33, T34.
 - **Nothing is playable yet.** The first runnable program is the `IC2.Cli` harness (T23); the first screen is T24. What becomes runnable when: [operating-guide.md §1.1](docs/operating-guide.md#11-what-becomes-runnable-and-when).
 - **Build and test now**:
   ```bash
@@ -66,7 +66,7 @@ After setting `assets.local.ini`, open `godot/project.godot` with Godot .NET 4.7
 
 - [Operating guide](docs/operating-guide.md) — start here: current state, where everything lives, how the sessions, skills and pipeline are run, what's still open.
 - [Game design](docs/game-design.md) and its [design audit](docs/design-audit.md) — what the reimplementation will be, and what the evidence actually supports.
-- [Task catalogue](docs/task-catalogue.md) — the 31 build tasks, their dependency graph and status.
+- [Task catalogue](docs/task-catalogue.md) — the 36 build tasks, their dependency graph and status.
 - [Build process](docs/build-process.md) — how tasks are dispatched, reviewed, merged and documented by the agent pipeline.
 - [Evidence pipeline](docs/evidence-pipeline.md) — the `/process-evidence` skill that turns new saves/recordings/notes into research-repo findings and then game-design implications.
 - [Investigations](docs/investigations/README.md) — this repository's own evidence write-ups.
