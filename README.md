@@ -8,14 +8,14 @@ A modern, moddable reimplementation of *Imperial Conquest 2* (1996) — the game
 
 A snapshot, synced after every merge by the documentation step ([build-process.md §4.8](docs/build-process.md#48-documentation-update-after-every-merge)); the live per-tick status is [tracking issue #29](https://github.com/diegoami/imperial_conquest_2/issues/29).
 
-- **As of** `2d72f7f`: Phase 0 (foundation) merged, Phase 1 (pure rules) under way — **10 of 37 build tasks merged**: T01–T07, T30, T31, T32. Per-task status is in the [task index](docs/task-catalogue.md#3-task-index).
-- **What exists**: `IC2.Data` (the original `.sav`/`.dat` parsers), the domain model and toy world, the fixtures corpus (355 constants from the research reports), the engine seams (seeded RNG, turn pipeline, commands, events), calendar and turn sequencing, and the strength functions. No gameplay loop yet.
-- **Next**: an orchestrator mandate is running — T32, T08, T33, T09, T10, T11, T12, T34, in order. T32 (calendar tests independent of later systems) has merged. T08 (economy, supply and purses) resumes PR #53 now that T32 is in. T29 is still blocked (waiting on T30, T34, T15, T17, T19); the ready set is T09, T10, T11, T12, T33, T34.
+- **As of** `e804f4f`: Phase 0 (foundation) merged, Phase 1 (pure rules) under way — **11 of 37 build tasks merged**: T01–T07, T09, T30, T31, T32. Per-task status is in the [task index](docs/task-catalogue.md#3-task-index).
+- **What exists**: `IC2.Data` (the original `.sav`/`.dat` parsers), the domain model and toy world, the fixtures corpus (355 constants from the research reports), the engine seams (seeded RNG, turn pipeline, commands, events), calendar and turn sequencing, the strength functions, and movement/terrain (the one-click Bresenham walker, terrain costs, blocking, abort rules). No gameplay loop yet.
+- **Next**: T08 (economy, supply and purses) is **in progress** — no longer escalated: a user-authorized rework round 3, scoped only to review finding R1 (a one-ton supply-capacity disagreement), is under way ([operating-guide.md §1](docs/operating-guide.md#1-current-state)). T29 is still blocked (waiting on T30, T34, T15, T17, T19); the ready set is T10, T11, T12, T33, T34.
 - **Nothing is playable yet.** The first runnable program is the `IC2.Cli` harness (T23); the first screen is T24. What becomes runnable when: [operating-guide.md §1.1](docs/operating-guide.md#11-what-becomes-runnable-and-when).
 - **Build and test now**:
   ```bash
   dotnet build IC2.sln   # 0 warnings, 0 errors
-  dotnet test IC2.sln    # 271 tests: 193 engine, 78 data
+  dotnet test IC2.sln    # 319 tests: 241 engine, 78 data
   ```
   65 of the data tests read your original game files and skip without `assets.local.ini` (below). CI: [Actions](https://github.com/diegoami/imperial_conquest_2/actions).
 
