@@ -7,13 +7,18 @@ namespace IC2.Engine.News;
 
 /// <summary>
 /// Implements the domain-event sink that renders news-worthy events into GameState.NewsLog.
-/// Also implements IGameSystem to commit the buffered messages to the state at the end of each round.
+/// Also implements IGameSystem to commit the buffered messages to the state at the end of each seat's turn.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>The writer implements both IEventSink and IGameSystem.</strong> Events are published to it
-/// as they happen (the IEventSink interface), and they are rendered and flushed to GameState at the
-/// end of each round (the IGameSystem interface).
+/// <strong>The writer implements both IEventSink and IGameSystem, and is intentionally stateful.</strong>
+/// This is the only system in the engine that violates the "stateless shared instance" rule documented in
+/// <see cref="SystemRegistry"/>. It works <em>only</em> if the exact same instance is wired into both roles:
+/// the <c>IGameSystem</c> instance from the assembly scan and the <c>IEventSink</c> in the engine's event sink
+/// chain must be the same object. If a future wiring task constructs separate instances for each role, every
+/// event will be silently dropped. The <see cref="SeatEnd"/> phase ensures events published during a seat's
+/// <see cref="TurnPhase.Orders"/> run are rendered into <c>GameState.NewsLog</c> "at the end of that turn"
+/// as DoD 4 requires — not at the end of a full 16-seat round.
 /// </para>
 /// <para>
 /// Every system that publishes a news-worthy event does so by calling
@@ -26,11 +31,10 @@ namespace IC2.Engine.News;
 /// correctly without mocking or complex setup.
 /// </para>
 /// </remarks>
-[GameSystem(TurnPhase.RoundEnd, "news.writer")]
+[GameSystem(TurnPhase.SeatEnd, "news.writer")]
 public sealed class NewsLogWriter : IEventSink, IGameSystem
 {
     private readonly List<DomainEvent> _pending = new();
-    private readonly FrozenDictionary<string, PropertyInfo[]> _cachedEventProperties = new Dictionary<string, PropertyInfo[]>().ToFrozenDictionary();
 
     /// <summary>Publishes an event for later rendering into the news log.</summary>
     public void Publish(DomainEvent domainEvent)
@@ -41,7 +45,8 @@ public sealed class NewsLogWriter : IEventSink, IGameSystem
 
     /// <summary>
     /// Renders all pending news-worthy events into GameState.NewsLog and clears the buffer.
-    /// Called once per round by the turn coordinator.
+    /// Called once per seat's turn, in the <see cref="TurnPhase.SeatEnd"/> phase, so events published
+    /// during that seat's <see cref="TurnPhase.Orders"/> appear "at the end of that turn" as DoD 4 requires.
     /// </summary>
     public GameState Execute(SystemContext context)
     {
@@ -57,7 +62,7 @@ public sealed class NewsLogWriter : IEventSink, IGameSystem
                 continue;
             }
 
-            var rendered = RenderMessage(evt);
+            var rendered = RenderMessage(evt, rules);
             newsLog = newsLog.Append(new NewsEntry(rendered), rules);
         }
 
@@ -67,9 +72,12 @@ public sealed class NewsLogWriter : IEventSink, IGameSystem
     }
 
     /// <summary>
-    /// Renders a news-worthy event into a message by substituting operands into the catalog template.
+    /// Renders a news-worthy event into a message by substituting operands into the catalog template,
+    /// then truncates to the confirmed message byte length (61 bytes per <c>decompiled-news-log-identified.md</c>
+    /// and <c>decompiled-sav-file-layout.md</c>). Rendering is deterministic: operand substitution uses
+    /// invariant culture and occurs in property-declaration order (not hash-based).
     /// </summary>
-    private string RenderMessage(DomainEvent evt)
+    private string RenderMessage(DomainEvent evt, NewsLogRules rules)
     {
         var kind = evt.Kind;
         var template = NewsMessageCatalog.GetTemplate(kind);
@@ -85,9 +93,15 @@ public sealed class NewsLogWriter : IEventSink, IGameSystem
             if (result.Contains(placeholder, StringComparison.Ordinal))
             {
                 var value = prop.GetValue(evt);
-                var valueStr = value?.ToString() ?? "";
+                var valueStr = value == null ? "" : string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}", value);
                 result = result.Replace(placeholder, valueStr, StringComparison.Ordinal);
             }
+        }
+
+        // Truncate to the confirmed message buffer size (61 bytes)
+        if (result.Length > rules.MessageByteLength)
+        {
+            result = result.Substring(0, rules.MessageByteLength);
         }
 
         return result;
