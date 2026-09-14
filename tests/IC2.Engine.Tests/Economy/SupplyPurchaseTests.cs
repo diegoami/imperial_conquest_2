@@ -158,9 +158,10 @@ public sealed class SupplyPurchaseTests
     }
 
     /// <summary>
-    /// Review round 1, B6: the source caps a paid purchase at the buyer's own money x
-    /// SupplyTonsPerTalent -- an army with no money and no troops (so the capacity cap cannot be what
-    /// stops it) buying 900 t abroad must be rejected, not left to drive its purse negative.
+    /// Review round 1, B6 (fixture wording corrected per review round 2, NB3): the source caps a paid
+    /// purchase at the buyer's own money x SupplyTonsPerTalent. This army has plenty of troops (so the
+    /// capacity cap cannot be what stops it, only the money one) but a 10-talent purse; buying 900 t
+    /// abroad must be rejected, not left to drive its purse negative.
     /// </summary>
     [Fact]
     public void BuyForArmy_MoreTonsThanPurseCanAfford_Throws()
@@ -170,32 +171,109 @@ public sealed class SupplyPurchaseTests
         var city = new CityState("c1", "Test City", 0, 0, "south", "south", 80, 1000, 100, 10, 10, 0, false, ValueList<UnitSlot>.Empty);
         var nation = new NationState("north", "North", "#000", "Leader", null, SeatControl.Human, null, 500, 600, 0, 15, 100, 100, 500, 1, false);
 
-        // 900 t at amount/5 would cost 180 talents against a 10-talent purse.
+        // 900 t against a 10-talent purse: 900 > 10 x 5 = 50, so this must be rejected.
         Assert.Throws<ArgumentException>(
             () => SupplyPurchase.BuyForArmy(poorArmy, city, nation, tons: 900, EconomyTestbed.Ruleset));
     }
 
-    /// <summary>Review round 1, B6: a purchase that would push supply past the buyer's own capacity is rejected.</summary>
+    /// <summary>
+    /// Review round 2, NB1: the money cap must compare whole tons against whole talents
+    /// (<c>tons &gt; money x SupplyTonsPerTalent</c>), not a truncated talent count
+    /// (<c>tons / SupplyTonsPerTalent &gt; money</c>) -- the two differ by up to
+    /// <c>SupplyTonsPerTalent - 1</c> tons. An army with a 10-talent purse can afford exactly 50 t
+    /// (<c>10 x 5</c>) but not 51.
+    /// </summary>
+    [Fact]
+    public void BuyForArmy_ExactlyAffordableTons_Succeeds_OneMoreThrows()
+    {
+        var units = ValueList.Of(new UnitSlot(0, "light_infantry", 1_000_000, 6, "Huge Battalion"));
+        var army = new ArmyState("a2", "north", 0, 0, 9, 60, 10, 0, null, null, units);
+        var city = new CityState("c1", "Test City", 0, 0, "south", "south", 80, 1000, 100, 10, 10, 0, false, ValueList<UnitSlot>.Empty);
+        var nation = new NationState("north", "North", "#000", "Leader", null, SeatControl.Human, null, 500, 600, 0, 15, 100, 100, 500, 1, false);
+
+        var result = SupplyPurchase.BuyForArmy(army, city, nation, tons: 50, EconomyTestbed.Ruleset);
+        Assert.Equal(10, result.TalentsPaid); // 50 / 5 = 10, exactly the purse.
+        Assert.Equal(0, result.Army.Money);
+
+        Assert.Throws<ArgumentException>(
+            () => SupplyPurchase.BuyForArmy(army, city, nation, tons: 51, EconomyTestbed.Ruleset));
+    }
+
+    /// <summary>
+    /// Review round 2, R1: the capacity cap is confirmed only for the paid path, so this test (like
+    /// round 1's original) buys from a foreign city rather than the free, own-city one -- a purchase
+    /// that would push supply past the buyer's own capacity is rejected there.
+    /// </summary>
     [Fact]
     public void BuyForArmy_MoreTonsThanCapacityHolds_Throws()
     {
-        var (army, city, nation) = Scenario(cityOwner: "north"); // free case: capacity, not money, is the only cap in play.
+        var (army, city, nation) = Scenario(cityOwner: "south");
         var armyCapacity = SupplyCapacity.ArmyCapacityTons(army.TotalTroops, EconomyTestbed.Ruleset);
 
         Assert.Throws<ArgumentException>(
             () => SupplyPurchase.BuyForArmy(army, city, nation, tons: armyCapacity - army.SupplyTons + 1, EconomyTestbed.Ruleset));
     }
 
-    /// <summary>Review round 1, B6: the fleet twin of <see cref="BuyForArmy_MoreTonsThanCapacityHolds_Throws"/>.</summary>
+    /// <summary>Review round 1, B6 / round 2, R1: the fleet twin of <see cref="BuyForArmy_MoreTonsThanCapacityHolds_Throws"/>.</summary>
     [Fact]
     public void BuyForFleet_MoreTonsThanCapacityHolds_Throws()
     {
         var fleet = new FleetState("f1", "north", 0, 0, 4, 10, 100, 500, 50, null, null, null, null);
-        var (_, city, nation) = Scenario(cityOwner: "north");
+        var (_, city, nation) = Scenario(cityOwner: "south");
         var fleetCapacity = SupplyCapacity.FleetCapacityTons(fleet.Ships, EconomyTestbed.Ruleset);
 
         Assert.Throws<ArgumentException>(
             () => SupplyPurchase.BuyForFleet(fleet, city, nation, tons: fleetCapacity - fleet.SupplyTons + 1, EconomyTestbed.Ruleset));
+    }
+
+    /// <summary>
+    /// Review round 2, R1: the confirmed Roman transfer (<c>controlled-army-supply-transfer.md</c>,
+    /// <c>supplyTransfer.*</c> in the fixtures corpus) that motivated exempting the free path from the
+    /// capacity cap. The Roman 13-unit roster (48,173 troops, <c>troops / 100</c> = 481) goes from 403 to
+    /// 482 t at its own city (Rome, 1,810 -> 1,731 t), reading exactly 100% on the panel
+    /// (<c>roman13.supplyPercent</c>) -- one ton past the truncated capacity, and this must succeed, not
+    /// throw.
+    /// </summary>
+    [Fact]
+    public void BuyForArmy_ReplaysTheConfirmedRomeTransfer_OwnCityExceedsTruncatedCapacity_Succeeds()
+    {
+        var units = ValueList.Of(new UnitSlot(0, "light_infantry", 48_173, 6, "Roman 13-Unit Roster"));
+        var army = new ArmyState("roman13", "rome", 0, 0, 9, 60, 500, 403, null, null, units);
+        var city = new CityState("rome-city", "Rome", 0, 0, "rome", "rome", 80, 1810, 100, 10, 10, 0, false, ValueList<UnitSlot>.Empty);
+        var nation = new NationState("rome", "Rome", "#000", "Leader", null, SeatControl.Human, null, 500, 600, 0, 15, 100, 100, 500, 1, false);
+
+        Assert.Equal(481, SupplyCapacity.ArmyCapacityTons(army.TotalTroops, EconomyTestbed.Ruleset)); // the truncated formula, unchanged.
+
+        var result = SupplyPurchase.BuyForArmy(army, city, nation, tons: 79, EconomyTestbed.Ruleset);
+
+        Assert.True(result.WasFreeOwnCity);
+        Assert.Equal(0, result.TalentsPaid);
+        Assert.Equal(482, result.Army.SupplyTons); // one ton past troops / 100 -- admitted, not rejected.
+        Assert.Equal(1731, result.City.SupplyTons);
+        Assert.Equal(100, SupplyCapacity.PercentFull(result.Army.SupplyTons, army.TotalTroops, EconomyTestbed.Ruleset));
+    }
+
+    /// <summary>Review round 2, NB4: a caller passing a nation that is not the army's own must be rejected, not silently misattributed.</summary>
+    [Fact]
+    public void BuyForArmy_BuyerNationMismatchesArmysNation_Throws()
+    {
+        var (army, city, _) = Scenario(cityOwner: "north");
+        var wrongNation = new NationState("south", "South", "#000", "Leader", null, SeatControl.Human, null, 500, 600, 0, 15, 100, 100, 500, 1, false);
+
+        Assert.Throws<ArgumentException>(
+            () => SupplyPurchase.BuyForArmy(army, city, wrongNation, tons: 10, EconomyTestbed.Ruleset));
+    }
+
+    /// <summary>Review round 2, NB4: the fleet twin of <see cref="BuyForArmy_BuyerNationMismatchesArmysNation_Throws"/>.</summary>
+    [Fact]
+    public void BuyForFleet_BuyerNationMismatchesFleetsNation_Throws()
+    {
+        var fleet = new FleetState("f1", "north", 0, 0, 4, 50, 100, 500, 50, null, null, null, null);
+        var (_, city, _) = Scenario(cityOwner: "north");
+        var wrongNation = new NationState("south", "South", "#000", "Leader", null, SeatControl.Human, null, 500, 600, 0, 15, 100, 100, 500, 1, false);
+
+        Assert.Throws<ArgumentException>(
+            () => SupplyPurchase.BuyForFleet(fleet, city, wrongNation, tons: 10, EconomyTestbed.Ruleset));
     }
 
     /// <summary>

@@ -33,19 +33,43 @@ namespace IC2.Engine.Economy;
 /// </para>
 /// <para>
 /// <strong>Purchase caps (review round 1, B6)</strong>: <c>decompiled-unit-map-orders-and-record-fields.md</c>
-/// §TAFSupply confirms <c>TAFSupply_ChangeBuyAmount</c> caps a purchase at the buyer's
-/// <c>money × SupplyTonsPerTalent</c> (a talent buys a fixed number of tons, so the buyer cannot ask for
-/// more tons than its own money could ever pay for) and at the buyer's own supply capacity
-/// (<see cref="SupplyCapacity.ArmyCapacityTons"/> / <see cref="SupplyCapacity.FleetCapacityTons"/>) —
-/// neither of which the original pass enforced, letting a purchase drive a purse negative and a supply
-/// stock past capacity. Both methods below now reject a purchase that would violate either cap, exactly
-/// as they already reject a non-positive <c>tons</c> or a city that cannot sell that much. The
-/// money-based cap applies only under <see cref="EconomyPurseModel.PerUnitPurses"/>, for a paid (non-own-
-/// city) purchase — under <see cref="EconomyPurseModel.CentralTreasury"/> there is no per-unit purse to
-/// exceed, and the national treasury itself has no confirmed cap (it is observed negative in the
+/// §TAFSupply confirms <c>TAFSupply_ChangeBuyAmount</c> caps a <em>paid</em> purchase at the buyer's
+/// <c>money × SupplyTonsPerTalent</c> tons (a talent buys a fixed number of tons, so the buyer cannot ask
+/// for more tons than its own money could ever pay for) and at the buyer's own supply capacity
+/// (<see cref="SupplyCapacity.ArmyCapacityTons"/> / <see cref="SupplyCapacity.FleetCapacityTons"/>).
+/// Neither cap was enforced before review round 1, letting a paid purchase drive a purse negative or a
+/// supply stock past capacity; both methods below now reject a paid purchase that would violate either.
+/// </para>
+/// <para>
+/// <strong>The capacity cap is paid-purchase-only (review round 2, R1) — [derived]</strong>. Round 1
+/// applied the same <c>troops / ArmySupplyTonsPerTroops</c> cap to the free, own-city case too, and that
+/// regresses a confirmed observation: <c>controlled-army-supply-transfer.md</c>'s Roman 13-unit roster
+/// (<see cref="Model.ArmyState.TotalTroops"/> 48,173) transfers 79 t at its own city, going from 403 to
+/// 482 t (<c>supplyTransfer.*</c> in the fixtures corpus) — and <c>roman13.supplyPercent</c> independently
+/// confirms 482 t reads exactly 100% on the panel. <c>troops / 100</c> truncates to 481, one ton short of
+/// the observed, legal result. The two sources — the cap formula from <c>TAFSupply_ChangeBuyAmount</c>,
+/// and the free-transfer save data — disagree by exactly one ton, and neither says which rounding or
+/// which code path produced the extra one. The reconciling reading: <c>design-audit.md</c> Q9 already
+/// establishes that the free, own-city case is a <em>different, <c>TArmyToArmy</c>-shaped dialog</em>
+/// from the paid <c>TAFSupply</c> purchase this cap's formula was decompiled from — nothing in the cited
+/// report says <c>TArmyToArmy</c> enforces the same clamp, and the Roman transfer is direct evidence it
+/// does not (or enforces a differently-rounded one). Both methods below therefore skip the capacity check
+/// on the free path and apply it only to a paid one, which both keeps the confirmed cap where its evidence
+/// actually comes from and admits the confirmed free transfer. <c>SupplyCapacityTests</c>' own DoD 4
+/// values (998 for 99,882 troops, 282 for 28,227) are restatements of the formula's arithmetic in
+/// <c>decompiled-unit-map-orders-and-record-fields.md</c>, not an independently observed maximum fill the
+/// way the Roman transfer is, so they are not evidence the cap must also bind free transfers — they stay
+/// exactly as `troops / 100` describes, since nothing here changes <see cref="SupplyCapacity"/> itself.
+/// </para>
+/// <para>
+/// The money-based cap applies only under <see cref="EconomyPurseModel.PerUnitPurses"/>, for a paid
+/// (non-own-city) purchase — under <see cref="EconomyPurseModel.CentralTreasury"/> there is no per-unit
+/// purse to exceed, and the national treasury itself has no confirmed cap (it is observed negative in the
 /// fixtures corpus, see <see cref="PurseAccounting"/>'s own remark), so this is a deliberate
-/// <c>[designed]</c> choice not to invent a treasury-side funds cap; the capacity cap still applies
-/// regardless of purse model, since it is a physical stock limit, not a money one.
+/// <c>[designed]</c> choice not to invent a treasury-side funds cap. It compares whole tons against whole
+/// talents (<c>tons &gt; money × SupplyTonsPerTalent</c>, review round 2, NB1) rather than truncating tons
+/// to talents first, which previously let a purchase slip through for up to
+/// <c>SupplyTonsPerTalent − 1</c> tons more than the buyer could actually pay for.
 /// </para>
 /// </remarks>
 public static class SupplyPurchase
@@ -65,14 +89,20 @@ public static class SupplyPurchase
     /// <param name="army">The buying army.</param>
     /// <param name="sellingCity">The city selling the supply.</param>
     /// <param name="buyerNation">
-    /// The buying army's nation — read for <see cref="NationState.Id"/> (matched against
-    /// <see cref="CityState.Owner"/> to decide free-vs-paid) and, under
-    /// <see cref="EconomyPurseModel.CentralTreasury"/>, debited directly.
+    /// The buying army's own nation. Its <see cref="NationState.Id"/> must equal <paramref name="army"/>'s
+    /// <see cref="Model.ArmyState.Nation"/> (review round 2, NB4) — it is read for
+    /// <see cref="NationState.Id"/> (matched against <see cref="CityState.Owner"/> to decide free-vs-paid)
+    /// and, under <see cref="EconomyPurseModel.CentralTreasury"/>, debited directly, so a caller passing
+    /// the wrong nation would silently debit someone else's treasury.
     /// </param>
     /// <param name="tons">Tons to buy. Must be positive.</param>
     /// <param name="ruleset">Supplies every constant and the <see cref="RulesetFlags.EconomyPurses"/> flag — never a C# literal.</param>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="tons"/> is not positive.</exception>
-    /// <exception cref="ArgumentException">The city does not hold <paramref name="tons"/> tons of supply to sell.</exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="buyerNation"/> is not <paramref name="army"/>'s own nation; or the city does not
+    /// hold <paramref name="tons"/> tons of supply to sell; or (paid case only) the purchase would exceed
+    /// the army's supply capacity or, under per-unit purses, its own purse.
+    /// </exception>
     public static ArmyResult BuyForArmy(ArmyState army, CityState sellingCity, NationState buyerNation, int tons, Ruleset ruleset)
     {
         ArgumentNullException.ThrowIfNull(army);
@@ -84,6 +114,13 @@ public static class SupplyPurchase
             throw new ArgumentOutOfRangeException(nameof(tons), tons, "Must buy a positive number of tons.");
         }
 
+        if (!string.Equals(buyerNation.Id, army.Nation, StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                $"Nation '{buyerNation.Id}' is not army '{army.Id}''s own nation ('{army.Nation}').",
+                nameof(buyerNation));
+        }
+
         if (sellingCity.SupplyTons < tons)
         {
             throw new ArgumentException(
@@ -91,21 +128,33 @@ public static class SupplyPurchase
                 nameof(tons));
         }
 
-        var armyCapacity = SupplyCapacity.ArmyCapacityTons(army.TotalTroops, ruleset);
-        if (army.SupplyTons + tons > armyCapacity)
+        var isOwnCity = string.Equals(sellingCity.Owner, army.Nation, StringComparison.Ordinal);
+
+        // Review round 2, R1: the capacity cap is confirmed only for the paid path (TAFSupply); the
+        // free, own-city resupply is a different dialog (TArmyToArmy, design-audit.md Q9) not shown to
+        // share it, and the confirmed Roman transfer (403 -> 482 t, its own city) exceeds troops/100 by
+        // a ton -- see the class remarks above.
+        if (!isOwnCity)
         {
-            throw new ArgumentException(
-                $"Army '{army.Id}' has {armyCapacity - army.SupplyTons} tons of free supply capacity, cannot buy {tons}.",
-                nameof(tons));
+            var armyCapacity = SupplyCapacity.ArmyCapacityTons(army.TotalTroops, ruleset);
+            if (army.SupplyTons + tons > armyCapacity)
+            {
+                throw new ArgumentException(
+                    $"Army '{army.Id}' has {armyCapacity - army.SupplyTons} tons of free supply capacity, cannot buy {tons}.",
+                    nameof(tons));
+            }
         }
 
-        var isOwnCity = string.Equals(sellingCity.Owner, army.Nation, StringComparison.Ordinal);
         var talents = isOwnCity ? 0 : tons / ruleset.Economy.SupplyTonsPerTalent;
 
-        if (talents > 0 && ruleset.Flags.EconomyPurses == EconomyPurseModel.PerUnitPurses && talents > army.Money)
+        // Review round 2, NB1: compare whole tons against whole talents (tons > money * SupplyTonsPerTalent)
+        // rather than truncating tons to talents first, which let a purchase through for up to
+        // SupplyTonsPerTalent - 1 tons more than the buyer could actually pay for.
+        if (!isOwnCity && ruleset.Flags.EconomyPurses == EconomyPurseModel.PerUnitPurses
+            && tons > army.Money * ruleset.Economy.SupplyTonsPerTalent)
         {
             throw new ArgumentException(
-                $"Army '{army.Id}' has only {army.Money} talents, cannot pay {talents} for {tons} tons.",
+                $"Army '{army.Id}' has only {army.Money} talents, cannot pay for {tons} tons.",
                 nameof(tons));
         }
 
@@ -133,7 +182,11 @@ public static class SupplyPurchase
 
     /// <summary>Buys <paramref name="tons"/> of supply for a fleet from a city. See <see cref="BuyForArmy"/>.</summary>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="tons"/> is not positive.</exception>
-    /// <exception cref="ArgumentException">The city does not hold <paramref name="tons"/> tons of supply to sell.</exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="buyerNation"/> is not <paramref name="fleet"/>'s own nation; or the city does not
+    /// hold <paramref name="tons"/> tons of supply to sell; or (paid case only) the purchase would exceed
+    /// the fleet's supply capacity or, under per-unit purses, its own purse.
+    /// </exception>
     public static FleetResult BuyForFleet(FleetState fleet, CityState sellingCity, NationState buyerNation, int tons, Ruleset ruleset)
     {
         ArgumentNullException.ThrowIfNull(fleet);
@@ -145,6 +198,13 @@ public static class SupplyPurchase
             throw new ArgumentOutOfRangeException(nameof(tons), tons, "Must buy a positive number of tons.");
         }
 
+        if (!string.Equals(buyerNation.Id, fleet.Nation, StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                $"Nation '{buyerNation.Id}' is not fleet '{fleet.Id}''s own nation ('{fleet.Nation}').",
+                nameof(buyerNation));
+        }
+
         if (sellingCity.SupplyTons < tons)
         {
             throw new ArgumentException(
@@ -152,21 +212,29 @@ public static class SupplyPurchase
                 nameof(tons));
         }
 
-        var fleetCapacity = SupplyCapacity.FleetCapacityTons(fleet.Ships, ruleset);
-        if (fleet.SupplyTons + tons > fleetCapacity)
+        var isOwnCity = string.Equals(sellingCity.Owner, fleet.Nation, StringComparison.Ordinal);
+
+        // Review round 2, R1 (see BuyForArmy and the class remarks): the capacity cap is confirmed only
+        // for the paid path.
+        if (!isOwnCity)
         {
-            throw new ArgumentException(
-                $"Fleet '{fleet.Id}' has {fleetCapacity - fleet.SupplyTons} tons of free supply capacity, cannot buy {tons}.",
-                nameof(tons));
+            var fleetCapacity = SupplyCapacity.FleetCapacityTons(fleet.Ships, ruleset);
+            if (fleet.SupplyTons + tons > fleetCapacity)
+            {
+                throw new ArgumentException(
+                    $"Fleet '{fleet.Id}' has {fleetCapacity - fleet.SupplyTons} tons of free supply capacity, cannot buy {tons}.",
+                    nameof(tons));
+            }
         }
 
-        var isOwnCity = string.Equals(sellingCity.Owner, fleet.Nation, StringComparison.Ordinal);
         var talents = isOwnCity ? 0 : tons / ruleset.Economy.SupplyTonsPerTalent;
 
-        if (talents > 0 && ruleset.Flags.EconomyPurses == EconomyPurseModel.PerUnitPurses && talents > fleet.Money)
+        // Review round 2, NB1 (see BuyForArmy): compare whole tons against whole talents.
+        if (!isOwnCity && ruleset.Flags.EconomyPurses == EconomyPurseModel.PerUnitPurses
+            && tons > fleet.Money * ruleset.Economy.SupplyTonsPerTalent)
         {
             throw new ArgumentException(
-                $"Fleet '{fleet.Id}' has only {fleet.Money} talents, cannot pay {talents} for {tons} tons.",
+                $"Fleet '{fleet.Id}' has only {fleet.Money} talents, cannot pay for {tons} tons.",
                 nameof(tons));
         }
 
