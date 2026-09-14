@@ -73,7 +73,7 @@ Exactly **one code-modifying agent** (implementer or reviewer) runs at a time, i
 Per task, not uniform:
 
 - **Opus** — 4 implementation tasks (T02, T03, T16, T22) where an error is not local: the domain model and engine seams are consumed by every other task; battle resolution is consumed by five downstream systems and is the most integer-semantics-sensitive code in the project; the AI has the most design latitude and the hardest failure mode (a soak that never terminates).
-- **Sonnet** — 27 tasks. The default for "the design document already says what to build, and the hard part is building it correctly". Correction tasks whose evidence is fully pinned in the entry (T31, T33, T34), and T37, a rule no task owned but fully pinned in its entry, sit at Medium; a test-only correction (T32) at Low; ones that must read a format off decompiled code (T30) or widen the shared domain model (T35) sit at High.
+- **Sonnet** — 28 tasks. The default for "the design document already says what to build, and the hard part is building it correctly". Correction tasks whose evidence is fully pinned in the entry (T31, T33, T34), and T37, a rule no task owned but fully pinned in its entry, sit at Medium; a test-only correction (T32) at Low; ones that must read a format off decompiled code (T30) or widen the shared domain model (T35) sit at High.
 - **Haiku** — 6 tasks (T10, T11, T18, T26, T28, T36) that are small, fully specified, and CI-gated.
 - **Fable** — 1 task (T05), pure templates and configuration. Never used for anything that must compile against the domain model.
 
