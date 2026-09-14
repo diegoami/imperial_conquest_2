@@ -184,7 +184,7 @@ The tick ([Appendix C](#appendix-c-the-build-tick-skill)) does not scan the bug 
 
 Every merged task is followed by a **documentation update**, in the same tick as the merge. It is part of the merge, not an optional follow-up: a merge without its documentation update is an incomplete tick.
 
-**Who runs it.** The orchestrator **dispatches a documentation subagent** (Sonnet / Medium) rather than editing inline, so the orchestrator's context stays small. The documentation subagent does not modify code, so it may run while the next implementer is working — but it **never touches the shared checkout**: it works in its own worktree and pushes straight to `main`, as routine post-merge sync:
+**Who runs it.** The orchestrator **dispatches a documentation subagent** (Sonnet / Medium) rather than editing inline, so the orchestrator's context stays small. The documentation subagent does not modify code, so it may run while the next implementer is working — but it **never touches the shared checkout**: it works in its own worktree and pushes straight to `main`, as routine post-merge sync, following the general procedure for merging while an agent is live ([operating-guide.md §3.7](operating-guide.md#37-merging-to-main-without-disturbing-running-agents)):
 
 ```text
 git -C <repo> fetch origin main
@@ -438,6 +438,7 @@ Decided by the user; in force until changed.
 - **Q-B — Godot visual review.** T24 and T25 post a screenshot of every new screen to their PR as they land; "looks right" is the user's call on each screenshot. The published mockup (`game-design.md` §UI) is the layout intent.
 - **Q-C — cost profile.** Opus on four implementation tasks and on the reviewer seat for the fidelity-critical PRs ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers)); `/code-review --effort ultra` on the architecture PRs ([§3.5](#35-where-the-code-review-skill-fits)); one code-modifying agent at a time ([§7](#7-concurrency-single-instance-and-local-only)).
 - **Q-D — open audit questions become ruleset flags.** Every affected task ships the confirmed behaviour behind a named ruleset flag, grouped into two user-facing presets, `classical-faithful` and `improved`, chosen at New Game (`game-design.md` "Two shipped presets"). Mapping: Q3 → T19's `diplomacy.model`; Q4 → T08's `economy.purses`; Q5 → T12's `victory.default`; Q6 → `seatAsymmetry` (T09, T14, T15); Q7 → T18's generic `cityOrders` table; Q8 → T19's `bugPolicy.diplomaticThaw`; Q9 → T08's supply-purchase rule (free at your own cities, costs money elsewhere, in both presets); Q1 follow-up → T16's `combat.onDefeat`; Q10 → no change to `combat.onDefeat`.
+- **Q-E — non-blocking review findings.** The orchestrator files one `T<nn> follow-up` issue per merge that has them, and the planner folds each item into the next task that touches those files ([§4.5](#45-rework)).
 
 ---
 

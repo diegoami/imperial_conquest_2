@@ -166,6 +166,7 @@ Kept in step with the auto-memory feedback notes; when a preference changes, upd
 - **Upstream defects go through the bug list** — suspend, file, plan, resume; never an ad-hoc cross-Owns-list patch.
 - **Evidence goes through the two-stage pipeline** — `/process-evidence`, stage 1 then stage 2, never combined.
 - **Relay reviewer findings verbatim** on rework.
+- **Non-blocking review findings become one follow-up issue per merge**, filed by the orchestrator; the planner folds each item into the next task that touches those files ([build-process.md §4.5](build-process.md#45-rework)).
 - **The main session is Opus and is the planner.** It spawns an orchestrator with a bounded mandate to run the build, and researcher subagents for evidence; it never runs `/build-tick` or dispatches implementers and reviewers itself.
 - When correcting a claim after user feedback, fix the document or report text itself, not only the chat.
 - Do not re-suggest a Windows 9x VM on this machine: WSL2's Hyper-V claims VT-x, and the user will not disable WSL2.
