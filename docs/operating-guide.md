@@ -13,8 +13,8 @@ A snapshot written by the documentation step ([build-process.md §4.8](build-pro
 - **Merged — 9 of 31**: T01, T02, T03, T04, T05, T06, T07, T30, T31. Per-task status and merge commits: [task index](task-catalogue.md#3-task-index).
 - **In progress**: T08 (economy, supply and purses).
 - **Ready**: T09, T10, T11, T12, T29.
-- **Open bugs awaiting a planner pass**: [#46](https://github.com/diegoami/imperial_conquest_2/issues/46), [#47](https://github.com/diegoami/imperial_conquest_2/issues/47) (#47 must be resolved before T17).
-- **Open review follow-ups** (non-blocking, [build-process.md §4.5](build-process.md#45-rework)): [#40](https://github.com/diegoami/imperial_conquest_2/issues/40) (T30), [#43](https://github.com/diegoami/imperial_conquest_2/issues/43) (T06), [#49](https://github.com/diegoami/imperial_conquest_2/issues/49) (T07).
+- **Open bugs** ([build-process.md §4.7](build-process.md#the-triage-queue)), all `triage:needed`: [#46](https://github.com/diegoami/imperial_conquest_2/issues/46); [#47](https://github.com/diegoami/imperial_conquest_2/issues/47) (must be resolved before T17); [#50](https://github.com/diegoami/imperial_conquest_2/issues/50) (blocks T08); [#52](https://github.com/diegoami/imperial_conquest_2/issues/52).
+- **Open review follow-ups** (non-blocking, [build-process.md §4.5](build-process.md#45-rework)), all `triage:needed`: [#40](https://github.com/diegoami/imperial_conquest_2/issues/40) (T30), [#43](https://github.com/diegoami/imperial_conquest_2/issues/43) (T06), [#49](https://github.com/diegoami/imperial_conquest_2/issues/49) (T07).
 - **Runnable today**: tests only. `dotnet build IC2.sln`; `dotnet test IC2.sln` — 271 tests (193 engine, 78 data); 65 of the data tests read the original files and skip without `assets.local.ini`. The first runnable program is T23's CLI; the first UI is T24.
 
 ### 1.1 What becomes runnable, and when
@@ -34,7 +34,8 @@ A snapshot written by the documentation step ([build-process.md §4.8](build-pro
 | [Issue #29](https://github.com/diegoami/imperial_conquest_2/issues/29), pinned | The dashboard: one status table per orchestrator tick. |
 | #29's orchestrator-state comment (starts `<!-- orchestrator-state -->`) | The orchestrator's mandate, current task and phase, and open escalations — intent only; the labels are the facts ([build-process.md §5.2](build-process.md#52-where-the-state-lives)). |
 | Task issues, `status:*` labels | Each task's exact stage (`gh issue list --label status:in-review`, etc.). |
-| `bug` label | Defects in merged code awaiting triage (`gh issue list --label bug --state open`). |
+| `bug` label | Defects in merged code (`gh issue list --label bug --state open`). |
+| `triage:*` labels | The planner's queue of bugs and follow-ups: `triage:needed` (untriaged — `gh issue list --label triage:needed --state open`), `triage:scheduled` (folded into a task or given a correction task), `triage:deferred` (deferred with a reason) — [build-process.md §4.7](build-process.md#the-triage-queue). |
 | Pull requests | One per dispatched task, with the reviewer's findings comment and CI. |
 | Milestones | One per phase, with GitHub's progress bar. |
 | `release:*` labels | Which release a task gates ([release-plan.md](release-plan.md)). |
@@ -87,7 +88,7 @@ Never in either repository — and neither is anything derived from them: the Gh
 
 ### 3.1 Sessions and roles
 
-The **main session runs on Opus and is the planner.** It talks to the user, owns the task catalogue and the process, triages bugs and follow-ups, runs `/process-evidence`, and brings design decisions to the user. To advance the build it **spawns an orchestrator agent with a bounded mandate** — a scope, stop conditions, and a report-back contract ([build-process.md §5.1](build-process.md#51-who-runs-it), template in [Appendix D](build-process.md#appendix-d-orchestrator-mandate-template)). **It never runs `/build-tick` itself, and never a `/loop` of it.**
+The **main session runs on Opus and is the planner.** It talks to the user, owns the task catalogue and the process, triages bugs and follow-ups, runs `/process-evidence`, and brings design decisions to the user. **At the start of every session, and before spawning any orchestrator mandate, it checks the triage queue** (`gh issue list --label triage:needed --state open`) and triages it or tells the user; it never spawns a mandate while an untriaged item blocks a task in that mandate's scope ([build-process.md §4.7](build-process.md#the-triage-queue)). To advance the build it **spawns an orchestrator agent with a bounded mandate** — a scope, stop conditions, and a report-back contract ([build-process.md §5.1](build-process.md#51-who-runs-it), template in [Appendix D](build-process.md#appendix-d-orchestrator-mandate-template)). **It never runs `/build-tick` itself, and never a `/loop` of it.**
 
 | Role | Dispatched as | Works in | Reference |
 | --- | --- | --- | --- |
@@ -117,18 +118,18 @@ Both are **local, git-ignored installs** under `.claude/skills/`; the fenced tex
 - **Review is a label, not a GitHub review.** The reviewer applies `status:approved` or `status:rework`; the orchestrator reads the label ([build-process.md §4.1](build-process.md#41-the-path-a-task-takes)).
 - **Relay reviewer findings verbatim.** On rework, the implementer gets the reviewer's full findings, never a hand-picked subset.
 - **Pausing**: `gh issue edit 29 --add-label orchestrator:pause`, from any session. To resume, remove the label, then have the planner spawn or resume an orchestrator with a bounded mandate ([build-process.md §5.5](build-process.md#55-user-initiated-pause)).
-- **If a session is interrupted**, nothing is lost: the facts are in the labels (`status:*`, `review-round:*`, `docs:pending`), the orchestrator's mandate and phase are in #29's state comment, and implementers push work in progress to their task branch. The planner spawns a fresh orchestrator with the recorded mandate, and it runs the recovery procedure first ([build-process.md §5.6](build-process.md#56-recovery-after-an-interruption)).
+- **If a session is interrupted**, nothing is lost: the facts are in the labels (`status:*`, `review-round:*`, `docs:pending`, and `triage:*` for the bug/follow-up queue), the orchestrator's mandate and phase are in #29's state comment, and implementers push work in progress to their task branch. The planner spawns a fresh orchestrator with the recorded mandate, and it runs the recovery procedure first ([build-process.md §5.6](build-process.md#56-recovery-after-an-interruption)).
 
 ### 3.4 Bugs
 
-A defect in already-merged code is filed as a `bug` issue and the task that found it is suspended — never patched from inside another task's Owns list. A planner pass triages open bugs into a correction task, an upcoming task's DoD, or an explicit deferral ([build-process.md §4.7](build-process.md#47-the-bug-list)). Non-blocking review findings go to a `T<nn> follow-up` issue instead, and the planner folds them into the next task that touches those files ([build-process.md §4.5](build-process.md#45-rework)). The open ones are listed in [§1](#1-current-state).
+A defect in already-merged code is filed as a `bug` issue and the task that found it is suspended — never patched from inside another task's Owns list. Non-blocking review findings go to a `T<nn> follow-up` issue instead ([build-process.md §4.5](build-process.md#45-rework)). **Both are filed with `triage:needed`** — by the orchestrator, the documentation subagent, or `/process-evidence` stage 2 — and that label is the planner's queue. Triage replaces it with `triage:scheduled` (folded into a task — for a follow-up, the next task that touches its files — or a new correction task, named in a comment) or `triage:deferred` (reason in a comment); nothing is closed without one of the two ([build-process.md §4.7](build-process.md#the-triage-queue)). The open ones and their triage state are listed in [§1](#1-current-state).
 
 ### 3.5 New evidence and how it reaches the build
 
 `/process-evidence` runs two sequential Opus stages ([evidence-pipeline.md](evidence-pipeline.md)): stage 1 writes the research-repo report (straight to that repo's `main`); stage 2 applies the post-merge documentation checklist ([build-process.md §4.8](build-process.md#48-documentation-update-after-every-merge)) to the new evidence, on a review branch. Each finding takes one of four routes:
 
 - a corrected fact or closed `[open]` item in `design-audit.md` / `game-design.md` (or another part-B document);
-- a defect in merged code → a `bug` issue, triaged by the planner;
+- a defect in merged code → a `bug` issue labelled `triage:needed`, triaged by the planner;
 - a change to a not-yet-dispatched task's scope or DoD → a catalogue edit on the review branch (a DoD only changes by a reviewed commit, [build-process.md §4.4](build-process.md#44-the-dod-is-not-negotiable-by-an-agent));
 - a design decision → posed to the user, never decided.
 
