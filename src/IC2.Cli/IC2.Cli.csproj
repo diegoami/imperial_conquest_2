@@ -2,14 +2,19 @@
 
   <!--
     T01 pre-declares this project (docs/build-orchestration-plan.md "T01 Build scaffolding and CI")
-    so no later task has to edit IC2.sln. TargetFramework/Nullable/ImplicitUsings/
-    TreatWarningsAsErrors come from the repo-root Directory.Build.props (conditioned on this
-    project's name). Real contents belong to T23 (command layer + CLI) - this project
-    intentionally contains only a placeholder entry point so `dotnet build IC2.sln` succeeds.
+    so no later task has to edit IC2.sln, with a placeholder Program.cs. T41 (thin CLI demo) gives it
+    its first real contents: a thin wrapper around src/IC2.Engine/Presentation's GameSession. T23
+    (command layer + CLI) extends this harness later; it does not start over.
+    TargetFramework/Nullable/ImplicitUsings/TreatWarningsAsErrors come from the repo-root
+    Directory.Build.props (conditioned on this project's name).
   -->
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
   </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../IC2.Engine/IC2.Engine.csproj" />
+  </ItemGroup>
 
 </Project>

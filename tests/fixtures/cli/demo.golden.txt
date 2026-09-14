@@ -1,0 +1,140 @@
+> help
+Commands:
+  status - show the calendar, nations, armies and cities
+  map - show the 8x6 terrain map with city, army and fleet markers
+  move <army> <x> <y> - move an army toward (x, y)
+  buy <army> <city> <tons> - buy supply for an army at a city (free at your own city, paid abroad)
+  end - end your turn
+  news - show the news log
+  help - show this help
+  quit - exit
+Not yet implemented: battles, city capture, recruitment, diplomacy, and the AI -- a seat with no
+human player simply passes with no orders.
+
+> status
+Week 1, Spring 270 BC (turn 0). Active seat: Northern League (north).
+
+Nations:
+  Northern League (north, human): treasury 500, unity 600, tax 15%
+  Southern League (south, ai): treasury 450, unity 520, tax 20%
+
+Armies:
+  north-army-1 (Northern League) @ (3,2): 18500 troops in 2 units, supply 185t (100%), morale 68, moves 5
+  south-army-1 (Southern League) @ (4,4): 6000 troops in 1 units, supply 60t (100%), morale 59, moves 9
+
+Cities:
+  arx "Arx" @ (2,1), owner Northern League: supply 400t, loyalty 90, fortification 60%
+  portus "Portus" @ (5,2), owner Northern League: supply 250t, loyalty 70, fortification 40%
+  meridia "Meridia" @ (3,4), owner Southern League: supply 300t, loyalty 65, fortification 100%
+
+> map
+Map (8x6):
+~ ~ . . . " ^ ~
+~ . A , . " ^ ~
+~ . = n . P " ~
+N . . . ^ . . ~
+~ ~ . M s . ~ S
+~ ~ ~ ~ ~ ~ ~ ~
+
+Legend:
+  A = Arx (Northern League)
+  P = Portus (Northern League)
+  M = Meridia (Southern League)
+  n = Northern League army
+  N = Northern League fleet
+  s = Southern League army
+  S = Southern League fleet
+
+> move north-army-1 4 2
+north-army-1 moved from (3,2) to (4,2), spending 1 of 5 moves.
+
+> move ghost-army 0 0
+Move rejected (movement.unknown-army): 'ghost-army' is not a known army.
+
+> move south-army-1 0 0
+Move rejected (movement.not-your-army): Army 'south-army-1' belongs to 'south', not 'north'.
+
+> move north-army-1 3 -1
+Move rejected (movement.out-of-bounds): (3, -1) is outside the 8x6 map.
+
+> move north-army-1 4 4
+north-army-1 moved from (4,2) to (4,3), spending 4 of 4 moves.
+
+> move north-army-1 5 5
+Move rejected (movement.no-moves-left): Army 'north-army-1' has no moves left this turn.
+
+> end
+Northern League (north) ends its turn.
+Southern League (south) has no AI yet and passes with no orders.
+Now: Week 3, Spring 270 BC. Active seat: Northern League (north).
+
+> end
+Northern League (north) ends its turn.
+Southern League (south) has no AI yet and passes with no orders.
+Now: Week 5, Spring 270 BC. Active seat: Northern League (north).
+
+> end
+Northern League (north) ends its turn.
+Southern League (south) has no AI yet and passes with no orders.
+Now: Week 7, Spring 270 BC. Active seat: Northern League (north).
+
+> end
+Northern League (north) ends its turn.
+Southern League (south) has no AI yet and passes with no orders.
+  Weather: storm-damages-fleet (week 7).
+Now: Week 9, Spring 270 BC. Active seat: Northern League (north).
+
+> end
+Northern League (north) ends its turn.
+Southern League (south) has no AI yet and passes with no orders.
+Now: Week 11, Spring 270 BC. Active seat: Northern League (north).
+
+> end
+Northern League (north) ends its turn.
+Southern League (south) has no AI yet and passes with no orders.
+Now: Week 1, Summer 270 BC. Active seat: Northern League (north).
+
+> status
+Week 1, Summer 270 BC (turn 6). Active seat: Northern League (north).
+
+Nations:
+  Northern League (north, human): treasury 372, unity 600, tax 15%
+  Southern League (south, ai): treasury 354, unity 520, tax 20%
+
+Armies:
+  north-army-1 (Northern League) @ (4,3): 18500 troops in 2 units, supply 0t (0%), morale 66, moves 9
+  south-army-1 (Southern League) @ (4,4): 6000 troops in 1 units, supply 0t (0%), morale 59, moves 9
+
+Cities:
+  arx "Arx" @ (2,1), owner Northern League: supply 400t, loyalty 90, fortification 60%
+  portus "Portus" @ (5,2), owner Northern League: supply 250t, loyalty 70, fortification 40%
+  meridia "Meridia" @ (3,4), owner Southern League: supply 300t, loyalty 65, fortification 100%
+
+> buy north-army-1 arx 50
+north-army-1 bought 50 tons of supply at arx, free at your own city.
+
+> buy north-army-1 meridia 50
+north-army-1 bought 50 tons of supply at meridia, costing 10 talents.
+
+> news
+No news yet.
+
+> status
+Week 1, Summer 270 BC (turn 6). Active seat: Northern League (north).
+
+Nations:
+  Northern League (north, human): treasury 372, unity 600, tax 15%
+  Southern League (south, ai): treasury 354, unity 520, tax 20%
+
+Armies:
+  north-army-1 (Northern League) @ (4,3): 18500 troops in 2 units, supply 100t (54%), morale 66, moves 9
+  south-army-1 (Southern League) @ (4,4): 6000 troops in 1 units, supply 0t (0%), morale 59, moves 9
+
+Cities:
+  arx "Arx" @ (2,1), owner Northern League: supply 350t, loyalty 90, fortification 60%
+  portus "Portus" @ (5,2), owner Northern League: supply 250t, loyalty 70, fortification 40%
+  meridia "Meridia" @ (3,4), owner Southern League: supply 250t, loyalty 65, fortification 100%
+
+> quit
+Goodbye.
+
