@@ -307,7 +307,7 @@ Conventions used by every entry:
 
 #### T08 Economy, supply, and purses
 
-- **Status**: In progress
+- **Status**: Merged (`a53eaa5`)
 - **Design milestone**: **M3**. **Labels**: `phase:1 lane:engine`
 - **Branch**: `task/T08-economy` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
 - **Start after**: T03 · **Merge after**: T03, T04, T06, **T32**
@@ -351,7 +351,7 @@ Conventions used by every entry:
 
 #### T10 News log ring buffer and message catalog
 
-- **Status**: Ready
+- **Status**: In progress
 - **Design milestone**: **M17**. **Labels**: `phase:1 lane:engine`
 - **Branch**: `task/T10-news-log` · **Model/effort**: **Haiku / Medium** · **Reviewer**: Sonnet / Medium
 - **Start after**: T03 · **Merge after**: T03, T04
@@ -448,7 +448,7 @@ Conventions used by every entry:
 
 #### T35 Model: nation tax base, recruitment slots, and the pending diplomatic offer
 
-- **Status**: Blocked
+- **Status**: Ready
 - **Design milestone**: none — a correction to merged T02, whose model does not carry four pieces of state later tasks read and write, and to merged T04's corpus, which carries Rome's tax base as 2,440; also the quarterly tax-base rebuild and treasury credit, which T08 cannot wire without the first, and the rest of that quarterly step no task owned: city population growth, the mobilization decay and the unity update. **Labels**: `phase:2 lane:engine`
 - **Branch**: `task/T35-model-additions` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / High**
 - **Start after**: T08 · **Merge after**: T08 — and merged before T13, T17 and T19
@@ -552,7 +552,7 @@ Conventions used by every entry:
 
 #### T14 Naval
 
-- **Status**: Blocked
+- **Status**: Ready
 - **Design milestone**: **M7**. **Labels**: `phase:2 lane:engine`
 - **Branch**: `task/T14-naval` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
 - **Start after**: T09 · **Merge after**: T07, T08, T09, **T32**
@@ -849,13 +849,13 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T05](#t05-github-hygiene-templates-labels-codeowners) | GitHub hygiene | — | **Fable** | Low | Sonnet/Medium | — | [#5](https://github.com/diegoami/imperial_conquest_2/issues/5) | Merged (`4ab3344`) |
 | [T06](#t06-calendar-and-turn-sequencing) | Calendar and turns | M2 | Sonnet | Medium | Sonnet/High | T03, T04 | [#6](https://github.com/diegoami/imperial_conquest_2/issues/6) | Merged (`8b8007a`) |
 | [T07](#t07-strength-functions) | Strength functions | M5 | Sonnet | High | **Opus**/Medium | T03, T04, T31 | [#7](https://github.com/diegoami/imperial_conquest_2/issues/7) | Merged (`acd4098`) |
-| [T08](#t08-economy-supply-and-purses) | Economy and purses | M3 | Sonnet | High | **Opus**/Medium | T03, T04, T06, T32 | [#8](https://github.com/diegoami/imperial_conquest_2/issues/8) | In progress |
+| [T08](#t08-economy-supply-and-purses) | Economy and purses | M3 | Sonnet | High | **Opus**/Medium | T03, T04, T06, T32 | [#8](https://github.com/diegoami/imperial_conquest_2/issues/8) | Merged (`a53eaa5`) |
 | [T09](#t09-movement-and-terrain) | Movement and terrain | M6 | Sonnet | Medium | Sonnet/High | T03, T04 | [#9](https://github.com/diegoami/imperial_conquest_2/issues/9) | Merged (`e804f4f`) |
-| [T10](#t10-news-log-ring-buffer-and-message-catalog) | News log | M17 | **Haiku** | Medium | Sonnet/Medium | T03, T04 | [#10](https://github.com/diegoami/imperial_conquest_2/issues/10) | Ready |
+| [T10](#t10-news-log-ring-buffer-and-message-catalog) | News log | M17 | **Haiku** | Medium | Sonnet/Medium | T03, T04 | [#10](https://github.com/diegoami/imperial_conquest_2/issues/10) | In progress |
 | [T11](#t11-asset-pack-loader-and-generated-placeholder-pack) | Asset pack | — | **Haiku** | Medium | Sonnet/Medium | T02 | [#11](https://github.com/diegoami/imperial_conquest_2/issues/11) | Ready |
 | [T12](#t12-victory-conditions) | Victory conditions | M13 | Sonnet | Medium | Sonnet/High | T03, T06 | [#12](https://github.com/diegoami/imperial_conquest_2/issues/12) | Ready |
 | [T13](#t13-recruitment-and-mercenaries) | Recruitment and mercenaries | M4 | Sonnet | High | **Opus**/Medium | T08, T35 | [#13](https://github.com/diegoami/imperial_conquest_2/issues/13) | Blocked |
-| [T14](#t14-naval) | Naval | M7 | Sonnet | High | **Opus**/Medium | T07, T08, T09, T32 | [#14](https://github.com/diegoami/imperial_conquest_2/issues/14) | Blocked |
+| [T14](#t14-naval) | Naval | M7 | Sonnet | High | **Opus**/Medium | T07, T08, T09, T32 | [#14](https://github.com/diegoami/imperial_conquest_2/issues/14) | Ready |
 | [T15](#t15-army-and-unit-management) | Army/unit management | M14 | Sonnet | Medium | Sonnet/High | T08, T13 | [#15](https://github.com/diegoami/imperial_conquest_2/issues/15) | Blocked |
 | [T16](#t16-battle-resolution--all-three-variants) | Battle resolution | M8 | **Opus** | High | Opus/High + ultra | T07, T08, T14, T31, T33 | [#16](https://github.com/diegoami/imperial_conquest_2/issues/16) | Blocked |
 | [T17](#t17-city-capture-siege-and-the-defection-cascade) | Capture, siege, defection | M9 | Sonnet | High | **Opus**/Medium | T16, T33, T35 | [#17](https://github.com/diegoami/imperial_conquest_2/issues/17) | Blocked |
@@ -876,8 +876,8 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T32](#t32-make-t06s-calendar-tests-independent-of-later-systems) | Calendar tests independent of later systems | — | Sonnet | Low | Sonnet/High | T06 | [#60](https://github.com/diegoami/imperial_conquest_2/issues/60) | Merged (`2d72f7f`) |
 | [T33](#t33-complete-rulesetsiege-and-siegestrengthdefender-against-fun_0044a98c) | Complete `Ruleset.Siege` and `SiegeStrength.Defender` | — | Sonnet | Medium | **Opus**/Medium | T31, T07 | [#61](https://github.com/diegoami/imperial_conquest_2/issues/61) | Ready |
 | [T34](#t34-ic2data-follow-ups-a-path-independent-corpus-fixture-and-the-pending-offer-block) | `IC2.Data` follow-ups + corpus fixture | — | Sonnet | Medium | **Opus**/Medium | T30 | [#62](https://github.com/diegoami/imperial_conquest_2/issues/62) | Ready |
-| [T35](#t35-model-nation-tax-base-recruitment-slots-and-the-pending-diplomatic-offer) | Model: tax base, recruitment slots, pending offer | — | Sonnet | High | **Opus**/High | T08 | [#63](https://github.com/diegoami/imperial_conquest_2/issues/63) | Blocked |
+| [T35](#t35-model-nation-tax-base-recruitment-slots-and-the-pending-diplomatic-offer) | Model: tax base, recruitment slots, pending offer | — | Sonnet | High | **Opus**/High | T08 | [#63](https://github.com/diegoami/imperial_conquest_2/issues/63) | Ready |
 | [T36](#t36-author-the-improved-preset-ruleset) | Author the `improved` preset | — | **Haiku** | Medium | Sonnet/Medium | T29 | [#64](https://github.com/diegoami/imperial_conquest_2/issues/64) | Blocked |
 | [T37](#t37-city-supply-production-and-famine-unrest) | City supply and famine unrest | — | Sonnet | Medium | **Opus**/Medium | T08, T35 | [#70](https://github.com/diegoami/imperial_conquest_2/issues/70) | Blocked |
 
-**Totals** — 37 tasks: 4 Opus, 26 Sonnet, 6 Haiku, 1 Fable. Effort: 2 Ultrahigh, 15 High, 17 Medium, 3 Low. 11 merged as of `e804f4f`.
+**Totals** — 37 tasks: 4 Opus, 26 Sonnet, 6 Haiku, 1 Fable. Effort: 2 Ultrahigh, 15 High, 17 Medium, 3 Low. 12 merged as of `a53eaa5`.

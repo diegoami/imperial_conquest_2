@@ -40,7 +40,7 @@ Nothing in `game-design.md` mentions armies travelling by sea or fleets fighting
 
 `game-design.md` has no supply system at all beyond a one-line mention of seasonal consumption.
 
-- **Army supply capacity = `troops / 100` tons**; **fleet capacity = `ships × 8` tons** (`TAFSupply_ChangeBuyAmount`). The capacity formula reproduces all four percentage readings on record exactly — see the new report.
+- **Army supply capacity = `troops / 100` tons** — the general capacity used by automatic resupply, army-to-army transfer and battle absorption; **fleet capacity = `ships × 8` tons**, on every path, with no dialog bonus. The `TAFSupply_ChangeSupply` (own-city, free) and `TAFSupply_ChangeBuyAmount` (foreign, paid) **dialog's own cap** is `troops / 100 + 1` for an army — one ton more than the general formula, confirmed against the Roman 13-unit roster's 482 t reading. T08's merged code (`SupplyCapacity.ArmyDialogCapacityTons`, `EconomyRules.SupplyDialogArmyCapacityBonus`) implements this distinction; it corrects this section's earlier attribution of `troops / 100` alone to `TAFSupply_ChangeBuyAmount` — the same misattribution bug [#75](https://github.com/diegoami/imperial_conquest_2/issues/75) was filed against for the fixtures corpus entry. See [`supply-capacity-rounding.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/supply-capacity-rounding.md).
 - **Supply is bought, not transferred**: **1 talent per 5 tons**, debited from the **army's or fleet's own money purse** and credited to the **selling city's owner's treasury** — which may be a different nation.
 - Armies and fleets each carry their own **money purse, capped at 1,000 talents**, moved to/from the treasury (or a co-located fleet) in the same dialog.
 
