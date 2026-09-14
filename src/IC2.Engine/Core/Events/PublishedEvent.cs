@@ -14,8 +14,12 @@ namespace IC2.Engine.Core;
 /// <param name="Phase">The phase that was running when <paramref name="Event"/> was published.</param>
 /// <param name="SystemId">
 /// The declared id of the system that was running when <paramref name="Event"/> was published — whether
-/// the system published it directly, through a command it issued, or through a quarter-boundary handler
-/// its own phase fired. All three publish through the same run-bound sink, so all three are tagged the
-/// same way: by whichever system was on the stack at the moment of publication.
+/// the system published it directly, through a command it issued via the two-argument
+/// <c>ICommandDispatch.Dispatch(state, command)</c>, or through a quarter-boundary handler its own phase
+/// fired. All three publish through the same run-bound, tagging sink, so all three are tagged the same
+/// way: by whichever system was on the stack at the moment of publication. A command dispatched through
+/// the three-argument <c>Dispatch(state, command, events)</c> overload is published to whatever sink the
+/// caller names instead, so it is never tagged and never appears here — see
+/// <see cref="SystemContext.PublishedEvents"/>.
 /// </param>
 public sealed record PublishedEvent(DomainEvent Event, TurnPhase Phase, string SystemId);

@@ -102,11 +102,15 @@ public sealed class SystemContext
     /// </para>
     /// <para>
     /// Covers events published directly by an earlier system, by a command that system issued through
-    /// <see cref="Commands"/>, and by a quarter-boundary handler a system's own phase fired through
-    /// <see cref="QuarterBoundary"/> — all three publish through the same run-bound sink, so all three are
-    /// recorded here. It never includes anything <em>this</em> system is about to publish during its own
-    /// <see cref="IGameSystem.Execute"/>: the view is a snapshot taken before this system runs, not a live
-    /// one. A fresh run starts this list empty; nothing carries over from one turn to the next.
+    /// <see cref="ICommandDispatch.Dispatch(GameState, ICommand)"/>, and by a quarter-boundary handler a
+    /// system's own phase fired through <see cref="QuarterBoundary"/> — all three publish through the same
+    /// run-bound, phase-and-system-tagging sink, so all three are recorded here. The exception is
+    /// <see cref="ICommandDispatch.Dispatch(GameState, ICommand, IEventSink)"/>: that overload lets the
+    /// caller name a different sink, so an event published through it is not tagged or recorded here,
+    /// exactly as it already does not reach <see cref="TurnResult.Events"/> unless the caller happens to
+    /// pass this run's own sink. It never includes anything <em>this</em> system is about to publish during
+    /// its own <see cref="IGameSystem.Execute"/>: the view is a snapshot taken before this system runs, not
+    /// a live one. A fresh run starts this list empty; nothing carries over from one turn to the next.
     /// </para>
     /// </remarks>
     public ValueList<PublishedEvent> PublishedEvents { get; }

@@ -140,17 +140,94 @@ public class PublishedEventsTests
     [Fact]
     public void The_callers_own_sink_and_TurnResult_Events_are_unaffected_by_the_new_seam()
     {
-        // DoD item 4: "The caller's own sink still receives every event exactly as before, and
-        // TurnResult.Events is unchanged." Both streams must carry every event this run published --
-        // direct, via the command, and the two snapshots -- in the same order.
-        var sink = new RecordingEventSink();
-        var coordinator = CoreTestbed.CoordinatorWithCommandsFor(PublishedEventsFixtures.SeatGroup, sink);
+        // DoD item 4 (strengthened per review round 1's N2): "The caller's own sink still receives every
+        // event exactly as before, and TurnResult.Events is unchanged." Compared against an explicit
+        // expected sequence, by full record value (not merely by Kind, which could hide a changed payload
+        // reaching one stream and not the other), and with the caller's own sink itself wired as a
+        // CompositeEventSink over two sinks -- the exact shape PR #77's R7 finding broke on -- to show
+        // tagging does not depend on the caller passing a single plain sink.
+        var callerPrimary = new RecordingEventSink();
+        var callerExtra = new RecordingEventSink();
+        var callerSink = new CompositeEventSink(callerPrimary, callerExtra);
+        var coordinator = CoreTestbed.CoordinatorWithCommandsFor(PublishedEventsFixtures.SeatGroup, callerSink);
 
         var result = coordinator.RunTurn(CoreTestbed.InitialState());
 
-        Assert.Equal(6, sink.Events.Count);
+        var expectedKinds = new[]
+        {
+            "test.published.snapshot",
+            "test.published.marker",
+            "test.published.marker",
+            "test.published.marker",
+            "test.published.marker",
+            "test.published.snapshot",
+        };
+
+        Assert.Equal(expectedKinds, callerPrimary.Events.Select(e => e.Kind).ToArray());
+
+        // Every sink involved -- both halves of the caller's own composite, and TurnResult's own copy --
+        // carry the exact same sequence of events, by full record equality, not merely by matching Kind.
+        Assert.Equal(callerPrimary.Events, callerExtra.Events);
+        Assert.Equal(callerPrimary.Events.ToArray(), result.Events.ToArray());
+    }
+
+    [Fact]
+    public void A_second_run_on_the_same_coordinator_does_not_see_the_first_runs_events()
+    {
+        // B1 (review round 1): DoD item 3's "a fresh run starts empty, so nothing carries over between
+        // turns" had no test that could fail against a coordinator that kept its published-event list
+        // across runs instead of starting a fresh one each time -- every other test here builds a brand
+        // new coordinator and runs it once. Reusing ONE coordinator for two RunTurn calls is what catches
+        // that: a leaky implementation shows the second run's SeatEnd reader seeing ten entries (both
+        // runs' events) instead of five, and its SeatStart reader seeing the first run's five instead of
+        // none.
+        var coordinator = CoreTestbed.CoordinatorWithCommandsFor(PublishedEventsFixtures.SeatGroup);
+        var initial = CoreTestbed.InitialState();
+
+        var first = coordinator.RunTurn(initial);
+        var second = coordinator.RunTurn(initial);
+
+        var firstSnapshots = first.Events.OfType<PublishedEventsSnapshot>().ToArray();
+        var secondSnapshots = second.Events.OfType<PublishedEventsSnapshot>().ToArray();
+
+        Assert.Equal(5, firstSnapshots[1].Seen.Count);
+
+        // The second run's very first system still starts from nothing, exactly like the first run's did.
+        Assert.Empty(secondSnapshots[0].Seen);
+
+        // The second run's SeatEnd reader sees exactly what the first run's did: the same five entries
+        // from THIS run, not the first run's five plus its own on top.
+        Assert.Equal(firstSnapshots[1].Seen.ToArray(), secondSnapshots[1].Seen.ToArray());
+        Assert.Equal(5, secondSnapshots[1].Seen.Count);
+    }
+
+    [Fact]
+    public void A_round_tick_run_on_the_same_coordinator_after_a_turn_does_not_see_the_earlier_runs_events()
+    {
+        // B1 (review round 1), the second shape the review named explicitly: "RunTurn with a follow-on ->
+        // RunRoundTick: the round tick's RoundEnd reader sees no seat-scoped entries from the previous
+        // run." A leaky published-event list would show the second call's RoundEnd reader still holding
+        // the first run's SeatStart/SeatEnd markers alongside its own CityTick one.
+        var coordinator = CoreTestbed.CoordinatorFor(PublishedEventsFixtures.FollowOnGroup);
+        var initial = CoreTestbed.InitialState();
+
+        var followOn = coordinator.RunTurn(initial);
+        Assert.True(followOn.RoundTickRan);
+
+        var direct = coordinator.RunRoundTick(initial);
+
+        var followOnView = followOn.Events.OfType<PublishedEventsSnapshot>().Single();
+        var directView = direct.Events.OfType<PublishedEventsSnapshot>().Single();
+
+        // Sanity check: the follow-on run's own RoundEnd reader really did see both scopes, as already
+        // asserted end to end by When_a_seats_turn_follows_on_into_the_round_tick_round_end_also_sees_the_seat_scoped_events.
+        Assert.Equal(3, followOnView.Seen.Count);
+
+        // A direct RunRoundTick call on the SAME coordinator, run afterwards, sees only its OWN
+        // round-scoped events -- nothing from the earlier turn's seat-scoped phases, and its CityTick
+        // entry appears once, not twice.
         Assert.Equal(
-            sink.Events.Select(e => e.Kind).ToArray(),
-            result.Events.Select(e => e.Kind).ToArray());
+            new[] { "CityTick/test.published.fo-city-tick:fo-city-tick" },
+            directView.Seen.ToArray());
     }
 }
