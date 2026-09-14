@@ -16,12 +16,14 @@ namespace IC2.Engine.Tests.News;
 /// Every test here runs the real, registry-instantiated <see cref="NewsLogWriterSeatEnd"/> or
 /// <see cref="NewsLogWriterRoundEnd"/> through a real <see cref="TurnCoordinator"/>, and asserts on
 /// <c>result.State.NewsLog</c> — never on a copy of the rendering logic, and never by calling
-/// <see cref="NewsLogWriter.Append"/> directly (that is <c>NewsLogWriterAppendTests</c>'s job). Each
-/// coordinator is built over a <see cref="CompositeEventSink"/> of a recorder plus
+/// <see cref="NewsLogWriter.Append"/> directly (that is <c>NewsLogWriterAppendTests</c>'s job). The DoD-4
+/// cases (built via <see cref="CoordinatorFor"/>) use a <see cref="CompositeEventSink"/> of a recorder plus
 /// <see cref="RecordingUiStyleSink"/> — a realistic caller composition, not a bare sink — to make explicit
 /// that the writer's correctness does not depend on what else is chained after it (see
 /// <see cref="NewsLogWriterFixtures.RegistryFor"/> and <see cref="RecordingUiStyleSink"/>'s remarks; this
-/// is exactly where the first attempt's reflection-based design broke, R7).
+/// is exactly where the first attempt's reflection-based design broke, R7). The two ordering-proof tests
+/// below build their own coordinator directly over <see cref="NullEventSink"/> instead: they are proving
+/// execution order, not sink robustness, and gain nothing from a composed sink.
 /// </remarks>
 public class NewsLogWriterTests
 {
@@ -46,16 +48,22 @@ public class NewsLogWriterTests
         Assert.Contains(uiSink.Received, e => e is CityFallsToFixtureEvent);
     }
 
-    /// <summary>DoD 4(b): a non-news-worthy event is published but never rendered.</summary>
+    /// <summary>
+    /// DoD 4(b): a non-news-worthy event published in the same turn as a news-worthy one is never
+    /// rendered, while the news-worthy one is (N19) — so this cannot pass merely because the writer never
+    /// ran at all.
+    /// </summary>
     [Fact]
-    public void NonNewsworthyEvent_NeverAppears()
+    public void NonNewsworthyEvent_NeverAppears_WhileACompanionNewsworthyEventDoes()
     {
         var coordinator = CoordinatorFor(NewsLogWriterFixtures.NonNewsworthyGroup, out _);
         var state = CoreTestbed.InitialState();
 
         var result = coordinator.RunTurn(state);
 
-        Assert.Empty(result.State.NewsLog.Slots);
+        var texts = result.State.NewsLog.Slots.Select(s => s.Text).ToList();
+        Assert.Single(texts);
+        Assert.Contains(texts, t => t.Contains("StillRenders", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -93,9 +101,10 @@ public class NewsLogWriterTests
         }
 
         var texts = state.NewsLog.Slots.Select(s => s.Text).ToList();
-        Assert.Equal(capacity, texts.Count);
-        Assert.DoesNotContain(texts, t => t.StartsWith("City0 ", StringComparison.Ordinal));
-        Assert.Contains(texts, t => t.StartsWith($"City{capacity} ", StringComparison.Ordinal));
+        var expected = Enumerable.Range(1, capacity)
+            .Select(i => $"City{i}   (Old)  falls to New.")
+            .ToList();
+        Assert.Equal(expected, texts);
     }
 
     /// <summary>

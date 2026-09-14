@@ -7,12 +7,12 @@ using Xunit;
 namespace IC2.Engine.Tests.News;
 
 /// <summary>
-/// Direct, pure-function tests of <see cref="NewsLogWriter.Append"/> — the public entry point
-/// <c>docs/task-catalogue.md</c>'s hazard asks to be "test[ed] directly too", decoupled from
-/// <see cref="TurnCoordinator"/> and from the production <see cref="NewsMessageCatalog"/> (every test here
-/// injects its own template resolver and a namespace-unique fixture kind, N10). The pipeline-level
-/// behaviour — phase scoping, ordering, and rendering through the real registry-instantiated systems — is
-/// <c>NewsLogWriterTests</c>, not this file.
+/// Direct, pure-function tests of <see cref="NewsLogWriter.Append"/> — the public entry point the task's
+/// design calls for so a later task (T23) can call it directly with a <c>CommandResult</c>'s own events —
+/// decoupled from <see cref="TurnCoordinator"/> and from the production <see cref="NewsMessageCatalog"/>
+/// (every test here injects its own template resolver and a namespace-unique fixture kind, N10). The
+/// pipeline-level behaviour — phase scoping, ordering, and rendering through the real
+/// registry-instantiated systems — is <c>NewsLogWriterTests</c>, not this file.
 /// </summary>
 public class NewsLogWriterAppendTests
 {
@@ -50,18 +50,43 @@ public class NewsLogWriterAppendTests
         Assert.Equal("A new fleet at Byzantium.", Assert.Single(state.NewsLog.Slots).Text);
     }
 
-    /// <summary>A placeholder matching no declared property is left exactly as the template wrote it.</summary>
+    /// <summary>
+    /// N14: a placeholder matching no eligible property throws, rather than being printed literally — a
+    /// template/property mismatch must fail loudly, not put the raw placeholder text into the news log (and
+    /// into a save) with no signal to anyone.
+    /// </summary>
     [Fact]
-    public void Append_Leaves_UnmatchedPlaceholder_Unchanged()
+    public void Append_Throws_WhenPlaceholderHasNoMatchingProperty()
     {
         var probeEvent = new UnknownPlaceholderProbeEvent(CityName: "Sparta");
+
+        var ex = Assert.Throws<InvalidOperationException>(() => NewsLogWriter.Append(
+            CoreTestbed.InitialState(),
+            new DomainEvent[] { probeEvent },
+            GenerousRules,
+            _ => "{CityName} did {NotADeclaredProperty}."));
+
+        Assert.Contains("NotADeclaredProperty", ex.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// N13: excluding only properties declared on <see cref="DomainEvent"/> itself (not
+    /// <see cref="System.Reflection.BindingFlags.DeclaredOnly"/>) means a property declared on an
+    /// intermediate base record between <see cref="DomainEvent"/> and the concrete event type is still a
+    /// valid substitution candidate.
+    /// </summary>
+    [Fact]
+    public void Append_Substitutes_PropertyDeclaredOnIntermediateBaseRecord()
+    {
+        var probeEvent = new DerivedProbeEvent(NewOwner: "Rome");
+
         var state = NewsLogWriter.Append(
             CoreTestbed.InitialState(),
             new DomainEvent[] { probeEvent },
             GenerousRules,
-            _ => "{CityName} did {NotADeclaredProperty}.");
+            _ => "{CityName} falls to {NewOwner}.");
 
-        Assert.Equal("Sparta did {NotADeclaredProperty}.", Assert.Single(state.NewsLog.Slots).Text);
+        Assert.Equal("Corinth falls to Rome.", Assert.Single(state.NewsLog.Slots).Text);
     }
 
     /// <summary>
@@ -86,22 +111,23 @@ public class NewsLogWriterAppendTests
     }
 
     /// <summary>
-    /// N11: only the event's own <em>declared</em> properties are substitution candidates —
-    /// <see cref="DomainEvent.Kind"/>, declared on the abstract base, is never treated as an operand even
-    /// when a template happens to contain the literal text <c>{Kind}</c>.
+    /// N11/N13: <see cref="DomainEvent.Kind"/> and <see cref="DomainEvent.IsNewsWorthy"/>, declared on
+    /// <see cref="DomainEvent"/> itself, are never substitution candidates — a template containing
+    /// <c>{Kind}</c> throws exactly as it would for any other unmatched placeholder (N14), rather than
+    /// silently resolving to the base property.
     /// </summary>
     [Fact]
-    public void Append_Ignores_BaseDomainEventProperties()
+    public void Append_Throws_ForBaseDomainEventProperty()
     {
         var probeEvent = new BasePropertyProbeEvent(Detail: "irrelevant");
-        var state = NewsLogWriter.Append(
+
+        var ex = Assert.Throws<InvalidOperationException>(() => NewsLogWriter.Append(
             CoreTestbed.InitialState(),
             new DomainEvent[] { probeEvent },
             GenerousRules,
-            _ => "kind={Kind}");
+            _ => "kind={Kind}"));
 
-        // If {Kind} resolved to the base property, this would read "kind=test.news-log.base-property-probe".
-        Assert.Equal("kind={Kind}", Assert.Single(state.NewsLog.Slots).Text);
+        Assert.Contains("Kind", ex.Message, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -189,3 +215,14 @@ public sealed record BasePropertyProbeEvent(string Detail) : DomainEvent;
 
 [DomainEvent("test.news-log.append-probe.multi-byte", NewsWorthy = true)]
 public sealed record MultiByteProbeEvent(string Text) : DomainEvent;
+
+/// <summary>An intermediate base record, one level below <see cref="DomainEvent"/> — not itself concrete.</summary>
+public abstract record BaseWithCityNameProbeEvent(string CityName) : DomainEvent;
+
+/// <summary>
+/// Declares no <c>CityName</c> property of its own — it inherits one from
+/// <see cref="BaseWithCityNameProbeEvent"/>, an intermediate base record, not from <see cref="DomainEvent"/>
+/// itself. N13's regression case.
+/// </summary>
+[DomainEvent("test.news-log.append-probe.derived", NewsWorthy = true)]
+public sealed record DerivedProbeEvent(string NewOwner) : BaseWithCityNameProbeEvent("Corinth");

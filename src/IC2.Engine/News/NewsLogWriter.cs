@@ -93,20 +93,33 @@ public static class NewsLogWriter
     /// never re-scanned and can never be substituted a second time.
     /// </para>
     /// <para>
-    /// <strong>Only the event's own declared properties are candidates</strong>
-    /// (<see cref="BindingFlags.DeclaredOnly"/>): <see cref="DomainEvent.Kind"/> and
-    /// <see cref="DomainEvent.IsNewsWorthy"/>, declared on the abstract base, are never treated as
-    /// operands even if a template happened to contain <c>{Kind}</c>.
+    /// <strong>Only the event's own properties are candidates, never <see cref="DomainEvent"/>'s own.</strong>
+    /// A property is excluded exactly when <see cref="PropertyInfo.DeclaringType"/> is
+    /// <see cref="DomainEvent"/> itself — <see cref="DomainEvent.Kind"/> and
+    /// <see cref="DomainEvent.IsNewsWorthy"/>, and only those, are never treated as operands even if a
+    /// template happened to contain <c>{Kind}</c>. This is deliberately narrower than excluding every
+    /// inherited property (<see cref="BindingFlags.DeclaredOnly"/> would also have hidden a property
+    /// declared on an intermediate base record between <see cref="DomainEvent"/> and the concrete event
+    /// type, silently under-rendering it).
     /// </para>
     /// <para>
     /// Recognises two placeholder syntaxes, because the corpus's own source reports used both: a
     /// curly-brace <c>{PascalCase}</c> token is matched case-sensitively against a property of that exact
     /// name; an angle-bracket <c>&lt;lowercase&gt;</c> token — optionally followed by a
     /// <c>[field[+offset]]</c> provenance annotation the source report included in its own quoted string —
-    /// is matched case-insensitively, and the annotation is consumed but never printed. A placeholder that
-    /// matches no declared property is left exactly as written in the template.
+    /// is matched case-insensitively, and the annotation is consumed but never printed.
+    /// </para>
+    /// <para>
+    /// <strong>A placeholder that matches no eligible property throws</strong> rather than being printed
+    /// literally: a template/property mismatch (a typo, a renamed property the catalog entry was not
+    /// updated for) would otherwise put the raw placeholder text into <see cref="GameState.NewsLog"/> — and
+    /// into a save — with no signal to anyone.
     /// </para>
     /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    /// A placeholder in <paramref name="template"/> matches no property of
+    /// <paramref name="domainEvent"/>'s own declaring type (excluding <see cref="DomainEvent"/> itself).
+    /// </exception>
     internal static string RenderMessage(DomainEvent domainEvent, string template)
     {
         ArgumentNullException.ThrowIfNull(domainEvent);
@@ -124,35 +137,54 @@ public static class NewsLogWriter
             var isCurly = curlyGroup.Success;
             var propertyName = isCurly ? curlyGroup.Value : match.Groups["angle"].Value;
 
-            var bindingFlags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly;
-            if (!isCurly)
+            // The corpus's angle-bracket tokens are lowercase (<winner>, <nation>); the event's own
+            // property is PascalCase (Winner, Nation). The curly-brace tokens already match property
+            // casing exactly, so only the angle-bracket form needs a case-insensitive lookup.
+            var property = FindOperandProperty(eventType, propertyName, ignoreCase: !isCurly);
+            if (property is null)
             {
-                // The corpus's angle-bracket tokens are lowercase (<winner>, <nation>); the event's own
-                // property is PascalCase (Winner, Nation). The curly-brace tokens already match property
-                // casing exactly, so only this branch needs a case-insensitive lookup.
-                bindingFlags |= BindingFlags.IgnoreCase;
+                throw new InvalidOperationException(
+                    $"Event kind '{domainEvent.Kind}' ({eventType.FullName}) has no property matching "
+                    + $"template placeholder '{match.Value}'. Add the property to the event, or correct "
+                    + "the template in NewsMessageCatalog.");
             }
 
-            var property = eventType.GetProperty(propertyName, bindingFlags);
-            if (property is not null)
-            {
-                var value = property.GetValue(domainEvent);
-                builder.Append(value is null
-                    ? string.Empty
-                    : string.Format(CultureInfo.InvariantCulture, "{0}", value));
-            }
-            else
-            {
-                // No declared property matches: leave the placeholder exactly as the template wrote it
-                // rather than guessing at a substitution.
-                builder.Append(match.Value);
-            }
+            var value = property.GetValue(domainEvent);
+            builder.Append(value is null
+                ? string.Empty
+                : string.Format(CultureInfo.InvariantCulture, "{0}", value));
 
             cursor = match.Index + match.Length;
         }
 
         builder.Append(template, cursor, template.Length - cursor);
         return builder.ToString();
+    }
+
+    /// <summary>
+    /// Finds <paramref name="eventType"/>'s public instance property named <paramref name="propertyName"/>,
+    /// excluding any property declared directly on <see cref="DomainEvent"/> — see
+    /// <see cref="RenderMessage"/>'s remarks for why that exclusion is narrower than
+    /// <see cref="BindingFlags.DeclaredOnly"/>.
+    /// </summary>
+    private static PropertyInfo? FindOperandProperty(Type eventType, string propertyName, bool ignoreCase)
+    {
+        var comparison = ignoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+
+        foreach (var property in eventType.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+        {
+            if (property.DeclaringType == typeof(DomainEvent))
+            {
+                continue;
+            }
+
+            if (string.Equals(property.Name, propertyName, comparison))
+            {
+                return property;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>

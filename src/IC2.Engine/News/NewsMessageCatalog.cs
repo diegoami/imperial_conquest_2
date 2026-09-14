@@ -23,23 +23,50 @@ namespace IC2.Engine.News;
 /// renderer (<see cref="NewsLogWriter"/>) recognises both delimiters, matches the token inside — ignoring
 /// any bracket annotation — against the published event's own declared properties (case-insensitively for
 /// the angle-bracket form), and substitutes the property's value; the annotation itself is never printed.
-/// Two entries (<c>peace.pays-reparations</c>'s "N" and <c>diplomacy.pending-offer</c>'s "X"/"Y") carry no
-/// bracket delimiter at all in the source text — the corpus transcribes them exactly as written, and this
-/// catalog does the same rather than inventing a delimiter no report shows. Substitution is therefore not
-/// available for those two until a later task finds or confirms an exact format string; until then they
-/// render as literal, static text.
 /// </para>
 /// <para>
-/// <strong>Three entries are <c>[designed]</c>.</strong> <c>city.defects-to</c>, <c>nation.conquered</c>
-/// and <c>fleet.lost-at-sea</c> have no confirmed format string in any report — the corpus only has one
-/// observed in-game instance (a screenshot) for each, already substituted. What was searched and came up
-/// empty: <c>galatia-elimination-and-city-resupply-confirmed.md</c> and <c>fleet-owner-field-confirmed.md</c>
-/// (the two source reports) and every other report in <c>tests/fixtures/known-reports.json</c> whose
-/// filename mentions the mechanic; none quotes the underlying pseudocode's literal format string. The
-/// template shape chosen here — bracketed <c>{PascalCase}</c> operands, matching the two confirmed
-/// <c>decompiled-city-capture-resolution.md</c> entries' own convention — is this task's designed choice,
-/// and <c>NewsMessageCatalogTests</c> verifies it: rendering the designed template with the observed
-/// example's own operand values reproduces the corpus's literal exactly.
+/// <strong>Two entries are <c>[designed]</c> by adding only a delimiter, never by inventing new text.</strong>
+/// <c>peace.pays-reparations</c>'s corpus source (<c>newsMessage.paysReparations</c>, tag <c>confirmed</c>)
+/// and <c>diplomacy.pending-offer</c>'s (<c>newsMessage.pendingDiplomaticOfferParaphrase</c>, tag
+/// <c>derived</c>) both write their operand as a bare, undelimited letter — "N" and "X"/"Y" — which no
+/// renderer can distinguish from surrounding prose. What was searched and came up empty: both source
+/// reports (<c>decompiled-diplomacy-peace-terms-and-instant-battles.md</c> for the reparations line,
+/// <c>decompiled-turn-and-calendar-sequencing.md</c> for the pending-offer paraphrase) and every other
+/// report in <c>tests/fixtures/known-reports.json</c> whose filename mentions reparations, diplomacy or
+/// turn sequencing; none quotes a delimited format string for either. This catalog's designed templates
+/// wrap each bare letter in the corpus's own angle-bracket convention — <c>N</c> → <c>&lt;n&gt;</c>,
+/// <c>X</c>/<c>Y</c> → <c>&lt;x&gt;</c>/<c>&lt;y&gt;</c> — changing no other character. The corpus text
+/// itself is kept alongside, unedited: <c>NewsMessageCatalogTests</c> asserts that replacing each designed
+/// delimiter with its bare letter reproduces <c>FixtureCorpus.Get(id).AsString()</c> exactly, and separately
+/// renders each with real operands (reparations: <c>2,269</c>, the actual amount printed in
+/// <c>saves-processed/1_rome_270_autumn_11.sav</c>'s news log for <c>FUN_00450C68</c>'s
+/// <c>W/4 + random(W/4) + …</c> calculation).
+/// </para>
+/// <para>
+/// <strong>Three entries are <c>[designed]</c> by generalising a single observed example.</strong>
+/// <c>city.defects-to</c> and <c>nation.conquered</c> have no confirmed format string in any report — the
+/// corpus only has one observed in-game instance (a screenshot) for each, already substituted. What was
+/// searched and came up empty: <c>galatia-elimination-and-city-resupply-confirmed.md</c> (the source
+/// report for both) and every other report in <c>tests/fixtures/known-reports.json</c> whose filename
+/// mentions city capture, defection or nation elimination; none quotes the underlying pseudocode's literal
+/// format string. The template shape chosen here — bracketed <c>{PascalCase}</c> operands, matching the two
+/// confirmed <c>decompiled-city-capture-resolution.md</c> entries' own convention — is this task's designed
+/// choice, and <c>NewsMessageCatalogTests</c> verifies it: rendering the designed template with the
+/// observed example's own operand values reproduces the corpus's literal exactly.
+/// </para>
+/// <para>
+/// <c>fleet.lost-at-sea</c> is <em>not</em> <c>[designed]</c> in that sense: its format string
+/// <em>is</em> confirmed —
+/// <c>supply-driven-morale-and-fleet-attrition.md</c> quotes both the pseudocode
+/// (<c>news("A fleet belonging to X is lost at sea.");</c>, the death-check block near the report's line
+/// 162) and the literal read out of a real save's news ring buffer near line 206
+/// (<c>"A fleet belonging to Carthage is lost at sea."</c>, from <c>1_cartago_271_summer_9.sav</c>) — both
+/// end with a period. This catalog's template does not: it matches the corpus's own
+/// <c>newsMessage.fleetLostAtSeaObservedExample</c> entry (sourced from the looser
+/// <c>fleet-owner-field-confirmed.md</c>), which transcribes the same sentence without one. That is a
+/// discrepancy in the corpus entry, not in this catalog — <c>tests/fixtures/**</c> is outside this task's
+/// Owns list, so correcting it is a bug against T04's fixtures (tracked separately), not this file. Once
+/// that correction lands, this template should gain the period to match.
 /// </para>
 /// <para>
 /// Every news-worthy domain event kind the engine declares must have an entry here, asserted by
@@ -85,10 +112,10 @@ public static class NewsMessageCatalog
         // space before "ends" transcribed exactly as the report shows it.
         { "peace.ends-alliances", "    <loser>  ends all current alliances." },
 
-        // newsMessage.paysReparations (decompiled-diplomacy-peace-terms-and-instant-battles.md) — the
-        // source text's own placeholder is the bare letter "N", with no bracket delimiter. Substitution is
-        // not available for it; see this type's remarks.
-        { "peace.pays-reparations", "    <loser> pays reparations of N talents." },
+        // newsMessage.paysReparations (decompiled-diplomacy-peace-terms-and-instant-battles.md) — designed:
+        // the source text's own placeholder is the bare, undelimited letter "N"; this template wraps it as
+        // "<n>", changing no other character. See this type's remarks.
+        { "peace.pays-reparations", "    <loser> pays reparations of <n> talents." },
 
         // newsMessage.allyPeaceAgreement (decompiled-diplomacy-peace-terms-and-instant-battles.md) — a
         // distinct line from peace.honourable in the source pseudocode (different placeholder names, same
@@ -110,11 +137,11 @@ public static class NewsMessageCatalog
         { "victory.conquered-by-nation", "Your nation has been conquerred by <nation[+0x44E]>." },
 
         // newsMessage.pendingDiplomaticOfferParaphrase (decompiled-turn-and-calendar-sequencing.md) —
-        // tagged "derived" in the corpus, not "confirmed": the report presents this as an italicised
-        // paraphrase of TPremierForm_StartTurn's announcement, not a quoted literal, and its placeholders
-        // are the bare letters "X"/"Y" with no bracket delimiter. Substitution is not available for it;
-        // see this type's remarks.
-        { "diplomacy.pending-offer", "X wants to trade/form an alliance with Y" },
+        // designed: tagged "derived" in the corpus, not "confirmed" (the report presents this as an
+        // italicised paraphrase of TPremierForm_StartTurn's announcement, not a quoted literal), and its
+        // placeholders are the bare, undelimited letters "X"/"Y"; this template wraps them as "<x>"/"<y>",
+        // changing no other character. See this type's remarks.
+        { "diplomacy.pending-offer", "<x> wants to trade/form an alliance with <y>" },
 
         // ---- [designed]: generalised from a single observed example. See this type's remarks. ----
 
@@ -126,8 +153,11 @@ public static class NewsMessageCatalog
         // with ConqueringNation=Seleucid, ConqueredNation=Galatia reproduces it.
         { "nation.conquered", "{ConqueringNation} conquers {ConqueredNation}." },
 
-        // Generalises newsMessage.fleetLostAtSeaObservedExample ("A fleet belonging to Carthage is lost
-        // at sea"); rendering with Nation=Carthage reproduces it.
+        // Matches newsMessage.fleetLostAtSeaObservedExample ("A fleet belonging to Carthage is lost at
+        // sea", no trailing period) verbatim but for the {Nation} operand. The format string IS confirmed
+        // elsewhere (supply-driven-morale-and-fleet-attrition.md, lines ~162 and ~206) WITH a trailing
+        // period; this template deliberately matches the corpus entry, not that report, pending a
+        // correction to the corpus. See this type's remarks.
         { "fleet.lost-at-sea", "A fleet belonging to {Nation} is lost at sea" },
     }.ToFrozenDictionary(StringComparer.Ordinal);
 

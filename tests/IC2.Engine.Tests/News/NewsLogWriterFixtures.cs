@@ -132,7 +132,9 @@ public sealed class SeatScopedPublisherSystem : IGameSystem
     }
 }
 
-// --- NonNewsworthyGroup: isolated so nothing else can add to the log during this scenario. ---------------
+// --- NonNewsworthyGroup: a non-news-worthy event and a news-worthy one published in the same turn, so
+// asserting the non-news-worthy one is absent is not merely consistent with the writer never having run
+// at all (N19) -- the news-worthy one appearing proves the writer did run.
 
 [TestFixtureGroup(NewsLogWriterFixtures.NonNewsworthyGroup)]
 [GameSystem(TurnPhase.Orders, "test.news-log.non-newsworthy-publisher")]
@@ -142,6 +144,18 @@ public sealed class NonNewsworthyPublisherSystem : IGameSystem
     public GameState Execute(SystemContext context)
     {
         context.Events.Publish(new NonNewsworthyFixtureEvent("should never be rendered"));
+        return context.State;
+    }
+}
+
+[TestFixtureGroup(NewsLogWriterFixtures.NonNewsworthyGroup)]
+[GameSystem(TurnPhase.Orders, "test.news-log.non-newsworthy-companion-publisher")]
+public sealed class NonNewsworthyCompanionPublisherSystem : IGameSystem
+{
+    /// <inheritdoc/>
+    public GameState Execute(SystemContext context)
+    {
+        context.Events.Publish(new CityFallsToFixtureEvent("StillRenders", "Old", "New"));
         return context.State;
     }
 }
