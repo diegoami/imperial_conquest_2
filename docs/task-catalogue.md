@@ -1,10 +1,10 @@
-# Task catalogue: the 39 build tasks
+# Task catalogue: the 40 build tasks
 
 Every build task's scope, **Owns** list, Definition of Done, model/effort, reviewer and dependencies, plus the dependency graph and the task index. **How** tasks are dispatched, reviewed and merged is in [build-process.md](build-process.md); operating the project day to day is in [operating-guide.md](operating-guide.md).
 
 **Status in this document** is a snapshot written from the GitHub `status:*` labels by the documentation step ([build-process.md §4.8](build-process.md#48-documentation-update-after-every-merge), location A1), and appears only in the **Status** line of each entry, the **Status** column of the [task index](#3-task-index) and the index's **Totals** line. Every orchestrator tick compares the index against the labels and resyncs on drift. Between syncs, GitHub labels and [tracking issue #29](https://github.com/diegoami/imperial_conquest_2/issues/29) are authoritative. Values: **Merged** (`commit`) · **In progress** (`status:in-progress`, `in-review`, `rework` or `approved`) · **Ready** · **Blocked** · **Escalated**.
 
-39 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), seven corrections to already-merged code (T31–T35, T38, T39), and one rule no task owned (T37, the weekly city supply step).
+40 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), eight corrections to already-merged code (T31–T35, T38–T40), and one rule no task owned (T37, the weekly city supply step).
 
 ---
 
@@ -32,7 +32,8 @@ graph TD
   T31 --> T07
   T31 --> T16
   T03 --> T09[T09 movement]
-  T03 --> T10[T10 news log]
+  T03 --> T40[T40 published-events seam]
+  T40 --> T10[T10 news log]
   T02 --> T11[T11 asset pack]
   T03 --> T12[T12 victory]
   T04 --> T06
@@ -120,16 +121,16 @@ Waves are dependency layers, not concurrent batches: execution is serial, one co
 | 0 | T01, T05 | Disjoint file sets. |
 | 1 | T02, T04, T30 | T04 and T30 need only T01. T30's merge gates T29, T21 and T34. |
 | 2 | T03 | The serialization point for engine code. |
-| 3 | T06, T07, T08, T09, T10, T11, T12, T31, T32, T33, T34 | The widest wave. T32 merges before T08; T33 before T16 and T17; T34 any time before T21, T24 and T29. T08 and T33 both write `Ruleset.cs`, `toy-ruleset.json` and `tests/fixtures/**` — different records and entries, never in flight together. |
+| 3 | T06, T07, T08, T09, T10, T11, T12, T31, T32, T33, T34, T40 | The widest wave. T40 merges before T10. T32 merges before T08; T33 before T16 and T17; T34 any time before T21, T24 and T29. T08 and T33 both write `Ruleset.cs`, `toy-ruleset.json` and `tests/fixtures/**` — different records and entries, never in flight together. |
 | 4 | T38, T13, T14, T15, T16, T35, T37, T39 | T38 follows T08 and precedes T14. T39 follows T35 and precedes T13 and T22. T35 follows T08 and gates T13, T17, T19 and T37. T37 must merge before T29. T16 is the long pole. |
 | 5 | T17, T18, T19, T20, T29, T21, T22 | T17 first, then T18/T19/T20; T29 once T15, T17, T19 and T37 have merged; then T21 and T22. T22 is the long pole. |
 | 6 | T23, T36, T24, T25, T26, T27, T28 | T36 follows T29 and precedes T24. T24/T25/T27 are single-instance (Godot) and form one serial chain. |
 
-**Critical path**: `T01 → T02 → T03 → T06 → T32 → T08 → T38 → T14 → T16 → T17 → T29 → T36 → T24 → T25 → T27` — 15 of 39 tasks — with `T08 → T35 → T17` and `T31 → T33 → T16` as parallel edges into it; T29 also waits for T15 and T19, and `T17 → T23 → T24` runs one task shorter. The AI chain (`… → T17 → T18 → T22 → T28`) runs alongside it with the most slack and the most uncertain duration, which argues for not deferring T22.
+**Critical path**: `T01 → T02 → T03 → T06 → T32 → T08 → T38 → T14 → T16 → T17 → T29 → T36 → T24 → T25 → T27` — 15 of 40 tasks — with `T08 → T35 → T17` and `T31 → T33 → T16` as parallel edges into it; T29 also waits for T15 and T19, and `T17 → T23 → T24` runs one task shorter. The AI chain (`… → T17 → T18 → T22 → T28`) runs alongside it with the most slack and the most uncertain duration, which argues for not deferring T22.
 
 ### 1.2 Sequential and independent tasks
 
-- **Strictly sequential**: T01 → T02 → T03; T16 → T17 (a siege is a battle); T17 → T18 (a siege wipes a pending fortify order); T08 → T13 (mercenary hire debits the army purse T08 defines); T08 → T38 → T14 (T14 is the first caller of the supply dialog T38 finishes); T35 → T39 → T13, T22 (billing is corrected before recruitment and the AI build on it); T24 → T25 → T27 (Godot, single-instance); T30 → T29 (T29 reads the DAT through T30's parser); T31 → T07 and T31 → T16 (both consume the siege defender weights T31 corrects); T32 → T08 and T32 → T14 (T06's attrition-phase test must stop counting systems before either registers one); T33 → T16 and T33 → T17 (both consume the defender-strength shape T33 corrects); T35 → T13, T17, T19, T37 (the model fields they read and write; T37 also reuses T35's threat predicate); T37 → T29 (it adds `EconomyRules` fields, and the ruleset schema settles before the export); T34 → T29 and T34 → T21 (both read the nation tax base through T34's parse); T15, T17, T19 → T29 → T21, T24, T26 (the ruleset schema settles before the shipped ruleset is exported, and the shipped world, ruleset and scenario exist before anything consumes them — [build-process.md §2.6](build-process.md#2-how-the-build-avoids-conflicts)); T29 → T36 → T24 (the `improved` preset is authored from the exported constants, and the New Game chooser needs both presets).
+- **Strictly sequential**: T01 → T02 → T03; T03 → T40 → T10 (the news writer reads the published-events view T40 adds); T16 → T17 (a siege is a battle); T17 → T18 (a siege wipes a pending fortify order); T08 → T13 (mercenary hire debits the army purse T08 defines); T08 → T38 → T14 (T14 is the first caller of the supply dialog T38 finishes); T35 → T39 → T13, T22 (billing is corrected before recruitment and the AI build on it); T24 → T25 → T27 (Godot, single-instance); T30 → T29 (T29 reads the DAT through T30's parser); T31 → T07 and T31 → T16 (both consume the siege defender weights T31 corrects); T32 → T08 and T32 → T14 (T06's attrition-phase test must stop counting systems before either registers one); T33 → T16 and T33 → T17 (both consume the defender-strength shape T33 corrects); T35 → T13, T17, T19, T37 (the model fields they read and write; T37 also reuses T35's threat predicate); T37 → T29 (it adds `EconomyRules` fields, and the ruleset schema settles before the export); T34 → T29 and T34 → T21 (both read the nation tax base through T34's parse); T15, T17, T19 → T29 → T21, T24, T26 (the ruleset schema settles before the shipped ruleset is exported, and the shipped world, ruleset and scenario exist before anything consumes them — [build-process.md §2.6](build-process.md#2-how-the-build-avoids-conflicts)); T29 → T36 → T24 (the `improved` preset is authored from the exported constants, and the New Game chooser needs both presets).
 - **Independent**: wave 3's pure-rules systems over disjoint directories; T32, T33 and T34 against each other and against T09–T12; T13/T14/T15; T18/T19/T20; T26 against the Godot lane.
 - **Looks independent but is not**: T12 (victory) is gated behind T06 because its 250 BC condition needs the calendar's year; T20 (save/load) could be written early, but its DoD ("a mid-game state round-trips after N turns") is only meaningful once the state is largely complete.
 
@@ -356,10 +357,10 @@ Conventions used by every entry:
 
 #### T10 News log ring buffer and message catalog
 
-- **Status**: Escalated
+- **Status**: Blocked — suspended on #83
 - **Design milestone**: **M17**. **Labels**: `phase:1 lane:engine`
-- **Branch**: `task/T10-news-log` · **Model/effort**: **Haiku / Medium** · **Reviewer**: Sonnet / Medium
-- **Start after**: T03 · **Merge after**: T03, T04
+- **Branch**: `task/T10-news-log` · **Model/effort**: Sonnet / Medium · **Reviewer**: **Opus / Medium**
+- **Start after**: T03 · **Merge after**: T03, T04, **T40**
 - **Owns**: `src/IC2.Engine/News/**`, `tests/IC2.Engine.Tests/News/**`
 - **Scope**: The 40-slot ring buffer, the catalog of confirmed message templates with operand substitution, **and the writer that carries a news-worthy domain event into `GameState.NewsLog`**. **Emission stays with each gameplay system** ([build-process.md §2.5](build-process.md#2-how-the-build-avoids-conflicts)); this task delivers the buffer, the catalog, the sink-to-state writer, and the coverage test that later tasks must keep green.
   - **The writer** is a system registered through T03's attribute-based registration, subscribing to T03's domain-event sink: for each news-worthy event it resolves the catalog template, substitutes the operands, and appends the rendered message to `GameState.NewsLog` (the storage T02 already ships). Without it, T20 would round-trip a news log nothing ever fills.
@@ -369,6 +370,7 @@ Conventions used by every entry:
   3. A coverage test asserts every domain event kind returned by T03's `DomainEventCatalog.Discover` that is marked news-worthy has a catalog entry — so a later task adding an event without a message fails CI. (T03 ships attribute-declared event subtypes, not an enum — iterate the discovered set.)
   4. A news-worthy event published to the sink during a turn appears as a rendered message in `GameState.NewsLog` at the end of that turn, asserted on the state itself rather than on the sink; a non-news-worthy event does not. **The 40-slot eviction is asserted end-to-end through the writer**, not only against the buffer in isolation.
   5. The rendered log survives a `GameState` round-trip through T02's serialization — so T20's save/load inherits a news log that is actually populated.
+- **Hazards**: The first attempt (PR #77, branch `task/T10-news-log`) escalated after three review rounds. It reached into T03's private `CompositeEventSink` by reflection (R7), and its only alternative was a mutable static (R4). **Resume from that branch** and take the open findings as the brief: R6 and R7, plus the non-blocking N1, N2, N6, N7, N8 and N10–N12 from https://github.com/diegoami/imperial_conquest_2/pull/77#issuecomment-5663984617 and https://github.com/diegoami/imperial_conquest_2/pull/77#issuecomment-5664079375. The writer is a **stateless system registered in `SeatEnd` and `RoundEnd`**. It reads T40's published-events view, renders the news-worthy events of its own scope (seat-scoped or round-scoped, by their phase tag), and appends them to `GameState.NewsLog`. No reflection, no static, no sink that buffers. The DoD-4 tests wire a realistic sink (the writer plus an extra UI-style sink), not a bare writer. Test event kinds live in a namespace-unique fixture group, so later tasks' fixtures can't collide with them (N10).
 
 #### T11 Asset pack loader and generated placeholder pack
 
@@ -449,6 +451,25 @@ Conventions used by every entry:
 - **Hazards**: tombstone tolerance stays specific to `0xFFFF` (T30's hazard). Regeneration records what the parsers produce — it is not a way to make a failing file pass: a file whose outcome changes between regenerations is reported, not silently re-baselined.
 
 ---
+
+#### T40 Expose the run's published events to systems (a T03 seam)
+
+- **Status**: Ready
+- **Design milestone**: none. A correction to merged T03: a registered system can't read the events published earlier in the same run without breaking T03's stateless-system contract (bug [#83](https://github.com/diegoami/imperial_conquest_2/issues/83)). T10's news writer needs exactly that. **Labels**: `phase:1 lane:engine`
+- **Branch**: `task/T40-published-events-seam` · **Model/effort**: Sonnet / Medium · **Reviewer**: **Opus / Medium**
+- **Start after**: T03 · **Merge after**: T03 — and merged before T10
+- **Owns**: `src/IC2.Engine/Core/Pipeline/SystemContext.cs`, `src/IC2.Engine/Core/Pipeline/TurnCoordinator.cs`, `src/IC2.Engine/Core/Events/**` (additive only), `tests/IC2.Engine.Tests/Core/**` (new tests only)
+- **Scope**: `TurnCoordinator.Run` already records every event of a run in a private `RecordingEventSink`. Expose that record, read-only, on `SystemContext`, so a system can see what earlier systems in the same run published without keeping state of its own. Each entry carries the phase it was published in, and the id of the system that published it. The change is additive: `SystemContext`'s constructor is internal, so no existing system changes.
+- **Done when**:
+  1. `SystemContext` exposes the events published **earlier in the current run**, in publication order, each tagged with its phase and publishing system id. The list is read-only; a system cannot modify it.
+  2. It includes events published through command dispatch and quarter-boundary handlers during the run, since they go through the same sink. One test for each source.
+  3. A system in `SeatEnd` sees the events of `SeatStart`, `Orders` and the systems before it in `SeatEnd`. A system in `RoundEnd` sees the round-scoped phases' events. When `RunTurn` follows on into the round tick, it also sees the seat-scoped events of the same run, told apart by their phase tag. A fresh run starts empty, so nothing carries over between turns.
+  4. The caller's own sink still receives every event exactly as before, and `TurnResult.Events` is unchanged. Existing golden runs keep the same `GameStateHash`, and every existing test stays green.
+  5. `dotnet build IC2.sln` and `dotnet test IC2.sln` are green, and `git diff --name-only main...HEAD` lists only Owns paths.
+- **Hazards**:
+  - Registered systems stay **stateless**: this seam exists so that T10 needs neither reflection over `CompositeEventSink` nor a static.
+  - Don't add a news-specific hook. This is a general read-only view that any system may use.
+  - Keep `SystemContext` wide but additive, per its own remarks.
 
 ### Phase 2 — Dependent systems
 
@@ -971,7 +992,7 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T07](#t07-strength-functions) | Strength functions | M5 | Sonnet | High | **Opus**/Medium | T03, T04, T31 | [#7](https://github.com/diegoami/imperial_conquest_2/issues/7) | Merged (`acd4098`) |
 | [T08](#t08-economy-supply-and-purses) | Economy and purses | M3 | Sonnet | High | **Opus**/Medium | T03, T04, T06, T32 | [#8](https://github.com/diegoami/imperial_conquest_2/issues/8) | Merged (`a53eaa5`) |
 | [T09](#t09-movement-and-terrain) | Movement and terrain | M6 | Sonnet | Medium | Sonnet/High | T03, T04 | [#9](https://github.com/diegoami/imperial_conquest_2/issues/9) | Merged (`e804f4f`) |
-| [T10](#t10-news-log-ring-buffer-and-message-catalog) | News log | M17 | **Haiku** | Medium | Sonnet/Medium | T03, T04 | [#10](https://github.com/diegoami/imperial_conquest_2/issues/10) | Escalated |
+| [T10](#t10-news-log-ring-buffer-and-message-catalog) | News log | M17 | Sonnet | Medium | **Opus**/Medium | T03, T04, T40 | [#10](https://github.com/diegoami/imperial_conquest_2/issues/10) | Escalated |
 | [T11](#t11-asset-pack-loader-and-generated-placeholder-pack) | Asset pack | — | **Haiku** | Medium | Sonnet/Medium | T02 | [#11](https://github.com/diegoami/imperial_conquest_2/issues/11) | Ready |
 | [T12](#t12-victory-conditions) | Victory conditions | M13 | Sonnet | Medium | Sonnet/High | T03, T06 | [#12](https://github.com/diegoami/imperial_conquest_2/issues/12) | Ready |
 | [T13](#t13-recruitment-and-mercenaries) | Recruitment and mercenaries | M4 | Sonnet | High | **Opus**/Medium | T08, T35, T39 | [#13](https://github.com/diegoami/imperial_conquest_2/issues/13) | Blocked |
@@ -1001,5 +1022,6 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T37](#t37-city-supply-production-and-famine-unrest) | City supply and famine unrest | — | Sonnet | Medium | **Opus**/Medium | T08, T35 | [#70](https://github.com/diegoami/imperial_conquest_2/issues/70) | Blocked |
 | [T38](#t38-supply-dialog-follow-ups-treasury--purse-transfers-and-automatic-resupply) | Supply dialog follow-ups + auto-resupply | — | Sonnet | High | **Opus**/Medium | T08 | [#78](https://github.com/diegoami/imperial_conquest_2/issues/78) | Ready |
 | [T39](#t39-quarterly-upkeep-who-pays-mercenary-desertion-and-deposition-for-debt) | Upkeep billing correction | — | Sonnet | High | **Opus**/Medium | T08, T35 | [#81](https://github.com/diegoami/imperial_conquest_2/issues/81) | Blocked |
+| [T40](#t40-expose-the-runs-published-events-to-systems-a-t03-seam) | Published-events seam (T03) | — | Sonnet | Medium | **Opus**/Medium | T03 | [#84](https://github.com/diegoami/imperial_conquest_2/issues/84) | Ready |
 
-**Totals** — 39 tasks: 4 Opus, 28 Sonnet, 6 Haiku, 1 Fable. Effort: 2 Ultrahigh, 17 High, 17 Medium, 3 Low. 12 merged as of `a53eaa5`.
+**Totals** — 40 tasks: 4 Opus, 30 Sonnet, 5 Haiku, 1 Fable. Effort: 2 Ultrahigh, 17 High, 18 Medium, 3 Low. 12 merged as of `a53eaa5`.
