@@ -1,0 +1,7 @@
+# T41 (thin CLI demo): the golden transcript and the script that produces it must be byte-stable
+# across machines. The repository has no root .gitattributes, and this machine's global
+# core.autocrlf=true would otherwise convert these files' "\n" line endings to "\r\n" on checkout,
+# breaking the byte-for-byte comparison DoD 1 depends on. Scoped to this directory, which is inside
+# this task's Owns list (tests/fixtures/cli/**) — no other task's files are affected.
+demo.txt text eol=lf
+demo.golden.txt text eol=lf
