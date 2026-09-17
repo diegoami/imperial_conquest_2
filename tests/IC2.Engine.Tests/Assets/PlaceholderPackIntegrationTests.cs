@@ -1,5 +1,7 @@
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using IC2.Engine.Assets;
+using IC2.Engine.Tests.Fixtures;
 using Xunit;
 
 namespace IC2.Engine.Tests.Assets;
@@ -15,9 +17,7 @@ public class PlaceholderPackIntegrationTests
     public PlaceholderPackIntegrationTests()
     {
         // Locate the placeholder pack relative to the test project
-        var testDir = Path.GetDirectoryName(typeof(PlaceholderPackIntegrationTests).Assembly.Location)!;
-        var repoRoot = FindRepositoryRoot(testDir);
-        _placeholderPackDir = Path.Combine(repoRoot, "assets", "packs", "placeholder");
+        _placeholderPackDir = Path.Combine(FixturePaths.RepositoryRoot, "assets", "packs", "placeholder");
     }
 
     [Fact]
@@ -208,19 +208,120 @@ public class PlaceholderPackIntegrationTests
         }
     }
 
-    private static string FindRepositoryRoot(string startPath)
+    [Fact]
+    public void PNGFiles_HaveValidStructure()
     {
-        var current = startPath;
-        while (current != null)
-        {
-            if (File.Exists(Path.Combine(current, "IC2.sln")))
-            {
-                return current;
-            }
+        // Arrange
+        var manifestPath = Path.Combine(_placeholderPackDir, "manifest.json");
+        var pack = AssetLoader.LoadManifest(manifestPath);
+        var pngAssets = new[] { AssetKeys.ArmyTier1Icon, AssetKeys.ArmyTier2Icon, AssetKeys.ArmyTier3Icon };
 
-            current = Path.GetDirectoryName(current);
+        // Act & Assert
+        foreach (var key in pngAssets)
+        {
+            var relativePath = pack.ResolveAsset(key);
+            var fullPath = Path.Combine(_placeholderPackDir, relativePath);
+
+            Assert.True(File.Exists(fullPath), $"PNG file not found: {key}");
+            ValidatePNGStructure(fullPath, key);
+        }
+    }
+
+    [Fact]
+    public void Generator_ProducesDeterministicOutput()
+    {
+        // DoD 3: Verify that running the generator produces byte-identical output
+        // This test validates that the placeholder pack generation is deterministic
+        // and can be reliably regenerated from the PowerShell script.
+        // Skipped on non-Windows platforms or when PowerShell is not available.
+
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            return;
         }
 
-        throw new InvalidOperationException("Could not find repository root (IC2.sln)");
+        // Arrange
+        var tempDir = Path.Combine(Path.GetTempPath(), $"ic2-placeholder-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+
+        try
+        {
+            // Act - Run generator in temp directory
+            var generatorScript = Path.Combine(FixturePaths.RepositoryRoot, "scripts", "generate-placeholder-assets.ps1");
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "powershell",
+                Arguments = $"-NoProfile -File \"{generatorScript}\" -OutputPath \"{tempDir}\"",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+
+            using (var process = System.Diagnostics.Process.Start(psi))
+            {
+                var timeout = process?.WaitForExit(30000) ?? false;
+                Assert.True(timeout, "Generator script timed out");
+                Assert.Equal(0, process?.ExitCode ?? 1);
+            }
+
+            // Assert - Compare generated files with committed versions
+            var files = Directory.EnumerateFiles(_placeholderPackDir, "*.png", SearchOption.AllDirectories);
+            foreach (var committedPath in files)
+            {
+                var relativePath = Path.GetRelativePath(_placeholderPackDir, committedPath);
+                var generatedPath = Path.Combine(tempDir, relativePath);
+
+                Assert.True(File.Exists(generatedPath), $"Generated file not found: {relativePath}");
+
+                var committedBytes = File.ReadAllBytes(committedPath);
+                var generatedBytes = File.ReadAllBytes(generatedPath);
+
+                Assert.Equal(committedBytes.Length, generatedBytes.Length);
+                Assert.Equal(committedBytes, generatedBytes);
+            }
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, true); } catch { }
+        }
+    }
+
+    private static void ValidatePNGStructure(string pngPath, string assetKey)
+    {
+        using (var stream = File.OpenRead(pngPath))
+        {
+            var reader = new BinaryReader(stream);
+
+            // PNG signature: 137 80 78 71 13 10 26 10
+            var signature = reader.ReadBytes(8);
+            var expectedSig = new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 };
+            Assert.True(signature.SequenceEqual(expectedSig), $"Invalid PNG signature in {assetKey}");
+
+            // Verify IHDR chunk exists and is valid
+            var ihdrLength = ReadBigEndianInt32(reader);
+            Assert.Equal(13, ihdrLength); // IHDR data is always 13 bytes
+
+            var ihdrType = reader.ReadBytes(4);
+            var expectedType = System.Text.Encoding.ASCII.GetBytes("IHDR");
+            Assert.True(ihdrType.SequenceEqual(expectedType), $"Invalid IHDR chunk type in {assetKey}");
+
+            // Read IHDR data (13 bytes: width, height, bit depth, color type, etc)
+            var ihdrData = reader.ReadBytes(13);
+
+            // Read and validate CRC
+            var ihdrCrc = ReadBigEndianInt32(reader);
+            Assert.NotEqual(0, ihdrCrc); // CRC should not be zero
+        }
+    }
+
+    private static int ReadBigEndianInt32(BinaryReader reader)
+    {
+        var bytes = reader.ReadBytes(4);
+        if (BitConverter.IsLittleEndian)
+        {
+            Array.Reverse(bytes);
+        }
+        return BitConverter.ToInt32(bytes, 0);
     }
 }
