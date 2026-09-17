@@ -1,3 +1,4 @@
+using System.Reflection;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
 using IC2.Engine.News;
@@ -16,7 +17,8 @@ namespace IC2.Engine.Tests.News;
 /// </summary>
 public class NewsLogWriterAppendTests
 {
-    private static readonly NewsLogRules GenerousRules = new(RingBufferSlots: 40, MessageByteLength: 4096);
+    private static readonly NewsLogRules GenerousRules =
+        new(RingBufferSlots: 40, MessageByteLength: 4096, SeasonNames: ValueList<string>.Empty);
 
     /// <summary>Both placeholder syntaxes the corpus uses are recognised and substituted in one template.</summary>
     [Fact]
@@ -34,8 +36,8 @@ public class NewsLogWriterAppendTests
 
     /// <summary>
     /// An angle-bracket token's <c>[field[+offset]]</c> provenance annotation (as in the corpus's own
-    /// <c>fleet.finished</c> and <c>victory.conquered-by-nation</c> entries) is consumed when locating the
-    /// property, and never printed in the rendered message.
+    /// <c>fleet.finished</c> entry) is consumed when locating the property, and never printed in the
+    /// rendered message.
     /// </summary>
     [Fact]
     public void Append_StripsBracketAnnotation_FromAngleToken()
@@ -131,15 +133,20 @@ public class NewsLogWriterAppendTests
     }
 
     /// <summary>
-    /// Truncation counts UTF-8 bytes, not <see cref="string.Length"/> (N6), and never splits a multi-byte
-    /// character. "é" is <c>0xC3 0xA9</c> in UTF-8 (2 bytes); five of them is 10 bytes. A 7-byte limit lands
-    /// inside the fourth character's 2-byte sequence, so the correct result keeps only the first three.
+    /// DoD 1 (#91 N15): the slot is a NUL-terminated single-byte string, so at most
+    /// <c>MessageByteLength - 1</c> bytes of text ever reach the log — the 61st byte is always the
+    /// writer's own NUL (news-log-format-and-messages.md Q1). At the real 61-byte slot size that is 60
+    /// bytes: a 59-byte message is untouched, a 60-byte message is untouched (exactly at the cap), and a
+    /// 61-byte message is cut to 60.
     /// </summary>
-    [Fact]
-    public void Append_Truncates_ByUtf8ByteLength_WithoutSplittingACharacter()
+    [Theory]
+    [InlineData(59)]
+    [InlineData(60)]
+    [InlineData(61)]
+    public void Append_Truncates_AtSixtyBytes_ReservingTheSlotsFinalByteForTheNul(int messageLength)
     {
-        var rules = new NewsLogRules(RingBufferSlots: 1, MessageByteLength: 7);
-        var probeEvent = new MultiByteProbeEvent(Text: "ééééé");
+        var rules = new NewsLogRules(RingBufferSlots: 1, MessageByteLength: 61, SeasonNames: ValueList<string>.Empty);
+        var probeEvent = new MultiByteProbeEvent(Text: new string('x', messageLength));
 
         var state = NewsLogWriter.Append(
             CoreTestbed.InitialState(),
@@ -148,8 +155,51 @@ public class NewsLogWriterAppendTests
             _ => "{Text}");
 
         var text = Assert.Single(state.NewsLog.Slots).Text;
-        Assert.Equal("ééé", text);
-        Assert.True(System.Text.Encoding.UTF8.GetByteCount(text) <= rules.MessageByteLength);
+        Assert.Equal(new string('x', Math.Min(messageLength, 60)), text);
+        Assert.True(text.Length <= 60);
+    }
+
+    /// <summary>
+    /// DoD 1 (#91 N15): a non-ASCII operand is rejected rather than silently counted as UTF-8 or
+    /// transcoded through a best-fit fallback — every shipped name is ASCII
+    /// (news-log-format-and-messages.md Q1), so a non-ASCII byte signals an upstream bug. See
+    /// <c>NewsLogWriter.TruncateToByteLength</c>'s remarks for what was searched.
+    /// </summary>
+    [Fact]
+    public void Append_Rejects_ANonAsciiOperand()
+    {
+        var rules = new NewsLogRules(RingBufferSlots: 1, MessageByteLength: 61, SeasonNames: ValueList<string>.Empty);
+        var probeEvent = new MultiByteProbeEvent(Text: "Ostiaé"); // trailing é (U+00E9)
+
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() => NewsLogWriter.Append(
+            CoreTestbed.InitialState(),
+            new DomainEvent[] { probeEvent },
+            rules,
+            _ => "{Text}"));
+
+        Assert.Contains("ASCII", ex.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// DoD 4: an event whose kind is <c>NewsMessageCatalog.IsWrappedInDashLines</c> renders as three
+    /// entries — a dash line, the message, then the dash line again — matching the original's
+    /// elimination banner (news-log-format-and-messages.md Q4 #10-12, confirmed 2 of 2). Uses the
+    /// test-only <c>test.news-log.pipeline-probe.nation-conquered</c> kind through the *default*
+    /// production catalog (no <c>templateFor</c> override), because the dash-wrap decision keys off the
+    /// published event's own <c>Kind</c> — see <c>NewsMessageCatalog</c>'s remarks on why this needs its
+    /// own namespace-unique wrapped kind rather than reusing the real <c>nation.conquered</c> (#91 N23).
+    /// </summary>
+    [Fact]
+    public void NationConquered_RendersAsThreeEntries_BetweenDashLines()
+    {
+        var probeEvent = new PipelineProbeNationConqueredEvent(
+            ConqueringNation: "Seleucid", ConqueredNation: "Galatia");
+
+        var state = NewsLogWriter.Append(CoreTestbed.InitialState(), new DomainEvent[] { probeEvent }, GenerousRules);
+
+        var texts = state.NewsLog.Slots.Select(s => s.Text).ToList();
+        var dash = NewsMessageCatalog.GetTemplate(NewsMessageCatalog.DashLineKind);
+        Assert.Equal(new[] { dash, "Seleucid conquers Galatia.", dash }, texts);
     }
 
     /// <summary>A non-news-worthy event is skipped entirely: no template lookup, no ring-buffer write.</summary>
@@ -171,7 +221,7 @@ public class NewsLogWriterAppendTests
     [Fact]
     public void Append_Evicts_WhenManyEventsInOneCallExceedCapacity()
     {
-        var rules = new NewsLogRules(RingBufferSlots: 3, MessageByteLength: 4096);
+        var rules = new NewsLogRules(RingBufferSlots: 3, MessageByteLength: 4096, SeasonNames: ValueList<string>.Empty);
         var events = Enumerable.Range(0, 5)
             .Select(i => (DomainEvent)new MultiByteProbeEvent($"m{i}"))
             .ToArray();
@@ -191,6 +241,99 @@ public class NewsLogWriterAppendTests
         var state = NewsLogWriter.Append(CoreTestbed.InitialState(), new DomainEvent[] { probeEvent }, GenerousRules);
 
         Assert.Equal("Rome   (Republic)  falls to Empire.", Assert.Single(state.NewsLog.Slots).Text);
+    }
+
+    /// <summary>
+    /// #91 N26: an angle-bracket token that matches two properties differing only by case throws, rather
+    /// than silently picking whichever <see cref="System.Reflection.PropertyInfo.GetProperties()"/>
+    /// happens to return first (an order-dependent result <c>PropertyInfo.GetProperties()</c>'s own
+    /// contract does not promise).
+    /// </summary>
+    [Fact]
+    public void Append_Throws_WhenAnAngleTokenMatchesTwoPropertiesDifferingOnlyByCase()
+    {
+        var probeEvent = new CaseAmbiguousProbeEvent(CityName: "Rome", Cityname: "Carthage");
+
+        Assert.Throws<AmbiguousMatchException>(() => NewsLogWriter.Append(
+            CoreTestbed.InitialState(),
+            new DomainEvent[] { probeEvent },
+            GenerousRules,
+            _ => "<cityname> falls."));
+    }
+
+    /// <summary>
+    /// DoD 2 (news-log-format-and-messages.md Q2): the reparations amount is comma-grouped, no locale,
+    /// no decimals; a week or year operand is never grouped (contrast <see cref="RenderWeekHeader"/>).
+    /// </summary>
+    [Theory]
+    [InlineData(2269, "2,269")]
+    [InlineData(12345678, "12,345,678")]
+    [InlineData(334, "334")]
+    public void FormatGroupedAmount_GroupsEveryThreeDigits(int amount, string expected)
+    {
+        Assert.Equal(expected, NewsLogWriter.FormatGroupedAmount(amount));
+    }
+
+    /// <summary>
+    /// DoD 2, end to end: a reparations event whose amount property is pre-formatted through
+    /// <see cref="NewsLogWriter.FormatGroupedAmount"/> (the emitting task's own responsibility, matching
+    /// the existing <c>peace.pays-reparations</c> render test) renders with the comma intact.
+    /// </summary>
+    [Fact]
+    public void Append_Renders_TheGroupedReparationsAmount()
+    {
+        var probeEvent = new GroupedAmountProbeEvent(Loser: "Carthage", Amount: NewsLogWriter.FormatGroupedAmount(2269));
+
+        var state = NewsLogWriter.Append(
+            CoreTestbed.InitialState(),
+            new DomainEvent[] { probeEvent },
+            GenerousRules,
+            _ => "<loser> pays reparations of <amount> talents.");
+
+        Assert.Equal(
+            "Carthage pays reparations of 2,269 talents.",
+            Assert.Single(state.NewsLog.Slots).Text);
+    }
+
+    /// <summary>
+    /// news-log-format-and-messages.md Q2: a war declaration is uppercased in full (ASCII a-z only) when
+    /// either nation is human; an alliance line is never uppercased regardless.
+    /// </summary>
+    [Theory]
+    [InlineData("Dacia declares war on Gaul.", false, "Dacia declares war on Gaul.")]
+    [InlineData("Dacia declares war on Gaul.", true, "DACIA DECLARES WAR ON GAUL.")]
+    public void ApplyWarDeclarationShouting_UppercasesOnlyWhenAHumanIsInvolved(
+        string rendered, bool involvesHuman, string expected)
+    {
+        Assert.Equal(expected, NewsLogWriter.ApplyWarDeclarationShouting(rendered, involvesHuman));
+    }
+
+    /// <summary>
+    /// #91 N20: the out-of-run entry point is exercised with a real <see cref="CommandResult"/> from a
+    /// real <see cref="CommandDispatcher.Dispatch"/> call, outside a <see cref="TurnCoordinator"/> run --
+    /// not a plain array standing in for its <see cref="CommandResult.Events"/>. Mirrors how T23's
+    /// human-order commands and <c>GameSession</c> (T41) both route a dispatched command's own events
+    /// through this public method directly (<see cref="NewsLogWriter"/>'s own remarks: a command
+    /// dispatched outside a run, and <see cref="TurnCoordinator.FireQuarterBoundary"/> called directly,
+    /// both bypass <see cref="SystemContext.PublishedEvents"/> the same way).
+    /// </summary>
+    [Fact]
+    public void Append_Renders_EventsFromARealCommandResult()
+    {
+        var registry = SystemRegistry.FromAssemblies(
+            new[] { typeof(NewsLogWriterSeatEnd).Assembly, typeof(NewsLogWriterFixtures).Assembly },
+            type => type == typeof(CommandResultProbeCommandHandler));
+        var dispatcher = new CommandDispatcher(
+            registry, CoreTestbed.Toy.Ruleset, CoreTestbed.Toy.World, NullEventSink.Instance);
+
+        var result = dispatcher.Dispatch(CoreTestbed.InitialState(), new CommandResultProbeCommand("north"));
+        Assert.True(result.IsAccepted);
+
+        var updated = NewsLogWriter.Append(result.State, result.Events, CoreTestbed.Toy.Ruleset.NewsLog);
+
+        Assert.Equal(
+            "CommandProbeCity   (Old)  falls to New.",
+            Assert.Single(updated.NewsLog.Slots).Text);
     }
 }
 
@@ -212,6 +355,17 @@ public sealed record SelfReferentialProbeEvent(string CityName, string OldOwner)
 
 [DomainEvent("test.news-log.base-property-probe", NewsWorthy = true)]
 public sealed record BasePropertyProbeEvent(string Detail) : DomainEvent;
+
+/// <summary>The test-only, dash-wrapped kind <c>NewsMessageCatalog.DashWrappedKinds</c> also carries.</summary>
+[DomainEvent("test.news-log.pipeline-probe.nation-conquered", NewsWorthy = true)]
+public sealed record PipelineProbeNationConqueredEvent(string ConqueringNation, string ConqueredNation) : DomainEvent;
+
+/// <summary>Two properties differing only by case — #91 N26's regression case.</summary>
+[DomainEvent("test.news-log.append-probe.case-ambiguous", NewsWorthy = true)]
+public sealed record CaseAmbiguousProbeEvent(string CityName, string Cityname) : DomainEvent;
+
+[DomainEvent("test.news-log.append-probe.grouped-amount", NewsWorthy = true)]
+public sealed record GroupedAmountProbeEvent(string Loser, string Amount) : DomainEvent;
 
 [DomainEvent("test.news-log.append-probe.multi-byte", NewsWorthy = true)]
 public sealed record MultiByteProbeEvent(string Text) : DomainEvent;

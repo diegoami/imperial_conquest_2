@@ -484,10 +484,25 @@ public sealed record CityOrderRule(
     bool WipedBySiegeAttempt,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
-/// <summary>The news log's ring-buffer geometry.</summary>
+/// <summary>The news log's ring-buffer geometry, slot size and round-header season names.</summary>
+/// <param name="RingBufferSlots">The ring buffer's capacity, 40 <c>[confirmed]</c>.</param>
+/// <param name="MessageByteLength">
+/// The slot's own size in bytes -- 61 <c>[confirmed]</c>. The slot is a NUL-terminated single-byte
+/// string, so the writer reserves its last byte for the NUL: at most <c>MessageByteLength - 1</c>
+/// bytes of text ever reach the log (<c>news-log-format-and-messages.md</c> Q1, confirmed against
+/// 2,101 slots in 54 saves, every one NUL-terminated, longest 59).
+/// </param>
+/// <param name="SeasonNames">
+/// The four season names, in <see cref="CalendarState.SeasonIndex"/> order (0 = Spring), for the round
+/// tick's week header (<c>news-log-format-and-messages.md</c> Q3: "Season names are the DAT's season
+/// table at 0x1F7D8: Spring, Summer, Autumn, Winter" -- the same table
+/// <c>CalendarRules.StartSeasonIndex</c>'s own provenance and <c>EconomyRules</c>'s seasonal supply
+/// table already index the same way).
+/// </param>
 public sealed record NewsLogRules(
     int RingBufferSlots,
     int MessageByteLength,
+    ValueList<string> SeasonNames,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>

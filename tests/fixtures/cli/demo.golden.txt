@@ -117,7 +117,19 @@ north-army-1 bought 50 tons of supply at arx, free at your own city.
 north-army-1 bought 50 tons of supply at meridia, costing 10 talents.
 
 > news
-No news yet.
+News log:
+   
+  Week  3      Spring      270BC
+   
+  Week  5      Spring      270BC
+   
+  Week  7      Spring      270BC
+   
+  Week  9      Spring      270BC
+   
+  Week  11      Spring      270BC
+   
+  Week  1      Summer      270BC
 
 > status
 Week 1, Summer 270 BC (turn 6). Active seat: Northern League (north).
