@@ -1,0 +1,32 @@
+{
+    "schemaVersion":  1,
+    "name":  "Placeholder Asset Pack",
+    "description":  "Generated placeholder assets - flat colors, silent audio stubs, good enough for development and testing.",
+    "assets":  {
+                   "unit.light_infantry.icon":  "units/light_infantry.bmp",
+                   "sfx.unit_move":  "sfx/unit_move.wav",
+                   "unit.archers.icon":  "units/archers.bmp",
+                   "city.tier3.icon":  "city/tier3.bmp",
+                   "unit.heavy_cavalry.icon":  "units/heavy_cavalry.bmp",
+                   "unit.heavy_infantry.icon":  "units/heavy_infantry.bmp",
+                   "terrain.river.tile":  "terrain/river.bmp",
+                   "fleet.tier3.icon":  "fleet/tier3.bmp",
+                   "city.tier2.icon":  "city/tier2.bmp",
+                   "terrain.forest.tile":  "terrain/forest.bmp",
+                   "city.capital.icon":  "city/capital.bmp",
+                   "army.tier2.icon":  "army/tier2.bmp",
+                   "terrain.sea_coastal.tile":  "terrain/sea_coastal.bmp",
+                   "terrain.desert.tile":  "terrain/desert.bmp",
+                   "fleet.tier2.icon":  "fleet/tier2.bmp",
+                   "city.tier1.icon":  "city/tier1.bmp",
+                   "fleet.tier1.icon":  "fleet/tier1.bmp",
+                   "terrain.sea_deep.tile":  "terrain/sea_deep.bmp",
+                   "sfx.city_captured":  "sfx/city_captured.wav",
+                   "terrain.plain.tile":  "terrain/plain.bmp",
+                   "terrain.mountain.tile":  "terrain/mountain.bmp",
+                   "army.tier1.icon":  "army/tier1.bmp",
+                   "sfx.battle":  "sfx/battle.wav",
+                   "army.tier3.icon":  "army/tier3.bmp",
+                   "unit.light_cavalry.icon":  "units/light_cavalry.bmp"
+               }
+}
