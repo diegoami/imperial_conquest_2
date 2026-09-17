@@ -25,16 +25,17 @@ namespace IC2.Engine.Tests.News;
 /// exceptions, and deliberately so: DoD 4 requires proving the news log is populated through the
 /// <em>real, registry-instantiated</em> <see cref="NewsLogWriterSeatEnd"/> and
 /// <see cref="NewsLogWriterRoundEnd"/> — which resolve every template through the real
-/// <see cref="NewsMessageCatalog"/>, with no way to substitute a test-only template without adding a
-/// fixture-only entry to that production catalog (which would then need its own justification, and
-/// would grow instead of shrink the catalog's public surface for a reason unrelated to any report or
-/// corpus). Reusing the two real, corpus-confirmed kinds <c>city.falls-to</c> and <c>fleet.lost-at-sea</c>
-/// — which this task's own catalog owns permanently — keeps the DoD-4 pipeline tests genuinely
-/// end-to-end without that. This is a smaller, understood instance of the same risk N10 flagged (a later
-/// task's <em>own</em> test fixture could independently pick the same kind for the same reason T10 did),
-/// reduced from the twelve production-shaped kinds the first attempt declared down to these two. The
-/// direct <see cref="NewsLogWriter.Append"/> unit tests in <c>NewsLogWriterAppendTests</c> need no catalog
-/// entry at all — they inject their own template resolver — and use fully unique kinds throughout.
+/// <see cref="NewsMessageCatalog"/>, with no way to substitute a test-only template without adding an
+/// entry to that production catalog. Until T42, they reused the two real, corpus-confirmed kinds
+/// <c>city.falls-to</c> and <c>fleet.lost-at-sea</c> for exactly that reason — which the T10 reviewer
+/// accepted at the time but flagged as a live collision risk once a real production event ever declared
+/// either (#91 N23). T42 closed that gap the same way N10 itself was closed: both fixtures now render
+/// under their own namespace-unique <c>test.news-log.pipeline-probe.*</c> kind, backed by a small,
+/// clearly-documented scaffolding entry in <see cref="NewsMessageCatalog"/> that copies the real
+/// template verbatim — so the rendered text these tests assert is unchanged, and the pipeline tests stay
+/// genuinely end-to-end, with no residual kind reused from production. The direct
+/// <see cref="NewsLogWriter.Append"/> unit tests in <c>NewsLogWriterAppendTests</c> need no catalog entry
+/// at all — they inject their own template resolver — and use fully unique kinds throughout.
 /// </para>
 /// </remarks>
 public static class NewsLogWriterFixtures
@@ -93,17 +94,22 @@ public static class NewsLogWriterFixtures
 }
 
 /// <summary>
-/// A seat-scoped, news-worthy fixture reusing the real, corpus-confirmed <c>city.falls-to</c> kind. See
-/// <see cref="NewsLogWriterFixtures"/>'s remarks for why.
+/// A seat-scoped, news-worthy fixture. Renders through the real production catalog under the
+/// test-only <c>test.news-log.pipeline-probe.city-falls</c> kind (#91 N23) — not the real
+/// <c>city.falls-to</c>, which this fixture reused until T42; see <c>NewsMessageCatalog</c>'s remarks
+/// on the two pipeline-probe entries for why. The rendered text is identical either way, since the
+/// scaffolding template is a verbatim copy of the real one.
 /// </summary>
-[DomainEvent("city.falls-to", NewsWorthy = true)]
+[DomainEvent("test.news-log.pipeline-probe.city-falls", NewsWorthy = true)]
 public sealed record CityFallsToFixtureEvent(string CityName, string OldOwner, string NewOwner) : DomainEvent;
 
 /// <summary>
-/// A round-scoped, news-worthy fixture reusing the real, corpus-confirmed <c>fleet.lost-at-sea</c> kind.
-/// See <see cref="NewsLogWriterFixtures"/>'s remarks for why.
+/// A round-scoped, news-worthy fixture. Renders through the real production catalog under the
+/// test-only <c>test.news-log.pipeline-probe.fleet-lost</c> kind (#91 N23) — not the real
+/// <c>fleet.lost-at-sea</c>, which this fixture reused until T42; see <c>NewsMessageCatalog</c>'s
+/// remarks on the two pipeline-probe entries for why.
 /// </summary>
-[DomainEvent("fleet.lost-at-sea", NewsWorthy = true)]
+[DomainEvent("test.news-log.pipeline-probe.fleet-lost", NewsWorthy = true)]
 public sealed record FleetLostAtSeaFixtureEvent(string Nation) : DomainEvent;
 
 /// <summary>A non-news-worthy fixture, under a namespace-unique kind — no catalog entry is needed or exists.</summary>
@@ -262,4 +268,26 @@ public sealed class RecordingUiStyleSink : IEventSink
 
     /// <inheritdoc/>
     public void Publish(DomainEvent domainEvent) => _received.Add(domainEvent);
+}
+
+// --- #91 N20: a command whose handler publishes a news-worthy event, dispatched outside any run, so
+// NewsLogWriterAppendTests can feed a real CommandResult.Events to NewsLogWriter.Append directly -- the
+// out-of-run entry point T23's human orders and T41's GameSession both use.
+
+/// <summary>A command whose handler always accepts and publishes one news-worthy fixture event.</summary>
+public sealed record CommandResultProbeCommand(string IssuingNationId) : ICommand
+{
+    /// <inheritdoc/>
+    public string Kind => "test.news-log.command-result-probe";
+}
+
+[CommandHandler]
+public sealed class CommandResultProbeCommandHandler : ICommandHandler<CommandResultProbeCommand>
+{
+    /// <inheritdoc/>
+    public CommandOutcome Handle(CommandResultProbeCommand command, CommandContext context)
+    {
+        context.Events.Publish(new CityFallsToFixtureEvent("CommandProbeCity", "Old", "New"));
+        return CommandOutcome.Accept(context.State);
+    }
 }
