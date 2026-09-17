@@ -54,7 +54,6 @@ public class NewsMessageCatalogTests
         { "peace.ally-agreement", "newsMessage.allyPeaceAgreement" },
         { "fleet.finished", "newsMessage.fleetFinished" },
         { NewsMessageCatalog.DashLineKind, "newsMessage.dashLine" },
-        { NewsMessageCatalog.BlankLineKind, "newsMessage.blankLine" },
         { NewsMessageCatalog.WeekHeaderKind, "newsMessage.weekHeader" },
     };
 
@@ -147,8 +146,8 @@ public class NewsMessageCatalogTests
     /// structural entries (<see cref="NewsMessageCatalog.DashLineKind"/>,
     /// <see cref="NewsMessageCatalog.BlankLineKind"/>, <see cref="NewsMessageCatalog.WeekHeaderKind"/>)
     /// have no backing event and are covered separately, by
-    /// <see cref="StructuralEntries_RenderAsTheirOwnLiteral"/> and
-    /// <see cref="RenderWeekHeader_SubstitutesTheThreeTokens"/>.
+    /// <see cref="DashLine_RendersAsItsOwnLiteral"/>, <see cref="BlankLine_MarkerMapsBackToTheConfirmedSpace"/>
+    /// and <see cref="RenderWeekHeader_SubstitutesTheThreeTokens"/>.
     /// </summary>
     [Theory]
     [MemberData(nameof(RenderCases))]
@@ -270,13 +269,31 @@ public class NewsMessageCatalogTests
         },
     };
 
-    /// <summary>The three structural entries render as their own stored literal, with no substitution.</summary>
-    [Theory]
-    [InlineData(NewsMessageCatalog.DashLineKind, "newsMessage.dashLine")]
-    [InlineData(NewsMessageCatalog.BlankLineKind, "newsMessage.blankLine")]
-    public void StructuralEntries_RenderAsTheirOwnLiteral(string kind, string corpusId)
+    /// <summary>The dash line renders as its own stored literal, with no substitution.</summary>
+    [Fact]
+    public void DashLine_RendersAsItsOwnLiteral()
     {
-        Assert.Equal(FixtureCorpus.Get(corpusId).AsString(), NewsMessageCatalog.GetTemplate(kind));
+        Assert.Equal(
+            FixtureCorpus.Get("newsMessage.dashLine").AsString(),
+            NewsMessageCatalog.GetTemplate(NewsMessageCatalog.DashLineKind));
+    }
+
+    /// <summary>
+    /// <c>newsMessage.blankLine</c>'s corpus value is the marker text <c>"&lt;space&gt;"</c>, not a
+    /// literal whitespace-only string — <c>tests/IC2.Engine.Tests/Fixtures/FixturesCorpusTests.cs</c>
+    /// (T04's Owns, outside this task's) rejects any whitespace-only corpus value as empty. Mapping the
+    /// marker back to a real space reproduces <see cref="NewsMessageCatalog.BlankLineKind"/>'s own
+    /// stored literal exactly — the confirmed fact (a single 0x20 byte) is unchanged; only its JSON
+    /// encoding works around a schema constraint outside this task's Owns list.
+    /// </summary>
+    [Fact]
+    public void BlankLine_MarkerMapsBackToTheConfirmedSpace()
+    {
+        var marker = FixtureCorpus.Get("newsMessage.blankLine").AsString();
+        var mappedBack = marker.Replace("<space>", " ", StringComparison.Ordinal);
+
+        Assert.Equal(" ", mappedBack);
+        Assert.Equal(mappedBack, NewsMessageCatalog.GetTemplate(NewsMessageCatalog.BlankLineKind));
     }
 
     /// <summary>
