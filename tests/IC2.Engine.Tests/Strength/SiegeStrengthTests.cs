@@ -5,13 +5,12 @@ using Xunit;
 namespace IC2.Engine.Tests.Strength;
 
 /// <summary>
-/// <c>docs/build-orchestration-plan.md</c> "T07 Strength functions", Done-when 4 ("siege defender
-/// strength triples archers, and applies the fortification/loyalty term"). See
-/// <see cref="SiegeStrength"/>'s remarks for why this splits into <see cref="SiegeStrength.Attacker"/>
-/// (archers tripled) and <see cref="SiegeStrength.Defender"/> (loyalty/fortification/population),
-/// matching the two separate decompiled functions the task's own wording summarises in one sentence,
-/// and for the round-1 correction to <see cref="SiegeStrength.Defender"/>'s field identities
-/// (<c>docs/investigations/siege-defender-strength.md</c>, T31).
+/// <see cref="SiegeStrength.Attacker"/> (archers tripled) and <see cref="SiegeStrength.Defender"/>
+/// (loyalty/fortification/population, then the capital-and-loyalty and owner-vs-allegiance scaling
+/// branches), matching the two separate decompiled functions <c>FUN_0044A930</c> and
+/// <c>FUN_0044A98C</c>. See <see cref="SiegeStrength"/>'s remarks for the full history, and
+/// <c>docs/investigations/siege-defender-strength.md</c> (T31/T33) for the decompiled evidence behind
+/// every constant and branch here.
 /// </summary>
 public sealed class SiegeStrengthTests
 {
@@ -75,11 +74,12 @@ public sealed class SiegeStrengthTests
     }
 
     /// <summary>
-    /// "Applies the fortification/loyalty term": all three confirmed terms are present, each with its
-    /// own weight, matching the corrected <c>FUN_0044A98C</c> field mapping
-    /// (<c>docs/investigations/siege-defender-strength.md</c>): loyalty × 150, finished fortification
-    /// percent × 250, population (thousands) × 200. No fortification order is pending in this test, so
-    /// the stored word equals the finished percent directly.
+    /// All three confirmed weighted-sum terms are present, each with its own weight, matching the
+    /// corrected <c>FUN_0044A98C</c> field mapping (<c>docs/investigations/siege-defender-strength.md</c>):
+    /// loyalty × 150, finished fortification percent × 250, population (thousands) × 200. No
+    /// fortification order is pending in this test, so the stored word equals the finished percent
+    /// directly. Neither scaling branch applies here (not a capital, owner equals allegiance), isolating
+    /// the weighted sum itself.
     /// </summary>
     [Fact]
     public void Defender_AppliesLoyaltyFortificationAndPopulationTerms()
@@ -87,10 +87,10 @@ public sealed class SiegeStrengthTests
         var ruleset = StrengthTestbed.Ruleset;
         var order = StrengthTestbed.FortifyOrder;
 
-        var loyaltyOnly = SiegeStrength.Defender(fortificationCode: 0, order, loyalty: 10, populationThousands: 0, ruleset);
-        var fortificationOnly = SiegeStrength.Defender(fortificationCode: 10, order, loyalty: 0, populationThousands: 0, ruleset);
-        var populationOnly = SiegeStrength.Defender(fortificationCode: 0, order, loyalty: 0, populationThousands: 10, ruleset);
-        var allThree = SiegeStrength.Defender(fortificationCode: 10, order, loyalty: 10, populationThousands: 10, ruleset);
+        var loyaltyOnly = SiegeStrength.Defender(fortificationCode: 0, order, loyalty: 10, populationThousands: 0, isControllerCapital: false, ownerDiffersFromAllegiance: false, ruleset);
+        var fortificationOnly = SiegeStrength.Defender(fortificationCode: 10, order, loyalty: 0, populationThousands: 0, isControllerCapital: false, ownerDiffersFromAllegiance: false, ruleset);
+        var populationOnly = SiegeStrength.Defender(fortificationCode: 0, order, loyalty: 0, populationThousands: 10, isControllerCapital: false, ownerDiffersFromAllegiance: false, ruleset);
+        var allThree = SiegeStrength.Defender(fortificationCode: 10, order, loyalty: 10, populationThousands: 10, isControllerCapital: false, ownerDiffersFromAllegiance: false, ruleset);
 
         Assert.Equal(10 * ruleset.Siege.DefenderLoyaltyWeight, loyaltyOnly);
         Assert.Equal(10 * ruleset.Siege.DefenderFortificationWeight, fortificationOnly);
@@ -136,7 +136,7 @@ public sealed class SiegeStrengthTests
         var ruleset = StrengthTestbed.Ruleset;
         var order = StrengthTestbed.FortifyOrder;
 
-        var decoded = SiegeStrength.Defender(fortificationCode: 130, order, loyalty: 0, populationThousands: 0, ruleset);
+        var decoded = SiegeStrength.Defender(fortificationCode: 130, order, loyalty: 0, populationThousands: 0, isControllerCapital: false, ownerDiffersFromAllegiance: false, ruleset);
         var ifNeverDecoded = 130 * ruleset.Siege.DefenderFortificationWeight;
 
         Assert.Equal(30 * ruleset.Siege.DefenderFortificationWeight, decoded);
@@ -156,7 +156,7 @@ public sealed class SiegeStrengthTests
         var ruleset = StrengthTestbed.Ruleset;
         var order = StrengthTestbed.FortifyOrder;
 
-        var atMaximum = SiegeStrength.Defender(fortificationCode: 100, order, loyalty: 0, populationThousands: 0, ruleset);
+        var atMaximum = SiegeStrength.Defender(fortificationCode: 100, order, loyalty: 0, populationThousands: 0, isControllerCapital: false, ownerDiffersFromAllegiance: false, ruleset);
 
         Assert.Equal(100 * ruleset.Siege.DefenderFortificationWeight, atMaximum);
         Assert.NotEqual(0, atMaximum);
@@ -168,11 +168,105 @@ public sealed class SiegeStrengthTests
         var ruleset = StrengthTestbed.Ruleset;
         var order = StrengthTestbed.FortifyOrder;
 
-        var lower = SiegeStrength.Defender(fortificationCode: 20, order, loyalty: 40, populationThousands: 0, ruleset);
-        var higherFortification = SiegeStrength.Defender(fortificationCode: 60, order, loyalty: 40, populationThousands: 0, ruleset);
-        var higherLoyalty = SiegeStrength.Defender(fortificationCode: 20, order, loyalty: 90, populationThousands: 0, ruleset);
+        var lower = SiegeStrength.Defender(fortificationCode: 20, order, loyalty: 40, populationThousands: 0, isControllerCapital: false, ownerDiffersFromAllegiance: false, ruleset);
+        var higherFortification = SiegeStrength.Defender(fortificationCode: 60, order, loyalty: 40, populationThousands: 0, isControllerCapital: false, ownerDiffersFromAllegiance: false, ruleset);
+        var higherLoyalty = SiegeStrength.Defender(fortificationCode: 20, order, loyalty: 90, populationThousands: 0, isControllerCapital: false, ownerDiffersFromAllegiance: false, ruleset);
 
         Assert.True(higherFortification > lower);
         Assert.True(higherLoyalty > lower);
+    }
+
+    // ---- T33 Done-when 3: SiegeStrength.Defender applies both scaling branches, in the decompiled
+    // function's own order (weighted sum, then capital-and-loyalty, then owner-vs-allegiance), each
+    // truncating at each step. One test per branch, one with both, and one input where applying the two
+    // branches in the other order gives a different result. ----
+
+    /// <summary>
+    /// The capital-and-loyalty branch alone: <c>loyalty=100, fortification=0, population=0</c> gives a
+    /// weighted sum of <c>100 * 150 = 15,000</c>; with <c>isControllerCapital=true</c> and loyalty (100)
+    /// above <see cref="SiegeRules.HighLoyaltyThreshold"/> (59), the sum scales by
+    /// <c>5/3</c>: <c>15,000 * 5 / 3 = 25,000</c> exactly. The owner-vs-allegiance branch does not apply.
+    /// </summary>
+    [Fact]
+    public void Defender_CapitalAndHighLoyaltyBranch_Alone_ScalesByFiveThirds()
+    {
+        var ruleset = StrengthTestbed.Ruleset;
+        var order = StrengthTestbed.FortifyOrder;
+
+        var strength = SiegeStrength.Defender(
+            fortificationCode: 0, order, loyalty: 100, populationThousands: 0,
+            isControllerCapital: true, ownerDiffersFromAllegiance: false, ruleset);
+
+        Assert.Equal(25_000, strength);
+    }
+
+    /// <summary>
+    /// The owner-vs-allegiance branch alone: <c>loyalty=0, fortification=40, population=0</c> gives a
+    /// weighted sum of <c>40 * 250 = 10,000</c>; with <c>ownerDiffersFromAllegiance=true</c> the sum
+    /// scales by <see cref="SiegeRules.DefenderNonAllegiantNumerator"/>/<see cref="SiegeRules.DefenderNonAllegiantDenominator"/>
+    /// (4/5): <c>10,000 * 4 / 5 = 8,000</c> exactly. The capital-and-loyalty branch does not apply
+    /// (not a capital, and loyalty is 0).
+    /// </summary>
+    [Fact]
+    public void Defender_OwnerDiffersFromAllegianceBranch_Alone_ScalesByFourFifths()
+    {
+        var ruleset = StrengthTestbed.Ruleset;
+        var order = StrengthTestbed.FortifyOrder;
+
+        var strength = SiegeStrength.Defender(
+            fortificationCode: 40, order, loyalty: 0, populationThousands: 0,
+            isControllerCapital: false, ownerDiffersFromAllegiance: true, ruleset);
+
+        Assert.Equal(8_000, strength);
+    }
+
+    /// <summary>
+    /// Both branches together, applied in the decompiled function's order (capital-and-loyalty first,
+    /// then owner-vs-allegiance): the same <c>loyalty=100</c> weighted sum (15,000) scales to 25,000 by
+    /// the first branch, then to <c>25,000 * 4 / 5 = 20,000</c> by the second.
+    /// </summary>
+    [Fact]
+    public void Defender_BothBranches_ApplyInSequence()
+    {
+        var ruleset = StrengthTestbed.Ruleset;
+        var order = StrengthTestbed.FortifyOrder;
+
+        var strength = SiegeStrength.Defender(
+            fortificationCode: 0, order, loyalty: 100, populationThousands: 0,
+            isControllerCapital: true, ownerDiffersFromAllegiance: true, ruleset);
+
+        Assert.Equal(20_000, strength);
+    }
+
+    /// <summary>
+    /// The two branches do not commute under truncating integer division: applying the owner-vs-allegiance
+    /// branch <em>before</em> the capital-and-loyalty branch (the wrong order) gives a different final
+    /// result than the decompiled function's actual order (capital-and-loyalty, then owner-vs-allegiance),
+    /// for the same inputs. Weighted sum: <c>loyalty=61 (61*150=9,150) + fortification=1 (1*250=250) =
+    /// 9,400</c>.
+    /// <code>
+    /// correct order:  9,400 * 5 / 3 = 15,666 (truncated); 15,666 * 4 / 5 = 12,532 (truncated)
+    /// wrong order:    9,400 * 4 / 5 = 7,520  (exact);      7,520 * 5 / 3 = 12,533 (truncated)
+    /// </code>
+    /// 12,532 ≠ 12,533 -- the order is load-bearing, not merely a stylistic choice.
+    /// </summary>
+    [Fact]
+    public void Defender_BranchOrder_IsLoadBearing_ReversedOrderGivesADifferentResult()
+    {
+        var ruleset = StrengthTestbed.Ruleset;
+        var order = StrengthTestbed.FortifyOrder;
+        var rules = ruleset.Siege;
+
+        var strength = SiegeStrength.Defender(
+            fortificationCode: 1, order, loyalty: 61, populationThousands: 0,
+            isControllerCapital: true, ownerDiffersFromAllegiance: true, ruleset);
+
+        const int weightedSum = (61 * 150) + (1 * 250); // 9,400 -- loyalty and fortification terms only.
+        var wrongOrder = weightedSum * rules.DefenderNonAllegiantNumerator / rules.DefenderNonAllegiantDenominator;
+        wrongOrder = wrongOrder * rules.HighLoyaltyBonusNumerator / rules.HighLoyaltyBonusDenominator;
+
+        Assert.Equal(12_532, strength);
+        Assert.Equal(12_533, wrongOrder);
+        Assert.NotEqual(wrongOrder, strength);
     }
 }
