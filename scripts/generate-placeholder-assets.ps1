@@ -1,3 +1,4 @@
+#Requires -Version 5.0
 <#
 .SYNOPSIS
 Generates a deterministic placeholder asset pack for testing and development.
@@ -8,16 +9,11 @@ All output is byte-identical across runs, suitable for checking into version con
 
 .PARAMETER OutputPath
 The directory to write the asset pack to. Created if it doesn't exist.
-Typically something like assets/packs/placeholder/.
-
-.PARAMETER Seed
-Seed for deterministic color generation (currently unused, reserved for future randomization).
 #>
 
 param(
     [Parameter(Mandatory=$true)]
     [string]$OutputPath,
-
     [int]$Seed = 42
 )
 
@@ -30,17 +26,43 @@ if (!(Test-Path $OutputPath)) {
 }
 
 # Create subdirectories
-@('units', 'army', 'fleet', 'city', 'terrain', 'sfx') | ForEach-Object {
-    $dir = Join-Path $OutputPath $_
-    if (!(Test-Path $dir)) {
-        $null = New-Item -ItemType Directory -Path $dir -Force
+foreach ($dir in @('units', 'army', 'fleet', 'city', 'terrain', 'sfx')) {
+    $subdir = Join-Path -Path $OutputPath -ChildPath $dir
+    if (!(Test-Path $subdir)) {
+        $null = New-Item -ItemType Directory -Path $subdir -Force
     }
 }
 
-# Create a minimal valid 1x1 PNG with a fixed color
-# This is the absolute minimum PNG: 1x1 pixel, 8-bit grayscale
-# PNG signature + IHDR chunk + gAMA chunk + IDAT chunk + IEND chunk
-# All deterministic, no compression randomness
+# CRC32 table - computed once
+$script:crcTable = $null
+
+function Initialize-CRC32Table {
+    if ($script:crcTable -ne $null) { return }
+    $script:crcTable = @(0) * 256
+    for ($n = 0; $n -lt 256; $n++) {
+        $crc = $n
+        for ($k = 0; $k -lt 8; $k++) {
+            if (($crc -band 1) -eq 1) {
+                $crc = 0xEDB88320 -bxor ($crc -shr 1)
+            } else {
+                $crc = $crc -shr 1
+            }
+        }
+        $script:crcTable[$n] = $crc
+    }
+}
+
+function Calculate-CRC32 {
+    param([byte[]]$Data)
+    Initialize-CRC32Table
+
+    $crc = 0xFFFFFFFF
+    foreach ($byte in $Data) {
+        $crc = $script:crcTable[($crc -bxor $byte) -band 0xFF] -bxor ($crc -shr 8)
+    }
+    $crc -bxor 0xFFFFFFFF
+}
+
 function New-PlaceholderPNG {
     param(
         [string]$Path,
@@ -49,23 +71,27 @@ function New-PlaceholderPNG {
         [byte]$Blue = 100
     )
 
-    # PNG signature: 137 80 78 71 13 10 26 10
-    $pngSig = @(137, 80, 78, 71, 13, 10, 26, 10)
+    # PNG signature
+    $pngSig = [byte[]]@(137, 80, 78, 71, 13, 10, 26, 10)
 
-    # IHDR chunk (8 bytes width, 8 bytes height, 1 byte bit depth, 1 byte color type, ...)
-    # Width: 32, Height: 32, Bit depth: 8, Color type: 2 (RGB), Compression: 0, Filter: 0, Interlace: 0
-    $ihdrData = @(0, 0, 0, 32, 0, 0, 0, 32, 8, 2, 0, 0, 0)
-    $ihdrChunk = @(
-        0, 0, 0, 13  # Chunk length
-        73, 72, 68, 82  # "IHDR"
-    ) + $ihdrData + (CRC32 (84, 72, 68, 82) + $ihdrData)
+    # IHDR chunk: 32x32 RGB image
+    $ihdrData = [byte[]]@(0, 0, 0, 32, 0, 0, 0, 32, 8, 2, 0, 0, 0)
+    $ihdrType = [byte[]]@(73, 72, 68, 82)  # "IHDR"
+    $ihdrCrc = Calculate-CRC32 ($ihdrType + $ihdrData)
+    $ihdrLength = [byte[]]@(0, 0, 0, 13)  # big-endian
 
-    # IDAT chunk with minimal compressed data for a 32x32 solid color image
-    # A solid color image compresses very well
-    $pixelData = New-Object 'byte[]' (32 * 32 * 3 + 32)
+    # Build IHDR chunk: length + type + data + CRC
+    $ihdrChunk = $ihdrLength + $ihdrType + $ihdrData + [byte[]]@(
+        [byte](($ihdrCrc -shr 24) -band 0xFF),
+        [byte](($ihdrCrc -shr 16) -band 0xFF),
+        [byte](($ihdrCrc -shr 8) -band 0xFF),
+        [byte]($ihdrCrc -band 0xFF)
+    )
+
+    # Generate pixel data: 32x32 RGB
+    $pixelData = New-Object byte[] (32 * 32 * 3 + 32)
     $idx = 0
 
-    # Each scanline: filter byte (0 = None) + RGB pixels
     for ($y = 0; $y -lt 32; $y++) {
         $pixelData[$idx] = 0  # Filter type: None
         $idx += 1
@@ -80,267 +106,177 @@ function New-PlaceholderPNG {
         }
     }
 
-    # Use DEFLATE compression (minimal for solid color)
+    # Compress with DEFLATE
     Add-Type -AssemblyName System.IO.Compression
     $ms = New-Object System.IO.MemoryStream
-    $gzip = New-Object System.IO.Compression.DeflateStream($ms, [System.IO.Compression.CompressionMode]::Compress)
-    $gzip.Write($pixelData, 0, $pixelData.Length)
-    $gzip.Close()
+    $deflate = New-Object System.IO.Compression.DeflateStream($ms, [System.IO.Compression.CompressionMode]::Compress)
+    $deflate.Write($pixelData, 0, $pixelData.Length)
+    $deflate.Close()
     $compressedData = $ms.ToArray()
 
-    $idatChunk = @(
-        [byte]($compressedData.Length -shr 24),
-        [byte]($compressedData.Length -shr 16),
-        [byte]($compressedData.Length -shr 8),
-        [byte]$compressedData.Length
-        73, 68, 65, 84  # "IDAT"
-    ) + $compressedData + (CRC32 @(73, 68, 65, 84) + $compressedData)
+    # IDAT chunk: length + type + data + CRC
+    $idatType = [byte[]]@(73, 68, 65, 84)  # "IDAT"
+    $idatCrc = Calculate-CRC32 ($idatType + $compressedData)
+    $idatLength = [byte[]]@(
+        [byte](($compressedData.Length -shr 24) -band 0xFF),
+        [byte](($compressedData.Length -shr 16) -band 0xFF),
+        [byte](($compressedData.Length -shr 8) -band 0xFF),
+        [byte]($compressedData.Length -band 0xFF)
+    )
 
-    # IEND chunk
-    $iendChunk = @(0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130)
+    $idatChunk = $idatLength + $idatType + $compressedData + [byte[]]@(
+        [byte](($idatCrc -shr 24) -band 0xFF),
+        [byte](($idatCrc -shr 16) -band 0xFF),
+        [byte](($idatCrc -shr 8) -band 0xFF),
+        [byte]($idatCrc -band 0xFF)
+    )
 
-    # Write the PNG
-    $allBytes = @() + $pngSig + $ihdrChunk + $idatChunk + $iendChunk
+    # IEND chunk: length + type + CRC
+    $iendType = [byte[]]@(73, 69, 78, 68)  # "IEND"
+    $iendCrc = Calculate-CRC32 $iendType
+    $iendChunk = [byte[]]@(0, 0, 0, 0) + $iendType + [byte[]]@(
+        [byte](($iendCrc -shr 24) -band 0xFF),
+        [byte](($iendCrc -shr 16) -band 0xFF),
+        [byte](($iendCrc -shr 8) -band 0xFF),
+        [byte]($iendCrc -band 0xFF)
+    )
+
+    # Write PNG file
+    $allBytes = $pngSig + $ihdrChunk + $idatChunk + $iendChunk
     [System.IO.File]::WriteAllBytes($Path, $allBytes)
 }
 
-# Simple CRC32 calculation for PNG chunks
-function CRC32 {
-    param([byte[]]$Data)
-
-    $crcTable = New-Object 'uint[]' 256
-    for ($n = 0; $n -lt 256; $n++) {
-        $crc = [uint]$n
-        for ($k = 0; $k -lt 8; $k++) {
-            if (($crc -band 1) -eq 1) {
-                $crc = 0xEDB88320 -bxor ($crc -shr 1)
-            } else {
-                $crc = $crc -shr 1
-            }
-        }
-        $crcTable[$n] = $crc
-    }
-
-    $crc = 0xFFFFFFFF
-    foreach ($byte in $Data) {
-        $crc = $crcTable[($crc -bxor $byte) -band 0xFF] -bxor ($crc -shr 8)
-    }
-
-    $crc = $crc -bxor 0xFFFFFFFF
-    @(
-        [byte]($crc -shr 24),
-        [byte]($crc -shr 16),
-        [byte]($crc -shr 8),
-        [byte]$crc
-    )
-}
-
-# Create a minimal valid WAV file (silent, 1 second)
 function New-SilentWAV {
     param([string]$Path)
 
     $sampleRate = 44100
-    $duration = 1  # 1 second
+    $duration = 1
     $numSamples = $sampleRate * $duration
 
-    # WAV header
-    $riffHeader = [System.Text.Encoding]::ASCII.GetBytes("RIFF")
-    $waveHeader = [System.Text.Encoding]::ASCII.GetBytes("WAVE")
-    $fmtHeader = [System.Text.Encoding]::ASCII.GetBytes("fmt ")
-    $dataHeader = [System.Text.Encoding]::ASCII.GetBytes("data")
+    $ms = New-Object System.IO.MemoryStream
+    $writer = New-Object System.IO.BinaryWriter($ms)
 
-    # Subchunk1 size: 16 for PCM
-    $subchunk1Size = 16
-    # Subchunk2 size: 2 bytes per sample × num samples
-    $subchunk2Size = 2 * $numSamples
-    # Total file size - 8
-    $fileSize = 36 + $subchunk2Size
+    $writer.Write([System.Text.Encoding]::ASCII.GetBytes("RIFF"))
+    $writer.Write([uint32](36 + $numSamples * 2))
+    $writer.Write([System.Text.Encoding]::ASCII.GetBytes("WAVE"))
 
-    $wav = New-Object System.IO.MemoryStream
-    $writer = New-Object System.IO.BinaryWriter($wav)
-
-    # RIFF header
-    $writer.Write($riffHeader)
-    $writer.Write([uint32]$fileSize)
-    $writer.Write($waveHeader)
-
-    # fmt subchunk
-    $writer.Write($fmtHeader)
-    $writer.Write([uint32]$subchunk1Size)
-    $writer.Write([uint16]1)  # Audio format: PCM
-    $writer.Write([uint16]1)  # Channels: mono
+    $writer.Write([System.Text.Encoding]::ASCII.GetBytes("fmt "))
+    $writer.Write([uint32]16)
+    $writer.Write([uint16]1)
+    $writer.Write([uint16]1)
     $writer.Write([uint32]$sampleRate)
-    $writer.Write([uint32]$sampleRate * 2)  # Byte rate
-    $writer.Write([uint16]2)  # Block align
-    $writer.Write([uint16]16)  # Bits per sample
+    $writer.Write([uint32]($sampleRate * 2))
+    $writer.Write([uint16]2)
+    $writer.Write([uint16]16)
 
-    # data subchunk
-    $writer.Write($dataHeader)
-    $writer.Write([uint32]$subchunk2Size)
+    $writer.Write([System.Text.Encoding]::ASCII.GetBytes("data"))
+    $writer.Write([uint32]($numSamples * 2))
 
-    # Silent audio (all zeros)
     for ($i = 0; $i -lt $numSamples; $i++) {
         $writer.Write([int16]0)
     }
 
     $writer.Close()
-    [System.IO.File]::WriteAllBytes($Path, $wav.ToArray())
+    [System.IO.File]::WriteAllBytes($Path, $ms.ToArray())
 }
 
-# Define colors for each asset type (deterministic)
+# Color definitions
 $colors = @{
-    # Unit icons
-    "unit.light_infantry" = @(200, 150, 100)
-    "unit.heavy_infantry" = @(100, 100, 150)
-    "unit.archers" = @(150, 200, 100)
-    "unit.light_cavalry" = @(200, 200, 100)
-    "unit.heavy_cavalry" = @(100, 150, 200)
-
-    # Army markers
-    "army.tier1" = @(180, 100, 100)
-    "army.tier2" = @(200, 150, 100)
-    "army.tier3" = @(220, 200, 100)
-
-    # Fleet markers
-    "fleet.tier1" = @(100, 180, 200)
-    "fleet.tier2" = @(100, 200, 220)
-    "fleet.tier3" = @(100, 220, 255)
-
-    # City markers
-    "city.tier1" = @(150, 150, 100)
-    "city.tier2" = @(180, 180, 100)
-    "city.tier3" = @(220, 220, 100)
-    "city.capital" = @(255, 215, 0)
-
-    # Terrain
-    "terrain.plain" = @(144, 238, 144)
-    "terrain.desert" = @(210, 180, 140)
-    "terrain.forest" = @(34, 139, 34)
-    "terrain.mountain" = @(128, 128, 128)
-    "terrain.river" = @(64, 164, 223)
-    "terrain.sea_coastal" = @(100, 149, 237)
-    "terrain.sea_deep" = @(30, 100, 180)
+    "light_infantry" = @(200, 150, 100)
+    "heavy_infantry" = @(100, 100, 150)
+    "archers" = @(150, 200, 100)
+    "light_cavalry" = @(200, 200, 100)
+    "heavy_cavalry" = @(100, 150, 200)
+    "tier1_army" = @(180, 100, 100)
+    "tier2_army" = @(200, 150, 100)
+    "tier3_army" = @(220, 200, 100)
+    "tier1_fleet" = @(100, 180, 200)
+    "tier2_fleet" = @(100, 200, 220)
+    "tier3_fleet" = @(100, 220, 255)
+    "tier1_city" = @(150, 150, 100)
+    "tier2_city" = @(180, 180, 100)
+    "tier3_city" = @(220, 220, 100)
+    "capital" = @(255, 215, 0)
+    "plain" = @(144, 238, 144)
+    "desert" = @(210, 180, 140)
+    "forest" = @(34, 139, 34)
+    "mountain" = @(128, 128, 128)
+    "river" = @(64, 164, 223)
+    "coastal" = @(100, 149, 237)
+    "deep" = @(30, 100, 180)
 }
 
-Write-Host "Generating placeholder PNG icons..."
+Write-Host "Generating PNG files..."
 
-# Generate unit icons
-foreach ($unit in @("light_infantry", "heavy_infantry", "archers", "light_cavalry", "heavy_cavalry")) {
-    $key = "unit.$unit"
-    $color = $colors[$key]
-    $path = Join-Path $OutputPath "units" "$unit.png"
-    New-PlaceholderPNG -Path $path -Red $color[0] -Green $color[1] -Blue $color[2]
-    Write-Host "  Created $path"
+$pngMappings = @{
+    "units/light_infantry.png" = $colors["light_infantry"]
+    "units/heavy_infantry.png" = $colors["heavy_infantry"]
+    "units/archers.png" = $colors["archers"]
+    "units/light_cavalry.png" = $colors["light_cavalry"]
+    "units/heavy_cavalry.png" = $colors["heavy_cavalry"]
+    "army/tier1.png" = $colors["tier1_army"]
+    "army/tier2.png" = $colors["tier2_army"]
+    "army/tier3.png" = $colors["tier3_army"]
+    "fleet/tier1.png" = $colors["tier1_fleet"]
+    "fleet/tier2.png" = $colors["tier2_fleet"]
+    "fleet/tier3.png" = $colors["tier3_fleet"]
+    "city/tier1.png" = $colors["tier1_city"]
+    "city/tier2.png" = $colors["tier2_city"]
+    "city/tier3.png" = $colors["tier3_city"]
+    "city/capital.png" = $colors["capital"]
+    "terrain/plain.png" = $colors["plain"]
+    "terrain/desert.png" = $colors["desert"]
+    "terrain/forest.png" = $colors["forest"]
+    "terrain/mountain.png" = $colors["mountain"]
+    "terrain/river.png" = $colors["river"]
+    "terrain/sea_coastal.png" = $colors["coastal"]
+    "terrain/sea_deep.png" = $colors["deep"]
 }
 
-# Generate army marker icons
-foreach ($tier in @("tier1", "tier2", "tier3")) {
-    $key = "army.$tier"
-    $color = $colors[$key]
-    $path = Join-Path $OutputPath "army" "$tier.png"
-    New-PlaceholderPNG -Path $path -Red $color[0] -Green $color[1] -Blue $color[2]
-    Write-Host "  Created $path"
+foreach ($file in $pngMappings.Keys) {
+    $color = $pngMappings[$file]
+    $fullPath = Join-Path -Path $OutputPath -ChildPath $file
+    New-PlaceholderPNG -Path $fullPath -Red $color[0] -Green $color[1] -Blue $color[2]
+    Write-Host "  + $file"
 }
 
-# Generate fleet marker icons
-foreach ($tier in @("tier1", "tier2", "tier3")) {
-    $key = "fleet.$tier"
-    $color = $colors[$key]
-    $path = Join-Path $OutputPath "fleet" "$tier.png"
-    New-PlaceholderPNG -Path $path -Red $color[0] -Green $color[1] -Blue $color[2]
-    Write-Host "  Created $path"
-}
-
-# Generate city marker icons
-foreach ($tier in @("tier1", "tier2", "tier3")) {
-    $key = "city.$tier"
-    $color = $colors[$key]
-    $path = Join-Path $OutputPath "city" "$tier.png"
-    New-PlaceholderPNG -Path $path -Red $color[0] -Green $color[1] -Blue $color[2]
-    Write-Host "  Created $path"
-}
-
-# Generate capital icon
-$capitalColor = $colors["city.capital"]
-$capitalPath = Join-Path $OutputPath "city" "capital.png"
-New-PlaceholderPNG -Path $capitalPath -Red $capitalColor[0] -Green $capitalColor[1] -Blue $capitalColor[2]
-Write-Host "  Created $capitalPath"
-
-# Generate terrain tiles
-foreach ($terrain in @("plain", "desert", "forest", "mountain", "river")) {
-    $key = "terrain.$terrain"
-    $color = $colors[$key]
-    $path = Join-Path $OutputPath "terrain" "$terrain.png"
-    New-PlaceholderPNG -Path $path -Red $color[0] -Green $color[1] -Blue $color[2]
-    Write-Host "  Created $path"
-}
-
-# Generate sea tiles
-foreach ($sea in @("coastal", "deep")) {
-    $key = "terrain.sea_$sea"
-    $color = $colors[$key]
-    $path = Join-Path $OutputPath "terrain" "sea_$sea.png"
-    New-PlaceholderPNG -Path $path -Red $color[0] -Green $color[1] -Blue $color[2]
-    Write-Host "  Created $path"
-}
-
-Write-Host "Generating placeholder audio files..."
-
-# Generate audio stubs
+Write-Host "Generating WAV files..."
 foreach ($sfx in @("city_captured", "battle", "unit_move")) {
-    $path = Join-Path $OutputPath "sfx" "$sfx.wav"
-    New-SilentWAV -Path $path
-    Write-Host "  Created $path"
+    $filepath = Join-Path -Path $OutputPath -ChildPath "sfx/$sfx.wav"
+    New-SilentWAV -Path $filepath
+    Write-Host "  + sfx/$sfx.wav"
 }
 
-# Generate manifest JSON
+Write-Host "Generating manifest.json..."
 $manifest = @{
     schemaVersion = 1
     name = "Placeholder Asset Pack"
-    description = "Generated placeholder assets — flat colors, silent audio stubs, good enough for development and testing."
-    assets = @{
-        # Units
-        "unit.light_infantry.icon" = "units/light_infantry.png"
-        "unit.heavy_infantry.icon" = "units/heavy_infantry.png"
-        "unit.archers.icon" = "units/archers.png"
-        "unit.light_cavalry.icon" = "units/light_cavalry.png"
-        "unit.heavy_cavalry.icon" = "units/heavy_cavalry.png"
-
-        # Army
-        "army.tier1.icon" = "army/tier1.png"
-        "army.tier2.icon" = "army/tier2.png"
-        "army.tier3.icon" = "army/tier3.png"
-
-        # Fleet
-        "fleet.tier1.icon" = "fleet/tier1.png"
-        "fleet.tier2.icon" = "fleet/tier2.png"
-        "fleet.tier3.icon" = "fleet/tier3.png"
-
-        # Cities
-        "city.tier1.icon" = "city/tier1.png"
-        "city.tier2.icon" = "city/tier2.png"
-        "city.tier3.icon" = "city/tier3.png"
-        "city.capital.icon" = "city/capital.png"
-
-        # Terrain
-        "terrain.plain.tile" = "terrain/plain.png"
-        "terrain.desert.tile" = "terrain/desert.png"
-        "terrain.forest.tile" = "terrain/forest.png"
-        "terrain.mountain.tile" = "terrain/mountain.png"
-        "terrain.river.tile" = "terrain/river.png"
-        "terrain.sea_coastal.tile" = "terrain/sea_coastal.png"
-        "terrain.sea_deep.tile" = "terrain/sea_deep.png"
-
-        # Sound effects
-        "sfx.city_captured" = "sfx/city_captured.wav"
-        "sfx.battle" = "sfx/battle.wav"
-        "sfx.unit_move" = "sfx/unit_move.wav"
-    }
+    description = "Generated placeholder assets - flat colors, silent audio stubs, good enough for development and testing."
+    assets = @{}
 }
 
-$manifestPath = Join-Path $OutputPath "manifest.json"
-$manifestJson = $manifest | ConvertTo-Json -Depth 10
-[System.IO.File]::WriteAllText($manifestPath, $manifestJson)
-Write-Host "Created manifest: $manifestPath"
+foreach ($unit in @("light_infantry", "heavy_infantry", "archers", "light_cavalry", "heavy_cavalry")) {
+    $manifest.assets["unit.$unit.icon"] = "units/$unit.png"
+}
 
-Write-Host "Successfully generated placeholder asset pack at: $OutputPath"
+for ($tier = 1; $tier -le 3; $tier++) {
+    $manifest.assets["army.tier$tier.icon"] = "army/tier$tier.png"
+    $manifest.assets["fleet.tier$tier.icon"] = "fleet/tier$tier.png"
+    $manifest.assets["city.tier$tier.icon"] = "city/tier$tier.png"
+}
+
+$manifest.assets["city.capital.icon"] = "city/capital.png"
+
+foreach ($terrain in @("plain", "desert", "forest", "mountain", "river", "sea_coastal", "sea_deep")) {
+    $manifest.assets["terrain.$terrain.tile"] = "terrain/$terrain.png"
+}
+
+foreach ($sfx in @("city_captured", "battle", "unit_move")) {
+    $manifest.assets["sfx.$sfx"] = "sfx/$sfx.wav"
+}
+
+$manifestPath = Join-Path -Path $OutputPath -ChildPath "manifest.json"
+$json = ConvertTo-Json $manifest -Depth 10
+[System.IO.File]::WriteAllText($manifestPath, $json)
+
+Write-Host "Success: Generated placeholder asset pack at: $OutputPath"
