@@ -70,7 +70,36 @@ public sealed class SiegeStrengthTests
         var ruleset = StrengthTestbed.Ruleset;
         var units = new[] { StrengthTestbed.Unit(StrengthTestbed.ArcherUnitTypeId, 8000) };
 
-        Assert.Throws<ArgumentException>(() => SiegeStrength.Attacker(units, morale: 60, ruleset, "archer"));
+        var exception = Assert.Throws<ArgumentException>(() => SiegeStrength.Attacker(units, morale: 60, ruleset, "archer"));
+
+        // This throws from the EARLIER guard (SiegeStrength.cs:79-83), on the archerUnitTypeId
+        // parameter itself -- every unit here has a valid type. It does not exercise the per-unit
+        // validation added in the loop; see Attacker_UnitWithUnknownTypeId_Throws_WithUnitsAsTheParamName
+        // for that, distinguished by ParamName.
+        Assert.Equal("archerUnitTypeId", exception.ParamName);
+    }
+
+    /// <summary>
+    /// Round-1 review (issue #49 item 2, blocking finding B1): a unit whose OWN type id the ruleset
+    /// does not define must also throw, not just an unrecognised <c>archerUnitTypeId</c> parameter.
+    /// This exercises the loop's own per-unit validation (<c>SiegeStrength.cs:90-94</c>) rather than the
+    /// earlier <c>archerUnitTypeId</c> guard <see cref="Attacker_UnknownArcherUnitTypeId_Throws"/>
+    /// exercises: here <c>archerUnitTypeId</c> is valid, and the unrecognised id is on the
+    /// <see cref="UnitSlot"/> instead. <c>ParamName</c> must be <c>"units"</c>, matching
+    /// <see cref="ArmyPower.Compute"/>'s own failure mode for the same situation (the DoD's own
+    /// standard, "the way ArmyPower does"). Deleting the loop's validation block leaves every other
+    /// test in this file green; only this assertion catches that regression.
+    /// </summary>
+    [Fact]
+    public void Attacker_UnitWithUnknownTypeId_Throws_WithUnitsAsTheParamName()
+    {
+        var ruleset = StrengthTestbed.Ruleset;
+        var units = new[] { StrengthTestbed.Unit("not_a_real_type", 100) };
+
+        var exception = Assert.Throws<ArgumentException>(
+            () => SiegeStrength.Attacker(units, morale: 60, ruleset, StrengthTestbed.ArcherUnitTypeId));
+
+        Assert.Equal("units", exception.ParamName);
     }
 
     /// <summary>
@@ -268,5 +297,58 @@ public sealed class SiegeStrengthTests
         Assert.Equal(12_532, strength);
         Assert.Equal(12_533, wrongOrder);
         Assert.NotEqual(wrongOrder, strength);
+    }
+
+    // ---- Round-1 review: blocking finding B2 and non-blocking N2. Every branch test above passes
+    // isControllerCapital: true, so neither the capital conjunct nor the loyalty threshold's exact
+    // boundary was independently pinned -- a mutant dropping "isControllerCapital &&" from the guard,
+    // or loosening "loyalty > threshold" to ">=", left the whole suite (494 tests) green. ----
+
+    /// <summary>
+    /// B2 (blocking): the capital conjunct is not optional. Loyalty (100) is well above
+    /// <see cref="SiegeRules.HighLoyaltyThreshold"/> (59), but <c>isControllerCapital: false</c> must
+    /// keep the branch from firing at all -- the result is the bare weighted sum
+    /// (<c>100 * 150 = 15,000</c>), not <c>15,000 * 5 / 3 = 25,000</c>. A mutant that dropped
+    /// <c>isControllerCapital &amp;&amp;</c> from <c>SiegeStrength.cs:165</c>'s guard would wrongly scale
+    /// this and fail the assertion -- verified locally by deleting that conjunct, watching this test
+    /// fail (25,000 actual vs 15,000 expected) while the rest of the suite stayed green, then
+    /// reverting.
+    /// </summary>
+    [Fact]
+    public void Defender_HighLoyaltyBranch_DoesNotFire_WhenNotTheCapital()
+    {
+        var ruleset = StrengthTestbed.Ruleset;
+        var order = StrengthTestbed.FortifyOrder;
+
+        var strength = SiegeStrength.Defender(
+            fortificationCode: 0, order, loyalty: 100, populationThousands: 0,
+            isControllerCapital: false, ownerDiffersFromAllegiance: false, ruleset);
+
+        Assert.Equal(15_000, strength);
+    }
+
+    /// <summary>
+    /// N2 (non-blocking): the threshold is a strict "greater than" (<c>0x3b &lt; loyalty</c>, i.e.
+    /// loyalty &gt; 59), not "at or above". At loyalty=59 (the threshold itself) the branch must not
+    /// fire: the weighted sum <c>59 * 150 = 8,850</c> is unscaled. At loyalty=60 -- one above the
+    /// threshold -- it must fire: <c>60 * 150 = 9,000</c> scales to <c>9,000 * 5 / 3 = 15,000</c>. A
+    /// mutant changing <c>&gt;</c> to <c>&gt;=</c> in the guard would wrongly scale the loyalty=59 case
+    /// and fail its assertion -- verified locally the same way as B2 above.
+    /// </summary>
+    [Fact]
+    public void Defender_HighLoyaltyThreshold_IsExclusive_AtTheBoundary()
+    {
+        var ruleset = StrengthTestbed.Ruleset;
+        var order = StrengthTestbed.FortifyOrder;
+
+        var atThreshold = SiegeStrength.Defender(
+            fortificationCode: 0, order, loyalty: 59, populationThousands: 0,
+            isControllerCapital: true, ownerDiffersFromAllegiance: false, ruleset);
+        var oneAboveThreshold = SiegeStrength.Defender(
+            fortificationCode: 0, order, loyalty: 60, populationThousands: 0,
+            isControllerCapital: true, ownerDiffersFromAllegiance: false, ruleset);
+
+        Assert.Equal(8_850, atThreshold);        // No bonus: 59 is not > 59.
+        Assert.Equal(15_000, oneAboveThreshold); // Bonus applies: 9,000 * 5 / 3 = 15,000.
     }
 }

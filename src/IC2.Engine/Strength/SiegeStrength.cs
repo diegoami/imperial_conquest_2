@@ -37,7 +37,11 @@ namespace IC2.Engine.Strength;
 /// plain <see langword="bool"/> inputs, not derived by looking up world state here. The garrison-troops
 /// addend (<see cref="SiegeRules.DefenderGarrisonTroopDivisor"/>) is still omitted: it needs per-nation
 /// recruitment-slot state this pure function does not take as input (T17's DoD 7), not because any
-/// identity is still open.
+/// identity is still open. <strong>Where T17 must add it: last, after both scaling branches</strong> —
+/// the decompiled function's own listing (<c>docs/investigations/siege-defender-strength.md</c>) adds
+/// the garrison term to the already-scaled strength, as the final step. Folding it into the weighted sum
+/// instead would run the garrison contribution through both the <c>×5/3</c> and <c>×4/5</c> branches,
+/// which the original never does.
 /// </para>
 /// <para>
 /// Neither function here touches army morale mutation or the per-unit tactical morale array — see
