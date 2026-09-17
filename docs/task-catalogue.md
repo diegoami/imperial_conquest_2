@@ -1,10 +1,10 @@
-# Task catalogue: the 41 build tasks
+# Task catalogue: the 42 build tasks
 
 Every build task's scope, **Owns** list, Definition of Done, model/effort, reviewer and dependencies, plus the dependency graph and the task index. **How** tasks are dispatched, reviewed and merged is in [build-process.md](build-process.md); operating the project day to day is in [operating-guide.md](operating-guide.md).
 
 **Status is not in this document.** Each task's stage (ready, in progress, merged, blocked, escalated) lives only in its GitHub issue's `status:*` label ([build-process.md §5](build-process.md#5-status-lives-on-github)). The index below links every issue.
 
-41 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), eight corrections to already-merged code (T31–T35, T38–T40), one rule no task owned (T37, the weekly city supply step), and an early demo slice of T23 (T41).
+42 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), nine corrections to already-merged code (T31–T35, T38–T40, T42), one rule no task owned (T37, the weekly city supply step), and an early demo slice of T23 (T41).
 
 ---
 
@@ -36,6 +36,11 @@ graph TD
   T40 --> T10[T10 news log]
   T10 --> T41[T41 thin CLI demo]
   T41 --> T23
+  T41 --> T42[T42 news-log fidelity]
+  T42 --> T14
+  T42 --> T16
+  T42 --> T17
+  T42 --> T19
   T02 --> T11[T11 asset pack]
   T03 --> T12[T12 victory]
   T04 --> T06
@@ -123,16 +128,16 @@ Waves are dependency layers, not concurrent batches: execution is serial, one co
 | 0 | T01, T05 | Disjoint file sets. |
 | 1 | T02, T04, T30 | T04 and T30 need only T01. T30's merge gates T29, T21 and T34. |
 | 2 | T03 | The serialization point for engine code. |
-| 3 | T06, T07, T08, T09, T10, T11, T12, T31, T32, T33, T34, T40, T41 | The widest wave. T40 merges before T10, and T41 (the thin CLI demo) follows T10. T32 merges before T08; T33 before T16 and T17; T34 any time before T21, T24 and T29. T08 and T33 both write `Ruleset.cs`, `toy-ruleset.json` and `tests/fixtures/**` — different records and entries, never in flight together. |
+| 3 | T06, T07, T08, T09, T10, T11, T12, T31, T32, T33, T34, T40, T41, T42 | The widest wave. T40 merges before T10; T41 (the thin CLI demo) and then T42 (news-log fidelity) follow T10. T32 merges before T08; T33 before T16 and T17; T34 any time before T21, T24 and T29. T08 and T33 both write `Ruleset.cs`, `toy-ruleset.json` and `tests/fixtures/**` — different records and entries, never in flight together. |
 | 4 | T38, T13, T14, T15, T16, T35, T37, T39 | T38 follows T08 and precedes T14. T39 follows T35 and precedes T13 and T22. T35 follows T08 and gates T13, T17, T19 and T37. T37 must merge before T29. T16 is the long pole. |
 | 5 | T17, T18, T19, T20, T29, T21, T22 | T17 first, then T18/T19/T20; T29 once T15, T17, T19 and T37 have merged; then T21 and T22. T22 is the long pole. |
 | 6 | T23, T36, T24, T25, T26, T27, T28 | T36 follows T29 and precedes T24. T24/T25/T27 are single-instance (Godot) and form one serial chain. |
 
-**Critical path**: `T01 → T02 → T03 → T06 → T32 → T08 → T38 → T14 → T16 → T17 → T29 → T36 → T24 → T25 → T27` — 15 of 41 tasks — with `T08 → T35 → T17` and `T31 → T33 → T16` as parallel edges into it; T29 also waits for T15 and T19, and `T17 → T23 → T24` runs one task shorter. The AI chain (`… → T17 → T18 → T22 → T28`) runs alongside it with the most slack and the most uncertain duration, which argues for not deferring T22.
+**Critical path**: `T01 → T02 → T03 → T06 → T32 → T08 → T38 → T14 → T16 → T17 → T29 → T36 → T24 → T25 → T27` — 15 of 42 tasks — with `T08 → T35 → T17` and `T31 → T33 → T16` as parallel edges into it; T29 also waits for T15 and T19, and `T17 → T23 → T24` runs one task shorter. The AI chain (`… → T17 → T18 → T22 → T28`) runs alongside it with the most slack and the most uncertain duration, which argues for not deferring T22.
 
 ### 1.2 Sequential and independent tasks
 
-- **Strictly sequential**: T01 → T02 → T03; T03 → T40 → T10 → T41 (the news writer reads the published-events view T40 adds; the demo prints its news); T41 → T23 (T23 extends the demo harness); T16 → T17 (a siege is a battle); T17 → T18 (a siege wipes a pending fortify order); T08 → T13 (mercenary hire debits the army purse T08 defines); T08 → T38 → T14 (T14 is the first caller of the supply dialog T38 finishes); T35 → T39 → T13, T22 (billing is corrected before recruitment and the AI build on it); T24 → T25 → T27 (Godot, single-instance); T30 → T29 (T29 reads the DAT through T30's parser); T31 → T07 and T31 → T16 (both consume the siege defender weights T31 corrects); T32 → T08 and T32 → T14 (T06's attrition-phase test must stop counting systems before either registers one); T33 → T16 and T33 → T17 (both consume the defender-strength shape T33 corrects); T35 → T13, T17, T19, T37 (the model fields they read and write; T37 also reuses T35's threat predicate); T37 → T29 (it adds `EconomyRules` fields, and the ruleset schema settles before the export); T34 → T29 and T34 → T21 (both read the nation tax base through T34's parse); T15, T17, T19 → T29 → T21, T24, T26 (the ruleset schema settles before the shipped ruleset is exported, and the shipped world, ruleset and scenario exist before anything consumes them — [build-process.md §2.6](build-process.md#2-how-the-build-avoids-conflicts)); T29 → T36 → T24 (the `improved` preset is authored from the exported constants, and the New Game chooser needs both presets).
+- **Strictly sequential**: T01 → T02 → T03; T03 → T40 → T10 → T41 (the news writer reads the published-events view T40 adds; the demo prints its news); T41 → T23 (T23 extends the demo harness); T10 → T41 → T42 → T14, T16, T17, T19 (the news format and its placeholder check settle before the first production news events); T16 → T17 (a siege is a battle); T17 → T18 (a siege wipes a pending fortify order); T08 → T13 (mercenary hire debits the army purse T08 defines); T08 → T38 → T14 (T14 is the first caller of the supply dialog T38 finishes); T35 → T39 → T13, T22 (billing is corrected before recruitment and the AI build on it); T24 → T25 → T27 (Godot, single-instance); T30 → T29 (T29 reads the DAT through T30's parser); T31 → T07 and T31 → T16 (both consume the siege defender weights T31 corrects); T32 → T08 and T32 → T14 (T06's attrition-phase test must stop counting systems before either registers one); T33 → T16 and T33 → T17 (both consume the defender-strength shape T33 corrects); T35 → T13, T17, T19, T37 (the model fields they read and write; T37 also reuses T35's threat predicate); T37 → T29 (it adds `EconomyRules` fields, and the ruleset schema settles before the export); T34 → T29 and T34 → T21 (both read the nation tax base through T34's parse); T15, T17, T19 → T29 → T21, T24, T26 (the ruleset schema settles before the shipped ruleset is exported, and the shipped world, ruleset and scenario exist before anything consumes them — [build-process.md §2.6](build-process.md#2-how-the-build-avoids-conflicts)); T29 → T36 → T24 (the `improved` preset is authored from the exported constants, and the New Game chooser needs both presets).
 - **Independent**: wave 3's pure-rules systems over disjoint directories; T32, T33 and T34 against each other and against T09–T12; T13/T14/T15; T18/T19/T20; T26 against the Godot lane.
 - **Looks independent but is not**: T12 (victory) is gated behind T06 because its 250 BC condition needs the calendar's year; T20 (save/load) could be written early, but its DoD ("a mid-game state round-trips after N turns") is only meaningful once the state is largely complete.
 
@@ -484,6 +489,43 @@ Conventions used by every entry:
   - **T38 will change `SupplyPurchase`'s API** (clamping, `AdmittedTons`). T38 updates this task's `BuySupply` handler.
   - Don't edit the toy data files. If the demo needs a different setup, add `data/scenarios/demo-toy.json`.
 
+#### T42 News-log fidelity: slot format, round headers, and the corpus's news literals
+
+- **Design milestone**: **M17**. A correction to merged T10 and T04, from T10's follow-up [#91](https://github.com/diegoami/imperial_conquest_2/issues/91), bug [#88](https://github.com/diegoami/imperial_conquest_2/issues/88), and [`news-log-format-and-messages.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/news-log-format-and-messages.md) (research `d9473ff`). **Labels**: `phase:1 lane:engine`
+- **Branch**: `task/T42-news-fidelity` · **Model/effort**: Sonnet / Medium · **Reviewer**: **Opus / Medium**
+- **Start after**: T10 · **Merge after**: T10, T41 — and merged before T14, T16, T17 and T19
+- **Owns**: `src/IC2.Engine/News/**`, `tests/IC2.Engine.Tests/News/**`, `src/IC2.Engine/Model/Ruleset.cs` (the news rules record only), `data/rulesets/toy-ruleset.json` (the `news` block only), `tests/fixtures/**` (the `newsMessage.*` entries, `required-ids.json`'s news ids, and the report's filename in `known-reports.json`), `tests/fixtures/cli/demo.golden.txt` (regenerated only if the demo's output changes)
+- **Scope**: Make the news log match the original byte for byte, where the report settles it, and fix the corpus's news literals. **Every rule below is transcribed from the report, not re-derived.**
+  - **The slot:** 40 slots of 61 bytes each, a NUL-terminated single-byte string, so **at most 60 bytes of text**, all printable ASCII `[confirmed: 2,101 slots in 54 saves]`. Slot 0 is the oldest, and a full log shifts down one slot `[confirmed: 252 of 252 save pairs]`.
+  - **Numbers:** the reparations amount is grouped with a comma every three digits and no locale (`2,269`). No other operand is grouped; week and year are plain.
+  - **Round headers:** the last entries of every round tick are a single-space line `" "` and the header `"Week  <w>      <Season>      <year>BC"`, with the report's exact spacing. Storm, fleet-completion and deposition lines are written before them.
+  - **"A conquers B."** is written between two 59-dash lines.
+  - **Corpus:**
+    - `fleetLostAtSeaObservedExample` and `fleetFinished` gain their final period (#88).
+    - `victoryAllCities` and `conqueredByNation` are game-over form labels, and `pendingDiplomaticOfferParaphrase` is a dialog. None of them is news: reclassify them out of the news section, and keep the ids if T04's required-id list needs them.
+    - The report's missing templates are added: alliance, war declaration, capital move, deposition, storm damage, the dash line, the blank line and the week header.
+- **Done when**:
+  1. **Slot text is capped at 60 bytes in a single-byte encoding**, with the 61st byte reserved for the NUL. A test covers a 59-, a 60- and a 61-byte message, and a non-ASCII operand, which is rejected or replaced (say which, with `_provenance`) rather than silently counted as UTF-8 (#91 N15).
+  2. **The reparations operand renders `2,269`** and `12,345,678`, with a comma every three digits and no culture. A week or year operand renders ungrouped (#91 N27).
+  3. **The round tick ends with `" "` and the week header**, written by the `RoundEnd` writer after that round's news. A test runs a full round through `TurnCoordinator` and asserts the last two `NewsLog` entries exactly, spacing included, with the calendar values after that tick's advance.
+  4. **"A conquers B."** renders as three entries: dash line, message, dash line. A test covers it.
+  5. **The corpus's news section matches the report**, with the corrections and additions above. The catalog holds each literal verbatim, and a render test covers every literal, extending T10's table-driven test. T04's four checks stay green.
+  6. **The coverage test checks placeholders** (#91 N17/N28): every news-worthy event type in the engine assembly has a property for every placeholder in its template, and a test proves the check fails when one is missing. This must be in place before T14, T16 or T17 declare the first production news events.
+  7. **T10's other follow-up items:**
+     - N16: the catalog test checks set equality.
+     - N18: "runs last" is pinned against the whole engine assembly, or the tie-break is documented and tested.
+     - N20: the out-of-run entry point is tested with a real `CommandResult`.
+     - N23: no test fixture reuses a production event kind.
+     - N25: the stale comments are fixed.
+     - N26: an ambiguous placeholder throws.
+  8. If the demo's output changes, T41's golden transcript is regenerated in the same PR, and the diff shows only news lines.
+  9. `dotnet build IC2.sln` and `dotnet test IC2.sln` are green, and `git diff --name-only main...HEAD` lists only Owns paths.
+- **Hazards**:
+  - **Uppercasing:** a war declaration involving a human is uppercased in full `[derived]`. T19 emits war declarations; T42 provides the rendering rule, and T19 calls it with the human flag.
+  - **The new-game seed** (the DAT's 27 scripted lines, and `newsIndex` 26) is world data. It is T29's to export, not T42's.
+  - **Byte-exact leftovers** after each NUL matter only for writing original-format saves, which no task does. Don't model them.
+  - T41 prints news. If its golden transcript changes, regenerate it here, and don't touch T41's code.
+
 ### Phase 2 — Dependent systems
 
 #### T35 Model: nation tax base, recruitment slots, and the pending diplomatic offer
@@ -696,8 +738,8 @@ Conventions used by every entry:
 
 - **Design milestone**: **M7**. **Labels**: `phase:2 lane:engine`
 - **Branch**: `task/T14-naval` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
-- **Start after**: T09 · **Merge after**: T07, T08, T09, **T32**, **T38**
-- **Owns**: `src/IC2.Engine/Naval/**`, `tests/IC2.Engine.Tests/Naval/**`, `src/IC2.Engine/Model/Ruleset.cs` (the `NavalRules` record only — additive fields for the at-sea attrition constants below), `data/rulesets/toy-ruleset.json` (the `naval` block only), `tests/fixtures/**` and T10's news catalog (the fleet-loss and storm news lines only, bug [#88](https://github.com/diegoami/imperial_conquest_2/issues/88))
+- **Start after**: T09 · **Merge after**: T07, T08, T09, **T32**, **T38**, **T42**
+- **Owns**: `src/IC2.Engine/Naval/**`, `tests/IC2.Engine.Tests/Naval/**`, `src/IC2.Engine/Model/Ruleset.cs` (the `NavalRules` record only — additive fields for the at-sea attrition constants below), `data/rulesets/toy-ruleset.json` (the `naval` block only)
 - **Scope**: Construction (10–100 clamp, `ships × 10`, 24-tick countdown at a named coastal city, coastal nations only); launch state (condition 100%, 50 tons, no money); condition as a strength multiplier and paid repair; transport; sea movement via T09's walker; join/split/transfer/scuttle; **and the per-turn at-sea attrition pass — storm damage, the zero-supply penalty, and loss at sea**. Naval **combat** is T16.
   - **At-sea attrition** (`design-audit.md` §2.9a, [`investigations/thracia-supply-morale.md`](investigations/thracia-supply-morale.md) §"Fleets", `[confirmed]` from code **and** empirically on the ten-save `1_cartago_271_*` series). Registers into the attrition phase T06 declares, and runs in this order — the order is part of the specification, because two of its consequences depend on it:
     1. Supplies `−= ships`, **every turn, every fleet**, in port or at sea.
@@ -721,7 +763,7 @@ Conventions used by every entry:
   10. **The zero-supply move penalty reproduces the Carthaginian series exactly.** A fixture replays the starved 90-ship fleet of `1_cartago_271_*` — base moves `30 − (90 − 50)/10 = 26` — and asserts the recorded per-save moves **23, 23, 22, 21, 20, 19, 18** across those turns, i.e. `26 − 3` while condition ≥ 70 and `26 − 3 − (70 − condition) >> 2` below it. The **control** is asserted in the same test: a supplied 70-ship fleet at condition 100 reads exactly **28** on all ten turns, with no penalty applied. This term is deterministic and is the one directly separable naval assertion available.
   11. Supplies drop by `ships` per turn for a fleet **in port** as well as at sea, while condition, moves and the death check are untouched in port — one test asserting both halves, since "only at sea" applies to the attrition but not to the consumption.
   12. **Storm attrition is a spiral, not a slope**: over a fixed-seed run, the expected per-turn condition loss at condition 50 is strictly greater than at condition 90 — asserted as an ordering between two seeded runs, not as an absolute figure. Every draw goes through `IRng`.
-  13. A fleet crossing condition `< 40` is destroyed and emits the literal *"A fleet belonging to X is lost at sea."* via T10's catalog, with its **ship count unchanged** in the turn it dies (the death check reads condition, not ships) — the distinguishing signature confirmed in `1_cartago_271_summer_9.sav`'s own news log. A fleet at condition 41 taking `dmg` that ends below 40 survives that turn and dies on the **next** check, because the death check precedes the zero-supply condition penalty. **First, fix the corpus** (bug [#88](https://github.com/diegoami/imperial_conquest_2/issues/88)): `newsMessage.fleetLostAtSeaObservedExample` gains its trailing period, the report's "… lost at sea." and "… damaged in a storm." literals are added, and T10's catalog lines are updated to match, so T10's catalogue-equals-corpus test stays green.
+  13. A fleet crossing condition `< 40` is destroyed and emits the literal *"A fleet belonging to X is lost at sea."* via T10's catalog, with its **ship count unchanged** in the turn it dies (the death check reads condition, not ships) — the distinguishing signature confirmed in `1_cartago_271_summer_9.sav`'s own news log. A fleet at condition 41 taking `dmg` that ends below 40 survives that turn and dies on the **next** check, because the death check precedes the zero-supply condition penalty. The corpus literal and its catalog line are corrected by **T42** (bug [#88](https://github.com/diegoami/imperial_conquest_2/issues/88)), which merges first.
   14. **`combat.onDefeat` and the ruleset presets do not alter this pass** — at-sea attrition is faithful under both `classical-faithful` and `improved`, asserted directly, so a later preset change cannot silently disable it.
 - **Known-open items to record, not resolve**: `FUN_004494e4` (the "away from friendly coast" test that doubles damage) and the `FleetRecord +24 == 1` predicate that triples it are inferred from magnitudes in the Cartago series, not decompiled (`investigations/thracia-supply-morale.md` §"Still open"). Implement both as named, `_provenance`-tagged ruleset values defaulting to the reports' stated behaviour and mark them `[derived]`; do **not** escalate — resolving them needs new decompilation work, not a user decision.
 - **Hazards**:
@@ -747,7 +789,7 @@ Conventions used by every entry:
 
 - **Design milestone**: **M8**. **Labels**: `phase:2 lane:engine`
 - **Branch**: `task/T16-battle-resolution` · **Model/effort**: **Opus / High** · **Reviewer**: Opus / High **+ `/code-review --effort ultra`, run by the user personally** ([build-process.md §3.5](build-process.md#35-where-the-code-review-skill-fits): a pass launched from inside the pipeline isn't independent)
-- **Start after**: T07 · **Merge after**: T07, T08, T14, **T31**, **T33**
+- **Start after**: T07 · **Merge after**: T07, T08, T14, **T31**, **T33**, **T42**
 - **Owns**: `src/IC2.Engine/Battle/**`, `tests/IC2.Engine.Tests/Battle/**`
 - **Scope**: The original's own instant resolver, ported — field, siege, and naval — producing one `BattleResult`. Emits a `PeaceTreatyTriggered` domain event rather than calling diplomacy, so this task and T19 do not depend on each other's internals. Also implements the `combat.onDefeat` ruleset flag (`game-design.md` Combat section, `design-audit.md` Q1 follow-up): `classical-faithful` keeps the confirmed annihilation outcome; `improved` scatters the loser's field/naval army instead. `BattleResult` must stay presentation-agnostic — nothing in its shape should need to change if a future optional battle screen is added later.
 - **Done when**, all under a **fixed seed** with exact assertions:
@@ -771,7 +813,7 @@ Conventions used by every entry:
 
 - **Design milestone**: **M9**. **Labels**: `phase:2 lane:engine`
 - **Branch**: `task/T17-capture-siege` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
-- **Start after**: T16 · **Merge after**: T16, **T33**, **T35**
+- **Start after**: T16 · **Merge after**: T16, **T33**, **T35**, **T42**
 - **Owns**: `src/IC2.Engine/Cities/Capture/**`, `tests/IC2.Engine.Tests/Cities/Capture/**`, `src/IC2.Engine/Model/Ruleset.cs` (additive capture and per-siege constants in `SiegeRules` and `LoyaltyRules`, or one new record for them — no other record), `data/rulesets/toy-ruleset.json` (the matching blocks only), `src/IC2.Engine/Calendar/SeatRotationSystem.cs` (elimination-aware rotation only, DoD 8)
 - **Scope**: Siege resolution routed through T16's resolver; capture transfers; the cascading defection mechanic; nation elimination.
 - **Done when**:
@@ -806,7 +848,7 @@ Conventions used by every entry:
 
 - **Design milestone**: **M11**. **Labels**: `phase:2 lane:engine`
 - **Branch**: `task/T19-diplomacy` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
-- **Start after**: T16 · **Merge after**: T06, T16, **T35**
+- **Start after**: T16 · **Merge after**: T06, T16, **T35**, **T42**
 - **Owns**: `src/IC2.Engine/Diplomacy/**`, `tests/IC2.Engine.Tests/Diplomacy/**`
 - **Scope**: The original's confirmed model — the symmetric relation matrix, negative cooldowns, the trade cap, contagion, auto-declaration, post-battle terms, and reparations. Subscribes to T16's `PeaceTreatyTriggered`. **No AI decision-making** (that is T22) — this task's job for `diplomacy.model` (`design-audit.md` Q3) is only to make sure the confirmed state machine exposes whatever read surface T22's opinion-score layer will need under `improved`; it does not compute the score itself.
 - **Done when**:
@@ -819,8 +861,9 @@ Conventions used by every entry:
   7. `reparations = W/4 + random(W/4) + cities × 10`, with `W` the loser's **tax base** (nation `+0x44C` is the tax base, not wealth), is **exact** under a fixed seed, and the one recorded payment is in range: Ptolemaic, `W` = 6,188 and 48 cities, gives `[2,027, 3,573]`, and the observed 2,269 is inside it (the report's check).
   8. The honourable-peace branch fires when the victor is weaker on population × unity or on total army strength.
   9. The `design-audit.md` **Q8** first-8-columns thaw bug is behind ruleset flag `faithfulThawColumnBug`, default faithful in `classical-faithful`, with a test for **each** setting.
-  10. **A pending trade or alliance proposal is state, not an event.** The game holds at most one pending offer (T35's field): the proposing nation and the proposed relation, in the relation matrix's own codes (1 = trade, 2 = alliance). It is announced at the start of the target nation's turn as *"X wants to trade with Y"* / *"X wants to form an alliance with Y"* through T10's catalog, and accepting or refusing it clears it — [`pending-offer-block-army-split-and-naupactus.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/pending-offer-block-army-split-and-naupactus.md) (`[confirmed]` for trade; the alliance code is `[derived]` — only `1` has been observed).
+  10. **A pending trade or alliance proposal is state, not an event.** The game holds at most one pending offer (T35's field): the proposing nation and the proposed relation, in the relation matrix's own codes (1 = trade, 2 = alliance). It is **announced by a modal dialog at the start of the human target's turn** (*"X wants to trade with Y."* / *"X wants to form an alliance with Y."*), **not through the news log**. It is **cleared and re-rolled at every human turn start**, not by accepting or refusing it, and is shown again when a save is loaded. Accepting a trade offer only waives the three-partner limit. Sources: [`pending-offer-block-army-split-and-naupactus.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/pending-offer-block-army-split-and-naupactus.md) (`[confirmed]` for trade; the alliance code is `[derived]`, since only `1` has been observed) and [`news-log-format-and-messages.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/news-log-format-and-messages.md) Q5 (`[derived]`; `[confirmed]` that no news slot in 54 saves contains "wants"). The dialog is a presentation event for T23/T25; this task raises it and writes no news line.
 - **Note**: `design-audit.md` **Q3** (how faithful, versus an opinion score) affects only the AI's *willingness* layer, which is T22. This task implements the confirmed model regardless of Q3's answer.
+- **Hazards**: the news lines this task emits follow [`news-log-format-and-messages.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/news-log-format-and-messages.md), through T42's catalog. A war declaration involving a human is uppercased in full, and an alliance also declares war on each of the ally's enemies ("A declares war on K."). The reparations amount is comma-grouped by T42's renderer, so pass it as a number.
 
 #### T20 New-format save/load and versioning
 
@@ -987,12 +1030,12 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T11](#t11-asset-pack-loader-and-generated-placeholder-pack) | Asset pack | — | **Haiku** | Medium | Sonnet/Medium | T02 | [#11](https://github.com/diegoami/imperial_conquest_2/issues/11) |
 | [T12](#t12-victory-conditions) | Victory conditions | M13 | Sonnet | Medium | Sonnet/High | T03, T06 | [#12](https://github.com/diegoami/imperial_conquest_2/issues/12) |
 | [T13](#t13-recruitment-and-mercenaries) | Recruitment and mercenaries | M4 | Sonnet | High | **Opus**/Medium | T08, T35, T39 | [#13](https://github.com/diegoami/imperial_conquest_2/issues/13) |
-| [T14](#t14-naval) | Naval | M7 | Sonnet | High | **Opus**/Medium | T07, T08, T09, T32, T38 | [#14](https://github.com/diegoami/imperial_conquest_2/issues/14) |
+| [T14](#t14-naval) | Naval | M7 | Sonnet | High | **Opus**/Medium | T07, T08, T09, T32, T38, T42 | [#14](https://github.com/diegoami/imperial_conquest_2/issues/14) |
 | [T15](#t15-army-and-unit-management) | Army/unit management | M14 | Sonnet | Medium | Sonnet/High | T08, T13 | [#15](https://github.com/diegoami/imperial_conquest_2/issues/15) |
-| [T16](#t16-battle-resolution--all-three-variants) | Battle resolution | M8 | **Opus** | High | Opus/High + ultra | T07, T08, T14, T31, T33 | [#16](https://github.com/diegoami/imperial_conquest_2/issues/16) |
-| [T17](#t17-city-capture-siege-and-the-defection-cascade) | Capture, siege, defection | M9 | Sonnet | High | **Opus**/Medium | T16, T33, T35 | [#17](https://github.com/diegoami/imperial_conquest_2/issues/17) |
+| [T16](#t16-battle-resolution--all-three-variants) | Battle resolution | M8 | **Opus** | High | Opus/High + ultra | T07, T08, T14, T31, T33, T42 | [#16](https://github.com/diegoami/imperial_conquest_2/issues/16) |
+| [T17](#t17-city-capture-siege-and-the-defection-cascade) | Capture, siege, defection | M9 | Sonnet | High | **Opus**/Medium | T16, T33, T35, T42 | [#17](https://github.com/diegoami/imperial_conquest_2/issues/17) |
 | [T18](#t18-city-orders-fortification) | City orders | M10 | **Haiku** | Medium | Sonnet/Medium | T08, T17 | [#18](https://github.com/diegoami/imperial_conquest_2/issues/18) |
-| [T19](#t19-diplomacy) | Diplomacy | M11 | Sonnet | High | **Opus**/Medium | T06, T16, T35 | [#19](https://github.com/diegoami/imperial_conquest_2/issues/19) |
+| [T19](#t19-diplomacy) | Diplomacy | M11 | Sonnet | High | **Opus**/Medium | T06, T16, T35, T42 | [#19](https://github.com/diegoami/imperial_conquest_2/issues/19) |
 | [T20](#t20-new-format-saveload-and-versioning) | Save/load and versioning | M16 | Sonnet | High | **Opus**/Medium | T15, T17, T19 | [#20](https://github.com/diegoami/imperial_conquest_2/issues/20) |
 | [T21](#t21-original-save-import-bridge) | Original-save import | M15 | Sonnet | High | **Opus**/Medium | T10, T20, T29, T30, T34 | [#21](https://github.com/diegoami/imperial_conquest_2/issues/21) |
 | [T22](#t22-ai) | AI | M12 | **Opus** | **Ultrahigh** | Opus/High + ultra | T12, T15, T17, T18, T19, T39 | [#22](https://github.com/diegoami/imperial_conquest_2/issues/22) |
@@ -1015,5 +1058,6 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T39](#t39-quarterly-upkeep-who-pays-mercenary-desertion-and-deposition-for-debt) | Upkeep billing correction | — | Sonnet | High | **Opus**/Medium | T08, T35 | [#81](https://github.com/diegoami/imperial_conquest_2/issues/81) |
 | [T40](#t40-expose-the-runs-published-events-to-systems-a-t03-seam) | Published-events seam (T03) | — | Sonnet | Medium | **Opus**/Medium | T03 | [#84](https://github.com/diegoami/imperial_conquest_2/issues/84) |
 | [T41](#t41-thin-cli-demo-on-the-toy-world-a-walking-skeleton) | Thin CLI demo (toy world) | M18 | Sonnet | Medium | Sonnet/High | T06, T08, T09, T10 | [#89](https://github.com/diegoami/imperial_conquest_2/issues/89) |
+| [T42](#t42-news-log-fidelity-slot-format-round-headers-and-the-corpuss-news-literals) | News-log fidelity | M17 | Sonnet | Medium | **Opus**/Medium | T10, T41 | [#92](https://github.com/diegoami/imperial_conquest_2/issues/92) |
 
-**Totals** — 41 tasks: 4 Opus, 31 Sonnet, 5 Haiku, 1 Fable. Effort: 2 Ultrahigh, 17 High, 19 Medium, 3 Low.
+**Totals** — 42 tasks: 4 Opus, 32 Sonnet, 5 Haiku, 1 Fable. Effort: 2 Ultrahigh, 17 High, 20 Medium, 3 Low.
