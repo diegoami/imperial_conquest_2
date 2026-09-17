@@ -25,7 +25,7 @@ public class NewsRingBufferTests
     {
         // Arrange: Create an empty news log and a ruleset at the corpus-confirmed capacity.
         var newsLog = NewsLog.Empty;
-        var rules = new NewsLogRules(RingBufferSlots: Capacity, MessageByteLength: 256);
+        var rules = new NewsLogRules(RingBufferSlots: Capacity, MessageByteLength: 256, SeasonNames: ValueList<string>.Empty);
 
         // Act: Append one more than capacity.
         for (var i = 0; i < Capacity + 1; i++)
@@ -45,7 +45,7 @@ public class NewsRingBufferTests
     {
         // Arrange
         var newsLog = NewsLog.Empty;
-        var rules = new NewsLogRules(RingBufferSlots: Capacity, MessageByteLength: 256);
+        var rules = new NewsLogRules(RingBufferSlots: Capacity, MessageByteLength: 256, SeasonNames: ValueList<string>.Empty);
         var total = Capacity + 10;
 
         // Act: Append more than capacity.
@@ -67,7 +67,7 @@ public class NewsRingBufferTests
     {
         // Arrange
         var newsLog = NewsLog.Empty;
-        var rules = new NewsLogRules(RingBufferSlots: 5, MessageByteLength: 256);
+        var rules = new NewsLogRules(RingBufferSlots: 5, MessageByteLength: 256, SeasonNames: ValueList<string>.Empty);
 
         // Act: Append entries exceeding capacity
         for (var i = 0; i < 12; i++)
@@ -84,7 +84,7 @@ public class NewsRingBufferTests
     public void RingBuffer_Capacity_From_Rules()
     {
         // Arrange
-        var rules = new NewsLogRules(RingBufferSlots: 10, MessageByteLength: 256);
+        var rules = new NewsLogRules(RingBufferSlots: 10, MessageByteLength: 256, SeasonNames: ValueList<string>.Empty);
         var newsLog = NewsLog.Empty;
 
         // Act: Fill beyond capacity

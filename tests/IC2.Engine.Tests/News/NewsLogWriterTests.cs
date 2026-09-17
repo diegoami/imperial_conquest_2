@@ -70,7 +70,11 @@ public class NewsLogWriterTests
     /// DoD 4(c): a round-scoped event appears at the round boundary in the very same
     /// <see cref="TurnCoordinator.RunRoundTick"/> call that published it -- not deferred to a later seat's
     /// turn (the failure mode the first attempt's reflection-based design had under a realistic sink,
-    /// per PR #77's ultra-review addendum).
+    /// per PR #77's ultra-review addendum). T42 (DoD 3): the round tick's own mandatory blank-line/
+    /// week-header pair follows it -- this fixture group's narrow registry (production writers plus its
+    /// own fixtures only) never includes <c>CalendarSystem</c>, so the calendar stays at the toy
+    /// scenario's own start (week 1, Spring, 270 BC); <c>RoundHeader_ReflectsTheCalendarAfterItsOwnAdvance</c>
+    /// below covers the header against a calendar that actually advances.
     /// </summary>
     [Fact]
     public void RoundScopedEvent_AppearsAtRoundBoundary_NotDeferred()
@@ -79,8 +83,36 @@ public class NewsLogWriterTests
 
         var result = coordinator.RunRoundTick(CoreTestbed.InitialState());
 
-        Assert.Single(result.State.NewsLog.Slots);
-        Assert.Equal("A fleet belonging to NavalNation is lost at sea", result.State.NewsLog.Slots[0].Text);
+        var texts = result.State.NewsLog.Slots.Select(s => s.Text).ToList();
+        Assert.Equal(
+            new[]
+            {
+                "A fleet belonging to NavalNation is lost at sea.",
+                " ",
+                "Week  1      Spring      270BC",
+            },
+            texts);
+    }
+
+    /// <summary>
+    /// T42 DoD 3: a full round through the real <see cref="TurnCoordinator"/> -- including the real
+    /// <see cref="global::IC2.Engine.Calendar.CalendarSystem"/>, not just the news writers -- ends with the blank entry then
+    /// the week header, using the calendar values <em>after</em> that round's own advance (week 1 -> 3,
+    /// still Spring, 270 BC unchanged), spacing included.
+    /// </summary>
+    [Fact]
+    public void RoundHeader_ReflectsTheCalendarAfterItsOwnAdvance()
+    {
+        var registry = SystemRegistry.FromAssemblies(
+            new[] { typeof(NewsLogWriterRoundEnd).Assembly },
+            type => type == typeof(global::IC2.Engine.Calendar.CalendarSystem) || type == typeof(NewsLogWriterRoundEnd));
+        var coordinator = new TurnCoordinator(
+            registry, CoreTestbed.Toy.Ruleset, CoreTestbed.Toy.World, NullEventSink.Instance);
+
+        var result = coordinator.RunRoundTick(CoreTestbed.InitialState());
+
+        var texts = result.State.NewsLog.Slots.Select(s => s.Text).ToList();
+        Assert.Equal(new[] { " ", "Week  3      Spring      270BC" }, texts);
     }
 
     /// <summary>
@@ -112,7 +144,10 @@ public class NewsLogWriterTests
     /// <see cref="NewsLogWriterSeatEnd"/> and its round-scoped event through
     /// <see cref="NewsLogWriterRoundEnd"/> -- each exactly once, even though both writers see both events
     /// in <see cref="SystemContext.PublishedEvents"/> by the time <c>RoundEnd</c> runs. Guards specifically
-    /// against the scope filter regressing into rendering the same seat-scoped event twice.
+    /// against the scope filter regressing into rendering the same seat-scoped event twice. T42: the round
+    /// tick's own mandatory blank-line/week-header pair follows both (this group's registry, like
+    /// <see cref="RoundScopedEvent_AppearsAtRoundBoundary_NotDeferred"/>'s, never includes
+    /// <c>CalendarSystem</c>, so the header names the toy scenario's own unadvanced start).
     /// </summary>
     [Fact]
     public void FollowOnRoundTick_RendersEachScopedEvent_ExactlyOnce()
@@ -123,9 +158,10 @@ public class NewsLogWriterTests
 
         Assert.True(result.RoundTickRan);
         var texts = result.State.NewsLog.Slots.Select(s => s.Text).ToList();
-        Assert.Equal(2, texts.Count);
+        Assert.Equal(4, texts.Count);
         Assert.Single(texts, t => t.Contains("FollowOnCity", StringComparison.Ordinal));
         Assert.Single(texts, t => t.Contains("FollowOnFleetNation", StringComparison.Ordinal));
+        Assert.Equal(new[] { " ", "Week  1      Spring      270BC" }, texts.TakeLast(2));
     }
 
     /// <summary>
@@ -176,5 +212,35 @@ public class NewsLogWriterTests
         Assert.Equal(TurnPhase.RoundEnd, roundEnd.Phase);
         Assert.IsType<NewsLogWriterSeatEnd>(seatEnd.Instance);
         Assert.IsType<NewsLogWriterRoundEnd>(roundEnd.Instance);
+    }
+
+    /// <summary>
+    /// #91 N18: "news.writer"/"news.writer.round" runs last pinned against the <em>whole engine
+    /// assembly</em> -- not a narrow test fixture -- so a future <c>SeatEnd</c>/<c>RoundEnd</c> system
+    /// also declared at <c>Order = int.MaxValue</c>, with an id that sorts after the writer's ordinally
+    /// (<see cref="NewsLogWriterSeatEnd"/>'s remarks on the exact tie-break), fails this test the moment
+    /// it is introduced, rather than silently losing its own news that tick.
+    /// </summary>
+    [Fact]
+    public void NewsWriter_IsLast_InSeatEnd_AcrossTheWholeEngineAssembly()
+    {
+        var registry = SystemRegistry.FromEngineAssembly();
+
+        var seatEnd = registry.InPhase(TurnPhase.SeatEnd);
+
+        Assert.NotEmpty(seatEnd);
+        Assert.Equal("news.writer", seatEnd[^1].Id);
+    }
+
+    /// <summary>The same pin, for <c>news.writer.round</c> within <c>RoundEnd</c>.</summary>
+    [Fact]
+    public void NewsWriterRound_IsLast_InRoundEnd_AcrossTheWholeEngineAssembly()
+    {
+        var registry = SystemRegistry.FromEngineAssembly();
+
+        var roundEnd = registry.InPhase(TurnPhase.RoundEnd);
+
+        Assert.NotEmpty(roundEnd);
+        Assert.Equal("news.writer.round", roundEnd[^1].Id);
     }
 }

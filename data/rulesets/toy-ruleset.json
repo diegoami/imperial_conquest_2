@@ -485,9 +485,11 @@
   "newsLog": {
     "ringBufferSlots": 40,
     "messageByteLength": 61,
+    "seasonNames": ["Spring", "Summer", "Autumn", "Winter"],
     "_provenance": {
       "ringBufferSlots": "confirmed: decompiled-news-log-identified.md — FUN_00449240 keeps 40 slots (indices 0-39) and shifts the oldest out once full.",
-      "messageByteLength": "confirmed: decompiled-news-log-identified.md and decompiled-sav-file-layout.md — each slot is a fixed 61-byte (0x3D) string buffer."
+      "messageByteLength": "confirmed: decompiled-news-log-identified.md and decompiled-sav-file-layout.md — each slot is a fixed 61-byte (0x3D) string buffer. news-log-format-and-messages.md Q1 confirms the buffer is a NUL-terminated single-byte string against 2,101 slots in 54 saves, so at most messageByteLength - 1 = 60 bytes of text ever reach the log; the 61st byte is always the writer's own NUL.",
+      "seasonNames": "confirmed: news-log-format-and-messages.md Q3 — the DAT's season table at 0x1F7D8: Spring, Summer, Autumn, Winter, in CalendarState.SeasonIndex order (0 = Spring, matching calendar.startSeasonIndex's own provenance and economy's seasonVal table)."
     }
   },
   "mapMarkers": {
