@@ -65,14 +65,6 @@ public class PlaceholderPackIntegrationTests
             if (pack.TryResolveAsset(key, out var relativePath))
             {
                 var fullPath = Path.Combine(_placeholderPackDir, relativePath);
-
-                // Generate WAV files on-the-fly if missing (they're .gitignored, so fresh clone won't have them)
-                if (!File.Exists(fullPath) && relativePath.EndsWith(".wav"))
-                {
-                    Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-                    GenerateSilentWAV(fullPath);
-                }
-
                 if (!File.Exists(fullPath))
                 {
                     missingFiles.Add(key);
@@ -190,14 +182,7 @@ public class PlaceholderPackIntegrationTests
             var relativePath = pack.ResolveAsset(key);
             var fullPath = Path.Combine(_placeholderPackDir, relativePath);
 
-            // Generate WAV file on-the-fly if it doesn't exist (WAV files are .gitignored, so fresh clone won't have them)
-            if (!File.Exists(fullPath))
-            {
-                Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-                GenerateSilentWAV(fullPath);
-            }
-
-            Assert.True(File.Exists(fullPath), $"Audio file not found or could not be generated: {key}");
+            Assert.True(File.Exists(fullPath), $"Audio file not found: {key}");
 
             // Verify it's a valid WAV file
             var header = new byte[4];
@@ -211,44 +196,6 @@ public class PlaceholderPackIntegrationTests
             var riffHeader = System.Text.Encoding.ASCII.GetString(header);
             Assert.Equal("RIFF", riffHeader);
         }
-    }
-
-    private static void GenerateSilentWAV(string filepath)
-    {
-        var file = File.Create(filepath);
-        var writer = new BinaryWriter(file);
-
-        const int sampleRate = 44100;
-        const int duration = 1;
-        var numSamples = sampleRate * duration;
-
-        // RIFF header
-        writer.Write(System.Text.Encoding.ASCII.GetBytes("RIFF"));
-        writer.Write((uint)(36 + numSamples * 2));  // File size - 8
-        writer.Write(System.Text.Encoding.ASCII.GetBytes("WAVE"));
-
-        // fmt subchunk
-        writer.Write(System.Text.Encoding.ASCII.GetBytes("fmt "));
-        writer.Write((uint)16);  // Subchunk1Size
-        writer.Write((ushort)1);   // AudioFormat (PCM)
-        writer.Write((ushort)1);   // NumChannels
-        writer.Write((uint)sampleRate);  // SampleRate
-        writer.Write((uint)(sampleRate * 2));  // ByteRate
-        writer.Write((ushort)2);   // BlockAlign
-        writer.Write((ushort)16);  // BitsPerSample
-
-        // data subchunk
-        writer.Write(System.Text.Encoding.ASCII.GetBytes("data"));
-        writer.Write((uint)(numSamples * 2));  // Subchunk2Size
-
-        // Silent audio (all zeros)
-        for (var i = 0; i < numSamples; i++)
-        {
-            writer.Write((short)0);
-        }
-
-        writer.Close();
-        file.Close();
     }
 
     private static string ComputeSHA256(string filePath)
