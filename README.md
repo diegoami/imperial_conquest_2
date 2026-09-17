@@ -8,7 +8,14 @@ A modern, moddable reimplementation of *Imperial Conquest 2* (1996) — the game
 
 Progress lives on GitHub, not in this file: each [task issue](https://github.com/diegoami/imperial_conquest_2/issues?q=label%3Atask)'s `status:*` label, and the [pull requests](https://github.com/diegoami/imperial_conquest_2/pulls). The foundation (Phase 0) is merged, and the pure-rules subsystems (Phase 1) are being built task by task ([task catalogue](docs/task-catalogue.md)). How to query the board: [operating-guide.md §1](docs/operating-guide.md#1-where-the-build-stands).
 
-- **Nothing is playable yet.** The first runnable program is the `IC2.Cli` harness (T23); the first screen is T24. What becomes runnable when: [operating-guide.md §1.1](docs/operating-guide.md#11-what-becomes-runnable-and-when).
+- **Try the demo** (T41) — a text walking skeleton of the rules built so far, on the small 3-city toy world (`data/worlds/toy-3city.json`, north human against a south seat with no AI yet):
+
+  ```bash
+  dotnet run --project src/IC2.Cli -- --script tests/fixtures/cli/demo.txt   # the scripted demo
+  dotnet run --project src/IC2.Cli                                          # play it yourself
+  ```
+
+  Commands: `status`, `map`, `move <army> <x> <y>`, `buy <army> <city> <tons>`, `end`, `news`, `help`, `quit`. `--seed <n>` overrides the scenario's seed, which drives weather only; everything else is deterministic. What isn't built yet (battles, capture, recruitment, diplomacy, the AI) is simply absent, the AI seat passes with no orders, and `help` says so. T23 later extends this same harness to the full command set; the first graphical screen is T24. What becomes runnable when: [operating-guide.md §1.1](docs/operating-guide.md#11-what-becomes-runnable-and-when).
 - **Build and test now**:
   ```bash
   dotnet build IC2.sln   # 0 warnings, 0 errors
@@ -20,7 +27,7 @@ Operating the project — the task loop, the skills, where everything lives, bug
 
 ## Building the reimplementation
 
-`IC2.Engine` is the headless game engine; its rules are being filled in task by task ([task-catalogue.md](docs/task-catalogue.md)). `IC2.Cli` (a scriptable play harness) is still a scaffolded stub; once it lands (T23), this section will carry its usage.
+`IC2.Engine` is the headless game engine; its rules are being filled in task by task ([task-catalogue.md](docs/task-catalogue.md)). `IC2.Cli` is a scriptable play harness: T41 shipped the thin demo above, and T23 extends it to every command type plus the view models the Godot UI binds to.
 
 The shipped data files are `data/worlds/toy-3city.json`, `data/rulesets/toy-ruleset.json` and `data/scenarios/toy-3city.json` — a deliberately small 3-city / 2-nation fixture for tests. The real 334-city `classical-mediterranean` world and the `classical-faithful` ruleset are exported later, by T29.
 
