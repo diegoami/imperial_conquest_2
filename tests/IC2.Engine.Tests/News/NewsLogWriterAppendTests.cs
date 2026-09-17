@@ -36,8 +36,8 @@ public class NewsLogWriterAppendTests
 
     /// <summary>
     /// An angle-bracket token's <c>[field[+offset]]</c> provenance annotation (as in the corpus's own
-    /// <c>fleet.finished</c> and <c>victory.conquered-by-nation</c> entries) is consumed when locating the
-    /// property, and never printed in the rendered message.
+    /// <c>fleet.finished</c> entry) is consumed when locating the property, and never printed in the
+    /// rendered message.
     /// </summary>
     [Fact]
     public void Append_StripsBracketAnnotation_FromAngleToken()
