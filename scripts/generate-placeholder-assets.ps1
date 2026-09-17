@@ -4,8 +4,9 @@
 Generates a deterministic placeholder asset pack for testing and development.
 
 .DESCRIPTION
-Creates flat-color PNG files for unit/terrain/city markers, terrain tiles, and silent audio stubs.
-All output is byte-identical across runs, suitable for checking into version control and testing.
+Creates flat-color, uncompressed 24-bit BMP files for unit/terrain/city markers, terrain tiles,
+and silent audio stubs. All output is byte-identical across runs, suitable for checking into
+version control and testing.
 
 .PARAMETER OutputPath
 The directory to write the asset pack to. Created if it doesn't exist.
@@ -33,37 +34,11 @@ foreach ($dir in @('units', 'army', 'fleet', 'city', 'terrain', 'sfx')) {
     }
 }
 
-# CRC32 table - computed once
-$script:crcTable = $null
-
-function Initialize-CRC32Table {
-    if ($script:crcTable -ne $null) { return }
-    $script:crcTable = @(0) * 256
-    for ($n = 0; $n -lt 256; $n++) {
-        $crc = $n
-        for ($k = 0; $k -lt 8; $k++) {
-            if (($crc -band 1) -eq 1) {
-                $crc = 0xEDB88320 -bxor ($crc -shr 1)
-            } else {
-                $crc = $crc -shr 1
-            }
-        }
-        $script:crcTable[$n] = $crc
-    }
-}
-
-function Calculate-CRC32 {
-    param([byte[]]$Data)
-    Initialize-CRC32Table
-
-    $crc = 0xFFFFFFFF
-    foreach ($byte in $Data) {
-        $crc = $script:crcTable[($crc -bxor $byte) -band 0xFF] -bxor ($crc -shr 8)
-    }
-    $crc -bxor 0xFFFFFFFF
-}
-
-function New-PlaceholderPNG {
+# Placeholder images are uncompressed 24-bit BMP, not PNG: a BMP has no checksum and no zlib
+# stream, so the whole class of bug that hit PNG generation here (chunk CRCs computed with
+# PowerShell 5.1's signed-32-bit arithmetic misbehaving under -shr/-bxor without careful
+# [uint32]/-band 0xFFFFFFFF masking) simply does not exist for this format. See PR #96.
+function New-PlaceholderBMP {
     param(
         [string]$Path,
         [byte]$Red = 100,
@@ -71,78 +46,47 @@ function New-PlaceholderPNG {
         [byte]$Blue = 100
     )
 
-    # PNG signature
-    $pngSig = [byte[]]@(137, 80, 78, 71, 13, 10, 26, 10)
+    $width = 32
+    $height = 32
+    $rowSizeUnpadded = $width * 3
+    $rowPadding = (4 - ($rowSizeUnpadded % 4)) % 4
+    $rowSize = $rowSizeUnpadded + $rowPadding
+    $pixelDataSize = [uint32]($rowSize * $height)
+    $pixelDataOffset = [uint32]54  # 14-byte file header + 40-byte DIB header
+    $fileSize = [uint32]($pixelDataOffset + $pixelDataSize)
 
-    # IHDR chunk: 32x32 RGB image
-    $ihdrData = [byte[]]@(0, 0, 0, 32, 0, 0, 0, 32, 8, 2, 0, 0, 0)
-    $ihdrType = [byte[]]@(73, 72, 68, 82)  # "IHDR"
-    $ihdrCrc = Calculate-CRC32 ($ihdrType + $ihdrData)
-    $ihdrLength = [byte[]]@(0, 0, 0, 13)  # big-endian
+    # BITMAPFILEHEADER (14 bytes), all fields little-endian per the BMP spec.
+    $fileHeader = [byte[]]@(0x42, 0x4D)  # "BM"
+    $fileHeader += [BitConverter]::GetBytes($fileSize)
+    $fileHeader += [byte[]]@(0, 0, 0, 0)  # reserved
+    $fileHeader += [BitConverter]::GetBytes($pixelDataOffset)
 
-    # Build IHDR chunk: length + type + data + CRC
-    $ihdrChunk = $ihdrLength + $ihdrType + $ihdrData + [byte[]]@(
-        [byte](($ihdrCrc -shr 24) -band 0xFF),
-        [byte](($ihdrCrc -shr 16) -band 0xFF),
-        [byte](($ihdrCrc -shr 8) -band 0xFF),
-        [byte]($ihdrCrc -band 0xFF)
-    )
+    # BITMAPINFOHEADER (40 bytes): the classic Windows DIB header.
+    $infoHeader = [BitConverter]::GetBytes([uint32]40)                 # header size
+    $infoHeader += [BitConverter]::GetBytes([int32]$width)
+    $infoHeader += [BitConverter]::GetBytes([int32]$height)            # positive => bottom-up
+    $infoHeader += [BitConverter]::GetBytes([uint16]1)                 # color planes
+    $infoHeader += [BitConverter]::GetBytes([uint16]24)                # bits per pixel
+    $infoHeader += [BitConverter]::GetBytes([uint32]0)                 # BI_RGB, no compression
+    $infoHeader += [BitConverter]::GetBytes($pixelDataSize)
+    $infoHeader += [BitConverter]::GetBytes([int32]0)                  # X pixels/metre
+    $infoHeader += [BitConverter]::GetBytes([int32]0)                  # Y pixels/metre
+    $infoHeader += [BitConverter]::GetBytes([uint32]0)                 # colors used
+    $infoHeader += [BitConverter]::GetBytes([uint32]0)                 # important colors
 
-    # Generate pixel data: 32x32 RGB
-    $pixelData = New-Object byte[] (32 * 32 * 3 + 32)
+    # Pixel array: bottom-up rows, BGR byte order, each row padded to a 4-byte boundary.
+    $pixelData = New-Object byte[] $pixelDataSize
     $idx = 0
-
-    for ($y = 0; $y -lt 32; $y++) {
-        $pixelData[$idx] = 0  # Filter type: None
-        $idx += 1
-
-        for ($x = 0; $x -lt 32; $x++) {
-            $pixelData[$idx] = $Red
-            $idx += 1
-            $pixelData[$idx] = $Green
-            $idx += 1
-            $pixelData[$idx] = $Blue
-            $idx += 1
+    for ($y = 0; $y -lt $height; $y++) {
+        for ($x = 0; $x -lt $width; $x++) {
+            $pixelData[$idx] = $Blue;  $idx++
+            $pixelData[$idx] = $Green; $idx++
+            $pixelData[$idx] = $Red;   $idx++
         }
+        $idx += $rowPadding  # padding bytes stay zero
     }
 
-    # Compress with DEFLATE
-    Add-Type -AssemblyName System.IO.Compression
-    $ms = New-Object System.IO.MemoryStream
-    $deflate = New-Object System.IO.Compression.DeflateStream($ms, [System.IO.Compression.CompressionMode]::Compress)
-    $deflate.Write($pixelData, 0, $pixelData.Length)
-    $deflate.Close()
-    $compressedData = $ms.ToArray()
-
-    # IDAT chunk: length + type + data + CRC
-    $idatType = [byte[]]@(73, 68, 65, 84)  # "IDAT"
-    $idatCrc = Calculate-CRC32 ($idatType + $compressedData)
-    $idatLength = [byte[]]@(
-        [byte](($compressedData.Length -shr 24) -band 0xFF),
-        [byte](($compressedData.Length -shr 16) -band 0xFF),
-        [byte](($compressedData.Length -shr 8) -band 0xFF),
-        [byte]($compressedData.Length -band 0xFF)
-    )
-
-    $idatChunk = $idatLength + $idatType + $compressedData + [byte[]]@(
-        [byte](($idatCrc -shr 24) -band 0xFF),
-        [byte](($idatCrc -shr 16) -band 0xFF),
-        [byte](($idatCrc -shr 8) -band 0xFF),
-        [byte]($idatCrc -band 0xFF)
-    )
-
-    # IEND chunk: length + type + CRC
-    $iendType = [byte[]]@(73, 69, 78, 68)  # "IEND"
-    $iendCrc = Calculate-CRC32 $iendType
-    $iendChunk = [byte[]]@(0, 0, 0, 0) + $iendType + [byte[]]@(
-        [byte](($iendCrc -shr 24) -band 0xFF),
-        [byte](($iendCrc -shr 16) -band 0xFF),
-        [byte](($iendCrc -shr 8) -band 0xFF),
-        [byte]($iendCrc -band 0xFF)
-    )
-
-    # Write PNG file
-    $allBytes = $pngSig + $ihdrChunk + $idatChunk + $iendChunk
+    $allBytes = $fileHeader + $infoHeader + $pixelData
     [System.IO.File]::WriteAllBytes($Path, $allBytes)
 }
 
@@ -206,37 +150,37 @@ $colors = @{
     "deep" = @(30, 100, 180)
 }
 
-Write-Host "Generating PNG files..."
+Write-Host "Generating BMP files..."
 
-$pngMappings = @{
-    "units/light_infantry.png" = $colors["light_infantry"]
-    "units/heavy_infantry.png" = $colors["heavy_infantry"]
-    "units/archers.png" = $colors["archers"]
-    "units/light_cavalry.png" = $colors["light_cavalry"]
-    "units/heavy_cavalry.png" = $colors["heavy_cavalry"]
-    "army/tier1.png" = $colors["tier1_army"]
-    "army/tier2.png" = $colors["tier2_army"]
-    "army/tier3.png" = $colors["tier3_army"]
-    "fleet/tier1.png" = $colors["tier1_fleet"]
-    "fleet/tier2.png" = $colors["tier2_fleet"]
-    "fleet/tier3.png" = $colors["tier3_fleet"]
-    "city/tier1.png" = $colors["tier1_city"]
-    "city/tier2.png" = $colors["tier2_city"]
-    "city/tier3.png" = $colors["tier3_city"]
-    "city/capital.png" = $colors["capital"]
-    "terrain/plain.png" = $colors["plain"]
-    "terrain/desert.png" = $colors["desert"]
-    "terrain/forest.png" = $colors["forest"]
-    "terrain/mountain.png" = $colors["mountain"]
-    "terrain/river.png" = $colors["river"]
-    "terrain/sea_coastal.png" = $colors["coastal"]
-    "terrain/sea_deep.png" = $colors["deep"]
+$bmpMappings = @{
+    "units/light_infantry.bmp" = $colors["light_infantry"]
+    "units/heavy_infantry.bmp" = $colors["heavy_infantry"]
+    "units/archers.bmp" = $colors["archers"]
+    "units/light_cavalry.bmp" = $colors["light_cavalry"]
+    "units/heavy_cavalry.bmp" = $colors["heavy_cavalry"]
+    "army/tier1.bmp" = $colors["tier1_army"]
+    "army/tier2.bmp" = $colors["tier2_army"]
+    "army/tier3.bmp" = $colors["tier3_army"]
+    "fleet/tier1.bmp" = $colors["tier1_fleet"]
+    "fleet/tier2.bmp" = $colors["tier2_fleet"]
+    "fleet/tier3.bmp" = $colors["tier3_fleet"]
+    "city/tier1.bmp" = $colors["tier1_city"]
+    "city/tier2.bmp" = $colors["tier2_city"]
+    "city/tier3.bmp" = $colors["tier3_city"]
+    "city/capital.bmp" = $colors["capital"]
+    "terrain/plain.bmp" = $colors["plain"]
+    "terrain/desert.bmp" = $colors["desert"]
+    "terrain/forest.bmp" = $colors["forest"]
+    "terrain/mountain.bmp" = $colors["mountain"]
+    "terrain/river.bmp" = $colors["river"]
+    "terrain/sea_coastal.bmp" = $colors["coastal"]
+    "terrain/sea_deep.bmp" = $colors["deep"]
 }
 
-foreach ($file in $pngMappings.Keys) {
-    $color = $pngMappings[$file]
+foreach ($file in $bmpMappings.Keys) {
+    $color = $bmpMappings[$file]
     $fullPath = Join-Path -Path $OutputPath -ChildPath $file
-    New-PlaceholderPNG -Path $fullPath -Red $color[0] -Green $color[1] -Blue $color[2]
+    New-PlaceholderBMP -Path $fullPath -Red $color[0] -Green $color[1] -Blue $color[2]
     Write-Host "  + $file"
 }
 
@@ -256,19 +200,19 @@ $manifest = @{
 }
 
 foreach ($unit in @("light_infantry", "heavy_infantry", "archers", "light_cavalry", "heavy_cavalry")) {
-    $manifest.assets["unit.$unit.icon"] = "units/$unit.png"
+    $manifest.assets["unit.$unit.icon"] = "units/$unit.bmp"
 }
 
 for ($tier = 1; $tier -le 3; $tier++) {
-    $manifest.assets["army.tier$tier.icon"] = "army/tier$tier.png"
-    $manifest.assets["fleet.tier$tier.icon"] = "fleet/tier$tier.png"
-    $manifest.assets["city.tier$tier.icon"] = "city/tier$tier.png"
+    $manifest.assets["army.tier$tier.icon"] = "army/tier$tier.bmp"
+    $manifest.assets["fleet.tier$tier.icon"] = "fleet/tier$tier.bmp"
+    $manifest.assets["city.tier$tier.icon"] = "city/tier$tier.bmp"
 }
 
-$manifest.assets["city.capital.icon"] = "city/capital.png"
+$manifest.assets["city.capital.icon"] = "city/capital.bmp"
 
 foreach ($terrain in @("plain", "desert", "forest", "mountain", "river", "sea_coastal", "sea_deep")) {
-    $manifest.assets["terrain.$terrain.tile"] = "terrain/$terrain.png"
+    $manifest.assets["terrain.$terrain.tile"] = "terrain/$terrain.bmp"
 }
 
 foreach ($sfx in @("city_captured", "battle", "unit_move")) {

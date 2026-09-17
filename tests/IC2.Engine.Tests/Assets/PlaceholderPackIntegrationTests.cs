@@ -209,26 +209,26 @@ public class PlaceholderPackIntegrationTests
     }
 
     [Fact]
-    public void PNGFiles_HaveValidStructure()
+    public void ImageFiles_HaveValidBMPStructure()
     {
         // Arrange
         var manifestPath = Path.Combine(_placeholderPackDir, "manifest.json");
         var pack = AssetLoader.LoadManifest(manifestPath);
 
-        // Every image key in the pack (all 22 icon/tile keys), not just the three army tiers -
-        // a chunk-CRC bug in the generator affects every PNG it writes, not a chosen sample.
-        var pngAssets = AssetKeys.AllKeys
+        // Every image key in the pack (all 22 icon/tile keys), not just a sample - a bug in the
+        // generator's shared BMP-writing code affects every file it writes, not a chosen few.
+        var imageAssets = AssetKeys.AllKeys
             .Where(key => !key.StartsWith("sfx.", StringComparison.Ordinal))
             .ToArray();
 
         // Act & Assert
-        foreach (var key in pngAssets)
+        foreach (var key in imageAssets)
         {
             var relativePath = pack.ResolveAsset(key);
             var fullPath = Path.Combine(_placeholderPackDir, relativePath);
 
-            Assert.True(File.Exists(fullPath), $"PNG file not found: {key}");
-            ValidatePNGStructure(fullPath, key);
+            Assert.True(File.Exists(fullPath), $"Image file not found: {key}");
+            ValidateBMPStructure(fullPath, key);
         }
     }
 
@@ -251,36 +251,49 @@ public class PlaceholderPackIntegrationTests
 
         try
         {
-            // Act - Run generator in temp directory
+            // Act - Run generator in temp directory. -ExecutionPolicy Bypass is required here:
+            // this machine's default policy for a plain, non-interactive `powershell` process is
+            // Restricted, which refuses to load any .ps1 file at all (independent of the
+            // generator's own logic) and is exactly what silently turned this DoD line into
+            // "always exit code 1" before this fix.
             var generatorScript = Path.Combine(FixturePaths.RepositoryRoot, "scripts", "generate-placeholder-assets.ps1");
             var psi = new System.Diagnostics.ProcessStartInfo
             {
                 FileName = "powershell",
-                Arguments = $"-NoProfile -File \"{generatorScript}\" -OutputPath \"{tempDir}\"",
+                Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{generatorScript}\" -OutputPath \"{tempDir}\"",
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 CreateNoWindow = true
             };
 
+            string stdout = string.Empty, stderr = string.Empty;
             using (var process = System.Diagnostics.Process.Start(psi))
             {
+                stdout = process?.StandardOutput.ReadToEnd() ?? string.Empty;
+                stderr = process?.StandardError.ReadToEnd() ?? string.Empty;
                 var timeout = process?.WaitForExit(30000) ?? false;
                 Assert.True(timeout, "Generator script timed out");
-                Assert.Equal(0, process?.ExitCode ?? 1);
+                Assert.True(0 == (process?.ExitCode ?? 1), $"Generator exited non-zero. stdout: {stdout}\nstderr: {stderr}");
             }
 
-            // Assert - Compare generated files with committed versions
-            var files = Directory.EnumerateFiles(_placeholderPackDir, "*.png", SearchOption.AllDirectories);
-            foreach (var committedPath in files)
+            // Assert - Compare every generated file (images, audio, manifest) with the committed
+            // versions. A file that differs, is missing, or is extra on either side fails the test.
+            var committedFiles = Directory.EnumerateFiles(_placeholderPackDir, "*", SearchOption.AllDirectories)
+                .Select(p => Path.GetRelativePath(_placeholderPackDir, p))
+                .OrderBy(p => p, StringComparer.Ordinal)
+                .ToArray();
+            var generatedFiles = Directory.EnumerateFiles(tempDir, "*", SearchOption.AllDirectories)
+                .Select(p => Path.GetRelativePath(tempDir, p))
+                .OrderBy(p => p, StringComparer.Ordinal)
+                .ToArray();
+
+            Assert.Equal(committedFiles, generatedFiles);
+
+            foreach (var relativePath in committedFiles)
             {
-                var relativePath = Path.GetRelativePath(_placeholderPackDir, committedPath);
-                var generatedPath = Path.Combine(tempDir, relativePath);
-
-                Assert.True(File.Exists(generatedPath), $"Generated file not found: {relativePath}");
-
-                var committedBytes = File.ReadAllBytes(committedPath);
-                var generatedBytes = File.ReadAllBytes(generatedPath);
+                var committedBytes = File.ReadAllBytes(Path.Combine(_placeholderPackDir, relativePath));
+                var generatedBytes = File.ReadAllBytes(Path.Combine(tempDir, relativePath));
 
                 Assert.Equal(committedBytes.Length, generatedBytes.Length);
                 Assert.Equal(committedBytes, generatedBytes);
@@ -292,94 +305,67 @@ public class PlaceholderPackIntegrationTests
         }
     }
 
-    private static void ValidatePNGStructure(string pngPath, string assetKey)
-    {
-        using (var stream = File.OpenRead(pngPath))
-        {
-            var reader = new BinaryReader(stream);
-
-            // PNG signature: 137 80 78 71 13 10 26 10
-            var signature = reader.ReadBytes(8);
-            var expectedSig = new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 };
-            Assert.True(signature.SequenceEqual(expectedSig), $"Invalid PNG signature in {assetKey}");
-
-            // Verify every chunk up to and including IEND has a CRC that matches a real CRC32
-            // computed over (type + data), the way any real PNG decoder checks it. This is
-            // deliberately NOT just "CRC != 0" (see PR #96 review): a wrong CRC computed by a
-            // buggy generator is very unlikely to happen to be zero, so that check let 22
-            // corrupt files pass CI. Also checks the declared 32x32 dimensions in IHDR.
-            while (true)
-            {
-                var length = ReadBigEndianInt32(reader);
-                var chunkType = reader.ReadBytes(4);
-                var chunkData = reader.ReadBytes(length);
-                var storedCrc = unchecked((uint)ReadBigEndianInt32(reader));
-
-                var typeAndData = new byte[4 + length];
-                Buffer.BlockCopy(chunkType, 0, typeAndData, 0, 4);
-                Buffer.BlockCopy(chunkData, 0, typeAndData, 4, length);
-                var computedCrc = Crc32(typeAndData);
-
-                var chunkName = System.Text.Encoding.ASCII.GetString(chunkType);
-                Assert.True(
-                    storedCrc == computedCrc,
-                    $"{assetKey}: {chunkName} chunk CRC mismatch — stored 0x{storedCrc:X8}, computed 0x{computedCrc:X8}");
-
-                if (chunkName == "IHDR")
-                {
-                    Assert.Equal(13, length);
-                    var width = (chunkData[0] << 24) | (chunkData[1] << 16) | (chunkData[2] << 8) | chunkData[3];
-                    var height = (chunkData[4] << 24) | (chunkData[5] << 16) | (chunkData[6] << 8) | chunkData[7];
-                    Assert.True(width > 0, $"{assetKey}: IHDR declares non-positive width {width}");
-                    Assert.True(height > 0, $"{assetKey}: IHDR declares non-positive height {height}");
-                }
-
-                if (chunkName == "IEND")
-                {
-                    break;
-                }
-
-                if (stream.Position >= stream.Length)
-                {
-                    throw new Xunit.Sdk.XunitException($"{assetKey}: reached end of file before an IEND chunk");
-                }
-            }
-        }
-    }
-
     /// <summary>
-    /// A from-scratch CRC-32 (the zlib/PNG polynomial, reflected), computed independently of the
-    /// generator script so a bug shared between the generator and this check can't cancel out.
+    /// Parses a BMP file's own headers and checks them against each other and against the file
+    /// on disk, rather than trusting any single field: the "BM" signature; the file-header's
+    /// declared total size against the file's actual length; the 40-byte BITMAPINFOHEADER's own
+    /// size field, declared width/height (both positive, matching the 32x32 the generator
+    /// produces), bit depth (24) and compression (0, BI_RGB - uncompressed); the DIB header's
+    /// declared pixel-array size against the bytes actually remaining in the file; and that the
+    /// pixel array's length matches width/height/bit-depth with 4-byte row padding accounted for.
+    /// This is the BMP-format equivalent of the PNG chunk-CRC check this test used to run before
+    /// the switch to BMP (see PR #96): every field the format defines is independently
+    /// recomputed and compared, not read once and assumed correct.
     /// </summary>
-    private static uint Crc32(byte[] data)
+    private static void ValidateBMPStructure(string bmpPath, string assetKey)
     {
-        const uint polynomial = 0xEDB88320;
-        var table = new uint[256];
-        for (uint n = 0; n < 256; n++)
-        {
-            var c = n;
-            for (var k = 0; k < 8; k++)
-            {
-                c = (c & 1) == 1 ? polynomial ^ (c >> 1) : c >> 1;
-            }
-            table[n] = c;
-        }
+        var bytes = File.ReadAllBytes(bmpPath);
+        var actualLength = bytes.Length;
 
-        var crc = 0xFFFFFFFFu;
-        foreach (var b in data)
-        {
-            crc = table[(crc ^ b) & 0xFF] ^ (crc >> 8);
-        }
-        return crc ^ 0xFFFFFFFFu;
-    }
+        Assert.True(actualLength >= 54, $"{assetKey}: file too short to hold a BMP file header + DIB header ({actualLength} bytes)");
 
-    private static int ReadBigEndianInt32(BinaryReader reader)
-    {
-        var bytes = reader.ReadBytes(4);
-        if (BitConverter.IsLittleEndian)
-        {
-            Array.Reverse(bytes);
-        }
-        return BitConverter.ToInt32(bytes, 0);
+        // BITMAPFILEHEADER (14 bytes)
+        Assert.True(bytes[0] == (byte)'B' && bytes[1] == (byte)'M', $"{assetKey}: missing 'BM' signature");
+
+        var declaredFileSize = BitConverter.ToUInt32(bytes, 2);
+        Assert.True(declaredFileSize == (uint)actualLength,
+            $"{assetKey}: file header declares size {declaredFileSize}, actual file is {actualLength} bytes");
+
+        var pixelDataOffset = BitConverter.ToUInt32(bytes, 10);
+        Assert.Equal(54u, pixelDataOffset);
+
+        // BITMAPINFOHEADER (40 bytes, starting at offset 14)
+        var dibHeaderSize = BitConverter.ToUInt32(bytes, 14);
+        Assert.Equal(40u, dibHeaderSize);
+
+        var width = BitConverter.ToInt32(bytes, 18);
+        var height = BitConverter.ToInt32(bytes, 22);
+        Assert.True(width > 0, $"{assetKey}: DIB header declares non-positive width {width}");
+        Assert.True(height > 0, $"{assetKey}: DIB header declares non-positive height {height}");
+        Assert.Equal(32, width);
+        Assert.Equal(32, height);
+
+        var bitCount = BitConverter.ToUInt16(bytes, 28);
+        Assert.Equal((ushort)24, bitCount);
+
+        var compression = BitConverter.ToUInt32(bytes, 30);
+        Assert.Equal(0u, compression); // BI_RGB - uncompressed, so no codec bug can hide here either
+
+        var declaredImageSize = BitConverter.ToUInt32(bytes, 34);
+
+        // Recompute the expected pixel array size independently from width/height/bit depth,
+        // rather than trusting the header's own declaredImageSize field.
+        var bytesPerPixel = bitCount / 8;
+        var rowSizeUnpadded = width * bytesPerPixel;
+        var rowPadding = (4 - (rowSizeUnpadded % 4)) % 4;
+        var rowSize = rowSizeUnpadded + rowPadding;
+        var expectedPixelDataSize = rowSize * height;
+
+        Assert.True(declaredImageSize == (uint)expectedPixelDataSize,
+            $"{assetKey}: DIB header declares image size {declaredImageSize}, expected {expectedPixelDataSize} for a {width}x{height} 24bpp bottom-up bitmap");
+
+        var actualPixelBytes = actualLength - (int)pixelDataOffset;
+        Assert.True(actualPixelBytes == expectedPixelDataSize,
+            $"{assetKey}: pixel array is {actualPixelBytes} bytes on disk, expected {expectedPixelDataSize}");
     }
 }
