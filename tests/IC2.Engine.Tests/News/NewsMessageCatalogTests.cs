@@ -211,7 +211,7 @@ public class NewsMessageCatalogTests
     /// </summary>
     private static string RenderThroughProductionCatalog(string eventKind, DomainEvent probeEvent)
     {
-        var rules = new NewsLogRules(RingBufferSlots: 1, MessageByteLength: 4096);
+        var rules = new NewsLogRules(RingBufferSlots: 1, MessageByteLength: 4096, SeasonNames: ValueList<string>.Empty);
         var result = NewsLogWriter.Append(
             CoreTestbed.InitialState(),
             new[] { probeEvent },

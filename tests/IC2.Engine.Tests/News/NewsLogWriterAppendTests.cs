@@ -16,7 +16,8 @@ namespace IC2.Engine.Tests.News;
 /// </summary>
 public class NewsLogWriterAppendTests
 {
-    private static readonly NewsLogRules GenerousRules = new(RingBufferSlots: 40, MessageByteLength: 4096);
+    private static readonly NewsLogRules GenerousRules =
+        new(RingBufferSlots: 40, MessageByteLength: 4096, SeasonNames: ValueList<string>.Empty);
 
     /// <summary>Both placeholder syntaxes the corpus uses are recognised and substituted in one template.</summary>
     [Fact]
@@ -138,7 +139,7 @@ public class NewsLogWriterAppendTests
     [Fact]
     public void Append_Truncates_ByUtf8ByteLength_WithoutSplittingACharacter()
     {
-        var rules = new NewsLogRules(RingBufferSlots: 1, MessageByteLength: 7);
+        var rules = new NewsLogRules(RingBufferSlots: 1, MessageByteLength: 7, SeasonNames: ValueList<string>.Empty);
         var probeEvent = new MultiByteProbeEvent(Text: "ééééé");
 
         var state = NewsLogWriter.Append(
@@ -171,7 +172,7 @@ public class NewsLogWriterAppendTests
     [Fact]
     public void Append_Evicts_WhenManyEventsInOneCallExceedCapacity()
     {
-        var rules = new NewsLogRules(RingBufferSlots: 3, MessageByteLength: 4096);
+        var rules = new NewsLogRules(RingBufferSlots: 3, MessageByteLength: 4096, SeasonNames: ValueList<string>.Empty);
         var events = Enumerable.Range(0, 5)
             .Select(i => (DomainEvent)new MultiByteProbeEvent($"m{i}"))
             .ToArray();
