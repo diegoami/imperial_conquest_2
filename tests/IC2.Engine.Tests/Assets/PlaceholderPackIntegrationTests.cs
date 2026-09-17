@@ -214,7 +214,12 @@ public class PlaceholderPackIntegrationTests
         // Arrange
         var manifestPath = Path.Combine(_placeholderPackDir, "manifest.json");
         var pack = AssetLoader.LoadManifest(manifestPath);
-        var pngAssets = new[] { AssetKeys.ArmyTier1Icon, AssetKeys.ArmyTier2Icon, AssetKeys.ArmyTier3Icon };
+
+        // Every image key in the pack (all 22 icon/tile keys), not just the three army tiers -
+        // a chunk-CRC bug in the generator affects every PNG it writes, not a chosen sample.
+        var pngAssets = AssetKeys.AllKeys
+            .Where(key => !key.StartsWith("sfx.", StringComparison.Ordinal))
+            .ToArray();
 
         // Act & Assert
         foreach (var key in pngAssets)
@@ -298,21 +303,74 @@ public class PlaceholderPackIntegrationTests
             var expectedSig = new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 };
             Assert.True(signature.SequenceEqual(expectedSig), $"Invalid PNG signature in {assetKey}");
 
-            // Verify IHDR chunk exists and is valid
-            var ihdrLength = ReadBigEndianInt32(reader);
-            Assert.Equal(13, ihdrLength); // IHDR data is always 13 bytes
+            // Verify every chunk up to and including IEND has a CRC that matches a real CRC32
+            // computed over (type + data), the way any real PNG decoder checks it. This is
+            // deliberately NOT just "CRC != 0" (see PR #96 review): a wrong CRC computed by a
+            // buggy generator is very unlikely to happen to be zero, so that check let 22
+            // corrupt files pass CI. Also checks the declared 32x32 dimensions in IHDR.
+            while (true)
+            {
+                var length = ReadBigEndianInt32(reader);
+                var chunkType = reader.ReadBytes(4);
+                var chunkData = reader.ReadBytes(length);
+                var storedCrc = unchecked((uint)ReadBigEndianInt32(reader));
 
-            var ihdrType = reader.ReadBytes(4);
-            var expectedType = System.Text.Encoding.ASCII.GetBytes("IHDR");
-            Assert.True(ihdrType.SequenceEqual(expectedType), $"Invalid IHDR chunk type in {assetKey}");
+                var typeAndData = new byte[4 + length];
+                Buffer.BlockCopy(chunkType, 0, typeAndData, 0, 4);
+                Buffer.BlockCopy(chunkData, 0, typeAndData, 4, length);
+                var computedCrc = Crc32(typeAndData);
 
-            // Read IHDR data (13 bytes: width, height, bit depth, color type, etc)
-            var ihdrData = reader.ReadBytes(13);
+                var chunkName = System.Text.Encoding.ASCII.GetString(chunkType);
+                Assert.True(
+                    storedCrc == computedCrc,
+                    $"{assetKey}: {chunkName} chunk CRC mismatch — stored 0x{storedCrc:X8}, computed 0x{computedCrc:X8}");
 
-            // Read and validate CRC
-            var ihdrCrc = ReadBigEndianInt32(reader);
-            Assert.NotEqual(0, ihdrCrc); // CRC should not be zero
+                if (chunkName == "IHDR")
+                {
+                    Assert.Equal(13, length);
+                    var width = (chunkData[0] << 24) | (chunkData[1] << 16) | (chunkData[2] << 8) | chunkData[3];
+                    var height = (chunkData[4] << 24) | (chunkData[5] << 16) | (chunkData[6] << 8) | chunkData[7];
+                    Assert.True(width > 0, $"{assetKey}: IHDR declares non-positive width {width}");
+                    Assert.True(height > 0, $"{assetKey}: IHDR declares non-positive height {height}");
+                }
+
+                if (chunkName == "IEND")
+                {
+                    break;
+                }
+
+                if (stream.Position >= stream.Length)
+                {
+                    throw new Xunit.Sdk.XunitException($"{assetKey}: reached end of file before an IEND chunk");
+                }
+            }
         }
+    }
+
+    /// <summary>
+    /// A from-scratch CRC-32 (the zlib/PNG polynomial, reflected), computed independently of the
+    /// generator script so a bug shared between the generator and this check can't cancel out.
+    /// </summary>
+    private static uint Crc32(byte[] data)
+    {
+        const uint polynomial = 0xEDB88320;
+        var table = new uint[256];
+        for (uint n = 0; n < 256; n++)
+        {
+            var c = n;
+            for (var k = 0; k < 8; k++)
+            {
+                c = (c & 1) == 1 ? polynomial ^ (c >> 1) : c >> 1;
+            }
+            table[n] = c;
+        }
+
+        var crc = 0xFFFFFFFFu;
+        foreach (var b in data)
+        {
+            crc = table[(crc ^ b) & 0xFF] ^ (crc >> 8);
+        }
+        return crc ^ 0xFFFFFFFFu;
     }
 
     private static int ReadBigEndianInt32(BinaryReader reader)
