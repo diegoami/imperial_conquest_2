@@ -385,7 +385,157 @@ public sealed record ArmyManagementRules(
     int NewArmyMovesAiSeat,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
-/// <summary>Fleet construction, transport, repair and fleet management.</summary>
+/// <summary>
+/// Fleet construction, transport, repair, fleet management, and the per-turn at-sea attrition pass —
+/// <c>docs/task-catalogue.md</c> "T14 Naval". The attrition fields below are additive to the record T02
+/// shipped: the storm-damage spiral, the zero-supply penalty and the moves formula
+/// (<c>docs/design-audit.md</c> §2.9a, <c>docs/investigations/thracia-supply-morale.md</c> §"Fleets",
+/// <c>[confirmed]</c> from code and empirically on the <c>1_cartago_271_*</c> series unless noted
+/// otherwise). This rule is <strong>structurally analogous to <see cref="SupplyMoraleRules"/> and must
+/// not share an implementation with it</strong> — different trigger (supply exactly <c>0</c> here, a
+/// percentage there), different decay (<c>−random(0..1)</c> here, a deterministic <c>−2</c> there), no
+/// floor here versus a hard 51 there, no free regeneration here versus a free <c>+1</c>/turn there,
+/// at-sea-only here versus always there, and lethal here versus survivable there. See the comparison
+/// table in <c>docs/investigations/thracia-supply-morale.md</c>.
+/// </summary>
+/// <param name="StormDamageRandomDivisor">
+/// The <c>10</c> of <c>dmg = max(1, random(100 − condition) / 10)</c> — the storm pass's base roll,
+/// unconditional and not supply-driven, run on every launched (at-sea) fleet every turn. It scales with
+/// damage already taken, which is what makes naval attrition a death spiral rather than a linear
+/// decline.
+/// </param>
+/// <param name="StormWinterDamageMultiplier">Doubles the roll in Winter, before the coast test.</param>
+/// <param name="StormWinterDamageCap">The cap the Winter doubling is held to (5), before the coast test.</param>
+/// <param name="StormTripleDamageMultiplier">
+/// Triples the roll (instead of doubling it) when <see cref="StormTripleConditionTileCode"/>'s predicate
+/// holds, before the coast test.
+/// </param>
+/// <param name="StormTripleDamageCap">The cap the tripling is held to (8), before the coast test.</param>
+/// <param name="StormTripleConditionTileCode">
+/// <c>[derived]</c>: <c>FleetRecord +24 == 1</c> selects the tripling branch instead of the doubling one.
+/// <c>docs/investigations/thracia-supply-morale.md</c> §"Still open" is explicit this predicate is
+/// inferred from magnitudes in the <c>1_cartago_271_*</c> series, not decompiled — the series is
+/// consistent with the doubling branch being active throughout but cannot prove which predicate selected
+/// it. <c>+24</c> is otherwise confirmed as the fleet's covered-map-cell field
+/// (<see cref="Model.FleetState.CoveredTileCode"/>), so this reuses that already-modelled field rather
+/// than inventing a new one; only the trigger value (which terrain code the tripling keys on) is
+/// undecompiled. Named and ruleset-driven per <c>docs/task-catalogue.md</c> T14's instruction to
+/// implement this as a named value defaulting to the reports' stated behaviour, not to escalate.
+/// </param>
+/// <param name="StormAwayFromCoastDamageMultiplier">
+/// <c>dmg = dmg × 2 + 1</c> away from friendly coast (<c>[derived]</c>: the away-from-coast test itself,
+/// <c>FUN_004494e4</c>, is inferred from magnitudes, not decompiled — see
+/// <see cref="FriendlyCoastRadiusTiles"/>). Always makes the result odd on this branch.
+/// </param>
+/// <param name="StormAwayFromCoastDamageAddend">The <c>+ 1</c> of the same expression.</param>
+/// <param name="StormNearCoastDamageDivisor">Halves the roll instead, next to friendly coast.</param>
+/// <param name="StormWinterSpikeChanceDenominator">
+/// The away-from-coast branch's 1-in-<c>this</c> Winter chance of spiking to
+/// <see cref="StormWinterSpikeDamage"/> instead of the ordinary doubled roll.
+/// </param>
+/// <param name="StormWinterSpikeDamage">The spike value itself (30).</param>
+/// <param name="StormShipLossDamageThreshold">
+/// At or above this <c>dmg</c> (6), the storm costs ships as well as condition, through
+/// <see cref="StormShipLossRatioBase"/>/<see cref="StormShipLossRatioScale"/>/<see cref="StormShipLossDivisor"/>;
+/// below it, only <see cref="Model.FleetState.ConditionPercent"/> is reduced, by <c>dmg</c> directly.
+/// </param>
+/// <param name="StormShipLossRatioBase">
+/// <c>[derived]</c>: the heavier branch reuses the original's own proportional-damage function
+/// (<c>FUN_0044B4F8</c>, the same one T16's naval combat calls, but a different call site: this task's
+/// Owns list is <see cref="NavalRules"/> only, so the constants below are this record's own copies, not
+/// <c>Model.CombatRules.NavalCombatRules</c>'s). <c>docs/investigations/thracia-supply-morale.md</c>
+/// pins the call as <c>FUN_0044b4f8(fleet, 100, dmg + 100)</c> but the ship-count-never-changed Cartago
+/// series never exercises it (storm damage stayed under 6 throughout), so the resulting magnitude here
+/// is derived from the confirmed battle-context formula's shape, not independently save-checked for this
+/// call site. This is the <c>100</c> first argument.
+/// <para>
+/// <strong>Open evidence conflict (round 2 review), not resolved here:</strong> with
+/// <see cref="StormShipLossRatioBase"/> = <see cref="StormShipLossRatioScale"/> = 100, the minimum
+/// possible heavy-branch loss (at the threshold, <c>dmg == 6</c>) is
+/// <c>ships × 112 / <see cref="StormShipLossDivisor"/></c> ≈ <strong>37% of the fleet in one turn</strong> —
+/// and, measured over 2,000 seeded draws away from friendly coast at condition 50, that branch fires on
+/// roughly 39% of them. This is in tension with the one empirical series available: the Cartago fleet in
+/// <c>1_cartago_271_*.sav</c> holds <strong>90 ships across all ten saves</strong> at conditions falling
+/// from 79 to 48, away from friendly coast, over seven turns — a run this magnitude would give roughly a
+/// 1-in-35 chance of surviving without a ship loss. The transcription itself is arithmetically exact
+/// against the confirmed <c>r</c>/<c>d</c> formula from the battle-context call site; the tension is that
+/// the one series available to check the storm call site's own magnitude against never actually took
+/// this branch, so the formula's applicability here — not its transcription — is what remains unverified.
+/// Resolving it needs a decompilation of <c>FUN_0044B4F8</c>'s storm call site specifically, which is out
+/// of this task's scope; noted here, not in a PR body, so it survives the merge.
+/// </para>
+/// </param>
+/// <param name="StormShipLossRatioScale">
+/// The <c>100</c> divisor of <c>d = r² / <see cref="StormShipLossRatioScale"/></c>, where
+/// <c>r = max(1, (dmg + 100) × 100 / <see cref="StormShipLossRatioBase"/>)</c>.
+/// </param>
+/// <param name="StormShipLossDivisor">
+/// The <c>300</c> divisor of <c>ships × d / <see cref="StormShipLossDivisor"/></c> and
+/// <c>condition × d / <see cref="StormShipLossDivisor"/></c>, the heavier branch's ship and condition
+/// losses.
+/// </param>
+/// <param name="DeathConditionThreshold">
+/// Condition below this (40) destroys the fleet — <em>"A fleet belonging to X is lost at sea."</em> —
+/// checked immediately after the storm pass and before the zero-supply penalty, so a fleet the
+/// zero-supply roll leaves below this threshold survives that turn and dies on the next check.
+/// </param>
+/// <param name="MovesBaseValue">
+/// The <c>30</c> of <c>moves = 30 − (ships − <see cref="MovesShipOffset"/>) / <see cref="MovesShipDivisor"/></c>,
+/// recomputed fresh every turn before any penalty, exactly like the army side's own base-moves formula.
+/// </param>
+/// <param name="MovesShipOffset">The <c>50</c> offset of the same expression.</param>
+/// <param name="MovesShipDivisor">The <c>10</c> divisor of the same expression.</param>
+/// <param name="MovesCarriedArmyTroopDivisor">
+/// A carried army further reduces moves by <c>troops(carried) / this / ships + <see cref="MovesCarriedArmyAddend"/></c>.
+/// </param>
+/// <param name="MovesCarriedArmyAddend">The <c>+ 1</c> of the same expression.</param>
+/// <param name="ZeroSupplyMovesPenalty">
+/// Moves lost when supply is exactly <c>0</c> (absolute, not a percentage — the opposite trigger from
+/// <see cref="SupplyMoraleRules.DecayThresholdPercent"/>'s percentage-based one).
+/// </param>
+/// <param name="ZeroSupplyConditionRandomBound">
+/// The exclusive upper bound of the zero-supply condition roll, <c>condition −= random(0..1)</c> —
+/// <c>IRng.NextInt(this)</c> draws from <c>{0, 1}</c>. No floor and no free regeneration, unlike the
+/// army side's deterministic, floored, regenerating rule.
+/// </param>
+/// <param name="DamageSlowdownConditionThreshold">
+/// Below this condition (70), damage further reduces moves by
+/// <c>(this − condition) / <see cref="DamageSlowdownDivisor"/></c> — the same 70 constant that recurs as
+/// the army side's morale ceiling, here marking where damage starts costing moves instead.
+/// </param>
+/// <param name="DamageSlowdownDivisor">
+/// The divisor (4) of the damage-slowdown term above — the original's <c>&gt;&gt; 2</c>, equivalent to
+/// integer division by 4 for the non-negative operand this term always has.
+/// </param>
+/// <param name="ConstructionTickStep">
+/// The construction countdown decrements by this (2) every turn's fleet tick, not by 1 — confirmed by
+/// the Caere order (24 → 12 over twelve weekly ticks, i.e. six turns) and the Macedonian order (24, 22,
+/// 20, 18, 16, 14, 12 across seven saves = six turns) in
+/// <c>decompiled-unit-map-orders-and-record-fields.md</c> and
+/// <c>supply-driven-morale-and-fleet-attrition.md</c>. A fleet ordered with
+/// <see cref="ConstructionTicks"/> (24) launches after twelve turns of this decrement, matching both
+/// fixtures exactly.
+/// </param>
+/// <param name="FriendlyCoastRadiusTiles">
+/// <c>[designed]</c>: since <c>FUN_004494e4</c> ("away from friendly coast") is not decompiled
+/// (<c>docs/investigations/thracia-supply-morale.md</c> §"Still open"), this engine answers the same
+/// confirmed question — is a launched fleet near a city its own nation owns — with a simple tile-radius
+/// proxy rather than inventing undecompiled geometry: a fleet within this many tiles (Chebyshev distance)
+/// of an owned city counts as near friendly coast (the gentler, halved-damage branch); otherwise it is
+/// away from it (the doubled/tripled branch). What was searched and came up empty: no report in
+/// <c>tests/fixtures/known-reports.json</c> gives <c>FUN_004494e4</c>'s actual test. This value is a
+/// placeholder for that undecompiled predicate, not a resolution of it.
+/// </param>
+/// <param name="MarkerBandBaseTier1">
+/// <c>[confirmed: decompiled-unit-map-orders-and-record-fields.md part 3]</c>: <c>FUN_0044A878</c>
+/// encodes a fleet's map marker as <c>owner + band</c>, where <c>band</c> is <c>300</c> for the smallest
+/// ship-count tier (below <see cref="Model.MapMarkerRules.FleetShipTierThresholds"/>'s first entry),
+/// stepping up by <see cref="MarkerBandStep"/> per tier. Every band base is a multiple of 16 above 300,
+/// which is why <c>(code − 300) % 16</c> recovers the owner in every band. Checked against both
+/// confirmed fixtures: 90 ships (tier 3, ≥ 50) owner 1 → <c>300 + 2×16 + 1 = 333</c>; 70 ships (tier 3)
+/// owner 3 → <c>300 + 2×16 + 3 = 335</c>.
+/// </param>
+/// <param name="MarkerBandStep">The per-tier step (16) of the same encoding.</param>
 public sealed record NavalRules(
     int BuildCostPerShip,
     int OrderMinShips,
@@ -398,6 +548,35 @@ public sealed record NavalRules(
     int JoinMaxShips,
     int SplitMinShips,
     int MaxConditionPercent,
+    int StormDamageRandomDivisor,
+    int StormWinterDamageMultiplier,
+    int StormWinterDamageCap,
+    int StormTripleDamageMultiplier,
+    int StormTripleDamageCap,
+    int StormTripleConditionTileCode,
+    int StormAwayFromCoastDamageMultiplier,
+    int StormAwayFromCoastDamageAddend,
+    int StormNearCoastDamageDivisor,
+    int StormWinterSpikeChanceDenominator,
+    int StormWinterSpikeDamage,
+    int StormShipLossDamageThreshold,
+    int StormShipLossRatioBase,
+    int StormShipLossRatioScale,
+    int StormShipLossDivisor,
+    int DeathConditionThreshold,
+    int MovesBaseValue,
+    int MovesShipOffset,
+    int MovesShipDivisor,
+    int MovesCarriedArmyTroopDivisor,
+    int MovesCarriedArmyAddend,
+    int ZeroSupplyMovesPenalty,
+    int ZeroSupplyConditionRandomBound,
+    int DamageSlowdownConditionThreshold,
+    int DamageSlowdownDivisor,
+    int ConstructionTickStep,
+    int FriendlyCoastRadiusTiles,
+    int MarkerBandBaseTier1,
+    int MarkerBandStep,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>The shipped instant battle resolver, plus the reserve tactical constants.</summary>
