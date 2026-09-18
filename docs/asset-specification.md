@@ -94,22 +94,43 @@ for a **terrain tile**, which always fully covers its grid cell.
 **Correction (rework round 1): every marker examined in the corpus is fully opaque, and the previous
 version of this section justified 32-bit alpha with a claim the screenshots contradict.** Direct
 inspection of both cited screenshots shows the army marker and every city-building variant (§3.3) as a
-**solid nation-coloured square filling the entire 32×32 cell**, and the fleet marker (§3.2) as an
-opaque **diamond** — a black ship silhouette on a coloured halo that itself fills the cell corner to
-corner, with zero sea-terrain pixels visible inside that cell. `rivers-and-map-markers.md` depends on
+**solid nation-coloured square filling the entire 32×32 cell**. `rivers-and-map-markers.md` depends on
 this too: it samples "the corners of registered city tiles" to read owner colour, which only works if
 the corners are opaque. So **"terrain visible around the marker" is false, and there is no fidelity
 argument for alpha** — a pack that matched the original exactly could ship every asset as opaque 24-bit,
 including markers.
 
-**The real, checkable argument for 32-bit BGRA is narrower, and is this**: the original's own convention
-is not uniformly square. The fleet marker is an opaque **diamond**, not a square (§3.2) — and a plain
-24-bit BMP is inherently a filled rectangle with no way to declare "these corner pixels are not part of
-the sprite." Reproducing a diamond, a circle, or any silhouette narrower than its bounding box (the
-fleet's diamond today; potentially other shapes if a future glyph follows suit) needs either an alpha
-channel or a hard-coded background colour that must exactly match whatever happens to sit behind it —
-which breaks the moment the pack, the terrain palette, or the background changes. Alpha is the only one
-of those two options that stays correct regardless of what is drawn underneath.
+**Correction (rework round 2): the round-1 replacement argument — that the fleet marker is a
+non-square "diamond," so alpha is needed to reproduce it faithfully — is also false, and for a
+specific, checkable reason.** The black diamond outline round 1 read as the fleet sprite's own
+silhouette is a **selection cursor**, not part of the sprite: the identical diamond — same geometry,
+points meeting the midpoints of all four tile edges — is drawn over a **city** in
+`screenshots-processed/1_rome_270_autumn_7_1.png` at tile (746, 303): a pale-green field, the same black
+diamond outline, and a plain-house glyph inside it. That tile is Felsina, the very city §4.7 cites two
+sections later, and Felsina is the city whose Information panel is open in that frame — exactly as the
+Carthaginian fleet §3.2 describes is the fleet whose panel is open (*"Ships 90"*) in its own frame. Both
+are the **selected unit**, and the diamond is how the original marks a selection, not how it draws a
+fleet. The field colour confirms it independently: Carthage is owner 1 (red) in `NationCatalog` order,
+but the fleet cell's field is **cyan**, which `rivers-and-map-markers.md` assigns to owner 7 — cyan is
+not Carthage's colour, so it cannot be the fleet sprite's own background either. **So there is no
+fidelity argument for 32-bit alpha at all, from either round's evidence** — every marker examined,
+including the one this document twice misread, is opaque, and the corpus contains exactly one fleet,
+which happens to be selected, so its own unselected field colour and border shape are not established by
+anything in this document's sources.
+
+**The actual argument for 32-bit BGRA, stated as what it is**: a forward-looking `[designed]` choice for
+the *new* renderer, not a claim about the original's fidelity. `AssetPack`/`AssetLoader` are already
+built for T47 and T48 to draw markers as discrete shapes composited over terrain, not as full
+terrain-tile backgrounds — and while the original's own convention for the *tiles this document has
+direct evidence of* happens to be fully opaque, that is a fact about the original, not a constraint this
+new renderer must repeat. A future glyph that *isn't* a plain square (a rounder icon, a banner, anything
+softer than the original's own hard-edged, tile-filling style) is easier to author correctly with an
+alpha channel than by hard-coding a background colour that must then exactly match whatever pack or
+terrain palette sits behind it. Searched: whether the original itself ever draws a non-square,
+non-cursor marker — no report or screenshot in this corpus shows one; every glyph this document has
+directly confirmed (army, city, and the fleet once the cursor is subtracted) reads as filling its cell.
+This is therefore recorded as `[designed]`, not `[confirmed]` or `[derived]`, and the search behind that
+tag is the one just stated.
 
 **Decision**:
 - **Terrain tiles**: 24-bit RGB, no alpha (fully opaque, unchanged from today, and matching the
@@ -119,10 +140,11 @@ of those two options that stays correct regardless of what is drawn underneath.
   the standard 32-bit `BI_RGB` BMP variant most image editors export when "transparency" is checked, with
   the unused byte of the file's declared 32bpp repurposed as the alpha channel. This is specified
   uniformly across the whole non-terrain category — including assets whose silhouette genuinely is a
-  full square, like the army and city markers — for one format and one validator across the pack, rather
-  than a third BMP variant reserved for exactly one shape. **A marker whose silhouette is a full square
-  may fill every pixel opaque** (`alpha = 255` throughout, functionally identical to 24-bit); the alpha
-  channel exists so a diamond, a circle, or any other non-square silhouette *can* leave its corners
+  full square, like every marker this document has directly confirmed — for one format and one
+  validator across the pack, rather than a third BMP variant held in reserve for a shape nothing in the
+  corpus actually shows. **A marker whose silhouette is a full square may fill every pixel opaque**
+  (`alpha = 255` throughout, functionally identical to 24-bit); the alpha channel exists so a future
+  non-square silhouette *can* leave its corners
   transparent, not because every asset is required to use them.
 - Whether the engine-side loader (Godot, via T48/T24) actually honours 32-bit BMP alpha the way this
   section assumes is **unverified and explicitly out of this document's scope to confirm** — that is the
@@ -389,15 +411,29 @@ correctly in the ≥ 50 band.
 and misdescribed the glyph.** The 90-ship Carthaginian fleet cross-checked above is the one visible on
 the map in `screenshots/1_cartago_271_spring_3_1.png` (its own info panel reads *"Fleet of Carthage /
 Ships 90"*), not `screenshots-processed/1_rome_270_summer_7_1.png`, which has no fleet marker anywhere
-on its unit-map panel. Direct pixel inspection of the real glyph, at 8x zoom: it is a **black ship
-silhouette — hull, mast, sail and an anchor at the base — on a cyan halo, both filling the tile as a
-diamond inscribed corner-to-corner in the 32×32 cell**, not "a small diamond/hull shape on blue water."
-The diamond's four points meet the midpoints of the tile's four edges; the triangular regions between
-the diamond and the tile's actual corners are filled cyan, not sea texture, so — like the army and city
-markers — the cell is **fully opaque**, with no terrain visible through it (see §1.2's corrected
-transparency reasoning). Depict a ship silhouette of this shape at increasing size/count across the
-three tiers — a single ship, a small cluster, a larger formation — sourced to this glyph, not the
-earlier, unverifiable citation.
+on its unit-map panel.
+
+**Correction (rework round 2): the round-1 replacement description put a UI element into the sprite.**
+The "diamond inscribed corner-to-corner" and its "cyan halo" are not part of the fleet marker — they are
+a **selection cursor**, confirmed by the identical diamond drawn over a *city* (Felsina) in
+`screenshots-processed/1_rome_270_autumn_7_1.png` (§1.2 has the full evidence), and by the field colour
+itself: the cell's cyan does not match Carthage's owner colour (owner 1, red) in
+`rivers-and-map-markers.md`'s colour table, so cyan is the cursor's fixed colour, not the fleet's. The
+Carthaginian fleet in this screenshot is the **selected** unit — its own info panel is what this section
+already quotes for "Ships 90" — so what round 1 measured was the cursor drawn over the marker, the same
+way the autumn frame draws it over a city.
+
+**What the glyph itself shows, with the cursor and halo set aside**: a **ship silhouette** — a hull, a
+mast with a horizontal yardarm/crossbar near the top, and a forked shape at the base reading as an
+anchor — rendered in white against the black cursor fill behind it in this one observed instance.
+**The corpus contains exactly one fleet marker, and it is the selected one**: nothing in this document's
+sources shows an *unselected* fleet, so its true field colour (presumably Carthage's own nation colour,
+by analogy with the army and city markers, but not directly observable here) and its border shape (a
+plain square, matching every other confirmed marker, or something else) are **not established** by this
+citation. Depict the ship silhouette itself — hull, mast with crossbar, anchor — at increasing size/count
+across the three tiers, on the tier's own nation-coloured square background (matching the army and city
+convention, §1.2), **without** a diamond outline or a cursor halo, which belong to the game's selection
+UI, not to any one marker type.
 
 ### 3.3 Cities — five confirmed map-code variants; meaning open; direct evidence of more than one glyph shape
 
@@ -438,21 +474,35 @@ designed-with-reasoning, and no specific threshold is given.
 building shape, correcting this section's first draft outright.** The first draft's capital-glyph
 `[designed]` tag stated a search of `screenshots-processed/1_rome_270_summer_7_1.png` and
 `screenshots/1_cartago_271_spring_3_1.png` that found "the same generic building glyph" everywhere. That
-search result was false, and I re-ran it by eye, at 6–10x pixel zoom, tile by tile:
+search result was false, and I re-ran it by eye, at 6–10x pixel zoom, tile by tile. **Correction (rework
+round 2): the first correction (round 1) itself undercounted — there are four distinct shapes, not
+three, because the "house" is actually two different sprites, not one house at a shared size.**
 
-- **A plain house**: a peaked roof over a rectangular body with one or two vertical window/support
-  bars — the shape most city tiles use, in every nation colour sampled (e.g. cyan glyph on a dark-maroon
-  tile, magenta glyph on cyan, white glyph on purple, gold glyph on navy — all in
-  `screenshots-processed/1_rome_270_summer_7_1.png`).
-- **A columned temple with a stepped triangular pediment and three columns**, structurally distinct from
-  the house — not a recolour, a different silhouette — on a purple-nation tile north of the river bend in
-  the same screenshot, `screenshots-processed/1_rome_270_summer_7_1.png` (roughly a third of the way down
-  the panel, west of a north–south river reach).
-- **A crenellated walled castle with two corner towers and a gatehouse**, a third distinct silhouette, on
-  a red-nation tile in `screenshots/1_cartago_271_spring_3_1.png` (the southernmost city marker visible in
-  that panel).
+- **A small house**: a compact peaked roof over a narrower body with **two plain vertical window/door
+  bars**, no internal subdivision — the more common of the two house variants, in every nation colour
+  sampled (e.g. cyan glyph on a dark-maroon tile, magenta glyph on cyan, white glyph on purple, gold
+  glyph on navy — all in `screenshots-processed/1_rome_270_summer_7_1.png`).
+- **A large house**: a wider body under a broader, more angled roofline with a small chimney tick, and a
+  **2×2 grid of windows** — four separate panes divided by a visible cross-frame, not two plain bars.
+  Confirmed directly, side by side with a small house at identical zoom: a cyan-on-maroon large house at
+  one map location and a cyan-on-maroon small house elsewhere in the same screenshot
+  (`screenshots-processed/1_rome_270_summer_7_1.png`) are unmistakably different sprites, not the same
+  shape at two scales — the large one has genuine additional structure (the window grid), matching the
+  "same motif, bigger, with more detail" pattern §3 sets out for armies and fleets. This is the
+  strongest visual hint the corpus holds about what the variant code might select, and a description
+  that collapses it into "one or two vertical bars" loses it.
+- **A columned temple with a stepped triangular pediment and four columns** (corrected from "three": the
+  column band reads two outer pairs of white members flanking a wider central gap, four members in
+  total, not three), structurally distinct from either house — not a recolour, a different silhouette —
+  on a purple-nation tile in the same screenshot, `screenshots-processed/1_rome_270_summer_7_1.png`,
+  roughly **three-quarters of the way down** the unit-map panel (not "a third," corrected) and
+  immediately **south and east** of a north–south river reach that runs through the tiles to its north
+  and west (not "north... west," corrected — the direction was backwards).
+- **A crenellated walled castle with two corner towers and a gatehouse**, a fourth distinct silhouette,
+  on a red-nation tile in `screenshots/1_cartago_271_spring_3_1.png` (the southernmost city marker
+  visible in that panel).
 
-That is **at least three distinct building shapes**, not one uniform glyph — direct, first-hand
+That is **four distinct building shapes**, not one uniform glyph and not three — direct, first-hand
 confirmation (not merely a report citation) that the original's city iconography varies by more than
 colour, and a second, independent line of evidence for the same conclusion the five-variant map code
 already implies. **What this does not establish**: which shape (if any) is reserved for capital status
@@ -461,21 +511,24 @@ I cannot tell, from a screenshot alone and without the underlying save data, whe
 temple-tile or the red castle-tile is that nation's *capital*, a large city, or simply a different
 nation's standard style — correlating a specific tile's variant code, its `PopulationThousands`, and its
 `CapitalCityId` flag is exactly decompilation plan item 16's job, not something derivable by eye. So:
-**five confirmed variants, at least three confirmed distinct glyph shapes, meaning of both still open —
-this is not "three sizes," and this document does not resolve it.**
+**five confirmed variants, four confirmed distinct glyph shapes, meaning of both still open — this is
+not "three sizes," and this document does not resolve it.** Four observed sprites against five confirmed
+variants is a sharper statement of the open question than three against five: it leaves exactly one
+variant this document has not seen an example of, rather than two.
 
-**Depiction for an artist, kept deliberately general given the above**: draw at least the three shapes
-directly observed — a small house, a columned temple, a walled castle — as the working example of the
-kind of variety the five-variant code plausibly selects between, each recognisable at 32×32 and each
-distinct from the others in silhouette, not just colour, matching `MapViewer.cs`'s own synthetic
-`DrawCity` glyph shape (`:179-182`, three line segments forming a roofline-and-walls silhouette — the
-generic case, not the temple or castle) as the baseline "house" this document's `city.tier1/2/3.icon`
-keys already draw from. **Do not assume `tier1`→house, `tier2`→temple, `tier3`→castle or any other
-specific mapping** — that would assert a meaning this section explicitly does not have evidence for.
-The capital (`city.capital.icon`) may or may not correspond to one of these three shapes; until plan
-item 16 settles it, giving it a distinguishing mark (a raised banner, a distinct roofline) layered on
-whichever tier's icon it draws from remains this document's own `[designed]` fallback, stated as a
-fallback rather than as a finding about the original.
+**Depiction for an artist, kept deliberately general given the above**: draw at least the four shapes
+directly observed — a small house, a large house (the same motif, scaled up and given a real window
+grid, not just a bigger copy of the small one), a columned temple, and a walled castle — as the working
+example of the kind of variety the five-variant code plausibly selects between, each recognisable at
+32×32 and each distinct from the others in silhouette, not just colour, matching `MapViewer.cs`'s own
+synthetic `DrawCity` glyph shape (`:179-182`, three line segments forming a roofline-and-walls
+silhouette — the generic case, closest to the small house) as the baseline `city.tier1/2/3.icon` keys
+already draw from. **Do not assume `tier1`→small house, `tier2`→large house, `tier3`→temple/castle or
+any other specific mapping** — that would assert a meaning this section explicitly does not have
+evidence for. The capital (`city.capital.icon`) may or may not correspond to one of these four shapes;
+until plan item 16 settles it, giving it a distinguishing mark (a raised banner, a distinct roofline)
+layered on whichever tier's icon it draws from remains this document's own `[designed]` fallback, stated
+as a fallback rather than as a finding about the original.
 
 ---
 
@@ -650,11 +703,16 @@ section actually require:
     circle); a combined multi-symbol icon (toggle-all); and a gold coin (an economy/money overlay).
   - The **unit-map toolbar** in `screenshots/1_cartago_271_spring_3_1.png` carries **7 buttons**, all
     fleet-order commands on a teal background: ship-with-cargo-and-marker (load an army), ship ringed
-    with dots (repair), ship with a "1" and split arrows (split fleet), two ships either side of a
-    vertical divider (join fleets), ship with a plus sign (build/add ships), a tilted beached ship over a
-    blue line (scuttle), and a plain white circle (clear filter).
+    with dots (repair), **two ships inside a bracket/frame** (join fleets — corrected, rework round 2:
+    this was previously described as "ship with a '1' and split arrows"), **a single ship bisected by a
+    vertical bar** (split fleet — corrected; previously described as "two ships either side of a
+    divider," which is the button this description belongs to, not the one before it), ship with a plus
+    sign (build/add ships), a tilted beached ship over a blue line (scuttle), and a plain white circle
+    (clear filter).
 
-  That is **at least 18 buttons across the two toolbars I actually counted**, most of them either a
+  That is **13 + 7 = 20 buttons across the two toolbars I actually counted** (corrected, rework round 2:
+  previously miscounted as "at least 18," an arithmetic error against this section's own enumeration),
+  most of them either a
   *command* (a fleet order, a filter toggle) rather than the *marker* icons `AssetKeys` already has, or a
   filter for something (the temple-shaped building filter, the economy coin) with no existing key at all.
   This is a floor, not a ceiling — I checked two toolbar rows in two screenshots, not the full menu
@@ -681,8 +739,9 @@ section actually require:
 
 **Net finding for this section — corrected, rework round 1**: this section's first draft concluded that
 every UI-chrome callout resolves to "no new asset required." That conclusion does not survive checking
-the evidence it claimed to have checked: the **T24 toolbar** gap is real, and enumerable at at least 18
-buttons across two toolbar rows this document counted directly. Two resolutions still hold on inspection
+the evidence it claimed to have checked: the **T24 toolbar** gap is real, and enumerable at 20 buttons
+(13 + 7, corrected rework round 2) across two toolbar rows this document counted directly. Two
+resolutions still hold on inspection
 — **T16/T25 battle-screen iconography** (a text/numeric summary, nothing icon-shaped named anywhere) and
 **T17/T18 fortification/siege state** (no visual difference confirmed for the one city checked, though
 now on a corrected citation and a narrower claim) — and two more hold on the same reasoning as before
@@ -762,9 +821,14 @@ Every depiction claim above traces to one of:
 - **An explicit `[designed]` tag** stating what was searched and came up empty, per `design-audit.md`
   §4.5, everywhere one appears above (desert tile colour, UI-chrome pixel size, the sfx-mapping gap, the
   candidate new sfx keys, the optional siege/fortification overlay, the capital's distinguishing mark as
-  a fallback rather than a finding). Where a first-round `[designed]` tag stated a search result the
-  corpus itself contradicted (the city-glyph claim in §3.3, corrected in rework round 1), the correction
-  is recorded in place, from direct re-inspection, rather than quietly replaced.
+  a fallback rather than a finding, and — new in rework round 2 — §1.2's 32-bit BGRA decision itself,
+  now stated as a forward-looking design choice for the new renderer rather than a fidelity claim about
+  the original). Where an earlier round's `[designed]` tag or evidence claim stated a search result or a
+  reading the corpus itself contradicted (the city-glyph claim in §3.3, corrected in rework round 1; the
+  fleet marker's diamond and cyan halo, twice misread — first as the sprite's own shape, then corrected
+  in round 1 to a still-wrong description — and only established as a selection cursor by cross-checking
+  a second screenshot in round 2), the correction is recorded in place, from direct re-inspection,
+  rather than quietly replaced.
 
 No claim in this document rests on having opened the `.EXE`'s or `.DAT`'s own image/audio resources —
 only on the DAT's *data* tables (nation names, terrain codes, marker arithmetic — all numeric/structural,
