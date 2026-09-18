@@ -4,7 +4,7 @@ Every build task's scope, **Owns** list, Definition of Done, model/effort, revie
 
 **Status is not in this document.** Each task's stage (ready, in progress, merged, blocked, escalated) lives only in its GitHub issue's `status:*` label ([build-process.md §5](build-process.md#5-status-lives-on-github)). The index below links every issue.
 
-50 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), twelve corrections to already-merged code (T31–T35, T38–T40, T42–T45), one rule no task owned (T37, the weekly city supply step), and two early slices — T41 of T23's CLI, and T47 of T24's Godot UI.
+51 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), twelve corrections to already-merged code (T31–T35, T38–T40, T42–T45), one rule no task owned (T37, the weekly city supply step), and two early slices — T41 of T23's CLI, and T47 of T24's Godot UI.
 
 ---
 
@@ -74,6 +74,8 @@ graph TD
   T47 --> T48[T48 asset-pack icons]
   T48 --> T24
   T11 --> T49[T49 asset spec]
+  T49 --> T51[T51 asset generator]
+  T51 --> T24
   T49 --> T24
   T46 --> T22
   T32 --> T14
@@ -925,19 +927,20 @@ Conventions used by every entry:
 - **Design milestone**: **M8**. **Labels**: `phase:2 lane:engine`
 - **Branch**: `task/T16-battle-resolution` · **Model/effort**: **Opus / High** · **Reviewer**: Opus / High **+ `/code-review --effort ultra`, run by the user personally** ([build-process.md §3.5](build-process.md#35-where-the-code-review-skill-fits): a pass launched from inside the pipeline isn't independent)
 - **Start after**: T07 · **Merge after**: T07, T08, T14, **T31**, **T33**, **T42**
-- **Owns**: `src/IC2.Engine/Battle/**`, `tests/IC2.Engine.Tests/Battle/**`
+- **Owns**: `src/IC2.Engine/Battle/**`, `tests/IC2.Engine.Tests/Battle/**`, `src/IC2.Engine/Model/Ruleset.cs` (the combat rules record only: **two additive fields**, DoD 3's random span and divisor base), `data/rulesets/toy-ruleset.json` (the matching `combat` keys only)
 - **Scope**: The original's own instant resolver, ported — field, siege, and naval — producing one `BattleResult`. Emits a `PeaceTreatyTriggered` domain event rather than calling diplomacy, so this task and T19 do not depend on each other's internals. Also implements the `combat.onDefeat` ruleset flag (`game-design.md` Combat section, `design-audit.md` Q1 follow-up): `classical-faithful` keeps the confirmed annihilation outcome; `improved` scatters the loser's field/naval army instead. `BattleResult` must stay presentation-agnostic — nothing in its shape should need to change if a future optional battle screen is added later.
 - **Done when**, all under a **fixed seed** with exact assertions:
   1. The higher-power side wins; an exact tie goes to the defender (one test each).
   2. Under `classical-faithful`, the loser's army is destroyed outright.
-  3. Winner casualties equal `loserPower × 40 / winnerPower` (integer semantics pinned) — unaffected by `combat.onDefeat`.
+  3. **Winner casualties are a per-unit ratio, not a troop count.** `loserPower × 40 / winnerPower` is what the call site passes to `FUN_0044AE20` **as its `ratio` argument** [`decompiled-diplomacy-peace-terms-and-instant-battles.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-diplomacy-peace-terms-and-instant-battles.md), and that function's body is per unit `troops -= troops / (Random(15) + 105) × ratio` ([`decompiled-defection-and-siege-attrition.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-defection-and-siege-attrition.md), the same helper the siege path uses). Apply it that way, to every surviving unit, with integer semantics pinned and the draw through `IRng`. **The `15` and `105` become the two additive combat-rules fields this task's Owns list grants**, never C# literals.
+      **History, because the entry said otherwise until now**: this line used to read "winner casualties **equal** `loserPower × 40 / winnerPower`", and T16's first implementation followed it exactly — correctly, on the contract in front of it. The reading is wrong, and visibly so once quantified: a hard-fought win (powers 5,000 against 5,200) would cost the winner **38 troops**, where the ratio reading costs **32–36 % of every unit**. The user settled it on 2026-09-18. The lesson is T14's again: **a DoD line that contradicts the evidence is a defect in the entry**, and the evidence wins. Unaffected by `combat.onDefeat`.
   4. The winner absorbs the loser's money, and supplies capped at `troops / 100` — unaffected by `combat.onDefeat`.
   5. Every surviving unit ends at ≥ "average"; exactly the 1-in-4 further promotions fire for the seeded roll; quality is capped at "elite".
   6. Unity moves loser −25 / winner +25, clamped at 990; at sea it moves `± floor(loserShips / 2)` — unaffected by `combat.onDefeat`.
   7. Under `classical-faithful`, the naval variant annihilates the loser's fleet **and any army aboard it**, and reduces the winner's ships and condition in proportion to the closeness of the fight.
   8. `PeaceTreatyTriggered` is emitted on a 2-in-5 roll gated on loser unity > 500 **and** city count > 7, and is observable in a test with no diplomacy system registered.
   9. Emits the confirmed news messages, including *"X sinks fleet of Y."*
-  10. Under `improved`, a lost field or naval battle applies the mirrored `loserPower × 40 / winnerPower`-shaped casualty ratio to the loser's own troops instead of destroying it, relocates the survivor 2–4 tiles from the battle site onto the nearest valid unoccupied tile of the right kind, and zeroes its moves for the remainder of that turn.
+  10. Under `improved`, a lost field or naval battle applies the mirrored ratio `winnerPower × 40 / loserPower` to the loser's own troops **through the same per-unit expression as DoD 3** (and note the mirrored figure is never below 40, so a **fleet** survives an `improved` defeat only above 40 hulls; armies, counted in thousands, are unaffected) instead of destroying it, relocates the survivor 2–4 tiles from the battle site onto the nearest valid unoccupied tile of the right kind, and zeroes its moves for the remainder of that turn.
   11. Under `improved`, when no valid tile exists even at distance 1 (fully boxed in), the outcome falls back to the `classical-faithful` destroyed result — assert this fallback with a scripted boxed-in fixture, not just the happy path.
   12. `combat.onDefeat` has **no effect on siege resolution** under either ruleset — a siege's defender outcome is unchanged by this flag (assert directly, since T17 depends on this staying true).
 - **Explicitly not a DoD**: the Rome/Gaul per-type numbers (99,882 → 63,282). Per `design-audit.md` Q1's answer, they came from the *tactical* path and this resolver cannot produce them. An implementer that tries to make them pass has misread the task.
@@ -945,6 +948,8 @@ Conventions used by every entry:
 - **One fixtures-corpus correction this task must make first**, under T04's existing `tests/fixtures/**` contract and the same top-up mechanism T08 DoD 13 uses: the corpus entry `battle.tactical.adjacencyPromotionRule` transcribes a **withdrawn** rule (`design-audit.md` §2.10). Mark it withdrawn — or replace it with the uniform 1-in-4 rule already present as `battle.instantResolver.promotionChance` — and fix that sibling entry's `note`, which still describes the adjacency rule as a live second rule on a second code path. Stale test data in this task's subject area; equally fine as a standalone issue done before T16 dispatches.
 
 #### T17 City capture, siege, and the defection cascade
+
+> **T16 now applies `SiegeRules.AttackerIsAllegianceDefenderReductionPercent` (the ×9/10) in its siege resolver, with a test. Do not apply it a second time.** `Ruleset.cs`'s remark on that field still reads "This field is T17's to apply", which was true when T33 wrote it and stopped being true when T16 became the siege resolver — flagged by T16's implementer rather than edited, since the field is not in its Owns list. Correct that remark as part of this task, and assert the reduction is applied exactly once across the two tasks.
 
 - **Design milestone**: **M9**. **Labels**: `phase:2 lane:engine`
 - **Branch**: `task/T17-capture-siege` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
@@ -1214,6 +1219,38 @@ Conventions used by every entry:
 
 ---
 
+#### T51 The prompt-driven asset generator
+
+- **Design milestone**: none — the authoring tool that turns T49's specification into an actual pack. **Labels**: `phase:2 lane:ui local-only single-instance`
+- **Branch**: `task/T51-asset-generator` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
+- **Start after**: T49 · **Merge after**: T11, T49 — and **merged before T24**
+- **Owns**: `scripts/generate-authored-assets.*`, `assets/prompts.json` (new), `assets/packs/authored/**` (new pack), `tests/IC2.Engine.Tests/Assets/AuthoredPackConformanceTests.cs` (new file only — **not** the rest of that folder, which is T11's, T48's and T49's)
+- **Scope**: A **one-shot, re-runnable authoring tool**, in the shape T29's world export already established: a human runs it when the prompts change, and the **committed output** is what every build, test and player uses. CI never calls it and holds no key.
+
+  It reads `assets/prompts.json` — one prompt per `AssetKeys` constant, authored **from T49's specification**, whose depiction lines exist precisely to be turned into prompts — calls an image-generation API, conforms each result to the specification's format rules, and writes `assets/packs/authored/` with a manifest in the same shape as T11's placeholder pack.
+
+  **It does not replace the placeholder pack.** `assets/packs/placeholder/**` is T11's, is deliberately flat-coloured, and is what the deterministic tests run against. This is a second pack beside it.
+
+  **Non-determinism is the defining constraint and shapes every DoD line below.** The same prompt does not give the same pixels twice, so **byte-level regeneration tests are impossible and must not be attempted** — the committed images are the source of truth, exactly as T29's exported JSON is. What *can* be pinned is **conformance**: dimensions, format, colour depth, transparency, palette use and manifest completeness. Pin those, and nothing else.
+- **Done when**:
+  1. `assets/prompts.json` carries one prompt per `AssetKeys` constant, each traceable to the depiction line in `docs/asset-specification.md` it was written from. A key with no prompt, or a prompt with no key, fails the conformance test.
+  2. The script reads its endpoint, model and **API key from a git-ignored local config** (the `assets.local.ini` pattern: machine-specific, never committed, never printed to the console or into a log). The provider is **not hardcoded** — it is named in that config and recorded in the PR body. **The key must never appear in the diff, the manifest, or any committed file.**
+  3. **A dry run comes first and costs nothing**: a `-WhatIf`-style switch lists every prompt it would send and the number of images, so the bill is visible before it is incurred. Running the generator for real is a deliberate act, not a side effect of running a script.
+  4. **Regeneration is per key.** Re-running for one asset must not re-bill the other forty. A full run is the exception, not the default.
+  5. Every produced image is conformed to `docs/asset-specification.md` §1: **32×32**, BMP, 24-bit opaque for terrain tiles and 32-bit BGRA for markers and icons, with the nation palette applied where the asset is nation-coloured. Asserted by a test that reads the committed pack — not by trusting the generator.
+  6. `AssetLoader.ValidateAssets` reports **zero** missing files for the new pack, and its manifest parses through the same `AssetPack` type the placeholder pack uses.
+  7. **The prompts describe generic ancient-Mediterranean subjects and never reference the original game, its art, its name or its screenshots.** The output must be new work, not a derivative of assets that may never enter this repository — the same constraint that made T49 a requirements document rather than an extraction plan, applied at the point where art is actually produced.
+  8. **The PR states the provider's terms** for the generated images — specifically that they may be redistributed in a public repository. The pack ships inside the repo, so this is a licensing question with a public consequence, not a formality.
+  9. `dotnet build IC2.sln` and `dotnet test IC2.sln` are green **with no key present**, which is the CI condition: the conformance test reads committed files and never generates.
+- **Hazards**:
+  - **Do not make the generator a build step, and do not wire it into CI.** It costs money per run and needs a key CI will never have. The committed pack is the contract.
+  - **Do not attempt a determinism or byte-equality test.** The output is not reproducible, and a test asserting otherwise would either fail forever or be quietly weakened — this project has been bitten by weakened assertions repeatedly. Conformance is the testable property; say so in the test's own remarks.
+  - **Do not modify `assets/packs/placeholder/**`, `scripts/generate-placeholder-assets.*` or `src/IC2.Engine/Assets/**`** — T11's. If `AssetLoader` lacks something this task needs, that is a finding to report, not an edit to make.
+  - **Never commit or echo the key.** Add its config file to `.gitignore` in the same commit that first reads it, and check `git status` before every commit.
+  - `single-instance` in the practical sense: a full run is a long, billable, network-bound operation. One at a time, and never two agents generating at once.
+
+---
+
 #### T24 Godot main game screen
 
 - **Design milestone**: **M18** (UI half). **Labels**: `phase:3 lane:ui single-instance`
@@ -1325,5 +1362,6 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T48](#t48-draw-armies-and-cities-from-the-asset-pack) | Asset-pack icons for armies and cities | — | Sonnet | High | Sonnet/High | T11, T47 | [#157](https://github.com/diegoami/imperial_conquest_2/issues/157) |
 | [T49](#t49-the-asset-inventory-and-format-specification) | Asset inventory + format spec | — | Sonnet | High | **Opus**/Medium | T11 | [#159](https://github.com/diegoami/imperial_conquest_2/issues/159) |
 | [T50](#t50-economy-and-naval-command-hygiene) | Economy + naval command hygiene | — | Sonnet | High | **Opus**/Medium | T39, T46 | [#168](https://github.com/diegoami/imperial_conquest_2/issues/168) |
+| [T51](#t51-the-prompt-driven-asset-generator) | Prompt-driven asset generator | — | Sonnet | High | **Opus**/Medium | T11, T49 | [#173](https://github.com/diegoami/imperial_conquest_2/issues/173) |
 
-**Totals** — 50 tasks: 4 Opus, 41 Sonnet, 4 Haiku, 1 Fable. Effort: 2 Ultrahigh, 22 High, 23 Medium, 3 Low.
+**Totals** — 51 tasks: 4 Opus, 42 Sonnet, 4 Haiku, 1 Fable. Effort: 2 Ultrahigh, 23 High, 23 Medium, 3 Low.
