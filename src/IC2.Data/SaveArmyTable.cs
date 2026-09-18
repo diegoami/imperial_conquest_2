@@ -48,12 +48,15 @@ public sealed class SaveArmyTable
         }
         else
         {
-            if (data.Length < WorldPrefix.SharedPrefixLength + 2)
-                throw new InvalidDataException("Save ends before the army count.");
+            // No structural guard here: SaveFormat.Detect already ran SaveNationLayout.Locate to
+            // classify this file as SAV-shaped, and Locate's own checks (data.Length large enough
+            // for the army count word, and the computed fleet-count offset within the file) are
+            // strictly tighter than what this branch used to re-check — so those re-checks could
+            // never fire and were unreachable dead code (T34 #40 item 2). A file that fails either
+            // condition never reaches this branch: SaveFormat.Detect raises
+            // UnrecognizedSaveFormatException for it first.
             count = ReadWord(data, WorldPrefix.SharedPrefixLength);
             tableStart = WorldPrefix.SharedPrefixLength + 2;
-            if (count > (data.Length - tableStart) / RecordLength)
-                throw new InvalidDataException($"Army count {count} exceeds the available fixed-size records.");
         }
 
         var armies = new List<ArmyRecord>(count);
@@ -116,11 +119,35 @@ public sealed class SaveArmyTable
                 morale: ReadWord(data, offset + 14),
                 units: units.ToArray()));
         }
+
+        // T34 #40 item 1: a table where EVERY record is the tombstone sentinel would otherwise parse
+        // "clean" with zero armies, indistinguishable from a genuinely empty army table. The
+        // confirmed corpus has at most one tombstone per save (docs/investigations/dat-file-layout.md),
+        // so a table that is nothing BUT tombstones is suspicious enough to reject outright, rather
+        // than silently returning an empty Armies list. The exact rejection threshold (100% tombstoned,
+        // rather than some lower percentage) is [designed]: no report establishes what a partially-
+        // degenerate table would mean, so this only rejects the one case that is unambiguous.
+        if (count > 0 && skipped.Count == count)
+            throw new AllArmyRecordsTombstonedException(
+                $"All {count} army records in this table are the tombstone sentinel (owner 0xFFFF) " +
+                "— a suspiciously empty table, not a normal parse with a tombstone or two skipped.");
+
         return new SaveArmyTable(armies.ToArray(), skipped.ToArray());
     }
 
     private static ushort ReadWord(byte[] data, int offset) =>
         BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(offset, 2));
+}
+
+/// <summary>Thrown when every record in an army table is the tombstone sentinel (owner 0xFFFF) — see
+/// <see cref="SaveArmyTable.Parse"/>'s remarks. Distinguishes "suspiciously all-tombstoned" from a
+/// normal parse that skips one or two genuine tombstones and returns the rest as
+/// <see cref="SaveArmyTable.Armies"/>.</summary>
+public sealed class AllArmyRecordsTombstonedException : InvalidOperationException
+{
+    public AllArmyRecordsTombstonedException(string message) : base(message)
+    {
+    }
 }
 
 /// <summary>A skipped army-table record: the tombstone sentinel was found in the owner word, so the

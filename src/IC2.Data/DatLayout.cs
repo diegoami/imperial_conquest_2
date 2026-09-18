@@ -35,17 +35,28 @@ internal static class DatLayout
     // queue's DAT-local offset is not separately spelled out in hex, but is the running sum of the
     // read order table's preceding row lengths, exactly as the 1,055-byte record total itself is
     // computed in that table: 11 (name) + 32 + 2 + 668 (three unlabelled reads) = 713 = 0x2C9,
-    // immediately followed by the 320-byte recruitment queue, ending at 1,033 — one byte before the
-    // unlabelled 4-byte field that precedes treasury at 0x40D (1,037), which checks out exactly.
+    // immediately followed by the 320-byte recruitment queue, ending at 1,033 (0x409). That is
+    // where the next unlabelled 4-byte field begins — NOT "one byte before" it, as an earlier
+    // version of this comment said (an off-by-one in the prose, T34 #40 item 3; the constant below
+    // was always correct): the recruitment queue's own end offset IS the next field's start offset,
+    // with no gap between them. 1,033 + 4 = 1,037 = 0x40D, treasury's offset, which checks out
+    // exactly. That 4-byte field is now identified: it is "wealth", confirmed at DAT +0x409 (the
+    // same field as the SAV's in-memory +0x430) in
+    // https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/nation-tax-base-and-city-economy-fields.md.
+    // Continuing the same running sum past tax (+0x419, 2 bytes, ending at 1,051 = 0x41B): the next
+    // unlabelled 2-byte field is the signed tax base, confirmed directly (not just derived from the
+    // running sum) at DAT +0x41b by the same report — matching the SAV's in-memory +0x44c.
     internal const int NationNameOffset = 0x000;
     internal const int NationNameLength = 11;
     internal const int NationRecruitmentOffset = 0x2C9; // 713 decimal
+    internal const int NationWealthOffset = 0x409; // 1,033 decimal
     internal const int NationTreasuryOffset = 0x40D;
     internal const int NationUnityOffset = 0x411;
     internal const int NationMobilizedOffset = 0x413;
     internal const int NationCapitalOffset = 0x415;
     internal const int NationCitiesOffset = 0x417;
     internal const int NationTaxOffset = 0x419;
+    internal const int NationTaxBaseOffset = 0x41B; // 1,051 decimal
 }
 
 /// <summary>Thrown when code asks a parser for something the DAT genuinely does not store — a whole

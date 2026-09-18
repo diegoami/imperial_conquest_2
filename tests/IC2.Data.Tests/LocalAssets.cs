@@ -37,17 +37,26 @@ internal static class LocalAssets
 
     static LocalAssets()
     {
+        (Settings, IsConfigured) = TryLoad(ConfigPath);
+    }
+
+    /// <summary>Loads settings from <paramref name="configPath"/>, treating exactly the three
+    /// documented "not configured on this machine" exception types as a skip signal — never a bare
+    /// <c>catch (Exception)</c> (T34 #40 item 6). <see cref="IC2.Data.AssetSettings.Load"/> throws
+    /// <see cref="FileNotFoundException"/>, <see cref="DirectoryNotFoundException"/> or
+    /// <see cref="InvalidDataException"/> for every "not configured" case; any other exception type
+    /// — a typo'd config producing something unexpected, or a genuine <c>AssetSettings.Load</c> bug —
+    /// propagates and fails loudly, rather than silently reporting dozens of skipped tests on a
+    /// machine that actually IS configured.</summary>
+    internal static (AssetSettings? Settings, bool IsConfigured) TryLoad(string configPath)
+    {
         try
         {
-            Settings = AssetSettings.Load(ConfigPath);
-            IsConfigured = true;
+            return (AssetSettings.Load(configPath), true);
         }
-        catch (Exception)
+        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException or InvalidDataException)
         {
-            // AssetSettings.Load throws FileNotFoundException/DirectoryNotFoundException/InvalidDataException
-            // for every "not configured on this machine" case. Any of them means: skip, don't fail.
-            Settings = null;
-            IsConfigured = false;
+            return (null, false);
         }
     }
 
