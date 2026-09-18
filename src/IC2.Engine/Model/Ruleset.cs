@@ -379,7 +379,12 @@ public sealed record DetailedResolverRules(
 /// directly from <c>FUN_0044A98C</c> (T31, correcting T02's field identities, which had been transcribed
 /// from a report that guessed at this function rather than decompiling it), is
 /// <c>loyalty × <see cref="DefenderLoyaltyWeight"/> + finishedFortificationPercent ×
-/// <see cref="DefenderFortificationWeight"/> + populationThousands × <see cref="DefenderPopulationWeight"/></c>.
+/// <see cref="DefenderFortificationWeight"/> + populationThousands × <see cref="DefenderPopulationWeight"/></c>,
+/// then, in order: <c>× <see cref="HighLoyaltyBonusNumerator"/> / <see cref="HighLoyaltyBonusDenominator"/></c>
+/// when the city is its controlling nation's capital (<c>FUN_0044B8D0</c>) <em>and</em> its loyalty exceeds
+/// <see cref="HighLoyaltyThreshold"/>, then <c>× <see cref="DefenderNonAllegiantNumerator"/> /
+/// <see cref="DefenderNonAllegiantDenominator"/></c> when the city's owner is not its allegiance — both
+/// truncating divisions, applied in that order (T33, <c>docs/investigations/siege-defender-strength.md</c>).
 /// The fortification term is the city's stored fortification word decoded through
 /// <see cref="FortificationCode.FinishedPercent"/> — the guarded <c>code &gt; MaxPercent ? code % radix :
 /// code</c> — never the raw stored word and never an unguarded <c>% 100</c>. The raw word is wrong for a
@@ -407,10 +412,46 @@ public sealed record DetailedResolverRules(
 /// the decompiled function and from <c>TInformation_ShowCityDetails</c>'s own <c>"Population -"</c> label
 /// at <c>0x0043BE5C</c>, which prints the same <c>DAT_004795ac</c> read. The weight (200) is unchanged.
 /// </param>
-/// <param name="HighFortificationThreshold">
-/// The fortification value above which the defender's strength is scaled up. The decompiled branch is
-/// additionally guarded by a condition that was not recovered, which
-/// <see cref="HighFortificationBonusNumerator"/>'s provenance records.
+/// <param name="HighLoyaltyThreshold">
+/// The loyalty value above which the defender's strength is scaled up
+/// (<c>0x3b &lt; (short)(&amp;DAT_004795a6)[city*0x11]</c>, i.e. loyalty &gt; 59) — <strong>not</strong>
+/// fortification. T02 shipped this as <c>HighFortificationThreshold</c> because its cited report
+/// (<c>decompiled-city-capture-resolution.md</c>) named the gated field as fortification without having
+/// decompiled <c>FUN_0044A98C</c> itself; T33 (<see href="https://github.com/diegoami/imperial_conquest_2/issues/46">issue #46</see>)
+/// renamed it after decompiling the function directly. The branch is additionally guarded by
+/// <c>FUN_0044B8D0</c> — whether the city is its controlling nation's capital — independently confirmed by
+/// <c>TInformation_ShowCityDetails</c>'s own <c>"  (capital of …)"</c> panel branch, gated on the same
+/// function. See <c>docs/investigations/siege-defender-strength.md</c>.
+/// </param>
+/// <param name="HighLoyaltyBonusNumerator">
+/// The numerator of the <c>× 5 / 3</c> bonus gated by <see cref="HighLoyaltyThreshold"/> and the capital
+/// predicate. Renamed alongside <see cref="HighLoyaltyThreshold"/>; the value (5) is unchanged.
+/// </param>
+/// <param name="HighLoyaltyBonusDenominator">
+/// The denominator of the same <c>× 5 / 3</c> bonus. Renamed alongside <see cref="HighLoyaltyThreshold"/>;
+/// the value (3) is unchanged.
+/// </param>
+/// <param name="DefenderNonAllegiantNumerator">
+/// The numerator of the penalty <c>FUN_0044A98C</c> applies when the city's owner is not its allegiance:
+/// <c>iVar4 = (iVar4 &lt;&lt; 2) / 5</c>, i.e. <c>strength × 4 / 5</c>. T02 shipped this as
+/// <c>DefenderOwnerNotAllegiancePenaltyPercent</c> (20, read as "subtract 20%"), which does not match the
+/// function's actual operation — a <c>× 4/5</c> truncates differently than a 20%-subtraction reading at
+/// some input values, because <c>(x &lt;&lt; 2) / 5</c> and <c>x - x/5</c> round down at different points
+/// for the same <c>x</c> (e.g. <c>x = 9</c>: <c>(9*4)/5 = 7</c>, not the 8 a 20% subtraction would give).
+/// Corrected by T33 (<see href="https://github.com/diegoami/imperial_conquest_2/issues/47">issue #47</see>).
+/// See <c>docs/investigations/siege-defender-strength.md</c>.
+/// </param>
+/// <param name="DefenderNonAllegiantDenominator">
+/// The denominator of the same <c>× 4/5</c> penalty. See <see cref="DefenderNonAllegiantNumerator"/>.
+/// </param>
+/// <param name="AttackerIsAllegianceDefenderReductionPercent">
+/// A separate <c>× 9/10</c> reduction applied at the siege entry point (<c>FUN_0044B27C</c>, outside this
+/// function) when the <em>attacking</em> nation equals the city's allegiance. T33 confirmed this is a
+/// second, genuinely separate adjustment from <see cref="DefenderNonAllegiantNumerator"/>'s
+/// owner-vs-allegiance penalty — the two run in two different functions and both apply
+/// (<c>docs/investigations/siege-defender-strength.md</c>) — closing <c>design-audit.md</c> §2.13's open
+/// question of whether they were the same adjustment described twice. This field is T17's to apply and is
+/// otherwise untouched by T33.
 /// </param>
 public sealed record SiegeRules(
     int ArcherStrengthMultiplier,
@@ -418,11 +459,12 @@ public sealed record SiegeRules(
     int DefenderFortificationWeight,
     int DefenderLoyaltyWeight,
     int DefenderPopulationWeight,
-    int HighFortificationThreshold,
-    int HighFortificationBonusNumerator,
-    int HighFortificationBonusDenominator,
+    int HighLoyaltyThreshold,
+    int HighLoyaltyBonusNumerator,
+    int HighLoyaltyBonusDenominator,
     int DefenderGarrisonTroopDivisor,
-    int DefenderOwnerNotAllegiancePenaltyPercent,
+    int DefenderNonAllegiantNumerator,
+    int DefenderNonAllegiantDenominator,
     int AttackerIsAllegianceDefenderReductionPercent,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 

@@ -24,11 +24,16 @@ namespace IC2.Engine.Strength;
 /// </code>
 /// <para>
 /// The per-unit <c>/ 100</c> happens <em>inside</em> the accumulation loop, before the running total is
-/// summed — not once on the grand total. The two are not equivalent under truncating integer division;
-/// <c>tests/IC2.Engine.Tests/Strength/ArmyPowerTests.cs</c> pins this with the published 13-unit Roman
-/// roster, which contains two heavy-cavalry units whose <c>weight × troops</c> is not an exact multiple
-/// of 100 (774 and 1,539 troops), so the two evaluation orders give genuinely different results on real,
-/// cited data rather than a constructed example.
+/// summed — not once on the grand total. The two are not equivalent under truncating integer division in
+/// general, but the published 13-unit Roman roster does <strong>not</strong> exhibit the difference at
+/// its final output: per-unit truncation sums to 40,506 before the <c>/ 80</c> step and sum-first
+/// truncation to 40,507 (it contains two heavy-cavalry units whose <c>weight × troops</c> is not an
+/// exact multiple of 100 — 774 and 1,539 troops), but both floor to the same <c>506</c> under <c>/ 80</c>,
+/// so both orders give the same <c>armyPower</c> of 29,854 (T33, correcting a claim in an earlier
+/// revision of this comment). The dedicated truncation test,
+/// <c>ArmyPowerTests.Compute_PerUnitTruncation_DiffersFromSumFirstTruncation</c>, is what actually pins
+/// the per-unit order — it is built to straddle the <c>/ 80</c> divisor exactly, so the two orders visibly
+/// diverge in its final result, which the Roman roster's own numbers happen not to do.
 /// </para>
 /// <para>
 /// <strong>Only the strategic army morale (army record <c>+14</c>, <see cref="Model.ArmyState.Morale"/>)
