@@ -218,25 +218,6 @@ public static class FleetAttritionRule
     }
 
     /// <summary>
-    /// The moves formula alone, for a fleet still under construction or otherwise not subject to the
-    /// storm pass this turn — <c>30 − (ships − 50) / 10</c>, with the carried-army term. Exposed
-    /// separately so a caller does not have to route a fleet with no attrition to apply through
-    /// <see cref="ApplyLaunchedFleetTurn"/> just to get its base moves.
-    /// </summary>
-    public static int BaseMoves(int ships, int? carriedArmyTroops, Ruleset ruleset)
-    {
-        ArgumentNullException.ThrowIfNull(ruleset);
-        var rules = ruleset.Naval;
-        var moves = rules.MovesBaseValue - ((ships - rules.MovesShipOffset) / rules.MovesShipDivisor);
-        if (carriedArmyTroops is { } troops)
-        {
-            moves -= (troops / rules.MovesCarriedArmyTroopDivisor / ships) + rules.MovesCarriedArmyAddend;
-        }
-
-        return moves;
-    }
-
-    /// <summary>
     /// The moves formula's full shape for a launched, at-sea fleet — base moves, the carried-army term,
     /// the zero-supply <c>−3</c>, and the damage-slowdown term, all applied to the ship count and the
     /// condition value <em>after</em> the storm pass and (if it applied) the zero-supply condition
