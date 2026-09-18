@@ -9,7 +9,7 @@ namespace IC2.Engine.Tests.Economy;
 /// <c>docs/task-catalogue.md</c> "T35 Model: nation tax base, recruitment slots, and the pending
 /// diplomatic offer", Done-when 9 and 11, wired against real <see cref="GameState"/> through
 /// <see cref="QuarterlyCityEconomySystem"/> directly (no calendar or full coordinator needed — the same
-/// entry point T08's own quarterly tests use). Also carries T37's DoD 11 fix (bug <c>#132</c>) for T35's
+/// entry point T08's own quarterly tests use). Also carries T37's DoD 10 fix (bug <c>#132</c>) for T35's
 /// first unproving test: <see cref="AThreatenedCity_DoesNotGrow_WithARealAdjacentHostileArmy"/> below.
 /// </summary>
 public sealed class QuarterlyCityEconomySystemTests
@@ -29,7 +29,7 @@ public sealed class QuarterlyCityEconomySystemTests
         state with { Relations = state.Relations.WithRelation(a, b, EconomyTestbed.Ruleset.Diplomacy.StateCodes.War) };
 
     /// <summary>
-    /// <c>docs/task-catalogue.md</c> "T37 City supply production and famine unrest", Done-when 11
+    /// <c>docs/task-catalogue.md</c> "T37 City supply production and famine unrest", Done-when 10
     /// (bug <c>#132</c>): T35's own threat-predicate test
     /// (<c>CityPopulationGrowthTests.AThreatenedCity_DoesNotGrow_TheSameCityOneCellFurtherAwayDoes</c>)
     /// passed a <c>threatened: true</c> literal straight to <see cref="CityPopulationGrowth.Grow"/>,

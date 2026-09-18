@@ -69,6 +69,22 @@ public sealed class CityWeeklySupplyTests
         Assert.Equal(start - 85, result.SupplyTons);
     }
 
+    /// <summary>
+    /// Review round 1, Finding 2: every other case here divides <c>s * mobilized / divisor</c> exactly,
+    /// so nothing pinned which way <c>inc = s - (s * mobilized / divisor)</c> truncates when it doesn't.
+    /// pop 50, Winter, mob 7: <c>s = -100</c>, <c>s * 7 / 200 = -700 / 200</c>, which truncates toward
+    /// zero (C#'s and the original's <c>idiv</c> convention) to <c>-3</c>, giving <c>inc = -97</c> --
+    /// flooring instead (toward negative infinity) would give <c>-4</c> and <c>inc = -96</c>.
+    /// </summary>
+    [Fact]
+    public void AtMobilizationSeven_TheWinterChangeTruncatesTowardZero_NotFloors()
+    {
+        const int start = 200;
+        var result = Apply(start, populationThousands: 50, Winter, mobilizedPercent: 7);
+
+        Assert.Equal(start - 97, result.SupplyTons); // not start - 96, which flooring would give.
+    }
+
     // ---- Done when 3: the stock is capped at pop x 10 (a pop-181 city at 1,700 in Summer ends at
     // 1,810), and floored at 0. ----
 

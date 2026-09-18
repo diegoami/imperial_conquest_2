@@ -43,8 +43,8 @@ public sealed class WeeklyCitySupplySystemTests
         var coordinator = EconomyTestbed.CoordinatorOnly(null, typeof(WeeklyCitySupplySystem));
 
         // south-army-1 lands one cell from Arx (2,1) and is put at war with Arx's owner (north) -- the
-        // same real HostileArmyAdjacent.IsThreatened path DoD 9's growth check uses, reused here, never
-        // a `threatened: true` literal handed to CityWeeklySupply directly.
+        // same real HostileArmyAdjacent.IsThreatened path T35's DoD 9 growth check uses, reused here,
+        // never a `threatened: true` literal handed to CityWeeklySupply directly.
         GameState ThreatenedArxAt(int seasonIndex)
         {
             var state = EconomyTestbed.InitialState();
@@ -105,12 +105,14 @@ public sealed class WeeklyCitySupplySystemTests
         state = state with { Cities = ValueList.From(cities), Armies = ValueList<ArmyState>.Empty };
         state = WithSeason(state, Winter);
 
-        // A fixed seed chosen (see this file's history) so this stream's first three NextChance(1,3)
-        // draws are True, True, False: distinct enough at positions 2 and 3 that a wrong implementation
-        // which also drew for the non-qualifying Portus (consuming position 2 for Portus and shifting
-        // Meridia to position 3) is guaranteed to disagree with the assertions below, not just
-        // coincidentally happen to match them.
-        state = state with { RandomSeed = 1 };
+        // A fixed seed chosen (see this file's history -- an earlier seed, 1, gave True/True/False and
+        // was reviewed as under-powered: draws 1 and 2 were both True, so swapping which qualifying city
+        // got which draw was unobservable) so this stream's first three NextChance(1,3) draws are
+        // True/False/True: draw 1 != draw 2 (so reversing which of Arx/Meridia gets which draw changes
+        // the result -- kills a same-output-order-different-draw-order mutation), and draw 2 != draw 3
+        // (so a wrong implementation that also drew for the non-qualifying Portus, shifting Meridia from
+        // position 2 to position 3, is guaranteed to disagree -- kills the extra-draw mutation too).
+        state = state with { RandomSeed = 3 };
 
         Assert.Equal(new[] { "arx", "portus", "meridia" }, state.Cities.Select(c => c.Id));
 

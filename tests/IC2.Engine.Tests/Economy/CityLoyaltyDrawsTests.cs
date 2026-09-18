@@ -59,7 +59,7 @@ public sealed class CityLoyaltyDrawsTests
     }
 
     /// <summary>
-    /// <c>docs/task-catalogue.md</c> "T37 City supply production and famine unrest", Done-when 11
+    /// <c>docs/task-catalogue.md</c> "T37 City supply production and famine unrest", Done-when 10
     /// (bug <c>#132</c>): <see cref="LoyaltyRiseRollBound"/> and <see cref="LoyaltyFallProbabilityDenominator"/>
     /// are pinned, not just exercised. This is what makes the difference: <see cref="ScriptedRng"/>
     /// checks each draw's actual bound/odds against the exact values <see cref="FixtureCorpus"/>

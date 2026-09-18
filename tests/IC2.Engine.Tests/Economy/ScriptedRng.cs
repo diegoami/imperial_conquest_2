@@ -13,7 +13,7 @@ namespace IC2.Engine.Tests.Economy;
 /// <see cref="IRng"/>. <see cref="ForStream"/> returns <c>this</c>, since a script is written against
 /// the exact call sequence a test drives, not against a named sub-stream.
 /// <para>
-/// <strong>Bug <c>#132</c> (docs/task-catalogue.md T37 DoD 11):</strong> a caller's <em>own</em> bound or
+/// <strong>Bug <c>#132</c> (docs/task-catalogue.md T37 DoD 10):</strong> a caller's <em>own</em> bound or
 /// odds were previously never checked against anything a test declared expecting — only against the
 /// scripted return value happening to fit whatever bound the caller passed. Substituting a wider bound
 /// (or a different denominator) at the call site therefore left every existing test green: the scripted
