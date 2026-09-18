@@ -15,6 +15,13 @@ namespace IC2.Engine.Naval.Commands;
 /// GUID) would not replay identically if an earlier command in the log were ever replayed differently.
 /// The caller — the CLI, the AI, a test — names it, exactly as it already names <see cref="CityId"/>.
 /// </param>
+/// <remarks>
+/// Noted, not fixed (first review, N2): this handler debits the treasury unconditionally and never
+/// refuses for insufficient funds, so an order can drive the treasury negative. No Done-when line
+/// requires an affordability check, and T38 established a clamp-not-reject convention for the supply
+/// dialog's own money handling; neither cited report states whether the original's build dialog gates on
+/// affordability. Flagged rather than guessed at.
+/// </remarks>
 public sealed record OrderFleetCommand(string IssuingNationId, string CityId, int Ships, string NewFleetId) : ICommand
 {
     /// <inheritdoc/>

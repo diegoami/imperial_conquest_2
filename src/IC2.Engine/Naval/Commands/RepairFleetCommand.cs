@@ -7,6 +7,11 @@ namespace IC2.Engine.Naval.Commands;
 /// "T14 Naval", Done-when 4 and 5. Cost <c>ships × points / 5</c>, zeroes moves, refused away from an
 /// owned city and while carrying an army.
 /// </summary>
+/// <remarks>
+/// Noted, not fixed (first review, N2, see <see cref="OrderFleetCommand"/>'s remarks for the same
+/// point): this handler debits the treasury unconditionally and can drive it negative. No Done-when line
+/// requires an affordability check.
+/// </remarks>
 public sealed record RepairFleetCommand(string IssuingNationId, string FleetId, int Points) : ICommand
 {
     /// <inheritdoc/>

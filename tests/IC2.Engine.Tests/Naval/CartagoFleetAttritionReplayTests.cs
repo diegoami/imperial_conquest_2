@@ -22,34 +22,32 @@ public sealed class CartagoFleetAttritionReplayTests
     [Fact]
     public void ZeroSupplyMovesFormula_ReproducesTheCarthaginianSeriesExactly()
     {
+        // DoD 10: "The control is asserted in the same test" (N6, first review: it used to live in its
+        // own separate fact) -- both the starved fleet and its supplied control are asserted here.
         var ruleset = NavalTestbed.Ruleset;
-        const int ships = 90;
-        Assert.Equal(26, ruleset.Naval.MovesBaseValue - ((ships - ruleset.Naval.MovesShipOffset) / ruleset.Naval.MovesShipDivisor));
+
+        const int starvedShips = 90;
+        Assert.Equal(26, ruleset.Naval.MovesBaseValue - ((starvedShips - ruleset.Naval.MovesShipOffset) / ruleset.Naval.MovesShipDivisor));
 
         for (var i = 0; i < CarthageConditions.Length; i++)
         {
             var moves = FleetAttritionRule.MovesForTurn(
-                ships, carriedArmyTroops: null, supplyIsZero: true,
+                starvedShips, carriedArmyTroops: null, supplyIsZero: true,
                 conditionAfterZeroSupplyPenalty: CarthageConditions[i], ruleset);
 
             Assert.Equal(CarthageExpectedMoves[i], moves);
         }
-    }
 
-    [Fact]
-    public void SuppliedControlFleet_ReadsTwentyEightOnEveryTurnWithNoPenalty()
-    {
-        var ruleset = NavalTestbed.Ruleset;
-        const int ships = 70;
-        Assert.Equal(28, ruleset.Naval.MovesBaseValue - ((ships - ruleset.Naval.MovesShipOffset) / ruleset.Naval.MovesShipDivisor));
+        const int controlShips = 70;
+        Assert.Equal(28, ruleset.Naval.MovesBaseValue - ((controlShips - ruleset.Naval.MovesShipOffset) / ruleset.Naval.MovesShipDivisor));
 
         for (var turn = 0; turn < 10; turn++)
         {
-            var moves = FleetAttritionRule.MovesForTurn(
-                ships, carriedArmyTroops: null, supplyIsZero: false,
+            var controlMoves = FleetAttritionRule.MovesForTurn(
+                controlShips, carriedArmyTroops: null, supplyIsZero: false,
                 conditionAfterZeroSupplyPenalty: 100, ruleset);
 
-            Assert.Equal(28, moves);
+            Assert.Equal(28, controlMoves);
         }
     }
 
@@ -102,37 +100,85 @@ public sealed class CartagoFleetAttritionReplayTests
     /// held at 50 and one at 90 across many independent trials, show the expected per-turn condition
     /// loss at 50 is strictly greater than at 90 -- an ordering, not an absolute figure.
     /// </summary>
+    /// <remarks>
+    /// N4 (first review): the original version of this test held <c>nearFriendlyCoast: true</c> for
+    /// both arms, under which condition-90 damage is identically <c>max(1, random(10)/10)/2 = 0</c> for
+    /// every possible draw -- the assertion held by integer construction, not by exercising the spiral.
+    /// This version uses <c>nearFriendlyCoast: false</c> (the away-from-coast branch, where both arms can
+    /// actually roll a nonzero value) and the same seed for both arms, matching "a fixed-seed run"
+    /// literally rather than two different ones.
+    /// </remarks>
     [Fact]
     public void StormDamage_ExpectedLossAtLowerCondition_IsStrictlyGreaterThanAtHigherCondition()
     {
         var ruleset = NavalTestbed.Ruleset;
-        const int trials = 500;
+        const int trials = 2000;
+        const ulong seed = 4242UL;
 
         long totalDamageAt50 = 0;
         long totalDamageAt90 = 0;
 
-        var rngAt50 = new SplitMix64Rng(1001UL);
-        var rngAt90 = new SplitMix64Rng(2002UL);
+        var rngAt50 = new SplitMix64Rng(seed);
+        var rngAt90 = new SplitMix64Rng(seed);
 
         for (var i = 0; i < trials; i++)
         {
             var storm50 = FleetAttritionRule.ApplyStormPass(
                 ships: 50, conditionPercent: 50, isWinter: false, tripleDamageBranchActive: false,
-                nearFriendlyCoast: true, rngAt50, ruleset);
+                nearFriendlyCoast: false, rngAt50, ruleset);
             totalDamageAt50 += storm50.Damage;
 
             var storm90 = FleetAttritionRule.ApplyStormPass(
                 ships: 50, conditionPercent: 90, isWinter: false, tripleDamageBranchActive: false,
-                nearFriendlyCoast: true, rngAt90, ruleset);
+                nearFriendlyCoast: false, rngAt90, ruleset);
             totalDamageAt90 += storm90.Damage;
         }
 
         var averageAt50 = (double)totalDamageAt50 / trials;
         var averageAt90 = (double)totalDamageAt90 / trials;
 
+        Assert.True(averageAt90 > 0, "the condition-90 arm must itself be non-degenerate, not identically zero.");
         Assert.True(
             averageAt50 > averageAt90,
             $"Expected average storm damage at condition 50 ({averageAt50}) to exceed condition 90 ({averageAt90}).");
+    }
+
+    /// <summary>
+    /// Done-when 12, the escalation itself demonstrated over successive turns rather than at two fixed
+    /// points: a fleet at condition 80, away from friendly coast, under seed 2 (chosen because it dies
+    /// within the fixed window below -- a real death spiral, not a synthetic one), takes damage that
+    /// visibly grows turn over turn as its own condition falls, ending in destruction.
+    /// </summary>
+    [Fact]
+    public void StormDamage_EscalatesTurnOverTurnAsConditionFalls_EndingInDestruction()
+    {
+        var ruleset = NavalTestbed.Ruleset;
+        var rng = new SplitMix64Rng(2UL);
+        var ships = 50;
+        var condition = 80;
+        var damages = new List<int>();
+
+        for (var turn = 0; turn < 10; turn++)
+        {
+            var storm = FleetAttritionRule.ApplyStormPass(
+                ships, condition, isWinter: false, tripleDamageBranchActive: false, nearFriendlyCoast: false, rng, ruleset);
+            damages.Add(storm.Damage);
+            condition = storm.ConditionPercent;
+            ships = storm.Ships;
+            if (condition < ruleset.Naval.DeathConditionThreshold)
+            {
+                break;
+            }
+        }
+
+        Assert.Equal(new[] { 3, 3, 3, 5, 3, 3, 5, 7 }, damages);
+        Assert.True(condition < ruleset.Naval.DeathConditionThreshold, "this seed's own run must end in destruction.");
+
+        var earlyAverage = damages.Take(3).Average();
+        var lateAverage = damages.Skip(damages.Count - 3).Average();
+        Assert.True(
+            lateAverage > earlyAverage,
+            $"Expected damage to escalate: early turns averaged {earlyAverage}, the turns right before death averaged {lateAverage}.");
     }
 
     /// <summary>
@@ -237,6 +283,10 @@ public sealed class CartagoFleetAttritionReplayTests
     [Fact]
     public void CombatOnDefeatFlag_HasNoEffectOnAtSeaAttrition()
     {
+        // N7 (first review): this used to vary only Flags.CombatOnDefeat. DoD 14 says "at-sea attrition
+        // is faithful under both classical-faithful and improved" -- the two shipped presets, which also
+        // differ in Flags.SeatAsymmetry (varied elsewhere, in EmbarkArmyCommandHandlerTests). This runs
+        // the full 2x2 matrix of both flags and asserts every combination gives back the identical fleet.
         var baseState = NavalTestbed.InitialState();
         var nationId = baseState.Nations[0].Id;
 
@@ -247,23 +297,27 @@ public sealed class CartagoFleetAttritionReplayTests
 
         var state = baseState with { Fleets = ValueList.Of(fleet), RandomSeed = 555UL };
 
-        var destroyedPresetRuleset = NavalTestbed.Ruleset with
-        {
-            Flags = NavalTestbed.Ruleset.Flags with { CombatOnDefeat = DefeatOutcome.Destroyed },
-        };
-        var scatterPresetRuleset = NavalTestbed.Ruleset with
-        {
-            Flags = NavalTestbed.Ruleset.Flags with { CombatOnDefeat = DefeatOutcome.Scatter },
-        };
-
         var registry = SystemRegistry.FromAssemblies(
             new[] { typeof(FleetTickSystem).Assembly }, t => t == typeof(FleetTickSystem));
 
-        var underDestroyed = new TurnCoordinator(registry, destroyedPresetRuleset, NavalTestbed.Toy.World, NullEventSink.Instance)
-            .RunRoundTick(state).State;
-        var underScatter = new TurnCoordinator(registry, scatterPresetRuleset, NavalTestbed.Toy.World, NullEventSink.Instance)
-            .RunRoundTick(state).State;
+        FleetState RunUnder(DefeatOutcome onDefeat, SeatAsymmetryModel seatAsymmetry)
+        {
+            var ruleset = NavalTestbed.Ruleset with
+            {
+                Flags = NavalTestbed.Ruleset.Flags with { CombatOnDefeat = onDefeat, SeatAsymmetry = seatAsymmetry },
+            };
+            var result = new TurnCoordinator(registry, ruleset, NavalTestbed.Toy.World, NullEventSink.Instance)
+                .RunRoundTick(state).State;
+            return result.FleetById(fleet.Id)!;
+        }
 
-        Assert.Equal(underDestroyed.FleetById(fleet.Id), underScatter.FleetById(fleet.Id));
+        var classicalFaithful = RunUnder(DefeatOutcome.Destroyed, SeatAsymmetryModel.Faithful);
+        var improved = RunUnder(DefeatOutcome.Scatter, SeatAsymmetryModel.Normalized);
+        var mixedA = RunUnder(DefeatOutcome.Destroyed, SeatAsymmetryModel.Normalized);
+        var mixedB = RunUnder(DefeatOutcome.Scatter, SeatAsymmetryModel.Faithful);
+
+        Assert.Equal(classicalFaithful, improved);
+        Assert.Equal(classicalFaithful, mixedA);
+        Assert.Equal(classicalFaithful, mixedB);
     }
 }

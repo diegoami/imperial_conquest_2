@@ -15,6 +15,13 @@ namespace IC2.Engine.Naval.Commands;
 /// <c>[designed, no confirmed field-init evidence for a fleet split's money/supply]</c>: what was
 /// searched is exactly those two reports, and neither states what the original initialises.
 /// </summary>
+/// <remarks>
+/// <c>[open]</c> (first review, N8): the confirmed report also states split "can fail with 'You can not
+/// make any more fleets at this time.' (fleet-table cap)" — a global cap on the number of live fleet
+/// records, distinct from <see cref="Model.NavalRules.SplitMinShips"/>. No report gives the cap's actual
+/// value (the army table's analogous 198-army cap is confirmed and is T15's, not transferable here
+/// without evidence), so this handler does not invent one. Flagged rather than implemented.
+/// </remarks>
 /// <param name="NewFleetId">The new fleet's id — see <see cref="OrderFleetCommand.NewFleetId"/>'s remarks.</param>
 /// <param name="ShipsToNewFleet">How many ships move to the new fleet; the rest stay with <see cref="FleetId"/>.</param>
 public sealed record SplitFleetCommand(string IssuingNationId, string FleetId, string NewFleetId, int ShipsToNewFleet) : ICommand

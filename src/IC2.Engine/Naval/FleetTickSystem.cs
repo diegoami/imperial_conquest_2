@@ -73,17 +73,23 @@ public sealed class FleetTickSystem : IGameSystem
                 var supplyAfterConsumption = Math.Max(0, fleet.SupplyTons - fleet.Ships);
                 var ticksRemaining = fleet.ConstructionTicksRemaining!.Value - rules.ConstructionTickStep;
 
-                if (ticksRemaining <= 0)
-                {
-                    var buildCity = fleet.BuildCityId is { } buildCityId ? state.CityById(buildCityId) : null;
-                    var launchPoint = buildCity is not null
-                        ? CoastalCity.FirstAdjacentSeaTile(buildCity, context.World)
-                        : null;
+                var buildCity = fleet.BuildCityId is { } buildCityId ? state.CityById(buildCityId) : null;
+                var launchPoint = buildCity is not null
+                    ? CoastalCity.FirstAdjacentSeaTile(buildCity, context.World)
+                    : null;
 
+                // N9 (first review): a build city that no longer resolves, or that no longer has an
+                // adjacent sea tile, must not launch the fleet at a fabricated "?" city name or at the
+                // stored (0, 0) sentinel -- both are unguarded fallbacks masquerading as success. Neither
+                // is reachable today (nothing in the shipped engine removes a city or its terrain), but
+                // this is the defensible failure mode if it ever became one: stall in construction,
+                // retried every turn, rather than complete degraded.
+                if (ticksRemaining <= 0 && buildCity is not null && launchPoint is { } point)
+                {
                     var launched = fleet with
                     {
-                        X = launchPoint?.X ?? fleet.X,
-                        Y = launchPoint?.Y ?? fleet.Y,
+                        X = point.X,
+                        Y = point.Y,
                         ConditionPercent = rules.LaunchConditionPercent,
                         SupplyTons = rules.LaunchSupplyTons,
                         Money = 0,
@@ -91,11 +97,18 @@ public sealed class FleetTickSystem : IGameSystem
                     };
                     updatedFleets.Add(launched);
 
-                    context.Events.Publish(new FleetFinished(fleet.Nation, buildCity?.Name ?? "?"));
+                    context.Events.Publish(new FleetFinished(fleet.Nation, buildCity.Name));
                 }
                 else
                 {
-                    updatedFleets.Add(fleet with { SupplyTons = supplyAfterConsumption, ConstructionTicksRemaining = ticksRemaining });
+                    // Stall at 1 (retry next turn) rather than persist a <= 0 value if the launch was
+                    // blocked; otherwise carry the ordinary decremented countdown forward unchanged.
+                    var carriedTicks = ticksRemaining <= 0 ? 1 : ticksRemaining;
+                    updatedFleets.Add(fleet with
+                    {
+                        SupplyTons = supplyAfterConsumption,
+                        ConstructionTicksRemaining = carriedTicks,
+                    });
                 }
 
                 continue;
