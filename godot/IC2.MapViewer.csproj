@@ -7,5 +7,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../src/IC2.Data/IC2.Data.csproj" />
+    <ProjectReference Include="../src/IC2.Engine/IC2.Engine.csproj" />
   </ItemGroup>
 </Project>
