@@ -4,7 +4,7 @@ Every build task's scope, **Owns** list, Definition of Done, model/effort, revie
 
 **Status is not in this document.** Each task's stage (ready, in progress, merged, blocked, escalated) lives only in its GitHub issue's `status:*` label ([build-process.md §5](build-process.md#5-status-lives-on-github)). The index below links every issue.
 
-45 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), eleven corrections to already-merged code (T31–T35, T38–T40, T42–T44), two rules no task owned (T37, the weekly city supply step, and T45, the weekly moves maximum), and an early demo slice of T23 (T41).
+45 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), twelve corrections to already-merged code (T31–T35, T38–T40, T42–T45), one rule no task owned (T37, the weekly city supply step), and an early demo slice of T23 (T41).
 
 ---
 
@@ -32,7 +32,7 @@ graph TD
   T31 --> T07
   T31 --> T16
   T03 --> T09[T09 movement]
-  T09 --> T45[T45 weekly moves maximum]
+  T09 --> T45[T45 weekly moves tests]
   T03 --> T40[T40 published-events seam]
   T40 --> T10[T10 news log]
   T12 --> T43[T43 victory fixes]
@@ -134,7 +134,7 @@ Waves are dependency layers, not concurrent batches: execution is serial, one co
 | 1 | T02, T04, T30 | T04 and T30 need only T01. T30's merge gates T29, T21 and T34. |
 | 2 | T03 | The serialization point for engine code. |
 | 3 | T06, T07, T08, T09, T10, T11, T12, T31, T32, T33, T34, T40, T41, T42, T43 | The widest wave. T43 follows T12. T40 merges before T10; T41 (the thin CLI demo) and then T42 (news-log fidelity) follow T10. T32 merges before T08; T33 before T16 and T17; T34 any time before T21, T24 and T29. T08 and T33 both write `Ruleset.cs`, `toy-ruleset.json` and `tests/fixtures/**` — different records and entries, never in flight together. |
-| 4 | T38, T13, T14, T15, T16, T35, T37, T39, T44, T45 | T44 follows T34 and must merge before T21. T45 follows T08 and T09, and must merge before T14 (fleets read the same weekly maximum). T38 follows T08 and precedes T14. T39 follows T35 and precedes T13 and T22. T35 follows T08 and gates T13, T17, T19 and T37. T37 must merge before T29. T16 is the long pole. |
+| 4 | T38, T13, T14, T15, T16, T35, T37, T39, T44, T45 | T44 follows T34 and must merge before T21. T45 follows T08 and T09 and gates nothing — it is test-only. T38 follows T08 and precedes T14. T39 follows T35 and precedes T13 and T22. T35 follows T08 and gates T13, T17, T19 and T37. T37 must merge before T29. T16 is the long pole. |
 | 5 | T17, T18, T19, T20, T29, T21, T22 | T17 first, then T18/T19/T20; T29 once T15, T17, T19 and T37 have merged; then T21 and T22. T22 is the long pole. |
 | 6 | T23, T36, T24, T25, T26, T27, T28 | T36 follows T29 and precedes T24. T24/T25/T27 are single-instance (Godot) and form one serial chain. |
 
@@ -142,7 +142,7 @@ Waves are dependency layers, not concurrent batches: execution is serial, one co
 
 ### 1.2 Sequential and independent tasks
 
-- **Strictly sequential**: T01 → T02 → T03; T12 → T43 → T22 (the AI soak needs a victory check that can actually fire); T03 → T40 → T10 → T41 (the news writer reads the published-events view T40 adds; the demo prints its news); T41 → T23 (T23 extends the demo harness); T10 → T41 → T42 → T14, T16, T17, T19 (the news format and its placeholder check settle before the first production news events); T16 → T17 (a siege is a battle); T17 → T18 (a siege wipes a pending fortify order); T08 → T13 (mercenary hire debits the army purse T08 defines); T08 → T38 → T14 (T14 is the first caller of the supply dialog T38 finishes); T35 → T39 → T13, T22 (billing is corrected before recruitment and the AI build on it); T24 → T25 → T27 (Godot, single-instance); T30 → T29 (T29 reads the DAT through T30's parser); T31 → T07 and T31 → T16 (both consume the siege defender weights T31 corrects); T32 → T08 and T32 → T14 (T06's attrition-phase test must stop counting systems before either registers one); T33 → T16 and T33 → T17 (both consume the defender-strength shape T33 corrects); T35 → T13, T17, T19, T37 (the model fields they read and write; T37 also reuses T35's threat predicate); T37 → T29 (it adds `EconomyRules` fields, and the ruleset schema settles before the export); T34 → T29 and T34 → T21 (both read the nation tax base through T34's parse); T34 → T44 → T21 (the army `moves` field is made signed in the parser before the import bridge maps it); T08, T09 → T45 → T14 (armies get a weekly moves budget before fleets reuse the rule); T15, T17, T19 → T29 → T21, T24, T26 (the ruleset schema settles before the shipped ruleset is exported, and the shipped world, ruleset and scenario exist before anything consumes them — [build-process.md §2.6](build-process.md#2-how-the-build-avoids-conflicts)); T29 → T36 → T24 (the `improved` preset is authored from the exported constants, and the New Game chooser needs both presets).
+- **Strictly sequential**: T01 → T02 → T03; T12 → T43 → T22 (the AI soak needs a victory check that can actually fire); T03 → T40 → T10 → T41 (the news writer reads the published-events view T40 adds; the demo prints its news); T41 → T23 (T23 extends the demo harness); T10 → T41 → T42 → T14, T16, T17, T19 (the news format and its placeholder check settle before the first production news events); T16 → T17 (a siege is a battle); T17 → T18 (a siege wipes a pending fortify order); T08 → T13 (mercenary hire debits the army purse T08 defines); T08 → T38 → T14 (T14 is the first caller of the supply dialog T38 finishes); T35 → T39 → T13, T22 (billing is corrected before recruitment and the AI build on it); T24 → T25 → T27 (Godot, single-instance); T30 → T29 (T29 reads the DAT through T30's parser); T31 → T07 and T31 → T16 (both consume the siege defender weights T31 corrects); T32 → T08 and T32 → T14 (T06's attrition-phase test must stop counting systems before either registers one); T33 → T16 and T33 → T17 (both consume the defender-strength shape T33 corrects); T35 → T13, T17, T19, T37 (the model fields they read and write; T37 also reuses T35's threat predicate); T37 → T29 (it adds `EconomyRules` fields, and the ruleset schema settles before the export); T34 → T29 and T34 → T21 (both read the nation tax base through T34's parse); T34 → T44 → T21 (the army `moves` field is made signed in the parser before the import bridge maps it); T15, T17, T19 → T29 → T21, T24, T26 (the ruleset schema settles before the shipped ruleset is exported, and the shipped world, ruleset and scenario exist before anything consumes them — [build-process.md §2.6](build-process.md#2-how-the-build-avoids-conflicts)); T29 → T36 → T24 (the `improved` preset is authored from the exported constants, and the New Game chooser needs both presets).
 - **Independent**: wave 3's pure-rules systems over disjoint directories; T32, T33 and T34 against each other and against T09–T12; T13/T14/T15; T18/T19/T20; T26 against the Godot lane.
 - **Looks independent but is not**: T12 (victory) is gated behind T06 because its 250 BC condition needs the calendar's year; T20 (save/load) could be written early, but its DoD ("a mid-game state round-trips after N turns") is only meaningful once the state is largely complete.
 
@@ -491,32 +491,30 @@ Conventions used by every entry:
 
 ---
 
-#### T45 The weekly moves maximum
+#### T45 Pin the weekly moves maximum with the tests it never got
 
-- **Design milestone**: none — **a rule no task owns**, like T37. T09 spends moves and T09 DoD 4 zeroes them on an aborted step, but nothing ever *grants* them: no system recomputes an army's weekly budget, so after the first turn every army is stuck at whatever T09 left. Found while settling bug [#125](https://github.com/diegoami/imperial_conquest_2/issues/125). **Labels**: `phase:1 lane:engine`
+- **Design milestone**: none. **The rule is already implemented** — this task supplies the checks it was merged without. **Labels**: `phase:1 lane:engine`
 - **Branch**: `task/T45-weekly-moves-maximum` · **Model/effort**: Sonnet / Medium · **Reviewer**: **Opus** / Medium
-- **Start after**: T08, T09 · **Merge after**: T08, T09 — and merged before T14
-- **Owns**: `src/IC2.Engine/Movement/**` (the new weekly-budget system and its rule only — T09's walker, cost table and abort rule are not touched), `tests/IC2.Engine.Tests/Movement/**` (new tests only), `src/IC2.Engine/Model/Ruleset.cs` (the movement rules record only: additive fields), `data/rulesets/toy-ruleset.json` (the movement block only), `tests/fixtures/**` (this task's corpus entries only)
-- **Scope**: The formula is `[confirmed]` at instruction level in [`army-moves-field-signed-and-the-ffff-underflow.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/army-moves-field-signed-and-the-ffff-underflow.md) (`0x00451633`–`0x004516D7` in `FUN_004514EC`, independently re-derived by `FUN_0044AAB4`). **Transcribe it; do not re-derive it.**
-  ```text
-  maximum = 10 - min(5, troops / 20000)          // integer division; 10 down to 5 in five steps
-  if (supplies * 10000) / troops < 10:           // integer division, in this order
-      maximum -= 1                               // a starving army loses one more
-  ```
-  Troop total only — **unit-type composition plays no part**, which closes [`army-to-army-transfer-confirmed.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/army-to-army-transfer-confirmed.md)'s open item 3 and [`decompiled-army-movement-and-river-cost.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-army-movement-and-river-cost.md)'s "Next checks" item 2. The same report also withdraws the "readiness" reading those reports carried: `FUN_0044A698` is simply a total-troops sum with a divide-by-zero guard.
+- **Start after**: T08, T09 · **Merge after**: T08, T09
+- **Owns**: `tests/IC2.Engine.Tests/Economy/**` (new tests only — no production file, no ruleset, no fixture)
+- **Scope**: **Read this before planning anything.** This task was originally written to *add* the weekly moves budget, on the belief that nothing granted moves. That belief was wrong, and the error was the main session's: T08 already recomputes it for every army, every round.
+  - `src/IC2.Engine/Economy/SupplyMoraleRule.cs` — `BaseMoves` returns `BaseMovesMax - Math.Min(MovesReductionCap, troops / MovesTroopDivisor)`, and `data/rulesets/toy-ruleset.json`'s `economy.supplyMorale` supplies **10, 5, 20000**: exactly `10 − min(5, troops / 20000)`.
+  - The same file's `ApplyToMorale` subtracts `movesPenaltyOnDecay` (**1**) when `supplyPercent < decayThresholdPercent` (**10**), where `SupplyCapacity.PercentFull` is `supplyTons * SupplyPercentNumerator / troops` — the tick's `supplies × 10000 / troops`, **not** `FUN_0044AAB4`'s variant.
+  - `ArmySupplyAndMoraleSystem.cs:51` writes `Moves = outcome.Moves` for every army, in `TurnPhase.ArmyTick`.
+
+  So the formula is live and correct. What it has never had is **boundary coverage**: no test anywhere in the repository exercises the five size steps, the starving threshold, or the mid-week non-refresh clause. That is this task, and it is test-only.
+
+  The formula, for reference, `[confirmed]` at instruction level in [`army-moves-field-signed-and-the-ffff-underflow.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/army-moves-field-signed-and-the-ffff-underflow.md) §4 (`0x00451633`–`0x004516D7`) — an **independent** recovery that agrees with what T08 shipped from [`investigations/thracia-supply-morale.md`](investigations/thracia-supply-morale.md). Two derivations from different evidence agreeing is the strongest confirmation this project has for the rule; say so in the PR body rather than re-deriving either.
 - **Done when**:
-  1. A system registered in `TurnPhase.ArmyTick` sets every army's moves to the formula's value each weekly tick — every army in the game, every round, not just the ending seat's, exactly as `ArmySupplyAndMoraleSystem` already does in that phase. Its ordering against that system is stated in its remarks and asserted, since both read the same army list.
-  2. The five size steps are asserted at their boundaries: 19,999 and 20,000 troops; 39,999 and 40,000; and at 100,000+ (the floor of 5, since `min(5, …)` caps it). The arithmetic is integer division at every step, in the order written above.
-  3. The starving case is asserted either side of its threshold, and it is the **supplies×10000/troops** expression, not the `FUN_0044AAB4` variant — see the hazard.
-  4. **The maximum is not refreshed when an army's size changes mid-week.** A test grows an army between ticks and asserts its moves are unchanged until the next tick. This is confirmed against the corpus, not designed: 625 of 627 army records satisfy `0 ≤ moves ≤ maximum`, and the sole live exception is the Roman army at `(100, 42)` in `12_mac.sav`, which kept `moves 8` (right for its pre-transfer 48,173 troops) after growing to 63,173 mid-week. The report's **controlled-save recipe A** is the deliberate version of that accident — a transfer that crosses a 20,000 boundary mid-week — if a second data point is wanted.
-  5. The constants (`20000`, the `10`/`5` bounds, the low-supply threshold) are ruleset fields with corpus entries and provenance, never literals in the rule — T02's `NoHardcodedConstantsTests` is the check.
-  6. The demo's golden transcript and the seed test are regenerated or adjusted if this changes what the demo prints, under [build-process.md §2.3](build-process.md#2-how-the-build-avoids-conflicts)'s rule, with every changed line explained in the PR body.
-  7. `dotnet build IC2.sln` and `dotnet test IC2.sln` are green, and the diff lists only Owns paths.
+  1. **The five size steps, at their boundaries**: 19,999 and 20,000 troops; 39,999 and 40,000; and at 100,000+, where `min(5, …)` pins the floor at 5. Each asserted through the ruleset's values, never a C# literal.
+  2. **The starving case, either side of its threshold**, and asserted to use the **`supplies × 10000 / troops`** expression — an army whose percentage lands just below 10 loses the extra move, one just above does not.
+  3. **The maximum is not refreshed when an army's size changes mid-week.** A test grows an army between ticks and asserts its moves are unchanged until the next tick. This is a confirmed corpus claim that nothing currently verifies: Rome's army at `(100, 42)` in `12_mac.sav` kept `moves 8` — right for its pre-transfer 48,173 troops — after growing to 63,173 mid-week.
+  4. **Each of the three is proved by mutation**: change the constant or the clause it pins, watch a named test fail, restore it, and report the failing test's name in the PR body. A test that passes with the behaviour broken is the defect this task exists to prevent.
+  5. `dotnet build IC2.sln` and `dotnet test IC2.sln` are green, and `git diff --name-only main...HEAD` lists only Owns paths.
 - **Hazards**:
-  - **The original contains a real inconsistency here, and this task does not resolve it.** The weekly tick writes the value using `supplies * 10000 / troops < 10`, while `FUN_0044AAB4` — the "has not acted" helper the end-turn prompt uses — tests `supplies * troops / 10000 < 10`. They are genuinely different expressions, agreeing only near 10,000 troops. Implement **the tick's**, tag the divergence `[open]` with a pointer to the report, and leave the end-turn prompt alone: that check belongs to whichever task builds the end-turn warning, not here. The report's **controlled-save recipe B** settles which one the original actually applies (a 50,000-troop army at ~10 tons, where the two expressions disagree loudly); if that recipe has been run by the time this task starts, use its result and retag accordingly.
-  - **Do not implement the original's underflow.** The `−1` behind bug #125 comes from an unfloored decrement in the original's embark path; this task grants a budget and must floor at 0. T44 handles what the *parser* reports; the engine never produces a negative.
-  - Do not touch T09's walker, cost table or abort rule, and do not fold the fleet case in: fleets have their own budget shape and are T14's.
-  - `Ruleset.cs` is written by several tasks; this one adds to the movement record only, and is never in flight alongside another task writing that file ([build-process.md §2.6](build-process.md#2-how-the-build-avoids-conflicts)).
+  - **Do not add a system, a rule, or a ruleset field.** A second system registered in `TurnPhase.ArmyTick` also writing `ArmyState.Moves` would race the existing one on the same field — the order-dependency class [build-process.md §4.2](build-process.md#42-what-the-reviewer-checks) gate 5 exists to catch. If a test seems to need production code to change, **stop and report it**.
+  - **Do not change T08's rule or its constants to make a test convenient.** If the implementation and the report disagree anywhere, that is a finding to report, not a thing to fix here.
+  - **The original's own inconsistency stays `[open]`.** The tick writes the value using `supplies × 10000 / troops`, while `FUN_0044AAB4` — the end-turn "has not acted" helper — tests `supplies × troops / 10000`. They agree only near 10,000 troops. Pin **the tick's**, which is what is implemented, and leave the end-turn prompt alone. The report's controlled-save recipe B settles which the original applies; if it has been run by the time this task starts, cite its result.
 
 ---
 
@@ -1149,6 +1147,6 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T42](#t42-news-log-fidelity-slot-format-round-headers-and-the-corpuss-news-literals) | News-log fidelity | M17 | Sonnet | Medium | **Opus**/Medium | T10, T41 | [#92](https://github.com/diegoami/imperial_conquest_2/issues/92) |
 | [T43](#t43-victory-make-domination-reachable-and-run-the-check-each-round) | Victory fixes + round-tick check | M13 | Sonnet | Medium | **Opus**/Medium | T12 | [#110](https://github.com/diegoami/imperial_conquest_2/issues/110) |
 | [T44](#t44-ic2data-army-moves-is-a-signed-field-and-a-sweep-for-the-same-gap) | Army `moves` signed + parser sweep | — | Sonnet | Medium | **Opus**/Medium | T30, T34 | [#126](https://github.com/diegoami/imperial_conquest_2/issues/126) |
-| [T45](#t45-the-weekly-moves-maximum) | Weekly moves maximum | — | Sonnet | Medium | **Opus**/Medium | T08, T09 | [#129](https://github.com/diegoami/imperial_conquest_2/issues/129) |
+| [T45](#t45-pin-the-weekly-moves-maximum-with-the-tests-it-never-got) | Weekly moves maximum: the missing tests | — | Sonnet | Medium | **Opus**/Medium | T08, T09 | [#129](https://github.com/diegoami/imperial_conquest_2/issues/129) |
 
 **Totals** — 45 tasks: 4 Opus, 36 Sonnet, 4 Haiku, 1 Fable. Effort: 2 Ultrahigh, 18 High, 22 Medium, 3 Low.
