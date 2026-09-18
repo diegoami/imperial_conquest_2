@@ -197,6 +197,24 @@ public sealed record TerrainRules(
 /// weekly Winter-only, empty-stock check, the other T35's quarterly, tax-rate-gated one, and they must be
 /// able to change independently.
 /// </para>
+/// <para>
+/// <strong>T39's additions</strong> (<c>docs/task-catalogue.md</c> "T39 Quarterly upkeep: who pays,
+/// mercenary desertion, and deposition for debt"), transcribed from
+/// <c>upkeep-payment-and-desertion.md</c>. The old <c>UnpaidUpkeepTroopLossDivisor</c> field and the
+/// "mutiny" rule it fed (bug <c>#80</c>) are removed outright — the original has no such rule.
+/// <see cref="MercenaryDesertionSupplyDivisor"/> is the <c>troops div 100</c> a deserting mercenary
+/// takes from the army's supplies on its way out; numerically the same shape as
+/// <see cref="ArmySupplyTonsPerTroops"/> but a separate field, since one is a capacity and the other a
+/// loss-on-desertion divisor, the same reasoning already given for <see cref="PopulationGrowthMobilizationDivisor"/>.
+/// The debt line is <c>treasury &lt; −(wealth / <see cref="DebtWealthDivisor"/>)</c>, or
+/// <c>treasury &lt; <see cref="DebtTreasuryFloor"/></c>, or <c>unity &lt; <see cref="DebtUnityThreshold"/></c>.
+/// Deposition (<c>FUN_0044c8f0</c>) fires for an in-debt AI nation with a
+/// 1-in-<see cref="DepositionRandomDivisor"/> quarterly chance, or deterministically for a human nation
+/// at the start of its turn, and its effects are shared by both: <c>unity = max(unity, min(<see cref="DepositionUnityCeiling"/>,
+/// unity + <see cref="DepositionUnityGainAmount"/>))</c>; <c>treasury = treasury &lt; 0 ? 0 : treasury +
+/// <see cref="DepositionTreasuryCredit"/></c>; and any relation from <see cref="DepositionRelationResetThreshold"/>
+/// up to (but not including) zero resets to zero.
+/// </para>
 /// </remarks>
 public sealed record EconomyRules(
     int TaxRateDivisor,
@@ -208,7 +226,15 @@ public sealed record EconomyRules(
     int ArmySupplyTonsPerTroops,
     int FleetSupplyTonsPerShip,
     int SupplyPercentNumerator,
-    int UnpaidUpkeepTroopLossDivisor,
+    int MercenaryDesertionSupplyDivisor,
+    int DebtWealthDivisor,
+    int DebtTreasuryFloor,
+    int DebtUnityThreshold,
+    int DepositionRandomDivisor,
+    int DepositionUnityGainAmount,
+    int DepositionUnityCeiling,
+    int DepositionTreasuryCredit,
+    int DepositionRelationResetThreshold,
     int LowTaxLoyaltyThresholdPercent,
     int LowTaxLoyaltyCityThreshold,
     int RebellionLoyaltyThreshold,

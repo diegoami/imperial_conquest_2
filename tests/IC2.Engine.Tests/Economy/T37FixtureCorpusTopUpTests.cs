@@ -32,27 +32,38 @@ public sealed class T37FixtureCorpusTopUpTests
     // ---- Done when 9 (bug #131): T35's DoD 8 corpus top-up, which its merge added zero new entries
     // for, finally lands. ----
 
-    [Fact]
-    public void T35sPreviouslyMissingConstants_AreNowInTheCorpus_AndMatchTheRuleset()
+    /// <summary>
+    /// T39's folded follow-up (docs/task-catalogue.md Done-when 10, the lowest-value item there): a
+    /// <c>[Theory]</c> restoring the per-case naming an earlier <c>foreach</c>-in-one-<c>[Fact]</c>
+    /// consolidation lost, so a run that fails reports which specific id and constant broke, not just
+    /// the first one alphabetically encountered inside a single failing test.
+    /// </summary>
+    public static IEnumerable<object[]> T35MissingConstantsCases()
     {
-        AssertEconomyConstant("economy.treasuryCreditTaxBaseQuarterShareDivisor", 4, e => e.TreasuryCreditTaxBaseQuarterShareDivisor);
-        AssertEconomyConstant("economy.treasuryCreditPerCityUpkeep", 7, e => e.TreasuryCreditPerCityUpkeep);
-        AssertEconomyConstant("economy.treasuryCreditWealthDivisor", 20000, e => e.TreasuryCreditWealthDivisor);
-        AssertEconomyConstant("economy.tradeIncomeTaxBaseDivisor", 12, e => e.TradeIncomeTaxBaseDivisor);
-        AssertEconomyConstant("economy.wealthPerPopulationThousand", 3000, e => e.WealthPerPopulationThousand);
-        AssertEconomyConstant("economy.populationGrowthGapDivisor", 4, e => e.PopulationGrowthGapDivisor);
-        AssertEconomyConstant("economy.populationGrowthTaxDivisor", 120, e => e.PopulationGrowthTaxDivisor);
-        AssertEconomyConstant("economy.populationGrowthMobilizationDivisor", 300, e => e.PopulationGrowthMobilizationDivisor);
-        AssertEconomyConstant("economy.populationGrowthConstantAddend", 1, e => e.PopulationGrowthConstantAddend);
-        AssertEconomyConstant("economy.threatenedCityAdjacencyRadius", 1, e => e.ThreatenedCityAdjacencyRadius);
-        AssertEconomyConstant("economy.unityBaseGainPerQuarter", 25, e => e.UnityBaseGainPerQuarter);
-        AssertEconomyConstant("economy.unityTaxRateDivisor", 2, e => e.UnityTaxRateDivisor);
-        AssertEconomyConstant("economy.unityMobilizationDivisor", 5, e => e.UnityMobilizationDivisor);
-        AssertEconomyConstant("economy.unityFloor", 300, e => e.UnityFloor);
-        AssertEconomyConstant("economy.loyaltyRiseRollBound", 4, e => e.LoyaltyRiseRollBound);
-        AssertEconomyConstant("economy.loyaltyFallProbabilityDenominator", 3, e => e.LoyaltyFallProbabilityDenominator);
-        AssertEconomyConstant("economy.loyaltyFallTaxDivisor", 8, e => e.LoyaltyFallTaxDivisor);
+        yield return new object[] { "economy.treasuryCreditTaxBaseQuarterShareDivisor", 4, (Func<EconomyRules, int>)(e => e.TreasuryCreditTaxBaseQuarterShareDivisor) };
+        yield return new object[] { "economy.treasuryCreditPerCityUpkeep", 7, (Func<EconomyRules, int>)(e => e.TreasuryCreditPerCityUpkeep) };
+        yield return new object[] { "economy.treasuryCreditWealthDivisor", 20000, (Func<EconomyRules, int>)(e => e.TreasuryCreditWealthDivisor) };
+        yield return new object[] { "economy.tradeIncomeTaxBaseDivisor", 12, (Func<EconomyRules, int>)(e => e.TradeIncomeTaxBaseDivisor) };
+        yield return new object[] { "economy.wealthPerPopulationThousand", 3000, (Func<EconomyRules, int>)(e => e.WealthPerPopulationThousand) };
+        yield return new object[] { "economy.populationGrowthGapDivisor", 4, (Func<EconomyRules, int>)(e => e.PopulationGrowthGapDivisor) };
+        yield return new object[] { "economy.populationGrowthTaxDivisor", 120, (Func<EconomyRules, int>)(e => e.PopulationGrowthTaxDivisor) };
+        yield return new object[] { "economy.populationGrowthMobilizationDivisor", 300, (Func<EconomyRules, int>)(e => e.PopulationGrowthMobilizationDivisor) };
+        yield return new object[] { "economy.populationGrowthConstantAddend", 1, (Func<EconomyRules, int>)(e => e.PopulationGrowthConstantAddend) };
+        yield return new object[] { "economy.threatenedCityAdjacencyRadius", 1, (Func<EconomyRules, int>)(e => e.ThreatenedCityAdjacencyRadius) };
+        yield return new object[] { "economy.unityBaseGainPerQuarter", 25, (Func<EconomyRules, int>)(e => e.UnityBaseGainPerQuarter) };
+        yield return new object[] { "economy.unityTaxRateDivisor", 2, (Func<EconomyRules, int>)(e => e.UnityTaxRateDivisor) };
+        yield return new object[] { "economy.unityMobilizationDivisor", 5, (Func<EconomyRules, int>)(e => e.UnityMobilizationDivisor) };
+        yield return new object[] { "economy.unityFloor", 300, (Func<EconomyRules, int>)(e => e.UnityFloor) };
+        yield return new object[] { "economy.loyaltyRiseRollBound", 4, (Func<EconomyRules, int>)(e => e.LoyaltyRiseRollBound) };
+        yield return new object[] { "economy.loyaltyFallProbabilityDenominator", 3, (Func<EconomyRules, int>)(e => e.LoyaltyFallProbabilityDenominator) };
+        yield return new object[] { "economy.loyaltyFallTaxDivisor", 8, (Func<EconomyRules, int>)(e => e.LoyaltyFallTaxDivisor) };
     }
+
+    [Theory]
+    [MemberData(nameof(T35MissingConstantsCases))]
+    public void T35sPreviouslyMissingConstants_AreNowInTheCorpus_AndMatchTheRuleset(
+        string fixtureId, int expected, Func<EconomyRules, int> rulesetValue) =>
+        AssertEconomyConstant(fixtureId, expected, rulesetValue);
 
     [Fact]
     public void UpkeepPaymentAndDesertion_JoinsTheKnownReportsManifest()
@@ -71,24 +82,22 @@ public sealed class T37FixtureCorpusTopUpTests
 
     // ---- Done when 7: this task's own supply-production constants join the corpus. ----
 
-    [Fact]
-    public void ThisTasksOwnSupplyProductionConstants_AreInTheCorpus_AndMatchTheRuleset()
+    public static IEnumerable<object[]> SupplyProductionConstantsCases()
     {
-        AssertEconomyConstant("citySupply.baselineSeasonValue", 40, e => e.CitySupplyBaselineSeasonValue);
-        AssertEconomyConstant("citySupply.productionDivisor", 10, e => e.CitySupplyProductionDivisor);
-        AssertEconomyConstant("citySupply.mobilizationDivisor", 200, e => e.CitySupplyMobilizationDivisor);
-        AssertEconomyConstant("citySupply.capTonsPerPopulationThousand", 10, e => e.CitySupplyCapTonsPerPopulationThousand);
-        AssertEconomyConstant("citySupply.winterFamineLoyaltyLossAmount", 1, e => e.FamineLoyaltyLossAmount);
+        yield return new object[] { "citySupply.baselineSeasonValue", 40, (Func<EconomyRules, int>)(e => e.CitySupplyBaselineSeasonValue) };
+        yield return new object[] { "citySupply.productionDivisor", 10, (Func<EconomyRules, int>)(e => e.CitySupplyProductionDivisor) };
+        yield return new object[] { "citySupply.mobilizationDivisor", 200, (Func<EconomyRules, int>)(e => e.CitySupplyMobilizationDivisor) };
+        yield return new object[] { "citySupply.capTonsPerPopulationThousand", 10, (Func<EconomyRules, int>)(e => e.CitySupplyCapTonsPerPopulationThousand) };
+        yield return new object[] { "citySupply.winterFamineLoyaltyLossAmount", 1, (Func<EconomyRules, int>)(e => e.FamineLoyaltyLossAmount) };
+    }
 
-        foreach (var id in new[]
-                 {
-                     "citySupply.baselineSeasonValue", "citySupply.productionDivisor",
-                     "citySupply.mobilizationDivisor", "citySupply.capTonsPerPopulationThousand",
-                     "citySupply.winterFamineLoyaltyLossAmount",
-                 })
-        {
-            Assert.Equal("city-population-growth.md", FixtureCorpus.Get(id).Source);
-        }
+    [Theory]
+    [MemberData(nameof(SupplyProductionConstantsCases))]
+    public void ThisTasksOwnSupplyProductionConstants_AreInTheCorpus_AndMatchTheRuleset(
+        string fixtureId, int expected, Func<EconomyRules, int> rulesetValue)
+    {
+        AssertEconomyConstant(fixtureId, expected, rulesetValue);
+        Assert.Equal("city-population-growth.md", FixtureCorpus.Get(fixtureId).Source);
     }
 
     // ---- Done when 11 (bug #133): the mis-attributed Winter corpus entry is corrected -- the 1-in-3

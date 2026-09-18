@@ -98,7 +98,7 @@ Now: Week 1, Summer 270 BC. Active seat: Northern League (north).
 Week 1, Summer 270 BC (turn 6). Active seat: Northern League (north).
 
 Nations:
-  Northern League (north, human): treasury 373, unity 615, tax 15%
+  Northern League (north, human): treasury 396, unity 615, tax 15%
   Southern League (south, ai): treasury 358, unity 534, tax 20%
 
 Armies:
@@ -135,7 +135,7 @@ News log:
 Week 1, Summer 270 BC (turn 6). Active seat: Northern League (north).
 
 Nations:
-  Northern League (north, human): treasury 373, unity 615, tax 15%
+  Northern League (north, human): treasury 396, unity 615, tax 15%
   Southern League (south, ai): treasury 368, unity 534, tax 20%
 
 Armies:
