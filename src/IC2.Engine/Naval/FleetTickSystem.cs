@@ -75,8 +75,15 @@ public sealed class FleetTickSystem : IGameSystem
 
                 if (ticksRemaining <= 0)
                 {
+                    var buildCity = fleet.BuildCityId is { } buildCityId ? state.CityById(buildCityId) : null;
+                    var launchPoint = buildCity is not null
+                        ? CoastalCity.FirstAdjacentSeaTile(buildCity, context.World)
+                        : null;
+
                     var launched = fleet with
                     {
+                        X = launchPoint?.X ?? fleet.X,
+                        Y = launchPoint?.Y ?? fleet.Y,
                         ConditionPercent = rules.LaunchConditionPercent,
                         SupplyTons = rules.LaunchSupplyTons,
                         Money = 0,
@@ -84,10 +91,7 @@ public sealed class FleetTickSystem : IGameSystem
                     };
                     updatedFleets.Add(launched);
 
-                    var cityName = fleet.BuildCityId is { } buildCityId
-                        ? state.CityById(buildCityId)?.Name ?? buildCityId
-                        : "?";
-                    context.Events.Publish(new FleetFinished(fleet.Nation, cityName));
+                    context.Events.Publish(new FleetFinished(fleet.Nation, buildCity?.Name ?? "?"));
                 }
                 else
                 {
