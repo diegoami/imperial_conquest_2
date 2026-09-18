@@ -22,10 +22,22 @@ namespace IC2.Engine.Economy;
 /// settles it operationally: the transfer "never takes more than the source holds", so when the treasury
 /// is the source it is clamped to its own balance and never driven negative by <em>this</em> method; when
 /// the purse is the source, the treasury only ever gains. No separate treasury floor is invented, and none
-/// is needed for that requirement to hold. The task entry's own hazard about a co-located <em>fleet</em>
-/// acting as the transfer's source or target instead of the treasury is not implemented here: neither this
-/// report nor <c>supply-capacity-rounding.md</c> traces that variant of <c>TAFSupply_ChangeMoney</c>, so
-/// adding it would be invention, not transcription — left as an escalation rather than a decision.
+/// is needed for that requirement to hold.
+/// </para>
+/// <para>
+/// <strong><c>[open]</c>: a co-located fleet as an alternative source/target, instead of the treasury.</strong>
+/// The task entry names this explicitly and settles it as open, not a gap to close here. Searched:
+/// <c>supply-capacity-rounding.md</c> (this task's cited evidence) traces <c>TAFSupply_ChangeSupply</c> /
+/// <c>TAFSupply_ChangeBuyAmount</c> instruction-by-instruction but says nothing about
+/// <c>TAFSupply_ChangeMoney</c> beyond the 1,000 cap; <c>decompiled-unit-map-orders-and-record-fields.md</c>
+/// (the report that first found that cap) names only the nation ↔ army/fleet purse direction, with no
+/// mention of a fleet acting as the money source/target in place of the treasury. Neither source disassembles
+/// <c>TAFSupply_ChangeMoney</c> itself, so there is no instruction evidence either way for the fleet variant —
+/// implementing it would be invention, not transcription. <see cref="TransferWithArmy"/> and
+/// <see cref="TransferWithFleet"/> therefore implement only the nation ↔ one unit's own purse direction,
+/// which is exactly what Done-when 6's checkable assertion requires ("moves talents between the national
+/// treasury... and an army or fleet in the dialog, in either direction"); a fleet standing in for the
+/// treasury is left <c>[open]</c> for whichever later task's evidence settles it.
 /// </para>
 /// <para>
 /// <strong>Conservation</strong>: the amount actually applied is derived from the purse's own before/after
