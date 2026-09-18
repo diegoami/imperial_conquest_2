@@ -50,11 +50,14 @@ public sealed class BuySupplyCommandHandler : ICommandHandler<BuySupplyCommand>
                 BuySupplyRejections.UnknownCity, $"'{command.CityId}' is not a known city.");
         }
 
+        // Review round 1, N7: the city itself is known -- its owner nation is the problem -- so this is
+        // UnresolvableCityOwner, not UnknownCity. Defensive: unreachable while every city's Owner names a
+        // real nation, which the loaded data always satisfies today.
         var sellingCityNation = state.NationById(city.Owner);
         if (sellingCityNation is null)
         {
             return CommandOutcome.Reject(
-                BuySupplyRejections.UnknownCity, $"City '{city.Id}''s owner '{city.Owner}' is not a known nation.");
+                BuySupplyRejections.UnresolvableCityOwner, $"City '{city.Id}''s owner '{city.Owner}' is not a known nation.");
         }
 
         if (command.Tons <= 0)

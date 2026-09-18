@@ -165,18 +165,29 @@ public static class SupplyPurchase
 
         if (talents != 0)
         {
+            // Review round 1, N2: the seller's treasury moves by the buyer's own *applied* delta, not by
+            // the nominal `talents` -- on a refund (talents < 0, the over-capacity giveback), the purse's
+            // 1,000 cap can admit less than the full refund, and crediting the seller for the nominal
+            // amount while the buyer received less would leak the difference out of the game. Computing
+            // the buyer's actual delta first and mirroring exactly that onto the seller keeps the books
+            // exact in every case, and matches the ordinary (uncapped) path exactly when the cap never
+            // binds.
+            int buyerDelta;
             if (ruleset.Flags.EconomyPurses == EconomyPurseModel.CentralTreasury)
             {
                 updatedBuyerNation = buyerNation with { Treasury = buyerNation.Treasury - talents };
+                buyerDelta = -talents; // the treasury has no cap, so this is exact.
             }
             else
             {
-                updatedArmy = updatedArmy with { Money = PurseAccounting.Credit(updatedArmy.Money, -talents, ruleset) };
+                var creditedMoney = PurseAccounting.Credit(updatedArmy.Money, -talents, ruleset);
+                buyerDelta = creditedMoney - updatedArmy.Money;
+                updatedArmy = updatedArmy with { Money = creditedMoney };
             }
 
-            // Done-when 5: the selling city's owner's treasury is credited the same talents the buyer
-            // paid -- and, on the negative-room giveback path, debited the same refund the buyer received.
-            updatedSellingCityNation = sellingCityNation with { Treasury = sellingCityNation.Treasury + talents };
+            // Done-when 5: the selling city's owner's treasury moves opposite the buyer's applied delta --
+            // credited on an ordinary purchase, debited on the negative-room giveback's refund.
+            updatedSellingCityNation = sellingCityNation with { Treasury = sellingCityNation.Treasury - buyerDelta };
         }
 
         return new ArmyResult(updatedArmy, updatedCity, updatedBuyerNation, updatedSellingCityNation, admittedTons, talents, isOwnCity);
@@ -248,16 +259,22 @@ public static class SupplyPurchase
 
         if (talents != 0)
         {
+            // Review round 1, N2 (see BuyForArmy): the seller's treasury moves by the buyer's own
+            // applied delta, so a refund the purse cap partially rejects does not leak the difference.
+            int buyerDelta;
             if (ruleset.Flags.EconomyPurses == EconomyPurseModel.CentralTreasury)
             {
                 updatedBuyerNation = buyerNation with { Treasury = buyerNation.Treasury - talents };
+                buyerDelta = -talents;
             }
             else
             {
-                updatedFleet = updatedFleet with { Money = PurseAccounting.Credit(updatedFleet.Money, -talents, ruleset) };
+                var creditedMoney = PurseAccounting.Credit(updatedFleet.Money, -talents, ruleset);
+                buyerDelta = creditedMoney - updatedFleet.Money;
+                updatedFleet = updatedFleet with { Money = creditedMoney };
             }
 
-            updatedSellingCityNation = sellingCityNation with { Treasury = sellingCityNation.Treasury + talents };
+            updatedSellingCityNation = sellingCityNation with { Treasury = sellingCityNation.Treasury - buyerDelta };
         }
 
         return new FleetResult(updatedFleet, updatedCity, updatedBuyerNation, updatedSellingCityNation, admittedTons, talents, isOwnCity);

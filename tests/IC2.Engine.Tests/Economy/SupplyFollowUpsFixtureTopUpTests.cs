@@ -15,16 +15,23 @@ namespace IC2.Engine.Tests.Economy;
 /// </summary>
 public sealed class SupplyFollowUpsFixtureTopUpTests
 {
+    /// <summary>
+    /// Review round 1, B2/N1: <c>supply.dialogClampsOneModel</c> is tagged <c>derived</c>, not
+    /// <c>confirmed</c> -- the full chain, including the paid path's <c>money * 5</c> term, comes only
+    /// from the report's own pseudocode in a section headed <c>[derived]</c> ("Which path a purchase
+    /// takes"); no instruction listing or save cross-check exercises the combined path. This test pins
+    /// the tag explicitly so a later re-tag back to <c>confirmed</c> fails loudly rather than silently.
+    /// </summary>
     [Fact]
-    public void OneClampingModel_And_RoomNotFlooredAtZero_AreRecorded()
+    public void OneClampingModel_IsTaggedDerived_And_RoomNotFlooredAtZero_IsTaggedConfirmed()
     {
         Assert.Equal(
             "min(request, provider stock, cap - supplies[, money * 5 foreign only])",
             FixtureCorpus.Get("supply.dialogClampsOneModel").AsString());
-        Assert.Equal("confirmed", FixtureCorpus.Get("supply.dialogClampsOneModel").Tag);
+        Assert.Equal("derived", FixtureCorpus.Get("supply.dialogClampsOneModel").Tag);
 
         Assert.True(FixtureCorpus.Get("supply.roomNotFlooredAtZero").AsBool());
-        Assert.Equal("confirmed", FixtureCorpus.Get("supply.roomNotFlooredAtZero").Tag);
+        Assert.Equal("confirmed", FixtureCorpus.Get("supply.roomNotFlooredAtZero").Tag); // read straight off the [confirmed] instruction listing.
     }
 
     [Fact]
@@ -36,34 +43,51 @@ public sealed class SupplyFollowUpsFixtureTopUpTests
         Assert.Equal("derived", FixtureCorpus.Get("supply.dialogForeignCredit.destination").Tag);
     }
 
+    /// <summary>The tons formulas are direct code reads (the report disassembles both functions), so both stay <c>confirmed</c>.</summary>
     [Fact]
-    public void AutoResupplyFormulas_MatchTheImplementation()
+    public void AutoResupplyFormulas_MatchTheImplementation_AndAreTaggedConfirmed()
     {
         Assert.Equal(
             "min(troops / 100 - supplies, city stock)",
             FixtureCorpus.Get("autoResupply.army.tonsFormula").AsString());
+        Assert.Equal("confirmed", FixtureCorpus.Get("autoResupply.army.tonsFormula").Tag);
+
         Assert.Equal(
             "min(ships * 8 - supplies, city stock)",
             FixtureCorpus.Get("autoResupply.fleet.tonsFormula").AsString());
+        Assert.Equal("confirmed", FixtureCorpus.Get("autoResupply.fleet.tonsFormula").Tag);
     }
 
+    /// <summary>
+    /// Review round 1, B2: all three purse-hygiene constants are tagged <c>derived</c>, matching
+    /// <c>docs/game-design.md:100</c>'s own "confirmed caps; derived purse rule" -- the report's section
+    /// heading is <c>[derived, then confirmed below]</c>, and the "confirmed below" paragraph confirms
+    /// only the <c>troops div 100</c> cap, not the purse rule. Pinned explicitly per the review: the
+    /// values alone were previously asserted but not the tag, so a re-tag to <c>confirmed</c> would have
+    /// passed silently.
+    /// </summary>
     [Fact]
-    public void AutoResupplyPurseHygieneConstants_MatchTheRulesetsShippedValues()
+    public void AutoResupplyPurseHygieneConstants_MatchTheRulesetsShippedValues_AndAreTaggedDerived()
     {
         Assert.Equal(1000, FixtureCorpus.Get("autoResupply.ownCity.purseExcessThreshold").AsInt());
+        Assert.Equal("derived", FixtureCorpus.Get("autoResupply.ownCity.purseExcessThreshold").Tag);
         Assert.Equal(1000, EconomyTestbed.Ruleset.Economy.PurseCapPerUnit);
 
         Assert.Equal(500, FixtureCorpus.Get("autoResupply.ownCity.purseTopUpThreshold").AsInt());
+        Assert.Equal("derived", FixtureCorpus.Get("autoResupply.ownCity.purseTopUpThreshold").Tag);
         Assert.Equal(500, EconomyTestbed.Ruleset.Economy.AutoResupplyPurseTopUpThreshold);
 
         Assert.Equal(500, FixtureCorpus.Get("autoResupply.ownCity.purseTopUpAmount").AsInt());
+        Assert.Equal("derived", FixtureCorpus.Get("autoResupply.ownCity.purseTopUpAmount").Tag);
         Assert.Equal(500, EconomyTestbed.Ruleset.Economy.AutoResupplyPurseTopUpAmount);
     }
 
+    /// <summary>Review round 1, N1: the divisor 5 is confirmed elsewhere as <c>supplyTonsPerTalent</c>, but its use as this specific cap is derived (no foreign automatic-resupply save exists).</summary>
     [Fact]
-    public void AutoResupplyForeignMoneyCapDivisor_MatchesTheRulesetsShippedValue()
+    public void AutoResupplyForeignMoneyCapDivisor_MatchesTheRulesetsShippedValue_AndIsTaggedDerived()
     {
         Assert.Equal(5, FixtureCorpus.Get("autoResupply.foreignCity.moneyCapDivisor").AsInt());
+        Assert.Equal("derived", FixtureCorpus.Get("autoResupply.foreignCity.moneyCapDivisor").Tag);
         Assert.Equal(5, EconomyTestbed.Ruleset.Economy.SupplyTonsPerTalent);
     }
 

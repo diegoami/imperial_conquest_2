@@ -138,14 +138,17 @@ public sealed record TerrainRules(
 /// </para>
 /// <para>
 /// <see cref="AutoResupplyPurseTopUpThreshold"/> and <see cref="AutoResupplyPurseTopUpAmount"/> were added
-/// by T38 (<c>supply-capacity-rounding.md</c> [confirmed], <c>FUN_0044F6D8</c> lines 53091-53104):
+/// by T38 (<c>supply-capacity-rounding.md</c> [derived], <c>FUN_0044F6D8</c> lines 53091-53104):
 /// automatic resupply at an army's or fleet's own city, after the free ton transfer, grants a flat
 /// <see cref="AutoResupplyPurseTopUpAmount"/> from the treasury when the purse is under
 /// <see cref="AutoResupplyPurseTopUpThreshold"/> and the treasury is positive — a real transfer, not
 /// invented money, so the treasury pays for exactly what the purse gains. The mirror case (a purse over
 /// <see cref="PurseCapPerUnit"/> sends the excess to the treasury) needs no new field: it reuses
 /// <see cref="PurseCapPerUnit"/>, the same cap <c>TAFSupply_ChangeMoney</c> already enforces everywhere
-/// else a purse is credited.
+/// else a purse is credited. Review round 1, B2: tagged <c>[derived]</c>, not <c>[confirmed]</c> — the
+/// report's own section heading for this rule is <c>[derived, then confirmed below]</c>, and the
+/// "confirmed below" paragraph confirms only the <c>troops div 100</c> cap against 75 save states, not
+/// the purse rule; <c>docs/game-design.md:100</c> already tags it "confirmed caps; derived purse rule".
 /// </para>
 /// Every other field, and every other record in this file, is unchanged.
 /// </remarks>

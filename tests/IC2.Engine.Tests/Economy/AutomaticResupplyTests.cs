@@ -56,6 +56,28 @@ public sealed class AutomaticResupplyTests
         Assert.Equal(0, result.ArmyNation.Treasury); // 500 - 500, the same 500 that funded the grant.
     }
 
+    /// <summary>
+    /// Review round 1, N3: the top-up grant is deliberately unclamped by the treasury's own balance --
+    /// unlike <see cref="TreasuryPurseTransfer"/>'s manual dialog transfer, which never takes more than
+    /// the source holds. The report gives this as a flat, unconditional grant with no clamping
+    /// instruction ("purse gains 500 from the treasury"), so a treasury of 1 still funds the full 500 and
+    /// is left at -499. Pinned explicitly so the two paths' deliberate disagreement does not regress into
+    /// an accidental one.
+    /// </summary>
+    [Fact]
+    public void ForArmy_AtOwnCity_PurseUnderThreshold_TreasuryOfOne_GrantsTheFullAmountUnclamped()
+    {
+        var units = ValueList.Of(new UnitSlot(0, "light_infantry", 100, 6, "Tiny Battalion")); // capacity = 1.
+        var army = new ArmyState("a1", "north", 0, 0, 9, 60, 300, 1, null, null, units);
+        var city = City("north", 1000);
+        var nation = Nation("north", 1); // treasury barely positive.
+
+        var result = AutomaticResupply.ForArmy(army, city, nation, nation, EconomyTestbed.Ruleset);
+
+        Assert.Equal(800, result.Army.Money); // the full 500 grant, not clamped to the treasury's 1.
+        Assert.Equal(-499, result.ArmyNation.Treasury); // 1 - 500, left negative.
+    }
+
     /// <summary>Done-when 7, bullet 3: "the purse excess case (purse 1,200 → 1,000, treasury +200)".</summary>
     [Fact]
     public void ForArmy_AtOwnCity_PurseOverCap_SendsTheExcessToTheTreasury()

@@ -10,32 +10,47 @@ namespace IC2.Engine.Economy;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong><c>[confirmed]</c>, transcribed from <c>supply-capacity-rounding.md</c></strong>:
-/// <c>FUN_0044F6D8(city, army)</c> (lines 53077-53115) and its fleet twin <c>FUN_0044F7E4(city, fleet)</c>
-/// (lines 53120-53158). Unlike the supply dialog (<see cref="SupplyPurchase"/>), this path takes no
-/// request — it always tries to move exactly <c>capacity − currentSupplyTons</c> tons, capped by the
-/// provider's own stock, with <strong>no dialog <c>+1</c> bonus</strong>
-/// (<see cref="SupplyCapacity.ArmyCapacityTons"/> / <see cref="SupplyCapacity.FleetCapacityTons"/>, not
-/// the dialog variants) and, exactly as the dialog, <strong>the room term is not floored at 0</strong>: an
-/// army or fleet already over its cap gives the surplus back to the provider.
+/// <strong>The tons formula, <c>[confirmed]</c></strong>, transcribed from
+/// <c>supply-capacity-rounding.md</c>: <c>FUN_0044F6D8(city, army)</c> (lines 53077-53115) and its fleet
+/// twin <c>FUN_0044F7E4(city, fleet)</c> (lines 53120-53158). Unlike the supply dialog
+/// (<see cref="SupplyPurchase"/>), this path takes no request — it always tries to move exactly
+/// <c>capacity − currentSupplyTons</c> tons, capped by the provider's own stock, with <strong>no dialog
+/// <c>+1</c> bonus</strong> (<see cref="SupplyCapacity.ArmyCapacityTons"/> / <see cref="SupplyCapacity.FleetCapacityTons"/>,
+/// not the dialog variants) and, exactly as the dialog, <strong>the room term is not floored at 0</strong>:
+/// an army or fleet already over its cap gives the surplus back to the provider. This is a direct
+/// instruction read (the report disassembles both functions), confirmed even though the section it sits
+/// in is headed <c>[derived, then confirmed below]</c> — that heading's own "confirmed below" is the
+/// 75-save-state cross-check of the <c>troops div 100</c> cap itself, which this formula uses.
 /// </para>
 /// <para>
-/// <strong>Own city: free, then purse hygiene.</strong> The ton transfer costs nothing. Afterward, if the
-/// purse is over <see cref="EconomyRules.PurseCapPerUnit"/>, the excess moves to the treasury; if the
-/// purse is under <see cref="EconomyRules.AutoResupplyPurseTopUpThreshold"/> and the treasury is positive,
-/// the purse gains a flat <see cref="EconomyRules.AutoResupplyPurseTopUpAmount"/> from the treasury. Both
-/// are real transfers (the treasury's side moves by the same amount), not invented money. Gated on
-/// <see cref="EconomyPurseModel.PerUnitPurses"/>: under <see cref="EconomyPurseModel.CentralTreasury"/>
-/// there is no per-unit purse for this hygiene rule to apply to.
+/// <strong>Own city: free, then purse hygiene, <c>[derived]</c>.</strong> The ton transfer costs nothing.
+/// Afterward, if the purse is over <see cref="EconomyRules.PurseCapPerUnit"/>, the excess moves to the
+/// treasury; if the purse is under <see cref="EconomyRules.AutoResupplyPurseTopUpThreshold"/> and the
+/// treasury is positive, the purse gains a flat <see cref="EconomyRules.AutoResupplyPurseTopUpAmount"/>
+/// from the treasury. Both are real transfers (the treasury's side moves by the same amount), not
+/// invented money. Gated on <see cref="EconomyPurseModel.PerUnitPurses"/>: under
+/// <see cref="EconomyPurseModel.CentralTreasury"/> there is no per-unit purse for this hygiene rule to
+/// apply to. Review round 1, B2: unlike the tons formula above, this rule is <c>[derived]</c>, not
+/// <c>[confirmed]</c> — the report's only support for it is "fits the many AI armies seen holding
+/// exactly 500 or 1,000 money", a consistency observation, and <c>docs/game-design.md:100</c> already
+/// tags this exact rule "confirmed caps; derived purse rule". This own-city grant is deliberately
+/// <em>unclamped</em> by the treasury's own balance (review round 1, N3) — a treasury of 1 still funds
+/// the full 500-talent grant and lands at -499 — because the report gives it as a flat, unconditional
+/// transfer ("purse gains 500 from the treasury") with no clamping instruction, unlike
+/// <see cref="TreasuryPurseTransfer"/>'s manual dialog transfer, which clamps because nothing in either
+/// report says a *player-driven* request may overdraw the treasury the way this *automatic* rule's own
+/// literal wording does.
 /// </para>
 /// <para>
-/// <strong>Foreign city: paid, no purse hygiene.</strong> The tons are additionally capped at
-/// <c>money / SupplyTonsPerTalent</c> — <em>not</em> <c>money × SupplyTonsPerTalent</c> as in the dialog —
-/// and the cost is again <c>tons / SupplyTonsPerTalent</c>, credited to the selling city's owner's
-/// treasury exactly as <see cref="SupplyPurchase"/>'s foreign path credits it (<c>[derived]</c>: code
-/// only, no save has a foreign automatic resupply yet either). Under <see cref="EconomyPurseModel.CentralTreasury"/>
-/// there is no per-unit purse to cap the tons by, so (exactly as <see cref="SupplyPurchase"/>) no cap is
-/// invented for the treasury side.
+/// <strong>Foreign city: paid, no purse hygiene, <c>[derived]</c>.</strong> The tons are additionally
+/// capped at <c>money / SupplyTonsPerTalent</c> — <em>not</em> <c>money × SupplyTonsPerTalent</c> as in
+/// the dialog — and the cost is again <c>tons / SupplyTonsPerTalent</c>, credited to the selling city's
+/// owner's treasury exactly as <see cref="SupplyPurchase"/>'s foreign path credits it (also
+/// <c>[derived]</c>: code only, no save has a foreign automatic resupply yet either). The divisor itself
+/// (5) is independently confirmed elsewhere as <see cref="EconomyRules.SupplyTonsPerTalent"/>, but its
+/// use as *this* cap sits in the same derived section as the purse rule above. Under
+/// <see cref="EconomyPurseModel.CentralTreasury"/> there is no per-unit purse to cap the tons by, so
+/// (exactly as <see cref="SupplyPurchase"/>) no cap is invented for the treasury side.
 /// </para>
 /// </remarks>
 public static class AutomaticResupply
@@ -88,7 +103,6 @@ public static class AutomaticResupply
         var updatedCityNation = cityNation;
         ArmyState updatedArmy;
         CityState updatedCity;
-        var talents = 0;
 
         if (isOwnCity)
         {
@@ -110,22 +124,29 @@ public static class AutomaticResupply
             foreignTons = Math.Min(foreignTons, army.Money / ruleset.Economy.SupplyTonsPerTalent);
         }
 
-        talents = foreignTons / ruleset.Economy.SupplyTonsPerTalent;
+        var talents = foreignTons / ruleset.Economy.SupplyTonsPerTalent;
         updatedCity = city with { SupplyTons = city.SupplyTons - foreignTons };
         updatedArmy = army with { SupplyTons = army.SupplyTons + foreignTons };
 
         if (talents != 0)
         {
+            // Review round 1, N2 (see SupplyPurchase.BuyForArmy's identical fix): mirror the buyer's own
+            // applied delta onto the seller's treasury, not the nominal `talents`, so a giveback the
+            // purse cap partially rejects does not leak the difference out of the game.
+            int buyerDelta;
             if (ruleset.Flags.EconomyPurses == EconomyPurseModel.CentralTreasury)
             {
                 updatedArmyNation = armyNation with { Treasury = armyNation.Treasury - talents };
+                buyerDelta = -talents;
             }
             else
             {
-                updatedArmy = updatedArmy with { Money = PurseAccounting.Credit(updatedArmy.Money, -talents, ruleset) };
+                var creditedMoney = PurseAccounting.Credit(updatedArmy.Money, -talents, ruleset);
+                buyerDelta = creditedMoney - updatedArmy.Money;
+                updatedArmy = updatedArmy with { Money = creditedMoney };
             }
 
-            updatedCityNation = cityNation with { Treasury = cityNation.Treasury + talents };
+            updatedCityNation = cityNation with { Treasury = cityNation.Treasury - buyerDelta };
         }
 
         return new ArmyResult(updatedArmy, updatedCity, updatedArmyNation, updatedCityNation, foreignTons, talents);
@@ -195,16 +216,22 @@ public static class AutomaticResupply
 
         if (talents != 0)
         {
+            // Review round 1, N2 (see ForArmy): mirror the buyer's own applied delta onto the seller's
+            // treasury, not the nominal `talents`.
+            int buyerDelta;
             if (ruleset.Flags.EconomyPurses == EconomyPurseModel.CentralTreasury)
             {
                 updatedFleetNation = fleetNation with { Treasury = fleetNation.Treasury - talents };
+                buyerDelta = -talents;
             }
             else
             {
-                updatedFleet = updatedFleet with { Money = PurseAccounting.Credit(updatedFleet.Money, -talents, ruleset) };
+                var creditedMoney = PurseAccounting.Credit(updatedFleet.Money, -talents, ruleset);
+                buyerDelta = creditedMoney - updatedFleet.Money;
+                updatedFleet = updatedFleet with { Money = creditedMoney };
             }
 
-            updatedCityNation = cityNation with { Treasury = cityNation.Treasury + talents };
+            updatedCityNation = cityNation with { Treasury = cityNation.Treasury - buyerDelta };
         }
 
         return new FleetResult(updatedFleet, updatedCity, updatedFleetNation, updatedCityNation, foreignTons, talents);
@@ -229,6 +256,11 @@ public static class AutomaticResupply
 
         if (purse < ruleset.Economy.AutoResupplyPurseTopUpThreshold && nation.Treasury > 0)
         {
+            // Review round 1, N3: deliberately unclamped -- the report gives this as a flat,
+            // unconditional grant ("purse gains 500 from the treasury"), with no clamping instruction,
+            // so a treasury of 1 still funds the full grant and is left negative. Not the same clamp
+            // TreasuryPurseTransfer applies to its own, differently-sourced transfer; see this class's
+            // remarks.
             var grant = ruleset.Economy.AutoResupplyPurseTopUpAmount;
             return (withMoney(unit, PurseAccounting.Credit(purse, grant, ruleset)), nation with { Treasury = nation.Treasury - grant });
         }

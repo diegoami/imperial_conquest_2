@@ -33,6 +33,13 @@ public static class BuySupplyRejections
     /// <summary>The command names a city id that does not exist.</summary>
     public static readonly RejectionCode UnknownCity = new("supply.unknown-city");
 
+    /// <summary>
+    /// The city exists, but its <see cref="Model.CityState.Owner"/> names a nation the state does not
+    /// contain -- a data-integrity problem, not an unknown city. Review round 1, N7: kept distinct from
+    /// <see cref="UnknownCity"/> rather than reusing it for a different failure.
+    /// </summary>
+    public static readonly RejectionCode UnresolvableCityOwner = new("supply.unresolvable-city-owner");
+
     /// <summary>The requested amount is not positive.</summary>
     public static readonly RejectionCode InvalidAmount = new("supply.invalid-amount");
 }
