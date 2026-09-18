@@ -202,23 +202,15 @@ public static class FleetAttritionRule
 
         var damagedInStorm = storm.Damage >= rules.StormShipLossDamageThreshold;
 
-        var moves = rules.MovesBaseValue - ((storm.Ships - rules.MovesShipOffset) / rules.MovesShipDivisor);
-        if (carriedArmyTroops is { } troops)
-        {
-            moves -= (troops / rules.MovesCarriedArmyTroopDivisor / storm.Ships) + rules.MovesCarriedArmyAddend;
-        }
-
         var conditionAfterSupply = storm.ConditionPercent;
         if (supplyAfterConsumption == 0)
         {
-            moves -= rules.ZeroSupplyMovesPenalty;
             conditionAfterSupply -= rng.NextInt(rules.ZeroSupplyConditionRandomBound);
         }
 
-        if (conditionAfterSupply < rules.DamageSlowdownConditionThreshold)
-        {
-            moves -= (rules.DamageSlowdownConditionThreshold - conditionAfterSupply) / rules.DamageSlowdownDivisor;
-        }
+        var moves = MovesForTurn(
+            storm.Ships, carriedArmyTroops, supplyIsZero: supplyAfterConsumption == 0,
+            conditionAfterZeroSupplyPenalty: conditionAfterSupply, ruleset);
 
         return new TurnOutcome(
             supplyAfterConsumption, storm.Ships, conditionAfterSupply, moves, storm.Damage,
@@ -239,6 +231,49 @@ public static class FleetAttritionRule
         if (carriedArmyTroops is { } troops)
         {
             moves -= (troops / rules.MovesCarriedArmyTroopDivisor / ships) + rules.MovesCarriedArmyAddend;
+        }
+
+        return moves;
+    }
+
+    /// <summary>
+    /// The moves formula's full shape for a launched, at-sea fleet — base moves, the carried-army term,
+    /// the zero-supply <c>−3</c>, and the damage-slowdown term, all applied to the ship count and the
+    /// condition value <em>after</em> the storm pass and (if it applied) the zero-supply condition
+    /// penalty. <c>docs/task-catalogue.md</c> "T14 Naval" Done-when 10 calls this out by name as "the one
+    /// directly separable naval assertion available": every input here is deterministic (no
+    /// <see cref="IRng"/> draw), which is what lets the Carthaginian series' recorded moves be replayed
+    /// exactly from the save data's own condition column, without needing this engine's storm draws to
+    /// reproduce the original's.
+    /// </summary>
+    /// <param name="ships">The ship count after the storm pass (never the pre-storm count, if it changed).</param>
+    /// <param name="carriedArmyTroops">The embarked army's total troops, or <see langword="null"/> if none.</param>
+    /// <param name="supplyIsZero">Whether this turn's post-consumption supply is exactly 0.</param>
+    /// <param name="conditionAfterZeroSupplyPenalty">
+    /// Condition after the storm pass and, if <paramref name="supplyIsZero"/>, the zero-supply
+    /// <c>−random(0..1)</c> penalty — the same value <see cref="TurnOutcome.ConditionPercent"/> ends the
+    /// turn at.
+    /// </param>
+    public static int MovesForTurn(
+        int ships, int? carriedArmyTroops, bool supplyIsZero, int conditionAfterZeroSupplyPenalty, Ruleset ruleset)
+    {
+        ArgumentNullException.ThrowIfNull(ruleset);
+        var rules = ruleset.Naval;
+
+        var moves = rules.MovesBaseValue - ((ships - rules.MovesShipOffset) / rules.MovesShipDivisor);
+        if (carriedArmyTroops is { } troops)
+        {
+            moves -= (troops / rules.MovesCarriedArmyTroopDivisor / ships) + rules.MovesCarriedArmyAddend;
+        }
+
+        if (supplyIsZero)
+        {
+            moves -= rules.ZeroSupplyMovesPenalty;
+        }
+
+        if (conditionAfterZeroSupplyPenalty < rules.DamageSlowdownConditionThreshold)
+        {
+            moves -= (rules.DamageSlowdownConditionThreshold - conditionAfterZeroSupplyPenalty) / rules.DamageSlowdownDivisor;
         }
 
         return moves;
