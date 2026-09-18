@@ -15,8 +15,16 @@ namespace IC2.Engine.Economy;
 [DomainEvent("economy.weather-event-fired")]
 public sealed record WeatherEventFired(int SeasonIndex, int Week, string EffectId) : DomainEvent;
 
-[DomainEvent("economy.army-mutinied")]
-public sealed record ArmyMutinied(string ArmyId, string NationId) : DomainEvent;
-
 [DomainEvent("economy.rebellion-risk-detected")]
 public sealed record RebellionRiskDetected(string CityId, int Loyalty) : DomainEvent;
+
+/// <summary>
+/// An AI nation's leader is deposed for debt (<c>FUN_0044c8f0</c>) — <c>docs/task-catalogue.md</c>
+/// "T39 Quarterly upkeep: who pays, mercenary desertion, and deposition for debt", Done-when 6 and 7.
+/// This <em>is</em> marked news-worthy: <see cref="IC2.Engine.News.NewsMessageCatalog"/> already carries the
+/// template (<c>nation.leader-deposed</c>, <c>newsMessage.deposesLeader</c> in the fixtures corpus,
+/// added by T42) — a human nation's equivalent opens a game-over dialog instead, which is not news, so
+/// this event is published only on the AI path (<see cref="AiDepositionHandler"/>).
+/// </summary>
+[DomainEvent("nation.leader-deposed", NewsWorthy = true)]
+public sealed record AiLeaderDeposed(string Nation, string LeaderName) : DomainEvent;

@@ -145,6 +145,35 @@ public sealed class WeeklyMovesMaximumTests
         Assert.NotEqual(endTurnHelpersExpression, pct);
     }
 
+    /// <summary>
+    /// T39's folded follow-up (docs/task-catalogue.md Done-when 10): the three <c>StarvingPenalty_*</c>
+    /// tests above all call <see cref="SupplyMoraleRule.ApplyToMorale"/> directly and pin the penalty's
+    /// *value* -- but none of them ever calls <see cref="SupplyMoraleRule.ApplyTurn"/> and checks that
+    /// its returned <c>Moves</c> actually reflects the subtraction. Deleting <c>baseMoves - movesPenalty</c>
+    /// from <c>ApplyTurn</c> (leaving <c>Moves = baseMoves</c> always) would leave all nine of this file's
+    /// other tests green. This one closes that gap by going through <c>ApplyTurn</c> itself.
+    /// </summary>
+    [Fact]
+    public void StarvingPenalty_AppliedThroughApplyTurn_ActuallySubtractsFromBaseMoves()
+    {
+        var ruleset = EconomyTestbed.Ruleset;
+        const int troops = 50_000;
+        const int supplyTons = 10; // consumption alone (well over 10 in Spring) drives this to 0 -- starving.
+
+        var outcome = SupplyMoraleRule.ApplyTurn(
+            troops: troops,
+            currentSupplyTons: supplyTons,
+            currentMorale: 60,
+            isEmbarked: false,
+            seasonIndex: 0, // Spring.
+            ruleset: ruleset);
+
+        var baseMoves = SupplyMoraleRule.BaseMoves(troops, ruleset);
+        Assert.True(outcome.SupplyPercent < ruleset.Economy.SupplyMorale.DecayThresholdPercent); // confirms the branch.
+        Assert.Equal(baseMoves - ruleset.Economy.SupplyMorale.MovesPenaltyOnDecay, outcome.Moves);
+        Assert.NotEqual(baseMoves, outcome.Moves); // the subtraction actually happened, not just the value.
+    }
+
     // ---------------------------------------------------------------------------------------------
     // Done-when 3: the maximum is not refreshed when an army's size changes mid-week. Confirmed
     // against the corpus, not designed: Rome's army at (100, 42) in 12_mac.sav kept moves 8 -- right
@@ -167,10 +196,18 @@ public sealed class WeeklyMovesMaximumTests
         var state = EconomyTestbed.InitialState();
         var nationId = state.Nations[0].Id;
 
-        // Supply is set far above any plausible capacity so this test's own concern -- whether Moves
-        // recomputes, and when -- stays isolated from the consumption formula's exact ratios; the
+        // Supply is set comfortably above any plausible capacity so this test's own concern -- whether
+        // Moves recomputes, and when -- stays isolated from the consumption formula's exact ratios; the
         // starving branch is deliberately kept out of the way here (SupplyConsumptionTests and
-        // SupplyMoraleClampTests already cover it on their own).
+        // SupplyMoraleClampTests already cover it on their own). Deliberately *not* 10,000,000: T39's
+        // folded follow-up (docs/task-catalogue.md Done-when 10) found that value ran
+        // SupplyCapacity.PercentFull's `supplyTons * SupplyPercentNumerator` through a signed 32-bit
+        // overflow (9,999,904 x 10,000 wraps to 1,214,792,192) that happened to land in the same regen
+        // branch as the correct, unwrapped result by luck -- roughly 93,300 tons higher would have wrapped
+        // negative instead and failed this test with a baffling message, for a reason with nothing to do
+        // with the behaviour under test. 100,000 stays far above the pre-transfer army's capacity (482
+        // tons) with no risk of the product overflowing (100,000 x 10,000 = 1,000,000,000, comfortably
+        // inside int range).
         var army = new ArmyState(
             Id: armyId,
             Nation: nationId,
@@ -179,7 +216,7 @@ public sealed class WeeklyMovesMaximumTests
             Moves: 0,
             Morale: 65,
             Money: 0,
-            SupplyTons: 10_000_000,
+            SupplyTons: 100_000,
             CoveredTileCode: null,
             AboardFleetId: null,
             Units: ValueList.Of(new UnitSlot(0, "light_infantry", preTransferTroops, 6, "Pre-transfer Battalion")));
@@ -199,9 +236,13 @@ public sealed class WeeklyMovesMaximumTests
         };
         var midWeekState = afterTick1 with { Armies = ValueList.Of(grownArmy) };
 
-        // The maximum is not refreshed mid-week: still the pre-transfer value, exactly the corpus's
-        // anomalous (100, 42) record.
-        Assert.Equal(expectedPreTransferMoves, midWeekState.ArmyById(armyId)!.Moves);
+        // No assertion on midWeekState.Moves here: it would only pin C# record-copy semantics (grownArmy
+        // copies Moves unchanged because nothing set it), not engine behaviour -- deleting such a line
+        // changes nothing a mutation could catch (T39's folded follow-up, docs/task-catalogue.md
+        // Done-when 10). The real claim -- that nothing except the ArmyTick pass recomputes Moves -- is
+        // carried entirely by the tick1/tick2 assertions below: no system runs between them, so if Moves
+        // had refreshed mid-week there would be no code path here that could have done it, and if the
+        // tick itself failed to recompute, tick2's assertion would catch that directly.
 
         // Tick 2: only the next tick recomputes it, to the new troop total's value -- one step lower.
         var afterTick2 = coordinator.RunRoundTick(midWeekState).State;

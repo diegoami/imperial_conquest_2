@@ -3,6 +3,7 @@
   "generatedAt": "2026-09-13",
   "generatedWith": "gh api repos/diegoami/imperial-conquest-2-research/contents/docs/reports",
   "reportFilenames": [
+    "army-moves-field-signed-and-the-ffff-underflow.md",
     "army-records-and-roman-roster.md",
     "army-to-army-transfer-confirmed.md",
     "battle-code-entry-points.md",
