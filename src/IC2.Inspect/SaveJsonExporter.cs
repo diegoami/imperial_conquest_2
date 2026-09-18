@@ -2,7 +2,7 @@
 using System.Text.Json.Serialization;
 using IC2.Data;
 
-internal static class SaveJsonExporter
+public static class SaveJsonExporter
 {
     public static void Export(string savePath, string outputPath)
     {
@@ -33,10 +33,26 @@ internal static class SaveJsonExporter
         {
         }
 
-        IReadOnlyList<MercenaryRecord> mercenaryRecords = Array.Empty<MercenaryRecord>();
+        // T34 #40 item 7: on a DAT input this must export null, exactly like turnJson above — not an
+        // empty array, which would be a fabricated "empty pool" indistinguishable from a SAV that
+        // genuinely has zero available offers.
+        IEnumerable<object>? mercenaryOffersJson = null;
         try
         {
-            mercenaryRecords = SaveMercenaryTable.Parse(data).Records;
+            mercenaryOffersJson = SaveMercenaryTable.Parse(data).Records
+                .Where(m => !m.IsEmpty)
+                .Select(m => new
+                {
+                    index = m.Index,
+                    x = m.X,
+                    y = m.Y,
+                    label = m.Label,
+                    typeCode = m.TypeCode,
+                    typeName = UnitCatalog.TypeName(m.TypeCode),
+                    troops = m.Troops,
+                    qualityCode = m.QualityCode,
+                    qualityName = UnitCatalog.QualityName(m.QualityCode)
+                });
         }
         catch (DatDataNotPresentException)
         {
@@ -134,18 +150,7 @@ internal static class SaveJsonExporter
                 transportCapacityTroops = f.TransportCapacityTroops,
                 quarterlyUpkeep = f.QuarterlyUpkeep
             }),
-            mercenaryOffers = mercenaryRecords.Where(m => !m.IsEmpty).Select(m => new
-            {
-                index = m.Index,
-                x = m.X,
-                y = m.Y,
-                label = m.Label,
-                typeCode = m.TypeCode,
-                typeName = UnitCatalog.TypeName(m.TypeCode),
-                troops = m.Troops,
-                qualityCode = m.QualityCode,
-                qualityName = UnitCatalog.QualityName(m.QualityCode)
-            })
+            mercenaryOffers = mercenaryOffersJson
         };
 
         var options = new JsonSerializerOptions { WriteIndented = true };

@@ -174,4 +174,47 @@ public class ArmyTombstoneTests
         Assert.Contains("unit slot 0", ex.Message);
         Assert.Contains("name", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
+
+    // ---- T34 #40 item 1: an army table that is ENTIRELY tombstones is suspicious, not a clean
+    // empty parse — reject it with a typed error naming the count. ----
+
+    [Fact]
+    public void An_army_table_where_every_record_is_tombstoned_is_rejected_naming_the_count()
+    {
+        var data = SyntheticSaveBuilder.MinimalSav(3,
+            (0, (d, off) => SyntheticSaveBuilder.WriteArmyHeader(d, off, x: 1, y: 1, owner: 0xFFFF)),
+            (1, (d, off) => SyntheticSaveBuilder.WriteArmyHeader(d, off, x: 2, y: 2, owner: 0xFFFF)),
+            (2, (d, off) => SyntheticSaveBuilder.WriteArmyHeader(d, off, x: 3, y: 3, owner: 0xFFFF)));
+
+        var ex = Assert.Throws<AllArmyRecordsTombstonedException>(() => SaveArmyTable.Parse(data));
+        Assert.Contains("3", ex.Message);
+    }
+
+    [Fact]
+    public void A_table_with_one_tombstone_among_real_armies_is_not_rejected()
+    {
+        // The cap is specifically "every record", not "any tombstone at all" — a normal parse with
+        // one tombstone among real armies (the confirmed corpus's actual shape) must still succeed.
+        var data = SyntheticSaveBuilder.MinimalSav(2,
+            (0, (d, off) => SyntheticSaveBuilder.WriteArmyHeader(d, off, x: 1, y: 1, owner: 0xFFFF)),
+            (1, (d, off) => SyntheticSaveBuilder.WriteArmyHeader(d, off, x: 2, y: 2, owner: 3)));
+
+        var table = SaveArmyTable.Parse(data);
+
+        Assert.Single(table.SkippedRecords);
+        Assert.Single(table.Armies);
+    }
+
+    [Fact]
+    public void An_empty_army_table_is_not_rejected_as_all_tombstoned()
+    {
+        // Zero records is a different, legitimate case from "every record is a tombstone" — the
+        // all-tombstoned check must not fire on an empty table.
+        var data = SyntheticSaveBuilder.MinimalSav(0);
+
+        var table = SaveArmyTable.Parse(data);
+
+        Assert.Empty(table.Armies);
+        Assert.Empty(table.SkippedRecords);
+    }
 }

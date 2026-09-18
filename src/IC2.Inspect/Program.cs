@@ -1,4 +1,25 @@
 ﻿using IC2.Data;
+using IC2.Inspect;
+
+if ((args.Length == 2 && args[0] == "--corpus-outcomes") ||
+    (args.Length == 4 && args[0] == "--config" && args[2] == "--corpus-outcomes"))
+{
+    try
+    {
+        var configured = args[0] == "--config";
+        var settings = AssetSettings.Load(configured ? args[1] : "assets.local.ini");
+        var outputPath = args[configured ? 3 : 1];
+        var outcomes = CorpusOutcomeGenerator.GenerateAll(settings);
+        File.WriteAllText(outputPath, CorpusOutcomeGenerator.ToJson(outcomes));
+        Console.WriteLine($"Wrote {outcomes.Count} corpus outcomes to {outputPath}");
+        return 0;
+    }
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or DatDataNotPresentException or UnrecognizedSaveFormatException)
+    {
+        Console.Error.WriteLine(ex.Message);
+        return 1;
+    }
+}
 
 if ((args.Length == 2 && args[0] == "--inspect-turn") ||
     (args.Length == 4 && args[0] == "--config" && args[2] == "--inspect-turn"))
@@ -329,7 +350,7 @@ else if (args.Length is 1 or 2 && args[0] != "--save" && args[0] != "--config")
 }
 else
 {
-    Console.Error.WriteLine("Usage: IC2.Inspect [--save <save.sav>] | [--config <assets.ini> [--save <save.sav>]] | [--config <assets.ini>] --compare-saves <first.sav> <second.sav> | [--config <assets.ini>] --inspect-turn <save.sav> | [--config <assets.ini>] --inspect-nation <save.sav> <nation-name> | [--config <assets.ini>] --inspect-city <save.sav> <city-name> | [--config <assets.ini>] --inspect-army <save.sav> <x> <y> | [--config <assets.ini>] --list-armies <save.sav> <nation-name> | [--config <assets.ini>] --list-fleets <save.sav> | [--config <assets.ini>] --list-mercenaries <save.sav> | [--config <assets.ini>] --to-json <save.sav> <output.json> | [--config <assets.ini>] --render-map <output.svg> | <data.dat> [save.sav]");
+    Console.Error.WriteLine("Usage: IC2.Inspect [--save <save.sav>] | [--config <assets.ini> [--save <save.sav>]] | [--config <assets.ini>] --compare-saves <first.sav> <second.sav> | [--config <assets.ini>] --inspect-turn <save.sav> | [--config <assets.ini>] --inspect-nation <save.sav> <nation-name> | [--config <assets.ini>] --inspect-city <save.sav> <city-name> | [--config <assets.ini>] --inspect-army <save.sav> <x> <y> | [--config <assets.ini>] --list-armies <save.sav> <nation-name> | [--config <assets.ini>] --list-fleets <save.sav> | [--config <assets.ini>] --list-mercenaries <save.sav> | [--config <assets.ini>] --to-json <save.sav> <output.json> | [--config <assets.ini>] --render-map <output.svg> | [--config <assets.ini>] --corpus-outcomes <output.json> | <data.dat> [save.sav]");
     return 2;
 }
 

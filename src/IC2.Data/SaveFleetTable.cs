@@ -31,21 +31,19 @@ public sealed class SaveFleetTable
         }
         else
         {
-            if (data.Length < WorldPrefix.SharedPrefixLength + 2)
-                throw new InvalidDataException("Save ends before the army count.");
-
+            // No structural guards here: SaveFormat.Detect already ran SaveNationLayout.Locate to
+            // classify this file as SAV-shaped, and Locate re-derives this exact armyCount /
+            // fleetCountOffset / fleetCount / tableStart chain with strictly tighter bounds checks
+            // (it additionally requires the whole nation table to fit) — so these re-checks could
+            // never fire and were unreachable dead code (T34 #40 item 2). A file that fails any of
+            // them never reaches this branch: SaveFormat.Detect raises
+            // UnrecognizedSaveFormatException for it first.
             var armyCount = ReadWord(data, WorldPrefix.SharedPrefixLength);
             var fleetCountOffset = WorldPrefix.SharedPrefixLength + 2 + armyCount * SaveArmyTable.RecordLength;
-            if (fleetCountOffset + 2 > data.Length)
-                throw new InvalidDataException("Save ends before the fleet count.");
 
             fleetCount = ReadWord(data, fleetCountOffset);
-            if (fleetCount > WorldPrefix.CityCount)
-                throw new InvalidDataException($"Implausible fleet count {fleetCount}.");
 
             tableStart = fleetCountOffset + 2;
-            if (tableStart + fleetCount * RecordLength > data.Length)
-                throw new InvalidDataException("Save ends before the complete fleet table.");
         }
 
         var fleets = new FleetRecord[fleetCount];

@@ -15,6 +15,12 @@
     T30 adds Xunit.SkippableFact ([SkippableFact] + Skip.If/Skip.IfNot) - a small, test-only,
     widely-used xunit v2 extension - rather than inventing an ad hoc "print and return early"
     convention that would just show as an ordinary pass.
+
+    T34 adds a ProjectReference to IC2.Inspect: the path-independent corpus fixture's row shape
+    (CorpusOutcome) and its generator/JSON (de)serialization (CorpusOutcomeGenerator) now live there
+    as the single source of truth for what the corpus outcomes CLI flag emits and what the
+    committed fixture is deserialized as - so CorpusSweepTests exercises the exact same code the CLI
+    runs, rather than a parallel copy that could drift from it.
   -->
 
   <PropertyGroup>
@@ -30,6 +36,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/IC2.Data/IC2.Data.csproj" />
+    <ProjectReference Include="../../src/IC2.Inspect/IC2.Inspect.csproj" />
   </ItemGroup>
 
 </Project>

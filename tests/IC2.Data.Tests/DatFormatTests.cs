@@ -74,16 +74,15 @@ public class DatFormatTests
         // Done-when line 6's negative test: "a caller cannot read a leader name off the DAT and get a
         // non-empty string." Modelled as null (docs/investigations/dat-file-layout.md: the leader name
         // is assigned by a random draw only at New Game, so nothing DAT-derived would be honest here).
+        // T34 #40 item 5: pinned to exactly Assert.Null, not the looser IsNullOrEmpty — the DAT's
+        // contract is "absent" (null), not merely "falsy", so a future change that started returning
+        // "" instead of null must fail this test.
         Skip.IfNot(LocalAssets.IsConfigured, LocalAssets.SkipReason);
         var data = File.ReadAllBytes(LocalAssets.Settings!.DatPath);
 
         var table = SaveNationTable.Parse(data);
 
-        Assert.All(table.Nations, nation =>
-        {
-            Assert.True(string.IsNullOrEmpty(nation.Leader),
-                $"{nation.Name}: expected no leader name from the DAT, got '{nation.Leader}'.");
-        });
+        Assert.All(table.Nations, nation => Assert.Null(nation.Leader));
     }
 
     [SkippableFact]
@@ -187,5 +186,31 @@ public class DatFormatTests
 
         var fleets = SaveFleetTable.Parse(padded);
         Assert.Empty(fleets.Fleets);
+    }
+
+    // ---- T34 #40 item 2: once SaveArmyTable.cs's and SaveFleetTable.cs's now-unreachable SAV-branch
+    // guards are removed, a malformed SAV must still be rejected — via SaveFormat.Detect, which every
+    // parser calls first — with the SAME typed error, not some other exception each guard used to
+    // throw locally. ----
+
+    public static IEnumerable<object[]> EveryFormatDetectingParser()
+    {
+        yield return new object[] { "SaveArmyTable", (Action<byte[]>)(d => SaveArmyTable.Parse(d)) };
+        yield return new object[] { "SaveFleetTable", (Action<byte[]>)(d => SaveFleetTable.Parse(d)) };
+        yield return new object[] { "SaveNationTable", (Action<byte[]>)(d => SaveNationTable.Parse(d)) };
+        yield return new object[] { "SaveRecruitmentTable", (Action<byte[]>)(d => SaveRecruitmentTable.Parse(d)) };
+        yield return new object[] { "SaveMercenaryTable", (Action<byte[]>)(d => SaveMercenaryTable.Parse(d)) };
+        yield return new object[] { "SaveTurnState", (Action<byte[]>)(d => SaveTurnState.Parse(d)) };
+    }
+
+    [Theory]
+    [MemberData(nameof(EveryFormatDetectingParser))]
+    public void A_malformed_sav_is_rejected_by_every_parser_with_the_same_typed_error(
+        string parserName, Action<byte[]> parse)
+    {
+        var garbage = new byte[12345];
+        var ex = Assert.Throws<UnrecognizedSaveFormatException>(() => parse(garbage));
+        Assert.True(ex.Message.Contains("140706"),
+            $"{parserName}: expected the 140,706-byte DAT length in the message, got '{ex.Message}'.");
     }
 }

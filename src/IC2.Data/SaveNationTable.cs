@@ -41,11 +41,15 @@ public sealed class SaveNationTable
             if ((capitalCity >= WorldPrefix.CityCount && capitalCity != NoCapitalSentinel) ||
                 cities > WorldPrefix.CityCount || human > 1)
                 throw new InvalidDataException($"Nation record {i} has invalid capital, city count, or player flag.");
+            // Wealth (+0x430, 4 bytes) and tax base (+0x44c, signed 16-bit) — confirmed in
+            // https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/nation-tax-base-and-city-economy-fields.md.
+            var wealth = BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(offset + 0x430, 4));
+            var taxBase = BinaryPrimitives.ReadInt16LittleEndian(data.AsSpan(offset + 0x44C, 2));
             nations[i] = new NationRecord((ushort)i, name, leader,
                 BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(offset + 0x438, 4)),
                 ReadWord(data, offset + 0x440), ReadWord(data, offset + 0x442),
-                capitalCity, cities, ReadWord(data, offset + 0x44A), humanPlayer: human == 1,
-                source: SaveFileFormat.Sav);
+                capitalCity, cities, ReadWord(data, offset + 0x44A), wealth, taxBase,
+                humanPlayer: human == 1, source: SaveFileFormat.Sav);
         }
         return new SaveNationTable(nations);
     }
@@ -68,11 +72,13 @@ public sealed class SaveNationTable
             if ((capitalCity >= WorldPrefix.CityCount && capitalCity != NoCapitalSentinel) ||
                 cities > WorldPrefix.CityCount)
                 throw new InvalidDataException($"DAT nation record {i} has invalid capital or city count.");
+            var wealth = BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(offset + DatLayout.NationWealthOffset, 4));
+            var taxBase = BinaryPrimitives.ReadInt16LittleEndian(data.AsSpan(offset + DatLayout.NationTaxBaseOffset, 2));
             nations[i] = new NationRecord((ushort)i, name, leader: null,
                 BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(offset + DatLayout.NationTreasuryOffset, 4)),
                 ReadWord(data, offset + DatLayout.NationUnityOffset),
                 ReadWord(data, offset + DatLayout.NationMobilizedOffset),
-                capitalCity, cities, ReadWord(data, offset + DatLayout.NationTaxOffset),
+                capitalCity, cities, ReadWord(data, offset + DatLayout.NationTaxOffset), wealth, taxBase,
                 humanPlayer: null, source: SaveFileFormat.Dat);
         }
         return new SaveNationTable(nations);
@@ -98,7 +104,7 @@ public sealed class NationRecord
 
     internal NationRecord(ushort code, string name, string? leader, int treasury, ushort unityValue,
         ushort mobilizedPercent, ushort capitalCityIndex, ushort cityCount, ushort taxRatePercent,
-        bool? humanPlayer, SaveFileFormat source)
+        int wealth, short taxBase, bool? humanPlayer, SaveFileFormat source)
     {
         Code = code;
         Name = name;
@@ -109,6 +115,8 @@ public sealed class NationRecord
         CapitalCityIndex = capitalCityIndex;
         CityCount = cityCount;
         TaxRatePercent = taxRatePercent;
+        Wealth = wealth;
+        TaxBase = taxBase;
         _humanPlayer = humanPlayer;
         Source = source;
     }
@@ -130,6 +138,21 @@ public sealed class NationRecord
     public ushort CapitalCityIndex { get; }
     public ushort CityCount { get; }
     public ushort TaxRatePercent { get; }
+
+    /// <summary>The nation's wealth pool — <c>Σ (owned city population thousands) × 3000</c>, rebuilt
+    /// to zero and re-summed every quarterly tick and adjusted by city captures in between (word +4
+    /// at SAV/DAT nation offset <c>+0x430</c> / <c>+0x409</c>). Subtracted (<c>÷ 20000</c>) from the
+    /// quarterly treasury credit. See
+    /// https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/nation-tax-base-and-city-economy-fields.md.</summary>
+    public int Wealth { get; }
+
+    /// <summary>The nation's tax base — <c>Σ over owned cities (tribute × population / maxPopulation) &lt;&lt; 2</c>,
+    /// rebuilt every quarterly tick and adjusted by city captures in between (a signed 16-bit word at
+    /// SAV/DAT nation offset <c>+0x44c</c> / <c>+0x41b</c>). Drives the quarterly treasury credit
+    /// (<c>taxBase × taxRate / 100 + taxBase / 4</c>), trade/alliance income, and the reparations
+    /// formula. See
+    /// https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/nation-tax-base-and-city-economy-fields.md.</summary>
+    public short TaxBase { get; }
 
     /// <summary>True if this is a human-controlled seat, false if AI-controlled. Throws
     /// <see cref="DatDataNotPresentException"/> when <see cref="Source"/> is
