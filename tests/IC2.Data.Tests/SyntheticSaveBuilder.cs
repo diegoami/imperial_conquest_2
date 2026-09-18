@@ -49,15 +49,20 @@ internal static class SyntheticSaveBuilder
         return data;
     }
 
-    /// <summary>Writes an army record header (X, Y, Owner; Moves/CoveredCell/Supplies/Money/Morale
+    /// <summary>Writes an army record header (X, Y, Owner, Moves; CoveredCell/Supplies/Money/Morale
     /// left at 0) at <paramref name="offset"/>. All 20 unit slots are left zeroed (troops = 0), which
     /// <see cref="SaveArmyTable.Parse"/> treats as "no unit in this slot" and skips without validating
-    /// name/type/quality — so a caller only needs to fill the header to get a structurally valid army.</summary>
-    public static void WriteArmyHeader(byte[] data, int offset, ushort x = 0, ushort y = 0, ushort owner = 0)
+    /// name/type/quality — so a caller only needs to fill the header to get a structurally valid army.
+    /// <paramref name="moves"/> is <see cref="short"/>, not <see cref="ushort"/>, because word +6 is
+    /// the one signed field on this record (see <see cref="ArmyRecord.Moves"/>'s own doc comment) —
+    /// callers write the value they mean, including negative ones, without a bit-pattern cast.</summary>
+    public static void WriteArmyHeader(byte[] data, int offset, ushort x = 0, ushort y = 0, ushort owner = 0,
+        short moves = 0)
     {
         WriteUInt16(data, offset + 0, x);
         WriteUInt16(data, offset + 2, y);
         WriteUInt16(data, offset + 4, owner);
+        WriteInt16(data, offset + 6, moves);
     }
 
     /// <summary>Writes an army record whose header is valid but whose unit slot 0 holds the given
@@ -92,4 +97,7 @@ internal static class SyntheticSaveBuilder
 
     private static void WriteUInt16(byte[] data, int offset, ushort value) =>
         BinaryPrimitives.WriteUInt16LittleEndian(data.AsSpan(offset, 2), value);
+
+    private static void WriteInt16(byte[] data, int offset, short value) =>
+        BinaryPrimitives.WriteInt16LittleEndian(data.AsSpan(offset, 2), value);
 }
