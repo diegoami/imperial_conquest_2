@@ -31,6 +31,21 @@ namespace IC2.Engine.Economy;
 /// A fleet still under construction (<see cref="Model.FleetState.IsUnderConstruction"/>) pays no ship
 /// upkeep — the original charges only a fleet whose <c>+10</c> word already reads <c>-1</c> (launched).
 /// </para>
+/// <para>
+/// <strong>An embarked army deleted by desertion clears its carrying fleet's pointer too.</strong>
+/// <c>[derived]</c>: the report puts embarked armies inside this very loop ("for each army a with
+/// a.owner (+4) &gt;= 0: // includes armies aboard a fleet"), so an all-mercenary army aboard a fleet
+/// with an empty purse is reachable in ordinary play, but the report never states whether the original
+/// clears the carrying fleet's own back-reference when that happens — the same undocumented-but-necessary
+/// status <see href="https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/upkeep-payment-and-desertion.md">
+/// upkeep-payment-and-desertion.md</see>'s "Still open" section already gives the army-deletion rule
+/// itself. Without this, <see cref="Model.FleetState.CarriedArmyId"/> — the model's one cross-reference to
+/// an army id — would point at an army <see cref="Model.GameState.Armies"/> no longer contains, which
+/// <see cref="IC2.Engine.Serialization.GameDataValidation.ValidateState"/> rejects on every save load
+/// (<c>UnresolvedReferenceException</c>). So every deleted army's own <see cref="Model.ArmyState.AboardFleetId"/>
+/// is checked, and that fleet's <see cref="Model.FleetState.CarriedArmyId"/> is cleared in the same pass —
+/// review round 1, B1.
+/// </para>
 /// </remarks>
 [QuarterBoundaryHandler("economy.quarterly-billing")]
 public sealed class QuarterlyEconomySystem : IQuarterBoundaryHandler
@@ -60,6 +75,7 @@ public sealed class QuarterlyEconomySystem : IQuarterBoundaryHandler
         // purse, with desertion on an empty purse.
         var regularUpkeepByNation = new Dictionary<string, int>(StringComparer.Ordinal);
         var updatedArmies = new List<ArmyState>(state.Armies.Count);
+        var fleetsLosingTheirCarriedArmy = new HashSet<string>(StringComparer.Ordinal);
         foreach (var army in state.Armies)
         {
             var billed = MercenaryDesertion.BillArmy(army, ruleset);
@@ -70,7 +86,13 @@ public sealed class QuarterlyEconomySystem : IQuarterBoundaryHandler
             {
                 updatedArmies.Add(survivingArmy);
             }
-            // else: every unit deserted this quarter -- the army is deleted, dropped from the list.
+            else if (army.AboardFleetId is { } aboardFleetId)
+            {
+                // Every unit deserted this quarter -- the army is deleted. It was embarked, so its
+                // carrying fleet's own back-reference would otherwise be left dangling (review round 1,
+                // B1); recorded here and cleared below, alongside the rest of this handler's fleet work.
+                fleetsLosingTheirCarriedArmy.Add(aboardFleetId);
+            }
         }
 
         // 1c: city units (recruitment slots), every nation, no balance check.
@@ -87,10 +109,16 @@ public sealed class QuarterlyEconomySystem : IQuarterBoundaryHandler
             });
         }
 
+        var updatedFleets = fleetsLosingTheirCarriedArmy.Count == 0
+            ? state.Fleets
+            : ValueList.From(state.Fleets.Select(fleet =>
+                fleetsLosingTheirCarriedArmy.Contains(fleet.Id) ? fleet with { CarriedArmyId = null } : fleet));
+
         return state with
         {
             Nations = ValueList.From(updatedNations),
             Armies = ValueList.From(updatedArmies),
+            Fleets = updatedFleets,
         };
     }
 }

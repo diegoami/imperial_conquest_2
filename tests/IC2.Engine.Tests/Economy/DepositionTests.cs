@@ -31,6 +31,18 @@ public sealed class DepositionTests
         Assert.True(Deposition.InDebt(nation, ruleset));
     }
 
+    /// <summary>Review round 1, N3: the wealth arm's false side -- exactly at the line, not below it.</summary>
+    [Fact]
+    public void InDebt_TreasuryExactlyAtNegativeWealthOverFiveHundred_IsFalse()
+    {
+        var ruleset = EconomyTestbed.Ruleset;
+        // Same -1,000 line as the true-side case above, wealth held fixed so only this arm moves; the
+        // strict '<' means exactly -1,000 does not trigger it.
+        var nation = BaseNation(treasury: -1_000, unity: 990, wealth: 500_000);
+
+        Assert.False(Deposition.InDebt(nation, ruleset));
+    }
+
     [Fact]
     public void InDebt_TreasuryBelowTwentyThousandNegative_IsTrueRegardlessOfWealth()
     {
@@ -38,6 +50,21 @@ public sealed class DepositionTests
         var nation = BaseNation(treasury: -20_001, unity: 990, wealth: 0);
 
         Assert.True(Deposition.InDebt(nation, ruleset));
+    }
+
+    /// <summary>
+    /// Review round 1, N3: the flat floor's false side -- exactly -20,000, not below it. Wealth is set
+    /// large enough (50,000,000, line -100,000) that the wealth arm cannot fire at this treasury either,
+    /// isolating the floor arm's own boundary the way the true-side case above did not (it used wealth 0,
+    /// where the wealth arm's own line is 0 and would have fired anyway).
+    /// </summary>
+    [Fact]
+    public void InDebt_TreasuryExactlyTwentyThousandNegative_IsFalse()
+    {
+        var ruleset = EconomyTestbed.Ruleset;
+        var nation = BaseNation(treasury: -20_000, unity: 990, wealth: 50_000_000);
+
+        Assert.False(Deposition.InDebt(nation, ruleset));
     }
 
     [Fact]

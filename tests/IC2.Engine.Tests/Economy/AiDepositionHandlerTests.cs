@@ -96,8 +96,15 @@ public sealed class AiDepositionHandlerTests
         Assert.Equal(before, after.NationById("south"));
     }
 
+    /// <summary>
+    /// Review round 1, N4: renamed from "...ResetsOnlyThe..." -- the toy world has only two nations, so
+    /// there is no third nation's row to assert is left untouched at this end-to-end level. The "only"
+    /// half of the claim (values outside <c>[-5, -1]</c> are never reset) is pinned at the unit level by
+    /// <see cref="DepositionTests.ResetRelations_OutsideTheRange_IsLeftUnchanged"/>; this test covers the
+    /// in-range half wired through the real handler.
+    /// </summary>
     [Fact]
-    public void OnQuarterBoundary_ResetsOnlyTheDeposedNationsCloseCooldowns()
+    public void OnQuarterBoundary_ResetsTheDeposedNationsCloseCooldown()
     {
         var state = WithSouth(treasury: -21_000, unity: 470, wealth: 0);
         state = state with { Relations = state.Relations.WithRelation("north", "south", -3) };
@@ -106,5 +113,49 @@ public sealed class AiDepositionHandlerTests
         var after = new AiDepositionHandler().OnQuarterBoundary(Context(state, rng));
 
         Assert.Equal(0, after.Relations.Get("north", "south"));
+    }
+
+    /// <summary>
+    /// Review round 1, N5: makes the registration-order assertion
+    /// (<see cref="EconomySystemRegistrationTests.AiDepositionHandler_RegistersAfterTheNationTick"/>)
+    /// behavioural rather than structural, wired through the real
+    /// <see cref="Core.TurnCoordinator.FireQuarterBoundary"/> with billing, the city tick, the nation tick
+    /// and this handler all registered together. South starts already in debt on its own stored figures
+    /// (treasury -830, its pre-rebuild wealth 360) -- but this quarter's tax-base/wealth rebuild
+    /// (<see cref="QuarterlyCityEconomySystem"/>, which moves the debt line itself: wealth rebuilds to
+    /// 462,000, so the line moves from 0 to -924) and its income credit
+    /// (<see cref="QuarterlyNationEconomySystem"/>, +4 net of this quarter's own -96 upkeep) land it at
+    /// treasury -922, one talent inside the now-much-wider line. Because <see cref="AiDepositionHandler"/>
+    /// runs last (order 300), it reads the settled figures and correctly finds the nation clear -- if it
+    /// ran any earlier in the chain, per-Owns files aside, it would have found the nation still in debt.
+    /// </summary>
+    [Fact]
+    public void OnQuarterBoundary_ReadsThisQuartersSettledFigures_NotTheStaleOnesFromBeforeItRan()
+    {
+        var ruleset = EconomyTestbed.Ruleset;
+        var state = EconomyTestbed.InitialState();
+        var nations = state.Nations.Select(n => n.Id == "south" ? n with { Treasury = -830, Unity = 990 } : n);
+        state = state with { Nations = ValueList.From(nations) };
+
+        // On this nation's own stored (pre-quarter) figures, it already reads as in debt -- the treasury
+        // is deeply negative against a wealth-based line that has not yet been rebuilt this quarter.
+        Assert.True(Deposition.InDebt(state.NationById("south")!, ruleset));
+
+        var sink = new RecordingEventSink();
+        var coordinator = EconomyTestbed.CoordinatorOnly(
+            sink,
+            typeof(QuarterlyEconomySystem),
+            typeof(QuarterlyCityEconomySystem),
+            typeof(QuarterlyNationEconomySystem),
+            typeof(AiDepositionHandler));
+
+        var after = coordinator.FireQuarterBoundary(state, endingSeasonIndex: 0);
+        var southAfter = after.NationById("south")!;
+
+        // This quarter's own rebuild and credit clear it before the deposition check ever runs.
+        Assert.False(Deposition.InDebt(southAfter, ruleset));
+        Assert.Equal(-922, southAfter.Treasury);
+        Assert.Equal(462_000, southAfter.Wealth); // the rebuild that moves the debt line itself.
+        Assert.Empty(sink.Events.OfType<AiLeaderDeposed>());
     }
 }

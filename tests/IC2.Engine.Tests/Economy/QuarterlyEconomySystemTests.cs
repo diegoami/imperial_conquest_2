@@ -177,6 +177,42 @@ public sealed class QuarterlyEconomySystemTests
         Assert.DoesNotContain(after.Armies, a => a.Id == northArmyBefore.Id);
     }
 
+    /// <summary>
+    /// Review round 1, B1: an embarked army deleted by desertion must not leave its carrying fleet
+    /// pointing at an army that no longer exists — <see cref="Model.FleetState.CarriedArmyId"/> is the
+    /// model's one cross-reference to an army id, and <see cref="Serialization.GameDataValidation.Validate"/>
+    /// rejects a dangling one on every save load. <c>[derived]</c>: the report never states whether the
+    /// original clears this pointer, the same undocumented-but-necessary status the army-deletion rule
+    /// itself already carries (<see cref="MercenaryDesertion"/>'s own remarks).
+    /// </summary>
+    [Fact]
+    public void OnQuarterBoundary_EmbarkedArmyEmptiedByDesertion_AlsoClearsTheFleetsCarriedArmyId()
+    {
+        var state = EconomyTestbed.InitialState();
+        var northArmyBefore = state.Armies.First(a => a.Nation == "north");
+        var northFleet = state.Fleets.First(f => f.Nation == "north");
+        var mercenary = northArmyBefore.Units.Single(u => u.IsMercenary);
+
+        // Embark the army on north's own fleet, strip it to just its one mercenary, purse empty: it
+        // deserts, and with nothing left the army is deleted while still (before the fix) "aboard".
+        var armies = state.Armies.Select(a => a.Id == northArmyBefore.Id
+            ? a with { Money = 0, Units = ValueList.Of(mercenary), AboardFleetId = northFleet.Id }
+            : a);
+        var fleets = state.Fleets.Select(f => f.Id == northFleet.Id
+            ? f with { CarriedArmyId = northArmyBefore.Id }
+            : f);
+        state = state with { Armies = ValueList.From(armies), Fleets = ValueList.From(fleets) };
+
+        var after = Coordinate(state);
+
+        Assert.Null(after.ArmyById(northArmyBefore.Id)); // the army is gone, as before this fix.
+        Assert.Null(after.FleetById(northFleet.Id)!.CarriedArmyId); // and the fleet no longer points at it.
+
+        // The resulting state round-trips: no dangling reference for GameDataValidation to reject on a
+        // reload (the exact failure mode this fix closes -- previously an UnresolvedReferenceException).
+        Serialization.GameDataValidation.Validate("probe.json", after);
+    }
+
     [Fact]
     public void OnQuarterBoundary_GarrisonUpkeep_ChargesEveryRecruitmentSlotWithTroops_NotReadyIncluded()
     {

@@ -63,8 +63,15 @@ public sealed class HumanDepositionSystemTests
         Assert.Equal(before, after.NationById("south")); // AiDepositionHandler's concern, not this one's.
     }
 
+    /// <summary>
+    /// Review round 1, N4: renamed from "...ResetsOnlyThe..." -- the toy world has only two nations, so
+    /// there is no third nation's row to assert is left untouched at this end-to-end level. The "only"
+    /// half of the claim (values outside <c>[-5, -1]</c> are never reset) is pinned at the unit level by
+    /// <see cref="DepositionTests.ResetRelations_OutsideTheRange_IsLeftUnchanged"/>; this test covers the
+    /// in-range half wired through the real system.
+    /// </summary>
     [Fact]
-    public void RunTurn_ResetsOnlyTheDeposedNationsCloseCooldowns()
+    public void RunTurn_ResetsTheDeposedNationsCloseCooldown()
     {
         var state = EconomyTestbed.InitialState();
         state = state with { Relations = state.Relations.WithRelation("north", "south", -2) };
