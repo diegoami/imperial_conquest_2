@@ -152,10 +152,38 @@ public sealed record TerrainRules(
 /// </para>
 /// Every other field, and every other record in this file, is unchanged.
 /// </remarks>
+/// <remarks>
+/// <para>
+/// <strong>T35's additions</strong> (<c>docs/task-catalogue.md</c> "T35 Model: nation tax base,
+/// recruitment slots, and the pending diplomatic offer") wire up the quarterly tick's nation loop and
+/// city loop — everything <c>FUN_00451b40</c> runs after T08's upkeep billing
+/// (<c>nation-tax-base-and-city-economy-fields.md</c>, <c>city-population-growth.md</c>). Three
+/// unrelated formulas each happen to use the divisor <c>4</c> — the population-growth gap term
+/// (<see cref="PopulationGrowthGapDivisor"/>), the tax-base rebuild's per-city multiplier
+/// (<see cref="TaxBaseContributionMultiplier"/>), and the treasury credit's own <c>taxBase / 4</c> term
+/// (<see cref="TreasuryCreditTaxBaseQuarterShareDivisor"/>) — kept as three separate fields rather than
+/// one shared constant, the same reasoning <see cref="SupplyMoraleRules.MovesTroopDivisor"/>'s own remark
+/// gives for its numerically-identical-but-conceptually-distinct <c>20000</c>.
+/// </para>
+/// <para>
+/// <c>UnityDecayPerQuarter</c> is renamed <see cref="MobilizationDecayPerQuarter"/>
+/// (bug <c>#68</c>): the quarterly <c>−3</c> <c>decompiled-quarterly-billing-and-economy.md</c>
+/// attributed to unity is really mobilization's; unity instead drifts <em>up</em> by
+/// <see cref="UnityBaseGainPerQuarter"/> a quarter, reduced by the tax rate and the just-decayed
+/// mobilization, clamped between <see cref="UnityFloor"/> and the pre-existing <see cref="UnityCap"/>.
+/// </para>
+/// <para>
+/// The quarterly loyalty draws' three new constants (<see cref="LoyaltyRiseRollBound"/>,
+/// <see cref="LoyaltyFallProbabilityDenominator"/>, <see cref="LoyaltyFallTaxDivisor"/>) are
+/// <c>[derived]</c> from the code, not save-checked, exactly like the thresholds T08 already shipped
+/// (<see cref="LowTaxLoyaltyThresholdPercent"/>, <see cref="LowTaxLoyaltyCityThreshold"/>,
+/// <see cref="RebellionLoyaltyThreshold"/>) — this task is the first to actually read any of the six.
+/// </para>
+/// </remarks>
 public sealed record EconomyRules(
     int TaxRateDivisor,
     int ShipUpkeepPerQuarter,
-    int UnityDecayPerQuarter,
+    int MobilizationDecayPerQuarter,
     int UnityCap,
     int PurseCapPerUnit,
     int SupplyTonsPerTalent,
@@ -172,6 +200,24 @@ public sealed record EconomyRules(
     int SupplyDialogArmyCapacityBonus,
     int AutoResupplyPurseTopUpThreshold,
     int AutoResupplyPurseTopUpAmount,
+    int TaxBaseContributionMultiplier,
+    int WealthPerPopulationThousand,
+    int TreasuryCreditTaxBaseQuarterShareDivisor,
+    int TreasuryCreditPerCityUpkeep,
+    int TreasuryCreditWealthDivisor,
+    int TradeIncomeTaxBaseDivisor,
+    int PopulationGrowthGapDivisor,
+    int PopulationGrowthTaxDivisor,
+    int PopulationGrowthMobilizationDivisor,
+    int PopulationGrowthConstantAddend,
+    int ThreatenedCityAdjacencyRadius,
+    int UnityFloor,
+    int UnityBaseGainPerQuarter,
+    int UnityTaxRateDivisor,
+    int UnityMobilizationDivisor,
+    int LoyaltyRiseRollBound,
+    int LoyaltyFallProbabilityDenominator,
+    int LoyaltyFallTaxDivisor,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>

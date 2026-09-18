@@ -13,7 +13,8 @@ namespace IC2.Engine.Tests.Economy;
 public sealed class AutomaticResupplyTests
 {
     private static NationState Nation(string id, int treasury) =>
-        new(id, id, "#000", "Leader", null, SeatControl.Human, null, treasury, 600, 0, 15, 100, 100, 500, 1, false);
+        new(id, id, "#000", "Leader", null, SeatControl.Human, null, treasury, 600, 0, 0, 15, 0, 100, 100, 500, 1,
+            ValueList<RecruitmentSlot>.Empty, false);
 
     private static CityState City(string owner, int supplyTons) =>
         new("c1", "City", 0, 0, owner, owner, 80, supplyTons, 100, 10, 10, 0, false, ValueList<UnitSlot>.Empty);

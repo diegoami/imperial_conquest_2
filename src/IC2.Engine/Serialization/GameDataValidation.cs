@@ -316,6 +316,24 @@ public static class GameDataValidation
             RequireStateNation(documentPath, state, city.Allegiance);
         }
 
+        // T35: a recruitment slot's target city, and the pending offer's proposing nation, are the two
+        // new cross-references this task's model additions carry.
+        foreach (var nation in state.Nations)
+        {
+            foreach (var slot in nation.RecruitmentSlots)
+            {
+                if (state.CityById(slot.TargetCityId) is null)
+                {
+                    throw new UnresolvedReferenceException(documentPath, "city", slot.TargetCityId);
+                }
+            }
+        }
+
+        if (state.PendingOffer is { } pendingOffer)
+        {
+            RequireStateNation(documentPath, state, pendingOffer.ProposingNationId);
+        }
+
         foreach (var army in state.Armies)
         {
             RequireStateNation(documentPath, state, army.Nation);

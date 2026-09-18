@@ -13,7 +13,8 @@ namespace IC2.Engine.Tests.Economy;
 public sealed class TreasuryPurseTransferTests
 {
     private static NationState Nation(int treasury) =>
-        new("north", "North", "#000", "Leader", null, SeatControl.Human, null, treasury, 600, 0, 15, 100, 100, 500, 1, false);
+        new("north", "North", "#000", "Leader", null, SeatControl.Human, null, treasury, 600, 0, 0, 15, 0, 100, 100, 500, 1,
+            ValueList<RecruitmentSlot>.Empty, false);
 
     private static ArmyState Army(int money) =>
         new("a1", "north", 0, 0, 9, 60, money, 0, null, null, ValueList<UnitSlot>.Empty);

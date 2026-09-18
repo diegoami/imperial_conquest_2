@@ -28,7 +28,8 @@ public sealed record GameState(
     ValueList<FleetState> Fleets,
     ValueList<MercenaryPoolSlot> MercenaryPool,
     DiplomaticRelations Relations,
-    NewsLog NewsLog) : IVersionedDocument
+    NewsLog NewsLog,
+    PendingDiplomaticOffer? PendingOffer) : IVersionedDocument
 {
     /// <summary>Finds a nation by id, or <see langword="null"/>.</summary>
     public NationState? NationById(string id) => Nations.FindById(n => n.Id, id);
@@ -45,6 +46,29 @@ public sealed record GameState(
     /// <summary>The nation id whose seat is currently active.</summary>
     [JsonIgnore]
     public string ActiveNationId => TurnOrder[ActiveSeatIndex];
+
+    /// <summary>
+    /// Counts cities <see cref="CityState.Owner"/> currently attributes to <paramref name="nationId"/>.
+    /// Shared by the quarterly treasury credit's per-city term (<c>cityCount × 7</c>,
+    /// <c>nation-tax-base-and-city-economy-fields.md</c>) and <c>VictoryEvaluator</c>'s own city count —
+    /// two different call sites over the same live <see cref="Cities"/> list, kept as one linear scan
+    /// here rather than two (follow-up #106 item 1's live-<see cref="GameState"/> half; the
+    /// <c>GameStateFactory</c> count at scenario start reads <see cref="World.Cities"/> instead, a
+    /// different element type, so it is not unified with this one — see that method's own remarks).
+    /// </summary>
+    public int CountCitiesOwnedBy(string nationId)
+    {
+        var count = 0;
+        foreach (var city in Cities)
+        {
+            if (string.Equals(city.Owner, nationId, StringComparison.Ordinal))
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
 }
 
 /// <summary>Where the calendar currently stands.</summary>
@@ -56,8 +80,32 @@ public sealed record CalendarState(int Week, int SeasonIndex, int YearBc, int Tu
 
 /// <summary>A nation's live state.</summary>
 /// <param name="Wealth">
-/// The nation's wealth field, which the reparation formula reads
-/// <strong>[confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md]</strong>.
+/// Nation record <c>+0x430</c>: <c>Σ population × 3000</c> over the nation's cities, rebuilt every
+/// quarter alongside <see cref="TaxBase"/> and adjusted at every city-ownership change
+/// <strong>[confirmed: nation-tax-base-and-city-economy-fields.md]</strong>. This is <em>not</em> the
+/// field the reparation formula reads — that is <see cref="TaxBase"/> (<c>+0x44C</c>); an earlier
+/// reading of <c>decompiled-diplomacy-peace-terms-and-instant-battles.md</c> called <c>+0x44C</c>
+/// "wealth", which the tax-base report corrects.
+/// </param>
+/// <param name="TaxBase">
+/// Nation record <c>+0x44C</c>, the signed 16-bit <c>nationTaxBase</c> tax's income formula multiplies
+/// by the tax rate: <em>persisted</em> state, zeroed and rebuilt from the nation's cities every quarter
+/// and adjusted at every city-ownership change — never recomputed on demand, so a stored value
+/// legitimately differs from a fresh rebuild between quarters (the reparation formula and the
+/// trade-partner selection both read this field, not <see cref="Wealth"/>)
+/// <strong>[confirmed: nation-tax-base-and-city-economy-fields.md]</strong>.
+/// </param>
+/// <param name="MobilizedPercent">
+/// Nation record <c>+0x442</c>, <c>IC2.Data</c>'s <c>MobilizedPercent</c>: 0–100, decaying by
+/// <see cref="EconomyRules.MobilizationDecayPerQuarter"/> every quarter (floored at 0) and read by
+/// population growth, the unity update, and city supply production
+/// <strong>[confirmed: city-population-growth.md]</strong>. The 100 cap is enforced where mobilization is
+/// raised (standing recruitment, T13's), not by this field itself.
+/// </param>
+/// <param name="RecruitmentSlots">
+/// The nation's active standing-recruitment queue — <c>IC2.Data</c>'s <c>SaveRecruitmentTable</c> fields
+/// only (target city, unit type, troop count, readiness state code), no invented ones. Empty slots are
+/// simply absent, exactly like <see cref="MercenaryPoolSlot"/>.
 /// </param>
 /// <param name="PopulationAtStart">Scorecard baseline — the game-over screen reports start versus end.</param>
 public sealed record NationState(
@@ -71,12 +119,49 @@ public sealed record NationState(
     int Treasury,
     int Unity,
     int Wealth,
+    int TaxBase,
     int TaxRatePercent,
+    int MobilizedPercent,
     int Population,
     int PopulationAtStart,
     int TreasuryAtStart,
     int CityCountAtStart,
+    ValueList<RecruitmentSlot> RecruitmentSlots,
     bool Eliminated);
+
+/// <summary>
+/// One occupied slot in a nation's standing-recruitment queue — <c>IC2.Data</c>'s
+/// <c>SaveRecruitmentTable</c> shape, and no more: a unit being trained at a city, the type it will be,
+/// its troop count so far, and its readiness state code. Empty slots are simply absent from
+/// <see cref="NationState.RecruitmentSlots"/>, the same convention <see cref="MercenaryPoolSlot"/> uses.
+/// </summary>
+/// <param name="TargetCityId">The city training this unit.</param>
+/// <param name="UnitTypeId">Key into <see cref="Ruleset.UnitTypes"/>, the type being recruited.</param>
+/// <param name="Troops">Troops raised so far.</param>
+/// <param name="StateCode">
+/// The raw readiness counter <see cref="IC2.Engine.Calendar.CityUnitStateCode"/> steps once per week — <c>0–24</c>,
+/// climbing by <c>+2</c> and holding at the cap, never resetting.
+/// </param>
+public sealed record RecruitmentSlot(
+    string TargetCityId,
+    string UnitTypeId,
+    int Troops,
+    int StateCode);
+
+/// <summary>
+/// The single pending diplomatic offer a human seat's turn can start with — e.g. "Greece wants to trade
+/// with Rome." At most one at a time; <see cref="GameState.PendingOffer"/> is <see langword="null"/> when
+/// none is pending
+/// <strong>[confirmed: pending-offer-block-army-split-and-naupactus.md]</strong>.
+/// </summary>
+/// <param name="ProposingNationId">The nation proposing the relation change.</param>
+/// <param name="ProposedRelationCode">
+/// The relation state being proposed, reusing <see cref="RelationStateCodes"/>' encoding (trade or
+/// alliance).
+/// </param>
+public sealed record PendingDiplomaticOffer(
+    string ProposingNationId,
+    int ProposedRelationCode);
 
 /// <summary>A city's live state.</summary>
 /// <param name="FortificationCode">
