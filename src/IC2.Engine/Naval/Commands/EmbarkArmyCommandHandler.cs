@@ -5,7 +5,8 @@ namespace IC2.Engine.Naval.Commands;
 
 /// <summary>
 /// <c>FUN_0044B79C</c>: zeroes the fleet's moves, sets the carried-army link both ways, clears the
-/// army's covered map cell, snaps the army onto the fleet, and zeroes the army's moves too.
+/// army's covered map cell, snaps the army onto the fleet, and zeroes the army's moves too — trimming an
+/// over-capacity army first when <see cref="EmbarkArmyCommand"/>'s <c>seatAsymmetry</c> gating admits it.
 /// </summary>
 [CommandHandler]
 public sealed class EmbarkArmyCommandHandler : ICommandHandler<EmbarkArmyCommand>
@@ -63,12 +64,27 @@ public sealed class EmbarkArmyCommandHandler : ICommandHandler<EmbarkArmyCommand
         }
 
         var capacity = fleet.Ships * context.Ruleset.Naval.TransportTroopsPerShip;
-        if (army.TotalTroops > capacity)
+        var totalTroops = army.TotalTroops;
+        var overCapacity = totalTroops > capacity;
+
+        // seatAsymmetry gating (design-audit.md Q6, EmbarkArmyCommand's own remarks): classical-faithful
+        // trims an AI seat and refuses a human one; improved refuses every seat.
+        var seatIsAi = context.IssuingNation.Control == SeatControl.Ai;
+        var trims = overCapacity
+            && context.Ruleset.Flags.SeatAsymmetry == SeatAsymmetryModel.Faithful
+            && seatIsAi;
+        var refuses = overCapacity && !trims;
+
+        if (refuses)
         {
             return CommandOutcome.Reject(
                 EmbarkArmyRejections.ArmyTooLarge,
-                $"Army '{army.Id}' has {army.TotalTroops} troops, more than fleet '{fleet.Id}''s capacity of {capacity}.");
+                $"Army '{army.Id}' has {totalTroops} troops, more than fleet '{fleet.Id}''s capacity of {capacity}.");
         }
+
+        var units = trims
+            ? ValueList.From(ArmyTransportTrim.TrimToCapacity(army.Units, totalTroops, capacity))
+            : army.Units;
 
         var updatedArmy = army with
         {
@@ -77,6 +93,7 @@ public sealed class EmbarkArmyCommandHandler : ICommandHandler<EmbarkArmyCommand
             Moves = 0,
             CoveredTileCode = null,
             AboardFleetId = fleet.Id,
+            Units = units,
         };
         var updatedFleet = fleet with { CarriedArmyId = army.Id, Moves = 0 };
 

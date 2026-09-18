@@ -128,7 +128,20 @@ public sealed class MoveFleetCommandHandler : ICommandHandler<MoveFleetCommand>
         var updatedFleets = state.Fleets.Select(f =>
             string.Equals(f.Id, fleet.Id, StringComparison.Ordinal) ? updatedFleet : f);
 
-        return CommandOutcome.Accept(state with { Fleets = ValueList.From(updatedFleets) });
+        // A carried army's coordinates travel with the fleet -- docs/task-catalogue.md T14 DoD 15's
+        // first clause. The army stays off-map (CoveredTileCode null, AboardFleetId set) the whole time;
+        // only X/Y move, exactly mirroring the fleet's own new position.
+        var updatedArmies = fleet.CarriedArmyId is { } carriedArmyId
+            ? state.Armies.Select(a => string.Equals(a.Id, carriedArmyId, StringComparison.Ordinal)
+                ? a with { X = finalPosition.X, Y = finalPosition.Y }
+                : a)
+            : state.Armies;
+
+        return CommandOutcome.Accept(state with
+        {
+            Fleets = ValueList.From(updatedFleets),
+            Armies = ValueList.From(updatedArmies),
+        });
     }
 
     private static bool InBounds(GridPoint point, World world) =>

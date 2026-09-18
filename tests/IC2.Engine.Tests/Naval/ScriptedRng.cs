@@ -12,11 +12,20 @@ namespace IC2.Engine.Tests.Naval;
 public sealed class ScriptedRng : IRng
 {
     private readonly Queue<int> _nextIntQueue;
+    private readonly Queue<bool> _nextChanceQueue;
 
     /// <summary>Creates a scripted generator that returns <paramref name="nextIntValues"/> in order for every <see cref="NextInt(int)"/> call.</summary>
     public ScriptedRng(params int[] nextIntValues)
     {
         _nextIntQueue = new Queue<int>(nextIntValues);
+        _nextChanceQueue = new Queue<bool>();
+    }
+
+    /// <summary>Creates a scripted generator with separate queues for <see cref="NextInt(int)"/> and <see cref="NextChance"/> calls, each consumed in order.</summary>
+    public ScriptedRng(int[] nextIntValues, bool[] nextChanceValues)
+    {
+        _nextIntQueue = new Queue<int>(nextIntValues);
+        _nextChanceQueue = new Queue<bool>(nextChanceValues);
     }
 
     /// <inheritdoc/>
@@ -51,7 +60,15 @@ public sealed class ScriptedRng : IRng
         throw new NotSupportedException("Not scripted for this test.");
 
     /// <inheritdoc/>
-    public bool NextChance(int numerator, int denominator) => false;
+    public bool NextChance(int numerator, int denominator)
+    {
+        if (_nextChanceQueue.Count == 0)
+        {
+            throw new InvalidOperationException("ScriptedRng ran out of queued NextChance values.");
+        }
+
+        return _nextChanceQueue.Dequeue();
+    }
 
     /// <inheritdoc/>
     public IRng ForStream(string streamName) => this;
