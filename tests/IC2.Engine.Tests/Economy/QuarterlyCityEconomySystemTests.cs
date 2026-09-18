@@ -9,12 +9,70 @@ namespace IC2.Engine.Tests.Economy;
 /// <c>docs/task-catalogue.md</c> "T35 Model: nation tax base, recruitment slots, and the pending
 /// diplomatic offer", Done-when 9 and 11, wired against real <see cref="GameState"/> through
 /// <see cref="QuarterlyCityEconomySystem"/> directly (no calendar or full coordinator needed — the same
-/// entry point T08's own quarterly tests use).
+/// entry point T08's own quarterly tests use). Also carries T37's DoD 11 fix (bug <c>#132</c>) for T35's
+/// first unproving test: <see cref="AThreatenedCity_DoesNotGrow_WithARealAdjacentHostileArmy"/> below.
 /// </summary>
 public sealed class QuarterlyCityEconomySystemTests
 {
     private static QuarterBoundaryContext Context(GameState state, IRng rng, IEventSink sink) =>
         new(state, EconomyTestbed.Ruleset, EconomyTestbed.Toy.World, EndingSeasonIndex: 0, rng, sink);
+
+    private static GameState WithArmyAt(GameState state, string armyId, int x, int y, string nation) =>
+        state with
+        {
+            Armies = ValueList.From(state.Armies.Select(a => a.Id == armyId
+                ? a with { X = x, Y = y, Nation = nation, AboardFleetId = null, CoveredTileCode = 2 }
+                : a)),
+        };
+
+    private static GameState AtWar(GameState state, string a, string b) =>
+        state with { Relations = state.Relations.WithRelation(a, b, EconomyTestbed.Ruleset.Diplomacy.StateCodes.War) };
+
+    /// <summary>
+    /// <c>docs/task-catalogue.md</c> "T37 City supply production and famine unrest", Done-when 11
+    /// (bug <c>#132</c>): T35's own threat-predicate test
+    /// (<c>CityPopulationGrowthTests.AThreatenedCity_DoesNotGrow_TheSameCityOneCellFurtherAwayDoes</c>)
+    /// passed a <c>threatened: true</c> literal straight to <see cref="CityPopulationGrowth.Grow"/>,
+    /// proving only that the pure formula honours the flag -- never that
+    /// <see cref="HostileArmyAdjacent.IsThreatened"/> is actually wired to it. This test goes through
+    /// the registered <see cref="QuarterlyCityEconomySystem"/> with a real hostile army placed adjacent
+    /// to Arx (north's capital, below its maximum population, so it would otherwise grow) and a real War
+    /// relation, never a literal. Proved by mutation: forcing <c>threatened</c> to <c>false</c> at
+    /// <c>QuarterlyCityEconomySystem.cs:62</c> makes this test fail (verified locally; today, with that
+    /// line unmutated, this test and all its siblings are green).
+    /// </summary>
+    [Fact]
+    public void AThreatenedCity_DoesNotGrow_WithARealAdjacentHostileArmy()
+    {
+        var state = EconomyTestbed.InitialState();
+        state = WithArmyAt(state, "south-army-1", x: 2, y: 2, nation: "south"); // one cell from Arx (2,1).
+        state = AtWar(state, "north", "south");
+
+        var rng = new ScriptedRng(nextChanceDraws: new[] { false, false, false });
+        var sink = new RecordingEventSink();
+
+        var result = new QuarterlyCityEconomySystem().OnQuarterBoundary(Context(state, rng, sink));
+
+        // Arx (pop 220 of 300, tax 15, mob 20) would otherwise grow to 238 this quarter -- see the
+        // unthreatened sibling below, which proves it does.
+        Assert.Equal(220, result.CityById("arx")!.PopulationThousands);
+    }
+
+    /// <summary>The same city, the same army one cell further away: not threatened, grows normally.</summary>
+    [Fact]
+    public void TheSameCityOneCellFurtherAway_IsNotThreatened_AndGrowsNormally()
+    {
+        var state = EconomyTestbed.InitialState();
+        state = WithArmyAt(state, "south-army-1", x: 2, y: 3, nation: "south"); // two cells from Arx (2,1).
+        state = AtWar(state, "north", "south");
+
+        var rng = new ScriptedRng(nextChanceDraws: new[] { false, false, false });
+        var sink = new RecordingEventSink();
+
+        var result = new QuarterlyCityEconomySystem().OnQuarterBoundary(Context(state, rng, sink));
+
+        Assert.Equal(238, result.CityById("arx")!.PopulationThousands); // grew, exactly as computed above.
+    }
 
     [Fact]
     public void RebellionRiskDetected_PublishesForANonCapitalCityUnderTheThreshold()
