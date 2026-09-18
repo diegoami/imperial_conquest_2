@@ -68,15 +68,18 @@ public class AssetSpecificationCoverageTests
     [Fact]
     public void GroundTruthBlock_HasNoBlankOrDuplicateLines()
     {
-        // A cheap sanity check on the parse itself: 25 distinct, non-empty keys, matching the
-        // count AssetKeys.AllKeys yields today. If this ever fails because a real key was added or
+        // A cheap sanity check on the parse itself: distinct, non-empty keys, and — asserted
+        // directly here, not just implied by the other two tests — exactly as many of them as
+        // AssetKeys.AllKeys yields today. If this ever fails because a real key was added or
         // removed, that is exactly the drift this test exists to catch — update AssetKeys.cs's own
         // count claim and this specification's §6 block together (this task's Owns list covers the
         // doc; AssetKeys.cs is T11's).
         var documented = ReadGroundTruthKeys();
+        var engineKeyCount = AssetKeys.AllKeys.Count();
 
         Assert.Equal(documented.Count, documented.Distinct(StringComparer.Ordinal).Count());
         Assert.All(documented, key => Assert.False(string.IsNullOrWhiteSpace(key)));
+        Assert.Equal(engineKeyCount, documented.Count);
     }
 
     /// <summary>
