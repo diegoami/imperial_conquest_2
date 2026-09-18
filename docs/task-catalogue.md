@@ -4,7 +4,7 @@ Every build task's scope, **Owns** list, Definition of Done, model/effort, revie
 
 **Status is not in this document.** Each task's stage (ready, in progress, merged, blocked, escalated) lives only in its GitHub issue's `status:*` label ([build-process.md §5](build-process.md#5-status-lives-on-github)). The index below links every issue.
 
-43 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), ten corrections to already-merged code (T31–T35, T38–T40, T42, T43), one rule no task owned (T37, the weekly city supply step), and an early demo slice of T23 (T41).
+44 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), eleven corrections to already-merged code (T31–T35, T38–T40, T42–T44), one rule no task owned (T37, the weekly city supply step), and an early demo slice of T23 (T41).
 
 ---
 
@@ -57,6 +57,7 @@ graph TD
   T31 --> T33[T33 siege defender shape]
   T07 --> T33
   T30 --> T34[T34 IC2.Data follow-ups + corpus fixture]
+  T34 --> T44[T44 army moves sentinel]
 
   T08 --> T13[T13 recruitment+mercs]
   T08 --> T38[T38 supply dialog follow-ups]
@@ -97,6 +98,7 @@ graph TD
   T30 --> T21
   T29 --> T21
   T34 --> T21
+  T44 --> T21
   T34 --> T29
 
   T17 --> T22[T22 AI]
@@ -131,7 +133,7 @@ Waves are dependency layers, not concurrent batches: execution is serial, one co
 | 1 | T02, T04, T30 | T04 and T30 need only T01. T30's merge gates T29, T21 and T34. |
 | 2 | T03 | The serialization point for engine code. |
 | 3 | T06, T07, T08, T09, T10, T11, T12, T31, T32, T33, T34, T40, T41, T42, T43 | The widest wave. T43 follows T12. T40 merges before T10; T41 (the thin CLI demo) and then T42 (news-log fidelity) follow T10. T32 merges before T08; T33 before T16 and T17; T34 any time before T21, T24 and T29. T08 and T33 both write `Ruleset.cs`, `toy-ruleset.json` and `tests/fixtures/**` — different records and entries, never in flight together. |
-| 4 | T38, T13, T14, T15, T16, T35, T37, T39 | T38 follows T08 and precedes T14. T39 follows T35 and precedes T13 and T22. T35 follows T08 and gates T13, T17, T19 and T37. T37 must merge before T29. T16 is the long pole. |
+| 4 | T38, T13, T14, T15, T16, T35, T37, T39, T44 | T44 follows T34 and must merge before T21. T38 follows T08 and precedes T14. T39 follows T35 and precedes T13 and T22. T35 follows T08 and gates T13, T17, T19 and T37. T37 must merge before T29. T16 is the long pole. |
 | 5 | T17, T18, T19, T20, T29, T21, T22 | T17 first, then T18/T19/T20; T29 once T15, T17, T19 and T37 have merged; then T21 and T22. T22 is the long pole. |
 | 6 | T23, T36, T24, T25, T26, T27, T28 | T36 follows T29 and precedes T24. T24/T25/T27 are single-instance (Godot) and form one serial chain. |
 
@@ -139,7 +141,7 @@ Waves are dependency layers, not concurrent batches: execution is serial, one co
 
 ### 1.2 Sequential and independent tasks
 
-- **Strictly sequential**: T01 → T02 → T03; T12 → T43 → T22 (the AI soak needs a victory check that can actually fire); T03 → T40 → T10 → T41 (the news writer reads the published-events view T40 adds; the demo prints its news); T41 → T23 (T23 extends the demo harness); T10 → T41 → T42 → T14, T16, T17, T19 (the news format and its placeholder check settle before the first production news events); T16 → T17 (a siege is a battle); T17 → T18 (a siege wipes a pending fortify order); T08 → T13 (mercenary hire debits the army purse T08 defines); T08 → T38 → T14 (T14 is the first caller of the supply dialog T38 finishes); T35 → T39 → T13, T22 (billing is corrected before recruitment and the AI build on it); T24 → T25 → T27 (Godot, single-instance); T30 → T29 (T29 reads the DAT through T30's parser); T31 → T07 and T31 → T16 (both consume the siege defender weights T31 corrects); T32 → T08 and T32 → T14 (T06's attrition-phase test must stop counting systems before either registers one); T33 → T16 and T33 → T17 (both consume the defender-strength shape T33 corrects); T35 → T13, T17, T19, T37 (the model fields they read and write; T37 also reuses T35's threat predicate); T37 → T29 (it adds `EconomyRules` fields, and the ruleset schema settles before the export); T34 → T29 and T34 → T21 (both read the nation tax base through T34's parse); T15, T17, T19 → T29 → T21, T24, T26 (the ruleset schema settles before the shipped ruleset is exported, and the shipped world, ruleset and scenario exist before anything consumes them — [build-process.md §2.6](build-process.md#2-how-the-build-avoids-conflicts)); T29 → T36 → T24 (the `improved` preset is authored from the exported constants, and the New Game chooser needs both presets).
+- **Strictly sequential**: T01 → T02 → T03; T12 → T43 → T22 (the AI soak needs a victory check that can actually fire); T03 → T40 → T10 → T41 (the news writer reads the published-events view T40 adds; the demo prints its news); T41 → T23 (T23 extends the demo harness); T10 → T41 → T42 → T14, T16, T17, T19 (the news format and its placeholder check settle before the first production news events); T16 → T17 (a siege is a battle); T17 → T18 (a siege wipes a pending fortify order); T08 → T13 (mercenary hire debits the army purse T08 defines); T08 → T38 → T14 (T14 is the first caller of the supply dialog T38 finishes); T35 → T39 → T13, T22 (billing is corrected before recruitment and the AI build on it); T24 → T25 → T27 (Godot, single-instance); T30 → T29 (T29 reads the DAT through T30's parser); T31 → T07 and T31 → T16 (both consume the siege defender weights T31 corrects); T32 → T08 and T32 → T14 (T06's attrition-phase test must stop counting systems before either registers one); T33 → T16 and T33 → T17 (both consume the defender-strength shape T33 corrects); T35 → T13, T17, T19, T37 (the model fields they read and write; T37 also reuses T35's threat predicate); T37 → T29 (it adds `EconomyRules` fields, and the ruleset schema settles before the export); T34 → T29 and T34 → T21 (both read the nation tax base through T34's parse); T34 → T44 → T21 (the army `moves` sentinel is surfaced in the parser before the import bridge maps that field); T15, T17, T19 → T29 → T21, T24, T26 (the ruleset schema settles before the shipped ruleset is exported, and the shipped world, ruleset and scenario exist before anything consumes them — [build-process.md §2.6](build-process.md#2-how-the-build-avoids-conflicts)); T29 → T36 → T24 (the `improved` preset is authored from the exported constants, and the New Game chooser needs both presets).
 - **Independent**: wave 3's pure-rules systems over disjoint directories; T32, T33 and T34 against each other and against T09–T12; T13/T14/T15; T18/T19/T20; T26 against the Godot lane.
 - **Looks independent but is not**: T12 (victory) is gated behind T06 because its 250 BC condition needs the calendar's year; T20 (save/load) could be written early, but its DoD ("a mid-game state round-trips after N turns") is only meaningful once the state is largely complete.
 
@@ -462,6 +464,29 @@ Conventions used by every entry:
   7. **Tax base and wealth**: the nation table exposes the tax base — a signed 16-bit word at SAV nation `+0x44c` and DAT nation `+0x41b` — and wealth at SAV `+0x430` and its DAT counterpart in `investigations/dat-file-layout.md`'s read order ([`nation-tax-base-and-city-economy-fields.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/nation-tax-base-and-city-economy-fields.md)). Asserted on Rome: 2,444 in `1_rome_270_summer_7.sav`, and 2,528 in the DAT.
   8. Every test skips with an explicit "original files not configured" result when `assets.local.ini` is absent; `dotnet build IC2.sln` and `dotnet test IC2.sln` are green; only Owns paths change.
 - **Hazards**: tombstone tolerance stays specific to `0xFFFF` (T30's hazard). Regeneration records what the parsers produce — it is not a way to make a failing file pass: a file whose outcome changes between regenerations is reported, not silently re-baselined.
+
+---
+
+#### T44 `IC2.Data`: the army `moves` sentinel, and a sweep for the same gap
+
+- **Design milestone**: none. A correction to merged T30/T34: `ArmyRecord.Moves` is the one `0xFFFF`-carrying field in `SaveArmyTable.cs` with no sentinel handling, so a real save reports `moves 65535` (bug [#125](https://github.com/diegoami/imperial_conquest_2/issues/125)). **Labels**: `phase:1 lane:data local-only`
+- **Branch**: `task/T44-army-moves-sentinel` · **Model/effort**: Sonnet / Medium · **Reviewer**: **Opus / Medium**
+- **Start after**: T34, **and the research pass on the −1 semantics has landed** · **Merge after**: T30, T34 — and merged before T21
+- **Owns**: `src/IC2.Data/**`, `src/IC2.Inspect/**`, `tests/IC2.Data.Tests/**`
+- **Scope**: The corpus evidence, from a sweep of all 54 save files (50 distinct save states, 572 army records): legitimate `moves` values run **0–10**, and exactly one army reads `0xFFFF` — Ptolemaic army 9 at `(192, 96)`, Summer 270 week 7, present in `11.sav`, `11_ptol.sav`, `11_supply.sav` and `1_rome_270_summer_7.sav`, which are all the same save state. Its `CoveredCell` is `2`, **not** `AboardFleetSentinel`, so it is a live on-map army, and every other field of the record parses sensibly. `SaveArmyTable.cs` already establishes the pattern this one field is missing — `ArmyRecord.AboardFleetSentinel`, `ArmyRecord.TombstoneOwnerSentinel`, `FleetRecord.LaunchedSentinel`, `FleetRecord.NoCarriedArmySentinel`, and the nullable accessors `IsAboardFleet`, `ConditionPercent` and `CarriedArmyIndex`. Give `Moves` the same treatment, and audit the rest of both record types for the same gap.
+- **Done when**:
+  1. `ArmyRecord` names the `0xFFFF` moves value in a constant of its own, distinct from the two existing `0xFFFF` constants, whose doc comment states the meaning **exactly as the research report establishes it** — including "unconfirmed" if that is what the report concludes — and cites the report by filename. No invented semantics.
+  2. A consumer cannot silently read `65535`: the raw word stays available, and the meaning is exposed through a nullable or explicitly-flagged accessor in the shape of `FleetRecord.ConditionPercent`.
+  3. `IC2.Inspect` renders the sentinel as such in `--list-armies`, `--inspect-army` and `--to-json`, rather than printing or emitting `65535`. The JSON change is additive, in the style of the existing `aboardFleet` flag.
+  4. A test pins Ptolemaic army 9 in the `11` save family to the sentinel, and a second pins an ordinary army in the same save to its numeric value, so a change that flattens both is caught.
+  5. **The sweep**: every other `ushort` field in `ArmyRecord`, `ArmyUnit` and `FleetRecord` is checked against the corpus for values outside its plausible range, and the PR body lists what was checked and what was found — including "nothing" where nothing was found. This is the instruction T30 was given for the tombstone, for the same reason: patching only the known site leaves the next one to be found by a user.
+  6. Every test skips with an explicit "original files not configured" result when `assets.local.ini` is absent; `dotnet build IC2.sln` and `dotnet test IC2.sln` are green; only Owns paths change.
+- **Hazards**:
+  - **Do not decide what −1 means.** The research pass settles that; this task transcribes its conclusion. If the report finds a defect in the original rather than a deliberate sentinel, the constant says so and the accessor still keeps `65535` from leaking — the code change is the same either way, only the doc comment differs.
+  - Do not widen any range check to accept the value generally. `0xFFFF` is specific, exactly as T30's hazard says for the owner word.
+  - Do not touch `src/IC2.Engine/**`. How the imported model represents this is T21's, under its own hazard line.
+  - The corpus numbers above are evidence to check against, not to re-derive: a sweep that reports different counts has found something, and says so.
+- **Constraint**: `local-only`. Cannot be dispatched to a machine without `C:\Users\diego\Documents\imp_conq_original`. See [build-process.md §8](build-process.md#8-adding-a-second-machine-later).
 
 ---
 
@@ -948,6 +973,8 @@ Conventions used by every entry:
   3. Importing onto a different ruleset or world id is rejected with the specified message.
   4. **Every test in this task skips with an explicit "original files not configured" result when `assets.local.ini` is absent**, so CI stays green on a machine without the user's files.
   5. An imported nation's tax base is SAV nation `+0x44c` and its wealth `+0x430`, read directly through T34's parse and never recomputed from the cities — a mid-quarter save's stored value legitimately differs from the rebuild ([`nation-tax-base-and-city-economy-fields.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/nation-tax-base-and-city-economy-fields.md)).
+  6. An army whose `moves` word is T44's `0xFFFF` sentinel imports to a stated, deliberate value — never to `65535`. The PR body says which value and why, citing T44's constant and the research report behind it.
+- **Hazards**: **`0xFFFF` in the army `moves` word is a sentinel, not a move count** (bug [#125](https://github.com/diegoami/imperial_conquest_2/issues/125), fixed in `IC2.Data` by T44). DoD 2's "zero unmapped fields" is satisfiable while mapping it straight through into `ArmyState.Moves`, which would give an imported army 65535 movement points; the corpus holds exactly one such army, so sampling only clean saves passes the DoD with the defect intact — the same shape as T30's tombstone hazard, and the reason DoD 1 already demands a mid-turn save.
 - **Constraint**: `local-only`. Cannot be dispatched to a machine without `C:\Users\diego\Documents\imp_conq_original`. See [build-process.md §8](build-process.md#8-adding-a-second-machine-later).
 
 #### T22 AI
@@ -1084,5 +1111,6 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T41](#t41-thin-cli-demo-on-the-toy-world-a-walking-skeleton) | Thin CLI demo (toy world) | M18 | Sonnet | Medium | Sonnet/High | T06, T08, T09, T10 | [#89](https://github.com/diegoami/imperial_conquest_2/issues/89) |
 | [T42](#t42-news-log-fidelity-slot-format-round-headers-and-the-corpuss-news-literals) | News-log fidelity | M17 | Sonnet | Medium | **Opus**/Medium | T10, T41 | [#92](https://github.com/diegoami/imperial_conquest_2/issues/92) |
 | [T43](#t43-victory-make-domination-reachable-and-run-the-check-each-round) | Victory fixes + round-tick check | M13 | Sonnet | Medium | **Opus**/Medium | T12 | [#110](https://github.com/diegoami/imperial_conquest_2/issues/110) |
+| [T44](#t44-ic2data-the-army-moves-sentinel-and-a-sweep-for-the-same-gap) | Army `moves` sentinel + parser sweep | — | Sonnet | Medium | **Opus**/Medium | T30, T34 | [#126](https://github.com/diegoami/imperial_conquest_2/issues/126) |
 
-**Totals** — 43 tasks: 4 Opus, 34 Sonnet, 4 Haiku, 1 Fable. Effort: 2 Ultrahigh, 17 High, 21 Medium, 3 Low.
+**Totals** — 44 tasks: 4 Opus, 35 Sonnet, 4 Haiku, 1 Fable. Effort: 2 Ultrahigh, 17 High, 22 Medium, 3 Low.
