@@ -221,6 +221,10 @@ foreach ($sfx in @("city_captured", "battle", "unit_move")) {
 
 $manifestPath = Join-Path -Path $OutputPath -ChildPath "manifest.json"
 $json = ConvertTo-Json $manifest -Depth 10
+# LF, matching the repository's .gitattributes (`* text=auto eol=lf`): ConvertTo-Json emits
+# CRLF on Windows, which would make the regenerated manifest differ from the committed one
+# byte for byte and fail the determinism check (repo-audit-2026-09-18.md §4.8).
+$json = $json -replace "`r`n", "`n"
 [System.IO.File]::WriteAllText($manifestPath, $json)
 
 Write-Host "Success: Generated placeholder asset pack at: $OutputPath"

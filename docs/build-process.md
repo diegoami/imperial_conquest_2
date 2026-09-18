@@ -126,7 +126,9 @@ The purpose-built reviewer agent is the **default gate**, not `/code-review`. Th
 
 The reviewer must also re-run DoD commands locally, including Godot-headless runs and local-only fixtures that a cloud reviewer cannot reach.
 
-`/code-review --effort high` runs **inside** every reviewer's run as a correctness sweep. `/code-review --effort ultra` adds scrutiny on the four Opus architecture PRs and on any PR at rework round 2. Every agent shares one GitHub account, so an ultra review launched from inside the pipeline is not independent. For **T16 and T22**, the user runs `/code-review --effort ultra` personally, from their own session.
+> **The skill cannot be used from inside a reviewer agent in this session.** Invoked there without an explicit target it forks; the fork runs in the main checkout rather than the reviewer's worktree, so `origin/main...HEAD` is empty and it falls back to `HEAD~1..HEAD` — reviewing whatever `main` merged last. On 2026-09-18 that wasted four review passes and twice produced nine confident findings about an unrelated commit, caught only because the main session noticed the findings named files outside the PR. **Reviewers sweep the diff inline instead**, and [Appendix B](#appendix-b-reviewer-prompt-template)'s gate 0 makes the target verifiable. If the skill is invoked at all, it gets the PR number as an explicit target, and its output is discarded unless every finding names a file from that PR's diff.
+
+The correctness sweep runs **inside** every reviewer's run. `/code-review --effort ultra` adds scrutiny on the four Opus architecture PRs and on any PR at rework round 2. Every agent shares one GitHub account, so an ultra review launched from inside the pipeline is not independent. For **T16 and T22**, the user runs `/code-review --effort ultra` personally, from their own session.
 
 ---
 
@@ -155,13 +157,15 @@ issue status:ready, every merge-after dependency merged
 
 ### 4.2 What the reviewer checks
 
+Before the gates, **gate 0: the reviewer proves it is looking at the right code** — its HEAD equals the PR's head, and its `origin/main...HEAD` file list equals the PR's own file list, with both pasted into the review ([Appendix B](#appendix-b-reviewer-prompt-template)). An empty diff means the wrong tree. Every finding must name a file from that diff; anything else is a separate report.
+
 Five gates, in order. Any failure means `status:rework`.
 
 1. **DoD, independently reproduced.** The reviewer runs the commands itself at the PR head. The PR body's evidence is a convenience, never the proof. A DoD line with no runnable check is itself a finding.
 2. **Provenance.** Every constant traces to a `tests/fixtures` entry, a cited report, or a `docs/investigations/` document. Any `[designed]` value must say *what was searched and came up empty* (`design-audit.md` §4.5).
 3. **Determinism.** Gameplay paths use no `System.Random`, no wall clock, no `Guid.NewGuid`, and no order-dependent iteration. Every random draw goes through `IRng`, and a seeded test proves reproducibility.
 4. **Scope.** Every changed file is inside the task's Owns list. A change outside it is a finding even if it's a good change. The PR's "Docs affected" list is plausible for what the diff does.
-5. **Correctness sweep.** `/code-review --effort high` over the diff.
+5. **Correctness sweep.** The reviewer reads the diff for ordinary bugs in its own context (§3.5 says why the skill is not used here).
 
 A defect the reviewer finds in **another task's already-merged** code is not a finding against this PR. It goes to the bug list ([§4.6](#46-bugs-and-follow-ups)).
 
@@ -224,7 +228,7 @@ In the same turn as the merge, the main session:
 
 1. **Unblocks.** Every `status:blocked` task whose merge-after dependencies are now all merged, and which isn't suspended on an open bug, becomes `status:ready`.
 2. **Files the follow-up** ([§4.6](#46-bugs-and-follow-ups)), if the review had non-blocking findings, and proposes where each item folds.
-3. **Applies "Docs affected".** It updates the document *claims* the merge made stale (a formula now implemented, an `[open]` item now closed, a new investigation's index row) in a small commit on `main`: `Docs: after T<nn>`. It writes no status: no task counts, no "as of" commits, no progress tables ([§5](#5-status-lives-on-github)).
+3. **Records the PR's "Docs affected" list**, and applies only what would otherwise leave a document **factually wrong**: a formula the code now implements differently, an `[open]` item the merge closed, a mis-attributed citation. Those go straight to `main` in a small `Docs:` commit, because a wrong provenance claim is what the review gates exist to catch. **Everything else waits for the release docs pass** ([release-plan.md §5](release-plan.md#5-release-checklist)): re-wording, counts, narrative and anything about where the build stands. Per-merge prose syncing was retired on 2026-09-18 — it was the step that kept drifting anyway, and the living pages now live in the [wiki](https://github.com/diegoami/imperial_conquest_2/wiki) where they carry no contractual force.
 4. **Cleans up** the agents' worktrees for the task.
 5. **Reports to the user**: the merge commit, what the review found, the follow-ups filed, and what is ready next.
 
@@ -411,6 +415,22 @@ own worktree at the PR head:
   git -C C:\Users\diego\projects\imperial_conquest_2 worktree add --detach C:\Users\diego\projects\ic2-work\T<nn>-review origin/task/T<nn>-<slug>
   <local-only tasks only> copy assets.local.ini from the main checkout into the worktree root.
 
+GATE 0 — PROVE YOU ARE LOOKING AT THE RIGHT CODE. Before reading or judging anything, run these
+four commands in your worktree and paste their output into your review comment:
+
+  git rev-parse HEAD                                  # must equal the PR's headRefOid
+  gh pr view <pr> --json headRefOid --jq .headRefOid
+  git diff --name-only origin/main...HEAD              # the files you are reviewing
+  gh pr view <pr> --json files --jq '.files[].path'    # the files the PR says it changed
+
+The two SHAs must match and the two file lists must match. If either differs, or if the diff is
+EMPTY, STOP: you are in the wrong tree or at the wrong commit. Say so and ask, rather than
+reviewing whatever you can see. An empty diff almost always means you are in the main checkout,
+where `origin/main...HEAD` resolves to nothing.
+
+Every finding you report must name a file from that diff. A finding about any other file is a
+separate report, never a finding against this PR (§4.2).
+
 Read: docs/task-catalogue.md (the task entry), docs/build-process.md §4.2 "What the reviewer
       checks", docs/game-design.md (milestone M<n>), docs/design-audit.md.
 <extra context: earlier review rounds' URLs, if this is a re-review.>
@@ -427,7 +447,13 @@ Run five gates, in order. Any failure is status:rework:
  4. Scope. Every changed file is inside the task's declared Owns list. A file outside it is a
     finding even if the change is good. Any diff to docs/*.md is an automatic rework. The PR's
     "Docs affected" list matches what the diff actually changes.
- 5. Correctness. Run /code-review --effort high over the diff for ordinary bugs.
+ 5. Correctness. Sweep the diff for ordinary bugs YOURSELF, in your own context.
+    Do NOT invoke the /code-review skill: from inside a reviewer agent it forks, the fork runs in
+    the MAIN CHECKOUT rather than your worktree, its `origin/main...HEAD` is empty there, and it
+    silently falls back to reviewing main's last commit. It produced full, confident findings about
+    an unrelated merged commit four times on 2026-09-18 (§3.5). If you invoke it anyway, pass the
+    PR number as an explicit target, then discard the run unless every finding names a file from
+    gate 0's diff.
 
 A defect you find in ANOTHER task's already-merged code is not a finding against this PR. Report
 it separately in your summary, so the main session files it as a bug (build-process.md §4.6).
@@ -474,10 +500,14 @@ Report to the user after each task; stop at any escalation.
      `gh pr update-branch <pr>` and wait for green again. For T16 and T22, stop and get the
      user's thumbs-up first. Then `gh pr merge <pr> --squash --delete-branch`, label
      status:merged, remove review-round:*, and make sure the issue closed. Go to step 4.
-   - status:rework: if the issue carries review-round:2, escalate (step 5). Otherwise set the
-     next round (none → review-round:1 → review-round:2) and send the implementer the FULL
-     review comment URL: SendMessage if it is reachable, else a fresh implementer resuming the
-     branch. Then go back to step 2.
+   - status:rework: FIRST check the review is about THIS PR — gate 0's output is present, and
+     every finding names a file in the PR's diff (`gh pr view <pr> --json files`). A review naming
+     files outside it reviewed the wrong tree: discard it, say so, and re-dispatch the reviewer.
+     Never relay it to the implementer.
+     Then, if the issue carries review-round:2, escalate (step 5). Otherwise set the next round
+     (none → review-round:1 → review-round:2) and send the implementer the FULL review comment
+     URL: SendMessage if it is reachable, else a fresh implementer resuming the branch. Then go
+     back to step 2.
 4. AFTER THE MERGE (build-process.md §4.7):
    - Unblock: each status:blocked task whose merge-after deps are all merged, and which isn't
      suspended on an open bug, becomes status:ready.

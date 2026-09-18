@@ -232,15 +232,78 @@ public class NewsLogWriterTests
         Assert.Equal("news.writer", seatEnd[^1].Id);
     }
 
-    /// <summary>The same pin, for <c>news.writer.round</c> within <c>RoundEnd</c>.</summary>
+    /// <summary>
+    /// The same pin, for <c>news.writer.round</c> within <c>RoundEnd</c> — with one explicit, documented
+    /// exception rather than a blanket "must be last".
+    /// </summary>
+    /// <remarks>
+    /// <strong>T43 allow-list (closing #105's RoundEnd wiring gap).</strong>
+    /// <c>victory.round-end-check</c> (<c>IC2.Engine.Victory.VictoryCheckSystem</c>) is also declared at
+    /// <c>Order = int.MaxValue</c>, with an id that sorts after <c>"news.writer.round"</c> ordinally — so
+    /// it now genuinely runs after this writer, by design (<c>docs/task-catalogue.md</c> T43 DoD 5:
+    /// victory must be evaluated against the state the round actually ended in, which includes whatever
+    /// this writer's own flush and header append did). That is safe specifically because neither
+    /// <c>IC2.Engine.Victory.GameWon</c> nor <c>IC2.Engine.Victory.GameExpired</c> is news-worthy: T42
+    /// reclassified the only two corpus literals that name a victory outcome
+    /// (<c>gameOverForm.victoryAllCities</c>, <c>gameOverForm.conqueredByNation</c>) out of
+    /// <c>newsMessage.*</c>, since both are <c>THumanFalls_InitializeForm</c> game-over-screen labels that
+    /// never reach the news log — so there is no news line for a system running after this writer to
+    /// lose. <see cref="SafeToRunAfterTheNewsWriter"/> is the only escape from the tripwire #91 N18 built
+    /// this test to be (see <see cref="NewsWriter_IsLast_InSeatEnd_AcrossTheWholeEngineAssembly"/>'s
+    /// remarks): a future <c>RoundEnd</c> system that runs after the writer and <em>does</em> publish a
+    /// news-worthy event still fails this test the moment it is introduced, unless it is added to the
+    /// list with its own stated reason for being safe.
+    /// </remarks>
     [Fact]
     public void NewsWriterRound_IsLast_InRoundEnd_AcrossTheWholeEngineAssembly()
     {
         var registry = SystemRegistry.FromEngineAssembly();
-
         var roundEnd = registry.InPhase(TurnPhase.RoundEnd);
 
         Assert.NotEmpty(roundEnd);
-        Assert.Equal("news.writer.round", roundEnd[^1].Id);
+
+        var writerIndex = IndexOfId(roundEnd, "news.writer.round");
+        Assert.True(writerIndex >= 0, "news.writer.round must be registered in RoundEnd.");
+
+        for (var i = writerIndex + 1; i < roundEnd.Count; i++)
+        {
+            Assert.Contains(roundEnd[i].Id, SafeToRunAfterTheNewsWriter);
+        }
+
+        // T43 DoD 5, pinned from the other side too: victory.round-end-check must actually be one of the
+        // systems that runs after the writer, not merely permitted to.
+        var victoryIndex = IndexOfId(roundEnd, "victory.round-end-check");
+        Assert.True(victoryIndex >= 0, "victory.round-end-check must be registered in RoundEnd.");
+        Assert.True(
+            victoryIndex > writerIndex,
+            "victory.round-end-check must run after news.writer.round, per T43 DoD 5.");
+    }
+
+    /// <summary>
+    /// Every <c>RoundEnd</c> system id allowed to sort after <c>"news.writer.round"</c> — each entry must
+    /// name why running after the writer can never lose a news line.
+    /// </summary>
+    private static readonly HashSet<string> SafeToRunAfterTheNewsWriter = new(StringComparer.Ordinal)
+    {
+        // IC2.Engine.Victory.VictoryCheckSystem (docs/task-catalogue.md T43 DoD 5): publishes only
+        // GameWon/GameExpired, both declared NewsWorthy = false -- no corpus literal describes a
+        // news-log line for a win (the two related literals, gameOverForm.victoryAllCities and
+        // gameOverForm.conqueredByNation, are THumanFalls_InitializeForm game-over-screen labels, T42's
+        // own reclassification out of newsMessage.*) -- so nothing this system ever publishes could be
+        // lost by running after the writer.
+        "victory.round-end-check",
+    };
+
+    private static int IndexOfId(IReadOnlyList<RegisteredSystem> systems, string id)
+    {
+        for (var i = 0; i < systems.Count; i++)
+        {
+            if (string.Equals(systems[i].Id, id, StringComparison.Ordinal))
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 }

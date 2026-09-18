@@ -4,7 +4,7 @@ This page holds no content of its own. It stays so that old references to it sti
 
 - **The process** (roles, the task loop, review, bugs, templates) is [build-process.md](build-process.md). The orchestrator layer this plan described was retired on 2026-09-14. The main session now runs tasks directly with `/run-task`.
 - **The tasks, their dependency graph and index** are in [task-catalogue.md](task-catalogue.md). Each task's entry anchor is unchanged (below).
-- **Where the build stands** is on GitHub's labels ([operating-guide.md §1](operating-guide.md#1-where-the-build-stands)).
+- **Where the build stands** is on GitHub's labels ([operating-guide.md §1](https://github.com/diegoami/imperial_conquest_2/wiki/Where-the-build-stands)).
 
 A reference to "`build-orchestration-plan.md` T<nn> … Done-when N" means the same Done-when line in that task's catalogue entry, unless the catalogue has since amended it.
 
