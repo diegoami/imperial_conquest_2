@@ -8,8 +8,8 @@ body:
       value: |
         One issue per catalogue entry. Fill the fields exactly as the task's entry in
         [`docs/task-catalogue.md` §2](https://github.com/diegoami/imperial_conquest_2/blob/main/docs/task-catalogue.md#2-the-tasks)
-        states them — the plan is the binding contract, this issue is the orchestrator's copy of it.
-        The orchestrator manages the `status:*` labels; do not set them by hand.
+        states them — the plan is the binding contract, this issue is the main session's copy of it.
+        The main session manages the `status:*` labels; do not set them by hand.
 
   - type: input
     id: design-milestone
@@ -24,7 +24,7 @@ body:
     id: labels
     attributes:
       label: Labels
-      description: The phase and lane labels from the catalogue entry (the orchestrator applies them).
+      description: The phase and lane labels from the catalogue entry (the main session applies them).
       placeholder: "phase:1 lane:engine"
     validations:
       required: true

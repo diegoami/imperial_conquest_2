@@ -1,6 +1,6 @@
 # The evidence-processing pipeline: `/process-evidence`
 
-A second pipeline, separate from the build pipeline in [build-process.md](build-process.md). That one turns a settled design into code; this one turns new play evidence (saves, recordings, session notes) into settled design — the step that has to happen *before* the task catalogue can be trusted. It runs as a Claude Code skill (`.claude/skills/process-evidence/SKILL.md`), invoked as `/process-evidence [path or description]`. This document is the source of truth for the skill's content, the same relationship [build-process.md Appendix C](build-process.md#appendix-c-the-run-task-skill) has to `/build-tick`: the skill is a local, git-ignored install, reinstalled verbatim from the fenced block below if it is ever missing.
+A second pipeline, separate from the build pipeline in [build-process.md](build-process.md). That one turns a settled design into code; this one turns new play evidence (saves, recordings, session notes) into settled design — the step that has to happen *before* the task catalogue can be trusted. It runs as a Claude Code skill (`.claude/skills/process-evidence/SKILL.md`), invoked as `/process-evidence [path or description]`. This document is the source of truth for the skill's content, the same relationship [build-process.md Appendix C](build-process.md#appendix-c-the-run-task-skill) has to `/run-task`: the skill is a local, git-ignored install, reinstalled verbatim from the fenced block below if it is ever missing.
 
 ## What triggers it
 

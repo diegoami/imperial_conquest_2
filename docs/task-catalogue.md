@@ -1,4 +1,4 @@
-# Task catalogue: the 43 build tasks
+# Task catalogue
 
 Every build task's scope, **Owns** list, Definition of Done, model/effort, reviewer and dependencies, plus the dependency graph and the task index. **How** tasks are dispatched, reviewed and merged is in [build-process.md](build-process.md); operating the project day to day is in [operating-guide.md](operating-guide.md).
 

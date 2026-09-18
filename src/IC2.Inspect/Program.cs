@@ -1,4 +1,4 @@
-﻿using IC2.Data;
+using IC2.Data;
 using IC2.Inspect;
 
 if ((args.Length == 2 && args[0] == "--corpus-outcomes") ||

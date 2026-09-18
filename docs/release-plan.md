@@ -1,6 +1,6 @@
-# Release plan: versioning, tags, and release notes for the 31-task build
+# Release plan: versioning, tags, and release notes
 
-This document says **when a version number changes, what it is called, who creates it, and what has to be true before it exists**. It sits alongside [game-design.md](game-design.md) (*what* is being built — 20 design milestones), [task-catalogue.md](task-catalogue.md) (the 43 tasks that build it, in 4 phases, with a critical path) and [build-process.md](build-process.md) (*how* — an implementer/reviewer/orchestrator pipeline over GitHub issues).
+This document says **when a version number changes, what it is called, who creates it, and what has to be true before it exists**. It sits alongside [game-design.md](game-design.md) (*what* is being built — 20 design milestones), [task-catalogue.md](task-catalogue.md) (the 43 tasks that build it, in 4 phases, with a critical path) and [build-process.md](build-process.md) (*how* — an implementer/reviewer pipeline over GitHub issues).
 
 It **invents no new structure**. Every release gate below is a set of task issues from the [task index](task-catalogue.md#3-task-index); every human sign-off is one the [standing governance decisions](build-process.md#9-standing-governance-decisions) already reserve to the user; the reviewer of a release note is the pipeline's existing reviewer role, not a new one. Where this document *decides* something, it says so; where it only *recommends*, it says that too.
 
