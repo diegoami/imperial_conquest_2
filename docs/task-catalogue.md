@@ -4,7 +4,7 @@ Every build task's scope, **Owns** list, Definition of Done, model/effort, revie
 
 **Status is not in this document.** Each task's stage (ready, in progress, merged, blocked, escalated) lives only in its GitHub issue's `status:*` label ([build-process.md §5](build-process.md#5-status-lives-on-github)). The index below links every issue.
 
-50 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), twelve corrections to already-merged code (T31–T35, T38–T40, T42–T45), one rule no task owned (T37, the weekly city supply step), and two early slices — T41 of T23's CLI, and T47 of T24's Godot UI.
+51 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), twelve corrections to already-merged code (T31–T35, T38–T40, T42–T45), one rule no task owned (T37, the weekly city supply step), and two early slices — T41 of T23's CLI, and T47 of T24's Godot UI.
 
 ---
 
@@ -74,6 +74,8 @@ graph TD
   T47 --> T48[T48 asset-pack icons]
   T48 --> T24
   T11 --> T49[T49 asset spec]
+  T49 --> T51[T51 asset generator]
+  T51 --> T24
   T49 --> T24
   T46 --> T22
   T32 --> T14
@@ -1217,6 +1219,38 @@ Conventions used by every entry:
 
 ---
 
+#### T51 The prompt-driven asset generator
+
+- **Design milestone**: none — the authoring tool that turns T49's specification into an actual pack. **Labels**: `phase:2 lane:ui local-only single-instance`
+- **Branch**: `task/T51-asset-generator` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
+- **Start after**: T49 · **Merge after**: T11, T49 — and **merged before T24**
+- **Owns**: `scripts/generate-authored-assets.*`, `assets/prompts.json` (new), `assets/packs/authored/**` (new pack), `tests/IC2.Engine.Tests/Assets/AuthoredPackConformanceTests.cs` (new file only — **not** the rest of that folder, which is T11's, T48's and T49's)
+- **Scope**: A **one-shot, re-runnable authoring tool**, in the shape T29's world export already established: a human runs it when the prompts change, and the **committed output** is what every build, test and player uses. CI never calls it and holds no key.
+
+  It reads `assets/prompts.json` — one prompt per `AssetKeys` constant, authored **from T49's specification**, whose depiction lines exist precisely to be turned into prompts — calls an image-generation API, conforms each result to the specification's format rules, and writes `assets/packs/authored/` with a manifest in the same shape as T11's placeholder pack.
+
+  **It does not replace the placeholder pack.** `assets/packs/placeholder/**` is T11's, is deliberately flat-coloured, and is what the deterministic tests run against. This is a second pack beside it.
+
+  **Non-determinism is the defining constraint and shapes every DoD line below.** The same prompt does not give the same pixels twice, so **byte-level regeneration tests are impossible and must not be attempted** — the committed images are the source of truth, exactly as T29's exported JSON is. What *can* be pinned is **conformance**: dimensions, format, colour depth, transparency, palette use and manifest completeness. Pin those, and nothing else.
+- **Done when**:
+  1. `assets/prompts.json` carries one prompt per `AssetKeys` constant, each traceable to the depiction line in `docs/asset-specification.md` it was written from. A key with no prompt, or a prompt with no key, fails the conformance test.
+  2. The script reads its endpoint, model and **API key from a git-ignored local config** (the `assets.local.ini` pattern: machine-specific, never committed, never printed to the console or into a log). The provider is **not hardcoded** — it is named in that config and recorded in the PR body. **The key must never appear in the diff, the manifest, or any committed file.**
+  3. **A dry run comes first and costs nothing**: a `-WhatIf`-style switch lists every prompt it would send and the number of images, so the bill is visible before it is incurred. Running the generator for real is a deliberate act, not a side effect of running a script.
+  4. **Regeneration is per key.** Re-running for one asset must not re-bill the other forty. A full run is the exception, not the default.
+  5. Every produced image is conformed to `docs/asset-specification.md` §1: **32×32**, BMP, 24-bit opaque for terrain tiles and 32-bit BGRA for markers and icons, with the nation palette applied where the asset is nation-coloured. Asserted by a test that reads the committed pack — not by trusting the generator.
+  6. `AssetLoader.ValidateAssets` reports **zero** missing files for the new pack, and its manifest parses through the same `AssetPack` type the placeholder pack uses.
+  7. **The prompts describe generic ancient-Mediterranean subjects and never reference the original game, its art, its name or its screenshots.** The output must be new work, not a derivative of assets that may never enter this repository — the same constraint that made T49 a requirements document rather than an extraction plan, applied at the point where art is actually produced.
+  8. **The PR states the provider's terms** for the generated images — specifically that they may be redistributed in a public repository. The pack ships inside the repo, so this is a licensing question with a public consequence, not a formality.
+  9. `dotnet build IC2.sln` and `dotnet test IC2.sln` are green **with no key present**, which is the CI condition: the conformance test reads committed files and never generates.
+- **Hazards**:
+  - **Do not make the generator a build step, and do not wire it into CI.** It costs money per run and needs a key CI will never have. The committed pack is the contract.
+  - **Do not attempt a determinism or byte-equality test.** The output is not reproducible, and a test asserting otherwise would either fail forever or be quietly weakened — this project has been bitten by weakened assertions repeatedly. Conformance is the testable property; say so in the test's own remarks.
+  - **Do not modify `assets/packs/placeholder/**`, `scripts/generate-placeholder-assets.*` or `src/IC2.Engine/Assets/**`** — T11's. If `AssetLoader` lacks something this task needs, that is a finding to report, not an edit to make.
+  - **Never commit or echo the key.** Add its config file to `.gitignore` in the same commit that first reads it, and check `git status` before every commit.
+  - `single-instance` in the practical sense: a full run is a long, billable, network-bound operation. One at a time, and never two agents generating at once.
+
+---
+
 #### T24 Godot main game screen
 
 - **Design milestone**: **M18** (UI half). **Labels**: `phase:3 lane:ui single-instance`
@@ -1328,5 +1362,6 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T48](#t48-draw-armies-and-cities-from-the-asset-pack) | Asset-pack icons for armies and cities | — | Sonnet | High | Sonnet/High | T11, T47 | [#157](https://github.com/diegoami/imperial_conquest_2/issues/157) |
 | [T49](#t49-the-asset-inventory-and-format-specification) | Asset inventory + format spec | — | Sonnet | High | **Opus**/Medium | T11 | [#159](https://github.com/diegoami/imperial_conquest_2/issues/159) |
 | [T50](#t50-economy-and-naval-command-hygiene) | Economy + naval command hygiene | — | Sonnet | High | **Opus**/Medium | T39, T46 | [#168](https://github.com/diegoami/imperial_conquest_2/issues/168) |
+| [T51](#t51-the-prompt-driven-asset-generator) | Prompt-driven asset generator | — | Sonnet | High | **Opus**/Medium | T11, T49 | [#173](https://github.com/diegoami/imperial_conquest_2/issues/173) |
 
-**Totals** — 50 tasks: 4 Opus, 41 Sonnet, 4 Haiku, 1 Fable. Effort: 2 Ultrahigh, 22 High, 23 Medium, 3 Low.
+**Totals** — 51 tasks: 4 Opus, 42 Sonnet, 4 Haiku, 1 Fable. Effort: 2 Ultrahigh, 23 High, 23 Medium, 3 Low.
