@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.RegularExpressions;
 using IC2.Engine.Presentation;
 using IC2.Engine.Tests.Core;
 using Xunit;
@@ -71,13 +72,17 @@ public sealed class GameSessionTests
     }
 
     /// <summary>
-    /// Done-when 2, second half: "A different <c>--seed</c> changes only what the RNG drives, such as
-    /// weather." The only RNG-driven system that fires in this script is <see cref="Economy.WeatherEventSystem"/>
+    /// Done-when 2, second half: "A different <c>--seed</c> changes only what the RNG drives." Two systems
+    /// in this script read <c>SystemContext.Rng</c>, in draw order: <see cref="Economy.WeatherEventSystem"/>
     /// (<see cref="GameSession"/> surfaces it as a "  Weather: ..." line distinct from the news log, which
-    /// this script never populates); nothing else in the transcript reads <c>SystemContext.Rng</c>.
+    /// this script never populates) and, once the script's <c>end</c> commands cross a quarter boundary,
+    /// <see cref="Economy.CityLoyaltyDraws"/> (T35 — its rise/fall rolls change a city's <c>loyalty NN</c>
+    /// field in the "Cities:" listing; its rebellion-risk event never fires in this script, so the news log
+    /// stays empty either way). Nothing else in the transcript reads the RNG, so every other line, and every
+    /// other field of the "Cities:" lines, is asserted byte-for-byte equal.
     /// </summary>
     [Fact]
-    public void A_different_seed_changes_only_the_weather_lines()
+    public void A_different_seed_changes_only_the_weather_and_loyalty_lines()
     {
         var scriptLines = File.ReadAllLines(DemoScriptPath);
 
@@ -88,13 +93,27 @@ public sealed class GameSessionTests
         // be vacuously true.
         Assert.NotEqual(first, second);
 
-        var firstNonWeather = WithoutWeatherLines(first);
-        var secondNonWeather = WithoutWeatherLines(second);
-        Assert.Equal(firstNonWeather, secondNonWeather);
+        var firstNormalized = WithoutRandomDrivenText(first);
+        var secondNormalized = WithoutRandomDrivenText(second);
+        Assert.Equal(firstNormalized, secondNormalized);
     }
 
-    private static string WithoutWeatherLines(string transcript) =>
-        string.Join('\n', transcript.Split('\n').Where(line => !line.TrimStart().StartsWith("Weather:", StringComparison.Ordinal)));
+    /// <summary>Matches exactly the "loyalty NN" field <see cref="GameSessionRendering.RenderStatus"/> prints
+    /// in a "Cities:" line -- the one field <see cref="Economy.CityLoyaltyDraws"/> can change.</summary>
+    private static readonly Regex LoyaltyFieldPattern = new(@"loyalty \d+", RegexOptions.Compiled);
+
+    /// <summary>
+    /// Drops the weather lines entirely (every character of one is random-driven) and, in every remaining
+    /// line, blanks out only the "loyalty NN" field (the one field the quarterly loyalty draws can change).
+    /// Everything else in every line -- including the rest of each "Cities:" line: id, name, coordinates,
+    /// owner, supply, fortification -- is left untouched, so it still has to match exactly.
+    /// </summary>
+    private static string WithoutRandomDrivenText(string transcript) =>
+        string.Join(
+            '\n',
+            transcript.Split('\n')
+                .Where(line => !line.TrimStart().StartsWith("Weather:", StringComparison.Ordinal))
+                .Select(line => LoyaltyFieldPattern.Replace(line, "loyalty ##")));
 
     /// <summary>
     /// Review round 1: "make sure no other session command can throw on bad input: unknown army or
