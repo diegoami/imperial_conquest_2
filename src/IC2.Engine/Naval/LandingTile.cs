@@ -28,10 +28,10 @@ public static class LandingTile
     }
 
     /// <summary>
-    /// The first passable-for-army tile adjacent to (or, if it happens to be land, on) <paramref name="from"/>,
-    /// scanning the nine cells in a fixed, deterministic order (the point itself, then its eight
-    /// neighbours row-major, north-west first) — the same convention <see cref="CoastalCity.FirstAdjacentSeaTile"/>
-    /// uses for the equivalent sea-side lookup. <see langword="null"/> if none is passable.
+    /// The first passable-for-army tile in the 3x3 block centred on <paramref name="from"/>, scanned
+    /// row-major, north-west first (so <paramref name="from"/> itself is the fifth cell checked, not the
+    /// first) — the same convention <see cref="CoastalCity.FirstAdjacentSeaTile"/> uses for the
+    /// equivalent sea-side lookup. <see langword="null"/> if none is passable.
     /// </summary>
     public static GridPoint? FirstAdjacentLandTile(GridPoint from, World world)
     {
