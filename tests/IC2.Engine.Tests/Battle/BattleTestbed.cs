@@ -30,15 +30,30 @@ public static class BattleTestbed
 {
     /// <summary>
     /// The fixed seed every Done-when check runs under. Arbitrary, and carrying no meaning beyond
-    /// reproducibility — but not picked blind: it was chosen (by the scan in this file's own history)
-    /// so that its draw sequence exercises both sides of every seeded rule rather than one side of each.
-    /// Its first three <c>random(4)</c> draws are <c>2, 0, 3</c>, so on a three-unit winner exactly the
-    /// middle unit wins the further promotion and the other two do not; its fourth draw,
-    /// <c>random(5) = 1</c>, passes the <c>&lt; 2</c> peace roll; its first two naval bands differ
-    /// (<c>2</c> then <c>0</c>); and a scatter distance drawn from <c>[2, 5)</c> comes out <c>3</c>, the
-    /// middle of the range rather than an endpoint.
+    /// reproducibility — but not picked blind: it was chosen (by a scan kept in this file's history) so
+    /// that its draw sequence exercises both sides of every seeded rule rather than one side of each.
+    /// For a three-slot winner in a scattered field battle it draws, in order:
+    /// <list type="bullet">
+    /// <item><description>
+    /// three casualty divisors, <c>random(15) = 13, 5, 11</c> — three <em>different</em> divisors (118,
+    /// 110, 116), so a per-unit expression cannot be mistaken for one shared multiplier;
+    /// </description></item>
+    /// <item><description>
+    /// three promotion rolls, <c>random(4) = 2, 0, 1</c> — exactly the middle unit wins the further
+    /// promotion and the other two do not;
+    /// </description></item>
+    /// <item><description>the peace roll, <c>random(5) = 1</c>, which passes the <c>&lt; 2</c> gate;</description></item>
+    /// <item><description>
+    /// two more casualty divisors for the loser, <c>random(15) = 6, 5</c> (111 and 110);
+    /// </description></item>
+    /// <item><description>
+    /// the scatter distance, <c>3</c> from <c>[2, 5)</c> — the middle of the range rather than an endpoint,
+    /// and the one distance whose ideal tile is blocked by a city, so the ring search is exercised too.
+    /// </description></item>
+    /// </list>
+    /// Its first two naval bands also differ (<c>3</c> then <c>1</c>).
     /// </summary>
-    public const ulong Seed = 0xEAUL;
+    public const ulong Seed = 0x183UL;
 
     /// <summary>The toy scenario's world.</summary>
     public static World World => CoreTestbed.Toy.World;

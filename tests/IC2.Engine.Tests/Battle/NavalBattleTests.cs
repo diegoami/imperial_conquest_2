@@ -30,12 +30,12 @@ public class NavalBattleTests
         var events = new RecordingEventSink();
         var (after, result) = Resolve(state, BattleTestbed.Destroyed, events);
 
-        // base 20×100/10 = 200, band 200×10/100 = 20, first draw 2 → 200 + 40 = 240.
-        Assert.Equal(240, result.AttackerPower);
+        // base 20×100/10 = 200, band 200×10/100 = 20, first draw 3 → 200 + 60 = 260.
+        Assert.Equal(260, result.AttackerPower);
 
         // base 10×80/10 = 80, plus the carried army's siege strength (1,000/80 = 12; ×60 = 720) / 50 = 14
-        // → 94; band 9; second draw 0 → 94.
-        Assert.Equal(94, result.DefenderPower);
+        // → 94; band 9; second draw 1 → 103.
+        Assert.Equal(103, result.DefenderPower);
         Assert.Equal(BattleSide.Attacker, result.Winner);
         Assert.Equal(LoserFate.Destroyed, result.LoserFate);
 
@@ -57,7 +57,7 @@ public class NavalBattleTests
 
         var (lopsidedAfter, lopsided) = Resolve(CarriedCargoFixture(), BattleTestbed.Destroyed);
 
-        // r = max(1, 94 × 100 / 240) = 39; d = 39² / 100 = 15.
+        // r = max(1, 103 × 100 / 260) = 39; d = 39² / 100 = 15.
         var ratio = Math.Max(1, (lopsided.LoserPower * naval.DamageRatioScale) / lopsided.WinnerPower);
         var damage = (ratio * ratio) / naval.DamageRatioScale;
         Assert.Equal(39, ratio);
@@ -70,8 +70,8 @@ public class NavalBattleTests
         Assert.Equal(19, lopsidedAfter.FleetById(Attacker)!.Ships);
         Assert.Equal(95, lopsidedAfter.FleetById(Attacker)!.ConditionPercent);
 
-        // The same 20-ship attacker against a nearly equal fleet pays far more: 190 vs 240 gives
-        // r = 79, d = 62, so 4 ships and 20 condition instead of 1 and 5.
+        // The same 20-ship attacker against a nearly equal fleet pays far more: 209 vs 260 gives
+        // r = 80, d = 64, so 4 ships and 21 condition instead of 1 and 5.
         var closeState = BattleTestbed.StateWith(
             fleets: new[]
             {
@@ -80,9 +80,9 @@ public class NavalBattleTests
             });
 
         var (_, close) = Resolve(closeState, BattleTestbed.Destroyed);
-        Assert.Equal(190, close.DefenderPower);
+        Assert.Equal(209, close.DefenderPower);
         Assert.Equal(4, close.WinnerShipsLost);
-        Assert.Equal(20, close.WinnerConditionLost);
+        Assert.Equal(21, close.WinnerConditionLost);
         Assert.True(close.WinnerShipsLost > lopsided.WinnerShipsLost);
         Assert.True(close.WinnerConditionLost > lopsided.WinnerConditionLost);
     }
@@ -101,43 +101,54 @@ public class NavalBattleTests
             {
                 BattleTestbed.EmbarkedArmy(
                     "north-cargo", "north", Attacker, 0, 2, 60,
-                    BattleTestbed.Unit("light_infantry", 100, 6, "A"),
-                    BattleTestbed.Unit("light_infantry", 100, 6, "B"),
-                    BattleTestbed.Unit("light_infantry", 100, 6, "C"),
-                    BattleTestbed.Unit("light_infantry", 100, 6, "D")),
+                    BattleTestbed.Unit("light_infantry", 1000, 6, "A"),
+                    BattleTestbed.Unit("light_infantry", 1000, 6, "B"),
+                    BattleTestbed.Unit("light_infantry", 1000, 6, "C"),
+                    BattleTestbed.Unit("light_infantry", 1000, 6, "D")),
             },
             fleets: new[]
             {
                 BattleTestbed.Fleet(Attacker, "north", 0, 2, 20, 100, "north-cargo"),
-                BattleTestbed.Fleet(Defender, "south", 0, 3, 22, 100),
+                BattleTestbed.Fleet(Defender, "south", 0, 3, 29, 100),
             });
 
         var (after, result) = Resolve(state, BattleTestbed.Destroyed);
 
-        // 200 + (400/80 × 60) / 50 = 200 + 6 = 206; band 20; first draw 2 → 246.
-        Assert.Equal(246, result.AttackerPower);
-        Assert.Equal(220, result.DefenderPower);
+        // 200 + (4,000/80 × 60) / 50 = 200 + 60 = 260; band 26; first draw 3 → 338.
+        Assert.Equal(338, result.AttackerPower);
+        Assert.Equal(319, result.DefenderPower);
 
-        var ratio = (result.LoserPower * naval.DamageRatioScale) / result.WinnerPower;
-        var damage = (ratio * ratio) / naval.DamageRatioScale;
-        Assert.Equal(89, ratio);
-        Assert.Equal(79, damage);
+        var damageRatio = (result.LoserPower * naval.DamageRatioScale) / result.WinnerPower;
+        var damage = (damageRatio * damageRatio) / naval.DamageRatioScale;
+        Assert.Equal(94, damageRatio);
+        Assert.Equal(88, damage);
         Assert.True(damage > naval.UnitLossDamageThreshold);
 
         Assert.Equal((4 * damage) / naval.UnitLossDivisor, result.WinnerUnitsLost);
         Assert.Equal(1, result.WinnerUnitsLost);
 
-        // 35 troops spread over four equal slots as 9/9/9/8, then the seed's third draw (3) removes the
-        // fourth slot outright.
-        Assert.Equal(new[] { 9, 9, 9, 8 }, result.UnitCasualties.Select(c => c.TroopsLost).ToArray());
-        var cargo = after.ArmyById("north-cargo")!;
-        Assert.Equal(new[] { "A", "B", "C" }, cargo.Units.Select(u => u.Name).ToArray());
-        Assert.Equal(new[] { 91, 91, 91 }, cargo.Units.Select(u => u.Troops).ToArray());
+        // The carried army takes the same per-unit expression as a field winner, at ratio
+        // 319 x 40 / 338 = 37 and divisors 116, 115, 105, 111:
+        //   1000/116 = 8 -> 296     1000/115 = 8 -> 296
+        //   1000/105 = 9 -> 333     1000/111 = 9 -> 333
+        var casualtyRatio =
+            (result.LoserPower * BattleTestbed.Destroyed.Combat.WinnerCasualtyNumerator) / result.WinnerPower;
+        Assert.Equal(37, casualtyRatio);
+        Assert.Equal(
+            new[] { 116, 115, 105, 111 }.Select(d => (1000 / d) * casualtyRatio).ToArray(),
+            result.UnitCasualties.Select(c => c.TroopsLost).ToArray());
+        Assert.Equal(new[] { 296, 296, 333, 333 }, result.UnitCasualties.Select(c => c.TroopsLost).ToArray());
 
-        // Every troop the winner's carried army lost is accounted for: 35 to attrition plus the 92 that
-        // went down with the removed slot.
-        Assert.Equal(35 + 92, result.WinnerCasualties);
-        Assert.Equal(400 - result.WinnerCasualties, cargo.TotalTroops);
+        // Then the d > 70 branch removes one whole slot, picked by the next draw (1) -- slot "B".
+        var cargo = after.ArmyById("north-cargo")!;
+        Assert.Equal(new[] { "A", "C", "D" }, cargo.Units.Select(u => u.Name).ToArray());
+        Assert.Equal(new[] { 704, 667, 667 }, cargo.Units.Select(u => u.Troops).ToArray());
+
+        // Every troop the winner's carried army lost is accounted for: 1,258 to attrition plus the 704
+        // that went down with the removed slot.
+        Assert.Equal(296 + 296 + 333 + 333 + 704, result.WinnerCasualties);
+        Assert.Equal(1962, result.WinnerCasualties);
+        Assert.Equal(4000 - result.WinnerCasualties, cargo.TotalTroops);
     }
 
     /// <summary>
@@ -261,11 +272,11 @@ public class NavalBattleTests
 
         var (after, result) = Resolve(state, BattleTestbed.Scatter);
 
-        Assert.Equal(1200, result.AttackerPower);
-        Assert.Equal(1014, result.DefenderPower);
+        Assert.Equal(1300, result.AttackerPower);
+        Assert.Equal(1115, result.DefenderPower);
         Assert.Equal(LoserFate.Scattered, result.LoserFate);
-        Assert.Equal(47, result.LoserCasualties);
-        Assert.Equal(100 - 47, after.FleetById(Defender)!.Ships);
+        Assert.Equal(46, result.LoserCasualties);
+        Assert.Equal(100 - 46, after.FleetById(Defender)!.Ships);
 
         var survivor = after.FleetById(Defender)!;
         var cargo = after.ArmyById(Cargo)!;

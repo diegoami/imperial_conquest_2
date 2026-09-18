@@ -7,26 +7,26 @@ using Xunit;
 namespace IC2.Engine.Tests.Battle;
 
 /// <summary>
-/// Done-when 3's "integer semantics pinned" clause, and the distribution rule the figure is applied
-/// through, exercised directly on <see cref="BattleCasualties"/> rather than only through a whole
-/// battle.
+/// Done-when 3's "integer semantics pinned" clause, exercised directly on
+/// <see cref="BattleCasualties"/> rather than only through a whole battle: the ratio's own arithmetic,
+/// and the per-unit expression the ratio is fed into.
 /// </summary>
 public class BattleCasualtyArithmeticTests
 {
     /// <summary>
     /// <c>loserPower × numerator / winnerPower</c>: the multiplication first, then exactly one truncating
-    /// division. The alternative grouping deletes the casualties entirely for any realistic power.
+    /// division. The alternative grouping deletes the ratio entirely for any realistic power.
     /// </summary>
     [Theory]
     [InlineData(3600, 6120, 23)]   // 144,000 / 6,120 = 23.52 -> 23
-    [InlineData(6120, 6120, 40)]   // an even fight costs the winner the numerator itself
+    [InlineData(6120, 6120, 40)]   // an even fight passes the numerator itself
     [InlineData(1, 6120, 0)]       // a hopeless loser costs the winner nothing at all
     [InlineData(6119, 6120, 39)]   // 244,760 / 6,120 = 39.99 -> 39, not 40: truncation, not rounding
-    public void TheCasualtyFigureTruncatesOnceAfterMultiplying(int loserPower, int winnerPower, int expected)
+    public void TheRatioTruncatesOnceAfterMultiplying(int loserPower, int winnerPower, int expected)
     {
         var numerator = BattleTestbed.Destroyed.Combat.WinnerCasualtyNumerator;
-        Assert.Equal(expected, BattleCasualties.Count(loserPower, winnerPower, numerator));
-        Assert.Equal((loserPower * numerator) / winnerPower, BattleCasualties.Count(loserPower, winnerPower, numerator));
+        Assert.Equal(expected, BattleCasualties.Ratio(loserPower, winnerPower, numerator));
+        Assert.Equal((loserPower * numerator) / winnerPower, BattleCasualties.Ratio(loserPower, winnerPower, numerator));
     }
 
     /// <summary>
@@ -35,73 +35,151 @@ public class BattleCasualtyArithmeticTests
     /// make the winner of any real battle invulnerable.
     /// </summary>
     [Fact]
-    public void TheOtherGroupingWouldDeleteTheCasualtiesEntirely()
+    public void TheOtherGroupingWouldDeleteTheRatioEntirely()
     {
         var numerator = BattleTestbed.Destroyed.Combat.WinnerCasualtyNumerator;
 
         Assert.Equal(0, numerator / 6120);
         Assert.Equal(0, 3600 * (numerator / 6120));
-        Assert.Equal(23, BattleCasualties.Count(3600, 6120, numerator));
+        Assert.Equal(23, BattleCasualties.Ratio(3600, 6120, numerator));
     }
 
     /// <summary>Two empty armies divide by nothing rather than throwing.</summary>
     [Fact]
     public void AZeroPowerWinnerCostsNothingRatherThanDividingByZero()
     {
-        Assert.Equal(0, BattleCasualties.Count(0, 0, BattleTestbed.Destroyed.Combat.WinnerCasualtyNumerator));
+        Assert.Equal(0, BattleCasualties.Ratio(0, 0, BattleTestbed.Destroyed.Combat.WinnerCasualtyNumerator));
     }
 
     /// <summary>
-    /// The figure the resolver applies is the one the T04 corpus transcribes from the decompilation:
-    /// <c>winner casualties = loserPower * 40 / winnerPower</c>, with the numerator the shipped ruleset
-    /// carries.
+    /// The per-unit expression, with every input fixed: <c>troops / (draw + base) × ratio</c>, dividing
+    /// first and multiplying second.
+    /// </summary>
+    /// <remarks>
+    /// The divisor draw is scripted here rather than taken from the seeded generator, so that the two
+    /// truncations can be separated from each other and from the draw itself.
+    /// </remarks>
+    [Theory]
+    [InlineData(12000, 13, 23, 2323)]   // 12,000 / 118 = 101; 101 x 23
+    [InlineData(4000, 5, 23, 828)]      //  4,000 / 110 =  36;  36 x 23
+    [InlineData(2000, 11, 23, 391)]     //  2,000 / 116 =  17;  17 x 23
+    [InlineData(100, 0, 40, 0)]         // a slot smaller than the divisor loses nothing at all
+    [InlineData(12000, 0, 40, 4560)]    // the kindest divisor, 105: 114 x 40
+    [InlineData(12000, 14, 40, 4000)]   // the harshest, 119: 100 x 40
+    public void ThePerUnitExpressionDividesFirstAndMultipliesSecond(int troops, int draw, int ratio, int expected)
+    {
+        var rules = BattleTestbed.Destroyed.Combat;
+        var units = ValueList.Of(BattleTestbed.Unit("light_infantry", troops, 6, "Only"));
+
+        var (reduced, losses, applied) = BattleCasualties.Apply(
+            units, ratio, new ScriptedDivisorRng(draw), rules);
+
+        var divisor = draw + rules.CasualtyDivisorBase;
+        Assert.Equal(expected, (troops / divisor) * ratio);
+        Assert.Equal(expected, applied);
+        Assert.Equal(troops - expected, reduced[0].Troops);
+        Assert.Equal(expected == 0 ? 0 : 1, losses.Count);
+    }
+
+    /// <summary>
+    /// The two groupings are genuinely different numbers, which is why the order is pinned rather than
+    /// left to taste.
     /// </summary>
     [Fact]
-    public void TheNumeratorMatchesTheTranscribedFormula()
+    public void DividingFirstIsNotTheSameAsMultiplyingFirst()
     {
-        Assert.Equal(
-            "winner casualties = loserPower * 40 / winnerPower",
-            FixtureCorpus.Get("battle.instantResolver.casualtyFormula").AsString());
-        Assert.Equal(40, BattleTestbed.Destroyed.Combat.WinnerCasualtyNumerator);
+        const int Troops = 2000;
+        const int Divisor = 109;
+        const int Ratio = 23;
+
+        Assert.Equal(414, (Troops / Divisor) * Ratio);
+        Assert.Equal(422, (Troops * Ratio) / Divisor);
     }
 
-    /// <summary>
-    /// The distribution is proportional and exact: the per-slot losses always sum to the figure, and no
-    /// slot goes negative.
-    /// </summary>
-    [Theory]
-    [InlineData(23)]
-    [InlineData(1)]
-    [InlineData(17999)]
-    [InlineData(18000)]
-    public void TheDistributionSumsExactlyToTheFigureAndNeverGoesNegative(int casualties)
+    /// <summary>The divisor is drawn from the ruleset's own band, once per slot, in slot order.</summary>
+    [Fact]
+    public void OneDivisorIsDrawnPerSlotFromTheRulesetsBand()
     {
+        var rules = BattleTestbed.Destroyed.Combat;
+        Assert.Equal(105, rules.CasualtyDivisorBase);
+        Assert.Equal(15, rules.CasualtyDivisorRandomSpan);
+
         var units = ValueList.Of(
             BattleTestbed.Unit("light_infantry", 12000, 5, "A"),
             BattleTestbed.Unit("heavy_infantry", 4000, 6, "B"),
             BattleTestbed.Unit("archers", 2000, 9, "C"));
 
-        var (reduced, losses, applied) = BattleCasualties.Distribute(units, casualties);
+        var recorder = new BoundRecordingRng(new SplitMix64Rng(BattleTestbed.Seed));
+        BattleCasualties.Apply(units, 23, recorder, rules);
 
-        Assert.Equal(casualties, applied);
-        Assert.Equal(casualties, losses.Sum(l => l.TroopsLost));
-        Assert.All(reduced, unit => Assert.True(unit.Troops >= 0));
-        Assert.Equal(18000 - casualties, reduced.Sum(u => u.Troops));
-
-        // Slot count is never changed: removing a unit is the rout mechanic, which is reserve research.
-        Assert.Equal(units.Count, reduced.Count);
+        Assert.Equal(
+            new[] { rules.CasualtyDivisorRandomSpan, rules.CasualtyDivisorRandomSpan, rules.CasualtyDivisorRandomSpan },
+            recorder.Bounds);
+        Assert.Equal(new[] { 13, 5, 11 }, recorder.Values);
+        Assert.All(recorder.Values, v => Assert.InRange(v, 0, rules.CasualtyDivisorRandomSpan - 1));
     }
 
-    /// <summary>A figure larger than the force is clamped to the force, not applied past zero.</summary>
+    /// <summary>
+    /// The draw is unconditional, so a slot already at zero troops still consumes one — which is what
+    /// keeps the sequence a function of the slot count alone.
+    /// </summary>
     [Fact]
-    public void AFigureLargerThanTheForceIsClampedToTheForce()
+    public void AZeroTroopSlotStillConsumesItsDraw()
     {
-        var units = ValueList.Of(BattleTestbed.Unit("light_infantry", 1000, 6, "Only"));
-        var (reduced, _, applied) = BattleCasualties.Distribute(units, 5000);
+        var rules = BattleTestbed.Destroyed.Combat;
+        var units = ValueList.Of(
+            BattleTestbed.Unit("light_infantry", 0, 6, "Wiped"),
+            BattleTestbed.Unit("light_infantry", 12000, 6, "Alive"));
 
-        Assert.Equal(1000, applied);
+        var recorder = new BoundRecordingRng(new SplitMix64Rng(BattleTestbed.Seed));
+        var (reduced, _, applied) = BattleCasualties.Apply(units, 23, recorder, rules);
+
+        Assert.Equal(2, recorder.Values.Count);
+        Assert.Equal(0, reduced[0].Troops);
+
+        // The live slot used the SECOND draw (5, so divisor 110), not the first.
+        Assert.Equal((12000 / 110) * 23, applied);
+        Assert.Equal(2, reduced.Count);
+    }
+
+    /// <summary>
+    /// The only clamp is non-negativity: a ratio past the divisor takes the whole slot and stops, and the
+    /// slot is still not removed.
+    /// </summary>
+    [Fact]
+    public void ARatioPastTheDivisorTakesTheWholeSlotAndNoMore()
+    {
+        var rules = BattleTestbed.Destroyed.Combat;
+        var units = ValueList.Of(BattleTestbed.Unit("light_infantry", 12000, 6, "Doomed"));
+
+        var (reduced, losses, applied) = BattleCasualties.Apply(units, 5000, new ScriptedDivisorRng(0), rules);
+
+        Assert.Equal(12000, applied);
         Assert.Equal(0, reduced[0].Troops);
         Assert.Single(reduced);
+        Assert.Equal(12000, losses[0].TroopsLost);
+    }
+
+    /// <summary>
+    /// Both halves of the formula are transcribed, not invented: the ratio from the call site's report,
+    /// the per-unit body from the corpus entry for <c>FUN_0044AE20</c>.
+    /// </summary>
+    [Fact]
+    public void BothHalvesOfTheFormulaMatchTheTranscribedSources()
+    {
+        Assert.Equal(
+            "winner casualties = loserPower * 40 / winnerPower",
+            FixtureCorpus.Get("battle.instantResolver.casualtyFormula").AsString());
+        Assert.Equal(40, BattleTestbed.Destroyed.Combat.WinnerCasualtyNumerator);
+
+        var body = FixtureCorpus.Get("siege.attritionFormula");
+        Assert.Equal("troops -= troops / (Random(15) + 105) * ratio", body.AsString());
+        Assert.Equal("confirmed", body.Tag);
+        Assert.Contains("FUN_0044ae20", body.Note!, StringComparison.OrdinalIgnoreCase);
+
+        // The two numbers in that transcription are exactly the two ruleset fields this task added.
+        Assert.Equal(15, BattleTestbed.Destroyed.Combat.CasualtyDivisorRandomSpan);
+        Assert.Equal(105, BattleTestbed.Destroyed.Combat.CasualtyDivisorBase);
     }
 
     /// <summary>
@@ -116,19 +194,19 @@ public class BattleCasualtyArithmeticTests
         var units = ValueList.Of(
             BattleTestbed.Unit("light_infantry", 0, 1, "Wiped"),
             BattleTestbed.Unit("heavy_infantry", 100, 1, "Green"),
-            BattleTestbed.Unit("archers", 100, combat.QualityCap, "Elite"));
+            BattleTestbed.Unit("archers", 100, combat.QualityCap, "Elite"),
+            BattleTestbed.Unit("archers", 100, combat.QualityFloor, "Average"));
 
         var (promoted, report) = BattleCasualties.Promote(units, BattleTestbed.BattleRng(), combat);
 
-        // The wiped slot is untouched and unrolled, so the seed's first draw (2) lands on "Green" and its
-        // second (0) on "Elite".
+        // The wiped slot is untouched and unrolled, so the seed's first three draws land on "Green",
+        // "Elite" and "Average" in that order.
         Assert.Equal(1, promoted[0].Quality);
         Assert.Equal(0, promoted[0].Troops);
         Assert.Equal(combat.QualityFloor, promoted[1].Quality);
         Assert.Equal(combat.QualityCap, promoted[2].Quality);
 
-        Assert.Equal(new[] { 1, 2 }, report.Select(p => p.SlotIndex).ToArray());
-        Assert.Equal(new[] { false, true }, report.Select(p => p.PromotedByRoll).ToArray());
+        Assert.Equal(new[] { 1, 2, 3 }, report.Select(p => p.SlotIndex).ToArray());
         Assert.Equal(units.Count, promoted.Count);
     }
 
@@ -171,5 +249,62 @@ public class BattleCasualtyArithmeticTests
             .ToArray();
 
         Assert.Empty(perUnitTypeProperties);
+    }
+
+    /// <summary>An <see cref="IRng"/> that always returns the same casualty-divisor draw.</summary>
+    private sealed class ScriptedDivisorRng : IRng
+    {
+        private readonly int _draw;
+
+        public ScriptedDivisorRng(int draw) => _draw = draw;
+
+        public ulong Seed => 0;
+
+        public ulong State => 0;
+
+        public ulong NextUInt64() => throw new NotSupportedException("Not scripted for this test.");
+
+        public int NextInt(int exclusiveUpperBound) => _draw;
+
+        public int NextInt(int inclusiveLowerBound, int exclusiveUpperBound) =>
+            throw new NotSupportedException("Not scripted for this test.");
+
+        public bool NextChance(int numerator, int denominator) =>
+            throw new NotSupportedException("Not scripted for this test.");
+
+        public IRng ForStream(string streamName) => this;
+    }
+
+    /// <summary>A pass-through <see cref="IRng"/> that records the bound and value of each draw.</summary>
+    private sealed class BoundRecordingRng : IRng
+    {
+        private readonly IRng _inner;
+
+        public BoundRecordingRng(IRng inner) => _inner = inner;
+
+        public List<int> Bounds { get; } = new();
+
+        public List<int> Values { get; } = new();
+
+        public ulong Seed => _inner.Seed;
+
+        public ulong State => _inner.State;
+
+        public ulong NextUInt64() => _inner.NextUInt64();
+
+        public int NextInt(int exclusiveUpperBound)
+        {
+            var value = _inner.NextInt(exclusiveUpperBound);
+            Bounds.Add(exclusiveUpperBound);
+            Values.Add(value);
+            return value;
+        }
+
+        public int NextInt(int inclusiveLowerBound, int exclusiveUpperBound) =>
+            _inner.NextInt(inclusiveLowerBound, exclusiveUpperBound);
+
+        public bool NextChance(int numerator, int denominator) => _inner.NextChance(numerator, denominator);
+
+        public IRng ForStream(string streamName) => _inner.ForStream(streamName);
     }
 }

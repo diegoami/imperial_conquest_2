@@ -82,36 +82,67 @@ public class FieldBattleTests
     }
 
     /// <summary>
-    /// Done-when 3: winner casualties equal <c>loserPower × 40 / winnerPower</c>, with the integer
-    /// semantics pinned — and unaffected by <c>combat.onDefeat</c>.
+    /// Done-when 3: <c>loserPower × 40 / winnerPower</c> is a <strong>ratio</strong>, applied to every
+    /// unit as <c>troops -= troops / (Random(15) + 105) × ratio</c>, with the integer semantics pinned —
+    /// and unaffected by <c>combat.onDefeat</c>.
     /// </summary>
+    /// <remarks>
+    /// The worked example this test pins, from the seed's own first three draws (13, 5, 11, so divisors
+    /// 118, 110, 116) and a ratio of 23:
+    /// <code>
+    /// slot 0  12,000 / 118 = 101   101 x 23 = 2,323   -&gt;  9,677
+    /// slot 1   4,000 / 110 =  36    36 x 23 =   828   -&gt;  3,172
+    /// slot 2   2,000 / 116 =  17    17 x 23 =   391   -&gt;  1,609
+    ///                                       total 3,542 of 18,000 = 19.7%
+    /// </code>
+    /// </remarks>
     [Fact]
-    public void DoD03_WinnerCasualtiesAreLoserPowerTimesNumeratorOverWinnerPower()
+    public void DoD03_WinnerCasualtiesAreAPerUnitRatioNotATroopCount()
     {
         var rules = BattleTestbed.Destroyed.Combat;
         var state = Fixture();
         var (after, result) = Resolve(state, BattleTestbed.Destroyed);
 
-        // The expression, computed here from the ruleset's own numerator rather than pasted in:
+        // The ratio, computed here from the ruleset's own numerator rather than pasted in:
         // 3600 * 40 / 6120 = 144000 / 6120 = 23 (23.52 truncated).
-        var expected = (result.LoserPower * rules.WinnerCasualtyNumerator) / result.WinnerPower;
-        Assert.Equal(23, expected);
-        Assert.Equal(expected, result.WinnerCasualties);
+        var ratio = (result.LoserPower * rules.WinnerCasualtyNumerator) / result.WinnerPower;
+        Assert.Equal(23, ratio);
 
         // Multiplication first, then ONE truncating division. The other reading, loserPower * (40 /
         // winnerPower), truncates the inner quotient to zero for any winnerPower above the numerator.
         Assert.Equal(0, rules.WinnerCasualtyNumerator / result.WinnerPower);
-        Assert.NotEqual(result.LoserPower * (rules.WinnerCasualtyNumerator / result.WinnerPower), result.WinnerCasualties);
 
-        // Spread over the winner's slots in proportion to their troops, exactly summing to the figure.
+        // Each slot's own loss is troops / divisor, THEN x ratio, with the divisor drawn per slot from
+        // [105, 120). The bounds are checked against the ruleset rather than taken on trust.
+        var divisors = new[] { 118, 110, 116 };
+        Assert.All(divisors, d => Assert.InRange(
+            d, rules.CasualtyDivisorBase, rules.CasualtyDivisorBase + rules.CasualtyDivisorRandomSpan - 1));
+
+        var troops = new[] { 12000, 4000, 2000 };
+        var expected = new[]
+        {
+            (troops[0] / divisors[0]) * ratio,
+            (troops[1] / divisors[1]) * ratio,
+            (troops[2] / divisors[2]) * ratio,
+        };
+
+        Assert.Equal(new[] { 2323, 828, 391 }, expected);
         Assert.Equal(
-            new[] { (0, 15), (1, 5), (2, 3) },
+            new[] { (0, 2323), (1, 828), (2, 391) },
             result.UnitCasualties.Select(c => (c.SlotIndex, c.TroopsLost)).ToArray());
-        Assert.Equal(23, result.UnitCasualties.Sum(c => c.TroopsLost));
+        Assert.Equal(3542, result.WinnerCasualties);
+        Assert.Equal(result.WinnerCasualties, result.UnitCasualties.Sum(c => c.TroopsLost));
+
+        // It really is the ratio reading: the withdrawn count reading would have cost this winner 23
+        // troops in all, 154 times fewer than the 3,542 it actually loses.
+        Assert.True(result.WinnerCasualties > ratio * 100);
+
+        // And the per-unit grouping is troops/divisor first: (12000 * 23) / 118 = 2,338, not 2,323.
+        Assert.NotEqual((troops[0] * ratio) / divisors[0], expected[0]);
 
         var winner = after.ArmyById(Attacker)!;
-        Assert.Equal(new[] { 11985, 3995, 1997 }, winner.Units.Select(u => u.Troops).ToArray());
-        Assert.Equal(18000 - 23, winner.TotalTroops);
+        Assert.Equal(new[] { 9677, 3172, 1609 }, winner.Units.Select(u => u.Troops).ToArray());
+        Assert.Equal(18000 - 3542, winner.TotalTroops);
 
         // Unaffected by combat.onDefeat.
         var (_, scattered) = Resolve(Fixture(), BattleTestbed.Scatter);
@@ -141,9 +172,9 @@ public class FieldBattleTests
         Assert.Equal(256 + 90, winner.Money);
 
         // 185 + 40 = 225 tons on offer; the cap is the winner's POST-casualty troops over the ruleset's
-        // own divisor, 17,977 / 100 = 179, and it binds.
+        // own divisor, 14,458 / 100 = 144, and it binds.
         var cap = winner.TotalTroops / BattleTestbed.Destroyed.Economy.ArmySupplyTonsPerTroops;
-        Assert.Equal(179, cap);
+        Assert.Equal(144, cap);
         Assert.Equal(cap, result.AbsorbedSupplyTons);
         Assert.Equal(cap, winner.SupplyTons);
         Assert.True(225 > cap, "the fixture must put more supply on offer than the cap allows");
@@ -226,14 +257,16 @@ public class FieldBattleTests
     {
         var combat = BattleTestbed.Destroyed.Combat;
 
-        // Two winner slots, so the seed's second draw -- the 0 -- lands on the elite one.
+        // Three winner slots, so the seed's promotion draws are the same 2, 0, 1 as the main fixture's
+        // and the one that fires lands on the elite slot in the middle.
         var state = BattleTestbed.StateWith(
             armies: new[]
             {
                 BattleTestbed.Army(
                     Attacker, "north", 1, 2, 68, 0, 0,
                     BattleTestbed.Unit("heavy_infantry", 4000, 5, "Green Guards"),
-                    BattleTestbed.Unit("heavy_infantry", 4000, combat.QualityCap, "Elite Guards")),
+                    BattleTestbed.Unit("heavy_infantry", 4000, combat.QualityCap, "Elite Guards"),
+                    BattleTestbed.Unit("heavy_infantry", 4000, 5, "Second Green Guards")),
                 BattleTestbed.Army(
                     Defender, "south", 2, 2, 30, 0, 0,
                     BattleTestbed.Unit("light_infantry", 1000, 6, "Doomed Foot")),
@@ -242,7 +275,8 @@ public class FieldBattleTests
         var (after, result) = Resolve(state, BattleTestbed.Destroyed);
 
         Assert.Equal(BattleSide.Attacker, result.Winner);
-        Assert.True(result.Promotions[1].PromotedByRoll, "the seed's second draw must be the promoting one");
+        Assert.True(result.Promotions[1].PromotedByRoll, "the seed's second promotion draw must be the promoting one");
+        Assert.Equal(combat.QualityCap, result.Promotions[1].QualityBefore);
         Assert.Equal(combat.QualityCap, result.Promotions[1].QualityAfter);
         Assert.Equal(combat.QualityCap, after.ArmyById(Attacker)!.Units[1].Quality);
     }
@@ -396,8 +430,12 @@ public class FieldBattleTests
         var lostState = BattleTestbed.StateWith(
             armies: new[]
             {
-                // Close enough that the mirrored casualty figure leaves survivors to relocate.
-                BattleTestbed.Army(Attacker, "north", 1, 2, 60, 0, 0, BattleTestbed.Unit("light_infantry", 6000, 6, "Outmatched Foot")),
+                // Close enough that the mirrored ratio (5,100 x 40 / 4,080 = 50, well under the divisor)
+                // leaves survivors to relocate.
+                BattleTestbed.Army(
+                    Attacker, "north", 1, 2, 68, 0, 0,
+                    BattleTestbed.Unit("light_infantry", 12000, 6, "Outmatched Foot"),
+                    BattleTestbed.Unit("light_infantry", 12000, 6, "Outmatched Foot II")),
                 BattleTestbed.Army(Defender, "south", 2, 2, 68, 0, 0, BattleTestbed.Unit("heavy_infantry", 6000, 6, "Strong Guards")),
             });
 

@@ -42,15 +42,27 @@ public class ScatteredDefeatTests
         Assert.Equal(LoserFate.Scattered, result.LoserFate);
 
         // Mirrored, not the winner's own number: winnerPower × 40 / loserPower = 6120 × 40 / 3600 = 68,
-        // against the winner's own 23.
-        var mirrored = (result.WinnerPower * scattered.SurvivorCasualtyNumerator) / result.LoserPower;
-        Assert.Equal(68, mirrored);
-        Assert.Equal(mirrored, result.LoserCasualties);
-        Assert.NotEqual(result.WinnerCasualties, result.LoserCasualties);
+        // against the winner's own 23 -- and it goes through the SAME per-unit expression as DoD 3.
+        var mirroredRatio = (result.WinnerPower * scattered.SurvivorCasualtyNumerator) / result.LoserPower;
+        Assert.Equal(68, mirroredRatio);
+        Assert.NotEqual(23, mirroredRatio);
+
+        // The loser's own divisors are the seed's eighth and ninth draws -- 6 and 5, so 111 and 110 --
+        // because every draw the improved ruleset adds comes after every draw the original itself makes.
+        var divisors = new[] { 111, 110 };
+        var troops = new[] { 9000, 3000 };
+        var expected = new[]
+        {
+            (troops[0] / divisors[0]) * mirroredRatio,
+            (troops[1] / divisors[1]) * mirroredRatio,
+        };
+        Assert.Equal(new[] { 5508, 1836 }, expected);
+        Assert.Equal(expected.Sum(), result.LoserCasualties);
+        Assert.Equal(7344, result.LoserCasualties);
 
         var survivor = after.ArmyById(Defender)!;
-        Assert.Equal(new[] { 8949, 2983 }, survivor.Units.Select(u => u.Troops).ToArray());
-        Assert.Equal(12000 - mirrored, survivor.TotalTroops);
+        Assert.Equal(new[] { 3492, 1164 }, survivor.Units.Select(u => u.Troops).ToArray());
+        Assert.Equal(12000 - result.LoserCasualties, survivor.TotalTroops);
 
         // Relocated 2-4 tiles, and its moves are gone for the rest of the turn it lost on.
         var placement = result.Scatter!;
@@ -116,7 +128,14 @@ public class ScatteredDefeatTests
 
         Assert.Equal(LoserFate.Scattered, result.LoserFate);
 
+        // A fleet has no unit slots, so the mirrored figure is read as hulls rather than routed through
+        // the per-unit expression -- 1300 × 40 / 1100 = 47 of 100. It is never below the numerator, which
+        // is why only a fleet above 40 hulls survives an improved defeat at all.
+        Assert.Equal(47, result.LoserCasualties);
+        Assert.True(result.LoserCasualties >= BattleTestbed.Scatter.Combat.ScatteredDefeat.SurvivorCasualtyNumerator);
+
         var survivor = after.FleetById("south-fleet")!;
+        Assert.Equal(100 - 47, survivor.Ships);
         Assert.Equal(0, survivor.Moves);
 
         var terrain = BattleTestbed.World.Terrain.Decode(BattleTestbed.World.Width, BattleTestbed.World.Height);
@@ -147,7 +166,7 @@ public class ScatteredDefeatTests
         Assert.Single(after.Armies);
 
         // Reported as the whole force, exactly as the classical-faithful outcome reports it.
-        Assert.Equal(6000, result.LoserCasualties);
+        Assert.Equal(24000, result.LoserCasualties);
     }
 
     /// <summary>
@@ -165,8 +184,10 @@ public class ScatteredDefeatTests
         Assert.NotNull(result.Scatter);
         Assert.NotNull(after.ArmyById(Loser));
 
-        // Survivors existed all along -- 226 of 6,000 lost -- so only the geography differed.
-        Assert.Equal(226, result.LoserCasualties);
+        // Survivors existed all along -- the mirrored ratio is 5,100 x 40 / 4,080 = 50, and at divisors
+        // 115 and 105 that costs 5,200 + 5,700 = 10,900 of 24,000 -- so only the geography differed.
+        Assert.Equal(10900, result.LoserCasualties);
+        Assert.Equal(new[] { 6800, 6300 }, after.ArmyById(Loser)!.Units.Select(u => u.Troops).ToArray());
     }
 
     /// <summary>
@@ -201,7 +222,12 @@ public class ScatteredDefeatTests
         BattleTestbed.StateWith(
             armies: new[]
             {
-                BattleTestbed.Army(Loser, "north", 1, 1, 60, 0, 0, BattleTestbed.Unit("light_infantry", 6000, 6, "Trapped Foot")),
+                // Beaten, but not by enough for the mirrored ratio to reach the divisor: 4,080 against
+                // 5,100 gives 50, so survivors exist and only the map can stop them relocating.
+                BattleTestbed.Army(
+                    Loser, "north", 1, 1, 68, 0, 0,
+                    BattleTestbed.Unit("light_infantry", 12000, 6, "Trapped Foot"),
+                    BattleTestbed.Unit("light_infantry", 12000, 6, "Trapped Foot II")),
                 BattleTestbed.Army(Winner, "south", 0, 1, 68, 0, 0, BattleTestbed.Unit("heavy_infantry", 6000, 6, "Blocking Guards")),
             },
             // No cities: the island world has no room for the toy map's, and a city off the map would be

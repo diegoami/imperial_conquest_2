@@ -35,7 +35,7 @@ namespace IC2.Engine.Battle;
 /// per-type shooting-vulnerability weight, and the rout mechanic (<c>FUN_00438fb0</c>: removal below
 /// <c>standardBattalionSize / 25</c>, the morale checks, the −6/+5 cascade) all belong to a possible
 /// future detailed resolver and appear nowhere here. The instant resolver annihilates the loser wholesale
-/// and tracks no per-unit attrition beyond the proportional split in <see cref="BattleCasualties"/>. The
+/// and its only attrition is the confirmed per-unit expression in <see cref="BattleCasualties"/>. The
 /// Rome/Gaul per-type numbers (99,882 → 63,282) came from the tactical path and are explicitly not a
 /// target for this code.
 /// </para>
@@ -63,7 +63,7 @@ public static class InstantBattleResolver
     /// attacker.moves = 0;
     /// pA = armyPower(attacker);  pB = armyPower(defender);
     /// winner = (pB &lt; pA) ? attacker : defender;              // ties to the defender
-    /// applyCasualties(winner, loserPower * 40 / winnerPower);
+    /// applyCasualties(winner, loserPower * 40 / winnerPower);   // a RATIO: see BattleCasualties
     /// winner.money    += loser.money;
     /// winner.supplies  = min(winner.supplies + loser.supplies, winnerTroops / 100);   // attacker wins
     /// winner.supplies  = winner.supplies + loser.supplies;                            // defender wins
@@ -83,13 +83,15 @@ public static class InstantBattleResolver
     /// winner's troops <em>after</em> its own casualties, which is the order the function itself runs in.
     /// </para>
     /// <para>
-    /// <strong>Draw order</strong>, fixed: one <c>random(4)</c> per surviving winner unit in slot order,
-    /// then one <c>random(5)</c> for the peace roll, then — only under
-    /// <see cref="DefeatOutcome.Scatter"/>, and only when a survivor exists to relocate — one draw for the
-    /// scatter distance. The peace roll is drawn <em>before</em> its unity and city-count gates are
-    /// tested, exactly as the original's <c>&amp;&amp;</c> short-circuit order does it, so the two rulesets
-    /// share an identical draw sequence for everything the original does and
-    /// <c>combat.onDefeat</c> cannot shift any confirmed outcome.
+    /// <strong>Draw order</strong>, fixed: one casualty-divisor draw per winner slot in slot order
+    /// (<see cref="BattleCasualties.Apply"/>), then one <c>random(4)</c> per surviving winner unit, then
+    /// one <c>random(5)</c> for the peace roll, then — only under <see cref="DefeatOutcome.Scatter"/> —
+    /// one casualty-divisor draw per <em>loser</em> slot and, when a survivor exists to relocate, one
+    /// draw for the scatter distance. The peace roll is drawn <em>before</em> its unity and city-count
+    /// gates are tested, exactly as the original's <c>&amp;&amp;</c> short-circuit order does it, and
+    /// every draw the <c>improved</c> ruleset adds comes after every draw the original itself makes, so
+    /// the two rulesets share an identical prefix and <c>combat.onDefeat</c> cannot shift any confirmed
+    /// outcome.
     /// </para>
     /// <para>
     /// <strong>The peace gate reads post-battle unity</strong>, because the original decrements unity
@@ -154,8 +156,9 @@ public static class InstantBattleResolver
         var winnerPower = attackerWon ? attackerPower : defenderPower;
         var loserPower = attackerWon ? defenderPower : attackerPower;
 
-        var casualties = BattleCasualties.Count(loserPower, winnerPower, combat.WinnerCasualtyNumerator);
-        var (reducedUnits, unitLosses, appliedCasualties) = BattleCasualties.Distribute(winner.Units, casualties);
+        var casualtyRatio = BattleCasualties.Ratio(loserPower, winnerPower, combat.WinnerCasualtyNumerator);
+        var (reducedUnits, unitLosses, appliedCasualties) =
+            BattleCasualties.Apply(winner.Units, casualtyRatio, rng, combat);
         var (promotedUnits, promotions) = BattleCasualties.Promote(reducedUnits, rng, combat);
         winner = winner with { Units = promotedUnits };
 
@@ -193,9 +196,10 @@ public static class InstantBattleResolver
 
         if (ruleset.Flags.CombatOnDefeat == DefeatOutcome.Scatter)
         {
-            var mirrored = BattleCasualties.Count(
+            var mirroredRatio = BattleCasualties.Ratio(
                 winnerPower, loserPower, combat.ScatteredDefeat.SurvivorCasualtyNumerator);
-            var (loserUnits, _, appliedToLoser) = BattleCasualties.Distribute(loser.Units, mirrored);
+            var (loserUnits, _, appliedToLoser) =
+                BattleCasualties.Apply(loser.Units, mirroredRatio, rng, combat);
 
             if (appliedToLoser < loser.TotalTroops)
             {
@@ -341,9 +345,22 @@ public static class InstantBattleResolver
     /// </para>
     /// <para>
     /// <strong>Draw order</strong>, fixed: the attacker's random band, then the defender's (both inside
-    /// <see cref="FleetPower.Compute"/>), then one draw per whole unit the winner's carried army loses to
-    /// the <c>d &gt; 70</c> branch, then — under <see cref="DefeatOutcome.Scatter"/>, and only when ships
-    /// survive to relocate — the scatter distance.
+    /// <see cref="FleetPower.Compute"/>), then one casualty-divisor draw per slot of the winner's carried
+    /// army, then one draw per whole unit that army loses to the <c>d &gt; 70</c> branch, then — under
+    /// <see cref="DefeatOutcome.Scatter"/>, and only when ships survive to relocate — the scatter
+    /// distance.
+    /// </para>
+    /// <para>
+    /// <strong>The one place the mirrored figure is read as a count, not a ratio.</strong> Under
+    /// <see cref="DefeatOutcome.Scatter"/> a beaten fleet loses <c>min(ships, mirroredRatio)</c>
+    /// <em>hulls</em>, rather than going through <see cref="BattleCasualties.Apply"/>'s per-unit
+    /// expression. A fleet has no unit slots and no troops of its own to divide, and the per-unit
+    /// expression would be a no-op on hulls anyway — <c>ships / divisor</c> truncates to zero for any
+    /// fleet below the divisor base, so every beaten fleet would come through untouched.
+    /// <c>docs/task-catalogue.md</c> T16 DoD 10 records the intended behaviour directly: because the
+    /// mirrored figure is never below the numerator, "a fleet survives an <c>improved</c> defeat only
+    /// above 40 hulls", which is a statement about hull <em>counts</em>. The loser's carried army is not
+    /// the fleet's own strength and is not reduced; it scatters aboard.
     /// </para>
     /// </remarks>
     /// <param name="state">The state to resolve against.</param>
@@ -427,7 +444,7 @@ public static class InstantBattleResolver
 
         // The winner's carried army takes the same casualty figure the field battle applies, and above the
         // damage threshold also loses whole slots at random.
-        var carriedCasualties = BattleCasualties.Count(loserPower, winnerPower, combat.WinnerCasualtyNumerator);
+        var carriedCasualtyRatio = BattleCasualties.Ratio(loserPower, winnerPower, combat.WinnerCasualtyNumerator);
         var unitLosses = ValueList<UnitCasualty>.Empty;
         var unitsLost = 0;
         var appliedToCarriedArmy = 0;
@@ -435,7 +452,8 @@ public static class InstantBattleResolver
 
         if (winner.CarriedArmyId is { } carriedId && state.ArmyById(carriedId) is { } carried)
         {
-            var (reduced, losses, appliedCarried) = BattleCasualties.Distribute(carried.Units, carriedCasualties);
+            var (reduced, losses, appliedCarried) =
+                BattleCasualties.Apply(carried.Units, carriedCasualtyRatio, rng, combat);
             unitLosses = losses;
             appliedToCarriedArmy = appliedCarried;
 
@@ -468,10 +486,11 @@ public static class InstantBattleResolver
 
         if (ruleset.Flags.CombatOnDefeat == DefeatOutcome.Scatter)
         {
-            // Mirrored, and measured in ships -- a fleet's strength is its hulls.
-            var mirrored = BattleCasualties.Count(
+            // Mirrored, and measured in HULLS rather than routed through the per-unit expression -- see
+            // the method remarks for why this one path reads the figure as a count.
+            var mirroredRatio = BattleCasualties.Ratio(
                 winnerPower, loserPower, combat.ScatteredDefeat.SurvivorCasualtyNumerator);
-            var lost = Math.Min(loser.Ships, mirrored);
+            var lost = Math.Min(loser.Ships, mirroredRatio);
 
             if (lost < loser.Ships)
             {
@@ -626,8 +645,10 @@ public static class InstantBattleResolver
     /// <see cref="LoserFate.Unaffected"/> for every siege.
     /// </para>
     /// <para>
-    /// <strong>No random draw at all.</strong> There is no promotion step, no peace roll and no random
-    /// band on this path, which is why the method takes no <see cref="IRng"/>.
+    /// <strong>One kind of draw only.</strong> There is no promotion step, no peace roll and no random
+    /// band on this path; the only draws are <see cref="BattleCasualties.Apply"/>'s one-per-slot casualty
+    /// divisors for the besieging army's own attrition, which is the very same <c>FUN_0044AE20</c> the
+    /// field variant calls.
     /// </para>
     /// <para>
     /// <strong>The garrison term is still omitted</strong> from the defender's strength, exactly as
@@ -639,6 +660,7 @@ public static class InstantBattleResolver
     /// <param name="attackerArmyId">The besieging army.</param>
     /// <param name="cityId">The besieged city.</param>
     /// <param name="ruleset">Every constant this resolver uses.</param>
+    /// <param name="rng">The battle's random stream: one casualty-divisor draw per besieging slot.</param>
     /// <param name="archerUnitTypeId">See <see cref="ResolveNaval"/>'s own parameter.</param>
     /// <param name="fortifyOrderId">
     /// The ruleset's fortification order, whose <see cref="CityOrderRule.MaxPercent"/> and
@@ -656,12 +678,14 @@ public static class InstantBattleResolver
         string attackerArmyId,
         string cityId,
         Ruleset ruleset,
+        IRng rng,
         string archerUnitTypeId,
         string fortifyOrderId,
         IEventSink events)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(ruleset);
+        ArgumentNullException.ThrowIfNull(rng);
         ArgumentNullException.ThrowIfNull(events);
 
         var attacker = RequireArmy(state, attackerArmyId, nameof(attackerArmyId));
@@ -703,9 +727,10 @@ public static class InstantBattleResolver
         var winnerPower = attackerWon ? attackerPower : defenderPower;
         var loserPower = attackerWon ? defenderPower : attackerPower;
 
-        var casualties = BattleCasualties.Count(
+        var casualtyRatio = BattleCasualties.Ratio(
             loserPower, winnerPower, ruleset.Combat.WinnerCasualtyNumerator);
-        var (reduced, losses, applied) = BattleCasualties.Distribute(attacker.Units, casualties);
+        var (reduced, losses, applied) =
+            BattleCasualties.Apply(attacker.Units, casualtyRatio, rng, ruleset.Combat);
         attacker = attacker with { Units = reduced };
 
         var armies = new List<ArmyState>();

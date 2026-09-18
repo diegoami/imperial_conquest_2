@@ -113,23 +113,33 @@ public class SiegeBattleTests
     {
         var combat = BattleTestbed.Destroyed.Combat;
 
+        // The same FUN_0044AE20 the field variant calls, with the same seeded divisors 118, 110, 116.
+        var divisors = new[] { 118, 110, 116 };
+        var troops = new[] { 12000, 4000, 2000 };
+
         var (repulsedState, repulsed) = Resolve(Fixture(), BattleTestbed.Destroyed);
-        var expectedRepulsed =
-            (repulsed.LoserPower * combat.WinnerCasualtyNumerator) / repulsed.WinnerPower;
-        Assert.Equal(7, expectedRepulsed);
-        Assert.Equal(expectedRepulsed, repulsed.LoserCasualties);
+        var repulsedRatio = (repulsed.LoserPower * combat.WinnerCasualtyNumerator) / repulsed.WinnerPower;
+        Assert.Equal(7, repulsedRatio);
+        Assert.Equal(
+            troops.Select((t, i) => (t / divisors[i]) * repulsedRatio).ToArray(),
+            repulsed.UnitCasualties.Select(c => c.TroopsLost).ToArray());
+        Assert.Equal(new[] { 707, 252, 119 }, repulsed.UnitCasualties.Select(c => c.TroopsLost).ToArray());
+        Assert.Equal(1078, repulsed.LoserCasualties);
         Assert.Equal(0, repulsed.WinnerCasualties);
-        Assert.Equal(new[] { 5, 1, 1 }, repulsed.UnitCasualties.Select(c => c.TroopsLost).ToArray());
-        Assert.Equal(18000 - 7, repulsedState.ArmyById(Besieger)!.TotalTroops);
+        Assert.Equal(18000 - 1078, repulsedState.ArmyById(Besieger)!.TotalTroops);
         Assert.Equal(0, repulsedState.ArmyById(Besieger)!.Moves);
 
         var (takenState, taken) = Resolve(WeakCityFixture(), BattleTestbed.Destroyed, "hamlet");
         Assert.Equal(BattleSide.Attacker, taken.Winner);
-        var expectedTaken = (taken.LoserPower * combat.WinnerCasualtyNumerator) / taken.WinnerPower;
-        Assert.Equal(5, expectedTaken);
-        Assert.Equal(expectedTaken, taken.WinnerCasualties);
+        var takenRatio = (taken.LoserPower * combat.WinnerCasualtyNumerator) / taken.WinnerPower;
+        Assert.Equal(5, takenRatio);
+        Assert.Equal(
+            troops.Select((t, i) => (t / divisors[i]) * takenRatio).ToArray(),
+            taken.UnitCasualties.Select(c => c.TroopsLost).ToArray());
+        Assert.Equal(new[] { 505, 180, 85 }, taken.UnitCasualties.Select(c => c.TroopsLost).ToArray());
+        Assert.Equal(770, taken.WinnerCasualties);
         Assert.Equal(0, taken.LoserCasualties);
-        Assert.Equal(18000 - 5, takenState.ArmyById(Besieger)!.TotalTroops);
+        Assert.Equal(18000 - 770, takenState.ArmyById(Besieger)!.TotalTroops);
     }
 
     /// <summary>
@@ -170,10 +180,12 @@ public class SiegeBattleTests
         var state = Fixture();
 
         Assert.Throws<ArgumentException>(() => InstantBattleResolver.ResolveSiege(
-            state, Besieger, "no-such-city", BattleTestbed.Destroyed, Archers, Fortify, NullEventSink.Instance));
+            state, Besieger, "no-such-city", BattleTestbed.Destroyed, BattleTestbed.BattleRng(), Archers, Fortify,
+            NullEventSink.Instance));
 
         Assert.Throws<ArgumentException>(() => InstantBattleResolver.ResolveSiege(
-            state, Besieger, "meridia", BattleTestbed.Destroyed, Archers, "no-such-order", NullEventSink.Instance));
+            state, Besieger, "meridia", BattleTestbed.Destroyed, BattleTestbed.BattleRng(), Archers, "no-such-order",
+            NullEventSink.Instance));
     }
 
     /// <summary>A besieging army outside Meridia, South's own capital.</summary>
@@ -210,6 +222,7 @@ public class SiegeBattleTests
             Besieger,
             cityId,
             ruleset,
+            BattleTestbed.BattleRng(),
             Archers,
             Fortify,
             NullEventSink.Instance);

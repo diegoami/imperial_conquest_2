@@ -128,10 +128,16 @@ public sealed record ScatterOutcome(
 /// siege, which the flag never reaches (DoD 12).
 /// </param>
 /// <param name="LoserFate">What became of the losing army or fleet.</param>
-/// <param name="WinnerCasualties">Troops the winner lost. See <see cref="BattleCasualties.Count"/>.</param>
+/// <param name="WinnerCasualties">
+/// Troops the winner lost: the total of the per-slot losses <see cref="BattleCasualties.Apply"/> produced
+/// from the <c>loserPower × 40 / winnerPower</c> <em>ratio</em>. Not the ratio itself — the ratio is
+/// recoverable from <see cref="WinnerPower"/> and <see cref="LoserPower"/>, which this record already
+/// carries, so nothing needs a second field for it.
+/// </param>
 /// <param name="LoserCasualties">
-/// Troops (or, for a naval battle, ships) the loser lost. The whole force under
-/// <see cref="LoserFate.Destroyed"/>; the mirrored casualty figure under <see cref="LoserFate.Scattered"/>.
+/// Troops the loser lost — or, for a naval battle, ships. The whole force under
+/// <see cref="LoserFate.Destroyed"/>; under <see cref="LoserFate.Scattered"/> the total the mirrored ratio
+/// took through the same per-unit expression, or, for a fleet, the hulls it cost.
 /// </param>
 /// <param name="UnitCasualties">
 /// The per-slot losses of whichever force this battle actually damaged: the winner in a field or naval

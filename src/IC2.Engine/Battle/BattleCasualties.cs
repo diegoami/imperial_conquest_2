@@ -4,66 +4,75 @@ using IC2.Engine.Model;
 namespace IC2.Engine.Battle;
 
 /// <summary>
-/// The instant resolver's casualty arithmetic: how many troops the winner loses, and how that figure is
-/// spread over its unit slots.
+/// The instant resolver's casualty arithmetic: the ratio a battle's power gap produces, and the per-unit
+/// loss that ratio drives.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>The figure (DoD 3).</strong> <c>FUN_0044AEE4</c> calls
-/// <c>applyCasualties(winner, loserPower * 40 / winnerPower)</c>. The <c>40</c> is
-/// <see cref="CombatRules.WinnerCasualtyNumerator"/>, and the whole expression is evaluated in the
-/// original's own integer arithmetic: the multiplication first, then one truncating division. That order
-/// is load-bearing and <c>BattleCasualtyArithmeticTests</c> pins it — reading it as
-/// <c>loserPower * (40 / winnerPower)</c> would truncate the inner quotient to zero for every
-/// <c>winnerPower &gt; 40</c>, i.e. for every real battle, and silently make the winner invulnerable.
+/// <strong>It is a ratio, not a troop count (DoD 3).</strong> <c>FUN_0044AEE4</c> calls
+/// <c>applyCasualties(winner, loserPower * 40 / winnerPower)</c>, and <c>applyCasualties</c> is
+/// <c>FUN_0044AE20(armyIdx, ratio)</c> — the expression is that function's <c>ratio</c> <em>argument</em>.
+/// The function's body then applies, to every unit in the army,
+/// </para>
+/// <code>
+/// troops -= troops / (Random(15) + 105) * ratio
+/// </code>
+/// <para>
+/// (<c>decompiled-diplomacy-peace-terms-and-instant-battles.md</c> for the call site,
+/// <c>decompiled-defection-and-siege-attrition.md</c> for the body, transcribed in the T04 corpus as
+/// <c>siege.attritionFormula</c> — it is the same helper the siege path calls on every attempt). So the
+/// ratio is a per-unit multiplier: a divisor in <c>[105, 120)</c> means one unit loses between
+/// <c>ratio/120</c> and <c>ratio/105</c> of its strength, and an even fight (ratio 40) costs each unit
+/// 33–38 % of its troops.
 /// </para>
 /// <para>
-/// <strong>One documented evidence conflict, and why it is resolved this way.</strong> The figure is
-/// applied here as a <em>troop count</em>: exactly the reading <c>docs/task-catalogue.md</c> T16 DoD 3
-/// states ("Winner casualties equal <c>loserPower × 40 / winnerPower</c>"), and exactly the reading the
-/// shipped ruleset's own provenance for <c>combat.winnerCasualtyNumerator</c> states ("the winner takes
-/// <c>loserPower × 40 / winnerPower</c> casualties"). The research repo also records
-/// <c>FUN_0044AE20</c>, the routine <c>applyCasualties</c> resolves to, as a per-unit
-/// <em>ratio</em> distribution — <c>troops -= troops / (Random(15) + 105) * ratio</c>
-/// (<c>tests/fixtures/corpus.json</c> <c>siege.attritionFormula</c>, from
-/// <c>decompiled-defection-and-siege-attrition.md</c>), under which the same expression would be a
-/// multiplier rather than a count. That reading is <strong>not</strong> implementable inside this task's
-/// Owns list: its two constants (the <c>15</c>-wide random band and the <c>105</c> base) have no field
-/// anywhere in <see cref="Ruleset"/>, and adding them would mean editing
-/// <c>src/IC2.Engine/Model/Ruleset.cs</c> and <c>data/rulesets/toy-ruleset.json</c>, which belong to
-/// other tasks. Writing them as C# literals is forbidden outright. So this file implements the DoD's
-/// literal arithmetic, and the conflict is reported rather than quietly decided — see the pull request's
-/// "evidence conflict" note.
+/// <strong>Why this needed saying.</strong> T16's first round read the expression as a troop count,
+/// because the DoD line said so and because the <c>15</c> and the <c>105</c> had no home in the ruleset.
+/// Quantified, the count reading is indefensible: powers of 5,000 against 5,200 would have cost the
+/// winner <em>38 troops in total</em>, whatever the size of the army. The user settled it on the
+/// evidence; <see cref="CombatRules.CasualtyDivisorBase"/> and
+/// <see cref="CombatRules.CasualtyDivisorRandomSpan"/> exist for exactly this, and neither number is
+/// written here.
+/// </para>
+/// <para>
+/// <strong>Integer semantics, pinned.</strong> Two truncations, in this order and no other.
+/// <see cref="Ratio"/> multiplies before it divides, once: read as <c>loserPower * (40 / winnerPower)</c>
+/// the inner quotient truncates to zero for every <c>winnerPower</c> above the numerator, i.e. for every
+/// real battle. <see cref="Apply"/> divides <c>troops</c> by the drawn divisor <em>first</em> and
+/// multiplies by the ratio second, exactly as the decompiled body writes it: the other grouping,
+/// <c>(troops * ratio) / divisor</c>, is a different number for almost every input — 2,000 troops at
+/// ratio 23 and divisor 109 gives <c>18 * 23 = 414</c> one way and <c>46,000 / 109 = 422</c> the other.
+/// <c>BattleCasualtyArithmeticTests</c> pins both.
 /// </para>
 /// <para>
 /// <strong>What this file is not.</strong> It is not the tactical exchange loop. No type-effectiveness
-/// matrix, no 40%-of-own-troops melee cap, no per-unit tactical morale, no shooting-vulnerability weight,
-/// and above all no rout mechanic: nothing is ever removed for falling below a battalion-size threshold,
-/// no morale cascade runs, and no unit is deleted here at all. Those are held in reserve for a possible
-/// future detailed resolver (<c>docs/game-design.md</c> §Combat, <c>docs/task-catalogue.md</c> T16
-/// Hazards). The instant resolver annihilates the loser wholesale and tracks no per-unit attrition
-/// beyond the proportional split below.
+/// matrix, no 40 %-of-own-troops melee cap, no per-unit tactical morale, no shooting-vulnerability
+/// weight, and above all no rout mechanic: nothing is ever removed for falling below a battalion-size
+/// threshold, no morale cascade runs, and no unit slot is deleted here at all. Those are held in reserve
+/// for a possible future detailed resolver (<c>docs/game-design.md</c> §Combat,
+/// <c>docs/task-catalogue.md</c> T16 Hazards). The instant resolver annihilates the loser wholesale; the
+/// per-unit expression above is the only attrition it tracks.
 /// </para>
 /// </remarks>
 public static class BattleCasualties
 {
     /// <summary>
-    /// The casualty figure: <c>loserPower × numerator / winnerPower</c>, multiplication first, one
-    /// truncating division.
+    /// The casualty <em>ratio</em>: <c>loserPower × numerator / winnerPower</c>, multiplication first,
+    /// one truncating division. Feed it to <see cref="Apply"/>; it is not a troop count.
     /// </summary>
     /// <param name="loserPower">The losing side's strength.</param>
     /// <param name="winnerPower">
     /// The winning side's strength. A non-positive value would be a division by zero in the original's
     /// own arithmetic; because the winner is by construction the side with the greater-or-equal
     /// strength, this can only happen when both sides' strength is zero (two empty armies), which
-    /// produces no casualties rather than an exception.
+    /// produces a zero ratio rather than an exception.
     /// </param>
     /// <param name="numerator">
     /// <see cref="CombatRules.WinnerCasualtyNumerator"/> for the winner's own losses, or
     /// <see cref="ScatteredDefeatRules.SurvivorCasualtyNumerator"/> for the <c>improved</c> ruleset's
-    /// mirrored figure.
+    /// mirrored ratio.
     /// </param>
-    public static int Count(int loserPower, int winnerPower, int numerator)
+    public static int Ratio(int loserPower, int winnerPower, int numerator)
     {
         if (winnerPower <= 0)
         {
@@ -75,101 +84,67 @@ public static class BattleCasualties
     }
 
     /// <summary>
-    /// Spreads <paramref name="casualties"/> over <paramref name="units"/> in proportion to each slot's
-    /// troops, and returns both the reduced slots and the per-slot losses.
+    /// Applies <paramref name="ratio"/> to <paramref name="units"/> as <c>FUN_0044AE20</c> does: for each
+    /// slot, <c>troops -= troops / (Random(span) + base) × ratio</c>.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Largest-remainder apportionment: each slot takes <c>troops × casualties / total</c>, and the
-    /// shortfall left by those truncations is handed out one troop at a time to the slots with the
-    /// largest remainders, ties broken by ascending slot index. That makes the split exact — the per-slot
-    /// losses always sum to the figure <see cref="Count"/> produced (after the clamp below) — and
-    /// deterministic, with no random draw of its own, so two runs on one seed agree slot for slot.
+    /// <strong>One draw per slot, in slot order, unconditionally</strong> — the decompiled function loops
+    /// over every unit in the army rather than over the occupied ones, so a slot already at zero troops
+    /// still consumes its draw and still loses nothing. Keeping the draw unconditional is what makes the
+    /// sequence depend only on the slot count, which is what makes a seeded assertion exact.
     /// </para>
     /// <para>
-    /// <paramref name="casualties"/> is clamped to the force's total troops, so a lopsided battle cannot
-    /// drive a slot negative. A slot reaches zero only when the clamp binds, i.e. when the whole force is
-    /// wiped out; short of that, <c>troops × casualties / total ≤ troops</c> strictly, and the one extra
-    /// troop a remainder can add cannot reach the slot's own count. <strong>No slot is ever removed
-    /// here</strong> — removing a unit for being small is the rout mechanic, which is reserve research
-    /// and must not appear in this diff.
+    /// <strong>The only clamp is non-negativity.</strong> A slot cannot lose more troops than it has, so
+    /// the computed loss is capped at the slot's own count. That is an arithmetic guard, not the tactical
+    /// path's 40 %-of-own-troops loss cap, which is reserve research and is not applied here — and it
+    /// genuinely binds only for a very lopsided <c>improved</c> defeat, where the mirrored ratio can
+    /// exceed the divisor. <strong>A slot reduced to zero is not removed</strong>; removing a unit for
+    /// being small is the rout mechanic.
     /// </para>
     /// </remarks>
     /// <param name="units">The force's unit slots.</param>
-    /// <param name="casualties">The casualty figure from <see cref="Count"/>.</param>
-    /// <returns>The reduced slots, the per-slot losses, and the total actually applied.</returns>
-    public static (ValueList<UnitSlot> Units, ValueList<UnitCasualty> Losses, int Applied) Distribute(
+    /// <param name="ratio">The ratio from <see cref="Ratio"/>. Zero or negative applies nothing, but still draws.</param>
+    /// <param name="rng">The battle's stream. One draw per slot.</param>
+    /// <param name="rules">Supplies the divisor base and its random span.</param>
+    /// <returns>The reduced slots, the per-slot losses, and the total troops actually lost.</returns>
+    public static (ValueList<UnitSlot> Units, ValueList<UnitCasualty> Losses, int Applied) Apply(
         ValueList<UnitSlot> units,
-        int casualties)
+        int ratio,
+        IRng rng,
+        CombatRules rules)
     {
         ArgumentNullException.ThrowIfNull(units);
-
-        var total = 0;
-        foreach (var unit in units)
-        {
-            total += unit.Troops;
-        }
-
-        if (casualties <= 0 || total <= 0 || units.Count == 0)
-        {
-            return (units, ValueList<UnitCasualty>.Empty, 0);
-        }
-
-        var applied = Math.Min(casualties, total);
-
-        var losses = new int[units.Count];
-        var remainders = new long[units.Count];
-        var handedOut = 0;
-        for (var i = 0; i < units.Count; i++)
-        {
-            var scaled = (long)units[i].Troops * applied;
-            losses[i] = (int)(scaled / total);
-            remainders[i] = scaled % total;
-            handedOut += losses[i];
-        }
-
-        // The shortfall the truncations left, one troop at a time to the largest remainder first.
-        var shortfall = applied - handedOut;
-        while (shortfall > 0)
-        {
-            var best = -1;
-            for (var i = 0; i < units.Count; i++)
-            {
-                if (losses[i] >= units[i].Troops)
-                {
-                    continue;
-                }
-
-                if (best < 0 || remainders[i] > remainders[best])
-                {
-                    best = i;
-                }
-            }
-
-            if (best < 0)
-            {
-                break;
-            }
-
-            losses[best]++;
-            remainders[best] = -1;
-            shortfall--;
-        }
+        ArgumentNullException.ThrowIfNull(rng);
+        ArgumentNullException.ThrowIfNull(rules);
 
         var reduced = new UnitSlot[units.Count];
         var report = new List<UnitCasualty>();
-        var actuallyApplied = 0;
+        var applied = 0;
+
         for (var i = 0; i < units.Count; i++)
         {
-            reduced[i] = units[i] with { Troops = units[i].Troops - losses[i] };
-            actuallyApplied += losses[i];
-            if (losses[i] > 0)
+            var unit = units[i];
+
+            // Random(15) + 105 -- drawn for every slot, occupied or not, as the decompiled loop does.
+            var divisor = rng.NextInt(rules.CasualtyDivisorRandomSpan) + rules.CasualtyDivisorBase;
+
+            // troops / divisor FIRST, then x ratio -- the decompiled order, which is not the same number
+            // as (troops x ratio) / divisor. Widened to long only so that a large ratio on a large slot
+            // cannot overflow before the clamp below; the arithmetic itself is the original's.
+            var loss = ratio <= 0 ? 0L : (long)(unit.Troops / divisor) * ratio;
+            var clamped = (int)Math.Min(unit.Troops, loss);
+
+            reduced[i] = unit with { Troops = unit.Troops - clamped };
+            applied += clamped;
+
+            if (clamped > 0)
             {
-                report.Add(new UnitCasualty(i, units[i].Name, units[i].Troops, losses[i]));
+                report.Add(new UnitCasualty(i, unit.Name, unit.Troops, clamped));
             }
         }
 
-        return (ValueList.From(reduced), ValueList.From(report), actuallyApplied);
+        return (ValueList.From(reduced), ValueList.From(report), applied);
     }
 
     /// <summary>
@@ -194,10 +169,10 @@ public static class BattleCasualties
     /// </para>
     /// <para>
     /// A unit at zero troops is not a survivor and is neither promoted nor rolled for. It is also not
-    /// removed — see <see cref="Distribute"/>.
+    /// removed — see <see cref="Apply"/>.
     /// </para>
     /// </remarks>
-    /// <param name="units">The winner's slots, already reduced by <see cref="Distribute"/>.</param>
+    /// <param name="units">The winner's slots, already reduced by <see cref="Apply"/>.</param>
     /// <param name="rng">The battle's stream. One draw per surviving unit, in slot order.</param>
     /// <param name="rules">Supplies the floor, the cap and the roll's denominator.</param>
     public static (ValueList<UnitSlot> Units, ValueList<UnitPromotion> Promotions) Promote(

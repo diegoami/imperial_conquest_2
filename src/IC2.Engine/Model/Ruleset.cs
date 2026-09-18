@@ -606,10 +606,35 @@ public sealed record NavalRules(
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>The shipped instant battle resolver, plus the reserve tactical constants.</summary>
+/// <param name="WinnerCasualtyNumerator">
+/// The <c>40</c> of <c>loserPower × 40 / winnerPower</c>. That expression is a <strong>ratio</strong>,
+/// not a troop count: the instant resolver passes it to <c>FUN_0044AE20</c> as that function's own
+/// <c>ratio</c> argument, and that function's body is the per-unit expression
+/// <see cref="CasualtyDivisorBase"/> and <see cref="CasualtyDivisorRandomSpan"/> describe
+/// (<c>decompiled-diplomacy-peace-terms-and-instant-battles.md</c> for the call site,
+/// <c>decompiled-defection-and-siege-attrition.md</c> for the body).
+/// </param>
+/// <param name="CasualtyDivisorBase">
+/// The <c>105</c> of <c>FUN_0044AE20</c>'s per-unit <c>troops -= troops / (Random(15) + 105) × ratio</c>
+/// <strong>[confirmed: <c>decompiled-defection-and-siege-attrition.md</c>, transcribed in the T04 corpus
+/// as <c>siege.attritionFormula</c>]</strong>. Added by T16 together with
+/// <see cref="CasualtyDivisorRandomSpan"/>: the resolver's first round could only read
+/// <c>loserPower × 40 / winnerPower</c> as a troop count because these two numbers had no home in the
+/// ruleset and a C# literal is forbidden, and the count reading is wrong — quantified, a hard-fought win
+/// (powers 5,000 against 5,200) would have cost the winner 38 troops in total.
+/// </param>
+/// <param name="CasualtyDivisorRandomSpan">
+/// The <c>15</c> of the same expression: the width of the <c>Random(15)</c> band added to
+/// <see cref="CasualtyDivisorBase"/>, so the divisor lands in <c>[105, 120)</c> and a unit loses between
+/// <c>ratio / 120</c> and <c>ratio / 105</c> of its troops. Drawn through <see cref="Core.IRng"/>, once
+/// per unit slot. <strong>[confirmed: same source]</strong>
+/// </param>
 public sealed record CombatRules(
     int PowerTroopDivisor,
     int PowerDivisor,
     int WinnerCasualtyNumerator,
+    int CasualtyDivisorBase,
+    int CasualtyDivisorRandomSpan,
     int AbsorbedSupplyTroopDivisor,
     int QualityFloor,
     int QualityCap,
