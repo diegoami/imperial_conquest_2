@@ -165,7 +165,18 @@ Five gates, in order. Any failure means `status:rework`.
 2. **Provenance.** Every constant traces to a `tests/fixtures` entry, a cited report, or a `docs/investigations/` document. Any `[designed]` value must say *what was searched and came up empty* (`design-audit.md` §4.5).
 3. **Determinism.** Gameplay paths use no `System.Random`, no wall clock, no `Guid.NewGuid`, and no order-dependent iteration. Every random draw goes through `IRng`, and a seeded test proves reproducibility.
 4. **Scope.** Every changed file is inside the task's Owns list. A change outside it is a finding even if it's a good change. The PR's "Docs affected" list is plausible for what the diff does.
-5. **Correctness sweep.** The reviewer reads the diff for ordinary bugs in its own context (§3.5 says why the skill is not used here).
+5. **Correctness sweep**, in the reviewer's own context ([§3.5](#35-where-the-code-review-skill-fits) says why the skill is not used here). It is a read of the PR's own diff, hunk by hunk, plus the surrounding code the diff doesn't show, hunting the classes that have actually bitten this project:
+   - integer truncation and operation order (the original truncates at every step);
+   - off-by-one in a cap or threshold, and the boundary either side of it;
+   - a division or modulo whose denominator can be zero;
+   - an unguarded null, empty collection or missing id;
+   - order-dependent iteration, or a dictionary where order would leak into a result;
+   - a branch that can never be taken (T12's domination win was dead code that shipped);
+   - **a test that would still pass if the behaviour were deleted** — the most common finding here, and the reason mutation is the proof below.
+
+   A candidate is **proved before it is reported**: run it, or delete the behaviour and watch exactly which test fails. A finding with neither is labelled as unverified.
+
+   **Fanning out is allowed, and is how the sweep scales**: the reviewer may dispatch one verification agent per candidate, each given the explicit claim, the file and line, and what evidence would confirm or refute it — never left to infer a target from its working directory ([§7](#7-concurrency-single-instance-and-local-only)). Verdicts come back confirmed, plausible or refuted, and "plausible" is reported as plausible.
 
 A defect the reviewer finds in **another task's already-merged** code is not a finding against this PR. It goes to the bug list ([§4.6](#46-bugs-and-follow-ups)).
 
@@ -480,7 +491,16 @@ Run five gates, in order. Any failure is status:rework:
  4. Scope. Every changed file is inside the task's declared Owns list. A file outside it is a
     finding even if the change is good. Any diff to docs/*.md is an automatic rework. The PR's
     "Docs affected" list matches what the diff actually changes.
- 5. Correctness. Sweep the diff for ordinary bugs YOURSELF, in your own context.
+ 5. Correctness. Sweep the diff for ordinary bugs YOURSELF, in your own context: read it hunk by
+    hunk, plus the surrounding code it doesn't show, and hunt integer truncation and operation
+    order, off-by-one caps and their boundaries, division by a zero denominator, unguarded nulls
+    and empty collections, order-dependent iteration, unreachable branches, and tests that would
+    pass even with the behaviour deleted (build-process.md §4.2 gate 5 lists these).
+    PROVE a candidate before reporting it: run it, or delete the behaviour and watch exactly which
+    test fails. Say so when a finding is unverified.
+    You MAY fan out — one verification agent per candidate, each given the explicit claim, file and
+    line, and what would confirm or refute it. Never let such an agent infer its target from a
+    working directory; it starts in the main checkout, not here.
     Do NOT invoke the /code-review skill: from inside a reviewer agent it forks, the fork runs in
     the MAIN CHECKOUT rather than your worktree, its `origin/main...HEAD` is empty there, and it
     silently falls back to reviewing main's last commit. It produced full, confident findings about
