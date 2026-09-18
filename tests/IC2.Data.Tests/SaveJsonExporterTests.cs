@@ -49,4 +49,30 @@ public class SaveJsonExporterTests : IDisposable
         var offers = doc.RootElement.GetProperty("mercenaryOffers");
         Assert.Equal(JsonValueKind.Array, offers.ValueKind);
     }
+
+    // T44 (issue #126): the exported army's "moves" must be the signed value (-1 for the one
+    // anomalous corpus record), never 65535, and "frozen" flags exactly that record — never blurred
+    // with "aboardFleet" (a separate sentinel on a separate field).
+    [SkippableFact]
+    public void Army_moves_is_signed_and_frozen_flags_the_anomalous_record()
+    {
+        Skip.IfNot(LocalAssets.IsConfigured, LocalAssets.SkipReason);
+        var settings = LocalAssets.Settings!;
+        var savePath = settings.ResolveSavePath("saves-processed/1_rome_270_summer_7.sav");
+
+        SaveJsonExporter.Export(savePath, _outputPath);
+        var json = File.ReadAllText(_outputPath);
+
+        using var doc = JsonDocument.Parse(json);
+        var armies = doc.RootElement.GetProperty("armies").EnumerateArray().ToList();
+
+        var ptolemaic9 = armies.Single(a => a.GetProperty("index").GetInt32() == 9);
+        Assert.Equal(-1, ptolemaic9.GetProperty("moves").GetInt32());
+        Assert.True(ptolemaic9.GetProperty("frozen").GetBoolean());
+        Assert.False(ptolemaic9.GetProperty("aboardFleet").GetBoolean());
+
+        var rome0 = armies.Single(a => a.GetProperty("index").GetInt32() == 0);
+        Assert.Equal(8, rome0.GetProperty("moves").GetInt32());
+        Assert.False(rome0.GetProperty("frozen").GetBoolean());
+    }
 }

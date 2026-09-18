@@ -149,7 +149,8 @@ if ((args.Length == 3 && args[0] == "--list-armies") ||
             if (army.OwnerCode != ownerFilter) continue;
             found++;
             var aboard = army.IsAboardFleet ? " · aboard a fleet" : "";
-            Console.WriteLine($"Army {army.Index} at ({army.X}, {army.Y}) · {army.TotalTroops:N0} troops · {army.Supplies} tons supply ({army.SupplyPercent}%) · {army.Money} money · moves {army.Moves} · morale {army.Morale}{aboard}");
+            var frozen = army.IsFrozen ? " · frozen (negative moves)" : "";
+            Console.WriteLine($"Army {army.Index} at ({army.X}, {army.Y}) · {army.TotalTroops:N0} troops · {army.Supplies} tons supply ({army.SupplyPercent}%) · {army.Money} money · moves {army.Moves} · morale {army.Morale}{aboard}{frozen}");
         }
         if (found == 0) Console.WriteLine($"No armies owned by {nationName} in {Path.GetFileName(inspectedSavePath)}.");
         return 0;
@@ -267,6 +268,8 @@ if ((args.Length == 4 && args[0] == "--inspect-army") ||
             Console.WriteLine($"Army {army.Index} at ({x}, {y}) · owner code {army.OwnerCode}");
             Console.WriteLine($"{army.Units.Count} units · {army.TotalTroops:N0} troops · {army.Supplies} tons supply · {army.Money} money");
             Console.WriteLine($"Moves {army.Moves} · morale {army.Morale} · supply capacity {army.SupplyCapacityTons} tons ({army.SupplyPercent}%)");
+            if (army.IsFrozen)
+                Console.WriteLine("Frozen (negative moves): cannot be selected or ordered until the next weekly tick");
             Console.WriteLine(army.IsAboardFleet
                 ? "Aboard a fleet (no map cell of its own)"
                 : $"Covered map cell {army.CoveredCell}");
