@@ -16,6 +16,12 @@ namespace IC2.Engine.Naval.Commands;
 /// when a human seat omits it.
 /// </param>
 /// <param name="Y">See <see cref="X"/>.</param>
+/// <remarks>
+/// <c>[open, flagged not fixed]</c> (round 2 review, N12): this does not check whether the landing tile
+/// is already occupied by a hostile army or city — landing onto contested ground is a T16/T17 concern
+/// (battle resolution, capture), and no Done-when line here asks for it. Left as a bare terrain-passability
+/// check.
+/// </remarks>
 public sealed record DisembarkArmyCommand(string IssuingNationId, string ArmyId, int? X, int? Y) : ICommand
 {
     /// <inheritdoc/>

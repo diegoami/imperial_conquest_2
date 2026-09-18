@@ -448,6 +448,22 @@ public sealed record ArmyManagementRules(
 /// series never exercises it (storm damage stayed under 6 throughout), so the resulting magnitude here
 /// is derived from the confirmed battle-context formula's shape, not independently save-checked for this
 /// call site. This is the <c>100</c> first argument.
+/// <para>
+/// <strong>Open evidence conflict (round 2 review), not resolved here:</strong> with
+/// <see cref="StormShipLossRatioBase"/> = <see cref="StormShipLossRatioScale"/> = 100, the minimum
+/// possible heavy-branch loss (at the threshold, <c>dmg == 6</c>) is
+/// <c>ships × 112 / <see cref="StormShipLossDivisor"/></c> ≈ <strong>37% of the fleet in one turn</strong> —
+/// and, measured over 2,000 seeded draws away from friendly coast at condition 50, that branch fires on
+/// roughly 39% of them. This is in tension with the one empirical series available: the Cartago fleet in
+/// <c>1_cartago_271_*.sav</c> holds <strong>90 ships across all ten saves</strong> at conditions falling
+/// from 79 to 48, away from friendly coast, over seven turns — a run this magnitude would give roughly a
+/// 1-in-35 chance of surviving without a ship loss. The transcription itself is arithmetically exact
+/// against the confirmed <c>r</c>/<c>d</c> formula from the battle-context call site; the tension is that
+/// the one series available to check the storm call site's own magnitude against never actually took
+/// this branch, so the formula's applicability here — not its transcription — is what remains unverified.
+/// Resolving it needs a decompilation of <c>FUN_0044B4F8</c>'s storm call site specifically, which is out
+/// of this task's scope; noted here, not in a PR body, so it survives the merge.
+/// </para>
 /// </param>
 /// <param name="StormShipLossRatioScale">
 /// The <c>100</c> divisor of <c>d = r² / <see cref="StormShipLossRatioScale"/></c>, where

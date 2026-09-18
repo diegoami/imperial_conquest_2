@@ -145,6 +145,40 @@ public sealed class FleetAttritionBranchMatrixTests
     }
 
     /// <summary>
+    /// B5 (round-2 review): asserting the pure rule's <c>DamagedInStorm</c> flag (the test above) is not
+    /// the same claim as asserting <see cref="FleetTickSystem"/> actually publishes
+    /// <see cref="FleetDamagedInStorm"/> from it. Deleting the publish at
+    /// <c>FleetTickSystem.cs</c>'s <c>context.Events.Publish(new FleetDamagedInStorm(...))</c> line left
+    /// every one of the 1,764 round-2 tests green, including the one above, because nothing ran the real
+    /// system with a sink and checked. This runs the real pipeline (seed 14, found by search to land a
+    /// heavy-but-survivable hit on the same 40-ship/condition-68/away-from-friendly-coast fleet) and
+    /// checks the sink directly -- the same standard <see cref="FleetLostAtSea"/> and
+    /// <see cref="FleetFinished"/> already meet elsewhere in this test project.
+    /// </summary>
+    [Fact]
+    public void HeavyDamageBranch_FleetTickSystemActuallyPublishesFleetDamagedInStorm()
+    {
+        var state = NavalTestbed.InitialState();
+        var nationId = state.Nations[0].Id;
+
+        var fleet = new IC2.Engine.Model.FleetState(
+            "damaged-publish-fleet", nationId, X: 0, Y: 3, Moves: 5, Ships: 40, ConditionPercent: 68,
+            Money: 0, SupplyTons: 1000, ConstructionTicksRemaining: null, BuildCityId: null,
+            CarriedArmyId: null, CoveredTileCode: null);
+
+        var seededState = state with { Fleets = IC2.Engine.Model.ValueList.Of(fleet), RandomSeed = 14UL };
+        var sink = new RecordingEventSink();
+        var coordinator = NavalTestbed.CoordinatorOnly(sink, typeof(FleetTickSystem));
+        var result = coordinator.RunRoundTick(seededState).State;
+
+        var updated = result.FleetById(fleet.Id)!;
+        Assert.True(updated.Ships < 40, "the seed must land on the heavy branch for this test to mean anything.");
+        Assert.False(updated.ConditionPercent < Ruleset.Naval.DeathConditionThreshold, "must survive, not die, for DamagedInStorm rather than FleetLostAtSea to be the expected event.");
+
+        Assert.Single(sink.Events.OfType<FleetDamagedInStorm>());
+    }
+
+    /// <summary>
     /// The carried-army moves term (<c>NavalRules.MovesCarriedArmyTroopDivisor</c>/<c>Addend</c>). ships
     /// 40 (base moves 30 - (40-50)/10 = 31), no zero-supply penalty, condition 100 (no slowdown). Carrying
     /// 8,000 troops subtracts <c>8000/100/40 + 1 = 3</c>.
