@@ -175,6 +175,7 @@ Five gates, in order. Any failure means `status:rework`.
    - an unguarded null, empty collection or missing id;
    - order-dependent iteration, or a dictionary where order would leak into a result;
    - a branch that can never be taken (T12's domination win was dead code that shipped);
+   - **a delete that leaves something behind** — three questions, every time an entity is removed from `GameState`: does anything still **reference** it, are its **resources** conserved, and does a **cap** still hold afterwards? This class has blocked three tasks (T14's fleet-to-fleet transfer, T39's mercenary desertion, and T46 was specified from the first). Both blockers produced the same symptom: a dangling id that `GameDataValidation.ValidateState` rejects, so the game writes a save it **cannot reload** — and the code paths in between degrade silently, which is why nothing surfaces until the load. `FleetState.CarriedArmyId` is the model's one cross-reference to an army id and the usual culprit; the reviewer's sweep is the whole model, not just that field;
    - **a test that would still pass if the behaviour were deleted** — the most common finding here, and the reason mutation is the proof below.
 
    A candidate is **proved before it is reported**: run it, or delete the behaviour and watch exactly which test fails. A finding with neither is labelled as unverified.
@@ -430,6 +431,10 @@ Rules for all engine code:
     fixtures corpus. If you can't find evidence for a number, don't invent one: report it.
     A [designed] value is acceptable only if you state what you searched and came up empty.
   - Original game files (EXE/DAT/SAV/WAV/screenshots/recordings) never enter the repository.
+  - If your change DELETES an entity (an army, a fleet, a city, a unit slot), sweep your own
+    diff before you finish: does anything still reference it, are its resources conserved, does
+    a cap still hold? A dangling id makes a save that cannot be reloaded, and the paths in
+    between degrade silently. This has blocked three tasks; the review will find it.
 
 When done:
   1. `dotnet build IC2.sln` and `dotnet test IC2.sln` pass in your worktree.
@@ -499,6 +504,10 @@ Run five gates, in order. Any failure is status:rework:
     order, off-by-one caps and their boundaries, division by a zero denominator, unguarded nulls
     and empty collections, order-dependent iteration, unreachable branches, and tests that would
     pass even with the behaviour deleted (build-process.md §4.2 gate 5 lists these).
+    If the diff DELETES an entity from GameState, ask all three: does anything still reference
+    it, are its resources conserved, does a cap still hold? That class has blocked three tasks,
+    twice by producing a save that cannot be reloaded. Probe it with two entities — one
+    deleted, one surviving — since an over-broad clear passes every single-entity test.
     PROVE a candidate before reporting it: run it, or delete the behaviour and watch exactly which
     test fails. Say so when a finding is unverified.
     You MAY fan out — one verification agent per candidate, each given the explicit claim, file and
