@@ -128,6 +128,9 @@ public sealed class AiDepositionHandlerTests
     /// treasury -922, one talent inside the now-much-wider line. Because <see cref="AiDepositionHandler"/>
     /// runs last (order 300), it reads the settled figures and correctly finds the nation clear -- if it
     /// ran any earlier in the chain, per-Owns files aside, it would have found the nation still in debt.
+    /// Review round 2, B2: the state's <see cref="Model.GameState.RandomSeed"/> is pinned to 13 -- see the
+    /// in-body comment for why a seed choice, not just the order, decides whether this test can catch a
+    /// mis-ordering at all.
     /// </summary>
     [Fact]
     public void OnQuarterBoundary_ReadsThisQuartersSettledFigures_NotTheStaleOnesFromBeforeItRan()
@@ -135,7 +138,19 @@ public sealed class AiDepositionHandlerTests
         var ruleset = EconomyTestbed.Ruleset;
         var state = EconomyTestbed.InitialState();
         var nations = state.Nations.Select(n => n.Id == "south" ? n with { Treasury = -830, Unity = 990 } : n);
-        state = state with { Nations = ValueList.From(nations) };
+
+        // Review round 2, B2: pinned to a seed where the 1-in-9 deposition draw actually hits. At the
+        // correct order (this handler last, after the nation tick's credit) this nation is never in debt
+        // by the time it is checked, so no draw is ever attempted and the seed does not matter to the
+        // passing case. But the whole point of this test is to fail if the handler ran *before* the
+        // credit instead -- and mis-ordered, this nation *would* be in debt when checked, so whether the
+        // mutation is actually caught depends on whether that draw hits. The default seed happened not to
+        // (verified: a mis-ordered run at the default seed still lands on -922, indistinguishable from
+        // correct); seed 13 hits it, so a mis-ordered run instead deposes the nation mid-pipeline and
+        // resets its treasury to 0 before the nation tick's own +4 credit lands on top of that (giving 4,
+        // not -922) -- the divergence this test exists to catch. Do not tidy this away: without a seed
+        // chosen for this reason, the test is inert at roughly eight seeds in nine.
+        state = state with { Nations = ValueList.From(nations), RandomSeed = 13 };
 
         // On this nation's own stored (pre-quarter) figures, it already reads as in debt -- the treasury
         // is deeply negative against a wealth-based line that has not yet been rebuilt this quarter.

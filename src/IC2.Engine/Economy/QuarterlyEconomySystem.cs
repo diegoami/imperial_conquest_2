@@ -42,9 +42,13 @@ namespace IC2.Engine.Economy;
 /// itself. Without this, <see cref="Model.FleetState.CarriedArmyId"/> — the model's one cross-reference to
 /// an army id — would point at an army <see cref="Model.GameState.Armies"/> no longer contains, which
 /// <see cref="IC2.Engine.Serialization.GameDataValidation.ValidateState"/> rejects on every save load
-/// (<c>UnresolvedReferenceException</c>). So every deleted army's own <see cref="Model.ArmyState.AboardFleetId"/>
-/// is checked, and that fleet's <see cref="Model.FleetState.CarriedArmyId"/> is cleared in the same pass —
-/// review round 1, B1.
+/// (<c>UnresolvedReferenceException</c>). So every deleted army's id is recorded, and any fleet whose own
+/// <see cref="Model.FleetState.CarriedArmyId"/> names one of them is cleared in the same pass — review
+/// round 1, B1. The clear is keyed on <c>fleet.CarriedArmyId == army.Id</c> (a fleet's own claim), not on
+/// the deleted army's <see cref="Model.ArmyState.AboardFleetId"/> (review round 2, N7): the two agree in
+/// any well-formed state, since <c>GameDataValidation</c> enforces the mutual link, but keying on the
+/// fleet's own field stays correct even if they ever disagreed, where trusting the army's side blindly
+/// could clear the wrong fleet's pointer.
 /// </para>
 /// </remarks>
 [QuarterBoundaryHandler("economy.quarterly-billing")]
@@ -75,7 +79,7 @@ public sealed class QuarterlyEconomySystem : IQuarterBoundaryHandler
         // purse, with desertion on an empty purse.
         var regularUpkeepByNation = new Dictionary<string, int>(StringComparer.Ordinal);
         var updatedArmies = new List<ArmyState>(state.Armies.Count);
-        var fleetsLosingTheirCarriedArmy = new HashSet<string>(StringComparer.Ordinal);
+        var deletedArmyIds = new HashSet<string>(StringComparer.Ordinal);
         foreach (var army in state.Armies)
         {
             var billed = MercenaryDesertion.BillArmy(army, ruleset);
@@ -86,12 +90,13 @@ public sealed class QuarterlyEconomySystem : IQuarterBoundaryHandler
             {
                 updatedArmies.Add(survivingArmy);
             }
-            else if (army.AboardFleetId is { } aboardFleetId)
+            else
             {
-                // Every unit deserted this quarter -- the army is deleted. It was embarked, so its
-                // carrying fleet's own back-reference would otherwise be left dangling (review round 1,
-                // B1); recorded here and cleared below, alongside the rest of this handler's fleet work.
-                fleetsLosingTheirCarriedArmy.Add(aboardFleetId);
+                // Every unit deserted this quarter -- the army is deleted. If it was carried by a fleet,
+                // that fleet's own back-reference would otherwise be left dangling (review round 1, B1);
+                // recorded here by this army's own id, cleared below by matching fleet.CarriedArmyId
+                // against it -- not by trusting this army's own AboardFleetId (review round 2, N7).
+                deletedArmyIds.Add(army.Id);
             }
         }
 
@@ -109,10 +114,12 @@ public sealed class QuarterlyEconomySystem : IQuarterBoundaryHandler
             });
         }
 
-        var updatedFleets = fleetsLosingTheirCarriedArmy.Count == 0
+        var updatedFleets = deletedArmyIds.Count == 0
             ? state.Fleets
             : ValueList.From(state.Fleets.Select(fleet =>
-                fleetsLosingTheirCarriedArmy.Contains(fleet.Id) ? fleet with { CarriedArmyId = null } : fleet));
+                fleet.CarriedArmyId is { } carriedArmyId && deletedArmyIds.Contains(carriedArmyId)
+                    ? fleet with { CarriedArmyId = null }
+                    : fleet));
 
         return state with
         {
