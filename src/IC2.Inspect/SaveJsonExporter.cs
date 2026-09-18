@@ -110,6 +110,7 @@ public static class SaveJsonExporter
                 y = a.Y,
                 owner = NationRef(a.OwnerCode),
                 moves = a.Moves,
+                frozen = a.IsFrozen,
                 morale = a.Morale,
                 coveredCell = a.CoveredCell,
                 aboardFleet = a.IsAboardFleet,

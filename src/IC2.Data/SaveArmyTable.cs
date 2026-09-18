@@ -112,7 +112,7 @@ public sealed class SaveArmyTable
                 units.Add(new ArmyUnit(slot, name, type, troops, quality, ReadWord(data, unitOffset)));
             }
             armies.Add(new ArmyRecord(i, x, y, owner,
-                moves: ReadWord(data, offset + 6),
+                moves: ReadShort(data, offset + 6),
                 coveredCell: ReadWord(data, offset + 8),
                 supplies: ReadWord(data, offset + 10),
                 money: ReadWord(data, offset + 12),
@@ -137,6 +137,11 @@ public sealed class SaveArmyTable
 
     private static ushort ReadWord(byte[] data, int offset) =>
         BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(offset, 2));
+
+    // Word +6 (moves) is the one field on this record the original reads signed — see
+    // ArmyRecord.Moves's own doc comment. Every other header word here is read unsigned.
+    private static short ReadShort(byte[] data, int offset) =>
+        BinaryPrimitives.ReadInt16LittleEndian(data.AsSpan(offset, 2));
 }
 
 /// <summary>Thrown when every record in an army table is the tombstone sentinel (owner 0xFFFF) — see
@@ -184,7 +189,7 @@ public sealed class ArmyRecord
     /// separate constant so the two are never conflated.</summary>
     public const ushort TombstoneOwnerSentinel = 0xFFFF;
 
-    internal ArmyRecord(int index, ushort x, ushort y, ushort ownerCode, ushort moves,
+    internal ArmyRecord(int index, ushort x, ushort y, ushort ownerCode, short moves,
         ushort coveredCell, ushort supplies, ushort money, ushort morale, ArmyUnit[] units)
     {
         Index = index;
@@ -204,7 +209,25 @@ public sealed class ArmyRecord
     public ushort X { get; }
     public ushort Y { get; }
     public ushort OwnerCode { get; }
-    public ushort Moves { get; }
+
+    /// <summary>Word +6: movement points remaining this week. A **signed** 16-bit field — every guard
+    /// on it in the original is <c>JLE</c>/<c>JGE</c> and every widening read is <c>MOVSX</c>, never a
+    /// <c>JBE</c>/<c>JAE</c>/<c>MOVZX</c>. A negative value (the corpus has exactly one, an underflow
+    /// from an unfloored <c>SUB ..., 2</c> on the aboard-a-fleet order path) is <b>not a sentinel</b> —
+    /// no code anywhere compares this field against <c>−1</c>/<c>0xFFFF</c>, and every one of the
+    /// fourteen write sites stores <c>0</c>, <c>1</c>, a floored decrement, or the weekly formula's
+    /// value. It is a genuine underflow bug in the original: every <c>JLE</c>/<c>JGE</c> guard on a
+    /// negative value fails, so the army is frozen — it cannot be selected, moved or acted on for the
+    /// rest of the turn (see <see cref="IsFrozen"/>) — and it self-heals at the next weekly tick, which
+    /// unconditionally overwrites this field for every army in the game. See
+    /// https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/army-moves-field-signed-and-the-ffff-underflow.md.</summary>
+    public short Moves { get; }
+
+    /// <summary>True when <see cref="Moves"/> is negative — the original's frozen-army state (see
+    /// <see cref="Moves"/>'s own remarks): every move/select/order guard on this army fails until the
+    /// next weekly tick recomputes its allowance. Mirrors <see cref="IsAboardFleet"/> as a
+    /// ready-to-use flag rather than leaving a caller to re-derive "negative means frozen" itself.</summary>
+    public bool IsFrozen => Moves < 0;
 
     /// <summary>Word +8: the map cell value this army's marker is covering, saved so it can be restored
     /// when the army moves or is removed — NOT a morale value, as this field was labelled until the
