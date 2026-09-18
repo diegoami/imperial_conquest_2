@@ -6,6 +6,8 @@ A modern, moddable reimplementation of *Imperial Conquest 2* (1996) — the game
 
 ## Current state
 
+**[`v0.1.0`](https://github.com/diegoami/imperial_conquest_2/releases/tag/v0.1.0) — *the rules run*** is the first tag: the confirmed economy, calendar, movement, strength and victory rules are executable and covered by tests, and the text demo below plays on the toy world. There are no battles, capture, recruitment, diplomacy or AI yet ([release-plan.md §2](docs/release-plan.md#2-the-release-ladder)).
+
 Progress lives on GitHub, not in this file: each [task issue](https://github.com/diegoami/imperial_conquest_2/issues?q=label%3Atask)'s `status:*` label, and the [pull requests](https://github.com/diegoami/imperial_conquest_2/pulls). What is built and what is next is in the [task catalogue](docs/task-catalogue.md). How to query the board: [operating-guide.md §1](https://github.com/diegoami/imperial_conquest_2/wiki/Where-the-build-stands).
 
 - **Try the demo** (T41) — a text walking skeleton of the rules built so far, on the small 3-city toy world (`data/worlds/toy-3city.json`, north human against a south seat with no AI yet):
