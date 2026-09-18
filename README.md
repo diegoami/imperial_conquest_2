@@ -6,7 +6,7 @@ A modern, moddable reimplementation of *Imperial Conquest 2* (1996) — the game
 
 ## Current state
 
-Progress lives on GitHub, not in this file: each [task issue](https://github.com/diegoami/imperial_conquest_2/issues?q=label%3Atask)'s `status:*` label, and the [pull requests](https://github.com/diegoami/imperial_conquest_2/pulls). What is built and what is next is in the [task catalogue](docs/task-catalogue.md). How to query the board: [operating-guide.md §1](docs/operating-guide.md#1-where-the-build-stands).
+Progress lives on GitHub, not in this file: each [task issue](https://github.com/diegoami/imperial_conquest_2/issues?q=label%3Atask)'s `status:*` label, and the [pull requests](https://github.com/diegoami/imperial_conquest_2/pulls). What is built and what is next is in the [task catalogue](docs/task-catalogue.md). How to query the board: [operating-guide.md §1](https://github.com/diegoami/imperial_conquest_2/wiki/Where-the-build-stands).
 
 - **Try the demo** (T41) — a text walking skeleton of the rules built so far, on the small 3-city toy world (`data/worlds/toy-3city.json`, north human against a south seat with no AI yet):
 
@@ -15,7 +15,7 @@ Progress lives on GitHub, not in this file: each [task issue](https://github.com
   dotnet run --project src/IC2.Cli                                          # play it yourself
   ```
 
-  Commands: `status`, `map`, `move <army> <x> <y>`, `buy <army> <city> <tons>`, `end`, `news`, `help`, `quit`. `--seed <n>` overrides the scenario's seed, which drives weather only; everything else is deterministic. What isn't built yet (battles, capture, recruitment, diplomacy, the AI) is simply absent, the AI seat passes with no orders, and `help` says so. T23 later extends this same harness to the full command set; the first graphical screen is T24. What becomes runnable when: [operating-guide.md §1.1](docs/operating-guide.md#11-what-becomes-runnable-and-when).
+  Commands: `status`, `map`, `move <army> <x> <y>`, `buy <army> <city> <tons>`, `end`, `news`, `help`, `quit`. `--seed <n>` overrides the scenario's seed, which drives weather only; everything else is deterministic. What isn't built yet (battles, capture, recruitment, diplomacy, the AI) is simply absent, the AI seat passes with no orders, and `help` says so. T23 later extends this same harness to the full command set; the first graphical screen is T24. What becomes runnable when: [operating-guide.md §1.1](https://github.com/diegoami/imperial_conquest_2/wiki/Where-the-build-stands#what-becomes-runnable-and-when).
 - **Build and test now**:
   ```bash
   dotnet build IC2.sln   # 0 warnings, 0 errors
