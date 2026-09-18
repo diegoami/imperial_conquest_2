@@ -4,7 +4,7 @@ Every build task's scope, **Owns** list, Definition of Done, model/effort, revie
 
 **Status is not in this document.** Each task's stage (ready, in progress, merged, blocked, escalated) lives only in its GitHub issue's `status:*` label ([build-process.md §5](build-process.md#5-status-lives-on-github)). The index below links every issue.
 
-49 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), twelve corrections to already-merged code (T31–T35, T38–T40, T42–T45), one rule no task owned (T37, the weekly city supply step), and two early slices — T41 of T23's CLI, and T47 of T24's Godot UI.
+50 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), twelve corrections to already-merged code (T31–T35, T38–T40, T42–T45), one rule no task owned (T37, the weekly city supply step), and two early slices — T41 of T23's CLI, and T47 of T24's Godot UI.
 
 ---
 
@@ -68,6 +68,8 @@ graph TD
   T39 --> T22
   T08 --> T14[T14 naval]
   T14 --> T46[T46 fleet transfer + supply]
+  T46 --> T50[T50 command hygiene]
+  T50 --> T22
   T14 --> T47[T47 thin Godot slice]
   T47 --> T48[T48 asset-pack icons]
   T48 --> T24
@@ -1051,7 +1053,7 @@ Conventions used by every entry:
 - **Design milestone**: **M15**. **Labels**: `phase:2 lane:data local-only`
 - **Branch**: `task/T21-save-import` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
 - **Start after**: T20 · **Merge after**: T10, T20, T29, T30, T34
-- **Owns**: `src/IC2.Engine/Import/**`, `tests/IC2.Engine.Tests/Import/**`, `tests/IC2.Data.Tests/CorpusFixtures/**` (the folded sweep corrections only)
+- **Owns**: `src/IC2.Engine/Import/**`, `tests/IC2.Engine.Tests/Import/**`, `tests/IC2.Data.Tests/**` (the folded sweep and save-path corrections only)
 - **Scope**: Map `IC2.Data`'s parsed original state onto the new domain model, per `game-design.md`'s import policy (always the `classical-mediterranean` world and `classical-faithful` ruleset; anything else rejected).
 - **Done when**:
   1. Three or four representative saves (per [`operating-guide.md` §5](operating-guide.md#4-collaboration-norms)'s sampling rule, sample choice justified in the PR body) import, save to the new format, and reload to an equal state. **At least one should be a mid-turn save**: combat resolution writes the `0xFFFF` army tombstone *during* a turn and the end-of-turn tick compacts it out **[confirmed: battle-replayed-rout-mechanic-and-combat-constants.md]**, so a tombstone is the expected state of a mid-turn save.
@@ -1062,6 +1064,7 @@ Conventions used by every entry:
   6. An army whose `moves` word is **negative** — T44 makes the field signed; the corpus has one such army, at `−1` — imports to a stated, deliberate value, never to `65535` and never to a negative move count in the new model. The PR body says which value and why. The original's own behaviour is that such an army is frozen until the next weekly tick ([`army-moves-field-signed-and-the-ffff-underflow.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/army-moves-field-signed-and-the-ffff-underflow.md)), so "clamp to 0" is defensible and "reproduce the underflow" is not; say which was chosen.
   7. **Folded follow-up ([#136](https://github.com/diegoami/imperial_conquest_2/issues/136))**: T44's corpus sweep has four dead assertions and several far-too-loose fleet bounds. `SaveArmyTable.Parse` already throws on `x >= 320` / `y >= 140`, so `Assert.InRange(a.X, 0, 333)` can never fire, and the type/quality assertions merely restate `Parse`'s own guards; on the fleet side `X`/`Y` allow `0..333` on a 320×140 map (a fleet at `Y=200`, off the map, passes), `ShipCount` allows `0..2000` against an observed 10..100, and `ConditionPercent` allows `0..1000` for a **percentage**. Tighten them to the real map constants and ranges. **This task is the reason it matters**: it imports those very records, so a sweep that cannot fail is a sweep that will not warn it.
   8. **Folded follow-up ([#137](https://github.com/diegoami/imperial_conquest_2/issues/137))**: army morale is **not** bounded by `51 … 70` on import. Six corpus records read **72** (nation 8, the Carthage save family), which `design-audit.md` §2.9a's "real bounds" claim contradicts — that section describes the weekly supply tick's own clamp, one writer of the field, not every writer (corrected on `main` alongside this fold). The import must not clamp, reject or "repair" a morale outside 51–70; a test imports one of those six records and asserts the value survives as 72.
+  9. **Folded follow-up ([#155](https://github.com/diegoami/imperial_conquest_2/issues/155))**: the local-only data tests name the **folder** a save sits in, and `/process-evidence` moves saves from `saves/` to `saves-processed/` once a report cites them — the corpus is now 3 files in one and 51 in the other. So `ArmyTombstoneTests` hardcodes `saves/1_thracia_…` for files that moved, while T44's `ArmyMovesSignedTests` hardcodes `saves-processed/…`, the opposite convention. **7 tests fail on the configured machine**, invisibly: CI has no `assets.local.ini` so they skip there. Resolve by **filename** through `CorpusFileLocator`, which already exists, and let it fail loudly on an ambiguous or absent name. This is the drift T34 was created to end — it fixed the corpus sweep fixture and left every other test naming folders.
 - **Hazards**: **the army `moves` word is signed, and one real save holds `−1`** (bug [#125](https://github.com/diegoami/imperial_conquest_2/issues/125), made signed in `IC2.Data` by T44). DoD 2's "zero unmapped fields" is satisfiable while mapping the raw word straight into `ArmyState.Moves`, which gives an imported army either 65535 movement points or a negative count; the corpus holds exactly one such army, so sampling only clean saves passes the DoD with the defect intact — the same shape as T30's tombstone hazard, and the reason DoD 1 already demands a mid-turn save.
 - **Constraint**: `local-only`. Cannot be dispatched to a machine without `C:\Users\diego\Documents\imp_conq_original`. See [build-process.md §8](build-process.md#8-adding-a-second-machine-later).
 
@@ -1149,6 +1152,7 @@ Conventions used by every entry:
   6. **T47's agreement gate still holds**: the slice's status text stays byte-identical to `IC2.Cli`'s for the same scenario and seed. Drawing must not touch turn logic; re-run both sides and paste the comparison.
   7. A screenshot showing icon-drawn armies and cities, captured the way T47 established (a short windowed run — **headless capture does not work on Godot 4.7.2's dummy backend**, confirmed twice; see [#156](https://github.com/diegoami/imperial_conquest_2/issues/156)).
   8. `scripts/check-godot-churn.ps1` clean after every Godot invocation; `dotnet build IC2.sln` 0 warnings / 0 errors; CI unchanged and still green without Godot.
+  9. **Folded follow-up ([#156](https://github.com/diegoami/imperial_conquest_2/issues/156))**: `godot/Slice/Slice.cs`'s opt-in screenshot diagnostic has no `try/catch` around `GetImage()`/`SavePng()`. Headless capture cannot work on Godot 4.7.2 — the dummy rendering backend has no texture and `GetImage()` throws *"Parameter 't' is null"* — so a headless run with `IC2_SLICE_SCREENSHOT_PATH` set throws, which Godot logs and survives. No DoD path reaches it. Guard it and log that headless capture is unavailable. Worth knowing while you work: **automated visual evidence is not available on this Godot build**, so this task's own screenshot needs a short windowed run, as T47's did.
 - **Hazards**:
   - **Do not modify T11's pack, generator or `src/IC2.Engine/Assets/**`.** If the loader is missing something this task needs, that is a finding to report, not an edit to make — `assets/packs/placeholder/**` and `scripts/generate-placeholder-assets.*` are T11's Owns list.
   - **Do not build any part of T24**: no main menu, no New Game flow, no ruleset chooser.
@@ -1178,11 +1182,35 @@ Conventions used by every entry:
   5. **The fallback rule is stated**: what a renderer does when an asset is missing, and what it must never do (throw, or silently draw nothing).
   6. Each depiction claim is sourced — a screenshot filename, a research report, or an explicit `[designed]` tag with what was searched and came up empty. `design-audit.md` §4.5 is the standard.
   7. `dotnet build IC2.sln` and `dotnet test IC2.sln` are green, and the diff lists only Owns paths.
+  8. **Folded follow-up ([#154](https://github.com/diegoami/imperial_conquest_2/issues/154))**: the palette this specification settles is not hypothetical — `godot/MapViewer.cs`'s current one has **two byte-identical pairs** (Carthage/Media both `(1,0,0)`, Ptolemaic/Illyria both `(0,0,0.5)`) and Rome/Gaul differing in a single channel, which is how the user noticed. Sixteen nations, fourteen colours. Name the offenders in the document as the worked example of why the check in DoD 3 exists.
 - **Hazards**:
   - **Do not modify `src/IC2.Engine/Assets/**` or the placeholder pack.** They are T11's. A key this specification says is missing is a **finding to record in the document**, not a constant to add. Adding assets is T48's and later tasks' work.
   - **Never in flight with T48**, which also writes under `tests/IC2.Engine.Tests/Assets/` ([build-process.md §2.6](build-process.md#2-how-the-build-avoids-conflicts)).
   - **This task writes a `docs/*.md` file** — the one task that may, because the document *is* the deliverable. It still writes no status, no counts, and no progress table ([§5](build-process.md#5-status-lives-on-github)).
   - Do not specify art direction beyond what the game needs to be legible and faithful. Style is the user's call, not an implementer's.
+
+---
+
+#### T50 Economy and naval command hygiene
+
+- **Design milestone**: none — six follow-ups from T39's and T46's reviews, all in commands those two tasks touched. **Labels**: `phase:2 lane:engine`
+- **Branch**: `task/T50-command-hygiene` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
+- **Start after**: T46 · **Merge after**: T39, T46 — and **merged before T22**
+- **Owns**: `src/IC2.Engine/Economy/Commands/**`, `src/IC2.Engine/Economy/QuarterlyEconomySystem.cs`, `src/IC2.Engine/Naval/Commands/**`, `tests/IC2.Engine.Tests/Economy/**` and `tests/IC2.Engine.Tests/Naval/**` (the items below only)
+- **Scope**: Two of these are decisions rather than fixes, and both are recorded here so an implementer does not quietly pick one. Nothing here is a behaviour the original defines differently — these are places the reimplementation is thinner than it claims to be.
+- **Done when**:
+  1. **The fleet-pointer clear's guard is pinned** ([#162](https://github.com/diegoami/imperial_conquest_2/issues/162)). Replacing the predicate in `QuarterlyEconomySystem` with `true` — so **every** fleet loses its `CarriedArmyId` at every quarter boundary — currently passes all tests: T39 pinned the positive half (the doomed army's carrier *is* cleared) and nothing pins the negative. Add the second army: one deleted, one surviving, asserting the survivor's carrier is untouched. This is the two-entity probe [build-process.md §4.2](build-process.md#42-what-the-reviewer-checks) gate 5 now prescribes, and it fails under the over-broad mutation.
+  2. **A fleet's survival test can tell a resupplied fleet from a starving one** ([#165](https://github.com/diegoami/imperial_conquest_2/issues/165) item 1). T46's DoD 9 was the line meant to prove the starvation hole is shut, and its survival assertions are **inert**: an unsupplied fleet in the same scenario is still afloat after the same 21 turns — condition 92 against 95 — and only sinks at turn 89, because the zero-supply penalty is `−random(0..1)` against a 60-point margin to the death threshold. Put an **unsupplied control fleet in the same run** and assert the differential, or run the horizon past the lethal point. The test must fail if resupply stops working.
+  3. **The `BuySupplyCommand` rejection precedence is settled** ([#165](https://github.com/diegoami/imperial_conquest_2/issues/165) item 2). T46 hoisted the `Tons <= 0` check above the city lookup, so `BuySupplyCommand(nation, army, "no-such-city", 0)` now returns `supply.invalid-amount` where it returned `supply.unknown-city`. Nothing depended on the old order, and no report covers rejection precedence — so **decide and pin it**: keep the hoist and assert the new order, or duplicate the check per branch to restore the old one. Either way a test now names the expected code, so the next change to this handler cannot move it silently.
+  4. **The 1,000-talent purse cap is enforced consistently, or deliberately not** ([#165](https://github.com/diegoami/imperial_conquest_2/issues/165) item 3). `PurseCapPerUnit` is enforced at `PurseAccounting.Credit`, `TreasuryPurseTransfer` and `AutomaticResupply`'s hygiene — but **neither** `JoinFleetsCommandHandler` (merged, T14) **nor** T46's transfer clamps the pooled money, so two fleets each legally holding 900 talents leave a survivor with 1,800. No money is created and the state is legal and self-correcting, which is why neither review blocked. **Fix both or neither**, and say which and why: a per-unit cap that three seams enforce and two ignore is the worst of the options.
+  5. **The army-buys-at-a-city path gets the adjacency and at-war gates it never had** ([#167](https://github.com/diegoami/imperial_conquest_2/issues/167)). `TAFSupply_FindProviders` offers *"every city within one tile whose owner is not at war with the buyer"*; the merged city path checks **neither**, so an army can buy from any city at any range, at war or not. T46's new army-buys-from-a-fleet path does it correctly, so the two halves of one dialog currently enforce different rules. Add both gates with a test per rejection. **Q9's free-vs-paid rule is untouched**: "abroad" always meant a *foreign* city, never a distant one, so adjacency does not disturb it.
+  6. **Two test defects removed** ([#165](https://github.com/diegoami/imperial_conquest_2/issues/165) item 4): `FleetToFleetTransferCommandHandlerTests`' `Assert.Equal(document, document)` tautology, which can never fail; and `FleetProvider_ClampsByBuyerCapacity_AndProviderStock`, whose name and comment claim the buyer's room "is not floored at 0" while its scenario has room `+5`, so that branch never runs. The behaviour is real — a 1-ship buyer holding 100 t against a cap of 8 drops to 8 while the provider **gains** 92 — so cover it rather than deleting the claim.
+  7. `dotnet build IC2.sln` and `dotnet test IC2.sln` are green, and the diff lists only Owns paths.
+- **Hazards**:
+  - **Items 3 and 4 are decisions.** Record the choice and the reasoning in the code, not only in the PR body — a PR body does not survive the merge, which is the lesson T14's N5 produced.
+  - Item 4 touches **merged T14 code** (`JoinFleetsCommandHandler`). That is deliberate and inside this task's Owns list; it is the one place this task may change a sibling's file, and only for the purse cap.
+  - Do not re-implement any cap or price that T38 owns, and do not touch `SupplyPurchase` or `SupplyCapacity`.
+  - **[#166](https://github.com/diegoami/imperial_conquest_2/issues/166) is NOT in this task.** Whether `JoinFleets` refuses at 100 or above 100 is a question for the decompilation (research plan item 15), and both call sites move together when it is answered. Leave the current expression alone.
 
 ---
 
@@ -1200,6 +1228,7 @@ Conventions used by every entry:
   4. A scripted headless run reaches the New Game flow and asserts the ruleset chooser renders both `Classical Faithful` and `Improved` as equally-weighted, labelled options **before** any scenario/seat control is reachable, and that `Classical Faithful` is the pre-selected default; picking either value is what the scenario bootstrap actually reads (not a cosmetic control disconnected from the loaded `Ruleset`).
   5. A test asserts the map marker for a low-population city and a high-population city resolve to different asset keys (and likewise for a small vs. large army/fleet), driven by the loaded `GameState`'s actual numbers, not a fixed marker per owner.
   6. `MapViewer`'s three `catch (InvalidDataException)` blocks (the recruitment / nation / calendar "details unavailable" fallbacks) also catch `IC2.Data`'s `UnrecognizedSaveFormatException`, so a malformed save degrades instead of crashing the viewer — asserted by a headless run against a deliberately malformed file.
+  7. **Folded follow-up ([#154](https://github.com/diegoami/imperial_conquest_2/issues/154))**: apply T49's settled 16-nation palette to `godot/MapViewer.cs`'s `OwnerColor`, replacing a table where two pairs are byte-identical and Rome/Gaul differ by one channel. Keep `:178`'s light-colour list (codes 4, 5, 7, 8, 13, 14 draw a dark glyph) in step with the new values, or city glyphs go invisible.
 - **Constraints**: `single-instance` — the only Godot-touching task that may be in flight. Needs human visual sign-off; see [build-process.md §9](build-process.md#9-standing-governance-decisions) Q-B.
 
 #### T25 Battle result, diplomacy, and hotseat handoff screens
@@ -1295,5 +1324,6 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T47](#t47-thin-godot-slice-the-engine-on-a-screen) | Thin Godot slice | — | Sonnet | Medium | Sonnet/High | T02, T03, T41 | [#151](https://github.com/diegoami/imperial_conquest_2/issues/151) |
 | [T48](#t48-draw-armies-and-cities-from-the-asset-pack) | Asset-pack icons for armies and cities | — | Sonnet | High | Sonnet/High | T11, T47 | [#157](https://github.com/diegoami/imperial_conquest_2/issues/157) |
 | [T49](#t49-the-asset-inventory-and-format-specification) | Asset inventory + format spec | — | Sonnet | High | **Opus**/Medium | T11 | [#159](https://github.com/diegoami/imperial_conquest_2/issues/159) |
+| [T50](#t50-economy-and-naval-command-hygiene) | Economy + naval command hygiene | — | Sonnet | High | **Opus**/Medium | T39, T46 | [#168](https://github.com/diegoami/imperial_conquest_2/issues/168) |
 
-**Totals** — 49 tasks: 4 Opus, 40 Sonnet, 4 Haiku, 1 Fable. Effort: 2 Ultrahigh, 21 High, 23 Medium, 3 Low.
+**Totals** — 50 tasks: 4 Opus, 41 Sonnet, 4 Haiku, 1 Fable. Effort: 2 Ultrahigh, 22 High, 23 Medium, 3 Low.
