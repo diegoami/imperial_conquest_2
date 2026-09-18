@@ -68,7 +68,10 @@ public class DownstreamSeamUsageTests
         var after = coordinator.FireQuarterBoundary(before, CoreTestbed.Toy.Ruleset.Calendar.StartSeasonIndex);
 
         // Unity decays by 3 a quarter, from the corpus rather than from a literal or from memory.
-        var decay = FixtureCorpus.Get("economy.unityDecayPerQuarter").AsInt();
+        // T35, docs/task-catalogue.md DoD 10: renamed from economy.unityDecayPerQuarter -- the real
+        // quarterly "-3" is mobilization's, not unity's (bug #68) -- but this demo handler's own shape
+        // (decrement a nation field by a fixture-sourced amount) is unaffected by which field it is.
+        var decay = FixtureCorpus.Get("economy.mobilizationDecayPerQuarter").AsInt();
         foreach (var nation in after.Nations)
         {
             Assert.Equal(before.NationById(nation.Id)!.Unity - decay, nation.Unity);
@@ -148,7 +151,7 @@ public sealed class DownstreamUnityDecayHandler : IQuarterBoundaryHandler
     /// <inheritdoc/>
     public GameState OnQuarterBoundary(QuarterBoundaryContext context)
     {
-        var decay = context.Ruleset.Economy.UnityDecayPerQuarter;
+        var decay = context.Ruleset.Economy.MobilizationDecayPerQuarter;
         var nations = context.State.Nations.Select(nation => nation with { Unity = nation.Unity - decay });
 
         context.Events.Publish(new DownstreamTributeCollected(context.EndingSeasonIndex));

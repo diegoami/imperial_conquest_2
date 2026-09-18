@@ -125,7 +125,10 @@ public class FixturesCorpusTests
         // A handful of spot checks that the loader round-trips the corpus correctly -- not a
         // Done-when line, but cheap insurance that FixtureCorpus.Get actually works the way
         // later tasks (T06-T19) will rely on it working.
-        Assert.Equal(2440, FixtureCorpus.Get("tax.nationTaxBaseRome").AsInt());
+        // T35, docs/task-catalogue.md DoD 8: nation-tax-base-and-city-economy-fields.md reads Rome's
+        // tax base straight from its saves as 2,444, not the 2,440 the dialog-income solve alone could
+        // isolate (2440 and 2444 both give 366 at 15% and 488 at 20%).
+        Assert.Equal(2444, FixtureCorpus.Get("tax.nationTaxBaseRome").AsInt());
         Assert.Equal(442, FixtureCorpus.Get("roman13.regularUpkeepQuarterly").AsInt());
         Assert.Equal(6438, FixtureCorpus.Get("mercenary.felsina.troops").AsInt());
         Assert.Equal(-8, FixtureCorpus.Get("diplomacy.cooldown.brokenTrade").AsInt());

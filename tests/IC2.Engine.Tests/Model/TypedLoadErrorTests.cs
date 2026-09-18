@@ -200,6 +200,39 @@ public class TypedLoadErrorTests
     }
 
     [Fact]
+    public void A_recruitment_slot_naming_a_city_that_does_not_exist_does_not_load()
+    {
+        var save = ToyFixtures.NonTrivialSave();
+        var nations = save.State.Nations.ToList();
+        var northIndex = nations.FindIndex(n => n.Id == "north");
+        var slot = nations[northIndex].RecruitmentSlots[0] with { TargetCityId = "atlantis" };
+        nations[northIndex] = nations[northIndex] with { RecruitmentSlots = ValueList.Of(slot) };
+        var broken = save with { State = save.State with { Nations = ValueList.From(nations) } };
+
+        var error = Assert.Throws<UnresolvedReferenceException>(
+            () => GameDataLoader.Load<SaveGame>("save.json", GameJson.Serialize(broken)));
+
+        Assert.Equal("city", error.Kind);
+        Assert.Equal("atlantis", error.Id);
+    }
+
+    [Fact]
+    public void A_pending_offer_naming_a_nation_that_does_not_exist_does_not_load()
+    {
+        var save = ToyFixtures.NonTrivialSave();
+        var broken = save with
+        {
+            State = save.State with { PendingOffer = new PendingDiplomaticOffer("atlantis", 1) },
+        };
+
+        var error = Assert.Throws<UnresolvedReferenceException>(
+            () => GameDataLoader.Load<SaveGame>("save.json", GameJson.Serialize(broken)));
+
+        Assert.Equal("nation", error.Kind);
+        Assert.Equal("atlantis", error.Id);
+    }
+
+    [Fact]
     public void A_one_sided_embark_link_does_not_load()
     {
         var save = ToyFixtures.NonTrivialSave();

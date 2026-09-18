@@ -181,12 +181,16 @@
       "treasury": 500,
       "unity": 600,
       "wealth": 400,
+      "taxBase": 200,
       "taxRatePercent": 15,
+      "mobilizedPercent": 20,
       "population": 260,
       "_provenance": {
         "treasury": "designed: a toy fixture value, not a transcribed original figure. Nothing in docs/reports/ records a starting treasury for an invented 2-nation map, because no such map exists there; the shipped classical-mediterranean world (task T29) is the one that carries real starting figures.",
         "unity": "designed: toy fixture value, chosen above the 500 auto-peace gate in decompiled-diplomacy-peace-terms-and-instant-battles.md so tests can exercise both sides of it.",
-        "taxRatePercent": "confirmed shape: decompiled-quarterly-billing-and-economy.md — 15% is one of the two rates solved for Rome against nationTaxBase 2,440; used here as a plausible toy rate, not as this nation's researched value."
+        "taxBase": "designed: toy fixture value, deliberately different from what a fresh quarterly rebuild computes from this world's own cities (Arx's 40×220/300 + Portus's 15×80/150, ×4 = 148) — a stored tax base is not recomputed on load, mirroring the DAT's own Rome 2,528-stored-vs-2,464-rebuilt mismatch (nation-tax-base-and-city-economy-fields.md).",
+        "taxRatePercent": "confirmed shape: decompiled-quarterly-billing-and-economy.md — 15% is one of the two rates solved for Rome against nationTaxBase 2,440; used here as a plausible toy rate, not as this nation's researched value.",
+        "mobilizedPercent": "designed: toy fixture value. No report records a starting mobilization percentage for an invented 2-nation map."
       }
     },
     {
@@ -198,11 +202,15 @@
       "treasury": 450,
       "unity": 520,
       "wealth": 360,
+      "taxBase": 100,
       "taxRatePercent": 20,
+      "mobilizedPercent": 10,
       "population": 180,
       "_provenance": {
         "treasury": "designed: toy fixture value, see the 'north' nation's note.",
-        "taxRatePercent": "confirmed shape: decompiled-quarterly-billing-and-economy.md — 20% is the second solved Roman rate, reused here as a toy value."
+        "taxBase": "designed: toy fixture value, deliberately different from what a fresh quarterly rebuild computes from this world's own cities (Meridia's 25×140/200, ×4 = 68) — see the 'north' nation's note on the same field.",
+        "taxRatePercent": "confirmed shape: decompiled-quarterly-billing-and-economy.md — 20% is the second solved Roman rate, reused here as a toy value.",
+        "mobilizedPercent": "designed: toy fixture value, see the 'north' nation's note."
       }
     }
   ],

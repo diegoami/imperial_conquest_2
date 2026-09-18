@@ -27,7 +27,8 @@ public class DownstreamNamespaceUsageTests
     [Fact]
     public void FixtureCorpusIsCallableUnqualifiedFromASiblingNamespace()
     {
-        Assert.Equal(2440, FixtureCorpus.Get("tax.nationTaxBaseRome").AsInt());
+        // T35, docs/task-catalogue.md DoD 8: corrected 2440 -> 2444 (nation-tax-base-and-city-economy-fields.md).
+        Assert.Equal(2444, FixtureCorpus.Get("tax.nationTaxBaseRome").AsInt());
         Assert.Equal(FixtureTag.Confirmed, FixtureCorpus.Get("tax.nationTaxBaseRome").ParsedTag());
     }
 }

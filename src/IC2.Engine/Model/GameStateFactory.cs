@@ -44,6 +44,14 @@ public static class GameStateFactory
                            + "Every nation in the world needs an explicit seat; the engine never defaults one.",
                            nameof(scenario));
 
+            // Follow-up #106 item 1: this duplicates VictoryEvaluator's own private city-count scan, but
+            // over World.Cities (ValueList<CityDefinition>) rather than GameState.Cities
+            // (ValueList<CityState>) -- there is no scenario state yet at this point, only the world
+            // definition. GameState.CountCitiesOwnedBy (added alongside the quarterly treasury credit's
+            // own need for a live city count) covers the GameState-Cities half of that duplication;
+            // unifying this loop with it too would need a shared element-agnostic abstraction over both
+            // record types, which reaches into src/IC2.Engine/Victory/** (VictoryEvaluator's own file),
+            // outside this task's Owns list. Left as its own loop rather than half-fixed.
             var cityCount = 0;
             foreach (var city in world.Cities)
             {
@@ -64,11 +72,14 @@ public static class GameStateFactory
                 Treasury: definition.Treasury,
                 Unity: definition.Unity,
                 Wealth: definition.Wealth,
+                TaxBase: definition.TaxBase,
                 TaxRatePercent: definition.TaxRatePercent,
+                MobilizedPercent: definition.MobilizedPercent,
                 Population: definition.Population,
                 PopulationAtStart: definition.Population,
                 TreasuryAtStart: definition.Treasury,
                 CityCountAtStart: cityCount,
+                RecruitmentSlots: ValueList<RecruitmentSlot>.Empty,
                 Eliminated: cityCount == 0);
         }
 
@@ -160,7 +171,8 @@ public static class GameStateFactory
             Relations: DiplomaticRelations.Uniform(
                 ValueList.From(nations.Select(n => n.Id)),
                 ruleset.Diplomacy.StateCodes.Peace),
-            NewsLog: NewsLog.Empty);
+            NewsLog: NewsLog.Empty,
+            PendingOffer: null);
     }
 
     private static int CellAt(int[] terrain, World world, int x, int y)

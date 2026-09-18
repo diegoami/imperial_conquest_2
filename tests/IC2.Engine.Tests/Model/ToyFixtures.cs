@@ -64,6 +64,17 @@ public static class ToyFixtures
             ? city with { UnderSiege = true, Loyalty = ruleset.Loyalty.DefectionFloor }
             : city);
 
+        // T35's two model additions get a real, non-default value here too, not just an empty list and
+        // a null: a round trip of an empty RecruitmentSlots list or a null PendingOffer proves nothing
+        // about whether either actually serializes, only that "nothing" survives being "nothing".
+        var nations = initial.Nations.Select(nation => nation.Id == "north"
+            ? nation with
+            {
+                RecruitmentSlots = ValueList.Of(
+                    new RecruitmentSlot(TargetCityId: "arx", UnitTypeId: "light_infantry", Troops: 3200, StateCode: 6)),
+            }
+            : nation);
+
         var mercenaryPool = ValueList.Of(
             new MercenaryPoolSlot(SlotIndex: 0, NameLabel: 3, UnitTypeId: "light_infantry", Troops: 6438, Quality: 8),
             new MercenaryPoolSlot(SlotIndex: 7, NameLabel: 30, UnitTypeId: "light_cavalry", Troops: 2100, Quality: 6));
@@ -85,12 +96,15 @@ public static class ToyFixtures
         {
             Calendar = AdvanceWeeks(initial.Calendar, ruleset.Calendar, turns: 19),
             ActiveSeatIndex = 1,
+            Nations = ValueList.From(nations),
             Armies = ValueList.From(armies),
             Fleets = ValueList.From(fleets),
             Cities = ValueList.From(cities),
             MercenaryPool = mercenaryPool,
             Relations = relations,
             NewsLog = news,
+            PendingOffer = new PendingDiplomaticOffer(
+                ProposingNationId: "south", ProposedRelationCode: ruleset.Diplomacy.StateCodes.Trade),
         };
     }
 

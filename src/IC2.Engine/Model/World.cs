@@ -201,6 +201,14 @@ public sealed record TileType(
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>A nation as the world defines it at scenario start.</summary>
+/// <param name="Wealth">Starting <see cref="Model.NationState.Wealth"/> — nation record <c>+0x430</c>.</param>
+/// <param name="TaxBase">
+/// Starting <see cref="Model.NationState.TaxBase"/> — nation record <c>+0x44C</c>, persisted state that
+/// may legitimately disagree with a fresh quarterly rebuild from this world's own cities (the DAT's own
+/// Rome starts at 2,528 stored against 2,464 freshly rebuilt;
+/// <c>nation-tax-base-and-city-economy-fields.md</c>).
+/// </param>
+/// <param name="MobilizedPercent">Starting <see cref="Model.NationState.MobilizedPercent"/>, 0–100.</param>
 public sealed record NationDefinition(
     string Id,
     string Name,
@@ -210,7 +218,9 @@ public sealed record NationDefinition(
     int Treasury,
     int Unity,
     int Wealth,
+    int TaxBase,
     int TaxRatePercent,
+    int MobilizedPercent,
     int Population,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
