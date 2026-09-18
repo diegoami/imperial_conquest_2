@@ -97,11 +97,34 @@ public sealed class CustomVictoryGoalTests
     [InlineData("not json at all")]
     [InlineData("{\"holdCities\":[\"arx\"]}")]
     [InlineData("{\"nation\":\"north\"}")]
+    [InlineData("{\"nation\":\"north\",\"holdCities\":[]}")]
+    [InlineData("{\"nation\":\"north\",\"holdCities\":[\"arx\",null]}")]
+    [InlineData("{\"nation\":\"north\",\"holdCities\":[\"arx\",\"  \"]}")]
+    [InlineData("{\"nation\":\"north\",\"holdCities\":[\"arx\"],\"turnAtOrAfter\":-1}")]
     public void Evaluate_MalformedGoal_Throws(string malformed)
     {
         var goal = new VictoryCondition(VictoryConditionType.Custom, malformed);
 
         Assert.Throws<FormatException>(() => CustomVictoryGoal.Evaluate(VictoryTestbed.InitialState(), goal));
+    }
+
+    /// <summary>
+    /// Review round 1, blocking finding 1: <c>{"nation":"north","holdCities":[]}</c> used to pass
+    /// <c>Parse</c> (only a <em>null</em> <c>holdCities</c> was rejected), so the hold-check loop ran
+    /// zero times and any live named nation won instantly, holding nothing — for a goal with no
+    /// <c>turnAtOrAfter</c> at all, on turn 0. This pins the fix directly against the exact repro from
+    /// the review, rather than only through the <see cref="Evaluate_MalformedGoal_Throws"/> theory.
+    /// </summary>
+    [Fact]
+    public void EmptyHoldCities_NoLongerWinsInstantly_ItIsRejectedAtParseTime()
+    {
+        var instantWinAttempt = new VictoryCondition(
+            VictoryConditionType.Custom, "{\"nation\":\"north\",\"holdCities\":[]}");
+
+        // Turn 0, nobody has done anything -- this must never resolve to a win.
+        var ex = Assert.Throws<FormatException>(
+            () => CustomVictoryGoal.Evaluate(VictoryTestbed.InitialState(), instantWinAttempt));
+        Assert.Contains("holdCities", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -113,5 +136,39 @@ public sealed class CustomVictoryGoalTests
         var outcome = CustomVictoryGoal.Evaluate(VictoryTestbed.InitialState(), goal);
 
         Assert.Equal(VictoryStatus.Undecided, outcome.Status);
+    }
+
+    /// <summary>
+    /// A city id absent from the world is not a parse-time rejection (<c>Parse</c> never sees a
+    /// <see cref="GameState"/>) but documented, tested runtime behaviour: the goal simply never becomes
+    /// true, the same friendly failure mode as an unknown nation id.
+    /// </summary>
+    [Fact]
+    public void DoesNotFire_WhenANamedCityDoesNotExistInTheWorld()
+    {
+        var goal = new VictoryCondition(
+            VictoryConditionType.Custom, "{\"nation\":\"north\",\"holdCities\":[\"arx\",\"atlantis-city\"]}");
+        var state = VictoryTestbed.WithAllCitiesOwnedBy(VictoryTestbed.InitialState(), "north");
+
+        var outcome = CustomVictoryGoal.Evaluate(state, goal);
+
+        Assert.Equal(VictoryStatus.Undecided, outcome.Status);
+    }
+
+    /// <summary>
+    /// A repeated city id is accepted, not rejected: the hold check is idempotent, so naming the same
+    /// city twice changes nothing about whether the goal fires.
+    /// </summary>
+    [Fact]
+    public void Fires_EvenWhenACityIdIsRepeated_TheDuplicateChangesNothing()
+    {
+        var goal = new VictoryCondition(
+            VictoryConditionType.Custom, "{\"nation\":\"north\",\"holdCities\":[\"arx\",\"arx\",\"portus\"]}");
+        var state = VictoryTestbed.InitialState(); // North already holds arx and portus.
+
+        var outcome = CustomVictoryGoal.Evaluate(state, goal);
+
+        Assert.Equal(VictoryStatus.Won, outcome.Status);
+        Assert.Equal("north", outcome.WinningNationId);
     }
 }

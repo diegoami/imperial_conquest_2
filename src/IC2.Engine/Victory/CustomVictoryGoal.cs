@@ -22,6 +22,24 @@ namespace IC2.Engine.Victory;
 /// A goal is authored purely as scenario JSON text; nothing about which cities or which nation matters
 /// is ever a C# literal here.
 /// </para>
+/// <para>
+/// <strong>Degenerate goals (review round 1).</strong> Everything <see cref="Parse"/> can check from the
+/// JSON text alone is rejected there, with a <see cref="FormatException"/>, rather than left to produce
+/// a surprising runtime answer: a missing or empty <c>"nation"</c>, a missing, empty, or
+/// null/blank-entry-carrying <c>"holdCities"</c> array (an empty array previously fell through
+/// <see cref="Evaluate"/>'s hold-check loop zero times and declared an instant, unearned win — the
+/// defect this note exists to close), and a negative <c>"turnAtOrAfter"</c> (meaningless: every
+/// <see cref="Model.CalendarState.TurnIndex"/> is already <c>&gt;= 0</c>, so a negative value could only
+/// ever ratify a win the state doesn't need to earn). What <see cref="Parse"/> cannot check — because it
+/// never sees a <see cref="GameState"/> — is left to <see cref="Evaluate"/> as documented, tested
+/// behaviour rather than a rejection: a <c>"nation"</c> id absent from the state's nations, and a city id
+/// in <c>"holdCities"</c> absent from the state's cities, each simply mean the goal is not currently met
+/// (<see cref="VictoryStatus.Undecided"/>) — a scenario author who misspells either gets a goal that
+/// never fires rather than a crash mid-game, which is the friendlier failure mode for something that can
+/// only be discovered once the scenario is actually played. A repeated city id in <c>"holdCities"</c> is
+/// accepted and is provably harmless: the hold check is idempotent (checking the same city's owner twice
+/// changes nothing), so it is not rejected.
+/// </para>
 /// </remarks>
 public static class CustomVictoryGoal
 {
@@ -97,6 +115,32 @@ public static class CustomVictoryGoal
         {
             throw new FormatException(
                 $"Custom victory goal '{goal}' must name a non-empty \"nation\" and a \"holdCities\" array.");
+        }
+
+        if (raw.HoldCities.Length == 0)
+        {
+            // Review round 1, blocking finding 1: an empty array used to pass this check (only null was
+            // rejected), so Evaluate's hold-check loop ran zero times and any live named nation won
+            // instantly, holding nothing. A goal that names no city to hold is not a goal at all.
+            throw new FormatException(
+                $"Custom victory goal '{goal}' names an empty \"holdCities\" array; a goal must name at "
+                + "least one city to hold, or it would be satisfied by holding nothing.");
+        }
+
+        foreach (var cityId in raw.HoldCities)
+        {
+            if (string.IsNullOrWhiteSpace(cityId))
+            {
+                throw new FormatException(
+                    $"Custom victory goal '{goal}' has a null or blank entry in \"holdCities\".");
+            }
+        }
+
+        if (raw.TurnAtOrAfter is < 0)
+        {
+            throw new FormatException(
+                $"Custom victory goal '{goal}' has a negative \"turnAtOrAfter\" "
+                + $"({raw.TurnAtOrAfter}); the turn counter never goes below 0.");
         }
 
         return new CustomVictoryGoalSpec(raw.Nation, raw.HoldCities, raw.TurnAtOrAfter);

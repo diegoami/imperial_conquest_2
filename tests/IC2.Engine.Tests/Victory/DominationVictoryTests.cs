@@ -67,4 +67,29 @@ public sealed class DominationVictoryTests
         Assert.Equal(VictoryStatus.Won, outcome.Status);
         Assert.Equal("north", outcome.WinningNationId);
     }
+
+    /// <summary>
+    /// Review round 1, non-blocking finding 3: an eliminated nation is never counted as a "live"
+    /// hostile, matching the outer loop's own elimination check, even when a hand-built state (this
+    /// evaluator's whole point per the task's Scope) violates <c>GameStateFactory</c>'s usual
+    /// "Eliminated implies owns 0 cities" invariant by leaving it still holding a city. North is at war
+    /// with South, South is marked eliminated but (deliberately, to exercise this) still owns
+    /// <c>meridia</c> -- North does not dominate, because an eliminated South is skipped entirely
+    /// rather than counted as an undominated hostile.
+    /// </summary>
+    [Fact]
+    public void EliminatedHostile_IsNeverCountedAsALiveHostile_EvenIfItStillOwnsACity()
+    {
+        var state = VictoryTestbed.InitialState();
+        var warCode = VictoryTestbed.Ruleset.Diplomacy.StateCodes.War;
+
+        var atWar = VictoryTestbed.WithRelation(state, "north", "south", warCode);
+        var invariantViolatingState = VictoryTestbed.WithEliminated(atWar, "south");
+
+        var outcome = VictoryEvaluator.EvaluateDomination(invariantViolatingState, VictoryTestbed.Ruleset);
+
+        // Not a win: North owns only 2 of 3 cities (not literal total conquest), and South -- the only
+        // other nation -- is skipped as eliminated rather than counted as a live, undominated hostile.
+        Assert.Equal(VictoryStatus.Undecided, outcome.Status);
+    }
 }

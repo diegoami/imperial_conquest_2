@@ -52,8 +52,14 @@ public static class VictoryEvaluator
             VictoryConditionType.Domination => EvaluateDomination(state, ruleset),
             VictoryConditionType.ScoreAtTurnLimit => EvaluateScoreAtTurnLimit(state, turnLimit),
             VictoryConditionType.Custom => CustomVictoryGoal.Evaluate(state, victory),
+            // Unreachable under VictoryConditionType's closed four members, short of an unsafe cast --
+            // named per its actual source (review round 1, non-blocking finding 4) rather than always
+            // blaming `scenario`, since an invalid value can equally come from `ruleset`'s own
+            // DefaultCondition when no scenario is given at all.
             _ => throw new ArgumentOutOfRangeException(
-                nameof(scenario), victory.Type, "Not a declared victory condition."),
+                scenario is null ? nameof(ruleset) : nameof(scenario),
+                victory.Type,
+                "Not a declared victory condition."),
         };
     }
 
@@ -118,11 +124,25 @@ public static class VictoryEvaluator
     /// city, or every city belonging to nations still at war with you." Read as one rule with two
     /// framings, not two independent options: a nation wins once every city belonging to a nation it is
     /// currently at war with has been captured — which reduces to literal total conquest exactly when it
-    /// is at war with everyone else. A nation at war with nobody has, by construction, no hostile city
-    /// left to take, so this never fires as a trivial win at scenario start (every shipped scenario
-    /// starts every relation at peace — <see cref="Model.GameStateFactory.CreateInitial"/>): it requires
-    /// at least one currently-live war, not merely the absence of one.
+    /// is at war with everyone else.
     /// </summary>
+    /// <remarks>
+    /// <strong>What was searched, and what came up empty (review round 1, blocking finding 2).</strong>
+    /// <c>game-design.md</c> and <c>design-audit.md</c> — the only two documents that discuss this
+    /// condition at all, the same two <see cref="EvaluateScoreAtTurnLimit"/> searches — state the one
+    /// sentence quoted above and nothing else about it: neither says whether a nation at war with
+    /// nobody should win vacuously, nor whether "control every city" is a wholly separate alternative
+    /// clause rather than the special case of the war-based rule reducing to it. Both are silent because
+    /// domination-over-hostiles has no original analogue to check against at all (the original's only
+    /// win is total conquest — <c>design-audit.md</c> Q5); this evaluator's reading of "at least one
+    /// currently-live war" as required, not merely absent, was chosen specifically because the
+    /// alternative reading — vacuously true the moment nobody happens to be at war — would make this
+    /// condition win at scenario start, before a single order is issued: every shipped scenario starts
+    /// every relation at peace (<see cref="Model.GameStateFactory.CreateInitial"/>), so a "no
+    /// requirement" reading is not merely undocumented but actively degenerate. No report or design
+    /// document was found that settles this either way; this is the one reading that does not produce a
+    /// trivial win.
+    /// </remarks>
     public static VictoryOutcome EvaluateDomination(GameState state, Ruleset ruleset)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -131,6 +151,12 @@ public static class VictoryEvaluator
         var totalCities = state.Cities.Count;
         var warCode = ruleset.Diplomacy.StateCodes.War;
 
+        // One upfront pass (review round 1, non-blocking finding 5) rather than rescanning
+        // GameState.Cities once per nation and again per hostile pair. Looked up by key only, never
+        // enumerated, so this introduces no order-dependence for the determinism guard to catch --
+        // the same contract IC2.Engine.Core.DomainEventCatalog's own cache documents for itself.
+        var cityCountByNation = CountCitiesByNation(state);
+
         foreach (var nation in state.Nations)
         {
             if (nation.Eliminated)
@@ -138,9 +164,11 @@ public static class VictoryEvaluator
                 continue;
             }
 
+            cityCountByNation.TryGetValue(nation.Id, out var ownedByNation);
+
             // Literal total conquest is the special case of "every hostile city taken" where every
             // other nation happens to be a hostile.
-            if (totalCities > 0 && CountCitiesOwnedBy(state, nation.Id) == totalCities)
+            if (totalCities > 0 && ownedByNation == totalCities)
             {
                 return VictoryOutcome.Won(VictoryConditionType.Domination, nation.Id);
             }
@@ -154,13 +182,25 @@ public static class VictoryEvaluator
                     continue;
                 }
 
+                // Review round 1, non-blocking finding 3: an eliminated nation is never a "live"
+                // hostile, matching the outer loop's own elimination check. Currently unreachable under
+                // GameStateFactory's invariant (Eliminated <=> owns 0 cities, which the city-count check
+                // below already treats as dominated) but no longer merely an accident of that
+                // invariant holding -- a state built to violate it directly (this evaluator's whole
+                // point, per the task's Scope) now gets the same answer either way.
+                if (other.Eliminated)
+                {
+                    continue;
+                }
+
                 if (state.Relations.Get(nation.Id, other.Id) != warCode)
                 {
                     continue;
                 }
 
                 hasLiveHostile = true;
-                if (CountCitiesOwnedBy(state, other.Id) > 0)
+                cityCountByNation.TryGetValue(other.Id, out var ownedByOther);
+                if (ownedByOther > 0)
                 {
                     everyHostileDominated = false;
                     break;
@@ -242,5 +282,23 @@ public static class VictoryEvaluator
         }
 
         return count;
+    }
+
+    /// <summary>
+    /// Every nation's owned-city count, in one pass over <see cref="GameState.Cities"/>. Keyed lookup
+    /// only (<see cref="Dictionary{TKey,TValue}.TryGetValue"/>) — never enumerated — so this carries no
+    /// order-dependence for the determinism guard to catch, the same contract
+    /// <c>IC2.Engine.Core.DomainEventCatalog</c>'s own cache documents for itself.
+    /// </summary>
+    private static Dictionary<string, int> CountCitiesByNation(GameState state)
+    {
+        var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var city in state.Cities)
+        {
+            counts.TryGetValue(city.Owner, out var count);
+            counts[city.Owner] = count + 1;
+        }
+
+        return counts;
     }
 }
