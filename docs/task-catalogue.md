@@ -4,7 +4,7 @@ Every build task's scope, **Owns** list, Definition of Done, model/effort, revie
 
 **Status is not in this document.** Each task's stage (ready, in progress, merged, blocked, escalated) lives only in its GitHub issue's `status:*` label ([build-process.md §5](build-process.md#5-status-lives-on-github)). The index below links every issue.
 
-46 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), twelve corrections to already-merged code (T31–T35, T38–T40, T42–T45), one rule no task owned (T37, the weekly city supply step), and an early demo slice of T23 (T41).
+47 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), twelve corrections to already-merged code (T31–T35, T38–T40, T42–T45), one rule no task owned (T37, the weekly city supply step), and two early slices — T41 of T23's CLI, and T47 of T24's Godot UI.
 
 ---
 
@@ -68,6 +68,8 @@ graph TD
   T39 --> T22
   T08 --> T14[T14 naval]
   T14 --> T46[T46 fleet transfer + supply]
+  T14 --> T47[T47 thin Godot slice]
+  T47 --> T24
   T46 --> T22
   T32 --> T14
   T09 --> T14
@@ -1092,6 +1094,34 @@ Conventions used by every entry:
   3. **Folded follow-up ([#98](https://github.com/diegoami/imperial_conquest_2/issues/98))**: the session's news reader assumes one news-log entry per news event, which T42's round headers, blank lines and dash lines break — a round with a conquest reads as several "events". The reader counts **entries**, not events, and a test covers a round containing a header, a dash-delimited conquest line and an ordinary line.
 - **Hazards**: **Two merged defects in `Presentation/**` are yours to fix** as you take the harness over. Bug [#98](https://github.com/diegoami/imperial_conquest_2/issues/98): `GameSession` counts news-worthy events and prints that many log entries, but T42's round header adds two entries backed by no event and a dash-wrapped conquest adds three for one, so a round-ending turn can print the header and drop the real news line. Ask the log what it appended (compare its length across the turn) instead of inferring it. Follow-up [#100](https://github.com/diegoami/imperial_conquest_2/issues/100) item 2: `GameSessionRendering` hardcodes a season-name table that now duplicates `Ruleset.NewsLog.SeasonNames`. Also: move orders are priced through T09's `MovementWalker` / `TerrainCostLookup`, never T02's `Ruleset.MoveCostFor`, so the unpriced-terrain warning always fires (T09 follow-up [#74](https://github.com/diegoami/imperial_conquest_2/issues/74) N1). Events from commands dispatched between runs never reach `SystemContext.PublishedEvents`, so route every `CommandResult`'s events through T10's `NewsLogWriter.Append`; T41 already does this for its two commands (T40 follow-up [#87](https://github.com/diegoami/imperial_conquest_2/issues/87) P1).
 
+#### T47 Thin Godot slice: the engine on a screen
+
+- **Design milestone**: none — an early slice of **M18**'s UI half, exactly as T41 was an early slice of T23. **Labels**: `phase:2 lane:ui single-instance`
+- **Branch**: `task/T47-godot-slice` · **Model/effort**: Sonnet / Medium · **Reviewer**: Sonnet / High
+- **Start after**: T14 · **Merge after**: T02, T03, T41 — and **merged before T24**
+- **Owns**: `godot/Slice/**` (new scene and script), `godot/IC2.MapViewer.csproj` (**the one added `ProjectReference` only**), `godot/project.godot` (registering the new scene only)
+- **Scope**: **The risk this exists to retire**: nothing has ever run the *reimplementation engine* inside Godot. What is in `godot/` today is the research **inspector** — a viewer that reads the original `.DAT`/`.sav` through `IC2.Data`, predates the engine, and is deliberately excluded from `IC2.sln` because it cannot build in CI. T24 is the first task that assumes the engine and Godot compose, and it is a **Sonnet / High** task landing in phase 3 behind five dependencies. Discovering there that `IC2.Engine` cannot be referenced from a `Godot.NET.Sdk` project, or that the composition needs a shape nobody planned, would be the worst possible moment.
+
+  So: the smallest Godot scene that loads the committed toy world, ruleset and scenario **through `IC2.Engine`**, draws the three cities, ends one turn through the same `TurnCoordinator` the CLI uses, and prints the resulting status. No menus, no chooser, no art. The question it answers is *"do these two things compose, and does the engine give the same answers behind a different front end"* — nothing else.
+
+  The starting conditions are favourable and should be confirmed rather than assumed: `godot/IC2.MapViewer.csproj` is already `net10.0` with `EnableDynamicLoading`, matching `Directory.Build.props`, and already carries a `ProjectReference` to `IC2.Data`. The slice adds one more, to `IC2.Engine`.
+- **Done when**:
+  1. `dotnet build godot/IC2.MapViewer.csproj` succeeds with the added `IC2.Engine` reference, and `dotnet build IC2.sln` is **still 0 warnings, 0 errors** — the Godot project stays out of the solution, and nothing about this task changes that.
+  2. A **headless** run loads `data/worlds/toy-3city.json`, `data/rulesets/toy-ruleset.json` and the toy scenario through the engine's own `GameStateFactory`, renders the three cities, and exits 0: `Godot_v4.7.2-stable_mono_win64_console.exe --headless --path godot --quit-after 2`. The command and its output go in the PR body.
+  3. **The seam is proved by agreement, not by exit code.** The slice ends one turn through `TurnCoordinator` and prints a status line; for the same scenario and seed, the values match what `IC2.Cli` prints — shown side by side in the PR. Same engine, two front ends, same numbers. An exit-0 run that renders nothing recognisable satisfies nothing.
+  4. **It reads no original game files.** No `assets.local.ini`, no `.DAT`, no `.sav`, no `imp_conq_original`. The slice runs from committed data only, is **not** `local-only`, and must never become so — that is what makes it reviewable on any machine, unlike the inspector beside it.
+  5. `scripts/check-godot-churn.ps1` reports a clean tree after that run ([the Godot headless-churn caveat](https://github.com/diegoami/imperial_conquest_2/wiki/Practical-caveats)) — handled, not left to the reviewer to notice.
+  6. **CI stays green without Godot.** No CI step requires the engine, and no workflow file changes. The headless evidence is local and pasted into the PR; a reviewer on a machine without Godot can still check gates 1, 4 and 6 in full.
+  7. **The inspector still works**: opening `godot/project.godot` and running the existing MapViewer still reads a save through `assets.local.ini` exactly as before. Stated and checked, since this task edits that project's `.csproj` and `project.godot`.
+  8. A **screenshot** of the rendered toy map is posted on the PR, for the user's eyes rather than as a merge gate.
+- **Hazards**:
+  - **Do not build any part of T24.** No main menu, no New Game flow, and above all **no ruleset chooser** — T24 DoD 4 pins that chooser's shape and prominence, and a half-version here would either be thrown away or quietly become the thing T24 inherits.
+  - **Do not port the inspector's `.DAT`/`.sav` reading into the slice**, and do not refactor `MapViewer.cs` while you are next to it. Those two things are allowed to stay separate; a shared abstraction between the research viewer and the game UI is not wanted.
+  - **`single-instance`**: only one Godot task in flight at a time ([build-process.md §7](build-process.md#7-concurrency-single-instance-and-local-only)).
+  - The headless run **will** dirty `project.godot` and `MapViewer.cs` with whitespace/header churn. Revert it per the caveat; a diff carrying that churn is a review finding, not a nuisance.
+
+---
+
 #### T24 Godot main game screen
 
 - **Design milestone**: **M18** (UI half). **Labels**: `phase:3 lane:ui single-instance`
@@ -1198,5 +1228,6 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T44](#t44-ic2data-army-moves-is-a-signed-field-and-a-sweep-for-the-same-gap) | Army `moves` signed + parser sweep | — | Sonnet | Medium | **Opus**/Medium | T30, T34 | [#126](https://github.com/diegoami/imperial_conquest_2/issues/126) |
 | [T45](#t45-pin-the-weekly-moves-maximum-with-the-tests-it-never-got) | Weekly moves maximum: the missing tests | — | Sonnet | Medium | **Opus**/Medium | T08, T09 | [#129](https://github.com/diegoami/imperial_conquest_2/issues/129) |
 | [T46](#t46-fleet-to-fleet-transfer-and-the-supply-path-that-keeps-fleets-alive) | Fleet transfer + the fleet supply path | — | Sonnet | High | **Opus**/Medium | T14, T38 | [#148](https://github.com/diegoami/imperial_conquest_2/issues/148) |
+| [T47](#t47-thin-godot-slice-the-engine-on-a-screen) | Thin Godot slice | — | Sonnet | Medium | Sonnet/High | T02, T03, T41 | [#151](https://github.com/diegoami/imperial_conquest_2/issues/151) |
 
-**Totals** — 46 tasks: 4 Opus, 37 Sonnet, 4 Haiku, 1 Fable. Effort: 2 Ultrahigh, 19 High, 22 Medium, 3 Low.
+**Totals** — 47 tasks: 4 Opus, 38 Sonnet, 4 Haiku, 1 Fable. Effort: 2 Ultrahigh, 19 High, 23 Medium, 3 Low.
