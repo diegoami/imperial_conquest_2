@@ -183,6 +183,12 @@
     "loyaltyRiseRollBound": 4,
     "loyaltyFallProbabilityDenominator": 3,
     "loyaltyFallTaxDivisor": 8,
+    "citySupplyBaselineSeasonValue": 40,
+    "citySupplyProductionDivisor": 10,
+    "citySupplyMobilizationDivisor": 200,
+    "citySupplyCapTonsPerPopulationThousand": 10,
+    "famineLoyaltyLossProbabilityDenominator": 3,
+    "famineLoyaltyLossAmount": 1,
     "lowTaxLoyaltyThresholdPercent": 11,
     "lowTaxLoyaltyCityThreshold": 80,
     "rebellionLoyaltyThreshold": 30,
@@ -276,7 +282,13 @@
       "rebellionLoyaltyThreshold": "derived: city-population-growth.md — 'if loyalty < 30 and the city is no nation's capital: FUN_0044c204(city)' [rebellion], transcribed directly from the decompiled quarterly tick rather than save-checked (the rebellion's own choice of new owner depends on an unidentified bitmask and stays open, T17's). Read by T35 for the first time; T08 shipped this field as data nothing read. Supersedes decompiled-quarterly-billing-and-economy.md's earlier, save-unconfirmed 'cities with loyalty under 30 can trigger it' as the citation for the same threshold.",
       "loyaltyRiseRollBound": "derived: city-population-growth.md — 'loyalty += Random(4)' (0..3), read directly from the code, not save-checked.",
       "loyaltyFallProbabilityDenominator": "derived: city-population-growth.md — 'if Random(3) == 0', a 1-in-3 roll, read directly from the code, not save-checked.",
-      "loyaltyFallTaxDivisor": "derived: city-population-growth.md — 'loyalty -= Random(taxRate) / 8', read directly from the code, not save-checked."
+      "loyaltyFallTaxDivisor": "derived: city-population-growth.md — 'loyalty -= Random(taxRate) / 8', read directly from the code, not save-checked.",
+      "citySupplyBaselineSeasonValue": "confirmed: city-population-growth.md §'The weekly step is city supply production' — s = (pop * (v - 40)) / 10; the 40 baseline read against the same season table (supplyConsumption.seasonValues) T08's army consumption already reads. Verified turn-for-turn against a pop-50 city's +50/+200/+200/-100 change across Spring/Summer/Autumn/Winter at mobilization 0.",
+      "citySupplyProductionDivisor": "confirmed: city-population-growth.md, same section — the /10 divisor of the same expression.",
+      "citySupplyMobilizationDivisor": "confirmed: city-population-growth.md, same section — inc = s - (s * mobilized) / 200; mobilization shrinks gains and losses alike. Numerically the same shape as populationGrowthMobilizationDivisor but a distinct field (there 300, here 200; the two formulas are conceptually separate, the same reasoning already given for populationGrowthMobilizationDivisor itself). Verified against Numidia/Illyria/Dacia/Armenia (mob 0, no reduction), Gaul/Celtiberia/Galatia (mob 97-100, exactly half), and Rome (mob 30, 15% less).",
+      "citySupplyCapTonsPerPopulationThousand": "confirmed: city-population-growth.md, same section — supplies = max(0, min(supplies + inc, pop * 10)); Rome's capital (pop 181) holds exactly 1,810 in several saves.",
+      "famineLoyaltyLossProbabilityDenominator": "confirmed: city-population-growth.md §'Weekly supply: 33 pairs' — 'Winter famine: loyalty, 1 in 3. In Winter pairs, cities whose stock ends the turn at 0 lost exactly 1 loyalty in 39 of 108 cases (36%; 1/3 expected) and kept it in 69.' Numerically the same 3 as loyaltyFallProbabilityDenominator but a distinct field: this is the weekly, Winter-only, empty-stock roll, not T35's quarterly, tax-rate-gated one.",
+      "famineLoyaltyLossAmount": "confirmed: city-population-growth.md, same section — the flat 1-point loyalty loss on that roll; 'cities with stock left, and every city outside Winter, never lose loyalty this way (1,874 and 8,980 city-turns unchanged, apart from a handful of other events)'."
     }
   },
   "recruitment": {

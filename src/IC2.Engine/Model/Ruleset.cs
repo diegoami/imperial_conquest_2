@@ -179,6 +179,24 @@ public sealed record TerrainRules(
 /// (<see cref="LowTaxLoyaltyThresholdPercent"/>, <see cref="LowTaxLoyaltyCityThreshold"/>,
 /// <see cref="RebellionLoyaltyThreshold"/>) — this task is the first to actually read any of the six.
 /// </para>
+/// <para>
+/// <strong>T37's additions</strong> (<c>docs/task-catalogue.md</c> "T37 City supply production and
+/// famine unrest") wire up the weekly city loop <c>FUN_004514ec</c> runs before the army and fleet
+/// loops — <c>city-population-growth.md</c> §"The weekly step is city supply production", <c>[confirmed]</c>:
+/// 33 save pairs, 10,693 of 10,980 city-turns exact. <see cref="CitySupplyBaselineSeasonValue"/> is the
+/// <c>40</c> subtracted from the season value (<see cref="SupplyConsumptionRules.SeasonValues"/>, the same
+/// table T08's army consumption already reads); <see cref="CitySupplyProductionDivisor"/> is the resulting
+/// term's <c>/ 10</c>; <see cref="CitySupplyMobilizationDivisor"/> is the owner-mobilization shrink's
+/// <c>/ 200</c> (numerically the same shape as the quarterly growth formula's mobilization term but a
+/// separate field, since the two divisors — 300 there, 200 here — are different and the two formulas are
+/// conceptually distinct, the same reasoning already given for <see cref="PopulationGrowthMobilizationDivisor"/>);
+/// <see cref="CitySupplyCapTonsPerPopulationThousand"/> is the <c>pop × 10</c> ceiling. The famine-unrest
+/// roll (<see cref="FamineLoyaltyLossProbabilityDenominator"/>, a 1-in-3 chance, and
+/// <see cref="FamineLoyaltyLossAmount"/>, the flat 1-point loss) is numerically coincidental with
+/// <see cref="LoyaltyFallProbabilityDenominator"/> (also 3) but a separate field: one is this task's
+/// weekly Winter-only, empty-stock check, the other T35's quarterly, tax-rate-gated one, and they must be
+/// able to change independently.
+/// </para>
 /// </remarks>
 public sealed record EconomyRules(
     int TaxRateDivisor,
@@ -218,6 +236,12 @@ public sealed record EconomyRules(
     int LoyaltyRiseRollBound,
     int LoyaltyFallProbabilityDenominator,
     int LoyaltyFallTaxDivisor,
+    int CitySupplyBaselineSeasonValue,
+    int CitySupplyProductionDivisor,
+    int CitySupplyMobilizationDivisor,
+    int CitySupplyCapTonsPerPopulationThousand,
+    int FamineLoyaltyLossProbabilityDenominator,
+    int FamineLoyaltyLossAmount,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>

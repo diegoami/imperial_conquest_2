@@ -106,9 +106,9 @@ Armies:
   south-army-1 (Southern League) @ (4,4): 6000 troops in 1 units, supply 0t (0%), morale 59, moves 9
 
 Cities:
-  arx "Arx" @ (2,1), owner Northern League: supply 400t, loyalty 90, fortification 60%
-  portus "Portus" @ (5,2), owner Northern League: supply 250t, loyalty 70, fortification 40%
-  meridia "Meridia" @ (3,4), owner Southern League: supply 300t, loyalty 65, fortification 100%
+  arx "Arx" @ (2,1), owner Northern League: supply 1588t, loyalty 90, fortification 60%
+  portus "Portus" @ (5,2), owner Northern League: supply 682t, loyalty 70, fortification 40%
+  meridia "Meridia" @ (3,4), owner Southern League: supply 1098t, loyalty 65, fortification 100%
 
 > buy north-army-1 arx 50
 north-army-1 bought 50 tons of supply at arx, free at your own city.
@@ -143,9 +143,9 @@ Armies:
   south-army-1 (Southern League) @ (4,4): 6000 troops in 1 units, supply 0t (0%), morale 59, moves 9
 
 Cities:
-  arx "Arx" @ (2,1), owner Northern League: supply 350t, loyalty 90, fortification 60%
-  portus "Portus" @ (5,2), owner Northern League: supply 250t, loyalty 70, fortification 40%
-  meridia "Meridia" @ (3,4), owner Southern League: supply 250t, loyalty 65, fortification 100%
+  arx "Arx" @ (2,1), owner Northern League: supply 1538t, loyalty 90, fortification 60%
+  portus "Portus" @ (5,2), owner Northern League: supply 682t, loyalty 70, fortification 40%
+  meridia "Meridia" @ (3,4), owner Southern League: supply 1048t, loyalty 65, fortification 100%
 
 > quit
 Goodbye.
