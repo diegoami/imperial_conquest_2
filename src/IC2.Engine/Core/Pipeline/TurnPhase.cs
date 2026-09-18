@@ -24,7 +24,8 @@ namespace IC2.Engine.Core;
 /// TPremierForm_EndTurn     -> FUN_0045af00 end-turn validity check,
 ///                             then nationTurnIndex = (index + 1) mod 16    -> SeatEnd
 /// if nationTurnIndex == 0: FUN_004514ec, the global weekly tick:
-///     loop all cities: population growth, StateCode += 2 capped at 24      -> CityTick
+///     loop all cities: supply production and famine unrest, StateCode += 2
+///                      capped at 24                                        -> CityTick
 ///     loop all armies: seasonal supply consumption, moves recomputed       -> ArmyTick
 ///     loop all fleets: construction countdown, storms and losses at sea    -> FleetTick
 ///     FUN_00451304: the seasonal weather-event system                      -> WeatherEvents
@@ -85,8 +86,8 @@ public enum TurnPhase
     SeatEnd = 30,
 
     /// <summary>
-    /// Round scope. Every city: seasonal, loyalty-modulated population growth, and the city-unit
-    /// <c>StateCode</c> step. Consumers: T08 economy, T13 recruitment, T18 city orders.
+    /// Round scope. Every city: weekly supply production and famine unrest, and the city-unit
+    /// <c>StateCode</c> step. Consumers: T37 economy, T13 recruitment, T18 city orders.
     /// </summary>
     CityTick = 40,
 
