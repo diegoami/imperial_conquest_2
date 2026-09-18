@@ -3,7 +3,7 @@ config_version=5
 [application]
 
 config/name="Imperial Conquest 2 Map Viewer"
-run/main_scene="res://MapViewer.tscn"
+run/main_scene="res://Slice/Slice.tscn"
 config/features=PackedStringArray("4.7", "C#")
 
 [display]
