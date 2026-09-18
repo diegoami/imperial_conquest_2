@@ -127,6 +127,7 @@ public static class VictoryEvaluator
     /// is at war with everyone else.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <strong>What was searched, and what came up empty (review round 1, blocking finding 2).</strong>
     /// <c>game-design.md</c> and <c>design-audit.md</c> — the only two documents that discuss this
     /// condition at all, the same two <see cref="EvaluateScoreAtTurnLimit"/> searches — state the one
@@ -142,6 +143,32 @@ public static class VictoryEvaluator
     /// requirement" reading is not merely undocumented but actively degenerate. No report or design
     /// document was found that settles this either way; this is the one reading that does not produce a
     /// trivial win.
+    /// </para>
+    /// <para>
+    /// <strong>T43 (<c>_provenance</c>, closing #108): does an <em>eliminated</em> hostile still count as
+    /// "holding nothing"?</strong> Same two documents searched again for this — <c>game-design.md</c>'s
+    /// one sentence and <c>design-audit.md</c>'s Q5 entry — and neither says a word about elimination
+    /// either way; no report treats "eliminated" as anything other than a bookkeeping consequence of
+    /// owning zero cities (<see cref="Model.GameStateFactory.CreateInitial"/> sets it exactly that way:
+    /// <c>Eliminated: cityCount == 0</c>). Round 1 of T12's review (PR #103) chose to skip an eliminated
+    /// nation out of the inner hostile scan entirely, reasoning it "redundant but harmless" alongside the
+    /// outer loop's own elimination check on the <em>candidate winner</em> — but the candidate-winner
+    /// check and the hostile check answer different questions (can this nation win vs. does that nation
+    /// still hold anything), and collapsing them made the hostile check untestable in exactly the state
+    /// this condition exists to reach: a nation whose only war was against a rival it has since
+    /// conquered down to zero cities is <em>always</em> marked <c>Eliminated</c> by the same construction
+    /// that zeroed its city count, so requiring "not eliminated" made
+    /// <c>hasLiveHostile &amp;&amp; everyHostileDominated</c> impossible to satisfy except by literal
+    /// total conquest (#108's bug). The decision here: elimination is not a separate condition from
+    /// "holds nothing" — it is a restatement of it — so a hostile's own <see cref="NationState.Eliminated"/>
+    /// flag is no longer read at all in this scan. Its city count already carries every fact the flag
+    /// could add (an eliminated nation's count is always zero; a hand-built state that violates that
+    /// invariant, this evaluator's whole point per the task's Scope, is judged on the count it actually
+    /// has, not the flag), so a hostile that still owns a city continues to block the win — see
+    /// <see cref="DominationVictoryTests.EliminatedHostile_StillBlocksTheWin_IfItSomehowStillOwnsACity"/> —
+    /// while a hostile reduced to zero cities no longer needs its own elimination bookkeeping to have
+    /// caught up before the win can fire.
+    /// </para>
     /// </remarks>
     public static VictoryOutcome EvaluateDomination(GameState state, Ruleset ruleset)
     {
@@ -167,7 +194,9 @@ public static class VictoryEvaluator
             cityCountByNation.TryGetValue(nation.Id, out var ownedByNation);
 
             // Literal total conquest is the special case of "every hostile city taken" where every
-            // other nation happens to be a hostile.
+            // other nation happens to be a hostile. totalCities > 0 here already implies
+            // ownedByNation > 0 whenever the two are equal, so no separate guard is needed on this
+            // branch -- contrast the hostile-domination branch below, which needs its own.
             if (totalCities > 0 && ownedByNation == totalCities)
             {
                 return VictoryOutcome.Won(VictoryConditionType.Domination, nation.Id);
@@ -182,22 +211,17 @@ public static class VictoryEvaluator
                     continue;
                 }
 
-                // Review round 1, non-blocking finding 3: an eliminated nation is never a "live"
-                // hostile, matching the outer loop's own elimination check. Currently unreachable under
-                // GameStateFactory's invariant (Eliminated <=> owns 0 cities, which the city-count check
-                // below already treats as dominated) but no longer merely an accident of that
-                // invariant holding -- a state built to violate it directly (this evaluator's whole
-                // point, per the task's Scope) now gets the same answer either way.
-                if (other.Eliminated)
-                {
-                    continue;
-                }
-
                 if (state.Relations.Get(nation.Id, other.Id) != warCode)
                 {
                     continue;
                 }
 
+                // T43 (closing #108): other.Eliminated is deliberately not read here -- see this
+                // method's remarks. A hostile's city count alone decides whether it still "holds"
+                // anything, whether or not the model's own elimination bookkeeping has caught up with
+                // that count; skipping an eliminated hostile made this branch unreachable the moment the
+                // only hostile was conquered down to zero cities, which is exactly the case this
+                // condition exists to detect.
                 hasLiveHostile = true;
                 cityCountByNation.TryGetValue(other.Id, out var ownedByOther);
                 if (ownedByOther > 0)
@@ -207,7 +231,10 @@ public static class VictoryEvaluator
                 }
             }
 
-            if (hasLiveHostile && everyHostileDominated)
+            // ownedByNation > 0 (T43, closing #108's second, related finding): a candidate that holds no
+            // city of its own never wins here either, even if every declared hostile happens to hold
+            // none -- mirrors the guard just added to the total-conquest special case above.
+            if (hasLiveHostile && everyHostileDominated && ownedByNation > 0)
             {
                 return VictoryOutcome.Won(VictoryConditionType.Domination, nation.Id);
             }
