@@ -1,8 +1,10 @@
-using System.Text.Json;
+using IC2.Inspect;
 
 namespace IC2.Data.Tests.CorpusFixtures;
 
-/// <summary>Loads the committed <see cref="CorpusEntry"/> table from disk. See <see cref="CorpusEntry"/>.</summary>
+/// <summary>Loads the committed <see cref="CorpusOutcome"/> table from disk, using the exact same
+/// (de)serialization <c>IC2.Inspect --corpus-outcomes</c> uses to write it — see
+/// <see cref="CorpusOutcomeGenerator.FromJson"/>.</summary>
 internal static class CorpusFixture
 {
     /// <summary>The committed expected-outcome table, relative to this file's own folder so it is
@@ -11,15 +13,8 @@ internal static class CorpusFixture
         Path.Combine(LocalAssets.RepositoryRoot, "tests", "IC2.Data.Tests", "CorpusFixtures",
             "expected-corpus-outcomes.json");
 
-    public static IReadOnlyList<CorpusEntry> Entries { get; } = Load();
+    public static IReadOnlyList<CorpusOutcome> Entries { get; } = Load();
 
-    private static IReadOnlyList<CorpusEntry> Load()
-    {
-        var json = File.ReadAllText(FixtureFile);
-        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-        var entries = JsonSerializer.Deserialize<List<CorpusEntry>>(json, options);
-        if (entries is null || entries.Count == 0)
-            throw new InvalidOperationException($"'{FixtureFile}' did not deserialize to a nonempty corpus table.");
-        return entries;
-    }
+    private static IReadOnlyList<CorpusOutcome> Load() =>
+        CorpusOutcomeGenerator.FromJson(File.ReadAllText(FixtureFile));
 }
