@@ -5,19 +5,19 @@ namespace IC2.Engine.Economy.Commands;
 
 /// <summary>
 /// Wires <see cref="SupplyPurchase.BuyForArmy"/> behind the command seam —
-/// <c>docs/task-catalogue.md</c> "T41 Thin CLI demo on the toy world". Every rejection this handler adds
-/// is a command-layer concern (does the army/city exist, is it yours, is the request even well-formed);
-/// the purchase rule itself — free at an owned city, <c>amount / 5</c> abroad, capped at the dialog
-/// capacity — stays entirely inside <see cref="SupplyPurchase"/>.
+/// <c>docs/task-catalogue.md</c> "T41 Thin CLI demo on the toy world", moved to the new API by "T38
+/// Supply dialog follow-ups, treasury ↔ purse transfers, and automatic resupply" (issue #78). Every
+/// rejection this handler adds is a command-layer concern (does the army/city exist, is it yours, is the
+/// request even well-formed); the purchase rule itself — free at an owned city, <c>amount / 5</c> abroad,
+/// clamped by stock/room/money rather than rejected for exceeding any of them — stays entirely inside
+/// <see cref="SupplyPurchase"/>.
 /// </summary>
 /// <remarks>
-/// <see cref="SupplyPurchase.BuyForArmy"/> throws <see cref="ArgumentException"/> for two conditions:
-/// the city not holding the raw requested tons (checked here first, so that path never reaches it), and
-/// a per-unit purse unable to cover the capacity-clamped, foreign-city cost — which this handler cannot
-/// predict without re-deriving the same capacity clamp <see cref="SupplyPurchase"/> already applies
-/// internally, so it is instead translated into <see cref="BuySupplyRejections.InsufficientFunds"/> at the
-/// one call site, exactly as <see cref="ICommandHandler{TCommand}.Handle"/> requires: an illegal order is
-/// an outcome, never an exception escaping to the dispatcher.
+/// T38 (#78, Done-when 1): <see cref="SupplyPurchase.BuyForArmy"/> no longer throws for a request that
+/// exceeds the city's stock or the buyer's affordable room — it clamps <c>AdmittedTons</c> instead, so
+/// this handler no longer needs the pre-check or the <c>catch</c> the old, throwing version required.
+/// It still validates the city holds a resolvable owner nation, since <see cref="SupplyPurchase.BuyForArmy"/>
+/// now takes that nation as a parameter (Done-when 5, the seller's credit).
 /// </remarks>
 [CommandHandler]
 public sealed class BuySupplyCommandHandler : ICommandHandler<BuySupplyCommand>
@@ -50,40 +50,37 @@ public sealed class BuySupplyCommandHandler : ICommandHandler<BuySupplyCommand>
                 BuySupplyRejections.UnknownCity, $"'{command.CityId}' is not a known city.");
         }
 
+        // Review round 1, N7: the city itself is known -- its owner nation is the problem -- so this is
+        // UnresolvableCityOwner, not UnknownCity. Defensive: unreachable while every city's Owner names a
+        // real nation, which the loaded data always satisfies today.
+        var sellingCityNation = state.NationById(city.Owner);
+        if (sellingCityNation is null)
+        {
+            return CommandOutcome.Reject(
+                BuySupplyRejections.UnresolvableCityOwner, $"City '{city.Id}''s owner '{city.Owner}' is not a known nation.");
+        }
+
         if (command.Tons <= 0)
         {
             return CommandOutcome.Reject(
                 BuySupplyRejections.InvalidAmount, "Must buy a positive number of tons.");
         }
 
-        if (city.SupplyTons < command.Tons)
-        {
-            return CommandOutcome.Reject(
-                BuySupplyRejections.InsufficientCitySupply,
-                $"City '{city.Id}' holds only {city.SupplyTons} tons of supply, cannot sell {command.Tons}.");
-        }
-
-        SupplyPurchase.ArmyResult result;
-        try
-        {
-            result = SupplyPurchase.BuyForArmy(army, city, context.IssuingNation, command.Tons, context.Ruleset);
-        }
-        catch (ArgumentException ex)
-        {
-            return CommandOutcome.Reject(BuySupplyRejections.InsufficientFunds, ex.Message);
-        }
-
-        var admittedTons = result.Army.SupplyTons - army.SupplyTons;
+        var result = SupplyPurchase.BuyForArmy(army, city, context.IssuingNation, sellingCityNation, command.Tons, context.Ruleset);
 
         context.Events.Publish(new ArmySupplyPurchased(
-            army.Id, army.Nation, city.Id, command.Tons, admittedTons, result.TalentsPaid, result.WasFreeOwnCity));
+            army.Id, army.Nation, city.Id, command.Tons, result.AdmittedTons, result.TalentsPaid, result.WasFreeOwnCity));
 
         var updatedArmies = state.Armies.Select(a =>
             string.Equals(a.Id, army.Id, StringComparison.Ordinal) ? result.Army : a);
         var updatedCities = state.Cities.Select(c =>
             string.Equals(c.Id, city.Id, StringComparison.Ordinal) ? result.City : c);
         var updatedNations = state.Nations.Select(n =>
-            string.Equals(n.Id, result.BuyerNation.Id, StringComparison.Ordinal) ? result.BuyerNation : n);
+            string.Equals(n.Id, result.BuyerNation.Id, StringComparison.Ordinal)
+                ? result.BuyerNation
+                : string.Equals(n.Id, result.SellingCityNation.Id, StringComparison.Ordinal)
+                    ? result.SellingCityNation
+                    : n);
 
         return CommandOutcome.Accept(state with
         {

@@ -136,7 +136,7 @@ Week 1, Summer 270 BC (turn 6). Active seat: Northern League (north).
 
 Nations:
   Northern League (north, human): treasury 372, unity 600, tax 15%
-  Southern League (south, ai): treasury 354, unity 520, tax 20%
+  Southern League (south, ai): treasury 364, unity 520, tax 20%
 
 Armies:
   north-army-1 (Northern League) @ (4,3): 18500 troops in 2 units, supply 100t (54%), morale 66, moves 9
