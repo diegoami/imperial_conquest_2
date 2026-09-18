@@ -337,7 +337,7 @@ Revised after the audit (`design-audit.md` §4 found missing milestones, three d
 19. **Scenario authoring docs and a couple of example custom scenarios**. *Done when*: the example scenarios load and run 10 turns headlessly.
 20. **Packaging/polish**. *Done when*: the packaged build launches and loads a scenario on a machine without the dev toolchain.
 
-How this list is built: as the 31 agent-run tasks in [task-catalogue.md](task-catalogue.md), through the pipeline in [build-process.md](build-process.md). The user is consulted when a genuinely ambiguous design gap appears that this document doesn't cover, or a decision is more product/taste than engineering (art direction, a UX call, a scope trade-off) — [build-process.md §4.5](build-process.md#45-when-to-escalate-to-the-user). Everything else — including every `[designed]` placeholder above — is implemented autonomously, precisely because it's already documented as a deliberate, revisitable choice rather than an unstated assumption.
+How this list is built: as the tasks in [task-catalogue.md](task-catalogue.md) in [task-catalogue.md](task-catalogue.md), through the pipeline in [build-process.md](build-process.md). The user is consulted when a genuinely ambiguous design gap appears that this document doesn't cover, or a decision is more product/taste than engineering (art direction, a UX call, a scope trade-off) — [build-process.md §4.5](build-process.md#45-when-to-escalate-to-the-user). Everything else — including every `[designed]` placeholder above — is implemented autonomously, precisely because it's already documented as a deliberate, revisitable choice rather than an unstated assumption.
 
 ## Open questions genuinely left for later
 

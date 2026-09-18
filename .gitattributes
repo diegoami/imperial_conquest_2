@@ -1,0 +1,13 @@
+# LF in the store for everything text; working copies may be CRLF on Windows.
+# .editorconfig's end_of_line matches this (lf), so an editorconfig-aware editor
+# and git agree instead of fighting (repo-audit-2026-09-18.md §4.8).
+* text=auto eol=lf
+
+# Binary: never touched
+*.png binary
+*.bmp binary
+*.wav binary
+*.mp4 binary
+*.ico binary
+*.dat binary
+*.sav binary

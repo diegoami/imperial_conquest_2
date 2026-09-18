@@ -8,8 +8,10 @@ name: CI
 # that script is not invoked by this workflow because no step here runs Godot.
 
 on:
+  # push only on main: a PR from a same-repo branch would otherwise run twice on
+  # the same SHA (repo-audit-2026-09-18.md §4.6).
   push:
-    branches: ["**"]
+    branches: ["main"]
   pull_request:
 
 jobs:
