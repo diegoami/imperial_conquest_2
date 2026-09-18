@@ -4,7 +4,7 @@ Every build task's scope, **Owns** list, Definition of Done, model/effort, revie
 
 **Status is not in this document.** Each task's stage (ready, in progress, merged, blocked, escalated) lives only in its GitHub issue's `status:*` label ([build-process.md §5](build-process.md#5-status-lives-on-github)). The index below links every issue.
 
-47 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), twelve corrections to already-merged code (T31–T35, T38–T40, T42–T45), one rule no task owned (T37, the weekly city supply step), and two early slices — T41 of T23's CLI, and T47 of T24's Godot UI.
+48 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), twelve corrections to already-merged code (T31–T35, T38–T40, T42–T45), one rule no task owned (T37, the weekly city supply step), and two early slices — T41 of T23's CLI, and T47 of T24's Godot UI.
 
 ---
 
@@ -69,7 +69,8 @@ graph TD
   T08 --> T14[T14 naval]
   T14 --> T46[T46 fleet transfer + supply]
   T14 --> T47[T47 thin Godot slice]
-  T47 --> T24
+  T47 --> T48[T48 asset-pack icons]
+  T48 --> T24
   T46 --> T22
   T32 --> T14
   T09 --> T14
@@ -1122,6 +1123,38 @@ Conventions used by every entry:
 
 ---
 
+#### T48 Draw armies and cities from the asset pack
+
+- **Design milestone**: none — the asset half of **M18**, and the pipeline T24 will build on. **Labels**: `phase:2 lane:ui single-instance`
+- **Branch**: `task/T48-asset-pack-icons` · **Model/effort**: Sonnet / High · **Reviewer**: Sonnet / High
+- **Start after**: T47 · **Merge after**: T11, T47 — and **merged before T24**
+- **Owns**: `godot/Slice/**`, `godot/Assets/**` (new: the Godot-side pack loader), `tests/IC2.Engine.Tests/Assets/**` (new tests only — **not** T11's existing ones)
+- **Scope**: T47's slice draws armies as plain coloured diamonds. The user asked for real icons. **Two constraints shape this task before any code is written, and both are permanent:**
+
+  **1. The original game's sprites can never ship.** They live inside the original `.EXE`/`.DAT`, and original game files never enter either repository — the project's oldest standing constraint. This task therefore uses **T11's placeholder pack** (`assets/packs/placeholder/`), whose own manifest describes it as *"flat colors, silent audio stubs, good enough for development and testing"*. **That is what will appear on screen: flat coloured shapes, not the original's art.** Authoring attractive replacement art is a real, separate effort with no task yet; do not attempt it here, and do not let "better icons" drift into drawing them by hand.
+
+  **2. The plumbing is the deliverable, not the pictures.** T11 already shipped `src/IC2.Engine/Assets/AssetLoader` (`LoadManifest`, `ValidateAssets`, `TryResolveAsset`) and `AssetKeys` (`unit.light_infantry.icon`, `terrain.plain.tile`, and the rest). None of it has ever been called from Godot. What this task builds is the path from a manifest key to a texture on screen — which is exactly what T24 needs and would otherwise invent under time pressure.
+
+  **The two problems to solve, both unanswered today:**
+  - **The pack is outside the Godot project.** `--path godot` makes `res://` the `godot/` folder, and the pack lives at the repository root in `assets/packs/placeholder/`. Decide how Godot reaches it — and the decision must survive **T27's packaging**, where an exported game has no repository around it. State the choice and why in the PR.
+  - **The pack is `.bmp`.** T11 chose BMP deliberately, after its PNG generator twice produced invalid files that CI passed anyway. Godot's importer may or may not handle `.bmp` in the shape needed; a runtime `Image` load is the likely route. Confirm which works before building on it, and say so.
+- **Done when**:
+  1. A Godot-side loader resolves an `AssetKeys` key to a texture through **T11's `AssetLoader`/`AssetPack`**, never by re-reading the manifest JSON with its own parser or by hardcoding a file path.
+  2. **Armies draw with per-unit-type icons.** An army holds several unit types, so the choice needs a stated rule — the pack offers both per-type icons and `army/tier1..3`. Pick one, implement it, and tag it `[designed]` with the reasoning: no research report covers UI presentation, so there is nothing to source and inventing a citation would be worse than admitting the choice.
+  3. Cities draw from the pack's city icons, with the capital distinguished (`city/capital`, `city/tier1..3` exist).
+  4. **A missing or unreadable asset degrades visibly and never throws**: the slice still renders, the affected marker falls back to T47's coloured shape, and the failure is logged once with the key that failed. Asserted by a test that points the loader at a pack with a deliberately missing entry.
+  5. `AssetLoader.ValidateAssets` is run against the placeholder pack and reports **zero** missing files — the check T11 wrote and nothing has ever called.
+  6. **T47's agreement gate still holds**: the slice's status text stays byte-identical to `IC2.Cli`'s for the same scenario and seed. Drawing must not touch turn logic; re-run both sides and paste the comparison.
+  7. A screenshot showing icon-drawn armies and cities, captured the way T47 established (a short windowed run — **headless capture does not work on Godot 4.7.2's dummy backend**, confirmed twice; see [#156](https://github.com/diegoami/imperial_conquest_2/issues/156)).
+  8. `scripts/check-godot-churn.ps1` clean after every Godot invocation; `dotnet build IC2.sln` 0 warnings / 0 errors; CI unchanged and still green without Godot.
+- **Hazards**:
+  - **Do not modify T11's pack, generator or `src/IC2.Engine/Assets/**`.** If the loader is missing something this task needs, that is a finding to report, not an edit to make — `assets/packs/placeholder/**` and `scripts/generate-placeholder-assets.*` are T11's Owns list.
+  - **Do not build any part of T24**: no main menu, no New Game flow, no ruleset chooser.
+  - **Do not copy `MapViewer.cs`'s `OwnerColor`** for the fallback path — it has two byte-identical colour pairs ([#154](https://github.com/diegoami/imperial_conquest_2/issues/154)). Reuse the slice's own `NationColor` helper, which reads `World.NationById(id).ColorHex`.
+  - `single-instance`, like every Godot task.
+
+---
+
 #### T24 Godot main game screen
 
 - **Design milestone**: **M18** (UI half). **Labels**: `phase:3 lane:ui single-instance`
@@ -1229,5 +1262,6 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T45](#t45-pin-the-weekly-moves-maximum-with-the-tests-it-never-got) | Weekly moves maximum: the missing tests | — | Sonnet | Medium | **Opus**/Medium | T08, T09 | [#129](https://github.com/diegoami/imperial_conquest_2/issues/129) |
 | [T46](#t46-fleet-to-fleet-transfer-and-the-supply-path-that-keeps-fleets-alive) | Fleet transfer + the fleet supply path | — | Sonnet | High | **Opus**/Medium | T14, T38 | [#148](https://github.com/diegoami/imperial_conquest_2/issues/148) |
 | [T47](#t47-thin-godot-slice-the-engine-on-a-screen) | Thin Godot slice | — | Sonnet | Medium | Sonnet/High | T02, T03, T41 | [#151](https://github.com/diegoami/imperial_conquest_2/issues/151) |
+| [T48](#t48-draw-armies-and-cities-from-the-asset-pack) | Asset-pack icons for armies and cities | — | Sonnet | High | Sonnet/High | T11, T47 | [#157](https://github.com/diegoami/imperial_conquest_2/issues/157) |
 
-**Totals** — 47 tasks: 4 Opus, 38 Sonnet, 4 Haiku, 1 Fable. Effort: 2 Ultrahigh, 19 High, 23 Medium, 3 Low.
+**Totals** — 48 tasks: 4 Opus, 39 Sonnet, 4 Haiku, 1 Fable. Effort: 2 Ultrahigh, 20 High, 23 Medium, 3 Low.
