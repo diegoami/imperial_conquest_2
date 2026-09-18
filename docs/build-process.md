@@ -95,7 +95,7 @@ Models are chosen per task, not uniformly:
   - The domain model and engine seams are consumed by every other task.
   - Battle resolution feeds five downstream systems and is the most integer-semantics-sensitive code in the project.
   - The AI has the most design latitude and the hardest failure mode: a soak that never terminates.
-- **Sonnet: 33 tasks.** The default for "the design document already says what to build, and the hard part is building it correctly".
+- **Sonnet: 34 tasks.** The default for "the design document already says what to build, and the hard part is building it correctly".
   - Medium: correction tasks whose evidence is fully pinned in the entry (T31, T33, T34, T40, T42), and T37, a rule no task owned.
   - Low: a test-only correction (T32).
   - High: tasks that must read a format off decompiled code (T30), widen the shared domain model (T35), or rework merged economy code (T38, T39).
@@ -112,7 +112,7 @@ Models are chosen per task, not uniformly:
 | Implementer | Reviewer | Plus |
 | --- | --- | --- |
 | Opus (T02, T03, T16, T22) | Opus / High | `/code-review --effort ultra` ([§3.5](#35-where-the-code-review-skill-fits)) |
-| Sonnet on fidelity-critical tasks (T04, T07, T08, T10, T13, T14, T17, T19, T20, T21, T29, T30, T31, T33, T34, T37, T38, T39, T40, T42) | **Opus / Medium** | — |
+| Sonnet on fidelity-critical tasks (T04, T07, T08, T10, T13, T14, T17, T19, T20, T21, T29, T30, T31, T33, T34, T37, T38, T39, T40, T42, T43) | **Opus / Medium** | — |
 | Sonnet widening the shared domain model (T35) | **Opus / High** | — |
 | Sonnet on structural tasks (T01, T06, T09, T11, T12, T15, T23, T24, T25, T27, T32, T41) | Sonnet / High | human visual review on T24 and T25 |
 | Haiku / Fable (T05, T18, T26, T28, T36) | Sonnet / Medium | — |
