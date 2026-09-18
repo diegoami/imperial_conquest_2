@@ -275,6 +275,32 @@ public class ModelCoverageTests
         Assert.Equal(DefeatOutcome.Destroyed, flags.CombatOnDefeat);
     }
 
+    /// <summary>
+    /// T35's model additions: a nation's standing-recruitment queue carries exactly
+    /// <c>IC2.Data</c>'s <c>SaveRecruitmentTable</c> fields, and at most one pending diplomatic offer.
+    /// </summary>
+    [Fact]
+    public void A_nation_carries_recruitment_slots_and_the_state_carries_a_pending_offer()
+    {
+        var state = ToyFixtures.NonTrivialState();
+
+        var north = state.NationById("north")!;
+        var slot = Assert.Single(north.RecruitmentSlots);
+        Assert.Equal("arx", slot.TargetCityId);
+        Assert.Equal("light_infantry", slot.UnitTypeId);
+        Assert.Equal(3200, slot.Troops);
+        Assert.Equal(6, slot.StateCode);
+
+        // south has no queued recruitment: empty slots are simply absent, the same convention the
+        // mercenary pool uses.
+        Assert.Empty(state.NationById("south")!.RecruitmentSlots);
+
+        var offer = state.PendingOffer;
+        Assert.NotNull(offer);
+        Assert.Equal("south", offer!.ProposingNationId);
+        Assert.Equal(ToyFixtures.Toy.Ruleset.Diplomacy.StateCodes.Trade, offer.ProposedRelationCode);
+    }
+
     [Fact]
     public void Mercenary_pool_slots_are_carried_with_their_slot_index()
     {

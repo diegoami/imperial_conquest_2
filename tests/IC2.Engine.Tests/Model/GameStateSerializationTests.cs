@@ -37,6 +37,12 @@ public class GameStateSerializationTests
         Assert.True(state.Relations.Get("north", "south") < 0);
         Assert.Contains(state.Armies.SelectMany(a => a.Units), u => u.IsMercenary);
         Assert.Contains(state.Armies.SelectMany(a => a.Units), u => u.IsRegular);
+
+        // T35's model additions: a non-empty recruitment queue and a pending diplomatic offer, so the
+        // round trip below actually exercises their serialization rather than round-tripping an empty
+        // list and a null.
+        Assert.Contains(state.Nations, n => n.RecruitmentSlots.Count > 0);
+        Assert.NotNull(state.PendingOffer);
     }
 
     [Fact]
