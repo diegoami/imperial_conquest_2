@@ -168,7 +168,18 @@ Five gates, in order. Any failure means `status:rework`.
 2. **Provenance.** Every constant traces to a `tests/fixtures` entry, a cited report, or a `docs/investigations/` document. Any `[designed]` value must say *what was searched and came up empty* (`design-audit.md` §4.5).
 3. **Determinism.** Gameplay paths use no `System.Random`, no wall clock, no `Guid.NewGuid`, and no order-dependent iteration. Every random draw goes through `IRng`, and a seeded test proves reproducibility.
 4. **Scope.** Every changed file is inside the task's Owns list. A change outside it is a finding even if it's a good change. The PR's "Docs affected" list is plausible for what the diff does.
-5. **Correctness sweep.** The reviewer reads the diff for ordinary bugs in its own context (§3.5 says why the skill is not used here).
+5. **Correctness sweep**, in the reviewer's own context ([§3.5](#35-where-the-code-review-skill-fits) says why the skill is not used here). It is a read of the PR's own diff, hunk by hunk, plus the surrounding code the diff doesn't show, hunting the classes that have actually bitten this project:
+   - integer truncation and operation order (the original truncates at every step);
+   - off-by-one in a cap or threshold, and the boundary either side of it;
+   - a division or modulo whose denominator can be zero;
+   - an unguarded null, empty collection or missing id;
+   - order-dependent iteration, or a dictionary where order would leak into a result;
+   - a branch that can never be taken (T12's domination win was dead code that shipped);
+   - **a test that would still pass if the behaviour were deleted** — the most common finding here, and the reason mutation is the proof below.
+
+   A candidate is **proved before it is reported**: run it, or delete the behaviour and watch exactly which test fails. A finding with neither is labelled as unverified.
+
+   **Fanning out is allowed, and is how the sweep scales**: the reviewer may dispatch one verification agent per candidate, each given the explicit claim, the file and line, and what evidence would confirm or refute it — never left to infer a target from its working directory ([§7](#7-concurrency-single-instance-and-local-only)). Verdicts come back confirmed, plausible or refuted, and "plausible" is reported as plausible.
 
 A defect the reviewer finds in **another task's already-merged** code is not a finding against this PR. It goes to the bug list ([§4.6](#46-bugs-and-follow-ups)).
 
@@ -293,6 +304,21 @@ Retired labels from the orchestrator era: `docs:pending`, `orchestrator:pause`, 
 ## 7. Concurrency, single-instance, and local-only
 
 - **One task in flight at a time**: its implementer, its reviewer, and its rework, one after another.
+- **A subagent cannot be pointed at a worktree.** Every agent starts in the session's working
+  directory, the main checkout; an agent works in its worktree only because its brief tells it to
+  use `git -C <worktree>` or to `cd` there first. That shell directory is **not inherited** by
+  anything it spawns, so a skill or agent it forks starts back in the main checkout, where
+  `origin/main...HEAD` is empty. That is the whole cause of the 2026-09-18 review failures
+  ([§3.5](#35-where-the-code-review-skill-fits)). Two consequences:
+  - an agent that needs a sweep of its diff does it **inline**, or passes the target explicitly
+    (`/code-review --effort high <pr>`), never bare;
+  - **every agent states where it worked**, so a wrong location is visible rather than inferred
+    (below).
+- **Say where you are working.** Each implementer and reviewer prints, in its **first** tool call
+  and again in its **final report**, the four lines its brief asks for: the worktree's
+  `git rev-parse --show-toplevel`, its `HEAD`, its branch or `detached`, and its
+  `git diff --name-only origin/main...HEAD`. The main session checks that block before it relays a
+  review or merges a PR: a report without it, or one naming the main checkout, is not acted on.
 - **Agents work in their own worktrees**, never in the main checkout:
   - An implementer runs `git -C C:\Users\diego\projects\imperial_conquest_2 worktree add C:\Users\diego\projects\ic2-work\T<nn> task/T<nn>-<slug>`, creating the branch from `origin/main` if it doesn't exist yet.
   - A reviewer checks out the PR head detached, in `...\ic2-work\T<nn>-review`.
@@ -366,6 +392,18 @@ that directory: it is the main session's checkout. Work in your own worktree:
   - <local-only tasks only> copy C:\Users\diego\projects\imperial_conquest_2\assets.local.ini into
     the worktree root. It is git-ignored; never commit it.
 
+SAY WHERE YOU ARE WORKING. Your very first tool call, before reading anything, prints these four
+lines, and your final report repeats them:
+
+  git -C <your worktree> rev-parse --show-toplevel     # must be your worktree, NOT the main checkout
+  git -C <your worktree> rev-parse --short HEAD
+  git -C <your worktree> rev-parse --abbrev-ref HEAD   # your task branch, or "HEAD" if detached
+  git -C <your worktree> diff --name-only origin/main...HEAD
+
+If the first line is C:\Users\diego\projects\imperial_conquest_2, you are in the main session's
+checkout: STOP and fix that before doing anything else. Nothing you spawn inherits your shell
+directory, so always pass `git -C <your worktree>` explicitly rather than relying on `cd`.
+
 Read first, in order:
   docs/task-catalogue.md  — your task entry (#t<nn>-<slug>). It is the contract.
   docs/build-process.md   — §2 (ownership), §4 (the loop, the review gates, the bug list).
@@ -419,8 +457,10 @@ own worktree at the PR head:
   <local-only tasks only> copy assets.local.ini from the main checkout into the worktree root.
 
 GATE 0 — PROVE YOU ARE LOOKING AT THE RIGHT CODE. Before reading or judging anything, run these
-four commands in your worktree and paste their output into your review comment:
+five commands in your worktree and paste their output into your review comment, under a heading
+"Where I reviewed". Repeat them in your final report:
 
+  git rev-parse --show-toplevel                       # must be your worktree, NOT the main checkout
   git rev-parse HEAD                                  # must equal the PR's headRefOid
   gh pr view <pr> --json headRefOid --jq .headRefOid
   git diff --name-only origin/main...HEAD              # the files you are reviewing
@@ -433,6 +473,10 @@ where `origin/main...HEAD` resolves to nothing.
 
 Every finding you report must name a file from that diff. A finding about any other file is a
 separate report, never a finding against this PR (§4.2).
+
+Nothing you spawn inherits your shell directory: a forked skill or agent starts in the MAIN
+CHECKOUT, not here. So pass `git -C <your worktree>` explicitly rather than relying on `cd`, and
+see gate 5 before considering any forked tool.
 
 Read: docs/task-catalogue.md (the task entry), docs/build-process.md §4.2 "What the reviewer
       checks", docs/game-design.md (milestone M<n>), docs/design-audit.md.
@@ -450,7 +494,16 @@ Run five gates, in order. Any failure is status:rework:
  4. Scope. Every changed file is inside the task's declared Owns list. A file outside it is a
     finding even if the change is good. Any diff to docs/*.md is an automatic rework. The PR's
     "Docs affected" list matches what the diff actually changes.
- 5. Correctness. Sweep the diff for ordinary bugs YOURSELF, in your own context.
+ 5. Correctness. Sweep the diff for ordinary bugs YOURSELF, in your own context: read it hunk by
+    hunk, plus the surrounding code it doesn't show, and hunt integer truncation and operation
+    order, off-by-one caps and their boundaries, division by a zero denominator, unguarded nulls
+    and empty collections, order-dependent iteration, unreachable branches, and tests that would
+    pass even with the behaviour deleted (build-process.md §4.2 gate 5 lists these).
+    PROVE a candidate before reporting it: run it, or delete the behaviour and watch exactly which
+    test fails. Say so when a finding is unverified.
+    You MAY fan out — one verification agent per candidate, each given the explicit claim, file and
+    line, and what would confirm or refute it. Never let such an agent infer its target from a
+    working directory; it starts in the main checkout, not here.
     Do NOT invoke the /code-review skill: from inside a reviewer agent it forks, the fork runs in
     the MAIN CHECKOUT rather than your worktree, its `origin/main...HEAD` is empty there, and it
     silently falls back to reviewing main's last commit. It produced full, confident findings about
@@ -503,6 +556,10 @@ Report to the user after each task; stop at any escalation.
      `gh pr update-branch <pr>` and wait for green again. For T16 and T22, stop and get the
      user's thumbs-up first. Then `gh pr merge <pr> --squash --delete-branch`, label
      status:merged, remove review-round:*, and make sure the issue closed. Go to step 4.
+   - Before acting on any agent's report, check its "where I worked" block: a worktree path under
+     ic2-work\, a HEAD, a branch, and a non-empty diff list. No block, or the main checkout's path,
+     means don't act on it — ask the agent to re-state its location, and re-dispatch if it really
+     worked in the wrong tree.
    - status:rework: FIRST check the review is about THIS PR — gate 0's output is present, and
      every finding names a file in the PR's diff (`gh pr view <pr> --json files`). A review naming
      files outside it reviewed the wrong tree: discard it, say so, and re-dispatch the reviewer.
