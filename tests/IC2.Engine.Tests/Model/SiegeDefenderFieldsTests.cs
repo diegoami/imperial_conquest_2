@@ -70,4 +70,84 @@ public class SiegeDefenderFieldsTests
         // rather than 0% finished with one order's worth of points pending.
         Assert.Equal(0, FortificationCode.FinishedPercent(200, fortify));
     }
+
+    // ---- T33 (issue #46) Done-when 1: HighFortificationThreshold/BonusNumerator/BonusDenominator are
+    // renamed HighLoyaltyThreshold/BonusNumerator/BonusDenominator (JSON keys likewise), values 59/5/3
+    // unchanged -- the branch tests loyalty > 59, not fortification. ----
+
+    [Fact]
+    public void HighLoyalty_threshold_and_bonus_values_are_unchanged_under_the_corrected_names()
+    {
+        var siege = GameDataLoader.LoadFile<Ruleset>(TestPaths.ToyRulesetFile).Siege;
+
+        Assert.Equal(59, siege.HighLoyaltyThreshold);
+        Assert.Equal(5, siege.HighLoyaltyBonusNumerator);
+        Assert.Equal(3, siege.HighLoyaltyBonusDenominator);
+    }
+
+    [Fact]
+    public void HighLoyalty_fields_round_trip_under_their_renamed_json_keys()
+    {
+        var ruleset = GameDataLoader.LoadFile<Ruleset>(TestPaths.ToyRulesetFile);
+
+        var json = GameJson.Serialize(ruleset);
+        Assert.Contains("\"highLoyaltyThreshold\":", json, StringComparison.Ordinal);
+        Assert.Contains("\"highLoyaltyBonusNumerator\":", json, StringComparison.Ordinal);
+        Assert.Contains("\"highLoyaltyBonusDenominator\":", json, StringComparison.Ordinal);
+
+        // No key named after the old, fortification-misnamed fields survives.
+        Assert.DoesNotContain("\"highFortificationThreshold\":", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"highFortificationBonusNumerator\":", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"highFortificationBonusDenominator\":", json, StringComparison.Ordinal);
+
+        var reloaded = GameDataLoader.Load<Ruleset>("ruleset", json);
+        Assert.Equal(ruleset.Siege, reloaded.Siege);
+    }
+
+    // ---- T33 (issue #47) Done-when 2: DefenderOwnerNotAllegiancePenaltyPercent (20) becomes
+    // DefenderNonAllegiantNumerator (4) and DefenderNonAllegiantDenominator (5), applied as
+    // (strength * 4) / 5 -- not a 20% subtraction. ----
+
+    [Fact]
+    public void DefenderNonAllegiant_numerator_and_denominator_are_4_and_5()
+    {
+        var siege = GameDataLoader.LoadFile<Ruleset>(TestPaths.ToyRulesetFile).Siege;
+
+        Assert.Equal(4, siege.DefenderNonAllegiantNumerator);
+        Assert.Equal(5, siege.DefenderNonAllegiantDenominator);
+    }
+
+    [Fact]
+    public void DefenderNonAllegiant_fields_round_trip_under_their_renamed_json_keys()
+    {
+        var ruleset = GameDataLoader.LoadFile<Ruleset>(TestPaths.ToyRulesetFile);
+
+        var json = GameJson.Serialize(ruleset);
+        Assert.Contains("\"defenderNonAllegiantNumerator\":", json, StringComparison.Ordinal);
+        Assert.Contains("\"defenderNonAllegiantDenominator\":", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"defenderOwnerNotAllegiancePenaltyPercent\":", json, StringComparison.Ordinal);
+
+        var reloaded = GameDataLoader.Load<Ruleset>("ruleset", json);
+        Assert.Equal(ruleset.Siege, reloaded.Siege);
+    }
+
+    /// <summary>
+    /// The pinned example from issue #47: <c>strength = 9</c> gives <c>7</c> under the actual
+    /// <c>(strength * 4) / 5</c> operation, not the <c>8</c> a naive 20%-subtraction reading
+    /// (<c>strength - strength / 5</c>) would give. <c>(9 &lt;&lt; 2) / 5 = 36 / 5 = 7</c>, truncated;
+    /// <c>9 - 9 / 5 = 9 - 1 = 8</c>. The two readings diverge here specifically because 9 is not a
+    /// multiple of 5.
+    /// </summary>
+    [Fact]
+    public void DefenderNonAllegiant_penalty_pins_strength_9_to_7_not_a_20_percent_subtraction()
+    {
+        var siege = GameDataLoader.LoadFile<Ruleset>(TestPaths.ToyRulesetFile).Siege;
+
+        var actual = (9 * siege.DefenderNonAllegiantNumerator) / siege.DefenderNonAllegiantDenominator;
+        var naiveTwentyPercentSubtraction = 9 - (9 / 5);
+
+        Assert.Equal(7, actual);
+        Assert.Equal(8, naiveTwentyPercentSubtraction);
+        Assert.NotEqual(naiveTwentyPercentSubtraction, actual);
+    }
 }

@@ -65,6 +65,14 @@ public sealed class FleetPowerTests
     /// independently with a throwaway generator and hand-computes the expected result from it, proving
     /// the draw genuinely reaches <see cref="FleetPower.Compute"/> rather than merely differing from one
     /// other sample by chance.
+    /// <para>
+    /// T33 (issue #49): the seed is chosen so its own draw is <em>non-zero</em>, and that is asserted
+    /// directly. Seed <c>12345</c> (the seed this test used before) draws <c>0</c> from
+    /// <c>NextInt(4)</c> here, which would let a bug that ignored the draw entirely (multiplying by 0
+    /// either way) pass unnoticed -- a zero draw cannot distinguish "the draw reached the formula" from
+    /// "the draw was never read at all". Seed <c>1</c> draws <c>2</c>, so the bonus term is provably
+    /// nonzero and provably a function of the draw.
+    /// </para>
     /// </remarks>
     [Fact]
     public void Compute_RandomBonus_IsReproducibleUnderTheSameSeed()
@@ -72,7 +80,7 @@ public sealed class FleetPowerTests
         var ruleset = StrengthTestbed.Ruleset;
         const int ships = 90;
         const int conditionPercent = 85;
-        const ulong seed = 12345UL;
+        const ulong seed = 1UL;
 
         var first = FleetPower.Compute(ships, conditionPercent, new SplitMix64Rng(seed), ruleset);
         var second = FleetPower.Compute(ships, conditionPercent, new SplitMix64Rng(seed), ruleset);
@@ -80,6 +88,8 @@ public sealed class FleetPowerTests
 
         var naval = ruleset.Combat.Naval;
         var expectedDraw = new SplitMix64Rng(seed).NextInt(naval.RandomBandCount);
+        Assert.NotEqual(0, expectedDraw); // The draw itself must be non-zero -- see remarks above.
+
         var expectedBase = (ships * conditionPercent) / naval.ConditionDivisor;
         var expectedBandAmount = (expectedBase * naval.RandomBandPercent) / 100;
         var expected = expectedBase + (expectedDraw * expectedBandAmount);
