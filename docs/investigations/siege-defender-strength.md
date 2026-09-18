@@ -89,7 +89,9 @@ point instead: a fully-finished city stores 100, and `100 % 100 = 0` would silen
 100% fortification into 0%. `FortificationCode.cs` itself needed no change: it was already correct, and
 this task's corrected provenance now points callers at it explicitly.
 
-## Two further defects surfaced here, deliberately not fixed by this task
+## Two further defects surfaced here, since fixed by T33
+
+> **Update (2026-09-18):** both were filed and are now fixed. T33 merged as `4d4ba20`, renaming the fields as described below and closing [#46](https://github.com/diegoami/imperial_conquest_2/issues/46) and [#47](https://github.com/diegoami/imperial_conquest_2/issues/47). The names below are the pre-fix ones; the shipped fields are now `HighLoyaltyThreshold` / `BonusNumerator` / `BonusDenominator` and `DefenderNonAllegiantNumerator` / `DefenderNonAllegiantDenominator`.
 
 Reading `FUN_0044A98C` end to end surfaces two more real defects in the currently-shipped
 `SiegeRules`, both filed as bugs ([build-process.md §4.6](../build-process.md#46-bugs-and-follow-ups)) rather than folded into this
