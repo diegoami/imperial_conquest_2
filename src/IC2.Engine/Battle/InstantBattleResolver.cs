@@ -632,9 +632,22 @@ public static class InstantBattleResolver
     /// not read from the decompilation (T52 DoD 7).
     /// </para>
     /// <para>
-    /// <strong>The garrison term is still omitted</strong> from the defender's strength, exactly as
-    /// <see cref="SiegeStrength.Defender"/> leaves it: it needs per-nation recruitment-slot state, and
-    /// <c>docs/task-catalogue.md</c> T17 DoD 7 adds it, after both scaling branches.
+    /// <strong>The garrison term (T17 DoD 7, a narrow grant on this file).</strong>
+    /// <see cref="SiegeStrength.Defender"/> stops at the weighted sum and the two scaling branches,
+    /// because it is a pure function that does not take per-nation recruitment-slot state as input — see
+    /// its own class remarks. But the garrison addend is <c>FUN_0044A98C</c>'s own last line
+    /// (<c>docs/investigations/siege-defender-strength.md</c>), so every caller of that function gets it,
+    /// this one included: leaving it out here would resolve the siege's own win/loss against an
+    /// <em>incomplete</em> defender strength, which is exactly what DoD 7 exists to prevent. This method
+    /// therefore sums, over the city owner's <see cref="NationState.RecruitmentSlots"/>, each qualifying
+    /// slot's own <c>troops / <see cref="SiegeRules.DefenderGarrisonTroopDivisor"/></c> — divided per slot
+    /// <em>before</em> the sum, not the total divided once after (the two differ under truncation whenever
+    /// more than one slot targets the city) — and adds it to <see cref="SiegeStrength.Defender"/>'s own
+    /// result. <strong>Order matters and is settled by the decompilation, not a choice</strong>: the
+    /// addend is the last line <em>inside</em> <c>FUN_0044A98C</c>, strictly after both scaling branches
+    /// that function itself applies and strictly before <c>FUN_0044B27C</c>'s own, separate
+    /// <c>× 9/10</c> reduction below — two different functions, applied in that order: weighted sum →
+    /// × 5/3 → × 4/5 → + garrison → × 9/10.
     /// </para>
     /// </remarks>
     /// <param name="state">The state to resolve against.</param>
@@ -696,6 +709,26 @@ public static class InstantBattleResolver
             isControllerCapital,
             !string.Equals(city.Owner, city.Allegiance, StringComparison.Ordinal),
             ruleset);
+
+        // FUN_0044A98C's own last line (T17 DoD 7): += troops / DefenderGarrisonTroopDivisor for each of
+        // the owner's recruitment slots targeting this city -- inside the same function, strictly AFTER
+        // both scaling branches SiegeStrength.Defender already applied above, and strictly BEFORE
+        // FUN_0044B27C's own separate x9/10 reduction below (a different function). Each qualifying
+        // slot's own troops is divided before the sum, not the running total divided once after: the two
+        // give a different (larger-or-equal) result under truncation whenever more than one slot targets
+        // the city, exactly the class of bug caught in IC2.Engine.Cities.Capture.CompleteDefenderStrength
+        // (T17), which implements this same addend for its own, separate cascading-defection call sites.
+        if (owner is not null)
+        {
+            var garrisonDivisor = siege.DefenderGarrisonTroopDivisor;
+            foreach (var slot in owner.RecruitmentSlots)
+            {
+                if (string.Equals(slot.TargetCityId, city.Id, StringComparison.Ordinal))
+                {
+                    defenderPower += slot.Troops / garrisonDivisor;
+                }
+            }
+        }
 
         // FUN_0044B27C's own further reduction, outside FUN_0044A98C: the besieger is the population's
         // own nation, so the walls are held less willingly against it.

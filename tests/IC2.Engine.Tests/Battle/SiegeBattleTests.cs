@@ -184,6 +184,146 @@ public class SiegeBattleTests
         Assert.NotEqual(nonAllegiant - ((nonAllegiant * reduction) / 100), reduced.DefenderPower);
     }
 
+    // ---- T17 DoD 7 (docs/task-catalogue.md, PR #197's amendment): the garrison-troops addend is
+    // FUN_0044A98C's own last line, so ResolveSiege's own defenderPower must carry it too, not only the
+    // cascade's separate evaluations (IC2.Engine.Cities.Capture.CompleteDefenderStrength). One test for
+    // the term alone (Hamlet, neither scaling branch active), one combining it with both branches AND the
+    // siege entry point's own x9/10 -- proving the full order: weighted sum -> x5/3 -> x4/5 -> +garrison
+    // -> x9/10. Every existing DefenderPower figure in this file (104583, 75299, etc.) is UNCHANGED by
+    // this addition, because none of Fixture()'s nations carry a recruitment slot targeting the besieged
+    // city -- that is itself the "a figure with no garrison slots is unaffected" evidence the entry asks
+    // for, still passing at its original value in TheSiegeComparisonUsesBothConfirmedStrengthFormulas and
+    // ABesiegerThatIsTheCitysAllegianceFacesAWeakerDefence above. ----
+
+    /// <summary>
+    /// The garrison term alone: Hamlet is not a capital and its owner equals its allegiance, so neither
+    /// scaling branch fires and the weighted sum is unbranched -- 10x150 + 0x250 + 5x200 = 2,500. One
+    /// recruitment slot of 700 troops targeting Hamlet adds 700/2 = 350: 2,500 + 350 = 2,850.
+    /// </summary>
+    [Fact]
+    public void GarrisonTermAlone_AddsToAnUnbranchedDefenderStrength()
+    {
+        var withoutGarrison = Resolve(WeakCityFixture(), BattleTestbed.Destroyed, "hamlet");
+        Assert.Equal(2500, withoutGarrison.Result.DefenderPower);
+
+        var withGarrison = WithSouthRecruitmentSlot(WeakCityFixture(), "hamlet", troops: 700);
+        var (_, garrisoned) = Resolve(withGarrison, BattleTestbed.Destroyed, "hamlet");
+
+        Assert.Equal(2850, garrisoned.DefenderPower);
+        Assert.Equal(350, garrisoned.DefenderPower - withoutGarrison.Result.DefenderPower);
+    }
+
+    /// <summary>
+    /// N2: the garrison term's target-city filter. A recruitment slot targeting a <em>different</em> city
+    /// contributes nothing to the besieged city's defender strength, even though it belongs to the same
+    /// (besieged city's) owner. Every other garrison test in this file gives every slot the besieged
+    /// city's own id, which cannot by itself distinguish "sums every one of the owner's slots" from "sums
+    /// only the slots that target this city" -- this one can.
+    /// </summary>
+    [Fact]
+    public void GarrisonTermAlone_IgnoresASlotTargetingADifferentCity()
+    {
+        var withoutGarrison = Resolve(WeakCityFixture(), BattleTestbed.Destroyed, "hamlet");
+        Assert.Equal(2500, withoutGarrison.Result.DefenderPower);
+
+        var withUnrelatedSlot = WithSouthRecruitmentSlot(WeakCityFixture(), "some-other-city", troops: 700);
+        var (_, result) = Resolve(withUnrelatedSlot, BattleTestbed.Destroyed, "hamlet");
+
+        Assert.Equal(2500, result.DefenderPower);
+        Assert.Equal(withoutGarrison.Result.DefenderPower, result.DefenderPower);
+    }
+
+    /// <summary>
+    /// Two recruitment slots (700 and 300 troops) targeting the same city prove the addend is divided per
+    /// slot before the sum, not the total divided once after -- <c>700/2 + 300/2 = 350 + 150 = 500</c>,
+    /// not <c>(700+300)/2 = 500</c> (these happen to coincide; see
+    /// <c>GarrisonTermAlone_DividesEachSlotBeforeSumming_NotTheTotal</c> for a pair that would not).
+    /// </summary>
+    [Fact]
+    public void GarrisonTermAlone_SumsMultipleQualifyingSlots()
+    {
+        var state = WithSouthRecruitmentSlots(
+            WeakCityFixture(),
+            new RecruitmentSlot("hamlet", "heavy_infantry", 700, StateCode: 4),
+            new RecruitmentSlot("hamlet", "heavy_infantry", 300, StateCode: 4));
+
+        var (_, result) = Resolve(state, BattleTestbed.Destroyed, "hamlet");
+
+        Assert.Equal(3000, result.DefenderPower); // 2,500 + 350 + 150.
+    }
+
+    /// <summary>
+    /// Per-slot division, not sum-then-divide: two slots of 3 troops each give <c>3/2 + 3/2 = 1 + 1 = 2</c>
+    /// under <see cref="SiegeRules.DefenderGarrisonTroopDivisor"/> = 2, not <c>(3+3)/2 = 3</c>. Mutation
+    /// proof: summing the total once and dividing after would pass every other test in this file (their
+    /// slot troop counts are all even) but fails only this one.
+    /// </summary>
+    [Fact]
+    public void GarrisonTermAlone_DividesEachSlotBeforeSumming_NotTheTotal()
+    {
+        var state = WithSouthRecruitmentSlots(
+            WeakCityFixture(),
+            new RecruitmentSlot("hamlet", "heavy_infantry", 3, StateCode: 4),
+            new RecruitmentSlot("hamlet", "heavy_infantry", 3, StateCode: 4));
+
+        var (_, result) = Resolve(state, BattleTestbed.Destroyed, "hamlet");
+
+        Assert.Equal(2502, result.DefenderPower); // 2,500 + (3/2) + (3/2) = 2,500 + 1 + 1.
+        Assert.NotEqual(2503, result.DefenderPower); // What (3+3)/2 = 3 added once would give.
+    }
+
+    /// <summary>
+    /// Combined with both scaling branches and the siege entry point's own separate ×9/10: the full order
+    /// is weighted sum → ×5/3 (capital, loyalty &gt; 59) → ×4/5 (owner ≠ allegiance) → + garrison → ×9/10.
+    /// Meridia's own non-allegiant strength before the ×9/10 is 83,666 (from
+    /// <see cref="ABesiegerThatIsTheCitysAllegianceFacesAWeakerDefence"/>); a 700-troop slot adds
+    /// 700/2 = 350, giving 84,016 before the ×9/10, then <c>84,016 × 90 / 100 = 75,614</c>. Adding the
+    /// garrison term <em>after</em> the ×9/10 instead (the wrong order) would give
+    /// <c>75,299 + 350 = 75,649</c> — a different number, which is why the order has its own assertion
+    /// rather than being inferred from a single figure that could be produced either way.
+    /// </summary>
+    [Fact]
+    public void GarrisonTerm_CombinedWithBothBranches_IsAddedAfterThemAndBeforeTheAllegianceReduction()
+    {
+        var state = Fixture();
+        var allegiant = state with
+        {
+            Cities = ValueList.From(state.Cities.Select(c =>
+                c.Id == "meridia" ? c with { Allegiance = "north" } : c)),
+        };
+
+        var (_, withoutGarrison) = Resolve(allegiant, BattleTestbed.Destroyed);
+        Assert.Equal(75299, withoutGarrison.DefenderPower);
+
+        var withGarrison = WithSouthRecruitmentSlot(allegiant, "meridia", troops: 700);
+        var (_, garrisoned) = Resolve(withGarrison, BattleTestbed.Destroyed);
+
+        const int nonAllegiant = 83666; // From ABesiegerThatIsTheCitysAllegianceFacesAWeakerDefence.
+        const int withGarrisonBeforeReduction = nonAllegiant + 350; // 700/2 = 350, added after both branches.
+        Assert.Equal(84016, withGarrisonBeforeReduction);
+
+        var reduction = BattleTestbed.Destroyed.Siege.AttackerIsAllegianceDefenderReductionPercent;
+        var expected = (withGarrisonBeforeReduction * (100 - reduction)) / 100;
+        Assert.Equal(75614, expected);
+        Assert.Equal(expected, garrisoned.DefenderPower);
+
+        // The wrong order -- garrison added AFTER the x9/10 -- gives a different, plausible-looking number.
+        var wrongOrder = withoutGarrison.DefenderPower + 350;
+        Assert.Equal(75649, wrongOrder);
+        Assert.NotEqual(wrongOrder, garrisoned.DefenderPower);
+    }
+
+    private static GameState WithSouthRecruitmentSlot(GameState state, string cityId, int troops) =>
+        WithSouthRecruitmentSlots(state, new RecruitmentSlot(cityId, "heavy_infantry", troops, StateCode: 4));
+
+    private static GameState WithSouthRecruitmentSlots(GameState state, params RecruitmentSlot[] slots) =>
+        state with
+        {
+            Nations = ValueList.From(state.Nations.Select(n => n.Id == "south"
+                ? n with { RecruitmentSlots = ValueList.From(slots) }
+                : n)),
+        };
+
     /// <summary>A named city is required, and an embarked army cannot besiege anything.</summary>
     [Fact]
     public void AnUnknownCityOrAnEmbarkedArmyIsRefused()

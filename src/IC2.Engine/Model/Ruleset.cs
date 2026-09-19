@@ -40,6 +40,7 @@ public sealed record Ruleset(
     CombatRules Combat,
     SiegeRules Siege,
     LoyaltyRules Loyalty,
+    CaptureRules Capture,
     DiplomacyRules Diplomacy,
     CityOrderRules CityOrders,
     NewsLogRules NewsLog,
@@ -768,8 +769,14 @@ public sealed record DetailedResolverRules(
 /// second, genuinely separate adjustment from <see cref="DefenderNonAllegiantNumerator"/>'s
 /// owner-vs-allegiance penalty — the two run in two different functions and both apply
 /// (<c>docs/investigations/siege-defender-strength.md</c>) — closing <c>design-audit.md</c> §2.13's open
-/// question of whether they were the same adjustment described twice. This field is T17's to apply and is
-/// otherwise untouched by T33.
+/// question of whether they were the same adjustment described twice. <strong>T16's
+/// <see cref="IC2.Engine.Battle.InstantBattleResolver.ResolveSiege"/> is the siege resolver and already
+/// applies this field</strong>, with its own test — corrected here (T17) from this remark's earlier text
+/// ("this field is T17's to apply"), which was accurate when T33 wrote it and stopped being accurate once
+/// T16 became the siege resolver; T16's own implementer flagged the drift rather than editing this file,
+/// since it is not in T16's Owns list. T17 does not read this field at all: it starts from T16's own
+/// <see cref="IC2.Engine.Battle.BattleResult.Winner"/> decision (already ×9/10-adjusted) for whether a
+/// siege attempt succeeds, so the reduction is applied exactly once across the two tasks.
 /// </param>
 public sealed record SiegeRules(
     int ArcherStrengthMultiplier,
@@ -792,6 +799,102 @@ public sealed record LoyaltyRules(
     int DefectionFloor,
     int AllegiantRecaptureTarget,
     int TierDivisor,
+    [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
+
+/// <summary>
+/// City-capture economy, unity, the cascading-defection mechanic, and nation elimination —
+/// <c>FUN_0044bb18</c> (capture), <c>FUN_0044ba1c</c> (the cascade) and <c>FUN_0044bed8</c> (defection),
+/// per <c>docs/task-catalogue.md</c> T17 and
+/// <see href="https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/nation-tax-base-and-city-economy-fields.md">
+/// nation-tax-base-and-city-economy-fields.md</see>. The tax-base and wealth terms both mechanisms share
+/// are <see cref="EconomyRules.TaxBaseContributionMultiplier"/> and
+/// <see cref="EconomyRules.WealthPerPopulationThousand"/>, applied through
+/// <see cref="IC2.Engine.Economy.CityOwnershipTaxTransfer"/> (T35) — not duplicated here.
+/// </summary>
+/// <param name="CaptureTreasuryCreditMultiplier">
+/// <c>[confirmed]</c> The new owner's treasury credit at a forced capture: <c>treasury += contribution ×
+/// this</c> (4) — <c>FUN_0044bb18</c>'s own write, distinct from
+/// <see cref="EconomyRules.TaxBaseContributionMultiplier"/> (also 4, but the <em>tax-base</em> term,
+/// <c>taxBase += contribution × 4</c>). Two different fields happen to share the value 4; see the
+/// <c>capture.treasuryCreditMultiplier</c> corpus entry's own note for the full disambiguation — this is
+/// exactly the confusion T37's review found DoD 9 had fallen into.
+/// </param>
+/// <param name="CaptureUnityGain">
+/// <c>[confirmed]</c> The new owner's unity gain at a forced capture (9, clamped to
+/// <see cref="EconomyRules.UnityCap"/>) — <c>FUN_0044bb18</c>.
+/// </param>
+/// <param name="CaptureUnityLoss">
+/// <c>[confirmed]</c> The old owner's unity loss at a forced capture (15, not floored — the report gives
+/// no floor for this term, unlike <see cref="DefectionUnityLossFloor"/>) — <c>FUN_0044bb18</c>.
+/// </param>
+/// <param name="DefectionTreasuryCreditMultiplier">
+/// <c>[derived]</c> The new owner's treasury credit at a defection: <c>treasury += contribution × this</c>
+/// (6) — <c>FUN_0044bed8</c>'s own write is <c>[confirmed]</c> in
+/// <c>nation-tax-base-and-city-economy-fields.md</c>; using <c>FUN_0044bed8</c> <em>as</em> the defection
+/// routine is the inference <c>docs/task-catalogue.md</c> T17's Known-open item names — corroborated by
+/// <c>decompiled-defection-and-siege-attrition.md</c>'s independent match to the Modena defection (never
+/// touches population or fortification, the same +3/−20 unity figures), but the top-level caller chain
+/// has not been checked against a second real save beyond that one example.
+/// </param>
+/// <param name="DefectionUnityGain">
+/// <c>[derived]</c> (see <see cref="DefectionTreasuryCreditMultiplier"/>) The new owner's unity gain at a
+/// defection (3, clamped to <see cref="EconomyRules.UnityCap"/>) — bigger than the old owner's loss is
+/// small relative to a forced capture's, but the losing side's own loss
+/// (<see cref="DefectionUnityLoss"/>) is bigger than a forced capture's: defection costs the losing
+/// nation more unity than losing the same city in a straight fight.
+/// </param>
+/// <param name="DefectionUnityLoss">
+/// <c>[derived]</c> (see <see cref="DefectionTreasuryCreditMultiplier"/>) The old owner's unity loss at a
+/// defection (20), floored at <see cref="DefectionUnityLossFloor"/> — unlike
+/// <see cref="CaptureUnityLoss"/>, which the report gives no floor for.
+/// </param>
+/// <param name="DefectionUnityLossFloor">
+/// <c>[derived]</c> (see <see cref="DefectionTreasuryCreditMultiplier"/>) The floor
+/// <see cref="DefectionUnityLoss"/> does not push the old owner's unity below (250).
+/// </param>
+/// <param name="EliminationUnityReset">
+/// <c>[confirmed: galatia-elimination-and-city-resupply-confirmed.md]</c> A nation's unity once its last
+/// city is gone (0 — Galatia's own observed 668 → 0). A different, untraced writer
+/// (<c>FUN_0044c360</c>) is mentioned in <c>nation-tax-base-and-city-economy-fields.md</c> resetting "the
+/// collapsing nation" to unity 450, but its caller and trigger are not established and it is not the
+/// mechanism DoD 4 asks for (a direct "losing the last city eliminates the nation" consequence); the
+/// empirically observed Galatia elimination is the stronger, directly-applicable evidence and is what
+/// this field reproduces.
+/// </param>
+/// <param name="CascadeDistanceMax">
+/// <c>[confirmed: decompiled-defection-and-siege-attrition.md]</c> <c>FUN_0044ba1c</c>'s cascade only
+/// considers another city within this Chebyshev distance (10) of the besieging army's position — the
+/// same distance metric <see cref="IC2.Engine.Battle.ScatterPlacement"/> uses; the report gives
+/// the threshold but not the metric, so the choice of Chebyshev over Manhattan/Euclidean is
+/// <c>[derived]</c> by matching the engine's one other map-distance convention.
+/// </param>
+/// <param name="CascadeUnityThreshold">
+/// <c>[confirmed: decompiled-defection-and-siege-attrition.md]</c> The cascade only fires while the new
+/// owner's unity is below this (650) — a nation riding high on unity does not trigger spontaneous
+/// defections toward it.
+/// </param>
+/// <param name="CascadeLoyaltyThreshold">
+/// <c>[confirmed: decompiled-defection-and-siege-attrition.md]</c> The cascade only considers a candidate
+/// city whose own loyalty is below this (65).
+/// </param>
+/// <param name="CascadeAllegiantDefenseDivisor">
+/// <c>[confirmed: decompiled-defection-and-siege-attrition.md]</c> A candidate city's complete defender
+/// strength is divided by this (3) when the city's allegiance already matches the new owner — "rebellious
+/// sympathy weakens it further".
+/// </param>
+public sealed record CaptureRules(
+    int CaptureTreasuryCreditMultiplier,
+    int CaptureUnityGain,
+    int CaptureUnityLoss,
+    int DefectionTreasuryCreditMultiplier,
+    int DefectionUnityGain,
+    int DefectionUnityLoss,
+    int DefectionUnityLossFloor,
+    int EliminationUnityReset,
+    int CascadeDistanceMax,
+    int CascadeUnityThreshold,
+    int CascadeLoyaltyThreshold,
+    int CascadeAllegiantDefenseDivisor,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>The numeric codes the relation matrix stores for each diplomatic state.</summary>
