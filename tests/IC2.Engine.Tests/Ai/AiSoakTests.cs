@@ -1,0 +1,233 @@
+using System.Diagnostics;
+using System.Globalization;
+using System.Text;
+using IC2.Engine.Ai;
+using Xunit;
+using Xunit.Abstractions;
+
+namespace IC2.Engine.Tests.Ai;
+
+/// <summary>
+/// <c>docs/task-catalogue.md</c> T22 Done-when 1, 2 and 4: the fifty-seed soak, its five-minute budget,
+/// and the per-seed logs a failing seed is reproduced from.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <strong>One test runs all fifty seeds, on purpose.</strong> Done-when 2 asserts a budget for "<em>the
+/// whole 50-seed soak</em>", and fifty separate xUnit cases could not measure that — they could each be
+/// fast while the suite got slower, which is exactly the drift the line exists to catch. So the soak is
+/// one case, it times itself, and it fails on the budget as hard as it fails on a rejected command.
+/// </para>
+/// <para>
+/// <strong>A seed that reaches the turn cap passes.</strong> Done-when 2 says so in as many words. What
+/// this test asserts about endings is only that every seed <em>ended</em> — by a victory, by the
+/// condition's own hard limit, or by the cap — and never that any seed won. See
+/// <see cref="Every_seed_reaches_a_decision_and_the_endings_are_reported"/> for what the shipped toy data
+/// actually produces and why.
+/// </para>
+/// </remarks>
+public sealed class AiSoakTests
+{
+    private readonly ITestOutputHelper _output;
+
+    /// <summary>The Done-when 2 budget: five minutes of wall clock for the whole soak, asserted.</summary>
+    private static readonly TimeSpan Budget = TimeSpan.FromMinutes(5);
+
+    public AiSoakTests(ITestOutputHelper output) => _output = output;
+
+    /// <summary>
+    /// Where the per-seed logs land: a directory beside the test assembly, so a developer or a CI job can
+    /// collect it as an artifact without the tests needing to know anything about the build layout.
+    /// </summary>
+    public static string LogDirectory { get; } = Path.Combine(AppContext.BaseDirectory, "ai-soak-logs");
+
+    [Fact]
+    public void Fifty_fixed_seeds_run_an_all_ai_game_to_a_decision_with_no_exception_rejection_or_stall()
+    {
+        var report = RunSoak();
+
+        _output.WriteLine(report.Summary);
+        _output.WriteLine("per-seed logs: " + LogDirectory);
+
+        // Done-when 1, the three "zero"s. Each is reported with the seeds that broke it, because
+        // "reproducible from its number alone" is worthless if the failure does not say the number.
+        Assert.True(
+            report.RejectedCommands == 0,
+            $"the AI must never issue a command the engine refuses; {report.RejectedCommands} were refused. "
+            + report.SeedsWith(r => r.CommandsRejected > 0));
+
+        Assert.True(
+            report.ProjectionMismatches == 0,
+            "an attack's advance probe and the state its own declaration produces must always agree; "
+            + $"{report.ProjectionMismatches} disagreed. " + report.SeedsWith(r => r.ProjectionMismatches > 0));
+
+        Assert.True(
+            report.WorstStallRun < 2,
+            "a turn that issues no command and changes no substantive state, twice in a row, is a stall; "
+            + $"the worst run was {report.WorstStallRun}. " + report.SeedsWith(r => r.LongestStallRun >= 2));
+
+        // Done-when 2, asserted rather than reported.
+        Assert.True(
+            report.Elapsed < Budget,
+            $"the 50-seed soak must finish inside {Budget.TotalMinutes} minutes so it can run in CI; "
+            + $"it took {report.Elapsed.TotalSeconds:F1}s.");
+
+        // Done-when 4: one log per seed, on disk, named by the seed.
+        foreach (var result in report.Results)
+        {
+            var path = LogPathFor(result.Seed);
+            Assert.True(File.Exists(path), $"seed {result.Seed} wrote no log at {path}");
+            Assert.NotEmpty(File.ReadAllLines(path));
+        }
+    }
+
+    /// <summary>
+    /// The soak's own control. Done-when 1 forbids stalls; it does not by itself forbid an AI that issues
+    /// one command per game and sleeps. This asserts the soak is actually exercising the engine: every
+    /// seed issues commands, every seed reaches the engine's own end, and the fifty games are genuinely
+    /// different from one another.
+    /// </summary>
+    [Fact]
+    public void Every_seed_reaches_a_decision_and_the_endings_are_reported()
+    {
+        var report = RunSoak();
+
+        _output.WriteLine(report.Summary);
+        foreach (var result in report.Results)
+        {
+            _output.WriteLine("  " + result.Summary());
+        }
+
+        foreach (var result in report.Results)
+        {
+            Assert.True(
+                result.CommandsIssued > 0,
+                $"seed {result.Seed} issued no command at all in {result.TurnsPlayed} turns");
+            Assert.Equal(0, result.TurnsHittingActionCap);
+        }
+
+        // Fifty divergent games, not one game played fifty times: the seed has to reach the world.
+        var fingerprints = new List<string>();
+        foreach (var result in report.Results)
+        {
+            fingerprints.Add(IC2.Engine.Core.GameStateHash.Compute(result.FinalState));
+        }
+
+        Assert.Equal(AiTestbed.SoakSeedCount, Distinct(fingerprints));
+    }
+
+    /// <summary>The log file one seed writes — <c>seed-7.log</c> for seed 7, and nothing else.</summary>
+    public static string LogPathFor(ulong seed) =>
+        Path.Combine(LogDirectory, string.Format(CultureInfo.InvariantCulture, "seed-{0}.log", seed));
+
+    private static SoakReport RunSoak()
+    {
+        Directory.CreateDirectory(LogDirectory);
+
+        var results = new List<AiGameResult>(AiTestbed.SoakSeedCount);
+        var stopwatch = Stopwatch.StartNew();
+        foreach (var seed in AiTestbed.SoakSeeds())
+        {
+            results.Add(AiTestbed.RunSeed(seed));
+        }
+
+        stopwatch.Stop();
+
+        // Written after the clock stops: Done-when 2's budget is the soak's own cost, not the cost of
+        // producing Done-when 4's artifacts alongside it.
+        foreach (var result in results)
+        {
+            File.WriteAllLines(LogPathFor(result.Seed), result.Transcript, Encoding.UTF8);
+        }
+
+        return new SoakReport(results, stopwatch.Elapsed);
+    }
+
+    private static int Distinct(List<string> values)
+    {
+        values.Sort(StringComparer.Ordinal);
+        var distinct = 0;
+        for (var i = 0; i < values.Count; i++)
+        {
+            if (i == 0 || !string.Equals(values[i], values[i - 1], StringComparison.Ordinal))
+            {
+                distinct++;
+            }
+        }
+
+        return distinct;
+    }
+
+    private sealed class SoakReport
+    {
+        public SoakReport(List<AiGameResult> results, TimeSpan elapsed)
+        {
+            Results = results;
+            Elapsed = elapsed;
+
+            var won = 0;
+            var expired = 0;
+            var capped = 0;
+            foreach (var result in results)
+            {
+                RejectedCommands += result.CommandsRejected;
+                ProjectionMismatches += result.ProjectionMismatches;
+                IssuedCommands += result.CommandsIssued;
+                CommandlessTurns += result.CommandlessTurns;
+                TurnsPlayed += result.TurnsPlayed;
+                WorstStallRun = Math.Max(WorstStallRun, result.LongestStallRun);
+                switch (result.Ending)
+                {
+                    case AiGameEnding.Won: won++; break;
+                    case AiGameEnding.Expired: expired++; break;
+                    default: capped++; break;
+                }
+            }
+
+            Summary = string.Format(
+                CultureInfo.InvariantCulture,
+                "{0} seeds, cap {1}: {2} won, {3} expired at the hard end year, {4} reached the turn cap | "
+                + "{5} turns, {6} commands ({7} turns issued none), {8} rejected, {9} probe mismatches, "
+                + "worst stall run {10} | {11:F2}s of a {12:F0}s budget",
+                results.Count, AiTestbed.SoakTurnCap, won, expired, capped,
+                TurnsPlayed, IssuedCommands, CommandlessTurns, RejectedCommands, ProjectionMismatches,
+                WorstStallRun, elapsed.TotalSeconds, Budget.TotalSeconds);
+        }
+
+        public List<AiGameResult> Results { get; }
+
+        public TimeSpan Elapsed { get; }
+
+        public int RejectedCommands { get; }
+
+        public int ProjectionMismatches { get; }
+
+        public int IssuedCommands { get; }
+
+        public int CommandlessTurns { get; }
+
+        public int TurnsPlayed { get; }
+
+        public int WorstStallRun { get; }
+
+        public string Summary { get; }
+
+        /// <summary>The seed numbers matching a predicate, for a failure message.</summary>
+        public string SeedsWith(Func<AiGameResult, bool> predicate)
+        {
+            var seeds = new List<string>();
+            foreach (var result in Results)
+            {
+                if (predicate(result))
+                {
+                    seeds.Add(result.Seed.ToString(CultureInfo.InvariantCulture));
+                }
+            }
+
+            return seeds.Count == 0
+                ? string.Empty
+                : "Seeds: " + string.Join(", ", seeds) + ". Reproduce one with AiTestbed.RunSeed(<seed>); "
+                  + "its log is in " + LogDirectory + ".";
+        }
+    }
+}
