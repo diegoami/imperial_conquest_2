@@ -21,6 +21,12 @@ public sealed class HireMercenaryCommandHandlerTests
     private static MercenaryPoolSlot FelsinaOffer => new(
         SlotIndex: 33, NameLabel: 11, UnitTypeId: "light_infantry", Troops: 6438, Quality: 8);
 
+    // A second, unrelated offer that must survive a Felsina hire untouched — otherwise a hire that
+    // clears the whole pool instead of just the hired slot would pass undetected (build-process.md
+    // §4.2 gate 5's two-entity probe; the same gap that blocked T39's mercenary desertion).
+    private static MercenaryPoolSlot OtherOffer => new(
+        SlotIndex: 7, NameLabel: 3, UnitTypeId: "heavy_infantry", Troops: 2000, Quality: 5);
+
     [Fact]
     public void Felsina_hire_costs_the_confirmed_formula_debits_the_army_purse_and_empties_the_pool_slot()
     {
@@ -30,7 +36,7 @@ public sealed class HireMercenaryCommandHandlerTests
 
         var army = initial.ArmyById("north-army-1")!;
         var nation = initial.NationById("north")!;
-        var before = RecruitmentTestbed.WithMercenaryPool(initial, FelsinaOffer);
+        var before = RecruitmentTestbed.WithMercenaryPool(initial, FelsinaOffer, OtherOffer);
 
         var expectedCost = FixtureCorpus.Get("mercenary.felsina.troops").AsInt() * 1 / 1000
             * FixtureCorpus.Get("mercenary.felsina.qualityCode").AsInt(); // (6438*1)/1000*8 = 48.
@@ -50,8 +56,11 @@ public sealed class HireMercenaryCommandHandlerTests
         var updatedNation = result.State.NationById(nation.Id)!;
         Assert.Equal(nation.Treasury, updatedNation.Treasury);
 
-        // The pool slot is consumed: 0xFFFF sentinel, modelled as absent.
-        Assert.Empty(result.State.MercenaryPool);
+        // The pool slot is consumed: 0xFFFF sentinel, modelled as absent. Only the hired slot is
+        // removed — the other offer in the pool survives record-identical, which an over-broad clear
+        // of the whole pool (the mutation this test is built to catch) would not leave standing.
+        var remainingSlot = Assert.Single(result.State.MercenaryPool);
+        Assert.Equal(OtherOffer, remainingSlot);
 
         // The hired unit is appended with the marker set from the offer's Label.
         var hiredUnit = Assert.Single(updatedArmy.Units, u => u.Troops == FelsinaOffer.Troops);
@@ -59,6 +68,30 @@ public sealed class HireMercenaryCommandHandlerTests
         Assert.Equal(FelsinaOffer.NameLabel, hiredUnit.MercenaryLabel);
         Assert.Equal(FelsinaOffer.UnitTypeId, hiredUnit.UnitTypeId);
         Assert.Equal(FelsinaOffer.Quality, hiredUnit.Quality);
+    }
+
+    /// <summary>
+    /// A hire touches only the hiring army and the mercenary pool: every other army, every nation
+    /// (including the hiring nation's own <em>treasury</em>, covered above), every city and every fleet
+    /// comes out record-identical.
+    /// </summary>
+    [Fact]
+    public void Felsina_hire_leaves_other_armies_nations_cities_and_fleets_untouched()
+    {
+        var dispatcher = RecruitmentTestbed.Dispatcher();
+        var initial = RecruitmentTestbed.InitialState();
+        var army = initial.ArmyById("north-army-1")!;
+        var otherArmy = initial.ArmyById("south-army-1")!;
+        var otherNation = initial.NationById("south")!;
+        var before = RecruitmentTestbed.WithMercenaryPool(initial, FelsinaOffer);
+
+        var result = dispatcher.Dispatch(before, new HireMercenaryCommand(before.ActiveNationId, army.Id, FelsinaOffer.SlotIndex));
+
+        Assert.True(result.IsAccepted);
+        Assert.Equal(otherArmy, result.State.ArmyById(otherArmy.Id));
+        Assert.Equal(otherNation, result.State.NationById(otherNation.Id));
+        Assert.Equal(initial.Cities, result.State.Cities);
+        Assert.Equal(initial.Fleets, result.State.Fleets);
     }
 
     [Fact]

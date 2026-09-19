@@ -42,6 +42,11 @@ public sealed class RecruitStandingUnitCommandHandlerTests
         Assert.Equal("light_cavalry", slot.UnitTypeId);
         Assert.Equal(troops, slot.Troops);
         Assert.Equal(0, slot.StateCode);
+
+        // DoD 2's other direction: standing recruitment touches no army purse at all — not merely
+        // "the same armies by count", but every army record-identical (money included) to the state
+        // before the command ran.
+        Assert.Equal(before.Armies, result.State.Armies);
     }
 
     [Fact]

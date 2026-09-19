@@ -9,12 +9,15 @@ namespace IC2.Engine.Recruitment.Commands;
 /// </summary>
 /// <remarks>
 /// Wraps <c>TRecruitMercs_RecruitMercUnit</c> (<c>0x00441360</c>)
-/// <strong>[confirmed: decompiled-unit-map-orders-and-record-fields.md]</strong>: on acceptance the pool
-/// slot is consumed (modelled as removed from <see cref="Model.GameState.MercenaryPool"/> — the same
-/// "empty slots are simply absent" convention <see cref="Model.MercenaryPoolSlot"/>'s own remarks
-/// describe for the original's <c>0xFFFF</c> sentinel), the hired unit is appended to the army with its
-/// pool <c>Label</c> copied into the new <see cref="Model.UnitSlot.MercenaryLabel"/> marker, and
-/// <see cref="MercenaryHireCost.Compute"/> is debited from the army's own <see cref="Model.ArmyState.Money"/>.
+/// <strong>[confirmed: decompiled-unit-map-orders-and-record-fields.md]</strong> for the hire cost, the
+/// army-purse debit and the <c>Label</c> copy. On acceptance the pool slot is consumed (modelled as
+/// removed from <see cref="Model.GameState.MercenaryPool"/>, the same "empty slots are simply absent"
+/// convention <see cref="Model.MercenaryPoolSlot"/>'s own remarks describe for this model)
+/// <strong>[confirmed: mercenary-pool-record.md's <c>winter_3</c> save pair, and in code by
+/// decompiled-fleet-tax-and-mercenary-formulas.md's <c>0xFFFF</c> sentinel write]</strong>. The hired
+/// unit is appended to the army with its pool <c>Label</c> copied into the new
+/// <see cref="Model.UnitSlot.MercenaryLabel"/> marker, and <see cref="MercenaryHireCost.Compute"/> is
+/// debited from the army's own <see cref="Model.ArmyState.Money"/>.
 /// </remarks>
 /// <param name="ArmyId">The hiring army — must be the issuing nation's own.</param>
 /// <param name="PoolSlotIndex">
