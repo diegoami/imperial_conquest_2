@@ -395,8 +395,55 @@ public sealed class MobilizeRecruitSlotCommandHandlerTests
     }
 
     /// <summary>
+    /// A regular unit of the same type whose name is not battalion-shaped contributes no ordinal —
+    /// the arm of <c>ArmyNaming</c>'s scan that a name simply fails to parse.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>[designed]</c>, and this is what was searched: <strong>no regular unit in the whole save
+    /// corpus has a name outside the battalion pattern.</strong> Every <c>*.sav</c> in
+    /// <c>saves-processed</c> was parsed (army table at <c>0x18A5C</c>, 656-byte records, 32-byte unit
+    /// slots at <c>+16</c>) for units with origin label <c>0</c> and troops above zero whose name does
+    /// not match <c>"&lt;N&gt;(st|nd|rd|th) &lt;Label&gt; Battalion"</c> allowing any spacing: there
+    /// are none. Mercenaries carry ethnic names, but they are excluded by their label before the name
+    /// is looked at.
+    /// </para>
+    /// <para>
+    /// The case is still representable and therefore worth pinning: <see cref="UnitSlot.Name"/> is
+    /// free-form persisted state that a world or scenario file supplies verbatim
+    /// (<c>data/worlds/toy-3city.json</c> names its garrison units), and nothing in
+    /// <c>GameDataValidation</c> constrains it to the pattern. So a name the scan cannot parse must
+    /// leave the ordinal count alone rather than throw or be counted as something.
+    /// <strong>Nothing else in the suite reaches that arm</strong> — making it throw leaves all
+    /// 2,438 tests green without this one.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_regular_unit_whose_name_is_not_battalion_shaped_consumes_no_ordinal()
+    {
+        var oddlyNamed = MobilizationFixture.Unit("Praetorian Cohort", "archers", troops: 2_000);
+        var army = MobilizationFixture.Army("army-0", Nation, 11, 10, new[] { oddlyNamed });
+        var before = StateWith(new[] { Slot("archers", 3_500) }, army);
+
+        var result = MobilizationFixture.DispatcherOn(World)
+            .Dispatch(before, new MobilizeRecruitSlotCommand(Nation, 0, "new-army"));
+
+        Assert.True(result.IsAccepted);
+
+        // The unparseable name is a regular unit of the very same type, and it neither raises the
+        // ordinal nor stops the scan: the recruit is the 1st.
+        var units = result.State.ArmyById("army-0")!.Units;
+        Assert.Equal("Praetorian Cohort", units[0].Name);
+        Assert.True(units[0].IsRegular);
+        Assert.Equal("1st Bowmen Battalion", units[1].Name);
+    }
+
+    /// <summary>
     /// The naming scan is nation-wide and skips mercenaries: a hired unit of the same type in the same
-    /// army takes no battalion ordinal, so the recruit is still the <c>1st</c>.
+    /// army takes no battalion ordinal, so the recruit is still the <c>1st</c>. The skip is by origin
+    /// label, not by the name failing to parse — <c>ArmyNamingTests</c>
+    /// <c>.NextName_SkipsAMercenaryEvenWhenItsNameLooksLikeABattalion</c> is the test that separates
+    /// the two, with a mercenary whose name <em>is</em> battalion-shaped.
     /// </summary>
     [Fact]
     public void A_mercenary_of_the_same_type_does_not_consume_a_battalion_ordinal()

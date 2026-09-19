@@ -115,9 +115,12 @@ public sealed class MobilizeRecruitSlotCommandHandler : ICommandHandler<Mobilize
         //    named is the one whose Name this expression is computing -- there is no earlier value to
         //    match, because UnitSlot is immutable and no half-built slot with troops but no name ever
         //    exists in this engine. So no fixture can visit an "unnamed unit in the scan" edge, and
-        //    none is written; what a test CAN visit is that a unit with a non-matching name is skipped,
-        //    which is what MobilizeRecruitSlotCommandHandlerTests
-        //    .A_mercenary_of_the_same_type_does_not_consume_a_battalion_ordinal asserts.
+        //    none is written. The two edges a fixture CAN visit are both visited: a unit skipped for
+        //    its origin label, by ArmyNamingTests
+        //    .NextName_SkipsAMercenaryEvenWhenItsNameLooksLikeABattalion (a mercenary whose name IS
+        //    battalion-shaped, so the label is doing the work), and a regular unit skipped because its
+        //    name is not battalion-shaped, by A_regular_unit_whose_name_is_not_battalion_shaped_
+        //    consumes_no_ordinal below.
         var unit = new UnitSlot(
             MercenaryLabel: 0,
             UnitTypeId: slot.UnitTypeId,

@@ -76,8 +76,9 @@ public sealed class RomeAutumnMobilizationReplayTests
 
     /// <summary>
     /// Army 0's thirteen units in <c>autumn_1</c>: type, troops, quality, name and array order exactly
-    /// as the save stores them, <strong>including the double spaces</strong> nine of the thirteen names
-    /// carry. They sum to the recorded 48,173 troops.
+    /// as the save stores them, <strong>including the double spaces</strong> ten of the thirteen names
+    /// carry (the three single-spaced ones are <c>7th Guards</c>, <c>8th Guards</c> and
+    /// <c>2nd Foot</c>). They sum to the recorded 48,173 troops.
     /// </summary>
     private static UnitSlot[] ArmyZeroRoster() => new[]
     {
@@ -97,9 +98,18 @@ public sealed class RomeAutumnMobilizationReplayTests
     };
 
     /// <summary>
-    /// Rome's recruitment queue in <c>autumn_1</c>, ordered so that the descending walk the original's
-    /// dialog makes produces the landing order <c>autumn_3</c> records.
+    /// Rome's recruitment queue in <c>autumn_1</c>, <strong>slot for slot as the save's own nation
+    /// record holds it</strong> — not an order contrived to produce the landing sequence.
     /// </summary>
+    /// <remarks>
+    /// Read from the nation table (located past the army and fleet tables, 1,172-byte records,
+    /// recruitment slots at <c>+0x2E4</c>, 8 bytes each: state, type, troops, city) exactly as
+    /// <c>IC2.Data</c>'s <c>SaveRecruitmentTable</c> reads it. Rome's twelve occupied slots come out in
+    /// this order, all at city index 85, with the state-8 light cavalry last at index 11 — which is
+    /// <em>why</em> the descending walk lands the units in the order <c>autumn_3</c> records, rather
+    /// than the order being chosen to make that come out. The <c>MobilizedPercent = 62</c> below is the
+    /// same record's <c>+0x442</c>.
+    /// </remarks>
     private static RecruitmentSlot[] RomeSlots() => new[]
     {
         new RecruitmentSlot(RomeCityId, "light_infantry", 15_000, 24),   // 0  -> 5th Foot
@@ -203,8 +213,10 @@ public sealed class RomeAutumnMobilizationReplayTests
         Assert.Equal(83_173, armyZero.TotalTroops);
         Assert.Equal(35_000, armyZero.TotalTroops - 48_173);
 
-        // The receiving army's own record is otherwise untouched: money, supply and morale are still
-        // the autumn_1 values, because mobilizing writes a unit slot and nothing else.
+        // The receiving army's own record is otherwise untouched by the mobilization: money, supply
+        // and morale are still the autumn_1 values, because mobilizing writes a unit slot and nothing
+        // else. autumn_3 then records 791 tons and moves 6 on this army -- both the following weekly
+        // tick's, the same way army 14's 410 tons is (see the class remarks' transcript).
         Assert.Equal(296, armyZero.Money);
         Assert.Equal(410, armyZero.SupplyTons);
         Assert.Equal(70, armyZero.Morale);

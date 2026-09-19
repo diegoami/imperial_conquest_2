@@ -127,12 +127,23 @@ public static class ArmyNaming
     /// garrisons — <c>1</c> when the nation has none.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <strong>A gap is not filled.</strong> If the nation's only <c>Lancers</c> unit is
     /// <c>"2nd Lancers Battalion"</c> with no <c>1st</c> anywhere — exactly the shape Rome is in at
     /// <c>1_rome_270_autumn_1.sav</c> — the next one raised is <c>"3rd Lancers Battalion"</c>, which is
     /// what that save's successor records. See this class's remarks for the evidence; a disbanded
     /// unit's ordinal is retired, not recycled.
-    /// </remarks>
+    /// </para>
+    /// <para>
+    /// <strong>There is no 99 cap here, deliberately.</strong>
+    /// <c>decompiled-mobilization-and-mercenary-restock.md</c> §3 records that <c>FUN_0044a218</c>
+    /// "picks the lowest ordinal <c>N</c> in <c>1..99</c> … if all of 1..98 are taken it sticks at
+    /// 99" — but that sentence describes the <em>smallest-unused</em> loop the same corpus refutes
+    /// (see this class's remarks), and under one-past-the-highest there is no search to terminate and
+    /// so nothing to stick at. The highest ordinal anywhere in the pair that settles the rule is 9, so
+    /// the corpus does not reach the question, and #243 granted these files for its two defects only.
+    /// Recorded here rather than left in a pull-request body, which does not survive the merge.
+    /// </para>
     private static int NextOrdinal(GameState state, string nationId, string unitTypeId, string label)
     {
         var highest = 0;
@@ -165,10 +176,27 @@ public static class ArmyNaming
     /// <paramref name="units"/>, or <c>0</c> when there is none.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// A mercenary is skipped by <see cref="UnitSlot.IsRegular"/> rather than by failing to match the
     /// pattern: <c>FUN_0044a218</c>'s own scan tests the origin label, and an ethnic name such as
     /// "Gallic" would not match the battalion pattern either way — but the label is the rule and the
     /// name is a coincidence, so the rule is what is written.
+    /// <c>ArmyNamingTests.NextName_SkipsAMercenaryEvenWhenItsNameLooksLikeABattalion</c> separates the
+    /// two with a mercenary whose name <em>is</em> battalion-shaped.
+    /// </para>
+    /// <para>
+    /// <strong>The original's scan also filters on <c>troops &gt; 0</c>, and this one does not.</strong>
+    /// It has to: the original's army record is a fixed 20-slot array that retains whatever the slot
+    /// last held, and the corpus shows it plainly — in <c>1_rome_270_autumn_1.sav</c> army 0, slot 13
+    /// still reads <c>"4th Guards  Battalion"</c> with 0 troops behind twelve live units, and slots
+    /// 14–19 hold uninitialised bytes (origin label <c>-1800</c>, quality <c>514</c>, unreadable
+    /// names). Here a vacated slot is normally absent from <see cref="ArmyState.Units"/> altogether, so
+    /// there is usually nothing to filter — but the model does not forbid a zero-troop
+    /// <see cref="UnitSlot"/>, and <c>MobilizationReceivingArmy.FirstFreeUnitSlot</c> reads one as a
+    /// hole, so one carrying a stale battalion name would be counted here where the original would
+    /// skip it. No engine path produces that today; it is reported for the bug list rather than fixed
+    /// under a grant that covers #243's two defects, and it is stated rather than assumed away.
+    /// </para>
     /// </remarks>
     private static int HighestOrdinal(ValueList<UnitSlot> units, string unitTypeId, string label)
     {
