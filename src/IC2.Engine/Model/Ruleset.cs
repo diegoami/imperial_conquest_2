@@ -888,12 +888,23 @@ public sealed record VictoryRules(
 /// independent flags". Each one picks between the original's confirmed behaviour and the designed
 /// alternative; the two shipped presets are just two settings of this record.
 /// </summary>
+/// <param name="FaithfulThawColumnBug">
+/// Whether the quarterly diplomatic thaw reproduces the confirmed <c>Q8</c> bug — the thaw loop only ever
+/// touching the first 8 of each nation's 16 relation columns
+/// (<c>decompiled-diplomacy-peace-terms-and-instant-battles.md</c>: <c>while (sVar6 != 8)</c>) — or thaws
+/// every column. <c>true</c> reproduces the bug (a pair both indexed &#8805; 8 never decays); <c>false</c>
+/// fixes it silently. <c>docs/task-catalogue.md</c> T19 DoD 9 names this flag by this exact name
+/// (<c>faithfulThawColumnBug</c>); <c>classical-faithful</c> sets it <c>true</c>, matching the confirmed
+/// original. Additive alongside the pre-existing <see cref="BugPolicyDiplomaticThaw"/> field, which this
+/// task's own code does not read — see T19's PR body for why both exist.
+/// </param>
 public sealed record RulesetFlags(
     DiplomacyModel DiplomacyModel,
     EconomyPurseModel EconomyPurses,
     SeatAsymmetryModel SeatAsymmetry,
     DiplomaticThawPolicy BugPolicyDiplomaticThaw,
     DefeatOutcome CombatOnDefeat,
+    bool FaithfulThawColumnBug,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>How faithfully diplomacy follows the original (audit Q3).</summary>

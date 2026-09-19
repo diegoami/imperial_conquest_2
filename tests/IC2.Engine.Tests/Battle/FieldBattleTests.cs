@@ -1,9 +1,11 @@
+using System.Text.RegularExpressions;
 using IC2.Engine.Battle;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
 using IC2.Engine.News;
 using IC2.Engine.Serialization;
 using IC2.Engine.Strength;
+using IC2.Engine.Tests.Model;
 using Xunit;
 
 namespace IC2.Engine.Tests.Battle;
@@ -354,11 +356,78 @@ public class FieldBattleTests
         Assert.Equal(535, treaty.LoserUnity);
         Assert.Equal(9, treaty.LoserCityCount);
 
-        // "Observable in a test with no diplomacy system registered": nothing was registered at all --
-        // this resolver publishes rather than calling diplomacy, so the event exists on its own.
-        Assert.DoesNotContain(
-            SystemRegistry.FromEngineAssembly().Systems,
-            s => s.Id.StartsWith("diplomacy.", StringComparison.Ordinal));
+        // "Observable in a test with no diplomacy system registered" (T16 DoD 8) is already proved by
+        // the three lines above: the resolver was called directly with a bare RecordingEventSink -- no
+        // registry, no pipeline, nothing registered because there is nothing to register into -- and
+        // the event still arrived. That is the proof that the resolver publishes rather than calling
+        // diplomacy, and it needs nothing further.
+        //
+        // What DOES need its own check is the actual contract behind that wording -- T16's own Scope
+        // note: "Emits a PeaceTreatyTriggered domain event rather than calling diplomacy, so this task
+        // and T19 do not depend on each other's internals." The checkable, durable form of that is a
+        // source guard: src/IC2.Engine/Battle/** must never reference the Diplomacy namespace or its
+        // types, so nobody can quietly turn "publish" back into "call". (#194: the previous replacement
+        // here -- a registry scoped to an invented TestFixtureGroup nothing tagged itself with -- was
+        // the same defect class as the assertion it replaced: true only because of what did not exist,
+        // not because of what the resolver does.)
+        AssertNoBattleSourceReferencesDiplomacy();
+    }
+
+    /// <summary>
+    /// DoD 8's decoupling guard, modeled on <see cref="BattleDeterminismTests.NoReserveTacticalResearchAppearsInTheBattleNamespacesCode"/>:
+    /// a text scan of every <c>src/IC2.Engine/Battle/**</c> file (comments stripped, so a doc comment
+    /// naming the namespace for exposition does not trip it) for the Diplomacy namespace and the
+    /// concrete types this task introduces there. Unlike a registry-emptiness check, this fails the
+    /// moment battle code actually references diplomacy, whether or not anything happens to be
+    /// registered anywhere else in the assembly.
+    /// </summary>
+    private static void AssertNoBattleSourceReferencesDiplomacy()
+    {
+        var offenders = DiplomacyReferencesInBattleSource();
+        Assert.True(
+            offenders.Count == 0,
+            "Battle must publish PeaceTreatyTriggered rather than call diplomacy directly: "
+            + string.Join(", ", offenders));
+    }
+
+    private static IReadOnlyList<string> DiplomacyReferencesInBattleSource()
+    {
+        string[] forbidden =
+        {
+            "IC2.Engine.Diplomacy",
+            "RelationTransitions",
+            "PeaceTreatySystem",
+            "PendingOfferSystem",
+            "QuarterlyThawSystem",
+            "TradePartnerCap",
+            "ReparationsFormula",
+            "HonourablePeaceGate",
+        };
+
+        var battleSources = Directory.GetFiles(
+            Path.Combine(TestPaths.RepositoryRoot, "src", "IC2.Engine", "Battle"), "*.cs", SearchOption.AllDirectories);
+        Assert.NotEmpty(battleSources);
+
+        var offenders = new List<string>();
+        foreach (var file in battleSources)
+        {
+            var code = StripCommentsForDiplomacyGuard(File.ReadAllText(file));
+            foreach (var name in forbidden)
+            {
+                if (code.Contains(name, StringComparison.Ordinal))
+                {
+                    offenders.Add($"{Path.GetFileName(file)}: {name}");
+                }
+            }
+        }
+
+        return offenders;
+    }
+
+    private static string StripCommentsForDiplomacyGuard(string source)
+    {
+        var withoutBlock = Regex.Replace(source, @"/\*.*?\*/", string.Empty, RegexOptions.Singleline);
+        return Regex.Replace(withoutBlock, @"//.*?$", string.Empty, RegexOptions.Multiline);
     }
 
     /// <summary>Done-when 8, the unity gate: the same seeded roll fires, and the gate still refuses.</summary>

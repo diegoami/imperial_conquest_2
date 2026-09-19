@@ -652,12 +652,14 @@
     "seatAsymmetry": "faithful",
     "bugPolicyDiplomaticThaw": "reproduceEightColumnBug",
     "combatOnDefeat": "destroyed",
+    "faithfulThawColumnBug": true,
     "_provenance": {
       "diplomacyModel": "docs/game-design.md §'Two shipped presets' — this toy ruleset is set the way classical-faithful is set, so tests exercise the confirmed behaviour by default (audit Q3).",
       "economyPurses": "docs/game-design.md §'Two shipped presets' — per-army and per-fleet purses, as the original has (audit Q4).",
       "seatAsymmetry": "docs/game-design.md §'Two shipped presets' — reproduce the confirmed human/AI rule differences (audit Q6).",
       "bugPolicyDiplomaticThaw": "docs/game-design.md §'Two shipped presets' — reproduce the 8-column thaw bug (audit Q8).",
-      "combatOnDefeat": "docs/game-design.md §'The defeated side's fate' — the original annihilates the loser; the scatter alternative belongs to the improved preset."
+      "combatOnDefeat": "docs/game-design.md §'The defeated side's fate' — the original annihilates the loser; the scatter alternative belongs to the improved preset.",
+      "faithfulThawColumnBug": "docs/task-catalogue.md T19 DoD 9 — the Q8 first-8-columns thaw bug flag, by its exact name; true reproduces it, matching classical-faithful and decompiled-diplomacy-peace-terms-and-instant-battles.md's while (sVar6 != 8)."
     }
   },
   "_provenance": {
