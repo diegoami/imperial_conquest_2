@@ -95,27 +95,6 @@ public sealed class AiView
         return relations.Get(a, b);
     }
 
-    /// <summary>
-    /// Whether a city is "non-hostile" to the acting nation for supply purposes: its own city, or a city
-    /// whose owner it is not at war with.
-    /// </summary>
-    /// <remarks>
-    /// The same reading the merged supply gates use — <c>BuySupplyCommandHandler</c> refuses a foreign
-    /// city only when <c>Relations.Get(buyer, cityOwner) == war</c>, and calls everything else
-    /// non-hostile. <c>supply-capacity-rounding.md</c> uses the same word for the AI pass this feeds.
-    /// </remarks>
-    public bool IsNonHostileCity(CityState city, string unitNationId)
-    {
-        ArgumentNullException.ThrowIfNull(city);
-
-        if (string.Equals(city.Owner, unitNationId, StringComparison.Ordinal))
-        {
-            return true;
-        }
-
-        return RelationBetween(unitNationId, city.Owner) != WarCode;
-    }
-
     /// <summary>Every army the acting nation owns, in <see cref="GameState.Armies"/> order.</summary>
     public List<ArmyState> OwnArmies() => ArmiesOf(NationId);
 

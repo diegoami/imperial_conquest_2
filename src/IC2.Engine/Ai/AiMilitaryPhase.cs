@@ -123,8 +123,26 @@ public static class AiMilitaryPhase
     /// The destination is the target fleet's own tile, which <see cref="MoveFleetCommandHandler"/>'s
     /// blocked predicate refuses to enter, so the walk stops in the adjacent cell —
     /// <see cref="AttackLegality"/>'s adjacency gate satisfied, exactly as an army's march at a city
-    /// works. The same hold rule applies: a fleet already adjacent to an enemy fleet stays put rather
-    /// than being pulled at a second one.
+    /// works.
+    /// </para>
+    /// <para>
+    /// <strong>There is no hold rule, for fleets or for armies.</strong> An earlier revision of this
+    /// remark claimed "the same hold rule applies: a fleet already adjacent to an enemy fleet stays put
+    /// rather than being pulled at a second one". That described a rule this file does not contain and
+    /// never did — the only guard is per target (<c>distance &lt;= 1</c> skips the fleet you are already
+    /// touching), so a fleet in contact with a <em>stronger</em> enemy it has declined to attack will
+    /// happily sail at a weaker one further off. The code is right and the remark was wrong, on three
+    /// grounds. <strong>(1)</strong> There is no "same" hold rule to apply: the army hold was removed
+    /// earlier in this very task, because parking units produced turns that issued no command and
+    /// changed no state — the stall <c>docs/task-catalogue.md</c> T22 Done-when 1 fails a soak for.
+    /// <strong>(2)</strong> Adjacency confers nothing in this engine. There is no zone of control and no
+    /// attack of opportunity, so standing next to an enemy you will not fight buys no advantage, and
+    /// leaving may even break the adjacency that enemy needs to attack <em>you</em>.
+    /// <strong>(3)</strong> The inline claim that sailing away from a fleet you are touching "is never
+    /// the better move" is false on its face: if you cannot beat the one you are touching and can beat
+    /// another, moving is strictly better. Pinned by
+    /// <c>AiMilitaryPhaseTests.A_fleet_beside_a_stronger_enemy_sails_at_a_weaker_one_further_off</c>, so
+    /// the remark cannot drift back.
     /// </para>
     /// <para>
     /// <strong>Every gate <see cref="MoveFleetCommandHandler"/> applies is checked first</strong>: the
@@ -145,8 +163,10 @@ public static class AiMilitaryPhase
             var distance = AiView.Distance(fleet.X, fleet.Y, target.X, target.Y);
             if (distance <= 1)
             {
-                // Already in contact: ProposeFleetAttacks decides whether to fight, and sailing away
-                // from a fleet you are touching is never the better move.
+                // Already in contact with THIS one: ProposeFleetAttacks decides whether to fight it, and
+                // a march onto a tile the walk cannot enter anyway would achieve nothing. Deliberately
+                // per target and not a hold: being in contact with one enemy does not stop a march at a
+                // different one. See this method's remarks.
                 continue;
             }
 
