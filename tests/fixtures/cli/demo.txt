@@ -14,7 +14,7 @@ end
 end
 end
 status
-buy north-army-1 arx 50
+buy north-army-1 portus 50
 buy north-army-1 meridia 50
 news
 status

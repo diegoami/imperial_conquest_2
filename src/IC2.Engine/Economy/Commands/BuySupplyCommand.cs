@@ -95,6 +95,23 @@ public static class BuySupplyRejections
 
     /// <summary>The named provider fleet is more than one tile from the buying army.</summary>
     public static readonly RejectionCode ProviderFleetNotWithinRange = new("supply.provider-fleet-not-within-range");
+
+    /// <summary>
+    /// T50 Done-when 5 (issue #167): the provider city is more than one tile from the buying army.
+    /// <c>TAFSupply_FindProviders</c> [confirmed: supply-capacity-rounding.md:33] offers "every city within
+    /// one tile", a gate this dialog's city-provider path never had. Named to match
+    /// <see cref="Naval.Commands.BuyFleetSupplyRejections.CityNotWithinRange"/>, the fleet-buys-at-a-city
+    /// twin that already enforces it.
+    /// </summary>
+    public static readonly RejectionCode CityNotWithinRange = new("supply.city-not-within-range");
+
+    /// <summary>
+    /// T50 Done-when 5 (issue #167): the provider city's owner is at war with the buying army's nation.
+    /// Same confirmed <c>TAFSupply_FindProviders</c> gate ("whose owner is not at war with the buyer",
+    /// supply-capacity-rounding.md:33) as <see cref="CityNotWithinRange"/>'s own remarks. Named to match
+    /// <see cref="Naval.Commands.BuyFleetSupplyRejections.CityOwnerAtWar"/>.
+    /// </summary>
+    public static readonly RejectionCode CityOwnerAtWar = new("supply.city-owner-at-war");
 }
 
 /// <summary>

@@ -99,8 +99,13 @@ public sealed record CalendarState(int Week, int SeasonIndex, int YearBc, int Tu
 /// Nation record <c>+0x442</c>, <c>IC2.Data</c>'s <c>MobilizedPercent</c>: 0–100, decaying by
 /// <see cref="EconomyRules.MobilizationDecayPerQuarter"/> every quarter (floored at 0) and read by
 /// population growth, the unity update, and city supply production
-/// <strong>[confirmed: city-population-growth.md]</strong>. The 100 cap is enforced where mobilization is
-/// raised (standing recruitment, T13's), not by this field itself.
+/// <strong>[confirmed: city-population-growth.md]</strong>. T50 (issue #183): the 100 cap is not enforced
+/// anywhere today, because nothing in the engine currently raises this field at all — no per-order
+/// increment has been found in the decompilation, and T13's standing recruitment was confirmed correct to
+/// leave it untouched (its report names only the hard cap message and
+/// <c>recruitment.mobilizationCapPercent</c>, never an increment formula). This is an evidence gap, not an
+/// assignment to a task: research plan item 17 tracks finding the raise, and the cap will be enforced
+/// wherever it turns out to live once one is found.
 /// </param>
 /// <param name="RecruitmentSlots">
 /// The nation's active standing-recruitment queue — <c>IC2.Data</c>'s <c>SaveRecruitmentTable</c> fields

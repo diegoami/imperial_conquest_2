@@ -52,6 +52,34 @@ public sealed class JoinAndSplitFleetsCommandHandlerTests
         Assert.Equal(JoinFleetsRejections.CombinedShipsTooLarge, result.Code);
     }
 
+    /// <summary>
+    /// T50 Done-when 4 (issue #165 item 3): the pooled purse is capped at
+    /// <c>EconomyRules.PurseCapPerUnit</c> (1,000), same as every other purse-crediting path, instead of
+    /// letting the survivor hold the full, uncapped sum. Two fleets each legally holding 900 talents leave
+    /// a survivor at the 1,000 cap, with the 800-talent excess credited to the issuing nation's treasury
+    /// -- moved, not destroyed.
+    /// </summary>
+    [Fact]
+    public void Join_PooledMoneyAboveThePurseCap_IsClampedAndTheExcessCreditedToTheTreasury()
+    {
+        var state = NavalTestbed.InitialState();
+        var treasuryBefore = state.NationById(NationId)!.Treasury;
+        var a = Fleet("join-purse-a", 3, 3, 10, money: 900);
+        var b = Fleet("join-purse-b", 3, 3, 10, money: 900);
+        state = state with { Fleets = ValueList.Of(a, b) };
+
+        var dispatcher = NavalTestbed.RealEngineDispatcher();
+        var result = dispatcher.Dispatch(state, new JoinFleetsCommand(NationId, a.Id, b.Id));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        var survivor = result.State.FleetById(a.Id)!;
+        Assert.Equal(1000, survivor.Money); // capped, not 1,800.
+        Assert.Null(result.State.FleetById(b.Id));
+
+        // Conserved: nothing created, nothing destroyed -- the 800-talent excess moved to the treasury.
+        Assert.Equal(treasuryBefore + 800, result.State.NationById(NationId)!.Treasury);
+    }
+
     [Fact]
     public void Split_FleetWithExactlyTwentyShips_IsAccepted()
     {

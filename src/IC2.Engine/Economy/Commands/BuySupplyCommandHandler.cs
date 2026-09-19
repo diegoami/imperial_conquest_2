@@ -27,6 +27,20 @@ namespace IC2.Engine.Economy.Commands;
 /// <see cref="SupplyPurchase.BuyForArmy"/> already uses for the city path — this is the same
 /// <c>TUnitMap_SupplyArmy</c> → <c>TAFSupply</c> dialog either way, only the provider kind differs.
 /// </para>
+/// <para>
+/// <strong>Rejection precedence is decided, not incidental (T50 Done-when 3, issue #165 item 2).</strong>
+/// <c>command.Tons &lt;= 0</c> is checked before either provider is looked up, so
+/// <c>BuySupplyCommand(nation, army, "no-such-city", 0)</c> returns <see cref="BuySupplyRejections.InvalidAmount"/>,
+/// never <see cref="BuySupplyRejections.UnknownCity"/>. <c>[designed]</c>: no report covers rejection
+/// precedence for this dialog at all, so this is a free choice, made and pinned here rather than left to
+/// drift with the next unrelated change. The amount check stays hoisted above both provider branches
+/// (T46's shape, kept) because it is the one well-formedness check every branch shares — checking it once,
+/// before any state lookup, is simpler than duplicating <c>Tons &lt;= 0</c> inside
+/// <see cref="HandleCityProvider"/> and <see cref="HandleFleetProvider"/> to reproduce the older
+/// per-branch order, and a malformed request is rejected on its own shape before the handler spends a
+/// lookup on it. Pinned by
+/// <c>BuySupplyCommandHandlerTests.An_unknown_city_and_a_non_positive_amount_together_reject_as_invalid_amount</c>.
+/// </para>
 /// </remarks>
 [CommandHandler]
 public sealed class BuySupplyCommandHandler : ICommandHandler<BuySupplyCommand>
@@ -81,6 +95,17 @@ public sealed class BuySupplyCommandHandler : ICommandHandler<BuySupplyCommand>
                 BuySupplyRejections.UnknownCity, $"'{command.CityId}' is not a known city.");
         }
 
+        // T50 Done-when 5 (issue #167): TAFSupply_FindProviders offers "every city within one tile" --
+        // this path never checked it, unlike HandleFleetProvider (below) and the fleet-buys-at-a-city
+        // path (Naval.Commands.BuyFleetSupplyCommandHandler.HandleCityProvider), which both already do.
+        var distance = Math.Max(Math.Abs(army.X - city.X), Math.Abs(army.Y - city.Y));
+        if (distance > 1)
+        {
+            return CommandOutcome.Reject(
+                BuySupplyRejections.CityNotWithinRange,
+                $"City '{city.Id}' is not within one tile of army '{army.Id}'.");
+        }
+
         // Review round 1, N7: the city itself is known -- its owner nation is the problem -- so this is
         // UnresolvableCityOwner, not UnknownCity. Defensive: unreachable while every city's Owner names a
         // real nation, which the loaded data always satisfies today.
@@ -89,6 +114,22 @@ public sealed class BuySupplyCommandHandler : ICommandHandler<BuySupplyCommand>
         {
             return CommandOutcome.Reject(
                 BuySupplyRejections.UnresolvableCityOwner, $"City '{city.Id}''s owner '{city.Owner}' is not a known nation.");
+        }
+
+        // T50 Done-when 5 (issue #167): TAFSupply_FindProviders offers only a city "whose owner is not at
+        // war with the buyer" -- this path never checked it either. Q9's free-vs-paid rule is untouched:
+        // "abroad" still means a foreign city, never a distant one, so this gate sits beside that rule,
+        // not inside it -- SupplyPurchase.BuyForArmy decides free-vs-paid exactly as it always has.
+        var isOwnCity = string.Equals(city.Owner, army.Nation, StringComparison.Ordinal);
+        if (!isOwnCity)
+        {
+            var warCode = context.Ruleset.Diplomacy.StateCodes.War;
+            if (state.Relations.Get(army.Nation, city.Owner) == warCode)
+            {
+                return CommandOutcome.Reject(
+                    BuySupplyRejections.CityOwnerAtWar,
+                    $"City '{city.Id}''s owner '{city.Owner}' is at war with '{army.Nation}'.");
+            }
         }
 
         var result = SupplyPurchase.BuyForArmy(army, city, context.IssuingNation, sellingCityNation, command.Tons, context.Ruleset);

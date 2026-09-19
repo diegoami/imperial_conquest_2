@@ -146,9 +146,13 @@ public sealed class BuyFleetSupplyCommandHandlerTests
         Assert.Equal(buyer.SupplyTons + provider.SupplyTons, updatedBuyer.SupplyTons + updatedProvider.SupplyTons);
     }
 
-    /// <summary>DoD 6: the buyer's room clamp is not floored at 0, and is capped by the provider's own stock.</summary>
+    /// <summary>
+    /// DoD 6: when the provider's own stock is the binding constraint (3 t, smaller than the buyer's 5-ton
+    /// room), the transfer clamps to that stock, not the room. This scenario never exercises the room's
+    /// own "not floored at 0" behaviour -- see the next test for that.
+    /// </summary>
     [Fact]
-    public void FleetProvider_ClampsByBuyerCapacity_AndProviderStock()
+    public void FleetProvider_ClampsByProviderStock_WhenSmallerThanTheBuyersRoom()
     {
         var state = NavalTestbed.InitialState();
         var buyer = Fleet("supply-buyer-clamp", 3, 3, ships: 10, supply: 75); // cap = 80, room = 5.
@@ -165,6 +169,37 @@ public sealed class BuyFleetSupplyCommandHandlerTests
 
         Assert.Equal(78, updatedBuyer.SupplyTons); // 75 + 3 -- capped by the provider's stock, not the 5-ton room.
         Assert.Equal(0, updatedProvider.SupplyTons);
+    }
+
+    /// <summary>
+    /// T50 Done-when 6 (issue #165 item 4): the claim the previous test's name and comment made --
+    /// "the buyer's room clamp is not floored at 0" -- but never actually exercised, since that scenario's
+    /// room was +5 throughout. <see cref="FleetToFleetSupplyTransfer"/>'s own remarks: a buyer already over
+    /// its cap has a <em>negative</em> room, and the transfer honours it, giving supply back to the
+    /// provider rather than refusing or floor-clamping at zero. A 1-ship buyer (cap = 8) holding 100 t
+    /// against that cap drops to exactly 8, and the provider gains the 92 t difference.
+    /// </summary>
+    [Fact]
+    public void FleetProvider_BuyerOverItsOwnCapacity_GivesSupplyBackToTheProvider()
+    {
+        var state = NavalTestbed.InitialState();
+        var buyer = Fleet("supply-buyer-over-cap", 3, 3, ships: 1, supply: 100); // cap = 8, room = -92.
+        var provider = Fleet("supply-provider-over-cap", 3, 3, ships: 10, supply: 200);
+        state = state with { Fleets = ValueList.Of(buyer, provider) };
+
+        var dispatcher = NavalTestbed.RealEngineDispatcher();
+        var result = dispatcher.Dispatch(
+            state, new BuyFleetSupplyCommand(NationId, buyer.Id, ProviderCityId: null, provider.Id, Tons: 5));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        var updatedBuyer = result.State.FleetById(buyer.Id)!;
+        var updatedProvider = result.State.FleetById(provider.Id)!;
+
+        Assert.Equal(8, updatedBuyer.SupplyTons); // dropped to the cap, not floored at 0.
+        Assert.Equal(292, updatedProvider.SupplyTons); // 200 + 92 -- gained the difference.
+
+        // Conservation across the pair: nothing created or destroyed by the give-back.
+        Assert.Equal(buyer.SupplyTons + provider.SupplyTons, updatedBuyer.SupplyTons + updatedProvider.SupplyTons);
     }
 
     /// <summary>DoD 4 (T14 round-2 review, B9): a fleet cannot buy supply from itself.</summary>

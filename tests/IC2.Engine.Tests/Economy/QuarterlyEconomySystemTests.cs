@@ -185,28 +185,51 @@ public sealed class QuarterlyEconomySystemTests
     /// original clears this pointer, the same undocumented-but-necessary status the army-deletion rule
     /// itself already carries (<see cref="MercenaryDesertion"/>'s own remarks).
     /// </summary>
+    /// <remarks>
+    /// <c>docs/task-catalogue.md</c> T50 Done-when 1: this is the two-entity probe
+    /// (<c>build-process.md</c> §4.2 gate 5) that pins the negative half. Replacing the guard's predicate
+    /// with <c>true</c> — clearing every fleet's <see cref="Model.FleetState.CarriedArmyId"/> at every
+    /// quarter boundary, not only a deleted army's own carrier — passed every test before this change,
+    /// because only the doomed army's clear (below) was ever asserted. South's army is a lone regular
+    /// unit, so it never deserts regardless of its purse, giving a second, surviving, still-embarked army
+    /// in the same run whose carrier must come through untouched.
+    /// </remarks>
     [Fact]
-    public void OnQuarterBoundary_EmbarkedArmyEmptiedByDesertion_AlsoClearsTheFleetsCarriedArmyId()
+    public void OnQuarterBoundary_EmbarkedArmyEmptiedByDesertion_ClearsOnlyThatFleetsCarriedArmyId()
     {
         var state = EconomyTestbed.InitialState();
         var northArmyBefore = state.Armies.First(a => a.Nation == "north");
         var northFleet = state.Fleets.First(f => f.Nation == "north");
         var mercenary = northArmyBefore.Units.Single(u => u.IsMercenary);
 
-        // Embark the army on north's own fleet, strip it to just its one mercenary, purse empty: it
-        // deserts, and with nothing left the army is deleted while still (before the fix) "aboard".
+        var southArmyBefore = state.Armies.First(a => a.Nation == "south");
+        var southFleet = state.Fleets.First(f => f.Nation == "south");
+
+        // Embark north's army on north's own fleet, strip it to just its one mercenary, purse empty: it
+        // deserts, and with nothing left the army is deleted while still (before the fix) "aboard". Embark
+        // south's regular-only army on south's own fleet too: south never deserts (regulars are paid from
+        // the treasury, never the purse), so it survives the same quarter boundary still aboard.
         var armies = state.Armies.Select(a => a.Id == northArmyBefore.Id
             ? a with { Money = 0, Units = ValueList.Of(mercenary), AboardFleetId = northFleet.Id }
-            : a);
+            : a.Id == southArmyBefore.Id
+                ? a with { AboardFleetId = southFleet.Id, CoveredTileCode = null }
+                : a);
         var fleets = state.Fleets.Select(f => f.Id == northFleet.Id
             ? f with { CarriedArmyId = northArmyBefore.Id }
-            : f);
+            : f.Id == southFleet.Id
+                ? f with { CarriedArmyId = southArmyBefore.Id }
+                : f);
         state = state with { Armies = ValueList.From(armies), Fleets = ValueList.From(fleets) };
 
         var after = Coordinate(state);
 
         Assert.Null(after.ArmyById(northArmyBefore.Id)); // the army is gone, as before this fix.
         Assert.Null(after.FleetById(northFleet.Id)!.CarriedArmyId); // and the fleet no longer points at it.
+
+        // The survivor: south's army is untouched and its fleet's carrier must not be cleared alongside
+        // north's. This is the assertion that fails under the `true`-predicate mutation.
+        Assert.NotNull(after.ArmyById(southArmyBefore.Id));
+        Assert.Equal(southArmyBefore.Id, after.FleetById(southFleet.Id)!.CarriedArmyId);
 
         // The resulting state round-trips: no dangling reference for GameDataValidation to reject on a
         // reload (the exact failure mode this fix closes -- previously an UnresolvedReferenceException).

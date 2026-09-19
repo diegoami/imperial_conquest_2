@@ -106,4 +106,91 @@ public sealed class FleetSupplyEndToEndTests
             final.ConditionPercent >= rules.DeathConditionThreshold,
             $"the resupplied fleet must survive well clear of the death threshold; ended at {final.ConditionPercent}.");
     }
+
+    /// <summary>
+    /// T50 Done-when 2 (issue #165 item 1): the previous survival assertion was inert -- an unsupplied
+    /// fleet in the same scenario was still afloat after the same 21 turns (condition 92 against 95) and
+    /// only sank at turn 89, because the zero-supply penalty (<c>-random(0, ZeroSupplyConditionRandomBound)</c>,
+    /// i.e. 0 or 1 per turn) is slow against a 60-point margin to
+    /// <see cref="NavalRules.DeathConditionThreshold"/>. This test puts an unsupplied control fleet in the
+    /// very same run: both fleets start identically (same ships, same starting supply, same position, same
+    /// seed) and only the "starving-fleet" ever receives <see cref="BuyFleetSupplyCommand"/>. Run long
+    /// enough, the control fleet must sink while the resupplied fleet does not -- so the assertion fails
+    /// outright if resupply stops working (the two fleets would then behave identically and either both
+    /// survive or both sink together).
+    /// </summary>
+    [Fact]
+    public void FleetRunToTheEdgeOfStarvation_UnsuppliedControlSinks_WhileResuppliedSurvives()
+    {
+        var baseState = NavalTestbed.InitialState();
+        var rules = NavalTestbed.Ruleset.Naval;
+
+        const int ships = 10;
+        var capacity = ships * NavalTestbed.Ruleset.Economy.FleetSupplyTonsPerShip; // 80 tons.
+
+        var homeCity = baseState.Cities[0] with { Owner = NationId, X = 0, Y = 0, SupplyTons = 1000 };
+
+        var resuppliedFleet = new FleetState(
+            "starving-fleet", NationId, X: 0, Y: 0, Moves: 4, Ships: ships, ConditionPercent: rules.MaxConditionPercent,
+            Money: 0, SupplyTons: 5, ConstructionTicksRemaining: null, BuildCityId: null, CarriedArmyId: null,
+            CoveredTileCode: null);
+
+        // The control: identical in every respect except it is never resupplied.
+        var controlFleet = new FleetState(
+            "control-fleet", NationId, X: 0, Y: 0, Moves: 4, Ships: ships, ConditionPercent: rules.MaxConditionPercent,
+            Money: 0, SupplyTons: 5, ConstructionTicksRemaining: null, BuildCityId: null, CarriedArmyId: null,
+            CoveredTileCode: null);
+
+        var state = baseState with
+        {
+            Fleets = ValueList.Of(resuppliedFleet, controlFleet),
+            Cities = ValueList.From(baseState.Cities.Select(c =>
+                string.Equals(c.Id, homeCity.Id, StringComparison.Ordinal) ? homeCity : c)),
+            RandomSeed = 20250918UL,
+        };
+
+        var coordinator = NavalTestbed.CoordinatorOnly(sink: null, typeof(FleetTickSystem));
+
+        // Both fleets reach zero supply on turn 1, from the same 5-ton starting stock against a 10/turn
+        // draw.
+        state = coordinator.RunRoundTick(state).State;
+        Assert.Equal(0, state.FleetById(resuppliedFleet.Id)!.SupplyTons);
+        Assert.Equal(0, state.FleetById(controlFleet.Id)!.SupplyTons);
+
+        // Resupply only the "starving-fleet", end to end, through the real command dispatcher. The
+        // control fleet gets nothing, ever.
+        var dispatcher = NavalTestbed.RealEngineDispatcher();
+        var resupplyResult = dispatcher.Dispatch(
+            state,
+            new BuyFleetSupplyCommand(NationId, resuppliedFleet.Id, homeCity.Id, ProviderFleetId: null, Tons: capacity));
+        Assert.True(resupplyResult.IsAccepted, resupplyResult.ToString());
+        state = resupplyResult.State;
+        Assert.Equal(capacity, state.FleetById(resuppliedFleet.Id)!.SupplyTons);
+
+        // Run well past the lethal point the brief documents for this exact seed and scenario (turn 89
+        // for a single unsupplied fleet) -- generous enough to absorb the shift in the RNG draw sequence
+        // from having a second fleet drawing every turn too.
+        const int horizonTurns = 150;
+        var controlDied = false;
+        for (var turn = 0; turn < horizonTurns; turn++)
+        {
+            state = coordinator.RunRoundTick(state).State;
+
+            // The resupplied fleet must never disappear -- not just "at the end", every single turn.
+            Assert.NotNull(state.FleetById(resuppliedFleet.Id));
+
+            if (state.FleetById(controlFleet.Id) is null)
+            {
+                controlDied = true;
+                break;
+            }
+        }
+
+        Assert.True(controlDied, $"the unsupplied control fleet must sink within {horizonTurns} turns.");
+
+        var finalResupplied = state.FleetById(resuppliedFleet.Id)!;
+        Assert.True(
+            finalResupplied.ConditionPercent >= rules.DeathConditionThreshold,
+            $"the resupplied fleet must survive well clear of the death threshold; ended at {finalResupplied.ConditionPercent}.");
+    }
 }
