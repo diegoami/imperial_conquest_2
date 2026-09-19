@@ -864,7 +864,7 @@ public sealed record LoyaltyRules(
 /// <param name="CascadeDistanceMax">
 /// <c>[confirmed: decompiled-defection-and-siege-attrition.md]</c> <c>FUN_0044ba1c</c>'s cascade only
 /// considers another city within this Chebyshev distance (10) of the besieging army's position — the
-/// same distance metric <see cref="IC2.Engine.Movement"/>'s own scatter placement uses; the report gives
+/// same distance metric <see cref="IC2.Engine.Battle.ScatterPlacement"/> uses; the report gives
 /// the threshold but not the metric, so the choice of Chebyshev over Manhattan/Euclidean is
 /// <c>[derived]</c> by matching the engine's one other map-distance convention.
 /// </param>

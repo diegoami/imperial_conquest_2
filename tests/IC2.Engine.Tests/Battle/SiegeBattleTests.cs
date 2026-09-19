@@ -214,6 +214,26 @@ public class SiegeBattleTests
     }
 
     /// <summary>
+    /// N2: the garrison term's target-city filter. A recruitment slot targeting a <em>different</em> city
+    /// contributes nothing to the besieged city's defender strength, even though it belongs to the same
+    /// (besieged city's) owner. Every other garrison test in this file gives every slot the besieged
+    /// city's own id, which cannot by itself distinguish "sums every one of the owner's slots" from "sums
+    /// only the slots that target this city" -- this one can.
+    /// </summary>
+    [Fact]
+    public void GarrisonTermAlone_IgnoresASlotTargetingADifferentCity()
+    {
+        var withoutGarrison = Resolve(WeakCityFixture(), BattleTestbed.Destroyed, "hamlet");
+        Assert.Equal(2500, withoutGarrison.Result.DefenderPower);
+
+        var withUnrelatedSlot = WithSouthRecruitmentSlot(WeakCityFixture(), "some-other-city", troops: 700);
+        var (_, result) = Resolve(withUnrelatedSlot, BattleTestbed.Destroyed, "hamlet");
+
+        Assert.Equal(2500, result.DefenderPower);
+        Assert.Equal(withoutGarrison.Result.DefenderPower, result.DefenderPower);
+    }
+
+    /// <summary>
     /// Two recruitment slots (700 and 300 troops) targeting the same city prove the addend is divided per
     /// slot before the sum, not the total divided once after -- <c>700/2 + 300/2 = 350 + 150 = 500</c>,
     /// not <c>(700+300)/2 = 500</c> (these happen to coincide; see

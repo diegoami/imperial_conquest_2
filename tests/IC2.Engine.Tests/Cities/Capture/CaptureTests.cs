@@ -82,6 +82,11 @@ public sealed class CaptureTests
         Assert.Equal("greece", fallsTo.OldOwner);
         Assert.Equal("illyria", fallsTo.NewOwner);
 
+        // The two-entity instinct applied to events, not just state: Naupactus is the only city that
+        // changes hands here -- none of Greece's filler cities (far from the besieging army) cascade into
+        // a defection.
+        Assert.DoesNotContain(sink.Events, e => e is CityDefectsToNation);
+
         // Neither nation was eliminated (Greece still owns 18 cities).
         Assert.False(newGreece.Eliminated);
         Assert.DoesNotContain(sink.Events, e => e is NationConquered);

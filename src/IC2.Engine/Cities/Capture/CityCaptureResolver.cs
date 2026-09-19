@@ -32,18 +32,25 @@ namespace IC2.Engine.Cities.Capture;
 /// <para>
 /// <strong>The Known-open item.</strong> <c>FUN_0044bed8</c> (<see cref="Defect"/>) and
 /// <c>FUN_0044c528</c> (a wholesale "annex every remaining city" cascade, <em>not</em> implemented here —
-/// nothing in any Done-when line needs it, and its own trigger conditions are not established) are two
-/// ownership writers whose direct callers were not traced when <c>decompiled-city-capture-resolution.md</c>
-/// was written. <c>decompiled-defection-and-siege-attrition.md</c> resolves the call chain for the first
-/// one: <c>FUN_0044ba1c</c> (<see cref="RunCascade"/>), reached from the end of a successful forced
-/// capture, calls <c>FUN_0044bed8</c> under the conditions <see cref="RunCascade"/> reproduces, and that
-/// report independently corroborates <c>FUN_0044bed8</c> as the defection routine (never writes population
-/// or fortification, matching the Modena defection observation exactly). This task follows the entry's own
-/// instruction and keeps every defection-specific ruleset field (<see cref="CaptureRules.DefectionUnityGain"/>,
-/// <see cref="CaptureRules.DefectionUnityLoss"/>, <see cref="CaptureRules.DefectionUnityLossFloor"/>,
-/// <see cref="CaptureRules.DefectionTreasuryCreditMultiplier"/>) tagged <c>[derived]</c> rather than
-/// <c>[confirmed]</c>, naming this inference explicitly (see each field's own remarks on
-/// <see cref="CaptureRules"/>).
+/// nothing in any Done-when line needs it) are two ownership writers
+/// <c>decompiled-city-capture-resolution.md</c> decompiles without fully establishing their trigger
+/// conditions. <c>FUN_0044bed8</c>'s own direct caller was not traced when that report was written;
+/// <c>decompiled-defection-and-siege-attrition.md</c> resolves it: <c>FUN_0044ba1c</c>
+/// (<see cref="RunCascade"/>), reached from the end of a successful forced capture, calls
+/// <c>FUN_0044bed8</c> under the conditions <see cref="RunCascade"/> reproduces, and that report
+/// independently corroborates <c>FUN_0044bed8</c> as the defection routine (never writes population or
+/// fortification, matching the Modena defection observation exactly). <c>FUN_0044c528</c>'s caller, by
+/// contrast, <em>is</em> named — "reached from <c>\"conquer\"</c> and called conditionally from
+/// <c>FUN_0044bb18</c> when a losing nation's unity/city-count drop below thresholds"
+/// (<c>decompiled-city-capture-resolution.md</c>) — what is not established is its full trigger
+/// conditions and effects ("not decompiled in depth this pass," same report); not implementing it is
+/// still correct, since nothing in this task's Done-when lines needs a wholesale annex-everything
+/// cascade distinct from the single-city capture and cascade this task already implements. This task
+/// follows the entry's own instruction and keeps every defection-specific ruleset field
+/// (<see cref="CaptureRules.DefectionUnityGain"/>, <see cref="CaptureRules.DefectionUnityLoss"/>,
+/// <see cref="CaptureRules.DefectionUnityLossFloor"/>, <see cref="CaptureRules.DefectionTreasuryCreditMultiplier"/>)
+/// tagged <c>[derived]</c> rather than <c>[confirmed]</c>, naming this inference explicitly (see each
+/// field's own remarks on <see cref="CaptureRules"/>).
 /// </para>
 /// <para>
 /// <strong>The two-entity probe.</strong> Every mutation here touches exactly the two nations and the one
@@ -253,11 +260,12 @@ public static class CityCaptureResolver
     /// <summary>
     /// <c>FUN_0044ba1c</c>: after a forced capture, every other city that shared the just-captured city's
     /// old owner is checked, in <see cref="GameState.Cities"/>'s own stable order, against the confirmed
-    /// gate — within <see cref="CaptureRules.CascadeDistanceMax"/> of the besieging army (Chebyshev; see
-    /// <see cref="CaptureRules"/>'s own remarks on that field), the new owner's unity still under
-    /// <see cref="CaptureRules.CascadeUnityThreshold"/>, the candidate's <see cref="CompleteDefenderStrength"/>
-    /// (halved by <see cref="CaptureRules.CascadeAllegiantDefenseDivisor"/> when the candidate's own
-    /// allegiance already matches the new owner) below the besieging army's own
+    /// gate — not already <see cref="CityState.UnderSiege"/> ("if not already contested", checked before
+    /// anything else the pseudocode does), within <see cref="CaptureRules.CascadeDistanceMax"/> of the
+    /// besieging army (Chebyshev; see <see cref="CaptureRules"/>'s own remarks on that field), the new
+    /// owner's unity still under <see cref="CaptureRules.CascadeUnityThreshold"/>, the candidate's
+    /// <see cref="CompleteDefenderStrength"/> (halved by <see cref="CaptureRules.CascadeAllegiantDefenseDivisor"/>
+    /// when the candidate's own allegiance already matches the new owner) below the besieging army's own
     /// <see cref="SiegeStrength.Attacker"/> strength, and the candidate's own loyalty under
     /// <see cref="CaptureRules.CascadeLoyaltyThreshold"/>. Each qualifying candidate is passed to
     /// <see cref="Defect"/> before the next candidate is evaluated, so a candidate later in iteration order
@@ -286,6 +294,15 @@ public static class CityCaptureResolver
         {
             if (string.Equals(candidate.Id, justCapturedCity.Id, StringComparison.Ordinal)
                 || !string.Equals(candidate.Owner, oldOwnerId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            // "if not already contested" -- FUN_0044ba1c's own gate, read from CityState.UnderSiege
+            // (already a field on the model; this task's own reading of "contested"). A city already
+            // under an active siege of its own is excluded from the cascade outright, before distance is
+            // even checked, matching the pseudocode's own nesting order.
+            if (candidate.UnderSiege)
             {
                 continue;
             }

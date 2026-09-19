@@ -94,6 +94,36 @@ public sealed class SeatRotationEliminationTests
     }
 
     /// <summary>
+    /// N3: the <c>wrapped</c> refactor's own genuinely new behaviour, isolated -- the wrap can be detected
+    /// while landing on the very seat that then turns out to be eliminated and gets skipped, not only
+    /// while landing on a seat that is kept. Seat "a" (index 0, the wrap-around target) is eliminated, and
+    /// the active seat starts at "c" (index 2, the last one). Ending "c"'s turn must still both skip "a"
+    /// (a wraps and is immediately eliminated) and report the round complete, handing off to "b".
+    /// </summary>
+    [Fact]
+    public void EliminatedSeatAtTheWrapAroundIndex_StillCompletesTheRound()
+    {
+        var coordinator = CalendarTestbed.CoordinatorFor("t17-seat-rotation-elimination");
+        var initial = CalendarTestbed.InitialState();
+        var a = initial.NationById("north")! with { Id = "a", Name = "a", Eliminated = true };
+        var b = initial.NationById("south")! with { Id = "b", Name = "b", Control = SeatControl.Human, Eliminated = false };
+        var c = initial.NationById("south")! with { Id = "c", Name = "c", Control = SeatControl.Ai, Eliminated = false };
+        var state = initial with
+        {
+            Nations = ValueList.From(new[] { a, b, c }),
+            TurnOrder = ValueList.From(new[] { "a", "b", "c" }),
+            ActiveSeatIndex = 2, // "c" is active.
+        };
+
+        var afterC = coordinator.RunTurn(state);
+
+        Assert.Equal("b", afterC.State.ActiveNationId);
+        Assert.True(afterC.RoundTickRan); // The wrap through index 0 happened, even though "a" itself was skipped.
+        Assert.DoesNotContain(afterC.Events, e => e is SeatHandoffRequested handoff && handoff.NationId == "a");
+        Assert.Contains(afterC.Events, e => e is SeatHandoffRequested handoff && handoff.NationId == "b");
+    }
+
+    /// <summary>
     /// A turn-order entry that names no nation at all (as opposed to one that resolves but is eliminated)
     /// fails with a typed <see cref="SeatResolutionException"/> rather than being silently skipped.
     /// </summary>
