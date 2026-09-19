@@ -59,6 +59,12 @@ Inside that directory:
 | `notes/` | The user's session notes: a save pair, an optional recording, and the events observed between them |
 | (root) | See below |
 
+**The evidence is also published as GitHub releases, one per play-through**, in that same private repository — [`run-1-rome`, `run-1-cartago`, `run-1-thracia` and `legacy-probes`](https://github.com/diegoami/imp_conquest_original/releases). Each release holds that run's saves, screenshots, observation notes and any recording a note ties to a save pair.
+
+This matters because **reports cite bare filenames** (`11_supply.sav`, `1_rome_270_winter_7.sav`), never paths. [`docs/evidence-index.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/evidence-index.md) in the research repository maps every cited filename to the release holding it, with a `gh release download` recipe — so a citation can be resolved **without this machine's local copy**. Read it before hunting for a file on disk.
+
+The releases change nothing about the standing rule: **no save, screenshot, recording or game file enters either repository.** A release in a private repository is not this repository, and the index is a pointer, never a copy.
+
 The root holds:
 - `Imperial Conquest 2.exe`, `.dat` and `.hlp`;
 - `WAVS/`, converted to 16-bit/44.1 kHz PCM; the untouched originals are in `WAVS - Copy/`;
