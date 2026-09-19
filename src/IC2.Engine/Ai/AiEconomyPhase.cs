@@ -117,13 +117,20 @@ public static class AiEconomyPhase
         //
         // Review round 1, F1: it used to be inside, which made the multiplication zero the whole score
         // at expansionDrive = 0 and produce no recruitment candidate at all, threatened or not. The code
-        // was the defect and the comment above it was right, on two independent grounds. The first is
-        // what the parameter means: docs/game-design.md §AI names expansionDrive as what scales the
-        // "affordability threshold", not as a veto on the phase. The second is decisive and internal --
-        // AiWeights.TreasuryCommitFloorPermille deliberately grants an expansionDrive = 0 nation ten per
-        // cent of its treasury to commit each turn, and the old shape guaranteed it could never spend a
-        // talent of it. One of those two had to be wrong, and the budget floor is the one with a stated
-        // reason. Pinned at both ends of the range by AiEconomyPhaseTests.
+        // was the defect and the comment above it was right, on two grounds.
+        //
+        // The first, and the one that carries it: docs/game-design.md §AI names expansionDrive as what
+        // scales the "affordability threshold", not as a veto on the phase, and defending a threatened
+        // city is not an expansionist act.
+        //
+        // The second is narrower than an earlier revision of this comment claimed. It said the old shape
+        // "guaranteed it could never spend a talent" of the budget AiWeights.TreasuryCommitFloorPermille
+        // grants an expansionDrive = 0 nation -- which is false, because ProposeFortification's own
+        // multiplier is x2 at that end and never zero, so the budget was always spendable on walls. The
+        // accurate statement is about this method only: it computes an affordable battalion against that
+        // budget and then discarded the result unconditionally, so the recruitment path alone was
+        // unreachable at one end of a parameter that is supposed to scale it rather than switch it off.
+        // Pinned at both ends of the range by AiEconomyPhaseTests.
         var score = (AiWeights.RecruitBaseScore * personality.ExpansionDrivePermille / AiWeights.PermilleScale)
                     + (threatened ? AiWeights.ThreatenedCityBonus : 0);
         if (score < AiWeights.MinimumActionScore)

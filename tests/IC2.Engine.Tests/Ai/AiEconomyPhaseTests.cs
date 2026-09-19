@@ -127,17 +127,24 @@ public sealed class AiEconomyPhaseTests
     }
 
     /// <summary>
-    /// The budget floor and the score must not contradict each other, which is the internal argument that
-    /// settled F1: a nation granted a positive budget at <c>expansionDrive = 0</c> has to be able to spend
-    /// it on something. If a later change makes the floor zero, this fails and says so.
+    /// The budget floor and the recruitment score must not contradict each other: a nation granted a
+    /// positive budget at <c>expansionDrive = 0</c> has to be able to spend it <em>on recruitment</em>,
+    /// which is the path that prices a battalion against that budget and then decides whether to ask for
+    /// it.
     /// </summary>
+    /// <remarks>
+    /// Review round 1, second pass. This used to assert only <c>NotEmpty</c>, which the <em>fortify</em>
+    /// candidate satisfies on its own — so it passed under the F1 mutation and did not encode the
+    /// argument its own summary claimed it did. Narrowed to the recruitment candidate specifically, which
+    /// is the only thing that makes the assertion mean what it says.
+    /// </remarks>
     [Fact]
-    public void A_nation_with_no_expansion_drive_is_granted_a_budget_it_can_actually_spend()
+    public void A_nation_with_no_expansion_drive_is_granted_a_budget_it_can_actually_spend_on_recruitment()
     {
         var budget = AiEconomyPhase.TurnBudget(Treasury, expansionDrivePermille: 0);
 
         Assert.True(budget > 0, $"TreasuryCommitFloorPermille grants nothing at expansionDrive 0: {budget}");
-        Assert.NotEmpty(Economy(0.0, threatened: true));
+        Assert.Contains(Economy(0.0, threatened: true), c => c.Kind == "recruit");
     }
 
     private static long ScoreOfRecruit(List<AiCandidate> candidates)

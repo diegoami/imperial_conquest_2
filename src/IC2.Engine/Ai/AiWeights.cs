@@ -78,8 +78,14 @@ public static class AiWeights
 
     // ---------------------------------------------------------------------------------------------
     // Per-phase base scores. These set the ORDER the AI prefers kinds of action in when their
-    // situational terms are equal; the spread between them is deliberately wide enough that a marginal
-    // situational term cannot reorder two different kinds of action by accident.
+    // situational terms are equal.
+    //
+    // Review round 1: a second sentence here used to claim the spread between them was "deliberately wide
+    // enough that a marginal situational term cannot reorder two different kinds of action by accident".
+    // That was simply false of these numbers -- the smallest gaps are 100 (1300/1200, 1000/900/800,
+    // 600/500) against situational terms of 800, up to 2000, 150 per tile and a doubling victory
+    // multiplier -- so situational terms reorder kinds of action routinely, by design. Deleted rather
+    // than softened: the true statement is the first sentence, which was always there.
     // ---------------------------------------------------------------------------------------------
 
     /// <summary>
