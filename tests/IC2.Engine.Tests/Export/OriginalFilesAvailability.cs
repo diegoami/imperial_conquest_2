@@ -10,23 +10,19 @@ namespace IC2.Engine.Tests.Export;
 /// <para>
 /// <strong>Why this duplicates a sliver of <c>IC2.Data.Tests.LocalAssets</c>/<c>AssetSettings</c>
 /// rather than reusing them:</strong> this task's Owns list is <c>tests/IC2.Engine.Tests/Export/**</c>
-/// only. Referencing <c>IC2.Data</c>'s public parsers would need a <c>ProjectReference</c> added to
-/// <c>tests/IC2.Engine.Tests/IC2.Engine.Tests.csproj</c>, which is outside that list — T30 added the
-/// matching reference to <c>IC2.Data.Tests.csproj</c> for the identical reason, but that file belongs
-/// to whichever task owns this project's scaffolding, not this one. This class therefore re-derives
-/// only the minimal "is a DAT reachable" signal — an existence check, not a parse — entirely from
-/// files this task is allowed to read.
+/// plus, as of the widened grant that added <c>Xunit.SkippableFact</c>, one package reference in
+/// <c>IC2.Engine.Tests.csproj</c> — it does not extend to a <c>ProjectReference</c> on
+/// <c>IC2.Data</c>. T30 added that reference to <c>IC2.Data.Tests.csproj</c> for the identical
+/// reason, but that file belongs to whichever task owns this project's scaffolding, not this one.
+/// This class therefore re-derives only the minimal "is a DAT reachable" signal — an existence
+/// check, not a parse — entirely from files this task is allowed to read.
 /// </para>
 /// <para>
-/// <strong>This is also why these tests cannot report a true <c>Skipped</c> xunit result</strong>
-/// (T30's own <c>tests/IC2.Data.Tests/IC2.Data.Tests.csproj</c> comment explains why:
-/// <c>[Fact].Skip</c> only takes a compile-time constant, so a runtime decision needs
-/// <c>Xunit.SkippableFact</c>, a package reference this task's Owns list does not cover either).
-/// Every test that depends on this flag says so plainly in its own body instead — printing
-/// "original files not configured" and returning — rather than silently passing an empty assertion.
-/// Flagged in this task's PR body as a one-line follow-up
-/// (<c>&lt;PackageReference Include="Xunit.SkippableFact" Version="1.5.85" /&gt;</c> plus a
-/// <c>ProjectReference</c> to <c>IC2.Data</c>, mirroring T30's own) rather than made here.
+/// <c>Xunit.SkippableFact</c> (the package this task's widened Owns grant added) is what lets
+/// <see cref="ExportScriptReproducibilityTests"/> report a genuine xunit <c>Skipped</c> result via
+/// <c>Skip.IfNot(IsConfigured, SkipReason)</c>, the same call <c>IC2.Data.Tests</c> already makes
+/// against <c>LocalAssets.IsConfigured</c>/<c>LocalAssets.SkipReason</c> — mirrored here rather than
+/// reused, for the same "no <c>IC2.Data</c> reference" reason above.
 /// </para>
 /// </remarks>
 internal static class OriginalFilesAvailability
@@ -44,10 +40,10 @@ internal static class OriginalFilesAvailability
     /// <summary>The resolved path to the DAT, or <see langword="null"/> when nothing is configured.</summary>
     public static string? DatPath { get; } = TryResolveDatPath();
 
-    /// <summary>The message every dependent test prints and returns early with when not configured.</summary>
-    public const string NotConfiguredMessage =
+    /// <summary>The reason every dependent test passes to <c>Skip.IfNot</c> when not configured.</summary>
+    public const string SkipReason =
         "original files not configured: neither IC2_FIXTURES_DIR nor a usable repository-root "
-        + "assets.local.ini was found. This test's real assertions did not run.";
+        + "assets.local.ini was found.";
 
     private static string? TryResolveDatPath()
     {

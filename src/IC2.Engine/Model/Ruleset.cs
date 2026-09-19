@@ -83,31 +83,28 @@ public sealed record Ruleset(
     /// method is that check, made callable at load time.
     /// </para>
     /// <para>
-    /// <strong>This method's own Owns list is <c>src/IC2.Engine/Model/**</c> only</strong>
-    /// (<c>docs/task-catalogue.md</c> T29's Owns grant is deliberately narrow: "DoD 10's
-    /// <c>newsLog.seasonNames</c> validation only"). The natural call site for a cross-field check
-    /// like this is <c>IC2.Engine.Serialization.GameDataValidation.ValidateRuleset</c> — the same
-    /// class, and exactly the same pattern, as its neighbouring <c>ValidateCalendar</c> (which this
-    /// method's doc comment deliberately mirrors) — but that file is outside this task's Owns list,
-    /// and a property-level or type-level <see cref="System.Text.Json.Serialization.JsonConverterAttribute"/>
-    /// on <see cref="Ruleset"/> would make <c>JsonContract.For(typeof(Ruleset))</c> return
-    /// <see langword="null"/> (see <c>JsonContract.Build</c>'s own "opaque to the schema walk" remark),
-    /// silently disabling <c>SchemaValidator</c>'s missing/unknown-field checks for every other
-    /// <see cref="Ruleset"/> field — a regression this task will not trade for DoD 10. This method is
-    /// therefore staged, tested, and ready to be called from a one-line addition to
-    /// <c>GameDataValidation.ValidateRuleset</c>
-    /// (<c>ValidateNewsLog(documentPath, ruleset.NewsLog, ruleset.Calendar);</c>, catching this
-    /// method's <see cref="InvalidOperationException"/> and rethrowing it as a
-    /// <c>MalformedGameDataException(documentPath, ex.Message)</c> exactly as <c>ValidateCalendar</c>
-    /// already does for its own checks) — flagged to the main session as a change outside Owns rather
-    /// than made here.
+    /// This method lives in <c>Model</c> and knows nothing of a document path, deliberately: the
+    /// original Owns grant for this task reached only <c>src/IC2.Engine/Model/**</c>, and the natural
+    /// call site for a cross-field check like this — <c>GameDataValidation.ValidateRuleset</c>, beside
+    /// its neighbour <c>ValidateCalendar</c> — was out of reach. A property- or type-level
+    /// <see cref="System.Text.Json.Serialization.JsonConverterAttribute"/> on <see cref="Ruleset"/> was
+    /// considered and rejected as a way to wire this from inside <c>Model</c> alone: it would make
+    /// <c>JsonContract.For(typeof(Ruleset))</c> return <see langword="null"/> (see
+    /// <c>JsonContract.Build</c>'s own "opaque to the schema walk" remark), silently disabling
+    /// <c>SchemaValidator</c>'s missing/unknown-field checks for every other <see cref="Ruleset"/>
+    /// field — a regression judged worse than an incomplete DoD. The Owns list was widened by the user
+    /// to grant <c>GameDataValidation.cs</c> exactly the one call this needs
+    /// (<c>docs/task-catalogue.md</c> T29 DoD 10); <c>GameDataValidation.ValidateNewsLogSeasonNames</c>
+    /// is that call, wrapping this method's <see cref="InvalidOperationException"/> as a
+    /// <c>MalformedGameDataException</c> naming the document, exactly like <c>ValidateCalendar</c>
+    /// already does for its own checks — so a bad file now fails at load, not at the first round tick.
     /// </para>
     /// </remarks>
     /// <exception cref="InvalidOperationException">
     /// <see cref="NewsLogRules.SeasonNames"/>'s length does not equal
-    /// <see cref="CalendarRules.SeasonsPerYear"/>. The message names both counts; the caller (once
-    /// wired into the loader) is expected to add the document path, the same way every other
-    /// <c>GameDataValidation</c> check does.
+    /// <see cref="CalendarRules.SeasonsPerYear"/>. The message names both counts;
+    /// <c>GameDataValidation.ValidateNewsLogSeasonNames</c> adds the document path, the same way
+    /// every other <c>GameDataValidation</c> check does.
     /// </exception>
     public void ValidateSeasonNames()
     {

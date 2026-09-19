@@ -130,6 +130,7 @@ public static class GameDataValidation
     private static void ValidateRuleset(string documentPath, Ruleset ruleset)
     {
         ValidateCalendar(documentPath, ruleset.Calendar);
+        ValidateNewsLogSeasonNames(documentPath, ruleset);
         RequireDistinct(documentPath, ruleset.UnitTypes, u => u.Id, "unitTypes");
         RequireDistinct(documentPath, ruleset.Terrain.MoveCosts, m => m.TileTypeId, "terrain.moveCosts");
         RequireDistinct(documentPath, ruleset.CityOrders.Orders, o => o.Id, "cityOrders.orders");
@@ -158,6 +159,27 @@ public static class GameDataValidation
             {
                 throw new UnresolvedReferenceException(documentPath, "unit type", typeId);
             }
+        }
+    }
+
+    /// <summary>
+    /// DoD 10 (folded follow-up <see href="https://github.com/diegoami/imperial_conquest_2/issues/99">#99</see>):
+    /// a ruleset whose <c>newsLog.seasonNames</c> list does not have exactly one name per
+    /// <c>calendar.seasonsPerYear</c> season used to crash the first time the round-tick header
+    /// indexed it, rather than failing when the file was loaded. <see cref="Ruleset.ValidateSeasonNames"/>
+    /// (<c>src/IC2.Engine/Model/Ruleset.cs</c>) is the check itself; this wraps its
+    /// <see cref="InvalidOperationException"/> as a <see cref="MalformedGameDataException"/> naming
+    /// the document, exactly like every other check in this class.
+    /// </summary>
+    private static void ValidateNewsLogSeasonNames(string documentPath, Ruleset ruleset)
+    {
+        try
+        {
+            ruleset.ValidateSeasonNames();
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new MalformedGameDataException(documentPath, ex.Message, ex);
         }
     }
 

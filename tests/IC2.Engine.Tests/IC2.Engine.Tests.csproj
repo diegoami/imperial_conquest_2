@@ -6,6 +6,12 @@
     repo-root Directory.Build.props (conditioned on this project's name). Only a placeholder test
     lives here; each later task under src/IC2.Engine owns its own subfolder of
     tests/IC2.Engine.Tests, per that task's Owns list.
+
+    T29 adds Xunit.SkippableFact: its Done-when line 6 requires every local-only test to report an
+    explicit "Skipped" test-runner result (not a silent pass) when assets.local.ini is absent. xunit
+    2.9.2's plain [Fact] only supports a compile-time Skip string, not a runtime decision, so this
+    is the same package T30 added to tests/IC2.Data.Tests/IC2.Data.Tests.csproj for the identical
+    reason (see that file's own comment) — not a second, independent choice.
   -->
 
   <PropertyGroup>
@@ -16,6 +22,7 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageReference Include="Xunit.SkippableFact" Version="1.5.85" />
   </ItemGroup>
 
   <ItemGroup>

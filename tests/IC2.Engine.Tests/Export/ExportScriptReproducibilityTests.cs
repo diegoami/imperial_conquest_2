@@ -12,23 +12,18 @@ namespace IC2.Engine.Tests.Export;
 /// process to exit 0); re-running produces byte-identical output to what is already committed.
 /// </summary>
 /// <remarks>
-/// <see cref="OriginalFilesAvailability"/>'s own remarks explain why this cannot report a genuine
-/// xunit <c>Skipped</c> result: that needs <c>Xunit.SkippableFact</c>, a package this task's Owns
-/// list does not cover adding to <c>IC2.Engine.Tests.csproj</c>. When the original files are not
-/// configured, every test here prints <see cref="OriginalFilesAvailability.NotConfiguredMessage"/>
-/// and returns, exactly as <c>docs/task-catalogue.md</c>'s "Finishing" section says this worktree's
-/// own run of this test suite will do.
+/// Uses <c>Xunit.SkippableFact</c> (the package this task's widened Owns grant added to
+/// <c>IC2.Engine.Tests.csproj</c>, mirroring <c>IC2.Data.Tests.csproj</c>'s own reference for the
+/// identical reason): when the original files are not configured, <c>Skip.IfNot</c> reports a
+/// genuine xunit <c>Skipped</c> result, naming <see cref="OriginalFilesAvailability.SkipReason"/>,
+/// rather than a <c>Passed</c> that merely prints a message.
 /// </remarks>
 public class ExportScriptReproducibilityTests
 {
-    [Fact]
+    [SkippableFact]
     public void Rerunning_the_export_reproduces_the_committed_files_byte_for_byte()
     {
-        if (!OriginalFilesAvailability.IsConfigured)
-        {
-            Console.WriteLine(OriginalFilesAvailability.NotConfiguredMessage);
-            return;
-        }
+        Skip.IfNot(OriginalFilesAvailability.IsConfigured, OriginalFilesAvailability.SkipReason);
 
         var beforeWorld = Sha256(ExportedDataPaths.WorldFile);
         var beforeRuleset = Sha256(ExportedDataPaths.RulesetFile);
