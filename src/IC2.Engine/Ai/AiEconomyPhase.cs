@@ -111,12 +111,21 @@ public static class AiEconomyPhase
             return;
         }
 
-        var score = AiWeights.RecruitBaseScore
+        // Ambition scales with expansionDrive; necessity does not. Recruiting because a hostile army is
+        // standing next to the city is not an expansionist act, and an unambitious nation still defends
+        // itself -- so the threat bonus is added AFTER the multiplication, not before it.
+        //
+        // Review round 1, F1: it used to be inside, which made the multiplication zero the whole score
+        // at expansionDrive = 0 and produce no recruitment candidate at all, threatened or not. The code
+        // was the defect and the comment above it was right, on two independent grounds. The first is
+        // what the parameter means: docs/game-design.md §AI names expansionDrive as what scales the
+        // "affordability threshold", not as a veto on the phase. The second is decisive and internal --
+        // AiWeights.TreasuryCommitFloorPermille deliberately grants an expansionDrive = 0 nation ten per
+        // cent of its treasury to commit each turn, and the old shape guaranteed it could never spend a
+        // talent of it. One of those two had to be wrong, and the budget floor is the one with a stated
+        // reason. Pinned at both ends of the range by AiEconomyPhaseTests.
+        var score = (AiWeights.RecruitBaseScore * personality.ExpansionDrivePermille / AiWeights.PermilleScale)
                     + (threatened ? AiWeights.ThreatenedCityBonus : 0);
-
-        // Scaled by expansionDrive: building is what the parameter is named for, so a nation with none
-        // still recruits when threatened but never out of ambition.
-        score = score * personality.ExpansionDrivePermille / AiWeights.PermilleScale;
         if (score < AiWeights.MinimumActionScore)
         {
             return;

@@ -31,7 +31,7 @@ namespace IC2.Engine.Ai;
 /// <param name="NationId">The nation these parameters belong to.</param>
 /// <param name="AggressionPermille">
 /// <c>0..1000</c>. Sets how favourable a strength ratio an attack, siege or naval attack must show before
-/// the AI will place it — see <see cref="AiWeights.RequiredAttackRatioPermille"/>.
+/// the AI will place it — see <see cref="AiView.RequiredAttackRatioPermille"/>.
 /// </param>
 /// <param name="ExpansionDrivePermille">
 /// <c>0..1000</c>. Sets what share of the treasury the economy phase is willing to commit in one turn,

@@ -72,30 +72,30 @@ News:
 
 > end
 Northern League (north) ends its turn.
-Southern League (south) takes its turn: 1 orders issued.
+Southern League (south) takes its turn: 1 order issued.
   Weather: storm-damages-fleet (week 3).
   Weather: storm-damages-fleet (week 3).
 Now: Week 5, Spring 270 BC. Active seat: Northern League (north).
 
 > end
 Northern League (north) ends its turn.
-Southern League (south) takes its turn: 1 orders issued.
+Southern League (south) takes its turn: 1 order issued.
 Now: Week 7, Spring 270 BC. Active seat: Northern League (north).
 
 > end
 Northern League (north) ends its turn.
-Southern League (south) takes its turn: 1 orders issued.
+Southern League (south) takes its turn: 1 order issued.
 Now: Week 9, Spring 270 BC. Active seat: Northern League (north).
 
 > end
 Northern League (north) ends its turn.
-Southern League (south) takes its turn: 1 orders issued.
+Southern League (south) takes its turn: 1 order issued.
   Weather: storm-damages-fleet (week 9).
 Now: Week 11, Spring 270 BC. Active seat: Northern League (north).
 
 > end
 Northern League (north) ends its turn.
-Southern League (south) takes its turn: 1 orders issued.
+Southern League (south) takes its turn: 1 order issued.
 Now: Week 1, Summer 270 BC. Active seat: Northern League (north).
 
 > status

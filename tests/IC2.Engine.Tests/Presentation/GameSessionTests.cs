@@ -147,17 +147,37 @@ public sealed class GameSessionTests
             transcripts.Add(RunTranscript(NewSession(seed), scriptLines));
         }
 
-        AssertVaries(transcripts, WeatherLinePattern, "a Weather: line");
-        AssertVaries(transcripts, LoyaltyFieldPattern, "a city's loyalty");
-        AssertVaries(transcripts, ArmyTroopCountPattern, "a surviving army's troop count");
-        AssertVaries(transcripts, UnitSupplyFieldPattern, "a surviving army's supply");
-        AssertVaries(transcripts, TreasuryFieldPattern, "a nation's treasury");
+        // Over the played part of the transcript only -- the same slice WithoutRandomDrivenText blanks
+        // in, so the control and the normalizer cannot disagree about what is covered.
+        var played = new List<string>();
+        foreach (var transcript in transcripts)
+        {
+            played.Add(AfterTheFirstTurn(transcript));
+        }
+
+        AssertVaries(played, WeatherLinePattern, "a Weather: line");
+        AssertVaries(played, LoyaltyFieldPattern, "a city's loyalty");
+        AssertVaries(played, ArmyTroopCountPattern, "a surviving army's troop count");
+        AssertVaries(played, UnitSupplyFieldPattern, "a surviving army's supply");
+        AssertVaries(played, TreasuryFieldPattern, "the Southern League's treasury");
     }
 
-    /// <summary>Fails unless <paramref name="pattern"/> matches something, and something different, across the runs.</summary>
+    /// <summary>
+    /// Fails unless <paramref name="pattern"/> matches something, and unless <strong>every one of its
+    /// occurrences</strong> takes more than one value across the runs.
+    /// </summary>
+    /// <remarks>
+    /// Review round 1, F3: this used to join a run's matches into one string and compare those, which
+    /// proved only "<em>at least one</em> occurrence varies" — one granularity looser than the claim it
+    /// is here to defend. A pattern covering six treasury figures of which two varied would have passed
+    /// while blanking four that are invariant, which is the quiet widening
+    /// <c>docs/build-process.md</c> §2.3 forbids. Comparing per occurrence index closes that: an
+    /// occurrence present in some runs and absent in others counts as varying, which is how the weather
+    /// lines (whose count itself changes with the seed) are handled without a special case.
+    /// </remarks>
     private static void AssertVaries(List<string> transcripts, Regex pattern, string what)
     {
-        var seen = new List<string>();
+        var perRun = new List<string[]>();
         foreach (var transcript in transcripts)
         {
             var matches = new List<string>();
@@ -166,16 +186,35 @@ public sealed class GameSessionTests
                 matches.Add(match.Value);
             }
 
-            Assert.True(matches.Count > 0, $"{what} never appears in the transcript at all");
-
-            var joined = string.Join("|", matches);
-            if (!seen.Contains(joined))
-            {
-                seen.Add(joined);
-            }
+            perRun.Add(matches.ToArray());
         }
 
-        Assert.True(seen.Count > 1, $"{what} is blanked by this test but never varies with the seed");
+        var occurrences = 0;
+        foreach (var matches in perRun)
+        {
+            occurrences = Math.Max(occurrences, matches.Length);
+        }
+
+        Assert.True(occurrences > 0, $"{what} never appears in the transcript at all");
+
+        for (var i = 0; i < occurrences; i++)
+        {
+            var distinct = new List<string>();
+            foreach (var matches in perRun)
+            {
+                var value = i < matches.Length ? matches[i] : "<absent>";
+                if (!distinct.Contains(value))
+                {
+                    distinct.Add(value);
+                }
+            }
+
+            Assert.True(
+                distinct.Count > 1,
+                $"{what}: occurrence {i + 1} of {occurrences} is blanked by this test but never varies "
+                + $"with the seed (it reads \"{distinct[0]}\" in all {perRun.Count} runs). Either narrow "
+                + "the pattern so it stops blanking an invariant field, or say which draw reaches it.");
+        }
     }
 
     /// <summary>A whole weather line, for the varies-with-the-seed control.</summary>
@@ -203,26 +242,66 @@ public sealed class GameSessionTests
         new(@"supply \d+t \(\d+%\)", RegexOptions.Compiled);
 
     /// <summary>
-    /// A nation's "treasury NNNN" -- also arithmetic on the troop count, through per-troop quarterly army
-    /// upkeep. Signed, because an AI nation in this script ends the run in debt.
+    /// The <em>Southern League's</em> "treasury NNNN", and only its own: arithmetic on the surviving
+    /// troop count, through per-troop quarterly army upkeep. Signed, because that nation ends this script
+    /// in debt.
     /// </summary>
-    private static readonly Regex TreasuryFieldPattern = new(@"treasury -?\d+", RegexOptions.Compiled);
+    /// <remarks>
+    /// Review round 1, F3: this used to match every nation's treasury, six occurrences of which only the
+    /// Southern League's two vary — the Northern League's reads 471 at every seed, because the battle
+    /// destroys its army and an army it no longer has cannot bill it a varying upkeep. Blanking four
+    /// invariant figures to reach two varying ones is a wider hole than the claim needs, so the lookbehind
+    /// keeps the Northern League's treasury asserted exactly. <see cref="AssertVaries"/> now checks each
+    /// occurrence separately, so this narrowing is enforced rather than merely intended.
+    /// </remarks>
+    private static readonly Regex TreasuryFieldPattern =
+        new(@"(?<=\(south, \w+\): )treasury -?\d+", RegexOptions.Compiled);
 
     /// <summary>
-    /// Drops the weather lines entirely (every character of one is random-driven, and a fired event also
-    /// shifts every later line), then blanks, in every remaining line, exactly the four fields the three
-    /// named draws reach -- and nothing else. Every other character of every other line still has to match
-    /// byte for byte.
+    /// The echoed command that marks the first turn being played. Everything before it is output from a
+    /// state no draw has touched yet.
     /// </summary>
-    private static string WithoutRandomDrivenText(string transcript) =>
-        string.Join(
+    private const string FirstTurnMarker = "> end";
+
+    /// <summary>
+    /// The part of a transcript from the first played turn onwards — the only part any of the three
+    /// random consumers can have reached.
+    /// </summary>
+    /// <remarks>
+    /// Review round 1, F3 (second half). Tightening <see cref="AssertVaries"/> to per-occurrence
+    /// granularity immediately caught a second over-blank: the transcript's opening <c>status</c> prints
+    /// each city's loyalty <em>before any turn has been played</em>, so those values are identical at
+    /// every seed by construction — no quarterly draw has happened yet. Blanking them hid three lines of
+    /// starting state that ought to be pinned exactly. Splitting here keeps the whole pre-turn section —
+    /// the opening <c>status</c>, the <c>map</c>, and the move results — asserted byte for byte.
+    /// </remarks>
+    private static string AfterTheFirstTurn(string transcript)
+    {
+        var index = transcript.IndexOf(FirstTurnMarker, StringComparison.Ordinal);
+        return index < 0 ? transcript : transcript[index..];
+    }
+
+    /// <summary>
+    /// Leaves everything before the first played turn untouched, then, in the rest, drops the weather
+    /// lines entirely (every character of one is random-driven, and a fired event also shifts every later
+    /// line) and blanks exactly the four fields the three named draws reach — and nothing else. Every
+    /// other character of every other line still has to match byte for byte.
+    /// </summary>
+    private static string WithoutRandomDrivenText(string transcript)
+    {
+        var index = transcript.IndexOf(FirstTurnMarker, StringComparison.Ordinal);
+        var head = index < 0 ? string.Empty : transcript[..index];
+        var tail = index < 0 ? transcript : transcript[index..];
+
+        return head + string.Join(
             '\n',
-            transcript.Split('\n')
+            tail.Split('\n')
                 .Where(line => !line.TrimStart().StartsWith("Weather:", StringComparison.Ordinal))
                 .Select(line => LoyaltyFieldPattern.Replace(line, "loyalty ##"))
                 .Select(line => ArmyTroopCountPattern.Replace(line, "####"))
                 .Select(line => UnitSupplyFieldPattern.Replace(line, "supply ##t (##%)"))
                 .Select(line => TreasuryFieldPattern.Replace(line, "treasury ####")));
+    }
 
     /// <summary>
     /// Review round 1: "make sure no other session command can throw on bad input: unknown army or
