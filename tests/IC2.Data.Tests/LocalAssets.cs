@@ -12,10 +12,11 @@ namespace IC2.Data.Tests;
 /// <para>Two independent sources, checked in this order (T53, issue #204):</para>
 /// <list type="number">
 /// <item><description><c>IC2_FIXTURES_DIR</c> — set by CI's fixtures-fetch step (a clone of the
-/// private <c>ic2-test-fixtures</c> repository: the DAT plus the twelve named saves, flat under
-/// <c>saves/</c>, matching the layout <see cref="AssetSettings"/> already expects). When set, this
-/// wins outright — a developer who sets it locally to point at a trimmed fixture set gets exactly
-/// that, not a silent fall-back to their own <c>assets.local.ini</c>.</description></item>
+/// private <c>ic2-test-fixtures</c> repository: the DAT plus the whole 54-save corpus, not a named
+/// subset — see that repo's own README and issue #207 — flat under <c>saves/</c>, matching the layout
+/// <see cref="AssetSettings"/> already expects). When set, this wins outright — a developer who sets it
+/// locally to point at a trimmed fixture set gets exactly that, not a silent fall-back to their own
+/// <c>assets.local.ini</c>.</description></item>
 /// <item><description>The repository-root <c>assets.local.ini</c> — the developer's own full
 /// installation, git-ignored, present only in the main checkout.</description></item>
 /// </list>
@@ -23,6 +24,12 @@ namespace IC2.Data.Tests;
 /// so every existing call site (<c>settings.DatPath</c>, <c>settings.ResolveSavePath(...)</c>) keeps
 /// working unchanged, and <see cref="FixtureResolver"/> layers name-based, folder-independent lookup
 /// on top of the same <see cref="AssetSettings"/> for the tests that used to hardcode a folder.</para>
+/// <para><b>"Requested but unusable" is not the same as "nothing configured"</b> (T53 review round 1,
+/// finding B1). A source can be *present* — the env var set, or the ini file existing — and still fail
+/// to load (a bad directory, a missing DAT, a malformed ini): that is exactly <see cref="IsConfigured"/>
+/// <c>== false</c>, indistinguishable from "nothing configured at all" by that flag alone. Callers that
+/// need to tell the two apart (<see cref="FixtureResolutionTests"/>'s non-skippable check, specifically)
+/// use <see cref="WasRequested"/> alongside <see cref="IsConfigured"/>.</para>
 /// <para>Mirrors <see cref="IC2.Engine.Tests.Model.TestPaths"/> / <c>FixturePaths</c>'s own approach: walk
 /// up from the test assembly's location to <c>IC2.sln</c>, rather than adding a copy-to-output item
 /// group for a file this task does not own (the repo root is outside every Owns list).</para>
@@ -43,20 +50,32 @@ internal static class LocalAssets
     /// to a usable asset directory (one that actually contains the DAT).</summary>
     public static bool IsConfigured { get; }
 
-    /// <summary>True when <see cref="IsConfigured"/> came from <c>IC2_FIXTURES_DIR</c> (CI's narrow,
-    /// twelve-fixture clone) rather than a developer's own full <c>assets.local.ini</c> installation.
-    /// <see cref="FixtureResolutionTests"/> and diagnostic messages use this to say which source is in
+    /// <summary>True when <see cref="IsConfigured"/> came from <c>IC2_FIXTURES_DIR</c> (CI's fixtures
+    /// clone) rather than a developer's own full <c>assets.local.ini</c> installation. Also true when
+    /// <c>IC2_FIXTURES_DIR</c> was set but did not load (see <see cref="WasRequested"/>) — this flag
+    /// says which SOURCE is in play, not whether it succeeded.
+    /// <see cref="FixtureResolutionTests"/> and diagnostic messages use it to say which source is in
     /// play; it does not change how any other test behaves.</summary>
     public static bool IsCiFixtureMode { get; }
+
+    /// <summary>True when a source was actively present — <c>IC2_FIXTURES_DIR</c> set (to any
+    /// non-blank value), or the repo-root <c>assets.local.ini</c> existing on disk — regardless of
+    /// whether it went on to load successfully. <see cref="IsConfigured"/> alone cannot tell "nothing
+    /// configured at all" apart from "a source was configured but is unusable" (T53 review round 1,
+    /// finding B1): both are <c>false</c>. A caller that must fail loudly on the latter — rather than
+    /// silently taking the same quiet path as an untouched machine — checks
+    /// <c>WasRequested &amp;&amp; !IsConfigured</c>.</summary>
+    public static bool WasRequested { get; }
 
     /// <summary>The loaded settings when <see cref="IsConfigured"/> is true; otherwise null.</summary>
     public static AssetSettings? Settings { get; }
 
     /// <summary>The reason string every test in this project passes to <c>Skip.IfNot</c>. Distinguishes
-    /// (T53 Done-when line 3) "nothing configured" (neither source above is present at all) from
-    /// "configured but incomplete" (a source is present but could not be loaded — a missing directory,
-    /// a missing DAT, or a malformed ini) — today both produced the identical generic message, which is
-    /// how a moved or absent fixture looked identical to a machine nobody had set up.</summary>
+    /// (T53 Done-when line 3) "nothing configured" (neither source above is present at all,
+    /// <see cref="WasRequested"/> <c>== false</c>) from "configured but incomplete" (a source is present
+    /// but could not be loaded — a missing directory, a missing DAT, or a malformed ini,
+    /// <see cref="WasRequested"/> <c>== true</c>) — today both produced the identical generic message,
+    /// which is how a moved or absent fixture looked identical to a machine nobody had set up.</summary>
     public static string SkipReason { get; }
 
     static LocalAssets()
@@ -65,12 +84,14 @@ internal static class LocalAssets
         if (!string.IsNullOrWhiteSpace(fixturesDir))
         {
             IsCiFixtureMode = true;
+            WasRequested = true;
             (Settings, IsConfigured, SkipReason) = TryLoadFixturesDir(fixturesDir);
             return;
         }
 
         IsCiFixtureMode = false;
         var configFileExists = File.Exists(ConfigPath);
+        WasRequested = configFileExists;
         (Settings, IsConfigured) = TryLoad(ConfigPath);
         SkipReason = IsConfigured
             ? "" // never read: no test calls Skip.IfNot(true, ...) down this path

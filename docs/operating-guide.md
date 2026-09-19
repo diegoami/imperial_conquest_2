@@ -60,14 +60,23 @@ Inside that directory:
 | `notes/` | The user's session notes: a save pair, an optional recording, and the events observed between them |
 | (root) | See below |
 
-**`IC2.Data.Tests` resolves every fixture it reads by name, never by folder** (T53, issue #204): a save
-cited as `1_rome_270_winter_7.sav` is found by searching `saves-processed/`, then `saves/`, then
-`releases/<tag>/` under the configured directory, first hit wins — so moving a save into
+**Every `IC2.Data.Tests` test that names a fixture resolves it by name, never by folder** (T53, issue
+#204): a save cited as `1_rome_270_winter_7.sav` is found by searching `saves-processed/`, then
+`saves/`, then `releases/<tag>/` under the configured directory, first hit wins — so moving a save into
 `saves-processed/` once a report cites it, exactly the convention above, changes no test outcome. CI
 never touches this directory; it sets `IC2_FIXTURES_DIR` to a fetched clone of the private
-[`diegoami/ic2-test-fixtures`](https://github.com/diegoami/ic2-test-fixtures) repository (the DAT and
-the twelve named saves the tests read, 1.7 MB), which the same by-name resolver checks first when it is
-set. Nothing downstream — a test, a review, or CI — cares which folder a fixture currently sits in.
+[`diegoami/ic2-test-fixtures`](https://github.com/diegoami/ic2-test-fixtures) repository, which the same
+by-name resolver checks first when it is set.
+
+**That repository holds the whole corpus, not a named subset** (issue #207, correcting T53's own first
+attempt at this paragraph): it was originally scoped to just the saves referenced by name as string
+literals, which missed that `CorpusSweepTests` and its siblings sweep **whatever corpus is configured**
+against the full `CorpusFixtures/expected-corpus-outcomes.json` table — reading by directory, not by
+name. A named-subset fixtures repository silently loses that coverage in CI the moment a test reads by
+directory instead of by name, the same shape as the defect T53 exists to fix. The repository is now the
+DAT plus all 54 saves the committed corpus table enumerates (7 MB) — see its own README for the same
+reasoning. Nothing downstream — a test, a review, or CI — cares which folder a fixture currently sits
+in, and nothing in CI has to guess which subset of the corpus a test will read by directory next.
 
 **The evidence is also published as GitHub releases, one per play-through**, in that same private repository — [`run-1-rome`, `run-1-cartago`, `run-1-thracia` and `legacy-probes`](https://github.com/diegoami/imp_conquest_original/releases). Each release holds that run's saves, screenshots, observation notes and any recording a note ties to a save pair.
 

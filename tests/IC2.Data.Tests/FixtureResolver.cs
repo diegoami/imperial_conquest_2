@@ -17,8 +17,9 @@ namespace IC2.Data.Tests;
 /// disposable per-run release cache (operating-guide.md §1.2), searched last because it is the
 /// slowest and least authoritative copy, and only when the first two folders don't have it.</description></item>
 /// </list>
-/// <para><c>LocalAssets</c> already resolves <c>IC2_FIXTURES_DIR</c> (CI's fetch of the twelve-fixture
-/// <c>ic2-test-fixtures</c> clone) ahead of a developer's own <c>assets.local.ini</c> and points
+/// <para><c>LocalAssets</c> already resolves <c>IC2_FIXTURES_DIR</c> (CI's fetch of the
+/// <c>ic2-test-fixtures</c> clone — the DAT plus the whole 54-save corpus, not a named subset; see
+/// that repo's own README and issue #207) ahead of a developer's own <c>assets.local.ini</c> and points
 /// <see cref="LocalAssets.Settings"/>'s directory at whichever one is configured — so "the CI fixtures
 /// directory when set" is exactly step 1/2 above running against that directory: the fixtures repo's
 /// own layout has no <c>saves-processed/</c> (so that check is a harmless miss) and everything sits
@@ -44,10 +45,14 @@ internal static class FixtureResolver
         var hit = tried.FirstOrDefault(File.Exists);
         if (hit is not null) return hit;
 
+        // tried.Count == 0 (nothing configured) is unreachable through every current call site — each
+        // one sits behind Skip.IfNot(LocalAssets.IsConfigured, ...) — but this is a small, reusable
+        // resolver, not a test method, so it stays defensive against a future caller that resolves a
+        // fixture without checking IsConfigured first, rather than assuming today's callers forever.
         throw new FileNotFoundException(
             $"Fixture '{fileName}' was not found. Searched, in order: " +
             (tried.Count == 0 ? "(nothing — no asset directory is configured)" : string.Join(" | ", tried)) +
-            $". {LocalAssets.SkipReason}");
+            (string.IsNullOrEmpty(LocalAssets.SkipReason) ? "." : $" ({LocalAssets.SkipReason})."));
     }
 
     private static IEnumerable<string> Candidates(string fileName)
@@ -82,7 +87,14 @@ internal static class FixtureResolver
             string? hit;
             try
             {
-                hit = Directory.EnumerateFiles(tagDir, fileName, SearchOption.AllDirectories).FirstOrDefault();
+                // Ordered explicitly: Directory.EnumerateFiles' own order is filesystem-dependent, and
+                // a release cache is the one search location where the same name could genuinely
+                // appear more than once (screenshots/notes get restructured more often than saves do)
+                // — picking a stable, sorted "first" keeps a re-run deterministic instead of picking
+                // whichever copy the OS happened to enumerate first.
+                hit = Directory.EnumerateFiles(tagDir, fileName, SearchOption.AllDirectories)
+                    .OrderBy(p => p, StringComparer.Ordinal)
+                    .FirstOrDefault();
             }
             catch (IOException)
             {

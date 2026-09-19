@@ -12,20 +12,28 @@ namespace IC2.Data.Tests;
 /// dependent tests ran at all.
 ///
 /// This is a plain <see cref="FactAttribute"/>, not a <c>[SkippableFact]</c> — it always runs:
-/// - nothing configured (worktree, unconfigured machine): PASSES, and states in the test output how
-///   many other tests are sitting skipped and why, so "N skipped" is never mistaken for benign.
-/// - anything configured (a developer's <c>assets.local.ini</c>, or CI's <c>IC2_FIXTURES_DIR</c>):
-///   every one of the twelve named fixtures this project resolves by name, plus the DAT, must resolve
-///   via <see cref="FixtureResolver"/> — a stale path or a fixture that quietly stopped existing on
-///   this machine fails here, loudly, naming every one it could not find, instead of vanishing back
-///   into "just another skip" the way issue #203's seven failures did.
+/// - nothing configured at all (worktree, untouched machine — <see cref="LocalAssets.WasRequested"/>
+///   <c>== false</c>): PASSES, and states in the test output how many other tests are sitting skipped
+///   and why, so "N skipped" is never mistaken for benign.
+/// - anything configured, OR configured but unusable (<see cref="LocalAssets.IsConfigured"/>
+///   <c>== true</c>, or <see cref="LocalAssets.WasRequested"/> <c>== true</c> while
+///   <c>IsConfigured == false</c> — T53 review round 1, finding B1: those are not the same as "nothing
+///   configured" and must not take the quiet path above): every one of the twelve named fixtures this
+///   project resolves by name, plus the DAT, must resolve via <see cref="FixtureResolver"/> — a stale
+///   path, a fixture that quietly stopped existing, or a fixtures source that is present but broken
+///   (wrong layout, missing DAT, bad directory) fails here, loudly, naming every fixture it could not
+///   find, instead of vanishing back into "just another skip" the way issue #203's seven failures did.
 /// </summary>
 public class FixtureResolutionTests
 {
-    /// <summary>The twelve named saves this project resolves by name (ic2-test-fixtures' own README:
-    /// "the twelve save files IC2.Data.Tests reads") — every literal <c>.sav</c> name referenced
-    /// anywhere in this project outside the corpus-sweep family, which sweeps whatever corpus happens
-    /// to be configured rather than naming files up front.</summary>
+    /// <summary>The twelve saves this project's non-sweep, real-data tests reference by literal name
+    /// (every <c>.sav</c> name hardcoded anywhere outside the corpus-sweep family, which reads whatever
+    /// corpus is configured by directory rather than naming files up front — see
+    /// <c>CorpusFixtures/CorpusSweepTests</c>). This list is deliberately narrower than what
+    /// <c>ic2-test-fixtures</c> itself now ships: that repository holds the WHOLE corpus (issue #207),
+    /// not just these twelve, because the sweep family needs the rest. Keeping this list at exactly
+    /// twelve is correct — it is what "the twelve named fixtures" in Done-when line 2 refers to — but
+    /// nothing here should be read as a claim about the repository's own contents.</summary>
     public static readonly IReadOnlyList<string> NamedFixtures = new[]
     {
         "11.sav",
@@ -49,16 +57,34 @@ public class FixtureResolutionTests
     [Fact]
     public void All_twelve_named_fixtures_and_the_dat_resolve_or_this_fails_loudly_naming_every_miss()
     {
-        if (!LocalAssets.IsConfigured)
+        // N4: runs unconditionally, before either branch below, so replacing NamedFixtures with an
+        // empty (or otherwise wrong-sized) list can never leave this check vacuously green — the one
+        // check in the project whose entire point is that it cannot be emptied without anything
+        // noticing.
+        Assert.Equal(12, NamedFixtures.Count);
+
+        // B1 (T53 review round 1): LocalAssets.IsConfigured alone cannot distinguish "nothing
+        // configured at all" from "a source was configured but is unusable" — both read false. Only
+        // WasRequested tells them apart. Taking the quiet path below on the latter is exactly issue
+        // #203's shape one level up: a fixtures source that is present but broken must not look like an
+        // untouched machine.
+        if (!LocalAssets.IsConfigured && !LocalAssets.WasRequested)
         {
             var skippableMethodCount = CountSkippableTestMethods();
-            _output.WriteLine(
+            var message =
                 $"Not configured for asset-dependent tests: {LocalAssets.SkipReason} " +
                 $"— {skippableMethodCount} [SkippableFact]/[SkippableTheory] test methods in this " +
                 "project (some expanding into several per-case results, e.g. the corpus sweep) are " +
                 "reporting Skipped, not run. This is expected here and is not a passing result for " +
                 "any of them: configure assets.local.ini locally, or set IC2_FIXTURES_DIR, to actually " +
-                "exercise them.");
+                "exercise them.";
+            _output.WriteLine(message);
+            // N3: ITestOutputHelper's own capture is only surfaced by `dotnet test` at detailed
+            // verbosity, so CI's default `dotnet test IC2.sln --no-build --configuration Release` would
+            // otherwise never show this. Console output is captured the same run regardless of logger
+            // verbosity, so the plain-statement requirement (Done-when line 2) is actually visible where
+            // it matters — in a CI log, not only in a local `--logger console;verbosity=detailed` run.
+            Console.WriteLine(message);
             return;
         }
 
@@ -66,11 +92,16 @@ public class FixtureResolutionTests
         var missing = checkedNames.Where(name => FixtureResolver.TryResolve(name) is null).ToList();
 
         var source = LocalAssets.IsCiFixtureMode ? "IC2_FIXTURES_DIR" : "assets.local.ini";
+        // N9: names the actual configured root (or, when the source is present but never loaded to a
+        // directory at all, the reason why) rather than only describing which kinds of folders were
+        // tried — a developer or a CI log reader debugging a failure here needs the real path.
+        var root = LocalAssets.Settings?.DirectoryPath ?? $"(none — {LocalAssets.SkipReason})";
         Assert.True(missing.Count == 0,
-            $"Configured via {source}, but {missing.Count} of {checkedNames.Count} fixtures could not " +
-            $"be resolved (searched saves-processed/, saves/ and releases/*/ under the configured " +
-            $"directory, by name): {string.Join(", ", missing)}. A stale path or a fixture that moved " +
-            "or vanished must fail here, not silently subtract tests from the run.");
+            $"Configured via {source} (root: {root}), but {missing.Count} of {checkedNames.Count} " +
+            "fixtures could not be resolved (searched saves-processed/, saves/ and releases/*/ under " +
+            $"that root, by name): {string.Join(", ", missing)}. A stale path, a fixture that moved or " +
+            "vanished, or a fixtures source that is present but unusable must fail here, not silently " +
+            "subtract tests from the run.");
     }
 
     /// <summary>Counts test METHODS decorated <c>[SkippableFact]</c>/<c>[SkippableTheory]</c> in this

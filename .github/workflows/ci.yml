@@ -32,23 +32,31 @@ jobs:
       - name: Build
         run: dotnet build IC2.sln --no-restore --configuration Release
 
-      # T53 (issue #204): the private diegoami/ic2-test-fixtures repo holds the DAT and the twelve
-      # named saves IC2.Data.Tests resolves by name (1.7 MB) - FIXTURES_TOKEN is a repository secret,
-      # read-only and scoped to that one repository alone. A fork PR receives no repository secrets
-      # (GitHub's own protection - FIXTURES_TOKEN would be empty), so this step is guarded to skip
-      # there rather than fail: the suite still runs and still passes, it just skips the
-      # asset-dependent tests exactly as an unconfigured machine does today, and
-      # FixtureResolutionTests (Done-when line 2) says so plainly rather than letting that vanish as
-      # an unexplained skip. A workflow that fails on every outside contribution would be worse than
-      # one that skips (Done-when line 5).
+      # T53 (issue #204, corrected by #207): the private diegoami/ic2-test-fixtures repo holds the DAT
+      # and the whole 54-save corpus IC2.Data.Tests reads (7 MB) - not a named subset; see that repo's
+      # own README for why. FIXTURES_TOKEN is a repository secret, read-only and scoped to that one
+      # repository alone. A fork PR receives no repository secrets (GitHub's own protection -
+      # FIXTURES_TOKEN would be empty), so this step is guarded to skip there rather than fail: the
+      # suite still runs and still passes, it just skips the asset-dependent tests exactly as an
+      # unconfigured machine does today, and FixtureResolutionTests (Done-when line 2) says so plainly
+      # rather than letting that vanish as an unexplained skip. A workflow that fails on every outside
+      # contribution would be worse than one that skips (Done-when line 5).
       #
       # The token is never echoed (Done-when line 6): it is passed only as a one-shot HTTP
       # Authorization header via `-c http.extraheader`, scoped to this single `git clone` invocation,
       # and never embedded in the clone URL. A URL-embedded credential is exactly what would otherwise
       # risk appearing in git's own diagnostic output (e.g. `git remote -v`, a redirect, or a failed
       # clone's own error naming the remote) - the header form does not get echoed by git on success
-      # or failure, and the value is also a registered GitHub Actions secret, so the runner masks it
-      # in the log a second time if it were ever printed regardless.
+      # or failure. It is ALSO explicitly masked with ::add-mask:: below: Actions only auto-masks the
+      # exact registered secret value, not a transformation of it (here, its base64 encoding) - a
+      # failed clone was confirmed to print only "remote: Invalid username or token" and a bare URL,
+      # never the header, but the explicit mask covers the base64 form too rather than relying on that.
+      #
+      # After the clone, `test -f` asserts the DAT actually landed - independent, workflow-side belt
+      # and braces alongside FixtureResolutionTests' own non-skippable check: a fixtures repo that
+      # clones successfully into a directory the resolver still can't use (a layout change, an empty
+      # or partial clone) fails loudly here instead of silently downgrading CI to the unconfigured
+      # 36-passed/90-skipped shape - exactly the failure mode issue #203 was about.
       - name: Fetch test fixtures
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false
         env:
@@ -57,8 +65,10 @@ jobs:
           set -eu
           dir="${RUNNER_TEMP}/ic2-test-fixtures"
           auth="$(printf 'x-access-token:%s' "$FIXTURES_TOKEN" | base64 -w0)"
+          echo "::add-mask::${auth}"
           git -c http.extraheader="AUTHORIZATION: basic ${auth}" \
             clone --depth 1 https://github.com/diegoami/ic2-test-fixtures.git "$dir"
+          test -f "$dir/Imperial Conquest 2.dat"
           echo "IC2_FIXTURES_DIR=$dir" >> "$GITHUB_ENV"
 
       - name: Test
