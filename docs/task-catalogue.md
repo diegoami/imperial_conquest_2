@@ -4,7 +4,7 @@ Every build task's scope, **Owns** list, Definition of Done, model/effort, revie
 
 **Status is not in this document.** Each task's stage (ready, in progress, merged, blocked, escalated) lives only in its GitHub issue's `status:*` label ([build-process.md §5](build-process.md#5-status-lives-on-github)). The index below links every issue.
 
-53 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), twelve corrections to already-merged code (T31–T35, T38–T40, T42–T45), one rule no task owned (T37, the weekly city supply step), and two early slices — T41 of T23's CLI, and T47 of T24's Godot UI.
+54 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), twelve corrections to already-merged code (T31–T35, T38–T40, T42–T45), one rule no task owned (T37, the weekly city supply step), and two early slices — T41 of T23's CLI, and T47 of T24's Godot UI.
 
 ---
 
@@ -1131,8 +1131,8 @@ Conventions used by every entry:
 
 - **Design milestone**: **M12**. **Labels**: `phase:2 lane:engine`
 - **Branch**: `task/T22-ai` · **Model/effort**: **Opus / Ultrahigh** · **Reviewer**: Opus / High **+ `/code-review --effort ultra`, run by the user personally** ([build-process.md §3.5](build-process.md#35-where-the-code-review-skill-fits): a pass launched from inside the pipeline isn't independent)
-- **Start after**: T19 · **Merge after**: T12, T15, T17, T18, T19, **T39**, **T43**
-- **Owns**: `src/IC2.Engine/Ai/**`, `tests/IC2.Engine.Tests/Ai/**`
+- **Start after**: **T54** · **Merge after**: T12, T15, T17, T18, T19, **T39**, **T43**, **T54**
+- **Owns**: `src/IC2.Engine/Ai/**`, `tests/IC2.Engine.Tests/Ai/**`, `src/IC2.Engine/Model/Ruleset.cs` (**DoD 5's one additive `EconomyRules.AutoResupplyRadiusTiles` field only**) and `data/rulesets/toy-ruleset.json` (**its matching `economy` key and `_provenance` entry only**)
 - **Scope**: The heuristic four-phase AI from `game-design.md` §AI — economy, military, diplomacy, victory-awareness — scored per candidate action, no lookahead, tuned by per-nation personality parameters in scenario data.
 - **Done when**:
   1. **50 fixed seeds**, each running an all-AI toy scenario to a victory condition **or a stated turn cap**, with zero exceptions, zero rejected commands, and zero stalls (a turn that issues no command and changes no state twice in a row counts as a stall and fails).
@@ -1141,6 +1141,8 @@ Conventions used by every entry:
   3. Personality parameters demonstrably change behaviour: an `aggression: 0.9` nation attacks in a scripted state where an `aggression: 0.1` nation does not.
   4. Per-seed logs are written as a test artifact so a failing seed is reproducible from its number alone.
   5. **The AI resupply pass** ([`supply-capacity-rounding.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/supply-capacity-rounding.md)): every AI turn, each AI army calls T38's automatic resupply against every non-hostile city within **4** tiles (`FUN_0044F31C` → `FUN_0044E41C`), and each AI fleet calls the fleet version. The pass never re-implements the caps. One scripted-state test covers each.
+      **The radius is ruleset data, not a literal.** There is no auto-resupply radius field in `EconomyRules` — the nearest is `ThreatenedCityAdjacencyRadius = 1` — so this task's Owns list grants **one additive `AutoResupplyRadiusTiles = 4`** and its `toy-ruleset.json` key, with a `_provenance` citation to the report above. **Settled by the user on 2026-09-19.** Note that `BuySupplyCommandHandler.cs:101` and its fleet twin hardcode their own radius as a bare literal — that is **precedent for a defect**, not a pattern to copy, and is filed separately.
+      Use `LandingTile.ChebyshevDistance`, the engine's shared metric, rather than adding a seventh inline copy ([#190](https://github.com/diegoami/imperial_conquest_2/issues/190) N7).
 - **Hazards**: the highest risk of a non-terminating soak, because the original's victory condition is total conquest. The turn cap is mandatory, not optional.
 
 ---
@@ -1347,6 +1349,41 @@ Conventions used by every entry:
 
 ---
 
+#### T54 Attack, siege, and movement onto city tiles
+
+- **Design milestone**: none — the gap that fell through the plan. **Labels**: `phase:2 lane:engine`
+- **Branch**: `task/T54-attack-commands` · **Model/effort**: **Opus / High** · **Reviewer**: **Opus / High**
+- **Start after**: T17, T19 · **Merge after**: T16, T17, T19 — and **merged before T22 and T23**
+- **Owns**: `src/IC2.Engine/Battle/Commands/**` (new), `tests/IC2.Engine.Tests/Battle/Commands/**` (new), `src/IC2.Engine/Movement/**` (**DoD 3's city-cell rule only**), `tests/IC2.Engine.Tests/Movement/**` (its tests only), `src/IC2.Engine/Armies/**` (**DoD 4's disband reachability only**, if DoD 3's answer requires it)
+- **Scope**: **T16 and T17 built battle and capture resolution — both merged, both reviewed twice — and nothing in `src/` can invoke them.**
+
+  ```
+  $ grep -rn "InstantBattleResolver\.\|CityCaptureResolver\." src/ --include=*.cs | grep -v '///' | grep -v '"'
+  (no output)
+  ```
+
+  Every reference is from `tests/` or an XML doc comment. `Diplomacy/PeaceTreatySystem.cs:21` says so in its own words: *"nothing in this build wires a command to `InstantBattleResolver.ResolveField` yet"*. The registered command set is 24 commands and **none of them can start a fight**, so **no seat — human or AI — can fight a battle, besiege a city, take a city, or eliminate a nation.**
+
+  Found by T22's implementer, which **stopped before writing a line** because its DoD 3 (*an `aggression: 0.9` nation attacks where `0.1` does not*) is not expressible against the merged engine. The gap was **already half-known** — [#200](https://github.com/diegoami/imperial_conquest_2/issues/200)'s N2 says *"no attack command exists in the build yet"* and *"N2 belongs to whichever task introduces the attack command"* — and no task did. This is that task.
+
+  **This wires merged rules and invents nothing.** T16's resolvers and T17's capture path are `[confirmed]`, twice-reviewed and correct; they need a caller, legality gates and a place in the turn pipeline.
+- **Done when**:
+  1. **`AttackArmyCommand(issuer, attackerArmyId, targetArmyId)`** dispatches to `InstantBattleResolver.ResolveField` and returns its outcome through the command layer. Legality is gated **before** resolution, each with its own typed rejection and test: adjacency, `Moves > 0`, attacker not embarked, and the two nations at war. `Assert.Same(before, result.State)` on every rejection.
+  2. **`BesiegeCityCommand(issuer, attackerArmyId, targetCityId)`** dispatches to `ResolveSiege` and routes a win through `CityCaptureResolver.ResolveOutcome`, so capture, the defection cascade and elimination all run. Same gate discipline. **Do not re-derive any part of T17's outcome handling** — call it.
+  3. **Settle whether an army may enter a city tile, from evidence.** `MoveArmyCommandHandler.IsBlocked` currently treats **every** city cell as impassable, including the mover's own nation's. But [#190](https://github.com/diegoami/imperial_conquest_2/issues/190)'s N5 records the engine's own convention from the other side: *"distance **0** means the army stands in `meridia` — a state the rest of the engine reads as a **siege**"*. **Both cannot be right.** Decide from the decompilation what a siege *is* — an army moving onto the tile, or a separate order issued from adjacency — and implement that, with the finding written into the PR body. **If the evidence does not settle it, escalate rather than choosing**: this decides the shape of the command in DoD 2 and of movement everywhere.
+  4. **`armies.disband-army` is reachable again** ([#215](https://github.com/diegoami/imperial_conquest_2/issues/215)). It requires the army **co-located** with an owned city — T15's `[derived]` reading of *"near"*, correctly tagged and reviewed — while movement blocks every city cell, so the command cannot be reached through play. **Whatever DoD 3 decides, decide this the same way in the same pass**: either movement permits entering an owned city's tile and disband works as merged, or disband's "near" widens to adjacency. Two correct decisions in two tasks produced an unreachable command; do not produce a third reading.
+  5. **T19's DoD 5 becomes verifiable** ([#200](https://github.com/diegoami/imperial_conquest_2/issues/200) N2). That line — *"attacking sets the relation to war **before** the battle resolves"* — has never had a runnable check, because nothing could attack. Assert the ordering **end to end** through the new command, not by composing the pieces in a test. Say in the PR that it closes N2.
+  6. **A system is registered in `TurnPhase.Orders`**, which is currently empty, or the entry says why the commands need none. T22 is the other consumer of that phase; leave it usable.
+  7. **`AttackFleetCommand` → `ResolveNaval`**, or a stated reason for deferring it. T22's soak does not need it; T23's *"one order of each command type"* eventually does. Deferring is acceptable **if declared**.
+  8. `dotnet build IC2.sln` and `dotnet test IC2.sln` green, and the diff lists only Owns paths.
+- **Hazards**:
+  - **Invent no combat rule.** Every formula, threshold and outcome already exists in T16 and T17 and has been reviewed twice. If something appears to be missing, that is a finding to report — not a gap to fill. The reserve (type-effectiveness matrix, 40% melee cap, tactical morale array, shooting-vulnerability weight, the **rout mechanic**) must not appear in this diff.
+  - **Do not let the AI be the only attacker.** These are commands both seats use. A rule reachable only from `src/IC2.Engine/Ai/**` is the defect this task exists to prevent — T22's implementer explicitly refused that shortcut, which is why the gap surfaced at all.
+  - **"Zero rejected commands" in T22 DoD 1 depends on these gates being checkable in advance.** A caller must be able to tell whether an attack is legal **without issuing it**, or T22 cannot satisfy its own contract. Expose that, and say how in the PR.
+  - **The delete-then-dangle rule is live and sharp here**: a siege can eliminate a nation, and capture moves a city between owners. T17 handles it, but this task creates the first path that reaches it in production — assert that a capture through the command leaves nothing dangling, with the two-entity probe.
+
+---
+
 #### T24 Godot main game screen
 
 - **Design milestone**: **M18** (UI half). **Labels**: `phase:3 lane:ui single-instance`
@@ -1461,5 +1498,6 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T51](#t51-the-prompt-driven-asset-generator) | Prompt-driven asset generator | — | Sonnet | High | **Opus**/Medium | T11, T49 | [#173](https://github.com/diegoami/imperial_conquest_2/issues/173) |
 | [T52](#t52-scale-the-improved-naval-defeat-and-t16s-follow-ups) | Scale the `improved` naval defeat + T16 follow-ups | — | Sonnet | High | Sonnet/High | T16 | [#178](https://github.com/diegoami/imperial_conquest_2/issues/178) |
 | [T53](#t53-resolve-test-fixtures-by-name-and-run-them-in-ci) | Fixture resolution + CI fixtures | — | Sonnet | High | **Opus**/Medium | — | [#204](https://github.com/diegoami/imperial_conquest_2/issues/204) |
+| [T54](#t54-attack-siege-and-movement-onto-city-tiles) | Attack + siege commands | — | **Opus** | High | **Opus**/High | T17, T19 | [#216](https://github.com/diegoami/imperial_conquest_2/issues/216) |
 
-**Totals** — 53 tasks: 4 Opus, 44 Sonnet, 4 Haiku, 1 Fable. Effort: 2 Ultrahigh, 25 High, 23 Medium, 3 Low.
+**Totals** — 54 tasks: 5 Opus, 44 Sonnet, 4 Haiku, 1 Fable. Effort: 2 Ultrahigh, 26 High, 23 Medium, 3 Low.
