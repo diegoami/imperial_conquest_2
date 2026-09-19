@@ -107,7 +107,7 @@ Armies:
 
 Cities:
   arx "Arx" @ (2,1), owner Northern League: supply 1588t, loyalty 90, fortification 60%
-  portus "Portus" @ (5,2), owner Northern League: supply 682t, loyalty 70, fortification 40%
+  portus "Portus" @ (5,2), owner Northern League: supply 682t, loyalty 70, fortification 43%
   meridia "Meridia" @ (3,4), owner Southern League: supply 1098t, loyalty 65, fortification 100%
 
 > buy north-army-1 portus 50
@@ -144,7 +144,7 @@ Armies:
 
 Cities:
   arx "Arx" @ (2,1), owner Northern League: supply 1588t, loyalty 90, fortification 60%
-  portus "Portus" @ (5,2), owner Northern League: supply 632t, loyalty 70, fortification 40%
+  portus "Portus" @ (5,2), owner Northern League: supply 632t, loyalty 70, fortification 43%
   meridia "Meridia" @ (3,4), owner Southern League: supply 1048t, loyalty 65, fortification 100%
 
 > quit

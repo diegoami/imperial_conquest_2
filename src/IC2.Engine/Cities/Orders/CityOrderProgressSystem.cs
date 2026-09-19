@@ -76,10 +76,14 @@ public sealed class CityOrderProgressSystem : IGameSystem
                 continue;
             }
 
-            // Not under siege: progress the order
-            pointsThisWeek = Math.Min(10, pendingPoints / 100);
-            var pointsDecayed = Math.Min(1000, (pendingPoints / 100) * 100);
-            var newPendingPoints = pendingPoints + pointsThisWeek - pointsDecayed;
+            // Not under siege: progress the order, up to 10 points a week. The pseudocode's own
+            // "min(10, fort/100)" reads the RAW stored word divided by the radix -- exactly what
+            // FortificationCode.PendingPoints already decoded into pendingPoints above. Dividing
+            // pendingPoints by 100 a second time (as this line briefly did, unnoticed for want of a
+            // test) always yields 0 for any realistic order and freezes every pending order forever;
+            // see this class's remarks for the [open] discrepancy this resolves.
+            pointsThisWeek = Math.Min(10, pendingPoints);
+            var newPendingPoints = pendingPoints - pointsThisWeek;
 
             int newFortificationCode;
             if (finishedPercent + pointsThisWeek >= fortifyOrder.MaxPercent)
@@ -91,8 +95,9 @@ public sealed class CityOrderProgressSystem : IGameSystem
             }
             else
             {
-                // Order continues: update with new pending points
-                newFortificationCode = finishedPercent + (newPendingPoints * fortifyOrder.InProgressEncodingRadix);
+                // Order continues: the points advanced this week move from pending into the finished
+                // percentage.
+                newFortificationCode = (finishedPercent + pointsThisWeek) + (newPendingPoints * fortifyOrder.InProgressEncodingRadix);
             }
 
             updatedCities.Add(city with { FortificationCode = newFortificationCode });
