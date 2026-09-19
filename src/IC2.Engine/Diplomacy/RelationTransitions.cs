@@ -176,4 +176,28 @@ public static class RelationTransitions
 
     /// <summary>The nation's display name, or its id if it cannot be resolved (defensive; never expected).</summary>
     internal static string NameOf(GameState state, string nationId) => state.NationById(nationId)?.Name ?? nationId;
+
+    /// <summary>
+    /// Whether <paramref name="nationId"/> is currently at war with any other nation — the "either side
+    /// is currently at war with anyone" gate <c>TPolitics_MakeAlliance</c> applies against an AI target,
+    /// shared by <c>ProposeAllianceCommandHandler</c> and <c>AcceptPendingOfferCommandHandler</c> (rework
+    /// round 1, B2) rather than duplicated in each.
+    /// </summary>
+    public static bool IsAtWarWithAnyone(GameState state, Ruleset ruleset, string nationId)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(ruleset);
+
+        var warCode = ruleset.Diplomacy.StateCodes.War;
+        foreach (var other in state.Relations.NationIds)
+        {
+            if (!string.Equals(other, nationId, StringComparison.Ordinal)
+                && state.Relations.Get(nationId, other) == warCode)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

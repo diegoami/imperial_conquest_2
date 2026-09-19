@@ -80,8 +80,8 @@ public sealed class ProposeAllianceCommandHandler : ICommandHandler<ProposeAllia
                     ProposeAllianceRejections.Cooldown, $"'{target.Name}' does not want to ally with you.");
             }
 
-            if (IsAtWarWithAnyone(state, ruleset, command.IssuingNationId)
-                || IsAtWarWithAnyone(state, ruleset, command.TargetNationId))
+            if (RelationTransitions.IsAtWarWithAnyone(state, ruleset, command.IssuingNationId)
+                || RelationTransitions.IsAtWarWithAnyone(state, ruleset, command.TargetNationId))
             {
                 return CommandOutcome.Reject(
                     ProposeAllianceRejections.SideAtWar,
@@ -91,20 +91,5 @@ public sealed class ProposeAllianceCommandHandler : ICommandHandler<ProposeAllia
 
         state = RelationTransitions.FormAlliance(state, ruleset, command.IssuingNationId, command.TargetNationId);
         return CommandOutcome.Accept(state);
-    }
-
-    private static bool IsAtWarWithAnyone(GameState state, Ruleset ruleset, string nationId)
-    {
-        var warCode = ruleset.Diplomacy.StateCodes.War;
-        foreach (var other in state.Relations.NationIds)
-        {
-            if (!string.Equals(other, nationId, StringComparison.Ordinal)
-                && state.Relations.Get(nationId, other) == warCode)
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

@@ -15,21 +15,27 @@ namespace IC2.Engine.Diplomacy;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>The score comparison needs no ruleset divisor.</strong> The confirmed formula divides
-/// <see cref="NationState.Wealth"/> by 100 before multiplying by unity, but
-/// <see cref="EconomyRules.WealthPerPopulationThousand"/> — the constant <see cref="NationState.Wealth"/>
-/// is always built from (<c>city.PopulationThousands × WealthPerPopulationThousand</c>, summed) — is
-/// confirmed as <c>3,000</c>, an exact multiple of 100 in every shipped ruleset a task in this build has
-/// produced. <c>Wealth</c> is therefore always an exact multiple of 100, so
-/// <c>(Wealth / 100) × Unity</c> orders identically to <c>Wealth × Unity</c> for any two nations being
-/// compared (dividing both sides of a strict inequality by the same positive constant, with no
-/// remainder on either side, never changes which side is smaller). This lets the comparison avoid a
-/// literal <c>100</c> — which is not itself a named field anywhere in <see cref="DiplomacyRules"/>
-/// (searched: the whole of <c>Ruleset.cs</c>, which has no such divisor, and this task's Owns list grants
-/// only one additive <see cref="RulesetFlags"/> field, not a new one here) — without weakening the
-/// formula: the two expressions are exactly equivalent given that one confirmed invariant, not an
-/// approximation. <c>long</c> arithmetic avoids the overflow a 334-city nation's <c>Wealth × Unity</c>
-/// product could reach in <c>int</c>.
+/// <strong>The <c>/100</c> is transcribed literally, not dropped.</strong> An earlier revision of this
+/// file argued that <c>(Wealth / 100) × Unity</c> orders identically to <c>Wealth × Unity</c>, on the
+/// premise that <see cref="NationState.Wealth"/> is always an exact multiple of 100 (built from
+/// <c>city.PopulationThousands × WealthPerPopulationThousand</c>, and <c>WealthPerPopulationThousand</c>
+/// is confirmed <c>3,000</c> in the shipped toy ruleset). Review caught that premise failing twice over:
+/// <see cref="GameStateFactory.CreateInitial"/> seeds <see cref="NationState.Wealth"/> straight from
+/// scenario data (<c>data/worlds/toy-3city.json</c>'s own <c>"wealth": 360</c>, not a multiple of 100
+/// derived from any population figure), and <c>WealthPerPopulationThousand</c> is itself moddable
+/// ruleset data with no guarantee of being a multiple of 100 in a ruleset this engine hasn't shipped
+/// yet. On the shipped toy world's own figures (winner 400/80, loser 360/100) the two forms disagree
+/// outright: <c>(400/100)×80 = 320</c> vs <c>(360/100)×100 = 300</c> says the honourable branch does
+/// <em>not</em> fire, while <c>400×80 = 32,000</c> vs <c>360×100 = 36,000</c> says it does —
+/// <see cref="HonourablePeaceGateDivergenceTests"/> pins this exact disagreement so the dropped divisor
+/// can never be silently reintroduced. The <c>100</c> below is transcribed directly from the confirmed
+/// formula (<c>decompiled-diplomacy-peace-terms-and-instant-battles.md:63</c>), not a new gameplay
+/// constant, so — per review — it needs no <see cref="Ruleset"/> field and no Owns grant: it is the same
+/// kind of literal as the formula's own <c>/4</c> and <c>×10</c> would be if this task were transcribing
+/// them as bare numbers rather than through <see cref="DiplomacyRules"/>, except that no ruleset field
+/// for it exists anywhere to transcribe through instead. <c>long</c> arithmetic avoids the overflow a
+/// 334-city nation's <c>Wealth × Unity</c> product could reach in <c>int</c>, and the division happens
+/// <em>before</em> the multiplication, exactly as the source's own parenthesisation reads.
 /// </para>
 /// </remarks>
 public static class HonourablePeaceGate
@@ -56,8 +62,11 @@ public static class HonourablePeaceGate
         var loser = state.NationById(loserNationId)
                     ?? throw new ArgumentException($"'{loserNationId}' is not a known nation.", nameof(loserNationId));
 
-        var winnerScore = (long)winner.Wealth * winner.Unity;
-        var loserScore = (long)loser.Wealth * loser.Unity;
+        // score(n) = (Wealth / 100) * Unity -- the division happens first, exactly as the source's own
+        // "(nation[n][+0x430] / 100) * nation[n][+0x440]" reads. Do not simplify this to Wealth * Unity:
+        // see this type's remarks for the shipped-data divergence that proves the two are not equivalent.
+        var winnerScore = (long)(winner.Wealth / 100) * winner.Unity;
+        var loserScore = (long)(loser.Wealth / 100) * loser.Unity;
 
         var winnerArmyPower = TotalArmyPower(state, ruleset, winnerNationId);
         var loserArmyPower = TotalArmyPower(state, ruleset, loserNationId);

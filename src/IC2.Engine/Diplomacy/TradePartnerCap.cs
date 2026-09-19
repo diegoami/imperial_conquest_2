@@ -73,7 +73,12 @@ public static class TradePartnerCap
         {
             var partner = state.NationById(partnerId);
             var taxBase = partner?.TaxBase ?? int.MaxValue;
-            if (taxBase < weakestTaxBase
+
+            // N7 (rework round 1, cosmetic): weakest is genuinely null only on the first iteration, where
+            // taxBase < weakestTaxBase (int.MaxValue) is true for any real tax base and the || already
+            // short-circuits before CompareOrdinal ever reads weakest -- harmless as it stood, but the
+            // null-ness is spelled out explicitly here instead of relying on that short-circuit.
+            if (weakest is null || taxBase < weakestTaxBase
                 || (taxBase == weakestTaxBase && string.CompareOrdinal(partnerId, weakest) < 0))
             {
                 weakest = partnerId;

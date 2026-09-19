@@ -16,6 +16,7 @@ public sealed class ContagionTests
     private const string Bithynia = "bithynia";
     private const string Media = "media";
     private const string Armenia = "armenia"; // the untouched fifth nation
+    private const string Pontus = "pontus"; // the third-hop nation (N1)
 
     private static GameState FiveNationState() =>
         DiplomacyTestbed.StateOf(
@@ -24,6 +25,15 @@ public sealed class ContagionTests
             DiplomacyTestbed.Nation(Bithynia, "Bithynia"),
             DiplomacyTestbed.Nation(Media, "Media"),
             DiplomacyTestbed.Nation(Armenia, "Armenia"));
+
+    private static GameState SixNationState() =>
+        DiplomacyTestbed.StateOf(
+            DiplomacyTestbed.Nation(Rome, "Rome"),
+            DiplomacyTestbed.Nation(Greece, "Greece"),
+            DiplomacyTestbed.Nation(Bithynia, "Bithynia"),
+            DiplomacyTestbed.Nation(Media, "Media"),
+            DiplomacyTestbed.Nation(Armenia, "Armenia"),
+            DiplomacyTestbed.Nation(Pontus, "Pontus"));
 
     /// <summary>
     /// DoD 4, first half: forming an alliance drags the proposer into the new ally's existing wars.
@@ -114,6 +124,66 @@ public sealed class ContagionTests
         state = RelationTransitions.FormAlliance(state, ruleset, Rome, Greece);
 
         Assert.Equal(ruleset.Diplomacy.StateCodes.War, state.Relations.Get(Rome, Bithynia));
+    }
+
+    /// <summary>
+    /// N1: <see cref="RelationTransitions.DeclareWar"/>'s <em>own</em> recursion, proved genuinely
+    /// multi-level rather than a single extra hop indistinguishable from one flat, non-recursive write.
+    /// Greece is at war with Bithynia (drags Rome in via <see cref="RelationTransitions.FormAlliance"/>'s
+    /// own cascade); Bithynia is allied with Media (drags Rome in via <c>DeclareWar</c>'s own recursion,
+    /// one level); Media is allied with Pontus (drags Rome in via a <em>second</em> level of that same
+    /// recursion). A mutation that replaced the recursive call with a single direct relation write would
+    /// still pass the two-hop test above (Rome-vs-Media is one level from Rome-vs-Bithynia either way) but
+    /// would leave Rome-vs-Pontus at peace, since nothing would ever re-examine Media's own allies.
+    /// </summary>
+    [Fact]
+    public void N1_DeclareWarsOwnRecursion_GoesGenuinelyMultiLevelDeep()
+    {
+        var ruleset = DiplomacyTestbed.Ruleset;
+        var codes = ruleset.Diplomacy.StateCodes;
+        var state = SixNationState();
+
+        state = RelationTransitions.DeclareWar(state, ruleset, Greece, Bithynia);
+        state = RelationTransitions.FormAlliance(state, ruleset, Bithynia, Media);
+        state = RelationTransitions.FormAlliance(state, ruleset, Media, Pontus);
+
+        state = RelationTransitions.FormAlliance(state, ruleset, Rome, Greece);
+
+        Assert.Equal(codes.War, state.Relations.Get(Rome, Bithynia));
+        Assert.Equal(codes.War, state.Relations.Get(Rome, Media));
+        Assert.Equal(codes.War, state.Relations.Get(Rome, Pontus));
+
+        // Two-entity probe: Armenia, reachable from nothing in this chain, is still untouched.
+        Assert.Equal(codes.Peace, state.Relations.Get(Rome, Armenia));
+        Assert.True(state.Relations.IsWellFormed());
+
+        // Hazard: every war declaration in the cascade -- FormAlliance's own hop AND both levels of
+        // DeclareWar's own recursion -- writes its own war.declared line (news-log-format-and-messages.md
+        // Q4 #1-2: "Each of those gets its own line, written directly after"), not just the first one.
+        var lines = state.NewsLog.Slots.Select(e => e.Text).ToList();
+        Assert.Contains("Rome declares war on Bithynia.", lines);
+        Assert.Contains("Rome declares war on Media.", lines);
+        Assert.Contains("Rome declares war on Pontus.", lines);
+    }
+
+    /// <summary>
+    /// Mutation proof for N1: replacing <c>DeclareWar</c>'s own recursive call with a single direct
+    /// relation write (no further recursion) leaves Rome-vs-Pontus at peace, failing this exact
+    /// assertion, while <see cref="DoD04_TheCascadeIsRecursive_TwoHopsDragsInASecondNation"/> above would
+    /// still pass under the same mutation -- which is precisely why that test alone did not pin this.
+    /// </summary>
+    [Fact]
+    public void N1_MutationProof_AFlattenedRecursionWouldLeaveTheThirdHopAtPeace()
+    {
+        var ruleset = DiplomacyTestbed.Ruleset;
+        var state = SixNationState();
+
+        state = RelationTransitions.DeclareWar(state, ruleset, Greece, Bithynia);
+        state = RelationTransitions.FormAlliance(state, ruleset, Bithynia, Media);
+        state = RelationTransitions.FormAlliance(state, ruleset, Media, Pontus);
+        state = RelationTransitions.FormAlliance(state, ruleset, Rome, Greece);
+
+        Assert.Equal(ruleset.Diplomacy.StateCodes.War, state.Relations.Get(Rome, Pontus));
     }
 
     /// <summary>Already being at war with the cascade target is a no-op: no double-processing, no throw.</summary>
