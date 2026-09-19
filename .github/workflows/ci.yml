@@ -32,5 +32,34 @@ jobs:
       - name: Build
         run: dotnet build IC2.sln --no-restore --configuration Release
 
+      # T53 (issue #204): the private diegoami/ic2-test-fixtures repo holds the DAT and the twelve
+      # named saves IC2.Data.Tests resolves by name (1.7 MB) - FIXTURES_TOKEN is a repository secret,
+      # read-only and scoped to that one repository alone. A fork PR receives no repository secrets
+      # (GitHub's own protection - FIXTURES_TOKEN would be empty), so this step is guarded to skip
+      # there rather than fail: the suite still runs and still passes, it just skips the
+      # asset-dependent tests exactly as an unconfigured machine does today, and
+      # FixtureResolutionTests (Done-when line 2) says so plainly rather than letting that vanish as
+      # an unexplained skip. A workflow that fails on every outside contribution would be worse than
+      # one that skips (Done-when line 5).
+      #
+      # The token is never echoed (Done-when line 6): it is passed only as a one-shot HTTP
+      # Authorization header via `-c http.extraheader`, scoped to this single `git clone` invocation,
+      # and never embedded in the clone URL. A URL-embedded credential is exactly what would otherwise
+      # risk appearing in git's own diagnostic output (e.g. `git remote -v`, a redirect, or a failed
+      # clone's own error naming the remote) - the header form does not get echoed by git on success
+      # or failure, and the value is also a registered GitHub Actions secret, so the runner masks it
+      # in the log a second time if it were ever printed regardless.
+      - name: Fetch test fixtures
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false
+        env:
+          FIXTURES_TOKEN: ${{ secrets.FIXTURES_TOKEN }}
+        run: |
+          set -eu
+          dir="${RUNNER_TEMP}/ic2-test-fixtures"
+          auth="$(printf 'x-access-token:%s' "$FIXTURES_TOKEN" | base64 -w0)"
+          git -c http.extraheader="AUTHORIZATION: basic ${auth}" \
+            clone --depth 1 https://github.com/diegoami/ic2-test-fixtures.git "$dir"
+          echo "IC2_FIXTURES_DIR=$dir" >> "$GITHUB_ENV"
+
       - name: Test
         run: dotnet test IC2.sln --no-build --configuration Release
