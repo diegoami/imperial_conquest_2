@@ -4,7 +4,7 @@ Every build task's scope, **Owns** list, Definition of Done, model/effort, revie
 
 **Status is not in this document.** Each task's stage (ready, in progress, merged, blocked, escalated) lives only in its GitHub issue's `status:*` label ([build-process.md §5](build-process.md#5-status-lives-on-github)). The index below links every issue.
 
-51 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), twelve corrections to already-merged code (T31–T35, T38–T40, T42–T45), one rule no task owned (T37, the weekly city supply step), and two early slices — T41 of T23's CLI, and T47 of T24's Godot UI.
+52 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), twelve corrections to already-merged code (T31–T35, T38–T40, T42–T45), one rule no task owned (T37, the weekly city supply step), and two early slices — T41 of T23's CLI, and T47 of T24's Godot UI.
 
 ---
 
@@ -68,6 +68,8 @@ graph TD
   T39 --> T22
   T08 --> T14[T14 naval]
   T14 --> T46[T46 fleet transfer + supply]
+  T16 --> T52[T52 naval improved scale]
+  T52 --> T22
   T46 --> T50[T50 command hygiene]
   T50 --> T22
   T14 --> T47[T47 thin Godot slice]
@@ -834,7 +836,7 @@ Conventions used by every entry:
   3. Mercenary quarterly upkeep = `(troops / 200) × price[type] × quality / 5` (T39 charges it to the army's own purse, not the treasury; garrison upkeep is also T39's); a regular of identical troops/type costs exactly 5×/quality as much (one test asserting both).
   4. The 100,000-troop army cap blocks an over-cap recruitment with a typed rejection.
   5. A mercenary unit's slot `+0` is non-zero and a regular's is zero; merging the two is rejected.
-  6. Emits its confirmed news message(s) via T10's catalog.
+  6. ~~Emits its confirmed news message(s) via T10's catalog.~~ **Struck by the user on 2026-09-19: there is no such message.** [`news-log-format-and-messages.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/news-log-format-and-messages.md) Q4 is an **exhaustive** accounting of every news literal the original can produce — *"the raw `E8` scan of the `CODE` section finds exactly 24 calls"* to the writer, using 21 templates — and **neither standing recruitment nor mercenary hiring is among them**. The original never reported recruitment in the news log. This line also conflicted with the Owns list: `NewsMessageCatalog.cs` is **T10's**, not this task's. T13's implementer stopped and reported rather than inventing a message, which is the behaviour [§4.3](build-process.md#43-the-dod-is-not-negotiable-by-an-agent) asks for. Both handlers still publish their own domain events (`RecruitmentOrdered`, `MercenaryHired`) with `NewsWorthy` false, matching the precedent `ArmySupplyPurchased` set — so a future UI can surface recruitment somewhere other than the news log without re-deriving anything. **If recruitment feedback is ever wanted, it is an `improved`-preset divergence, designed on purpose, not a fidelity claim.**
 
 #### T14 Naval
 
@@ -940,12 +942,34 @@ Conventions used by every entry:
   7. Under `classical-faithful`, the naval variant annihilates the loser's fleet **and any army aboard it**, and reduces the winner's ships and condition in proportion to the closeness of the fight.
   8. `PeaceTreatyTriggered` is emitted on a 2-in-5 roll gated on loser unity > 500 **and** city count > 7, and is observable in a test with no diplomacy system registered.
   9. Emits the confirmed news messages, including *"X sinks fleet of Y."*
-  10. Under `improved`, a lost field or naval battle applies the mirrored ratio `winnerPower × 40 / loserPower` to the loser's own troops **through the same per-unit expression as DoD 3** (and note the mirrored figure is never below 40, so a **fleet** survives an `improved` defeat only above 40 hulls; armies, counted in thousands, are unaffected) instead of destroying it, relocates the survivor 2–4 tiles from the battle site onto the nearest valid unoccupied tile of the right kind, and zeroes its moves for the remainder of that turn.
+  10. Under `improved`, a lost field or naval battle applies the mirrored ratio `winnerPower × 40 / loserPower` to the loser's own troops **through the same per-unit expression as DoD 3** (and note the mirrored figure is never below 40, so a **fleet** survives an `improved` defeat only above 40 hulls; armies, counted in thousands, are unaffected). **Known scale mismatch, resolved by T52, not by this task.** A fleet has no unit slots and `ships / 105` truncates to 0 below 105 hulls, so routing hulls through DoD 3's per-unit expression would leave *every* beaten fleet untouched — hence the hull **count** here. The consequence, quantified during review: with fleets capped at 100 hulls, **any fleet of ≤ 40 hulls is annihilated under `improved` exactly as under `classical-faithful`**, so the flag is close to inert at sea while on land the same ratio costs a fraction of every slot. That is a real inconsistency and the user chose to ship it and fix it in a follow-up rather than hold up the tasks this one gates. instead of destroying it, relocates the survivor 2–4 tiles from the battle site onto the nearest valid unoccupied tile of the right kind, and zeroes its moves for the remainder of that turn.
   11. Under `improved`, when no valid tile exists even at distance 1 (fully boxed in), the outcome falls back to the `classical-faithful` destroyed result — assert this fallback with a scripted boxed-in fixture, not just the happy path.
   12. `combat.onDefeat` has **no effect on siege resolution** under either ruleset — a siege's defender outcome is unchanged by this flag (assert directly, since T17 depends on this staying true).
 - **Explicitly not a DoD**: the Rome/Gaul per-type numbers (99,882 → 63,282). Per `design-audit.md` Q1's answer, they came from the *tactical* path and this resolver cannot produce them. An implementer that tries to make them pass has misread the task.
 - **Hazards**: the type-effectiveness matrix, the 40% melee cap, the tactical morale array, the per-type shooting-vulnerability weight (unit-type table `+0x20`) and the **rout mechanic** (`FUN_00438fb0` — removal below `standardBattalionSize / 25`, the morale checks, and the −6/+5 morale cascade) are all **research held in reserve** for a possible future detailed resolver — they must not appear in this diff. A reviewer finding them rejects it. The rout mechanic is the most tempting of the set; resist it — the instant resolver annihilates the loser wholesale and tracks no per-unit attrition. The `improved` scatter outcome is `[designed, no original analogue]` — its survivor-fraction and scatter-tile-range constants are ruleset data with a documented placeholder default, not a value to hunt for in the decompilation. (`design-audit.md` **Q10**: the placeholder stays; it is not re-grounded on the rout thresholds.) **Supplies after a battle** ([`supply-capacity-rounding.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/supply-capacity-rounding.md), code-read): when a tactical winner absorbs the loser's supplies, and when an instant-battle attacker wins, the result is capped at `min(sum, troops / 100)`. When an instant-battle defender wins, the supplies are a plain sum with no cap. Copy those caps exactly; don't make them consistent.
 - **One fixtures-corpus correction this task must make first**, under T04's existing `tests/fixtures/**` contract and the same top-up mechanism T08 DoD 13 uses: the corpus entry `battle.tactical.adjacencyPromotionRule` transcribes a **withdrawn** rule (`design-audit.md` §2.10). Mark it withdrawn — or replace it with the uniform 1-in-4 rule already present as `battle.instantResolver.promotionChance` — and fix that sibling entry's `note`, which still describes the adjacency rule as a live second rule on a second code path. Stale test data in this task's subject area; equally fine as a standalone issue done before T16 dispatches.
+
+#### T52 Scale the `improved` naval defeat to fleet size
+
+- **Design milestone**: none — one inconsistency in T16's `improved` preset, found by the user's cloud review. **Labels**: `phase:2 lane:engine`
+- **Branch**: `task/T52-naval-scatter-scale` · **Model/effort**: Sonnet / Medium · **Reviewer**: Sonnet / High
+- **Start after**: T16 · **Merge after**: T16 — and **merged before T22**
+- **Owns**: `src/IC2.Engine/Battle/**`, `tests/IC2.Engine.Tests/Battle/**` (the naval `improved` branch and its tests only)
+- **Scope**: T16 applies the mirrored casualty figure to a beaten fleet as a **hull count**, because a fleet has no unit slots and `ships / 105` truncates to 0 below 105 hulls — routing hulls through the per-unit expression would leave every beaten fleet untouched. That reasoning is sound; its consequence is not. The mirrored figure `winnerPower × 40 / loserPower` is **never below 40**, and fleets are capped at 100 hulls, so **any fleet of ≤ 40 hulls is annihilated under `improved` exactly as under `classical-faithful`**, and a larger one survives only at better than 2.5:1 odds at 100 hulls, 1.25:1 at 50. At sea the flag is close to inert; on land the same ratio costs a fraction of every slot. **Two halves of one setting on different scales.**
+- **Done when**:
+  1. A beaten fleet's loss under `improved` **scales with its size**: `lost = min(ships, (ships × mirroredRatio) / (Random(span) + base))`, reusing T16's two combat-rules fields and a **single** draw. **Multiply first on purpose** — divide-first truncates to zero at these magnitudes, which is the whole reason the count form was chosen.
+  2. **The 40-hull cliff is gone**: a 10-hull and a 100-hull fleet, beaten by the same margin, lose proportionally similar fractions. Asserted at both ends with exact figures under a fixed seed.
+  3. **`classical-faithful` is untouched** — a beaten fleet is still annihilated there, asserted directly, so this task cannot change the faithful preset by accident.
+  4. The rule stays `[designed, no original analogue]` (`design-audit.md` **Q10**): the original annihilates unconditionally, so the scatter outcome has no source and this task **does not re-ground it on the rout thresholds**.
+  5. **The saturating branch actually annihilates.** T16's fix for the inverted guard returns `int.MaxValue` when the divisor is zero, and `Apply` clamps that slot by slot — but it computes `(troops / divisor) × ratio`, so a slot **smaller than the casualty divisor truncates to 0 before saturation** and `0 × int.MaxValue = 0`. T16's reviewer proved it: the same 300 zero-power troops that are wiped as **one** slot survive **untouched** when split into three 100-troop slots — *"loser SURVIVED. fate=Scattered, casualties=0, troops left=300"*. Same inversion, narrower window. Special-case a saturating ratio in `Apply` to take the whole slot, and **keep the general grouping** — the sub-divisor rule (`100 / 105 = 0`) is deliberate and `[confirmed]` everywhere else, so only the saturating case changes. A test covers both fixture shapes, one slot and three.
+  6. Every existing T16 naval test still passes or is updated with its new figure recomputed **by hand** and shown in the PR body. A test whose expected value changes is recomputed, never relaxed.
+  7. `dotnet build IC2.sln` and `dotnet test IC2.sln` are green, and the diff lists only Owns paths.
+- **Hazards**:
+  - **Do not touch DoD 3's army path.** The per-unit expression there is `[confirmed]` from the decompilation; this task changes only the fleet branch of the `improved` outcome.
+  - **Do not add a ruleset field.** T16's `CasualtyDivisorBase` and `CasualtyDivisorRandomSpan` are the constants; introducing a third would make the two halves diverge again, which is the defect being fixed.
+  - A carried army rides with the fleet's fate — T16 DoD 7's delete sweep applies unchanged, and [build-process.md §4.2](build-process.md#42-what-the-reviewer-checks) gate 5's delete rule is live: an annihilated carrier must leave no dangling reference.
+
+---
 
 #### T17 City capture, siege, and the defection cascade
 
@@ -1363,5 +1387,6 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T49](#t49-the-asset-inventory-and-format-specification) | Asset inventory + format spec | — | Sonnet | High | **Opus**/Medium | T11 | [#159](https://github.com/diegoami/imperial_conquest_2/issues/159) |
 | [T50](#t50-economy-and-naval-command-hygiene) | Economy + naval command hygiene | — | Sonnet | High | **Opus**/Medium | T39, T46 | [#168](https://github.com/diegoami/imperial_conquest_2/issues/168) |
 | [T51](#t51-the-prompt-driven-asset-generator) | Prompt-driven asset generator | — | Sonnet | High | **Opus**/Medium | T11, T49 | [#173](https://github.com/diegoami/imperial_conquest_2/issues/173) |
+| [T52](#t52-scale-the-improved-naval-defeat-to-fleet-size) | Scale the `improved` naval defeat | — | Sonnet | Medium | Sonnet/High | T16 | [#178](https://github.com/diegoami/imperial_conquest_2/issues/178) |
 
-**Totals** — 51 tasks: 4 Opus, 42 Sonnet, 4 Haiku, 1 Fable. Effort: 2 Ultrahigh, 23 High, 23 Medium, 3 Low.
+**Totals** — 52 tasks: 4 Opus, 43 Sonnet, 4 Haiku, 1 Fable. Effort: 2 Ultrahigh, 23 High, 24 Medium, 3 Low.
