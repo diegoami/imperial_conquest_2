@@ -1,5 +1,8 @@
 using System.Globalization;
+using IC2.Engine.Battle.Commands;
 using IC2.Engine.Core;
+using IC2.Engine.Diplomacy.Commands;
+using IC2.Engine.Economy;
 using IC2.Engine.Economy.Commands;
 using IC2.Engine.Model;
 using IC2.Engine.Movement.Commands;
@@ -113,6 +116,84 @@ public sealed partial class GameSession
             case "buy":
                 lines.AddRange(HandleBuy(tokens));
                 break;
+            case "attack-army":
+                lines.AddRange(HandleAttackArmy(tokens));
+                break;
+            case "besiege-city":
+                lines.AddRange(HandleBesiegeCity(tokens));
+                break;
+            case "attack-fleet":
+                lines.AddRange(HandleAttackFleet(tokens));
+                break;
+            case "disband-army":
+                lines.AddRange(HandleDisbandArmy(tokens));
+                break;
+            case "join-armies":
+                lines.AddRange(HandleJoinArmies(tokens));
+                break;
+            case "join-units":
+                lines.AddRange(HandleJoinUnits(tokens));
+                break;
+            case "split-army":
+                lines.AddRange(HandleSplitArmy(tokens));
+                break;
+            case "order-city":
+                lines.AddRange(HandleOrderCity(tokens));
+                break;
+            case "declare-war":
+                lines.AddRange(HandleDeclareWar(tokens));
+                break;
+            case "make-peace":
+                lines.AddRange(HandleMakePeace(tokens));
+                break;
+            case "propose-alliance":
+                lines.AddRange(HandleProposeAlliance(tokens));
+                break;
+            case "propose-trade":
+                lines.AddRange(HandleProposeTrade(tokens));
+                break;
+            case "accept-offer":
+                lines.AddRange(HandleAcceptOffer(tokens));
+                break;
+            case "mobilize":
+                lines.AddRange(HandleMobilize(tokens));
+                break;
+            case "hire-mercenary":
+                lines.AddRange(HandleHireMercenary(tokens));
+                break;
+            case "recruit-standing":
+                lines.AddRange(HandleRecruitStanding(tokens));
+                break;
+            case "move-fleet":
+                lines.AddRange(HandleMoveFleet(tokens));
+                break;
+            case "order-fleet":
+                lines.AddRange(HandleOrderFleet(tokens));
+                break;
+            case "repair-fleet":
+                lines.AddRange(HandleRepairFleet(tokens));
+                break;
+            case "scuttle-fleet":
+                lines.AddRange(HandleScuttleFleet(tokens));
+                break;
+            case "split-fleet":
+                lines.AddRange(HandleSplitFleet(tokens));
+                break;
+            case "join-fleets":
+                lines.AddRange(HandleJoinFleets(tokens));
+                break;
+            case "embark-army":
+                lines.AddRange(HandleEmbarkArmy(tokens));
+                break;
+            case "disembark-army":
+                lines.AddRange(HandleDisembarkArmy(tokens));
+                break;
+            case "buy-fleet-supply":
+                lines.AddRange(HandleBuyFleetSupply(tokens));
+                break;
+            case "fleet-transfer":
+                lines.AddRange(HandleFleetTransfer(tokens));
+                break;
             case "end":
                 lines.AddRange(HandleEnd());
                 break;
@@ -158,11 +239,83 @@ public sealed partial class GameSession
         State = NewsLogWriter.Append(result.State, result.Events, Ruleset.NewsLog);
 
         var moved = result.Events.OfType<ArmyMoved>().First();
+
+        // docs/task-catalogue.md T23 Done-when 2: a human army's move that ends against a non-hostile
+        // city resupplies it automatically, through T38's AutomaticResupply.ForArmy -- deferred to this
+        // task by T38's own remarks ("wiring the trigger... is T23's"). T22's own AI resupply pass
+        // (Ai/AiResupplyPass.cs) is the AI's separate trigger for the same pure function; this is the
+        // human seat's, composed here rather than inside MoveArmyCommandHandler, which is outside this
+        // task's Owns list beyond the #226 terrain fix.
+        ApplyAutomaticResupplyIfAgainstANonHostileCity(armyId);
+
         return new[]
         {
             $"{armyId} moved from ({moved.FromX},{moved.FromY}) to ({moved.ToX},{moved.ToY}), "
             + $"spending {moved.MovesSpent} of {beforeMoves} moves.",
         };
+    }
+
+    /// <summary>
+    /// Done-when 2's automatic resupply, composed at the CLI boundary rather than inside
+    /// <see cref="Movement.Commands.MoveArmyCommandHandler"/> (outside Owns). Finds the first city (list
+    /// order, the same tie-break <see cref="Armies.Commands.DisbandArmyCommandHandler"/> uses) adjacent to
+    /// the army's post-move position whose owner is not at war with the army's own nation -- the army's
+    /// own city, or any nation still at peace -- and runs <see cref="AutomaticResupply.ForArmy"/> against
+    /// it. A no-op when no such city adjoins the army's final tile.
+    /// </summary>
+    private void ApplyAutomaticResupplyIfAgainstANonHostileCity(string armyId)
+    {
+        var army = State.ArmyById(armyId);
+        if (army is null || army.IsEmbarked)
+        {
+            return;
+        }
+
+        foreach (var city in State.Cities)
+        {
+            if (!AttackLegality.AreAdjacent(army.X, army.Y, city.X, city.Y) || IsAtWar(army.Nation, city.Owner))
+            {
+                continue;
+            }
+
+            var armyNation = State.NationById(army.Nation);
+            var cityNation = State.NationById(city.Owner);
+            if (armyNation is null || cityNation is null)
+            {
+                return;
+            }
+
+            var resupply = AutomaticResupply.ForArmy(army, city, armyNation, cityNation, Ruleset);
+            State = State with
+            {
+                Armies = ValueList.From(State.Armies.Select(a =>
+                    string.Equals(a.Id, resupply.Army.Id, StringComparison.Ordinal) ? resupply.Army : a)),
+                Cities = ValueList.From(State.Cities.Select(c =>
+                    string.Equals(c.Id, resupply.City.Id, StringComparison.Ordinal) ? resupply.City : c)),
+                Nations = ValueList.From(State.Nations.Select(n =>
+                    string.Equals(n.Id, resupply.ArmyNation.Id, StringComparison.Ordinal) ? resupply.ArmyNation
+                    : string.Equals(n.Id, resupply.CityNation.Id, StringComparison.Ordinal) ? resupply.CityNation
+                    : n)),
+            };
+            return;
+        }
+    }
+
+    /// <summary>Whether <paramref name="nationA"/> and <paramref name="nationB"/> are at war, failing closed (not hostile) for an unknown nation or a nation compared against itself.</summary>
+    private bool IsAtWar(string nationA, string nationB)
+    {
+        if (string.Equals(nationA, nationB, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var relations = State.Relations;
+        if (relations.IndexOf(nationA) < 0 || relations.IndexOf(nationB) < 0)
+        {
+            return false;
+        }
+
+        return relations.Get(nationA, nationB) == Ruleset.Diplomacy.StateCodes.War;
     }
 
     private IReadOnlyList<string> HandleBuy(string[] tokens)
@@ -201,9 +354,18 @@ public sealed partial class GameSession
         var lines = new List<string>();
 
         var endingSeat = State.ActiveNationId;
+
+        // T23 hazard / bug #98: this used to infer how many news lines a round produced by counting
+        // news-worthy EVENTS (result.Events.Count(e => e.IsNewsWorthy)). T42's round header appends two
+        // log entries backed by no event at all (a blank line and the week header), and a dash-wrapped
+        // elimination banner appends three entries for one event -- so that count and the log's own
+        // growth disagree, and a round-ending turn could print the header while TakeLast under-counted
+        // and silently dropped the real news line. Asking the log what it actually appended -- comparing
+        // NewsLog.Slots.Count before and after -- answers the only question that matters: how many
+        // entries to show, whatever produced them.
+        var newsBefore = State.NewsLog.Slots.Count;
         var result = _coordinator.RunTurn(State);
         State = result.State;
-        var newsAdded = result.Events.Count(e => e.IsNewsWorthy);
         lines.Add($"{NationDisplay(endingSeat)} ends its turn.");
         AppendWeatherLines(lines, result.Events);
 
@@ -213,7 +375,6 @@ public sealed partial class GameSession
             var aiSeat = State.ActiveNationId;
             var aiResult = _coordinator.RunTurn(State);
             State = aiResult.State;
-            newsAdded += aiResult.Events.Count(e => e.IsNewsWorthy);
             var aiOrders = aiResult.Events.OfType<Ai.AiTurnDecided>().Sum(e => e.CommandsIssued);
             lines.Add(
                 $"{NationDisplay(aiSeat)} takes its turn: "
@@ -221,6 +382,8 @@ public sealed partial class GameSession
             AppendWeatherLines(lines, aiResult.Events);
             guard++;
         }
+
+        var newsAdded = State.NewsLog.Slots.Count - newsBefore;
 
         var cal = State.Calendar;
         lines.Add(

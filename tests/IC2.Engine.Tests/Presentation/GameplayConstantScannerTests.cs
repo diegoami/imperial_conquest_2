@@ -28,7 +28,14 @@ public sealed class GameplayConstantScannerTests
     /// Every integer literal this task's Presentation/CLI code legitimately contains, each one structural
     /// (indexing, argument counts, loop bookkeeping, process exit codes) rather than a gameplay number.
     /// </summary>
-    private static readonly HashSet<string> AllowedLiterals = new(StringComparer.Ordinal) { "0", "1", "2", "3", "4" };
+    /// <summary>
+    /// <c>5</c> and <c>6</c> joined this list with T23's Done-when 1: <c>fleet-transfer</c> takes five
+    /// arguments (<c>tokens.Length != 6</c>, and its last token index is <c>5</c>) — still argument-count
+    /// and index bookkeeping, the same structural class as the rest of this list, just for a command with
+    /// more parameters than <c>move</c> or <c>buy</c> had.
+    /// </summary>
+    private static readonly HashSet<string> AllowedLiterals =
+        new(StringComparer.Ordinal) { "0", "1", "2", "3", "4", "5", "6" };
 
     private static readonly Regex IntegerLiteral = new(@"(?<!\w)\d+(?!\w)", RegexOptions.Compiled);
 

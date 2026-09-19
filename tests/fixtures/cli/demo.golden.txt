@@ -4,12 +4,36 @@ Commands:
   map - show the 8x6 terrain map with city, army and fleet markers
   move <army> <x> <y> - move an army toward (x, y)
   buy <army> <city> <tons> - buy supply for an army at a city (free at your own city, paid abroad)
+  attack-army <army> <target-army> - attack another nation's army (declares war first if needed)
+  besiege-city <army> <city> - besiege an adjacent enemy city (declares war first if needed)
+  attack-fleet <fleet> <target-fleet> - attack another nation's fleet (declares war first if needed)
+  disband-army <army> - disband an army near one of your own cities
+  join-armies <survivor-army> <absorbed-army> - merge one army into another
+  join-units <army> <unit-index> <unit-index> - merge two of an army's own unit slots
+  split-army <army> <new-army> <unit-index> - split one unit slot off into a new army
+  order-city <city> <order-id> <points> - place a standing order on one of your own cities
+  declare-war <nation> - declare war on another nation
+  make-peace <nation> - propose peace with a nation you are at war with
+  propose-alliance <nation> - propose an alliance to another nation
+  propose-trade <nation> - propose a trade agreement to another nation
+  accept-offer - accept the pending trade or alliance offer made to you, if any
+  mobilize <slot-index> <new-army> - mobilize a ready recruitment slot into an army unit
+  hire-mercenary <army> <pool-slot-index> - hire a mercenary unit from the mercenary pool
+  recruit-standing <city> <unit-type> <troops> - recruit a standing unit at one of your own cities
+  move-fleet <fleet> <x> <y> - move a fleet toward (x, y)
+  order-fleet <city> <ships> <new-fleet> - order a new fleet built at a coastal city
+  repair-fleet <fleet> <points> - spend repair points on a fleet's condition
+  scuttle-fleet <fleet> - scuttle one of your own fleets
+  split-fleet <fleet> <new-fleet> <ships> - split ships off into a new fleet
+  join-fleets <survivor-fleet> <absorbed-fleet> - merge one fleet into another
+  embark-army <army> <fleet> - load an army aboard an adjacent fleet
+  disembark-army <army> - unload an embarked army
+  buy-fleet-supply <fleet> <city> <tons> - buy supply for a fleet at a city
+  fleet-transfer <from-fleet> <to-fleet> <ships> <supply-tons> <money> - transfer resources between two of your own fleets
   end - end your turn
   news - show the news log
   help - show this help
   quit - exit
-Not yet implemented: battles, city capture, recruitment, diplomacy, and the AI -- a seat with no
-human player simply passes with no orders.
 
 > status
 Week 1, Spring 270 BC (turn 0). Active seat: Northern League (north).
@@ -63,11 +87,92 @@ north-army-1 moved from (4,2) to (4,3), spending 4 of 4 moves.
 > move north-army-1 5 5
 Move rejected (movement.no-moves-left): Army 'north-army-1' has no moves left this turn.
 
+> attack-army north-army-1 north-army-1
+battle.attack-army rejected (battle.same-nation): 'north-army-1' and 'north-army-1' both belong to 'north'.
+
+> besiege-city north-army-1 arx
+battle.besiege-city rejected (battle.own-city): City 'arx' already belongs to 'north'.
+
+> attack-fleet north-fleet-1 north-fleet-1
+battle.attack-fleet rejected (battle.fleet-same-nation): 'north-fleet-1' and 'north-fleet-1' both belong to 'north'.
+
+> join-units north-army-1 0 1
+armies.join-units rejected (armies.mercenary-unit): You can only join regular units together.
+
+> split-army north-army-1 north-army-2 99
+armies.split-army rejected (armies.invalid-unit-selection): Must select between 1 and 1 distinct, in-range unit indices to move to the new army.
+
+> join-armies north-army-1 north-army-2
+armies.join-armies rejected (armies.unknown-army): 'north-army-2' is not a known army.
+
+> order-city arx fortify 1
+city.order rejected (city-order.insufficient-treasury): Insufficient treasury (0) for fortify order costing 220 talents.
+
+> declare-war north
+diplomacy.declare-war rejected (diplomacy.self-target): A nation cannot declare war on itself.
+
+> make-peace south
+diplomacy.make-peace rejected (diplomacy.not-at-war): You are not at war with 'Southern League'.
+
+> propose-alliance north
+diplomacy.propose-alliance rejected (diplomacy.self-target): A nation cannot propose an alliance with itself.
+
+> propose-trade north
+diplomacy.propose-trade rejected (diplomacy.self-target): A nation cannot propose trade with itself.
+
+> accept-offer
+diplomacy.accept-pending-offer rejected (diplomacy.no-pending-offer): There is no pending offer to accept.
+
+> mobilize 0 north-recruit-army
+recruitment.mobilize-recruit-slot rejected (recruitment.unknown-recruitment-slot): Nation 'north' has 0 recruitment slot(s), so slot 0 cannot be mobilized.
+
+> hire-mercenary north-army-1 0
+recruitment.hire-mercenary rejected (mercenary.unknown-pool-slot): Mercenary pool slot 0 has no offer to hire.
+
+> recruit-standing arx heavy_infantry 1000
+recruitment.recruit-standing-unit rejected (recruitment.insufficient-treasury): Nation 'north' has 0 talents, which is less than the order's cost of 100.
+
+> move-fleet north-fleet-1 999 999
+naval.move-fleet rejected (naval.out-of-bounds): (999, 999) is outside the 8x6 map.
+
+> order-fleet portus 10 north-fleet-2
+naval.order-fleet rejected (naval.city-not-coastal): City 'portus' does not touch the sea.
+
+> repair-fleet north-fleet-1 5
+naval.repair-fleet rejected (naval.not-at-owned-city): Fleet 'north-fleet-1' can only be repaired at one of its own nation's cities.
+
+> split-fleet north-fleet-1 north-fleet-3 5
+naval.split-fleet rejected (naval.too-few-ships-to-split): Fleet 'north-fleet-1' has fewer than 20 ships and cannot be split.
+
+> join-fleets north-fleet-1 north-fleet-3
+naval.join-fleets rejected (naval.unknown-fleet): 'north-fleet-3' is not a known fleet.
+
+> embark-army north-army-1 north-fleet-1
+naval.embark-army rejected (naval.not-co-located): The army and the fleet must be on the same tile to embark.
+
+> disembark-army north-army-1
+naval.disembark-army rejected (naval.army-not-embarked): Army 'north-army-1' is not aboard a fleet.
+
+> buy-fleet-supply north-fleet-1 portus 5
+naval.buy-fleet-supply rejected (naval.city-not-within-range): City 'portus' is not within one tile of fleet 'north-fleet-1'.
+
+> fleet-transfer north-fleet-1 north-fleet-2 1 1 1
+naval.fleet-to-fleet-transfer rejected (naval.unknown-fleet): 'north-fleet-2' is not a known fleet.
+
+> disband-army north-army-2
+armies.disband-army rejected (armies.unknown-army): 'north-army-2' is not a known army.
+
+> scuttle-fleet north-fleet-2
+naval.scuttle-fleet rejected (naval.unknown-fleet): 'north-fleet-2' is not a known fleet.
+
 > end
 Northern League (north) ends its turn.
 Southern League (south) takes its turn: 3 orders issued.
 Now: Week 3, Spring 270 BC. Active seat: Northern League (north).
 News:
+  SOUTHERN LEAGUE DECLARES WAR ON NORTHERN LEAGUE.
+  Southern League destroys army of Northern League.
+   
   Week  3      Spring      270BC
 
 > end
@@ -76,34 +181,49 @@ Southern League (south) takes its turn: 1 order issued.
   Weather: storm-damages-fleet (week 3).
   Weather: storm-damages-fleet (week 3).
 Now: Week 5, Spring 270 BC. Active seat: Northern League (north).
+News:
+   
+  Week  5      Spring      270BC
 
 > end
 Northern League (north) ends its turn.
 Southern League (south) takes its turn: 1 order issued.
 Now: Week 7, Spring 270 BC. Active seat: Northern League (north).
+News:
+   
+  Week  7      Spring      270BC
 
 > end
 Northern League (north) ends its turn.
 Southern League (south) takes its turn: 1 order issued.
 Now: Week 9, Spring 270 BC. Active seat: Northern League (north).
+News:
+   
+  Week  9      Spring      270BC
 
 > end
 Northern League (north) ends its turn.
 Southern League (south) takes its turn: 1 order issued.
   Weather: storm-damages-fleet (week 9).
 Now: Week 11, Spring 270 BC. Active seat: Northern League (north).
+News:
+   
+  Week  11      Spring      270BC
 
 > end
 Northern League (north) ends its turn.
 Southern League (south) takes its turn: 1 order issued.
 Now: Week 1, Summer 270 BC. Active seat: Northern League (north).
+News:
+   
+  Week  1      Summer      270BC
 
 > status
 Week 1, Summer 270 BC (turn 6). Active seat: Northern League (north).
 
 Nations:
-  Northern League (north, human): treasury 471, unity 590, tax 15%
-  Southern League (south, ai): treasury -124, unity 559, tax 20%
+  Northern League (north, human): treasury -29, unity 590, tax 15%
+  Southern League (south, ai): treasury -328, unity 559, tax 20%
 
 Armies:
   south-army-1 (Southern League) @ (4,2): 4218 troops in 1 units, supply 34t (80%), morale 65, moves 10
@@ -140,8 +260,8 @@ News log:
 Week 1, Summer 270 BC (turn 6). Active seat: Northern League (north).
 
 Nations:
-  Northern League (north, human): treasury 471, unity 590, tax 15%
-  Southern League (south, ai): treasury -124, unity 559, tax 20%
+  Northern League (north, human): treasury -29, unity 590, tax 15%
+  Southern League (south, ai): treasury -328, unity 559, tax 20%
 
 Armies:
   south-army-1 (Southern League) @ (4,2): 4218 troops in 1 units, supply 34t (80%), morale 65, moves 10

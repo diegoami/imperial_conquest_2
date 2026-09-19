@@ -12,11 +12,17 @@ namespace IC2.Engine.Presentation;
 /// threshold or formula, and a custom ruleset with a different <c>SeasonsPerYear</c> or an unrecognised
 /// terrain name still renders, just with a plainer fallback label.
 /// </summary>
+/// <remarks>
+/// <strong>Season names come from <see cref="Ruleset.NewsLog"/>'s own table — T23 follow-up
+/// <see href="https://github.com/diegoami/imperial_conquest_2/issues/100">#100</see> item 2.</strong> This
+/// used to carry its own hardcoded four-name array, duplicating
+/// <see cref="Model.NewsLogRules.SeasonNames"/>, which T29's export and <see cref="Model.Ruleset.ValidateSeasonNames"/>
+/// already keep in step with <see cref="Model.CalendarRules.SeasonsPerYear"/>. A ruleset that ships more
+/// or fewer seasons than four now renders correctly here too, instead of silently falling back to
+/// "Season N" past a stale literal four.
+/// </remarks>
 public sealed partial class GameSession
 {
-    /// <summary>Season display names, purely a text label — falls back to "Season N" past this list.</summary>
-    private static readonly string[] SeasonNames = { "Spring", "Summer", "Autumn", "Winter" };
-
     /// <summary>Map glyphs by a tile type's display <see cref="TileType.Name"/> — cosmetic only.</summary>
     private static readonly Dictionary<string, char> TerrainGlyphsByName = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -163,6 +169,18 @@ public sealed partial class GameSession
         return lines;
     }
 
+    /// <summary>
+    /// <c>docs/task-catalogue.md</c> T23 follow-up
+    /// <see href="https://github.com/diegoami/imperial_conquest_2/issues/232">#232</see>: this used to end
+    /// with a hand-maintained "Not yet implemented: battles, city capture, recruitment, diplomacy, and the
+    /// AI" line that a constant string kept true through four merges of exactly those features shipping.
+    /// It named nothing that could fail when the claim went stale, so nothing ever did. There is no
+    /// replacement banner: every command below is real, dispatched through the same
+    /// <see cref="CommandDispatcher"/> a Godot seat will use, and a command this session cannot yet issue
+    /// simply is not listed here — the list rots at the same rate as the switch in
+    /// <see cref="Submit(string)"/> that backs it, which is to say it cannot rot silently, because a typo
+    /// or an omission there is a compile-time or a "Unknown command" runtime fact, not a lonely string.
+    /// </summary>
     private IReadOnlyList<string> RenderHelp() => new[]
     {
         "Commands:",
@@ -170,12 +188,36 @@ public sealed partial class GameSession
         $"  map - show the {World.Width}x{World.Height} terrain map with city, army and fleet markers",
         "  move <army> <x> <y> - move an army toward (x, y)",
         "  buy <army> <city> <tons> - buy supply for an army at a city (free at your own city, paid abroad)",
+        "  attack-army <army> <target-army> - attack another nation's army (declares war first if needed)",
+        "  besiege-city <army> <city> - besiege an adjacent enemy city (declares war first if needed)",
+        "  attack-fleet <fleet> <target-fleet> - attack another nation's fleet (declares war first if needed)",
+        "  disband-army <army> - disband an army near one of your own cities",
+        "  join-armies <survivor-army> <absorbed-army> - merge one army into another",
+        "  join-units <army> <unit-index> <unit-index> - merge two of an army's own unit slots",
+        "  split-army <army> <new-army> <unit-index> - split one unit slot off into a new army",
+        "  order-city <city> <order-id> <points> - place a standing order on one of your own cities",
+        "  declare-war <nation> - declare war on another nation",
+        "  make-peace <nation> - propose peace with a nation you are at war with",
+        "  propose-alliance <nation> - propose an alliance to another nation",
+        "  propose-trade <nation> - propose a trade agreement to another nation",
+        "  accept-offer - accept the pending trade or alliance offer made to you, if any",
+        "  mobilize <slot-index> <new-army> - mobilize a ready recruitment slot into an army unit",
+        "  hire-mercenary <army> <pool-slot-index> - hire a mercenary unit from the mercenary pool",
+        "  recruit-standing <city> <unit-type> <troops> - recruit a standing unit at one of your own cities",
+        "  move-fleet <fleet> <x> <y> - move a fleet toward (x, y)",
+        "  order-fleet <city> <ships> <new-fleet> - order a new fleet built at a coastal city",
+        "  repair-fleet <fleet> <points> - spend repair points on a fleet's condition",
+        "  scuttle-fleet <fleet> - scuttle one of your own fleets",
+        "  split-fleet <fleet> <new-fleet> <ships> - split ships off into a new fleet",
+        "  join-fleets <survivor-fleet> <absorbed-fleet> - merge one fleet into another",
+        "  embark-army <army> <fleet> - load an army aboard an adjacent fleet",
+        "  disembark-army <army> - unload an embarked army",
+        "  buy-fleet-supply <fleet> <city> <tons> - buy supply for a fleet at a city",
+        "  fleet-transfer <from-fleet> <to-fleet> <ships> <supply-tons> <money> - transfer resources between two of your own fleets",
         "  end - end your turn",
         "  news - show the news log",
         "  help - show this help",
         "  quit - exit",
-        "Not yet implemented: battles, city capture, recruitment, diplomacy, and the AI -- a seat with no",
-        "human player simply passes with no orders.",
     };
 
     private CityOrderRule? FortifyRule()
@@ -202,10 +244,13 @@ public sealed partial class GameSession
         _ => control.ToString(),
     };
 
-    private static string SeasonName(int seasonIndex) =>
-        seasonIndex >= 0 && seasonIndex < SeasonNames.Length
-            ? SeasonNames[seasonIndex]
+    private string SeasonName(int seasonIndex)
+    {
+        var seasonNames = Ruleset.NewsLog.SeasonNames;
+        return seasonIndex >= 0 && seasonIndex < seasonNames.Count
+            ? seasonNames[seasonIndex]
             : $"Season {seasonIndex}";
+    }
 
     private static char GlyphFor(TileType tileType) =>
         TerrainGlyphsByName.TryGetValue(tileType.Name, out var glyph)

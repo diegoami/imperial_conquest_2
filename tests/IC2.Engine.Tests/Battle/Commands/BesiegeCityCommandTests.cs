@@ -190,6 +190,31 @@ public sealed class BesiegeCityCommandTests
         }
     }
 
+    /// <summary>
+    /// T23 follow-up <see href="https://github.com/diegoami/imperial_conquest_2/issues/222">#222</see>:
+    /// the boundary theory <see cref="AttackArmyCommandTests.DoD01_AdjacencyIsChebyshevDistanceOne"/> gives
+    /// the army gate, now given to the siege gate too — a diagonal neighbour is adjacent (Chebyshev, not
+    /// Manhattan), and two tiles away is not. Without this, <see cref="AttackLegality.Check(GameState, Ruleset, BesiegeCityCommand)"/>'s
+    /// adjacency gate could be any of three metrics and still pass the single-distance check above.
+    /// </summary>
+    [Theory]
+    [InlineData(4, 3, true)]   // diagonal neighbour of meridia (3,4).
+    [InlineData(3, 3, true)]   // orthogonal neighbour.
+    [InlineData(5, 4, false)]  // two tiles across.
+    [InlineData(5, 5, false)]  // two tiles diagonally.
+    public void DoD02_AdjacencyIsChebyshevDistanceOne(int besiegerX, int besiegerY, bool expectedLegal)
+    {
+        var state = Fixture();
+        state = state with
+        {
+            Armies = ValueList.From(state.Armies.Select(a =>
+                a.Id == BesiegerId ? a with { X = besiegerX, Y = besiegerY } : a)),
+        };
+
+        Assert.Equal(expectedLegal, AttackLegality.IsLegal(state, ToyRuleset, Besiege()));
+        Assert.Equal(expectedLegal, Dispatcher().Dispatch(state, Besiege()).IsAccepted);
+    }
+
     /// <summary>Done-when 2's gates, on Done-when 1's discipline: refused before the resolvers run, state untouched.</summary>
     [Fact]
     public void DoD02_EveryGateRefusesBeforeAnythingResolves()
