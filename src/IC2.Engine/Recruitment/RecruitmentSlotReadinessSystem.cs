@@ -17,11 +17,14 @@ namespace IC2.Engine.Recruitment;
 /// global weekly tick loops all state, not only the ending nation's, the same convention
 /// <see cref="Economy.WeeklyCitySupplySystem"/> already documents for its own city loop.
 /// <para>
-/// What happens once a slot's <c>StateCode</c> reaches <see cref="CalendarRules.CityUnitStateCodeCap"/> —
-/// the original's unnamed mobilization helper, <c>FUN_0044a4e0</c> — is not decompiled and is therefore
-/// not implemented here; see <see cref="Commands.RecruitStandingUnitCommand"/>'s remarks. This system only
-/// steps the counter and holds it at the cap, exactly as <see cref="CityUnitStateCode.Advance"/> itself
-/// documents.
+/// What happens once a slot's <c>StateCode</c> passes the mobilization threshold — the original's
+/// <c>FUN_0044a4e0</c>, now decompiled in full
+/// (<c>decompiled-mobilization-and-mercenary-restock.md</c>) — belongs to
+/// <see cref="Commands.MobilizeRecruitSlotCommand"/>, because collecting a ready recruit is an order a
+/// seat gives and not something the weekly tick does on its own. This system only steps the counter and
+/// holds it at the cap, exactly as <see cref="CityUnitStateCode.Advance"/> itself documents; the state
+/// code it leaves behind is what fixes the mobilized unit's permanent quality
+/// (<see cref="MobilizationReadiness"/>).
 /// </para>
 /// </remarks>
 [GameSystem(TurnPhase.CityTick, "recruitment.slot-readiness")]

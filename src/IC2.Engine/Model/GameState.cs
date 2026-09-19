@@ -99,13 +99,19 @@ public sealed record CalendarState(int Week, int SeasonIndex, int YearBc, int Tu
 /// Nation record <c>+0x442</c>, <c>IC2.Data</c>'s <c>MobilizedPercent</c>: 0–100, decaying by
 /// <see cref="EconomyRules.MobilizationDecayPerQuarter"/> every quarter (floored at 0) and read by
 /// population growth, the unity update, and city supply production
-/// <strong>[confirmed: city-population-growth.md]</strong>. T50 (issue #183): the 100 cap is not enforced
-/// anywhere today, because nothing in the engine currently raises this field at all — no per-order
-/// increment has been found in the decompilation, and T13's standing recruitment was confirmed correct to
-/// leave it untouched (its report names only the hard cap message and
-/// <c>recruitment.mobilizationCapPercent</c>, never an increment formula). This is an evidence gap, not an
-/// assignment to a task: research plan item 17 tracks finding the raise, and the cap will be enforced
-/// wherever it turns out to live once one is found.
+/// <strong>[confirmed: city-population-growth.md]</strong>.
+/// <para>
+/// <strong>What raises it is placing a recruitment order — not mobilizing</strong> (issue #183, research
+/// plan item 17, both answered by <c>decompiled-mobilization-and-mercenary-restock.md</c> §5 and
+/// implemented by T55). <c>TArmyRecruits_RecruitUnit</c> applies
+/// <c>min(cap, mobilized + step + (troops × scale) / wealth)</c> and
+/// <c>TArmyRecruits_DisbandUnits</c> the symmetric decrease; the cap is
+/// <see cref="RecruitmentRules.MobilizationCapPercent"/> and is enforced there, in
+/// <see cref="Recruitment.MobilizationRate"/>. <c>FUN_0044a4e0</c> does not touch this field at all, and
+/// the corpus pair confirms it: Rome stayed at 62 % across a mobilization of eleven recruits. The
+/// earlier note here — that no increment had been found and the cap was therefore unenforced — was a
+/// correct reading of the evidence available to T13 and T50, and is superseded by that report.
+/// </para>
 /// </param>
 /// <param name="RecruitmentSlots">
 /// The nation's active standing-recruitment queue — <c>IC2.Data</c>'s <c>SaveRecruitmentTable</c> fields

@@ -10,11 +10,16 @@ namespace IC2.Engine.Recruitment.Commands;
 /// <remarks>
 /// Creates one <see cref="Model.RecruitmentSlot"/> on the issuing nation, at <see cref="StandingRecruitmentCost.InitialCost"/>,
 /// starting at <c>StateCode 0</c>. <see cref="RecruitmentSlotReadinessSystem"/> advances that state code
-/// once per week through T06's <see cref="Calendar.CityUnitStateCode"/>; what happens once a slot reaches
-/// the cap (the original's unnamed <c>FUN_0044a4e0</c> mobilization helper) is not decompiled
-/// (<c>decompiled-recruitment-cost-formula.md</c> "Mobilization and new-recruit creation: read, not
-/// fully formalized" — "not pursued further this pass since it requires decompiling an unnamed
-/// function") and is therefore not implemented here rather than invented.
+/// once per week through T06's <see cref="Calendar.CityUnitStateCode"/>, and
+/// <see cref="MobilizeRecruitSlotCommand"/> collects the slot once it is ready — <c>FUN_0044a4e0</c>,
+/// decompiled in full in <c>decompiled-mobilization-and-mercenary-restock.md</c> and implemented by T55.
+/// The earlier note here, that the helper was undecompiled and so deliberately not implemented, was
+/// correct when it was written and is superseded by that report.
+/// <para>
+/// Placing this order is also what raises the nation's <see cref="Model.NationState.MobilizedPercent"/>
+/// — see <see cref="MobilizationRate"/>, and this handler's own remarks for the 40-slot refusal the
+/// same report confirms.
+/// </para>
 /// </remarks>
 /// <param name="CityId">The training city — must be owned by <see cref="IssuingNationId"/>.</param>
 /// <param name="UnitTypeId">Key into <see cref="Model.Ruleset.UnitTypes"/>.</param>
@@ -43,6 +48,13 @@ public static class RecruitStandingUnitRejections
 
     /// <summary>The issuing nation's treasury cannot afford the order's <see cref="StandingRecruitmentCost.InitialCost"/>.</summary>
     public static readonly RejectionCode InsufficientTreasury = new("recruitment.insufficient-treasury");
+
+    /// <summary>
+    /// The issuing nation already has <see cref="Model.RecruitmentRules.MaxSlots"/> units in training —
+    /// the original's <em>"You have reached your limit of 40 units."</em>
+    /// (T55 Done-when 6; see <see cref="RecruitStandingUnitCommandHandler"/>'s remarks).
+    /// </summary>
+    public static readonly RejectionCode RecruitmentTableFull = new("recruitment.table-full");
 }
 
 /// <summary>

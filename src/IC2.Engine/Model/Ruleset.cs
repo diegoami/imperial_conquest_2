@@ -455,12 +455,84 @@ public sealed record WeatherEffectRule(
     string Description,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
-/// <summary>Standing recruitment and the mercenary economy.</summary>
+/// <summary>Standing recruitment, mobilization, and the mercenary economy.</summary>
+/// <param name="MaxSlots">
+/// The size of a nation's recruitment table — <c>40</c>. The original's table is a <em>compacted
+/// list</em>, not a sparse array: <c>FUN_0044a610</c> deletes a slot by shifting every later slot down
+/// one and zeroing slot 39, and <c>TArmyRecruits_RecruitUnit</c> takes the first slot whose troops are
+/// <c>0</c> and refuses outright when slot 39 is occupied, with the literal <em>"You have reached your
+/// limit of 40 units."</em> <strong>[confirmed: decompiled-mobilization-and-mercenary-restock.md §1]</strong>.
+/// <see cref="Model.NationState.RecruitmentSlots"/> models that compaction directly — an empty slot is
+/// simply absent — so "slot 39 occupied" is exactly "the list already holds <see cref="MaxSlots"/>
+/// entries".
+/// </param>
+/// <param name="MobilizationQualityDivisor">
+/// The <c>4</c> of <c>quality = stateCode / 4</c>, the permanent per-unit quality a mobilized recruit is
+/// born with <strong>[confirmed: decompiled-mobilization-and-mercenary-restock.md §1, §2]</strong>. The
+/// division truncates toward zero, exactly as the original's <c>if (v &lt; 0) v += 3; v &gt;&gt; 2</c>
+/// idiom does. Against the DAT's own quality-name table at <c>0x1F6CA</c> (11-byte stride) — indices
+/// 0–3 all reading <c>not ready</c>, 4 <c>very poor</c>, 5 <c>poor</c>, 6 <c>average</c>, 7 <c>good</c>,
+/// 8 <c>very good</c>, 9 <c>elite</c> — this is what makes
+/// <see cref="MobilizationMinStateCodeHumanSeat"/> readable: mobilizing early is permanently worse.
+/// </param>
+/// <param name="MobilizationMinStateCodeHumanSeat">
+/// The lowest <see cref="Model.RecruitmentSlot.StateCode"/> a human seat may mobilize — <c>16</c>, the
+/// dialog's own <c>if (0xf &lt; slot.state)</c> gate
+/// <strong>[confirmed: decompiled-mobilization-and-mercenary-restock.md §2]</strong>. With
+/// <see cref="MobilizationQualityDivisor"/> it says "quality &gt;= 4", i.e. "the slot no longer reads
+/// <c>not ready</c>".
+/// </param>
+/// <param name="MobilizationMinStateCodeAiSeat">
+/// The lowest <c>StateCode</c> an AI seat may mobilize — <c>24</c>, and the original's own test is
+/// <c>slot.state == 0x18</c>, an equality against <see cref="CalendarRules.CityUnitStateCodeCap"/>
+/// <strong>[confirmed: decompiled-mobilization-and-mercenary-restock.md §4]</strong>. Modelled as a
+/// minimum rather than an equality because <see cref="Calendar.CityUnitStateCode.Advance"/> holds the
+/// counter <em>at</em> that cap and never above it, so on this engine the two predicates are the same
+/// set; <c>MobilizationReadinessTests</c> asserts the boundary either side (22 refused, 24 accepted).
+/// </param>
+/// <param name="MobilizationReceivingArmyRangeHumanSeat">
+/// The Chebyshev distance from the training city at which a human seat's army may receive a mobilized
+/// recruit — <c>1</c>, and the original's test is <c>d == 1</c>, not <c>d &lt;= 1</c>
+/// <strong>[confirmed: decompiled-mobilization-and-mercenary-restock.md §3]</strong>, so
+/// <see cref="Armies.MobilizationReceivingArmy"/> compares for equality against this field, not for
+/// "at most".
+/// </param>
+/// <param name="MobilizationReceivingArmyRangeAiSeat">
+/// The same radius for an AI seat — <c>5</c>, from the original's <c>d &lt; 6</c> branch, taken when
+/// the nation is computer-controlled <strong>[confirmed:
+/// decompiled-mobilization-and-mercenary-restock.md §3]</strong>: "a real, asymmetric AI advantage".
+/// Compared with "at most", because that branch is an inequality.
+/// </param>
+/// <param name="MobilizationRateOrderStep">
+/// The flat <c>1</c> in <c>mobilized = min(cap, mobilized + 1 + (troops × scale) / wealth)</c>, applied
+/// when a recruitment order is <em>placed</em> and symmetrically subtracted when one is cancelled
+/// <strong>[confirmed: decompiled-mobilization-and-mercenary-restock.md §5]</strong>.
+/// </param>
+/// <param name="MobilizationRateWealthScale">
+/// The <c>1000</c> that scales the same formula's troop term against
+/// <see cref="Model.NationState.Wealth"/> (<c>Σ population × 3000</c>)
+/// <strong>[confirmed: decompiled-mobilization-and-mercenary-restock.md §5]</strong>.
+/// </param>
+/// <param name="MobilizationCapPercent">
+/// The ceiling that formula is clamped to — <c>100</c>, the same cap the original's dialog reports as
+/// <em>"Your mobilisation rate is already 100%."</em> (T04 fixtures corpus
+/// <c>recruitment.mobilizationCapPercent</c> and <c>error.mobilizationAlready100</c>)
+/// <strong>[confirmed: decompiled-mobilization-and-mercenary-restock.md §5]</strong>.
+/// </param>
 public sealed record RecruitmentRules(
     int TroopsPerCostUnit,
     int MercenaryPoolSlots,
     int MercenaryHireTroopDivisor,
     int MercenaryUpkeepQualityDivisor,
+    int MaxSlots,
+    int MobilizationQualityDivisor,
+    int MobilizationMinStateCodeHumanSeat,
+    int MobilizationMinStateCodeAiSeat,
+    int MobilizationReceivingArmyRangeHumanSeat,
+    int MobilizationReceivingArmyRangeAiSeat,
+    int MobilizationRateOrderStep,
+    int MobilizationRateWealthScale,
+    int MobilizationCapPercent,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>Join/split caps and what a newly split army starts with.</summary>
