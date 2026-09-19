@@ -41,6 +41,7 @@ gh issue list --label triage:needed --state open         # untriaged bugs and fo
 | [design-audit.md](design-audit.md) | What the evidence supports, and the design questions Q1–Q10 |
 | [release-plan.md](release-plan.md) | Versions, release gates, release notes, the release checklist |
 | [evidence-pipeline.md](evidence-pipeline.md) | The `/process-evidence` pipeline and its skill text |
+| [recording-analysis.md](recording-analysis.md) | Reading a screen recording: the `/parse-recording` pipeline, the ffmpeg recipe, and what each in-game panel is worth |
 | [investigations/README.md](investigations/README.md) | Index of this repository's own evidence write-ups |
 
 ### 1.2 The original game files
@@ -62,6 +63,8 @@ Inside that directory:
 **The evidence is also published as GitHub releases, one per play-through**, in that same private repository — [`run-1-rome`, `run-1-cartago`, `run-1-thracia` and `legacy-probes`](https://github.com/diegoami/imp_conquest_original/releases). Each release holds that run's saves, screenshots, observation notes and any recording a note ties to a save pair.
 
 This matters because **reports cite bare filenames** (`11_supply.sav`, `1_rome_270_winter_7.sav`), never paths. [`docs/evidence-index.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/evidence-index.md) in the research repository maps every cited filename to the release holding it, with a `gh release download` recipe — so a citation can be resolved **without this machine's local copy**. Read it before hunting for a file on disk.
+
+**Evidence made on another machine lives only in a release.** The originals repo has a git-ignored `releases/<tag>/` cache and `scripts/fetch-release.sh` to fill it: saves, screenshots and notes by default (**under 10 MB for a whole run**), `--video` to add the recordings. The cache is disposable — GitHub is the source of truth.
 
 The releases change nothing about the standing rule: **no save, screenshot, recording or game file enters either repository.** A release in a private repository is not this repository, and the index is a pointer, never a copy.
 
@@ -118,6 +121,7 @@ Both are **local, git-ignored installs** under `.claude/skills/`, and the fenced
 | --- | --- | --- | --- |
 | `/run-task [T<nn> ...]` | `.claude/skills/run-task/SKILL.md` | [build-process.md Appendix C](build-process.md#appendix-c-the-run-task-skill) | Runs build tasks end to end |
 | `/process-evidence [path]` | `.claude/skills/process-evidence/SKILL.md` | [evidence-pipeline.md](evidence-pipeline.md#the-actual-skill-file) | Turns new saves, recordings and notes into research findings, then into design implications |
+| `/parse-recording [recording] [saves] [timestamps]` | `.claude/skills/parse-recording/SKILL.md` | [recording-analysis.md](recording-analysis.md#the-actual-skill-file) | Reads a screen recording into findings — frame extraction, panel reading, correlation against the saves either side. **Needs no written notes**, only rough timestamps |
 
 ### 2.4 Working rules
 
