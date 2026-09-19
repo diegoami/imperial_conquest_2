@@ -79,7 +79,8 @@ public sealed class PeaceTreatySystem : IGameSystem
         // relation to its post-war cooldown.
         var honourable = HonourablePeaceGate.Fires(state, ruleset, winnerId, loserId);
 
-        state = state with { Relations = state.Relations.WithRelation(winnerId, loserId, codes.Peace) };
+        // "setRelation(winner, loser, 0)" -- the setter's own peace-cooldown translation, from whatever the
+        // pair's relation was going into the treaty (war, for every treaty this build produces).
         state = RelationTransitions.BreakToPeace(state, ruleset, winnerId, loserId);
 
         var winnerName = RelationTransitions.NameOf(state, winnerId);

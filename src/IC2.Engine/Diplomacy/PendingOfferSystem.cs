@@ -70,14 +70,17 @@ public sealed class PendingOfferSystem : IGameSystem
         ArgumentNullException.ThrowIfNull(ruleset);
         ArgumentNullException.ThrowIfNull(rng);
 
-        // "Cleared every human turn start, accepted or not" -- unconditional, before anything else.
-        state = state with { PendingOffer = null };
-
+        // FUN_00451FDC "runs the AI seats and calls FUN_00452034 when it reaches a human" -- the
+        // clear-and-reroll only ever runs on a human seat's turn, an AI seat's own turn start never
+        // touches the block at all.
         var active = state.NationById(state.ActiveNationId);
         if (active is null || active.Control != SeatControl.Human)
         {
             return (state, null);
         }
+
+        // "offer = (-1, ·) -- cleared every human turn start, accepted or not" -- unconditional from here.
+        state = state with { PendingOffer = null };
 
         var ids = state.Relations.NationIds;
         var candidateIndex = rng.NextInt(ids.Count);
