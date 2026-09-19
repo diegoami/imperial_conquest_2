@@ -176,6 +176,58 @@ public sealed class HireMercenaryCommandHandlerTests
     }
 
     /// <summary>
+    /// <c>docs/task-catalogue.md</c> T15 Done-when 6 (issue #181): <see cref="Model.ArmyManagementRules.MaxUnitsPerArmy"/>
+    /// (20) is now enforced on a mercenary hire, the same shape as <c>JoinArmiesCommandHandler</c>'s own
+    /// cap -- inclusive, so 19 units accepting a hire (ending at 20) is still allowed. Small troop counts
+    /// throughout, and plenty of money, so only the unit count is under test.
+    /// </summary>
+    private static ArmyState ArmyWithUnits(int unitCount, string id = "unit-cap-army") =>
+        new(
+            id, "north", 0, 0, Moves: 5, Morale: 68, Money: 1000, SupplyTons: 0,
+            CoveredTileCode: 2, AboardFleetId: null,
+            Units: ValueList.From(Enumerable.Range(0, unitCount)
+                .Select(i => new UnitSlot(0, "light_infantry", 10, 6, $"filler {i}"))));
+
+    [Theory]
+    [InlineData(18, 19)] // 18 + 1 hired = 19: well under the cap.
+    [InlineData(19, 20)] // 19 + 1 hired = 20: the cap is inclusive, so this still accepts.
+    public void A_hire_that_keeps_the_army_at_or_under_twenty_units_is_accepted(int startingUnits, int expectedUnits)
+    {
+        var dispatcher = RecruitmentTestbed.Dispatcher();
+        var initial = RecruitmentTestbed.InitialState();
+        var army = ArmyWithUnits(startingUnits);
+        var offer = new MercenaryPoolSlot(SlotIndex: 40, NameLabel: 3, UnitTypeId: "light_infantry", Troops: 10, Quality: 5);
+        var before = RecruitmentTestbed.WithMercenaryPool(
+            initial with { Armies = ValueList.From(initial.Armies.Append(army)) }, offer);
+
+        var result = dispatcher.Dispatch(before, new HireMercenaryCommand(before.ActiveNationId, army.Id, offer.SlotIndex));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        Assert.Equal(expectedUnits, result.State.ArmyById(army.Id)!.Units.Count);
+    }
+
+    /// <summary>
+    /// The exact scenario T13's reviewer probed (T15 Done-when 6, issue #181): an army already holding 20
+    /// units accepts a hire and ends at 21, a shape the original's 20-slot army record cannot hold.
+    /// </summary>
+    [Fact]
+    public void An_army_already_at_twenty_units_is_rejected_from_reaching_twentyOne_and_changes_nothing()
+    {
+        var dispatcher = RecruitmentTestbed.Dispatcher();
+        var initial = RecruitmentTestbed.InitialState();
+        var army = ArmyWithUnits(20);
+        var offer = new MercenaryPoolSlot(SlotIndex: 41, NameLabel: 3, UnitTypeId: "light_infantry", Troops: 10, Quality: 5);
+        var before = RecruitmentTestbed.WithMercenaryPool(
+            initial with { Armies = ValueList.From(initial.Armies.Append(army)) }, offer);
+
+        var result = dispatcher.Dispatch(before, new HireMercenaryCommand(before.ActiveNationId, army.Id, offer.SlotIndex));
+
+        Assert.Equal(HireMercenaryUnitCapRejections.OverArmyUnitCap, result.Code);
+        Assert.Same(before, result.State);
+        Assert.Equal(20, before.ArmyById(army.Id)!.Units.Count); // still 20, never reached 21.
+    }
+
+    /// <summary>
     /// The confirmed embarked-fleet-space check: an army aboard a fleet with too little remaining
     /// capacity for the hired troops is refused. north-fleet-1 carries 10 ships → capacity 5,000 troops
     /// (<c>transportTroopsPerShip</c>); an already-embarked 4,000-troop army hiring 2,000 more exceeds it.
