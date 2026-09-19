@@ -44,21 +44,51 @@ public class ExportScriptReproducibilityTests
         Assert.Equal(beforeScenario, Sha256(ExportedDataPaths.ScenarioFile));
     }
 
+    /// <summary>
+    /// Runs the export script against wherever <see cref="OriginalFilesAvailability"/> actually
+    /// resolved the DAT -- <strong>not</strong> unconditionally against the repository-root
+    /// <c>assets.local.ini</c>. CI configures the DAT through <c>IC2_FIXTURES_DIR</c>, which has no
+    /// ini file at all (caught by this test's own first CI run: <c>IsConfigured</c> was correctly
+    /// <see langword="true"/>, but the script was handed a non-existent
+    /// <c>assets.local.ini</c> path regardless and crashed). This writes a throwaway ini pointing at
+    /// the resolved DAT's directory and passes that instead, mirroring
+    /// <c>IC2.Data.Tests.LocalAssets.TryLoadFixturesDir</c>'s identical trick for the identical
+    /// reason -- the export script's own <c>AssetSettings.Load</c> only understands an ini file, and
+    /// is outside this task's Owns list to change.
+    /// </summary>
     private static (int ExitCode, string Stdout, string Stderr) RunExportScript()
     {
-        var psi = new ProcessStartInfo("dotnet", $"run \"{ExportedDataPaths.ExportScript}\" \"{ExportedDataPaths.AssetsIniPath}\"")
-        {
-            WorkingDirectory = ExportedDataPaths.RepositoryRoot,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-        };
+        var datPath = OriginalFilesAvailability.DatPath
+                      ?? throw new InvalidOperationException("DatPath is null despite IsConfigured being true.");
+        var assetsDirectory = Path.GetDirectoryName(datPath)
+                               ?? throw new InvalidOperationException($"'{datPath}' has no directory component.");
 
-        using var process = Process.Start(psi) ?? throw new InvalidOperationException("Failed to start dotnet run.");
-        var stdout = process.StandardOutput.ReadToEnd();
-        var stderr = process.StandardError.ReadToEnd();
-        process.WaitForExit();
-        return (process.ExitCode, stdout, stderr);
+        var tempIni = Path.Combine(Path.GetTempPath(), "ic2-export-repro-" + Guid.NewGuid().ToString("N") + ".ini");
+        try
+        {
+            File.WriteAllText(tempIni, $"[assets]{Environment.NewLine}directory = {assetsDirectory}{Environment.NewLine}");
+
+            var psi = new ProcessStartInfo("dotnet", $"run \"{ExportedDataPaths.ExportScript}\" \"{tempIni}\"")
+            {
+                WorkingDirectory = ExportedDataPaths.RepositoryRoot,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+            };
+
+            using var process = Process.Start(psi) ?? throw new InvalidOperationException("Failed to start dotnet run.");
+            var stdout = process.StandardOutput.ReadToEnd();
+            var stderr = process.StandardError.ReadToEnd();
+            process.WaitForExit();
+            return (process.ExitCode, stdout, stderr);
+        }
+        finally
+        {
+            if (File.Exists(tempIni))
+            {
+                File.Delete(tempIni);
+            }
+        }
     }
 
     private static string Sha256(string path)
