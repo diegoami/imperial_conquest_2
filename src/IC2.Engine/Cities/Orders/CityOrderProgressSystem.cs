@@ -1,4 +1,3 @@
-using IC2.Engine.Calendar;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
 
@@ -25,14 +24,14 @@ namespace IC2.Engine.Cities.Orders;
 /// and save each turn until it completes.
 /// </para>
 /// <para>
-/// This system is registered weekly (every time the week advances), not quarterly.
+/// Runs in <see cref="TurnPhase.CityTick"/> as a round-scope system that updates every city in the game.
 /// </para>
 /// </remarks>
-[WeeklySystem("city-orders.progress", Order = 100)]
-public sealed class CityOrderProgressSystem : IWeeklySystem
+[GameSystem(TurnPhase.CityTick, "city-orders.progress", Order = 200)]
+public sealed class CityOrderProgressSystem : IGameSystem
 {
     /// <inheritdoc/>
-    public GameState OnWeekly(WeeklyContext context)
+    public GameState Execute(SystemContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
