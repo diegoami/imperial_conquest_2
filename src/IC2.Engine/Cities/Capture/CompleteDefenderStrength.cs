@@ -21,19 +21,27 @@ namespace IC2.Engine.Cities.Capture;
 /// <c>otherDefense = defender_strength(other_city)</c> is exactly this value, entirely within T17's Owns.
 /// </para>
 /// <para>
-/// <strong>The one place this is deliberately <em>not</em> used: the initiating siege attempt's own
-/// win/loss decision.</strong> That decision is
+/// <strong>Where the initiating siege attempt's own garrison term lives instead, and why it is not this
+/// type.</strong> The besieging army's own win/loss decision is
 /// <see cref="IC2.Engine.Battle.InstantBattleResolver.ResolveSiege"/> (T16), which is already the tested
 /// implementation of "the strength comparison at the head of <c>FUN_0044B27C</c>" and already applies the
 /// separate <c>× 9/10</c> reduction (<see cref="SiegeRules.AttackerIsAllegianceDefenderReductionPercent"/>)
-/// this task must not apply a second time. <see cref="ResolveSiege"/> computes
-/// <see cref="SiegeStrength.Defender"/> without the garrison term — a known, pre-existing gap in a file
-/// outside this task's Owns list (<c>src/IC2.Engine/Battle/**</c>), not something this task can close.
-/// <see cref="CityCaptureResolver.ResolveOutcome"/> therefore treats T16's own
-/// <see cref="IC2.Engine.Battle.BattleResult.Winner"/> as the authoritative win/loss decision for whether
-/// a siege attempt succeeds, and this type's "complete" strength is reserved for the parts of the
-/// pipeline that are genuinely T17's: the cascade's own, separate strength comparisons for cities the
-/// initiating siege never touched.
+/// this task must not apply a second time. An earlier revision of this file reasoned that
+/// <see cref="ResolveSiege"/> computing <see cref="SiegeStrength.Defender"/> without the garrison term was
+/// an out-of-Owns gap this task could not close, and used this type only for the cascade's own candidate
+/// evaluations — <strong>that reading did not survive review</strong> (<c>docs/task-catalogue.md</c> T17
+/// DoD 7's amendment): the garrison addend is <c>FUN_0044A98C</c>'s own last line, so every caller of that
+/// function needs it, the initiating siege included, or its own win/loss resolves against an incomplete
+/// defender strength. The fix is a narrow, granted addition directly inside
+/// <see cref="ResolveSiege"/> itself (a small, self-contained per-slot sum — the same shape as
+/// <see cref="GarrisonTerm"/> below, kept as two call sites on purpose rather than a
+/// <c>Battle → Cities.Capture</c> reference, since <see cref="CityCaptureResolver"/> already depends on
+/// <c>Battle</c> for <see cref="IC2.Engine.Battle.BattleResult"/> and a reference back the other way would
+/// be circular). <see cref="CityCaptureResolver.ResolveOutcome"/> still treats T16's own
+/// <see cref="IC2.Engine.Battle.BattleResult.Winner"/> as the authoritative win/loss decision — now a
+/// <em>complete</em> one — and this type remains reserved for the parts of the pipeline that are
+/// genuinely T17's own: the cascade's separate strength comparisons for cities the initiating siege never
+/// touched.
 /// </para>
 /// </remarks>
 public static class CompleteDefenderStrength

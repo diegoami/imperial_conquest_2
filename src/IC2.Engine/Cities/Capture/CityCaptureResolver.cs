@@ -16,17 +16,18 @@ namespace IC2.Engine.Cities.Capture;
 /// <strong>What T16 already decided, and what this task starts from.</strong>
 /// <see cref="InstantBattleResolver.ResolveSiege"/> is <c>FUN_0044B27C</c>'s own strength comparison: it
 /// decides whether the attacker's <see cref="SiegeStrength.Attacker"/> beats the defender's
-/// <see cref="SiegeStrength.Defender"/> (already scaled by the capital-and-loyalty and
-/// owner-vs-allegiance branches, and by the siege entry point's own separate
+/// <see cref="SiegeStrength.Defender"/> — scaled by the capital-and-loyalty and owner-vs-allegiance
+/// branches, then by this task's own garrison-troops addend (a narrow grant on that file, DoD 7's
+/// amendment: the addend is <c>FUN_0044A98C</c>'s own last line, so the initiating siege needs it too, not
+/// only the cascade below), then by the siege entry point's own separate
 /// <see cref="SiegeRules.AttackerIsAllegianceDefenderReductionPercent"/> ×9/10 reduction when the attacker
-/// is the city's own allegiance), and it applies the attacking army's own per-attempt attrition
+/// is the city's own allegiance — and it applies the attacking army's own per-attempt attrition
 /// (<see cref="BattleCasualties"/>, DoD 5) — win or lose, every time. <see cref="ResolveOutcome"/> takes
-/// that already-resolved <see cref="BattleResult"/> and does not re-decide it: it only ever reads
-/// <see cref="BattleResult.Winner"/>. This is deliberate and load-bearing — see
-/// <see cref="CompleteDefenderStrength"/>'s own remarks for exactly where this task's "complete" defender
-/// strength (garrison term included) is used instead, and why it is never used to second-guess T16's own
-/// decision: doing so would mean computing the ×9/10 reduction a second time, which the task's own brief
-/// forbids.
+/// that already-resolved, now-<em>complete</em> <see cref="BattleResult"/> and does not re-decide it: it
+/// only ever reads <see cref="BattleResult.Winner"/>. This is deliberate and load-bearing — computing the
+/// ×9/10 reduction a second time here would violate the task's own brief, which is exactly why
+/// <see cref="CompleteDefenderStrength"/> (this task's own reusable "complete defender strength", used by
+/// the cascade below) never applies it — see that type's own remarks.
 /// </para>
 /// <para>
 /// <strong>The Known-open item.</strong> <c>FUN_0044bed8</c> (<see cref="Defect"/>) and
