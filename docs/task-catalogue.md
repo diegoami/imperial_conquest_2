@@ -4,7 +4,7 @@ Every build task's scope, **Owns** list, Definition of Done, model/effort, revie
 
 **Status is not in this document.** Each task's stage (ready, in progress, merged, blocked, escalated) lives only in its GitHub issue's `status:*` label ([build-process.md §5](build-process.md#5-status-lives-on-github)). The index below links every issue.
 
-54 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), twelve corrections to already-merged code (T31–T35, T38–T40, T42–T45), one rule no task owned (T37, the weekly city supply step), and two early slices — T41 of T23's CLI, and T47 of T24's Godot UI.
+56 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), twelve corrections to already-merged code (T31–T35, T38–T40, T42–T45), one rule no task owned (T37, the weekly city supply step), and two early slices — T41 of T23's CLI, and T47 of T24's Godot UI.
 
 ---
 
@@ -1390,6 +1390,58 @@ Conventions used by every entry:
 
 ---
 
+#### T55 Mobilization: a ready recruit becomes an army unit
+
+- **Design milestone**: none — the keystone of [#225](https://github.com/diegoami/imperial_conquest_2/issues/225), *“no nation can grow an army, so no game can be won”*. **Labels**: `phase:2 lane:engine`
+- **Branch**: `task/T55-mobilization` · **Model/effort**: **Opus / High** · **Reviewer**: **Opus / High**
+- **Start after**: T13, T15 · **Merge after**: T13, T15, T22
+- **Owns**: `src/IC2.Engine/Recruitment/**`, `tests/IC2.Engine.Tests/Recruitment/**`, `src/IC2.Engine/Armies/**` (**the mobilization receiving-army path and army creation only** — not T15's join/split/disband commands), `tests/IC2.Engine.Tests/Armies/**` (its tests only), `src/IC2.Engine/Model/Ruleset.cs` (**additive `RecruitmentRules` fields only**), `data/rulesets/toy-ruleset.json` (the matching `recruitment` keys only), `src/IC2.Engine/Model/GameState.cs` (**`NationState.MobilizedPercent`'s remark only**, [#183](https://github.com/diegoami/imperial_conquest_2/issues/183))
+- **Scope**: T13 shipped standing recruitment and stopped where the evidence stopped — `RecruitmentSlotReadinessSystem` advances a slot's `StateCode` to its cap and **nothing ever collects it**, because the garrison→army transfer lived in an undecompiled helper. That was the right call then. **It is now fully decompiled and verified against a real save pair**: [`decompiled-mobilization-and-mercenary-restock.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-mobilization-and-mercenary-restock.md).
+
+  This is the **single change that makes the game winnable**. T22's soak played 48,000 turns across 50 seeds and reached **0 victories**, because no nation can grow an army. Standing recruitment is the only renewable source of units, and it currently terminates in a counter that never pays out.
+- **Done when**:
+  1. **A ready slot mobilizes into a receiving army.** `FUN_0044a4e0` is `MobilizeRecruitSlot(nation, slot, out ok)`, and the order of operations is `[confirmed]`: read the slot's city; find the receiving army; write the unit; name it; delete the slot; refresh the marker. Reproduce that order, and assert it — an implementation that deletes the slot before the unit lands is a different rule under failure.
+  2. **The receiving army is found by adjacency, and the tie-break is last-index-wins.** `FUN_0044a120` takes any army of that nation at **Chebyshev distance exactly 1** from the city — **`< 6` if the nation is AI-controlled** — and takes the **last matching army index, not the nearest**. Both the asymmetry and the tie-break are `[confirmed]` and both must be asserted; neither is the obvious choice, so neither will survive a reviewer's mutation unless it is pinned deliberately.
+  3. **The 20-unit cap is the trigger for creating a second army, not an error.** An adjacent army is accepted only if `firstFreeUnitSlot != 20` **and** `totalTroops + incoming < 100,001`. When none qualifies, `FUN_00449f08` creates a new army on a neighbouring land cell (map code in `[2,11]`, **last cell of the 3×3 scan wins**) with **0 supplies, 0 money, morale 59, and 0 moves — 1 for an AI seat**; the 198-army cap applies. **T15 enforces that same 20-unit cap** — do not weaken it; route around it as the original does.
+  4. **Readiness determines the unit's permanent quality**, which this engine does not model at all: **`quality = state / 4`**, against the DAT's own name table at `0x1F6CA` (11-byte stride) where indices **0–3 all read `not ready`**, 4 `very poor`, 5 `poor`, 6 `average`, 7 `good`, 8 `very good`, 9 `elite`. So `state > 15` is exactly `quality >= 4` — *“no longer not ready”*. **A slot starts at state `0`**, ticks `+2`/week and caps at 24, so mobilizing at week 8 yields a **permanently `very poor`** unit and week 12+ an `average` one. **The player may mobilize from 16; the AI only at exactly 24.** Assert the ladder at its boundaries, not just one point.
+  5. **Units fill `lastOccupied + 1` and gaps are never reused.** `FUN_0044a66c` returns one past the highest occupied slot, which is why a 20 there is the rejection rather than a full-slot scan. Pin it with a fixture that *has* a gap.
+  6. **The 40-slot recruitment table is a compacted list.** Deletion (`FUN_0044a610`) shifts everything above down and zeroes slot 39, and **slot 39 occupied is the “limit of 40 units” refusal**. Check what the reimplementation currently does and correct it if it differs — a sparse table with a free-slot scan is a different rule.
+  7. **The recruitment order raises the mobilization rate, and mobilizing does not touch it** (plan item 17, closing [#183](https://github.com/diegoami/imperial_conquest_2/issues/183)): on placement `mobilized = min(100, mobilized + 1 + (troops × 1000) / wealth)`; on cancellation `max(0, mobilized − 1 − (troops × 1000) / wealth)`; the quarterly `−3` is already merged; initial is **50**. Wealth is `Σ population × 3000`. **Correct `NationState.MobilizedPercent`'s remark** in the same pass — it currently points at T13 for a rule T13 correctly did not implement.
+  8. **The corpus mobilization reproduces exactly.** `1_rome_270_autumn_1.sav → autumn_3.sav` is the one controlled mobilization in the corpus and the report verifies every clause against it: 11 units at **quality 6**, the **state-8 slot left behind** and ticked to 10, army 0 filling to **exactly 20 units** (13+7, +35,000) before army 14 took the remaining 4 (43,000) at **(102,44) = Rome (101,43) + (+1,+1)**, money 0, morale 60 (created 59 + one weekly tick), moves 8, and the nation-wide naming series (`3rd Foot`, then `4th`/`5th Foot`, `9th Guards`, `3rd Dragoons`, `3rd Lancers`). **Assert this end to end.** It is the strongest fixture available to any task in this project.
+  9. `dotnet build IC2.sln` and `dotnet test IC2.sln` green, and the diff lists only Owns paths.
+- **Hazards**:
+  - **Do not invent the naming rule.** `FUN_0044a218` does a **nation-wide ordinal scan per type, skipping mercenaries**, and T15 already implements exactly that in `ArmyNaming` — including filling free ordinals rather than incrementing. **Call it.**
+  - **Do not re-derive the army-creation stats.** Morale 59 and the seat-dependent moves are T15's split rule, already merged and tested. The report confirms mobilization creates armies with the **same** values; reuse the path rather than writing a second one.
+  - **`mobilization-movement-and-city-capture-modes.md` was wrong and is corrected** (2026-09-19): its “new army fingerprint” of *410 supply / 0 money / 8 moves / morale 2* has **only `0 money` as a creation value** — `morale 2` was a different field entirely. Read the corrected text, not a cached memory of it.
+  - **T22 must be re-soaked after this merges.** Its 50 seeds currently prove the engine survives 50 **static** games; this is what makes them dynamic. The re-run costs 1.23 s and is the only evidence that #225 is actually closed.
+
+---
+
+#### T56 The quarterly mercenary restock
+
+- **Design milestone**: none — the second reason behind [#225](https://github.com/diegoami/imperial_conquest_2/issues/225). **Labels**: `phase:2 lane:engine`
+- **Branch**: `task/T56-mercenary-restock` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
+- **Start after**: T13 · **Merge after**: T13, T22
+- **Owns**: `src/IC2.Engine/Recruitment/**` (**the restock system only** — coordinate with T55, which owns the rest of this folder), `tests/IC2.Engine.Tests/Recruitment/**` (its tests only), `src/IC2.Engine/Model/Ruleset.cs` (**additive restock fields only**), `data/rulesets/toy-ruleset.json` (the matching keys only), `tests/fixtures/**` (**the template-table entries this task adds only**)
+- **Scope**: `HireMercenaryCommand` is correct, tested and reviewed twice — and **unreachable in a long game**, because the starting pool drains and nothing refills it. T22's soak fires it a handful of times in the first quarters and never again across 48,000 turns.
+
+  **The rule exists and is now decompiled**: `FUN_00449130`, called **quarterly** from `FUN_004514ec`'s week-wrap branch, immediately after the quarterly economy. [`decompiled-mobilization-and-mercenary-restock.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-mobilization-and-mercenary-restock.md) §6.
+- **Done when**:
+  1. **A quarterly system refills the pool**, registered at the same boundary the original uses — after the quarterly economy, not before. Order matters and is `[confirmed]`; assert the registration order, not just the effect.
+  2. **The two probabilities are distinct and both pinned**: an **empty** slot refills with probability ≈ **85%**; a **live offer is replaced** with probability **1/9**. A restock that treats every slot alike passes a careless test and is a different rule — mutate each probability independently and watch a named test fail.
+  3. **Refills draw from the fixed 201-record template table** at `0x0049D0A4` — x, y, `Label` and type come from the template **wholesale**, and only troops and quality are randomized: troops **1.5×–3×** the template value, **capped at the type's standard battalion size**; quality **always clamped to 5–9**, which matches every offer observed in the corpus. The table itself is game data — **extract it rather than inventing entries**, and add the corpus entries under [build-process.md §2.4](build-process.md#2-how-the-build-avoids-conflicts)'s top-up contract.
+  4. **`0xFFFF` is the code's own empty test**, not a reimplementation convention. T13 already models an absent slot correctly; make sure the restock agrees with it rather than introducing a second emptiness rule.
+  5. **The pool never exceeds 50 slots**, and a restocked pool round-trips through save/load unchanged.
+  6. **`HireMercenaryCommand` stays reachable over a long game** — assert it directly: run enough quarters that the starting pool would have drained, and show the pool still holds offers. This is the DoD line that connects to [#225](https://github.com/diegoami/imperial_conquest_2/issues/225); without it the task satisfies its parts and not its purpose.
+  7. `dotnet build IC2.sln` and `dotnet test IC2.sln` green, and the diff lists only Owns paths.
+- **Hazards**:
+  - **Determinism.** Every draw goes through `IRng`, and a quarterly system that touches 50 slots is a large consumer of the stream — its position matters to every seeded test downstream, including T22's 50-seed soak. **Say in the PR how many draws a quarter costs**, and expect a reviewer to check that a fixed seed reproduces.
+  - **Do not touch T55's files.** Both tasks own part of `src/IC2.Engine/Recruitment/**`. T55 has the mobilization path; this task has the restock system. If they collide, **stop and report** — whichever merges second rebases.
+  - **Do not re-implement the hire.** T13's `HireMercenaryCommandHandler` is correct and twice-reviewed, and T15 has just added its unit-count cap. This task supplies its input and nothing else.
+  - The `Label` field's **name strings are still unknown** — the table is located at `0x0049CC94` (20-byte stride) but its DAT offset was not found. `Label` round-trips as a number today and must continue to; **do not invent display names.**
+
+---
+
 #### T24 Godot main game screen
 
 - **Design milestone**: **M18** (UI half). **Labels**: `phase:3 lane:ui single-instance`
@@ -1505,5 +1557,7 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T52](#t52-scale-the-improved-naval-defeat-and-t16s-follow-ups) | Scale the `improved` naval defeat + T16 follow-ups | — | Sonnet | High | Sonnet/High | T16 | [#178](https://github.com/diegoami/imperial_conquest_2/issues/178) |
 | [T53](#t53-resolve-test-fixtures-by-name-and-run-them-in-ci) | Fixture resolution + CI fixtures | — | Sonnet | High | **Opus**/Medium | — | [#204](https://github.com/diegoami/imperial_conquest_2/issues/204) |
 | [T54](#t54-attack-siege-and-movement-onto-city-tiles) | Attack + siege commands | — | **Opus** | High | **Opus**/High | T17, T19 | [#216](https://github.com/diegoami/imperial_conquest_2/issues/216) |
+| [T55](#t55-mobilization-a-ready-recruit-becomes-an-army-unit) | Mobilization + the mobilization rate | — | **Opus** | High | **Opus**/High | T13, T15 | [#228](https://github.com/diegoami/imperial_conquest_2/issues/228) |
+| [T56](#t56-the-quarterly-mercenary-restock) | Quarterly mercenary restock | — | Sonnet | High | **Opus**/Medium | T13 | [#229](https://github.com/diegoami/imperial_conquest_2/issues/229) |
 
-**Totals** — 54 tasks: 5 Opus, 44 Sonnet, 4 Haiku, 1 Fable. Effort: 2 Ultrahigh, 26 High, 23 Medium, 3 Low.
+**Totals** — 56 tasks: 6 Opus, 45 Sonnet, 4 Haiku, 1 Fable. Effort: 2 Ultrahigh, 28 High, 23 Medium, 3 Low.
