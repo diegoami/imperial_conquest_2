@@ -4,7 +4,7 @@ Every build task's scope, **Owns** list, Definition of Done, model/effort, revie
 
 **Status is not in this document.** Each task's stage (ready, in progress, merged, blocked, escalated) lives only in its GitHub issue's `status:*` label ([build-process.md §5](build-process.md#5-status-lives-on-github)). The index below links every issue.
 
-56 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), twelve corrections to already-merged code (T31–T35, T38–T40, T42–T45), one rule no task owned (T37, the weekly city supply step), and two early slices — T41 of T23's CLI, and T47 of T24's Godot UI.
+57 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), twelve corrections to already-merged code (T31–T35, T38–T40, T42–T45), one rule no task owned (T37, the weekly city supply step), and two early slices — T41 of T23's CLI, and T47 of T24's Godot UI.
 
 ---
 
@@ -1164,12 +1164,17 @@ Conventions used by every entry:
 - **Design milestone**: **M18** (headless half). **Labels**: `phase:3 lane:engine`
 - **Branch**: `task/T23-command-layer` · **Model/effort**: Sonnet / Medium · **Reviewer**: Sonnet / High
 - **Start after**: T17 · **Merge after**: T17, T19, **T41**
-- **Owns**: `src/IC2.Cli/**`, `src/IC2.Engine/Presentation/**`, `tests/IC2.Engine.Tests/Presentation/**`
+- **Owns**: `src/IC2.Cli/**`, `src/IC2.Engine/Presentation/**`, `tests/IC2.Engine.Tests/Presentation/**`, and for DoD 4's folded follow-ups: `src/IC2.Engine/Movement/**` ([#226](https://github.com/diegoami/imperial_conquest_2/issues/226)'s one terrain check), `src/IC2.Engine/Armies/**` ([#222](https://github.com/diegoami/imperial_conquest_2/issues/222)'s disband adjacency call only), `src/IC2.Engine/Battle/Commands/**` and `tests/IC2.Engine.Tests/Battle/**` ([#222](https://github.com/diegoami/imperial_conquest_2/issues/222)'s boundary tests and [#221](https://github.com/diegoami/imperial_conquest_2/issues/221)'s guard decision), plus their tests
 - **Scope**: The headless boundary the Godot UI will bind to — view models for the contextual panel's selections (city / army / fleet / nation), and `IC2.Cli` as a scriptable play harness. It **extends T41's demo harness**, including its session, its `MoveArmy`/`BuySupply` commands and its golden-transcript test, to every command type. It doesn't start over. Splitting this out of M18 is what makes the Godot lane small enough to serialize cheaply.
 - **Done when**:
   1. A committed script drives `IC2.Cli` to load a scenario, issue **one order of each command type**, and end a turn, exiting 0. Its output matches a committed golden transcript exactly (determinism proves itself here).
   2. **A human army's move that ends against a non-hostile city resupplies it automatically**, through T38's automatic-resupply function (`TUnitMap_MoveHumanArmy` → `FUN_0044D734`'s tail, [`supply-capacity-rounding.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/supply-capacity-rounding.md)). The golden transcript includes one such move.
   3. **Folded follow-up ([#98](https://github.com/diegoami/imperial_conquest_2/issues/98))**: the session's news reader assumes one news-log entry per news event, which T42's round headers, blank lines and dash lines break — a round with a conquest reads as several "events". The reader counts **entries**, not events, and a test covers a round containing a header, a dash-delimited conquest line and an ordinary line.
+  4. **Four command-layer follow-ups, folded because this task opens exactly these files.**
+      - **[#232](https://github.com/diegoami/imperial_conquest_2/issues/232)** — `GameSessionRendering.cs:177-178` prints *“Not yet implemented: battles, city capture, recruitment, diplomacy, and the AI”*, and **sixty lines later the same transcript reads `SOUTHERN LEAGUE DECLARES WAR` and `destroys army of Northern League`.** Four of the five now ship. The banner has been quietly falsifying itself one merge at a time, because a constant string makes no test fail. **Rewrite it to what is actually missing, and decide whether a hand-maintained list belongs in shipped output at all** — if it stays, it needs a test that fails when a named feature starts working.
+      - **[#221](https://github.com/diegoami/imperial_conquest_2/issues/221)** — T16's diplomacy guard text-scans **every** file under `src/IC2.Engine/Battle/**`, which now includes T54's commands, so an attack command cannot call `DeclareWar`. The original **auto-declares in one click**; this engine needs two commands in the confirmed order. **This task is the first consumer that has to compose them**, so settle it: scope the guard to the resolver files it was written for, or keep the two-command form deliberately and say so where the next implementer will meet it.
+      - **[#222](https://github.com/diegoami/imperial_conquest_2/issues/222)** — adjacency is implemented twice and can drift: `DisbandArmyCommandHandler` open-codes the Chebyshev literal instead of calling `AttackLegality.AreAdjacent`. Proved by mutation — widening `AreAdjacent` leaves both disband rows green. Route disband through the shared helper, and give the siege and naval gates the boundary theory only the army gate has.
+      - **[#226](https://github.com/diegoami/imperial_conquest_2/issues/226)** — `MoveArmyCommandHandler` never checks `TileType.PassableByArmies`, so **an army can be legally walked into the sea**. `MoveFleetCommandHandler:93` checks its mirror, so this is an asymmetry rather than a design. T22's AI declines such a march on its own, which is why nothing caught it — **a human seat through this CLI has no such scruple.**
 - **Hazards**: **Two merged defects in `Presentation/**` are yours to fix** as you take the harness over. Bug [#98](https://github.com/diegoami/imperial_conquest_2/issues/98): `GameSession` counts news-worthy events and prints that many log entries, but T42's round header adds two entries backed by no event and a dash-wrapped conquest adds three for one, so a round-ending turn can print the header and drop the real news line. Ask the log what it appended (compare its length across the turn) instead of inferring it. Follow-up [#100](https://github.com/diegoami/imperial_conquest_2/issues/100) item 2: `GameSessionRendering` hardcodes a season-name table that now duplicates `Ruleset.NewsLog.SeasonNames`. Also: move orders are priced through T09's `MovementWalker` / `TerrainCostLookup`, never T02's `Ruleset.MoveCostFor`, so the unpriced-terrain warning always fires (T09 follow-up [#74](https://github.com/diegoami/imperial_conquest_2/issues/74) N1). Events from commands dispatched between runs never reach `SystemContext.PublishedEvents`, so route every `CommandResult`'s events through T10's `NewsLogWriter.Append`; T41 already does this for its two commands (T40 follow-up [#87](https://github.com/diegoami/imperial_conquest_2/issues/87) P1).
 
 #### T47 Thin Godot slice: the engine on a screen
@@ -1452,6 +1457,29 @@ Conventions used by every entry:
 
 ---
 
+#### T57 The AI mobilizes its ready recruits
+
+- **Design milestone**: none — the last step of [#225](https://github.com/diegoami/imperial_conquest_2/issues/225). **Labels**: `phase:2 lane:engine`
+- **Branch**: `task/T57-ai-mobilize` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
+- **Start after**: T55 · **Merge after**: T22, T55
+- **Owns**: `src/IC2.Engine/Ai/**`, `tests/IC2.Engine.Tests/Ai/**`
+- **Scope**: T55 built `MobilizeRecruitSlotCommand` and **nothing issues it.** `grep -rn "MobilizeRecruitSlotCommand" src/` returns only XML `<see cref>` hits: `AiEconomyPhase` places recruitment **orders**, and no phase ever collects them. So the keystone of #225 is in place with nothing turning it, and **a re-soak of T22 today would still report 0 victories across 50 seeds.**
+
+  This task is small and its purpose is large: it is what makes the game winnable, and T22's soak is the evidence.
+- **Done when**:
+  1. **An AI candidate issues `MobilizeRecruitSlotCommand`**, scored in the economy phase alongside recruitment, with its weight and reasoning stated in the PR body like every other `[designed]` weight in `AiWeights`.
+  2. **The AI mobilizes only at `state == 24`**, which T55 implements and `MobilizationReadiness` exposes — **do not re-derive the threshold**, and do not let the AI mobilize early. Mobilizing at week 8 yields a **permanently `very poor`** unit (`quality = state / 4`), so early mobilization is a real and irreversible cost, not a tempo choice.
+  3. **`recruitment.table-full` is pre-checked, not discovered.** T55 added that refusal, `AiEconomyPhase` does not check it, and T22's DoD 1 requires **zero rejected commands** — `AiGameRunner.CommandsRejected` is *“required to be zero”*. Because an AI nation never mobilized, its table only grew: **a longer soak would fail, not merely differ.** Pre-check it the way `MaxOpenRecruitmentOrdersPerCity` already is, and assert the AI never issues a command the engine refuses.
+  4. **T22's 50-seed soak is re-run and its outcome recorded** — seeds won versus capped versus expired, wall-clock against the 5-minute budget, and whether the decision sequences still hash identically across seeds. **This is the DoD line that closes [#225](https://github.com/diegoami/imperial_conquest_2/issues/225)**, and it is the first time the soak can report anything but a static world.
+  5. **A seed that reaches a victory is asserted**, or the PR states plainly why none does and what still blocks it. **Do not tune weights to manufacture a win** — if the answer is that armies now grow but sieges remain unwinnable, that is a finding worth more than a green assertion.
+  6. `dotnet build IC2.sln` and `dotnet test IC2.sln` green, and the diff lists only Owns paths.
+- **Hazards**:
+  - **Determinism.** A new candidate consumes no RNG if it draws nothing — T55's mobilization path has **no `rand` call**, confirmed across all four of its functions — so the stream positions every seeded test depends on should be **unchanged**. If your change moves them, T22's soak logs and the golden transcript both shift; say so loudly rather than regenerating quietly.
+  - **Do not touch `src/IC2.Engine/Recruitment/**`.** T55 owns it and T56 owns the restock. If mobilization needs a change to be usable from the AI, that is a **finding to report**, not an edit to make.
+  - The soak's decision sequences are currently **identical across all fifty seeds** — T22's implementer hashed them and got one value for seeds 1, 2 and 50. If this task changes that, **say so**: it is the clearest single measure of whether the world became dynamic.
+
+---
+
 #### T24 Godot main game screen
 
 - **Design milestone**: **M18** (UI half). **Labels**: `phase:3 lane:ui single-instance`
@@ -1569,5 +1597,6 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T54](#t54-attack-siege-and-movement-onto-city-tiles) | Attack + siege commands | — | **Opus** | High | **Opus**/High | T17, T19 | [#216](https://github.com/diegoami/imperial_conquest_2/issues/216) |
 | [T55](#t55-mobilization-a-ready-recruit-becomes-an-army-unit) | Mobilization + the mobilization rate | — | **Opus** | High | **Opus**/High | T13, T15 | [#228](https://github.com/diegoami/imperial_conquest_2/issues/228) |
 | [T56](#t56-the-quarterly-mercenary-restock) | Quarterly mercenary restock | — | Sonnet | High | **Opus**/Medium | T13 | [#229](https://github.com/diegoami/imperial_conquest_2/issues/229) |
+| [T57](#t57-the-ai-mobilizes-its-ready-recruits) | The AI mobilizes its ready recruits | — | Sonnet | High | **Opus**/Medium | T55 | [#246](https://github.com/diegoami/imperial_conquest_2/issues/246) |
 
-**Totals** — 56 tasks: 6 Opus, 45 Sonnet, 4 Haiku, 1 Fable. Effort: 2 Ultrahigh, 28 High, 23 Medium, 3 Low.
+**Totals** — 57 tasks: 6 Opus, 46 Sonnet, 4 Haiku, 1 Fable. Effort: 2 Ultrahigh, 29 High, 23 Medium, 3 Low.
