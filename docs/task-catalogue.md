@@ -4,7 +4,7 @@ Every build task's scope, **Owns** list, Definition of Done, model/effort, revie
 
 **Status is not in this document.** Each task's stage (ready, in progress, merged, blocked, escalated) lives only in its GitHub issue's `status:*` label ([build-process.md §5](build-process.md#5-status-lives-on-github)). The index below links every issue.
 
-52 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), twelve corrections to already-merged code (T31–T35, T38–T40, T42–T45), one rule no task owned (T37, the weekly city supply step), and two early slices — T41 of T23's CLI, and T47 of T24's Godot UI.
+53 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), twelve corrections to already-merged code (T31–T35, T38–T40, T42–T45), one rule no task owned (T37, the weekly city supply step), and two early slices — T41 of T23's CLI, and T47 of T24's Godot UI.
 
 ---
 
@@ -1313,6 +1313,33 @@ Conventions used by every entry:
 
 ---
 
+#### T53 Resolve test fixtures by name, and run them in CI
+
+- **Design milestone**: none — [#203](https://github.com/diegoami/imperial_conquest_2/issues/203): seven `IC2.Data.Tests` failures that no configuration in the review pipeline could see. **Labels**: `phase:2 lane:engine`
+- **Branch**: `task/T53-fixture-resolution` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
+- **Start after**: — · **Merge after**: —
+- **Owns**: `tests/IC2.Data.Tests/**`, `.github/workflows/ci.yml` (**the fixtures fetch step and the env it sets only** — T01's file, granted for this), `docs/operating-guide.md` (§1.2's fixture paragraph only)
+- **Scope**: Two defects, one cause. Seven tests hardcode `saves/<name>.sav` for files that now live in `saves-processed/`, because the author followed [operating-guide.md §1.2](operating-guide.md)'s own instruction — *"move a save to `saves-processed/` once a report cites it"*. **The convention and the tests were in direct conflict, and the convention is the one that should win.**
+
+  **The worse half is that nothing could see it.** Agents review in worktrees under `ic2-work/`, which have no `assets.local.ini` (git-ignored, per-checkout), and CI had none either — so all 90 asset-dependent tests **skipped everywhere the project actually runs them**. Every review this week reported *"35 passed / 90 skipped (pre-existing #155)"* and moved on. [#155](https://github.com/diegoami/imperial_conquest_2/issues/155) tracked the skip; it did not track that the skip removed all signal. This is the defect class §4.2 gate 5 exists for — an assertion that cannot fail — one level up: **a whole test class that cannot fail, anywhere it is run.**
+- **Done when**:
+  1. **Fixtures resolve by name, not by path.** A test asks for `1_thracia_271_spring_1.sav` and a resolver finds it, searching in order: the CI fixtures directory (`IC2_FIXTURES_DIR` when set), then `saves-processed/`, then `saves/`, then `releases/*/` under the configured directory. **First hit wins, and the resolved path is reported on failure.** Moving, archiving or publishing a save must never break a test again.
+  2. **All twelve named fixtures resolve, asserted by a test that cannot skip.** When nothing is configured it passes and states plainly how many tests are being skipped and why; **when anything *is* configured it fails loudly naming every fixture it could not find.** A stale path must fail fast rather than silently subtracting 90 tests from the run. This line is the one that matters most — without it the rest can rot again unobserved.
+  3. `LocalAssets`' skip reason distinguishes **"nothing configured"** from **"configured but incomplete"**. Today both produce the same silent skip, which is how a moved file looked identical to an unconfigured machine.
+  4. **CI fetches the fixtures and runs them.** `ci.yml` gains a step that clones [`diegoami/ic2-test-fixtures`](https://github.com/diegoami/ic2-test-fixtures) (**private**: the DAT and the twelve saves, 1.7 MB) using the `FIXTURES_TOKEN` secret, and sets the environment so the suite finds them. **`IC2.Data.Tests` must report 125 passed, 0 skipped** on a CI run of a same-repo branch.
+  5. **A fork PR must still pass.** GitHub withholds secrets from fork PRs, so the fetch step is skipped there and the tests skip as they do today — with DoD 2's check reporting that plainly, not silently. **Assert the guard exists**; a workflow that fails on every outside contribution is worse than one that skips.
+  6. **The token is never echoed.** Not into a log, not into an error message, not into a step summary. Use it only as an HTTP credential for the clone, and confirm in the PR body that a failed fetch cannot print it.
+  7. **The seven failures from [#203](https://github.com/diegoami/imperial_conquest_2/issues/203) pass**, named individually in the PR body, and `dotnet test IC2.sln` is green **both** with and without a configured directory — run it both ways and quote both.
+  8. `docs/operating-guide.md` §1.2 records that fixtures resolve by name across those locations, so the next person to tidy their save folder knows nothing downstream cares.
+- **Hazards**:
+  - **Do not add the fixture files to this repository.** They live in `ic2-test-fixtures` precisely so they do not. The standing rule is unchanged: no save, screenshot, recording or game file enters either repository.
+  - **Do not widen the token.** It is read-only and scoped to one private repository. A step that needs more is a step that should not exist.
+  - **Do not "fix" the seven tests by pointing them at `saves-processed/`.** That is the same defect with a different constant, and it breaks again the moment a file is published or archived. DoD 1 is the fix; the hardcoded path is the bug.
+  - **`SyntheticSaveBuilder` stays the default for structural cases.** The split is deliberate — 36 synthetic call sites against 8 real-DAT ones — and it is right: **synthetic for shape, real for reality.** A test asserting 334 cities must read the real DAT, because otherwise it only proves the parser reads back what the test wrote. Do not convert any real-data test to synthetic to make it run without fixtures.
+  - The DAT is in the fixtures repo **because eight tests check the parser against reality** — 16 nations in catalogue order, city counts summing to 334, 15 armies, 2 fleets, a leader absent rather than a fabricated empty string. Those are the tests most worth running in CI, not the ones to drop.
+
+---
+
 #### T24 Godot main game screen
 
 - **Design milestone**: **M18** (UI half). **Labels**: `phase:3 lane:ui single-instance`
@@ -1426,5 +1453,6 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T50](#t50-economy-and-naval-command-hygiene) | Economy + naval command hygiene | — | Sonnet | High | **Opus**/Medium | T39, T46 | [#168](https://github.com/diegoami/imperial_conquest_2/issues/168) |
 | [T51](#t51-the-prompt-driven-asset-generator) | Prompt-driven asset generator | — | Sonnet | High | **Opus**/Medium | T11, T49 | [#173](https://github.com/diegoami/imperial_conquest_2/issues/173) |
 | [T52](#t52-scale-the-improved-naval-defeat-and-t16s-follow-ups) | Scale the `improved` naval defeat + T16 follow-ups | — | Sonnet | High | Sonnet/High | T16 | [#178](https://github.com/diegoami/imperial_conquest_2/issues/178) |
+| [T53](#t53-resolve-test-fixtures-by-name-and-run-them-in-ci) | Fixture resolution + CI fixtures | — | Sonnet | High | **Opus**/Medium | — | [#204](https://github.com/diegoami/imperial_conquest_2/issues/204) |
 
-**Totals** — 52 tasks: 4 Opus, 43 Sonnet, 4 Haiku, 1 Fable. Effort: 2 Ultrahigh, 24 High, 23 Medium, 3 Low.
+**Totals** — 53 tasks: 4 Opus, 44 Sonnet, 4 Haiku, 1 Fable. Effort: 2 Ultrahigh, 25 High, 23 Medium, 3 Low.
