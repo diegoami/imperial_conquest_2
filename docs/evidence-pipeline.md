@@ -4,7 +4,9 @@ A second pipeline, separate from the build pipeline in [build-process.md](build-
 
 ## What triggers it
 
-New files in the **unprocessed** side of the original game directory's evidence folders — the ones with a `-processed/` sibling (`saves/`, `recordings/`, `screenshots/`) — plus new or updated files under `notes/`, where the user writes free-text session notes correlating a save pair with what happened between them (see `notes/2_rome_s.txt` for the shape: a save pair, an optional recording filename, a list of observed events). A note file is the usual trigger, since it tells a save-diff *what to look for*; raw saves or recordings with no note are lower priority and can wait until one is written.
+New files in the **unprocessed** side of the original game directory's evidence folders — the ones with a `-processed/` sibling (`saves/`, `recordings/`, `screenshots/`) — plus new or updated files under `notes/`, where the user writes free-text session notes correlating a save pair with what happened between them (see `notes/2_rome_s.txt` for the shape: a save pair, an optional recording filename, a list of observed events). A note file is the usual trigger, since it tells a save-diff *what to look for*.
+
+**A recording needs no note.** This paragraph used to end *"raw saves or recordings with no note are lower priority and can wait until one is written"* — which was wrong, and expensively so: three recordings sat unannotated for a week and were nearly left out of the evidence releases on the grounds that nothing mapped them, when in fact four reports cite them. A recording plus the saves either side plus **rough timestamps** is a complete input, handled by [`/parse-recording`](recording-analysis.md). Writing notes by hand is the most expensive part of producing evidence and the first thing skipped, so the pipeline no longer depends on it.
 
 ## Prerequisites, and where to get each one
 
