@@ -155,6 +155,15 @@ public static class AiMilitaryPhase
                 continue;
             }
 
+            // The army march's rule, mirrored: a sail whose very first traced step is water the fleet
+            // cannot enter achieves nothing. MoveFleetCommandHandler accepts it -- a walk that makes no
+            // progress is not a refusal -- so the AI declines it rather than spending a command on it.
+            var path = BresenhamPath.Trace(new GridPoint(fleet.X, fleet.Y), new GridPoint(target.X, target.Y));
+            if (path.Count < 2 || !view.IsFleetPassable(path[1]))
+            {
+                continue;
+            }
+
             var score = AiWeights.SailAtFleetBaseScore - (AiWeights.DistancePenaltyPerTile * distance);
             if (score < AiWeights.MinimumActionScore)
             {

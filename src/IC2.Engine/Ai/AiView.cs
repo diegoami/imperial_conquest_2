@@ -239,6 +239,30 @@ public sealed class AiView
         return World.TileTypeByCode(code)?.PassableByArmies == true;
     }
 
+    /// <summary>
+    /// Whether a fleet may enter a tile, on <see cref="Naval.Commands.MoveFleetCommandHandler"/>'s own
+    /// terms: a sea tile, or any city cell (the naval handler's blocked predicate exempts a city cell
+    /// from the passability test, so a fleet may moor at a port that stands on land).
+    /// </summary>
+    public bool IsFleetPassable(GridPoint point)
+    {
+        if ((uint)point.X >= (uint)World.Width || (uint)point.Y >= (uint)World.Height)
+        {
+            return false;
+        }
+
+        foreach (var city in State.Cities)
+        {
+            if (city.X == point.X && city.Y == point.Y)
+            {
+                return true;
+            }
+        }
+
+        var code = _terrainCells[(point.Y * World.Width) + point.X];
+        return World.TileTypeByCode(code)?.PassableByFleets == true;
+    }
+
     /// <summary>Chebyshev distance — <see cref="LandingTile.ChebyshevDistance"/>, the engine's shared metric.</summary>
     public static int Distance(int ax, int ay, int bx, int by) =>
         LandingTile.ChebyshevDistance(new GridPoint(ax, ay), new GridPoint(bx, by));
