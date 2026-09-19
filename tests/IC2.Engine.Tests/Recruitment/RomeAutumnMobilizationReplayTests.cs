@@ -43,14 +43,24 @@ namespace IC2.Engine.Tests.Recruitment;
 /// <see cref="The_lancers_ordinal_refutes_T15s_naming_rule_and_fails_until_it_is_fixed"/>.
 /// </para>
 /// <para>
-/// <strong>One deliberate normalisation, and it is the only one.</strong> The saves store several of
-/// the thirteen starting names with a <em>double</em> space before "Battalion"
-/// (<c>"2nd Lancers  Battalion"</c>, <c>"1st Foot  Battalion"</c>, …) while all eleven newly created
-/// units use a single space. The names below use the single-space form this engine produces, because
-/// <see cref="ArmyNaming"/>'s parser matches exactly one space and would otherwise not see those
-/// units' ordinals at all — which would make this fixture fail for a second, unrelated reason and
-/// conflate two defects in one red test. The double-space form is a finding against
-/// <see cref="ArmyNaming"/>, reported alongside the ordinal rule below; it is not this task's to fix.
+/// <strong>The names are verbatim too, double spaces and all.</strong> The saves store several of the
+/// thirteen starting names with a <em>double</em> space before "Battalion"
+/// (<c>"2nd Lancers  Battalion"</c>, <c>"1st Dragoons  Battalion"</c>, <c>"1st Foot  Battalion"</c>, …)
+/// while all eleven newly created units use a single one. Nothing is normalised here: this fixture runs
+/// against exactly what the save holds, which is what makes it the corpus-level proof of
+/// <a href="https://github.com/diegoami/imperial_conquest_2/issues/243">#243</a>'s second defect —
+/// <see cref="ArmyNaming"/> used to require exactly one space, so it saw neither Dragoons ordinal and
+/// would have named the mobilized heavy cavalry <c>1st</c> instead of <c>3rd</c>.
+/// </para>
+/// <para>
+/// <strong>This pair refuted <see cref="ArmyNaming"/>'s ordinal rule, and #243 is the fix.</strong>
+/// Rome owns one army and one light-cavalry unit in the whole game, <c>2nd Lancers</c>, with no
+/// <c>1st</c> anywhere; the original names the mobilized one <c>3rd Lancers Battalion</c>.
+/// <see cref="ArmyNaming"/> shipped the <em>smallest unused</em> ordinal — explicitly
+/// <c>[derived]</c>, and flagging this exact ambiguity — which gives <c>1st</c>. Every other name in
+/// the pair is a dense series where both readings agree, so that lone gap is the sole discriminating
+/// case in the corpus, and it settles the rule as <strong>one past the highest ordinal in use</strong>.
+/// The <c>3rd Lancers</c> assertion below is that refutation; it is now simply part of the replay.
 /// </para>
 /// </remarks>
 public sealed class RomeAutumnMobilizationReplayTests
@@ -66,21 +76,22 @@ public sealed class RomeAutumnMobilizationReplayTests
 
     /// <summary>
     /// Army 0's thirteen units in <c>autumn_1</c>: type, troops, quality, name and array order exactly
-    /// as the save stores them. They sum to the recorded 48,173 troops.
+    /// as the save stores them, <strong>including the double spaces</strong> nine of the thirteen names
+    /// carry. They sum to the recorded 48,173 troops.
     /// </summary>
     private static UnitSlot[] ArmyZeroRoster() => new[]
     {
-        MobilizationFixture.Unit("1st Foot Battalion", "light_infantry", 4_210, 6),
-        MobilizationFixture.Unit("1st Guards Battalion", "heavy_infantry", 4_900, 8),
-        MobilizationFixture.Unit("2nd Guards Battalion", "heavy_infantry", 4_920, 7),
-        MobilizationFixture.Unit("3rd Guards Battalion", "heavy_infantry", 5_747, 7),
-        MobilizationFixture.Unit("1st Dragoons Battalion", "heavy_cavalry", 774, 7),
+        MobilizationFixture.Unit("1st Foot  Battalion", "light_infantry", 4_210, 6),
+        MobilizationFixture.Unit("1st Guards  Battalion", "heavy_infantry", 4_900, 8),
+        MobilizationFixture.Unit("2nd Guards  Battalion", "heavy_infantry", 4_920, 7),
+        MobilizationFixture.Unit("3rd Guards  Battalion", "heavy_infantry", 5_747, 7),
+        MobilizationFixture.Unit("1st Dragoons  Battalion", "heavy_cavalry", 774, 7),
         MobilizationFixture.Unit("7th Guards Battalion", "heavy_infantry", 2_583, 7),
-        MobilizationFixture.Unit("2nd Dragoons Battalion", "heavy_cavalry", 1_539, 8),
-        MobilizationFixture.Unit("2nd Lancers Battalion", "light_cavalry", 900, 7),
-        MobilizationFixture.Unit("6th Guards Battalion", "heavy_infantry", 4_787, 7),
-        MobilizationFixture.Unit("5th Guards Battalion", "heavy_infantry", 3_571, 7),
-        MobilizationFixture.Unit("4th Guards Battalion", "heavy_infantry", 5_300, 9),
+        MobilizationFixture.Unit("2nd Dragoons  Battalion", "heavy_cavalry", 1_539, 8),
+        MobilizationFixture.Unit("2nd Lancers  Battalion", "light_cavalry", 900, 7),
+        MobilizationFixture.Unit("6th Guards  Battalion", "heavy_infantry", 4_787, 7),
+        MobilizationFixture.Unit("5th Guards  Battalion", "heavy_infantry", 3_571, 7),
+        MobilizationFixture.Unit("4th Guards  Battalion", "heavy_infantry", 5_300, 9),
         MobilizationFixture.Unit("8th Guards Battalion", "heavy_infantry", 3_442, 6),
         MobilizationFixture.Unit("2nd Foot Battalion", "light_infantry", 5_500, 6),
     };
@@ -129,6 +140,15 @@ public sealed class RomeAutumnMobilizationReplayTests
         return RecruitmentTestbed.WithNation(state, state.NationById(Rome)! with { MobilizedPercent = 62 });
     }
 
+    /// <summary>Every regular unit of one type that Rome owns anywhere, in scan order.</summary>
+    private static string[] RomanUnitsOfType(GameState state, string unitTypeId) =>
+        state.Armies
+            .Where(a => string.Equals(a.Nation, Rome, StringComparison.Ordinal))
+            .SelectMany(a => a.Units)
+            .Where(u => string.Equals(u.UnitTypeId, unitTypeId, StringComparison.Ordinal) && u.IsRegular)
+            .Select(u => u.Name)
+            .ToArray();
+
     /// <summary>
     /// The click: the eleven ready rows, mobilized in descending slot order — the only order under
     /// which the dialog's stale row-to-slot table stays correct, because deleting a slot shifts only
@@ -149,11 +169,10 @@ public sealed class RomeAutumnMobilizationReplayTests
     }
 
     /// <summary>
-    /// The pair, clause by clause, excluding the one name T15's naming rule currently gets wrong (see
-    /// <see cref="The_lancers_ordinal_refutes_T15s_naming_rule_and_fails_until_it_is_fixed"/>): eleven
-    /// units at quality 6, army 0 filling to exactly 20 units and 83,173 troops, army 14 created at
-    /// <c>(102, 44)</c> with 4 units and 43,000 troops, and the nine battalion names on which the two
-    /// candidate ordinal rules agree.
+    /// The pair, clause by clause: eleven units at quality 6, army 0 filling to exactly 20 units and
+    /// 83,173 troops, army 14 created at <c>(102, 44)</c> with 4 units and 43,000 troops, and all
+    /// eleven battalion names — <c>3rd Lancers</c> and <c>3rd Dragoons</c> among them, which together
+    /// pin both halves of #243.
     /// </summary>
     [Fact]
     public void The_corpus_mobilization_reproduces_exactly()
@@ -162,6 +181,16 @@ public sealed class RomeAutumnMobilizationReplayTests
         Assert.Equal(48_173, before.ArmyById("army-0")!.TotalTroops);
         Assert.Equal(13, before.ArmyById("army-0")!.Units.Count);
         Assert.Single(before.Armies);                   // Rome owns exactly one army in autumn_1
+
+        // The two premises the naming clauses turn on, asserted rather than asserted about: Rome's
+        // only light cavalry anywhere is the 2nd (so 1st is free, and is still not reused), and both
+        // its heavy cavalry are stored in the double-spaced form.
+        Assert.Equal(
+            new[] { "2nd Lancers  Battalion" },
+            RomanUnitsOfType(before, "light_cavalry"));
+        Assert.Equal(
+            new[] { "1st Dragoons  Battalion", "2nd Dragoons  Battalion" },
+            RomanUnitsOfType(before, "heavy_cavalry"));
 
         var after = MobilizeTheReadyEleven(before);
 
@@ -204,8 +233,12 @@ public sealed class RomeAutumnMobilizationReplayTests
         Assert.Equal(0, armyFourteen.Money);
         Assert.Equal(0, armyFourteen.SupplyTons);      // the save's 410 tons is a later resupply
         Assert.Equal(
-            new[] { "9th Guards Battalion", "4th Foot Battalion", "5th Foot Battalion" },
-            armyFourteen.Units.Skip(1).Select(u => u.Name).ToArray());
+            new[]
+            {
+                "3rd Lancers Battalion", "9th Guards Battalion",
+                "4th Foot Battalion", "5th Foot Battalion",
+            },
+            armyFourteen.Units.Select(u => u.Name).ToArray());
         Assert.Equal(
             new[] { 7_000, 6_000, 15_000, 15_000 },
             armyFourteen.Units.Select(u => u.Troops).ToArray());
@@ -240,62 +273,6 @@ public sealed class RomeAutumnMobilizationReplayTests
 
         // One army became two, and no third appeared.
         Assert.Equal(2, after.Armies.Count);
-    }
-
-    /// <summary>
-    /// <strong>This test is expected to fail on this branch.</strong> It asserts the name the save
-    /// records, and the engine currently produces a different one.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// Rome owns one army and one light-cavalry unit in the whole game: <c>2nd Lancers</c>. There is no
-    /// <c>1st</c>. The mobilized light cavalry is named <strong><c>3rd Lancers Battalion</c></strong> in
-    /// <c>autumn_3</c>. So the original's ordinal rule is <strong>one past the highest ordinal in
-    /// use</strong>, not the smallest unused one.
-    /// </para>
-    /// <para>
-    /// <see cref="ArmyNaming"/> ships the smallest-unused reading, explicitly marked <c>[derived]</c>
-    /// and flagging this exact ambiguity — <em>"the exact algorithm (smallest unused integer, versus one
-    /// past the highest used) is [derived] from the word 'free' alone"</em> — and cites this very Roman
-    /// roster while doing so. This save pair is the first evidence that tells the two readings apart,
-    /// and it refutes the one that shipped. Every other name in the pair is a dense series
-    /// (<c>1st</c>/<c>2nd Foot</c> → <c>3rd</c>; <c>1st</c>–<c>8th Guards</c> → <c>9th</c>;
-    /// <c>1st</c>/<c>2nd Dragoons</c> → <c>3rd</c>; no Bowmen at all → <c>1st</c>…), where both rules
-    /// give the same answer. The lone <c>2nd Lancers</c> with no <c>1st</c> is the sole discriminating
-    /// case in the corpus.
-    /// </para>
-    /// <para>
-    /// <see cref="ArmyNaming"/> is T15's file and outside this task's Owns list, so it is not changed
-    /// here and the defect is filed instead. This test therefore asserts the <em>correct</em>
-    /// expectation and fails until that fix lands, rather than asserting the value the engine happens
-    /// to produce today — a red test that names a known-wrong dependency is worth more than a green one
-    /// that hides it.
-    /// </para>
-    /// <para>
-    /// A second, independent problem with the same rule, found in the same parse and reported with it:
-    /// the saves store several starting names with a <strong>double</strong> space
-    /// (<c>"2nd Lancers  Battalion"</c>), which <see cref="ArmyNaming"/>'s single-space pattern does not
-    /// match at all — so on real data it would miss those ordinals under either reading. This fixture
-    /// normalises to the single-space form so that exactly one thing is under test here.
-    /// </para>
-    /// </remarks>
-    [Fact]
-    public void The_lancers_ordinal_refutes_T15s_naming_rule_and_fails_until_it_is_fixed()
-    {
-        var before = Autumn1();
-
-        // The premise, asserted rather than asserted about: Rome's only light cavalry is the 2nd.
-        var romanLancers = before.Armies
-            .Where(a => string.Equals(a.Nation, Rome, StringComparison.Ordinal))
-            .SelectMany(a => a.Units)
-            .Where(u => string.Equals(u.UnitTypeId, "light_cavalry", StringComparison.Ordinal) && u.IsRegular)
-            .Select(u => u.Name)
-            .ToArray();
-        Assert.Equal(new[] { "2nd Lancers Battalion" }, romanLancers);
-
-        var after = MobilizeTheReadyEleven(before);
-
-        Assert.Equal("3rd Lancers Battalion", after.ArmyById("army-14")!.Units[0].Name);
     }
 
     /// <summary>
