@@ -2,6 +2,7 @@ using IC2.Engine.Battle;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
 using IC2.Engine.News;
+using IC2.Engine.Serialization;
 using IC2.Engine.Strength;
 using Xunit;
 
@@ -443,6 +444,62 @@ public class FieldBattleTests
         Assert.Equal(BattleSide.Defender, result.Winner);
         Assert.Equal(LoserFate.Scattered, result.LoserFate);
         Assert.Equal(0, lost.ArmyById(Attacker)!.Moves);
+    }
+
+    /// <summary>
+    /// T52 DoD 8: <c>ClearCarrierLinks</c> is no longer an untested branch. A field battle is fought
+    /// ashore, so <em>this</em> resolver never puts a fleet's carrier claim on either combatant itself --
+    /// but nothing stops some other fleet's <c>CarriedArmyId</c> from going stale by pointing at an army
+    /// that a field battle then deletes (the class of bug the guard exists for, not a path this resolver
+    /// can reach on its own). Constructed directly, per <c>docs/build-process.md</c> §4.2 gate 5's own
+    /// "prefer the test to the delete": a fleet with a claim on the loser, deliberately inconsistent
+    /// before the battle (the loser isn't embarked; the pointer is simply stale), must have that claim
+    /// cleared once the loser is deleted -- and the two-entity probe: a second fleet's claim on an
+    /// unrelated, surviving army must be left alone.
+    /// </summary>
+    [Fact]
+    public void DoD08_ClearCarrierLinksRepairsAStaleClaimOnADeletedLoserAndLeavesAnUnrelatedOneAlone()
+    {
+        const string StaleFleet = "stale-fleet";
+        const string ValidFleet = "valid-fleet";
+        const string UnrelatedCargo = "unrelated-cargo";
+
+        var initial = Fixture();
+        var state = initial with
+        {
+            Armies = ValueList.From(initial.Armies.Append(
+                BattleTestbed.EmbarkedArmy(
+                    UnrelatedCargo, "north", ValidFleet, 0, 0, 60,
+                    BattleTestbed.Unit("light_infantry", 500, 6, "Untouched")))),
+            Fleets = ValueList.From(new[]
+            {
+                // Stale on purpose: this fleet claims the DEFENDER (about to be this battle's loser), even
+                // though the defender is ashore and fighting, not aboard it -- the one-way pointer a save
+                // loader would reject, and exactly the shape a bug elsewhere (a disembark that forgot to
+                // clear the fleet's own side of the link) would leave behind.
+                BattleTestbed.Fleet(StaleFleet, "south", 5, 5, 10, 100, Defender),
+                // The control: a second fleet with a VALID claim on an army untouched by this battle.
+                BattleTestbed.Fleet(ValidFleet, "north", 0, 0, 10, 100, UnrelatedCargo),
+            }),
+        };
+
+        var (after, result) = Resolve(state, BattleTestbed.Destroyed);
+
+        Assert.Equal(LoserFate.Destroyed, result.LoserFate);
+        Assert.Null(after.ArmyById(Defender));
+
+        // Repaired: the stale claim on the deleted loser is gone.
+        Assert.Null(after.FleetById(StaleFleet)!.CarriedArmyId);
+
+        // Left alone: the unrelated, still-valid claim survives untouched.
+        Assert.Equal(UnrelatedCargo, after.FleetById(ValidFleet)!.CarriedArmyId);
+        Assert.NotNull(after.ArmyById(UnrelatedCargo));
+
+        // And the repaired state is one that reloads -- a dangling id is exactly what this guard, and
+        // gate 5, exist to keep out of a save.
+        var reloaded = GameDataLoader.Load<GameState>("battle-state.json", GameJson.Serialize(after));
+        GameDataValidation.Validate("battle-state.json", reloaded);
+        Assert.Equal(GameJson.Serialize(after), GameJson.Serialize(reloaded));
     }
 
     /// <summary>A battle between two of one nation's own armies is a caller bug, not an outcome.</summary>

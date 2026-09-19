@@ -154,6 +154,17 @@ public static class BattleCasualties
     /// <param name="rng">The battle's stream. One draw per slot.</param>
     /// <param name="rules">Supplies the divisor base and its random span.</param>
     /// <returns>The reduced slots, the per-slot losses, and the total troops actually lost.</returns>
+    /// <remarks>
+    /// <strong>The saturating ratio is special-cased (T52 DoD 5).</strong> <see cref="Ratio"/> returns
+    /// <see cref="int.MaxValue"/> to mean "unbounded" when its divisor power is zero, meant to take a
+    /// whole slot regardless of that slot's own size. But the general grouping divides
+    /// <c>troops / divisor</c> <em>first</em>, and that truncates to zero for any slot smaller than the
+    /// divisor — so <c>0 × int.MaxValue = 0</c> let a slot escape untouched exactly when the rule meant to
+    /// take everything. Proved by T16's reviewer: 300 zero-power troops in one slot were wiped, the same
+    /// 300 split into three 100-troop slots survived untouched. Only the saturating ratio takes this
+    /// branch; the sub-divisor truncation of an ordinary ratio (<c>100 / 105 = 0</c>) is deliberate and
+    /// <c>[confirmed]</c> everywhere else, and is untouched here.
+    /// </remarks>
     public static (ValueList<UnitSlot> Units, ValueList<UnitCasualty> Losses, int Applied) Apply(
         ValueList<UnitSlot> units,
         int ratio,
@@ -175,10 +186,22 @@ public static class BattleCasualties
             // Random(15) + 105 -- drawn for every slot, occupied or not, as the decompiled loop does.
             var divisor = rng.NextInt(rules.CasualtyDivisorRandomSpan) + rules.CasualtyDivisorBase;
 
-            // troops / divisor FIRST, then x ratio -- the decompiled order, which is not the same number
-            // as (troops x ratio) / divisor. Widened to long only so that a large ratio on a large slot
-            // cannot overflow before the clamp below; the arithmetic itself is the original's.
-            var loss = ratio <= 0 ? 0L : (long)(unit.Troops / divisor) * ratio;
+            long loss;
+            if (ratio == int.MaxValue)
+            {
+                // Saturating: the whole slot, unconditionally -- see the remarks above. The general
+                // divide-first grouping below is not run at all for this one case.
+                loss = unit.Troops;
+            }
+            else
+            {
+                // troops / divisor FIRST, then x ratio -- the decompiled order, which is not the same
+                // number as (troops x ratio) / divisor. Widened to long only so that a large ratio on a
+                // large slot cannot overflow before the clamp below; the arithmetic itself is the
+                // original's.
+                loss = ratio <= 0 ? 0L : (long)(unit.Troops / divisor) * ratio;
+            }
+
             var clamped = (int)Math.Min(unit.Troops, loss);
 
             reduced[i] = unit with { Troops = unit.Troops - clamped };
@@ -191,6 +214,65 @@ public static class BattleCasualties
         }
 
         return (ValueList.From(reduced), ValueList.From(report), applied);
+    }
+
+    /// <summary>
+    /// The <c>improved</c> ruleset's mirrored casualty figure, scaled to a beaten <em>fleet's</em> own
+    /// hull count (T52 DoD 1): <c>lost = min(ships, (ships × ratio) / (Random(span) + base))</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Why a fleet needs its own method rather than reusing <see cref="Apply"/>.</strong> A fleet
+    /// has no unit slots, and <see cref="Apply"/>'s per-unit expression divides <c>troops / divisor</c>
+    /// <em>first</em> — for that expression's confirmed source, this is the correct, deliberate order
+    /// (see its own remarks). But a fleet's hull count is small enough, and the divisor large enough
+    /// (<c>[105, 120)</c>), that dividing a fleet's own hull count by the divisor first truncates to zero
+    /// for every fleet at or below the divisor's range, which is every fleet the game can have (they cap
+    /// at 100 hulls) — leaving every beaten fleet untouched regardless of the ratio. T16 shipped a hull
+    /// <em>count</em> reading instead (<c>min(ships, ratio)</c>), which fixed the truncation but introduced
+    /// a flat floor: the mirrored ratio is never below its own numerator (40), so any fleet at or below 40
+    /// hulls was annihilated exactly as under <c>classical-faithful</c>, and a larger fleet's loss did not
+    /// scale with its own size at all.
+    /// </para>
+    /// <para>
+    /// <strong>Multiply first, on purpose.</strong> This method multiplies the fleet's own hull count into
+    /// the ratio <em>before</em> dividing by the drawn divisor, which is the opposite grouping from
+    /// <see cref="Apply"/>. That is deliberate, not an inconsistency: multiplying first is what keeps the
+    /// loss proportional to the fleet's own size instead of truncating to zero or to a flat floor. Widened
+    /// to <see langword="long"/> so a saturating <paramref name="ratio"/> (<see cref="int.MaxValue"/>)
+    /// times up to 100 ships cannot overflow before the clamp — and needs no special case for it the way
+    /// <see cref="Apply"/> does, because multiplying first before dividing never truncates the saturating
+    /// case to zero in the first place.
+    /// </para>
+    /// <para>
+    /// <strong>One draw, unconditionally</strong> — reusing <see cref="CombatRules.CasualtyDivisorBase"/>
+    /// and <see cref="CombatRules.CasualtyDivisorRandomSpan"/>, the same two fields <see cref="Apply"/>
+    /// draws from, so the two halves of one setting cannot diverge again. No third ruleset field is added.
+    /// </para>
+    /// </remarks>
+    /// <param name="ships">The beaten fleet's own hull count.</param>
+    /// <param name="ratio">The mirrored ratio from <see cref="Ratio"/>. Zero or negative loses nothing, but still draws.</param>
+    /// <param name="rng">The battle's stream. One draw.</param>
+    /// <param name="rules">Supplies the divisor base and its random span.</param>
+    /// <returns>The hulls lost, capped at <paramref name="ships"/>.</returns>
+    public static int ApplyToFleet(int ships, int ratio, IRng rng, CombatRules rules)
+    {
+        ArgumentNullException.ThrowIfNull(rng);
+        ArgumentNullException.ThrowIfNull(rules);
+
+        // Drawn unconditionally, exactly as Apply's per-slot draw is unconditional, so a later draw in the
+        // same battle (the scatter distance) sits at a fixed position regardless of this ratio's value.
+        var divisor = rng.NextInt(rules.CasualtyDivisorRandomSpan) + rules.CasualtyDivisorBase;
+
+        if (ratio <= 0)
+        {
+            return 0;
+        }
+
+        // (ships x ratio) / divisor -- multiply first; see the remarks for why this is the other grouping
+        // from Apply's, on purpose.
+        var lost = ((long)ships * ratio) / divisor;
+        return (int)Math.Min(ships, lost);
     }
 
     /// <summary>

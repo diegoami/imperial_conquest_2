@@ -10,7 +10,7 @@ namespace IC2.Engine.Tests.Battle;
 /// <summary>
 /// The naval variant of the instant resolver — <c>FUN_0044B5D0</c> and its winner-damage helper
 /// <c>FUN_0044B4F8</c>. Done-when lines 6 (the sea half), 7 and 9, under
-/// <see cref="BattleTestbed.Seed"/>, whose first two random bands are <c>2</c> then <c>0</c>.
+/// <see cref="BattleTestbed.Seed"/>, whose first two random bands are <c>3</c> then <c>1</c>.
 /// </summary>
 public class NavalBattleTests
 {
@@ -181,7 +181,7 @@ public class NavalBattleTests
     [Fact]
     public void DoD01_AnExactTieAtSeaGoesToTheDefender()
     {
-        // Identical fleets, and the seed's two bands differ (2 then 0), so the bands are neutralised by
+        // Identical fleets, and the seed's two bands differ (3 then 1), so the bands are neutralised by
         // giving the fleet a base below the band's own granularity: 9 × 10 / 10 = 9, and 9 × 10 / 100 = 0.
         var state = BattleTestbed.StateWith(
             fleets: new[]
@@ -253,10 +253,9 @@ public class NavalBattleTests
     [Fact]
     public void AScatteredCarrierTakesItsArmyWithItAndKeepsTheLinkIntact()
     {
-        // A fleet only survives the mirrored casualty figure when it is large: the figure is
-        // winnerPower × 40 / loserPower, which is never below the numerator itself, so a beaten fleet
-        // needs more than 40 hulls to have any left. 100 against 100 at equal condition is the smallest
-        // clean fixture that both loses and survives.
+        // 100 against 100 at equal condition is large enough that the scaled loss (T52 DoD 1/2) leaves a
+        // survivor: the mirrored ratio is winnerPower × 40 / loserPower and the loss is
+        // (ships × ratio) / divisor, so a bigger fleet loses a smaller share of itself for the same ratio.
         var state = BattleTestbed.StateWith(
             armies: new[]
             {
@@ -275,8 +274,13 @@ public class NavalBattleTests
         Assert.Equal(1300, result.AttackerPower);
         Assert.Equal(1115, result.DefenderPower);
         Assert.Equal(LoserFate.Scattered, result.LoserFate);
-        Assert.Equal(46, result.LoserCasualties);
-        Assert.Equal(100 - 46, after.FleetById(Defender)!.Ships);
+
+        // The winner (Attacker) carries no army, so the scatter branch's own divisor draw is the third
+        // draw of the battle -- the same NextInt(15) stream position
+        // DoD07_AboveTheDamageThresholdTheWinnersCarriedArmyAlsoLosesWholeUnits's first carried-army
+        // divisor lands on, 11, divisor 116. Mirrored ratio 1300 × 40 / 1115 = 46; (100 × 46) / 116 = 39.
+        Assert.Equal(39, result.LoserCasualties);
+        Assert.Equal(100 - 39, after.FleetById(Defender)!.Ships);
 
         var survivor = after.FleetById(Defender)!;
         var cargo = after.ArmyById(Cargo)!;
@@ -289,6 +293,33 @@ public class NavalBattleTests
 
         var reloaded = GameDataLoader.Load<GameState>("battle-state.json", GameJson.Serialize(after));
         GameDataValidation.Validate("battle-state.json", reloaded);
+    }
+
+    /// <summary>
+    /// T52 DoD 3: <c>classical-faithful</c> is untouched by the naval scatter scaling fix -- a beaten
+    /// fleet is still annihilated outright, asserted directly so this task cannot change the faithful
+    /// preset by accident.
+    /// </summary>
+    [Fact]
+    public void DoD03_ClassicalFaithfulStillAnnihilatesABeatenFleetOutright()
+    {
+        var state = BattleTestbed.StateWith(
+            fleets: new[]
+            {
+                BattleTestbed.Fleet(Attacker, "north", 0, 2, 100, 100),
+                BattleTestbed.Fleet(Defender, "south", 0, 3, 10, 80),
+            });
+
+        var (after, result) = Resolve(state, BattleTestbed.Destroyed);
+
+        Assert.Equal(DefeatOutcome.Destroyed, result.AppliedDefeatOutcome);
+        Assert.Equal(LoserFate.Destroyed, result.LoserFate);
+        Assert.Null(after.FleetById(Defender));
+        Assert.Single(after.Fleets);
+
+        // The whole force, not a scaled fraction -- BattleCasualties.ApplyToFleet is never called on this
+        // path, since it lives entirely inside the ruleset.Flags.CombatOnDefeat == Scatter branch.
+        Assert.Equal(10, result.LoserCasualties);
     }
 
     /// <summary>A fleet still counting down its construction is not on the map and cannot fight.</summary>

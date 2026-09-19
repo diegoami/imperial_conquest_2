@@ -210,7 +210,8 @@ public static class InstantBattleResolver
                     forFleet: false,
                     loser.Id,
                     state,
-                    world);
+                    world,
+                    out var destinationTileCode);
 
                 if (scatter is { } placed)
                 {
@@ -222,8 +223,9 @@ public static class InstantBattleResolver
                         X = placed.ToX,
                         Y = placed.ToY,
                         // A scatter is a move, so the covered cell is recomputed at the destination
-                        // exactly as every other mover in the engine recomputes it.
-                        CoveredTileCode = ScatterPlacement.TileCodeAt(new GridPoint(placed.ToX, placed.ToY), world),
+                        // exactly as every other mover in the engine recomputes it -- the code Find
+                        // already decoded while searching for this destination (T52 DoD 11).
+                        CoveredTileCode = destinationTileCode,
                         // Zeroed for the rest of the turn it lost on, so nobody gets a free pursuit.
                         Moves = 0,
                     };
@@ -245,6 +247,7 @@ public static class InstantBattleResolver
         {
             newState = ClearCarrierLinks(newState, loser.Id);
         }
+
 
         var result = new BattleResult(
             BattleKind.Field,
@@ -324,20 +327,23 @@ public static class InstantBattleResolver
     /// <strong>Draw order</strong>, fixed: the attacker's random band, then the defender's (both inside
     /// <see cref="FleetPower.Compute"/>), then one casualty-divisor draw per slot of the winner's carried
     /// army, then one draw per whole unit that army loses to the <c>d &gt; 70</c> branch, then — under
-    /// <see cref="DefeatOutcome.Scatter"/>, and only when ships survive to relocate — the scatter
-    /// distance.
+    /// <see cref="DefeatOutcome.Scatter"/> — one casualty-divisor draw for the beaten fleet's own hull
+    /// loss (<see cref="BattleCasualties.ApplyToFleet"/>, unconditional, drawn before the loss is known),
+    /// and finally, only when hulls survive to relocate, the scatter distance.
     /// </para>
     /// <para>
-    /// <strong>The one place the mirrored figure is read as a count, not a ratio.</strong> Under
-    /// <see cref="DefeatOutcome.Scatter"/> a beaten fleet loses <c>min(ships, mirroredRatio)</c>
-    /// <em>hulls</em>, rather than going through <see cref="BattleCasualties.Apply"/>'s per-unit
-    /// expression. A fleet has no unit slots and no troops of its own to divide, and the per-unit
-    /// expression would be a no-op on hulls anyway — <c>ships / divisor</c> truncates to zero for any
-    /// fleet below the divisor base, so every beaten fleet would come through untouched.
-    /// <c>docs/task-catalogue.md</c> T16 DoD 10 records the intended behaviour directly: because the
-    /// mirrored figure is never below the numerator, "a fleet survives an <c>improved</c> defeat only
-    /// above 40 hulls", which is a statement about hull <em>counts</em>. The loser's carried army is not
-    /// the fleet's own strength and is not reduced; it scatters aboard.
+    /// <strong>The one place the mirrored figure is read as a count, scaled to the fleet's own size
+    /// (T52 DoD 1).</strong> Under <see cref="DefeatOutcome.Scatter"/> a beaten fleet loses
+    /// <see cref="BattleCasualties.ApplyToFleet"/>'s hull count, rather than going through
+    /// <see cref="BattleCasualties.Apply"/>'s per-unit expression. A fleet has no unit slots and no troops
+    /// of its own to divide, and <see cref="BattleCasualties.Apply"/>'s own grouping — divide before
+    /// multiply — would be a no-op on hull counts, truncating every fleet at or below the divisor's range
+    /// to zero regardless of the ratio; fleets cap at 100 hulls, so that is every fleet the game can have.
+    /// <see cref="BattleCasualties.ApplyToFleet"/> instead multiplies the hull count into the ratio before
+    /// dividing, which is what makes the loss scale with the fleet's own size rather than annihilating any
+    /// fleet of 40 hulls or fewer exactly as <c>classical-faithful</c> does (T16's original hull-count
+    /// reading, corrected here) — see its own remarks for the full account. The loser's carried army is
+    /// not the fleet's own strength and is not reduced; it scatters aboard.
     /// </para>
     /// </remarks>
     /// <param name="state">The state to resolve against.</param>
@@ -427,7 +433,11 @@ public static class InstantBattleResolver
         };
 
         // The winner's carried army takes the same casualty figure the field battle applies, and above the
-        // damage threshold also loses whole slots at random.
+        // damage threshold also loses whole slots at random. The reports confirm FUN_0044AE20's body and
+        // confirm the ratio argument at the FIELD call site; the naval call site is not itself stated by
+        // FUN_0044B4F8's "a carried army takes casualties (FUN_0044AE20)" -- reusing
+        // WinnerCasualtyNumerator here is [derived] from the field call site, not read from the
+        // decompilation (T52 DoD 7).
         var carriedCasualtyRatio = BattleCasualties.Ratio(loserPower, winnerPower, combat.WinnerCasualtyNumerator);
         var unitLosses = ValueList<UnitCasualty>.Empty;
         var unitsLost = 0;
@@ -471,10 +481,12 @@ public static class InstantBattleResolver
         if (ruleset.Flags.CombatOnDefeat == DefeatOutcome.Scatter)
         {
             // Mirrored, and measured in HULLS rather than routed through the per-unit expression -- see
-            // the method remarks for why this one path reads the figure as a count.
+            // the method remarks. Scaled to the fleet's own size (T52 DoD 1): ApplyToFleet multiplies the
+            // hull count into the ratio before dividing, which is the fix for the 40-hull cliff the
+            // earlier min(ships, mirroredRatio) reading left in place.
             var mirroredRatio = BattleCasualties.Ratio(
                 winnerPower, loserPower, combat.ScatteredDefeat.SurvivorCasualtyNumerator);
-            var lost = Math.Min(loser.Ships, mirroredRatio);
+            var lost = BattleCasualties.ApplyToFleet(loser.Ships, mirroredRatio, rng, combat);
 
             if (lost < loser.Ships)
             {
@@ -485,7 +497,8 @@ public static class InstantBattleResolver
                     forFleet: true,
                     loser.Id,
                     state,
-                    world);
+                    world,
+                    out var destinationTileCode);
 
                 if (scatter is { } placed)
                 {
@@ -498,8 +511,9 @@ public static class InstantBattleResolver
                         Y = placed.ToY,
                         // Load-bearing for a fleet, not cosmetic: FleetTickSystem decides each turn's
                         // storm-tripling branch from this code, so a stale one would carry the
-                        // pre-battle tile's weather with the survivor for the rest of the game.
-                        CoveredTileCode = ScatterPlacement.TileCodeAt(new GridPoint(placed.ToX, placed.ToY), world),
+                        // pre-battle tile's weather with the survivor for the rest of the game. The code
+                        // Find already decoded while searching for this destination (T52 DoD 11).
+                        CoveredTileCode = destinationTileCode,
                         Moves = 0,
                     };
                 }
@@ -612,7 +626,10 @@ public static class InstantBattleResolver
     /// <strong>One kind of draw only.</strong> There is no promotion step, no peace roll and no random
     /// band on this path; the only draws are <see cref="BattleCasualties.Apply"/>'s one-per-slot casualty
     /// divisors for the besieging army's own attrition, which is the very same <c>FUN_0044AE20</c> the
-    /// field variant calls.
+    /// field variant calls. The reports confirm that function's body and confirm its <c>ratio</c> argument
+    /// at the field call site; neither states what <c>ratio</c> is at this siege call site, so reusing
+    /// <see cref="CombatRules.WinnerCasualtyNumerator"/> here is <c>[derived]</c> from the field call site,
+    /// not read from the decompilation (T52 DoD 7).
     /// </para>
     /// <para>
     /// <strong>The garrison term is still omitted</strong> from the defender's strength, exactly as
