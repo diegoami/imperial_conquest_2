@@ -69,6 +69,52 @@ public sealed record Ruleset(
 
         return Terrain.DefaultMoveCost;
     }
+
+    /// <summary>
+    /// Checks that <see cref="NewsLogRules.SeasonNames"/> has exactly one name per season the
+    /// calendar defines, throwing if not.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Folded follow-up <see href="https://github.com/diegoami/imperial_conquest_2/issues/99">#99</see>
+    /// (<c>docs/task-catalogue.md</c> T29 DoD 10): a ruleset whose <c>newsLog.seasonNames</c> list is
+    /// shorter or longer than <see cref="CalendarRules.SeasonsPerYear"/> used to crash the first time
+    /// the round-tick header indexed it by season, rather than failing when the file was loaded. This
+    /// method is that check, made callable at load time.
+    /// </para>
+    /// <para>
+    /// This method lives in <c>Model</c> and knows nothing of a document path, deliberately: the
+    /// original Owns grant for this task reached only <c>src/IC2.Engine/Model/**</c>, and the natural
+    /// call site for a cross-field check like this — <c>GameDataValidation.ValidateRuleset</c>, beside
+    /// its neighbour <c>ValidateCalendar</c> — was out of reach. A property- or type-level
+    /// <see cref="System.Text.Json.Serialization.JsonConverterAttribute"/> on <see cref="Ruleset"/> was
+    /// considered and rejected as a way to wire this from inside <c>Model</c> alone: it would make
+    /// <c>JsonContract.For(typeof(Ruleset))</c> return <see langword="null"/> (see
+    /// <c>JsonContract.Build</c>'s own "opaque to the schema walk" remark), silently disabling
+    /// <c>SchemaValidator</c>'s missing/unknown-field checks for every other <see cref="Ruleset"/>
+    /// field — a regression judged worse than an incomplete DoD. The Owns list was widened by the user
+    /// to grant <c>GameDataValidation.cs</c> exactly the one call this needs
+    /// (<c>docs/task-catalogue.md</c> T29 DoD 10); <c>GameDataValidation.ValidateNewsLogSeasonNames</c>
+    /// is that call, wrapping this method's <see cref="InvalidOperationException"/> as a
+    /// <c>MalformedGameDataException</c> naming the document, exactly like <c>ValidateCalendar</c>
+    /// already does for its own checks — so a bad file now fails at load, not at the first round tick.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    /// <see cref="NewsLogRules.SeasonNames"/>'s length does not equal
+    /// <see cref="CalendarRules.SeasonsPerYear"/>. The message names both counts;
+    /// <c>GameDataValidation.ValidateNewsLogSeasonNames</c> adds the document path, the same way
+    /// every other <c>GameDataValidation</c> check does.
+    /// </exception>
+    public void ValidateSeasonNames()
+    {
+        if (NewsLog.SeasonNames.Count != Calendar.SeasonsPerYear)
+        {
+            throw new InvalidOperationException(
+                $"newsLog.seasonNames has {NewsLog.SeasonNames.Count} entries but "
+                + $"calendar.seasonsPerYear is {Calendar.SeasonsPerYear} — every season needs exactly one name.");
+        }
+    }
 }
 
 /// <summary>Week/season/year advance, and the quarterly boundary everything economic hangs off.</summary>

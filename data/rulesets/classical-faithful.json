@@ -1,0 +1,833 @@
+{
+  "schemaVersion": 1,
+  "id": "classical-faithful",
+  "name": "Classical, faithful",
+  "description": "The shipped, historically-faithful preset: task T29's export of the classical-mediterranean ruleset. Every confirmed constant is the same figure toy-ruleset.json already carries (the same game), transcribed from the reports in the research repository's docs/reports/ and cross-checked here against the T04 fixtures corpus (tests/fixtures/corpus.json) wherever the corpus gives that constant its own id. Its flags reproduce the original faithfully; the 'improved' preset (task T36) is this file with docs/game-design.md's 'improved' column applied.",
+  "calendar": {
+    "weekStep": 2,
+    "weekModulus": 12,
+    "seasonAdvanceFromWeek": 11,
+    "seasonsPerYear": 4,
+    "startWeek": 1,
+    "startSeasonIndex": 0,
+    "startYearBc": 270,
+    "cityUnitStateCodeStep": 2,
+    "cityUnitStateCodeCap": 24,
+    "_provenance": {
+      "weekStep": "confirmed: decompiled-turn-and-calendar-sequencing.md — the week advances by +2 each turn cycle. T04 fixtures corpus id: 'calendar.weekIncrementPerTurn'.",
+      "weekModulus": "confirmed: decompiled-turn-and-calendar-sequencing.md — week is +2 mod 12.",
+      "seasonAdvanceFromWeek": "confirmed: decompiled-turn-and-calendar-sequencing.md — the season advances at the 11 to 1 wrap.",
+      "seasonsPerYear": "confirmed: decompiled-quarterly-billing-and-economy.md — 'quarterly' is once per season, four times a year; the year decrements at the Winter to Spring wrap.",
+      "startWeek": "confirmed: impconq2-full-save-analysis.md and one-turn-save-comparison.md — the earliest news slot in the sample saves reads 'Week 1      Spring      270 BC', and the next turn's slot reads 'Week  3      Spring      270BC'. The parity is load-bearing rather than cosmetic: decompiled-turn-and-calendar-sequencing.md gives the cycle as 'week = (week + 2) mod 12; if week == 1: season++', so only an odd start ever reaches the season boundary. Every dated save in the project (weeks 1, 3, 5, 7, 9, 11 — saves-and-screenshots.md, strategic-recording-and-summer-saves.md) is on that odd parity. T04 fixtures corpus id: 'calendar.weekWrapValue'.",
+      "startSeasonIndex": "confirmed: saves-and-screenshots.md and strategic-recording-and-summer-saves.md — the save trailer's +44 byte is 0 in all five Spring saves and 1 in all three Summer saves, so season index 0 is Spring; impconq2-full-save-analysis.md shows the campaign's first dated news slot as Spring 270 BC. T04 fixtures corpus id: 'calendar.seasonWrapValue'.",
+      "startYearBc": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — THumanFalls_InitializeForm reports the reign length as 270 minus the current year, confirming the 270 BC start. T04 fixtures corpus id: 'calendar.yearStartBC'.",
+      "cityUnitStateCodeStep": "confirmed: decompiled-turn-and-calendar-sequencing.md — city-unit StateCode increments by 2 per week. T04 fixtures corpus id: 'calendar.stateCodeIncrementPerWeek'.",
+      "cityUnitStateCodeCap": "confirmed: decompiled-turn-and-calendar-sequencing.md — capped at 24 (a cap, not a starting value). T04 fixtures corpus id: 'calendar.stateCodeCap'."
+    }
+  },
+  "unitTypes": [
+    {
+      "id": "light_infantry",
+      "name": "Light infantry",
+      "abbreviation": "Lit inf",
+      "moves": 4,
+      "standardBattalionSize": 15000,
+      "shots": 7,
+      "range": 1,
+      "recruitCost": 2,
+      "quarterlyPrice": 1,
+      "combatPowerWeight": 20,
+      "_provenance": {
+        "moves": "confirmed: unit-type-stat-table-in-dat.md — unit-type table +0x18. T04 fixtures corpus id: 'unitType.lightInfantry.moves'.",
+        "standardBattalionSize": "confirmed: unit-type-stat-table-in-dat.md — +0x1A. T04 fixtures corpus id: 'unitType.lightInfantry.battalionSize'.",
+        "shots": "confirmed: unit-type-stat-table-in-dat.md — +0x1C. T04 fixtures corpus id: 'unitType.lightInfantry.shots'.",
+        "range": "confirmed: unit-type-stat-table-in-dat.md — +0x1E. T04 fixtures corpus id: 'unitType.lightInfantry.range'.",
+        "recruitCost": "confirmed: unit-type-stat-table-in-dat.md — +0x22, the initial recruit cost. T04 fixtures corpus id: 'unitType.lightInfantry.recruitCostInitial'.",
+        "quarterlyPrice": "confirmed: unit-type-stat-table-in-dat.md — +0x24, the quarterly price used by upkeep and mercenary hire. T04 fixtures corpus id: 'unitType.lightInfantry.recruitCostQuarterly'.",
+        "combatPowerWeight": "confirmed: decompiled-unit-map-orders-and-record-fields.md — +0x26, identified there as the per-type combat-power weight used by field-battle strength. T04 fixtures corpus id: 'unitType.lightInfantry.powerWeight'."
+      }
+    },
+    {
+      "id": "heavy_infantry",
+      "name": "Heavy infantry",
+      "abbreviation": "Hvy inf",
+      "moves": 2,
+      "standardBattalionSize": 6000,
+      "shots": 0,
+      "range": 0,
+      "recruitCost": 20,
+      "quarterlyPrice": 2,
+      "combatPowerWeight": 100,
+      "_provenance": {
+        "moves": "confirmed: unit-type-stat-table-in-dat.md T04 fixtures corpus id: 'unitType.heavyInfantry.moves'.",
+        "standardBattalionSize": "confirmed: unit-type-stat-table-in-dat.md T04 fixtures corpus id: 'unitType.heavyInfantry.battalionSize'.",
+        "shots": "confirmed: unit-type-stat-table-in-dat.md — 0 means melee-only. T04 fixtures corpus id: 'unitType.heavyInfantry.shots'.",
+        "recruitCost": "confirmed: unit-type-stat-table-in-dat.md T04 fixtures corpus id: 'unitType.heavyInfantry.recruitCostInitial'.",
+        "quarterlyPrice": "confirmed: unit-type-stat-table-in-dat.md T04 fixtures corpus id: 'unitType.heavyInfantry.recruitCostQuarterly'.",
+        "combatPowerWeight": "confirmed: decompiled-unit-map-orders-and-record-fields.md T04 fixtures corpus id: 'unitType.heavyInfantry.powerWeight'.",
+        "range": "T04 fixtures corpus id: 'unitType.heavyInfantry.range'."
+      }
+    },
+    {
+      "id": "archers",
+      "name": "Archers",
+      "abbreviation": "Archers",
+      "moves": 4,
+      "standardBattalionSize": 3500,
+      "shots": 25,
+      "range": 2,
+      "recruitCost": 4,
+      "quarterlyPrice": 1,
+      "combatPowerWeight": 40,
+      "_provenance": {
+        "moves": "confirmed: unit-type-stat-table-in-dat.md T04 fixtures corpus id: 'unitType.archers.moves'.",
+        "standardBattalionSize": "confirmed: unit-type-stat-table-in-dat.md T04 fixtures corpus id: 'unitType.archers.battalionSize'.",
+        "shots": "confirmed: unit-type-stat-table-in-dat.md T04 fixtures corpus id: 'unitType.archers.shots'.",
+        "range": "confirmed: unit-type-stat-table-in-dat.md T04 fixtures corpus id: 'unitType.archers.range'.",
+        "recruitCost": "confirmed: unit-type-stat-table-in-dat.md T04 fixtures corpus id: 'unitType.archers.recruitCostInitial'.",
+        "quarterlyPrice": "confirmed: unit-type-stat-table-in-dat.md T04 fixtures corpus id: 'unitType.archers.recruitCostQuarterly'.",
+        "combatPowerWeight": "confirmed: decompiled-unit-map-orders-and-record-fields.md T04 fixtures corpus id: 'unitType.archers.powerWeight'."
+      }
+    },
+    {
+      "id": "light_cavalry",
+      "name": "Light cavalry",
+      "abbreviation": "Lit cav",
+      "moves": 6,
+      "standardBattalionSize": 7000,
+      "shots": 9,
+      "range": 1,
+      "recruitCost": 15,
+      "quarterlyPrice": 3,
+      "combatPowerWeight": 60,
+      "_provenance": {
+        "moves": "confirmed: unit-type-stat-table-in-dat.md T04 fixtures corpus id: 'unitType.lightCavalry.moves'.",
+        "standardBattalionSize": "confirmed: unit-type-stat-table-in-dat.md T04 fixtures corpus id: 'unitType.lightCavalry.battalionSize'.",
+        "shots": "confirmed: unit-type-stat-table-in-dat.md — matches the '1st Lancers Battalion ... 9 shots' screenshot in battle-observation.md. T04 fixtures corpus id: 'unitType.lightCavalry.shots'.",
+        "range": "confirmed: unit-type-stat-table-in-dat.md T04 fixtures corpus id: 'unitType.lightCavalry.range'.",
+        "recruitCost": "confirmed: unit-type-stat-table-in-dat.md — independently solved from two save-diffs in decompiled-recruitment-cost-formula.md before the table was found. T04 fixtures corpus id: 'unitType.lightCavalry.recruitCostInitial'.",
+        "quarterlyPrice": "confirmed: unit-type-stat-table-in-dat.md T04 fixtures corpus id: 'unitType.lightCavalry.recruitCostQuarterly'.",
+        "combatPowerWeight": "confirmed: decompiled-unit-map-orders-and-record-fields.md T04 fixtures corpus id: 'unitType.lightCavalry.powerWeight'."
+      }
+    },
+    {
+      "id": "heavy_cavalry",
+      "name": "Heavy cavalry",
+      "abbreviation": "Hvy cav",
+      "moves": 5,
+      "standardBattalionSize": 2500,
+      "shots": 0,
+      "range": 0,
+      "recruitCost": 30,
+      "quarterlyPrice": 4,
+      "combatPowerWeight": 120,
+      "_provenance": {
+        "moves": "confirmed: unit-type-stat-table-in-dat.md T04 fixtures corpus id: 'unitType.heavyCavalry.moves'.",
+        "standardBattalionSize": "confirmed: unit-type-stat-table-in-dat.md T04 fixtures corpus id: 'unitType.heavyCavalry.battalionSize'.",
+        "shots": "confirmed: unit-type-stat-table-in-dat.md — 0 means melee-only. T04 fixtures corpus id: 'unitType.heavyCavalry.shots'.",
+        "recruitCost": "confirmed: unit-type-stat-table-in-dat.md T04 fixtures corpus id: 'unitType.heavyCavalry.recruitCostInitial'.",
+        "quarterlyPrice": "confirmed: unit-type-stat-table-in-dat.md T04 fixtures corpus id: 'unitType.heavyCavalry.recruitCostQuarterly'.",
+        "combatPowerWeight": "confirmed: decompiled-unit-map-orders-and-record-fields.md T04 fixtures corpus id: 'unitType.heavyCavalry.powerWeight'.",
+        "range": "T04 fixtures corpus id: 'unitType.heavyCavalry.range'."
+      }
+    }
+  ],
+  "terrain": {
+    "moveCosts": [
+      {
+        "tileTypeId": "sea_coastal",
+        "moveCost": 1
+      },
+      {
+        "tileTypeId": "sea_deep",
+        "moveCost": 3
+      },
+      {
+        "tileTypeId": "plain",
+        "moveCost": 1
+      },
+      {
+        "tileTypeId": "desert",
+        "moveCost": 1
+      },
+      {
+        "tileTypeId": "forest",
+        "moveCost": 2
+      },
+      {
+        "tileTypeId": "mountains",
+        "moveCost": 4
+      },
+      {
+        "tileTypeId": "river_1",
+        "moveCost": 4
+      },
+      {
+        "tileTypeId": "river_2",
+        "moveCost": 4
+      },
+      {
+        "tileTypeId": "river_3",
+        "moveCost": 4
+      },
+      {
+        "tileTypeId": "river_4",
+        "moveCost": 4
+      },
+      {
+        "tileTypeId": "river_5",
+        "moveCost": 4
+      },
+      {
+        "tileTypeId": "river_6",
+        "moveCost": 4
+      }
+    ],
+    "defaultMoveCost": 1,
+    "_provenance": {
+      "moveCosts": "confirmed: terrain-move-cost-table-in-dat.md — the original's twelve-entry terrain table at DAT offset 0x1F622, verbatim: Sea 1, Sea 3, Plain 1, Desert 1, Forest 2, Mountains 4, and six River codes at 4. The table is keyed by tile-type id rather than by cell code so that a world with different or additional terrain types can be priced by the same ruleset shape; the twelve entries are shipped values, not a fixed size.",
+      "defaultMoveCost": "designed: docs/game-design.md §Movement — 'A custom World's new terrain types default to cost 1 unless a ruleset explicitly prices them'. Searched docs/reports/ for any original handling of an unpriced terrain code and found none to transcribe: terrain-move-cost-table-in-dat.md establishes that the original's table covers exactly codes 0-11 and that codes 12 and above are city/army/fleet markers rather than terrain, so the original has no unpriced-terrain case to copy.",
+      "moveCosts[0].moveCost": "T04 fixtures corpus id: 'terrain.moveCost.code0'.",
+      "moveCosts[1].moveCost": "T04 fixtures corpus id: 'terrain.moveCost.code1'.",
+      "moveCosts[10].moveCost": "T04 fixtures corpus id: 'terrain.moveCost.code10'.",
+      "moveCosts[11].moveCost": "T04 fixtures corpus id: 'terrain.moveCost.code11'.",
+      "moveCosts[2].moveCost": "T04 fixtures corpus id: 'terrain.moveCost.code2'.",
+      "moveCosts[3].moveCost": "T04 fixtures corpus id: 'terrain.moveCost.code3'.",
+      "moveCosts[4].moveCost": "T04 fixtures corpus id: 'terrain.moveCost.code4'.",
+      "moveCosts[5].moveCost": "T04 fixtures corpus id: 'terrain.moveCost.code5'.",
+      "moveCosts[6].moveCost": "T04 fixtures corpus id: 'terrain.moveCost.code6'.",
+      "moveCosts[7].moveCost": "T04 fixtures corpus id: 'terrain.moveCost.code7'.",
+      "moveCosts[8].moveCost": "T04 fixtures corpus id: 'terrain.moveCost.code8'.",
+      "moveCosts[9].moveCost": "T04 fixtures corpus id: 'terrain.moveCost.code9'."
+    }
+  },
+  "economy": {
+    "taxRateDivisor": 100,
+    "shipUpkeepPerQuarter": 3,
+    "mobilizationDecayPerQuarter": 3,
+    "unityCap": 990,
+    "purseCapPerUnit": 1000,
+    "supplyTonsPerTalent": 5,
+    "armySupplyTonsPerTroops": 100,
+    "fleetSupplyTonsPerShip": 8,
+    "supplyPercentNumerator": 10000,
+    "mercenaryDesertionSupplyDivisor": 100,
+    "debtWealthDivisor": 500,
+    "debtTreasuryFloor": -20000,
+    "debtUnityThreshold": 400,
+    "depositionRandomDivisor": 9,
+    "depositionUnityGainAmount": 150,
+    "depositionUnityCeiling": 550,
+    "depositionTreasuryCredit": 1000,
+    "depositionRelationResetThreshold": -5,
+    "lowTaxLoyaltyThresholdPercent": 11,
+    "lowTaxLoyaltyCityThreshold": 80,
+    "rebellionLoyaltyThreshold": 30,
+    "supplyConsumption": {
+      "consumptionBaseValue": 90,
+      "consumptionDivisor": 20000,
+      "fleetEmbarkedDivisor": 200,
+      "seasonValues": [
+        50,
+        80,
+        80,
+        20
+      ],
+      "_provenance": {
+        "consumptionBaseValue": "confirmed: investigations/thracia-supply-morale.md, citing decompiled-turn-and-calendar-sequencing.md's FUN_004514ec — per-turn consumption = ((90 - seasonVal) * troops) / 20000, decompiled directly and verified turn-for-turn against the Thracian army's spring consumption (142 -> 98 -> 54 -> 10, exactly -44 each turn). T04 fixtures corpus id: 'supplyMorale.consumptionFormula'.",
+        "consumptionDivisor": "confirmed: investigations/thracia-supply-morale.md — the 20000 divisor of the same expression. T04 fixtures corpus id: 'supplyMorale.consumptionDivisor'.",
+        "fleetEmbarkedDivisor": "confirmed: investigations/thracia-supply-morale.md — an army aboard a fleet (army[+8] == -1) instead consumes max(0, supplies - troops/200), no seasonal term. T04 fixtures corpus id: 'supplyMorale.fleetEmbarkedConsumptionFormula'.",
+        "seasonValues": "confirmed: investigations/thracia-supply-morale.md — the season record at DAT offset 0x1F7D8, matching &DAT_004794a8 + season*10: Spring 50, Summer 80, Autumn 80, Winter 20, indexed by calendar.startSeasonIndex's convention (0=Spring). Winter costs 7x Summer, verified against the same investigation's seasonal-consumption table for a 22,000-troop army (44/11/11/77 tons)."
+      }
+    },
+    "supplyMorale": {
+      "decayThresholdPercent": 10,
+      "deadBandUpperPercent": 15,
+      "decayAmount": 2,
+      "moraleFloor": 51,
+      "regenAmount": 1,
+      "moraleCeiling": 70,
+      "movesPenaltyOnDecay": 1,
+      "baseMovesMax": 10,
+      "movesTroopDivisor": 20000,
+      "movesReductionCap": 5,
+      "_provenance": {
+        "decayThresholdPercent": "confirmed: investigations/thracia-supply-morale.md, FUN_004514ec — pct < 10 decays morale by 2 and costs one move; verified turn-for-turn against the Thracian army's 13-save series (12 of 12 transitions predicted exactly). T04 fixtures corpus id: 'supplyMorale.decayThresholdPercent'.",
+        "deadBandUpperPercent": "confirmed: investigations/thracia-supply-morale.md — 10 <= pct <= 15 is a deliberate dead band, no change. T04 fixtures corpus id: 'supplyMorale.deadBandUpperPercent'.",
+        "decayAmount": "confirmed: investigations/thracia-supply-morale.md — army[+14] = max(51, army[+14] - 2). T04 fixtures corpus id: 'supplyMorale.decayAmount'.",
+        "moraleFloor": "confirmed: investigations/thracia-supply-morale.md — the real bound of the field: the army panel prints morale as a tier via moraleNames[(v-51)>>2], 51...70 being exactly five 4-wide tiers. T04 fixtures corpus id: 'supplyMorale.floor'.",
+        "regenAmount": "confirmed: investigations/thracia-supply-morale.md — army[+14] += 1 when pct > 15, the confirmed 2:1 decay/regen asymmetry (decay is twice as fast as regen). T04 fixtures corpus id: 'supplyMorale.regenAmount'.",
+        "moraleCeiling": "confirmed: investigations/thracia-supply-morale.md — the real ceiling of the field. T04 fixtures corpus id: 'supplyMorale.ceiling'.",
+        "movesPenaltyOnDecay": "confirmed: investigations/thracia-supply-morale.md — army[+6] -= 1 on the same pct < 10 branch that decays morale; verified against the Thracian series' moves column (9 while supplied, 8 from the first pct < 10 turn on).",
+        "baseMovesMax": "confirmed: investigations/thracia-supply-morale.md, FUN_004514ec — moves = 10 - min(5, troops / 20000), recomputed every turn before the decay penalty, not accumulated from the previous turn. T04 fixtures corpus id: 'supplyMorale.baseMovesFormula'.",
+        "movesTroopDivisor": "confirmed: investigations/thracia-supply-morale.md — the troop divisor of the same base-moves expression; numerically the same 20000 as supplyConsumption.consumptionDivisor in the source pseudocode, kept as a separate field since the two formulas are conceptually distinct. T04 fixtures corpus id: 'supplyMorale.baseMovesFormula'.",
+        "movesReductionCap": "confirmed: investigations/thracia-supply-morale.md — the min(5, ...) cap of the same expression. T04 fixtures corpus id: 'supplyMorale.baseMovesFormula'."
+      }
+    },
+    "weather": {
+      "earlyLateWeekThreshold": 6,
+      "bySeason": [
+        {
+          "seasonIndex": 0,
+          "earlyNumerator": 1,
+          "earlyDenominator": 15,
+          "lateNumerator": 1,
+          "lateDenominator": 30
+        },
+        {
+          "seasonIndex": 1,
+          "earlyNumerator": 1,
+          "earlyDenominator": 40,
+          "lateNumerator": 1,
+          "lateDenominator": 40
+        },
+        {
+          "seasonIndex": 2,
+          "earlyNumerator": 1,
+          "earlyDenominator": 30,
+          "lateNumerator": 1,
+          "lateDenominator": 15
+        },
+        {
+          "seasonIndex": 3,
+          "earlyNumerator": 1,
+          "earlyDenominator": 5,
+          "lateNumerator": 1,
+          "lateDenominator": 5
+        }
+      ],
+      "locationCount": 20,
+      "effects": [
+        {
+          "id": "storm-damages-fleet",
+          "description": "A storm damages a fleet at sea.",
+          "_provenance": {
+            "_group": "designed: docs/game-design.md §Economy — 'implement as a data-driven table of possible weather effects (storm damages a fleet, drought reduces a region's supply, etc.) with the confirmed frequency curve and [designed] specific effects'. decompiled-weather-events.md confirms the frequency curve only; FUN_004511bc (the effect itself) was never decompiled, so no magnitude is transcribed here — this entry names the effect kind design-audit.md already suggests, nothing more."
+          }
+        },
+        {
+          "id": "drought-reduces-supply",
+          "description": "A drought reduces a region's supply.",
+          "_provenance": {
+            "_group": "designed: docs/game-design.md §Economy, same open item as storm-damages-fleet — no magnitude transcribed, effect internals unrecovered."
+          }
+        }
+      ],
+      "_provenance": {
+        "earlyLateWeekThreshold": "confirmed: decompiled-weather-events.md — Spring's 'early'/'late' boundary is week < 6; Autumn's is week < 7 (the report gives the two seasons different boundaries, not the same one). Represented here as a single field because on this engine's odd-week calendar (weeks 1, 3, 5, 7, 9, 11) the two readings pick out exactly the same set of weeks either way, so a single shared threshold of 6 is behaviourally equivalent to carrying 6 and 7 separately (review round 1, B5). Summer and Winter are flat for the whole season, so their early/late split never matters. T04 fixtures corpus id: 'weather.oddsBySeasonWeek.springEarly'.",
+        "bySeason": "confirmed: decompiled-weather-events.md — Spring early 1-in-15 / late 1-in-30; Summer 1-in-40; Autumn early 1-in-30 / late 1-in-15; Winter 1-in-5. Winter is roughly 8x more frequent than Summer (1/5 vs 1/40), the source for T08's DoD 8 ratio-band assertion, itself approximate per that report.",
+        "locationCount": "confirmed: decompiled-weather-events.md, DAT_00479540 — the frequency curve above is rolled independently once per tracked location, every tick, not once per tick overall (review round 1, B4). The locations' own identity is [open], exactly as the report leaves it; only the roll count is transcribed here. T04 fixtures corpus id: 'weather.trackedLocationCount'.",
+        "effects": "designed: docs/game-design.md §Economy — the frequency curve is confirmed but the effects were never decompiled (FUN_004511bc, [open] per docs/design-audit.md §2.13); this table exists so an effect can be added as data later without an engine change, not because these two entries' specifics are evidenced."
+      }
+    },
+    "supplyDialogArmyCapacityBonus": 1,
+    "autoResupplyPurseTopUpThreshold": 500,
+    "autoResupplyPurseTopUpAmount": 500,
+    "taxBaseContributionMultiplier": 4,
+    "wealthPerPopulationThousand": 3000,
+    "treasuryCreditTaxBaseQuarterShareDivisor": 4,
+    "treasuryCreditPerCityUpkeep": 7,
+    "treasuryCreditWealthDivisor": 20000,
+    "tradeIncomeTaxBaseDivisor": 12,
+    "populationGrowthGapDivisor": 4,
+    "populationGrowthTaxDivisor": 120,
+    "populationGrowthMobilizationDivisor": 300,
+    "populationGrowthConstantAddend": 1,
+    "threatenedCityAdjacencyRadius": 1,
+    "unityFloor": 300,
+    "unityBaseGainPerQuarter": 25,
+    "unityTaxRateDivisor": 2,
+    "unityMobilizationDivisor": 5,
+    "loyaltyRiseRollBound": 4,
+    "loyaltyFallProbabilityDenominator": 3,
+    "loyaltyFallTaxDivisor": 8,
+    "citySupplyBaselineSeasonValue": 40,
+    "citySupplyProductionDivisor": 10,
+    "citySupplyMobilizationDivisor": 200,
+    "citySupplyCapTonsPerPopulationThousand": 10,
+    "famineLoyaltyLossProbabilityDenominator": 3,
+    "famineLoyaltyLossAmount": 1,
+    "_provenance": {
+      "taxRateDivisor": "confirmed: decompiled-quarterly-billing-and-economy.md and decompiled-fleet-tax-and-mercenary-formulas.md — income = nationTaxBase × taxRate / 100.",
+      "shipUpkeepPerQuarter": "confirmed: fleet-order-at-caere.md and decompiled-fleet-tax-and-mercenary-formulas.md — ships cost 3 talents each per quarter. T04 fixtures corpus id: 'economy.shipUpkeepPerQuarter'.",
+      "mobilizationDecayPerQuarter": "confirmed: city-population-growth.md — renamed from unityDecayPerQuarter (bug #68): FUN_00451b40's nation-loop '-3' is applied to mobilization (+0x442), not unity; 71 of 80 nation-quarters matched exactly across 5 quarter pairs, the other 9 being AIs recruiting or disbanding in the round. decompiled-quarterly-billing-and-economy.md's original 'unity decays 3 per quarter, clamped at 0' misattributed the field. T04 fixtures corpus id: 'economy.mobilizationDecayPerQuarter'.",
+      "unityCap": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — the instant resolver clamps the winner's unity with min(990, ...); city-population-growth.md's own quarterly unity update (T35) clamps to this same cap.",
+      "purseCapPerUnit": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TAFSupply_ChangeMoney caps an army's or fleet's own purse at 1,000 talents.",
+      "supplyTonsPerTalent": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TAFSupply_TransferSupply charges amount / 5, i.e. 1 talent per 5 tons, from the buyer's purse to the selling city's owner. docs/design-audit.md Q9 is now answered by the user's own play experience: resupplying at a city the buying army's nation owns is free (no talent debit at all, matching the Galatia frames' unchanged army money and treasury); this amount/5 constant applies only to the paid, foreign-city case. Where a foreign purchase's talents end up is resolved by T38 (docs/task-catalogue.md Done-when 5, Q9's 2026-09-14 update): the selling city's owner's treasury, credited amount/5 by SupplyPurchase.BuyForArmy/BuyForFleet. Review round 1, N5: this text previously called the credit destination 'still [open]', which was already stale by the time this same PR closed it; corrected here rather than left contradicting the diff it belongs to. T04 fixtures corpus id: 'supply.purchaseFormula'.",
+      "armySupplyTonsPerTroops": "confirmed: decompiled-unit-map-orders-and-record-fields.md — army supply capacity is troops / 100 tons, reproducing all four recorded percentage readings. T04 fixtures corpus id: 'supply.capacityFormula.army'.",
+      "fleetSupplyTonsPerShip": "confirmed: decompiled-unit-map-orders-and-record-fields.md — fleet supply capacity is ships × 8 tons; supply-capacity-rounding.md's instruction-level check confirms this same formula, with no +1, caps the supply dialog's fleet transfer on both the own-city (free) and foreign-city (paid) paths alike. T04 fixtures corpus id: 'supply.capacityFormula.fleet'.",
+      "supplyDialogArmyCapacityBonus": "confirmed: supply-capacity-rounding.md — review round 3's resolution of round 2's R1. TAFSupply_ChangeSupply (own-city, free) and TAFSupply_ChangeBuyAmount (foreign, paid) both compute room as troops IDIV 100 then an unconditional INC, i.e. troops/100 + 1, with no FPU instruction and no Round/Trunc, applied identically on both paths. This is the supply *dialog's* cap only: armySupplyTonsPerTroops (troops/100, no +1) stays the general capacity every other path (automatic resupply, army-to-army rebalancing, battle absorption) uses, confirmed against 75 distinct army states in the saves; the dialog's own +1 is confirmed by exactly one state, the Roman 13-unit roster's 48,173-troop army going from 403 to 482 tons at Rome (controlled-army-supply-transfer.md, supplyTransfer.* in this corpus) — 481 + 1 = 482, one ton past the truncated 481 the general formula alone would give. Corrects the previous round's [derived] reconciliation, which cited docs/design-audit.md Q9 as establishing the free own-city case as a different, TArmyToArmy-shaped dialog from the paid TAFSupply purchase; Q9 itself (docs/design-audit.md:252) lists that exact question as still open, and decompiled-unit-map-orders-and-record-fields.md's own §'Supply is bought, not moved' names the free resupply dialog TAFSupply, the same dialog the cap comes from — so that reconciliation's premise was unsupported by either source it cited, not merely under-evidenced. T38 (docs/task-catalogue.md Done-when 2) moved this field ahead of _provenance and dropped its default, so an omitting ruleset now fails SchemaValidator instead of silently defaulting to 1. T04 fixtures corpus id: 'supply.dialogCapacityBonus.army'.",
+      "autoResupplyPurseTopUpThreshold": "derived: supply-capacity-rounding.md — FUN_0044F6D8 (lines 53091-53104), automatic resupply's own-city path: after the free ton transfer, a purse under 500 with a positive treasury gains a flat grant from the treasury. Review round 1, B2: retagged from confirmed — the report's own section heading for this rule is '[derived, then confirmed below]', and the 'confirmed below' paragraph confirms only the troops div 100 cap against 75 save states, not the purse rule; docs/game-design.md:100 already tags it 'confirmed caps; derived purse rule'. T04 fixtures corpus id: 'autoResupply.ownCity.purseTopUpThreshold'.",
+      "autoResupplyPurseTopUpAmount": "derived: supply-capacity-rounding.md — the same lines: the flat amount granted is 500, taken from the treasury, not invented money; the report notes this 'fits the many AI armies seen holding exactly 500 or 1,000 money', which is a consistency observation, not a confirmation. The mirror case (purse over 1,000 sends the excess to the treasury) reuses purseCapPerUnit rather than a new field. Review round 1, B2: retagged from confirmed, same reasoning as autoResupplyPurseTopUpThreshold. T04 fixtures corpus id: 'autoResupply.ownCity.purseTopUpAmount'.",
+      "supplyPercentNumerator": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TInformation_ShowArmyDetails prints the supply percentage as supplies × 10000 / troops.",
+      "mercenaryDesertionSupplyDivisor": "confirmed: upkeep-payment-and-desertion.md — a deserting mercenary unit takes troops div 100 tons of the army's supplies with it, equal to the deserting unit's own share of the army's supply capacity. Numerically the same 100 as armySupplyTonsPerTroops but a distinct field: this is the loss-on-desertion divisor, not the capacity formula, the same reasoning already given for populationGrowthMobilizationDivisor. T04 fixtures corpus id: 'mercenary.upkeepFormula'.",
+      "debtWealthDivisor": "confirmed: upkeep-payment-and-desertion.md — inDebt = treasury < -(wealth div 500) or treasury < -20000 or unity < 400; wealth is Σ population × 3000, so this line is 6 × total population, capped at 20,000. T04 fixtures corpus id: 'economy.debtWealthDivisor'.",
+      "debtTreasuryFloor": "confirmed: upkeep-payment-and-desertion.md — the same debt test's flat -20,000 floor. T04 fixtures corpus id: 'economy.debtTreasuryFloor'.",
+      "debtUnityThreshold": "confirmed: upkeep-payment-and-desertion.md — the same debt test's unity-under-400 clause. T04 fixtures corpus id: 'economy.debtUnityThreshold'.",
+      "depositionRandomDivisor": "confirmed: upkeep-payment-and-desertion.md — an in-debt AI nation has a 1-in-9 chance each quarter of deposing its leader (FUN_0044c8f0), checked in 2 of 15 at-risk nation-quarters, 0 outside the condition. T04 fixtures corpus id: 'economy.depositionRandomDivisor'.",
+      "depositionUnityGainAmount": "confirmed: upkeep-payment-and-desertion.md — FUN_0044c8f0's unity = max(unity, min(550, unity + 150)); the Gaul deposition (unity 470 -> 550) confirms both this and depositionUnityCeiling exactly. T04 fixtures corpus id: 'economy.depositionUnityGainAmount'.",
+      "depositionUnityCeiling": "confirmed: upkeep-payment-and-desertion.md — the same expression's min(550, ...) ceiling. T04 fixtures corpus id: 'economy.depositionUnityCeiling'.",
+      "depositionTreasuryCredit": "confirmed: upkeep-payment-and-desertion.md — FUN_0044c8f0's treasury = (treasury < 0) ? 0 : treasury + 1000; the Gaul deposition (treasury -5,030 -> 0) confirms the zero-floor half exactly, and the report notes a positive-treasury nation would gain the flat 1,000. T04 fixtures corpus id: 'economy.depositionTreasuryCredit'.",
+      "depositionRelationResetThreshold": "derived: upkeep-payment-and-desertion.md — FUN_0044c8f0 resets any relation from -5 to -1 (inclusive) with any other nation to 0; code-only, not observed in either sampled deposition (neither deposed nation held such a relation).",
+      "taxBaseContributionMultiplier": "confirmed: nation-tax-base-and-city-economy-fields.md — the quarterly rebuild's cityContribution(city) << 2 (tribute × population / maxPopulation, ×4), and the same ×4 applied by the city-ownership-transfer adjustment (FUN_0044bb18) at capture time. T04 fixtures corpus id: 'capture.taxBaseMultiplier'.",
+      "wealthPerPopulationThousand": "confirmed: nation-tax-base-and-city-economy-fields.md — nation +0x430 (wealth) += city.population × 3000 every quarter, and ± the same amount at a city-ownership transfer; corrects decompiled-quarterly-billing-and-economy.md and decompiled-city-capture-resolution.md, both of which had this keyed to fortification. T04 fixtures corpus id: 'economy.wealthPerPopulationThousand'.",
+      "treasuryCreditTaxBaseQuarterShareDivisor": "confirmed: nation-tax-base-and-city-economy-fields.md — the quarterly treasury credit's second term is taxBase / 4, not mobilization / 4 as decompiled-quarterly-billing-and-economy.md originally read it. T04 fixtures corpus id: 'economy.treasuryCreditTaxBaseQuarterShareDivisor'.",
+      "treasuryCreditPerCityUpkeep": "confirmed: nation-tax-base-and-city-economy-fields.md — treasury -= cityCount (+0x446) × 7 every quarter; the ×7 is per city, not a flat term. T04 fixtures corpus id: 'economy.treasuryCreditPerCityUpkeep'.",
+      "treasuryCreditWealthDivisor": "confirmed: nation-tax-base-and-city-economy-fields.md — treasury -= wealth (+0x430) / 20000 every quarter. T04 fixtures corpus id: 'economy.treasuryCreditWealthDivisor'.",
+      "tradeIncomeTaxBaseDivisor": "confirmed: upkeep-payment-and-desertion.md — FUN_004499ec(n) = Σ over nations j with relation 1 (trade) or 2 (alliance) of taxBase[j] div 12, read from the just-rebuilt tax bases; the human nation's whole-quarter treasury change matched exactly in 6 of 6 quarter pairs once this term was included. T04 fixtures corpus id: 'economy.tradeIncomeTaxBaseDivisor'.",
+      "populationGrowthGapDivisor": "confirmed: city-population-growth.md — d = (maxPop - pop) >> 2, i.e. the gap divided by 4 and truncated; the same 497-city sample fits gap/3 in 366 cases and gap/5 in 398, so /4 is the one uniquely pinned across the full sample. T04 fixtures corpus id: 'economy.populationGrowthGapDivisor'.",
+      "populationGrowthTaxDivisor": "confirmed: city-population-growth.md — d' = d - (d × taxRate) / 120 (0x78); pinned together with the mobilization divisor by the one city (Laranda) where both terms bite, and isolated further by the tax17-vs-tax18 controlled-save recipe the report proposes. T04 fixtures corpus id: 'economy.populationGrowthTaxDivisor'.",
+      "populationGrowthMobilizationDivisor": "confirmed: city-population-growth.md — growth = d' - (d' × mobilized) / 300 + 1; pinned together with the tax divisor by Laranda, the only sampled city where either term changes the predicted growth. T04 fixtures corpus id: 'economy.populationGrowthMobilizationDivisor'.",
+      "populationGrowthConstantAddend": "confirmed: city-population-growth.md — the quarterly growth step's trailing +1; dropping it fits only 1 of 497 sampled cities, against 493 with it present. T04 fixtures corpus id: 'economy.populationGrowthConstantAddend'.",
+      "threatenedCityAdjacencyRadius": "confirmed: city-population-growth.md — FUN_004497cc checks the 9 cells (a 3×3 block, radius 1) centred on the city for a hostile army; 3 of 3 non-growing, below-maximum cities in the sample had exactly such an army adjacent. T04 fixtures corpus id: 'economy.threatenedCityAdjacencyRadius'.",
+      "unityFloor": "confirmed: city-population-growth.md — unity = min(990, max(300, unity + 25 - tax/2 - mobilized/5)); the floor side of the same clamp unityCap's cap side already carries. Matched exactly in 60 of 80 sampled nation-quarters, the other 20 having a battle, capture or elimination event in the round. T04 fixtures corpus id: 'economy.unityFloor'.",
+      "unityBaseGainPerQuarter": "confirmed: city-population-growth.md — unity drifts up by +25 a quarter before the tax/mobilization reductions, correcting decompiled-quarterly-billing-and-economy.md's 'unity decays by 3', which was mobilization's field (see mobilizationDecayPerQuarter). T04 fixtures corpus id: 'economy.unityBaseGainPerQuarter'.",
+      "unityTaxRateDivisor": "confirmed: city-population-growth.md — the unity update's -taxRate/2 term. T04 fixtures corpus id: 'economy.unityTaxRateDivisor'.",
+      "unityMobilizationDivisor": "confirmed: city-population-growth.md — the unity update's -mobilized/5 term, reading mobilization after this same quarter's decay. T04 fixtures corpus id: 'economy.unityMobilizationDivisor'.",
+      "lowTaxLoyaltyThresholdPercent": "confirmed: decompiled-quarterly-billing-and-economy.md, read by T35 for the first time per city-population-growth.md's transcription of the same FUN_00451b40 city loop — if a nation's tax rate is under 11% and a city's loyalty is below 80, there's a chance loyalty rises. T04 fixtures corpus id: 'economy.lowTaxLoyaltyThresholdPercent'.",
+      "lowTaxLoyaltyCityThreshold": "confirmed: decompiled-quarterly-billing-and-economy.md, read by T35 for the first time per city-population-growth.md — the city-loyalty side of the same condition. T04 fixtures corpus id: 'economy.lowTaxLoyaltyCityThreshold'.",
+      "rebellionLoyaltyThreshold": "derived: city-population-growth.md — 'if loyalty < 30 and the city is no nation's capital: FUN_0044c204(city)' [rebellion], transcribed directly from the decompiled quarterly tick rather than save-checked (the rebellion's own choice of new owner depends on an unidentified bitmask and stays open, T17's). Read by T35 for the first time; T08 shipped this field as data nothing read. Supersedes decompiled-quarterly-billing-and-economy.md's earlier, save-unconfirmed 'cities with loyalty under 30 can trigger it' as the citation for the same threshold. T04 fixtures corpus id: 'economy.rebellionLoyaltyThreshold'.",
+      "loyaltyRiseRollBound": "derived: city-population-growth.md — 'loyalty += Random(4)' (0..3), read directly from the code, not save-checked. T04 fixtures corpus id: 'economy.loyaltyRiseRollBound'.",
+      "loyaltyFallProbabilityDenominator": "derived: city-population-growth.md — 'if Random(3) == 0', a 1-in-3 roll, read directly from the code, not save-checked. T04 fixtures corpus id: 'economy.loyaltyFallProbabilityDenominator'.",
+      "loyaltyFallTaxDivisor": "derived: city-population-growth.md — 'loyalty -= Random(taxRate) / 8', read directly from the code, not save-checked. T04 fixtures corpus id: 'economy.loyaltyFallTaxDivisor'.",
+      "citySupplyBaselineSeasonValue": "confirmed: city-population-growth.md §'The weekly step is city supply production' — s = (pop * (v - 40)) / 10; the 40 baseline read against the same season table (supplyConsumption.seasonValues) T08's army consumption already reads. Verified turn-for-turn against a pop-50 city's +50/+200/+200/-100 change across Spring/Summer/Autumn/Winter at mobilization 0. T04 fixtures corpus id: 'citySupply.baselineSeasonValue'.",
+      "citySupplyProductionDivisor": "confirmed: city-population-growth.md, same section — the /10 divisor of the same expression. T04 fixtures corpus id: 'citySupply.productionDivisor'.",
+      "citySupplyMobilizationDivisor": "confirmed: city-population-growth.md, same section — inc = s - (s * mobilized) / 200; mobilization shrinks gains and losses alike. Numerically the same shape as populationGrowthMobilizationDivisor but a distinct field (there 300, here 200; the two formulas are conceptually separate, the same reasoning already given for populationGrowthMobilizationDivisor itself). Verified against Numidia/Illyria/Dacia/Armenia (mob 0, no reduction), Gaul/Celtiberia/Galatia (mob 97-100, exactly half), and Rome (mob 30, 15% less). T04 fixtures corpus id: 'citySupply.mobilizationDivisor'.",
+      "citySupplyCapTonsPerPopulationThousand": "confirmed: city-population-growth.md, same section — supplies = max(0, min(supplies + inc, pop * 10)); Rome's capital (pop 181) holds exactly 1,810 in several saves. T04 fixtures corpus id: 'citySupply.capTonsPerPopulationThousand'.",
+      "famineLoyaltyLossProbabilityDenominator": "confirmed: city-population-growth.md §'Weekly supply: 33 pairs' — 'Winter famine: loyalty, 1 in 3. In Winter pairs, cities whose stock ends the turn at 0 lost exactly 1 loyalty in 39 of 108 cases (36%; 1/3 expected) and kept it in 69.' Numerically the same 3 as loyaltyFallProbabilityDenominator but a distinct field: this is the weekly, Winter-only, empty-stock roll, not T35's quarterly, tax-rate-gated one. T04 fixtures corpus id: 'citySupply.winterFamineLoyaltyLossChance'.",
+      "famineLoyaltyLossAmount": "confirmed: city-population-growth.md, same section — the flat 1-point loyalty loss on that roll; 'cities with stock left, and every city outside Winter, never lose loyalty this way (1,874 and 8,980 city-turns unchanged, apart from a handful of other events)'. T04 fixtures corpus id: 'citySupply.winterFamineLoyaltyLossAmount'."
+    }
+  },
+  "recruitment": {
+    "troopsPerCostUnit": 200,
+    "mercenaryPoolSlots": 50,
+    "mercenaryHireTroopDivisor": 1000,
+    "mercenaryUpkeepQualityDivisor": 5,
+    "_provenance": {
+      "troopsPerCostUnit": "confirmed: decompiled-recruitment-cost-formula.md — cost = (troops / 200) × priceTable[unitType], the same table for initial recruitment and quarterly upkeep. T04 fixtures corpus id: 'recruitment.costFormula.initial'.",
+      "mercenaryPoolSlots": "confirmed: decompiled-sav-file-layout.md — the mercenary table is exactly 50 slots of 12 bytes, hard-coded in the save/load code (mercenary-pool-record.md had found the same figure empirically). T04 fixtures corpus id: 'caps.maxMercenarySlots'.",
+      "mercenaryHireTroopDivisor": "confirmed: decompiled-unit-map-orders-and-record-fields.md — hire cost = (troops × quarterlyPrice[type]) / 1000 × quality, paid from the hiring army's own purse. T04 fixtures corpus id: 'mercenary.hireCostFormula'.",
+      "mercenaryUpkeepQualityDivisor": "confirmed: decompiled-unit-map-orders-and-record-fields.md — mercenary upkeep is ((troops / 200) × price[type] × quality) / 5 against a regular's (troops / 200) × price[type]. T04 fixtures corpus id: 'mercenary.upkeepFormula'."
+    }
+  },
+  "armyManagement": {
+    "maxUnitsPerArmy": 20,
+    "maxTroopsPerArmy": 100000,
+    "maxArmies": 198,
+    "splitMinUnits": 2,
+    "newArmyMorale": 59,
+    "newArmyMovesHumanSeat": 0,
+    "newArmyMovesAiSeat": 1,
+    "_provenance": {
+      "maxUnitsPerArmy": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TUnitMap_JoinArmies caps the combined army at 20 units. T04 fixtures corpus id: 'caps.maxUnitsPerArmy'.",
+      "maxTroopsPerArmy": "confirmed: decompiled-unit-map-orders-and-record-fields.md — and the same 100,000 cap is enforced on mercenary hire. T04 fixtures corpus id: 'caps.maxTroopsPerArmy'.",
+      "maxArmies": "confirmed: decompiled-unit-map-orders-and-record-fields.md — FUN_00449F08 refuses to create an army once 198 exist (< 0xC6). T04 fixtures corpus id: 'caps.maxArmies'.",
+      "splitMinUnits": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TUnitMap_SplitArmy needs at least 2 units.",
+      "newArmyMorale": "confirmed: decompiled-unit-map-orders-and-record-fields.md — a freshly split army is created with morale 0x3B = 59. T04 fixtures corpus id: 'supplyMorale.newArmyMorale'.",
+      "newArmyMovesHumanSeat": "confirmed: decompiled-unit-map-orders-and-record-fields.md — 0 moves for a human nation.",
+      "newArmyMovesAiSeat": "confirmed: decompiled-unit-map-orders-and-record-fields.md — 1 move for an AI one. This is one of the seat asymmetries the flags block selects between."
+    }
+  },
+  "naval": {
+    "buildCostPerShip": 10,
+    "orderMinShips": 10,
+    "orderMaxShips": 100,
+    "constructionTicks": 24,
+    "launchConditionPercent": 100,
+    "launchSupplyTons": 50,
+    "transportTroopsPerShip": 500,
+    "repairCostDivisor": 5,
+    "joinMaxShips": 100,
+    "splitMinShips": 20,
+    "maxConditionPercent": 100,
+    "stormDamageRandomDivisor": 10,
+    "stormWinterDamageMultiplier": 2,
+    "stormWinterDamageCap": 5,
+    "stormTripleDamageMultiplier": 3,
+    "stormTripleDamageCap": 8,
+    "stormTripleConditionTileCode": 1,
+    "stormAwayFromCoastDamageMultiplier": 2,
+    "stormAwayFromCoastDamageAddend": 1,
+    "stormNearCoastDamageDivisor": 2,
+    "stormWinterSpikeChanceDenominator": 20,
+    "stormWinterSpikeDamage": 30,
+    "stormShipLossDamageThreshold": 6,
+    "stormShipLossRatioBase": 100,
+    "stormShipLossRatioScale": 100,
+    "stormShipLossDivisor": 300,
+    "deathConditionThreshold": 40,
+    "movesBaseValue": 30,
+    "movesShipOffset": 50,
+    "movesShipDivisor": 10,
+    "movesCarriedArmyTroopDivisor": 100,
+    "movesCarriedArmyAddend": 1,
+    "zeroSupplyMovesPenalty": 3,
+    "zeroSupplyConditionRandomBound": 2,
+    "damageSlowdownConditionThreshold": 70,
+    "damageSlowdownDivisor": 4,
+    "constructionTickStep": 2,
+    "friendlyCoastRadiusTiles": 1,
+    "markerBandBaseTier1": 300,
+    "markerBandStep": 16,
+    "_provenance": {
+      "buildCostPerShip": "confirmed: fleet-order-at-caere.md and decompiled-unit-map-orders-and-record-fields.md — a fleet order costs ships × 10 talents. T04 fixtures corpus id: 'fleet.costFormula'.",
+      "orderMinShips": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TBuildFleet_ChangeFleetSize clamps an order to 10..100 ships. T04 fixtures corpus id: 'fleet.minShipsPerOrder'.",
+      "orderMaxShips": "confirmed: decompiled-unit-map-orders-and-record-fields.md T04 fixtures corpus id: 'fleet.maxShipsPerOrder'.",
+      "constructionTicks": "confirmed: decompiled-unit-map-orders-and-record-fields.md — the construction counter starts at 24 and decrements weekly; the Caere order's 12-ticks-to-go reading twelve weeks later confirms it in save data. T04 fixtures corpus id: 'fleet.constructionTicks'.",
+      "launchConditionPercent": "confirmed: decompiled-unit-map-orders-and-record-fields.md — FUN_0044A050 sets fleet +20 to 100 on launch. T04 fixtures corpus id: 'fleet.launchState'.",
+      "launchSupplyTons": "confirmed: decompiled-unit-map-orders-and-record-fields.md — and money to 0.",
+      "transportTroopsPerShip": "confirmed: decompiled-unit-map-orders-and-record-fields.md — the embark check refuses when ships < troops / 500. T04 fixtures corpus id: 'fleet.embarkCapacityPerShip'.",
+      "repairCostDivisor": "confirmed: decompiled-unit-map-orders-and-record-fields.md — repair costs ships × points / 5 talents and zeroes the fleet's moves. T04 fixtures corpus id: 'fleet.repairCostFormula'.",
+      "joinMaxShips": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TUnitMap_JoinFleets refuses a combined fleet above 100 ships. T04 fixtures corpus id: 'fleet.joinMaxShips'.",
+      "splitMinShips": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TUnitMap_SplitFleet needs at least 20 ships. T04 fixtures corpus id: 'fleet.splitMinShips'.",
+      "maxConditionPercent": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TRepairFleet clamps a repair order to 0..(100 - condition).",
+      "stormDamageRandomDivisor": "confirmed: supply-driven-morale-and-fleet-attrition.md / investigations/thracia-supply-morale.md — dmg = max(1, random(100 - condition) / 10), the storm pass's base roll, unconditional and not supply-driven. T04 fixtures corpus id: 'fleet.storm.damagePercentDivisor'.",
+      "stormWinterDamageMultiplier": "confirmed: same reports — if (season == winter) dmg = min(5, dmg * 2).",
+      "stormWinterDamageCap": "confirmed: same reports — the cap of the Winter doubling. T04 fixtures corpus id: 'fleet.storm.winterDoublingCap'.",
+      "stormTripleDamageMultiplier": "confirmed: same reports — if (fleet[+24] == 1) dmg = min(8, dmg * 3).",
+      "stormTripleDamageCap": "confirmed: same reports — the cap of the tripling. T04 fixtures corpus id: 'fleet.storm.coveredCellTripleCap'.",
+      "stormTripleConditionTileCode": "[derived]: supply-driven-morale-and-fleet-attrition.md / investigations/thracia-supply-morale.md §'Still open' — fleet[+24] == 1 selects the tripling branch, inferred from magnitudes, not decompiled. +24 is otherwise confirmed as the fleet's covered-map-cell field (decompiled-unit-map-orders-and-record-fields.md), reused here rather than inventing a new field; only the trigger value is undecompiled.",
+      "stormAwayFromCoastDamageMultiplier": "confirmed: same reports — dmg = dmg * 2 + 1 away from friendly coast (FUN_004494e4 < 0), always odd on this branch. T04 fixtures corpus id: 'fleet.storm.awayFromCoastMultiplier'.",
+      "stormAwayFromCoastDamageAddend": "confirmed: same reports — the + 1 of the same expression. T04 fixtures corpus id: 'fleet.storm.awayFromCoastMultiplier'.",
+      "stormNearCoastDamageDivisor": "confirmed: same reports — else dmg /= 2, next to friendly coast. T04 fixtures corpus id: 'fleet.storm.nearCoastDamageDivisor'.",
+      "stormWinterSpikeChanceDenominator": "confirmed: same reports — a 1-in-20 Winter chance on the away-from-coast branch spikes dmg to 30. T04 fixtures corpus id: 'fleet.storm.winterAndAwayRareCatastrophe'.",
+      "stormWinterSpikeDamage": "confirmed: same reports — the spike value itself. T04 fixtures corpus id: 'fleet.storm.winterAndAwayRareCatastrophe'.",
+      "stormShipLossDamageThreshold": "confirmed: same reports — dmg < 6 reduces condition only; dmg >= 6 costs ships as well, via FUN_0044b4f8. T04 fixtures corpus id: 'fleet.storm.shipLossDamageThreshold'.",
+      "stormShipLossRatioBase": "[derived]: same reports pin the call as FUN_0044b4f8(fleet, 100, dmg + 100); the ship-count-never-changed Cartago series never exercises this branch (storm damage stayed under 6 throughout), so the magnitude here is derived from the confirmed battle-context formula's shape (decompiled-diplomacy-peace-terms-and-instant-battles.md's r/d formula for the same function's other call site), not independently save-checked for this one. This is the 100 first argument. OPEN EVIDENCE CONFLICT (round 2 review): with ratioBase = ratioScale = 100, the minimum heavy-branch loss at dmg == 6 is ships * 112 / 300, about 37% of the fleet in one turn, and that branch fires on roughly 39% of 2,000 seeded draws away from friendly coast at condition 50 -- yet the Cartago fleet in 1_cartago_271_*.sav holds 90 ships across all ten saves at conditions falling from 79 to 48 over seven turns away from friendly coast, a run this magnitude gives roughly a 1-in-35 chance of surviving with no ship loss. The transcription is exact against the confirmed r/d formula; what is unverified is whether that formula, transcribed from its other (battle) call site, actually governs this one, since the one available series never took this branch. Needs a decompilation of FUN_0044B4F8's storm call site specifically; not resolved here.",
+      "stormShipLossRatioScale": "[derived]: the 100 divisor of d = r^2 / 100, same derivation as stormShipLossRatioBase.",
+      "stormShipLossDivisor": "[derived]: the 300 divisor of ships * d / 300 and condition * d / 300, same derivation as stormShipLossRatioBase.",
+      "deathConditionThreshold": "confirmed: same reports — condition < 40 destroys the fleet, checked immediately after the storm pass and before the zero-supply penalty. T04 fixtures corpus id: 'fleet.condition.deathThreshold'.",
+      "movesBaseValue": "confirmed: same reports — fleet[+12] = 30 - (ships - 50) / 10. T04 fixtures corpus id: 'fleet.moves.baseFormula'.",
+      "movesShipOffset": "confirmed: same reports — the 50 offset of the same expression. T04 fixtures corpus id: 'fleet.moves.baseFormula'.",
+      "movesShipDivisor": "confirmed: same reports — the 10 divisor of the same expression. T04 fixtures corpus id: 'fleet.moves.baseFormula'.",
+      "movesCarriedArmyTroopDivisor": "confirmed: same reports — a carried army further reduces moves by troops(carried) / 100 / ships + 1. T04 fixtures corpus id: 'fleet.moves.carriedArmyPenaltyFormula'.",
+      "movesCarriedArmyAddend": "confirmed: same reports — the + 1 of the same expression. T04 fixtures corpus id: 'fleet.moves.carriedArmyPenaltyFormula'.",
+      "zeroSupplyMovesPenalty": "confirmed: same reports — supplies == 0 (absolute) costs 3 moves, isolated exactly 7/7 against the Carthaginian series and its supplied Ptolemaic control (28 on all ten turns). T04 fixtures corpus id: 'fleet.condition.zeroSupplyMovesLoss'.",
+      "zeroSupplyConditionRandomBound": "confirmed: same reports — condition -= random(0..1) on zero supply, isolated by parity in the Cartago series (two of five single-turn deltas even, proving the roll came up 1).",
+      "damageSlowdownConditionThreshold": "confirmed: same reports — condition < 70 costs a further (70 - condition) >> 2 moves. T04 fixtures corpus id: 'fleet.condition.movePenaltyThreshold'.",
+      "damageSlowdownDivisor": "confirmed: same reports — the >> 2, equivalent to integer division by 4 for the non-negative operand this term always has.",
+      "constructionTickStep": "confirmed: decompiled-unit-map-orders-and-record-fields.md and supply-driven-morale-and-fleet-attrition.md — the construction countdown decrements by 2 per turn's tick, not by 1 (the Caere order: 24 to 12 over six turns; the Macedonian order: 24,22,20,18,16,14,12 over six turns).",
+      "friendlyCoastRadiusTiles": "[designed]: FUN_004494e4 ('away from friendly coast') is not decompiled (investigations/thracia-supply-morale.md §'Still open'). This is a placeholder tile-radius proxy for that undecompiled predicate, not a resolution of it. Searched tests/fixtures/known-reports.json's naval-related reports for a decompiled test and found none.",
+      "markerBandBaseTier1": "confirmed: decompiled-unit-map-orders-and-record-fields.md part 3 — FUN_0044A878 encodes marker = owner + band, band 300 for the smallest ship-count tier, checked against 90 ships owner 1 -> 333 and 70 ships owner 3 -> 335.",
+      "markerBandStep": "confirmed: decompiled-unit-map-orders-and-record-fields.md part 3 — each band base is a multiple of 16 above 300."
+    }
+  },
+  "combat": {
+    "powerTroopDivisor": 100,
+    "powerDivisor": 80,
+    "winnerCasualtyNumerator": 40,
+    "casualtyDivisorBase": 105,
+    "casualtyDivisorRandomSpan": 15,
+    "absorbedSupplyTroopDivisor": 100,
+    "qualityFloor": 6,
+    "qualityCap": 9,
+    "promotionChanceDenominator": 4,
+    "unitySwing": 25,
+    "autoPeaceChanceNumerator": 2,
+    "autoPeaceChanceDenominator": 5,
+    "autoPeaceLoserUnityThreshold": 500,
+    "autoPeaceLoserCityThreshold": 7,
+    "naval": {
+      "conditionDivisor": 10,
+      "carriedArmyPowerDivisor": 50,
+      "randomBandCount": 4,
+      "randomBandPercent": 10,
+      "winnerDamageDivisor": 300,
+      "damageRatioScale": 100,
+      "unitLossDamageThreshold": 70,
+      "unitLossDivisor": 250,
+      "unitySwingShipDivisor": 2,
+      "_provenance": {
+        "unitySwingShipDivisor": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — a naval battle moves unity by plus or minus floor(loserShips / 2), not by the field battle's flat 25. T04 fixtures corpus id: 'battle.naval.unityChangeFormula'.",
+        "conditionDivisor": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — base strength = ships × condition / 10. T04 fixtures corpus id: 'battle.naval.strengthFormula'.",
+        "carriedArmyPowerDivisor": "confirmed [T31 correction]: decompiled-diplomacy-peace-terms-and-instant-battles.md describes this as 'a carried army adds armyPower / 50', but FUN_0044AA54 (naval battle resolution) calls FUN_0044A930 -- siege strength, not FUN_0044A8CC's armyPower -- so a carried army adds siege strength / 50. Found reading FUN_0044A98C/FUN_0044A930 while decompiling siege defender strength; see docs/investigations/siege-defender-strength.md. Value unchanged at 50.",
+        "randomBandCount": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — random(4) picks one of four bands. T04 fixtures corpus id: 'battle.naval.randomBonus'.",
+        "randomBandPercent": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — each band is 10% of the base, giving a 0/10/20/30% bonus. T04 fixtures corpus id: 'battle.naval.randomBonus'.",
+        "winnerDamageDivisor": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — FUN_0044B4F8 costs the winner ships × d / 300 and condition × d / 300. T04 fixtures corpus id: 'battle.naval.winnerDamageFormula'.",
+        "damageRatioScale": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — r = max(1, loserStrength × 100 / winnerStrength) and d = r squared / 100.",
+        "unitLossDamageThreshold": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — above d = 70 a carried army also loses whole units.",
+        "unitLossDivisor": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — unitCount × d / 250 units are lost at random."
+      }
+    },
+    "scatteredDefeat": {
+      "survivorCasualtyNumerator": 40,
+      "scatterTilesMin": 2,
+      "scatterTilesMax": 4,
+      "_provenance": {
+        "survivorCasualtyNumerator": "designed: docs/game-design.md §'The defeated side's fate' — the improved ruleset mirrors the winner's own confirmed casualty ratio onto the loser instead of destroying it. Searched docs/reports/ for any partial-defeat or retreat outcome in the original and found none: all three decompiled resolvers (decompiled-diplomacy-peace-terms-and-instant-battles.md) annihilate the loser unconditionally, so there is no original number to transcribe. Default chosen to equal the winner's cap so only one number needs retuning.",
+        "scatterTilesMin": "designed: docs/game-design.md §'The defeated side's fate' — survivors relocate 2 to 4 tiles from the battle site. Same search as above: the original has no relocation-on-defeat behaviour to measure, so this is a documented placeholder meant to be retuned from play.",
+        "scatterTilesMax": "designed: docs/game-design.md §'The defeated side's fate'. Same search and same status as scatterTilesMin."
+      }
+    },
+    "detailedResolver": {
+      "meleeLossCapPercent": 40,
+      "meleeLossCapOffset": 1,
+      "meleeLossHardCap": 30000,
+      "meleeBasePowerFloor": 12,
+      "meleePowerDivisor": 2000,
+      "inRangeShotMultiplier": 2,
+      "typeEffectivenessOrder": [
+        "light_infantry",
+        "heavy_infantry",
+        "archers",
+        "light_cavalry",
+        "heavy_cavalry"
+      ],
+      "typeEffectiveness": [
+        [
+          4,
+          1,
+          0,
+          3,
+          0
+        ],
+        [
+          1,
+          4,
+          3,
+          3,
+          4
+        ],
+        [
+          0,
+          1,
+          3,
+          0,
+          1
+        ],
+        [
+          4,
+          4,
+          3,
+          1,
+          0
+        ],
+        [
+          1,
+          4,
+          3,
+          0,
+          2
+        ]
+      ],
+      "_provenance": {
+        "meleeLossCapPercent": "confirmed: battle-recording-melee-cap-confirmed.md — the melee loss cap is floor(0.4 × defenderTroops) + 1, matching four of five recorded exchanges exactly and the fifth being below the cap. T04 fixtures corpus id: 'caps.meleeLossPercentOfOwnTroops'.",
+        "meleeLossCapOffset": "confirmed: battle-recording-melee-cap-confirmed.md — the '+ 1' of the same expression.",
+        "meleeLossHardCap": "confirmed: decompiled-combat-formula-structure.md — melee losses are additionally capped at 30,000. T04 fixtures corpus id: 'caps.meleeLossAbsoluteCap'.",
+        "meleeBasePowerFloor": "confirmed: combat-type-effectiveness-matrix.md, quoting decompiled-combat-formula-structure.md — the melee power term ends '+ 12', so a zero-effectiveness matchup still deals minimum damage.",
+        "meleePowerDivisor": "confirmed: combat-type-effectiveness-matrix.md — (matrix × troops × qualityTerm) / 2000 + 12.",
+        "inRangeShotMultiplier": "confirmed: decompiled-combat-formula-structure.md — shots that are in range are doubled.",
+        "typeEffectiveness": "confirmed values, candidate orientation: combat-type-effectiveness-matrix.md — the 25 values are read directly from the DAT file immediately after the unit-type table, but that report is explicit that the attacker-row versus defender-row assignment is a reasoned inference, not re-traced index arithmetic. Rows are read here as the attacker, matching the report's chosen orientation; typeEffectivenessOrder records which axis order the rows and columns use so a later correction is a data change.",
+        "_group": "This whole block belongs to the optional 'detailed' resolver held in reserve by docs/game-design.md §Combat. The shipped instant resolver does not read any of it; it is carried here so that adding the reserve resolver later is a ruleset change rather than a model change."
+      }
+    },
+    "_provenance": {
+      "powerTroopDivisor": "confirmed: decompiled-unit-map-orders-and-record-fields.md — field-battle strength is (sum of powerWeight[type] × troops / 100) / 80 × morale. T04 fixtures corpus id: 'battle.instantResolver.powerFormula'.",
+      "powerDivisor": "confirmed: decompiled-unit-map-orders-and-record-fields.md — the / 80 of the same expression, shared by both army-strength functions. T04 fixtures corpus id: 'battle.instantResolver.powerFormula'.",
+      "winnerCasualtyNumerator": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — the instant resolver calls applyCasualties(winner, loserPower × 40 / winnerPower). That expression is the RATIO argument of FUN_0044AE20, not a troop count: read as a count it would cost the winner of a hard-fought battle (powers 5,000 against 5,200) 38 troops in total. See casualtyDivisorBase for the body it is passed into. [T16 correction: this note previously read 'the winner takes loserPower × 40 / winnerPower casualties', which reads as a count and is what sent T16's first round down that path.] T04 fixtures corpus id: 'battle.instantResolver.casualtyFormula'.",
+      "casualtyDivisorBase": "confirmed: decompiled-defection-and-siege-attrition.md — FUN_0044AE20 applies 'troops -= troops / (Random(15) + 105) * ratio' to every unit in the army; 105 is the divisor base. Transcribed in the T04 fixtures corpus as siege.attritionFormula. The same helper serves both the instant field resolver and the siege path.",
+      "casualtyDivisorRandomSpan": "confirmed: decompiled-defection-and-siege-attrition.md — the Random(15) band of the same expression, so the divisor falls in [105, 120) and a unit loses between ratio/120 and ratio/105 of its troops.",
+      "absorbedSupplyTroopDivisor": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — absorbed supplies are capped at winnerTroops / 100, the same capacity rule as buying supply. T04 fixtures corpus id: 'battle.instantResolver.winnerSuppliesCap'.",
+      "qualityFloor": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — every surviving unit is raised to at least quality 6 ('average'). T04 fixtures corpus id: 'battle.instantResolver.qualityFloor'.",
+      "qualityCap": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — the further promotion is clamped at 9 ('elite').",
+      "promotionChanceDenominator": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — random(4) == 0, a 1-in-4 further promotion. T04 fixtures corpus id: 'battle.instantResolver.promotionChance'.",
+      "unitySwing": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — the loser's nation loses 25 unity and the winner's gains 25. T04 fixtures corpus id: 'battle.instantResolver.unityWinnerDelta'.",
+      "autoPeaceChanceNumerator": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — random(5) < 2, a 2-in-5 chance of an automatic peace treaty after a decisive AI-versus-AI field battle. T04 fixtures corpus id: 'battle.instantResolver.reparationTriggerChance'.",
+      "autoPeaceChanceDenominator": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md T04 fixtures corpus id: 'battle.instantResolver.reparationTriggerChance'.",
+      "autoPeaceLoserUnityThreshold": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — gated on the loser's unity above 500. T04 fixtures corpus id: 'battle.instantResolver.reparationTriggerUnityThreshold'.",
+      "autoPeaceLoserCityThreshold": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — and on the loser holding more than 7 cities. T04 fixtures corpus id: 'battle.instantResolver.reparationTriggerCityThreshold'."
+    }
+  },
+  "siege": {
+    "archerStrengthMultiplier": 3,
+    "powerDivisor": 80,
+    "defenderFortificationWeight": 250,
+    "defenderLoyaltyWeight": 150,
+    "defenderPopulationWeight": 200,
+    "highLoyaltyThreshold": 59,
+    "highLoyaltyBonusNumerator": 5,
+    "highLoyaltyBonusDenominator": 3,
+    "defenderGarrisonTroopDivisor": 2,
+    "defenderNonAllegiantNumerator": 4,
+    "defenderNonAllegiantDenominator": 5,
+    "attackerIsAllegianceDefenderReductionPercent": 10,
+    "_provenance": {
+      "archerStrengthMultiplier": "confirmed: decompiled-unit-map-orders-and-record-fields.md — siege strength is (sum of troops, archers counted three times) / 80 × morale; also stated in decompiled-city-capture-resolution.md. T04 fixtures corpus id: 'capture.attackerSiegeStrengthArcherMultiplier'.",
+      "powerDivisor": "confirmed: decompiled-unit-map-orders-and-record-fields.md — the / 80 of the same expression. T04 fixtures corpus id: 'capture.siegeDefenderStrengthFormula'.",
+      "defenderFortificationWeight": "confirmed [T31, superseding T02]: FUN_0044A98C itself (decompiled directly, not read off decompiled-city-capture-resolution.md, which is the source of T02's error) computes defender strength as loyalty × 150 + finishedFortificationPercent × 250 + populationThousands × 200. T02 had swapped this weight and defenderLoyaltyWeight's, attaching 150 to fortification and 250 to loyalty; corrected here. Field identity independently confirmed by TInformation_ShowCityDetails (0x0043BE5C), whose 'Fortification -' label reads the same DAT_004795aa word with the identical '< 0x65' guard FortificationCode.FinishedPercent already implements. See docs/investigations/siege-defender-strength.md. T04 fixtures corpus id: 'capture.siegeDefenderStrengthFormula'.",
+      "defenderLoyaltyWeight": "confirmed [T31, superseding T02]: the loyalty × 150 term of FUN_0044A98C, decompiled directly. T02 had this at 250 (swapped with defenderFortificationWeight); corrected here. TInformation_ShowCityDetails's 'Loyalty -' label reads the same DAT_004795a6 word, dividing by 10 for its tier string — the same tiering LoyaltyRules.TierDivisor already ships. See docs/investigations/siege-defender-strength.md. T04 fixtures corpus id: 'capture.siegeDefenderStrengthFormula'.",
+      "defenderPopulationWeight": "confirmed [T31, superseding T02]: FUN_0044A98C's third defender-strength term reads DAT_004795ac (population, in thousands) × 200. decompiled-city-capture-resolution.md, which T02's shipped defenderUnidentifiedFieldWeight was transcribed from, recorded the weight but never named the field because it had not decompiled this function. TInformation_ShowCityDetails's 'Population -' label (0x0043BE5C) prints the same DAT_004795ac × 1000, confirming the identity independently of the weight's magnitude. Weight unchanged at 200. See docs/investigations/siege-defender-strength.md. T04 fixtures corpus id: 'capture.siegeDefenderStrengthFormula'.",
+      "highLoyaltyThreshold": "confirmed [T33, superseding T02, issue #46]: FUN_0044A98C's branch 'if (FUN_0044B8D0(city) != 0) && (0x3b < loyalty): strength = strength × 5 / 3' is gated on LOYALTY > 59, not fortification as decompiled-city-capture-resolution.md's own prose (which never decompiled this function) led T02 to name it. The branch's further condition, previously recorded as unrecovered, is FUN_0044B8D0 — whether the city is its controlling nation's capital — independently confirmed by TInformation_ShowCityDetails's own '  (capital of …)' panel branch, gated on the same function. Value (59) unchanged. See docs/investigations/siege-defender-strength.md. T04 fixtures corpus id: 'capture.fortBonusThreshold'.",
+      "highLoyaltyBonusNumerator": "confirmed [T33, renamed alongside highLoyaltyThreshold, issue #46]: the × 5 / 3 of the same branch. Value (5) unchanged. T04 fixtures corpus id: 'capture.fortBonusMultiplier'.",
+      "highLoyaltyBonusDenominator": "confirmed [T33, renamed alongside highLoyaltyThreshold, issue #46]: the / 3 of the same branch. Value (3) unchanged. T04 fixtures corpus id: 'capture.fortBonusMultiplier'.",
+      "defenderGarrisonTroopDivisor": "confirmed: decompiled-city-capture-resolution.md — 'strength += (garrison troops assigned to this city) / 2'.",
+      "defenderNonAllegiantNumerator": "confirmed [T33, superseding T02, issue #47]: FUN_0044A98C's owner-vs-allegiance branch is 'if (owner != allegiance): strength = (strength << 2) / 5', i.e. strength × 4 / 5 — not the 20%-subtraction reading T02 shipped as defenderOwnerNotAllegiancePenaltyPercent (20). A × 4/5 truncates differently than 'strength - strength/5' at some inputs (e.g. strength=9: (9×4)/5=7, not the 8 a 20% subtraction gives). This also closes design-audit.md §2.13's open question of whether this penalty and FUN_0044B27C's separate ×9/10 attacker-is-allegiance reduction (attackerIsAllegianceDefenderReductionPercent) were the same adjustment described twice: T33's direct decompilation of FUN_0044A98C confirms they are two separate adjustments in two different functions, both applying. See docs/investigations/siege-defender-strength.md. T04 fixtures corpus id: 'capture.nonAllegiantDefenderPenalty'.",
+      "defenderNonAllegiantDenominator": "confirmed [T33, issue #47]: the / 5 of the same × 4/5 branch. See defenderNonAllegiantNumerator. T04 fixtures corpus id: 'capture.nonAllegiantDefenderPenalty'.",
+      "attackerIsAllegianceDefenderReductionPercent": "confirmed: FUN_0044B27C (the siege entry point, outside FUN_0044A98C) applies a separate ×9/10 reduction when the ATTACKING nation equals the city's allegiance. T33's decompilation of FUN_0044A98C confirms this is genuinely distinct from defenderNonAllegiantNumerator/Denominator's owner-vs-allegiance penalty — two adjustments in two functions, both real, both applying — resolving design-audit.md §2.13's open question rather than leaving it unreconciled. Source: decompiled-city-capture-resolution.md; docs/investigations/siege-defender-strength.md. This field is T17's to apply and is untouched by T33."
+    }
+  },
+  "loyalty": {
+    "forcedCaptureFloor": 40,
+    "defectionFloor": 65,
+    "allegiantRecaptureTarget": 90,
+    "tierDivisor": 10,
+    "_provenance": {
+      "forcedCaptureFloor": "confirmed: decompiled-defection-and-siege-attrition.md — a forced capture pulls loyalty toward a floor of 40. T04 fixtures corpus id: 'loyalty.floor.forcedCapture'.",
+      "defectionFloor": "confirmed: decompiled-defection-and-siege-attrition.md — a defection pulls loyalty toward 65 and changes neither population nor fortification. T04 fixtures corpus id: 'loyalty.floor.defection'.",
+      "allegiantRecaptureTarget": "confirmed: galatia-elimination-and-city-resupply-confirmed.md — loyalty moves toward 90 when the allegiant nation recaptures its own city. T04 fixtures corpus id: 'loyalty.target.recapture'.",
+      "tierDivisor": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TInformation_ShowCityDetails picks the loyalty tier string as names[loyalty / 10]."
+    }
+  },
+  "capture": {
+    "captureTreasuryCreditMultiplier": 4,
+    "captureUnityGain": 9,
+    "captureUnityLoss": 15,
+    "defectionTreasuryCreditMultiplier": 6,
+    "defectionUnityGain": 3,
+    "defectionUnityLoss": 20,
+    "defectionUnityLossFloor": 250,
+    "eliminationUnityReset": 0,
+    "cascadeDistanceMax": 10,
+    "cascadeUnityThreshold": 650,
+    "cascadeLoyaltyThreshold": 65,
+    "cascadeAllegiantDefenseDivisor": 3,
+    "_provenance": {
+      "captureTreasuryCreditMultiplier": "confirmed: nation-tax-base-and-city-economy-fields.md — FUN_0044bb18's own write, 'new owner's treasury += contribution * 4' -- a different field from economy.taxBaseContributionMultiplier (also 4, but the taxBase += contribution * 4 term). See the capture.treasuryCreditMultiplier corpus entry's own note. T04 fixtures corpus id: 'capture.treasuryCreditMultiplier'.",
+      "captureUnityGain": "confirmed: decompiled-city-capture-resolution.md / nation-tax-base-and-city-economy-fields.md — newOwner.unity += 9 at a forced capture, clamped to economy.unityCap. T04 fixtures corpus id: 'capture.unityGain'.",
+      "captureUnityLoss": "confirmed: decompiled-city-capture-resolution.md / nation-tax-base-and-city-economy-fields.md — oldOwner.unity -= 15 at a forced capture; no floor is reported for this term. T04 fixtures corpus id: 'capture.unityLoss'.",
+      "defectionTreasuryCreditMultiplier": "derived: nation-tax-base-and-city-economy-fields.md confirms FUN_0044bed8's own write ('new owner's treasury += contribution * 6'); using FUN_0044bed8 as the defection routine is docs/task-catalogue.md T17's Known-open item inference, corroborated by decompiled-defection-and-siege-attrition.md's independent match to the Modena defection. T04 fixtures corpus id: 'defection.cascadeConditions'.",
+      "defectionUnityGain": "derived: decompiled-defection-and-siege-attrition.md / nation-tax-base-and-city-economy-fields.md — new owner's unity += 3 at a defection. See defectionTreasuryCreditMultiplier for the FUN_0044bed8-as-defection inference this shares. T04 fixtures corpus id: 'defection.unityGain'.",
+      "defectionUnityLoss": "derived: decompiled-defection-and-siege-attrition.md / nation-tax-base-and-city-economy-fields.md — old owner's unity -= 20 at a defection. See defectionTreasuryCreditMultiplier. T04 fixtures corpus id: 'defection.unityLoss'.",
+      "defectionUnityLossFloor": "derived: nation-tax-base-and-city-economy-fields.md — the -20 defection unity loss is 'floored at 250'. See defectionTreasuryCreditMultiplier.",
+      "eliminationUnityReset": "confirmed: galatia-elimination-and-city-resupply-confirmed.md — Galatia's unity read exactly 0 after its last city was lost (668 -> 0). nation-tax-base-and-city-economy-fields.md separately mentions an untraced FUN_0044c360 resetting a 'collapsing nation' to unity 450, but its caller/trigger are not established and it is not the direct last-city-lost consequence DoD 4 asks for; the observed Galatia figure is used instead.",
+      "cascadeDistanceMax": "confirmed: decompiled-defection-and-siege-attrition.md — FUN_0044ba1c only considers another city within distance 10 of the besieging army. The report gives the threshold, not the distance metric; Chebyshev distance is used here as the engine's one other map-distance convention (IC2.Engine.Battle.ScatterPlacement), which is a derived choice. T04 fixtures corpus id: 'defection.cascadeConditions'.",
+      "cascadeUnityThreshold": "confirmed: decompiled-defection-and-siege-attrition.md — the cascade only fires while new_owner.unity < 650. T04 fixtures corpus id: 'defection.cascadeConditions'.",
+      "cascadeLoyaltyThreshold": "confirmed: decompiled-defection-and-siege-attrition.md — the cascade only considers a candidate city with loyalty < 65. T04 fixtures corpus id: 'defection.cascadeConditions'.",
+      "cascadeAllegiantDefenseDivisor": "confirmed: decompiled-defection-and-siege-attrition.md — otherDefense /= 3 when the candidate city's allegiance already matches the new owner. T04 fixtures corpus id: 'defection.rebelliousSympathyDivisor'."
+    }
+  },
+  "diplomacy": {
+    "stateCodes": {
+      "peace": 0,
+      "trade": 1,
+      "alliance": 2,
+      "war": 3
+    },
+    "cooldownAfterBrokenTrade": -8,
+    "cooldownAfterBrokenAlliance": -24,
+    "cooldownAfterEndedWar": -18,
+    "cooldownAfterPeaceTerms": -10,
+    "cooldownAfterAllyPeace": -8,
+    "thawPerQuarter": 1,
+    "thawBonus": 3,
+    "thawBonusChanceDenominator": 3,
+    "maxTradePartners": 3,
+    "faithfulThawColumnLimit": 8,
+    "reparationsWealthDivisor": 4,
+    "reparationsPerCity": 10,
+    "_provenance": {
+      "stateCodes": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — nation record +0x26 holds a symmetric relation row with 0 peace, 1 trade, 2 alliance, 3 war, and negative values as cooldown counters.",
+      "cooldownAfterBrokenTrade": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — FUN_00449B40 writes -8 when trade is broken. T04 fixtures corpus id: 'diplomacy.cooldown.brokenTrade'.",
+      "cooldownAfterBrokenAlliance": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — -24 when an alliance is broken. T04 fixtures corpus id: 'diplomacy.cooldown.brokenAlliance'.",
+      "cooldownAfterEndedWar": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — -18 when a war ends. T04 fixtures corpus id: 'diplomacy.cooldown.endedWar'.",
+      "cooldownAfterPeaceTerms": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — the loser's surviving trade and alliance relations are set to -10 by the peace terms.",
+      "cooldownAfterAllyPeace": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — an ally of either side still at war with the other is set to -8. T04 fixtures corpus id: 'diplomacy.allyPostWarCooldown'.",
+      "thawPerQuarter": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — each negative entry gains +1 per quarter. T04 fixtures corpus id: 'diplomacy.thaw.stepPerQuarter'.",
+      "thawBonus": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — and, with probability 1/3, min(0, v + 3). T04 fixtures corpus id: 'diplomacy.thaw.bonusChance'.",
+      "thawBonusChanceDenominator": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md T04 fixtures corpus id: 'diplomacy.thaw.bonusChance'.",
+      "maxTradePartners": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — TPolitics_MakeTrade allows at most 3 trade partners. T04 fixtures corpus id: 'diplomacy.maxTradePartners'.",
+      "faithfulThawColumnLimit": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — the quarterly thaw loop runs 'while (sVar6 != 8)', so only the first 8 relation columns of each row ever decay. This is the original bug that the flags block's bugPolicyDiplomaticThaw selects between reproducing and fixing. T04 fixtures corpus id: 'diplomacy.thawBugColumnsProcessed'.",
+      "reparationsWealthDivisor": "confirmed formula, unverified against the one observation: decompiled-diplomacy-peace-terms-and-instant-battles.md — reparations = W/4 + random(W/4) + cityCount × 10, where W is nation field +0x44C. docs/design-audit.md §2.5 notes the single observed payment was never re-derived from the save's field values. T04 fixtures corpus id: 'reparation.formula'.",
+      "reparationsPerCity": "confirmed formula, unverified against the one observation: see reparationsWealthDivisor. T04 fixtures corpus id: 'reparation.formula'.",
+      "stateCodes.alliance": "T04 fixtures corpus id: 'diplomacy.relationState.alliance'.",
+      "stateCodes.peace": "T04 fixtures corpus id: 'diplomacy.relationState.peace'.",
+      "stateCodes.trade": "T04 fixtures corpus id: 'diplomacy.relationState.trade'.",
+      "stateCodes.war": "T04 fixtures corpus id: 'diplomacy.relationState.war'."
+    }
+  },
+  "cityOrders": {
+    "orders": [
+      {
+        "id": "fortify",
+        "maxPercent": 100,
+        "inProgressEncodingRadix": 100,
+        "costPerPointPerPopulationThousand": 1,
+        "refusedWhileUnderSiege": true,
+        "wipedBySiegeAttempt": true,
+        "_provenance": {
+          "maxPercent": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TFortifyCity offers 0 to (100 - current) points and refuses a city already at 100.",
+          "inProgressEncodingRadix": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TFortifyCity_OK writes 'fortification += points × 100', which is the dual encoding: at or below 100 the word is a finished percentage, above 100 it encodes an order in progress. T04 fixtures corpus id: 'capture.siegeDefenderStrengthFormula'.",
+          "costPerPointPerPopulationThousand": "confirmed: decompiled-unit-map-orders-and-record-fields.md — the price is cityRecord[+18] × points, and +18 is the population in thousands, so one talent per point per thousand population.",
+          "refusedWhileUnderSiege": "confirmed: decompiled-unit-map-orders-and-record-fields.md — 'You cannot fortify a city which is under siege.'",
+          "wipedBySiegeAttempt": "confirmed: decompiled-unit-map-orders-and-record-fields.md — FUN_0044B27C begins with 'if (fort > 100) fort = fort % 100'."
+        }
+      }
+    ],
+    "_provenance": {
+      "orders": "Shape per docs/design-audit.md §3 Q7, answered by the user: ship a generic, data-driven cityOrders table with fortify as the only shipped entry rather than hardcoding fortification as the only possible city order. docs/design-audit.md §1 also records that the original has no city improvements other than fortification, so one entry is the complete confirmed set, not an omission."
+    }
+  },
+  "newsLog": {
+    "ringBufferSlots": 40,
+    "messageByteLength": 61,
+    "seasonNames": [
+      "Spring",
+      "Summer",
+      "Autumn",
+      "Winter"
+    ],
+    "_provenance": {
+      "ringBufferSlots": "confirmed: decompiled-news-log-identified.md — FUN_00449240 keeps 40 slots (indices 0-39) and shifts the oldest out once full. T04 fixtures corpus id: 'caps.maxNewsSlots'.",
+      "messageByteLength": "confirmed: decompiled-news-log-identified.md and decompiled-sav-file-layout.md — each slot is a fixed 61-byte (0x3D) string buffer. news-log-format-and-messages.md Q1 confirms the buffer is a NUL-terminated single-byte string against 2,101 slots in 54 saves, so at most messageByteLength - 1 = 60 bytes of text ever reach the log; the 61st byte is always the writer's own NUL. T04 fixtures corpus id: 'newsMessage.weekHeader'.",
+      "seasonNames": "confirmed: news-log-format-and-messages.md Q3 — the DAT's season table at 0x1F7D8: Spring, Summer, Autumn, Winter, in CalendarState.SeasonIndex order (0 = Spring, matching calendar.startSeasonIndex's own provenance and economy's seasonVal table)."
+    }
+  },
+  "mapMarkers": {
+    "armyTroopTierThresholds": [
+      25000,
+      50000
+    ],
+    "fleetShipTierThresholds": [
+      25,
+      50
+    ],
+    "cityPopulationTierThresholds": [],
+    "_provenance": {
+      "armyTroopTierThresholds": "confirmed: decompiled-unit-map-orders-and-record-fields.md part 3 — FUN_0044A80C picks the army marker band from troops / 1000 being under 25, under 50, or at least 50, i.e. three size classes split at 25,000 and 50,000 troops. T04 fixtures corpus id: 'movement.blockingMarkerRange.army'.",
+      "fleetShipTierThresholds": "confirmed: decompiled-unit-map-orders-and-record-fields.md part 3 — FUN_0044A878 splits fleets at 25 and 50 ships. T04 fixtures corpus id: 'movement.blockingMarkerRange.fleet'.",
+      "cityPopulationTierThresholds": "OMITTED (ships empty) — and here is exactly what was searched and exactly what was found, because an earlier revision of this note claimed the search came up empty when it had not. What the reports DO establish: rivers-and-map-markers.md ('City and unit overlays') finds that all 334 city cells satisfy 'map code = 20 + owner code + 16 × variant' with variants 0-4, holding for 334/334 cities in the checked save — so a five-value display axis on city markers is well evidenced, the direct counterpart of the three army bands and three fleet bands in decompiled-unit-map-orders-and-record-fields.md part 3. What the reports do NOT establish: that same sentence says the variant's meaning — 'city size, icon, or another display category' — still needs confirmation, and the report's own next-check item 3 is 'confirm the city-marker variant meanings'. There is no decompiled banding function for cities analogous to FUN_0044A80C/FUN_0044A878, so no population boundary is recorded anywhere. Shipping 5 as a size-tier count would assert the unconfirmed half (that the variant means size); shipping any threshold would invent a number outright. So this ships empty and docs/game-design.md §'City and army markers scale with size' is left standing as a requirement rather than a spec. Closing it needs that report's next-check item 3, after which the thresholds arrive as data with no model change."
+    }
+  },
+  "victory": {
+    "defaultCondition": "totalConquest",
+    "totalConquestRequiresEveryCity": true,
+    "hardEndYearBc": 250,
+    "defaultTurnLimit": null,
+    "_provenance": {
+      "defaultCondition": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — THumanFalls_InitializeForm awards the win only for holding every city on the map, which is the original's sole victory condition and therefore the classical-faithful default (docs/design-audit.md §3 Q5, answered).",
+      "totalConquestRequiresEveryCity": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — the test is cityCount against 334, the total number of cities on the original map, so the rule is 'every city', not a fixed count. T04 fixtures corpus id: 'victory.allCitiesThreshold'.",
+      "hardEndYearBc": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — the same screen compares the year against 250 (0xFA). That report is explicit that whether this is the actual end-of-game trigger or only the screen's wording was not re-checked in the turn loop. T04 fixtures corpus id: 'victory.yearLimitBC'.",
+      "defaultTurnLimit": "null because the original has no turn limit distinct from the year comparison above; docs/game-design.md leaves a shorter default limit to the improved preset."
+    }
+  },
+  "flags": {
+    "diplomacyModel": "confirmedStateMachine",
+    "economyPurses": "perUnitPurses",
+    "seatAsymmetry": "faithful",
+    "bugPolicyDiplomaticThaw": "reproduceEightColumnBug",
+    "combatOnDefeat": "destroyed",
+    "faithfulThawColumnBug": true,
+    "_provenance": {
+      "diplomacyModel": "docs/game-design.md §'Two shipped presets' — this toy ruleset is set the way classical-faithful is set, so tests exercise the confirmed behaviour by default (audit Q3).",
+      "economyPurses": "docs/game-design.md §'Two shipped presets' — per-army and per-fleet purses, as the original has (audit Q4).",
+      "seatAsymmetry": "docs/game-design.md §'Two shipped presets' — reproduce the confirmed human/AI rule differences (audit Q6).",
+      "bugPolicyDiplomaticThaw": "docs/game-design.md §'Two shipped presets' — reproduce the 8-column thaw bug (audit Q8).",
+      "combatOnDefeat": "docs/game-design.md §'The defeated side's fate' — the original annihilates the loser; the scatter alternative belongs to the improved preset.",
+      "faithfulThawColumnBug": "docs/task-catalogue.md T19 DoD 9 — the Q8 first-8-columns thaw bug flag, by its exact name; true reproduces it, matching classical-faithful and decompiled-diplomacy-peace-terms-and-instant-battles.md's while (sVar6 != 8)."
+    }
+  },
+  "_provenance": {
+    "id": "This is not one of the two shipped presets. docs/game-design.md ships classical-faithful and improved; task T29 exports classical-faithful from the original data. This ruleset exists only so unit tests have a small, fully-populated ruleset to load, as docs/game-design.md §'Testing and determinism' asks for.",
+    "unitTypes": "confirmed: unit-type-stat-table-in-dat.md — the five unit types and their stat table, transcribed whole. The list is data, not a fixed size: a ruleset may define any number of unit types. One field of the original table is deliberately NOT carried: +0x20 is the per-type shooting-vulnerability weight, read for the target's type (Light inf 18, Heavy inf 2, Archers 18, Light cav 15, Heavy cav 4) [confirmed: battle-replayed-rout-mechanic-and-combat-constants.md (https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/battle-replayed-rout-mechanic-and-combat-constants.md)]. It is now identified but held in reserve for a future optional 'detailed' resolver (docs/game-design.md §Combat) rather than carried as a UnitTypeRules field, since the shipped instant resolver never reads it; adding the field belongs to whichever future task builds that resolver, not to an open-identity question."
+  }
+}

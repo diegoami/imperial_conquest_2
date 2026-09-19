@@ -203,6 +203,24 @@ public class NoHardcodedConstantsTests
 
     private static double Mutate(double value) => (value * 2) + 7;
 
+    /// <summary>
+    /// Mutates every number in <paramref name="node"/>'s tree while keeping the document loadable.
+    /// </summary>
+    /// <remarks>
+    /// T29 (<c>docs/task-catalogue.md</c> DoD 10) added a cross-field invariant this mutator did not
+    /// know about when it was written: <c>newsLog.seasonNames</c> must have exactly one entry per
+    /// <c>calendar.seasonsPerYear</c>, checked at load. Mutating every number blind now mutates
+    /// <c>seasonsPerYear</c> too, producing a file that no longer loads — not because the mutator
+    /// found a hardcoded value, but because it broke an unrelated invariant on its way there. The fix
+    /// is for the mutator to learn the invariant, not to stop mutating <c>seasonsPerYear</c>: excluding
+    /// it (the same way <see cref="Changing_every_number_in_the_file_changes_every_number_the_model_exposes"/>
+    /// already excludes <c>schemaVersion</c>) would silently drop it from the coverage this test
+    /// exists to provide, with nothing left to fail if a future change hardcoded it. So after the
+    /// recursive mutation completes at the document root — signalled by <paramref name="skipKeyAtRoot"/>
+    /// being non-null, true only for the top-level call — <see cref="ResizeSeasonNamesToMatchSeasonsPerYear"/>
+    /// resizes <c>newsLog.seasonNames</c> to whatever <c>calendar.seasonsPerYear</c> became, keeping
+    /// the mutated document loadable without touching either number's own coverage.
+    /// </remarks>
     private static void MutateNumbers(JsonNode node, string? skipKeyAtRoot)
     {
         switch (node)
@@ -226,6 +244,11 @@ public class NoHardcodedConstantsTests
                     }
                 }
 
+                if (skipKeyAtRoot is not null)
+                {
+                    ResizeSeasonNamesToMatchSeasonsPerYear(obj);
+                }
+
                 break;
 
             case JsonArray array:
@@ -247,6 +270,31 @@ public class NoHardcodedConstantsTests
             default:
                 break;
         }
+    }
+
+    /// <summary>
+    /// Resizes <c>newsLog.seasonNames</c> to have exactly one entry per the (already mutated)
+    /// <c>calendar.seasonsPerYear</c>, so <see cref="MutateNumbers"/>'s blind numeric mutation keeps
+    /// producing a loadable document under the invariant T29's <c>Ruleset.ValidateSeasonNames</c>
+    /// added. Names, not counts, so it reuses the original list's entries round-robin rather than
+    /// inventing new ones — this mutator's job is numeric coverage, not season names.
+    /// </summary>
+    private static void ResizeSeasonNamesToMatchSeasonsPerYear(JsonObject root)
+    {
+        var calendar = (JsonObject)root["calendar"]!;
+        var seasonsPerYear = (int)calendar["seasonsPerYear"]!.GetValue<double>();
+
+        var newsLog = (JsonObject)root["newsLog"]!;
+        var original = ((JsonArray)newsLog["seasonNames"]!).Select(n => n!.GetValue<string>()).ToList();
+        Assert.NotEmpty(original); // nothing to round-robin from if this ever ships empty
+
+        var resized = new JsonArray();
+        for (var i = 0; i < seasonsPerYear; i++)
+        {
+            resized.Add(JsonValue.Create(original[i % original.Count]));
+        }
+
+        newsLog["seasonNames"] = resized;
     }
 
     private static JsonValue? ResolvePath(JsonNode root, string path)
