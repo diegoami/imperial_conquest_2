@@ -7,11 +7,11 @@ namespace IC2.Engine.Naval.Commands;
 /// <summary><c>TUnitMap_JoinFleets</c>.</summary>
 /// <remarks>
 /// <strong>The pooled purse is capped (T50 Done-when 4, issue #165 item 3).</strong> <c>[derived]</c>: "T08
-/// Economy, supply, and purses" Done-when 6 already establishes the cap's scope as confirmed fact — "the
-/// purse cap of 1,000 is enforced on every path that credits a purse" — and this merge (T14) is exactly
-/// such a path, so leaving it uncapped is the actual defect, not a free stylistic choice between two
-/// otherwise-equal options. The decision made here is <em>enforce</em>, not <em>leave alone</em>, to match
-/// that already-merged contract, the same way <see cref="Economy.TreasuryPurseTransfer"/> and
+/// Economy, supply, and purses" Done-when 6 is an already-merged contract that establishes the cap's
+/// scope — "the purse cap of 1,000 is enforced on every path that credits a purse" — and this merge (T14)
+/// is exactly such a path, so leaving it uncapped is the actual defect, not a free stylistic choice
+/// between two otherwise-equal options. The decision made here is <em>enforce</em>, not <em>leave alone</em>,
+/// to match that already-merged contract, the same way <see cref="Economy.TreasuryPurseTransfer"/> and
 /// <see cref="Economy.AutomaticResupply"/> already do. Any excess over
 /// <see cref="EconomyRules.PurseCapPerUnit"/> moves to the issuing nation's treasury — the same
 /// "excess over the cap moves to the treasury" hygiene <see cref="Economy.AutomaticResupply"/> already

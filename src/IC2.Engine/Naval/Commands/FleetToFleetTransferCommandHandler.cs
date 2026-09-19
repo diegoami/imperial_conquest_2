@@ -8,10 +8,10 @@ namespace IC2.Engine.Naval.Commands;
 /// <remarks>
 /// <strong>The target's pooled purse is capped, on both the disband and the partial-transfer path (T50
 /// Done-when 4, issue #165 item 3).</strong> <c>[derived]</c>, same reasoning as
-/// <see cref="JoinFleetsCommandHandler"/>'s own remarks: "T08 Economy, supply, and purses" Done-when 6
-/// already makes the cap's scope confirmed fact ("enforced on every path that credits a purse"), so this
-/// transfer's target purse is in scope too, and the decision made here is to enforce it rather than leave
-/// it be — matching <see cref="Economy.TreasuryPurseTransfer"/> and <see cref="Economy.AutomaticResupply"/>,
+/// <see cref="JoinFleetsCommandHandler"/>'s own remarks: "T08 Economy, supply, and purses" Done-when 6 is
+/// an already-merged contract that makes the cap's scope explicit ("enforced on every path that credits a
+/// purse"), so this transfer's target purse is in scope too, and the decision made here is to
+/// enforce it rather than leave it be — matching <see cref="Economy.TreasuryPurseTransfer"/> and <see cref="Economy.AutomaticResupply"/>,
 /// which already do. Any excess over <see cref="EconomyRules.PurseCapPerUnit"/> moves to the issuing
 /// nation's treasury (both fleets already share one nation, checked above), the same hygiene
 /// <see cref="Economy.AutomaticResupply"/> applies, so money is conserved rather than destroyed.
