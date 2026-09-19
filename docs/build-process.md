@@ -180,6 +180,12 @@ Five gates, in order. Any failure means `status:rework`.
 
    A candidate is **proved before it is reported**: run it, or delete the behaviour and watch exactly which test fails. A finding with neither is labelled as unverified.
 
+   **A mutation result is only admissible after `touch` and an explicit clean rebuild.** `--no-build` and incremental builds are **never** admissible after a mutation cycle. Restoring a mutated file — `mv file.bak file`, `git checkout --`, a `cp` from a copy — can give the restored source an **mtime older than the DLL built from the mutated version**, so MSBuild's up-to-date check skips the rebuild and the next run tests the **stale assembly**. A clean rebuild of this solution costs about a second; there is no cost argument against mandating it.
+
+   **`git status` clean and `grep` showing the correct source are not evidence the binary matches.** Both were true, on this project, while a mutated assembly was under test.
+
+   **The dangerous direction is the quiet one.** A stale *mutated* binary produces a phantom **red** — alarming, and it announces itself. A stale *clean* binary produces a phantom **green**, which gets written into a PR as *“mutation M-n: no test caught this”* — a **false finding**, either an invented coverage gap or a real gap declared harmless and never closed. It is silent, it is durable, and a reviewer reading the results table has no way to tell a genuine negative from a stale one. **A negative mutation result — a claim that nothing failed — therefore carries the same burden as a positive one, and is the entry a reviewer should re-take rather than read.** Found on T22, whose implementer diagnosed its own unreproducible flake rather than waving it away, and whose reviewer then re-took the one negative result that mattered.
+
    **Fanning out is allowed, and is how the sweep scales**: the reviewer may dispatch one verification agent per candidate, each given the explicit claim, the file and line, and what evidence would confirm or refute it — never left to infer a target from its working directory ([§7](#7-concurrency-single-instance-and-local-only)). Verdicts come back confirmed, plausible or refuted, and "plausible" is reported as plausible.
 
 A defect the reviewer finds in **another task's already-merged** code is not a finding against this PR. It goes to the bug list ([§4.6](#46-bugs-and-follow-ups)).
