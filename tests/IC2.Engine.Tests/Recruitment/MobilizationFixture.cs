@@ -63,8 +63,17 @@ public static class MobilizationFixture
             Garrison: ValueList<UnitSlot>.Empty);
 
     /// <summary>An army fixture at chosen coordinates.</summary>
-    public static ArmyState Army(string id, string nation, int x, int y, IEnumerable<UnitSlot> units) =>
-        new(id, nation, x, y, Moves: 5, Morale: 70, Money: 0, SupplyTons: 0,
+    public static ArmyState Army(
+        string id,
+        string nation,
+        int x,
+        int y,
+        IEnumerable<UnitSlot> units,
+        int moves = 5,
+        int morale = 70,
+        int money = 0,
+        int supplyTons = 0) =>
+        new(id, nation, x, y, moves, morale, money, supplyTons,
             CoveredTileCode: PlainTileCode, AboardFleetId: null, Units: ValueList.From(units));
 
     private static int FindPlainCode()

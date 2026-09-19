@@ -369,6 +369,32 @@ public sealed class MobilizeRecruitSlotCommandHandlerTests
     }
 
     /// <summary>
+    /// The naming scan is nation-wide, not per-army: an ordinal borne by a unit in a <em>different</em>
+    /// army of the same nation — one far out of receiving range, which never sees the recruit — is
+    /// still consumed. Synthetic, not corpus: the Rome pair cannot show this, because Rome owns exactly
+    /// one army (see <see cref="RomeAutumnMobilizationReplayTests"/>).
+    /// </summary>
+    [Fact]
+    public void The_naming_scan_reaches_armies_that_are_nowhere_near_the_city()
+    {
+        var receiving = MobilizationFixture.Army(
+            "army-0", Nation, 11, 10, new[] { MobilizationFixture.Unit("1st Bowmen Battalion", "archers") });
+        var faraway = MobilizationFixture.Army(
+            "army-far", Nation, 1, 1, new[] { MobilizationFixture.Unit("2nd Bowmen Battalion", "archers") });
+        var before = StateWith(new[] { Slot("archers", 3_500) }, receiving, faraway);
+
+        var result = MobilizationFixture.DispatcherOn(World)
+            .Dispatch(before, new MobilizeRecruitSlotCommand(Nation, 0, "new-army"));
+
+        Assert.True(result.IsAccepted);
+
+        // 1st and 2nd are both taken, one in each army, so the recruit is the 3rd -- and the distant
+        // army is otherwise untouched.
+        Assert.Equal("3rd Bowmen Battalion", result.State.ArmyById("army-0")!.Units[1].Name);
+        Assert.Equal(faraway, result.State.ArmyById("army-far"));
+    }
+
+    /// <summary>
     /// The naming scan is nation-wide and skips mercenaries: a hired unit of the same type in the same
     /// army takes no battalion ordinal, so the recruit is still the <c>1st</c>.
     /// </summary>

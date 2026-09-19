@@ -107,11 +107,17 @@ public sealed class MobilizeRecruitSlotCommandHandler : ICommandHandler<Mobilize
             unitSlotIndex = 0;
         }
 
-        // 3. Write the unit, then 4. name it. The name is resolved against the state as it stands
-        //    before the new unit is inserted: ArmyNaming reads the ordinals already borne by named
-        //    units of this type, and the unit being named bears none yet, so including it could only
-        //    ever be a no-op -- the original names the slot after writing its troops and type for the
-        //    same reason.
+        // 3. Write the unit, then 4. name it. The original writes the unit's troops and type first
+        //    and calls FUN_0044a218 after, so its scan sees the new unit; this resolves the name
+        //    against the state as it stands BEFORE the insert. The two orders cannot differ here, and
+        //    the reason is structural rather than incidental: ArmyNaming identifies a unit's ordinal
+        //    by matching its NAME against "<N>(st|nd|rd|th) <Label> Battalion", and the unit being
+        //    named is the one whose Name this expression is computing -- there is no earlier value to
+        //    match, because UnitSlot is immutable and no half-built slot with troops but no name ever
+        //    exists in this engine. So no fixture can visit an "unnamed unit in the scan" edge, and
+        //    none is written; what a test CAN visit is that a unit with a non-matching name is skipped,
+        //    which is what MobilizeRecruitSlotCommandHandlerTests
+        //    .A_mercenary_of_the_same_type_does_not_consume_a_battalion_ordinal asserts.
         var unit = new UnitSlot(
             MercenaryLabel: 0,
             UnitTypeId: slot.UnitTypeId,

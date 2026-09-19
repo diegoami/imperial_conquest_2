@@ -34,15 +34,19 @@ namespace IC2.Engine.Armies;
 /// <list type="number">
 /// <item><description>
 /// <strong>The tie-break is the last matching army index, not the nearest.</strong> The loop has no
-/// <c>break</c>, so a later index overwrites an earlier one. The corpus mobilization turns on this:
-/// once the overflow army exists it is the highest index, so every remaining unit goes to it.
+/// <c>break</c>, so a later index overwrites an earlier one. The corpus mobilization does turn on
+/// this: once the overflow army exists it is the highest index, so the remaining four units go to it
+/// and not back to the army they overflowed from.
 /// </description></item>
 /// <item><description>
 /// <strong>A full army is not skipped — it ends the search.</strong> The capacity test runs once,
 /// against the army the adjacency loop already settled on. An <em>earlier</em> adjacent army with room
-/// is never tried; the caller creates a new army instead. That is how the corpus pair fills army 0 to
-/// exactly 20 units and then puts the remaining four in a brand-new army 14, rather than in any of
-/// Rome's other armies.
+/// is never tried; the caller creates a new army instead.
+/// <strong>The corpus pair does not discriminate this clause</strong> and no claim here rests on it:
+/// Rome owns exactly one army in <c>autumn_1</c>, so when army 0 fills there is nothing to fall back
+/// to and both readings create the new army. It is read straight off the decompilation above, and
+/// <c>MobilizationReceivingArmyTests.A_full_last_match_ends_the_search_rather_than_falling_back_to_an_earlier_army</c>
+/// pins it with a two-army fixture built for the purpose.
 /// </description></item>
 /// <item><description>
 /// <strong>The two seats use differently-shaped predicates</strong>, not one predicate with two radii:

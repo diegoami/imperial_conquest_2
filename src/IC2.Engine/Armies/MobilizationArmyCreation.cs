@@ -45,6 +45,21 @@ namespace IC2.Engine.Armies;
 /// types cite the same range: "the army step guard accepts cell codes 2..11 only").
 /// </para>
 /// <para>
+/// <strong>Which of <c>dx</c> and <c>dy</c> is the inner loop is <c>[derived]</c>, not confirmed.</strong>
+/// The report gives the scan as "<c>dx, dy</c> in <c>{-1, 0, 1}</c> … taking the last match" and does
+/// not say which index varies fastest; the decompilation of <c>FUN_004492c0</c> is not quoted in it,
+/// and searching the report, <c>mobilization-movement-and-city-capture-modes.md</c> and
+/// <c>rivers-and-map-markers.md</c> turned up no statement of the order. <strong>It does not matter for
+/// the corpus case</strong>: both nestings visit <c>(+1, +1)</c> last, so both reproduce
+/// <c>(102, 44)</c>, which is the only placement the evidence fixes. The two <em>do</em> disagree on
+/// the fallback when the south-east cell is occupied — row-major (this implementation) falls back to
+/// <c>(0, +1)</c>, column-major would fall back to <c>(+1, 0)</c> — and
+/// <c>MobilizationArmyCreationTests.An_occupied_cell_does_not_qualify_and_the_scan_falls_back_to_the_one_before_it</c>
+/// pins this engine's answer so the choice is visible and checkable, not so that it is evidenced.
+/// Row-major is chosen because every other 3×3 scan in this engine already uses it
+/// (<see cref="LandingTile.FirstAdjacentLandTile"/>, <c>CoastalCity.FirstAdjacentSeaTile</c>).
+/// </para>
+/// <para>
 /// <strong>Why an occupied cell is excluded</strong> — <c>[confirmed]</c>, by the same report: the
 /// original's map array holds markers, not terrain, wherever something stands on it, so a city cell
 /// reads <c>20 + owner + 16 × variant &gt;= 20</c> and an army cell reads <c>owner + 200</c>; neither

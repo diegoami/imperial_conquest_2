@@ -1,4 +1,4 @@
-using IC2.Engine.Core;
+using IC2.Engine.Armies;
 using IC2.Engine.Economy;
 using IC2.Engine.Model;
 using IC2.Engine.Recruitment;
@@ -10,40 +10,47 @@ namespace IC2.Engine.Tests.Recruitment;
 /// <summary>
 /// T55 Done-when 8: <c>1_rome_270_autumn_1.sav → 1_rome_270_autumn_3.sav</c>, the one controlled
 /// mobilization in the corpus, reproduced end to end.
-/// <c>decompiled-mobilization-and-mercenary-restock.md</c> §7 re-parses both army tables byte for byte
-/// and checks every clause of §§1–5 against them; this replays the same click through the engine and
-/// asserts the same figures.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>The recorded pair, verbatim from §7:</strong>
+/// <strong>Every figure below is read out of the two saves</strong>, not transcribed from a summary.
+/// The parse is <c>decompiled-mobilization-and-mercenary-restock.md</c> §7's own reproduction snippet
+/// (army table at <c>0x18A5C</c>, 656-byte records, 32-byte unit slots at <c>+16</c>), run against the
+/// local corpus. Nothing here is inferred: the thirteen starting units' individual types, troop counts,
+/// qualities, names and <em>array order</em> are the save's, as is Rome owning
+/// <strong>exactly one army</strong>.
 /// </para>
 /// <code>
-/// autumn_1  army 0 @ (100,42)  13 units  48,173 troops
-/// autumn_3  army 0 @ (100,42)  20 units  83,173 troops
+/// autumn_1  14 armies in the table; Rome (nation 0) owns exactly one, army 0.
+///           army 0 @ (100,42)  13 units  48,173 troops  moves 8  covered 9  supply 410  money 296  morale 70
+/// autumn_3  15 armies; Rome owns two.
+///           army 0 @ (100,42)  20 units  83,173 troops  moves 6  supply 791  money 296  morale 70
 ///               + slot 13..17  5 x archers 3,500   quality 6   "1st".."5th Bowmen Battalion"
 ///               + slot 18      light inf 15,000    quality 6   "3rd Foot Battalion"
 ///               + slot 19      heavy cav 2,500     quality 6   "3rd Dragoons Battalion"
-/// autumn_3  army 14 @ (102,44)  4 units  43,000 troops  moves 8  covered 2  money 0  morale 60
+///           army 14 @ (102,44)  4 units  43,000 troops  moves 8  covered 2  supply 410  money 0  morale 60
 ///               slot 0  light cav  7,000  quality 6  "3rd Lancers Battalion"
 ///               slot 1  heavy inf  6,000  quality 6  "9th Guards Battalion"
 ///               slot 2  light inf 15,000  quality 6  "4th Foot Battalion"
 ///               slot 3  light inf 15,000  quality 6  "5th Foot Battalion"
 /// </code>
 /// <para>
-/// <strong>What the fixture transcribes and what it infers.</strong> Transcribed: Rome's coordinates
-/// <c>(101, 43)</c>, army 0's position and unit count, both troop totals, the twelve slots' types and
-/// sizes, the eleven at state 24 and the twelfth at state 8, and Rome's 62 % mobilization rate.
-/// Inferred, and marked here because a reviewer should not have to guess: (a) the report gives army 0's
-/// <em>total</em> of 48,173 troops but not its per-unit split, so the thirteen units share it evenly
-/// (twelve of 3,705 and one of 3,713) — nothing in the replay depends on the split, only on the total;
-/// (b) the report says the naming scan is <strong>nation-wide</strong> and lists army 0's roster as
-/// holding <c>2nd Lancers</c> with no <c>1st</c>, yet the mobilized light cavalry came out
-/// <c>3rd Lancers</c> — so a <c>1st Lancers Battalion</c> stood in another of Rome's fifteen armies,
-/// which is exactly what a nation-wide scan is for. The fixture parks one such army well out of range,
-/// and <see cref="A_per_army_naming_scan_would_get_the_lancers_ordinal_wrong"/> shows that removing it
-/// changes the answer — which is what makes "nation-wide" a checked claim here rather than a repeated
-/// one.
+/// <strong>"Army 14" is not a Roman ordinal.</strong> It is <c>DAT_004a0324++</c>, the index of the
+/// next free row in the <em>global</em> army table, which held 14 rows across nine nations before the
+/// mobilization. An earlier revision of this fixture read the report's "fifteen armies" as Rome's own
+/// and invented a second Roman army to explain the <c>3rd Lancers</c> name. That was contrary to the
+/// save, and it concealed a real defect — see
+/// <see cref="The_lancers_ordinal_refutes_T15s_naming_rule_and_fails_until_it_is_fixed"/>.
+/// </para>
+/// <para>
+/// <strong>One deliberate normalisation, and it is the only one.</strong> The saves store several of
+/// the thirteen starting names with a <em>double</em> space before "Battalion"
+/// (<c>"2nd Lancers  Battalion"</c>, <c>"1st Foot  Battalion"</c>, …) while all eleven newly created
+/// units use a single space. The names below use the single-space form this engine produces, because
+/// <see cref="ArmyNaming"/>'s parser matches exactly one space and would otherwise not see those
+/// units' ordinals at all — which would make this fixture fail for a second, unrelated reason and
+/// conflate two defects in one red test. The double-space form is a finding against
+/// <see cref="ArmyNaming"/>, reported alongside the ordinal rule below; it is not this task's to fix.
 /// </para>
 /// </remarks>
 public sealed class RomeAutumnMobilizationReplayTests
@@ -57,35 +64,30 @@ public sealed class RomeAutumnMobilizationReplayTests
 
     private static readonly World World = MobilizationFixture.OpenWorld(110, 50);
 
-    /// <summary>Army 0's thirteen units in autumn_1, totalling the recorded 48,173 troops.</summary>
-    private static UnitSlot[] ArmyZeroRoster()
+    /// <summary>
+    /// Army 0's thirteen units in <c>autumn_1</c>: type, troops, quality, name and array order exactly
+    /// as the save stores them. They sum to the recorded 48,173 troops.
+    /// </summary>
+    private static UnitSlot[] ArmyZeroRoster() => new[]
     {
-        var units = new List<UnitSlot>
-        {
-            MobilizationFixture.Unit("1st Foot Battalion", "light_infantry", 3_705),
-            MobilizationFixture.Unit("2nd Foot Battalion", "light_infantry", 3_705),
-        };
-
-        for (var i = 1; i <= 8; i++)
-        {
-            units.Add(MobilizationFixture.Unit($"{Ordinal(i)} Guards Battalion", "heavy_infantry", 3_705));
-        }
-
-        units.Add(MobilizationFixture.Unit("1st Dragoons Battalion", "heavy_cavalry", 3_705));
-        units.Add(MobilizationFixture.Unit("2nd Dragoons Battalion", "heavy_cavalry", 3_705));
-        units.Add(MobilizationFixture.Unit("2nd Lancers Battalion", "light_cavalry", 3_713));
-
-        return units.ToArray();
-    }
-
-    private static string Ordinal(int n) => n switch
-    {
-        1 => "1st", 2 => "2nd", 3 => "3rd", _ => $"{n}th",
+        MobilizationFixture.Unit("1st Foot Battalion", "light_infantry", 4_210, 6),
+        MobilizationFixture.Unit("1st Guards Battalion", "heavy_infantry", 4_900, 8),
+        MobilizationFixture.Unit("2nd Guards Battalion", "heavy_infantry", 4_920, 7),
+        MobilizationFixture.Unit("3rd Guards Battalion", "heavy_infantry", 5_747, 7),
+        MobilizationFixture.Unit("1st Dragoons Battalion", "heavy_cavalry", 774, 7),
+        MobilizationFixture.Unit("7th Guards Battalion", "heavy_infantry", 2_583, 7),
+        MobilizationFixture.Unit("2nd Dragoons Battalion", "heavy_cavalry", 1_539, 8),
+        MobilizationFixture.Unit("2nd Lancers Battalion", "light_cavalry", 900, 7),
+        MobilizationFixture.Unit("6th Guards Battalion", "heavy_infantry", 4_787, 7),
+        MobilizationFixture.Unit("5th Guards Battalion", "heavy_infantry", 3_571, 7),
+        MobilizationFixture.Unit("4th Guards Battalion", "heavy_infantry", 5_300, 9),
+        MobilizationFixture.Unit("8th Guards Battalion", "heavy_infantry", 3_442, 6),
+        MobilizationFixture.Unit("2nd Foot Battalion", "light_infantry", 5_500, 6),
     };
 
     /// <summary>
-    /// Rome's recruitment queue in autumn_1, ordered so that the descending walk the original's dialog
-    /// makes produces the landing order the save records.
+    /// Rome's recruitment queue in <c>autumn_1</c>, ordered so that the descending walk the original's
+    /// dialog makes produces the landing order <c>autumn_3</c> records.
     /// </summary>
     private static RecruitmentSlot[] RomeSlots() => new[]
     {
@@ -103,27 +105,24 @@ public sealed class RomeAutumnMobilizationReplayTests
         new RecruitmentSlot(RomeCityId, "light_cavalry", 7_000, 8),      // 11  the twelfth: stays behind
     };
 
-    private static GameState Autumn1(bool withTheOtherRomanArmy = true)
+    /// <summary>
+    /// <c>autumn_1</c>: Rome, its one army with the save's own stats, and the twelve recruitment slots.
+    /// </summary>
+    private static GameState Autumn1()
     {
         var state = RecruitmentTestbed.InitialState();
 
-        var armyZero = MobilizationFixture.Army("army-0", Rome, RomeX - 1, RomeY - 1, ArmyZeroRoster());
-        var armies = withTheOtherRomanArmy
-            ? new[]
-            {
-                armyZero,
-                // Another of Rome's fifteen armies, six tiles off: out of range for a human seat's
-                // d == 1, so it never receives a unit -- but in range of the nation-wide naming scan.
-                MobilizationFixture.Army(
-                    "army-7", Rome, RomeX - 6, RomeY - 6,
-                    new[] { MobilizationFixture.Unit("1st Lancers Battalion", "light_cavalry", 4_000) }),
-            }
-            : new[] { armyZero };
+        // moves 8, morale 70, money 296 and 410 tons are army 0's recorded autumn_1 values. Its
+        // covered cell reads 9 (a river tile) in the save; the fixture world is uniform plain, so the
+        // covered code is the fixture's own -- nothing in the mobilization path reads it.
+        var armyZero = MobilizationFixture.Army(
+            "army-0", Rome, RomeX - 1, RomeY - 1, ArmyZeroRoster(),
+            moves: 8, morale: 70, money: 296, supplyTons: 410);
 
         state = state with
         {
             Cities = ValueList.Of(MobilizationFixture.City(RomeCityId, RomeX, RomeY, Rome)),
-            Armies = ValueList.Of(armies),
+            Armies = ValueList.Of(armyZero),
         };
 
         state = MobilizationFixture.WithSlots(state, Rome, RomeSlots());
@@ -135,9 +134,9 @@ public sealed class RomeAutumnMobilizationReplayTests
     /// which the dialog's stale row-to-slot table stays correct, because deleting a slot shifts only
     /// the slots above it (§7).
     /// </summary>
-    private static GameState MobilizeTheReadyEleven(GameState state, IEventSink? sink = null)
+    private static GameState MobilizeTheReadyEleven(GameState state)
     {
-        var dispatcher = MobilizationFixture.DispatcherOn(World, sink);
+        var dispatcher = MobilizationFixture.DispatcherOn(World);
 
         for (var slotIndex = 10; slotIndex >= 0; slotIndex--)
         {
@@ -150,9 +149,11 @@ public sealed class RomeAutumnMobilizationReplayTests
     }
 
     /// <summary>
-    /// The whole pair, clause by clause: eleven units at quality 6, army 0 filling to exactly 20 units
-    /// and 83,173 troops, army 14 created at <c>(102, 44)</c> with 4 units and 43,000 troops, money 0,
-    /// and the nation-wide naming series across both armies.
+    /// The pair, clause by clause, excluding the one name T15's naming rule currently gets wrong (see
+    /// <see cref="The_lancers_ordinal_refutes_T15s_naming_rule_and_fails_until_it_is_fixed"/>): eleven
+    /// units at quality 6, army 0 filling to exactly 20 units and 83,173 troops, army 14 created at
+    /// <c>(102, 44)</c> with 4 units and 43,000 troops, and the nine battalion names on which the two
+    /// candidate ordinal rules agree.
     /// </summary>
     [Fact]
     public void The_corpus_mobilization_reproduces_exactly()
@@ -160,6 +161,7 @@ public sealed class RomeAutumnMobilizationReplayTests
         var before = Autumn1();
         Assert.Equal(48_173, before.ArmyById("army-0")!.TotalTroops);
         Assert.Equal(13, before.ArmyById("army-0")!.Units.Count);
+        Assert.Single(before.Armies);                   // Rome owns exactly one army in autumn_1
 
         var after = MobilizeTheReadyEleven(before);
 
@@ -171,6 +173,12 @@ public sealed class RomeAutumnMobilizationReplayTests
         Assert.Equal(20, armyZero.Units.Count);
         Assert.Equal(83_173, armyZero.TotalTroops);
         Assert.Equal(35_000, armyZero.TotalTroops - 48_173);
+
+        // The receiving army's own record is otherwise untouched: money, supply and morale are still
+        // the autumn_1 values, because mobilizing writes a unit slot and nothing else.
+        Assert.Equal(296, armyZero.Money);
+        Assert.Equal(410, armyZero.SupplyTons);
+        Assert.Equal(70, armyZero.Morale);
 
         var arrivals = armyZero.Units.Skip(13).ToArray();
         Assert.Equal(
@@ -194,17 +202,14 @@ public sealed class RomeAutumnMobilizationReplayTests
         Assert.Equal(4, armyFourteen.Units.Count);
         Assert.Equal(43_000, armyFourteen.TotalTroops);
         Assert.Equal(0, armyFourteen.Money);
-        Assert.Equal(0, armyFourteen.SupplyTons);
+        Assert.Equal(0, armyFourteen.SupplyTons);      // the save's 410 tons is a later resupply
         Assert.Equal(
-            new[]
-            {
-                "3rd Lancers Battalion", "9th Guards Battalion",
-                "4th Foot Battalion", "5th Foot Battalion",
-            },
-            armyFourteen.Units.Select(u => u.Name).ToArray());
+            new[] { "9th Guards Battalion", "4th Foot Battalion", "5th Foot Battalion" },
+            armyFourteen.Units.Skip(1).Select(u => u.Name).ToArray());
         Assert.Equal(
             new[] { 7_000, 6_000, 15_000, 15_000 },
             armyFourteen.Units.Select(u => u.Troops).ToArray());
+        Assert.Equal("light_cavalry", armyFourteen.Units[0].UnitTypeId);
 
         // The placement cell's terrain is one an army may stand on -- the save read covered = 2.
         var covered = World.TileTypeByCode(armyFourteen.CoveredTileCode!.Value);
@@ -233,9 +238,64 @@ public sealed class RomeAutumnMobilizationReplayTests
         // The city is not a garrison being drained: it never held these units.
         Assert.Empty(after.CityById(RomeCityId)!.Garrison);
 
-        // Two armies received, one army was created, and nothing else moved.
-        Assert.Equal(3, after.Armies.Count);
-        Assert.Equal(before.ArmyById("army-7"), after.ArmyById("army-7"));
+        // One army became two, and no third appeared.
+        Assert.Equal(2, after.Armies.Count);
+    }
+
+    /// <summary>
+    /// <strong>This test is expected to fail on this branch.</strong> It asserts the name the save
+    /// records, and the engine currently produces a different one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Rome owns one army and one light-cavalry unit in the whole game: <c>2nd Lancers</c>. There is no
+    /// <c>1st</c>. The mobilized light cavalry is named <strong><c>3rd Lancers Battalion</c></strong> in
+    /// <c>autumn_3</c>. So the original's ordinal rule is <strong>one past the highest ordinal in
+    /// use</strong>, not the smallest unused one.
+    /// </para>
+    /// <para>
+    /// <see cref="ArmyNaming"/> ships the smallest-unused reading, explicitly marked <c>[derived]</c>
+    /// and flagging this exact ambiguity — <em>"the exact algorithm (smallest unused integer, versus one
+    /// past the highest used) is [derived] from the word 'free' alone"</em> — and cites this very Roman
+    /// roster while doing so. This save pair is the first evidence that tells the two readings apart,
+    /// and it refutes the one that shipped. Every other name in the pair is a dense series
+    /// (<c>1st</c>/<c>2nd Foot</c> → <c>3rd</c>; <c>1st</c>–<c>8th Guards</c> → <c>9th</c>;
+    /// <c>1st</c>/<c>2nd Dragoons</c> → <c>3rd</c>; no Bowmen at all → <c>1st</c>…), where both rules
+    /// give the same answer. The lone <c>2nd Lancers</c> with no <c>1st</c> is the sole discriminating
+    /// case in the corpus.
+    /// </para>
+    /// <para>
+    /// <see cref="ArmyNaming"/> is T15's file and outside this task's Owns list, so it is not changed
+    /// here and the defect is filed instead. This test therefore asserts the <em>correct</em>
+    /// expectation and fails until that fix lands, rather than asserting the value the engine happens
+    /// to produce today — a red test that names a known-wrong dependency is worth more than a green one
+    /// that hides it.
+    /// </para>
+    /// <para>
+    /// A second, independent problem with the same rule, found in the same parse and reported with it:
+    /// the saves store several starting names with a <strong>double</strong> space
+    /// (<c>"2nd Lancers  Battalion"</c>), which <see cref="ArmyNaming"/>'s single-space pattern does not
+    /// match at all — so on real data it would miss those ordinals under either reading. This fixture
+    /// normalises to the single-space form so that exactly one thing is under test here.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void The_lancers_ordinal_refutes_T15s_naming_rule_and_fails_until_it_is_fixed()
+    {
+        var before = Autumn1();
+
+        // The premise, asserted rather than asserted about: Rome's only light cavalry is the 2nd.
+        var romanLancers = before.Armies
+            .Where(a => string.Equals(a.Nation, Rome, StringComparison.Ordinal))
+            .SelectMany(a => a.Units)
+            .Where(u => string.Equals(u.UnitTypeId, "light_cavalry", StringComparison.Ordinal) && u.IsRegular)
+            .Select(u => u.Name)
+            .ToArray();
+        Assert.Equal(new[] { "2nd Lancers Battalion" }, romanLancers);
+
+        var after = MobilizeTheReadyEleven(before);
+
+        Assert.Equal("3rd Lancers Battalion", after.ArmyById("army-14")!.Units[0].Name);
     }
 
     /// <summary>
@@ -260,8 +320,8 @@ public sealed class RomeAutumnMobilizationReplayTests
     /// The save's <c>morale 60</c> and <c>moves 8</c> are not creation values: the army is created at
     /// morale 59 with 0 moves, and the weekly tick that ran between the two saves produced both
     /// figures. Both are checked through the engine's own merged T08 rule rather than restated —
-    /// <c>morale 59 + 1</c> for an army above the supply dead band (army 14 held 791 tons on 43,000
-    /// troops, far above it), and <c>10 − ⌊43,000 / 20,000⌋ = 8</c>.
+    /// <c>morale 59 + 1</c> for an army above the supply dead band (army 14 read 410 tons on 43,000
+    /// troops in <c>autumn_3</c>, far above it), and <c>10 − ⌊43,000 / 20,000⌋ = 8</c>.
     /// </summary>
     [Fact]
     public void Morale_sixty_and_moves_eight_are_the_weekly_tick_applied_to_a_created_army()
@@ -280,25 +340,6 @@ public sealed class RomeAutumnMobilizationReplayTests
         Assert.Equal(0, movesPenalty);
         Assert.Equal(8, SupplyMoraleRule.BaseMoves(created.TotalTroops, Ruleset));
         Assert.Equal(8, SupplyMoraleRule.BaseMoves(43_000, Ruleset));
-    }
-
-    /// <summary>
-    /// The naming scan is nation-wide, not per-army. With Rome's other army holding the
-    /// <c>1st Lancers</c>, the mobilized light cavalry is the <c>3rd</c>, as the save records; take
-    /// that army away and the free-ordinal scan answers <c>1st</c> instead. The difference is the
-    /// whole content of "nation-wide".
-    /// </summary>
-    [Fact]
-    public void A_per_army_naming_scan_would_get_the_lancers_ordinal_wrong()
-    {
-        var withOtherArmy = MobilizeTheReadyEleven(Autumn1());
-        Assert.Equal("3rd Lancers Battalion", withOtherArmy.ArmyById("army-14")!.Units[0].Name);
-
-        var withoutOtherArmy = MobilizeTheReadyEleven(Autumn1(withTheOtherRomanArmy: false));
-        Assert.Equal("1st Lancers Battalion", withoutOtherArmy.ArmyById("army-14")!.Units[0].Name);
-
-        // And the series that does not depend on the other army is unaffected either way.
-        Assert.Equal("9th Guards Battalion", withoutOtherArmy.ArmyById("army-14")!.Units[1].Name);
     }
 
     /// <summary>
