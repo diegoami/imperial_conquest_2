@@ -39,8 +39,7 @@ public class SaveJsonExporterTests : IDisposable
     {
         // Confirms the DAT-only null modelling did not regress the SAV path.
         Skip.IfNot(LocalAssets.IsConfigured, LocalAssets.SkipReason);
-        var settings = LocalAssets.Settings!;
-        var savePath = settings.ResolveSavePath("saves-processed/1_rome_270_summer_7.sav");
+        var savePath = FixtureResolver.ResolveOrThrow("1_rome_270_summer_7.sav");
 
         SaveJsonExporter.Export(savePath, _outputPath);
         var json = File.ReadAllText(_outputPath);
@@ -57,8 +56,7 @@ public class SaveJsonExporterTests : IDisposable
     public void Army_moves_is_signed_and_frozen_flags_the_anomalous_record()
     {
         Skip.IfNot(LocalAssets.IsConfigured, LocalAssets.SkipReason);
-        var settings = LocalAssets.Settings!;
-        var savePath = settings.ResolveSavePath("saves-processed/1_rome_270_summer_7.sav");
+        var savePath = FixtureResolver.ResolveOrThrow("1_rome_270_summer_7.sav");
 
         SaveJsonExporter.Export(savePath, _outputPath);
         var json = File.ReadAllText(_outputPath);

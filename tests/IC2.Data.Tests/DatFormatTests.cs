@@ -26,8 +26,7 @@ public class DatFormatTests
     public void A_real_save_is_detected_as_sav_shaped()
     {
         Skip.IfNot(LocalAssets.IsConfigured, LocalAssets.SkipReason);
-        var settings = LocalAssets.Settings!;
-        var data = File.ReadAllBytes(settings.ResolveSavePath("saves/1_thracia_271_spring_1.sav"));
+        var data = File.ReadAllBytes(FixtureResolver.ResolveOrThrow("1_thracia_271_spring_1.sav"));
 
         Assert.Equal(SaveFileFormat.Sav, SaveFormat.Detect(data));
     }
@@ -102,8 +101,7 @@ public class DatFormatTests
     {
         // Confirms the Dat-only absence modelling did not regress the SAV path.
         Skip.IfNot(LocalAssets.IsConfigured, LocalAssets.SkipReason);
-        var settings = LocalAssets.Settings!;
-        var data = File.ReadAllBytes(settings.ResolveSavePath("saves/1_thracia_271_spring_1.sav"));
+        var data = File.ReadAllBytes(FixtureResolver.ResolveOrThrow("1_thracia_271_spring_1.sav"));
 
         var table = SaveNationTable.Parse(data);
 

@@ -31,6 +31,15 @@ public class CorpusOutcomeGeneratorTests
     public void The_committed_fixture_matches_a_fresh_regeneration_over_the_configured_corpus()
     {
         Skip.IfNot(LocalAssets.IsConfigured, LocalAssets.SkipReason);
+        // T53 (issue #204): IC2_FIXTURES_DIR is CI's deliberately narrow twelve-fixture clone, not the
+        // full local corpus the committed 55-entry table was regenerated against — a mismatch here is
+        // the EXPECTED shape of that narrowing, not drift, so it is not this test's job to catch. The
+        // sibling "byte identical twice" test above still runs unconditionally: it proves the generator
+        // is deterministic regardless of which corpus it's pointed at.
+        Skip.If(LocalAssets.IsCiFixtureMode,
+            "IC2_FIXTURES_DIR only has the twelve named fixtures, not the full local corpus the " +
+            "committed table is regenerated against; run this against a full assets.local.ini " +
+            "installation to check for genuine corpus drift.");
         var settings = LocalAssets.Settings!;
 
         var regenerated = CorpusOutcomeGenerator.GenerateAll(settings);

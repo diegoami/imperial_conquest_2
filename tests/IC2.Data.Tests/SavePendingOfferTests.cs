@@ -13,8 +13,7 @@ public class SavePendingOfferTests
     {
         // `1_rome_270_winter_9.sav` | `FF FF 01 00` | -1 · 1
         Skip.IfNot(LocalAssets.IsConfigured, LocalAssets.SkipReason);
-        var settings = LocalAssets.Settings!;
-        var data = File.ReadAllBytes(settings.ResolveSavePath("saves-processed/1_rome_270_winter_9.sav"));
+        var data = File.ReadAllBytes(FixtureResolver.ResolveOrThrow("1_rome_270_winter_9.sav"));
 
         var offer = SavePendingOffer.Parse(data);
 
@@ -27,8 +26,7 @@ public class SavePendingOfferTests
     {
         // `1_rome_270_winter_9_b.sav` | `07 00 01 00` | 7 · 1 | "Greece wants to trade with Rome"
         Skip.IfNot(LocalAssets.IsConfigured, LocalAssets.SkipReason);
-        var settings = LocalAssets.Settings!;
-        var data = File.ReadAllBytes(settings.ResolveSavePath("saves-processed/1_rome_270_winter_9_b.sav"));
+        var data = File.ReadAllBytes(FixtureResolver.ResolveOrThrow("1_rome_270_winter_9_b.sav"));
 
         var offer = SavePendingOffer.Parse(data);
 
@@ -43,8 +41,7 @@ public class SavePendingOfferTests
     {
         // `1_rome_270_winter_11.sav` | `0B 00 01 00` | 11 · 1 | "Bythinia wants to trade with Rome"
         Skip.IfNot(LocalAssets.IsConfigured, LocalAssets.SkipReason);
-        var settings = LocalAssets.Settings!;
-        var data = File.ReadAllBytes(settings.ResolveSavePath("saves/1_rome_270_winter_11.sav"));
+        var data = File.ReadAllBytes(FixtureResolver.ResolveOrThrow("1_rome_270_winter_11.sav"));
 
         var offer = SavePendingOffer.Parse(data);
 

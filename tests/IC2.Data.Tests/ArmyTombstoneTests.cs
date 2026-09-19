@@ -14,15 +14,14 @@ public class ArmyTombstoneTests
     // These three are the only saves in the whole 51-file corpus carrying a tombstone, one each.
 
     [SkippableTheory]
-    [InlineData("saves/1_thracia_271_spring_3.sav", 10, 41, 62)]
-    [InlineData("saves/1_thracia_271_autumn_1.sav", 9, 38, 52)]
-    [InlineData("saves/1_cartago_271_spring_5.sav", 0, 97, 31)]
+    [InlineData("1_thracia_271_spring_3.sav", 10, 41, 62)]
+    [InlineData("1_thracia_271_autumn_1.sav", 9, 38, 52)]
+    [InlineData("1_cartago_271_spring_5.sav", 0, 97, 31)]
     public void Known_tombstone_saves_skip_the_record_and_keep_parsing(
-        string relativePath, int expectedIndex, ushort expectedX, ushort expectedY)
+        string fixtureName, int expectedIndex, ushort expectedX, ushort expectedY)
     {
         Skip.IfNot(LocalAssets.IsConfigured, LocalAssets.SkipReason);
-        var settings = LocalAssets.Settings!;
-        var data = File.ReadAllBytes(settings.ResolveSavePath(relativePath));
+        var data = File.ReadAllBytes(FixtureResolver.ResolveOrThrow(fixtureName));
 
         // Would have thrown InvalidDataException before this task's fix (see the investigation docs'
         // "A real parser bug found on the way" / "The parse sweep" sections).
@@ -45,8 +44,7 @@ public class ArmyTombstoneTests
         // Thracian army for the first two [saves] instead of aborting." Thracia is nation code 15
         // (docs/investigations/thracia-supply-morale.md, "Nation code 15 (Thracia)").
         Skip.IfNot(LocalAssets.IsConfigured, LocalAssets.SkipReason);
-        var settings = LocalAssets.Settings!;
-        var data = File.ReadAllBytes(settings.ResolveSavePath("saves/1_thracia_271_spring_3.sav"));
+        var data = File.ReadAllBytes(FixtureResolver.ResolveOrThrow("1_thracia_271_spring_3.sav"));
 
         var table = SaveArmyTable.Parse(data);
         var thracianArmies = table.Armies.Where(a => a.OwnerCode == 15).ToList();
@@ -65,8 +63,7 @@ public class ArmyTombstoneTests
     public void List_armies_finds_the_thracian_army_in_autumn_1_instead_of_aborting()
     {
         Skip.IfNot(LocalAssets.IsConfigured, LocalAssets.SkipReason);
-        var settings = LocalAssets.Settings!;
-        var data = File.ReadAllBytes(settings.ResolveSavePath("saves/1_thracia_271_autumn_1.sav"));
+        var data = File.ReadAllBytes(FixtureResolver.ResolveOrThrow("1_thracia_271_autumn_1.sav"));
 
         var table = SaveArmyTable.Parse(data);
         var thracianArmies = table.Armies.Where(a => a.OwnerCode == 15).ToList();
