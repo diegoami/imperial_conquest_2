@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "id": "classical-mediterranean",
+  "name": "Classical Mediterranean, 270 BC",
+  "worldId": "classical-mediterranean",
+  "rulesetId": "classical-faithful",
+  "seats": [
+    {
+      "nation": "rome",
+      "control": "ai",
+      "personality": null
+    },
+    {
+      "nation": "carthage",
+      "control": "ai",
+      "personality": null
+    },
+    {
+      "nation": "seleucid",
+      "control": "ai",
+      "personality": null
+    },
+    {
+      "nation": "ptolemaic",
+      "control": "ai",
+      "personality": null
+    },
+    {
+      "nation": "macedonia",
+      "control": "ai",
+      "personality": null
+    },
+    {
+      "nation": "numidia",
+      "control": "ai",
+      "personality": null
+    },
+    {
+      "nation": "gaul",
+      "control": "ai",
+      "personality": null
+    },
+    {
+      "nation": "greece",
+      "control": "ai",
+      "personality": null
+    },
+    {
+      "nation": "celtiberia",
+      "control": "ai",
+      "personality": null
+    },
+    {
+      "nation": "illyria",
+      "control": "ai",
+      "personality": null
+    },
+    {
+      "nation": "dacia",
+      "control": "ai",
+      "personality": null
+    },
+    {
+      "nation": "bithynia",
+      "control": "ai",
+      "personality": null
+    },
+    {
+      "nation": "galatia",
+      "control": "ai",
+      "personality": null
+    },
+    {
+      "nation": "armenia",
+      "control": "ai",
+      "personality": null
+    },
+    {
+      "nation": "media",
+      "control": "ai",
+      "personality": null
+    },
+    {
+      "nation": "thracia",
+      "control": "ai",
+      "personality": null
+    }
+  ],
+  "victory": {
+    "type": "totalConquest",
+    "goal": null
+  },
+  "turnLimit": null,
+  "blindHotseat": false,
+  "randomSeed": 270,
+  "_provenance": {
+    "seats": "designed: every nation defaults to AI control. The original assigns the human seat(s) and shuffles the turn order at New Game (TPremierForm_NewGame's FUN_00448aa4 -- docs/investigations/dat-file-layout.md); this scenario, loaded as-is, is an all-AI game.",
+    "victory": "confirmed: the original's only win condition is holding every city on the map -- corpus id victory.allCitiesThreshold (334).",
+    "turnLimit": "designed: the original has no turn limit, only the hard end year (ruleset victory.hardEndYearBc) -- corpus id victory.yearLimitBC. Left unset (no additional cap) for the faithful preset.",
+    "randomSeed": "designed: a fixed seed so a load of this scenario is reproducible, per docs/game-design.md principle 4. The value (270, the campaign's start year BC) carries no meaning beyond that."
+  }
+}
