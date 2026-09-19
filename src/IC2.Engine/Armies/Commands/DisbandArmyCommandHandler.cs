@@ -34,7 +34,7 @@ public sealed class DisbandArmyCommandHandler : ICommandHandler<DisbandArmyComma
                 DisbandArmyRejections.ArmyEmbarked, $"Army '{army.Id}' is aboard a fleet and cannot be disbanded.");
         }
 
-        var nearbyOwnCity = FindOwnCityAt(state, army.Nation, army.X, army.Y);
+        var nearbyOwnCity = FindOwnCityNear(state, army.Nation, army.X, army.Y);
         if (nearbyOwnCity is null)
         {
             return CommandOutcome.Reject(
@@ -59,11 +59,22 @@ public sealed class DisbandArmyCommandHandler : ICommandHandler<DisbandArmyComma
         });
     }
 
-    private static CityState? FindOwnCityAt(GameState state, string nationId, int x, int y)
+    /// <summary>
+    /// The nation's own city the army is <em>near</em> — adjoining tiles included (T54 Done-when 4; see
+    /// <see cref="DisbandArmyCommand"/>'s remarks for why this widened from exact co-location).
+    /// </summary>
+    /// <remarks>
+    /// Scans <see cref="GameState.Cities"/> in list order and takes the first match, so two of the
+    /// nation's own cities adjoining the same tile resolve the same way every run — the supplies always
+    /// go to the same one. Order, not proximity: nothing in the evidence ranks two equally-near cities,
+    /// and inventing a tie-break would be inventing a rule.
+    /// </remarks>
+    private static CityState? FindOwnCityNear(GameState state, string nationId, int x, int y)
     {
         foreach (var city in state.Cities)
         {
-            if (city.X == x && city.Y == y && string.Equals(city.Owner, nationId, StringComparison.Ordinal))
+            if (Math.Max(Math.Abs(city.X - x), Math.Abs(city.Y - y)) <= 1
+                && string.Equals(city.Owner, nationId, StringComparison.Ordinal))
             {
                 return city;
             }

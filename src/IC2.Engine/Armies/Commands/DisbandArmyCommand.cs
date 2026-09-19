@@ -15,18 +15,31 @@ namespace IC2.Engine.Armies.Commands;
 /// supplies to the nearby city's stock.
 /// </para>
 /// <para>
-/// <strong>"Near" is read as co-located.</strong> The confirmed report states the rule ("near") but does
-/// not decompile a distance check, and this task's Owns list does not include
-/// <c>src/IC2.Engine/Model/Ruleset.cs</c>, so it cannot add a new adjacency-radius field to source one
-/// even if it wanted to. Reusing an existing, differently-motivated radius (for example
-/// <see cref="Model.EconomyRules.ThreatenedCityAdjacencyRadius"/>, T35's hostile-army-adjacency check)
-/// would repeat exactly the mistake this project's own conventions warn against — treating two
-/// numerically-similar but conceptually distinct rules as one (see, for example,
-/// <see cref="Model.EconomyRules.CitySupplyMobilizationDivisor"/>'s remarks on the same point). Requiring
-/// exact co-location is the narrowest, most defensible reading of "near" available without inventing an
-/// unsourced constant: it never falsely refuses a legitimately "near" disband, and every "away from"
-/// case the Done-when line names is still refused. <c>[derived, boundary approximated; see this task's
-/// PR body]</c>.
+/// <strong>"Near" is an adjoining tile — widened from co-location by T54, on evidence that did not exist
+/// when T15 chose the narrower reading</strong> (<c>docs/task-catalogue.md</c> T54 Done-when 4,
+/// <see href="https://github.com/diegoami/imperial_conquest_2/issues/215">issue #215</see>). T15 read
+/// "near" as exact co-location: the report states the rule but decompiles no distance check, so the
+/// narrowest defensible reading was the honest one, it was tagged <c>[derived]</c>, and its reviewer
+/// judged it sound. It was also, as it turned out, <strong>unreachable</strong> — an army can never stand
+/// on a city's tile in this game, so no army could ever satisfy it. A city is map code <c>20..99</c> and
+/// the original's movement walk steps only codes <c>2..11</c>: "codes ≥ 12 are not steppable at all by
+/// this walk" <strong>[confirmed: terrain-move-cost-table-in-dat.md]</strong>, which is exactly why
+/// <c>MoveArmyCommandHandler</c> blocks every city cell. The user settled what "near" therefore has to
+/// mean, from play: <em>"first you select the army, then the town, and if they are adjacent there is a
+/// siege action. Same pattern for an army attacking an army, or a fleet attacking a fleet."</em>
+/// <strong>[confirmed: attack-and-siege-are-adjacency-orders.md — direct user observation of the original game, 2026-09-19]</strong> — a city is
+/// interacted with from an adjoining tile, never from its own.
+/// </para>
+/// <para>
+/// <strong>No new constant, and deliberately not a reused one.</strong> Adjacency here is inherent to the
+/// order rather than a tunable radius — it is the same "standing next to it" the attack and siege gates
+/// in <c>Battle/Commands/AttackLegality</c> apply, and the same literal one-tile bound the merged supply
+/// and disembark gates already carry from <c>TAFSupply_FindProviders</c>'s confirmed "within one tile"
+/// provider radius — so no <see cref="Model.Ruleset"/> field is added. In particular it does <em>not</em>
+/// reuse <see cref="Model.EconomyRules.ThreatenedCityAdjacencyRadius"/>, which is T35's
+/// hostile-army-adjacency rule: numerically similar, conceptually a different rule, and conflating the
+/// two is the mistake this project's own conventions warn against (see
+/// <see cref="Model.EconomyRules.CitySupplyMobilizationDivisor"/>'s remarks on the same point).
 /// </para>
 /// <para>
 /// <strong>Embarked armies are refused defensively</strong>, the same reasoning as
