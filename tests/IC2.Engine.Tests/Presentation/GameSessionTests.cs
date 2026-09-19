@@ -72,15 +72,46 @@ public sealed class GameSessionTests
     }
 
     /// <summary>
-    /// Done-when 2, second half: "A different <c>--seed</c> changes only what the RNG drives." Two systems
-    /// in this script read <c>SystemContext.Rng</c>, in draw order: <see cref="Economy.WeatherEventSystem"/>
-    /// (<see cref="GameSession"/> surfaces it as a "  Weather: ..." line distinct from the news log, which
-    /// this script never populates) and, once the script's <c>end</c> commands cross a quarter boundary,
-    /// <see cref="Economy.CityLoyaltyDraws"/> (T35 — its rise/fall rolls change a city's <c>loyalty NN</c>
-    /// field in the "Cities:" listing; its rebellion-risk event never fires in this script, so the news log
-    /// stays empty either way). Nothing else in the transcript reads the RNG, so every other line, and every
-    /// other field of the "Cities:" lines, is asserted byte-for-byte equal.
+    /// Done-when 2, second half: "A different <c>--seed</c> changes only what the RNG drives."
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>T22 adds a third random consumer to this script, and the claim is widened by exactly that
+    /// consumer and no further</strong> (<c>docs/build-process.md</c> §2.3: the list may grow when a task
+    /// legitimately adds a draw, provided the new draw is <em>named</em> and the differing fields are
+    /// still asserted to be <em>exactly</em> the known ones). The three, in draw order:
+    /// </para>
+    /// <list type="number">
+    /// <item><see cref="Economy.WeatherEventSystem"/> — surfaced as a "  Weather: ..." line, dropped
+    /// whole, since every character of one is random-driven and a fired event also shifts every later
+    /// line's position.</item>
+    /// <item><see cref="Economy.CityLoyaltyDraws"/> (T35) — its quarterly rise/fall rolls move the
+    /// <c>loyalty NN</c> field of a "Cities:" line. Its rebellion-risk event never fires in this script,
+    /// so the news log is unaffected either way.</item>
+    /// <item><strong>New with T22:</strong> <see cref="Battle.BattleCasualties"/>'s per-unit casualty
+    /// divisor, drawn inside <see cref="Battle.InstantBattleResolver"/>'s field resolution. The demo's
+    /// <c>south</c> seat is AI-controlled, and the AI now attacks <c>north-army-1</c> rather than passing,
+    /// so the winner's surviving troop count differs between seeds.</item>
+    /// </list>
+    /// <para>
+    /// <strong>Only the third of those is a draw; two of the four fields it moves are arithmetic.</strong>
+    /// This distinction matters, because widening the blank list by three fields when only one new draw
+    /// exists would be the loosening §2.3 forbids. A surviving army's <c>supply NNt (NN%)</c> is a
+    /// function of its troop count (capacity is <c>troops / armySupplyTonsPerTroops</c>, the percentage
+    /// <c>supplies × supplyPercentNumerator / troops</c>), and the Southern League's <c>treasury</c> is a
+    /// function of the same count through per-troop quarterly army upkeep. Both move because the casualty
+    /// draw moved, not because anything else rolled.
+    /// </para>
+    /// <para>
+    /// <strong>What is still asserted byte-for-byte across seeds</strong>, checked against 25 seeds before
+    /// this list was written: every other line in the transcript; the surviving army's <em>unit count</em>,
+    /// position, morale and moves; every city's supply tonnage and fortification percentage; every nation's
+    /// unity and tax rate; and the whole news log, including the order of its entries.
+    /// <see cref="The_fields_this_test_blanks_really_do_move_with_the_seed"/> is the other half of the
+    /// claim: each blanked field has to genuinely vary, so the list cannot quietly grow to cover something
+    /// that does not.
+    /// </para>
+    /// </remarks>
     [Fact]
     public void A_different_seed_changes_only_the_weather_and_loyalty_lines()
     {
@@ -98,22 +129,100 @@ public sealed class GameSessionTests
         Assert.Equal(firstNormalized, secondNormalized);
     }
 
+    /// <summary>
+    /// The other half of the claim above: every field <see cref="WithoutRandomDrivenText"/> blanks has to
+    /// <em>actually</em> vary with the seed. Without this, the blank list could be widened to cover a
+    /// field nothing rolls, and the equality assertion would keep passing while checking less.
+    /// </summary>
+    [Fact]
+    public void The_fields_this_test_blanks_really_do_move_with_the_seed()
+    {
+        var scriptLines = File.ReadAllLines(DemoScriptPath);
+
+        // Twelve seeds, because two adjacent seeds are not guaranteed to differ in every blanked field --
+        // a loyalty roll landing the same way twice is ordinary, not a defect.
+        var transcripts = new List<string>();
+        for (ulong seed = 1; seed <= 12; seed++)
+        {
+            transcripts.Add(RunTranscript(NewSession(seed), scriptLines));
+        }
+
+        AssertVaries(transcripts, WeatherLinePattern, "a Weather: line");
+        AssertVaries(transcripts, LoyaltyFieldPattern, "a city's loyalty");
+        AssertVaries(transcripts, ArmyTroopCountPattern, "a surviving army's troop count");
+        AssertVaries(transcripts, UnitSupplyFieldPattern, "a surviving army's supply");
+        AssertVaries(transcripts, TreasuryFieldPattern, "a nation's treasury");
+    }
+
+    /// <summary>Fails unless <paramref name="pattern"/> matches something, and something different, across the runs.</summary>
+    private static void AssertVaries(List<string> transcripts, Regex pattern, string what)
+    {
+        var seen = new List<string>();
+        foreach (var transcript in transcripts)
+        {
+            var matches = new List<string>();
+            foreach (Match match in pattern.Matches(transcript))
+            {
+                matches.Add(match.Value);
+            }
+
+            Assert.True(matches.Count > 0, $"{what} never appears in the transcript at all");
+
+            var joined = string.Join("|", matches);
+            if (!seen.Contains(joined))
+            {
+                seen.Add(joined);
+            }
+        }
+
+        Assert.True(seen.Count > 1, $"{what} is blanked by this test but never varies with the seed");
+    }
+
+    /// <summary>A whole weather line, for the varies-with-the-seed control.</summary>
+    private static readonly Regex WeatherLinePattern =
+        new(@"Weather: \S+ \(week \d+\)\.", RegexOptions.Compiled);
+
     /// <summary>Matches exactly the "loyalty NN" field <see cref="GameSessionRendering.RenderStatus"/> prints
     /// in a "Cities:" line -- the one field <see cref="Economy.CityLoyaltyDraws"/> can change.</summary>
     private static readonly Regex LoyaltyFieldPattern = new(@"loyalty \d+", RegexOptions.Compiled);
 
     /// <summary>
-    /// Drops the weather lines entirely (every character of one is random-driven) and, in every remaining
-    /// line, blanks out only the "loyalty NN" field (the one field the quarterly loyalty draws can change).
-    /// Everything else in every line -- including the rest of each "Cities:" line: id, name, coordinates,
-    /// owner, supply, fortification -- is left untouched, so it still has to match exactly.
+    /// The troop count of an "Armies:" line, and <em>only</em> the count: the "in N units" that follows is
+    /// matched as a look-ahead and therefore left in place, so the unit count stays asserted exactly. This
+    /// is the one field T22's new draw -- the battle casualty divisor -- actually moves.
+    /// </summary>
+    private static readonly Regex ArmyTroopCountPattern =
+        new(@"\d+(?= troops in \d+ units)", RegexOptions.Compiled);
+
+    /// <summary>
+    /// A unit's "supply NNt (NN%)" -- arithmetic on the troop count above, not a draw of its own. The
+    /// trailing percentage is what tells this apart from a <em>city's</em> "supply NNNNt", which carries no
+    /// percentage and stays asserted exactly.
+    /// </summary>
+    private static readonly Regex UnitSupplyFieldPattern =
+        new(@"supply \d+t \(\d+%\)", RegexOptions.Compiled);
+
+    /// <summary>
+    /// A nation's "treasury NNNN" -- also arithmetic on the troop count, through per-troop quarterly army
+    /// upkeep. Signed, because an AI nation in this script ends the run in debt.
+    /// </summary>
+    private static readonly Regex TreasuryFieldPattern = new(@"treasury -?\d+", RegexOptions.Compiled);
+
+    /// <summary>
+    /// Drops the weather lines entirely (every character of one is random-driven, and a fired event also
+    /// shifts every later line), then blanks, in every remaining line, exactly the four fields the three
+    /// named draws reach -- and nothing else. Every other character of every other line still has to match
+    /// byte for byte.
     /// </summary>
     private static string WithoutRandomDrivenText(string transcript) =>
         string.Join(
             '\n',
             transcript.Split('\n')
                 .Where(line => !line.TrimStart().StartsWith("Weather:", StringComparison.Ordinal))
-                .Select(line => LoyaltyFieldPattern.Replace(line, "loyalty ##")));
+                .Select(line => LoyaltyFieldPattern.Replace(line, "loyalty ##"))
+                .Select(line => ArmyTroopCountPattern.Replace(line, "####"))
+                .Select(line => UnitSupplyFieldPattern.Replace(line, "supply ##t (##%)"))
+                .Select(line => TreasuryFieldPattern.Replace(line, "treasury ####")));
 
     /// <summary>
     /// Review round 1: "make sure no other session command can throw on bad input: unknown army or

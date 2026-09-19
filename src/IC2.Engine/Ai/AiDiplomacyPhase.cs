@@ -93,31 +93,29 @@ public static class AiDiplomacyPhase
     private static void ProposeAlliance(
         AiView view, AiPersonalityProfile personality, NationState other, int relation, List<AiCandidate> into)
     {
-        // ProposeAllianceCommandHandler's gates, in its own order, for an AI target; a human target
-        // accepts unconditionally once it is not already allied.
-        if (relation == view.Ruleset.Diplomacy.StateCodes.Alliance)
+        // The relation must already be peace or trade. That is narrower than what the handler would
+        // accept, and deliberately so, in both directions:
+        //
+        //  - Below peace is a cooldown. FormAlliance would overwrite it outright and the handler would
+        //    accept from a human target, but allying out of a cooldown the nation itself imposed is not
+        //    behaviour worth having; declining keeps the confirmed cooldown meaningful.
+        //  - Above trade is alliance (already allied) or WAR. ProposeAllianceCommandHandler refuses an
+        //    AI target while either side is at war, but a human target "always accepts" -- so without
+        //    this gate the AI could declare war on a human seat and ally with it in the same turn,
+        //    undoing its own declaration. The CLI demo printed exactly that ("SOUTHERN LEAGUE DECLARES
+        //    WAR ON NORTHERN LEAGUE." followed by "Southern League forms an alliance with Northern
+        //    League.") before this gate existed. Nothing refused it; it was simply nonsense.
+        if (relation != view.PeaceCode && relation != view.Ruleset.Diplomacy.StateCodes.Trade)
         {
             return;
         }
 
-        if (other.Control == SeatControl.Ai)
+        // ProposeAllianceCommandHandler's remaining gate for an AI target: neither side at war with
+        // anyone at all, not merely with each other.
+        if (other.Control == SeatControl.Ai
+            && (RelationTransitions.IsAtWarWithAnyone(view.State, view.Ruleset, view.NationId)
+                || RelationTransitions.IsAtWarWithAnyone(view.State, view.Ruleset, other.Id)))
         {
-            if (relation < view.PeaceCode)
-            {
-                return;
-            }
-
-            if (RelationTransitions.IsAtWarWithAnyone(view.State, view.Ruleset, view.NationId)
-                || RelationTransitions.IsAtWarWithAnyone(view.State, view.Ruleset, other.Id))
-            {
-                return;
-            }
-        }
-        else if (relation < view.PeaceCode)
-        {
-            // A cooldown is a negative relation. FormAlliance would overwrite it outright and the
-            // handler would accept, but allying out of a cooldown the nation itself imposed is not
-            // behaviour worth having; declining keeps the confirmed cooldown meaningful.
             return;
         }
 

@@ -214,7 +214,9 @@ public sealed partial class GameSession
             var aiResult = _coordinator.RunTurn(State);
             State = aiResult.State;
             newsAdded += aiResult.Events.Count(e => e.IsNewsWorthy);
-            lines.Add($"{NationDisplay(aiSeat)} has no AI yet and passes with no orders.");
+            lines.Add(
+                $"{NationDisplay(aiSeat)} takes its turn: "
+                + $"{aiResult.Events.OfType<Ai.AiTurnDecided>().Sum(e => e.CommandsIssued)} orders issued.");
             AppendWeatherLines(lines, aiResult.Events);
             guard++;
         }
