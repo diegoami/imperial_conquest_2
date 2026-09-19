@@ -197,6 +197,21 @@ public sealed record TerrainRules(
 /// "confirmed below" paragraph confirms only the <c>troops div 100</c> cap against 75 save states, not
 /// the purse rule; <c>docs/game-design.md:100</c> already tags it "confirmed caps; derived purse rule".
 /// </para>
+/// <para>
+/// <strong>T22's one additive field</strong> (<c>docs/task-catalogue.md</c> "T22 AI", Done-when 5, and
+/// the only <c>EconomyRules</c> change that task's Owns list grants):
+/// <see cref="AutoResupplyRadiusTiles"/>. Every AI turn, each AI army runs
+/// <see cref="IC2.Engine.Economy.AutomaticResupply.ForArmy"/> against every non-hostile city within this
+/// many tiles, and each AI fleet runs the fleet twin — <c>FUN_0044F31C</c> calling <c>FUN_0044E41C</c>,
+/// <c>supply-capacity-rounding.md</c>. The radius is <em>data</em>, not a literal, because the AI pass is
+/// the one caller that ranges beyond the supply dialog's own confirmed one-tile provider radius, and
+/// because the two existing hardcoded radii (<c>BuySupplyCommandHandler.cs:101</c> and its fleet twin)
+/// are precedent for a defect rather than a pattern to copy. Deliberately <em>not</em> merged with
+/// <see cref="ThreatenedCityAdjacencyRadius"/>, whose value happens to be 1: that is the city-threat
+/// test's own eight-neighbourhood from <c>city-population-growth.md</c>, a different rule that must be
+/// able to change independently — the same reasoning already given for
+/// <see cref="PopulationGrowthMobilizationDivisor"/>.
+/// </para>
 /// Every other field, and every other record in this file, is unchanged.
 /// </remarks>
 /// <remarks>
@@ -291,6 +306,7 @@ public sealed record EconomyRules(
     int SupplyDialogArmyCapacityBonus,
     int AutoResupplyPurseTopUpThreshold,
     int AutoResupplyPurseTopUpAmount,
+    int AutoResupplyRadiusTiles,
     int TaxBaseContributionMultiplier,
     int WealthPerPopulationThousand,
     int TreasuryCreditTaxBaseQuarterShareDivisor,
