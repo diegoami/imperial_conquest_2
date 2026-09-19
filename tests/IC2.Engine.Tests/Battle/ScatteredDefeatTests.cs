@@ -128,14 +128,16 @@ public class ScatteredDefeatTests
 
         Assert.Equal(LoserFate.Scattered, result.LoserFate);
 
-        // A fleet has no unit slots, so the mirrored figure is read as hulls rather than routed through
-        // the per-unit expression -- 1300 × 40 / 1100 = 47 of 100. It is never below the numerator, which
-        // is why only a fleet above 40 hulls survives an improved defeat at all.
-        Assert.Equal(47, result.LoserCasualties);
-        Assert.True(result.LoserCasualties >= BattleTestbed.Scatter.Combat.ScatteredDefeat.SurvivorCasualtyNumerator);
+        // A fleet has no unit slots, so the mirrored figure is read as hulls, scaled to the fleet's own
+        // size rather than a flat count (T52 DoD 1/2): the mirrored ratio is 1300 × 40 / 1100 = 47, and
+        // that ratio is multiplied into the fleet's own 100 hulls BEFORE dividing by the seed's third
+        // draw (the same NextInt(15) call DoD07_AboveTheDamageThresholdTheWinnersCarriedArmyAlsoLosesWholeUnits
+        // draws first, 11, divisor 116, since this fixture carries no army and so reaches the scatter
+        // branch's own divisor draw at the same stream position): (100 × 47) / 116 = 40.
+        Assert.Equal(40, result.LoserCasualties);
 
         var survivor = after.FleetById("south-fleet")!;
-        Assert.Equal(100 - 47, survivor.Ships);
+        Assert.Equal(100 - 40, survivor.Ships);
         Assert.Equal(0, survivor.Moves);
 
         var terrain = BattleTestbed.World.Terrain.Decode(BattleTestbed.World.Width, BattleTestbed.World.Height);

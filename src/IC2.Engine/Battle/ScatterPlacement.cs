@@ -51,6 +51,19 @@ public static class ScatterPlacement
     /// </param>
     /// <param name="state">The live state, for the occupying armies, fleets and cities.</param>
     /// <param name="world">The map, for bounds and terrain.</param>
+    /// <param name="destinationTileCode">
+    /// The terrain code of the returned destination — <see cref="Model.ArmyState.CoveredTileCode"/> and
+    /// <see cref="Model.FleetState.CoveredTileCode"/>, "the map cell this entity's marker covers". Every
+    /// other mover in the engine recomputes this at its destination (<c>MoveArmyCommandHandler</c>,
+    /// <c>MoveFleetCommandHandler</c>, <c>DisembarkArmyCommandHandler</c>), and a scatter is a move. For a
+    /// fleet it is not cosmetic: <c>FleetTickSystem</c> decides each turn's storm-tripling branch by
+    /// comparing this code with <see cref="NavalRules.StormTripleConditionTileCode"/>, so a survivor that
+    /// kept its pre-battle code would carry the old tile's weather with it for the rest of the game.
+    /// Meaningless (<c>0</c>) when this method returns <see langword="null"/>. Returned rather than
+    /// decoded a second time by the caller (T52 DoD 11): this method already decodes the terrain grid once
+    /// to search the ring, and a second, separate decode of the whole map per scattered survivor is not
+    /// free on the 334-city map with battles resolving constantly.
+    /// </param>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="requestedDistance"/> is not positive.</exception>
     public static ScatterOutcome? Find(
         GridPoint origin,
@@ -59,7 +72,8 @@ public static class ScatterPlacement
         bool forFleet,
         string movingId,
         GameState state,
-        World world)
+        World world,
+        out int destinationTileCode)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(world);
@@ -73,42 +87,16 @@ public static class ScatterPlacement
         for (var distance = requestedDistance; distance >= 1; distance--)
         {
             var ideal = new GridPoint(origin.X + (stepX * distance), origin.Y + (stepY * distance));
-            var best = BestOnRing(origin, ideal, distance, forFleet, movingId, state, world, terrain);
+            var best = BestOnRing(origin, ideal, distance, forFleet, movingId, state, world, terrain, out var tileCode);
             if (best is { } chosen)
             {
+                destinationTileCode = tileCode;
                 return new ScatterOutcome(origin.X, origin.Y, chosen.X, chosen.Y, requestedDistance, distance);
             }
         }
 
+        destinationTileCode = 0;
         return null;
-    }
-
-    /// <summary>
-    /// The terrain code of the cell a relocated survivor now covers — <see cref="Model.ArmyState.CoveredTileCode"/>
-    /// and <see cref="Model.FleetState.CoveredTileCode"/>, "the map cell this entity's marker covers".
-    /// </summary>
-    /// <remarks>
-    /// Every other mover in the engine recomputes this at its destination
-    /// (<c>MoveArmyCommandHandler</c>, <c>MoveFleetCommandHandler</c>, <c>DisembarkArmyCommandHandler</c>),
-    /// and a scatter is a move. For a fleet it is not cosmetic: <c>FleetTickSystem</c> decides each
-    /// turn's storm-tripling branch by comparing this code with
-    /// <see cref="NavalRules.StormTripleConditionTileCode"/>, so a survivor that kept its pre-battle code
-    /// would carry the old tile's weather with it for the rest of the game.
-    /// </remarks>
-    /// <param name="point">The destination cell. Must be in bounds, which <see cref="Find"/> guarantees.</param>
-    /// <param name="world">The map.</param>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="point"/> is off the map.</exception>
-    public static int TileCodeAt(GridPoint point, World world)
-    {
-        ArgumentNullException.ThrowIfNull(world);
-
-        if ((uint)point.X >= (uint)world.Width || (uint)point.Y >= (uint)world.Height)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(point), point, $"({point.X}, {point.Y}) is outside a {world.Width}x{world.Height} map.");
-        }
-
-        return world.Terrain.Decode(world.Width, world.Height)[(point.Y * world.Width) + point.X];
     }
 
     private static GridPoint? BestOnRing(
@@ -119,10 +107,12 @@ public static class ScatterPlacement
         string movingId,
         GameState state,
         World world,
-        int[] terrain)
+        int[] terrain,
+        out int bestTileCode)
     {
         GridPoint? best = null;
         var bestRank = 0;
+        bestTileCode = 0;
 
         for (var y = origin.Y - distance; y <= origin.Y + distance; y++)
         {
@@ -148,6 +138,7 @@ public static class ScatterPlacement
                 {
                     best = candidate;
                     bestRank = rank;
+                    bestTileCode = terrain[(y * world.Width) + x];
                 }
             }
         }

@@ -220,15 +220,114 @@ public class BattleCasualtyArithmeticTests
     }
 
     /// <summary>
+    /// T52 DoD 1: <see cref="BattleCasualties.ApplyToFleet"/> multiplies the fleet's own hull count into
+    /// the mirrored ratio <em>before</em> dividing by the drawn divisor -- the opposite grouping from
+    /// <see cref="BattleCasualties.Apply"/>'s per-unit expression, and deliberately so.
+    /// </summary>
+    [Fact]
+    public void DoD01_ApplyToFleetMultipliesTheHullCountBeforeDividing()
+    {
+        var rules = BattleTestbed.Destroyed.Combat;
+
+        // 100 hulls, ratio 47 (T16's own DoD10 naval fixture: 1300 x 40 / 1100 = 47), divisor 105
+        // (draw 0): multiply first gives (100 x 47) / 105 = 44.
+        var lost = BattleCasualties.ApplyToFleet(100, 47, new ScriptedDivisorRng(0), rules);
+        Assert.Equal(44, lost);
+        Assert.Equal((100 * 47) / 105, lost);
+
+        // The OTHER grouping -- divide first, as Apply's per-unit expression correctly does for its own,
+        // different, confirmed source -- would truncate every fleet in this game to zero, because no
+        // fleet has more hulls than the divisor's own range [105, 120).
+        Assert.Equal(0, 100 / 105);
+        Assert.Equal(0, (100 / 105) * 47);
+    }
+
+    /// <summary>
+    /// T52 DoD 2: the 40-hull cliff is gone. A 10-hull and a 100-hull fleet beaten by the same margin --
+    /// the same mirrored ratio, drawn against the same divisor -- lose proportionally similar fractions of
+    /// their own size, not a flat floor.
+    /// </summary>
+    [Fact]
+    public void DoD02_SmallAndLargeFleetsBeatenByTheSameMarginLoseProportionalFractions()
+    {
+        var rules = BattleTestbed.Destroyed.Combat;
+        const int Ratio = 47; // T16's own DoD10 naval fixture: 1300 x 40 / 1100 = 47.
+
+        var smallLost = BattleCasualties.ApplyToFleet(10, Ratio, new ScriptedDivisorRng(0), rules);
+        var largeLost = BattleCasualties.ApplyToFleet(100, Ratio, new ScriptedDivisorRng(0), rules);
+
+        // divisor 105 (draw 0): (10 x 47) / 105 = 4 (40% of the fleet); (100 x 47) / 105 = 44 (44%).
+        Assert.Equal(4, smallLost);
+        Assert.Equal(44, largeLost);
+        Assert.Equal(0.4, smallLost / 10.0);
+        Assert.Equal(0.44, largeLost / 100.0);
+
+        // The cliff this fixes: under T16's own hull-COUNT reading, min(ships, ratio), this SAME ratio
+        // (47, at or above the mirrored figure's own floor of 40) annihilated the 10-hull fleet OUTRIGHT
+        // -- min(10, 47) = 10, its entire strength -- while the 100-hull fleet lost only min(100, 47),
+        // 47% of itself. The two fractions were nowhere near each other; now they are.
+        Assert.Equal(10, Math.Min(10, Ratio));
+        Assert.Equal(47, Math.Min(100, Ratio));
+        Assert.True(smallLost < 10, "the 10-hull fleet must no longer be annihilated outright by this ratio");
+    }
+
+    /// <summary>
+    /// T52 DoD 5, the two-entity probe: the same 300 troops, once as a single 300-troop slot the OLD code
+    /// already annihilated correctly (<c>300 / 105 = 2</c>, nonzero, so the saturating ratio was never
+    /// truncated to zero), and once split into three 100-troop slots, where <c>100 / 105 = 0</c> truncated
+    /// the loss to zero <em>before</em> the saturating value could apply -- exactly T16's reviewer's own
+    /// proof: <em>"loser SURVIVED. fate=Scattered, casualties=0, troops left=300"</em>.
+    /// </summary>
+    [Fact]
+    public void DoD05_TheSaturatingRatioTakesTheWholeSlotEvenWhenTroopsAreBelowTheDivisor()
+    {
+        var rules = BattleTestbed.Destroyed.Combat;
+
+        // Unbounded: a zero divisor power with a positive numerator (T16's own zero-strength-loser case).
+        var saturating = BattleCasualties.Ratio(5100, 0, rules.WinnerCasualtyNumerator);
+        Assert.Equal(int.MaxValue, saturating);
+
+        var oneSlot = ValueList.Of(BattleTestbed.Unit("light_infantry", 300, 6, "Whole"));
+        var threeSlots = ValueList.Of(
+            BattleTestbed.Unit("light_infantry", 100, 6, "A"),
+            BattleTestbed.Unit("light_infantry", 100, 6, "B"),
+            BattleTestbed.Unit("light_infantry", 100, 6, "C"));
+
+        var (reducedOne, _, appliedOne) =
+            BattleCasualties.Apply(oneSlot, saturating, new ScriptedDivisorRng(0), rules);
+        var (reducedThree, _, appliedThree) =
+            BattleCasualties.Apply(threeSlots, saturating, new ScriptedDivisorRng(0), rules);
+
+        // The single-slot case was already correct and must stay correct.
+        Assert.Equal(300, appliedOne);
+        Assert.Equal(0, reducedOne[0].Troops);
+
+        // The three-slot case is the one this fix repairs: every slot is now annihilated too, the same
+        // total, split differently -- not left "surviving untouched" the way T16's reviewer found it.
+        Assert.Equal(300, appliedThree);
+        Assert.Equal(new[] { 0, 0, 0 }, reducedThree.Select(u => u.Troops).ToArray());
+        Assert.Equal(appliedOne, appliedThree);
+    }
+
+    /// <summary>
     /// Both halves of the formula are transcribed, not invented: the ratio from the call site's report,
     /// the per-unit body from the corpus entry for <c>FUN_0044AE20</c>.
     /// </summary>
+    /// <remarks>
+    /// T52 DoD 10: <c>value</c> now reads as the ratio it is, not as a troop-count assignment -- the exact
+    /// wording that sent T16's first implementation and its first review down the count-reading path.
+    /// Pinned to the exact string, not a substring: a reviewer weakening this to
+    /// <c>Assert.Contains</c> would let the entry drift back toward the count reading unnoticed.
+    /// </remarks>
     [Fact]
     public void BothHalvesOfTheFormulaMatchTheTranscribedSources()
     {
+        var ratioEntry = FixtureCorpus.Get("battle.instantResolver.casualtyFormula");
         Assert.Equal(
-            "winner casualties = loserPower * 40 / winnerPower",
-            FixtureCorpus.Get("battle.instantResolver.casualtyFormula").AsString());
+            "winner casualty ratio = loserPower * 40 / winnerPower",
+            ratioEntry.AsString());
+        Assert.Contains("RATIO ARGUMENT", ratioEntry.Note!, StringComparison.Ordinal);
+        Assert.Contains("not a troop count", ratioEntry.Note!, StringComparison.Ordinal);
         Assert.Equal(40, BattleTestbed.Destroyed.Combat.WinnerCasualtyNumerator);
 
         var body = FixtureCorpus.Get("siege.attritionFormula");
