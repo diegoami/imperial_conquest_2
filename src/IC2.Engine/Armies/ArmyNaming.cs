@@ -5,31 +5,57 @@ namespace IC2.Engine.Armies;
 
 /// <summary>
 /// The regular-unit auto-naming scheme — <c>docs/task-catalogue.md</c> "T15 Army and unit management",
-/// Done-when 5: <c>"Nth Foot/Guards/Bowmen/Lancers/Dragoons Battalion"</c>, the ordinal being the next
-/// free one for that unit type across the whole nation's armies and its cities' garrisons.
+/// Done-when 5: <c>"Nth Foot/Guards/Bowmen/Lancers/Dragoons Battalion"</c>, the ordinal being
+/// <strong>one past the highest</strong> already borne by that unit type across the whole nation's
+/// armies and its cities' garrisons.
 /// </summary>
 /// <remarks>
 /// <para>
 /// <strong>[confirmed: decompiled-unit-map-orders-and-record-fields.md]</strong> — the unit-level split
 /// helper (<c>TSplitArmyUnit_OK</c>, <c>0x004444CC</c>): "A split unit inherits type and quality and is
 /// auto-named with the next free ordinal for its type across all of the nation's armies and the city
-/// garrison (1st/2nd/3rd/Nth + Foot/Guards/Bowmen/Lancers/Dragoons + Battalion) — which is exactly the
-/// naming pattern seen in every roster in <c>army-records-and-roman-roster.md</c>." That report's own
-/// 13-unit Roman roster is the corpus this task's Done-when 5 names, reproduced verbatim in
-/// <c>ArmyNamingTests</c>: <c>1st</c>/<c>2nd Foot</c>, <c>1st</c>–<c>8th Guards</c>, <c>1st</c>/<c>2nd
-/// Dragoons</c>, and a lone <c>2nd Lancers</c> with no <c>1st</c> present (this task's own free-ordinal
-/// algorithm reads that gap as ordinal 1 being free — see <see cref="NextOrdinal"/>'s remarks).
+/// garrison (1st/2nd/3rd/Nth + Foot/Guards/Bowmen/Lancers/Dragoons + Battalion)." The same scan is
+/// <c>FUN_0044a218</c> on the mobilization path
+/// (<c>decompiled-mobilization-and-mercenary-restock.md</c> §3), which adds that it is nation-wide and
+/// skips mercenaries — every unit whose origin label is non-zero, which is why a hired unit never takes
+/// a battalion number.
 /// </para>
 /// <para>
-/// <strong>"Free", read literally.</strong> No report decompiles the ordinal-selection loop itself —
-/// only this sentence describing its outcome — so the exact algorithm (smallest unused integer, versus
-/// one past the highest used) is <c>[derived]</c> from the word "free" alone. This class takes "free" at
-/// its plain-English meaning: the smallest positive ordinal not currently in use by that type anywhere in
-/// the nation, so a disbanded unit's ordinal is available for reuse rather than the numbering only ever
-/// growing. What was searched and came up empty for the loop's own instructions:
-/// <c>decompiled-unit-map-orders-and-record-fields.md</c> (the source sentence above, prose only) and
-/// every other report in <c>tests/fixtures/known-reports.json</c> naming <c>TSplitArmyUnit</c>,
-/// <c>TChangeArmyUnits</c> or a battalion name.
+/// <strong>"Next free" means one past the highest, and that is now <c>[confirmed]</c> rather than
+/// derived.</strong> No report decompiles the selection loop itself, and an earlier revision of this
+/// class said so and chose the other reading — <em>"the exact algorithm (smallest unused integer,
+/// versus one past the highest used) is [derived] from the word 'free' alone"</em>, resolved in favour
+/// of smallest-unused. <strong>The save pair behind T55's Done-when 8 settles it, against that
+/// reading</strong>: in <c>1_rome_270_autumn_1.sav</c> Rome owns exactly one army, whose only
+/// light-cavalry unit is <c>2nd Lancers</c> — there is no <c>1st</c> anywhere in the nation — and in
+/// <c>1_rome_270_autumn_3.sav</c> the unit mobilized into the new army is named
+/// <strong><c>3rd Lancers Battalion</c></strong>. Smallest-unused would have produced <c>1st</c>. Every
+/// other name in that pair is a dense series where the two readings agree, so the lone <c>2nd
+/// Lancers</c> with no <c>1st</c> is the sole discriminating case in the corpus, and
+/// <c>RomeAutumnMobilizationReplayTests</c> reproduces it end to end.
+/// <a href="https://github.com/diegoami/imperial_conquest_2/issues/243">#243</a>.
+/// </para>
+/// <para>
+/// <strong>The ordinal is read out of the name, because the original has nowhere else to keep it.</strong>
+/// The army unit slot is 32 bytes and every field is accounted for — <c>+0</c> origin label, <c>+2</c>
+/// type, <c>+4</c> troops, <c>+6</c> quality, <c>+8</c> a 24-byte name
+/// (<c>decompiled-mobilization-and-mercenary-restock.md</c> §1, <c>army-records-and-roman-roster.md</c>)
+/// — so there is no stored ordinal for the scan to read and no room to add one without changing the
+/// record this engine must round-trip. Parsing the name is therefore not a shortcut here; it is what the
+/// original must itself be doing.
+/// </para>
+/// <para>
+/// <strong>And the parse must tolerate the spacing the saves actually contain</strong>
+/// <c>[confirmed]</c>, second defect of #243. The corpus stores several names with a <em>double</em>
+/// space before "Battalion" — <c>"1st Foot  Battalion"</c>, <c>"2nd Lancers  Battalion"</c>,
+/// <c>"1st Dragoons  Battalion"</c> — while every unit created during play uses a single one. An
+/// earlier revision of <see cref="NamePattern"/> required exactly one space, which silently discarded
+/// those ordinals. <strong>The Dragoons in that same pair prove the original does not:</strong> Rome's
+/// only two heavy-cavalry units are <c>"1st Dragoons  Battalion"</c> and <c>"2nd Dragoons  Battalion"</c>,
+/// <em>both</em> double-spaced, and the mobilized one comes out <c>3rd Dragoons Battalion</c> — which
+/// is unreachable unless both ordinals were seen. This also corroborates the rule above: reading a
+/// leading integer out of a loosely-formatted string is exactly what one-past-the-highest needs, where
+/// smallest-unused would need the complete set of used ordinals to be recovered correctly.
 /// </para>
 /// <para>
 /// <strong>The label word is not ruleset data.</strong> This task's Owns list
@@ -96,18 +122,31 @@ public static class ArmyNaming
     }
 
     /// <summary>
-    /// The smallest positive ordinal not already in use by a regular unit of <paramref name="unitTypeId"/>
+    /// One past the highest ordinal already borne by a regular unit of <paramref name="unitTypeId"/>
     /// (named with <paramref name="label"/>) across <paramref name="nationId"/>'s armies and city
-    /// garrisons.
+    /// garrisons — <c>1</c> when the nation has none.
     /// </summary>
     /// <remarks>
-    /// A gap is filled before the count grows: if the nation's only <c>Lancers</c> unit is <c>"2nd Lancers
-    /// Battalion"</c> (ordinal 1 currently unused, exactly the Roman roster's own shape — see this class's
-    /// remarks), the next one raised is named <c>"1st Lancers Battalion"</c>, not <c>"3rd"</c>.
-    /// </remarks>
+    /// <para>
+    /// <strong>A gap is not filled.</strong> If the nation's only <c>Lancers</c> unit is
+    /// <c>"2nd Lancers Battalion"</c> with no <c>1st</c> anywhere — exactly the shape Rome is in at
+    /// <c>1_rome_270_autumn_1.sav</c> — the next one raised is <c>"3rd Lancers Battalion"</c>, which is
+    /// what that save's successor records. See this class's remarks for the evidence; a disbanded
+    /// unit's ordinal is retired, not recycled.
+    /// </para>
+    /// <para>
+    /// <strong>There is no 99 cap here, deliberately.</strong>
+    /// <c>decompiled-mobilization-and-mercenary-restock.md</c> §3 records that <c>FUN_0044a218</c>
+    /// "picks the lowest ordinal <c>N</c> in <c>1..99</c> … if all of 1..98 are taken it sticks at
+    /// 99" — but that sentence describes the <em>smallest-unused</em> loop the same corpus refutes
+    /// (see this class's remarks), and under one-past-the-highest there is no search to terminate and
+    /// so nothing to stick at. The highest ordinal anywhere in the pair that settles the rule is 9, so
+    /// the corpus does not reach the question, and #243 granted these files for its two defects only.
+    /// Recorded here rather than left in a pull-request body, which does not survive the merge.
+    /// </para>
     private static int NextOrdinal(GameState state, string nationId, string unitTypeId, string label)
     {
-        var used = new HashSet<int>();
+        var highest = 0;
 
         foreach (var army in state.Armies)
         {
@@ -116,7 +155,7 @@ public static class ArmyNaming
                 continue;
             }
 
-            CollectOrdinals(army.Units, unitTypeId, label, used);
+            highest = Math.Max(highest, HighestOrdinal(army.Units, unitTypeId, label));
         }
 
         foreach (var city in state.Cities)
@@ -126,23 +165,45 @@ public static class ArmyNaming
                 continue;
             }
 
-            CollectOrdinals(city.Garrison, unitTypeId, label, used);
+            highest = Math.Max(highest, HighestOrdinal(city.Garrison, unitTypeId, label));
         }
 
-        var candidate = 1;
-        while (used.Contains(candidate))
-        {
-            candidate++;
-        }
-
-        return candidate;
+        return highest + 1;
     }
 
-    private static void CollectOrdinals(ValueList<UnitSlot> units, string unitTypeId, string label, HashSet<int> used)
+    /// <summary>
+    /// The highest ordinal borne by a regular unit of <paramref name="unitTypeId"/> in
+    /// <paramref name="units"/>, or <c>0</c> when there is none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A mercenary is skipped by <see cref="UnitSlot.IsRegular"/> rather than by failing to match the
+    /// pattern: <c>FUN_0044a218</c>'s own scan tests the origin label, and an ethnic name such as
+    /// "Gallic" would not match the battalion pattern either way — but the label is the rule and the
+    /// name is a coincidence, so the rule is what is written.
+    /// <c>ArmyNamingTests.NextName_SkipsAMercenaryEvenWhenItsNameLooksLikeABattalion</c> separates the
+    /// two with a mercenary whose name <em>is</em> battalion-shaped.
+    /// </para>
+    /// <para>
+    /// <strong>The original's scan also filters on <c>troops &gt; 0</c>, and this one does not.</strong>
+    /// It has to: the original's army record is a fixed 20-slot array that retains whatever the slot
+    /// last held, and the corpus shows it plainly — in <c>1_rome_270_autumn_1.sav</c> army 0, slot 13
+    /// still reads <c>"4th Guards  Battalion"</c> with 0 troops behind twelve live units, and slots
+    /// 14–19 hold uninitialised bytes (origin label <c>-1800</c>, quality <c>514</c>, unreadable
+    /// names). Here a vacated slot is normally absent from <see cref="ArmyState.Units"/> altogether, so
+    /// there is usually nothing to filter — but the model does not forbid a zero-troop
+    /// <see cref="UnitSlot"/>, and <c>MobilizationReceivingArmy.FirstFreeUnitSlot</c> reads one as a
+    /// hole, so one carrying a stale battalion name would be counted here where the original would
+    /// skip it. No engine path produces that today; it is reported for the bug list rather than fixed
+    /// under a grant that covers #243's two defects, and it is stated rather than assumed away.
+    /// </para>
+    /// </remarks>
+    private static int HighestOrdinal(ValueList<UnitSlot> units, string unitTypeId, string label)
     {
+        var highest = 0;
         foreach (var unit in units)
         {
-            if (!string.Equals(unit.UnitTypeId, unitTypeId, StringComparison.Ordinal))
+            if (!unit.IsRegular || !string.Equals(unit.UnitTypeId, unitTypeId, StringComparison.Ordinal))
             {
                 continue;
             }
@@ -150,13 +211,24 @@ public static class ArmyNaming
             var match = NamePattern(label).Match(unit.Name);
             if (match.Success)
             {
-                used.Add(int.Parse(match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture));
+                highest = Math.Max(
+                    highest,
+                    int.Parse(match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture));
             }
         }
+
+        return highest;
     }
 
+    /// <summary>
+    /// The battalion-name pattern, tolerant of the whitespace the corpus actually holds: one or more
+    /// spaces between the ordinal, the label and "Battalion", and any surrounding padding. See this
+    /// class's remarks for why (the saves' own <c>"1st Dragoons  Battalion"</c>), and
+    /// <c>ArmyNamingTests.NextName_ReadsAnOrdinalOutOfTheDoubleSpacedFormTheSavesHold</c> for the test
+    /// that visits it.
+    /// </summary>
     private static Regex NamePattern(string label) =>
-        new($@"^(\d+)(?:st|nd|rd|th) {Regex.Escape(label)} Battalion$", RegexOptions.CultureInvariant);
+        new($@"^\s*(\d+)(?:st|nd|rd|th)\s+{Regex.Escape(label)}\s+Battalion\s*$", RegexOptions.CultureInvariant);
 
     /// <summary>Formats a positive integer with its English ordinal suffix — <c>1 → "1st"</c>, <c>12 → "12th"</c>.</summary>
     private static string Ordinal(int n)

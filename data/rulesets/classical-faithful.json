@@ -405,11 +405,29 @@
     "mercenaryPoolSlots": 50,
     "mercenaryHireTroopDivisor": 1000,
     "mercenaryUpkeepQualityDivisor": 5,
+    "maxSlots": 40,
+    "mobilizationQualityDivisor": 4,
+    "mobilizationMinStateCodeHumanSeat": 16,
+    "mobilizationMinStateCodeAiSeat": 24,
+    "mobilizationReceivingArmyRangeHumanSeat": 1,
+    "mobilizationReceivingArmyRangeAiSeat": 5,
+    "mobilizationRateOrderStep": 1,
+    "mobilizationRateWealthScale": 1000,
+    "mobilizationCapPercent": 100,
     "_provenance": {
       "troopsPerCostUnit": "confirmed: decompiled-recruitment-cost-formula.md — cost = (troops / 200) × priceTable[unitType], the same table for initial recruitment and quarterly upkeep. T04 fixtures corpus id: 'recruitment.costFormula.initial'.",
       "mercenaryPoolSlots": "confirmed: decompiled-sav-file-layout.md — the mercenary table is exactly 50 slots of 12 bytes, hard-coded in the save/load code (mercenary-pool-record.md had found the same figure empirically). T04 fixtures corpus id: 'caps.maxMercenarySlots'.",
       "mercenaryHireTroopDivisor": "confirmed: decompiled-unit-map-orders-and-record-fields.md — hire cost = (troops × quarterlyPrice[type]) / 1000 × quality, paid from the hiring army's own purse. T04 fixtures corpus id: 'mercenary.hireCostFormula'.",
-      "mercenaryUpkeepQualityDivisor": "confirmed: decompiled-unit-map-orders-and-record-fields.md — mercenary upkeep is ((troops / 200) × price[type] × quality) / 5 against a regular's (troops / 200) × price[type]. T04 fixtures corpus id: 'mercenary.upkeepFormula'."
+      "mercenaryUpkeepQualityDivisor": "confirmed: decompiled-unit-map-orders-and-record-fields.md — mercenary upkeep is ((troops / 200) × price[type] × quality) / 5 against a regular's (troops / 200) × price[type]. T04 fixtures corpus id: 'mercenary.upkeepFormula'.",
+      "maxSlots": "confirmed: decompiled-mobilization-and-mercenary-restock.md §1 — the recruitment table is 40 slots; FUN_0044a610 deletes one by shifting every later slot down and zeroing slot 39, and TArmyRecruits_RecruitUnit refuses outright when slot 39 is occupied (“You have reached your limit of 40 units.”).",
+      "mobilizationQualityDivisor": "confirmed: decompiled-mobilization-and-mercenary-restock.md §1 — FUN_0044a4e0 writes the new unit's permanent quality as stateCode / 4, truncating toward zero, and TArmyRecruits_SetCityRecruits renders the recruit list's status column with the identical expression against the DAT quality-name table at 0x1F6CA.",
+      "mobilizationMinStateCodeHumanSeat": "confirmed: decompiled-mobilization-and-mercenary-restock.md §2 — TArmyRecruits_MobilizeUnits gates on 'if (0xf < slot.state)', which with the /4 quality divisor is exactly 'quality >= 4', i.e. the slot no longer reads 'not ready'.",
+      "mobilizationMinStateCodeAiSeat": "confirmed: decompiled-mobilization-and-mercenary-restock.md §4 — the AI's FUN_004504f4 tests 'slot.state == 0x18' in both of its passes, where the player's dialog accepts 16; 24 is also calendar.cityUnitStateCodeCap, so on this engine the equality and this minimum select the same slots.",
+      "mobilizationReceivingArmyRangeHumanSeat": "confirmed: decompiled-mobilization-and-mercenary-restock.md §3 — FUN_0044a120 accepts an army of the nation at Chebyshev distance exactly 1 from the training city ('d == 1', not 'd <= 1').",
+      "mobilizationReceivingArmyRangeAiSeat": "confirmed: decompiled-mobilization-and-mercenary-restock.md §3 — the same function's second branch, taken when the nation is computer-controlled, accepts 'd < 6'; the report calls it 'a real, asymmetric AI advantage'.",
+      "mobilizationRateOrderStep": "confirmed: decompiled-mobilization-and-mercenary-restock.md §5 — TArmyRecruits_RecruitUnit raises the rate by 1 + (troops × 1000) / wealth when an order is placed, and TArmyRecruits_DisbandUnits subtracts the same figure when one is cancelled.",
+      "mobilizationRateWealthScale": "confirmed: decompiled-mobilization-and-mercenary-restock.md §5 — the troop term of that formula is (troops × 1000) / wealth, wealth being nation +0x430, Σ population × 3000.",
+      "mobilizationCapPercent": "confirmed: decompiled-mobilization-and-mercenary-restock.md §5 — the raise is clamped with min(100, ...), the same cap the dialog reports as 'Your mobilisation rate is already 100%.' (T04 fixtures corpus recruitment.mobilizationCapPercent = 100, error.mobilizationAlready100)."
     }
   },
   "armyManagement": {
