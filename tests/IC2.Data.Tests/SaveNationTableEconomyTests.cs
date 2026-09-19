@@ -16,8 +16,7 @@ public class SaveNationTableEconomyTests
     {
         // "Rome's value is 2,444, not 2,440 (... 1_rome_270_summer_7.sav, ...)."
         Skip.IfNot(LocalAssets.IsConfigured, LocalAssets.SkipReason);
-        var settings = LocalAssets.Settings!;
-        var data = File.ReadAllBytes(settings.ResolveSavePath("saves-processed/1_rome_270_summer_7.sav"));
+        var data = File.ReadAllBytes(FixtureResolver.ResolveOrThrow("1_rome_270_summer_7.sav"));
 
         var rome = SaveNationTable.Parse(data).Nations[0];
 
@@ -42,11 +41,10 @@ public class SaveNationTableEconomyTests
         // The Naupactus capture table: Illyria (new owner) tax base 396 -> 444 (+48); Greece (old
         // owner) 2296 -> 2248 (-48), both "± 12 << 2" for Naupactus's contribution of 12.
         Skip.IfNot(LocalAssets.IsConfigured, LocalAssets.SkipReason);
-        var settings = LocalAssets.Settings!;
         var before = SaveNationTable.Parse(
-            File.ReadAllBytes(settings.ResolveSavePath("saves-processed/1_rome_270_winter_7_b.sav")));
+            File.ReadAllBytes(FixtureResolver.ResolveOrThrow("1_rome_270_winter_7_b.sav")));
         var after = SaveNationTable.Parse(
-            File.ReadAllBytes(settings.ResolveSavePath("saves-processed/1_rome_270_winter_9_b.sav")));
+            File.ReadAllBytes(FixtureResolver.ResolveOrThrow("1_rome_270_winter_9_b.sav")));
 
         Assert.Equal((short)396, before.Nations[9].TaxBase);
         Assert.Equal((short)444, after.Nations[9].TaxBase);
@@ -60,11 +58,10 @@ public class SaveNationTableEconomyTests
         // The same table's wealth column: Illyria 768,000 -> 843,000; Greece 2,490,000 -> 2,415,000,
         // both "± 25 × 3000" for Naupactus's population of 25.
         Skip.IfNot(LocalAssets.IsConfigured, LocalAssets.SkipReason);
-        var settings = LocalAssets.Settings!;
         var before = SaveNationTable.Parse(
-            File.ReadAllBytes(settings.ResolveSavePath("saves-processed/1_rome_270_winter_7_b.sav")));
+            File.ReadAllBytes(FixtureResolver.ResolveOrThrow("1_rome_270_winter_7_b.sav")));
         var after = SaveNationTable.Parse(
-            File.ReadAllBytes(settings.ResolveSavePath("saves-processed/1_rome_270_winter_9_b.sav")));
+            File.ReadAllBytes(FixtureResolver.ResolveOrThrow("1_rome_270_winter_9_b.sav")));
 
         Assert.Equal(768000, before.Nations[9].Wealth);
         Assert.Equal(843000, after.Nations[9].Wealth);

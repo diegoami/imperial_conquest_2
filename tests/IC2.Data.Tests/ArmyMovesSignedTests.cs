@@ -17,15 +17,14 @@ public class ArmyMovesSignedTests
     // respect, in all four save files that record this same save state.
 
     [SkippableTheory]
-    [InlineData("saves-processed/11.sav")]
-    [InlineData("saves-processed/11_ptol.sav")]
-    [InlineData("saves-processed/11_supply.sav")]
-    [InlineData("saves-processed/1_rome_270_summer_7.sav")]
-    public void Ptolemaic_army_9_reads_negative_one_not_65535(string relativePath)
+    [InlineData("11.sav")]
+    [InlineData("11_ptol.sav")]
+    [InlineData("11_supply.sav")]
+    [InlineData("1_rome_270_summer_7.sav")]
+    public void Ptolemaic_army_9_reads_negative_one_not_65535(string fixtureName)
     {
         Skip.IfNot(LocalAssets.IsConfigured, LocalAssets.SkipReason);
-        var settings = LocalAssets.Settings!;
-        var data = File.ReadAllBytes(settings.ResolveSavePath(relativePath));
+        var data = File.ReadAllBytes(FixtureResolver.ResolveOrThrow(fixtureName));
 
         var table = SaveArmyTable.Parse(data);
         var army = table.Armies.Single(a => a.Index == 9);
@@ -46,15 +45,14 @@ public class ArmyMovesSignedTests
     // 10 - min(5, 48173/20000) = 10 - 2 = 8, exactly what is stored.
 
     [SkippableTheory]
-    [InlineData("saves-processed/11.sav")]
-    [InlineData("saves-processed/11_ptol.sav")]
-    [InlineData("saves-processed/11_supply.sav")]
-    [InlineData("saves-processed/1_rome_270_summer_7.sav")]
-    public void Romes_army_in_the_same_save_keeps_its_ordinary_positive_moves(string relativePath)
+    [InlineData("11.sav")]
+    [InlineData("11_ptol.sav")]
+    [InlineData("11_supply.sav")]
+    [InlineData("1_rome_270_summer_7.sav")]
+    public void Romes_army_in_the_same_save_keeps_its_ordinary_positive_moves(string fixtureName)
     {
         Skip.IfNot(LocalAssets.IsConfigured, LocalAssets.SkipReason);
-        var settings = LocalAssets.Settings!;
-        var data = File.ReadAllBytes(settings.ResolveSavePath(relativePath));
+        var data = File.ReadAllBytes(FixtureResolver.ResolveOrThrow(fixtureName));
 
         var table = SaveArmyTable.Parse(data);
         var army = table.Armies.Single(a => a.Index == 0);
