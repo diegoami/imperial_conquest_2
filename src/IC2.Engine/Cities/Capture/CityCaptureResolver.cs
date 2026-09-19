@@ -161,10 +161,12 @@ public static class CityCaptureResolver
             RecruitmentSlots = WithoutSlotsTargeting(transferredOldOwner.RecruitmentSlots, city.Id),
         };
 
+        var fortifyOrder = RequireCityOrder(ruleset, fortifyOrderId);
         var transferredCity = city with
         {
             Owner = newOwner.Id,
             Loyalty = LoyaltyAfterTransfer(city, newOwner.Id, ruleset, forcedCapture: true),
+            FortificationCode = FortificationCode.AfterSiegeAttempt(city.FortificationCode, fortifyOrder),
         };
 
         var newState = state with { Cities = ReplaceCity(state.Cities, transferredCity) };
@@ -184,7 +186,6 @@ public static class CityCaptureResolver
         }
 
         var attackerStrength = SiegeStrength.Attacker(attackerArmy.Units, attackerArmy.Morale, ruleset, archerUnitTypeId);
-        var fortifyOrder = RequireCityOrder(ruleset, fortifyOrderId);
 
         return RunCascade(newState, transferredCity, oldOwner.Id, newOwner.Id, attackerStrength, attackerArmy, fortifyOrder, ruleset, events);
     }
