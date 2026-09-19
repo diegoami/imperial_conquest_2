@@ -1,9 +1,11 @@
+using System.Reflection;
 using IC2.Engine.Battle;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
 using IC2.Engine.News;
 using IC2.Engine.Serialization;
 using IC2.Engine.Strength;
+using IC2.Engine.Tests.Core;
 using Xunit;
 
 namespace IC2.Engine.Tests.Battle;
@@ -22,6 +24,12 @@ public class FieldBattleTests
 {
     private const string Attacker = "north-attacker";
     private const string Defender = "south-defender";
+
+    /// <summary>
+    /// A <see cref="TestFixtureGroupAttribute"/> group nothing in the test assembly tags itself with —
+    /// see <see cref="DoD08_PeaceTreatyTriggeredIsPublishedWhenTheRollAndBothGatesPass"/>'s own remarks.
+    /// </summary>
+    private const string FieldBattlePipelineProbeGroup = "battle.field-battle-decoupling-probe";
 
     /// <summary>Done-when 1, first half: the higher-power side wins.</summary>
     [Fact]
@@ -354,11 +362,21 @@ public class FieldBattleTests
         Assert.Equal(535, treaty.LoserUnity);
         Assert.Equal(9, treaty.LoserCityCount);
 
-        // "Observable in a test with no diplomacy system registered": nothing was registered at all --
-        // this resolver publishes rather than calling diplomacy, so the event exists on its own.
-        Assert.DoesNotContain(
-            SystemRegistry.FromEngineAssembly().Systems,
-            s => s.Id.StartsWith("diplomacy.", StringComparison.Ordinal));
+        // "Observable in a test with no diplomacy system registered" (T16 DoD 8): the claim is about
+        // THIS TEST'S OWN pipeline, not the whole engine assembly -- FromEngineAssembly() checked
+        // whether any diplomacy system exists anywhere in production code at all, which was only ever
+        // true until T19 (diplomacy.peace-treaty, diplomacy.pending-offer-reroll, diplomacy.quarterly-thaw)
+        // existed, and stopped meaning what this test's own comment already said ("nothing was
+        // registered at all"). A registry scoped to this probe group has nothing registered in it --
+        // no fixture in this file or elsewhere tags itself with FieldBattlePipelineProbeGroup -- which is
+        // the actual claim: the resolver publishes PeaceTreatyTriggered with no subscriber in its own
+        // pipeline, not that diplomacy is unimplemented anywhere in the codebase (#194).
+        var pipelineRegistry = SystemRegistry.FromAssemblies(
+            new[] { typeof(FieldBattleTests).Assembly },
+            type => type.GetCustomAttribute<TestFixtureGroupAttribute>(inherit: false)?.Group
+                    == FieldBattlePipelineProbeGroup);
+
+        Assert.Empty(pipelineRegistry.Systems);
     }
 
     /// <summary>Done-when 8, the unity gate: the same seeded roll fires, and the gate still refuses.</summary>
