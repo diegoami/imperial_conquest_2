@@ -26,6 +26,26 @@ namespace IC2.Engine.Calendar;
 /// line — this system raises <see cref="SeatHandoffRequested"/> when the seat about to become active is
 /// a local human, and stays silent for an AI seat, which needs no such pause.
 /// </para>
+/// <para>
+/// <strong>Elimination-aware rotation (T17 DoD 8, T06 follow-up
+/// <see href="https://github.com/diegoami/imperial_conquest_2/issues/43">#43</see>).</strong> A nation
+/// eliminated under <c>docs/task-catalogue.md</c> T17 DoD 4
+/// (<see cref="IC2.Engine.Cities.Capture.NationElimination"/>) never becomes the active seat again: the
+/// search for the next seat skips every <see cref="NationState.Eliminated"/> entry in
+/// <see cref="GameState.TurnOrder"/>, including one eliminated earlier in the same round, so it gets no
+/// further <see cref="SeatHandoffRequested"/> and — since nothing downstream ever reads
+/// <see cref="GameState.ActiveSeatIndex"/> for an eliminated nation — no AI turn either. How the original
+/// itself treats an eliminated seat is not decompiled; this is <strong>[designed]</strong>, the direct
+/// reading of "gets no further turn" the DoD line's own words ask for, and what was searched for a
+/// decompiled rule and came up empty is recorded in this task's PR (<c>design-audit.md</c> §4.5): none of
+/// the three reports T17 already cites for elimination
+/// (<c>decompiled-city-capture-resolution.md</c>, <c>decompiled-defection-and-siege-attrition.md</c>,
+/// <c>galatia-elimination-and-city-resupply-confirmed.md</c>) states a turn-order rule for the eliminated
+/// seat, and none was found searching for one. An active seat whose nation id does not resolve at all
+/// (as opposed to resolving but eliminated) fails with a typed <see cref="SeatResolutionException"/>
+/// rather than being skipped silently — a genuinely corrupt turn order is a defect to surface, not paper
+/// over.
+/// </para>
 /// </remarks>
 [GameSystem(TurnPhase.SeatEnd, "calendar.seat-rotation")]
 public sealed class SeatRotationSystem : IGameSystem
@@ -41,22 +61,68 @@ public sealed class SeatRotationSystem : IGameSystem
             throw new InvalidOperationException("A scenario's turn order must name at least one seat.");
         }
 
-        var nextIndex = (state.ActiveSeatIndex + 1) % state.TurnOrder.Count;
-        if (nextIndex == 0)
+        var index = state.ActiveSeatIndex;
+        var wrapped = false;
+        NationState? nextNation = null;
+        string nextNationId;
+
+        // Advance at least once, then keep skipping any eliminated seat, for up to one full lap of the
+        // turn order -- "including one eliminated earlier in the same round" is exactly a seat this loop
+        // would otherwise land back on within that same lap.
+        for (var attempts = 0; attempts < state.TurnOrder.Count; attempts++)
         {
-            // Every seat in the turn-order table has now had its turn: the round is complete and the
-            // original's global weekly tick (FUN_004514ec) is due.
+            index = (index + 1) % state.TurnOrder.Count;
+            if (index == 0)
+            {
+                // Every seat in the turn-order table has now had its turn: the round is complete and the
+                // original's global weekly tick (FUN_004514ec) is due -- true of the lap itself, whether
+                // or not the seat landed on this pass turns out to be eliminated too.
+                wrapped = true;
+            }
+
+            nextNationId = state.TurnOrder[index];
+            nextNation = state.NationById(nextNationId)
+                         ?? throw new SeatResolutionException(
+                             $"Turn-order seat '{nextNationId}' (index {index}) does not resolve to a known nation.");
+
+            if (!nextNation.Eliminated)
+            {
+                break;
+            }
+
+            nextNation = null;
+        }
+
+        if (nextNation is null)
+        {
+            throw new SeatResolutionException(
+                "Every seat in the turn order is eliminated; there is no next active seat to rotate to.");
+        }
+
+        if (wrapped)
+        {
             context.Signals.RequestRoundTick();
         }
 
-        var nextNationId = state.TurnOrder[nextIndex];
-        var nextNation = state.NationById(nextNationId);
-        if (nextNation is { Control: SeatControl.Human })
+        if (nextNation.Control == SeatControl.Human)
         {
-            context.Events.Publish(new SeatHandoffRequested(nextNationId));
+            context.Events.Publish(new SeatHandoffRequested(nextNation.Id));
         }
 
-        return state with { ActiveSeatIndex = nextIndex };
+        return state with { ActiveSeatIndex = index };
+    }
+}
+
+/// <summary>
+/// A turn-order seat could not be resolved to a next active nation — either its id names no nation at
+/// all, or every seat in the turn order is eliminated. A typed invariant error
+/// (<c>docs/task-catalogue.md</c> T17 DoD 8), never a silent skip.
+/// </summary>
+public sealed class SeatResolutionException : InvalidOperationException
+{
+    /// <summary>Creates the exception with a message describing which invariant failed.</summary>
+    public SeatResolutionException(string message) : base(message)
+    {
     }
 }
 

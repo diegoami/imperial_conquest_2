@@ -557,6 +557,34 @@
       "tierDivisor": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TInformation_ShowCityDetails picks the loyalty tier string as names[loyalty / 10]."
     }
   },
+  "capture": {
+    "captureTreasuryCreditMultiplier": 4,
+    "captureUnityGain": 9,
+    "captureUnityLoss": 15,
+    "defectionTreasuryCreditMultiplier": 6,
+    "defectionUnityGain": 3,
+    "defectionUnityLoss": 20,
+    "defectionUnityLossFloor": 250,
+    "eliminationUnityReset": 0,
+    "cascadeDistanceMax": 10,
+    "cascadeUnityThreshold": 650,
+    "cascadeLoyaltyThreshold": 65,
+    "cascadeAllegiantDefenseDivisor": 3,
+    "_provenance": {
+      "captureTreasuryCreditMultiplier": "confirmed: nation-tax-base-and-city-economy-fields.md — FUN_0044bb18's own write, 'new owner's treasury += contribution * 4' -- a different field from economy.taxBaseContributionMultiplier (also 4, but the taxBase += contribution * 4 term). See the capture.treasuryCreditMultiplier corpus entry's own note.",
+      "captureUnityGain": "confirmed: decompiled-city-capture-resolution.md / nation-tax-base-and-city-economy-fields.md — newOwner.unity += 9 at a forced capture, clamped to economy.unityCap.",
+      "captureUnityLoss": "confirmed: decompiled-city-capture-resolution.md / nation-tax-base-and-city-economy-fields.md — oldOwner.unity -= 15 at a forced capture; no floor is reported for this term.",
+      "defectionTreasuryCreditMultiplier": "derived: nation-tax-base-and-city-economy-fields.md confirms FUN_0044bed8's own write ('new owner's treasury += contribution * 6'); using FUN_0044bed8 as the defection routine is docs/task-catalogue.md T17's Known-open item inference, corroborated by decompiled-defection-and-siege-attrition.md's independent match to the Modena defection.",
+      "defectionUnityGain": "derived: decompiled-defection-and-siege-attrition.md / nation-tax-base-and-city-economy-fields.md — new owner's unity += 3 at a defection. See defectionTreasuryCreditMultiplier for the FUN_0044bed8-as-defection inference this shares.",
+      "defectionUnityLoss": "derived: decompiled-defection-and-siege-attrition.md / nation-tax-base-and-city-economy-fields.md — old owner's unity -= 20 at a defection. See defectionTreasuryCreditMultiplier.",
+      "defectionUnityLossFloor": "derived: nation-tax-base-and-city-economy-fields.md — the -20 defection unity loss is 'floored at 250'. See defectionTreasuryCreditMultiplier.",
+      "eliminationUnityReset": "confirmed: galatia-elimination-and-city-resupply-confirmed.md — Galatia's unity read exactly 0 after its last city was lost (668 -> 0). nation-tax-base-and-city-economy-fields.md separately mentions an untraced FUN_0044c360 resetting a 'collapsing nation' to unity 450, but its caller/trigger are not established and it is not the direct last-city-lost consequence DoD 4 asks for; the observed Galatia figure is used instead.",
+      "cascadeDistanceMax": "confirmed: decompiled-defection-and-siege-attrition.md — FUN_0044ba1c only considers another city within distance 10 of the besieging army. The report gives the threshold, not the distance metric; Chebyshev distance is used here as the engine's one other map-distance convention (IC2.Engine.Battle.ScatterPlacement), which is a derived choice.",
+      "cascadeUnityThreshold": "confirmed: decompiled-defection-and-siege-attrition.md — the cascade only fires while new_owner.unity < 650.",
+      "cascadeLoyaltyThreshold": "confirmed: decompiled-defection-and-siege-attrition.md — the cascade only considers a candidate city with loyalty < 65.",
+      "cascadeAllegiantDefenseDivisor": "confirmed: decompiled-defection-and-siege-attrition.md — otherDefense /= 3 when the candidate city's allegiance already matches the new owner."
+    }
+  },
   "diplomacy": {
     "stateCodes": {
       "peace": 0,
