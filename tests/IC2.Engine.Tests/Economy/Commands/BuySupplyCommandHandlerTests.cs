@@ -72,6 +72,45 @@ public sealed class BuySupplyCommandHandlerTests
         Assert.Same(before, result.State);
     }
 
+    /// <summary>
+    /// T50 Done-when 5 (issue #167): <c>TAFSupply_FindProviders</c> offers "every city within one tile" --
+    /// this path never enforced it, unlike the naval twin
+    /// (<c>Naval.Commands.BuyFleetSupplyCommandHandler.HandleCityProvider</c>) and this same command's own
+    /// fleet-provider branch. north-army-1 sits at (3,2); meridia sits at (3,4) -- two tiles away.
+    /// </summary>
+    [Fact]
+    public void A_city_more_than_one_tile_away_is_rejected_and_changes_nothing()
+    {
+        var dispatcher = Dispatcher();
+        var before = CoreTestbed.InitialState();
+
+        var result = dispatcher.Dispatch(before, new BuySupplyCommand(before.ActiveNationId, "north-army-1", "meridia", 10));
+
+        Assert.Equal(BuySupplyRejections.CityNotWithinRange, result.Code);
+        Assert.Same(before, result.State);
+    }
+
+    /// <summary>
+    /// T50 Done-when 5 (issue #167): the same confirmed <c>TAFSupply_FindProviders</c> gate refuses a
+    /// city whose owner is at war with the buyer, regardless of range -- the army is moved onto meridia's
+    /// own tile so only the war gate is under test, not adjacency.
+    /// </summary>
+    [Fact]
+    public void A_foreign_city_at_war_is_rejected_and_changes_nothing()
+    {
+        var dispatcher = Dispatcher();
+        var initial = CoreTestbed.InitialState();
+        var warCode = CoreTestbed.Toy.Ruleset.Diplomacy.StateCodes.War;
+        var army = initial.ArmyById("north-army-1")!;
+        var before = WithArmy(initial with { Relations = initial.Relations.WithRelation("north", "south", warCode) },
+            army with { X = 3, Y = 4 });
+
+        var result = dispatcher.Dispatch(before, new BuySupplyCommand(before.ActiveNationId, army.Id, "meridia", 10));
+
+        Assert.Equal(BuySupplyRejections.CityOwnerAtWar, result.Code);
+        Assert.Same(before, result.State);
+    }
+
     [Fact]
     public void A_non_positive_amount_is_rejected_and_changes_nothing()
     {
@@ -79,6 +118,25 @@ public sealed class BuySupplyCommandHandlerTests
         var before = CoreTestbed.InitialState();
 
         var result = dispatcher.Dispatch(before, new BuySupplyCommand(before.ActiveNationId, "north-army-1", "arx", 0));
+
+        Assert.Equal(BuySupplyRejections.InvalidAmount, result.Code);
+        Assert.Same(before, result.State);
+    }
+
+    /// <summary>
+    /// T50 Done-when 3 (issue #165 item 2): pins the decided rejection precedence. T46 hoisted the
+    /// <c>Tons &lt;= 0</c> check above the city lookup with nothing depending on the old order, so this is
+    /// a decision, recorded here and in <see cref="BuySupplyCommandHandler"/>'s own remarks -- not merely
+    /// an incidental consequence of that hoist. A request that is invalid two ways at once (an unknown
+    /// city *and* a non-positive amount) must report the amount, never the city.
+    /// </summary>
+    [Fact]
+    public void An_unknown_city_and_a_non_positive_amount_together_reject_as_invalid_amount()
+    {
+        var dispatcher = Dispatcher();
+        var before = CoreTestbed.InitialState();
+
+        var result = dispatcher.Dispatch(before, new BuySupplyCommand(before.ActiveNationId, "north-army-1", "no-such-city", 0));
 
         Assert.Equal(BuySupplyRejections.InvalidAmount, result.Code);
         Assert.Same(before, result.State);
@@ -150,7 +208,13 @@ public sealed class BuySupplyCommandHandlerTests
         var army = initial.ArmyById("north-army-1")!;
         var units = ValueList.Of(new UnitSlot(0, "light_infantry", 50_000, 6, "Test Battalion"));
         var startingMoney = 1000;
-        var before = WithArmy(initial, army with { SupplyTons = 0, Money = startingMoney, Units = units });
+
+        // T50 Done-when 5 (issue #167): the city-provider path now enforces the one-tile adjacency gate
+        // TAFSupply_FindProviders always had, so the buying army must actually be within range of the
+        // foreign city -- moved onto meridia's own tile (3,4) rather than its unmoved world position (3,2),
+        // two tiles away.
+        var before = WithArmy(
+            initial, army with { X = 3, Y = 4, SupplyTons = 0, Money = startingMoney, Units = units });
         var city = before.CityById("meridia")!; // owned by "south" -- foreign to the buying "north" army.
         var southBefore = before.NationById("south")!;
 
@@ -185,7 +249,10 @@ public sealed class BuySupplyCommandHandlerTests
 
         var army = initial.ArmyById("north-army-1")!;
         var units = ValueList.Of(new UnitSlot(0, "light_infantry", 50_000, 6, "Test Battalion"));
-        var before = WithArmy(initial, army with { SupplyTons = 0, Money = 0, Units = units });
+
+        // T50 Done-when 5: moved onto meridia's own tile (3,4), within the one-tile adjacency gate this
+        // path now enforces -- see the sibling test above.
+        var before = WithArmy(initial, army with { X = 3, Y = 4, SupplyTons = 0, Money = 0, Units = units });
         var city = before.CityById("meridia")!; // foreign.
 
         var result = dispatcher.Dispatch(before, new BuySupplyCommand(before.ActiveNationId, army.Id, city.Id, 100));

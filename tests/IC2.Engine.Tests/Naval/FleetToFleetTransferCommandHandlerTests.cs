@@ -88,7 +88,12 @@ public sealed class FleetToFleetTransferCommandHandlerTests
 
         // And the resulting state is one the engine's own validator would accept -- no dangling reference.
         var document = result.State;
-        Assert.Equal(document, document); // sanity: record equality still holds (state literally unchanged shape-wise).
+
+        // T50 Done-when 6 (issue #165 item 4): was `Assert.Equal(document, document)`, a tautology that
+        // can never fail (any object equals itself). The real, checkable claim -- a rejection changes
+        // nothing -- is that the dispatcher hands back the *input* state, unchanged and reference-identical
+        // (CommandDispatcher's own remarks), so compare against `state`, not against itself.
+        Assert.Same(state, document);
         Should.NotThrow(() => GameDataValidation.Validate("probe.json", document));
 
         // The reciprocal case: carrying fleet as the *target* is refused too.
@@ -216,6 +221,55 @@ public sealed class FleetToFleetTransferCommandHandlerTests
 
         var tooMuchMoney = dispatcher.Dispatch(state, new FleetToFleetTransferCommand(NationId, source.Id, target.Id, 1, 0, 3));
         Assert.Equal(FleetToFleetTransferRejections.InsufficientMoney, tooMuchMoney.Code);
+    }
+
+    /// <summary>
+    /// T50 Done-when 4 (issue #165 item 3): the target's pooled purse is capped at
+    /// <c>EconomyRules.PurseCapPerUnit</c> (1,000) on the partial-transfer path, same as
+    /// <see cref="JoinFleetsCommandHandler"/>'s equivalent fix -- the excess is credited to the (shared)
+    /// issuing nation's treasury, not destroyed.
+    /// </summary>
+    [Fact]
+    public void PartialTransfer_MoneyAboveThePurseCap_IsClampedAndTheExcessCreditedToTheTreasury()
+    {
+        var state = NavalTestbed.InitialState();
+        var treasuryBefore = state.NationById(NationId)!.Treasury;
+        var source = Fleet("xfer-purse-src", 3, 3, ships: 10, money: 900);
+        var target = Fleet("xfer-purse-dst", 3, 3, ships: 10, money: 900);
+        state = state with { Fleets = ValueList.Of(source, target) };
+
+        var dispatcher = NavalTestbed.RealEngineDispatcher();
+        var result = dispatcher.Dispatch(
+            state, new FleetToFleetTransferCommand(NationId, source.Id, target.Id, Ships: 1, SupplyTons: 0, Money: 900));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        Assert.Equal(1000, result.State.FleetById(target.Id)!.Money); // capped, not 1,800.
+        Assert.Equal(0, result.State.FleetById(source.Id)!.Money); // the source still gave up the full 900.
+        Assert.Equal(treasuryBefore + 800, result.State.NationById(NationId)!.Treasury);
+    }
+
+    /// <summary>
+    /// T50 Done-when 4, the disband path: the source's full remaining money still pools into the survivor
+    /// (DoD 3's own rule, untouched), but the survivor's own purse is still capped, with the excess
+    /// credited to the treasury exactly as the partial-transfer path above.
+    /// </summary>
+    [Fact]
+    public void DisbandingTransfer_MoneyAboveThePurseCap_IsClampedAndTheExcessCreditedToTheTreasury()
+    {
+        var state = NavalTestbed.InitialState();
+        var treasuryBefore = state.NationById(NationId)!.Treasury;
+        var source = Fleet("xfer-purse-disband-src", 3, 3, ships: 10, money: 900);
+        var target = Fleet("xfer-purse-disband-dst", 3, 3, ships: 10, money: 900);
+        state = state with { Fleets = ValueList.Of(source, target) };
+
+        var dispatcher = NavalTestbed.RealEngineDispatcher();
+        var result = dispatcher.Dispatch(
+            state, new FleetToFleetTransferCommand(NationId, source.Id, target.Id, Ships: 10, SupplyTons: 0, Money: 0));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        Assert.Null(result.State.FleetById(source.Id)); // disbanded, as DoD 3 requires.
+        Assert.Equal(1000, result.State.FleetById(target.Id)!.Money); // capped, not 1,800.
+        Assert.Equal(treasuryBefore + 800, result.State.NationById(NationId)!.Treasury);
     }
 
     /// <summary>Fleets belonging to another nation, not co-located, or under construction all refuse.</summary>

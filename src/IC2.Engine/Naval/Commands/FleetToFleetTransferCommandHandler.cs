@@ -1,9 +1,21 @@
 using IC2.Engine.Core;
+using IC2.Engine.Economy;
 using IC2.Engine.Model;
 
 namespace IC2.Engine.Naval.Commands;
 
 /// <summary>See <see cref="FleetToFleetTransferCommand"/> for the full rule and its provenance.</summary>
+/// <remarks>
+/// <strong>The target's pooled purse is capped, on both the disband and the partial-transfer path (T50
+/// Done-when 4, issue #165 item 3).</strong> <c>[derived]</c>, same reasoning as
+/// <see cref="JoinFleetsCommandHandler"/>'s own remarks: "T08 Economy, supply, and purses" Done-when 6
+/// already makes the cap's scope confirmed fact ("enforced on every path that credits a purse"), so this
+/// transfer's target purse is in scope too, and the decision made here is to enforce it rather than leave
+/// it be — matching <see cref="Economy.TreasuryPurseTransfer"/> and <see cref="Economy.AutomaticResupply"/>,
+/// which already do. Any excess over <see cref="EconomyRules.PurseCapPerUnit"/> moves to the issuing
+/// nation's treasury (both fleets already share one nation, checked above), the same hygiene
+/// <see cref="Economy.AutomaticResupply"/> applies, so money is conserved rather than destroyed.
+/// </remarks>
 [CommandHandler]
 public sealed class FleetToFleetTransferCommandHandler : ICommandHandler<FleetToFleetTransferCommand>
 {
@@ -114,11 +126,19 @@ public sealed class FleetToFleetTransferCommandHandler : ICommandHandler<FleetTo
             // target -- not just the requested SupplyTons/Money -- so nothing left aboard a disbanding
             // fleet is annihilated. The naval twin of the confirmed army-to-army auto-disband-on-empty
             // mechanism; see this command's remarks.
+            //
+            // The purse cap (see this type's remarks): clamp the pooled money to
+            // EconomyRules.PurseCapPerUnit, same as PurseAccounting.Credit, crediting any excess to the
+            // (shared) issuing nation's treasury instead of dropping it.
+            var pooledMoney = target.Money + source.Money;
+            var cappedTargetMoney = PurseAccounting.Credit(target.Money, source.Money, context.Ruleset);
+            var excessToTreasury = pooledMoney - cappedTargetMoney;
+
             var pooledTarget = target with
             {
                 Ships = combinedShips,
                 SupplyTons = target.SupplyTons + source.SupplyTons,
-                Money = target.Money + source.Money,
+                Money = cappedTargetMoney,
             };
 
             var updatedFleetsOnDisband = state.Fleets
@@ -128,8 +148,29 @@ public sealed class FleetToFleetTransferCommandHandler : ICommandHandler<FleetTo
             context.Events.Publish(new FleetToFleetTransferCompleted(
                 source.Nation, source.Id, target.Id, command.Ships, source.SupplyTons, source.Money, SourceDisbanded: true));
 
-            return CommandOutcome.Accept(state with { Fleets = ValueList.From(updatedFleetsOnDisband) });
+            if (excessToTreasury == 0)
+            {
+                return CommandOutcome.Accept(state with { Fleets = ValueList.From(updatedFleetsOnDisband) });
+            }
+
+            var nationAfterDisband = context.IssuingNation with
+            {
+                Treasury = context.IssuingNation.Treasury + excessToTreasury,
+            };
+            var nationsAfterDisband = state.Nations.Select(n =>
+                string.Equals(n.Id, nationAfterDisband.Id, StringComparison.Ordinal) ? nationAfterDisband : n);
+
+            return CommandOutcome.Accept(state with
+            {
+                Fleets = ValueList.From(updatedFleetsOnDisband),
+                Nations = ValueList.From(nationsAfterDisband),
+            });
         }
+
+        // The purse cap (see this type's remarks), on the partial-transfer path too.
+        var pooledTargetMoney = target.Money + command.Money;
+        var cappedMoney = PurseAccounting.Credit(target.Money, command.Money, context.Ruleset);
+        var partialExcessToTreasury = pooledTargetMoney - cappedMoney;
 
         var updatedSource = source with
         {
@@ -141,7 +182,7 @@ public sealed class FleetToFleetTransferCommandHandler : ICommandHandler<FleetTo
         {
             Ships = combinedShips,
             SupplyTons = target.SupplyTons + command.SupplyTons,
-            Money = target.Money + command.Money,
+            Money = cappedMoney,
         };
 
         var updatedFleets = state.Fleets.Select(f =>
@@ -151,6 +192,22 @@ public sealed class FleetToFleetTransferCommandHandler : ICommandHandler<FleetTo
         context.Events.Publish(new FleetToFleetTransferCompleted(
             source.Nation, source.Id, target.Id, command.Ships, command.SupplyTons, command.Money, SourceDisbanded: false));
 
-        return CommandOutcome.Accept(state with { Fleets = ValueList.From(updatedFleets) });
+        if (partialExcessToTreasury == 0)
+        {
+            return CommandOutcome.Accept(state with { Fleets = ValueList.From(updatedFleets) });
+        }
+
+        var nationAfterTransfer = context.IssuingNation with
+        {
+            Treasury = context.IssuingNation.Treasury + partialExcessToTreasury,
+        };
+        var nationsAfterTransfer = state.Nations.Select(n =>
+            string.Equals(n.Id, nationAfterTransfer.Id, StringComparison.Ordinal) ? nationAfterTransfer : n);
+
+        return CommandOutcome.Accept(state with
+        {
+            Fleets = ValueList.From(updatedFleets),
+            Nations = ValueList.From(nationsAfterTransfer),
+        });
     }
 }
