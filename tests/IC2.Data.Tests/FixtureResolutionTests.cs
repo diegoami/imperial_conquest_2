@@ -79,11 +79,13 @@ public class FixtureResolutionTests
                 "any of them: configure assets.local.ini locally, or set IC2_FIXTURES_DIR, to actually " +
                 "exercise them.";
             _output.WriteLine(message);
-            // N3: ITestOutputHelper's own capture is only surfaced by `dotnet test` at detailed
-            // verbosity, so CI's default `dotnet test IC2.sln --no-build --configuration Release` would
-            // otherwise never show this. Console output is captured the same run regardless of logger
-            // verbosity, so the plain-statement requirement (Done-when line 2) is actually visible where
-            // it matters — in a CI log, not only in a local `--logger console;verbosity=detailed` run.
+            // N3: both this and ITestOutputHelper's own capture above are visible with `-v n` (normal)
+            // or higher, or `--logger console;verbosity=detailed` — but NEITHER appears at the default
+            // verbosity CI's Test step actually runs with (`dotnet test IC2.sln --no-build --configuration
+            // Release`, confirmed empirically: 0 occurrences with or without this line). Kept anyway
+            // because it earns its place at the verbosities where it does show, including a local `-v n`
+            // run or an IDE test explorer; closing the CI-log gap fully needs a `--logger` flag on the
+            // Test step, which is outside this task's Owns (granted only the fetch step and its env).
             Console.WriteLine(message);
             return;
         }
