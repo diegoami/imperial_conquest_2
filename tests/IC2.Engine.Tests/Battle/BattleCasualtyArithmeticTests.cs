@@ -44,11 +44,70 @@ public class BattleCasualtyArithmeticTests
         Assert.Equal(23, BattleCasualties.Ratio(3600, 6120, numerator));
     }
 
-    /// <summary>Two empty armies divide by nothing rather than throwing.</summary>
+    /// <summary>
+    /// Two forces of no strength at all divide by nothing rather than throwing, and cost each other
+    /// nothing: the numerator is checked before the divisor, so <c>0 / 0</c> resolves to "no casualties".
+    /// </summary>
     [Fact]
-    public void AZeroPowerWinnerCostsNothingRatherThanDividingByZero()
+    public void TwoStrengthlessForcesCostEachOtherNothing()
     {
         Assert.Equal(0, BattleCasualties.Ratio(0, 0, BattleTestbed.Destroyed.Combat.WinnerCasualtyNumerator));
+    }
+
+    /// <summary>
+    /// Cloud-review finding 1. A zero <em>divisor</em> with a positive numerator is an unbounded ratio,
+    /// not a zero one, and saturates.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the mirrored call's degenerate case and it is the opposite of the forward call's.
+    /// <see cref="BattleCasualties.Ratio"/> is called <c>Ratio(loserPower, winnerPower, ...)</c> for what
+    /// the winner pays and <c>Ratio(winnerPower, loserPower, ...)</c> for the <c>improved</c> ruleset's
+    /// mirrored figure, so the losing side's strength lands in the divisor on the second call — and
+    /// <see cref="IC2.Engine.Strength.ArmyPower.Compute"/> truncates to zero for any force whose weighted troops
+    /// fall below <see cref="CombatRules.PowerDivisor"/>.
+    /// </para>
+    /// <para>
+    /// A guard that returned zero there — as this code did until the cloud review — inverted the rule
+    /// exactly: the weakest possible loser took <em>no</em> casualties instead of near-total ones.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void AZeroDivisorSaturatesRatherThanReturningZero()
+    {
+        var numerator = BattleTestbed.Destroyed.Combat.WinnerCasualtyNumerator;
+
+        Assert.Equal(int.MaxValue, BattleCasualties.Ratio(5100, 0, numerator));
+        Assert.NotEqual(0, BattleCasualties.Ratio(5100, 0, numerator));
+
+        // And the saturating ratio really does take everything, slot by slot, without overflowing.
+        var units = ValueList.Of(
+            BattleTestbed.Unit("light_infantry", 300, 6, "Remnant"),
+            BattleTestbed.Unit("heavy_infantry", 12000, 6, "Bigger Remnant"));
+
+        var (reduced, _, applied) = BattleCasualties.Apply(
+            units, BattleCasualties.Ratio(5100, 0, numerator), BattleTestbed.BattleRng(),
+            BattleTestbed.Destroyed.Combat);
+
+        Assert.Equal(12300, applied);
+        Assert.Equal(new[] { 0, 0 }, reduced.Select(u => u.Troops).ToArray());
+        Assert.Equal(units.Count, reduced.Count);
+    }
+
+    /// <summary>
+    /// The power floor the finding turns on is real and is reached by an ordinary small army: a
+    /// 300-strong light-infantry unit weighs 60, which is below the ruleset's own
+    /// <see cref="CombatRules.PowerDivisor"/> of 80, so its strength truncates to zero however good its
+    /// morale is.
+    /// </summary>
+    [Fact]
+    public void ASmallDepletedArmyGenuinelyHasZeroPower()
+    {
+        var ruleset = BattleTestbed.Destroyed;
+        var units = ValueList.Of(BattleTestbed.Unit("light_infantry", 300, 6, "Remnant"));
+
+        Assert.Equal(0, IC2.Engine.Strength.ArmyPower.Compute(units, 68, ruleset));
+        Assert.True((20 * 300 / ruleset.Combat.PowerTroopDivisor) < ruleset.Combat.PowerDivisor);
     }
 
     /// <summary>

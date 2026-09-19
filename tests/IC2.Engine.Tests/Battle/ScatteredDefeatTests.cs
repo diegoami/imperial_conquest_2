@@ -215,6 +215,123 @@ public class ScatteredDefeatTests
     }
 
     /// <summary>
+    /// Cloud-review finding 1, end to end: a loser whose strength has truncated to zero is annihilated,
+    /// not waved through untouched.
+    /// </summary>
+    /// <remarks>
+    /// The mirrored ratio is <c>winnerPower × 40 / loserPower</c>, so a zero-strength loser puts a zero in
+    /// the divisor. Until the cloud review, <see cref="BattleCasualties.Ratio"/>'s degenerate-case guard
+    /// returned zero there and this army — 300 men against 6,000 — scattered away with every single
+    /// soldier intact, the exact inverse of the intended rule.
+    /// </remarks>
+    [Fact]
+    public void AZeroStrengthLoserIsAnnihilatedRatherThanEscapingUntouched()
+    {
+        var state = BattleTestbed.StateWith(
+            armies: new[]
+            {
+                // 20 x 300 / 100 = 60, below the ruleset's PowerDivisor of 80, so this truncates to 0.
+                BattleTestbed.Army(Loser, "north", 1, 2, 68, 0, 0, BattleTestbed.Unit("light_infantry", 300, 6, "Remnant")),
+                BattleTestbed.Army(Winner, "south", 2, 2, 68, 0, 0, BattleTestbed.Unit("heavy_infantry", 6000, 6, "Overwhelming")),
+            });
+
+        var (after, result) = InstantBattleResolver.ResolveField(
+            state, Loser, Winner, BattleTestbed.Scatter, BattleTestbed.World,
+            BattleTestbed.BattleRng(), NullEventSink.Instance);
+
+        Assert.Equal(0, result.AttackerPower);
+        Assert.Equal(5100, result.DefenderPower);
+        Assert.Equal(BattleSide.Defender, result.Winner);
+
+        // Everything, and therefore nothing left to scatter -- the destroyed fallback.
+        Assert.Equal(300, result.LoserCasualties);
+        Assert.Equal(LoserFate.Destroyed, result.LoserFate);
+        Assert.Null(result.Scatter);
+        Assert.Null(after.ArmyById(Loser));
+
+        // The forward call is untouched by the same guard: an opponent of no strength inflicts nothing,
+        // so the winner still walks away clean.
+        Assert.Equal(0, result.WinnerCasualties);
+        Assert.Equal(6000, after.ArmyById(Winner)!.TotalTroops);
+    }
+
+    /// <summary>
+    /// Cloud-review finding 3, land half: a scattered army's <c>CoveredTileCode</c> is recomputed at the
+    /// destination, exactly as every other mover in the engine recomputes it.
+    /// </summary>
+    [Fact]
+    public void AScatteredArmyRecomputesItsCoveredTileCodeAtTheDestination()
+    {
+        var state = FieldBattleTests.Fixture();
+        var before = state.ArmyById(Defender)!;
+
+        var (after, result) = InstantBattleResolver.ResolveField(
+            state, Attacker, Defender, BattleTestbed.Scatter, BattleTestbed.World,
+            BattleTestbed.BattleRng(), NullEventSink.Instance);
+
+        var survivor = after.ArmyById(Defender)!;
+        var terrain = BattleTestbed.World.Terrain.Decode(BattleTestbed.World.Width, BattleTestbed.World.Height);
+        var expected = terrain[(survivor.Y * BattleTestbed.World.Width) + survivor.X];
+
+        Assert.Equal((5, 1), (result.Scatter!.ToX, result.Scatter.ToY));
+        Assert.Equal(expected, survivor.CoveredTileCode);
+
+        // And it genuinely moved: the army left a tile of a different kind behind it.
+        Assert.NotEqual(before.CoveredTileCode, survivor.CoveredTileCode);
+        Assert.Equal("forest", BattleTestbed.World.TileTypeByCode(expected)!.Id);
+    }
+
+    /// <summary>
+    /// Cloud-review finding 3, sea half — the one that is not cosmetic. <c>FleetTickSystem</c> decides
+    /// each turn's storm-tripling branch by comparing a fleet's <c>CoveredTileCode</c> with
+    /// <see cref="NavalRules.StormTripleConditionTileCode"/>, so a scattered fleet that kept its
+    /// pre-battle code would carry the old tile's weather with it indefinitely.
+    /// </summary>
+    [Fact]
+    public void AScatteredFleetRecomputesItsCoveredTileCodeAndSoItsStormBranch()
+    {
+        var naval = BattleTestbed.Scatter.Naval;
+
+        // An all-deep-sea world with one irrelevant speck of land, so the destination's code is known
+        // without depending on the toy map's coastline: every sea tile here is sea_deep, which is also
+        // the ruleset's storm-tripling code.
+        var deepSea = BattleTestbed.IslandWorld(8, (7, 7));
+
+        var state = BattleTestbed.StateWith(
+            fleets: new[]
+            {
+                BattleTestbed.Fleet("north-fleet", "north", 1, 2, 100, 100),
+                BattleTestbed.Fleet("south-fleet", "south", 1, 3, 100, 100),
+            },
+            cities: Array.Empty<CityState>());
+
+        var before = state.FleetById("south-fleet")!;
+        Assert.NotEqual(naval.StormTripleConditionTileCode, before.CoveredTileCode);
+
+        var (after, result) = InstantBattleResolver.ResolveNaval(
+            state, "north-fleet", "south-fleet", BattleTestbed.Scatter, deepSea,
+            BattleTestbed.BattleRng(), "archers", NullEventSink.Instance);
+
+        Assert.Equal(LoserFate.Scattered, result.LoserFate);
+
+        var survivor = after.FleetById("south-fleet")!;
+        var terrain = deepSea.Terrain.Decode(deepSea.Width, deepSea.Height);
+        var expected = terrain[(survivor.Y * deepSea.Width) + survivor.X];
+
+        Assert.Equal(expected, survivor.CoveredTileCode);
+        Assert.Equal("sea_deep", deepSea.TileTypeByCode(expected)!.Id);
+
+        // The consequence the finding is about: the survivor is on deep sea now, so its storm-tripling
+        // branch reflects where it actually is rather than where it used to be.
+        Assert.Equal(naval.StormTripleConditionTileCode, survivor.CoveredTileCode);
+        Assert.NotEqual(before.CoveredTileCode, survivor.CoveredTileCode);
+
+        // Its carried-army rule is unchanged: an embarked army stays off the map, so it must have no
+        // covered cell at all. (This fixture carries none; the invariant is asserted where one does.)
+        Assert.DoesNotContain(after.Armies, a => a.AboardFleetId is not null && a.CoveredTileCode is not null);
+    }
+
+    /// <summary>
     /// Two armies on a two-tile island: the loser on one land tile, the victor on the only other. Every
     /// ring around the loser is water, the victor, or off the map.
     /// </summary>

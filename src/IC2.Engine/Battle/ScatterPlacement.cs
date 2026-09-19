@@ -83,6 +83,34 @@ public static class ScatterPlacement
         return null;
     }
 
+    /// <summary>
+    /// The terrain code of the cell a relocated survivor now covers — <see cref="Model.ArmyState.CoveredTileCode"/>
+    /// and <see cref="Model.FleetState.CoveredTileCode"/>, "the map cell this entity's marker covers".
+    /// </summary>
+    /// <remarks>
+    /// Every other mover in the engine recomputes this at its destination
+    /// (<c>MoveArmyCommandHandler</c>, <c>MoveFleetCommandHandler</c>, <c>DisembarkArmyCommandHandler</c>),
+    /// and a scatter is a move. For a fleet it is not cosmetic: <c>FleetTickSystem</c> decides each
+    /// turn's storm-tripling branch by comparing this code with
+    /// <see cref="NavalRules.StormTripleConditionTileCode"/>, so a survivor that kept its pre-battle code
+    /// would carry the old tile's weather with it for the rest of the game.
+    /// </remarks>
+    /// <param name="point">The destination cell. Must be in bounds, which <see cref="Find"/> guarantees.</param>
+    /// <param name="world">The map.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="point"/> is off the map.</exception>
+    public static int TileCodeAt(GridPoint point, World world)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+
+        if ((uint)point.X >= (uint)world.Width || (uint)point.Y >= (uint)world.Height)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(point), point, $"({point.X}, {point.Y}) is outside a {world.Width}x{world.Height} map.");
+        }
+
+        return world.Terrain.Decode(world.Width, world.Height)[(point.Y * world.Width) + point.X];
+    }
+
     private static GridPoint? BestOnRing(
         GridPoint origin,
         GridPoint ideal,

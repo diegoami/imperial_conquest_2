@@ -169,8 +169,19 @@ public class SiegeBattleTests
         // FUN_0044A98C's own ×4/5 fires first, and the entry point's ×9/10 then applies to that.
         var nonAllegiant = (plain.DefenderPower * BattleTestbed.Destroyed.Siege.DefenderNonAllegiantNumerator)
                            / BattleTestbed.Destroyed.Siege.DefenderNonAllegiantDenominator;
-        Assert.Equal(nonAllegiant - ((nonAllegiant * reduction) / 100), reduced.DefenderPower);
+        Assert.Equal(104583, plain.DefenderPower);
+        Assert.Equal(83666, nonAllegiant);
+
+        // A DIRECT ×9/10, the same (x × num) / den shape as the two sibling adjustments -- not
+        // "subtract ten percent". 83,666 × 90 / 100 = 75,299.
+        Assert.Equal((nonAllegiant * (100 - reduction)) / 100, reduced.DefenderPower);
+        Assert.Equal(75299, reduced.DefenderPower);
         Assert.True(reduced.DefenderPower < plain.DefenderPower);
+
+        // The subtract form is a different number on this very fixture, which is why the shape is pinned
+        // rather than left to taste: it would give 75,300.
+        Assert.Equal(75300, nonAllegiant - ((nonAllegiant * reduction) / 100));
+        Assert.NotEqual(nonAllegiant - ((nonAllegiant * reduction) / 100), reduced.DefenderPower);
     }
 
     /// <summary>A named city is required, and an embarked army cannot besiege anything.</summary>

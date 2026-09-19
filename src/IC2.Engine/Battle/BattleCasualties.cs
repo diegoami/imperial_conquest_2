@@ -57,30 +57,76 @@ namespace IC2.Engine.Battle;
 public static class BattleCasualties
 {
     /// <summary>
-    /// The casualty <em>ratio</em>: <c>loserPower × numerator / winnerPower</c>, multiplication first,
-    /// one truncating division. Feed it to <see cref="Apply"/>; it is not a troop count.
+    /// The casualty <em>ratio</em>: <c>numeratorPower × numerator / divisorPower</c>, multiplication
+    /// first, one truncating division. Feed it to <see cref="Apply"/>; it is not a troop count.
     /// </summary>
-    /// <param name="loserPower">The losing side's strength.</param>
-    /// <param name="winnerPower">
-    /// The winning side's strength. A non-positive value would be a division by zero in the original's
-    /// own arithmetic; because the winner is by construction the side with the greater-or-equal
-    /// strength, this can only happen when both sides' strength is zero (two empty armies), which
-    /// produces a zero ratio rather than an exception.
+    /// <remarks>
+    /// <para>
+    /// <strong>The two powers are named for their place in the expression, not for which side they come
+    /// from, and that is deliberate.</strong> This function is called two ways round. The confirmed
+    /// forward call is <c>Ratio(loserPower, winnerPower, WinnerCasualtyNumerator)</c> — what the winner
+    /// pays. The <c>improved</c> ruleset's mirrored call is
+    /// <c>Ratio(winnerPower, loserPower, SurvivorCasualtyNumerator)</c>, where the <em>loser's</em>
+    /// strength is the divisor. An earlier revision named these parameters <c>loserPower</c> and
+    /// <c>winnerPower</c> and justified its degenerate-case guard with "the winner is by construction the
+    /// side with the greater-or-equal strength, so a non-positive divisor can only mean two empty
+    /// armies". That reasoning is true of the forward call and false of the mirrored one, and the names
+    /// were what made it look true of both — so the names are gone.
+    /// </para>
+    /// <para>
+    /// <strong>Both degenerate cases are real, and they are not the same case.</strong>
+    /// <see cref="Strength.ArmyPower.Compute"/> truncates to zero whenever a force's weighted troops fall
+    /// below <see cref="CombatRules.PowerDivisor"/> — a small, depleted army reaches that easily, for
+    /// instance one that scattered out of an earlier defeat and fought again before recovering — and
+    /// <see cref="Strength.FleetPower.Compute"/> has the same floor for a low-ship, low-condition fleet.
+    /// So:
+    /// </para>
+    /// <list type="bullet">
+    /// <item><description>
+    /// <paramref name="numeratorPower"/> zero means the side being measured <em>against</em> has no
+    /// strength at all, so the ratio is genuinely zero. This is the forward call's "two empty armies"
+    /// case, and it is checked first so that <c>0 / 0</c> resolves to "no casualties" rather than to the
+    /// saturating branch below.
+    /// </description></item>
+    /// <item><description>
+    /// <paramref name="divisorPower"/> zero with a positive numerator means the ratio is unbounded: the
+    /// force being hit has no strength left and is overwhelmed. This returns
+    /// <see cref="int.MaxValue"/> as a saturating value, which <see cref="Apply"/> then clamps slot by
+    /// slot to each slot's own troops — so the outcome is "everything", which is what an unbounded ratio
+    /// means, and the caller's own no-survivors branch turns it into the destroyed outcome. Returning
+    /// zero here, as an earlier revision did, inverted the rule exactly: the <em>weakest</em> possible
+    /// loser walked away untouched.
+    /// </description></item>
+    /// </list>
+    /// </remarks>
+    /// <param name="numeratorPower">
+    /// The strength on top of the fraction: the <em>loser's</em> for the forward call, the
+    /// <em>winner's</em> for the mirrored one.
+    /// </param>
+    /// <param name="divisorPower">
+    /// The strength underneath: the <em>winner's</em> for the forward call, the <em>loser's</em> for the
+    /// mirrored one. See the remarks for what a zero here means.
     /// </param>
     /// <param name="numerator">
     /// <see cref="CombatRules.WinnerCasualtyNumerator"/> for the winner's own losses, or
     /// <see cref="ScatteredDefeatRules.SurvivorCasualtyNumerator"/> for the <c>improved</c> ruleset's
     /// mirrored ratio.
     /// </param>
-    public static int Ratio(int loserPower, int winnerPower, int numerator)
+    public static int Ratio(int numeratorPower, int divisorPower, int numerator)
     {
-        if (winnerPower <= 0)
+        if (numeratorPower <= 0)
         {
             return 0;
         }
 
+        if (divisorPower <= 0)
+        {
+            // Unbounded, saturated. Apply clamps it to each slot's own troops; see the remarks.
+            return int.MaxValue;
+        }
+
         // Multiplication first, then ONE truncating division -- see the class remarks.
-        return (loserPower * numerator) / winnerPower;
+        return (numeratorPower * numerator) / divisorPower;
     }
 
     /// <summary>

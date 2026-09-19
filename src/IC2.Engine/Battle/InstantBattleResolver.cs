@@ -203,15 +203,10 @@ public static class InstantBattleResolver
 
             if (appliedToLoser < loser.TotalTroops)
             {
-                var distance = rng.NextInt(
-                    combat.ScatteredDefeat.ScatterTilesMin,
-                    // Inclusive upper bound: NextInt's own bound is exclusive. Not a gameplay number.
-                    combat.ScatteredDefeat.ScatterTilesMax + 1);
-
                 scatter = ScatterPlacement.Find(
                     new GridPoint(loser.X, loser.Y),
                     new GridPoint(winner.X, winner.Y),
-                    distance,
+                    DrawScatterDistance(rng, combat.ScatteredDefeat),
                     forFleet: false,
                     loser.Id,
                     state,
@@ -226,6 +221,9 @@ public static class InstantBattleResolver
                         Units = loserUnits,
                         X = placed.ToX,
                         Y = placed.ToY,
+                        // A scatter is a move, so the covered cell is recomputed at the destination
+                        // exactly as every other mover in the engine recomputes it.
+                        CoveredTileCode = ScatterPlacement.TileCodeAt(new GridPoint(placed.ToX, placed.ToY), world),
                         // Zeroed for the rest of the turn it lost on, so nobody gets a free pursuit.
                         Moves = 0,
                     };
@@ -233,34 +231,13 @@ public static class InstantBattleResolver
             }
         }
 
-        var armies = new List<ArmyState>();
-        foreach (var army in state.Armies)
-        {
-            if (string.Equals(army.Id, winner.Id, StringComparison.Ordinal))
-            {
-                armies.Add(winner);
-                continue;
-            }
-
-            if (string.Equals(army.Id, loser.Id, StringComparison.Ordinal))
-            {
-                if (survivor is { } kept)
-                {
-                    armies.Add(kept);
-                }
-
-                // Otherwise the army is deleted outright -- deleteArmy(loser).
-                continue;
-            }
-
-            // The attacker's spent move must survive even when the attacker is the loser and is deleted;
-            // both branches above already carry it, so nothing else needs touching here.
-            armies.Add(army);
-        }
+        // The attacker's spent move survives even when the attacker is the loser and is deleted: both
+        // combatants below are the already-updated records, so nothing else needs touching.
+        var armies = MergeCombatants(state.Armies, a => a.Id, winner, loser.Id, survivor);
 
         var newState = state with
         {
-            Armies = ValueList.From(armies),
+            Armies = armies,
             Nations = ReplaceNations(state, winnerNation, loserNation),
         };
 
@@ -429,6 +406,13 @@ public static class InstantBattleResolver
         var loserPower = attackerWon ? defenderPower : attackerPower;
 
         // FUN_0044B4F8: how close the fight was, squared, drives every loss the winner takes.
+        //
+        // The inner Math.Max(1, winnerPower) is a division guard of the same family as the one
+        // BattleCasualties.Ratio carries, so it is worth saying why it is safe HERE and that one was not:
+        // this is the forward comparison, and winnerPower is by construction the greater-or-equal of the
+        // two powers a line above, so a zero divisor implies a zero numerator and the guard only ever
+        // turns 0/0 into a ratio of 1 -- which squares to a damage of 0, i.e. an untouched winner. The
+        // mirrored casualty call has no such guarantee, which is exactly why its own guard saturates.
         var ratio = Math.Max(1, (loserPower * naval.DamageRatioScale) / Math.Max(1, winnerPower));
         var damage = (ratio * ratio) / naval.DamageRatioScale;
 
@@ -494,14 +478,10 @@ public static class InstantBattleResolver
 
             if (lost < loser.Ships)
             {
-                var distance = rng.NextInt(
-                    combat.ScatteredDefeat.ScatterTilesMin,
-                    combat.ScatteredDefeat.ScatterTilesMax + 1);
-
                 scatter = ScatterPlacement.Find(
                     new GridPoint(loser.X, loser.Y),
                     new GridPoint(winner.X, winner.Y),
-                    distance,
+                    DrawScatterDistance(rng, combat.ScatteredDefeat),
                     forFleet: true,
                     loser.Id,
                     state,
@@ -516,33 +496,17 @@ public static class InstantBattleResolver
                         Ships = loser.Ships - lost,
                         X = placed.ToX,
                         Y = placed.ToY,
+                        // Load-bearing for a fleet, not cosmetic: FleetTickSystem decides each turn's
+                        // storm-tripling branch from this code, so a stale one would carry the
+                        // pre-battle tile's weather with the survivor for the rest of the game.
+                        CoveredTileCode = ScatterPlacement.TileCodeAt(new GridPoint(placed.ToX, placed.ToY), world),
                         Moves = 0,
                     };
                 }
             }
         }
 
-        var fleets = new List<FleetState>();
-        foreach (var fleet in state.Fleets)
-        {
-            if (string.Equals(fleet.Id, winner.Id, StringComparison.Ordinal))
-            {
-                fleets.Add(winner);
-                continue;
-            }
-
-            if (string.Equals(fleet.Id, loser.Id, StringComparison.Ordinal))
-            {
-                if (survivor is { } kept)
-                {
-                    fleets.Add(kept);
-                }
-
-                continue;
-            }
-
-            fleets.Add(fleet);
-        }
+        var fleets = MergeCombatants(state.Fleets, f => f.Id, winner, loser.Id, survivor);
 
         var armies = new List<ArmyState>();
         foreach (var army in state.Armies)
@@ -577,7 +541,7 @@ public static class InstantBattleResolver
 
         var newState = state with
         {
-            Fleets = ValueList.From(fleets),
+            Fleets = fleets,
             Armies = ValueList.From(armies),
             Nations = ReplaceNations(state, winnerNation, loserNation),
         };
@@ -718,9 +682,15 @@ public static class InstantBattleResolver
 
         // FUN_0044B27C's own further reduction, outside FUN_0044A98C: the besieger is the population's
         // own nation, so the walls are held less willingly against it.
+        //
+        // Written as a direct x 9/10, the same (x * num) / den shape as the two sibling adjustments
+        // inside SiegeStrength.Defender (x 5/3 and x 4/5) and the shape every source states -- NOT as
+        // "subtract ten percent". The two differ under truncation: on this task's own Meridia fixture,
+        // a pre-reduction 83,666 gives 75,299 the documented way and 75,300 the subtract way.
         if (string.Equals(attacker.Nation, city.Allegiance, StringComparison.Ordinal))
         {
-            defenderPower -= (defenderPower * siege.AttackerIsAllegianceDefenderReductionPercent) / 100;
+            var remainingPercent = 100 - siege.AttackerIsAllegianceDefenderReductionPercent;
+            defenderPower = (defenderPower * remainingPercent) / 100;
         }
 
         var attackerWon = defenderPower < attackerPower;
@@ -769,6 +739,64 @@ public static class InstantBattleResolver
 
         events.Publish(new BattleResolved(result));
         return new BattleResolution(newState, result);
+    }
+
+    /// <summary>
+    /// The <c>improved</c> ruleset's scatter distance, drawn once per scattering survivor.
+    /// </summary>
+    /// <remarks>
+    /// The <c>+ 1</c> makes <see cref="ScatteredDefeatRules.ScatterTilesMax"/> inclusive, because
+    /// <see cref="IRng.NextInt(int, int)"/>'s own upper bound is exclusive. It is a range adapter, not a
+    /// gameplay number — the two tunables are the min and the max, both ruleset data.
+    /// </remarks>
+    private static int DrawScatterDistance(IRng rng, ScatteredDefeatRules rules) =>
+        rng.NextInt(rules.ScatterTilesMin, rules.ScatterTilesMax + 1);
+
+    /// <summary>
+    /// Rebuilds a combatant list around one battle: the winner replaced by its updated record, the loser
+    /// replaced by <paramref name="survivor"/> or dropped outright when there is none, everyone else left
+    /// alone and in place.
+    /// </summary>
+    /// <remarks>
+    /// Shared by the field variant's armies and the naval variant's fleets, which had the same fifteen
+    /// lines written out twice. The naval variant's <em>army</em> list is deliberately not routed through
+    /// here: it is not the same shape, because it also has to sink a destroyed carrier's cargo, damage a
+    /// surviving carrier's cargo, and move a scattered carrier's cargo with it.
+    /// </remarks>
+    private static ValueList<T> MergeCombatants<T>(
+        ValueList<T> all,
+        Func<T, string> idOf,
+        T winner,
+        string loserId,
+        T? survivor)
+        where T : class
+    {
+        var merged = new List<T>(all.Count);
+        foreach (var item in all)
+        {
+            var id = idOf(item);
+
+            if (string.Equals(id, idOf(winner), StringComparison.Ordinal))
+            {
+                merged.Add(winner);
+                continue;
+            }
+
+            if (string.Equals(id, loserId, StringComparison.Ordinal))
+            {
+                if (survivor is { } kept)
+                {
+                    merged.Add(kept);
+                }
+
+                // Otherwise the loser is deleted outright -- deleteArmy / deleteFleet.
+                continue;
+            }
+
+            merged.Add(item);
+        }
+
+        return ValueList.From(merged);
     }
 
     private static ArmyState RequireArmy(GameState state, string armyId, string parameterName) =>
