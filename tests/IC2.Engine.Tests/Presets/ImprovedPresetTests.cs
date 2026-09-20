@@ -3,6 +3,7 @@ using IC2.Engine.Serialization;
 using IC2.Engine.Tests.Model;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json.Nodes;
 using Xunit;
 
 namespace IC2.Engine.Tests.Presets;
@@ -129,32 +130,125 @@ public class ImprovedPresetTests
 
     private void CompareRulesetConsistency(Ruleset improved, Ruleset classical)
     {
-        // Helper to verify that all non-flag, non-victory fields are identical
-        // This is a spot-check of key fields; a complete deep comparison would
-        // require reflection against every field, which is fragile.
+        // DoD 2: Exhaustive value-level comparison, excluding _provenance.
+        // The expected improved column is exactly: id, name, description (boilerplate), the 6 flags,
+        // and 2 victory fields. Everything else must be identical. This comparison walks the entire
+        // JSON object graph and collects all paths where values differ, asserting that this set
+        // equals exactly the expected differences.
 
-        // Calendar
-        Assert.Equal(classical.Calendar.WeekStep, improved.Calendar.WeekStep);
-        Assert.Equal(classical.Calendar.StartYearBc, improved.Calendar.StartYearBc);
+        // Serialize both rulesets to JSON and parse back to walk them completely
+        var improvedJson = GameJson.Serialize(improved);
+        var classicalJson = GameJson.Serialize(classical);
 
-        // Combat (non-scatter)
-        Assert.Equal(classical.Combat.PowerTroopDivisor, improved.Combat.PowerTroopDivisor);
-        Assert.Equal(classical.Combat.UnitySwing, improved.Combat.UnitySwing);
-        Assert.Equal(classical.Combat.QualityFloor, improved.Combat.QualityFloor);
-        Assert.Equal(classical.Combat.QualityCap, improved.Combat.QualityCap);
+        var improvedNode = JsonNode.Parse(improvedJson);
+        var classicalNode = JsonNode.Parse(classicalJson);
 
-        // Siege
-        Assert.Equal(classical.Siege.HighLoyaltyThreshold, improved.Siege.HighLoyaltyThreshold);
-        Assert.Equal(classical.Siege.DefenderFortificationWeight, improved.Siege.DefenderFortificationWeight);
+        Assert.NotNull(improvedNode);
+        Assert.NotNull(classicalNode);
 
-        // Economy
-        Assert.Equal(classical.Economy.TaxRateDivisor, improved.Economy.TaxRateDivisor);
-        Assert.Equal(classical.Economy.ShipUpkeepPerQuarter, improved.Economy.ShipUpkeepPerQuarter);
-        Assert.Equal(classical.Economy.PurseCapPerUnit, improved.Economy.PurseCapPerUnit);
+        // Collect all paths where values differ (ignoring _provenance nodes)
+        var differingPaths = new HashSet<string>();
+        CollectDifferingPaths(improvedNode, classicalNode, "", differingPaths);
 
-        // Diplomacy
-        Assert.Equal(classical.Diplomacy.MaxTradePartners, improved.Diplomacy.MaxTradePartners);
-        Assert.Equal(classical.Diplomacy.ThawPerQuarter, improved.Diplomacy.ThawPerQuarter);
-        Assert.Equal(classical.Diplomacy.CooldownAfterBrokenTrade, improved.Diplomacy.CooldownAfterBrokenTrade);
+        // Expected differences: the improved column per game-design.md's "Two shipped presets"
+        var expectedDifferences = new HashSet<string>
+        {
+            "id",
+            "name",
+            "description",
+            "flags.diplomacyModel",
+            "flags.economyPurses",
+            "flags.seatAsymmetry",
+            "flags.bugPolicyDiplomaticThaw",
+            "flags.combatOnDefeat",
+            "flags.faithfulThawColumnBug",
+            "victory.defaultCondition",
+            "victory.defaultTurnLimit",
+        };
+
+        // Assert that the differing paths are exactly what we expect (no more, no less)
+        Assert.Equal(expectedDifferences, differingPaths);
+    }
+
+    private void CollectDifferingPaths(JsonNode? improved, JsonNode? classical, string pathPrefix, HashSet<string> differingPaths)
+    {
+        // Skip _provenance nodes entirely, as per DoD 2
+        if (pathPrefix.EndsWith("._provenance"))
+        {
+            return;
+        }
+
+        // Handle null cases
+        if (improved is null && classical is null)
+        {
+            return;
+        }
+
+        if (improved is null || classical is null)
+        {
+            // One is null, the other is not — this is a difference
+            if (!string.IsNullOrEmpty(pathPrefix))
+            {
+                differingPaths.Add(pathPrefix);
+            }
+            return;
+        }
+
+        // Both are objects: recurse into their properties
+        if (improved is JsonObject improvedObj && classical is JsonObject classicalObj)
+        {
+            var allKeys = new HashSet<string>();
+            foreach (var property in improvedObj)
+            {
+                allKeys.Add(property.Key);
+            }
+            foreach (var property in classicalObj)
+            {
+                allKeys.Add(property.Key);
+            }
+
+            foreach (var key in allKeys)
+            {
+                // Skip _provenance properties entirely
+                if (key == "_provenance")
+                {
+                    continue;
+                }
+
+                var newPath = string.IsNullOrEmpty(pathPrefix) ? key : $"{pathPrefix}.{key}";
+                var improvedValue = improvedObj.TryGetPropertyValue(key, out var iv) ? iv : null;
+                var classicalValue = classicalObj.TryGetPropertyValue(key, out var cv) ? cv : null;
+
+                CollectDifferingPaths(improvedValue, classicalValue, newPath, differingPaths);
+            }
+        }
+        // Both are arrays: recurse into their elements
+        else if (improved is JsonArray improvedArr && classical is JsonArray classicalArr)
+        {
+            if (improvedArr.Count == classicalArr.Count)
+            {
+                for (int i = 0; i < improvedArr.Count; i++)
+                {
+                    var newPath = $"{pathPrefix}[{i}]";
+                    CollectDifferingPaths(improvedArr[i], classicalArr[i], newPath, differingPaths);
+                }
+            }
+            else
+            {
+                // Array lengths differ
+                differingPaths.Add(pathPrefix);
+            }
+        }
+        // Primitive values: compare directly
+        else
+        {
+            var improvedValue = improved?.ToString();
+            var classicalValue = classical?.ToString();
+
+            if (improvedValue != classicalValue)
+            {
+                differingPaths.Add(pathPrefix);
+            }
+        }
     }
 }

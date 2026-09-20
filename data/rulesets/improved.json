@@ -827,7 +827,7 @@
       "defaultCondition": "docs/game-design.md §'Two shipped presets' (answers audit Q5) — improved defaults to domination-over-hostiles or score-at-limit, player's choice at New Game, versus classical-faithful's total conquest.",
       "totalConquestRequiresEveryCity": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — the test is cityCount against 334, the total number of cities on the original map, so the rule is 'every city', not a fixed count. T04 fixtures corpus id: 'victory.allCitiesThreshold'.",
       "hardEndYearBc": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — the same screen compares the year against 250 (0xFA). That report is explicit that whether this is the actual end-of-game trigger or only the screen's wording was not re-checked in the turn loop. T04 fixtures corpus id: 'victory.yearLimitBC'.",
-      "defaultTurnLimit": "designed: docs/game-design.md §'Two shipped presets' — a shorter default than classical-faithful's null (unlimited). Searched decompiled-diplomacy-peace-terms-and-instant-battles.md and docs/reports/ for per-ruleset turn-limit evidence and found none; this is a placeholder defaulting to 150 turns (~19 game-years) to make a game winnable within a reasonable playable window. Tuned from play."
+      "defaultTurnLimit": "designed: docs/game-design.md §'Two shipped presets' — a shorter default than classical-faithful's null (unlimited). Searched decompiled-diplomacy-peace-terms-and-instant-battles.md and docs/reports/ for per-ruleset turn-limit evidence and found none; this is a placeholder defaulting to 150 turns (~19 game-years) to make a game winnable within a reasonable playable window, meant to be retuned from actual play."
     }
   },
   "flags": {
@@ -843,7 +843,7 @@
       "seatAsymmetry": "docs/game-design.md §'Two shipped presets' (answers design-audit.md Q6) — apply the same rule to every seat regardless of human/AI control (a real fairness difference in hotseat). classical-faithful reproduces every confirmed seat-type asymmetry (movement-zeroing, split-army starting moves, embarkation trimming) exactly as coded.",
       "bugPolicyDiplomaticThaw": "docs/game-design.md §'Two shipped presets' (answers design-audit.md Q8) — fix the original's 8-column thaw bug silently, allowing all 16 columns to thaw. classical-faithful reproduces the bug verbatim.",
       "combatOnDefeat": "docs/game-design.md §'The defeated side's fate' — the loser's army/fleet survives at reduced strength and scatters instead of being destroyed outright. classical-faithful annihilates the loser.",
-      "faithfulThawColumnBug": "docs/task-catalogue.md T19 DoD 9 — false when bugPolicyDiplomaticThaw is fixed; true when reproducing (classical-faithful)."
+      "faithfulThawColumnBug": "docs/task-catalogue.md T19 DoD 9 (Q8) — the 8-column thaw bug flag, by its exact name; false when bugPolicyDiplomaticThaw is fixed, true when reproducing (classical-faithful)."
     }
   },
   "_provenance": {
