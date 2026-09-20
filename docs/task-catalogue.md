@@ -4,7 +4,7 @@ Every build task's scope, **Owns** list, Definition of Done, model/effort, revie
 
 **Status is not in this document.** Each task's stage (ready, in progress, merged, blocked, escalated) lives only in its GitHub issue's `status:*` label ([build-process.md §5](build-process.md#5-status-lives-on-github)). The index below links every issue.
 
-59 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), twelve corrections to already-merged code (T31–T35, T38–T40, T42–T45), one rule no task owned (T37, the weekly city supply step), and two early slices — T41 of T23's CLI, and T47 of T24's Godot UI.
+60 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), twelve corrections to already-merged code (T31–T35, T38–T40, T42–T45), one rule no task owned (T37, the weekly city supply step), and two early slices — T41 of T23's CLI, and T47 of T24's Godot UI.
 
 ---
 
@@ -1575,6 +1575,35 @@ Conventions used by every entry:
 
 ---
 
+#### T60 The AI never besieges: find out why, then fix it
+
+- **Design milestone**: none — the last known blocker on [#225](https://github.com/diegoami/imperial_conquest_2/issues/225), filed as [#259](https://github.com/diegoami/imperial_conquest_2/issues/259). **Labels**: `phase:2 lane:engine`
+- **Branch**: `task/T60-ai-besieges` · **Model/effort**: **Opus / High** · **Reviewer**: **Opus / High**
+- **Start after**: T57 · **Merge after**: T57
+- **Owns**: `src/IC2.Engine/Ai/**`, `tests/IC2.Engine.Tests/Ai/**`
+- **Scope**: `chose [Military/besiege]` appears **0 times in 48,000 turns** across T22's 50-seed soak. Total conquest is `classical-faithful`'s only victory condition, so **no seed can ever win**. T55 and T57 removed the growth blocker — armies grow, and the AI now fights three times as often — and this is what is left.
+
+  **Diagnose before you fix.** The first deliverable is a measurement, not a patch. A wrong guess here is expensive because the plausible causes need opposite fixes: a scoring problem wants a tuned constant, a reachability problem wants different movement, and a gate that is correctly declining an unwinnable siege wants **neither** — it wants the AI to build a bigger army first.
+- **Done when**:
+  1. **The decision point is identified and evidenced**, not inferred. `AiMilitaryPhase.ProposeSieges` has **three** gates past ownership, and the task must say **which one** rejects, how often, and on what values: (a) `AttackLegality.IsLegal` on the projected post-declare-war state; (b) **`ratio < requiredRatio`**, comparing `SiegeStrength.Attacker` against `CompleteDefenderStrength.Compute` at `AiView.RequiredAttackRatioPermille(personality.AggressionPermille)`; (c) the army never being at `distance <= 1` in the first place. Instrument, count across the soak's 50 seeds, and report the distribution.
+  2. **The leading hypothesis is tested first and explicitly confirmed or refuted.** It is gate (b), and it explains the observed trace completely:
+
+     `ProposeMarches` **skips any city at `distance <= 1`** — *"already in place: besieging it is another candidate's job"*. So if an army reaches adjacency and the ratio gate then declines, that city yields **no candidate at all**, and the army's best remaining move is to march at the *other* city — which walks it back out to distance 2. Next turn it does the same in reverse. **The oscillation is not a movement bug; it is what a correctly-working march loop does when siege is permanently declined.** It also explains why the log only ever reads *"2 tiles away"*: march candidates exist only for cities at distance ≥ 2, so adjacency is invisible in that line by construction.
+
+     If that is right, **nothing is broken in the mover** and the real question is why a mobilized, reinforced AI army never reaches `requiredRatio` against a fortified city.
+  3. **The fix matches the diagnosis, and the PR argues why it is the right one.** Do not tune `AiWeights` to force sieges if the gate is correctly declining — that manufactures suicidal attacks and would show up as losses, not wins. Candidate shapes, none pre-approved: relax or re-derive `RequiredAttackRatioPermille` if it is mis-scaled for **sieges** as opposed to field attacks; have the AI **mass armies** before committing; let it recognise a city it can never take and pick a different target; or pre-position adjacent and accumulate. **State what was searched and what was rejected.**
+  4. **The soak is re-run and `besiege` is no longer 0** — report the count, and the seeds-won / capped / expired breakdown. **A win is not required.** If sieges now happen and no seed still wins, that is a finding with a name, exactly as T57's was: report what blocks it next.
+  5. **`AiGameRunner.CommandsRejected` stays 0**, and the decision-shape partition is reported before and after (see the hazard below for what it actually is).
+  6. `dotnet build IC2.sln` and `dotnet test IC2.sln` green; the diff lists only Owns paths.
+- **Hazards**:
+  - **`ProposeMarches`'s docstring already anticipated an oscillation and rationed marches to one per army per turn to prevent it.** That mitigation works *within* a turn. The soak oscillates *across* turns. **Read that remark before changing anything there** — it is a careful piece of reasoning about a real failure mode, and the observed behaviour is a different one wearing the same coat. If you change the rationing, say what breaks the argument the remark makes.
+  - **Do not touch `src/IC2.Engine/Battle/**`, `src/IC2.Engine/Cities/**` or `SiegeStrength`/`CompleteDefenderStrength`.** They are T16's and T17's, decompiled and twice-reviewed. If the defender-strength formula is the problem, that is a **finding to report**, not an edit to make — and a serious one, because [`decompiled-city-capture-resolution.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-city-capture-resolution.md) backs it.
+  - **The decision-shape baseline**, corrected on 2026-09-20: the literal transcript hash gives **50 distinct values** and the decision-shape hash gives **4 shapes in a 37 / 10 / 2 / 1 partition**, unchanged by T55 or T57. Report the shape partition; do not report 50 distinct transcripts as a change.
+  - **#259 says the oscillation is pre-existing**, confirmed at `68afb6f` before T57. Anything you find that predates T57 is still yours — this task owns the behaviour, not the commit that exposed it.
+  - Three non-blocking test-hygiene items from T57 ([#261](https://github.com/diegoami/imperial_conquest_2/issues/261)) are proposed to fold here, since this task is the next to open `tests/IC2.Engine.Tests/Ai/**`. **Fold them only if you are in those files anyway**; they are not worth a detour.
+
+---
+
 #### T24 Godot main game screen
 
 - **Design milestone**: **M18** (UI half). **Labels**: `phase:3 lane:ui single-instance`
@@ -1695,5 +1724,6 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T57](#t57-the-ai-mobilizes-its-ready-recruits) | The AI mobilizes its ready recruits | — | Sonnet | High | **Opus**/Medium | T55 | [#246](https://github.com/diegoami/imperial_conquest_2/issues/246) |
 | [T58](#t58-survey-composition-aware-auto-resolve-models-and-how-to-judge-them) | Survey auto-resolve models + metrics | — | **Opus** | High | **Opus**/Medium | T36 | [#251](https://github.com/diegoami/imperial_conquest_2/issues/251) |
 | [T59](#t59-the-auto-resolve-tournament) | The auto-resolve tournament | — | **Opus** | High | **Opus**/High | T58 | [#250](https://github.com/diegoami/imperial_conquest_2/issues/250) |
+| [T60](#t60-the-ai-never-besieges-find-out-why-then-fix-it) | The AI never besieges | — | **Opus** | High | **Opus**/High | T57 | [#262](https://github.com/diegoami/imperial_conquest_2/issues/262) |
 
-**Totals** — 59 tasks: 8 Opus, 46 Sonnet, 4 Haiku, 1 Fable. Effort: 2 Ultrahigh, 31 High, 23 Medium, 3 Low.
+**Totals** — 60 tasks: 9 Opus, 46 Sonnet, 4 Haiku, 1 Fable. Effort: 2 Ultrahigh, 32 High, 23 Medium, 3 Low.
