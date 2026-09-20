@@ -169,6 +169,17 @@ public static class AiWeights
     /// the original's <c>FUN_004504f4</c> mobilizes inside a budget loop with no comparison to any other
     /// action class, a shape this engine's per-action scoring has no analogue for.
     /// </para>
+    /// <para>
+    /// <strong>This score is flat, so <em>n</em> ready slots in one turn are <em>n</em> exact ties.</strong>
+    /// Unlike <see cref="RecruitBaseScore"/> and <see cref="FortifyBaseScore"/>, nothing here scales by
+    /// <c>expansionDrive</c> or a threat bonus, so every mobilize candidate in a turn scores exactly 1100
+    /// and <see cref="AiTurn"/>'s own tie-break (<c>rng.NextInt(tied.Count)</c>) decides which one is
+    /// dispatched first — reproducible per seed, since the tied set is collected in
+    /// <see cref="Model.NationState.RecruitmentSlots"/> order, a <see cref="Model.ValueList{T}"/>, not a
+    /// hash or set iteration. This is also on the ordinary path, not an exotic one: 1100 is reachable by
+    /// other candidates too (a threatened city recruiting at <c>expansionDrive = 300</c>, or an
+    /// unthreatened fortify at <c>expansionDrive = 625</c>).
+    /// </para>
     /// </remarks>
     public const long MobilizeReadyRecruitBaseScore = 1100;
 

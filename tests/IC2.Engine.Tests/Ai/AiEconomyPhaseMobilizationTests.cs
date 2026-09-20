@@ -199,8 +199,28 @@ public sealed class AiEconomyPhaseMobilizationTests
         var command = (MobilizeRecruitSlotCommand)mobilize.Commands[0];
 
         // NewArmyId goes unused when an existing army receives the unit -- MobilizeRecruitSlotCommand's
-        // own contract -- so this only has to be harmless, not meaningful.
-        Assert.True(string.IsNullOrEmpty(command.NewArmyId) || state.ArmyById(command.NewArmyId) is null);
+        // own contract.
+        Assert.True(string.IsNullOrEmpty(command.NewArmyId));
+
+        var armyCountBefore = state.Armies.Count;
+
+        // Review round 1, F1: the candidate-level assertion above cannot tell "an existing army received
+        // the unit" apart from "nothing happened" -- both leave NewArmyId unused. Driving the command for
+        // real through the production dispatcher is what actually pins the promise in this test's own
+        // name: the unit lands IN "receiving-army", and no second army is created for it.
+        var driven = AiScriptedStates.DriveOneTurn(state);
+
+        Assert.Equal(0, driven.Outcome.CommandsRejected);
+
+        var mobilized = Assert.Single(driven.Events.OfType<RecruitMobilized>());
+        Assert.False(mobilized.ArmyWasCreated);
+        Assert.Equal("receiving-army", mobilized.ArmyId);
+
+        Assert.Equal(armyCountBefore, driven.Outcome.State.Armies.Count);
+        var updatedArmy = driven.Outcome.State.ArmyById("receiving-army");
+        Assert.NotNull(updatedArmy);
+        Assert.Equal(2, updatedArmy!.Units.Count);
+        Assert.Equal(6000, updatedArmy.TotalTroops);
     }
 
     [Fact]
@@ -249,6 +269,47 @@ public sealed class AiEconomyPhaseMobilizationTests
     }
 
     [Fact]
+    public void The_army_cap_declines_to_propose_mobilization_even_though_a_placement_cell_is_free()
+    {
+        var maxArmies = AiScriptedStates.Ruleset.ArmyManagement.MaxArmies;
+
+        var slot = new RecruitmentSlot(HomeCityId, "light_infantry", 1000, Recruitment.MobilizationMinStateCodeAiSeat);
+        var nations = new[]
+        {
+            AiScriptedStates.AiNation(Acting, AiScriptedStates.DefaultPersonality, Treasury, HomeCityId)
+                with { RecruitmentSlots = ValueList.Of(slot) },
+            AiScriptedStates.AiNation(Other, AiScriptedStates.DefaultPersonality, Treasury),
+        };
+        var cities = new[]
+        {
+            CaptureFixtures.City(
+                HomeCityId, "Home", 15, 15, Acting, Acting, loyalty: 80, fortificationCode: 20,
+                populationThousands: 10, maxPopulationThousands: 100, tribute: 10),
+        };
+
+        // The acting nation has no army anywhere (so TryChooseReceivingArmy's Find always fails), and
+        // every one of these maxArmies armies belongs to the OTHER nation and is parked far from the
+        // city, so none of them occupies a placement cell either -- MobilizationArmyCreation.PlacementCell
+        // would find a free cell if this generator ever called it. That isolates the MaxArmies pre-check
+        // as the only thing that can be declining the candidate: this is DoD 3's own invariant
+        // (CommandsRejected stays zero because nothing is ever proposed that MaxArmies would refuse).
+        var armies = new List<ArmyState>();
+        for (var i = 0; i < maxArmies; i++)
+        {
+            armies.Add(CaptureFixtures.Army($"other-{i}", Other, 0, 0, morale: 50));
+        }
+
+        var state = AiScriptedStates.WithActiveSeat(
+            BattleCommandTestbed.StateWith(nations, cities, armies), Acting);
+
+        Assert.Equal(maxArmies, state.Armies.Count);
+
+        var candidates = Propose(state);
+
+        Assert.DoesNotContain(candidates, c => c.Kind == "mobilize");
+    }
+
+    [Fact]
     public void A_ready_slot_is_mobilized_over_a_full_ai_turn_with_no_rejection()
     {
         var state = OneSlotState(Recruitment.MobilizationMinStateCodeAiSeat);
@@ -258,6 +319,77 @@ public sealed class AiEconomyPhaseMobilizationTests
         Assert.Contains("recruitment.mobilize-recruit-slot", driven.IssuedKinds);
         Assert.Equal(0, driven.Outcome.CommandsRejected);
         Assert.Contains(driven.Events, e => e is RecruitMobilized);
+    }
+
+    [Fact]
+    public void Two_slots_with_only_the_second_ready_propose_that_ones_candidate_and_conserve_the_other()
+    {
+        var notReadySlot = new RecruitmentSlot(HomeCityId, "light_infantry", 1000, StateCode: 0);
+        var readySlot = new RecruitmentSlot(
+            HomeCityId, "light_infantry", 3000, Recruitment.MobilizationMinStateCodeAiSeat);
+
+        // In debt, so ProposeRecruitment/ProposeFortification never fire: a driven turn's only action is
+        // the one candidate this generates. Otherwise a same-city recruit order (still under
+        // AiWeights.MaxOpenRecruitmentOrdersPerCity) could add a THIRD slot and confound the "the
+        // untouched slot survives verbatim" assertion below.
+        var state = StateWith(new List<RecruitmentSlot> { notReadySlot, readySlot }, underSiege: false, treasury: -1);
+
+        var candidates = Propose(state);
+
+        var mobilize = Assert.Single(candidates, c => c.Kind == "mobilize");
+        var command = (MobilizeRecruitSlotCommand)mobilize.Commands[0];
+        Assert.Equal(1, command.SlotIndex);
+
+        var driven = AiScriptedStates.DriveOneTurn(state);
+
+        Assert.Equal(0, driven.Outcome.CommandsRejected);
+
+        var mobilized = Assert.Single(driven.Events.OfType<RecruitMobilized>());
+        Assert.Equal(3000, mobilized.Troops);
+        Assert.Equal(
+            Recruitment.MobilizationMinStateCodeAiSeat / Recruitment.MobilizationQualityDivisor,
+            mobilized.Quality);
+        Assert.Equal(6, mobilized.Quality);
+
+        var remainingSlots = driven.Outcome.State.NationById(Acting)!.RecruitmentSlots;
+        var untouched = Assert.Single(remainingSlots);
+        Assert.Equal(notReadySlot, untouched);
+    }
+
+    [Fact]
+    public void Two_ready_slots_can_propose_the_same_next_army_id_and_a_driven_turn_still_rejects_nothing()
+    {
+        var slotA = new RecruitmentSlot(HomeCityId, "light_infantry", 1000, Recruitment.MobilizationMinStateCodeAiSeat);
+        var slotB = new RecruitmentSlot(HomeCityId, "light_infantry", 2000, Recruitment.MobilizationMinStateCodeAiSeat);
+
+        // In debt for the same reason as above: nothing but the two mobilize candidates is proposed.
+        var state = StateWith(new List<RecruitmentSlot> { slotA, slotB }, underSiege: false, treasury: -1);
+
+        var candidates = Propose(state);
+
+        var mobilizeCandidates = candidates.Where(c => c.Kind == "mobilize").ToList();
+        Assert.Equal(2, mobilizeCandidates.Count);
+
+        var commandA = (MobilizeRecruitSlotCommand)mobilizeCandidates[0].Commands[0];
+        var commandB = (MobilizeRecruitSlotCommand)mobilizeCandidates[1].Commands[0];
+
+        // NextArmyId's own remark, visited directly: "two candidates built from the same unchanged state
+        // may propose the same id" -- neither slot has a receiving army yet, so both independently scan
+        // the same (untouched) state and land on the same lowest-unused id.
+        Assert.Equal(0, commandA.SlotIndex);
+        Assert.Equal(1, commandB.SlotIndex);
+        Assert.Equal("army-0", commandA.NewArmyId);
+        Assert.Equal("army-0", commandB.NewArmyId);
+
+        // The remark's claim of harmlessness: AiTurn dispatches one, regenerates from the state that
+        // dispatch produced (where the second slot's real receiving army is now the one just created,
+        // adjacent to the city), and the second command it issues is never the stale duplicate id.
+        var driven = AiScriptedStates.DriveOneTurn(state);
+
+        Assert.Equal(0, driven.Outcome.CommandsRejected);
+        Assert.Equal(2, driven.Events.OfType<RecruitMobilized>().Count());
+        Assert.Empty(driven.Outcome.State.NationById(Acting)!.RecruitmentSlots);
+        Assert.Equal(3000, driven.Outcome.State.Armies.Sum(a => a.TotalTroops));
     }
 
     private static List<AiCandidate> Propose(GameState state)
