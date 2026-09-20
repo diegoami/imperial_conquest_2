@@ -1486,7 +1486,7 @@ Conventions used by every entry:
 - **Hazards**:
   - **Determinism.** A new candidate consumes no RNG if it draws nothing — T55's mobilization path has **no `rand` call**, confirmed across all four of its functions — so the stream positions every seeded test depends on should be **unchanged**. If your change moves them, T22's soak logs and the golden transcript both shift; say so loudly rather than regenerating quietly.
   - **Do not touch `src/IC2.Engine/Recruitment/**`.** T55 owns it and T56 owns the restock. If mobilization needs a change to be usable from the AI, that is a **finding to report**, not an edit to make.
-  - The soak's decision sequences are currently **identical across all fifty seeds** — T22's implementer hashed them and got one value for seeds 1, 2 and 50. If this task changes that, **say so**: it is the clearest single measure of whether the world became dynamic.
+  - **The soak's decision sequences are not identical across seeds, and never were.** An earlier revision of this hazard said T22's implementer *"hashed them and got one value for seeds 1, 2 and 50"*. Both T57's implementer and its Opus reviewer measured this independently and it is wrong: the **literal transcript** hash gives **50 distinct values** (troop counts and ids differ per seed), while a **decision-shape** hash — the sequence of `chose [Phase/Kind]` labels alone — gives **4 distinct shapes in a 37 / 10 / 2 / 1 partition**. Both readings were checked at `68afb6f` and at T57's head and were unchanged by T57. So the useful measure is the **shape** hash and its partition: report it, and say plainly if a change moves the grouping of which seeds behave alike.
 
 ---
 
