@@ -62,13 +62,19 @@ public static class AiMilitaryPhase
     /// therefore offered no second one. See <see cref="ProposeMarches"/> for why the ration exists.
     /// </param>
     /// <param name="into">The collecting list.</param>
-    /// <exception cref="ArgumentNullException">Any argument is null.</exception>
+    /// <param name="siegeGates">
+    /// Optional diagnostics. When supplied, <see cref="ProposeSieges"/> records what each of its gates
+    /// did into it — see <see cref="AiSiegeGateTally"/> for why that measurement exists and why it
+    /// cannot change what the AI decides.
+    /// </param>
+    /// <exception cref="ArgumentNullException">Any argument but <paramref name="siegeGates"/> is null.</exception>
     public static void Propose(
         AiView view,
         AiPersonalityProfile personality,
         IRng rng,
         IReadOnlyList<string> armiesAlreadyMarched,
-        List<AiCandidate> into)
+        List<AiCandidate> into,
+        AiSiegeGateTally? siegeGates = null)
     {
         ArgumentNullException.ThrowIfNull(view);
         ArgumentNullException.ThrowIfNull(personality);
@@ -88,7 +94,7 @@ public static class AiMilitaryPhase
                 continue;
             }
 
-            ProposeSieges(view, army, requiredRatio, progress, into);
+            ProposeSieges(view, army, requiredRatio, progress, into, siegeGates);
             ProposeArmyAttacks(view, army, requiredRatio, into);
             if (!Contains(armiesAlreadyMarched, army.Id))
             {
@@ -203,7 +209,12 @@ public static class AiMilitaryPhase
     }
 
     private static void ProposeSieges(
-        AiView view, ArmyState army, long requiredRatio, long progress, List<AiCandidate> into)
+        AiView view,
+        ArmyState army,
+        long requiredRatio,
+        long progress,
+        List<AiCandidate> into,
+        AiSiegeGateTally? siegeGates)
     {
         var archerUnitTypeId = BattleCommandRuleset.ArcherUnitTypeIdIn(view.Ruleset);
         var fortifyOrder = FortifyOrder(view.Ruleset);
@@ -211,6 +222,7 @@ public static class AiMilitaryPhase
         {
             // AttackLegality refuses every siege under such a ruleset, so proposing one would be a
             // guaranteed rejection.
+            siegeGates?.RecordRulesetCannotSiege();
             return;
         }
 
@@ -236,6 +248,7 @@ public static class AiMilitaryPhase
             var projected = RelationTransitions.DeclareWar(view.State, view.Ruleset, view.NationId, city.Owner);
             if (!AttackLegality.IsLegal(projected, view.Ruleset, besiege))
             {
+                siegeGates?.RecordLegalityRejection();
                 continue;
             }
 
@@ -249,6 +262,8 @@ public static class AiMilitaryPhase
                 view.Ruleset);
 
             var ratio = AiView.RatioPermille(attackerPower, defenderPower);
+            siegeGates?.RecordRatioGate(
+                ratio >= requiredRatio, army.Id, city.Id, attackerPower, defenderPower, ratio, requiredRatio);
             if (ratio < requiredRatio)
             {
                 continue;

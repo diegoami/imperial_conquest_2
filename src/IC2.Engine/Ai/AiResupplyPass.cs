@@ -121,6 +121,7 @@ public static class AiResupplyPass
                 }
 
                 var result = AutomaticResupply.ForArmy(army, city, armyNation, cityNation, ruleset);
+                if (result.AdmittedTons == 0 && result.TalentsPaid == 0) { continue; }
                 state = Apply(state, result);
                 armyTransfers++;
                 tons += result.AdmittedTons;
@@ -154,6 +155,7 @@ public static class AiResupplyPass
                 }
 
                 var result = AutomaticResupply.ForFleet(fleet, city, fleetNation, cityNation, ruleset);
+                if (result.AdmittedTons == 0 && result.TalentsPaid == 0) { continue; }
                 state = Apply(state, result);
                 fleetTransfers++;
                 tons += result.AdmittedTons;
