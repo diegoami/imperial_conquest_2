@@ -133,6 +133,46 @@ public static class AiWeights
     public const long RecruitBaseScore = 1000;
 
     /// <summary>
+    /// Base score for mobilizing a fully ready standing-recruitment slot into an army unit —
+    /// <c>docs/task-catalogue.md</c> T57, the AI side of T55's
+    /// <see cref="Recruitment.Commands.MobilizeRecruitSlotCommand"/>. Set above
+    /// <see cref="RecruitBaseScore"/> and below <see cref="ReinforceCityBaseScore"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Why above recruiting.</strong> A ready slot has already been paid for
+    /// (<see cref="Recruitment.Commands.RecruitStandingUnitCommandHandler"/> debits the treasury the
+    /// moment the order is placed) and has already reached its permanent quality
+    /// (<see cref="Recruitment.MobilizationReadiness.QualityFor"/> — mobilizing later never improves
+    /// it). Converting it costs nothing further and carries no risk, so it should never lose to spending
+    /// fresh treasury on a brand new order: an AI that keeps recruiting while a ready unit sits
+    /// uncollected is accumulating idle assets rather than growing its army, which is exactly the gap
+    /// this task closes — <c>docs/task-catalogue.md</c> T57's own Scope line: before it, <c>grep -rn
+    /// "Mobiliz" src/IC2.Engine/Ai/</c> returned nothing, so every ready recruit stayed a recruit.
+    /// </para>
+    /// <para>
+    /// <strong>Why below reinforcing.</strong> A besieged or threatened city's own defence still
+    /// outranks a routine conversion elsewhere on the map — the same ordering
+    /// <see cref="ThreatenedCityBonus"/> already gives reinforcement over economy work. Mobilization is
+    /// not given a threat bonus of its own, because the unit it creates never joins the training city's
+    /// garrison: <see cref="Cities.Capture.CompleteDefenderStrength.GarrisonTerm"/> counts a slot only
+    /// while it is still <em>pending</em>, so mobilizing trades one form of defensive value (the
+    /// garrison term) for another (a field army standing beside the city) rather than adding to it.
+    /// <see cref="Ai.AiEconomyPhase"/> declines to mobilize a slot whose city is currently under siege
+    /// for exactly that reason — see its own remarks.
+    /// </para>
+    /// <para>
+    /// <strong><c>[designed]</c>, and what was searched:</strong> this file's own header remark's search
+    /// (every report in the research repository, for an AI decision rule or priority) plus
+    /// <c>decompiled-mobilization-and-mercenary-restock.md</c> itself, specifically for a stated
+    /// priority between the original's mobilization pass and its other AI actions. Nothing was found —
+    /// the original's <c>FUN_004504f4</c> mobilizes inside a budget loop with no comparison to any other
+    /// action class, a shape this engine's per-action scoring has no analogue for.
+    /// </para>
+    /// </remarks>
+    public const long MobilizeReadyRecruitBaseScore = 1100;
+
+    /// <summary>
     /// Base score for proposing peace. Above recruitment because a nation that has decided it is losing
     /// should act on that before it spends, and below any military action because the military phase's
     /// own gates have already refused to attack if the ratio is bad.
