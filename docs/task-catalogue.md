@@ -4,7 +4,7 @@ Every build task's scope, **Owns** list, Definition of Done, model/effort, revie
 
 **Status is not in this document.** Each task's stage (ready, in progress, merged, blocked, escalated) lives only in its GitHub issue's `status:*` label ([build-process.md §5](build-process.md#5-status-lives-on-github)). The index below links every issue.
 
-57 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), twelve corrections to already-merged code (T31–T35, T38–T40, T42–T45), one rule no task owned (T37, the weekly city supply step), and two early slices — T41 of T23's CLI, and T47 of T24's Godot UI.
+59 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), twelve corrections to already-merged code (T31–T35, T38–T40, T42–T45), one rule no task owned (T37, the weekly city supply step), and two early slices — T41 of T23's CLI, and T47 of T24's Godot UI.
 
 ---
 
@@ -127,6 +127,8 @@ graph TD
   T11 --> T24
   T29 --> T36[T36 improved preset]
   T36 --> T24
+  T36 --> T58[T58 auto-resolve survey]
+  T58 --> T59[T59 auto-resolve tournament]
   T29 --> T24
   T34 --> T24
   T24 --> T25[T25 battle/diplo/handoff screens]
@@ -150,6 +152,7 @@ Waves are dependency layers, not concurrent batches: execution is serial, one co
 | 4 | T38, T13, T14, T15, T16, T35, T37, T39, T44, T45 | T44 follows T34 and must merge before T21. T45 follows T08 and T09 and gates nothing — it is test-only. T38 follows T08 and precedes T14. T39 follows T35 and precedes T13 and T22. T35 follows T08 and gates T13, T17, T19 and T37. T37 must merge before T29. T16 is the long pole. |
 | 5 | T17, T18, T19, T20, T29, T21, T22 | T17 first, then T18/T19/T20; T29 once T15, T17, T19 and T37 have merged; then T21 and T22. T22 is the long pole. |
 | 6 | T23, T36, T24, T25, T26, T27, T28 | T36 follows T29 and precedes T24. T24/T25/T27 are single-instance (Godot) and form one serial chain. |
+| 7 | T58, T59 | Both follow T36. They change nothing the game runs — T58 is a document and T59 a measurement harness — so they hold no other task up, and the user gates whether anything is adopted from them. |
 
 **Critical path**: `T01 → T02 → T03 → T06 → T32 → T08 → T38 → T14 → T16 → T17 → T29 → T36 → T24 → T25 → T27` — 15 of 43 tasks — with `T08 → T35 → T17` and `T31 → T33 → T16` as parallel edges into it; T29 also waits for T15 and T19, and `T17 → T23 → T24` runs one task shorter. The AI chain (`… → T17 → T18 → T22 → T28`) runs alongside it with the most slack and the most uncertain duration, which argues for not deferring T22.
 
@@ -1480,6 +1483,53 @@ Conventions used by every entry:
 
 ---
 
+#### T58 Survey composition-aware auto-resolve models, and how to judge them
+
+- **Design milestone**: none — reopens the question `game-design.md` milestone 8 closed by design. **Labels**: `phase:2 lane:engine`
+- **Branch**: `task/T58-autoresolve-survey` · **Model/effort**: **Opus / High** · **Reviewer**: **Opus / Medium**
+- **Start after**: T36 · **Merge after**: T36
+- **Owns**: `docs/investigations/auto-resolve-approaches.md` (new, the whole file)
+- **Scope**: **A document, not code. This task must not pick a winner** — T59 measures, and the user decides from T59's scorecard.
+
+  The merged instant resolver gives every unit type the same casualty rate to within about **one percentage point**, where the original's tactical battle ranged from **4% to 100%** across types ([`instant-resolver-cannot-reproduce-a-tactical-battle.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/instant-resolver-cannot-reproduce-a-tactical-battle.md)). So bringing cavalry is worth exactly what bringing archers is worth, and army composition is decoration. The user has asked for the *Crusader Kings* / *Europa Universalis* shape instead: **an auto-resolve that internally simulates enough of a battle that composition matters**, with the tactical screen kept as an option rather than a requirement.
+
+  **The strongest candidate may already be decompiled.** The original's own tactical model — the 25-value type-effectiveness matrix, the per-type shooting-vulnerability weight, the melee caps, the tactical morale array and the rout mechanic (`FUN_00438fb0`) — is in the research repo in full. *Run the original's tactical battle headless, and show the screen only if the player asks* is therefore a candidate needing **no new design and no new evidence**, and it is precisely the thing the user described other games doing. Specify it first and honestly; if it wins on the measurements, the answer is one this project already owns.
+- **Done when**:
+  1. **At least four candidate models are specified precisely enough for T59 to implement without inventing anything** — every constant either named from an existing report or fixture, or explicitly marked `[designed]` with what was searched, per [design-audit.md](design-audit.md) §4.5. The four must include: the **merged instant resolver as the baseline**; the **original's own tactical model run headless**; a **type-weighted instant resolver** that reuses the decompiled matrix without simulating rounds; and at least one **round-based** model in the EU4/CK lineage. More is welcome; fewer is not.
+  2. **A metric suite is defined, each metric with its exact measurement procedure and its pass band.** At minimum: *composition sensitivity* (hold total troops fixed, vary the mix, measure the win-rate spread — a flat resolver scores about zero and fails); *non-transitivity* (does some A beat B beat C beat A — a single dominant composition is a design failure, not a result); *upset rate* (how often the weaker side wins, with a stated acceptable band); *casualty differentiation* (the per-type loss spread); *determinism* (same seed, same outcome, and the draw count stated); *cost* (wall-clock per battle against T22's 50-seed, 5-minute soak budget).
+  3. **Each metric says in advance what would make a candidate fail it.** A suite every candidate passes measures nothing.
+  4. **The one observed tactical battle is recorded as a smoke test** — 45,100 against 27,700, the five start/finish pairs, and the `ratio ≈ 46` aggregate calibration — with the document stating plainly that **one instance cannot validate a model and must not be tuned against**.
+  5. The document states what it is **not** deciding, and that the tactical screen remains a v2 item per the user's decision of 2026-09-20.
+  6. No file outside Owns is touched; no engine code changes.
+- **Hazards**:
+  - **Do not pick a winner, and do not rank the candidates.** The temptation will be strong because the headless-tactical candidate looks best on paper. Specifying it persuasively and measuring it fairly are different jobs, and this task has only the first.
+  - **Do not tune anything to the single observed battle.** It is one engagement, fought tactically on a patched EXE, and `ratio ≈ 46` was recovered by sweeping past unknown morale and quality rather than by measuring them.
+  - **Fidelity is not the goal.** The user's objection to the original is a *design* objection — *"I do not like that an army is completely destroyed"* — so a candidate that departs from the original is not thereby wrong. Say where each is faithful and where it departs, and let the measurements speak.
+
+---
+
+#### T59 The auto-resolve tournament
+
+- **Design milestone**: none — produces the evidence the user decides from. **Labels**: `phase:2 lane:engine`
+- **Branch**: `task/T59-autoresolve-tournament` · **Model/effort**: **Opus / High** · **Reviewer**: **Opus / High**
+- **Start after**: T58 · **Merge after**: T58
+- **Owns**: `src/IC2.Engine/Battle/Candidates/**`, `tests/IC2.Engine.Tests/Battle/Candidates/**`, `tools/AutoResolveTournament/**`, `docs/investigations/auto-resolve-tournament-results.md`
+- **Scope**: Implement every candidate T58 specified behind **one interface**, run them against T58's metric suite, and publish a scorecard. **This task does not change how the game resolves a battle** — nothing in `InstantBattleResolver` moves and no shipped ruleset gains a flag. It produces a document the user reads.
+- **Done when**:
+  1. **Every T58 candidate is implemented behind a common seam**, with the merged `InstantBattleResolver` wrapped unchanged as the baseline. A candidate that cannot be implemented from T58's specification is a **finding to report**, not a gap to fill by invention.
+  2. **Every metric in T58's suite is computed for every candidate**, by the procedure T58 defined, and the scorecard records the number rather than a verdict.
+  3. **The tournament is deterministic**: a fixed seed reproduces the whole scorecard byte for byte, and the PR shows the same run twice.
+  4. **Failures are reported, not smoothed.** If a candidate scores about zero on composition sensitivity — and the baseline is expected to — that number appears in the table. A scorecard where everything passes means the bands were set after the fact.
+  5. **The scorecard states cost** per candidate against T22's budget, so a model that cannot run inside the soak is visibly disqualified rather than quietly slow.
+  6. `dotnet build IC2.sln` and `dotnet test IC2.sln` green; the diff lists only Owns paths.
+- **Hazards**:
+  - **Do not wire any candidate into the game.** No `Ruleset` flag, no `InstantBattleResolver` edit, no preset change. The seam is for measurement; adopting a winner is a later task the user gates.
+  - **Determinism is the whole value.** Every draw through `IRng`; state each candidate's draw count per battle. A tournament that cannot be rerun is an anecdote.
+  - **Do not retune a candidate to improve its score.** If a candidate needs tuning to be worth measuring, say so and report the number it achieved as specified.
+  - The headless-tactical candidate will be much the most expensive to implement and probably the slowest to run. **Budget for it first** — if it has to be cut, the user needs that finding early, not as a surprise at the end.
+
+---
+
 #### T24 Godot main game screen
 
 - **Design milestone**: **M18** (UI half). **Labels**: `phase:3 lane:ui single-instance`
@@ -1598,5 +1648,7 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T55](#t55-mobilization-a-ready-recruit-becomes-an-army-unit) | Mobilization + the mobilization rate | — | **Opus** | High | **Opus**/High | T13, T15 | [#228](https://github.com/diegoami/imperial_conquest_2/issues/228) |
 | [T56](#t56-the-quarterly-mercenary-restock) | Quarterly mercenary restock | — | Sonnet | High | **Opus**/Medium | T13 | [#229](https://github.com/diegoami/imperial_conquest_2/issues/229) |
 | [T57](#t57-the-ai-mobilizes-its-ready-recruits) | The AI mobilizes its ready recruits | — | Sonnet | High | **Opus**/Medium | T55 | [#246](https://github.com/diegoami/imperial_conquest_2/issues/246) |
+| [T58](#t58-survey-composition-aware-auto-resolve-models-and-how-to-judge-them) | Survey auto-resolve models + metrics | — | **Opus** | High | **Opus**/Medium | T36 | [#251](https://github.com/diegoami/imperial_conquest_2/issues/251) |
+| [T59](#t59-the-auto-resolve-tournament) | The auto-resolve tournament | — | **Opus** | High | **Opus**/High | T58 | [#250](https://github.com/diegoami/imperial_conquest_2/issues/250) |
 
-**Totals** — 57 tasks: 6 Opus, 46 Sonnet, 4 Haiku, 1 Fable. Effort: 2 Ultrahigh, 29 High, 23 Medium, 3 Low.
+**Totals** — 59 tasks: 8 Opus, 46 Sonnet, 4 Haiku, 1 Fable. Effort: 2 Ultrahigh, 31 High, 23 Medium, 3 Low.
