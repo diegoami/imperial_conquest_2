@@ -45,10 +45,9 @@ Run this **first, over the whole run**, and print a table: recording, length, st
 
 **The `before`/`after` pair is the most valuable thing a run can contain.** It isolates the player's orders from everything the engine does between turns, which makes a delta attributable to one or the other. Check for such a pattern before assuming a run is just a sequence.
 
-Two things this alignment will also tell you, and both matter more than they look:
+It also tells you **which recording to open at all** — length and save density are a decent proxy for how much happened.
 
-- **Where the gaps are.** On the Ptolemy run every recording *stops* before the turn is ended, so the between-turn processing — quarterly economy, AI moves, the news log — is in none of the 22 videos. Better to know that in the first minute than after extracting 300 frames looking for it. When a run has this gap, **say so in the report and ask the player to record through the transition**.
-- **Which recording to open at all.** Length and save density are a decent proxy for how much happened.
+**What this alignment cannot tell you is that something is missing.** An `.mp4`'s mtime lags the moment recording actually stopped, so the arithmetic will show an apparent gap between one recording ending and the next beginning where there is none. On the Ptolemy run that artifact led to a confident, wrong claim that the between-turn processing had not been recorded; the last frame of `IP1 011.mp4` and the second frame of `IP1 012.mp4` are the same screen at the same wall-clock minute. **Use the alignment to place a save inside a recording, never to conclude that a moment was not captured. If you think something is missing, open the frames either side and look.**
 
 ## 2. Let the save diff choose the timestamp
 
@@ -107,10 +106,11 @@ Ranked by how much they settle per frame:
 | **Nation / diplomacy** | Relations, treasury, unity, tax, leader name, mobilized percentage |
 | **Any dialog with a live preview** | The tax dialog shows `New income` updating against `New tax` **before** committing. A pair of frames either side of a slider move gives two points on a function the saves can never show, because the save only ever holds the committed value |
 
-Two under-used sources:
+**Read the news log first, always.** It is **cumulative** — a scrollback of every event in the world since the game began — so **one frame late in a run substitutes for watching the run**. It is the cheapest high-value read available and it should be the first frame extracted from any new recording set, before the alignment table is even interesting. A single frame of the Ptolemy run's log yielded six distinct sentence templates, two of which mattered beyond their wording: `falls to` against `defects from … to` is the exact capture-versus-defection distinction T17 rests on, and `Gaul depose their leader Caractacus` named a **leader-deposition mechanic no report describes and no task models**.
 
-- **The news log** states in the game's own language what a save diff can only infer — *"falls to"* against *"defects from"* is the distinction T17's whole capture-versus-defection split rests on, and it came from a video frame.
-- **The title bar.** It carries the acting nation and its leader, on every single frame. That is how `Cleopatra` and `Sennacherib` were recovered for a world export whose every `leaderName` reads `"(unassigned -- drawn at New Game)"`.
+The other under-used source is **the title bar**. It carries the acting nation and its leader on every single frame. That is how `Cleopatra` and `Sennacherib` were recovered for a world export whose every `leaderName` reads `"(unassigned -- drawn at New Game)"`.
+
+**An open dialog is an intent, not a commit.** A frame showing a tax slider, a recruitment order being composed or a confirmation prompt shows what was *on screen*, not what was *applied* — the player may cancel, or change it again later in the turn. Read the committed value from the save, every time, and never write "the player set X to N" on the strength of a panel. This cuts both ways and is useful: a dialog's live preview is valuable **precisely because** it shows a value that was never committed and therefore appears in no save.
 
 **A word ladder against a stored number is worth stopping for.** The game stores readiness as a state code and displays it as `not ready` / `very poor` / `poor`; it stores unity as a number and displays it as `normal`. Any frame showing a word where the save holds a number is a free point on a mapping — and several such rows in one panel is most of a ladder.
 
@@ -159,9 +159,12 @@ A recording and the saves either side of it. Timestamps are welcome but **no lon
 
 ## Steps
 
-1. **Align first.** For every recording, `start = mtime - ffprobe duration`; every save whose mtime
-   falls inside that window belongs to it. Print the table. It reveals the run's structure (look for a
-   before/after save pair per turn) and, just as usefully, **what is in the gaps between recordings**.
+0. **Read the news log first.** It is cumulative, so one frame late in the run carries every event
+   since the game began, in the game's own words. Cheapest high-value read there is.
+1. **Align.** For every recording, `start = mtime - ffprobe duration`; every save whose mtime falls
+   inside that window belongs to it. Print the table; it reveals the run's structure (look for a
+   before/after save pair per turn). **Never use it to conclude something was not captured** — an
+   mp4's mtime lags the stop, so it invents gaps that do not exist. Open the frames and look.
 2. **Let the save diff pick the timestamp.** `IC2.Inspect --inspect-city` / `--inspect-nation` on the
    pair either side, and go to the video for the moment that explains the change. Do not scrub.
 3. **Coarse pass**: `fps=1/10` scaled to 1280 across the recording, assembled into one contact sheet,
@@ -169,7 +172,8 @@ A recording and the saves either side of it. Timestamps are welcome but **no lon
 4. **Fine pass**: full resolution, `-ss <t> -frames:v 1`, only where step 2 or 3 pointed.
 5. **Reconcile**: for every number read off a panel, say whether the save agrees. **A disagreement is
    the finding** — report it, never resolve it silently. Prefer instances where the candidate rules
-   would give different answers.
+   would give different answers. Remember an open dialog is an **intent**, not a commit: the committed
+   value comes from the save.
 6. Write or update a research-repo report, `[confirmed]` / `[derived]` / `[designed]` tagged, naming
    the recording and the frame timestamps so the frames can be re-extracted, and stating how much of
    the run was examined. Commit and push to its `main` without asking.
