@@ -78,7 +78,7 @@ DAT plus all 54 saves the committed corpus table enumerates (7 MB) — see its o
 reasoning. Nothing downstream — a test, a review, or CI — cares which folder a fixture currently sits
 in, and nothing in CI has to guess which subset of the corpus a test will read by directory next.
 
-**The evidence is also published as GitHub releases, one per play-through**, in that same private repository — [`run-1-rome`, `run-1-cartago`, `run-1-thracia` and `legacy-probes`](https://github.com/diegoami/imp_conquest_original/releases). Each release holds that run's saves, screenshots, observation notes and any recording a note ties to a save pair.
+**The evidence is published as GitHub releases, one per play-through**, in [`diegoami/imp_conquest_fixtures`](https://github.com/diegoami/imp_conquest_fixtures/releases) — `run-1-ptolemy`, `run-1-rome`, `run-1-cartago`, `run-1-thracia` and `legacy-probes`. Each release holds that run's saves, screenshots and any recording. **A recording no longer needs a note to be usable**: [recording-analysis.md §1](recording-analysis.md#1-align-the-saves-to-the-recordings-before-extracting-anything) aligns saves to recordings from their file timestamps alone.
 
 This matters because **reports cite bare filenames** (`11_supply.sav`, `1_rome_270_winter_7.sav`), never paths. [`docs/evidence-index.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/evidence-index.md) in the research repository maps every cited filename to the release holding it, with a `gh release download` recipe — so a citation can be resolved **without this machine's local copy**. Read it before hunting for a file on disk.
 
