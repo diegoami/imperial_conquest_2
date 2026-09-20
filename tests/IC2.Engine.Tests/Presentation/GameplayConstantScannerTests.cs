@@ -27,8 +27,6 @@ public sealed class GameplayConstantScannerTests
     /// <summary>
     /// Every integer literal this task's Presentation/CLI code legitimately contains, each one structural
     /// (indexing, argument counts, loop bookkeeping, process exit codes) rather than a gameplay number.
-    /// </summary>
-    /// <summary>
     /// <c>5</c> and <c>6</c> joined this list with T23's Done-when 1: <c>fleet-transfer</c> takes five
     /// arguments (<c>tokens.Length != 6</c>, and its last token index is <c>5</c>) — still argument-count
     /// and index bookkeeping, the same structural class as the rest of this list, just for a command with

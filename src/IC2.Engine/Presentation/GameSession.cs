@@ -363,6 +363,23 @@ public sealed partial class GameSession
         // and silently dropped the real news line. Asking the log what it actually appended -- comparing
         // NewsLog.Slots.Count before and after -- answers the only question that matters: how many
         // entries to show, whatever produced them.
+        //
+        // DoD 3 (#98 follow-up) gap, moved here from PR #248's body per review round 1 (build-process.md
+        // T50 hazard: "a PR body does not survive the merge"): the catalogue's Done-when line asks for
+        // coverage of "a round containing a header, a dash-delimited conquest line and an ordinary line".
+        // GameSessionCommandsTests.HandleEnd_prints_every_entry_the_round_actually_appended_not_just_the_header
+        // covers the general undercounting bug (a header plus more than one ordinary news-worthy entry)
+        // but NOT the dash-wrapped sub-case specifically, because that combination cannot be built inside
+        // this task's Owns list: a human-issued besiege-city win is flushed by IssueCommand's own
+        // NewsLogWriter.Append call before this method's newsBefore line ever runs, so a human capture
+        // never lands inside this round's newsBefore/newsAfter window. Reaching it needs an AI seat to
+        // besiege-and-capture a city within its own turn AND have that capture eliminate the loser
+        // (NewsMessageCatalog.IsWrappedInDashLines only wraps an elimination, not every conquest) --
+        // reliably forcing a specific AI outcome needs exact knowledge of src/IC2.Engine/Ai/** scoring
+        // gates, which is outside this task's Owns and, per T57 (planned but not yet built as of this
+        // task), still actively unsettled. Tracked as follow-up #256: a reliable one-turn-AI-conquest
+        // fixture is a prerequisite for closing this DoD3 sub-case, and should land once T57 stabilizes
+        // AI scoring rather than being guessed at here.
         var newsBefore = State.NewsLog.Slots.Count;
         var result = _coordinator.RunTurn(State);
         State = result.State;
