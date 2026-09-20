@@ -59,11 +59,30 @@ dotnet run --project src/IC2.Inspect/IC2.Inspect.csproj -- --inspect-city <save>
 dotnet run --project src/IC2.Inspect/IC2.Inspect.csproj -- --inspect-nation <save>.sav <Nation>
 ```
 
-This inverts the old order and is strictly better: the diff tells you a number moved, and the frame tells you *what the game called it* while it moved. A frame found this way arrives already reconciled, which is the difference between an observation and a finding (§5). The Ptolemy run's strongest result — thirteen recruitment orders against a 13-point rise in mobilization — came from reading the diff first and the frame second.
+This inverts the old order and is strictly better: the diff tells you a number moved, and the frame tells you *what the game called it* while it moved. A frame found this way arrives already reconciled, which is the difference between an observation and a finding (§6). The Ptolemy run's strongest result — thirteen recruitment orders against a 13-point rise in mobilization — came from reading the diff first and the frame second.
 
 `--compare-saves` reports raw byte offsets and is noisy; `--inspect-city` / `--inspect-nation` are semantic and are usually what you want.
 
-## 3. Extract, coarse then fine
+## 3. Find the dialogs automatically, then dedup them
+
+For a whole run, do not sample by eye. **The game map is saturated green, blue and yellow; a Windows dialog is bright and near-grey.** So the fraction of near-grey pixels inside the map viewport is a reliable detector, and it reduces a run to the handful of moments where something was actually on screen.
+
+```python
+def dialog_score(im):            # fraction of map-viewport pixels that look like chrome
+    crop = im.crop(viewport)     # ~(320,70)-(1890,1030) of a 1920x1080 frame
+    px = crop.convert('RGB').resize((160, 100)).load()
+    return sum(1 for y in range(100) for x in range(160)
+               for r, g, b in [px[x, y]]
+               if max(r, g, b) > 150 and max(r, g, b) - min(r, g, b) < 40) / 16000
+```
+
+Sample every 5 seconds, keep frames scoring above ~0.06, then **deduplicate with a perceptual hash of the upper-left region** — a dialog sits open unchanged for many seconds, and the same dialog recurs every turn. On the Ptolemy run this took 22 recordings to 118 dialog-bearing frames and then to **62 distinct screens**, which is a handful of contact sheets rather than an afternoon.
+
+Dedup twice: **within** a recording to collapse a dialog left open, and **across** the whole run to collapse the dialogs that open every turn. A global pass is what separates the twelve screen types the game actually has from the hundreds of frames showing them.
+
+**Beware frame-index arithmetic.** These are variable-frame-rate screen captures, and `-vf fps=1/5` does not reliably put output frame *n* at second *5n*. Extract at `fps=1` when a timestamp has to be exact, and locate an interesting frame by re-extracting a bounded window rather than by computing an index.
+
+## 4. Extract, coarse then fine
 
 **Coarse pass — sample the whole recording cheaply.** For a recording of a few minutes, one frame every ten seconds is 20–30 frames, enough to find every dialog that opened:
 
@@ -92,7 +111,7 @@ One sheet costs a single read and shows which frames are worth full resolution. 
 
 **Work in the scratchpad**, never in a repository or the game directory. Frames are derived data; they are regenerated in seconds and must never be committed.
 
-## 4. What the panels are worth
+## 5. What the panels are worth
 
 Ranked by how much they settle per frame:
 
@@ -114,7 +133,7 @@ The other under-used source is **the title bar**. It carries the acting nation a
 
 **A word ladder against a stored number is worth stopping for.** The game stores readiness as a state code and displays it as `not ready` / `very poor` / `poor`; it stores unity as a number and displays it as `normal`. Any frame showing a word where the save holds a number is a free point on a mapping — and several such rows in one panel is most of a ladder.
 
-## 5. The rule that makes this evidence rather than anecdote
+## 6. The rule that makes this evidence rather than anecdote
 
 **A frame is an observation. A frame reconciled against the saves either side is a finding.**
 
@@ -124,7 +143,7 @@ Always state which it is. A number read off a panel is `[confirmed]` for *that m
 
 Record the recording's filename and the frame timestamps in the report, so the next reader can re-extract the same frames. `-ss 200 … f_040.png` means 240 seconds in; say so rather than making them recompute it.
 
-## 6. Output
+## 7. Output
 
 A report in the research repo, following its `[confirmed]` / `[derived]` / `[designed]` discipline, committed and pushed to `main` without asking. If the recording settles something a build-repo document currently claims otherwise, that is a **finding to report**, never a silent edit — it goes through the bug list ([build-process.md §4.6](build-process.md#46-bugs-and-follow-ups)), exactly as `/process-evidence` stage 2 requires.
 
@@ -167,8 +186,9 @@ A recording and the saves either side of it. Timestamps are welcome but **no lon
    mp4's mtime lags the stop, so it invents gaps that do not exist. Open the frames and look.
 2. **Let the save diff pick the timestamp.** `IC2.Inspect --inspect-city` / `--inspect-nation` on the
    pair either side, and go to the video for the moment that explains the change. Do not scrub.
-3. **Coarse pass**: `fps=1/10` scaled to 1280 across the recording, assembled into one contact sheet,
-   read once to find which frames have a dialog open.
+3. **Detect, do not browse**: score each sampled frame by the near-grey fraction inside the map
+   viewport, then dedup by perceptual hash **within and across** recordings. Contact-sheet the
+   survivors.
 4. **Fine pass**: full resolution, `-ss <t> -frames:v 1`, only where step 2 or 3 pointed.
 5. **Reconcile**: for every number read off a panel, say whether the save agrees. **A disagreement is
    the finding** — report it, never resolve it silently. Prefer instances where the candidate rules
@@ -177,7 +197,11 @@ A recording and the saves either side of it. Timestamps are welcome but **no lon
 6. Write or update a research-repo report, `[confirmed]` / `[derived]` / `[designed]` tagged, naming
    the recording and the frame timestamps so the frames can be re-extracted, and stating how much of
    the run was examined. Commit and push to its `main` without asking.
-7. Move the cited recording to `recordings-processed/` if it was local and unprocessed.
+7. **Append to `docs/recording-ledger.md`** in the research repo: depth reached per recording, which
+   timestamps were read, what was harvested, what is left. Runs arrive incrementally and this is the
+   only record of which screens were transcribed versus merely known to exist. Move a recording to
+   `recordings-processed/` **only** when its ledger row says `exhausted` — never merely because a pass
+   touched it.
 8. Report back: what was confirmed, what was only observed, what contradicted an existing claim, and
    anything that needs another look at the video.
 
