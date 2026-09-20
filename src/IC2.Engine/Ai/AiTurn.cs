@@ -129,11 +129,17 @@ public static class AiTurn
         var hitCap = true;
         var marched = new List<string>();
 
+        // T60 Done-when 1: one siege-gate sample per turn, taken on the first proposal pass only. Later
+        // passes see the same standing adjacencies again, so feeding them in too would count situations
+        // once per action rather than once per turn. See AiSiegeGateTally.
+        var siegeGates = new AiSiegeGateTally();
+
         for (var action = 0; action < AiWeights.MaxActionsPerTurn; action++)
         {
             var view = new AiView(state, ruleset, world, nationId);
             var candidates = new List<AiCandidate>();
-            AiMilitaryPhase.Propose(view, personality, rng, marched, candidates);
+            AiMilitaryPhase.Propose(
+                view, personality, rng, marched, candidates, action == 0 ? siegeGates : null);
             AiEconomyPhase.Propose(view, personality, candidates);
             AiDiplomacyPhase.Propose(view, personality, candidates);
 
@@ -175,6 +181,11 @@ public static class AiTurn
         if (hitCap)
         {
             log.Add(Inv("action cap {0} reached", AiWeights.MaxActionsPerTurn));
+        }
+
+        if (siegeGates.Describe() is { } gates)
+        {
+            log.Add(gates);
         }
 
         return new AiTurnOutcome(state, nationId, log, issued, rejected, mismatches, hitCap);

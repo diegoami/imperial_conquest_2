@@ -294,6 +294,72 @@ public sealed class AiResupplyPassTests
         Assert.Equal(200 - first - second, city);
         Assert.True(city >= 0, $"the city cannot go below zero stock; it holds {city}");
     }
+
+    /// <summary>
+    /// <c>docs/task-catalogue.md</c> T60 Done-when 3, and the whole of issue #259's root cause: an army
+    /// already at its supply capacity is paired with no city, so <see cref="AutomaticResupply"/>'s purse
+    /// hygiene does not move <see cref="EconomyRules.AutoResupplyPurseTopUpAmount"/> out of the
+    /// treasury for a visit that delivered nothing.
+    /// </summary>
+    /// <remarks>
+    /// The treasury here is deliberately smaller than one top-up grant, which is the soak's own
+    /// situation: <c>toy-3city</c>'s two nations start on 450 and 500 talents against a grant of 500. So
+    /// the old behaviour did not merely shave the treasury, it emptied it on the AI's first turn, and
+    /// <see cref="AiEconomyPhase.TurnBudget"/> was at or below zero for the rest of the game.
+    /// </remarks>
+    [Fact]
+    public void An_army_already_at_capacity_is_not_paired_with_a_city_at_all()
+    {
+        var capacity = SupplyCapacity.ArmyCapacityTons(15000, Ruleset);
+        var grant = Ruleset.Economy.AutoResupplyPurseTopUpAmount;
+        var treasury = grant - 50;
+
+        var state = SupplyState(armyMoney: 0) with { Fleets = ValueList<FleetState>.Empty };
+        state = state with
+        {
+            Armies = ValueList.Of(state.ArmyById("supply-army")! with { SupplyTons = capacity }),
+            Nations = ValueList.Of(
+                state.NationById(ArmyNation)! with { Treasury = treasury },
+                state.NationById(OtherNation)!),
+        };
+
+        var result = AiResupplyPass.Run(state, Ruleset, ArmyNation);
+
+        Assert.Equal(0, result.ArmyTransfers);
+        Assert.Equal(0, result.TonsMoved);
+        Assert.Equal(treasury, result.State.NationById(ArmyNation)!.Treasury);
+        Assert.Equal(0, result.State.ArmyById("supply-army")!.Money);
+        Assert.Equal(capacity, result.State.ArmyById("supply-army")!.SupplyTons);
+        Assert.True(
+            AiSubstantiveState.AreEquivalent(state, result.State),
+            "a pass with nothing to move must leave the state untouched");
+    }
+
+    /// <summary>
+    /// The other half of the same rule, so the skip cannot quietly become "the AI never tops up a purse
+    /// again": a transfer that <em>does</em> move supply is applied whole, purse hygiene included.
+    /// </summary>
+    [Fact]
+    public void A_transfer_that_moves_supply_still_carries_T38s_purse_hygiene()
+    {
+        var grant = Ruleset.Economy.AutoResupplyPurseTopUpAmount;
+        var treasury = grant * 4;
+
+        var state = SupplyState(armyMoney: 0) with { Fleets = ValueList<FleetState>.Empty };
+        state = state with
+        {
+            Nations = ValueList.Of(
+                state.NationById(ArmyNation)! with { Treasury = treasury },
+                state.NationById(OtherNation)!),
+        };
+
+        var result = AiResupplyPass.Run(state, Ruleset, ArmyNation);
+
+        Assert.Equal(1, result.ArmyTransfers);
+        Assert.True(result.TonsMoved > 0, "the army started empty, so supply must have moved");
+        Assert.Equal(grant, result.State.ArmyById("supply-army")!.Money);
+        Assert.Equal(treasury - grant, result.State.NationById(ArmyNation)!.Treasury);
+    }
 }
 
 /// <summary>Small readability helper for the giveback assertion above.</summary>

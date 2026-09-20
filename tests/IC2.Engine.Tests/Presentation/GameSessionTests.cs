@@ -139,10 +139,26 @@ public sealed class GameSessionTests
     {
         var scriptLines = File.ReadAllLines(DemoScriptPath);
 
-        // Twelve seeds, because two adjacent seeds are not guaranteed to differ in every blanked field --
-        // a loyalty roll landing the same way twice is ordinary, not a defect.
+        // FORTY seeds, and the number is a statistical judgement, not a round figure -- do not trim it
+        // back (issue #270; T60 Done-when 7). Two seeds are not guaranteed to differ in every blanked
+        // field: a loyalty roll landing the same way twice is ordinary, not a defect. The binding field
+        // is portus's "loyalty NN", whose probability of moving at all in one run is only about 15.6%.
+        // That comes from Economy.CityLoyaltyDraws at the demo's 15% tax rate: the rise draw cannot fire
+        // there, and the fall draw needs NextChance(1, 3) and then Random(15) / 8 >= 1, true for 7 of 15
+        // values, so 1/3 x 7/15 = 15.6%. A twelve-seed window therefore holds no witness with
+        // probability (1 - 0.156)^12 = 13%: this test used to redden on roughly one in seven of *any*
+        // stream-shifting change, related or not, which is exactly what it did to T60. Forty seeds drop
+        // that to (1 - 0.156)^40 = 0.1%. Forty is also sufficient for every *other* blanked field, each
+        // of which is far looser: measured over seeds 1..40, the weather lines, army troop counts and
+        // unit supply figures take 6-11 distinct values each and first differ from seed 1 at seed 2,
+        // and the Southern League's treasury takes 2 values, first differing at seed 3. Portus's
+        // loyalty first differs at seed 13 -- which is precisely why 12 was not enough.
+        //
+        // Cost: about 1.3 ms per seed in process, so this test runs in ~51 ms against ~16 ms at twelve
+        // seeds -- roughly 35 ms added to the suite. (Measured per *process* it looks like ~0.8 s a
+        // seed, but that is CLI start-up, not the sweep.)
         var transcripts = new List<string>();
-        for (ulong seed = 1; seed <= 12; seed++)
+        for (ulong seed = 1; seed <= 40; seed++)
         {
             transcripts.Add(RunTranscript(NewSession(seed), scriptLines));
         }
