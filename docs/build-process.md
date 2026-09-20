@@ -461,6 +461,9 @@ When done:
   5. Run `git checkout --detach` in your worktree so the branch is free for the reviewer.
   6. Report back: what you built, the DoD results, anything you couldn't verify, and any evidence
      conflict you found. Don't merge, and don't review your own PR.
+
+<task entry: the extracted `#### T<nn>` block from docs/task-catalogue.md, pasted in full —
+ this is the contract, and the reason you should not need to open that file>
 ```
 
 ## Appendix B: reviewer prompt template
@@ -497,8 +500,8 @@ CHECKOUT, not here. So pass `git -C <your worktree>` explicitly rather than rely
 see gate 5 before considering any forked tool.
 
 The task entry is reproduced in full at the end of this brief; you should not need to open the
-catalogue. Read: docs/build-process.md §4.2 "What the reviewer checks", docs/game-design.md
-      (milestone M<n>), docs/design-audit.md — each by section, not in full (CLAUDE.md rule 11).
+catalogue. Read docs/build-process.md §4.2 "What the reviewer checks", docs/game-design.md
+(milestone M<n>) and docs/design-audit.md — each by section, not in full (CLAUDE.md rule 11).
 <extra context: earlier review rounds' URLs, if this is a re-review.>
 
 Run five gates, in order. Any failure is status:rework:
@@ -546,6 +549,9 @@ Do NOT use `gh pr review`: every agent shares one GitHub account, and GitHub won
 account review its own PR, so the label is the approval signal.
 Don't merge and don't fix the code yourself. When you finish, remove your worktree
 (`git -C C:\Users\diego\projects\imperial_conquest_2 worktree remove <path> --force`).
+
+<task entry: the extracted `#### T<nn>` block from docs/task-catalogue.md, pasted in full —
+ this is the contract, and the reason you should not need to open that file>
 ```
 
 ## Appendix C: the `/run-task` skill
