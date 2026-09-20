@@ -414,8 +414,12 @@ If the first line is C:\Users\diego\projects\imperial_conquest_2, you are in the
 checkout: STOP and fix that before doing anything else. Nothing you spawn inherits your shell
 directory, so always pass `git -C <your worktree>` explicitly rather than relying on `cd`.
 
+Your task entry is reproduced in full at the end of this brief — it is the contract, and you
+should not need to open the catalogue at all. If you do need a different entry, extract that one
+rather than reading the file (CLAUDE.md rule 11):
+  awk '/^#### T<nn> /{f=1} f&&/^#### /&&!/^#### T<nn> /{exit} f' docs/task-catalogue.md
+
 Read first, in order:
-  docs/task-catalogue.md  — your task entry (#t<nn>-<slug>). It is the contract.
   docs/build-process.md   — §2 (ownership), §4 (the loop, the review gates, the bug list).
   docs/game-design.md     — design milestone M<n> and the Design principles at the top.
   docs/design-audit.md    — what the evidence actually supports. §2 lists plausible-looking
@@ -457,6 +461,9 @@ When done:
   5. Run `git checkout --detach` in your worktree so the branch is free for the reviewer.
   6. Report back: what you built, the DoD results, anything you couldn't verify, and any evidence
      conflict you found. Don't merge, and don't review your own PR.
+
+<task entry: the extracted `#### T<nn>` block from docs/task-catalogue.md, pasted in full —
+ this is the contract, and the reason you should not need to open that file>
 ```
 
 ## Appendix B: reviewer prompt template
@@ -492,8 +499,9 @@ Nothing you spawn inherits your shell directory: a forked skill or agent starts 
 CHECKOUT, not here. So pass `git -C <your worktree>` explicitly rather than relying on `cd`, and
 see gate 5 before considering any forked tool.
 
-Read: docs/task-catalogue.md (the task entry), docs/build-process.md §4.2 "What the reviewer
-      checks", docs/game-design.md (milestone M<n>), docs/design-audit.md.
+The task entry is reproduced in full at the end of this brief; you should not need to open the
+catalogue. Read docs/build-process.md §4.2 "What the reviewer checks", docs/game-design.md
+(milestone M<n>) and docs/design-audit.md — each by section, not in full (CLAUDE.md rule 11).
 <extra context: earlier review rounds' URLs, if this is a re-review.>
 
 Run five gates, in order. Any failure is status:rework:
@@ -541,6 +549,9 @@ Do NOT use `gh pr review`: every agent shares one GitHub account, and GitHub won
 account review its own PR, so the label is the approval signal.
 Don't merge and don't fix the code yourself. When you finish, remove your worktree
 (`git -C C:\Users\diego\projects\imperial_conquest_2 worktree remove <path> --force`).
+
+<task entry: the extracted `#### T<nn>` block from docs/task-catalogue.md, pasted in full —
+ this is the contract, and the reason you should not need to open that file>
 ```
 
 ## Appendix C: the `/run-task` skill
@@ -556,7 +567,12 @@ description: Run Imperial Conquest 2 build tasks end to end — dispatch the imp
 
 # /run-task [T<nn> ...]
 
-Read docs/build-process.md §4 and each task's entry in docs/task-catalogue.md first. Given task
+Read docs/build-process.md §4 first, and **extract** each task's entry rather than reading the
+catalogue whole (CLAUDE.md rule 11):
+  awk '/^#### T<nn> /{f=1} f&&/^#### /&&!/^#### T<nn> /{exit} f' docs/task-catalogue.md
+**Paste that extracted entry into every brief you dispatch** (CLAUDE.md rule 15). An agent sent
+to the whole catalogue pays ~85,000 tokens to reach ~1,450 tokens of contract, once per agent
+per round. Given task
 ids, run them in that order; given none, take the first status:ready task in the catalogue index.
 Report to the user after each task; stop at any escalation.
 
