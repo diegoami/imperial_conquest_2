@@ -1,3 +1,4 @@
+using IC2.Engine.Battle.Commands;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
 
@@ -64,16 +65,26 @@ public sealed class DisbandArmyCommandHandler : ICommandHandler<DisbandArmyComma
     /// <see cref="DisbandArmyCommand"/>'s remarks for why this widened from exact co-location).
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Scans <see cref="GameState.Cities"/> in list order and takes the first match, so two of the
     /// nation's own cities adjoining the same tile resolve the same way every run — the supplies always
     /// go to the same one. Order, not proximity: nothing in the evidence ranks two equally-near cities,
     /// and inventing a tie-break would be inventing a rule.
+    /// </para>
+    /// <para>
+    /// <strong>Routed through <see cref="AttackLegality.AreAdjacent"/> — T23 follow-up
+    /// <see href="https://github.com/diegoami/imperial_conquest_2/issues/222">#222</see>.</strong> This
+    /// used to open-code the same Chebyshev-distance-one literal that <see cref="AttackLegality"/> also
+    /// defines, so the two adjacency rules could silently drift: widening one left the other, and the
+    /// tests that only dispatch through this handler, unaffected. There is one "near/adjacent" rule in
+    /// this engine now, defined once.
+    /// </para>
     /// </remarks>
     private static CityState? FindOwnCityNear(GameState state, string nationId, int x, int y)
     {
         foreach (var city in state.Cities)
         {
-            if (Math.Max(Math.Abs(city.X - x), Math.Abs(city.Y - y)) <= 1
+            if (AttackLegality.AreAdjacent(city.X, city.Y, x, y)
                 && string.Equals(city.Owner, nationId, StringComparison.Ordinal))
             {
                 return city;

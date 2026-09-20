@@ -57,19 +57,24 @@ public sealed class MoveArmyCommandHandler : ICommandHandler<MoveArmyCommand>
 
         var terrainCells = world.Terrain.Decode(world.Width, world.Height);
 
-        string? TileTypeIdAt(GridPoint point)
-        {
-            if (!InBounds(point, world))
-            {
-                return null;
-            }
+        TileType? TileTypeAt(GridPoint point) =>
+            InBounds(point, world) ? world.TileTypeByCode(terrainCells[(point.Y * world.Width) + point.X]) : null;
 
-            var code = terrainCells[(point.Y * world.Width) + point.X];
-            return world.TileTypeByCode(code)?.Id;
-        }
+        string? TileTypeIdAt(GridPoint point) => TileTypeAt(point)?.Id;
 
         bool IsBlocked(GridPoint point)
         {
+            // T23 follow-up #226: an army's walk never checked TileType.PassableByArmies, so it could be
+            // legally walked into the sea -- MoveFleetCommandHandler's mirror check (PassableByFleets) was
+            // the only side of this asymmetry that existed. T22's AI never issues such a march on its own
+            // (it reads the same flag through AiView), which is why nothing caught it: a human seat through
+            // this CLI has no such scruple. Checked first, before occupancy, for the same reason
+            // MoveFleetCommandHandler checks terrain before its own fleet-occupancy scan.
+            if (TileTypeAt(point)?.PassableByArmies != true)
+            {
+                return true;
+            }
+
             foreach (var city in state.Cities)
             {
                 if (city.X == point.X && city.Y == point.Y)

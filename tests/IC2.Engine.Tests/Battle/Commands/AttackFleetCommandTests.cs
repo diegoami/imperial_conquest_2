@@ -86,6 +86,30 @@ public sealed class AttackFleetCommandTests
         Assert.True(AttackLegality.IsLegal(awayFromHarbour, ToyRuleset, Attack()));
     }
 
+    /// <summary>
+    /// T23 follow-up <see href="https://github.com/diegoami/imperial_conquest_2/issues/222">#222</see>:
+    /// the boundary theory <see cref="AttackArmyCommandTests.DoD01_AdjacencyIsChebyshevDistanceOne"/> gives
+    /// the army gate, now given to the naval gate too — a diagonal neighbour is adjacent (Chebyshev, not
+    /// Manhattan), and two tiles away is not.
+    /// </summary>
+    [Theory]
+    [InlineData(6, 4, true)]   // diagonal neighbour of the target at (7, 5).
+    [InlineData(7, 4, true)]   // orthogonal neighbour.
+    [InlineData(5, 5, false)]  // two tiles across.
+    [InlineData(5, 3, false)]  // two tiles diagonally.
+    public void DoD07_AdjacencyIsChebyshevDistanceOne(int attackerX, int attackerY, bool expectedLegal)
+    {
+        var state = Fixture();
+        state = state with
+        {
+            Fleets = ValueList.From(state.Fleets.Select(f =>
+                f.Id == AttackerId ? f with { X = attackerX, Y = attackerY } : f)),
+        };
+
+        Assert.Equal(expectedLegal, AttackLegality.IsLegal(state, ToyRuleset, Attack()));
+        Assert.Equal(expectedLegal, Dispatcher().Dispatch(state, Attack()).IsAccepted);
+    }
+
     /// <summary>Done-when 7's gates, on Done-when 1's discipline.</summary>
     [Fact]
     public void DoD07_EveryGateRefusesBeforeAnythingResolves()

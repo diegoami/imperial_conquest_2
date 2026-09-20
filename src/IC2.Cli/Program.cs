@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Linq;
 using IC2.Engine.Presentation;
 using IC2.Engine.Serialization;
 
@@ -6,12 +7,46 @@ namespace IC2.Cli;
 
 /// <summary>
 /// A thin console wrapper around <see cref="GameSession"/> — <c>docs/task-catalogue.md</c> "T41 Thin CLI
-/// demo on the toy world (a walking skeleton)". Holds no game rule and no parsing beyond its own two
-/// arguments (<c>--script</c>, <c>--seed</c>): every command line it reads is handed to
-/// <see cref="GameSession.Submit"/> verbatim, and every line it prints is exactly what that call returned.
+/// demo on the toy world (a walking skeleton)". Holds no game rule and no parsing beyond its own four
+/// arguments (<c>--script</c>, <c>--seed</c>, <c>--scenario</c>, <c>--ruleset</c>): every command line it
+/// reads is handed to <see cref="GameSession.Submit"/> verbatim, and every line it prints to standard
+/// output is exactly what that call returned.
 /// </summary>
+/// <remarks>
+/// <strong>DoD 5 (added to <c>docs/task-catalogue.md</c> T23 after PR #248's round-1 review).</strong>
+/// Before this, <see cref="Main"/> hardcoded <c>repository.Resolve("toy-3city")</c>, so T29's 334-city
+/// <c>classical-mediterranean</c> world and T36's <c>improved</c> ruleset preset were both exported and
+/// loaded by <see cref="GameDataRepository"/> but reachable from nothing. <c>--scenario</c> and
+/// <c>--ruleset</c> fix that without touching <c>GameDataRepository</c> (owned elsewhere, and unneeded —
+/// it already exposes <see cref="GameDataRepository.Scenarios"/>/<see cref="GameDataRepository.Rulesets"/>
+/// and <see cref="GameDataRepository.Resolve"/> returns the three parts separately): <c>--ruleset</c> is
+/// a plain substitution on the already-resolved <see cref="ResolvedScenario"/> record, at the same call
+/// site that already split the three apart for <see cref="GameSession"/>'s constructor. <c>--ruleset</c>
+/// is the design, not a shortcut — <c>docs/game-design.md</c> §"Two shipped presets, not a pile of
+/// independent flags" calls the <c>classical-faithful</c>/<c>improved</c> choice "a top-level product
+/// decision … surfaced as a prominent choice at New Game rather than buried in scenario JSON", and this is
+/// that choice's text-mode form, ahead of T24's graphical one.
+/// </remarks>
+/// <remarks>
+/// <strong>Both flags default to today's values, so a no-flag invocation is unchanged.</strong> No new
+/// line reaches standard output on the default path: the "which world/ruleset pair it loaded" line DoD 5
+/// requires goes to standard <em>error</em>, precisely so <c>tests/fixtures/cli/demo.golden.txt</c> (which
+/// only ever captures standard output) regenerates byte-identical. If it ever doesn't, that means the
+/// default path moved — the bug is there, not in the golden.
+/// </remarks>
+/// <remarks>
+/// <strong>The big world loads; rendering it is not this task's to fix.</strong>
+/// <see cref="GameSessionRendering"/> is already world-size-agnostic, so <c>--scenario
+/// classical-mediterranean</c> loads and runs, but its <c>map</c> command prints a 320-character-wide
+/// grid and its legend emits one line per city for 334 cities, with markers colliding wholesale
+/// (<c>city.Name[0]</c> is nowhere near unique at that scale). That is a viewport problem for a future
+/// task, not a defect this one introduces or should paper over with ad hoc paging.
+/// </remarks>
 internal static class Program
 {
+    /// <summary>The scenario loaded when <c>--scenario</c> is not given — unchanged from before DoD 5.</summary>
+    private const string DefaultScenarioId = "toy-3city";
+
     private static int Main(string[] args)
     {
         // A fixed, invariant culture and "\n" line endings, so the golden transcript this task ships
@@ -21,6 +56,8 @@ internal static class Program
 
         string? scriptPath = null;
         ulong? seed = null;
+        var scenarioId = DefaultScenarioId;
+        string? rulesetOverrideId = null;
 
         for (var i = 0; i < args.Length; i++)
         {
@@ -48,6 +85,26 @@ internal static class Program
                     seed = parsedSeed;
                     break;
 
+                case "--scenario":
+                    if (i + 1 >= args.Length)
+                    {
+                        Console.Error.WriteLine("--scenario requires a scenario id.");
+                        return 1;
+                    }
+
+                    scenarioId = args[++i];
+                    break;
+
+                case "--ruleset":
+                    if (i + 1 >= args.Length)
+                    {
+                        Console.Error.WriteLine("--ruleset requires a ruleset id.");
+                        return 1;
+                    }
+
+                    rulesetOverrideId = args[++i];
+                    break;
+
                 default:
                     Console.Error.WriteLine($"Unknown argument: {args[i]}");
                     return 1;
@@ -64,12 +121,37 @@ internal static class Program
         try
         {
             var repository = GameDataRepository.Load(Path.Combine(FindRepositoryRoot(), "data"));
-            var resolved = repository.Resolve("toy-3city");
+
+            if (repository.ScenarioById(scenarioId) is null)
+            {
+                var available = string.Join(", ", repository.Scenarios.Select(s => s.Id).OrderBy(id => id, StringComparer.Ordinal));
+                Console.Error.WriteLine($"Unknown scenario '{scenarioId}'. Available scenarios: {available}.");
+                return 1;
+            }
+
+            var resolved = repository.Resolve(scenarioId);
+
+            if (rulesetOverrideId is not null)
+            {
+                var overrideRuleset = repository.RulesetById(rulesetOverrideId);
+                if (overrideRuleset is null)
+                {
+                    var available = string.Join(", ", repository.Rulesets.Select(r => r.Id).OrderBy(id => id, StringComparer.Ordinal));
+                    Console.Error.WriteLine($"Unknown ruleset '{rulesetOverrideId}'. Available rulesets: {available}.");
+                    return 1;
+                }
+
+                resolved = resolved with { Ruleset = overrideRuleset };
+            }
+
+            Console.Error.WriteLine(
+                $"Loaded scenario '{resolved.Scenario.Id}': world '{resolved.World.Id}', ruleset '{resolved.Ruleset.Id}'.");
+
             session = new GameSession(resolved.World, resolved.Ruleset, resolved.Scenario, seed);
         }
         catch (GameDataException ex)
         {
-            Console.Error.WriteLine($"Could not load the toy scenario: {ex.Message}");
+            Console.Error.WriteLine($"Could not load scenario '{scenarioId}': {ex.Message}");
             return 1;
         }
 

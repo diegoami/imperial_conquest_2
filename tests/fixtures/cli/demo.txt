@@ -7,6 +7,32 @@ move south-army-1 0 0
 move north-army-1 3 -1
 move north-army-1 4 4
 move north-army-1 5 5
+attack-army north-army-1 north-army-1
+besiege-city north-army-1 arx
+attack-fleet north-fleet-1 north-fleet-1
+join-units north-army-1 0 1
+split-army north-army-1 north-army-2 99
+join-armies north-army-1 north-army-2
+order-city arx fortify 1
+declare-war north
+make-peace south
+propose-alliance north
+propose-trade north
+accept-offer
+mobilize 0 north-recruit-army
+hire-mercenary north-army-1 0
+recruit-standing arx heavy_infantry 1000
+move-fleet north-fleet-1 999 999
+order-fleet portus 10 north-fleet-2
+repair-fleet north-fleet-1 5
+split-fleet north-fleet-1 north-fleet-3 5
+join-fleets north-fleet-1 north-fleet-3
+embark-army north-army-1 north-fleet-1
+disembark-army north-army-1
+buy-fleet-supply north-fleet-1 portus 5
+fleet-transfer north-fleet-1 north-fleet-2 1 1 1
+disband-army north-army-2
+scuttle-fleet north-fleet-2
 end
 end
 end
