@@ -1,3 +1,5 @@
+> Guidance for Claude Code. The OpenCode review process lives in AGENTS.md.
+
 # Imperial Conquest 2
 
 Read [`docs/operating-guide.md`](docs/operating-guide.md) before doing anything. It is the entry point: where everything lives, how the project is operated, and the standing preferences. This file lists only the rules that must never be forgotten.

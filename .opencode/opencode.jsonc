@@ -1,0 +1,16 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  // Worktrees live outside the session Location: the session's working
+  // directory is the main checkout, but implementer and reviewer worktrees
+  // are created under ~/projects/ic2-work/, so that path must be reachable.
+  //
+  // The `run-task` skill shipped for Claude must not be loaded by OpenCode:
+  // it drives the Claude-era /run-task flow. The OpenCode process is AGENTS.md,
+  // and OpenCode reads AGENTS.md and never CLAUDE.md.
+  "permissions": [
+    { "action": "external_directory", "resource": "~/projects/ic2-work/*", "effect": "allow" },
+    { "action": "read", "resource": "~/projects/ic2-work/*", "effect": "allow" },
+    { "action": "edit", "resource": "~/projects/ic2-work/*", "effect": "allow" },
+    { "action": "skill", "resource": "run-task", "effect": "deny" }
+  ]
+}
