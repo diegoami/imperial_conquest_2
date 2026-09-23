@@ -29,6 +29,26 @@ public class TournamentTests
         }
     }
 
+    /// <summary>
+    /// Pins the whole reduced-seed scorecard (all five candidates, every clause, 2 seeds per matchup), so that
+    /// ANY change to a candidate's rules, the harness or a metric changes this hash and fails here (T59 review,
+    /// B1). To regenerate after a deliberate change:
+    /// <c>dotnet test tests/IC2.Engine.Tests --filter "FullyQualifiedName~The_reduced_seed_scorecard_is_pinned"</c>,
+    /// copy the "actual" hash from the failure message into <see cref="PinnedReducedScorecardSha256"/>, say in
+    /// the commit which rule changed and why, and rerun the full tournament (<c>tools/AutoResolveTournament -- run</c>).
+    /// </summary>
+    [Fact]
+    public void The_reduced_seed_scorecard_is_pinned()
+    {
+        var joined = string.Join("\n", Scorecards(reverse: false));
+        var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(joined)));
+        Assert.True(
+            string.Equals(PinnedReducedScorecardSha256, hash, StringComparison.Ordinal),
+            $"The 2-seed scorecard changed: pinned {PinnedReducedScorecardSha256}, actual {hash}.");
+    }
+
+    private const string PinnedReducedScorecardSha256 = "FF5A550FE8ADDCA4DA57F6626ABB8DF3BAC4702872C1E113155B9BFE5CC33AA7";
+
     [Fact]
     public void A_battle_replayed_on_a_fresh_generator_gives_the_same_canonical_record()
     {

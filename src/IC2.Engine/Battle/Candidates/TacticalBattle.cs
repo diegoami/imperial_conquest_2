@@ -39,7 +39,7 @@ internal sealed class TacticalBattle
     private CandidateEnding _ending;
     private readonly BreakCause[] _lastRemovalCause = { BreakCause.None, BreakCause.None };
 
-    private TacticalBattle(CandidateBattle battle, IRng rng, bool retreat, bool recordEvents)
+    internal TacticalBattle(CandidateBattle battle, IRng rng, bool retreat, bool recordEvents)
     {
         _tables = CandidateTables.For(battle.Ruleset);
         _rules = battle.Ruleset.Combat.DetailedResolver;
@@ -109,6 +109,13 @@ internal sealed class TacticalBattle
 
     private void Fight(CandidateBattle battle)
     {
+        Setup(battle);
+        Rounds();
+    }
+
+    /// <summary>§6.2's setup: the seeded tactical morale (K27, K26, D08), the shot pools, and placement (D01).</summary>
+    internal void Setup(CandidateBattle battle)
+    {
         // Setup, §6.2: K27's placeholder +3 to BOTH sides, seam-local, used only to seed m (not written back).
         var seedMorale = new[]
         {
@@ -130,7 +137,10 @@ internal sealed class TacticalBattle
         }
 
         Place(); // D01
+    }
 
+    private void Rounds()
+    {
         for (_round = 1; _round <= CandidateConstants.TacticalRoundCap && !_ended; _round++) // D09
         {
             if (_retreat)
@@ -418,6 +428,18 @@ internal sealed class TacticalBattle
 
     private static int ClampMorale(int m) =>
         Math.Max(CandidateConstants.TacticalMoraleFloor, Math.Min(CandidateConstants.TacticalMoraleCap, m)); // D08
+
+    /// <summary>For <see cref="TacticalProbe"/>: one unit's state.</summary>
+    internal TacticalUnit UnitAt(int side, int slot) => _sides[side][slot];
+
+    /// <summary>For <see cref="TacticalProbe"/>: whether K32 ended the battle, and who won.</summary>
+    internal (bool Ended, int WinnerSide) State => (_ended, _winnerSide);
+
+    /// <summary>For <see cref="TacticalProbe"/>: the event log (when recorded).</summary>
+    internal IReadOnlyList<CandidateEvent> Events => (IReadOnlyList<CandidateEvent>?)_events ?? Array.Empty<CandidateEvent>();
+
+    /// <summary>For <see cref="TacticalProbe"/>: runs §5's routine on one unit.</summary>
+    internal void RoutCheckAt(int side, int slot) => RoutCheck(_sides[side][slot]);
 
     private void RoutCheck(TacticalUnit x)
     {
@@ -719,7 +741,7 @@ internal sealed class TacticalBattle
             (IReadOnlyList<CandidateEvent>?)_events ?? Array.Empty<CandidateEvent>());
     }
 
-    private sealed class TacticalUnit
+    internal sealed class TacticalUnit
     {
         public TacticalUnit(int side, int slot, int type, long troops, int quality, int shots)
         {
