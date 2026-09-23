@@ -20,6 +20,19 @@ public static class SaveFormat
     /// <summary>The envelope field name the wrapped <c>SaveGame</c> document is written under.</summary>
     public const string PayloadField = "save";
 
-    /// <summary>The highest save format version this build writes and reads.</summary>
-    public const int CurrentVersion = 1;
+    /// <summary>
+    /// The envelope field name <see cref="Model.GameState.Calendar"/>'s turn index is mirrored under
+    /// (version 2+) — a convenience so a save picker can list a save's turn progress without
+    /// deserializing (and validating) its entire nested <c>GameState</c>.
+    /// </summary>
+    public const string TurnIndexField = "turnIndex";
+
+    /// <summary>
+    /// The highest save format version this build writes and reads. Version 1 wrapped a bare
+    /// <c>SaveGame</c> with no other envelope field; version 2 adds <see cref="TurnIndexField"/>.
+    /// <see cref="SaveMigrations"/> carries the real version-1-to-2 step, exercised by
+    /// <c>tests/fixtures/saves/toy-3city-turn-20.v1.json</c> — a save written by this task's own
+    /// version-1 code, committed before this constant became 2.
+    /// </summary>
+    public const int CurrentVersion = 2;
 }

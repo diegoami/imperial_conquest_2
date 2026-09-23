@@ -49,6 +49,7 @@ public static class SaveManager
         var envelope = new JsonObject
         {
             [SaveFormat.VersionField] = SaveFormat.CurrentVersion,
+            [SaveFormat.TurnIndexField] = save.State.Calendar.TurnIndex,
             [SaveFormat.PayloadField] = JsonSerializer.SerializeToNode(save, GameJson.Options),
         };
 
@@ -121,7 +122,22 @@ public static class SaveManager
             throw new MissingRequiredFieldException(documentPath, SaveFormat.PayloadField, "the save envelope");
         }
 
+        var envelopeTurnIndex = ReadTurnIndex(documentPath, current);
         var save = GameDataLoader.Load<SaveGame>(documentPath, payloadNode.ToJsonString());
+
+        // The envelope's own turnIndex (written fresh at save time, or supplied by MigrateV1ToV2 for an
+        // older file) has to agree with the nested state it is describing -- otherwise a save picker
+        // reading only the envelope, never the state, would show a wrong number. A version-1 fixture
+        // whose migration step were deleted or made a no-op would fail the required-field check just
+        // above instead of reaching this line at all, so the two checks together cover both "missing"
+        // and "present but wrong".
+        if (envelopeTurnIndex != save.State.Calendar.TurnIndex)
+        {
+            throw new MalformedGameDataException(
+                documentPath,
+                $"the envelope's '{SaveFormat.TurnIndexField}' ({envelopeTurnIndex}) disagrees with "
+                + $"the save's own state.calendar.turnIndex ({save.State.Calendar.TurnIndex}).");
+        }
 
         if (!string.Equals(save.WorldId, expectedWorld.Id, StringComparison.Ordinal))
         {
@@ -175,6 +191,24 @@ public static class SaveManager
         {
             throw new MalformedGameDataException(
                 documentPath, $"'{SaveFormat.VersionField}' must be an integer.", ex);
+        }
+    }
+
+    private static int ReadTurnIndex(string documentPath, JsonObject envelope)
+    {
+        if (!envelope.TryGetPropertyValue(SaveFormat.TurnIndexField, out var turnIndexNode) || turnIndexNode is null)
+        {
+            throw new MissingRequiredFieldException(documentPath, SaveFormat.TurnIndexField, "the save envelope");
+        }
+
+        try
+        {
+            return turnIndexNode.GetValue<int>();
+        }
+        catch (Exception ex) when (ex is FormatException or InvalidOperationException)
+        {
+            throw new MalformedGameDataException(
+                documentPath, $"'{SaveFormat.TurnIndexField}' must be an integer.", ex);
         }
     }
 }
