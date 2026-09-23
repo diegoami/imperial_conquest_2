@@ -4,7 +4,7 @@ Every build task's scope, **Owns** list, Definition of Done, model/effort, revie
 
 **Status is not in this document.** Each task's stage (ready, in progress, merged, blocked, escalated) lives only in its GitHub issue's `status:*` label ([build-process.md §5](build-process.md#5-status-lives-on-github)). The index below links every issue.
 
-62 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), twelve corrections to already-merged code (T31–T35, T38–T40, T42–T45), one rule no task owned (T37, the weekly city supply step), and two early slices — T41 of T23's CLI, and T47 of T24's Godot UI.
+71 tasks: 23 that build the 20 design milestones (M1 and M18 span more than one task), plus T46, the second half of M7 split out of T14; eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers); 25 corrections to already-merged code (T31–T35, T38–T40, T42–T45, T50, T52, T53, T60, T63–T71); five rules no task owned (T37, the weekly city supply step; T54, the attack and siege commands; T55–T57, mobilization, the mercenary restock and the AI's use of both); two early slices — T41 of T23's CLI, and T47 of T24's Godot UI; the asset pipeline (T48, T49, T51); the auto-resolve survey and tournament (T58, T59); and two layout fixes (T61, T62).
 
 ---
 
@@ -138,6 +138,37 @@ graph TD
   T22 --> T28[T28 nightly soak gate]
   T25 --> T27[T27 packaging]
   T26 --> T27
+
+  T16 --> T54[T54 attack + siege commands]
+  T17 --> T54
+  T19 --> T54
+  T54 --> T22
+  T54 --> T23
+  T13 --> T55[T55 mobilization]
+  T15 --> T55
+  T22 --> T55
+  T55 --> T57[T57 AI mobilizes]
+  T22 --> T57
+  T57 --> T60[T60 AI besieges]
+  T13 --> T56[T56 mercenary restock]
+  T22 --> T56
+  T29 --> T62[T62 terrain sidecar]
+  T36 --> T62
+  T53[T53 fixture resolution + CI fixtures]
+  T61[T61 catalogue split]
+
+  T64[T64 fleet tombstones + fixture hygiene] --> T21
+  T63 --> T68[T68 exporter provenance]
+  T68 --> T56
+  T63 --> T65[T65 AI hygiene + tests]
+  T63 --> T66[T66 battle follow-ups]
+  T68 --> T66
+  T63 --> T67[T67 siege predicate]
+  T68 --> T67
+  T63 --> T69[T69 elimination + diplomacy]
+  T68 --> T69
+  T70[T70 command-layer hygiene]
+  T71[T71 serialization + persistence]
 ```
 
 ### 1.1 Waves and the critical path
@@ -150,12 +181,15 @@ Waves are dependency layers, not concurrent batches: execution is serial, one co
 | 1 | T02, T04, T30 | T04 and T30 need only T01. T30's merge gates T29, T21 and T34. |
 | 2 | T03 | The serialization point for engine code. |
 | 3 | T06, T07, T08, T09, T10, T11, T12, T31, T32, T33, T34, T40, T41, T42, T43 | The widest wave. T43 follows T12. T40 merges before T10; T41 (the thin CLI demo) and then T42 (news-log fidelity) follow T10. T32 merges before T08; T33 before T16 and T17; T34 any time before T21, T24 and T29. T08 and T33 both write `Ruleset.cs`, `toy-ruleset.json` and `tests/fixtures/**` — different records and entries, never in flight together. |
-| 4 | T38, T13, T14, T15, T16, T35, T37, T39, T44, T45 | T44 follows T34 and must merge before T21. T45 follows T08 and T09 and gates nothing — it is test-only. T38 follows T08 and precedes T14. T39 follows T35 and precedes T13 and T22. T35 follows T08 and gates T13, T17, T19 and T37. T37 must merge before T29. T16 is the long pole. |
-| 5 | T17, T18, T19, T20, T29, T21, T22 | T17 first, then T18/T19/T20; T29 once T15, T17, T19 and T37 have merged; then T21 and T22. T22 is the long pole. |
-| 6 | T23, T36, T24, T25, T26, T27, T28 | T36 follows T29 and precedes T24. T24/T25/T27 are single-instance (Godot) and form one serial chain. |
-| 7 | T58, T59 | Both follow T36. They change nothing the game runs — T58 is a document and T59 a measurement harness — so they hold no other task up, and the user gates whether anything is adopted from them. |
+| 4 | T38, T13, T14, T15, T16, T35, T37, T39, T44, T45, T49 | T49 follows T11 and precedes T51 and T24. T44 follows T34 and must merge before T21. T45 follows T08 and T09 and gates nothing — it is test-only. T38 follows T08 and precedes T14. T39 follows T35 and precedes T13 and T22. T35 follows T08 and gates T13, T17, T19 and T37. T37 must merge before T29. T16 is the long pole. |
+| 5 | T17, T18, T19, T20, T29, T21, T22, T46, T47, T50, T52, T54 | T17 first, then T18/T19/T20; T29 once T15, T17, T19 and T37 have merged; then T21 and T22. T22 is the long pole. T46 follows T14 and T38, T50 follows T46, T52 follows T16, and T54 follows T16, T17 and T19: all four merge before T22, and T54 also before T23. T47 follows T14 and precedes T48 and T24. |
+| 6 | T23, T36, T24, T25, T26, T27, T28, T48, T51, T55 | T36 follows T29 and precedes T24. T24/T25/T27 are single-instance (Godot) and form one serial chain. T48 follows T47 and T51 follows T49; both precede T24. T55 follows T13, T15 and T22. |
+| 7 | T58, T59, T57, T62, T63 | T58 follows T36, and T59 follows T58 and T63. They change nothing the game runs — T58 is a document and T59 a measurement harness — so they hold no other task up, and the user gates whether anything is adopted from them. T57 follows T22 and T55. T62 follows T29 and T36. T63 has no merge-after dependency, and precedes T59 and T65–T69. |
+| 8 | T60, T65, T68 | T60 follows T57. T65 and T68 follow T63; T68 precedes T56, T66, T67 and T69, because each changes a ruleset key that reaches `classical-faithful.json` only through the exporter. |
+| 9 | T56, T66, T67, T69 | All follow T68; T66, T67 and T69 also follow T63, and T56 also follows T13 and T22. T65, T66 and T67 each edit part of `src/IC2.Engine/Ai/**`, so whichever merges second rebases. |
+| — | T53, T61, T64, T70, T71 | No merge-after dependency: each runs whenever the queue allows. T64 must merge before T21 (the user's decision of 2026-09-23). T67 and T71 both work in `Persistence/**` tests, so they are never in flight together. |
 
-**Critical path**: `T01 → T02 → T03 → T06 → T32 → T08 → T38 → T14 → T16 → T17 → T29 → T36 → T24 → T25 → T27` — 15 of 43 tasks — with `T08 → T35 → T17` and `T31 → T33 → T16` as parallel edges into it; T29 also waits for T15 and T19, and `T17 → T23 → T24` runs one task shorter. The AI chain (`… → T17 → T18 → T22 → T28`) runs alongside it with the most slack and the most uncertain duration, which argues for not deferring T22.
+**Critical path**: `T01 → T02 → T03 → T06 → T32 → T08 → T38 → T14 → T16 → T17 → T29 → T36 → T24 → T25 → T27` — 15 of 71 tasks — with `T08 → T35 → T17` and `T31 → T33 → T16` as parallel edges into it; T29 also waits for T15 and T19, and `T17 → T23 → T24` runs one task shorter. The AI chain (`… → T17 → T18 → T22 → T28`, and now `T22 → T55 → T57 → T60`, as long as the critical path at 15 tasks) runs alongside it with the most slack and the most uncertain duration, which argues for not deferring T22.
 
 ### 1.2 Sequential and independent tasks
 
@@ -532,6 +566,54 @@ Casualty call sites, ported faithfully → [full entry](tasks/T63.md) · [#295](
 
 ---
 
+#### T64 `IC2.Data` hygiene: fleet tombstones, one fixture search order, and a testable fixture mode
+
+Fleet tombstones + fixture hygiene → [full entry](tasks/T64.md) · [#301](https://github.com/diegoami/imperial_conquest_2/issues/301)
+
+---
+
+#### T65 AI hygiene, the missing AI tests, and the classical-mediterranean stall, measured
+
+AI hygiene + missing AI tests → [full entry](tasks/T65.md) · [#302](https://github.com/diegoami/imperial_conquest_2/issues/302)
+
+---
+
+#### T66 Battle follow-ups: the fleet-loss cap, the adjacency boundaries, and a ruleset pointer for archers
+
+Battle follow-ups after T63 → [full entry](tasks/T66.md) · [#303](https://github.com/diegoami/imperial_conquest_2/issues/303)
+
+---
+
+#### T67 Siege state as a predicate, not a flag
+
+Siege state as a predicate → [full entry](tasks/T67.md) · [#304](https://github.com/diegoami/imperial_conquest_2/issues/304)
+
+---
+
+#### T68 Exporter provenance: preset-specific wording and the missing corpus ids
+
+Exporter provenance → [full entry](tasks/T68.md) · [#305](https://github.com/diegoami/imperial_conquest_2/issues/305)
+
+---
+
+#### T69 What elimination does to diplomacy, and a diplomacy tidy
+
+Elimination and diplomacy → [full entry](tasks/T69.md) · [#306](https://github.com/diegoami/imperial_conquest_2/issues/306)
+
+---
+
+#### T70 Command-layer hygiene: one distance metric, one rejection file, and the naming filter
+
+Command-layer hygiene → [full entry](tasks/T70.md) · [#307](https://github.com/diegoami/imperial_conquest_2/issues/307)
+
+---
+
+#### T71 Serialization and persistence hardening
+
+Serialization + persistence hardening → [full entry](tasks/T71.md) · [#308](https://github.com/diegoami/imperial_conquest_2/issues/308)
+
+---
+
 #### T24 Godot main game screen
 
 Godot main screen → [full entry](tasks/T24.md) · [#24](https://github.com/diegoami/imperial_conquest_2/issues/24)
@@ -588,8 +670,8 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T18](#t18-city-orders-fortification) | City orders | M10 | **Haiku** | Medium | Sonnet/Medium | T08, T17 | [#18](https://github.com/diegoami/imperial_conquest_2/issues/18) |
 | [T19](#t19-diplomacy) | Diplomacy | M11 | Sonnet | High | **Opus**/Medium | T06, T16, T35, T42 | [#19](https://github.com/diegoami/imperial_conquest_2/issues/19) |
 | [T20](#t20-new-format-saveload-and-versioning) | Save/load and versioning | M16 | Sonnet | High | **Opus**/Medium | T15, T17, T19 | [#20](https://github.com/diegoami/imperial_conquest_2/issues/20) |
-| [T21](#t21-original-save-import-bridge) | Original-save import | M15 | Sonnet | High | **Opus**/Medium | T10, T20, T29, T30, T34 | [#21](https://github.com/diegoami/imperial_conquest_2/issues/21) |
-| [T22](#t22-ai) | AI | M12 | **Opus** | **Ultrahigh** | Opus/High + ultra | T12, T15, T17, T18, T19, T39, T43 | [#22](https://github.com/diegoami/imperial_conquest_2/issues/22) |
+| [T21](#t21-original-save-import-bridge) | Original-save import | M15 | Sonnet | High | **Opus**/Medium | T10, T20, T29, T30, T34, T64 | [#21](https://github.com/diegoami/imperial_conquest_2/issues/21) |
+| [T22](#t22-ai) | AI | M12 | **Opus** | **Ultrahigh** | Opus/High + ultra | T12, T15, T17, T18, T19, T39, T43, T54 | [#22](https://github.com/diegoami/imperial_conquest_2/issues/22) |
 | [T23](#t23-command-layer-and-headless-cli-harness) | Command layer and CLI | M18 | Sonnet | Medium | Sonnet/High | T17, T19, T41 | [#23](https://github.com/diegoami/imperial_conquest_2/issues/23) |
 | [T24](#t24-godot-main-game-screen) | Godot main screen | M18 | Sonnet | High | Sonnet/High + human | T11, T23, T29, T34, T36 | [#24](https://github.com/diegoami/imperial_conquest_2/issues/24) |
 | [T25](#t25-battle-result-diplomacy-and-hotseat-handoff-screens) | Godot screens | M18 | Sonnet | Medium | Sonnet/High + human | T24 | [#25](https://github.com/diegoami/imperial_conquest_2/issues/25) |
@@ -621,15 +703,23 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T51](#t51-the-prompt-driven-asset-generator) | Prompt-driven asset generator | — | Sonnet | High | **Opus**/Medium | T11, T49 | [#173](https://github.com/diegoami/imperial_conquest_2/issues/173) |
 | [T52](#t52-scale-the-improved-naval-defeat-and-t16s-follow-ups) | Scale the `improved` naval defeat + T16 follow-ups | — | Sonnet | High | Sonnet/High | T16 | [#178](https://github.com/diegoami/imperial_conquest_2/issues/178) |
 | [T53](#t53-resolve-test-fixtures-by-name-and-run-them-in-ci) | Fixture resolution + CI fixtures | — | Sonnet | High | **Opus**/Medium | — | [#204](https://github.com/diegoami/imperial_conquest_2/issues/204) |
-| [T54](#t54-attack-siege-and-movement-onto-city-tiles) | Attack + siege commands | — | **Opus** | High | **Opus**/High | T17, T19 | [#216](https://github.com/diegoami/imperial_conquest_2/issues/216) |
-| [T55](#t55-mobilization-a-ready-recruit-becomes-an-army-unit) | Mobilization + the mobilization rate | — | **Opus** | High | **Opus**/High | T13, T15 | [#228](https://github.com/diegoami/imperial_conquest_2/issues/228) |
-| [T56](#t56-the-quarterly-mercenary-restock) | Quarterly mercenary restock | — | Sonnet | High | **Opus**/Medium | T13 | [#229](https://github.com/diegoami/imperial_conquest_2/issues/229) |
-| [T57](#t57-the-ai-mobilizes-its-ready-recruits) | The AI mobilizes its ready recruits | — | Sonnet | High | **Opus**/Medium | T55 | [#246](https://github.com/diegoami/imperial_conquest_2/issues/246) |
+| [T54](#t54-attack-siege-and-movement-onto-city-tiles) | Attack + siege commands | — | **Opus** | High | **Opus**/High | T16, T17, T19 | [#216](https://github.com/diegoami/imperial_conquest_2/issues/216) |
+| [T55](#t55-mobilization-a-ready-recruit-becomes-an-army-unit) | Mobilization + the mobilization rate | — | **Opus** | High | **Opus**/High | T13, T15, T22 | [#228](https://github.com/diegoami/imperial_conquest_2/issues/228) |
+| [T56](#t56-the-quarterly-mercenary-restock) | Quarterly mercenary restock | — | Sonnet | High | **Opus**/Medium | T13, T22, T68 | [#229](https://github.com/diegoami/imperial_conquest_2/issues/229) |
+| [T57](#t57-the-ai-mobilizes-its-ready-recruits) | The AI mobilizes its ready recruits | — | Sonnet | High | **Opus**/Medium | T22, T55 | [#246](https://github.com/diegoami/imperial_conquest_2/issues/246) |
 | [T58](#t58-survey-composition-aware-auto-resolve-models-and-how-to-judge-them) | Survey auto-resolve models + metrics | — | **Opus** | High | **Opus**/Medium | T36 | [#251](https://github.com/diegoami/imperial_conquest_2/issues/251) |
 | [T59](#t59-the-auto-resolve-tournament) | The auto-resolve tournament | — | **Opus** | High | **Opus**/High | T58, T63 | [#250](https://github.com/diegoami/imperial_conquest_2/issues/250) |
 | [T60](#t60-the-ai-never-besieges-find-out-why-then-fix-it) | The AI never besieges | — | **Opus** | High | **Opus**/High | T57 | [#262](https://github.com/diegoami/imperial_conquest_2/issues/262) |
 | [T61](#t61-split-the-task-catalogue-into-one-file-per-task) | Split the catalogue per task | — | Sonnet | High | **Opus**/Medium | — | [#273](https://github.com/diegoami/imperial_conquest_2/issues/273) |
-| [T62](#t62-move-the-worlds-terrain-blob-out-of-the-scenario-json) | Terrain blob to a sidecar | — | Sonnet | High | **Opus**/Medium | T29 | [#274](https://github.com/diegoami/imperial_conquest_2/issues/274) |
+| [T62](#t62-move-the-worlds-terrain-blob-out-of-the-scenario-json) | Terrain blob to a sidecar | — | Sonnet | High | **Opus**/Medium | T29, T36 | [#274](https://github.com/diegoami/imperial_conquest_2/issues/274) |
 | [T63](#t63-port-the-siege-naval-storm-and-small-unit-casualty-rules-as-the-original-has-them) | Casualty call sites, ported faithfully | M8 | Sonnet | High | **Opus**/High | — | [#295](https://github.com/diegoami/imperial_conquest_2/issues/295) |
+| [T64](#t64-ic2data-hygiene-fleet-tombstones-one-fixture-search-order-and-a-testable-fixture-mode) | Fleet tombstones + fixture hygiene | — | Sonnet | Medium | **Opus**/Medium | — | [#301](https://github.com/diegoami/imperial_conquest_2/issues/301) |
+| [T65](#t65-ai-hygiene-the-missing-ai-tests-and-the-classical-mediterranean-stall-measured) | AI hygiene + missing AI tests | — | Sonnet | High | **Opus**/Medium | T63 | [#302](https://github.com/diegoami/imperial_conquest_2/issues/302) |
+| [T66](#t66-battle-follow-ups-the-fleet-loss-cap-the-adjacency-boundaries-and-a-ruleset-pointer-for-archers) | Battle follow-ups after T63 | — | Sonnet | High | **Opus**/Medium | T63, T68 | [#303](https://github.com/diegoami/imperial_conquest_2/issues/303) |
+| [T67](#t67-siege-state-as-a-predicate-not-a-flag) | Siege state as a predicate | — | **Opus** | High | **Opus**/High | T63, T68 | [#304](https://github.com/diegoami/imperial_conquest_2/issues/304) |
+| [T68](#t68-exporter-provenance-preset-specific-wording-and-the-missing-corpus-ids) | Exporter provenance | — | Sonnet | High | **Opus**/Medium | T63 | [#305](https://github.com/diegoami/imperial_conquest_2/issues/305) |
+| [T69](#t69-what-elimination-does-to-diplomacy-and-a-diplomacy-tidy) | Elimination and diplomacy | — | Sonnet | High | **Opus**/Medium | T63, T68 | [#306](https://github.com/diegoami/imperial_conquest_2/issues/306) |
+| [T70](#t70-command-layer-hygiene-one-distance-metric-one-rejection-file-and-the-naming-filter) | Command-layer hygiene | — | Sonnet | Low | **Opus**/Medium | — | [#307](https://github.com/diegoami/imperial_conquest_2/issues/307) |
+| [T71](#t71-serialization-and-persistence-hardening) | Serialization + persistence hardening | — | Sonnet | Medium | **Opus**/Medium | — | [#308](https://github.com/diegoami/imperial_conquest_2/issues/308) |
 
-**Totals** — 63 tasks: 9 Opus, 49 Sonnet, 4 Haiku, 1 Fable. Effort: 2 Ultrahigh, 35 High, 23 Medium, 3 Low.
+**Totals** — 71 tasks: 10 Opus, 56 Sonnet, 4 Haiku, 1 Fable. Effort: 2 Ultrahigh, 40 High, 25 Medium, 4 Low.
