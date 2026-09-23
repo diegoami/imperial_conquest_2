@@ -462,7 +462,7 @@ When done:
   6. Report back: what you built, the DoD results, anything you couldn't verify, and any evidence
      conflict you found. Don't merge, and don't review your own PR.
 
-<task entry: the extracted `#### T<nn>` block from docs/task-catalogue.md, pasted in full —
+<task entry: the contents of docs/tasks/T<nn>.md, pasted in full —
  this is the contract, and the reason you should not need to open that file>
 ```
 
@@ -550,7 +550,7 @@ account review its own PR, so the label is the approval signal.
 Don't merge and don't fix the code yourself. When you finish, remove your worktree
 (`git -C C:\Users\diego\projects\imperial_conquest_2 worktree remove <path> --force`).
 
-<task entry: the extracted `#### T<nn>` block from docs/task-catalogue.md, pasted in full —
+<task entry: the contents of docs/tasks/T<nn>.md, pasted in full —
  this is the contract, and the reason you should not need to open that file>
 ```
 

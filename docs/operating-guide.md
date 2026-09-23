@@ -36,7 +36,8 @@ gh issue list --label triage:needed --state open         # untriaged bugs and fo
 | [operating-guide.md](operating-guide.md) | This document |
 | [CLAUDE.md](../CLAUDE.md) | Auto-loaded into every Claude Code session: a pointer to this guide, and the rules that must never be forgotten |
 | [build-process.md](build-process.md) | The process contract: roles, the task loop, review gates, bugs and follow-ups, prompt templates, `/run-task` |
-| [task-catalogue.md](task-catalogue.md) | The tasks, the dependency graph, and the task index |
+| [task-catalogue.md](task-catalogue.md) | The index: the dependency graph, the waves, and a stub per task linking to its entry |
+| [tasks/](tasks/) | One file per task, `T<nn>.md`: the task's contract (Owns, Scope, Done when) |
 | [game-design.md](game-design.md) | What is being built |
 | [design-audit.md](design-audit.md) | What the evidence supports, and the design questions Q1–Q10 |
 | [release-plan.md](release-plan.md) | Versions, release gates, release notes, the release checklist |
