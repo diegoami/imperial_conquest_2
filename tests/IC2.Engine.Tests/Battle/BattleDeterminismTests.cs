@@ -151,12 +151,14 @@ public class BattleDeterminismTests
     }
 
     /// <summary>
-    /// The other half of the <c>Battle/Candidates/</c> exemption above (T59, main 8d3d298): no engine file
-    /// outside <c>Battle/Candidates/</c> may reference the candidates' namespace or any of their types, so
-    /// the reserve research the candidates implement cannot leak into the shipped path.
+    /// The other half of the <c>Battle/Candidates/</c> exemption above (T59, main 8d3d298): no production
+    /// source outside <c>src/IC2.Engine/Battle/Candidates/</c> may reference the candidates' namespace or any
+    /// of their types, so the reserve research the candidates implement cannot leak into the shipped path.
+    /// "Production" is every source tree that builds against the engine: all of <c>src/</c> (the engine, the
+    /// CLI, the data and inspection tools) and <c>godot/</c> (the map viewer). Build output is skipped.
     /// </summary>
     [Fact]
-    public void NoEngineCodeOutsideCandidatesReferencesTheCandidates()
+    public void NoProductionCodeOutsideCandidatesReferencesTheCandidates()
     {
         const string CandidatesNamespace = "IC2.Engine.Battle.Candidates";
         var candidateTypes = typeof(InstantBattleResolver).Assembly.GetTypes()
@@ -171,14 +173,18 @@ public class BattleDeterminismTests
         // "Candidates" catches every way to name the namespace: a using, a qualified name, a namespace
         // declaration. The type names catch anything else.
         var tokens = candidateTypes.Append("Candidates").Distinct(StringComparer.Ordinal).ToList();
-        var engineSources = Directory.GetFiles(
-                Path.Combine(TestPaths.RepositoryRoot, "src", "IC2.Engine"), "*.cs", SearchOption.AllDirectories)
+        var productionSources = new[] { "src", "godot" }
+            .Select(root => Path.Combine(TestPaths.RepositoryRoot, root))
+            .Where(Directory.Exists)
+            .SelectMany(root => Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories))
             .Where(file => !IsUnderCandidates(file) && !IsBuildOutput(file))
+            .OrderBy(file => file, StringComparer.Ordinal)
             .ToArray();
-        Assert.NotEmpty(engineSources);
+        Assert.Contains(productionSources, f => f.Contains($"{Path.DirectorySeparatorChar}IC2.Engine{Path.DirectorySeparatorChar}", StringComparison.Ordinal));
+        Assert.Contains(productionSources, f => f.Contains($"{Path.DirectorySeparatorChar}IC2.Cli{Path.DirectorySeparatorChar}", StringComparison.Ordinal));
 
         var offenders = new List<string>();
-        foreach (var file in engineSources)
+        foreach (var file in productionSources)
         {
             var code = StripComments(File.ReadAllText(file));
             foreach (var token in tokens)
@@ -193,7 +199,7 @@ public class BattleDeterminismTests
         Assert.True(
             offenders.Count == 0,
             "Only src/IC2.Engine/Battle/Candidates/ may use the auto-resolve candidates (T59 measurement code, "
-            + "gated by the user); the shipped engine must not reference them: " + string.Join(", ", offenders));
+            + "gated by the user); no production source under src/ or godot/ may reference them: " + string.Join(", ", offenders));
     }
 
     private static bool IsUnderCandidates(string file)
@@ -204,9 +210,9 @@ public class BattleDeterminismTests
 
     private static bool IsBuildOutput(string file)
     {
-        var relative = Path.GetRelativePath(Path.Combine(TestPaths.RepositoryRoot, "src", "IC2.Engine"), file);
-        var first = relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)[0];
-        return first is "bin" or "obj";
+        var relative = Path.GetRelativePath(TestPaths.RepositoryRoot, file);
+        return relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            .Any(segment => segment is "bin" or "obj" or ".godot");
     }
 
     /// <summary>The guard's own regression case: it does see a reserve name when one is really in code.</summary>
