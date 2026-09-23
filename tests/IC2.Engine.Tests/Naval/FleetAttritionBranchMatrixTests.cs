@@ -1,5 +1,7 @@
 using IC2.Engine.Core;
+using IC2.Engine.Model;
 using IC2.Engine.Naval;
+using IC2.Engine.Persistence;
 using Xunit;
 
 namespace IC2.Engine.Tests.Naval;
@@ -268,7 +270,9 @@ public sealed class FleetAttritionBranchMatrixTests
     /// unit (heavy_cavalry: the smallest small-unit-deletion threshold, 250 national, bug #289) cannot
     /// survive an 86% casualty pass AND then the <c>d &gt; 70</c> whole-unit draw: this fixture is sized
     /// specifically to empty, which is what proves the delete-sweep half (bug #289/#292's actual Owns
-    /// grant: "if the army empties, it is deleted... the fleet's CarriedArmyId is cleared").
+    /// grant: "if the army empties, it is deleted... the fleet's CarriedArmyId is cleared"). A second,
+    /// untouched army (on no fleet at all) is the DoD 1 "one emptied and one surviving" pair (B7), and
+    /// the round-trip below goes through T20's <see cref="SaveManager"/>, not just the loader (B7).
     /// </summary>
     [Fact]
     public void HeavyStorm_AppliesCasualtiesAndWholeUnitLossToTheCarriedArmy_EmptiedArmyIsDeleted()
@@ -276,20 +280,25 @@ public sealed class FleetAttritionBranchMatrixTests
         var state = NavalTestbed.InitialState();
         var nationId = state.Nations[0].Id;
 
-        var army = new IC2.Engine.Model.ArmyState(
+        var army = new ArmyState(
             "storm-cargo", nationId, X: 0, Y: 3, Moves: 0, Morale: 60, Money: 0, SupplyTons: 0,
             CoveredTileCode: null, AboardFleetId: "storm-carrier",
-            IC2.Engine.Model.ValueList.Of(new IC2.Engine.Model.UnitSlot(0, "heavy_cavalry", 2000, 6, "Cargo")));
+            ValueList.Of(new UnitSlot(0, "heavy_cavalry", 2000, 6, "Cargo")));
 
-        var fleet = new IC2.Engine.Model.FleetState(
+        var bystanderArmy = new ArmyState(
+            "bystander-army", nationId, X: 10, Y: 10, Moves: 5, Morale: 60, Money: 0, SupplyTons: 0,
+            CoveredTileCode: 2, AboardFleetId: null,
+            ValueList.Of(new UnitSlot(0, "heavy_infantry", 12_000, 6, "Untouched")));
+
+        var fleet = new FleetState(
             "storm-carrier", nationId, X: 0, Y: 3, Moves: 5, Ships: 40, ConditionPercent: 68,
             Money: 0, SupplyTons: 1000, ConstructionTicksRemaining: null, BuildCityId: null,
             CarriedArmyId: "storm-cargo", CoveredTileCode: null);
 
         var seededState = state with
         {
-            Fleets = IC2.Engine.Model.ValueList.Of(fleet),
-            Armies = IC2.Engine.Model.ValueList.Of(army),
+            Fleets = ValueList.Of(fleet),
+            Armies = ValueList.Of(army, bystanderArmy),
             RandomSeed = 14UL,
         };
 
@@ -306,9 +315,99 @@ public sealed class FleetAttritionBranchMatrixTests
         Assert.Null(result.ArmyById("storm-cargo"));
         Assert.Null(updatedFleet.CarriedArmyId);
 
-        var reloaded = IC2.Engine.Serialization.GameDataLoader.Load<IC2.Engine.Model.GameState>(
-            "fleet-tick-state.json", IC2.Engine.Serialization.GameJson.Serialize(result));
-        IC2.Engine.Serialization.GameDataValidation.Validate("fleet-tick-state.json", reloaded);
-        Assert.Equal(IC2.Engine.Serialization.GameJson.Serialize(result), IC2.Engine.Serialization.GameJson.Serialize(reloaded));
+        // The bystander, never aboard any fleet, survives untouched.
+        var survivor = result.ArmyById("bystander-army");
+        Assert.NotNull(survivor);
+        Assert.Equal(12_000, survivor!.TotalTroops);
+
+        AssertRoundTripsThroughSaveManager(result);
+    }
+
+    /// <summary>
+    /// T63 B2/B8: a storm-hit army that SURVIVES is written back with its reduced troops and units, and
+    /// the fleet's own moves are computed from that POST-storm troop count, not the pre-storm one. The
+    /// reviewer's own probe (independently re-derived, not merely trusted): the same seed-14 fleet, now
+    /// carrying 4 x 20,000-troop heavy infantry (80,000 troops total) -- d = 86 costs most of each unit
+    /// and the d &gt; 70 branch removes 2 of the 4 whole units, leaving exactly 2 survivors and 10,330
+    /// troops total. <strong>B2's own defect</strong>: an earlier revision computed moves from the STALE
+    /// 80,000 (giving -1, an impossible negative moves value); the original -- and this corrected
+    /// method -- compute it from the POST-storm 10,330, giving 23.
+    /// </summary>
+    [Fact]
+    public void HeavyStorm_SurvivingArmyIsWrittenBackWithReducedTroopsAndUnits_MovesReflectThePostStormCount()
+    {
+        var state = NavalTestbed.InitialState();
+        var nationId = state.Nations[0].Id;
+
+        var army = new ArmyState(
+            "storm-cargo", nationId, X: 0, Y: 3, Moves: 0, Morale: 60, Money: 0, SupplyTons: 0,
+            CoveredTileCode: null, AboardFleetId: "storm-carrier",
+            ValueList.Of(
+                new UnitSlot(0, "heavy_infantry", 20_000, 6, "A"),
+                new UnitSlot(0, "heavy_infantry", 20_000, 6, "B"),
+                new UnitSlot(0, "heavy_infantry", 20_000, 6, "C"),
+                new UnitSlot(0, "heavy_infantry", 20_000, 6, "D")));
+
+        var bystanderArmy = new ArmyState(
+            "bystander-army", nationId, X: 10, Y: 10, Moves: 5, Morale: 60, Money: 0, SupplyTons: 0,
+            CoveredTileCode: 2, AboardFleetId: null,
+            ValueList.Of(new UnitSlot(0, "heavy_infantry", 12_000, 6, "Untouched")));
+
+        var fleet = new FleetState(
+            "storm-carrier", nationId, X: 0, Y: 3, Moves: 5, Ships: 40, ConditionPercent: 68,
+            Money: 0, SupplyTons: 1000, ConstructionTicksRemaining: null, BuildCityId: null,
+            CarriedArmyId: "storm-cargo", CoveredTileCode: null);
+
+        var seededState = state with
+        {
+            Fleets = ValueList.Of(fleet),
+            Armies = ValueList.Of(army, bystanderArmy),
+            RandomSeed = 14UL,
+        };
+
+        var sink = new RecordingEventSink();
+        var coordinator = NavalTestbed.CoordinatorOnly(sink, typeof(FleetTickSystem));
+        var result = coordinator.RunRoundTick(seededState).State;
+
+        var updatedFleet = result.FleetById(fleet.Id)!;
+        Assert.True(updatedFleet.Ships < 40, "the seed must still land on the heavy branch for this test to mean anything.");
+        Assert.Single(sink.Events.OfType<FleetDamagedInStorm>());
+
+        // Survives, reduced -- not deleted, and the fleet's own link to it is kept.
+        var updatedArmy = result.ArmyById("storm-cargo");
+        Assert.NotNull(updatedArmy);
+        Assert.Equal("storm-cargo", updatedFleet.CarriedArmyId);
+
+        Assert.Equal(new[] { "A", "C" }, updatedArmy!.Units.Select(u => u.Name).ToArray());
+        Assert.Equal(new[] { 5122, 5208 }, updatedArmy.Units.Select(u => u.Troops).ToArray());
+        Assert.Equal(10_330, updatedArmy.TotalTroops);
+
+        // B2: moves computed from the POST-storm 10,330 troops, not the stale pre-storm 80,000 (which
+        // would give -1, an impossible negative value).
+        Assert.Equal(23, updatedFleet.Moves);
+
+        var bystander = result.ArmyById("bystander-army");
+        Assert.NotNull(bystander);
+        Assert.Equal(12_000, bystander!.TotalTroops);
+
+        AssertRoundTripsThroughSaveManager(result);
+    }
+
+    /// <summary>B7: the delete-class round-trip DoD 1 names is through T20's <see cref="SaveManager"/>, not just the loader.</summary>
+    private static void AssertRoundTripsThroughSaveManager(GameState state)
+    {
+        var save = new SaveGame(
+            SchemaVersion: GameDataSchema.CurrentVersion,
+            Id: "probe-save",
+            Label: "T63 delete-class probe",
+            ScenarioId: state.ScenarioId,
+            WorldId: state.WorldId,
+            RulesetId: state.RulesetId,
+            State: state);
+
+        var json = SaveManager.Serialize(save);
+        var reloaded = SaveManager.Load("probe-save.json", json, NavalTestbed.Toy.World, NavalTestbed.Toy.Ruleset);
+
+        Assert.Equal(json, SaveManager.Serialize(reloaded));
     }
 }
