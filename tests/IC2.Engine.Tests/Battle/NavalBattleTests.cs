@@ -89,7 +89,8 @@ public class NavalBattleTests
 
     /// <summary>
     /// Done-when 7's remaining confirmed clause: above <c>d &gt; 70</c> the winner's own carried army also
-    /// loses whole unit slots at random, <c>unitCount × d / 250</c> of them.
+    /// loses whole unit slots at random, <c>(unitCount × d / 250) + 1</c> of them (bug #290 part 3;
+    /// <c>unitCount</c> counted after <see cref="BattleCasualties.Apply"/>'s own casualties).
     /// </summary>
     [Fact]
     public void DoD07_AboveTheDamageThresholdTheWinnersCarriedArmyAlsoLosesWholeUnits()

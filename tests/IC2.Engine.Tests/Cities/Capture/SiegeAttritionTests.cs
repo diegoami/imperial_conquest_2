@@ -1,4 +1,6 @@
+using System.Linq;
 using IC2.Engine.Battle;
+using IC2.Engine.Cities.Capture;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
 using IC2.Engine.Serialization;
@@ -119,6 +121,107 @@ public sealed class SiegeAttritionTests
         var expectedLoss = (attackerTroops / 105) * expectedRatio;
         var attackerAfter = resolution.State.ArmyById("army")!;
         Assert.Equal(attackerTroops - expectedLoss, attackerAfter.TotalTroops);
+    }
+
+    /// <summary>
+    /// T63 B3/DoD 5: <c>GalatiaEliminationScenarioTests</c>' own two historical captures, reproduced
+    /// through <see cref="InstantBattleResolver.ResolveSiege"/>'s now-confirmed erosion formula -- Laranda
+    /// 41/59 &#8594; 30/44 and Gordium 54/23 &#8594; 42/18
+    /// (<c>galatia-elimination-and-city-resupply-confirmed.md</c>; <c>docs/game-design.md</c> §Combat:
+    /// "Laranda 41/59 &#8594; 30/44 is exactly &#215; 3/4 (needs def/atk &lt; 0.756)… Gordium 54/23
+    /// &#8594; 42/18 needs def/atk &#8712; [0.7826, 0.7963)"). Each city's real, historical loyalty,
+    /// fortification and population are the fixture; <c>attackerPower</c> is chosen (not historical -- the
+    /// original attacking army's own strength was never recorded) to land <c>def/atk</c> inside the cited
+    /// bound for that city. <c>GalatiaEliminationScenarioTests</c> itself deliberately calls
+    /// <see cref="CityCaptureResolver.Capture"/> directly, bypassing this resolver, to isolate
+    /// <c>FUN_0044bb18</c>'s own transfer pseudocode from a real attempt's erosion (see that file's own
+    /// class remarks) -- this test is what proves the erosion formula actually reproduces the historical
+    /// post-capture figures that isolation leaves unasserted there.
+    /// </summary>
+    [Theory]
+    [InlineData("Laranda", 30, 41, 59, 200, 40_000, 8_000, 400, 30, 44)]
+    [InlineData("Gordium", 35, 54, 23, 100, 29_600, 8_000, 296, 42, 18)]
+    public void GalatiaHistoricalCaptures_ReproduceThePostSiegeFiguresThroughResolveSiege(
+        string cityName, int loyalty, int fortificationBefore, int populationBefore, int maxPopulation,
+        int expectedAttackerPower, int attackerTroops, int attackerMorale,
+        int expectedFortificationAfter, int expectedPopulationAfter)
+    {
+        var ruleset = CaptureTestbed.Ruleset;
+        var city = CaptureTestbed.City(
+            "c1", cityName, 0, 0, "defender", "defender", loyalty, fortificationBefore,
+            populationBefore, maxPopulation, tribute: 0);
+        var attacker = CaptureTestbed.Army(
+            "army", "attacker", 0, 0, attackerMorale, CaptureTestbed.Unit("heavy_infantry", attackerTroops));
+        var state = CaptureTestbed.StateWith(
+            new[] { CaptureTestbed.Nation("attacker"), CaptureTestbed.Nation("defender") },
+            new[] { city }, new[] { attacker });
+
+        var rng = new SplitMix64Rng(0x517UL);
+        var resolution = InstantBattleResolver.ResolveSiege(
+            state, "army", "c1", ruleset, rng, CaptureTestbed.ArcherUnitTypeId, CaptureTestbed.FortifyOrderId, NullEventSink.Instance);
+
+        Assert.Equal(expectedAttackerPower, resolution.Result.AttackerPower);
+
+        var eroded = resolution.State.CityById("c1")!;
+        Assert.Equal(expectedFortificationAfter, eroded.FortificationCode);
+        Assert.Equal(expectedPopulationAfter, eroded.PopulationThousands);
+
+        // N4: Decision 7's six BattleResult.City* fields, populated by a real siege through
+        // ResolveSiege -- before/after values match the pre-siege inputs and the post-erosion city
+        // state exactly, not merely non-null.
+        Assert.Equal(loyalty, resolution.Result.CityLoyaltyBefore);
+        Assert.Equal(eroded.Loyalty, resolution.Result.CityLoyaltyAfter);
+        Assert.Equal(fortificationBefore, resolution.Result.CityFortificationPercentBefore);
+        Assert.Equal(expectedFortificationAfter, resolution.Result.CityFortificationPercentAfter);
+        Assert.Equal(populationBefore, resolution.Result.CityPopulationThousandsBefore);
+        Assert.Equal(expectedPopulationAfter, resolution.Result.CityPopulationThousandsAfter);
+    }
+
+    /// <summary>
+    /// N7 (T63 review round 1), enforcing Decision 3 in the <see cref="BattleResult"/> itself: a
+    /// besieger that wins the strength comparison (<c>attackerPower(300) &gt; defenderPower(200)</c>)
+    /// but is then emptied by THIS SAME attempt's own casualties (its one <c>heavy_cavalry</c> unit,
+    /// 255 troops, loses 8 to a ratio-4 attrition pass and falls to 247 -- below the
+    /// <c>2,500 / 10 = 250</c> national deletion threshold) must not be reported as a win: an
+    /// ownerless city is not representable (Decision 3), so the result must read as the defender
+    /// holding, not as an unresolved victory. Chained into
+    /// <see cref="CityCaptureResolver.ResolveOutcome"/> to prove the full outcome agrees: no transfer,
+    /// the confirmed "fails to capture" event, not a fabricated one.
+    /// </summary>
+    [Fact]
+    public void EmptiedBesieger_ReportsTheDefenderAsWinner_NotACaptureTheCityDidNotYield()
+    {
+        var ruleset = CaptureTestbed.Ruleset;
+        var city = CaptureTestbed.City(
+            "c1", "Emptied", 0, 0, "defender", "defender", loyalty: 0, fortificationCode: 0,
+            populationThousands: 1, maxPopulationThousands: 10, tribute: 0);
+        var attacker = CaptureTestbed.Army(
+            "army", "attacker", 0, 0, morale: 100, CaptureTestbed.Unit("heavy_cavalry", 255));
+        var state = CaptureTestbed.StateWith(
+            new[] { CaptureTestbed.Nation("attacker"), CaptureTestbed.Nation("defender") },
+            new[] { city }, new[] { attacker });
+
+        var rng = new FixedDivisorRng(); // divisor always 105 (the minimum), for an exact, worst-case loss
+        var siege = InstantBattleResolver.ResolveSiege(
+            state, "army", "c1", ruleset, rng, CaptureTestbed.ArcherUnitTypeId, CaptureTestbed.FortifyOrderId, NullEventSink.Instance);
+
+        Assert.Equal(300, siege.Result.AttackerPower);
+        Assert.Equal(200, siege.Result.DefenderPower);
+        Assert.Null(siege.State.ArmyById("army")); // the besieger's only unit was deleted -- the army itself is gone
+
+        // The result must NOT claim the attacker won, even though attackerPower > defenderPower.
+        Assert.Equal(BattleSide.Defender, siege.Result.Winner);
+        Assert.False(siege.Result.AttackerWon);
+        Assert.Equal(0, siege.Result.WinnerCasualties);
+        Assert.Equal(8, siege.Result.LoserCasualties); // the besieger's own 8 lost troops, now attributed to the "loser"
+
+        var sink = new RecordingEventSink();
+        var outcome = CityCaptureResolver.ResolveOutcome(
+            siege.State, siege.Result, ruleset, CaptureTestbed.ArcherUnitTypeId, CaptureTestbed.FortifyOrderId, sink);
+
+        Assert.Equal("defender", outcome.CityById("c1")!.Owner); // no capture
+        Assert.Single(sink.Events.OfType<CityFailsToBeCaptured>());
+        Assert.DoesNotContain(sink.Events, e => e is CityFallsToNation);
     }
 
     /// <summary>

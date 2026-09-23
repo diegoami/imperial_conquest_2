@@ -895,6 +895,15 @@ public static class InstantBattleResolver
         var attackerEmptied = survivingUnits.Count == 0;
         attacker = attacker with { Units = survivingUnits };
 
+        // N7 (T63 review round 1), enforcing Decision 3 in the result itself, not merely in
+        // CityCaptureResolver's own downstream check: a besieger the SAME attempt's own casualties
+        // just emptied does not capture the city (Decision 3 -- an ownerless city is not
+        // representable), so the reported result must not claim a win either. `attackerWon` alone
+        // (the strength comparison, decided before this attempt's own casualties) would otherwise
+        // report BattleSide.Attacker here even though no capture follows -- a result a caller could
+        // read as "the city fell" when it did not.
+        var reportedAttackerWon = attackerWon && !attackerEmptied;
+
         var armies = new List<ArmyState>();
         foreach (var army in state.Armies)
         {
@@ -929,11 +938,11 @@ public static class InstantBattleResolver
             city.Owner,
             attackerPower,
             defenderPower,
-            attackerWon ? BattleSide.Attacker : BattleSide.Defender,
+            reportedAttackerWon ? BattleSide.Attacker : BattleSide.Defender,
             AppliedDefeatOutcome: null,
             LoserFate.Unaffected,
-            attackerWon ? applied : 0,
-            attackerWon ? 0 : applied,
+            reportedAttackerWon ? applied : 0,
+            reportedAttackerWon ? 0 : applied,
             losses,
             ValueList<UnitPromotion>.Empty,
             AbsorbedMoney: 0,

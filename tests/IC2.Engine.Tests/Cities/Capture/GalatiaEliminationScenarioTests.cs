@@ -32,10 +32,12 @@ namespace IC2.Engine.Tests.Cities.Capture;
 /// does not do". That premise is gone: <c>FUN_0044b230</c> is now decompiled and confirmed at instruction
 /// level (<c>decompiled-defection-and-siege-attrition.md</c> §"FUN_0044b27c, instruction by instruction",
 /// research 3f6ca09; bug #293), field = max(field × 3/4, min(field × 19/20 + 1, field × def/atk)) — see
-/// <c>tests/IC2.Engine.Tests/Cities/Capture/SiegeAttritionTests.cs</c> for that formula proved directly,
-/// including a scenario recomputed to the same Laranda/Gordium historical figures' own def/atk bounds
+/// <c>SiegeAttritionTests.GalatiaHistoricalCaptures_ReproduceThePostSiegeFiguresThroughResolveSiege</c>
+/// for that formula proved directly against the same Laranda/Gordium historical figures, driven through
+/// <see cref="InstantBattleResolver.ResolveSiege"/> at each city's own confirmed def/atk bound
 /// (<c>docs/game-design.md</c> §Combat: "Laranda 41/59 → 30/44 is exactly × 3/4… Gordium 54/23 → 42/18
-/// needs def/atk ∈ [0.7826, 0.7963)"). <strong>The gap here is architectural, not evidentiary</strong>:
+/// needs def/atk ∈ [0.7826, 0.7963)"), asserting the exact post-capture 30/44 and 42/18.
+/// <strong>The gap here is architectural, not evidentiary</strong>:
 /// erosion lives in <see cref="InstantBattleResolver.ResolveSiege"/> (<c>src/IC2.Engine/Battle/**</c>,
 /// this task's Owns list, not T17's), and this scenario deliberately calls
 /// <see cref="CityCaptureResolver.Capture"/> directly rather than through that resolver, to isolate

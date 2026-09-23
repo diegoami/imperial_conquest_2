@@ -649,7 +649,8 @@ public sealed record ArmyManagementRules(
 /// carried as this record's own copy rather than <c>Model.CombatRules.NavalCombatRules</c>'s for the
 /// same Owns-list reason <see cref="StormShipLossRatioBase"/>'s remarks give. Every heavy storm applies
 /// <see cref="Battle.BattleCasualties.Apply"/> at ratio <c>d</c> to the carried army first (60-86% of
-/// each unit's troops at the reachable <c>d</c> values, 82-86 for the odd <c>dmg</c> 7-17 band), then
+/// each unit's troops at the reachable <c>d</c> values — <c>d</c> FALLS as <c>dmg</c> rises across the
+/// odd <c>dmg</c> 7-17 band: 86, 82, 81, 77, 73, 72 — then
 /// <see cref="Battle.BattleCasualties.DeleteBelowThreshold"/> (bug #289), then this whole-unit loss.
 /// </param>
 /// <param name="DeathConditionThreshold">
@@ -784,16 +785,20 @@ public sealed record NavalRules(
 /// per unit slot. <strong>[confirmed: same source]</strong>
 /// </param>
 /// <param name="DeletionDivisorNational">
-/// <c>[confirmed: decompiled-defection-and-siege-attrition.md §"FUN_0044AE20", research 3f6ca09; bug
-/// #289]</c> <c>FUN_0044AE20</c>'s second pass deletes a <strong>national</strong> unit (origin label
+/// <c>[confirmed: decompiled-defection-and-siege-attrition.md §"Where does population/fortification loss
+/// actually come from, then?" (the FUN_0044ae20 bullet), confirmed at instruction level in
+/// §"FUN_0044b27c, instruction by instruction" (CALL 0x0044AE20 at 0x0044B35D–B361), research 3f6ca09;
+/// bug #289]</c> <c>FUN_0044AE20</c>'s second pass deletes a <strong>national</strong> unit (origin label
 /// <c>0</c>) left with <c>troops &gt; 0</c> and below <c>standardBattalionSize / this</c> (10) — see
 /// <see cref="BattleCasualties.DeleteBelowThreshold"/>. Runs after <see cref="BattleCasualties.Apply"/>
 /// and before any promotion roll, at every call site: the field winner, the siege attacker, and a naval
 /// or storm winner's carried army.
 /// </param>
 /// <param name="DeletionDivisorMercenary">
-/// <c>[confirmed: decompiled-defection-and-siege-attrition.md §"FUN_0044AE20", research 3f6ca09; bug
-/// #289]</c> The same deletion pass's threshold for a <strong>mercenary</strong> unit (origin label
+/// <c>[confirmed: decompiled-defection-and-siege-attrition.md §"Where does population/fortification loss
+/// actually come from, then?" (the FUN_0044ae20 bullet), confirmed at instruction level in
+/// §"FUN_0044b27c, instruction by instruction" (CALL 0x0044AE20 at 0x0044B35D–B361), research 3f6ca09;
+/// bug #289]</c> The same deletion pass's threshold for a <strong>mercenary</strong> unit (origin label
 /// <c>&gt; 0</c>): <c>standardBattalionSize / this</c> (5) — twice as forgiving as
 /// <see cref="DeletionDivisorNational"/>'s national threshold.
 /// </param>
@@ -966,7 +971,8 @@ public sealed record DetailedResolverRules(
 /// sites on the attacker.
 /// </param>
 /// <param name="ErosionFloorNumerator">
-/// <c>[confirmed: decompiled-defection-and-siege-attrition.md §"FUN_0044b230", research 3f6ca09; bug
+/// <c>[confirmed: decompiled-defection-and-siege-attrition.md §"FUN_0044b27c, instruction by instruction"
+/// (the FUN_0044B230(&amp;field) transcription, 0x0044B230–B26A), research 3f6ca09; bug
 /// #293]</c> The <c>3</c> of the per-attempt erosion's floor term, <c>field × 3 / 4</c> — see
 /// <see cref="ErosionFloorDenominator"/>. Runs on the city's loyalty, then fortification, then
 /// population, in that order, on every siege attempt, win or lose, using the <em>same</em>
