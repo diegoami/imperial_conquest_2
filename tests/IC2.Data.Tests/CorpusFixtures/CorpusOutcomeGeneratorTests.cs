@@ -42,15 +42,23 @@ public class CorpusOutcomeGeneratorTests
     /// absent from CI's 54-save clone until that repository is updated) — the "two corpora" hazard.
     /// Requiring every committed row to also exist on THIS run's disk (the direction the old full-list
     /// <c>Assert.Equal</c> enforced) would make CI fail the moment the committed table gets ahead of
-    /// the fixtures repo, exactly the situation this task creates. So the direction that must hold is
-    /// only the other one: every file this run actually found parses to exactly what the committed
-    /// table says for it — a stale or wrong entry for a file that exists here still fails loudly,
-    /// byte-for-byte record equality, not a looser comparison. A committed row for a file this run's
-    /// corpus doesn't have is not compared at all here, the same "not a bug, not urgent" treatment
+    /// the fixtures repo, exactly the situation this task creates. So <b>that one</b> direction is
+    /// relaxed: a committed row for a file this run's corpus doesn't have is not compared at all here,
+    /// the same "not a bug, not urgent" treatment
     /// <see cref="CorpusSweepTests.Fixture_covers_every_file_currently_in_the_configured_corpus"/>
     /// already gives the opposite direction (a disk file the table doesn't cover) via a named Skip —
     /// so both directions of "the two corpora disagree" are handled the same way, just in the two
-    /// tests that each already own one direction of the coverage check.</summary>
+    /// tests that each already own one direction of the coverage check.
+    ///
+    /// <b>The other direction stays a hard requirement</b> (T64 rework round 1, N1): every file this
+    /// run's corpus actually has must be represented in the committed table, and parse to exactly what
+    /// that row says — a regeneration this task's own Done-when 7 requires, and a real, failing signal
+    /// no other test in this project gives (a local save present on disk with no row at all, meaning
+    /// the table was never regenerated after that save was added). Silently skipping an unmatched
+    /// regenerated file, as an earlier revision of this test did, would remove exactly that
+    /// signal — nothing in any of the three run shapes (with `assets.local.ini`, unconfigured, or
+    /// CI-shaped) needs it relaxed, since the committed table this PR ships already covers every file
+    /// in every shape's corpus.</summary>
     [SkippableFact]
     public void The_committed_fixture_matches_a_fresh_regeneration_over_the_configured_corpus()
     {
@@ -61,20 +69,12 @@ public class CorpusOutcomeGeneratorTests
         var committedByName = CorpusFixture.Entries.ToDictionary(e => e.FileName, StringComparer.Ordinal);
 
         Assert.NotEmpty(regenerated);
-        var matched = 0;
         foreach (var actual in regenerated)
         {
-            if (!committedByName.TryGetValue(actual.FileName, out var expected)) continue;
+            Assert.True(committedByName.TryGetValue(actual.FileName, out var expected),
+                $"{actual.FileName} is in the configured corpus but has no row in the committed " +
+                $"fixture. Regenerate it with: {RegenerateCommand}");
             Assert.Equal(expected, actual);
-            matched++;
         }
-
-        // A sanity floor, not a snapshot count (the corpus grows): if NOTHING this run found is
-        // represented in the committed table at all, the table isn't a regeneration of this corpus —
-        // the per-file loop above would have nothing to check and this whole test would pass
-        // vacuously.
-        Assert.True(matched > 0,
-            "No file this run found is represented in the committed fixture at all — " +
-            $"regenerate it with: {RegenerateCommand}");
     }
 }

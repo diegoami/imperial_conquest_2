@@ -95,8 +95,9 @@ public sealed class SaveFleetTable
         // ordinary case for most saves — plenty of nations simply have no fleets afloat on a given
         // turn — so "every present record is a tombstone" carries none of the army table's "this
         // table is suspiciously empty" signal: the corpus evidence backing that guard
-        // (docs/investigations/dat-file-layout.md: armies have at most one tombstone per save, out of
-        // hundreds of records, so 100% tombstoned is unambiguously abnormal) has no fleet-table
+        // (docs/investigations/dat-file-layout.md: a small minority of army records are ever
+        // tombstoned in one save — bug #313 found a second case, IP012B.sav with two, out of hundreds
+        // of records — so 100% tombstoned is still unambiguously abnormal) has no fleet-table
         // analogue, and a scan of the whole configured corpus after this fix finds no save whose
         // fleet table is 100% tombstoned while non-empty — see the PR body for the count. A table
         // that later turns up with only tombstones parses to zero fleets and zero surprises, exactly

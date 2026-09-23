@@ -236,4 +236,82 @@ public class CorpusFileLocatorTests : IDisposable
 
         Assert.Equal(path, resolved);
     }
+
+    // ---- T64 rework round 1, N2: TryResolve now compares every release hit against every other
+    // one, not just the first, so it agrees with DiscoverFileNames on the duplicate rule.
+
+    [Fact]
+    public void Two_release_only_copies_with_different_bytes_throw_from_TryResolve_too()
+    {
+        var first = Path.Combine(_root, "releases", "run-1-aaa", "release-conflict.sav");
+        var second = Path.Combine(_root, "releases", "run-2-bbb", "release-conflict.sav");
+        Directory.CreateDirectory(Path.GetDirectoryName(first)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(second)!);
+        File.WriteAllBytes(first, new byte[] { 1 });
+        File.WriteAllBytes(second, new byte[] { 2 }); // Different content: a genuine ambiguity.
+        var settings = LoadSettings();
+
+        var ex = Assert.Throws<InvalidOperationException>(
+            () => CorpusFileLocator.TryResolve(settings, "release-conflict.sav"));
+
+        Assert.Contains("release-conflict.sav", ex.Message);
+        Assert.Contains(first, ex.Message);
+        Assert.Contains(second, ex.Message);
+    }
+
+    [Fact]
+    public void Two_release_only_copies_with_identical_bytes_resolve_to_the_first_sorted_one()
+    {
+        var first = Path.Combine(_root, "releases", "run-1-aaa", "release-repeat.sav");
+        var second = Path.Combine(_root, "releases", "run-2-bbb", "release-repeat.sav");
+        Directory.CreateDirectory(Path.GetDirectoryName(first)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(second)!);
+        File.WriteAllBytes(first, new byte[] { 7, 7 });
+        File.WriteAllBytes(second, new byte[] { 7, 7 }); // Identical: not an ambiguity.
+        var settings = LoadSettings();
+
+        var resolved = CorpusFileLocator.TryResolve(settings, "release-repeat.sav");
+
+        Assert.Equal(first, resolved); // "run-1-aaa" sorts before "run-2-bbb".
+    }
+
+    // ---- T64 rework round 1, N3: pin SearchedLocations' own order directly, including the ordinal
+    // sort of tag directories (previously only exercised indirectly through TryResolve's results).
+
+    [Fact]
+    public void SearchedLocations_lists_the_three_plain_folders_before_any_release_tag()
+    {
+        var releasePath = Path.Combine(_root, "releases", "run-1-aaa", "ordered.sav");
+        Directory.CreateDirectory(Path.GetDirectoryName(releasePath)!);
+        File.WriteAllBytes(releasePath, new byte[] { 1 });
+        var settings = LoadSettings();
+
+        var locations = CorpusFileLocator.SearchedLocations(settings, "ordered.sav").ToList();
+
+        Assert.Equal(Path.Combine(_root, "saves", "ordered.sav"), locations[0]);
+        Assert.Equal(Path.Combine(_root, "saves-processed", "ordered.sav"), locations[1]);
+        Assert.Equal(Path.Combine(_root, "saves-processed", "processed", "ordered.sav"), locations[2]);
+        Assert.Equal(releasePath, locations[3]);
+    }
+
+    [Fact]
+    public void SearchedLocations_sorts_release_tag_directories_ordinally_not_by_creation_order()
+    {
+        // Created deliberately out of sort order, so a listing that happened to preserve creation (or
+        // filesystem enumeration) order rather than sorting explicitly would still pass a test that
+        // only checked "found in the right tag" — this pins the ORDER itself.
+        var zTag = Path.Combine(_root, "releases", "run-9-zzz", "tag-order.sav");
+        var aTag = Path.Combine(_root, "releases", "run-1-aaa", "tag-order.sav");
+        Directory.CreateDirectory(Path.GetDirectoryName(zTag)!);
+        File.WriteAllBytes(zTag, new byte[] { 9 });
+        Directory.CreateDirectory(Path.GetDirectoryName(aTag)!);
+        File.WriteAllBytes(aTag, new byte[] { 1 });
+        var settings = LoadSettings();
+
+        var releaseHits = CorpusFileLocator.SearchedLocations(settings, "tag-order.sav")
+            .Skip(CorpusFileLocator.SaveDirs.Count)
+            .ToList();
+
+        Assert.Equal(new[] { aTag, zTag }, releaseHits); // "run-1-aaa" sorts before "run-9-zzz".
+    }
 }

@@ -120,9 +120,11 @@ public class FleetTombstoneTests
     // ---- Done-when 2: the all-tombstoned case, decided ----
     //
     // Unlike SaveArmyTable, SaveFleetTable has no AllArmyRecordsTombstonedException analogue. The
-    // army guard exists because the confirmed corpus never showed more than one tombstone per army
-    // table out of hundreds of records, making "every record is a tombstone" unambiguously
-    // suspicious. A whole-corpus scan after this fix (100 files, including the 2026-09-20 IP*.sav
+    // army guard exists because the confirmed corpus shows only a small minority of army tables with
+    // any tombstone at all, out of hundreds of records (bug #313 found IP012B.sav has two in one
+    // table, not the "at most one" this remark used to claim — the guard itself, "not every record",
+    // still holds), making "every record is a tombstone" unambiguously suspicious. A whole-corpus scan
+    // after this fix (100 files, including the 2026-09-20 IP*.sav
     // batch) finds exactly one file with any skipped fleet at all (IP012B.sav, one skip out of five
     // slots) and zero files whose fleet table is nonempty yet 100% tombstoned — see the PR body. A
     // fleet count of zero, or a fleet table that turns out to be entirely tombstones, carries none of

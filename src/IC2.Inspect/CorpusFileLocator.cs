@@ -171,20 +171,28 @@ public static class CorpusFileLocator
 
         var all = SearchedLocations(settings, fileName).ToList();
         var plainHits = all.Take(SaveDirs.Count).Where(File.Exists).ToList();
-        var releaseHit = all.Skip(SaveDirs.Count).Where(File.Exists).FirstOrDefault();
+        var releaseHits = all.Skip(SaveDirs.Count).Where(File.Exists).ToList();
 
         if (plainHits.Count > 1)
             throw new InvalidOperationException(
                 $"'{fileName}' was found in more than one save folder: '{plainHits[0]}' and '{plainHits[1]}'.");
 
-        var plainHit = plainHits.Count == 1 ? plainHits[0] : null;
-        if (plainHit is null) return releaseHit;
+        var primary = plainHits.Count == 1 ? plainHits[0] : releaseHits.FirstOrDefault();
+        if (primary is null) return null;
 
-        if (releaseHit is not null && !FilesAreByteIdentical(plainHit, releaseHit))
-            throw new InvalidOperationException(
-                $"'{fileName}' was found in a save folder and in releases/ with different contents: " +
-                $"'{plainHit}' and '{releaseHit}'.");
-        return plainHit;
+        // #213 hazard: every OTHER hit anywhere — another release copy (T64 rework round 1, N2: this
+        // used to compare only the first release hit, so two mismatched release-only copies slipped
+        // through here while DiscoverFileNames already caught them) or, when the primary came from a
+        // plain folder, every release copy — must be byte-identical to it, or this is a genuine,
+        // unresolved ambiguity. Same rule DiscoverFileNames applies; the two now agree.
+        foreach (var other in releaseHits.Where(r => r != primary))
+        {
+            if (!FilesAreByteIdentical(primary, other))
+                throw new InvalidOperationException(
+                    $"'{fileName}' was found in more than one location with different contents: " +
+                    $"'{primary}' and '{other}'.");
+        }
+        return primary;
     }
 
     private static bool FilesAreByteIdentical(string a, string b) =>
