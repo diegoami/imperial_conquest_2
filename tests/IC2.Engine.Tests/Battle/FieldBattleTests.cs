@@ -3,6 +3,7 @@ using IC2.Engine.Battle;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
 using IC2.Engine.News;
+using IC2.Engine.Persistence;
 using IC2.Engine.Serialization;
 using IC2.Engine.Strength;
 using IC2.Engine.Tests.Model;
@@ -565,10 +566,9 @@ public class FieldBattleTests
         Assert.NotNull(after.ArmyById(UnrelatedCargo));
 
         // And the repaired state is one that reloads -- a dangling id is exactly what this guard, and
-        // gate 5, exist to keep out of a save.
-        var reloaded = GameDataLoader.Load<GameState>("battle-state.json", GameJson.Serialize(after));
-        GameDataValidation.Validate("battle-state.json", reloaded);
-        Assert.Equal(GameJson.Serialize(after), GameJson.Serialize(reloaded));
+        // gate 5, exist to keep out of a save. B7 (T63 review round 1): through T20's SaveManager, not
+        // just GameDataLoader/GameDataValidation -- see AssertRoundTripsThroughSaveManager's own remarks.
+        AssertRoundTripsThroughSaveManager(after);
     }
 
     /// <summary>
@@ -616,9 +616,10 @@ public class FieldBattleTests
         Assert.Equal(12000, survivor!.TotalTroops);
 
         // And the resulting state -- with the winner deleted alongside the loser -- still round-trips.
-        var reloaded = GameDataLoader.Load<GameState>("battle-state.json", GameJson.Serialize(after));
-        GameDataValidation.Validate("battle-state.json", reloaded);
-        Assert.Equal(GameJson.Serialize(after), GameJson.Serialize(reloaded));
+        // B7 (T63 review round 1): through T20's SaveManager, the round-trip DoD 1 actually names, not
+        // just GameDataLoader/GameDataValidation (a weaker check the loader's own Validate call already
+        // makes redundant here).
+        AssertRoundTripsThroughSaveManager(after);
     }
 
     /// <summary>A battle between two of one nation's own armies is a caller bug, not an outcome.</summary>
@@ -692,4 +693,22 @@ public class FieldBattleTests
             BattleTestbed.World,
             BattleTestbed.BattleRng(),
             events ?? NullEventSink.Instance);
+
+    /// <summary>B7 (T63 review round 1): the delete-class round-trip DoD 1 names is through T20's <see cref="SaveManager"/>, not just <see cref="GameDataLoader"/>/<see cref="GameDataValidation"/>.</summary>
+    private static void AssertRoundTripsThroughSaveManager(GameState state)
+    {
+        var save = new SaveGame(
+            SchemaVersion: GameDataSchema.CurrentVersion,
+            Id: "probe-save",
+            Label: "T63 delete-class probe",
+            ScenarioId: state.ScenarioId,
+            WorldId: state.WorldId,
+            RulesetId: state.RulesetId,
+            State: state);
+
+        var json = SaveManager.Serialize(save);
+        var reloaded = SaveManager.Load("probe-save.json", json, BattleTestbed.World, BattleTestbed.Destroyed);
+
+        Assert.Equal(json, SaveManager.Serialize(reloaded));
+    }
 }
