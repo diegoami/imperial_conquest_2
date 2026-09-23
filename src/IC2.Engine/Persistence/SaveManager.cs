@@ -34,6 +34,13 @@ namespace IC2.Engine.Persistence;
 /// carries).
 /// </para>
 /// </remarks>
+/// <summary>
+/// A save file's listing metadata, read by <see cref="SaveManager.PeekSummary"/> without touching its
+/// nested <see cref="GameState"/> — what a save picker needs to show a list of saves.
+/// </summary>
+public sealed record SaveSummary(
+    string Id, string Label, string ScenarioId, string WorldId, string RulesetId, int TurnIndex);
+
 public static class SaveManager
 {
     private static readonly JsonSerializerOptions WriteOptions = new(GameJson.Options) { WriteIndented = true };
@@ -176,39 +183,65 @@ public static class SaveManager
         return envelope;
     }
 
-    private static int ReadVersion(string documentPath, JsonObject envelope)
-    {
-        if (!envelope.TryGetPropertyValue(SaveFormat.VersionField, out var versionNode) || versionNode is null)
-        {
-            throw new MissingRequiredFieldException(documentPath, SaveFormat.VersionField, "the save envelope");
-        }
+    private static int ReadVersion(string documentPath, JsonObject envelope) =>
+        EnvelopeJson.RequireInt(documentPath, envelope, SaveFormat.VersionField, "the save envelope");
 
+    private static int ReadTurnIndex(string documentPath, JsonObject envelope) =>
+        EnvelopeJson.RequireInt(documentPath, envelope, SaveFormat.TurnIndexField, "the save envelope");
+
+    /// <summary>
+    /// Reads a save file's listing metadata — id, label, which World/Ruleset/Scenario it started from,
+    /// and its turn progress — without deserializing or validating its <see cref="SaveGame.State"/>. An
+    /// older envelope is migrated first, exactly as <see cref="Load"/> does, so a summary always reflects
+    /// the current envelope shape; unlike <see cref="Load"/>, no World or Ruleset is required up front,
+    /// since a save picker's whole point is to show saves the caller has not yet chosen to load.
+    /// </summary>
+    /// <exception cref="UnsupportedSaveFormatException">
+    /// The envelope declares a save format version newer than this build supports.
+    /// </exception>
+    public static SaveSummary PeekSummaryFile(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        string json;
         try
         {
-            return versionNode.GetValue<int>();
+            json = File.ReadAllText(path);
         }
-        catch (Exception ex) when (ex is FormatException or InvalidOperationException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
         {
-            throw new MalformedGameDataException(
-                documentPath, $"'{SaveFormat.VersionField}' must be an integer.", ex);
+            throw new MalformedGameDataException(path, $"the file could not be read: {ex.Message}", ex);
         }
+
+        return PeekSummary(path, json);
     }
 
-    private static int ReadTurnIndex(string documentPath, JsonObject envelope)
+    /// <inheritdoc cref="PeekSummaryFile"/>
+    public static SaveSummary PeekSummary(string documentPath, string json)
     {
-        if (!envelope.TryGetPropertyValue(SaveFormat.TurnIndexField, out var turnIndexNode) || turnIndexNode is null)
+        ArgumentNullException.ThrowIfNull(json);
+
+        var envelope = ParseEnvelope(documentPath, json);
+        var foundVersion = ReadVersion(documentPath, envelope);
+
+        if (foundVersion > SaveFormat.CurrentVersion)
         {
-            throw new MissingRequiredFieldException(documentPath, SaveFormat.TurnIndexField, "the save envelope");
+            throw new UnsupportedSaveFormatException(documentPath, foundVersion, SaveFormat.CurrentVersion);
         }
 
-        try
-        {
-            return turnIndexNode.GetValue<int>();
-        }
-        catch (Exception ex) when (ex is FormatException or InvalidOperationException)
-        {
-            throw new MalformedGameDataException(
-                documentPath, $"'{SaveFormat.TurnIndexField}' must be an integer.", ex);
-        }
+        var current = foundVersion < SaveFormat.CurrentVersion
+            ? SaveMigrations.MigrateToCurrent(documentPath, envelope, foundVersion)
+            : envelope;
+
+        var turnIndex = ReadTurnIndex(documentPath, current);
+        var save = EnvelopeJson.RequireObject(documentPath, current, SaveFormat.PayloadField, "the save envelope");
+
+        return new SaveSummary(
+            Id: EnvelopeJson.RequireString(documentPath, save, "id", "the save"),
+            Label: EnvelopeJson.RequireString(documentPath, save, "label", "the save"),
+            ScenarioId: EnvelopeJson.RequireString(documentPath, save, "scenarioId", "the save"),
+            WorldId: EnvelopeJson.RequireString(documentPath, save, "worldId", "the save"),
+            RulesetId: EnvelopeJson.RequireString(documentPath, save, "rulesetId", "the save"),
+            TurnIndex: turnIndex);
     }
 }

@@ -58,46 +58,14 @@ internal static class SaveMigrations
     /// </exception>
     private static JsonObject MigrateV1ToV2(string documentPath, JsonObject v1)
     {
-        var save = RequireObject(documentPath, v1, SaveFormat.PayloadField, "the version-1 envelope");
-        var state = RequireObject(documentPath, save, "state", "the version-1 save");
-        var calendar = RequireObject(documentPath, state, "calendar", "the version-1 save's state");
-
-        if (!calendar.TryGetPropertyValue("turnIndex", out var turnIndexNode) || turnIndexNode is null)
-        {
-            throw new MissingRequiredFieldException(
-                documentPath, "save.state.calendar.turnIndex", "the version-1 save's calendar");
-        }
-
-        int turnIndex;
-        try
-        {
-            turnIndex = turnIndexNode.GetValue<int>();
-        }
-        catch (Exception ex) when (ex is FormatException or InvalidOperationException)
-        {
-            throw new MalformedGameDataException(
-                documentPath, "'save.state.calendar.turnIndex' must be an integer.", ex);
-        }
+        var save = EnvelopeJson.RequireObject(documentPath, v1, SaveFormat.PayloadField, "the version-1 envelope");
+        var state = EnvelopeJson.RequireObject(documentPath, save, "state", "the version-1 save");
+        var calendar = EnvelopeJson.RequireObject(documentPath, state, "calendar", "the version-1 save's state");
+        var turnIndex = EnvelopeJson.RequireInt(documentPath, calendar, "turnIndex", "the version-1 save's calendar");
 
         var v2 = (JsonObject)v1.DeepClone();
         v2[SaveFormat.VersionField] = 2;
         v2[SaveFormat.TurnIndexField] = turnIndex;
         return v2;
-    }
-
-    private static JsonObject RequireObject(string documentPath, JsonObject parent, string fieldName, string owner)
-    {
-        if (!parent.TryGetPropertyValue(fieldName, out var node) || node is null)
-        {
-            throw new MissingRequiredFieldException(documentPath, fieldName, owner);
-        }
-
-        if (node is not JsonObject obj)
-        {
-            throw new MalformedGameDataException(
-                documentPath, $"'{fieldName}' must be an object.");
-        }
-
-        return obj;
     }
 }
