@@ -67,6 +67,28 @@ internal static class LocalAssets
     /// <c>WasRequested &amp;&amp; !IsConfigured</c>.</summary>
     public static bool WasRequested { get; }
 
+    /// <summary>The pure decision behind <see cref="WasRequested"/> and <see cref="IsCiFixtureMode"/>
+    /// (T64, issue #218 N11): B1 — the fix that made "requested but unusable" distinguishable from
+    /// "nothing configured at all" — was itself a surviving mutant, because nothing asserted
+    /// <see cref="WasRequested"/> directly; the static constructor's two assignments could each be
+    /// mutated to <c>false</c> and every test stayed green. Extracted so
+    /// <see cref="LocalAssetsTests"/> can assert this decision directly, over every combination of
+    /// input, rather than only through the one machine state a test run happens to be in.</summary>
+    /// <param name="fixturesDirEnvValue">The raw <c>IC2_FIXTURES_DIR</c> environment value, or
+    /// <c>null</c>/blank when unset. A blank value (set to <c>""</c> or whitespace) is treated
+    /// identically to unset (N12) — CI's own workflow can never produce one (its <c>set -u</c> shell
+    /// and the fetch step's own directory guard mean a configured-but-blank env var is unreachable in
+    /// practice), but a developer's shell could still export one by mistake, and "blank" should not
+    /// silently claim CI-fixture mode.</param>
+    /// <param name="configFileExists">Whether the repo-root <c>assets.local.ini</c> exists on disk —
+    /// irrelevant to the result whenever <paramref name="fixturesDirEnvValue"/> already decides it
+    /// (<c>IC2_FIXTURES_DIR</c> wins outright when set), read only on the other branch.</param>
+    internal static (bool WasRequested, bool IsCiFixtureMode) DetermineRequestMode(
+        string? fixturesDirEnvValue, bool configFileExists) =>
+        string.IsNullOrWhiteSpace(fixturesDirEnvValue)
+            ? (configFileExists, false)
+            : (true, true);
+
     /// <summary>The loaded settings when <see cref="IsConfigured"/> is true; otherwise null.</summary>
     public static AssetSettings? Settings { get; }
 
@@ -81,17 +103,15 @@ internal static class LocalAssets
     static LocalAssets()
     {
         var fixturesDir = Environment.GetEnvironmentVariable(FixturesDirEnvVar);
-        if (!string.IsNullOrWhiteSpace(fixturesDir))
+        var configFileExists = File.Exists(ConfigPath);
+        (WasRequested, IsCiFixtureMode) = DetermineRequestMode(fixturesDir, configFileExists);
+
+        if (IsCiFixtureMode)
         {
-            IsCiFixtureMode = true;
-            WasRequested = true;
-            (Settings, IsConfigured, SkipReason) = TryLoadFixturesDir(fixturesDir);
+            (Settings, IsConfigured, SkipReason) = TryLoadFixturesDir(fixturesDir!);
             return;
         }
 
-        IsCiFixtureMode = false;
-        var configFileExists = File.Exists(ConfigPath);
-        WasRequested = configFileExists;
         (Settings, IsConfigured) = TryLoad(ConfigPath);
         SkipReason = IsConfigured
             ? "" // never read: no test calls Skip.IfNot(true, ...) down this path

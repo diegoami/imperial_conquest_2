@@ -112,4 +112,206 @@ public class CorpusFileLocatorTests : IDisposable
         Assert.True(found.ContainsKey(CorpusFileLocator.DatFileName));
         Assert.Equal(new[] { "" }, found[CorpusFileLocator.DatFileName]);
     }
+
+    // ---- #213: releases/<tag>/** joins the same search order ----
+
+    [Fact]
+    public void A_save_present_only_under_a_release_tag_is_found_by_TryResolve()
+    {
+        var releasePath = Path.Combine(_root, "releases", "run-1-rome", "sub", "only-in-release.sav");
+        Directory.CreateDirectory(Path.GetDirectoryName(releasePath)!);
+        File.WriteAllBytes(releasePath, new byte[] { 1, 2, 3 });
+        var settings = LoadSettings();
+
+        var resolved = CorpusFileLocator.TryResolve(settings, "only-in-release.sav");
+
+        Assert.Equal(releasePath, resolved);
+    }
+
+    [Fact]
+    public void A_save_present_only_under_a_release_tag_is_found_by_DiscoverFileNames()
+    {
+        var releasePath = Path.Combine(_root, "releases", "run-1-rome", "only-in-release.sav");
+        Directory.CreateDirectory(Path.GetDirectoryName(releasePath)!);
+        File.WriteAllBytes(releasePath, new byte[] { 1, 2, 3 });
+        var settings = LoadSettings();
+
+        var found = CorpusFileLocator.DiscoverFileNames(settings);
+
+        Assert.True(found.ContainsKey("only-in-release.sav"));
+        Assert.Equal(new[] { "releases/run-1-rome" }, found["only-in-release.sav"]);
+    }
+
+    [Fact]
+    public void A_save_present_in_a_plain_folder_and_a_release_with_identical_bytes_resolves_to_the_plain_copy()
+    {
+        var plainPath = Path.Combine(_root, "saves", "repeated.sav");
+        var releasePath = Path.Combine(_root, "releases", "run-1-rome", "repeated.sav");
+        Directory.CreateDirectory(Path.GetDirectoryName(releasePath)!);
+        File.WriteAllBytes(plainPath, new byte[] { 9, 9, 9 });
+        File.WriteAllBytes(releasePath, new byte[] { 9, 9, 9 }); // Byte-identical: a legitimate release cache repeat.
+        var settings = LoadSettings();
+
+        var resolved = CorpusFileLocator.TryResolve(settings, "repeated.sav");
+
+        Assert.Equal(plainPath, resolved);
+    }
+
+    [Fact]
+    public void A_save_present_in_a_plain_folder_and_a_release_with_identical_bytes_is_one_location_in_DiscoverFileNames()
+    {
+        var plainPath = Path.Combine(_root, "saves", "repeated.sav");
+        var releasePath = Path.Combine(_root, "releases", "run-1-rome", "repeated.sav");
+        Directory.CreateDirectory(Path.GetDirectoryName(releasePath)!);
+        File.WriteAllBytes(plainPath, new byte[] { 9, 9, 9 });
+        File.WriteAllBytes(releasePath, new byte[] { 9, 9, 9 });
+        var settings = LoadSettings();
+
+        var found = CorpusFileLocator.DiscoverFileNames(settings);
+
+        Assert.Equal(new[] { "saves" }, found["repeated.sav"]);
+    }
+
+    [Fact]
+    public void A_save_present_in_a_plain_folder_and_a_release_with_different_bytes_throws()
+    {
+        var plainPath = Path.Combine(_root, "saves", "conflicting.sav");
+        var releasePath = Path.Combine(_root, "releases", "run-1-rome", "conflicting.sav");
+        Directory.CreateDirectory(Path.GetDirectoryName(releasePath)!);
+        File.WriteAllBytes(plainPath, new byte[] { 1 });
+        File.WriteAllBytes(releasePath, new byte[] { 2 }); // Different content: a genuine ambiguity.
+        var settings = LoadSettings();
+
+        var ex = Assert.Throws<InvalidOperationException>(
+            () => CorpusFileLocator.TryResolve(settings, "conflicting.sav"));
+
+        Assert.Contains("conflicting.sav", ex.Message);
+        Assert.Contains(plainPath, ex.Message);
+        Assert.Contains(releasePath, ex.Message);
+    }
+
+    [Fact]
+    public void A_duplicate_between_two_plain_folders_still_throws_even_with_identical_bytes()
+    {
+        // The #213 hazard's "identical bytes count as one file" rule is specific to a release cache
+        // repeating a plain-folder save — NOT a general softening of the plain-folder duplicate rule,
+        // which stays an error regardless of content (the "move, don't copy" convention means this
+        // should never legitimately happen).
+        var first = Path.Combine(_root, "saves", "dup.sav");
+        var second = Path.Combine(_root, "saves-processed", "dup.sav");
+        File.WriteAllBytes(first, new byte[] { 0 });
+        File.WriteAllBytes(second, new byte[] { 0 }); // Identical bytes, still two plain folders.
+        var settings = LoadSettings();
+
+        Assert.Throws<InvalidOperationException>(() => CorpusFileLocator.TryResolve(settings, "dup.sav"));
+    }
+
+    // ---- #213 Done-when: "found by ... FixtureResolver" too, not just CorpusFileLocator ----
+    // FixtureResolver.TryResolve(AssetSettings, string) is the internal, settings-parameterised
+    // overload FixtureResolver.TryResolve(string) delegates to after substituting LocalAssets.Settings
+    // — see FixtureResolver's own remarks. Testing it directly here proves the same "one list, one
+    // place" claim CorpusFileLocatorTests already makes, without faking LocalAssets' static state.
+
+    [Fact]
+    public void FixtureResolver_also_finds_a_save_present_only_under_a_release_tag()
+    {
+        var releasePath = Path.Combine(_root, "releases", "run-1-rome", "only-in-release.sav");
+        Directory.CreateDirectory(Path.GetDirectoryName(releasePath)!);
+        File.WriteAllBytes(releasePath, new byte[] { 1, 2, 3 });
+        var settings = LoadSettings();
+
+        var resolved = FixtureResolver.TryResolve(settings, "only-in-release.sav");
+
+        Assert.Equal(releasePath, resolved);
+    }
+
+    [Fact]
+    public void FixtureResolver_also_finds_a_save_present_only_under_saves_processed_processed()
+    {
+        var path = Path.Combine(_root, "saves-processed", "processed", "deep.sav");
+        File.WriteAllBytes(path, new byte[] { 1 });
+        var settings = LoadSettings();
+
+        var resolved = FixtureResolver.TryResolve(settings, "deep.sav");
+
+        Assert.Equal(path, resolved);
+    }
+
+    // ---- T64 rework round 1, N2: TryResolve now compares every release hit against every other
+    // one, not just the first, so it agrees with DiscoverFileNames on the duplicate rule.
+
+    [Fact]
+    public void Two_release_only_copies_with_different_bytes_throw_from_TryResolve_too()
+    {
+        var first = Path.Combine(_root, "releases", "run-1-aaa", "release-conflict.sav");
+        var second = Path.Combine(_root, "releases", "run-2-bbb", "release-conflict.sav");
+        Directory.CreateDirectory(Path.GetDirectoryName(first)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(second)!);
+        File.WriteAllBytes(first, new byte[] { 1 });
+        File.WriteAllBytes(second, new byte[] { 2 }); // Different content: a genuine ambiguity.
+        var settings = LoadSettings();
+
+        var ex = Assert.Throws<InvalidOperationException>(
+            () => CorpusFileLocator.TryResolve(settings, "release-conflict.sav"));
+
+        Assert.Contains("release-conflict.sav", ex.Message);
+        Assert.Contains(first, ex.Message);
+        Assert.Contains(second, ex.Message);
+    }
+
+    [Fact]
+    public void Two_release_only_copies_with_identical_bytes_resolve_to_the_first_sorted_one()
+    {
+        var first = Path.Combine(_root, "releases", "run-1-aaa", "release-repeat.sav");
+        var second = Path.Combine(_root, "releases", "run-2-bbb", "release-repeat.sav");
+        Directory.CreateDirectory(Path.GetDirectoryName(first)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(second)!);
+        File.WriteAllBytes(first, new byte[] { 7, 7 });
+        File.WriteAllBytes(second, new byte[] { 7, 7 }); // Identical: not an ambiguity.
+        var settings = LoadSettings();
+
+        var resolved = CorpusFileLocator.TryResolve(settings, "release-repeat.sav");
+
+        Assert.Equal(first, resolved); // "run-1-aaa" sorts before "run-2-bbb".
+    }
+
+    // ---- T64 rework round 1, N3: pin SearchedLocations' own order directly, including the ordinal
+    // sort of tag directories (previously only exercised indirectly through TryResolve's results).
+
+    [Fact]
+    public void SearchedLocations_lists_the_three_plain_folders_before_any_release_tag()
+    {
+        var releasePath = Path.Combine(_root, "releases", "run-1-aaa", "ordered.sav");
+        Directory.CreateDirectory(Path.GetDirectoryName(releasePath)!);
+        File.WriteAllBytes(releasePath, new byte[] { 1 });
+        var settings = LoadSettings();
+
+        var locations = CorpusFileLocator.SearchedLocations(settings, "ordered.sav").ToList();
+
+        Assert.Equal(Path.Combine(_root, "saves", "ordered.sav"), locations[0]);
+        Assert.Equal(Path.Combine(_root, "saves-processed", "ordered.sav"), locations[1]);
+        Assert.Equal(Path.Combine(_root, "saves-processed", "processed", "ordered.sav"), locations[2]);
+        Assert.Equal(releasePath, locations[3]);
+    }
+
+    [Fact]
+    public void SearchedLocations_sorts_release_tag_directories_ordinally_not_by_creation_order()
+    {
+        // Created deliberately out of sort order, so a listing that happened to preserve creation (or
+        // filesystem enumeration) order rather than sorting explicitly would still pass a test that
+        // only checked "found in the right tag" — this pins the ORDER itself.
+        var zTag = Path.Combine(_root, "releases", "run-9-zzz", "tag-order.sav");
+        var aTag = Path.Combine(_root, "releases", "run-1-aaa", "tag-order.sav");
+        Directory.CreateDirectory(Path.GetDirectoryName(zTag)!);
+        File.WriteAllBytes(zTag, new byte[] { 9 });
+        Directory.CreateDirectory(Path.GetDirectoryName(aTag)!);
+        File.WriteAllBytes(aTag, new byte[] { 1 });
+        var settings = LoadSettings();
+
+        var releaseHits = CorpusFileLocator.SearchedLocations(settings, "tag-order.sav")
+            .Skip(CorpusFileLocator.SaveDirs.Count)
+            .ToList();
+
+        Assert.Equal(new[] { aTag, zTag }, releaseHits); // "run-1-aaa" sorts before "run-9-zzz".
+    }
 }

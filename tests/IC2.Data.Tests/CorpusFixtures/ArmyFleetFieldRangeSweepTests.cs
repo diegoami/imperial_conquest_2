@@ -35,9 +35,30 @@ namespace IC2.Data.Tests.CorpusFixtures;
 ///   32,768). No corpus manifestation, so no code change; flagged as a candidate for a dedicated
 ///   research pass, not resolved here.
 /// - <see cref="ArmyRecord.Money"/>: docs/reports/upkeep-payment-and-desertion.md's billing pseudocode
-///   shows a signed <c>JLE</c> test ("purse &lt;= 0") on this field, but the same tick unconditionally
-///   floors it to 0 before the tick ends, so no legitimate save can ever show a negative purse. Range
-///   observed: 0..1000. No corpus manifestation, no code change.
+///   shows a signed <c>JLE</c> test ("purse &lt;= 0") on this field (<c>CMP word ptr [ESI+0x8],0</c> /
+///   <c>JLE</c> at <c>00451c1c</c>), but the same tick unconditionally floors it to 0 before the tick
+///   ends (<c>a.money = max(0, a.money)</c>), so no legitimate save can ever show a negative purse —
+///   meaning a stored word of <c>0x8000</c> or more, read the way the game itself reads it, IS a
+///   negative purse that floor rules out. That makes the field's documented range <c>0..32767</c>
+///   (<see cref="short.MaxValue"/>), not the full <c>ushort</c> width.
+///   **T64 (#301), bug #312**: the 2026-09-20 corpus shows <c>IP016.sav</c>/<c>IP016B.sav</c> army 1 at
+///   Money 1066 — above <c>data/rulesets/classical-faithful.json</c>'s <c>economy.caps.purseCapPerUnit</c>
+///   (1,000), whose own provenance cites
+///   docs/reports/decompiled-unit-map-orders-and-record-fields.md: <c>TAFSupply_ChangeMoney</c> caps an
+///   army's or fleet's own purse at 1,000 — but that is the SUPPLY DIALOG's own clamp on one write
+///   path, not a cap on the field. The same report's **Join armies** row
+///   (<c>TUnitMap_JoinArmies</c> <c>0x004472FC</c>) is the direct source for the uncapped path: "Units
+///   are moved one at a time, supplies and money add, the emptied army is deleted" — the join's own
+///   caps are 20 combined units and 100,000 combined troops, with no money cap listed. (An earlier
+///   revision of this remark cited <c>FUN_0044ab90</c> and
+///   docs/reports/army-to-army-transfer-confirmed.md for this; that function is the army-removal
+///   routine the join calls, and that report documents the transfer dialog, not the uncapped add —
+///   corrected here, per review.) IP016/IP016B army 1 at 1066 is the empirical confirmation. So the
+///   field itself has **no confirmed cap** — 1,000 is a per-dialog input clamp, not a data invariant —
+///   and the assertion below is bounded by the game's own signed reading of the field (0..32767)
+///   instead, evidenced above, not by the observed 1066. See also #315 (separately filed, not this
+///   task's): the reimplementation's <c>JoinArmiesCommandHandler</c> currently applies the supply
+///   dialog's 1,000 clamp to this uncapped join path.
 /// - <see cref="ArmyUnit"/> (TypeCode, Troops, QualityCode, MercenaryLabel) and the remaining
 ///   <see cref="FleetRecord"/> fields (X, Y, OwnerCode, ConstructionCountdown, Moves, Supplies, Money,
 ///   ShipCount, BuildCityOrCondition, CarriedArmyIndex): nothing out of range, and no decompiled
@@ -94,11 +115,17 @@ public class ArmyFleetFieldRangeSweepTests
                 // current corpus ceiling; 51 is the documented floor and matches every record seen.
                 Assert.InRange(a.Morale, (ushort)51, (ushort)72);
 
-                // Supplies and Money: no corpus value anywhere near the unsigned/signed boundary
-                // (see remarks) — generous ceilings well below it, so a genuine future underflow
-                // (a value near 65535) still fails loudly.
+                // Supplies: no corpus value anywhere near the unsigned/signed boundary (see remarks)
+                // — a generous ceiling well below it, so a genuine future underflow (a value near
+                // 65535) still fails loudly.
                 Assert.InRange(a.Supplies, (ushort)0, (ushort)2000);
-                Assert.InRange(a.Money, (ushort)0, (ushort)1000);
+                // Money (T64 #301, bug #312): no confirmed CAP on the field — see this class's
+                // remarks (purseCapPerUnit is the supply dialog's own clamp; the Join-armies path
+                // adds two purses uncapped). But it IS read signed by the game (upkeep-payment-and-
+                // desertion.md's JLE test), floored to 0 after the quarterly tick, so a stored word of
+                // 0x8000+ is a negative purse the game itself never leaves in a save. That is a real,
+                // narrower-than-ushort bound: 0..short.MaxValue, not the full 0..65535 storage width.
+                Assert.InRange(a.Money, (ushort)0, (ushort)short.MaxValue);
 
                 Assert.InRange(a.X, (ushort)0, (ushort)333);
                 Assert.InRange(a.Y, (ushort)0, (ushort)333);
@@ -120,9 +147,12 @@ public class ArmyFleetFieldRangeSweepTests
 
                 Assert.InRange(f.X, (ushort)0, (ushort)333);
                 Assert.InRange(f.Y, (ushort)0, (ushort)333);
-                // 0xFFFF (the army-table tombstone's own bit pattern) never appears as a fleet owner
-                // in this corpus; a fleet-owner tombstone would be new information, not something
-                // this task's Owns list handles today.
+                // T64 (#301, bug #276): a fleet-owner tombstone (0xFFFF, the same bit pattern as the
+                // army-table tombstone) DOES appear in this corpus (IP012B.sav, fleet slot 4) — but
+                // SaveFleetTable.Parse now skips and reports it in SkippedRecords, the same way
+                // SaveArmyTable handles its own tombstones, so it never reaches Fleets and never
+                // reaches this assertion. This range stays a real, unwidened 0..15: see
+                // FleetTombstoneTests for the skip itself.
                 Assert.InRange(f.OwnerCode, (ushort)0, (ushort)15);
                 // LaunchedSentinel (0xFFFF) is a real, already-handled sentinel on this same field —
                 // exclude it exactly as IsLaunched does, rather than widen the range to cover it.

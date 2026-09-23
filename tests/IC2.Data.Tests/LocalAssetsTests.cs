@@ -66,4 +66,52 @@ public class LocalAssetsTests : IDisposable
         // InvalidDataException). This must propagate rather than being swallowed as "not configured".
         Assert.Throws<ArgumentException>(() => LocalAssets.TryLoad(""));
     }
+
+    // ---- #218 N11: DetermineRequestMode is the pure decision behind WasRequested/IsCiFixtureMode,
+    // over every (fixturesDirEnvValue, configFileExists) combination — including N12, a blank
+    // IC2_FIXTURES_DIR treated as unset. Mutating either assignment in LocalAssets' static
+    // constructor to false must fail one of these (see the PR body for both mutations shown).
+
+    [Theory]
+    [InlineData(null, false, false, false)]
+    [InlineData(null, true, true, false)]
+    [InlineData("", false, false, false)] // N12: blank env var is unset-equivalent, not "requested".
+    [InlineData("", true, true, false)]
+    [InlineData("   ", false, false, false)] // Whitespace-only is blank too.
+    [InlineData("   ", true, true, false)]
+    [InlineData(@"C:\fixtures", false, true, true)] // Set (to anything non-blank): CI-fixture mode,
+    [InlineData(@"C:\fixtures", true, true, true)]  // wins outright regardless of the ini file.
+    public void DetermineRequestMode_covers_every_combination(
+        string? fixturesDirEnvValue, bool configFileExists, bool expectedWasRequested, bool expectedIsCiFixtureMode)
+    {
+        var (wasRequested, isCiFixtureMode) =
+            LocalAssets.DetermineRequestMode(fixturesDirEnvValue, configFileExists);
+
+        Assert.Equal(expectedWasRequested, wasRequested);
+        Assert.Equal(expectedIsCiFixtureMode, isCiFixtureMode);
+    }
+
+    // T64 rework round 1, N4: the theory above proves DetermineRequestMode itself is correct, but
+    // nothing proved LocalAssets' static constructor actually WIRES its two fields through that
+    // function, rather than computing WasRequested/IsCiFixtureMode some other way that happens to
+    // agree today. Mutating the constructor's one wiring line (LocalAssets.cs:107) to something like
+    // "(WasRequested, IsCiFixtureMode) = (false, DetermineRequestMode(...).IsCiFixtureMode)" left the
+    // whole suite green before this test existed.
+    [Fact]
+    public void The_constructors_two_fields_are_wired_through_DetermineRequestMode()
+    {
+        // Recomputes the same function from this process's own actual environment — the exact inputs
+        // the static constructor already ran once, at class load, to produce WasRequested and
+        // IsCiFixtureMode — and checks the two agree. "IC2_FIXTURES_DIR" mirrors LocalAssets'
+        // own private FixturesDirEnvVar constant; it is not itself under test here, DetermineRequestMode's
+        // own theory above already covers every value it could hold.
+        var fixturesDirEnvValue = Environment.GetEnvironmentVariable("IC2_FIXTURES_DIR");
+        var configFileExists = File.Exists(LocalAssets.ConfigPath);
+
+        var (expectedWasRequested, expectedIsCiFixtureMode) =
+            LocalAssets.DetermineRequestMode(fixturesDirEnvValue, configFileExists);
+
+        Assert.Equal(expectedWasRequested, LocalAssets.WasRequested);
+        Assert.Equal(expectedIsCiFixtureMode, LocalAssets.IsCiFixtureMode);
+    }
 }

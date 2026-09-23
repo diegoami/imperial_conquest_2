@@ -53,6 +53,7 @@ public class CorpusSweepTests
 
         var fleetTable = SaveFleetTable.Parse(data);
         Assert.Equal(expected.Fleets, fleetTable.Fleets.Count);
+        Assert.Equal(expected.SkippedFleets, fleetTable.SkippedRecords.Count);
 
         var nationTable = SaveNationTable.Parse(data);
         Assert.Equal(expected.Nations, nationTable.Nations.Count);
@@ -124,15 +125,28 @@ public class CorpusSweepTests
         // Structural invariants that hold regardless of how many files the corpus currently has —
         // deliberately NOT a hard-coded total file/tombstone count, which is exactly the kind of
         // snapshot-in-time assertion bug #57 is about (the corpus grows as /process-evidence adds and
-        // moves saves). There is always exactly one DAT row; no file name is listed twice in the
-        // fixture itself; and no save carries more tombstones than the confirmed corpus has ever
-        // shown for one save (docs/investigations/dat-file-layout.md / T34 #40 item 1: "the confirmed
-        // corpus has at most one per save") — a file that broke this would be new information worth
-        // surfacing, not drift to silently accept.
+        // moves saves). There is always exactly one DAT row, and no file name is listed twice in the
+        // fixture itself.
         Assert.Equal(1, CorpusFixture.Entries.Count(e => e.Format == "Dat"));
         Assert.Equal(CorpusFixture.Entries.Count,
             CorpusFixture.Entries.Select(e => e.FileName).Distinct(StringComparer.Ordinal).Count());
+
+        // T64 (#301), bug #313: the previous line here, "no save has more than 1 skipped army
+        // record", came from docs/investigations/dat-file-layout.md's "the confirmed corpus has at
+        // most one per save" — a count from the sample the investigation happened to have, not a
+        // rule the game or the parser enforces. The 2026-09-20 corpus falsifies it: IP012B.sav has 2.
+        // Raising 1 to 2 would repeat the same mistake with a new number. The structural invariant
+        // this sweep can actually rely on comes from the parser itself, not from a sample: multiple
+        // tombstones in one table are fine (SaveArmyTable.Parse skips each independently), but a
+        // table that is tombstones ALL THE WAY THROUGH throws AllArmyRecordsTombstonedException
+        // instead of returning a row — see SaveArmyTable.cs's own remarks. So a row that exists in
+        // this committed table at all can never have every one of its records skipped: whenever it
+        // has any skipped record, it must also have at least one real army, or CorpusOutcomeGenerator
+        // would have hit that exception instead of producing the row.
         Assert.All(CorpusFixture.Entries, e =>
-            Assert.True(e.SkippedArmies <= 1, $"{e.FileName} has {e.SkippedArmies} skipped army records."));
+            Assert.True(e.SkippedArmies == 0 || e.Armies > 0,
+                $"{e.FileName} has {e.SkippedArmies} skipped army records and {e.Armies} real ones — " +
+                "a row with any skip must also have a real army, or SaveArmyTable.Parse should have " +
+                "thrown AllArmyRecordsTombstonedException instead of producing this row."));
     }
 }

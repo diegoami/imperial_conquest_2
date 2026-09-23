@@ -72,4 +72,4 @@ jobs:
           echo "IC2_FIXTURES_DIR=$dir" >> "$GITHUB_ENV"
 
       - name: Test
-        run: dotnet test IC2.sln --no-build --configuration Release
+        run: dotnet test IC2.sln --no-build --configuration Release --logger "console;verbosity=detailed"

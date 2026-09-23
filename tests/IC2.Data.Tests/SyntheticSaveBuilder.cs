@@ -30,24 +30,47 @@ internal static class SyntheticSaveBuilder
     /// <see cref="SaveFormat.Detect"/> to recognise it as SAV-shaped. Apply <paramref name="writers"/>
     /// to fill in specific records before returning.
     /// </summary>
-    public static byte[] MinimalSav(int armyCount, params (int Index, Action<byte[], int> Write)[] writers)
+    public static byte[] MinimalSav(int armyCount, params (int Index, Action<byte[], int> Write)[] writers) =>
+        MinimalSavWithFleets(armyCount, 0, armyWriters: writers);
+
+    /// <summary>As <see cref="MinimalSav"/>, but with <paramref name="fleetCount"/> 26-byte fleet
+    /// records (zero-filled by default — an all-zero fleet record is a structurally valid fleet with
+    /// owner 0 (Rome) and every other field 0) following the army table, for tests that target
+    /// <see cref="SaveFleetTable.Parse"/>. Apply <paramref name="fleetWriters"/> to fill in specific
+    /// fleet records before returning; <paramref name="armyWriters"/> does the same for army
+    /// records.</summary>
+    public static byte[] MinimalSavWithFleets(int armyCount, int fleetCount,
+        (int Index, Action<byte[], int> Write)[]? armyWriters = null,
+        (int Index, Action<byte[], int> Write)[]? fleetWriters = null)
     {
         var mapAndCityLength = WorldPrefix.SharedPrefixLength;
         var armyTableLength = armyCount * SaveArmyTable.RecordLength;
-        var totalLength = mapAndCityLength + 2 + armyTableLength + 2 + NationCount * SavNationRecordLength;
+        var fleetTableLength = fleetCount * SaveFleetTable.RecordLength;
+        var totalLength = mapAndCityLength + 2 + armyTableLength + 2 + fleetTableLength
+            + NationCount * SavNationRecordLength;
 
         var data = new byte[totalLength];
         WriteUInt16(data, mapAndCityLength, (ushort)armyCount);
 
         var armyTableStart = mapAndCityLength + 2;
-        foreach (var (index, write) in writers)
+        foreach (var (index, write) in armyWriters ?? Array.Empty<(int, Action<byte[], int>)>())
             write(data, armyTableStart + index * SaveArmyTable.RecordLength);
 
         var fleetCountOffset = armyTableStart + armyTableLength;
-        WriteUInt16(data, fleetCountOffset, 0); // zero fleets
+        WriteUInt16(data, fleetCountOffset, (ushort)fleetCount);
+
+        var fleetTableStart = fleetCountOffset + 2;
+        foreach (var (index, write) in fleetWriters ?? Array.Empty<(int, Action<byte[], int>)>())
+            write(data, fleetTableStart + index * SaveFleetTable.RecordLength);
 
         return data;
     }
+
+    /// <summary>Writes a fleet record's owner word (+8) at <paramref name="offset"/>, leaving every
+    /// other field at 0. Enough to target <see cref="SaveFleetTable.Parse"/>'s owner-sentinel
+    /// handling without needing every other field populated.</summary>
+    public static void WriteFleetOwner(byte[] data, int offset, ushort owner) =>
+        WriteUInt16(data, offset + 8, owner);
 
     /// <summary>Writes an army record header (X, Y, Owner, Moves; CoveredCell/Supplies/Money/Morale
     /// left at 0) at <paramref name="offset"/>. All 20 unit slots are left zeroed (troops = 0), which
