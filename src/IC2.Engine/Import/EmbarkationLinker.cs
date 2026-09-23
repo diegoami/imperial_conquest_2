@@ -12,7 +12,7 @@ namespace IC2.Engine.Import;
 /// <em>reference</em> it") is provable against plain data, in a fast, deterministic unit test — no
 /// original save file needed, unlike the rest of the importer.
 /// </remarks>
-internal static class EmbarkationLinker
+public static class EmbarkationLinker
 {
     /// <summary>One fleet-table record's own claim: its table index, and the army-table index it
     /// carries (<c>null</c> for "carries no army").</summary>
