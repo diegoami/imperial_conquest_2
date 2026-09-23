@@ -174,8 +174,10 @@ public sealed class GalatiaEliminationScenarioTests
         // 30/44, Gordium 42/18, same report) are NOT asserted here, but T63 (bug #293) means this is no
         // longer an evidence gap: FUN_0044b230's erosion formula is now decompiled and confirmed (see the
         // class remarks), and reproducing those two figures is exactly what
-        // SiegeAttritionTests.cs proves, through InstantBattleResolver.ResolveSiege -- the method that
-        // owns erosion, not this one. This scenario calls Capture directly, deliberately bypassing
+        // SiegeAttritionTests.GalatiaHistoricalCaptures_ReproduceThePostSiegeFiguresThroughResolveSiege
+        // proves, through InstantBattleResolver.ResolveSiege -- the method that owns erosion, not this
+        // one (N-2, T63 review round 3: DoD 5 is met in substance there, not by changing the two
+        // literal assertions just below). This scenario calls Capture directly, deliberately bypassing
         // ResolveSiege, to isolate FUN_0044bb18's own transfer pseudocode from a real attempt's erosion;
         // that isolation is the reason these two fields are unchanged here, not a missing formula. ----
         Assert.Equal(41, final.CityById("laranda")!.FortificationCode);

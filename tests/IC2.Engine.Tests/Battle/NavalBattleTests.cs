@@ -2,6 +2,7 @@ using IC2.Engine.Battle;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
 using IC2.Engine.News;
+using IC2.Engine.Persistence;
 using IC2.Engine.Serialization;
 using Xunit;
 
@@ -157,6 +158,60 @@ public class NavalBattleTests
         Assert.Equal(810 + 810 + 891 + 810 + 390 + 390, result.WinnerCasualties);
         Assert.Equal(4101, result.WinnerCasualties);
         Assert.Equal(4800 - result.WinnerCasualties, cargo.TotalTroops);
+    }
+
+    /// <summary>
+    /// R2-B1 (T63 review round 3): the naval-battle site's own delete sweep -- when the WINNER's carried
+    /// army is emptied by the whole-unit-loss branch, the army is deleted outright and the winner
+    /// fleet's own <see cref="FleetState.CarriedArmyId"/> is cleared -- had no test proving it through
+    /// <see cref="InstantBattleResolver.ResolveNaval"/> itself; only <see cref="BattleCasualties"/>'s own
+    /// unit tests exercised the deletion, and those cannot see the fleet link at all. Two mutations at
+    /// the call site (skipping the <c>CarriedArmyId</c> clear; keeping the emptied army instead of
+    /// deleting it) each left every other test green and produced a state
+    /// <see cref="GameDataValidation.Validate"/> rejects -- proof the gap was real.
+    /// </summary>
+    [Fact]
+    public void WinnersCarriedArmyEmptiedByTheDeleteSweep_IsDeletedAndTheFleetsLinkCleared()
+    {
+        const string OtherFleet = "other-fleet";
+        const string OtherCargo = "other-cargo";
+
+        var state = BattleTestbed.StateWith(
+            armies: new[]
+            {
+                BattleTestbed.EmbarkedArmy(
+                    "north-cargo", "north", Attacker, 0, 2, 60,
+                    BattleTestbed.Unit("heavy_cavalry", 260, 6, "A"),
+                    BattleTestbed.Unit("heavy_cavalry", 260, 6, "B")),
+                BattleTestbed.EmbarkedArmy(
+                    OtherCargo, "north", OtherFleet, 10, 10, 60,
+                    BattleTestbed.Unit("heavy_cavalry", 1200, 6, "C")),
+            },
+            fleets: new[]
+            {
+                BattleTestbed.Fleet(Attacker, "north", 0, 2, 40, 100, "north-cargo"),
+                BattleTestbed.Fleet(Defender, "south", 0, 3, 29, 100),
+                BattleTestbed.Fleet(OtherFleet, "north", 10, 10, 10, 100, OtherCargo),
+            });
+
+        var (after, result) = Resolve(state, BattleTestbed.Destroyed);
+
+        Assert.Equal(527, result.AttackerPower);
+        Assert.Equal(319, result.DefenderPower);
+        Assert.Equal(BattleSide.Attacker, result.Winner);
+
+        // The winner's own cargo is gone -- not present with zero units, gone entirely -- and its
+        // fleet's own carried-army link is cleared, not left dangling.
+        Assert.Null(after.ArmyById("north-cargo"));
+        Assert.Null(after.FleetById(Attacker)!.CarriedArmyId);
+
+        // The unrelated second fleet's cargo, untouched by this battle, survives with its link intact.
+        Assert.Equal(OtherCargo, after.FleetById(OtherFleet)!.CarriedArmyId);
+        Assert.NotNull(after.ArmyById(OtherCargo));
+
+        // Round-trips through T20's SaveManager: a dangling CarriedArmyId, or a persisted zero-unit
+        // army, is exactly what gate 5 exists to keep out of a save (DoD 1).
+        AssertRoundTripsThroughSaveManager(after);
     }
 
     /// <summary>
@@ -376,4 +431,22 @@ public class NavalBattleTests
             BattleTestbed.BattleRng(),
             Archers,
             events ?? NullEventSink.Instance);
+
+    /// <summary>R2-B1: the delete-class round-trip DoD 1 names is through T20's <see cref="SaveManager"/>, not just <see cref="GameDataLoader"/>/<see cref="GameDataValidation"/>.</summary>
+    private static void AssertRoundTripsThroughSaveManager(GameState state)
+    {
+        var save = new SaveGame(
+            SchemaVersion: GameDataSchema.CurrentVersion,
+            Id: "probe-save",
+            Label: "T63 naval delete-class probe",
+            ScenarioId: state.ScenarioId,
+            WorldId: state.WorldId,
+            RulesetId: state.RulesetId,
+            State: state);
+
+        var json = SaveManager.Serialize(save);
+        var reloaded = SaveManager.Load("probe-save.json", json, BattleTestbed.World, BattleTestbed.Destroyed);
+
+        Assert.Equal(json, SaveManager.Serialize(reloaded));
+    }
 }

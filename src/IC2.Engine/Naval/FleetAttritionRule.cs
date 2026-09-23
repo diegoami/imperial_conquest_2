@@ -243,16 +243,27 @@ public static class FleetAttritionRule
     /// <summary>
     /// Runs the full per-turn rule for one launched fleet already at sea: the storm pass, the death
     /// check, the carried army's own casualty pass (bug #292 steps 3 and 4, only on a heavy storm), the
-    /// zero-supply penalty, and the moves formula — in that order, matching the original's own
-    /// (<c>supply-driven-morale-and-fleet-attrition.md</c> §"The fleet loop, in order", research
-    /// 3f6ca09): <c>FUN_0044b4f8</c> (the storm pass, which already folds the carried army's own
-    /// casualties in) runs before the moves formula reads the army's troop count. <strong>Bug #292/B2:</strong>
-    /// an earlier revision of this method computed moves from a troop count the CALLER passed in before
-    /// applying that turn's own storm casualties to the army, which is backwards -- the probe was a
-    /// 40-ship, condition-68 fleet carrying 80,000 troops into a known heavy storm (seed 14): moves came
-    /// out as -1, from the STALE 80,000, where the original (and this corrected method) give 23, from
-    /// the post-storm 10,330.
+    /// zero-supply penalty, and the moves formula — in that order.
     /// </summary>
+    /// <remarks>
+    /// <strong>This method's own order is not quite the original's (N-4, T63 review round 3), though the
+    /// two never disagree on final state.</strong> In the original
+    /// (<c>supply-driven-morale-and-fleet-attrition.md</c> §"The fleet loop, in order", research
+    /// 3f6ca09), the army's own casualty pass is INSIDE <c>FUN_0044b4f8</c> itself (the same call that
+    /// computes the storm's ship/condition loss), so it runs BEFORE the caller's own death check --
+    /// unconditionally, on every heavy storm, whether or not that same storm goes on to sink the fleet.
+    /// This method's death check (the early return two lines below) comes first, so on a turn where the
+    /// storm both damages heavily AND sinks the fleet, this method skips the army's casualty pass and its
+    /// <see cref="IRng"/> draws entirely, where the original would have taken them. The final STATE never
+    /// differs -- a sunk fleet's carried army is deleted either way, whatever its troop count was the
+    /// instant before -- so this is purely a draw-count/order divergence on that one turn shape, which
+    /// Decision 6 (<c>docs/tasks/T63.md</c>) already disclaims for exactly this kind of case. <strong>Bug
+    /// #292/B2:</strong> an earlier revision of this method computed moves from a troop count the CALLER
+    /// passed in before applying that turn's own storm casualties to the army, which is backwards -- the
+    /// probe was a 40-ship, condition-68 fleet carrying 80,000 troops into a known heavy storm (seed 14):
+    /// moves came out as -1, from the STALE 80,000, where the original (and this corrected method) give
+    /// 23, from the post-storm 10,330.
+    /// </remarks>
     /// <param name="ships">The fleet's ship count before this turn.</param>
     /// <param name="conditionPercent">The fleet's condition before this turn.</param>
     /// <param name="supplyTonsBeforeConsumption">The fleet's supply stock before this turn's consumption.</param>
