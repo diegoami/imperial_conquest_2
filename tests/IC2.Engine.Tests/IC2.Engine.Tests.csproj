@@ -27,6 +27,16 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/IC2.Engine/IC2.Engine.csproj" />
+
+    <!--
+      T21 (tests/IC2.Engine.Tests/Import/**): the import tests parse real .sav fixtures directly through
+      IC2.Data, and resolve them by name (never a hardcoded folder) through IC2.Inspect's own
+      CorpusFileLocator, the same one-shared-search-order resolver tests/IC2.Data.Tests already uses,
+      rather than a second copy. Outside T21's literal Owns list but the same unavoidable build-wiring
+      change as the IC2.Engine.csproj reference above it; see this PR's body.
+    -->
+    <ProjectReference Include="../../src/IC2.Data/IC2.Data.csproj" />
+    <ProjectReference Include="../../src/IC2.Inspect/IC2.Inspect.csproj" />
   </ItemGroup>
 
 </Project>
