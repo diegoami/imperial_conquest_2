@@ -143,19 +143,20 @@ public sealed class SaveFileIoTests : IDisposable
     {
         // Review round 2 (R1): the cleanup that deletes a leftover .tmp file after a failed rename had
         // no test either -- every existing test's write either succeeds (renaming the temp file away)
-        // or fails before a temp file could exist (a missing directory). This locks the target
-        // exclusively so the temp file is written successfully and only the rename fails, which is the
-        // one point a leaked .tmp file is actually possible; deleting the cleanup call would leave one
-        // behind here.
-        var path = Path.Combine(_directory, "toy-3city-locked-target.ic2save.json");
-        SaveManager.WriteFile(path, BuildToySave("toy-3city-first", "First save"));
+        // or fails before a temp file could exist (a missing directory, or the temp path itself
+        // blocked, covered by the test above). This makes only the rename step fail: a directory
+        // sitting at the target path is a normal, non-existent filename for path + ".tmp", so the temp
+        // file is written (and flushed) successfully, and only File.Move over an existing directory
+        // fails -- the one point a leaked .tmp file is actually possible. An exclusive file lock was
+        // tried first, but Windows enforces mandatory locking on an open file while Linux's rename()
+        // does not, so it failed this exact test on CI without reaching the edge it was meant to probe;
+        // "rename onto an existing directory" fails identically on every platform.
+        var path = Path.Combine(_directory, "toy-3city-rename-target-is-a-directory.ic2save.json");
+        Directory.CreateDirectory(path);
 
-        using (new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None))
-        {
-            var secondSave = BuildToySave("toy-3city-second", "Second save");
-            Assert.Throws<SaveWriteException>(() => SaveManager.WriteFile(path, secondSave));
-            Assert.False(File.Exists(path + ".tmp"));
-        }
+        var save = BuildToySave("toy-3city-second", "Second save");
+        Assert.Throws<SaveWriteException>(() => SaveManager.WriteFile(path, save));
+        Assert.False(File.Exists(path + ".tmp"));
     }
 
     [Fact]
