@@ -1,0 +1,1 @@
+soak reproduction: 50 seeds, cap 1200: 1.81s elapsed (E0, tool-measured); field battles B = 150; sieges 0; naval 0; replay/final-state mismatches 0

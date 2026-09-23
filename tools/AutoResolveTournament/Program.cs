@@ -5,7 +5,7 @@
 //   dotnet run -c Release --project tools/AutoResolveTournament -- run   [--seeds N] [--out DIR] [--no-timing] [--no-det] [--e0 S] [--b N]
 //   dotnet run -c Release --project tools/AutoResolveTournament -- det   --candidate C2 --out FILE
 //   dotnet run -c Release --project tools/AutoResolveTournament -- soak  [--out DIR]
-//   dotnet run -c Release --project tools/AutoResolveTournament -- smoke [--out DIR]
+//   dotnet run -c Release --project tools/AutoResolveTournament -- smoke [--out DIR] [--corpus ASSET_DIR]
 using System.Diagnostics;
 using System.Globalization;
 using System.Security.Cryptography;
@@ -22,6 +22,7 @@ return command switch
     "det" => Commands.Det(context, options),
     "soak" => Commands.Soak(context, options),
     "smoke" => Smoke.Run(context, options),
+    "trace" => Commands.Trace(context, options, args.Skip(1).ToArray()),
     _ => Usage(),
 };
 
@@ -58,6 +59,8 @@ namespace AutoResolveTournament
 
         public long? B { get; private set; }
 
+        public string? Corpus { get; private set; }
+
         public static Options Parse(string[] args)
         {
             var o = new Options();
@@ -72,6 +75,8 @@ namespace AutoResolveTournament
                     case "--no-det": o.Det = false; break;
                     case "--e0": o.E0 = double.Parse(args[++i], CultureInfo.InvariantCulture); break;
                     case "--b": o.B = long.Parse(args[++i], CultureInfo.InvariantCulture); break;
+                    case "--corpus": o.Corpus = args[++i]; break;
+                    case "--attacker" or "--defender" or "--seed" or "--scale": i++; break; // trace's own, read by Trace
                     default: throw new ArgumentException("unknown option " + args[i]);
                 }
             }
@@ -228,7 +233,7 @@ namespace AutoResolveTournament
                 string projection = "null";
                 if (options.E0 is { } e0 && options.B is { } b)
                 {
-                    projection = (e0 + (b * (c.MeanMs - t1) / 1000.0)).ToString("0.00", Inv);
+                    projection = (e0 + (b * (c.MeanMs - t1) / 1000.0)).ToString("0.0000", Inv);
                 }
 
                 cost.AppendLine($"    {{\"key\": \"{c.Key}\", \"battles\": {c.Battles}, \"meanMs\": {c.MeanMs.ToString("0.00000", Inv)}, \"p99Ms\": {c.P99Ms.ToString("0.00000", Inv)}, \"maxMs\": {c.MaxMs.ToString("0.000", Inv)}, \"projectedSoakSeconds\": {projection}}}{(i < costs.Count - 1 ? "," : string.Empty)}");
@@ -239,7 +244,35 @@ namespace AutoResolveTournament
             cost.AppendLine("}");
             File.WriteAllText(Path.Combine(outDir, "cost-and-det.json"), cost.ToString(), new UTF8Encoding(false));
 
-            File.WriteAllText(Path.Combine(outDir, "scorecard.md"), Markdown.Render(cards), new UTF8Encoding(false));
+            // DET and COST rows for the Markdown scorecard (the JSON scorecard stays free of wall-clock numbers).
+            var rows = new List<string>();
+            if (det.Count == cards.Count)
+            {
+                rows.Add("| DET | 100/100 byte-identical (two processes) and 100/100 draws as stated; no other randomness source | "
+                         + string.Join(" | ", det.Select(d =>
+                         {
+                             var pass = d.Result.StartsWith("100/100 byte-identical", StringComparison.Ordinal)
+                                        && d.Result.EndsWith("100/100", StringComparison.Ordinal);
+                             return (pass ? "100/100 identical; 100/100 draws" : d.Result) + " — **" + (pass ? "pass" : "FAIL") + "**";
+                         })) + " |");
+            }
+
+            if (costs.Count == cards.Count)
+            {
+                rows.Add("| COST mean t_c | (reported) | " + string.Join(" | ", costs.Select(c => c.MeanMs.ToString("0.0000", Inv) + " ms")) + " |");
+                rows.Add("| COST p99 | ≤ 50 ms | " + string.Join(" | ", costs.Select(c =>
+                    c.P99Ms.ToString("0.0000", Inv) + " ms — **" + (c.P99Ms <= 50 ? "pass" : "FAIL") + "**")) + " |");
+                if (options.E0 is { } e0 && options.B is { } b)
+                {
+                    rows.Add("| COST E_c = E0 + B × (t_c − t_1) | ≤ 240 s | " + string.Join(" | ", costs.Select(c =>
+                    {
+                        var ec = e0 + (b * (c.MeanMs - t1) / 1000.0);
+                        return ec.ToString("0.0000", Inv) + " s — **" + (ec <= 240 ? "pass" : "FAIL") + "**";
+                    })) + " |");
+                }
+            }
+
+            File.WriteAllText(Path.Combine(outDir, "scorecard.md"), Markdown.Render(cards, rows), new UTF8Encoding(false));
             return 0;
         }
 
@@ -389,6 +422,38 @@ namespace AutoResolveTournament
             Directory.CreateDirectory(outDir);
             File.WriteAllText(Path.Combine(outDir, "soak-baseline.txt"), line + "\n", new UTF8Encoding(false));
             return mismatched == 0 ? 0 : 1;
+        }
+
+        /// <summary>
+        /// Prints one battle's event log, for reading a candidate's behaviour:
+        /// <c>trace --candidate C2 --attacker 15 --defender 4 --seed 0 --scale P</c>.
+        /// </summary>
+        public static int Trace(TournamentContext context, Options options, string[] args)
+        {
+            string Arg(string name, string fallback)
+            {
+                var i = Array.IndexOf(args, name);
+                return i >= 0 && i + 1 < args.Length ? args[i + 1] : fallback;
+            }
+
+            var candidate = context.CandidateByKey(options.Candidate ?? "C2");
+            var attacker = int.Parse(Arg("--attacker", "0"), Inv);
+            var defender = int.Parse(Arg("--defender", "0"), Inv);
+            var seed = ulong.Parse(Arg("--seed", "0"), Inv);
+            var scale = Arg("--scale", "P") == "T" ? ArmyScale.Troops : ArmyScale.Power;
+            var input = context.Harness.Input(new ScheduledBattle(attacker, defender, 0, seed), scale);
+            var outcome = candidate.Resolve(input, new SplitMix64Rng(seed), recordEvents: true);
+
+            Console.WriteLine($"{candidate.Key}: {TestArmies.Compositions[attacker].Label} attacks {TestArmies.Compositions[defender].Label}, {scale}-scale, seed {seed}");
+            Console.WriteLine("attacker: " + string.Join(", ", input.Attacker.Units.Select(u => $"{u.UnitTypeId} {u.Troops}")));
+            Console.WriteLine("defender: " + string.Join(", ", input.Defender.Units.Select(u => $"{u.UnitTypeId} {u.Troops}")));
+            foreach (var e in outcome.Events)
+            {
+                Console.WriteLine($"  r{e.Round} {(e.Side == 0 ? "A" : "D")}{e.Slot} {e.Kind}{(e.Cause == BreakCause.None ? string.Empty : " " + e.Cause)}");
+            }
+
+            Console.WriteLine(TournamentHarness.CanonicalJson(outcome) + $" rounds {outcome.Rounds} cascade {outcome.CascadeBreak}");
+            return 0;
         }
 
         private static Scenario AllAiScenario(Scenario scenario)

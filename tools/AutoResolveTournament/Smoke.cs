@@ -36,7 +36,7 @@ internal static class Smoke
         Instance(context, sb, seleucid, ptolemaic, "Seleucid", observedTotals: null);
 
         // §9.2, read from the save.
-        var corpus = CorpusDirectory(context);
+        var corpus = options.Corpus ?? CorpusDirectory(context);
         sb.AppendLine("## §9.2 Rome v Gaul, `1_rome_270_winter_7.sav` (rosters read from the save; Rome attacks)");
         sb.AppendLine();
         var save92 = corpus is null ? null : Path.Combine(corpus, "saves-processed", "1_rome_270_winter_7.sav");
@@ -94,7 +94,7 @@ internal static class Smoke
             {
                 var romeArmy = FromSave(rome!);
                 var gaulArmy = FromSave(gaul!);
-                sb.AppendLine($"Roster assertions: all passed (totals, HC 755 + 2,432, 4th Bowmen 3,312, slot qualities, Rome M = 68). Gaul's +14 = {gaul!.Morale}.");
+                sb.AppendLine($"Roster assertions: all passed (totals, HC 755 + 2,432, 4th Bowmen 3,312, slot qualities, Rome M = 68). Owners: army 0 {NationCatalog.Name(rome!.OwnerCode)}, army 13 {NationCatalog.Name(gaul!.OwnerCode)}. Gaul's +14 = {gaul!.Morale}.");
                 sb.AppendLine();
                 Instance(context, sb, romeArmy, gaulArmy, "Rome", observedTotals: new long[] { 63_282, 75_536 });
             }
@@ -116,7 +116,7 @@ internal static class Smoke
             {
                 rome93 = FromSave(romeMatches[0]);
                 gaul93 = FromSave(gaulMatches[0]);
-                sb.AppendLine($"Path taken: **[confirmed by exact match]** — Rome army {romeMatches[0].Index} at ({romeMatches[0].X},{romeMatches[0].Y}), M {romeMatches[0].Morale}; Gaul army {gaulMatches[0].Index} at ({gaulMatches[0].X},{gaulMatches[0].Y}), M {gaulMatches[0].Morale}.");
+                sb.AppendLine($"Path taken: **[confirmed by exact match]** — Rome's column matches army {romeMatches[0].Index} ({NationCatalog.Name(romeMatches[0].OwnerCode)}) at ({romeMatches[0].X},{romeMatches[0].Y}), M {romeMatches[0].Morale}; Gaul's matches army {gaulMatches[0].Index} ({NationCatalog.Name(gaulMatches[0].OwnerCode)}) at ({gaulMatches[0].X},{gaulMatches[0].Y}), M {gaulMatches[0].Morale}.");
             }
         }
         else

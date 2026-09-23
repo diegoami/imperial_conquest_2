@@ -6,7 +6,7 @@ namespace AutoResolveTournament;
 /// <summary>Renders the deterministic scorecard as Markdown tables, candidates in the neutral C1–C5 key order.</summary>
 internal static class Markdown
 {
-    public static string Render(IReadOnlyList<CandidateScorecard> cards)
+    public static string Render(IReadOnlyList<CandidateScorecard> cards, IReadOnlyList<string> extraRows)
     {
         var sb = new StringBuilder();
         var ids = cards[0].Clauses.Select(c => c.Id).ToList();
@@ -23,6 +23,11 @@ internal static class Markdown
                 return clause.Verdict == "n/a" ? "n/a" : $"{clause.Value} — **{clause.Verdict}**";
             })));
             sb.AppendLine(" |");
+        }
+
+        foreach (var row in extraRows)
+        {
+            sb.AppendLine(row);
         }
 
         sb.AppendLine();
