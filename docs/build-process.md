@@ -414,6 +414,11 @@ If the first line is C:\Users\diego\projects\imperial_conquest_2, you are in the
 checkout: STOP and fix that before doing anything else. Nothing you spawn inherits your shell
 directory, so always pass `git -C <your worktree>` explicitly rather than relying on `cd`.
 
+Never use `git stash`: the stash is shared by every worktree in the repository, so another
+agent's push or pop can swap entries with yours. To test the base without your change, add a
+detached worktree at origin/main under C:\Users\diego\projects\ic2-work\ and remove it afterwards;
+to set work aside, commit it.
+
 Your task entry is reproduced in full at the end of this brief — it is the contract, and you
 should not need to open the catalogue at all. If you do need a different entry, extract that one
 rather than reading the file (CLAUDE.md rule 11):
@@ -498,6 +503,11 @@ separate report, never a finding against this PR (§4.2).
 Nothing you spawn inherits your shell directory: a forked skill or agent starts in the MAIN
 CHECKOUT, not here. So pass `git -C <your worktree>` explicitly rather than relying on `cd`, and
 see gate 5 before considering any forked tool.
+
+Never use `git stash`: the stash is shared by every worktree in the repository, so another
+agent's push or pop can swap entries with yours. To test the base without your change, add a
+detached worktree at origin/main under C:\Users\diego\projects\ic2-work\ and remove it afterwards;
+to set work aside, commit it.
 
 The task entry is reproduced in full at the end of this brief; you should not need to open the
 catalogue. Read docs/build-process.md §4.2 "What the reviewer checks", docs/game-design.md
