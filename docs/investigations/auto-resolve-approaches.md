@@ -6,6 +6,16 @@ precisely enough for T59 ([#250](https://github.com/diegoami/imperial_conquest_2
 T59 measures them with. It **does not pick a winner and does not rank the candidates.** T59 measures
 them, and the user decides from T59's scorecard. Task T58, [#251](https://github.com/diegoami/imperial_conquest_2/issues/251).
 
+> **Corrected 2026-09-23** by the research pass for [#288](https://github.com/diegoami/imperial_conquest_2/issues/288)
+> (research commits `1762c84`, `54b85d0`, `eb1c886`). Four facts changed, and each is corrected where it
+> is stated: K27 is settled (+3 to a computer-controlled side only); the initial tactical-morale clamp
+> D08 is `[60, 90]`; §5's cascade is **one level deep**, not recursive; and the original's instant
+> path deletes small units after its casualties, which the merged C1 does not (§6.1,
+> [#289](https://github.com/diegoami/imperial_conquest_2/issues/289)). The heavy-cavalry wording in
+> §2.3, §7 and §9.2 is narrowed to what the corrected reports support. The candidates are not
+> redesigned. Where a placeholder now departs from a settled fact, the text says so, and the choice is
+> left to the user.
+
 The candidates are numbered **C1–C5 in the order T58's Done-when 1 lists them**: baseline, the
 original's tactical model run headless, type-weighted instant, round-based, and morale-and-retreat.
 That is a neutral key. It is not an order of merit, and no table in this document has a verdict
@@ -105,8 +115,10 @@ which unit fights which, when, and from where:
   Either way, no report contains the AI's move or target rules.
 - No report contains target selection, movement rules on the grid, the maximum shooting distance, or
   the placement type-order lookup table.
-- The exact clamp on initial tactical morale is reported only as *"upper bounds ≈ 90 then 60"*
-  ([`battle-quality-promotion-and-morale-array-decompiled.md`][morale-array]).
+- The exact clamp on initial tactical morale was reported only as *"upper bounds ≈ 90 then 60"*.
+  It has since been settled as `[60, 90]`
+  ([`battle-quality-promotion-and-morale-array-decompiled.md`][morale-array] §"The morale formula",
+  research `1762c84`), so this gap is closed (D08).
 
 This is not a new observation. [`game-design.md` §Combat](../game-design.md) already records that
 an earlier draft proposed *"running the tactical exchange math headlessly with an invented 'pairing'
@@ -116,7 +128,7 @@ original's own instant resolver as C1. That the draft needed an invented pairing
 described here.
 
 C2 is specified below with each of these gaps as an explicit placeholder. The driver and its termination are D01–D06
-and D09–D11, all `[designed]`. The morale rule's gaps are D07 (`[designed]`) and the clamp D08 (`[open]`).
+and D09–D11, all `[designed]`. The morale rule's remaining gap is D07 (`[designed]`). The clamp D08 is now `[confirmed]`.
 Each names what was searched. So C2 is **the original's arithmetic driven by a designed driver**, and T59
 should read its measurements that way. §10 lists the RE passes that would replace the placeholders.
 
@@ -140,16 +152,22 @@ in #3.
 
 That **supports** the entry's central reading as a possibility: a victor *can* lose one whole arm by
 breaking rather than by attrition. In #3, both Roman heavy-cavalry units (755 and 2,432 troops) were
-removed by the rout check, per the correction in [`rout`][rout]. It is not a regularity, though.
+removed by the rout check, per the correction in [`rout`][rout]. Which of its branches removed each unit
+is not settled. It is not a regularity, though.
 Neither the lost arm nor even whether an arm is lost repeats from battle to battle.
 
 It also shows that the entry's remark that heavy cavalry survives because *"it has the lowest
 absolute rout threshold of any type (100) and is the least likely to reach it"* **rests on a false
 premise**. It is not refuted by a single counterexample. The floor is `standardBattalionSize / 25`,
 4% of a full battalion for **every** type (§5), so a lower absolute number confers no protection. A
-full archer unit is exactly as far above its 140 as a full heavy-cavalry unit is above its 100. What
-the reports tie to breaking is a unit being **small** relative to its floor: Rome's 755-troop
-heavy-cavalry unit sat at 30% of a battalion ([`rome-gaul`][rome-gaul] correction note).
+full archer unit is exactly as far above its 140 as a full heavy-cavalry unit is above its 100. The
+corrected reports support less than a size rule ([`rome-gaul`][rome-gaul] correction note and
+[`rout`][rout] consequence 1, both revised in research `eb1c886`). 1st Dragoons (755 troops, 30% of a
+battalion, 7.6× its floor) was destroyed in both fights, which makes being small relative to the floor
+a **candidate** for its break **[derived]**. 3rd Dragoons (2,432, a near-full battalion at 24× its
+floor) died in #3 and lost only 95 troops in #4, and which branch removed it in #3 is **[open]**. Floor
+proximity does not predict #3's destroyed set either: 1st Foot, the unit closest to its floor (6.8×),
+survived, while 5th Bowmen (24×) died.
 
 The per-type orderings disagree across #1–#3, which is one more reason, beyond Done-when 7's own,
 that no single battle can be a target. §7 and §9 use all four outcomes as smoke instances and tune
@@ -158,7 +176,11 @@ to none.
 ### 2.4 `ratio ≈ 46` lies outside the baseline's own reachable range
 
 Done-when 7 asks for `ratio ≈ 46` to be recorded as the aggregate calibration, and §9 records it. It
-comes with one arithmetic fact, which the source report does not state. In the merged winner rule,
+comes with one arithmetic fact, which the source report did not state when this document was written.
+It now does: [`instant-cannot`][instant-cannot], corrected in research `54b85d0`, confirms from
+`FUN_0044AEE4` that the ratio is the weaker power × `0x28` / the stronger in both branches, that
+`FUN_0044A8CC`'s power has **no quality term**, and the 14–27 range below **[confirmed code,
+derived numbers]**. In the merged winner rule,
 the winner is the side with the higher `armyPower`. The casualty ratio is
 `loserPower × 40 / winnerPower`, so it **cannot exceed 40**. A ratio of 46 would mean the loser was
 the stronger side, and the instant path would then have declared the other winner.
@@ -172,7 +194,12 @@ winner losses of roughly 12–24%, against the observed 40.8%.
 `ratio ≈ 46` is therefore the ratio at which the baseline's *per-unit loss expression* matches this
 battle's total when it is swept free of the winner rule. It is not a state the baseline can reach.
 That strengthens Done-when 7's warning: the number describes a tactical outcome, and the instant
-model cannot produce it with its own inputs. (The sums above use type totals, because the battle's
+model cannot produce it with its own inputs. What `ratio ≈ 46` measures is how far the tactical
+outcome (40.8%) exceeds the instant resolver's ceiling, about 35.5% at the tie ratio of 40. It
+constrains neither morale nor quality ([`instant-cannot`][instant-cannot] "What follows" 2). The
+original's instant path has one more loss term that the merged baseline omits: `FUN_0044AE20`'s
+small-unit deletion (§6.1). Whether it could close part of that gap for this battle needs a unit-level
+roster the report does not have **[open]**. (The sums above use type totals, because the battle's
 per-unit rosters are not in the report. Per-unit truncation moves them by less than 0.1%.)
 
 ## 3. The common seam
@@ -273,7 +300,7 @@ uniform RNG call from its usage pattern, not independently verified"*
 Done-when 1 requires every constant to be named from a report or marked `[designed]` with its search.
 This table lists them all. The candidate sections use these IDs, and the **Used by** column shows
 which candidate depends on which constant. `K` rows are sourced from reports. `D` rows are
-`[designed]` (or `[derived]`/`[open]` where stated), and each names its search; §11 lists the full
+`[designed]` (or `[derived]`/`[open]` where stated; D08 has since been confirmed), and each names its search; §11 lists the full
 search.
 
 ### 4.1 Sourced constants
@@ -292,8 +319,8 @@ search.
 | K10 | safe outright if `m > 39` | 39 | [confirmed] [`rout`][rout] | C2, C5 |
 | K11 | band check: survives if `Random(m) + Random(m) > 29` | 29 | [confirmed] [`rout`][rout]; *whether the branch fired in either recorded battle is unknown* (same report, §"What this does not establish") | C2, C5 |
 | K12 | cascade: every surviving friend `m −= 6` | 6 | [confirmed, decompiled; **never observed**] [`rout`][rout] Next checks 2 | C2, C5 |
-| K13 | cascade re-rout: a friend routs if its `m < 30` after the −6 | 30 | [confirmed, decompiled] [`rout`][rout] | C2, C5 |
-| K14 | reward: every enemy `m = min(99, m + 5)`, and its target is cleared if it was the routed unit | 5, 99 | [confirmed, decompiled] [`rout`][rout] | C2, C5 |
+| K13 | cascade removal: a friend is removed if its `m < 30` after the −6. **One level only**: the friend goes straight to `FUN_00438f78` (troops 0, square cleared), so it starts no cascade of its own and earns the enemy no +5 | 30 | [confirmed, decompiled] [`rout`][rout] consequence 3, corrected in research `eb1c886` (it first said *"recursively"*) | C2, C5 |
+| K14 | reward, once per rout that `FUN_00438fb0` itself decides: every live enemy `m = min(99, m + 5)`, and its target is cleared if it was the routed unit | 5, 99 | [confirmed, decompiled] [`rout`][rout] | C2, C5 |
 | K15 | effectiveness matrix `value[attackerType][defenderType]` | the 25 values in §4.3 | [confirmed] values: [`combat-type-effectiveness-matrix.md`][matrix]; orientation: [`rout`][rout] §"axis ambiguity, resolved". In the ruleset as `combat.detailedResolver.typeEffectiveness` | C2, C3, C4, C5 |
 | K16 | melee exchange (`FUN_004393ec`) | the formula in §4.4: `/2000`, `+12`, `/12`, `/10`, `+1`, cap 30,000, cap `troops × 4 / 10`, `+1` | [confirmed] [`formula`][formula] §"Melee" plus its 2026-09 update; the 40% cap is exact on 11 observations, both sides ([`rout`][rout]). `/2000`, `+12`, 40%, `+1` and 30,000 are in `combat.detailedResolver` | C2, C5 |
 | K17 | focus factor `defFactor = min(4, focusCount)`; attacker loss × `(5 − d)/5`, defender loss × `(2d + 5)/5` | 4 | [confirmed] [`rout`][rout] §"Two small corrections" (`FUN_00448fd0` is `min`) | C2, C5 |
@@ -305,8 +332,8 @@ search.
 | K23 | `shots[type]`, `+0x1C`, a per-battle ammunition pool | LI 7 · HI 0 · A 25 · LC 9 · HC 0 | [confirmed] value: [`unit-table`][unit-table]. [derived] per-battle pool: the info panel read `Shots 19` mid-battle for an archer unit ([`rome-gaul`][rome-gaul]) | C2, C3, C4, C5 |
 | K24 | `range[type]`, `+0x1E` | LI 1 · HI 0 · A 2 · LC 1 · HC 0 | [confirmed] [`unit-table`][unit-table]; read by the shooting code for the doubling test | C2, C5 |
 | K25 | `moves[type]`, `+0x18` | LI 4 · HI 2 · A 4 · LC 6 · HC 5 | [confirmed] value: [`unit-table`][unit-table]. **[derived]** as tactical moves per turn: the info panel shows a `Moves` line per unit, and two heavy-infantry panels read `2 moves`, matching `+0x18 = 2` ([`battle-observation.md`][observation] 00:22, 08:04). An archer panel reads `Moves 4`, matching `+0x18 = 4` ([`rome-gaul`][rome-gaul]) | C2, C5 |
-| K26 | initial tactical morale `m = Random(q × 4) + M` | 4 | [confirmed] formula: [`morale-array`][morale-array] §"The morale formula" (`FUN_00437de4`), which calls the added term `armyExperience`. Its identity as the strategic morale `+14` (`DAT_0047C1FA`) is [`supply-morale`][supply-morale]'s correction, whose morale-write index lists this seeding (lines 38135/38162). The clamp is **[open]**: see D08 | C2, C5 |
-| K27 | strategic morale `M += 3` on battle entry | 3 | **[open: disputed between two reports, not settled here]**. [`supply-driven-morale-and-fleet-attrition.md`][supply-morale]'s write index says *"`+= 3` to each side on battle entry"* (lines 38084/38092). [`morale-array`][morale-array] says `FUN_00437de4` *"increments a same-shaped array by 3 under a specific condition tied to the opponent nation's alive/dead status"*, and notes that Rome's `+14` *fell* 68 → 66 across that battle. **Placeholder for C2 and C5:** +3 to both sides, the supply-morale transcription. It is used only to seed `m`, and §10 lists it for an RE pass | C2, C5 (before K26) |
+| K26 | initial tactical morale `m = Random(q × 4) + M` | 4 | [confirmed] formula: [`morale-array`][morale-array] §"The morale formula" (`FUN_00437de4`), which now names the added term `armyMorale`, the strategic morale `+14` (`DAT_0047C1FA`); [`supply-morale`][supply-morale]'s morale-write index lists this seeding (lines 38135/38162). The clamp is `[60, 90]`: see D08 | C2, C5 |
+| K27 | strategic morale `M += 3` on battle entry, **for a computer-controlled side only** | 3 | **[confirmed]** [`morale-array`][morale-array] §"The morale formula" and [`supply-morale`][supply-morale]'s write index, both corrected in research `1762c84`. `FUN_00437de4` tests each army's **own** nation (`+0x490 == 0`, computer) at `0x00437E05`/`0x00437E0F` (army A) and `0x00437E9F`/`0x00437EA9` (army B). It does not depend on the opponent. It adds exactly 3 to the persistent `+14`, unclamped, once per battle (the `DAT_004a0b7c` guard). The instant resolver handles every AI-vs-AI fight and never writes `+14`, so in the original only a tactical battle's computer side gets +3, and its human side gets nothing. Save-checked: Gaul 62 → 65, Rome 68 → 68 and 70 → 70. Rome's 68 → 66 across `winter_7 → winter_9` is the end-of-turn supply decay, not a battle effect. The same branch re-sorts the computer army's slots (`FUN_00437d10`) and copies its opponent's two battle-delay words, which only pace the display. **Placeholder for C2 and C5, unchanged:** +3 to both sides, used only to seed `m`. **That placeholder now departs from the original**, which has no headless AI-vs-AI tactical battle to copy, and whether to keep it is posed to the user, not decided here (§6.2) | C2, C5 (before K26) |
 | K28 | strategic morale clamp | 51…70 | [confirmed] [`thracia-supply-morale.md`](thracia-supply-morale.md) | §8 inputs |
 | K29 | new-army strategic morale | 59 (`0x3B`) | [confirmed] [`supply-morale`][supply-morale] | §8 inputs |
 | K30 | grid 14 columns × 12 rows; home rows 2 and 9, stepping inward | 14, 12, 2, 9 | [confirmed] [`formula`][formula] §"The AI dispatch chain" (`FUN_004381a4`); [`battle-code-entry-points.md`][entry-points] | C2, C5 |
@@ -330,7 +357,7 @@ none" means the search found nothing in any of them.
 | D05 | One action per unit per side-turn | In slot order, each live unit does exactly one of the following, in this priority order. **(a)** If it is adjacent to its target, it is queued for this side-turn's melee pass. **(b)** Otherwise, if `shots > 0` (K23), `range > 0` (K24) and distance ≤ `range + 1`, it shoots its target once (D11). **(c)** Otherwise, it moves (D04), and if it ends adjacent to its target it is queued for melee. After all units have acted, the melee pass runs `FUN_004393ec` once over the queued attackers in slot order. | **[designed]** except the batched melee pass, which is **[confirmed]**: `FUN_004393ec` *"iterates the same up-to-20 unit slots; for each attacker with a live assigned target"* ([`formula`][formula]). Searched for the move/shoot/attack priority: none. | C2, C5 |
 | D06 | Shooting distance and doubling | A shot is legal at Chebyshev distance `2 … range + 1`. It is doubled (K21) when `distance − 1 < range`, i.e. when the number of empty squares between the two units is less than `range`. | **[open]** The report's code says `if (gridDistance(shooter, target) < range[shooterType]) base *= 2` ([`rout`][rout]). `gridDistance` is not defined in any report, and nor is a maximum shooting distance. **[designed]** placeholder as stated. **Its consequence, stated plainly:** light infantry and light cavalry (`range 1`) never get the doubled shot under this placeholder, and only archers do, at distance 2. The literal Chebyshev reading (`distance < range`) would never double a legal shot at all, because an adjacent unit melees (D05). Neither reading is shown to be the original's, since the evidence does not settle what `gridDistance` measures. | C2, C5 |
 | D07 | "Better side" in the ±2/−3 rule | The attacker gets `+2` and the defender `−3` when `atkPower ≥ defPower` (the two K16 powers of that exchange). Otherwise the attacker gets `−3` and the defender `+2`. | **[designed]** reading of a confirmed rule. The report says only *"whichever side had the better troops/power ratio"* ([`formula`][formula]). Searched for the exact operands: none. | C2, C5 |
-| D08 | Tactical morale clamps | Initial `m = min(90, Random(q × 4) + M)`, with `M` taken after K27's +3. During the battle, `m` is clamped to `[0, 99]`. | **[open]** The initial clamp is reported as *"upper bounds ≈ 90 then 60"* ([`morale-array`][morale-array]). "Then 60" is unexplained, and no lower bound is reported. The 99 upper bound is confirmed (K19, K14). **[designed]** placeholder: 90 upper and 0 lower, with "then 60" left unapplied. | C2, C5 |
+| D08 | Tactical morale clamps | Initial `m = max(60, min(90, Random(q × 4) + M))`, with `M` taken after K27's +3. During the battle, `m` is clamped to `[0, 99]`. | **[confirmed]** initial clamp `[60, 90]`. The sum goes through `min(90, ·)` (`FUN_00448fd0`) and then `max(60, ·)` (`FUN_00448fd8`), at `0x00438029`–`0x0043804d` (side A) and `0x0043813e`–`0x00438162` (side B) ([`morale-array`][morale-array] §"The morale formula", corrected in research `1762c84`). The earlier *"upper bounds ≈ 90 then 60"* was the same two calls misread, and this row's former placeholder (90 upper, 0 lower) is withdrawn. The row keeps its D-number so that references stay valid. The in-battle upper bound 99 is confirmed (K19, K14). The in-battle 0 floor stays **[designed]**, and it never binds **[derived]**: every decrement is followed by a rout check (K09 removes any unit at `m ≤ 19`) or, for the cascade, by K13's `< 30` removal. | C2, C5 |
 | D09 | Round cap | 100 rounds (one round is one turn per side). At the cap, the side with the greater `liveP` (D34) wins, with ties to the defender (K05). Under C2, the loser's live units are then destroyed. Under C5, the loser performs an ordered withdrawal (§6.5). | **[designed]** The original has no cap: it fights until a side has no live units (K32). A headless run needs a cap so that a battle always terminates. Searched for surrender or timeout rules: `TBattleMap_Surrender` exists as a human action ([`entry-points`][entry-points]) and has no AI trigger. | C2, C5 |
 | D10 | Rout-check order after a melee exchange | Attacker first, then defender. | **[designed]** The report says the check is called *"on both participants"* ([`rout`][rout]), not in which order. | C2, C5 |
 | D11 | Shots per turn | One shot per shooting action. A unit's shots come from its per-battle pool (K23). | **[designed]** Searched: the recording shows the same shooter firing repeatedly at one target across turns (the 3rd Lancers five times, [`rout`][rout]), and nothing about shots per turn. | C2, C5 |
@@ -342,7 +369,7 @@ none" means the search found nothing in any of them.
 | D22 | C3's per-unit effective power | §6.3, formula E. The strategic `M` stands in for tactical `m`, and the shooting term is weighted `λ = 1`. | **[designed]** Searched: the original has no one-shot model that uses the matrix. The shooting term reuses the confirmed K21 base, multiplied by `shots[type]`. | C3 |
 | D30 | C4's fire phase | Rounds 1–3 are fire rounds. From round 4 on, rounds are shock rounds. | **[designed]** EU4/CK lineage (fire, then shock). Searched: the original has no phases other than its turn loop. | C4 |
 | D31 | C4's shock die and pace | One die per side per shock round, `d = Random(10)`. Damage `= Σ a_i × (5 + d) / 60`. | **[designed]** The `/60` sets the pace so that an even fight between two §8 test armies breaks in roughly 5–10 shock rounds. It is set as a design target, not fitted to any battle. Searched: none. | C4 |
-| D32 | C4's morale damage | `P −= 200 × lossesThisRound / troopsAtStart` (i.e. μ = 2: 1% of starting troops lost costs 2 morale points). | **[designed]** Searched: none. The original's strategic morale changes only by supply, +3 on battle entry, and new-army initialisation ([`supply-morale`][supply-morale]), so no battle-driven rule exists to copy. | C4 |
+| D32 | C4's morale damage | `P −= 200 × lossesThisRound / troopsAtStart` (i.e. μ = 2: 1% of starting troops lost costs 2 morale points). | **[designed]** Searched: none. The original's strategic morale changes only by supply, +3 on tactical-battle entry for a computer-controlled side (K27), and new-army initialisation ([`supply-morale`][supply-morale]), so no battle-driven rule exists to copy. | C4 |
 | D33 | C4's round cap and pursuit | 30 rounds. Pursuit is one round in which only the winner's cavalry deals shock damage, `× 2`, and the loser deals none. | **[designed]** Searched: none. | C4 |
 | D34 | Live strength | `liveP_S = Σ_{live units of S} combatPowerWeight[type] × troops` (the K02 numerator, before its divisors). | **[designed]** use of a confirmed weight (K01). Searched for any mid-battle strength comparison in the original's tactical path: none. The only strength comparison is the instant path's `armyPower` (K02), made once, before the battle, so this reuses its numerator over live units. | C2 (D09), C5 |
 | D40 | C5's disorder cost of leaving | `troops −= troops × 5 / 100` (5%) for every unit that leaves the field, pursued or not. | **[designed]** It makes an unpursued withdrawal cheap but not free, per the user's steer. Searched: the original has no withdrawal ([`instant`][instant]; K32). | C5 |
@@ -415,11 +442,17 @@ if (troops >= standardBattalionSize / 25 && morale > 19) {
     if (Random(morale) + Random(morale) > 29) return;   // survived the check
 }
 // ---- the unit routs ----
-troops = 0; its grid square is cleared;
-for each unit on the SAME side:  morale -= 6;  if (morale < 30) it routs too (recursively);
+troops = 0; its grid square is cleared;                        // FUN_00438f78
+for each unit on the SAME side:  morale -= 6;  if (morale < 30) FUN_00438f78 removes it too;
+                                 // one level only: no further cascade and no +5 for these
 for each unit on the OTHER side: morale = min(99, morale + 5); clear its target if it was this unit;
 if (either side now has zero live units) the battle ends;
 ```
+
+*(Corrected 2026-09-23. This block first read "it routs too (recursively)", after the source
+report, which has since been corrected: [`rout`][rout] consequence 3, research `eb1c886`. The
+decompiled loop at `0x00438FB0` calls `FUN_00438f78` for a cascaded friend. That function only zeroes
+the troops and clears the square, so it does not re-enter `FUN_00438fb0`.)*
 
 The three ways a unit breaks, and the two consequences:
 
@@ -428,30 +461,37 @@ The three ways a unit breaks, and the two consequences:
 | **Strength floor** | `troops < standardBattalionSize / 25`, at any morale | K07, K08: LI 600 · HI 240 · A 140 · LC 280 · HC 100 |
 | **Morale floor** | `m ≤ 19`, at any strength | K09 |
 | **Probabilistic band** | `20 ≤ m ≤ 39` and `Random(m) + Random(m) ≤ 29` | K10, K11. Per check, a unit breaks with probability 88.8% at `m = 20`, 51.7% at `m = 30` and 30.6% at `m = 39` |
-| **Cascade** | on every rout, every surviving friend loses 6 `m`, and any friend now below 30 routs with no check, recursively | K12, K13 |
-| **Reward** | on every rout, every enemy gains 5 `m` (capped at 99) and drops its target if it was the routed unit | K14 |
+| **Cascade** | on every rout that `FUN_00438fb0` decides, every surviving friend loses 6 `m`, and any friend now below 30 is removed with no check. **One level**: a friend removed this way triggers no cascade of its own | K12, K13 |
+| **Reward** | on every rout that `FUN_00438fb0` decides, every live enemy gains 5 `m` (capped at 99) and drops its target if it was the routed unit. A friend removed by the cascade adds no +5 | K14 |
 
 (The band probabilities are exact counts of `X + Y ≤ 29` over `X, Y` uniform on `[0, m)`: 355/400,
 465/900 and 465/1521. They are here so the reader can see how steep the band is, and nothing uses
 them as a constant. The check runs after **every** exchange a unit takes part in, so a unit that sits
 in the band for several exchanges is very likely to break.)
 
-**Recursion, exactly.** When unit X routs, the following steps run in order:
-1. X is removed.
-2. For each other live unit F on X's side, in slot order: `F.m −= 6`, and if `F.m < 30`, F routs
-   (this step, recursively, before moving to the next F).
-3. For each live unit on the other side, in slot order: `+5`, capped at 99, and clear its target if
-   it was X. A unit that has already routed in the recursion is not live and is skipped.
+**The cascade, exactly.** When `FUN_00438fb0` routs unit X, the following steps run in order:
+1. X is removed (`FUN_00438f78`: troops 0, square cleared).
+2. For each of the 20 slots on X's side, in slot order, whose unit F still has troops > 0:
+   `F.m −= 6`, and if `F.m < 30`, F is removed by `FUN_00438f78` alone. F's removal runs no step 2
+   or step 3 of its own.
+3. For each of the 20 slots on the other side, in slot order, whose unit still has troops > 0: `+5`,
+   capped at 99, and clear its target if it was X. A target that points at a unit removed in step 2
+   is **not** cleared here. D03 re-chooses a target that is no longer live.
 4. The battle-end test (K32).
 
-This order is a transcription of the pseudocode, with the recursion at the point where it is
-written. **[derived]**: the pseudocode is decompiled, but loop order under recursion is inferred from
-its shape.
+**[confirmed]**: this is the decompiled loop structure of `FUN_00438fb0` (the whole-application dump,
+`all_app_functions.txt` line 38854; [`rout`][rout] consequence 3, corrected in research `eb1c886`), not
+an inference. An earlier revision transcribed the cascade as recursive and tagged the loop order
+`[derived]`. Both are withdrawn.
 
 **The strength floor is 4% of a full battalion for every type**, since `size / 25`. So it is a
 *relative* floor on full-strength units and an *absolute* troop count per type. A small unit sits
-closer to it, which is the mechanism behind Rome's two small heavy-cavalry units breaking
-([`rome-gaul`][rome-gaul], correction note).
+closer to it. The corrected reports name that proximity only as a **candidate** for Rome's 755-troop
+heavy-cavalry unit breaking **[derived]**. For the 2,432-troop unit, which was 24× its floor, the
+branch is **[open]** ([`rome-gaul`][rome-gaul] correction note, revised in research `eb1c886`; §2.3).
+
+This floor is the **tactical** one. The original's **instant** path has a separate size rule at
+10% and 20% of a battalion, which is not a rout (§6.1).
 
 **Who uses it (Done-when 3, first paragraph).** Every candidate states its relationship to this
 trigger in its own section, and the relationships are:
@@ -478,9 +518,20 @@ is in §7, side by side.
 requires. It is the original's own AI-vs-AI path, `FUN_0044AEE4`
 **[confirmed: [`instant`][instant]]**.
 
-**Faithful / departs.** It is faithful to `FUN_0044AEE4` in every term. The merged code departs in
-one way only, and that departure is already recorded: under `improved`, the loser scatters (K06)
-instead of being deleted.
+**Faithful / departs.** It is faithful to `FUN_0044AEE4`'s winner rule, ratio, per-unit loss
+expression and promotion rule. The merged code departs in two ways:
+- **Recorded, by design:** under `improved`, the loser scatters (K06) instead of being deleted.
+- **A fidelity gap, under both presets** ([#289](https://github.com/diegoami/imperial_conquest_2/issues/289),
+  filed 2026-09-23). `FUN_0044AE20`, the helper that applies the winner's casualties, has a **second pass** that the merged `BattleCasualties.Apply` omits. For slots
+  19 down to 0, it deletes (`FUN_0044AC3C`) any unit left below `standardBattalionSize / 10` if it
+  is national, or below `/ 5` if it is a mercenary. That is LI 1,500 / 3,000, HI 600 / 1,200,
+  A 350 / 700, LC 700 / 1,400 and HC 250 / 500. The pass runs before the promotion loop, so a
+  deleted unit is neither promoted nor rolled for **[confirmed: [`siege-attrition`][siege-attrition]
+  §"Siege attrition" and [`instant-cannot`][instant-cannot] §"The result", both corrected in
+  research `54b85d0`]**.
+
+T59 wraps the merged resolver unchanged (T59 Done-when 1), so C1 measures the merged code, gap
+included, unless #289 is fixed first.
 
 **Algorithm** (see the merged code's own doc comment for the full transcription):
 
@@ -489,6 +540,8 @@ pA = armyPower(attacker); pD = armyPower(defender)          // K01, K02 (strateg
 winner = (pD < pA) ? attacker : defender                     // K05
 R = loserPower × 40 / winnerPower                            // K03, so R ≤ 40
 for each winner unit, in slot order: troops −= troops / (Random(15) + 105) × R        // K04
+(the original then deletes winner units below size/10, or size/5 for a mercenary; the merged code
+ does not, #289)
 loser: destroy; or, under scatter, R' = winnerPower × 40 / loserPower (K06) applied the same way,
        and the result is relocated by ScatterPlacement
 ```
@@ -496,7 +549,9 @@ loser: destroy; or, under scatter, R' = winnerPower × 40 / loserPower (K06) app
 **Constants:** K01–K06.
 
 **Unit-level break:** none, and none is added. No unit is removed for strength or morale, and there
-is no cascade.
+is no cascade. The original's instant path does remove a unit for strength: the 10% / 20% deletion
+above. That rule is not a rout, has no morale term and no cascade, and the merged code omits it
+(#289).
 
 **Army-level exit:** none. The winner is decided in one comparison, and `ending = decided`.
 
@@ -523,22 +578,33 @@ rout function (§5) after each exchange it takes part in. The moves are chosen b
 (D01–D06, D09–D11), because the original's own tactical AI is not decompiled (§2.2).
 
 **Faithful / departs.** Faithful: the melee and shooting exchanges (K15–K22), the tactical morale
-rule (K19), the initial-morale formula (K26), the rout check with its cascade and reward (§5),
-the battle-end rule (K32), the grid size and home rows (K30), alternating turns (K33), the per-battle
-shot pools (K23), and the loser's total loss. Departs, by necessity: placement detail (D01), first
-mover (D02), targeting (D03), movement (D04), action priority (D05), shooting distance (D06), the
-morale placeholders (D07, D08), and K27, which is disputed and applied as a placeholder. Departs, by
-choice, for termination: a round cap (D09). Departs, by the seam's scope: the original **writes** its
-+3 to the army's `+14` (K27), and C2 applies it only to seed `m` and does not write it back, because
-T59 changes no game state.
+rule (K19), the initial-morale formula and its `[60, 90]` clamp (K26, D08), the rout check with its
+one-level cascade and its reward (§5), the battle-end rule (K32), the grid size and home rows (K30),
+alternating turns (K33), the per-battle shot pools (K23), and the loser's total loss. Departs, by
+necessity: placement detail (D01), first mover (D02), targeting (D03), movement (D04), action
+priority (D05), shooting distance (D06), and the morale placeholder D07. **Departs, by placeholder:
+K27.** The original gives the battle-entry +3 only to a computer-controlled side, and only in a
+tactical battle, which always has a human side. C2 gives +3 to both sides. A headless run has no human
+side, and the original never fights an AI-vs-AI battle tactically, so the original offers no case to
+copy. Whether to keep the placeholder is posed to the user, not decided here. Departs, by choice, for
+termination: a round cap (D09). Departs, by the seam's scope: the original **writes** its +3 to the
+army's `+14` (K27), and C2 applies it only to seed `m` and does not write it back, because T59 changes
+no game state.
+
+*(Corrected 2026-09-23. C2 was specified against §5's recursive transcription and D08's
+90-upper/0-lower placeholder. Both are now replaced by the confirmed rule, so C2 stays faithful on
+those two points by the same reference. K27 moved from "disputed" to "confirmed, and the placeholder
+departs from it".)*
 
 **Algorithm.**
 
 ```text
 setup:
-  for each side S: M'_S = M_S + 3                                   // K27 (seam-local; not written back)
+  for each side S: M'_S = M_S + 3                                   // K27 placeholder: both sides (the
+                                                                    // original: a computer side only);
+                                                                    // seam-local, not written back
   for each unit, attacker's slots then defender's, in slot order:
-      m = min(90, Random(q × 4) + M'_S)                              // K26, D08
+      m = max(60, min(90, Random(q × 4) + M'_S))                     // K26, D08 [confirmed]
       shotsLeft = shots[type]                                        // K23
   place both armies                                                  // D01
 loop round r = 1 … 100:                                              // D09
@@ -719,16 +785,19 @@ specified here as carefully as the others, and §8 measures it as sceptically. T
 non-transitivity (§8.2) as its likeliest weakness, so T59 should look at that metric first.
 
 **Faithful / departs.** Faithful: everything C2 keeps, and in particular **the unit-level trigger is
-`FUN_00438fb0` unchanged**, with all three break conditions, the −6 cascade, the <30 re-rout and the
-+5 reward. Departs: the consequence of a break (flight, D40–D42, instead of `troops = 0`), the
-ordered withdrawal (D42–D44), and fled winners rejoining (D45).
+`FUN_00438fb0` unchanged**, with all three break conditions, the one-level −6 cascade, the <30
+removal and the +5 reward (§5, corrected 2026-09-23 from "recursive"). Departs: the consequence
+of a break (flight, D40–D42, instead of `troops = 0`), the ordered withdrawal (D42–D44), and fled
+winners rejoining (D45). It also inherits C2's K27 placeholder, +3 to both sides, and with it C2's
+departure from the original's computer-side-only rule (§6.2).
 
 #### 6.5.1 Unit level: the trigger is confirmed and reused; only the consequence changes
 
 Wherever §5 says *"the unit routs"*, C5 calls `Flee(X, ordered = false)` (§6.5.2) at the point where
 `FUN_00438fb0` would call `FUN_00438f78`. Everything else in the routine stays as §5 gives it:
-the −6 to each surviving friend, re-routing below 30 (each re-routed friend also calls `Flee`), the
-+5 and target-clear on the other side, and the battle-end test. A fled unit is **not live**. It no
+the −6 to each surviving friend, removal below 30 (each friend removed this way also calls `Flee`,
+and, as in the original, runs no cascade of its own and adds no +5), the +5 and target-clear on the
+other side for X alone, and the battle-end test. A fled unit is **not live**. It no
 longer occupies a square, cannot be targeted, and does not count toward K32 or toward `focusCount`.
 
 This is the departure the entry allows (*"a candidate is welcome to depart from it, but must say
@@ -808,8 +877,8 @@ trigger or partial-defeat outcome, and it found none (§11).
   the units leave together, and nobody breaks. `ending = withdrawal`.
 
 Leaving is therefore **cheaper than staying, but not free**. Staying risks the cascade, whose broken
-units pay pursuit in full and hand the enemy +5 morale each. Leaving in order pays half-rate pursuit
-once per enemy unit, plus 5%.
+units pay pursuit in full, and each rout that starts a cascade hands the enemy +5 morale. Leaving in
+order pays half-rate pursuit once per enemy unit, plus 5%.
 
 #### 6.5.4 How the two levels interact
 
@@ -820,8 +889,9 @@ Done-when 3 calls this interaction *"the design, not a detail"*, so it is specif
    has started always runs to completion** before any army decision. The army rule can never
    interrupt a cascade that is under way. It can only prevent the next one.
 2. **A cascade is the usual way the army rule fires.** Every unit a cascade removes lowers `liveP_S`,
-   and every break adds +5 morale to the enemy, which makes the enemy's own units less likely to
-   break. A cascade that removes enough strength during round `r` makes the round-end test true, and
+   and every break that `FUN_00438fb0` itself decides adds +5 morale to the enemy, which makes the
+   enemy's own units less likely to break. A friend the cascade removes adds none (§5). A cascade
+   that removes enough strength during round `r` makes the round-end test true, and
    the survivors then leave in order instead of continuing to cascade in round `r + 1`. That is the
    intended coupling: **the cascade is what triggers the withdrawal, and the withdrawal is what stops
    the cascade from finishing the army.**
@@ -919,7 +989,13 @@ worked out by hand. For C2, C4 and C5 it is left to T59's smoke run (§9).
 **C1.** No mechanism distinguishes types. The flat-shape finding
 ([`instant-cannot`][instant-cannot]) is exactly this. Separately, the baseline cannot reach the
 battle's *total* at any legal morale either (§2.4). It is stated plainly here: **C1 cannot produce a
-victorious army losing one whole arm.**
+victorious army losing one whole arm.** That is a statement about the merged code. The original's
+`FUN_0044AEE4` can lose a whole arm in one case the merged code omits (§6.1,
+[#289](https://github.com/diegoami/imperial_conquest_2/issues/289)): when every unit of that arm is
+left under 10% of a battalion (20% for a mercenary) and deleted. That is a size effect, not a type
+effect. It does not arise on §9.1's designed roster. Its unit furthest below a full battalion is the
+light cavalry, 1,800 of 7,000 (26%), and after the largest possible loss (40/105, about 38%) it still
+holds about 16%.
 
 **C2.** C2 produces the observation by **breaking units**, and the matrix gives archers the profile
 of a unit that breaks.
@@ -931,7 +1007,8 @@ of a unit that breaks.
   light cavalry both shoot. Each shot costs up to 3 `m` (K22).
 - **Falling morale does the rest.** Falling `m` takes the unit into the 20…39 band, where each check
   breaks it with probability 31–89% (§5). One archer break costs every friend 6 `m`, and a second
-  archer unit already in the low 30s re-routes with no check.
+  archer unit already in the low 30s is removed with no check. That removal is one level only
+  (§5): it costs the other friends nothing further and gives the enemy no +5.
 - **Heavy cavalry differs from archers in exposure, not in its floor.** Its floor is 4% of a
   battalion, the same as every type's (§5), so that is no protection. The real differences are
   that it is hard to shoot (`vuln` 4 against archers' 18), and its melee row (`1 4 3 0 2`) and its
@@ -940,9 +1017,10 @@ of a unit that breaks.
 
 Whether a given C2 run actually breaks the archers depends on which units meet, and that is decided
 by the designed driver (D01, D03, D04). So C2's reproduction of this battle is only as faithful as
-those placeholders (§2.2). The same mechanism breaks Rome's small heavy-cavalry units in `1_rome_270_winter_7`
-(755 troops, at 30% of a battalion), and nothing in it forces any arm to break, as in
-`7.sav → 8.sav`.
+those placeholders (§2.2). The same function removed Rome's two heavy-cavalry units in
+`1_rome_270_winter_7`, but which branch removed each is not settled. For the 755-troop unit (30% of a
+battalion), small-unit proximity to the floor is a candidate **[derived]**. For the 2,432-troop unit it
+is **[open]** (§2.3). Nothing in the mechanism forces any arm to break, as in `7.sav → 8.sav`.
 
 **C3.** The prediction follows from D20 and D21 against the Ptolemaic mix. The shares are light inf
 768, heavy inf 115, archers 0, light cav 83 and heavy cav 32 (×1000), and the shooter share is 851.
@@ -1191,7 +1269,7 @@ Both are recorded as *not applicable*, not as a pass.
 | `cap` | The round cap decided the battle (D09, D33). |
 
 Also record whether the battle had **at least one cascade break**, meaning a unit broken by K13's
-<30 re-rout. This applies to C2 and C5 only, since C4 has no cascade.
+<30 removal. This applies to C2 and C5 only, since C4 has no cascade.
 
 **Pass band.** It **passes if** every applicable clause holds:
 - **EN-a:** the `cap` fraction is ≤ 0.05.
@@ -1316,7 +1394,10 @@ point 5) as a diagnostic with no band.
 **Aggregate calibration, as recorded:** the merged per-unit loss expression reproduces the 40.8%
 total at `ratio ≈ 46`, with a per-type spread of 1.2 points against the observed 96
 ([`instant-cannot`][instant-cannot]). As §2.4 shows, that ratio is not one the baseline can reach
-with Seleucid as the winner. It is recorded as the report states it, with that caveat attached.
+with Seleucid as the winner. The report now says so itself (research `54b85d0`). The ratio is at most
+40, and 14–27 for these two armies over strategic morale 51–70, which means a winner's loss of about
+12–24%. So `ratio ≈ 46` is not a calibration of `armyPower`. It measures how far this tactical outcome
+exceeds the instant resolver's ceiling, which is about 35.5%, reached only at a tie.
 
 **Inputs for the smoke run.** The report gives only type totals and names no pre-battle save for this
 battle (its save references are `IP021.sav` and other play-throughs; searched: `.sav` in the report).
@@ -1356,19 +1437,26 @@ Before running the instance, T59 asserts that the roster is the one the reports 
 - Rome's two heavy-cavalry units are **755** and **2,432** troops ([`rome-gaul`][rome-gaul]
   §"Unit-level detail" and the correction note), and 4th Bowmen has 3,312 ([`rome-gaul`][rome-gaul]).
 - Rome's slot qualities match [`morale-array`][morale-array] §"The quality-promotion rule":
-  - slots 2 and 12 (3rd and 6th Guards) are good;
+  - slots 1, 2 and 12 (2nd, 3rd and 6th Guards) are good (slot 1, 2nd Guards, heavy infantry,
+    4,782 troops, was restored to the report's table in research `1762c84`);
   - slot 4 (4th Guards) is elite;
   - slot 15 (1st Guards) is very good;
   - slots 0, 6, 7, 8, 9, 13, 16, 17 and 18 are average.
 - Rome's `M = 68` ([`morale-array`][morale-array]; this repository's `ModelCoverageTests` reads the
   same 68 for both Roman armies).
 
+For the record, not as an assertion: Gaul's pre-battle `+14` is **62**, and in the original only
+Gaul, the computer side, received K27's +3 (62 → 65, read from Gaul's tombstoned record in
+`1_rome_270_winter_7_b.sav`). Rome, the human side, seeded its tactical morale from 68 unchanged
+([`morale-array`][morale-array] §"The morale formula", research `1762c84`). C2's and C5's K27
+placeholder instead seeds Rome from 71 and Gaul from 65 (§6.2).
+
 If the save cannot be resolved, or any assertion fails, T59 reports it and **does not** run the
 instance on substitute data.
 
 The earlier draft of this section built the roster with the §8.0 split, and that would have been
-wrong. It turns Rome's heavy cavalry into `2,500 + 687` and removes the condition the reports tie to
-the break: a 755-troop unit sitting at 30% of a battalion. Designing a roster the reports partly give
+wrong. It turns Rome's heavy cavalry into `2,500 + 687` and removes the condition the reports name
+as a candidate for one break: a 755-troop unit sitting at 30% of a battalion (§2.3). Designing a roster the reports partly give
 is what design-audit.md §4.5 forbids.
 
 **Attacker:** Rome. **[derived]**: Rome's army moved onto the battle tile ([`rome-gaul`][rome-gaul]).
@@ -1439,12 +1527,22 @@ session's call, and T59 does not need any of them to run.
 | `FUN_004381a4`'s type-order lookup table and column block | D01 | [`formula`][formula] §"The AI dispatch chain" |
 | `gridDistance` inside `FUN_0043845c`, and any maximum shooting distance | D06 | [`rout`][rout] §"`+0x20` … identified" |
 | The operands of the ±2/−3 comparison in `FUN_004393ec` | D07 | [`formula`][formula] §"Melee" |
-| The initial-morale clamp in `FUN_00437de4` (*"≈ 90 then 60"*) and any lower bound | D08 | [`morale-array`][morale-array] §"The morale formula" |
 | `FUN_00438420`'s body (`focusCount`) | D12 | [`rout`][rout] §"Two small corrections" |
 | The cascade's −6 and +5, observed rather than only decompiled | (strengthens K12–K14) | [`rout`][rout] Next checks 2 |
 | `FUN_0040284c`, the RNG's range semantics | (strengthens the `Random(n)` reading, §3) | [`formula`][formula] §"What this does not establish" |
-| The +3 strategic morale on battle entry in `FUN_00437de4`: whether it applies to every side, or on a condition tied to the opponent's status, and why Rome's `+14` fell 68 → 66 across the battle | K27 (disputed) | [`supply-morale`][supply-morale] write index; [`morale-array`][morale-array] §"The morale formula" |
 | Which army records in `7.sav` fought the `7.sav → 8.sav` battle (T59's exact-total lookup, §9.3, may settle it) | §9.3 inputs | [`observation`][observation] Next checks 1 |
+
+**Answered since this document merged** (the research pass for
+[#288](https://github.com/diegoami/imperial_conquest_2/issues/288), 2026-09-23). Both rows are
+removed from the table above:
+- **The initial-morale clamp (D08)** is `[60, 90]`: `min(90, ·)` then `max(60, ·)`. D08 is now
+  `[confirmed]` (research `1762c84`).
+- **The +3 on battle entry (K27)** goes to a computer-controlled side only, and depends on the army's
+  own nation, not the opponent. It is written to `+14`, unclamped, once per battle. Rome's 68 → 66 is
+  the supply tick. K27 is now `[confirmed]`, and its C2/C5 placeholder is a stated departure
+  (research `1762c84`).
+- **Not asked here, found alongside:** the cascade is one level deep (§5, research `eb1c886`), and the
+  instant path deletes small units (§6.1, research `54b85d0`).
 
 ## 11. What was searched
 
