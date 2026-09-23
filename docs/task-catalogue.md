@@ -4,7 +4,7 @@ Every build task's scope, **Owns** list, Definition of Done, model/effort, revie
 
 **Status is not in this document.** Each task's stage (ready, in progress, merged, blocked, escalated) lives only in its GitHub issue's `status:*` label ([build-process.md §5](build-process.md#5-status-lives-on-github)). The index below links every issue.
 
-60 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), twelve corrections to already-merged code (T31–T35, T38–T40, T42–T45), one rule no task owned (T37, the weekly city supply step), and two early slices — T41 of T23's CLI, and T47 of T24's Godot UI.
+62 tasks: the 20 design milestones, eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers), twelve corrections to already-merged code (T31–T35, T38–T40, T42–T45), one rule no task owned (T37, the weekly city supply step), and two early slices — T41 of T23's CLI, and T47 of T24's Godot UI.
 
 ---
 
@@ -1619,6 +1619,53 @@ Conventions used by every entry:
 
 ---
 
+#### T61 Split the task catalogue into one file per task
+
+- **Design milestone**: none — the fix that makes `CLAUDE.md` rule 11's first row redundant. **Labels**: `phase:3 lane:infra`
+- **Branch**: `task/T61-catalogue-split` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
+- **Start after**: — · **Merge after**: — (it depends on no task, but see the hazard about in-flight branches)
+- **Owns**: `docs/task-catalogue.md`, `docs/tasks/**` (new), and the per-task anchor citations in `docs/build-orchestration-plan.md`, `docs/design-audit.md` and `docs/release-plan.md` — **those links only, no prose**
+- **Scope**: `docs/task-catalogue.md` is **343,541 bytes, ~85,000 tokens, 60 entries — and a task needs exactly one of them.** It is opened for every task, by the main session and, until [#269](https://github.com/diegoami/imperial_conquest_2/issues/269), by every implementer and reviewer too. [`CLAUDE.md` rule 11](../CLAUDE.md) currently works around this with an `awk` recipe and says in its own text that the rule *"is a workaround for a layout problem, and should die"*. This task kills it.
+
+  **Split the entries into `docs/tasks/T<nn>.md`, one per task, and leave `task-catalogue.md` as the index**: the dependency graph (§1), the waves and critical path (§1.1–1.2), the phase groupings, the summary table (§3) and the totals. Those are what a *reader* wants; the entries are what a *task* wants, and they are different jobs.
+- **Done when**:
+  1. **Every entry round-trips byte for byte.** For each of the 60 tasks, the content of `docs/tasks/T<nn>.md` equals the entry `awk` extracts from the pre-split catalogue at `HEAD~1`, **exactly** — same text, same trailing `---`, no reflowing, no "while I was in there" edits. **Prove it with a script in the PR body**, not by assertion. This is the DoD that makes a 60-way split reviewable at all: a diff of 343 KB is not readable, and a byte-identical round-trip is.
+  2. **Anchors still resolve.** 36 per-task anchors cite this file — 31 in `build-orchestration-plan.md`, 3 in `design-audit.md`, 2 in `release-plan.md` — plus 4 section-level anchors and 25 bare references that a split does not touch. **Decide and state the mechanism**, then apply it consistently: either the index keeps a `#### T<nn> <title>` stub per task (so every existing anchor still resolves and the stub carries a one-line summary and a link), **or** all 36 citations are rewritten to `tasks/T<nn>.md`. The PR argues which and why. **A stub-based index costs no rewrites and keeps GitHub issue bodies working**, which cannot be rewritten at all; a full rewrite is cleaner but abandons them.
+  3. **The index is small enough to read whole.** State its token cost before and after. If the chosen mechanism leaves it above ~15,000 tokens, say so and say why that is still the right trade.
+  4. **`CLAUDE.md` rule 11's first table row is updated** to the new reality — a per-task file is a plain `Read`, not an `awk`. **This is the one file outside a normal Owns list that this task must touch**, and it touches that row and nothing else.
+  5. **`build-process.md` Appendices A, B and C still work.** They tell a dispatcher to paste the extracted entry into the brief's slot; after this task the extraction is a file read. Update the three `awk` lines accordingly, and nothing else in those templates.
+  6. `dotnet build IC2.sln` and `dotnet test IC2.sln` green — no code changes are expected, so a red suite means something unrelated broke and is worth reporting.
+- **Hazards**:
+  - **Do not edit a single word of any entry while moving it.** Done-when 1 exists to make that checkable. A task entry is a **contract**; a well-meant clarification during a mechanical move is indistinguishable from a silent scope change, and no reviewer can spot it in a 343 KB diff.
+  - **Time this against in-flight work.** Every open task branch and every queued plan PR touches this file. A split landing mid-flight turns their next rebase into a 343 KB conflict. **Check `gh pr list` and the `status:in-progress` / `in-review` / `rework` labels first, and say in the PR what was in flight when you ran.** If anything is, report and wait rather than forcing it.
+  - **GitHub issue bodies cite these anchors and cannot be rewritten.** A stale fragment degrades to "page loads, does not scroll" — not a broken link, but not nothing either. Whichever mechanism you pick, say what happens to them.
+  - The 36 anchors were counted on 2026-09-20 with `grep -rn "task-catalogue\.md#t[0-9]" --include=*.md`. **Re-count rather than trusting that number** — tasks were added the same day.
+
+---
+
+#### T62 Move the world's terrain blob out of the scenario JSON
+
+- **Design milestone**: none — the second half of [#264](https://github.com/diegoami/imperial_conquest_2/issues/264)'s deferred fixes. **Labels**: `phase:3 lane:data`
+- **Branch**: `task/T62-terrain-sidecar` · **Model/effort**: Sonnet / High · **Reviewer**: **Opus / Medium**
+- **Start after**: T29 · **Merge after**: T29, T36
+- **Owns**: `src/IC2.Engine/Model/World.cs` (the terrain field only), `src/IC2.Engine/Serialization/**` (the world loader's terrain path only), `data/worlds/**`, `scripts/export-classical-world.cs`, `tests/IC2.Engine.Tests/Serialization/**`
+- **Scope**: `data/worlds/classical-mediterranean.json` is 390 KB and **~99,897 tokens, of which a single 119,468-character base64 line is most of it**. Reading the file to understand the world format costs ~30,000 tokens for a blob that is not human-readable, not diffable, and conveys nothing. Move it to a sidecar (`classical-mediterranean.terrain.b64` or similar) that the loader reads alongside the JSON.
+
+  **This task is lower-value than [T61](#t61-split-the-task-catalogue-into-one-file-per-task) and carries more risk, and the entry says so deliberately.** The catalogue is read *by design, for every task*; a world JSON is read rarely and opportunistically. Against that, this touches the `World` schema, the loader, T29's export script and — because a world stops being one file — packaging (T27) and the save/load format (T20). **If the trade looks bad once you have measured it, saying so is a valid outcome**; see Done-when 5.
+- **Done when**:
+  1. **The world loads to a byte-identical `World`** — the decoded terrain array after the change equals the decoded array before it, for every shipped world, asserted by a test rather than inspected.
+  2. **The sidecar is found relative to the world file**, with a clear error naming both paths when it is missing — never a null-terrain world and never a stack trace. A world whose sidecar is absent fails to load; it does not load empty.
+  3. **`scripts/export-classical-world.cs` emits both files**, and re-running the export reproduces the committed pair. T29's loader-rejects-missing-fields behaviour must be preserved.
+  4. **The toy world is handled too**, or the PR says why it is exempt — `toy-3city.json` is 14 KB and its terrain is small, so a per-world rule (`sidecar only above N bytes`) is a plausible answer and a defensible one, but it must be **stated and tested**, not left implicit.
+  5. **The trade is measured and reported**: the world JSON's token cost before and after, against the new cost of a world being two files for T20's save/load and T27's packaging. **If the second outweighs the first, recommend abandoning this task** — that is a finding, not a failure, and the main session would rather have it than a migration nobody needed.
+  6. `dotnet build IC2.sln` and `dotnet test IC2.sln` green; the diff lists only Owns paths.
+- **Hazards**:
+  - **T29's export is the source of truth for the world data.** Do not hand-edit `classical-mediterranean.json` to split it — change the exporter and re-run, so the committed data stays something a script produces rather than something a person shaped.
+  - **T20 (save/load) and T27 (packaging) are both unstarted and both assume a world is one file.** Neither is blocked by this, but both inherit it. Say plainly in the PR what each will have to do differently.
+  - **The base64 is the DAT's own terrain encoding**, not a convenience format — see the world export's provenance. Do not re-encode it, re-order it, or "clean it up"; move the bytes unchanged.
+
+---
+
 #### T24 Godot main game screen
 
 - **Design milestone**: **M18** (UI half). **Labels**: `phase:3 lane:ui single-instance`
@@ -1740,5 +1787,7 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T58](#t58-survey-composition-aware-auto-resolve-models-and-how-to-judge-them) | Survey auto-resolve models + metrics | — | **Opus** | High | **Opus**/Medium | T36 | [#251](https://github.com/diegoami/imperial_conquest_2/issues/251) |
 | [T59](#t59-the-auto-resolve-tournament) | The auto-resolve tournament | — | **Opus** | High | **Opus**/High | T58 | [#250](https://github.com/diegoami/imperial_conquest_2/issues/250) |
 | [T60](#t60-the-ai-never-besieges-find-out-why-then-fix-it) | The AI never besieges | — | **Opus** | High | **Opus**/High | T57 | [#262](https://github.com/diegoami/imperial_conquest_2/issues/262) |
+| [T61](#t61-split-the-task-catalogue-into-one-file-per-task) | Split the catalogue per task | — | Sonnet | High | **Opus**/Medium | — | [#273](https://github.com/diegoami/imperial_conquest_2/issues/273) |
+| [T62](#t62-move-the-worlds-terrain-blob-out-of-the-scenario-json) | Terrain blob to a sidecar | — | Sonnet | High | **Opus**/Medium | T29 | [#274](https://github.com/diegoami/imperial_conquest_2/issues/274) |
 
-**Totals** — 60 tasks: 9 Opus, 46 Sonnet, 4 Haiku, 1 Fable. Effort: 2 Ultrahigh, 32 High, 23 Medium, 3 Low.
+**Totals** — 62 tasks: 9 Opus, 48 Sonnet, 4 Haiku, 1 Fable. Effort: 2 Ultrahigh, 34 High, 23 Medium, 3 Low.
