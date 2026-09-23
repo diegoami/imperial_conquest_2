@@ -1237,6 +1237,11 @@ always the most-lost.
 ([`instant-cannot`][instant-cannot]), so it **fails CD-a**. Its per-type means are equal up to that
 noise, so it has no clear tops and **fails CD-b**.
 
+> **Measured, 2026-09-23 (T59, #250, 33dc106):** this prediction predates T63. With T63's small-unit
+> deletion pass merged, C1 **does** show a clear top type in CD-b: light cavalry, because the pass deletes
+> the uniform army's 1,000-troop light-cavalry unit. C1 still fails CD-b as scored. See
+> [`auto-resolve-tournament-results.md`](auto-resolve-tournament-results.md).
+
 ### 8.5 Determinism (DET), and the draw count
 
 **Procedure.** Take the first 100 battles of the §8.1 CS-P schedule, in order. Run each twice, in
@@ -1333,6 +1338,9 @@ band.
   losing more than about 70% of its troops in a single round. At D31's pace, P-scale battles do not
   do that. C4's endings are therefore `collapse` (or `cap`) in essentially every battle. This follows
   from C4 being an army-morale model, and it is stated here so that it is not read as a discovery.
+  **Measured, 2026-09-23 (T59, #250, 33dc106): the prediction did not hold.** C4 **passes** EN-b
+  (0.8223), because 17.8% of its battles end at the 30-round cap rather than by collapse; it fails EN-a
+  instead. See [`auto-resolve-tournament-results.md`](auto-resolve-tournament-results.md).
 - **C5, expected direction only (not a construction result):** the withdrawal test (60% relative
   strength, from round 3) pushes C5's endings toward `withdrawal`. Whether that pushes it past EN-b's
   0.90 is what T59 measures.
@@ -1563,7 +1571,7 @@ session's call, and T59 does not need any of them to run.
 | `FUN_00438420`'s body (`focusCount`) | D12 | [`rout`][rout] §"Two small corrections" |
 | The cascade's −6 and +5, observed rather than only decompiled | (strengthens K12–K14) | [`rout`][rout] Next checks 2 |
 | `FUN_0040284c`, the RNG's range semantics | (strengthens the `Random(n)` reading, §3) | [`formula`][formula] §"What this does not establish" |
-| Which army records in `7.sav` fought the `7.sav → 8.sav` battle (T59's exact-total lookup, §9.3, may settle it) | §9.3 inputs | [`observation`][observation] Next checks 1 |
+| ~~Which army records in `7.sav` fought the `7.sav → 8.sav` battle~~ **Answered 2026-09-23 by T59's exact-total lookup (#250, 33dc106) [derived]:** Rome's army 0 at (102,44) and Gaul's army 9 at (103,43) | §9.3 inputs | [`observation`][observation] Next checks 1 |
 
 **Answered since this document merged** (the research pass for
 [#288](https://github.com/diegoami/imperial_conquest_2/issues/288), 2026-09-23). Both rows are
