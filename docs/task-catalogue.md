@@ -129,6 +129,7 @@ graph TD
   T36 --> T24
   T36 --> T58[T58 auto-resolve survey]
   T58 --> T59[T59 auto-resolve tournament]
+  T63[T63 casualty call sites] --> T59
   T29 --> T24
   T34 --> T24
   T24 --> T25[T25 battle/diplo/handoff screens]
@@ -525,6 +526,12 @@ Terrain blob to a sidecar → [full entry](tasks/T62.md) · [#274](https://githu
 
 ---
 
+#### T63 Port the siege, naval, storm and small-unit casualty rules as the original has them
+
+Casualty call sites, ported faithfully → [full entry](tasks/T63.md) · [#295](https://github.com/diegoami/imperial_conquest_2/issues/295)
+
+---
+
 #### T24 Godot main game screen
 
 Godot main screen → [full entry](tasks/T24.md) · [#24](https://github.com/diegoami/imperial_conquest_2/issues/24)
@@ -619,9 +626,10 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T56](#t56-the-quarterly-mercenary-restock) | Quarterly mercenary restock | — | Sonnet | High | **Opus**/Medium | T13 | [#229](https://github.com/diegoami/imperial_conquest_2/issues/229) |
 | [T57](#t57-the-ai-mobilizes-its-ready-recruits) | The AI mobilizes its ready recruits | — | Sonnet | High | **Opus**/Medium | T55 | [#246](https://github.com/diegoami/imperial_conquest_2/issues/246) |
 | [T58](#t58-survey-composition-aware-auto-resolve-models-and-how-to-judge-them) | Survey auto-resolve models + metrics | — | **Opus** | High | **Opus**/Medium | T36 | [#251](https://github.com/diegoami/imperial_conquest_2/issues/251) |
-| [T59](#t59-the-auto-resolve-tournament) | The auto-resolve tournament | — | **Opus** | High | **Opus**/High | T58 | [#250](https://github.com/diegoami/imperial_conquest_2/issues/250) |
+| [T59](#t59-the-auto-resolve-tournament) | The auto-resolve tournament | — | **Opus** | High | **Opus**/High | T58, T63 | [#250](https://github.com/diegoami/imperial_conquest_2/issues/250) |
 | [T60](#t60-the-ai-never-besieges-find-out-why-then-fix-it) | The AI never besieges | — | **Opus** | High | **Opus**/High | T57 | [#262](https://github.com/diegoami/imperial_conquest_2/issues/262) |
 | [T61](#t61-split-the-task-catalogue-into-one-file-per-task) | Split the catalogue per task | — | Sonnet | High | **Opus**/Medium | — | [#273](https://github.com/diegoami/imperial_conquest_2/issues/273) |
 | [T62](#t62-move-the-worlds-terrain-blob-out-of-the-scenario-json) | Terrain blob to a sidecar | — | Sonnet | High | **Opus**/Medium | T29 | [#274](https://github.com/diegoami/imperial_conquest_2/issues/274) |
+| [T63](#t63-port-the-siege-naval-storm-and-small-unit-casualty-rules-as-the-original-has-them) | Casualty call sites, ported faithfully | M8 | Sonnet | High | **Opus**/High | — | [#295](https://github.com/diegoami/imperial_conquest_2/issues/295) |
 
-**Totals** — 62 tasks: 9 Opus, 48 Sonnet, 4 Haiku, 1 Fable. Effort: 2 Ultrahigh, 34 High, 23 Medium, 3 Low.
+**Totals** — 63 tasks: 9 Opus, 49 Sonnet, 4 Haiku, 1 Fable. Effort: 2 Ultrahigh, 35 High, 23 Medium, 3 Low.
