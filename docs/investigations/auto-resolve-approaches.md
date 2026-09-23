@@ -1188,6 +1188,159 @@ point 5) as a diagnostic with no band.
 | EN | how battles end | cap ≤ 5%; collapse + withdrawal 10–90%; cascade fires in 10–90% | C2, C4, C5 |
 | SV | the survivors `scatter` receives | median σ ≥ 0.10; `(1−σ) − ω ≥ 0.10`; `σ(Z) − σ(H) ≥ 0.05`; mean τ ≥ 0.05 | C1, C2, C3, C4, C5 under `scatter` |
 
+## 9. The smoke test: the observed tactical battles
+
+> **One instance cannot validate a model, and it must not be tuned against.** The battle below is
+> one engagement. It was fought tactically, on a patched EXE, with unrecorded quality and morale. Its
+> `ratio ≈ 46` was recovered by sweeping past morale and quality rather than by measuring them, and
+> that ratio lies outside the baseline's own reachable range (§2.4). The same save refought gave a
+> different result, by a third of the total loss ([`rout`][rout]). **No constant in this document
+> was set from it, and T59 must not change any constant because of it.** It is recorded as a smoke
+> test: a check that a candidate runs, behaves sanely and produces the *kind* of outcome it claims.
+> It is not a target.
+
+### 9.1 The Done-when 7 instance: Seleucid 45,100 against Ptolemaic 27,700
+
+**[confirmed: [`ptolemy`][ptolemy] §3, `IP1 000` t=25]**
+
+| Type | Seleucid start | Seleucid finish | Seleucid loss | Ptolemaic start | Ptolemaic finish |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Light infantry | 27,300 | 17,025 | 37.6% | 21,300 | 0 |
+| Heavy infantry | 8,400 | 5,916 | 29.6% | 3,200 | 0 |
+| Archers | 5,200 | 0 | 100.0% | 0 | 0 |
+| Light cavalry | 1,800 | 1,452 | 19.3% | 2,300 | 0 |
+| Heavy cavalry | 2,400 | 2,303 | 4.0% | 900 | 0 |
+| **Total** | **45,100** | **26,696** | **40.8%** | **27,700** | **0** |
+
+**Aggregate calibration, as recorded:** the merged per-unit loss expression reproduces the 40.8%
+total at `ratio ≈ 46`, with a per-type spread of 1.2 points against the observed 96
+([`instant-cannot`][instant-cannot]). As §2.4 shows, that ratio is not one the baseline can reach
+with Seleucid as the winner. It is recorded as the report states it, with that caveat attached.
+
+**Inputs for the smoke run.** The report gives only type totals, so every per-unit input here is
+**[designed]**:
+- Units are split by the §8.0 rule. Seleucid gets 8 units: LI 15,000 + 12,300; HI 6,000 + 2,400;
+  A 3,500 + 1,700; LC 1,800; HC 2,400. Ptolemaic gets 5 units: LI 15,000 + 6,300; HI 3,200;
+  LC 2,300; HC 900.
+- Quality is 6 and `M = 59` on both sides.
+- Seleucid attacks. The report does not say which side attacked.
+
+### 9.2 The other two instances: Rome against Gaul, fought twice from one save
+
+**[confirmed: [`rome-gaul`][rome-gaul] (battle 1), [`rout`][rout] (battle 2)]**
+
+| Type | Rome start | Rome finish, battle 1 | Gaul start | Gaul finish |
+| --- | ---: | ---: | ---: | ---: |
+| Light infantry | 45,087 | 26,032 | 57,973 | 0 |
+| Heavy infantry | 28,057 | 20,675 | 7,635 | 0 |
+| Archers | 16,856 | 11,883 | 3,867 | 0 |
+| Light cavalry | 6,695 | 4,692 | 10,899 | 0 |
+| Heavy cavalry | 3,187 | **0** | 2,974 | 0 |
+| **Total** | **99,882** | **63,282** | **83,348** | **0** |
+
+Battle 2 reached **75,536** from the same 99,882, with a different set of destroyed units. The
+report gives no per-type breakdown for battle 2.
+
+**Inputs for the smoke run:**
+- Rome's `M = 68`. **[confirmed]**: Rome's army 0 `+14` byte in `1_rome_270_winter_7.sav`
+  ([`morale-array`][morale-array]).
+- Gaul's `M = 59`. **[designed]**: not reported.
+- Quality is 6 on both sides. **[designed]**: the saves hold per-unit qualities, but no report
+  tabulates them.
+- Units are split by the §8.0 rule. **[designed]**: Rome had 19 units, but the per-unit roster is
+  not in the reports.
+- Rome attacks. **[derived]**: Rome's army moved onto the battle tile ([`rome-gaul`][rome-gaul]).
+
+### 9.3 Procedure, and what the smoke test can and cannot fail
+
+**Run.** Each candidate plays each instance for seeds `k = 0 … 999`.
+
+**The smoke test fails a candidate only on these conditions** (none of them is about the outcome):
+- any exception;
+- any unit ending with negative troops, or with more troops than it started with (C5's rejoined
+  troops included);
+- an incomplete output record (§3);
+- any of the first 10 seeds failing the §8.5 byte-identity check.
+
+**Reported beside the observations, with no band:**
+- the fraction of seeds the observed winner wins;
+- the 5th, 50th and 95th percentiles of the winner's per-type loss rate and of its total loss;
+- for Rome–Gaul, where 63,282 and 75,536 fall in the candidate's distribution of Rome's final total;
+- the fraction of seeds in which the winner loses one whole arm, and which arm.
+
+A candidate that never produces the observed winner is **not** thereby failed. The inputs are
+designed, and the report says what they cannot establish.
+
+## 10. Open items that would convert `[designed]` to `[confirmed]`
+
+These are the RE questions whose answers would replace placeholders in C2 and C5. None was worked
+on here, because this task produces no new evidence. Whether to commission any of them is the main
+session's call, and T59 does not need any of them to run.
+
+| Item | Replaces | Where to look |
+| --- | --- | --- |
+| The tactical AI's move generation, `FUN_0043a31c`, and `FUN_00439ce8`'s choice between modes | D03, D04, D05 | [`formula`][formula] Next checks 3 |
+| `FUN_004381a4`'s type-order lookup table and column block | D01 | [`formula`][formula] §"The AI dispatch chain" |
+| `gridDistance` inside `FUN_0043845c`, and any maximum shooting distance | D06 | [`rout`][rout] §"`+0x20` … identified" |
+| The operands of the ±2/−3 comparison in `FUN_004393ec` | D07 | [`formula`][formula] §"Melee" |
+| The initial-morale clamp in `FUN_00437de4` (*"≈ 90 then 60"*) and any lower bound | D08 | [`morale-array`][morale-array] §"The morale formula" |
+| `FUN_00438420`'s body (`focusCount`) | D12 | [`rout`][rout] §"Two small corrections" |
+| The cascade's −6 and +5, observed rather than only decompiled | (strengthens K12–K14) | [`rout`][rout] Next checks 2 |
+| `FUN_0040284c`, the RNG's range semantics | (strengthens the `Random(n)` reading, §3) | [`formula`][formula] §"What this does not establish" |
+
+## 11. What was searched
+
+This is the search behind every `[designed]` tag here, per
+[design-audit.md §4.5](../design-audit.md#45-one-structural-note-on-the-harness). It covers the
+research repository at `origin/main`, read without touching its working tree.
+
+**Read in full:**
+- [`instant-resolver-cannot-reproduce-a-tactical-battle.md`][instant-cannot]
+- [`battle-replayed-rout-mechanic-and-combat-constants.md`][rout]
+- [`combat-type-effectiveness-matrix.md`][matrix]
+- [`decompiled-combat-formula-structure.md`][formula]
+- [`battle-quality-promotion-and-morale-array-decompiled.md`][morale-array]
+- [`unit-type-stat-table-in-dat.md`][unit-table]
+- [`full-battle-resolution-rome-vs-gaul.md`][rome-gaul]
+
+**Read by section:**
+- [`decompiled-diplomacy-peace-terms-and-instant-battles.md`][instant] (§"The original's instant
+  battle resolver", §"What this does not establish")
+- [`ptolemy-run-ui-inventory-and-leader-draw.md`][ptolemy] §3
+- [`supply-driven-morale-and-fleet-attrition.md`][supply-morale] (the morale-write index)
+- [`battle-code-entry-points.md`][entry-points]
+- [`battle-observation.md`][observation] (the timeline and grid)
+
+**Searched across the research repository's `docs/`**, case-insensitive:
+
+| Term | Result |
+| --- | --- |
+| `FUN_0043a31c` | Only [`formula`][formula], as an untraced next check |
+| `pursu` | 4 files, none about battle pursuit ("pursue"/"not pursued" in the ordinary sense: movement, supply, recruitment, city capture) |
+| `retreat` | 1 hit: [`rout`][rout], on the cascade as the reason there is *no* fighting retreat |
+| `withdraw` | 6 files, none a battle withdrawal (a withdrawn promotion rule, city-stock withdrawals, the auto-resupply path, movement) |
+| `surrender` | `TBattleMap_Surrender` as a named human action; no AI trigger, no terms |
+| `partial defeat` | none |
+| `target select` | none |
+| `gridDistance` | only the shooting helper's `< range` test in [`rout`][rout], with no definition |
+| `initiative`, `turn order` | alternating sides observed ([`observation`][observation], [`rome-gaul`][rome-gaul]); no first-mover rule |
+| `lookup table` | placement's type order is named in [`formula`][formula] and not extracted |
+| `focusCount`, `FUN_00438420` | the multipliers and the `min(4, ·)` ([`rout`][rout]); no published body |
+| `then 60`, `initial morale`, `FUN_00437de4` | only the one formula line in [`morale-array`][morale-array] |
+
+**In this repository:**
+- [`game-design.md` §Combat and §"The defeated side's fate"](../game-design.md). These describe the
+  merged resolver and the reserve, and the scatter search already recorded in K06.
+- `src/IC2.Engine/Battle/` (`InstantBattleResolver`, `BattleCasualties`, `ScatterPlacement`) and
+  `src/IC2.Engine/Strength/ArmyPower.cs`, for the confirmed formulas as merged.
+- `data/rulesets/*.json` `.combat` and `.unitTypes`, for the values and their provenance strings.
+- [`T22`](../tasks/T22.md) Done-when 2 and `AiSoakTests`/`AiTestbed`, for the budget.
+- [`T59`](../tasks/T59.md), for what this document must give its implementer.
+
+No battle-withdrawal, pursuit or retreat mechanic, no partial-defeat outcome, and no army-level
+break exists anywhere in the corpus. Every C4 and C5 army-level constant, and every C5 flight
+constant, is therefore `[designed]` with this search as its record.
+
 <!-- sources: research-repository reports, cited by GitHub URL like the rest of this directory -->
 
 [instant-cannot]: https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/instant-resolver-cannot-reproduce-a-tactical-battle.md
