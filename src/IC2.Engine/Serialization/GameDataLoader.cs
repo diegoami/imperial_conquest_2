@@ -110,8 +110,11 @@ public static class GameDataLoader
     /// <see cref="Load{T}"/> with a synthetic <paramref name="documentPath"/>: none of those set
     /// <c>dataFile</c>, so this never touches the disk for them.
     /// </summary>
-    /// <exception cref="MalformedGameDataException">The grid names both <c>data</c> and <c>dataFile</c>.</exception>
-    /// <exception cref="MissingTerrainSidecarException">The named sidecar file does not exist.</exception>
+    /// <exception cref="MalformedGameDataException">
+    /// The grid names both <c>data</c> and <c>dataFile</c>; <c>dataFile</c> is empty or whitespace; or
+    /// <c>dataFile</c> is an absolute path or escapes the world document's own directory.
+    /// </exception>
+    /// <exception cref="MissingTerrainSidecarException">The named sidecar file does not exist or cannot be read.</exception>
     private static World ResolveWorldTerrainSidecar(string documentPath, World world)
     {
         var terrain = world.Terrain;
@@ -126,10 +129,37 @@ public static class GameDataLoader
                 documentPath, "the terrain grid carries both \"data\" and \"dataFile\"; it must carry exactly one.");
         }
 
+        if (string.IsNullOrWhiteSpace(terrain.DataFile))
+        {
+            throw new MalformedGameDataException(
+                documentPath, "the terrain grid's \"dataFile\" must not be empty or whitespace.");
+        }
+
         var worldDirectory = Path.GetDirectoryName(Path.GetFullPath(documentPath))
                               ?? throw new MalformedGameDataException(
                                   documentPath, $"'{documentPath}' has no directory to resolve terrain sidecar '{terrain.DataFile}' against.");
-        var sidecarPath = Path.Combine(worldDirectory, terrain.DataFile);
+
+        // DoD 2 says the sidecar is found relative to the world file: an absolute "dataFile", or one
+        // that escapes worldDirectory via "..", is rejected outright rather than silently followed --
+        // otherwise a world can point at a file outside the directory everything that treats a world
+        // as "its own directory" (T27's packaging copy, most obviously) would actually carry.
+        if (Path.IsPathRooted(terrain.DataFile))
+        {
+            throw new MalformedGameDataException(
+                documentPath,
+                $"the terrain grid's \"dataFile\" ('{terrain.DataFile}') must be relative to the world document's own directory, not an absolute path.");
+        }
+
+        var sidecarPath = Path.GetFullPath(Path.Combine(worldDirectory, terrain.DataFile));
+        var worldDirectoryPrefix = worldDirectory.EndsWith(Path.DirectorySeparatorChar)
+            ? worldDirectory
+            : worldDirectory + Path.DirectorySeparatorChar;
+        if (!sidecarPath.StartsWith(worldDirectoryPrefix, StringComparison.Ordinal))
+        {
+            throw new MalformedGameDataException(
+                documentPath,
+                $"the terrain grid's \"dataFile\" ('{terrain.DataFile}') must resolve inside the world document's own directory ('{worldDirectory}'), not escape it.");
+        }
 
         string sidecarText;
         try

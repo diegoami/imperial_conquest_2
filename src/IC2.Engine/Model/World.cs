@@ -122,6 +122,16 @@ public sealed record TerrainGrid(
                     throw new InvalidOperationException("A run-length terrain grid must not also carry \"data\".");
                 }
 
+                if (DataFile is not null)
+                {
+                    // Only a base64 grid may use a sidecar (DataFile's own doc comment, and DoD 4's
+                    // stated toy-world exemption): a run-length grid's "runs" list is already the
+                    // handful of entries a sidecar exists to avoid, so a stray "dataFile" here is
+                    // rejected rather than silently carried through unresolved.
+                    throw new InvalidOperationException(
+                        "A run-length terrain grid must not carry \"dataFile\"; only a base64 grid may use a sidecar.");
+                }
+
                 var cells = new int[expected];
                 var written = 0;
                 foreach (var run in Runs)

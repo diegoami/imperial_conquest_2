@@ -132,6 +132,28 @@ public class WorldTerrainSidecarTests
     }
 
     /// <summary>
+    /// Review finding B3: a run-length grid naming "dataFile" was silently accepted and passed
+    /// through unresolved -- the loader's DataFile-handling branch only looked at base64 grids, and
+    /// nothing rejected it for any other encoding. This contradicted DoD 4's own stated exemption
+    /// ("only a base64 grid ... can name dataFile at all"), which until this test existed only as a
+    /// doc comment nothing enforced -- the "comment asserting behaviour at an edge no test visits"
+    /// class of defect (build-process.md gate 5). The fix lives in TerrainGrid.Decode's run-length
+    /// branch (World.cs), mirroring the sibling "must not carry data" check right next to it.
+    /// </summary>
+    [Fact]
+    public void A_run_length_terrain_grid_naming_dataFile_is_malformed()
+    {
+        var node = (JsonObject)JsonNode.Parse(File.ReadAllText(TestPaths.ToyWorldFile))!;
+        var terrain = node["terrain"]!.AsObject();
+        terrain["dataFile"] = "nope.terrain.b64";
+
+        var error = Assert.Throws<MalformedGameDataException>(
+            () => GameDataLoader.Load<World>("toy-with-run-length-dataFile.json", node.ToJsonString()));
+
+        Assert.Contains("dataFile", error.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// DoD 2: a world whose sidecar is absent fails to load with a typed error naming both the world
     /// path and the resolved sidecar path -- never a null-terrain world, never a bare stack trace.
     /// </summary>
@@ -141,17 +163,7 @@ public class WorldTerrainSidecarTests
         var tempDir = Directory.CreateTempSubdirectory("ic2-t62-sidecar-");
         try
         {
-            var node = (JsonObject)JsonNode.Parse(File.ReadAllText(TestPaths.ToyWorldFile))!;
-            node["terrain"] = new JsonObject
-            {
-                ["encoding"] = "base64",
-                ["runs"] = null,
-                ["data"] = null,
-                ["dataFile"] = "does-not-exist.terrain.b64",
-            };
-
-            var worldPath = Path.Combine(tempDir.FullName, "world-with-missing-sidecar.json");
-            File.WriteAllText(worldPath, node.ToJsonString());
+            var worldPath = WriteWorldWithTerrainDataFile(tempDir.FullName, "does-not-exist.terrain.b64");
             var expectedSidecarPath = Path.GetFullPath(Path.Combine(tempDir.FullName, "does-not-exist.terrain.b64"));
 
             var error = Assert.Throws<MissingTerrainSidecarException>(
@@ -169,24 +181,187 @@ public class WorldTerrainSidecarTests
     }
 
     /// <summary>
-    /// DoD 3, the sidecar half: re-running the export must reproduce the committed sidecar
-    /// byte-for-byte, exactly as <see cref="ExportScriptReproducibilityTests"/> already proves for
-    /// the world/ruleset/scenario JSON. That test's own SHA256 check does not cover the sidecar (it
-    /// predates T62 and is outside this task's Owns list to extend), so this is the sidecar's own
-    /// equivalent, sharing the same DAT-availability gate.
+    /// Review finding N1 (partly) and N2: an empty or whitespace "dataFile" must be rejected as
+    /// malformed rather than silently resolving to the world's own directory and then reporting a
+    /// misleading "does not exist".
     /// </summary>
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void An_empty_or_whitespace_dataFile_is_malformed(string dataFile)
+    {
+        var tempDir = Directory.CreateTempSubdirectory("ic2-t62-sidecar-");
+        try
+        {
+            var worldPath = WriteWorldWithTerrainDataFile(tempDir.FullName, dataFile);
+
+            var error = Assert.Throws<MalformedGameDataException>(
+                () => GameDataLoader.LoadFile<World>(worldPath));
+
+            Assert.Contains("dataFile", error.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            tempDir.Delete(recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// Review finding N2: DoD 2 says the sidecar is found "relative to the world file", so an
+    /// absolute path or one that escapes the world's own directory via ".." must be rejected rather
+    /// than silently followed -- otherwise a world could point at a file outside the directory T27's
+    /// packaging script (and everything else that treats a world as "its own directory") would copy.
+    /// </summary>
+    [Theory]
+    [InlineData("..")]
+    [InlineData("../escaped.terrain.b64")]
+    public void A_dataFile_that_escapes_the_worlds_own_directory_is_malformed(string dataFile)
+    {
+        var tempDir = Directory.CreateTempSubdirectory("ic2-t62-sidecar-");
+        try
+        {
+            // A real file one level up, so a bug that lets the traversal through would otherwise
+            // succeed (proving the check itself is what blocks it, not a coincidental missing file).
+            var escapeTarget = Path.Combine(tempDir.Parent!.FullName, "escaped.terrain.b64");
+            File.WriteAllText(escapeTarget, "AAA=");
+            try
+            {
+                var worldPath = WriteWorldWithTerrainDataFile(tempDir.FullName, dataFile);
+
+                var error = Assert.Throws<MalformedGameDataException>(
+                    () => GameDataLoader.LoadFile<World>(worldPath));
+
+                Assert.Contains("dataFile", error.Message, StringComparison.Ordinal);
+            }
+            finally
+            {
+                File.Delete(escapeTarget);
+            }
+        }
+        finally
+        {
+            tempDir.Delete(recursive: true);
+        }
+    }
+
+    /// <summary>Review finding N2: an absolute path is rejected the same way.</summary>
+    [Fact]
+    public void An_absolute_dataFile_path_is_malformed()
+    {
+        var tempDir = Directory.CreateTempSubdirectory("ic2-t62-sidecar-");
+        try
+        {
+            var elsewhere = Path.Combine(Path.GetTempPath(), "ic2-t62-elsewhere-" + Guid.NewGuid().ToString("N") + ".b64");
+            File.WriteAllText(elsewhere, "AAA=");
+            try
+            {
+                var worldPath = WriteWorldWithTerrainDataFile(tempDir.FullName, elsewhere);
+
+                var error = Assert.Throws<MalformedGameDataException>(
+                    () => GameDataLoader.LoadFile<World>(worldPath));
+
+                Assert.Contains("dataFile", error.Message, StringComparison.Ordinal);
+            }
+            finally
+            {
+                File.Delete(elsewhere);
+            }
+        }
+        finally
+        {
+            tempDir.Delete(recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// Writes a copy of the toy world into <paramref name="directory"/> with its terrain grid
+    /// replaced by a base64 grid naming <paramref name="dataFile"/>, and returns the written path.
+    /// Shared by every test above that needs a real file on disk to resolve a sidecar path against.
+    /// </summary>
+    private static string WriteWorldWithTerrainDataFile(string directory, string dataFile)
+    {
+        var node = (JsonObject)JsonNode.Parse(File.ReadAllText(TestPaths.ToyWorldFile))!;
+        node["terrain"] = new JsonObject
+        {
+            ["encoding"] = "base64",
+            ["runs"] = null,
+            ["data"] = null,
+            ["dataFile"] = dataFile,
+        };
+
+        var worldPath = Path.Combine(directory, "world-" + Guid.NewGuid().ToString("N") + ".json");
+        File.WriteAllText(worldPath, node.ToJsonString());
+        return worldPath;
+    }
+}
+
+/// <summary>
+/// Names the non-parallel xUnit collection <see cref="WorldTerrainExportReproducibilityTests"/> runs
+/// in (review finding B1).
+/// </summary>
+[CollectionDefinition(Name, DisableParallelization = true)]
+public sealed class WorldTerrainExportScriptCollection
+{
+    /// <summary>The collection name <see cref="WorldTerrainExportReproducibilityTests"/> declares.</summary>
+    public const string Name = "world-terrain-export-script";
+}
+
+/// <summary>
+/// DoD 3, the sidecar half: re-running the export must reproduce the committed sidecar byte-for-byte,
+/// exactly as <see cref="ExportScriptReproducibilityTests"/> already proves for the world/ruleset/
+/// scenario JSON. That test's own SHA256 check does not cover the sidecar (it predates T62 and is
+/// outside this task's Owns list to extend), so this is the sidecar's own equivalent, sharing the
+/// same DAT-availability gate.
+/// </summary>
+/// <remarks>
+/// Review finding B1: this test and <see cref="ExportScriptReproducibilityTests"/> both invoke
+/// <c>dotnet run scripts/export-classical-world.cs</c> as a separate process. Both compile that
+/// file-based app into the same content-hashed temp <c>obj/</c> directory, and two concurrent
+/// compiles of the same script collide there (<c>CS2012: Cannot open ... for writing</c>) --
+/// reproduced 3/3 by touching the script and running both test classes together. Splitting this one
+/// test into its own class in a <see cref="WorldTerrainExportScriptCollection"/> collection marked
+/// <c>DisableParallelization = true</c> is enough to fix it without touching
+/// <c>ExportScriptReproducibilityTests.cs</c> (outside this task's Owns list): xUnit runs every
+/// non-parallel collection strictly after all parallel collections -- including the Export tests'
+/// default one -- have finished, so the two exports can no longer overlap in time. The rest of this
+/// task's tests stay in <see cref="WorldTerrainSidecarTests"/>'s own default (parallel) collection,
+/// so only this one, already-slow, DAT-dependent test pays the sequencing cost.
+/// </remarks>
+[Collection(WorldTerrainExportScriptCollection.Name)]
+public class WorldTerrainExportReproducibilityTests
+{
     [SkippableFact]
     public void Rerunning_the_export_reproduces_the_committed_terrain_sidecar_byte_for_byte()
     {
         Skip.IfNot(OriginalFilesAvailability.IsConfigured, OriginalFilesAvailability.SkipReason);
 
         var sidecarPath = Path.Combine(ExportedDataPaths.RepositoryRoot, "data", "worlds", "classical-mediterranean.terrain.b64");
-        var before = Sha256(sidecarPath);
+        var expectedHash = Sha256(sidecarPath);
 
-        var (exitCode, stdout, stderr) = RunExportScript();
-        Assert.True(exitCode == 0, $"export-classical-world.cs exited {exitCode}.\nstdout:\n{stdout}\nstderr:\n{stderr}");
+        // Review finding B2: comparing the file with itself before and after passes even when a
+        // mutated exporter stops writing the sidecar at all -- a file nobody touches still compares
+        // equal to itself. Moving the committed file out of the way first turns "the exporter didn't
+        // write it" into a missing file, not a stale-but-matching one; the export must recreate it
+        // for this assertion to have anything to compare.
+        var backupPath = sidecarPath + ".before-rerun.bak";
+        File.Move(sidecarPath, backupPath, overwrite: true);
+        try
+        {
+            var (exitCode, stdout, stderr) = RunExportScript();
+            Assert.True(exitCode == 0, $"export-classical-world.cs exited {exitCode}.\nstdout:\n{stdout}\nstderr:\n{stderr}");
 
-        Assert.Equal(before, Sha256(sidecarPath));
+            Assert.True(File.Exists(sidecarPath), "the export did not (re)write the terrain sidecar file.");
+            Assert.Equal(expectedHash, Sha256(sidecarPath));
+        }
+        finally
+        {
+            // Restored unconditionally, success or failure, so a failing run never leaves the
+            // worktree's tracked sidecar missing for the next command or test.
+            if (File.Exists(backupPath))
+            {
+                File.Move(backupPath, sidecarPath, overwrite: true);
+            }
+        }
     }
 
     /// <summary>Mirrors <see cref="ExportScriptReproducibilityTests"/>'s own identically-purposed helper.</summary>
