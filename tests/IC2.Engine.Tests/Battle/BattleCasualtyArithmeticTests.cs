@@ -409,6 +409,252 @@ public class BattleCasualtyArithmeticTests
         Assert.Empty(perUnitTypeProperties);
     }
 
+    /// <summary>
+    /// T63 DoD 1 (bug #289): the deletion pass's boundary for a NATIONAL unit -- exactly at
+    /// <c>standardBattalionSize / deletionDivisorNational</c> survives, one troop below is deleted.
+    /// light_infantry's battalion size is 15,000, so the national threshold is 1,500.
+    /// </summary>
+    [Fact]
+    public void DeleteBelowThreshold_NationalBoundary_ExactlySurvivesOneBelowIsDeleted()
+    {
+        var ruleset = BattleTestbed.Destroyed;
+        var units = ValueList.Of(
+            BattleTestbed.Unit("light_infantry", 1500, 6, "AtThreshold"),
+            BattleTestbed.Unit("light_infantry", 1499, 6, "OneBelow"));
+
+        var survivors = BattleCasualties.DeleteBelowThreshold(units, ruleset);
+
+        Assert.Equal(new[] { "AtThreshold" }, survivors.Select(u => u.Name).ToArray());
+    }
+
+    /// <summary>
+    /// T63 DoD 1 (bug #289): the same boundary for a MERCENARY unit (origin label &gt; 0), which gets
+    /// twice the national unit's tolerance -- <c>standardBattalionSize / deletionDivisorMercenary</c>,
+    /// 3,000 for light infantry.
+    /// </summary>
+    [Fact]
+    public void DeleteBelowThreshold_MercenaryBoundary_ExactlySurvivesOneBelowIsDeleted()
+    {
+        var ruleset = BattleTestbed.Destroyed;
+        var units = ValueList.Of(
+            new UnitSlot(MercenaryLabel: 7, UnitTypeId: "light_infantry", Troops: 3000, Quality: 6, Name: "AtThreshold"),
+            new UnitSlot(MercenaryLabel: 7, UnitTypeId: "light_infantry", Troops: 2999, Quality: 6, Name: "OneBelow"));
+
+        var survivors = BattleCasualties.DeleteBelowThreshold(units, ruleset);
+
+        Assert.Equal(new[] { "AtThreshold" }, survivors.Select(u => u.Name).ToArray());
+    }
+
+    /// <summary>
+    /// The deletion pass's own guard requires <c>troops &gt; 0</c> -- a slot <see cref="BattleCasualties.Apply"/>
+    /// already reduced to zero is left in place by this pass, exactly as the decompiled loop's own guard
+    /// requires (it is simply never a survivor for <see cref="BattleCasualties.Promote"/>'s purposes
+    /// either, on that method's own separate terms).
+    /// </summary>
+    [Fact]
+    public void DeleteBelowThreshold_AZeroTroopSlotIsNotRemoved()
+    {
+        var ruleset = BattleTestbed.Destroyed;
+        var units = ValueList.Of(BattleTestbed.Unit("light_infantry", 0, 6, "Empty"));
+
+        var survivors = BattleCasualties.DeleteBelowThreshold(units, ruleset);
+
+        Assert.Single(survivors);
+        Assert.Equal(0, survivors[0].Troops);
+    }
+
+    /// <summary>
+    /// T63 D-B (the user's 2026-09-23 decision, correcting N1): the deletion pass removes swap-with-last,
+    /// walking slot 19 down to 0, not a stable filter. Four units, "B" (index 1) below the deletion
+    /// threshold: a stable filter would give <c>[A, C, D]</c>; swap-with-last -- deleting B, then moving
+    /// the CURRENT last slot (D) into B's place -- gives <c>[A, D, C]</c> instead. Removing B is not the
+    /// last index, which is exactly what makes the two algorithms disagree here (deleting the actual last
+    /// slot would coincide for both).
+    /// </summary>
+    [Fact]
+    public void DeleteBelowThreshold_RemovesSwapWithLast_NotAStableFilter()
+    {
+        var ruleset = BattleTestbed.Destroyed;
+        var units = ValueList.Of(
+            BattleTestbed.Unit("light_infantry", 2000, 6, "A"),
+            BattleTestbed.Unit("light_infantry", 1000, 6, "B"),   // below the 1,500 national threshold
+            BattleTestbed.Unit("light_infantry", 2000, 6, "C"),
+            BattleTestbed.Unit("light_infantry", 2000, 6, "D"));
+
+        var survivors = BattleCasualties.DeleteBelowThreshold(units, ruleset);
+
+        Assert.Equal(new[] { "A", "D", "C" }, survivors.Select(u => u.Name).ToArray());
+        Assert.NotEqual(new[] { "A", "C", "D" }, survivors.Select(u => u.Name).ToArray()); // what a stable filter would give
+    }
+
+    /// <summary>
+    /// T63 DoD 1: a deleted unit gets no promotion roll. Proved by contrast, not by inference: promoting
+    /// the deletion pass's OWN output draws once (the one survivor); promoting the ORIGINAL, pre-deletion
+    /// list -- as if the deletion pass had not run at all -- draws twice, from the same seed. The
+    /// difference in draw count is the proof, not just the resulting promotion list.
+    /// </summary>
+    [Fact]
+    public void DeletedUnit_GetsNoPromotionRoll()
+    {
+        var ruleset = BattleTestbed.Destroyed;
+        var rules = ruleset.Combat;
+        var units = ValueList.Of(
+            BattleTestbed.Unit("light_infantry", 1499, 6, "Deleted"),   // below the 1,500 national threshold
+            BattleTestbed.Unit("light_infantry", 12000, 6, "Survivor"));
+
+        var survivors = BattleCasualties.DeleteBelowThreshold(units, ruleset);
+        Assert.Single(survivors);
+
+        var recorder = new BoundRecordingRng(new SplitMix64Rng(BattleTestbed.Seed));
+        var (promoted, promotions) = BattleCasualties.Promote(survivors, recorder, rules);
+
+        Assert.Single(recorder.Values);
+        Assert.Single(promoted);
+        Assert.Single(promotions);
+        Assert.Equal("Survivor", promotions[0].UnitName);
+
+        // Contrast: promoting the two-unit list the deletion pass was never run against draws TWICE.
+        var recorderWithoutDeletion = new BoundRecordingRng(new SplitMix64Rng(BattleTestbed.Seed));
+        BattleCasualties.Promote(units, recorderWithoutDeletion, rules);
+        Assert.Equal(2, recorderWithoutDeletion.Values.Count);
+    }
+
+    /// <summary>
+    /// T63 DoD 3: at the whole-unit-loss threshold exactly (<c>d == 70</c>, not <c>d &gt; 70</c>), no
+    /// whole unit is removed -- only <see cref="BattleCasualties.Apply"/>'s per-unit expression runs.
+    /// </summary>
+    [Fact]
+    public void ApplyToCarriedArmy_AtTheThreshold_NoWholeUnitIsRemoved()
+    {
+        var ruleset = BattleTestbed.Destroyed;
+        var units = ValueList.Of(
+            BattleTestbed.Unit("heavy_cavalry", 2000, 6, "A"),
+            BattleTestbed.Unit("heavy_cavalry", 2000, 6, "B"));
+
+        var rng = new SplitMix64Rng(BattleTestbed.Seed);
+        var result = BattleCasualties.ApplyToCarriedArmy(
+            units, damage: 70, unitLossThreshold: 70, unitLossDivisor: 250, rng, ruleset);
+
+        Assert.Equal(0, result.UnitsLost);
+        Assert.Equal(2, result.Units.Count);
+        Assert.False(result.Emptied);
+    }
+
+    /// <summary>
+    /// T63 DoD 3: one point above the threshold (<c>d == 71</c>), the whole-unit-loss branch fires --
+    /// <c>(count × d) / divisor + 1</c> units removed, the "+ 1" bug #290 part 3 restores.
+    /// </summary>
+    [Fact]
+    public void ApplyToCarriedArmy_JustAboveTheThreshold_RemovesWholeUnits()
+    {
+        var ruleset = BattleTestbed.Destroyed;
+        var units = ValueList.Of(
+            BattleTestbed.Unit("heavy_cavalry", 2000, 6, "A"),
+            BattleTestbed.Unit("heavy_cavalry", 2000, 6, "B"));
+
+        var rng = new SplitMix64Rng(BattleTestbed.Seed);
+        var result = BattleCasualties.ApplyToCarriedArmy(
+            units, damage: 71, unitLossThreshold: 70, unitLossDivisor: 250, rng, ruleset);
+
+        // (2 x 71) / 250 + 1 = 0 + 1 = 1 -- without the "+ 1" this would floor to 0 and remove nothing,
+        // which is exactly bug #290 part 3.
+        Assert.Equal(1, result.UnitsLost);
+        Assert.Single(result.Units);
+    }
+
+    /// <summary>T63 DoD 3: a one-unit carried army is destroyed outright once <c>d &gt; 70</c>.</summary>
+    [Fact]
+    public void ApplyToCarriedArmy_OneUnitArmy_IsDestroyedAboveTheThreshold()
+    {
+        var ruleset = BattleTestbed.Destroyed;
+        var units = ValueList.Of(BattleTestbed.Unit("heavy_cavalry", 2000, 6, "Only"));
+
+        var rng = new SplitMix64Rng(BattleTestbed.Seed);
+        var result = BattleCasualties.ApplyToCarriedArmy(
+            units, damage: 71, unitLossThreshold: 70, unitLossDivisor: 250, rng, ruleset);
+
+        Assert.True(result.Emptied);
+        Assert.Empty(result.Units);
+    }
+
+    /// <summary>
+    /// T63 DoD 3: <c>d == 0</c> still runs the casualty pass -- <see cref="BattleCasualties.Apply"/> draws
+    /// its divisor unconditionally, exactly as it does for a field or siege battle at any other ratio.
+    /// </summary>
+    [Fact]
+    public void ApplyToCarriedArmy_RatioZero_StillRunsTheCasualtyPass()
+    {
+        var ruleset = BattleTestbed.Destroyed;
+        var units = ValueList.Of(BattleTestbed.Unit("heavy_cavalry", 2000, 6, "A"));
+
+        var recorder = new BoundRecordingRng(new SplitMix64Rng(BattleTestbed.Seed));
+        var result = BattleCasualties.ApplyToCarriedArmy(
+            units, damage: 0, unitLossThreshold: 70, unitLossDivisor: 250, recorder, ruleset);
+
+        Assert.Single(recorder.Values); // the one, unconditional casualty-divisor draw.
+        Assert.Equal(0, result.TroopsLost);
+        Assert.Equal(0, result.UnitsLost);
+    }
+
+    /// <summary>
+    /// T63 DoD 3: the whole-unit loss is removed swap-with-last, not by a shift -- proved by a scripted
+    /// draw that picks a MIDDLE slot (index 1 of 4) to drop, where the two algorithms give different
+    /// surviving orders (dropping the last slot of the four would make them coincide, which is exactly
+    /// why the drop here is not the last one). Swap-with-last moves the LAST slot ("D") into the dropped
+    /// slot's place, giving [A, D, C]; a shift-based <c>RemoveAt</c> would instead give [A, C, D].
+    /// </summary>
+    [Fact]
+    public void ApplyToCarriedArmy_RemovesSwapWithLast_NotAShift()
+    {
+        var ruleset = BattleTestbed.Destroyed;
+        var units = ValueList.Of(
+            BattleTestbed.Unit("heavy_cavalry", 2000, 6, "A"),
+            BattleTestbed.Unit("heavy_cavalry", 2000, 6, "B"),
+            BattleTestbed.Unit("heavy_cavalry", 2000, 6, "C"),
+            BattleTestbed.Unit("heavy_cavalry", 2000, 6, "D"));
+
+        // Four casualty-divisor draws (Apply, one per slot; the value never matters here since the
+        // survivor count -- not the exact troop loss -- is what this test proves), then one draw of 1
+        // (out of 4) for the whole-unit loss: divisor = 1,000 keeps toLose at exactly 1 despite damage 71
+        // ((4 x 71) / 1,000 + 1 = 0 + 1 = 1), so only the single scripted index is ever consulted.
+        var rng = new ScriptedSequenceRng(0, 0, 0, 0, 1);
+        var result = BattleCasualties.ApplyToCarriedArmy(
+            units, damage: 71, unitLossThreshold: 70, unitLossDivisor: 1000, rng, ruleset);
+
+        Assert.Equal(1, result.UnitsLost);
+        Assert.Equal(new[] { "A", "D", "C" }, result.Units.Select(u => u.Name).ToArray());
+        Assert.NotEqual(new[] { "A", "C", "D" }, result.Units.Select(u => u.Name).ToArray()); // what a shift would give
+    }
+
+    /// <summary>
+    /// An <see cref="IRng"/> that plays back a fixed sequence of <see cref="NextInt(int)"/> results, one
+    /// per call, regardless of the requested bound -- for a test that needs to control more than one draw
+    /// (a casualty-divisor draw per slot, then a specific "which index was dropped" draw) precisely.
+    /// </summary>
+    private sealed class ScriptedSequenceRng : IRng
+    {
+        private readonly int[] _values;
+        private int _index;
+
+        public ScriptedSequenceRng(params int[] values) => _values = values;
+
+        public ulong Seed => 0;
+
+        public ulong State => 0;
+
+        public ulong NextUInt64() => throw new NotSupportedException("Not scripted for this test.");
+
+        public int NextInt(int exclusiveUpperBound) => _values[_index++];
+
+        public int NextInt(int inclusiveLowerBound, int exclusiveUpperBound) =>
+            throw new NotSupportedException("Not scripted for this test.");
+
+        public bool NextChance(int numerator, int denominator) =>
+            throw new NotSupportedException("Not scripted for this test.");
+
+        public IRng ForStream(string streamName) => this;
+    }
+
     /// <summary>An <see cref="IRng"/> that always returns the same casualty-divisor draw.</summary>
     private sealed class ScriptedDivisorRng : IRng
     {

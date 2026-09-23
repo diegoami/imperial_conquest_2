@@ -160,6 +160,31 @@ public static class GameDataValidation
                 throw new UnresolvedReferenceException(documentPath, "unit type", typeId);
             }
         }
+
+        // N5 (T63 review round 1): every one of these divides a live value at runtime -- a besieger's
+        // casualties (deletionDivisor*), the population floor and erosion terms (siege.*), and a heavy
+        // storm's whole-unit loss (naval.stormUnitLossDivisor). A 0 here is not a bad game balance
+        // number, it is a DivideByZeroException the first time the call site runs, so this is a load
+        // time check rather than leaving it to crash mid-turn.
+        RequirePositiveDivisor(documentPath, ruleset.Combat.DeletionDivisorNational, "combat.deletionDivisorNational");
+        RequirePositiveDivisor(documentPath, ruleset.Combat.DeletionDivisorMercenary, "combat.deletionDivisorMercenary");
+        RequirePositiveDivisor(documentPath, ruleset.Siege.ErosionFloorDenominator, "siege.erosionFloorDenominator");
+        RequirePositiveDivisor(documentPath, ruleset.Siege.ErosionCeilingDenominator, "siege.erosionCeilingDenominator");
+        RequirePositiveDivisor(documentPath, ruleset.Siege.PopulationFloorDivisor, "siege.populationFloorDivisor");
+        RequirePositiveDivisor(documentPath, ruleset.Naval.StormUnitLossDivisor, "naval.stormUnitLossDivisor");
+    }
+
+    /// <summary>
+    /// N5 (T63 review round 1): a shared guard for the ruleset's own division-safety fields -- see the
+    /// call sites in <see cref="ValidateRuleset"/> for which ones and why.
+    /// </summary>
+    private static void RequirePositiveDivisor(string documentPath, int value, string field)
+    {
+        if (value <= 0)
+        {
+            throw new MalformedGameDataException(
+                documentPath, $"'{field}' must be greater than 0 (it is a runtime divisor); got {value}.");
+        }
     }
 
     /// <summary>

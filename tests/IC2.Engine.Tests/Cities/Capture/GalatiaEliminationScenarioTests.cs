@@ -26,19 +26,27 @@ namespace IC2.Engine.Tests.Cities.Capture;
 /// </para>
 /// <para>
 /// <strong>DoD 1's amended text (<c>docs/task-catalogue.md</c>, #198): the capture half asserts the
-/// transfer, not the erosion.</strong> That a forced capture erodes both fields is <c>[confirmed]</c>
-/// twice over (the same report also gives each city's <em>post</em>-capture figures, 30/44 and 42/18) —
-/// but the erosion formula is not: it lives in <c>FUN_0044b230</c>, undecompiled
-/// (<c>decompiled-defection-and-siege-attrition.md</c>'s own "not pinned down this pass" — research plan
-/// item 18, which further records that the two observations only constrain the erosion multiplier to a
-/// range per field, that one random draw is shared by both fields, and that it is drawn per attack
-/// attempt, not once per successful capture). Implementing it would mean inventing the rule, which this
-/// project does not do. This scenario therefore asserts only <c>FUN_0044bb18</c>'s own confirmed
-/// pseudocode — no population or fortification term at all — by constructing each city at its real
-/// pre-siege figures and proving <see cref="CityCaptureResolver.Capture"/> leaves them exactly as given.
-/// <strong>The post-capture figures (30/44, 42/18) are not reproduced and are not asserted</strong>:
-/// reproducing them would require the undecompiled erosion this task does not implement. Tagged
-/// <c>[open]</c> at the assertions themselves, naming <c>FUN_0044b230</c> and plan item 18.
+/// transfer, not the erosion — and T63 changes WHY, not just what.</strong> An earlier revision of this
+/// remark said the erosion formula (<c>FUN_0044b230</c>) was undecompiled and reproducing the real
+/// post-capture figures (Laranda 30/44, Gordium 42/18) "would mean inventing the rule, which this project
+/// does not do". That premise is gone: <c>FUN_0044b230</c> is now decompiled and confirmed at instruction
+/// level (<c>decompiled-defection-and-siege-attrition.md</c> §"FUN_0044b27c, instruction by instruction",
+/// research 3f6ca09; bug #293), field = max(field × 3/4, min(field × 19/20 + 1, field × def/atk)) — see
+/// <c>SiegeAttritionTests.GalatiaHistoricalCaptures_ReproduceThePostSiegeFiguresThroughResolveSiege</c>
+/// for that formula proved directly against the same Laranda/Gordium historical figures, driven through
+/// <see cref="InstantBattleResolver.ResolveSiege"/> at each city's own confirmed def/atk bound
+/// (<c>docs/game-design.md</c> §Combat: "Laranda 41/59 → 30/44 is exactly × 3/4… Gordium 54/23 → 42/18
+/// needs def/atk ∈ [0.7826, 0.7963)"), asserting the exact post-capture 30/44 and 42/18.
+/// <strong>The gap here is architectural, not evidentiary</strong>:
+/// erosion lives in <see cref="InstantBattleResolver.ResolveSiege"/> (<c>src/IC2.Engine/Battle/**</c>,
+/// this task's Owns list, not T17's), and this scenario deliberately calls
+/// <see cref="CityCaptureResolver.Capture"/> directly rather than through that resolver, to isolate
+/// <c>FUN_0044bb18</c>'s own confirmed pseudocode — no population or fortification term at all — from the
+/// erosion a real siege attempt would already have applied to the state <see cref="Capture"/> receives.
+/// So <see cref="Capture"/> genuinely leaves Laranda and Gordium's fortification/population exactly as
+/// constructed (41/59, 54/23) — that assertion is correct and unaffected by T63 — but it is no longer
+/// read as "the real post-capture figures are unreproducible"; they are reproducible, by
+/// <see cref="InstantBattleResolver.ResolveSiege"/>, just not by this method.
 /// </para>
 /// <para>
 /// The other seven — named for Galatia's own <c>elimination.galatiaDefectsFromCount</c> note (Synnada,
@@ -159,14 +167,19 @@ public sealed class GalatiaEliminationScenarioTests
             Assert.Equal(Seleucid, e.NewOwner);
         }
 
-        // ---- [open] The falls-to pair keeps whatever population/fortification it already carried into
-        // the transfer: FUN_0044bb18's own confirmed pseudocode has no population or fortification term,
-        // so Capture leaves both exactly as given -- the real, historical PRE-siege figures this scenario
-        // constructed them with (Laranda 41/59, Gordium 54/23). The real POST-capture figures
-        // (Laranda 30/44, Gordium 42/18, same report) are NOT asserted here: reproducing them needs
-        // FUN_0044b230's erosion formula, which is undecompiled (research plan item 18) -- implementing it
-        // would mean inventing the rule, which this project does not do. This is the evidence gap DoD 1's
-        // amendment (#198) asks this task to declare rather than guess at. ----
+        // ---- The falls-to pair keeps whatever population/fortification it already carried into the
+        // transfer: FUN_0044bb18's own confirmed pseudocode has no population or fortification term, so
+        // Capture leaves both exactly as given -- the real, historical PRE-siege figures this scenario
+        // constructed them with (Laranda 41/59, Gordium 54/23). The real POST-capture figures (Laranda
+        // 30/44, Gordium 42/18, same report) are NOT asserted here, but T63 (bug #293) means this is no
+        // longer an evidence gap: FUN_0044b230's erosion formula is now decompiled and confirmed (see the
+        // class remarks), and reproducing those two figures is exactly what
+        // SiegeAttritionTests.GalatiaHistoricalCaptures_ReproduceThePostSiegeFiguresThroughResolveSiege
+        // proves, through InstantBattleResolver.ResolveSiege -- the method that owns erosion, not this
+        // one (N-2, T63 review round 3: DoD 5 is met in substance there, not by changing the two
+        // literal assertions just below). This scenario calls Capture directly, deliberately bypassing
+        // ResolveSiege, to isolate FUN_0044bb18's own transfer pseudocode from a real attempt's erosion;
+        // that isolation is the reason these two fields are unchanged here, not a missing formula. ----
         Assert.Equal(41, final.CityById("laranda")!.FortificationCode);
         Assert.Equal(59, final.CityById("laranda")!.PopulationThousands);
         Assert.Equal(54, final.CityById("gordium")!.FortificationCode);

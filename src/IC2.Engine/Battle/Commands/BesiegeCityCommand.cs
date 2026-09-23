@@ -90,4 +90,11 @@ public static class BesiegeCityRejections
     /// decoded — see <see cref="BattleCommandRuleset"/>.
     /// </summary>
     public static readonly RejectionCode NoFortificationOrder = new("battle.no-fortification-order");
+
+    /// <summary>
+    /// <c>docs/tasks/T63.md</c> Decision 2: the besieging army has zero siege strength
+    /// (<see cref="Strength.SiegeStrength.Attacker"/>), which the original divides by at the siege call
+    /// site. Refused here, before any state changes, rather than reproducing the original's crash.
+    /// </summary>
+    public static readonly RejectionCode AttackerHasNoStrength = new("battle.siege-attacker-has-no-strength");
 }

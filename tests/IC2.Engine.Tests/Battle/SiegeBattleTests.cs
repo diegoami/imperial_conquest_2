@@ -12,9 +12,13 @@ namespace IC2.Engine.Tests.Battle;
 /// comparison rests on.
 /// </summary>
 /// <remarks>
-/// What this variant deliberately leaves alone is as much the point as what it does: the city itself is
-/// untouched here — no transfer, no garrison, no loyalty move, no defection cascade, no unity, no news
-/// line. All of that is T17, which routes its siege resolution through this method.
+/// What this variant deliberately leaves alone is as much the point as what it does: there is no
+/// transfer, no garrison change, no defection cascade, no unity move, no news line — all of that is T17,
+/// which routes its siege resolution through this method. T63 (bug #293) changed one part of that
+/// boundary: the city's own loyalty, fortification and population now erode here, on every attempt, win
+/// or lose, because the original does that inside the same <c>FUN_0044B27C</c> this method ports — it is
+/// not part of the capture/defection transfer T17 owns. <see cref="CityCaptureResolver.ResolveOutcome"/>
+/// still decides ownership from this method's own <see cref="BattleResult.Winner"/>.
 /// </remarks>
 public class SiegeBattleTests
 {
@@ -52,8 +56,9 @@ public class SiegeBattleTests
 
     /// <summary>
     /// Done-when 12, stated the way T17 will depend on it: the <em>defender's</em> outcome is identical
-    /// under both flags. The besieged city comes through both resolutions completely unchanged, and so
-    /// does which side won.
+    /// under both flags. The besieged city erodes the same way under both resolutions (T63 bug #293 --
+    /// erosion is confirmed core arithmetic, and <c>combat.onDefeat</c> never reaches the siege path), and
+    /// so does which side won.
     /// </summary>
     [Fact]
     public void DoD12_TheSiegeDefendersOutcomeIsUnchangedByTheFlag()
@@ -67,12 +72,20 @@ public class SiegeBattleTests
         Assert.Equal(destroyed.Winner, scatter.Winner);
         Assert.Equal(destroyed.DefenderPower, scatter.DefenderPower);
 
-        Assert.Equal(before, destroyedState.CityById("meridia"));
-        Assert.Equal(before, scatterState.CityById("meridia"));
-        Assert.Equal(state.Cities, destroyedState.Cities);
-        Assert.Equal(state.Cities, scatterState.Cities);
+        // Both presets erode Meridia identically -- and differently from `before`, per bug #293: attacker
+        // fails (104,583 defenderPower >= 18,700 attackerPower), so every field takes the ceiling branch,
+        // field x 19/20 + 1: loyalty 65 -> 62, fortification 100 -> 96, population 140 -> 134 (the 200/6 +
+        // 1 = 34 population floor does not bind).
+        var erodedMeridia = destroyedState.CityById("meridia")!;
+        Assert.Equal(erodedMeridia, scatterState.CityById("meridia"));
+        Assert.NotEqual(before, erodedMeridia);
+        Assert.Equal(62, erodedMeridia.Loyalty);
+        Assert.Equal(96, erodedMeridia.FortificationCode);
+        Assert.Equal(134, erodedMeridia.PopulationThousands);
+        Assert.Equal(before.Owner, erodedMeridia.Owner);
 
-        // And nothing outside the besieging army moved either: no unity, no money, no supplies.
+        // And nothing outside the besieging army and the besieged city moved: no unity, no money, no
+        // supplies.
         Assert.Equal(state.Nations, destroyedState.Nations);
         Assert.Equal(0, destroyed.WinnerUnityDelta);
         Assert.Equal(0, destroyed.LoserUnityDelta);
@@ -108,38 +121,53 @@ public class SiegeBattleTests
     /// The attacking army takes attrition on every attempt, win or lose
     /// (<c>tests/fixtures/corpus.json</c> <c>siege.attritionEveryAttempt</c>), and its move is spent.
     /// </summary>
+    /// <remarks>
+    /// T63 (bug #290 part 1): the pinned ratios and per-unit losses below are the OLD, field-battle-shaped
+    /// arithmetic's evidence, not correct behaviour, and are replaced. The siege ratio is
+    /// <c>clamp(defenderStrength x 6 / attackerStrength, 1, 15)</c> -- raw defender/attacker strengths,
+    /// never a "loser/winner" framing -- not <c>loserPower x 40 / winnerPower</c>. The casualty-divisor
+    /// draws themselves are unaffected (they are drawn before the ratio is even used), so the same seeded
+    /// divisors 118, 110, 116 still apply.
+    /// </remarks>
     [Fact]
     public void TheBesiegingArmyTakesAttritionWhetherItWinsOrLoses()
     {
-        var combat = BattleTestbed.Destroyed.Combat;
+        var siege = BattleTestbed.Destroyed.Siege;
 
         // The same FUN_0044AE20 the field variant calls, with the same seeded divisors 118, 110, 116.
         var divisors = new[] { 118, 110, 116 };
         var troops = new[] { 12000, 4000, 2000 };
 
         var (repulsedState, repulsed) = Resolve(Fixture(), BattleTestbed.Destroyed);
-        var repulsedRatio = (repulsed.LoserPower * combat.WinnerCasualtyNumerator) / repulsed.WinnerPower;
-        Assert.Equal(7, repulsedRatio);
+        Assert.Equal(BattleSide.Defender, repulsed.Winner);
+        // defenderStrength x 6 / attackerStrength = 104,583 x 6 / 18,700 = 33 -> clamped to the 15 ceiling.
+        var repulsedRatio = Math.Max(
+            siege.AttritionRatioFloor,
+            Math.Min(siege.AttritionRatioCeiling, (repulsed.DefenderPower * siege.AttritionRatioMultiplier) / repulsed.AttackerPower));
+        Assert.Equal(15, repulsedRatio);
         Assert.Equal(
             troops.Select((t, i) => (t / divisors[i]) * repulsedRatio).ToArray(),
             repulsed.UnitCasualties.Select(c => c.TroopsLost).ToArray());
-        Assert.Equal(new[] { 707, 252, 119 }, repulsed.UnitCasualties.Select(c => c.TroopsLost).ToArray());
-        Assert.Equal(1078, repulsed.LoserCasualties);
+        Assert.Equal(new[] { 1515, 540, 255 }, repulsed.UnitCasualties.Select(c => c.TroopsLost).ToArray());
+        Assert.Equal(2310, repulsed.LoserCasualties);
         Assert.Equal(0, repulsed.WinnerCasualties);
-        Assert.Equal(18000 - 1078, repulsedState.ArmyById(Besieger)!.TotalTroops);
+        Assert.Equal(18000 - 2310, repulsedState.ArmyById(Besieger)!.TotalTroops);
         Assert.Equal(0, repulsedState.ArmyById(Besieger)!.Moves);
 
         var (takenState, taken) = Resolve(WeakCityFixture(), BattleTestbed.Destroyed, "hamlet");
         Assert.Equal(BattleSide.Attacker, taken.Winner);
-        var takenRatio = (taken.LoserPower * combat.WinnerCasualtyNumerator) / taken.WinnerPower;
-        Assert.Equal(5, takenRatio);
+        // defenderStrength x 6 / attackerStrength = 2,500 x 6 / 18,700 = 0 -> clamped to the 1 floor.
+        var takenRatio = Math.Max(
+            siege.AttritionRatioFloor,
+            Math.Min(siege.AttritionRatioCeiling, (taken.DefenderPower * siege.AttritionRatioMultiplier) / taken.AttackerPower));
+        Assert.Equal(1, takenRatio);
         Assert.Equal(
             troops.Select((t, i) => (t / divisors[i]) * takenRatio).ToArray(),
             taken.UnitCasualties.Select(c => c.TroopsLost).ToArray());
-        Assert.Equal(new[] { 505, 180, 85 }, taken.UnitCasualties.Select(c => c.TroopsLost).ToArray());
-        Assert.Equal(770, taken.WinnerCasualties);
+        Assert.Equal(new[] { 101, 36, 17 }, taken.UnitCasualties.Select(c => c.TroopsLost).ToArray());
+        Assert.Equal(154, taken.WinnerCasualties);
         Assert.Equal(0, taken.LoserCasualties);
-        Assert.Equal(18000 - 770, takenState.ArmyById(Besieger)!.TotalTroops);
+        Assert.Equal(18000 - 154, takenState.ArmyById(Besieger)!.TotalTroops);
     }
 
     /// <summary>

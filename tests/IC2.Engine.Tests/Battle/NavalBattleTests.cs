@@ -2,6 +2,7 @@ using IC2.Engine.Battle;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
 using IC2.Engine.News;
+using IC2.Engine.Persistence;
 using IC2.Engine.Serialization;
 using Xunit;
 
@@ -89,22 +90,29 @@ public class NavalBattleTests
 
     /// <summary>
     /// Done-when 7's remaining confirmed clause: above <c>d &gt; 70</c> the winner's own carried army also
-    /// loses whole unit slots at random, <c>unitCount × d / 250</c> of them.
+    /// loses whole unit slots at random, <c>(unitCount × d / 250) + 1</c> of them (bug #290 part 3;
+    /// <c>unitCount</c> counted after <see cref="BattleCasualties.Apply"/>'s own casualties).
     /// </summary>
     [Fact]
     public void DoD07_AboveTheDamageThresholdTheWinnersCarriedArmyAlsoLosesWholeUnits()
     {
         var naval = BattleTestbed.Destroyed.Combat.Naval;
 
+        // T63 (bug #290 part 2): the carried army's casualty ratio is the damage figure `d` itself, not
+        // the field-battle ratio loserPower x 40 / winnerPower an earlier round used here. `d` runs much
+        // higher than that ratio ever could (up to 100, against a ceiling of 40), so this fixture's units
+        // are sized in heavy_cavalry troops (the smallest small-unit-deletion threshold, 250 national --
+        // bug #289) rather than the original's 1,000-troop light infantry, which the new casualty pass
+        // now wipes out entirely before the whole-unit-loss branch ever runs.
         var state = BattleTestbed.StateWith(
             armies: new[]
             {
                 BattleTestbed.EmbarkedArmy(
                     "north-cargo", "north", Attacker, 0, 2, 60,
-                    BattleTestbed.Unit("light_infantry", 1000, 6, "A"),
-                    BattleTestbed.Unit("light_infantry", 1000, 6, "B"),
-                    BattleTestbed.Unit("light_infantry", 1000, 6, "C"),
-                    BattleTestbed.Unit("light_infantry", 1000, 6, "D")),
+                    BattleTestbed.Unit("heavy_cavalry", 1200, 6, "A"),
+                    BattleTestbed.Unit("heavy_cavalry", 1200, 6, "B"),
+                    BattleTestbed.Unit("heavy_cavalry", 1200, 6, "C"),
+                    BattleTestbed.Unit("heavy_cavalry", 1200, 6, "D")),
             },
             fleets: new[]
             {
@@ -114,41 +122,96 @@ public class NavalBattleTests
 
         var (after, result) = Resolve(state, BattleTestbed.Destroyed);
 
-        // 200 + (4,000/80 × 60) / 50 = 200 + 60 = 260; band 26; first draw 3 → 338.
-        Assert.Equal(338, result.AttackerPower);
+        // 200 + (4,800/80 × 60) / 50 = 200 + 72 = 272; band 27; first draw 3 → 353.
+        Assert.Equal(353, result.AttackerPower);
         Assert.Equal(319, result.DefenderPower);
 
         var damageRatio = (result.LoserPower * naval.DamageRatioScale) / result.WinnerPower;
         var damage = (damageRatio * damageRatio) / naval.DamageRatioScale;
-        Assert.Equal(94, damageRatio);
-        Assert.Equal(88, damage);
+        Assert.Equal(90, damageRatio);
+        Assert.Equal(81, damage);
         Assert.True(damage > naval.UnitLossDamageThreshold);
 
-        Assert.Equal((4 * damage) / naval.UnitLossDivisor, result.WinnerUnitsLost);
-        Assert.Equal(1, result.WinnerUnitsLost);
-
-        // The carried army takes the same per-unit expression as a field winner, at ratio
-        // 319 x 40 / 338 = 37 and divisors 116, 115, 105, 111:
-        //   1000/116 = 8 -> 296     1000/115 = 8 -> 296
-        //   1000/105 = 9 -> 333     1000/111 = 9 -> 333
-        var casualtyRatio =
-            (result.LoserPower * BattleTestbed.Destroyed.Combat.WinnerCasualtyNumerator) / result.WinnerPower;
-        Assert.Equal(37, casualtyRatio);
+        // The carried army takes ratio `d` (81) itself -- not a fresh loserPower x 40 / winnerPower
+        // figure -- at divisors 116, 115, 105, 111 (the same four draws the pre-T63 fixture used; the
+        // draw COUNT and order up to here are unchanged):
+        //   1200/116 = 10 -> 810     1200/115 = 10 -> 810
+        //   1200/105 = 11 -> 891     1200/111 = 10 -> 810
         Assert.Equal(
-            new[] { 116, 115, 105, 111 }.Select(d => (1000 / d) * casualtyRatio).ToArray(),
+            new[] { 116, 115, 105, 111 }.Select(d => (1200 / d) * damage).ToArray(),
             result.UnitCasualties.Select(c => c.TroopsLost).ToArray());
-        Assert.Equal(new[] { 296, 296, 333, 333 }, result.UnitCasualties.Select(c => c.TroopsLost).ToArray());
+        Assert.Equal(new[] { 810, 810, 891, 810 }, result.UnitCasualties.Select(c => c.TroopsLost).ToArray());
 
-        // Then the d > 70 branch removes one whole slot, picked by the next draw (1) -- slot "B".
+        // Every survivor (390, 390, 309, 390 troops) is still above heavy_cavalry's national deletion
+        // threshold (2,500 / 10 = 250, bug #289), so DeleteBelowThreshold removes none of them here --
+        // the whole-unit-loss branch below is the only thing that removes a slot in this fixture.
+        Assert.Equal((4 * damage) / naval.UnitLossDivisor + 1, result.WinnerUnitsLost);
+        Assert.Equal(2, result.WinnerUnitsLost);
+
+        // Then the d > 70 branch removes two whole slots, swap-with-last, picked by the next two draws.
         var cargo = after.ArmyById("north-cargo")!;
-        Assert.Equal(new[] { "A", "C", "D" }, cargo.Units.Select(u => u.Name).ToArray());
-        Assert.Equal(new[] { 704, 667, 667 }, cargo.Units.Select(u => u.Troops).ToArray());
+        Assert.Equal(new[] { "A", "C" }, cargo.Units.Select(u => u.Name).ToArray());
+        Assert.Equal(new[] { 390, 309 }, cargo.Units.Select(u => u.Troops).ToArray());
 
-        // Every troop the winner's carried army lost is accounted for: 1,258 to attrition plus the 704
-        // that went down with the removed slot.
-        Assert.Equal(296 + 296 + 333 + 333 + 704, result.WinnerCasualties);
-        Assert.Equal(1962, result.WinnerCasualties);
-        Assert.Equal(4000 - result.WinnerCasualties, cargo.TotalTroops);
+        // Every troop the winner's carried army lost is accounted for: 3,321 to attrition (810 + 810 +
+        // 891 + 810) plus the 390 and 390 that went down with the two removed slots ("B" and "D").
+        Assert.Equal(810 + 810 + 891 + 810 + 390 + 390, result.WinnerCasualties);
+        Assert.Equal(4101, result.WinnerCasualties);
+        Assert.Equal(4800 - result.WinnerCasualties, cargo.TotalTroops);
+    }
+
+    /// <summary>
+    /// R2-B1 (T63 review round 3): the naval-battle site's own delete sweep -- when the WINNER's carried
+    /// army is emptied by the whole-unit-loss branch, the army is deleted outright and the winner
+    /// fleet's own <see cref="FleetState.CarriedArmyId"/> is cleared -- had no test proving it through
+    /// <see cref="InstantBattleResolver.ResolveNaval"/> itself; only <see cref="BattleCasualties"/>'s own
+    /// unit tests exercised the deletion, and those cannot see the fleet link at all. Two mutations at
+    /// the call site (skipping the <c>CarriedArmyId</c> clear; keeping the emptied army instead of
+    /// deleting it) each left every other test green and produced a state
+    /// <see cref="GameDataValidation.Validate"/> rejects -- proof the gap was real.
+    /// </summary>
+    [Fact]
+    public void WinnersCarriedArmyEmptiedByTheDeleteSweep_IsDeletedAndTheFleetsLinkCleared()
+    {
+        const string OtherFleet = "other-fleet";
+        const string OtherCargo = "other-cargo";
+
+        var state = BattleTestbed.StateWith(
+            armies: new[]
+            {
+                BattleTestbed.EmbarkedArmy(
+                    "north-cargo", "north", Attacker, 0, 2, 60,
+                    BattleTestbed.Unit("heavy_cavalry", 260, 6, "A"),
+                    BattleTestbed.Unit("heavy_cavalry", 260, 6, "B")),
+                BattleTestbed.EmbarkedArmy(
+                    OtherCargo, "north", OtherFleet, 10, 10, 60,
+                    BattleTestbed.Unit("heavy_cavalry", 1200, 6, "C")),
+            },
+            fleets: new[]
+            {
+                BattleTestbed.Fleet(Attacker, "north", 0, 2, 40, 100, "north-cargo"),
+                BattleTestbed.Fleet(Defender, "south", 0, 3, 29, 100),
+                BattleTestbed.Fleet(OtherFleet, "north", 10, 10, 10, 100, OtherCargo),
+            });
+
+        var (after, result) = Resolve(state, BattleTestbed.Destroyed);
+
+        Assert.Equal(527, result.AttackerPower);
+        Assert.Equal(319, result.DefenderPower);
+        Assert.Equal(BattleSide.Attacker, result.Winner);
+
+        // The winner's own cargo is gone -- not present with zero units, gone entirely -- and its
+        // fleet's own carried-army link is cleared, not left dangling.
+        Assert.Null(after.ArmyById("north-cargo"));
+        Assert.Null(after.FleetById(Attacker)!.CarriedArmyId);
+
+        // The unrelated second fleet's cargo, untouched by this battle, survives with its link intact.
+        Assert.Equal(OtherCargo, after.FleetById(OtherFleet)!.CarriedArmyId);
+        Assert.NotNull(after.ArmyById(OtherCargo));
+
+        // Round-trips through T20's SaveManager: a dangling CarriedArmyId, or a persisted zero-unit
+        // army, is exactly what gate 5 exists to keep out of a save (DoD 1).
+        AssertRoundTripsThroughSaveManager(after);
     }
 
     /// <summary>
@@ -368,4 +431,22 @@ public class NavalBattleTests
             BattleTestbed.BattleRng(),
             Archers,
             events ?? NullEventSink.Instance);
+
+    /// <summary>R2-B1: the delete-class round-trip DoD 1 names is through T20's <see cref="SaveManager"/>, not just <see cref="GameDataLoader"/>/<see cref="GameDataValidation"/>.</summary>
+    private static void AssertRoundTripsThroughSaveManager(GameState state)
+    {
+        var save = new SaveGame(
+            SchemaVersion: GameDataSchema.CurrentVersion,
+            Id: "probe-save",
+            Label: "T63 naval delete-class probe",
+            ScenarioId: state.ScenarioId,
+            WorldId: state.WorldId,
+            RulesetId: state.RulesetId,
+            State: state);
+
+        var json = SaveManager.Serialize(save);
+        var reloaded = SaveManager.Load("probe-save.json", json, BattleTestbed.World, BattleTestbed.Destroyed);
+
+        Assert.Equal(json, SaveManager.Serialize(reloaded));
+    }
 }

@@ -65,6 +65,7 @@ public sealed class FleetTickSystem : IGameSystem
 
         var updatedFleets = new List<FleetState>(state.Fleets.Count);
         var destroyedArmyIds = new HashSet<string>(StringComparer.Ordinal);
+        var updatedArmies = new Dictionary<string, ArmyState>(StringComparer.Ordinal);
 
         foreach (var fleet in state.Fleets)
         {
@@ -118,11 +119,17 @@ public sealed class FleetTickSystem : IGameSystem
             var tripleDamageBranchActive = fleet.CoveredTileCode == rules.StormTripleConditionTileCode;
             var nearFriendlyCoast = IsNearFriendlyCoast(fleet, state, rules);
 
+            // T63 (bug #292, steps 3 and 4; bug #292/B2): the carried army's own casualty pass now runs
+            // INSIDE ApplyLaunchedFleetTurn, between the storm pass and the moves formula, so moves are
+            // computed from the army's POST-storm troop count -- the original's own order
+            // (supply-driven-morale-and-fleet-attrition.md §"The fleet loop, in order", research
+            // 3f6ca09). Passing carriedArmy.Units (not just a troop count) is what lets this method
+            // update them and hand the result back below.
             var outcome = FleetAttritionRule.ApplyLaunchedFleetTurn(
                 ships: fleet.Ships,
                 conditionPercent: fleet.ConditionPercent,
                 supplyTonsBeforeConsumption: fleet.SupplyTons,
-                carriedArmyTroops: carriedArmy?.TotalTroops,
+                carriedArmyUnits: carriedArmy?.Units,
                 isWinter: isWinter,
                 tripleDamageBranchActive: tripleDamageBranchActive,
                 nearFriendlyCoast: nearFriendlyCoast,
@@ -145,18 +152,37 @@ public sealed class FleetTickSystem : IGameSystem
                 context.Events.Publish(new FleetDamagedInStorm(fleet.Nation));
             }
 
+            // The delete sweep: an emptied carried army is deleted and the fleet's own link to it
+            // cleared (bug #289); a surviving, storm-reduced army is written back so its lower troop
+            // count and unit list persist (B8 -- an earlier revision only ever wrote this back for the
+            // "emptied" case, so a survivor's own casualties were silently dropped).
+            var carriedArmyIdAfterStorm = fleet.CarriedArmyId;
+            if (carriedArmy is not null && outcome.CarriedArmyUnits is { } armyUnitsAfter)
+            {
+                if (outcome.CarriedArmyEmptied)
+                {
+                    destroyedArmyIds.Add(carriedArmy.Id);
+                    carriedArmyIdAfterStorm = null;
+                }
+                else if (outcome.DamagedInStorm)
+                {
+                    updatedArmies[carriedArmy.Id] = carriedArmy with { Units = armyUnitsAfter };
+                }
+            }
+
             updatedFleets.Add(fleet with
             {
                 Ships = outcome.Ships,
                 ConditionPercent = outcome.ConditionPercent,
                 SupplyTons = outcome.SupplyTonsAfterConsumption,
                 Moves = outcome.Moves,
+                CarriedArmyId = carriedArmyIdAfterStorm,
             });
         }
 
-        var survivingArmies = destroyedArmyIds.Count == 0
-            ? state.Armies
-            : ValueList.From(state.Armies.Where(a => !destroyedArmyIds.Contains(a.Id)));
+        var survivingArmies = ValueList.From(state.Armies
+            .Where(a => !destroyedArmyIds.Contains(a.Id))
+            .Select(a => updatedArmies.TryGetValue(a.Id, out var updated) ? updated : a));
 
         return state with { Fleets = ValueList.From(updatedFleets), Armies = survivingArmies };
     }

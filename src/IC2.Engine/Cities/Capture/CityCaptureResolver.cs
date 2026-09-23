@@ -96,7 +96,15 @@ public static class CityCaptureResolver
         var city = state.CityById(siegeResult.DefenderId)
                    ?? throw new ArgumentException($"'{siegeResult.DefenderId}' is not a known city.", nameof(siegeResult));
 
-        if (siegeResult.AttackerWon)
+        // T63 Decision 3: in the original, a besieger emptied by its OWN casualties still captures the
+        // city, which ends up with owner -1. CityState.Owner is a non-null nation id, so that result
+        // cannot be represented here. [designed, departs from the original on purpose] -- both presets
+        // treat this as a failed attempt instead, after InstantBattleResolver.ResolveSiege's erosion has
+        // already been applied to `state`. `state` (not siegeResult.AttackerId's pre-battle strength) is
+        // consulted because ResolveSiege's own attrition and deletion pass (#289) already ran; an army
+        // the deletion pass emptied entirely is no longer present in state.Armies at all.
+        var attackerArmy = state.ArmyById(siegeResult.AttackerId);
+        if (siegeResult.AttackerWon && attackerArmy is { TotalTroops: > 0 })
         {
             return Capture(state, siegeResult.AttackerId, city.Id, ruleset, archerUnitTypeId, fortifyOrderId, events);
         }

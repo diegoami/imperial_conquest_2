@@ -104,14 +104,19 @@ public class BattleDeterminismTests
     {
         string[] reserved =
         {
-            // The reserve's whole ruleset surface, plus the rout mechanic's own threshold field.
+            // The reserve's whole ruleset surface. StandardBattalionSize used to belong on this list
+            // too -- before T63 it was read only by the reserve tactical rout mechanic's own threshold
+            // (size / 25, still unimplemented, still reserve). It is REMOVED here, not merely
+            // grandfathered: BattleCasualties.DeleteBelowThreshold now reads it for a different, SHIPPED
+            // rule -- the small-unit deletion pass's own threshold (size / 10 national, size / 5
+            // mercenary, bug #289, confirmed at FUN_0044AE20's second pass) -- so the field is no longer
+            // exclusive to the reserve and the guard would false-positive on confirmed, shipped code.
             "DetailedResolver",
             "TypeEffectiveness",
             "MeleeLossCap",
             "MeleeBasePowerFloor",
             "MeleePowerDivisor",
             "InRangeShotMultiplier",
-            "StandardBattalionSize",
         };
 
         var battleSources = Directory.GetFiles(

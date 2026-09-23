@@ -159,8 +159,18 @@ public static class InstantBattleResolver
         var casualtyRatio = BattleCasualties.Ratio(loserPower, winnerPower, combat.WinnerCasualtyNumerator);
         var (reducedUnits, unitLosses, appliedCasualties) =
             BattleCasualties.Apply(winner.Units, casualtyRatio, rng, combat);
-        var (promotedUnits, promotions) = BattleCasualties.Promote(reducedUnits, rng, combat);
+
+        // FUN_0044AE20's second pass (bug #289): delete every surviving unit left below its own
+        // small-unit threshold, BEFORE the promotion roll -- a deleted unit gets no roll.
+        var survivingUnits = BattleCasualties.DeleteBelowThreshold(reducedUnits, ruleset);
+        var (promotedUnits, promotions) = BattleCasualties.Promote(survivingUnits, rng, combat);
         winner = winner with { Units = promotedUnits };
+
+        // Delete sweep (build-process.md §4.2 gate 5): the winner's own deletion pass can empty the
+        // winner itself (every unit was small enough to be swept). MergeCombatants below writes `winner`
+        // back into Armies either way, so an emptied winner is handled by dropping it from the survivor
+        // set entirely rather than persisting a zero-unit army record.
+        var winnerEmptied = promotedUnits.Count == 0;
 
         var absorbedMoney = loser.Money;
         var supplySum = winner.SupplyTons + loser.SupplyTons;
@@ -237,6 +247,14 @@ public static class InstantBattleResolver
         // combatants below are the already-updated records, so nothing else needs touching.
         var armies = MergeCombatants(state.Armies, a => a.Id, winner, loser.Id, survivor);
 
+        // Delete sweep: a winner the deletion pass emptied is dropped outright rather than persisted as
+        // a zero-unit army -- it was never embarked (a field battle requires both sides ashore), so no
+        // fleet's CarriedArmyId can be pointing at it.
+        if (winnerEmptied)
+        {
+            armies = ValueList.From(armies.Where(a => !string.Equals(a.Id, winner.Id, StringComparison.Ordinal)));
+        }
+
         var newState = state with
         {
             Armies = armies,
@@ -307,7 +325,9 @@ public static class InstantBattleResolver
     /// unity[loser] -= floor(loserShips / 2);  unity[winner] = min(990, unity[winner] + floor(loserShips / 2));
     /// // FUN_0044B4F8: r = max(1, loserStrength × 100 / winnerStrength);  d = r² / 100;
     /// //               winner loses ships × d / 300 ships and condition × d / 300 condition;
-    /// //               a carried army takes casualties, and if d &gt; 70 also loses unitCount × d / 250 units
+    /// //               a carried army takes casualties AT RATIO d (FUN_0044AE20(army, d), #290 part 2),
+    /// //               including its own deletion pass (#289), and if d &gt; 70 also loses
+    /// //               unitCount × d / 250 + 1 units, swap-with-last (#290 part 3)
     /// deleteFleet(loser);                    // and any army it carried
     /// news("&lt;winner&gt; sinks fleet of &lt;loser&gt;.");
     /// </code>
@@ -326,10 +346,14 @@ public static class InstantBattleResolver
     /// <para>
     /// <strong>Draw order</strong>, fixed: the attacker's random band, then the defender's (both inside
     /// <see cref="FleetPower.Compute"/>), then one casualty-divisor draw per slot of the winner's carried
-    /// army, then one draw per whole unit that army loses to the <c>d &gt; 70</c> branch, then — under
-    /// <see cref="DefeatOutcome.Scatter"/> — one casualty-divisor draw for the beaten fleet's own hull
-    /// loss (<see cref="BattleCasualties.ApplyToFleet"/>, unconditional, drawn before the loss is known),
-    /// and finally, only when hulls survive to relocate, the scatter distance.
+    /// army (<see cref="BattleCasualties.Apply"/>, folded into
+    /// <see cref="BattleCasualties.ApplyToCarriedArmy"/> together with the deletion pass below), then one
+    /// draw per whole unit that army loses to the <c>d &gt; 70</c> branch — the deletion pass
+    /// (<see cref="BattleCasualties.DeleteBelowThreshold"/>, #289) sits between these two and draws
+    /// nothing, so it does not itself shift this order, only the SURVIVOR COUNT the whole-unit-loss branch
+    /// then counts against — then, under <see cref="DefeatOutcome.Scatter"/>, one casualty-divisor draw for
+    /// the beaten fleet's own hull loss (<see cref="BattleCasualties.ApplyToFleet"/>, unconditional, drawn
+    /// before the loss is known), and finally, only when hulls survive to relocate, the scatter distance.
     /// </para>
     /// <para>
     /// <strong>The one place the mirrored figure is read as a count, scaled to the fleet's own size
@@ -405,6 +429,20 @@ public static class InstantBattleResolver
         var defenderPower = FleetPower.Compute(
             defender.Ships, defender.ConditionPercent, rng, ruleset, CarriedArmy(state, defender, archerUnitTypeId));
 
+        // Decision 2 (T63): the original divides by zero at a naval battle whose winner would have zero
+        // strength -- both fleets floor to zero power (Strength.FleetPower.Compute's own floor for a
+        // low-ship, low-condition fleet). AttackLegality.Check refuses this before the command ever
+        // reaches here; this is the same defensive backstop ResolveField/ResolveSiege already throw for
+        // their own illegal states, since nothing has been drawn from `rng` yet that a caller could
+        // observe as a "partial" battle.
+        if (Math.Max(attackerPower, defenderPower) <= 0)
+        {
+            throw new ArgumentException(
+                $"Neither '{attacker.Id}' nor '{defender.Id}' has any combat strength; a naval battle "
+                + "cannot resolve (T63 Decision 2).",
+                nameof(attackerFleetId));
+        }
+
         var attackerWon = defenderPower < attackerPower;
         var winner = attackerWon ? attacker : defender;
         var loser = attackerWon ? defender : attacker;
@@ -418,7 +456,10 @@ public static class InstantBattleResolver
         // this is the forward comparison, and winnerPower is by construction the greater-or-equal of the
         // two powers a line above, so a zero divisor implies a zero numerator and the guard only ever
         // turns 0/0 into a ratio of 1 -- which squares to a damage of 0, i.e. an untouched winner. The
-        // mirrored casualty call has no such guarantee, which is exactly why its own guard saturates.
+        // mirrored casualty call has no such guarantee, which is exactly why its own guard saturates. The
+        // guard above additionally means winnerPower is now strictly positive here, so Math.Max(1, ·) no
+        // longer binds in practice -- kept anyway as the documented, once-provably-safe guard it always
+        // was, rather than deleted on the strength of a check that lives in a different method.
         var ratio = Math.Max(1, (loserPower * naval.DamageRatioScale) / Math.Max(1, winnerPower));
         var damage = (ratio * ratio) / naval.DamageRatioScale;
 
@@ -432,41 +473,39 @@ public static class InstantBattleResolver
             ConditionPercent = winner.ConditionPercent - conditionLost,
         };
 
-        // The winner's carried army takes the same casualty figure the field battle applies, and above the
-        // damage threshold also loses whole slots at random. The reports confirm FUN_0044AE20's body and
-        // confirm the ratio argument at the FIELD call site; the naval call site is not itself stated by
-        // FUN_0044B4F8's "a carried army takes casualties (FUN_0044AE20)" -- reusing
-        // WinnerCasualtyNumerator here is [derived] from the field call site, not read from the
-        // decompilation (T52 DoD 7).
-        var carriedCasualtyRatio = BattleCasualties.Ratio(loserPower, winnerPower, combat.WinnerCasualtyNumerator);
+        // The winner's carried army takes the SAME damage figure `d` the ships and condition just did --
+        // not the field battle's loserPower x 40 / winnerPower ratio (bug #290 part 2's fix: FUN_0044B4F8
+        // calls FUN_0044AE20(carriedArmy, d), the function's own third argument, not a fresh ratio). The
+        // shared ApplyToCarriedArmy also runs the deletion pass (#289) before counting survivors for the
+        // whole-unit loss, and removes those swap-with-last with the missing "+ 1" restored (bug #290
+        // part 3).
         var unitLosses = ValueList<UnitCasualty>.Empty;
         var unitsLost = 0;
         var appliedToCarriedArmy = 0;
         ArmyState? winnerCarriedArmy = null;
+        string? emptiedCarriedArmyId = null;
 
         if (winner.CarriedArmyId is { } carriedId && state.ArmyById(carriedId) is { } carried)
         {
-            var (reduced, losses, appliedCarried) =
-                BattleCasualties.Apply(carried.Units, carriedCasualtyRatio, rng, combat);
-            unitLosses = losses;
-            appliedToCarriedArmy = appliedCarried;
+            var carriedResult = BattleCasualties.ApplyToCarriedArmy(
+                carried.Units, damage, naval.UnitLossDamageThreshold, naval.UnitLossDivisor, rng, ruleset);
 
-            if (damage > naval.UnitLossDamageThreshold)
+            unitLosses = carriedResult.Losses;
+            appliedToCarriedArmy = carriedResult.TroopsLost;
+            unitsLost = carriedResult.UnitsLost;
+
+            if (carriedResult.Emptied)
             {
-                var toLose = Math.Min(reduced.Count, (reduced.Count * damage) / naval.UnitLossDivisor);
-                var remaining = new List<UnitSlot>(reduced);
-                for (var i = 0; i < toLose && remaining.Count > 0; i++)
-                {
-                    var dropped = rng.NextInt(remaining.Count);
-                    appliedToCarriedArmy += remaining[dropped].Troops;
-                    remaining.RemoveAt(dropped);
-                    unitsLost++;
-                }
-
-                reduced = ValueList.From(remaining);
+                // Delete sweep: the carried army has no units left. Drop its record and clear the
+                // fleet's own link to it, rather than persist a zero-unit army or a dangling
+                // CarriedArmyId (build-process.md §4.2 gate 5).
+                emptiedCarriedArmyId = carried.Id;
+                winner = winner with { CarriedArmyId = null };
             }
-
-            winnerCarriedArmy = carried with { Units = reduced };
+            else
+            {
+                winnerCarriedArmy = carried with { Units = carriedResult.Units };
+            }
         }
 
         var unityStep = loser.Ships / naval.UnitySwingShipDivisor;
@@ -537,6 +576,13 @@ public static class InstantBattleResolver
             if (winnerCarriedArmy is { } damaged && string.Equals(army.Id, damaged.Id, StringComparison.Ordinal))
             {
                 armies.Add(damaged);
+                continue;
+            }
+
+            // The winner's own carried army, emptied by this battle's casualty and deletion passes --
+            // dropped outright (see where emptiedCarriedArmyId is set, above).
+            if (emptiedCarriedArmyId is { } emptiedId && string.Equals(army.Id, emptiedId, StringComparison.Ordinal))
+            {
                 continue;
             }
 
@@ -614,22 +660,35 @@ public static class InstantBattleResolver
     /// </para>
     /// <para>
     /// <strong>What this deliberately does not do, and why (DoD 12).</strong> It does not transfer the
-    /// city, clear a garrison, move loyalty, cascade defections, change unity, absorb money or supplies,
-    /// or emit the capture news lines: all of that is T17. And it never reads
-    /// <see cref="RulesetFlags.CombatOnDefeat"/> — a city garrison has nowhere to scatter to, so the flag
-    /// is explicitly out of scope for sieges (<c>docs/game-design.md</c> §"The defeated side's fate"),
-    /// and T17 depends on that staying true. <see cref="BattleResult.AppliedDefeatOutcome"/> is therefore
-    /// <see langword="null"/> and <see cref="BattleResult.LoserFate"/> is
-    /// <see cref="LoserFate.Unaffected"/> for every siege.
+    /// city's ownership, clear a garrison, cascade defections, change unity, absorb money or supplies, or
+    /// emit the capture news lines: all of that is T17 (<see cref="Cities.Capture.CityCaptureResolver"/>).
+    /// It never reads <see cref="RulesetFlags.CombatOnDefeat"/> either — a city garrison has nowhere to
+    /// scatter to, so the flag is explicitly out of scope for sieges (<c>docs/game-design.md</c>
+    /// §"The defeated side's fate"), and T17 depends on that staying true.
+    /// <see cref="BattleResult.AppliedDefeatOutcome"/> is therefore <see langword="null"/> and
+    /// <see cref="BattleResult.LoserFate"/> is <see cref="LoserFate.Unaffected"/> for every siege.
+    /// <strong>T63 correction (bug #293):</strong> an earlier revision of this remark also said the
+    /// resolver "does not... move loyalty", which was the very defect #293 filed — the original folds the
+    /// city's own loyalty/fortification/population erosion into this same function, on every attempt, win
+    /// or lose, and this method now does too (below). Only the OWNERSHIP transfer and everything that
+    /// follows from it stays T17's.
     /// </para>
     /// <para>
     /// <strong>One kind of draw only.</strong> There is no promotion step, no peace roll and no random
     /// band on this path; the only draws are <see cref="BattleCasualties.Apply"/>'s one-per-slot casualty
     /// divisors for the besieging army's own attrition, which is the very same <c>FUN_0044AE20</c> the
-    /// field variant calls. The reports confirm that function's body and confirm its <c>ratio</c> argument
-    /// at the field call site; neither states what <c>ratio</c> is at this siege call site, so reusing
-    /// <see cref="CombatRules.WinnerCasualtyNumerator"/> here is <c>[derived]</c> from the field call site,
-    /// not read from the decompilation (T52 DoD 7).
+    /// field variant calls — the erosion below (#293) makes no <c>Random</c> call at all, so it adds no
+    /// draws of its own.
+    /// <strong>T63 correction (bug #290 part 1):</strong> an earlier revision of this remark said the
+    /// siege call site's own <c>ratio</c> argument was undocumented and reused
+    /// <see cref="CombatRules.WinnerCasualtyNumerator"/> as a <c>[derived]</c> stand-in from the field call
+    /// site. The siege call site is now read at instruction level
+    /// (<c>decompiled-defection-and-siege-attrition.md</c> §"FUN_0044b27c, instruction by instruction",
+    /// research 3f6ca09) and has its own, different ratio —
+    /// <c>clamp(defenderStrength × 6 / attackerStrength, </c><see cref="SiegeRules.AttritionRatioFloor"/><c>,
+    /// </c><see cref="SiegeRules.AttritionRatioCeiling"/><c>)</c>, computed from the raw attacker/defender
+    /// strengths below, never from a <see cref="BattleResult.WinnerPower"/>/<see cref="BattleResult.LoserPower"/>-style
+    /// framing — so this method no longer reads <see cref="CombatRules.WinnerCasualtyNumerator"/> at all.
     /// </para>
     /// <para>
     /// <strong>The garrison term (T17 DoD 7, a narrow grant on this file).</strong>
@@ -697,13 +756,33 @@ public static class InstantBattleResolver
 
         var attackerPower = SiegeStrength.Attacker(attacker.Units, attacker.Morale, ruleset, archerUnitTypeId);
 
+        // Decision 2 (T63): the original divides by zero at atk = 0. AttackLegality.Check refuses this
+        // before the command ever reaches here; this is the defensive backstop, before any state change
+        // below -- the same discipline ResolveField and ResolveNaval already apply for their own illegal
+        // states.
+        if (attackerPower <= 0)
+        {
+            throw new ArgumentException(
+                $"Army '{attacker.Id}' has no siege strength; a siege attempt cannot resolve "
+                + "(T63 Decision 2).",
+                nameof(attackerArmyId));
+        }
+
+        var fortifyOrder = RequireCityOrder(ruleset, fortifyOrderId);
+
+        // Step 1 (#293): strip a pending fortification order on every attempt. FUN_0044A98C decodes the
+        // word through the same FinishedPercent guard either way, so this does not itself change `def`
+        // below -- it only changes what the city's own stored word is from here on.
+        var strippedFortificationCode = FortificationCode.AfterSiegeAttempt(city.FortificationCode, fortifyOrder);
+
         var owner = state.NationById(city.Owner);
         var isControllerCapital = owner?.CapitalCityId is { } capital
                                   && string.Equals(capital, city.Id, StringComparison.Ordinal);
 
+        // Step 2: def.
         var defenderPower = SiegeStrength.Defender(
-            city.FortificationCode,
-            RequireCityOrder(ruleset, fortifyOrderId),
+            strippedFortificationCode,
+            fortifyOrder,
             city.Loyalty,
             city.PopulationThousands,
             isControllerCapital,
@@ -744,23 +823,112 @@ public static class InstantBattleResolver
         }
 
         var attackerWon = defenderPower < attackerPower;
-        var winnerPower = attackerWon ? attackerPower : defenderPower;
-        var loserPower = attackerWon ? defenderPower : attackerPower;
 
-        var casualtyRatio = BattleCasualties.Ratio(
-            loserPower, winnerPower, ruleset.Combat.WinnerCasualtyNumerator);
-        var (reduced, losses, applied) =
+        // Decision 1, extended by the user (D-A): the original reads certain intermediate values as a
+        // SIGNED 16-bit register -- FUN_00448FD0/FUN_00448FD8's own comparisons are JG/JL (signed),
+        // never JA/JB (unsigned) -- decompiled-defection-and-siege-attrition.md
+        // §"FUN_0044b27c, instruction by instruction", research 3f6ca09. classical-faithful reproduces
+        // this for BOTH the attrition ratio's own clamp (below) and the erosion's own field x def / atk
+        // term; improved computes both in ordinary 32-bit arithmetic. A single policy switch, since both
+        // are the same original bug class at the same call site's own local variables.
+        int ApplySixteenBitPolicy(int value) =>
+            ruleset.Flags.BugPolicySiegeRatioClamp == SiegeRatioClampPolicy.Reproduce16BitClamp
+                ? unchecked((int)(short)value)
+                : value;
+
+        // Step 3 (#293): erosion -- loyalty, then fortification, then population, each
+        // field = max(field x 3/4, min(field x 19/20 + 1, field x def / atk)), with the SAME def/atk
+        // pair above (after every adjustment, before erosion changes anything). No random term. The
+        // ratio term itself (field x def / atk) is where D-A's 16-bit wrap applies, exactly as it does
+        // to the attrition ratio below -- both are the same original local, read the same way.
+        int Erode(int field) => Math.Max(
+            (field * siege.ErosionFloorNumerator) / siege.ErosionFloorDenominator,
+            Math.Min(
+                ((field * siege.ErosionCeilingNumerator) / siege.ErosionCeilingDenominator)
+                    + siege.ErosionCeilingAddend,
+                ApplySixteenBitPolicy((field * defenderPower) / attackerPower)));
+
+        var loyaltyBefore = city.Loyalty;
+        var fortificationPercentBefore = FortificationCode.FinishedPercent(city.FortificationCode, fortifyOrder);
+        var populationBefore = city.PopulationThousands;
+
+        var erodedLoyalty = Erode(loyaltyBefore);
+        // The fortification field erosion reads the STRIPPED word's finished percent -- step 1 already
+        // discarded any pending order, so this is always a plain percent, never an in-progress encoding.
+        var erodedFortificationPercent =
+            Erode(FortificationCode.FinishedPercent(strippedFortificationCode, fortifyOrder));
+        var erodedPopulation = Erode(populationBefore);
+
+        // Step 4: population floor, after all three erosions.
+        var flooredPopulation = Math.Max(
+            erodedPopulation,
+            (city.MaxPopulationThousands / siege.PopulationFloorDivisor) + siege.PopulationFloorAddend);
+
+        var erodedCity = city with
+        {
+            Loyalty = erodedLoyalty,
+            // Erode() never raises a value above its own ceiling term, and the ceiling of an input
+            // already <= fortifyOrder.MaxPercent stays <= MaxPercent under truncation, so writing this
+            // straight back as FortificationCode is safe: it reads back as a plain finished percent,
+            // never as an in-progress encoding.
+            FortificationCode = erodedFortificationPercent,
+            PopulationThousands = flooredPopulation,
+        };
+
+        // Step 5 (#290): the attacker's own casualties, ratio = clamp(def x 6 / atk, 1, 15), applied on a
+        // success or a failure alike -- def and atk here are the RAW attacker/defender strengths, not a
+        // "loser/winner" framing (unlike the field and naval call sites). Decision 1 (T63): the original
+        // compares this clamp as a SIGNED 16-bit value (see ApplySixteenBitPolicy above), so a
+        // near-empty besieger's ratio can wrap to anywhere in [-32768, 32767] -- not merely to a small
+        // unsigned remainder -- instead of saturating at the ceiling; classical-faithful reproduces the
+        // wrap, improved clamps in ordinary 32-bit arithmetic.
+        var rawAttritionRatio = (defenderPower * siege.AttritionRatioMultiplier) / attackerPower;
+        var clampInput = ApplySixteenBitPolicy(rawAttritionRatio);
+        var casualtyRatio = Math.Max(
+            siege.AttritionRatioFloor, Math.Min(siege.AttritionRatioCeiling, clampInput));
+
+        var (reducedUnits, losses, applied) =
             BattleCasualties.Apply(attacker.Units, casualtyRatio, rng, ruleset.Combat);
-        attacker = attacker with { Units = reduced };
+
+        // FUN_0044AE20's second pass (#289), same as the field and naval call sites.
+        var survivingUnits = BattleCasualties.DeleteBelowThreshold(reducedUnits, ruleset);
+        var attackerEmptied = survivingUnits.Count == 0;
+        attacker = attacker with { Units = survivingUnits };
+
+        // N7 (T63 review round 1), enforcing Decision 3 in the result itself, not merely in
+        // CityCaptureResolver's own downstream check: a besieger the SAME attempt's own casualties
+        // just emptied does not capture the city (Decision 3 -- an ownerless city is not
+        // representable), so the reported result must not claim a win either. `attackerWon` alone
+        // (the strength comparison, decided before this attempt's own casualties) would otherwise
+        // report BattleSide.Attacker here even though no capture follows -- a result a caller could
+        // read as "the city fell" when it did not.
+        var reportedAttackerWon = attackerWon && !attackerEmptied;
 
         var armies = new List<ArmyState>();
         foreach (var army in state.Armies)
         {
-            armies.Add(
-                string.Equals(army.Id, attacker.Id, StringComparison.Ordinal) ? attacker : army);
+            if (string.Equals(army.Id, attacker.Id, StringComparison.Ordinal))
+            {
+                // Delete sweep: a besieger the deletion pass emptied is dropped outright -- it was never
+                // embarked (guarded above), so no fleet's CarriedArmyId can point at it.
+                if (!attackerEmptied)
+                {
+                    armies.Add(attacker);
+                }
+
+                continue;
+            }
+
+            armies.Add(army);
         }
 
-        var newState = state with { Armies = ValueList.From(armies) };
+        var cities = new List<CityState>();
+        foreach (var candidate in state.Cities)
+        {
+            cities.Add(string.Equals(candidate.Id, city.Id, StringComparison.Ordinal) ? erodedCity : candidate);
+        }
+
+        var newState = state with { Armies = ValueList.From(armies), Cities = ValueList.From(cities) };
 
         var result = new BattleResult(
             BattleKind.Siege,
@@ -770,11 +938,11 @@ public static class InstantBattleResolver
             city.Owner,
             attackerPower,
             defenderPower,
-            attackerWon ? BattleSide.Attacker : BattleSide.Defender,
+            reportedAttackerWon ? BattleSide.Attacker : BattleSide.Defender,
             AppliedDefeatOutcome: null,
             LoserFate.Unaffected,
-            attackerWon ? applied : 0,
-            attackerWon ? 0 : applied,
+            reportedAttackerWon ? applied : 0,
+            reportedAttackerWon ? 0 : applied,
             losses,
             ValueList<UnitPromotion>.Empty,
             AbsorbedMoney: 0,
@@ -785,7 +953,13 @@ public static class InstantBattleResolver
             WinnerConditionLost: 0,
             WinnerUnitsLost: 0,
             PeaceTreatyFired: false,
-            Scatter: null);
+            Scatter: null,
+            CityLoyaltyBefore: loyaltyBefore,
+            CityLoyaltyAfter: erodedLoyalty,
+            CityFortificationPercentBefore: fortificationPercentBefore,
+            CityFortificationPercentAfter: erodedFortificationPercent,
+            CityPopulationThousandsBefore: populationBefore,
+            CityPopulationThousandsAfter: flooredPopulation);
 
         events.Publish(new BattleResolved(result));
         return new BattleResolution(newState, result);

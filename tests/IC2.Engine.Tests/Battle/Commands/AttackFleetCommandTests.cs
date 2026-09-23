@@ -137,6 +137,24 @@ public sealed class AttackFleetCommandTests
     }
 
     /// <summary>
+    /// T63 Decision 2: the original divides by zero when the naval battle's winner would have zero
+    /// strength, which only happens when BOTH fleets' base strength floors to zero. Refused with the
+    /// typed reason rather than reaching <see cref="InstantBattleResolver.ResolveNaval"/>'s own defensive
+    /// backstop.
+    /// </summary>
+    [Fact]
+    public void BothFleetsHaveNoStrength_IsRefusedWithTheTypedReason()
+    {
+        var state = Fixture();
+        var powerless = state with
+        {
+            Fleets = ValueList.From(state.Fleets.Select(f => f with { Ships = 0 })),
+        };
+
+        AssertRefused(powerless, Attack(), AttackFleetRejections.BothFleetsHaveNoStrength);
+    }
+
+    /// <summary>
     /// The construction gate, on <strong>both</strong> sides — the same discipline as the two embarkation
     /// gates in <see cref="AttackArmyCommandTests"/>, and for the same reason:
     /// <see cref="InstantBattleResolver.ResolveNaval"/> throws <see cref="ArgumentException"/> when

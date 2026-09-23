@@ -162,6 +162,7 @@ public class ImprovedPresetTests
             "flags.bugPolicyDiplomaticThaw",
             "flags.combatOnDefeat",
             "flags.faithfulThawColumnBug",
+            "flags.bugPolicySiegeRatioClamp",
             "victory.defaultCondition",
             "victory.defaultTurnLimit",
         };

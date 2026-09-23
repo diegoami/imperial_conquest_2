@@ -3,6 +3,7 @@ using IC2.Engine.Battle;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
 using IC2.Engine.News;
+using IC2.Engine.Persistence;
 using IC2.Engine.Serialization;
 using IC2.Engine.Strength;
 using IC2.Engine.Tests.Model;
@@ -565,10 +566,60 @@ public class FieldBattleTests
         Assert.NotNull(after.ArmyById(UnrelatedCargo));
 
         // And the repaired state is one that reloads -- a dangling id is exactly what this guard, and
-        // gate 5, exist to keep out of a save.
-        var reloaded = GameDataLoader.Load<GameState>("battle-state.json", GameJson.Serialize(after));
-        GameDataValidation.Validate("battle-state.json", reloaded);
-        Assert.Equal(GameJson.Serialize(after), GameJson.Serialize(reloaded));
+        // gate 5, exist to keep out of a save. B7 (T63 review round 1): through T20's SaveManager, not
+        // just GameDataLoader/GameDataValidation -- see AssertRoundTripsThroughSaveManager's own remarks.
+        AssertRoundTripsThroughSaveManager(after);
+    }
+
+    /// <summary>
+    /// T63 DoD 1's "Delete sweep": if the WINNER's own deletion pass (#289) empties it entirely, the army
+    /// is deleted outright, not persisted as a zero-unit record. Two armies, one emptied and one
+    /// surviving, per the Done-when line's own wording, plus the same round-trip proof
+    /// <see cref="DoD08_ClearCarrierLinksRepairsAStaleClaimOnADeletedLoserAndLeavesAnUnrelatedOneAlone"/>
+    /// uses.
+    /// </summary>
+    [Fact]
+    public void WinnerEmptiedByItsOwnDeletionPass_IsDeletedNotPersistedAsZeroUnits()
+    {
+        const string Bystander = "bystander-army";
+
+        // The defender wins (the attacker below is essentially powerless, and ties go to the defender
+        // anyway), but its own single unit starts at 340 troops -- already below archers' 350 national
+        // deletion threshold -- so the deletion pass removes it regardless of how small the casualty
+        // ratio itself turns out to be: the pass reads the post-casualty troop count, not the ratio that
+        // produced it (bug #289's own point, DoD 1's "naval or storm pass at ratio 0" restated for field).
+        var winner = BattleTestbed.Army(
+            Defender, "south", 5, 5, 60, 0, 0,
+            BattleTestbed.Unit("archers", 340, 6, "TooSmall"));
+        var loser = BattleTestbed.Army(
+            Attacker, "north", 4, 5, 1, 0, 0,
+            BattleTestbed.Unit("light_infantry", 1, 1, "Negligible"));
+        var bystander = BattleTestbed.Army(
+            Bystander, "north", 20, 20, 60, 0, 0,
+            BattleTestbed.Unit("light_infantry", 12000, 6, "Untouched"));
+
+        var state = BattleTestbed.StateWith(armies: new[] { winner, loser, bystander });
+
+        var (after, result) = Resolve(state, BattleTestbed.Destroyed);
+
+        Assert.Equal(BattleSide.Defender, result.Winner);
+        Assert.Equal(LoserFate.Destroyed, result.LoserFate);
+
+        // The winner's own army is gone -- not present with zero units, gone entirely -- alongside the
+        // loser's.
+        Assert.Null(after.ArmyById(Defender));
+        Assert.Null(after.ArmyById(Attacker));
+
+        // The unrelated bystander survives untouched.
+        var survivor = after.ArmyById(Bystander);
+        Assert.NotNull(survivor);
+        Assert.Equal(12000, survivor!.TotalTroops);
+
+        // And the resulting state -- with the winner deleted alongside the loser -- still round-trips.
+        // B7 (T63 review round 1): through T20's SaveManager, the round-trip DoD 1 actually names, not
+        // just GameDataLoader/GameDataValidation (a weaker check the loader's own Validate call already
+        // makes redundant here).
+        AssertRoundTripsThroughSaveManager(after);
     }
 
     /// <summary>A battle between two of one nation's own armies is a caller bug, not an outcome.</summary>
@@ -642,4 +693,22 @@ public class FieldBattleTests
             BattleTestbed.World,
             BattleTestbed.BattleRng(),
             events ?? NullEventSink.Instance);
+
+    /// <summary>B7 (T63 review round 1): the delete-class round-trip DoD 1 names is through T20's <see cref="SaveManager"/>, not just <see cref="GameDataLoader"/>/<see cref="GameDataValidation"/>.</summary>
+    private static void AssertRoundTripsThroughSaveManager(GameState state)
+    {
+        var save = new SaveGame(
+            SchemaVersion: GameDataSchema.CurrentVersion,
+            Id: "probe-save",
+            Label: "T63 delete-class probe",
+            ScenarioId: state.ScenarioId,
+            WorldId: state.WorldId,
+            RulesetId: state.RulesetId,
+            State: state);
+
+        var json = SaveManager.Serialize(save);
+        var reloaded = SaveManager.Load("probe-save.json", json, BattleTestbed.World, BattleTestbed.Destroyed);
+
+        Assert.Equal(json, SaveManager.Serialize(reloaded));
+    }
 }

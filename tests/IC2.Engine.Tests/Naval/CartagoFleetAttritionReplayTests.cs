@@ -171,8 +171,16 @@ public sealed class CartagoFleetAttritionReplayTests
             }
         }
 
-        Assert.Equal(new[] { 3, 3, 3, 5, 3, 3, 5, 7 }, damages);
+        // T63 (bug #292): the pinned values below are the old, inverted-ratio arithmetic's evidence, not
+        // correct behaviour, and are replaced. Turn 8's dmg 7 now costs LESS (the corrected ratio r =
+        // max(1, 10000 / 107) = 93 gives d = 86, against the old ratio's d = 114), so condition lands
+        // exactly at 40 -- not below it -- and the run needs a ninth turn (dmg 3, light branch) before
+        // condition 40 - 3 = 37 finally crosses the threshold. The old code broke after turn 8 at
+        // condition 35.
+        Assert.Equal(new[] { 3, 3, 3, 5, 3, 3, 5, 7, 3 }, damages);
         Assert.True(condition < ruleset.Naval.DeathConditionThreshold, "this seed's own run must end in destruction.");
+        Assert.Equal(37, condition);
+        Assert.Equal(36, ships);
 
         var earlyAverage = damages.Take(3).Average();
         var lateAverage = damages.Skip(damages.Count - 3).Average();
@@ -195,7 +203,7 @@ public sealed class CartagoFleetAttritionReplayTests
         // halved -> 3 (below the ship-loss threshold, so only condition is reduced). 30 - 3 = 27 < 40.
         var rng = new ScriptedRng(60);
         var outcome = FleetAttritionRule.ApplyLaunchedFleetTurn(
-            ships: 40, conditionPercent: 30, supplyTonsBeforeConsumption: 100, carriedArmyTroops: null,
+            ships: 40, conditionPercent: 30, supplyTonsBeforeConsumption: 100, carriedArmyUnits: null,
             isWinter: false, tripleDamageBranchActive: false, nearFriendlyCoast: true, rng, ruleset);
 
         Assert.True(outcome.Destroyed);
@@ -218,7 +226,7 @@ public sealed class CartagoFleetAttritionReplayTests
         // Zero supply (supply = 0): condition -= NextInt(2), scripted to draw 1 -> 40 - 1 = 39.
         var rngTurn1 = new ScriptedRng(20, 1);
         var turn1 = FleetAttritionRule.ApplyLaunchedFleetTurn(
-            ships: 30, conditionPercent: 41, supplyTonsBeforeConsumption: 0, carriedArmyTroops: null,
+            ships: 30, conditionPercent: 41, supplyTonsBeforeConsumption: 0, carriedArmyUnits: null,
             isWinter: false, tripleDamageBranchActive: false, nearFriendlyCoast: true, rngTurn1, ruleset);
 
         Assert.False(turn1.Destroyed, "the death check precedes the zero-supply penalty, so ending at 39 this turn must not itself destroy the fleet.");
@@ -230,7 +238,7 @@ public sealed class CartagoFleetAttritionReplayTests
         var rngTurn2 = new ScriptedRng(5);
         var turn2 = FleetAttritionRule.ApplyLaunchedFleetTurn(
             ships: 30, conditionPercent: turn1.ConditionPercent, supplyTonsBeforeConsumption: turn1.SupplyTonsAfterConsumption,
-            carriedArmyTroops: null, isWinter: false, tripleDamageBranchActive: false, nearFriendlyCoast: true, rngTurn2, ruleset);
+            carriedArmyUnits: null, isWinter: false, tripleDamageBranchActive: false, nearFriendlyCoast: true, rngTurn2, ruleset);
 
         Assert.True(turn2.Destroyed, "a fleet already below 40 dies on the very next check.");
     }
