@@ -98,15 +98,24 @@ exchange, the matrix, the vulnerability weights, the caps, the tactical morale r
 check are all decompiled to the constant (§4, §5). It is **not** true of the **driver** that decides
 which unit fights which, when, and from where:
 
-- The tactical AI's move generation is `FUN_00439ce8`, which dispatches to two modes. One mode
-  (`FUN_004381a4`) is only unit placement. The other (`FUN_0043a31c`) has never been traced
+- The tactical AI's dispatch, `FUN_00439ce8`, has two branches. One (`FUN_004381a4`) turned out to
+  be only unit placement. The other (`FUN_0043a31c`) has never been traced, and the source leaves
+  open whether it is *"an alternate AI mode or the human-move-confirmation path"*
   ([`decompiled-combat-formula-structure.md`][formula] §"The AI dispatch chain" and Next checks 3).
+  Either way, no report contains the AI's move or target rules.
 - No report contains target selection, movement rules on the grid, the maximum shooting distance, or
   the placement type-order lookup table.
 - The exact clamp on initial tactical morale is reported only as *"upper bounds ≈ 90 then 60"*
   ([`battle-quality-promotion-and-morale-array-decompiled.md`][morale-array]).
 
-C2 is specified below with each of these as an explicit `[designed]` placeholder (D01–D12), and each
+This is not a new observation. [`game-design.md` §Combat](../game-design.md) already records that
+an earlier draft proposed *"running the tactical exchange math headlessly with an invented 'pairing'
+rule"*, which is C2's shape. It set that draft aside on the grounds that the original's placement
+pairing does not translate to an instant model, and the design audit (Q1) instead adopted the
+original's own instant resolver as C1. That the draft needed an invented pairing rule is the same gap
+described here.
+
+C2 is specified below with each of these as an explicit `[designed]` placeholder (D01–D14), and each
 names what was searched. So C2 is **the original's arithmetic driven by a designed driver**, and T59
 should read its measurements that way. §10 lists the RE passes that would replace the placeholders.
 
@@ -175,9 +184,31 @@ as C1 and put the other four behind the same seam.
 | Input | Meaning | Source |
 | --- | --- | --- |
 | `attacker`, `defender` | Two armies. Each is an ordered list of at most 20 units (K31) of `(type, troops, quality)`, plus the army's **strategic** morale `M` (army record `+14`). | the merged `ArmyState` |
-| `ruleset` | `unitTypes[]` (K01, K07, K20, K22–K24) and the `combat` block (K02–K06) | `data/rulesets/*.json` |
+| `ruleset` | `unitTypes[]` (K01, K07, K23–K25); the `combat` block (K02–K06); and `combat.detailedResolver` (K15, and parts of K16 and K21, below) | `data/rulesets/*.json` |
 | `rng` | the battle's `IRng`. Every draw goes through it, in the order the candidate states. | merged `IRng` |
 | `onDefeat` | `destroy` (`classical-faithful`) or `scatter` (`improved`) | `flags.combatOnDefeat` |
+
+**What the ruleset already carries, and what it does not.** Every shipped ruleset has a
+`combat.detailedResolver` block, which is the reserve [`game-design.md` §Combat](../game-design.md)
+describes. The shipped resolver does not read it. It holds:
+- `typeEffectiveness`, with the same 25 values as K15 in the same row-major order, and
+  `typeEffectivenessOrder`;
+- `meleePowerDivisor 2000`, `meleeBasePowerFloor 12`, `meleeLossCapPercent 40`, `meleeLossCapOffset 1`
+  and `meleeLossHardCap 30000` (K16);
+- `inRangeShotMultiplier 2` (K21).
+
+Candidates should read those values from there. Its `_provenance` still calls the matrix orientation
+a *"candidate orientation"*. [`rout`][rout] has since settled it (K15), so the provenance string is
+stale but the values are right.
+
+The ruleset does **not** carry:
+- the shooting vulnerability K20 (`+0x20`), which is in no `unitTypes[]` entry;
+- the rest of K16, K17 and K21;
+- the rout constants K08–K14, K19, K22 and K26.
+
+T59 may not add ruleset fields ([T59](../tasks/T59.md) Hazards), so these are **candidate-local
+constants**. They are cited to their reports in §4.1 and belong in T59's candidate code, not in a
+ruleset.
 
 `quality` is the tier code 5–9 (poor, average, good, very good, elite) **[confirmed: [`rout`][rout]
 §"The effectiveness matrix's axis ambiguity, resolved"; `qualityFloor 6` = average in the merged
@@ -219,9 +250,12 @@ of C5 (Done-when 2).
 
 **Integer semantics.** All arithmetic is 64-bit integer, with division truncating toward zero,
 applied in the written order. Where a candidate needs a fraction, it is written as ×1000 fixed
-point, truncated. The original computes troops in shorts and its products in 32 bits. No product
-in §6 exceeds 2³¹ at legal inputs (the largest is the shooting base, below 2.5 × 10⁸), so 64-bit
-arithmetic reproduces the 32-bit results.
+point, truncated. The original computes troops in shorts and its products in 32 bits. For C2 and
+C5, whose exchange arithmetic is the original's, no product exceeds 2³¹ at legal inputs (the largest
+is the shooting base, below 2.5 × 10⁸), so 64-bit arithmetic reproduces the 32-bit results. C3 and C4
+are not the original's arithmetic, and their ×1000 fixed-point products do exceed 2³¹: C3's
+`mbar1000 × troops × (q×10+M)` reaches about 7 × 10⁹, and its `Fire_i` numerator about 10¹¹. That is
+why 64-bit arithmetic is mandated for every candidate, not only for exactness.
 
 **`Random(n)`** means `rng.NextInt(0, n)`, a uniform integer in `[0, n)`, and `Random(0)` returns 0
 without a draw (D13). The half-open reading is the one the merged `BattleCasualties` already uses for
@@ -255,19 +289,19 @@ search.
 | K12 | cascade: every surviving friend `m −= 6` | 6 | [confirmed, decompiled; **never observed**] [`rout`][rout] Next checks 2 | C2, C5 |
 | K13 | cascade re-rout: a friend routs if its `m < 30` after the −6 | 30 | [confirmed, decompiled] [`rout`][rout] | C2, C5 |
 | K14 | reward: every enemy `m = min(99, m + 5)`, and its target is cleared if it was the routed unit | 5, 99 | [confirmed, decompiled] [`rout`][rout] | C2, C5 |
-| K15 | effectiveness matrix `value[attackerType][defenderType]` | the 25 values in §4.3 | [confirmed] values: [`combat-type-effectiveness-matrix.md`][matrix]; orientation: [`rout`][rout] §"axis ambiguity, resolved" | C2, C3, C4, C5 |
-| K16 | melee exchange (`FUN_004393ec`) | the formula in §4.4: `/2000`, `+12`, `/12`, `/10`, `+1`, cap 30,000, cap `troops × 4 / 10`, `+1` | [confirmed] [`formula`][formula] §"Melee" plus its 2026-09 update; the 40% cap is exact on 11 observations, both sides ([`rout`][rout]) | C2, C5 |
+| K15 | effectiveness matrix `value[attackerType][defenderType]` | the 25 values in §4.3 | [confirmed] values: [`combat-type-effectiveness-matrix.md`][matrix]; orientation: [`rout`][rout] §"axis ambiguity, resolved". In the ruleset as `combat.detailedResolver.typeEffectiveness` | C2, C3, C4, C5 |
+| K16 | melee exchange (`FUN_004393ec`) | the formula in §4.4: `/2000`, `+12`, `/12`, `/10`, `+1`, cap 30,000, cap `troops × 4 / 10`, `+1` | [confirmed] [`formula`][formula] §"Melee" plus its 2026-09 update; the 40% cap is exact on 11 observations, both sides ([`rout`][rout]). `/2000`, `+12`, 40%, `+1` and 30,000 are in `combat.detailedResolver` | C2, C5 |
 | K17 | focus factor `defFactor = min(4, focusCount)`; attacker loss × `(5 − d)/5`, defender loss × `(2d + 5)/5` | 4 | [confirmed] [`rout`][rout] §"Two small corrections" (`FUN_00448fd0` is `min`) | C2, C5 |
 | K18 | quality term in both power expressions: `q × 10 + m` | 10 | [confirmed] [`rout`][rout] | C2, C5 (with `m`); C3, C4 (with `M`, a departure) |
 | K19 | tactical morale per melee exchange: `+2` to the better side, `−3` to the other; upper clamp 99 | +2, −3, 99 | [confirmed] [`formula`][formula], [`morale-array`][morale-array]. The *comparison* that picks "the better side" is not given: see D07 | C2, C5 |
-| K20 | shooting vulnerability `vuln[targetType]`, `+0x20` | LI 18 · HI 2 · A 18 · LC 15 · HC 4 | [confirmed] [`rout`][rout] §"`+0x20` … identified" | C2, C3, C4, C5 |
-| K21 | shooting exchange (`FUN_0043845c`, `FUN_0043910c`) | the formula in §4.4: `× 5 + 150000`, `×2` in range, `min(shooter/3, target/2)`, `+1` | [confirmed] [`rout`][rout] | C2, C4 (base only), C5 |
+| K20 | shooting vulnerability `vuln[targetType]`, `+0x20` | LI 18 · HI 2 · A 18 · LC 15 · HC 4 | [confirmed] [`rout`][rout] §"`+0x20` … identified". **In no ruleset**, so it is a candidate-local constant (§3) | C2, C3, C4, C5 |
+| K21 | shooting exchange (`FUN_0043845c`, `FUN_0043910c`) | the formula in §4.4: `× 5 + 150000`, `×2` in range, `min(shooter/3, target/2)`, `+1` | [confirmed] [`rout`][rout]. `×2` is `combat.detailedResolver.inRangeShotMultiplier` | C2, C4 (base only), C5 |
 | K22 | shooting morale hit `m −= min(3, loss × 35 / (troopsAfter + 1))` | 35, 3 | [confirmed] [`rout`][rout] §"Two small corrections" | C2, C5 |
 | K23 | `shots[type]`, `+0x1C`, a per-battle ammunition pool | LI 7 · HI 0 · A 25 · LC 9 · HC 0 | [confirmed] value: [`unit-table`][unit-table]. [derived] per-battle pool: the info panel read `Shots 19` mid-battle for an archer unit ([`rome-gaul`][rome-gaul]) | C2, C3, C4, C5 |
 | K24 | `range[type]`, `+0x1E` | LI 1 · HI 0 · A 2 · LC 1 · HC 0 | [confirmed] [`unit-table`][unit-table]; read by the shooting code for the doubling test | C2, C5 |
 | K25 | `moves[type]`, `+0x18` | LI 4 · HI 2 · A 4 · LC 6 · HC 5 | [confirmed] value: [`unit-table`][unit-table]. **[derived]** as tactical moves per turn: the info panel shows a `Moves` line per unit, and two heavy-infantry panels read `2 moves`, matching `+0x18 = 2` ([`battle-observation.md`][observation] 00:22, 08:04). An archer panel reads `Moves 4`, matching `+0x18 = 4` ([`rome-gaul`][rome-gaul]) | C2, C5 |
-| K26 | initial tactical morale `m = Random(q × 4) + M` | 4 | [confirmed] [`morale-array`][morale-array] §"The morale formula" (`FUN_00437de4`); the clamp is **[open]**: see D08 | C2, C5 |
-| K27 | strategic morale `M += 3` for each side on battle entry | 3 | [confirmed] [`supply-driven-morale-and-fleet-attrition.md`][supply-morale] (index of morale writes, lines 38084/38092) | C2, C5 (before K26) |
+| K26 | initial tactical morale `m = Random(q × 4) + M` | 4 | [confirmed] formula: [`morale-array`][morale-array] §"The morale formula" (`FUN_00437de4`), which calls the added term `armyExperience`. Its identity as the strategic morale `+14` (`DAT_0047C1FA`) is [`supply-morale`][supply-morale]'s correction, whose morale-write index lists this seeding (lines 38135/38162). The clamp is **[open]**: see D08 | C2, C5 |
+| K27 | strategic morale `M += 3` on battle entry | 3 | **[open: disputed between two reports, not settled here]**. [`supply-driven-morale-and-fleet-attrition.md`][supply-morale]'s write index says *"`+= 3` to each side on battle entry"* (lines 38084/38092). [`morale-array`][morale-array] says `FUN_00437de4` *"increments a same-shaped array by 3 under a specific condition tied to the opponent nation's alive/dead status"*, and notes that Rome's `+14` *fell* 68 → 66 across that battle. **Placeholder for C2 and C5:** +3 to both sides, the supply-morale transcription. It is used only to seed `m`, and §10 lists it for an RE pass | C2, C5 (before K26) |
 | K28 | strategic morale clamp | 51…70 | [confirmed] [`thracia-supply-morale.md`](thracia-supply-morale.md) | §8 inputs |
 | K29 | new-army strategic morale | 59 (`0x3B`) | [confirmed] [`supply-morale`][supply-morale] | §8 inputs |
 | K30 | grid 14 columns × 12 rows; home rows 2 and 9, stepping inward | 14, 12, 2, 9 | [confirmed] [`formula`][formula] §"The AI dispatch chain" (`FUN_004381a4`); [`battle-code-entry-points.md`][entry-points] | C2, C5 |
@@ -286,10 +320,10 @@ none" means the search found nothing in any of them.
 | --- | --- | --- | --- | --- |
 | D01 | Placement | Units fill the side's home row (K30: row 2 for the attacker, row 9 for the defender) in slot order, starting at column 0 and running to column 13. Units 15–20 go in the next row inward (row 3 or row 8), again from column 0. | **[designed]** `FUN_004381a4` is described as *"column position cycling through a 3-wide block … unit-type ordering read from a lookup table"* ([`formula`][formula]). The block's column origin and the lookup table are in no report, and a literal 3-wide block of 20 units would put the two sides' 7-row-deep blocks into overlapping rows (2…8 and 9…3), so it cannot be what the text describes. | C2, C5 |
 | D02 | First mover | The **attacker** moves first. After that, sides alternate (K33). | **[designed]** Searched for a turn-order rule: none decompiled. [`rome-gaul`][rome-gaul] says only that the header *"cycles between"* *"Rome to place units"*, *"Gaul to move units"* and *"Rome to move units"*, and gives no order. The one ordered pair in the corpus is [`observation`][observation]'s `7.6.png` *"Rome to place units"* followed by `7.8.png` *"Rome to move units"*, with no Gaul move shown between them. That weakly suggests the side that placed moved first, but it does not say which side attacked. The attacker is the placeholder because that side, Rome, both placed and attacked in the only battle whose attacker is known (§9.2). An earlier revision tagged a defender-first rule `[derived]` from a sequence the source does not contain, and that tag was wrong. | C2, C5 |
-| D03 | Target selection | Each unit targets the nearest live enemy by Chebyshev distance. Ties go to the lowest enemy slot index. The target is re-chosen whenever it is cleared (K14) or the target is no longer live. | **[designed]** Searched for target selection or `FUN_0043a31c`: untraced ([`formula`][formula] Next checks 3). The info panel's *"Unit set to attack"* ([`rome-gaul`][rome-gaul]) confirms that a target *field* exists (`DAT_004a0356`, [`morale-array`][morale-array]), not the choice rule. | C2, C5 |
+| D03 | Target selection | Each unit targets the nearest live enemy by Chebyshev distance. Ties go to the lowest enemy slot index. The target is re-chosen whenever it is cleared (K14) or the target is no longer live. | **[designed]** Searched for target selection: none. `FUN_0043a31c`, the untraced branch of the AI dispatch, may or may not be the AI's move mode ([`formula`][formula] Next checks 3). The info panel's *"Unit set to attack"* ([`rome-gaul`][rome-gaul]) confirms that a target *field* exists (`DAT_004a0356`, [`morale-array`][morale-array]), not the choice rule. | C2, C5 |
 | D04 | Movement | A unit moves up to `moves[type]` (K25) steps. Each step goes to the 8-neighbour square that is in bounds, empty, and minimises Chebyshev distance to the target. Ties are broken in the fixed order N, NE, E, SE, S, SW, W, NW, with "N" meaning toward the enemy home row. Movement stops once the unit is adjacent to its target (distance 1) or no step reduces the distance. One unit per square. | **[designed]** Searched for grid movement or pathing rules: none (the entry-points report lists *"movement ranges"* as still to recover). | C2, C5 |
 | D05 | One action per unit per side-turn | In slot order, each live unit does exactly one of the following, in this priority order. **(a)** If it is adjacent to its target, it is queued for this side-turn's melee pass. **(b)** Otherwise, if `shots > 0` (K23), `range > 0` (K24) and distance ≤ `range + 1`, it shoots its target once (D11). **(c)** Otherwise, it moves (D04), and if it ends adjacent to its target it is queued for melee. After all units have acted, the melee pass runs `FUN_004393ec` once over the queued attackers in slot order. | **[designed]** except the batched melee pass, which is **[confirmed]**: `FUN_004393ec` *"iterates the same up-to-20 unit slots; for each attacker with a live assigned target"* ([`formula`][formula]). Searched for the move/shoot/attack priority: none. | C2, C5 |
-| D06 | Shooting distance and doubling | A shot is legal at Chebyshev distance `2 … range + 1`. It is doubled (K21) when `distance − 1 < range`, i.e. when the number of empty squares between the two units is less than `range`. | **[open]** The report's code says `if (gridDistance(shooter, target) < range[shooterType]) base *= 2` ([`rout`][rout]). With `range = 1` and distance ≥ 1, a literal Chebyshev reading would never double, so `gridDistance` is not plain Chebyshev distance, and its definition is not published. **[designed]** placeholder as stated. There is no report of a maximum shooting distance. | C2, C5 |
+| D06 | Shooting distance and doubling | A shot is legal at Chebyshev distance `2 … range + 1`. It is doubled (K21) when `distance − 1 < range`, i.e. when the number of empty squares between the two units is less than `range`. | **[open]** The report's code says `if (gridDistance(shooter, target) < range[shooterType]) base *= 2` ([`rout`][rout]). `gridDistance` is not defined in any report, and nor is a maximum shooting distance. **[designed]** placeholder as stated. **Its consequence, stated plainly:** light infantry and light cavalry (`range 1`) never get the doubled shot under this placeholder, and only archers do, at distance 2. The literal Chebyshev reading (`distance < range`) would never double a legal shot at all, because an adjacent unit melees (D05). Neither reading is shown to be the original's, since the evidence does not settle what `gridDistance` measures. | C2, C5 |
 | D07 | "Better side" in the ±2/−3 rule | The attacker gets `+2` and the defender `−3` when `atkPower ≥ defPower` (the two K16 powers of that exchange). Otherwise the attacker gets `−3` and the defender `+2`. | **[designed]** reading of a confirmed rule. The report says only *"whichever side had the better troops/power ratio"* ([`formula`][formula]). Searched for the exact operands: none. | C2, C5 |
 | D08 | Tactical morale clamps | Initial `m = min(90, Random(q × 4) + M)`, with `M` taken after K27's +3. During the battle, `m` is clamped to `[0, 99]`. | **[open]** The initial clamp is reported as *"upper bounds ≈ 90 then 60"* ([`morale-array`][morale-array]). "Then 60" is unexplained, and no lower bound is reported. The 99 upper bound is confirmed (K19, K14). **[designed]** placeholder: 90 upper and 0 lower, with "then 60" left unapplied. | C2, C5 |
 | D09 | Round cap | 100 rounds (one round is one turn per side). At the cap, the side with the greater `liveP` (D34) wins, with ties to the defender (K05). Under C2, the loser's live units are then destroyed. Under C5, the loser performs an ordered withdrawal (§6.5). | **[designed]** The original has no cap: it fights until a side has no live units (K32). A headless run needs a cap so that a battle always terminates. Searched for surrender or timeout rules: `TBattleMap_Surrender` exists as a human action ([`entry-points`][entry-points]) and has no AI trigger. | C2, C5 |
@@ -297,6 +331,7 @@ none" means the search found nothing in any of them.
 | D11 | Shots per turn | One shot per shooting action. A unit's shots come from its per-battle pool (K23). | **[designed]** Searched: the recording shows the same shooter firing repeatedly at one target across turns (the 3rd Lancers five times, [`rout`][rout]), and nothing about shots per turn. | C2, C5 |
 | D12 | `focusCount` | The number of live enemy units whose assigned target is this defender, including the attacker itself. So `focusCount ≥ 1`. | **[derived]** `FUN_00438420` is decompiled, but its body is not published. The report describes it as *"with `focusCount` attackers on one defender"* and lists the multipliers for 1…4 ([`rout`][rout]). | C2, C5 |
 | D13 | `Random(0)` | Returns 0 and consumes no draw. | **[designed]** Searched: the original's behaviour for `n = 0` is not reported. It arises when `m = 0` in the band check (impossible, since K09 routs first) and when a shooting `range_` is 0 (impossible, because of the `+1`). The rule is here for completeness only. | all |
+| D14 | Shooting-loss clamp | `loss = min(loss, tt)` (§4.4) | **[designed]** Searched: the shooting reports give `loss = Random(r) + Random(r)` with `r ≤ tt / 2 + 1`, so `loss ≤ tt + 1`, and say nothing about the overshoot. | C2, C5 |
 | D20 | Exposure to an enemy's melee | `Xm_E(u) = 1000 + Σ_t share1000_E(t) × matrix[t][u]`, in ×1000 fixed point. `share1000_E(t) = 1000 × troops of type t in E / total troops of E`, over live units. | **[designed]** Searched for an army-level (non-positional) use of the matrix in the original: none. The original uses the matrix only per exchange. The `1000` term (one matrix point) keeps a type that no enemy type attacks well from taking zero losses. | C3, C4 |
 | D21 | Exposure to an enemy's fire | `Xf_E(u) = vuln[u] × shooterShare1000_E / 4.5`, computed as `vuln[u] × shooterShare1000_E × 2 / 9`. `shooterShare1000_E = Σ_{t: shots[t] > 0} share1000_E(t)`. | **[designed]** The `4.5` puts `vuln`'s 2…18 scale onto the matrix's 0…4 scale (18/4). Searched: the original never combines the two tables. | C3 |
 | D22 | C3's per-unit effective power | §6.3, formula E. The strategic `M` stands in for tactical `m`, and the shooting term is weighted `λ = 1`. | **[designed]** Searched: the original has no one-shot model that uses the matrix. The shooting term reuses the confirmed K21 base, multiplied by `shots[type]`. | C3 |
@@ -304,14 +339,14 @@ none" means the search found nothing in any of them.
 | D31 | C4's shock die and pace | One die per side per shock round, `d = Random(10)`. Damage `= Σ a_i × (5 + d) / 60`. | **[designed]** The `/60` sets the pace so that an even fight between two §8 test armies breaks in roughly 5–10 shock rounds. It is set as a design target, not fitted to any battle. Searched: none. | C4 |
 | D32 | C4's morale damage | `P −= 200 × lossesThisRound / troopsAtStart` (i.e. μ = 2: 1% of starting troops lost costs 2 morale points). | **[designed]** Searched: none. The original's strategic morale changes only by supply, +3 on battle entry, and new-army initialisation ([`supply-morale`][supply-morale]), so no battle-driven rule exists to copy. | C4 |
 | D33 | C4's round cap and pursuit | 30 rounds. Pursuit is one round in which only the winner's cavalry deals shock damage, `× 2`, and the loser deals none. | **[designed]** Searched: none. | C4 |
-| D34 | Live strength | `liveP_S = Σ_{live units of S} combatPowerWeight[type] × troops` (the K02 numerator, before its divisors). | **[designed]** use of a confirmed weight (K01). | C2 (D09), C5 |
+| D34 | Live strength | `liveP_S = Σ_{live units of S} combatPowerWeight[type] × troops` (the K02 numerator, before its divisors). | **[designed]** use of a confirmed weight (K01). Searched for any mid-battle strength comparison in the original's tactical path: none. The only strength comparison is the instant path's `armyPower` (K02), made once, before the battle, so this reuses its numerator over live units. | C2 (D09), C5 |
 | D40 | C5's disorder cost of leaving | `troops −= troops × 5 / 100` (5%) for every unit that leaves the field, pursued or not. | **[designed]** It makes an unpursued withdrawal cheap but not free, per the user's steer. Searched: the original has no withdrawal ([`instant`][instant]; K32). | C5 |
 | D41 | C5's pursuers per fleeing unit | At most 2 cavalry pursuers and 2 pursuing shots per fleeing unit. Each enemy unit pursues or shoots at most once per round. | **[designed]** Searched: none. | C5 |
 | D42 | C5's ordered-withdrawal discount | Pursuit losses during an **ordered** withdrawal are halved (`/ 2`, truncated). A broken unit's flight is not discounted. | **[designed]** Searched: none. | C5 |
 | D43 | C5's withdrawal threshold | `liveP_S × 100 < 60 × liveP_O` | **[designed]** Searched: none. | C5 |
 | D44 | C5's earliest withdrawal | End of round 3 | **[designed]** Searched: none. | C5 |
 | D45 | C5's fled winners rejoin | The winner's fled units rejoin its army after the battle, with the troops they have left after pursuit. | **[designed]** Searched: the original zeroes every routed unit (K32, `FUN_00438f78`). | C5 |
-| D50 | Metric test armies, seeds and bands | §8 | **[designed]** Every band is a design decision taken before measurement. §8 gives the reasoning for each. | §8 |
+| D50 | Metric test armies, seeds and bands | §8 | **[designed]** Every band is a design decision taken before measurement, and §8 gives the reasoning for each. A band is a judgement about what the game should do, not a fact about the original, so there is no RE evidence to search for. The only evidence-bearing inputs, `M = 59` (K29) and the battalion sizes (K07), are cited. | §8 |
 
 ### 4.3 The effectiveness matrix (K15)
 
@@ -361,8 +396,7 @@ rout check (§5): t
 ```
 
 The report does not say whether `loss` can exceed `tt`. Since `r ≤ tt / 2 + 1`, `loss ≤ tt + 1`. It
-is clamped to `tt`. **[designed]**: the reports are silent on the case, and a routed or
-zero-troop unit is removed either way (§5).
+is clamped to `tt` (D14).
 
 ## 5. The unit-level break trigger, `FUN_00438fb0` [confirmed]
 
@@ -464,10 +498,12 @@ is no cascade.
 **Survivors:** under `scatter`, every loser unit after the mirrored ratio. The survivor *fraction* is
 the same for every type, up to the `[105, 120)` divisor band.
 
-**Draws:** `nW` (one divisor per winner unit), followed, because the resolver is wrapped whole, by
-the post-battle draws in the merged order: one `Random(4)` per surviving winner unit, then one
-`Random(5)`. Under `scatter` there are then `nL` divisor draws plus 1 scatter-distance draw. The
-number is **fixed** for a given pair of armies. T59 reports the battle-phase part (`nW`, plus `nL`
+**Draws:** `nW` divisor draws, one per slot in the winner's unit list, **occupied or not**, as
+`BattleCasualties.Apply` transcribes the decompiled loop. Because the resolver is wrapped whole, the
+post-battle draws follow in the merged order: one `Random(4)` per winner unit with troops > 0, then
+one `Random(5)`. Under `scatter` there are then `nL` divisor draws (again one per slot), plus **one
+scatter-distance draw, made only if the loser has survivors** (`appliedToLoser < loser.TotalTroops`,
+`InstantBattleResolver.ResolveField`). The number is **fixed** for a given pair of armies. T59 reports the battle-phase part (`nW`, plus `nL`
 under scatter) separately from the total.
 
 **Fixed by construction, not measured.** Its winner is a deterministic function of the two armies,
@@ -482,11 +518,14 @@ rout function (§5) after each exchange it takes part in. The moves are chosen b
 D01–D12, because the original's own tactical AI is not decompiled (§2.2).
 
 **Faithful / departs.** Faithful: the melee and shooting exchanges (K15–K22), the tactical morale
-rule (K19), the initial-morale formula (K26, K27), the rout check with its cascade and reward (§5),
+rule (K19), the initial-morale formula (K26), the rout check with its cascade and reward (§5),
 the battle-end rule (K32), the grid size and home rows (K30), alternating turns (K33), the per-battle
 shot pools (K23), and the loser's total loss. Departs, by necessity: placement detail (D01), first
-mover (D02), targeting (D03), movement (D04), action priority (D05), shooting distance (D06), and the
-morale placeholders (D07, D08). Departs, by choice, for termination: a round cap (D09).
+mover (D02), targeting (D03), movement (D04), action priority (D05), shooting distance (D06), the
+morale placeholders (D07, D08), and K27, which is disputed and applied as a placeholder. Departs, by
+choice, for termination: a round cap (D09). Departs, by the seam's scope: the original **writes** its
++3 to the army's `+14` (K27), and C2 applies it only to seed `m` and does not write it back, because
+T59 changes no game state.
 
 **Algorithm.**
 
@@ -517,7 +556,7 @@ removed unit's troops are 0 (K32, `FUN_00438f78`). The winner's live units keep 
 winner's routed units are at 0 and count as lost. `ending` is set from the cause of the loser's
 **last** removal, as defined in §8.7.
 
-**Constants:** K01 and K05 (for the cap, through D09 and D34), K07–K27, K30–K33, D01–D13, D34.
+**Constants:** K01 and K05 (for the cap, through D09 and D34), K07–K27, K30–K33, D01–D14, D34.
 
 **Unit-level break:** `FUN_00438fb0` **unchanged**, including its consequence (`troops = 0`).
 
@@ -619,14 +658,15 @@ for round r = 1 … 30:                                                   // D33
   else:                                                                // shock round
     d_S = Random(10), attacker's die first                             // D31
     a_i = mbar1000_i × troops_i × (q_i × 10 + max(P_S, 0)) / 2,000,000 + 12   // as C3's Mel_i, with P
-    H_S = Σ_i a_i × (5 + d_S) / 60                                     // D31
+    H_S = (Σ_i a_i) × (5 + d_S) / 60                                   // D31: sum first, one truncation
     each unit j of O loses H_S × troops_j × Xm_S(type_j) / Σ_k troops_k × Xm_S(type_k)     // D20
   apply both sides' losses (each clamped to the unit's troops); remove units at 0
   P_S −= 200 × lossesThisRound_S / T0_S                                // D32
   if a side has 0 troops: it loses (both at 0: defender wins, K05); ending = annihilation; stop
   if P_A ≤ 0 or P_D ≤ 0: the side with the lower P loses (tie: attacker loses, K05); ending = collapse
-     pursuit (D33): H = Σ_{winner's cavalry i} a_i × (5 + Random(10)) / 60 × 2, distributed onto the
-     loser as a shock round, with no return damage; stop
+     pursuit (D33), only if the winner has at least one live cavalry unit (otherwise no draw, no loss):
+       H = (Σ_{winner's cavalry i} a_i) × (5 + Random(10)) × 2 / 60, distributed onto the
+       loser as a shock round, with no return damage; stop
 after round 30: the side with the lower P loses (tie: attacker loses); ending = cap; no pursuit
 ```
 
@@ -651,7 +691,7 @@ C4, units reach 0 only by attrition. That is possible here because C4 has no 40%
 **Survivors:** under `scatter`, the loser's units after pursuit.
 
 **Draws:** 2 per shooting unit per fire round (at most 3 rounds), 2 per shock round (one die per
-side), and 1 for pursuit. This is variable, and is logged per round.
+side), and 1 for pursuit **only when the winner has a live cavalry unit**. This is variable, and is logged per round.
 
 ### 6.5 C5: morale and retreat (the *Total War* shape)
 
@@ -1380,7 +1420,7 @@ session's call, and T59 does not need any of them to run.
 
 | Item | Replaces | Where to look |
 | --- | --- | --- |
-| The tactical AI's move generation, `FUN_0043a31c`, and `FUN_00439ce8`'s choice between modes | D03, D04, D05 | [`formula`][formula] Next checks 3 |
+| The tactical AI's move and target rules: `FUN_00439ce8`'s untraced branch `FUN_0043a31c` (an AI mode or the human-move path, still open), and wherever the AI's choices actually live | D03, D04, D05 | [`formula`][formula] Next checks 3 |
 | `FUN_004381a4`'s type-order lookup table and column block | D01 | [`formula`][formula] §"The AI dispatch chain" |
 | `gridDistance` inside `FUN_0043845c`, and any maximum shooting distance | D06 | [`rout`][rout] §"`+0x20` … identified" |
 | The operands of the ±2/−3 comparison in `FUN_004393ec` | D07 | [`formula`][formula] §"Melee" |
@@ -1388,6 +1428,8 @@ session's call, and T59 does not need any of them to run.
 | `FUN_00438420`'s body (`focusCount`) | D12 | [`rout`][rout] §"Two small corrections" |
 | The cascade's −6 and +5, observed rather than only decompiled | (strengthens K12–K14) | [`rout`][rout] Next checks 2 |
 | `FUN_0040284c`, the RNG's range semantics | (strengthens the `Random(n)` reading, §3) | [`formula`][formula] §"What this does not establish" |
+| The +3 strategic morale on battle entry in `FUN_00437de4`: whether it applies to every side, or on a condition tied to the opponent's status, and why Rome's `+14` fell 68 → 66 across the battle | K27 (disputed) | [`supply-morale`][supply-morale] write index; [`morale-array`][morale-array] §"The morale formula" |
+| Which army records in `7.sav` fought the `7.sav → 8.sav` battle (T59's exact-total lookup, §9.3, may settle it) | §9.3 inputs | [`observation`][observation] Next checks 1 |
 
 ## 11. What was searched
 
