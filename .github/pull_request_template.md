@@ -8,7 +8,7 @@ Closes #<issue>
 
 ## Task
 
-- **Task**: T<nn> <name> — [catalogue entry](https://github.com/diegoami/imperial_conquest_2/blob/main/docs/task-catalogue.md#t<nn>-<slug>)
+- **Task**: T<nn> <name> — [task entry](https://github.com/diegoami/imperial_conquest_2/blob/main/docs/tasks/T<nn>.md)
 - **Branch**: `task/T<nn>-<slug>`
 
 ## Scope: files touched vs the Owns list
@@ -22,7 +22,7 @@ Closes #<issue>
 | `<path>` | `<pattern>` |
 
 - [ ] Every changed file above is inside the task's declared **Owns** list.
-- [ ] No change to `docs/task-catalogue.md`, `docs/build-process.md` or any other document (the main session updates documentation on `main` after the merge, build-process.md §4.7), original game files, `assets.local.ini`, `.gitignore`'s exclusion policy, or the research repository's reports (each of those is an escalation, build-process.md §4.5).
+- [ ] No change to `docs/task-catalogue.md`, any task entry under `docs/tasks/`, `docs/build-process.md` or any other document (the main session updates documentation on `main` after the merge, build-process.md §4.7), original game files, `assets.local.ini`, `.gitignore`'s exclusion policy, or the research repository's reports (each of those is an escalation, build-process.md §4.5).
 
 ## DoD evidence
 

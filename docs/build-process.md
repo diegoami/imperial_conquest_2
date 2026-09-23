@@ -6,7 +6,7 @@ This document is the **process contract** for building the reimplementation. It 
 - how defects and follow-ups are handled;
 - the prompt templates and the skill text the agents run from.
 
-**What** gets built (every task's scope, Owns list, Definition of Done and dependencies) lives in [task-catalogue.md](task-catalogue.md). **Why** (the design and the evidence behind it) lives in [game-design.md](game-design.md) and [design-audit.md](design-audit.md). Day-to-day operation, and where everything lives, is in [operating-guide.md](operating-guide.md).
+**What** gets built (every task's scope, Owns list, Definition of Done and dependencies) lives in the task entries, one file per task under [`tasks/`](tasks/), indexed by [task-catalogue.md](task-catalogue.md). **Why** (the design and the evidence behind it) lives in [game-design.md](game-design.md) and [design-audit.md](design-audit.md). Day-to-day operation, and where everything lives, is in [operating-guide.md](operating-guide.md).
 
 This document changes **no design decision**. Every rule, constant and Done-when line traces back to `game-design.md` and `design-audit.md`. Where a task would need a design decision those documents don't make, it escalates to the user rather than inventing one ([§4.5](#45-when-to-escalate-to-the-user)).
 
@@ -48,7 +48,7 @@ Every system is written against these interfaces and registers itself, so no two
 **2.3 No shared registry files.** Three kinds of file would otherwise be edited by nearly every task:
 - **`IC2.sln`**: T01 pre-declared every project the backlog needs, so no later task edits the solution.
 - **A system-registration list**: replaced by assembly-scanned registration. Each system declares itself with an attribute, so adding a system touches only that system's own file.
-- **Documentation**: task branches never edit `docs/*.md` or `README.md`. The PR lists the document claims its change makes stale ("Docs affected"), and the main session applies them on `main` after the merge ([§4.7](#47-after-a-merge)).
+- **Documentation**: task branches never edit a Markdown file anywhere under `docs/` (`docs/**/*.md`, which includes the task entries in `docs/tasks/`) or `README.md`. The PR lists the document claims its change makes stale ("Docs affected"), and the main session applies them on `main` after the merge ([§4.7](#47-after-a-merge)).
 - **The CLI demo's golden transcript** (`tests/fixtures/cli/demo.golden.txt`): it records what the engine prints, so any task that legitimately changes what the engine prints changes it too. Rather than name it in every Owns list, **any task whose change alters the demo's output may regenerate it** — by running the demo (`dotnet run --project src/IC2.Cli -- --script tests/fixtures/cli/demo.txt`), never by hand — and its PR shows the resulting diff and explains every changed line. A diff with a line the change doesn't explain is a review finding. T38 and T42 carry the older per-task permission in their entries; this rule supersedes it.
 
   The same applies to the **assertions that record the demo's behaviour**, in `tests/IC2.Engine.Tests/Presentation/GameSessionTests.cs`: the golden comparison, and the seed-sensitivity test that names which lines a different seed may change. A task that legitimately adds a random draw, or changes what a line prints, may adjust those assertions under the same conditions, and **must not weaken them**: the seed test still has to assert that the differing lines are *exactly* the known random-driven ones, never that differences are ignored. Widening that list without naming the new draw, or replacing an equality with a looser check, is a review finding. T35 is the first case: its quarterly loyalty draws are a second random consumer alongside weather, so the list becomes weather **and** loyalty rather than weather alone.
@@ -74,7 +74,7 @@ Every system is written against these interfaces and registers itself, so no two
 
 | Role | Who | What it does |
 | --- | --- | --- |
-| **Main session** | The session the user talks to, on Opus | Plans and runs the build. It owns [task-catalogue.md](task-catalogue.md) and this document: scope, Definitions of Done, dependencies and order. It triages bugs and follow-ups, coordinates `/process-evidence`, and brings design questions and escalations to the user. **It runs tasks with `/run-task`** ([Appendix C](#appendix-c-the-run-task-skill)): it dispatches the implementer, then an independent reviewer, relays rework, merges approved PRs, and applies the doc claims each merge makes stale. |
+| **Main session** | The session the user talks to, on Opus | Plans and runs the build. It owns the task entries (`docs/tasks/T<nn>.md`, indexed by [task-catalogue.md](task-catalogue.md)) and this document: scope, Definitions of Done, dependencies and order. It triages bugs and follow-ups, coordinates `/process-evidence`, and brings design questions and escalations to the user. **It runs tasks with `/run-task`** ([Appendix C](#appendix-c-the-run-task-skill)): it dispatches the implementer, then an independent reviewer, relays rework, merges approved PRs, and applies the doc claims each merge makes stale. |
 | **Implementer** | A subagent, model per the catalogue | One task, one branch, one PR, **in its own worktree**. Writes code and tests, runs the DoD commands, pushes work in progress as it goes, and opens the PR with evidence and a "Docs affected" list. |
 | **Reviewer** | A subagent, a different model per [§3.4](#34-why-the-reviewers-model-differs-from-the-implementers) | Independently re-runs the DoD commands at the PR head **in its own worktree**, audits provenance and scope, posts its findings as a PR comment, and applies `status:approved` or `status:rework`. It is never the agent that implemented. |
 | **Researcher** | Opus subagents | Evidence work in the research repository: the two `/process-evidence` stages ([evidence-pipeline.md](evidence-pipeline.md)) and targeted research passes. |
@@ -177,13 +177,15 @@ Five gates, in order. Any failure means `status:rework`.
    - a branch that can never be taken (T12's domination win was dead code that shipped);
    - **a delete that leaves something behind** — three questions, every time an entity is removed from `GameState`: does anything still **reference** it, are its **resources** conserved, and does a **cap** still hold afterwards? This class has blocked three tasks (T14's fleet-to-fleet transfer, T39's mercenary desertion, and T46 was specified from the first). Both blockers produced the same symptom: a dangling id that `GameDataValidation.ValidateState` rejects, so the game writes a save it **cannot reload** — and the code paths in between degrade silently, which is why nothing surfaces until the load. `FleetState.CarriedArmyId` is the model's one cross-reference to an army id and the usual culprit; the reviewer's sweep is the whole model, not just that field;
    - **a test that would still pass if the behaviour were deleted** — the most common finding here, and the reason mutation is the proof below.
-   - **a comment that asserts behaviour at an edge no test visits.** In this codebase a comment is load-bearing: it is how a `[designed]` value justifies itself to a reviewer who cannot check it against a report, which makes an **unverified comment the same defect class as an unverified constant**. T22 shipped **five** false comments, caught by **three different readers** across an agent review, a rework round and the user's own `ultra` pass — and three of the five described edges the played fixtures never reach: `expansionDrive = 0`, an empty treasury, a fleet beside a stronger enemy. **That is exactly why none of them failed a test.** The rule: *a comment asserting behaviour at an edge arrives with the test that visits that edge, or it is not written.* Cheap at the keyboard, and every one of the five would have been caught there.
+   - **a comment that asserts behaviour at an edge no test visits.** In this codebase a comment is load-bearing: it is how a `[designed]` value justifies itself to a reviewer who cannot check it against a report, which makes an **unverified comment the same defect class as an unverified constant**. T22 shipped **five** false comments, caught by **three different readers** across an agent review, a rework round and the user's own `ultra` pass — and three of the five described edges the played fixtures never reach: `expansionDrive = 0`, an empty treasury, a fleet beside a stronger enemy. **That is exactly why none of them failed a test.** The rule: *a comment asserting behaviour at an edge arrives with the test that visits that edge, or it is not written.* Cheap at the keyboard, and every one of the five would have been caught there. **A comment is covered only if a test visits every path that reaches it**: a mutation killed on one path does not cover a comment that a second path also reaches (T20's cleanup comment, [#286](https://github.com/diegoami/imperial_conquest_2/issues/286)).
 
    A candidate is **proved before it is reported**: run it, or delete the behaviour and watch exactly which test fails. A finding with neither is labelled as unverified.
 
    **A mutation result is only admissible after `touch` and an explicit clean rebuild.** `--no-build` and incremental builds are **never** admissible after a mutation cycle. Restoring a mutated file — `mv file.bak file`, `git checkout --`, a `cp` from a copy — can give the restored source an **mtime older than the DLL built from the mutated version**, so MSBuild's up-to-date check skips the rebuild and the next run tests the **stale assembly**. A clean rebuild of this solution costs about a second; there is no cost argument against mandating it.
 
    **`git status` clean and `grep` showing the correct source are not evidence the binary matches.** Both were true, on this project, while a mutated assembly was under test.
+
+   **A mutation helper lives in the worktree it mutates, or takes that worktree as a required argument with no default.** A shared script whose target path points at another worktree mutates one checkout and tests another, and produces the same phantom green as a stale binary (T55, [#245](https://github.com/diegoami/imperial_conquest_2/issues/245)).
 
    **The dangerous direction is the quiet one.** A stale *mutated* binary produces a phantom **red** — alarming, and it announces itself. A stale *clean* binary produces a phantom **green**, which gets written into a PR as *“mutation M-n: no test caught this”* — a **false finding**, either an invented coverage gap or a real gap declared harmless and never closed. It is silent, it is durable, and a reviewer reading the results table has no way to tell a genuine negative from a stale one. **A negative mutation result — a claim that nothing failed — therefore carries the same burden as a positive one, and is the entry a reviewer should re-take rather than read.** Found on T22, whose implementer diagnosed its own unreproducible flake rather than waving it away, and whose reviewer then re-took the one negative result that mattered.
 
@@ -193,7 +195,7 @@ A defect the reviewer finds in **another task's already-merged** code is not a f
 
 ### 4.3 The DoD is not negotiable by an agent
 
-An implementer that can't satisfy a DoD line **stops and reports**. It never edits the DoD, never weakens an assertion to a range, never marks a test `Skip`, and never deletes a failing assertion. A DoD line changes only by a commit to [task-catalogue.md](task-catalogue.md) after a decision by the user. The reviewer treats any diff to `task-catalogue.md` or this document from a task branch as an automatic `status:rework`.
+An implementer that can't satisfy a DoD line **stops and reports**. It never edits the DoD, never weakens an assertion to a range, never marks a test `Skip`, and never deletes a failing assertion. A DoD line changes only by a commit to the task's entry, `docs/tasks/T<nn>.md`, after a decision by the user. The reviewer treats any diff from a task branch to `task-catalogue.md`, to any file under `docs/tasks/` (the task's own entry included), or to this document as an automatic `status:rework`.
 
 ### 4.4 Rework
 
@@ -237,7 +239,7 @@ Everything else merges without the user, subject to [§9](#9-standing-governance
    - **folding it into an upcoming task's DoD**: the default for small fixes and for follow-ups, folded into the next task that touches those files;
    - **deferring it**: close it as *not planned* with the reason. A bug that blocks a task is deferred only on the user's decision.
 
-   Blocking is recorded in [task-catalogue.md](task-catalogue.md): either as a `merge-after` dependency on the correction, or as a DoD line in the blocked task. After that, the normal ready check enforces it. Catalogue changes go to a branch for the user's review. When triage is done, the main session removes `triage:needed` and comments where the item went.
+   Blocking is recorded in the blocked task's entry (`docs/tasks/T<nn>.md`, with its index row and graph edge in [task-catalogue.md](task-catalogue.md)): either as a `merge-after` dependency on the correction, or as a DoD line in the blocked task. After that, the normal ready check enforces it. Catalogue changes go to a branch for the user's review. When triage is done, the main session removes `triage:needed` and comments where the item went.
 4. **Resume.** The suspended task rebases onto the merged correction and continues.
 
 **Follow-ups.** A reviewer may approve with findings that fail no gate. At merge, the main session collects them into one `T<nn> follow-up` issue labelled `triage:needed`, which links the review comments. A follow-up is not a bug, and no task is suspended for it. It is triaged the same way, usually folded into the next task that touches the files concerned.
@@ -301,7 +303,7 @@ gh issue list --label task --label release:v0.2.0 --state all   # a release gate
 | Review | A PR comment with the five-gate findings, plus a `status:approved`/`status:rework` label applied by the reviewer |
 | Merge | Squash, by the main session, after CI is green and the review approves |
 | Issue title | `T09 Movement and terrain` |
-| Issue body | **A pointer, not a copy**: a link to the task's entry in [task-catalogue.md](task-catalogue.md), its branch, and the bugs it closes. The catalogue entry is the contract, so nothing needs to be kept in step. |
+| Issue body | **A pointer, not a copy**: a link to the task's entry, `docs/tasks/T<nn>.md`, its branch, and the bugs it closes. The entry is the contract, so nothing needs to be kept in step. |
 | GitHub milestone | One per phase: `Phase 0 Foundation`, `Phase 1 Pure rules`, `Phase 2 Systems`, `Phase 3 Delivery` |
 | Labels | `task`; `bug`; `phase:0..3`; `lane:engine\|data\|ui\|infra`; `status:*`; `review-round:1\|2`; `triage:needed`; `model:*`; `effort:*`; `release:*`; `local-only`; `single-instance`; `needs-human` |
 
@@ -434,7 +436,8 @@ Read first, in order:
 Your task entry gives Scope, Owns and Done when. All three are binding:
   - Create or modify files ONLY inside your Owns list, plus your own tests.
   - Satisfy every Done-when line with a runnable check.
-  - Do NOT edit any Done-when line, weaken an assertion, skip a test, or edit any docs/*.md file.
+  - Do NOT edit any Done-when line, weaken an assertion, skip a test, or edit any Markdown file under
+    docs/ (docs/**/*.md, which includes your own entry in docs/tasks/).
     If a line can't be satisfied, STOP and report why.
   - If you find a defect in another task's already-merged code, do NOT patch it. STOP and report
     it; the main session files it as a bug (build-process.md §4.6).
@@ -463,6 +466,9 @@ When done:
      "Closes #<issue>"; the files you touched; a fenced DoD-evidence block with one command+output
      per Done-when line; and "Docs affected", which lists the document claims this merge makes
      stale (file and what changes) or says "none".
+     Never put close/closes/fix/fixes/resolve/resolves directly before "#<n>" in a commit, the PR
+     body or a comment, except your own "Closes #<issue>": GitHub closes whatever it names, so
+     write "bug #276" or "see #199".
   5. Run `git checkout --detach` in your worktree so the branch is free for the reviewer.
   6. Report back: what you built, the DoD results, anything you couldn't verify, and any evidence
      conflict you found. Don't merge, and don't review your own PR.
@@ -524,13 +530,15 @@ Run five gates, in order. Any failure is status:rework:
  3. Determinism. No System.Random, wall clock, Guid.NewGuid or order-dependent iteration in
     gameplay paths. Randomness goes through IRng, and a test proves seeded reproducibility.
  4. Scope. Every changed file is inside the task's declared Owns list. A file outside it is a
-    finding even if the change is good. Any diff to docs/*.md is an automatic rework. The PR's
+    finding even if the change is good. Any diff to a Markdown file under docs/ (docs/**/*.md, including docs/tasks/) is an
+    automatic rework. The PR's
     "Docs affected" list matches what the diff actually changes.
  5. Correctness. Sweep the diff for ordinary bugs YOURSELF, in your own context: read it hunk by
     hunk, plus the surrounding code it doesn't show, and hunt integer truncation and operation
     order, off-by-one caps and their boundaries, division by a zero denominator, unguarded nulls
     and empty collections, order-dependent iteration, unreachable branches, and tests that would
-    pass even with the behaviour deleted (build-process.md §4.2 gate 5 lists these).
+    pass even with the behaviour deleted (build-process.md §4.2 gate 5 lists these). A comment
+    is covered only if a test visits every path that reaches it.
     If the diff DELETES an entity from GameState, ask all three: does anything still reference
     it, are its resources conserved, does a cap still hold? That class has blocked three tasks,
     twice by producing a save that cannot be reloaded. Probe it with two entities — one
@@ -552,7 +560,8 @@ it separately in your summary, so the main session files it as a bug (build-proc
 Mark each finding as blocking (fails a gate) or non-blocking.
 
 Post your findings as a PR comment (`gh pr comment <pr> --body-file ...`): specific, actionable,
-with file and line, covering all five gates explicitly. Then apply the label yourself:
+with file and line, covering all five gates explicitly. Never put close/closes/fix/fixes/resolve/
+resolves directly before "#<n>" in it: GitHub closes whatever it names, so write "bug #276". Then apply the label yourself:
   all five gates pass → gh issue edit <issue> --add-label status:approved --remove-label status:in-review
   any gate fails      → gh issue edit <issue> --add-label status:rework --remove-label status:in-review
 Do NOT use `gh pr review`: every agent shares one GitHub account, and GitHub won't let an
@@ -580,9 +589,9 @@ description: Run Imperial Conquest 2 build tasks end to end — dispatch the imp
 Read docs/build-process.md §4 first, and **extract** each task's entry rather than reading the
 catalogue whole (CLAUDE.md rule 11):
   Read docs/tasks/T<nn>.md
-**Paste that extracted entry into every brief you dispatch** (CLAUDE.md rule 15). An agent sent
-to the whole catalogue pays ~85,000 tokens to reach ~1,450 tokens of contract, once per agent
-per round. Given task
+**Paste that extracted entry into every brief you dispatch** (CLAUDE.md rule 15). An agent given
+a pointer instead reads the index, the entry and whatever the entry links to, once per agent per
+round (before T61 split the catalogue, that pointer cost ~85,000 tokens to reach ~1,450 of contract). Given task
 ids, run them in that order; given none, take the first status:ready task in the catalogue index.
 Report to the user after each task; stop at any escalation.
 
