@@ -257,38 +257,14 @@ public static class OriginalSaveImporter
         // ---- Army/fleet embarkation cross-links, resolved before either table is mapped, so a dangling
         // reference (a fleet carrying a now-compacted-out tombstoned army, or the reverse) is caught here
         // rather than silently producing a GameState GameDataValidation would reject for an opaque reason.
-        var tombstonedArmyIndices = new HashSet<int>();
-        foreach (var skipped in armyTable.SkippedRecords)
-        {
-            tombstonedArmyIndices.Add(skipped.Index);
-        }
-
-        // fleet table index -> the original army-table index it carries (only for a fleet whose carried
-        // army actually survived the import; a fleet naming a now-tombstoned army no longer really
-        // carries anyone — "a delete that leaves something behind" (build-process.md §4.2) is exactly the
-        // class of bug this drops rather than propagates).
-        var fleetCarriesArmyIndex = new Dictionary<int, int>();
-        var armyCarriedByFleetIndex = new Dictionary<int, int>();
-        foreach (var f in fleetTable.Fleets)
-        {
-            if (f.CarriedArmyIndex is not { } carriedIndex)
-            {
-                continue;
-            }
-
-            if (tombstonedArmyIndices.Contains(carriedIndex))
-            {
-                continue;
-            }
-
-            fleetCarriesArmyIndex[f.Index] = carriedIndex;
-            if (!armyCarriedByFleetIndex.TryAdd(carriedIndex, f.Index))
-            {
-                throw new InvalidDataException(
-                    $"'{documentPath}': army {carriedIndex} is claimed as carried by both fleet " +
-                    $"{armyCarriedByFleetIndex[carriedIndex]} and fleet {f.Index}.");
-            }
-        }
+        // See EmbarkationLinker's own remarks for why this is a separate, independently-testable type.
+        var tombstonedArmyIndices = armyTable.SkippedRecords.Select(s => s.Index).ToHashSet();
+        var links = EmbarkationLinker.Resolve(
+            fleetTable.Fleets.Select(f => new EmbarkationLinker.FleetClaim(f.Index, f.CarriedArmyIndex)),
+            tombstonedArmyIndices,
+            documentPath);
+        var fleetCarriesArmyIndex = links.FleetCarriesArmyIndex;
+        var armyCarriedByFleetIndex = links.ArmyCarriedByFleetIndex;
 
         // ---- Armies: Moves is the one field DoD 6 forbids carrying through unclamped (a negative value
         // is a genuine underflow bug in the original, never a sentinel — see ArmyRecord.Moves's own
@@ -309,32 +285,9 @@ public static class OriginalSaveImporter
                 moves = 0;
             }
 
-            string? aboardFleetId;
-            int? coveredTileCode;
-            if (a.IsAboardFleet)
-            {
-                if (!armyCarriedByFleetIndex.TryGetValue(a.Index, out var fleetIndex))
-                {
-                    throw new InvalidDataException(
-                        $"'{documentPath}': army {a.Index} is marked aboard a fleet (covered-cell sentinel), " +
-                        "but no surviving fleet's carried-army index names it.");
-                }
-
-                aboardFleetId = FleetId(fleetIndex);
-                coveredTileCode = null;
-            }
-            else
-            {
-                if (armyCarriedByFleetIndex.ContainsKey(a.Index))
-                {
-                    throw new InvalidDataException(
-                        $"'{documentPath}': fleet {armyCarriedByFleetIndex[a.Index]} claims to carry army " +
-                        $"{a.Index}, but that army's covered-cell is not the aboard-fleet sentinel.");
-                }
-
-                aboardFleetId = null;
-                coveredTileCode = a.CoveredCell;
-            }
+            var aboardFleetId = EmbarkationLinker.ResolveArmyAboardFleet(
+                a.Index, a.IsAboardFleet, armyCarriedByFleetIndex, FleetId, documentPath);
+            int? coveredTileCode = aboardFleetId is null ? a.CoveredCell : null;
 
             var units = new UnitSlot[a.Units.Count];
             for (var u = 0; u < a.Units.Count; u++)
