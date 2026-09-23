@@ -36,8 +36,19 @@ namespace IC2.Data.Tests.CorpusFixtures;
 ///   research pass, not resolved here.
 /// - <see cref="ArmyRecord.Money"/>: docs/reports/upkeep-payment-and-desertion.md's billing pseudocode
 ///   shows a signed <c>JLE</c> test ("purse &lt;= 0") on this field, but the same tick unconditionally
-///   floors it to 0 before the tick ends, so no legitimate save can ever show a negative purse. Range
-///   observed: 0..1000. No corpus manifestation, no code change.
+///   floors it to 0 before the tick ends, so no legitimate save can ever show a negative purse.
+///   **T64 (#301), bug #312**: the 2026-09-20 corpus shows <c>IP016.sav</c>/<c>IP016B.sav</c> army 1 at
+///   Money 1066 — above <c>data/rulesets/classical-faithful.json</c>'s <c>economy.caps.purseCapPerUnit</c>
+///   (1,000), whose own provenance cites
+///   docs/reports/decompiled-unit-map-orders-and-record-fields.md: <c>TAFSupply_ChangeMoney</c> caps an
+///   army's or fleet's own purse at 1,000 — but that is the SUPPLY DIALOG's own clamp on one write
+///   path, not a cap on the field. docs/reports/army-to-army-transfer-confirmed.md's <c>OK</c> handler
+///   (<c>FUN_0044ab90</c>) merges a disbanded army's money into the survivor with a plain,
+///   uncapped addition when a transfer empties an army of units — the same additive, unclamped shape
+///   bug #276's own fleet-absorption evidence already showed for <see cref="FleetRecord.Money"/> (180
+///   → 200, exactly the absorbed fleet's own money, added with no ceiling). So the field itself has
+///   **no confirmed cap**; 1,000 is a per-dialog input clamp, not a data invariant. Bounded below by
+///   its own storage width instead (a <c>ushort</c>, 0..65535) — see the assertion's own remark.
 /// - <see cref="ArmyUnit"/> (TypeCode, Troops, QualityCode, MercenaryLabel) and the remaining
 ///   <see cref="FleetRecord"/> fields (X, Y, OwnerCode, ConstructionCountdown, Moves, Supplies, Money,
 ///   ShipCount, BuildCityOrCondition, CarriedArmyIndex): nothing out of range, and no decompiled
@@ -94,11 +105,18 @@ public class ArmyFleetFieldRangeSweepTests
                 // current corpus ceiling; 51 is the documented floor and matches every record seen.
                 Assert.InRange(a.Morale, (ushort)51, (ushort)72);
 
-                // Supplies and Money: no corpus value anywhere near the unsigned/signed boundary
-                // (see remarks) — generous ceilings well below it, so a genuine future underflow
-                // (a value near 65535) still fails loudly.
+                // Supplies: no corpus value anywhere near the unsigned/signed boundary (see remarks)
+                // — a generous ceiling well below it, so a genuine future underflow (a value near
+                // 65535) still fails loudly.
                 Assert.InRange(a.Supplies, (ushort)0, (ushort)2000);
-                Assert.InRange(a.Money, (ushort)0, (ushort)1000);
+                // Money (T64 #301, bug #312): no confirmed cap on the field — see this class's
+                // remarks (purseCapPerUnit is the supply dialog's own clamp, not a field invariant;
+                // the army-to-army merge-on-disband path adds two purses uncapped). Bounded by the
+                // field's own storage width, not a number read off this corpus: every ushort value
+                // this parser can produce is in that range by construction, so unlike every other
+                // assertion in this sweep, no synthetic value could ever fail this one — there being
+                // nothing narrower to widen past is exactly what "no confirmed cap" means here.
+                Assert.InRange(a.Money, ushort.MinValue, ushort.MaxValue);
 
                 Assert.InRange(a.X, (ushort)0, (ushort)333);
                 Assert.InRange(a.Y, (ushort)0, (ushort)333);
