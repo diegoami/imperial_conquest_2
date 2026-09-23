@@ -1,0 +1,233 @@
+using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json.Nodes;
+using IC2.Engine.Model;
+using IC2.Engine.Serialization;
+using IC2.Engine.Tests.Export;
+using IC2.Engine.Tests.Model;
+using Xunit;
+
+// Deliberately not "IC2.Engine.Tests.Serialization": tests/IC2.Engine.Tests/Economy's own
+// QuarterlyEconomySystemTests.cs references "Serialization.GameDataValidation" unqualified, relying
+// on C#'s namespace lookup falling through to IC2.Engine.Serialization because no sibling namespace
+// segment named "Serialization" exists under IC2.Engine.Tests. Declaring exactly that namespace here
+// would shadow it (the lookup finds IC2.Engine.Tests.Serialization first, has no GameDataValidation
+// member, and does not fall back further) and break that file's build -- which is outside this
+// task's Owns list to fix. Reported as a follow-up rather than patched there; this file keeps this
+// task entirely inside its own Owns list by using a namespace that cannot collide with it.
+namespace IC2.Engine.Tests.SerializationTests;
+
+/// <summary>
+/// <c>docs/tasks/T62.md</c>'s Done-when lines 1-4: a world's base64 terrain grid may name a sidecar
+/// file instead of embedding its data inline, the loader resolves it byte-for-byte before anything
+/// else sees the document, a missing sidecar is a typed error naming both paths, and the toy world
+/// -- run-length, no sidecar at all -- is unaffected and the exemption is asserted, not assumed.
+/// </summary>
+public class WorldTerrainSidecarTests
+{
+    /// <summary>
+    /// DoD 1: pinned from the committed world file as it stood immediately before the T62 split,
+    /// via <c>jq -j '.terrain.data' data/worlds/classical-mediterranean.json | sha256sum</c> against
+    /// that commit. The resolved sidecar content is compared against this directly (string equality
+    /// by hash) rather than by re-decoding and diffing 44,800-cell arrays: <see cref="TerrainGrid.Decode"/>'s
+    /// bytes-to-cells step is a pure, unmodified function of this string, so hash equality of the
+    /// input implies array equality of the output, and a hash is exactly what the task's "the base64
+    /// is the DAT's own terrain encoding ... prove it by hash" hazard asks for.
+    /// </summary>
+    private const string PreSplitTerrainDataSha256 =
+        "988cbedb401d7bef246462ec9d87a83ab39204a72d0acb15dc3f8c093eee35b3";
+
+    /// <summary>DoD 1: the resolved terrain data is byte-for-byte what shipped before the sidecar split.</summary>
+    [Fact]
+    public void Classical_world_terrain_resolves_to_the_pre_split_bytes_exactly()
+    {
+        var world = GameDataLoader.LoadFile<World>(ExportedDataPaths.WorldFile);
+
+        Assert.Equal(TerrainEncoding.Base64, world.Terrain.Encoding);
+        Assert.NotNull(world.Terrain.Data);
+
+        // Cleared on resolution (GameDataLoader.ResolveWorldTerrainSidecar): a resolved grid must be
+        // indistinguishable from one that embedded "data" all along, never carrying both.
+        Assert.Null(world.Terrain.DataFile);
+
+        var actualHash = Convert.ToHexString(SHA256.HashData(Encoding.ASCII.GetBytes(world.Terrain.Data!)));
+        Assert.Equal(PreSplitTerrainDataSha256, actualHash, StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>DoD 1: the resolved grid still decodes to the confirmed 320x140 cell count.</summary>
+    [Fact]
+    public void Classical_world_terrain_still_decodes_to_the_confirmed_cell_count()
+    {
+        var world = GameDataLoader.LoadFile<World>(ExportedDataPaths.WorldFile);
+        var cells = world.Terrain.Decode(world.Width, world.Height);
+
+        Assert.Equal(320 * 140, cells.Length);
+    }
+
+    /// <summary>
+    /// Sanity on the committed file itself: it is the sidecar form, not a leftover inline copy --
+    /// this is what a reviewer diffing the JSON directly (without jq) would otherwise have to trust.
+    /// </summary>
+    [Fact]
+    public void The_committed_world_json_points_at_the_sidecar_not_inline_data()
+    {
+        var node = (JsonObject)JsonNode.Parse(File.ReadAllText(ExportedDataPaths.WorldFile))!;
+        var terrain = node["terrain"]!.AsObject();
+
+        Assert.Equal("classical-mediterranean.terrain.b64", (string?)terrain["dataFile"]);
+        Assert.Null(terrain["data"]);
+    }
+
+    /// <summary>
+    /// DoD 4: the toy world stays run-length, which never carries a sidecar -- only a base64 grid
+    /// (the encoding the full 320x140 export needs) can name <c>dataFile</c> at all; a run-length
+    /// grid's own <c>runs</c> list is already the handful of entries a sidecar exists to avoid. This
+    /// is the "per-world rule" the task entry asks to be stated and tested rather than left implicit.
+    /// </summary>
+    [Fact]
+    public void Toy_world_has_no_terrain_sidecar_and_still_loads()
+    {
+        var node = (JsonObject)JsonNode.Parse(File.ReadAllText(TestPaths.ToyWorldFile))!;
+        var terrain = node["terrain"]!.AsObject();
+
+        Assert.Equal("runLength", (string?)terrain["encoding"]);
+        Assert.Null(terrain["dataFile"]);
+
+        var world = GameDataLoader.LoadFile<World>(TestPaths.ToyWorldFile);
+        var cells = world.Terrain.Decode(world.Width, world.Height);
+
+        Assert.Equal(world.Width * world.Height, cells.Length);
+    }
+
+    /// <summary>Both the classical and toy worlds resolve through the same repository load.</summary>
+    [Fact]
+    public void GameDataRepository_resolves_both_shipped_worlds()
+    {
+        var repository = GameDataRepository.Load(TestPaths.DataRoot);
+
+        Assert.NotNull(repository.WorldById("classical-mediterranean"));
+        Assert.NotNull(repository.WorldById("toy-3city"));
+    }
+
+    /// <summary>A base64 grid naming both "data" and "dataFile" is rejected, never silently picking one.</summary>
+    [Fact]
+    public void A_terrain_grid_naming_both_data_and_dataFile_is_malformed()
+    {
+        var node = (JsonObject)JsonNode.Parse(File.ReadAllText(TestPaths.ToyWorldFile))!;
+        node["terrain"] = new JsonObject
+        {
+            ["encoding"] = "base64",
+            ["runs"] = null,
+            ["data"] = "AAA=",
+            ["dataFile"] = "whatever.terrain.b64",
+        };
+
+        // documentPath is synthetic ("both.json"): the mutual-exclusion check fires before any file
+        // I/O is attempted, exactly like TypedLoadErrorTests' other synthetic-document cases.
+        var error = Assert.Throws<MalformedGameDataException>(
+            () => GameDataLoader.Load<World>("both.json", node.ToJsonString()));
+
+        Assert.Contains("both", error.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// DoD 2: a world whose sidecar is absent fails to load with a typed error naming both the world
+    /// path and the resolved sidecar path -- never a null-terrain world, never a bare stack trace.
+    /// </summary>
+    [Fact]
+    public void A_missing_terrain_sidecar_is_a_typed_error_naming_both_paths()
+    {
+        var tempDir = Directory.CreateTempSubdirectory("ic2-t62-sidecar-");
+        try
+        {
+            var node = (JsonObject)JsonNode.Parse(File.ReadAllText(TestPaths.ToyWorldFile))!;
+            node["terrain"] = new JsonObject
+            {
+                ["encoding"] = "base64",
+                ["runs"] = null,
+                ["data"] = null,
+                ["dataFile"] = "does-not-exist.terrain.b64",
+            };
+
+            var worldPath = Path.Combine(tempDir.FullName, "world-with-missing-sidecar.json");
+            File.WriteAllText(worldPath, node.ToJsonString());
+            var expectedSidecarPath = Path.GetFullPath(Path.Combine(tempDir.FullName, "does-not-exist.terrain.b64"));
+
+            var error = Assert.Throws<MissingTerrainSidecarException>(
+                () => GameDataLoader.LoadFile<World>(worldPath));
+
+            Assert.Equal(worldPath, error.WorldPath);
+            Assert.Equal(expectedSidecarPath, error.SidecarPath);
+            Assert.Contains(worldPath, error.Message, StringComparison.Ordinal);
+            Assert.Contains("does-not-exist.terrain.b64", error.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            tempDir.Delete(recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// DoD 3, the sidecar half: re-running the export must reproduce the committed sidecar
+    /// byte-for-byte, exactly as <see cref="ExportScriptReproducibilityTests"/> already proves for
+    /// the world/ruleset/scenario JSON. That test's own SHA256 check does not cover the sidecar (it
+    /// predates T62 and is outside this task's Owns list to extend), so this is the sidecar's own
+    /// equivalent, sharing the same DAT-availability gate.
+    /// </summary>
+    [SkippableFact]
+    public void Rerunning_the_export_reproduces_the_committed_terrain_sidecar_byte_for_byte()
+    {
+        Skip.IfNot(OriginalFilesAvailability.IsConfigured, OriginalFilesAvailability.SkipReason);
+
+        var sidecarPath = Path.Combine(ExportedDataPaths.RepositoryRoot, "data", "worlds", "classical-mediterranean.terrain.b64");
+        var before = Sha256(sidecarPath);
+
+        var (exitCode, stdout, stderr) = RunExportScript();
+        Assert.True(exitCode == 0, $"export-classical-world.cs exited {exitCode}.\nstdout:\n{stdout}\nstderr:\n{stderr}");
+
+        Assert.Equal(before, Sha256(sidecarPath));
+    }
+
+    /// <summary>Mirrors <see cref="ExportScriptReproducibilityTests"/>'s own identically-purposed helper.</summary>
+    private static (int ExitCode, string Stdout, string Stderr) RunExportScript()
+    {
+        var datPath = OriginalFilesAvailability.DatPath
+                      ?? throw new InvalidOperationException("DatPath is null despite IsConfigured being true.");
+        var assetsDirectory = Path.GetDirectoryName(datPath)
+                               ?? throw new InvalidOperationException($"'{datPath}' has no directory component.");
+
+        var tempIni = Path.Combine(Path.GetTempPath(), "ic2-t62-sidecar-repro-" + Guid.NewGuid().ToString("N") + ".ini");
+        try
+        {
+            File.WriteAllText(tempIni, $"[assets]{Environment.NewLine}directory = {assetsDirectory}{Environment.NewLine}");
+
+            var psi = new ProcessStartInfo("dotnet", $"run \"{ExportedDataPaths.ExportScript}\" \"{tempIni}\"")
+            {
+                WorkingDirectory = ExportedDataPaths.RepositoryRoot,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+            };
+
+            using var process = Process.Start(psi) ?? throw new InvalidOperationException("Failed to start dotnet run.");
+            var stdout = process.StandardOutput.ReadToEnd();
+            var stderr = process.StandardError.ReadToEnd();
+            process.WaitForExit();
+            return (process.ExitCode, stdout, stderr);
+        }
+        finally
+        {
+            if (File.Exists(tempIni))
+            {
+                File.Delete(tempIni);
+            }
+        }
+    }
+
+    private static string Sha256(string path)
+    {
+        using var stream = File.OpenRead(path);
+        return Convert.ToHexString(SHA256.HashData(stream));
+    }
+}
