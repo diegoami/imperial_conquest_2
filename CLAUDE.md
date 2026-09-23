@@ -29,13 +29,13 @@ Agreed on [#264](https://github.com/diegoami/imperial_conquest_2/issues/264), wh
     | File | Whole | Read it like this |
     | --- | ---: | --- |
     | `docs/task-catalogue.md` | ~9,000 tok (index only, since [T61](https://github.com/diegoami/imperial_conquest_2/issues/273)) | small enough to `Read` whole; a task's own entry is `docs/tasks/T<nn>.md` — a plain `Read`, **~1,300 tok**, no `awk` needed |
-    | `data/worlds/classical-mediterranean.json` | ~100,000 tok | `jq 'del(.terrain.data)'` · `jq '.cities[] \| select(.name=="Rome")'` |
+    | `data/worlds/classical-mediterranean.json` | ~70,000 tok (terrain moved out by [T62](https://github.com/diegoami/imperial_conquest_2/issues/274)) | `jq 'del(.cities)'` · `jq '.cities[] \| select(.name=="Rome")'` |
     | `data/rulesets/*.json` | ~20,000–23,000 tok | `jq '.<block>'` — the one block the task touches |
     | `tests/fixtures/corpus.json` | ~31,000 tok | `jq` the one failing entry |
     | `docs/build-process.md`, `game-design.md`, `design-audit.md`, `asset-specification.md` | ~13,000–16,000 tok | `grep -n '<heading>'`, then `sed -n 'A,Bp'` |
 
-    `.terrain.data` is a 119,468-character base64 string on one line. It is never worth reading; its
-    schema is in `src/IC2.Engine/Model/`.
+    The terrain grid is the sidecar `classical-mediterranean.terrain.b64`, a 119,468-character base64
+    string on one line. It is never worth reading; its schema is in `src/IC2.Engine/Model/`.
 
     **This rule is a workaround for a layout problem, and should die.** Splitting the catalogue into
     per-task files and moving `.terrain.data` to a sidecar are the real fixes — planned, with the
