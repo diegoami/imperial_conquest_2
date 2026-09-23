@@ -101,6 +101,34 @@ public sealed class SchemaVersionMismatchException : GameDataException
     public int Supported { get; }
 }
 
+/// <summary>
+/// A world's base64 terrain grid names a sidecar file (<c>dataFile</c>, T62) that does not exist next
+/// to the world document. Distinguished from <see cref="MalformedGameDataException"/> because the world
+/// file itself parsed and validated cleanly -- the failure is a second, missing file -- and named
+/// explicitly rather than left to surface as a null terrain grid or an unhandled <see cref="IOException"/>.
+/// </summary>
+public sealed class MissingTerrainSidecarException : GameDataException
+{
+    /// <param name="worldPath">The world document that references the sidecar.</param>
+    /// <param name="sidecarPath">The sidecar path that was resolved and not found.</param>
+    /// <param name="innerException">The underlying file-system failure.</param>
+    public MissingTerrainSidecarException(string worldPath, string sidecarPath, Exception? innerException = null)
+        : base(
+            worldPath,
+            $"'{worldPath}' names terrain sidecar file '{sidecarPath}', which does not exist.",
+            innerException)
+    {
+        WorldPath = worldPath;
+        SidecarPath = sidecarPath;
+    }
+
+    /// <summary>The world document that references the sidecar.</summary>
+    public string WorldPath { get; }
+
+    /// <summary>The sidecar path that was resolved and not found.</summary>
+    public string SidecarPath { get; }
+}
+
 /// <summary>A scenario, save or state refers to a world or ruleset id that is not present.</summary>
 public sealed class UnresolvedReferenceException : GameDataException
 {

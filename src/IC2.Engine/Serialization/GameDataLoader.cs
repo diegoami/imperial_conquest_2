@@ -44,6 +44,10 @@ public static class GameDataLoader
     /// <exception cref="MissingRequiredFieldException">A field the schema requires is absent.</exception>
     /// <exception cref="UnknownFieldException">A field the schema does not declare is present.</exception>
     /// <exception cref="SchemaVersionMismatchException">The document declares another schema version.</exception>
+    /// <exception cref="MissingTerrainSidecarException">
+    /// <typeparamref name="T"/> is <see cref="World"/> and its terrain grid's <c>dataFile</c> sidecar
+    /// does not exist (T62).
+    /// </exception>
     public static T Load<T>(string documentPath, string json)
         where T : IVersionedDocument
     {
@@ -86,8 +90,58 @@ public static class GameDataLoader
             throw new MalformedGameDataException(documentPath, $"a value could not be read: {ex.Message}", ex);
         }
 
+        // Resolve a world's terrain sidecar (T62) before anything -- including GameDataValidation's own
+        // Terrain.Decode call just below -- sees the document, so every caller of GameDataLoader gets a
+        // World whose Terrain.Data is already populated, indistinguishable from one that embedded it.
+        if (document is World world)
+        {
+            document = (T)(object)ResolveWorldTerrainSidecar(documentPath, world);
+        }
+
         GameDataValidation.Validate(documentPath, document);
         return document;
+    }
+
+    /// <summary>
+    /// Reads a base64 terrain grid's <see cref="TerrainGrid.DataFile"/> sidecar, next to
+    /// <paramref name="documentPath"/>, into <see cref="TerrainGrid.Data"/>. A grid that already carries
+    /// <see cref="TerrainGrid.Data"/> inline, or that is not base64, passes through unchanged -- which is
+    /// every call from a test that builds a <see cref="World"/> in memory and loads it through
+    /// <see cref="Load{T}"/> with a synthetic <paramref name="documentPath"/>: none of those set
+    /// <c>dataFile</c>, so this never touches the disk for them.
+    /// </summary>
+    /// <exception cref="MalformedGameDataException">The grid names both <c>data</c> and <c>dataFile</c>.</exception>
+    /// <exception cref="MissingTerrainSidecarException">The named sidecar file does not exist.</exception>
+    private static World ResolveWorldTerrainSidecar(string documentPath, World world)
+    {
+        var terrain = world.Terrain;
+        if (terrain.Encoding != TerrainEncoding.Base64 || terrain.DataFile is null)
+        {
+            return world;
+        }
+
+        if (terrain.Data is not null)
+        {
+            throw new MalformedGameDataException(
+                documentPath, "the terrain grid carries both \"data\" and \"dataFile\"; it must carry exactly one.");
+        }
+
+        var worldDirectory = Path.GetDirectoryName(Path.GetFullPath(documentPath))
+                              ?? throw new MalformedGameDataException(
+                                  documentPath, $"'{documentPath}' has no directory to resolve terrain sidecar '{terrain.DataFile}' against.");
+        var sidecarPath = Path.Combine(worldDirectory, terrain.DataFile);
+
+        string sidecarText;
+        try
+        {
+            sidecarText = File.ReadAllText(sidecarPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            throw new MissingTerrainSidecarException(documentPath, sidecarPath, ex);
+        }
+
+        return world with { Terrain = terrain with { Data = sidecarText.Trim() } };
     }
 
     private static void CheckSchemaVersion(string documentPath, JsonObject root)
