@@ -261,6 +261,21 @@ if (fleet[+10] == -1) {                              // launched and at sea
 }
 ```
 
+> **The heavier branch's arithmetic, read at instruction level (added 2026-09-23, research `3f6ca09`).**
+> The call is `FUN_0044b4f8(i, 100, dmg + 100)` (`0x00451823`–`0x00451832`: `DX = 100`,
+> `CX = dmg + 100`). Inside that function the second argument is the numerator and the third is the
+> divisor, so `r = max(1, 10000 / (dmg + 100))` and `d = r² / 100`. `d` **falls** as `dmg` rises: 86
+> at `dmg` 7, 72 at 17, and 57 at the winter spike's 30. The fleet loses `ships × d / 300` ships and
+> `condition × d / 300` condition. **An army aboard is hit too, which the pseudocode above does not
+> show.** It takes `FUN_0044AE20(army, d)`, and when `d > 70`, which is every heavy storm except the
+> spike, it also loses `unitCount × d / 250 + 1` whole units. All of this happens before the death
+> check. **[confirmed:
+> [`supply-driven-morale-and-fleet-attrition.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/supply-driven-morale-and-fleet-attrition.md),
+> the 2026-09-23 addition, and
+> [`decompiled-diplomacy-peace-terms-and-instant-battles.md` §"`FUN_0044B5D0` and `FUN_0044B4F8`, instruction by instruction"](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-diplomacy-peace-terms-and-instant-battles.md#fun_0044b5d0-and-fun_0044b4f8-instruction-by-instruction-2026-09-23);
+> the values of `d` derived]**. The merged `FleetAttritionRule` inverts the ratio and skips the army
+> ([#292](https://github.com/diegoami/imperial_conquest_2/issues/292)).
+
 Two consequences of that ordering are worth keeping. The **death check precedes the supply penalty**,
 so `−random(0..1)` can leave a fleet below 40 without killing it until the *next* turn's check. And
 the storm term `random(100 − condition) / 10` **escalates as the fleet degrades**, which makes naval

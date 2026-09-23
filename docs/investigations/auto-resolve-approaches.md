@@ -15,6 +15,13 @@ them, and the user decides from T59's scorecard. Task T58, [#251](https://github
 > §2.3, §7 and §9.2 is narrowed to what the corrected reports support. The candidates are not
 > redesigned. Where a placeholder now departs from a settled fact, the text says so, and the choice is
 > left to the user.
+>
+> **Corrected again 2026-09-23** by the research pass for [#290](https://github.com/diegoami/imperial_conquest_2/issues/290)
+> (research commit `3f6ca09`). No candidate changes, because every candidate replaces only the
+> field battle. Three statements are corrected where they appear. K03's ratio belongs to the field call
+> site only: sieges and naval battles pass `FUN_0044AE20` different ratios (§1). `FUN_0044AE20` draws
+> exactly 20 `Random(15)` per call, where the merged `BattleCasualties.Apply` draws once per unit-list
+> entry (§6.1 "Draws"). The merged siege and naval paths depart from the original (§1).
 
 The candidates are numbered **C1–C5 in the order T58's Done-when 1 lists them**: baseline, the
 original's tactical model run headless, type-weighted instant, round-based, and morale-and-retreat.
@@ -70,7 +77,18 @@ what each one predicts for the discriminating observation. §8 is the metric sui
   that both seats follow, because T59 measures AI against AI. Whether a human seat is instead
   *offered* the choice is a presentation question for whichever task adopts C5, if any.
 - **Naval battles and sieges.** Every candidate replaces only the **field-battle** resolution
-  (`ResolveField`). Naval (`FUN_0044B5D0`) and siege (`FUN_0044B27C`) stay as merged.
+  (`ResolveField`). Naval (`FUN_0044B5D0`) and siege (`FUN_0044B27C`) stay as merged. "As merged" is
+  not "as the original", though. The original's siege charges the attacker
+  `FUN_0044AE20(army, max(1, min(15, def × 6 / atk)))` on every attempt and erodes the city's loyalty,
+  fortification and population. Its naval winner's carried army takes ratio `d = r² / 100` and, when
+  `d > 70`, loses `unitCount × d / 250 + 1` units **[confirmed at instruction level:
+  [`siege-attrition`][siege-attrition] §"`FUN_0044b27c`, instruction by instruction" and
+  [`decompiled-diplomacy-peace-terms-and-instant-battles.md`][instant] §"`FUN_0044B5D0` and
+  `FUN_0044B4F8`, instruction by instruction", research `3f6ca09`]**. The merged paths pass K03's
+  field ratio at both call sites and have no `+ 1` ([#290](https://github.com/diegoami/imperial_conquest_2/issues/290)),
+  and they do not erode the city ([#293](https://github.com/diegoami/imperial_conquest_2/issues/293)).
+  No metric here scores a siege or a naval battle. COST's soak baseline (§8.6) runs them, but it only
+  times them. So this changes no candidate.
 - **Final constant values for adoption.** Every `[designed]` constant here exists so that T59 can
   measure without inventing anything. None of them is a tuned value. T59 must not retune them
   ([T59](../tasks/T59.md) Hazards), and adopting a candidate would reopen them.
@@ -309,7 +327,7 @@ search.
 | --- | --- | --- | --- | --- |
 | K01 | `combatPowerWeight[type]`, unit-type table `+0x26` | LI 20 · HI 100 · A 40 · LC 60 · HC 120 | [confirmed] [`unit-type-stat-table-in-dat.md`][unit-table] 2026-09-19 update; ruleset `unitTypes[].combatPowerWeight` | C1; C2 and C5 through D34; §8 |
 | K02 | `armyPower = (Σ weight × troops / 100) / 80 × M` | divisors 100, 80 | [confirmed] [`instant`][instant] §"The original's instant battle resolver" (`FUN_0044A8CC`); ruleset `combat.powerTroopDivisor`, `powerDivisor` | C1, §8 |
-| K03 | winner casualty ratio `loserPower × 40 / winnerPower` | numerator 40 | [confirmed] [`instant`][instant]; ruleset `combat.winnerCasualtyNumerator` | C1, C3 |
+| K03 | winner casualty ratio `loserPower × 40 / winnerPower` | numerator 40 | [confirmed] [`instant`][instant]; ruleset `combat.winnerCasualtyNumerator`. **Field call site only.** The siege's ratio is `max(1, min(15, def × 6 / atk))` and the naval carried army's is `d` (research `3f6ca09`; §1) | C1, C3 |
 | K04 | per-unit loss `troops / (Random(15) + 105) × ratio` | 105, span 15 | [confirmed] [`decompiled-defection-and-siege-attrition.md`][siege-attrition] via `BattleCasualties`; ruleset `casualtyDivisorBase`, `casualtyDivisorRandomSpan` | C1, C3 |
 | K05 | winner rule: higher power wins, **ties to the defender** | — | [confirmed] [`instant`][instant] (`winner = (pB < pA) ? attacker : defender`) | C1, C3; tie rule reused by C2, C4, C5 |
 | K06 | mirrored survivor numerator, scatter distance | 40; 2–4 tiles | **[designed]** already, in the merged ruleset (`combat.scatteredDefeat._provenance`): searched `docs/reports/` for any partial-defeat outcome in the original, found none | C1 |
@@ -565,6 +583,13 @@ one `Random(5)`. Under `scatter` there are then `nL` divisor draws (again one pe
 scatter-distance draw, made only if the loser has survivors** (`appliedToLoser < loser.TotalTroops`,
 `InstantBattleResolver.ResolveField`). The number is **fixed** for a given pair of armies. T59 reports the battle-phase part (`nW`, plus `nL`
 under scatter) separately from the total.
+The original differs here. `FUN_0044AE20` loops over all 20 slots of the army record and draws
+exactly **20** `Random(15)` per call, whatever the unit count (`0x0044AE2B`–`AE61`, the draw at
+`0x0044AE43` unconditional) **[confirmed: [`siege-attrition`][siege-attrition] §"`FUN_0044b27c`,
+instruction by instruction", research `3f6ca09`]**. The merged `nW` is the length of the army's unit
+list, which need not be 20. So C1's draw count is the merged code's, not the original's, and a
+seeded C1 run does not replay the original's random stream. See
+[#290](https://github.com/diegoami/imperial_conquest_2/issues/290).
 
 **Fixed by construction, not measured.** Its winner is a deterministic function of the two armies,
 so its upset rate (§8.3) is exactly 0. On power-matched armies (§8.0), every battle is an exact tie

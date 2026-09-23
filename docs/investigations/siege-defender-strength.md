@@ -126,6 +126,34 @@ This closes `design-audit.md` §2.13's `[open]` tag on `FUN_0044A98C`, and settl
 to record, not resolve" T17 carries for the same question — both are doc edits on `main` for the
 orchestrator, escalated rather than made directly by this task (see this PR's body).
 
+## The siege entry point around this function, at instruction level [confirmed]
+
+*Added 2026-09-23 from research `3f6ca09`*
+([`decompiled-defection-and-siege-attrition.md` §"`FUN_0044b27c`, instruction by instruction"](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-defection-and-siege-attrition.md#fun_0044b27c-instruction-by-instruction-2026-09-23),
+a machine-code listing rather than the pseudocode dump). It uses this document's field table: city
+`+0x12` owner, `+0x14` allegiance, `+0x16` loyalty, `+0x1a` fortification, `+0x1c` population and
+`+0x1e` maximum population.
+
+- **The `× 9/10` compares the army's owner (army `+4`) with the city's allegiance, `+0x14`**
+  (`0x0044B2CD`–`B2E9`: `CMP AX,[EBX+0x14]`), then computes `def × 9 / 10`, multiplying before it
+  divides. It is applied after `FUN_0044A98C` returns, and so after the garrison addend, which
+  confirms the order weighted sum → × 5/3 → × 4/5 → + garrison → × 9/10.
+- **Everything downstream uses the reduced `def`**: the erosion of loyalty, fortification and
+  population (`FUN_0044B230`), the attacker's casualty ratio `max(1, min(15, def × 6 / atk))`, and the
+  outcome test `atk > def`, which gives ties to the defender.
+- **The fortification strip does not change `def`.** The siege discards an in-progress order
+  (`fort > 100 → fort % 100`, `0x0044B2A4`) before it calls this function, and this function's own
+  decode at `0x0044A9A7` applies the same guard.
+- **The defender's troops take no casualties.** `FUN_0044B27C` writes no recruitment slot (nation
+  `+0x2E4`) and no army other than the attacker. The garrison addend above is read and never
+  written. On the defender's side a siege changes only the three eroded fields, the population floor
+  (`maxPopulation / 6 + 1`) and the fortification strip.
+- **Neither strength function calls `Random`.**
+
+The merged code applies the `× 9/10` exactly this way (`InstantBattleResolver.ResolveSiege`). It does
+not apply the city steps ([#293](https://github.com/diegoami/imperial_conquest_2/issues/293)) or the
+siege's own casualty ratio ([#290](https://github.com/diegoami/imperial_conquest_2/issues/290)).
+
 ## One unrelated defect found in the same file while it was open
 
 While decompiling `FUN_0044A930`'s call graph to confirm the siege-strength identities above, the
