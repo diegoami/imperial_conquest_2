@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    T59 (docs/tasks/T59.md): the auto-resolve tournament runner. Deliberately NOT in IC2.sln: it is a
+    measurement tool run on demand with
+      dotnet run -c Release (project tools/AutoResolveTournament), command "run"
+    and it references the engine (and IC2.Data, for the smoke test's save rosters) by project reference.
+    The Directory.Build.props strict settings are conditioned on project names, so this file states its own.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/IC2.Engine/IC2.Engine.csproj" />
+    <ProjectReference Include="../../src/IC2.Data/IC2.Data.csproj" />
+  </ItemGroup>
+
+</Project>

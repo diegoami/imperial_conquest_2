@@ -1,0 +1,12 @@
+{
+  "machine": "WINDOWS-BJ0PUMB", "processors": 32, "runtime": ".NET 10.0.12",
+  "e0Seconds": 1.90, "fieldBattlesB": 150,
+  "candidates": [
+    {"key": "C1", "battles": 88200, "meanMs": 0.01056, "p99Ms": 0.03880, "maxMs": 14.806, "projectedSoakSeconds": 1.9000},
+    {"key": "C2", "battles": 88200, "meanMs": 0.01466, "p99Ms": 0.05110, "maxMs": 5.096, "projectedSoakSeconds": 1.9006},
+    {"key": "C3", "battles": 88200, "meanMs": 0.00315, "p99Ms": 0.00670, "maxMs": 12.994, "projectedSoakSeconds": 1.8989},
+    {"key": "C4", "battles": 88200, "meanMs": 0.01085, "p99Ms": 0.03510, "maxMs": 14.984, "projectedSoakSeconds": 1.9000},
+    {"key": "C5", "battles": 88200, "meanMs": 0.01195, "p99Ms": 0.03460, "maxMs": 5.576, "projectedSoakSeconds": 1.9002}
+  ],
+  "det": {"C1": "100/100 byte-identical across two processes; draw count as stated: 100/100", "C2": "100/100 byte-identical across two processes; draw count as stated: 100/100", "C3": "100/100 byte-identical across two processes; draw count as stated: 100/100", "C4": "100/100 byte-identical across two processes; draw count as stated: 100/100", "C5": "100/100 byte-identical across two processes; draw count as stated: 100/100"}
+}
