@@ -226,7 +226,7 @@ search.
 
 | ID | Constant | Value | Tag and source | Used by |
 | --- | --- | --- | --- | --- |
-| K01 | `combatPowerWeight[type]`, unit-type table `+0x26` | LI 20 · HI 100 · A 40 · LC 60 · HC 120 | [confirmed] [`unit-type-stat-table-in-dat.md`][unit-table] 2026-09-19 update; ruleset `unitTypes[].combatPowerWeight` | C1, C5 (D34), §8 |
+| K01 | `combatPowerWeight[type]`, unit-type table `+0x26` | LI 20 · HI 100 · A 40 · LC 60 · HC 120 | [confirmed] [`unit-type-stat-table-in-dat.md`][unit-table] 2026-09-19 update; ruleset `unitTypes[].combatPowerWeight` | C1; C2 and C5 through D34; §8 |
 | K02 | `armyPower = (Σ weight × troops / 100) / 80 × M` | divisors 100, 80 | [confirmed] [`instant`][instant] §"The original's instant battle resolver" (`FUN_0044A8CC`); ruleset `combat.powerTroopDivisor`, `powerDivisor` | C1, §8 |
 | K03 | winner casualty ratio `loserPower × 40 / winnerPower` | numerator 40 | [confirmed] [`instant`][instant]; ruleset `combat.winnerCasualtyNumerator` | C1, C3 |
 | K04 | per-unit loss `troops / (Random(15) + 105) × ratio` | 105, span 15 | [confirmed] [`decompiled-defection-and-siege-attrition.md`][siege-attrition] via `BattleCasualties`; ruleset `casualtyDivisorBase`, `casualtyDivisorRandomSpan` | C1, C3 |
@@ -502,7 +502,7 @@ removed unit's troops are 0 (K32, `FUN_00438f78`). The winner's live units keep 
 winner's routed units are at 0 and count as lost. `ending` is set from the cause of the loser's
 **last** removal, as defined in §8.7.
 
-**Constants:** K05 (the cap tie only), K07–K27, K30–K33, D01–D13, D34.
+**Constants:** K01 and K05 (for the cap, through D09 and D34), K07–K27, K30–K33, D01–D13, D34.
 
 **Unit-level break:** `FUN_00438fb0` **unchanged**, including its consequence (`troops = 0`).
 
