@@ -103,6 +103,11 @@ public sealed class SaveFileIoTests : IDisposable
         Assert.Contains("could not be written", ex.Message, StringComparison.Ordinal);
         Assert.False(File.Exists(path));
         Assert.False(File.Exists(path + ".tmp"));
+
+        // Round 3 (S2): the real cause has to survive as the inner exception, not just as text folded
+        // into the message -- a caller that wants to distinguish "no such directory" from some other IO
+        // failure programmatically needs this, and nothing previously asserted it was ever set at all.
+        Assert.IsType<DirectoryNotFoundException>(ex.InnerException);
     }
 
     [Fact]

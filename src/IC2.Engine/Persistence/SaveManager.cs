@@ -53,13 +53,17 @@ public static class SaveManager
     /// with <c>flushToDisk: true</c> — and then moved into place, rather than
     /// <c>File.WriteAllText(path, ...)</c> directly: that call opens <paramref name="path"/> with
     /// <c>FileMode.Create</c>, which truncates the previous save before a single byte of the new one is
-    /// written. <c>SaveFileIoTests</c>'s <c>WriteFile_when_the_temp_path_is_blocked_…</c> and
-    /// <c>WriteFile_when_the_rename_fails_…</c> tests are what actually exercise this: a failure while the
-    /// temp file is being written or moved leaves the previous save's bytes unchanged and no <c>.tmp</c>
-    /// file behind, in each case because a real filesystem obstacle was placed in the way and the write
-    /// was shown to fail before <paramref name="path"/> itself was touched. <see cref="File.Move(string, string, bool)"/>
-    /// replacing an existing file is not a documented atomic guarantee on every filesystem (nor is flushing
-    /// a guarantee against every power-loss scenario — no test claims that), so this narrows the failure
+    /// written. Two <c>SaveFileIoTests</c> tests exercise the two ways this can fail, and no further than
+    /// what each actually shows: <c>WriteFile_when_the_temp_path_is_blocked_…</c> puts an obstacle at the
+    /// temp path, so the write fails there, before <paramref name="path"/> is touched at all, and the
+    /// target is left exactly as it was. <c>WriteFile_when_the_rename_fails_…</c> puts a directory at
+    /// <paramref name="path"/> so only the final <see cref="File.Move(string, string, bool)"/> fails, and
+    /// shows no <c>.tmp</c> file is left behind — it does <em>not</em> show that a previous save already
+    /// at <paramref name="path"/> survives a failed rename, since its target is a directory with no prior
+    /// save content to check. <c>File.Move</c> failing without modifying its destination is the behaviour
+    /// a real rename failure would rely on for that, but no test here covers it. Replacing an existing
+    /// file is in any case not a documented atomic guarantee on every filesystem (nor is flushing a
+    /// guarantee against every power-loss scenario — no test claims that), so this narrows the failure
     /// window rather than closing it outright.
     /// </para>
     /// </remarks>

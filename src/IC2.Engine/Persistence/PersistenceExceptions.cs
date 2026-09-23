@@ -88,9 +88,10 @@ public sealed class SaveContextMismatchException : GameDataException
 /// Review round 2 (R2a): <see cref="SaveManager.WriteFile"/> used to report this as
 /// <see cref="MalformedGameDataException"/>, whose message reads "is malformed: the file could not be
 /// written" — wrong on its face, since nothing was read or parsed to be malformed; the write simply
-/// didn't happen, and the target path (and any previous save at it) is exactly what it was before the
-/// call. A distinct type both fixes the wording and lets a caller distinguish a bad write from a bad
-/// read without parsing the message.
+/// didn't happen. A distinct type both fixes the wording and lets a caller distinguish a bad write from
+/// a bad read without parsing the message. What "didn't happen" leaves at <c>documentPath</c> itself
+/// depends on which step failed — see <see cref="SaveManager.WriteFile"/>'s own remarks for exactly what
+/// is, and is not, covered by a test.
 /// </remarks>
 public sealed class SaveWriteException : GameDataException
 {

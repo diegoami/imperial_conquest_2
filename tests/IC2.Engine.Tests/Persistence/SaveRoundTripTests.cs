@@ -83,11 +83,13 @@ public sealed class SaveRoundTripTests
         Assert.Equal(original, reloaded.State);
 
         // Review round 2 (R3): a "continue N more seat-turns from the original and from the reloaded
-        // state, then compare" check used to follow here. The engine is a pure function of GameState
-        // (TurnCoordinator.RunTurn takes a state and returns one, docs/build-process.md's own framing),
-        // so once Assert.Equal(original, reloaded.State) above holds, running the same deterministic
-        // steps from two equal states cannot produce anything but equal results -- the continuation
-        // could not catch a divergence the record-equality assert above had not already caught.
+        // state, then compare" check used to follow here. The engine is a pure function of GameState --
+        // TurnCoordinator.RunTurn takes a state and returns one, holding no game state itself
+        // (TurnCoordinator's own class remarks; round 3, S4, removed this comment's earlier, incorrect
+        // attribution of that framing to docs/build-process.md) -- so once
+        // Assert.Equal(original, reloaded.State) above holds, running the same deterministic steps from
+        // two equal states cannot produce anything but equal results -- the continuation could not catch
+        // a divergence the record-equality assert above had not already caught.
         // Actual continuation-after-load coverage (a different concern: whether play started fresh from
         // a save diverges from play that was never saved at all) is what the reviewer's own round-1
         // probes established over hundreds of seat-turns across multiple scenarios; see the PR body's
