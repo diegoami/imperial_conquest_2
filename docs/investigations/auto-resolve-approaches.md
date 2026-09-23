@@ -811,6 +811,96 @@ a human, it would be the offered choice deferred in §1.
 
 **Draws:** C2's count, plus 2 per cavalry pursuit hit and 2 per pursuing shot, all logged per event.
 
+## 7. The discriminating observation, candidate by candidate
+
+**The observation** ([`ptolemy`][ptolemy] §3): the **winner** (Seleucid) lost its archers entirely,
+`5,200 → 0`, while its heavy cavalry lost `97 of 2,400`, or 4%. The loser (Ptolemaic) **had no
+archers**. The winner cannot have lost its archers by being run down while fleeing, since that would
+predict heavy losses for the *loser's* archers.
+
+The entry's reading is that those archers **routed**. `FUN_00438fb0` sets a routed unit's troops to
+exactly 0, and that is what the summary panel shows. If that is right, the per-type spread is mostly
+a **break** phenomenon. A model with no unit-break rule cannot then reproduce it at any tuning,
+however carefully it models casualties.
+
+**A second instance points the same way on mechanism and the opposite way on type.** In Rome–Gaul's
+first fight, the winner's **heavy cavalry** went `3,187 → 0`, with both units removed by the rout
+check, while every other Roman type kept 57–74% ([`rome-gaul`][rome-gaul] and its correction note;
+[`rout`][rout]). So "the victor loses one whole arm" has now been observed twice, with a different
+arm each time (§2.3). A candidate that can produce the first case by breaking can in principle
+produce the second. A candidate that produces the first only through fixed per-type weights will
+produce the same ordering every time.
+
+For each candidate, the entry asks three questions: can it produce **a victorious army losing one
+whole arm**; does it get there by **attrition** or by **breaking units**; and what does it predict
+for this battle? One battle validates nothing (§9), so nothing below is a pass or a fail. The column
+headed "for this battle" is computed only for the one-shot candidates, whose outcome shape can be
+worked out by hand. For C2, C4 and C5 it is left to T59's smoke run (§9).
+
+| | Can a victor lose one whole arm? | By attrition or by breaking? | For this battle |
+| --- | --- | --- | --- |
+| **C1** | **No**, at any ratio or tuning. | Attrition only, flat. | Every type loses the same fraction, spread about 1 pp. The level is at most 40/105 ≈ 38%, and at legal morale 12–24% (§2.4). |
+| **C2** | **Yes.** | **Breaking**: the strength floor, the morale floor or band, and the cascade. Attrition alone cannot reach 0, because of the 40% cap. | Left to T59. See the text below for the mechanism. |
+| **C3** | **Only as a limiting case**, when a unit is pushed below 4% of a full battalion. In practice, no. | Attrition only, shaped by exposure. The strength floor can finish a unit that attrition has nearly exhausted. | Archers ≈ 0.80× the army's mean loss rate, heavy cavalry 0.36×, light infantry 1.25×. **It does not predict archers at 100%.** |
+| **C4** | **Only by attrition in a long battle.** The army pool normally breaks first. | Attrition only, with no unit-level break. | Left to T59. Fire rounds hit archers as hard as light infantry (vuln 18 each), and shock rounds hit them second-least (exposure 1,690 against light infantry's 4,551). |
+| **C5** | **The break, yes. The zero, only if pursuit catches the unit.** | **Breaking**, with the same trigger as C2. | Left to T59. Broken archers flee, and **rejoin** (D45) with whatever pursuit leaves them. |
+
+**C1.** No mechanism distinguishes types. The flat-shape finding
+([`instant-cannot`][instant-cannot]) is exactly this. Separately, the baseline cannot reach the
+battle's *total* at any legal morale either (§2.4). It is stated plainly here: **C1 cannot produce a
+victorious army losing one whole arm.**
+
+**C2.** C2 produces the observation by **breaking units**, and the matrix gives archers the profile
+of a unit that breaks.
+- **Archers are weak in melee.** Their attack row is `0 1 3 0 1` and their defensive column entries
+  (`matrix[A][attacker]`) are `0` against light infantry and light cavalry. An archer unit in melee
+  with either type defends at the `+12` floor, takes the 40% cap readily, and under D07 loses 3 `m`
+  per exchange.
+- **Archers are easy to shoot.** Their `vuln` is 18, and the Ptolemaic army's light infantry and
+  light cavalry both shoot. Each shot costs up to 3 `m` (K22).
+- **Falling morale does the rest.** Falling `m` takes the unit into the 20…39 band, where each check
+  breaks it with probability 31–89% (§5). One archer break costs every friend 6 `m`, and a second
+  archer unit already in the low 30s re-routes with no check.
+- **Heavy cavalry is the opposite.** It is hard to shoot (`vuln` 4), its strength floor is only 100
+  troops, and a full 2,400-troop unit is far above it.
+
+Whether a given C2 run actually breaks the archers depends on which units meet, and that is decided
+by the designed driver (D01, D03, D04). So C2's reproduction of this battle is only as faithful as
+those placeholders (§2.2). The same mechanism breaks Rome's small heavy-cavalry units in the second
+instance, where the unit was already near its floor.
+
+**C3.** The prediction follows from D20 and D21 against the Ptolemaic mix. The shares are light inf
+768, heavy inf 115, archers 0, light cav 83 and heavy cav 32 (×1000), and the shooter share is 851.
+
+| Seleucid type | `Xm` | `Xf` | `W` | `W / Wbar` (`Wbar` = 6,357) |
+| --- | ---: | ---: | ---: | ---: |
+| Light inf | 4,551 | 3,404 | 7,955 | 1.25 |
+| Heavy inf | 2,688 | 378 | 3,066 | 0.48 |
+| Archers | 1,690 | 3,404 | 5,094 | 0.80 |
+| Light cav | 3,732 | 2,836 | 6,568 | 1.03 |
+| Heavy cav | 1,524 | 756 | 2,280 | 0.36 |
+
+C3 therefore predicts differentiated losses by **attrition**. The ordering is fixed by the enemy's
+mix: heavy cavalry lightest, which matches, and archers *below* average, which does not. It **cannot
+produce the archers' 100%.** That would need `W_A / Wbar ≥ 112 / R ≥ 2.8`, since `R ≤ 40`. This is
+reported as the model's prediction, not as a fail. Per the hazard, the weights **must not** be
+adjusted toward the observation.
+
+**C4.** C4 has no unit-level break, so a type reaches 0 only by attrition. Its losses are shares of
+the side's damage in proportion to `troops × weight`, so every unit of a type loses the same
+fraction per round, and a type is exhausted only once its cumulative exposure reaches 100%. The army
+pool (D32) breaks at roughly 25–35% army-wide losses at `M = 51…70`, so the most-exposed type would
+need an exposure several times the army's mean to reach 0 first. **C4 is not expected to produce a
+victorious army losing one whole arm**, and when it does, it gets there by attrition.
+
+**C5.** C5 produces the **break** by the same mechanism and trigger as C2. By design, it does not
+produce the **zero** unless the fleeing unit is destroyed in flight. The Seleucid archers would
+break and flee. The Ptolemaic light and heavy cavalry would pursue them (the matrix gives LC→A 3 and
+HC→A 3) and its light infantry and cavalry would shoot them (`vuln` 18). Whatever survives rejoins
+the winner (D45). **C5 reproduces the observation's mechanism but, deliberately, not its final
+number.** This is a departure from the original that follows from the user's objection, and it is
+stated here so the scorecard is not read as C5 "missing" the observation by accident.
+
 <!-- sources: research-repository reports, cited by GitHub URL like the rest of this directory -->
 
 [instant-cannot]: https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/instant-resolver-cannot-reproduce-a-tactical-battle.md
