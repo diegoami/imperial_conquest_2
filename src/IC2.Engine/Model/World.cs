@@ -68,13 +68,27 @@ public enum TerrainEncoding
 public sealed record TerrainRun(int Code, int Count);
 
 /// <summary>The terrain cell grid, row-major, in one of the supported encodings.</summary>
-/// <param name="Encoding">Which of <see cref="Runs"/> / <see cref="Data"/> carries the cells.</param>
+/// <param name="Encoding">Which of <see cref="Runs"/> / <see cref="Data"/> / <see cref="DataFile"/> carries the cells.</param>
 /// <param name="Runs">Present for <see cref="TerrainEncoding.RunLength"/>.</param>
-/// <param name="Data">Present for <see cref="TerrainEncoding.Base64"/>.</param>
+/// <param name="Data">
+/// The base64 cells inline, for <see cref="TerrainEncoding.Base64"/>. Mutually exclusive with
+/// <see cref="DataFile"/>: a document carries exactly one of the two for a base64 grid.
+/// </param>
+/// <param name="DataFile">
+/// The base64 cells in a sidecar file (T62), for <see cref="TerrainEncoding.Base64"/> — named relative
+/// to the directory the world document itself was loaded from, e.g. <c>classical-mediterranean.terrain.b64</c>
+/// next to <c>classical-mediterranean.json</c>. A world large enough that its terrain blob would dominate
+/// the JSON (the 320×140 original export; T62's Scope) ships this way instead of inline <see cref="Data"/>
+/// so the JSON stays readable without it; a small fixture may still embed <see cref="Data"/> directly.
+/// <see cref="GameDataLoader"/> resolves this into <see cref="Data"/> before the document reaches any
+/// caller — a <see cref="TerrainGrid"/> obtained any other way (constructed directly, as every test not
+/// exercising the sidecar path does) is expected to already carry <see cref="Data"/>, not this field.
+/// </param>
 public sealed record TerrainGrid(
     TerrainEncoding Encoding,
     ValueList<TerrainRun>? Runs = null,
-    string? Data = null)
+    string? Data = null,
+    string? DataFile = null)
 {
     /// <summary>
     /// Expands the grid into a row-major array of cell codes. The caller supplies the expected size so
@@ -106,6 +120,16 @@ public sealed record TerrainGrid(
                 if (Data is not null)
                 {
                     throw new InvalidOperationException("A run-length terrain grid must not also carry \"data\".");
+                }
+
+                if (DataFile is not null)
+                {
+                    // Only a base64 grid may use a sidecar (DataFile's own doc comment, and DoD 4's
+                    // stated toy-world exemption): a run-length grid's "runs" list is already the
+                    // handful of entries a sidecar exists to avoid, so a stray "dataFile" here is
+                    // rejected rather than silently carried through unresolved.
+                    throw new InvalidOperationException(
+                        "A run-length terrain grid must not carry \"dataFile\"; only a base64 grid may use a sidecar.");
                 }
 
                 var cells = new int[expected];
@@ -144,7 +168,19 @@ public sealed record TerrainGrid(
             {
                 if (Data is null)
                 {
-                    throw new InvalidOperationException("A base64 terrain grid must carry \"data\".");
+                    // Distinguished from "no data at all" so a TerrainGrid built straight from JSON --
+                    // bypassing GameDataLoader, which resolves DataFile into Data before anything else
+                    // sees the document (see DataFile's doc comment) -- fails with a message that names
+                    // the actual cause instead of claiming the document omitted "data" outright.
+                    throw new InvalidOperationException(DataFile is not null
+                        ? $"A base64 terrain grid's \"dataFile\" ('{DataFile}') has not been resolved into \"data\"; call it through GameDataLoader, not TerrainGrid.Decode directly."
+                        : "A base64 terrain grid must carry \"data\" or \"dataFile\".");
+                }
+
+                if (DataFile is not null)
+                {
+                    throw new InvalidOperationException(
+                        "A base64 terrain grid must not carry both \"data\" and \"dataFile\".");
                 }
 
                 if (Runs is not null)

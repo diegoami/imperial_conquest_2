@@ -101,6 +101,40 @@ public sealed class SchemaVersionMismatchException : GameDataException
     public int Supported { get; }
 }
 
+/// <summary>
+/// A world's base64 terrain grid names a sidecar file (<c>dataFile</c>, T62) that could not be read
+/// from next to the world document -- missing, denied, or any other file-system failure.
+/// Distinguished from <see cref="MalformedGameDataException"/> because the world file itself parsed
+/// and validated cleanly -- the failure is a second file -- and named explicitly rather than left to
+/// surface as a null terrain grid or an unhandled <see cref="IOException"/>.
+/// </summary>
+public sealed class MissingTerrainSidecarException : GameDataException
+{
+    /// <param name="worldPath">The world document that references the sidecar.</param>
+    /// <param name="sidecarPath">The sidecar path that was resolved and could not be read.</param>
+    /// <param name="innerException">The underlying file-system failure.</param>
+    public MissingTerrainSidecarException(string worldPath, string sidecarPath, Exception? innerException = null)
+        : base(
+            worldPath,
+            innerException is null
+                ? $"'{worldPath}' names terrain sidecar file '{sidecarPath}', which does not exist."
+                // The inner exception's own message carries the real reason (not found, access
+                // denied, a directory rather than a file, ...) rather than always claiming "does not
+                // exist" for a file that might actually exist but be unreadable for some other reason.
+                : $"'{worldPath}' names terrain sidecar file '{sidecarPath}', which could not be read: {innerException.Message}",
+            innerException)
+    {
+        WorldPath = worldPath;
+        SidecarPath = sidecarPath;
+    }
+
+    /// <summary>The world document that references the sidecar.</summary>
+    public string WorldPath { get; }
+
+    /// <summary>The sidecar path that was resolved and could not be read.</summary>
+    public string SidecarPath { get; }
+}
+
 /// <summary>A scenario, save or state refers to a world or ruleset id that is not present.</summary>
 public sealed class UnresolvedReferenceException : GameDataException
 {
