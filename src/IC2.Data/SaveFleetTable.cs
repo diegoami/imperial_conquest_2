@@ -11,9 +11,29 @@ public sealed class SaveFleetTable
 {
     public const int RecordLength = 26;
 
-    private SaveFleetTable(FleetRecord[] fleets) => Fleets = fleets;
+    /// <summary>Value of the owner word (+8) that marks a tombstoned record rather than a real fleet
+    /// — see <see cref="SkippedRecords"/>. The same 0xFFFF bit pattern as
+    /// <see cref="FleetRecord.LaunchedSentinel"/> and <see cref="FleetRecord.NoCarriedArmySentinel"/>,
+    /// but a different field with a different meaning; kept as its own constant, mirroring
+    /// <see cref="ArmyRecord.TombstoneOwnerSentinel"/>, so the three are never conflated.</summary>
+    public const ushort TombstoneOwnerSentinel = 0xFFFF;
+
+    private SaveFleetTable(FleetRecord[] fleets, SkippedFleetRecord[] skippedRecords)
+    {
+        Fleets = fleets;
+        SkippedRecords = skippedRecords;
+    }
 
     public IReadOnlyList<FleetRecord> Fleets { get; }
+
+    /// <summary>Records whose owner word was <see cref="TombstoneOwnerSentinel"/> (0xFFFF) — a fleet
+    /// absorbed into another during the turn and not yet compacted (bug #276): the absorbing fleet's
+    /// ship count and money grow by exactly the absorbed fleet's own, and the absorbed record survives
+    /// with every other field intact. Mirrors <see cref="SaveArmyTable.SkippedRecords"/>: deliberately
+    /// excluded from <see cref="Fleets"/> rather than returned as a degenerate owner-65535 entry, and
+    /// the rest of a skipped record is not validated — its fields describe a slot that is not really a
+    /// fleet.</summary>
+    public IReadOnlyList<SkippedFleetRecord> SkippedRecords { get; }
 
     public static SaveFleetTable Parse(byte[] data)
     {
@@ -46,19 +66,70 @@ public sealed class SaveFleetTable
             tableStart = fleetCountOffset + 2;
         }
 
-        var fleets = new FleetRecord[fleetCount];
+        var fleets = new List<FleetRecord>(fleetCount);
+        var skipped = new List<SkippedFleetRecord>();
         for (var i = 0; i < fleetCount; i++)
         {
             var offset = tableStart + i * RecordLength;
+
+            // 0xFFFF is the fleet table's own no-owner tombstone sentinel — see SkippedRecords'
+            // remarks and bug #276. Skip it — do not validate its other fields — and keep parsing the
+            // rest of the table. Every fleet slot keeps its own original index; nothing is
+            // renumbered, since T21's import maps these records by slot.
+            var owner = ReadWord(data, offset + 8);
+            if (owner == TombstoneOwnerSentinel)
+            {
+                var x = ReadWord(data, offset);
+                var y = ReadWord(data, offset + 2);
+                skipped.Add(new SkippedFleetRecord(i, x, y));
+                continue;
+            }
+
             var raw = new byte[RecordLength];
             Array.Copy(data, offset, raw, 0, RecordLength);
-            fleets[i] = new FleetRecord(i, raw);
+            fleets.Add(new FleetRecord(i, raw));
         }
-        return new SaveFleetTable(fleets);
+
+        // Unlike SaveArmyTable's AllArmyRecordsTombstonedException, the fleet table has no
+        // all-tombstoned guard. A fleet count of zero (or every fleet slot being empty) is the
+        // ordinary case for most saves — plenty of nations simply have no fleets afloat on a given
+        // turn — so "every present record is a tombstone" carries none of the army table's "this
+        // table is suspiciously empty" signal: the corpus evidence backing that guard
+        // (docs/investigations/dat-file-layout.md: armies have at most one tombstone per save, out of
+        // hundreds of records, so 100% tombstoned is unambiguously abnormal) has no fleet-table
+        // analogue, and a scan of the whole configured corpus after this fix finds no save whose
+        // fleet table is 100% tombstoned while non-empty — see the PR body for the count. A table
+        // that later turns up with only tombstones parses to zero fleets and zero surprises, exactly
+        // like a table that legitimately has none.
+        return new SaveFleetTable(fleets.ToArray(), skipped.ToArray());
     }
 
     private static ushort ReadWord(byte[] data, int offset) =>
         BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(offset, 2));
+}
+
+/// <summary>A skipped fleet-table record: the tombstone sentinel was found in the owner word, so the
+/// rest of the 26-byte record was never interpreted. See <see cref="SaveFleetTable.SkippedRecords"/>.
+/// Mirrors <see cref="SkippedArmyRecord"/>.</summary>
+public sealed class SkippedFleetRecord
+{
+    internal SkippedFleetRecord(int index, ushort x, ushort y)
+    {
+        Index = index;
+        X = x;
+        Y = y;
+    }
+
+    /// <summary>The record's position (0-based) in the fleet table — its own original slot; skipping
+    /// a record never renumbers the ones that follow it.</summary>
+    public int Index { get; }
+
+    /// <summary>Map X at +0 — read for diagnostics even though the record is a tombstone; the one
+    /// confirmed instance (IP012B.sav fleet 4) has otherwise-valid coordinates.</summary>
+    public ushort X { get; }
+
+    /// <summary>Map Y at +2. See <see cref="X"/>.</summary>
+    public ushort Y { get; }
 }
 
 /// <summary>

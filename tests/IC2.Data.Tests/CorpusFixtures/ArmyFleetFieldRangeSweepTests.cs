@@ -120,9 +120,12 @@ public class ArmyFleetFieldRangeSweepTests
 
                 Assert.InRange(f.X, (ushort)0, (ushort)333);
                 Assert.InRange(f.Y, (ushort)0, (ushort)333);
-                // 0xFFFF (the army-table tombstone's own bit pattern) never appears as a fleet owner
-                // in this corpus; a fleet-owner tombstone would be new information, not something
-                // this task's Owns list handles today.
+                // T64 (#301, bug #276): a fleet-owner tombstone (0xFFFF, the same bit pattern as the
+                // army-table tombstone) DOES appear in this corpus (IP012B.sav, fleet slot 4) — but
+                // SaveFleetTable.Parse now skips and reports it in SkippedRecords, the same way
+                // SaveArmyTable handles its own tombstones, so it never reaches Fleets and never
+                // reaches this assertion. This range stays a real, unwidened 0..15: see
+                // FleetTombstoneTests for the skip itself.
                 Assert.InRange(f.OwnerCode, (ushort)0, (ushort)15);
                 // LaunchedSentinel (0xFFFF) is a real, already-handled sentinel on this same field —
                 // exclude it exactly as IsLaunched does, rather than widen the range to cover it.

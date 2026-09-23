@@ -66,4 +66,28 @@ public class LocalAssetsTests : IDisposable
         // InvalidDataException). This must propagate rather than being swallowed as "not configured".
         Assert.Throws<ArgumentException>(() => LocalAssets.TryLoad(""));
     }
+
+    // ---- #218 N11: DetermineRequestMode is the pure decision behind WasRequested/IsCiFixtureMode,
+    // over every (fixturesDirEnvValue, configFileExists) combination — including N12, a blank
+    // IC2_FIXTURES_DIR treated as unset. Mutating either assignment in LocalAssets' static
+    // constructor to false must fail one of these (see the PR body for both mutations shown).
+
+    [Theory]
+    [InlineData(null, false, false, false)]
+    [InlineData(null, true, true, false)]
+    [InlineData("", false, false, false)] // N12: blank env var is unset-equivalent, not "requested".
+    [InlineData("", true, true, false)]
+    [InlineData("   ", false, false, false)] // Whitespace-only is blank too.
+    [InlineData("   ", true, true, false)]
+    [InlineData(@"C:\fixtures", false, true, true)] // Set (to anything non-blank): CI-fixture mode,
+    [InlineData(@"C:\fixtures", true, true, true)]  // wins outright regardless of the ini file.
+    public void DetermineRequestMode_covers_every_combination(
+        string? fixturesDirEnvValue, bool configFileExists, bool expectedWasRequested, bool expectedIsCiFixtureMode)
+    {
+        var (wasRequested, isCiFixtureMode) =
+            LocalAssets.DetermineRequestMode(fixturesDirEnvValue, configFileExists);
+
+        Assert.Equal(expectedWasRequested, wasRequested);
+        Assert.Equal(expectedIsCiFixtureMode, isCiFixtureMode);
+    }
 }

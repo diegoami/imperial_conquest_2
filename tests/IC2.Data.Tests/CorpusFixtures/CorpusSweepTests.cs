@@ -53,6 +53,7 @@ public class CorpusSweepTests
 
         var fleetTable = SaveFleetTable.Parse(data);
         Assert.Equal(expected.Fleets, fleetTable.Fleets.Count);
+        Assert.Equal(expected.SkippedFleets, fleetTable.SkippedRecords.Count);
 
         var nationTable = SaveNationTable.Parse(data);
         Assert.Equal(expected.Nations, nationTable.Nations.Count);
