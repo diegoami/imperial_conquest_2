@@ -417,7 +417,7 @@ directory, so always pass `git -C <your worktree>` explicitly rather than relyin
 Your task entry is reproduced in full at the end of this brief — it is the contract, and you
 should not need to open the catalogue at all. If you do need a different entry, extract that one
 rather than reading the file (CLAUDE.md rule 11):
-  awk '/^#### T<nn> /{f=1} f&&/^#### /&&!/^#### T<nn> /{exit} f' docs/task-catalogue.md
+  Read docs/tasks/T<nn>.md
 
 Read first, in order:
   docs/build-process.md   — §2 (ownership), §4 (the loop, the review gates, the bug list).
@@ -569,7 +569,7 @@ description: Run Imperial Conquest 2 build tasks end to end — dispatch the imp
 
 Read docs/build-process.md §4 first, and **extract** each task's entry rather than reading the
 catalogue whole (CLAUDE.md rule 11):
-  awk '/^#### T<nn> /{f=1} f&&/^#### /&&!/^#### T<nn> /{exit} f' docs/task-catalogue.md
+  Read docs/tasks/T<nn>.md
 **Paste that extracted entry into every brief you dispatch** (CLAUDE.md rule 15). An agent sent
 to the whole catalogue pays ~85,000 tokens to reach ~1,450 tokens of contract, once per agent
 per round. Given task

@@ -28,7 +28,7 @@ Agreed on [#264](https://github.com/diegoami/imperial_conquest_2/issues/264), wh
 
     | File | Whole | Read it like this |
     | --- | ---: | --- |
-    | `docs/task-catalogue.md` | ~85,000 tok | `awk '/^#### T31 /{f=1} f&&/^#### /&&!/^#### T31 /{exit} f' docs/task-catalogue.md` — **~1,450 tok** |
+    | `docs/task-catalogue.md` | ~9,000 tok (index only, since [T61](https://github.com/diegoami/imperial_conquest_2/issues/273)) | small enough to `Read` whole; a task's own entry is `docs/tasks/T<nn>.md` — a plain `Read`, **~1,300 tok**, no `awk` needed |
     | `data/worlds/classical-mediterranean.json` | ~100,000 tok | `jq 'del(.terrain.data)'` · `jq '.cities[] \| select(.name=="Rome")'` |
     | `data/rulesets/*.json` | ~20,000–23,000 tok | `jq '.<block>'` — the one block the task touches |
     | `tests/fixtures/corpus.json` | ~31,000 tok | `jq` the one failing entry |
