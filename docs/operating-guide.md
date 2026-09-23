@@ -64,7 +64,7 @@ Inside that directory:
 
 **Every `IC2.Data.Tests` test that names a fixture resolves it by name, never by folder** (T53, issue
 #204): a save cited as `1_rome_270_winter_7.sav` is found by searching `saves-processed/`, then
-`saves/`, then `releases/<tag>/` under the configured directory, first hit wins — so moving a save into
+`saves/`, then `releases/<tag>/` under the configured directory, first hit wins (one search order shared by `FixtureResolver` and `IC2.Inspect`'s `CorpusFileLocator` since T64; byte-identical copies of the same name count as one file, and differing copies are an error) — so moving a save into
 `saves-processed/` once a report cites it, exactly the convention above, changes no test outcome. CI
 never touches this directory; it sets `IC2_FIXTURES_DIR` to a fetched clone of the private
 [`diegoami/ic2-test-fixtures`](https://github.com/diegoami/ic2-test-fixtures) repository, which the same
