@@ -8,11 +8,15 @@ namespace IC2.Engine.Battle.Candidates.Tournament;
 /// <param name="Value">The measured number, formatted.</param>
 /// <param name="Band">The band, as §8.9 states it.</param>
 /// <param name="Applicable">False where §8 says the clause does not apply (recorded, not passed).</param>
-/// <param name="Pass">Whether the value lies in the band (meaningless when not applicable).</param>
-public sealed record MetricClause(string Id, string Value, string Band, bool Applicable, bool Pass)
+/// <param name="Pass">Whether the value lies in the band (meaningless when not applicable or undefined).</param>
+/// <param name="Undefined">
+/// True where the clause applies but its procedure excludes every battle, so there is no number to judge
+/// (SV-d when no battle has survivors: §8.8 excludes those battles). Neither a pass nor a fail.
+/// </param>
+public sealed record MetricClause(string Id, string Value, string Band, bool Applicable, bool Pass, bool Undefined = false)
 {
-    /// <summary>"pass", "FAIL" or "n/a".</summary>
-    public string Verdict => !Applicable ? "n/a" : Pass ? "pass" : "FAIL";
+    /// <summary>"pass", "FAIL", "n/a" or "undefined".</summary>
+    public string Verdict => !Applicable ? "n/a" : Undefined ? "undefined" : Pass ? "pass" : "FAIL";
 }
 
 /// <summary>
@@ -366,7 +370,7 @@ public sealed class CandidateScorecard
         card.Clauses.Add(new MetricClause("SV-c", F(svC) + $" (σ(Z) {F(countZ == 0 ? 0 : sigmaZ / countZ)} over {countZ} − σ(H) {F(countH == 0 ? 0 : sigmaH / countH)} over {countH})",
             "≥ 0.05", svApplies, svC >= 0.05));
         card.Clauses.Add(new MetricClause("SV-d", (taus.Count == 0 ? "undefined" : F(svD)) + $" (mean τ over {taus.Count} battles with survivors)",
-            "≥ 0.05", svApplies, taus.Count > 0 && svD >= 0.05));
+            "≥ 0.05", svApplies, taus.Count > 0 && svD >= 0.05, Undefined: taus.Count == 0));
 
         // Diagnostics, no band: the draw-formula check over EVERY battle, not only §8.5's 100.
         var all = troopScale.Concat(powerScale).Concat(upset).ToList();

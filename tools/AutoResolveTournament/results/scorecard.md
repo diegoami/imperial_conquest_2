@@ -17,11 +17,11 @@
 | SV-a | ≥ 0.10 | 0.6463 (median σ) — **pass** | 0.0000 (median σ) — **FAIL** | 0.4099 (median σ) — **pass** | 0.6530 (median σ) — **pass** | 0.3084 (median σ) — **pass** |
 | SV-b | ≥ 0.10 | -0.0008 (median 1−σ 0.3537 − median ω 0.3545) — **FAIL** | 0.5856 (median 1−σ 1.0000 − median ω 0.4144) — **pass** | 0.3838 (median 1−σ 0.5901 − median ω 0.2063) — **pass** | 0.2352 (median 1−σ 0.3470 − median ω 0.1118) — **pass** | 0.3513 (median 1−σ 0.6916 − median ω 0.3403) — **pass** |
 | SV-c | ≥ 0.05 | -0.0001 (σ(Z) 0.6461 over 25200 − σ(H) 0.6462 over 50400) — **FAIL** | 0.0000 (σ(Z) 0.0000 over 18282 − σ(H) 0.0000 over 55871) — **FAIL** | -0.0527 (σ(Z) 0.3351 over 33200 − σ(H) 0.3878 over 39600) — **FAIL** | 0.0193 (σ(Z) 0.6716 over 29309 − σ(H) 0.6523 over 43800) — **FAIL** | 0.0857 (σ(Z) 0.3694 over 20065 − σ(H) 0.2838 over 53367) — **pass** |
-| SV-d | ≥ 0.05 | 0.0029 (mean τ over 88200 battles with survivors) — **FAIL** | undefined (mean τ over 0 battles with survivors) — **FAIL** | 0.1627 (mean τ over 78182 battles with survivors) — **pass** | 0.0380 (mean τ over 88200 battles with survivors) — **FAIL** | 0.2518 (mean τ over 88200 battles with survivors) — **pass** |
+| SV-d | ≥ 0.05 | 0.0029 (mean τ over 88200 battles with survivors) — **FAIL** | undefined (mean τ over 0 battles with survivors) — **undefined** | 0.1627 (mean τ over 78182 battles with survivors) — **pass** | 0.0380 (mean τ over 88200 battles with survivors) — **FAIL** | 0.2518 (mean τ over 88200 battles with survivors) — **pass** |
 | DET | 100/100 byte-identical (two processes) and 100/100 draws as stated; no other randomness source | 100/100 identical; 100/100 draws — **pass** | 100/100 identical; 100/100 draws — **pass** | 100/100 identical; 100/100 draws — **pass** | 100/100 identical; 100/100 draws — **pass** | 100/100 identical; 100/100 draws — **pass** |
-| COST mean t_c | (reported) | 0.0107 ms | 0.0142 ms | 0.0033 ms | 0.0105 ms | 0.0109 ms |
-| COST p99 | ≤ 50 ms | 0.0386 ms — **pass** | 0.0508 ms — **pass** | 0.0074 ms — **pass** | 0.0384 ms — **pass** | 0.0290 ms — **pass** |
-| COST E_c = E0 + B × (t_c − t_1) | ≤ 240 s | 1.9000 s — **pass** | 1.9005 s — **pass** | 1.8989 s — **pass** | 1.9000 s — **pass** | 1.9000 s — **pass** |
+| COST mean t_c | (reported) | 0.0106 ms | 0.0147 ms | 0.0032 ms | 0.0108 ms | 0.0119 ms |
+| COST p99 | ≤ 50 ms | 0.0388 ms — **pass** | 0.0511 ms — **pass** | 0.0067 ms — **pass** | 0.0351 ms — **pass** | 0.0346 ms — **pass** |
+| COST E_c = E0 + B × (t_c − t_1) | ≤ 240 s | 1.9000 s — **pass** | 1.9006 s — **pass** | 1.8989 s — **pass** | 1.9000 s — **pass** | 1.9002 s — **pass** |
 
 Per-composition score s(A), T-scale / P-scale:
 

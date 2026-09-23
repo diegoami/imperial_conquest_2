@@ -48,7 +48,8 @@ gains a field or a flag, and nothing in the game calls the candidates.
   "Draws"). Every C1 draw number below is the merged count.
 - **The ruleset** is the shipped `classical-faithful`, with `combat.onDefeat` set to `scatter` the way
   `BattleTestbed.Scatter` sets it, so that §8.8 has survivors to measure. The `combat` and `unitTypes`
-  blocks of `classical-faithful` and `improved` are identical (checked with `jq`), so this is also
+  blocks of `classical-faithful` and `improved` are identical in every value (checked with `jq`; the
+  `combat` blocks differ only in two `_provenance` strings), so this is also
   `improved`'s battle arithmetic. `onDefeat` changes no winner and no winner's loss for any candidate: it
   only adds C1's and C3's loser-side draws, and it decides whether `survivors` is kept or discarded.
 - **The schedules** are §8.0's, with `S = 200` seeds for every candidate:
@@ -59,16 +60,21 @@ gains a field or a flag, and nothing in the game calls the candidates.
   That is 186,000 battles per candidate, 930,000 in all. No candidate needed a lower `S`.
 - **Determinism (Done-when 3).** The whole scorecard (`tools/AutoResolveTournament/results/scorecard.json`)
   is a pure function of the seed set. It was produced three times with the same bytes, SHA-256
-  `E1BF618E931757B3BBD0E5AA590459A9D58F509BFBEDB57F6271FFF5FC981B28`: two full timed runs one after the
-  other, and a third run that plays the CS-P schedule in parallel rather than in order. The test
+  `C6E46222A859723083BD71891618B454B3B7FB9A85239B5CC14944118DA83FBF`: two full timed runs one after the
+  other, and a third run that plays the CS-P schedule in parallel rather than in order. (The first
+  review round changed one label, C2's SV-d, from FAIL to *undefined*: finding 7. That changed these
+  bytes from the first submission's `E1BF618E…1B28`. No battle and no other number changed.) The test
   `TournamentTests.The_same_seed_set_reproduces_the_whole_scorecard_byte_for_byte` proves the same on a
-  reduced seed set, playing the schedule forwards and then backwards. Wall-clock cost is kept out of the
+  reduced seed set, playing the schedule forwards and then backwards, and
+  `TournamentTests.The_reduced_seed_scorecard_is_pinned` pins that reduced scorecard's SHA-256, so any change
+  to a candidate's rules, the harness or a metric fails a test. Wall-clock cost is kept out of the
   JSON scorecard, because it is a measurement of the machine and not of the seed set.
 
 ## 2. The scorecard
 
 Every clause of §8, measured, with its band as §8.9 states it. "n/a" is §8's own *not applicable*
-(recorded, not a pass). DET was run in two separate processes per candidate; COST was timed in a
+(recorded, not a pass). "undefined" means the clause applies but its procedure excludes every battle, so
+there is no number to judge (finding 7). DET was run in two separate processes per candidate; COST was timed in a
 Release build (§5).
 
 | Clause | Band | C1 | C2 | C3 | C4 | C5 |
@@ -90,12 +96,11 @@ Release build (§5).
 | SV-a | ≥ 0.10 | 0.6463 (median σ) — **pass** | 0.0000 (median σ) — **FAIL** | 0.4099 (median σ) — **pass** | 0.6530 (median σ) — **pass** | 0.3084 (median σ) — **pass** |
 | SV-b | ≥ 0.10 | -0.0008 (median 1−σ 0.3537 − median ω 0.3545) — **FAIL** | 0.5856 (median 1−σ 1.0000 − median ω 0.4144) — **pass** | 0.3838 (median 1−σ 0.5901 − median ω 0.2063) — **pass** | 0.2352 (median 1−σ 0.3470 − median ω 0.1118) — **pass** | 0.3513 (median 1−σ 0.6916 − median ω 0.3403) — **pass** |
 | SV-c | ≥ 0.05 | -0.0001 (σ(Z) 0.6461 over 25200 − σ(H) 0.6462 over 50400) — **FAIL** | 0.0000 (σ(Z) 0.0000 over 18282 − σ(H) 0.0000 over 55871) — **FAIL** | -0.0527 (σ(Z) 0.3351 over 33200 − σ(H) 0.3878 over 39600) — **FAIL** | 0.0193 (σ(Z) 0.6716 over 29309 − σ(H) 0.6523 over 43800) — **FAIL** | 0.0857 (σ(Z) 0.3694 over 20065 − σ(H) 0.2838 over 53367) — **pass** |
-| SV-d | ≥ 0.05 | 0.0029 (mean τ over 88200 battles with survivors) — **FAIL** | undefined (mean τ over 0 battles with survivors) — **FAIL** | 0.1627 (mean τ over 78182 battles with survivors) — **pass** | 0.0380 (mean τ over 88200 battles with survivors) — **FAIL** | 0.2518 (mean τ over 88200 battles with survivors) — **pass** |
+| SV-d | ≥ 0.05 | 0.0029 (mean τ over 88200 battles with survivors) — **FAIL** | undefined (mean τ over 0 battles with survivors) — **undefined** | 0.1627 (mean τ over 78182 battles with survivors) — **pass** | 0.0380 (mean τ over 88200 battles with survivors) — **FAIL** | 0.2518 (mean τ over 88200 battles with survivors) — **pass** |
 | DET | 100/100 byte-identical (two processes) and 100/100 draws as stated; no other randomness source | 100/100 identical; 100/100 draws — **pass** | 100/100 identical; 100/100 draws — **pass** | 100/100 identical; 100/100 draws — **pass** | 100/100 identical; 100/100 draws — **pass** | 100/100 identical; 100/100 draws — **pass** |
-| COST mean t_c | (reported) | 0.0107 ms | 0.0142 ms | 0.0033 ms | 0.0105 ms | 0.0109 ms |
-| COST p99 | ≤ 50 ms | 0.0386 ms — **pass** | 0.0508 ms — **pass** | 0.0074 ms — **pass** | 0.0384 ms — **pass** | 0.0290 ms — **pass** |
-| COST E_c = E0 + B × (t_c − t_1) | ≤ 240 s | 1.9000 s — **pass** | 1.9005 s — **pass** | 1.8989 s — **pass** | 1.9000 s — **pass** | 1.9000 s — **pass** |
-
+| COST mean t_c | (reported) | 0.0106 ms | 0.0147 ms | 0.0032 ms | 0.0108 ms | 0.0119 ms |
+| COST p99 | ≤ 50 ms | 0.0388 ms — **pass** | 0.0511 ms — **pass** | 0.0067 ms — **pass** | 0.0351 ms — **pass** | 0.0346 ms — **pass** |
+| COST E_c = E0 + B × (t_c − t_1) | ≤ 240 s | 1.9000 s — **pass** | 1.9006 s — **pass** | 1.8989 s — **pass** | 1.9000 s — **pass** | 1.9002 s — **pass** |
 
 The draw-formula check also ran on **every** battle, not only on §8.5's 100: 0 mismatches in 186,000
 battles for each candidate (§4, Diagnostics).
@@ -211,14 +216,14 @@ build), with nothing else running.
 
 | | C1 | C2 | C3 | C4 | C5 |
 | --- | --- | --- | --- | --- | --- |
-| mean `t_c` | 0.0107 ms | 0.0142 ms | 0.0033 ms | 0.0105 ms | 0.0109 ms |
-| p99 (band ≤ 50 ms) | 0.0386 ms — **pass** | 0.0508 ms — **pass** | 0.0074 ms — **pass** | 0.0384 ms — **pass** | 0.0290 ms — **pass** |
-| slowest single battle | 14.7 ms | 12.5 ms | 7.4 ms | 5.8 ms | 5.3 ms |
-| `E_c` (band ≤ 240 s) | 1.9000 s — **pass** | 1.9005 s — **pass** | 1.8989 s — **pass** | 1.9000 s — **pass** | 1.9000 s — **pass** |
+| mean `t_c` | 0.0106 ms | 0.0147 ms | 0.0032 ms | 0.0109 ms | 0.0120 ms |
+| p99 (band ≤ 50 ms) | 0.0388 ms — **pass** | 0.0511 ms — **pass** | 0.0067 ms — **pass** | 0.0351 ms — **pass** | 0.0346 ms — **pass** |
+| slowest single battle | 14.8 ms | 5.1 ms | 13.0 ms | 15.0 ms | 5.6 ms |
+| `E_c` (band ≤ 240 s) | 1.9000 s — **pass** | 1.9006 s — **pass** | 1.8989 s — **pass** | 1.9000 s — **pass** | 1.9002 s — **pass** |
 
 What these numbers can and cannot carry:
 - **No candidate is visibly disqualified on cost.** The headless-tactical engine that T59's hazard
-  asked to budget for first (C2, and C5 on the same engine) runs at about 14 µs per P-scale battle, over
+  asked to budget for first (C2, and C5 on the same engine) runs at about 15 µs per P-scale battle, over
   a mean of 13.5 rounds and 435 draws. So it did not have to be cut, and the finding the hazard feared
   does not arise.
 - **The soak cannot tell the candidates apart.** With `B = 150` field battles over 50 games, even a
@@ -227,7 +232,7 @@ What these numbers can and cannot carry:
   three orders of magnitude inside it.
 - The slowest single battles (5–15 ms) occur in every candidate, including the one-shot C1 and C3,
   whose work per battle is fixed. That suggests pauses of the process rather than slow battles
-  **[inference, not measured]**. The band reads the 99th percentile, which is 0.05 ms or less for all
+  **[inference, not measured]**. The band reads the 99th percentile, which is 0.052 ms or less for all
   five.
 
 ## 6. The advance statements, checked
@@ -292,6 +297,16 @@ Seleucid units: light_infantry 15,000, light_infantry 12,300, heavy_infantry 6,0
 | C4 | pass | 1.000 | 0.071 / 0.093 / 0.120 | 0.089 / 0.116 / 0.149 | 0.036 / 0.051 / 0.070 | 0.055 / 0.070 / 0.088 | 0.072 / 0.094 / 0.122 | 0.026 / 0.035 / 0.047 | 0.000 |
 | C5 | pass | 0.991 | 0.394 / 0.498 / 0.530 | 0.651 / 0.823 / 0.876 | 0.000 / 0.000 / 0.000 | 0.000 / 0.000 / 0.000 | 0.000 / 0.000 / 0.000 | 0.000 / 0.000 / 0.000 | 0.000 |
 
+Seat swap (measured, no band): the same two rosters and seeds `k = 0 … 999`, Seleucid attacking and then defending.
+
+| Candidate | Seleucid wins attacking | Seleucid wins defending |
+| --- | --- | --- |
+| C1 | 1.000 | 1.000 |
+| C2 | 0.353 | 0.995 |
+| C3 | 1.000 | 1.000 |
+| C4 | 1.000 | 1.000 |
+| C5 | 0.991 | 1.000 |
+
 ### §9.2 Rome v Gaul, `1_rome_270_winter_7.sav` (rosters read from the save; Rome attacks)
 
 Roster assertions: all passed (totals, HC 755 + 2,432, 4th Bowmen 3,312, slot qualities, Rome M = 68). Owners: army 0 Rome, army 13 Gaul. Gaul's +14 = 62.
@@ -317,12 +332,11 @@ Path taken: **[confirmed by exact match]** — Rome's column matches army 0 (Rom
 | C4 | pass | 0.000 | — | — | — | — | — | 0.000 | 39,941: no attacker win |
 | C5 | pass | 1.000 | 0.176 / 0.198 / 0.216 | 0.204 / 0.320 / 0.412 | 0.082 / 0.093 / 0.096 | 0.941 / 0.974 / 0.991 | 0.320 / 0.364 / 0.379 | 0.000 | 39,941: 0.124 (range 39,287–42,766) |
 
-
 ## 8. Findings
 
 Done-when 1 asks that a candidate the survey does not specify well enough be reported rather than
 completed by invention. **All five candidates were implemented from the survey's register and its
-labelled placeholders.** None needed a new constant or a new mechanism. In six places the text allowed
+labelled placeholders.** None needed a new constant or a new mechanism. In seven places the text allowed
 more than one reading, and each reading taken is stated here, so that a reviewer can disagree with it.
 None of them was chosen by looking at a result.
 
@@ -349,10 +363,14 @@ None of them was chosen by looking at a result.
 6. **K27's placeholder (C2, C5)** was kept as the survey specifies: +3 to **both** sides, used only to
    seed `m` and not written back. The original gives +3 to a computer-controlled side only (research
    `1762c84`). The survey leaves that choice to the user, and so does this document.
+7. **SV-d with no survivors is *undefined*, not a fail.** §8.8 excludes a battle with no survivors from
+   SV-d. For C2 every battle is excluded (its σ is 0 by construction), so SV-d has no number. The first
+   submission scored that as a FAIL. It is now recorded as *undefined*, which is neither a pass nor a
+   fail. That changes no verdict: C2's SV already fails on SV-a (review round 1, N2).
 
 Further findings, each reported as data:
 
-7. **T16's reserve-research guard and T59's Owns list conflicted; the user granted an exemption.**
+8. **T16's reserve-research guard and T59's Owns list conflicted; the user granted an exemption.**
    `tests/IC2.Engine.Tests/Battle/BattleDeterminismTests.cs`,
    `NoReserveTacticalResearchAppearsInTheBattleNamespacesCode`, scanned **every** `.cs` file under
    `src/IC2.Engine/Battle/` recursively for `DetailedResolver`, `TypeEffectiveness`, `MeleeLossCap`,
@@ -361,29 +379,32 @@ Further findings, each reported as data:
    those values from"* `combat.detailedResolver`, so C2–C5 tripped it. Renaming properties or
    hard-coding ruleset values to dodge the guard was rejected. The user granted a narrow edit (main
    `8d3d298`): the guard now skips `Battle/Candidates/` and says why, and a new test,
-   `NoEngineCodeOutsideCandidatesReferencesTheCandidates`, fails if any engine file outside
-   `Battle/Candidates/` names the candidates' namespace or any of their types. Both were proved by
+   `NoProductionCodeOutsideCandidatesReferencesTheCandidates`, fails if any production source outside
+   `src/IC2.Engine/Battle/Candidates/` names the candidates' namespace or any of their types. It scans all
+   of `src/` and `godot/`, skipping build output (widened in review round 1, N1). Both were proved by
    mutation: a banned name placed in `Battle/` outside `Candidates/` fails the first test, and a
-   reference to the candidates placed in `Core/` fails the second.
-8. **C5 ends 98.2% of P-scale battles by ordered withdrawal** (EN-b 0.9997, above the 0.90 bound). §8.7
+   reference to the candidates placed in `src/IC2.Engine/Core/` or in `src/IC2.Cli/` fails the second.
+9. **C5 ends 98.2% of P-scale battles by ordered withdrawal** (EN-b 0.9997, above the 0.90 bound). §8.7
    says in advance that EN-b counts `withdrawal` with `collapse` on purpose, and that whether *"never
    fought to the end"* is acceptable is **the user's call, not T59's**. The number is reported and the
    band is unchanged.
-9. **Dominant compositions.** On the P-scale, C3 has pure archers dominant (`s_P = 1.000`; C3's `Fire`
+10. **Dominant compositions.** On the P-scale, C3 has pure archers dominant (`s_P = 1.000`; C3's `Fire`
    term multiplies K21's shooting base by K23's 25 shots) and C4 has pure light infantry dominant
-   (`s_P = 1.000`). Both fail NT on that clause.
-10. **Seat asymmetry in the headless driver.** C2's attacker wins 45.4% of P-scale battles and C5's
+   (`s_P = 1.000`). Both fail NT on that clause. C5, the candidate §8.2 names as most at risk on NT, has
+   **109 three-cycles and no dominant composition** (and C2 has 148 and none), so both pass NT.
+11. **Seat asymmetry in the headless driver.** C2's attacker wins 45.4% of P-scale battles and C5's
     45.3%, below the 50% that the mirror-symmetric schedule would give a seat-neutral model. §8's
     `p(A, B)` is symmetrised over seats, so no band reads this directly. The driver's seat-dependent
     parts are all placeholders (D01 rows, D02 attacker first, D04, D05), and the measurement does not
-    say which of them causes it. In §9.1 C2's larger Seleucid army wins only 35.3% of seeds, which is the
-    same effect showing on one instance.
-11. **§10's open item on `7.sav` is settled.** The §9.3 exact-total lookup found exactly one army record
+    say which of them causes it. The one direct measurement is §9.1's seat swap (§7): with the same two
+    rosters and seeds, C2's larger Seleucid army wins **35.3% attacking and 99.5% defending**, and C5's
+    99.1% attacking and 100% defending. C1, C3 and C4 give 100% in both seats.
+12. **§10's open item on `7.sav` is settled.** The §9.3 exact-total lookup found exactly one army record
     per start column in `7.sav`: Rome's army 0 at (102,44), owner Rome, M 70, and Gaul's army 9 at
     (103,43), owner Gaul, M 68. §9.3 therefore ran on the save's own rosters, qualities and morale
     **[confirmed by exact match]**, not on the designed fallback. (This settles the survey's §10 row
     *"which army records in `7.sav` fought"*, for the research repository to pick up.)
-12. **The §9.2 roster assertions all passed** against `1_rome_270_winter_7.sav`: the per-type totals,
+13. **The §9.2 roster assertions all passed** against `1_rome_270_winter_7.sav`: the per-type totals,
     Rome's heavy cavalry at 755 and 2,432, 4th Bowmen at 3,312, the slot qualities, and Rome's M = 68.
     Gaul's `+14` read 62, as §9.2 records.
 

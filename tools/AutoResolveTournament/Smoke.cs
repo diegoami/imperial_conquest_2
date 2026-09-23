@@ -34,6 +34,7 @@ internal static class Smoke
         sb.AppendLine("Seleucid units: " + Describe(seleucid) + "; Ptolemaic units: " + Describe(ptolemaic));
         sb.AppendLine();
         Instance(context, sb, seleucid, ptolemaic, "Seleucid", observedTotals: null);
+        SeatSwap(context, sb, seleucid, ptolemaic, "Seleucid");
 
         // §9.2, read from the save.
         var corpus = options.Corpus ?? CorpusDirectory(context);
@@ -293,6 +294,38 @@ internal static class Smoke
             }
 
             sb.AppendLine();
+        }
+
+        sb.AppendLine();
+    }
+
+    /// <summary>
+    /// A measured seat effect, with no band: the same two armies with their seats swapped, the same seeds.
+    /// </summary>
+    private static void SeatSwap(TournamentContext context, StringBuilder sb, CandidateArmy army, CandidateArmy other, string name)
+    {
+        sb.AppendLine($"Seat swap (measured, no band): the same two rosters and seeds `k = 0 … 999`, {name} attacking and then defending.");
+        sb.AppendLine();
+        sb.AppendLine($"| Candidate | {name} wins attacking | {name} wins defending |");
+        sb.AppendLine("| --- | --- | --- |");
+        foreach (var candidate in context.Candidates)
+        {
+            var attacking = 0;
+            var defending = 0;
+            for (var k = 0; k < Seeds; k++)
+            {
+                if (candidate.Resolve(new CandidateBattle(army, other, context.Ruleset, DefeatOutcome.Scatter), new SplitMix64Rng((ulong)k)).Winner == BattleSide.Attacker)
+                {
+                    attacking++;
+                }
+
+                if (candidate.Resolve(new CandidateBattle(other, army, context.Ruleset, DefeatOutcome.Scatter), new SplitMix64Rng((ulong)k)).Winner == BattleSide.Defender)
+                {
+                    defending++;
+                }
+            }
+
+            sb.AppendLine($"| {candidate.Key} | {((double)attacking / Seeds).ToString("0.000", Inv)} | {((double)defending / Seeds).ToString("0.000", Inv)} |");
         }
 
         sb.AppendLine();
