@@ -141,7 +141,10 @@ public static class GameDataLoader
             throw new MissingTerrainSidecarException(documentPath, sidecarPath, ex);
         }
 
-        return world with { Terrain = terrain with { Data = sidecarText.Trim() } };
+        // DataFile is cleared, not just Data populated: once resolved, this TerrainGrid must look
+        // exactly like one that embedded Data all along (that mutual-exclusion check two lines up,
+        // and TerrainGrid.Decode's own, both exist so the two are never both set at once).
+        return world with { Terrain = terrain with { Data = sidecarText.Trim(), DataFile = null } };
     }
 
     private static void CheckSchemaVersion(string documentPath, JsonObject root)

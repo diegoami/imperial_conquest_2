@@ -191,6 +191,11 @@ Console.WriteLine($"Terrain: {recoveredCount} cells recovered from a unit's own 
 var terrainBytes = new byte[cellCodes.Length * 2];
 for (var i = 0; i < cellCodes.Length; i++)
     BinaryPrimitives.WriteUInt16LittleEndian(terrainBytes.AsSpan(i * 2, 2), cellCodes[i]);
+
+// Kept as an ordinary inline-Data grid for the rest of this script: GameDataValidation.Validate
+// below and GameStateFactory.CreateInitial both call TerrainGrid.Decode directly on this in-memory
+// value, before anything is written to disk, so there is no sidecar file yet to resolve one from.
+// Step 11 below is what actually splits this into the shipped world.json + sidecar pair (T62).
 var terrainGrid = new TerrainGrid(TerrainEncoding.Base64, Runs: null, Data: Convert.ToBase64String(terrainBytes));
 
 // ============================================================================================
@@ -541,15 +546,31 @@ _ = GameStateFactory.CreateInitial(world, ruleset, scenario);
 Console.WriteLine("Scenario + world + ruleset build an initial GameState with no errors.");
 
 // ============================================================================================
-// 11. Write the three files, canonical form (GameJson.Serialize), UTF-8, no BOM, LF line endings
+// 11. Write the four files, canonical form (GameJson.Serialize), UTF-8, no BOM, LF line endings
 //     -- deterministic byte-for-byte given the same DAT (DoD 5).
+//
+//     T62: the world's terrain blob -- 44,800 cells, over 119,000 base64 characters, most of the
+//     390 KB world.json -- ships as a sidecar file next to the world JSON instead of inline
+//     "data", so reading the world to understand its shape no longer costs reading past a blob
+//     that conveys nothing (docs/tasks/T62.md Scope). The bytes themselves are untouched: the
+//     sidecar gets exactly the same base64 string `terrainGrid.Data` above already held; only the
+//     world.json we write now points at it via "dataFile" instead of embedding it. GameDataLoader
+//     resolves the sidecar back into TerrainGrid.Data at load time, so every reader downstream of
+//     the loader -- including this same script's own validation just above -- sees the identical
+//     value either way.
 // ============================================================================================
-WriteCanonical(Path.Combine(repoRoot, "data", "worlds", "classical-mediterranean.json"), GameJson.Serialize(world));
+const string terrainSidecarFileName = "classical-mediterranean.terrain.b64";
+var terrainBase64 = world.Terrain.Data
+                     ?? throw new InvalidOperationException("world.Terrain.Data was unexpectedly null before the T62 sidecar split.");
+var worldForExport = world with { Terrain = world.Terrain with { Data = null, DataFile = terrainSidecarFileName } };
+
+WriteCanonical(Path.Combine(repoRoot, "data", "worlds", "classical-mediterranean.json"), GameJson.Serialize(worldForExport));
+WriteCanonical(Path.Combine(repoRoot, "data", "worlds", terrainSidecarFileName), terrainBase64);
 WriteCanonical(Path.Combine(repoRoot, "data", "rulesets", "classical-faithful.json"), GameJson.Serialize(ruleset));
 WriteCanonical(Path.Combine(repoRoot, "data", "scenarios", "classical-mediterranean.json"), GameJson.Serialize(scenario));
 
 Console.WriteLine();
-Console.WriteLine("Wrote data/worlds/classical-mediterranean.json, data/rulesets/classical-faithful.json, data/scenarios/classical-mediterranean.json.");
+Console.WriteLine($"Wrote data/worlds/classical-mediterranean.json, data/worlds/{terrainSidecarFileName}, data/rulesets/classical-faithful.json, data/scenarios/classical-mediterranean.json.");
 
 static void WriteCanonical(string path, string json)
 {
