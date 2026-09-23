@@ -95,8 +95,7 @@ public static class SaveManager
             catch (Exception cleanupEx) when (cleanupEx is IOException or UnauthorizedAccessException)
             {
                 // Best effort: the write failure below is what gets reported either way, and a leaked
-                // .tmp file is a nuisance, not a correctness problem -- the previous good save at
-                // `path` was never touched.
+                // .tmp file is a nuisance, not a correctness problem.
             }
 
             throw new SaveWriteException(path, ex.Message, ex);
