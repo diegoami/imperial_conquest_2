@@ -32,11 +32,11 @@ internal static class SaveMigrations
             {
                 1 => MigrateV1ToV2(documentPath, current),
 
-                // Nothing this build can step forward from -- either a version older than this task's
-                // format ever went as low as, or (defensively) a version this switch has not been taught
-                // a step for. Reported with the same typed exception DoD 3 already uses for "too new":
-                // "this build cannot read that version" is the same failure mode either side of the
-                // range it actually supports.
+                // Nothing this build can step forward from -- either a version below
+                // SaveFormat.MinimumSupportedVersion (zero, negative, or otherwise never shipped), or
+                // (defensively) a version this switch has not been taught a step for. Same exception
+                // type DoD 3 uses for "too new", but its own message tells the two apart (found <
+                // MinimumSupportedVersion is never "a newer build").
                 _ => throw new UnsupportedSaveFormatException(documentPath, foundVersion, SaveFormat.CurrentVersion),
             };
 

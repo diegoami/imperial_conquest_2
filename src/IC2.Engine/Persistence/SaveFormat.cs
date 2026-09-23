@@ -31,8 +31,17 @@ public static class SaveFormat
     /// The highest save format version this build writes and reads. Version 1 wrapped a bare
     /// <c>SaveGame</c> with no other envelope field; version 2 adds <see cref="TurnIndexField"/>.
     /// <see cref="SaveMigrations"/> carries the real version-1-to-2 step, exercised by
-    /// <c>tests/fixtures/saves/toy-3city-turn-20.v1.json</c> — a save written by this task's own
+    /// <c>tests/fixtures/saves/toy-3city-turn-10.v1.json</c> — a save written by this task's own
     /// version-1 code, committed before this constant became 2.
     /// </summary>
     public const int CurrentVersion = 2;
+
+    /// <summary>
+    /// The lowest save format version this build has ever shipped and can migrate from
+    /// (<see cref="SaveMigrations"/> has no step below it). A version below this — zero, negative, or
+    /// simply never issued — gets a different rejection message than a version above
+    /// <see cref="CurrentVersion"/>: <see cref="UnsupportedSaveFormatException"/>'s "written by a newer
+    /// build" would be false for a file that predates every version this build knows about.
+    /// </summary>
+    public const int MinimumSupportedVersion = 1;
 }

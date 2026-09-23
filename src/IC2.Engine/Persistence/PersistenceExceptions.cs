@@ -3,15 +3,19 @@ using IC2.Engine.Serialization;
 namespace IC2.Engine.Persistence;
 
 /// <summary>
-/// A save file's <c>saveFormatVersion</c> is higher than this build knows how to read.
+/// A save file's <c>saveFormatVersion</c> is outside the range this build can read: newer than
+/// <see cref="SaveFormat.CurrentVersion"/>, or older than <see cref="SaveFormat.MinimumSupportedVersion"/>
+/// (zero, negative, or otherwise a version this build never shipped and has no migration step for).
 /// </summary>
 /// <remarks>
 /// Distinguished from <see cref="SchemaVersionMismatchException"/> (which governs a document's own
 /// <c>schemaVersion</c> field — <c>IC2.Engine.Model</c>'s "World/Ruleset/Scenario/SaveGame/GameState"
 /// contract, exact-match only): <c>saveFormatVersion</c> is the outer save-file envelope T20 owns, which
-/// supports migrating an <em>older</em> version forward (<see cref="SaveMigrations"/>) but never a
-/// <em>future</em> one — a save written by a newer build could carry a field or a re-shaped envelope this
-/// build has never seen, and best-effort parsing it would silently drop or misread that, not reject it.
+/// supports migrating an <em>older</em>, previously-shipped version forward (<see cref="SaveMigrations"/>)
+/// but never a <em>future</em> one — a save written by a newer build could carry a field or a re-shaped
+/// envelope this build has never seen, and best-effort parsing it would silently drop or misread that, not
+/// reject it. The two directions get different messages (below), because "too new" and "never existed"
+/// are different mistakes for whoever reads the error.
 /// </remarks>
 public sealed class UnsupportedSaveFormatException : GameDataException
 {
@@ -19,10 +23,7 @@ public sealed class UnsupportedSaveFormatException : GameDataException
     /// <param name="found">The <c>saveFormatVersion</c> the file declares.</param>
     /// <param name="supported">The highest <c>saveFormatVersion</c> this build reads.</param>
     public UnsupportedSaveFormatException(string documentPath, int found, int supported)
-        : base(
-            documentPath,
-            $"'{documentPath}' was written by a newer build: it declares save format version {found}, "
-            + $"but this build reads up to version {supported}.")
+        : base(documentPath, BuildMessage(documentPath, found, supported))
     {
         Found = found;
         Supported = supported;
@@ -33,6 +34,13 @@ public sealed class UnsupportedSaveFormatException : GameDataException
 
     /// <summary>The highest <c>saveFormatVersion</c> this build reads.</summary>
     public int Supported { get; }
+
+    private static string BuildMessage(string documentPath, int found, int supported) =>
+        found < SaveFormat.MinimumSupportedVersion
+            ? $"'{documentPath}' declares save format version {found}, which this build has never "
+              + $"shipped and has no migration step for (the earliest is version {SaveFormat.MinimumSupportedVersion})."
+            : $"'{documentPath}' was written by a newer build: it declares save format version {found}, "
+              + $"but this build reads up to version {supported}.";
 }
 
 /// <summary>

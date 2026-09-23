@@ -61,4 +61,33 @@ public sealed class SaveFormatVersionTests
         Assert.Throws<UnsupportedSaveFormatException>(
             () => SaveManager.Load("far-future-save.json", futureEnvelope, toy.World, toy.Ruleset));
     }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void A_save_format_version_below_the_earliest_this_build_ever_shipped_gets_an_accurate_message(
+        int inventedVersion)
+    {
+        // Review round 1 (N2): SaveMigrations' catch-all reused UnsupportedSaveFormatException's "was
+        // written by a newer build" message for this direction too, which is simply false for a version
+        // below SaveFormat.MinimumSupportedVersion -- such a file was never written by any build, newer
+        // or otherwise. The exception TYPE was already right (this is not a new bug in behaviour, only in
+        // wording), so this test is about the message, not about whether it throws.
+        var toy = PersistenceTestbed.Toy;
+        var envelope =
+            $$"""
+            {
+              "{{SaveFormat.VersionField}}": {{inventedVersion}},
+              "{{SaveFormat.PayloadField}}": {}
+            }
+            """;
+
+        var ex = Assert.Throws<UnsupportedSaveFormatException>(
+            () => SaveManager.Load("invented-old-save.json", envelope, toy.World, toy.Ruleset));
+
+        Assert.Equal(inventedVersion, ex.Found);
+        Assert.DoesNotContain("newer build", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("never", ex.Message, StringComparison.Ordinal);
+        Assert.Contains(SaveFormat.MinimumSupportedVersion.ToString(), ex.Message, StringComparison.Ordinal);
+    }
 }

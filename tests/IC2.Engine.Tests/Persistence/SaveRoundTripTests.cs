@@ -1,6 +1,7 @@
 using IC2.Engine.Core;
 using IC2.Engine.Model;
 using IC2.Engine.Persistence;
+using IC2.Engine.Tests.Model;
 using Xunit;
 
 namespace IC2.Engine.Tests.Persistence;
@@ -9,24 +10,35 @@ namespace IC2.Engine.Tests.Persistence;
 /// <c>docs/tasks/T20.md</c> Done-when 1: "A mid-game state after N turns (N &gt;= 20, all systems
 /// registered) round-trips to an equal state hash."
 /// </summary>
+/// <remarks>
+/// "N turns" means <see cref="CalendarState.TurnIndex"/> — a full calendar turn, documented as "how many
+/// turn cycles have elapsed" and advanced once per round by <c>CalendarSystem</c> — not a call to
+/// <see cref="TurnCoordinator.RunTurn"/>, which runs one <em>seat's</em> turn. Review round 1 (B1) found
+/// the original version of this test played 23 seat-turns (calendar turn 11 on this two-seat toy
+/// scenario) and only guarded <c>TurnIndex &gt; 0</c>, so it round-tripped a state Done-when 1 does not
+/// describe without failing. <see cref="PersistenceTestbed.PlayUntilTurnIndex"/> plays until the calendar
+/// turn itself reaches the target.
+/// </remarks>
 public sealed class SaveRoundTripTests
 {
-    private const int TurnCount = 23;
+    private const int MinTurnIndex = 20;
 
     [Fact]
-    public void A_state_reached_by_playing_at_least_20_turns_round_trips_to_an_equal_state_hash()
+    public void A_state_reached_by_playing_at_least_20_calendar_turns_round_trips_to_an_equal_state_hash()
     {
         var toy = PersistenceTestbed.Toy;
-        var original = PersistenceTestbed.PlayTurns(TurnCount);
+        var original = PersistenceTestbed.PlayUntilTurnIndex(MinTurnIndex);
 
-        // Proves the fixture is actually mid-game, not a scenario that stalled at turn 0 — a hash
-        // equality test over two copies of the untouched initial state would pass for the wrong reason.
-        Assert.True(original.Calendar.TurnIndex > 0);
+        // The guarantee Done-when 1 actually asks for: not just "the game moved", but "at least N
+        // calendar turns", checked on the field the design and the engine both call a turn.
+        Assert.True(
+            original.Calendar.TurnIndex >= MinTurnIndex,
+            $"expected calendar turn >= {MinTurnIndex}, got {original.Calendar.TurnIndex}");
 
         var save = new SaveGame(
             SchemaVersion: original.SchemaVersion,
             Id: "toy-3city-playthrough",
-            Label: $"Toy playthrough, {TurnCount} turns",
+            Label: $"Toy playthrough, calendar turn {original.Calendar.TurnIndex}",
             ScenarioId: original.ScenarioId,
             WorldId: original.WorldId,
             RulesetId: original.RulesetId,
@@ -43,21 +55,50 @@ public sealed class SaveRoundTripTests
     }
 
     [Fact]
-    public void A_save_records_its_world_and_ruleset_ids()
+    public void A_state_with_a_siege_an_embarked_army_a_pending_offer_and_a_mercenary_pool_round_trips()
     {
+        // Review round 1 (N1): no played run of the toy scenario reaches a siege, an embarked/carried
+        // army, a pending diplomatic offer, a fleet under construction or an occupied mercenary pool
+        // within a reasonable seat-turn budget, so the played round trip above never exercises the
+        // cross-referencing fields (CarriedArmyId/AboardFleetId/BuildCityId) that build-process.md §4.2's
+        // "a delete that leaves something behind" class is about. ToyFixtures.NonTrivialState() (T02)
+        // already builds exactly that state; round-tripping it here closes the gap without inventing a
+        // second state-construction path.
         var toy = PersistenceTestbed.Toy;
-        var state = PersistenceTestbed.PlayTurns(TurnCount);
+        var original = ToyFixtures.NonTrivialState();
 
         var save = new SaveGame(
-            SchemaVersion: state.SchemaVersion,
-            Id: "toy-3city-playthrough",
-            Label: "Toy playthrough",
-            ScenarioId: state.ScenarioId,
-            WorldId: state.WorldId,
-            RulesetId: state.RulesetId,
-            State: state);
+            SchemaVersion: original.SchemaVersion,
+            Id: "toy-3city-nontrivial",
+            Label: "Toy non-trivial state (siege, embark, offer, mercenaries)",
+            ScenarioId: original.ScenarioId,
+            WorldId: original.WorldId,
+            RulesetId: original.RulesetId,
+            State: original);
 
-        Assert.Equal(toy.World.Id, save.WorldId);
-        Assert.Equal(toy.Ruleset.Id, save.RulesetId);
+        var text = SaveManager.Serialize(save);
+        var reloaded = SaveManager.Load("toy-3city-nontrivial.json", text, toy.World, toy.Ruleset);
+
+        Assert.Equal(GameStateHash.Compute(original), GameStateHash.Compute(reloaded.State));
+        Assert.Equal(original, reloaded.State);
+
+        // Continuation after load, on this state specifically: the reviewer's own round-1 probe played
+        // 60 more seat-turns from the original and from the reloaded state and found no divergence. A
+        // shorter run here (registered systems are already exercised at length by the played round trip
+        // above) is enough to catch a save/load path that silently drops one of this state's non-default
+        // fields rather than merely failing to carry it into the hash.
+        var registry = SystemRegistry.FromEngineAssembly();
+        var dispatcher = new CommandDispatcher(registry, toy.Ruleset, toy.World, NullEventSink.Instance);
+        var coordinator = new TurnCoordinator(registry, toy.Ruleset, toy.World, NullEventSink.Instance, dispatcher);
+
+        var continuedFromOriginal = original;
+        var continuedFromReloaded = reloaded.State;
+        for (var i = 0; i < 10; i++)
+        {
+            continuedFromOriginal = coordinator.RunTurn(continuedFromOriginal).State;
+            continuedFromReloaded = coordinator.RunTurn(continuedFromReloaded).State;
+        }
+
+        Assert.Equal(GameStateHash.Compute(continuedFromOriginal), GameStateHash.Compute(continuedFromReloaded));
     }
 }

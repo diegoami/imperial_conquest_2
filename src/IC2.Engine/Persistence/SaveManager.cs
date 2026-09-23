@@ -46,7 +46,45 @@ public static class SaveManager
     private static readonly JsonSerializerOptions WriteOptions = new(GameJson.Options) { WriteIndented = true };
 
     /// <summary>Writes <paramref name="save"/> to <paramref name="path"/> as a current-format save file.</summary>
-    public static void WriteFile(string path, SaveGame save) => File.WriteAllText(path, Serialize(save));
+    /// <remarks>
+    /// Written to a sibling <c>.tmp</c> file first and then moved into place, rather than
+    /// <c>File.WriteAllText(path, ...)</c> directly: that call opens <paramref name="path"/> with
+    /// <c>FileMode.Create</c>, which truncates the previous save before a single byte of the new one is
+    /// written, so a crash or a full disk mid-write would leave a truncated file where the last good save
+    /// used to be. <see cref="File.Move(string, string, bool)"/> replacing an existing file is not a
+    /// documented atomic guarantee on every filesystem, but it narrows the failure window from "the whole
+    /// write" to "an already-complete temp file being renamed" — the previous save is never opened for
+    /// writing at all.
+    /// </remarks>
+    /// <exception cref="MalformedGameDataException">The file could not be written.</exception>
+    public static void WriteFile(string path, SaveGame save)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        ArgumentNullException.ThrowIfNull(save);
+
+        var text = Serialize(save);
+        var tempPath = path + ".tmp";
+        try
+        {
+            File.WriteAllText(tempPath, text);
+            File.Move(tempPath, path, overwrite: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            try
+            {
+                File.Delete(tempPath);
+            }
+            catch (Exception cleanupEx) when (cleanupEx is IOException or UnauthorizedAccessException)
+            {
+                // Best effort: the write failure below is what gets reported either way, and a leaked
+                // .tmp file is a nuisance, not a correctness problem -- the previous good save at
+                // `path` was never touched.
+            }
+
+            throw new MalformedGameDataException(path, $"the file could not be written: {ex.Message}", ex);
+        }
+    }
 
     /// <summary>Serializes <paramref name="save"/> to its canonical, current-format envelope text.</summary>
     public static string Serialize(SaveGame save)
