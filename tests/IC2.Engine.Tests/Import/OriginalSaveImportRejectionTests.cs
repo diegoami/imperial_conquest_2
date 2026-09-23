@@ -1,8 +1,6 @@
 using IC2.Engine.Import;
 using IC2.Engine.Model;
 using IC2.Engine.Persistence;
-using IC2.Engine.Serialization;
-using IC2.Engine.Tests.Export;
 using Xunit;
 
 namespace IC2.Engine.Tests.Import;
@@ -15,11 +13,9 @@ namespace IC2.Engine.Tests.Import;
 /// </summary>
 public class OriginalSaveImportRejectionTests
 {
-    // The real, committed World/Ruleset/Scenario (ExportedDataPaths, from tests/IC2.Engine.Tests/Export)
-    // — loaded once, since the rejection checks run before any byte is read and these are read-only.
-    private static readonly World RealWorld = GameDataLoader.LoadFile<World>(ExportedDataPaths.WorldFile);
-    private static readonly Ruleset RealRuleset = GameDataLoader.LoadFile<Ruleset>(ExportedDataPaths.RulesetFile);
-    private static readonly Scenario RealScenario = GameDataLoader.LoadFile<Scenario>(ExportedDataPaths.ScenarioFile);
+    private static readonly World RealWorld = RealGameData.World;
+    private static readonly Ruleset RealRuleset = RealGameData.Ruleset;
+    private static readonly Scenario RealScenario = RealGameData.Scenario;
 
     [Fact]
     public void A_world_id_other_than_classical_mediterranean_is_rejected_with_a_clear_message()
