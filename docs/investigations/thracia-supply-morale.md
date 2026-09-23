@@ -192,7 +192,7 @@ Grepping the whole-application dump for every access to the morale word as an in
 
 | Site (`all_app_functions.txt`) | What it is |
 | --- | --- |
-| `38084`, `38092` | `+= 3` to each side on battle entry, in `FUN_00437DE4` (`TBattleMap_StartBattle`'s copy-in) |
+| `38084`, `38092` | `+= 3` on battle entry, in `FUN_00437DE4` (`TBattleMap_StartBattle`'s copy-in), **only for a side whose own nation is computer-controlled** (nation `+0x490 == 0`), unclamped, once per battle; the human side gets nothing. *(Corrected 2026-09-23: this row first read "to each side", after the source report's own first reading. See [`battle-quality-promotion-and-morale-array-decompiled.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/battle-quality-promotion-and-morale-array-decompiled.md) §"The morale formula", research `1762c84`.)* |
 | `38135`, `38162` | seeds the per-unit tactical array `DAT_004A0350` — the known tactical formula |
 | `41054`, `41056` | the panel's tier display (`−0x33`, fallback `−0x30`) |
 | `48739` | `= 0x3B` (59), new-army initialisation |
