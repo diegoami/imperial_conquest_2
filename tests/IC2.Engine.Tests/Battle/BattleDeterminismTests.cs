@@ -119,8 +119,14 @@ public class BattleDeterminismTests
             "InRangeShotMultiplier",
         };
 
+        // Battle/Candidates/ is exempt (T59, granted narrowly by the user, main 8d3d298): the auto-resolve
+        // candidates there ARE the reserve research, implemented as measurement code behind a seam the user
+        // gates, and the shipped resolver never calls them. The companion test below asserts that no file in
+        // the engine outside Candidates/ references them, so the research cannot reach the shipped path.
         var battleSources = Directory.GetFiles(
-            Path.Combine(TestPaths.RepositoryRoot, "src", "IC2.Engine", "Battle"), "*.cs", SearchOption.AllDirectories);
+                Path.Combine(TestPaths.RepositoryRoot, "src", "IC2.Engine", "Battle"), "*.cs", SearchOption.AllDirectories)
+            .Where(file => !IsUnderCandidates(file))
+            .ToArray();
         Assert.NotEmpty(battleSources);
 
         var offenders = new List<string>();
@@ -139,7 +145,68 @@ public class BattleDeterminismTests
         Assert.True(
             offenders.Count == 0,
             "The shipped instant resolver must not consume the reserve tactical research: "
-            + string.Join(", ", offenders));
+            + string.Join(", ", offenders)
+            + " (Battle/Candidates/ alone is exempt: T59's candidates are measurement code, gated by the user, "
+            + "and never called by the shipped resolver.)");
+    }
+
+    /// <summary>
+    /// The other half of the <c>Battle/Candidates/</c> exemption above (T59, main 8d3d298): no engine file
+    /// outside <c>Battle/Candidates/</c> may reference the candidates' namespace or any of their types, so
+    /// the reserve research the candidates implement cannot leak into the shipped path.
+    /// </summary>
+    [Fact]
+    public void NoEngineCodeOutsideCandidatesReferencesTheCandidates()
+    {
+        const string CandidatesNamespace = "IC2.Engine.Battle.Candidates";
+        var candidateTypes = typeof(InstantBattleResolver).Assembly.GetTypes()
+            .Where(t => t.Namespace is { } ns
+                        && (ns == CandidatesNamespace || ns.StartsWith(CandidatesNamespace + ".", StringComparison.Ordinal))
+                        && !t.IsNested
+                        && !t.Name.Contains('<', StringComparison.Ordinal))
+            .Select(t => t.Name.Split('`')[0])
+            .ToList();
+        Assert.NotEmpty(candidateTypes);
+
+        // "Candidates" catches every way to name the namespace: a using, a qualified name, a namespace
+        // declaration. The type names catch anything else.
+        var tokens = candidateTypes.Append("Candidates").Distinct(StringComparer.Ordinal).ToList();
+        var engineSources = Directory.GetFiles(
+                Path.Combine(TestPaths.RepositoryRoot, "src", "IC2.Engine"), "*.cs", SearchOption.AllDirectories)
+            .Where(file => !IsUnderCandidates(file) && !IsBuildOutput(file))
+            .ToArray();
+        Assert.NotEmpty(engineSources);
+
+        var offenders = new List<string>();
+        foreach (var file in engineSources)
+        {
+            var code = StripComments(File.ReadAllText(file));
+            foreach (var token in tokens)
+            {
+                if (Regex.IsMatch(code, $@"\b{Regex.Escape(token)}\b"))
+                {
+                    offenders.Add($"{Path.GetRelativePath(TestPaths.RepositoryRoot, file)}: {token}");
+                }
+            }
+        }
+
+        Assert.True(
+            offenders.Count == 0,
+            "Only src/IC2.Engine/Battle/Candidates/ may use the auto-resolve candidates (T59 measurement code, "
+            + "gated by the user); the shipped engine must not reference them: " + string.Join(", ", offenders));
+    }
+
+    private static bool IsUnderCandidates(string file)
+    {
+        var candidates = Path.Combine(TestPaths.RepositoryRoot, "src", "IC2.Engine", "Battle", "Candidates") + Path.DirectorySeparatorChar;
+        return Path.GetFullPath(file).StartsWith(Path.GetFullPath(candidates), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsBuildOutput(string file)
+    {
+        var relative = Path.GetRelativePath(Path.Combine(TestPaths.RepositoryRoot, "src", "IC2.Engine"), file);
+        var first = relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)[0];
+        return first is "bin" or "obj";
     }
 
     /// <summary>The guard's own regression case: it does see a reserve name when one is really in code.</summary>

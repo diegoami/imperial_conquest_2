@@ -352,18 +352,19 @@ None of them was chosen by looking at a result.
 
 Further findings, each reported as data:
 
-7. **Blocker for Done-when 6: T16's hazard guard and T59's Owns list conflict.**
+7. **T16's reserve-research guard and T59's Owns list conflicted; the user granted an exemption.**
    `tests/IC2.Engine.Tests/Battle/BattleDeterminismTests.cs`,
-   `NoReserveTacticalResearchAppearsInTheBattleNamespacesCode`, scans **every** `.cs` file under
-   `src/IC2.Engine/Battle/` recursively. It fails if the code names `DetailedResolver`,
-   `TypeEffectiveness`, `MeleeLossCap`, `MeleeBasePowerFloor`, `MeleePowerDivisor` or
-   `InRangeShotMultiplier`. T59's Owns list places the candidates at `src/IC2.Engine/Battle/Candidates/**`,
-   and the survey (§3) says that candidates *"should read those values from"* `combat.detailedResolver`.
-   So C2, C3, C4 and C5 trip the guard, and it is the only failing test in the solution. That file is
-   outside T59's Owns list and was **not** edited. Resolving the conflict needs a decision: exempt
-   `Battle/Candidates/` from the guard (whose own message is about *"the shipped instant resolver"*), or
-   move the candidates' Owns path out of `Battle/`. Renaming properties or hard-coding ruleset values
-   to dodge the guard was rejected, because either would defeat the guard's purpose or §3's instruction.
+   `NoReserveTacticalResearchAppearsInTheBattleNamespacesCode`, scanned **every** `.cs` file under
+   `src/IC2.Engine/Battle/` recursively for `DetailedResolver`, `TypeEffectiveness`, `MeleeLossCap`,
+   `MeleeBasePowerFloor`, `MeleePowerDivisor` and `InRangeShotMultiplier`. T59's Owns list places the
+   candidates at `src/IC2.Engine/Battle/Candidates/**`, and the survey (§3) says candidates *"should read
+   those values from"* `combat.detailedResolver`, so C2–C5 tripped it. Renaming properties or
+   hard-coding ruleset values to dodge the guard was rejected. The user granted a narrow edit (main
+   `8d3d298`): the guard now skips `Battle/Candidates/` and says why, and a new test,
+   `NoEngineCodeOutsideCandidatesReferencesTheCandidates`, fails if any engine file outside
+   `Battle/Candidates/` names the candidates' namespace or any of their types. Both were proved by
+   mutation: a banned name placed in `Battle/` outside `Candidates/` fails the first test, and a
+   reference to the candidates placed in `Core/` fails the second.
 8. **C5 ends 98.2% of P-scale battles by ordered withdrawal** (EN-b 0.9997, above the 0.90 bound). §8.7
    says in advance that EN-b counts `withdrawal` with `collapse` on purpose, and that whether *"never
    fought to the end"* is acceptable is **the user's call, not T59's**. The number is reported and the
