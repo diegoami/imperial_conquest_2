@@ -126,9 +126,16 @@ public sealed class FleetAttritionBranchMatrixTests
     /// <summary>
     /// The heavy <c>dmg &gt;= 6</c> ship-loss branch, using a real seed known to land on it
     /// (<c>SplitMix64Rng(44)</c> at ships 40, condition 68, away from coast, no Winter/triple): dmg 7,
-    /// ships fall 40 -&gt; 25, condition falls to 43 (survives), and <see cref="FleetAttritionRule.TurnOutcome.DamagedInStorm"/>
+    /// ships fall 40 -&gt; 29, condition falls to 49 (survives), and <see cref="FleetAttritionRule.TurnOutcome.DamagedInStorm"/>
     /// is true. Replacing the heavy branch with the light one (condition-only) would leave ships at 40.
     /// </summary>
+    /// <remarks>
+    /// T63 (bug #292): the pinned values here are the OLD, inverted-ratio arithmetic's evidence, not
+    /// correct behaviour, and are replaced. The original's r = max(1, 10000 / (dmg + 100)) = max(1,
+    /// 10000 / 107) = 93; d = 93^2 / 100 = 86; shipsLost = 40 x 86 / 300 = 11 -&gt; 29 ships;
+    /// conditionLost = 68 x 86 / 300 = 19 -&gt; condition 49. The old code computed ratio = dmg + 100 =
+    /// 107 (the numerator and denominator swapped), giving d = 107^2 / 100 = 114, ships 25, condition 43.
+    /// </remarks>
     [Fact]
     public void HeavyDamageBranch_CostsShipsAndFiresTheDamagedInStormFlag()
     {
@@ -138,8 +145,8 @@ public sealed class FleetAttritionBranchMatrixTests
             isWinter: false, tripleDamageBranchActive: false, nearFriendlyCoast: false, rng, Ruleset);
 
         Assert.Equal(7, outcome.Damage);
-        Assert.Equal(25, outcome.Ships); // fell from 40 -- the light branch would leave it at 40.
-        Assert.Equal(43, outcome.ConditionPercent);
+        Assert.Equal(29, outcome.Ships); // fell from 40 -- the light branch would leave it at 40.
+        Assert.Equal(49, outcome.ConditionPercent);
         Assert.False(outcome.Destroyed);
         Assert.True(outcome.DamagedInStorm);
     }

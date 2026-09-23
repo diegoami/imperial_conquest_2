@@ -68,6 +68,11 @@ public class ImprovedPresetTests
         Assert.Equal(DefeatOutcome.Scatter, improved.Flags.CombatOnDefeat);
         Assert.Equal(DefeatOutcome.Destroyed, classical.Flags.CombatOnDefeat);
 
+        // T63 Decision 1: classical-faithful reproduces the original's 16-bit siege-ratio clamp wrap;
+        // improved clamps in ordinary 32-bit arithmetic.
+        Assert.Equal(SiegeRatioClampPolicy.Clamp32Bit, improved.Flags.BugPolicySiegeRatioClamp);
+        Assert.Equal(SiegeRatioClampPolicy.Reproduce16BitClamp, classical.Flags.BugPolicySiegeRatioClamp);
+
         // Verify victory defaults
         Assert.Equal(VictoryConditionType.Domination, improved.Victory.DefaultCondition);
         Assert.Equal(VictoryConditionType.TotalConquest, classical.Victory.DefaultCondition);
@@ -162,6 +167,7 @@ public class ImprovedPresetTests
             "flags.bugPolicyDiplomaticThaw",
             "flags.combatOnDefeat",
             "flags.faithfulThawColumnBug",
+            "flags.bugPolicySiegeRatioClamp",
             "victory.defaultCondition",
             "victory.defaultTurnLimit",
         };

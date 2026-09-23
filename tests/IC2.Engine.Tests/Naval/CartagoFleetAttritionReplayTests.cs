@@ -171,8 +171,16 @@ public sealed class CartagoFleetAttritionReplayTests
             }
         }
 
-        Assert.Equal(new[] { 3, 3, 3, 5, 3, 3, 5, 7 }, damages);
+        // T63 (bug #292): the pinned values below are the old, inverted-ratio arithmetic's evidence, not
+        // correct behaviour, and are replaced. Turn 8's dmg 7 now costs LESS (the corrected ratio r =
+        // max(1, 10000 / 107) = 93 gives d = 86, against the old ratio's d = 114), so condition lands
+        // exactly at 40 -- not below it -- and the run needs a ninth turn (dmg 3, light branch) before
+        // condition 40 - 3 = 37 finally crosses the threshold. The old code broke after turn 8 at
+        // condition 35.
+        Assert.Equal(new[] { 3, 3, 3, 5, 3, 3, 5, 7, 3 }, damages);
         Assert.True(condition < ruleset.Naval.DeathConditionThreshold, "this seed's own run must end in destruction.");
+        Assert.Equal(37, condition);
+        Assert.Equal(36, ships);
 
         var earlyAverage = damages.Take(3).Average();
         var lateAverage = damages.Skip(damages.Count - 3).Average();

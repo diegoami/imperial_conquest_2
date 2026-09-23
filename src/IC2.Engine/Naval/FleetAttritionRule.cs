@@ -1,3 +1,4 @@
+using IC2.Engine.Battle;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
 
@@ -113,13 +114,13 @@ public static class FleetAttritionRule
         {
             // FUN_0044b4f8(fleet, 100, dmg + 100) -- the original's shared proportional-damage function,
             // reused here from the storm code rather than from T16's battle path (out of this task's
-            // Owns list; see NavalRules.StormShipLossRatioBase's remarks). RatioBase (100) plays both the
-            // call's own "winnerStrength" argument (the denominator) and the "+100" added to dmg for the
-            // "loserStrength" argument; RatioScale (100) is the formula's own internal percent-scale,
-            // used for both the ratio and the squared term; Divisor (300) is shared by the ships and
-            // condition losses.
-            var ratioNumerator = (dmg + rules.StormShipLossRatioBase) * rules.StormShipLossRatioScale;
-            var ratio = Math.Max(1, ratioNumerator / rules.StormShipLossRatioBase);
+            // Owns list; see NavalRules.StormShipLossRatioBase's remarks). RatioBase (100) is the call's
+            // own NUMERATOR argument, not its denominator -- bug #292's fix: r = max(1, (RatioBase x
+            // RatioScale) / (dmg + RatioBase)), so r FALLS as dmg rises. RatioScale (100) is both
+            // RatioBase's numerator partner and the formula's own internal percent-scale, used again for
+            // the squared term; Divisor (300) is shared by the ships and condition losses.
+            var ratioNumerator = rules.StormShipLossRatioBase * rules.StormShipLossRatioScale;
+            var ratio = Math.Max(1, ratioNumerator / (dmg + rules.StormShipLossRatioBase));
             var scaledDamage = (ratio * ratio) / rules.StormShipLossRatioScale;
 
             var shipsLost = (ships * scaledDamage) / rules.StormShipLossDivisor;
@@ -130,6 +131,59 @@ public static class FleetAttritionRule
         }
 
         return new StormResult(shipsAfter, conditionAfter, dmg);
+    }
+
+    /// <summary>The outcome of <see cref="ApplyStormCasualtiesToCarriedArmy"/>.</summary>
+    /// <param name="Units">The carried army's surviving unit slots.</param>
+    /// <param name="TroopsLost">Every troop the army lost this storm.</param>
+    /// <param name="UnitsLost">Whole unit slots removed, by the deletion pass and the random whole-unit loss combined.</param>
+    /// <param name="Emptied">Whether the army has no unit slots left.</param>
+    public sealed record StormArmyResult(ValueList<UnitSlot> Units, int TroopsLost, int UnitsLost, bool Emptied);
+
+    /// <summary>
+    /// The heavy-storm branch's missing steps 3 and 4 (bug #292): a carried army takes
+    /// <c>FUN_0044AE20(army, d)</c> at the SAME <c>d</c> the fleet's own ships and condition just lost --
+    /// <see cref="ApplyStormPass"/>'s own <see cref="StormResult.Damage"/> -- and, above
+    /// <see cref="NavalRules.StormUnitLossDamageThreshold"/>, also loses whole units at random,
+    /// swap-with-last. Delegates the shared arithmetic to
+    /// <see cref="Battle.BattleCasualties.ApplyToCarriedArmy"/>, the same helper
+    /// <see cref="Battle.InstantBattleResolver.ResolveNaval"/> uses for its own winner's carried army, so
+    /// the two <c>FUN_0044B4F8</c> call sites cannot drift apart on this shared tail.
+    /// </summary>
+    /// <remarks>
+    /// A separate method rather than folded into <see cref="ApplyStormPass"/> or
+    /// <see cref="ApplyLaunchedFleetTurn"/>: this task's Owns grant reaches only this file under
+    /// <c>src/IC2.Engine/Naval/</c>, and the per-turn caller, <c>FleetTickSystem.cs</c>, is outside it.
+    /// <c>FleetTickSystem</c> does not yet call this method — see this task's PR body, "out-of-Owns files
+    /// needed", for the follow-up that wires a carried army's units through the per-turn tick and writes
+    /// the result (including an emptied army's deletion) back into <see cref="Model.GameState.Armies"/>.
+    /// Until then this is a correct, independently tested implementation of the original's formula, not
+    /// yet reachable from the live per-turn loop.
+    /// </remarks>
+    /// <param name="units">The carried army's unit slots, before this storm.</param>
+    /// <param name="damage">
+    /// The storm's own damage figure <c>d</c> -- <see cref="ApplyStormPass"/>'s <see cref="StormResult.Damage"/>
+    /// from the SAME storm pass, only ever meaningful when that pass took the heavy branch
+    /// (<c>d &gt;= </c><see cref="NavalRules.StormShipLossDamageThreshold"/>).
+    /// </param>
+    /// <param name="rng">
+    /// The fleet's own draw stream for this turn -- the SAME stream <see cref="ApplyStormPass"/> drew
+    /// from, so a caller applying both in one turn keeps one draw sequence for that fleet.
+    /// </param>
+    /// <param name="ruleset">Supplies <see cref="Ruleset.Naval"/> for the two whole-unit-loss constants and <see cref="Ruleset.Combat"/> for the casualty and deletion passes.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="units"/>, <paramref name="rng"/> or <paramref name="ruleset"/> is null.</exception>
+    public static StormArmyResult ApplyStormCasualtiesToCarriedArmy(
+        ValueList<UnitSlot> units, int damage, IRng rng, Ruleset ruleset)
+    {
+        ArgumentNullException.ThrowIfNull(units);
+        ArgumentNullException.ThrowIfNull(rng);
+        ArgumentNullException.ThrowIfNull(ruleset);
+        var rules = ruleset.Naval;
+
+        var result = BattleCasualties.ApplyToCarriedArmy(
+            units, damage, rules.StormUnitLossDamageThreshold, rules.StormUnitLossDivisor, rng, ruleset);
+
+        return new StormArmyResult(result.Units, result.TroopsLost, result.UnitsLost, result.Emptied);
     }
 
     /// <summary>The outcome of one turn's full attrition pass for one launched (at-sea) fleet.</summary>

@@ -66,4 +66,13 @@ public static class AttackFleetRejections
     /// <see cref="BattleCommandRuleset"/>.
     /// </summary>
     public static readonly RejectionCode NoArcherUnitType = new("battle.fleet-no-archer-unit-type");
+
+    /// <summary>
+    /// <c>docs/tasks/T63.md</c> Decision 2: both fleets would have zero naval strength
+    /// (<see cref="Strength.FleetPower.Compute"/>'s own floor for a low-ship, low-condition fleet), which
+    /// the original divides by at the naval call site (the winner's strength is always the divisor, and
+    /// both are the winner's when both are zero). Refused here, before any state changes, rather than
+    /// reproducing the original's crash.
+    /// </summary>
+    public static readonly RejectionCode BothFleetsHaveNoStrength = new("battle.fleet-both-have-no-strength");
 }

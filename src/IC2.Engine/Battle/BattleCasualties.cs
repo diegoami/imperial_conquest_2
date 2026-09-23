@@ -47,11 +47,16 @@ namespace IC2.Engine.Battle;
 /// <para>
 /// <strong>What this file is not.</strong> It is not the tactical exchange loop. No type-effectiveness
 /// matrix, no 40 %-of-own-troops melee cap, no per-unit tactical morale, no shooting-vulnerability
-/// weight, and above all no rout mechanic: nothing is ever removed for falling below a battalion-size
-/// threshold, no morale cascade runs, and no unit slot is deleted here at all. Those are held in reserve
-/// for a possible future detailed resolver (<c>docs/game-design.md</c> §Combat,
-/// <c>docs/task-catalogue.md</c> T16 Hazards). The instant resolver annihilates the loser wholesale; the
-/// per-unit expression above is the only attrition it tracks.
+/// weight, and above all no rout mechanic: no morale cascade ever runs here. <see cref="Apply"/>'s own
+/// clamp never removes a unit for falling below a battalion-size threshold — <strong>that is a separate
+/// pass</strong>, <see cref="DeleteBelowThreshold"/> (bug #289, corrected here; an earlier revision of
+/// this remark said no such pass existed anywhere in the instant path, which was the bug), and it is a
+/// different rule from the tactical rout floor (<c>size / 25</c>, reserve research, still not
+/// implemented here). Those are held in reserve for a possible future detailed resolver
+/// (<c>docs/game-design.md</c> §Combat, <c>docs/task-catalogue.md</c> T16 Hazards). The instant resolver
+/// annihilates the loser wholesale; <see cref="Apply"/>'s per-unit expression and
+/// <see cref="DeleteBelowThreshold"/>'s small-unit sweep are the only attrition the winning side (or a
+/// besieging attacker) tracks.
 /// </para>
 /// </remarks>
 public static class BattleCasualties
@@ -141,12 +146,16 @@ public static class BattleCasualties
     /// sequence depend only on the slot count, which is what makes a seeded assertion exact.
     /// </para>
     /// <para>
-    /// <strong>The only clamp is non-negativity.</strong> A slot cannot lose more troops than it has, so
-    /// the computed loss is capped at the slot's own count. That is an arithmetic guard, not the tactical
-    /// path's 40 %-of-own-troops loss cap, which is reserve research and is not applied here — and it
-    /// genuinely binds only for a very lopsided <c>improved</c> defeat, where the mirrored ratio can
-    /// exceed the divisor. <strong>A slot reduced to zero is not removed</strong>; removing a unit for
-    /// being small is the rout mechanic.
+    /// <strong>The only clamp <em>this method</em> applies is non-negativity.</strong> A slot cannot lose
+    /// more troops than it has, so the computed loss is capped at the slot's own count. That is an
+    /// arithmetic guard, not the tactical path's 40 %-of-own-troops loss cap, which is reserve research
+    /// and is not applied here — and it genuinely binds only for a very lopsided <c>improved</c> defeat,
+    /// where the mirrored ratio can exceed the divisor. <strong>A slot reduced to zero by this method is
+    /// not itself removed</strong> — and, per <see cref="DeleteBelowThreshold"/>'s own remarks, a
+    /// zero-troop slot is not what that pass removes either, since its guard requires <c>troops &gt;
+    /// 0</c>; only a unit left <em>positive but small</em> is deleted, by the caller's separate call to
+    /// <see cref="DeleteBelowThreshold"/> (bug #289). Removing a unit for falling below the <em>tactical</em>
+    /// rout floor (<c>size / 25</c>) is a different, still-unimplemented reserve rule.
     /// </para>
     /// </remarks>
     /// <param name="units">The force's unit slots.</param>
@@ -274,6 +283,163 @@ public static class BattleCasualties
         var lost = ((long)ships * ratio) / divisor;
         return (int)Math.Min(ships, lost);
     }
+
+    /// <summary>
+    /// <c>FUN_0044AE20</c>'s <strong>second</strong> pass (bug #289): deletes every unit left with
+    /// <c>troops &gt; 0</c> but below its own small-unit threshold — <c>standardBattalionSize /
+    /// </c><see cref="CombatRules.DeletionDivisorNational"/> for a national unit,
+    /// <c>standardBattalionSize / </c><see cref="CombatRules.DeletionDivisorMercenary"/> for a mercenary
+    /// one. Called after <see cref="Apply"/> and before any promotion roll, at every casualty call site:
+    /// the field winner, the siege attacker, and a naval or storm winner's carried army — including a
+    /// naval or storm pass whose ratio was <c>0</c>, since this pass reads only the post-casualty troop
+    /// count, not the ratio that produced it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>A slot at exactly zero troops is not touched by this pass.</strong> The decompiled loop's
+    /// own guard is <c>0 &lt; troops &amp;&amp; troops &lt; threshold</c> — a unit <see cref="Apply"/>
+    /// already reduced to zero fails the <c>0 &lt; troops</c> half and is left in place, neither deleted
+    /// here nor promoted later (<see cref="Promote"/> already skips a zero-troop slot on its own terms).
+    /// This reads as a quirk but is exactly what the original does; inventing a "troops == 0 also
+    /// deletes" branch would be a different function from the one the report transcribes.
+    /// </para>
+    /// <para>
+    /// <strong>No swap-with-last here, unlike the naval whole-unit loss.</strong> The original's own
+    /// removal helper (<c>FUN_0044ac3c</c>) does swap-remove a fixed-size slot array, but this pass is a
+    /// deterministic full sweep — every slot below its threshold is deleted, not a single slot chosen at
+    /// random — so a stable filter produces the exact same surviving <em>set</em> as a literal
+    /// swap-and-shrink replay would, without needing this port to reproduce the original's fixed 20-slot
+    /// array shape or its own effect on later per-slot draw order. <see cref="Promote"/> already draws
+    /// "one roll per surviving unit, in slot order" rather than replaying the original's own fixed
+    /// per-slot draw pattern (T63 Decision 6's "one draw" departure), so slot order past this pass was
+    /// never exactly faithful to begin with.
+    /// </para>
+    /// </remarks>
+    /// <param name="units">The force's unit slots, already reduced by <see cref="Apply"/>.</param>
+    /// <param name="ruleset">
+    /// Supplies <see cref="Ruleset.UnitTypeById"/> (for each unit's own <c>standardBattalionSize</c>) and
+    /// <see cref="Ruleset.Combat"/> (for the two divisors) — a full <see cref="Model.Ruleset"/> rather
+    /// than just <see cref="CombatRules"/>, because the threshold is per-unit-type data that lives on
+    /// <see cref="UnitTypeRules"/>, not on <see cref="CombatRules"/> itself.
+    /// </param>
+    /// <returns>The surviving slots, in their original relative order.</returns>
+    public static ValueList<UnitSlot> DeleteBelowThreshold(ValueList<UnitSlot> units, Ruleset ruleset)
+    {
+        ArgumentNullException.ThrowIfNull(units);
+        ArgumentNullException.ThrowIfNull(ruleset);
+
+        var kept = new List<UnitSlot>(units.Count);
+        foreach (var unit in units)
+        {
+            if (unit.Troops > 0)
+            {
+                var battalionSize = ruleset.UnitTypeById(unit.UnitTypeId)?.StandardBattalionSize ?? 0;
+                var threshold = unit.IsMercenary
+                    ? battalionSize / ruleset.Combat.DeletionDivisorMercenary
+                    : battalionSize / ruleset.Combat.DeletionDivisorNational;
+
+                if (unit.Troops < threshold)
+                {
+                    continue; // deleted -- below the small-unit threshold (#289).
+                }
+            }
+
+            kept.Add(unit);
+        }
+
+        return ValueList.From(kept);
+    }
+
+    /// <summary>
+    /// The full "carried army" pass a naval battle's winner or a heavy storm runs against an embarked
+    /// army — <c>FUN_0044AE20</c> at ratio <paramref name="damage"/> (<see cref="Apply"/>), then its
+    /// deletion pass (<see cref="DeleteBelowThreshold"/>, bug #289), then, only above
+    /// <paramref name="unitLossThreshold"/>, <c>(survivingCount × damage) / unitLossDivisor + 1</c>
+    /// further whole units — each chosen by <c>Random(current count)</c> and removed swap-with-last,
+    /// re-reading the count every iteration (bug #290 part 3's missing <c>+ 1</c> and its shift-not-swap
+    /// removal). Shared by <see cref="InstantBattleResolver.ResolveNaval"/> and
+    /// <see cref="Naval.FleetAttritionRule"/>'s storm pass, which both call the original's
+    /// <c>FUN_0044B4F8</c> against a carried army and must not drift apart on this shared tail.
+    /// </summary>
+    /// <param name="units">The carried army's unit slots, before this pass.</param>
+    /// <param name="damage">
+    /// The naval or storm damage figure <c>d</c> — both <see cref="Apply"/>'s ratio argument and the
+    /// whole-unit loss's own driver, exactly as <c>FUN_0044AE20(carriedArmy, d)</c> and the loop after it
+    /// share the one value.
+    /// </param>
+    /// <param name="unitLossThreshold">
+    /// <see cref="Model.NavalCombatRules.UnitLossDamageThreshold"/> for the naval battle call site, or
+    /// <see cref="NavalRules.StormUnitLossDamageThreshold"/> for the storm one — kept as separate ruleset
+    /// fields per call site (see either field's own remarks), passed in here rather than read from one
+    /// fixed record.
+    /// </param>
+    /// <param name="unitLossDivisor">
+    /// <see cref="Model.NavalCombatRules.UnitLossDivisor"/> or <see cref="NavalRules.StormUnitLossDivisor"/>,
+    /// on the same terms as <paramref name="unitLossThreshold"/>.
+    /// </param>
+    /// <param name="rng">The battle's or storm's stream. One draw per slot for <see cref="Apply"/>, then one draw per whole unit removed.</param>
+    /// <param name="ruleset">Supplies <see cref="Ruleset.Combat"/> for <see cref="Apply"/> and <see cref="DeleteBelowThreshold"/>.</param>
+    public static CarriedArmyResult ApplyToCarriedArmy(
+        ValueList<UnitSlot> units,
+        int damage,
+        int unitLossThreshold,
+        int unitLossDivisor,
+        IRng rng,
+        Ruleset ruleset)
+    {
+        ArgumentNullException.ThrowIfNull(units);
+        ArgumentNullException.ThrowIfNull(rng);
+        ArgumentNullException.ThrowIfNull(ruleset);
+
+        var (reducedUnits, losses, appliedTroops) = Apply(units, damage, rng, ruleset.Combat);
+        var survivors = DeleteBelowThreshold(reducedUnits, ruleset);
+        var deletedByThreshold = reducedUnits.Count - survivors.Count;
+
+        var remaining = new List<UnitSlot>(survivors);
+        var wholeUnitsLost = 0;
+        var wholeUnitTroopsLost = 0;
+
+        if (damage > unitLossThreshold)
+        {
+            // (survivingCount x damage) / unitLossDivisor + 1 -- the "+ 1" and the count taken AFTER the
+            // deletion pass are both bug #290 part 3's fix; the original's Delphi `for i := 0 to n` loop
+            // always runs at least once.
+            var toLose = Math.Min(remaining.Count, ((remaining.Count * damage) / unitLossDivisor) + 1);
+            for (var i = 0; i < toLose && remaining.Count > 0; i++)
+            {
+                var dropped = rng.NextInt(remaining.Count);
+                wholeUnitTroopsLost += remaining[dropped].Troops;
+
+                // Swap-with-last, not a shift: move the last slot into the dropped index, then shrink.
+                // A test that fails if this were List.RemoveAt(dropped) (a shift) is DoD 3's own proof.
+                var lastIndex = remaining.Count - 1;
+                remaining[dropped] = remaining[lastIndex];
+                remaining.RemoveAt(lastIndex);
+                wholeUnitsLost++;
+            }
+        }
+
+        var finalUnits = ValueList.From(remaining);
+        return new CarriedArmyResult(
+            finalUnits,
+            losses,
+            appliedTroops + wholeUnitTroopsLost,
+            deletedByThreshold + wholeUnitsLost,
+            finalUnits.Count == 0);
+    }
+
+    /// <summary>The outcome of <see cref="ApplyToCarriedArmy"/>.</summary>
+    /// <param name="Units">The carried army's surviving unit slots.</param>
+    /// <param name="Losses">The per-slot losses <see cref="Apply"/> produced, before the deletion and whole-unit passes.</param>
+    /// <param name="TroopsLost">Every troop the army lost: <see cref="Apply"/>'s per-slot losses plus the troops in any whole unit removed.</param>
+    /// <param name="UnitsLost">Whole unit slots removed, by the deletion pass and the random whole-unit loss combined.</param>
+    /// <param name="Emptied">Whether the army has no unit slots left — the caller's cue to delete the army record itself (delete sweep, DoD 1).</param>
+    public sealed record CarriedArmyResult(
+        ValueList<UnitSlot> Units,
+        ValueList<UnitCasualty> Losses,
+        int TroopsLost,
+        int UnitsLost,
+        bool Emptied);
 
     /// <summary>
     /// The instant path's own promotion rule (DoD 5): every surviving unit is raised to at least

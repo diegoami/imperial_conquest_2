@@ -1,5 +1,6 @@
 using IC2.Engine.Core;
 using IC2.Engine.Model;
+using IC2.Engine.Strength;
 
 namespace IC2.Engine.Battle.Commands;
 
@@ -253,8 +254,25 @@ public static class AttackLegality
             return notAtWar;
         }
 
-        return ResolverIdsCheck(
-            ruleset, BesiegeCityRejections.NoArcherUnitType, BesiegeCityRejections.NoFortificationOrder);
+        if (ResolverIdsCheck(
+            ruleset, BesiegeCityRejections.NoArcherUnitType, BesiegeCityRejections.NoFortificationOrder)
+            is { } resolverIds)
+        {
+            return resolverIds;
+        }
+
+        // T63 Decision 2: the original divides by zero at atk = 0. The archer unit type is already known
+        // to resolve (the check above), so SiegeStrength.Attacker is safe to call here.
+        var archerUnitTypeId = BattleCommandRuleset.ArcherUnitTypeIdIn(ruleset)!;
+        var attackerSiegePower = SiegeStrength.Attacker(attacker.Units, attacker.Morale, ruleset, archerUnitTypeId);
+        if (attackerSiegePower <= 0)
+        {
+            return Refuse(
+                BesiegeCityRejections.AttackerHasNoStrength,
+                $"Army '{attacker.Id}' has no siege strength; a siege attempt would divide by zero.");
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -330,12 +348,54 @@ public static class AttackLegality
             return notAtWar;
         }
 
-        return BattleCommandRuleset.ArcherUnitTypeIdIn(ruleset) is null
-            ? Refuse(
+        if (BattleCommandRuleset.ArcherUnitTypeIdIn(ruleset) is null)
+        {
+            return Refuse(
                 AttackFleetRejections.NoArcherUnitType,
                 $"Ruleset '{ruleset.Id}' declares no '{BattleCommandRuleset.ArcherUnitTypeId}' unit type, which a "
-                + "carried army's strength is measured with.")
-            : null;
+                + "carried army's strength is measured with.");
+        }
+
+        // T63 Decision 2: the original divides by zero at winnerPower = 0, which only happens when BOTH
+        // fleets' base strength floors to zero (Strength.FleetPower.Compute's own floor for a low-ship,
+        // low-condition fleet). The random band adds nothing to a zero base (band = base x pct / 100 = 0
+        // there), so a deterministic base-power check answers "would the final power be zero" without
+        // drawing from IRng -- this method must stay a pure probe an AI can call repeatedly (see this
+        // class's own remarks) without perturbing the battle's own random stream.
+        if (FleetHasZeroBaseStrength(state, ruleset, attacker) && FleetHasZeroBaseStrength(state, ruleset, target))
+        {
+            return Refuse(
+                AttackFleetRejections.BothFleetsHaveNoStrength,
+                $"Neither '{attacker.Id}' nor '{target.Id}' has any combat strength; a naval battle would "
+                + "divide by zero.");
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// The deterministic part of <see cref="Strength.FleetPower.Compute"/>'s formula — ships x condition
+    /// / conditionDivisor, plus a carried army's siege strength / carriedArmyPowerDivisor — without the
+    /// random band on top. Mirrors <see cref="Strength.FleetPower.Compute"/>'s own <c>baseValue</c>
+    /// exactly (kept in sync by hand: that method takes an <see cref="Core.IRng"/> this probe must not
+    /// draw from, so its logic cannot be called through directly for a zero check). Zero here is
+    /// equivalent to a zero FINAL power, since the random band is <c>base x pct / 100</c> — zero
+    /// whenever the base is.
+    /// </summary>
+    private static bool FleetHasZeroBaseStrength(GameState state, Ruleset ruleset, FleetState fleet)
+    {
+        var rules = ruleset.Combat.Naval;
+        var baseValue = (fleet.Ships * fleet.ConditionPercent) / rules.ConditionDivisor;
+
+        if (fleet.CarriedArmyId is { } armyId
+            && state.ArmyById(armyId) is { } army
+            && BattleCommandRuleset.ArcherUnitTypeIdIn(ruleset) is { } archerUnitTypeId)
+        {
+            var siegeStrength = SiegeStrength.Attacker(army.Units, army.Morale, ruleset, archerUnitTypeId);
+            baseValue += siegeStrength / rules.CarriedArmyPowerDivisor;
+        }
+
+        return baseValue <= 0;
     }
 
     /// <summary>

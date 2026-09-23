@@ -96,15 +96,21 @@ public class NavalBattleTests
     {
         var naval = BattleTestbed.Destroyed.Combat.Naval;
 
+        // T63 (bug #290 part 2): the carried army's casualty ratio is the damage figure `d` itself, not
+        // the field-battle ratio loserPower x 40 / winnerPower an earlier round used here. `d` runs much
+        // higher than that ratio ever could (up to 100, against a ceiling of 40), so this fixture's units
+        // are sized in heavy_cavalry troops (the smallest small-unit-deletion threshold, 250 national --
+        // bug #289) rather than the original's 1,000-troop light infantry, which the new casualty pass
+        // now wipes out entirely before the whole-unit-loss branch ever runs.
         var state = BattleTestbed.StateWith(
             armies: new[]
             {
                 BattleTestbed.EmbarkedArmy(
                     "north-cargo", "north", Attacker, 0, 2, 60,
-                    BattleTestbed.Unit("light_infantry", 1000, 6, "A"),
-                    BattleTestbed.Unit("light_infantry", 1000, 6, "B"),
-                    BattleTestbed.Unit("light_infantry", 1000, 6, "C"),
-                    BattleTestbed.Unit("light_infantry", 1000, 6, "D")),
+                    BattleTestbed.Unit("heavy_cavalry", 1200, 6, "A"),
+                    BattleTestbed.Unit("heavy_cavalry", 1200, 6, "B"),
+                    BattleTestbed.Unit("heavy_cavalry", 1200, 6, "C"),
+                    BattleTestbed.Unit("heavy_cavalry", 1200, 6, "D")),
             },
             fleets: new[]
             {
@@ -114,41 +120,42 @@ public class NavalBattleTests
 
         var (after, result) = Resolve(state, BattleTestbed.Destroyed);
 
-        // 200 + (4,000/80 × 60) / 50 = 200 + 60 = 260; band 26; first draw 3 → 338.
-        Assert.Equal(338, result.AttackerPower);
+        // 200 + (4,800/80 × 60) / 50 = 200 + 72 = 272; band 27; first draw 3 → 353.
+        Assert.Equal(353, result.AttackerPower);
         Assert.Equal(319, result.DefenderPower);
 
         var damageRatio = (result.LoserPower * naval.DamageRatioScale) / result.WinnerPower;
         var damage = (damageRatio * damageRatio) / naval.DamageRatioScale;
-        Assert.Equal(94, damageRatio);
-        Assert.Equal(88, damage);
+        Assert.Equal(90, damageRatio);
+        Assert.Equal(81, damage);
         Assert.True(damage > naval.UnitLossDamageThreshold);
 
-        Assert.Equal((4 * damage) / naval.UnitLossDivisor, result.WinnerUnitsLost);
-        Assert.Equal(1, result.WinnerUnitsLost);
-
-        // The carried army takes the same per-unit expression as a field winner, at ratio
-        // 319 x 40 / 338 = 37 and divisors 116, 115, 105, 111:
-        //   1000/116 = 8 -> 296     1000/115 = 8 -> 296
-        //   1000/105 = 9 -> 333     1000/111 = 9 -> 333
-        var casualtyRatio =
-            (result.LoserPower * BattleTestbed.Destroyed.Combat.WinnerCasualtyNumerator) / result.WinnerPower;
-        Assert.Equal(37, casualtyRatio);
+        // The carried army takes ratio `d` (81) itself -- not a fresh loserPower x 40 / winnerPower
+        // figure -- at divisors 116, 115, 105, 111 (the same four draws the pre-T63 fixture used; the
+        // draw COUNT and order up to here are unchanged):
+        //   1200/116 = 10 -> 810     1200/115 = 10 -> 810
+        //   1200/105 = 11 -> 891     1200/111 = 10 -> 810
         Assert.Equal(
-            new[] { 116, 115, 105, 111 }.Select(d => (1000 / d) * casualtyRatio).ToArray(),
+            new[] { 116, 115, 105, 111 }.Select(d => (1200 / d) * damage).ToArray(),
             result.UnitCasualties.Select(c => c.TroopsLost).ToArray());
-        Assert.Equal(new[] { 296, 296, 333, 333 }, result.UnitCasualties.Select(c => c.TroopsLost).ToArray());
+        Assert.Equal(new[] { 810, 810, 891, 810 }, result.UnitCasualties.Select(c => c.TroopsLost).ToArray());
 
-        // Then the d > 70 branch removes one whole slot, picked by the next draw (1) -- slot "B".
+        // Every survivor (390, 390, 309, 390 troops) is still above heavy_cavalry's national deletion
+        // threshold (2,500 / 10 = 250, bug #289), so DeleteBelowThreshold removes none of them here --
+        // the whole-unit-loss branch below is the only thing that removes a slot in this fixture.
+        Assert.Equal((4 * damage) / naval.UnitLossDivisor + 1, result.WinnerUnitsLost);
+        Assert.Equal(2, result.WinnerUnitsLost);
+
+        // Then the d > 70 branch removes two whole slots, swap-with-last, picked by the next two draws.
         var cargo = after.ArmyById("north-cargo")!;
-        Assert.Equal(new[] { "A", "C", "D" }, cargo.Units.Select(u => u.Name).ToArray());
-        Assert.Equal(new[] { 704, 667, 667 }, cargo.Units.Select(u => u.Troops).ToArray());
+        Assert.Equal(new[] { "A", "C" }, cargo.Units.Select(u => u.Name).ToArray());
+        Assert.Equal(new[] { 390, 309 }, cargo.Units.Select(u => u.Troops).ToArray());
 
-        // Every troop the winner's carried army lost is accounted for: 1,258 to attrition plus the 704
-        // that went down with the removed slot.
-        Assert.Equal(296 + 296 + 333 + 333 + 704, result.WinnerCasualties);
-        Assert.Equal(1962, result.WinnerCasualties);
-        Assert.Equal(4000 - result.WinnerCasualties, cargo.TotalTroops);
+        // Every troop the winner's carried army lost is accounted for: 3,321 to attrition (810 + 810 +
+        // 891 + 810) plus the 390 and 390 that went down with the two removed slots ("B" and "D").
+        Assert.Equal(810 + 810 + 891 + 810 + 390 + 390, result.WinnerCasualties);
+        Assert.Equal(4101, result.WinnerCasualties);
+        Assert.Equal(4800 - result.WinnerCasualties, cargo.TotalTroops);
     }
 
     /// <summary>

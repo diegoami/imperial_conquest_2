@@ -601,39 +601,56 @@ public sealed record ArmyManagementRules(
 /// below it, only <see cref="Model.FleetState.ConditionPercent"/> is reduced, by <c>dmg</c> directly.
 /// </param>
 /// <param name="StormShipLossRatioBase">
-/// <c>[derived]</c>: the heavier branch reuses the original's own proportional-damage function
-/// (<c>FUN_0044B4F8</c>, the same one T16's naval combat calls, but a different call site: this task's
-/// Owns list is <see cref="NavalRules"/> only, so the constants below are this record's own copies, not
-/// <c>Model.CombatRules.NavalCombatRules</c>'s). <c>docs/investigations/thracia-supply-morale.md</c>
-/// pins the call as <c>FUN_0044b4f8(fleet, 100, dmg + 100)</c> but the ship-count-never-changed Cartago
-/// series never exercises it (storm damage stayed under 6 throughout), so the resulting magnitude here
-/// is derived from the confirmed battle-context formula's shape, not independently save-checked for this
-/// call site. This is the <c>100</c> first argument.
-/// <para>
-/// <strong>Open evidence conflict (round 2 review), not resolved here:</strong> with
-/// <see cref="StormShipLossRatioBase"/> = <see cref="StormShipLossRatioScale"/> = 100, the minimum
-/// possible heavy-branch loss (at the threshold, <c>dmg == 6</c>) is
-/// <c>ships × 112 / <see cref="StormShipLossDivisor"/></c> ≈ <strong>37% of the fleet in one turn</strong> —
-/// and, measured over 2,000 seeded draws away from friendly coast at condition 50, that branch fires on
-/// roughly 39% of them. This is in tension with the one empirical series available: the Cartago fleet in
-/// <c>1_cartago_271_*.sav</c> holds <strong>90 ships across all ten saves</strong> at conditions falling
-/// from 79 to 48, away from friendly coast, over seven turns — a run this magnitude would give roughly a
-/// 1-in-35 chance of surviving without a ship loss. The transcription itself is arithmetically exact
-/// against the confirmed <c>r</c>/<c>d</c> formula from the battle-context call site; the tension is that
-/// the one series available to check the storm call site's own magnitude against never actually took
-/// this branch, so the formula's applicability here — not its transcription — is what remains unverified.
-/// Resolving it needs a decompilation of <c>FUN_0044B4F8</c>'s storm call site specifically, which is out
-/// of this task's scope; noted here, not in a PR body, so it survives the merge.
-/// </para>
+/// <c>[confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md §"FUN_0044B5D0 and
+/// FUN_0044B4F8, instruction by instruction", supply-driven-morale-and-fleet-attrition.md, research
+/// 3f6ca09; bug #292, correcting this field's own earlier note]</c> The heavier branch reuses the
+/// original's own proportional-damage function (<c>FUN_0044B4F8</c>, the same one the naval battle
+/// calls, but a different call site: this task's Owns list is <see cref="NavalRules"/> only, so the
+/// constants here are this record's own copies, not <c>Model.CombatRules.NavalCombatRules</c>'s). The
+/// storm call site is <c>FUN_0044b4f8(fleet, 100, dmg + 100)</c> — <c>100</c> is the function's own
+/// <em>numerator</em> argument, not its denominator: <c>r = max(1, (this × </c>
+/// <see cref="StormShipLossRatioScale"/><c>) / (dmg + this))</c>, so <c>r</c> <strong>falls</strong> as
+/// <c>dmg</c> rises (86 at <c>dmg</c> 7, falling to 57 at the Winter spike, <c>dmg</c> 30) — the opposite
+/// of a reading that puts <c>dmg + 100</c> on top.
 /// </param>
 /// <param name="StormShipLossRatioScale">
-/// The <c>100</c> divisor of <c>d = r² / <see cref="StormShipLossRatioScale"/></c>, where
-/// <c>r = max(1, (dmg + 100) × 100 / <see cref="StormShipLossRatioBase"/>)</c>.
+/// <c>[confirmed: same source]</c> The <c>100</c> that plays two roles in the same call:
+/// <see cref="StormShipLossRatioBase"/>'s own numerator role above, and <c>d = r² / this</c>'s percent
+/// scale — the two happen to share a value (both are the call's literal <c>100</c>).
+/// <strong>Corrects the earlier "≈ 37% minimum" remark and closes its "open evidence conflict"
+/// (round-2 review).</strong> That note came from grouping <c>dmg + 100</c> as the numerator, which made
+/// <c>d</c> <em>rise</em> with <c>dmg</c> and put the largest loss at the highest reachable damage. Read
+/// correctly (<see cref="StormShipLossRatioBase"/>'s remarks), <c>d</c> <em>falls</em> as <c>dmg</c>
+/// rises, so the <strong>largest</strong> heavy-branch loss is at the <em>lowest</em> heavy <c>dmg</c>
+/// (7, just above <see cref="StormShipLossDamageThreshold"/>): <c>r = 93</c>, <c>d = 86</c>,
+/// <c>ships × 86 / </c><see cref="StormShipLossDivisor"/><c> ≈ 29%</c> — falling to about 19% at the
+/// Winter spike (<c>dmg</c> 30, <c>d = 57</c>). The Cartago fleet's ten saves
+/// (<c>1_cartago_271_*.sav</c>, 90 ships held throughout, conditions 79 → 48, away from friendly coast)
+/// never crossed the heavy threshold at all (storm damage stayed under 6 throughout that series), so
+/// they are consistent with either reading and were never actually in tension with this formula; the
+/// "open evidence conflict" the earlier remark recorded was an artifact of the inverted grouping, not a
+/// real discrepancy, and needed no new evidence to close — only the corrected argument order (bug #292).
 /// </param>
 /// <param name="StormShipLossDivisor">
-/// The <c>300</c> divisor of <c>ships × d / <see cref="StormShipLossDivisor"/></c> and
-/// <c>condition × d / <see cref="StormShipLossDivisor"/></c>, the heavier branch's ship and condition
-/// losses.
+/// <c>[confirmed: same source]</c> The <c>300</c> divisor of <c>ships × d / this</c> and
+/// <c>condition × d / this</c>, the heavier branch's ship and condition losses.
+/// </param>
+/// <param name="StormUnitLossDamageThreshold">
+/// <c>[confirmed: same source; bug #292]</c> Above this <c>d</c> (70) a heavy storm also costs the
+/// carried army whole units, exactly like the naval battle's own <c>d &gt; 70</c> branch — see
+/// <see cref="StormUnitLossDivisor"/>. Every heavy storm this ruleset can reach clears this threshold
+/// except the Winter spike (<c>d = 57</c>).
+/// </param>
+/// <param name="StormUnitLossDivisor">
+/// <c>[confirmed: same source; bug #292]</c> The carried army loses
+/// <c>unitCount × d / this + 1</c> whole units above <see cref="StormUnitLossDamageThreshold"/>, each
+/// chosen by <c>Random(current count)</c> and removed swap-with-last, re-reading the count every
+/// iteration — the same rule and the same <c>250</c> the naval battle's own whole-unit loss uses,
+/// carried as this record's own copy rather than <c>Model.CombatRules.NavalCombatRules</c>'s for the
+/// same Owns-list reason <see cref="StormShipLossRatioBase"/>'s remarks give. Every heavy storm applies
+/// <see cref="Battle.BattleCasualties.Apply"/> at ratio <c>d</c> to the carried army first (60-86% of
+/// each unit's troops at the reachable <c>d</c> values, 82-86 for the odd <c>dmg</c> 7-17 band), then
+/// <see cref="Battle.BattleCasualties.DeleteBelowThreshold"/> (bug #289), then this whole-unit loss.
 /// </param>
 /// <param name="DeathConditionThreshold">
 /// Condition below this (40) destroys the fleet — <em>"A fleet belonging to X is lost at sea."</em> —
@@ -724,6 +741,8 @@ public sealed record NavalRules(
     int StormShipLossRatioBase,
     int StormShipLossRatioScale,
     int StormShipLossDivisor,
+    int StormUnitLossDamageThreshold,
+    int StormUnitLossDivisor,
     int DeathConditionThreshold,
     int MovesBaseValue,
     int MovesShipOffset,
@@ -764,12 +783,28 @@ public sealed record NavalRules(
 /// <c>ratio / 120</c> and <c>ratio / 105</c> of its troops. Drawn through <see cref="Core.IRng"/>, once
 /// per unit slot. <strong>[confirmed: same source]</strong>
 /// </param>
+/// <param name="DeletionDivisorNational">
+/// <c>[confirmed: decompiled-defection-and-siege-attrition.md §"FUN_0044AE20", research 3f6ca09; bug
+/// #289]</c> <c>FUN_0044AE20</c>'s second pass deletes a <strong>national</strong> unit (origin label
+/// <c>0</c>) left with <c>troops &gt; 0</c> and below <c>standardBattalionSize / this</c> (10) — see
+/// <see cref="BattleCasualties.DeleteBelowThreshold"/>. Runs after <see cref="BattleCasualties.Apply"/>
+/// and before any promotion roll, at every call site: the field winner, the siege attacker, and a naval
+/// or storm winner's carried army.
+/// </param>
+/// <param name="DeletionDivisorMercenary">
+/// <c>[confirmed: decompiled-defection-and-siege-attrition.md §"FUN_0044AE20", research 3f6ca09; bug
+/// #289]</c> The same deletion pass's threshold for a <strong>mercenary</strong> unit (origin label
+/// <c>&gt; 0</c>): <c>standardBattalionSize / this</c> (5) — twice as forgiving as
+/// <see cref="DeletionDivisorNational"/>'s national threshold.
+/// </param>
 public sealed record CombatRules(
     int PowerTroopDivisor,
     int PowerDivisor,
     int WinnerCasualtyNumerator,
     int CasualtyDivisorBase,
     int CasualtyDivisorRandomSpan,
+    int DeletionDivisorNational,
+    int DeletionDivisorMercenary,
     int AbsorbedSupplyTroopDivisor,
     int QualityFloor,
     int QualityCap,
@@ -912,6 +947,57 @@ public sealed record DetailedResolverRules(
 /// <see cref="IC2.Engine.Battle.BattleResult.Winner"/> decision (already ×9/10-adjusted) for whether a
 /// siege attempt succeeds, so the reduction is applied exactly once across the two tasks.
 /// </param>
+/// <param name="AttritionRatioMultiplier">
+/// <c>[confirmed: decompiled-defection-and-siege-attrition.md §"FUN_0044b27c, instruction by
+/// instruction", research 3f6ca09; bug #290]</c> The <c>6</c> of the besieging attacker's own casualty
+/// ratio, <c>clamp(defenderStrength × 6 / attackerStrength, </c><see cref="AttritionRatioFloor"/><c>,
+/// </c><see cref="AttritionRatioCeiling"/><c>)</c> — <c>defenderStrength</c> and <c>attackerStrength</c>
+/// taken raw (not "loser"/"winner"), unconditionally, on a successful attempt and a failed one alike, fed
+/// to <see cref="BattleCasualties.Apply"/> exactly as the field and naval call sites feed their own
+/// ratios. See <see cref="RulesetFlags.BugPolicySiegeRatioClamp"/> for how the clamp itself is applied.
+/// </param>
+/// <param name="AttritionRatioFloor">
+/// <c>[confirmed: same source]</c> The <c>1</c> floor of the same clamp — a siege always costs the
+/// attacker <em>something</em>, however lopsided the fight.
+/// </param>
+/// <param name="AttritionRatioCeiling">
+/// <c>[confirmed: same source]</c> The <c>15</c> ceiling of the same clamp, well below the field and
+/// naval paths' own maximum ratios — a siege is deliberately the gentlest of the three casualty call
+/// sites on the attacker.
+/// </param>
+/// <param name="ErosionFloorNumerator">
+/// <c>[confirmed: decompiled-defection-and-siege-attrition.md §"FUN_0044b230", research 3f6ca09; bug
+/// #293]</c> The <c>3</c> of the per-attempt erosion's floor term, <c>field × 3 / 4</c> — see
+/// <see cref="ErosionFloorDenominator"/>. Runs on the city's loyalty, then fortification, then
+/// population, in that order, on every siege attempt, win or lose, using the <em>same</em>
+/// <c>defenderStrength</c>/<c>attackerStrength</c> pair <see cref="AttritionRatioMultiplier"/> reads
+/// (after the siege entry point's own <c>× 9/10</c> reduction, before any erosion changes it).
+/// </param>
+/// <param name="ErosionFloorDenominator">
+/// <c>[confirmed: same source]</c> The <c>4</c> of the same floor term.
+/// </param>
+/// <param name="ErosionCeilingNumerator">
+/// <c>[confirmed: same source]</c> The <c>19</c> of the erosion's ceiling term,
+/// <c>field × 19 / 20 + 1</c> — see <see cref="ErosionCeilingDenominator"/> and
+/// <see cref="ErosionCeilingAddend"/>. A failed siege (<c>defenderStrength ≥ attackerStrength</c>) always
+/// takes this branch, so a field above 20 loses about 5% per failed attempt and one at or below 20 is
+/// unchanged (integer truncation floors the loss to zero there).
+/// </param>
+/// <param name="ErosionCeilingDenominator">
+/// <c>[confirmed: same source]</c> The <c>20</c> of the same ceiling term.
+/// </param>
+/// <param name="ErosionCeilingAddend">
+/// <c>[confirmed: same source]</c> The <c>+ 1</c> of the same ceiling term.
+/// </param>
+/// <param name="PopulationFloorDivisor">
+/// <c>[confirmed: decompiled-defection-and-siege-attrition.md §"FUN_0044b27c, instruction by
+/// instruction", research 3f6ca09; bug #293]</c> The <c>6</c> of the post-erosion population floor,
+/// <c>population = max(population, maxPopulation / 6 + 1)</c> — see
+/// <see cref="PopulationFloorAddend"/>. Applied once, after the three erosion passes, every attempt.
+/// </param>
+/// <param name="PopulationFloorAddend">
+/// <c>[confirmed: same source]</c> The <c>+ 1</c> of the same floor.
+/// </param>
 public sealed record SiegeRules(
     int ArcherStrengthMultiplier,
     int PowerDivisor,
@@ -925,6 +1011,16 @@ public sealed record SiegeRules(
     int DefenderNonAllegiantNumerator,
     int DefenderNonAllegiantDenominator,
     int AttackerIsAllegianceDefenderReductionPercent,
+    int AttritionRatioMultiplier,
+    int AttritionRatioFloor,
+    int AttritionRatioCeiling,
+    int ErosionFloorNumerator,
+    int ErosionFloorDenominator,
+    int ErosionCeilingNumerator,
+    int ErosionCeilingDenominator,
+    int ErosionCeilingAddend,
+    int PopulationFloorDivisor,
+    int PopulationFloorAddend,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>Loyalty floors and tiering.</summary>
@@ -1135,6 +1231,18 @@ public sealed record VictoryRules(
 /// original. Additive alongside the pre-existing <see cref="BugPolicyDiplomaticThaw"/> field, which this
 /// task's own code does not read — see T19's PR body for why both exist.
 /// </param>
+/// <param name="BugPolicySiegeRatioClamp">
+/// <c>docs/tasks/T63.md</c> Decision 1: whether the siege attrition ratio's <c>clamp(·, 1, 15)</c>
+/// reproduces the original's <strong>16-bit</strong> comparison — a near-empty besieger can drive
+/// <c>defenderStrength × 6 / attackerStrength</c> well past 65,535, and the original's own clamp
+/// compares that raw value as an <c>unsigned short</c> before applying <c>min</c>/<c>max</c>, so it can
+/// wrap around to a small number (as low as the floor, 1) instead of saturating at the ceiling, 15
+/// <strong>[confirmed at instruction level: decompiled-defection-and-siege-attrition.md
+/// §"FUN_0044b27c, instruction by instruction", research 3f6ca09 — <c>uVar3</c> is a 16-bit local]</c>.
+/// <c>classical-faithful</c> reproduces the wrap (<see cref="SiegeRatioClampPolicy.Reproduce16BitClamp"/>);
+/// <c>improved</c> clamps in 32 bits (<see cref="SiegeRatioClampPolicy.Clamp32Bit"/>), never wrapping.
+/// The same pattern as <see cref="BugPolicyDiplomaticThaw"/>, additive alongside it.
+/// </param>
 public sealed record RulesetFlags(
     DiplomacyModel DiplomacyModel,
     EconomyPurseModel EconomyPurses,
@@ -1142,6 +1250,7 @@ public sealed record RulesetFlags(
     DiplomaticThawPolicy BugPolicyDiplomaticThaw,
     DefeatOutcome CombatOnDefeat,
     bool FaithfulThawColumnBug,
+    SiegeRatioClampPolicy BugPolicySiegeRatioClamp,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>How faithfully diplomacy follows the original (audit Q3).</summary>
@@ -1182,6 +1291,23 @@ public enum DiplomaticThawPolicy
 
     /// <summary>Thaw every relation column.</summary>
     ThawAllColumns,
+}
+
+/// <summary>
+/// Whether the siege attrition ratio's clamp reproduces the original's 16-bit wrap (audit-adjacent,
+/// <c>docs/tasks/T63.md</c> Decision 1).
+/// </summary>
+public enum SiegeRatioClampPolicy
+{
+    /// <summary>
+    /// Clamp the raw ratio as the original's own <c>unsigned short</c> comparison does, wrapping modulo
+    /// 65,536 before <c>min</c>/<c>max</c> — a near-empty besieger's ratio can land anywhere in
+    /// <c>[1, 15]</c> rather than saturating at 15.
+    /// </summary>
+    Reproduce16BitClamp,
+
+    /// <summary>Clamp the raw ratio in ordinary 32-bit arithmetic, never wrapping.</summary>
+    Clamp32Bit,
 }
 
 /// <summary>What happens to the losing side of a field or naval battle.</summary>

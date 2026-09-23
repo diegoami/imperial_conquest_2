@@ -160,6 +160,24 @@ public sealed record ScatterOutcome(
 /// that reading <c>result.PeaceTreatyFired</c> can never be confused with the event type itself.
 /// </param>
 /// <param name="Scatter">Where the survivor went, or <see langword="null"/> when nothing scattered.</param>
+/// <param name="CityLoyaltyBefore">
+/// <c>docs/tasks/T63.md</c> Decision 7: the besieged city's loyalty <em>before</em> this attempt's
+/// erosion, for T25's battle-result screen. <see langword="null"/> for a field or naval battle — the
+/// six <c>City*</c> fields are siege-only, and all six are set together or not at all.
+/// </param>
+/// <param name="CityLoyaltyAfter">The same city's loyalty after erosion (bug #293) — see <see cref="CityLoyaltyBefore"/>.</param>
+/// <param name="CityFortificationPercentBefore">
+/// The city's <em>finished</em> fortification percent before this attempt — decoded through
+/// <see cref="Model.FortificationCode.FinishedPercent"/>, so a pending order's encoding never leaks into
+/// a presentation-facing percentage. Taken before the per-attempt strip
+/// (<see cref="Model.FortificationCode.AfterSiegeAttempt"/>) discards it. See <see cref="CityLoyaltyBefore"/>.
+/// </param>
+/// <param name="CityFortificationPercentAfter">
+/// The finished fortification percent after the strip and erosion — always a plain, already-decoded
+/// percent, since erosion runs on the stripped (never-pending) word. See <see cref="CityLoyaltyBefore"/>.
+/// </param>
+/// <param name="CityPopulationThousandsBefore">The city's population (thousands) before erosion and the population floor. See <see cref="CityLoyaltyBefore"/>.</param>
+/// <param name="CityPopulationThousandsAfter">The city's population (thousands) after erosion and the population floor (bug #293). See <see cref="CityLoyaltyBefore"/>.</param>
 public sealed record BattleResult(
     BattleKind Kind,
     string AttackerId,
@@ -183,7 +201,13 @@ public sealed record BattleResult(
     int WinnerConditionLost,
     int WinnerUnitsLost,
     bool PeaceTreatyFired,
-    ScatterOutcome? Scatter)
+    ScatterOutcome? Scatter,
+    int? CityLoyaltyBefore = null,
+    int? CityLoyaltyAfter = null,
+    int? CityFortificationPercentBefore = null,
+    int? CityFortificationPercentAfter = null,
+    int? CityPopulationThousandsBefore = null,
+    int? CityPopulationThousandsAfter = null)
 {
     /// <summary>Whether the attacking side won.</summary>
     public bool AttackerWon => Winner == BattleSide.Attacker;
