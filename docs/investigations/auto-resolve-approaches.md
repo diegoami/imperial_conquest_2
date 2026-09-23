@@ -110,24 +110,39 @@ C2 is specified below with each of these as an explicit `[designed]` placeholder
 names what was searched. So C2 is **the original's arithmetic driven by a designed driver**, and T59
 should read its measurements that way. §10 lists the RE passes that would replace the placeholders.
 
-### 2.3 There are three observed tactical outcomes, and they disagree about heavy cavalry
+### 2.3 There are four observed tactical outcomes, and they do not share a per-type ordering
 
 The entry calls the Seleucid–Ptolemaic engagement *"the one observed tactical battle"*. The
-research corpus holds three tactical outcomes: that battle
-([`ptolemy-run-ui-inventory-and-leader-draw.md`][ptolemy] §3), and the Rome–Gaul battle fought
-**twice** from the identical save ([`full-battle-resolution-rome-vs-gaul.md`][rome-gaul],
-[`battle-replayed-rout-mechanic-and-combat-constants.md`][rout]).
+research corpus actually holds **four** tactical outcomes. Each has a full result screen, and three
+have a per-type breakdown:
 
-In Rome–Gaul's first fight, the **winner's heavy cavalry went `3,187 → 0`**, a 100% loss, while
-every other Roman type kept 57–74%. That result **supports** the entry's central reading, that a
-victorious army can lose one whole arm by breaking rather than by attrition: both Roman heavy-cavalry
-units were removed by the rout check, per the correction in [`rout`][rout]. It **contradicts** the
-entry's supporting remark that heavy cavalry survives because *"it has the lowest absolute rout
-threshold of any type (100) and is the least likely to reach it"*. In the other battle, heavy
-cavalry was the arm that broke.
+| # | Battle | Source | Victor's total | Victor's per-type loss |
+| --- | --- | --- | --- | --- |
+| 1 | Seleucid v Ptolemaic | [`ptolemy-run-ui-inventory-and-leader-draw.md`][ptolemy] §3 | 45,100 → 26,696 | archers **100%**, LI 37.6%, HI 29.6%, LC 19.3%, HC **4.0%** |
+| 2 | Rome v Gaul, `7.sav → 8.sav` | [`battle-observation.md`][observation] §"Battle result" | 50,700 → 39,941 | LC 61.9%, LI 51.9%, HC 49.9%, HI 6.7%; no archers; **no whole arm lost** |
+| 3 | Rome v Gaul, `1_rome_270_winter_7`, first fight | [`full-battle-resolution-rome-vs-gaul.md`][rome-gaul] | 99,882 → 63,282 | HC **100%**, other types 26–42% |
+| 4 | the same save, refought | [`battle-replayed-rout-mechanic-and-combat-constants.md`][rout] | 99,882 → 75,536 | not reported by type (3 units destroyed) |
 
-The two battles give opposite per-type orderings. That is one more reason, beyond Done-when 7's own,
-that no single battle can be a target. §7 and §9 use all three outcomes as smoke instances and tune
+Of the three battles with a per-type breakdown, **two** show the victor losing one whole arm, with a
+different arm each time (#1 archers, #3 heavy cavalry). **One** shows the victor losing no whole arm
+(#2). The per-type spread of the victor's losses is 96 points in #1, 55 points in #2, and 74 points
+in #3.
+
+That **supports** the entry's central reading as a possibility: a victor *can* lose one whole arm by
+breaking rather than by attrition. In #3, both Roman heavy-cavalry units (755 and 2,432 troops) were
+removed by the rout check, per the correction in [`rout`][rout]. It is not a regularity, though.
+Neither the lost arm nor even whether an arm is lost repeats from battle to battle.
+
+It also shows that the entry's remark that heavy cavalry survives because *"it has the lowest
+absolute rout threshold of any type (100) and is the least likely to reach it"* **rests on a false
+premise**. It is not refuted by a single counterexample. The floor is `standardBattalionSize / 25`,
+4% of a full battalion for **every** type (§5), so a lower absolute number confers no protection. A
+full archer unit is exactly as far above its 140 as a full heavy-cavalry unit is above its 100. What
+the reports tie to breaking is a unit being **small** relative to its floor: Rome's 755-troop
+heavy-cavalry unit sat at 30% of a battalion ([`rome-gaul`][rome-gaul] correction note).
+
+The per-type orderings disagree across #1–#3, which is one more reason, beyond Done-when 7's own,
+that no single battle can be a target. §7 and §9 use all four outcomes as smoke instances and tune
 to none.
 
 ### 2.4 `ratio ≈ 46` lies outside the baseline's own reachable range
@@ -270,7 +285,7 @@ none" means the search found nothing in any of them.
 | ID | Placeholder | Value | Tag, and what the search found | Used by |
 | --- | --- | --- | --- | --- |
 | D01 | Placement | Units fill the side's home row (K30: row 2 for the attacker, row 9 for the defender) in slot order, starting at column 0 and running to column 13. Units 15–20 go in the next row inward (row 3 or row 8), again from column 0. | **[designed]** `FUN_004381a4` is described as *"column position cycling through a 3-wide block … unit-type ordering read from a lookup table"* ([`formula`][formula]). The block's column origin and the lookup table are in no report, and a literal 3-wide block of 20 units would put the two sides' 7-row-deep blocks into overlapping rows (2…8 and 9…3), so it cannot be what the text describes. | C2, C5 |
-| D02 | First mover | The **defender** moves first. After that, sides alternate (K33). | **[derived]** from one observation: the Rome–Gaul header sequence reads *"Rome to place units"*, then *"Gaul to move units"*, then *"Rome to move units"*, and Rome was the attacker ([`rome-gaul`][rome-gaul]). Searched for a decompiled turn-order rule: none. | C2, C5 |
+| D02 | First mover | The **attacker** moves first. After that, sides alternate (K33). | **[designed]** Searched for a turn-order rule: none decompiled. [`rome-gaul`][rome-gaul] says only that the header *"cycles between"* *"Rome to place units"*, *"Gaul to move units"* and *"Rome to move units"*, and gives no order. The one ordered pair in the corpus is [`observation`][observation]'s `7.6.png` *"Rome to place units"* followed by `7.8.png` *"Rome to move units"*, with no Gaul move shown between them. That weakly suggests the side that placed moved first, but it does not say which side attacked. The attacker is the placeholder because that side, Rome, both placed and attacked in the only battle whose attacker is known (§9.2). An earlier revision tagged a defender-first rule `[derived]` from a sequence the source does not contain, and that tag was wrong. | C2, C5 |
 | D03 | Target selection | Each unit targets the nearest live enemy by Chebyshev distance. Ties go to the lowest enemy slot index. The target is re-chosen whenever it is cleared (K14) or the target is no longer live. | **[designed]** Searched for target selection or `FUN_0043a31c`: untraced ([`formula`][formula] Next checks 3). The info panel's *"Unit set to attack"* ([`rome-gaul`][rome-gaul]) confirms that a target *field* exists (`DAT_004a0356`, [`morale-array`][morale-array]), not the choice rule. | C2, C5 |
 | D04 | Movement | A unit moves up to `moves[type]` (K25) steps. Each step goes to the 8-neighbour square that is in bounds, empty, and minimises Chebyshev distance to the target. Ties are broken in the fixed order N, NE, E, SE, S, SW, W, NW, with "N" meaning toward the enemy home row. Movement stops once the unit is adjacent to its target (distance 1) or no step reduces the distance. One unit per square. | **[designed]** Searched for grid movement or pathing rules: none (the entry-points report lists *"movement ranges"* as still to recover). | C2, C5 |
 | D05 | One action per unit per side-turn | In slot order, each live unit does exactly one of the following, in this priority order. **(a)** If it is adjacent to its target, it is queued for this side-turn's melee pass. **(b)** Otherwise, if `shots > 0` (K23), `range > 0` (K24) and distance ≤ `range + 1`, it shoots its target once (D11). **(c)** Otherwise, it moves (D04), and if it ends adjacent to its target it is queued for melee. After all units have acted, the melee pass runs `FUN_004393ec` once over the queued attackers in slot order. | **[designed]** except the batched melee pass, which is **[confirmed]**: `FUN_004393ec` *"iterates the same up-to-20 unit slots; for each attacker with a live assigned target"* ([`formula`][formula]). Searched for the move/shoot/attack priority: none. | C2, C5 |
@@ -483,7 +498,7 @@ setup:
       shotsLeft = shots[type]                                        // K23
   place both armies                                                  // D01
 loop round r = 1 … 100:                                              // D09
-  for side S in (defender, attacker):                                // D02, K33
+  for side S in (attacker, defender):                                // D02, K33
     for each live unit u of S, in slot order:
       if u has no live target: pick one                              // D03
       act (D05): queue for melee | shoot once (§4.4 shooting, then §5 on the target) | move (D04)
@@ -823,13 +838,19 @@ exactly 0, and that is what the summary panel shows. If that is right, the per-t
 a **break** phenomenon. A model with no unit-break rule cannot then reproduce it at any tuning,
 however carefully it models casualties.
 
-**A second instance points the same way on mechanism and the opposite way on type.** In Rome–Gaul's
-first fight, the winner's **heavy cavalry** went `3,187 → 0`, with both units removed by the rout
-check, while every other Roman type kept 57–74% ([`rome-gaul`][rome-gaul] and its correction note;
-[`rout`][rout]). So "the victor loses one whole arm" has now been observed twice, with a different
-arm each time (§2.3). A candidate that can produce the first case by breaking can in principle
-produce the second. A candidate that produces the first only through fixed per-type weights will
-produce the same ordering every time.
+**The other instances put it in proportion (§2.3).** Of the three observed battles with a per-type
+breakdown, **two** show the victor losing one whole arm, and **one** does not:
+- In Rome–Gaul `1_rome_270_winter_7` (first fight), the winner's **heavy cavalry** went
+  `3,187 → 0`, with both units (755 and 2,432 troops) removed by the rout check, while every other
+  Roman type kept 58–74% ([`rome-gaul`][rome-gaul] and its correction note; [`rout`][rout]).
+- In Rome–Gaul `7.sav → 8.sav`, the winner lost 6.7–61.9% per type and **no** arm entirely
+  ([`observation`][observation]).
+
+So the observation to explain is not "the victor always loses an arm". It is that **losses are
+lumpy**. Sometimes a whole arm goes and sometimes none does, and which arm goes varies. A candidate
+that breaks units can produce all three shapes. A candidate that shapes losses only through fixed
+per-type weights produces the same ordering against the same enemy every time, and never produces a
+whole arm lost alongside a 4% loss.
 
 For each candidate, the entry asks three questions: can it produce **a victorious army losing one
 whole arm**; does it get there by **attrition** or by **breaking units**; and what does it predict
@@ -861,13 +882,17 @@ of a unit that breaks.
 - **Falling morale does the rest.** Falling `m` takes the unit into the 20…39 band, where each check
   breaks it with probability 31–89% (§5). One archer break costs every friend 6 `m`, and a second
   archer unit already in the low 30s re-routes with no check.
-- **Heavy cavalry is the opposite.** It is hard to shoot (`vuln` 4), its strength floor is only 100
-  troops, and a full 2,400-troop unit is far above it.
+- **Heavy cavalry differs from archers in exposure, not in its floor.** Its floor is 4% of a
+  battalion, the same as every type's (§5), so that is no protection. The real differences are
+  that it is hard to shoot (`vuln` 4 against archers' 18), and its melee row (`1 4 3 0 2`) and its
+  defensive entries are stronger than the archers' (§4.3), so it loses fewer exchanges and less
+  morale.
 
 Whether a given C2 run actually breaks the archers depends on which units meet, and that is decided
 by the designed driver (D01, D03, D04). So C2's reproduction of this battle is only as faithful as
-those placeholders (§2.2). The same mechanism breaks Rome's small heavy-cavalry units in the second
-instance, where the unit was already near its floor.
+those placeholders (§2.2). The same mechanism breaks Rome's small heavy-cavalry units in `1_rome_270_winter_7`
+(755 troops, at 30% of a battalion), and nothing in it forces any arm to break, as in
+`7.sav → 8.sav`.
 
 **C3.** The prediction follows from D20 and D21 against the Ptolemaic mix. The shares are light inf
 768, heavy inf 115, archers 0, light cav 83 and heavy cav 32 (×1000), and the shooter share is 851.
@@ -882,7 +907,9 @@ instance, where the unit was already near its floor.
 
 C3 therefore predicts differentiated losses by **attrition**. The ordering is fixed by the enemy's
 mix: heavy cavalry lightest, which matches, and archers *below* average, which does not. It **cannot
-produce the archers' 100%.** That would need `W_A / Wbar ≥ 112 / R ≥ 2.8`, since `R ≤ 40`. This is
+produce the archers' 100%.** That would need the archers' loss fraction `R × (W_A / Wbar) / divisor` to reach 96%, so that
+the strength floor removes what is left. At the most favourable divisor (105) and `R ≤ 40`, that
+needs `W_A / Wbar ≥ 0.96 × 105 / 40 ≈ 2.5`, against the 0.80 computed. This is
 reported as the model's prediction, not as a fail. Per the hazard, the weights **must not** be
 adjusted toward the observation.
 
@@ -920,8 +947,10 @@ results in this section, and they are facts about the arithmetic, not a ranking.
 - **Splitting a type into units.** Each type's troops are split into full battalions of
   `standardBattalionSize` (K07) plus one remainder unit. A remainder below the type's strength floor
   (K08) is added to the last full battalion instead. Units are in slot order LI, HI, A, LC, HC, with
-  full battalions before the remainder. Every army below has at most 18 units (K31 allows 20), and
-  every remainder is above its floor.
+  full battalions before the remainder. Every army below has at most 18 units (K31 allows 20). Every
+  remainder is above its floor except one, and the merge rule handles that one: in the upset-rate
+  uniform army at `κ = 0.90`, light cavalry is `7,200 = 7,000 + 200`, and 200 is below LC's 280, so
+  it becomes a single 7,200-troop unit.
 - **The 21 compositions (Σ):** 5 pure; the 10 two-type 50/50 pairs; the uniform mix (20% each); and
   5 one-heavy mixes (60% of one type, 10% of each other).
 - **T-scale**, used by CS-T and UR: the shares are of **troops**, with 40,000 troops per army.
@@ -1035,7 +1064,8 @@ seeds. For each such battle and each type `t` in the winner:
 
 **Why.** CD-a: fifteen points is the smallest spread at which "what you lose depends on what you
 brought" is visible in one battle's result screen. For scale, the baseline's own spread is about 1
-point ([`instant-cannot`][instant-cannot]), and the observed tactical battles show 70 to 96 points.
+point ([`instant-cannot`][instant-cannot]), and the three observed tactical battles with a per-type
+breakdown show 55 to 96 points (96, 55 and 74; §2.3).
 CD-b: a spread whose ordering is the same against every enemy is a fixed per-type toughness, not a
 matchup. The 0.05 margin keeps noise from passing it.
 
@@ -1123,7 +1153,28 @@ failures"*. A mechanism that never fires is dead weight. One that always fires m
 the same way, and gives neither player anything to read or anticipate. The cap clause exists
 because a cap that decides battles means the model does not terminate on its own terms.
 
+**EN-b counts `withdrawal` with `collapse`, and that is deliberate.** It means a C5 that *never*
+ends a battle by annihilation fails EN-b's upper bound, even though fewer annihilations is the
+direction of the user's objection (*"I do not like that an army is completely destroyed"*). The band
+encodes a design judgement: a model in which no battle is ever fought to the end has lost the
+decisive-victory outcome altogether, and "sometimes" is what the suite asks for. Under C5 the
+annihilated side's last unit still flees with its few remaining troops (§6.5), so annihilation there
+does not mean total loss. If the user's intent is instead "never", this band conflicts with it. **That
+conflict is for the user to settle, not T59**, and T59 must report the number rather than move the
+band.
+
 **Fails if** any applicable clause is outside its band.
+
+**Fixed by construction:**
+- **C4 fails EN-b, essentially always.** C4's `annihilation` needs a side to reach 0 troops while its
+  pool is still above 0. The pool breaks once cumulative losses reach `M / 2` percent (D32), which is
+  25–35% at `M = 51…70` and 29.5% at the §8.0 `M = 59`. So a side can only be annihilated first by
+  losing more than about 70% of its troops in a single round. At D31's pace, P-scale battles do not
+  do that. C4's endings are therefore `collapse` (or `cap`) in essentially every battle. This follows
+  from C4 being an army-morale model, and it is stated here so that it is not read as a discovery.
+- **C5, expected direction only (not a construction result):** the withdrawal test (60% relative
+  strength, from round 3) pushes C5's endings toward `withdrawal`. Whether that pushes it past EN-b's
+  0.90 is what T59 measures.
 
 ### 8.8 Survivors: fraction and composition (SV)
 
@@ -1217,19 +1268,20 @@ total at `ratio ≈ 46`, with a per-type spread of 1.2 points against the observ
 ([`instant-cannot`][instant-cannot]). As §2.4 shows, that ratio is not one the baseline can reach
 with Seleucid as the winner. It is recorded as the report states it, with that caveat attached.
 
-**Inputs for the smoke run.** The report gives only type totals, so every per-unit input here is
-**[designed]**:
+**Inputs for the smoke run.** The report gives only type totals and names no pre-battle save for this
+battle (its save references are `IP021.sav` and other play-throughs; searched: `.sav` in the report).
+So every per-unit input here is **[designed]**:
 - Units are split by the §8.0 rule. Seleucid gets 8 units: LI 15,000 + 12,300; HI 6,000 + 2,400;
   A 3,500 + 1,700; LC 1,800; HC 2,400. Ptolemaic gets 5 units: LI 15,000 + 6,300; HI 3,200;
   LC 2,300; HC 900.
 - Quality is 6 and `M = 59` on both sides.
 - Seleucid attacks. The report does not say which side attacked.
 
-### 9.2 The other two instances: Rome against Gaul, fought twice from one save
+### 9.2 Rome against Gaul, `1_rome_270_winter_7`, fought twice from one save
 
-**[confirmed: [`rome-gaul`][rome-gaul] (battle 1), [`rout`][rout] (battle 2)]**
+**[confirmed: [`rome-gaul`][rome-gaul] (first fight), [`rout`][rout] (second fight)]**
 
-| Type | Rome start | Rome finish, battle 1 | Gaul start | Gaul finish |
+| Type | Rome start | Rome finish, first fight | Gaul start | Gaul finish |
 | --- | ---: | ---: | ---: | ---: |
 | Light infantry | 45,087 | 26,032 | 57,973 | 0 |
 | Heavy infantry | 28,057 | 20,675 | 7,635 | 0 |
@@ -1238,20 +1290,68 @@ with Seleucid as the winner. It is recorded as the report states it, with that c
 | Heavy cavalry | 3,187 | **0** | 2,974 | 0 |
 | **Total** | **99,882** | **63,282** | **83,348** | **0** |
 
-Battle 2 reached **75,536** from the same 99,882, with a different set of destroyed units. The
-report gives no per-type breakdown for battle 2.
+The second fight reached **75,536** from the same 99,882, with a different set of destroyed units.
+That report gives no per-type breakdown for it.
 
-**Inputs for the smoke run:**
-- Rome's `M = 68`. **[confirmed]**: Rome's army 0 `+14` byte in `1_rome_270_winter_7.sav`
-  ([`morale-array`][morale-array]).
-- Gaul's `M = 59`. **[designed]**: not reported.
-- Quality is 6 on both sides. **[designed]**: the saves hold per-unit qualities, but no report
-  tabulates them.
-- Units are split by the §8.0 rule. **[designed]**: Rome had 19 units, but the per-unit roster is
-  not in the reports.
-- Rome attacks. **[derived]**: Rome's army moved onto the battle tile ([`rome-gaul`][rome-gaul]).
+**Inputs for the smoke run: read from the save, not designed.** The pre-battle save
+`1_rome_270_winter_7.sav` holds both armies. It is in the local asset corpus, and, per issue #207, in
+`ic2-test-fixtures`, which ships the whole corpus. (`FixtureResolutionTests` names its sibling
+`1_rome_270_winter_7_b.sav`.) T59 reads, through `IC2.Data`'s army table, Rome's army 0 at (90,28)
+and Gaul's army 13 at (88,25) ([`rome-gaul`][rome-gaul] §"The save-level result"). For every unit it
+takes the type, troops and quality from the save, and for each army it takes strategic `M` from
+`+14`. **[confirmed: save data]**
 
-### 9.3 Procedure, and what the smoke test can and cannot fail
+Before running the instance, T59 asserts that the roster is the one the reports describe:
+- Rome's and Gaul's per-type totals equal the table above.
+- Rome's two heavy-cavalry units are **755** and **2,432** troops ([`rome-gaul`][rome-gaul]
+  §"Unit-level detail" and the correction note), and 4th Bowmen has 3,312 ([`rome-gaul`][rome-gaul]).
+- Rome's slot qualities match [`morale-array`][morale-array] §"The quality-promotion rule":
+  - slots 2 and 12 (3rd and 6th Guards) are good;
+  - slot 4 (4th Guards) is elite;
+  - slot 15 (1st Guards) is very good;
+  - slots 0, 6, 7, 8, 9, 13, 16, 17 and 18 are average.
+- Rome's `M = 68` ([`morale-array`][morale-array]; this repository's `ModelCoverageTests` reads the
+  same 68 for both Roman armies).
+
+If the save cannot be resolved, or any assertion fails, T59 reports it and **does not** run the
+instance on substitute data.
+
+The earlier draft of this section built the roster with the §8.0 split, and that would have been
+wrong. It turns Rome's heavy cavalry into `2,500 + 687` and removes the condition the reports tie to
+the break: a 755-troop unit sitting at 30% of a battalion. Designing a roster the reports partly give
+is what design-audit.md §4.5 forbids.
+
+**Attacker:** Rome. **[derived]**: Rome's army moved onto the battle tile ([`rome-gaul`][rome-gaul]).
+
+### 9.3 Rome against Gaul, `7.sav → 8.sav`: the victor that lost no whole arm
+
+**[confirmed: [`battle-observation.md`][observation] §"Battle result"]**
+
+| Type | Rome start | Rome finish | Rome loss | Gaul start | Gaul finish |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Light infantry | 8,900 | 4,282 | 51.9% | 55,518 | 0 |
+| Heavy infantry | 34,700 | 32,392 | 6.7% | 4,531 | 0 |
+| Archers | 0 | 0 | — | 0 | 0 |
+| Light cavalry | 2,400 | 914 | 61.9% | 1,298 | 0 |
+| Heavy cavalry | 4,700 | 2,353 | 49.9% | 555 | 0 |
+| **Total** | **50,700** | **39,941** | **21.2%** | **61,902** | **0** |
+
+This is a different battle from §9.2 (different totals, and a recording from 2026-09-12). It is the
+only fully tabulated outcome in which the victor lost no whole arm, so it is the natural foil to
+§9.1 and §9.2.
+
+**Inputs for the smoke run.** `7.sav` is in the local asset corpus, but no report has identified
+which army records fought ([`observation`][observation] Next checks 1). T59 therefore runs one
+exact lookup:
+- **If exactly one army per nation** in `7.sav` has per-type totals equal to the start columns
+  above, T59 takes those two armies' rosters, qualities and `+14` morale. **[confirmed by exact
+  match]** 
+- **Otherwise**, it falls back to the §8.0 split, quality 6 and `M = 59`, all **[designed]**.
+
+T59 reports which path it took. Rome attacks, **[designed]**: the report does not say which side
+attacked.
+
+### 9.4 Procedure, and what the smoke test can and cannot fail
 
 **Run.** Each candidate plays each instance for seeds `k = 0 … 999`.
 
@@ -1265,11 +1365,12 @@ report gives no per-type breakdown for battle 2.
 **Reported beside the observations, with no band:**
 - the fraction of seeds the observed winner wins;
 - the 5th, 50th and 95th percentiles of the winner's per-type loss rate and of its total loss;
-- for Rome–Gaul, where 63,282 and 75,536 fall in the candidate's distribution of Rome's final total;
+- for §9.2, where 63,282 and 75,536 fall in the candidate's distribution of Rome's final total;
+- for §9.3, where 39,941 falls in that distribution;
 - the fraction of seeds in which the winner loses one whole arm, and which arm.
 
-A candidate that never produces the observed winner is **not** thereby failed. The inputs are
-designed, and the report says what they cannot establish.
+A candidate that never produces the observed winner is **not** thereby failed. Some inputs are
+designed, and none of the battles records the battle-local tactical morale that drove it.
 
 ## 10. Open items that would convert `[designed]` to `[confirmed]`
 
