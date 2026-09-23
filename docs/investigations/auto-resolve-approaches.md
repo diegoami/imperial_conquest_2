@@ -901,6 +901,293 @@ the winner (D45). **C5 reproduces the observation's mechanism but, deliberately,
 number.** This is a departure from the original that follows from the user's objection, and it is
 stated here so the scorecard is not read as C5 "missing" the observation by accident.
 
+## 8. The metric suite
+
+Every metric below has an exact procedure and a pass band, and **each states in advance what makes
+a candidate fail it** (Done-when 5 and 6). All bands are **[designed]** (D50). They were set here,
+before any candidate was run. The reasoning for each band is given with it, so a reader can
+disagree with the reasoning rather than with a number. T59 records the measured number for every
+candidate and metric, and **must not move a band after seeing a result** (T59 Done-when 4).
+
+Where a result for a metric follows from a candidate's own arithmetic, it is stated under **"Fixed by
+construction"**, so the scorecard does not present it as a discovery. These are the only advance
+results in this section, and they are facts about the arithmetic, not a ranking.
+
+### 8.0 Test armies, seats and seeds (shared by every metric)
+
+- **Units.** Quality 6 ("average") everywhere. Strategic morale `M = 59`, the confirmed new-army
+  value (K29), on both sides.
+- **Splitting a type into units.** Each type's troops are split into full battalions of
+  `standardBattalionSize` (K07) plus one remainder unit. A remainder below the type's strength floor
+  (K08) is added to the last full battalion instead. Units are in slot order LI, HI, A, LC, HC, with
+  full battalions before the remainder. Every army below has at most 18 units (K31 allows 20), and
+  every remainder is above its floor.
+- **The 21 compositions (Σ):** 5 pure; the 10 two-type 50/50 pairs; the uniform mix (20% each); and
+  5 one-heavy mixes (60% of one type, 10% of each other).
+- **T-scale**, used by CS-T and UR: the shares are of **troops**, with 40,000 troops per army.
+- **P-scale**, used by CS-P, NT, CD, EN and SV: the shares are of **weighted power**, with
+  `Σ combatPowerWeight × troops = 2,400,000` per army, so `troops_t = 2,400,000 × share_t / 100 /
+  weight_t`. Every P-scale army then has a merged `armyPower` of exactly `300 × M`. The unit splits
+  are multiples of 100, so the per-unit `/100` truncation in K02 is exact. P-scale armies are
+  therefore **equal in the baseline's own measure**, and any difference in who wins comes from the
+  candidate's own treatment of composition.
+- **Schedule.** Every ordered pair `(A, B)` of Σ is played, including mirrors, with `A` attacking.
+  That is 441 matchups, at **S = 200** seeds each.
+- **Seed.** For matchup index `i = 21 × index(A) + index(B)` (Σ in the order listed above) and
+  repetition `k`, the seed is `1,000,003 × i + k`. It is passed to a fresh `IRng` for that battle.
+- **Decisive battle** means one with a winner. Every candidate always produces one, since ties go to
+  the defender (K05).
+- **Symmetric score.** `w(A, B)` is the fraction of the 200 battles in which `A`, attacking, wins
+  against `B`. The seat-neutral probability that `A` beats `B` is
+  `p(A, B) = [w(A, B) + 1 − w(B, A)] / 2`, and `s(A) = mean over B ≠ A of p(A, B)`.
+
+If a candidate's cost makes 88,200 battles infeasible, T59 reports that as its §8.6 finding. It does
+**not** lower `S` for one candidate.
+
+### 8.1 Composition sensitivity (CS-T as Done-when 5 words it, and CS-P)
+
+**Procedure.** Compute `s(A)` for all 21 compositions. `CS = max_A s(A) − min_A s(A)`. CS-T uses the
+T-scale armies and CS-P the P-scale armies.
+
+**Pass bands.**
+- CS-T **passes if ≥ 0.20** and fails below 0.20.
+- CS-P **passes if ≥ 0.20** and fails below 0.20.
+
+A candidate must pass both.
+
+**Why.** Twenty points between the best and worst mix is the smallest spread a player would notice
+over a campaign. Below it, composition is decoration. CS-P exists because CS-T alone cannot fail the
+baseline (§2.1). A resolver with a fixed per-type price passes CS-T just by charging more for heavy
+cavalry.
+
+**Fails if** either spread is below 0.20. A resolver that treated every type alike would score about
+0 on both. That is the case Done-when 5 describes.
+
+**Fixed by construction:**
+- **C1, CS-P = 0 exactly.** Every P-scale battle is an exact tie, which the defender wins, so every
+  `p(A, B) = 0.5`.
+- **C1, CS-T is large.** The K01 weights make heavy-cavalry armies beat light-infantry armies every
+  time, so C1 is expected to **pass CS-T and fail CS-P**.
+
+### 8.2 Non-transitivity (NT)
+
+**Procedure.** On the P-scale `p(A, B)` from §8.1, draw a directed edge `A ▷ B` when
+`p(A, B) ≥ 0.55`. That threshold is 2 standard errors above an even contest at 400 battles per
+unordered pair. Count the directed 3-cycles `A ▷ B ▷ C ▷ A`. Call `A` **dominant** if `A ▷ B` for
+every `B ≠ A`.
+
+**Pass band.** It **passes if** at least one 3-cycle exists **and** no composition is dominant.
+
+**Why.** Done-when 5: a single dominant composition is a design failure. So is a strict ordering
+with no counters, in which players always build the top mix. One 3-cycle among 21 compositions is
+the minimum evidence that counter-play exists.
+
+**Fails if** there is no 3-cycle (the resolver is transitive), or if any composition is dominant.
+
+**Fixed by construction:** C1 has no edges at all (every `p = 0.5`), so no cycle, so it fails. The
+entry names this as the metric on which C5 is most at risk, so T59 should report C5's cycle count
+and any dominant composition prominently.
+
+### 8.3 Upset rate (UR)
+
+**Procedure.** Mirror matchups: the same composition on both sides, for the 5 pure compositions and
+the uniform mix, at T-scale. The stronger side has 40,000 troops and the weaker side `κ × 40,000`,
+split by the §8.0 rule, for `κ ∈ {0.90, 0.80, 0.67, 0.50}`. Each pair is played with the weaker side
+attacking and with it defending, at 200 seeds each, so there are 2,400 battles per `κ`. `UR(κ)` is
+the fraction of them the weaker side wins. Because both sides have the same composition, the only
+difference is size, so `UR` measures luck, not matchup.
+
+**Pass band.** It **passes if every one** of the following holds:
+- `UR(0.90) ∈ [0.10, 0.45]`
+- `UR(0.80) ∈ [0.03, 0.35]`
+- `UR(0.67) ∈ [0.005, 0.20]`
+- `UR(0.50) ∈ [0, 0.08]`
+- `UR` does not rise as `κ` falls, with a tolerance of 0.02.
+
+**Why.** An army 10% smaller should win sometimes, or the outcome of every battle is known before it
+is fought, and it should win clearly less often than a coin flip. An army half the size should almost
+never win. Each band is wide because only the shape is being judged.
+
+**Fails if** any bound or the monotonicity is violated. A deterministic resolver fails at `κ = 0.90`
+and `κ = 0.80`, and a resolver close to a coin flip fails the upper bounds.
+
+**Fixed by construction:** C1 and C3 have `UR = 0` at every `κ`. Their winner is a deterministic
+function of the armies, and the smaller mirror army is strictly weaker in both `armyPower` and `E`.
+Both therefore **fail UR**. This is stated now so that it is not mistaken for a measurement.
+
+### 8.4 Casualty differentiation (CD)
+
+**Procedure.** Use the P-scale battles in which the **winner's** composition contains all five
+types: the uniform mix and the 5 one-heavy mixes, against all 21 opponents, in both seats, at 200
+seeds. For each such battle and each type `t` in the winner:
+
+- `L_t = (start_t − end_t) / start_t`
+- `end_t` counts every surviving troop of type `t`: C5's rejoined troops (D45) are included, and C2's
+  routed units count as 0.
+- `D = max_t L_t − min_t L_t` is the battle's spread.
+
+**Two clauses, and both must pass:**
+- **CD-a (spread):** the median `D` over those battles **≥ 0.15**.
+- **CD-b (the spread depends on the enemy):** for the uniform winner against each of the 21
+  opponents, find the type with the highest mean `L_t` in those battles. That type counts as a
+  **clear top** only if its mean exceeds the second-highest by at least 0.05. CD-b passes if **at
+  least two different types** are clear tops across the 21 opponents.
+
+**Why.** CD-a: fifteen points is the smallest spread at which "what you lose depends on what you
+brought" is visible in one battle's result screen. For scale, the baseline's own spread is about 1
+point ([`instant-cannot`][instant-cannot]), and the observed tactical battles show 70 to 96 points.
+CD-b: a spread whose ordering is the same against every enemy is a fixed per-type toughness, not a
+matchup. The 0.05 margin keeps noise from passing it.
+
+**Fails if** the median spread is below 15 points, or if the same type (or no clear type) is
+always the most-lost.
+
+**Fixed by construction:** C1's spread comes only from the `[105, 120)` divisor draw, about 1 point
+([`instant-cannot`][instant-cannot]), so it **fails CD-a**. Its per-type means are equal up to that
+noise, so it has no clear tops and **fails CD-b**.
+
+### 8.5 Determinism (DET), and the draw count
+
+**Procedure.** Take the first 100 battles of the §8.1 CS-P schedule, in order. Run each twice, in
+two separate processes, with the same seed. Serialize each output record (§3: `winner`, `after`,
+`survivors`, `ending`, `draws`) as canonical JSON, with keys sorted and no whitespace. Draws are
+counted by a wrapper around `IRng` that increments on every call.
+
+**Pass band.** It **passes if** all 100 pairs are byte-identical **and**, for all 100 battles, the
+counted draws equal the count the candidate states in §6. For C1 and C3, that is the fixed formula
+from the unit counts. For C2, C4 and C5, it is the per-event formula evaluated on the battle's own
+event log. It also requires that the candidate draw from no randomness source other than the `IRng`
+it is handed, which T59's review checks in the code.
+
+**Why.** T59's hazard: *"a tournament that cannot be rerun is an anecdote"*. The draw-count check
+catches any hidden or unlogged randomness.
+
+**Fails if** any pair differs, if any count differs from the stated formula, or if any other
+randomness source exists.
+
+**Stated draw counts:** C1 §6.1, C2 §6.2, C3 §6.3, C4 §6.4, C5 §6.5.5. Of these, only C1 and C3 have
+a **fixed** count per battle. The others are variable, and are stated per event.
+
+### 8.6 Cost (COST), against T22's soak budget
+
+**Procedure.**
+- **Per-battle time.** In a Release build, time every battle of the full CS-P schedule after 1,000
+  warm-up battles. Report the mean `t_c` and the 99th percentile `p99_c` of wall-clock time per
+  battle for each candidate. `t_1` is C1's mean.
+- **Soak baseline.** Run the merged soak (`AiSoakTests`, 50 seeds, `SoakTurnCap = 1200`) once on the
+  same machine. Record its elapsed time `E0`, which the soak prints as *"… s of a 300s budget"*, and
+  the number of field battles `B` resolved across the 50 seeds, counted from the battle events at one
+  per `ResolveField` call.
+- **Projection.** A candidate's projected soak time is `E_c = E0 + B × (t_c − t_1)`.
+
+**Pass band.** It **passes if** `E_c ≤ 240 s` **and** `p99_c ≤ 50 ms`.
+
+**Why.**
+- T22 **asserts** a 300-second budget for the whole soak ([T22](../tasks/T22.md) Done-when 2). A
+  candidate that would push the soak past it cannot ship, and 240 seconds leaves 20% of the budget
+  as headroom for CI variance.
+- The 50 ms per-battle ceiling exists because a real game resolves more battles per turn than the
+  toy soak does, and a player waits on each one at turn end. 50 ms is a designed bound on a battle
+  being noticeable.
+
+**Fails if** either bound is exceeded. If `B = 0`, T59 reports that and applies the p99 bound alone.
+
+**Fixed by construction:** none. Note that C1 passes the first clause only if the merged soak itself
+runs inside 240 seconds. If it does not, that is a finding about the soak, not about C1.
+
+### 8.7 Ending: collapse versus annihilation (EN)
+
+**Applies to** the candidates with a break or withdrawal rule that can **end** a battle: C2, C4 and
+C5. It does not apply to C1 (no break rule) or C3 (its floor removes units but never ends a battle).
+Both are recorded as *not applicable*, not as a pass.
+
+**Procedure.** For every P-scale battle, classify the ending:
+
+| `ending` | Meaning |
+| --- | --- |
+| `annihilation` | The loser's last live unit left through the **strength floor** (K08), or its troops reached 0. For C4: a side reached 0 troops. |
+| `collapse` | The loser's last live unit left through a **morale** break: the floor (K09), the band (K11), or the cascade (K13). For C4: the army pool broke (`P ≤ 0`). |
+| `withdrawal` | C5's ordered army-level withdrawal (§6.5.3). |
+| `cap` | The round cap decided the battle (D09, D33). |
+
+Also record whether the battle had **at least one cascade break**, meaning a unit broken by K13's
+<30 re-rout. This applies to C2 and C5 only, since C4 has no cascade.
+
+**Pass band.** It **passes if** every applicable clause holds:
+- **EN-a:** the `cap` fraction is ≤ 0.05.
+- **EN-b:** the share of `collapse` + `withdrawal` among decisive battles is in `[0.10, 0.90]`.
+- **EN-c** (C2 and C5): the fraction of battles with at least one cascade break is in `[0.10, 0.90]`.
+
+**Why.** Done-when 5: *"a cascade that never fires and one that fires every time are both
+failures"*. A mechanism that never fires is dead weight. One that always fires makes every battle end
+the same way, and gives neither player anything to read or anticipate. The cap clause exists
+because a cap that decides battles means the model does not terminate on its own terms.
+
+**Fails if** any applicable clause is outside its band.
+
+### 8.8 Survivors: fraction and composition (SV)
+
+**Applies under `onDefeat = scatter`** to every candidate that produces survivors. C1 is included as
+the reference, since its mirrored ratio is the mechanism C5 is meant to give meaning to. Done-when 5
+asks for this metric for candidates with a break or withdrawal rule, and those are all covered;
+measuring C1 as well is an addition.
+
+**Procedure.** On the P-scale battles, for each decisive battle:
+- `σ` = the loser's surviving troops ÷ the loser's starting troops.
+- `ω` = the winner's troops lost ÷ the winner's starting troops. This counts C5's rejoined troops as
+  kept and C2's routed winner units as lost.
+- `τ` = the total-variation distance between the loser's **surviving** type mix and its **starting**
+  type mix, `Σ_t |surv_t / surv − start_t / start| / 2` (0 when the survivors have the starting mix).
+  If there are no survivors, `τ` is undefined and the battle is excluded from SV-d.
+
+For SV-c, the battles are split by the **winner's** cavalry (light plus heavy) share of weighted
+power:
+- **H**: the share is ≥ 40%. That covers pure LC, pure HC, the seven pairs containing a cavalry
+  type, the uniform mix, and the two cavalry-heavy mixes: 12 compositions.
+- **Z**: the share is zero. That covers pure LI, HI and A, and the three pairs among them: 6
+  compositions.
+
+**Four clauses, and all must pass:**
+- **SV-a (a force in being):** the median `σ` is ≥ 0.10.
+- **SV-b (defeat costs more than victory):** the median `(1 − σ)` minus the median `ω` is ≥ 0.10.
+- **SV-c (who is chasing matters):** the mean `σ` over group Z minus the mean `σ` over group H is
+  ≥ 0.05. Losing to a cavalry-rich army must leave fewer survivors than losing to one with no
+  cavalry.
+- **SV-d (survivors are an outcome, not a fraction):** the mean `τ` is ≥ 0.05.
+
+**Why.** Done-when 2 and 5: survivors are what `scatter` consumes, and C5's claim is that how many
+survive, and of which types, becomes an outcome of the battle.
+- SV-a fails pure annihilation.
+- SV-b fails a model in which losing is no worse than winning.
+- SV-c tests the steer's pursuit claim directly.
+- SV-d fails a flat fraction.
+
+**Fails if** any clause fails. In addition, T59 reports `σ` broken down by `ending` (for §6.5.4
+point 5) as a diagnostic with no band.
+
+**Fixed by construction:**
+- **C2, `σ = 0` in every battle** (§6.2), so it **fails SV-a**. This is the original's own
+  annihilation.
+- **C1's survivor mix equals its starting mix** up to the divisor noise, so `τ ≈ 0` and it **fails
+  SV-d**.
+- **C1 on P-scale armies:** the winner's ratio and the mirrored ratio are both exactly 40 (`R = R'`),
+  so `(1 − σ) ≈ ω` and it **fails SV-b**. The same ratio holds whatever the winner's composition,
+  so group Z and group H have the same expected `σ`, and it **fails SV-c**.
+
+### 8.9 The suite at a glance
+
+| ID | Measures | Pass band (fails outside it) | Applies to |
+| --- | --- | --- | --- |
+| CS-T | win-rate spread across mixes, troops held equal | ≥ 0.20 | all |
+| CS-P | win-rate spread across mixes, baseline power held equal | ≥ 0.20 | all |
+| NT | counters exist, and no mix dominates | ≥ 1 three-cycle **and** no dominant mix | all |
+| UR | how often the smaller mirror army wins | `κ` 0.9: 10–45% · 0.8: 3–35% · 0.67: 0.5–20% · 0.5: 0–8%; non-increasing | all |
+| CD | per-type loss spread in the winner, and whether it depends on the enemy | median spread ≥ 15 pp **and** ≥ 2 distinct clear-top types | all |
+| DET | same seed gives the same bytes; draw count as stated | 100/100 **and** 100/100 **and** no other randomness source | all |
+| COST | T22 soak projection and per-battle p99 | `E_c ≤ 240 s` **and** p99 ≤ 50 ms | all |
+| EN | how battles end | cap ≤ 5%; collapse + withdrawal 10–90%; cascade fires in 10–90% | C2, C4, C5 |
+| SV | the survivors `scatter` receives | median σ ≥ 0.10; `(1−σ) − ω ≥ 0.10`; `σ(Z) − σ(H) ≥ 0.05`; mean τ ≥ 0.05 | C1, C2, C3, C4, C5 under `scatter` |
+
 <!-- sources: research-repository reports, cited by GitHub URL like the rest of this directory -->
 
 [instant-cannot]: https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/instant-resolver-cannot-reproduce-a-tactical-battle.md
