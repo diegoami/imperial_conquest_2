@@ -273,8 +273,8 @@ if (fleet[+10] == -1) {                              // launched and at sea
 > [`supply-driven-morale-and-fleet-attrition.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/supply-driven-morale-and-fleet-attrition.md),
 > the 2026-09-23 addition, and
 > [`decompiled-diplomacy-peace-terms-and-instant-battles.md` §"`FUN_0044B5D0` and `FUN_0044B4F8`, instruction by instruction"](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-diplomacy-peace-terms-and-instant-battles.md#fun_0044b5d0-and-fun_0044b4f8-instruction-by-instruction-2026-09-23);
-> the values of `d` derived]**. The merged `FleetAttritionRule` inverts the ratio and skips the army
-> ([#292](https://github.com/diegoami/imperial_conquest_2/issues/292)).
+> the values of `d` derived]**. The merged `FleetAttritionRule` now uses the correct ratio and applies
+> the army's casualties (T63, #295, 562e608).
 
 Two consequences of that ordering are worth keeping. The **death check precedes the supply penalty**,
 so `−random(0..1)` can leave a fleet below 40 without killing it until the *next* turn's check. And

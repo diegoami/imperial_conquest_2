@@ -22,6 +22,14 @@ them, and the user decides from T59's scorecard. Task T58, [#251](https://github
 > site only: sieges and naval battles pass `FUN_0044AE20` different ratios (§1). `FUN_0044AE20` draws
 > exactly 20 `Random(15)` per call, where the merged `BattleCasualties.Apply` draws once per unit-list
 > entry (§6.1 "Draws"). The merged siege and naval paths depart from the original (§1).
+>
+> **Corrected again 2026-09-23** after T63 ([#295](https://github.com/diegoami/imperial_conquest_2/issues/295),
+> 562e608) merged. The merged resolver now ports the small-unit deletion pass at every call site
+> (#289), and the siege/naval ratios, the naval `+ 1` and the siege city erosion (#290, #292, #293).
+> Every statement above, and in §1 and §6.1, saying the merged code omits or departs from these is
+> corrected where it appears. The departures T63 decided on purpose remain: one draw per unit instead
+> of the original's fixed 20 per slot (Decision 6), and a besieger emptied by its own casualties does
+> not capture (Decision 3).
 
 The candidates are numbered **C1–C5 in the order T58's Done-when 1 lists them**: baseline, the
 original's tactical model run headless, type-weighted instant, round-based, and morale-and-retreat.
@@ -84,9 +92,8 @@ what each one predicts for the discriminating observation. §8 is the metric sui
   `d > 70`, loses `unitCount × d / 250 + 1` units **[confirmed at instruction level:
   [`siege-attrition`][siege-attrition] §"`FUN_0044b27c`, instruction by instruction" and
   [`decompiled-diplomacy-peace-terms-and-instant-battles.md`][instant] §"`FUN_0044B5D0` and
-  `FUN_0044B4F8`, instruction by instruction", research `3f6ca09`]**. The merged paths pass K03's
-  field ratio at both call sites and have no `+ 1` ([#290](https://github.com/diegoami/imperial_conquest_2/issues/290)),
-  and they do not erode the city ([#293](https://github.com/diegoami/imperial_conquest_2/issues/293)).
+  `FUN_0044B4F8`, instruction by instruction", research `3f6ca09`]**. The merged paths now use their
+  own ratios at both call sites, include the naval `+ 1`, and erode the city (T63, #295, 562e608).
   No metric here scores a siege or a naval battle. COST's soak baseline (§8.6) runs them, but it only
   times them. So this changes no candidate.
 - **Final constant values for adoption.** Every `[designed]` constant here exists so that T59 can
@@ -215,10 +222,11 @@ That strengthens Done-when 7's warning: the number describes a tactical outcome,
 model cannot produce it with its own inputs. What `ratio ≈ 46` measures is how far the tactical
 outcome (40.8%) exceeds the instant resolver's ceiling, about 35.5% at the tie ratio of 40. It
 constrains neither morale nor quality ([`instant-cannot`][instant-cannot] "What follows" 2). The
-original's instant path has one more loss term that the merged baseline omits: `FUN_0044AE20`'s
-small-unit deletion (§6.1). Whether it could close part of that gap for this battle needs a unit-level
-roster the report does not have **[open]**. (The sums above use type totals, because the battle's
-per-unit rosters are not in the report. Per-unit truncation moves them by less than 0.1%.)
+original's instant path has one more loss term, `FUN_0044AE20`'s small-unit deletion (§6.1), which the
+merged baseline now also applies (T63, #295, 562e608). Whether it could close part of that gap for
+this battle needs a unit-level roster the report does not have **[open]**. (The sums above use type
+totals, because the battle's per-unit rosters are not in the report. Per-unit truncation moves them by
+less than 0.1%.)
 
 ## 3. The common seam
 
@@ -537,19 +545,21 @@ requires. It is the original's own AI-vs-AI path, `FUN_0044AEE4`
 **[confirmed: [`instant`][instant]]**.
 
 **Faithful / departs.** It is faithful to `FUN_0044AEE4`'s winner rule, ratio, per-unit loss
-expression and promotion rule. The merged code departs in two ways:
+expression, second-pass small-unit deletion and promotion rule (T63, #295, 562e608). `FUN_0044AE20`,
+the helper that applies the winner's casualties, has a **second pass** that the merged
+`BattleCasualties.Apply` now also runs. For slots 19 down to 0, it deletes (`FUN_0044AC3C`) any
+unit left below `standardBattalionSize / 10` if it is national, or below `/ 5` if it is a mercenary.
+That is LI 1,500 / 3,000, HI 600 / 1,200, A 350 / 700, LC 700 / 1,400 and HC 250 / 500. The pass runs
+before the promotion loop, so a deleted unit is neither promoted nor rolled for **[confirmed: [`siege-attrition`][siege-attrition]
+§"Siege attrition" and [`instant-cannot`][instant-cannot] §"The result", both corrected in
+research `54b85d0`]**. The merged code still departs in two ways:
 - **Recorded, by design:** under `improved`, the loser scatters (K06) instead of being deleted.
-- **A fidelity gap, under both presets** ([#289](https://github.com/diegoami/imperial_conquest_2/issues/289),
-  filed 2026-09-23). `FUN_0044AE20`, the helper that applies the winner's casualties, has a **second pass** that the merged `BattleCasualties.Apply` omits. For slots
-  19 down to 0, it deletes (`FUN_0044AC3C`) any unit left below `standardBattalionSize / 10` if it
-  is national, or below `/ 5` if it is a mercenary. That is LI 1,500 / 3,000, HI 600 / 1,200,
-  A 350 / 700, LC 700 / 1,400 and HC 250 / 500. The pass runs before the promotion loop, so a
-  deleted unit is neither promoted nor rolled for **[confirmed: [`siege-attrition`][siege-attrition]
-  §"Siege attrition" and [`instant-cannot`][instant-cannot] §"The result", both corrected in
-  research `54b85d0`]**.
+- **Recorded, by design (T63 Decision 6):** the deletion pass draws one `Random(15)` per unit rather
+  than the original's fixed 20 per slot, because `IRng` cannot replay the original's sequence; see
+  **Draws** below.
 
-T59 wraps the merged resolver unchanged (T59 Done-when 1), so C1 measures the merged code, gap
-included, unless #289 is fixed first.
+T59 wraps the merged resolver unchanged (T59 Done-when 1), so C1 measures the merged code, deletion
+pass included (T63, #295, 562e608).
 
 **Algorithm** (see the merged code's own doc comment for the full transcription):
 
@@ -558,8 +568,8 @@ pA = armyPower(attacker); pD = armyPower(defender)          // K01, K02 (strateg
 winner = (pD < pA) ? attacker : defender                     // K05
 R = loserPower × 40 / winnerPower                            // K03, so R ≤ 40
 for each winner unit, in slot order: troops −= troops / (Random(15) + 105) × R        // K04
-(the original then deletes winner units below size/10, or size/5 for a mercenary; the merged code
- does not, #289)
+(the merged code then does the same: deletes winner units below size/10, or size/5 for a mercenary
+ — T63, #295, 562e608)
 loser: destroy; or, under scatter, R' = winnerPower × 40 / loserPower (K06) applied the same way,
        and the result is relocated by ScatterPlacement
 ```
@@ -568,8 +578,8 @@ loser: destroy; or, under scatter, R' = winnerPower × 40 / loserPower (K06) app
 
 **Unit-level break:** none, and none is added. No unit is removed for strength or morale, and there
 is no cascade. The original's instant path does remove a unit for strength: the 10% / 20% deletion
-above. That rule is not a rout, has no morale term and no cascade, and the merged code omits it
-(#289).
+above. That rule is not a rout, has no morale term and no cascade, and the merged code now applies
+it too (T63, #295, 562e608).
 
 **Army-level exit:** none. The winner is decided in one comparison, and `ending = decided`.
 
@@ -588,8 +598,8 @@ exactly **20** `Random(15)` per call, whatever the unit count (`0x0044AE2B`–`A
 `0x0044AE43` unconditional) **[confirmed: [`siege-attrition`][siege-attrition] §"`FUN_0044b27c`,
 instruction by instruction", research `3f6ca09`]**. The merged `nW` is the length of the army's unit
 list, which need not be 20. So C1's draw count is the merged code's, not the original's, and a
-seeded C1 run does not replay the original's random stream. See
-[#290](https://github.com/diegoami/imperial_conquest_2/issues/290).
+seeded C1 run does not replay the original's random stream — a documented departure kept by design
+(T63 Decision 6, #295, 562e608).
 
 **Fixed by construction, not measured.** Its winner is a deterministic function of the two armies,
 so its upset rate (§8.3) is exactly 0. On power-matched armies (§8.0), every battle is an exact tie
@@ -1005,22 +1015,20 @@ worked out by hand. For C2, C4 and C5 it is left to T59's smoke run (§9).
 
 | | Can a victor lose one whole arm? | By attrition or by breaking? | For this battle |
 | --- | --- | --- | --- |
-| **C1** | **No**, at any ratio or tuning. | Attrition only, flat. | Every type loses the same fraction, spread about 1 pp. The level is at most 40/105 ≈ 38%, and at legal morale 12–24% (§2.4). |
+| **C1** | **Only via the deletion pass**, when every unit of an arm falls below the threshold; **not** from attrition or ratio/tuning alone. | Attrition is flat; the deletion pass is a size effect, not a type effect. | Every type loses the same fraction from attrition, spread about 1 pp. The level is at most 40/105 ≈ 38%, and at legal morale 12–24% (§2.4). |
 | **C2** | **Yes.** | **Breaking**: the strength floor, the morale floor or band, and the cascade. Attrition alone cannot reach 0, because of the 40% cap. | Left to T59. See the text below for the mechanism. |
 | **C3** | **Only as a limiting case**, when a unit is pushed below 4% of a full battalion. In practice, no. | Attrition only, shaped by exposure. The strength floor can finish a unit that attrition has nearly exhausted. | Archers ≈ 0.80× the army's mean loss rate, heavy cavalry 0.36×, light infantry 1.25×. **It does not predict archers at 100%.** |
 | **C4** | **Only by attrition in a long battle.** The army pool normally breaks first. | Attrition only, with no unit-level break. | Left to T59. Fire rounds hit archers as hard as light infantry (vuln 18 each), and shock rounds hit them second-least (exposure 1,690 against light infantry's 4,551). |
 | **C5** | **The break, yes. The zero, only if pursuit catches the unit.** | **Breaking**, with the same trigger as C2. | Left to T59. Broken archers flee, and **rejoin** (D45) with whatever pursuit leaves them. |
 
-**C1.** No mechanism distinguishes types. The flat-shape finding
+**C1.** No mechanism distinguishes types by attrition alone. The flat-shape finding
 ([`instant-cannot`][instant-cannot]) is exactly this. Separately, the baseline cannot reach the
-battle's *total* at any legal morale either (§2.4). It is stated plainly here: **C1 cannot produce a
-victorious army losing one whole arm.** That is a statement about the merged code. The original's
-`FUN_0044AEE4` can lose a whole arm in one case the merged code omits (§6.1,
-[#289](https://github.com/diegoami/imperial_conquest_2/issues/289)): when every unit of that arm is
-left under 10% of a battalion (20% for a mercenary) and deleted. That is a size effect, not a type
-effect. It does not arise on §9.1's designed roster. Its unit furthest below a full battalion is the
-light cavalry, 1,800 of 7,000 (26%), and after the largest possible loss (40/105, about 38%) it still
-holds about 16%.
+battle's *total* at any legal morale either (§2.4). Attrition alone cannot produce a victorious army
+losing one whole arm — but the merged code's deletion pass now can (§6.1, T63, #295, 562e608),
+in the same case as the original's `FUN_0044AEE4`: when every unit of that arm is left under 10% of
+a battalion (20% for a mercenary) and deleted. That is a size effect, not a type effect. It does not
+arise on §9.1's designed roster. Its unit furthest below a full battalion is the light cavalry, 1,800
+of 7,000 (26%), and after the largest possible loss (40/105, about 38%) it still holds about 16%.
 
 **C2.** C2 produces the observation by **breaking units**, and the matrix gives archers the profile
 of a unit that breaks.

@@ -150,9 +150,8 @@ a machine-code listing rather than the pseudocode dump). It uses this document's
   (`maxPopulation / 6 + 1`) and the fortification strip.
 - **Neither strength function calls `Random`.**
 
-The merged code applies the `× 9/10` exactly this way (`InstantBattleResolver.ResolveSiege`). It does
-not apply the city steps ([#293](https://github.com/diegoami/imperial_conquest_2/issues/293)) or the
-siege's own casualty ratio ([#290](https://github.com/diegoami/imperial_conquest_2/issues/290)).
+The merged code applies the `× 9/10` exactly this way (`InstantBattleResolver.ResolveSiege`). It now
+also applies the city steps and the siege's own casualty ratio (T63, #295, 562e608).
 
 ## One unrelated defect found in the same file while it was open
 
