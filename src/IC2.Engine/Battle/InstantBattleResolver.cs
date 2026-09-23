@@ -325,7 +325,9 @@ public static class InstantBattleResolver
     /// unity[loser] -= floor(loserShips / 2);  unity[winner] = min(990, unity[winner] + floor(loserShips / 2));
     /// // FUN_0044B4F8: r = max(1, loserStrength × 100 / winnerStrength);  d = r² / 100;
     /// //               winner loses ships × d / 300 ships and condition × d / 300 condition;
-    /// //               a carried army takes casualties, and if d &gt; 70 also loses unitCount × d / 250 units
+    /// //               a carried army takes casualties AT RATIO d (FUN_0044AE20(army, d), #290 part 2),
+    /// //               including its own deletion pass (#289), and if d &gt; 70 also loses
+    /// //               unitCount × d / 250 + 1 units, swap-with-last (#290 part 3)
     /// deleteFleet(loser);                    // and any army it carried
     /// news("&lt;winner&gt; sinks fleet of &lt;loser&gt;.");
     /// </code>
@@ -344,10 +346,14 @@ public static class InstantBattleResolver
     /// <para>
     /// <strong>Draw order</strong>, fixed: the attacker's random band, then the defender's (both inside
     /// <see cref="FleetPower.Compute"/>), then one casualty-divisor draw per slot of the winner's carried
-    /// army, then one draw per whole unit that army loses to the <c>d &gt; 70</c> branch, then — under
-    /// <see cref="DefeatOutcome.Scatter"/> — one casualty-divisor draw for the beaten fleet's own hull
-    /// loss (<see cref="BattleCasualties.ApplyToFleet"/>, unconditional, drawn before the loss is known),
-    /// and finally, only when hulls survive to relocate, the scatter distance.
+    /// army (<see cref="BattleCasualties.Apply"/>, folded into
+    /// <see cref="BattleCasualties.ApplyToCarriedArmy"/> together with the deletion pass below), then one
+    /// draw per whole unit that army loses to the <c>d &gt; 70</c> branch — the deletion pass
+    /// (<see cref="BattleCasualties.DeleteBelowThreshold"/>, #289) sits between these two and draws
+    /// nothing, so it does not itself shift this order, only the SURVIVOR COUNT the whole-unit-loss branch
+    /// then counts against — then, under <see cref="DefeatOutcome.Scatter"/>, one casualty-divisor draw for
+    /// the beaten fleet's own hull loss (<see cref="BattleCasualties.ApplyToFleet"/>, unconditional, drawn
+    /// before the loss is known), and finally, only when hulls survive to relocate, the scatter distance.
     /// </para>
     /// <para>
     /// <strong>The one place the mirrored figure is read as a count, scaled to the fleet's own size
@@ -654,22 +660,35 @@ public static class InstantBattleResolver
     /// </para>
     /// <para>
     /// <strong>What this deliberately does not do, and why (DoD 12).</strong> It does not transfer the
-    /// city, clear a garrison, move loyalty, cascade defections, change unity, absorb money or supplies,
-    /// or emit the capture news lines: all of that is T17. And it never reads
-    /// <see cref="RulesetFlags.CombatOnDefeat"/> — a city garrison has nowhere to scatter to, so the flag
-    /// is explicitly out of scope for sieges (<c>docs/game-design.md</c> §"The defeated side's fate"),
-    /// and T17 depends on that staying true. <see cref="BattleResult.AppliedDefeatOutcome"/> is therefore
-    /// <see langword="null"/> and <see cref="BattleResult.LoserFate"/> is
-    /// <see cref="LoserFate.Unaffected"/> for every siege.
+    /// city's ownership, clear a garrison, cascade defections, change unity, absorb money or supplies, or
+    /// emit the capture news lines: all of that is T17 (<see cref="Cities.Capture.CityCaptureResolver"/>).
+    /// It never reads <see cref="RulesetFlags.CombatOnDefeat"/> either — a city garrison has nowhere to
+    /// scatter to, so the flag is explicitly out of scope for sieges (<c>docs/game-design.md</c>
+    /// §"The defeated side's fate"), and T17 depends on that staying true.
+    /// <see cref="BattleResult.AppliedDefeatOutcome"/> is therefore <see langword="null"/> and
+    /// <see cref="BattleResult.LoserFate"/> is <see cref="LoserFate.Unaffected"/> for every siege.
+    /// <strong>T63 correction (bug #293):</strong> an earlier revision of this remark also said the
+    /// resolver "does not... move loyalty", which was the very defect #293 filed — the original folds the
+    /// city's own loyalty/fortification/population erosion into this same function, on every attempt, win
+    /// or lose, and this method now does too (below). Only the OWNERSHIP transfer and everything that
+    /// follows from it stays T17's.
     /// </para>
     /// <para>
     /// <strong>One kind of draw only.</strong> There is no promotion step, no peace roll and no random
     /// band on this path; the only draws are <see cref="BattleCasualties.Apply"/>'s one-per-slot casualty
     /// divisors for the besieging army's own attrition, which is the very same <c>FUN_0044AE20</c> the
-    /// field variant calls. The reports confirm that function's body and confirm its <c>ratio</c> argument
-    /// at the field call site; neither states what <c>ratio</c> is at this siege call site, so reusing
-    /// <see cref="CombatRules.WinnerCasualtyNumerator"/> here is <c>[derived]</c> from the field call site,
-    /// not read from the decompilation (T52 DoD 7).
+    /// field variant calls — the erosion below (#293) makes no <c>Random</c> call at all, so it adds no
+    /// draws of its own.
+    /// <strong>T63 correction (bug #290 part 1):</strong> an earlier revision of this remark said the
+    /// siege call site's own <c>ratio</c> argument was undocumented and reused
+    /// <see cref="CombatRules.WinnerCasualtyNumerator"/> as a <c>[derived]</c> stand-in from the field call
+    /// site. The siege call site is now read at instruction level
+    /// (<c>decompiled-defection-and-siege-attrition.md</c> §"FUN_0044b27c, instruction by instruction",
+    /// research 3f6ca09) and has its own, different ratio —
+    /// <c>clamp(defenderStrength × 6 / attackerStrength, </c><see cref="SiegeRules.AttritionRatioFloor"/><c>,
+    /// </c><see cref="SiegeRules.AttritionRatioCeiling"/><c>)</c>, computed from the raw attacker/defender
+    /// strengths below, never from a <see cref="BattleResult.WinnerPower"/>/<see cref="BattleResult.LoserPower"/>-style
+    /// framing — so this method no longer reads <see cref="CombatRules.WinnerCasualtyNumerator"/> at all.
     /// </para>
     /// <para>
     /// <strong>The garrison term (T17 DoD 7, a narrow grant on this file).</strong>

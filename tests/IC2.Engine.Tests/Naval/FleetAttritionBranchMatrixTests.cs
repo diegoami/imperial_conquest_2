@@ -201,4 +201,59 @@ public sealed class FleetAttritionBranchMatrixTests
         Assert.Equal(31, withoutArmy);
         Assert.Equal(28, withArmy); // 31 - (8000/100/40 + 1) = 31 - 3.
     }
+
+    /// <summary>
+    /// T63 (bug #292): <c>r</c> FALLS as <c>dmg</c> rises, so the Winter spike (<c>dmg</c> fixed at 30,
+    /// the LARGEST reachable heavy-branch <c>dmg</c>) costs the LEAST of any heavy storm -- the opposite
+    /// of what the old, inverted formula would have given. Forced via the Winter-spike branch itself
+    /// (<c>isWinter</c> true, away from coast, the 1-in-20 chance scripted to hit), rather than hunting
+    /// for a seed that lands on <c>dmg == 30</c> by chance.
+    /// </summary>
+    [Fact]
+    public void WinterSpike_TheLargestReachableDmg_CostsTheLeastOfAnyHeavyStorm()
+    {
+        // rawDraw doesn't matter -- the Winter-spike chance below overwrites dmg to 30 regardless.
+        var rng = new ScriptedRng(new[] { 0 }, new[] { true });
+
+        var storm = FleetAttritionRule.ApplyStormPass(
+            ships: 100, conditionPercent: 100, isWinter: true, tripleDamageBranchActive: false,
+            nearFriendlyCoast: false, rng, Ruleset);
+
+        Assert.Equal(30, storm.Damage);
+
+        // r = max(1, 10000 / (30 + 100)) = max(1, 76.9) = 76; d = 76^2 / 100 = 57.
+        // shipsLost = 100 x 57 / 300 = 19; conditionLost = 100 x 57 / 300 = 19 -- against the dmg-7
+        // heavy branch's 11 ships / 19 condition lost from a 40-ship fleet (28% of the fleet), this is
+        // about 19% -- smaller, exactly as game-design.md's own table states.
+        Assert.Equal(81, storm.Ships);
+        Assert.Equal(81, storm.ConditionPercent);
+    }
+
+    /// <summary>
+    /// T63 (bug #292): the heavy storm's missing steps 3 and 4 -- the carried army takes
+    /// <see cref="BattleCasualties.Apply"/> at ratio <c>d</c> (including its own deletion pass, #289),
+    /// then, since <c>d</c> here (86, the confirmed dmg-7 figure) exceeds the storm's own whole-unit-loss
+    /// threshold, also loses whole units. Proves <see cref="FleetAttritionRule.ApplyStormCasualtiesToCarriedArmy"/>
+    /// reads <c>naval.stormUnitLossDamageThreshold</c>/<c>Divisor</c> -- the storm's OWN pair, not the
+    /// naval battle's <c>combat.naval.unitLossDamageThreshold</c>/<c>Divisor</c> -- since this task's Owns
+    /// list keeps the two records separate (either field's own remarks explain why).
+    /// </summary>
+    [Fact]
+    public void ApplyStormCasualtiesToCarriedArmy_CostsTroopsAndWholeUnitsAboveTheThreshold()
+    {
+        Assert.Equal(70, Ruleset.Naval.StormUnitLossDamageThreshold);
+        Assert.Equal(250, Ruleset.Naval.StormUnitLossDivisor);
+
+        var units = IC2.Engine.Model.ValueList.Of(
+            new IC2.Engine.Model.UnitSlot(0, "heavy_cavalry", 2000, 6, "A"),
+            new IC2.Engine.Model.UnitSlot(0, "heavy_cavalry", 2000, 6, "B"));
+
+        var rng = new SplitMix64Rng(0x517UL);
+
+        // d = 86, the confirmed dmg-7 figure (game-design.md's own table): well above the 70 threshold.
+        var result = FleetAttritionRule.ApplyStormCasualtiesToCarriedArmy(units, damage: 86, rng, Ruleset);
+
+        Assert.True(result.TroopsLost > 0, "the casualty pass (step 3) must have cost some troops.");
+        Assert.True(result.UnitsLost >= 1, "d = 86 > 70 must remove at least the '+ 1' whole unit (step 4).");
+    }
 }

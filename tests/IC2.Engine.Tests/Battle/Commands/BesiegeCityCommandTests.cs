@@ -249,6 +249,23 @@ public sealed class BesiegeCityCommandTests
     }
 
     /// <summary>
+    /// T63 Decision 2: the original divides by zero at <c>atk = 0</c>. A besieging army with no unit
+    /// slots at all has zero siege strength, and is refused with the typed reason rather than reaching
+    /// <see cref="InstantBattleResolver.ResolveSiege"/>'s own defensive backstop.
+    /// </summary>
+    [Fact]
+    public void ZeroSiegeStrength_IsRefusedWithTheTypedReason()
+    {
+        var state = Fixture();
+        var powerless = state with
+        {
+            Armies = ValueList.From(state.Armies.Select(a => a with { Units = ValueList<UnitSlot>.Empty })),
+        };
+
+        AssertRefused(powerless, Besiege(), BesiegeCityRejections.AttackerHasNoStrength);
+    }
+
+    /// <summary>
     /// The two ids the merged resolvers take as parameters are resolved from the loaded ruleset, and a
     /// ruleset that carries neither is refused rather than throwing out of
     /// <see cref="Strength.SiegeStrength.Attacker"/> — see <see cref="BattleCommandRuleset"/> for why

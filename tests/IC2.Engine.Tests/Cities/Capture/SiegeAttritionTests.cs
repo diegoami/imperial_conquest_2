@@ -70,6 +70,56 @@ public sealed class SiegeAttritionTests
     }
 
     /// <summary>
+    /// T63 DoD 2: bug #290's own four-row table, reproduced directly -- <c>ratio =
+    /// clamp(defenderStrength x 6 / attackerStrength, 1, 15)</c> at each of the four cases the bug report
+    /// gives, against the ORIGINAL's own values (the merged column, 20/39/40/4, was the defect). Each
+    /// row's <c>defenderPower</c> is built from a recruitment-slot addend alone (loyalty, fortification
+    /// and population all zero), so the ratio is exactly <c>addend x 6 / attackerPower</c> with no
+    /// erosion-side rounding to account for.
+    /// </summary>
+    [Theory]
+    [InlineData(100, 50, 3, false)]    // attacker wins, defender = 1/2 attacker -> 3
+    [InlineData(100, 99, 5, false)]    // attacker wins narrowly -> ~5 (99 x 6 / 100 = 5.94 -> 5)
+    [InlineData(100, 100, 6, true)]    // attacker fails, defender = attacker (a tie fails) -> 6
+    [InlineData(10, 100, 15, true)]    // attacker fails, defender = 10x attacker -> clamp(60, 1, 15) = 15
+    public void SiegeRatio_ReproducesBug290sFourRowTable(
+        int attackerPower, int defenderPower, int expectedRatio, bool expectAttackerFails)
+    {
+        var ruleset = CaptureTestbed.Ruleset;
+        var city = CaptureTestbed.City(
+            "c1", "City", 0, 0, "defender", "defender", loyalty: 0, fortificationCode: 0,
+            populationThousands: 0, maxPopulationThousands: 10, tribute: 0);
+        // atk = (troops / 80) x morale -- 80 x attackerPower troops at morale 1 gives EXACTLY attackerPower.
+        var attacker = CaptureTestbed.Army(
+            "army", "attacker", 0, 0, morale: 1, CaptureTestbed.Unit("heavy_cavalry", 80 * attackerPower));
+        // def = 0 (loyalty/fort/pop) + recruitment-slot addend (troops / 2) -- 2 x defenderPower troops
+        // gives EXACTLY defenderPower.
+        var defenderNation = CaptureTestbed.Nation(
+            "defender",
+            recruitmentSlots: ValueList.Of(new RecruitmentSlot("c1", "heavy_cavalry", 2 * defenderPower, StateCode: 4)));
+        var state = CaptureTestbed.StateWith(
+            new[] { CaptureTestbed.Nation("attacker"), defenderNation }, new[] { city }, new[] { attacker });
+
+        // A fixed divisor (105, the span's own floor) rather than a real seed: this test is about the
+        // RATIO, and pinning the divisor too makes the expected loss an exact number instead of a range.
+        var rng = new FixedDivisorRng();
+        var resolution = InstantBattleResolver.ResolveSiege(
+            state, "army", "c1", ruleset, rng, CaptureTestbed.ArcherUnitTypeId, CaptureTestbed.FortifyOrderId, NullEventSink.Instance);
+
+        Assert.Equal(attackerPower, resolution.Result.AttackerPower);
+        Assert.Equal(defenderPower, resolution.Result.DefenderPower);
+        Assert.Equal(expectAttackerFails, resolution.Result.Winner == BattleSide.Defender);
+
+        // 80 x attackerPower troops is comfortably above heavy_cavalry's 250 deletion threshold even at
+        // the ceiling ratio (15), so the deletion pass never interferes with reading the ratio back out
+        // of the exact troop loss: (troops / 105) x expectedRatio.
+        var attackerTroops = 80 * attackerPower;
+        var expectedLoss = (attackerTroops / 105) * expectedRatio;
+        var attackerAfter = resolution.State.ArmyById("army")!;
+        Assert.Equal(attackerTroops - expectedLoss, attackerAfter.TotalTroops);
+    }
+
+    /// <summary>
     /// T63 DoD 5: the five steps, in order, on a SUCCESSFUL attempt -- (1) a pending fortification order
     /// is stripped before anything reads it, (2) def/atk are compared, (3) loyalty, then fortification,
     /// then population erode by the SAME def/atk pair, (4) population is floored, (5) the attacker's own
@@ -274,5 +324,28 @@ public sealed class SiegeAttritionTests
             new[] { city }, new[] { attacker });
 
         return (attacker, defenderNation);
+    }
+
+    /// <summary>
+    /// An <see cref="IRng"/> that always draws 0 -- so <see cref="BattleCasualties.Apply"/>'s divisor,
+    /// <c>NextInt(CasualtyDivisorRandomSpan) + CasualtyDivisorBase</c>, lands exactly on
+    /// <c>CasualtyDivisorBase</c> (105 in the shipped rulesets), making the expected loss an exact number
+    /// rather than a range over the drawn span.
+    /// </summary>
+    private sealed class FixedDivisorRng : IRng
+    {
+        public ulong Seed => 0;
+
+        public ulong State => 0;
+
+        public ulong NextUInt64() => throw new NotSupportedException("Not scripted for this test.");
+
+        public int NextInt(int exclusiveUpperBound) => 0;
+
+        public int NextInt(int inclusiveLowerBound, int exclusiveUpperBound) => inclusiveLowerBound;
+
+        public bool NextChance(int numerator, int denominator) => false;
+
+        public IRng ForStream(string streamName) => this;
     }
 }
