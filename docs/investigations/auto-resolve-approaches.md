@@ -250,7 +250,7 @@ search.
 | K22 | shooting morale hit `m −= min(3, loss × 35 / (troopsAfter + 1))` | 35, 3 | [confirmed] [`rout`][rout] §"Two small corrections" | C2, C5 |
 | K23 | `shots[type]`, `+0x1C`, a per-battle ammunition pool | LI 7 · HI 0 · A 25 · LC 9 · HC 0 | [confirmed] value: [`unit-table`][unit-table]. [derived] per-battle pool: the info panel read `Shots 19` mid-battle for an archer unit ([`rome-gaul`][rome-gaul]) | C2, C3, C4, C5 |
 | K24 | `range[type]`, `+0x1E` | LI 1 · HI 0 · A 2 · LC 1 · HC 0 | [confirmed] [`unit-table`][unit-table]; read by the shooting code for the doubling test | C2, C5 |
-| K25 | `moves[type]`, `+0x18` | LI 4 · HI 2 · A 4 · LC 6 · HC 5 | [confirmed] value: [`unit-table`][unit-table]. **[derived]** as tactical moves per turn: the info panel shows a `Moves` line per unit (`Moves 4` for archers, matching; `Moves 1` for heavy infantry mid-turn) ([`rome-gaul`][rome-gaul]) | C2, C5 |
+| K25 | `moves[type]`, `+0x18` | LI 4 · HI 2 · A 4 · LC 6 · HC 5 | [confirmed] value: [`unit-table`][unit-table]. **[derived]** as tactical moves per turn: the info panel shows a `Moves` line per unit, and two heavy-infantry panels read `2 moves`, matching `+0x18 = 2` ([`battle-observation.md`][observation] 00:22, 08:04). An archer panel reads `Moves 4`, matching `+0x18 = 4` ([`rome-gaul`][rome-gaul]) | C2, C5 |
 | K26 | initial tactical morale `m = Random(q × 4) + M` | 4 | [confirmed] [`morale-array`][morale-array] §"The morale formula" (`FUN_00437de4`); the clamp is **[open]**: see D08 | C2, C5 |
 | K27 | strategic morale `M += 3` for each side on battle entry | 3 | [confirmed] [`supply-driven-morale-and-fleet-attrition.md`][supply-morale] (index of morale writes, lines 38084/38092) | C2, C5 (before K26) |
 | K28 | strategic morale clamp | 51…70 | [confirmed] [`thracia-supply-morale.md`](thracia-supply-morale.md) | §8 inputs |
@@ -410,6 +410,407 @@ trigger in its own section, and the relationships are:
 | C4 | **Something else: an army-level break only**, with no unit-level rule. §6.4 gives the reason. |
 | C5 | **Trigger unchanged, consequence changed.** A broken unit leaves the field and pays a withdrawal cost instead of being zeroed. |
 
+## 6. The candidates
+
+Each candidate section has the same parts: what the candidate is; where it is faithful to the
+original and where it departs; the algorithm; the constants it uses; its unit-level break (Done-when
+3); its army-level exit, if any; its survivors (what `scatter` receives); and its draw count. The
+candidates are listed in Done-when 1's order. What each predicts for the discriminating observation
+is in §7, side by side.
+
+### 6.1 C1: the merged instant resolver (baseline)
+
+**What it is.** `InstantBattleResolver.ResolveField`, wrapped **unchanged** as T59 Done-when 1
+requires. It is the original's own AI-vs-AI path, `FUN_0044AEE4`
+**[confirmed: [`instant`][instant]]**.
+
+**Faithful / departs.** It is faithful to `FUN_0044AEE4` in every term. The merged code departs in
+one way only, and that departure is already recorded: under `improved`, the loser scatters (K06)
+instead of being deleted.
+
+**Algorithm** (see the merged code's own doc comment for the full transcription):
+
+```text
+pA = armyPower(attacker); pD = armyPower(defender)          // K01, K02 (strategic M)
+winner = (pD < pA) ? attacker : defender                     // K05
+R = loserPower × 40 / winnerPower                            // K03, so R ≤ 40
+for each winner unit, in slot order: troops −= troops / (Random(15) + 105) × R        // K04
+loser: destroy; or, under scatter, R' = winnerPower × 40 / loserPower (K06) applied the same way,
+       and the result is relocated by ScatterPlacement
+```
+
+**Constants:** K01–K06.
+
+**Unit-level break:** none, and none is added. No unit is removed for strength or morale, and there
+is no cascade.
+
+**Army-level exit:** none. The winner is decided in one comparison, and `ending = decided`.
+
+**Survivors:** under `scatter`, every loser unit after the mirrored ratio. The survivor *fraction* is
+the same for every type, up to the `[105, 120)` divisor band.
+
+**Draws:** `nW` (one divisor per winner unit), followed, because the resolver is wrapped whole, by
+the post-battle draws in the merged order: one `Random(4)` per surviving winner unit, then one
+`Random(5)`. Under `scatter` there are then `nL` divisor draws plus 1 scatter-distance draw. The
+number is **fixed** for a given pair of armies. T59 reports the battle-phase part (`nW`, plus `nL`
+under scatter) separately from the total.
+
+**Fixed by construction, not measured.** Its winner is a deterministic function of the two armies,
+so its upset rate (§8.3) is exactly 0. On power-matched armies (§8.0), every battle is an exact tie
+that the defender wins, so CS-P (§8.1) is exactly 0.
+
+### 6.2 C2: the original's tactical model, run headless
+
+**What it is.** The original's tactical battle (`TBattleMap`), played to completion with no screen.
+Every exchange uses the decompiled arithmetic (§4.4), and every unit is checked by the decompiled
+rout function (§5) after each exchange it takes part in. The moves are chosen by the designed driver
+D01–D12, because the original's own tactical AI is not decompiled (§2.2).
+
+**Faithful / departs.** Faithful: the melee and shooting exchanges (K15–K22), the tactical morale
+rule (K19), the initial-morale formula (K26, K27), the rout check with its cascade and reward (§5),
+the battle-end rule (K32), the grid size and home rows (K30), alternating turns (K33), the per-battle
+shot pools (K23), and the loser's total loss. Departs, by necessity: placement detail (D01), first
+mover (D02), targeting (D03), movement (D04), action priority (D05), shooting distance (D06), and the
+morale placeholders (D07, D08). Departs, by choice, for termination: a round cap (D09).
+
+**Algorithm.**
+
+```text
+setup:
+  for each side S: M'_S = M_S + 3                                   // K27 (seam-local; not written back)
+  for each unit, attacker's slots then defender's, in slot order:
+      m = min(90, Random(q × 4) + M'_S)                              // K26, D08
+      shotsLeft = shots[type]                                        // K23
+  place both armies                                                  // D01
+loop round r = 1 … 100:                                              // D09
+  for side S in (defender, attacker):                                // D02, K33
+    for each live unit u of S, in slot order:
+      if u has no live target: pick one                              // D03
+      act (D05): queue for melee | shoot once (§4.4 shooting, then §5 on the target) | move (D04)
+      if the battle has ended (K32): stop
+    melee pass: for each queued u, in slot order, whose target is still live and adjacent:
+      §4.4 melee (u attacks its target), then §5 on u, then §5 on the target (D10)
+      if the battle has ended: stop
+  if r = 100 and the battle has not ended: resolve by D09
+```
+
+`focusCount` (D12) is evaluated at the moment of each exchange, from the current target
+assignments.
+
+**Result.** `winner` is the side that still has live units. Every loser unit has been removed, and a
+removed unit's troops are 0 (K32, `FUN_00438f78`). The winner's live units keep their troops. The
+winner's routed units are at 0 and count as lost. `ending` is set from the cause of the loser's
+**last** removal, as defined in §8.7.
+
+**Constants:** K05 (the cap tie only), K07–K27, K30–K33, D01–D13, D34.
+
+**Unit-level break:** `FUN_00438fb0` **unchanged**, including its consequence (`troops = 0`).
+
+**Army-level exit:** none. The original never withdraws. It fights until one side has no live units
+(K32). The cap (D09) exists only so that a run terminates, and §8.7 fails the candidate if the cap
+decides more than 5% of battles.
+
+**Survivors:** **none, by construction.** A removed unit has 0 troops, so under `scatter` the loser
+has nothing to scatter, and the shared post-battle phase deletes it exactly as `destroy` would. This
+is the original's behaviour, and it is the behaviour the user objected to (*"I do not like that an
+army is completely destroyed"*). §8.8's survivor metric therefore fails C2 by construction. That is
+recorded, not hidden: C5 (§6.5) is the variant of C2 that changes exactly this.
+
+**Draws:** variable. One per unit at setup (`Random(q × 4)`), 2 per shot, 4 per melee exchange, and
+2 per rout check that reaches the band (`20 ≤ m ≤ 39` and above the strength floor). T59 logs each
+event, and §8.5 checks that the count of draws equals the count the event log implies.
+
+**Cost note.** A 20-against-20 battle can run for many rounds of 40 unit actions each. This is the
+candidate T59's hazard names as the one to budget for first.
+
+### 6.3 C3: type-weighted instant resolver (the matrix without rounds)
+
+**What it is.** C1's one-shot shape, with `armyPower` replaced by an **effective power** that reads
+the matrix against the enemy's actual mix, and with the winner's casualties distributed by each
+type's exposure to that mix. There are no rounds, no positions, and no tactical morale.
+
+**Faithful / departs.** Faithful: the one-shot structure, the tie rule (K05), the ratio numerator
+(K03), the per-unit loss expression and its divisor draw (K04), and the matrix, vulnerability and
+shooting-base constants (K15, K18, K20, K21, K23). Departs: `armyPower`'s flat `+0x26` weights are
+replaced by D22. Casualties are no longer flat, because of D20 and D21. A strength floor (K08) is
+added.
+
+**Algorithm.** For side `S` against enemy `O`, with shares over `O`'s units:
+
+```text
+share1000_O(t)  = 1000 × troops_O(t) / troops_O
+mbar1000_i      = Σ_t share1000_O(t) × matrix[type_i][t]                         // K15
+vbar1000_O      = Σ_t share1000_O(t) × vuln[t]                                   // K20
+Mel_i           = mbar1000_i × troops_i × (q_i × 10 + M_S) / 2,000,000 + 12      // K16's atkPow shape, K18 with M
+Fire_i          = shots[type_i] × (troops_i × q_i × M_S × vbar1000_O / 1000) / (troops_i × 5 + 150000)
+                                                                                  // K21's base, un-doubled, × K23
+E_S             = Σ_i (Mel_i + Fire_i)                                           // D22, λ = 1
+winner          = (E_D < E_A) ? attacker : defender                              // K05
+R               = E_loser × 40 / E_winner                                        // K03, so R ≤ 40
+W_i             = Xm_loser(type_i) + Xf_loser(type_i)                            // D20, D21, ×1000
+Wbar            = Σ_i troops_i × W_i / Σ_i troops_i                              // winner's units
+for each winner unit i, in slot order:
+    loss_i  = min(troops_i, (troops_i / (Random(15) + 105)) × R × W_i / Wbar)    // K04 order: divide first
+    troops_i −= loss_i
+    if troops_i < standardBattalionSize[type_i] / 25: troops_i = 0               // K08
+loser: destroy; or, under scatter, R' = E_winner × 40 / E_loser, with each loser unit's W against the
+       winner, and the same per-unit expression and K08 floor. Units with troops > 0 are the survivors.
+```
+
+**Constants:** K03–K05, K07, K08, K15, K16 (shape only), K18, K20, K21, K23, D20–D22.
+
+**Unit-level break:** **a variant of the confirmed trigger: the strength floor only** (K08, the same
+`standardBattalionSize / 25`). The morale floor, band, cascade and reward are omitted because C3 has
+no per-unit tactical morale for them to read, and inventing a stand-in would add a second designed
+mechanism to a candidate whose purpose is to test the matrix alone.
+
+**Army-level exit:** none. The winner is decided in one comparison, and `ending = decided`.
+
+**Survivors:** under `scatter`, the loser's units after `R'` and the floor. The survivor mix differs
+by type, because `W` differs by type.
+
+**Draws:** `nW` (plus `nL` under scatter). The count is fixed, and it is the same as C1's battle
+phase.
+
+**Fixed by construction, not measured.** C3's winner, like C1's, is a deterministic function of the
+two armies, so its upset rate is exactly 0. It has no morale-driven ending, so §8.7 does not apply
+to it. (Its floor removes units, but it cannot end a battle.) Unlike C1, it is **not** tied on
+power-matched armies, because `E` depends on the opponent's mix.
+
+### 6.4 C4: round-based, EU4/CK lineage
+
+**What it is.** The *Europa Universalis IV* / *Crusader Kings* shape. Two armies exchange damage in
+rounds, first fire and then shock. Each side's damage depends on its composition against the
+enemy's, through the matrix and the vulnerability weights. Each side has one **army morale pool**,
+which casualties drain. The battle ends when a pool breaks, and the winner then gets one pursuit
+round. There are no positions and no per-unit morale.
+
+**Faithful / departs.** Faithful: the matrix (K15), the quality term's shape (K18), the shooting base
+and vulnerability (K20, K21), the shot pools (K23), the tie rule (K05), and the strategic morale `M`
+as the pool's starting value. Departs: everything structural (D20, D30–D33). The original has no
+rounds, no army-level morale pool and no army-level break.
+
+**Algorithm.**
+
+```text
+P_S = M_S for each side; T0_S = starting troops of S; shotsLeft as K23
+for round r = 1 … 30:                                                   // D33
+  // both sides' damage is computed from the state at the start of the round, then applied together
+  if r ≤ 3:                                                            // D30 fire round
+    for S in (attacker, defender), for each unit i of S with shotsLeft > 0, in slot order:
+      base_i = troops_i × q_i × max(P_S, 0) × vbar1000_O / 1000 / (troops_i × 5 + 150000)   // K21, P in place of m
+      dmg_i  = min(troops_i / 3, Random(base_i + 1) + Random(base_i + 1));  shotsLeft_i −= 1
+    F_S = Σ dmg_i;  each unit j of O loses F_S × troops_j × vuln[type_j] / Σ_k troops_k × vuln[type_k]
+  else:                                                                // shock round
+    d_S = Random(10), attacker's die first                             // D31
+    a_i = mbar1000_i × troops_i × (q_i × 10 + max(P_S, 0)) / 2,000,000 + 12   // as C3's Mel_i, with P
+    H_S = Σ_i a_i × (5 + d_S) / 60                                     // D31
+    each unit j of O loses H_S × troops_j × Xm_S(type_j) / Σ_k troops_k × Xm_S(type_k)     // D20
+  apply both sides' losses (each clamped to the unit's troops); remove units at 0
+  P_S −= 200 × lossesThisRound_S / T0_S                                // D32
+  if a side has 0 troops: it loses (both at 0: defender wins, K05); ending = annihilation; stop
+  if P_A ≤ 0 or P_D ≤ 0: the side with the lower P loses (tie: attacker loses, K05); ending = collapse
+     pursuit (D33): H = Σ_{winner's cavalry i} a_i × (5 + Random(10)) / 60 × 2, distributed onto the
+     loser as a shock round, with no return damage; stop
+after round 30: the side with the lower P loses (tie: attacker loses); ending = cap; no pursuit
+```
+
+Shares (`share1000`, `mbar1000`, `vbar1000`) are recomputed over live units at the start of every
+round. "Cavalry" means `light_cavalry` and `heavy_cavalry`.
+
+**Constants:** K05, K15, K18, K20, K21, K23, D20, D30–D33.
+
+**Unit-level break:** **something else: none at the unit level, and an army-level break instead.**
+This is a deliberate departure from the confirmed trigger. The EU4/CK lineage resolves cohesion at
+army level. Grafting `FUN_00438fb0` onto it would need a per-unit tactical morale that this model
+does not have, and it would make C4 a coarser copy of C2 or C5 rather than a distinct candidate. In
+C4, units reach 0 only by attrition. That is possible here because C4 has no 40% per-exchange cap.
+
+**Army-level exit, with the four answers Done-when 3 asks of any army-level rule:**
+- **What** is evaluated: the army morale pool `P`, drained by casualties (D32).
+- **How often**: every round, from round 1. Fire rounds drain it too.
+- **Who** evaluates it: both sides, by the same rule.
+- **What it costs**: one pursuit round, dealt by the winner's cavalry only, at double shock damage
+  (D33). A winner with no cavalry inflicts no pursuit losses.
+
+**Survivors:** under `scatter`, the loser's units after pursuit.
+
+**Draws:** 2 per shooting unit per fire round (at most 3 rounds), 2 per shock round (one die per
+side), and 1 for pursuit. This is variable, and is logged per round.
+
+### 6.5 C5: morale and retreat (the *Total War* shape)
+
+**What it is.** The user's steer of 2026-09-20, specified in full as Done-when 2 requires. **C5 is
+C2 with three changes:**
+1. A unit that breaks **leaves the field and pays for leaving**, instead of being zeroed.
+2. What leaving costs depends on **who is chasing**: enemy cavalry pursues and enemy shooters fire at
+   it, and an unpursued unit pays only a small disorder cost.
+3. A side can make an **ordered army-level withdrawal**.
+
+Building C5 on C2 rather than on a fresh engine is deliberate. The pair differs **only** in what
+happens after a break, so T59's scorecard can attribute any difference between them to the retreat
+rules and not to a different driver.
+
+The user proposed this model. Per T58's hazard, that is a specification input, not a verdict. It is
+specified here as carefully as the others, and §8 measures it as sceptically. The entry names
+non-transitivity (§8.2) as its likeliest weakness, so T59 should look at that metric first.
+
+**Faithful / departs.** Faithful: everything C2 keeps, and in particular **the unit-level trigger is
+`FUN_00438fb0` unchanged**, with all three break conditions, the −6 cascade, the <30 re-rout and the
++5 reward. Departs: the consequence of a break (flight, D40–D42, instead of `troops = 0`), the
+ordered withdrawal (D42–D44), and fled winners rejoining (D45).
+
+#### 6.5.1 Unit level: the trigger is confirmed and reused; only the consequence changes
+
+Wherever §5 says *"the unit routs"*, C5 calls `Flee(X, ordered = false)` (§6.5.2) at the point where
+`FUN_00438fb0` would call `FUN_00438f78`. Everything else in the routine stays as §5 gives it:
+the −6 to each surviving friend, re-routing below 30 (each re-routed friend also calls `Flee`), the
++5 and target-clear on the other side, and the battle-end test. A fled unit is **not live**. It no
+longer occupies a square, cannot be targeted, and does not count toward K32 or toward `focusCount`.
+
+This is the departure the entry allows (*"a candidate is welcome to depart from it, but must say
+that it is departing and why"*). C5 departs because in the original a broken unit's troops are lost
+outright, which is exactly the annihilation the user objects to. The *trigger* is not redesigned. It
+is the confirmed one, used as it stands.
+
+#### 6.5.2 The cost of leaving: who is chasing
+
+`Flee(X, ordered)` runs at the moment X leaves. It uses one counter per enemy unit per round,
+`pursuedThisRound` and `firedPursuitThisRound`, both reset at the start of each round.
+
+```text
+1. clear X's square; X is no longer live
+2. T = X.troops;  T −= T × 5 / 100                                     // D40 disorder, always paid
+3. cavalry pursuit: the first up-to-2 live enemy units of type light_cavalry or heavy_cavalry with
+   pursuedThisRound = false, in slot order                             // D41
+   for the k-th pursuer j (k = 1, 2):
+      K16's defender-side loss with j as attacker and X as defender, and dF = k:
+        atkPow = matrix[type_j][type_X] × t_j × (q_j×10 + m_j) / 2000 + 12
+        defPow = matrix[type_X][type_j] × T   × (q_X×10 + m_X) / 2000 + 12
+        exD    = (T × atkPow / defPow) / 10 + 1
+        loss   = min(min(30000, (Random(exD) + Random(exD)) × (2k + 5) / 5), T × 4 / 10) + 1
+      if ordered: loss = loss / 2                                      // D42
+      T −= min(T, loss); j.pursuedThisRound = true; j skips its next D05 action
+      (no loss to j, no morale change, no rout check: X has already broken)
+4. pursuing fire: the first up-to-2 live enemy units with shotsLeft > 0 and range > 0 and
+   firedPursuitThisRound = false, in slot order                        // D41
+   each fires one K21 shot at X, un-doubled (X has left the grid, so it has no distance), with
+   T as the target's troops; shotsLeft −= 1
+      if ordered: loss = loss / 2                                      // D42
+      T −= min(T, loss); firedPursuitThisRound = true
+      (no K22 morale hit, no rout check)
+5. X.fledTroops = T   (T = 0 means the unit was destroyed in flight)
+```
+
+What this produces, in the steer's own terms:
+- **Pursuing cavalry makes leaving expensive.** Each cavalry pursuer lands a full K16 defender hit of
+  up to 40% of what is left, and a second pursuer's hit is multiplied by 9/5 through the focus
+  factor, exactly as focus fire works in melee.
+- **Shooting archers make it expensive.** Each shooter lands one K21 shot, and the target's `vuln`
+  applies. Fleeing archers and light infantry (vuln 18) suffer more than fleeing heavy infantry
+  (vuln 2).
+- **An unpursued withdrawal is cheap.** With no enemy cavalry or shooters free, a unit pays only the
+  5% disorder cost (D40).
+- **Pursuit capacity is finite.** Each enemy unit pursues or fires at most once per round. One unit
+  breaking alone is chased hard. In a mass cascade, the first units to break absorb the pursuers and
+  the rest escape at 5%.
+
+#### 6.5.3 Army level: the ordered withdrawal, with the four answers
+
+**This part has no original analogue.** The original fights until one side has no live units
+(K32). Every constant below is `[designed]`. The search was for any withdrawal, retreat, surrender
+trigger or partial-defeat outcome, and it found none (§11).
+
+- **What is evaluated: relative live strength.** At the evaluation point, side S withdraws if
+  `liveP_S × 100 < 60 × liveP_O` (D34, D43). `liveP` is the confirmed `+0x26`-weighted troop sum
+  (K01) over **live** units, so fled units, including those a cascade has just removed, no longer
+  count. The alternatives Done-when 3 lists were considered, and each was set aside for a stated
+  reason:
+  - *casualties taken so far* ignores the enemy's condition, so a side that has lost 40% against an
+    enemy that has lost 70% would still withdraw;
+  - *aggregate morale* would evaluate the `m` array that the unit-level trigger already acts on, which
+    double-counts the same signal;
+  - *the cascade having started* is not a separate test here, because a cascade's effect on `liveP` is
+    exactly how it reaches the army level (§6.5.4).
+- **How often: at the end of every round, from the end of round 3 onward** (D44). A side therefore
+  cannot decline a battle on contact. Before that point, only the unit level operates.
+- **Who evaluates it: both seats, by the same policy.** The attacker is tested first, then the
+  defender. Because 60 < 100, at most one side can satisfy the condition at once. A human-offered
+  variant is out of scope (§1).
+- **What it costs:** every live unit of S calls `Flee(X, ordered = true)`, in slot order. Before the
+  withdrawal starts, each enemy unit's `pursuedThisRound` and `firedPursuitThisRound` are reset, so
+  **each enemy cavalry unit pursues at most one withdrawing unit, and each enemy shooter fires at most
+  one shot, across the whole withdrawal**. Every pursuit and shot loss is halved (D42). The 5% disorder
+  cost is paid in full (D40). An ordered withdrawal triggers **no** −6 cascade and **no** +5 reward:
+  the units leave together, and nobody breaks. `ending = withdrawal`.
+
+Leaving is therefore **cheaper than staying, but not free**. Staying risks the cascade, whose broken
+units pay pursuit in full and hand the enemy +5 morale each. Leaving in order pays half-rate pursuit
+once per enemy unit, plus 5%.
+
+#### 6.5.4 How the two levels interact
+
+Done-when 3 calls this interaction *"the design, not a detail"*, so it is specified exactly:
+
+1. **Order of evaluation.** Unit-level breaks happen inside a side-turn, the moment an exchange
+   triggers them (§5). The army-level test runs only at the **end of a round**. So **a cascade that
+   has started always runs to completion** before any army decision. The army rule can never
+   interrupt a cascade that is under way. It can only prevent the next one.
+2. **A cascade is the usual way the army rule fires.** Every unit a cascade removes lowers `liveP_S`,
+   and every break adds +5 morale to the enemy, which makes the enemy's own units less likely to
+   break. A cascade that removes enough strength during round `r` makes the round-end test true, and
+   the survivors then leave in order instead of continuing to cascade in round `r + 1`. That is the
+   intended coupling: **the cascade is what triggers the withdrawal, and the withdrawal is what stops
+   the cascade from finishing the army.**
+3. **A cascade can also pre-empt the army rule entirely.** A cascade that removes a side's last live
+   unit ends the battle by K32 before any round-end test, so `ending = collapse` and every unit has
+   fled at the unordered rate. Before round 3, this is the only way a battle can end early.
+4. **Too early and too late are both measurable failures.** If D43's threshold is set too high,
+   withdrawals fire before cascades ever get a chance, and §8.7 measures that as a cascade rate
+   below 10%. If it is too low, cascades end almost every battle, and the collapse share goes above
+   90%. The 60% threshold is a placeholder between the two. It is not tuned (§1), and §8.7 is where
+   T59 reports which side of the band it lands on.
+5. **Whether a mass cascade is cheaper than an ordered withdrawal** depends on how much pursuit
+   capacity the enemy has already spent that round. That is a genuine ambiguity in the design. It is
+   not resolved here. §8.8 breaks survivors down by `ending` so the scorecard shows it.
+
+#### 6.5.5 End of battle, winner, and what `scatter` receives
+
+- The battle ends when a side has no live units (K32; all its units have fled or been destroyed), or
+  when a side withdraws, or at the D09 cap. At the cap, the side with the lower `liveP` withdraws in
+  order (ties: the attacker withdraws), and `ending = cap`.
+- The **winner** is the side that did not run out of live units and did not withdraw. If both sides
+  reach zero live units in the same step, the defender wins (K05).
+- **Winner:** its live units keep their troops. Its fled units **rejoin with `fledTroops`** (D45),
+  because in the steer's model a broken unit that gets away is not destroyed. A fled winner unit at
+  0 is lost.
+- **Loser:** under `destroy`, discarded, as now. Under `scatter`, **the loser's fled units with
+  `fledTroops > 0` are the scattered army**. They are handed, unit by unit and with their types, to
+  the shared post-battle phase's `ScatterPlacement` call.
+
+This is what makes the merged scatter mechanism *mean* something (Done-when 2). Under C1, the
+scattered army is the loser's starting army times one flat fraction. Under C5, it is **whoever got
+away**. How many troops that is, and of which types, is an outcome of the battle, and it depends on
+three things: when the side broke or withdrew, how much enemy cavalry and archery was free to chase
+it, and which of its own types are hard to shoot (`vuln`) or hard to catch (the matrix column
+against the pursuer). §8.8 measures exactly that dependence.
+
+**Design leverage (the reason this candidate is here, not an assessment of it).** Under annihilation
+or a flat casualty ratio, a losing player has nothing to decide. Under C5, withdrawing early costs
+the field but keeps a force in being. With the symmetric AI policy, that choice is fixed at D43. For
+a human, it would be the offered choice deferred in §1.
+
+**Constants:** everything C2 uses, plus K01 (through D34) and D40–D45.
+
+**Unit-level break:** `FUN_00438fb0`'s trigger **unchanged**. Its consequence is changed to
+`Flee`, for the reason given in §6.5.1.
+
+**Army-level exit:** the ordered withdrawal (§6.5.3).
+
+**Survivors:** the loser's fled units (§6.5.5).
+
+**Draws:** C2's count, plus 2 per cavalry pursuit hit and 2 per pursuing shot, all logged per event.
+
 <!-- sources: research-repository reports, cited by GitHub URL like the rest of this directory -->
 
 [instant-cannot]: https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/instant-resolver-cannot-reproduce-a-tactical-battle.md
@@ -424,3 +825,4 @@ trigger in its own section, and the relationships are:
 [supply-morale]: https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/supply-driven-morale-and-fleet-attrition.md
 [entry-points]: https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/battle-code-entry-points.md
 [siege-attrition]: https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-defection-and-siege-attrition.md
+[observation]: https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/battle-observation.md
