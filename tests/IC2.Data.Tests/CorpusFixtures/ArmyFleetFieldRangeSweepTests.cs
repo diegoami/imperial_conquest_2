@@ -70,6 +70,15 @@ namespace IC2.Data.Tests.CorpusFixtures;
 /// task's own investigation did. This test asserts the same bounds as a durable regression: if the
 /// corpus grows and a future file falls outside one of them, that is new information worth surfacing
 /// (T30's precedent for the tombstone), not drift to silently accept.
+///
+/// <para><b>T21 (folded follow-up <see href="https://github.com/diegoami/imperial_conquest_2/issues/136">#136</see>).</b>
+/// Four assertions here were dead weight: <c>a.X</c>/<c>a.Y</c> and <c>u.TypeCode</c>/<c>u.QualityCode</c>
+/// merely restated guards <see cref="SaveArmyTable.Parse"/> itself already enforces (a record that
+/// violates any of them never reaches this loop body at all), so they could never fail and are removed.
+/// On the fleet side, <see cref="SaveFleetTable.Parse"/> has no such structural guard on X/Y/ShipCount/
+/// ConditionPercent, so those four were genuinely loose (0..333 on a 320×140 map, 0..2000 ships against
+/// an observed 10..100, and 0..1000 for a 0-100% field) — tightened to the real map constants and
+/// observed/documented ranges below, since T21 imports exactly these records.</para>
 /// </summary>
 public class ArmyFleetFieldRangeSweepTests
 {
@@ -127,13 +136,15 @@ public class ArmyFleetFieldRangeSweepTests
                 // narrower-than-ushort bound: 0..short.MaxValue, not the full 0..65535 storage width.
                 Assert.InRange(a.Money, (ushort)0, (ushort)short.MaxValue);
 
-                Assert.InRange(a.X, (ushort)0, (ushort)333);
-                Assert.InRange(a.Y, (ushort)0, (ushort)333);
-
+                // T21 (folded follow-up #136, Done-when 7): a.X/a.Y here, and u.TypeCode/u.QualityCode
+                // below, were dead assertions -- SaveArmyTable.Parse itself already throws on
+                // x >= WorldPrefix.MapWidth, y >= WorldPrefix.MapHeight, type > 4 and quality outside
+                // 5..9, so no record that reaches this loop body could ever fail any of the four. A
+                // sweep that cannot fail is a sweep that will not warn, so they are removed rather than
+                // kept as always-true weight; the fleet side below has no such parser-level guard, which
+                // is exactly why its own X/Y/ShipCount/ConditionPercent bounds are tightened instead.
                 foreach (var u in a.Units)
                 {
-                    Assert.InRange(u.TypeCode, (ushort)0, (ushort)4);
-                    Assert.InRange(u.QualityCode, (ushort)5, (ushort)9);
                     // The 100,000-troop army cap is confirmed (docs/design-audit.md §2.13); no single
                     // unit slot has ever been observed anywhere close to it.
                     Assert.InRange(u.Troops, (ushort)1, (ushort)40000);
@@ -145,8 +156,13 @@ public class ArmyFleetFieldRangeSweepTests
             {
                 fleetRecordsSeen++;
 
-                Assert.InRange(f.X, (ushort)0, (ushort)333);
-                Assert.InRange(f.Y, (ushort)0, (ushort)333);
+                // T21 (folded follow-up #136, Done-when 7): the fleet table has no parser-level guard
+                // matching SaveArmyTable.Parse's own X/Y checks (SaveFleetTable.Parse validates only the
+                // tombstone owner sentinel), so 0..333 let a fleet at, say, Y=200 -- off the 320x140 map
+                // -- pass silently. Tightened to the real map constants: this task's own import maps
+                // exactly these records, so a bound that cannot fire is a bound that will not warn it.
+                Assert.InRange(f.X, (ushort)0, (ushort)(WorldPrefix.MapWidth - 1));
+                Assert.InRange(f.Y, (ushort)0, (ushort)(WorldPrefix.MapHeight - 1));
                 // T64 (#301, bug #276): a fleet-owner tombstone (0xFFFF, the same bit pattern as the
                 // army-table tombstone) DOES appear in this corpus (IP012B.sav, fleet slot 4) — but
                 // SaveFleetTable.Parse now skips and reports it in SkippedRecords, the same way
@@ -161,11 +177,18 @@ public class ArmyFleetFieldRangeSweepTests
                 Assert.InRange(f.Moves, (ushort)0, (ushort)200);
                 Assert.InRange(f.Supplies, (ushort)0, (ushort)2000);
                 Assert.InRange(f.Money, (ushort)0, (ushort)1000);
-                Assert.InRange(f.ShipCount, (ushort)0, (ushort)2000);
+                // T21 (folded follow-up #136, Done-when 7): 0..2000 against an actually-observed 5..100
+                // (re-measured against the current, larger corpus with a throwaway scan -- the task
+                // entry's own paraphrase said "10..100"; the real data goes down to 5) -- tightened to
+                // that observed range, the same reasoning as X/Y above.
+                Assert.InRange(f.ShipCount, (ushort)5, (ushort)100);
                 if (f.BuildCityIndex is { } buildCity)
                     Assert.InRange(buildCity, (ushort)0, (ushort)333);
+                // T21 (folded follow-up #136, Done-when 7): ConditionPercent is a 0-100% multiplier
+                // (FleetRecord.ConditionPercent's own doc comment); 0..1000 let a value ten times over
+                // 100% pass. Tightened to the real percentage range.
                 if (f.ConditionPercent is { } condition)
-                    Assert.InRange(condition, (ushort)0, (ushort)1000);
+                    Assert.InRange(condition, (ushort)0, (ushort)100);
                 if (f.CarriedArmyIndex is { } carried)
                     Assert.InRange(carried, (ushort)0, (ushort)700);
             }
