@@ -115,8 +115,9 @@ pairing does not translate to an instant model, and the design audit (Q1) instea
 original's own instant resolver as C1. That the draft needed an invented pairing rule is the same gap
 described here.
 
-C2 is specified below with each of these as an explicit `[designed]` placeholder (D01–D14), and each
-names what was searched. So C2 is **the original's arithmetic driven by a designed driver**, and T59
+C2 is specified below with each of these gaps as an explicit placeholder. The driver and its termination are D01–D06
+and D09–D11, all `[designed]`. The morale rule's gaps are D07 (`[designed]`) and the clamp D08 (`[open]`).
+Each names what was searched. So C2 is **the original's arithmetic driven by a designed driver**, and T59
 should read its measurements that way. §10 lists the RE passes that would replace the placeholders.
 
 ### 2.3 There are four observed tactical outcomes, and they do not share a per-type ordering
@@ -204,7 +205,11 @@ stale but the values are right.
 The ruleset does **not** carry:
 - the shooting vulnerability K20 (`+0x20`), which is in no `unitTypes[]` entry;
 - the rest of K16, K17 and K21;
-- the rout constants K08–K14, K19, K22 and K26.
+- the quality term K18;
+- the rout constants K08–K14, K19, K22 and K26;
+- the grid and turn constants K30, K32 and K33.
+
+K31, the 20-unit cap, is carried, as `armyManagement.maxUnitsPerArmy`.
 
 T59 may not add ruleset fields ([T59](../tasks/T59.md) Hazards), so these are **candidate-local
 constants**. They are cited to their reports in §4.1 and belong in T59's candidate code, not in a
@@ -319,7 +324,7 @@ none" means the search found nothing in any of them.
 | ID | Placeholder | Value | Tag, and what the search found | Used by |
 | --- | --- | --- | --- | --- |
 | D01 | Placement | Units fill the side's home row (K30: row 2 for the attacker, row 9 for the defender) in slot order, starting at column 0 and running to column 13. Units 15–20 go in the next row inward (row 3 or row 8), again from column 0. | **[designed]** `FUN_004381a4` is described as *"column position cycling through a 3-wide block … unit-type ordering read from a lookup table"* ([`formula`][formula]). The block's column origin and the lookup table are in no report, and a literal 3-wide block of 20 units would put the two sides' 7-row-deep blocks into overlapping rows (2…8 and 9…3), so it cannot be what the text describes. | C2, C5 |
-| D02 | First mover | The **attacker** moves first. After that, sides alternate (K33). | **[designed]** Searched for a turn-order rule: none decompiled. [`rome-gaul`][rome-gaul] says only that the header *"cycles between"* *"Rome to place units"*, *"Gaul to move units"* and *"Rome to move units"*, and gives no order. The one ordered pair in the corpus is [`observation`][observation]'s `7.6.png` *"Rome to place units"* followed by `7.8.png` *"Rome to move units"*, with no Gaul move shown between them. That weakly suggests the side that placed moved first, but it does not say which side attacked. The attacker is the placeholder because that side, Rome, both placed and attacked in the only battle whose attacker is known (§9.2). An earlier revision tagged a defender-first rule `[derived]` from a sequence the source does not contain, and that tag was wrong. | C2, C5 |
+| D02 | First mover | The **attacker** moves first. After that, sides alternate (K33). | **[designed]** Searched for a turn-order rule: none decompiled. [`rome-gaul`][rome-gaul] says only that the header *"cycles between"* *"Rome to place units"*, *"Gaul to move units"* and *"Rome to move units"*, and gives no order. The one ordered pair in the corpus is [`observation`][observation]'s `7.6.png` *"Rome to place units"* followed by `7.8.png` *"Rome to move units"*, with no Gaul move shown between them. That weakly suggests the side that placed moved first, but it does not say which side attacked. The attacker is the placeholder because that side, Rome, both placed and attacked in the only battle whose attacker is known (§9.2). Rome was also the **human** side in both Rome–Gaul battles, so the same evidence fits "the human side moves first" equally well. A headless run has no human side, so that reading cannot be used, and attacker-first stays a placeholder. An earlier revision tagged a defender-first rule `[derived]` from a sequence the source does not contain, and that tag was wrong. | C2, C5 |
 | D03 | Target selection | Each unit targets the nearest live enemy by Chebyshev distance. Ties go to the lowest enemy slot index. The target is re-chosen whenever it is cleared (K14) or the target is no longer live. | **[designed]** Searched for target selection: none. `FUN_0043a31c`, the untraced branch of the AI dispatch, may or may not be the AI's move mode ([`formula`][formula] Next checks 3). The info panel's *"Unit set to attack"* ([`rome-gaul`][rome-gaul]) confirms that a target *field* exists (`DAT_004a0356`, [`morale-array`][morale-array]), not the choice rule. | C2, C5 |
 | D04 | Movement | A unit moves up to `moves[type]` (K25) steps. Each step goes to the 8-neighbour square that is in bounds, empty, and minimises Chebyshev distance to the target. Ties are broken in the fixed order N, NE, E, SE, S, SW, W, NW, with "N" meaning toward the enemy home row. Movement stops once the unit is adjacent to its target (distance 1) or no step reduces the distance. One unit per square. | **[designed]** Searched for grid movement or pathing rules: none (the entry-points report lists *"movement ranges"* as still to recover). | C2, C5 |
 | D05 | One action per unit per side-turn | In slot order, each live unit does exactly one of the following, in this priority order. **(a)** If it is adjacent to its target, it is queued for this side-turn's melee pass. **(b)** Otherwise, if `shots > 0` (K23), `range > 0` (K24) and distance ≤ `range + 1`, it shoots its target once (D11). **(c)** Otherwise, it moves (D04), and if it ends adjacent to its target it is queued for melee. After all units have acted, the melee pass runs `FUN_004393ec` once over the queued attackers in slot order. | **[designed]** except the batched melee pass, which is **[confirmed]**: `FUN_004393ec` *"iterates the same up-to-20 unit slots; for each attacker with a live assigned target"* ([`formula`][formula]). Searched for the move/shoot/attack priority: none. | C2, C5 |
@@ -515,7 +520,7 @@ that the defender wins, so CS-P (§8.1) is exactly 0.
 **What it is.** The original's tactical battle (`TBattleMap`), played to completion with no screen.
 Every exchange uses the decompiled arithmetic (§4.4), and every unit is checked by the decompiled
 rout function (§5) after each exchange it takes part in. The moves are chosen by the designed driver
-D01–D12, because the original's own tactical AI is not decompiled (§2.2).
+(D01–D06, D09–D11), because the original's own tactical AI is not decompiled (§2.2).
 
 **Faithful / departs.** Faithful: the melee and shooting exchanges (K15–K22), the tactical morale
 rule (K19), the initial-morale formula (K26), the rout check with its cascade and reward (§5),
@@ -667,6 +672,9 @@ for round r = 1 … 30:                                                   // D33
      pursuit (D33), only if the winner has at least one live cavalry unit (otherwise no draw, no loss):
        H = (Σ_{winner's cavalry i} a_i) × (5 + Random(10)) × 2 / 60, distributed onto the
        loser as a shock round, with no return damage; stop
+       (multiply by 2 before dividing by 60, deliberately: one truncation, the same order as H_S
+        and as K03's ratio, so pursuit damage is exactly twice the untruncated shock damage, rounded
+        down once. The other order, / 60 × 2, can differ by 1.)
 after round 30: the side with the lower P loses (tie: attacker loses); ending = cap; no pursuit
 ```
 
@@ -882,15 +890,17 @@ however carefully it models casualties.
 breakdown, **two** show the victor losing one whole arm, and **one** does not:
 - In Rome–Gaul `1_rome_270_winter_7` (first fight), the winner's **heavy cavalry** went
   `3,187 → 0`, with both units (755 and 2,432 troops) removed by the rout check, while every other
-  Roman type kept 58–74% ([`rome-gaul`][rome-gaul] and its correction note; [`rout`][rout]).
+  Roman type kept 57–74% ([`rome-gaul`][rome-gaul] and its correction note; [`rout`][rout]).
 - In Rome–Gaul `7.sav → 8.sav`, the winner lost 6.7–61.9% per type and **no** arm entirely
   ([`observation`][observation]).
 
 So the observation to explain is not "the victor always loses an arm". It is that **losses are
-lumpy**. Sometimes a whole arm goes and sometimes none does, and which arm goes varies. A candidate
-that breaks units can produce all three shapes. A candidate that shapes losses only through fixed
-per-type weights produces the same ordering against the same enemy every time, and never produces a
-whole arm lost alongside a 4% loss.
+lumpy**. Sometimes a whole arm goes and sometimes none does, and which arm goes varies. C2, which
+breaks units and zeroes them, can produce all three shapes. C5 breaks units too, but a broken unit
+reaches zero only if pursuit catches it (§6.5). A candidate that shapes losses only through fixed
+per-type weights produces the same ordering against the same enemy every time. It can lose a whole
+arm only as the table below says: C3 only as a limiting case, and C4 only by attrition in a long
+battle.
 
 For each candidate, the entry asks three questions: can it produce **a victorious army losing one
 whole arm**; does it get there by **attrition** or by **breaking units**; and what does it predict
@@ -1380,13 +1390,18 @@ This is a different battle from §9.2 (different totals, and a recording from 20
 only fully tabulated outcome in which the victor lost no whole arm, so it is the natural foil to
 §9.1 and §9.2.
 
-**Inputs for the smoke run.** `7.sav` is in the local asset corpus, but no report has identified
+**Inputs for the smoke run.** `7.sav` and `8.sav` are both in the committed corpus table
+(`tests/IC2.Data.Tests/CorpusFixtures/expected-corpus-outcomes.json`), but no report has identified
 which army records fought ([`observation`][observation] Next checks 1). T59 therefore runs one
 exact lookup:
 - **If exactly one army per nation** in `7.sav` has per-type totals equal to the start columns
   above, T59 takes those two armies' rosters, qualities and `+14` morale. **[confirmed by exact
   match]** 
 - **Otherwise**, it falls back to the §8.0 split, quality 6 and `M = 59`, all **[designed]**.
+  [`observation`][observation] does give three Roman units' qualities: 1st Lancers, average (`7.7.png`);
+  2nd Guards, good (00:22); 3rd Guards, good (08:04). The fallback cannot use them, because the
+  §8.0 split builds units that do not correspond to named units, and it applies quality 6
+  throughout.
 
 T59 reports which path it took. Rome attacks, **[designed]**: the report does not say which side
 attacked.
