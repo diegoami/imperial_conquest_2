@@ -65,6 +65,7 @@ public sealed class FleetTickSystem : IGameSystem
 
         var updatedFleets = new List<FleetState>(state.Fleets.Count);
         var destroyedArmyIds = new HashSet<string>(StringComparer.Ordinal);
+        var updatedArmies = new Dictionary<string, ArmyState>(StringComparer.Ordinal);
 
         foreach (var fleet in state.Fleets)
         {
@@ -145,18 +146,38 @@ public sealed class FleetTickSystem : IGameSystem
                 context.Events.Publish(new FleetDamagedInStorm(fleet.Nation));
             }
 
+            // T63 (bug #292, steps 3 and 4): a heavy storm's ship and condition loss is already folded
+            // into `outcome` above; the carried army comes last, in the original's own order.
+            var carriedArmyIdAfterStorm = fleet.CarriedArmyId;
+            if (outcome.DamagedInStorm && carriedArmy is not null)
+            {
+                var carriedResult = FleetAttritionRule.ApplyStormCasualtiesToCarriedArmy(
+                    carriedArmy.Units, outcome.ScaledDamage, context.Rng, ruleset);
+
+                if (carriedResult.Emptied)
+                {
+                    destroyedArmyIds.Add(carriedArmy.Id);
+                    carriedArmyIdAfterStorm = null;
+                }
+                else
+                {
+                    updatedArmies[carriedArmy.Id] = carriedArmy with { Units = carriedResult.Units };
+                }
+            }
+
             updatedFleets.Add(fleet with
             {
                 Ships = outcome.Ships,
                 ConditionPercent = outcome.ConditionPercent,
                 SupplyTons = outcome.SupplyTonsAfterConsumption,
                 Moves = outcome.Moves,
+                CarriedArmyId = carriedArmyIdAfterStorm,
             });
         }
 
-        var survivingArmies = destroyedArmyIds.Count == 0
-            ? state.Armies
-            : ValueList.From(state.Armies.Where(a => !destroyedArmyIds.Contains(a.Id)));
+        var survivingArmies = ValueList.From(state.Armies
+            .Where(a => !destroyedArmyIds.Contains(a.Id))
+            .Select(a => updatedArmies.TryGetValue(a.Id, out var updated) ? updated : a));
 
         return state with { Fleets = ValueList.From(updatedFleets), Armies = survivingArmies };
     }

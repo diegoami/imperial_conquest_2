@@ -27,9 +27,19 @@ public static class FleetAttritionRule
     /// <param name="ConditionPercent">Condition after the storm pass, floored at 0.</param>
     /// <param name="Damage">
     /// The roll itself, after every multiplier — the value the death check and the "damaged in a storm"
-    /// message both key off.
+    /// message both key off. This is <c>dmg</c>, not the heavy branch's own <c>d</c> (<see cref="ScaledDamage"/>)
+    /// — an earlier revision of this record's remarks (and <see cref="ApplyStormCasualtiesToCarriedArmy"/>'s
+    /// own) conflated the two, which would have fed the carried army's casualty pass the wrong ratio.
     /// </param>
-    public sealed record StormResult(int Ships, int ConditionPercent, int Damage);
+    /// <param name="ScaledDamage">
+    /// The heavy branch's own <c>d = r² / 100</c> — the SAME ratio <see cref="Ships"/> and
+    /// <see cref="ConditionPercent"/> were just reduced by by, and the exact ratio
+    /// <see cref="ApplyStormCasualtiesToCarriedArmy"/> takes for the carried army's own casualty pass
+    /// (bug #292). <c>0</c> on the light branch (<c>Damage</c> below
+    /// <see cref="NavalRules.StormShipLossDamageThreshold"/>), where it is never computed and never read —
+    /// the light branch reduces condition alone.
+    /// </param>
+    public sealed record StormResult(int Ships, int ConditionPercent, int Damage, int ScaledDamage);
 
     /// <summary>
     /// Runs the storm pass: <c>dmg = max(1, random(100 − condition) / 10)</c>, doubled-and-capped in
@@ -105,6 +115,7 @@ public static class FleetAttritionRule
 
         int shipsAfter;
         int conditionAfter;
+        var scaledDamage = 0; // d -- only ever computed (and only ever meaningful) on the heavy branch.
         if (dmg < rules.StormShipLossDamageThreshold)
         {
             shipsAfter = ships;
@@ -121,7 +132,7 @@ public static class FleetAttritionRule
             // the squared term; Divisor (300) is shared by the ships and condition losses.
             var ratioNumerator = rules.StormShipLossRatioBase * rules.StormShipLossRatioScale;
             var ratio = Math.Max(1, ratioNumerator / (dmg + rules.StormShipLossRatioBase));
-            var scaledDamage = (ratio * ratio) / rules.StormShipLossRatioScale;
+            scaledDamage = (ratio * ratio) / rules.StormShipLossRatioScale;
 
             var shipsLost = (ships * scaledDamage) / rules.StormShipLossDivisor;
             var conditionLost = (conditionPercent * scaledDamage) / rules.StormShipLossDivisor;
@@ -130,7 +141,7 @@ public static class FleetAttritionRule
             conditionAfter = Math.Max(0, conditionPercent - conditionLost);
         }
 
-        return new StormResult(shipsAfter, conditionAfter, dmg);
+        return new StormResult(shipsAfter, conditionAfter, dmg, scaledDamage);
     }
 
     /// <summary>The outcome of <see cref="ApplyStormCasualtiesToCarriedArmy"/>.</summary>
@@ -143,7 +154,7 @@ public static class FleetAttritionRule
     /// <summary>
     /// The heavy-storm branch's missing steps 3 and 4 (bug #292): a carried army takes
     /// <c>FUN_0044AE20(army, d)</c> at the SAME <c>d</c> the fleet's own ships and condition just lost --
-    /// <see cref="ApplyStormPass"/>'s own <see cref="StormResult.Damage"/> -- and, above
+    /// <see cref="ApplyStormPass"/>'s own <see cref="StormResult.ScaledDamage"/> -- and, above
     /// <see cref="NavalRules.StormUnitLossDamageThreshold"/>, also loses whole units at random,
     /// swap-with-last. Delegates the shared arithmetic to
     /// <see cref="Battle.BattleCasualties.ApplyToCarriedArmy"/>, the same helper
@@ -153,18 +164,16 @@ public static class FleetAttritionRule
     /// <remarks>
     /// A separate method rather than folded into <see cref="ApplyStormPass"/> or
     /// <see cref="ApplyLaunchedFleetTurn"/>: this task's Owns grant reaches only this file under
-    /// <c>src/IC2.Engine/Naval/</c>, and the per-turn caller, <c>FleetTickSystem.cs</c>, is outside it.
-    /// <c>FleetTickSystem</c> does not yet call this method — see this task's PR body, "out-of-Owns files
-    /// needed", for the follow-up that wires a carried army's units through the per-turn tick and writes
-    /// the result (including an emptied army's deletion) back into <see cref="Model.GameState.Armies"/>.
-    /// Until then this is a correct, independently tested implementation of the original's formula, not
-    /// yet reachable from the live per-turn loop.
+    /// <c>src/IC2.Engine/Naval/</c>, and the per-turn caller, <c>FleetTickSystem.cs</c>, was outside it
+    /// until the user's narrow Owns amendment (docs/tasks/T63.md, 2026-09-23) granted exactly the call
+    /// that reaches this method — see <c>FleetTickSystem.Execute</c> for the wiring.
     /// </remarks>
     /// <param name="units">The carried army's unit slots, before this storm.</param>
     /// <param name="damage">
-    /// The storm's own damage figure <c>d</c> -- <see cref="ApplyStormPass"/>'s <see cref="StormResult.Damage"/>
-    /// from the SAME storm pass, only ever meaningful when that pass took the heavy branch
-    /// (<c>d &gt;= </c><see cref="NavalRules.StormShipLossDamageThreshold"/>).
+    /// The storm's own scaled damage figure <c>d</c> -- <see cref="ApplyStormPass"/>'s
+    /// <see cref="StormResult.ScaledDamage"/> from the SAME storm pass, NOT its <see cref="StormResult.Damage"/>
+    /// (the raw, pre-scaling <c>dmg</c> roll). Only ever meaningful when that pass took the heavy branch
+    /// (<c>StormResult.Damage &gt;= </c><see cref="NavalRules.StormShipLossDamageThreshold"/>).
     /// </param>
     /// <param name="rng">
     /// The fleet's own draw stream for this turn -- the SAME stream <see cref="ApplyStormPass"/> drew
@@ -192,6 +201,11 @@ public static class FleetAttritionRule
     /// <param name="ConditionPercent">Condition after the storm pass and, if it applied, the zero-supply penalty.</param>
     /// <param name="Moves">Moves for this turn, after every penalty.</param>
     /// <param name="Damage">The storm roll, for a caller that wants to know how hard the fleet was hit.</param>
+    /// <param name="ScaledDamage">
+    /// <see cref="StormResult.ScaledDamage"/> passed through unchanged -- the ratio
+    /// <see cref="ApplyStormCasualtiesToCarriedArmy"/> needs for a carried army's own casualty pass when
+    /// <see cref="DamagedInStorm"/> is true. <c>0</c>, and unused, otherwise.
+    /// </param>
     /// <param name="Destroyed">Whether the fleet is lost at sea this turn — <see cref="ConditionPercent"/> fell below <see cref="NavalRules.DeathConditionThreshold"/>.</param>
     /// <param name="DamagedInStorm">
     /// Whether the fleet took the heavy storm branch and survived — the news-worthy "damaged in a storm"
@@ -204,6 +218,7 @@ public static class FleetAttritionRule
         int ConditionPercent,
         int Moves,
         int Damage,
+        int ScaledDamage,
         bool Destroyed,
         bool DamagedInStorm);
 
@@ -251,7 +266,7 @@ public static class FleetAttritionRule
         {
             return new TurnOutcome(
                 supplyAfterConsumption, storm.Ships, storm.ConditionPercent, Moves: 0, storm.Damage,
-                Destroyed: true, DamagedInStorm: false);
+                storm.ScaledDamage, Destroyed: true, DamagedInStorm: false);
         }
 
         var damagedInStorm = storm.Damage >= rules.StormShipLossDamageThreshold;
@@ -268,7 +283,7 @@ public static class FleetAttritionRule
 
         return new TurnOutcome(
             supplyAfterConsumption, storm.Ships, conditionAfterSupply, moves, storm.Damage,
-            Destroyed: false, DamagedInStorm: damagedInStorm);
+            storm.ScaledDamage, Destroyed: false, DamagedInStorm: damagedInStorm);
     }
 
     /// <summary>

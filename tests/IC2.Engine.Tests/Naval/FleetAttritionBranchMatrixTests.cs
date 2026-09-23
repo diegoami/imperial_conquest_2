@@ -256,4 +256,58 @@ public sealed class FleetAttritionBranchMatrixTests
         Assert.True(result.TroopsLost > 0, "the casualty pass (step 3) must have cost some troops.");
         Assert.True(result.UnitsLost >= 1, "d = 86 > 70 must remove at least the '+ 1' whole unit (step 4).");
     }
+
+    /// <summary>
+    /// T63 (bug #292), wired end to end: the SAME seed-14, 40-ship/condition-68 fleet
+    /// <see cref="HeavyDamageBranch_FleetTickSystemActuallyPublishesFleetDamagedInStorm"/> uses (dmg 7,
+    /// <c>d</c> 86) now carries an army into the storm. Runs the REAL <see cref="FleetTickSystem"/> --
+    /// not <see cref="FleetAttritionRule"/> in isolation -- so this proves the wiring
+    /// (<c>docs/tasks/T63.md</c>'s narrow 2026-09-23 Owns grant), not just the rule. <c>d</c> = 86 is
+    /// well above the storm's own 70 whole-unit-loss threshold, and a single 2,000-troop heavy-cavalry
+    /// unit (heavy_cavalry: the smallest small-unit-deletion threshold, 250 national, bug #289) cannot
+    /// survive an 86% casualty pass AND then the <c>d &gt; 70</c> whole-unit draw: this fixture is sized
+    /// specifically to empty, which is what proves the delete-sweep half (bug #289/#292's actual Owns
+    /// grant: "if the army empties, it is deleted... the fleet's CarriedArmyId is cleared").
+    /// </summary>
+    [Fact]
+    public void HeavyStorm_AppliesCasualtiesAndWholeUnitLossToTheCarriedArmy_EmptiedArmyIsDeleted()
+    {
+        var state = NavalTestbed.InitialState();
+        var nationId = state.Nations[0].Id;
+
+        var army = new IC2.Engine.Model.ArmyState(
+            "storm-cargo", nationId, X: 0, Y: 3, Moves: 0, Morale: 60, Money: 0, SupplyTons: 0,
+            CoveredTileCode: null, AboardFleetId: "storm-carrier",
+            IC2.Engine.Model.ValueList.Of(new IC2.Engine.Model.UnitSlot(0, "heavy_cavalry", 2000, 6, "Cargo")));
+
+        var fleet = new IC2.Engine.Model.FleetState(
+            "storm-carrier", nationId, X: 0, Y: 3, Moves: 5, Ships: 40, ConditionPercent: 68,
+            Money: 0, SupplyTons: 1000, ConstructionTicksRemaining: null, BuildCityId: null,
+            CarriedArmyId: "storm-cargo", CoveredTileCode: null);
+
+        var seededState = state with
+        {
+            Fleets = IC2.Engine.Model.ValueList.Of(fleet),
+            Armies = IC2.Engine.Model.ValueList.Of(army),
+            RandomSeed = 14UL,
+        };
+
+        var sink = new RecordingEventSink();
+        var coordinator = NavalTestbed.CoordinatorOnly(sink, typeof(FleetTickSystem));
+        var result = coordinator.RunRoundTick(seededState).State;
+
+        var updatedFleet = result.FleetById(fleet.Id)!;
+        Assert.True(updatedFleet.Ships < 40, "the seed must still land on the heavy branch for this test to mean anything.");
+        Assert.Single(sink.Events.OfType<FleetDamagedInStorm>());
+
+        // Delete sweep: the 2,000-troop unit cannot survive d = 86's casualty pass (step 3) and the
+        // d > 70 whole-unit draw (step 4) both -- the army is gone, not present with zero units.
+        Assert.Null(result.ArmyById("storm-cargo"));
+        Assert.Null(updatedFleet.CarriedArmyId);
+
+        var reloaded = IC2.Engine.Serialization.GameDataLoader.Load<IC2.Engine.Model.GameState>(
+            "fleet-tick-state.json", IC2.Engine.Serialization.GameJson.Serialize(result));
+        IC2.Engine.Serialization.GameDataValidation.Validate("fleet-tick-state.json", reloaded);
+        Assert.Equal(IC2.Engine.Serialization.GameJson.Serialize(result), IC2.Engine.Serialization.GameJson.Serialize(reloaded));
+    }
 }
