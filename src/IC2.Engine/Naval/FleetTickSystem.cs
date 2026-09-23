@@ -119,11 +119,17 @@ public sealed class FleetTickSystem : IGameSystem
             var tripleDamageBranchActive = fleet.CoveredTileCode == rules.StormTripleConditionTileCode;
             var nearFriendlyCoast = IsNearFriendlyCoast(fleet, state, rules);
 
+            // T63 (bug #292, steps 3 and 4; bug #292/B2): the carried army's own casualty pass now runs
+            // INSIDE ApplyLaunchedFleetTurn, between the storm pass and the moves formula, so moves are
+            // computed from the army's POST-storm troop count -- the original's own order
+            // (supply-driven-morale-and-fleet-attrition.md §"The fleet loop, in order", research
+            // 3f6ca09). Passing carriedArmy.Units (not just a troop count) is what lets this method
+            // update them and hand the result back below.
             var outcome = FleetAttritionRule.ApplyLaunchedFleetTurn(
                 ships: fleet.Ships,
                 conditionPercent: fleet.ConditionPercent,
                 supplyTonsBeforeConsumption: fleet.SupplyTons,
-                carriedArmyTroops: carriedArmy?.TotalTroops,
+                carriedArmyUnits: carriedArmy?.Units,
                 isWinter: isWinter,
                 tripleDamageBranchActive: tripleDamageBranchActive,
                 nearFriendlyCoast: nearFriendlyCoast,
@@ -146,22 +152,21 @@ public sealed class FleetTickSystem : IGameSystem
                 context.Events.Publish(new FleetDamagedInStorm(fleet.Nation));
             }
 
-            // T63 (bug #292, steps 3 and 4): a heavy storm's ship and condition loss is already folded
-            // into `outcome` above; the carried army comes last, in the original's own order.
+            // The delete sweep: an emptied carried army is deleted and the fleet's own link to it
+            // cleared (bug #289); a surviving, storm-reduced army is written back so its lower troop
+            // count and unit list persist (B8 -- an earlier revision only ever wrote this back for the
+            // "emptied" case, so a survivor's own casualties were silently dropped).
             var carriedArmyIdAfterStorm = fleet.CarriedArmyId;
-            if (outcome.DamagedInStorm && carriedArmy is not null)
+            if (carriedArmy is not null && outcome.CarriedArmyUnits is { } armyUnitsAfter)
             {
-                var carriedResult = FleetAttritionRule.ApplyStormCasualtiesToCarriedArmy(
-                    carriedArmy.Units, outcome.ScaledDamage, context.Rng, ruleset);
-
-                if (carriedResult.Emptied)
+                if (outcome.CarriedArmyEmptied)
                 {
                     destroyedArmyIds.Add(carriedArmy.Id);
                     carriedArmyIdAfterStorm = null;
                 }
-                else
+                else if (outcome.DamagedInStorm)
                 {
-                    updatedArmies[carriedArmy.Id] = carriedArmy with { Units = carriedResult.Units };
+                    updatedArmies[carriedArmy.Id] = carriedArmy with { Units = armyUnitsAfter };
                 }
             }
 

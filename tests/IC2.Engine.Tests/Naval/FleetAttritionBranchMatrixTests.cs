@@ -9,7 +9,8 @@ namespace IC2.Engine.Tests.Naval;
 /// fails when it is removed." The first review proved eight behaviours could each be deleted with the
 /// full 1,723-test suite staying green, because every direct call in the suite passed
 /// <c>isWinter: false</c>, <c>tripleDamageBranchActive: false</c>, <c>nearFriendlyCoast: true</c> and
-/// <c>carriedArmyTroops: null</c>. Each test below varies exactly one of those axes (or, for the heavy
+/// no carried army (<c>carriedArmyUnits: null</c>, renamed from <c>carriedArmyTroops</c> by T63/B2's
+/// fix). Each test below varies exactly one of those axes (or, for the heavy
 /// branch, a real seed known to trigger it) and pins a specific numeric consequence, so deleting the
 /// underlying constant or branch makes the assertion fail, not merely produce a different valid number.
 /// </summary>
@@ -141,7 +142,7 @@ public sealed class FleetAttritionBranchMatrixTests
     {
         var rng = new SplitMix64Rng(44);
         var outcome = FleetAttritionRule.ApplyLaunchedFleetTurn(
-            ships: 40, conditionPercent: 68, supplyTonsBeforeConsumption: 1000, carriedArmyTroops: null,
+            ships: 40, conditionPercent: 68, supplyTonsBeforeConsumption: 1000, carriedArmyUnits: null,
             isWinter: false, tripleDamageBranchActive: false, nearFriendlyCoast: false, rng, Ruleset);
 
         Assert.Equal(7, outcome.Damage);

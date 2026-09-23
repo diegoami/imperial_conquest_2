@@ -824,15 +824,29 @@ public static class InstantBattleResolver
 
         var attackerWon = defenderPower < attackerPower;
 
+        // Decision 1, extended by the user (D-A): the original reads certain intermediate values as a
+        // SIGNED 16-bit register -- FUN_00448FD0/FUN_00448FD8's own comparisons are JG/JL (signed),
+        // never JA/JB (unsigned) -- decompiled-defection-and-siege-attrition.md
+        // §"FUN_0044b27c, instruction by instruction", research 3f6ca09. classical-faithful reproduces
+        // this for BOTH the attrition ratio's own clamp (below) and the erosion's own field x def / atk
+        // term; improved computes both in ordinary 32-bit arithmetic. A single policy switch, since both
+        // are the same original bug class at the same call site's own local variables.
+        int ApplySixteenBitPolicy(int value) =>
+            ruleset.Flags.BugPolicySiegeRatioClamp == SiegeRatioClampPolicy.Reproduce16BitClamp
+                ? unchecked((int)(short)value)
+                : value;
+
         // Step 3 (#293): erosion -- loyalty, then fortification, then population, each
         // field = max(field x 3/4, min(field x 19/20 + 1, field x def / atk)), with the SAME def/atk
-        // pair above (after every adjustment, before erosion changes anything). No random term.
+        // pair above (after every adjustment, before erosion changes anything). No random term. The
+        // ratio term itself (field x def / atk) is where D-A's 16-bit wrap applies, exactly as it does
+        // to the attrition ratio below -- both are the same original local, read the same way.
         int Erode(int field) => Math.Max(
             (field * siege.ErosionFloorNumerator) / siege.ErosionFloorDenominator,
             Math.Min(
                 ((field * siege.ErosionCeilingNumerator) / siege.ErosionCeilingDenominator)
                     + siege.ErosionCeilingAddend,
-                (field * defenderPower) / attackerPower));
+                ApplySixteenBitPolicy((field * defenderPower) / attackerPower)));
 
         var loyaltyBefore = city.Loyalty;
         var fortificationPercentBefore = FortificationCode.FinishedPercent(city.FortificationCode, fortifyOrder);
@@ -864,13 +878,12 @@ public static class InstantBattleResolver
         // Step 5 (#290): the attacker's own casualties, ratio = clamp(def x 6 / atk, 1, 15), applied on a
         // success or a failure alike -- def and atk here are the RAW attacker/defender strengths, not a
         // "loser/winner" framing (unlike the field and naval call sites). Decision 1 (T63): the original
-        // compares this clamp as an unsigned 16-bit value, so a near-empty besieger's ratio can wrap
-        // instead of saturating at the ceiling; classical-faithful reproduces the wrap, improved clamps
-        // in ordinary 32-bit arithmetic.
+        // compares this clamp as a SIGNED 16-bit value (see ApplySixteenBitPolicy above), so a
+        // near-empty besieger's ratio can wrap to anywhere in [-32768, 32767] -- not merely to a small
+        // unsigned remainder -- instead of saturating at the ceiling; classical-faithful reproduces the
+        // wrap, improved clamps in ordinary 32-bit arithmetic.
         var rawAttritionRatio = (defenderPower * siege.AttritionRatioMultiplier) / attackerPower;
-        var clampInput = ruleset.Flags.BugPolicySiegeRatioClamp == SiegeRatioClampPolicy.Reproduce16BitClamp
-            ? unchecked((int)(ushort)rawAttritionRatio)
-            : rawAttritionRatio;
+        var clampInput = ApplySixteenBitPolicy(rawAttritionRatio);
         var casualtyRatio = Math.Max(
             siege.AttritionRatioFloor, Math.Min(siege.AttritionRatioCeiling, clampInput));
 

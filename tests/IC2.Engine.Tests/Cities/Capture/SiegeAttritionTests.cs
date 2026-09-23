@@ -1,6 +1,8 @@
 using IC2.Engine.Battle;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
+using IC2.Engine.Serialization;
+using IC2.Engine.Tests.Model;
 using Xunit;
 
 namespace IC2.Engine.Tests.Cities.Capture;
@@ -212,67 +214,140 @@ public sealed class SiegeAttritionTests
     }
 
     /// <summary>
-    /// T63 Decision 1: <c>classical-faithful</c> (and the toy ruleset, set the same way) reproduce the
-    /// original's 16-bit clamp comparison. A near-empty besieger drives <c>defenderStrength x 6 /
-    /// attackerStrength</c> to exactly 65,536 -- a clean multiple of 2^16 -- which the original's own
-    /// <c>unsigned short</c> comparison reads as 0 before the clamp runs, wrapping the ratio down to the
-    /// floor (1) instead of saturating at the ceiling (15) a 32-bit comparison would give.
+    /// T63 B1: <c>classical-faithful</c> (and the toy ruleset, set the same way) reproduce the original's
+    /// 16-bit clamp comparison -- as a SIGNED comparison (<c>JG</c>/<c>JL</c> at
+    /// <c>FUN_00448FD0</c>/<c>FUN_00448FD8</c>, research 3f6ca09), not an unsigned one. Three raw ratios,
+    /// chosen so their low 16 bits read very differently signed versus unsigned:
+    /// <list type="bullet">
+    /// <item><description><c>65,536</c>: low word 0 either way -- signed and unsigned agree (both give ratio 1). Kept as
+    /// the simplest possible case, not as proof of the fix on its own.</description></item>
+    /// <item><description><c>501,996</c>: the report's own worked example. Low word <c>43,244</c> unsigned, but
+    /// <c>43,244 - 65,536 = -22,292</c> signed -- clamps to the floor (1). An unsigned reading (the B1 defect)
+    /// would have read <c>43,244</c>, clamped to the ceiling (15) instead.</description></item>
+    /// <item><description><c>40,000</c>: already under 65,536, so unsigned reads it unchanged (<c>40,000</c>, clamping
+    /// to the ceiling, 15) -- but <c>40,000 - 65,536 = -25,536</c> signed, clamping to the floor (1) instead.
+    /// This is the case an implementation could pass by only ever reducing modulo 65,536 without ever
+    /// re-reading the low word as signed.</description></item>
+    /// </list>
     /// </summary>
-    [Fact]
-    public void SiegeRatioClamp_ReproducesThe16BitWrap_UnderTheFaithfulPolicy()
+    [Theory]
+    [InlineData(65_536)]
+    [InlineData(501_996)]
+    [InlineData(40_000)]
+    public void SiegeRatioClamp_ReproducesThe16BitWrap_UnderTheFaithfulPolicy(int rawRatio)
     {
         var ruleset = CaptureTestbed.Ruleset;
         Assert.Equal(SiegeRatioClampPolicy.Reproduce16BitClamp, ruleset.Flags.BugPolicySiegeRatioClamp);
 
-        var (attacker, defenderNation) = ZeroStrengthWrapFixture(out var state);
-        var rng = new SplitMix64Rng(0x517UL);
+        var (attacker, _) = NearEmptyBesiegerFixture(rawRatio, out var state);
+        var rng = new FixedDivisorRng();
 
         var resolution = InstantBattleResolver.ResolveSiege(
             state, "army", "c1", ruleset, rng, CaptureTestbed.ArcherUnitTypeId, CaptureTestbed.FortifyOrderId, NullEventSink.Instance);
 
-        // atk = 6, def = 65,536 (a plain loyalty/fortification/population sum of 0, plus one 131,072-troop
-        // recruitment slot addend of 65,536). Raw ratio = 65,536 x 6 / 6 = 65,536 exactly, which wraps to
-        // (ushort) 65,536 = 0 -- clamp(0, 1, 15) = 1, the FLOOR, not the 15 a 32-bit reading would give.
+        // atk = 6 (troops 559, morale 1); def = rawRatio exactly (a plain loyalty/fortification/population
+        // sum of 0, plus one recruitment-slot addend of rawRatio). Raw ratio = rawRatio x 6 / 6 = rawRatio
+        // exactly -- every one of the three signed low words above clamps to the floor, 1.
         Assert.Equal(6, resolution.Result.AttackerPower);
-        Assert.Equal(65_536, resolution.Result.DefenderPower);
+        Assert.Equal(rawRatio, resolution.Result.DefenderPower);
 
         var attackerAfter = resolution.State.ArmyById("army")!;
         var lost = attacker.TotalTroops - attackerAfter.TotalTroops;
 
-        // Ratio 1 against divisor span [105, 120): 559 / divisor x 1 is at most a handful of troops.
-        Assert.True(lost < 50, $"Expected a ratio-1 (wrapped) loss under 50 troops, was {lost}.");
-        Assert.True(defenderNation.Id == "defender");
+        // Fixed divisor 105 (FixedDivisorRng): ratio 1 costs exactly (559 / 105) x 1 = 5 troops.
+        Assert.Equal(5, lost);
     }
 
     /// <summary>
-    /// T63 Decision 1: <c>improved</c> clamps the same raw ratio in ordinary 32-bit arithmetic, so the
-    /// same near-empty besieger that wraps to 1 under the faithful policy instead saturates at the 15
-    /// ceiling here -- the two tests together are the "besieger small enough to wrap" case DoD 6 asks for,
-    /// once per preset.
+    /// T63 B1/Decision 1: <c>improved</c> computes the same three raw ratios in ordinary 32-bit
+    /// arithmetic, so every one of them saturates at the 15 ceiling here -- the two tests together are the
+    /// "besieger small enough to wrap" case DoD 6 asks for, once per preset, and together prove the
+    /// faithful preset's SIGNED reading is what makes it differ from this one (a merely-unsigned reading
+    /// would have agreed with this test at 40,000 and 501,996 too).
     /// </summary>
-    [Fact]
-    public void SiegeRatioClamp_Clamps32Bit_UnderTheImprovedPolicy()
+    [Theory]
+    [InlineData(65_536)]
+    [InlineData(501_996)]
+    [InlineData(40_000)]
+    public void SiegeRatioClamp_Clamps32Bit_UnderTheImprovedPolicy(int rawRatio)
     {
         var ruleset = CaptureTestbed.Ruleset with
         {
             Flags = CaptureTestbed.Ruleset.Flags with { BugPolicySiegeRatioClamp = SiegeRatioClampPolicy.Clamp32Bit },
         };
 
-        var (attacker, _) = ZeroStrengthWrapFixture(out var state);
-        var rng = new SplitMix64Rng(0x517UL);
+        var (attacker, _) = NearEmptyBesiegerFixture(rawRatio, out var state);
+        var rng = new FixedDivisorRng();
 
         var resolution = InstantBattleResolver.ResolveSiege(
             state, "army", "c1", ruleset, rng, CaptureTestbed.ArcherUnitTypeId, CaptureTestbed.FortifyOrderId, NullEventSink.Instance);
 
         Assert.Equal(6, resolution.Result.AttackerPower);
-        Assert.Equal(65_536, resolution.Result.DefenderPower);
+        Assert.Equal(rawRatio, resolution.Result.DefenderPower);
 
         var attackerAfter = resolution.State.ArmyById("army")!;
         var lost = attacker.TotalTroops - attackerAfter.TotalTroops;
 
-        // Ratio 15 (the un-wrapped ceiling) against the same divisor span: 559 / divisor x 15, well
-        // above the ratio-1 loss the faithful policy's own test bounds.
-        Assert.True(lost >= 50, $"Expected a ratio-15 (unwrapped) loss of at least 50 troops, was {lost}.");
+        // Ratio 15 (the un-wrapped ceiling) against the fixed divisor 105: (559 / 105) x 15 = 75.
+        Assert.Equal(75, lost);
+    }
+
+    /// <summary>
+    /// T63 D-A (the user's 2026-09-23 extension of Decision 1): the erosion's OWN <c>field x def / atk</c>
+    /// ratio term wraps the same signed-16-bit way the attrition ratio does -- a separate local inside
+    /// <c>FUN_0044B230</c>, but read through the same <c>FUN_00448FD0</c>/<c>FUN_00448FD8</c> comparisons
+    /// (decompiled-defection-and-siege-attrition.md, research 3f6ca09). <c>attackerStrength</c> = 6,
+    /// <c>defenderStrength</c> = 39,120: the ratio term for loyalty (100) is <c>100 x 39,120 / 6 =
+    /// 652,000</c>, whose low word is <c>62,176</c> unsigned but <c>62,176 - 65,536 = -3,360</c> signed --
+    /// negative, so classical-faithful's erosion takes the FLOOR branch (<c>100 x 3/4 = 75</c>) where
+    /// improved's un-wrapped 652,000 takes the CEILING branch (<c>100 x 19/20 + 1 = 96</c>) instead. The
+    /// two branches giving different, exact, hand-verifiable numbers is the proof that D-A's wrap reaches
+    /// the erosion at all, not just the attrition ratio B1's own tests already cover.
+    /// </summary>
+    [Theory]
+    [InlineData(SiegeRatioClampPolicy.Reproduce16BitClamp, 75)]
+    [InlineData(SiegeRatioClampPolicy.Clamp32Bit, 96)]
+    public void ErosionRatioTerm_WrapsTheSameSignedWay_PerPreset(SiegeRatioClampPolicy policy, int expectedLoyalty)
+    {
+        var ruleset = CaptureTestbed.Ruleset with { Flags = CaptureTestbed.Ruleset.Flags with { BugPolicySiegeRatioClamp = policy } };
+
+        var city = CaptureTestbed.City(
+            "c1", "City", 0, 0, "defender", "defender", loyalty: 100, fortificationCode: 0,
+            populationThousands: 0, maxPopulationThousands: 10, tribute: 0);
+        var attacker = CaptureTestbed.Army(
+            "army", "attacker", 0, 0, morale: 1, CaptureTestbed.Unit("heavy_cavalry", 559));
+        // defenderStrength = loyalty x 150 + addend = 100 x 150 + 24,120 = 39,120 -- addend = troops / 2,
+        // so 48,240 troops gives the 24,120 addend this needs.
+        var defenderNation = CaptureTestbed.Nation(
+            "defender",
+            recruitmentSlots: ValueList.Of(new RecruitmentSlot("c1", "heavy_infantry", 48_240, StateCode: 4)));
+        var state = CaptureTestbed.StateWith(
+            new[] { CaptureTestbed.Nation("attacker"), defenderNation }, new[] { city }, new[] { attacker });
+
+        var rng = new FixedDivisorRng();
+        var resolution = InstantBattleResolver.ResolveSiege(
+            state, "army", "c1", ruleset, rng, CaptureTestbed.ArcherUnitTypeId, CaptureTestbed.FortifyOrderId, NullEventSink.Instance);
+
+        Assert.Equal(6, resolution.Result.AttackerPower);
+        Assert.Equal(39_120, resolution.Result.DefenderPower);
+        Assert.Equal(expectedLoyalty, resolution.State.CityById("c1")!.Loyalty);
+    }
+
+    /// <summary>
+    /// T63 B9: the SHIPPED presets carry the flag at the value each is supposed to (relocated from
+    /// <c>ImprovedPresetTests.cs</c>, which is outside this task's narrow-grant Owns list -- that file's
+    /// own edit is limited to the one line its consistency check needs, per the grant).
+    /// </summary>
+    [Fact]
+    public void ShippedPresets_CarryTheSiegeRatioClampFlagAtItsOwnValue()
+    {
+        var classical = GameDataLoader.LoadFile<Ruleset>(
+            System.IO.Path.Combine(TestPaths.DataRoot, "rulesets", "classical-faithful.json"));
+        var improved = GameDataLoader.LoadFile<Ruleset>(
+            System.IO.Path.Combine(TestPaths.DataRoot, "rulesets", "improved.json"));
+
+        Assert.Equal(SiegeRatioClampPolicy.Reproduce16BitClamp, classical.Flags.BugPolicySiegeRatioClamp);
+        Assert.Equal(SiegeRatioClampPolicy.Clamp32Bit, improved.Flags.BugPolicySiegeRatioClamp);
     }
 
     /// <summary>
@@ -300,10 +375,14 @@ public sealed class SiegeAttritionTests
 
     /// <summary>
     /// A near-empty besieger (siege strength 6) against a defender whose strength is a plain 0 sum of
-    /// loyalty/fortification/population plus one 65,536-addend recruitment slot -- the exact scenario the
-    /// two <c>SiegeRatioClamp_*</c> tests share, factored out so their setups cannot drift apart.
+    /// loyalty/fortification/population plus one recruitment-slot addend of EXACTLY <paramref name="rawRatio"/>
+    /// -- the shared scenario every <c>SiegeRatioClamp_*</c> test uses, factored out so their setups
+    /// cannot drift apart. <c>defenderStrength x 6 / attackerStrength</c> reduces to exactly
+    /// <c>defenderStrength</c> when <c>attackerStrength</c> is 6 (multiplying then dividing by the same 6
+    /// loses nothing under truncation), so setting the recruitment addend to <c>rawRatio</c> makes the
+    /// siege's own raw ratio exactly <paramref name="rawRatio"/>, for any value.
     /// </summary>
-    private static (ArmyState Attacker, NationState DefenderNation) ZeroStrengthWrapFixture(out GameState state)
+    private static (ArmyState Attacker, NationState DefenderNation) NearEmptyBesiegerFixture(int rawRatio, out GameState state)
     {
         var city = CaptureTestbed.City(
             "c1", "City", 0, 0, "defender", "defender", loyalty: 0, fortificationCode: 0,
@@ -315,9 +394,11 @@ public sealed class SiegeAttritionTests
         // empties this army out from under the test.
         var attacker = CaptureTestbed.Army(
             "army", "attacker", 0, 0, morale: 1, CaptureTestbed.Unit("heavy_cavalry", 559));
+        // addend = troops / DefenderGarrisonTroopDivisor (2) -- 2 x rawRatio troops gives EXACTLY
+        // rawRatio, with no truncation loss (rawRatio x 2 is always even).
         var defenderNation = CaptureTestbed.Nation(
             "defender",
-            recruitmentSlots: ValueList.Of(new RecruitmentSlot("c1", "heavy_infantry", 131_072, StateCode: 4)));
+            recruitmentSlots: ValueList.Of(new RecruitmentSlot("c1", "heavy_infantry", 2 * rawRatio, StateCode: 4)));
 
         state = CaptureTestbed.StateWith(
             new[] { CaptureTestbed.Nation("attacker"), defenderNation },

@@ -199,12 +199,17 @@ public static class FleetAttritionRule
     /// <param name="SupplyTonsAfterConsumption">Supply after the unconditional <c>−= ships</c> consumption.</param>
     /// <param name="Ships">Ships after the storm pass.</param>
     /// <param name="ConditionPercent">Condition after the storm pass and, if it applied, the zero-supply penalty.</param>
-    /// <param name="Moves">Moves for this turn, after every penalty.</param>
+    /// <param name="Moves">
+    /// Moves for this turn, after every penalty -- computed from the carried army's own POST-storm
+    /// troop count (<see cref="CarriedArmyUnits"/>), never the pre-storm count a caller passed in
+    /// (bug #292/B2: an earlier revision of this method took a plain troop count and had no way to
+    /// update it before computing moves, so a heavy storm's own casualty pass -- run by the caller,
+    /// afterward -- could never be reflected here).
+    /// </param>
     /// <param name="Damage">The storm roll, for a caller that wants to know how hard the fleet was hit.</param>
     /// <param name="ScaledDamage">
-    /// <see cref="StormResult.ScaledDamage"/> passed through unchanged -- the ratio
-    /// <see cref="ApplyStormCasualtiesToCarriedArmy"/> needs for a carried army's own casualty pass when
-    /// <see cref="DamagedInStorm"/> is true. <c>0</c>, and unused, otherwise.
+    /// <see cref="StormResult.ScaledDamage"/> passed through unchanged, for a caller that wants the raw
+    /// ratio the carried army's own casualty pass used.
     /// </param>
     /// <param name="Destroyed">Whether the fleet is lost at sea this turn — <see cref="ConditionPercent"/> fell below <see cref="NavalRules.DeathConditionThreshold"/>.</param>
     /// <param name="DamagedInStorm">
@@ -212,6 +217,15 @@ public static class FleetAttritionRule
     /// case. Never true together with <see cref="Destroyed"/>: the original's death check runs first,
     /// and this is only evaluated on its <c>else</c> branch.
     /// </param>
+    /// <param name="CarriedArmyUnits">
+    /// The carried army's unit slots after this turn -- unchanged from the input when there was no
+    /// army, the storm was not heavy, or the army was emptied (in which case this is empty and
+    /// <see cref="CarriedArmyEmptied"/> is <see langword="true"/>); otherwise the post-casualty slots a
+    /// caller writes back onto <c>ArmyState.Units</c>.
+    /// </param>
+    /// <param name="CarriedArmyTroopsLost">Every troop the carried army lost this storm (0 when not applicable).</param>
+    /// <param name="CarriedArmyUnitsLost">Whole unit slots the carried army lost this storm (0 when not applicable).</param>
+    /// <param name="CarriedArmyEmptied">Whether the carried army has no unit slots left after this storm.</param>
     public sealed record TurnOutcome(
         int SupplyTonsAfterConsumption,
         int Ships,
@@ -220,19 +234,29 @@ public static class FleetAttritionRule
         int Damage,
         int ScaledDamage,
         bool Destroyed,
-        bool DamagedInStorm);
+        bool DamagedInStorm,
+        ValueList<UnitSlot>? CarriedArmyUnits,
+        int CarriedArmyTroopsLost,
+        int CarriedArmyUnitsLost,
+        bool CarriedArmyEmptied);
 
     /// <summary>
     /// Runs the full per-turn rule for one launched fleet already at sea: the storm pass, the death
-    /// check, the moves formula (with its carried-army term), the zero-supply penalty and the
-    /// damage-slowdown term — in that order, because two of its consequences depend on it (the death
-    /// check precedes the zero-supply penalty, and moves are computed from the storm pass's own,
-    /// possibly-reduced ship count).
+    /// check, the carried army's own casualty pass (bug #292 steps 3 and 4, only on a heavy storm), the
+    /// zero-supply penalty, and the moves formula — in that order, matching the original's own
+    /// (<c>supply-driven-morale-and-fleet-attrition.md</c> §"The fleet loop, in order", research
+    /// 3f6ca09): <c>FUN_0044b4f8</c> (the storm pass, which already folds the carried army's own
+    /// casualties in) runs before the moves formula reads the army's troop count. <strong>Bug #292/B2:</strong>
+    /// an earlier revision of this method computed moves from a troop count the CALLER passed in before
+    /// applying that turn's own storm casualties to the army, which is backwards -- the probe was a
+    /// 40-ship, condition-68 fleet carrying 80,000 troops into a known heavy storm (seed 14): moves came
+    /// out as -1, from the STALE 80,000, where the original (and this corrected method) give 23, from
+    /// the post-storm 10,330.
     /// </summary>
     /// <param name="ships">The fleet's ship count before this turn.</param>
     /// <param name="conditionPercent">The fleet's condition before this turn.</param>
     /// <param name="supplyTonsBeforeConsumption">The fleet's supply stock before this turn's consumption.</param>
-    /// <param name="carriedArmyTroops">The embarked army's total troops, or <see langword="null"/> if none.</param>
+    /// <param name="carriedArmyUnits">The embarked army's unit slots before this turn, or <see langword="null"/> if none.</param>
     /// <param name="isWinter">Whether the current season is Winter.</param>
     /// <param name="tripleDamageBranchActive">See <see cref="ApplyStormPass"/>.</param>
     /// <param name="nearFriendlyCoast">See <see cref="ApplyStormPass"/>.</param>
@@ -243,7 +267,7 @@ public static class FleetAttritionRule
         int ships,
         int conditionPercent,
         int supplyTonsBeforeConsumption,
-        int? carriedArmyTroops,
+        ValueList<UnitSlot>? carriedArmyUnits,
         bool isWinter,
         bool tripleDamageBranchActive,
         bool nearFriendlyCoast,
@@ -266,10 +290,29 @@ public static class FleetAttritionRule
         {
             return new TurnOutcome(
                 supplyAfterConsumption, storm.Ships, storm.ConditionPercent, Moves: 0, storm.Damage,
-                storm.ScaledDamage, Destroyed: true, DamagedInStorm: false);
+                storm.ScaledDamage, Destroyed: true, DamagedInStorm: false,
+                CarriedArmyUnits: carriedArmyUnits, CarriedArmyTroopsLost: 0, CarriedArmyUnitsLost: 0,
+                CarriedArmyEmptied: false);
         }
 
         var damagedInStorm = storm.Damage >= rules.StormShipLossDamageThreshold;
+
+        // Steps 3 and 4 (bug #292): the carried army's own casualty pass, at the SAME d the ships and
+        // condition just lost by -- run here, BEFORE the moves formula reads the army's troop count
+        // (the fix for B2). Only on a heavy storm; a light storm never reaches this branch in the
+        // original either.
+        var carriedArmyAfter = carriedArmyUnits;
+        var carriedTroopsLost = 0;
+        var carriedUnitsLost = 0;
+        var carriedEmptied = false;
+        if (damagedInStorm && carriedArmyUnits is { } unitsAboard)
+        {
+            var carriedResult = ApplyStormCasualtiesToCarriedArmy(unitsAboard, storm.ScaledDamage, rng, ruleset);
+            carriedArmyAfter = carriedResult.Units;
+            carriedTroopsLost = carriedResult.TroopsLost;
+            carriedUnitsLost = carriedResult.UnitsLost;
+            carriedEmptied = carriedResult.Emptied;
+        }
 
         var conditionAfterSupply = storm.ConditionPercent;
         if (supplyAfterConsumption == 0)
@@ -277,13 +320,36 @@ public static class FleetAttritionRule
             conditionAfterSupply -= rng.NextInt(rules.ZeroSupplyConditionRandomBound);
         }
 
+        // An emptied army adds no term at all -- the same as the fleet never having carried one, and
+        // consistent with FleetTickSystem clearing CarriedArmyId when this happens.
+        int? carriedArmyTroopsForMoves = carriedEmptied ? null : TotalTroops(carriedArmyAfter);
+
         var moves = MovesForTurn(
-            storm.Ships, carriedArmyTroops, supplyIsZero: supplyAfterConsumption == 0,
+            storm.Ships, carriedArmyTroopsForMoves, supplyIsZero: supplyAfterConsumption == 0,
             conditionAfterZeroSupplyPenalty: conditionAfterSupply, ruleset);
 
         return new TurnOutcome(
             supplyAfterConsumption, storm.Ships, conditionAfterSupply, moves, storm.Damage,
-            storm.ScaledDamage, Destroyed: false, DamagedInStorm: damagedInStorm);
+            storm.ScaledDamage, Destroyed: false, DamagedInStorm: damagedInStorm,
+            CarriedArmyUnits: carriedArmyAfter, CarriedArmyTroopsLost: carriedTroopsLost,
+            CarriedArmyUnitsLost: carriedUnitsLost, CarriedArmyEmptied: carriedEmptied);
+    }
+
+    /// <summary>Sums <see cref="UnitSlot.Troops"/> across a unit list, or <see langword="null"/> for a null list.</summary>
+    private static int? TotalTroops(ValueList<UnitSlot>? units)
+    {
+        if (units is not { } list)
+        {
+            return null;
+        }
+
+        var total = 0;
+        foreach (var unit in list)
+        {
+            total += unit.Troops;
+        }
+
+        return total;
     }
 
     /// <summary>

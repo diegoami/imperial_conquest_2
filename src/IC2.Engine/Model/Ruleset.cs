@@ -1232,16 +1232,23 @@ public sealed record VictoryRules(
 /// task's own code does not read — see T19's PR body for why both exist.
 /// </param>
 /// <param name="BugPolicySiegeRatioClamp">
-/// <c>docs/tasks/T63.md</c> Decision 1: whether the siege attrition ratio's <c>clamp(·, 1, 15)</c>
-/// reproduces the original's <strong>16-bit</strong> comparison — a near-empty besieger can drive
-/// <c>defenderStrength × 6 / attackerStrength</c> well past 65,535, and the original's own clamp
-/// compares that raw value as an <c>unsigned short</c> before applying <c>min</c>/<c>max</c>, so it can
-/// wrap around to a small number (as low as the floor, 1) instead of saturating at the ceiling, 15
+/// <c>docs/tasks/T63.md</c> Decision 1, extended 2026-09-23 by the user (D-A): whether TWO of the
+/// siege's own intermediate values reproduce the original's <strong>16-bit, SIGNED</strong> comparison
+/// — the attrition ratio's own <c>clamp(·, 1, 15)</c> input (<c>defenderStrength × 6 /
+/// attackerStrength</c>) and the erosion's own <c>field × def / atk</c> ratio term, both of which a
+/// near-empty <c>attackerStrength</c> can drive well past 32,767. <c>FUN_00448FD0</c>/<c>FUN_00448FD8</c>
+/// (the original's <c>min</c>/<c>max</c> helpers both the ratio and the erosion term pass through) compare
+/// with <c>JG</c>/<c>JL</c> — <strong>signed</strong> 16-bit jumps, never <c>JA</c>/<c>JB</c> (unsigned) —
+/// so a raw value wraps into the FULL signed 16-bit range, <c>[-32768, 32767]</c>, not merely into a small
+/// unsigned remainder: the report's own example, <c>q = 501,996</c>, has low word <c>-22,292</c>, which
+/// clamps to the floor (1), not to some small positive number
 /// <strong>[confirmed at instruction level: decompiled-defection-and-siege-attrition.md
-/// §"FUN_0044b27c, instruction by instruction", research 3f6ca09 — <c>uVar3</c> is a 16-bit local]</c>.
-/// <c>classical-faithful</c> reproduces the wrap (<see cref="SiegeRatioClampPolicy.Reproduce16BitClamp"/>);
-/// <c>improved</c> clamps in 32 bits (<see cref="SiegeRatioClampPolicy.Clamp32Bit"/>), never wrapping.
-/// The same pattern as <see cref="BugPolicyDiplomaticThaw"/>, additive alongside it.
+/// §"FUN_0044b27c, instruction by instruction", research 3f6ca09 — <c>uVar3</c> is a 16-bit local read
+/// through the signed comparisons above; the erosion's own wrap is the same report, the `FUN_0044b230`
+/// bullet]</c>. <c>classical-faithful</c> reproduces both wraps
+/// (<see cref="SiegeRatioClampPolicy.Reproduce16BitClamp"/>); <c>improved</c> computes both in ordinary
+/// 32-bit arithmetic (<see cref="SiegeRatioClampPolicy.Clamp32Bit"/>), never wrapping. The same pattern as
+/// <see cref="BugPolicyDiplomaticThaw"/>, additive alongside it.
 /// </param>
 public sealed record RulesetFlags(
     DiplomacyModel DiplomacyModel,
@@ -1300,13 +1307,15 @@ public enum DiplomaticThawPolicy
 public enum SiegeRatioClampPolicy
 {
     /// <summary>
-    /// Clamp the raw ratio as the original's own <c>unsigned short</c> comparison does, wrapping modulo
-    /// 65,536 before <c>min</c>/<c>max</c> — a near-empty besieger's ratio can land anywhere in
-    /// <c>[1, 15]</c> rather than saturating at 15.
+    /// Read the siege attrition ratio and the erosion's own ratio term as the original's own
+    /// <strong>signed</strong> 16-bit comparison does (<c>JG</c>/<c>JL</c>, not <c>JA</c>/<c>JB</c>) —
+    /// wrapping into <c>[-32768, 32767]</c> before <c>min</c>/<c>max</c>, not merely modulo 65,536 — so a
+    /// near-empty besieger's ratio can land anywhere the wrap takes it, including negative, rather than
+    /// saturating at 15.
     /// </summary>
     Reproduce16BitClamp,
 
-    /// <summary>Clamp the raw ratio in ordinary 32-bit arithmetic, never wrapping.</summary>
+    /// <summary>Compute both values in ordinary 32-bit arithmetic, never wrapping.</summary>
     Clamp32Bit,
 }
 

@@ -464,6 +464,30 @@ public class BattleCasualtyArithmeticTests
     }
 
     /// <summary>
+    /// T63 D-B (the user's 2026-09-23 decision, correcting N1): the deletion pass removes swap-with-last,
+    /// walking slot 19 down to 0, not a stable filter. Four units, "B" (index 1) below the deletion
+    /// threshold: a stable filter would give <c>[A, C, D]</c>; swap-with-last -- deleting B, then moving
+    /// the CURRENT last slot (D) into B's place -- gives <c>[A, D, C]</c> instead. Removing B is not the
+    /// last index, which is exactly what makes the two algorithms disagree here (deleting the actual last
+    /// slot would coincide for both).
+    /// </summary>
+    [Fact]
+    public void DeleteBelowThreshold_RemovesSwapWithLast_NotAStableFilter()
+    {
+        var ruleset = BattleTestbed.Destroyed;
+        var units = ValueList.Of(
+            BattleTestbed.Unit("light_infantry", 2000, 6, "A"),
+            BattleTestbed.Unit("light_infantry", 1000, 6, "B"),   // below the 1,500 national threshold
+            BattleTestbed.Unit("light_infantry", 2000, 6, "C"),
+            BattleTestbed.Unit("light_infantry", 2000, 6, "D"));
+
+        var survivors = BattleCasualties.DeleteBelowThreshold(units, ruleset);
+
+        Assert.Equal(new[] { "A", "D", "C" }, survivors.Select(u => u.Name).ToArray());
+        Assert.NotEqual(new[] { "A", "C", "D" }, survivors.Select(u => u.Name).ToArray()); // what a stable filter would give
+    }
+
+    /// <summary>
     /// T63 DoD 1: a deleted unit gets no promotion roll. Proved by contrast, not by inference: promoting
     /// the deletion pass's OWN output draws once (the one survivor); promoting the ORIGINAL, pre-deletion
     /// list -- as if the deletion pass had not run at all -- draws twice, from the same seed. The

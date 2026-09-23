@@ -203,7 +203,7 @@ public sealed class CartagoFleetAttritionReplayTests
         // halved -> 3 (below the ship-loss threshold, so only condition is reduced). 30 - 3 = 27 < 40.
         var rng = new ScriptedRng(60);
         var outcome = FleetAttritionRule.ApplyLaunchedFleetTurn(
-            ships: 40, conditionPercent: 30, supplyTonsBeforeConsumption: 100, carriedArmyTroops: null,
+            ships: 40, conditionPercent: 30, supplyTonsBeforeConsumption: 100, carriedArmyUnits: null,
             isWinter: false, tripleDamageBranchActive: false, nearFriendlyCoast: true, rng, ruleset);
 
         Assert.True(outcome.Destroyed);
@@ -226,7 +226,7 @@ public sealed class CartagoFleetAttritionReplayTests
         // Zero supply (supply = 0): condition -= NextInt(2), scripted to draw 1 -> 40 - 1 = 39.
         var rngTurn1 = new ScriptedRng(20, 1);
         var turn1 = FleetAttritionRule.ApplyLaunchedFleetTurn(
-            ships: 30, conditionPercent: 41, supplyTonsBeforeConsumption: 0, carriedArmyTroops: null,
+            ships: 30, conditionPercent: 41, supplyTonsBeforeConsumption: 0, carriedArmyUnits: null,
             isWinter: false, tripleDamageBranchActive: false, nearFriendlyCoast: true, rngTurn1, ruleset);
 
         Assert.False(turn1.Destroyed, "the death check precedes the zero-supply penalty, so ending at 39 this turn must not itself destroy the fleet.");
@@ -238,7 +238,7 @@ public sealed class CartagoFleetAttritionReplayTests
         var rngTurn2 = new ScriptedRng(5);
         var turn2 = FleetAttritionRule.ApplyLaunchedFleetTurn(
             ships: 30, conditionPercent: turn1.ConditionPercent, supplyTonsBeforeConsumption: turn1.SupplyTonsAfterConsumption,
-            carriedArmyTroops: null, isWinter: false, tripleDamageBranchActive: false, nearFriendlyCoast: true, rngTurn2, ruleset);
+            carriedArmyUnits: null, isWinter: false, tripleDamageBranchActive: false, nearFriendlyCoast: true, rngTurn2, ruleset);
 
         Assert.True(turn2.Destroyed, "a fleet already below 40 dies on the very next check.");
     }

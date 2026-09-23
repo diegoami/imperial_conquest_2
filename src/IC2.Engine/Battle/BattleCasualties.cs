@@ -304,15 +304,20 @@ public static class BattleCasualties
     /// deletes" branch would be a different function from the one the report transcribes.
     /// </para>
     /// <para>
-    /// <strong>No swap-with-last here, unlike the naval whole-unit loss.</strong> The original's own
-    /// removal helper (<c>FUN_0044ac3c</c>) does swap-remove a fixed-size slot array, but this pass is a
-    /// deterministic full sweep — every slot below its threshold is deleted, not a single slot chosen at
-    /// random — so a stable filter produces the exact same surviving <em>set</em> as a literal
-    /// swap-and-shrink replay would, without needing this port to reproduce the original's fixed 20-slot
-    /// array shape or its own effect on later per-slot draw order. <see cref="Promote"/> already draws
-    /// "one roll per surviving unit, in slot order" rather than replaying the original's own fixed
-    /// per-slot draw pattern (T63 Decision 6's "one draw" departure), so slot order past this pass was
-    /// never exactly faithful to begin with.
+    /// <strong>Swap-with-last, walking slot 19 down to 0 — D-B, the user's 2026-09-23 decision,
+    /// correcting an earlier revision of this remark.</strong> That revision said this pass used a
+    /// stable filter because it is a deterministic full sweep, reasoning that the surviving <em>set</em>
+    /// would be identical either way. The set is identical, but a reviewer (N1) pointed out that the
+    /// original's own removal helper (<c>FUN_0044ac3c</c>, the same one the naval whole-unit loss and
+    /// <c>MercenaryDesertion</c> use) is swap-with-last, and the resulting slot <em>order</em> is itself
+    /// saved and can change which unit a later index-based pick takes — so a stable filter was not
+    /// actually faithful. This method now replays the original's own walk: process this list's own last
+    /// index down to 0 (the 20-slot array is fixed-size in the original, with an unoccupied slot reading
+    /// <c>troops == 0</c> and therefore never a candidate, which is exactly what this method's own
+    /// <c>troops &gt; 0</c> guard already enforces — so walking only the occupied range here is the same
+    /// walk), and on a deletion, swap the CURRENT last slot into the deleted index rather than shifting
+    /// everything down. A unit swapped into an already-passed (lower) index is never re-examined by this
+    /// same pass, exactly as the original's own single decrementing loop cannot revisit it either.
     /// </para>
     /// </remarks>
     /// <param name="units">The force's unit slots, already reduced by <see cref="Apply"/>.</param>
@@ -322,32 +327,43 @@ public static class BattleCasualties
     /// than just <see cref="CombatRules"/>, because the threshold is per-unit-type data that lives on
     /// <see cref="UnitTypeRules"/>, not on <see cref="CombatRules"/> itself.
     /// </param>
-    /// <returns>The surviving slots, in their original relative order.</returns>
+    /// <returns>
+    /// The surviving slots, in the swap-with-last order the walk above leaves them in — NOT necessarily
+    /// their original relative order (D-B).
+    /// </returns>
     public static ValueList<UnitSlot> DeleteBelowThreshold(ValueList<UnitSlot> units, Ruleset ruleset)
     {
         ArgumentNullException.ThrowIfNull(units);
         ArgumentNullException.ThrowIfNull(ruleset);
 
-        var kept = new List<UnitSlot>(units.Count);
-        foreach (var unit in units)
-        {
-            if (unit.Troops > 0)
-            {
-                var battalionSize = ruleset.UnitTypeById(unit.UnitTypeId)?.StandardBattalionSize ?? 0;
-                var threshold = unit.IsMercenary
-                    ? battalionSize / ruleset.Combat.DeletionDivisorMercenary
-                    : battalionSize / ruleset.Combat.DeletionDivisorNational;
+        var remaining = new List<UnitSlot>(units);
 
-                if (unit.Troops < threshold)
-                {
-                    continue; // deleted -- below the small-unit threshold (#289).
-                }
+        for (var i = remaining.Count - 1; i >= 0; i--)
+        {
+            var unit = remaining[i];
+            if (unit.Troops <= 0)
+            {
+                continue; // the pass's own guard: only a unit with troops > 0 is ever a candidate.
             }
 
-            kept.Add(unit);
+            var battalionSize = ruleset.UnitTypeById(unit.UnitTypeId)?.StandardBattalionSize ?? 0;
+            var threshold = unit.IsMercenary
+                ? battalionSize / ruleset.Combat.DeletionDivisorMercenary
+                : battalionSize / ruleset.Combat.DeletionDivisorNational;
+
+            if (unit.Troops >= threshold)
+            {
+                continue;
+            }
+
+            // Deleted -- below the small-unit threshold (#289). Swap-with-last: move the CURRENT last
+            // slot into i (a no-op swap when i is already the last index), then shrink.
+            var lastIndex = remaining.Count - 1;
+            remaining[i] = remaining[lastIndex];
+            remaining.RemoveAt(lastIndex);
         }
 
-        return ValueList.From(kept);
+        return ValueList.From(remaining);
     }
 
     /// <summary>
