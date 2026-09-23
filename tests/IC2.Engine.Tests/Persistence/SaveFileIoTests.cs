@@ -99,10 +99,63 @@ public sealed class SaveFileIoTests : IDisposable
         var path = Path.Combine(_directory, "no-such-subdirectory", "toy-3city.ic2save.json");
         var save = BuildToySave("toy-3city-io-missing-dir", "Missing directory probe");
 
-        var ex = Assert.Throws<MalformedGameDataException>(() => SaveManager.WriteFile(path, save));
+        var ex = Assert.Throws<SaveWriteException>(() => SaveManager.WriteFile(path, save));
         Assert.Contains("could not be written", ex.Message, StringComparison.Ordinal);
         Assert.False(File.Exists(path));
         Assert.False(File.Exists(path + ".tmp"));
+    }
+
+    [Fact]
+    public void WriteFile_when_the_temp_path_is_blocked_leaves_the_previous_save_untouched()
+    {
+        // Review round 2 (R1): the temp-then-rename behaviour and its "the previous save is never
+        // opened for writing at all" claim had no test that could tell it apart from a direct
+        // File.WriteAllText(path, ...) implementation -- every existing test's write either fully
+        // succeeds or fails before any file exists at path at all. This puts a real obstacle at
+        // exactly the temp path the real implementation writes to first: a directory can't be opened
+        // for writing text, so the real code fails there, before path is ever touched. A reverted,
+        // direct-write implementation ignores the obstacle entirely (it never looks at path + ".tmp")
+        // and would silently overwrite the previous save with no error at all -- caught here by both
+        // the typed-exception assertion and the unchanged-bytes assertion.
+        var toy = PersistenceTestbed.Toy;
+        var path = Path.Combine(_directory, "toy-3city-blocked-temp.ic2save.json");
+
+        SaveManager.WriteFile(path, BuildToySave("toy-3city-first", "First save"));
+        var previousBytes = File.ReadAllBytes(path);
+
+        var tempPath = path + ".tmp";
+        Directory.CreateDirectory(tempPath);
+        try
+        {
+            var secondSave = BuildToySave("toy-3city-second", "Second save");
+            Assert.Throws<SaveWriteException>(() => SaveManager.WriteFile(path, secondSave));
+
+            Assert.Equal(previousBytes, File.ReadAllBytes(path));
+        }
+        finally
+        {
+            Directory.Delete(tempPath, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void WriteFile_when_the_rename_fails_leaves_no_temp_file_behind()
+    {
+        // Review round 2 (R1): the cleanup that deletes a leftover .tmp file after a failed rename had
+        // no test either -- every existing test's write either succeeds (renaming the temp file away)
+        // or fails before a temp file could exist (a missing directory). This locks the target
+        // exclusively so the temp file is written successfully and only the rename fails, which is the
+        // one point a leaked .tmp file is actually possible; deleting the cleanup call would leave one
+        // behind here.
+        var path = Path.Combine(_directory, "toy-3city-locked-target.ic2save.json");
+        SaveManager.WriteFile(path, BuildToySave("toy-3city-first", "First save"));
+
+        using (new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            var secondSave = BuildToySave("toy-3city-second", "Second save");
+            Assert.Throws<SaveWriteException>(() => SaveManager.WriteFile(path, secondSave));
+            Assert.False(File.Exists(path + ".tmp"));
+        }
     }
 
     [Fact]

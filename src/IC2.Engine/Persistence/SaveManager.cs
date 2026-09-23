@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using IC2.Engine.Model;
@@ -47,16 +48,22 @@ public static class SaveManager
 
     /// <summary>Writes <paramref name="save"/> to <paramref name="path"/> as a current-format save file.</summary>
     /// <remarks>
-    /// Written to a sibling <c>.tmp</c> file first and then moved into place, rather than
+    /// <para>
+    /// Written to a sibling <c>.tmp</c> file first — flushed to disk, per <see cref="FileStream.Flush(bool)"/>
+    /// with <c>flushToDisk: true</c> — and then moved into place, rather than
     /// <c>File.WriteAllText(path, ...)</c> directly: that call opens <paramref name="path"/> with
     /// <c>FileMode.Create</c>, which truncates the previous save before a single byte of the new one is
-    /// written, so a crash or a full disk mid-write would leave a truncated file where the last good save
-    /// used to be. <see cref="File.Move(string, string, bool)"/> replacing an existing file is not a
-    /// documented atomic guarantee on every filesystem, but it narrows the failure window from "the whole
-    /// write" to "an already-complete temp file being renamed" — the previous save is never opened for
-    /// writing at all.
+    /// written. <c>SaveFileIoTests</c>'s <c>WriteFile_when_the_temp_path_is_blocked_…</c> and
+    /// <c>WriteFile_when_the_rename_fails_…</c> tests are what actually exercise this: a failure while the
+    /// temp file is being written or moved leaves the previous save's bytes unchanged and no <c>.tmp</c>
+    /// file behind, in each case because a real filesystem obstacle was placed in the way and the write
+    /// was shown to fail before <paramref name="path"/> itself was touched. <see cref="File.Move(string, string, bool)"/>
+    /// replacing an existing file is not a documented atomic guarantee on every filesystem (nor is flushing
+    /// a guarantee against every power-loss scenario — no test claims that), so this narrows the failure
+    /// window rather than closing it outright.
+    /// </para>
     /// </remarks>
-    /// <exception cref="MalformedGameDataException">The file could not be written.</exception>
+    /// <exception cref="SaveWriteException">The file could not be written.</exception>
     public static void WriteFile(string path, SaveGame save)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
@@ -66,7 +73,13 @@ public static class SaveManager
         var tempPath = path + ".tmp";
         try
         {
-            File.WriteAllText(tempPath, text);
+            var bytes = Encoding.UTF8.GetBytes(text);
+            using (var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                stream.Write(bytes, 0, bytes.Length);
+                stream.Flush(flushToDisk: true);
+            }
+
             File.Move(tempPath, path, overwrite: true);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
@@ -82,7 +95,7 @@ public static class SaveManager
                 // `path` was never touched.
             }
 
-            throw new MalformedGameDataException(path, $"the file could not be written: {ex.Message}", ex);
+            throw new SaveWriteException(path, ex.Message, ex);
         }
     }
 

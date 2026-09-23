@@ -80,3 +80,25 @@ public sealed class SaveContextMismatchException : GameDataException
     /// <summary>The id the save itself records.</summary>
     public string FoundId { get; }
 }
+
+/// <summary>
+/// A save file could not be written to disk.
+/// </summary>
+/// <remarks>
+/// Review round 2 (R2a): <see cref="SaveManager.WriteFile"/> used to report this as
+/// <see cref="MalformedGameDataException"/>, whose message reads "is malformed: the file could not be
+/// written" — wrong on its face, since nothing was read or parsed to be malformed; the write simply
+/// didn't happen, and the target path (and any previous save at it) is exactly what it was before the
+/// call. A distinct type both fixes the wording and lets a caller distinguish a bad write from a bad
+/// read without parsing the message.
+/// </remarks>
+public sealed class SaveWriteException : GameDataException
+{
+    /// <param name="documentPath">The path the write was attempted at.</param>
+    /// <param name="detail">What went wrong.</param>
+    /// <param name="innerException">The underlying IO failure, when there is one.</param>
+    public SaveWriteException(string documentPath, string detail, Exception? innerException = null)
+        : base(documentPath, $"'{documentPath}' could not be written: {detail}", innerException)
+    {
+    }
+}

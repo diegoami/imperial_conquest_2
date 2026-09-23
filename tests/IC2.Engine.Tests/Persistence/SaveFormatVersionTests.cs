@@ -88,6 +88,13 @@ public sealed class SaveFormatVersionTests
         Assert.Equal(inventedVersion, ex.Found);
         Assert.DoesNotContain("newer build", ex.Message, StringComparison.Ordinal);
         Assert.Contains("never", ex.Message, StringComparison.Ordinal);
-        Assert.Contains(SaveFormat.MinimumSupportedVersion.ToString(), ex.Message, StringComparison.Ordinal);
+
+        // Review round 2 (R3): Contains(MinimumSupportedVersion.ToString()) checked for the substring
+        // "1", which every version of this message already contains for unrelated reasons (it names
+        // inventedVersion itself when inventedVersion is 1-and-something, and "-1" contains "1" too).
+        // Checking the exact clause that names the earliest version is what actually ties the message
+        // to SaveFormat.MinimumSupportedVersion.
+        Assert.Contains(
+            $"the earliest is version {SaveFormat.MinimumSupportedVersion}", ex.Message, StringComparison.Ordinal);
     }
 }

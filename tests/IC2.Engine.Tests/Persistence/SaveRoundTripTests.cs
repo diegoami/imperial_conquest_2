@@ -82,23 +82,15 @@ public sealed class SaveRoundTripTests
         Assert.Equal(GameStateHash.Compute(original), GameStateHash.Compute(reloaded.State));
         Assert.Equal(original, reloaded.State);
 
-        // Continuation after load, on this state specifically: the reviewer's own round-1 probe played
-        // 60 more seat-turns from the original and from the reloaded state and found no divergence. A
-        // shorter run here (registered systems are already exercised at length by the played round trip
-        // above) is enough to catch a save/load path that silently drops one of this state's non-default
-        // fields rather than merely failing to carry it into the hash.
-        var registry = SystemRegistry.FromEngineAssembly();
-        var dispatcher = new CommandDispatcher(registry, toy.Ruleset, toy.World, NullEventSink.Instance);
-        var coordinator = new TurnCoordinator(registry, toy.Ruleset, toy.World, NullEventSink.Instance, dispatcher);
-
-        var continuedFromOriginal = original;
-        var continuedFromReloaded = reloaded.State;
-        for (var i = 0; i < 10; i++)
-        {
-            continuedFromOriginal = coordinator.RunTurn(continuedFromOriginal).State;
-            continuedFromReloaded = coordinator.RunTurn(continuedFromReloaded).State;
-        }
-
-        Assert.Equal(GameStateHash.Compute(continuedFromOriginal), GameStateHash.Compute(continuedFromReloaded));
+        // Review round 2 (R3): a "continue N more seat-turns from the original and from the reloaded
+        // state, then compare" check used to follow here. The engine is a pure function of GameState
+        // (TurnCoordinator.RunTurn takes a state and returns one, docs/build-process.md's own framing),
+        // so once Assert.Equal(original, reloaded.State) above holds, running the same deterministic
+        // steps from two equal states cannot produce anything but equal results -- the continuation
+        // could not catch a divergence the record-equality assert above had not already caught.
+        // Actual continuation-after-load coverage (a different concern: whether play started fresh from
+        // a save diverges from play that was never saved at all) is what the reviewer's own round-1
+        // probes established over hundreds of seat-turns across multiple scenarios; see the PR body's
+        // "RNG decision" section.
     }
 }
