@@ -47,9 +47,11 @@ public sealed class AiSiegeGateTally
     public int Adjacent { get; private set; }
 
     /// <summary>
-    /// Counts once per army per turn: for each of the seat's own armies, whether the ruleset declared no
-    /// archer unit type or no fortification order, so <see cref="AiMilitaryPhase"/> could not have
-    /// proposed a siege for that army under any circumstances.
+    /// Counts once per army per turn (review round 1, N2: for each of the seat's own armies that are not
+    /// embarked and still have moves left this turn -- <see cref="AiMilitaryPhase.Propose"/>'s own gate,
+    /// which is what reaches <see cref="AiMilitaryPhase.ProposeSieges"/> at all), whether the ruleset
+    /// declared no archer unit type or no fortification order, so <see cref="AiMilitaryPhase"/> could not
+    /// have proposed a siege for that army under any circumstances.
     /// </summary>
     public int RulesetCannotSiege { get; private set; }
 

@@ -173,10 +173,13 @@ public sealed class AiSiegeGateTallyTests
     /// <see href="https://github.com/diegoami/imperial_conquest_2/issues/272">#272</see> N3:
     /// <see cref="AiTurn.Run"/> feeds <see cref="AiSiegeGateTally"/> on the turn's first proposal pass
     /// only (<c>action == 0</c>). This drives a real, multi-action turn — two ready mobilization slots
-    /// force the action loop around twice, since <c>AiTurn</c> dispatches one candidate and re-proposes
-    /// rather than dispatching every candidate at once — while a weak, permanently adjacent besieger's
-    /// siege situation never changes between the two passes. If the tally were fed on every pass rather
-    /// than only the first, this one standing adjacency would be counted twice.
+    /// force the action loop around several times, since <c>AiTurn</c> dispatches one candidate and
+    /// re-proposes rather than dispatching every candidate at once: the driven turn actually dispatches
+    /// four commands (two <c>mobilize</c>s, then the newly mobilized army's own <c>approach</c> march,
+    /// then a <c>propose-alliance</c>) over five proposal passes (review round 1, N1) — while a weak,
+    /// permanently adjacent besieger's siege situation never changes across any of them. If the tally
+    /// were fed on every pass rather than only the first, this one standing adjacency would be counted
+    /// five times over, not twice.
     /// </summary>
     [Fact]
     public void AiTurn_feeds_the_siege_gate_tally_on_the_first_proposal_pass_only()
@@ -220,7 +223,9 @@ public sealed class AiSiegeGateTallyTests
 
         var driven = AiScriptedStates.DriveOneTurn(state);
 
-        // Sanity: the turn really did take two dispatched actions, one per slot, not one.
+        // Sanity: the turn really did take more than one dispatched action -- both mobilize slots landed
+        // (whatever else the turn went on to do afterward, such as the newly mobilized army marching or
+        // a diplomacy candidate winning a later pass; see this test's own remarks and review round 1, N1).
         Assert.Equal(0, driven.Outcome.CommandsRejected);
         Assert.Equal(2, driven.Events.OfType<RecruitMobilized>().Count());
         Assert.Empty(driven.Outcome.State.NationById(Acting)!.RecruitmentSlots);
