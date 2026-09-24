@@ -1,4 +1,3 @@
-using System.Globalization;
 using IC2.Engine.Battle.Commands;
 using IC2.Engine.Core;
 using IC2.Engine.Diplomacy;
@@ -8,6 +7,7 @@ using IC2.Engine.Movement;
 using IC2.Engine.Movement.Commands;
 using IC2.Engine.Naval.Commands;
 using IC2.Engine.Strength;
+using static IC2.Engine.Ai.AiFormat;
 
 namespace IC2.Engine.Ai;
 
@@ -591,12 +591,4 @@ public static class AiMilitaryPhase
 
         return null;
     }
-
-    /// <summary>
-    /// Formats a rationale line culture-invariantly. The per-seed log is a test artifact a failing seed
-    /// is reproduced from (<c>docs/task-catalogue.md</c> T22 Done-when 4), so two machines with
-    /// different locales have to write the same bytes.
-    /// </summary>
-    private static string Inv(string format, params object?[] arguments) =>
-        string.Format(CultureInfo.InvariantCulture, format, arguments);
 }

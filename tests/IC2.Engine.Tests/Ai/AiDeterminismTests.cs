@@ -71,8 +71,8 @@ public sealed class AiDeterminismTests
     public void A_seed_number_alone_reproduces_the_run_that_wrote_its_log()
     {
         const ulong seed = 7;
-        Directory.CreateDirectory(AiSoakTests.LogDirectory);
-        var path = AiSoakTests.LogPathFor(seed);
+        Directory.CreateDirectory(AiSoakFixture.LogDirectory);
+        var path = AiSoakFixture.LogPathFor(seed);
 
         File.WriteAllLines(path, AiTestbed.RunSeed(seed).Transcript);
 

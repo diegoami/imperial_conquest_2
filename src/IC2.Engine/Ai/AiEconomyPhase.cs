@@ -1,10 +1,10 @@
-using System.Globalization;
 using IC2.Engine.Armies;
 using IC2.Engine.Battle.Commands;
 using IC2.Engine.Cities.Orders;
 using IC2.Engine.Model;
 using IC2.Engine.Recruitment;
 using IC2.Engine.Recruitment.Commands;
+using static IC2.Engine.Ai.AiFormat;
 
 namespace IC2.Engine.Ai;
 
@@ -464,8 +464,4 @@ public static class AiEconomyPhase
 
         return count;
     }
-
-    /// <summary>See <c>AiMilitaryPhase.Inv</c>: the per-seed log has to be locale-independent.</summary>
-    private static string Inv(string format, params object?[] arguments) =>
-        string.Format(CultureInfo.InvariantCulture, format, arguments);
 }

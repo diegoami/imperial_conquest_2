@@ -2,6 +2,7 @@ using System.Globalization;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
 using IC2.Engine.Victory;
+using static IC2.Engine.Ai.AiFormat;
 
 namespace IC2.Engine.Ai;
 
@@ -250,7 +251,4 @@ public static class AiGameRunner
         transcript.Add(outcome.Summary());
         return outcome;
     }
-
-    private static string Inv(string format, params object?[] arguments) =>
-        string.Format(CultureInfo.InvariantCulture, format, arguments);
 }
