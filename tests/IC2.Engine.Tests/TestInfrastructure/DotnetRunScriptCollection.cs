@@ -42,10 +42,11 @@ public sealed class DotnetRunScriptCollection : ICollectionFixture<DotnetRunArti
 /// <remarks>
 /// <para>
 /// <b>What isolates the build, and why.</b> <c>dotnet run</c>'s own <c>--artifacts-path</c> option
-/// (.NET SDK docs, "dotnet run" command reference,
-/// https://learn.microsoft.com/dotnet/core/tools/dotnet-run#options : "The artifacts path. All output
-/// from the project, including build, publish, and pack output, will go in subfolders under the
-/// specified path.") redirects a file-based app's build output away from the default, content-hashed
+/// (.NET SDK docs, "dotnet run command - .NET CLI",
+/// https://learn.microsoft.com/dotnet/core/tools/dotnet-run#options : "All build output files from
+/// the executed command will go in subfolders under the specified path, separated by project. ...
+/// Available since .NET 8 SDK." -- cross-referencing the SDK's "Artifacts Output Layout" page)
+/// redirects a file-based app's build output away from the default, content-hashed
 /// <c>%TEMP%\dotnet\runfile\&lt;script-hash&gt;\obj</c> directory -- the exact directory two concurrent
 /// <c>dotnet run</c> invocations of the same script were shown to collide in. Measured against this
 /// repository's own export script: without the flag, a run writes roughly 1.8 MB of <c>obj/</c> and

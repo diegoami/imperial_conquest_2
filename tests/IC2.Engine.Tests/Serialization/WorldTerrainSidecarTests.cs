@@ -318,10 +318,10 @@ public class WorldTerrainSidecarTests
 /// T74 (bug #320): joins <see cref="DotnetRunScriptCollection"/>, the single non-parallel collection
 /// every dotnet-run test now shares in one place (superseding the narrower collection this class used
 /// to define and name itself), and runs through the shared <see cref="DotnetRunScriptRunner.Run"/>
-/// against <see cref="DotnetRunArtifactsFixture"/>'s isolated build-output directory, in its own
-/// "world-terrain-sidecar" subdirectory (never the fixture's shared root -- see
-/// <see cref="DotnetRunScriptRunner.Run"/>'s own remarks on why two same-named scripts must not
-/// share one output path).
+/// against <see cref="DotnetRunArtifactsFixture"/>'s isolated build-output directory, sharing the
+/// same "export-classical-world" subdirectory <see cref="ExportScriptReproducibilityTests"/> uses --
+/// both run this exact, unmodified script (see <see cref="RunExportScript"/>'s own remark for why
+/// that sharing is deliberate).
 /// </remarks>
 [Collection(DotnetRunScriptCollection.Name)]
 public class WorldTerrainExportReproducibilityTests
