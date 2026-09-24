@@ -83,18 +83,21 @@ public class OriginalSaveImportRealSaveTests
 
     [SkippableTheory]
     [MemberData(nameof(RepresentativeSample))]
-    public void Import_report_claims_zero_unmapped_fields_except_the_declared_mercenary_waiver(string fileName)
+    public void Import_report_claims_exactly_the_three_declared_unmapped_fields(string fileName)
     {
-        // Done-when 2, as narrowed by the user's waiver (docs/tasks/T21.md "Mercenary position", #321):
-        // the report's UnmappedFields is derived from OriginalSaveFieldMapping (review B1), and the only
-        // entries it can ever carry are exactly the two waived MercenaryRecord fields -- a third entry
-        // appearing here means a field IC2.Data now parses stopped being mapped, and this test must fail.
+        // Done-when 2, as narrowed by the user's two waivers (docs/tasks/T21.md "Mercenary position",
+        // #321, and "The map grid's overlay", the T21 escalation, round 3): the report's UnmappedFields
+        // is derived from OriginalSaveFieldMapping (review B1), and the only entries it can ever carry
+        // are exactly the two waived MercenaryRecord fields plus WorldPrefix.Cells (the saved map grid's
+        // dynamic, seasonal code-1 overlay, which GameState cannot hold -- bug #339 is its correction).
+        // A fourth entry appearing here means a field IC2.Data now parses stopped being mapped, and this
+        // test must fail; so must losing one of these three.
         Skip.IfNot(LocalOriginalAssets.IsConfigured, LocalOriginalAssets.SkipReason);
 
         var result = ImportFixture(fileName);
 
         Assert.Equal(
-            new[] { "MercenaryRecord.X", "MercenaryRecord.Y" },
+            new[] { "MercenaryRecord.X", "MercenaryRecord.Y", "WorldPrefix.Cells" },
             result.Report.UnmappedFields.OrderBy(f => f, StringComparer.Ordinal));
     }
 

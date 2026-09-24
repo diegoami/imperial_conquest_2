@@ -19,10 +19,10 @@ public sealed record OriginalSaveImportResult(SaveGame Save, OriginalSaveImportR
 /// names of every <see cref="OriginalSaveFieldMapping.FieldMappingKind.DeclaredUnmapped"/> entry in the
 /// declared mapping (review B1, PR #319 round 1: this was a hard-coded empty list nobody re-checked, so
 /// it stayed "correct" even after a field <c>IC2.Data</c> parses went unread). Today that is exactly
-/// <c>MercenaryRecord.X</c> and <c>MercenaryRecord.Y</c> — the user's narrow waiver of this Done-when
-/// line (docs/tasks/T21.md "Mercenary position") — and nothing else; a new gap in the mapping fails
-/// <c>OriginalSaveFieldMappingTests</c> (<c>tests/IC2.Engine.Tests/Import/</c>) before it can ever
-/// silently widen this list.
+/// <c>MercenaryRecord.X</c>, <c>MercenaryRecord.Y</c> and <c>WorldPrefix.Cells</c> — three narrow user
+/// waivers of this Done-when line (docs/tasks/T21.md "Mercenary position" and "The map grid's overlay")
+/// — and nothing else; a new gap in the mapping fails <c>OriginalSaveFieldMappingTests</c>
+/// (<c>tests/IC2.Engine.Tests/Import/</c>) before it can ever silently widen this list.
 /// </param>
 /// <param name="SkippedArmies">
 /// Done-when 1 and 10: every army-table record the parser skipped as an owner-<c>0xFFFF</c> tombstone
