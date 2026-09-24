@@ -4,7 +4,7 @@ Every build task's scope, **Owns** list, Definition of Done, model/effort, revie
 
 **Status is not in this document.** Each task's stage (ready, in progress, merged, blocked, escalated) lives only in its GitHub issue's `status:*` label ([build-process.md §5](build-process.md#5-status-lives-on-github)). The index below links every issue.
 
-82 tasks: 23 that build the 20 design milestones (M1 and M18 span more than one task), plus T46, the second half of M7 split out of T14; eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers); 36 corrections to already-merged code (T31–T35, T38–T40, T42–T45, T50, T52, T53, T60, T63–T82); five rules no task owned (T37, the weekly city supply step; T54, the attack and siege commands; T55–T57, mobilization, the mercenary restock and the AI's use of both); two early slices — T41 of T23's CLI, and T47 of T24's Godot UI; the asset pipeline (T48, T49, T51); the auto-resolve survey and tournament (T58, T59); and two layout fixes (T61, T62).
+83 tasks: 23 that build the 20 design milestones (M1 and M18 span more than one task), plus T46, the second half of M7 split out of T14; eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers); 37 corrections to already-merged code (T31–T35, T38–T40, T42–T45, T50, T52, T53, T60, T63–T83); five rules no task owned (T37, the weekly city supply step; T54, the attack and siege commands; T55–T57, mobilization, the mercenary restock and the AI's use of both); two early slices — T41 of T23's CLI, and T47 of T24's Godot UI; the asset pipeline (T48, T49, T51); the auto-resolve survey and tournament (T58, T59); and two layout fixes (T61, T62).
 
 ---
 
@@ -184,6 +184,7 @@ graph TD
   T80[T80 CLI demo: every order succeeds]
   T81[T81 rough sea]
   T69 --> T82[T82 AI diplomacy fidelity]
+  T83[T83 CLI --seat]
 ```
 
 ### 1.1 Waves and the critical path
@@ -204,9 +205,9 @@ Waves are dependency layers, not concurrent batches: execution is serial, one co
 | 9 | T66, T67, T69, T72, T74, T75 | All follow T68; T66, T67 and T69 also follow T63, and T75 also follows T73. T72 and T75 run after the v0.3.0 tag, by the user's decisions of 2026-09-24. T74 is never in flight with T66, T69, T71 or T75, whose test files it touches. T65, T66 and T67 each edit part of `src/IC2.Engine/Ai/**`, so whichever merges second rebases. |
 | 10 | T76, T82 | Follows T21, T65 and T70, and runs after the v0.3.0 tag (the user's decision of 2026-09-24).. T82 follows T69 (it owns `Diplomacy/**`) and is never in flight with T66, T76 or T79. |
 | 11 | T56 | Follows T13, T22, T68 and T76: the restock writes each offer's position, which T76 adds. |
-| — | T53, T61, T64, T70, T71, T73, T77, T78, T79, T80, T81 | No merge-after dependency: each runs whenever the queue allows. T77 runs after T21 and before the v0.3.0 freeze (the user's decision of 2026-09-24). T64 must merge before T21 (the user's decision of 2026-09-23), and so must T73 (the user's decision of 2026-09-24 on #321). T67 and T71 both work in `Persistence/**` tests, so they are never in flight together.. Of the 2026-09-25 triage's tasks: T78 is never in flight with T75, T76 or T79; T79 never with T66, T67, T76 or T78; T81 never with T67, T71, T75, T76 or T78; and T80 (v0.4.0) is best merged before T24. |
+| — | T53, T61, T64, T70, T71, T73, T77, T78, T79, T80, T81, T83 | No merge-after dependency: each runs whenever the queue allows. T77 runs after T21 and before the v0.3.0 freeze (the user's decision of 2026-09-24). T64 must merge before T21 (the user's decision of 2026-09-23), and so must T73 (the user's decision of 2026-09-24 on #321). T67 and T71 both work in `Persistence/**` tests, so they are never in flight together.. Of the 2026-09-25 triage's tasks: T78 is never in flight with T75, T76 or T79; T79 never with T66, T67, T76 or T78; T81 never with T67, T71, T75, T76 or T78; and T80 (v0.4.0) is best merged before T24. T83 is never in flight with T80. |
 
-**Critical path**: `T01 → T02 → T03 → T06 → T32 → T08 → T38 → T14 → T16 → T17 → T29 → T36 → T24 → T25 → T27` — 15 of 82 tasks — with `T08 → T35 → T17` and `T31 → T33 → T16` as parallel edges into it; T29 also waits for T15 and T19, and `T17 → T23 → T24` runs one task shorter. The AI chain (`… → T17 → T18 → T22 → T28`, and now `T22 → T55 → T57 → T60`, as long as the critical path at 15 tasks) runs alongside it with the most slack and the most uncertain duration, which argues for not deferring T22.
+**Critical path**: `T01 → T02 → T03 → T06 → T32 → T08 → T38 → T14 → T16 → T17 → T29 → T36 → T24 → T25 → T27` — 15 of 83 tasks — with `T08 → T35 → T17` and `T31 → T33 → T16` as parallel edges into it; T29 also waits for T15 and T19, and `T17 → T23 → T24` runs one task shorter. The AI chain (`… → T17 → T18 → T22 → T28`, and now `T22 → T55 → T57 → T60`, as long as the critical path at 15 tasks) runs alongside it with the most slack and the most uncertain duration, which argues for not deferring T22.
 
 ### 1.2 Sequential and independent tasks
 
@@ -691,9 +692,15 @@ Rough sea → [full entry](tasks/T81.md) · [#358](https://github.com/diegoami/i
 
 ---
 
-#### T82 AI diplomacy as the original has it: offers to a human are notices, and the AI never turns on an ally
+#### T82 AI diplomacy as the original has it: its own treaties, its offers to a human, and never turning on an ally
 
 AI diplomacy fidelity → [full entry](tasks/T82.md) · [#359](https://github.com/diegoami/imperial_conquest_2/issues/359)
+
+---
+
+#### T83 Play any nation from the CLI: --seat, a steady turn loop, and compact status views
+
+CLI --seat → [full entry](tasks/T83.md) · [#362](https://github.com/diegoami/imperial_conquest_2/issues/362)
 
 ---
 
@@ -814,6 +821,7 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T79](#t79-the-ais-weights-become-ruleset-data) | AI weights as data | — | Sonnet | Medium | **Opus**/Medium | — | [#355](https://github.com/diegoami/imperial_conquest_2/issues/355) |
 | [T80](#t80-the-cli-demo-every-order-succeeds-once-and-no-command-type-can-be-left-out) | CLI demo: every order succeeds | M18 | Sonnet | High | **Opus**/Medium | — | [#356](https://github.com/diegoami/imperial_conquest_2/issues/356) |
 | [T81](#t81-weather-paints-rough-sea-the-weekly-overlay-its-effects-on-fleets-and-its-place-in-the-save) | Rough sea | — | **Opus** | High | Sonnet/High | — | [#358](https://github.com/diegoami/imperial_conquest_2/issues/358) |
-| [T82](#t82-ai-diplomacy-as-the-original-has-it-offers-to-a-human-are-notices-and-the-ai-never-turns-on-an-ally) | AI diplomacy fidelity | — | Sonnet | High | **Opus**/Medium | T69 | [#359](https://github.com/diegoami/imperial_conquest_2/issues/359) |
+| [T82](#t82-ai-diplomacy-as-the-original-has-it-its-own-treaties-its-offers-to-a-human-and-never-turning-on-an-ally) | AI diplomacy fidelity | — | Sonnet | High | **Opus**/Medium | T69 | [#359](https://github.com/diegoami/imperial_conquest_2/issues/359) |
+| [T83](#t83-play-any-nation-from-the-cli---seat-a-steady-turn-loop-and-compact-status-views) | CLI --seat | M18 | Sonnet | Medium | **Opus**/Medium | — | [#362](https://github.com/diegoami/imperial_conquest_2/issues/362) |
 
-**Totals** — 82 tasks: 11 Opus, 65 Sonnet, 5 Haiku, 1 Fable. Effort: 2 Ultrahigh, 44 High, 31 Medium, 5 Low.
+**Totals** — 83 tasks: 11 Opus, 66 Sonnet, 5 Haiku, 1 Fable. Effort: 2 Ultrahigh, 44 High, 32 Medium, 5 Low.
