@@ -736,13 +736,15 @@ static List<string> FindToyProvenanceMentions(JsonNode? node, string path = "")
 /// give that specific constant its own scalar id, only the formula it appears in.
 /// </para>
 /// <para>
-/// <strong>This is not every ruleset field.</strong> ~140 of the ~360 numeric/boolean leaves in
-/// <c>classical-faithful.json</c> have no confident match here — mostly designed placeholders
-/// (weather effect magnitudes, the scatter/detailed-resolver reserve constants) or values the
-/// corpus documents only as part of a longer prose passage with no isolable id. Those keep
-/// <c>toy-ruleset.json</c>'s original report-citation provenance, which is still a valid citation
-/// per <c>Provenance.cs</c>'s format — just not corpus-id-traced. See the PR body for the exact
-/// count and a sample of what remains unmapped.
+/// <strong>This is not every ruleset field.</strong> ~109 of the ~360 numeric/boolean leaves in
+/// <c>classical-faithful.json</c> have no confident match here (down from ~140 before T68 added
+/// the type-effectiveness matrix, the two caps and the four season values -- #236 N1) — mostly
+/// designed placeholders (weather effect magnitudes, the scatter/detailed-resolver reserve
+/// constants) or values the corpus documents only as part of a longer prose passage with no
+/// isolable id. Those keep <c>toy-ruleset.json</c>'s original report-citation provenance, which is
+/// still a valid citation per <c>Provenance.cs</c>'s format — just not corpus-id-traced. See T68's
+/// PR body for the exact count and every remaining unmapped <c>confirmed</c> entry, each with the
+/// reason no id fits.
 /// </para>
 /// </remarks>
 internal static class RulesetCorpusMap
