@@ -9,12 +9,31 @@ namespace IC2.Engine.Tests.Export;
 /// <c>classical-faithful.json</c> by loading <c>toy-ruleset.json</c> whole and copying every
 /// <c>_provenance</c> string it doesn't specifically re-annotate verbatim, so a toy-ruleset-specific
 /// note (e.g. "this toy ruleset is set the way classical-faithful is set") ships inside the faithful
-/// preset unchanged. The rule this repository follows is that <c>toy-ruleset.json</c>'s own
-/// provenance wording is written preset-neutrally -- never naming a specific ruleset file -- so that
-/// copying it verbatim can never say something false about the file it lands in. This test is that
-/// rule's safety net over the two shipped, committed presets; the export script carries the matching
-/// safety net over its own output (throws before writing, mirroring its other DoD checks).
+/// preset unchanged.
 /// </summary>
+/// <remarks>
+/// THE RULE (stated once in <c>export-classical-world.cs</c>'s own "#299 guard" comment -- keep the
+/// two in sync): a <c>_provenance</c> string never describes the file it sits in, with exactly one
+/// exception, <c>_provenance.id</c>, which the exporter owns explicitly (the same way it owns
+/// <c>id</c>/<c>name</c>/<c>description</c>), precisely because describing the file it's in is that
+/// key's entire job. Naming a preset ("classical-faithful" or "improved") is fine as long as the
+/// statement is true of that flag's value in EITHER file -- five notes do this today
+/// (<c>flags._provenance.{combatOnDefeat,faithfulThawColumnBug}</c>,
+/// <c>combat.scatteredDefeat._provenance.survivorCasualtyNumerator</c>,
+/// <c>victory._provenance.{defaultCondition,defaultTurnLimit}</c>) -- what the rule forbids is a
+/// claim that is only true of the file it happens to be copied into (bug #299's <c>:870</c>, and
+/// review round 1 B1's <c>_provenance.id</c>, both said something true of <c>toy-ruleset.json</c>
+/// and false of <c>classical-faithful.json</c>).
+/// <para>
+/// This test is the rule's safety net over the two shipped, committed presets, scanning for the
+/// literal word "toy" -- a narrower, mechanical check than the rule itself, since not every
+/// violation has to use that word (see <c>_provenance.id</c>'s B1 instance, which the export
+/// script now owns explicitly rather than relying on this scan to catch). The export script
+/// carries the matching safety net over its own output (throws before writing, mirroring its
+/// other DoD checks) plus a second, specific check that <c>_provenance.id</c> round-trips to its
+/// own owned text.
+/// </para>
+/// </remarks>
 public class NoToyProvenanceWordingTests
 {
     [Fact]

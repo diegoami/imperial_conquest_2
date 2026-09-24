@@ -550,26 +550,28 @@ const string classicalFaithfulIdProvenance =
     "small, hand-authored ruleset kept for unit tests to load.";
 ((JsonObject)rulesetNode["_provenance"]!)["id"] = classicalFaithfulIdProvenance;
 
-// ---- #299 guard: a "_provenance" string may not ship written from another preset's own point of
-// view. Two rules enforce this: (1) every ordinary provenance string is required to be
-// preset-neutral -- never describing the file it sits in, so copying it verbatim between presets
-// can never say something false (a handful of notes legitimately name "classical-faithful" or
-// "improved" because they state a fact true of that flag's value in EITHER file, e.g. flags._provenance.combatOnDefeat
-// -- naming a preset is fine, describing THIS file is not); (2) _provenance.id is the sole
-// exception, explicitly owned by the exporter just above rather than left to the neutrality rule,
-// because it is the one key whose entire job is to describe the file it's in. This check enforces
-// rule (1) over everything the exporter did NOT just overwrite, catching a regression at the
-// source (a future field added in toy-ruleset.json that names "toy" again) the same way the DoD 2
-// leaderName check below does. It does not, and cannot, catch every possible way a rule-(1) note
-// could describe its file without saying "toy" -- rule (1) itself, kept preset-neutral at the
-// source, is what actually prevents that; this check is the narrower, mechanical backstop.
+// ---- #299 guard: THE RULE (stated once here; tests/IC2.Engine.Tests/Export/NoToyProvenanceWordingTests.cs
+// repeats it verbatim in its own doc comment -- keep the two in sync) -- a "_provenance" string
+// never describes the file it sits in, with exactly one exception: "_provenance.id", which is
+// explicitly owned by the exporter above (the same way id/name/description are), precisely
+// because describing the file it's in is that key's entire job. Naming a preset ("classical-faithful"
+// or "improved") is fine as long as the statement is true of that flag's value in EITHER file --
+// five notes do this today (flags._provenance.{combatOnDefeat,faithfulThawColumnBug},
+// combat.scatteredDefeat._provenance.survivorCasualtyNumerator, victory._provenance.{defaultCondition,defaultTurnLimit})
+// -- what the rule forbids is a claim that is only true of the file it happens to be copied into.
+// This check is the rule's mechanical backstop for everything the exporter did NOT just overwrite:
+// it catches a regression at the source (a future toy-ruleset.json field whose note says "toy"
+// again) the same way the DoD 2 leaderName check below does. It cannot catch every way a note
+// could violate the rule without using that word -- keeping toy-ruleset.json's wording
+// preset-neutral at the source is what actually prevents that; this is the narrower safety net.
 var toyMentions = FindToyProvenanceMentions(rulesetNode);
 if (toyMentions.Count > 0)
     throw new InvalidOperationException(
         "The following _provenance strings mention \"toy\", which would ship a note written from " +
         "toy-ruleset.json's own point of view inside classical-faithful.json -- fix the wording in " +
-        "toy-ruleset.json (preset-neutral, no file names) and re-run the export, never hand-edit the " +
-        "committed JSON:\n  " + string.Join("\n  ", toyMentions));
+        "toy-ruleset.json (the rule: a provenance note never describes the file it sits in, except " +
+        "_provenance.id, which the exporter owns explicitly) and re-run the export, never hand-edit " +
+        "the committed JSON:\n  " + string.Join("\n  ", toyMentions));
 
 var rulesetJsonText = rulesetNode.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
 var ruleset = GameDataLoader.Load<Ruleset>("classical-faithful.json (in-memory)", rulesetJsonText);
