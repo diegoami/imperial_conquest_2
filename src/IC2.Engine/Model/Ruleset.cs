@@ -278,6 +278,26 @@ public sealed record TerrainRules(
 /// up to (but not including) zero resets to zero.
 /// </para>
 /// </remarks>
+/// <remarks>
+/// <para>
+/// <strong>T70's one additive field</strong> (<c>docs/task-catalogue.md</c> "T70 Command-layer hygiene:
+/// one distance metric, one rejection file, and the naming filter", Done-when 6b, folded bug #345):
+/// <see cref="CommandAdjacencyRadiusTiles"/>. The original's own general "within one tile" command test
+/// (<c>d == 1</c>, Chebyshev distance — <c>decompiled-mobilization-and-mercenary-restock.md</c> ~:143–144)
+/// recurred, unexamined, as a hardcoded <c>&gt; 1</c> literal at every site this task's Done-when 4
+/// unified onto <see cref="Naval.LandingTile.ChebyshevDistance"/>: a fleet buying supply from a city or
+/// another fleet (<c>BuyFleetSupplyCommandHandler</c>), an army buying supply from a foreign city or a
+/// fleet (<c>BuySupplyCommandHandler</c>), a fleet's repair or scuttle at one of its own nation's cities
+/// (<c>RepairFleetCommandHandler</c>, <c>ScuttleFleetCommandHandler</c>), and an army's named landing tile
+/// relative to its carrying fleet (<c>DisembarkArmyCommandHandler</c>). T04 fixtures corpus id:
+/// 'command.adjacencyRadiusTiles'. Deliberately not merged with <see cref="AutoResupplyRadiusTiles"/> or
+/// <see cref="ThreatenedCityAdjacencyRadius"/>, both of which also happen to be 1: each is a different
+/// rule (the AI's own resupply-search radius; the city-threat eight-neighbourhood) that must be able to
+/// change independently, the same reasoning already given above for
+/// <see cref="PopulationGrowthMobilizationDivisor"/>. The shipped value (1) does not change; only the
+/// command layer's own five hardcoded copies of it do.
+/// </para>
+/// </remarks>
 public sealed record EconomyRules(
     int TaxRateDivisor,
     int ShipUpkeepPerQuarter,
@@ -307,6 +327,7 @@ public sealed record EconomyRules(
     int AutoResupplyPurseTopUpThreshold,
     int AutoResupplyPurseTopUpAmount,
     int AutoResupplyRadiusTiles,
+    int CommandAdjacencyRadiusTiles,
     int TaxBaseContributionMultiplier,
     int WealthPerPopulationThousand,
     int TreasuryCreditTaxBaseQuarterShareDivisor,
