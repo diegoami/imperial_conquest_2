@@ -211,10 +211,11 @@ public sealed class BuySupplyCommandHandlerTests
 
         // T50 Done-when 5 (issue #167): the city-provider path now enforces the one-tile adjacency gate
         // TAFSupply_FindProviders always had, so the buying army must actually be within range of the
-        // foreign city -- moved onto meridia's own tile (3,4) rather than its unmoved world position (3,2),
-        // two tiles away.
+        // foreign city -- moved to (3,3), Chebyshev distance 1 from meridia (3,4), rather than its unmoved
+        // world position (3,2), two tiles away. T70 (#190 N5): adjacent, not parked on meridia's own
+        // tile -- an army never occupies a city tile.
         var before = WithArmy(
-            initial, army with { X = 3, Y = 4, SupplyTons = 0, Money = startingMoney, Units = units });
+            initial, army with { X = 3, Y = 3, SupplyTons = 0, Money = startingMoney, Units = units });
         var city = before.CityById("meridia")!; // owned by "south" -- foreign to the buying "north" army.
         var southBefore = before.NationById("south")!;
 
@@ -250,9 +251,10 @@ public sealed class BuySupplyCommandHandlerTests
         var army = initial.ArmyById("north-army-1")!;
         var units = ValueList.Of(new UnitSlot(0, "light_infantry", 50_000, 6, "Test Battalion"));
 
-        // T50 Done-when 5: moved onto meridia's own tile (3,4), within the one-tile adjacency gate this
-        // path now enforces -- see the sibling test above.
-        var before = WithArmy(initial, army with { X = 3, Y = 4, SupplyTons = 0, Money = 0, Units = units });
+        // T50 Done-when 5: moved to (3,3), Chebyshev distance 1 from meridia (3,4), within the one-tile
+        // adjacency gate this path now enforces -- see the sibling test above. T70 (#190 N5): adjacent,
+        // not parked on meridia's own tile.
+        var before = WithArmy(initial, army with { X = 3, Y = 3, SupplyTons = 0, Money = 0, Units = units });
         var city = before.CityById("meridia")!; // foreign.
 
         var result = dispatcher.Dispatch(before, new BuySupplyCommand(before.ActiveNationId, army.Id, city.Id, 100));
@@ -265,5 +267,28 @@ public sealed class BuySupplyCommandHandlerTests
         var updatedArmy = result.State.ArmyById(army.Id)!;
         Assert.Equal(0, updatedArmy.SupplyTons);
         Assert.Equal(0, updatedArmy.Money);
+    }
+
+    /// <summary>
+    /// T70 Done-when 6b (bug #345): the one-tile adjacency this path enforces is ruleset data
+    /// (<see cref="EconomyRules.CommandAdjacencyRadiusTiles"/>), not a <c>&gt; 1</c> literal. Widened to 2
+    /// tiles in a test ruleset, a purchase from distance 2 -- rejected by
+    /// <see cref="A_city_more_than_one_tile_away_is_rejected_and_changes_nothing"/> under the shipped
+    /// radius of 1 -- is admitted instead.
+    /// </summary>
+    [Fact]
+    public void A_wider_ruleset_adjacency_radius_admits_a_purchase_at_the_wider_distance()
+    {
+        var widenedRuleset = CoreTestbed.Toy.Ruleset with
+        {
+            Economy = CoreTestbed.Toy.Ruleset.Economy with { CommandAdjacencyRadiusTiles = 2 },
+        };
+        var dispatcher = new CommandDispatcher(
+            SystemRegistry.FromEngineAssembly(), widenedRuleset, CoreTestbed.Toy.World, NullEventSink.Instance);
+        var before = CoreTestbed.InitialState(); // north-army-1 at (3,2); meridia at (3,4): distance 2.
+
+        var result = dispatcher.Dispatch(before, new BuySupplyCommand(before.ActiveNationId, "north-army-1", "meridia", 10));
+
+        Assert.True(result.IsAccepted, result.ToString());
     }
 }
