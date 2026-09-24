@@ -30,7 +30,7 @@ public class SaveTurnOrderTests
         Assert.Equal((ushort)9, turn.CurrentNationCode);
     }
 
-    [Fact]
+    [SkippableFact]
     public void On_the_configured_machine_thracia_is_at_index_5_of_16_in_the_named_save()
     {
         Skip.IfNot(LocalAssets.IsConfigured, LocalAssets.SkipReason);
@@ -80,7 +80,7 @@ public class SaveTurnOrderTests
         Assert.Contains("current nation", ex.Message);
     }
 
-    [Fact]
+    [SkippableFact]
     public void The_dat_has_no_trailer_at_all()
     {
         Skip.IfNot(LocalAssets.IsConfigured, LocalAssets.SkipReason);

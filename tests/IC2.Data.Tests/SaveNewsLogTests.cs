@@ -182,7 +182,7 @@ public class SaveNewsLogTests
         return result;
     }
 
-    [Fact]
+    [SkippableFact]
     public void On_the_configured_machine_the_dat_seed_matches_the_report_and_slots_27_to_39_are_empty()
     {
         Skip.IfNot(LocalAssets.IsConfigured, LocalAssets.SkipReason);
