@@ -336,6 +336,41 @@ public sealed class AiResupplyPassTests
     }
 
     /// <summary>
+    /// The fleet half of the same guard (follow-up <see href="https://github.com/diegoami/imperial_conquest_2/issues/272">#272</see>
+    /// N2): both existing zero-ton cases above (<see cref="A_hostile_city_supplies_nothing"/> and
+    /// <see cref="An_embarked_army_is_skipped"/>) leave <c>Fleets</c> empty, so nothing has ever pinned the
+    /// fleet loop's own <c>MovesNothing</c> check. A fleet already at its supply capacity, paired with a
+    /// city, must not have T38's purse hygiene grant it a top-up for a visit that moved nothing.
+    /// </summary>
+    [Fact]
+    public void A_fleet_already_at_capacity_is_not_paired_with_a_city_at_all()
+    {
+        var capacity = SupplyCapacity.FleetCapacityTons(10, Ruleset);
+        var grant = Ruleset.Economy.AutoResupplyPurseTopUpAmount;
+        var treasury = grant - 50;
+
+        var state = SupplyState(fleetMoney: 0) with { Armies = ValueList<ArmyState>.Empty };
+        state = state with
+        {
+            Fleets = ValueList.Of(state.FleetById("supply-fleet")! with { SupplyTons = capacity }),
+            Nations = ValueList.Of(
+                state.NationById(ArmyNation)! with { Treasury = treasury },
+                state.NationById(OtherNation)!),
+        };
+
+        var result = AiResupplyPass.Run(state, Ruleset, ArmyNation);
+
+        Assert.Equal(0, result.FleetTransfers);
+        Assert.Equal(0, result.TonsMoved);
+        Assert.Equal(treasury, result.State.NationById(ArmyNation)!.Treasury);
+        Assert.Equal(0, result.State.FleetById("supply-fleet")!.Money);
+        Assert.Equal(capacity, result.State.FleetById("supply-fleet")!.SupplyTons);
+        Assert.True(
+            AiSubstantiveState.AreEquivalent(state, result.State),
+            "a pass with nothing to move must leave the state untouched");
+    }
+
+    /// <summary>
     /// The other half of the same rule, so the skip cannot quietly become "the AI never tops up a purse
     /// again": a transfer that <em>does</em> move supply is applied whole, purse hygiene included.
     /// </summary>

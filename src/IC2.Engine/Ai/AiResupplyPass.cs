@@ -195,8 +195,9 @@ public static class AiResupplyPass
     /// <strong>What that cost the AI, measured.</strong> On T22's fifty-seed soak both nations begin with
     /// a full army and a treasury (450 and 500 talents) smaller than one top-up grant (500). On its own
     /// first turn each seat paired its full army with a city, moved nothing, and handed its entire
-    /// treasury to that army's purse — where it stayed, since an army spends its purse only when buying
-    /// supply at a <em>foreign</em> city. From the next turn on
+    /// treasury to that army's purse — where it stayed, since an army spends its purse on
+    /// <see cref="SupplyPurchase"/> (buying supply at a foreign city) and <see cref="MercenaryDesertion"/>
+    /// (mercenary upkeep), neither of which this empty pairing triggers. From the next turn on
     /// <see cref="AiEconomyPhase.TurnBudget"/> was at or below zero, so
     /// <see cref="AiEconomyPhase.Propose"/> returned before proposing any recruitment at all, the army
     /// never grew, and <see cref="AiMilitaryPhase"/>'s siege ratio stayed between 20 and 106 permille

@@ -47,8 +47,9 @@ public sealed class AiSiegeGateTally
     public int Adjacent { get; private set; }
 
     /// <summary>
-    /// Turns on which the ruleset declared no archer unit type or no fortification order, so
-    /// <see cref="AiMilitaryPhase"/> could not have proposed a siege under any circumstances.
+    /// Counts once per army per turn: for each of the seat's own armies, whether the ruleset declared no
+    /// archer unit type or no fortification order, so <see cref="AiMilitaryPhase"/> could not have
+    /// proposed a siege for that army under any circumstances.
     /// </summary>
     public int RulesetCannotSiege { get; private set; }
 
@@ -137,7 +138,7 @@ public sealed class AiSiegeGateTally
 
     /// <summary>
     /// The one line this turn contributes to the per-seed log, or <see langword="null"/> when there was
-    /// nothing to say. Culture-invariant, for the reason <c>AiMilitaryPhase.Inv</c> gives.
+    /// nothing to say. Culture-invariant, for the reason <see cref="AiFormat"/> gives.
     /// </summary>
     public string? Describe()
     {
