@@ -26,6 +26,21 @@ namespace IC2.Engine.Tests.Ai;
 /// <c>24</c>) rather than written in as <c>24</c>, so a ruleset change moves these tests with it instead
 /// of silently decoupling from the rule they pin.
 /// </para>
+/// <para>
+/// <strong>Two worlds, not one, and that is deliberate (follow-up
+/// <see href="https://github.com/diegoami/imperial_conquest_2/issues/261">#261</see> O1).</strong>
+/// <see cref="Propose"/> builds its <see cref="AiView"/> on <see cref="OpenWorld"/>, the 30×30 fixture the
+/// paragraph above explains. A driven test instead calls <see cref="AiScriptedStates.DriveOneTurn"/>,
+/// which always plays the shipped 8×6 toy world regardless of what any given test's own state describes —
+/// so <see cref="An_adjacent_army_with_room_receives_the_unit_and_creates_no_new_one"/>'s
+/// <c>"receiving-army"</c> at <c>(6, 6)</c> sits just <em>outside</em> that world's bounds. This is
+/// harmless rather than a bug: <c>MobilizationReceivingArmy.Find</c> takes no <see cref="World"/> and
+/// never reads one, so nothing about the receiving-army search notices; and everywhere a driven turn's own
+/// world bounds would matter — a march or an attack that the toy world's extent would refuse — the
+/// mismatch would surface as a rejected command, which <c>Assert.Equal(0, driven.Outcome.CommandsRejected)</c>
+/// already catches in every test that drives one. The split therefore makes these tests stricter than a
+/// single shared world would, not weaker.
+/// </para>
 /// </remarks>
 public sealed class AiEconomyPhaseMobilizationTests
 {
@@ -349,6 +364,11 @@ public sealed class AiEconomyPhaseMobilizationTests
         Assert.Equal(
             Recruitment.MobilizationMinStateCodeAiSeat / Recruitment.MobilizationQualityDivisor,
             mobilized.Quality);
+
+        // Follow-up #261 O2, kept deliberately: a derived-vs-derived assertion can agree while both
+        // sides are wrong, so this literal anchors the expression above against vacuity. It is not
+        // DoD 2's forbidden literal 24 -- that threshold never appears here -- and it will need editing
+        // only if the toy ruleset's own readiness numbers move.
         Assert.Equal(6, mobilized.Quality);
 
         var remainingSlots = driven.Outcome.State.NationById(Acting)!.RecruitmentSlots;
