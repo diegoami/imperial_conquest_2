@@ -216,4 +216,24 @@ public sealed class ArmyNamingTests
 
         Assert.Throws<ArgumentException>(() => ArmyNaming.NextName(state, NorthNationId, "no-such-type"));
     }
+
+    /// <summary>
+    /// #245 N1: the original's scan filters on <c>troops &gt; 0</c> -- a vacated slot that still carries a
+    /// stale battalion name (exactly what <c>1_rome_270_autumn_1.sav</c> army 0, slot 13 shows: "4th
+    /// Guards  Battalion" with 0 troops behind twelve live units) must not be counted.
+    /// </summary>
+    [Fact]
+    public void NextName_SkipsAZeroTroopSlotEvenWithAHigherStaleOrdinal()
+    {
+        var withStaleSlot = Army("roman-k", NorthNationId, 1, 1, new[]
+        {
+            RegularUnit("1st Foot Battalion", "light_infantry"),
+            RegularUnit("9th Foot Battalion", "light_infantry", troops: 0), // stale, vacated slot.
+        });
+        var state = WithArmies(InitialState(), withStaleSlot);
+
+        // The live unit's highest is 1st, so next is 2nd -- the stale 9th-ordinal, zero-troop slot is
+        // ignored, exactly as the original's own troops > 0 filter would skip it.
+        Assert.Equal("2nd Foot Battalion", ArmyNaming.NextName(state, NorthNationId, "light_infantry"));
+    }
 }
