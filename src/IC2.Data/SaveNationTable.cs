@@ -52,8 +52,9 @@ public sealed class SaveNationTable
             // §"The relation matrix", 2026-09-24 addition. Unlike ReadName, a 27-byte leader with no
             // NUL at all is not treated as an error here: this is a defensive read of a field this
             // parser does not otherwise bound-check byte for byte (see ReadLeader's own remarks) —
-            // not a DAT property. Every one of the DAT's own 192 leader-pool candidates is in fact
-            // NUL-terminated well within 27 bytes (longest observed: 21 characters).
+            // not a DAT property. Measured directly on the DAT's leader-pool bytes at 0x2089A (T73
+            // review round 1, B2): every one of the 192 candidates is in fact NUL-terminated well
+            // within 27 bytes (longest: 21 characters).
             var leader = ReadLeader(data, offset + 11, 27);
             var relations = ReadRelationRow(data, offset + 0x26);
             if (name != NationCatalog.Name((ushort)i))
@@ -163,12 +164,14 @@ public sealed class SaveNationTable
     /// NUL appears within it, otherwise the whole <paramref name="length"/> bytes verbatim — unlike
     /// <see cref="ReadName"/>, a leader that fills its field exactly with no NUL is not treated as an
     /// error (Done-when line 2). This is a defensive allowance in this parser, not a documented DAT
-    /// property: every one of the DAT's own 192 leader-pool candidates (16 nations × 12, 26 bytes
-    /// each, <c>strcpy(record + 0x0b, leaderPool + i * 0x1a)</c>) is NUL-terminated, longest 21
-    /// characters — see docs/investigations/dat-file-layout.md ("Leader names ... are genuinely not
-    /// in the file" — assigned only at New Game, from that pool). An empty leader (a NUL at
-    /// <paramref name="offset"/> itself) is still rejected, exactly as <see cref="ReadName"/>
-    /// rejects an empty name: no DAT candidate or corpus SAV leader is ever empty.</summary>
+    /// property. The pool itself (16 nations × 12 candidates, 26 bytes each, <c>strcpy(record +
+    /// 0x0b, leaderPool + i * 0x1a)</c>) is documented in docs/investigations/dat-file-layout.md;
+    /// that a 26-byte slot cannot itself produce 27 non-NUL bytes, and that every one of the 192
+    /// candidates is in fact NUL-terminated (longest: 21 characters), was measured directly on the
+    /// DAT's leader-pool bytes at 0x2089A (T73 review round 1, B2/N7), not read from that document.
+    /// An empty leader (a NUL at <paramref name="offset"/> itself) is still rejected, exactly as
+    /// <see cref="ReadName"/> rejects an empty name — see
+    /// <c>NationRelationTests.An_empty_leader_is_rejected</c>.</summary>
     private static string ReadLeader(byte[] data, int offset, int length)
     {
         var nul = Array.IndexOf(data, (byte)0, offset, length);

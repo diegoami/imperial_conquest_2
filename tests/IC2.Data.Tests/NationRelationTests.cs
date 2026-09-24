@@ -125,4 +125,33 @@ public class NationRelationTests
         Assert.Equal("ABCDEFGHIJKLMNOPQRSTUVWXYZ1", nation.Leader);
         Assert.Equal((short)3, nation.Relations[0]);
     }
+
+    [Fact]
+    public void An_empty_leader_is_rejected()
+    {
+        // T73 review round 2, B3: ReadLeader's own doc comment (and MinimalSavWithNations') claims
+        // an empty leader "is still rejected, exactly as ReadName rejects an empty name", but nothing
+        // visited that edge — deleting the rejection at SaveNationTable.cs left every existing test
+        // green. Nation record leader offset is +0x0B (SaveNationTable.cs, the ParseSav leader-read
+        // comment); zeroing that byte makes the very first leader byte a NUL, i.e. an empty leader.
+        var data = SyntheticSaveBuilder.MinimalSavWithNations();
+        data[SyntheticSaveBuilder.NationRecordOffset(data, 0) + 0x0B] = 0;
+
+        var ex = Assert.Throws<InvalidDataException>(() => SaveNationTable.Parse(data));
+        Assert.Contains("Missing nation text", ex.Message);
+    }
+
+    [Fact]
+    public void An_empty_name_is_rejected()
+    {
+        // T73 review round 2's separate report: ReadName's own empty-name rejection predates this
+        // PR but lives in this task's Owns file (SaveNationTable.cs) and was likewise never visited —
+        // deleting it alongside the leader check above left every existing test green too. Nation
+        // record name offset is +0x00; zeroing that byte makes the very first name byte a NUL.
+        var data = SyntheticSaveBuilder.MinimalSavWithNations();
+        data[SyntheticSaveBuilder.NationRecordOffset(data, 0)] = 0;
+
+        var ex = Assert.Throws<InvalidDataException>(() => SaveNationTable.Parse(data));
+        Assert.Contains("Missing nation text", ex.Message);
+    }
 }
