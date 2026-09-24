@@ -73,4 +73,48 @@ public sealed class RepairFleetCommandHandlerTests
         var repaired = result.State.FleetById(fleet.Id)!;
         Assert.Equal(100, repaired.ConditionPercent); // clamped to the 100% cap, not 145%.
     }
+
+    /// <summary>
+    /// T70 review round 1, N1: a fleet at exactly the shipped ruleset radius (distance 1) from an owned
+    /// city can repair -- kills the accept-side boundary mutation at this site. Moved away from "portus"
+    /// (north's other city, (5, 2) in the toy world) rather than toward it, so this fixture is not
+    /// accidentally also within range of a second owned city.
+    /// </summary>
+    [Fact]
+    public void RepairAtExactlyTheRulesetRadius_IsAccepted()
+    {
+        var state = NavalTestbed.InitialState();
+        var nationId = state.Nations[0].Id;
+        var arx = state.CityById("arx")!; // (2, 1), owned by north.
+
+        var fleet = DamagedFleet("repair-boundary", nationId, arx.X - 1, arx.Y, ships: 20, condition: 70, moves: 5); // distance 1.
+        state = state with { Fleets = ValueList.Of(fleet) };
+
+        var dispatcher = NavalTestbed.RealEngineDispatcher();
+        var result = dispatcher.Dispatch(state, new RepairFleetCommand(nationId, fleet.Id, Points: 10));
+
+        Assert.True(result.IsAccepted, result.ToString());
+    }
+
+    /// <summary>
+    /// T70 review round 1, N1: a fleet one tile beyond the shipped ruleset radius (distance 2) from every
+    /// owned city is refused -- kills the reject-side boundary mutation at this site, which
+    /// <see cref="RepairAwayFromAnOwnedCity_IsRefused"/>'s far-away fixture does not.
+    /// </summary>
+    [Fact]
+    public void RepairOneTileBeyondTheRulesetRadius_IsRefused()
+    {
+        var state = NavalTestbed.InitialState();
+        var nationId = state.Nations[0].Id;
+        var arx = state.CityById("arx")!; // (2, 1), owned by north.
+
+        var fleet = DamagedFleet("repair-boundary-far", nationId, arx.X - 2, arx.Y, ships: 20, condition: 70, moves: 5); // distance 2.
+        state = state with { Fleets = ValueList.Of(fleet) };
+
+        var dispatcher = NavalTestbed.RealEngineDispatcher();
+        var result = dispatcher.Dispatch(state, new RepairFleetCommand(nationId, fleet.Id, Points: 10));
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(RepairFleetRejections.NotAtOwnedCity, result.Code);
+    }
 }

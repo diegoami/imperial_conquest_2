@@ -91,6 +91,32 @@ public sealed class BuySupplyCommandHandlerTests
     }
 
     /// <summary>
+    /// T70 review round 1, N1: the fleet-provider path's own adjacency gate (~:188) is refused one tile
+    /// beyond the shipped ruleset radius (distance 2) -- kills the reject-side boundary mutation at this
+    /// site. <c>BuySupplyCommandFleetProviderTests.ProviderFleetNotWithinRange_IsRefused</c> (T46's own
+    /// file, not this task's) uses a distance-7 fixture that would not catch an off-by-one shift in the
+    /// threshold.
+    /// </summary>
+    [Fact]
+    public void A_provider_fleet_one_tile_beyond_the_ruleset_radius_is_rejected_and_changes_nothing()
+    {
+        var dispatcher = Dispatcher();
+        var initial = CoreTestbed.InitialState();
+        var army = initial.ArmyById("north-army-1")!; // (3, 2).
+        var provider = new FleetState(
+            "boundary-provider-fleet", "north", X: 5, Y: 2, Moves: 4, Ships: 5, ConditionPercent: 90,
+            Money: 0, SupplyTons: 40, ConstructionTicksRemaining: null, BuildCityId: null, CarriedArmyId: null,
+            CoveredTileCode: null); // distance 2.
+        var before = initial with { Fleets = ValueList.From(initial.Fleets.Append(provider)) };
+
+        var result = dispatcher.Dispatch(
+            before, new BuySupplyCommand(before.ActiveNationId, army.Id, CityId: null, Tons: 10, provider.Id));
+
+        Assert.Equal(BuySupplyRejections.ProviderFleetNotWithinRange, result.Code);
+        Assert.Same(before, result.State);
+    }
+
+    /// <summary>
     /// T50 Done-when 5 (issue #167): the same confirmed <c>TAFSupply_FindProviders</c> gate refuses a
     /// city whose owner is at war with the buyer, regardless of range -- the army is moved onto meridia's
     /// own tile so only the war gate is under test, not adjacency.
