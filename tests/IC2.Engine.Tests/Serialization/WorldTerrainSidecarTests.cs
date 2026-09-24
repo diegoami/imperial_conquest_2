@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
@@ -6,6 +5,7 @@ using IC2.Engine.Model;
 using IC2.Engine.Serialization;
 using IC2.Engine.Tests.Export;
 using IC2.Engine.Tests.Model;
+using IC2.Engine.Tests.TestInfrastructure;
 using Xunit;
 
 // Deliberately not "IC2.Engine.Tests.Serialization": tests/IC2.Engine.Tests/Economy's own
@@ -296,17 +296,6 @@ public class WorldTerrainSidecarTests
 }
 
 /// <summary>
-/// Names the non-parallel xUnit collection <see cref="WorldTerrainExportReproducibilityTests"/> runs
-/// in (review finding B1).
-/// </summary>
-[CollectionDefinition(Name, DisableParallelization = true)]
-public sealed class WorldTerrainExportScriptCollection
-{
-    /// <summary>The collection name <see cref="WorldTerrainExportReproducibilityTests"/> declares.</summary>
-    public const string Name = "world-terrain-export-script";
-}
-
-/// <summary>
 /// DoD 3, the sidecar half: re-running the export must reproduce the committed sidecar byte-for-byte,
 /// exactly as <see cref="ExportScriptReproducibilityTests"/> already proves for the world/ruleset/
 /// scenario JSON. That test's own SHA256 check does not cover the sidecar (it predates T62 and is
@@ -314,22 +303,38 @@ public sealed class WorldTerrainExportScriptCollection
 /// same DAT-availability gate.
 /// </summary>
 /// <remarks>
+/// <para>
 /// Review finding B1: this test and <see cref="ExportScriptReproducibilityTests"/> both invoke
 /// <c>dotnet run scripts/export-classical-world.cs</c> as a separate process. Both compile that
 /// file-based app into the same content-hashed temp <c>obj/</c> directory, and two concurrent
 /// compiles of the same script collide there (<c>CS2012: Cannot open ... for writing</c>) --
 /// reproduced 3/3 by touching the script and running both test classes together. Splitting this one
-/// test into its own class in a <see cref="WorldTerrainExportScriptCollection"/> collection marked
-/// <c>DisableParallelization = true</c> is enough to fix it without touching
-/// <c>ExportScriptReproducibilityTests.cs</c> (outside this task's Owns list): xUnit runs every
-/// non-parallel collection strictly after all parallel collections -- including the Export tests'
-/// default one -- have finished, so the two exports can no longer overlap in time. The rest of this
-/// task's tests stay in <see cref="WorldTerrainSidecarTests"/>'s own default (parallel) collection,
-/// so only this one, already-slow, DAT-dependent test pays the sequencing cost.
+/// test into its own class in a non-parallel collection marked <c>DisableParallelization = true</c>
+/// is enough to fix it without touching <c>ExportScriptReproducibilityTests.cs</c> (outside this
+/// task's Owns list): xUnit runs every non-parallel collection strictly after all parallel
+/// collections -- including the Export tests' default one -- have finished, so the two exports can
+/// no longer overlap in time.
+/// </para>
+/// <para>
+/// T74 (bug #320): joins <see cref="DotnetRunScriptCollection"/>, the single non-parallel collection
+/// every dotnet-run test now shares in one place (superseding the narrower collection this class used
+/// to define and name itself), and runs through the shared <see cref="DotnetRunScriptRunner.Run"/>
+/// against <see cref="DotnetRunArtifactsFixture"/>'s isolated build-output directory, sharing the
+/// same "export-classical-world" subdirectory <see cref="ExportScriptReproducibilityTests"/> uses --
+/// both run this exact, unmodified script (see <see cref="RunExportScript"/>'s own remark for why
+/// that sharing is deliberate).
+/// </para>
 /// </remarks>
-[Collection(WorldTerrainExportScriptCollection.Name)]
+[Collection(DotnetRunScriptCollection.Name)]
 public class WorldTerrainExportReproducibilityTests
 {
+    public WorldTerrainExportReproducibilityTests(DotnetRunArtifactsFixture artifacts)
+    {
+        _artifacts = artifacts;
+    }
+
+    private readonly DotnetRunArtifactsFixture _artifacts;
+
     [SkippableFact]
     public void Rerunning_the_export_reproduces_the_committed_terrain_sidecar_byte_for_byte()
     {
@@ -364,8 +369,15 @@ public class WorldTerrainExportReproducibilityTests
         }
     }
 
-    /// <summary>Mirrors <see cref="ExportScriptReproducibilityTests"/>'s own identically-purposed helper.</summary>
-    private static (int ExitCode, string Stdout, string Stderr) RunExportScript()
+    /// <summary>
+    /// Mirrors <see cref="ExportScriptReproducibilityTests"/>'s own identically-purposed helper.
+    /// T74 (bug #320): routes through the shared <see cref="DotnetRunScriptRunner.Run"/>, sharing the
+    /// same "export-classical-world" artifacts subdirectory <see cref="ExportScriptReproducibilityTests"/>
+    /// uses -- both run this exact, unmodified script, so sharing one build output between them pays
+    /// the cold build once for the two of them rather than twice (see that class's own remark on
+    /// <c>RunExportScript</c> for the measurement).
+    /// </summary>
+    private (int ExitCode, string Stdout, string Stderr) RunExportScript()
     {
         var datPath = OriginalFilesAvailability.DatPath
                       ?? throw new InvalidOperationException("DatPath is null despite IsConfigured being true.");
@@ -377,19 +389,12 @@ public class WorldTerrainExportReproducibilityTests
         {
             File.WriteAllText(tempIni, $"[assets]{Environment.NewLine}directory = {assetsDirectory}{Environment.NewLine}");
 
-            var psi = new ProcessStartInfo("dotnet", $"run \"{ExportedDataPaths.ExportScript}\" \"{tempIni}\"")
-            {
-                WorkingDirectory = ExportedDataPaths.RepositoryRoot,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-            };
-
-            using var process = Process.Start(psi) ?? throw new InvalidOperationException("Failed to start dotnet run.");
-            var stdout = process.StandardOutput.ReadToEnd();
-            var stderr = process.StandardError.ReadToEnd();
-            process.WaitForExit();
-            return (process.ExitCode, stdout, stderr);
+            var result = DotnetRunScriptRunner.Run(
+                ExportedDataPaths.ExportScript,
+                Path.Combine(_artifacts.ArtifactsPath, "export-classical-world"),
+                ExportedDataPaths.RepositoryRoot,
+                tempIni);
+            return (result.ExitCode, result.Stdout, result.Stderr);
         }
         finally
         {

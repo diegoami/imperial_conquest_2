@@ -1,5 +1,5 @@
-using System.Diagnostics;
 using System.Security.Cryptography;
+using IC2.Engine.Tests.TestInfrastructure;
 using Xunit;
 
 namespace IC2.Engine.Tests.Export;
@@ -12,14 +12,31 @@ namespace IC2.Engine.Tests.Export;
 /// process to exit 0); re-running produces byte-identical output to what is already committed.
 /// </summary>
 /// <remarks>
+/// <para>
 /// Uses <c>Xunit.SkippableFact</c> (the package this task's widened Owns grant added to
 /// <c>IC2.Engine.Tests.csproj</c>, mirroring <c>IC2.Data.Tests.csproj</c>'s own reference for the
 /// identical reason): when the original files are not configured, <c>Skip.IfNot</c> reports a
 /// genuine xunit <c>Skipped</c> result, naming <see cref="OriginalFilesAvailability.SkipReason"/>,
 /// rather than a <c>Passed</c> that merely prints a message.
+/// </para>
+/// <para>
+/// T74 (bug #320): joins <see cref="DotnetRunScriptCollection"/>, the one non-parallel collection
+/// every dotnet-run test now shares, and runs through the shared
+/// <see cref="DotnetRunScriptRunner.Run"/> against <see cref="DotnetRunArtifactsFixture"/>'s isolated
+/// build-output directory instead of a private <c>ProcessStartInfo</c> call -- see that runner's own
+/// remarks for why.
+/// </para>
 /// </remarks>
+[Collection(DotnetRunScriptCollection.Name)]
 public class ExportScriptReproducibilityTests
 {
+    public ExportScriptReproducibilityTests(DotnetRunArtifactsFixture artifacts)
+    {
+        _artifacts = artifacts;
+    }
+
+    private readonly DotnetRunArtifactsFixture _artifacts;
+
     [SkippableFact]
     public void Rerunning_the_export_reproduces_the_committed_files_byte_for_byte()
     {
@@ -56,7 +73,17 @@ public class ExportScriptReproducibilityTests
     /// reason -- the export script's own <c>AssetSettings.Load</c> only understands an ini file, and
     /// is outside this task's Owns list to change.
     /// </summary>
-    private static (int ExitCode, string Stdout, string Stderr) RunExportScript()
+    /// <remarks>
+    /// T74 (bug #320): the "export-classical-world" artifacts subdirectory is the same one
+    /// <c>WorldTerrainExportReproducibilityTests</c> uses -- both run this exact, unmodified script
+    /// (<see cref="ExportedDataPaths.ExportScript"/>), so sharing one build output between them
+    /// reuses the same cold build both ways, exactly as the default, unisolated
+    /// <c>%TEMP%\dotnet\runfile\</c> cache already did for both before this task (measured: sharing
+    /// costs one ~35 s cold build across the two tests combined; not sharing would pay it twice).
+    /// Only <c>ExportScriptToyGuardTests</c>' differently-sourced, same-named scratch copy of the
+    /// script needs its own, separate subdirectory.
+    /// </remarks>
+    private (int ExitCode, string Stdout, string Stderr) RunExportScript()
     {
         var datPath = OriginalFilesAvailability.DatPath
                       ?? throw new InvalidOperationException("DatPath is null despite IsConfigured being true.");
@@ -68,19 +95,12 @@ public class ExportScriptReproducibilityTests
         {
             File.WriteAllText(tempIni, $"[assets]{Environment.NewLine}directory = {assetsDirectory}{Environment.NewLine}");
 
-            var psi = new ProcessStartInfo("dotnet", $"run \"{ExportedDataPaths.ExportScript}\" \"{tempIni}\"")
-            {
-                WorkingDirectory = ExportedDataPaths.RepositoryRoot,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-            };
-
-            using var process = Process.Start(psi) ?? throw new InvalidOperationException("Failed to start dotnet run.");
-            var stdout = process.StandardOutput.ReadToEnd();
-            var stderr = process.StandardError.ReadToEnd();
-            process.WaitForExit();
-            return (process.ExitCode, stdout, stderr);
+            var result = DotnetRunScriptRunner.Run(
+                ExportedDataPaths.ExportScript,
+                Path.Combine(_artifacts.ArtifactsPath, "export-classical-world"),
+                ExportedDataPaths.RepositoryRoot,
+                tempIni);
+            return (result.ExitCode, result.Stdout, result.Stderr);
         }
         finally
         {
