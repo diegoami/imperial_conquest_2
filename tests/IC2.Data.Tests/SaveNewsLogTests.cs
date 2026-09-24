@@ -121,6 +121,68 @@ public class SaveNewsLogTests
     }
 
     [Fact]
+    public void Stale_bytes_after_a_slots_nul_are_ignored()
+    {
+        // T73 review round 1, N4 / hazard 3: bytes after a slot's NUL are the slot's previous
+        // contents (stale residue), not corruption — the writer's full-log shift copies the whole
+        // 61-byte slot, and StrCopy overwrites only up to the new NUL. Only the text up to the NUL is
+        // validated or returned; residue bytes are not even ASCII-range-checked.
+        var withNations = SyntheticSaveBuilder.MinimalSavWithFleets(0, 0);
+        var withNews = SyntheticSaveBuilder.AppendMercenaryTableAndNews(withNations, 0, "Hi");
+        var slotStart = withNations.Length + SaveMercenaryTable.RecordCount * SaveMercenaryTable.RecordLength + 2;
+        // "Hi" is 2 bytes; byte 2 is the NUL AppendMercenaryTableAndNews already wrote. Fill every
+        // byte after it with non-zero residue, including bytes outside 0x20-0x7E — if these were
+        // validated (or leaked into the text), this would either throw or change the parsed slot.
+        for (var i = 3; i < SaveNewsLog.SlotLength; i++)
+            withNews[slotStart + i] = (byte)(0x80 + i);
+        var full = SyntheticSaveBuilder.AppendTrailer(withNews,
+            turnOrder: new ushort[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 },
+            turnOrderIndex: 0, currentNation: 0, week: 1, yearBc: 270, season: 0);
+
+        var log = SaveNewsLog.Parse(full);
+
+        Assert.Equal("Hi", log.Slots[0]);
+    }
+
+    [Fact]
+    public void A_news_index_above_39_is_rejected()
+    {
+        // T73 review round 1, N3: no test previously visited SaveNewsLog.cs's newsIndex range check.
+        var data = BuildWithRawNewsIndex(40);
+
+        var ex = Assert.Throws<InvalidDataException>(() => SaveNewsLog.Parse(data));
+        Assert.Contains("outside -1..39", ex.Message);
+    }
+
+    [Fact]
+    public void A_news_index_below_minus_one_is_rejected()
+    {
+        var data = BuildWithRawNewsIndex(-2);
+
+        var ex = Assert.Throws<InvalidDataException>(() => SaveNewsLog.Parse(data));
+        Assert.Contains("outside -1..39", ex.Message);
+    }
+
+    /// <summary>Builds just enough of a SAV to reach <see cref="SaveNewsLog"/>'s own
+    /// <c>newsIndex</c> range check: the nation table, a zero-filled 600-byte mercenary table, and
+    /// the raw <paramref name="newsIndex"/> bytes — no slots and no trailer, since the range check
+    /// runs before either is sized or read.</summary>
+    private static byte[] BuildWithRawNewsIndex(short newsIndex)
+    {
+        var withNations = SyntheticSaveBuilder.MinimalSavWithFleets(0, 0);
+        var mercenaryTable = new byte[SaveMercenaryTable.RecordCount * SaveMercenaryTable.RecordLength];
+        var newsIndexBytes = new byte[2];
+        System.Buffers.Binary.BinaryPrimitives.WriteInt16LittleEndian(newsIndexBytes, newsIndex);
+
+        var result = new byte[withNations.Length + mercenaryTable.Length + newsIndexBytes.Length];
+        var pos = 0;
+        System.Array.Copy(withNations, 0, result, pos, withNations.Length); pos += withNations.Length;
+        System.Array.Copy(mercenaryTable, 0, result, pos, mercenaryTable.Length); pos += mercenaryTable.Length;
+        System.Array.Copy(newsIndexBytes, 0, result, pos, newsIndexBytes.Length);
+        return result;
+    }
+
+    [Fact]
     public void On_the_configured_machine_the_dat_seed_matches_the_report_and_slots_27_to_39_are_empty()
     {
         Skip.IfNot(LocalAssets.IsConfigured, LocalAssets.SkipReason);

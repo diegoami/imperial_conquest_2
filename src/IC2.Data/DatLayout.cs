@@ -67,16 +67,16 @@ internal static class DatLayout
     // §"The relation matrix", 2026-09-24 addition. This is also the read-order table's second row
     // (32 bytes, immediately after the 11-byte name), consistent with the running sum above.
     internal const int NationRelationOffset = 0x00B; // 11 decimal == NationNameOffset + NationNameLength
-    internal const int NationRelationLength = 32; // 16 x signed int16
 
     // ---- The news log's DAT seed: the file's last 2,440 bytes (T73, bug #321) ----
     // "The DAT loader reads the last 2,440 bytes of the DAT (0x21C1A) straight into all 40 slots
     // (news_log_decomp.txt line 230: Read(&DAT_0049f994, 0x988))... FUN_00448AA4 then sets
     // newsIndex = 0x1A (line 30)." — the DAT itself stores only the 40 slots, never the index; see
     // https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/news-log-format-and-messages.md
-    // §Q1, "The DAT seeds the log, and a new game starts at index 26".
-    internal const int NewsSeedSlotCount = 40;
-    internal const int NewsSeedLength = NewsSeedSlotCount * SaveNewsLog.SlotLength; // 2,440
+    // §Q1, "The DAT seeds the log, and a new game starts at index 26". The slot count itself is
+    // SaveNewsLog.MaxSlotCount — the SAV's own bound (newsIndex -1..39) and the DAT's slot count are
+    // the same "40", so there is one constant for it, not two (T73 review round 1, N6).
+    internal const int NewsSeedLength = SaveNewsLog.MaxSlotCount * SaveNewsLog.SlotLength; // 2,440
 }
 
 /// <summary>Thrown when code asks a parser for something the DAT genuinely does not store — a whole

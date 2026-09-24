@@ -139,10 +139,12 @@ internal static class SyntheticSaveBuilder
 
     /// <summary>Builds a SAV-shaped byte array with zero armies/fleets and a complete, correctly-named
     /// 16-record nation table — the minimum <see cref="SaveNationTable.Parse"/> needs, since it
-    /// checks every name against <see cref="NationCatalog"/>. Every record starts zero-filled (an
-    /// all-zero leader, an all-peace relation row: diagonal 0, every other entry 0, which is a valid
-    /// — if uninteresting — matrix), so a test only needs to write the specific bytes its scenario
-    /// cares about via <see cref="NationRecordOffset"/> and the writers below.</summary>
+    /// checks every name against <see cref="NationCatalog"/> and (T73 review round 1, N1) rejects an
+    /// empty leader field just as it rejects an empty name. Every record gets a placeholder leader
+    /// ("Leader &lt;code&gt;") alongside its name, and starts with an all-peace relation row
+    /// (diagonal 0, every other entry 0, a valid — if uninteresting — matrix), so a test only needs
+    /// to write the specific bytes its scenario cares about via <see cref="NationRecordOffset"/> and
+    /// the writers below.</summary>
     public static byte[] MinimalSavWithNations()
     {
         var data = MinimalSavWithFleets(0, 0);
@@ -152,6 +154,8 @@ internal static class SyntheticSaveBuilder
             var nameBytes = System.Text.Encoding.ASCII.GetBytes(NationCatalog.Name((ushort)i));
             Array.Copy(nameBytes, 0, data, offset, nameBytes.Length);
             // Byte after the name stays 0 (NUL) — the array starts zero-filled.
+            var leaderBytes = System.Text.Encoding.ASCII.GetBytes($"Leader {i}");
+            Array.Copy(leaderBytes, 0, data, offset + NationLeaderOffset, leaderBytes.Length);
         }
         return data;
     }

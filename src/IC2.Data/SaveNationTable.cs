@@ -1,6 +1,7 @@
 using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Text;
 
@@ -49,8 +50,10 @@ public sealed class SaveNationTable
             // Confirmed on 1_rome_270_summer_7.sav — see DatLayout's relation-row remarks and
             // https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-diplomacy-peace-terms-and-instant-battles.md
             // §"The relation matrix", 2026-09-24 addition. Unlike ReadName, a 27-byte leader with no
-            // NUL at all is not an error: the DAT's leader pool packs some candidates to fill the
-            // field exactly (see ReadLeader's own remarks).
+            // NUL at all is not treated as an error here: this is a defensive read of a field this
+            // parser does not otherwise bound-check byte for byte (see ReadLeader's own remarks) —
+            // not a DAT property. Every one of the DAT's own 192 leader-pool candidates is in fact
+            // NUL-terminated well within 27 bytes (longest observed: 21 characters).
             var leader = ReadLeader(data, offset + 11, 27);
             var relations = ReadRelationRow(data, offset + 0x26);
             if (name != NationCatalog.Name((ushort)i))
@@ -158,15 +161,19 @@ public sealed class SaveNationTable
 
     /// <summary>Reads the leader field: up to <paramref name="length"/> bytes, NUL-terminated if a
     /// NUL appears within it, otherwise the whole <paramref name="length"/> bytes verbatim — unlike
-    /// <see cref="ReadName"/>, a leader that fills its field exactly with no NUL is not an error. The
-    /// DAT's 12-candidate-per-nation leader pool (26 bytes per candidate) packs some names to fill
-    /// the field, and nothing in the save/load code requires a trailing NUL the way the nation/city
-    /// name fields do. See docs/investigations/dat-file-layout.md ("Leader names ... are genuinely
-    /// not in the file" — assigned only at New Game, from that pool).</summary>
+    /// <see cref="ReadName"/>, a leader that fills its field exactly with no NUL is not treated as an
+    /// error (Done-when line 2). This is a defensive allowance in this parser, not a documented DAT
+    /// property: every one of the DAT's own 192 leader-pool candidates (16 nations × 12, 26 bytes
+    /// each, <c>strcpy(record + 0x0b, leaderPool + i * 0x1a)</c>) is NUL-terminated, longest 21
+    /// characters — see docs/investigations/dat-file-layout.md ("Leader names ... are genuinely not
+    /// in the file" — assigned only at New Game, from that pool). An empty leader (a NUL at
+    /// <paramref name="offset"/> itself) is still rejected, exactly as <see cref="ReadName"/>
+    /// rejects an empty name: no DAT candidate or corpus SAV leader is ever empty.</summary>
     private static string ReadLeader(byte[] data, int offset, int length)
     {
         var nul = Array.IndexOf(data, (byte)0, offset, length);
         var end = nul >= 0 ? nul : offset + length;
+        if (end <= offset) throw new InvalidDataException($"Missing nation text at {offset:X}.");
         for (var p = offset; p < end; p++)
             if (data[p] < 0x20 || data[p] > 0x7e)
                 throw new InvalidDataException($"Non-ASCII leader text at {p:X}.");
@@ -180,7 +187,7 @@ public sealed class NationRecord
 
     internal NationRecord(ushort code, string name, string? leader, int treasury, ushort unityValue,
         ushort mobilizedPercent, ushort capitalCityIndex, ushort cityCount, ushort taxRatePercent,
-        int wealth, short taxBase, bool? humanPlayer, SaveFileFormat source, IReadOnlyList<short> relations)
+        int wealth, short taxBase, bool? humanPlayer, SaveFileFormat source, short[] relations)
     {
         Code = code;
         Name = name;
@@ -195,7 +202,10 @@ public sealed class NationRecord
         TaxBase = taxBase;
         _humanPlayer = humanPlayer;
         Source = source;
-        Relations = relations;
+        // Array.AsReadOnly, not the array itself cast to IReadOnlyList<short>: a caller that casts
+        // the interface back to short[] must not be able to reach (and mutate) the backing array —
+        // N6, T73 review round 1.
+        Relations = Array.AsReadOnly(relations);
     }
 
     public ushort Code { get; }

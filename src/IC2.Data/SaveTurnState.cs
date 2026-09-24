@@ -1,6 +1,7 @@
 using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 
 namespace IC2.Data;
@@ -15,13 +16,16 @@ namespace IC2.Data;
 public sealed class SaveTurnState
 {
     private SaveTurnState(ushort currentNationCode, ushort week, ushort yearBc, ushort seasonCode,
-        IReadOnlyList<ushort> turnOrder, ushort turnOrderIndex)
+        ushort[] turnOrder, ushort turnOrderIndex)
     {
         CurrentNationCode = currentNationCode;
         Week = week;
         YearBc = yearBc;
         SeasonCode = seasonCode;
-        TurnOrder = turnOrder;
+        // Array.AsReadOnly, not the array itself cast to IReadOnlyList<ushort>: a caller that casts
+        // the interface back to ushort[] must not be able to reach (and mutate) the backing array —
+        // N6, T73 review round 1.
+        TurnOrder = Array.AsReadOnly(turnOrder);
         TurnOrderIndex = turnOrderIndex;
     }
 

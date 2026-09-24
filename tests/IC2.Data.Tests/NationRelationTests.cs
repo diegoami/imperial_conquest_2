@@ -42,15 +42,17 @@ public class NationRelationTests
     [Fact]
     public void A_deep_cooldown_at_the_documented_floor_parses()
     {
-        // -24: the alliance-broken-off cooldown FUN_00449B40 writes — the most negative value any
-        // documented writer produces, and SaveNationTable.MinRelationValue's own floor.
+        // -24, written as a literal (T73 review round 1, N2) so this pins the actual cited value —
+        // the alliance-broken-off cooldown FUN_00449B40 writes, the most negative value any
+        // documented writer produces — rather than whatever SaveNationTable.MinRelationValue happens
+        // to hold if that constant is ever mutated.
         var data = SyntheticSaveBuilder.MinimalSavWithNations();
-        SyntheticSaveBuilder.SetSymmetricRelation(data, 2, 11, SaveNationTable.MinRelationValue);
+        SyntheticSaveBuilder.SetSymmetricRelation(data, 2, 11, -24);
 
         var nations = SaveNationTable.Parse(data).Nations;
 
-        Assert.Equal(SaveNationTable.MinRelationValue, nations[2].Relations[11]);
-        Assert.Equal(SaveNationTable.MinRelationValue, nations[11].Relations[2]);
+        Assert.Equal((short)-24, nations[2].Relations[11]);
+        Assert.Equal((short)-24, nations[11].Relations[2]);
     }
 
     [Fact]
@@ -78,8 +80,11 @@ public class NationRelationTests
     [Fact]
     public void A_value_above_war_is_rejected()
     {
+        // 4, a literal one past war (3) — T73 review round 1, N2: written as a literal, not
+        // MaxRelationValue + 1, so this pins the cited upper bound instead of tracking a mutated
+        // constant.
         var data = SyntheticSaveBuilder.MinimalSavWithNations();
-        SyntheticSaveBuilder.SetSymmetricRelation(data, 0, 1, (short)(SaveNationTable.MaxRelationValue + 1));
+        SyntheticSaveBuilder.SetSymmetricRelation(data, 0, 1, 4);
 
         var ex = Assert.Throws<InvalidDataException>(() => SaveNationTable.Parse(data));
         Assert.Contains("outside", ex.Message);
@@ -88,8 +93,9 @@ public class NationRelationTests
     [Fact]
     public void A_cooldown_below_the_documented_floor_is_rejected()
     {
+        // -25, a literal one past the documented floor (-24) — same reasoning as the test above.
         var data = SyntheticSaveBuilder.MinimalSavWithNations();
-        SyntheticSaveBuilder.SetSymmetricRelation(data, 0, 1, (short)(SaveNationTable.MinRelationValue - 1));
+        SyntheticSaveBuilder.SetSymmetricRelation(data, 0, 1, -25);
 
         var ex = Assert.Throws<InvalidDataException>(() => SaveNationTable.Parse(data));
         Assert.Contains("outside", ex.Message);
@@ -101,14 +107,22 @@ public class NationRelationTests
         // A leader that fills all 27 bytes with NO NUL, immediately followed by a non-zero relation
         // row (Done-when line 2's own scenario): the leader must read back as exactly those 27
         // characters, and the relation row bytes must not have been consumed as leader text.
+        //
+        // T73 review round 1, B1: this must NOT use nation 0. Nation 0's own diagonal entry
+        // Relations[0] is always 0 (every nation's diagonal is 0), so a read that runs past +0x26
+        // still finds a NUL right there and returns the same 27 characters — a 34-byte mutation
+        // stays green. Nation 1's relation TOWARD nation 0 (Relations[0], the row's first entry, at
+        // +0x26) is set to 3 (war) instead, so the byte immediately after the 27-byte leader is
+        // non-zero: a read past 27 bytes pulls that byte (0x03, outside 0x20-0x7E) into the leader
+        // and throws, which is what actually distinguishes 27 from 34.
         var data = SyntheticSaveBuilder.MinimalSavWithNations();
         var leaderBytes = System.Text.Encoding.ASCII.GetBytes("ABCDEFGHIJKLMNOPQRSTUVWXYZ1"); // 27 chars
-        SyntheticSaveBuilder.WriteNationLeaderBytes(data, 0, leaderBytes);
-        SyntheticSaveBuilder.SetSymmetricRelation(data, 0, 6, 3);
+        SyntheticSaveBuilder.WriteNationLeaderBytes(data, 1, leaderBytes);
+        SyntheticSaveBuilder.SetSymmetricRelation(data, 1, 0, 3);
 
-        var rome = SaveNationTable.Parse(data).Nations[0];
+        var nation = SaveNationTable.Parse(data).Nations[1];
 
-        Assert.Equal("ABCDEFGHIJKLMNOPQRSTUVWXYZ1", rome.Leader);
-        Assert.Equal((short)3, rome.Relations[6]);
+        Assert.Equal("ABCDEFGHIJKLMNOPQRSTUVWXYZ1", nation.Leader);
+        Assert.Equal((short)3, nation.Relations[0]);
     }
 }

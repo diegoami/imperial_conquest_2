@@ -24,9 +24,12 @@ public sealed class SaveNewsLog
     /// <summary>The fixed size of one news slot: up to 60 bytes of ASCII text, NUL-terminated.</summary>
     public const int SlotLength = 61;
 
-    /// <summary>The SAV's ring-buffer capacity — 40 slots, indices 0–39. A DAT-sourced log always has
-    /// exactly this many slots (see <see cref="DatLayout.NewsSeedSlotCount"/>); a SAV-sourced log has
-    /// <c>NewestIndex + 1</c> of them, since the SAV never stores more than it has used.</summary>
+    /// <summary>The ring buffer's capacity — 40 slots, indices 0–39. A DAT-sourced log always has
+    /// exactly this many slots (see <see cref="DatLayout.NewsSeedLength"/>, which is defined in terms
+    /// of this constant); a SAV-sourced log has <c>NewestIndex + 1</c> of them, since the SAV never
+    /// stores more than it has used. The one constant for "40" — not duplicated in
+    /// <see cref="DatLayout"/> — since it bounds both the SAV's <c>newsIndex</c> and the DAT's own
+    /// slot count.</summary>
     public const int MaxSlotCount = 40;
 
     private readonly int? _newestIndex;
@@ -100,7 +103,7 @@ public sealed class SaveNewsLog
     private static SaveNewsLog ParseDat(byte[] data)
     {
         var seedStart = data.Length - DatLayout.NewsSeedLength;
-        var slots = new string[DatLayout.NewsSeedSlotCount];
+        var slots = new string[MaxSlotCount];
         for (var i = 0; i < slots.Length; i++)
             slots[i] = ReadSlotText(data, seedStart + i * SlotLength);
         return new SaveNewsLog(newestIndex: null, slots, SaveFileFormat.Dat);
