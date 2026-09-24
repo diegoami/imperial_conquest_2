@@ -2,6 +2,7 @@ using IC2.Engine.Model;
 using IC2.Engine.Presentation;
 using IC2.Engine.Tests.Core;
 using Xunit;
+using CaptureFixtures = IC2.Engine.Tests.Cities.Capture.CaptureTestbed;
 
 namespace IC2.Engine.Tests.Presentation;
 
@@ -136,6 +137,138 @@ public sealed class GameSessionCommandsTests
             newsLines.Count > 2,
             $"Expected more than the round header alone (2 entries); got {newsLines.Count}: {string.Join(" | ", newsLines)}");
         Assert.Contains(newsLines, line => line.Contains("Week", StringComparison.Ordinal));
+    }
+
+    // ---- #256: HandleEnd's dash-wrapped-elimination sub-case (T23 Done-when 3's remaining sub-case) ----
+
+    /// <summary>
+    /// <c>docs/task-catalogue.md</c> T23 Done-when 3's remaining sub-case, follow-up
+    /// <see href="https://github.com/diegoami/imperial_conquest_2/issues/256">#256</see>: a round whose
+    /// entries include a <em>dash-wrapped</em> elimination (<c>NewsMessageCatalog.IsWrappedInDashLines</c>
+    /// only wraps <c>nation.conquered</c>, not an ordinary conquest). Reaching it needs an AI seat to
+    /// besiege, capture and eliminate a nation within its own turn: a <em>human</em>-issued besiege win is
+    /// flushed by <c>IssueCommand</c>'s own <c>NewsLogWriter.Append</c> call before <c>HandleEnd</c>'s
+    /// <c>newsBefore</c> line ever runs, so it can never land inside a round's own news window.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A scripted world, not the shipped toy scenario as-is: the toy world's own armies cannot besiege its
+    /// own cities at all (issue #267 -- their populations are far above what either nation's economy can
+    /// field). So <c>north</c> here keeps its cities and its nation record (treasury zeroed, so economy
+    /// proposes nothing -- only military and diplomacy compete for each pass), but its one starting army
+    /// is replaced by a single overwhelming archer force -- the same 400,000-archer count
+    /// <c>AiSiegeGateTallyTests.An_adjacent_army_strong_enough_is_recorded_as_a_proposal</c> already proves
+    /// clears the ratio gate against an equally fortified, equally or more populous city.
+    /// </para>
+    /// <para>
+    /// <strong>Two rounds, not one (review round 1, B1).</strong> The army starts two tiles from
+    /// <c>south</c>'s only city (<c>meridia</c>, at (3, 4)) with exactly one move point, so round 1's
+    /// <c>end</c> cannot reach the siege: with north and south still at peace and no economy candidate on
+    /// offer, round 1's own turn actually proposes and forms an alliance (a diplomacy candidate) ahead of
+    /// the march, and the march still runs (a lower-scored second action) -- <c>MoveArmyCommandHandler</c>
+    /// stops the army at the bordering tile, and the spent move point then makes
+    /// <c>AiMilitaryPhase.Propose</c>'s own <c>army.Moves &lt;= 0</c> gate skip it for the rest of that
+    /// turn, so no siege is proposed yet. Only round 2's <c>end</c> -- a fresh turn, moves replenished, now
+    /// adjacent -- besieges, captures and eliminates <c>south</c> (declaring war overrides the alliance
+    /// round 1 formed; nothing here relies on that not happening). This is what makes "every entry the
+    /// round appended" a real claim rather than "the whole log": round 1 leaves a non-empty log behind
+    /// (the alliance announcement plus its own header), <c>countBeforeRound2</c> pins it, and round 2's
+    /// assertions check growth from that mark, not from empty. <c>south</c> plays first each round, as the
+    /// human seat, and does nothing but end its turn.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void HandleEnd_prints_the_dash_wrapped_elimination_from_an_ai_seats_own_turn()
+    {
+        var toy = CoreTestbed.Toy;
+        var world = toy.World with
+        {
+            Nations = ValueList.Of(
+                toy.World.NationById("north")! with { Treasury = 0 },
+                toy.World.NationById("south")! with { Treasury = 0 }),
+            StartingArmies = ValueList.Of(
+                new StartingArmy(
+                    "north-overwhelming-army", "north", X: 3, Y: 2, Morale: 60, Money: 0, SupplyTons: 0,
+                    Moves: 1, Units: ValueList.Of(CaptureFixtures.Unit("archers", 400_000)))),
+
+            // south goes first (human, does nothing but end its turn) so every AI decision happens on
+            // north's own turn -- inside HandleEnd's while loop, not the unconditional first RunTurn
+            // call, and not a human-issued command flushed before newsBefore is read.
+            TurnOrder = ValueList.Of("south", "north"),
+        };
+        var scenario = toy.Scenario with
+        {
+            Seats = ValueList.Of(
+                new Seat("south", SeatControl.Human),
+                new Seat(
+                    "north", SeatControl.Ai,
+                    new AiPersonality(Aggression: 0.5, ExpansionDrive: 0.5, LoyaltyToAlliances: 0.5))),
+        };
+        var session = new GameSession(world, toy.Ruleset, scenario);
+        Assert.Empty(session.State.NewsLog.Slots);
+
+        // Round 1: the approach march only. Asserted explicitly so the fixture's own claim -- "not yet
+        // adjacent, not yet eliminated" -- is pinned rather than assumed.
+        session.Submit("end");
+        Assert.False(
+            session.State.NationById("south")!.Eliminated, "round 1 must only march the army into place");
+        var round1Lines = session.State.NewsLog.Slots.Select(s => s.Text).ToList();
+        var countBeforeRound2 = session.State.NewsLog.Slots.Count;
+        Assert.True(countBeforeRound2 > 0, "round 1 must leave the log non-empty, or round 2 proves nothing");
+
+        // Round 2: adjacent now, moves replenished -- the siege, the capture and the elimination.
+        var output = session.Submit("end");
+
+        Assert.True(
+            session.State.NationById("south")!.Eliminated,
+            "expected south's only city to fall this round and eliminate it");
+
+        var newsIndex = output.Lines.ToList().IndexOf("News:");
+        Assert.True(newsIndex >= 0, "Expected a \"News:\" section after the round that eliminates south.");
+
+        var newsLines = output.Lines.Skip(newsIndex + 1).ToList();
+        newsLines.RemoveAt(newsLines.Count - 1); // Submit()'s own trailing blank separator, not a news entry.
+        var trimmed = newsLines.Select(l => l.Trim()).ToList();
+
+        // The DoD's own claim, made against a log that already has round 1's content in it: every entry
+        // THIS round appended is printed -- not the header alone, and not the whole log either. Because
+        // round 1 is non-empty, a fixed trailing count that overshoots round 2's own growth pulls in
+        // round 1's tail and fails both this count and the exact-sequence check below (shown in the PR
+        // for k = 10 and k = 50; k = 9 happens to equal this round's own true count and is expected to
+        // still pass -- see the PR body for why that is not a gap).
+        var appendedCount = session.State.NewsLog.Slots.Count - countBeforeRound2;
+        Assert.Equal(appendedCount, newsLines.Count);
+
+        // Round 1's own (non-blank) content must not reappear in round 2's printed lines. Blank
+        // separators are excluded: every round's header includes one, so blank-to-blank equality is
+        // meaningless as a leak check.
+        foreach (var round1Line in round1Lines)
+        {
+            var round1Trimmed = round1Line.Trim();
+            if (round1Trimmed.Length == 0)
+            {
+                continue;
+            }
+
+            Assert.DoesNotContain(
+                trimmed, line => string.Equals(line, round1Trimmed, StringComparison.Ordinal));
+        }
+
+        // The exact appended sequence, in order: the war declaration, an ordinary city-capture line, the
+        // dash-wrapped elimination, then this round's own two headers (south's quiet turn, then north's)
+        // -- not merely "contains a dash line somewhere", which a wrong trailing count could still
+        // satisfy by accident.
+        const string dashLine = "-----------------------------------------------------------";
+        Assert.Equal(9, trimmed.Count);
+        Assert.Contains("DECLARES WAR", trimmed[0], StringComparison.Ordinal);
+        Assert.Contains("falls to", trimmed[1], StringComparison.Ordinal);
+        Assert.Equal(dashLine, trimmed[2]);
+        Assert.Contains("conquers", trimmed[3], StringComparison.Ordinal);
+        Assert.Equal(dashLine, trimmed[4]);
+        Assert.Equal(string.Empty, trimmed[5]);
+        Assert.Contains("Week", trimmed[6], StringComparison.Ordinal);
+        Assert.Equal(string.Empty, trimmed[7]);
+        Assert.Contains("Week", trimmed[8], StringComparison.Ordinal);
     }
 
     // ---- #100 item 2: season names come from the ruleset, not a hardcoded duplicate ----

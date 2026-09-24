@@ -1,7 +1,3 @@
-using System.Diagnostics;
-using System.Globalization;
-using System.Text;
-using IC2.Engine.Ai;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -19,6 +15,12 @@ namespace IC2.Engine.Tests.Ai;
 /// one case, it times itself, and it fails on the budget as hard as it fails on a rejected command.
 /// </para>
 /// <para>
+/// <strong>The soak itself runs once per test run, not once per fact (#237 N2).</strong> Both facts below
+/// share the one run in <see cref="AiSoakFixture.Report"/>, built once by xUnit's
+/// <c>IClassFixture&lt;AiSoakFixture&gt;</c> before either fact runs. See <see cref="AiSoakFixture"/> for
+/// how a thrown or partial soak still fails both facts rather than being cached as a false green.
+/// </para>
+/// <para>
 /// <strong>A seed that reaches the turn cap passes.</strong> Done-when 2 says so in as many words. What
 /// this test asserts about endings is only that every seed <em>ended</em> — by a victory, by the
 /// condition's own hard limit, or by the cap — and never that any seed won. See
@@ -26,28 +28,24 @@ namespace IC2.Engine.Tests.Ai;
 /// actually produces and why.
 /// </para>
 /// </remarks>
-public sealed class AiSoakTests
+public sealed class AiSoakTests : IClassFixture<AiSoakFixture>
 {
+    private readonly AiSoakFixture _fixture;
     private readonly ITestOutputHelper _output;
 
-    /// <summary>The Done-when 2 budget: five minutes of wall clock for the whole soak, asserted.</summary>
-    private static readonly TimeSpan Budget = TimeSpan.FromMinutes(5);
-
-    public AiSoakTests(ITestOutputHelper output) => _output = output;
-
-    /// <summary>
-    /// Where the per-seed logs land: a directory beside the test assembly, so a developer or a CI job can
-    /// collect it as an artifact without the tests needing to know anything about the build layout.
-    /// </summary>
-    public static string LogDirectory { get; } = Path.Combine(AppContext.BaseDirectory, "ai-soak-logs");
+    public AiSoakTests(AiSoakFixture fixture, ITestOutputHelper output)
+    {
+        _fixture = fixture;
+        _output = output;
+    }
 
     [Fact]
     public void Fifty_fixed_seeds_run_an_all_ai_game_to_a_decision_with_no_exception_rejection_or_stall()
     {
-        var report = RunSoak();
+        var report = _fixture.Report;
 
         _output.WriteLine(report.Summary);
-        _output.WriteLine("per-seed logs: " + LogDirectory);
+        _output.WriteLine("per-seed logs: " + AiSoakFixture.LogDirectory);
 
         // Done-when 1, the three "zero"s. Each is reported with the seeds that broke it, because
         // "reproducible from its number alone" is worthless if the failure does not say the number.
@@ -68,14 +66,14 @@ public sealed class AiSoakTests
 
         // Done-when 2, asserted rather than reported.
         Assert.True(
-            report.Elapsed < Budget,
-            $"the 50-seed soak must finish inside {Budget.TotalMinutes} minutes so it can run in CI; "
-            + $"it took {report.Elapsed.TotalSeconds:F1}s.");
+            report.Elapsed < AiSoakFixture.Budget,
+            $"the 50-seed soak must finish inside {AiSoakFixture.Budget.TotalMinutes} minutes so it can run "
+            + $"in CI; it took {report.Elapsed.TotalSeconds:F1}s.");
 
         // Done-when 4: one log per seed, on disk, named by the seed.
         foreach (var result in report.Results)
         {
-            var path = LogPathFor(result.Seed);
+            var path = AiSoakFixture.LogPathFor(result.Seed);
             Assert.True(File.Exists(path), $"seed {result.Seed} wrote no log at {path}");
             Assert.NotEmpty(File.ReadAllLines(path));
         }
@@ -90,7 +88,7 @@ public sealed class AiSoakTests
     [Fact]
     public void Every_seed_reaches_a_decision_and_the_endings_are_reported()
     {
-        var report = RunSoak();
+        var report = _fixture.Report;
 
         _output.WriteLine(report.Summary);
         foreach (var result in report.Results)
@@ -116,33 +114,6 @@ public sealed class AiSoakTests
         Assert.Equal(AiTestbed.SoakSeedCount, Distinct(fingerprints));
     }
 
-    /// <summary>The log file one seed writes — <c>seed-7.log</c> for seed 7, and nothing else.</summary>
-    public static string LogPathFor(ulong seed) =>
-        Path.Combine(LogDirectory, string.Format(CultureInfo.InvariantCulture, "seed-{0}.log", seed));
-
-    private static SoakReport RunSoak()
-    {
-        Directory.CreateDirectory(LogDirectory);
-
-        var results = new List<AiGameResult>(AiTestbed.SoakSeedCount);
-        var stopwatch = Stopwatch.StartNew();
-        foreach (var seed in AiTestbed.SoakSeeds())
-        {
-            results.Add(AiTestbed.RunSeed(seed));
-        }
-
-        stopwatch.Stop();
-
-        // Written after the clock stops: Done-when 2's budget is the soak's own cost, not the cost of
-        // producing Done-when 4's artifacts alongside it.
-        foreach (var result in results)
-        {
-            File.WriteAllLines(LogPathFor(result.Seed), result.Transcript, Encoding.UTF8);
-        }
-
-        return new SoakReport(results, stopwatch.Elapsed);
-    }
-
     private static int Distinct(List<string> values)
     {
         values.Sort(StringComparer.Ordinal);
@@ -156,78 +127,5 @@ public sealed class AiSoakTests
         }
 
         return distinct;
-    }
-
-    private sealed class SoakReport
-    {
-        public SoakReport(List<AiGameResult> results, TimeSpan elapsed)
-        {
-            Results = results;
-            Elapsed = elapsed;
-
-            var won = 0;
-            var expired = 0;
-            var capped = 0;
-            foreach (var result in results)
-            {
-                RejectedCommands += result.CommandsRejected;
-                ProjectionMismatches += result.ProjectionMismatches;
-                IssuedCommands += result.CommandsIssued;
-                CommandlessTurns += result.CommandlessTurns;
-                TurnsPlayed += result.TurnsPlayed;
-                WorstStallRun = Math.Max(WorstStallRun, result.LongestStallRun);
-                switch (result.Ending)
-                {
-                    case AiGameEnding.Won: won++; break;
-                    case AiGameEnding.Expired: expired++; break;
-                    default: capped++; break;
-                }
-            }
-
-            Summary = string.Format(
-                CultureInfo.InvariantCulture,
-                "{0} seeds, cap {1}: {2} won, {3} expired at the hard end year, {4} reached the turn cap | "
-                + "{5} turns, {6} commands ({7} turns issued none), {8} rejected, {9} probe mismatches, "
-                + "worst stall run {10} | {11:F2}s of a {12:F0}s budget",
-                results.Count, AiTestbed.SoakTurnCap, won, expired, capped,
-                TurnsPlayed, IssuedCommands, CommandlessTurns, RejectedCommands, ProjectionMismatches,
-                WorstStallRun, elapsed.TotalSeconds, Budget.TotalSeconds);
-        }
-
-        public List<AiGameResult> Results { get; }
-
-        public TimeSpan Elapsed { get; }
-
-        public int RejectedCommands { get; }
-
-        public int ProjectionMismatches { get; }
-
-        public int IssuedCommands { get; }
-
-        public int CommandlessTurns { get; }
-
-        public int TurnsPlayed { get; }
-
-        public int WorstStallRun { get; }
-
-        public string Summary { get; }
-
-        /// <summary>The seed numbers matching a predicate, for a failure message.</summary>
-        public string SeedsWith(Func<AiGameResult, bool> predicate)
-        {
-            var seeds = new List<string>();
-            foreach (var result in Results)
-            {
-                if (predicate(result))
-                {
-                    seeds.Add(result.Seed.ToString(CultureInfo.InvariantCulture));
-                }
-            }
-
-            return seeds.Count == 0
-                ? string.Empty
-                : "Seeds: " + string.Join(", ", seeds) + ". Reproduce one with AiTestbed.RunSeed(<seed>); "
-                  + "its log is in " + LogDirectory + ".";
-        }
     }
 }
