@@ -237,7 +237,11 @@
         "consumptionBaseValue": "confirmed: investigations/thracia-supply-morale.md, citing decompiled-turn-and-calendar-sequencing.md's FUN_004514ec — per-turn consumption = ((90 - seasonVal) * troops) / 20000, decompiled directly and verified turn-for-turn against the Thracian army's spring consumption (142 -> 98 -> 54 -> 10, exactly -44 each turn). T04 fixtures corpus id: 'supplyMorale.consumptionFormula'.",
         "consumptionDivisor": "confirmed: investigations/thracia-supply-morale.md — the 20000 divisor of the same expression. T04 fixtures corpus id: 'supplyMorale.consumptionDivisor'.",
         "fleetEmbarkedDivisor": "confirmed: investigations/thracia-supply-morale.md — an army aboard a fleet (army[+8] == -1) instead consumes max(0, supplies - troops/200), no seasonal term. T04 fixtures corpus id: 'supplyMorale.fleetEmbarkedConsumptionFormula'.",
-        "seasonValues": "confirmed: investigations/thracia-supply-morale.md — the season record at DAT offset 0x1F7D8, matching &DAT_004794a8 + season*10: Spring 50, Summer 80, Autumn 80, Winter 20, indexed by calendar.startSeasonIndex's convention (0=Spring). Winter costs 7x Summer, verified against the same investigation's seasonal-consumption table for a 22,000-troop army (44/11/11/77 tons)."
+        "seasonValues": "confirmed: investigations/thracia-supply-morale.md — the season record at DAT offset 0x1F7D8, matching &DAT_004794a8 + season*10: Spring 50, Summer 80, Autumn 80, Winter 20, indexed by calendar.startSeasonIndex's convention (0=Spring). Winter costs 7x Summer, verified against the same investigation's seasonal-consumption table for a 22,000-troop army (44/11/11/77 tons).",
+        "seasonValues[0]": "T04 fixtures corpus id: 'supplyMorale.seasonTable.spring'.",
+        "seasonValues[1]": "T04 fixtures corpus id: 'supplyMorale.seasonTable.summer'.",
+        "seasonValues[2]": "T04 fixtures corpus id: 'supplyMorale.seasonTable.autumn'.",
+        "seasonValues[3]": "T04 fixtures corpus id: 'supplyMorale.seasonTable.winter'."
       }
     },
     "supplyMorale": {
@@ -352,8 +356,8 @@
       "taxRateDivisor": "confirmed: decompiled-quarterly-billing-and-economy.md and decompiled-fleet-tax-and-mercenary-formulas.md — income = nationTaxBase × taxRate / 100.",
       "shipUpkeepPerQuarter": "confirmed: fleet-order-at-caere.md and decompiled-fleet-tax-and-mercenary-formulas.md — ships cost 3 talents each per quarter. T04 fixtures corpus id: 'economy.shipUpkeepPerQuarter'.",
       "mobilizationDecayPerQuarter": "confirmed: city-population-growth.md — renamed from unityDecayPerQuarter (bug #68): FUN_00451b40's nation-loop '-3' is applied to mobilization (+0x442), not unity; 71 of 80 nation-quarters matched exactly across 5 quarter pairs, the other 9 being AIs recruiting or disbanding in the round. decompiled-quarterly-billing-and-economy.md's original 'unity decays 3 per quarter, clamped at 0' misattributed the field. T04 fixtures corpus id: 'economy.mobilizationDecayPerQuarter'.",
-      "unityCap": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — the instant resolver clamps the winner's unity with min(990, ...); city-population-growth.md's own quarterly unity update (T35) clamps to this same cap.",
-      "purseCapPerUnit": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TAFSupply_ChangeMoney caps an army's or fleet's own purse at 1,000 talents.",
+      "unityCap": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — the instant resolver clamps the winner's unity with min(990, ...); city-population-growth.md's own quarterly unity update (T35) clamps to this same cap. T04 fixtures corpus id: 'caps.maxUnity'.",
+      "purseCapPerUnit": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TAFSupply_ChangeMoney caps an army's or fleet's own purse at 1,000 talents. T04 fixtures corpus id: 'caps.maxPurseTalents'.",
       "supplyTonsPerTalent": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TAFSupply_TransferSupply charges amount / 5, i.e. 1 talent per 5 tons, from the buyer's purse to the selling city's owner. docs/design-audit.md Q9 is now answered by the user's own play experience: resupplying at a city the buying army's nation owns is free (no talent debit at all, matching the Galatia frames' unchanged army money and treasury); this amount/5 constant applies only to the paid, foreign-city case. Where a foreign purchase's talents end up is resolved by T38 (docs/task-catalogue.md Done-when 5, Q9's 2026-09-14 update): the selling city's owner's treasury, credited amount/5 by SupplyPurchase.BuyForArmy/BuyForFleet. Review round 1, N5: this text previously called the credit destination 'still [open]', which was already stale by the time this same PR closed it; corrected here rather than left contradicting the diff it belongs to. T04 fixtures corpus id: 'supply.purchaseFormula'.",
       "armySupplyTonsPerTroops": "confirmed: decompiled-unit-map-orders-and-record-fields.md — army supply capacity is troops / 100 tons, reproducing all four recorded percentage readings. T04 fixtures corpus id: 'supply.capacityFormula.army'.",
       "fleetSupplyTonsPerShip": "confirmed: decompiled-unit-map-orders-and-record-fields.md — fleet supply capacity is ships × 8 tons; supply-capacity-rounding.md's instruction-level check confirms this same formula, with no +1, caps the supply dialog's fleet transfer on both the own-city (free) and foreign-city (paid) paths alike. T04 fixtures corpus id: 'supply.capacityFormula.fleet'.",
@@ -644,7 +648,32 @@
         "meleePowerDivisor": "confirmed: combat-type-effectiveness-matrix.md — (matrix × troops × qualityTerm) / 2000 + 12.",
         "inRangeShotMultiplier": "confirmed: decompiled-combat-formula-structure.md — shots that are in range are doubled.",
         "typeEffectiveness": "confirmed values, candidate orientation: combat-type-effectiveness-matrix.md — the 25 values are read directly from the DAT file immediately after the unit-type table, but that report is explicit that the attacker-row versus defender-row assignment is a reasoned inference, not re-traced index arithmetic. Rows are read here as the attacker, matching the report's chosen orientation; typeEffectivenessOrder records which axis order the rows and columns use so a later correction is a data change.",
-        "_group": "This whole block belongs to the optional 'detailed' resolver held in reserve by docs/game-design.md §Combat. The shipped instant resolver does not read any of it; it is carried here so that adding the reserve resolver later is a ruleset change rather than a model change."
+        "_group": "This whole block belongs to the optional 'detailed' resolver held in reserve by docs/game-design.md §Combat. The shipped instant resolver does not read any of it; it is carried here so that adding the reserve resolver later is a ruleset change rather than a model change.",
+        "typeEffectiveness[0][0]": "T04 fixtures corpus id: 'matrix.lightInfantry.vs.lightInfantry'.",
+        "typeEffectiveness[0][1]": "T04 fixtures corpus id: 'matrix.lightInfantry.vs.heavyInfantry'.",
+        "typeEffectiveness[0][2]": "T04 fixtures corpus id: 'matrix.lightInfantry.vs.archers'.",
+        "typeEffectiveness[0][3]": "T04 fixtures corpus id: 'matrix.lightInfantry.vs.lightCavalry'.",
+        "typeEffectiveness[0][4]": "T04 fixtures corpus id: 'matrix.lightInfantry.vs.heavyCavalry'.",
+        "typeEffectiveness[1][0]": "T04 fixtures corpus id: 'matrix.heavyInfantry.vs.lightInfantry'.",
+        "typeEffectiveness[1][1]": "T04 fixtures corpus id: 'matrix.heavyInfantry.vs.heavyInfantry'.",
+        "typeEffectiveness[1][2]": "T04 fixtures corpus id: 'matrix.heavyInfantry.vs.archers'.",
+        "typeEffectiveness[1][3]": "T04 fixtures corpus id: 'matrix.heavyInfantry.vs.lightCavalry'.",
+        "typeEffectiveness[1][4]": "T04 fixtures corpus id: 'matrix.heavyInfantry.vs.heavyCavalry'.",
+        "typeEffectiveness[2][0]": "T04 fixtures corpus id: 'matrix.archers.vs.lightInfantry'.",
+        "typeEffectiveness[2][1]": "T04 fixtures corpus id: 'matrix.archers.vs.heavyInfantry'.",
+        "typeEffectiveness[2][2]": "T04 fixtures corpus id: 'matrix.archers.vs.archers'.",
+        "typeEffectiveness[2][3]": "T04 fixtures corpus id: 'matrix.archers.vs.lightCavalry'.",
+        "typeEffectiveness[2][4]": "T04 fixtures corpus id: 'matrix.archers.vs.heavyCavalry'.",
+        "typeEffectiveness[3][0]": "T04 fixtures corpus id: 'matrix.lightCavalry.vs.lightInfantry'.",
+        "typeEffectiveness[3][1]": "T04 fixtures corpus id: 'matrix.lightCavalry.vs.heavyInfantry'.",
+        "typeEffectiveness[3][2]": "T04 fixtures corpus id: 'matrix.lightCavalry.vs.archers'.",
+        "typeEffectiveness[3][3]": "T04 fixtures corpus id: 'matrix.lightCavalry.vs.lightCavalry'.",
+        "typeEffectiveness[3][4]": "T04 fixtures corpus id: 'matrix.lightCavalry.vs.heavyCavalry'.",
+        "typeEffectiveness[4][0]": "T04 fixtures corpus id: 'matrix.heavyCavalry.vs.lightInfantry'.",
+        "typeEffectiveness[4][1]": "T04 fixtures corpus id: 'matrix.heavyCavalry.vs.heavyInfantry'.",
+        "typeEffectiveness[4][2]": "T04 fixtures corpus id: 'matrix.heavyCavalry.vs.archers'.",
+        "typeEffectiveness[4][3]": "T04 fixtures corpus id: 'matrix.heavyCavalry.vs.lightCavalry'.",
+        "typeEffectiveness[4][4]": "T04 fixtures corpus id: 'matrix.heavyCavalry.vs.heavyCavalry'."
       }
     },
     "_provenance": {
@@ -867,7 +896,7 @@
     "faithfulThawColumnBug": true,
     "bugPolicySiegeRatioClamp": "reproduce16BitClamp",
     "_provenance": {
-      "diplomacyModel": "docs/game-design.md §'Two shipped presets' — this toy ruleset is set the way classical-faithful is set, so tests exercise the confirmed behaviour by default (audit Q3).",
+      "diplomacyModel": "docs/game-design.md §'Two shipped presets' — the confirmed state machine only, with no AI opinion-score layer (audit Q3).",
       "economyPurses": "docs/game-design.md §'Two shipped presets' — per-army and per-fleet purses, as the original has (audit Q4).",
       "seatAsymmetry": "docs/game-design.md §'Two shipped presets' — reproduce the confirmed human/AI rule differences (audit Q6).",
       "bugPolicyDiplomaticThaw": "docs/game-design.md §'Two shipped presets' — reproduce the 8-column thaw bug (audit Q8).",

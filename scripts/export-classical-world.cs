@@ -434,7 +434,33 @@ foreach (var (dotPath, corpusId) in RulesetCorpusMap.Entries)
     if (!corpusById.TryGetValue(corpusId, out var corpusValue))
         throw new InvalidOperationException($"Corpus id '{corpusId}' (mapped from '{dotPath}') is not in tests/fixtures/corpus.json.");
 
-    var (parentObj, leafKey, leafValue) = NavigateToLeaf(rulesetNode, dotPath);
+    // typeEffectiveness[row][col] and seasonValues[i] are raw scalar array elements (not an
+    // object's named property), so NavigateToLeaf's "path ends in an array index" guard -- which
+    // exists to force exactly this kind of path to a special case, the same way it already does
+    // for terrain.moveCosts[i] and diplomacy.stateCodes -- would reject them. Index the array
+    // directly instead; parentObj/leafKey are left unset and unused for these two prefixes, since
+    // their annotation (below) targets the containing object, not the array element.
+    JsonObject? parentObj;
+    string? leafKey;
+    JsonNode? leafValue;
+    if (dotPath.StartsWith("combat.detailedResolver.typeEffectiveness.", StringComparison.Ordinal))
+    {
+        var idx = dotPath.Split('.');
+        var row = int.Parse(idx[3]);
+        var col = int.Parse(idx[4]);
+        leafValue = rulesetNode["combat"]!["detailedResolver"]!["typeEffectiveness"]!.AsArray()[row]!.AsArray()[col];
+        (parentObj, leafKey) = (null, null);
+    }
+    else if (dotPath.StartsWith("economy.supplyConsumption.seasonValues.", StringComparison.Ordinal))
+    {
+        var index = int.Parse(dotPath.Split('.')[3]);
+        leafValue = rulesetNode["economy"]!["supplyConsumption"]!["seasonValues"]!.AsArray()[index];
+        (parentObj, leafKey) = (null, null);
+    }
+    else
+    {
+        (parentObj, leafKey, leafValue) = NavigateToLeaf(rulesetNode, dotPath);
+    }
 
     if (corpusValue is JsonValue cv && cv.TryGetValue<long>(out var corpusLong) &&
         leafValue is JsonValue lv && lv.TryGetValue<long>(out var leafLong))
@@ -469,9 +495,25 @@ foreach (var (dotPath, corpusId) in RulesetCorpusMap.Entries)
         var diplomacyObj = rulesetNode["diplomacy"]!.AsObject();
         AnnotateProvenance(diplomacyObj, $"stateCodes.{suffix}", $" T04 fixtures corpus id: '{corpusId}'.");
     }
+    else if (dotPath.StartsWith("combat.detailedResolver.typeEffectiveness.", StringComparison.Ordinal))
+    {
+        // Same reasoning as terrain.moveCosts[i] above: the array element is a raw number with no
+        // "_provenance" field of its own, so the citation lives on detailedResolver, bracketed by
+        // [row][col] (#236 N1).
+        var idx = dotPath.Split('.');
+        var detailedResolverObj = rulesetNode["combat"]!["detailedResolver"]!.AsObject();
+        AnnotateProvenance(detailedResolverObj, $"typeEffectiveness[{idx[3]}][{idx[4]}]", $" T04 fixtures corpus id: '{corpusId}'.");
+    }
+    else if (dotPath.StartsWith("economy.supplyConsumption.seasonValues.", StringComparison.Ordinal))
+    {
+        // Same reasoning again: seasonValues[i] is a raw number, cited on the containing object (#236 N1).
+        var index = dotPath.Split('.')[3];
+        var supplyConsumptionObj = rulesetNode["economy"]!["supplyConsumption"]!.AsObject();
+        AnnotateProvenance(supplyConsumptionObj, $"seasonValues[{index}]", $" T04 fixtures corpus id: '{corpusId}'.");
+    }
     else
     {
-        AnnotateProvenance(parentObj, leafKey, $" T04 fixtures corpus id: '{corpusId}'.");
+        AnnotateProvenance(parentObj!, leafKey!, $" T04 fixtures corpus id: '{corpusId}'.");
     }
 
     annotated++;
@@ -494,6 +536,21 @@ rulesetNode["description"] =
     "cross-checked here against the T04 fixtures corpus (tests/fixtures/corpus.json) wherever the " +
     "corpus gives that constant its own id. Its flags reproduce the original faithfully; the " +
     "'improved' preset (task T36) is this file with docs/game-design.md's 'improved' column applied.";
+
+// ---- #299 guard: no "_provenance" string may ship written from the toy ruleset's own point of
+// view. The rule this script follows is that toy-ruleset.json's own provenance wording is written
+// preset-neutrally -- never naming "toy" or "classical-faithful" by file -- so that copying it
+// verbatim into this preset (or improved.json, T36) never says something false about the file it
+// lands in. This check is the safety net for that rule: it catches a regression at the source, the
+// same way the DoD 2 leaderName check below does, rather than trusting every future edit to
+// toy-ruleset.json to remember it.
+var toyMentions = FindToyProvenanceMentions(rulesetNode);
+if (toyMentions.Count > 0)
+    throw new InvalidOperationException(
+        "The following _provenance strings mention \"toy\", which would ship a note written from " +
+        "toy-ruleset.json's own point of view inside classical-faithful.json -- fix the wording in " +
+        "toy-ruleset.json (preset-neutral, no file names) and re-run the export, never hand-edit the " +
+        "committed JSON:\n  " + string.Join("\n  ", toyMentions));
 
 var rulesetJsonText = rulesetNode.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
 var ruleset = GameDataLoader.Load<Ruleset>("classical-faithful.json (in-memory)", rulesetJsonText);
@@ -614,6 +671,48 @@ static string FindThisFileDirectory([System.Runtime.CompilerServices.CallerFileP
     Path.GetDirectoryName(path)!;
 
 /// <summary>
+/// Recursively finds every string value inside an object literally named <c>_provenance</c>
+/// (anywhere in the tree) that mentions "toy" case-insensitively -- the #299 guard. Returns each
+/// hit as <c>"dotted.path.key: \"text\""</c> for a readable error.
+/// </summary>
+static List<string> FindToyProvenanceMentions(JsonNode? node, string path = "")
+{
+    var hits = new List<string>();
+    switch (node)
+    {
+        case JsonObject obj:
+            foreach (var (key, value) in obj)
+            {
+                var childPath = path.Length == 0 ? key : $"{path}.{key}";
+                if (key == "_provenance" && value is JsonObject provenance)
+                {
+                    foreach (var (provenanceKey, provenanceValue) in provenance)
+                    {
+                        if (provenanceValue is JsonValue jv && jv.TryGetValue<string>(out var text) &&
+                            text.Contains("toy", StringComparison.OrdinalIgnoreCase))
+                        {
+                            hits.Add($"{childPath}.{provenanceKey}: \"{text}\"");
+                        }
+                    }
+                }
+                else
+                {
+                    hits.AddRange(FindToyProvenanceMentions(value, childPath));
+                }
+            }
+            break;
+        case JsonArray arr:
+            for (var i = 0; i < arr.Count; i++)
+            {
+                hits.AddRange(FindToyProvenanceMentions(arr[i], $"{path}[{i}]"));
+            }
+            break;
+    }
+
+    return hits;
+}
+
+/// <summary>
 /// The dot-path (into <c>data/rulesets/toy-ruleset.json</c>'s own JSON shape, which
 /// <c>classical-faithful.json</c> shares) to T04 fixtures-corpus id (<c>tests/fixtures/corpus.json</c>)
 /// mapping this script uses to annotate and cross-check every field it can positively identify.
@@ -678,6 +777,35 @@ internal static class RulesetCorpusMap
         ("combat.autoPeaceLoserUnityThreshold", "battle.instantResolver.reparationTriggerUnityThreshold"),
         ("combat.detailedResolver.meleeLossCapPercent", "caps.meleeLossPercentOfOwnTroops"),
         ("combat.detailedResolver.meleeLossHardCap", "caps.meleeLossAbsoluteCap"),
+        // The 25-value type-effectiveness matrix (#236 N1), in the recorded orientation: row =
+        // attacker's unitTypes index, column = defender's, matching the corpus's own
+        // matrix.<attacker>.vs.<defender> ids value-for-value (verified against toy-ruleset.json's
+        // committed 5x5 array before this map was written -- see the PR body).
+        ("combat.detailedResolver.typeEffectiveness.0.0", "matrix.lightInfantry.vs.lightInfantry"),
+        ("combat.detailedResolver.typeEffectiveness.0.1", "matrix.lightInfantry.vs.heavyInfantry"),
+        ("combat.detailedResolver.typeEffectiveness.0.2", "matrix.lightInfantry.vs.archers"),
+        ("combat.detailedResolver.typeEffectiveness.0.3", "matrix.lightInfantry.vs.lightCavalry"),
+        ("combat.detailedResolver.typeEffectiveness.0.4", "matrix.lightInfantry.vs.heavyCavalry"),
+        ("combat.detailedResolver.typeEffectiveness.1.0", "matrix.heavyInfantry.vs.lightInfantry"),
+        ("combat.detailedResolver.typeEffectiveness.1.1", "matrix.heavyInfantry.vs.heavyInfantry"),
+        ("combat.detailedResolver.typeEffectiveness.1.2", "matrix.heavyInfantry.vs.archers"),
+        ("combat.detailedResolver.typeEffectiveness.1.3", "matrix.heavyInfantry.vs.lightCavalry"),
+        ("combat.detailedResolver.typeEffectiveness.1.4", "matrix.heavyInfantry.vs.heavyCavalry"),
+        ("combat.detailedResolver.typeEffectiveness.2.0", "matrix.archers.vs.lightInfantry"),
+        ("combat.detailedResolver.typeEffectiveness.2.1", "matrix.archers.vs.heavyInfantry"),
+        ("combat.detailedResolver.typeEffectiveness.2.2", "matrix.archers.vs.archers"),
+        ("combat.detailedResolver.typeEffectiveness.2.3", "matrix.archers.vs.lightCavalry"),
+        ("combat.detailedResolver.typeEffectiveness.2.4", "matrix.archers.vs.heavyCavalry"),
+        ("combat.detailedResolver.typeEffectiveness.3.0", "matrix.lightCavalry.vs.lightInfantry"),
+        ("combat.detailedResolver.typeEffectiveness.3.1", "matrix.lightCavalry.vs.heavyInfantry"),
+        ("combat.detailedResolver.typeEffectiveness.3.2", "matrix.lightCavalry.vs.archers"),
+        ("combat.detailedResolver.typeEffectiveness.3.3", "matrix.lightCavalry.vs.lightCavalry"),
+        ("combat.detailedResolver.typeEffectiveness.3.4", "matrix.lightCavalry.vs.heavyCavalry"),
+        ("combat.detailedResolver.typeEffectiveness.4.0", "matrix.heavyCavalry.vs.lightInfantry"),
+        ("combat.detailedResolver.typeEffectiveness.4.1", "matrix.heavyCavalry.vs.heavyInfantry"),
+        ("combat.detailedResolver.typeEffectiveness.4.2", "matrix.heavyCavalry.vs.archers"),
+        ("combat.detailedResolver.typeEffectiveness.4.3", "matrix.heavyCavalry.vs.lightCavalry"),
+        ("combat.detailedResolver.typeEffectiveness.4.4", "matrix.heavyCavalry.vs.heavyCavalry"),
         ("combat.naval.conditionDivisor", "battle.naval.strengthFormula"),
         ("combat.naval.randomBandCount", "battle.naval.randomBonus"),
         ("combat.naval.randomBandPercent", "battle.naval.randomBonus"),
@@ -732,11 +860,18 @@ internal static class RulesetCorpusMap
         ("economy.populationGrowthGapDivisor", "economy.populationGrowthGapDivisor"),
         ("economy.populationGrowthMobilizationDivisor", "economy.populationGrowthMobilizationDivisor"),
         ("economy.populationGrowthTaxDivisor", "economy.populationGrowthTaxDivisor"),
+        ("economy.purseCapPerUnit", "caps.maxPurseTalents"),
         ("economy.rebellionLoyaltyThreshold", "economy.rebellionLoyaltyThreshold"),
         ("economy.shipUpkeepPerQuarter", "economy.shipUpkeepPerQuarter"),
         ("economy.supplyConsumption.consumptionBaseValue", "supplyMorale.consumptionFormula"),
         ("economy.supplyConsumption.consumptionDivisor", "supplyMorale.consumptionDivisor"),
         ("economy.supplyConsumption.fleetEmbarkedDivisor", "supplyMorale.fleetEmbarkedConsumptionFormula"),
+        // The four season values (#236 N1), indexed 0=Spring..3=Winter (calendar.startSeasonIndex's
+        // own convention, per toy-ruleset.json's own economy.supplyConsumption._provenance note).
+        ("economy.supplyConsumption.seasonValues.0", "supplyMorale.seasonTable.spring"),
+        ("economy.supplyConsumption.seasonValues.1", "supplyMorale.seasonTable.summer"),
+        ("economy.supplyConsumption.seasonValues.2", "supplyMorale.seasonTable.autumn"),
+        ("economy.supplyConsumption.seasonValues.3", "supplyMorale.seasonTable.winter"),
         ("economy.supplyDialogArmyCapacityBonus", "supply.dialogCapacityBonus.army"),
         ("economy.supplyMorale.baseMovesMax", "supplyMorale.baseMovesFormula"),
         ("economy.supplyMorale.deadBandUpperPercent", "supplyMorale.deadBandUpperPercent"),
@@ -755,6 +890,7 @@ internal static class RulesetCorpusMap
         ("economy.treasuryCreditTaxBaseQuarterShareDivisor", "economy.treasuryCreditTaxBaseQuarterShareDivisor"),
         ("economy.treasuryCreditWealthDivisor", "economy.treasuryCreditWealthDivisor"),
         ("economy.unityBaseGainPerQuarter", "economy.unityBaseGainPerQuarter"),
+        ("economy.unityCap", "caps.maxUnity"),
         ("economy.unityFloor", "economy.unityFloor"),
         ("economy.unityMobilizationDivisor", "economy.unityMobilizationDivisor"),
         ("economy.unityTaxRateDivisor", "economy.unityTaxRateDivisor"),
