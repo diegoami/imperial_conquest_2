@@ -303,6 +303,7 @@ public class WorldTerrainSidecarTests
 /// same DAT-availability gate.
 /// </summary>
 /// <remarks>
+/// <para>
 /// Review finding B1: this test and <see cref="ExportScriptReproducibilityTests"/> both invoke
 /// <c>dotnet run scripts/export-classical-world.cs</c> as a separate process. Both compile that
 /// file-based app into the same content-hashed temp <c>obj/</c> directory, and two concurrent
@@ -313,8 +314,8 @@ public class WorldTerrainSidecarTests
 /// task's Owns list): xUnit runs every non-parallel collection strictly after all parallel
 /// collections -- including the Export tests' default one -- have finished, so the two exports can
 /// no longer overlap in time.
-/// </remarks>
-/// <remarks>
+/// </para>
+/// <para>
 /// T74 (bug #320): joins <see cref="DotnetRunScriptCollection"/>, the single non-parallel collection
 /// every dotnet-run test now shares in one place (superseding the narrower collection this class used
 /// to define and name itself), and runs through the shared <see cref="DotnetRunScriptRunner.Run"/>
@@ -322,6 +323,7 @@ public class WorldTerrainSidecarTests
 /// same "export-classical-world" subdirectory <see cref="ExportScriptReproducibilityTests"/> uses --
 /// both run this exact, unmodified script (see <see cref="RunExportScript"/>'s own remark for why
 /// that sharing is deliberate).
+/// </para>
 /// </remarks>
 [Collection(DotnetRunScriptCollection.Name)]
 public class WorldTerrainExportReproducibilityTests

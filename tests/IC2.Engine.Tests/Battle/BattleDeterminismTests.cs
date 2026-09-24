@@ -216,10 +216,13 @@ public class BattleDeterminismTests
     }
 
     /// <summary>
-    /// Directory names a test elsewhere in the suite deliberately writes real, valid <c>.cs</c>
+    /// The one exact path a test elsewhere in the suite deliberately writes real, valid <c>.cs</c>
     /// content into and then deletes, unrelated to whether that content references the candidates.
-    /// Named one entry per writer rather than swallowed with a blanket try/catch around a vanished
-    /// file, so a future, unnamed writer still fails this guard until it too is named here.
+    /// Anchored to the writer's own relative path -- not merely a directory name that could recur
+    /// anywhere under <c>src/</c> or <c>godot/</c> -- and named one entry per writer, so a future,
+    /// unnamed writer (at this path or a different one) still fails this guard until it too is named
+    /// here (review round 1, N2: a probe file at a different path with a matching directory name was
+    /// not reported by the name-only version of this check).
     /// </summary>
     /// <remarks>
     /// <c>tests/IC2.Engine.Tests/Core/Determinism/DeterminismGuardTests.cs</c>'s
@@ -244,8 +247,9 @@ public class BattleDeterminismTests
     private static bool IsKnownTestScratch(string file)
     {
         var relative = Path.GetRelativePath(TestPaths.RepositoryRoot, file);
-        return relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-            .Any(segment => segment == "__determinism-guard-scratch__");
+        var scratchDirectory = Path.Combine("src", "IC2.Engine", "Core", "__determinism-guard-scratch__")
+            + Path.DirectorySeparatorChar;
+        return relative.StartsWith(scratchDirectory, StringComparison.Ordinal);
     }
 
     /// <summary>The guard's own regression case: it does see a reserve name when one is really in code.</summary>
