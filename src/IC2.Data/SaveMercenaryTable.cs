@@ -44,8 +44,7 @@ public sealed class SaveMercenaryTable
                 "DAT-derived value that would not be a fabricated 'empty pool'. See " +
                 "docs/investigations/dat-file-layout.md.");
 
-        var nationStart = SaveNationLayout.Locate(data);
-        var start = nationStart + SaveNationLayout.NationCount * SaveNationLayout.NationRecordLength;
+        var start = TableStart(data);
         var end = start + RecordCount * RecordLength;
         if (end + 55 > data.Length) throw new InvalidDataException("Save ends before the complete mercenary table and trailer.");
 
@@ -67,6 +66,20 @@ public sealed class SaveMercenaryTable
 
     private static ushort ReadWord(byte[] data, int offset) =>
         BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(offset, 2));
+
+    /// <summary>The mercenary table's own start offset (SAV only — callers still check
+    /// <see cref="SaveFormat.Detect"/> themselves), exposed so <see cref="SaveNewsLog"/> can locate
+    /// the news log immediately after it (T73, bug #321) without re-deriving this table's layout.
+    /// Parse behaviour is unchanged; this factors out the same nation-table walk it already did.</summary>
+    internal static int TableStart(byte[] data)
+    {
+        var nationStart = SaveNationLayout.Locate(data);
+        return nationStart + SaveNationLayout.NationCount * SaveNationLayout.NationRecordLength;
+    }
+
+    /// <summary>The offset immediately after the mercenary table's fixed 600 bytes — where the news
+    /// log's <c>int16 newsIndex</c> field begins. See <see cref="TableStart"/>.</summary>
+    internal static int TableEnd(byte[] data) => TableStart(data) + RecordCount * RecordLength;
 }
 
 public sealed class MercenaryRecord

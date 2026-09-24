@@ -16,10 +16,24 @@ public sealed class SaveNationTable
 
     public const ushort NoCapitalSentinel = 0xFFFF;
 
+    /// <summary>The relation-row lower bound: the most negative cooldown any documented writer
+    /// produces. <c>FUN_00449B40</c>'s "setting state = 0 is translated into a cooldown instead, by
+    /// the previous state" table writes trade(1)→−8, alliance(2)→−24, war(3)→−18 — so −24 is the
+    /// floor, never the corpus minimum (99 corpus saves + the DAT bottom out at −18). See
+    /// https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-diplomacy-peace-terms-and-instant-battles.md
+    /// §"The relation matrix".</summary>
+    public const short MinRelationValue = -24;
+
+    /// <summary>The relation-row upper bound: 3 = war, the highest of the four documented states
+    /// (0 peace, 1 trade, 2 alliance, 3 war). Same report as <see cref="MinRelationValue"/>.</summary>
+    public const short MaxRelationValue = 3;
+
     public static SaveNationTable Parse(byte[] data)
     {
         if (data is null) throw new ArgumentNullException(nameof(data));
-        return SaveFormat.Detect(data) == SaveFileFormat.Dat ? ParseDat(data) : ParseSav(data);
+        var table = SaveFormat.Detect(data) == SaveFileFormat.Dat ? ParseDat(data) : ParseSav(data);
+        ValidateRelations(table.Nations);
+        return table;
     }
 
     private static SaveNationTable ParseSav(byte[] data)
@@ -30,7 +44,15 @@ public sealed class SaveNationTable
         {
             var offset = start + i * SaveNationLayout.NationRecordLength;
             var name = ReadName(data, offset, 11);
-            var leader = ReadName(data, offset + 11, 34);
+            // 27 bytes (+0x0B .. +0x25 inclusive), not 34: the relation row below starts at +0x26,
+            // and reading past it (the old 34-byte read) let leader text run into relation bytes.
+            // Confirmed on 1_rome_270_summer_7.sav — see DatLayout's relation-row remarks and
+            // https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-diplomacy-peace-terms-and-instant-battles.md
+            // §"The relation matrix", 2026-09-24 addition. Unlike ReadName, a 27-byte leader with no
+            // NUL at all is not an error: the DAT's leader pool packs some candidates to fill the
+            // field exactly (see ReadLeader's own remarks).
+            var leader = ReadLeader(data, offset + 11, 27);
+            var relations = ReadRelationRow(data, offset + 0x26);
             if (name != NationCatalog.Name((ushort)i))
                 throw new InvalidDataException($"Nation record {i} has unexpected name {name}.");
             var capitalCity = ReadWord(data, offset + 0x444);
@@ -49,7 +71,7 @@ public sealed class SaveNationTable
                 BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(offset + 0x438, 4)),
                 ReadWord(data, offset + 0x440), ReadWord(data, offset + 0x442),
                 capitalCity, cities, ReadWord(data, offset + 0x44A), wealth, taxBase,
-                humanPlayer: human == 1, source: SaveFileFormat.Sav);
+                humanPlayer: human == 1, source: SaveFileFormat.Sav, relations: relations);
         }
         return new SaveNationTable(nations);
     }
@@ -74,14 +96,51 @@ public sealed class SaveNationTable
                 throw new InvalidDataException($"DAT nation record {i} has invalid capital or city count.");
             var wealth = BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(offset + DatLayout.NationWealthOffset, 4));
             var taxBase = BinaryPrimitives.ReadInt16LittleEndian(data.AsSpan(offset + DatLayout.NationTaxBaseOffset, 2));
+            var relations = ReadRelationRow(data, offset + DatLayout.NationRelationOffset);
             nations[i] = new NationRecord((ushort)i, name, leader: null,
                 BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(offset + DatLayout.NationTreasuryOffset, 4)),
                 ReadWord(data, offset + DatLayout.NationUnityOffset),
                 ReadWord(data, offset + DatLayout.NationMobilizedOffset),
                 capitalCity, cities, ReadWord(data, offset + DatLayout.NationTaxOffset), wealth, taxBase,
-                humanPlayer: null, source: SaveFileFormat.Dat);
+                humanPlayer: null, source: SaveFileFormat.Dat, relations: relations);
         }
         return new SaveNationTable(nations);
+    }
+
+    /// <summary>Validates the relation matrix across every nation in <paramref name="nations"/>:
+    /// each nation's own diagonal entry is 0, every entry is within
+    /// [<see cref="MinRelationValue"/>, <see cref="MaxRelationValue"/>], and the matrix is symmetric
+    /// — <c>FUN_00449B40</c> is the single setter and writes both <c>[a][b]</c> and <c>[b][a]</c>, so
+    /// it is symmetric by construction. See
+    /// https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-diplomacy-peace-terms-and-instant-battles.md
+    /// §"The relation matrix".</summary>
+    private static void ValidateRelations(IReadOnlyList<NationRecord> nations)
+    {
+        for (var a = 0; a < nations.Count; a++)
+        {
+            var row = nations[a].Relations;
+            if (row[a] != 0)
+                throw new InvalidDataException($"Nation {a}'s relation diagonal entry is {row[a]}, not 0.");
+            for (var b = 0; b < row.Count; b++)
+                if (row[b] < MinRelationValue || row[b] > MaxRelationValue)
+                    throw new InvalidDataException(
+                        $"Nation {a}'s relation toward nation {b} is {row[b]}, outside " +
+                        $"[{MinRelationValue}, {MaxRelationValue}].");
+        }
+        for (var a = 0; a < nations.Count; a++)
+            for (var b = a + 1; b < nations.Count; b++)
+                if (nations[a].Relations[b] != nations[b].Relations[a])
+                    throw new InvalidDataException(
+                        $"Relation matrix is not symmetric: [{a}][{b}] = {nations[a].Relations[b]} but " +
+                        $"[{b}][{a}] = {nations[b].Relations[a]}.");
+    }
+
+    private static short[] ReadRelationRow(byte[] data, int offset)
+    {
+        var row = new short[16];
+        for (var i = 0; i < row.Length; i++)
+            row[i] = BinaryPrimitives.ReadInt16LittleEndian(data.AsSpan(offset + i * 2, 2));
+        return row;
     }
 
     private static ushort ReadWord(byte[] data, int offset) =>
@@ -96,6 +155,23 @@ public sealed class SaveNationTable
                 throw new InvalidDataException($"Non-ASCII nation text at {p:X}.");
         return Encoding.ASCII.GetString(data, offset, end - offset).Trim();
     }
+
+    /// <summary>Reads the leader field: up to <paramref name="length"/> bytes, NUL-terminated if a
+    /// NUL appears within it, otherwise the whole <paramref name="length"/> bytes verbatim — unlike
+    /// <see cref="ReadName"/>, a leader that fills its field exactly with no NUL is not an error. The
+    /// DAT's 12-candidate-per-nation leader pool (26 bytes per candidate) packs some names to fill
+    /// the field, and nothing in the save/load code requires a trailing NUL the way the nation/city
+    /// name fields do. See docs/investigations/dat-file-layout.md ("Leader names ... are genuinely
+    /// not in the file" — assigned only at New Game, from that pool).</summary>
+    private static string ReadLeader(byte[] data, int offset, int length)
+    {
+        var nul = Array.IndexOf(data, (byte)0, offset, length);
+        var end = nul >= 0 ? nul : offset + length;
+        for (var p = offset; p < end; p++)
+            if (data[p] < 0x20 || data[p] > 0x7e)
+                throw new InvalidDataException($"Non-ASCII leader text at {p:X}.");
+        return Encoding.ASCII.GetString(data, offset, end - offset).Trim();
+    }
 }
 
 public sealed class NationRecord
@@ -104,7 +180,7 @@ public sealed class NationRecord
 
     internal NationRecord(ushort code, string name, string? leader, int treasury, ushort unityValue,
         ushort mobilizedPercent, ushort capitalCityIndex, ushort cityCount, ushort taxRatePercent,
-        int wealth, short taxBase, bool? humanPlayer, SaveFileFormat source)
+        int wealth, short taxBase, bool? humanPlayer, SaveFileFormat source, IReadOnlyList<short> relations)
     {
         Code = code;
         Name = name;
@@ -119,6 +195,7 @@ public sealed class NationRecord
         TaxBase = taxBase;
         _humanPlayer = humanPlayer;
         Source = source;
+        Relations = relations;
     }
 
     public ushort Code { get; }
@@ -131,6 +208,17 @@ public sealed class NationRecord
     /// docs/investigations/dat-file-layout.md. Modelled as an explicit absence rather than an empty
     /// string, precisely so a caller cannot mistake "not stored" for "stored and blank".</summary>
     public string? Leader { get; }
+
+    /// <summary>The nation's 16-entry signed relation row toward every nation, indexed by nation
+    /// code (SAV <c>+0x26</c>; DAT <see cref="DatLayout.NationRelationOffset"/>, <c>+0x0B</c>):
+    /// 0 peace, 1 trade, 2 alliance, 3 war, and a negative value is peace with a cooldown counting
+    /// up toward 0. Present on both a SAV and a DAT record — the DAT loader reads it straight into
+    /// the same runtime offset, and new-game init never overwrites it, so the DAT's own matrix is
+    /// the original's starting relations. <c>Relations[Code]</c> is always 0 (a nation's own
+    /// diagonal entry), and the full table's matrix is symmetric by construction. See
+    /// https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-diplomacy-peace-terms-and-instant-battles.md
+    /// §"The relation matrix" and its 2026-09-24 addition.</summary>
+    public IReadOnlyList<short> Relations { get; }
 
     public int Treasury { get; }
     public ushort UnityValue { get; }
