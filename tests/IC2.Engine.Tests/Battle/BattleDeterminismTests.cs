@@ -177,7 +177,7 @@ public class BattleDeterminismTests
             .Select(root => Path.Combine(TestPaths.RepositoryRoot, root))
             .Where(Directory.Exists)
             .SelectMany(root => Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories))
-            .Where(file => !IsUnderCandidates(file) && !IsBuildOutput(file))
+            .Where(file => !IsUnderCandidates(file) && !IsBuildOutput(file) && !IsKnownTestScratch(file))
             .OrderBy(file => file, StringComparer.Ordinal)
             .ToArray();
         Assert.Contains(productionSources, f => f.Contains($"{Path.DirectorySeparatorChar}IC2.Engine{Path.DirectorySeparatorChar}", StringComparison.Ordinal));
@@ -213,6 +213,39 @@ public class BattleDeterminismTests
         var relative = Path.GetRelativePath(TestPaths.RepositoryRoot, file);
         return relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
             .Any(segment => segment is "bin" or "obj" or ".godot");
+    }
+
+    /// <summary>
+    /// Directory names a test elsewhere in the suite deliberately writes real, valid <c>.cs</c>
+    /// content into and then deletes, unrelated to whether that content references the candidates.
+    /// Named one entry per writer rather than swallowed with a blanket try/catch around a vanished
+    /// file, so a future, unnamed writer still fails this guard until it too is named here.
+    /// </summary>
+    /// <remarks>
+    /// <c>tests/IC2.Engine.Tests/Core/Determinism/DeterminismGuardTests.cs</c>'s
+    /// <c>The_guard_fails_on_a_deliberately_added_new_Random_under_src_engine</c> writes a scratch
+    /// <c>DeliberateNondeterminism.cs</c> under
+    /// <c>src/IC2.Engine/Core/__determinism-guard-scratch__/</c> to prove the determinism scanner
+    /// fires, then removes it in a <c>finally</c>. That file is outside this task's (T74's) Owns
+    /// list, so it is reported rather than patched (bug #320,
+    /// docs/build-process.md#46-bugs-and-follow-ups): xUnit runs distinct test classes in parallel by
+    /// default, and that class is in a different collection from this one
+    /// (<c>RepositorySourcesCollection</c> only pairs it against
+    /// <c>SystemRegistrationTests</c>, which does the identical <c>src/**/*.cs</c> enumerate-then-read
+    /// this guard does -- see that collection's own remarks in
+    /// <c>tests/IC2.Engine.Tests/Core/CoreTestbed.cs</c>). This guard's own scan was never a member of
+    /// that collection, so a run that enumerated the scratch file a moment before the writer's
+    /// <c>finally</c> deleted it, then tried to read it, threw an unrelated
+    /// <c>FileNotFoundException</c> -- a single, non-reproducing failure of exactly this guard,
+    /// reported on #320 (T64's first CI run). Skipping the path by name removes the race without
+    /// weakening what the guard actually checks: the skipped directory holds nothing but that one
+    /// scratch file, never a real reference to the candidates.
+    /// </remarks>
+    private static bool IsKnownTestScratch(string file)
+    {
+        var relative = Path.GetRelativePath(TestPaths.RepositoryRoot, file);
+        return relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            .Any(segment => segment == "__determinism-guard-scratch__");
     }
 
     /// <summary>The guard's own regression case: it does see a reserve name when one is really in code.</summary>

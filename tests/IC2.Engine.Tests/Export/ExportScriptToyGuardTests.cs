@@ -1,7 +1,7 @@
-using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using IC2.Engine.Tests.SerializationTests;
+using IC2.Engine.Tests.TestInfrastructure;
 using Xunit;
 
 namespace IC2.Engine.Tests.Export;
@@ -32,7 +32,7 @@ namespace IC2.Engine.Tests.Export;
 /// </para>
 /// <para>
 /// Review round 2 R1-N1: also runs a real <c>dotnet run</c> of this same file-based script, so it
-/// joins the same non-parallel <see cref="WorldTerrainExportScriptCollection"/> collection
+/// joins the same non-parallel collection
 /// <c>tests/IC2.Engine.Tests/Serialization/WorldTerrainSidecarTests.cs</c>'s own
 /// <c>WorldTerrainExportReproducibilityTests</c> already uses for the identical reason (review
 /// round 0 finding B1 there: two concurrent compiles of the same file-based app collide in its
@@ -55,10 +55,28 @@ namespace IC2.Engine.Tests.Export;
 /// one <c>dotnet test</c> process, so two worktrees (an implementer's and a reviewer's, say)
 /// running this test at the same time is a real, reproduced scenario, not a hypothetical one.
 /// </para>
+/// <para>
+/// T74 (bug #320): joins <see cref="DotnetRunScriptCollection"/>, the single non-parallel
+/// collection every dotnet-run test now shares in one place (superseding the narrower,
+/// piecemeal-shared <c>WorldTerrainExportScriptCollection</c> this class used to join) -- the same
+/// "runs strictly after every parallel collection" property this class's own R1-N1 note already
+/// relied on still holds, now for every dotnet-run test rather than two of them. The script's own
+/// <c>dotnet run</c> subprocess now goes through the shared <see cref="DotnetRunScriptRunner.Run"/>
+/// against <see cref="DotnetRunArtifactsFixture"/>'s isolated build-output directory; the scratch
+/// tree this test builds the rewritten script and mutated ruleset into (below) is a separate,
+/// unrelated concern and is unchanged.
+/// </para>
 /// </remarks>
-[Collection(WorldTerrainExportScriptCollection.Name)]
+[Collection(DotnetRunScriptCollection.Name)]
 public class ExportScriptToyGuardTests
 {
+    public ExportScriptToyGuardTests(DotnetRunArtifactsFixture artifacts)
+    {
+        _artifacts = artifacts;
+    }
+
+    private readonly DotnetRunArtifactsFixture _artifacts;
+
     [SkippableFact]
     public void The_scripts_own_toy_guard_throws_before_writing_when_a_toy_note_is_reintroduced()
     {
@@ -157,20 +175,22 @@ public class ExportScriptToyGuardTests
         }
     }
 
-    private static (int ExitCode, string Stdout, string Stderr) RunScript(string scriptPath, string iniPath, string workingDirectory)
+    /// <summary>
+    /// T74 (bug #320): routes through the shared <see cref="DotnetRunScriptRunner.Run"/>, in its own
+    /// "export-toy-guard" subdirectory of <see cref="DotnetRunArtifactsFixture.ArtifactsPath"/> --
+    /// never the fixture's shared root directly, since this test's scratch copy of the script has the
+    /// same file name as the real <c>export-classical-world.cs</c>
+    /// <see cref="ExportScriptReproducibilityTests"/> also builds through the same fixture, and
+    /// sharing one output path between two differently-sourced same-named scripts would corrupt
+    /// MSBuild's up-to-date check for both.
+    /// </summary>
+    private (int ExitCode, string Stdout, string Stderr) RunScript(string scriptPath, string iniPath, string workingDirectory)
     {
-        var psi = new ProcessStartInfo("dotnet", $"run \"{scriptPath}\" \"{iniPath}\"")
-        {
-            WorkingDirectory = workingDirectory,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-        };
-
-        using var process = Process.Start(psi) ?? throw new InvalidOperationException("Failed to start dotnet run.");
-        var stdout = process.StandardOutput.ReadToEnd();
-        var stderr = process.StandardError.ReadToEnd();
-        process.WaitForExit();
-        return (process.ExitCode, stdout, stderr);
+        var result = DotnetRunScriptRunner.Run(
+            scriptPath,
+            Path.Combine(_artifacts.ArtifactsPath, "export-toy-guard"),
+            workingDirectory,
+            iniPath);
+        return (result.ExitCode, result.Stdout, result.Stderr);
     }
 }
