@@ -431,7 +431,7 @@
       "mobilizationReceivingArmyRangeAiSeat": "confirmed: decompiled-mobilization-and-mercenary-restock.md §3 — the same function's second branch, taken when the nation is computer-controlled, accepts 'd < 6'; the report calls it 'a real, asymmetric AI advantage'.",
       "mobilizationRateOrderStep": "confirmed: decompiled-mobilization-and-mercenary-restock.md §5 — TArmyRecruits_RecruitUnit raises the rate by 1 + (troops × 1000) / wealth when an order is placed, and TArmyRecruits_DisbandUnits subtracts the same figure when one is cancelled.",
       "mobilizationRateWealthScale": "confirmed: decompiled-mobilization-and-mercenary-restock.md §5 — the troop term of that formula is (troops × 1000) / wealth, wealth being nation +0x430, Σ population × 3000.",
-      "mobilizationCapPercent": "confirmed: decompiled-mobilization-and-mercenary-restock.md §5 — the raise is clamped with min(100, ...), the same cap the dialog reports as 'Your mobilisation rate is already 100%.' (T04 fixtures corpus recruitment.mobilizationCapPercent = 100, error.mobilizationAlready100)."
+      "mobilizationCapPercent": "confirmed: decompiled-mobilization-and-mercenary-restock.md §5 — the raise is clamped with min(100, ...), the same cap the dialog reports as 'Your mobilisation rate is already 100%.' (T04 fixtures corpus recruitment.mobilizationCapPercent = 100, error.mobilizationAlready100). T04 fixtures corpus id: 'recruitment.mobilizationCapPercent'."
     }
   },
   "armyManagement": {
@@ -501,7 +501,7 @@
       "orderMaxShips": "confirmed: decompiled-unit-map-orders-and-record-fields.md T04 fixtures corpus id: 'fleet.maxShipsPerOrder'.",
       "constructionTicks": "confirmed: decompiled-unit-map-orders-and-record-fields.md — the construction counter starts at 24 and decrements weekly; the Caere order's 12-ticks-to-go reading twelve weeks later confirms it in save data. T04 fixtures corpus id: 'fleet.constructionTicks'.",
       "launchConditionPercent": "confirmed: decompiled-unit-map-orders-and-record-fields.md — FUN_0044A050 sets fleet +20 to 100 on launch. T04 fixtures corpus id: 'fleet.launchState'.",
-      "launchSupplyTons": "confirmed: decompiled-unit-map-orders-and-record-fields.md — and money to 0.",
+      "launchSupplyTons": "confirmed: decompiled-unit-map-orders-and-record-fields.md — and money to 0. T04 fixtures corpus id: 'fleet.launchState'.",
       "transportTroopsPerShip": "confirmed: decompiled-unit-map-orders-and-record-fields.md — the embark check refuses when ships < troops / 500. T04 fixtures corpus id: 'fleet.embarkCapacityPerShip'.",
       "repairCostDivisor": "confirmed: decompiled-unit-map-orders-and-record-fields.md — repair costs ships × points / 5 talents and zeroes the fleet's moves. T04 fixtures corpus id: 'fleet.repairCostFormula'.",
       "joinMaxShips": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TUnitMap_JoinFleets refuses a combined fleet above 100 ships. T04 fixtures corpus id: 'fleet.joinMaxShips'.",
@@ -536,8 +536,8 @@
       "damageSlowdownDivisor": "confirmed: same reports — the >> 2, equivalent to integer division by 4 for the non-negative operand this term always has.",
       "constructionTickStep": "confirmed: decompiled-unit-map-orders-and-record-fields.md and supply-driven-morale-and-fleet-attrition.md — the construction countdown decrements by 2 per turn's tick, not by 1 (the Caere order: 24 to 12 over six turns; the Macedonian order: 24,22,20,18,16,14,12 over six turns).",
       "friendlyCoastRadiusTiles": "[designed]: FUN_004494e4 ('away from friendly coast') is not decompiled (investigations/thracia-supply-morale.md §'Still open'). This is a placeholder tile-radius proxy for that undecompiled predicate, not a resolution of it. Searched tests/fixtures/known-reports.json's naval-related reports for a decompiled test and found none.",
-      "markerBandBaseTier1": "confirmed: decompiled-unit-map-orders-and-record-fields.md part 3 — FUN_0044A878 encodes marker = owner + band, band 300 for the smallest ship-count tier, checked against 90 ships owner 1 -> 333 and 70 ships owner 3 -> 335.",
-      "markerBandStep": "confirmed: decompiled-unit-map-orders-and-record-fields.md part 3 — each band base is a multiple of 16 above 300."
+      "markerBandBaseTier1": "confirmed: decompiled-unit-map-orders-and-record-fields.md part 3 — FUN_0044A878 encodes marker = owner + band, band 300 for the smallest ship-count tier, checked against 90 ships owner 1 -> 333 and 70 ships owner 3 -> 335. T04 fixtures corpus id: 'fleet.markerFormula'.",
+      "markerBandStep": "confirmed: decompiled-unit-map-orders-and-record-fields.md part 3 — each band base is a multiple of 16 above 300. T04 fixtures corpus id: 'fleet.markerFormula'."
     }
   },
   "combat": {
@@ -574,9 +574,9 @@
         "randomBandCount": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — random(4) picks one of four bands. T04 fixtures corpus id: 'battle.naval.randomBonus'.",
         "randomBandPercent": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — each band is 10% of the base, giving a 0/10/20/30% bonus. T04 fixtures corpus id: 'battle.naval.randomBonus'.",
         "winnerDamageDivisor": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md §'FUN_0044B5D0 and FUN_0044B4F8, instruction by instruction', research 3f6ca09 — FUN_0044B4F8 (0x0044B4F8–B596) costs the winner ships × d / 300 and condition × d / 300. T04 fixtures corpus id: 'battle.naval.winnerDamageFormula'.",
-        "damageRatioScale": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md §'FUN_0044B5D0 and FUN_0044B4F8, instruction by instruction', research 3f6ca09 — r = max(1, loserStrength × 100 / winnerStrength) and d = r squared / 100.",
-        "unitLossDamageThreshold": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md §'FUN_0044B5D0 and FUN_0044B4F8, instruction by instruction', research 3f6ca09 — above d = 70 a carried army also loses whole units.",
-        "unitLossDivisor": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md §'FUN_0044B5D0 and FUN_0044B4F8, instruction by instruction', research 3f6ca09; bug #290 part 3, 0x0044B581–B59F: (unitCount × d / 250) + 1 units are lost at random, swap-with-last, unitCount counted AFTER FUN_0044AE20's own casualties."
+        "damageRatioScale": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md §'FUN_0044B5D0 and FUN_0044B4F8, instruction by instruction', research 3f6ca09 — r = max(1, loserStrength × 100 / winnerStrength) and d = r squared / 100. T04 fixtures corpus id: 'battle.naval.winnerDamageFormula'.",
+        "unitLossDamageThreshold": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md §'FUN_0044B5D0 and FUN_0044B4F8, instruction by instruction', research 3f6ca09 — above d = 70 a carried army also loses whole units. T04 fixtures corpus id: 'battle.naval.winnerDamageFormula'.",
+        "unitLossDivisor": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md §'FUN_0044B5D0 and FUN_0044B4F8, instruction by instruction', research 3f6ca09; bug #290 part 3, 0x0044B581–B59F: (unitCount × d / 250) + 1 units are lost at random, swap-with-last, unitCount counted AFTER FUN_0044AE20's own casualties. T04 fixtures corpus id: 'battle.naval.winnerDamageFormula'."
       }
     },
     "scatteredDefeat": {
@@ -642,10 +642,10 @@
       ],
       "_provenance": {
         "meleeLossCapPercent": "confirmed: battle-recording-melee-cap-confirmed.md — the melee loss cap is floor(0.4 × defenderTroops) + 1, matching four of five recorded exchanges exactly and the fifth being below the cap. T04 fixtures corpus id: 'caps.meleeLossPercentOfOwnTroops'.",
-        "meleeLossCapOffset": "confirmed: battle-recording-melee-cap-confirmed.md — the '+ 1' of the same expression.",
+        "meleeLossCapOffset": "confirmed: battle-recording-melee-cap-confirmed.md — the '+ 1' of the same expression. T04 fixtures corpus id: 'battle.melee.defenderLossCapFormula'.",
         "meleeLossHardCap": "confirmed: decompiled-combat-formula-structure.md — melee losses are additionally capped at 30,000. T04 fixtures corpus id: 'caps.meleeLossAbsoluteCap'.",
-        "meleeBasePowerFloor": "confirmed: combat-type-effectiveness-matrix.md, quoting decompiled-combat-formula-structure.md — the melee power term ends '+ 12', so a zero-effectiveness matchup still deals minimum damage.",
-        "meleePowerDivisor": "confirmed: combat-type-effectiveness-matrix.md — (matrix × troops × qualityTerm) / 2000 + 12.",
+        "meleeBasePowerFloor": "confirmed: combat-type-effectiveness-matrix.md, quoting decompiled-combat-formula-structure.md — the melee power term ends '+ 12', so a zero-effectiveness matchup still deals minimum damage. T04 fixtures corpus id: 'battle.melee.powerFormula'.",
+        "meleePowerDivisor": "confirmed: combat-type-effectiveness-matrix.md — (matrix × troops × qualityTerm) / 2000 + 12. T04 fixtures corpus id: 'battle.melee.powerFormula'.",
         "inRangeShotMultiplier": "confirmed: decompiled-combat-formula-structure.md — shots that are in range are doubled.",
         "typeEffectiveness": "confirmed values, candidate orientation: combat-type-effectiveness-matrix.md — the 25 values are read directly from the DAT file immediately after the unit-type table, but that report is explicit that the attacker-row versus defender-row assignment is a reasoned inference, not re-traced index arithmetic. Rows are read here as the attacker, matching the report's chosen orientation; typeEffectivenessOrder records which axis order the rows and columns use so a later correction is a data change.",
         "_group": "This whole block belongs to the optional 'detailed' resolver held in reserve by docs/game-design.md §Combat. The shipped instant resolver does not read any of it; it is carried here so that adding the reserve resolver later is a ruleset change rather than a model change.",
@@ -680,8 +680,8 @@
       "powerTroopDivisor": "confirmed: decompiled-unit-map-orders-and-record-fields.md — field-battle strength is (sum of powerWeight[type] × troops / 100) / 80 × morale. T04 fixtures corpus id: 'battle.instantResolver.powerFormula'.",
       "powerDivisor": "confirmed: decompiled-unit-map-orders-and-record-fields.md — the / 80 of the same expression, shared by both army-strength functions. T04 fixtures corpus id: 'battle.instantResolver.powerFormula'.",
       "winnerCasualtyNumerator": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — the instant resolver calls applyCasualties(winner, loserPower × 40 / winnerPower). That expression is the RATIO argument of FUN_0044AE20, not a troop count: read as a count it would cost the winner of a hard-fought battle (powers 5,000 against 5,200) 38 troops in total. See casualtyDivisorBase for the body it is passed into. [T16 correction: this note previously read 'the winner takes loserPower × 40 / winnerPower casualties', which reads as a count and is what sent T16's first round down that path.] T04 fixtures corpus id: 'battle.instantResolver.casualtyFormula'.",
-      "casualtyDivisorBase": "confirmed: decompiled-defection-and-siege-attrition.md — FUN_0044AE20 applies 'troops -= troops / (Random(15) + 105) * ratio' to every unit in the army; 105 is the divisor base. Transcribed in the T04 fixtures corpus as siege.attritionFormula. The same helper serves both the instant field resolver and the siege path.",
-      "casualtyDivisorRandomSpan": "confirmed: decompiled-defection-and-siege-attrition.md — the Random(15) band of the same expression, so the divisor falls in [105, 120) and a unit loses between ratio/120 and ratio/105 of its troops.",
+      "casualtyDivisorBase": "confirmed: decompiled-defection-and-siege-attrition.md — FUN_0044AE20 applies 'troops -= troops / (Random(15) + 105) * ratio' to every unit in the army; 105 is the divisor base. Transcribed in the T04 fixtures corpus as siege.attritionFormula. The same helper serves both the instant field resolver and the siege path. T04 fixtures corpus id: 'siege.attritionFormula'.",
+      "casualtyDivisorRandomSpan": "confirmed: decompiled-defection-and-siege-attrition.md — the Random(15) band of the same expression, so the divisor falls in [105, 120) and a unit loses between ratio/120 and ratio/105 of its troops. T04 fixtures corpus id: 'siege.attritionFormula'.",
       "deletionDivisorNational": "confirmed: decompiled-defection-and-siege-attrition.md §'Where does population/fortification loss actually come from, then?' (the FUN_0044ae20 bullet), confirmed at instruction level in §'FUN_0044b27c, instruction by instruction' (CALL 0x0044AE20 at 0x0044B35D–B361), research 3f6ca09; bug #289. Deletes a national unit left with troops > 0 and below standardBattalionSize / 10.",
       "deletionDivisorMercenary": "confirmed: decompiled-defection-and-siege-attrition.md §'Where does population/fortification loss actually come from, then?' (the FUN_0044ae20 bullet), confirmed at instruction level in §'FUN_0044b27c, instruction by instruction' (CALL 0x0044AE20 at 0x0044B35D–B361), research 3f6ca09; bug #289. The mercenary threshold: standardBattalionSize / 5.",
       "absorbedSupplyTroopDivisor": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — absorbed supplies are capped at winnerTroops / 100, the same capacity rule as buying supply. T04 fixtures corpus id: 'battle.instantResolver.winnerSuppliesCap'.",
@@ -906,7 +906,7 @@
     }
   },
   "_provenance": {
-    "id": "This is not one of the two shipped presets. docs/game-design.md ships classical-faithful and improved; task T29 exports classical-faithful from the original data. This ruleset exists only so unit tests have a small, fully-populated ruleset to load, as docs/game-design.md §'Testing and determinism' asks for.",
+    "id": "One of the two shipped presets (docs/game-design.md §'Two shipped presets'). Task T29 exports this file directly from the original DAT (see 'description' above); it is not the small, hand-authored ruleset kept for unit tests to load.",
     "unitTypes": "confirmed: unit-type-stat-table-in-dat.md — the five unit types and their stat table, transcribed whole. The list is data, not a fixed size: a ruleset may define any number of unit types. One field of the original table is deliberately NOT carried: +0x20 is the per-type shooting-vulnerability weight, read for the target's type (Light inf 18, Heavy inf 2, Archers 18, Light cav 15, Heavy cav 4) [confirmed: battle-replayed-rout-mechanic-and-combat-constants.md (https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/battle-replayed-rout-mechanic-and-combat-constants.md)]. It is now identified but held in reserve for a future optional 'detailed' resolver (docs/game-design.md §Combat) rather than carried as a UnitTypeRules field, since the shipped instant resolver never reads it; adding the field belongs to whichever future task builds that resolver, not to an open-identity question."
   }
 }

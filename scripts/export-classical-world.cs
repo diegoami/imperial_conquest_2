@@ -537,13 +537,32 @@ rulesetNode["description"] =
     "corpus gives that constant its own id. Its flags reproduce the original faithfully; the " +
     "'improved' preset (task T36) is this file with docs/game-design.md's 'improved' column applied.";
 
-// ---- #299 guard: no "_provenance" string may ship written from the toy ruleset's own point of
-// view. The rule this script follows is that toy-ruleset.json's own provenance wording is written
-// preset-neutrally -- never naming "toy" or "classical-faithful" by file -- so that copying it
-// verbatim into this preset (or improved.json, T36) never says something false about the file it
-// lands in. This check is the safety net for that rule: it catches a regression at the source, the
-// same way the DoD 2 leaderName check below does, rather than trusting every future edit to
-// toy-ruleset.json to remember it.
+// ---- Review round 1 B1: _provenance.id is the one provenance key that describes the file
+// itself -- what ruleset this is and why it exists -- so, unlike every other provenance string,
+// it genuinely cannot be written preset-neutrally: toy-ruleset.json's own id note correctly says
+// "this is not one of the two shipped presets", which is true of toy-ruleset.json and false of
+// classical-faithful.json. Rather than word around that, this is the rule's one stated exception:
+// the exporter owns _provenance.id explicitly, exactly as it already owns id/name/description
+// above, so the toy ruleset's identity note is never copied at all.
+const string classicalFaithfulIdProvenance =
+    "One of the two shipped presets (docs/game-design.md §'Two shipped presets'). Task T29 " +
+    "exports this file directly from the original DAT (see 'description' above); it is not the " +
+    "small, hand-authored ruleset kept for unit tests to load.";
+((JsonObject)rulesetNode["_provenance"]!)["id"] = classicalFaithfulIdProvenance;
+
+// ---- #299 guard: a "_provenance" string may not ship written from another preset's own point of
+// view. Two rules enforce this: (1) every ordinary provenance string is required to be
+// preset-neutral -- never describing the file it sits in, so copying it verbatim between presets
+// can never say something false (a handful of notes legitimately name "classical-faithful" or
+// "improved" because they state a fact true of that flag's value in EITHER file, e.g. flags._provenance.combatOnDefeat
+// -- naming a preset is fine, describing THIS file is not); (2) _provenance.id is the sole
+// exception, explicitly owned by the exporter just above rather than left to the neutrality rule,
+// because it is the one key whose entire job is to describe the file it's in. This check enforces
+// rule (1) over everything the exporter did NOT just overwrite, catching a regression at the
+// source (a future field added in toy-ruleset.json that names "toy" again) the same way the DoD 2
+// leaderName check below does. It does not, and cannot, catch every possible way a rule-(1) note
+// could describe its file without saying "toy" -- rule (1) itself, kept preset-neutral at the
+// source, is what actually prevents that; this check is the narrower, mechanical backstop.
 var toyMentions = FindToyProvenanceMentions(rulesetNode);
 if (toyMentions.Count > 0)
     throw new InvalidOperationException(
@@ -571,6 +590,16 @@ foreach (var nation in world.Nations)
     if (source.Contains("confirmed", StringComparison.OrdinalIgnoreCase) && source.Contains("DAT", StringComparison.Ordinal))
         throw new InvalidOperationException($"Nation '{nation.Id}' leaderName provenance appears to claim DAT provenance: \"{source}\"");
 }
+
+// ---- Review round 1 B1 safety net: _provenance.id round-trips to exactly the exporter-owned text
+// set above, not toy-ruleset.json's own "not one of the two shipped presets" identity note (which
+// contains no "toy" substring, so the general #299 guard above cannot catch it going missing).
+// Checked on the fully round-tripped Ruleset, not the raw JsonNode, so this also proves
+// GameDataLoader/GameJson preserve the string exactly.
+if (ruleset.Provenance?.SourceFor("id") != classicalFaithfulIdProvenance)
+    throw new InvalidOperationException(
+        "ruleset._provenance.id is not the exporter-owned classical-faithful text -- got: " +
+        $"\"{ruleset.Provenance?.SourceFor("id")}\"");
 
 // ============================================================================================
 // 10. Scenario: seats every nation (AI by default -- New Game assigns human seats and leaders),
@@ -777,8 +806,19 @@ internal static class RulesetCorpusMap
         ("combat.autoPeaceChanceNumerator", "battle.instantResolver.reparationTriggerChance"),
         ("combat.autoPeaceLoserCityThreshold", "battle.instantResolver.reparationTriggerCityThreshold"),
         ("combat.autoPeaceLoserUnityThreshold", "battle.instantResolver.reparationTriggerUnityThreshold"),
+        // Review round 1 B2: the field's own note already says "Transcribed in the T04 fixtures
+        // corpus as siege.attritionFormula" -- cited as a formula string, not diffed (same
+        // convention already used for combat.naval.winnerDamageDivisor below).
+        ("combat.casualtyDivisorBase", "siege.attritionFormula"),
+        ("combat.casualtyDivisorRandomSpan", "siege.attritionFormula"),
+        // Review round 1 B2: battle.melee.powerFormula ("... / 2000 + 12") and the two
+        // defender/attacker loss-cap formulas (both end "+ 1") are formula strings, cited but not
+        // diffed, the same convention as naval.buildCostPerShip -> fleet.costFormula below.
+        ("combat.detailedResolver.meleeBasePowerFloor", "battle.melee.powerFormula"),
+        ("combat.detailedResolver.meleeLossCapOffset", "battle.melee.defenderLossCapFormula"),
         ("combat.detailedResolver.meleeLossCapPercent", "caps.meleeLossPercentOfOwnTroops"),
         ("combat.detailedResolver.meleeLossHardCap", "caps.meleeLossAbsoluteCap"),
+        ("combat.detailedResolver.meleePowerDivisor", "battle.melee.powerFormula"),
         // The 25-value type-effectiveness matrix (#236 N1), in the recorded orientation: row =
         // attacker's unitTypes index, column = defender's, matching the corpus's own
         // matrix.<attacker>.vs.<defender> ids value-for-value (verified against toy-ruleset.json's
@@ -809,8 +849,14 @@ internal static class RulesetCorpusMap
         ("combat.detailedResolver.typeEffectiveness.4.3", "matrix.heavyCavalry.vs.lightCavalry"),
         ("combat.detailedResolver.typeEffectiveness.4.4", "matrix.heavyCavalry.vs.heavyCavalry"),
         ("combat.naval.conditionDivisor", "battle.naval.strengthFormula"),
+        // Review round 1 B2: all three fit battle.naval.winnerDamageFormula, the same corpus id
+        // combat.naval.winnerDamageDivisor already cites below -- the formula string literally
+        // contains "*100/", "d>70" and "d/250" for these three fields respectively.
+        ("combat.naval.damageRatioScale", "battle.naval.winnerDamageFormula"),
         ("combat.naval.randomBandCount", "battle.naval.randomBonus"),
         ("combat.naval.randomBandPercent", "battle.naval.randomBonus"),
+        ("combat.naval.unitLossDamageThreshold", "battle.naval.winnerDamageFormula"),
+        ("combat.naval.unitLossDivisor", "battle.naval.winnerDamageFormula"),
         ("combat.naval.unitySwingShipDivisor", "battle.naval.unityChangeFormula"),
         ("combat.naval.winnerDamageDivisor", "battle.naval.winnerDamageFormula"),
         ("combat.powerDivisor", "battle.instantResolver.powerFormula"),
@@ -910,6 +956,14 @@ internal static class RulesetCorpusMap
         ("naval.deathConditionThreshold", "fleet.condition.deathThreshold"),
         ("naval.joinMaxShips", "fleet.joinMaxShips"),
         ("naval.launchConditionPercent", "fleet.launchState"),
+        // Review round 1 B2: fleet.launchState's value literally contains "supplies 50", the same
+        // corpus id naval.launchConditionPercent already cites above (formula/record string, not diffed).
+        ("naval.launchSupplyTons", "fleet.launchState"),
+        // Review round 1 B2: fleet.markerFormula ("marker = owner + (ships<25 ? 300 : ships<50 ?
+        // 316 : 332)") describes both the tier-1 base (300) and the +16-per-tier step; cited but
+        // not diffed, the same convention as naval.buildCostPerShip -> fleet.costFormula above.
+        ("naval.markerBandBaseTier1", "fleet.markerFormula"),
+        ("naval.markerBandStep", "fleet.markerFormula"),
         ("naval.movesBaseValue", "fleet.moves.baseFormula"),
         ("naval.movesCarriedArmyAddend", "fleet.moves.carriedArmyPenaltyFormula"),
         ("naval.movesCarriedArmyTroopDivisor", "fleet.moves.carriedArmyPenaltyFormula"),
@@ -935,6 +989,8 @@ internal static class RulesetCorpusMap
         ("recruitment.mercenaryHireTroopDivisor", "mercenary.hireCostFormula"),
         ("recruitment.mercenaryPoolSlots", "caps.maxMercenarySlots"),
         ("recruitment.mercenaryUpkeepQualityDivisor", "mercenary.upkeepFormula"),
+        // Review round 1 B2: a same-named scalar corpus id exists (100 == 100); genuinely diffed.
+        ("recruitment.mobilizationCapPercent", "recruitment.mobilizationCapPercent"),
         ("recruitment.troopsPerCostUnit", "recruitment.costFormula.initial"),
         ("siege.archerStrengthMultiplier", "capture.attackerSiegeStrengthArcherMultiplier"),
         ("siege.defenderFortificationWeight", "capture.siegeDefenderStrengthFormula"),
