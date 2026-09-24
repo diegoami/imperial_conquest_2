@@ -27,6 +27,13 @@ public static class EmbarkationLinker
     /// Resolves every surviving fleet's carried-army claim.
     /// </summary>
     /// <param name="fleets">Every surviving (non-tombstoned) fleet's own claim.</param>
+    /// <param name="liveArmyIndices">
+    /// Army-table indices of every army the import actually creates (<c>SaveArmyTable.Armies</c>'s own
+    /// indices). A fleet's claimed index must be one of these or a member of
+    /// <paramref name="tombstonedArmyIndices"/> — anything else is corrupt or out-of-range data no
+    /// corpus save has shown, and is a hard failure rather than a silently-kept, unverified link
+    /// (review N1).
+    /// </param>
     /// <param name="tombstonedArmyIndices">
     /// Army-table indices the army parser skipped as owner-<c>0xFFFF</c> tombstones. A fleet naming one
     /// of these no longer really carries anyone — the referenced army was merged or eliminated and
@@ -36,10 +43,14 @@ public static class EmbarkationLinker
     /// <param name="documentPath">Named in the exception message on a genuine inconsistency.</param>
     /// <exception cref="InvalidDataException">
     /// Two surviving fleets both claim to carry the same surviving army — the one shape this method
-    /// cannot resolve by itself, because there is no principled way to prefer one claim over the other.
+    /// cannot resolve by itself, because there is no principled way to prefer one claim over the other —
+    /// or a fleet claims an army index that is neither live nor tombstoned.
     /// </exception>
     public static Result Resolve(
-        IEnumerable<FleetClaim> fleets, IReadOnlySet<int> tombstonedArmyIndices, string documentPath)
+        IEnumerable<FleetClaim> fleets,
+        IReadOnlySet<int> liveArmyIndices,
+        IReadOnlySet<int> tombstonedArmyIndices,
+        string documentPath)
     {
         var fleetCarriesArmyIndex = new Dictionary<int, int>();
         var armyCarriedByFleetIndex = new Dictionary<int, int>();
@@ -54,6 +65,13 @@ public static class EmbarkationLinker
             if (tombstonedArmyIndices.Contains(carriedIndex))
             {
                 continue;
+            }
+
+            if (!liveArmyIndices.Contains(carriedIndex))
+            {
+                throw new InvalidDataException(
+                    $"'{documentPath}': fleet {claim.FleetIndex} claims to carry army {carriedIndex}, " +
+                    "which is neither a surviving army nor a tombstoned record.");
             }
 
             fleetCarriesArmyIndex[claim.FleetIndex] = carriedIndex;

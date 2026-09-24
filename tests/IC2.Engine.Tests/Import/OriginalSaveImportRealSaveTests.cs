@@ -1,4 +1,6 @@
 using IC2.Data;
+using IC2.Engine.Calendar;
+using IC2.Engine.Core;
 using IC2.Engine.Import;
 using IC2.Engine.Model;
 using IC2.Engine.Persistence;
@@ -28,6 +30,7 @@ public class OriginalSaveImportRealSaveTests
     // ---- Local-only 2026-09-20 batch (not part of CI's 54-save fixtures repo) ----
     private const string FleetTombstoneSave = "IP012B.sav"; // bug #276: 1 fleet tombstone, 2 army tombstones
     private const string OverCapPurseSave = "IP016.sav"; // bug #312/#315: army 1 money 1066 > purseCapPerUnit
+    private const string EmbarkedArmySave = "IP010B.sav"; // review N2: army 12 aboard fleet 4, a real link
 
     private static OriginalSaveImportResult ImportFixture(string fileName)
     {
@@ -79,13 +82,19 @@ public class OriginalSaveImportRealSaveTests
 
     [SkippableTheory]
     [MemberData(nameof(RepresentativeSample))]
-    public void Import_report_claims_zero_unmapped_fields(string fileName)
+    public void Import_report_claims_zero_unmapped_fields_except_the_declared_mercenary_waiver(string fileName)
     {
+        // Done-when 2, as narrowed by the user's waiver (docs/tasks/T21.md "Mercenary position", #321):
+        // the report's UnmappedFields is derived from OriginalSaveFieldMapping (review B1), and the only
+        // entries it can ever carry are exactly the two waived MercenaryRecord fields -- a third entry
+        // appearing here means a field IC2.Data now parses stopped being mapped, and this test must fail.
         Skip.IfNot(LocalOriginalAssets.IsConfigured, LocalOriginalAssets.SkipReason);
 
         var result = ImportFixture(fileName);
 
-        Assert.Empty(result.Report.UnmappedFields);
+        Assert.Equal(
+            new[] { "MercenaryRecord.X", "MercenaryRecord.Y" },
+            result.Report.UnmappedFields.OrderBy(f => f, StringComparer.Ordinal));
     }
 
     [SkippableTheory]
@@ -218,5 +227,133 @@ public class OriginalSaveImportRealSaveTests
         var army1 = result.Save.State.ArmyById("army-1");
         Assert.NotNull(army1);
         Assert.Equal(1066, army1!.Money);
+    }
+
+    [SkippableFact]
+    public void Relations_are_imported_from_the_saves_own_matrix_not_reset_to_uniform_peace()
+    {
+        // Done-when 11 (review B2): 1_rome_270_summer_7.sav's own relation matrix, read independently
+        // through SaveNationTable.Parse and confirmed by hand: 6 wars (rome-gaul, carthage-celtiberia,
+        // seleucid-ptolemaic, seleucid-bithynia, seleucid-galatia, greece-illyria) plus cooldowns such
+        // as seleucid-media at -5. DiplomaticRelations.Uniform would make every one of these 0 (peace).
+        Skip.IfNot(LocalOriginalAssets.IsConfigured, LocalOriginalAssets.SkipReason);
+
+        var result = ImportFixture(NegativeMovesSave); // = 1_rome_270_summer_7.sav
+
+        var relations = result.Save.State.Relations;
+        Assert.True(relations.IsWellFormed());
+
+        var wars = new (string A, string B)[]
+        {
+            ("rome", "gaul"),
+            ("carthage", "celtiberia"),
+            ("seleucid", "ptolemaic"),
+            ("seleucid", "bithynia"),
+            ("seleucid", "galatia"),
+            ("greece", "illyria"),
+        };
+        var warCode = RealGameData.Ruleset.Diplomacy.StateCodes.War;
+        foreach (var (a, b) in wars)
+        {
+            Assert.Equal(warCode, relations.Get(a, b));
+            Assert.Equal(warCode, relations.Get(b, a));
+        }
+
+        // A named cooldown cell -- negative, not one of the four named relation states.
+        Assert.Equal(-5, relations.Get("seleucid", "media"));
+        Assert.Equal(-5, relations.Get("media", "seleucid"));
+
+        // Exactly 6 unique war pairs across the whole matrix, matching the entry's own count.
+        var nationIds = relations.NationIds;
+        var warPairCount = 0;
+        for (var i = 0; i < nationIds.Count; i++)
+        {
+            for (var j = i + 1; j < nationIds.Count; j++)
+            {
+                if (relations.Get(nationIds[i], nationIds[j]) == warCode)
+                {
+                    warPairCount++;
+                }
+            }
+        }
+
+        Assert.Equal(6, warPairCount);
+    }
+
+    [SkippableFact]
+    public void Turn_order_is_imported_from_the_saves_own_order_and_index_not_worlds()
+    {
+        // Done-when 12 (review B2): 1_thracia_271_spring_3.sav's own trailer names Thracia active at
+        // turn-order index 5 of 16 (SaveTurnState.TurnOrderIndex == 5, TurnOrder[5] == 15 == Thracia) --
+        // last in world.TurnOrder, but mid-pack in the save's own order. The 10 nations after it
+        // (indices 6..15) are still due to move this cycle, and ending Thracia's turn (index 5 -> 6)
+        // must not wrap the turn order and must not signal the round-scoped calendar tick.
+        Skip.IfNot(LocalOriginalAssets.IsConfigured, LocalOriginalAssets.SkipReason);
+
+        var result = ImportFixture(MidTurnTombstoneSave); // = 1_thracia_271_spring_3.sav
+        var state = result.Save.State;
+
+        Assert.Equal(16, state.TurnOrder.Count);
+        Assert.Equal(5, state.ActiveSeatIndex);
+        Assert.Equal("thracia", state.TurnOrder[5]);
+        Assert.Equal(10, state.TurnOrder.Count - 1 - state.ActiveSeatIndex);
+
+        // A registry scoped to only SeatRotationSystem (IC2.Engine.Calendar's own namespace), built
+        // locally rather than depending on another task's own test fixtures -- this only needs T06's
+        // rotation rule, over the real imported state, to prove the "does not tick the calendar" claim.
+        var registry = SystemRegistry.FromAssemblies(
+            new[] { typeof(SeatRotationSystem).Assembly },
+            t => t == typeof(SeatRotationSystem));
+        var coordinator = new TurnCoordinator(registry, RealGameData.Ruleset, RealGameData.World, NullEventSink.Instance);
+
+        var turnResult = coordinator.RunTurn(state);
+
+        Assert.Equal(6, turnResult.State.ActiveSeatIndex);
+        Assert.False(turnResult.RoundTickRan, "Ending Thracia's turn (index 5 of 16) must not tick the calendar.");
+    }
+
+    [SkippableFact]
+    public void An_embarked_army_round_trips_through_the_real_embarkation_link()
+    {
+        // Review N2: none of the three Done-when-1 samples has an embarked army, so no test yet ran a
+        // real link through EmbarkationLinker end to end. IP010B.sav: army 12 (Ptolemaic) rides fleet 4.
+        Skip.IfNot(LocalOriginalAssets.IsConfigured, LocalOriginalAssets.SkipReason);
+        var path = OriginalFixture.TryResolve(EmbarkedArmySave);
+        Skip.If(path is null, $"'{EmbarkedArmySave}' is not present in the configured corpus on this machine.");
+        var data = File.ReadAllBytes(path!);
+
+        var result = OriginalSaveImporter.Import(
+            data, EmbarkedArmySave, RealGameData.World, RealGameData.Ruleset, RealGameData.Scenario, "s", "s");
+
+        var army = result.Save.State.ArmyById("army-12");
+        var fleet = result.Save.State.FleetById("fleet-4");
+        Assert.NotNull(army);
+        Assert.NotNull(fleet);
+        Assert.Equal("fleet-4", army!.AboardFleetId);
+        Assert.Equal("army-12", fleet!.CarriedArmyId);
+        Assert.Null(army.CoveredTileCode);
+
+        GameDataValidation.Validate(EmbarkedArmySave, result.Save.State);
+    }
+
+    [SkippableFact]
+    public void An_under_construction_fleet_imports_with_no_position_and_condition_zero()
+    {
+        // Review N3: the comment on this mapping branch (OriginalSaveImporter.cs, the fleets loop) was
+        // never itself asserted. 1_cartago_271_summer_1.sav's fleet 2 (Greece) is still building at city
+        // index 166, countdown 24 -- ConditionPercent must read 0 (the field has no meaning yet),
+        // CoveredTileCode must be null (no map position yet), and BuildCityId/ConstructionTicksRemaining
+        // must carry the launch order's own values.
+        Skip.IfNot(LocalOriginalAssets.IsConfigured, LocalOriginalAssets.SkipReason);
+
+        var result = ImportFixture(Morale72Save); // = 1_cartago_271_summer_1.sav
+
+        var fleet = result.Save.State.FleetById("fleet-2");
+        Assert.NotNull(fleet);
+        Assert.Equal("greece", fleet!.Nation);
+        Assert.Equal(0, fleet.ConditionPercent);
+        Assert.Null(fleet.CoveredTileCode);
+        Assert.Equal(24, fleet.ConstructionTicksRemaining);
+        Assert.Equal(RealGameData.World.Cities[166].Id, fleet.BuildCityId);
     }
 }

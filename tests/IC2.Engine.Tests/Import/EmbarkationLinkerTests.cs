@@ -14,6 +14,7 @@ public class EmbarkationLinkerTests
     {
         var result = EmbarkationLinker.Resolve(
             new[] { new EmbarkationLinker.FleetClaim(0, 5) },
+            liveArmyIndices: new HashSet<int> { 5 },
             tombstonedArmyIndices: new HashSet<int>(),
             documentPath: "test.sav");
 
@@ -26,6 +27,7 @@ public class EmbarkationLinkerTests
     {
         var result = EmbarkationLinker.Resolve(
             new[] { new EmbarkationLinker.FleetClaim(0, null) },
+            liveArmyIndices: new HashSet<int>(),
             tombstonedArmyIndices: new HashSet<int>(),
             documentPath: "test.sav");
 
@@ -41,6 +43,7 @@ public class EmbarkationLinkerTests
         // this import never creates.
         var result = EmbarkationLinker.Resolve(
             new[] { new EmbarkationLinker.FleetClaim(0, 5) },
+            liveArmyIndices: new HashSet<int>(),
             tombstonedArmyIndices: new HashSet<int> { 5 },
             documentPath: "test.sav");
 
@@ -49,10 +52,27 @@ public class EmbarkationLinkerTests
     }
 
     [Fact]
+    public void A_fleet_naming_an_army_that_is_neither_live_nor_tombstoned_throws()
+    {
+        // Review N1: previously this index was silently kept as a "plausible" link just because it was
+        // not in the tombstoned set -- corrupt or out-of-range data (no corpus save has this shape)
+        // must fail loudly instead.
+        var ex = Assert.Throws<InvalidDataException>(() => EmbarkationLinker.Resolve(
+            new[] { new EmbarkationLinker.FleetClaim(0, 5) },
+            liveArmyIndices: new HashSet<int>(),
+            tombstonedArmyIndices: new HashSet<int>(),
+            documentPath: "test.sav"));
+
+        Assert.Contains("fleet 0", ex.Message);
+        Assert.Contains("army 5", ex.Message);
+    }
+
+    [Fact]
     public void Two_fleets_claiming_the_same_surviving_army_throws_naming_both()
     {
         var ex = Assert.Throws<InvalidDataException>(() => EmbarkationLinker.Resolve(
             new[] { new EmbarkationLinker.FleetClaim(0, 5), new EmbarkationLinker.FleetClaim(1, 5) },
+            liveArmyIndices: new HashSet<int> { 5 },
             tombstonedArmyIndices: new HashSet<int>(),
             documentPath: "test.sav"));
 
@@ -68,6 +88,7 @@ public class EmbarkationLinkerTests
         // there is no real ambiguity left once neither claim points at a surviving army.
         var result = EmbarkationLinker.Resolve(
             new[] { new EmbarkationLinker.FleetClaim(0, 5), new EmbarkationLinker.FleetClaim(1, 5) },
+            liveArmyIndices: new HashSet<int>(),
             tombstonedArmyIndices: new HashSet<int> { 5 },
             documentPath: "test.sav");
 

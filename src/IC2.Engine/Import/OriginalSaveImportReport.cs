@@ -15,12 +15,14 @@ public sealed record OriginalSaveImportResult(SaveGame Save, OriginalSaveImportR
 /// </summary>
 /// <param name="UnmappedFields">
 /// Done-when 2: "an import report lists zero unmapped fields for every table <c>IC2.Data</c> already
-/// parses." <see cref="OriginalSaveImporter"/> reads every public field of every record
-/// <c>SaveNationTable</c>, <c>SaveArmyTable</c>, <c>SaveFleetTable</c>, <c>SaveRecruitmentTable</c>,
-/// <c>SaveMercenaryTable</c>, <c>SaveTurnState</c> and <c>SavePendingOffer</c> expose (the PR body lists
-/// the mapping field by field) — so this is always empty. Kept as a real, populated-if-ever-true list
-/// rather than a bare code comment, so a future field <c>IC2.Data</c> starts parsing shows up here as a
-/// gap a test can catch, not a claim nobody re-checks.
+/// parses." Always exactly <see cref="OriginalSaveFieldMapping.UnmappedFieldNames"/> — the qualified
+/// names of every <see cref="OriginalSaveFieldMapping.FieldMappingKind.DeclaredUnmapped"/> entry in the
+/// declared mapping (review B1, PR #319 round 1: this was a hard-coded empty list nobody re-checked, so
+/// it stayed "correct" even after a field <c>IC2.Data</c> parses went unread). Today that is exactly
+/// <c>MercenaryRecord.X</c> and <c>MercenaryRecord.Y</c> — the user's narrow waiver of this Done-when
+/// line (docs/tasks/T21.md "Mercenary position") — and nothing else; a new gap in the mapping fails
+/// <c>OriginalSaveFieldMappingTests</c> (<c>tests/IC2.Engine.Tests/Import/</c>) before it can ever
+/// silently widen this list.
 /// </param>
 /// <param name="SkippedArmies">
 /// Done-when 1 and 10: every army-table record the parser skipped as an owner-<c>0xFFFF</c> tombstone

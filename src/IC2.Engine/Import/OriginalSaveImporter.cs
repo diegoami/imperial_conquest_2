@@ -4,6 +4,7 @@ using System.Linq;
 using IC2.Data;
 using IC2.Engine.Model;
 using IC2.Engine.Persistence;
+using IC2.Engine.Serialization;
 
 namespace IC2.Engine.Import;
 
@@ -33,15 +34,26 @@ namespace IC2.Engine.Import;
 /// (some repeat; that is exactly why the exporter's own city ids need a disambiguating suffix).
 /// </para>
 /// <para>
-/// <strong>What is not, and cannot be, recovered.</strong> The original SAV format has no persisted
-/// diplomatic-relation matrix, elapsed-turn-cycle counter or RNG seed that <c>IC2.Data</c> parses — none
-/// of the seven tables this importer reads carries one. Every one of these becomes a <c>[designed]</c>
+/// <strong>What is imported, since T73.</strong> The diplomatic-relation matrix and the saved turn
+/// order/index are both persisted in the SAV and both parsed by <c>IC2.Data</c> (<c>NationRecord.Relations</c>,
+/// <c>SaveTurnState.TurnOrder</c>/<c>TurnOrderIndex</c>) — a round-0 review of this task (PR #319, B2)
+/// caught an earlier version of this remark claiming otherwise for both, when neither claim held up
+/// against <c>decompiled-diplomacy-peace-terms-and-instant-battles.md</c> §"The relation matrix" and
+/// <c>decompiled-sav-file-layout.md</c>'s 2026-09-14 correction. <see cref="Model.DiplomaticRelations"/>
+/// and <see cref="Model.GameState.TurnOrder"/>/<see cref="Model.GameState.ActiveSeatIndex"/> below are
+/// the save's own values, cell for cell and seat for seat (Done-when 11, 12) — never
+/// <see cref="Model.DiplomaticRelations.Uniform"/> and never re-derived by searching <see cref="World.TurnOrder"/>
+/// for the active nation.
+/// </para>
+/// <para>
+/// <strong>What is not, and cannot be, recovered.</strong> The original SAV format has no
+/// elapsed-turn-cycle counter or RNG seed that <c>IC2.Data</c> parses. Both become a <c>[designed]</c>
 /// default at the moment of import, exactly mirroring the same defaults <c>GameStateFactory</c> already
-/// uses for a brand-new game: relations start at uniform peace, the turn/nation "AtStart" scorecard
-/// fields reset to the import moment (there is no way to recover the true original game-start baseline
-/// from a save already in progress), and <see cref="Model.CalendarState.TurnIndex"/> starts at 0. The
-/// caller supplies the <see cref="Scenario"/> (for its id and <see cref="Scenario.RandomSeed"/>) rather
-/// than this importer inventing either.
+/// uses for a brand-new game: the turn/nation "AtStart" scorecard fields reset to the import moment
+/// (there is no way to recover the true original game-start baseline from a save already in progress),
+/// and <see cref="Model.CalendarState.TurnIndex"/> starts at 0. The caller supplies the
+/// <see cref="Scenario"/> (for its id and <see cref="Scenario.RandomSeed"/>) rather than this importer
+/// inventing either.
 /// </para>
 /// </remarks>
 public static class OriginalSaveImporter
@@ -126,7 +138,7 @@ public static class OriginalSaveImporter
                 $"'{world.Id}' defines {world.Cities.Count} cities; an original save always has {WorldPrefix.CityCount}.");
         }
 
-        // "The import path IS IC2.Data, essentially unchanged" (game-design.md): every one of the seven
+        // "The import path IS IC2.Data, essentially unchanged" (game-design.md): every one of the eight
         // parsers runs unmodified, and its own exceptions (InvalidDataException,
         // AllArmyRecordsTombstonedException, UnrecognizedSaveFormatException, DatDataNotPresentException
         // for a DAT passed here by mistake) are left to propagate rather than wrapped.
@@ -138,6 +150,7 @@ public static class OriginalSaveImporter
         var mercenaryTable = SaveMercenaryTable.Parse(data);
         var turnState = SaveTurnState.Parse(data);
         var pendingOffer = SavePendingOffer.Parse(data);
+        var newsLog = SaveNewsLog.Parse(data);
 
         var nationIds = new string[NationCount];
         for (var code = 0; code < NationCount; code++)
@@ -210,7 +223,10 @@ public static class OriginalSaveImporter
         // wealth especially — never recomputed from the imported cities). Population has no dedicated
         // save field (same as the exporter's own NationDefinition.Population); it is summed from the
         // cities just built, the identical [derived] formula scripts/export-classical-world.cs already
-        // uses. The "AtStart" scorecard fields reset to the import moment — see this class's own remarks.
+        // uses. CityCountAtStart/Eliminated are derived the same way, deliberately overriding
+        // NationRecord.CityCount/IsEliminated — see OriginalSaveFieldMapping's own remarks (review B1)
+        // for why the SAV's own count can be stale. The "AtStart" scorecard fields reset to the import
+        // moment — see this class's own remarks.
         var nations = new NationState[NationCount];
         for (var code = 0; code < NationCount; code++)
         {
@@ -239,7 +255,9 @@ public static class OriginalSaveImporter
                 LeaderName: n.Leader ?? world.Nations[code].LeaderName,
                 CapitalCityId: capitalCityId,
                 Control: n.HumanPlayer ? SeatControl.Human : SeatControl.Ai,
-                Personality: null,
+                // scenario's own seat personality, the same source GameStateFactory.CreateInitial uses
+                // (review N6) — equivalent to null today only because the shipped scenario assigns none.
+                Personality: scenario.SeatFor(nationId)?.Personality,
                 Treasury: n.Treasury,
                 Unity: n.UnityValue,
                 Wealth: n.Wealth,
@@ -258,9 +276,14 @@ public static class OriginalSaveImporter
         // reference (a fleet carrying a now-compacted-out tombstoned army, or the reverse) is caught here
         // rather than silently producing a GameState GameDataValidation would reject for an opaque reason.
         // See EmbarkationLinker's own remarks for why this is a separate, independently-testable type.
+        // liveArmyIndices (review N1): a fleet naming an army index that is neither tombstoned nor a real
+        // surviving army (corrupt or out-of-range data no corpus save has) now fails loudly instead of
+        // being kept as a plausible-looking but unverified link.
         var tombstonedArmyIndices = armyTable.SkippedRecords.Select(s => s.Index).ToHashSet();
+        var liveArmyIndices = armyTable.Armies.Select(a => a.Index).ToHashSet();
         var links = EmbarkationLinker.Resolve(
             fleetTable.Fleets.Select(f => new EmbarkationLinker.FleetClaim(f.Index, f.CarriedArmyIndex)),
+            liveArmyIndices,
             tombstonedArmyIndices,
             documentPath);
         var fleetCarriesArmyIndex = links.FleetCarriesArmyIndex;
@@ -379,8 +402,51 @@ public static class OriginalSaveImporter
             YearBc: turnState.YearBc,
             TurnIndex: 0);
 
-        var activeNationId = NationId(turnState.CurrentNationCode);
-        var activeSeatIndex = IndexInTurnOrder(world, activeNationId, documentPath);
+        // ---- Turn order (Done-when 12, review B2): the save's own 16-seat order and index, never
+        // world.TurnOrder and never re-derived by searching it for the active nation. CurrentNationCode
+        // is read here too, only as a defensive re-check of the identity SaveTurnState.Parse itself
+        // already enforces (TurnOrder[TurnOrderIndex] == CurrentNationCode) -- cheap, and it means this
+        // field is genuinely consumed rather than silently dropped (OriginalSaveFieldMapping).
+        var importedTurnOrder = new string[NationCount];
+        for (var i = 0; i < NationCount; i++)
+        {
+            importedTurnOrder[i] = NationId(turnState.TurnOrder[i]);
+        }
+
+        var activeSeatIndex = (int)turnState.TurnOrderIndex;
+        var currentNationId = NationId(turnState.CurrentNationCode);
+        if (!string.Equals(importedTurnOrder[activeSeatIndex], currentNationId, StringComparison.Ordinal))
+        {
+            throw new InvalidDataException(
+                $"'{documentPath}': turn order at index {activeSeatIndex} names " +
+                $"'{importedTurnOrder[activeSeatIndex]}', not the trailer's current nation '{currentNationId}'.");
+        }
+
+        // ---- Relations (Done-when 11, review B2): the save's own symmetric matrix, cell for cell --
+        // wars, trades, alliances and negative cooldowns carried exactly as SaveNationTable.Parse already
+        // validated them (symmetric, zero diagonal, MinRelationValue..MaxRelationValue). Never
+        // DiplomaticRelations.Uniform, which was this importer's own earlier -- and wrong -- default.
+        var relationRows = new ValueList<int>[NationCount];
+        for (var code = 0; code < NationCount; code++)
+        {
+            var row = nationTable.Nations[code].Relations;
+            var cells = new int[NationCount];
+            for (var other = 0; other < NationCount; other++)
+            {
+                cells[other] = row[other];
+            }
+
+            relationRows[code] = ValueList<int>.Of(cells);
+        }
+
+        var relations = new DiplomaticRelations(ValueList.From(nationIds), ValueList<ValueList<int>>.Of(relationRows));
+
+        // ---- News log (T73; Done-when 2's note): the save's own slots, oldest first, exactly as
+        // SaveNewsLog.Parse already orders them -- never NewsLog.Empty, this importer's own earlier
+        // default (review N6).
+        var newsLogState = new NewsLog(
+            MostRecentSlot: newsLog.NewestIndex,
+            Slots: ValueList.From(newsLog.Slots.Select(s => new NewsEntry(s))));
 
         var pendingOfferState = pendingOffer.HasOffer
             ? new PendingDiplomaticOffer(
@@ -394,7 +460,7 @@ public static class OriginalSaveImporter
             RulesetId: ruleset.Id,
             ScenarioId: scenario.Id,
             Calendar: calendar,
-            TurnOrder: world.TurnOrder,
+            TurnOrder: ValueList.From(importedTurnOrder),
             ActiveSeatIndex: activeSeatIndex,
             RandomSeed: scenario.RandomSeed,
             Nations: ValueList<NationState>.Of(nations),
@@ -402,8 +468,8 @@ public static class OriginalSaveImporter
             Armies: ValueList<ArmyState>.Of(armies),
             Fleets: ValueList<FleetState>.Of(fleets),
             MercenaryPool: ValueList.From(mercenaryPool),
-            Relations: DiplomaticRelations.Uniform(ValueList.From(nationIds), ruleset.Diplomacy.StateCodes.Peace),
-            NewsLog: NewsLog.Empty,
+            Relations: relations,
+            NewsLog: newsLogState,
             PendingOffer: pendingOfferState);
 
         var save = new SaveGame(
@@ -419,8 +485,17 @@ public static class OriginalSaveImporter
                           "parsers (T30, T34, T44, T64), unchanged -- docs/game-design.md " +
                           "§\"Original-save compatibility\".")));
 
+        // Fail fast on any dangling reference or malformed invariant this importer's own mapping missed
+        // -- the same checks SaveManager.LoadFile would run on the way back in, run here too (review N1)
+        // rather than left only to a caller that happens to validate before using the result.
+        GameDataValidation.Validate(documentPath, state);
+        GameDataValidation.Validate(documentPath, save);
+
         var report = new OriginalSaveImportReport(
-            UnmappedFields: ValueList<string>.Empty,
+            // Derived from the declared mapping (review B1), not a hard-coded empty list: the only
+            // entries are OriginalSaveFieldMapping's DeclaredUnmapped ones, the user's narrow waiver for
+            // MercenaryRecord.X/Y (docs/tasks/T21.md "Mercenary position").
+            UnmappedFields: ValueList.From(OriginalSaveFieldMapping.UnmappedFieldNames),
             SkippedArmies: ValueList.From(armyTable.SkippedRecords.Select(s => new SkippedRecordReport(s.Index, s.X, s.Y))),
             SkippedFleets: ValueList.From(fleetTable.SkippedRecords.Select(s => new SkippedRecordReport(s.Index, s.X, s.Y))),
             ArmiesWithClampedMoves: ValueList.From(clampedMoveArmyIds),
@@ -461,18 +536,4 @@ public static class OriginalSaveImporter
         4 => "heavy_cavalry",
         _ => throw new InvalidDataException($"'{documentPath}': unknown unit type code {typeCode}."),
     };
-
-    private static int IndexInTurnOrder(World world, string nationId, string documentPath)
-    {
-        for (var i = 0; i < world.TurnOrder.Count; i++)
-        {
-            if (string.Equals(world.TurnOrder[i], nationId, StringComparison.Ordinal))
-            {
-                return i;
-            }
-        }
-
-        throw new InvalidDataException(
-            $"'{documentPath}': nation '{nationId}' is not present in world '{world.Id}''s turn order.");
-    }
 }

@@ -3,8 +3,8 @@
   <!--
     T21: src/IC2.Engine/Import/** maps IC2.Data's parsed original-save tables onto this project's own
     domain model ("the import path IS IC2.Data, essentially unchanged", per game-design.md), so this is
-    the first code under src/IC2.Engine to need IC2.Data itself. Outside T21's literal Owns list
-    (src/IC2.Engine/Import/**, tests/IC2.Engine.Tests/Import/**, tests/IC2.Data.Tests/**) but the same
+    the first code under src/IC2.Engine to need IC2.Data itself. Granted 2026-09-24, narrowly, by the
+    user (docs/tasks/T21.md's Owns list): this one ProjectReference only, no other line; the same
     one-line, unavoidable build-wiring change T29 made to tests/IC2.Engine.Tests/IC2.Engine.Tests.csproj
     for the identical reason; see that commit and this PR's body.
   -->
