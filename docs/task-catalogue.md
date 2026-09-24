@@ -4,7 +4,7 @@ Every build task's scope, **Owns** list, Definition of Done, model/effort, revie
 
 **Status is not in this document.** Each task's stage (ready, in progress, merged, blocked, escalated) lives only in its GitHub issue's `status:*` label ([build-process.md §5](build-process.md#5-status-lives-on-github)). The index below links every issue.
 
-76 tasks: 23 that build the 20 design milestones (M1 and M18 span more than one task), plus T46, the second half of M7 split out of T14; eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers); 30 corrections to already-merged code (T31–T35, T38–T40, T42–T45, T50, T52, T53, T60, T63–T76); five rules no task owned (T37, the weekly city supply step; T54, the attack and siege commands; T55–T57, mobilization, the mercenary restock and the AI's use of both); two early slices — T41 of T23's CLI, and T47 of T24's Godot UI; the asset pipeline (T48, T49, T51); the auto-resolve survey and tournament (T58, T59); and two layout fixes (T61, T62).
+77 tasks: 23 that build the 20 design milestones (M1 and M18 span more than one task), plus T46, the second half of M7 split out of T14; eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers); 31 corrections to already-merged code (T31–T35, T38–T40, T42–T45, T50, T52, T53, T60, T63–T77); five rules no task owned (T37, the weekly city supply step; T54, the attack and siege commands; T55–T57, mobilization, the mercenary restock and the AI's use of both); two early slices — T41 of T23's CLI, and T47 of T24's Godot UI; the asset pipeline (T48, T49, T51); the auto-resolve survey and tournament (T58, T59); and two layout fixes (T61, T62).
 
 ---
 
@@ -178,6 +178,7 @@ graph TD
   T65 --> T76
   T70 --> T76
   T76 --> T56
+  T77[T77 skippable local-only tests]
 ```
 
 ### 1.1 Waves and the critical path
@@ -198,9 +199,9 @@ Waves are dependency layers, not concurrent batches: execution is serial, one co
 | 9 | T66, T67, T69, T72, T74, T75 | All follow T68; T66, T67 and T69 also follow T63, and T75 also follows T73. T72 and T75 run after the v0.3.0 tag, by the user's decisions of 2026-09-24. T74 is never in flight with T66, T69, T71 or T75, whose test files it touches. T65, T66 and T67 each edit part of `src/IC2.Engine/Ai/**`, so whichever merges second rebases. |
 | 10 | T76 | Follows T21, T65 and T70, and runs after the v0.3.0 tag (the user's decision of 2026-09-24). |
 | 11 | T56 | Follows T13, T22, T68 and T76: the restock writes each offer's position, which T76 adds. |
-| — | T53, T61, T64, T70, T71, T73 | No merge-after dependency: each runs whenever the queue allows. T64 must merge before T21 (the user's decision of 2026-09-23), and so must T73 (the user's decision of 2026-09-24 on #321). T67 and T71 both work in `Persistence/**` tests, so they are never in flight together. |
+| — | T53, T61, T64, T70, T71, T73, T77 | No merge-after dependency: each runs whenever the queue allows. T77 runs after T21 and before the v0.3.0 freeze (the user's decision of 2026-09-24). T64 must merge before T21 (the user's decision of 2026-09-23), and so must T73 (the user's decision of 2026-09-24 on #321). T67 and T71 both work in `Persistence/**` tests, so they are never in flight together. |
 
-**Critical path**: `T01 → T02 → T03 → T06 → T32 → T08 → T38 → T14 → T16 → T17 → T29 → T36 → T24 → T25 → T27` — 15 of 76 tasks — with `T08 → T35 → T17` and `T31 → T33 → T16` as parallel edges into it; T29 also waits for T15 and T19, and `T17 → T23 → T24` runs one task shorter. The AI chain (`… → T17 → T18 → T22 → T28`, and now `T22 → T55 → T57 → T60`, as long as the critical path at 15 tasks) runs alongside it with the most slack and the most uncertain duration, which argues for not deferring T22.
+**Critical path**: `T01 → T02 → T03 → T06 → T32 → T08 → T38 → T14 → T16 → T17 → T29 → T36 → T24 → T25 → T27` — 15 of 77 tasks — with `T08 → T35 → T17` and `T31 → T33 → T16` as parallel edges into it; T29 also waits for T15 and T19, and `T17 → T23 → T24` runs one task shorter. The AI chain (`… → T17 → T18 → T22 → T28`, and now `T22 → T55 → T57 → T60`, as long as the critical path at 15 tasks) runs alongside it with the most slack and the most uncertain duration, which argues for not deferring T22.
 
 ### 1.2 Sequential and independent tasks
 
@@ -655,6 +656,12 @@ Mercenary position → [full entry](tasks/T76.md) · [#330](https://github.com/d
 
 ---
 
+#### T77 Local-only tests skip, never fail, without the original files
+
+Skippable local-only tests → [full entry](tasks/T77.md) · [#337](https://github.com/diegoami/imperial_conquest_2/issues/337)
+
+---
+
 #### T24 Godot main game screen
 
 Godot main screen → [full entry](tasks/T24.md) · [#24](https://github.com/diegoami/imperial_conquest_2/issues/24)
@@ -767,5 +774,6 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T74](#t74-test-suite-isolation-the-export-scripts-the-directory-scanning-guard-and-a-stress-check) | Test-suite isolation | — | Sonnet | Medium | **Opus**/Medium | T68 | [#328](https://github.com/diegoami/imperial_conquest_2/issues/328) |
 | [T75](#t75-a-new-game-opens-as-the-original-does-starting-relations-and-the-news-seed) | New-game seed | — | Sonnet | Medium | **Opus**/Medium | T68, T73 | [#329](https://github.com/diegoami/imperial_conquest_2/issues/329) |
 | [T76](#t76-mercenary-offers-have-a-position-the-players-adjacency-rule-and-the-ais-automatic-hire) | Mercenary position | — | Sonnet | High | **Opus**/Medium | T21, T65, T70 | [#330](https://github.com/diegoami/imperial_conquest_2/issues/330) |
+| [T77](#t77-local-only-tests-skip-never-fail-without-the-original-files) | Skippable local-only tests | — | Haiku | Low | Sonnet/Medium | — | [#337](https://github.com/diegoami/imperial_conquest_2/issues/337) |
 
-**Totals** — 76 tasks: 10 Opus, 61 Sonnet, 4 Haiku, 1 Fable. Effort: 2 Ultrahigh, 41 High, 29 Medium, 4 Low.
+**Totals** — 77 tasks: 10 Opus, 61 Sonnet, 5 Haiku, 1 Fable. Effort: 2 Ultrahigh, 41 High, 29 Medium, 5 Low.
