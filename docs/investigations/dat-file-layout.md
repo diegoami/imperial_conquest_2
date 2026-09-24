@@ -55,10 +55,10 @@ and just as authoritative, because it *is* the code that consumes the file.
 | `0x1B0CC` | 2 × 26 | `DAT_0049c26c + i × 0x1a` | **fleet records — 2 of them, no count word** |
 | `0x1B100` | 16 × **1,055** | `DAT_00474670 + i × 0x494` | **nation records** (in-memory stride 1,172) |
 | `0x1F2F0` | 1,494 | 14 destinations | fixed static tables — see below |
-| `0x1F8C6` | 1,040 | `DAT_0049cc94` | static table |
-| `0x1FCD6` | 3,012 | `DAT_0049d0a4` | static table |
+| `0x1F8C6` | 1,040 | `DAT_0049cc94` | mercenary `Label` name table, 52 × 20 bytes ([mercenary report](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-mercenary-offer-list-and-position.md)) |
+| `0x1FCD6` | 3,012 | `DAT_0049d0a4` | mercenary offer templates, 201 × 12 bytes, each on a city tile (same report) |
 | `0x2089A` | 4,992 | `DAT_0049dc68` | leader-name pool, 16 × 12 × 26 bytes |
-| `0x21C1A` | 2,440 | `DAT_0049f994` | static table |
+| `0x21C1A` | 2,440 | `DAT_0049f994` | news-log seed, 40 × 61-byte slots ([news-log report](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/news-log-format-and-messages.md) §Q1); `SaveNewsLog` parses it since T73 |
 | | **140,706** | | **= the file size, exactly** |
 
 Immediately after the army and fleet loops the loader **assigns** the counts the SAV stores on disk:
@@ -91,7 +91,7 @@ in-memory record and leaves the rest untouched:
 | In-memory offset | Bytes read | Field |
 | --- | ---: | --- |
 | `+0x000` | 11 | **name** |
-| `+0x026` | 32 | — |
+| `+0x026` | 32 | **relation row**: 16 signed shorts, on disk at DAT record `+0x0B` ([diplomacy report](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-diplomacy-peace-terms-and-instant-battles.md), 2026-09-24 addition). The starting matrix; `SaveNationTable` parses it since T73 |
 | `+0x046` | 2 | — |
 | `+0x048` | 668 | — |
 | `+0x2e4` | 320 | recruitment queue (`SaveNationLayout.RecruitmentOffset`) |
@@ -192,8 +192,8 @@ part the two formats genuinely share.
 
 - **The fourteen fixed static tables at `0x1F2F0`** (1,494 bytes total: 200, 40, 10, 232, 336, 168,
   110, 110, 50, **40 = the season table**, 30, 64, 24, 80) are located but only one is identified.
-  The four larger tables after them (1,040 / 3,012 / 4,992 / 2,440) are likewise unidentified apart
-  from the leader pool. Several are plausibly the unit-type and terrain tables the fixtures corpus
+  The four larger tables after them are now all identified: the mercenary `Label` names (1,040), the
+  mercenary offer templates (3,012), the leader pool (4,992) and the news-log seed (2,440). Several are plausibly the unit-type and terrain tables the fixtures corpus
   already carries from other reports — worth checking, but not needed by T29 or T30.
 - **Whether the DAT's 15 armies and 2 fleets are the only scenario the executable can load.** The
   counts are compiled in, so the original ships exactly one world; nothing here says whether a
