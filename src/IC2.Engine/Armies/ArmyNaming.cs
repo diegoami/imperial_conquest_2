@@ -185,17 +185,18 @@ public static class ArmyNaming
     /// two with a mercenary whose name <em>is</em> battalion-shaped.
     /// </para>
     /// <para>
-    /// <strong>The original's scan also filters on <c>troops &gt; 0</c>, and this one does not.</strong>
-    /// It has to: the original's army record is a fixed 20-slot array that retains whatever the slot
-    /// last held, and the corpus shows it plainly — in <c>1_rome_270_autumn_1.sav</c> army 0, slot 13
-    /// still reads <c>"4th Guards  Battalion"</c> with 0 troops behind twelve live units, and slots
+    /// <strong>The original's scan also filters on <c>troops &gt; 0</c>, and now this one does too</strong>
+    /// (T70, #245 N1). The original's army record is a fixed 20-slot array that retains whatever the
+    /// slot last held, and the corpus shows it plainly — in <c>1_rome_270_autumn_1.sav</c> army 0, slot
+    /// 13 still reads <c>"4th Guards  Battalion"</c> with 0 troops behind twelve live units, and slots
     /// 14–19 hold uninitialised bytes (origin label <c>-1800</c>, quality <c>514</c>, unreadable
     /// names). Here a vacated slot is normally absent from <see cref="ArmyState.Units"/> altogether, so
     /// there is usually nothing to filter — but the model does not forbid a zero-troop
     /// <see cref="UnitSlot"/>, and <c>MobilizationReceivingArmy.FirstFreeUnitSlot</c> reads one as a
-    /// hole, so one carrying a stale battalion name would be counted here where the original would
-    /// skip it. No engine path produces that today; it is reported for the bug list rather than fixed
-    /// under a grant that covers #243's two defects, and it is stated rather than assumed away.
+    /// hole, so one carrying a stale battalion name would otherwise be counted here where the original
+    /// skips it. No engine path produces that today, but the filter is cheap and matches the original
+    /// exactly, so it is applied rather than left as a known gap for the bug list.
+    /// <c>ArmyNamingTests.NextName_SkipsAZeroTroopSlotEvenWithAHigherStaleOrdinal</c> pins it.
     /// </para>
     /// </remarks>
     private static int HighestOrdinal(ValueList<UnitSlot> units, string unitTypeId, string label)
@@ -203,7 +204,8 @@ public static class ArmyNaming
         var highest = 0;
         foreach (var unit in units)
         {
-            if (!unit.IsRegular || !string.Equals(unit.UnitTypeId, unitTypeId, StringComparison.Ordinal))
+            if (!unit.IsRegular || unit.Troops <= 0
+                || !string.Equals(unit.UnitTypeId, unitTypeId, StringComparison.Ordinal))
             {
                 continue;
             }

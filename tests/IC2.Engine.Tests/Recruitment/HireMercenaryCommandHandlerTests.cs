@@ -222,7 +222,7 @@ public sealed class HireMercenaryCommandHandlerTests
 
         var result = dispatcher.Dispatch(before, new HireMercenaryCommand(before.ActiveNationId, army.Id, offer.SlotIndex));
 
-        Assert.Equal(HireMercenaryUnitCapRejections.OverArmyUnitCap, result.Code);
+        Assert.Equal(HireMercenaryRejections.OverArmyUnitCap, result.Code);
         Assert.Same(before, result.State);
         Assert.Equal(20, before.ArmyById(army.Id)!.Units.Count); // still 20, never reached 21.
     }

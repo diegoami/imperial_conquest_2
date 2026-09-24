@@ -67,6 +67,22 @@ public static class HireMercenaryRejections
     /// (<c>tests/fixtures/corpus.json</c> <c>error.mercenaryFleetNoSpace</c>).
     /// </summary>
     public static readonly RejectionCode FleetNoSpace = new("mercenary.fleet-no-space");
+
+    /// <summary>
+    /// Hiring would push the army's unit count past <see cref="Model.ArmyManagementRules.MaxUnitsPerArmy"/>
+    /// (20) — the same cap <c>TUnitMap_JoinArmies</c> enforces on army join
+    /// (<c>decompiled-unit-map-orders-and-record-fields.md</c>). Added by T15 ("Army and unit management",
+    /// Done-when 6, issue #181): the field was read by no code anywhere in <c>src/</c>, and T13's
+    /// reviewer proved an army already holding 20 units accepts a hire and ends at 21, a shape the
+    /// original's 20-slot army record cannot hold.
+    /// </summary>
+    /// <remarks>
+    /// T70 (#212 N1): moved here from its own <c>HireMercenaryUnitCapRejections</c> class in
+    /// <c>HireMercenaryCommandHandler.cs</c> — this command's rejection codes lived in two files, one per
+    /// task that added them, with nothing forcing the split once both tasks had merged. The code string
+    /// is unchanged, so no save or test that already matched on it needed to change.
+    /// </remarks>
+    public static readonly RejectionCode OverArmyUnitCap = new("mercenary.over-army-unit-cap");
 }
 
 /// <summary>Published by <see cref="HireMercenaryCommandHandler"/> once a hire is accepted.</summary>

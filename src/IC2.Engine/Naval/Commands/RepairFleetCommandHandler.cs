@@ -1,5 +1,6 @@
 using IC2.Engine.Core;
 using IC2.Engine.Model;
+using IC2.Engine.Movement;
 
 namespace IC2.Engine.Naval.Commands;
 
@@ -61,8 +62,8 @@ public sealed class RepairFleetCommandHandler : ICommandHandler<RepairFleetComma
 
             // Adjacency, not an exact tile match: a launched fleet only ever occupies a sea tile
             // (CoastalCity's own remarks), so it can never literally stand on a city's land tile.
-            var distance = Math.Max(Math.Abs(city.X - fleet.X), Math.Abs(city.Y - fleet.Y));
-            if (distance <= 1)
+            var distance = LandingTile.ChebyshevDistance(new GridPoint(city.X, city.Y), new GridPoint(fleet.X, fleet.Y));
+            if (distance <= context.Ruleset.Economy.CommandAdjacencyRadiusTiles)
             {
                 atOwnedCity = true;
                 break;

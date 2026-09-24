@@ -252,12 +252,17 @@ public static class FleetAttritionRule
     /// 3f6ca09), the army's own casualty pass is INSIDE <c>FUN_0044b4f8</c> itself (the same call that
     /// computes the storm's ship/condition loss), so it runs BEFORE the caller's own death check --
     /// unconditionally, on every heavy storm, whether or not that same storm goes on to sink the fleet.
-    /// This method's death check (the early return two lines below) comes first, so on a turn where the
-    /// storm both damages heavily AND sinks the fleet, this method skips the army's casualty pass and its
-    /// <see cref="IRng"/> draws entirely, where the original would have taken them. The final STATE never
-    /// differs -- a sunk fleet's carried army is deleted either way, whatever its troop count was the
-    /// instant before -- so this is purely a draw-count/order divergence on that one turn shape, which
-    /// Decision 6 (<c>docs/tasks/T63.md</c>) already disclaims for exactly this kind of case. <strong>Bug
+    /// This method's death check (the early return about 50 lines below, past the XML doc and signature)
+    /// comes first, so on a turn where the storm both damages heavily AND sinks the fleet, this method
+    /// skips the army's casualty pass and its <see cref="IRng"/> draws entirely, where the original would
+    /// have taken them. The final STATE
+    /// never differs -- a sunk fleet's carried army is deleted either way, whatever its troop count was
+    /// the instant before -- so this is purely a draw-count/order divergence on that one turn shape.
+    /// Decision 6 (<c>docs/tasks/T63.md</c>) is what covers draw-count divergence from the original here
+    /// at all: the original always draws exactly 20 <c>Random(15)</c> per casualty pass, and
+    /// <see cref="IRng"/> cannot replay that fixed-count sequence, so this port takes one draw per unit
+    /// instead -- a documented departure, not a claim that this specific turn shape was foreseen.
+    /// <strong>Bug
     /// #292/B2:</strong> an earlier revision of this method computed moves from a troop count the CALLER
     /// passed in before applying that turn's own storm casualties to the army, which is backwards -- the
     /// probe was a 40-ship, condition-68 fleet carrying 80,000 troops into a known heavy storm (seed 14):

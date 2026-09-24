@@ -113,6 +113,47 @@ public sealed class BuyFleetSupplyCommandHandlerTests
     }
 
     /// <summary>
+    /// T70 review round 1, N1: a provider city at exactly the shipped ruleset radius (1 tile, Chebyshev)
+    /// is accepted -- kills the accept-side boundary mutation (<c>&gt; R</c> to <c>&gt;= R</c>) at this
+    /// site, which the round-1 sweep found no test caught.
+    /// </summary>
+    [Fact]
+    public void CityProvider_AtExactlyTheRulesetRadius_IsAccepted()
+    {
+        var state = NavalTestbed.InitialState();
+        var fleet = Fleet("supply-fleet-boundary", 0, 0, ships: 10);
+        var city = City("supply-city-boundary", 1, 0, owner: NationId, supply: 500); // distance 1.
+        state = state with { Fleets = ValueList.Of(fleet), Cities = ValueList.From(state.Cities.Append(city)) };
+
+        var dispatcher = NavalTestbed.RealEngineDispatcher();
+        var result = dispatcher.Dispatch(
+            state, new BuyFleetSupplyCommand(NationId, fleet.Id, city.Id, ProviderFleetId: null, Tons: 10));
+
+        Assert.True(result.IsAccepted, result.ToString());
+    }
+
+    /// <summary>
+    /// T70 review round 1, N1: a provider city one tile beyond the shipped ruleset radius (distance 2) is
+    /// refused -- kills the reject-side boundary mutation (<c>&gt; R</c> to <c>&gt; R + 1</c>) at this
+    /// site, which <see cref="CityProvider_NotWithinRange_IsRefused"/>'s distance-5 fixture does not.
+    /// </summary>
+    [Fact]
+    public void CityProvider_OneTileBeyondTheRulesetRadius_IsRefused()
+    {
+        var state = NavalTestbed.InitialState();
+        var fleet = Fleet("supply-fleet-boundary-far", 0, 0, ships: 10);
+        var city = City("supply-city-boundary-far", 2, 0, owner: NationId, supply: 500); // distance 2.
+        state = state with { Fleets = ValueList.Of(fleet), Cities = ValueList.From(state.Cities.Append(city)) };
+
+        var dispatcher = NavalTestbed.RealEngineDispatcher();
+        var result = dispatcher.Dispatch(
+            state, new BuyFleetSupplyCommand(NationId, fleet.Id, city.Id, ProviderFleetId: null, Tons: 10));
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(BuyFleetSupplyRejections.CityNotWithinRange, result.Code);
+    }
+
+    /// <summary>
     /// DoD 6/8: a fleet provider moves tons only -- no talents change hands, matching the confirmed
     /// free-path shape rather than inventing a recipient for TAFSupply_TransferSupply's uncredited case.
     /// </summary>
@@ -246,6 +287,46 @@ public sealed class BuyFleetSupplyCommandHandlerTests
         var state = NavalTestbed.InitialState();
         var buyer = Fleet("supply-buyer-far", 0, 0, ships: 10);
         var provider = Fleet("supply-provider-far", 9, 9, ships: 10, supply: 40);
+        state = state with { Fleets = ValueList.Of(buyer, provider) };
+
+        var dispatcher = NavalTestbed.RealEngineDispatcher();
+        var result = dispatcher.Dispatch(
+            state, new BuyFleetSupplyCommand(NationId, buyer.Id, ProviderCityId: null, provider.Id, Tons: 10));
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(BuyFleetSupplyRejections.ProviderFleetNotWithinRange, result.Code);
+    }
+
+    /// <summary>
+    /// T70 review round 1, N1: a provider fleet at exactly the shipped ruleset radius (distance 1) is
+    /// accepted -- kills the accept-side boundary mutation at this site.
+    /// </summary>
+    [Fact]
+    public void FleetProvider_AtExactlyTheRulesetRadius_IsAccepted()
+    {
+        var state = NavalTestbed.InitialState();
+        var buyer = Fleet("supply-buyer-boundary", 0, 0, ships: 10);
+        var provider = Fleet("supply-provider-boundary", 1, 0, ships: 10, supply: 40); // distance 1.
+        state = state with { Fleets = ValueList.Of(buyer, provider) };
+
+        var dispatcher = NavalTestbed.RealEngineDispatcher();
+        var result = dispatcher.Dispatch(
+            state, new BuyFleetSupplyCommand(NationId, buyer.Id, ProviderCityId: null, provider.Id, Tons: 10));
+
+        Assert.True(result.IsAccepted, result.ToString());
+    }
+
+    /// <summary>
+    /// T70 review round 1, N1: a provider fleet one tile beyond the shipped ruleset radius (distance 2) is
+    /// refused -- kills the reject-side boundary mutation at this site, which
+    /// <see cref="FleetProvider_NotWithinRange_IsRefused"/>'s distance-9 fixture does not.
+    /// </summary>
+    [Fact]
+    public void FleetProvider_OneTileBeyondTheRulesetRadius_IsRefused()
+    {
+        var state = NavalTestbed.InitialState();
+        var buyer = Fleet("supply-buyer-boundary-far", 0, 0, ships: 10);
+        var provider = Fleet("supply-provider-boundary-far", 2, 0, ships: 10, supply: 40); // distance 2.
         state = state with { Fleets = ValueList.Of(buyer, provider) };
 
         var dispatcher = NavalTestbed.RealEngineDispatcher();

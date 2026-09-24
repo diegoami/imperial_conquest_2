@@ -49,7 +49,7 @@ public sealed class DisembarkArmyCommandHandler : ICommandHandler<DisembarkArmyC
         if (command.X is { } x && command.Y is { } y)
         {
             target = new GridPoint(x, y);
-            if (LandingTile.ChebyshevDistance(fleetPoint, target) > 1)
+            if (LandingTile.ChebyshevDistance(fleetPoint, target) > context.Ruleset.Economy.CommandAdjacencyRadiusTiles)
             {
                 return CommandOutcome.Reject(
                     DisembarkArmyRejections.LandingTileTooFar,

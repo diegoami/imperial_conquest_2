@@ -4,30 +4,6 @@ using IC2.Engine.Model;
 namespace IC2.Engine.Recruitment.Commands;
 
 /// <summary>
-/// The <see cref="Model.ArmyManagementRules.MaxUnitsPerArmy"/> rejection this task (T15, "Army and unit
-/// management") adds to the mercenary hire — <c>docs/task-catalogue.md</c> T15 Done-when 6 (issue #181):
-/// the field was read by no code anywhere in <c>src/</c>, and T13's reviewer proved an army already
-/// holding 20 units accepts a hire and ends at 21, a shape the original's 20-slot army record cannot
-/// hold. T13's own hire logic is correct and unchanged; this is the one guard it had no evidence to add.
-/// </summary>
-/// <remarks>
-/// Declared here rather than alongside <see cref="HireMercenaryRejections"/> in
-/// <c>HireMercenaryCommand.cs</c> — this task's Owns-list grant (the plan commit granting T15 this seam,
-/// <c>cfdd06b</c>) is <em>the handler file only</em>, not the command file, so the rejection code lives
-/// where the check itself does.
-/// </remarks>
-public static class HireMercenaryUnitCapRejections
-{
-    /// <summary>
-    /// Hiring would push the army's unit count past <see cref="Model.ArmyManagementRules.MaxUnitsPerArmy"/>
-    /// (20) — the same cap <c>TUnitMap_JoinArmies</c> enforces on army join
-    /// (<c>decompiled-unit-map-orders-and-record-fields.md</c>), applied here as the seam T15's Done-when 6
-    /// found missing.
-    /// </summary>
-    public static readonly RejectionCode OverArmyUnitCap = new("mercenary.over-army-unit-cap");
-}
-
-/// <summary>
 /// Wires <see cref="MercenaryHireCost.Compute"/> behind the command seam — <c>docs/task-catalogue.md</c>
 /// "T13 Recruitment and mercenaries", Done-when 2 and 4.
 /// </summary>
@@ -85,7 +61,7 @@ public sealed class HireMercenaryCommandHandler : ICommandHandler<HireMercenaryC
         if (army.Units.Count + 1 > context.Ruleset.ArmyManagement.MaxUnitsPerArmy)
         {
             return CommandOutcome.Reject(
-                HireMercenaryUnitCapRejections.OverArmyUnitCap,
+                HireMercenaryRejections.OverArmyUnitCap,
                 $"Army '{army.Id}' already has {army.Units.Count} units; hiring one more would exceed the "
                 + $"{context.Ruleset.ArmyManagement.MaxUnitsPerArmy}-unit cap.");
         }

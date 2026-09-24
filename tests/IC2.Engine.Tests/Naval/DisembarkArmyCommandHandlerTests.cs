@@ -105,6 +105,26 @@ public sealed class DisembarkArmyCommandHandlerTests
         Assert.Equal(DisembarkArmyRejections.LandingTileTooFar, result.Code);
     }
 
+    /// <summary>
+    /// T70 review round 1, N1: a landing tile one tile beyond the shipped ruleset radius (distance 2 from
+    /// the fleet's (0, 3)) is refused -- kills the reject-side boundary mutation at this site, which
+    /// <see cref="HumanSeat_NamingANonAdjacentTile_IsRefused"/>'s distance-5 fixture does not. The
+    /// accept-side boundary (distance exactly 1) is already pinned by
+    /// <see cref="HumanSeat_DisembarksAtAnExplicitlyNamedAdjacentLandTile"/>'s (1, 3) fixture, so only the
+    /// reject side needs a new case here.
+    /// </summary>
+    [Fact]
+    public void HumanSeat_NamingATileOneBeyondTheRulesetRadius_IsRefused()
+    {
+        var state = BuildEmbarkedState(SeatControl.Human, out var armyId, out _, out var nationId);
+
+        var dispatcher = NavalTestbed.RealEngineDispatcher();
+        var result = dispatcher.Dispatch(state, new DisembarkArmyCommand(nationId, armyId, X: 2, Y: 3)); // distance 2.
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(DisembarkArmyRejections.LandingTileTooFar, result.Code);
+    }
+
     [Fact]
     public void HumanSeat_NamingASeaTile_IsRefused()
     {

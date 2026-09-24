@@ -20,10 +20,14 @@ namespace IC2.Engine.Naval.Commands;
 /// another nation), exactly as that method already implements.
 /// </para>
 /// <para>
-/// <strong>The city provider's "not at war" gate</strong> [confirmed: <c>decompiled-unit-map-orders-and-record-fields.md</c>,
-/// "a city within one tile whose owner is not at war with the buyer"] is checked against
-/// <c>GameState.Relations</c> only for a <em>foreign</em> city; a buyer's own city is never at war with
-/// itself, so the check is skipped there rather than resolved through the relation matrix at all.
+/// <strong>The city provider's "not at war" gate</strong> [confirmed:
+/// <c>supply-capacity-rounding.md</c>:33, checked 2026-09-23 at research <c>3f6ca09</c> —
+/// "every city within one tile whose owner is not at war (relation <c>3</c>)". T70 (#189): an earlier
+/// revision cited <c>decompiled-unit-map-orders-and-record-fields.md</c> for this same quote, which that
+/// report does not carry; <c>supply-capacity-rounding.md</c> is the report that states both the
+/// one-tile range and the not-at-war gate together.] is checked against <c>GameState.Relations</c> only
+/// for a <em>foreign</em> city; a buyer's own city is never at war with itself, so the check is skipped
+/// there rather than resolved through the relation matrix at all.
 /// </para>
 /// <para>
 /// <strong>DoD 4 (T14 round-2 review, B9), a fleet cannot supply itself.</strong> The handler rejects
