@@ -50,10 +50,11 @@ public sealed class DotnetRunScriptCollection : ICollectionFixture<DotnetRunArti
 /// <c>%TEMP%\dotnet\runfile\&lt;script-hash&gt;\obj</c> directory -- the exact directory two concurrent
 /// <c>dotnet run</c> invocations of the same script were shown to collide in. Confirmed against a
 /// script path never built before on this machine: with the flag, the real <c>obj/</c> and
-/// <c>bin/</c> content lands in the directory this fixture owns, and only a single, small (about 1 KB)
-/// <c>build-start.cache</c> file -- no subdirectories -- remains directly under
-/// <c>%TEMP%\dotnet\runfile\&lt;script-hash&gt;\</c> (see <see cref="DotnetRunScriptRunner"/>'s own
-/// remarks for what removes even that, and why only that).
+/// <c>bin/</c> content lands in the directory this fixture owns, and only the SDK's own small (about
+/// 1 KB) <c>build-start.cache</c> marker file -- no subdirectories -- remains directly under
+/// <c>%TEMP%\dotnet\runfile\&lt;script-hash&gt;\</c>. That marker belongs to the SDK and is left
+/// alone (see <see cref="DotnetRunScriptRunner"/>'s own remarks and
+/// <c>docs/tasks/T74.md</c> Done-when 2's amendment for why).
 /// </para>
 /// <para>
 /// <b>Why one shared directory, not one per test.</b> Review round 1 measured a fresh
@@ -84,15 +85,14 @@ public sealed class DotnetRunArtifactsFixture : IDisposable
     }
 
     /// <summary>
-    /// Deletes this fixture's own <see cref="ArtifactsPath"/>. Nothing under
-    /// <c>%TEMP%\dotnet\runfile\</c> is touched here -- see <see cref="DotnetRunScriptRunner"/>'s own
-    /// remarks for why that cleanup happens per <c>Run</c> call instead, and review round 1 finding B1
-    /// for why a fixture-wide, construction-time snapshot was the wrong place for it: this fixture's
-    /// own lifetime (one whole <c>dotnet test</c> process, often tens of seconds) is far longer than
-    /// any one <c>dotnet run</c> subprocess, so a diff taken across the whole fixture's lifetime could
-    /// -- and, reproduced by the reviewer, did -- delete a directory an unrelated, concurrent
-    /// <c>dotnet run</c> (another worktree, another developer, or a worktree still on pre-T74 code)
-    /// created and was still actively using.
+    /// Deletes this fixture's own <see cref="ArtifactsPath"/> -- the real build output (<c>obj/</c>,
+    /// <c>bin/</c>) every dotnet-run test in the collection wrote there. This is the whole of
+    /// Done-when 2's "isolated output... which is deleted afterwards": nothing under
+    /// <c>%TEMP%\dotnet\runfile\</c> is touched here, or anywhere else in this class -- see
+    /// <see cref="DotnetRunScriptRunner"/>'s own remarks for why (round 3, <c>docs/tasks/T74.md</c>
+    /// Done-when 2's amendment: the SDK's own small <c>build-start.cache</c> marker entry there
+    /// belongs to the SDK, is never a build-output leak, and the runner deletes nothing under
+    /// <c>runfile\</c>).
     /// </summary>
     public void Dispose()
     {
@@ -111,12 +111,8 @@ public sealed class DotnetRunArtifactsFixture : IDisposable
 /// </summary>
 public static class DotnetRunScriptRunner
 {
-    /// <summary>
-    /// The exit code and captured output of one <c>dotnet run</c> invocation, plus whether its
-    /// computed <c>%TEMP%\dotnet\runfile\</c> marker entry was found and cleaned up
-    /// (<see cref="RunfileEntryNamingTests"/> is the regression test this backs).
-    /// </summary>
-    public readonly record struct Result(int ExitCode, string Stdout, string Stderr, bool RunfileMarkerWasCleanedUp);
+    /// <summary>The exit code and captured output of one <c>dotnet run</c> invocation.</summary>
+    public readonly record struct Result(int ExitCode, string Stdout, string Stderr);
 
     /// <summary>
     /// Runs <paramref name="scriptPath"/> with <paramref name="artifactsPath"/> as its isolated build
@@ -134,54 +130,28 @@ public static class DotnetRunScriptRunner
     /// output to the same path inside one artifacts root and corrupt each other's up-to-date check.
     /// </para>
     /// <para>
-    /// <b>Review round 1, finding B1 (the shared marker cache), and round 2 (still open).</b>
-    /// <c>dotnet run</c> still leaves a small <c>build-start.cache</c> file directly under
-    /// <c>%TEMP%\dotnet\runfile\&lt;entry&gt;\</c> even with <c>--artifacts-path</c> set (Done-when 2
-    /// asks that no run leave a directory behind). Round 0's cleanup snapshotted the whole
-    /// <c>runfile</c> directory once per fixture lifetime and deleted every new entry; round 1
-    /// narrowed the window to one <c>Run</c> call and added an "entry holds no subdirectory" check,
-    /// reasoning that a real, non-isolated build's entry always has an <c>obj/</c> subdirectory by the
-    /// time it could be seen. Round 2's review measured that gap directly: the SDK creates the entry
-    /// and writes <c>build-start.cache</c> immediately, and <c>obj/</c> appears only once the build
-    /// reaches restore -- 2 ms to 900 ms later depending on the script. A build that starts inside any
-    /// one <c>Run</c> call's window is, at that call's after-snapshot, a new entry with no
-    /// subdirectory yet. Across 6 rounds of a <c>FileSystemWatcher</c>-instrumented reproduction, the
-    /// reviewer's round-1 code deleted 18 of 96 unrelated live builds' entries and an
-    /// <c>origin/main</c> worktree's live entry twice. Every victim build recreated its directory and
-    /// finished, but "a deletion that can hit another live build" is the defect Done-when 2 exists to
-    /// prevent, and "no subdirectory yet" is not proof of ownership at any point before a build reaches
-    /// restore.
+    /// <b>This method deletes nothing under <c>%TEMP%\dotnet\runfile\</c>.</b> Rounds 0-2 tried to:
+    /// snapshotting the whole directory per fixture lifetime (round 0), narrowing that to one
+    /// <c>Run</c> call's window plus an "entry holds no subdirectory" check (round 1), and finally
+    /// computing this call's own entry name exactly via a reverse-engineered, undocumented SDK naming
+    /// formula, deleting only that precise path (round 2). Round 1's "no subdirectory" check was
+    /// disproven directly: the SDK writes its marker file immediately but <c>obj/</c> only appears
+    /// once the build reaches restore, 2-900 ms later depending on the script, so the check still hit
+    /// other live builds (18 of 96 unrelated builds, and an <c>origin/main</c> worktree's live entry
+    /// twice, in the reviewer's 6-round reproduction). Round 2's exact-name approach fixed that (zero
+    /// unrelated deletions in a re-run of the same reproduction) but the naming formula does not hold
+    /// on every platform -- it failed CI's Linux runner, where the derivation differs from what round
+    /// 2 reverse-engineered on Windows.
     /// </para>
     /// <para>
-    /// <b>Fixed by computing this call's own entry name exactly, instead of inferring "new" from a
-    /// snapshot.</b> The .NET SDK derives a file-based app's runfile entry name as
-    /// <c>&lt;script file name without extension&gt;-&lt;lowercase hex SHA-256 of the UTF-8 bytes of
-    /// the script's full path, upper-invariant&gt;</c> (see <see cref="ComputeRunfileEntryName"/>).
-    /// This is not documented SDK behaviour -- it was established empirically: the review reproduced
-    /// the formula on three independent paths on its machine, and this repository's own worktree path
-    /// hashes to the exact directory name (<c>897bab08b1e24ff26a490c51275596ce5ebec0836b8c6f4d416cdd8c19c99a34</c>)
-    /// this class's own earlier, ad hoc probes had already observed for <c>export-classical-world.cs</c>
-    /// there. Because the scheme is undocumented and could change with a future SDK version, deletion
-    /// is fail-safe: this method computes the one name that <em>this call's own script path</em> maps
-    /// to, and deletes that exact directory only if (a) it did not exist immediately before this call's
-    /// subprocess started and (b) it holds no subdirectory when checked immediately after the
-    /// subprocess exits. Nothing else under <c>%TEMP%\dotnet\runfile\</c> is ever enumerated, listed, or
-    /// touched -- no set difference over the folder, so an unrelated build's entry (which never
-    /// happens to have this call's own computed name) cannot be deleted no matter its timing. If the
-    /// computed name does not exist after the run -- the SDK changed how it derives the name -- this
-    /// method deletes nothing and leaves the (now un-recognised) marker behind rather than guess;
-    /// <see cref="RunfileEntryNamingTests.The_computed_runfile_entry_name_matches_what_the_SDK_actually_creates"/>
-    /// is the test that would then start failing, surfacing the mismatch instead of it silently
-    /// reintroducing marker debris or, worse, a wrong guess deleting something real.
-    /// </para>
-    /// <para>
-    /// <b>Concurrency.</b> Two processes running <em>the same script path from the same worktree</em>
-    /// at the same time would compute and share this one entry name, and could still race on it (the
-    /// scenario the non-parallel collection already exists to prevent within one process). Two
-    /// worktrees never collide here: each has its own absolute path for the script, so each computes
-    /// and owns a different entry name. This method does not defend against two dotnet-run tests in
-    /// the *same* worktree running concurrently outside this collection; nothing in this codebase does
-    /// that today.
+    /// <b>Round 3 (the user's decision at escalation): drop the marker cleanup instead of chasing a
+    /// third platform-specific derivation.</b> <c>docs/tasks/T74.md</c> Done-when 2 was amended to
+    /// match: it now asks that no run leave <em>build output</em> behind (nothing under the per-run
+    /// <c>--artifacts-path</c> directory survives, and no <c>obj/</c> or <c>bin/</c> appears under
+    /// <c>%TEMP%\dotnet\runfile\</c>), not that the runner also delete the SDK's own small
+    /// <c>build-start.cache</c> marker entry there. That marker belongs to the SDK, was never build
+    /// output, and this runner leaves it alone -- on every platform, unconditionally, with no
+    /// snapshot, no computed name, and no deletion logic to go wrong.
     /// </para>
     /// </remarks>
     public static Result Run(
@@ -211,10 +181,6 @@ public static class DotnetRunScriptRunner
             psi.ArgumentList.Add(argument);
         }
 
-        var runfileRoot = Path.Combine(Path.GetTempPath(), "dotnet", "runfile");
-        var computedEntryPath = Path.Combine(runfileRoot, ComputeRunfileEntryName(scriptPath));
-        var computedEntryExistedBeforeThisCall = Directory.Exists(computedEntryPath);
-
         using var process = System.Diagnostics.Process.Start(psi)
                              ?? throw new InvalidOperationException("Failed to start dotnet run.");
 
@@ -227,51 +193,6 @@ public static class DotnetRunScriptRunner
         process.WaitForExit();
         Task.WaitAll(stdoutTask, stderrTask);
 
-        var cleanedUp = !computedEntryExistedBeforeThisCall
-                         && DeleteIfMarkerOnly(computedEntryPath);
-
-        return new Result(process.ExitCode, stdoutTask.Result, stderrTask.Result, cleanedUp);
-    }
-
-    /// <summary>
-    /// The SDK's (undocumented, empirically established -- see <see cref="Run"/>'s own remarks)
-    /// runfile entry name for the file-based app at <paramref name="scriptPath"/>.
-    /// </summary>
-    internal static string ComputeRunfileEntryName(string scriptPath)
-    {
-        var fullPath = Path.GetFullPath(scriptPath);
-        var hash = System.Security.Cryptography.SHA256.HashData(
-            System.Text.Encoding.UTF8.GetBytes(fullPath.ToUpperInvariant()));
-        var hex = Convert.ToHexString(hash).ToLowerInvariant();
-        var stem = Path.GetFileNameWithoutExtension(fullPath);
-        return $"{stem}-{hex}";
-    }
-
-    /// <summary>
-    /// Deletes <paramref name="entryPath"/> if, and only if, it exists and holds no subdirectory
-    /// (<see cref="Run"/>'s own remarks explain why "no subdirectory yet" is checked only on this one,
-    /// precisely computed path rather than used to classify an arbitrary "new" entry). Returns whether
-    /// it was deleted.
-    /// </summary>
-    private static bool DeleteIfMarkerOnly(string entryPath)
-    {
-        try
-        {
-            if (!Directory.Exists(entryPath) || Directory.GetDirectories(entryPath).Length != 0)
-            {
-                return false;
-            }
-
-            Directory.Delete(entryPath, recursive: true);
-            return true;
-        }
-        catch (IOException)
-        {
-            return false; // Best effort: another process may still be using it.
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return false; // Best effort, same reason.
-        }
+        return new Result(process.ExitCode, stdoutTask.Result, stderrTask.Result);
     }
 }
