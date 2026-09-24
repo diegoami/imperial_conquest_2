@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Text;
 using IC2.Engine.Tests.SerializationTests;
 using Xunit;
 
@@ -46,6 +48,13 @@ namespace IC2.Engine.Tests.Export;
 /// <c>dotnet run</c> build cache directory instead of leaving a new one behind every time -- see
 /// the method body for why a stable path is now safe given R1-N1's non-parallel collection.
 /// </para>
+/// <para>
+/// Review round 3 R2-B1: that stable path is now suffixed with a short hash of this worktree's own
+/// repository root, so it is stable per worktree rather than one single path shared by every
+/// worktree on the machine -- xUnit's non-parallel collection (R1-N1) only serialises tests within
+/// one <c>dotnet test</c> process, so two worktrees (an implementer's and a reviewer's, say)
+/// running this test at the same time is a real, reproduced scenario, not a hypothetical one.
+/// </para>
 /// </remarks>
 [Collection(WorldTerrainExportScriptCollection.Name)]
 public class ExportScriptToyGuardTests
@@ -64,7 +73,17 @@ public class ExportScriptToyGuardTests
         // Cleared unconditionally before use (never inside the try/finally below) so a prior run
         // that crashed before its own `finally` -- the one case a stable path could leave a stale
         // scratch tree behind -- can never affect this run's result.
-        var scratchDir = Path.Combine(Path.GetTempPath(), "ic2-export-toyguard-scratch");
+        //
+        // Review round 3 R2-B1: round 1's single fixed path (no per-worktree suffix) was shared by
+        // every worktree on the machine -- an implementer's and a reviewer's worktree running this
+        // test at the same time raced on both the scratch tree itself and the shared runfile cache
+        // it produced (reproduced 3 of 4 concurrent pairs). Suffixing the path with a short hash of
+        // this worktree's own repository root keeps it stable *within* one worktree (R1-N2's cache
+        // reuse still holds -- same worktree, same path, every run) while giving every worktree on
+        // the machine its own path and its own runfile cache, so two worktrees can no longer
+        // collide on either.
+        var worktreeHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(ExportedDataPaths.RepositoryRoot)))[..12];
+        var scratchDir = Path.Combine(Path.GetTempPath(), $"ic2-export-toyguard-scratch-{worktreeHash}");
         if (Directory.Exists(scratchDir))
         {
             Directory.Delete(scratchDir, recursive: true);
