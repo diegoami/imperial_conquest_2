@@ -169,7 +169,7 @@ graph TD
   T68 --> T69
   T70[T70 command-layer hygiene]
   T71[T71 serialization + persistence]
-  T72[T72 purse cap where the original caps]
+  T68 --> T72[T72 purse cap where the original caps]
 ```
 
 ### 1.1 Waves and the critical path
@@ -187,10 +187,10 @@ Waves are dependency layers, not concurrent batches: execution is serial, one co
 | 6 | T23, T36, T24, T25, T26, T27, T28, T48, T51, T55 | T36 follows T29 and precedes T24. T24/T25/T27 are single-instance (Godot) and form one serial chain. T48 follows T47 and T51 follows T49; both precede T24. T55 follows T13, T15 and T22. |
 | 7 | T58, T59, T57, T62, T63 | T58 follows T36, and T59 follows T58 and T63. They change nothing the game runs — T58 is a document and T59 a measurement harness — so they hold no other task up, and the user gates whether anything is adopted from them. T57 follows T22 and T55. T62 follows T29 and T36. T63 has no merge-after dependency, and precedes T59 and T65–T69. |
 | 8 | T60, T65, T68 | T60 follows T57. T65 and T68 follow T63; T68 precedes T56, T66, T67 and T69, because each changes a ruleset key that reaches `classical-faithful.json` only through the exporter. |
-| 9 | T56, T66, T67, T69 | All follow T68; T66, T67 and T69 also follow T63, and T56 also follows T13 and T22. T65, T66 and T67 each edit part of `src/IC2.Engine/Ai/**`, so whichever merges second rebases. |
-| — | T53, T61, T64, T70, T71, T72 | No merge-after dependency: each runs whenever the queue allows (T72 after the v0.3.0 tag, by the user's decision of 2026-09-24). T64 must merge before T21 (the user's decision of 2026-09-23). T67 and T71 both work in `Persistence/**` tests, so they are never in flight together. |
+| 9 | T56, T66, T67, T69, T72 | All follow T68; T66, T67 and T69 also follow T63, and T56 also follows T13 and T22. T72 runs after the v0.3.0 tag, by the user's decision of 2026-09-24. T65, T66 and T67 each edit part of `src/IC2.Engine/Ai/**`, so whichever merges second rebases. |
+| — | T53, T61, T64, T70, T71 | No merge-after dependency: each runs whenever the queue allows. T64 must merge before T21 (the user's decision of 2026-09-23). T67 and T71 both work in `Persistence/**` tests, so they are never in flight together. |
 
-**Critical path**: `T01 → T02 → T03 → T06 → T32 → T08 → T38 → T14 → T16 → T17 → T29 → T36 → T24 → T25 → T27` — 15 of 71 tasks — with `T08 → T35 → T17` and `T31 → T33 → T16` as parallel edges into it; T29 also waits for T15 and T19, and `T17 → T23 → T24` runs one task shorter. The AI chain (`… → T17 → T18 → T22 → T28`, and now `T22 → T55 → T57 → T60`, as long as the critical path at 15 tasks) runs alongside it with the most slack and the most uncertain duration, which argues for not deferring T22.
+**Critical path**: `T01 → T02 → T03 → T06 → T32 → T08 → T38 → T14 → T16 → T17 → T29 → T36 → T24 → T25 → T27` — 15 of 72 tasks — with `T08 → T35 → T17` and `T31 → T33 → T16` as parallel edges into it; T29 also waits for T15 and T19, and `T17 → T23 → T24` runs one task shorter. The AI chain (`… → T17 → T18 → T22 → T28`, and now `T22 → T55 → T57 → T60`, as long as the critical path at 15 tasks) runs alongside it with the most slack and the most uncertain duration, which argues for not deferring T22.
 
 ### 1.2 Sequential and independent tasks
 
@@ -728,6 +728,6 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T69](#t69-what-elimination-does-to-diplomacy-and-a-diplomacy-tidy) | Elimination and diplomacy | — | Sonnet | High | **Opus**/Medium | T63, T68 | [#306](https://github.com/diegoami/imperial_conquest_2/issues/306) |
 | [T70](#t70-command-layer-hygiene-one-distance-metric-one-rejection-file-and-the-naming-filter) | Command-layer hygiene | — | Sonnet | Low | **Opus**/Medium | — | [#307](https://github.com/diegoami/imperial_conquest_2/issues/307) |
 | [T71](#t71-serialization-and-persistence-hardening) | Serialization + persistence hardening | — | Sonnet | Medium | **Opus**/Medium | — | [#308](https://github.com/diegoami/imperial_conquest_2/issues/308) |
-| [T72](#t72-cap-a-purse-only-where-the-original-does) | Purse cap only where the original caps | M3 | Sonnet | Medium | **Opus**/Medium | — | [#317](https://github.com/diegoami/imperial_conquest_2/issues/317) |
+| [T72](#t72-cap-a-purse-only-where-the-original-does) | Purse cap only where the original caps | M3 | Sonnet | Medium | **Opus**/Medium | T68 | [#317](https://github.com/diegoami/imperial_conquest_2/issues/317) |
 
 **Totals** — 72 tasks: 10 Opus, 57 Sonnet, 4 Haiku, 1 Fable. Effort: 2 Ultrahigh, 40 High, 26 Medium, 4 Low.
