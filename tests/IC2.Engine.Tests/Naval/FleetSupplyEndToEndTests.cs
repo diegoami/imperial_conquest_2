@@ -128,7 +128,9 @@ public sealed class FleetSupplyEndToEndTests
         const int ships = 10;
         var capacity = ships * NavalTestbed.Ruleset.Economy.FleetSupplyTonsPerShip; // 80 tons.
 
-        var homeCity = baseState.Cities[0] with { Owner = NationId, X = 0, Y = 0, SupplyTons = 1000 };
+        // T70 (#190 N3): topped up every turn below rather than just once, so the city needs stock for
+        // the whole run, not just the first top-up.
+        var homeCity = baseState.Cities[0] with { Owner = NationId, X = 0, Y = 0, SupplyTons = 10_000 };
 
         var resuppliedFleet = new FleetState(
             "starving-fleet", NationId, X: 0, Y: 0, Moves: 4, Ships: ships, ConditionPercent: rules.MaxConditionPercent,
@@ -170,10 +172,26 @@ public sealed class FleetSupplyEndToEndTests
         // Run well past the lethal point the brief documents for this exact seed and scenario (turn 89
         // for a single unsupplied fleet) -- generous enough to absorb the shift in the RNG draw sequence
         // from having a second fleet drawing every turn too.
+        //
+        // T70 (#190 N3): the previous version of this test resupplied only once, at the start -- the
+        // resupplied fleet's own 80-ton cap covers just 8 turns of consumption, so for the other 142 of
+        // 150 turns it was drawing the very same zero-supply penalty as the control, ending at condition
+        // 42 against a 40 death threshold, a 2-point margin. A mutation that applies the zero-supply
+        // penalty to every fleet regardless of supply state was invisible to that assertion, because the
+        // real code was *already* applying the penalty to the resupplied fleet for almost the whole run.
+        // Topping the resupplied fleet up to its cap every turn, before that turn's own consumption,
+        // means its own supply never reaches zero for the entire run, so the real code never applies the
+        // penalty to it at all -- and the mutation above, which ignores supply state, still sinks it.
         const int horizonTurns = 150;
         var controlDied = false;
         for (var turn = 0; turn < horizonTurns; turn++)
         {
+            var topUp = dispatcher.Dispatch(
+                state,
+                new BuyFleetSupplyCommand(NationId, resuppliedFleet.Id, homeCity.Id, ProviderFleetId: null, Tons: capacity));
+            Assert.True(topUp.IsAccepted, topUp.ToString());
+            state = topUp.State;
+
             state = coordinator.RunRoundTick(state).State;
 
             // The resupplied fleet must never disappear -- not just "at the end", every single turn.
@@ -188,9 +206,12 @@ public sealed class FleetSupplyEndToEndTests
 
         Assert.True(controlDied, $"the unsupplied control fleet must sink within {horizonTurns} turns.");
 
+        // Never having reached zero supply, the resupplied fleet draws no zero-supply condition penalty
+        // at all, so it must still sit at (or within the storm pass's own harmless 0-1 point rounding of)
+        // full condition -- a real, near-zero margin, not merely "above the death threshold" (#190 N3).
         var finalResupplied = state.FleetById(resuppliedFleet.Id)!;
         Assert.True(
-            finalResupplied.ConditionPercent >= rules.DeathConditionThreshold,
-            $"the resupplied fleet must survive well clear of the death threshold; ended at {finalResupplied.ConditionPercent}.");
+            finalResupplied.ConditionPercent >= rules.MaxConditionPercent - 1,
+            $"a fleet that never runs out of supply must stay essentially at full condition; ended at {finalResupplied.ConditionPercent}.");
     }
 }
