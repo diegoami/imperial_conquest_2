@@ -20,9 +20,10 @@ public class OriginalSaveImportRealSaveTests
     // ---- Done-when 1: representative sample (operating-guide.md §5's sampling rule), justified here
     // and in the PR body -- at least one mid-turn save (1_thracia_271_spring_3.sav carries an army
     // tombstone, DoD 1's own example of what a mid-turn save looks like), one with the corpus's one
-    // signed-moves underflow (DoD 6), and one with the corpus's morale-above-70 army (DoD 8) -- three
-    // distinct hazards T21's own Hazards/Done-when list names, from three different save families
-    // (Thracia, Rome/Ptolemaic, Carthage) so no one family's quirks hide another's.
+    // signed-moves underflow (DoD 6), and one carrying one of the corpus's six morale-72 army records
+    // (DoD 8 names six, in the Carthage/Celtiberia save family) -- three distinct hazards T21's own
+    // Hazards/Done-when list names, from three different save families (Thracia, Rome/Ptolemaic,
+    // Carthage) so no one family's quirks hide another's.
     private const string MidTurnTombstoneSave = "1_thracia_271_spring_3.sav";
     private const string NegativeMovesSave = "1_rome_270_summer_7.sav";
     private const string Morale72Save = "1_cartago_271_summer_1.sav";
@@ -95,6 +96,39 @@ public class OriginalSaveImportRealSaveTests
         Assert.Equal(
             new[] { "MercenaryRecord.X", "MercenaryRecord.Y" },
             result.Report.UnmappedFields.OrderBy(f => f, StringComparer.Ordinal));
+    }
+
+    [SkippableTheory]
+    [InlineData(NegativeMovesSave)]    // = 1_rome_270_summer_7.sav, a full log: NewestIndex == 39
+    [InlineData(MidTurnTombstoneSave)] // = 1_thracia_271_spring_3.sav, a partial log: NewestIndex == 34
+    public void News_log_is_imported_from_the_saves_own_slots_in_order(string fileName)
+    {
+        // Review round 2, R1-B1: OriginalSaveFieldMapping declares SaveNewsLog.Slots/NewestIndex
+        // Mapped, but nothing checked it -- reverting NewsLog to NewsLog.Empty passed every engine
+        // test, and reversing the slot order passed every import test. Cross-checked here against an
+        // independent SaveNewsLog.Parse of the same bytes: the newest index, the slot count, every
+        // slot's text in slot order (catches a reorder), and a " " entry (the blank line the round
+        // tick writes before every date header) surviving as a single space, never trimmed to empty.
+        Skip.IfNot(LocalOriginalAssets.IsConfigured, LocalOriginalAssets.SkipReason);
+
+        var data = File.ReadAllBytes(OriginalFixture.ResolveOrThrow(fileName));
+        var directParse = SaveNewsLog.Parse(data);
+
+        var result = OriginalSaveImporter.Import(
+            data, fileName, RealGameData.World, RealGameData.Ruleset, RealGameData.Scenario, "s", "s");
+
+        var newsLog = result.Save.State.NewsLog;
+        Assert.Equal(directParse.NewestIndex, newsLog.MostRecentSlot);
+        Assert.Equal(directParse.Slots.Count, newsLog.Slots.Count);
+        for (var i = 0; i < directParse.Slots.Count; i++)
+        {
+            Assert.Equal(directParse.Slots[i], newsLog.Slots[i].Text);
+        }
+
+        // Fixture assumption: this save's log actually has a " " entry to prove survives-as-space.
+        var spaceIndex = directParse.Slots.ToList().IndexOf(" ");
+        Assert.True(spaceIndex >= 0, $"Fixture assumption stale: '{fileName}' has no ' ' news-log entry.");
+        Assert.Equal(" ", newsLog.Slots[spaceIndex].Text);
     }
 
     [SkippableTheory]
@@ -290,13 +324,31 @@ public class OriginalSaveImportRealSaveTests
         // must not wrap the turn order and must not signal the round-scoped calendar tick.
         Skip.IfNot(LocalOriginalAssets.IsConfigured, LocalOriginalAssets.SkipReason);
 
-        var result = ImportFixture(MidTurnTombstoneSave); // = 1_thracia_271_spring_3.sav
+        var data = File.ReadAllBytes(OriginalFixture.ResolveOrThrow(MidTurnTombstoneSave));
+        var directParse = SaveTurnState.Parse(data);
+
+        var result = OriginalSaveImporter.Import(
+            data, MidTurnTombstoneSave, RealGameData.World, RealGameData.Ruleset, RealGameData.Scenario, "s", "s");
         var state = result.Save.State;
 
         Assert.Equal(16, state.TurnOrder.Count);
         Assert.Equal(5, state.ActiveSeatIndex);
         Assert.Equal("thracia", state.TurnOrder[5]);
         Assert.Equal(10, state.TurnOrder.Count - 1 - state.ActiveSeatIndex);
+
+        // Review round 2, N-a: name-only + arithmetic checks let a same-length reshuffle (e.g. two
+        // seats swapped) through. Cross-checked against an independent SaveTurnState.Parse of the same
+        // bytes, seat for seat -- catches any reordering, not just index 5.
+        var expectedTurnOrder = directParse.TurnOrder.Select(code => RealGameData.World.Nations[code].Id).ToList();
+        Assert.Equal(expectedTurnOrder, state.TurnOrder);
+
+        // The save's own order, decoded from the raw trailer bytes (round-2 review, gate 1 item 12):
+        // named explicitly, not just cross-checked, so a future reader can see the actual shape.
+        Assert.Equal(new[]
+        {
+            "macedonia", "seleucid", "greece", "galatia", "celtiberia", "thracia", "armenia", "bithynia",
+            "rome", "illyria", "media", "numidia", "carthage", "dacia", "ptolemaic", "gaul",
+        }, state.TurnOrder);
 
         // A registry scoped to only SeatRotationSystem (IC2.Engine.Calendar's own namespace), built
         // locally rather than depending on another task's own test fixtures -- this only needs T06's
@@ -339,11 +391,12 @@ public class OriginalSaveImportRealSaveTests
     [SkippableFact]
     public void An_under_construction_fleet_imports_with_no_position_and_condition_zero()
     {
-        // Review N3: the comment on this mapping branch (OriginalSaveImporter.cs, the fleets loop) was
-        // never itself asserted. 1_cartago_271_summer_1.sav's fleet 2 (Greece) is still building at city
-        // index 166, countdown 24 -- ConditionPercent must read 0 (the field has no meaning yet),
-        // CoveredTileCode must be null (no map position yet), and BuildCityId/ConstructionTicksRemaining
-        // must carry the launch order's own values.
+        // Review N3 (round 0) + N-c (round 2): the comment on this mapping branch
+        // (OriginalSaveImporter.cs, the fleets loop -- "FleetRecord.X/Y read (0,0)") was never itself
+        // asserted. 1_cartago_271_summer_1.sav's fleet 2 (Greece) is still building at city index 166,
+        // countdown 24 -- ConditionPercent must read 0 (the field has no meaning yet), CoveredTileCode
+        // must be null (no map position yet), X/Y must read the claimed (0, 0), and
+        // BuildCityId/ConstructionTicksRemaining must carry the launch order's own values.
         Skip.IfNot(LocalOriginalAssets.IsConfigured, LocalOriginalAssets.SkipReason);
 
         var result = ImportFixture(Morale72Save); // = 1_cartago_271_summer_1.sav
@@ -353,6 +406,8 @@ public class OriginalSaveImportRealSaveTests
         Assert.Equal("greece", fleet!.Nation);
         Assert.Equal(0, fleet.ConditionPercent);
         Assert.Null(fleet.CoveredTileCode);
+        Assert.Equal(0, fleet.X);
+        Assert.Equal(0, fleet.Y);
         Assert.Equal(24, fleet.ConstructionTicksRemaining);
         Assert.Equal(RealGameData.World.Cities[166].Id, fleet.BuildCityId);
     }

@@ -95,14 +95,20 @@ public static class OriginalSaveFieldMapping
     /// <c>SaveMercenaryTable</c>, <c>SaveTurnState</c>, <c>SavePendingOffer</c> and <c>SaveNewsLog</c>
     /// themselves (the table-level wrappers, as opposed to the one-record types below) carry no field
     /// worth mapping beyond the list/record they expose, which is what this set actually enumerates.
+    /// <c>WorldPrefix</c>, <c>SkippedArmyRecord</c> and <c>SkippedFleetRecord</c> were added round 2
+    /// (review N-b): the original ten-type list covered every table's per-record type but missed the
+    /// shared-prefix wrapper and the two tombstone-report types.
     /// </summary>
     public static IReadOnlyList<Type> Types { get; } = new[]
     {
+        typeof(WorldPrefix),
         typeof(CityRecord),
         typeof(NationRecord),
         typeof(ArmyRecord),
         typeof(ArmyUnit),
+        typeof(SkippedArmyRecord),
         typeof(FleetRecord),
+        typeof(SkippedFleetRecord),
         typeof(RecruitmentEntry),
         typeof(MercenaryRecord),
         typeof(SaveTurnState),
@@ -120,6 +126,18 @@ public static class OriginalSaveFieldMapping
     /// <summary>Every classified property, one entry per <see cref="FieldMapping.QualifiedName"/>.</summary>
     public static IReadOnlyList<FieldMapping> All { get; } = new[]
     {
+        // ---- WorldPrefix (round 2, review N-b): the 320x140 terrain grid plus the 334 city records.
+        new FieldMapping(typeof(WorldPrefix), nameof(WorldPrefix.Cells), FieldMappingKind.Derived,
+            "The terrain grid is static world data, not save data: every original SAV/DAT for " +
+            "classical-mediterranean carries the identical grid (WorldPrefix's own remarks -- 'the " +
+            "portion whose layout is shared by the known DAT and SAV samples'), because the map never " +
+            "changes during play. scripts/export-classical-world.cs already built the shipped World's " +
+            "own terrain from this same grid once; GameState has no terrain field of its own to import " +
+            "into (World is the terrain source everywhere else in the engine, e.g. tile lookups), so " +
+            "re-reading a second, necessarily-identical copy from each imported SAV would have nowhere " +
+            "to go. Never read by OriginalSaveImporter."),
+        new FieldMapping(typeof(WorldPrefix), nameof(WorldPrefix.Cities), FieldMappingKind.Mapped, "Drives the cities loop -> CityState[]."),
+
         // ---- CityRecord -> CityState (positional; see docs/game-design.md "Original-save compatibility")
         new FieldMapping(typeof(CityRecord), nameof(CityRecord.Index), FieldMappingKind.Derived, Redundant),
         new FieldMapping(typeof(CityRecord), nameof(CityRecord.Name), FieldMappingKind.Mapped, "-> CityState.Name."),
@@ -186,6 +204,11 @@ public static class OriginalSaveFieldMapping
         new FieldMapping(typeof(ArmyUnit), nameof(ArmyUnit.MercenaryLabel), FieldMappingKind.Mapped, "-> UnitSlot.MercenaryLabel."),
         new FieldMapping(typeof(ArmyUnit), nameof(ArmyUnit.IsMercenary), FieldMappingKind.Derived, "Redundant with MercenaryLabel != 0, and MercenaryLabel is itself mapped."),
 
+        // ---- SkippedArmyRecord -> SkippedRecordReport (Done-when 1, 10; round 2, review N-b)
+        new FieldMapping(typeof(SkippedArmyRecord), nameof(SkippedArmyRecord.Index), FieldMappingKind.Mapped, "-> SkippedRecordReport.Index, via OriginalSaveImportReport.SkippedArmies."),
+        new FieldMapping(typeof(SkippedArmyRecord), nameof(SkippedArmyRecord.X), FieldMappingKind.Mapped, "-> SkippedRecordReport.X, via SkippedArmies."),
+        new FieldMapping(typeof(SkippedArmyRecord), nameof(SkippedArmyRecord.Y), FieldMappingKind.Mapped, "-> SkippedRecordReport.Y, via SkippedArmies."),
+
         // ---- FleetRecord -> FleetState (Done-when 10)
         new FieldMapping(typeof(FleetRecord), nameof(FleetRecord.Index), FieldMappingKind.Mapped, "-> FleetState.Id (\"fleet-{index}\"), and every cross-table fleet reference."),
         new FieldMapping(typeof(FleetRecord), nameof(FleetRecord.X), FieldMappingKind.Mapped, "-> FleetState.X."),
@@ -204,6 +227,11 @@ public static class OriginalSaveFieldMapping
         new FieldMapping(typeof(FleetRecord), nameof(FleetRecord.TransportCapacityTroops), FieldMappingKind.Derived, Formula),
         new FieldMapping(typeof(FleetRecord), nameof(FleetRecord.SupplyCapacityTons), FieldMappingKind.Derived, Formula),
         new FieldMapping(typeof(FleetRecord), nameof(FleetRecord.QuarterlyUpkeep), FieldMappingKind.Derived, Formula),
+
+        // ---- SkippedFleetRecord -> SkippedRecordReport (Done-when 10; round 2, review N-b)
+        new FieldMapping(typeof(SkippedFleetRecord), nameof(SkippedFleetRecord.Index), FieldMappingKind.Mapped, "-> SkippedRecordReport.Index, via OriginalSaveImportReport.SkippedFleets."),
+        new FieldMapping(typeof(SkippedFleetRecord), nameof(SkippedFleetRecord.X), FieldMappingKind.Mapped, "-> SkippedRecordReport.X, via SkippedFleets."),
+        new FieldMapping(typeof(SkippedFleetRecord), nameof(SkippedFleetRecord.Y), FieldMappingKind.Mapped, "-> SkippedRecordReport.Y, via SkippedFleets."),
 
         // ---- RecruitmentEntry -> RecruitmentSlot
         new FieldMapping(typeof(RecruitmentEntry), nameof(RecruitmentEntry.NationCode), FieldMappingKind.Mapped, "Groups entries by nation before mapping (recruitmentByNation)."),
