@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using IC2.Engine.Tests.SerializationTests;
 using Xunit;
 
 namespace IC2.Engine.Tests.Export;
@@ -27,7 +28,26 @@ namespace IC2.Engine.Tests.Export;
 /// <c>tests/fixtures/corpus.json</c> (copied unmodified, needed for the corpus cross-check) into a
 /// throwaway directory, and runs entirely there. Nothing under version control is ever touched.
 /// </para>
+/// <para>
+/// Review round 2 R1-N1: also runs a real <c>dotnet run</c> of this same file-based script, so it
+/// joins the same non-parallel <see cref="WorldTerrainExportScriptCollection"/> collection
+/// <c>tests/IC2.Engine.Tests/Serialization/WorldTerrainSidecarTests.cs</c>'s own
+/// <c>WorldTerrainExportReproducibilityTests</c> already uses for the identical reason (review
+/// round 0 finding B1 there: two concurrent compiles of the same file-based app collide in its
+/// shared content-hashed <c>obj/</c> directory). That file is outside this task's Owns list, so it
+/// is only referenced here, never edited -- xUnit runs every non-parallel collection strictly
+/// after every parallel collection (including <see cref="ExportScriptReproducibilityTests"/>'s own
+/// default one) has finished, so joining the same named collection is enough to rule out a race
+/// with that test too, without touching it either.
+/// </para>
+/// <para>
+/// Review round 2 R1-N2: the scratch script's own path is now stable across runs (cleared and
+/// recreated fresh each time) rather than GUID-named, so repeated runs reuse the same
+/// <c>dotnet run</c> build cache directory instead of leaving a new one behind every time -- see
+/// the method body for why a stable path is now safe given R1-N1's non-parallel collection.
+/// </para>
 /// </remarks>
+[Collection(WorldTerrainExportScriptCollection.Name)]
 public class ExportScriptToyGuardTests
 {
     [SkippableFact]
@@ -35,7 +55,21 @@ public class ExportScriptToyGuardTests
     {
         Skip.IfNot(OriginalFilesAvailability.IsConfigured, OriginalFilesAvailability.SkipReason);
 
-        var scratchDir = Path.Combine(Path.GetTempPath(), "ic2-export-toyguard-" + Guid.NewGuid().ToString("N"));
+        // Review round 2 R1-N2: a stable path, not a GUID -- "dotnet run" on a file-based app keys
+        // its build cache (%TEMP%\dotnet\runfile\<name>-<hash>\) off the script's own path, so a
+        // fresh GUID directory every run means a fresh, never-reused cache directory every run,
+        // left behind indefinitely (the reviewer measured +1 directory, ~1.8 MB, per run). A stable
+        // path lets "dotnet run" reuse the same cache directory on every run of this test, the same
+        // way the two hand-run "touch + rebuild" cycles during development already reused it.
+        // Cleared unconditionally before use (never inside the try/finally below) so a prior run
+        // that crashed before its own `finally` -- the one case a stable path could leave a stale
+        // scratch tree behind -- can never affect this run's result.
+        var scratchDir = Path.Combine(Path.GetTempPath(), "ic2-export-toyguard-scratch");
+        if (Directory.Exists(scratchDir))
+        {
+            Directory.Delete(scratchDir, recursive: true);
+        }
+
         var tempIni = Path.Combine(Path.GetTempPath(), "ic2-export-toyguard-ini-" + Guid.NewGuid().ToString("N") + ".ini");
         try
         {
