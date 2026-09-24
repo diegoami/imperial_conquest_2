@@ -67,6 +67,19 @@ public sealed class SaveMercenaryTable
 
     private static ushort ReadWord(byte[] data, int offset) =>
         BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(offset, 2));
+
+    /// <summary>The offset immediately after the mercenary table's fixed 600 bytes (SAV only —
+    /// callers still check <see cref="SaveFormat.Detect"/> themselves) — where the news log's
+    /// <c>int16 newsIndex</c> field begins. Exposed so <see cref="SaveNewsLog"/> can locate the news
+    /// log immediately after this table (T73, bug #321) without re-deriving this table's own layout;
+    /// <see cref="Parse"/>'s own body is unchanged (T73 review round 1, N5 — Owns permits exposing
+    /// only this end offset, not a separate start-offset helper).</summary>
+    internal static int TableEnd(byte[] data)
+    {
+        var nationStart = SaveNationLayout.Locate(data);
+        var start = nationStart + SaveNationLayout.NationCount * SaveNationLayout.NationRecordLength;
+        return start + RecordCount * RecordLength;
+    }
 }
 
 public sealed class MercenaryRecord

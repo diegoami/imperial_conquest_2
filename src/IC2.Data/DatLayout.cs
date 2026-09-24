@@ -57,6 +57,26 @@ internal static class DatLayout
     internal const int NationCitiesOffset = 0x417;
     internal const int NationTaxOffset = 0x419;
     internal const int NationTaxBaseOffset = 0x41B; // 1,051 decimal
+
+    // ---- The nation's 16-entry relation row (T73, bug #321/#322) ----
+    // "The row is at SAV nation-record +0x26, the same offset as at runtime... The DAT loader
+    // FUN_004481A0 reads each nation's 11-byte name, then 32 bytes straight into runtime +0x26:
+    // Read(rec, 0xb) then Read(rec + 0x26, 0x20)... The DAT record has no leader field, so on disk
+    // the row is at DAT nation-record +0x0B" —
+    // https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-diplomacy-peace-terms-and-instant-battles.md
+    // §"The relation matrix", 2026-09-24 addition. This is also the read-order table's second row
+    // (32 bytes, immediately after the 11-byte name), consistent with the running sum above.
+    internal const int NationRelationOffset = 0x00B; // 11 decimal == NationNameOffset + NationNameLength
+
+    // ---- The news log's DAT seed: the file's last 2,440 bytes (T73, bug #321) ----
+    // "The DAT loader reads the last 2,440 bytes of the DAT (0x21C1A) straight into all 40 slots
+    // (news_log_decomp.txt line 230: Read(&DAT_0049f994, 0x988))... FUN_00448AA4 then sets
+    // newsIndex = 0x1A (line 30)." — the DAT itself stores only the 40 slots, never the index; see
+    // https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/news-log-format-and-messages.md
+    // §Q1, "The DAT seeds the log, and a new game starts at index 26". The slot count itself is
+    // SaveNewsLog.MaxSlotCount — the SAV's own bound (newsIndex -1..39) and the DAT's slot count are
+    // the same "40", so there is one constant for it, not two (T73 review round 1, N6).
+    internal const int NewsSeedLength = SaveNewsLog.MaxSlotCount * SaveNewsLog.SlotLength; // 2,440
 }
 
 /// <summary>Thrown when code asks a parser for something the DAT genuinely does not store — a whole

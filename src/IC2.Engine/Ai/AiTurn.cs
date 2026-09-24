@@ -1,7 +1,7 @@
-using System.Globalization;
 using IC2.Engine.Battle.Commands;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
+using static IC2.Engine.Ai.AiFormat;
 
 namespace IC2.Engine.Ai;
 
@@ -287,8 +287,4 @@ public static class AiTurn
             AttackFleetCommand naval => AttackLegality.Check(state, ruleset, naval),
             _ => null,
         };
-
-    /// <summary>See <c>AiMilitaryPhase.Inv</c>: the per-seed log has to be locale-independent.</summary>
-    private static string Inv(string format, params object?[] arguments) =>
-        string.Format(CultureInfo.InvariantCulture, format, arguments);
 }

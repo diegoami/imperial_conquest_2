@@ -185,6 +185,7 @@ These are kept in step with the auto-memory feedback notes. When a preference ch
 - **Upstream defects go through the bug list**: suspend, file, plan, resume. Never an ad-hoc patch across Owns lists.
 - **Evidence goes through the two-stage pipeline**: `/process-evidence`, stage 1 then stage 2, never combined.
 - **Relay reviewer findings in full** on rework.
+- **An external reviewer posts to the PR.** Any review prompt handed to another model (a plan PR, a code PR, a milestone) tells it to post its result as one PR comment. The main session reads it from GitHub, so the user never relays a review by hand.
 - **Non-blocking review findings become one follow-up issue per merge**, and each item is folded into the next task that touches those files.
 - **The main session runs the build directly** with `/run-task`. There is no orchestrator layer; it was retired on 2026-09-14 as more overhead than value for serial execution.
 - **No status snapshots in documents.** Status lives in GitHub labels only.

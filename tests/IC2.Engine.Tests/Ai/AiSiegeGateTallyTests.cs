@@ -1,6 +1,7 @@
 using IC2.Engine.Ai;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
+using IC2.Engine.Recruitment.Commands;
 using IC2.Engine.Tests.Battle;
 using IC2.Engine.Tests.Battle.Commands;
 using Xunit;
@@ -165,6 +166,74 @@ public sealed class AiSiegeGateTallyTests
             Assert.Equal(withoutTally[i].Score, withTally[i].Score);
             Assert.Equal(withoutTally[i].Rationale, withTally[i].Rationale);
         }
+    }
+
+    /// <summary>
+    /// <c>docs/task-catalogue.md</c> T22 Done-when 1, follow-up
+    /// <see href="https://github.com/diegoami/imperial_conquest_2/issues/272">#272</see> N3:
+    /// <see cref="AiTurn.Run"/> feeds <see cref="AiSiegeGateTally"/> on the turn's first proposal pass
+    /// only (<c>action == 0</c>). This drives a real, multi-action turn — two ready mobilization slots
+    /// force the action loop around several times, since <c>AiTurn</c> dispatches one candidate and
+    /// re-proposes rather than dispatching every candidate at once: the driven turn actually dispatches
+    /// four commands (two <c>mobilize</c>s, then the newly mobilized army's own <c>approach</c> march,
+    /// then a <c>propose-alliance</c>) over five proposal passes (review round 1, N1) — while a weak,
+    /// permanently adjacent besieger's siege situation never changes across any of them. If the tally
+    /// were fed on every pass rather than only the first, this one standing adjacency would be counted
+    /// five times over, not twice.
+    /// </summary>
+    [Fact]
+    public void AiTurn_feeds_the_siege_gate_tally_on_the_first_proposal_pass_only()
+    {
+        const string homeCityId = "home";
+        var recruitment = Ruleset.Recruitment;
+        var slotA = new RecruitmentSlot(homeCityId, "light_infantry", 1000, recruitment.MobilizationMinStateCodeAiSeat);
+        var slotB = new RecruitmentSlot(homeCityId, "light_infantry", 2000, recruitment.MobilizationMinStateCodeAiSeat);
+
+        var nations = new[]
+        {
+            AiScriptedStates.AiNation(Acting, AiScriptedStates.DefaultPersonality, treasury: -1, capitalCityId: homeCityId)
+                with { RecruitmentSlots = ValueList.Of(slotA, slotB) },
+            AiScriptedStates.AiNation(Other, AiScriptedStates.DefaultPersonality, capitalCityId: "defender-city"),
+        };
+
+        var cities = new[]
+        {
+            CaptureFixtures.City(
+                homeCityId, "Home", 0, 0, Acting, Acting,
+                loyalty: 90, fortificationCode: 100, populationThousands: 10,
+                maxPopulationThousands: 100, tribute: 10),
+            CaptureFixtures.City(
+                "defender-city", "Defender City", 7, 5, Other, Other,
+                loyalty: 90, fortificationCode: 100, populationThousands: 200,
+                maxPopulationThousands: 200, tribute: 10),
+        };
+
+        // The soak's own case: adjacent, and far too weak to win the ratio gate. Nothing about this
+        // army's situation changes across the turn, so it proposes no candidate on any pass -- it is
+        // pure tally bait, never chosen and never moved.
+        var armies = new[]
+        {
+            CaptureFixtures.Army("weak-besieger", Acting, 6, 5, morale: 60,
+                    CaptureFixtures.Unit("archers", 1000))
+                with { Moves = 5 },
+        };
+
+        var state = AiScriptedStates.WithActiveSeat(
+            BattleCommandTestbed.StateWith(nations, cities, armies), Acting);
+
+        var driven = AiScriptedStates.DriveOneTurn(state);
+
+        // Sanity: the turn really did take more than one dispatched action -- both mobilize slots landed
+        // (whatever else the turn went on to do afterward, such as the newly mobilized army marching or
+        // a diplomacy candidate winning a later pass; see this test's own remarks and review round 1, N1).
+        Assert.Equal(0, driven.Outcome.CommandsRejected);
+        Assert.Equal(2, driven.Events.OfType<RecruitMobilized>().Count());
+        Assert.Empty(driven.Outcome.State.NationById(Acting)!.RecruitmentSlots);
+
+        var gateLine = Assert.Single(
+            driven.Outcome.Log, l => l.StartsWith("siege gates: ", StringComparison.Ordinal));
+        Assert.Contains(
+            "1 adjacent, 0 illegal, 1 below ratio, 0 proposed", gateLine, StringComparison.Ordinal);
     }
 
     private static bool HasBesiegeCandidate(GameState state)
