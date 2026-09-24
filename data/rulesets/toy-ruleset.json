@@ -731,7 +731,7 @@
     "faithfulThawColumnBug": true,
     "bugPolicySiegeRatioClamp": "reproduce16BitClamp",
     "_provenance": {
-      "diplomacyModel": "docs/game-design.md §'Two shipped presets' — this toy ruleset is set the way classical-faithful is set, so tests exercise the confirmed behaviour by default (audit Q3).",
+      "diplomacyModel": "docs/game-design.md §'Two shipped presets' — the confirmed state machine only, with no AI opinion-score layer (audit Q3).",
       "economyPurses": "docs/game-design.md §'Two shipped presets' — per-army and per-fleet purses, as the original has (audit Q4).",
       "seatAsymmetry": "docs/game-design.md §'Two shipped presets' — reproduce the confirmed human/AI rule differences (audit Q6).",
       "bugPolicyDiplomaticThaw": "docs/game-design.md §'Two shipped presets' — reproduce the 8-column thaw bug (audit Q8).",

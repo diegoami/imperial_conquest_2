@@ -19,6 +19,9 @@ internal static class ExportedDataPaths
     /// <summary>The committed, exported ruleset file.</summary>
     public static string RulesetFile { get; } = Path.Combine(RepositoryRoot, "data", "rulesets", "classical-faithful.json");
 
+    /// <summary>The committed "improved" ruleset (T36), authored from <see cref="RulesetFile"/>.</summary>
+    public static string ImprovedRulesetFile { get; } = Path.Combine(RepositoryRoot, "data", "rulesets", "improved.json");
+
     /// <summary>The committed, exported scenario file.</summary>
     public static string ScenarioFile { get; } = Path.Combine(RepositoryRoot, "data", "scenarios", "classical-mediterranean.json");
 
