@@ -58,7 +58,7 @@ public class DotnetRunScriptCollectionGuardTests
                 var collectionName = CollectionNameOf(outerType);
                 if (!string.Equals(collectionName, DotnetRunScriptCollection.Name, StringComparison.Ordinal))
                 {
-                    offenders.Add($"{outerType.FullName}.{member.Name}");
+                    offenders.Add(DescribeOffender(type, member));
                 }
             }
         }
@@ -81,9 +81,12 @@ public class DotnetRunScriptCollectionGuardTests
     /// directly, bypassing <see cref="DotnetRunScriptRunner"/> entirely, would pass the first guard (it
     /// never calls the choke point) while still reintroducing bug #320's shared-build-output race. This
     /// flags any method outside <see cref="DotnetRunScriptRunner"/> whose body both starts a process
-    /// and loads a string constant containing "run" (case-insensitive) -- a cheap, deliberately
-    /// over-inclusive heuristic for "this method looks like it runs `dotnet run ...`", not a claim that
-    /// every flagged method is provably one.
+    /// and loads a string constant whose value, split on whitespace, has "run" as one whole token
+    /// (case-insensitive) -- a cheap, deliberately over-inclusive heuristic for "this method looks like
+    /// it runs `dotnet run ...`", not a claim that every flagged method is provably one. Matching a
+    /// whole token rather than a substring means a string like "runtime" does not count (review round
+    /// 2, non-blocking): a token match still catches both <c>"run script.cs"</c> in one literal and
+    /// <c>ArgumentList.Add("run")</c> as its own literal.
     /// </summary>
     [Fact]
     public void No_test_starts_dotnet_run_directly_outside_the_shared_runner()
@@ -105,13 +108,12 @@ public class DotnetRunScriptCollectionGuardTests
                     continue;
                 }
 
-                if (!IlScanner.MethodLoadsStringContaining(member, "run"))
+                if (!IlScanner.MethodLoadsWholeArgumentToken(member, "run"))
                 {
                     continue;
                 }
 
-                var outerType = OutermostUserType(type);
-                offenders.Add($"{outerType.FullName}.{member.Name}");
+                offenders.Add(DescribeOffender(type, member));
             }
         }
 
@@ -156,6 +158,48 @@ public class DotnetRunScriptCollectionGuardTests
         }
 
         return current;
+    }
+
+    /// <summary>
+    /// A human-readable "Type.Method" name for an offender, with the method name resolved past any
+    /// compiler-generated wrapper the same way <see cref="OutermostUserType"/> resolves the type.
+    /// </summary>
+    /// <remarks>
+    /// Review round 2, non-blocking: reporting <paramref name="member"/>.Name directly named an async
+    /// caller's generated state machine method, always <c>MoveNext</c>, which identifies nothing to a
+    /// reader. <see cref="AsyncStateMachineAttribute"/> is how the compiler itself records which
+    /// user-written method a given state machine type belongs to, so it is used here to recover the
+    /// real name rather than guessing from the generated type's own name.
+    /// </remarks>
+    private static string DescribeOffender(Type declaringType, MethodBase member)
+    {
+        var outerType = OutermostUserType(declaringType);
+        var methodName = OutermostUserMethodName(declaringType, member, outerType);
+        return $"{outerType.FullName}.{methodName}";
+    }
+
+    private static string OutermostUserMethodName(Type declaringType, MethodBase member, Type outerType)
+    {
+        if (declaringType == outerType)
+        {
+            return member.Name;
+        }
+
+        const BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic
+                                    | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly;
+        foreach (var candidate in outerType.GetMethods(flags))
+        {
+            var stateMachine = candidate.GetCustomAttribute<AsyncStateMachineAttribute>();
+            if (stateMachine?.StateMachineType == declaringType)
+            {
+                return candidate.Name;
+            }
+        }
+
+        // Not resolvable to a single async method (a lambda's display class, or a state machine
+        // nested more than one level deep) -- name both the generated type and the member so the
+        // offender is still findable in the source, just less friendly than a real method name.
+        return $"{declaringType.Name}.{member.Name}";
     }
 
     /// <summary>
@@ -229,8 +273,13 @@ internal static class IlScanner
         });
     }
 
-    /// <summary>Whether any <c>ldstr</c> literal in <paramref name="caller"/> contains <paramref name="text"/> (ordinal, case-insensitive).</summary>
-    public static bool MethodLoadsStringContaining(MethodBase caller, string text)
+    /// <summary>
+    /// Whether any <c>ldstr</c> literal in <paramref name="caller"/>, split on whitespace, has
+    /// <paramref name="wholeToken"/> as one of its whole parts (ordinal, case-insensitive) -- not
+    /// merely as a substring. Review round 2, non-blocking: a substring match on "run" also matched
+    /// "runtime", which is not a command word.
+    /// </summary>
+    public static bool MethodLoadsWholeArgumentToken(MethodBase caller, string wholeToken)
     {
         return AnyInstruction(caller, (opCode, il, operandStart, module) =>
         {
@@ -243,7 +292,9 @@ internal static class IlScanner
             {
                 var token = BitConverter.ToInt32(il, operandStart);
                 var literal = module.ResolveString(token);
-                return literal.Contains(text, StringComparison.OrdinalIgnoreCase);
+                return literal
+                    .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
+                    .Any(part => string.Equals(part, wholeToken, StringComparison.OrdinalIgnoreCase));
             }
             catch
             {

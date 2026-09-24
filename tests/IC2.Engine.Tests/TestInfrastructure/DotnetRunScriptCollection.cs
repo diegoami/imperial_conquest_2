@@ -111,8 +111,12 @@ public sealed class DotnetRunArtifactsFixture : IDisposable
 /// </summary>
 public static class DotnetRunScriptRunner
 {
-    /// <summary>The exit code and captured output of one <c>dotnet run</c> invocation.</summary>
-    public readonly record struct Result(int ExitCode, string Stdout, string Stderr);
+    /// <summary>
+    /// The exit code and captured output of one <c>dotnet run</c> invocation, plus whether its
+    /// computed <c>%TEMP%\dotnet\runfile\</c> marker entry was found and cleaned up
+    /// (<see cref="RunfileEntryNamingTests"/> is the regression test this backs).
+    /// </summary>
+    public readonly record struct Result(int ExitCode, string Stdout, string Stderr, bool RunfileMarkerWasCleanedUp);
 
     /// <summary>
     /// Runs <paramref name="scriptPath"/> with <paramref name="artifactsPath"/> as its isolated build
@@ -130,32 +134,54 @@ public static class DotnetRunScriptRunner
     /// output to the same path inside one artifacts root and corrupt each other's up-to-date check.
     /// </para>
     /// <para>
-    /// <b>Review round 1, finding B1.</b> <c>dotnet run</c> still leaves a small
-    /// <c>build-start.cache</c> file directly under <c>%TEMP%\dotnet\runfile\&lt;script-hash&gt;\</c>
-    /// even with <c>--artifacts-path</c> set (Done-when 2 asks that no run leave a directory behind).
-    /// The first version of this cleanup snapshotted <c>%TEMP%\dotnet\runfile\</c> once, when the
-    /// fixture was constructed, and deleted every entry that was new when the fixture was disposed --
-    /// a diff over the entire collection's lifetime, on a directory every `dotnet run` process on the
-    /// machine shares. The reviewer reproduced real damage from it: a concurrent, unrelated,
-    /// non-isolated <c>dotnet run</c> (an <c>origin/main</c> worktree, still without
-    /// <c>--artifacts-path</c>, so its own <em>real</em> <c>obj/</c>/<c>bin/</c> content lives directly
-    /// under its runfile entry) had that entry deleted out from under it while it was still building,
-    /// and failed with <c>FileNotFoundException</c>.
+    /// <b>Review round 1, finding B1 (the shared marker cache), and round 2 (still open).</b>
+    /// <c>dotnet run</c> still leaves a small <c>build-start.cache</c> file directly under
+    /// <c>%TEMP%\dotnet\runfile\&lt;entry&gt;\</c> even with <c>--artifacts-path</c> set (Done-when 2
+    /// asks that no run leave a directory behind). Round 0's cleanup snapshotted the whole
+    /// <c>runfile</c> directory once per fixture lifetime and deleted every new entry; round 1
+    /// narrowed the window to one <c>Run</c> call and added an "entry holds no subdirectory" check,
+    /// reasoning that a real, non-isolated build's entry always has an <c>obj/</c> subdirectory by the
+    /// time it could be seen. Round 2's review measured that gap directly: the SDK creates the entry
+    /// and writes <c>build-start.cache</c> immediately, and <c>obj/</c> appears only once the build
+    /// reaches restore -- 2 ms to 900 ms later depending on the script. A build that starts inside any
+    /// one <c>Run</c> call's window is, at that call's after-snapshot, a new entry with no
+    /// subdirectory yet. Across 6 rounds of a <c>FileSystemWatcher</c>-instrumented reproduction, the
+    /// reviewer's round-1 code deleted 18 of 96 unrelated live builds' entries and an
+    /// <c>origin/main</c> worktree's live entry twice. Every victim build recreated its directory and
+    /// finished, but "a deletion that can hit another live build" is the defect Done-when 2 exists to
+    /// prevent, and "no subdirectory yet" is not proof of ownership at any point before a build reaches
+    /// restore.
     /// </para>
     /// <para>
-    /// Fixed by narrowing the cleanup two ways, both required: the snapshot is now taken immediately
-    /// before <em>this one call</em> starts its subprocess and compared immediately after that same
-    /// subprocess exits -- a window bounded by one <c>dotnet run</c> invocation (a few seconds to tens
-    /// of seconds), not by the whole collection's run, and calls within the collection are already
-    /// serialised (<see cref="DotnetRunScriptCollection"/> is <c>DisableParallelization = true</c>), so
-    /// no other call of this fixture's own can overlap it. And every newly-appeared entry is deleted
-    /// only if it holds no subdirectory at all (<see cref="IsMarkerOnly"/>) -- an isolated run's own
-    /// entry is exactly one small file, while a real, non-isolated build's entry always has an
-    /// <c>obj/</c> subdirectory (and usually <c>bin/</c> too), so this check refuses to delete real
-    /// build content even if the narrow window were somehow still hit. A concurrent process's own
-    /// isolated marker (also just one file, also newly-appeared) could in principle still be deleted by
-    /// this narrow window; unlike deleting active build content, that only costs that other process one
-    /// avoidable cold rebuild the next time it runs the same script, never a broken run.
+    /// <b>Fixed by computing this call's own entry name exactly, instead of inferring "new" from a
+    /// snapshot.</b> The .NET SDK derives a file-based app's runfile entry name as
+    /// <c>&lt;script file name without extension&gt;-&lt;lowercase hex SHA-256 of the UTF-8 bytes of
+    /// the script's full path, upper-invariant&gt;</c> (see <see cref="ComputeRunfileEntryName"/>).
+    /// This is not documented SDK behaviour -- it was established empirically: the review reproduced
+    /// the formula on three independent paths on its machine, and this repository's own worktree path
+    /// hashes to the exact directory name (<c>897bab08b1e24ff26a490c51275596ce5ebec0836b8c6f4d416cdd8c19c99a34</c>)
+    /// this class's own earlier, ad hoc probes had already observed for <c>export-classical-world.cs</c>
+    /// there. Because the scheme is undocumented and could change with a future SDK version, deletion
+    /// is fail-safe: this method computes the one name that <em>this call's own script path</em> maps
+    /// to, and deletes that exact directory only if (a) it did not exist immediately before this call's
+    /// subprocess started and (b) it holds no subdirectory when checked immediately after the
+    /// subprocess exits. Nothing else under <c>%TEMP%\dotnet\runfile\</c> is ever enumerated, listed, or
+    /// touched -- no set difference over the folder, so an unrelated build's entry (which never
+    /// happens to have this call's own computed name) cannot be deleted no matter its timing. If the
+    /// computed name does not exist after the run -- the SDK changed how it derives the name -- this
+    /// method deletes nothing and leaves the (now un-recognised) marker behind rather than guess;
+    /// <see cref="RunfileEntryNamingTests.The_computed_runfile_entry_name_matches_what_the_SDK_actually_creates"/>
+    /// is the test that would then start failing, surfacing the mismatch instead of it silently
+    /// reintroducing marker debris or, worse, a wrong guess deleting something real.
+    /// </para>
+    /// <para>
+    /// <b>Concurrency.</b> Two processes running <em>the same script path from the same worktree</em>
+    /// at the same time would compute and share this one entry name, and could still race on it (the
+    /// scenario the non-parallel collection already exists to prevent within one process). Two
+    /// worktrees never collide here: each has its own absolute path for the script, so each computes
+    /// and owns a different entry name. This method does not defend against two dotnet-run tests in
+    /// the *same* worktree running concurrently outside this collection; nothing in this codebase does
+    /// that today.
     /// </para>
     /// </remarks>
     public static Result Run(
@@ -185,7 +211,9 @@ public static class DotnetRunScriptRunner
             psi.ArgumentList.Add(argument);
         }
 
-        var runfileEntriesBeforeThisCall = SnapshotRunfileEntries();
+        var runfileRoot = Path.Combine(Path.GetTempPath(), "dotnet", "runfile");
+        var computedEntryPath = Path.Combine(runfileRoot, ComputeRunfileEntryName(scriptPath));
+        var computedEntryExistedBeforeThisCall = Directory.Exists(computedEntryPath);
 
         using var process = System.Diagnostics.Process.Start(psi)
                              ?? throw new InvalidOperationException("Failed to start dotnet run.");
@@ -199,73 +227,51 @@ public static class DotnetRunScriptRunner
         process.WaitForExit();
         Task.WaitAll(stdoutTask, stderrTask);
 
-        var result = new Result(process.ExitCode, stdoutTask.Result, stderrTask.Result);
+        var cleanedUp = !computedEntryExistedBeforeThisCall
+                         && DeleteIfMarkerOnly(computedEntryPath);
 
-        DeleteMarkerOnlyEntriesCreatedDuringThisCall(runfileEntriesBeforeThisCall);
-
-        return result;
-    }
-
-    /// <summary>See the remarks on <see cref="Run"/> ("Review round 1, finding B1") for why this is
-    /// scoped to one call's own before/after snapshot, and to marker-only entries.</summary>
-    private static void DeleteMarkerOnlyEntriesCreatedDuringThisCall(HashSet<string> runfileEntriesBefore)
-    {
-        foreach (var entry in SnapshotRunfileEntries())
-        {
-            if (runfileEntriesBefore.Contains(entry))
-            {
-                continue;
-            }
-
-            if (!IsMarkerOnly(entry))
-            {
-                continue;
-            }
-
-            try
-            {
-                Directory.Delete(entry, recursive: true);
-            }
-            catch (IOException)
-            {
-                // Best effort: another process may still be using it.
-            }
-            catch (UnauthorizedAccessException)
-            {
-                // Best effort, same reason.
-            }
-        }
+        return new Result(process.ExitCode, stdoutTask.Result, stderrTask.Result, cleanedUp);
     }
 
     /// <summary>
-    /// Whether <paramref name="runfileEntryDirectory"/> holds nothing but the small
-    /// <c>build-start.cache</c> marker file an isolated <c>dotnet run</c> still leaves under
-    /// <c>%TEMP%\dotnet\runfile\</c> -- no subdirectory at all. A real, non-isolated build's entry
-    /// always has an <c>obj/</c> subdirectory (and usually <c>bin/</c>), so this is enough to tell the
-    /// two apart without depending on file names or sizes that could change with the SDK version.
-    /// Returns <see langword="false"/> (never delete) if the check itself cannot be completed.
+    /// The SDK's (undocumented, empirically established -- see <see cref="Run"/>'s own remarks)
+    /// runfile entry name for the file-based app at <paramref name="scriptPath"/>.
     /// </summary>
-    private static bool IsMarkerOnly(string runfileEntryDirectory)
+    internal static string ComputeRunfileEntryName(string scriptPath)
+    {
+        var fullPath = Path.GetFullPath(scriptPath);
+        var hash = System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(fullPath.ToUpperInvariant()));
+        var hex = Convert.ToHexString(hash).ToLowerInvariant();
+        var stem = Path.GetFileNameWithoutExtension(fullPath);
+        return $"{stem}-{hex}";
+    }
+
+    /// <summary>
+    /// Deletes <paramref name="entryPath"/> if, and only if, it exists and holds no subdirectory
+    /// (<see cref="Run"/>'s own remarks explain why "no subdirectory yet" is checked only on this one,
+    /// precisely computed path rather than used to classify an arbitrary "new" entry). Returns whether
+    /// it was deleted.
+    /// </summary>
+    private static bool DeleteIfMarkerOnly(string entryPath)
     {
         try
         {
-            return Directory.GetDirectories(runfileEntryDirectory).Length == 0;
+            if (!Directory.Exists(entryPath) || Directory.GetDirectories(entryPath).Length != 0)
+            {
+                return false;
+            }
+
+            Directory.Delete(entryPath, recursive: true);
+            return true;
         }
         catch (IOException)
         {
-            return false;
+            return false; // Best effort: another process may still be using it.
         }
         catch (UnauthorizedAccessException)
         {
-            return false;
+            return false; // Best effort, same reason.
         }
-    }
-
-    private static HashSet<string> SnapshotRunfileEntries()
-    {
-        var runfileRoot = Path.Combine(Path.GetTempPath(), "dotnet", "runfile");
-        return Directory.Exists(runfileRoot)
-            ? new HashSet<string>(Directory.GetDirectories(runfileRoot), StringComparer.OrdinalIgnoreCase)
-            : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     }
 }
