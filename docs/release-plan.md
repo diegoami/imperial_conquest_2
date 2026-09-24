@@ -230,7 +230,7 @@ This makes checklist items 1 and 15 a single `gh issue list` query instead of a 
 
 **Deliberately *not* created: GitHub milestones for the version tags.** A GitHub issue carries **exactly one** milestone, and task issues use theirs for the build **phase**, which [build-process.md §6](build-process.md#6-git-and-github-conventions) names as a convention. A version milestone could therefore only be empty — permanently 0/0, sitting in the milestone list next to the four meaningful phase ones and inviting exactly the phase-vs-version confusion this document opens by warning about — or it could displace a phase milestone, which would break a documented convention to gain nothing. Labels are multi-valued; milestones are not; the gate is a set, so it is a label. If a future release ever needs its own *new* issues (a `v1.0.1` bugfix batch, say), a milestone for that batch is the right tool at that time.
 
-**`v0.1.0` was tagged on 2026-09-18**, at `2456cd8` (T37's squash merge), once [§2](#2-the-release-ladder)'s gate set — #1–#12, #37, #45, #60–#62, #84, #89, #92, #110 — was closed and `status:merged` throughout. The annotated tag is the release; **no GitHub Release body was published**, because the user asked for the tag alone. Checklist [§5](#5-release-checklist) items 1–6 and 17 were run and passed:
+**`v0.1.0` was tagged on 2026-09-18**, with its checklist run at `2456cd8` (T37's squash merge). *(Corrected 2026-09-24: the annotated tag object itself points to `b84635f`, the docs commit that records it, #140, not to `2456cd8` as first written here. `git rev-parse v0.1.0^{commit}` shows it. §3.1 asks for a squash-merge commit, and the tag cannot be moved (§3.1), so this stays as a recorded deviation.)* It was tagged once [§2](#2-the-release-ladder)'s gate set — #1–#12, #37, #45, #60–#62, #84, #89, #92, #110 — was closed and `status:merged` throughout. The annotated tag is the release; **no GitHub Release body was published**, because the user asked for the tag alone. Checklist [§5](#5-release-checklist) items 1–6 and 17 were run and passed:
 
 | Item | Evidence |
 | --- | --- |
@@ -246,6 +246,29 @@ This makes checklist items 1 and 15 a single `gh issue list` query instead of a 
 Items 14–16 concern a release-note body and its reviewer approval, and were **not** run — there is no note to regenerate a preset table for, derive known gaps for, or review. If a Release body is published for `v0.1.0` later, those three run then.
 
 One thing the tag's history contains that its gate set does not: **T44** (#126, `e03608c`) merged after the gate was already met, so `v0.1.0` includes the signed army `moves` field — a developer running `IC2.Inspect` at this tag sees `moves -1`, not `65535`. The gate set was not reopened to add it; it is simply worth knowing when reading the tag's diff.
+
+---
+
+**`v0.3.0` was tagged and published on 2026-09-24**, annotated, on `fe0ff10` (T77's squash merge), as a pre-release: [release](https://github.com/diegoami/imperial_conquest_2/releases/tag/v0.3.0). The gate is the 15 issues labelled `release:v0.3.0`. It was the first release to go through [milestone-review.md](milestone-review.md): the review PR is [#343](https://github.com/diegoami/imperial_conquest_2/pull/343) (closed unmerged), with Fable 5.1 as the evidence checker and DeepSeek as the cold reader. There was no blocking finding and no claim was NOT MET. C9 was PARTLY MET, and its two literals are #344 and #345. C6's and C10's wording was corrected visibly in the milestone description. Checklist evidence:
+
+| Item | Evidence |
+| --- | --- |
+| 0 | This commit, plus `b6e421b` and `e6c3069` earlier the same day. |
+| 1 | `gh issue list --label release:v0.3.0`: 15 issues, all closed and `status:merged`. |
+| 2 | No issue carries `status:escalated`. |
+| 3 | The open PRs, #343 (the review PR) and #349 (a plan), carry no `status:approved`. |
+| 4 | CI on `main`'s tip `fe0ff10`: `success`. |
+| 5 | Fresh clone and worktree at `fe0ff10`: **0 warnings**. With the original files, 226 data and 2,660 engine tests passed, 0 skipped. Without them, 86 + 2,637 passed, 163 skipped (every skip named), 0 failed. |
+| 6 | Determinism guard (`DeterminismGuardTests`, `TurnPipelineDeterminismTests`, `AiDeterminismTests`, `BattleDeterminismTests`, `RngGoldenVectorTests`) and fixtures-corpus tests (`FixturesCorpusTests`, `RulesetMatchesFixtureCorpusTests`, `CorpusSweepTests` ×100) all green, named individually in the release reviewer's run. |
+| 7 | `demo.golden.txt` reproduced byte for byte (11,107 bytes, same sha256). |
+| 8 | 50-seed soak: 0 rejected, 0 exceptions, worst stall run 1, 1.39 s (Fable) and 2.57 s (release reviewer) of a 300 s budget. |
+| 9 | Import verified locally by the Fable 5.1 reviewer and the release reviewer. Three representative saves round-trip, three `IP*.sav` pin edge cases, and 20 real-save and 5 rejection tests pass. |
+| 14 | The preset table was regenerated from both rulesets by the release reviewer and matches the note. |
+| 15 | Known gaps derived from the task index against issue state: M3 (T72), M18 (T24, T25), M19 (T26), M20 (T27). |
+| 16 | The release-note reviewer (Opus) re-ran items 4–9 and requested 8 edits (R1–R8, on #343). They were applied verbatim before publishing. |
+| 17 | `git tag -l v0.3.0` was empty; the tag is annotated, on `main`, on a squash-merge commit. |
+
+Items 10–13 and 18 are v0.4.0 or v1.0.0 only. Item 19: the main session published, per §3.2, after the user said to.
 
 ---
 
