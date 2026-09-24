@@ -277,25 +277,33 @@ public sealed record TerrainRules(
 /// <see cref="DepositionTreasuryCredit"/></c>; and any relation from <see cref="DepositionRelationResetThreshold"/>
 /// up to (but not including) zero resets to zero.
 /// </para>
-/// </remarks>
-/// <remarks>
 /// <para>
-/// <strong>T70's one additive field</strong> (<c>docs/task-catalogue.md</c> "T70 Command-layer hygiene:
-/// one distance metric, one rejection file, and the naming filter", Done-when 6b, folded bug #345):
-/// <see cref="CommandAdjacencyRadiusTiles"/>. The original's own general "within one tile" command test
-/// (<c>d == 1</c>, Chebyshev distance — <c>decompiled-mobilization-and-mercenary-restock.md</c> ~:143–144)
-/// recurred, unexamined, as a hardcoded <c>&gt; 1</c> literal at every site this task's Done-when 4
-/// unified onto <see cref="Naval.LandingTile.ChebyshevDistance"/>: a fleet buying supply from a city or
-/// another fleet (<c>BuyFleetSupplyCommandHandler</c>), an army buying supply from a foreign city or a
-/// fleet (<c>BuySupplyCommandHandler</c>), a fleet's repair or scuttle at one of its own nation's cities
-/// (<c>RepairFleetCommandHandler</c>, <c>ScuttleFleetCommandHandler</c>), and an army's named landing tile
-/// relative to its carrying fleet (<c>DisembarkArmyCommandHandler</c>). T04 fixtures corpus id:
-/// 'command.adjacencyRadiusTiles'. Deliberately not merged with <see cref="AutoResupplyRadiusTiles"/> or
-/// <see cref="ThreatenedCityAdjacencyRadius"/>, both of which also happen to be 1: each is a different
-/// rule (the AI's own resupply-search radius; the city-threat eight-neighbourhood) that must be able to
-/// change independently, the same reasoning already given above for
-/// <see cref="PopulationGrowthMobilizationDivisor"/>. The shipped value (1) does not change; only the
-/// command layer's own five hardcoded copies of it do.
+/// <strong>T70's one additive field</strong> (<c>docs/tasks/T70.md</c> "T70 Command-layer hygiene: one
+/// distance metric, one rejection file, and the naming filter", Done-when 6b, folded bug #345):
+/// <see cref="CommandAdjacencyRadiusTiles"/>. <c>decompiled-mobilization-and-mercenary-restock.md</c>
+/// ~:143–144 <strong>[confirmed]</strong> is the mobilization receiving-army test — <c>FUN_00449018</c> is
+/// Chebyshev distance, and the test itself reads <c>d == 1</c>, not <c>d &lt;= 1</c> — which already has
+/// its own field, <see cref="RecruitmentRules.MobilizationReceivingArmyRangeHumanSeat"/>, compared with
+/// <c>==</c>. This field takes the SAME one-tile value, compared with <c>&lt;=</c>, for a different rule:
+/// the hardcoded <c>&gt; 1</c> literal that recurred, unexamined, across seven comparisons in five command
+/// files this task's Done-when 4 moved onto <see cref="Naval.LandingTile.ChebyshevDistance"/> — a fleet
+/// buying supply from a city or another fleet (<c>BuyFleetSupplyCommandHandler</c>, two sites), an army
+/// buying supply from a foreign city or a fleet (<c>BuySupplyCommandHandler</c>, two sites), a fleet's
+/// repair or scuttle at one of its own nation's cities (<c>RepairFleetCommandHandler</c>,
+/// <c>ScuttleFleetCommandHandler</c>), and an army's named landing tile relative to its carrying fleet
+/// (<c>DisembarkArmyCommandHandler</c>). The four supply-purchase sites' own direct source is
+/// <c>supply-capacity-rounding.md</c>:33 (<c>TAFSupply_FindProviders</c>, "every city within one tile");
+/// the mobilization citation is kept because T04's fixtures corpus id for this field
+/// (<c>command.adjacencyRadiusTiles</c>) prescribes it, described here as what it actually is rather than
+/// as "the original's own general command-adjacency test" an earlier revision of this remark called it
+/// (review round 1, N2). T04 fixtures corpus id: 'command.adjacencyRadiusTiles'. Deliberately not merged
+/// with <see cref="AutoResupplyRadiusTiles"/> (4 — a different value, not the same one) or
+/// <see cref="ThreatenedCityAdjacencyRadius"/> (1 — the same value, but a different rule, the city-threat
+/// eight-neighbourhood): each must be able to change independently, the same reasoning already given
+/// above for <see cref="PopulationGrowthMobilizationDivisor"/> (review round 1, B1: an earlier revision of
+/// this paragraph wrongly said both sibling fields "happen to be 1"). The shipped value (1) does not
+/// change; only the five files' seven hardcoded comparisons do (review round 1, B1: an earlier revision
+/// said "five hardcoded copies").
 /// </para>
 /// </remarks>
 public sealed record EconomyRules(
