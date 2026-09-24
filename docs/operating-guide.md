@@ -76,7 +76,7 @@ literals, which missed that `CorpusSweepTests` and its siblings sweep **whatever
 against the full `CorpusFixtures/expected-corpus-outcomes.json` table — reading by directory, not by
 name. A named-subset fixtures repository silently loses that coverage in CI the moment a test reads by
 directory instead of by name, the same shape as the defect T53 exists to fix. The repository is now the
-DAT plus all 54 saves the committed corpus table enumerates (7 MB) — see its own README for the same
+DAT plus all 99 saves the committed corpus table enumerates (13 MB; the 45 `IP*.sav` of the 2026-09-20 run were added on 2026-09-24, after T64 regenerated the table with them — a save that joins the table joins the fixtures repository in the same session) — see its own README for the same
 reasoning. Nothing downstream — a test, a review, or CI — cares which folder a fixture currently sits
 in, and nothing in CI has to guess which subset of the corpus a test will read by directory next.
 
