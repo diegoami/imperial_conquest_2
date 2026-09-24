@@ -353,7 +353,7 @@
     "famineLoyaltyLossProbabilityDenominator": 3,
     "famineLoyaltyLossAmount": 1,
     "_provenance": {
-      "taxRateDivisor": "confirmed: decompiled-quarterly-billing-and-economy.md and decompiled-fleet-tax-and-mercenary-formulas.md — income = nationTaxBase × taxRate / 100.",
+      "taxRateDivisor": "confirmed: decompiled-quarterly-billing-and-economy.md and decompiled-fleet-tax-and-mercenary-formulas.md — income = nationTaxBase × taxRate / 100. T04 fixtures corpus id: 'tax.incomeFormula'.",
       "shipUpkeepPerQuarter": "confirmed: fleet-order-at-caere.md and decompiled-fleet-tax-and-mercenary-formulas.md — ships cost 3 talents each per quarter. T04 fixtures corpus id: 'economy.shipUpkeepPerQuarter'.",
       "mobilizationDecayPerQuarter": "confirmed: city-population-growth.md — renamed from unityDecayPerQuarter (bug #68): FUN_00451b40's nation-loop '-3' is applied to mobilization (+0x442), not unity; 71 of 80 nation-quarters matched exactly across 5 quarter pairs, the other 9 being AIs recruiting or disbanding in the round. decompiled-quarterly-billing-and-economy.md's original 'unity decays 3 per quarter, clamped at 0' misattributed the field. T04 fixtures corpus id: 'economy.mobilizationDecayPerQuarter'.",
       "unityCap": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — the instant resolver clamps the winner's unity with min(990, ...); city-population-growth.md's own quarterly unity update (T35) clamps to this same cap. T04 fixtures corpus id: 'caps.maxUnity'.",
@@ -776,7 +776,7 @@
       "defectionUnityGain": "derived: decompiled-defection-and-siege-attrition.md / nation-tax-base-and-city-economy-fields.md — new owner's unity += 3 at a defection. See defectionTreasuryCreditMultiplier for the FUN_0044bed8-as-defection inference this shares. T04 fixtures corpus id: 'defection.unityGain'.",
       "defectionUnityLoss": "derived: decompiled-defection-and-siege-attrition.md / nation-tax-base-and-city-economy-fields.md — old owner's unity -= 20 at a defection. See defectionTreasuryCreditMultiplier. T04 fixtures corpus id: 'defection.unityLoss'.",
       "defectionUnityLossFloor": "derived: nation-tax-base-and-city-economy-fields.md — the -20 defection unity loss is 'floored at 250'. See defectionTreasuryCreditMultiplier.",
-      "eliminationUnityReset": "confirmed: galatia-elimination-and-city-resupply-confirmed.md — Galatia's unity read exactly 0 after its last city was lost (668 -> 0). nation-tax-base-and-city-economy-fields.md separately mentions an untraced FUN_0044c360 resetting a 'collapsing nation' to unity 450, but its caller/trigger are not established and it is not the direct last-city-lost consequence DoD 4 asks for; the observed Galatia figure is used instead.",
+      "eliminationUnityReset": "confirmed: galatia-elimination-and-city-resupply-confirmed.md — Galatia's unity read exactly 0 after its last city was lost (668 -> 0). nation-tax-base-and-city-economy-fields.md separately mentions an untraced FUN_0044c360 resetting a 'collapsing nation' to unity 450, but its caller/trigger are not established and it is not the direct last-city-lost consequence DoD 4 asks for; the observed Galatia figure is used instead. T04 fixtures corpus id: 'elimination.galatiaUnityAfter'.",
       "cascadeDistanceMax": "confirmed: decompiled-defection-and-siege-attrition.md — FUN_0044ba1c only considers another city within distance 10 of the besieging army. The report gives the threshold, not the distance metric; Chebyshev distance is used here as the engine's one other map-distance convention (IC2.Engine.Battle.ScatterPlacement), which is a derived choice. T04 fixtures corpus id: 'defection.cascadeConditions'.",
       "cascadeUnityThreshold": "confirmed: decompiled-defection-and-siege-attrition.md — the cascade only fires while new_owner.unity < 650. T04 fixtures corpus id: 'defection.cascadeConditions'.",
       "cascadeLoyaltyThreshold": "confirmed: decompiled-defection-and-siege-attrition.md — the cascade only considers a candidate city with loyalty < 65. T04 fixtures corpus id: 'defection.cascadeConditions'.",
@@ -835,7 +835,7 @@
           "maxPercent": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TFortifyCity offers 0 to (100 - current) points and refuses a city already at 100.",
           "inProgressEncodingRadix": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TFortifyCity_OK writes 'fortification += points × 100', which is the dual encoding: at or below 100 the word is a finished percentage, above 100 it encodes an order in progress. T04 fixtures corpus id: 'capture.siegeDefenderStrengthFormula'.",
           "costPerPointPerPopulationThousand": "confirmed: decompiled-unit-map-orders-and-record-fields.md — the price is cityRecord[+18] × points, and +18 is the population in thousands, so one talent per point per thousand population.",
-          "refusedWhileUnderSiege": "confirmed: decompiled-unit-map-orders-and-record-fields.md — 'You cannot fortify a city which is under siege.'",
+          "refusedWhileUnderSiege": "confirmed: decompiled-unit-map-orders-and-record-fields.md — 'You cannot fortify a city which is under siege.' T04 fixtures corpus id: 'error.citySiegeNoFortify'.",
           "wipedBySiegeAttempt": "confirmed: decompiled-unit-map-orders-and-record-fields.md — FUN_0044B27C begins with 'if (fort > 100) fort = fort % 100'."
         }
       }
@@ -906,7 +906,7 @@
     }
   },
   "_provenance": {
-    "id": "One of the two shipped presets (docs/game-design.md §'Two shipped presets'). Task T29 exports this file directly from the original DAT (see 'description' above); it is not the small, hand-authored ruleset kept for unit tests to load.",
+    "id": "One of the two shipped presets (docs/game-design.md §'Two shipped presets'). Generated by task T29's exporter from toy-ruleset.json's own confirmed constants (see 'description' above) and cross-checked here against the T04 fixtures corpus; not the small, hand-authored ruleset kept for unit tests to load.",
     "unitTypes": "confirmed: unit-type-stat-table-in-dat.md — the five unit types and their stat table, transcribed whole. The list is data, not a fixed size: a ruleset may define any number of unit types. One field of the original table is deliberately NOT carried: +0x20 is the per-type shooting-vulnerability weight, read for the target's type (Light inf 18, Heavy inf 2, Archers 18, Light cav 15, Heavy cav 4) [confirmed: battle-replayed-rout-mechanic-and-combat-constants.md (https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/battle-replayed-rout-mechanic-and-combat-constants.md)]. It is now identified but held in reserve for a future optional 'detailed' resolver (docs/game-design.md §Combat) rather than carried as a UnitTypeRules field, since the shipped instant resolver never reads it; adding the field belongs to whichever future task builds that resolver, not to an open-identity question."
   }
 }
