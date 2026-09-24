@@ -123,4 +123,134 @@ internal static class SyntheticSaveBuilder
 
     private static void WriteInt16(byte[] data, int offset, short value) =>
         BinaryPrimitives.WriteInt16LittleEndian(data.AsSpan(offset, 2), value);
+
+    // ---- T73 (bug #321/#322): relation-row, trailer and news-log builders ----------------------
+
+    /// <summary>Leader offset within one nation record (+0x0B) and its narrowed length (27 bytes,
+    /// ending exactly where the relation row starts at +0x26) — mirrors
+    /// <c>SaveNationTable</c>'s own (private) offsets, not directly reusable here.</summary>
+    private const int NationLeaderOffset = 0x0B;
+    private const int NationLeaderLength = 27;
+
+    /// <summary>Relation-row offset within one nation record (+0x26, immediately after the 27-byte
+    /// leader field) — mirrors <c>DatLayout.NationRelationOffset</c>'s SAV-side counterpart, which is
+    /// the same offset the runtime record itself uses (SAV nation-record +0x26 == runtime +0x26).</summary>
+    private const int NationRelationOffset = 0x26;
+
+    /// <summary>Builds a SAV-shaped byte array with zero armies/fleets and a complete, correctly-named
+    /// 16-record nation table — the minimum <see cref="SaveNationTable.Parse"/> needs, since it
+    /// checks every name against <see cref="NationCatalog"/>. Every record starts zero-filled (an
+    /// all-zero leader, an all-peace relation row: diagonal 0, every other entry 0, which is a valid
+    /// — if uninteresting — matrix), so a test only needs to write the specific bytes its scenario
+    /// cares about via <see cref="NationRecordOffset"/> and the writers below.</summary>
+    public static byte[] MinimalSavWithNations()
+    {
+        var data = MinimalSavWithFleets(0, 0);
+        for (var i = 0; i < NationCount; i++)
+        {
+            var offset = NationRecordOffset(data, i);
+            var nameBytes = System.Text.Encoding.ASCII.GetBytes(NationCatalog.Name((ushort)i));
+            Array.Copy(nameBytes, 0, data, offset, nameBytes.Length);
+            // Byte after the name stays 0 (NUL) — the array starts zero-filled.
+        }
+        return data;
+    }
+
+    /// <summary>The byte offset of nation record <paramref name="nationIndex"/> within
+    /// <paramref name="data"/>, built by <see cref="MinimalSavWithNations"/> (zero armies/fleets, so
+    /// the nation table is the last <c>NationCount * SavNationRecordLength</c> bytes).</summary>
+    public static int NationRecordOffset(byte[] data, int nationIndex) =>
+        data.Length - NationCount * SavNationRecordLength + nationIndex * SavNationRecordLength;
+
+    /// <summary>Writes <paramref name="leaderBytes"/> (at most 27 bytes) at nation
+    /// <paramref name="nationIndex"/>'s leader field. Unlike a name field, 27 non-NUL bytes are
+    /// valid: <see cref="SaveNationTable"/>'s leader reader does not require a terminating NUL when
+    /// the field is filled exactly (see its own remarks) — this is exactly Done-when line 2's "leader
+    /// fills all 27 bytes with no NUL" scenario.</summary>
+    public static void WriteNationLeaderBytes(byte[] data, int nationIndex, byte[] leaderBytes)
+    {
+        if (leaderBytes.Length > NationLeaderLength)
+            throw new ArgumentException($"Leader must be at most {NationLeaderLength} bytes.", nameof(leaderBytes));
+        var offset = NationRecordOffset(data, nationIndex) + NationLeaderOffset;
+        Array.Copy(leaderBytes, 0, data, offset, leaderBytes.Length);
+    }
+
+    /// <summary>Writes one relation-matrix entry — nation <paramref name="a"/>'s row, toward nation
+    /// <paramref name="b"/> — without touching the reciprocal <c>[b][a]</c> entry. Used to build an
+    /// intentionally asymmetric matrix for <see cref="SaveNationTable"/>'s rejection tests; a
+    /// well-formed matrix is built with <see cref="SetSymmetricRelation"/> instead, which writes
+    /// both sides the way the original's single setter (<c>FUN_00449B40</c>) does.</summary>
+    public static void WriteRelationEntry(byte[] data, int a, int b, short value) =>
+        WriteInt16(data, NationRecordOffset(data, a) + NationRelationOffset + b * 2, value);
+
+    /// <summary>Writes a symmetric relation-matrix entry: both <c>[a][b]</c> and <c>[b][a]</c> to
+    /// <paramref name="value"/>, as <c>FUN_00449B40</c> — the game's single setter — always does.</summary>
+    public static void SetSymmetricRelation(byte[] data, int a, int b, short value)
+    {
+        WriteRelationEntry(data, a, b, value);
+        WriteRelationEntry(data, b, a, value);
+    }
+
+    /// <summary>Appends the 55-byte calendar/turn-order trailer
+    /// (<c>+0</c> turn order, 16 x uint16; <c>+32</c> pending offer, left zero; <c>+36</c> current
+    /// nation; <c>+38</c> turn-order index; <c>+40</c> week; <c>+42</c> year BC; <c>+44</c> season;
+    /// <c>+46</c> window geometry, left zero; <c>+54</c> battle flag) to the end of
+    /// <paramref name="data"/>. See
+    /// https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-sav-file-layout.md,
+    /// the 2026-09-14 correction.</summary>
+    public static byte[] AppendTrailer(byte[] data, ushort[] turnOrder, ushort turnOrderIndex,
+        ushort currentNation, ushort week, ushort yearBc, ushort season, byte battleFlag = 0)
+    {
+        if (turnOrder.Length != 16)
+            throw new ArgumentException("Turn order must have 16 entries.", nameof(turnOrder));
+
+        var trailer = new byte[55];
+        for (var i = 0; i < 16; i++)
+            WriteUInt16(trailer, i * 2, turnOrder[i]);
+        WriteUInt16(trailer, 36, currentNation);
+        WriteUInt16(trailer, 38, turnOrderIndex);
+        WriteUInt16(trailer, 40, week);
+        WriteUInt16(trailer, 42, yearBc);
+        WriteUInt16(trailer, 44, season);
+        trailer[54] = battleFlag;
+
+        var result = new byte[data.Length + trailer.Length];
+        Array.Copy(data, result, data.Length);
+        Array.Copy(trailer, 0, result, data.Length, trailer.Length);
+        return result;
+    }
+
+    /// <summary>Appends a zero-filled 600-byte mercenary table, then a news log — <c>int16
+    /// newsIndex</c> followed by <c>newsIndex + 1</c> 61-byte NUL-terminated slots, one per entry in
+    /// <paramref name="slotTexts"/> — to the end of <paramref name="data"/>. Does not append the
+    /// 55-byte trailer; combine with <see cref="AppendTrailer"/> for a complete SAV. Mirrors
+    /// <see cref="SaveMercenaryTable"/>'s own 50 x 12-byte layout and <see cref="SaveNewsLog"/>'s own
+    /// 61-byte slot length — both public constants, reused directly rather than duplicated.</summary>
+    public static byte[] AppendMercenaryTableAndNews(byte[] data, short newsIndex, params string[] slotTexts)
+    {
+        if (slotTexts.Length != newsIndex + 1)
+            throw new ArgumentException("slotTexts.Length must equal newsIndex + 1.", nameof(slotTexts));
+
+        var mercenaryTable = new byte[SaveMercenaryTable.RecordCount * SaveMercenaryTable.RecordLength];
+        var newsIndexBytes = new byte[2];
+        WriteInt16(newsIndexBytes, 0, newsIndex);
+        var slotsBytes = new byte[slotTexts.Length * SaveNewsLog.SlotLength];
+        for (var i = 0; i < slotTexts.Length; i++)
+        {
+            var bytes = System.Text.Encoding.ASCII.GetBytes(slotTexts[i]);
+            if (bytes.Length >= SaveNewsLog.SlotLength)
+                throw new ArgumentException($"Slot {i} text must be under {SaveNewsLog.SlotLength} bytes.", nameof(slotTexts));
+            Array.Copy(bytes, 0, slotsBytes, i * SaveNewsLog.SlotLength, bytes.Length);
+            // Byte at bytes.Length stays 0 (the NUL terminator); the rest of the slot stays 0 too —
+            // a test that needs stale non-zero residue after the NUL writes it explicitly.
+        }
+
+        var result = new byte[data.Length + mercenaryTable.Length + newsIndexBytes.Length + slotsBytes.Length];
+        var pos = 0;
+        Array.Copy(data, 0, result, pos, data.Length); pos += data.Length;
+        Array.Copy(mercenaryTable, 0, result, pos, mercenaryTable.Length); pos += mercenaryTable.Length;
+        Array.Copy(newsIndexBytes, 0, result, pos, newsIndexBytes.Length); pos += newsIndexBytes.Length;
+        Array.Copy(slotsBytes, 0, result, pos, slotsBytes.Length);
+        return result;
+    }
 }
