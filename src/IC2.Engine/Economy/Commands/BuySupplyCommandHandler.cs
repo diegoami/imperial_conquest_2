@@ -1,5 +1,7 @@
 using IC2.Engine.Core;
 using IC2.Engine.Model;
+using IC2.Engine.Movement;
+using IC2.Engine.Naval;
 
 namespace IC2.Engine.Economy.Commands;
 
@@ -98,8 +100,8 @@ public sealed class BuySupplyCommandHandler : ICommandHandler<BuySupplyCommand>
         // T50 Done-when 5 (issue #167): TAFSupply_FindProviders offers "every city within one tile" --
         // this path never checked it, unlike HandleFleetProvider (below) and the fleet-buys-at-a-city
         // path (Naval.Commands.BuyFleetSupplyCommandHandler.HandleCityProvider), which both already do.
-        var distance = Math.Max(Math.Abs(army.X - city.X), Math.Abs(army.Y - city.Y));
-        if (distance > 1)
+        var distance = LandingTile.ChebyshevDistance(new GridPoint(army.X, army.Y), new GridPoint(city.X, city.Y));
+        if (distance > context.Ruleset.Economy.CommandAdjacencyRadiusTiles)
         {
             return CommandOutcome.Reject(
                 BuySupplyRejections.CityNotWithinRange,
@@ -182,8 +184,8 @@ public sealed class BuySupplyCommandHandler : ICommandHandler<BuySupplyCommand>
                 BuySupplyRejections.ProviderFleetUnderConstruction, $"Fleet '{provider.Id}' is still under construction.");
         }
 
-        var distance = Math.Max(Math.Abs(army.X - provider.X), Math.Abs(army.Y - provider.Y));
-        if (distance > 1)
+        var distance = LandingTile.ChebyshevDistance(new GridPoint(army.X, army.Y), new GridPoint(provider.X, provider.Y));
+        if (distance > context.Ruleset.Economy.CommandAdjacencyRadiusTiles)
         {
             return CommandOutcome.Reject(
                 BuySupplyRejections.ProviderFleetNotWithinRange,

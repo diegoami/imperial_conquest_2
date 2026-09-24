@@ -1,5 +1,6 @@
 using IC2.Engine.Core;
 using IC2.Engine.Model;
+using IC2.Engine.Movement;
 
 namespace IC2.Engine.Naval;
 
@@ -199,7 +200,7 @@ public sealed class FleetTickSystem : IGameSystem
                 continue;
             }
 
-            var distance = Math.Max(Math.Abs(city.X - fleet.X), Math.Abs(city.Y - fleet.Y));
+            var distance = LandingTile.ChebyshevDistance(new GridPoint(city.X, city.Y), new GridPoint(fleet.X, fleet.Y));
             if (distance <= rules.FriendlyCoastRadiusTiles)
             {
                 return true;

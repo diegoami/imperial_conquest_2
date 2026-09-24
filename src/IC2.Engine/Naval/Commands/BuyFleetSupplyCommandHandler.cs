@@ -1,6 +1,7 @@
 using IC2.Engine.Core;
 using IC2.Engine.Economy;
 using IC2.Engine.Model;
+using IC2.Engine.Movement;
 
 namespace IC2.Engine.Naval.Commands;
 
@@ -65,7 +66,8 @@ public sealed class BuyFleetSupplyCommandHandler : ICommandHandler<BuyFleetSuppl
                 BuyFleetSupplyRejections.UnknownCity, $"'{command.ProviderCityId}' is not a known city.");
         }
 
-        if (ChebyshevDistance(fleet.X, fleet.Y, city.X, city.Y) > 1)
+        if (LandingTile.ChebyshevDistance(new GridPoint(fleet.X, fleet.Y), new GridPoint(city.X, city.Y))
+            > context.Ruleset.Economy.CommandAdjacencyRadiusTiles)
         {
             return CommandOutcome.Reject(
                 BuyFleetSupplyRejections.CityNotWithinRange,
@@ -152,7 +154,8 @@ public sealed class BuyFleetSupplyCommandHandler : ICommandHandler<BuyFleetSuppl
                 BuyFleetSupplyRejections.UnderConstruction, $"Fleet '{provider.Id}' is still under construction.");
         }
 
-        if (ChebyshevDistance(fleet.X, fleet.Y, provider.X, provider.Y) > 1)
+        if (LandingTile.ChebyshevDistance(new GridPoint(fleet.X, fleet.Y), new GridPoint(provider.X, provider.Y))
+            > context.Ruleset.Economy.CommandAdjacencyRadiusTiles)
         {
             return CommandOutcome.Reject(
                 BuyFleetSupplyRejections.ProviderFleetNotWithinRange,
@@ -171,7 +174,4 @@ public sealed class BuyFleetSupplyCommandHandler : ICommandHandler<BuyFleetSuppl
 
         return CommandOutcome.Accept(state with { Fleets = ValueList.From(updatedFleets) });
     }
-
-    private static int ChebyshevDistance(int ax, int ay, int bx, int by) =>
-        Math.Max(Math.Abs(ax - bx), Math.Abs(ay - by));
 }
