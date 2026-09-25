@@ -114,6 +114,96 @@ public sealed class AcceptPendingOfferCommandTests
         Assert.Equal(AcceptPendingOfferRejections.AlreadyTrading, result.Code);
     }
 
+    /// <summary>
+    /// Rework round 1, B3: <c>decompiled-ai-offers-to-human-seats.md</c> §3 -- "the human's working row
+    /// already has 3 partners" is a plain refusal, never waived by a pending offer. Before the fix, the
+    /// trade branch skipped every cap and this scenario ended with 4 partners instead of being refused.
+    /// </summary>
+    [Fact]
+    public void Trade_RefusedWhenTheHumanIsAlreadyAtTheTradeCap()
+    {
+        var ruleset = DiplomacyTestbed.Ruleset;
+        var codes = ruleset.Diplomacy.StateCodes;
+        var cap = ruleset.Diplomacy.MaxTradePartners;
+
+        var nations = new List<NationState>
+        {
+            DiplomacyTestbed.Nation(Human, "Human", control: SeatControl.Human),
+            DiplomacyTestbed.Nation(Proposer, "Proposer"),
+        };
+        for (var i = 0; i < cap; i++)
+        {
+            nations.Add(DiplomacyTestbed.Nation($"o{i}", $"O{i}"));
+        }
+
+        var state = DiplomacyTestbed.StateOf(nations.ToArray());
+        for (var i = 0; i < cap; i++)
+        {
+            state = state with { Relations = state.Relations.WithRelation(Human, $"o{i}", codes.Trade) };
+        }
+
+        state = state with { PendingOffer = new PendingDiplomaticOffer(Proposer, codes.Trade) };
+
+        var result = DiplomacyTestbed.Dispatcher().Dispatch(state, new AcceptPendingOfferCommand(Human));
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(AcceptPendingOfferRejections.TradeCapReached, result.Code);
+
+        // The cap partners are untouched, and no trade was written with the proposer.
+        for (var i = 0; i < cap; i++)
+        {
+            Assert.Equal(codes.Trade, result.State.Relations.Get(Human, $"o{i}"));
+        }
+
+        Assert.Equal(codes.Peace, result.State.Relations.Get(Human, Proposer));
+    }
+
+    /// <summary>
+    /// Rework round 1, B3: accepting a pending offer FROM a proposer already at its own trade cap is
+    /// exactly the "pending trade offer from that target" case §3 exempts from a flat refusal -- but the
+    /// cap is not silently ignored: "on OK, if the target has 3 partners, it drops its lowest-tax-base
+    /// partner to peace, a -8 cooldown" [confirmed: code]. Before the fix, the proposer ended with 4
+    /// partners and nothing was dropped.
+    /// </summary>
+    [Fact]
+    public void Trade_AcceptedWhenTheProposerIsAtTheTradeCap_DropsItsPoorestPartner()
+    {
+        var ruleset = DiplomacyTestbed.Ruleset;
+        var codes = ruleset.Diplomacy.StateCodes;
+        var cap = ruleset.Diplomacy.MaxTradePartners;
+
+        var nations = new List<NationState>
+        {
+            DiplomacyTestbed.Nation(Human, "Human", control: SeatControl.Human),
+            DiplomacyTestbed.Nation(Proposer, "Proposer"),
+        };
+        for (var i = 0; i < cap; i++)
+        {
+            // Strictly increasing tax bases, so "o0" is unambiguously the proposer's poorest partner.
+            nations.Add(DiplomacyTestbed.Nation($"o{i}", $"O{i}", taxBase: 100 + i));
+        }
+
+        var state = DiplomacyTestbed.StateOf(nations.ToArray());
+        for (var i = 0; i < cap; i++)
+        {
+            state = state with { Relations = state.Relations.WithRelation(Proposer, $"o{i}", codes.Trade) };
+        }
+
+        state = state with { PendingOffer = new PendingDiplomaticOffer(Proposer, codes.Trade) };
+
+        var result = DiplomacyTestbed.Dispatcher().Dispatch(state, new AcceptPendingOfferCommand(Human));
+
+        Assert.True(result.IsAccepted);
+        Assert.Equal(codes.Trade, result.State.Relations.Get(Human, Proposer));
+
+        // The proposer's poorest partner (o0) was dropped to the broken-trade cooldown, not left as 4.
+        Assert.Equal(ruleset.Diplomacy.CooldownAfterBrokenTrade, result.State.Relations.Get(Proposer, "o0"));
+        for (var i = 1; i < cap; i++)
+        {
+            Assert.Equal(codes.Trade, result.State.Relations.Get(Proposer, $"o{i}"));
+        }
+    }
+
     [Fact]
     public void Trade_RefusedWhenAlreadyAllied()
     {
@@ -179,6 +269,35 @@ public sealed class AcceptPendingOfferCommandTests
         state = state with
         {
             Relations = state.Relations.WithRelation(Human, ThirdParty, codes.War),
+            PendingOffer = new PendingDiplomaticOffer(Proposer, codes.Alliance),
+        };
+
+        var result = DiplomacyTestbed.Dispatcher().Dispatch(state, new AcceptPendingOfferCommand(Human));
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(AcceptPendingOfferRejections.SideAtWar, result.Code);
+    }
+
+    /// <summary>
+    /// Rework round 1, B2: the second of §3's human-to-AI refusal conditions, "any nation the working row
+    /// marks allied is at war with anyone" (<c>FUN_00449CD8</c>) -- the human is not itself at war, but an
+    /// existing ally of the human is.
+    /// </summary>
+    [Fact]
+    public void Alliance_RefusedWhenAnAllyOfTheHumanIsAtWarWithAnyone()
+    {
+        var ruleset = DiplomacyTestbed.Ruleset;
+        var codes = ruleset.Diplomacy.StateCodes;
+        var state = DiplomacyTestbed.StateOf(
+            DiplomacyTestbed.Nation(Human, "Human", control: SeatControl.Human),
+            DiplomacyTestbed.Nation(Proposer, "Proposer"),
+            DiplomacyTestbed.Nation("ally", "Ally"),
+            DiplomacyTestbed.Nation(ThirdParty, "ThirdParty"));
+        state = state with
+        {
+            Relations = state.Relations
+                .WithRelation(Human, "ally", codes.Alliance)
+                .WithRelation("ally", ThirdParty, codes.War),
             PendingOffer = new PendingDiplomaticOffer(Proposer, codes.Alliance),
         };
 

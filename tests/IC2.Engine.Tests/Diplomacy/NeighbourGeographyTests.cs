@@ -7,10 +7,11 @@ using Xunit;
 namespace IC2.Engine.Tests.Diplomacy;
 
 /// <summary>
-/// T82 (#359, bug #357). Checks <see cref="NeighbourGeography"/>'s derivation against the three nations
-/// <c>decompiled-ai-offers-to-human-seats.md</c> §1a reports the original's own neighbour mask for --
-/// see that type's own remarks for the search that produced the method and the two known, unresolved
-/// spurious pairs (Rome ↔ Greece; Thracia ↔ Bithynia/Seleucid).
+/// T82 (#359, bug #357), rework round 1 (N1/N2). Checks <see cref="NeighbourGeography"/>'s derivation
+/// against the DAT's own neighbour mask, transcribed as data from <c>dat-neighbour-mask.md</c> §2 -- not
+/// just the three rows (Rome, Carthage, Thracia) the earlier <c>decompiled-ai-offers-to-human-seats.md</c>
+/// §1a sample could confirm, but all sixteen. See <see cref="NeighbourGeography"/>'s own remarks for the
+/// search that produced the derivation method and the full account of the six pairs it gets wrong.
 /// </summary>
 public sealed class NeighbourGeographyTests
 {
@@ -19,22 +20,80 @@ public sealed class NeighbourGeographyTests
 
     private static World ClassicalWorld => LazyClassicalWorld.Value;
 
-    // ---- Full recall: every one of the report's nine confirmed pairs is reproduced ----
+    /// <summary>
+    /// The DAT's own 24 neighbour pairs, transcribed verbatim from <c>dat-neighbour-mask.md</c> §2's own
+    /// table (nation-record <c>+0x2B</c>, confirmed against the DAT's bytes and all 101 local saves).
+    /// Each pair is listed once, in the report's own row order.
+    /// </summary>
+    private static readonly (string A, string B)[] DatConfirmedPairs =
+    {
+        ("rome", "carthage"), ("rome", "gaul"), ("rome", "illyria"),
+        ("carthage", "ptolemaic"), ("carthage", "numidia"), ("carthage", "celtiberia"),
+        ("seleucid", "ptolemaic"), ("seleucid", "bithynia"), ("seleucid", "galatia"),
+        ("seleucid", "armenia"), ("seleucid", "media"),
+        ("macedonia", "greece"), ("macedonia", "illyria"), ("macedonia", "dacia"), ("macedonia", "thracia"),
+        ("gaul", "celtiberia"), ("gaul", "illyria"), ("gaul", "dacia"),
+        ("greece", "illyria"), ("illyria", "dacia"), ("dacia", "thracia"),
+        ("bithynia", "galatia"), ("bithynia", "armenia"), ("armenia", "media"),
+    };
+
+    /// <summary>
+    /// The six pairs this derivation adds that the DAT's own mask does not have
+    /// (<c>dat-neighbour-mask.md</c> §6, engine run against the DAT) -- three already known from the
+    /// three-row sample (Rome ↔ Greece; Thracia ↔ Bithynia/Seleucid), three more only the full DAT mask
+    /// revealed (Seleucid ↔ Macedonia/Greece; Ptolemaic ↔ Greece).
+    /// </summary>
+    private static readonly (string A, string B)[] KnownFalsePositives =
+    {
+        ("rome", "greece"),
+        ("thracia", "bithynia"), ("thracia", "seleucid"),
+        ("seleucid", "macedonia"), ("seleucid", "greece"),
+        ("ptolemaic", "greece"),
+    };
+
+    // ---- Full recall: every one of the DAT's 24 confirmed pairs is reproduced ----
+
+    public static IEnumerable<object[]> DatConfirmedPairsData() =>
+        DatConfirmedPairs.Select(p => new object[] { p.A, p.B });
 
     [Theory]
-    [InlineData("rome", "carthage")]
-    [InlineData("rome", "gaul")]
-    [InlineData("rome", "illyria")]
-    [InlineData("carthage", "rome")]
-    [InlineData("carthage", "ptolemaic")]
-    [InlineData("carthage", "numidia")]
-    [InlineData("carthage", "celtiberia")]
-    [InlineData("thracia", "macedonia")]
-    [InlineData("thracia", "dacia")]
-    public void EveryConfirmedPairFromTheReportIsReproduced(string a, string b)
+    [MemberData(nameof(DatConfirmedPairsData))]
+    public void EveryDatConfirmedPairIsReproduced(string a, string b)
     {
         Assert.True(NeighbourGeography.AreNeighbours(ClassicalWorld, a, b), $"'{a}' should border '{b}'.");
         Assert.True(NeighbourGeography.AreNeighbours(ClassicalWorld, b, a), "The relation must be symmetric.");
+    }
+
+    /// <summary>
+    /// Rework round 1, N2: pins the derivation's rows against the DAT's own 24 pairs exactly -- for
+    /// every one of the 120 unordered pairs among the sixteen classical nations, the derivation must
+    /// agree with the DAT except on the six known false positives above. Deleting the core-region step
+    /// (<see cref="NeighbourGeography"/>'s remarks, search step 5's "dropping small colonial enclaves")
+    /// adds carthage ↔ greece, a seventh pair in neither list, and this test is what catches it -- the
+    /// row-scoped checks above and below cannot, since none of them touches that particular pair.
+    /// </summary>
+    [Fact]
+    public void TheDerivationMatchesTheDatMaskExactlyExceptTheSixKnownFalsePositives()
+    {
+        var expectedTrue = new HashSet<(string A, string B)>(DatConfirmedPairs.Concat(KnownFalsePositives));
+        var ids = ClassicalWorld.Nations.Select(n => n.Id).OrderBy(id => id, StringComparer.Ordinal).ToList();
+
+        var mismatches = new List<string>();
+        for (var i = 0; i < ids.Count; i++)
+        {
+            for (var j = i + 1; j < ids.Count; j++)
+            {
+                var (a, b) = (ids[i], ids[j]);
+                var expected = expectedTrue.Contains((a, b)) || expectedTrue.Contains((b, a));
+                var actual = NeighbourGeography.AreNeighbours(ClassicalWorld, a, b);
+                if (actual != expected)
+                {
+                    mismatches.Add($"{a} <-> {b}: expected {expected}, got {actual}");
+                }
+            }
+        }
+
+        Assert.True(mismatches.Count == 0, "Unexpected mismatch(es):\n" + string.Join('\n', mismatches));
     }
 
     // ---- Symmetry holds generally, not just for the confirmed pairs ----
@@ -77,20 +136,27 @@ public sealed class NeighbourGeographyTests
         }
     }
 
-    // ---- The two known, unresolved spurious pairs (documented, not asserted away) ----
+    // ---- The six known, unresolved spurious pairs (documented, not asserted away) ----
 
     /// <summary>
-    /// Rome ↔ Greece and Thracia ↔ {Bithynia, Seleucid} are not in the report's own three checked rows,
-    /// but this derivation cannot rule them out either (see <see cref="NeighbourGeography"/>'s remarks,
-    /// search step 4). Pinned so a future tightening of the method is a visible, deliberate change here,
-    /// not a silent one.
+    /// Rework round 1 (N1): <c>dat-neighbour-mask.md</c> §6 confirms this derivation adds six pairs
+    /// against the DAT's full 24-pair mask, not the two or three visible from the three-row sample --
+    /// Rome ↔ Greece and Thracia ↔ {Bithynia, Seleucid} were already known; Seleucid ↔ {Macedonia,
+    /// Greece} and Ptolemaic ↔ Greece only the full DAT mask revealed. This derivation cannot rule any
+    /// of the six out (see <see cref="NeighbourGeography"/>'s remarks, search step 5). Pinned
+    /// individually, by name, so a future tightening of the method is a visible, deliberate change here,
+    /// not a silent one; <see cref="TheDerivationMatchesTheDatMaskExactlyExceptTheSixKnownFalsePositives"/>
+    /// is the exhaustive version of the same claim, over every pair rather than just these six.
     /// </summary>
     [Fact]
-    public void TheTwoKnownSpuriousPairsAreStillPresent()
+    public void TheSixKnownSpuriousPairsAreStillPresent()
     {
         Assert.True(NeighbourGeography.AreNeighbours(ClassicalWorld, "rome", "greece"));
         Assert.True(NeighbourGeography.AreNeighbours(ClassicalWorld, "thracia", "bithynia"));
         Assert.True(NeighbourGeography.AreNeighbours(ClassicalWorld, "thracia", "seleucid"));
+        Assert.True(NeighbourGeography.AreNeighbours(ClassicalWorld, "seleucid", "macedonia"));
+        Assert.True(NeighbourGeography.AreNeighbours(ClassicalWorld, "seleucid", "greece"));
+        Assert.True(NeighbourGeography.AreNeighbours(ClassicalWorld, "ptolemaic", "greece"));
     }
 
     // ---- A thin sliver from Voronoi corner geometry does not count as a border ----

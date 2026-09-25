@@ -31,6 +31,12 @@ public static class AiSwapTradePartnerRejections
     /// <summary>The three ids are not all distinct.</summary>
     public static readonly RejectionCode NotDistinct = new("diplomacy.self-target");
 
+    /// <summary>
+    /// The issuer is not computer-controlled (rework round 1, B1): this command is the AI's own direct
+    /// write, with no consent step, and is not a substitute a human seat may use.
+    /// </summary>
+    public static readonly RejectionCode IssuerNotAi = new("diplomacy.issuer-not-ai");
+
     /// <summary>The richer candidate is not computer-controlled.</summary>
     public static readonly RejectionCode PartnerNotAi = new("diplomacy.partner-not-ai");
 
@@ -67,6 +73,14 @@ public sealed class AiSwapTradePartnerCommandHandler : ICommandHandler<AiSwapTra
         {
             return CommandOutcome.Reject(
                 AiSwapTradePartnerRejections.NotDistinct, "The issuer, the poorer partner and the richer candidate must all be distinct.");
+        }
+
+        var issuer = state.NationById(command.IssuingNationId);
+        if (issuer is not null && issuer.Control != SeatControl.Ai)
+        {
+            return CommandOutcome.Reject(
+                AiSwapTradePartnerRejections.IssuerNotAi,
+                $"'{issuer.Name}' is not computer-controlled; this is the AI's own direct write, not a human proposal.");
         }
 
         var poorer = state.NationById(command.PoorerPartnerId);

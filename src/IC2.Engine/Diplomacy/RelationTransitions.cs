@@ -269,10 +269,13 @@ public static class RelationTransitions
     internal static string NameOf(GameState state, string nationId) => state.NationById(nationId)?.Name ?? nationId;
 
     /// <summary>
-    /// Whether <paramref name="nationId"/> is currently at war with any other nation — the "either side
-    /// is currently at war with anyone" gate <c>TPolitics_MakeAlliance</c> applies against an AI target,
-    /// shared by <c>ProposeAllianceCommandHandler</c> and <c>AcceptPendingOfferCommandHandler</c> (rework
-    /// round 1, B2) rather than duplicated in each.
+    /// Whether <paramref name="nationId"/> is currently at war with any other nation — the first of
+    /// <c>TPolitics_MakeAlliance</c>'s human-to-AI refusal conditions against an AI target (T82 rework
+    /// round 1, B2 corrects an earlier "either side" reading: <c>decompiled-ai-offers-to-human-seats.md</c>
+    /// §3 is explicit that <strong>only the human's own side is checked</strong> — "the AI target's own
+    /// wars are not checked" — so this is applied to the human/accepting/proposing party only, never the
+    /// AI counterparty), shared by <c>ProposeAllianceCommandHandler</c> and
+    /// <c>AcceptPendingOfferCommandHandler</c> rather than duplicated in each.
     /// </summary>
     public static bool IsAtWarWithAnyone(GameState state, Ruleset ruleset, string nationId)
     {
@@ -284,6 +287,34 @@ public static class RelationTransitions
         {
             if (!string.Equals(other, nationId, StringComparison.Ordinal)
                 && state.Relations.Get(nationId, other) == warCode)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Whether any nation <paramref name="nationId"/> is currently allied with is itself at war with
+    /// anyone (T82 rework round 1, B2) — the second of <c>TPolitics_MakeAlliance</c>'s human-to-AI
+    /// refusal conditions <strong>[confirmed: decompiled-ai-offers-to-human-seats.md §3,
+    /// <c>FUN_00449CD8</c>]</strong>: "any nation the working row marks allied is at war with anyone".
+    /// Shared by <c>ProposeAllianceCommandHandler</c> and <c>AcceptPendingOfferCommandHandler</c> rather
+    /// than duplicated in each — the same reasoning as <see cref="IsAtWarWithAnyone"/>'s own sharing, one
+    /// member up.
+    /// </summary>
+    public static bool HasAnAllyAtWarWithAnyone(GameState state, Ruleset ruleset, string nationId)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(ruleset);
+
+        var allianceCode = ruleset.Diplomacy.StateCodes.Alliance;
+        foreach (var ally in state.Relations.NationIds)
+        {
+            if (!string.Equals(ally, nationId, StringComparison.Ordinal)
+                && state.Relations.Get(nationId, ally) == allianceCode
+                && IsAtWarWithAnyone(state, ruleset, ally))
             {
                 return true;
             }

@@ -13,13 +13,18 @@ namespace IC2.Engine.Diplomacy;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>The hazard, read in full.</strong> The report states plainly that "where the mask is built
-/// (the DAT or a map pass) was not traced", and it was checked against only three of the sixteen
-/// nations' own rows, each read whole from a save: Rome ↔ {Carthage, Gaul, Illyria}, Carthage ↔ {Rome,
-/// Ptolemaic, Numidia, Celtiberia}, Thracia ↔ {Macedonia, Dacia}. This type derives a border relation
-/// from geometry instead — the only thing <see cref="World"/> actually carries — and <c>[designed]</c>
-/// is the honest tag for it, not <c>[confirmed]</c> or <c>[derived]</c>: nothing here is read from the
-/// DAT, and the method was chosen by trial against the three known rows, not deduced from them.
+/// <strong>The hazard, read in full — now resolved against the DAT itself.</strong> A follow-up report,
+/// <c>dat-neighbour-mask.md</c> (rework round 1, N1 addition), traced the field
+/// <c>decompiled-ai-offers-to-human-seats.md</c> §1a could only say "was not traced": the mask lives at
+/// DAT nation-record <c>+0x2B</c>, loaded once by <c>FUN_004481A0</c>, and is <strong>[confirmed: bytes,
+/// all 101 local saves]</strong> — not just the three rows (Rome, Carthage, Thracia) the offers report
+/// checked, but all sixteen, matching every save in the set exactly. This type still derives a border
+/// relation from geometry instead of loading that DAT field directly — the only thing <see cref="World"/>
+/// actually carries — and <c>[designed]</c> is the honest tag for it, not <c>[confirmed]</c> or
+/// <c>[derived]</c>: nothing here is read from the DAT, and the method was chosen by trial against the
+/// confirmed rows, not deduced from them. Shipping the derivation, knowing exactly how it disagrees with
+/// the DAT (below), is this task's own call — loading the DAT mask directly is <c>dat-neighbour-mask.md</c>
+/// §7's own recommendation, for a later task to carry out, not this one's to fold in.
 /// </para>
 /// <para>
 /// <strong>What was searched, and what came up empty, before settling on this method</strong> (build-
@@ -57,19 +62,47 @@ namespace IC2.Engine.Diplomacy;
 /// </item>
 /// </list>
 /// <para>
-/// <strong>The result: full recall, imperfect precision.</strong> Every one of the nine pairs the report
-/// confirms (Rome's three, Carthage's four, Thracia's two) is reproduced — nothing here has ever been
-/// found <em>missing</em> a confirmed relationship. Two spurious additions remain and are not resolved
-/// by this method: Rome ↔ Greece (a 32-tile border, from a Greek colonial cluster along the Ligurian
-/// coast) and Thracia ↔ {Bithynia, Seleucid} (66 and 27 tiles, across the Bosphorus at Byzantium — real
-/// geography the original's own hand-authored or generated mask apparently excludes for a reason this
-/// derivation cannot see). Both are reported rather than hidden: see the PR body's hazard section.
+/// <strong>The result against the full DAT mask (rework round 1, N1): full recall, six false
+/// positives.</strong> <c>dat-neighbour-mask.md</c> §2 gives all 24 DAT pairs across all sixteen rows
+/// (not just the nine the offers report's own three-row sample could confirm), and §6 runs this
+/// derivation against every one of them <strong>[confirmed: engine run]</strong>: every DAT pair is
+/// reproduced — nothing here is missing a confirmed relationship — and six spurious pairs remain, not
+/// two or three:
+/// </para>
+/// <list type="bullet">
+/// <item>
+/// <strong>Rome ↔ Greece</strong> (a 32-tile border, from a Greek colonial cluster along the Ligurian
+/// coast) — already known from the three-row sample.
+/// </item>
+/// <item>
+/// <strong>Thracia ↔ Bithynia</strong> and <strong>Thracia ↔ Seleucid</strong> (66 and 27 tiles, across
+/// the Bosphorus at Byzantium) — also already known.
+/// </item>
+/// <item>
+/// <strong>Seleucid ↔ Macedonia</strong>, <strong>Seleucid ↔ Greece</strong> and
+/// <strong>Ptolemaic ↔ Greece</strong> — newly found by checking the full DAT mask instead of only the
+/// three sampled rows; two of the three involve Greece's own scattered colonies again, the same cause
+/// already named for Rome ↔ Greece, and the Seleucid ↔ Macedonia pair's own cause was not examined by
+/// <c>dat-neighbour-mask.md</c> itself <c>[hypothesis]</c>.
+/// </item>
+/// </list>
+/// <para>
+/// This is real geography the original's own hand-authored frontier graph apparently excludes for a
+/// reason this derivation cannot see (<c>dat-neighbour-mask.md</c> §2: "it looks like a hand-authored
+/// frontier graph, not a distance rule"). All six are reported rather than hidden: see the PR body's
+/// hazard section, and <see cref="NeighbourGeographyTests"/>'s own row-exact pin (N2) against the DAT's
+/// 24 pairs.
 /// </para>
 /// <para>
-/// <strong>Fixed at scenario start, like the original's own field.</strong> Every input is
+/// <strong>Fixed at scenario start — unlike the original's own field.</strong> Every input is
 /// <see cref="World.Cities"/> — the starting owner, never <see cref="GameState.Cities"/> — so a border
-/// never shifts as cities change hands mid-game, matching a field the original never rewrites after
-/// scenario setup.
+/// never shifts as cities change hands mid-game. <c>dat-neighbour-mask.md</c> §4 corrects an earlier
+/// reading here: the original's own mask is <em>not</em> fixed after scenario setup. Its conquest
+/// routine, <c>FUN_0044C528</c>, merges a defeated nation's neighbours into its conqueror's mask (and
+/// sets the conqueror's own bit in each of those neighbours' masks) every time a nation is eliminated by
+/// conquest — a rewrite this derivation does not model, since it never reads anything but the starting
+/// city owners. <c>dat-neighbour-mask.md</c> §7 recommends loading the mask from the DAT and applying
+/// that merge in a reimplementation; both are out of this task's own scope.
 /// </para>
 /// <para>
 /// <strong>Cached per <see cref="World"/> instance.</strong> The scan is <c>O(width × height ×
@@ -83,10 +116,11 @@ public static class NeighbourGeography
     /// <summary>
     /// <c>[designed]</c>: the minimum shared border, in 4-connected boundary tile-pairs, for two
     /// nations' core territories to count as neighbours — see this type's own remarks for the search
-    /// that produced it. Every one of the report's nine confirmed pairs clears it by a wide margin (18
-    /// tiles or more); the spurious pairs this derivation cannot resolve (Rome ↔ Greece, Thracia ↔
-    /// Bithynia/Seleucid) clear it too, so this threshold trims sliver artefacts, not the genuine
-    /// disagreement.
+    /// that produced it. Every one of the DAT's 24 confirmed pairs (<c>dat-neighbour-mask.md</c> §2)
+    /// clears it by a wide margin (18 tiles or more); the six spurious pairs this derivation cannot
+    /// resolve (Rome ↔ Greece, Thracia ↔ Bithynia, Thracia ↔ Seleucid, Seleucid ↔ Macedonia, Seleucid ↔
+    /// Greece, Ptolemaic ↔ Greece) clear it too, so this threshold trims sliver artefacts, not the
+    /// genuine disagreement.
     /// </summary>
     private const int MinimumBorderTiles = 10;
 

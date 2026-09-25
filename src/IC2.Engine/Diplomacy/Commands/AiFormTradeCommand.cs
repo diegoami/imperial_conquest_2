@@ -30,6 +30,13 @@ public static class AiFormTradeRejections
     /// <summary>A nation cannot trade with itself.</summary>
     public static readonly RejectionCode SelfTarget = new("diplomacy.self-target");
 
+    /// <summary>
+    /// The issuer is not computer-controlled (rework round 1, B1): this command is the AI's own direct
+    /// write, with no consent step, and is not a substitute a human seat may use for
+    /// <see cref="ProposeTradeCommand"/>.
+    /// </summary>
+    public static readonly RejectionCode IssuerNotAi = new("diplomacy.issuer-not-ai");
+
     /// <summary>The partner is not computer-controlled.</summary>
     public static readonly RejectionCode PartnerNotAi = new("diplomacy.partner-not-ai");
 
@@ -58,6 +65,14 @@ public sealed class AiFormTradeCommandHandler : ICommandHandler<AiFormTradeComma
         {
             return CommandOutcome.Reject(
                 AiFormTradeRejections.SelfTarget, "A nation cannot propose trade with itself.");
+        }
+
+        var issuer = state.NationById(command.IssuingNationId);
+        if (issuer is not null && issuer.Control != SeatControl.Ai)
+        {
+            return CommandOutcome.Reject(
+                AiFormTradeRejections.IssuerNotAi,
+                $"'{issuer.Name}' is not computer-controlled; this is the AI's own direct write, not a human proposal.");
         }
 
         var partner = state.NationById(command.PartnerNationId);

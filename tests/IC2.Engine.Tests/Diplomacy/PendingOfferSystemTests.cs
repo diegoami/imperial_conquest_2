@@ -8,8 +8,10 @@ namespace IC2.Engine.Tests.Diplomacy;
 
 /// <summary>
 /// <c>docs/task-catalogue.md</c> T19 DoD 10: the pending offer is state, cleared and re-rolled at every
-/// human turn start, accepting waives the 3-partner cap, and the announcement is a presentation event
-/// with no news line.
+/// human turn start, accepting waives the <em>proposer's</em> own 3-partner cap (T82 rework round 1, B3
+/// — the human's own cap is never waived, only the proposer's, and even that only drops its poorest
+/// partner rather than being ignored outright), and the announcement is a presentation event with no
+/// news line.
 /// </summary>
 public sealed class PendingOfferSystemTests
 {
@@ -389,24 +391,37 @@ public sealed class PendingOfferSystemTests
         Assert.Equal(-1, after.NewsLog.MostRecentSlot);
     }
 
-    /// <summary>DoD 10: accepting a trade offer waives the 3-partner cap.</summary>
+    /// <summary>
+    /// DoD 10: accepting a trade offer waives the <em>proposer's</em> own 3-partner cap.
+    /// </summary>
+    /// <remarks>
+    /// T82 rework round 1, B3 corrects this test's own premise: it used to put the <em>human</em> at the
+    /// cap and show none of the human's three existing partners was dropped for a fourth. But
+    /// <c>decompiled-ai-offers-to-human-seats.md</c> §3 is explicit that "the human's working row already
+    /// has 3 partners" is a plain refusal that a pending offer never waives — the waiver DoD 10 names is
+    /// the <em>proposer's</em> own cap: accepting a pending offer FROM that proposer is exactly the
+    /// "pending trade offer from that target" case the report exempts from a flat refusal, though even
+    /// there the cap is not silently ignored (the proposer drops its own poorest partner instead). This
+    /// version puts <see cref="CandidateAi"/>, the proposer, at the cap; the human has no existing
+    /// partners at all, so only the proposer's own waiver is under test here.
+    /// </remarks>
     [Fact]
-    public void DoD10_AcceptingATradeOffer_WaivesTheThreePartnerCap()
+    public void DoD10_AcceptingATradeOffer_WaivesTheProposersThreePartnerCap()
     {
         var ruleset = DiplomacyTestbed.Ruleset;
         var codes = ruleset.Diplomacy.StateCodes;
 
         var state = DiplomacyTestbed.StateOf(
             DiplomacyTestbed.Nation(Human, "Human", control: SeatControl.Human),
+            DiplomacyTestbed.Nation(CandidateAi, "CandidateAi", taxBase: 50),
             DiplomacyTestbed.Nation("p1", "P1", taxBase: 100),
             DiplomacyTestbed.Nation("p2", "P2", taxBase: 200),
-            DiplomacyTestbed.Nation("p3", "P3", taxBase: 300),
-            DiplomacyTestbed.Nation(CandidateAi, "CandidateAi", taxBase: 50));
+            DiplomacyTestbed.Nation("p3", "P3", taxBase: 300));
 
         var relations = state.Relations
-            .WithRelation(Human, "p1", codes.Trade)
-            .WithRelation(Human, "p2", codes.Trade)
-            .WithRelation(Human, "p3", codes.Trade);
+            .WithRelation(CandidateAi, "p1", codes.Trade)
+            .WithRelation(CandidateAi, "p2", codes.Trade)
+            .WithRelation(CandidateAi, "p3", codes.Trade);
         state = state with
         {
             Relations = relations,
@@ -419,10 +434,12 @@ public sealed class PendingOfferSystemTests
         Assert.True(result.IsAccepted);
         Assert.Equal(codes.Trade, result.State.Relations.Get(Human, CandidateAi));
 
-        // The waiver means none of the three existing partners was dropped, even though this is a fourth.
-        Assert.Equal(codes.Trade, result.State.Relations.Get(Human, "p1"));
-        Assert.Equal(codes.Trade, result.State.Relations.Get(Human, "p2"));
-        Assert.Equal(codes.Trade, result.State.Relations.Get(Human, "p3"));
+        // The proposer's own cap is waived in the sense that acceptance is not refused outright, but it
+        // is not ignored either: the proposer's poorest partner (p1, the lowest tax base) is dropped to
+        // the broken-trade cooldown, and the other two survive.
+        Assert.Equal(ruleset.Diplomacy.CooldownAfterBrokenTrade, result.State.Relations.Get(CandidateAi, "p1"));
+        Assert.Equal(codes.Trade, result.State.Relations.Get(CandidateAi, "p2"));
+        Assert.Equal(codes.Trade, result.State.Relations.Get(CandidateAi, "p3"));
     }
 
     /// <summary>DoD 10: accepting does NOT clear the pending offer -- only the next human turn start does.</summary>

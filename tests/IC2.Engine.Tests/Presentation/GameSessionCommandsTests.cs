@@ -252,48 +252,33 @@ public sealed class GameSessionCommandsTests
         };
 
         // The ratio gate is deterministic given the wealth above, but AiMilitaryPhase.ProposeOwnWarDeclaration's
-        // own Random(10) roll (report §1a) still has to hit on north's own turn, within this fixture's
-        // two-round budget -- searched the same way AiCommandLegalityTests' own seed search does.
-        GameSession? session = null;
-        List<string> round1Lines = new();
-        int countBeforeRound2 = 0;
-        IC2.Engine.Presentation.SessionOutput? output = null;
-        for (var seed = 1UL; seed <= 2000; seed++)
-        {
-            var candidate = new GameSession(world, toy.Ruleset, scenario, seed);
-            Assert.Empty(candidate.State.NewsLog.Slots);
+        // own Random(10) roll (report §1a) still has to hit on north's own turn. Rework round 1 (B6): a
+        // seed-search loop used to stand in here, with both assertions below turned into a `continue` on
+        // the seed that didn't fit -- but the amendment's own words are "both tests' assertions stay as
+        // they are", and a skipped assertion is not the same claim as a checked one. Seed 2 is the first
+        // of 1..2000 whose Random(10) roll hits within this fixture's two-round budget (found once, by
+        // the same search, then hard-coded here) -- it is not a "designed" or otherwise special seed, just
+        // the first one that works, so both original assertions can be checked directly instead of
+        // filtered around.
+        const ulong Seed = 2;
+        var session = new GameSession(world, toy.Ruleset, scenario, Seed);
+        Assert.Empty(session.State.NewsLog.Slots);
 
-            // Round 1: the approach march only. Asserted explicitly so the fixture's own claim -- "not
-            // yet adjacent, not yet eliminated" -- is pinned rather than assumed.
-            candidate.Submit("end");
-            if (candidate.State.NationById("south")!.Eliminated)
-            {
-                // A seed whose round 1 already eliminates south (a different roll landing early) does
-                // not exercise this fixture's own claim about round 2; skip it.
-                continue;
-            }
-
-            var candidateRound1Lines = candidate.State.NewsLog.Slots.Select(s => s.Text).ToList();
-            var candidateCountBeforeRound2 = candidate.State.NewsLog.Slots.Count;
-
-            // Round 2: adjacent now, moves replenished -- the siege, the capture and the elimination.
-            var candidateOutput = candidate.Submit("end");
-
-            if (!candidate.State.NationById("south")!.Eliminated)
-            {
-                continue;
-            }
-
-            session = candidate;
-            round1Lines = candidateRound1Lines;
-            countBeforeRound2 = candidateCountBeforeRound2;
-            output = candidateOutput;
-            break;
-        }
-
-        Assert.NotNull(session);
-        Assert.NotNull(output);
+        // Round 1: the approach march only. Asserted explicitly so the fixture's own claim -- "not yet
+        // adjacent, not yet eliminated" -- is pinned rather than assumed.
+        session.Submit("end");
+        Assert.False(
+            session.State.NationById("south")!.Eliminated, "round 1 must only march the army into place");
+        var round1Lines = session.State.NewsLog.Slots.Select(s => s.Text).ToList();
+        var countBeforeRound2 = session.State.NewsLog.Slots.Count;
         Assert.True(countBeforeRound2 > 0, "round 1 must leave the log non-empty, or round 2 proves nothing");
+
+        // Round 2: adjacent now, moves replenished -- the siege, the capture and the elimination.
+        var output = session.Submit("end");
+
+        Assert.True(
+            session.State.NationById("south")!.Eliminated,
+            "expected south's only city to fall this round and eliminate it");
 
         var newsIndex = output.Lines.ToList().IndexOf("News:");
         Assert.True(newsIndex >= 0, "Expected a \"News:\" section after the round that eliminates south.");

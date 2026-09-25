@@ -104,4 +104,22 @@ public sealed class AiFormTradeCommandTests
         Assert.True(result.IsRejected);
         Assert.Equal(AiFormTradeRejections.PartnerCapReached, result.Code);
     }
+
+    /// <summary>
+    /// Rework round 1, B1: this command is the AI's own direct write, with no consent step -- a human
+    /// issuer would otherwise write trade directly, skipping <see cref="ProposeTradeCommand"/>'s own
+    /// gates entirely.
+    /// </summary>
+    [Fact]
+    public void RefusedWhenTheIssuerIsHuman()
+    {
+        var state = DiplomacyTestbed.StateOf(
+            DiplomacyTestbed.Nation(Me, "Me", control: SeatControl.Human),
+            DiplomacyTestbed.Nation(Partner, "Partner"));
+
+        var result = DiplomacyTestbed.Dispatcher().Dispatch(state, new AiFormTradeCommand(Me, Partner));
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(AiFormTradeRejections.IssuerNotAi, result.Code);
+    }
 }

@@ -6,10 +6,14 @@ namespace IC2.Engine.Diplomacy.Commands;
 
 /// <summary>
 /// A nation proposes an alliance with another — <c>TPolitics_MakeAlliance</c>
-/// <strong>[confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md]</strong>: "refused
-/// against an AI nation if either side is currently at war with anyone, or if the relation is negative.
-/// Always accepted from a human seat." Forming it drags the proposer into war with every nation the new
-/// ally is already at war with (DoD 4, <see cref="RelationTransitions.FormAlliance"/>).
+/// <strong>[confirmed: decompiled-ai-offers-to-human-seats.md §3]</strong>. Against an AI target, refused
+/// when the relation is negative, or when the <em>proposing</em> side is itself at war with anyone, or
+/// when any nation the proposer is allied with is itself at war with anyone (<c>FUN_00449CD8</c>) — the
+/// AI target's own wars are never checked (T82 rework round 1, B2 corrects an earlier "either side"
+/// reading that also checked the target's). Always accepted from a human target. Forming it drags the
+/// proposer into war with every nation the new ally is already at war with (DoD 4,
+/// <see cref="RelationTransitions.FormAlliance"/>) — which is exactly how allying with an AI already at
+/// war reaches the proposer, since that war is never refused up front.
 /// </summary>
 public sealed record ProposeAllianceCommand(string IssuingNationId, string TargetNationId) : ICommand
 {
@@ -29,7 +33,10 @@ public static class ProposeAllianceRejections
     /// <summary>The relation is negative (a cooldown).</summary>
     public static readonly RejectionCode Cooldown = new("diplomacy.alliance-cooldown");
 
-    /// <summary>Either side is currently at war with anyone (an AI target only).</summary>
+    /// <summary>
+    /// The proposer is itself at war with anyone, or allied with a nation that is (an AI target only;
+    /// T82 rework round 1, B2 — the AI target's own wars are never checked, report §3).
+    /// </summary>
     public static readonly RejectionCode SideAtWar = new("diplomacy.side-at-war");
 
     /// <summary>The two nations are already allied.</summary>
@@ -87,12 +94,16 @@ public sealed class ProposeAllianceCommandHandler : ICommandHandler<ProposeAllia
                     ProposeAllianceRejections.Cooldown, $"'{target.Name}' does not want to ally with you.");
             }
 
+            // T82 rework round 1 (B2): decompiled-ai-offers-to-human-seats.md §3 is explicit that only the
+            // proposer's own side is checked here -- "The AI target's own wars are not checked" -- so
+            // allying with an AI already at war drags the proposer into that war through FormAlliance's
+            // own cascade below, exactly as the original does.
             if (RelationTransitions.IsAtWarWithAnyone(state, ruleset, command.IssuingNationId)
-                || RelationTransitions.IsAtWarWithAnyone(state, ruleset, command.TargetNationId))
+                || RelationTransitions.HasAnAllyAtWarWithAnyone(state, ruleset, command.IssuingNationId))
             {
                 return CommandOutcome.Reject(
                     ProposeAllianceRejections.SideAtWar,
-                    $"'{target.Name}' will not ally while either side is at war.");
+                    $"'{target.Name}' will not ally while you, or one of your allies, is at war.");
             }
         }
 

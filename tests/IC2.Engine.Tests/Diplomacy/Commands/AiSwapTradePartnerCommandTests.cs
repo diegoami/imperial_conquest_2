@@ -105,4 +105,25 @@ public sealed class AiSwapTradePartnerCommandTests
         Assert.True(result.IsRejected);
         Assert.Equal(AiSwapTradePartnerRejections.NotDistinct, result.Code);
     }
+
+    /// <summary>
+    /// Rework round 1, B1: this command is the AI's own direct write, with no consent step -- a human
+    /// issuer would otherwise be able to drop and re-form trade relations directly, bypassing every
+    /// human-facing trade command's own gates.
+    /// </summary>
+    [Fact]
+    public void RefusedWhenTheIssuerIsHuman()
+    {
+        var ruleset = DiplomacyTestbed.Ruleset;
+        var state = DiplomacyTestbed.StateOf(
+            DiplomacyTestbed.Nation(Me, "Me", control: SeatControl.Human),
+            DiplomacyTestbed.Nation(Poorer, "Poorer", taxBase: 100),
+            DiplomacyTestbed.Nation(Richer, "Richer", taxBase: 500));
+        state = state with { Relations = state.Relations.WithRelation(Me, Poorer, ruleset.Diplomacy.StateCodes.Trade) };
+
+        var result = DiplomacyTestbed.Dispatcher().Dispatch(state, new AiSwapTradePartnerCommand(Me, Poorer, Richer));
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(AiSwapTradePartnerRejections.IssuerNotAi, result.Code);
+    }
 }

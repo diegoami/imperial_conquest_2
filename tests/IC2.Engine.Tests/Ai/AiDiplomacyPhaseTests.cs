@@ -180,6 +180,43 @@ public sealed class AiDiplomacyPhaseTests
     }
 
     /// <summary>
+    /// Rework round 1, B4: no test caught the <c>Random(20)</c> gate being deleted. Every deterministic
+    /// gate in <see cref="AllianceState"/> is met on every seed (an eligible partner exists, not busy),
+    /// so with the roll wired correctly some seeds hit and some miss; replacing
+    /// <c>if (!roll.NextChance(1, denominator))</c> with a never-taken branch (the mutation the review
+    /// applied by hand) makes every seed hit, and this test's own "at least one miss" assertion catches
+    /// that -- the same "hits and misses both occur" shape
+    /// <c>AiWarDeclarationRollTests.TheRollDoesNotAlwaysHit_AcrossManySeedsWithAnEligibleTarget</c>
+    /// already uses for the war roll.
+    /// </summary>
+    [Fact]
+    public void TheAllianceRollDoesNotAlwaysHit_AcrossManySeedsWithAnEligiblePartner()
+    {
+        var world = AllianceWorld();
+        var state = AllianceState(partnerControl: SeatControl.Ai);
+
+        var hits = 0;
+        var misses = 0;
+        for (var seed = 0UL; seed < 200; seed++)
+        {
+            var candidates = Propose(state, world, SplitMix64Rng.ForStream(seed, "ai.turn"));
+            if (candidates.Any(c => c.Kind == "ai-form-alliance"))
+            {
+                hits++;
+            }
+            else
+            {
+                misses++;
+            }
+        }
+
+        Assert.True(hits > 0, "expected at least one of 200 seeds to hit the alliance Random(20) roll");
+        Assert.True(
+            misses > 0,
+            "expected at least one of 200 seeds to miss the alliance Random(20) roll -- the roll must gate the alliance, not wave it through");
+    }
+
+    /// <summary>
     /// T82 Owns amendment (PR #378), Done-when 3's new line: "Random(20) draws from the seat-turn's
     /// IRng, the same stream as Random(10), so a re-evaluated pass sees the same draw." Simulates the
     /// greedy loop re-running <c>Propose</c> more than once in the same turn against the very same

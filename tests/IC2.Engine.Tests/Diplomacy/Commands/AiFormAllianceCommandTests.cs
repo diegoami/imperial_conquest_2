@@ -87,4 +87,47 @@ public sealed class AiFormAllianceCommandTests
 
         Assert.True(result.IsAccepted);
     }
+
+    /// <summary>
+    /// Rework round 1, B1: this command is the AI's own direct write, with no consent step -- a human
+    /// issuer would otherwise skip <see cref="ProposeAllianceCommand"/>'s own war/cooldown gates
+    /// entirely, exactly what <see cref="RefusedWhenTheIssuerIsAtWarWithThePartner"/> below shows this
+    /// command would otherwise let through: an alliance out of an existing war.
+    /// </summary>
+    [Fact]
+    public void RefusedWhenTheIssuerIsHuman()
+    {
+        var state = DiplomacyTestbed.StateOf(
+            DiplomacyTestbed.Nation(Me, "Me", control: SeatControl.Human),
+            DiplomacyTestbed.Nation(Partner, "Partner"));
+
+        var result = DiplomacyTestbed.Dispatcher().Dispatch(state, new AiFormAllianceCommand(Me, Partner));
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(AiFormAllianceRejections.IssuerNotAi, result.Code);
+    }
+
+    /// <summary>
+    /// Rework round 1, B1: <c>FUN_0044FB7C</c>'s own alliance search never offers a partner the issuer is
+    /// already at war with (<see cref="Ai.AiOwnDiplomacyRule.FindAlliancePartner"/>'s own
+    /// <c>0 &lt;= rel[me][j] &lt; alliance</c> test excludes war) -- this handler re-checks it directly so
+    /// the command itself cannot turn an existing war straight into an alliance if issued without going
+    /// through that search.
+    /// </summary>
+    [Fact]
+    public void RefusedWhenTheIssuerIsAtWarWithThePartner()
+    {
+        var ruleset = DiplomacyTestbed.Ruleset;
+        var state = DiplomacyTestbed.StateOf(
+            DiplomacyTestbed.Nation(Me, "Me"), DiplomacyTestbed.Nation(Partner, "Partner"));
+        state = state with
+        {
+            Relations = state.Relations.WithRelation(Me, Partner, ruleset.Diplomacy.StateCodes.War),
+        };
+
+        var result = DiplomacyTestbed.Dispatcher().Dispatch(state, new AiFormAllianceCommand(Me, Partner));
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(AiFormAllianceRejections.SideAtWar, result.Code);
+    }
 }
