@@ -33,7 +33,13 @@ public sealed class SaveNationTable
     /// (<c>tests/IC2.Data.Tests/NationNeighbourMaskTests.cs</c>), not enforced here, mirroring how this
     /// same type reads <see cref="NationRecord.Relations"/> without validating it beyond <c>Parse</c>'s
     /// own <see cref="MinRelationValue"/>/<see cref="MaxRelationValue"/>/diagonal/symmetry checks -- this
-    /// task's Owns list is "only reading that field". See
+    /// task's Owns list is "only reading that field".
+    /// <strong>This is a stopgap, not the final home (review round 1, N1).</strong> It is a parallel
+    /// array only until T86 moves the mask onto <see cref="NationRecord"/> as
+    /// <c>NationRecord.NeighbourMask</c>, with its own <c>FieldMapping</c> entry in
+    /// <c>OriginalSaveFieldMapping.cs</c> (<c>DeclaredUnmapped</c> today; <c>Mapped</c> once T86 gives
+    /// the mask a mutable home in <see cref="GameState"/> and the SAV importer seeds it) -- T86's own
+    /// Owns list, not this task's. See
     /// https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/dat-neighbour-mask.md
     /// §1-§2.</summary>
     public IReadOnlyList<ushort> NeighbourMasks { get; }

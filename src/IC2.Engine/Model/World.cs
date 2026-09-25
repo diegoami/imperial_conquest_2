@@ -249,7 +249,16 @@ public sealed record World(
 
 /// <summary>
 /// One nation's starting neighbours, as an adjacency-list entry of <see cref="World.StartingNeighbours"/>
-/// — the DAT's own mask decoded into ids, one entry per nation that has at least one neighbour.
+/// — the DAT's own mask decoded into ids. Review round 1, N3 correction: an earlier revision of this
+/// summary said "one entry per nation that has at least one neighbour", which is not what either side
+/// requires — <see cref="World.ValidateStartingNeighboursShape"/> accepts a nation with an empty
+/// <see cref="NeighbourIds"/> row just as it accepts one omitted entirely (both mean "no neighbours"),
+/// and the export (<c>scripts/export-classical-world.cs</c>) in fact writes all 16 classical nations,
+/// none with an empty row. <see cref="Diplomacy.NeighbourGeography"/> never falls back to its own
+/// geometric derivation for a <see cref="World"/> that carries <see cref="World.StartingNeighbours"/> at
+/// all — not even for a nation this list omits, and not even if a present entry's own
+/// <see cref="NeighbourIds"/> is empty; either shape means that nation borders nobody, decided by the
+/// field, never by falling through to geometry.
 /// </summary>
 /// <param name="NationId">The nation this entry is about.</param>
 /// <param name="NeighbourIds">Every nation this one borders, in the DAT's own bit order (ascending nation code).</param>
