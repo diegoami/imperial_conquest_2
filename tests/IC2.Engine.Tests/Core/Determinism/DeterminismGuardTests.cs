@@ -24,9 +24,19 @@ namespace IC2.Engine.Tests.Core.Determinism;
 /// occasionally reading the scratch file mid-write or racing its deletion (bug #320). Writing it under the
 /// process's own temp directory instead means no scanner of the real tree -- present or future, collected
 /// or not -- ever has a path into it, which removes the race outright rather than widening the collection
-/// to name every scanner that must avoid it. <see cref="The_guard_fails_on_a_deliberately_added_new_Random_under_src_engine"/>
-/// proves <see cref="DeterminismScanner.Scan"/> still does its job pointed at that temp directory, which is
-/// all the standing guard needs: it always scans the real <see cref="EngineRoot"/>, never the scratch one.
+/// to name every scanner that must avoid it.
+/// </para>
+/// <para>
+/// Review round 1, B6: a single fixed path under the OS temp directory is itself shared -- by every
+/// worktree's test process on the machine, not just this suite's own scanners. The reviewer reproduced
+/// concurrent failures (four processes, 20 rounds, 66/80 failed) and a cross-process race against a
+/// separate directory-churn loop (5/5 failed), both with <c>DirectoryNotFoundException</c>/
+/// <c>IOException</c> from one run's cleanup deleting another's in-flight scratch directory.
+/// <see cref="The_scanner_fails_on_a_deliberately_added_new_Random_in_a_temp_scratch_directory"/> now
+/// asks the OS for a fresh, uniquely-named directory every run (<see cref="Directory.CreateTempSubdirectory(string?)"/>),
+/// so no two runs -- in this worktree, another worktree, or the reviewer's own -- ever share one, and each
+/// run deletes only its own. <see cref="DeterminismScanner.Scan"/> is proven against that directory, which
+/// is all the standing guard needs: it always scans the real <see cref="EngineRoot"/>, never the scratch one.
 /// </para>
 /// </remarks>
 [Collection(RepositorySourcesCollection.Name)]
@@ -34,22 +44,9 @@ public class DeterminismGuardTests
 {
     private static string EngineRoot => Path.Combine(ModelTestPaths.RepositoryRoot, "src", "IC2.Engine");
 
-    /// <summary>
-    /// Where the deliberate violation is written: the process's own temp directory, never under
-    /// <c>src/IC2.Engine</c> (follow-up #353) -- so no scanner of the real source tree, in this suite or a
-    /// future one, can race this test's write or deletion. Named so that a file left behind by a killed
-    /// test run is unmistakable.
-    /// </summary>
-    private static string ScratchDirectory =>
-        Path.Combine(Path.GetTempPath(), "__ic2-determinism-guard-scratch__");
-
     [Fact]
     public void The_engine_contains_no_nondeterministic_construct()
     {
-        // Belt and braces: if an earlier run of the scratch test was killed between writing the file and
-        // its finally block, this test would fail for the wrong reason. Clean up first, then assert.
-        RemoveScratch();
-
         var violations = DeterminismScanner.Scan(EngineRoot, ModelTestPaths.RepositoryRoot);
 
         Assert.True(
@@ -75,20 +72,29 @@ public class DeterminismGuardTests
             + string.Join(Environment.NewLine, suppressions));
     }
 
+    /// <summary>
+    /// Renamed from <c>..._under_src_engine</c> (review round 1, N4): this proves
+    /// <see cref="DeterminismScanner.Scan"/> against a temp scratch directory, never against
+    /// <see cref="EngineRoot"/> itself -- the standing guard, <see cref="The_engine_contains_no_nondeterministic_construct"/>,
+    /// is what always scans the real tree.
+    /// </summary>
     [Fact]
-    public void The_guard_fails_on_a_deliberately_added_new_Random_under_src_engine()
+    public void The_scanner_fails_on_a_deliberately_added_new_Random_in_a_temp_scratch_directory()
     {
-        var scratchFile = Path.Combine(ScratchDirectory, "DeliberateNondeterminism.cs");
+        // Review round 1, B6: a unique directory per run, not a fixed shared name -- see the class
+        // remarks. CreateTempSubdirectory both creates and names it atomically, so there is no
+        // between-processes window where two runs could race to create the same path.
+        var scratchDirectory = Directory.CreateTempSubdirectory("ic2-determinism-guard-");
+        var scratchFile = Path.Combine(scratchDirectory.FullName, "DeliberateNondeterminism.cs");
 
         try
         {
-            Directory.CreateDirectory(ScratchDirectory);
             File.WriteAllText(scratchFile, DeliberatelyNondeterministicSource());
 
             // Scans the scratch directory, never EngineRoot (follow-up #353) -- proving the scanner itself
             // still catches every banned construct, without ever putting the violation under src/IC2.Engine
             // where a concurrent scanner of the real tree could see it.
-            var violations = DeterminismScanner.Scan(ScratchDirectory, ModelTestPaths.RepositoryRoot);
+            var violations = DeterminismScanner.Scan(scratchDirectory.FullName, ModelTestPaths.RepositoryRoot);
 
             Assert.Contains(violations, violation =>
                 violation.File.EndsWith("DeliberateNondeterminism.cs", StringComparison.Ordinal)
@@ -109,13 +115,13 @@ public class DeterminismGuardTests
         }
         finally
         {
-            RemoveScratch();
+            scratchDirectory.Delete(recursive: true);
         }
 
         // Removed, and the guard is green again — the second half of the DoD line. The real tree was never
         // touched, so this is really just confirming EngineRoot was clean throughout.
         Assert.Empty(DeterminismScanner.Scan(EngineRoot, ModelTestPaths.RepositoryRoot));
-        Assert.False(Directory.Exists(ScratchDirectory));
+        Assert.False(Directory.Exists(scratchDirectory.FullName));
     }
 
     [Fact]
@@ -425,14 +431,6 @@ public class DeterminismGuardTests
         Assert.Equal(3, violation.Line);
         Assert.Equal("Fake.cs", violation.File);
         Assert.Contains("new Random()", violation.Text, StringComparison.Ordinal);
-    }
-
-    private static void RemoveScratch()
-    {
-        if (Directory.Exists(ScratchDirectory))
-        {
-            Directory.Delete(ScratchDirectory, recursive: true);
-        }
     }
 
     /// <summary>
