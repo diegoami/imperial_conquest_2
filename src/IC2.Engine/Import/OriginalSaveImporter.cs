@@ -297,6 +297,11 @@ public static class OriginalSaveImporter
         var fleetCarriesArmyIndex = links.FleetCarriesArmyIndex;
         var armyCarriedByFleetIndex = links.ArmyCarriedByFleetIndex;
 
+        // #340 N1 (Owns amendment #399): the world's own terrain, decoded once, so an army unlinked
+        // from a tombstoned fleet (below) can be given the real cell it now covers, instead of the
+        // stale AboardFleetSentinel its own record never had a reason to overwrite.
+        var terrain = world.Terrain.Decode(world.Width, world.Height);
+
         // ---- Armies: Moves is the one field DoD 6 forbids carrying through unclamped (a negative value
         // is a genuine underflow bug in the original, never a sentinel — see ArmyRecord.Moves's own
         // remarks); every other field is a direct copy, including Morale (DoD 8: no 51..70 clamp) and
@@ -319,7 +324,25 @@ public static class OriginalSaveImporter
             var aboardFleetId = EmbarkationLinker.ResolveArmyAboardFleet(
                 a.Index, a.IsAboardFleet, armyCarriedByFleetIndex, FleetId, documentPath,
                 armiesClaimedByTombstonedFleets);
-            int? coveredTileCode = aboardFleetId is null ? a.CoveredCell : null;
+
+            int? coveredTileCode;
+            if (aboardFleetId is not null)
+            {
+                coveredTileCode = null;
+            }
+            else if (a.IsAboardFleet)
+            {
+                // #340 N1: the only fleet that ever claimed this army is tombstoned, so
+                // ResolveArmyAboardFleet unlinked it above -- but the record's own CoveredCell is
+                // still AboardFleetSentinel (65535): nothing in the original ever had a reason to
+                // rewrite it once the carrying fleet was compacted out. The army is back on the map
+                // at (a.X, a.Y); its covered tile is the terrain actually there, not the sentinel.
+                coveredTileCode = CoveredTerrainCellAt(terrain, world, a.X, a.Y, documentPath);
+            }
+            else
+            {
+                coveredTileCode = a.CoveredCell;
+            }
 
             var units = new UnitSlot[a.Units.Count];
             for (var u = 0; u < a.Units.Count; u++)
@@ -525,6 +548,22 @@ public static class OriginalSaveImporter
 
     /// <inheritdoc cref="ArmyId"/>
     private static string FleetId(int index) => $"fleet-{index}";
+
+    /// <summary>#340 N1: the terrain cell at a position the raw save data itself no longer names
+    /// correctly (an army unlinked from a tombstoned fleet). Mirrors
+    /// <see cref="GameStateFactory"/>'s own <c>CellAt</c>, which every other position-to-terrain lookup
+    /// in this project already uses for a world's starting units.</summary>
+    private static int CoveredTerrainCellAt(int[] terrain, World world, int x, int y, string documentPath)
+    {
+        if ((uint)x >= (uint)world.Width || (uint)y >= (uint)world.Height)
+        {
+            throw new InvalidDataException(
+                $"'{documentPath}': an army unlinked from a tombstoned fleet sits at ({x}, {y}), outside "
+                + $"world '{world.Id}'s {world.Width}×{world.Height} map.");
+        }
+
+        return terrain[(y * world.Width) + x];
+    }
 
     private static UnitSlot ToUnitSlot(ArmyUnit unit, string documentPath) => new(
         MercenaryLabel: unit.MercenaryLabel,

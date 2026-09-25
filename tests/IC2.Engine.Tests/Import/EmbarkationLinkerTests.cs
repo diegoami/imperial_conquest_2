@@ -221,6 +221,14 @@ public class EmbarkationLinkerTests
         Assert.Equal(5, army.X);
         Assert.Equal(7, army.Y);
 
+        // Review round 1, N1: the raw record's own CoveredCell is still AboardFleetSentinel (65535) --
+        // nothing in the original ever had a reason to rewrite it once the carrying fleet was gone. The
+        // imported army's CoveredTileCode must be the real terrain at (5, 7), not that stale sentinel.
+        var terrain = RealGameData.World.Terrain.Decode(RealGameData.World.Width, RealGameData.World.Height);
+        var expectedTerrain = terrain[(7 * RealGameData.World.Width) + 5];
+        Assert.NotEqual(0xFFFF, army.CoveredTileCode);
+        Assert.Equal(expectedTerrain, army.CoveredTileCode);
+
         // The tombstoned fleet never became a live FleetState -- it is reported as skipped instead.
         Assert.Empty(result.Save.State.Fleets);
         var skippedFleet = Assert.Single(result.Report.SkippedFleets);

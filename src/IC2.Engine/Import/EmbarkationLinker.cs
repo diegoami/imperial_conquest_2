@@ -104,10 +104,13 @@ public static class EmbarkationLinker
     /// <c>SkippedFleetRecord.CarriedArmyIndex</c>. Such an army can survive its carrier: the fleet that
     /// claimed it was compacted out, but the army's own covered-cell sentinel still says "aboard". When
     /// <paramref name="armyIndex"/> is in this set, that is the resolved explanation rather than a
-    /// genuine inconsistency, so this returns <see langword="null"/> (unlinked) instead of throwing —
-    /// the caller's own <c>CoveredTileCode</c> then falls back to the army's own record, so it keeps its
-    /// position. Defaults to empty, so a caller that does not yet pass tombstoned fleets' own claims
-    /// keeps today's behaviour (a hard failure) rather than silently changing under it.
+    /// genuine inconsistency, so this returns <see langword="null"/> (unlinked) instead of throwing.
+    /// Review round 1, N1: the army's own <c>CoveredCell</c> record still holds that sentinel — nothing
+    /// in the original ever had a reason to rewrite it once the carrying fleet was gone — so the caller
+    /// must not read it verbatim; it derives the real covered tile from the world's terrain at the
+    /// army's own (X, Y) instead, which is how it keeps its position. Defaults to empty, so a caller
+    /// that does not yet pass tombstoned fleets' own claims keeps today's behaviour (a hard failure)
+    /// rather than silently changing under it.
     /// </param>
     /// <returns>The carrying fleet's id, or <see langword="null"/> when the army is not embarked.</returns>
     /// <exception cref="InvalidDataException">
@@ -133,9 +136,11 @@ public static class EmbarkationLinker
             if (armiesClaimedByTombstonedFleets?.Contains(armyIndex) == true)
             {
                 // #340 N1: the only fleet that ever claimed this army was itself tombstoned. The army
-                // survived; its carrier didn't. Unlink it rather than fail the import -- it keeps
-                // whatever position its own record holds (the caller reads CoveredTileCode from there
-                // once this returns null, exactly as it already does for an army that was never aboard).
+                // survived; its carrier didn't. Unlink it rather than fail the import -- its X/Y are
+                // untouched (assigned unconditionally elsewhere), and once this returns null the
+                // caller derives CoveredTileCode from the world's terrain at that position rather than
+                // reading the record's own CoveredCell, which still holds the stale AboardFleetSentinel
+                // (review round 1, N1).
                 return null;
             }
 
