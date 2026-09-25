@@ -159,6 +159,12 @@ public sealed record ScatterOutcome(
 /// Whether this battle published <see cref="PeaceTreatyTriggered"/>. Named differently from the event so
 /// that reading <c>result.PeaceTreatyFired</c> can never be confused with the event type itself.
 /// </param>
+/// <param name="PeaceTreatyOffered">
+/// Whether this battle published <see cref="PeaceTreatyOffered"/> instead (T88, DoD 3) — a
+/// human-involved battle whose gates all passed, pending the human's own Yes/No. Mutually exclusive with
+/// <see cref="PeaceTreatyFired"/>: a battle fires the AI-vs-AI treaty automatically, or offers the
+/// human-consent one, never both.
+/// </param>
 /// <param name="Scatter">Where the survivor went, or <see langword="null"/> when nothing scattered.</param>
 /// <param name="CityLoyaltyBefore">
 /// <c>docs/tasks/T63.md</c> Decision 7: the besieged city's loyalty <em>before</em> this attempt's
@@ -201,6 +207,7 @@ public sealed record BattleResult(
     int WinnerConditionLost,
     int WinnerUnitsLost,
     bool PeaceTreatyFired,
+    bool PeaceTreatyOffered,
     ScatterOutcome? Scatter,
     int? CityLoyaltyBefore = null,
     int? CityLoyaltyAfter = null,

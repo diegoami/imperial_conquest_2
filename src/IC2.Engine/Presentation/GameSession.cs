@@ -1,4 +1,5 @@
 using System.Globalization;
+using IC2.Engine.Battle;
 using IC2.Engine.Battle.Commands;
 using IC2.Engine.Core;
 using IC2.Engine.Diplomacy.Commands;
@@ -98,6 +99,73 @@ public sealed partial class GameSession
     /// <see langword="null"/> when <see cref="_humanSeatNationId"/> is itself <see langword="null"/>.
     /// </summary>
     private IReadOnlyList<NewsEntry>? _pendingNewsBaseline;
+
+    /// <summary>
+    /// A post-battle peace treaty <see cref="Battle.PeaceTreatyOffered"/> raised, waiting on the human's
+    /// own <c>peace-yes</c>/<c>peace-no</c> answer (T88, DoD 3, Hazard 1). At most one at a time, the same
+    /// convention <see cref="Model.GameState.PendingOffer"/> uses for a trade/alliance offer — but this
+    /// cannot live on <see cref="Model.GameState"/> itself, which is outside this task's Owns list, so it
+    /// lives here instead: a session-scoped field, exactly like <see cref="_pendingPrelude"/> above. A
+    /// battle raises this offer whether the human is "at the prompt" or not — it can happen inside an AI
+    /// seat's own turn, when the human's army is the one that lost — so <see cref="_dispatcher"/>'s own
+    /// per-command <see cref="Battle.PeaceTreatyOffered"/> (via <see cref="IssueCommand"/>) and every AI
+    /// seat played through <see cref="PlayUntilOneFullLapOrRepeat"/> both feed
+    /// <see cref="CapturePeaceTreatyOfferIfAny"/>, so the decision survives to be shown and answered later
+    /// without blocking the AI's own turn loop — the hazard's own "smallest design" choice. A second offer
+    /// raised while one is already pending is dropped rather than replacing it: the original's own dialog
+    /// is modal (one battle's treaty at a time), and this build has no queue for a second one either.
+    /// </summary>
+    private PendingPeaceTreatyOffer? _pendingPeaceTreatyOffer;
+
+    /// <summary>See <see cref="_pendingPeaceTreatyOffer"/>.</summary>
+    private sealed record PendingPeaceTreatyOffer(string WinnerNationId, string LoserNationId);
+
+    /// <summary>
+    /// Scans <paramref name="events"/> for a <see cref="Battle.PeaceTreatyOffered"/> this session should
+    /// show — one whose winner or loser is currently human-controlled, i.e. worth a human's own answer
+    /// (a battle between two AI seats never raises this event at all;
+    /// <see cref="Battle.InstantBattleResolver"/>'s own gate already restricts it to exactly one human
+    /// side, but this session checks again rather than trusting that invariant blindly). Appends the
+    /// dialog text and how to answer it to <paramref name="lines"/>, the same way every other line this
+    /// call produced is appended. A no-op once an offer is already pending (see that field's own remarks).
+    /// </summary>
+    private void CapturePeaceTreatyOfferIfAny(List<string> lines, IEnumerable<DomainEvent> events)
+    {
+        if (_pendingPeaceTreatyOffer is not null)
+        {
+            return;
+        }
+
+        foreach (var offered in events.OfType<PeaceTreatyOffered>())
+        {
+            var winner = State.NationById(offered.WinnerNationId);
+            var loser = State.NationById(offered.LoserNationId);
+            if (winner is null || loser is null
+                || (winner.Control != SeatControl.Human && loser.Control != SeatControl.Human))
+            {
+                continue;
+            }
+
+            _pendingPeaceTreatyOffer = new PendingPeaceTreatyOffer(offered.WinnerNationId, offered.LoserNationId);
+            lines.Add(PeaceTreatyOfferDialogText(winner, loser));
+            lines.Add("Type 'peace-yes' to accept or 'peace-no' to decline.");
+            return;
+        }
+    }
+
+    /// <summary>
+    /// The offer's own wording, addressed to the human's side either way — the confirmed prefixes
+    /// <strong>[confirmed: decompiled-war-cascade-and-peace-paths.md §2.3]</strong>,
+    /// <c>TBattlePols_InitializeForm</c>'s "*After defeating you in battle &lt;W&gt; are willing to end
+    /// …*" (winner AI) or "*After losing to you in battle &lt;L&gt; are willing to end …*" (winner human).
+    /// The report's own ellipsis is exactly that — the words after "willing to end" are not read from the
+    /// decompile — and the human-consent treaty never previews reparations (it is always honourable), so
+    /// "the war" completes the sentence here rather than guessing at unconfirmed reparations wording.
+    /// </summary>
+    private static string PeaceTreatyOfferDialogText(NationState winner, NationState loser) =>
+        winner.Control == SeatControl.Human
+            ? $"After losing to you in battle, {loser.Name} are willing to end the war."
+            : $"After defeating you in battle, {winner.Name} are willing to end the war.";
 
     /// <summary>Builds a session over a resolved world/ruleset/scenario, optionally overriding the seed.</summary>
     /// <param name="world">The loaded world.</param>
@@ -300,6 +368,12 @@ public sealed partial class GameSession
                 break;
             case "accept-offer":
                 lines.AddRange(HandleAcceptOffer(tokens));
+                break;
+            case "peace-yes":
+                lines.AddRange(HandlePeaceTreatyAnswer(tokens, accept: true));
+                break;
+            case "peace-no":
+                lines.AddRange(HandlePeaceTreatyAnswer(tokens, accept: false));
                 break;
             case "mobilize":
                 lines.AddRange(HandleMobilize(tokens));
@@ -563,6 +637,11 @@ public sealed partial class GameSession
             var result = _coordinator.RunTurn(State);
             State = result.State;
             AppendPerSeatLine(lines, seat, result.Events);
+
+            // T88 (DoD 3, Hazard 1): an AI seat's own turn can resolve a battle that raises a
+            // post-battle treaty for the human, who is not "at the prompt" here -- see
+            // _pendingPeaceTreatyOffer's own remarks for why this cannot block the AI's turn loop.
+            CapturePeaceTreatyOfferIfAny(lines, result.Events);
 
             if (AnnounceAndAdoptWatchModeIfSeatIsLost(lines))
             {

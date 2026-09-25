@@ -79,7 +79,51 @@ public sealed partial class GameSession
         }
 
         State = NewsLogWriter.Append(result.State, result.Events, Ruleset.NewsLog);
-        return new[] { $"{command.Kind} accepted." };
+
+        var lines = new List<string> { $"{command.Kind} accepted." };
+
+        // T88 (DoD 3, Hazard 1): a human-issued attack-army command is one of the two places a battle can
+        // raise a post-battle treaty for the human -- the other is an AI seat's own turn, captured from
+        // PlayUntilOneFullLapOrRepeat instead. A no-op for every command that is not a battle (the vast
+        // majority of what flows through this one choke point), since none of them can publish
+        // Battle.PeaceTreatyOffered.
+        CapturePeaceTreatyOfferIfAny(lines, result.Events);
+
+        return lines;
+    }
+
+    /// <summary>
+    /// <c>peace-yes</c>/<c>peace-no</c> (T88, DoD 3): answers the pending <see cref="_pendingPeaceTreatyOffer"/>,
+    /// if any. Yes dispatches <see cref="Diplomacy.Commands.AcceptPeaceTreatyCommand"/>, which always
+    /// writes the honourable peace and its news, never reparations
+    /// (<see cref="Diplomacy.PeaceTreatySystem.ApplyHumanConsentedPeace"/>'s own remarks). No writes
+    /// nothing at all -- the war simply continues, exactly as the report's own "<c>TBattlePols_No</c> sets
+    /// <c>ModalResult 7</c> and does nothing else" reads. Either answer clears the pending offer, whether
+    /// or not the underlying command turns out to still be legal (see
+    /// <see cref="Diplomacy.Commands.AcceptPeaceTreatyRejections.NotAtWar"/>'s own remarks for the one way
+    /// that can happen) -- a stale offer is never left pending forever.
+    /// </summary>
+    private IReadOnlyList<string> HandlePeaceTreatyAnswer(string[] tokens, bool accept)
+    {
+        if (tokens.Length != 1)
+        {
+            return new[] { $"Usage: {(accept ? "peace-yes" : "peace-no")}" };
+        }
+
+        if (_pendingPeaceTreatyOffer is not { } pending)
+        {
+            return new[] { "There is no pending peace treaty offer." };
+        }
+
+        _pendingPeaceTreatyOffer = null;
+
+        if (!accept)
+        {
+            return new[] { "Peace treaty declined. The war continues." };
+        }
+
+        return IssueCommand(
+            new AcceptPeaceTreatyCommand(State.ActiveNationId, pending.WinnerNationId, pending.LoserNationId));
     }
 
     /// <summary>

@@ -51,7 +51,7 @@ public sealed class PeaceTreatySystem : IGameSystem
         {
             if (published.Event is PeaceTreatyTriggered treaty)
             {
-                state = Apply(state, context.Ruleset, treaty, context.Rng);
+                state = Apply(state, context.Ruleset, context.World, treaty, context.Rng);
             }
         }
 
@@ -62,10 +62,16 @@ public sealed class PeaceTreatySystem : IGameSystem
     /// The pure treaty reaction, directly callable so a test can drive it from a fabricated
     /// <see cref="PeaceTreatyTriggered"/> with no battle and no full pipeline run.
     /// </summary>
-    public static GameState Apply(GameState state, Ruleset ruleset, PeaceTreatyTriggered treaty, IRng rng)
+    /// <param name="world">
+    /// T88: the ally-peace cascade's border gate reads <see cref="NeighbourGeography.AreNeighbours"/>,
+    /// which needs the world the battle happened on (report §3: "an ally makes peace alongside its
+    /// partner only if it does not border the enemy").
+    /// </param>
+    public static GameState Apply(GameState state, Ruleset ruleset, World world, PeaceTreatyTriggered treaty, IRng rng)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(ruleset);
+        ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(treaty);
         ArgumentNullException.ThrowIfNull(rng);
 
@@ -141,47 +147,134 @@ public sealed class PeaceTreatySystem : IGameSystem
                 ruleset.NewsLog);
         }
 
-        state = ApplyAllyPeaceCascade(state, ruleset, winnerId, loserId);
+        state = ApplyAllyPeaceCascade(state, ruleset, world, winnerId, loserId);
         return state;
     }
 
     /// <summary>
-    /// "Finally: any ally of either side still at war with the other gets setRelation(..., -8), with news
-    /// '&lt;A&gt; and &lt;B&gt; have agreed to end their war.'" — checked for allies of both the winner and
-    /// the loser, in <see cref="DiplomaticRelations.NationIds"/> order for a deterministic result.
+    /// The human-consent treaty's Yes branch (T88, DoD 3): always the honourable line, never reparations
+    /// — <c>[derived]</c> per the report (§2.3: the dialog's own gate already requires
+    /// <c>armies(winner) &lt; armies(loser)</c>, and nothing can move between that gate and the human's
+    /// Yes because the dialog is modal, so <c>HonourablePeaceGate</c>'s score/armies comparison would
+    /// always agree anyway). Called only from <c>AcceptPeaceTreatyCommand</c>'s handler, once the human
+    /// has answered Yes to a <see cref="Battle.PeaceTreatyOffered"/> offer <see cref="Presentation.GameSession"/>
+    /// captured; a No calls neither this nor anything else ("No writes nothing").
     /// </summary>
-    private static GameState ApplyAllyPeaceCascade(GameState state, Ruleset ruleset, string winnerId, string loserId)
+    public static GameState ApplyHumanConsentedPeace(
+        GameState state, Ruleset ruleset, World world, string winnerId, string loserId)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(ruleset);
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(winnerId);
+        ArgumentNullException.ThrowIfNull(loserId);
+
+        state = RelationTransitions.BreakToPeace(state, ruleset, winnerId, loserId);
+
+        var winnerName = RelationTransitions.NameOf(state, winnerId);
+        var loserName = RelationTransitions.NameOf(state, loserId);
+        state = NewsLogWriter.Append(
+            state, new DomainEvent[] { new PeaceHonourableAgreed(winnerName, loserName) }, ruleset.NewsLog);
+
+        return ApplyAllyPeaceCascade(state, ruleset, world, winnerId, loserId);
+    }
+
+    /// <summary>
+    /// The treaty's ally loop, re-checked against the decompile (T88, report §3 —
+    /// <c>0x00450F79</c>–<c>0x004510F8</c>). For each nation <c>k</c>, in
+    /// <see cref="DiplomaticRelations.NationIds"/> order (the setter's own <c>k = 0..15</c>):
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>A single pass over k, both sides checked per k — not two full passes.</strong> The
+    /// decompile is one loop that tests the winner's-ally condition and then the loser's-ally condition
+    /// for the same <c>k</c> before moving to <c>k + 1</c>; a nation can never satisfy both conditions at
+    /// once (it cannot be simultaneously allied with and at war with the same side), so the two checks
+    /// never collide, but the order their news lines land in does depend on walking them together. The
+    /// version this replaced ran two complete passes — every winner-side line before any loser-side one —
+    /// which only matches the original when every affected ally happens to sort onto one side.
+    /// </para>
+    /// <para>
+    /// <strong>Four corrections against the version this replaces</strong> (report §3, all four
+    /// <c>[confirmed: listing]</c>):
+    /// </para>
+    /// <list type="number">
+    /// <item>
+    /// <strong>The partner's own alliance with the ally is reset to -8 first, with no gate.</strong> Every
+    /// ally of the winner still at war with the loser loses its alliance with the winner — bordering or
+    /// human or not — before anything else is tested. The setter maps only state 0 to a cooldown; a
+    /// non-zero argument (here, the literal -8) is stored as given, not -24 the way breaking an alliance
+    /// normally would.
+    /// </item>
+    /// <item>
+    /// <strong>The ally only joins the peace if it does not border the enemy, and is not human.</strong>
+    /// Both conditions gate the SECOND write (the ally's own war going to -8) and the news line; neither
+    /// gates the first, ungated reset. The border check is <see cref="NeighbourGeography.AreNeighbours"/>
+    /// — T85 made this exact against the DAT's own mask on the classical world.
+    /// </item>
+    /// <item>
+    /// <strong>The enemy is named first.</strong> "&lt;loser&gt; and &lt;k&gt;" for the winner's allies,
+    /// "&lt;winner&gt; and &lt;k&gt;" for the loser's allies — never the ally first.
+    /// </item>
+    /// <item><strong>The two halves are interleaved per k</strong>, per the single-pass note above.</item>
+    /// </list>
+    private static GameState ApplyAllyPeaceCascade(
+        GameState state, Ruleset ruleset, World world, string winnerId, string loserId)
     {
         var codes = ruleset.Diplomacy.StateCodes;
+        var cooldown = ruleset.Diplomacy.CooldownAfterAllyPeace;
 
-        foreach (var (side, other) in new[] { (winnerId, loserId), (loserId, winnerId) })
+        foreach (var allyId in state.Relations.NationIds)
         {
-            foreach (var allyId in state.Relations.NationIds)
+            if (string.Equals(allyId, winnerId, StringComparison.Ordinal)
+                || string.Equals(allyId, loserId, StringComparison.Ordinal))
             {
-                if (string.Equals(allyId, winnerId, StringComparison.Ordinal)
-                    || string.Equals(allyId, loserId, StringComparison.Ordinal))
-                {
-                    continue;
-                }
+                continue;
+            }
 
-                if (state.Relations.Get(allyId, side) != codes.Alliance || state.Relations.Get(allyId, other) != codes.War)
-                {
-                    continue;
-                }
+            // The winner's ally k, still at war with the loser: loser named first.
+            if (state.Relations.Get(allyId, winnerId) == codes.Alliance
+                && state.Relations.Get(allyId, loserId) == codes.War)
+            {
+                state = ApplyOneAllyHalf(state, ruleset, world, cooldown, side: winnerId, enemy: loserId, allyId);
+            }
 
-                state = state with
-                {
-                    Relations = state.Relations.WithRelation(allyId, other, ruleset.Diplomacy.CooldownAfterAllyPeace),
-                };
-
-                var allyName = RelationTransitions.NameOf(state, allyId);
-                var otherName = RelationTransitions.NameOf(state, other);
-                state = NewsLogWriter.Append(
-                    state, new DomainEvent[] { new PeaceAllyAgreement(allyName, otherName) }, ruleset.NewsLog);
+            // The loser's ally k, still at war with the winner: winner named first.
+            if (state.Relations.Get(allyId, loserId) == codes.Alliance
+                && state.Relations.Get(allyId, winnerId) == codes.War)
+            {
+                state = ApplyOneAllyHalf(state, ruleset, world, cooldown, side: loserId, enemy: winnerId, allyId);
             }
         }
 
         return state;
+    }
+
+    /// <summary>
+    /// One ally's own half of <see cref="ApplyAllyPeaceCascade"/>, for the side (<paramref name="side"/>)
+    /// it is allied with and the enemy (<paramref name="enemy"/>) it is at war with — shared by both the
+    /// winner's-ally and loser's-ally checks so the ungated reset, the border/human gate and the
+    /// enemy-first news line are written exactly once each, not duplicated per call site.
+    /// </summary>
+    private static GameState ApplyOneAllyHalf(
+        GameState state, Ruleset ruleset, World world, int cooldown, string side, string enemy, string allyId)
+    {
+        // "setRelation(W, k, -8)" -- ungated: every ally still at war with the enemy loses its alliance
+        // with its own partner, bordering or human or not (report §3, point 1).
+        state = state with { Relations = state.Relations.WithRelation(allyId, side, cooldown) };
+
+        var allyControl = state.NationById(allyId)?.Control;
+        if (NeighbourGeography.AreNeighbours(world, allyId, enemy) || allyControl == SeatControl.Human)
+        {
+            return state;
+        }
+
+        state = state with { Relations = state.Relations.WithRelation(allyId, enemy, cooldown) };
+
+        var enemyName = RelationTransitions.NameOf(state, enemy);
+        var allyName = RelationTransitions.NameOf(state, allyId);
+        return NewsLogWriter.Append(
+            state, new DomainEvent[] { new PeaceAllyAgreement(enemyName, allyName) }, ruleset.NewsLog);
     }
 
     private static int LoserTaxBase(GameState state, string loserId) => state.NationById(loserId)?.TaxBase ?? 0;

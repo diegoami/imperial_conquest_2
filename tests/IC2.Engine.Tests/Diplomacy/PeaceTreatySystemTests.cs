@@ -61,7 +61,7 @@ public sealed class PeaceTreatySystemTests
         var loserTreasuryBefore = state.NationById(Loser)!.Treasury;
 
         var treaty = new PeaceTreatyTriggered(Winner, Loser, LoserUnity: 100, LoserCityCount: 48);
-        var after = PeaceTreatySystem.Apply(state, ruleset, treaty, DiplomacyTestbed.Rng());
+        var after = PeaceTreatySystem.Apply(state, ruleset, DiplomacyTestbed.Toy.World, treaty, DiplomacyTestbed.Rng());
 
         var reparations = after.NationById(Winner)!.Treasury - winnerTreasuryBefore;
         Assert.True(reparations > 0);
@@ -94,7 +94,7 @@ public sealed class PeaceTreatySystemTests
         state = state with { Relations = state.Relations.WithRelation(Loser, ThirdParty, codes.Trade) };
 
         var treaty = new PeaceTreatyTriggered(Winner, Loser, 100, 48);
-        var after = PeaceTreatySystem.Apply(state, ruleset, treaty, DiplomacyTestbed.Rng());
+        var after = PeaceTreatySystem.Apply(state, ruleset, DiplomacyTestbed.Toy.World, treaty, DiplomacyTestbed.Rng());
 
         Assert.Equal(ruleset.Diplomacy.CooldownAfterPeaceTerms, after.Relations.Get(Loser, ThirdParty));
     }
@@ -111,7 +111,7 @@ public sealed class PeaceTreatySystemTests
         var loserTreasuryBefore = state.NationById(Loser)!.Treasury;
 
         var treaty = new PeaceTreatyTriggered(Winner, Loser, 900, 48);
-        var after = PeaceTreatySystem.Apply(state, ruleset, treaty, DiplomacyTestbed.Rng());
+        var after = PeaceTreatySystem.Apply(state, ruleset, DiplomacyTestbed.Toy.World, treaty, DiplomacyTestbed.Rng());
 
         Assert.Equal(winnerTreasuryBefore, after.NationById(Winner)!.Treasury);
         Assert.Equal(loserTreasuryBefore, after.NationById(Loser)!.Treasury);
@@ -138,7 +138,7 @@ public sealed class PeaceTreatySystemTests
         };
 
         var treaty = new PeaceTreatyTriggered(Winner, Loser, 900, 48);
-        var after = PeaceTreatySystem.Apply(state, ruleset, treaty, DiplomacyTestbed.Rng());
+        var after = PeaceTreatySystem.Apply(state, ruleset, DiplomacyTestbed.Toy.World, treaty, DiplomacyTestbed.Rng());
 
         Assert.Equal(ruleset.Diplomacy.CooldownAfterAllyPeace, after.Relations.Get(LoserAlly, Winner));
 
@@ -160,7 +160,7 @@ public sealed class PeaceTreatySystemTests
         state = state with { Relations = state.Relations.WithRelation(LoserAlly, Loser, codes.Alliance) };
 
         var treaty = new PeaceTreatyTriggered(Winner, Loser, 900, 48);
-        var after = PeaceTreatySystem.Apply(state, ruleset, treaty, DiplomacyTestbed.Rng());
+        var after = PeaceTreatySystem.Apply(state, ruleset, DiplomacyTestbed.Toy.World, treaty, DiplomacyTestbed.Rng());
 
         Assert.Equal(codes.Peace, after.Relations.Get(LoserAlly, Winner));
     }

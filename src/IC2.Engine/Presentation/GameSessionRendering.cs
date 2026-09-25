@@ -388,6 +388,8 @@ public sealed partial class GameSession
         "  propose-alliance <nation> - propose an alliance to another nation",
         "  propose-trade <nation> - propose a trade agreement to another nation",
         "  accept-offer - accept the pending trade or alliance offer made to you, if any",
+        "  peace-yes - accept a pending post-battle peace treaty offer, if any",
+        "  peace-no - decline a pending post-battle peace treaty offer, if any",
         "  mobilize <slot-index> <new-army> - mobilize a ready recruitment slot into an army unit",
         "  hire-mercenary <army> <pool-slot-index> - hire a mercenary unit from the mercenary pool",
         "  recruit-standing <city> <unit-type> <troops> - recruit a standing unit at one of your own cities",

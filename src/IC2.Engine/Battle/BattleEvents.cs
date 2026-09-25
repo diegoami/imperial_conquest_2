@@ -103,3 +103,38 @@ public sealed record PeaceTreatyTriggered(
     string LoserNationId,
     int LoserUnity,
     int LoserCityCount) : DomainEvent;
+
+/// <summary>
+/// A post-battle peace treaty was <em>offered</em>, pending the human's own Yes or No — T88's fix for
+/// bug #384. Published instead of <see cref="PeaceTreatyTriggered"/> whenever exactly one side of the
+/// battle is human: the original's own gate for this case is stricter, and its outcome is never applied
+/// without the human answering the <c>TBattlePols</c> dialog
+/// <strong>[confirmed: decompiled-war-cascade-and-peace-paths.md §2.3]</strong>.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <strong>The four gates, human-involved order.</strong> Unlike the AI-vs-AI gate behind
+/// <see cref="PeaceTreatyTriggered"/> (draw first, then unity and cities), a human-involved battle tests,
+/// in order, <c>armies(winner) &lt; armies(loser)</c>, <c>unity(loser) &gt; 500</c>,
+/// <c>cities(loser) &gt; 7</c>, and only then draws <c>Random(5) &lt; 2</c> — the draw is never taken if
+/// an earlier gate fails (report §2.3, <c>0x004594DC</c>–<c>9524</c>).
+/// </para>
+/// <para>
+/// <strong>An event, not a call — and never auto-applied.</strong> <c>PeaceTreatySystem</c> reacts only
+/// to <see cref="PeaceTreatyTriggered"/>, never to this event, so publishing this alone writes no
+/// relation. <see cref="IC2.Engine.Presentation.GameSession"/> is where the pending decision actually
+/// lives and where Yes/No resolve it — see that type's own remarks for the design chosen (Battle must not
+/// reference Diplomacy or Presentation, so this event is deliberately data-only: the two nation ids, and
+/// nothing GameSession would otherwise have to re-derive from a snapshot of the battle).
+/// </para>
+/// <para>
+/// Not news-worthy: no news is written until the human answers, exactly like
+/// <see cref="PeaceTreatyTriggered"/> itself.
+/// </para>
+/// </remarks>
+/// <param name="WinnerNationId">The battle's winner — the treaty's first argument if accepted.</param>
+/// <param name="LoserNationId">The battle's loser.</param>
+[DomainEvent("battle.peace-treaty-offered")]
+public sealed record PeaceTreatyOffered(
+    string WinnerNationId,
+    string LoserNationId) : DomainEvent;
