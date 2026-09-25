@@ -350,4 +350,25 @@ public class GameStateFactoryStartingDataTests
         Assert.Contains(
             ruleset.NewsLog.RingBufferSlots.ToString(CultureInfo.InvariantCulture), ex.Message, StringComparison.Ordinal);
     }
+
+    /// <summary>
+    /// Review round 1, B3: the boundary the check above rests on was untested -- mutating
+    /// <c>&gt;</c> to <c>&gt;=</c> at <c>GameStateFactory.cs:269</c> left the whole suite green,
+    /// because no test showed a seed of exactly <see cref="NewsLogRules.RingBufferSlots"/> slots (not
+    /// one more) is still accepted.
+    /// </summary>
+    [Fact]
+    public void A_news_seed_with_exactly_the_ring_buffers_own_slot_count_is_accepted()
+    {
+        var classical = Classical();
+        var ruleset = classical.Ruleset;
+        var exactSlots = ruleset.NewsLog.RingBufferSlots;
+        var slots = ValueList.From(Enumerable.Range(0, exactSlots).Select(i => new NewsEntry($"slot {i}")));
+        var goodNews = new NewsLog(MostRecentSlot: exactSlots - 1, slots);
+        var world = classical.World with { StartingNews = goodNews };
+
+        var state = GameStateFactory.CreateInitial(world, ruleset, classical.Scenario);
+
+        Assert.Equal(exactSlots, state.NewsLog.Slots.Count);
+    }
 }

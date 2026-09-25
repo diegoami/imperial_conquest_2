@@ -193,7 +193,7 @@ public static class GameStateFactory
     {
         if (world.StartingRelations is { } startingRelations)
         {
-            ValidateStartingRelationValues(startingRelations, ruleset);
+            ValidateStartingRelationValues(world, startingRelations, ruleset);
             return startingRelations;
         }
 
@@ -207,7 +207,12 @@ public static class GameStateFactory
     /// codes are a contiguous <c>0..max</c> range: a ruleset whose codes are not contiguous would
     /// otherwise let a gap value through (T75 rework N2).
     /// </summary>
-    private static void ValidateStartingRelationValues(DiplomaticRelations relations, Ruleset ruleset)
+    /// <param name="world">
+    /// Named only so a bad value's exception can name it (review round 1, B2, Owns amendment #399):
+    /// the bad data is <paramref name="world"/>'s own <c>startingRelations</c>, never
+    /// <paramref name="ruleset"/>, which only supplies the codes/cooldowns to check against.
+    /// </param>
+    private static void ValidateStartingRelationValues(World world, DiplomaticRelations relations, Ruleset ruleset)
     {
         var codes = ruleset.Diplomacy.StateCodes;
         var validCodes = new HashSet<int> { codes.Peace, codes.Trade, codes.Alliance, codes.War };
@@ -229,7 +234,7 @@ public static class GameStateFactory
                         $"startingRelations has a value {value}, which is neither one of the ruleset's "
                         + $"relation codes ({string.Join(", ", validCodes.OrderBy(v => v))}) nor a "
                         + $"cooldown in [{minCooldown}, -1].",
-                        nameof(ruleset));
+                        nameof(world));
                 }
             }
         }
