@@ -103,16 +103,30 @@ public sealed class AiCommandLegalityTests
     [Fact]
     public void The_awkward_states_between_them_exercise_several_command_kinds()
     {
+        // T82 (#359, bug #357): diplomacy.declare-war is now gated by AiOwnDiplomacyRule's own
+        // Random(10) roll (report §1a), so the default seed=1 does not guarantee a hit even though
+        // "armies-in-contact-at-peace" is set up with a clear war-target ratio -- search a small range,
+        // the same "search for a reachable seed" pattern AiClassicalMediterraneanStallMeasurementTests
+        // already uses, rather than pin a single seed to internal RNG arithmetic.
         var kinds = new List<string>();
-        foreach (var name in AwkwardStates)
+        for (var seed = 1UL; seed <= 50; seed++)
         {
-            var driven = AiScriptedStates.DriveOneTurn(Build(name));
-            foreach (var kind in driven.IssuedKinds)
+            kinds = new List<string>();
+            foreach (var name in AwkwardStates)
             {
-                if (!kinds.Contains(kind))
+                var driven = AiScriptedStates.DriveOneTurn(Build(name), seed);
+                foreach (var kind in driven.IssuedKinds)
                 {
-                    kinds.Add(kind);
+                    if (!kinds.Contains(kind))
+                    {
+                        kinds.Add(kind);
+                    }
                 }
+            }
+
+            if (kinds.Contains("diplomacy.declare-war"))
+            {
+                break;
             }
         }
 
@@ -202,7 +216,17 @@ public sealed class AiCommandLegalityTests
 
         return name switch
         {
-            "armies-in-contact-at-peace" => baseState,
+            // T82 (#359, bug #357): wealth/unity bumped just for this one case so the battery still
+            // reaches diplomacy.declare-war -- AiOwnDiplomacyRule.BestWarTarget's power ratio needs
+            // Wealth (both nations default to 0 in TwoArmiesInContact, which never clears the gate),
+            // and every other case below still gets the shared baseState untouched.
+            "armies-in-contact-at-peace" => baseState with
+            {
+                Nations = ValueList.From(baseState.Nations.Select(n =>
+                    string.Equals(n.Id, Acting, StringComparison.Ordinal) ? n with { Wealth = 40000, Unity = 500 }
+                    : string.Equals(n.Id, Other, StringComparison.Ordinal) ? n with { Wealth = 1000, Unity = 100 }
+                    : n)),
+            },
             "armies-in-contact-at-war" => BattleCommandTestbed.AtWar(baseState, Acting, Other),
             "army-with-no-moves" => WithActingArmy(baseState, a => a with { Moves = 0 }),
             "army-aboard-a-fleet" => EmbarkedState(baseState),
@@ -239,17 +263,22 @@ public sealed class AiCommandLegalityTests
                 WithActingCity(baseState, c => c with { UnderSiege = true, FortificationCode = 20 }), 100_000),
             "army-next-to-an-enemy-city" => WithActingArmy(baseState, a => a with { X = 7, Y = 4 }),
             "army-between-two-enemy-cities" => TwoEnemyCitiesState(),
+            // T82 (#359, bug #357): a siege no longer declares war on its own -- it now requires the two
+            // already being at war (decompiled-ai-offers-to-human-seats.md §4/§5), so this state is built
+            // at war directly, or the battery would never reach battle.besiege-city at all.
             "weak-enemy-city-adjacent" => WithActingArmy(
-                baseState with
-                {
-                    Cities = ValueList.From(baseState.Cities.Select(c =>
-                        string.Equals(c.Id, "defender-city", StringComparison.Ordinal)
-                            // A city nobody defends: loyalty, fortification and population all at the
-                            // floor, so SiegeStrength.Defender is small enough that the siege gate clears
-                            // and the battery actually reaches battle.besiege-city.
-                            ? c with { Loyalty = 1, FortificationCode = 0, PopulationThousands = 1 }
-                            : c)),
-                },
+                BattleCommandTestbed.AtWar(
+                    baseState with
+                    {
+                        Cities = ValueList.From(baseState.Cities.Select(c =>
+                            string.Equals(c.Id, "defender-city", StringComparison.Ordinal)
+                                // A city nobody defends: loyalty, fortification and population all at the
+                                // floor, so SiegeStrength.Defender is small enough that the siege gate clears
+                                // and the battery actually reaches battle.besiege-city.
+                                ? c with { Loyalty = 1, FortificationCode = 0, PopulationThousands = 1 }
+                                : c)),
+                    },
+                    Acting, Other),
                 a => a with { X = 6, Y = 4 }),
             "eliminated-neighbour" => baseState with
             {
