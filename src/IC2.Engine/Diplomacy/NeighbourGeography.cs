@@ -120,12 +120,27 @@ public static class NeighbourGeography
     /// <summary>
     /// <c>[designed]</c>: the minimum shared border, in 4-connected boundary tile-pairs, for two
     /// nations' core territories to count as neighbours — see this type's own remarks for the search
-    /// that produced it. Every one of the DAT's 24 confirmed pairs (<c>dat-neighbour-mask.md</c> §2)
-    /// clears it by a wide margin (18 tiles or more); the six spurious pairs this derivation cannot
-    /// resolve (Rome ↔ Greece, Thracia ↔ Bithynia, Thracia ↔ Seleucid, Seleucid ↔ Macedonia, Seleucid ↔
-    /// Greece, Ptolemaic ↔ Greece) clear it too, so this threshold trims sliver artefacts, not the
-    /// genuine disagreement.
+    /// that produced it.
     /// </summary>
+    /// <remarks>
+    /// <strong>Rework round 2, N-e correction: the margin is not wide, and this value is not being
+    /// re-tuned to fix it.</strong> An earlier revision of this remark claimed every DAT pair clears the
+    /// threshold "by a wide margin (18 tiles or more)"; that is wrong, measured directly by raising the
+    /// threshold and recording which pair drops out first at each step:
+    /// <list type="bullet">
+    /// <item>The smallest-margin <em>DAT</em> pair is Greece ↔ Illyria, at 13 tiles -- only 3 tiles above
+    /// this threshold's own 10, the first DAT pair lost once the threshold reaches 14.</item>
+    /// <item>The closest-margin <em>false</em> pair is Seleucid ↔ Macedonia, at 12 tiles -- closer to the
+    /// threshold than any DAT pair, the first pair lost once the threshold reaches 13.</item>
+    /// <item>Two more DAT pairs sit between those and clearly safe: Dacia ↔ Illyria (lost at threshold
+    /// 17) and Rome ↔ Gaul (lost at threshold 19).</item>
+    /// </list>
+    /// A threshold between 13 and 17 would drop the Seleucid ↔ Macedonia false pair while keeping all 24
+    /// DAT pairs — but choosing one is tuning this <c>[designed]</c> value directly against the answer
+    /// key it is being checked against, which needs the user's own call, not a change made unasked in a
+    /// rework round; T85 is expected to replace this derivation with the DAT's own loaded mask instead
+    /// (<c>dat-neighbour-mask.md</c> §7), which would make retuning this moot regardless. Left at 10.
+    /// </remarks>
     private const int MinimumBorderTiles = 10;
 
     private static readonly ConditionalWeakTable<World, Dictionary<string, HashSet<string>>> Cache = new();
