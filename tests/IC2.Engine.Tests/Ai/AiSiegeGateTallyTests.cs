@@ -218,8 +218,11 @@ public sealed class AiSiegeGateTallyTests
                 with { Moves = 5 },
         };
 
+        // T82 (#359, bug #357): a siege no longer declares war -- it now requires the two already being
+        // at war.
         var state = AiScriptedStates.WithActiveSeat(
-            BattleCommandTestbed.StateWith(nations, cities, armies), Acting);
+            BattleCommandTestbed.AtWar(BattleCommandTestbed.StateWith(nations, cities, armies), Acting, Other),
+            Acting);
 
         var driven = AiScriptedStates.DriveOneTurn(state);
 
@@ -308,7 +311,10 @@ public sealed class AiSiegeGateTallyTests
                 with { Moves = 5 },
         };
 
+        // T82 (#359, bug #357): a siege no longer declares war (decompiled-ai-offers-to-human-seats.md
+        // §4/§5, "no implicit declaration by attack") -- it now requires the two already being at war.
         return AiScriptedStates.WithActiveSeat(
-            BattleCommandTestbed.StateWith(nations, cities, armies), Acting);
+            BattleCommandTestbed.AtWar(BattleCommandTestbed.StateWith(nations, cities, armies), Acting, Other),
+            Acting);
     }
 }

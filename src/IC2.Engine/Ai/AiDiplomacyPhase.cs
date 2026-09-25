@@ -1,3 +1,4 @@
+using IC2.Engine.Core;
 using IC2.Engine.Diplomacy;
 using IC2.Engine.Diplomacy.Commands;
 using IC2.Engine.Model;
@@ -11,13 +12,6 @@ namespace IC2.Engine.Ai;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>This phase proposes; it never decides for the other side.</strong> Whether an offer is
-/// accepted is T19's confirmed state machine — <c>ProposeTradeCommandHandler</c>,
-/// <c>ProposeAllianceCommandHandler</c> and <c>MakePeaceCommandHandler</c> — and none of it is
-/// reimplemented here. What this phase does is read the same gates those handlers apply, so that an offer
-/// is only ever placed when it will be accepted.
-/// </para>
-/// <para>
 /// <strong>Peace is proposed only to a human seat, and that is a rule of the engine, not a preference.</strong>
 /// <c>MakePeaceCommandHandler</c> refuses every proposal whose target is
 /// <see cref="SeatControl.Ai"/>, unconditionally: "<em>A human-controlled nation always accepts: the
@@ -25,6 +19,30 @@ namespace IC2.Engine.Ai;
 /// and proposing one anyway would be a guaranteed rejection — the exact thing
 /// <c>docs/task-catalogue.md</c> T22 Done-when 1's "zero rejected commands" forbids. It is still built,
 /// and still tested, because a mixed scenario (the shipped <c>toy-3city.json</c> is one) does reach it.
+/// </para>
+/// <para>
+/// <strong>T82 (#359, bug #357): an AI never writes trade or an alliance to a human seat.</strong> Before
+/// this task, this phase proposed <see cref="ProposeAllianceCommand"/> and <see cref="ProposeTradeCommand"/>
+/// toward <em>any</em> nation, human seats included, and <c>ProposeAllianceCommandHandler</c>'s "always
+/// accepted from a human seat" branch — correct for genuine hotseat human-to-human play — then wrote the
+/// alliance immediately. But <c>decompiled-ai-offers-to-human-seats.md</c> §1a/§2 is explicit that the
+/// original's AI never calls the human Politics-screen handlers at all: toward a human it can only
+/// declare war or raise a turn-start notice (<see cref="PendingOfferSystem"/>), and the notice never
+/// writes a relation. So this phase's own alliance and trade methods
+/// (<see cref="ProposeOwnAlliance"/>, <see cref="ProposeOwnTrade"/>, <see cref="ProposeOwnTradeSwap"/>)
+/// now target only <see cref="SeatControl.Ai"/> nations, through <see cref="AiFormAllianceCommand"/> and
+/// <see cref="AiFormTradeCommand"/> — new commands, not <see cref="ProposeAllianceCommand"/>/
+/// <see cref="ProposeTradeCommand"/>, because those two are <c>TPolitics_Make*</c>'s own gates
+/// (human-initiated), the wrong rule for the AI's own direct writes (<c>FUN_0044FB7C</c>, report §1a).
+/// </para>
+/// <para>
+/// <strong>Direct writes, no consent step — and busier gates than the old heuristic.</strong>
+/// <see cref="AiOwnDiplomacyRule"/> carries the deterministic half of <c>FUN_0044FB7C</c>: the busy gate,
+/// <c>protected</c>, the alliance-partner search (a partner already at war with a shared, unprotected
+/// neighbour — never simply "any nation at peace", which is what produced bug #357's ~38-alliance
+/// cascade in round one of the classical scenario) and the trade/swap searches. See that type's own
+/// remarks for why the two chance rolls (<c>Random(10)</c> for war, <c>Random(20)</c> for alliance) are
+/// decided where they are rather than inside a handler.
 /// </para>
 /// <para>
 /// <strong>Accepting a pending offer is deliberately absent.</strong>
@@ -53,6 +71,11 @@ public static class AiDiplomacyPhase
 
         foreach (var other in view.OtherLivingNations())
         {
+            if (other.Control != SeatControl.Human)
+            {
+                continue;
+            }
+
             if (view.RelationBetween(view.NationId, other.Id) is not { } relation)
             {
                 // Not both in the relation matrix: every command in this phase would throw or refuse.
@@ -60,15 +83,17 @@ public static class AiDiplomacyPhase
             }
 
             ProposePeace(view, other, relation, ownPower, into);
-            ProposeAlliance(view, personality, other, relation, into);
-            ProposeTrade(view, personality, other, relation, into);
         }
+
+        ProposeOwnAlliance(view, into);
+        ProposeOwnTrade(view, into);
+        ProposeOwnTradeSwap(view, into);
     }
 
     private static void ProposePeace(
         AiView view, NationState other, int relation, long ownPower, List<AiCandidate> into)
     {
-        if (relation != view.WarCode || other.Control != SeatControl.Human)
+        if (relation != view.WarCode)
         {
             return;
         }
@@ -90,105 +115,118 @@ public static class AiDiplomacyPhase
                 other.Id, ownPower, theirPower, ratio, AiWeights.SuePeaceStrengthRatioPermille)));
     }
 
-    private static void ProposeAlliance(
-        AiView view, AiPersonalityProfile personality, NationState other, int relation, List<AiCandidate> into)
+    /// <summary>
+    /// T82 (#359, bug #357): the alliance half of <c>FUN_0044FB7C</c>
+    /// <strong>[confirmed: decompiled-ai-offers-to-human-seats.md §1a]</strong>. The partner search
+    /// (<see cref="AiOwnDiplomacyRule.FindAlliancePartner"/>) is deterministic; only the
+    /// <c>Random(20) == 0</c> roll below is this method's own.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>The roll's stream, and why it is not perfectly one draw per turn.</strong>
+    /// <see cref="AiMilitaryPhase.ProposeOwnWarDeclaration"/> gets a properly turn-stable
+    /// <see cref="IRng"/> because <see cref="AiTurn.Run"/> passes one into
+    /// <see cref="AiMilitaryPhase.Propose"/> explicitly. This phase's own <c>Propose</c> signature is
+    /// unchanged from before this task (<see cref="AiTurn"/> calls it with no <see cref="IRng"/> at all,
+    /// and <see cref="AiTurn"/> and <see cref="AiView"/> are both outside this task's Owns list, so that
+    /// call site cannot be changed to add one). The best available substitute is a fresh
+    /// <see cref="SplitMix64Rng"/> seeded from <see cref="Model.GameState.RandomSeed"/>'s <em>current</em>
+    /// value, keyed by the seat and the turn the same way the war roll is. That value is stable within
+    /// one proposal pass but can move earlier in the same turn if this seat's own prior action dispatched
+    /// an accepted command (<see cref="Core.Commands.CommandDispatcher"/> advances it after every one) —
+    /// so, unlike the war roll, a re-evaluated pass before this candidate is chosen can occasionally see a
+    /// different draw. The <see cref="OwnAllianceScore"/> below still keeps that window small: this
+    /// candidate outscores every ordinary military, economy and trade candidate, so whenever it is
+    /// offered it is very nearly always chosen on the very first action it appears in, exactly as
+    /// <see cref="AiMilitaryPhase.ProposeOwnWarDeclaration"/>'s own score dominance does — just without
+    /// that method's stronger, provable guarantee. Documented rather than hidden; see the PR body.
+    /// </para>
+    /// </remarks>
+    private static void ProposeOwnAlliance(AiView view, List<AiCandidate> into)
     {
-        // The relation must already be peace or trade. That is narrower than what the handler would
-        // accept, and deliberately so, in both directions:
-        //
-        //  - Below peace is a cooldown. FormAlliance would overwrite it outright and the handler would
-        //    accept from a human target, but allying out of a cooldown the nation itself imposed is not
-        //    behaviour worth having; declining keeps the confirmed cooldown meaningful.
-        //  - Above trade is alliance (already allied) or WAR. ProposeAllianceCommandHandler refuses an
-        //    AI target while either side is at war, but a human target "always accepts" -- so without
-        //    this gate the AI could declare war on a human seat and ally with it in the same turn,
-        //    undoing its own declaration. The CLI demo printed exactly that ("SOUTHERN LEAGUE DECLARES
-        //    WAR ON NORTHERN LEAGUE." followed by "Southern League forms an alliance with Northern
-        //    League.") before this gate existed. Nothing refused it; it was simply nonsense.
-        if (relation != view.PeaceCode && relation != view.Ruleset.Diplomacy.StateCodes.Trade)
+        if (AiOwnDiplomacyRule.IsBusy(view.State, view.Ruleset, view.NationId))
         {
             return;
         }
 
-        // ProposeAllianceCommandHandler's remaining gate for an AI target: neither side at war with
-        // anyone at all, not merely with each other.
-        if (other.Control == SeatControl.Ai
-            && (RelationTransitions.IsAtWarWithAnyone(view.State, view.Ruleset, view.NationId)
-                || RelationTransitions.IsAtWarWithAnyone(view.State, view.Ruleset, other.Id)))
+        var partner = AiOwnDiplomacyRule.FindAlliancePartner(view.State, view.Ruleset, view.World, view.NationId);
+        if (partner is null)
         {
             return;
         }
 
-        var shared = SharedEnemyCount(view, other.Id);
-        var score = (AiWeights.ProposeAllianceBaseScore + (shared * AiWeights.SharedEnemyBonus))
-                    * personality.LoyaltyToAlliancesPermille
-                    / AiWeights.PermilleScale;
-        if (score < AiWeights.MinimumActionScore)
+        var denominator = view.Ruleset.Diplomacy.AiOwnDiplomacy.AllianceRollDenominator;
+        var roll = new SplitMix64Rng(view.State.RandomSeed).ForStream(
+            Inv("ai.ownDiplomacy.allianceRoll:{0}:{1}", view.NationId, view.State.Calendar.TurnIndex));
+        if (!roll.NextChance(1, denominator))
         {
             return;
         }
 
         into.Add(AiCandidate.Single(
             AiPhase.Diplomacy,
-            "propose-alliance",
-            new ProposeAllianceCommand(view.NationId, other.Id),
-            score,
+            "ai-form-alliance",
+            new AiFormAllianceCommand(view.NationId, partner),
+            OwnAllianceScore,
             Inv(
-                "propose alliance to {0}: {1} shared enemies, loyalty {2} permille",
-                other.Id, shared, personality.LoyaltyToAlliancesPermille)));
-    }
-
-    private static void ProposeTrade(
-        AiView view, AiPersonalityProfile personality, NationState other, int relation, List<AiCandidate> into)
-    {
-        // ProposeTradeCommandHandler accepts exactly one relation value: peace. Below it is a cooldown,
-        // at trade it is already trading, above it is alliance or war.
-        if (relation != view.PeaceCode)
-        {
-            return;
-        }
-
-        var score = AiWeights.ProposeTradeBaseScore
-                    * personality.LoyaltyToAlliancesPermille
-                    / AiWeights.PermilleScale;
-        if (score < AiWeights.MinimumActionScore)
-        {
-            return;
-        }
-
-        into.Add(AiCandidate.Single(
-            AiPhase.Diplomacy,
-            "propose-trade",
-            new ProposeTradeCommand(view.NationId, other.Id),
-            score,
-            Inv(
-                "propose trade to {0}: relation {1} is peace, loyalty {2} permille",
-                other.Id, relation, personality.LoyaltyToAlliancesPermille)));
+                "ally with {0}: FUN_0044FB7C's own alliance search picked it (an AI already at war with a "
+                + "shared, unprotected neighbour), and the Random({1}) roll hit",
+                partner, denominator)));
     }
 
     /// <summary>
-    /// How many nations both the acting nation and <paramref name="otherId"/> are at war with —
-    /// <c>docs/game-design.md</c> §AI's "nations with a shared enemy", counted over
-    /// <see cref="GameState.Nations"/> in its own stable order.
+    /// T82 (#359, bug #357): the direct trade half of <c>FUN_0044FB7C</c>
+    /// <strong>[confirmed: decompiled-ai-offers-to-human-seats.md §1a]</strong> -- no chance roll, every
+    /// currently eligible AI partner is offered as its own candidate (<see cref="AiOwnDiplomacyRule.EligibleTradePartners"/>),
+    /// so the greedy loop can accept more than one over successive actions this turn, each time re-
+    /// checking both sides' caps against the current state.
     /// </summary>
-    private static int SharedEnemyCount(AiView view, string otherId)
+    private static void ProposeOwnTrade(AiView view, List<AiCandidate> into)
     {
-        var count = 0;
-        foreach (var third in view.State.Nations)
+        foreach (var partnerId in AiOwnDiplomacyRule.EligibleTradePartners(view.State, view.Ruleset, view.NationId))
         {
-            if (third.Eliminated
-                || string.Equals(third.Id, view.NationId, StringComparison.Ordinal)
-                || string.Equals(third.Id, otherId, StringComparison.Ordinal))
-            {
-                continue;
-            }
+            into.Add(AiCandidate.Single(
+                AiPhase.Diplomacy,
+                "ai-form-trade",
+                new AiFormTradeCommand(view.NationId, partnerId),
+                OwnTradeScore,
+                Inv(
+                    "trade with {0}: at peace, both sides under {1} partners",
+                    partnerId, view.Ruleset.Diplomacy.MaxTradePartners)));
+        }
+    }
 
-            if (view.IsAtWar(view.NationId, third.Id) && view.IsAtWar(otherId, third.Id))
-            {
-                count++;
-            }
+    /// <summary>
+    /// T82 (#359, bug #357): the closing "swap a poorer partner for a richer one" loop of
+    /// <c>FUN_0044FB7C</c> <strong>[confirmed: decompiled-ai-offers-to-human-seats.md §1a]</strong>.
+    /// </summary>
+    private static void ProposeOwnTradeSwap(AiView view, List<AiCandidate> into)
+    {
+        if (AiOwnDiplomacyRule.FindTradeSwap(view.State, view.Ruleset, view.NationId) is not { } swap)
+        {
+            return;
         }
 
-        return count;
+        into.Add(AiCandidate.Single(
+            AiPhase.Diplomacy,
+            "ai-swap-trade-partner",
+            new AiSwapTradePartnerCommand(view.NationId, swap.PoorerPartner, swap.RicherCandidate),
+            OwnTradeSwapScore,
+            Inv(
+                "swap trade partner {0} for richer {1}",
+                swap.PoorerPartner, swap.RicherCandidate)));
     }
+
+    /// <summary>
+    /// Comfortably above every ordinary military, economy and trade candidate — see
+    /// <see cref="ProposeOwnAlliance"/>'s own remarks for why that dominance matters here too, standing
+    /// in for a turn-stable roll this phase cannot otherwise get.
+    /// </summary>
+    private const long OwnAllianceScore = 9_000_000;
+
+    /// <summary>On <see cref="AiWeights"/>'s own scale, just above the old human-facing propose-trade score.</summary>
+    private const long OwnTradeScore = 520;
+
+    /// <summary>Slightly below <see cref="OwnTradeScore"/>: a swap is a smaller net gain than a fresh partner.</summary>
+    private const long OwnTradeSwapScore = 480;
 }

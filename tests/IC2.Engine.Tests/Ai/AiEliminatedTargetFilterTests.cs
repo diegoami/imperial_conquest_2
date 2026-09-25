@@ -31,6 +31,15 @@ public sealed class AiEliminatedTargetFilterTests
         new(Aggression: 0.9, ExpansionDrive: 0.5, LoyaltyToAlliances: 0.5);
 
     /// <summary>
+    /// T82 (#359, bug #357): attacking no longer declares war -- an attack now requires the two already
+    /// being at war (<c>decompiled-ai-offers-to-human-seats.md</c> §4/§5), so this filter test's own
+    /// contact state needs that set up directly rather than relying on adjacency alone to reach the
+    /// candidate.
+    /// </summary>
+    private static GameState AtWar(GameState state) =>
+        BattleCommandTestbed.AtWar(state, Acting, Other);
+
+    /// <summary>
     /// The control: with <see cref="Other"/> not eliminated, the same contact state the eliminated variant
     /// below starts from really does propose an attack-army candidate against it — so the next test's
     /// silence is the filter, not an accident of the fixture.
@@ -38,7 +47,7 @@ public sealed class AiEliminatedTargetFilterTests
     [Fact]
     public void A_live_neighbours_army_is_a_valid_attack_target()
     {
-        var candidates = Military(AiScriptedStates.TwoArmiesInContact(AggressivePersonality));
+        var candidates = Military(AtWar(AiScriptedStates.TwoArmiesInContact(AggressivePersonality)));
 
         Assert.Contains(candidates, c => c.Kind == "attack-army" && c.SubjectId == "attacker-army");
     }
@@ -47,7 +56,7 @@ public sealed class AiEliminatedTargetFilterTests
     [Fact]
     public void An_eliminated_neighbours_army_is_never_proposed_as_an_attack_target()
     {
-        var live = AiScriptedStates.TwoArmiesInContact(AggressivePersonality);
+        var live = AtWar(AiScriptedStates.TwoArmiesInContact(AggressivePersonality));
         var eliminated = live with
         {
             Nations = ValueList.From(live.Nations.Select(n =>

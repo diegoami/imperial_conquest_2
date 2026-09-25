@@ -226,7 +226,17 @@ public static class NeighbourGeography
             }
         }
 
-        var coreComponentIds = new HashSet<int>(coreComponentByNation.Values);
+        // A component id is "core" iff it is the best one recorded for the nation that owns it --
+        // checked by lookup, not by enumerating coreComponentByNation.Values (whose order the engine's
+        // own determinism guard forbids relying on).
+        var isCoreComponent = new bool[componentOwner.Count];
+        for (var id = 0; id < componentOwner.Count; id++)
+        {
+            if (coreComponentByNation[componentOwner[id]] == id)
+            {
+                isCoreComponent[id] = true;
+            }
+        }
 
         // 3. Border-edge tally between different nations' core components only.
         var borderTiles = new Dictionary<(string A, string B), int>();
@@ -236,7 +246,7 @@ public static class NeighbourGeography
             {
                 var cell = (y * width) + x;
                 var componentHere = componentId[cell];
-                if (!coreComponentIds.Contains(componentHere))
+                if (!isCoreComponent[componentHere])
                 {
                     continue;
                 }
@@ -254,7 +264,7 @@ public static class NeighbourGeography
 
                     var neighbourCell = (ny * width) + nx;
                     var componentThere = componentId[neighbourCell];
-                    if (!coreComponentIds.Contains(componentThere))
+                    if (!isCoreComponent[componentThere])
                     {
                         return;
                     }
@@ -273,16 +283,24 @@ public static class NeighbourGeography
             }
         }
 
-        // 4. The threshold, and the symmetric result map.
-        foreach (var ((a, b), tiles) in borderTiles)
+        // 4. The threshold, and the symmetric result map -- walked over World.Nations' own stable order
+        // (never borderTiles directly: the engine's own determinism guard forbids relying on a
+        // Dictionary's enumeration order).
+        for (var i = 0; i < world.Nations.Count; i++)
         {
-            if (tiles < MinimumBorderTiles)
+            for (var j = i + 1; j < world.Nations.Count; j++)
             {
-                continue;
-            }
+                var a = world.Nations[i].Id;
+                var b = world.Nations[j].Id;
+                var key = string.CompareOrdinal(a, b) <= 0 ? (a, b) : (b, a);
+                if (!borderTiles.TryGetValue(key, out var tiles) || tiles < MinimumBorderTiles)
+                {
+                    continue;
+                }
 
-            AddNeighbour(result, a, b);
-            AddNeighbour(result, b, a);
+                AddNeighbour(result, a, b);
+                AddNeighbour(result, b, a);
+            }
         }
 
         return result;

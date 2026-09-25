@@ -44,11 +44,16 @@ namespace IC2.Engine.Ai;
 /// attacks.
 /// </para>
 /// <para>
-/// <strong>Attacking is two commands, and they are weighed as one.</strong> See
-/// <see cref="AiCandidate"/>. The gate is run against the state the declaration
-/// <em>will</em> produce — <see cref="RelationTransitions.DeclareWar"/>, the very function the
-/// declaration's handler calls, so the projection is the outcome and not a guess about it — and
-/// <see cref="AiTurn"/> re-checks the real state after the declaration lands before it sends the attack.
+/// <strong>T82 (#359, bug #357): attacking no longer declares war.</strong> Every attack and siege below
+/// targets only a nation this AI is <em>already</em> at war with —
+/// <c>decompiled-ai-offers-to-human-seats.md</c> §4/§5 <strong>[confirmed]</strong>: "AI armies and
+/// fleets never attack a nation they are not at war with... there is no implicit declaration by attack".
+/// War itself is a separate decision, <see cref="ProposeOwnWarDeclaration"/>, reproducing
+/// <c>FUN_0044FB7C</c>'s own war-target search (§1a) — busy, not protected, a
+/// <see cref="Diplomacy.NeighbourGeography"/> neighbour, the best power ratio, gated by a
+/// <c>Random(10)</c> roll. This replaces the earlier declare-then-attack pairing entirely: it used to
+/// declare war on <em>any</em> adjacent foreign city or army, allies included, which is exactly what bug
+/// #357 found wrong (T65's #256 fixture: the AI declaring war on its own new ally the next turn).
 /// </para>
 /// </remarks>
 public static class AiMilitaryPhase
@@ -85,6 +90,8 @@ public static class AiMilitaryPhase
         var requiredRatio = AiView.RequiredAttackRatioPermille(personality.AggressionPermille);
         var progress = view.VictoryProgressPermille();
 
+        ProposeOwnWarDeclaration(view, rng, into);
+
         foreach (var army in view.OwnArmies())
         {
             if (army.IsEmbarked || army.Moves <= 0)
@@ -117,6 +124,69 @@ public static class AiMilitaryPhase
             }
         }
     }
+
+    /// <summary>
+    /// T82 (#359, bug #357): the AI's own war-target search — <c>FUN_0044FB7C</c>'s war half
+    /// <strong>[confirmed: decompiled-ai-offers-to-human-seats.md §1a]</strong>. The busy gate, the
+    /// "protected" test, the neighbour test and the power-ratio comparison are all
+    /// <see cref="Diplomacy.AiOwnDiplomacyRule.BestWarTarget"/>'s own, deterministic given the current
+    /// state; this method's only job is the <c>Random(10) == 0</c> roll and proposing the one command it
+    /// gates.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Given the very highest score of any candidate this AI can offer, deliberately.</strong>
+    /// The original's own routine runs this decision <em>before</em> its military phase, once, as one
+    /// atomic step; this engine's greedy "propose everything, score it, take the best, look again" loop
+    /// (<see cref="AiTurn"/>) has no equivalent single atomic pass to put it in. A war declaration
+    /// therefore has to outscore every attack, siege, march, recruitment and trade candidate this AI
+    /// could otherwise offer the same turn, so that — whenever the roll says to declare — it is chosen
+    /// on the very first action it is offered, before any other candidate involving the same target
+    /// (most importantly, a trade candidate for that same nation:
+    /// <see cref="Diplomacy.AiOwnDiplomacyRule"/>'s own remarks explain why the original's own loop order
+    /// never trades with a nation and then declares war on it the same turn, which this score ordering
+    /// preserves).
+    /// </para>
+    /// <para>
+    /// <strong>The roll is drawn once per seat-turn, not once per proposal.</strong> This method is
+    /// called again after every action this seat takes (<see cref="Propose"/> is re-run each time), so a
+    /// naive draw here would ask the dice again and again while the target remains eligible. <c>rng</c>
+    /// is the one <see cref="IRng"/> instance <see cref="AiTurn.Run"/> constructs for this seat's whole
+    /// turn and threads through every one of this phase's proposal passes unchanged, so
+    /// <see cref="IRng.ForStream"/> on it, keyed by the seat and the current turn, "returns two
+    /// generators that produce the same sequence" (that method's own words) no matter how many times
+    /// this runs before the roll is acted on or the target stops being eligible.
+    /// </para>
+    /// </remarks>
+    private static void ProposeOwnWarDeclaration(AiView view, IRng rng, List<AiCandidate> into)
+    {
+        var target = AiOwnDiplomacyRule.BestWarTarget(view.State, view.Ruleset, view.World, view.NationId);
+        if (target is null)
+        {
+            return;
+        }
+
+        var denominator = view.Ruleset.Diplomacy.AiOwnDiplomacy.WarDeclareRollDenominator;
+        var roll = rng.ForStream(Inv("ai.ownDiplomacy.warRoll:{0}:{1}", view.NationId, view.State.Calendar.TurnIndex));
+        if (!roll.NextChance(1, denominator))
+        {
+            return;
+        }
+
+        into.Add(AiCandidate.Single(
+            AiPhase.Military,
+            "declare-war",
+            new DeclareWarCommand(view.NationId, target),
+            OwnWarDeclarationScore,
+            Inv("declare war on {0}: FUN_0044FB7C's own war-target search picked it, and the Random({1}) roll hit", target, denominator)));
+    }
+
+    /// <summary>
+    /// Comfortably above every other score this AI can produce (<see cref="AiWeights.BesiegeCityBaseScore"/>,
+    /// its highest, is 6000 before any ratio bonus) — see <see cref="ProposeOwnWarDeclaration"/>'s own
+    /// remarks for why that dominance is load-bearing, not just a preference.
+    /// </summary>
+    private const long OwnWarDeclarationScore = 10_000_000;
 
     /// <summary>
     /// Sails a fleet at the nearest enemy fleet. The naval half of "<em>reinforce, hold, or attack</em>":
@@ -233,6 +303,15 @@ public static class AiMilitaryPhase
                 continue;
             }
 
+            // T82 (#359, bug #357): "AI armies and fleets never attack a nation they are not at war
+            // with... there is no implicit declaration by attack" (decompiled-ai-offers-to-human-seats.md
+            // §4/§5 [confirmed]). War itself is ProposeOwnWarDeclaration's own decision now; sieging no
+            // longer declares it.
+            if (!view.IsAtWar(view.NationId, city.Owner))
+            {
+                continue;
+            }
+
             if (!AttackLegality.AreAdjacent(army.X, army.Y, city.X, city.Y))
             {
                 continue;
@@ -243,10 +322,8 @@ public static class AiMilitaryPhase
                 continue;
             }
 
-            var declare = new DeclareWarCommand(view.NationId, city.Owner);
             var besiege = new BesiegeCityCommand(view.NationId, army.Id, city.Id);
-            var projected = RelationTransitions.DeclareWar(view.State, view.Ruleset, view.NationId, city.Owner);
-            if (!AttackLegality.IsLegal(projected, view.Ruleset, besiege))
+            if (!AttackLegality.IsLegal(view.State, view.Ruleset, besiege))
             {
                 siegeGates?.RecordLegalityRejection();
                 continue;
@@ -272,10 +349,9 @@ public static class AiMilitaryPhase
             var score = AiView.WithVictoryAwareness(
                 AiWeights.BesiegeCityBaseScore + AiView.RatioScoreContribution(ratio), progress);
 
-            into.Add(AiCandidate.Pair(
+            into.Add(AiCandidate.Single(
                 AiPhase.Military,
                 "besiege",
-                declare,
                 besiege,
                 score,
                 Inv(
@@ -310,15 +386,20 @@ public static class AiMilitaryPhase
                 continue;
             }
 
+            // T82 (#359, bug #357): attack only a nation already at war -- see ProposeSieges' own
+            // remark; the same report citation applies to every attack command in this file.
+            if (!view.IsAtWar(view.NationId, target.Nation))
+            {
+                continue;
+            }
+
             if (!AttackLegality.AreAdjacent(army.X, army.Y, target.X, target.Y))
             {
                 continue;
             }
 
-            var declare = new DeclareWarCommand(view.NationId, target.Nation);
             var attack = new AttackArmyCommand(view.NationId, army.Id, target.Id);
-            var projected = RelationTransitions.DeclareWar(view.State, view.Ruleset, view.NationId, target.Nation);
-            if (!AttackLegality.IsLegal(projected, view.Ruleset, attack))
+            if (!AttackLegality.IsLegal(view.State, view.Ruleset, attack))
             {
                 continue;
             }
@@ -330,10 +411,9 @@ public static class AiMilitaryPhase
                 continue;
             }
 
-            into.Add(AiCandidate.Pair(
+            into.Add(AiCandidate.Single(
                 AiPhase.Military,
                 "attack-army",
-                declare,
                 attack,
                 AiWeights.AttackArmyBaseScore + AiView.RatioScoreContribution(ratio),
                 Inv(
@@ -367,15 +447,19 @@ public static class AiMilitaryPhase
                 continue;
             }
 
+            // T82 (#359, bug #357): attack only a nation already at war -- see ProposeSieges' own remark.
+            if (!view.IsAtWar(view.NationId, target.Nation))
+            {
+                continue;
+            }
+
             if (!AttackLegality.AreAdjacent(fleet.X, fleet.Y, target.X, target.Y))
             {
                 continue;
             }
 
-            var declare = new DeclareWarCommand(view.NationId, target.Nation);
             var attack = new AttackFleetCommand(view.NationId, fleet.Id, target.Id);
-            var projected = RelationTransitions.DeclareWar(view.State, view.Ruleset, view.NationId, target.Nation);
-            if (!AttackLegality.IsLegal(projected, view.Ruleset, attack))
+            if (!AttackLegality.IsLegal(view.State, view.Ruleset, attack))
             {
                 continue;
             }
@@ -396,10 +480,9 @@ public static class AiMilitaryPhase
                 continue;
             }
 
-            into.Add(AiCandidate.Pair(
+            into.Add(AiCandidate.Single(
                 AiPhase.Military,
                 "attack-fleet",
-                declare,
                 attack,
                 AiWeights.AttackFleetBaseScore + AiView.RatioScoreContribution(ratio),
                 Inv(
