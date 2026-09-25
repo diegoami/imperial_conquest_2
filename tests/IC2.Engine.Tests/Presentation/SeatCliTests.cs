@@ -218,6 +218,28 @@ public sealed class SeatCliTests
         Assert.Equal("Carthage (carthage) ends its turn.", second.Lines[1]);
     }
 
+    /// <summary>
+    /// Review round 2, B4 (blocking): <c>_pendingNewsBaseline</c> (round 1's own N4 fix, "news written
+    /// during the prelude must appear in the first <c>end</c>'s summary") had no test that fails when it
+    /// is deleted. Thracia is <c>classical-mediterranean</c>'s own last turn-order seat, so its
+    /// construction-time prelude plays all 15 other seats before Thracia's own first turn — including
+    /// Seleucid, which forms an alliance with Thracia during that prelude, on this fixed seed. Without the
+    /// baseline fix, that line would only ever surface through the standalone <c>news</c> command, never
+    /// through any <c>end</c>'s own footer (confirmed against the real CLI, matching the review's own
+    /// probe exactly).
+    /// </summary>
+    [Fact]
+    public void The_first_rounds_footer_includes_news_the_construction_time_prelude_itself_produced()
+    {
+        var session = NewClassicalSeatSession("thracia");
+
+        var output = session.Submit("end");
+
+        Assert.Contains(
+            output.Lines,
+            l => l.Contains("Seleucid forms an alliance with Thracia.", StringComparison.Ordinal));
+    }
+
     // ---- Done-when 3: all-AI without --seat is watch mode ----
 
     /// <summary>A local copy of every seat flipped to AI, mirroring <c>GameSessionCommandsTests.AllSeatsHuman</c>'s own pattern in the opposite direction.</summary>
