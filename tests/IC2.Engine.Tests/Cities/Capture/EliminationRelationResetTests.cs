@@ -247,4 +247,67 @@ public sealed class EliminationRelationResetTests
         Assert.Equal(codes.Peace, result.Relations.Get(Doomed, AtPeaceAlready));
         Assert.Equal(codes.Peace, result.Relations.Get(Doomed, OnACooldown));
     }
+
+    /// <summary>
+    /// Rework round 2: T84 (bug #366) merged and edits the very same two <see cref="CityCaptureResolver"/>
+    /// call sites this task does, to delete an eliminated nation's armies and launched fleets and hand its
+    /// under-construction fleets to the receiver (<see cref="EliminationForces.Dispose"/>). Both must hold
+    /// together in the one state a real elimination produces: the relation reset (this task's own) and the
+    /// force disposal (T84's own).
+    /// </summary>
+    [Fact]
+    public void Capture_OfTheLastCity_ResetsRelations_AndDisposesForces_Together()
+    {
+        const string Doomed = "doomed-combined";
+        const string Conqueror = "conqueror-combined";
+        const string TradePartner = "trade-partner-combined";
+
+        var doomed = CaptureTestbed.Nation(Doomed, unity: 668, capitalCityId: "capital-combined");
+        var conqueror = CaptureTestbed.Nation(Conqueror);
+        var tradePartner = CaptureTestbed.Nation(TradePartner);
+
+        var city = CaptureTestbed.City(
+            "capital-combined", "Capital", 0, 0, Doomed, Doomed,
+            loyalty: 40, fortificationCode: 0, populationThousands: 10, maxPopulationThousands: 20, tribute: 5);
+
+        var attacker = CaptureTestbed.Army(
+            "army", Conqueror, 0, 0, morale: 50, CaptureTestbed.Unit("heavy_infantry", 400_000));
+        var doomedArmy = CaptureTestbed.Army(
+            "doomed-army", Doomed, 5, 5, morale: 40, CaptureTestbed.Unit("light_infantry", 400));
+        var doomedFleet = EliminationForcesTestbed.Fleet("doomed-fleet", Doomed, 3, 3);
+        var doomedConstructionFleet = EliminationForcesTestbed.Fleet("doomed-construction-fleet", Doomed, 0, 0) with
+        {
+            ConstructionTicksRemaining = Ruleset.Naval.ConstructionTicks,
+            BuildCityId = "capital-combined",
+        };
+
+        // EliminationForcesTestbed.StateWith, not CaptureTestbed.StateWith/WithRelationMatrix: it already
+        // rebuilds a relation matrix (and a turn order) sized to the given nations, which this fixture
+        // needs anyway.
+        var state = EliminationForcesTestbed.StateWith(
+            new[] { doomed, conqueror, tradePartner },
+            new[] { city },
+            new[] { attacker, doomedArmy },
+            new[] { doomedFleet, doomedConstructionFleet });
+
+        var codes = Ruleset.Diplomacy.StateCodes;
+        state = state with { Relations = state.Relations.WithRelation(Doomed, TradePartner, codes.Trade) };
+
+        var result = CityCaptureResolver.Capture(
+            state, "army", "capital-combined", Ruleset, CaptureTestbed.ArcherUnitTypeId, CaptureTestbed.FortifyOrderId,
+            new RecordingEventSink());
+
+        Assert.True(result.NationById(Doomed)!.Eliminated);
+
+        // The relation reset (this task's own, RelationTransitions.ResetAllOnElimination).
+        Assert.Equal(Ruleset.Diplomacy.CooldownAfterBrokenTrade, result.Relations.Get(Doomed, TradePartner));
+
+        // The force disposal (T84's own, EliminationForces.Dispose) -- in the very same result.
+        Assert.Null(result.ArmyById("doomed-army"));
+        Assert.Null(result.FleetById("doomed-fleet"));
+        var transferredFleet = result.FleetById("doomed-construction-fleet");
+        Assert.NotNull(transferredFleet);
+        Assert.Equal(Conqueror, transferredFleet!.Nation);
+        Assert.True(transferredFleet.IsUnderConstruction);
+    }
 }
