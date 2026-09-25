@@ -68,6 +68,18 @@ internal static class DatLayout
     // (32 bytes, immediately after the 11-byte name), consistent with the running sum above.
     internal const int NationRelationOffset = 0x00B; // 11 decimal == NationNameOffset + NationNameLength
 
+    // ---- The nation's 16-bit neighbour mask (T85, correction for #385, folds in #392) ----
+    // "The DAT loader FUN_004481A0 reads the 11-byte name, then 32 bytes into runtime +0x26
+    // [the relation row], then 2 bytes into runtime +0x46 [the neighbour mask]... On disk that is
+    // 11 + 32 = 43." -- 43 decimal == 0x2B, immediately after the 32-byte relation row that starts
+    // at DAT +0x0B (NationRelationOffset, above) and ends at 0x0B + 0x20 = 0x2B, so this is also
+    // the running sum's own next field, exactly as NationRelationOffset itself was derived. Bit j
+    // of nation i's word means "i borders j"; symmetric, no self bit, in the 101-save corpus and the
+    // DAT alike. See
+    // https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/dat-neighbour-mask.md
+    // §1, "The loader reads it: FUN_004481A0".
+    internal const int NationNeighbourOffset = 0x02B; // 43 decimal == NationRelationOffset + 32
+
     // ---- The news log's DAT seed: the file's last 2,440 bytes (T73, bug #321) ----
     // "The DAT loader reads the last 2,440 bytes of the DAT (0x21C1A) straight into all 40 slots
     // (news_log_decomp.txt line 230: Read(&DAT_0049f994, 0x988))... FUN_00448AA4 then sets
