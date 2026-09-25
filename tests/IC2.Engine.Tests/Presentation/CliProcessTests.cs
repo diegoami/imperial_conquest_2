@@ -110,6 +110,36 @@ public sealed class CliProcessTests
     }
 
     /// <summary>
+    /// <c>docs/tasks/T83.md</c> Done-when 1: "an unknown nation id is rejected with the list of ids" --
+    /// same in-process reasoning as the scenario/ruleset tests above: <c>--seat</c>'s own validation runs
+    /// in <c>Program.cs</c>, before a <see cref="GameSession"/> exists (that constructor would instead
+    /// throw <see cref="ArgumentException"/>, proven directly by
+    /// <see cref="SeatCliTests.Seat_naming_an_unknown_nation_throws_instead_of_silently_doing_nothing"/>),
+    /// so only spawning the real executable proves the CLI's own message.
+    /// </summary>
+    [Fact]
+    public void An_unknown_seat_nation_id_names_it_and_lists_whats_available_instead_of_a_stack_trace()
+    {
+        var cliDll = FindCliDll();
+        if (cliDll is null)
+        {
+            return;
+        }
+
+        using var process = StartCli(cliDll, "--seat atlantis");
+        var stdout = process.StandardOutput.ReadToEnd();
+        var stderr = process.StandardError.ReadToEnd();
+        process.WaitForExit();
+
+        Assert.NotEqual(0, process.ExitCode);
+        Assert.Contains("Unknown nation 'atlantis'", stderr, StringComparison.Ordinal);
+        Assert.Contains("Available nations:", stderr, StringComparison.Ordinal);
+        Assert.Contains("north", stderr, StringComparison.Ordinal);
+        Assert.DoesNotContain("Unhandled exception", stderr, StringComparison.Ordinal);
+        Assert.Empty(stdout);
+    }
+
+    /// <summary>
     /// "the CLI states which world/ruleset pair it loaded at startup" — and it does so on standard
     /// <em>error</em>, specifically so that <c>tests/fixtures/cli/demo.golden.txt</c> (standard output
     /// only) is untouched by it. Runs the real default (no-flag) invocation end to end against a trivial

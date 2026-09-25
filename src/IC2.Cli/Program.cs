@@ -7,10 +7,10 @@ namespace IC2.Cli;
 
 /// <summary>
 /// A thin console wrapper around <see cref="GameSession"/> — <c>docs/task-catalogue.md</c> "T41 Thin CLI
-/// demo on the toy world (a walking skeleton)". Holds no game rule and no parsing beyond its own four
-/// arguments (<c>--script</c>, <c>--seed</c>, <c>--scenario</c>, <c>--ruleset</c>): every command line it
-/// reads is handed to <see cref="GameSession.Submit"/> verbatim, and every line it prints to standard
-/// output is exactly what that call returned.
+/// demo on the toy world (a walking skeleton)". Holds no game rule and no parsing beyond its own five
+/// arguments (<c>--script</c>, <c>--seed</c>, <c>--scenario</c>, <c>--ruleset</c>, <c>--seat</c>): every
+/// command line it reads is handed to <see cref="GameSession.Submit"/> verbatim, and every line it prints
+/// to standard output is exactly what that call returned.
 /// </summary>
 /// <remarks>
 /// <strong>DoD 5 (added to <c>docs/task-catalogue.md</c> T23 after PR #248's round-1 review).</strong>
@@ -42,6 +42,13 @@ namespace IC2.Cli;
 /// (<c>city.Name[0]</c> is nowhere near unique at that scale). That is a viewport problem for a future
 /// task, not a defect this one introduces or should paper over with ad hoc paging.
 /// </remarks>
+/// <remarks>
+/// <strong><c>--seat &lt;nation&gt;</c> (<c>docs/tasks/T83.md</c>, bug #361).</strong> Makes that nation
+/// human for the session (<see cref="GameSession"/>'s own constructor parameter carries the actual
+/// override, since it also has to reach <see cref="IC2.Engine.Model.GameStateFactory.CreateInitial"/>'s
+/// state, not just this class's bookkeeping) and rejects an unknown id with the list of ids, the same
+/// shape <c>--scenario</c>/<c>--ruleset</c> already use above.
+/// </remarks>
 internal static class Program
 {
     /// <summary>The scenario loaded when <c>--scenario</c> is not given — unchanged from before DoD 5.</summary>
@@ -58,6 +65,7 @@ internal static class Program
         ulong? seed = null;
         var scenarioId = DefaultScenarioId;
         string? rulesetOverrideId = null;
+        string? seatNationId = null;
 
         for (var i = 0; i < args.Length; i++)
         {
@@ -105,6 +113,16 @@ internal static class Program
                     rulesetOverrideId = args[++i];
                     break;
 
+                case "--seat":
+                    if (i + 1 >= args.Length)
+                    {
+                        Console.Error.WriteLine("--seat requires a nation id.");
+                        return 1;
+                    }
+
+                    seatNationId = args[++i];
+                    break;
+
                 default:
                     Console.Error.WriteLine($"Unknown argument: {args[i]}");
                     return 1;
@@ -144,10 +162,22 @@ internal static class Program
                 resolved = resolved with { Ruleset = overrideRuleset };
             }
 
+            // docs/tasks/T83.md Done-when 1: "an unknown nation id is rejected with the list of ids" --
+            // the same shape as --scenario/--ruleset above, checked against the resolved World (every
+            // nation the world defines has exactly one seat -- GameStateFactory.CreateInitial's own
+            // invariant -- so the world's own nation ids are the complete, authoritative list).
+            if (seatNationId is not null && resolved.World.NationById(seatNationId) is null)
+            {
+                var available = string.Join(
+                    ", ", resolved.World.Nations.Select(n => n.Id).OrderBy(id => id, StringComparer.Ordinal));
+                Console.Error.WriteLine($"Unknown nation '{seatNationId}'. Available nations: {available}.");
+                return 1;
+            }
+
             Console.Error.WriteLine(
                 $"Loaded scenario '{resolved.Scenario.Id}': world '{resolved.World.Id}', ruleset '{resolved.Ruleset.Id}'.");
 
-            session = new GameSession(resolved.World, resolved.Ruleset, resolved.Scenario, seed);
+            session = new GameSession(resolved.World, resolved.Ruleset, resolved.Scenario, seed, seatNationId);
         }
         catch (GameDataException ex)
         {

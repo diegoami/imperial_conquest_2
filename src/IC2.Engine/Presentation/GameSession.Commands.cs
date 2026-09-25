@@ -55,8 +55,23 @@ public sealed partial class GameSession
     /// Dispatches <paramref name="command"/> and renders a generic outcome line — see this class's
     /// remarks for why every command added by this task shares one renderer.
     /// </summary>
+    /// <remarks>
+    /// <strong>The single choke point every mutating command here funnels through</strong> is exactly why
+    /// <c>docs/tasks/T83.md</c>'s watch-mode/seat-lost gate (<see cref="IsWatchModeActive"/>) lives here
+    /// rather than as a verb allowlist in <see cref="Submit"/> — review round 1, N5: gating a fixed list of
+    /// verb strings could not tell an unrecognised verb (a typo) from a real, refused command, so a typo
+    /// like <c>stauts</c> was reported as a watch-mode rejection instead of "Unknown command". Gating here
+    /// instead means an unrecognised verb never reaches this method at all, and still falls through to
+    /// <see cref="Submit"/>'s own <c>default</c> case. <see cref="HandleMove"/> and <see cref="HandleBuy"/>
+    /// gate themselves the same way, being the only two mutating commands that do not call this method.
+    /// </remarks>
     private IReadOnlyList<string> IssueCommand(ICommand command)
     {
+        if (IsWatchModeActive)
+        {
+            return new[] { WatchModeRejectionLine(command.Kind) };
+        }
+
         var result = _dispatcher.Dispatch(State, command);
         if (result.IsRejected)
         {
@@ -80,9 +95,22 @@ public sealed partial class GameSession
     /// the target cannot be resolved (the attack command's own gates report that instead), or when the
     /// target is the issuing nation itself.
     /// </summary>
+    /// <remarks>
+    /// <strong>Review round 1, B2 (a regression this fixes): the watch-mode/seat-lost gate has to run
+    /// before this method ever dispatches anything</strong>, not only before the attack/siege command that
+    /// follows it. This method's own <see cref="_dispatcher"/> call is a second, separate dispatch outside
+    /// <see cref="IssueCommand"/>'s choke point — <see cref="HandleAttackArmy"/> and
+    /// <see cref="HandleBesiegeCity"/> both call this <em>before</em> their own <see cref="IssueCommand"/>
+    /// call, so gating only the attack/siege command itself left a live path for a watch-mode or seat-lost
+    /// session to still declare war "for free" ahead of a refused attack (proof, round 1's re-review: the
+    /// real CLI in watch mode accepted <c>diplomacy.declare-war</c> from <c>besiege-city</c> even though
+    /// the siege itself was correctly refused). Gating here, first, closes it at the source rather than
+    /// requiring every future caller of this method to remember to gate ahead of it.
+    /// </remarks>
     private void ComposeDeclareWarIfNeeded(string? targetNationId, List<string> lines)
     {
-        if (targetNationId is null
+        if (IsWatchModeActive
+            || targetNationId is null
             || string.Equals(targetNationId, State.ActiveNationId, StringComparison.Ordinal)
             || IsAtWar(State.ActiveNationId, targetNationId))
         {

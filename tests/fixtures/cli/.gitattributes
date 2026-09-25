@@ -5,3 +5,7 @@
 # this task's Owns list (tests/fixtures/cli/**) — no other task's files are affected.
 demo.txt text eol=lf
 demo.golden.txt text eol=lf
+
+# T83 Done-when 5: the same byte-stability requirement, for the new --seat golden.
+seat-rome.txt text eol=lf
+seat-rome.golden.txt text eol=lf

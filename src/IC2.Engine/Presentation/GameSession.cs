@@ -43,6 +43,62 @@ public sealed partial class GameSession
     private readonly TurnCoordinator _coordinator;
     private readonly CommandDispatcher _dispatcher;
 
+    /// <summary>
+    /// The nation the CLI's own <c>--seat</c> flag names, or <see langword="null"/> when it was not
+    /// given — <c>docs/tasks/T83.md</c> Done-when 1. Set once, in the constructor, and never mutated:
+    /// this is <em>which seat the CLI itself plays</em>, distinct from <see cref="Model.NationState.Control"/>
+    /// (which the engine also reads, for T82's AI-vs-human diplomacy checks and everything else that
+    /// predates this task). Both are kept in step below: the seat named here is also marked
+    /// <see cref="Model.SeatControl.Human"/> in the state the engine reads, so nothing downstream needs to
+    /// know the CLI exists.
+    /// </summary>
+    private readonly string? _humanSeatNationId;
+
+    /// <summary>
+    /// Whether this session has no seat to command at all — no <c>--seat</c> flag, and the scenario's own
+    /// seats are every one <see cref="Model.SeatControl.Ai"/> — <c>docs/tasks/T83.md</c> Done-when 3
+    /// ("watch mode"). Computed once, from the scenario's own seat assignments as loaded, not from
+    /// <see cref="Model.GameState.Nations"/>'s live <c>Control</c> (which a system such as
+    /// <c>HumanDepositionSystem</c> can flip mid-game): the CLI's own mode is a property of how the
+    /// session was started, not of anything a turn can later change.
+    /// </summary>
+    private readonly bool _isWatchMode;
+
+    /// <summary>
+    /// Whether the CLI's own <c>--seat</c> nation has fallen — eliminated, or deposed and handed to the
+    /// AI — since the session started: <c>docs/tasks/T83.md</c> Done-when 7, the user's decision on PR
+    /// #375's review (its N2/N3). Starts <see langword="false"/>, is set (never cleared — neither
+    /// elimination nor deposition reverses) by <see cref="AnnounceAndAdoptWatchModeIfSeatIsLost"/>, and
+    /// from then on every <see cref="HandleEnd"/> and every mutating command behaves exactly as watch mode
+    /// always has (<see cref="IsWatchModeActive"/> is what every such check actually reads).
+    /// </summary>
+    private bool _seatLost;
+
+    /// <summary>
+    /// Lines produced by fast-forwarding past AI seats that come before <see cref="_humanSeatNationId"/>
+    /// in the very first round — <c>docs/tasks/T83.md</c> Done-when 1 ("The CLI pauses on that seat every
+    /// round"): the session has to reach the named seat before it can accept the first command, and this
+    /// is what that fast-forward produced. Flushed onto the very first <see cref="Submit"/> call, so it
+    /// reads exactly like any later round's AI summary lines rather than vanishing silently — see this
+    /// class's PR for why a silent construction-time advance was rejected. <see langword="null"/> once
+    /// consumed, and always <see langword="null"/> when <see cref="_humanSeatNationId"/> is itself
+    /// <see langword="null"/> or already the starting active seat.
+    /// </summary>
+    private List<string>? _pendingPrelude;
+
+    /// <summary>
+    /// The news log's slots exactly as they stood before the construction-time prelude ran — review round
+    /// 1, N4: "news written during the prelude must appear in the first <c>end</c>'s summary." Without
+    /// this, <see cref="HandleEndSeated"/>'s own <c>newsBefore</c> snapshot would be taken only once the
+    /// prelude has already run, so any news the prelude's own AI turns produced (e.g. an alliance formed
+    /// against the player's own nation before their first turn) would never appear in any <c>end</c>'s
+    /// "News:" section — it would only ever surface through the standalone <c>news</c> command. Consumed
+    /// (set back to <see langword="null"/>) by the first <see cref="HandleEndSeated"/> call, the same way
+    /// <see cref="_pendingPrelude"/> is consumed by the first <see cref="Submit"/> call. Always
+    /// <see langword="null"/> when <see cref="_humanSeatNationId"/> is itself <see langword="null"/>.
+    /// </summary>
+    private IReadOnlyList<NewsEntry>? _pendingNewsBaseline;
+
     /// <summary>Builds a session over a resolved world/ruleset/scenario, optionally overriding the seed.</summary>
     /// <param name="world">The loaded world.</param>
     /// <param name="ruleset">The loaded ruleset — the source of every number this session prints.</param>
@@ -51,11 +107,48 @@ public sealed partial class GameSession
     /// When given, replaces <see cref="Scenario.RandomSeed"/> in the starting state — the CLI's
     /// <c>--seed</c> option. <see langword="null"/> keeps the scenario's own seed.
     /// </param>
-    public GameSession(World world, Ruleset ruleset, Scenario scenario, ulong? seedOverride = null)
+    /// <param name="humanSeatNationId">
+    /// The CLI's <c>--seat</c> option (<c>docs/tasks/T83.md</c> Done-when 1): the nation id this session
+    /// plays interactively. Marked <see cref="Model.SeatControl.Human"/> in the starting state, and —
+    /// review round 1, N8, the user's decision of 2026-09-25 on PR #375's review, replacing round 1's own
+    /// "additively" choice — every <em>other</em> seat is marked <see cref="Model.SeatControl.Ai"/>, even
+    /// one the scenario itself seats human (such as <c>toy-3city</c>'s <c>north</c>): <c>--seat</c> makes
+    /// its nation the CLI's <em>only</em> human seat, never a second one alongside whatever the scenario
+    /// already assigned. <see langword="null"/> keeps every seat exactly as the scenario assigns it.
+    /// </param>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="humanSeatNationId"/> names a nation <paramref name="scenario"/> assigns no seat to.
+    /// </exception>
+    public GameSession(
+        World world, Ruleset ruleset, Scenario scenario, ulong? seedOverride = null,
+        string? humanSeatNationId = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(ruleset);
         ArgumentNullException.ThrowIfNull(scenario);
+
+        if (humanSeatNationId is not null && scenario.SeatFor(humanSeatNationId) is null)
+        {
+            throw new ArgumentException(
+                $"Scenario '{scenario.Id}' assigns no seat to nation '{humanSeatNationId}'.",
+                nameof(humanSeatNationId));
+        }
+
+        _humanSeatNationId = humanSeatNationId;
+        _isWatchMode = humanSeatNationId is null && !scenario.Seats.Any(s => s.Control == SeatControl.Human);
+
+        if (humanSeatNationId is not null)
+        {
+            scenario = scenario with
+            {
+                Seats = ValueList.From(scenario.Seats.Select(seat => seat with
+                {
+                    Control = string.Equals(seat.Nation, humanSeatNationId, StringComparison.Ordinal)
+                        ? SeatControl.Human
+                        : SeatControl.Ai,
+                })),
+            };
+        }
 
         World = world;
         Ruleset = ruleset;
@@ -67,6 +160,37 @@ public sealed partial class GameSession
 
         var initial = GameStateFactory.CreateInitial(world, ruleset, scenario);
         State = seedOverride.HasValue ? initial with { RandomSeed = seedOverride.Value } : initial;
+
+        if (_humanSeatNationId is not null)
+        {
+            _pendingNewsBaseline = State.NewsLog.Slots;
+            _pendingPrelude = AdvanceToHumanSeat();
+        }
+    }
+
+    /// <summary>
+    /// Plays every AI seat that comes before <see cref="_humanSeatNationId"/> in the starting turn
+    /// order, so the session is already paused on it before the first command is accepted — the same
+    /// per-seat "takes its turn" line <see cref="HandleEnd"/> prints later in the same round, produced
+    /// here because this round's first seats go before any line has been submitted to render them
+    /// against. <see cref="_humanSeatNationId"/> itself is never played here (Done-when 2: "Carthage is
+    /// never played by the AI").
+    /// </summary>
+    private List<string>? AdvanceToHumanSeat()
+    {
+        if (PausesHere())
+        {
+            return null;
+        }
+
+        // Shares PlayUntilOneFullLapOrRepeat with HandleEndSeated's own AI loop and HandleEndWatchMode --
+        // the same "stop the instant a seat would repeat" rule this task's review asked for is exactly as
+        // correct here as it is mid-game, even though a freshly created scenario can never actually start
+        // with an eliminated or deposed seat, so AnnounceAndAdoptWatchModeIfSeatIsLost is not expected to
+        // fire from inside this call in practice.
+        var lines = new List<string>();
+        PlayUntilOneFullLapOrRepeat(lines, new HashSet<string>(StringComparer.Ordinal), PausesHere);
+        return lines.Count > 0 ? lines : null;
     }
 
     /// <summary>The world this session is playing on.</summary>
@@ -89,7 +213,16 @@ public sealed partial class GameSession
     {
         ArgumentNullException.ThrowIfNull(rawLine);
 
-        var lines = new List<string> { "> " + rawLine };
+        var lines = new List<string>();
+        if (_pendingPrelude is { Count: > 0 } prelude)
+        {
+            lines.AddRange(prelude);
+            lines.Add(string.Empty);
+        }
+
+        _pendingPrelude = null;
+
+        lines.Add("> " + rawLine);
         var trimmed = rawLine.Trim();
         var shouldExit = false;
 
@@ -102,10 +235,23 @@ public sealed partial class GameSession
         var tokens = trimmed.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         var verb = tokens[0].ToLowerInvariant();
 
+        // Done-when 3 (watch mode) and Done-when 7 (the seat has fallen) both mean "no seat to command":
+        // review round 1, N5. Gating a fixed verb list here could not tell a real mutating command from a
+        // typo, so an unrecognised verb like "stauts" was rejected as "watch mode" instead of "Unknown
+        // command". The gate now lives where every mutating command actually funnels through instead --
+        // IssueCommand (src/IC2.Engine/Presentation/GameSession.Commands.cs) for every verb below except
+        // move and buy, which gate themselves the same way -- so an unrecognised verb still falls straight
+        // through to this switch's own "default" case, in watch mode or not.
         switch (verb)
         {
             case "status":
-                lines.AddRange(RenderStatus());
+                lines.AddRange(RenderStatusCommand(tokens));
+                break;
+            case "armies":
+                lines.AddRange(RenderArmiesCommand(tokens));
+                break;
+            case "cities":
+                lines.AddRange(RenderCitiesCommand(tokens));
                 break;
             case "map":
                 lines.AddRange(RenderMap());
@@ -218,6 +364,11 @@ public sealed partial class GameSession
 
     private IReadOnlyList<string> HandleMove(string[] tokens)
     {
+        if (IsWatchModeActive)
+        {
+            return new[] { WatchModeRejectionLine("Move") };
+        }
+
         if (tokens.Length != 4
             || !int.TryParse(tokens[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var x)
             || !int.TryParse(tokens[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var y))
@@ -320,6 +471,11 @@ public sealed partial class GameSession
 
     private IReadOnlyList<string> HandleBuy(string[] tokens)
     {
+        if (IsWatchModeActive)
+        {
+            return new[] { WatchModeRejectionLine("Purchase") };
+        }
+
         if (tokens.Length != 4
             || !int.TryParse(tokens[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var tons))
         {
@@ -349,7 +505,143 @@ public sealed partial class GameSession
         };
     }
 
-    private IReadOnlyList<string> HandleEnd()
+    /// <summary>
+    /// Whether the session has no seat left to pause on: watch mode from the start (Done-when 3), or a
+    /// <c>--seat</c> session whose nation has since fallen (Done-when 7). Every mutating command's own
+    /// gate reads this — <see cref="IssueCommand"/>, <see cref="HandleMove"/> and <see cref="HandleBuy"/>
+    /// — rather than a verb allowlist in <see cref="Submit"/>, so an unrecognised verb still reaches the
+    /// switch's own "Unknown command" case instead of being misreported as a watch-mode rejection (review
+    /// round 1, N5).
+    /// </summary>
+    private bool IsWatchModeActive => _isWatchMode || _seatLost;
+
+    /// <summary>
+    /// The message every gated mutating command returns instead of dispatching, naming <c>--seat</c> as
+    /// Done-when 3 requires. Review round 1, N11: one style throughout, and it is the same label each
+    /// caller's own <em>real</em> rejection already uses — <see cref="IssueCommand"/> passes
+    /// <see cref="ICommand.Kind"/> (its own "<c>{Kind} rejected (code): message</c>" convention), and
+    /// <see cref="HandleMove"/>/<see cref="HandleBuy"/> pass <c>"Move"</c>/<c>"Purchase"</c> (their own
+    /// "<c>Move rejected (code): message</c>"/"<c>Purchase rejected (code): message</c>" convention) —
+    /// never a bare lowercase verb that convention does not otherwise use.
+    /// </summary>
+    private static string WatchModeRejectionLine(string label) =>
+        $"{label} rejected: no seat to command (watch mode, or the --seat nation has fallen). "
+        + "Pass --seat <nation> to play one.";
+
+    private IReadOnlyList<string> HandleEnd() => IsWatchModeActive ? HandleEndWatchMode() : HandleEndSeated();
+
+    /// <summary>
+    /// Plays <see cref="_coordinator"/>'s currently active seat, over and over, until the seat about to
+    /// play next has <em>already</em> played this call — the general form of "one full lap of the turn
+    /// order" that both <see cref="HandleEndWatchMode"/> and <see cref="HandleEndSeated"/>'s own AI loop
+    /// build on. Tracking who has already played (rather than either "count up to
+    /// <see cref="GameState.TurnOrder"/>'s length" or "wait to return to the seat this call started on")
+    /// is what review round 1's N2 asked for: a nation eliminated <em>mid</em>-round is skipped by
+    /// <c>SeatRotationSystem</c> from then on, so "return to the starting seat" can never fire again once
+    /// that starting seat is the one eliminated — the old code's only remaining bound (a raw seat count)
+    /// was one too high for <see cref="HandleEndSeated"/> specifically, because it did not account for the
+    /// seat's own turn already having been played once, outside the loop, before the count started (bug
+    /// #361's reappearance, N2's own probe: Seleucid played twice). Stopping the instant the next seat
+    /// would be a repeat is correct regardless of how many nations are eliminated, when, or which one
+    /// the round started on — see this class's own remarks in the PR for a worked trace.
+    /// </summary>
+    /// <param name="lines">Lines are appended here, one per seat played, in <see cref="AppendPerSeatLine"/>'s wording.</param>
+    /// <param name="playedThisRound">Seeded with whichever seat(s) already played before this call — the round's own starting seat for <see cref="HandleEndWatchMode"/>, or that plus the CLI's own ended seat for <see cref="HandleEndSeated"/>.</param>
+    /// <param name="stopEarly">
+    /// Checked after every seat played, in addition to the "already played" rule — <see cref="PausesHere"/>
+    /// for the seated path, or <see langword="null"/> for pure watch mode (which has no seat to pause on,
+    /// only a lap to complete).
+    /// </param>
+    private void PlayUntilOneFullLapOrRepeat(List<string> lines, HashSet<string> playedThisRound, Func<bool>? stopEarly)
+    {
+        while ((stopEarly is null || !stopEarly())
+               && !playedThisRound.Contains(State.ActiveNationId)
+               && playedThisRound.Count < State.TurnOrder.Count)
+        {
+            var seat = State.ActiveNationId;
+            playedThisRound.Add(seat);
+            var result = _coordinator.RunTurn(State);
+            State = result.State;
+            AppendPerSeatLine(lines, seat, result.Events);
+
+            if (AnnounceAndAdoptWatchModeIfSeatIsLost(lines))
+            {
+                return;
+            }
+        }
+    }
+
+    private void AppendPerSeatLine(List<string> lines, string seatId, IEnumerable<DomainEvent> events)
+    {
+        var ordersIssued = events.OfType<Ai.AiTurnDecided>().Sum(e => e.CommandsIssued);
+        // Every seat played this way is AI-controlled: watch mode's whole lap is (by definition of
+        // _isWatchMode), and HandleEndSeated's own loop only ever reaches a seat PausesHere() has not
+        // already stopped it on -- which, since round 1's N8, means every OTHER seat, human-in-the-
+        // scenario or not (--seat now hands every seat but its own to the AI).
+        lines.Add(
+            $"{NationDisplay(seatId)} takes its turn: "
+            + $"{ordersIssued} order{(ordersIssued == 1 ? string.Empty : "s")} issued.");
+        AppendWeatherLines(lines, events);
+    }
+
+    /// <summary>
+    /// Done-when 7, the user's decision on PR #375's review (N2/N3): checked after every seat played this
+    /// round, seated or watch mode alike. If the CLI's own <c>--seat</c> nation has just been found
+    /// eliminated or deposed (<see cref="SeatControl.Ai"/>), announces it once, adopts watch mode
+    /// permanently (<see cref="_seatLost"/> — neither elimination nor deposition reverses), and tells the
+    /// caller to stop playing further seats this call: there is nothing left to pause on, and the round
+    /// this call started (seated or not) has already correctly played every seat up to this point without
+    /// a repeat, which is all Done-when 7 asks for ("no seat played twice").
+    /// </summary>
+    private bool AnnounceAndAdoptWatchModeIfSeatIsLost(List<string> lines)
+    {
+        if (_seatLost || _humanSeatNationId is null)
+        {
+            return false;
+        }
+
+        var nation = State.NationById(_humanSeatNationId);
+        if (nation is null || (!nation.Eliminated && nation.Control != SeatControl.Ai))
+        {
+            return false;
+        }
+
+        _seatLost = true;
+        lines.Add(
+            nation.Eliminated
+                ? $"{NationDisplay(_humanSeatNationId)} has fallen. Watch mode from here on: "
+                  + "one round per end, no orders."
+                : $"{NationDisplay(_humanSeatNationId)} has been deposed and handed to the AI. "
+                  + "Watch mode from here on: one round per end, no orders.");
+        return true;
+    }
+
+    /// <summary>
+    /// Watch mode's <c>end</c> (<c>docs/tasks/T83.md</c> Done-when 3, and Done-when 7 once a <c>--seat</c>
+    /// session's own seat has fallen): plays exactly one full lap of <see cref="GameState.TurnOrder"/> from
+    /// whichever seat happens to be active, robust to any seat (including the one this lap started on)
+    /// being eliminated partway through — <see cref="PlayUntilOneFullLapOrRepeat"/>'s own remarks.
+    /// </summary>
+    private IReadOnlyList<string> HandleEndWatchMode()
+    {
+        var lines = new List<string>();
+        var newsBeforeSlots = State.NewsLog.Slots;
+
+        PlayUntilOneFullLapOrRepeat(lines, new HashSet<string>(StringComparer.Ordinal), stopEarly: null);
+
+        AppendRoundFooter(lines, newsBeforeSlots);
+        return lines;
+    }
+
+    /// <summary>
+    /// <c>end</c> when there is a seat to pause on: either the CLI's own <c>--seat</c> nation
+    /// (<c>docs/tasks/T83.md</c> Done-when 2 — <see cref="_humanSeatNationId"/> is never played by the
+    /// AI), or, unchanged from before this task, whichever seat the scenario itself marks
+    /// <see cref="SeatControl.Human"/> next (hotseat's "pass the device" case, exercised with no
+    /// <c>--seat</c> flag at all by <c>toy-3city</c>'s own <c>north</c> seat — this is exactly the pre-T83
+    /// loop, with its stopping condition named instead of re-derived).
+    /// </summary>
+    private IReadOnlyList<string> HandleEndSeated()
     {
         var lines = new List<string>();
 
@@ -361,8 +653,16 @@ public sealed partial class GameSession
         // elimination banner appends three entries for one event -- so that count and the log's own
         // growth disagree, and a round-ending turn could print the header while TakeLast under-counted
         // and silently dropped the real news line. Asking the log what it actually appended -- comparing
-        // NewsLog.Slots.Count before and after -- answers the only question that matters: how many
-        // entries to show, whatever produced them.
+        // its slots before and after -- answers the only question that matters: how many entries to show,
+        // whatever produced them.
+        //
+        // Review round 1, N4: NewsLog.Slots.Count alone stops answering that question correctly once the
+        // 40-slot ring buffer is full (bug #376) -- CountNewsAppendedSince compares the slots themselves,
+        // by reference, not their count. And the baseline is not always "this call's own starting slots":
+        // the very first HandleEndSeated call after construction uses _pendingNewsBaseline instead, taken
+        // before the construction-time prelude ran, so news the prelude itself produced (an alliance
+        // formed against the player before their first turn) is not silently dropped from the very first
+        // end's own summary.
         //
         // DoD 3 (#98 follow-up), moved here from PR #248's body per review round 1 (build-process.md T50
         // hazard: "a PR body does not survive the merge"): the catalogue's Done-when line asks for
@@ -376,27 +676,45 @@ public sealed partial class GameSession
         // reaching it needs an AI seat to besiege-and-capture a city within its own turn AND have that
         // capture eliminate the loser (NewsMessageCatalog.IsWrappedInDashLines only wraps an elimination,
         // not every conquest).
-        var newsBefore = State.NewsLog.Slots.Count;
+        var newsBeforeSlots = _pendingNewsBaseline ?? State.NewsLog.Slots;
+        _pendingNewsBaseline = null;
+
         var result = _coordinator.RunTurn(State);
         State = result.State;
         lines.Add($"{NationDisplay(endingSeat)} ends its turn.");
         AppendWeatherLines(lines, result.Events);
 
-        var guard = 0;
-        while (ActiveControl() == SeatControl.Ai && guard < State.TurnOrder.Count)
+        if (!AnnounceAndAdoptWatchModeIfSeatIsLost(lines))
         {
-            var aiSeat = State.ActiveNationId;
-            var aiResult = _coordinator.RunTurn(State);
-            State = aiResult.State;
-            var aiOrders = aiResult.Events.OfType<Ai.AiTurnDecided>().Sum(e => e.CommandsIssued);
-            lines.Add(
-                $"{NationDisplay(aiSeat)} takes its turn: "
-                + $"{aiOrders} order{(aiOrders == 1 ? string.Empty : "s")} issued.");
-            AppendWeatherLines(lines, aiResult.Events);
-            guard++;
+            var playedThisRound = new HashSet<string>(StringComparer.Ordinal) { endingSeat };
+            PlayUntilOneFullLapOrRepeat(lines, playedThisRound, PausesHere);
         }
 
-        var newsAdded = State.NewsLog.Slots.Count - newsBefore;
+        AppendRoundFooter(lines, newsBeforeSlots);
+        return lines;
+    }
+
+    /// <summary>
+    /// Whether the currently active seat is where <see cref="HandleEndSeated"/>'s AI loop should stop —
+    /// the CLI's own <c>--seat</c> nation when one was given, otherwise (unchanged from before this task)
+    /// whichever seat the scenario itself marks <see cref="SeatControl.Human"/>. Never called in watch
+    /// mode, which has no seat to pause on at all (<see cref="HandleEndWatchMode"/> uses a different
+    /// stopping rule: one full lap of the turn order).
+    /// </summary>
+    private bool PausesHere() =>
+        _humanSeatNationId is not null
+            ? string.Equals(State.ActiveNationId, _humanSeatNationId, StringComparison.Ordinal)
+            : ActiveControl() == SeatControl.Human;
+
+    /// <summary>
+    /// The "Now: Week..." line and the round's news, shared verbatim between <see cref="HandleEndSeated"/>
+    /// and <see cref="HandleEndWatchMode"/> — see <see cref="HandleEndSeated"/>'s own remarks (bug #98 and
+    /// bug #376) for why <paramref name="newsBeforeSlots"/> is a snapshot of the log's own slots, not a
+    /// count of anything.
+    /// </summary>
+    private void AppendRoundFooter(List<string> lines, IReadOnlyList<NewsEntry> newsBeforeSlots)
+    {
+        var newsAdded = CountNewsAppendedSince(newsBeforeSlots, State.NewsLog.Slots);
 
         var cal = State.Calendar;
         lines.Add(
@@ -411,8 +729,43 @@ public sealed partial class GameSession
                 lines.Add("  " + entry.Text);
             }
         }
+    }
 
-        return lines;
+    /// <summary>
+    /// How many of <paramref name="after"/>'s entries were appended since <paramref name="before"/> was
+    /// captured — bug #376, found in PR #375's review (N4): <c>NewsLog.Slots.Count</c> alone cannot answer
+    /// this once the ruleset's 40-slot ring buffer (<see cref="Model.NewsLogRules.RingBufferSlots"/>) is
+    /// full, because eviction keeps the count pinned at capacity even as new entries keep landing, so a
+    /// plain subtraction silently reads zero. A surviving (not yet evicted) entry is the exact same
+    /// <see cref="NewsEntry"/> <em>object</em> <see cref="Model.NewsLog.Append"/> carries forward by
+    /// reference (its own <c>Slots.ToList()</c> never re-constructs an entry, only the log's outer list) --
+    /// so walking <paramref name="after"/> from its newest slot backward and stopping at the first entry
+    /// <paramref name="before"/> already held, compared <em>by reference</em> rather than by
+    /// <see cref="NewsEntry"/>'s own value equality (duplicate text — the same weather effect two weeks
+    /// running — is not a duplicate <em>entry</em>), finds exactly the new ones <em>among what
+    /// <paramref name="after"/> still holds</em> — with no dependency on the buffer having had room left
+    /// at the start of this call.
+    /// </summary>
+    /// <remarks>
+    /// <strong>Review round 2, N9: this is not "how many entries this round wrote", full stop.</strong> If
+    /// a single round appends more than <see cref="Model.NewsLogRules.RingBufferSlots"/> entries, the
+    /// oldest of that round's own appends are evicted before this method is ever called — faithful to the
+    /// original's own ring buffer, which this task was never asked to widen — so the count returned here
+    /// is capped at the ring's own capacity, the same cap <c>news</c> itself is subject to. Bug #376 was
+    /// specifically that the old count-subtraction silently returned <em>zero</em> whenever the buffer
+    /// started full, not that it under-reported inside a single oversized round; this method fixes exactly
+    /// that.
+    /// </remarks>
+    private static int CountNewsAppendedSince(IReadOnlyList<NewsEntry> before, IReadOnlyList<NewsEntry> after)
+    {
+        var beforeByReference = new HashSet<NewsEntry>(before, ReferenceEqualityComparer.Instance);
+        var newCount = 0;
+        for (var i = after.Count - 1; i >= 0 && !beforeByReference.Contains(after[i]); i--)
+        {
+            newCount++;
+        }
+
+        return newCount;
     }
 
     private static void AppendWeatherLines(List<string> lines, IEnumerable<DomainEvent> events)
@@ -424,4 +777,12 @@ public sealed partial class GameSession
     }
 
     private SeatControl ActiveControl() => State.NationById(State.ActiveNationId)!.Control;
+
+    /// <summary>
+    /// The nation the compact views (<c>docs/tasks/T83.md</c> Done-when 4) default to when no explicit
+    /// <c>[nation]</c> argument is given: the CLI's own <c>--seat</c> nation when one was given, otherwise
+    /// whichever seat currently has the turn — the same seat a bare <c>status</c>/<c>end</c> already acts
+    /// on, so "mine" means the same thing everywhere in one session.
+    /// </summary>
+    private string DefaultViewNationId => _humanSeatNationId ?? State.ActiveNationId;
 }
