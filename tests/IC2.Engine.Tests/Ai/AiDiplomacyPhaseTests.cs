@@ -68,7 +68,7 @@ public sealed class AiDiplomacyPhaseTests
         var candidates = new List<AiCandidate>();
 
         AiDiplomacyPhase.Propose(
-            view, AiPersonalityProfile.For(state.NationById(Acting)!), candidates);
+            view, AiPersonalityProfile.For(state.NationById(Acting)!), SplitMix64Rng.ForStream(1, "ai.turn"), candidates);
 
         var kinds = new List<string>();
         foreach (var candidate in candidates)
@@ -156,11 +156,14 @@ public sealed class AiDiplomacyPhaseTests
     {
         var world = AllianceWorld();
         var denominator = AiScriptedStates.Ruleset.Diplomacy.AiOwnDiplomacy.AllianceRollDenominator;
+        var state = AllianceState(partnerControl: SeatControl.Ai);
 
         for (var seed = 0UL; seed < 500; seed++)
         {
-            var state = AllianceState(partnerControl: SeatControl.Ai) with { RandomSeed = seed };
-            var candidates = Propose(state, world);
+            // T82 Owns amendment (PR #378): the roll now comes from the seat-turn's own IRng, the same
+            // stream AiMilitaryPhase's war roll uses -- not from state.RandomSeed -- so this searches
+            // over the rng's own seed instead.
+            var candidates = Propose(state, world, SplitMix64Rng.ForStream(seed, "ai.turn"));
             var found = candidates.FirstOrDefault(c => c.Kind == "ai-form-alliance");
             if (found is null)
             {
@@ -176,13 +179,61 @@ public sealed class AiDiplomacyPhaseTests
         Assert.Fail($"No seed under 500 produced an alliance candidate (Random({denominator}) roll).");
     }
 
-    private static List<AiCandidate> Propose(GameState state, World world)
+    /// <summary>
+    /// T82 Owns amendment (PR #378), Done-when 3's new line: "Random(20) draws from the seat-turn's
+    /// IRng, the same stream as Random(10), so a re-evaluated pass sees the same draw." Simulates the
+    /// greedy loop re-running <c>Propose</c> more than once in the same turn against the very same
+    /// <see cref="IRng"/> instance (never a fresh one): whether the roll hit or missed the first time,
+    /// the second (and third) call must agree exactly. Fails if <c>ProposeOwnAlliance</c> is changed
+    /// back to seed a second generator from <see cref="Model.GameState.RandomSeed"/> instead of calling
+    /// <see cref="IRng.ForStream"/> on the passed-in <paramref name="rng"/> — a fresh
+    /// <see cref="SplitMix64Rng"/> per call would not reliably agree with itself the way this test
+    /// requires, since nothing ties it to a stable per-turn value across repeated calls.
+    /// </summary>
+    [Fact]
+    public void ARepeatedProposalPass_SeesTheSameAllianceRollEachTime()
+    {
+        var world = AllianceWorld();
+        var state = AllianceState(partnerControl: SeatControl.Ai);
+
+        // Finds a seed where the roll hits first (the same search
+        // An_alliance_candidate_appears_and_names_the_right_partner_when_the_roll_hits already proves is
+        // reachable), so the assertions below test something real rather than "false equals false".
+        IRng? hittingRng = null;
+        for (var seed = 0UL; seed < 2000; seed++)
+        {
+            var candidateRng = SplitMix64Rng.ForStream(seed, "ai.turn");
+            if (Propose(state, world, candidateRng).Any(c => c.Kind == "ai-form-alliance"))
+            {
+                hittingRng = candidateRng;
+                break;
+            }
+        }
+
+        Assert.NotNull(hittingRng);
+
+        // Simulates an intervening command landing between proposal passes this same turn --
+        // CommandDispatcher's own documented behaviour (it advances GameState.RandomSeed after every
+        // accepted command) -- with the *same* rng instance, but a *different* RandomSeed. The roll must
+        // still agree: it is keyed off rng (stable for the whole seat-turn), never off the state's own
+        // moving RandomSeed. Proved by mutation: seeding a fresh SplitMix64Rng from view.State.RandomSeed
+        // instead of calling rng.ForStream flips this from a hit to a miss once RandomSeed is varied.
+        var second = Propose(state with { RandomSeed = state.RandomSeed + 1 }, world, hittingRng)
+            .Any(c => c.Kind == "ai-form-alliance");
+        var third = Propose(state with { RandomSeed = state.RandomSeed + 12345 }, world, hittingRng)
+            .Any(c => c.Kind == "ai-form-alliance");
+
+        Assert.True(second, "a re-evaluated pass with a drifted RandomSeed must still see the hit");
+        Assert.True(third, "a re-evaluated pass with a drifted RandomSeed must still see the hit");
+    }
+
+    private static List<AiCandidate> Propose(GameState state, World world, IRng? rng = null)
     {
         var view = new AiView(state, AiScriptedStates.Ruleset, world, Acting);
         var candidates = new List<AiCandidate>();
 
         AiDiplomacyPhase.Propose(
-            view, AiPersonalityProfile.For(state.NationById(Acting)!), candidates);
+            view, AiPersonalityProfile.For(state.NationById(Acting)!), rng ?? SplitMix64Rng.ForStream(1, "ai.turn"), candidates);
 
         return candidates;
     }

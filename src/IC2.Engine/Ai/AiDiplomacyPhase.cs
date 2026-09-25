@@ -59,12 +59,19 @@ public static class AiDiplomacyPhase
     /// <summary>Adds every diplomacy candidate this state offers to <paramref name="into"/>.</summary>
     /// <param name="view">The shared reads.</param>
     /// <param name="personality">The acting nation's personality.</param>
+    /// <param name="rng">
+    /// T82 Owns amendment (PR #378): the seat-turn's own <see cref="IRng"/>, the same instance
+    /// <see cref="AiTurn.Run"/> passes into <see cref="AiMilitaryPhase.Propose"/> — see
+    /// <see cref="ProposeOwnAlliance"/>'s own remarks for why sharing it (rather than seeding a second
+    /// generator) is what makes the alliance roll turn-stable.
+    /// </param>
     /// <param name="into">The collecting list.</param>
     /// <exception cref="ArgumentNullException">Any argument is null.</exception>
-    public static void Propose(AiView view, AiPersonalityProfile personality, List<AiCandidate> into)
+    public static void Propose(AiView view, AiPersonalityProfile personality, IRng rng, List<AiCandidate> into)
     {
         ArgumentNullException.ThrowIfNull(view);
         ArgumentNullException.ThrowIfNull(personality);
+        ArgumentNullException.ThrowIfNull(rng);
         ArgumentNullException.ThrowIfNull(into);
 
         var ownPower = view.TotalArmyPower(view.NationId);
@@ -85,7 +92,7 @@ public static class AiDiplomacyPhase
             ProposePeace(view, other, relation, ownPower, into);
         }
 
-        ProposeOwnAlliance(view, into);
+        ProposeOwnAlliance(view, rng, into);
         ProposeOwnTrade(view, into);
         ProposeOwnTradeSwap(view, into);
     }
@@ -123,26 +130,23 @@ public static class AiDiplomacyPhase
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <strong>The roll's stream, and why it is not perfectly one draw per turn.</strong>
-    /// <see cref="AiMilitaryPhase.ProposeOwnWarDeclaration"/> gets a properly turn-stable
-    /// <see cref="IRng"/> because <see cref="AiTurn.Run"/> passes one into
-    /// <see cref="AiMilitaryPhase.Propose"/> explicitly. This phase's own <c>Propose</c> signature is
-    /// unchanged from before this task (<see cref="AiTurn"/> calls it with no <see cref="IRng"/> at all,
-    /// and <see cref="AiTurn"/> and <see cref="AiView"/> are both outside this task's Owns list, so that
-    /// call site cannot be changed to add one). The best available substitute is a fresh
-    /// <see cref="SplitMix64Rng"/> seeded from <see cref="Model.GameState.RandomSeed"/>'s <em>current</em>
-    /// value, keyed by the seat and the turn the same way the war roll is. That value is stable within
-    /// one proposal pass but can move earlier in the same turn if this seat's own prior action dispatched
-    /// an accepted command (<see cref="Core.Commands.CommandDispatcher"/> advances it after every one) —
-    /// so, unlike the war roll, a re-evaluated pass before this candidate is chosen can occasionally see a
-    /// different draw. The <see cref="OwnAllianceScore"/> below still keeps that window small: this
-    /// candidate outscores every ordinary military, economy and trade candidate, so whenever it is
-    /// offered it is very nearly always chosen on the very first action it appears in, exactly as
-    /// <see cref="AiMilitaryPhase.ProposeOwnWarDeclaration"/>'s own score dominance does — just without
-    /// that method's stronger, provable guarantee. Documented rather than hidden; see the PR body.
+    /// <strong>T82 Owns amendment (PR #378): the roll's stream is the seat-turn's own, exactly like the
+    /// war roll's.</strong> Originally this method had no <see cref="IRng"/> to draw from — <see cref="AiTurn"/>
+    /// called this phase's <c>Propose</c> with none, and <see cref="AiTurn"/>/<see cref="AiView"/> were
+    /// outside this task's Owns list, so the call site could not be changed to add one. The Owns list has
+    /// since been widened to exactly that one change (only passing the seat-turn's stream through), which
+    /// is what <paramref name="rng"/> now is: the identical <see cref="IRng"/> instance
+    /// <see cref="AiTurn.Run"/> already passes into <see cref="AiMilitaryPhase.Propose"/> for the war
+    /// roll, threaded one call further. <see cref="IRng.ForStream"/> derives an independent, deterministic
+    /// sequence from <paramref name="rng"/>'s own <see cref="IRng.Seed"/> and the name given it — never
+    /// from how many draws anything has made — so keying this roll by the seat and the turn on this same
+    /// instance makes it exactly as turn-stable as <see cref="AiMilitaryPhase.ProposeOwnWarDeclaration"/>'s
+    /// own: a re-evaluated proposal pass later in the same turn sees the identical draw, not a fresh one.
+    /// No second generator is ever seeded from <see cref="Model.GameState.RandomSeed"/> — that was the
+    /// earlier, weaker substitute this amendment removes.
     /// </para>
     /// </remarks>
-    private static void ProposeOwnAlliance(AiView view, List<AiCandidate> into)
+    private static void ProposeOwnAlliance(AiView view, IRng rng, List<AiCandidate> into)
     {
         if (AiOwnDiplomacyRule.IsBusy(view.State, view.Ruleset, view.NationId))
         {
@@ -156,7 +160,7 @@ public static class AiDiplomacyPhase
         }
 
         var denominator = view.Ruleset.Diplomacy.AiOwnDiplomacy.AllianceRollDenominator;
-        var roll = new SplitMix64Rng(view.State.RandomSeed).ForStream(
+        var roll = rng.ForStream(
             Inv("ai.ownDiplomacy.allianceRoll:{0}:{1}", view.NationId, view.State.Calendar.TurnIndex));
         if (!roll.NextChance(1, denominator))
         {
