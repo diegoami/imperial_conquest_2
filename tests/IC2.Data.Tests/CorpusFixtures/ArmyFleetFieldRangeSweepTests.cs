@@ -174,18 +174,26 @@ public class ArmyFleetFieldRangeSweepTests
                 // exclude it exactly as IsLaunched does, rather than widen the range to cover it.
                 if (!f.IsLaunched)
                     Assert.InRange(f.ConstructionCountdown, (ushort)0, (ushort)200);
-                // Follow-up #340 N5: 0..200 was arbitrary; the observed corpus range (0..29) is not a
-                // bound either (the rule from T64: evidence, not the observed maximum). The upper bound
-                // instead comes from the confirmed formula this project's own naval code replays exactly
-                // against real save data (FleetAttritionRule.MovesForTurn, T14 Done-when 10):
+                // Follow-up #340 N5, corrected by review round 1 B4: 0..200 was arbitrary, and the
+                // observed corpus range (0..29) is not a bound either (the rule from T64: evidence, not
+                // the observed maximum) -- an earlier revision of this bound (34) rested on this same
+                // sweep's own *observed* ShipCount floor (5), which is exactly the method the rule
+                // forbids, and 34 also happens to equal the corpus's own observed Moves maximum, so
+                // nothing but the derivation separated it from a disguised "observed maximum" bound.
+                // The upper bound instead comes straight from the confirmed formula (T04 fixtures
+                // corpus id fleet.moves.baseFormula, supply-driven-morale-and-fleet-attrition.md):
                 // moves = 30 - (ships - 50) / 10, before further, moves-only-reducing terms (a carried
-                // army, zero supply, storm damage). At this same sweep's own evidence-based ShipCount
-                // floor (5, established just below), that is 30 - (5 - 50) / 10 = 30 - (-4) = 34 --
-                // C#'s truncating integer division on the negative numerator, exactly as the formula's
-                // implementation does it. No term in the formula can raise moves above the ships-only
-                // term, so 34 is the field's true ceiling; the floor is 0, the field's own ushort width
-                // (no decompiled signedness finding exists for this field, unlike ArmyRecord.Moves).
-                Assert.InRange(f.Moves, (ushort)0, (ushort)34);
+                // army, zero supply, storm damage -- fleet.moves.carriedArmyPenaltyFormula and the
+                // storm/zero-supply penalties, all of which only reduce this). Evaluated at its own
+                // theoretical floor, ships = 0 (no report or cap confirms a live fleet always holds at
+                // least one ship -- fleet.minShipsPerOrder = 10 is TBuildFleet_ChangeFleetSize's
+                // build-dialog clamp, not a standing invariant on a fleet that has since taken combat or
+                // storm losses): 30 - (0 - 50) / 10 = 30 - (-5) = 35 -- C#'s truncating integer division
+                // on the negative numerator, exactly as the formula's implementation does it. No term in
+                // the formula can raise moves above the ships-only term, so 35 is the field's true
+                // ceiling; the floor is 0, the field's own ushort width (no decompiled signedness
+                // finding exists for this field, unlike ArmyRecord.Moves).
+                Assert.InRange(f.Moves, (ushort)0, (ushort)35);
                 Assert.InRange(f.Supplies, (ushort)0, (ushort)2000);
                 Assert.InRange(f.Money, (ushort)0, (ushort)1000);
                 // T21 (folded follow-up #136, Done-when 7): 0..2000 against an actually-observed 5..100
