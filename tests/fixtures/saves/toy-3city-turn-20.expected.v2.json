@@ -1,0 +1,313 @@
+{
+  "saveFormatVersion": 2,
+  "turnIndex": 10,
+  "save": {
+    "schemaVersion": 1,
+    "id": "toy-3city-turn-20",
+    "label": "Toy 3-city, turn 20 (expected state, generated on origin/main before T82)",
+    "scenarioId": "toy-3city",
+    "worldId": "toy-3city",
+    "rulesetId": "toy-ruleset",
+    "state": {
+      "schemaVersion": 1,
+      "worldId": "toy-3city",
+      "rulesetId": "toy-ruleset",
+      "scenarioId": "toy-3city",
+      "calendar": {
+        "week": 9,
+        "seasonIndex": 1,
+        "yearBc": 270,
+        "turnIndex": 10
+      },
+      "turnOrder": [
+        "north",
+        "south"
+      ],
+      "activeSeatIndex": 0,
+      "randomSeed": 4597363874045260821,
+      "nations": [
+        {
+          "id": "north",
+          "name": "Northern League",
+          "colorHex": "#c62828",
+          "leaderName": "Toy Leader of the North",
+          "capitalCityId": "arx",
+          "control": "human",
+          "personality": null,
+          "treasury": 474,
+          "unity": 590,
+          "wealth": 954000,
+          "taxBase": 156,
+          "taxRatePercent": 15,
+          "mobilizedPercent": 17,
+          "population": 260,
+          "populationAtStart": 260,
+          "treasuryAtStart": 500,
+          "cityCountAtStart": 2,
+          "recruitmentSlots": [],
+          "eliminated": false
+        },
+        {
+          "id": "south",
+          "name": "Southern League",
+          "colorHex": "#1565c0",
+          "leaderName": "Toy Leader of the South",
+          "capitalCityId": "meridia",
+          "control": "ai",
+          "personality": {
+            "aggression": 0.8,
+            "expansionDrive": 0.5,
+            "loyaltyToAlliances": 0.25
+          },
+          "treasury": -295,
+          "unity": 541,
+          "wealth": 450000,
+          "taxBase": 72,
+          "taxRatePercent": 20,
+          "mobilizedPercent": 97,
+          "population": 180,
+          "populationAtStart": 180,
+          "treasuryAtStart": 450,
+          "cityCountAtStart": 1,
+          "recruitmentSlots": [
+            {
+              "targetCityId": "meridia",
+              "unitTypeId": "archers",
+              "troops": 3500,
+              "stateCode": 20
+            },
+            {
+              "targetCityId": "meridia",
+              "unitTypeId": "archers",
+              "troops": 3500,
+              "stateCode": 20
+            }
+          ],
+          "eliminated": false
+        }
+      ],
+      "cities": [
+        {
+          "id": "arx",
+          "name": "Arx",
+          "x": 2,
+          "y": 1,
+          "owner": "north",
+          "allegiance": "north",
+          "loyalty": 89,
+          "supplyTons": 2380,
+          "fortificationCode": 60,
+          "populationThousands": 238,
+          "maxPopulationThousands": 300,
+          "tribute": 40,
+          "underSiege": false,
+          "garrison": [
+            {
+              "mercenaryLabel": 0,
+              "unitTypeId": "heavy_infantry",
+              "troops": 6000,
+              "quality": 6,
+              "name": "1st Guards Battalion"
+            }
+          ]
+        },
+        {
+          "id": "portus",
+          "name": "Portus",
+          "x": 5,
+          "y": 2,
+          "owner": "north",
+          "allegiance": "north",
+          "loyalty": 70,
+          "supplyTons": 800,
+          "fortificationCode": 43,
+          "populationThousands": 80,
+          "maxPopulationThousands": 150,
+          "tribute": 15,
+          "underSiege": false,
+          "garrison": [
+            {
+              "mercenaryLabel": 0,
+              "unitTypeId": "archers",
+              "troops": 3500,
+              "quality": 5,
+              "name": "1st Bowmen Battalion"
+            }
+          ]
+        },
+        {
+          "id": "meridia",
+          "name": "Meridia",
+          "x": 3,
+          "y": 4,
+          "owner": "south",
+          "allegiance": "south",
+          "loyalty": 65,
+          "supplyTons": 1500,
+          "fortificationCode": 100,
+          "populationThousands": 150,
+          "maxPopulationThousands": 200,
+          "tribute": 25,
+          "underSiege": false,
+          "garrison": [
+            {
+              "mercenaryLabel": 0,
+              "unitTypeId": "light_infantry",
+              "troops": 15000,
+              "quality": 6,
+              "name": "1st Foot Battalion"
+            }
+          ]
+        }
+      ],
+      "armies": [
+        {
+          "id": "south-army-1",
+          "nation": "south",
+          "x": 4,
+          "y": 2,
+          "moves": 10,
+          "morale": 69,
+          "money": 795,
+          "supplyTons": 41,
+          "coveredTileCode": 2,
+          "aboardFleetId": null,
+          "units": [
+            {
+              "mercenaryLabel": 0,
+              "unitTypeId": "heavy_infantry",
+              "troops": 4350,
+              "quality": 6,
+              "name": "1st Guards Battalion"
+            }
+          ]
+        }
+      ],
+      "fleets": [
+        {
+          "id": "north-fleet-1",
+          "nation": "north",
+          "x": 0,
+          "y": 3,
+          "moves": 30,
+          "ships": 10,
+          "conditionPercent": 64,
+          "money": 0,
+          "supplyTons": 0,
+          "constructionTicksRemaining": null,
+          "buildCityId": null,
+          "carriedArmyId": null,
+          "coveredTileCode": 0
+        },
+        {
+          "id": "south-fleet-1",
+          "nation": "south",
+          "x": 6,
+          "y": 4,
+          "moves": 32,
+          "ships": 12,
+          "conditionPercent": 65,
+          "money": 198,
+          "supplyTons": 84,
+          "constructionTicksRemaining": null,
+          "buildCityId": null,
+          "carriedArmyId": null,
+          "coveredTileCode": 0
+        }
+      ],
+      "mercenaryPool": [],
+      "relations": {
+        "nationIds": [
+          "north",
+          "south"
+        ],
+        "matrix": [
+          [
+            0,
+            3
+          ],
+          [
+            3,
+            0
+          ]
+        ]
+      },
+      "newsLog": {
+        "mostRecentSlot": 22,
+        "slots": [
+          {
+            "text": "Southern League forms an alliance with Northern League."
+          },
+          {
+            "text": " "
+          },
+          {
+            "text": "Week  3      Spring      270BC"
+          },
+          {
+            "text": "SOUTHERN LEAGUE DECLARES WAR ON NORTHERN LEAGUE."
+          },
+          {
+            "text": "Southern League destroys army of Northern League."
+          },
+          {
+            "text": " "
+          },
+          {
+            "text": "Week  5      Spring      270BC"
+          },
+          {
+            "text": " "
+          },
+          {
+            "text": "Week  7      Spring      270BC"
+          },
+          {
+            "text": " "
+          },
+          {
+            "text": "Week  9      Spring      270BC"
+          },
+          {
+            "text": " "
+          },
+          {
+            "text": "Week  11      Spring      270BC"
+          },
+          {
+            "text": " "
+          },
+          {
+            "text": "Week  1      Summer      270BC"
+          },
+          {
+            "text": " "
+          },
+          {
+            "text": "Week  3      Summer      270BC"
+          },
+          {
+            "text": " "
+          },
+          {
+            "text": "Week  5      Summer      270BC"
+          },
+          {
+            "text": " "
+          },
+          {
+            "text": "Week  7      Summer      270BC"
+          },
+          {
+            "text": " "
+          },
+          {
+            "text": "Week  9      Summer      270BC"
+          }
+        ]
+      },
+      "pendingOffer": null
+    },
+    "_provenance": null
+  }
+}

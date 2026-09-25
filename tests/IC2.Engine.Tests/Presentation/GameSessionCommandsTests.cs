@@ -183,8 +183,17 @@ public sealed class GameSessionCommandsTests
         var toy = CoreTestbed.Toy;
         var world = toy.World with
         {
+            // T82 (#359, bug #357) Owns amendment (PR #378): a siege no longer declares war on its own
+            // (AiMilitaryPhase now requires the two already at war before it ever proposes one), which
+            // this fixture reaches through north's own war-target search instead
+            // (AiMilitaryPhase.ProposeOwnWarDeclaration, FUN_0044FB7C §1a) -- so the "DECLARES WAR" news
+            // line below still comes from the AI's own declaration, not a pre-set relation. The toy
+            // nations' shipped wealth (400/360) is far below AiOwnDiplomacyRule.Power's own 20,000
+            // divisor, so north's wealth is raised here to clear the ratio gate
+            // (P(north) = (40000/20000)*(600/100) = 12; P(south) = (360/20000)*(520/100) = 0; ratio =
+            // 8*12/max(1,0) = 96, comfortably over the base of 10); south's own wealth is left untouched.
             Nations = ValueList.Of(
-                toy.World.NationById("north")! with { Treasury = 0 },
+                toy.World.NationById("north")! with { Treasury = 0, Wealth = 40_000 },
                 toy.World.NationById("south")! with { Treasury = 0 }),
             StartingArmies = ValueList.Of(
                 new StartingArmy(
@@ -204,24 +213,50 @@ public sealed class GameSessionCommandsTests
                     "north", SeatControl.Ai,
                     new AiPersonality(Aggression: 0.5, ExpansionDrive: 0.5, LoyaltyToAlliances: 0.5))),
         };
-        var session = new GameSession(world, toy.Ruleset, scenario);
-        Assert.Empty(session.State.NewsLog.Slots);
 
-        // Round 1: the approach march only. Asserted explicitly so the fixture's own claim -- "not yet
-        // adjacent, not yet eliminated" -- is pinned rather than assumed.
-        session.Submit("end");
-        Assert.False(
-            session.State.NationById("south")!.Eliminated, "round 1 must only march the army into place");
-        var round1Lines = session.State.NewsLog.Slots.Select(s => s.Text).ToList();
-        var countBeforeRound2 = session.State.NewsLog.Slots.Count;
+        // The ratio gate is deterministic given the wealth above, but AiMilitaryPhase.ProposeOwnWarDeclaration's
+        // own Random(10) roll (report §1a) still has to hit on north's own turn, within this fixture's
+        // two-round budget -- searched the same way AiCommandLegalityTests' own seed search does.
+        GameSession? session = null;
+        List<string> round1Lines = new();
+        int countBeforeRound2 = 0;
+        IC2.Engine.Presentation.SessionOutput? output = null;
+        for (var seed = 1UL; seed <= 2000; seed++)
+        {
+            var candidate = new GameSession(world, toy.Ruleset, scenario, seed);
+            Assert.Empty(candidate.State.NewsLog.Slots);
+
+            // Round 1: the approach march only. Asserted explicitly so the fixture's own claim -- "not
+            // yet adjacent, not yet eliminated" -- is pinned rather than assumed.
+            candidate.Submit("end");
+            if (candidate.State.NationById("south")!.Eliminated)
+            {
+                // A seed whose round 1 already eliminates south (a different roll landing early) does
+                // not exercise this fixture's own claim about round 2; skip it.
+                continue;
+            }
+
+            var candidateRound1Lines = candidate.State.NewsLog.Slots.Select(s => s.Text).ToList();
+            var candidateCountBeforeRound2 = candidate.State.NewsLog.Slots.Count;
+
+            // Round 2: adjacent now, moves replenished -- the siege, the capture and the elimination.
+            var candidateOutput = candidate.Submit("end");
+
+            if (!candidate.State.NationById("south")!.Eliminated)
+            {
+                continue;
+            }
+
+            session = candidate;
+            round1Lines = candidateRound1Lines;
+            countBeforeRound2 = candidateCountBeforeRound2;
+            output = candidateOutput;
+            break;
+        }
+
+        Assert.NotNull(session);
+        Assert.NotNull(output);
         Assert.True(countBeforeRound2 > 0, "round 1 must leave the log non-empty, or round 2 proves nothing");
-
-        // Round 2: adjacent now, moves replenished -- the siege, the capture and the elimination.
-        var output = session.Submit("end");
-
-        Assert.True(
-            session.State.NationById("south")!.Eliminated,
-            "expected south's only city to fall this round and eliminate it");
 
         var newsIndex = output.Lines.ToList().IndexOf("News:");
         Assert.True(newsIndex >= 0, "Expected a \"News:\" section after the round that eliminates south.");
