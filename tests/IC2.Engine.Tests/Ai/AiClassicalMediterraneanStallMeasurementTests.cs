@@ -234,15 +234,28 @@ public sealed class AiClassicalMediterraneanStallMeasurementTests
         // clears neither the cheapest unit nor the cheapest fortification point. The treasury then sits
         // at that leftover level for the rest of the season, which is exactly what this diagnosis measures
         // below: a small positive budget against costs both above it.
+        //
+        // Review round 1, B1: "clears neither" used to be asserted in the text without ever being
+        // checked -- the branch fired on ownArmies == 0 && ownFleets == 0 alone. budgetClearsNothing
+        // makes the label depend on the comparison it claims: forcing both costs to 0 (the reviewer's
+        // own mutation) now moves every affected row out of this branch, since a positive budget then
+        // affords both a 0-cost unit and a 0-cost fortification point.
+        var budgetClearsNothing = budget < cheapestUnitCost
+            && (cheapestFortifyPointCost is not { } fortifyCost || budget < fortifyCost);
         var cause = military.Count == 0 && economy.Count == 0 && diplomacy.Count == 0
             ? ownArmies == 0 && ownFleets == 0
-                ? "no affordable action: the seat has no army and no fleet at all (none in this scenario's "
-                  + "own starting data, and its recruitment table has stayed empty for the whole run), so "
-                  + "military has nothing to move/attack/siege with, and its post-fortify-spree budget of "
-                  + $"{budget} clears neither the cheapest recruitable unit ({cheapestUnitCost} talents) "
-                  + $"nor its own cheapest fortification point ({FormatCost(cheapestFortifyPointCost)} "
-                  + $"talents) -- recruitment table {recruitmentSlots}/{maxRecruitmentSlots} slots, "
-                  + $"{ownCities} own cities"
+                ? budgetClearsNothing
+                    ? "no affordable action: the seat has no army and no fleet at all (none in this scenario's "
+                      + "own starting data, and its recruitment table has stayed empty for the whole run), so "
+                      + "military has nothing to move/attack/siege with, and its post-fortify-spree budget of "
+                      + $"{budget} clears neither the cheapest recruitable unit ({cheapestUnitCost} talents) "
+                      + $"nor its own cheapest fortification point ({FormatCost(cheapestFortifyPointCost)} "
+                      + $"talents) -- recruitment table {recruitmentSlots}/{maxRecruitmentSlots} slots, "
+                      + $"{ownCities} own cities"
+                    : "no candidate from any phase despite an affordable budget of "
+                      + $"{budget} (cheapest recruitable unit {cheapestUnitCost} talents, cheapest "
+                      + $"fortification point {FormatCost(cheapestFortifyPointCost)} talents), and no army "
+                      + "or fleet to act with -- something else"
                 : armiesWithMoves == 0 && fleetsWithMoves == 0
                     ? "no candidate from any phase; every owned army/fleet has zero moves left this turn, "
                       + $"and economy proposed nothing of its own despite budget {budget} -- recruitment "
