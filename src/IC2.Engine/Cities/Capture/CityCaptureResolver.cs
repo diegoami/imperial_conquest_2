@@ -185,6 +185,7 @@ public static class CityCaptureResolver
         {
             Nations = ReplaceNation(ReplaceNation(newState.Nations, transferredNewOwner), oldOwnerAfterElimination),
         };
+        if (oldOwnerEliminated) newState = EliminationForces.Dispose(newState, oldOwner.Id, newOwner.Id);
 
         if (oldOwnerEliminated)
         {
@@ -263,6 +264,7 @@ public static class CityCaptureResolver
         {
             Nations = ReplaceNation(ReplaceNation(newState.Nations, transferredNewOwner), oldOwnerAfterElimination),
         };
+        if (oldOwnerEliminated) newState = EliminationForces.Dispose(newState, oldOwner.Id, newOwner.Id);
 
         if (oldOwnerEliminated)
         {
