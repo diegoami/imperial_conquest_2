@@ -79,89 +79,49 @@ Cities (Carthage (carthage)):
 > end
 Rome (rome) ends its turn.
 Carthage (carthage) takes its turn: 24 orders issued.
-Seleucid (seleucid) takes its turn: 23 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 24 orders issued.
-Macedonia (macedonia) takes its turn: 17 orders issued.
-Numidia (numidia) takes its turn: 17 orders issued.
-Gaul (gaul) takes its turn: 9 orders issued.
-Greece (greece) takes its turn: 18 orders issued.
-Celtiberia (celtiberia) takes its turn: 9 orders issued.
-Illyria (illyria) takes its turn: 15 orders issued.
-Dacia (dacia) takes its turn: 12 orders issued.
-Bithynia (bithynia) takes its turn: 6 orders issued.
-Galatia (galatia) takes its turn: 6 orders issued.
-Armenia (armenia) takes its turn: 9 orders issued.
-Media (media) takes its turn: 9 orders issued.
-Thracia (thracia) takes its turn: 9 orders issued.
+Seleucid (seleucid) takes its turn: 14 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 19 orders issued.
+Macedonia (macedonia) takes its turn: 7 orders issued.
+Numidia (numidia) takes its turn: 12 orders issued.
+Gaul (gaul) takes its turn: 6 orders issued.
+Greece (greece) takes its turn: 9 orders issued.
+Celtiberia (celtiberia) takes its turn: 5 orders issued.
+Illyria (illyria) takes its turn: 11 orders issued.
+Dacia (dacia) takes its turn: 7 orders issued.
+Bithynia (bithynia) takes its turn: 2 orders issued.
+Galatia (galatia) takes its turn: 1 order issued.
+Armenia (armenia) takes its turn: 6 orders issued.
+Media (media) takes its turn: 4 orders issued.
+Thracia (thracia) takes its turn: 8 orders issued.
   Weather: drought-reduces-supply (week 1).
-  Weather: storm-damages-fleet (week 1).
 Now: Week 3, Spring 270 BC. Active seat: Rome (rome).
 News:
-  Ptolemaic forms an alliance with Rome.
-  Ptolemaic declares war on Gaul.
-  Macedonia forms an alliance with Dacia.
-  Macedonia forms an alliance with Numidia.
-  Macedonia forms an alliance with Illyria.
-  Macedonia forms an alliance with Greece.
-  Macedonia forms an alliance with Armenia.
-  Macedonia forms an alliance with Rome.
-  Macedonia declares war on Gaul.
-  Numidia forms an alliance with Greece.
-  Numidia forms an alliance with Illyria.
-  Numidia forms an alliance with Dacia.
-  Numidia forms an alliance with Media.
-  Numidia forms an alliance with Thracia.
-  Numidia forms an alliance with Rome.
-  Numidia declares war on Gaul.
-  Greece forms an alliance with Illyria.
-  Greece forms an alliance with Media.
-  Greece forms an alliance with Armenia.
-  Greece forms an alliance with Rome.
-  Greece forms an alliance with Thracia.
-  Greece forms an alliance with Dacia.
-  Celtiberia forms an alliance with Rome.
-  Illyria forms an alliance with Armenia.
-  Illyria forms an alliance with Rome.
-  Illyria forms an alliance with Dacia.
-  Illyria forms an alliance with Thracia.
-  Illyria forms an alliance with Media.
-  Dacia forms an alliance with Rome.
-  Dacia forms an alliance with Armenia.
-  Dacia forms an alliance with Media.
-  Bithynia forms an alliance with Rome.
-  Galatia forms an alliance with Rome.
-  Armenia forms an alliance with Rome.
-  Armenia forms an alliance with Thracia.
-  Media forms an alliance with Rome.
-  Media forms an alliance with Thracia.
-  Thracia forms an alliance with Rome.
+  Sidon   (Ptolemaic)  falls to Seleucid.
+  Astacus   (Bithynia)  falls to Seleucid.
    
   Week  3      Spring      270BC
 
 > end
 Rome (rome) ends its turn.
 Carthage (carthage) takes its turn: 1 order issued.
-Seleucid (seleucid) takes its turn: 4 orders issued.
+Seleucid (seleucid) takes its turn: 3 orders issued.
 Ptolemaic (ptolemaic) takes its turn: 0 orders issued.
-Macedonia (macedonia) takes its turn: 1 order issued.
-Numidia (numidia) takes its turn: 3 orders issued.
+Macedonia (macedonia) takes its turn: 2 orders issued.
+Numidia (numidia) takes its turn: 2 orders issued.
 Gaul (gaul) takes its turn: 1 order issued.
 Greece (greece) takes its turn: 2 orders issued.
 Celtiberia (celtiberia) takes its turn: 1 order issued.
-Illyria (illyria) takes its turn: 3 orders issued.
+Illyria (illyria) takes its turn: 0 orders issued.
 Dacia (dacia) takes its turn: 0 orders issued.
 Bithynia (bithynia) takes its turn: 1 order issued.
 Galatia (galatia) takes its turn: 1 order issued.
 Armenia (armenia) takes its turn: 0 orders issued.
-Media (media) takes its turn: 0 orders issued.
-Thracia (thracia) takes its turn: 3 orders issued.
-  Weather: storm-damages-fleet (week 3).
+Media (media) takes its turn: 1 order issued.
+Thracia (thracia) takes its turn: 2 orders issued.
+  Weather: drought-reduces-supply (week 3).
+  Weather: drought-reduces-supply (week 3).
 Now: Week 5, Spring 270 BC. Active seat: Rome (rome).
 News:
-  Ptolemaic sues Seleucid for peace and;
-      Ptolemaic ends all current trading agreements.
-      Ptolemaic  ends all current alliances.
-      Ptolemaic pays reparations of 2,229 talents.
   Seleucid destroys army of Ptolemaic.
    
   Week  5      Spring      270BC
@@ -204,43 +164,37 @@ Cities:
 
 > news
 News log:
-  Macedonia forms an alliance with Rome.
-  Macedonia declares war on Gaul.
-  Numidia forms an alliance with Greece.
-  Numidia forms an alliance with Illyria.
-  Numidia forms an alliance with Dacia.
-  Numidia forms an alliance with Media.
-  Numidia forms an alliance with Thracia.
-  Numidia forms an alliance with Rome.
-  Numidia declares war on Gaul.
-  Greece forms an alliance with Illyria.
-  Greece forms an alliance with Media.
-  Greece forms an alliance with Armenia.
-  Greece forms an alliance with Rome.
-  Greece forms an alliance with Thracia.
-  Greece forms an alliance with Dacia.
-  Celtiberia forms an alliance with Rome.
-  Illyria forms an alliance with Armenia.
-  Illyria forms an alliance with Rome.
-  Illyria forms an alliance with Dacia.
-  Illyria forms an alliance with Thracia.
-  Illyria forms an alliance with Media.
-  Dacia forms an alliance with Rome.
-  Dacia forms an alliance with Armenia.
-  Dacia forms an alliance with Media.
-  Bithynia forms an alliance with Rome.
-  Galatia forms an alliance with Rome.
-  Armenia forms an alliance with Rome.
-  Armenia forms an alliance with Thracia.
-  Media forms an alliance with Rome.
-  Media forms an alliance with Thracia.
-  Thracia forms an alliance with Rome.
+  272 BC
+  Tarrentum (Greece) falls to Rome.
+  Croton (Greece) falls to Rome.
+  Locri defects from Greece to Rome.
+  Rhegium defects from Greece to Rome.
+  Panormus defects from Greece to Carthage.
+  Mylae defects from Greece to Carthage.
+  Astacus (Seleucid) falls to Bithynia.
+  Heraclea (Greece) falls to Rome.
+  Thurii defects from Greece to Rome.
+  Rome destroys army of Greece.
+  Rome and Greece agree to end their war.
+   
+  271 BC
+  Zela (Seleucid) falls to Bithynia.
+  Synnada (Seleucid) falls to Galatia.
+  Laodicea defects from Seleucid to Media.
+  Helice (Celtiberia) falls to Carthage.
+  Chalcis defects from Greece to Macedonia.
+  Demetrias defects from Greece to Macedonia.
+  Marium defects from Greece to Ptolemaic.
+  Sidon (Seleucid) falls to Ptolemaic.
+  Marium defects from Greece to Ptolemaic.
+  Pontica (Seleucid) falls to Bithynia.
+  Damascus (Seleucid) falls to Ptolemaic.
+   
+  Week 1      Spring      270 BC
+  Sidon   (Ptolemaic)  falls to Seleucid.
+  Astacus   (Bithynia)  falls to Seleucid.
    
   Week  3      Spring      270BC
-  Ptolemaic sues Seleucid for peace and;
-      Ptolemaic ends all current trading agreements.
-      Ptolemaic  ends all current alliances.
-      Ptolemaic pays reparations of 2,229 talents.
   Seleucid destroys army of Ptolemaic.
    
   Week  5      Spring      270BC
