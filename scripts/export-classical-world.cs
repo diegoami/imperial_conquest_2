@@ -397,17 +397,19 @@ var startingNews = new NewsLog(
 
 // ============================================================================================
 // 7c. The neighbour mask (T85, correction for #385) -- straight through IC2.Data's own DAT parse
-//     (nationTable.Nations[i].NeighbourMask), never derived or typed by hand. One entry per nation,
-//     in DAT nation-table order (nationIds' own order); each entry's own neighbour list is bit
-//     order (ascending nation code), matching World.StartingNeighbours' own doc comment.
+//     (nationTable.NeighbourMasks, positionally parallel to nationTable.Nations), never derived or
+//     typed by hand. One entry per nation, in DAT nation-table order (nationIds' own order); each
+//     entry's own neighbour list is bit order (ascending nation code), matching
+//     World.StartingNeighbours' own doc comment.
 // ============================================================================================
 var startingNeighbours = ValueList.Of(nationTable.Nations
     .Select(n =>
     {
+        var mask = nationTable.NeighbourMasks[n.Code];
         var neighbourIds = new List<string>();
         for (var bit = 0; bit < nationIds.Length; bit++)
         {
-            if ((n.NeighbourMask & (1 << bit)) != 0)
+            if ((mask & (1 << bit)) != 0)
                 neighbourIds.Add(nationIds[bit]);
         }
         return new NationNeighbours(nationIds[n.Code], ValueList.Of(neighbourIds.ToArray()));
@@ -446,7 +448,7 @@ var world = new World(
         ("turnOrder", "designed: the DAT's own nation-table order (0..15), used as a default. TPremierForm_NewGame's FUN_00448aa4 shuffles the 16-entry turn order at New Game -- docs/investigations/dat-file-layout.md -- which this export does not reproduce; not DAT-derived play state."),
         ("startingRelations", "confirmed: T73's DAT nation-table parse (IC2.Data.SaveNationTable.Parse's Relations field), DAT nation record +0x0B, 16x16 shorts -- decompiled-diplomacy-peace-terms-and-instant-battles.md's 2026-09-24 addition, \"the starting matrix\": symmetric, zero diagonal, 5 wars, 13 trades, 4 alliances, no cooldowns."),
         ("startingNews", "confirmed: T73's DAT news-seed parse (IC2.Data.SaveNewsLog.Parse), the DAT's last 2,440 bytes -- news-log-format-and-messages.md §Q1: slots 0-26 are the scripted 272-271 BC history, kept byte-for-byte verbatim (no trim, no re-render), with the newest index set to 26 exactly as FUN_00448AA4 sets it at New Game."),
-        ("startingNeighbours", "confirmed: T85's DAT nation-table parse (IC2.Data.SaveNationTable.Parse's NeighbourMask field), DAT nation record +0x2B (IC2.Data.DatLayout.NationNeighbourOffset), 16 words -- dat-neighbour-mask.md §2, \"The mask in the DAT\": symmetric, no self bit, 24 pairs across all 16 rows, matching all 101 local saves. Replaces the geometric derivation NeighbourGeography used before this field existed (dat-neighbour-mask.md §6/§7); that derivation reproduces all 24 of these pairs but adds 6 more (Rome-Greece, Thracia-Bithynia, Thracia-Seleucid, Seleucid-Macedonia, Seleucid-Greece, Ptolemaic-Greece) that this field does not carry.")));
+        ("startingNeighbours", "confirmed: T85's DAT nation-table parse (IC2.Data.SaveNationTable.Parse's NeighbourMasks field), DAT nation record +0x2B (IC2.Data.DatLayout.NationNeighbourOffset), 16 words -- dat-neighbour-mask.md §2, \"The mask in the DAT\": symmetric, no self bit, 24 pairs across all 16 rows, matching all 101 local saves. Replaces the geometric derivation NeighbourGeography used before this field existed (dat-neighbour-mask.md §6/§7); that derivation reproduces all 24 of these pairs but adds 6 more (Rome-Greece, Thracia-Bithynia, Thracia-Seleucid, Seleucid-Macedonia, Seleucid-Greece, Ptolemaic-Greece) that this field does not carry.")));
 
 Console.WriteLine($"World assembled: {world.Nations.Count} nations, {world.Cities.Count} cities, {world.StartingArmies.Count} armies, {world.StartingFleets.Count} fleets.");
 

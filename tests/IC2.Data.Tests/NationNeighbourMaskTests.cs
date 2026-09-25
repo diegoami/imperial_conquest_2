@@ -3,9 +3,9 @@ using Xunit;
 namespace IC2.Data.Tests;
 
 /// <summary>
-/// T85 Done-when 1 (#387, correction for #385): <see cref="NationRecord.NeighbourMask"/>, the 16-bit
-/// neighbour mask at DAT nation-record <c>+0x2B</c> (<see cref="DatLayout.NationNeighbourOffset"/>) /
-/// SAV runtime <c>+0x46</c> — 24 symmetric pairs, no nation neighbouring itself, and Rome's own row
+/// T85 Done-when 1 (#387, correction for #385): <see cref="SaveNationTable.NeighbourMasks"/>, the
+/// 16-bit neighbour mask at DAT nation-record <c>+0x2B</c> (<see cref="DatLayout.NationNeighbourOffset"/>)
+/// / SAV runtime <c>+0x46</c> — 24 symmetric pairs, no nation neighbouring itself, and Rome's own row
 /// (Carthage, Gaul, Illyria). See
 /// https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/dat-neighbour-mask.md
 /// §2, "The mask in the DAT".
@@ -35,24 +35,26 @@ public class NationNeighbourMaskTests
     {
         Skip.IfNot(LocalAssets.IsConfigured, LocalAssets.SkipReason);
         var data = File.ReadAllBytes(LocalAssets.Settings!.DatPath);
-        var nations = SaveNationTable.Parse(data).Nations;
+        var table = SaveNationTable.Parse(data);
+        var masks = table.NeighbourMasks;
 
-        Assert.Equal(16, nations.Count);
+        Assert.Equal(16, table.Nations.Count);
+        Assert.Equal(16, masks.Count);
 
         // No nation neighbours itself.
-        for (var i = 0; i < nations.Count; i++)
+        for (var i = 0; i < masks.Count; i++)
         {
-            Assert.False((nations[i].NeighbourMask & (1 << i)) != 0, $"Nation {i} borders itself.");
+            Assert.False((masks[i] & (1 << i)) != 0, $"Nation {i} borders itself.");
         }
 
         // Symmetric: bit j of nation i's mask == bit i of nation j's mask.
         var pairCount = 0;
-        for (var i = 0; i < nations.Count; i++)
+        for (var i = 0; i < masks.Count; i++)
         {
-            for (var j = i + 1; j < nations.Count; j++)
+            for (var j = i + 1; j < masks.Count; j++)
             {
-                var iHasJ = (nations[i].NeighbourMask & (1 << j)) != 0;
-                var jHasI = (nations[j].NeighbourMask & (1 << i)) != 0;
+                var iHasJ = (masks[i] & (1 << j)) != 0;
+                var jHasI = (masks[j] & (1 << i)) != 0;
                 Assert.True(iHasJ == jHasI, $"Mask asymmetric between nation {i} and nation {j}.");
                 if (iHasJ)
                 {
@@ -64,7 +66,7 @@ public class NationNeighbourMaskTests
         Assert.Equal(24, pairCount);
 
         // Rome (0)'s row: Carthage (1), Gaul (6), Illyria (9).
-        Assert.Equal(new[] { 1, 6, 9 }, NeighboursOf(nations[0].NeighbourMask));
+        Assert.Equal(new[] { 1, 6, 9 }, NeighboursOf(masks[0]));
     }
 
     /// <summary>
@@ -75,8 +77,7 @@ public class NationNeighbourMaskTests
     public void At_least_three_local_saves_neighbour_masks_equal_the_dats()
     {
         Skip.IfNot(LocalAssets.IsConfigured, LocalAssets.SkipReason);
-        var datNations = SaveNationTable.Parse(File.ReadAllBytes(LocalAssets.Settings!.DatPath)).Nations;
-        var datMasks = datNations.Select(n => n.NeighbourMask).ToArray();
+        var datMasks = SaveNationTable.Parse(File.ReadAllBytes(LocalAssets.Settings!.DatPath)).NeighbourMasks;
 
         // Three saves spanning the corpus's own date range (report §2's "against the saves" table):
         // the earliest (spring, week 1) and a later one from a different campaign each.
@@ -89,11 +90,11 @@ public class NationNeighbourMaskTests
 
         foreach (var saveName in saveNames)
         {
-            var saveNations = SaveNationTable.Parse(File.ReadAllBytes(FixtureResolver.ResolveOrThrow(saveName))).Nations;
-            Assert.Equal(16, saveNations.Count);
+            var saveMasks = SaveNationTable.Parse(File.ReadAllBytes(FixtureResolver.ResolveOrThrow(saveName))).NeighbourMasks;
+            Assert.Equal(16, saveMasks.Count);
             for (var i = 0; i < 16; i++)
             {
-                Assert.Equal(datMasks[i], saveNations[i].NeighbourMask);
+                Assert.Equal(datMasks[i], saveMasks[i]);
             }
         }
     }

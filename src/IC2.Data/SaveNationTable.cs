@@ -11,9 +11,32 @@ namespace IC2.Data;
 /// offset and shorter record length in the DAT.</summary>
 public sealed class SaveNationTable
 {
-    private SaveNationTable(NationRecord[] nations) => Nations = nations;
+    private SaveNationTable(NationRecord[] nations, ushort[] neighbourMasks)
+    {
+        Nations = nations;
+        NeighbourMasks = Array.AsReadOnly(neighbourMasks);
+    }
 
     public IReadOnlyList<NationRecord> Nations { get; }
+
+    /// <summary>T85: each nation's 16-bit neighbour mask, positionally parallel to <see cref="Nations"/>
+    /// (index <c>i</c> is <c>Nations[i]</c>'s own mask, same as <c>Nations[i].Code</c>) -- runtime/SAV
+    /// nation-record offset <c>+0x46</c>, DAT offset <see cref="DatLayout.NationNeighbourOffset"/>
+    /// (<c>+0x2B</c>). Bit <c>j</c> set means this nation and nation <c>j</c> border each other.
+    /// Deliberately a sibling list here rather than a property on <see cref="NationRecord"/> itself:
+    /// <see cref="NationRecord"/> is one of <c>OriginalSaveFieldMapping.Types</c>' own declared types
+    /// (<c>src/IC2.Engine/Import/OriginalSaveFieldMapping.cs</c>, outside this task's Owns list), whose
+    /// own test requires every public property of every declared type to have exactly one entry in that
+    /// file's mapping table -- adding a public property there would need an edit to a file this task does
+    /// not own. This parser reads the raw word only: symmetry, the no-self-bit rule and the 24-pair shape
+    /// are checked where the DAT-backed tests exercise them
+    /// (<c>tests/IC2.Data.Tests/NationNeighbourMaskTests.cs</c>), not enforced here, mirroring how this
+    /// same type reads <see cref="NationRecord.Relations"/> without validating it beyond <c>Parse</c>'s
+    /// own <see cref="MinRelationValue"/>/<see cref="MaxRelationValue"/>/diagonal/symmetry checks -- this
+    /// task's Owns list is "only reading that field". See
+    /// https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/dat-neighbour-mask.md
+    /// §1-§2.</summary>
+    public IReadOnlyList<ushort> NeighbourMasks { get; }
 
     public const ushort NoCapitalSentinel = 0xFFFF;
 
@@ -41,6 +64,7 @@ public sealed class SaveNationTable
     {
         var start = SaveNationLayout.Locate(data);
         var nations = new NationRecord[SaveNationLayout.NationCount];
+        var neighbourMasks = new ushort[SaveNationLayout.NationCount];
         for (var i = 0; i < nations.Length; i++)
         {
             var offset = start + i * SaveNationLayout.NationRecordLength;
@@ -61,7 +85,7 @@ public sealed class SaveNationTable
             // immediately after the 32-byte relation row at +0x26, the same offset the DAT loader
             // (FUN_004481A0) and the SAV loader (FUN_004487C4) both write it to. See
             // DatLayout.NationNeighbourOffset's own remarks for the DAT-side derivation.
-            var neighbourMask = ReadWord(data, offset + 0x46);
+            neighbourMasks[i] = ReadWord(data, offset + 0x46);
             if (name != NationCatalog.Name((ushort)i))
                 throw new InvalidDataException($"Nation record {i} has unexpected name {name}.");
             var capitalCity = ReadWord(data, offset + 0x444);
@@ -80,10 +104,9 @@ public sealed class SaveNationTable
                 BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(offset + 0x438, 4)),
                 ReadWord(data, offset + 0x440), ReadWord(data, offset + 0x442),
                 capitalCity, cities, ReadWord(data, offset + 0x44A), wealth, taxBase,
-                humanPlayer: human == 1, source: SaveFileFormat.Sav, relations: relations,
-                neighbourMask: neighbourMask);
+                humanPlayer: human == 1, source: SaveFileFormat.Sav, relations: relations);
         }
-        return new SaveNationTable(nations);
+        return new SaveNationTable(nations, neighbourMasks);
     }
 
     /// <summary>Reads the DAT's own 1,055-byte nation record shape: everything <see cref="ParseSav"/>
@@ -93,6 +116,7 @@ public sealed class SaveNationTable
     private static SaveNationTable ParseDat(byte[] data)
     {
         var nations = new NationRecord[SaveNationLayout.NationCount];
+        var neighbourMasks = new ushort[SaveNationLayout.NationCount];
         for (var i = 0; i < nations.Length; i++)
         {
             var offset = DatLayout.NationTableStart + i * DatLayout.NationRecordLength;
@@ -108,16 +132,15 @@ public sealed class SaveNationTable
             var taxBase = BinaryPrimitives.ReadInt16LittleEndian(data.AsSpan(offset + DatLayout.NationTaxBaseOffset, 2));
             var relations = ReadRelationRow(data, offset + DatLayout.NationRelationOffset);
             // T85: the 16-bit neighbour mask, DatLayout.NationNeighbourOffset (+0x2B).
-            var neighbourMask = ReadWord(data, offset + DatLayout.NationNeighbourOffset);
+            neighbourMasks[i] = ReadWord(data, offset + DatLayout.NationNeighbourOffset);
             nations[i] = new NationRecord((ushort)i, name, leader: null,
                 BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(offset + DatLayout.NationTreasuryOffset, 4)),
                 ReadWord(data, offset + DatLayout.NationUnityOffset),
                 ReadWord(data, offset + DatLayout.NationMobilizedOffset),
                 capitalCity, cities, ReadWord(data, offset + DatLayout.NationTaxOffset), wealth, taxBase,
-                humanPlayer: null, source: SaveFileFormat.Dat, relations: relations,
-                neighbourMask: neighbourMask);
+                humanPlayer: null, source: SaveFileFormat.Dat, relations: relations);
         }
-        return new SaveNationTable(nations);
+        return new SaveNationTable(nations, neighbourMasks);
     }
 
     /// <summary>Validates the relation matrix across every nation in <paramref name="nations"/>:
@@ -199,8 +222,7 @@ public sealed class NationRecord
 
     internal NationRecord(ushort code, string name, string? leader, int treasury, ushort unityValue,
         ushort mobilizedPercent, ushort capitalCityIndex, ushort cityCount, ushort taxRatePercent,
-        int wealth, short taxBase, bool? humanPlayer, SaveFileFormat source, short[] relations,
-        ushort neighbourMask)
+        int wealth, short taxBase, bool? humanPlayer, SaveFileFormat source, short[] relations)
     {
         Code = code;
         Name = name;
@@ -219,7 +241,6 @@ public sealed class NationRecord
         // the interface back to short[] must not be able to reach (and mutate) the backing array —
         // N6, T73 review round 1.
         Relations = Array.AsReadOnly(relations);
-        NeighbourMask = neighbourMask;
     }
 
     public ushort Code { get; }
@@ -243,22 +264,6 @@ public sealed class NationRecord
     /// https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-diplomacy-peace-terms-and-instant-battles.md
     /// §"The relation matrix" and its 2026-09-24 addition.</summary>
     public IReadOnlyList<short> Relations { get; }
-
-    /// <summary>The nation's 16-bit neighbour mask toward every nation, indexed by bit position ==
-    /// nation code (SAV runtime <c>+0x46</c>; DAT <see cref="DatLayout.NationNeighbourOffset"/>,
-    /// <c>+0x2B</c>): bit <c>j</c> set means this nation and nation <c>j</c> border each other.
-    /// Present on both a SAV and a DAT record -- the DAT loader reads it straight into the same
-    /// runtime offset, and (T85's own scope) nothing but the conquest merge <c>FUN_0044C528</c>
-    /// rewrites it during play, so the DAT's own mask is the original's starting neighbour set. This
-    /// parser reads the raw word only: symmetry, the no-self-bit rule and the 24-pair shape are
-    /// checked where the DAT-backed tests exercise them
-    /// (<c>tests/IC2.Data.Tests/NationNeighbourMaskTests.cs</c>), not enforced here, mirroring how
-    /// this same type reads <see cref="Relations"/> without validating it beyond <c>Parse</c>'s own
-    /// <see cref="MinRelationValue"/>/<see cref="MaxRelationValue"/>/diagonal/symmetry checks -- this
-    /// task's Owns list is "only reading that field". See
-    /// https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/dat-neighbour-mask.md
-    /// §1-§2.</summary>
-    public ushort NeighbourMask { get; }
 
     public int Treasury { get; }
     public ushort UnityValue { get; }
