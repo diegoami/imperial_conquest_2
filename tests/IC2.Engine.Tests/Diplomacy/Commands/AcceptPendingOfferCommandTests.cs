@@ -188,6 +188,35 @@ public sealed class AcceptPendingOfferCommandTests
         Assert.Equal(AcceptPendingOfferRejections.SideAtWar, result.Code);
     }
 
+    /// <summary>
+    /// T82 (#359, bug #357 item 3): <c>decompiled-ai-offers-to-human-seats.md</c> §3's correction --
+    /// against an AI target, <c>TPolitics_MakeAlliance</c> checks only the accepting human's own side.
+    /// The proposer being at war with a third party (not the human) must <strong>not</strong> refuse the
+    /// acceptance -- the human is dragged into that war through the alliance cascade instead. Restoring
+    /// the old two-sided check (proposer OR issuer) would refuse this and fail the test.
+    /// </summary>
+    [Fact]
+    public void Alliance_AcceptedWhenOnlyTheProposerIsAtWarWithAnyone()
+    {
+        var ruleset = DiplomacyTestbed.Ruleset;
+        var codes = ruleset.Diplomacy.StateCodes;
+        var state = HumanState();
+        state = state with
+        {
+            Relations = state.Relations.WithRelation(Proposer, ThirdParty, codes.War),
+            PendingOffer = new PendingDiplomaticOffer(Proposer, codes.Alliance),
+        };
+
+        var result = DiplomacyTestbed.Dispatcher().Dispatch(state, new AcceptPendingOfferCommand(Human));
+
+        Assert.True(result.IsAccepted);
+        Assert.Equal(codes.Alliance, result.State.Relations.Get(Human, Proposer));
+
+        // The setter's cascade (RelationTransitions.FormAlliance): allying with a nation at war drags
+        // the human into that war too.
+        Assert.Equal(codes.War, result.State.Relations.Get(Human, ThirdParty));
+    }
+
     // ---- Still accepted at peace ----
 
     [Fact]

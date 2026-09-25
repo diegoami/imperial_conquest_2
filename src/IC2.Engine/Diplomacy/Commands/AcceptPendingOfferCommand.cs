@@ -21,8 +21,16 @@ namespace IC2.Engine.Diplomacy.Commands;
 /// applies to an acceptance. This handler now applies <see cref="ProposeTradeCommandHandler"/>'s three
 /// trade gates (cooldown, already-trading, allied-or-at-war) unconditionally for a trade offer, skipping
 /// only <see cref="TradePartnerCap"/>, and <see cref="ProposeAllianceCommandHandler"/>'s alliance gates
-/// (already-allied; and, against an AI proposer, cooldown and either-side-at-war) for an alliance offer —
-/// alliance has no partner cap to waive in the first place, so nothing is skipped there.
+/// (already-allied; and, against an AI proposer, cooldown and the accepting human's own side being at
+/// war) for an alliance offer — alliance has no partner cap to waive in the first place, so nothing is
+/// skipped there.
+/// </remarks>
+/// <remarks>
+/// <strong>T82 (#359, bug #357 item 3).</strong> The alliance gate used to check both sides' wars;
+/// <c>decompiled-ai-offers-to-human-seats.md</c> §3 corrects <c>TPolitics_MakeAlliance</c>'s own reading:
+/// against an AI target, only the <em>accepting human's</em> own side is checked — "The AI target's own
+/// wars are not checked" — so allying with an AI already at war drags the human into that war through
+/// the setter's cascade, exactly as the original does.
 /// </remarks>
 public sealed record AcceptPendingOfferCommand(string IssuingNationId) : ICommand
 {
@@ -119,16 +127,25 @@ public sealed class AcceptPendingOfferCommandHandler : ICommandHandler<AcceptPen
                         AcceptPendingOfferRejections.Cooldown, $"'{proposer.Name}' does not want to ally with you.");
                 }
 
-                if (RelationTransitions.IsAtWarWithAnyone(state, ruleset, pending.ProposingNationId)
-                    || RelationTransitions.IsAtWarWithAnyone(state, ruleset, command.IssuingNationId))
+                // T82 (#359, bug #357 item 3): decompiled-ai-offers-to-human-seats.md §3's correction to
+                // TPolitics_MakeAlliance -- "The AI target's own wars are not checked" (listing
+                // 0x00453101-0x0045317A). Only the accepting human's own side is gated; the AI proposer's
+                // wars are not, so allying with an AI at war drags the human into that war through
+                // RelationTransitions.FormAlliance's own cascade -- exactly as the original does.
+                if (RelationTransitions.IsAtWarWithAnyone(state, ruleset, command.IssuingNationId))
                 {
                     return CommandOutcome.Reject(
                         AcceptPendingOfferRejections.SideAtWar,
-                        $"'{proposer.Name}' will not ally while either side is at war.");
+                        $"You cannot ally with '{proposer.Name}' while you are at war.");
                 }
             }
 
-            state = RelationTransitions.FormAlliance(state, ruleset, pending.ProposingNationId, command.IssuingNationId);
+            // T82 (#359, bug #357 item 3): the accepting human is the party committing the row
+            // (TPolitics_OK), so the human -- not the AI proposer -- is RelationTransitions.FormAlliance's
+            // first argument and inherits the other side's wars. Calling it the other way around would
+            // drag the AI proposer into the human's own wars instead of the human into the AI's, the
+            // opposite of the report's "allying with an AI at war drags the human into that war".
+            state = RelationTransitions.FormAlliance(state, ruleset, command.IssuingNationId, pending.ProposingNationId);
             return CommandOutcome.Accept(state);
         }
 
