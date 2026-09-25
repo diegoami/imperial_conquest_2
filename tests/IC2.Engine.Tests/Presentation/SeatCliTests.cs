@@ -813,19 +813,23 @@ public sealed class SeatCliTests
     /// ring's own capacity, not nothing.
     /// </para>
     /// <para>
-    /// <strong>T82 rework round 1: the "no Filler entry survives" check is gone, for a reason specific to
-    /// T82's own fix.</strong> The padding here appends after the 27 real, pre-existing entries, so it is
-    /// chronologically <em>newer</em> than them; a round's own new appends therefore evict the oldest
-    /// <em>real</em> entries first; only once a round writes more than all 13 filler entries combined
-    /// would eviction ever reach the filler itself. The pre-T82 heuristic's ~44-entry round (the same
-    /// spam bug #357 names) reliably cleared that bar; T82's corrected AI writes far fewer entries per
-    /// round (this fixed seed's own round 1 writes 4: two city-capture lines and the mandatory
-    /// blank-line-and-header pair), so filler survives regardless of which real event is asserted on.
-    /// That is a direct, structural consequence of fixing bug #357's spam, not a gap in this fixture's own
-    /// setup -- no wealth or relation override changes how many entries one round writes enough to matter
-    /// here. The remaining assertions below still prove bug #376's own claim in full: the buffer stays at
-    /// capacity (eviction genuinely happened) and real, non-filler news is visible in the footer (the
-    /// count did not silently read zero).
+    /// <strong>T82 rework round 1 got this wrong; round 2 corrects it.</strong> Round 1 removed the "no
+    /// Filler entry survives" assertion below and claimed it could never pass once T82's corrected AI
+    /// writes only a few entries a round -- reasoning that never actually held. The real cause (rework
+    /// round 2, R1(b)): padding <see cref="GameSession.State"/>'s own <c>NewsLog</c> by reflection, as
+    /// this fixture does below, does not by itself update <see cref="GameSession"/>'s private
+    /// <c>_pendingNewsBaseline</c> field (set once at construction, to the un-padded 27-slot log) --
+    /// which is exactly what the first <c>end</c>'s own footer counts entries <em>since</em>
+    /// (<c>GameSession.cs</c>'s own <c>HandleEndSeated</c>, around line 679: <c>newsBeforeSlots =
+    /// _pendingNewsBaseline ?? State.NewsLog.Slots</c>). Left at the stale, un-padded baseline, the
+    /// footer's own "count back to the baseline" scan walks straight through every filler slot before it
+    /// ever reaches the real 27-entry tail it should have stopped at, so the filler counts as new. Before
+    /// T82, the pre-fix heuristic's ~44-entry spam round happened to evict every filler slot outright,
+    /// which is what hid this the whole time -- it was never about how many entries the round itself
+    /// writes. The fix is the same reflection technique, one field further: after padding
+    /// <c>State</c>, <c>_pendingNewsBaseline</c> is also set to the padded log's own slots, so the
+    /// footer's "since" baseline matches what the round's own construction-time bookkeeping would have
+    /// recorded had the log genuinely started full.
     /// </para>
     /// </remarks>
     [Fact]
@@ -845,6 +849,18 @@ public sealed class SeatCliTests
         var newStateWithPaddedLog = session.State with { NewsLog = padded };
         typeof(GameSession).GetProperty(nameof(GameSession.State))!.SetValue(session, newStateWithPaddedLog);
 
+        // Rework round 2, R1(b): padding State above does not by itself move GameSession's own private
+        // _pendingNewsBaseline, still the construction-time 27-slot log -- the field the first `end`'s
+        // footer actually counts new entries since (see this test's own remarks). Left stale, the
+        // footer's "since" scan walks through every filler slot before it ever reaches the real,
+        // pre-padding tail, and the filler is wrongly counted as new. Setting it to the padded log's own
+        // slots here is what makes the fixture genuinely equivalent to "the round really did start with
+        // a full, real buffer" -- one reflection call further than the existing SetValue above, not a
+        // second, unrelated mechanism.
+        typeof(GameSession)
+            .GetField("_pendingNewsBaseline", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .SetValue(session, padded.Slots);
+
         var slotsBeforeRound = session.State.NewsLog.Slots.Count;
         var output = session.Submit("end");
 
@@ -852,13 +868,20 @@ public sealed class SeatCliTests
         // really did write through the saturated buffer, not merely append into remaining headroom.
         Assert.Equal(slotsBeforeRound, session.State.NewsLog.Slots.Count);
 
-        // T82 rework round 1: round 1's own genuine news used to include an alliance-formation line on
-        // this fixed seed; under T82's corrected rule (an AI seat's own alliance write needs a partner
-        // already at war with a shared, unprotected neighbour) that precondition has not yet arisen this
-        // early, so this now checks against a city-capture line instead -- one of the genuine, non-filler
-        // lines the unpadded seat-rome golden shows for round 1 on this same fixed seed (regenerated
-        // alongside this fix). Either kind of real news proves the same thing: the footer did not fall
-        // back to reporting zero once saturated.
+        // Rework round 1 (kept; rests on plan PR #386's exception, granted alongside the identical swap
+        // in The_first_rounds_footer_includes_news_the_construction_time_prelude_itself_produced): round
+        // 1's own genuine news used to include an alliance-formation line on this fixed seed, but that
+        // line is now structurally impossible -- an AI never writes an alliance directly to a human seat
+        // (bug #357's own fix), and Rome is the human here. This checks a real, non-filler city-capture
+        // line the unpadded seat-rome golden also shows for round 1 on this same fixed seed instead; #386
+        // requires the mechanism under test to still fail when removed, which the baseline-restoring fix
+        // above (R1(b)) is what actually proves, mutation-tested below.
         Assert.Contains(output.Lines, line => line.Contains("falls to Seleucid.", StringComparison.Ordinal));
+
+        // Rework round 2, R1(b): restored. The buffer's own oldest slots -- 13 filler, appended after
+        // the 27 real DAT-history entries -- must not survive into the footer once _pendingNewsBaseline
+        // is corrected: the round's own genuine appends are what the footer shows, up to the ring's own
+        // capacity, never the padding this fixture used only to reach that capacity in the first place.
+        Assert.DoesNotContain(output.Lines, line => line.Contains("Filler entry", StringComparison.Ordinal));
     }
 }

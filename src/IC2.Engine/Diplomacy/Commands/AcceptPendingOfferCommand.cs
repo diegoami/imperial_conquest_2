@@ -210,11 +210,14 @@ public sealed class AcceptPendingOfferCommandHandler : ICommandHandler<AcceptPen
                 $"You already trade with {ruleset.Diplomacy.MaxTradePartners} nations.");
         }
 
-        // T82 rework round 1 (B3): the proposer's own cap is not refused here -- accepting a pending
-        // offer FROM that nation is exactly the "pending trade offer from that target" case the report
-        // exempts from a flat refusal -- but a full cap is not silently ignored either: "on OK, if the
-        // target has 3 partners, it drops its lowest-tax-base partner to peace, a -8 cooldown"
-        // [confirmed: code], the same drop a fresh ProposeTradeCommand against a capped target performs.
+        // T82 rework round 1 (B3), corrected in rework round 2 (R2 -- the earlier remark here claimed
+        // ProposeTradeCommand already performs this same drop against a capped target; it did not, until
+        // R2 fixed it): the proposer's own cap is not refused here -- accepting a pending offer FROM that
+        // nation is exactly the "pending trade offer from that target" case the report exempts from a
+        // flat refusal (ProposeTradeCommand now applies the identical exception, keyed off
+        // state.PendingOffer, for the same reason) -- but a full cap is not silently ignored either:
+        // "on OK, if the target has 3 partners, it drops its lowest-tax-base partner to peace, a -8
+        // cooldown" [confirmed: code].
         state = TradePartnerCap.MakeRoomForOneMorePartner(state, ruleset, pending.ProposingNationId, command.IssuingNationId);
 
         state = state with
