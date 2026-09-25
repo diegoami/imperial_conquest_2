@@ -14,6 +14,20 @@ namespace IC2.Engine.Tests.Core.Determinism;
 /// every later task inherits: it scans the whole of <c>src/IC2.Engine</c>, so a system merged by T08 or
 /// T16 is covered without that task doing anything. The rest of this class tests the guard itself, on the
 /// principle that a green check nobody has ever seen go red is not evidence of anything.
+/// <para>
+/// Follow-up #353: the deliberate-violation scratch file used to be written under
+/// <c>src/IC2.Engine/Core/__determinism-guard-scratch__/</c> -- inside the very tree every <c>src/**</c>
+/// scanner in the suite reads. This class already joins <see cref="RepositorySourcesCollection"/>, which
+/// serialises it against <c>SystemRegistrationTests</c>, but <c>BattleDeterminismTests</c>'
+/// <c>NoProductionCodeOutsideCandidatesReferencesTheCandidates</c> -- also a full <c>src/</c>+<c>godot/</c>
+/// scan -- is in a different, unnamed xUnit collection and so could run in parallel with this test's write,
+/// occasionally reading the scratch file mid-write or racing its deletion (bug #320). Writing it under the
+/// process's own temp directory instead means no scanner of the real tree -- present or future, collected
+/// or not -- ever has a path into it, which removes the race outright rather than widening the collection
+/// to name every scanner that must avoid it. <see cref="The_guard_fails_on_a_deliberately_added_new_Random_under_src_engine"/>
+/// proves <see cref="DeterminismScanner.Scan"/> still does its job pointed at that temp directory, which is
+/// all the standing guard needs: it always scans the real <see cref="EngineRoot"/>, never the scratch one.
+/// </para>
 /// </remarks>
 [Collection(RepositorySourcesCollection.Name)]
 public class DeterminismGuardTests
@@ -21,11 +35,13 @@ public class DeterminismGuardTests
     private static string EngineRoot => Path.Combine(ModelTestPaths.RepositoryRoot, "src", "IC2.Engine");
 
     /// <summary>
-    /// Where the deliberate violation is written. Named so that a file left behind by a killed test run
-    /// is unmistakable, and placed inside this task's own Owns list.
+    /// Where the deliberate violation is written: the process's own temp directory, never under
+    /// <c>src/IC2.Engine</c> (follow-up #353) -- so no scanner of the real source tree, in this suite or a
+    /// future one, can race this test's write or deletion. Named so that a file left behind by a killed
+    /// test run is unmistakable.
     /// </summary>
     private static string ScratchDirectory =>
-        Path.Combine(EngineRoot, "Core", "__determinism-guard-scratch__");
+        Path.Combine(Path.GetTempPath(), "__ic2-determinism-guard-scratch__");
 
     [Fact]
     public void The_engine_contains_no_nondeterministic_construct()
@@ -69,7 +85,10 @@ public class DeterminismGuardTests
             Directory.CreateDirectory(ScratchDirectory);
             File.WriteAllText(scratchFile, DeliberatelyNondeterministicSource());
 
-            var violations = DeterminismScanner.Scan(EngineRoot, ModelTestPaths.RepositoryRoot);
+            // Scans the scratch directory, never EngineRoot (follow-up #353) -- proving the scanner itself
+            // still catches every banned construct, without ever putting the violation under src/IC2.Engine
+            // where a concurrent scanner of the real tree could see it.
+            var violations = DeterminismScanner.Scan(ScratchDirectory, ModelTestPaths.RepositoryRoot);
 
             Assert.Contains(violations, violation =>
                 violation.File.EndsWith("DeliberateNondeterminism.cs", StringComparison.Ordinal)
@@ -93,7 +112,8 @@ public class DeterminismGuardTests
             RemoveScratch();
         }
 
-        // Removed, and the guard is green again — the second half of the DoD line.
+        // Removed, and the guard is green again — the second half of the DoD line. The real tree was never
+        // touched, so this is really just confirming EngineRoot was clean throughout.
         Assert.Empty(DeterminismScanner.Scan(EngineRoot, ModelTestPaths.RepositoryRoot));
         Assert.False(Directory.Exists(ScratchDirectory));
     }
