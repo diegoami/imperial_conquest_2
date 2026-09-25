@@ -203,6 +203,36 @@ public sealed class NeighbourGeographyTests
         Assert.False(NeighbourGeography.AreNeighbours(ClassicalWorld, "rome", "ptolemaic"));
     }
 
+    // ---- Review round 1, B1: BuildFromStartingNeighbours adds both directions even for a ----
+    // ---- one-sided entry, for a World built directly, bypassing GameDataValidation.Validate ----
+
+    /// <summary>
+    /// Rework round 1, B1: <c>NeighbourGeography.BuildFromStartingNeighbours</c>'s own remarks claim it
+    /// "adds both directions from every entry regardless... so a hand-built <see cref="World"/> in a
+    /// test that skips that load-time validation still gets a symmetric result rather than a silently
+    /// one-sided one" -- a claim nothing visited before this test: deleting the reverse
+    /// <c>AddNeighbour</c> call left every test green. This builds a one-sided <see cref="World"/>
+    /// directly (<c>a</c> lists <c>b</c> as a neighbour; <c>b</c> has no entry at all), <em>never</em>
+    /// passing it through <see cref="GameDataValidation.Validate"/> -- which would reject it as
+    /// asymmetric (<see cref="World.ValidateStartingNeighboursShape"/>) -- so this is exactly the
+    /// "skips that load-time validation" case the comment describes. Both directions must still answer
+    /// true.
+    /// </summary>
+    [Fact]
+    public void BuildFromStartingNeighboursAddsBothDirectionsForAOneSidedEntryOnAWorldThatSkipsValidation()
+    {
+        var world = TinyWorld(("a", 0, 0), ("b", 1, 0)) with
+        {
+            StartingNeighbours = ValueList.Of(new NationNeighbours("a", ValueList.Of("b"))),
+            // "b" gets no entry of its own -- genuinely one-sided, unlike the DAT's own mask or the
+            // exported world, both of which are symmetric by construction. Never passed through
+            // GameDataValidation.Validate, which would reject this as an asymmetric pair.
+        };
+
+        Assert.True(NeighbourGeography.AreNeighbours(world, "a", "b"));
+        Assert.True(NeighbourGeography.AreNeighbours(world, "b", "a"));
+    }
+
     // ---- T85 Done-when 4: the shipped toy world has no field, so it keeps the derivation ----
 
     /// <summary>
