@@ -168,11 +168,26 @@ public static class GameStateFactory
             Armies: ValueList<ArmyState>.Of(armies),
             Fleets: ValueList<FleetState>.Of(fleets),
             MercenaryPool: ValueList<MercenaryPoolSlot>.Empty,
-            Relations: DiplomaticRelations.Uniform(
-                ValueList.From(nations.Select(n => n.Id)),
-                ruleset.Diplomacy.StateCodes.Peace),
-            NewsLog: NewsLog.Empty,
+            Relations: StartingRelationsFor(world, ruleset, nations),
+            NewsLog: world.StartingNews ?? NewsLog.Empty,
             PendingOffer: null);
+    }
+
+    /// <summary>
+    /// The starting relation matrix: the world's own <see cref="World.StartingRelations"/> when it
+    /// carries one (T75 — the DAT's matrix, kept verbatim, no cooldowns rolled forward), otherwise
+    /// uniform peace exactly as before this field existed.
+    /// </summary>
+    private static DiplomaticRelations StartingRelationsFor(World world, Ruleset ruleset, NationState[] nations)
+    {
+        if (world.StartingRelations is { } startingRelations)
+        {
+            return startingRelations;
+        }
+
+        return DiplomaticRelations.Uniform(
+            ValueList.From(nations.Select(n => n.Id)),
+            ruleset.Diplomacy.StateCodes.Peace);
     }
 
     private static int CellAt(int[] terrain, World world, int x, int y)

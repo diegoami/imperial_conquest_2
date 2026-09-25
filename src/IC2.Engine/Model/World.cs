@@ -6,6 +6,25 @@ namespace IC2.Engine.Model;
 /// A map plus the nations, cities and starting forces placed on it — one of the four file kinds in
 /// <c>docs/game-design.md</c> §"The core data model".
 /// </summary>
+/// <param name="StartingRelations">
+/// T75: the DAT's own starting diplomatic relation matrix, or <see langword="null"/> when the world
+/// does not carry one — <see cref="GameStateFactory"/> then opens the game at uniform peace, exactly
+/// as it did before this field existed. Reuses <see cref="DiplomaticRelations"/> (defined alongside
+/// <see cref="GameState"/>) rather than a new type, since the shape — nation ids plus an N×N matrix —
+/// is identical; only where it lives (world data, not run state) differs. See
+/// <see cref="ValidateStartingRelations"/> and
+/// https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-diplomacy-peace-terms-and-instant-battles.md's
+/// 2026-09-24 addition, "the starting matrix".
+/// </param>
+/// <param name="StartingNews">
+/// T75: the DAT's own 27-line news seed (slots 0-26, newest index 26), or <see langword="null"/> when
+/// the world does not carry one — <see cref="GameStateFactory"/> then opens the game with an empty
+/// log, exactly as it did before this field existed. Reuses <see cref="NewsLog"/> (defined alongside
+/// <see cref="GameState"/>) rather than a new type, for the same reason as
+/// <see cref="StartingRelations"/>. See <see cref="ValidateStartingNews"/> and
+/// https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/news-log-format-and-messages.md
+/// §Q1, "the DAT seeds the log, and a new game starts at index 26".
+/// </param>
 /// <remarks>
 /// Deliberately free of any 320×140 / 16-nation / 334-city assumption: the original's data becomes
 /// one shipped <see cref="World"/> (task T29) among possibly many, and the toy fixture under
@@ -24,6 +43,8 @@ public sealed record World(
     ValueList<StartingArmy> StartingArmies,
     ValueList<StartingFleet> StartingFleets,
     ValueList<string> TurnOrder,
+    DiplomaticRelations? StartingRelations = null,
+    NewsLog? StartingNews = null,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null) : IVersionedDocument
 {
     /// <summary>Finds a tile type by its id, or <see langword="null"/>.</summary>
@@ -48,6 +69,126 @@ public sealed record World(
 
     /// <summary>Finds a nation definition by id, or <see langword="null"/>.</summary>
     public NationDefinition? NationById(string id) => Nations.FindById(n => n.Id, id);
+
+    /// <summary>
+    /// Validates <see cref="StartingRelations"/> against this world's own nation list and
+    /// <paramref name="ruleset"/>'s diplomacy rules. A no-op when <see cref="StartingRelations"/> is
+    /// <see langword="null"/>.
+    /// </summary>
+    /// <remarks>
+    /// T75 Done-when 2. Not currently wired into <see cref="IC2.Engine.Serialization.GameDataLoader"/> /
+    /// <see cref="IC2.Engine.Serialization.GameDataValidation"/> — see this task's PR for why (a scope
+    /// note, not a design decision): those files are outside this task's Owns list, so "loading a world
+    /// rejects" is not yet true end-to-end. This method is the validation itself, ready to be called from
+    /// <c>GameDataValidation.ValidateWorld</c> once that wiring is agreed.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    /// The matrix is not symmetric, sized to its own nation list; a diagonal entry is non-zero; a value
+    /// lies outside the ruleset's relation codes and cooldown range; or a matrix nation id is not one of
+    /// <see cref="Nations"/>.
+    /// </exception>
+    public void ValidateStartingRelations(Ruleset ruleset)
+    {
+        ArgumentNullException.ThrowIfNull(ruleset);
+
+        if (StartingRelations is not { } relations)
+        {
+            return;
+        }
+
+        foreach (var nationId in relations.NationIds)
+        {
+            if (NationById(nationId) is null)
+            {
+                throw new InvalidOperationException(
+                    $"startingRelations names nation '{nationId}', which this world does not define.");
+            }
+        }
+
+        if (!relations.IsWellFormed())
+        {
+            throw new InvalidOperationException(
+                "startingRelations must be square, sized to its own nation list, and symmetric.");
+        }
+
+        for (var i = 0; i < relations.NationIds.Count; i++)
+        {
+            if (relations.Matrix[i][i] != 0)
+            {
+                throw new InvalidOperationException(
+                    $"startingRelations' diagonal entry for '{relations.NationIds[i]}' is "
+                    + $"{relations.Matrix[i][i]}, not 0.");
+            }
+        }
+
+        var codes = ruleset.Diplomacy.StateCodes;
+        var maxCode = Math.Max(Math.Max(codes.Peace, codes.Trade), Math.Max(codes.Alliance, codes.War));
+        var minCooldown = Math.Min(
+            Math.Min(ruleset.Diplomacy.CooldownAfterBrokenTrade, ruleset.Diplomacy.CooldownAfterBrokenAlliance),
+            Math.Min(
+                ruleset.Diplomacy.CooldownAfterEndedWar,
+                Math.Min(ruleset.Diplomacy.CooldownAfterPeaceTerms, ruleset.Diplomacy.CooldownAfterAllyPeace)));
+
+        foreach (var row in relations.Matrix)
+        {
+            foreach (var value in row)
+            {
+                if (value < minCooldown || value > maxCode)
+                {
+                    throw new InvalidOperationException(
+                        $"startingRelations has a value {value} outside the ruleset's relation-code/"
+                        + $"cooldown range [{minCooldown}, {maxCode}].");
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Validates <see cref="StartingNews"/> against <paramref name="ruleset"/>'s news-log geometry. A
+    /// no-op when <see cref="StartingNews"/> is <see langword="null"/>.
+    /// </summary>
+    /// <remarks>
+    /// T75 Done-when 2. Same wiring note as <see cref="ValidateStartingRelations"/>: not currently called
+    /// from the load path, for the same Owns-list scope reason.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    /// <see cref="NewsLog.MostRecentSlot"/> is outside <c>-1 .. RingBufferSlots - 1</c>, does not address
+    /// the last of <see cref="NewsLog.Slots"/>, or a slot's text exceeds the ruleset's message length.
+    /// </exception>
+    public void ValidateStartingNews(Ruleset ruleset)
+    {
+        ArgumentNullException.ThrowIfNull(ruleset);
+
+        if (StartingNews is not { } news)
+        {
+            return;
+        }
+
+        if (news.MostRecentSlot < -1 || news.MostRecentSlot > ruleset.NewsLog.RingBufferSlots - 1)
+        {
+            throw new InvalidOperationException(
+                $"startingNews.mostRecentSlot {news.MostRecentSlot} is outside "
+                + $"-1..{ruleset.NewsLog.RingBufferSlots - 1}.");
+        }
+
+        if (!news.IsConsistent())
+        {
+            throw new InvalidOperationException(
+                $"startingNews.mostRecentSlot {news.MostRecentSlot} does not address the last of its "
+                + $"{news.Slots.Count} slots.");
+        }
+
+        var maxTextBytes = ruleset.NewsLog.MessageByteLength - 1;
+        foreach (var slot in news.Slots)
+        {
+            if (slot.Text.Length > maxTextBytes)
+            {
+                throw new InvalidOperationException(
+                    $"startingNews has a slot text of {slot.Text.Length} bytes, over the ruleset's "
+                    + $"{maxTextBytes}-byte limit.");
+            }
+        }
+    }
 }
 
 /// <summary>How a <see cref="TerrainGrid"/>'s cell codes are encoded in JSON.</summary>
