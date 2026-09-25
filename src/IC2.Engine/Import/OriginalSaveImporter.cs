@@ -281,6 +281,14 @@ public static class OriginalSaveImporter
         // being kept as a plausible-looking but unverified link.
         var tombstonedArmyIndices = armyTable.SkippedRecords.Select(s => s.Index).ToHashSet();
         var liveArmyIndices = armyTable.Armies.Select(a => a.Index).ToHashSet();
+        // #340 N1 (Owns amendment, PR #396): a tombstoned fleet (SkippedRecords) can still claim a
+        // surviving army at its own +22 -- the fleet was absorbed into another mid-turn (bug #276) and
+        // compacted out, but the army it was carrying lives on. Passed to ResolveArmyAboardFleet below
+        // so that army is unlinked instead of failing the import.
+        var armiesClaimedByTombstonedFleets = fleetTable.SkippedRecords
+            .Where(s => s.CarriedArmyIndex.HasValue)
+            .Select(s => (int)s.CarriedArmyIndex!.Value)
+            .ToHashSet();
         var links = EmbarkationLinker.Resolve(
             fleetTable.Fleets.Select(f => new EmbarkationLinker.FleetClaim(f.Index, f.CarriedArmyIndex)),
             liveArmyIndices,
@@ -309,7 +317,8 @@ public static class OriginalSaveImporter
             }
 
             var aboardFleetId = EmbarkationLinker.ResolveArmyAboardFleet(
-                a.Index, a.IsAboardFleet, armyCarriedByFleetIndex, FleetId, documentPath);
+                a.Index, a.IsAboardFleet, armyCarriedByFleetIndex, FleetId, documentPath,
+                armiesClaimedByTombstonedFleets);
             int? coveredTileCode = aboardFleetId is null ? a.CoveredCell : null;
 
             var units = new UnitSlot[a.Units.Count];

@@ -1,4 +1,7 @@
+using System.Buffers.Binary;
+using IC2.Data;
 using IC2.Engine.Import;
+using IC2.Engine.Serialization;
 using Xunit;
 
 namespace IC2.Engine.Tests.Import;
@@ -186,5 +189,167 @@ public class EmbarkationLinkerTests
 
         Assert.Contains("army 5", ex.Message);
         Assert.Contains("aboard", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Owns amendment (PR #396, after PR #395): the amended Done-when 6 requires the unlink and the
+    /// position to be shown through <see cref="OriginalSaveImporter"/> itself, not only through
+    /// <see cref="EmbarkationLinker"/> directly (the tests above). This builds a minimal, synthetic
+    /// SAV-shaped byte array against the real, committed <c>classical-mediterranean</c> world/ruleset
+    /// (the only ones an original save is ever balanced against) -- structurally valid everywhere
+    /// <c>OriginalSaveImporter.Import</c>'s own eight parsers and <see cref="GameDataValidation"/> read,
+    /// but otherwise all zeros -- with exactly one army (index 0, marked aboard by its own covered-cell
+    /// sentinel) and exactly one fleet (index 0, tombstoned: owner <c>0xFFFF</c>) whose
+    /// <c>CarriedArmyIndex</c> still names that army. No corpus save has this shape (#340's own Done-when
+    /// 6 bullet).
+    /// </summary>
+    [Fact]
+    public void OriginalSaveImporter_unlinks_a_surviving_army_from_a_tombstoned_fleet_and_keeps_its_position()
+    {
+        var data = BuildMinimalSavWithATombstonedFleetCarryingASurvivingArmy();
+
+        var result = OriginalSaveImporter.Import(
+            data, "synthetic-tombstoned-fleet.sav (#340 N1, no corpus save has this shape)",
+            RealGameData.World, RealGameData.Ruleset, RealGameData.Scenario,
+            saveId: "test-tombstoned-fleet-carry", saveLabel: "Test tombstoned-fleet carry");
+
+        // Unlinked: no longer marked aboard.
+        var army = Assert.Single(result.Save.State.Armies);
+        Assert.Null(army.AboardFleetId);
+
+        // Kept its position: the same X/Y the synthetic record wrote, untouched by the unlink.
+        Assert.Equal(5, army.X);
+        Assert.Equal(7, army.Y);
+
+        // The tombstoned fleet never became a live FleetState -- it is reported as skipped instead.
+        Assert.Empty(result.Save.State.Fleets);
+        var skippedFleet = Assert.Single(result.Report.SkippedFleets);
+        Assert.Equal(0, skippedFleet.Index);
+
+        // GameDataValidation.Validate runs inside Import() itself (review N1's own belt-and-braces) --
+        // reaching this line at all already proves the result round-trips through it without a dangling
+        // reference; asserted again here so a future change to that internal call is still covered.
+        GameDataValidation.Validate("synthetic-tombstoned-fleet.sav (#340 N1)", result.Save.State);
+    }
+
+    /// <summary>
+    /// Builds a minimal SAV-shaped byte array that <c>OriginalSaveImporter.Import</c> accepts whole
+    /// against <see cref="RealGameData.World"/> (16 nations, 334 cities) -- not
+    /// <c>IC2.Data.Tests</c>'s own internal <c>SyntheticSaveBuilder</c> (a different assembly, and
+    /// scoped to <c>SaveArmyTable</c>/<c>SaveFleetTable</c> alone, never a full import). Every region
+    /// this method does not explicitly write is left at its zero-filled default, which every one of
+    /// <c>OriginalSaveImporter.Import</c>'s eight parsers accepts as structurally valid on its own
+    /// (mirroring <c>SyntheticSaveBuilder</c>'s own documented reasoning for the two tables it covers):
+    /// zero coordinates, zero owner/allegiance (nation 0), zero relation cells (peace, symmetric, zero
+    /// diagonal), zero-amount recruitment/mercenary slots (skipped by their own parsers), an empty
+    /// (<c>-1</c>) news log, and a capital sentinel of <c>0xFFFF</c> on every nation (so none claims a
+    /// city it does not own). The only content written is: 334 one-letter city names (
+    /// <see cref="WorldPrefix.Parse"/> rejects an empty name), the 16 real nation names in
+    /// <see cref="NationCatalog"/>'s own order plus a one-letter leader each (<c>SaveNationTable.Parse</c>
+    /// rejects an empty name or an empty leader field), a turn order that is the identity permutation
+    /// <c>0..15</c> with nation 0 active (<c>SaveTurnState.Parse</c> requires a permutation), a "no
+    /// offer pending" sentinel, and the one army and one fleet this test cares about.
+    /// </summary>
+    private static byte[] BuildMinimalSavWithATombstonedFleetCarryingASurvivingArmy()
+    {
+        const int nationCount = 16;
+        const int cityRecordLength = 34;
+        const int armyRecordLength = 656;
+        const int fleetRecordLength = 26;
+        const int savNationRecordLength = 1172;
+        const int mercenaryTableLength = 50 * 12;
+        const int trailerLength = 55;
+        const ushort noCapitalSentinel = 0xFFFF;
+        const ushort noOfferSentinel = 0xFFFF;
+
+        var mapAndCityLength = WorldPrefix.SharedPrefixLength; // 89,600 map + 334 x 34 city table.
+        var totalLength = mapAndCityLength
+            + 2 + 1 * armyRecordLength // army count word + 1 army record
+            + 2 + 1 * fleetRecordLength // fleet count word + 1 fleet record
+            + nationCount * savNationRecordLength
+            + mercenaryTableLength
+            + 2 // news log's own newsIndex field
+            + 0 // (newsIndex + 1) slots -- newsIndex -1, an empty log, needs none
+            + trailerLength;
+
+        var data = new byte[totalLength];
+
+        // ---- Map + city table: WorldPrefix.Parse requires every one of the 334 city records to carry
+        // a non-empty, NUL-terminated ASCII name in its first 14 bytes; coordinates (0, 0) and every
+        // other field default to zero, all within WorldPrefix.Parse's own accepted range.
+        for (var i = 0; i < WorldPrefix.CityCount; i++)
+        {
+            data[WorldPrefix.CityStart + i * cityRecordLength] = (byte)'C';
+        }
+
+        // ---- Army table: one army (index 0), owned by nation 0, at (5, 7), marked aboard a fleet by
+        // its own covered-cell sentinel (ArmyRecord.CoveredCell == ArmyRecord.AboardFleetSentinel).
+        var armyTableStart = mapAndCityLength + 2;
+        WriteUInt16(data, mapAndCityLength, 1); // army count
+        WriteUInt16(data, armyTableStart + 0, 5); // X
+        WriteUInt16(data, armyTableStart + 2, 7); // Y
+        WriteUInt16(data, armyTableStart + 4, 0); // Owner (nation 0)
+        WriteUInt16(data, armyTableStart + 8, 0xFFFF); // CoveredCell: AboardFleetSentinel
+
+        // ---- Fleet table: one fleet (index 0), tombstoned (owner 0xFFFF), still naming army 0 as its
+        // own CarriedArmyIndex (+22) -- the #340 N1 shape: the carrier is gone, the cargo survived.
+        var fleetCountOffset = armyTableStart + armyRecordLength;
+        var fleetTableStart = fleetCountOffset + 2;
+        WriteUInt16(data, fleetCountOffset, 1); // fleet count
+        WriteUInt16(data, fleetTableStart + 8, SaveFleetTable.TombstoneOwnerSentinel); // Owner
+        WriteUInt16(data, fleetTableStart + 22, 0); // CarriedArmyIndex = army 0
+
+        // ---- Nation table: 16 records. Name must equal NationCatalog.Name(i) exactly; the leader
+        // field (+11, 27 bytes) must hold at least one non-NUL byte; the capital is left unset (the
+        // sentinel) so no nation claims a city it does not own; relations, recruitment, wealth and
+        // every other field default to zero, all within SaveNationTable.Parse's own accepted range
+        // (a symmetric, zero-diagonal, all-peace relation matrix).
+        var nationTableStart = fleetTableStart + fleetRecordLength;
+        for (var i = 0; i < nationCount; i++)
+        {
+            var offset = nationTableStart + i * savNationRecordLength;
+            WriteAscii(data, offset, NationCatalog.Name((ushort)i));
+            data[offset + 11] = (byte)'L'; // leader: one non-NUL byte is enough
+            WriteUInt16(data, offset + 0x444, noCapitalSentinel); // capitalCity: none
+        }
+
+        // ---- Mercenary pool: 50 all-zero records -- every one reads as empty (zero troops), so
+        // SaveMercenaryTable.Parse's own loop never inspects a field this test hasn't set.
+        var mercenaryTableStart = nationTableStart + nationCount * savNationRecordLength;
+
+        // ---- News log: newsIndex = -1, the documented "empty log" sentinel -- zero slots follow.
+        var newsIndexOffset = mercenaryTableStart + mercenaryTableLength;
+        WriteInt16(data, newsIndexOffset, -1);
+
+        // ---- 55-byte trailer: the turn order must be a permutation of 0..15 (the identity here),
+        // nation 0 is active at index 0, and no diplomatic offer is pending.
+        var trailerStart = data.Length - trailerLength;
+        for (ushort i = 0; i < nationCount; i++)
+        {
+            WriteUInt16(data, trailerStart + i * 2, i); // turn order
+        }
+
+        WriteUInt16(data, trailerStart + 32, noOfferSentinel); // pending offer: none
+        WriteUInt16(data, trailerStart + 36, 0); // current nation
+        WriteUInt16(data, trailerStart + 38, 0); // turn-order index
+        WriteUInt16(data, trailerStart + 40, 1); // week (1..13)
+        WriteUInt16(data, trailerStart + 42, 1); // year BC (1..1000)
+        WriteUInt16(data, trailerStart + 44, 0); // season (0..3)
+
+        return data;
+    }
+
+    private static void WriteUInt16(byte[] data, int offset, ushort value) =>
+        BinaryPrimitives.WriteUInt16LittleEndian(data.AsSpan(offset, 2), value);
+
+    private static void WriteInt16(byte[] data, int offset, short value) =>
+        BinaryPrimitives.WriteInt16LittleEndian(data.AsSpan(offset, 2), value);
+
+    private static void WriteAscii(byte[] data, int offset, string text)
+    {
+        for (var i = 0; i < text.Length; i++)
+        {
+            data[offset + i] = (byte)text[i];
+        }
     }
 }
