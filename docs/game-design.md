@@ -77,7 +77,7 @@ Every numeric table here has a direct citation to a report in `docs/reports/` or
 | `economy.purses` | per-army/per-fleet money purses (cap 1,000), supply bought from whoever owns the nearest seller | centralized to the national treasury — no local-purse micromanagement | Q4 |
 | `victory.default` | total conquest, 334/334 cities, 250 BC hard end | domination-over-hostiles or score-at-limit (player's choice at New Game), shorter default turn limit | Q5 |
 | `seatAsymmetry` | faithful: only AI-controlled seats lose all remaining moves on a blocked step, a split army starts with 1 move for AI / 0 for human, over-capacity embarkation is trimmed for AI only | normalized: every seat (human or AI) follows the same rule | Q6 |
-| `bugPolicy.diplomaticThaw` | reproduces the original's 8-column thaw bug (a cooldown between two nations both indexed ≥ 8 never decays) | fixed silently, all 16 columns thaw | Q8 |
+| `bugPolicy.diplomaticThaw` (ruleset field `flags.faithfulThawColumnBug` since T69) | reproduces the original's 8-column thaw bug (a cooldown between two nations both indexed ≥ 8 never decays) | fixed silently, all 16 columns thaw | Q8 |
 | `combat.onDefeat` | the loser's army/fleet is destroyed outright (see Combat) | the loser's army/fleet scatters instead of being destroyed (see Combat) | new, see below |
 
 `classical-faithful` is the default selection at New Game, consistent with "Original-save compatibility" below, which already only accepts imports onto that preset. `improved` is presented with equal visual weight, not as a hidden alternative — see "User interface".
