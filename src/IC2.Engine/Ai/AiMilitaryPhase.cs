@@ -298,6 +298,15 @@ public static class AiMilitaryPhase
                 continue;
             }
 
+            // T84 (bug #366): an eliminated nation has no forces left to attack in the original -- every
+            // targeting path there gates on the target's unity > 0 (report §5) -- and after this task an
+            // eliminated nation's own armies/fleets no longer exist anyway, but a hand-built state could
+            // still name one, so this filter is explicit rather than relying on the list being empty.
+            if (view.State.NationById(target.Nation)?.Eliminated == true)
+            {
+                continue;
+            }
+
             if (!AttackLegality.AreAdjacent(army.X, army.Y, target.X, target.Y))
             {
                 continue;
@@ -344,6 +353,13 @@ public static class AiMilitaryPhase
         foreach (var target in view.State.Fleets)
         {
             if (string.Equals(target.Nation, fleet.Nation, StringComparison.Ordinal) || target.IsUnderConstruction)
+            {
+                continue;
+            }
+
+            // T84 (bug #366): see ProposeArmyAttacks's own remark -- the AI never targets an eliminated
+            // nation, matching every targeting path in the original (report §5).
+            if (view.State.NationById(target.Nation)?.Eliminated == true)
             {
                 continue;
             }
