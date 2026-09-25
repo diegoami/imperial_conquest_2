@@ -78,4 +78,19 @@ public sealed class ProposeAllianceCommandTests
         Assert.True(result.IsAccepted);
         Assert.Equal(DiplomacyTestbed.Ruleset.Diplomacy.StateCodes.Alliance, result.State.Relations.Get(Proposer, Target));
     }
+
+    /// <summary>Bug #199 (T69), Done-when 2: rejected before any state change, with the one shared code.</summary>
+    [Fact]
+    public void RefusedWhenTheTargetIsEliminated()
+    {
+        var state = DiplomacyTestbed.StateOf(
+            DiplomacyTestbed.Nation(Proposer, "Proposer"),
+            DiplomacyTestbed.Nation(Target, "Target", eliminated: true));
+
+        var result = DiplomacyTestbed.Dispatcher().Dispatch(state, new ProposeAllianceCommand(Proposer, Target));
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(IC2.Engine.Diplomacy.DiplomacyRejections.CounterpartyEliminated, result.Code);
+        Assert.Same(state, result.State);
+    }
 }

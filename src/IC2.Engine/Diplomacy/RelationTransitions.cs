@@ -201,3 +201,33 @@ public static class RelationTransitions
         return false;
     }
 }
+
+/// <summary>
+/// The rejection shared by every diplomacy handler that refuses new diplomacy with an eliminated
+/// counterparty (bug #199) — defined once and reused, the same reasoning as
+/// <see cref="RelationTransitions.IsAtWarWithAnyone"/> (T19).
+/// </summary>
+/// <remarks>
+/// <strong>[designed].</strong> Before writing this, the research repository
+/// (<c>diegoami/imperial-conquest-2-research</c>, <c>docs/reports/</c>) was searched for the original's own
+/// elimination-cleanup rule: <c>grep -rli 'eliminat' docs/reports</c>, then
+/// <c>decompiled-defection-and-siege-attrition.md</c> (the report that found the elimination cascade),
+/// <c>galatia-elimination-and-city-resupply-confirmed.md</c> (the follow-up that confirmed elimination
+/// against a real save pair), and <c>decompiled-ai-offers-to-human-seats.md</c> (the diplomacy-writes
+/// report). The defection report's own text, from a first pass over <c>FUN_0044bed8</c>'s "last city lost"
+/// branch, says the nation "is disabled (<c>TPremierForm_DisableNation</c>), its armies are processed via
+/// another routine, and its diplomatic/mercenary state is cleaned up" — but that same report's own "What
+/// this does not establish" section lists "the nation-elimination cascade's full effects (armies,
+/// diplomacy, mercenaries)" as still open, and no later report — including the Galatia follow-up, which
+/// closed only the save-signature half of that open item (capital sentinel, unity reset) — ever decompiles
+/// <c>TPremierForm_DisableNation</c> or reads what the diplomatic/mercenary cleanup actually writes. The
+/// claim is real but was never confirmed at code level, so it does not settle bug #199: the user's
+/// 2026-09-23 decision governs instead. Relations already on the books with a nation that is later
+/// eliminated are kept, as history, not broken; every propose and accept handler rejects <em>new</em>
+/// diplomacy with an eliminated counterparty with this one code.
+/// </remarks>
+public static class DiplomacyRejections
+{
+    /// <summary>The other nation named in the command has already been eliminated.</summary>
+    public static readonly RejectionCode CounterpartyEliminated = new("diplomacy.counterparty-eliminated");
+}
