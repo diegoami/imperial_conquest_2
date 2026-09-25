@@ -121,6 +121,23 @@ public sealed class AiOwnDiplomacyRuleTests
         Assert.True(AiOwnDiplomacyRule.IsProtected(state, Ruleset, "k", "me"));
     }
 
+    /// <summary>
+    /// Rework round 1, N3: the report's own test is <c>cities[k] + cities[a] &gt; cities[me]</c>, strict
+    /// -- exact equality is not protected. Distinct from
+    /// <see cref="A_candidate_whose_ally_does_not_push_combined_cities_over_the_reference_is_not_protected"/>,
+    /// whose 2-vs-10 gap would still pass under a <c>&gt;=</c> mutation; this pins the boundary itself.
+    /// </summary>
+    [Fact]
+    public void A_candidate_whose_ally_exactly_ties_the_reference_is_not_protected()
+    {
+        var state = Fixture(
+            new NationSpec("me", 0, Cities: 4), new NationSpec("k", 1, Cities: 1), new NationSpec("a", 2, Cities: 3));
+        state = AllyOf(state, "k", "a");
+
+        // cities[k] (1) + cities[a] (3) = 4, exactly equal to cities[me] (4), not greater.
+        Assert.False(AiOwnDiplomacyRule.IsProtected(state, Ruleset, "k", "me"));
+    }
+
     [Fact]
     public void A_candidate_whose_ally_does_not_push_combined_cities_over_the_reference_is_not_protected()
     {
@@ -192,6 +209,40 @@ public sealed class AiOwnDiplomacyRuleTests
         Assert.Null(AiOwnDiplomacyRule.BestWarTarget(state, Ruleset, world, "me"));
     }
 
+    /// <summary>
+    /// Rework round 1, N3: the report's own test is <c>ratio &gt; base</c>, strict -- landing exactly on
+    /// the base (not merely below it, as <see cref="A_ratio_at_or_below_the_base_is_never_the_war_target"/>
+    /// checks) is still never a target. P(me) = (100000/20000)*(100/100) = 5; P(k) =
+    /// (80000/20000)*(100/100) = 4; ratio = 8*5/4 = 10, exactly the base.
+    /// </summary>
+    [Fact]
+    public void A_ratio_exactly_at_the_base_is_never_the_war_target()
+    {
+        var world = TestWorld("me", "k");
+        var state = Fixture(
+            new NationSpec("me", 0, Wealth: 100000, Unity: 100), new NationSpec("k", 1, Wealth: 80000, Unity: 100));
+
+        Assert.Null(AiOwnDiplomacyRule.BestWarTarget(state, Ruleset, world, "me"));
+    }
+
+    /// <summary>
+    /// Rework round 1, N3: the ratio is <c>(multiplier * P(me)) / max(1, P(k))</c> -- the multiply before
+    /// the divide (report §1a: <c>(P(me) &lt;&lt; 3) / max(1, P(k))</c>, a left-shift by 3, exactly a
+    /// multiply by 8, applied before the divide). Computing it the other way around,
+    /// <c>multiplier * (P(me) / P(k))</c>, divides first and loses precision to integer truncation. P(me)
+    /// = (60000/20000)*(100/100) = 3; P(k) = (40000/20000)*(100/100) = 2. Correct: 8*3/2 = 12, over the
+    /// base of 10 -- k is the target. Wrong order: 8*(3/2) = 8*1 = 8, at or under the base -- no target.
+    /// </summary>
+    [Fact]
+    public void The_ratio_multiplies_before_it_divides()
+    {
+        var world = TestWorld("me", "k");
+        var state = Fixture(
+            new NationSpec("me", 0, Wealth: 60000, Unity: 100), new NationSpec("k", 1, Wealth: 40000, Unity: 100));
+
+        Assert.Equal("k", AiOwnDiplomacyRule.BestWarTarget(state, Ruleset, world, "me"));
+    }
+
     [Fact]
     public void An_already_eliminated_neighbour_is_never_the_war_target()
     {
@@ -253,6 +304,60 @@ public sealed class AiOwnDiplomacyRuleTests
         state = AtWar(state, "m", "j");
 
         Assert.Null(AiOwnDiplomacyRule.FindAlliancePartner(state, Ruleset, world, "me"));
+    }
+
+    /// <summary>
+    /// Rework round 1, N3: the report's own test is <c>cities[j] &lt; cities[me] + cities[m]</c>, strict
+    /// -- exact equality does not qualify j either, distinct from
+    /// <see cref="The_shared_neighbour_must_not_out_city_the_pair"/>'s 10-vs-2 gap, which a <c>&lt;=</c>
+    /// mutation would not catch.
+    /// </summary>
+    [Fact]
+    public void The_shared_neighbour_exactly_tying_the_pair_is_not_a_partner_search_starting_point()
+    {
+        var world = TestWorld("me", "j", "m");
+        var state = Fixture(
+            // cities[j] (2) is exactly equal to cities[me] (1) + cities[m] (1) = 2, not less.
+            new NationSpec("me", 0, Cities: 1), new NationSpec("j", 1, Cities: 2), new NationSpec("m", 2, Cities: 1));
+        state = AtWar(state, "m", "j");
+
+        Assert.Null(AiOwnDiplomacyRule.FindAlliancePartner(state, Ruleset, world, "me"));
+    }
+
+    /// <summary>
+    /// Rework round 1, N3: the neighbour <c>j</c>'s own relation to <c>me</c> must be peace or trade
+    /// (<c>0 &lt;= rel[me][j] &lt;= trade</c>) -- already allied is out of range too, not merely "up to
+    /// trade" being read as "up to and including alliance". A search that allowed an already-allied j
+    /// would let this alliance search re-propose a partner the caller is allied with already.
+    /// </summary>
+    [Fact]
+    public void A_neighbour_already_allied_with_me_is_never_a_partner_search_starting_point()
+    {
+        var world = TestWorld("me", "j", "m");
+        var state = Fixture(new NationSpec("me", 0, Cities: 5), new NationSpec("j", 1, Cities: 1), new NationSpec("m", 2, Cities: 1));
+        state = AtWar(state, "m", "j");
+        state = AllyOf(state, "me", "j");
+
+        Assert.Null(AiOwnDiplomacyRule.FindAlliancePartner(state, Ruleset, world, "me"));
+    }
+
+    /// <summary>
+    /// Rework round 1, N3: the <c>m</c> loop is "first match" order, over <see cref="GameState.Nations"/>'
+    /// own stable list order -- not, say, the richest or strongest candidate. Two nations (<c>m1</c>,
+    /// <c>m2</c>) both satisfy every gate identically; only their position in the nations list built by
+    /// <see cref="Fixture"/> differs, and the first one, <c>m1</c>, must be the one returned.
+    /// </summary>
+    [Fact]
+    public void The_first_qualifying_m_in_nation_order_is_the_partner_not_a_later_equally_qualified_one()
+    {
+        var world = TestWorld("me", "j", "m1", "m2");
+        var state = Fixture(
+            new NationSpec("me", 0, Cities: 5), new NationSpec("j", 1, Cities: 1),
+            new NationSpec("m1", 2, Cities: 1), new NationSpec("m2", 3, Cities: 1));
+        state = AtWar(state, "m1", "j");
+        state = AtWar(state, "m2", "j");
+
+        Assert.Equal("m1", AiOwnDiplomacyRule.FindAlliancePartner(state, Ruleset, world, "me"));
     }
 
     [Fact]
@@ -343,6 +448,38 @@ public sealed class AiOwnDiplomacyRuleTests
         {
             Relations = state.Relations.WithRelation("me", "partner", Ruleset.Diplomacy.StateCodes.Trade),
         };
+
+        Assert.Null(AiOwnDiplomacyRule.FindTradeSwap(state, Ruleset, "me"));
+    }
+
+    /// <summary>
+    /// Rework round 1, N3: <see cref="AiOwnDiplomacyRule.FindTradeSwap"/>'s own search checks the richer
+    /// candidate's cap directly (<c>TradeCount(candidate) &gt;= cap</c>), separately from
+    /// <see cref="Commands.AiSwapTradePartnerCommandHandler"/>'s own re-check at write time -- a richer
+    /// candidate already at its own trade cap is never returned as a swap target in the first place.
+    /// </summary>
+    [Fact]
+    public void A_richer_candidate_already_at_its_own_trade_cap_is_never_a_swap()
+    {
+        var cap = Ruleset.Diplomacy.MaxTradePartners;
+        var specs = new List<NationSpec>
+        {
+            new("me", 0, TaxBase: 0), new("poor", 1, TaxBase: 100), new("rich", 2, TaxBase: 500),
+        };
+        for (var i = 0; i < cap; i++)
+        {
+            specs.Add(new NationSpec($"o{i}", i + 3));
+        }
+
+        var state = Fixture(specs.ToArray());
+        state = state with
+        {
+            Relations = state.Relations.WithRelation("me", "poor", Ruleset.Diplomacy.StateCodes.Trade),
+        };
+        for (var i = 0; i < cap; i++)
+        {
+            state = state with { Relations = state.Relations.WithRelation("rich", $"o{i}", Ruleset.Diplomacy.StateCodes.Trade) };
+        }
 
         Assert.Null(AiOwnDiplomacyRule.FindTradeSwap(state, Ruleset, "me"));
     }

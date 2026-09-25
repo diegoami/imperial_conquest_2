@@ -338,6 +338,38 @@ public sealed class PendingOfferSystemTests
         }
     }
 
+    /// <summary>
+    /// Rework round 1, N3: report §1b's own test is <c>taxBase[k] &lt; taxBase[h]</c>, strict -- tied is
+    /// not poorer. Distinct from
+    /// <see cref="DoD1_NoTradeOffer_WhenTheCandidateHasNoPartnerPoorerThanTheHuman"/>'s 950-vs-500 gap
+    /// (richer, not merely tied), which a <c>&lt;=</c> mutation would not catch.
+    /// </summary>
+    [Fact]
+    public void DoD1_NoTradeOffer_WhenTheCandidatesPartnerExactlyTiesTheHumansTaxBase()
+    {
+        var ruleset = DiplomacyTestbed.Ruleset;
+        var state = DiplomacyTestbed.StateOf(
+            DiplomacyTestbed.Nation(Human, "Human", control: SeatControl.Human, taxBase: 500),
+            DiplomacyTestbed.Nation(CandidateAi, "CandidateAi", taxBase: 900),
+            DiplomacyTestbed.Nation("tied-partner", "TiedPartner", taxBase: 500));
+
+        state = state with
+        {
+            // CandidateAi's only partner exactly ties the human's own taxBase -- not poorer.
+            Relations = state.Relations.WithRelation(
+                CandidateAi, "tied-partner", ruleset.Diplomacy.StateCodes.Trade),
+        };
+
+        for (ulong seed = 1; seed < 2000; seed++)
+        {
+            var (after, _) = PendingOfferSystem.Apply(state, ruleset, ToyWorld, new SplitMix64Rng(seed));
+            if (after.PendingOffer is { } offer)
+            {
+                Assert.NotEqual(CandidateAi, offer.ProposingNationId);
+            }
+        }
+    }
+
     /// <summary>A small world giving exactly two nations a real, wide (14-tile) shared border.</summary>
     private static World NeighbourWorld(string a, string b)
     {
