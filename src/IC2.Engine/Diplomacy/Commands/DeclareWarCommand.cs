@@ -45,10 +45,18 @@ public sealed class DeclareWarCommandHandler : ICommandHandler<DeclareWarCommand
                 DeclareWarRejections.SelfTarget, "A nation cannot declare war on itself.");
         }
 
-        if (state.NationById(command.TargetNationId) is null)
+        var target = state.NationById(command.TargetNationId);
+        if (target is null)
         {
             return CommandOutcome.Reject(
                 DeclareWarRejections.UnknownTarget, $"'{command.TargetNationId}' is not a known nation.");
+        }
+
+        if (target.Eliminated)
+        {
+            return CommandOutcome.Reject(
+                DiplomacyRejections.CounterpartyEliminated,
+                $"'{target.Name}' has been eliminated and cannot be declared war on.");
         }
 
         state = RelationTransitions.DeclareWar(state, context.Ruleset, command.IssuingNationId, command.TargetNationId);

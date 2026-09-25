@@ -1,5 +1,6 @@
 using IC2.Engine.Battle.Commands;
 using IC2.Engine.Core;
+using IC2.Engine.Diplomacy;
 using IC2.Engine.Diplomacy.Commands;
 using IC2.Engine.Model;
 using IC2.Engine.Tests.Battle;
@@ -10,12 +11,22 @@ using static IC2.Engine.Tests.Battle.Commands.BattleCommandTestbed;
 namespace IC2.Engine.Tests.Diplomacy;
 
 /// <summary>
-/// Bug #199 (T69), Done-when 3 and 4: a nation eliminated mid-turn through the real capture path — a
+/// Bug #199 (T69), Done-when 2 and 3: a nation eliminated mid-turn through the real capture path — a
 /// <see cref="BesiegeCityCommand"/> that takes its last city, the same production path
 /// <c>BesiegeCityCommandTests.DoD02_ACaptureThroughTheCommandEliminatesOneNationAndLeavesNothingDangling</c>
-/// exercises — is rejected as a counterparty by every propose/accept handler afterward, while a relation
-/// it already held is left untouched, kept as history rather than broken.
+/// exercises — is rejected as a counterparty by every one of the five handlers afterward, changing
+/// nothing.
 /// </summary>
+/// <remarks>
+/// Rework round 1: this replaces the "kept as history" test PR #364's review (B1) found pinned the
+/// opposite of the original's own rule. The exhaustive Done-when 4 mechanics — both call sites, the
+/// <c>JustEliminated</c> gate, the two-entity probe, and the peace/cooldown-clears-to-0 case — live in
+/// <c>tests/IC2.Engine.Tests/Cities/Capture/EliminationRelationResetTests.cs</c>; this file keeps only the
+/// one integration check that the real command-driven path resets a relation too, plus DoD 3's five-
+/// handler cross-task scenario. N3: the pending offer is created <em>before</em> the siege that eliminates
+/// its proposer, matching bug #199's own ordering (roll first, then eliminate) rather than being injected
+/// afterward.
+/// </remarks>
 public sealed class EliminationDiplomacyTests
 {
     private const string ConquerorId = "north";
@@ -27,7 +38,8 @@ public sealed class EliminationDiplomacyTests
     /// <summary>
     /// Builds a three-nation state where <see cref="ConquerorId"/> is at war with, and adjacent to, the
     /// last city of <see cref="DoomedId"/> — which already holds a trade relation with the uninvolved
-    /// <see cref="ThirdPartyId"/> — and a besieging army strong enough to take it outright.
+    /// <see cref="ThirdPartyId"/> and a pending trade offer to <see cref="ConquerorId"/>, both already on
+    /// the books before the siege — and a besieging army strong enough to take the city outright.
     /// </summary>
     private static GameState Fixture()
     {
@@ -55,36 +67,49 @@ public sealed class EliminationDiplomacyTests
             new[] { besieger });
 
         var codes = ToyRuleset.Diplomacy.StateCodes;
-        state = state with { Relations = state.Relations.WithRelation(DoomedId, ThirdPartyId, codes.Trade) };
+        state = state with
+        {
+            Relations = state.Relations.WithRelation(DoomedId, ThirdPartyId, codes.Trade),
+            // N3: the offer predates the elimination -- bug #199's own ordering is roll first, then
+            // eliminate, not the other way around.
+            PendingOffer = new PendingDiplomaticOffer(DoomedId, codes.Trade),
+        };
 
         return AtWar(state, ConquerorId, DoomedId);
     }
 
     /// <summary>
     /// The shared setup: dispatches the siege that actually eliminates <see cref="DoomedId"/>, and hands
-    /// back the resulting state plus the codes both DoD 3 and DoD 4 assert against.
+    /// back the resulting state plus the codes DoD 3 and DoD 4 assert against.
     /// </summary>
     private static (GameState State, RelationStateCodes Codes) EliminateDoomedNation()
     {
         var state = Fixture();
+        Assert.NotNull(state.PendingOffer);
+
         var result = Dispatcher().Dispatch(state, new BesiegeCityCommand(ConquerorId, BesiegerId, LastCityId));
 
         Assert.True(result.IsAccepted, result.ToString());
         Assert.True(result.State.NationById(DoomedId)!.Eliminated);
+        // The offer isn't cleared by the siege itself -- only PendingOfferSystem does that, at the next
+        // human turn start -- so it is still there for DoD 3's accept-offer scenario below.
+        Assert.NotNull(result.State.PendingOffer);
 
         return (result.State, ToyRuleset.Diplomacy.StateCodes);
     }
 
     /// <summary>
-    /// DoD 4: the trade relation <see cref="DoomedId"/> held with <see cref="ThirdPartyId"/> survives its
-    /// owner's elimination unchanged — kept as history, not broken (the user's 2026-09-23 decision).
+    /// DoD 4's integration slice: the trade relation <see cref="DoomedId"/> held with
+    /// <see cref="ThirdPartyId"/> is reset to the broken-trade cooldown by the real elimination path, the
+    /// original's own rule (rework round 1, B1) — not kept as history, the opposite behaviour the review
+    /// found pinned here before.
     /// </summary>
     [Fact]
-    public void DoD04_ElimationKeepsAnExistingRelation_UnchangedAsHistory()
+    public void DoD04_EliminationResetsAnExistingRelation_ToItsCooldown()
     {
-        var (state, codes) = EliminateDoomedNation();
+        var (state, _) = EliminateDoomedNation();
 
-        Assert.Equal(codes.Trade, state.Relations.Get(DoomedId, ThirdPartyId));
+        Assert.Equal(ToyRuleset.Diplomacy.CooldownAfterBrokenTrade, state.Relations.Get(DoomedId, ThirdPartyId));
     }
 
     /// <summary>
@@ -99,13 +124,11 @@ public sealed class EliminationDiplomacyTests
         var result = Dispatcher().Dispatch(state, new ProposeTradeCommand(ConquerorId, DoomedId));
 
         Assert.True(result.IsRejected);
-        Assert.Equal(Engine.Diplomacy.DiplomacyRejections.CounterpartyEliminated, result.Code);
+        Assert.Equal(DiplomacyRejections.CounterpartyEliminated, result.Code);
         Assert.Same(state, result.State);
     }
 
-    /// <summary>
-    /// DoD 3: the same, for <see cref="ProposeAllianceCommand"/>.
-    /// </summary>
+    /// <summary>DoD 3: the same, for <see cref="ProposeAllianceCommand"/>.</summary>
     [Fact]
     public void DoD03_ProposeAlliance_AgainstTheJustEliminatedNation_IsRejectedAndChangesNothing()
     {
@@ -114,25 +137,51 @@ public sealed class EliminationDiplomacyTests
         var result = Dispatcher().Dispatch(state, new ProposeAllianceCommand(ConquerorId, DoomedId));
 
         Assert.True(result.IsRejected);
-        Assert.Equal(Engine.Diplomacy.DiplomacyRejections.CounterpartyEliminated, result.Code);
+        Assert.Equal(DiplomacyRejections.CounterpartyEliminated, result.Code);
         Assert.Same(state, result.State);
     }
 
     /// <summary>
-    /// DoD 3: a pending offer that names the just-eliminated nation as proposer is rejected the same way —
-    /// the gap T17's <c>PendingOfferSystem</c> already closes on the roll (<c>aliveOk</c>) is the accept
-    /// path, reached here directly by handing the state a pending offer the roll would never have produced.
+    /// DoD 3: the pending offer that <see cref="Fixture"/> created before the siege, naming the
+    /// now-eliminated <see cref="DoomedId"/> as proposer, is rejected the same way when accepted afterward
+    /// — the gap T17's <c>PendingOfferSystem</c> already closes on the roll (<c>aliveOk</c>) is the accept
+    /// path, not the roll.
     /// </summary>
     [Fact]
-    public void DoD03_AcceptPendingOffer_NamingTheJustEliminatedNationAsProposer_IsRejectedAndChangesNothing()
+    public void DoD03_AcceptPendingOffer_OnAnOfferThatPredatesTheElimination_IsRejectedAndChangesNothing()
     {
-        var (eliminated, codes) = EliminateDoomedNation();
-        var state = eliminated with { PendingOffer = new PendingDiplomaticOffer(DoomedId, codes.Trade) };
+        var (state, _) = EliminateDoomedNation();
 
         var result = Dispatcher().Dispatch(state, new AcceptPendingOfferCommand(ConquerorId));
 
         Assert.True(result.IsRejected);
-        Assert.Equal(Engine.Diplomacy.DiplomacyRejections.CounterpartyEliminated, result.Code);
+        Assert.Equal(DiplomacyRejections.CounterpartyEliminated, result.Code);
+        Assert.Same(state, result.State);
+    }
+
+    /// <summary>DoD 3, N2: <see cref="DeclareWarCommand"/> against the just-eliminated nation.</summary>
+    [Fact]
+    public void DoD03_DeclareWar_AgainstTheJustEliminatedNation_IsRejectedAndChangesNothing()
+    {
+        var (state, _) = EliminateDoomedNation();
+
+        var result = Dispatcher().Dispatch(state, new DeclareWarCommand(ConquerorId, DoomedId));
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(DiplomacyRejections.CounterpartyEliminated, result.Code);
+        Assert.Same(state, result.State);
+    }
+
+    /// <summary>DoD 3, N2: <see cref="MakePeaceCommand"/> against the just-eliminated nation.</summary>
+    [Fact]
+    public void DoD03_MakePeace_AgainstTheJustEliminatedNation_IsRejectedAndChangesNothing()
+    {
+        var (state, _) = EliminateDoomedNation();
+
+        var result = Dispatcher().Dispatch(state, new MakePeaceCommand(ConquerorId, DoomedId));
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(DiplomacyRejections.CounterpartyEliminated, result.Code);
         Assert.Same(state, result.State);
     }
 }

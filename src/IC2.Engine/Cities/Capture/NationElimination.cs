@@ -29,6 +29,15 @@ namespace IC2.Engine.Cities.Capture;
 /// <see cref="IC2.Engine.Calendar.SeatRotationSystem"/> DoD 8 is the caller that must skip an eliminated
 /// nation's seat.
 /// </para>
+/// <para>
+/// <strong>Diplomacy is reset by the caller, not here.</strong> Rework round 1, B1: the original also
+/// resets every relation the eliminated nation holds (see
+/// <see cref="IC2.Engine.Diplomacy.RelationTransitions.ResetAllOnElimination"/>'s own remarks for the
+/// decompiled citations). That reset writes <see cref="GameState.Relations"/>, a whole-state matrix, not
+/// a <see cref="NationState"/> field this method could return alongside <c>eliminated</c> above — so both
+/// call sites in <c>CityCaptureResolver</c> apply it themselves, gated on this method's own
+/// <c>JustEliminated</c>, immediately after replacing the nation record.
+/// </para>
 /// </remarks>
 public static class NationElimination
 {

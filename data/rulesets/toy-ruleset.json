@@ -665,7 +665,7 @@
       "thawBonus": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — and, with probability 1/3, min(0, v + 3).",
       "thawBonusChanceDenominator": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md",
       "maxTradePartners": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — TPolitics_MakeTrade allows at most 3 trade partners.",
-      "faithfulThawColumnLimit": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — the quarterly thaw loop runs 'while (sVar6 != 8)', so only the first 8 relation columns of each row ever decay. This is the original bug that the flags block's bugPolicy.diplomaticThaw setting selects between reproducing and fixing.",
+      "faithfulThawColumnLimit": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — the quarterly thaw loop runs 'while (sVar6 != 8)', so only the first 8 relation columns of each row ever decay. This is the original bug that the flags block's faithfulThawColumnBug selects between reproducing (true) and fixing (false).",
       "reparationsWealthDivisor": "confirmed formula, unverified against the one observation: decompiled-diplomacy-peace-terms-and-instant-battles.md — reparations = W/4 + random(W/4) + cityCount × 10, where W is nation field +0x44C. docs/design-audit.md §2.5 notes the single observed payment was never re-derived from the save's field values.",
       "reparationsPerCity": "confirmed formula, unverified against the one observation: see reparationsWealthDivisor."
     }

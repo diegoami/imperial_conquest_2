@@ -1,3 +1,4 @@
+using IC2.Engine.Diplomacy;
 using IC2.Engine.Diplomacy.Commands;
 using IC2.Engine.Model;
 using Xunit;
@@ -80,5 +81,37 @@ public sealed class DeclareWarAndMakePeaceCommandTests
 
         Assert.True(result.IsRejected);
         Assert.Equal(MakePeaceRejections.NotAtWar, result.Code);
+    }
+
+    // ---- Rework round 1, N2: DeclareWar and MakePeace also reject an eliminated counterparty ----
+
+    /// <summary>Bug #199, N2: rejected before any state change, with the one shared code.</summary>
+    [Fact]
+    public void DeclareWar_RefusedWhenTheTargetIsEliminated()
+    {
+        var state = DiplomacyTestbed.StateOf(
+            DiplomacyTestbed.Nation(A, "A"), DiplomacyTestbed.Nation(B, "B", eliminated: true));
+
+        var result = DiplomacyTestbed.Dispatcher().Dispatch(state, new DeclareWarCommand(A, B));
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(DiplomacyRejections.CounterpartyEliminated, result.Code);
+        Assert.Same(state, result.State);
+    }
+
+    /// <summary>Bug #199, N2: rejected before any state change, with the one shared code.</summary>
+    [Fact]
+    public void MakePeace_RefusedWhenTheTargetIsEliminated()
+    {
+        var ruleset = DiplomacyTestbed.Ruleset;
+        var state = DiplomacyTestbed.StateOf(
+            DiplomacyTestbed.Nation(A, "A"), DiplomacyTestbed.Nation(B, "B", eliminated: true));
+        state = state with { Relations = state.Relations.WithRelation(A, B, ruleset.Diplomacy.StateCodes.War) };
+
+        var result = DiplomacyTestbed.Dispatcher().Dispatch(state, new MakePeaceCommand(A, B));
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(DiplomacyRejections.CounterpartyEliminated, result.Code);
+        Assert.Same(state, result.State);
     }
 }

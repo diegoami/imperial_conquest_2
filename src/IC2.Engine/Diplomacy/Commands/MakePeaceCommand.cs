@@ -65,6 +65,13 @@ public sealed class MakePeaceCommandHandler : ICommandHandler<MakePeaceCommand>
                 MakePeaceRejections.UnknownTarget, $"'{command.TargetNationId}' is not a known nation.");
         }
 
+        if (target.Eliminated)
+        {
+            return CommandOutcome.Reject(
+                DiplomacyRejections.CounterpartyEliminated,
+                $"'{target.Name}' has been eliminated and cannot be offered peace.");
+        }
+
         if (state.Relations.Get(command.IssuingNationId, command.TargetNationId) != codes.War)
         {
             return CommandOutcome.Reject(

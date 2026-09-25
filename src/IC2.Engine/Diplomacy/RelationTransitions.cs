@@ -50,20 +50,111 @@ public static class RelationTransitions
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(ruleset);
 
-        var codes = ruleset.Diplomacy.StateCodes;
         var current = state.Relations.Get(a, b);
-
-        var cooldown = current switch
-        {
-            _ when current == codes.Trade => ruleset.Diplomacy.CooldownAfterBrokenTrade,
-            _ when current == codes.Alliance => ruleset.Diplomacy.CooldownAfterBrokenAlliance,
-            _ when current == codes.War => ruleset.Diplomacy.CooldownAfterEndedWar,
-            _ => current,
-        };
+        var cooldown = CooldownForBrokenRelation(current, ruleset) ?? current;
 
         return cooldown == current
             ? state
             : state with { Relations = state.Relations.WithRelation(a, b, cooldown) };
+    }
+
+    /// <summary>
+    /// Resets every relation <paramref name="eliminatedId"/> holds, in both directions, the way the
+    /// original resets them on elimination (rework round 1, B1) — <strong>[confirmed]</strong>. Called
+    /// only from <c>CityCaptureResolver</c>'s two elimination sites, only when a capture or defection has
+    /// just eliminated the nation.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Both decompiled elimination paths call the relation setter with state 0 against all 16 nation
+    /// slots (local dump <c>%LOCALAPPDATA%\ReTools\all_app_functions.txt</c>): <c>FUN_0044bed8</c>, the
+    /// "last city lost" branch (:50381–50391) — <c>TPremierForm_DisableNation(...)</c>, then
+    /// <c>do { FUN_00449b40(sVar1, sVar11, 0); sVar11++; } while (sVar11 != 0x10);</c> — and
+    /// <c>FUN_0044c528</c>, the "X conquers Y" cascade (:50674–50677) — <c>FUN_00449b40(param_1, uVar4,
+    /// 0)</c> in a loop to <c>0x10</c>. Research: <c>decompiled-ai-offers-to-human-seats.md:43</c> —
+    /// "defection and elimination <c>FUN_0044BED8</c>/<c>FUN_0044C360</c>/<c>FUN_0044C528</c>/<c>FUN_0044C8F0</c>
+    /// … write only peace or cooldowns" <strong>[confirmed: all 22 decompiled FUN_00449B40( call
+    /// sites]</strong>; and <c>decompiled-diplomacy-peace-terms-and-instant-battles.md:28–34</c> — the
+    /// setter's own cooldown mapping for a state-0 call against a positive relation.
+    /// </para>
+    /// <para>
+    /// <strong>The setter's own code, read directly</strong> (<c>all_app_functions.txt</c>
+    /// :48488–48504): given state 0, it reads the pair's current relation; a positive state
+    /// (trade/alliance/war) maps to its cooldown exactly as <see cref="BreakToPeace"/> does (the shared
+    /// <c>CooldownForBrokenRelation</c> below), but <strong>any other current value — already peace (0),
+    /// or already a cooldown (negative) — is written back to state 0 anyway</strong>, unconditionally, at
+    /// :48502/:48504. There is no early-return and no "already there" check anywhere in the function. So,
+    /// unlike <see cref="BreakToPeace"/> (a no-op once a pair is already at peace or on a cooldown — the
+    /// behaviour every one of its other callers, <c>MakePeaceCommand</c>, <c>PeaceTreatySystem</c> and
+    /// <c>TradePartnerCap</c>, wants, since none of them ever calls it starting from peace or a cooldown),
+    /// an elimination reset <strong>clears an existing cooldown back to full peace immediately</strong>,
+    /// rather than leaving it to finish cooling down. <see cref="BreakToPeace"/> itself is unchanged; this
+    /// method exists because its callers' no-op is the wrong behaviour for this one caller.
+    /// </para>
+    /// <para>
+    /// No news line: neither decompiled elimination path calls the news writer for any of these
+    /// per-nation relation writes (only the elimination banner itself, owned by
+    /// <c>CityCaptureResolver</c>/<c>NationElimination</c>).
+    /// </para>
+    /// </remarks>
+    public static GameState ResetAllOnElimination(GameState state, Ruleset ruleset, string eliminatedId)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(ruleset);
+        ArgumentNullException.ThrowIfNull(eliminatedId);
+
+        // Defensive: every nation a real GameState carries is a row in its own relation matrix (built
+        // that way by GameStateFactory.CreateInitial and OriginalSaveImporter alike), so this never fires
+        // in production. It guards a fixture that models cities/armies/nations without modelling
+        // diplomacy at all -- "reset every relation this nation holds" is vacuously true when the matrix
+        // does not track it.
+        if (state.Relations.IndexOf(eliminatedId) < 0)
+        {
+            return state;
+        }
+
+        var codes = ruleset.Diplomacy.StateCodes;
+        foreach (var other in state.Relations.NationIds)
+        {
+            if (string.Equals(other, eliminatedId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var current = state.Relations.Get(eliminatedId, other);
+            var next = CooldownForBrokenRelation(current, ruleset) ?? codes.Peace;
+            state = state with { Relations = state.Relations.WithRelation(eliminatedId, other, next) };
+        }
+
+        return state;
+    }
+
+    /// <summary>
+    /// The setter's own mapping from a broken positive relation to its cooldown (DoD 2): trade →
+    /// <c>-8</c>, alliance → <c>-24</c>, war → <c>-18</c>, all from <see cref="DiplomacyRules"/>, never a
+    /// C# literal. <see langword="null"/> when <paramref name="current"/> is not one of the three positive
+    /// states — <see cref="BreakToPeace"/> (a no-op then) and <see cref="ResetAllOnElimination"/> (peace
+    /// then) each decide what that means for their own caller, matching the setter's own two call shapes.
+    /// </summary>
+    private static int? CooldownForBrokenRelation(int current, Ruleset ruleset)
+    {
+        var codes = ruleset.Diplomacy.StateCodes;
+        if (current == codes.Trade)
+        {
+            return ruleset.Diplomacy.CooldownAfterBrokenTrade;
+        }
+
+        if (current == codes.Alliance)
+        {
+            return ruleset.Diplomacy.CooldownAfterBrokenAlliance;
+        }
+
+        if (current == codes.War)
+        {
+            return ruleset.Diplomacy.CooldownAfterEndedWar;
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -205,26 +296,26 @@ public static class RelationTransitions
 /// <summary>
 /// The rejection shared by every diplomacy handler that refuses new diplomacy with an eliminated
 /// counterparty (bug #199) — defined once and reused, the same reasoning as
-/// <see cref="RelationTransitions.IsAtWarWithAnyone"/> (T19).
+/// <see cref="RelationTransitions.IsAtWarWithAnyone"/> (T19). Used by propose-trade, propose-alliance,
+/// accept-pending-offer, declare-war and make-peace (rework round 1, N2 — the review found the first two
+/// commands had the identical gap).
 /// </summary>
 /// <remarks>
-/// <strong>[designed].</strong> Before writing this, the research repository
-/// (<c>diegoami/imperial-conquest-2-research</c>, <c>docs/reports/</c>) was searched for the original's own
-/// elimination-cleanup rule: <c>grep -rli 'eliminat' docs/reports</c>, then
-/// <c>decompiled-defection-and-siege-attrition.md</c> (the report that found the elimination cascade),
-/// <c>galatia-elimination-and-city-resupply-confirmed.md</c> (the follow-up that confirmed elimination
-/// against a real save pair), and <c>decompiled-ai-offers-to-human-seats.md</c> (the diplomacy-writes
-/// report). The defection report's own text, from a first pass over <c>FUN_0044bed8</c>'s "last city lost"
-/// branch, says the nation "is disabled (<c>TPremierForm_DisableNation</c>), its armies are processed via
-/// another routine, and its diplomatic/mercenary state is cleaned up" — but that same report's own "What
-/// this does not establish" section lists "the nation-elimination cascade's full effects (armies,
-/// diplomacy, mercenaries)" as still open, and no later report — including the Galatia follow-up, which
-/// closed only the save-signature half of that open item (capital sentinel, unity reset) — ever decompiles
-/// <c>TPremierForm_DisableNation</c> or reads what the diplomatic/mercenary cleanup actually writes. The
-/// claim is real but was never confirmed at code level, so it does not settle bug #199: the user's
-/// 2026-09-23 decision governs instead. Relations already on the books with a nation that is later
-/// eliminated are kept, as history, not broken; every propose and accept handler rejects <em>new</em>
-/// diplomacy with an eliminated counterparty with this one code.
+/// <strong>[designed].</strong> Rework round 1 (PR #364's review, finding B1) located the original's own
+/// elimination rule — see <see cref="RelationTransitions.ResetAllOnElimination"/>'s own remarks for the
+/// decompiled citations — which is what <em>this</em> reimplementation now reproduces for the eliminated
+/// nation's existing relations. But that rule answers a different question: what happens to a nation's
+/// relations on the turn it dies. It says nothing about whether a still-live nation can later target the
+/// now-eliminated one with a <em>fresh</em> proposal, because no decompiled source shows the setter, or
+/// any of its five callers, ever being invoked with an eliminated nation as an argument after its
+/// elimination turn — the original's own UI simply never offers an eliminated nation as a selectable
+/// target, which closes this gap at the input layer rather than inside any decompiled function. That is
+/// not the same kind of evidence as a decompiled rejection path, so this rejection is designed, not
+/// confirmed: a nation eliminated between a turn-start offer roll and its acceptance (or between any
+/// other proposal and its resolution) must still be refused somewhere in a command-driven engine that has
+/// no menu to grey out, and rejecting before any state change — leaving the reset relation exactly where
+/// <see cref="RelationTransitions.ResetAllOnElimination"/> put it — is the narrowest way to close that gap
+/// without inventing a written relation value the original never chose.
 /// </remarks>
 public static class DiplomacyRejections
 {
