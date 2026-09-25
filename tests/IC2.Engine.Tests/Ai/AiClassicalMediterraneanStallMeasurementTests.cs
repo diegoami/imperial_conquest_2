@@ -57,9 +57,10 @@ public sealed class AiClassicalMediterraneanStallMeasurementTests
     /// Sized to stay inside the suite's time budget across ten seeds. 120 seat-turns is 7.5 rounds of
     /// this 16-nation scenario: the first stall is at seat-turn 27 (round 2), well inside the cap, but
     /// the cap covers only <em>one</em> seasonal treasury refill (the sixteen nations' turns land at
-    /// t102-118 on the seeds sampled) -- review round 1, B2/N3. A longer run would show more of the same
-    /// recurring pattern, not a different one: every stall found here repeats once per round for the
-    /// same four nations, tied to that one season boundary.
+    /// t97-112 on the seeds sampled) -- review round 1, B2/N3; corrected by follow-up #334 N6, which
+    /// found this remark said t102-118. Every stall found within the cap repeats once per round for the
+    /// same four nations, tied to that one season boundary; the cap stops there, and this measurement
+    /// says nothing about turns beyond it.
     /// </summary>
     private const int TurnCap = 120;
 
