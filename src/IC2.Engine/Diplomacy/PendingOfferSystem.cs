@@ -17,24 +17,24 @@ namespace IC2.Engine.Diplomacy;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>The candidate draw, the peace/alive gate and the 1-in-3 roll are confirmed, mechanical, and
-/// this task's to implement.</strong> The report gives the exact short-circuit order of the
-/// <c>&amp;&amp;</c> chain, which this reproduces draw-for-draw: <c>r</c> is drawn unconditionally, the
-/// relation and alive checks are evaluated with no further draw, the <c>Random(3)</c> draw only happens
+/// <strong>The candidate draw, the peace/alive gate and the roll are confirmed, mechanical.</strong> The
+/// report gives the exact short-circuit order of the <c>&amp;&amp;</c> chain, which this reproduces
+/// draw-for-draw: <c>r</c> is drawn unconditionally, the relation and alive checks are evaluated with no
+/// further draw, the <c>Random(<see cref="DiplomacyRules.OfferRollDenominator"/>)</c> draw only happens
 /// once both pass, and the "<c>r</c> is AI" check — which also excludes the active human seat itself,
 /// since it is never AI-controlled — is evaluated last, only once the chance roll passes too.
 /// </para>
 /// <para>
-/// <strong>Trade versus alliance is not this task's to decide.</strong> The report's own words: "possibly
-/// offer = (r, 1)... possibly offer = (r, 2), overrides trade... from a tax-base comparison" — then, in
-/// its own "Still open" list, "<c>FUN_00452034</c>'s trade/alliance decision rule was read only as far as
-/// needed here. It is AI decision code." That is exactly the willingness judgement
-/// <c>docs/task-catalogue.md</c> T19's Note reserves for T22's opinion-score layer. This task's confirmed
-/// candidate-selection shell is the read surface that note describes; the trade/alliance choice defaults
-/// to trade — <c>[designed]</c>, not invented blind: every one of the 6 observed pending offers in the
-/// corpus is a trade offer, and the alliance code is itself tagged <c>[derived]</c> (never observed) by
-/// <c>pending-offer-block-army-split-and-naupactus.md</c>. <c>improved</c>'s opinion-score layer replaces
-/// this one default, not the candidate legality gates above it.
+/// <strong>T82 (#359, bug #357): trade versus alliance, from the report's §1b pseudocode</strong>
+/// <strong>[confirmed: decompiled-ai-offers-to-human-seats.md]</strong> — the willingness judgement an
+/// earlier task's own Note deferred is exactly this: <c>floor = trades(h) &lt; cap ? 0 : min taxBase over
+/// h's own partners; offer = TRADE if taxBase[r] &gt; floor and r has some partner k poorer than h (the
+/// same "swap a poorer partner for a richer one" shape <see cref="AiOwnDiplomacyRule.FindTradeSwap"/>
+/// uses for the AI's own trades); offer = ALLIANCE instead — overriding a trade already set this same
+/// roll — if r is a <see cref="NeighbourGeography"/> neighbour of h and h is not at war with anyone.</c>
+/// Every one of the 6 observed pending offers in the corpus is a trade offer, consistent with this rule:
+/// none of those six human seats had a neighbouring AI (report §1b's own worked example, Rome → Thracia,
+/// is exactly this case — Thracia borders neither Rome nor any of its three trade-observed proposers).
 /// </para>
 /// <para>
 /// Registered at <see cref="TurnPhase.SeatStart"/>, matching <c>TPremierForm_StartTurn</c>'s own place in
@@ -50,7 +50,7 @@ public sealed class PendingOfferSystem : IGameSystem
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        var (state, announcement) = Apply(context.State, context.Ruleset, context.Rng);
+        var (state, announcement) = Apply(context.State, context.Ruleset, context.World, context.Rng);
         if (announcement is not null)
         {
             context.Events.Publish(announcement);
@@ -64,10 +64,11 @@ public sealed class PendingOfferSystem : IGameSystem
     /// seed without building a full <see cref="SystemContext"/>.
     /// </summary>
     public static (GameState State, PendingDiplomaticOfferAnnounced? Announcement) Apply(
-        GameState state, Ruleset ruleset, IRng rng)
+        GameState state, Ruleset ruleset, World world, IRng rng)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(ruleset);
+        ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(rng);
 
         // FUN_00451FDC "runs the AI seats and calls FUN_00452034 when it reaches a human" -- the
@@ -99,7 +100,7 @@ public sealed class PendingOfferSystem : IGameSystem
             return (state, null);
         }
 
-        if (!rng.NextChance(1, 3))
+        if (!rng.NextChance(1, ruleset.Diplomacy.OfferRollDenominator))
         {
             return (state, null);
         }
@@ -109,16 +110,60 @@ public sealed class PendingOfferSystem : IGameSystem
             return (state, null);
         }
 
-        // [designed]: trade, always -- see this type's remarks.
-        var proposedRelation = ruleset.Diplomacy.StateCodes.Trade;
-        var offer = new PendingDiplomaticOffer(candidateId, proposedRelation);
+        var proposedRelation = DecideOfferType(state, ruleset, world, active, candidate);
+        if (proposedRelation is null)
+        {
+            return (state, null);
+        }
+
+        var offer = new PendingDiplomaticOffer(candidateId, proposedRelation.Value);
         state = state with { PendingOffer = offer };
 
-        var dialogText = DialogText(candidate.Name, active.Name, proposedRelation, ruleset);
+        var dialogText = DialogText(candidate.Name, active.Name, proposedRelation.Value, ruleset);
         var announcement = new PendingDiplomaticOfferAnnounced(
-            candidateId, candidate.Name, active.Id, active.Name, proposedRelation, dialogText);
+            candidateId, candidate.Name, active.Id, active.Name, proposedRelation.Value, dialogText);
 
         return (state, announcement);
+    }
+
+    /// <summary>
+    /// Report §1b's trade/alliance decision, once the candidate has cleared every gate above
+    /// <strong>[confirmed: decompiled-ai-offers-to-human-seats.md]</strong>:
+    /// <code>
+    /// floor = (trades(h) &lt; cap) ? 0 : min taxBase over h's own trade partners
+    /// if taxBase[r] &gt; floor and r has a partner k with taxBase[k] &lt; taxBase[h]: offer = TRADE
+    /// if r in neighbours(h) and not atWar(h): offer = ALLIANCE                      // overrides trade
+    /// </code>
+    /// <see langword="null"/> if neither condition holds -- the roll passed, but the candidate offers
+    /// nothing after all, exactly as a human turn start with no visible offer looks today.
+    /// </summary>
+    private static int? DecideOfferType(
+        GameState state, Ruleset ruleset, World world, NationState human, NationState candidate)
+    {
+        var codes = ruleset.Diplomacy.StateCodes;
+        int? proposedRelation = null;
+
+        var humanPartners = TradePartnerCap.CurrentPartners(state, ruleset, human.Id, excluding: candidate.Id);
+        var floor = humanPartners.Count < ruleset.Diplomacy.MaxTradePartners
+            ? 0
+            : humanPartners.Min(partnerId => state.NationById(partnerId)?.TaxBase ?? 0);
+
+        var candidateHasAPartnerPoorerThanHuman = TradePartnerCap
+            .CurrentPartners(state, ruleset, candidate.Id, excluding: human.Id)
+            .Any(partnerId => (state.NationById(partnerId)?.TaxBase ?? int.MaxValue) < human.TaxBase);
+
+        if (candidate.TaxBase > floor && candidateHasAPartnerPoorerThanHuman)
+        {
+            proposedRelation = codes.Trade;
+        }
+
+        if (NeighbourGeography.AreNeighbours(world, human.Id, candidate.Id)
+            && !RelationTransitions.IsAtWarWithAnyone(state, ruleset, human.Id))
+        {
+            proposedRelation = codes.Alliance;
+        }
+
+        return proposedRelation;
     }
 
     /// <summary>
