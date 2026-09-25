@@ -288,14 +288,15 @@ public sealed class GameSessionCommandsTests
         var round1Output = session.Submit("end");
         Assert.False(
             session.State.NationById("south")!.Eliminated,
-            "round 1 must only march the army into place and form the alliance, not eliminate south");
+            "round 1 must only march the army into place, not eliminate south");
         var round1NewsLines = NewsSection(round1Output.Lines.ToList());
         Assert.DoesNotContain(round1NewsLines, line => string.Equals(line, "The chronicle opens.", StringComparison.Ordinal));
         var round1Lines = session.State.NewsLog.Slots.Select(s => s.Text).ToList();
         var countBeforeRound2 = session.State.NewsLog.Slots.Count;
         Assert.True(
             countBeforeRound2 > 1,
-            "round 1 must append at least the alliance to the seeded log, or round 2 proves nothing");
+            "round 1 must append at least its own mandatory blank-line-and-header pair to the seeded "
+            + "log, or round 2 proves nothing");
 
         // Round 2: adjacent now, moves replenished -- the siege, the capture and the elimination.
         var output = session.Submit("end");
@@ -313,9 +314,11 @@ public sealed class GameSessionCommandsTests
         // The DoD's own claim, made against a log that already has round 1's content in it: every entry
         // THIS round appended is printed -- not the header alone, and not the whole log either. Because
         // round 1 is non-empty, a fixed trailing count that overshoots round 2's own growth pulls in
-        // round 1's tail and fails both this count and the exact-sequence check below (shown in the PR
-        // for k = 10 and k = 50; k = 7 -- reduced from the original 9, see the T83 rework note below --
-        // happens to equal this round's own true count and is expected to still pass).
+        // round 1's tail and fails both this count and the exact-sequence check below. Review round 1,
+        // N2: this used to say a fixed k = 7 "happens to equal this round's own true count and is
+        // expected to still pass" -- stale since #334 N4's fix above: TakeLast(7) now fails here too
+        // (round 1's own News section is no longer empty, so 7 is no longer indistinguishable from the
+        // correct, computed count for every k the mutation sweep below tries, 7 included).
         var appendedCount = session.State.NewsLog.Slots.Count - countBeforeRound2;
         Assert.Equal(appendedCount, trimmed.Count);
 
