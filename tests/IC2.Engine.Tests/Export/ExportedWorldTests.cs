@@ -298,4 +298,102 @@ public class ExportedWorldTests
         Assert.False(string.IsNullOrEmpty(newsSource));
         Assert.Contains("news-log-format-and-messages.md", newsSource, StringComparison.Ordinal);
     }
+
+    // ---- T85 Done-when 3: startingNeighbours, loaded from the DAT's own +0x2B mask ----
+
+    /// <summary>
+    /// The DAT's own 24 neighbour pairs, transcribed verbatim from <c>dat-neighbour-mask.md</c> §2's own
+    /// table (nation-record <c>+0x2B</c>) -- the same list
+    /// <c>NeighbourGeographyTests.DatConfirmedPairs</c> pins for the AI-facing query. Checked here
+    /// directly against the exported <c>startingNeighbours</c> field itself, not through
+    /// <see cref="IC2.Engine.Diplomacy.NeighbourGeography"/>.
+    /// </summary>
+    private static readonly (string A, string B)[] DatConfirmedNeighbourPairs =
+    {
+        ("rome", "carthage"), ("rome", "gaul"), ("rome", "illyria"),
+        ("carthage", "ptolemaic"), ("carthage", "numidia"), ("carthage", "celtiberia"),
+        ("seleucid", "ptolemaic"), ("seleucid", "bithynia"), ("seleucid", "galatia"),
+        ("seleucid", "armenia"), ("seleucid", "media"),
+        ("macedonia", "greece"), ("macedonia", "illyria"), ("macedonia", "dacia"), ("macedonia", "thracia"),
+        ("gaul", "celtiberia"), ("gaul", "illyria"), ("gaul", "dacia"),
+        ("greece", "illyria"), ("illyria", "dacia"), ("dacia", "thracia"),
+        ("bithynia", "galatia"), ("bithynia", "armenia"), ("armenia", "media"),
+    };
+
+    /// <summary>
+    /// The six pairs the T82 geometric derivation adds that the DAT's own mask does not have
+    /// (<c>dat-neighbour-mask.md</c> §6) -- must not appear in the exported field.
+    /// </summary>
+    private static readonly (string A, string B)[] DerivedOnlyPairs =
+    {
+        ("rome", "greece"),
+        ("thracia", "bithynia"), ("thracia", "seleucid"),
+        ("seleucid", "macedonia"), ("seleucid", "greece"),
+        ("ptolemaic", "greece"),
+    };
+
+    private static bool AreNeighbours(World world, string a, string b)
+    {
+        var neighbours = world.StartingNeighbours!;
+        var forward = neighbours.FirstOrDefault(e => e.NationId == a);
+        return forward is not null && forward.NeighbourIds.Contains(b);
+    }
+
+    [Fact]
+    public void StartingNeighbours_is_present_and_has_one_entry_per_nation()
+    {
+        var world = Load();
+        Assert.NotNull(world.StartingNeighbours);
+        Assert.Equal(16, world.StartingNeighbours!.Count);
+        Assert.Equal(
+            world.Nations.Select(n => n.Id).ToArray(),
+            world.StartingNeighbours.Select(e => e.NationId).ToArray());
+    }
+
+    [Fact]
+    public void StartingNeighbours_has_exactly_the_dats_24_pairs()
+    {
+        var world = Load();
+
+        foreach (var (a, b) in DatConfirmedNeighbourPairs)
+        {
+            Assert.True(AreNeighbours(world, a, b), $"'{a}' should border '{b}'.");
+            Assert.True(AreNeighbours(world, b, a), "The relation must be symmetric.");
+        }
+
+        var totalPairs = world.StartingNeighbours!.Sum(e => e.NeighbourIds.Count) / 2;
+        Assert.Equal(24, totalPairs);
+    }
+
+    /// <summary>None of the T82 derivation's six extra pairs is present -- Rome-Greece in particular.</summary>
+    [Fact]
+    public void StartingNeighbours_does_not_have_any_of_the_six_derived_only_pairs()
+    {
+        var world = Load();
+
+        foreach (var (a, b) in DerivedOnlyPairs)
+        {
+            Assert.False(AreNeighbours(world, a, b), $"'{a}' should not border '{b}' -- that pair is derivation-only.");
+            Assert.False(AreNeighbours(world, b, a), $"'{b}' should not border '{a}' -- that pair is derivation-only.");
+        }
+    }
+
+    [Fact]
+    public void StartingNeighbours_romes_row_is_carthage_gaul_illyria()
+    {
+        var world = Load();
+        var rome = world.StartingNeighbours!.First(e => e.NationId == "rome");
+
+        Assert.Equal(new[] { "carthage", "gaul", "illyria" }, rome.NeighbourIds);
+    }
+
+    [Fact]
+    public void StartingNeighbours_has_provenance_citing_the_report()
+    {
+        var world = Load();
+        var source = world.Provenance?.SourceFor("startingNeighbours");
+
+        Assert.False(string.IsNullOrEmpty(source));
+        Assert.Contains("dat-neighbour-mask.md", source, StringComparison.Ordinal);
+    }
 }
