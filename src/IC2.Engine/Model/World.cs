@@ -6,6 +6,25 @@ namespace IC2.Engine.Model;
 /// A map plus the nations, cities and starting forces placed on it — one of the four file kinds in
 /// <c>docs/game-design.md</c> §"The core data model".
 /// </summary>
+/// <param name="StartingRelations">
+/// T75: the DAT's own starting diplomatic relation matrix, or <see langword="null"/> when the world
+/// does not carry one — <see cref="GameStateFactory"/> then opens the game at uniform peace, exactly
+/// as it did before this field existed. Reuses <see cref="DiplomaticRelations"/> (defined alongside
+/// <see cref="GameState"/>) rather than a new type, since the shape — nation ids plus an N×N matrix —
+/// is identical; only where it lives (world data, not run state) differs. See
+/// <see cref="ValidateStartingRelations"/> and
+/// https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-diplomacy-peace-terms-and-instant-battles.md's
+/// 2026-09-24 addition, "the starting matrix".
+/// </param>
+/// <param name="StartingNews">
+/// T75: the DAT's own 27-line news seed (slots 0-26, newest index 26), or <see langword="null"/> when
+/// the world does not carry one — <see cref="GameStateFactory"/> then opens the game with an empty
+/// log, exactly as it did before this field existed. Reuses <see cref="NewsLog"/> (defined alongside
+/// <see cref="GameState"/>) rather than a new type, for the same reason as
+/// <see cref="StartingRelations"/>. See <see cref="ValidateStartingNews"/> and
+/// https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/news-log-format-and-messages.md
+/// §Q1, "the DAT seeds the log, and a new game starts at index 26".
+/// </param>
 /// <remarks>
 /// Deliberately free of any 320×140 / 16-nation / 334-city assumption: the original's data becomes
 /// one shipped <see cref="World"/> (task T29) among possibly many, and the toy fixture under
@@ -24,6 +43,8 @@ public sealed record World(
     ValueList<StartingArmy> StartingArmies,
     ValueList<StartingFleet> StartingFleets,
     ValueList<string> TurnOrder,
+    DiplomaticRelations? StartingRelations = null,
+    NewsLog? StartingNews = null,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null) : IVersionedDocument
 {
     /// <summary>Finds a tile type by its id, or <see langword="null"/>.</summary>
@@ -48,6 +69,94 @@ public sealed record World(
 
     /// <summary>Finds a nation definition by id, or <see langword="null"/>.</summary>
     public NationDefinition? NationById(string id) => Nations.FindById(n => n.Id, id);
+
+    /// <summary>
+    /// Validates <see cref="StartingRelations"/>'s <em>shape</em> against this world's own nation list —
+    /// the half of T75 Done-when 2 that needs no <see cref="Ruleset"/>, called from
+    /// <see cref="IC2.Engine.Serialization.GameDataValidation.Validate"/> at load time. A no-op when
+    /// <see cref="StartingRelations"/> is <see langword="null"/>.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="IC2.Engine.Serialization.GameDataValidation.ValidateWorld"/> checks that every matrix
+    /// nation id actually resolves (as <see cref="IC2.Engine.Serialization.UnresolvedReferenceException"/>)
+    /// <em>before</em> calling this method — so by the time this runs, every id in
+    /// <see cref="DiplomaticRelations.NationIds"/> is already known to be one of <see cref="Nations"/>,
+    /// and the "exactly the world's nations, each once" check below is purely about missing or duplicated
+    /// ids, not unknown ones. The ruleset-dependent half — a value outside the ruleset's relation codes
+    /// and cooldown range — is <see cref="GameStateFactory"/>'s own check, made when a ruleset is actually
+    /// available.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    /// <see cref="DiplomaticRelations.NationIds"/> is not exactly <see cref="Nations"/>' own ids, each
+    /// once, in the same order (T75 rework B2: a missing or duplicated nation used to pass and then crash
+    /// the first diplomacy lookup for the missing one); the matrix is not square or not symmetric; or a
+    /// diagonal entry is non-zero.
+    /// </exception>
+    public void ValidateStartingRelationsShape()
+    {
+        if (StartingRelations is not { } relations)
+        {
+            return;
+        }
+
+        // Exactly the world's own nations, each once, in the same order -- not just the same set. The
+        // order match keeps NationIds-order iteration (QuarterlyThawSystem, PeaceTreatySystem,
+        // RelationTransitions, PendingOfferSystem) identical to the uniform-peace default's own order,
+        // and a plain set-equality check would still accept a matrix that agreed with Nations on
+        // membership but disagreed on order.
+        var worldIds = Nations.Select(n => n.Id).ToArray();
+        if (!relations.NationIds.SequenceEqual(worldIds))
+        {
+            throw new InvalidOperationException(
+                "startingRelations' nation list must be exactly this world's own nations, each once, in "
+                + "the same order as \"nations\".");
+        }
+
+        if (!relations.IsWellFormed())
+        {
+            throw new InvalidOperationException(
+                "startingRelations must be square, sized to its own nation list, and symmetric.");
+        }
+
+        for (var i = 0; i < relations.NationIds.Count; i++)
+        {
+            if (relations.Matrix[i][i] != 0)
+            {
+                throw new InvalidOperationException(
+                    $"startingRelations' diagonal entry for '{relations.NationIds[i]}' is "
+                    + $"{relations.Matrix[i][i]}, not 0.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Validates <see cref="StartingNews"/>'s <em>shape</em> — the half of T75 Done-when 2 that needs no
+    /// <see cref="Ruleset"/>, called from <see cref="IC2.Engine.Serialization.GameDataValidation.Validate"/>
+    /// at load time. A no-op when <see cref="StartingNews"/> is <see langword="null"/>.
+    /// </summary>
+    /// <remarks>
+    /// The ruleset-dependent half — a slot text over the ruleset's message length in bytes, or holding a
+    /// byte outside the printable range the news writer and the DAT parser accept — is
+    /// <see cref="GameStateFactory"/>'s own check, made when a ruleset is actually available.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    /// <see cref="NewsLog.MostRecentSlot"/> does not equal <c>Slots.Count - 1</c> (<c>-1</c> for an empty
+    /// log) — the same rule <see cref="NewsLog.IsConsistent"/> enforces on a saved state.
+    /// </exception>
+    public void ValidateStartingNewsShape()
+    {
+        if (StartingNews is not { } news)
+        {
+            return;
+        }
+
+        if (!news.IsConsistent())
+        {
+            throw new InvalidOperationException(
+                $"startingNews.mostRecentSlot {news.MostRecentSlot} does not address the last of its "
+                + $"{news.Slots.Count} slots.");
+        }
+    }
 }
 
 /// <summary>How a <see cref="TerrainGrid"/>'s cell codes are encoded in JSON.</summary>

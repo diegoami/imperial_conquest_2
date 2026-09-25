@@ -1,3 +1,4 @@
+using System.Text;
 using IC2.Engine.Model;
 using IC2.Engine.Serialization;
 using Xunit;
@@ -176,5 +177,125 @@ public class ExportedWorldTests
     {
         var world = Load();
         GameDataValidation.Validate(ExportedDataPaths.WorldFile, world);
+    }
+
+    /// <summary>
+    /// T75 Done-when 3: the DAT's starting relation matrix -- Rome at war with Gaul, trading with
+    /// Macedonia, and the confirmed 5 wars / 13 trades / 4 alliances / 0 cooldowns across all 120 pairs
+    /// (decompiled-diplomacy-peace-terms-and-instant-battles.md's 2026-09-24 addition).
+    /// </summary>
+    [Fact]
+    public void StartingRelations_has_the_DATs_confirmed_matrix()
+    {
+        var world = Load();
+        var relations = world.StartingRelations;
+        Assert.NotNull(relations);
+
+        // The exported world's own diplomacy state codes (its ruleset ships with the same values,
+        // 0/1/2/3 -- decompiled-diplomacy-peace-terms-and-instant-battles.md's relation-matrix table).
+        var war = 3;
+        var trade = 1;
+        var alliance = 2;
+        var peace = 0;
+
+        Assert.Equal(war, relations!.Get("rome", "gaul"));
+        Assert.Equal(trade, relations.Get("rome", "macedonia"));
+
+        var wars = 0;
+        var trades = 0;
+        var alliances = 0;
+        var cooldowns = 0;
+        for (var i = 0; i < relations.NationIds.Count; i++)
+        {
+            for (var j = i + 1; j < relations.NationIds.Count; j++)
+            {
+                var value = relations.Matrix[i][j];
+                if (value == war)
+                {
+                    wars++;
+                }
+                else if (value == trade)
+                {
+                    trades++;
+                }
+                else if (value == alliance)
+                {
+                    alliances++;
+                }
+                else if (value != peace)
+                {
+                    cooldowns++;
+                }
+            }
+        }
+
+        Assert.Equal(5, wars);
+        Assert.Equal(13, trades);
+        Assert.Equal(4, alliances);
+        Assert.Equal(0, cooldowns);
+    }
+
+    /// <summary>T75 Done-when 2 (well-formedness half): the exported matrix is symmetric with a zero diagonal.</summary>
+    [Fact]
+    public void StartingRelations_is_symmetric_with_a_zero_diagonal()
+    {
+        var relations = Load().StartingRelations;
+        Assert.NotNull(relations);
+        Assert.True(relations!.IsWellFormed());
+
+        for (var i = 0; i < relations.NationIds.Count; i++)
+        {
+            Assert.Equal(0, relations.Matrix[i][i]);
+        }
+    }
+
+    /// <summary>
+    /// T75 Done-when 3: slots 0 and 26 of the news seed, by their exact bytes -- byte-for-byte, not
+    /// merely string-equal, per the task's own "Verbatim means byte for byte" hazard.
+    /// </summary>
+    [Fact]
+    public void StartingNews_slots_0_and_26_match_the_DAT_byte_for_byte()
+    {
+        var news = Load().StartingNews;
+        Assert.NotNull(news);
+        Assert.Equal(27, news!.Slots.Count);
+        Assert.Equal(26, news.MostRecentSlot);
+
+        Assert.Equal(
+            new byte[] { (byte)'2', (byte)'7', (byte)'2', (byte)' ', (byte)'B', (byte)'C' },
+            Encoding.ASCII.GetBytes(news.Slots[0].Text));
+
+        Assert.Equal(
+            Encoding.ASCII.GetBytes("Week 1      Spring      270 BC"),
+            Encoding.ASCII.GetBytes(news.Slots[26].Text));
+    }
+
+    /// <summary>
+    /// T75 Hazards: "slot 12 and slot 25 are a single space" -- not trimmed away to an empty string.
+    /// </summary>
+    [Fact]
+    public void StartingNews_slots_12_and_25_are_a_single_space_not_trimmed()
+    {
+        var news = Load().StartingNews;
+        Assert.NotNull(news);
+        Assert.Equal(" ", news!.Slots[12].Text);
+        Assert.Equal(" ", news.Slots[25].Text);
+        Assert.Equal(1, news.Slots[12].Text.Length);
+        Assert.Equal(1, news.Slots[25].Text.Length);
+    }
+
+    /// <summary>T75 Done-when 3: both new fields carry a <c>_provenance</c> note citing the reports above.</summary>
+    [Fact]
+    public void StartingRelations_and_StartingNews_have_provenance()
+    {
+        var world = Load();
+        var relationsSource = world.Provenance?.SourceFor("startingRelations");
+        var newsSource = world.Provenance?.SourceFor("startingNews");
+
+        Assert.False(string.IsNullOrEmpty(relationsSource));
+        Assert.Contains("decompiled-diplomacy-peace-terms-and-instant-battles.md", relationsSource, StringComparison.Ordinal);
+
+        Assert.False(string.IsNullOrEmpty(newsSource));
+        Assert.Contains("news-log-format-and-messages.md", newsSource, StringComparison.Ordinal);
     }
 }

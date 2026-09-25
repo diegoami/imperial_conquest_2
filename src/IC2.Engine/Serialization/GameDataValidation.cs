@@ -125,6 +125,43 @@ public static class GameDataValidation
                 throw new MalformedGameDataException(documentPath, $"turnOrder lists '{nationId}' twice.");
             }
         }
+
+        // T75 (rework, Owns amendment): the load-time half of Done-when 2. Every matrix nation id is
+        // checked here, the same RequireNation call every other cross-reference in this method already
+        // uses -- so an unknown id surfaces as UnresolvedReferenceException, exactly as it would for a
+        // city's owner or an army's nation, and World.ValidateStartingRelationsShape (called next) never
+        // has to raise that case itself: by the time it runs, every id it sees is already a real nation.
+        // The ruleset-dependent half (a value outside the relation codes/cooldown range, a news text over
+        // the message length or holding a non-printable byte) is GameStateFactory's own check, made only
+        // once a ruleset is actually available -- this method has none.
+        if (world.StartingRelations is { } startingRelations)
+        {
+            foreach (var nationId in startingRelations.NationIds)
+            {
+                RequireNation(documentPath, world, nationId);
+            }
+
+            try
+            {
+                world.ValidateStartingRelationsShape();
+            }
+            catch (InvalidOperationException ex)
+            {
+                throw new MalformedGameDataException(documentPath, ex.Message, ex);
+            }
+        }
+
+        if (world.StartingNews is not null)
+        {
+            try
+            {
+                world.ValidateStartingNewsShape();
+            }
+            catch (InvalidOperationException ex)
+            {
+                throw new MalformedGameDataException(documentPath, ex.Message, ex);
+            }
+        }
     }
 
     private static void ValidateRuleset(string documentPath, Ruleset ruleset)

@@ -51,6 +51,9 @@ var prefix = WorldPrefix.Parse(datBytes);
 var nationTable = SaveNationTable.Parse(datBytes);
 var armyTable = SaveArmyTable.Parse(datBytes);
 var fleetTable = SaveFleetTable.Parse(datBytes);
+// T75: the starting relation matrix (nationTable.Nations[i].Relations) and the news seed both come
+// from this same T73 parse -- SaveNewsLog.Parse for the seed, never typed by hand.
+var newsLog = SaveNewsLog.Parse(datBytes);
 
 // ---- DoD 1: cross-check against IC2.Data's own parse, never re-derived independently -------
 // WorldPrefix.Parse and SaveNationTable.Parse are exactly "T30's DAT nation-table parse" the
@@ -375,6 +378,24 @@ static string UnitTypeIdFor(ushort typeCode) => typeCode switch
 };
 
 // ============================================================================================
+// 7b. Starting relations and the news seed (T75) -- both straight through T73's IC2.Data parse,
+//     never typed by hand. nationTable.Nations[i].Relations is already validated symmetric with a
+//     zero diagonal by SaveNationTable.Parse itself; newsLog.Slots[0..26] are the DAT's own 27
+//     scripted history lines, kept byte-for-byte (no trim, no re-render through the news writer --
+//     T75 Hazards: slots 12 and 25 are a single space, and "270 BC" carries a space the engine's
+//     own header format does not).
+// ============================================================================================
+var startingRelations = new DiplomaticRelations(
+    NationIds: ValueList.Of(nationIds),
+    Matrix: ValueList.Of(nationTable.Nations
+        .Select(n => ValueList.Of(n.Relations.Select(v => (int)v).ToArray()))
+        .ToArray()));
+
+var startingNews = new NewsLog(
+    MostRecentSlot: 26,
+    Slots: ValueList.Of(newsLog.Slots.Take(27).Select(text => new NewsEntry(text)).ToArray()));
+
+// ============================================================================================
 // 8. Assemble the World. TurnOrder is the DAT's own nation-table order: the original shuffles it
 //    at New Game (FUN_00448aa4), which this export does not reproduce -- [designed] default.
 // ============================================================================================
@@ -391,6 +412,8 @@ var world = new World(
     StartingArmies: ValueList.Of(startingArmies),
     StartingFleets: ValueList.Of(startingFleets),
     TurnOrder: ValueList.Of(nationIds),
+    StartingRelations: startingRelations,
+    StartingNews: startingNews,
     Provenance: ProvenanceMap.Of(
         ("width", "confirmed: WorldPrefix.MapWidth, T30's DAT parse -- 320x140, docs/investigations/dat-file-layout.md."),
         ("height", "confirmed: WorldPrefix.MapHeight, T30's DAT parse."),
@@ -400,7 +423,9 @@ var world = new World(
         ("cities", "confirmed: WorldPrefix.Parse's city table, DAT 0x15E00, 334 records -- docs/investigations/dat-file-layout.md."),
         ("startingArmies", "confirmed: T30's DAT army-table parse, DAT 0x18A5C, 15 fixed records, no count word -- docs/investigations/dat-file-layout.md, docs/task-catalogue.md T29 DoD 7."),
         ("startingFleets", "confirmed: T30's DAT fleet-table parse, DAT 0x1B0CC, 2 fixed records, no count word -- docs/investigations/dat-file-layout.md, docs/task-catalogue.md T29 DoD 7."),
-        ("turnOrder", "designed: the DAT's own nation-table order (0..15), used as a default. TPremierForm_NewGame's FUN_00448aa4 shuffles the 16-entry turn order at New Game -- docs/investigations/dat-file-layout.md -- which this export does not reproduce; not DAT-derived play state.")));
+        ("turnOrder", "designed: the DAT's own nation-table order (0..15), used as a default. TPremierForm_NewGame's FUN_00448aa4 shuffles the 16-entry turn order at New Game -- docs/investigations/dat-file-layout.md -- which this export does not reproduce; not DAT-derived play state."),
+        ("startingRelations", "confirmed: T73's DAT nation-table parse (IC2.Data.SaveNationTable.Parse's Relations field), DAT nation record +0x0B, 16x16 shorts -- decompiled-diplomacy-peace-terms-and-instant-battles.md's 2026-09-24 addition, \"the starting matrix\": symmetric, zero diagonal, 5 wars, 13 trades, 4 alliances, no cooldowns."),
+        ("startingNews", "confirmed: T73's DAT news-seed parse (IC2.Data.SaveNewsLog.Parse), the DAT's last 2,440 bytes -- news-log-format-and-messages.md §Q1: slots 0-26 are the scripted 272-271 BC history, kept byte-for-byte verbatim (no trim, no re-render), with the newest index set to 26 exactly as FUN_00448AA4 sets it at New Game.")));
 
 Console.WriteLine($"World assembled: {world.Nations.Count} nations, {world.Cities.Count} cities, {world.StartingArmies.Count} armies, {world.StartingFleets.Count} fleets.");
 
@@ -645,9 +670,15 @@ var scenario = new Scenario(
 GameDataValidation.Validate("classical-mediterranean.json (scenario, in-memory)", scenario);
 Console.WriteLine("Scenario passes GameDataValidation.");
 
-// Sanity: the scenario must actually build a GameState against this world/ruleset.
+// Sanity: the scenario must actually build a GameState against this world/ruleset. T75's own DoD 2
+// checks are already exercised here, end to end: GameDataValidation.Validate(world) above (section 8)
+// runs the load-time half (World.ValidateStartingRelationsShape/ValidateStartingNewsShape, wired into
+// GameDataValidation.ValidateWorld), and this call runs the ruleset-dependent half
+// (GameStateFactory's own value-range and message-length/printable-byte checks) -- so the DAT's own
+// real startingRelations/startingNews are proven to pass every one of Done-when 2's checks, not just
+// the synthetic ones in the test suite.
 _ = GameStateFactory.CreateInitial(world, ruleset, scenario);
-Console.WriteLine("Scenario + world + ruleset build an initial GameState with no errors.");
+Console.WriteLine("Scenario + world + ruleset build an initial GameState with no errors (T75 DoD 2 checks included).");
 
 // ============================================================================================
 // 11. Write the four files, canonical form (GameJson.Serialize), UTF-8, no BOM, LF line endings
