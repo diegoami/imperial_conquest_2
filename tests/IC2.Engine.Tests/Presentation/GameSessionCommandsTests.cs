@@ -102,10 +102,19 @@ public sealed class GameSessionCommandsTests
     // ---- #98: HandleEnd counts what the news log actually appended, not news-worthy events ----
 
     /// <summary>
-    /// The toy scenario's own first round: the Southern League's AI turn publishes at least one
-    /// news-worthy event of its own, and the round still ends with its mandatory blank-line-and-header
-    /// pair (news-log-format-and-messages.md Q3: "a quiet round costs 2 of the 40 slots" even with no
-    /// event at all). Before this fix, <c>HandleEnd</c> inferred how many lines to print by counting
+    /// A scripted world, not the shipped toy scenario as-is (T82, #359/#357, Owns amendment PR #378):
+    /// before this task, the toy scenario's own first round reliably published a news-worthy event
+    /// through the AI's old, buggy direct alliance write to a human seat -- bug #357's own root cause,
+    /// the ~38-alliance cascade the user observed. Removing that write is this task's whole point, and
+    /// it correctly leaves a lone AI with nothing else to propose against the shipped world's wealth:
+    /// both nations' <c>P(n)</c> truncate to 0 under <see cref="Diplomacy.AiOwnDiplomacyRule.Power"/>'s
+    /// own 20,000 divisor, so no war target clears the ratio gate either. The Southern League's wealth is
+    /// raised here instead, to clear that gate legitimately through <c>FUN_0044FB7C</c>'s own war-target
+    /// search (<c>P(south) = (40000/20000)*(520/100) = 10</c>; <c>P(north) = (400/20000)*(600/100) =
+    /// 0</c>; ratio <c>= 8*10/max(1,0) = 80</c>, over the base of 10) -- <c>north</c>'s own wealth is
+    /// left at its shipped value. The round still ends with its mandatory blank-line-and-header pair
+    /// (news-log-format-and-messages.md Q3: "a quiet round costs 2 of the 40 slots" even with no event at
+    /// all). Before the original #98 fix, <c>HandleEnd</c> inferred how many lines to print by counting
     /// news-worthy <em>events</em> — a number the header's own two entries are never backed by, and which
     /// a dash-wrapped event (three log entries for one event) can also disagree with — instead of asking
     /// <see cref="Model.NewsLog"/> how many entries it actually grew by. This asserts the two can never
@@ -115,10 +124,38 @@ public sealed class GameSessionCommandsTests
     [Fact]
     public void HandleEnd_prints_every_entry_the_round_actually_appended_not_just_the_header()
     {
-        var session = NewSession();
-        Assert.Empty(session.State.NewsLog.Slots);
+        var toy = CoreTestbed.Toy;
+        var world = toy.World with
+        {
+            Nations = ValueList.Of(
+                toy.World.NationById("north")!,
+                toy.World.NationById("south")! with { Wealth = 40_000 }),
+        };
 
-        var output = session.Submit("end");
+        // The ratio gate is deterministic given the wealth above, but AiMilitaryPhase.ProposeOwnWarDeclaration's
+        // own Random(10) roll (report §1a) still has to hit on south's own turn within this fixture's
+        // one-round budget -- searched the same way #256's fixture below does for its own budget.
+        GameSession? session = null;
+        SessionOutput? output = null;
+        for (var seed = 1UL; seed <= 2000; seed++)
+        {
+            var candidate = new GameSession(world, toy.Ruleset, toy.Scenario, seed);
+            Assert.Empty(candidate.State.NewsLog.Slots);
+
+            var candidateOutput = candidate.Submit("end");
+            if (candidate.State.NewsLog.Slots.Count <= 2)
+            {
+                // This seed's own Random(10) war-declaration roll did not hit within one round; try the next.
+                continue;
+            }
+
+            session = candidate;
+            output = candidateOutput;
+            break;
+        }
+
+        Assert.NotNull(session);
+        Assert.NotNull(output);
 
         var newsIndex = output.Lines.ToList().IndexOf("News:");
         Assert.True(newsIndex >= 0, "Expected a \"News:\" section after the first round.");
@@ -183,8 +220,17 @@ public sealed class GameSessionCommandsTests
         var toy = CoreTestbed.Toy;
         var world = toy.World with
         {
+            // T82 (#359, bug #357) Owns amendment (PR #378): a siege no longer declares war on its own
+            // (AiMilitaryPhase now requires the two already at war before it ever proposes one), which
+            // this fixture reaches through north's own war-target search instead
+            // (AiMilitaryPhase.ProposeOwnWarDeclaration, FUN_0044FB7C §1a) -- so the "DECLARES WAR" news
+            // line below still comes from the AI's own declaration, not a pre-set relation. The toy
+            // nations' shipped wealth (400/360) is far below AiOwnDiplomacyRule.Power's own 20,000
+            // divisor, so north's wealth is raised here to clear the ratio gate
+            // (P(north) = (40000/20000)*(600/100) = 12; P(south) = (360/20000)*(520/100) = 0; ratio =
+            // 8*12/max(1,0) = 96, comfortably over the base of 10); south's own wealth is left untouched.
             Nations = ValueList.Of(
-                toy.World.NationById("north")! with { Treasury = 0 },
+                toy.World.NationById("north")! with { Treasury = 0, Wealth = 40_000 },
                 toy.World.NationById("south")! with { Treasury = 0 }),
             StartingArmies = ValueList.Of(
                 new StartingArmy(
@@ -204,7 +250,18 @@ public sealed class GameSessionCommandsTests
                     "north", SeatControl.Ai,
                     new AiPersonality(Aggression: 0.5, ExpansionDrive: 0.5, LoyaltyToAlliances: 0.5))),
         };
-        var session = new GameSession(world, toy.Ruleset, scenario);
+
+        // The ratio gate is deterministic given the wealth above, but AiMilitaryPhase.ProposeOwnWarDeclaration's
+        // own Random(10) roll (report §1a) still has to hit on north's own turn. Rework round 1 (B6): a
+        // seed-search loop used to stand in here, with both assertions below turned into a `continue` on
+        // the seed that didn't fit -- but the amendment's own words are "both tests' assertions stay as
+        // they are", and a skipped assertion is not the same claim as a checked one. Seed 2 is the first
+        // of 1..2000 whose Random(10) roll hits within this fixture's two-round budget (found once, by
+        // the same search, then hard-coded here) -- it is not a "designed" or otherwise special seed, just
+        // the first one that works, so both original assertions can be checked directly instead of
+        // filtered around.
+        const ulong Seed = 2;
+        var session = new GameSession(world, toy.Ruleset, scenario, Seed);
         Assert.Empty(session.State.NewsLog.Slots);
 
         // Round 1: the approach march only. Asserted explicitly so the fixture's own claim -- "not yet

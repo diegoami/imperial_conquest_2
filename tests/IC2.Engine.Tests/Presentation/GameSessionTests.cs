@@ -76,10 +76,9 @@ public sealed class GameSessionTests
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <strong>T22 adds a third random consumer to this script, and the claim is widened by exactly that
-    /// consumer and no further</strong> (<c>docs/build-process.md</c> §2.3: the list may grow when a task
-    /// legitimately adds a draw, provided the new draw is <em>named</em> and the differing fields are
-    /// still asserted to be <em>exactly</em> the known ones). The three, in draw order:
+    /// <strong>Two random consumers reach this script</strong> (<c>docs/build-process.md</c> §2.3: the
+    /// list may grow when a task legitimately adds a draw, and must shrink back when a task legitimately
+    /// removes what let an earlier one reach it — see the T82 note below):
     /// </para>
     /// <list type="number">
     /// <item><see cref="Economy.WeatherEventSystem"/> — surfaced as a "  Weather: ..." line, dropped
@@ -88,28 +87,28 @@ public sealed class GameSessionTests
     /// <item><see cref="Economy.CityLoyaltyDraws"/> (T35) — its quarterly rise/fall rolls move the
     /// <c>loyalty NN</c> field of a "Cities:" line. Its rebellion-risk event never fires in this script,
     /// so the news log is unaffected either way.</item>
-    /// <item><strong>New with T22:</strong> <see cref="Battle.BattleCasualties"/>'s per-unit casualty
-    /// divisor, drawn inside <see cref="Battle.InstantBattleResolver"/>'s field resolution. The demo's
-    /// <c>south</c> seat is AI-controlled, and the AI now attacks <c>north-army-1</c> rather than passing,
-    /// so the winner's surviving troop count differs between seeds.</item>
     /// </list>
     /// <para>
-    /// <strong>Only the third of those is a draw; two of the four fields it moves are arithmetic.</strong>
-    /// This distinction matters, because widening the blank list by three fields when only one new draw
-    /// exists would be the loosening §2.3 forbids. A surviving army's <c>supply NNt (NN%)</c> is a
-    /// function of its troop count (capacity is <c>troops / armySupplyTonsPerTroops</c>, the percentage
-    /// <c>supplies × supplyPercentNumerator / troops</c>), and the Southern League's <c>treasury</c> is a
-    /// function of the same count through per-troop quarterly army upkeep. Both move because the casualty
-    /// draw moved, not because anything else rolled.
+    /// <strong>T82 (#359, bug #357): back down from three.</strong> T22 had widened this list to a third
+    /// consumer — <see cref="Battle.BattleCasualties"/>'s per-unit casualty divisor, reached because the
+    /// demo's AI-controlled <c>south</c> seat used to attack <c>north-army-1</c> on contact, declaring war
+    /// on it in the same click. The AI no longer implicitly declares war by attacking
+    /// (<c>decompiled-ai-offers-to-human-seats.md</c> §4/§5), and its own war-target search
+    /// (<see cref="Ai.AiMilitaryPhase.ProposeOwnWarDeclaration"/>) never fires for either toy-world
+    /// nation — both nations' wealth is far below the power formula's own divisor, so the ratio gate
+    /// never clears — so this script no longer reaches any combat at all. The two fields the casualty
+    /// draw moved arithmetically (a surviving army's <c>supply NNt (NN%)</c> and the Southern League's
+    /// <c>treasury</c>) go with it, along with the troop count itself: all three are constant across
+    /// every seed again, exactly like a re-run of the pre-T22 version of this test would show.
     /// </para>
     /// <para>
-    /// <strong>What is still asserted byte-for-byte across seeds</strong>, checked against 25 seeds before
-    /// this list was written: every other line in the transcript; the surviving army's <em>unit count</em>,
-    /// position, morale and moves; every city's supply tonnage and fortification percentage; every nation's
-    /// unity and tax rate; and the whole news log, including the order of its entries.
+    /// <strong>What is still asserted byte-for-byte across seeds</strong>: every other line in the
+    /// transcript, including every army's troop count, unit count, position, morale and moves; every
+    /// city's supply tonnage and fortification percentage; every nation's treasury, unity and tax rate;
+    /// and the whole news log, including the order of its entries.
     /// <see cref="The_fields_this_test_blanks_really_do_move_with_the_seed"/> is the other half of the
-    /// claim: each blanked field has to genuinely vary, so the list cannot quietly grow to cover something
-    /// that does not.
+    /// claim: each blanked field has to genuinely vary, so the list cannot quietly grow (or stay wide
+    /// after shrinking) to cover something that does not.
     /// </para>
     /// </remarks>
     [Fact]
@@ -148,11 +147,14 @@ public sealed class GameSessionTests
         // values, so 1/3 x 7/15 = 15.6%. A twelve-seed window therefore holds no witness with
         // probability (1 - 0.156)^12 = 13%: this test used to redden on roughly one in seven of *any*
         // stream-shifting change, related or not, which is exactly what it did to T60. Forty seeds drop
-        // that to (1 - 0.156)^40 = 0.1%. Forty is also sufficient for every *other* blanked field, each
-        // of which is far looser: measured over seeds 1..40, the weather lines, army troop counts and
-        // unit supply figures take 6-11 distinct values each and first differ from seed 1 at seed 2,
-        // and the Southern League's treasury takes 2 values, first differing at seed 3. Portus's
+        // that to (1 - 0.156)^40 = 0.1%. Forty is also sufficient for the weather lines, measured over
+        // seeds 1..40 to take several distinct values and first differ from seed 1 at seed 2. Portus's
         // loyalty first differs at seed 13 -- which is precisely why 12 was not enough.
+        //
+        // T82 (#359, bug #357): the army-troop-count, unit-supply and Southern-League-treasury checks
+        // this comment used to size are gone -- WithoutRandomDrivenText's own remarks say why (the
+        // combat that used to move them is unreachable from this script now) -- so 40 only has to answer
+        // for weather and loyalty here.
         //
         // Cost: about 1.3 ms per seed in process, so this test runs in ~51 ms against ~16 ms at twelve
         // seeds -- roughly 35 ms added to the suite. (Measured per *process* it looks like ~0.8 s a
@@ -173,9 +175,6 @@ public sealed class GameSessionTests
 
         AssertVaries(played, WeatherLinePattern, "a Weather: line");
         AssertVaries(played, LoyaltyFieldPattern, "a city's loyalty");
-        AssertVaries(played, ArmyTroopCountPattern, "a surviving army's troop count");
-        AssertVaries(played, UnitSupplyFieldPattern, "a surviving army's supply");
-        AssertVaries(played, TreasuryFieldPattern, "the Southern League's treasury");
     }
 
     /// <summary>
@@ -242,46 +241,14 @@ public sealed class GameSessionTests
     private static readonly Regex LoyaltyFieldPattern = new(@"loyalty \d+", RegexOptions.Compiled);
 
     /// <summary>
-    /// The troop count of an "Armies:" line, and <em>only</em> the count: the "in N units" that follows is
-    /// matched as a look-ahead and therefore left in place, so the unit count stays asserted exactly. This
-    /// is the one field T22's new draw -- the battle casualty divisor -- actually moves.
-    /// </summary>
-    private static readonly Regex ArmyTroopCountPattern =
-        new(@"\d+(?= troops in \d+ units)", RegexOptions.Compiled);
-
-    /// <summary>
-    /// A unit's "supply NNt (NN%)" -- arithmetic on the troop count above, not a draw of its own. The
-    /// trailing percentage is what tells this apart from a <em>city's</em> "supply NNNNt", which carries no
-    /// percentage and stays asserted exactly.
-    /// </summary>
-    private static readonly Regex UnitSupplyFieldPattern =
-        new(@"supply \d+t \(\d+%\)", RegexOptions.Compiled);
-
-    /// <summary>
-    /// The <em>Southern League's</em> "treasury NNNN", and only its own: arithmetic on the surviving
-    /// troop count, through per-troop quarterly army upkeep. Signed, because that nation ends this script
-    /// in debt.
-    /// </summary>
-    /// <remarks>
-    /// Review round 1, F3: this used to match every nation's treasury, six occurrences of which only the
-    /// Southern League's two vary — the Northern League's reads 471 at every seed, because the battle
-    /// destroys its army and an army it no longer has cannot bill it a varying upkeep. Blanking four
-    /// invariant figures to reach two varying ones is a wider hole than the claim needs, so the lookbehind
-    /// keeps the Northern League's treasury asserted exactly. <see cref="AssertVaries"/> now checks each
-    /// occurrence separately, so this narrowing is enforced rather than merely intended.
-    /// </remarks>
-    private static readonly Regex TreasuryFieldPattern =
-        new(@"(?<=\(south, \w+\): )treasury -?\d+", RegexOptions.Compiled);
-
-    /// <summary>
     /// The echoed command that marks the first turn being played. Everything before it is output from a
     /// state no draw has touched yet.
     /// </summary>
     private const string FirstTurnMarker = "> end";
 
     /// <summary>
-    /// The part of a transcript from the first played turn onwards — the only part any of the three
-    /// random consumers can have reached.
+    /// The part of a transcript from the first played turn onwards — the only part either random
+    /// consumer can have reached.
     /// </summary>
     /// <remarks>
     /// Review round 1, F3 (second half). Tightening <see cref="AssertVaries"/> to per-occurrence
@@ -300,9 +267,28 @@ public sealed class GameSessionTests
     /// <summary>
     /// Leaves everything before the first played turn untouched, then, in the rest, drops the weather
     /// lines entirely (every character of one is random-driven, and a fired event also shifts every later
-    /// line) and blanks exactly the four fields the three named draws reach — and nothing else. Every
-    /// other character of every other line still has to match byte for byte.
+    /// line) and blanks exactly the one field <see cref="Economy.CityLoyaltyDraws"/> reaches — and
+    /// nothing else. Every other character of every other line still has to match byte for byte.
     /// </summary>
+    /// <remarks>
+    /// <strong>T82 (#359, bug #357): back to two random consumers, not three.</strong> T22 widened this
+    /// to a third — <see cref="Battle.BattleCasualties"/>'s per-unit casualty divisor, reached because
+    /// this demo script's AI-controlled <c>south</c> seat used to attack <c>north-army-1</c> on contact,
+    /// which moved its surviving troop count (and, arithmetically, its supply percentage and the
+    /// Southern League's treasury) between seeds. The AI no longer implicitly declares war by attacking
+    /// (<c>decompiled-ai-offers-to-human-seats.md</c> §4/§5, "no implicit declaration by attack"), war
+    /// declaration is now a separate, ratio-gated decision
+    /// (<see cref="Ai.AiMilitaryPhase.ProposeOwnWarDeclaration"/>), and neither toy-world nation's wealth
+    /// clears that ratio's gate (both are far below the divisor the power formula needs) — so this exact
+    /// script no longer reaches any combat at all, and all three of the fields the casualty draw used to
+    /// move are constant across every seed again. <c>AssertVaries</c> caught exactly this (each of the
+    /// three failed with "never varies with the seed"), which is what the build-process's own "adjust
+    /// under the same conditions" rule (§2.3) exists to make provable rather than assumed. Blanking a
+    /// field nothing reaches any more would be the loosening that rule forbids, so the blanking (here)
+    /// and the matching <see cref="AssertVaries"/> calls (in
+    /// <see cref="The_fields_this_test_blanks_really_do_move_with_the_seed"/>) are removed together with
+    /// the three now-unused patterns, rather than left in place unreachable.
+    /// </remarks>
     private static string WithoutRandomDrivenText(string transcript)
     {
         var index = transcript.IndexOf(FirstTurnMarker, StringComparison.Ordinal);
@@ -313,10 +299,7 @@ public sealed class GameSessionTests
             '\n',
             tail.Split('\n')
                 .Where(line => !line.TrimStart().StartsWith("Weather:", StringComparison.Ordinal))
-                .Select(line => LoyaltyFieldPattern.Replace(line, "loyalty ##"))
-                .Select(line => ArmyTroopCountPattern.Replace(line, "####"))
-                .Select(line => UnitSupplyFieldPattern.Replace(line, "supply ##t (##%)"))
-                .Select(line => TreasuryFieldPattern.Replace(line, "treasury ####")));
+                .Select(line => LoyaltyFieldPattern.Replace(line, "loyalty ##")));
     }
 
     /// <summary>

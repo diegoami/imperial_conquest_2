@@ -804,7 +804,30 @@
     "faithfulThawColumnLimit": 8,
     "reparationsWealthDivisor": 4,
     "reparationsPerCity": 10,
+    "offerRollDenominator": 3,
+    "aiOwnDiplomacy": {
+      "busyMobilizationThreshold": 40,
+      "warTargetRatioBase": 10,
+      "warTargetRatioMultiplier": 8,
+      "warDeclareRollDenominator": 10,
+      "allianceRollDenominator": 20,
+      "allianceMaxPartnerWars": 2,
+      "powerWealthDivisor": 20000,
+      "powerUnityDivisor": 100,
+      "_provenance": {
+        "busyMobilizationThreshold": "confirmed: decompiled-ai-offers-to-human-seats.md §1a — busy(me) = atWar(me) or mobilization(me) > 40 or season == 3 (0x0044FC26–0x0044FC53). T04 fixtures corpus id: 'diplomacy.aiOwnRule.busyMobilizationThreshold'.",
+        "warTargetRatioBase": "confirmed: decompiled-ai-offers-to-human-seats.md §1a — the war-target loop's own \"best\" starts at 10; a candidate's ratio must exceed it. T04 fixtures corpus id: 'diplomacy.aiOwnRule.warTargetRatioBase'.",
+        "warTargetRatioMultiplier": "confirmed: decompiled-ai-offers-to-human-seats.md §1a — 8·P(me)/max(1,P(k)). T04 fixtures corpus id: 'diplomacy.aiOwnRule.warTargetRatioMultiplier'.",
+        "warDeclareRollDenominator": "confirmed: decompiled-ai-offers-to-human-seats.md §1a — \"if warTarget and Random(10) == 0: setRelation(me, warTarget, WAR)\". T04 fixtures corpus id: 'diplomacy.aiOwnRule.warDeclareRollDenominator'.",
+        "allianceRollDenominator": "confirmed: decompiled-ai-offers-to-human-seats.md §1a — \"if not busy and Random(20) == 0\". T04 fixtures corpus id: 'diplomacy.aiOwnRule.allianceRollDenominator'.",
+        "allianceMaxPartnerWars": "confirmed: decompiled-ai-offers-to-human-seats.md §1a — the alliance partner search's own \"wars(m) < 2\". T04 fixtures corpus id: 'diplomacy.aiOwnRule.allianceMaxPartnerWars'.",
+        "powerWealthDivisor": "confirmed: decompiled-ai-offers-to-human-seats.md §1a — P(n) = (wealth +0x430 / 20000) × (unity +0x440 / 100). T04 fixtures corpus id: 'diplomacy.aiOwnRule.powerWealthDivisor'.",
+        "powerUnityDivisor": "confirmed: decompiled-ai-offers-to-human-seats.md §1a — see powerWealthDivisor. T04 fixtures corpus id: 'diplomacy.aiOwnRule.powerUnityDivisor'."
+      }
+    },
     "_provenance": {
+      "offerRollDenominator": "confirmed: decompiled-ai-offers-to-human-seats.md §1b — FUN_00452034's own \"Random(3) == 0\" gate on whether the turn-start candidate becomes a pending offer at all. T04 fixtures corpus id: 'diplomacy.offerRollDenominator'.",
+      "aiOwnDiplomacy": "confirmed: decompiled-ai-offers-to-human-seats.md §1a (FUN_0044FB7C) — see the block's own _provenance for its individual fields.",
       "stateCodes": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — nation record +0x26 holds a symmetric relation row with 0 peace, 1 trade, 2 alliance, 3 war, and negative values as cooldown counters.",
       "cooldownAfterBrokenTrade": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — FUN_00449B40 writes -8 when trade is broken. T04 fixtures corpus id: 'diplomacy.cooldown.brokenTrade'.",
       "cooldownAfterBrokenAlliance": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — -24 when an alliance is broken. T04 fixtures corpus id: 'diplomacy.cooldown.brokenAlliance'.",

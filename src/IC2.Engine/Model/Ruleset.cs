@@ -1166,6 +1166,15 @@ public sealed record CaptureRules(
 public sealed record RelationStateCodes(int Peace, int Trade, int Alliance, int War);
 
 /// <summary>The confirmed diplomatic state machine, its cooldowns, and the reparation formula's constants.</summary>
+/// <param name="OfferRollDenominator">
+/// <c>[confirmed: decompiled-ai-offers-to-human-seats.md §1b]</c> <c>FUN_00452034</c>'s own chance that a
+/// human turn-start candidate becomes a pending offer at all — <c>Random(3) == 0</c>, drawn only once the
+/// candidate nation is alive and at peace with the human (T82, <see cref="IC2.Engine.Diplomacy.PendingOfferSystem"/>).
+/// </param>
+/// <param name="AiOwnDiplomacy">
+/// <c>[confirmed: decompiled-ai-offers-to-human-seats.md §1a]</c> <c>FUN_0044FB7C</c>'s own gates for an
+/// AI seat's direct, no-consent treaty writes (T82, bug #357).
+/// </param>
 public sealed record DiplomacyRules(
     RelationStateCodes StateCodes,
     int CooldownAfterBrokenTrade,
@@ -1180,6 +1189,58 @@ public sealed record DiplomacyRules(
     int FaithfulThawColumnLimit,
     int ReparationsWealthDivisor,
     int ReparationsPerCity,
+    int OfferRollDenominator,
+    AiOwnDiplomacyRules AiOwnDiplomacy,
+    [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
+
+/// <summary>
+/// The confirmed gates and constants of <c>FUN_0044FB7C</c>, the AI's own per-turn diplomacy — war
+/// targeting, the alliance roll and its partner search — <c>decompiled-ai-offers-to-human-seats.md</c>
+/// §1a <strong>[confirmed]</strong>. Trade's own cap is <see cref="DiplomacyRules.MaxTradePartners"/>,
+/// already shared with the human-initiated path, so it is not repeated here.
+/// </summary>
+/// <param name="BusyMobilizationThreshold">
+/// An AI already busy (at war, or <see cref="Model.NationState.MobilizedPercent"/> over this (40), or
+/// the season is winter — <c>season == 3</c>, the same "last season of the year"
+/// reading <see cref="IC2.Engine.Naval.FleetTickSystem"/> already uses) declares no war and makes no alliance this
+/// turn. The season term is <c>[derived]</c>: "Spring = 0, Summer = 1" are the report's own observed
+/// values; the "3 = Winter" reading follows from <see cref="CalendarRules.SeasonsPerYear"/> (4) rather
+/// than from a fourth season directly observed.
+/// </param>
+/// <param name="WarTargetRatioBase">
+/// The power-ratio threshold a war-target candidate's own ratio must exceed (10) — the loop's own
+/// "best" starts here, so the first candidate needs a ratio over 10 to be taken at all, and every later
+/// one needs to beat the best seen so far.
+/// </param>
+/// <param name="WarTargetRatioMultiplier">
+/// The multiplier in the war-target ratio <c>this · P(me) / max(1, P(k))</c> (8).
+/// </param>
+/// <param name="WarDeclareRollDenominator">
+/// Given a war target, the chance the AI actually declares this turn — <c>Random(10) == 0</c>.
+/// </param>
+/// <param name="AllianceRollDenominator">
+/// Given the AI is not busy, the chance it even looks for an alliance partner this turn —
+/// <c>Random(20) == 0</c>.
+/// </param>
+/// <param name="AllianceMaxPartnerWars">
+/// The alliance partner search only considers an AI <c>m</c> with fewer than this many wars (2) —
+/// <c>wars(m) &lt; 2</c>.
+/// </param>
+/// <param name="PowerWealthDivisor">
+/// The war-target power formula's wealth term divisor: <c>P(n) = (wealth / this) × (unity / <see cref="PowerUnityDivisor"/>)</c> (20,000).
+/// </param>
+/// <param name="PowerUnityDivisor">
+/// The war-target power formula's unity term divisor (100) — see <see cref="PowerWealthDivisor"/>.
+/// </param>
+public sealed record AiOwnDiplomacyRules(
+    int BusyMobilizationThreshold,
+    int WarTargetRatioBase,
+    int WarTargetRatioMultiplier,
+    int WarDeclareRollDenominator,
+    int AllianceRollDenominator,
+    int AllianceMaxPartnerWars,
+    int PowerWealthDivisor,
+    int PowerUnityDivisor,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>

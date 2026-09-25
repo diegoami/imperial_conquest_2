@@ -141,7 +141,11 @@ public static class AiTurn
             AiMilitaryPhase.Propose(
                 view, personality, rng, marched, candidates, action == 0 ? siegeGates : null);
             AiEconomyPhase.Propose(view, personality, candidates);
-            AiDiplomacyPhase.Propose(view, personality, candidates);
+            // T82 (#359, bug #357, Owns amendment PR #378): the same seat-turn IRng AiMilitaryPhase
+            // already receives above, so AiDiplomacyPhase's own Random(20) alliance roll is drawn from
+            // the identical turn-stable stream as AiMilitaryPhase's Random(10) war roll -- see
+            // AiDiplomacyPhase.ProposeOwnAlliance's own remarks for why that stability matters.
+            AiDiplomacyPhase.Propose(view, personality, rng, candidates);
 
             var chosen = Select(candidates, rng);
             if (chosen is null)

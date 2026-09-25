@@ -222,22 +222,44 @@ public sealed class SeatCliTests
     /// Review round 2, B4 (blocking): <c>_pendingNewsBaseline</c> (round 1's own N4 fix, "news written
     /// during the prelude must appear in the first <c>end</c>'s summary") had no test that fails when it
     /// is deleted. Thracia is <c>classical-mediterranean</c>'s own last turn-order seat, so its
-    /// construction-time prelude plays all 15 other seats before Thracia's own first turn — including
-    /// Seleucid, which forms an alliance with Thracia during that prelude, on this fixed seed. Without the
-    /// baseline fix, that line would only ever surface through the standalone <c>news</c> command, never
-    /// through any <c>end</c>'s own footer (confirmed against the real CLI, matching the review's own
-    /// probe exactly).
+    /// construction-time prelude plays all 15 other seats before Thracia's own first turn.
     /// </summary>
+    /// <remarks>
+    /// T82 rework round 1: the line this test originally pinned, "Seleucid forms an alliance with
+    /// Thracia", can no longer occur, for a reason specific to T82's own fix rather than to this test's
+    /// setup -- <c>--seat</c> marks its nation <see cref="SeatControl.Human"/> before the prelude even
+    /// starts (<see cref="GameSession"/>'s own constructor), and T82 (#359, bug #357) makes
+    /// <c>AiFormAllianceCommand</c> refuse a human partner unconditionally: an AI seat's own diplomacy
+    /// now writes an alliance only to another AI (<c>decompiled-ai-offers-to-human-seats.md</c> §1a, "the
+    /// original's AI never calls the human Politics-screen handlers at all"). So with Thracia as
+    /// <c>--seat</c>'s own nation, no setup -- wealth, relations, or otherwise -- can restore that exact
+    /// line; the old transcript only ever produced it because the pre-T82 code let an AI ally directly
+    /// with a human seat, which is precisely the bug this task removes. The test's own claim (prelude
+    /// news reaches the first <c>end</c>'s footer) does not depend on which news line proves it, so this
+    /// asserts a line the prelude reliably writes instead: "Sidon (Ptolemaic) falls to Seleucid." is the
+    /// prelude's own last entry on this fixed seed (confirmed directly against
+    /// <c>session.State.NewsLog.Slots</c> before the first <c>end</c> is even submitted) and reappears in
+    /// that first <c>end</c>'s own footer only because <c>_pendingNewsBaseline</c> carries it forward --
+    /// deleting that baseline fix drops this line from the footer exactly as it would have dropped the
+    /// original alliance line.
+    /// </remarks>
     [Fact]
     public void The_first_rounds_footer_includes_news_the_construction_time_prelude_itself_produced()
     {
         var session = NewClassicalSeatSession("thracia");
 
+        // The prelude has already run by construction time: confirms the line below is genuinely
+        // prelude-produced, not something the first `end` itself goes on to write.
+        Assert.Contains(
+            session.State.NewsLog.Slots,
+            s => s.Text.Contains("Sidon", StringComparison.Ordinal)
+                && s.Text.Contains("falls to Seleucid.", StringComparison.Ordinal));
+
         var output = session.Submit("end");
 
         Assert.Contains(
             output.Lines,
-            l => l.Contains("Seleucid forms an alliance with Thracia.", StringComparison.Ordinal));
+            l => l.Contains("Sidon", StringComparison.Ordinal) && l.Contains("falls to Seleucid.", StringComparison.Ordinal));
     }
 
     // ---- Done-when 3: all-AI without --seat is watch mode ----
@@ -547,13 +569,23 @@ public sealed class SeatCliTests
     /// picks which seat plays first, so the same fixture proves the loss is caught whether it happens
     /// during <see cref="GameSession"/>'s own construction-time prelude or inside a later <c>end</c>.
     /// </summary>
-    private static GameSession NewEliminationFixtureSession(ValueList<string> turnOrder, string humanSeatNationId)
+    private static GameSession NewEliminationFixtureSession(
+        ValueList<string> turnOrder, string humanSeatNationId, ulong? seed = null)
     {
         var toy = CoreTestbed.Toy;
         var world = toy.World with
         {
+            // T82 rework round 1 (Owns amendment PR #381): a siege no longer declares war on its own
+            // (AiMilitaryPhase now requires the two already at war before it ever proposes one), which
+            // this fixture reaches through north's own war-target search instead
+            // (AiMilitaryPhase.ProposeOwnWarDeclaration, FUN_0044FB7C §1a) -- the same technique
+            // GameSessionCommandsTests' own #256 fixture uses. The toy nations' shipped wealth (400/360)
+            // is far below AiOwnDiplomacyRule.Power's own 20,000 divisor, so north's wealth is raised
+            // here to clear the ratio gate (P(north) = (40000/20000)*(600/100) = 12; P(south) =
+            // (360/20000)*(520/100) = 0; ratio = 8*12/max(1,0) = 96, comfortably over the base of 10);
+            // south's own wealth is left untouched.
             Nations = ValueList.Of(
-                toy.World.NationById("north")! with { Treasury = 0 },
+                toy.World.NationById("north")! with { Treasury = 0, Wealth = 40_000 },
                 toy.World.NationById("south")! with { Treasury = 0 }),
             StartingArmies = ValueList.Of(
                 new StartingArmy(
@@ -569,7 +601,7 @@ public sealed class SeatCliTests
                     "north", SeatControl.Ai,
                     new AiPersonality(Aggression: 0.5, ExpansionDrive: 0.5, LoyaltyToAlliances: 0.5))),
         };
-        return new GameSession(world, toy.Ruleset, scenario, seedOverride: null, humanSeatNationId);
+        return new GameSession(world, toy.Ruleset, scenario, seed, humanSeatNationId);
     }
 
     /// <summary>
@@ -579,32 +611,51 @@ public sealed class SeatCliTests
     /// exactly as it does in <c>GameSessionCommandsTests</c>: round 1 is the approach march only, round 2
     /// is the siege, capture and elimination.
     /// </summary>
-    [Fact]
-    public void A_seat_eliminated_by_real_play_falls_when_it_plays_first_in_turn_order()
+    /// <remarks>
+    /// T82 rework round 1 (Owns amendment PR #381): the ratio gate is deterministic given
+    /// <see cref="NewEliminationFixtureSession"/>'s own wealth override, but
+    /// <c>AiMilitaryPhase.ProposeOwnWarDeclaration</c>'s own <c>Random(10)</c> roll (report §1a) still
+    /// has to hit within this fixture's two-round budget. Seed 2 is the first of 1..2000 that works
+    /// (found once, by the same seed-search technique <c>GameSessionCommandsTests</c>' own #256 fixture
+    /// uses, then hard-coded here) -- not a "designed" or otherwise special seed.
+    /// </remarks>
+    /// <remarks>
+    /// T82 rework round 2 (Owns amendment PR #381, N-a): a real elimination through real play, on the
+    /// real classical-faithful ruleset, is exactly the shape T83's own review (N12) flagged as needing a
+    /// <c>[Fact(Timeout = ...)]</c> guard -- a regression here would otherwise hang the suite instead of
+    /// failing it. <c>[Fact(Timeout = ...)]</c> only enforces on an <see langword="async"/> test (see
+    /// <see cref="Watch_mode_rejects_every_mutating_verb_and_leaves_state_untouched"/>'s own remark), so
+    /// this wraps its body in <see cref="Task.Run(Action)"/> the same way.
+    /// </remarks>
+    [Fact(Timeout = 15000)]
+    public async Task A_seat_eliminated_by_real_play_falls_when_it_plays_first_in_turn_order()
     {
-        var session = NewEliminationFixtureSession(ValueList.Of("south", "north"), "south");
-        Assert.Equal("south", session.State.ActiveNationId); // turn-order seat 0: no prelude.
+        await Task.Run(() =>
+        {
+            var session = NewEliminationFixtureSession(ValueList.Of("south", "north"), "south", seed: 2);
+            Assert.Equal("south", session.State.ActiveNationId); // turn-order seat 0: no prelude.
 
-        var round1 = session.Submit("end");
-        Assert.False(session.State.NationById("south")!.Eliminated, "round 1 is only the approach march");
-        Assert.DoesNotContain(round1.Lines, l => l.Contains("has fallen", StringComparison.Ordinal));
+            var round1 = session.Submit("end");
+            Assert.False(session.State.NationById("south")!.Eliminated, "round 1 is only the approach march");
+            Assert.DoesNotContain(round1.Lines, l => l.Contains("has fallen", StringComparison.Ordinal));
 
-        var round2 = session.Submit("end");
-        Assert.True(session.State.NationById("south")!.Eliminated);
-        Assert.Contains(
-            round2.Lines,
-            l => l.Contains("Southern League", StringComparison.Ordinal)
-                 && l.Contains("has fallen", StringComparison.Ordinal));
+            var round2 = session.Submit("end");
+            Assert.True(session.State.NationById("south")!.Eliminated);
+            Assert.Contains(
+                round2.Lines,
+                l => l.Contains("Southern League", StringComparison.Ordinal)
+                     && l.Contains("has fallen", StringComparison.Ordinal));
 
-        // Watch mode from here on: exactly one "takes its turn" line (north, the sole survivor), never
-        // played twice, and orders are refused.
-        var round3 = session.Submit("end");
-        var turnLines = round3.Lines.Where(l => l.Contains("takes its turn", StringComparison.Ordinal)).ToList();
-        Assert.Single(turnLines);
-        Assert.StartsWith("Northern League (north)", turnLines[0]);
+            // Watch mode from here on: exactly one "takes its turn" line (north, the sole survivor),
+            // never played twice, and orders are refused.
+            var round3 = session.Submit("end");
+            var turnLines = round3.Lines.Where(l => l.Contains("takes its turn", StringComparison.Ordinal)).ToList();
+            Assert.Single(turnLines);
+            Assert.StartsWith("Northern League (north)", turnLines[0]);
 
-        var rejected = session.Submit("move north-overwhelming-army 1 1");
-        Assert.Contains(rejected.Lines, l => l.Contains("--seat", StringComparison.Ordinal));
+            var rejected = session.Submit("move north-overwhelming-army 1 1");
+            Assert.Contains(rejected.Lines, l => l.Contains("--seat", StringComparison.Ordinal));
+        });
     }
 
     /// <summary>
@@ -615,20 +666,35 @@ public sealed class SeatCliTests
     /// fires from inside <see cref="PlayUntilOneFullLapOrRepeat"/>'s own loop, not only from the check
     /// <see cref="HandleEndSeated"/> runs right after the seat's own turn.
     /// </summary>
-    [Fact]
-    public void A_seat_eliminated_by_real_play_falls_on_its_own_first_end_when_it_plays_second_in_turn_order()
+    /// <remarks>
+    /// T82 rework round 1 (Owns amendment PR #381): the same wealth override
+    /// <see cref="NewEliminationFixtureSession"/> applies for the sibling test above clears
+    /// <c>AiMilitaryPhase.ProposeOwnWarDeclaration</c>'s ratio gate here too, and the fixture's own
+    /// scenario-default seed already hits the <c>Random(10)</c> roll within north's two turns (prelude
+    /// plus one more), so no seed override is needed for this turn order.
+    /// </remarks>
+    /// <remarks>
+    /// T82 rework round 2 (Owns amendment PR #381, N-a): the same <c>[Fact(Timeout = ...)]</c> guard as
+    /// the sibling test above, and for the same reason (T83 review N12) -- see that test's own remark for
+    /// why the body has to move into <see cref="Task.Run(Action)"/> for the timeout to actually enforce.
+    /// </remarks>
+    [Fact(Timeout = 15000)]
+    public async Task A_seat_eliminated_by_real_play_falls_on_its_own_first_end_when_it_plays_second_in_turn_order()
     {
-        var session = NewEliminationFixtureSession(ValueList.Of("north", "south"), "south");
-        Assert.Equal("south", session.State.ActiveNationId); // the prelude already played north's round 1.
-        Assert.False(session.State.NationById("south")!.Eliminated);
+        await Task.Run(() =>
+        {
+            var session = NewEliminationFixtureSession(ValueList.Of("north", "south"), "south");
+            Assert.Equal("south", session.State.ActiveNationId); // the prelude already played north's round 1.
+            Assert.False(session.State.NationById("south")!.Eliminated);
 
-        var output = session.Submit("end");
+            var output = session.Submit("end");
 
-        Assert.True(session.State.NationById("south")!.Eliminated);
-        Assert.Contains(
-            output.Lines,
-            l => l.Contains("Southern League", StringComparison.Ordinal)
-                 && l.Contains("has fallen", StringComparison.Ordinal));
+            Assert.True(session.State.NationById("south")!.Eliminated);
+            Assert.Contains(
+                output.Lines,
+                l => l.Contains("Southern League", StringComparison.Ordinal)
+                     && l.Contains("has fallen", StringComparison.Ordinal));
+        });
     }
 
     /// <summary>
@@ -754,15 +820,36 @@ public sealed class SeatCliTests
     /// round's own genuine appends are guaranteed to evict something and exercise the saturated path.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <strong>Review round 2, N9 (naming/wording correction — this test's name and this comment
     /// previously overclaimed):</strong> this does <em>not</em> prove the footer lists every line a round
     /// writes, full stop — round 1 on <c>seat-rome.golden.txt</c>'s own fixed seed genuinely writes more
-    /// than 40 entries (the reviewer counted 44), and the newest 40 is still all the 40-slot ring can ever
-    /// show in one footer, faithful to the original's own ring buffer (<c>docs/design-audit.md</c>'s
-    /// confirmed behaviour). What this test actually proves is narrower and is the whole of bug #376: the
-    /// count is no longer silently <em>zero</em> merely because the buffer started this round already
-    /// full — <see cref="CountNewsAppendedSince"/> reports real news up to the ring's own capacity, not
-    /// nothing.
+    /// than 40 entries under the pre-T82 heuristic (the reviewer counted 44), and the newest 40 is still
+    /// all the 40-slot ring can ever show in one footer, faithful to the original's own ring buffer
+    /// (<c>docs/design-audit.md</c>'s confirmed behaviour). What this test actually proves is narrower and
+    /// is the whole of bug #376: the count is no longer silently <em>zero</em> merely because the buffer
+    /// started this round already full — <see cref="CountNewsAppendedSince"/> reports real news up to the
+    /// ring's own capacity, not nothing.
+    /// </para>
+    /// <para>
+    /// <strong>T82 rework round 1 got this wrong; round 2 corrects it.</strong> Round 1 removed the "no
+    /// Filler entry survives" assertion below and claimed it could never pass once T82's corrected AI
+    /// writes only a few entries a round -- reasoning that never actually held. The real cause (rework
+    /// round 2, R1(b)): padding <see cref="GameSession.State"/>'s own <c>NewsLog</c> by reflection, as
+    /// this fixture does below, does not by itself update <see cref="GameSession"/>'s private
+    /// <c>_pendingNewsBaseline</c> field (set once at construction, to the un-padded 27-slot log) --
+    /// which is exactly what the first <c>end</c>'s own footer counts entries <em>since</em>
+    /// (<c>GameSession.cs</c>'s own <c>HandleEndSeated</c>, around line 679: <c>newsBeforeSlots =
+    /// _pendingNewsBaseline ?? State.NewsLog.Slots</c>). Left at the stale, un-padded baseline, the
+    /// footer's own "count back to the baseline" scan walks straight through every filler slot before it
+    /// ever reaches the real 27-entry tail it should have stopped at, so the filler counts as new. Before
+    /// T82, the pre-fix heuristic's ~44-entry spam round happened to evict every filler slot outright,
+    /// which is what hid this the whole time -- it was never about how many entries the round itself
+    /// writes. The fix is the same reflection technique, one field further: after padding
+    /// <c>State</c>, <c>_pendingNewsBaseline</c> is also set to the padded log's own slots, so the
+    /// footer's "since" baseline matches what the round's own construction-time bookkeeping would have
+    /// recorded had the log genuinely started full.
+    /// </para>
     /// </remarks>
     [Fact]
     public void The_round_footer_reports_news_even_when_the_ring_buffer_started_this_round_already_full()
@@ -781,6 +868,18 @@ public sealed class SeatCliTests
         var newStateWithPaddedLog = session.State with { NewsLog = padded };
         typeof(GameSession).GetProperty(nameof(GameSession.State))!.SetValue(session, newStateWithPaddedLog);
 
+        // Rework round 2, R1(b): padding State above does not by itself move GameSession's own private
+        // _pendingNewsBaseline, still the construction-time 27-slot log -- the field the first `end`'s
+        // footer actually counts new entries since (see this test's own remarks). Left stale, the
+        // footer's "since" scan walks through every filler slot before it ever reaches the real,
+        // pre-padding tail, and the filler is wrongly counted as new. Setting it to the padded log's own
+        // slots here is what makes the fixture genuinely equivalent to "the round really did start with
+        // a full, real buffer" -- one reflection call further than the existing SetValue above, not a
+        // second, unrelated mechanism.
+        typeof(GameSession)
+            .GetField("_pendingNewsBaseline", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .SetValue(session, padded.Slots);
+
         var slotsBeforeRound = session.State.NewsLog.Slots.Count;
         var output = session.Submit("end");
 
@@ -788,10 +887,20 @@ public sealed class SeatCliTests
         // really did write through the saturated buffer, not merely append into remaining headroom.
         Assert.Equal(slotsBeforeRound, session.State.NewsLog.Slots.Count);
 
-        // At least one of the genuine alliance-formation lines the unpadded seat-rome golden shows for
-        // round 1 on this same fixed seed is listed -- proof the footer did not fall back to reporting
-        // zero once saturated.
-        Assert.Contains(output.Lines, line => line.Contains("forms an alliance with", StringComparison.Ordinal));
+        // Rework round 1 (kept; rests on plan PR #386's exception, granted alongside the identical swap
+        // in The_first_rounds_footer_includes_news_the_construction_time_prelude_itself_produced): round
+        // 1's own genuine news used to include an alliance-formation line on this fixed seed, but that
+        // line is now structurally impossible -- an AI never writes an alliance directly to a human seat
+        // (bug #357's own fix), and Rome is the human here. This checks a real, non-filler city-capture
+        // line the unpadded seat-rome golden also shows for round 1 on this same fixed seed instead; #386
+        // requires the mechanism under test to still fail when removed, which the baseline-restoring fix
+        // above (R1(b)) is what actually proves, mutation-tested below.
+        Assert.Contains(output.Lines, line => line.Contains("falls to Seleucid.", StringComparison.Ordinal));
+
+        // Rework round 2, R1(b): restored. The buffer's own oldest slots -- 13 filler, appended after
+        // the 27 real DAT-history entries -- must not survive into the footer once _pendingNewsBaseline
+        // is corrected: the round's own genuine appends are what the footer shows, up to the ring's own
+        // capacity, never the padding this fixture used only to reach that capacity in the first place.
         Assert.DoesNotContain(output.Lines, line => line.Contains("Filler entry", StringComparison.Ordinal));
     }
 }

@@ -21,8 +21,30 @@ namespace IC2.Engine.Diplomacy.Commands;
 /// applies to an acceptance. This handler now applies <see cref="ProposeTradeCommandHandler"/>'s three
 /// trade gates (cooldown, already-trading, allied-or-at-war) unconditionally for a trade offer, skipping
 /// only <see cref="TradePartnerCap"/>, and <see cref="ProposeAllianceCommandHandler"/>'s alliance gates
-/// (already-allied; and, against an AI proposer, cooldown and either-side-at-war) for an alliance offer —
-/// alliance has no partner cap to waive in the first place, so nothing is skipped there.
+/// (already-allied; and, against an AI proposer, cooldown and the accepting human's own side being at
+/// war) for an alliance offer — alliance has no partner cap to waive in the first place, so nothing is
+/// skipped there.
+/// </remarks>
+/// <remarks>
+/// <strong>T82 (#359, bug #357 item 3).</strong> The alliance gate used to check both sides' wars;
+/// <c>decompiled-ai-offers-to-human-seats.md</c> §3 corrects <c>TPolitics_MakeAlliance</c>'s own reading:
+/// against an AI target, only the <em>accepting human's</em> own side is checked — "The AI target's own
+/// wars are not checked" — so allying with an AI already at war drags the human into that war through
+/// the setter's cascade, exactly as the original does.
+/// </remarks>
+/// <remarks>
+/// <strong>T82 rework round 1, B2/B3.</strong> Two corrections against the reviewed report. (a) The
+/// alliance gate's "accepting human's own side" check was incomplete: §3 refuses human-to-AI when
+/// <em>either</em> the human is itself at war, <em>or</em> a nation the human is allied with is at war
+/// with anyone (<c>FUN_00449CD8</c>) — see <see cref="RelationTransitions.HasAnAllyAtWarWithAnyone"/>.
+/// (b) The trade branch used to skip every partner cap ("accepting waives only the three-partner limit"
+/// was read too broadly): §3 never waives the <em>accepting human's own</em> cap — "the human's working
+/// row already has 3 partners" is a plain refusal, not something a pending offer overrides — and only
+/// waives the <em>proposer's</em> cap in the specific sense that an already-pending offer from that same
+/// proposer is exactly the "pending trade offer from that target" case the report exempts from the
+/// straight refusal; even there the proposer's cap is not silently ignored, it drops that proposer's
+/// poorest partner (<see cref="TradePartnerCap.MakeRoomForOneMorePartner"/>), same as a fresh proposal
+/// against a capped target.
 /// </remarks>
 public sealed record AcceptPendingOfferCommand(string IssuingNationId) : ICommand
 {
@@ -59,8 +81,18 @@ public static class AcceptPendingOfferRejections
     /// <summary>The two nations are already allied (alliance offer only).</summary>
     public static readonly RejectionCode AlreadyAllied = new("diplomacy.already-allied");
 
-    /// <summary>Either side is currently at war with anyone (alliance offer, AI proposer only).</summary>
+    /// <summary>
+    /// The accepting human is itself at war with anyone, or allied with a nation that is (alliance
+    /// offer, AI proposer only; T82 rework round 1, B2).
+    /// </summary>
     public static readonly RejectionCode SideAtWar = new("diplomacy.side-at-war");
+
+    /// <summary>
+    /// The accepting human already has <see cref="Model.DiplomacyRules.MaxTradePartners"/> trade
+    /// partners (trade offer only; T82 rework round 1, B3) — the human's own cap is never waived by a
+    /// pending offer, unlike the proposer's.
+    /// </summary>
+    public static readonly RejectionCode TradeCapReached = new("diplomacy.trade-cap-reached");
 }
 
 /// <inheritdoc cref="AcceptPendingOfferCommand"/>
@@ -119,16 +151,28 @@ public sealed class AcceptPendingOfferCommandHandler : ICommandHandler<AcceptPen
                         AcceptPendingOfferRejections.Cooldown, $"'{proposer.Name}' does not want to ally with you.");
                 }
 
-                if (RelationTransitions.IsAtWarWithAnyone(state, ruleset, pending.ProposingNationId)
-                    || RelationTransitions.IsAtWarWithAnyone(state, ruleset, command.IssuingNationId))
+                // T82 (#359, bug #357 item 3), corrected in rework round 1 (B2):
+                // decompiled-ai-offers-to-human-seats.md §3's correction to TPolitics_MakeAlliance -- "The
+                // AI target's own wars are not checked" (listing 0x00453101-0x0045317A). Only the
+                // accepting human's own side is gated -- both the human's own wars and any of the
+                // human's own allies' wars (FUN_00449CD8) -- never the AI proposer's, so allying with an
+                // AI at war drags the human into that war through RelationTransitions.FormAlliance's own
+                // cascade -- exactly as the original does.
+                if (RelationTransitions.IsAtWarWithAnyone(state, ruleset, command.IssuingNationId)
+                    || RelationTransitions.HasAnAllyAtWarWithAnyone(state, ruleset, command.IssuingNationId))
                 {
                     return CommandOutcome.Reject(
                         AcceptPendingOfferRejections.SideAtWar,
-                        $"'{proposer.Name}' will not ally while either side is at war.");
+                        $"You cannot ally with '{proposer.Name}' while you, or one of your allies, is at war.");
                 }
             }
 
-            state = RelationTransitions.FormAlliance(state, ruleset, pending.ProposingNationId, command.IssuingNationId);
+            // T82 (#359, bug #357 item 3): the accepting human is the party committing the row
+            // (TPolitics_OK), so the human -- not the AI proposer -- is RelationTransitions.FormAlliance's
+            // first argument and inherits the other side's wars. Calling it the other way around would
+            // drag the AI proposer into the human's own wars instead of the human into the AI's, the
+            // opposite of the report's "allying with an AI at war drags the human into that war".
+            state = RelationTransitions.FormAlliance(state, ruleset, command.IssuingNationId, pending.ProposingNationId);
             return CommandOutcome.Accept(state);
         }
 
@@ -153,8 +197,29 @@ public sealed class AcceptPendingOfferCommandHandler : ICommandHandler<AcceptPen
                 AcceptPendingOfferRejections.AlliedOrAtWar, $"You cannot trade with '{proposer.Name}'.");
         }
 
-        // Deliberately skips TradePartnerCap.MakeRoomForOneMorePartner: accepting waives ONLY the
-        // three-partner limit (DoD 10, news-log-format-and-messages.md Q5), nothing else.
+        // T82 rework round 1 (B3): decompiled-ai-offers-to-human-seats.md §3 -- "the human's working row
+        // already has 3 partners" is a plain refusal that a pending offer never waives. Only the
+        // proposer's own cap is the one a pending offer FROM that same proposer exempts (see below); the
+        // accepting human's own cap is not "the three-partner limit" DoD 10 waives -- that limit is the
+        // proposer's, not the human's own.
+        if (TradePartnerCap.CurrentPartners(state, ruleset, command.IssuingNationId, pending.ProposingNationId).Count
+            >= ruleset.Diplomacy.MaxTradePartners)
+        {
+            return CommandOutcome.Reject(
+                AcceptPendingOfferRejections.TradeCapReached,
+                $"You already trade with {ruleset.Diplomacy.MaxTradePartners} nations.");
+        }
+
+        // T82 rework round 1 (B3), corrected in rework round 2 (R2 -- the earlier remark here claimed
+        // ProposeTradeCommand already performs this same drop against a capped target; it did not, until
+        // R2 fixed it): the proposer's own cap is not refused here -- accepting a pending offer FROM that
+        // nation is exactly the "pending trade offer from that target" case the report exempts from a
+        // flat refusal (ProposeTradeCommand now applies the identical exception, keyed off
+        // state.PendingOffer, for the same reason) -- but a full cap is not silently ignored either:
+        // "on OK, if the target has 3 partners, it drops its lowest-tax-base partner to peace, a -8
+        // cooldown" [confirmed: code].
+        state = TradePartnerCap.MakeRoomForOneMorePartner(state, ruleset, pending.ProposingNationId, command.IssuingNationId);
+
         state = state with
         {
             Relations = state.Relations.WithRelation(pending.ProposingNationId, command.IssuingNationId, codes.Trade),

@@ -141,4 +141,50 @@ public sealed class RelationTransitionsTests
         Assert.NotEqual(ruleset.Diplomacy.CooldownAfterBrokenAlliance, ruleset.Diplomacy.CooldownAfterEndedWar);
         Assert.NotEqual(ruleset.Diplomacy.CooldownAfterBrokenTrade, ruleset.Diplomacy.CooldownAfterEndedWar);
     }
+
+    // ---- Rework round 2, N-b: HasAnAllyAtWarWithAnyone's own "at war" half ----
+
+    /// <summary>
+    /// Rework round 2, N-b: every existing caller-side test that exercises
+    /// <see cref="RelationTransitions.HasAnAllyAtWarWithAnyone"/> gives the ally an active war, so
+    /// reducing the check to "has any ally at all" (dropping the <c>IsAtWarWithAnyone(ally)</c> half
+    /// entirely) would still pass every one of them. This is the missing half: an ally that is at peace
+    /// with everyone must not trip the check.
+    /// </summary>
+    [Fact]
+    public void HasAnAllyAtWarWithAnyone_IsFalse_WhenTheAllyIsAtPeaceWithEveryone()
+    {
+        var ruleset = DiplomacyTestbed.Ruleset;
+        var ally = DiplomacyTestbed.FourNationIds[2];
+        var state = DiplomacyTestbed.StateOf(
+            DiplomacyTestbed.Nation(A, "Rome"), DiplomacyTestbed.Nation(B, "Greece"),
+            DiplomacyTestbed.Nation(ally, "Ally"));
+        state = state with
+        {
+            Relations = state.Relations.WithRelation(A, ally, ruleset.Diplomacy.StateCodes.Alliance),
+        };
+
+        // The ally has no war with anyone (including A itself, which the method's own loop excludes by id).
+        Assert.False(RelationTransitions.HasAnAllyAtWarWithAnyone(state, ruleset, A));
+    }
+
+    /// <summary>The mirrored, positive case: the same ally, now at war with a third nation.</summary>
+    [Fact]
+    public void HasAnAllyAtWarWithAnyone_IsTrue_WhenTheAllyIsAtWarWithAThirdNation()
+    {
+        var ruleset = DiplomacyTestbed.Ruleset;
+        var ally = DiplomacyTestbed.FourNationIds[2];
+        var thirdParty = DiplomacyTestbed.FourNationIds[3];
+        var state = DiplomacyTestbed.StateOf(
+            DiplomacyTestbed.Nation(A, "Rome"), DiplomacyTestbed.Nation(B, "Greece"),
+            DiplomacyTestbed.Nation(ally, "Ally"), DiplomacyTestbed.Nation(thirdParty, "ThirdParty"));
+        state = state with
+        {
+            Relations = state.Relations
+                .WithRelation(A, ally, ruleset.Diplomacy.StateCodes.Alliance)
+                .WithRelation(ally, thirdParty, ruleset.Diplomacy.StateCodes.War),
+        };
+
+        Assert.True(RelationTransitions.HasAnAllyAtWarWithAnyone(state, ruleset, A));
+    }
 }

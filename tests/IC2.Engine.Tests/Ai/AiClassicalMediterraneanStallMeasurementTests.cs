@@ -200,7 +200,7 @@ public sealed class AiClassicalMediterraneanStallMeasurementTests
         var economy = new List<AiCandidate>();
         AiEconomyPhase.Propose(view, personality, economy);
         var diplomacy = new List<AiCandidate>();
-        AiDiplomacyPhase.Propose(view, personality, diplomacy);
+        AiDiplomacyPhase.Propose(view, personality, SplitMix64Rng.ForStream(seed, "t65.stall-diagnosis"), diplomacy);
 
         var budget = AiEconomyPhase.TurnBudget(nation.Treasury, personality.ExpansionDrivePermille);
         var ownArmies = view.OwnArmies().Count;

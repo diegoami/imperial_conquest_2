@@ -4,6 +4,7 @@ using IC2.Engine.Battle.Commands;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
 using Xunit;
+using BattleFixtures = IC2.Engine.Tests.Battle.Commands.BattleCommandTestbed;
 
 namespace IC2.Engine.Tests.Ai;
 
@@ -47,22 +48,26 @@ public sealed class AiPersonalityTests
         Assert.DoesNotContain("attack-army", AttackCandidateKinds(Timid));
     }
 
+    /// <summary>
+    /// T82 (#359, bug #357): attacking no longer declares war (<c>decompiled-ai-offers-to-human-seats.md</c>
+    /// §4/§5, "no implicit declaration by attack") -- an attack now requires the two already being at
+    /// war, so this fixture sets that up directly, isolating the attack-ratio gate this test is actually
+    /// about from the separate, unrelated war-target search <see cref="AiMilitaryPhase.ProposeOwnWarDeclaration"/>
+    /// now owns.
+    /// </summary>
+    private static GameState AtWar(AiPersonality personality) =>
+        BattleFixtures.AtWar(
+            AiScriptedStates.TwoArmiesInContact(personality), AiScriptedStates.Attacker, AiScriptedStates.Defender);
+
     [Fact]
     public void An_aggression_0_9_nation_issues_the_attack_and_an_aggression_0_1_nation_does_not()
     {
-        var bold = AiScriptedStates.DriveOneTurn(AiScriptedStates.TwoArmiesInContact(Bold));
-        var timid = AiScriptedStates.DriveOneTurn(AiScriptedStates.TwoArmiesInContact(Timid));
+        var bold = AiScriptedStates.DriveOneTurn(AtWar(Bold));
+        var timid = AiScriptedStates.DriveOneTurn(AtWar(Timid));
 
-        // Both halves of the confirmed sequence, in the confirmed order: attacking IS declaring war.
-        Assert.Equal(
-            new[] { "diplomacy.declare-war", "battle.attack-army" },
-            bold.IssuedKinds);
-
+        // No declaration to issue first any more: the two start the turn already at war.
+        Assert.Equal(new[] { "battle.attack-army" }, bold.IssuedKinds);
         Assert.DoesNotContain("battle.attack-army", timid.IssuedKinds);
-
-        // ...and the timid nation did not declare war either. A candidate that declared and then thought
-        // better of it would leave the world at war for nothing, which is worse than not attacking.
-        Assert.DoesNotContain("diplomacy.declare-war", timid.IssuedKinds);
 
         // Neither run may ever place an order the engine refuses -- Done-when 1's constraint, asserted
         // here too because this is the state in which the AI is most tempted to.
@@ -74,8 +79,8 @@ public sealed class AiPersonalityTests
     [Fact]
     public void The_battle_really_resolves_for_the_bold_nation_and_the_timid_nation_leaves_the_world_alone()
     {
-        var bold = AiScriptedStates.DriveOneTurn(AiScriptedStates.TwoArmiesInContact(Bold));
-        var timid = AiScriptedStates.DriveOneTurn(AiScriptedStates.TwoArmiesInContact(Timid));
+        var bold = AiScriptedStates.DriveOneTurn(AtWar(Bold));
+        var timid = AiScriptedStates.DriveOneTurn(AtWar(Timid));
 
         Assert.Contains(bold.Events, e => e is BattleResolved);
         Assert.DoesNotContain(timid.Events, e => e is BattleResolved);
@@ -84,17 +89,9 @@ public sealed class AiPersonalityTests
         // still standing, untouched, in the timid one.
         Assert.Null(bold.Outcome.State.ArmyById("defender-army"));
 
-        var timidBefore = AiScriptedStates.TwoArmiesInContact(Timid);
+        var timidBefore = AtWar(Timid);
         Assert.Equal(
             timidBefore.ArmyById("defender-army"), timid.Outcome.State.ArmyById("defender-army"));
-
-        // ...and the two are still not at war. Note the timid run's relation matrix is NOT unchanged:
-        // its diplomacy phase proposes an alliance to the very nation it declined to attack, which is
-        // the design's phase 3 working, not a leak from phase 2. The claim under test is about war.
-        Assert.NotEqual(
-            AiScriptedStates.Ruleset.Diplomacy.StateCodes.War,
-            timid.Outcome.State.Relations.Get(AiScriptedStates.Attacker, AiScriptedStates.Defender));
-        Assert.Contains("diplomacy.propose-alliance", timid.IssuedKinds);
     }
 
     /// <summary>
@@ -173,7 +170,7 @@ public sealed class AiPersonalityTests
     /// </summary>
     private static List<string> AttackCandidateKinds(AiPersonality personality)
     {
-        var state = AiScriptedStates.TwoArmiesInContact(personality);
+        var state = AtWar(personality);
         var view = new AiView(
             state, AiScriptedStates.Ruleset, AiScriptedStates.World, AiScriptedStates.Attacker);
         var candidates = new List<AiCandidate>();

@@ -155,15 +155,23 @@ public static class AiScriptedStates
     /// Runs one AI turn against <paramref name="state"/> through the real
     /// <see cref="CommandDispatcher"/> — the same seam <see cref="AiTurnSystem"/> hands
     /// <see cref="AiTurn.Run"/> inside the pipeline, so a scripted test exercises the production path
-    /// rather than a stand-in.
+    /// rather than a stand-in. Against the shared two-nation toy <see cref="World"/>.
     /// </summary>
-    public static DrivenTurn DriveOneTurn(GameState state, ulong seed = 1)
+    public static DrivenTurn DriveOneTurn(GameState state, ulong seed = 1) => DriveOneTurn(state, World, seed);
+
+    /// <summary>
+    /// Rework round 1, N11: the same drive as <see cref="DriveOneTurn(GameState, ulong)"/>, against a
+    /// caller-supplied <paramref name="world"/> instead of the shared two-nation toy one -- needed for
+    /// any full-turn drive whose candidate (an alliance, say) depends on
+    /// <see cref="Diplomacy.NeighbourGeography"/>, which the toy world's own two nations cannot exercise.
+    /// </summary>
+    public static DrivenTurn DriveOneTurn(GameState state, World world, ulong seed = 1)
     {
         var sink = new RecordingEventSink();
         var dispatcher = new CommandDispatcher(
-            SystemRegistry.FromEngineAssembly(), Ruleset, World, sink);
+            SystemRegistry.FromEngineAssembly(), Ruleset, world, sink);
         var rng = SplitMix64Rng.ForStream(seed, "ai.turn");
-        var outcome = AiTurn.Run(state, Ruleset, World, dispatcher, rng, sink);
+        var outcome = AiTurn.Run(state, Ruleset, world, dispatcher, rng, sink);
         return new DrivenTurn(outcome, sink.Events.ToArray());
     }
 }
