@@ -68,6 +68,40 @@ public sealed class TradePartnerCapTests
         Assert.Equal(codes.Trade, state.Relations.Get(Hub, Strong));
     }
 
+    /// <summary>
+    /// Rework round 2, N-c: on an exact tax-base tie, the original's own <c>k = 0..15</c> scan (strict
+    /// <c>&lt;</c> against a running minimum) always drops the first tied partner in the nation table's
+    /// own order, never whichever sorts first alphabetically by id. Uses the classical world's own
+    /// "rome"/"carthage" ids and their real nation-table order (Rome index 0, Carthage index 1,
+    /// <c>dat-neighbour-mask.md</c> §2's own row numbering) as the illustrative pair the review named --
+    /// alphabetically, "carthage" sorts first, so the old ordinal tie-break would have dropped Carthage
+    /// here instead of Rome.
+    /// </summary>
+    [Fact]
+    public void DoD03_OnAnExactTaxBaseTie_DropsTheFirstPartnerInNationOrder_NotAlphabeticalOrder()
+    {
+        var ruleset = DiplomacyTestbed.Ruleset;
+        var codes = ruleset.Diplomacy.StateCodes;
+        var state = DiplomacyTestbed.StateOf(
+            DiplomacyTestbed.Nation(Hub, "Hub"),
+            DiplomacyTestbed.Nation("rome", "Rome", taxBase: 100),
+            DiplomacyTestbed.Nation("carthage", "Carthage", taxBase: 100),
+            DiplomacyTestbed.Nation(Strong, "Strong", taxBase: 900),
+            DiplomacyTestbed.Nation(NewPartner, "NewPartner", taxBase: 1000));
+
+        var relations = state.Relations
+            .WithRelation(Hub, "rome", codes.Trade)
+            .WithRelation(Hub, "carthage", codes.Trade)
+            .WithRelation(Hub, Strong, codes.Trade);
+        state = state with { Relations = relations };
+
+        state = TradePartnerCap.MakeRoomForOneMorePartner(state, ruleset, Hub, NewPartner);
+
+        Assert.NotEqual(codes.Trade, state.Relations.Get(Hub, "rome"));
+        Assert.Equal(codes.Trade, state.Relations.Get(Hub, "carthage"));
+        Assert.Equal(codes.Trade, state.Relations.Get(Hub, Strong));
+    }
+
     /// <summary>Below the cap, opening one more partner is a no-op on the existing three... two... one.</summary>
     [Fact]
     public void DoD03_BelowTheCap_NoPartnerIsDropped()

@@ -51,10 +51,23 @@ public static class TradePartnerCap
     /// <summary>
     /// If <paramref name="nationId"/> already has <see cref="DiplomacyRules.MaxTradePartners"/> trade
     /// partners (other than <paramref name="newPartner"/>), drops the one with the lowest
-    /// <see cref="NationState.TaxBase"/> back to peace (DoD 2's broken-trade cooldown). A tie is broken by
-    /// nation id, ordinally, so the result is deterministic regardless of enumeration order. A no-op when
-    /// the nation is not yet at the cap.
+    /// <see cref="NationState.TaxBase"/> back to peace (DoD 2's broken-trade cooldown). A no-op when the
+    /// nation is not yet at the cap.
     /// </summary>
+    /// <remarks>
+    /// Rework round 2, N-c: a tax-base tie is broken by nation order, matching <c>TPolitics_OK</c>'s own
+    /// <c>k = 0..15</c> scan with a strict <c>&lt;</c> comparison against the running minimum -- the
+    /// first nation in the scenario's own table order wins a tie, not whichever sorts first
+    /// alphabetically by id. <see cref="CurrentPartners"/>'s own list is already in
+    /// <see cref="GameState.Nations"/>' stable order (it filters <c>state.Relations.NationIds</c>, itself
+    /// built from that same order), so the natural first-occurrence winner of a strict <c>&lt;</c> loop
+    /// already <em>is</em> nation order -- the earlier version's own explicit ordinal re-comparison on an
+    /// exact tie (<c>string.CompareOrdinal(partnerId, weakest) &lt; 0</c>) was what broke that, by
+    /// overriding first-occurrence with alphabetical order whenever two partners' tax bases matched
+    /// exactly. Removing that clause is the whole fix: on the classical world, "carthage" sorts before
+    /// "rome" alphabetically while Rome is nation-table index 0, ahead of Carthage -- the ordinal
+    /// re-comparison would have picked Carthage on a tie the original always resolves to Rome.
+    /// </remarks>
     public static GameState MakeRoomForOneMorePartner(
         GameState state, Ruleset ruleset, string nationId, string newPartner)
     {
@@ -74,12 +87,9 @@ public static class TradePartnerCap
             var partner = state.NationById(partnerId);
             var taxBase = partner?.TaxBase ?? int.MaxValue;
 
-            // N7 (rework round 1, cosmetic): weakest is genuinely null only on the first iteration, where
-            // taxBase < weakestTaxBase (int.MaxValue) is true for any real tax base and the || already
-            // short-circuits before CompareOrdinal ever reads weakest -- harmless as it stood, but the
-            // null-ness is spelled out explicitly here instead of relying on that short-circuit.
-            if (weakest is null || taxBase < weakestTaxBase
-                || (taxBase == weakestTaxBase && string.CompareOrdinal(partnerId, weakest) < 0))
+            // Strict '<' only: the first partner encountered -- in CurrentPartners' own nation-table
+            // order -- keeps the title on an exact tie, matching TPolitics_OK's own k = 0..15 scan.
+            if (weakest is null || taxBase < weakestTaxBase)
             {
                 weakest = partnerId;
                 weakestTaxBase = taxBase;

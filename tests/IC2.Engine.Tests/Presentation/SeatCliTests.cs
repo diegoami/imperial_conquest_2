@@ -619,32 +619,43 @@ public sealed class SeatCliTests
     /// (found once, by the same seed-search technique <c>GameSessionCommandsTests</c>' own #256 fixture
     /// uses, then hard-coded here) -- not a "designed" or otherwise special seed.
     /// </remarks>
-    [Fact]
-    public void A_seat_eliminated_by_real_play_falls_when_it_plays_first_in_turn_order()
+    /// <remarks>
+    /// T82 rework round 2 (Owns amendment PR #381, N-a): a real elimination through real play, on the
+    /// real classical-faithful ruleset, is exactly the shape T83's own review (N12) flagged as needing a
+    /// <c>[Fact(Timeout = ...)]</c> guard -- a regression here would otherwise hang the suite instead of
+    /// failing it. <c>[Fact(Timeout = ...)]</c> only enforces on an <see langword="async"/> test (see
+    /// <see cref="Watch_mode_rejects_every_mutating_verb_and_leaves_state_untouched"/>'s own remark), so
+    /// this wraps its body in <see cref="Task.Run(Action)"/> the same way.
+    /// </remarks>
+    [Fact(Timeout = 15000)]
+    public async Task A_seat_eliminated_by_real_play_falls_when_it_plays_first_in_turn_order()
     {
-        var session = NewEliminationFixtureSession(ValueList.Of("south", "north"), "south", seed: 2);
-        Assert.Equal("south", session.State.ActiveNationId); // turn-order seat 0: no prelude.
+        await Task.Run(() =>
+        {
+            var session = NewEliminationFixtureSession(ValueList.Of("south", "north"), "south", seed: 2);
+            Assert.Equal("south", session.State.ActiveNationId); // turn-order seat 0: no prelude.
 
-        var round1 = session.Submit("end");
-        Assert.False(session.State.NationById("south")!.Eliminated, "round 1 is only the approach march");
-        Assert.DoesNotContain(round1.Lines, l => l.Contains("has fallen", StringComparison.Ordinal));
+            var round1 = session.Submit("end");
+            Assert.False(session.State.NationById("south")!.Eliminated, "round 1 is only the approach march");
+            Assert.DoesNotContain(round1.Lines, l => l.Contains("has fallen", StringComparison.Ordinal));
 
-        var round2 = session.Submit("end");
-        Assert.True(session.State.NationById("south")!.Eliminated);
-        Assert.Contains(
-            round2.Lines,
-            l => l.Contains("Southern League", StringComparison.Ordinal)
-                 && l.Contains("has fallen", StringComparison.Ordinal));
+            var round2 = session.Submit("end");
+            Assert.True(session.State.NationById("south")!.Eliminated);
+            Assert.Contains(
+                round2.Lines,
+                l => l.Contains("Southern League", StringComparison.Ordinal)
+                     && l.Contains("has fallen", StringComparison.Ordinal));
 
-        // Watch mode from here on: exactly one "takes its turn" line (north, the sole survivor), never
-        // played twice, and orders are refused.
-        var round3 = session.Submit("end");
-        var turnLines = round3.Lines.Where(l => l.Contains("takes its turn", StringComparison.Ordinal)).ToList();
-        Assert.Single(turnLines);
-        Assert.StartsWith("Northern League (north)", turnLines[0]);
+            // Watch mode from here on: exactly one "takes its turn" line (north, the sole survivor),
+            // never played twice, and orders are refused.
+            var round3 = session.Submit("end");
+            var turnLines = round3.Lines.Where(l => l.Contains("takes its turn", StringComparison.Ordinal)).ToList();
+            Assert.Single(turnLines);
+            Assert.StartsWith("Northern League (north)", turnLines[0]);
 
-        var rejected = session.Submit("move north-overwhelming-army 1 1");
-        Assert.Contains(rejected.Lines, l => l.Contains("--seat", StringComparison.Ordinal));
+            var rejected = session.Submit("move north-overwhelming-army 1 1");
+            Assert.Contains(rejected.Lines, l => l.Contains("--seat", StringComparison.Ordinal));
+        });
     }
 
     /// <summary>
@@ -662,20 +673,28 @@ public sealed class SeatCliTests
     /// scenario-default seed already hits the <c>Random(10)</c> roll within north's two turns (prelude
     /// plus one more), so no seed override is needed for this turn order.
     /// </remarks>
-    [Fact]
-    public void A_seat_eliminated_by_real_play_falls_on_its_own_first_end_when_it_plays_second_in_turn_order()
+    /// <remarks>
+    /// T82 rework round 2 (Owns amendment PR #381, N-a): the same <c>[Fact(Timeout = ...)]</c> guard as
+    /// the sibling test above, and for the same reason (T83 review N12) -- see that test's own remark for
+    /// why the body has to move into <see cref="Task.Run(Action)"/> for the timeout to actually enforce.
+    /// </remarks>
+    [Fact(Timeout = 15000)]
+    public async Task A_seat_eliminated_by_real_play_falls_on_its_own_first_end_when_it_plays_second_in_turn_order()
     {
-        var session = NewEliminationFixtureSession(ValueList.Of("north", "south"), "south");
-        Assert.Equal("south", session.State.ActiveNationId); // the prelude already played north's round 1.
-        Assert.False(session.State.NationById("south")!.Eliminated);
+        await Task.Run(() =>
+        {
+            var session = NewEliminationFixtureSession(ValueList.Of("north", "south"), "south");
+            Assert.Equal("south", session.State.ActiveNationId); // the prelude already played north's round 1.
+            Assert.False(session.State.NationById("south")!.Eliminated);
 
-        var output = session.Submit("end");
+            var output = session.Submit("end");
 
-        Assert.True(session.State.NationById("south")!.Eliminated);
-        Assert.Contains(
-            output.Lines,
-            l => l.Contains("Southern League", StringComparison.Ordinal)
-                 && l.Contains("has fallen", StringComparison.Ordinal));
+            Assert.True(session.State.NationById("south")!.Eliminated);
+            Assert.Contains(
+                output.Lines,
+                l => l.Contains("Southern League", StringComparison.Ordinal)
+                     && l.Contains("has fallen", StringComparison.Ordinal));
+        });
     }
 
     /// <summary>
