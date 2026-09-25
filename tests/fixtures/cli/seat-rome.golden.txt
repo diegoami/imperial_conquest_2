@@ -1,0 +1,290 @@
+> status mine
+Nation: Rome (rome, human): treasury 2200, unity 821, tax 10%
+
+Armies:
+  army-0 (Rome) @ (100,37): 23700 troops in 6 units, supply 170t (71%), morale 70, moves 8
+  army-1 (Rome) @ (120,53): 22000 troops in 6 units, supply 176t (80%), morale 68, moves 8
+
+Fleets:
+
+Cities:
+  pisae "Pisae" @ (93,35), owner Rome: supply 99t, loyalty 74, fortification 69%
+  tarquinii "Tarquinii" @ (98,39), owner Rome: supply 119t, loyalty 78, fortification 56%
+  arretium "Arretium" @ (99,36), owner Rome: supply 150t, loyalty 95, fortification 72%
+  caere "Caere" @ (99,42), owner Rome: supply 153t, loyalty 77, fortification 50%
+  rome "Rome" @ (101,43), owner Rome: supply 990t, loyalty 95, fortification 78%
+  ariminum "Ariminum" @ (102,33), owner Rome: supply 104t, loyalty 77, fortification 52%
+  carsioli "Carsioli" @ (102,41), owner Rome: supply 98t, loyalty 96, fortification 55%
+  antium "Antium" @ (102,46), owner Rome: supply 146t, loyalty 92, fortification 69%
+  alba-fucens "Alba Fucens" @ (104,42), owner Rome: supply 99t, loyalty 92, fortification 61%
+  fregellae "Fregellae" @ (104,44), owner Rome: supply 105t, loyalty 81, fortification 61%
+  hadria "Hadria" @ (106,39), owner Rome: supply 79t, loyalty 89, fortification 62%
+  cales "Cales" @ (106,46), owner Rome: supply 123t, loyalty 78, fortification 51%
+  capua "Capua" @ (108,49), owner Rome: supply 115t, loyalty 73, fortification 57%
+  neapolis "Neapolis" @ (109,52), owner Rome: supply 152t, loyalty 75, fortification 40%
+  paestum "Paestum" @ (113,54), owner Rome: supply 82t, loyalty 95, fortification 58%
+  luceria "Luceria" @ (115,48), owner Rome: supply 169t, loyalty 95, fortification 77%
+  rhegium "Rhegium" @ (115,63), owner Rome: supply 119t, loyalty 65, fortification 44%
+  teanum-apulum "Teanum Apulum" @ (116,45), owner Rome: supply 106t, loyalty 76, fortification 58%
+  venusia "Venusia" @ (118,51), owner Rome: supply 132t, loyalty 95, fortification 61%
+  locri "Locri" @ (118,63), owner Rome: supply 97t, loyalty 62, fortification 30%
+  thurii "Thurii" @ (120,56), owner Rome: supply 122t, loyalty 61, fortification 51%
+  heraclea "Heraclea" @ (121,53), owner Rome: supply 139t, loyalty 50, fortification 46%
+  croton "Croton" @ (122,60), owner Rome: supply 146t, loyalty 69, fortification 45%
+  tarrentum "Tarrentum" @ (124,52), owner Rome: supply 243t, loyalty 52, fortification 62%
+  brundisium "Brundisium" @ (127,52), owner Rome: supply 127t, loyalty 75, fortification 38%
+
+> armies rome
+Armies (Rome (rome)):
+  army-0 (Rome) @ (100,37): 23700 troops in 6 units, supply 170t (71%), morale 70, moves 8
+  army-1 (Rome) @ (120,53): 22000 troops in 6 units, supply 176t (80%), morale 68, moves 8
+
+> cities carthage
+Cities (Carthage (carthage)):
+  sala "Sala" @ (9,90), owner Carthage: supply 323t, loyalty 95, fortification 60%
+  banasa "Banasa" @ (18,87), owner Carthage: supply 55t, loyalty 77, fortification 42%
+  gades "Gades" @ (19,75), owner Carthage: supply 500t, loyalty 92, fortification 76%
+  lixus "Lixus" @ (20,82), owner Carthage: supply 312t, loyalty 84, fortification 63%
+  malaca "Malaca" @ (29,73), owner Carthage: supply 248t, loyalty 87, fortification 48%
+  rusaddir "Rusaddir" @ (31,84), owner Carthage: supply 100t, loyalty 60, fortification 39%
+  sexi "Sexi" @ (33,73), owner Carthage: supply 113t, loyalty 76, fortification 37%
+  quiza "Quiza" @ (44,82), owner Carthage: supply 142t, loyalty 75, fortification 61%
+  carthago-novo "Carthago Novo" @ (45,68), owner Carthage: supply 959t, loyalty 92, fortification 83%
+  helice "Helice" @ (46,65), owner Carthage: supply 92t, loyalty 68, fortification 24%
+  akra-leuke "Akra Leuke" @ (47,63), owner Carthage: supply 44t, loyalty 88, fortification 94%
+  icosium "Icosium" @ (51,78), owner Carthage: supply 175t, loyalty 82, fortification 52%
+  cissa "Cissa" @ (53,46), owner Carthage: supply 143t, loyalty 64, fortification 29%
+  saldae "Saldae" @ (67,79), owner Carthage: supply 177t, loyalty 70, fortification 57%
+  hippo-regius "Hippo Regius" @ (82,79), owner Carthage: supply 364t, loyalty 81, fortification 66%
+  theveste "Theveste" @ (83,85), owner Carthage: supply 393t, loyalty 74, fortification 69%
+  corales "Corales" @ (88,61), owner Carthage: supply 130t, loyalty 82, fortification 47%
+  thugga "Thugga" @ (88,80), owner Carthage: supply 333t, loyalty 86, fortification 64%
+  olbia "Olbia" @ (89,53), owner Carthage: supply 56t, loyalty 78, fortification 45%
+  aleria "Aleria" @ (90,44), owner Carthage: supply 108t, loyalty 73, fortification 55%
+  hippo-dirhytu "Hippo Dirhytu" @ (90,75), owner Carthage: supply 254t, loyalty 87, fortification 59%
+  utica "Utica" @ (92,76), owner Carthage: supply 425t, loyalty 77, fortification 70%
+  thenae "Thenae" @ (92,86), owner Carthage: supply 417t, loyalty 84, fortification 77%
+  carthago "Carthago" @ (93,78), owner Carthage: supply 992t, loyalty 88, fortification 87%
+  leptis-minor "Leptis Minor" @ (94,83), owner Carthage: supply 99t, loyalty 80, fortification 21%
+  clupea "Clupea" @ (95,77), owner Carthage: supply 133t, loyalty 90, fortification 69%
+  lilybaeum "Lilybaeum" @ (100,65), owner Carthage: supply 123t, loyalty 64, fortification 32%
+  panormus "Panormus" @ (104,64), owner Carthage: supply 120t, loyalty 53, fortification 32%
+  sabratha "Sabratha" @ (104,93), owner Carthage: supply 202t, loyalty 76, fortification 41%
+  agrigentum "Agrigentum" @ (106,67), owner Carthage: supply 197t, loyalty 50, fortification 66%
+  mylae "Mylae" @ (109,63), owner Carthage: supply 80t, loyalty 55, fortification 40%
+  leptis-magna "Leptis Magna" @ (110,94), owner Carthage: supply 819t, loyalty 81, fortification 70%
+  misurata "Misurata" @ (114,96), owner Carthage: supply 266t, loyalty 77, fortification 54%
+  charax "Charax" @ (124,105), owner Carthage: supply 213t, loyalty 72, fortification 43%
+
+> end
+Rome (rome) ends its turn.
+Carthage (carthage) takes its turn: 24 orders issued.
+Seleucid (seleucid) takes its turn: 23 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 24 orders issued.
+Macedonia (macedonia) takes its turn: 17 orders issued.
+Numidia (numidia) takes its turn: 17 orders issued.
+Gaul (gaul) takes its turn: 9 orders issued.
+Greece (greece) takes its turn: 18 orders issued.
+Celtiberia (celtiberia) takes its turn: 9 orders issued.
+Illyria (illyria) takes its turn: 15 orders issued.
+Dacia (dacia) takes its turn: 12 orders issued.
+Bithynia (bithynia) takes its turn: 6 orders issued.
+Galatia (galatia) takes its turn: 6 orders issued.
+Armenia (armenia) takes its turn: 9 orders issued.
+Media (media) takes its turn: 9 orders issued.
+Thracia (thracia) takes its turn: 9 orders issued.
+  Weather: drought-reduces-supply (week 1).
+  Weather: storm-damages-fleet (week 1).
+Now: Week 3, Spring 270 BC. Active seat: Rome (rome).
+News:
+  Ptolemaic forms an alliance with Rome.
+  Ptolemaic declares war on Gaul.
+  Macedonia forms an alliance with Dacia.
+  Macedonia forms an alliance with Numidia.
+  Macedonia forms an alliance with Illyria.
+  Macedonia forms an alliance with Greece.
+  Macedonia forms an alliance with Armenia.
+  Macedonia forms an alliance with Rome.
+  Macedonia declares war on Gaul.
+  Numidia forms an alliance with Greece.
+  Numidia forms an alliance with Illyria.
+  Numidia forms an alliance with Dacia.
+  Numidia forms an alliance with Media.
+  Numidia forms an alliance with Thracia.
+  Numidia forms an alliance with Rome.
+  Numidia declares war on Gaul.
+  Greece forms an alliance with Illyria.
+  Greece forms an alliance with Media.
+  Greece forms an alliance with Armenia.
+  Greece forms an alliance with Rome.
+  Greece forms an alliance with Thracia.
+  Greece forms an alliance with Dacia.
+  Celtiberia forms an alliance with Rome.
+  Illyria forms an alliance with Armenia.
+  Illyria forms an alliance with Rome.
+  Illyria forms an alliance with Dacia.
+  Illyria forms an alliance with Thracia.
+  Illyria forms an alliance with Media.
+  Dacia forms an alliance with Rome.
+  Dacia forms an alliance with Armenia.
+  Dacia forms an alliance with Media.
+  Bithynia forms an alliance with Rome.
+  Galatia forms an alliance with Rome.
+  Armenia forms an alliance with Rome.
+  Armenia forms an alliance with Thracia.
+  Media forms an alliance with Rome.
+  Media forms an alliance with Thracia.
+  Thracia forms an alliance with Rome.
+   
+  Week  3      Spring      270BC
+
+> end
+Rome (rome) ends its turn.
+Carthage (carthage) takes its turn: 1 order issued.
+Seleucid (seleucid) takes its turn: 4 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 0 orders issued.
+Macedonia (macedonia) takes its turn: 1 order issued.
+Numidia (numidia) takes its turn: 3 orders issued.
+Gaul (gaul) takes its turn: 1 order issued.
+Greece (greece) takes its turn: 2 orders issued.
+Celtiberia (celtiberia) takes its turn: 1 order issued.
+Illyria (illyria) takes its turn: 3 orders issued.
+Dacia (dacia) takes its turn: 0 orders issued.
+Bithynia (bithynia) takes its turn: 1 order issued.
+Galatia (galatia) takes its turn: 1 order issued.
+Armenia (armenia) takes its turn: 0 orders issued.
+Media (media) takes its turn: 0 orders issued.
+Thracia (thracia) takes its turn: 3 orders issued.
+  Weather: storm-damages-fleet (week 3).
+Now: Week 5, Spring 270 BC. Active seat: Rome (rome).
+News:
+  Ptolemaic sues Seleucid for peace and;
+      Ptolemaic ends all current trading agreements.
+      Ptolemaic  ends all current alliances.
+      Ptolemaic pays reparations of 2,229 talents.
+  Seleucid destroys army of Ptolemaic.
+   
+  Week  5      Spring      270BC
+
+> status mine
+Nation: Rome (rome, human): treasury 2200, unity 821, tax 10%
+
+Armies:
+  army-0 (Rome) @ (100,37): 23700 troops in 6 units, supply 76t (32%), morale 70, moves 9
+  army-1 (Rome) @ (120,53): 22000 troops in 6 units, supply 88t (40%), morale 70, moves 9
+
+Fleets:
+
+Cities:
+  pisae "Pisae" @ (93,35), owner Rome: supply 139t, loyalty 74, fortification 69%
+  tarquinii "Tarquinii" @ (98,39), owner Rome: supply 165t, loyalty 78, fortification 56%
+  arretium "Arretium" @ (99,36), owner Rome: supply 208t, loyalty 95, fortification 72%
+  caere "Caere" @ (99,42), owner Rome: supply 211t, loyalty 77, fortification 50%
+  rome "Rome" @ (101,43), owner Rome: supply 1298t, loyalty 95, fortification 78%
+  ariminum "Ariminum" @ (102,33), owner Rome: supply 146t, loyalty 77, fortification 52%
+  carsioli "Carsioli" @ (102,41), owner Rome: supply 136t, loyalty 96, fortification 55%
+  antium "Antium" @ (102,46), owner Rome: supply 204t, loyalty 92, fortification 69%
+  alba-fucens "Alba Fucens" @ (104,42), owner Rome: supply 139t, loyalty 92, fortification 61%
+  fregellae "Fregellae" @ (104,44), owner Rome: supply 145t, loyalty 81, fortification 61%
+  hadria "Hadria" @ (106,39), owner Rome: supply 111t, loyalty 89, fortification 62%
+  cales "Cales" @ (106,46), owner Rome: supply 171t, loyalty 78, fortification 51%
+  capua "Capua" @ (108,49), owner Rome: supply 161t, loyalty 73, fortification 57%
+  neapolis "Neapolis" @ (109,52), owner Rome: supply 210t, loyalty 75, fortification 40%
+  paestum "Paestum" @ (113,54), owner Rome: supply 116t, loyalty 95, fortification 58%
+  luceria "Luceria" @ (115,48), owner Rome: supply 237t, loyalty 95, fortification 77%
+  rhegium "Rhegium" @ (115,63), owner Rome: supply 165t, loyalty 65, fortification 44%
+  teanum-apulum "Teanum Apulum" @ (116,45), owner Rome: supply 148t, loyalty 76, fortification 58%
+  venusia "Venusia" @ (118,51), owner Rome: supply 186t, loyalty 95, fortification 61%
+  locri "Locri" @ (118,63), owner Rome: supply 135t, loyalty 62, fortification 30%
+  thurii "Thurii" @ (120,56), owner Rome: supply 168t, loyalty 61, fortification 51%
+  heraclea "Heraclea" @ (121,53), owner Rome: supply 193t, loyalty 50, fortification 46%
+  croton "Croton" @ (122,60), owner Rome: supply 204t, loyalty 69, fortification 45%
+  tarrentum "Tarrentum" @ (124,52), owner Rome: supply 323t, loyalty 52, fortification 62%
+  brundisium "Brundisium" @ (127,52), owner Rome: supply 177t, loyalty 75, fortification 38%
+
+> news
+News log:
+  Macedonia forms an alliance with Rome.
+  Macedonia declares war on Gaul.
+  Numidia forms an alliance with Greece.
+  Numidia forms an alliance with Illyria.
+  Numidia forms an alliance with Dacia.
+  Numidia forms an alliance with Media.
+  Numidia forms an alliance with Thracia.
+  Numidia forms an alliance with Rome.
+  Numidia declares war on Gaul.
+  Greece forms an alliance with Illyria.
+  Greece forms an alliance with Media.
+  Greece forms an alliance with Armenia.
+  Greece forms an alliance with Rome.
+  Greece forms an alliance with Thracia.
+  Greece forms an alliance with Dacia.
+  Celtiberia forms an alliance with Rome.
+  Illyria forms an alliance with Armenia.
+  Illyria forms an alliance with Rome.
+  Illyria forms an alliance with Dacia.
+  Illyria forms an alliance with Thracia.
+  Illyria forms an alliance with Media.
+  Dacia forms an alliance with Rome.
+  Dacia forms an alliance with Armenia.
+  Dacia forms an alliance with Media.
+  Bithynia forms an alliance with Rome.
+  Galatia forms an alliance with Rome.
+  Armenia forms an alliance with Rome.
+  Armenia forms an alliance with Thracia.
+  Media forms an alliance with Rome.
+  Media forms an alliance with Thracia.
+  Thracia forms an alliance with Rome.
+   
+  Week  3      Spring      270BC
+  Ptolemaic sues Seleucid for peace and;
+      Ptolemaic ends all current trading agreements.
+      Ptolemaic  ends all current alliances.
+      Ptolemaic pays reparations of 2,229 talents.
+  Seleucid destroys army of Ptolemaic.
+   
+  Week  5      Spring      270BC
+
+> help
+Commands:
+  status - show the calendar, nations, armies and cities
+  status mine - show only your own nation, armies, fleets and cities
+  armies [nation] - show one nation's armies (default: yours)
+  cities [nation] - show one nation's cities (default: yours)
+  map - show the 320x140 terrain map with city, army and fleet markers
+  move <army> <x> <y> - move an army toward (x, y)
+  buy <army> <city> <tons> - buy supply for an army at a city (free at your own city, paid abroad)
+  attack-army <army> <target-army> - attack another nation's army (declares war first if needed)
+  besiege-city <army> <city> - besiege an adjacent enemy city (declares war first if needed)
+  attack-fleet <fleet> <target-fleet> - attack another nation's fleet (declares war first if needed)
+  disband-army <army> - disband an army near one of your own cities
+  join-armies <survivor-army> <absorbed-army> - merge one army into another
+  join-units <army> <unit-index> <unit-index> - merge two of an army's own unit slots
+  split-army <army> <new-army> <unit-index> - split one unit slot off into a new army
+  order-city <city> <order-id> <points> - place a standing order on one of your own cities
+  declare-war <nation> - declare war on another nation
+  make-peace <nation> - propose peace with a nation you are at war with
+  propose-alliance <nation> - propose an alliance to another nation
+  propose-trade <nation> - propose a trade agreement to another nation
+  accept-offer - accept the pending trade or alliance offer made to you, if any
+  mobilize <slot-index> <new-army> - mobilize a ready recruitment slot into an army unit
+  hire-mercenary <army> <pool-slot-index> - hire a mercenary unit from the mercenary pool
+  recruit-standing <city> <unit-type> <troops> - recruit a standing unit at one of your own cities
+  move-fleet <fleet> <x> <y> - move a fleet toward (x, y)
+  order-fleet <city> <ships> <new-fleet> - order a new fleet built at a coastal city
+  repair-fleet <fleet> <points> - spend repair points on a fleet's condition
+  scuttle-fleet <fleet> - scuttle one of your own fleets
+  split-fleet <fleet> <new-fleet> <ships> - split ships off into a new fleet
+  join-fleets <survivor-fleet> <absorbed-fleet> - merge one fleet into another
+  embark-army <army> <fleet> - load an army aboard an adjacent fleet
+  disembark-army <army> - unload an embarked army
+  buy-fleet-supply <fleet> <city> <tons> - buy supply for a fleet at a city
+  fleet-transfer <from-fleet> <to-fleet> <ships> <supply-tons> <money> - transfer resources between two of your own fleets
+  end - end your turn
+  news - show the news log
+  help - show this help
+  quit - exit
+
+> quit
+Goodbye.
+

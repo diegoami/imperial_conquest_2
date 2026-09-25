@@ -1,0 +1,9 @@
+status mine
+armies rome
+cities carthage
+end
+end
+status mine
+news
+help
+quit
