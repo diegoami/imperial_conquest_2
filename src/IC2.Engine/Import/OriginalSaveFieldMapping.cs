@@ -253,6 +253,7 @@ public static class OriginalSaveFieldMapping
         new FieldMapping(typeof(SkippedFleetRecord), nameof(SkippedFleetRecord.Index), FieldMappingKind.Mapped, "-> SkippedRecordReport.Index, via OriginalSaveImportReport.SkippedFleets."),
         new FieldMapping(typeof(SkippedFleetRecord), nameof(SkippedFleetRecord.X), FieldMappingKind.Mapped, "-> SkippedRecordReport.X, via SkippedFleets."),
         new FieldMapping(typeof(SkippedFleetRecord), nameof(SkippedFleetRecord.Y), FieldMappingKind.Mapped, "-> SkippedRecordReport.Y, via SkippedFleets."),
+        new FieldMapping(typeof(SkippedFleetRecord), nameof(SkippedFleetRecord.CarriedArmyIndex), FieldMappingKind.Mapped, "#340 N1: read by EmbarkationLinker to unlink a surviving army this tombstoned fleet still claimed -> ArmyState.AboardFleetId (null)."),
 
         // ---- RecruitmentEntry -> RecruitmentSlot
         new FieldMapping(typeof(RecruitmentEntry), nameof(RecruitmentEntry.NationCode), FieldMappingKind.Mapped, "Groups entries by nation before mapping (recruitmentByNation)."),

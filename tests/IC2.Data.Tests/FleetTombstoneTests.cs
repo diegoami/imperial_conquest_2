@@ -106,6 +106,51 @@ public class FleetTombstoneTests
         Assert.Single(table.Fleets);
     }
 
+    // ---- #340 N1: a tombstoned record's own CarriedArmyIndex ----
+
+    [Fact]
+    public void A_tombstoned_fleets_carried_army_index_is_read_like_a_live_records()
+    {
+        var data = SyntheticSaveBuilder.MinimalSavWithFleets(armyCount: 0, fleetCount: 1,
+            fleetWriters: new (int, Action<byte[], int>)[]
+            {
+                (0, (d, off) =>
+                {
+                    SyntheticSaveBuilder.WriteFleetOwner(d, off, 0xFFFF);
+                    // +22 is CarriedArmyIndex on a live record (FleetRecord.CarriedArmyIndex); a
+                    // tombstoned fleet absorbed into another (bug #276) can still be carrying a
+                    // surviving army when it is compacted out.
+                    System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(off + 22, 2), 7);
+                }),
+            });
+
+        var table = SaveFleetTable.Parse(data);
+
+        var skipped = Assert.Single(table.SkippedRecords);
+        Assert.Equal((ushort?)7, skipped.CarriedArmyIndex);
+    }
+
+    [Fact]
+    public void A_tombstoned_fleet_carrying_no_army_reads_a_null_carried_army_index()
+    {
+        var data = SyntheticSaveBuilder.MinimalSavWithFleets(armyCount: 0, fleetCount: 1,
+            fleetWriters: new (int, Action<byte[], int>)[]
+            {
+                (0, (d, off) =>
+                {
+                    SyntheticSaveBuilder.WriteFleetOwner(d, off, 0xFFFF);
+                    // 0xFFFF at +22 is FleetRecord.NoCarriedArmySentinel, the same "carries nothing"
+                    // value a live record uses.
+                    System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(off + 22, 2), 0xFFFF);
+                }),
+            });
+
+        var table = SaveFleetTable.Parse(data);
+
+        var skipped = Assert.Single(table.SkippedRecords);
+        Assert.Null(skipped.CarriedArmyIndex);
+    }
+
     [Fact]
     public void An_empty_fleet_table_has_no_skipped_records()
     {

@@ -136,4 +136,55 @@ public class EmbarkationLinkerTests
         Assert.Contains("fleet 2", ex.Message);
         Assert.Contains("army 5", ex.Message);
     }
+
+    /// <summary>
+    /// Follow-up <see href="https://github.com/diegoami/imperial_conquest_2/issues/340">#340</see> N1: a
+    /// fleet absorbed into another during the turn (bug #276) is tombstoned, but the army it was carrying
+    /// can still survive. That army's own covered-cell sentinel still says "aboard" (the DAT is a
+    /// snapshot; nothing rewrites it once the fleet is gone), yet no <em>surviving</em> fleet's claim
+    /// names it, since the only fleet that ever did was compacted out of <c>SaveFleetTable.Fleets</c>
+    /// entirely. Before this fix, that shape fell into the generic "no surviving fleet names it"
+    /// <see cref="InvalidDataException"/> below (still asserted separately above) even though the cause
+    /// is fully explained. With the tombstoned fleet's own claim passed in, the army is unlinked instead:
+    /// <see cref="EmbarkationLinker.ResolveArmyAboardFleet"/> returns <see langword="null"/> exactly as
+    /// it already does for an army that was never aboard anything
+    /// (<see cref="Resolve_army_not_aboard_returns_null_when_nothing_claims_it"/>), which is what makes
+    /// <c>OriginalSaveImporter</c>'s own <c>CoveredTileCode</c> assignment fall back to the army's own
+    /// record instead of null -- the army keeps its position, it is just no longer marked as embarked.
+    /// </summary>
+    [Fact]
+    public void An_army_aboard_only_a_now_tombstoned_fleet_is_unlinked_not_failed()
+    {
+        var noSurvivingClaims = new Dictionary<int, int>();
+        var armiesClaimedByTombstonedFleets = new HashSet<int> { 5 };
+
+        var fleetId = EmbarkationLinker.ResolveArmyAboardFleet(
+            armyIndex: 5,
+            isAboardFleet: true,
+            noSurvivingClaims,
+            fleetIndex => $"fleet-{fleetIndex}",
+            "test.sav",
+            armiesClaimedByTombstonedFleets);
+
+        Assert.Null(fleetId); // unlinked -- the caller then reads the army's own X/Y and CoveredCell.
+    }
+
+    /// <summary>
+    /// The set is additive, never a blanket excuse: an army marked aboard that no fleet -- surviving or
+    /// tombstoned -- ever claimed is still a genuine inconsistency, not a #340 N1 case.
+    /// </summary>
+    [Fact]
+    public void An_army_aboard_that_no_fleet_at_all_claims_still_throws()
+    {
+        var ex = Assert.Throws<InvalidDataException>(() => EmbarkationLinker.ResolveArmyAboardFleet(
+            armyIndex: 5,
+            isAboardFleet: true,
+            new Dictionary<int, int>(),
+            fleetIndex => $"fleet-{fleetIndex}",
+            "test.sav",
+            armiesClaimedByTombstonedFleets: new HashSet<int> { 9 }));
+
+        Assert.Contains("army 5", ex.Message);
+        Assert.Contains("aboard", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
 }
