@@ -36,7 +36,10 @@ namespace IC2.Engine.Cities.Capture;
 /// decompiled citations). That reset writes <see cref="GameState.Relations"/>, a whole-state matrix, not
 /// a <see cref="NationState"/> field this method could return alongside <c>eliminated</c> above — so both
 /// call sites in <c>CityCaptureResolver</c> apply it themselves, gated on this method's own
-/// <c>JustEliminated</c>, immediately after replacing the nation record.
+/// <c>JustEliminated</c>, after replacing the nation record and disposing of its forces (T84's own
+/// <see cref="EliminationForces.Dispose"/>, merged between the two calls since <c>adfbdae</c>; re-review
+/// round 2, R3). The two are order-independent — <c>Dispose</c> touches only armies and fleets, this
+/// reset only <see cref="GameState.Relations"/> — so which one runs first does not change the outcome.
 /// </para>
 /// </remarks>
 public static class NationElimination

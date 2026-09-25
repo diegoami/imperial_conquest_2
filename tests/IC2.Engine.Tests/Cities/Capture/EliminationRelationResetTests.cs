@@ -95,33 +95,50 @@ public sealed class EliminationRelationResetTests
         Assert.Equal(codes.Trade, result.Relations.Get(Bystander1, Bystander2));
     }
 
-    /// <summary>DoD 4, bullet 3: the same reset, reached through <see cref="CityCaptureResolver.Defect"/>.</summary>
+    /// <summary>
+    /// DoD 4, bullet 3: the same reset, reached through <see cref="CityCaptureResolver.Defect"/> — plus
+    /// the two-entity probe bullet 3 asks for literally ("the same holds through Defect"), not only bullet
+    /// 1's Capture-only coverage (re-review round 2, R1's non-blocking extra).
+    /// </summary>
     [Fact]
     public void Defect_OfTheLastCity_ResetsEveryRelationTheEliminatedNationHeld()
     {
         const string Doomed = "doomed-by-defection";
         const string NewOwner = "new-owner";
         const string Ally = "an-ally";
+        const string Bystander1 = "defect-bystander-1";
+        const string Bystander2 = "defect-bystander-2";
 
         var doomed = CaptureTestbed.Nation(Doomed, unity: 668, capitalCityId: "lastcity-d");
         var newOwner = CaptureTestbed.Nation(NewOwner);
         var ally = CaptureTestbed.Nation(Ally);
+        var bystander1 = CaptureTestbed.Nation(Bystander1);
+        var bystander2 = CaptureTestbed.Nation(Bystander2);
 
         var city = CaptureTestbed.City(
             "lastcity-d", "Last City", 0, 0, Doomed, Doomed,
             loyalty: 30, fortificationCode: 0, populationThousands: 10, maxPopulationThousands: 20, tribute: 5);
 
-        var state = CaptureTestbed.StateWith(new[] { doomed, newOwner, ally }, new[] { city });
-        state = WithRelationMatrix(state, Doomed, NewOwner, Ally);
+        var state = CaptureTestbed.StateWith(
+            new[] { doomed, newOwner, ally, bystander1, bystander2 }, new[] { city });
+        state = WithRelationMatrix(state, Doomed, NewOwner, Ally, Bystander1, Bystander2);
 
         var codes = Ruleset.Diplomacy.StateCodes;
-        state = state with { Relations = state.Relations.WithRelation(Doomed, Ally, codes.Alliance) };
+        state = state with
+        {
+            Relations = state.Relations
+                .WithRelation(Doomed, Ally, codes.Alliance)
+                .WithRelation(Bystander1, Bystander2, codes.Trade),
+        };
 
         var result = CityCaptureResolver.Defect(state, "lastcity-d", NewOwner, Ruleset, new RecordingEventSink());
 
         Assert.True(result.NationById(Doomed)!.Eliminated);
         Assert.Equal(Ruleset.Diplomacy.CooldownAfterBrokenAlliance, result.Relations.Get(Doomed, Ally));
         Assert.Equal(Ruleset.Diplomacy.CooldownAfterBrokenAlliance, result.Relations.Get(Ally, Doomed));
+
+        // The two-entity probe: a relation between two nations that both survive is untouched.
+        Assert.Equal(codes.Trade, result.Relations.Get(Bystander1, Bystander2));
     }
 
     /// <summary>
@@ -159,6 +176,46 @@ public sealed class EliminationRelationResetTests
         var result = CityCaptureResolver.Capture(
             state, "army", "capital-ntd", Ruleset, CaptureTestbed.ArcherUnitTypeId, CaptureTestbed.FortifyOrderId,
             new RecordingEventSink());
+
+        Assert.False(result.NationById(NotYetDoomed)!.Eliminated);
+        Assert.Equal(codes.Trade, result.Relations.Get(NotYetDoomed, TradePartner));
+    }
+
+    /// <summary>
+    /// DoD 4, bullet 4 (the "still owns a city" half of the <c>JustEliminated == false</c> gate), reached
+    /// through <see cref="CityCaptureResolver.Defect"/> — re-review round 2, R1: this gate had no test at
+    /// the <c>Defect</c> call site. Removing only that site's <c>if (oldOwnerEliminated)</c> guard let the
+    /// whole suite (204 relevant tests) stay green, because every existing <c>JustEliminated == false</c>
+    /// test went through <c>Capture</c>. Without the guard, a nation that loses one of its two cities by
+    /// defection would have its trade broken (the reviewer's own reproduction: expected 1, got −8) even
+    /// though it is still alive.
+    /// </summary>
+    [Fact]
+    public void Defect_WhenTheOldOwnerStillOwnsAnotherCity_LeavesRelationsUnchanged()
+    {
+        const string NotYetDoomed = "not-yet-doomed-defection";
+        const string NewOwner = "new-owner-partial";
+        const string TradePartner = "surviving-trade-partner-defection";
+
+        var notYetDoomed = CaptureTestbed.Nation(NotYetDoomed, unity: 668, capitalCityId: "capital-ntd-d");
+        var newOwner = CaptureTestbed.Nation(NewOwner);
+        var tradePartner = CaptureTestbed.Nation(TradePartner);
+
+        var defectingCity = CaptureTestbed.City(
+            "capital-ntd-d", "Capital", 0, 0, NotYetDoomed, NotYetDoomed,
+            loyalty: 30, fortificationCode: 0, populationThousands: 10, maxPopulationThousands: 20, tribute: 5);
+        var secondCity = CaptureTestbed.City(
+            "second-ntd-d", "Second City", 50, 50, NotYetDoomed, NotYetDoomed,
+            loyalty: 40, fortificationCode: 0, populationThousands: 10, maxPopulationThousands: 20, tribute: 5);
+
+        var state = CaptureTestbed.StateWith(
+            new[] { notYetDoomed, newOwner, tradePartner }, new[] { defectingCity, secondCity });
+        state = WithRelationMatrix(state, NotYetDoomed, NewOwner, TradePartner);
+
+        var codes = Ruleset.Diplomacy.StateCodes;
+        state = state with { Relations = state.Relations.WithRelation(NotYetDoomed, TradePartner, codes.Trade) };
+
+        var result = CityCaptureResolver.Defect(state, "capital-ntd-d", NewOwner, Ruleset, new RecordingEventSink());
 
         Assert.False(result.NationById(NotYetDoomed)!.Eliminated);
         Assert.Equal(codes.Trade, result.Relations.Get(NotYetDoomed, TradePartner));

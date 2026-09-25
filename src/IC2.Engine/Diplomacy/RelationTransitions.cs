@@ -301,21 +301,32 @@ public static class RelationTransitions
 /// commands had the identical gap).
 /// </summary>
 /// <remarks>
-/// <strong>[designed].</strong> Rework round 1 (PR #364's review, finding B1) located the original's own
-/// elimination rule — see <see cref="RelationTransitions.ResetAllOnElimination"/>'s own remarks for the
-/// decompiled citations — which is what <em>this</em> reimplementation now reproduces for the eliminated
-/// nation's existing relations. But that rule answers a different question: what happens to a nation's
-/// relations on the turn it dies. It says nothing about whether a still-live nation can later target the
-/// now-eliminated one with a <em>fresh</em> proposal, because no decompiled source shows the setter, or
-/// any of its five callers, ever being invoked with an eliminated nation as an argument after its
-/// elimination turn — the original's own UI simply never offers an eliminated nation as a selectable
-/// target, which closes this gap at the input layer rather than inside any decompiled function. That is
-/// not the same kind of evidence as a decompiled rejection path, so this rejection is designed, not
-/// confirmed: a nation eliminated between a turn-start offer roll and its acceptance (or between any
-/// other proposal and its resolution) must still be refused somewhere in a command-driven engine that has
-/// no menu to grey out, and rejecting before any state change — leaving the reset relation exactly where
-/// <see cref="RelationTransitions.ResetAllOnElimination"/> put it — is the narrowest way to close that gap
-/// without inventing a written relation value the original never chose.
+/// <para>
+/// <strong>[confirmed].</strong> Re-review round 2 (PR #364, finding R2) located the original's own
+/// rejection, in <c>RE-imperial-conquest-2/docs/reports/decompiled-elimination-cleanup.md</c> §5
+/// (:211–214): "Every diplomatic path requires the target's unity &gt; 0 [confirmed]", naming
+/// <c>TPolitics_ChangeIR</c> (:55103), the AI's own picks (<c>FUN_0044FB7C</c>), the offer roll
+/// (<c>FUN_00452034</c>) and the menu-disabling <c>TPolitics_InitialiseForm</c> (:55042). Read directly
+/// from the local dump (<c>%LOCALAPPDATA%\ReTools\all_app_functions.txt</c> :55120–55122),
+/// <c>TPolitics_ChangeIR</c> gates the calls to <c>TPolitics_MakePeace</c>/<c>MakeTrade</c>/
+/// <c>MakeAlliance</c> and the war selection on <c>(0 &lt; (short)(&amp;DAT_00474ab0)[sVar3 * 0x24a])</c> —
+/// the target's own unity. Both decompiled elimination paths zero it: <c>(&amp;DAT_00474ab0)[iVar2 *
+/// 0x24a] = 0</c> at :50383 (<c>FUN_0044bed8</c>) and :50743 (<c>FUN_0044c528</c>). So the original does
+/// not merely grey out a menu entry: <c>TPolitics_ChangeIR</c> is a decompiled function that refuses every
+/// one of these five diplomatic actions against any nation whose unity has reached 0 — which every
+/// elimination causes, by construction (<see cref="IC2.Engine.Cities.Capture.NationElimination"/>'s own
+/// use of <see cref="Model.CaptureRules.EliminationUnityReset"/>). This rejection is therefore confirmed,
+/// not designed.
+/// </para>
+/// <para>
+/// <strong>One tracked difference, not this task's to close.</strong> The original's own gate is the
+/// target's <em>unity ≤ 0</em>, a value that could in principle reach 0 by some other route than
+/// elimination and still be a legal target on the original's own terms; this reimplementation keys the
+/// rejection on <see cref="Model.NationState.Eliminated"/> instead, which is exactly right at elimination
+/// (both decompiled elimination paths always zero unity in the same call that eliminates the nation) but
+/// is not a byte-for-byte reproduction of the original's own broader unity gate. That divergence is
+/// tracked as bug #368, out of T69's own Owns list.
+/// </para>
 /// </remarks>
 public static class DiplomacyRejections
 {
