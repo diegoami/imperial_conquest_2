@@ -218,17 +218,17 @@ Decided: naval is in, not deferred. Without transport, large parts of the classi
 - The AI-to-AI reparation trigger is a 2-in-5 chance after a decisive AI-vs-AI field battle, gated on the loser's unity > 500 and city count > 7 **[confirmed]**.
 - Hotseat: `THVHBatPols` is a freely negotiated talent payment between two human seats after a battle, with no formula **[confirmed]**.
 
-Still genuinely **[designed]**: the AI's *willingness* to offer or accept a treaty outside the two hard triggers above (unnamed AI code, out of scope per the roadmap), and any numeric "opinion" score layered on top of the confirmed state machine.
+Still genuinely **[designed]**: any numeric "opinion" score layered on top of the confirmed state machine. The AI's willingness to offer or accept a treaty is no longer unnamed code: T82 reproduces the AI's own per-turn diplomacy (`FUN_0044FB7C`) and its offers to a human (`FUN_00452034`), from research `decompiled-ai-offers-to-human-seats.md` §1a–§1b.
 
 How faithfully to follow this model versus the opinion-score design was **open question Q3** in [design-audit.md](design-audit.md) — now answered: both, as the `diplomacy.model` ruleset flag (see "Two shipped presets" above).
 
-### AI — **[designed, intentionally out of scope for RE by the project's own standing decision]**
+### AI — **[designed, except its diplomacy, which T82 took from the original's `FUN_0044FB7C`]**
 
 A rule-based (not ML) heuristic AI, tunable via per-nation "personality" parameters in scenario data (`aggression`, `expansionDrive`, `loyaltyToAlliances`, each 0–1):
 
 1. **Economy phase**: recruit/build up to an affordability threshold scaled by `expansionDrive`, prioritizing whichever unit types the effectiveness matrix suggests counter a currently-visible threat.
-2. **Military phase**: evaluate each border city's threat level (visible enemy strength within N tiles) against its own garrison; reinforce, hold, or — if `aggression` and a favorable strength ratio both clear a threshold — attack.
-3. **Diplomacy phase**: seek peace if losing and strength ratio is poor; consider alliance offers from nations with a shared enemy.
+2. **Military phase**: evaluate each border city's threat level (visible enemy strength within N tiles) against its own garrison; reinforce, hold, or — if `aggression` and a favorable strength ratio both clear a threshold — attack. **Since T82, the AI attacks and besieges only nations it is already at war with**: an attack is never an implicit declaration. War is declared only through the original's war pick. The target is the not-protected neighbour with the best power ratio, declared on `Random(10) == 0`, and never while the AI is busy (at war, mobilized over 40, or in winter). The AI never declares war on an ally that holds a city.
+3. **Diplomacy phase** (since T82, the original's rule): an alliance only against a common enemy, on `Random(20) == 0` when not busy; trade with up to 3 partners, swapping a poorer partner for a richer one; and every trade and alliance written only with a computer partner. An AI's offer to a human is a notice the human may accept through the ordinary proposal rules. The engine's peace-seeking when losing is still a designed heuristic; towards a human, the original allows peace only through the post-battle treaty, which T88 (#384) brings in.
 4. **Victory-awareness**: nations close to the scenario's victory condition weight their decisions toward securing it (e.g., a domination-victory AI prioritizes attacking weak neighbors over turtling).
 
 This is intentionally simple to start — a heuristic scoring function per candidate action, pick the highest score, no search/lookahead — because it's easy to reason about, easy to tune via data, and easy to unit-test (given a world state, assert the AI picks the expected action class). More sophistication (lookahead, learning) is explicitly future work, not needed for a first playable version.
