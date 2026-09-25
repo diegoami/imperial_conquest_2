@@ -233,6 +233,41 @@ public sealed class NeighbourGeographyTests
         Assert.True(NeighbourGeography.AreNeighbours(world, "b", "a"));
     }
 
+    // ---- Review round 2, B3: a present StartingNeighbours field never falls back to the ----
+    // ---- derivation, even for an omitted nation or an empty row ----
+
+    /// <summary>
+    /// Review round 2, B3: <see cref="NationNeighbours"/>'s own doc comment on <see cref="World"/> claims
+    /// <see cref="NeighbourGeography"/> "never falls back to its own geometric derivation for a
+    /// <see cref="World"/> that carries <see cref="World.StartingNeighbours"/> at all -- not even for a
+    /// nation this list omits, and not even if a present entry's own
+    /// <see cref="NationNeighbours.NeighbourIds"/> is empty" -- a claim nothing visited before this test:
+    /// the reviewer's mutation E3 (falling back unless the loaded map names every nation) left all 2902
+    /// tests green. <c>a</c> and <c>b</c> are the same adjacent single-city pair
+    /// <see cref="TwoAdjacentSingleCityNationsBorderOnATinyWorld"/> proves the derivation calls
+    /// neighbours below -- so if the query ever fell back for this field, it would answer <em>true</em>.
+    /// Here the field says otherwise: <c>a</c> gets an entry with an empty row, and <c>b</c> is omitted
+    /// entirely (both edges B3 names, in one scenario) -- <see cref="NeighbourGeography.AreNeighbours"/>
+    /// must answer <em>false</em> in both directions regardless.
+    /// </summary>
+    [Fact]
+    public void APresentFieldNeverFallsBackToTheDerivationForAnOmittedNationOrAnEmptyRow()
+    {
+        var world = TinyWorld(("a", 0, 0), ("b", 1, 0)) with
+        {
+            StartingNeighbours = ValueList.Of(new NationNeighbours("a", ValueList<string>.Empty)),
+            // "a" has an explicit, empty neighbour list; "b" has no entry at all -- both of B3's edges.
+        };
+
+        // The derivation alone (no field) would call these two neighbours -- pinned directly so a
+        // change to TinyWorld's geometry can't silently make this test meaningless.
+        var derivedOnly = TinyWorld(("a", 0, 0), ("b", 1, 0));
+        Assert.True(NeighbourGeography.AreNeighbours(derivedOnly, "a", "b"));
+
+        Assert.False(NeighbourGeography.AreNeighbours(world, "a", "b"));
+        Assert.False(NeighbourGeography.AreNeighbours(world, "b", "a"));
+    }
+
     // ---- T85 Done-when 4: the shipped toy world has no field, so it keeps the derivation ----
 
     /// <summary>

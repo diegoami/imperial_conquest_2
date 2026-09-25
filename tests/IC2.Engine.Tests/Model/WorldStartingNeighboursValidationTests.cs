@@ -24,6 +24,34 @@ public class WorldStartingNeighboursValidationTests
     private static NationNeighbours Entry(string nationId, params string[] neighbourIds) =>
         new(nationId, ValueList.Of(neighbourIds));
 
+    /// <summary>
+    /// A minimal, valid three-nation world (no cities, no capitals) -- the toy world's own two nations
+    /// cannot isolate "an omitted nation" from "an empty row" (review round 2, B3): with only two
+    /// nations, any entry that survives symmetry with the other one omitted must itself be empty, so the
+    /// two edges collapse into the same scenario there. A third nation lets one test give a non-empty,
+    /// reciprocated row to two nations while omitting the third outright, with no entry anywhere empty.
+    /// </summary>
+    private static World ThreeNationWorld()
+    {
+        var nations = new[] { "a", "b", "c" }
+            .Select(id => new NationDefinition(id, id, "#000000", id, null, 0, 500, 10000, 1000, 10, 0, 100))
+            .ToArray();
+
+        return new World(
+            GameDataSchema.CurrentVersion,
+            "three-nation-test-world",
+            "Three-nation test world",
+            3,
+            1,
+            new TerrainGrid(TerrainEncoding.RunLength, Runs: ValueList<TerrainRun>.Of(new TerrainRun(2, 3))),
+            ValueList<TileType>.Of(new TileType("plain", 2, "Plain", true, false)),
+            ValueList<NationDefinition>.Of(nations),
+            ValueList<CityDefinition>.Empty,
+            ValueList<StartingArmy>.Empty,
+            ValueList<StartingFleet>.Empty,
+            ValueList.Of("a", "b", "c"));
+    }
+
     /// <summary>A world with no starting neighbours at all validates as a no-op.</summary>
     [Fact]
     public void A_world_with_no_starting_neighbours_validates_as_a_no_op()
@@ -44,6 +72,46 @@ public class WorldStartingNeighboursValidationTests
             StartingNeighbours = ValueList.Of(
                 Entry(ids[0], ids[1]),
                 Entry(ids[1], ids[0])),
+        };
+
+        GameDataValidation.Validate(DocumentPath, world);
+    }
+
+    /// <summary>
+    /// Review round 2, B3: <see cref="World.StartingNeighbours"/>' own doc comment claims validation
+    /// "accepts an empty <see cref="NationNeighbours.NeighbourIds"/> row" -- nothing visited that edge
+    /// before this test (the reviewer's mutation E1, making <c>ValidateStartingNeighboursShape</c> throw
+    /// on an empty row, left all 2902 tests green). Both nations get an entry here, both with an empty
+    /// list -- "this nation borders nobody" is a valid, vacuously symmetric statement on its own.
+    /// </summary>
+    [Fact]
+    public void An_empty_neighbour_row_is_accepted()
+    {
+        var ids = ToyNationIds();
+        var world = ToyWorld() with
+        {
+            StartingNeighbours = ValueList.Of(Entry(ids[0]), Entry(ids[1])),
+        };
+
+        GameDataValidation.Validate(DocumentPath, world);
+    }
+
+    /// <summary>
+    /// Review round 2, B3: the same doc comment claims validation "accepts a nation omitted entirely" --
+    /// the reviewer's mutation E2, throwing whenever the entry count is short of the world's own nation
+    /// count, also left all 2902 tests green. Uses <see cref="ThreeNationWorld"/>, not the toy world:
+    /// with only two nations, an entry that survives symmetry while the other is omitted collapses into
+    /// <see cref="An_empty_neighbour_row_is_accepted"/>'s own shape (its one entry would have to be
+    /// empty too). Here <c>a</c> and <c>b</c> reciprocate a genuinely non-empty row, and <c>c</c> is
+    /// omitted with no entry at all -- distinct from the empty-row test above, and isolated from it.
+    /// </summary>
+    [Fact]
+    public void A_nation_omitted_entirely_is_accepted()
+    {
+        var world = ThreeNationWorld() with
+        {
+            StartingNeighbours = ValueList.Of(Entry("a", "b"), Entry("b", "a")),
+            // "c" gets no entry at all; neither "a" nor "b" names an empty row.
         };
 
         GameDataValidation.Validate(DocumentPath, world);
