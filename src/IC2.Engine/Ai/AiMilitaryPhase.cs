@@ -306,7 +306,11 @@ public static class AiMilitaryPhase
             // T82 (#359, bug #357): "AI armies and fleets never attack a nation they are not at war
             // with... there is no implicit declaration by attack" (decompiled-ai-offers-to-human-seats.md
             // §4/§5 [confirmed]). War itself is ProposeOwnWarDeclaration's own decision now; sieging no
-            // longer declares it.
+            // longer declares it. This early exit is redundant with, but cheaper than, the besiege
+            // command's own AttackLegality.IsLegal check below (the actual authority -- its WarCheck
+            // already refused a siege against a nation not at war, even before this task, which is
+            // exactly why the old code paired a DeclareWarCommand ahead of the siege to begin with): this
+            // just skips the power/ratio computation for a target the legality check would refuse anyway.
             if (!view.IsAtWar(view.NationId, city.Owner))
             {
                 continue;
@@ -387,7 +391,8 @@ public static class AiMilitaryPhase
             }
 
             // T82 (#359, bug #357): attack only a nation already at war -- see ProposeSieges' own
-            // remark; the same report citation applies to every attack command in this file.
+            // remark (including why this is a redundant-but-cheaper early exit, not the actual
+            // authority); the same report citation applies to every attack command in this file.
             if (!view.IsAtWar(view.NationId, target.Nation))
             {
                 continue;
