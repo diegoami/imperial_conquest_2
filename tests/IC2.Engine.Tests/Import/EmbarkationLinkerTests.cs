@@ -260,20 +260,19 @@ public class EmbarkationLinkerTests
     /// </summary>
     private static byte[] BuildMinimalSavWithATombstonedFleetCarryingASurvivingArmy()
     {
+        // Review round 1, N3: public IC2.Data constants instead of hand-typed literals, wherever one
+        // exists. The SAV nation record length (1172), the 55-byte trailer and the per-field offsets
+        // within a record have no public constant (SaveNationLayout.NationRecordLength is internal to
+        // IC2.Data), so those stay literal, cited inline.
         const int nationCount = 16;
-        const int cityRecordLength = 34;
-        const int armyRecordLength = 656;
-        const int fleetRecordLength = 26;
         const int savNationRecordLength = 1172;
-        const int mercenaryTableLength = 50 * 12;
         const int trailerLength = 55;
-        const ushort noCapitalSentinel = 0xFFFF;
-        const ushort noOfferSentinel = 0xFFFF;
+        var mercenaryTableLength = SaveMercenaryTable.RecordCount * SaveMercenaryTable.RecordLength;
 
-        var mapAndCityLength = WorldPrefix.SharedPrefixLength; // 89,600 map + 334 x 34 city table.
+        var mapAndCityLength = WorldPrefix.SharedPrefixLength; // 89,600 map + 334 city records.
         var totalLength = mapAndCityLength
-            + 2 + 1 * armyRecordLength // army count word + 1 army record
-            + 2 + 1 * fleetRecordLength // fleet count word + 1 fleet record
+            + 2 + 1 * SaveArmyTable.RecordLength // army count word + 1 army record
+            + 2 + 1 * SaveFleetTable.RecordLength // fleet count word + 1 fleet record
             + nationCount * savNationRecordLength
             + mercenaryTableLength
             + 2 // news log's own newsIndex field
@@ -287,7 +286,7 @@ public class EmbarkationLinkerTests
         // other field default to zero, all within WorldPrefix.Parse's own accepted range.
         for (var i = 0; i < WorldPrefix.CityCount; i++)
         {
-            data[WorldPrefix.CityStart + i * cityRecordLength] = (byte)'C';
+            data[WorldPrefix.CityStart + i * WorldPrefix.CityRecordLength] = (byte)'C';
         }
 
         // ---- Army table: one army (index 0), owned by nation 0, at (5, 7), marked aboard a fleet by
@@ -297,11 +296,11 @@ public class EmbarkationLinkerTests
         WriteUInt16(data, armyTableStart + 0, 5); // X
         WriteUInt16(data, armyTableStart + 2, 7); // Y
         WriteUInt16(data, armyTableStart + 4, 0); // Owner (nation 0)
-        WriteUInt16(data, armyTableStart + 8, 0xFFFF); // CoveredCell: AboardFleetSentinel
+        WriteUInt16(data, armyTableStart + 8, ArmyRecord.AboardFleetSentinel); // CoveredCell
 
         // ---- Fleet table: one fleet (index 0), tombstoned (owner 0xFFFF), still naming army 0 as its
         // own CarriedArmyIndex (+22) -- the #340 N1 shape: the carrier is gone, the cargo survived.
-        var fleetCountOffset = armyTableStart + armyRecordLength;
+        var fleetCountOffset = armyTableStart + SaveArmyTable.RecordLength;
         var fleetTableStart = fleetCountOffset + 2;
         WriteUInt16(data, fleetCountOffset, 1); // fleet count
         WriteUInt16(data, fleetTableStart + 8, SaveFleetTable.TombstoneOwnerSentinel); // Owner
@@ -312,13 +311,13 @@ public class EmbarkationLinkerTests
         // sentinel) so no nation claims a city it does not own; relations, recruitment, wealth and
         // every other field default to zero, all within SaveNationTable.Parse's own accepted range
         // (a symmetric, zero-diagonal, all-peace relation matrix).
-        var nationTableStart = fleetTableStart + fleetRecordLength;
+        var nationTableStart = fleetTableStart + SaveFleetTable.RecordLength;
         for (var i = 0; i < nationCount; i++)
         {
             var offset = nationTableStart + i * savNationRecordLength;
             WriteAscii(data, offset, NationCatalog.Name((ushort)i));
             data[offset + 11] = (byte)'L'; // leader: one non-NUL byte is enough
-            WriteUInt16(data, offset + 0x444, noCapitalSentinel); // capitalCity: none
+            WriteUInt16(data, offset + 0x444, SaveNationTable.NoCapitalSentinel); // capitalCity: none
         }
 
         // ---- Mercenary pool: 50 all-zero records -- every one reads as empty (zero troops), so
@@ -337,7 +336,7 @@ public class EmbarkationLinkerTests
             WriteUInt16(data, trailerStart + i * 2, i); // turn order
         }
 
-        WriteUInt16(data, trailerStart + 32, noOfferSentinel); // pending offer: none
+        WriteUInt16(data, trailerStart + 32, SavePendingOffer.NoOfferSentinel); // pending offer: none
         WriteUInt16(data, trailerStart + 36, 0); // current nation
         WriteUInt16(data, trailerStart + 38, 0); // turn-order index
         WriteUInt16(data, trailerStart + 40, 1); // week (1..13)
