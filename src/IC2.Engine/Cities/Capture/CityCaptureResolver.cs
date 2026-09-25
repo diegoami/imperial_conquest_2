@@ -184,8 +184,6 @@ public static class CityCaptureResolver
         {
             Nations = ReplaceNation(ReplaceNation(newState.Nations, transferredNewOwner), oldOwnerAfterElimination),
         };
-
-        // T84 (bug #366): the original disposes of an eliminated nation's forces in the same breath.
         if (oldOwnerEliminated) newState = EliminationForces.Dispose(newState, oldOwner.Id, newOwner.Id);
 
         events.Publish(new CityFallsToNation(city.Name, oldOwner.Name, newOwner.Name));
@@ -258,8 +256,6 @@ public static class CityCaptureResolver
         {
             Nations = ReplaceNation(ReplaceNation(newState.Nations, transferredNewOwner), oldOwnerAfterElimination),
         };
-
-        // T84 (bug #366): the original disposes of an eliminated nation's forces in the same breath.
         if (oldOwnerEliminated) newState = EliminationForces.Dispose(newState, oldOwner.Id, newOwner.Id);
 
         events.Publish(new CityDefectsToNation(city.Name, oldOwner.Name, newOwner.Name));

@@ -61,8 +61,13 @@ namespace IC2.Engine.Cities.Capture;
 /// <em>the fleet's own <see cref="FleetState.CarriedArmyId"/></em> against the set of ids just deleted, not
 /// by trusting the deleted army's own <see cref="ArmyState.AboardFleetId"/> — the same choice, for the same
 /// reason, as <see cref="Economy.QuarterlyEconomySystem"/>'s own desertion cleanup already makes (see that
-/// class's remarks): the two agree in any well-formed state, but keying on the fleet's own claim stays
-/// correct even if they ever disagreed.
+/// class's remarks). For <em>that one step</em> — clearing a carrier's link once its army is known deleted —
+/// the two fields agree in any well-formed state, and keying on the fleet's own claim stays correct even if
+/// they ever disagreed. The fleet loop below does not carry the same guarantee: it finds every army that
+/// dies with a deleted launched fleet by reading <em>only</em> that fleet's own <see cref="FleetState.CarriedArmyId"/>,
+/// so a state where an army's <see cref="ArmyState.AboardFleetId"/> names a fleet that does not name it back
+/// is already malformed before <see cref="Dispose"/> ever runs — <see cref="IC2.Engine.Serialization.GameDataValidation"/>
+/// is what rules that state out, not this method.
 /// </para>
 /// </remarks>
 public static class EliminationForces

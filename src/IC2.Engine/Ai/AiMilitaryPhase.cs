@@ -298,10 +298,13 @@ public static class AiMilitaryPhase
                 continue;
             }
 
-            // T84 (bug #366): an eliminated nation has no forces left to attack in the original -- every
-            // targeting path there gates on the target's unity > 0 (report §5) -- and after this task an
-            // eliminated nation's own armies/fleets no longer exist anyway, but a hand-built state could
-            // still name one, so this filter is explicit rather than relying on the list being empty.
+            // T84 (bug #366): every diplomatic targeting path in the original gates on the target's
+            // unity > 0 (report §5 [confirmed], the war/treaty picks, the Politics screen and the
+            // turn-start offer roll) -- the report does not establish the same for military targeting.
+            // Extending the gate to this AI's own attack proposers is [derived] (task entry's own tag):
+            // after this task an eliminated nation's armies/fleets no longer exist anyway, but a
+            // hand-built state could still name one, so this filter is explicit rather than relying on
+            // the list being empty.
             if (view.State.NationById(target.Nation)?.Eliminated == true)
             {
                 continue;
@@ -357,8 +360,8 @@ public static class AiMilitaryPhase
                 continue;
             }
 
-            // T84 (bug #366): see ProposeArmyAttacks's own remark -- the AI never targets an eliminated
-            // nation, matching every targeting path in the original (report §5).
+            // T84 (bug #366): see ProposeArmyAttacks's own remark -- [derived], not the report §5
+            // diplomacy gate itself, that this AI never targets an eliminated nation's fleets either.
             if (view.State.NationById(target.Nation)?.Eliminated == true)
             {
                 continue;

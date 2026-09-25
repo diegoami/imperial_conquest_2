@@ -23,6 +23,35 @@ public sealed class EliminationForcesTests
     private static string FortifyOrderId => CaptureTestbed.FortifyOrderId;
 
     /// <summary>
+    /// Done-when 3's own two checks, run after every fixture below that actually eliminates a nation: no
+    /// <see cref="ArmyState.AboardFleetId"/> or <see cref="FleetState.CarriedArmyId"/> names a missing
+    /// record (<see cref="GameDataValidation.Validate"/> throws <c>UnresolvedReferenceException</c> or
+    /// <c>MalformedGameDataException</c> on the first one that does not resolve or does not agree both
+    /// ways), and the state round-trips through the real <see cref="SaveManager.Serialize"/>/
+    /// <see cref="SaveManager.Load"/> path (review round 1, B2 — every elimination test calls this, not
+    /// only the ones that happened to already).
+    /// </summary>
+    private static void AssertNoDanglingIdsAndRoundTrips(GameState result, string label)
+    {
+        GameDataValidation.Validate($"t84-sweep-{label}", result);
+
+        var toy = PersistenceTestbed.Toy;
+        var save = new SaveGame(
+            SchemaVersion: result.SchemaVersion,
+            Id: $"t84-round-trip-{label}",
+            Label: $"T84 round trip ({label})",
+            ScenarioId: result.ScenarioId,
+            WorldId: result.WorldId,
+            RulesetId: result.RulesetId,
+            State: result);
+
+        var text = SaveManager.Serialize(save);
+        var reloaded = SaveManager.Load($"t84-round-trip-{label}.json", text, toy.World, toy.Ruleset);
+
+        Assert.Equal(result, reloaded.State);
+    }
+
+    /// <summary>
     /// Done-when 1. Through <see cref="CityCaptureResolver.Capture"/>: the eliminated nation X had an army
     /// on land, an army standing at another nation's city (the model has no notion of "inside" a city
     /// beyond sharing its tile — there is no garrison/occupancy record separate from the army itself, so
@@ -92,19 +121,33 @@ public sealed class EliminationForcesTests
         Assert.Equal(attacker, result.ArmyById("c-army"));
         Assert.Equal(other, result.NationById("other"));
         Assert.Equal(otherCity, result.CityById("other-city"));
+
+        AssertNoDanglingIdsAndRoundTrips(result, "capture");
     }
 
-    /// <summary>Done-when 2: the same shape, reached through <see cref="CityCaptureResolver.Defect"/> instead, with the construction fleet going to the city's new owner.</summary>
+    /// <summary>
+    /// Done-when 2: the same shape as Done-when 1, including the "army in a city of another nation" case
+    /// (review round 1, N3 — the Capture fixture had it, this one did not), reached through
+    /// <see cref="CityCaptureResolver.Defect"/> instead, with the construction fleet going to the city's
+    /// new owner. Also checks Done-when 3's sweep and round trip (review round 1, B2 — this elimination
+    /// test previously ran neither).
+    /// </summary>
     [Fact]
     public void Defect_OfTheLastCity_DeletesXsArmiesAndLaunchedFleets_AndTransfersItsConstructionFleet()
     {
         var doomed = CaptureTestbed.Nation("doomed", unity: 668, capitalCityId: "doomed-capital");
         var newOwner = CaptureTestbed.Nation("newowner");
+        var other = CaptureTestbed.Nation("other", capitalCityId: "other-city");
 
         var doomedCapital = CaptureTestbed.City(
             "doomed-capital", "Doomed Capital", 0, 0, "doomed", "doomed", 30, 0, 10, 20, 5);
+        var otherCity = CaptureTestbed.City(
+            "other-city", "Other City", 10, 10, "other", "other", 80, 0, 15, 30, 5);
 
         var xLandArmy = CaptureTestbed.Army("x-land-army", "doomed", 5, 5, morale: 40, CaptureTestbed.Unit("light_infantry", 400));
+        // "In a city of another nation" -- see Capture_OfTheLastCity...'s own remark on this case.
+        var xArmyInForeignCity = CaptureTestbed.Army(
+            "x-army-in-foreign-city", "doomed", 10, 10, morale: 40, CaptureTestbed.Unit("light_infantry", 200));
         var xEmbarkedArmy = EliminationForcesTestbed.EmbarkedArmy("x-embarked-army", "doomed", "x-fleet-1", 3, 3);
 
         var xFleet1 = EliminationForcesTestbed.Fleet("x-fleet-1", "doomed", 3, 3, carriedArmyId: "x-embarked-army");
@@ -116,9 +159,9 @@ public sealed class EliminationForcesTests
         };
 
         var state = EliminationForcesTestbed.StateWith(
-            new[] { doomed, newOwner },
-            new[] { doomedCapital },
-            new[] { xLandArmy, xEmbarkedArmy },
+            new[] { doomed, newOwner, other },
+            new[] { doomedCapital, otherCity },
+            new[] { xLandArmy, xArmyInForeignCity, xEmbarkedArmy },
             new[] { xFleet1, xFleet2, xConstructionFleet });
 
         var sink = new RecordingEventSink();
@@ -126,6 +169,7 @@ public sealed class EliminationForcesTests
 
         Assert.True(result.NationById("doomed")!.Eliminated);
         Assert.Null(result.ArmyById("x-land-army"));
+        Assert.Null(result.ArmyById("x-army-in-foreign-city"));
         Assert.Null(result.ArmyById("x-embarked-army"));
         Assert.Null(result.FleetById("x-fleet-1"));
         Assert.Null(result.FleetById("x-fleet-2"));
@@ -135,6 +179,12 @@ public sealed class EliminationForcesTests
         Assert.Equal("newowner", transferredFleet!.Nation);
         Assert.Equal(Ruleset.Naval.ConstructionTicks, transferredFleet.ConstructionTicksRemaining);
         Assert.Equal("doomed-capital", transferredFleet.BuildCityId);
+
+        // The uninvolved third nation and its city are untouched.
+        Assert.Equal(other, result.NationById("other"));
+        Assert.Equal(otherCity, result.CityById("other-city"));
+
+        AssertNoDanglingIdsAndRoundTrips(result, "defect");
     }
 
     /// <summary>
@@ -178,25 +228,7 @@ public sealed class EliminationForcesTests
         Assert.Equal(yArmy, result.ArmyById("y-army"));
         Assert.Equal(yFleet, result.FleetById("y-fleet"));
 
-        // The sweep Done-when 3 asks for: every AboardFleetId/CarriedArmyId names a record that exists.
-        // GameDataValidation.Validate throws on the first one that does not.
-        GameDataValidation.Validate("t84-sweep-after-capture", result);
-
-        // The save/load round trip.
-        var toy = PersistenceTestbed.Toy;
-        var save = new SaveGame(
-            SchemaVersion: result.SchemaVersion,
-            Id: "t84-elimination-round-trip",
-            Label: "T84 elimination round trip",
-            ScenarioId: result.ScenarioId,
-            WorldId: result.WorldId,
-            RulesetId: result.RulesetId,
-            State: result);
-
-        var text = SaveManager.Serialize(save);
-        var reloaded = SaveManager.Load("t84-elimination-round-trip.json", text, toy.World, toy.Ruleset);
-
-        Assert.Equal(result, reloaded.State);
+        AssertNoDanglingIdsAndRoundTrips(result, "survivor");
     }
 
     /// <summary>
@@ -250,7 +282,7 @@ public sealed class EliminationForcesTests
         Assert.Null(result.FleetById("x-fleet"));
         Assert.Null(result.ArmyById("y-army-aboard-x"));
 
-        GameDataValidation.Validate("t84-sweep-cross-nation", result);
+        AssertNoDanglingIdsAndRoundTrips(result, "cross-nation");
     }
 
     /// <summary>
@@ -282,10 +314,13 @@ public sealed class EliminationForcesTests
     }
 
     /// <summary>
-    /// Done-when 5: a capture that leaves X with a city deletes nothing, because the disposal is called
-    /// only when <c>JustEliminated</c> is true. Delete the guarding <c>if</c> at either
-    /// <see cref="CityCaptureResolver"/> call site and this fails, because X's untouched army/fleets would
-    /// vanish from a capture that did not eliminate it.
+    /// Done-when 5, <see cref="CityCaptureResolver.Capture"/> half: a capture that leaves X with a city
+    /// deletes nothing, because the disposal is called only when <c>JustEliminated</c> is true. Delete the
+    /// guarding <c>if</c> at <em>this</em> call site (review round 1, B1 — the earlier wording claimed
+    /// "either call site", which is false: the two guards are independent, and only
+    /// <see cref="Defect_ThatLeavesXWithACity_DeletesNothingOfXs"/> below covers <see cref="CityCaptureResolver.Defect"/>'s
+    /// own guard) and this fails, because X's untouched army/fleets would vanish from a capture that did
+    /// not eliminate it.
     /// </summary>
     [Fact]
     public void Capture_ThatLeavesXWithACity_DeletesNothingOfXs()
@@ -316,6 +351,51 @@ public sealed class EliminationForcesTests
         var sink = new RecordingEventSink();
         var result = CityCaptureResolver.Capture(
             state, "c-army", "doomed-first", Ruleset, ArcherUnitTypeId, FortifyOrderId, sink);
+
+        Assert.False(result.NationById("doomed")!.Eliminated);
+        Assert.Equal(xArmy, result.ArmyById("x-army"));
+        Assert.Equal(xFleet, result.FleetById("x-fleet"));
+        Assert.Equal(xConstructionFleet, result.FleetById("x-construction-fleet"));
+        Assert.Empty(sink.Events.OfType<NationConquered>());
+    }
+
+    /// <summary>
+    /// Done-when 5, <see cref="CityCaptureResolver.Defect"/> half (review round 1, B1): a defection that
+    /// leaves X with a city deletes nothing of X's, because <see cref="CityCaptureResolver.Defect"/>'s own
+    /// guard is independent of <see cref="CityCaptureResolver.Capture"/>'s. Reviewer probe M4 removed
+    /// exactly this guard (turning the call site's <c>if (oldOwnerEliminated) newState = …</c> into an
+    /// unconditional <c>newState = …</c>) and the suite stayed green, because no test previously drove a
+    /// non-eliminating <see cref="CityCaptureResolver.Defect"/>. Delete the guarding <c>if</c> at the
+    /// <see cref="CityCaptureResolver.Defect"/> call site and this fails, because X's untouched army/fleets
+    /// would vanish from a defection that did not eliminate it.
+    /// </summary>
+    [Fact]
+    public void Defect_ThatLeavesXWithACity_DeletesNothingOfXs()
+    {
+        var doomed = CaptureTestbed.Nation("doomed", unity: 500, capitalCityId: "doomed-second");
+        var newOwner = CaptureTestbed.Nation("newowner");
+
+        var doomedFirstCity = CaptureTestbed.City(
+            "doomed-first", "Doomed First", 0, 0, "doomed", "doomed", 40, 0, 10, 20, 5);
+        var doomedSecondCity = CaptureTestbed.City(
+            "doomed-second", "Doomed Second", 30, 30, "doomed", "doomed", 60, 0, 12, 20, 5);
+
+        var xArmy = CaptureTestbed.Army("x-army", "doomed", 5, 5, morale: 40, CaptureTestbed.Unit("light_infantry", 400));
+        var xFleet = EliminationForcesTestbed.Fleet("x-fleet", "doomed", 4, 4);
+        var xConstructionFleet = EliminationForcesTestbed.Fleet("x-construction-fleet", "doomed", 0, 0) with
+        {
+            ConstructionTicksRemaining = Ruleset.Naval.ConstructionTicks,
+            BuildCityId = "doomed-second",
+        };
+
+        var state = EliminationForcesTestbed.StateWith(
+            new[] { doomed, newOwner },
+            new[] { doomedFirstCity, doomedSecondCity },
+            new[] { xArmy },
+            new[] { xFleet, xConstructionFleet });
+
+        var sink = new RecordingEventSink();
+        var result = CityCaptureResolver.Defect(state, "doomed-first", "newowner", Ruleset, sink);
 
         Assert.False(result.NationById("doomed")!.Eliminated);
         Assert.Equal(xArmy, result.ArmyById("x-army"));
