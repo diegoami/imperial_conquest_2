@@ -106,6 +106,34 @@ public sealed class AiFormTradeCommandTests
     }
 
     /// <summary>
+    /// Rework round 2, N-d: the mirrored half of the cap check
+    /// (<c>TradeCount(issuer) &gt;= cap || TradeCount(partner) &gt;= cap</c>) -- the issuer's own side is
+    /// well under cap here, so only the partner's own cap check can be what refuses this.
+    /// </summary>
+    [Fact]
+    public void RefusedWhenThePartnerIsAlreadyAtTheTradeCap()
+    {
+        var ruleset = DiplomacyTestbed.Ruleset;
+        var cap = ruleset.Diplomacy.MaxTradePartners;
+        var nations = new List<NationState> { DiplomacyTestbed.Nation(Me, "Me"), DiplomacyTestbed.Nation(Partner, "Partner") };
+        for (var i = 0; i < cap; i++)
+        {
+            nations.Add(DiplomacyTestbed.Nation($"o{i}", $"O{i}"));
+        }
+
+        var state = DiplomacyTestbed.StateOf(nations.ToArray());
+        for (var i = 0; i < cap; i++)
+        {
+            state = state with { Relations = state.Relations.WithRelation(Partner, $"o{i}", ruleset.Diplomacy.StateCodes.Trade) };
+        }
+
+        var result = DiplomacyTestbed.Dispatcher().Dispatch(state, new AiFormTradeCommand(Me, Partner));
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(AiFormTradeRejections.PartnerCapReached, result.Code);
+    }
+
+    /// <summary>
     /// Rework round 1, B1: this command is the AI's own direct write, with no consent step -- a human
     /// issuer would otherwise write trade directly, skipping <see cref="ProposeTradeCommand"/>'s own
     /// gates entirely.

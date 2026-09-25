@@ -330,14 +330,25 @@ public sealed class AiOwnDiplomacyRuleTests
     /// trade" being read as "up to and including alliance". A search that allowed an already-allied j
     /// would let this alliance search re-propose a partner the caller is allied with already.
     /// </summary>
+    /// <remarks>
+    /// Rework round 2, N-d: <c>j</c> is given 0 cities, not 1. Allying <c>me</c> and <c>j</c> makes each
+    /// the other's ally, so <see cref="AiOwnDiplomacyRule.IsProtected"/>'s own check
+    /// (<c>cities[j] + cities[me] &gt; cities[me]</c>, with <c>me</c> now counted as one of <c>j</c>'s
+    /// allies) would independently return true whenever <c>cities[j] &gt; 0</c> -- with the original
+    /// <c>Cities: 1</c>, this test could not tell "the relation-range check excluded j" apart from "j
+    /// happened to be protected anyway", so removing the relation-range check alone would have survived.
+    /// At <c>cities[j] = 0</c>, <c>0 + 5 = 5</c> is not <c>&gt; 5</c>, so j is not protected, and this
+    /// result is now attributable to the relation-range check alone.
+    /// </remarks>
     [Fact]
     public void A_neighbour_already_allied_with_me_is_never_a_partner_search_starting_point()
     {
         var world = TestWorld("me", "j", "m");
-        var state = Fixture(new NationSpec("me", 0, Cities: 5), new NationSpec("j", 1, Cities: 1), new NationSpec("m", 2, Cities: 1));
+        var state = Fixture(new NationSpec("me", 0, Cities: 5), new NationSpec("j", 1, Cities: 0), new NationSpec("m", 2, Cities: 1));
         state = AtWar(state, "m", "j");
         state = AllyOf(state, "me", "j");
 
+        Assert.False(AiOwnDiplomacyRule.IsProtected(state, Ruleset, "j", "me"));
         Assert.Null(AiOwnDiplomacyRule.FindAlliancePartner(state, Ruleset, world, "me"));
     }
 

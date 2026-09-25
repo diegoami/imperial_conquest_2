@@ -283,6 +283,52 @@ public sealed class AiDiplomacyPhaseTests
     }
 
     /// <summary>
+    /// Rework round 2, N-d: the sibling test above pins that the roll gates the alliance at all, but a
+    /// hard-coded denominator (10, the war roll's own) would still show both hits and misses across 200
+    /// seeds -- it would just hit twice as often. This pins the denominator's own <em>value</em> by
+    /// reading it from the ruleset, not <c>AiOwnDiplomacyRules.AllianceRollDenominator</c>'s shipped 20:
+    /// overriding it to 2 (a coin flip) must make the roll hit within a small, fixed seed window far more
+    /// reliably than either the shipped 20 or a hard-coded-to-the-war-roll's 10 ever would, proving the
+    /// code path actually reads <see cref="AiOwnDiplomacyRules.AllianceRollDenominator"/> off
+    /// <paramref name="view"/>'s own ruleset rather than a literal.
+    /// </summary>
+    [Fact]
+    public void TheAllianceRollDenominatorComesFromTheRuleset_NotAHardCodedLiteral()
+    {
+        var world = AllianceWorld();
+        var coinFlipRuleset = AiScriptedStates.Ruleset with
+        {
+            Diplomacy = AiScriptedStates.Ruleset.Diplomacy with
+            {
+                AiOwnDiplomacy = AiScriptedStates.Ruleset.Diplomacy.AiOwnDiplomacy with { AllianceRollDenominator = 2 },
+            },
+        };
+        var state = AllianceState(partnerControl: SeatControl.Ai);
+
+        var hits = 0;
+        const int SeedCount = 20;
+        for (var seed = 0UL; seed < SeedCount; seed++)
+        {
+            var view = new AiView(state, coinFlipRuleset, world, Acting);
+            var candidates = new List<AiCandidate>();
+            AiDiplomacyPhase.Propose(
+                view, AiPersonalityProfile.For(state.NationById(Acting)!), SplitMix64Rng.ForStream(seed, "ai.turn"), candidates);
+            if (candidates.Any(c => c.Kind == "ai-form-alliance"))
+            {
+                hits++;
+            }
+        }
+
+        // Binomial(20, 1/2) has a mean of 10; Binomial(20, 1/20) (the shipped denominator, if the
+        // override were silently ignored) has a mean of 1, and Binomial(20, 1/10) (a hard-coded literal
+        // copied from the war roll) has a mean of 2 -- 8 or more hits out of 20 is expected well over
+        // 99% of the time at 1/2 odds, and well under 1% of the time at either 1/20 or 1/10 odds.
+        Assert.True(
+            hits >= 8,
+            $"expected at least 8 of {SeedCount} seeds to hit a coin-flip (denominator 2) alliance roll, got {hits} -- the denominator may not be read from the ruleset");
+    }
+
+    /// <summary>
     /// T82 Owns amendment (PR #378), Done-when 3's new line: "Random(20) draws from the seat-turn's
     /// IRng, the same stream as Random(10), so a re-evaluated pass sees the same draw." Simulates the
     /// greedy loop re-running <c>Propose</c> more than once in the same turn against the very same
