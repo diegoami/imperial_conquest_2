@@ -162,6 +162,32 @@ public static class GameDataValidation
                 throw new MalformedGameDataException(documentPath, ex.Message, ex);
             }
         }
+
+        // T85 Done-when 2: the same pattern as startingRelations above -- every nation id
+        // startingNeighbours names (both the entry's own NationId and each of its NeighbourIds) is
+        // checked here first, so an unknown id surfaces as UnresolvedReferenceException exactly as it
+        // would for a city's owner or an army's nation, and World.ValidateStartingNeighboursShape
+        // (called next) never has to raise that case itself.
+        if (world.StartingNeighbours is { } startingNeighbours)
+        {
+            foreach (var entry in startingNeighbours)
+            {
+                RequireNation(documentPath, world, entry.NationId);
+                foreach (var neighbourId in entry.NeighbourIds)
+                {
+                    RequireNation(documentPath, world, neighbourId);
+                }
+            }
+
+            try
+            {
+                world.ValidateStartingNeighboursShape();
+            }
+            catch (InvalidOperationException ex)
+            {
+                throw new MalformedGameDataException(documentPath, ex.Message, ex);
+            }
+        }
     }
 
     private static void ValidateRuleset(string documentPath, Ruleset ruleset)

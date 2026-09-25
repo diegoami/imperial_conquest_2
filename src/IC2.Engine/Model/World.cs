@@ -25,6 +25,19 @@ namespace IC2.Engine.Model;
 /// https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/news-log-format-and-messages.md
 /// §Q1, "the DAT seeds the log, and a new game starts at index 26".
 /// </param>
+/// <param name="StartingNeighbours">
+/// T85 (correction for #385, folds in #392): the DAT's own neighbour mask (nation-record
+/// <c>+0x2B</c>, <see cref="IC2.Data.DatLayout.NationNeighbourOffset"/>), as an adjacency list keyed
+/// by nation id, or <see langword="null"/> when the world does not carry one -- then
+/// <see cref="Diplomacy.NeighbourGeography"/> falls back to its own geometric derivation, exactly as
+/// it did before this field existed. Unlike <see cref="StartingRelations"/>, this is NOT mirrored
+/// into <see cref="GameState"/>: the original's own conquest routine (<c>FUN_0044C528</c>) rewrites
+/// the mask during play by merging a defeated nation's neighbours into its conqueror's, which is out
+/// of this task's scope (a later task moves the mask into the game state and applies that merge) --
+/// this field is fixed for the run, deliberately, the same way the geometric derivation it replaces
+/// for the classical world always was. See <see cref="ValidateStartingNeighboursShape"/> and
+/// https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/dat-neighbour-mask.md.
+/// </param>
 /// <remarks>
 /// Deliberately free of any 320×140 / 16-nation / 334-city assumption: the original's data becomes
 /// one shipped <see cref="World"/> (task T29) among possibly many, and the toy fixture under
@@ -45,6 +58,7 @@ public sealed record World(
     ValueList<string> TurnOrder,
     DiplomaticRelations? StartingRelations = null,
     NewsLog? StartingNews = null,
+    ValueList<NationNeighbours>? StartingNeighbours = null,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null) : IVersionedDocument
 {
     /// <summary>Finds a tile type by its id, or <see langword="null"/>.</summary>
@@ -157,7 +171,89 @@ public sealed record World(
                 + $"{news.Slots.Count} slots.");
         }
     }
+
+    /// <summary>
+    /// Validates <see cref="StartingNeighbours"/>'s <em>shape</em>, called from
+    /// <see cref="IC2.Engine.Serialization.GameDataValidation.Validate"/> at load time, after every
+    /// nation id it names has already been confirmed to resolve
+    /// (<see cref="IC2.Engine.Serialization.UnresolvedReferenceException"/>) — the same order
+    /// <see cref="ValidateStartingRelationsShape"/> uses. A no-op when <see cref="StartingNeighbours"/>
+    /// is <see langword="null"/>.
+    /// </summary>
+    /// <remarks>
+    /// T85 Done-when 2's four rejected shapes, each its own check below: an asymmetric pair (one side
+    /// lists the other, not both), a nation that neighbours itself, a duplicated entry (the same
+    /// nation id given two rows), and a duplicated neighbour id within one row. An unknown nation id is
+    /// <see cref="IC2.Engine.Serialization.GameDataValidation.ValidateWorld"/>'s own check, run before
+    /// this method — see that method's <c>RequireNation</c> calls over
+    /// <see cref="StartingNeighbours"/>.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    /// A nation id appears in more than one <see cref="NationNeighbours"/> entry; a row lists its own
+    /// nation id, or the same neighbour id twice; or one side of a pair is not reciprocated by the
+    /// other.
+    /// </exception>
+    public void ValidateStartingNeighboursShape()
+    {
+        if (StartingNeighbours is not { } neighbours)
+        {
+            return;
+        }
+
+        var seenNations = new HashSet<string>(StringComparer.Ordinal);
+        var neighboursByNation = new Dictionary<string, ValueList<string>>(StringComparer.Ordinal);
+
+        foreach (var entry in neighbours)
+        {
+            if (!seenNations.Add(entry.NationId))
+            {
+                throw new InvalidOperationException(
+                    $"startingNeighbours lists '{entry.NationId}' in more than one entry.");
+            }
+
+            var seenNeighbours = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var neighbourId in entry.NeighbourIds)
+            {
+                if (string.Equals(neighbourId, entry.NationId, StringComparison.Ordinal))
+                {
+                    throw new InvalidOperationException(
+                        $"startingNeighbours' entry for '{entry.NationId}' lists itself as a neighbour.");
+                }
+
+                if (!seenNeighbours.Add(neighbourId))
+                {
+                    throw new InvalidOperationException(
+                        $"startingNeighbours' entry for '{entry.NationId}' lists '{neighbourId}' twice.");
+                }
+            }
+
+            neighboursByNation[entry.NationId] = entry.NeighbourIds;
+        }
+
+        foreach (var entry in neighbours)
+        {
+            foreach (var neighbourId in entry.NeighbourIds)
+            {
+                var reciprocated = neighboursByNation.TryGetValue(neighbourId, out var reverseList)
+                    && reverseList.Contains(entry.NationId);
+                if (!reciprocated)
+                {
+                    throw new InvalidOperationException(
+                        $"startingNeighbours is not symmetric: '{entry.NationId}' lists '{neighbourId}' "
+                        + $"but '{neighbourId}' does not list '{entry.NationId}' back.");
+                }
+            }
+        }
+    }
 }
+
+/// <summary>
+/// One nation's starting neighbours, as an adjacency-list entry of <see cref="World.StartingNeighbours"/>
+/// — the DAT's own mask decoded into ids, one entry per nation that has at least one neighbour.
+/// </summary>
+/// <param name="NationId">The nation this entry is about.</param>
+/// <param name="NeighbourIds">Every nation this one borders, in the DAT's own bit order (ascending nation code).</param>
+public sealed record NationNeighbours(string NationId, ValueList<string> NeighbourIds);
 
 /// <summary>How a <see cref="TerrainGrid"/>'s cell codes are encoded in JSON.</summary>
 /// <remarks>
