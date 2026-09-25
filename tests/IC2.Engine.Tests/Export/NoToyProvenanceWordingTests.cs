@@ -58,13 +58,51 @@ public class NoToyProvenanceWordingTests
     [Fact]
     public void Classical_faithful_has_no_toy_provenance_wording()
     {
-        AssertNoToyProvenanceWording(ExportedDataPaths.RulesetFile, exemptRootProvenanceId: true);
+        AssertNoToyProvenanceWording(ExportedDataPaths.RulesetFile);
     }
 
     [Fact]
     public void Improved_has_no_toy_provenance_wording()
     {
-        AssertNoToyProvenanceWording(ExportedDataPaths.ImprovedRulesetFile, exemptRootProvenanceId: false);
+        AssertNoToyProvenanceWording(ExportedDataPaths.ImprovedRulesetFile);
+    }
+
+    /// <summary>
+    /// Review round 1, N8: the real, committed <c>improved.json</c> has no toy-worded root
+    /// <c>_provenance.id</c> today, so a mutation that silently widens the exemption to any path (the
+    /// reviewer's own probe: flipping <see cref="Improved_has_no_toy_provenance_wording"/>'s call to
+    /// pass <c>exemptRootProvenanceId: true</c>) left the whole 39-test <c>Export</c> suite green --
+    /// nothing there actually exercises the exempt/not-exempt boundary against a document that would
+    /// show the difference. <see cref="AssertNoToyProvenanceWording"/> no longer takes that boolean
+    /// from its caller at all (below); this pins its own file-identity decision directly, on a
+    /// synthetic document -- not the real file -- so the boundary is provably tested regardless of
+    /// what either shipped preset currently contains.
+    /// </summary>
+    [Fact]
+    public void AssertNoToyProvenanceWording_exempts_only_the_classical_faithful_path()
+    {
+        var tempFile = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".json");
+        File.WriteAllText(tempFile, """
+            {
+              "_provenance": {
+                "id": "this toy ruleset is set the way classical-faithful is set."
+              }
+            }
+            """);
+
+        try
+        {
+            Assert.NotEqual(ExportedDataPaths.RulesetFile, tempFile, StringComparer.Ordinal);
+
+            var exception = Record.Exception(() => AssertNoToyProvenanceWording(tempFile));
+
+            Assert.NotNull(exception);
+            Assert.Contains("toy", exception.Message, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            File.Delete(tempFile);
+        }
     }
 
     /// <summary>
@@ -186,10 +224,18 @@ public class NoToyProvenanceWordingTests
         Assert.Contains("someNestedThing._provenance.id", hits[0]);
     }
 
-    private static void AssertNoToyProvenanceWording(string path, bool exemptRootProvenanceId)
+    /// <summary>
+    /// Review round 1, N8: <paramref name="path"/> decides the exemption itself -- only
+    /// <see cref="ExportedDataPaths.RulesetFile"/> (<c>classical-faithful.json</c>) ever gets it --
+    /// rather than taking it as a second argument each caller supplies independently. The reviewer's
+    /// mutation (flipping <see cref="Improved_has_no_toy_provenance_wording"/>'s own argument) is no
+    /// longer expressible: there is nothing left at that call site to flip.
+    /// </summary>
+    private static void AssertNoToyProvenanceWording(string path)
     {
+        var exemptRootProvenanceId = string.Equals(path, ExportedDataPaths.RulesetFile, StringComparison.Ordinal);
         using var doc = JsonDocument.Parse(File.ReadAllText(path));
-        var hits = FindToyProvenanceMentions(doc.RootElement, exemptRootProvenanceId: exemptRootProvenanceId);
+        var hits = FindToyProvenanceMentions(doc.RootElement, exemptRootProvenanceId);
 
         Assert.True(hits.Count == 0,
             $"{Path.GetFileName(path)} carries a _provenance string written from toy-ruleset.json's own " +
