@@ -56,11 +56,7 @@ public sealed partial class GameSession
         lines.Add("Armies:");
         foreach (var army in State.Armies)
         {
-            var percentFull = SupplyCapacity.PercentFull(army.SupplyTons, army.TotalTroops, Ruleset);
-            lines.Add(
-                $"  {army.Id} ({NationName(army.Nation)}) @ ({army.X},{army.Y}): {army.TotalTroops} troops "
-                + $"in {army.Units.Count} units, supply {army.SupplyTons}t ({percentFull}%), "
-                + $"morale {army.Morale}, moves {army.Moves}");
+            lines.Add(FormatArmyLine(army));
         }
 
         lines.Add(string.Empty);
@@ -68,16 +64,177 @@ public sealed partial class GameSession
         var fortifyRule = FortifyRule();
         foreach (var city in State.Cities)
         {
-            var fortification = fortifyRule is null
-                ? "n/a"
-                : FortificationCode.FinishedPercent(city.FortificationCode, fortifyRule).ToString(
-                    System.Globalization.CultureInfo.InvariantCulture) + "%";
-            lines.Add(
-                $"  {city.Id} \"{city.Name}\" @ ({city.X},{city.Y}), owner {NationName(city.Owner)}: "
-                + $"supply {city.SupplyTons}t, loyalty {city.Loyalty}, fortification {fortification}");
+            lines.Add(FormatCityLine(city, fortifyRule));
         }
 
         return lines;
+    }
+
+    /// <summary>
+    /// <c>status</c> with no argument, or <c>status mine</c> — <c>docs/tasks/T83.md</c> Done-when 4. Any
+    /// other trailing token is a usage error, the same shape every other malformed command in this class
+    /// already returns rather than throwing.
+    /// </summary>
+    private IReadOnlyList<string> RenderStatusCommand(string[] tokens)
+    {
+        if (tokens.Length == 1)
+        {
+            return RenderStatus();
+        }
+
+        if (tokens.Length == 2 && string.Equals(tokens[1], "mine", StringComparison.OrdinalIgnoreCase))
+        {
+            return RenderStatusMine();
+        }
+
+        return new[] { "Usage: status [mine]" };
+    }
+
+    /// <summary>
+    /// <c>status mine</c> — <c>docs/tasks/T83.md</c> Done-when 4: "shows only the seat's nation, armies,
+    /// fleets and cities", filtered to <see cref="DefaultViewNationId"/>. The full <see cref="RenderStatus"/>
+    /// this is a narrower alternative to has no <c>Fleets:</c> section at all (T41/T23 never added one,
+    /// and adding one there would move <c>tests/fixtures/cli/demo.golden.txt</c>'s own <c>status</c> lines
+    /// — Done-when 5 forbids that); this compact view is new, so it can and does carry one.
+    /// </summary>
+    private IReadOnlyList<string> RenderStatusMine()
+    {
+        var nationId = DefaultViewNationId;
+        var nation = State.NationById(nationId);
+        if (nation is null)
+        {
+            return new[] { $"Unknown nation '{nationId}'." };
+        }
+
+        var eliminated = nation.Eliminated ? " [eliminated]" : string.Empty;
+        var lines = new List<string>
+        {
+            $"Nation: {nation.Name} ({nation.Id}, {ControlLabel(nation.Control)}): "
+            + $"treasury {nation.Treasury}, unity {nation.Unity}, tax {nation.TaxRatePercent}%{eliminated}",
+            string.Empty,
+            "Armies:",
+        };
+
+        foreach (var army in State.Armies)
+        {
+            if (string.Equals(army.Nation, nationId, StringComparison.Ordinal))
+            {
+                lines.Add(FormatArmyLine(army));
+            }
+        }
+
+        lines.Add(string.Empty);
+        lines.Add("Fleets:");
+        foreach (var fleet in State.Fleets)
+        {
+            if (string.Equals(fleet.Nation, nationId, StringComparison.Ordinal))
+            {
+                lines.Add(FormatFleetLine(fleet));
+            }
+        }
+
+        lines.Add(string.Empty);
+        lines.Add("Cities:");
+        var fortifyRule = FortifyRule();
+        foreach (var city in State.Cities)
+        {
+            if (string.Equals(city.Owner, nationId, StringComparison.Ordinal))
+            {
+                lines.Add(FormatCityLine(city, fortifyRule));
+            }
+        }
+
+        return lines;
+    }
+
+    /// <summary>
+    /// <c>armies [nation]</c> — <c>docs/tasks/T83.md</c> Done-when 4: one section, filtered to
+    /// <paramref name="tokens"/>'s nation argument, or <see cref="DefaultViewNationId"/> when none is
+    /// given.
+    /// </summary>
+    private IReadOnlyList<string> RenderArmiesCommand(string[] tokens)
+    {
+        if (tokens.Length > 2)
+        {
+            return new[] { "Usage: armies [nation]" };
+        }
+
+        var nationId = tokens.Length == 2 ? tokens[1] : DefaultViewNationId;
+        if (State.NationById(nationId) is null)
+        {
+            return new[] { $"Unknown nation '{nationId}'." };
+        }
+
+        var lines = new List<string> { $"Armies ({NationDisplay(nationId)}):" };
+        foreach (var army in State.Armies)
+        {
+            if (string.Equals(army.Nation, nationId, StringComparison.Ordinal))
+            {
+                lines.Add(FormatArmyLine(army));
+            }
+        }
+
+        return lines;
+    }
+
+    /// <summary>
+    /// <c>cities [nation]</c> — <c>docs/tasks/T83.md</c> Done-when 4: one section, filtered to
+    /// <paramref name="tokens"/>'s nation argument, or <see cref="DefaultViewNationId"/> when none is
+    /// given.
+    /// </summary>
+    private IReadOnlyList<string> RenderCitiesCommand(string[] tokens)
+    {
+        if (tokens.Length > 2)
+        {
+            return new[] { "Usage: cities [nation]" };
+        }
+
+        var nationId = tokens.Length == 2 ? tokens[1] : DefaultViewNationId;
+        if (State.NationById(nationId) is null)
+        {
+            return new[] { $"Unknown nation '{nationId}'." };
+        }
+
+        var lines = new List<string> { $"Cities ({NationDisplay(nationId)}):" };
+        var fortifyRule = FortifyRule();
+        foreach (var city in State.Cities)
+        {
+            if (string.Equals(city.Owner, nationId, StringComparison.Ordinal))
+            {
+                lines.Add(FormatCityLine(city, fortifyRule));
+            }
+        }
+
+        return lines;
+    }
+
+    /// <summary>One "Armies:" line — shared by <see cref="RenderStatus"/> and the compact views.</summary>
+    private string FormatArmyLine(ArmyState army)
+    {
+        var percentFull = SupplyCapacity.PercentFull(army.SupplyTons, army.TotalTroops, Ruleset);
+        return $"  {army.Id} ({NationName(army.Nation)}) @ ({army.X},{army.Y}): {army.TotalTroops} troops "
+            + $"in {army.Units.Count} units, supply {army.SupplyTons}t ({percentFull}%), "
+            + $"morale {army.Morale}, moves {army.Moves}";
+    }
+
+    /// <summary>
+    /// One "Fleets:" line — new with <c>docs/tasks/T83.md</c>'s compact views; <see cref="RenderStatus"/>
+    /// never had a fleets section (see <see cref="RenderStatusMine"/>'s own remarks for why one is not
+    /// added there now).
+    /// </summary>
+    private string FormatFleetLine(FleetState fleet) =>
+        $"  {fleet.Id} ({NationName(fleet.Nation)}) @ ({fleet.X},{fleet.Y}): {fleet.Ships} ships, "
+        + $"condition {fleet.ConditionPercent}%, supply {fleet.SupplyTons}t, moves {fleet.Moves}";
+
+    /// <summary>One "Cities:" line — shared by <see cref="RenderStatus"/> and the compact views.</summary>
+    private string FormatCityLine(CityState city, CityOrderRule? fortifyRule)
+    {
+        var fortification = fortifyRule is null
+            ? "n/a"
+            : FortificationCode.FinishedPercent(city.FortificationCode, fortifyRule).ToString(
+                System.Globalization.CultureInfo.InvariantCulture) + "%";
+        return $"  {city.Id} \"{city.Name}\" @ ({city.X},{city.Y}), owner {NationName(city.Owner)}: "
+            + $"supply {city.SupplyTons}t, loyalty {city.Loyalty}, fortification {fortification}";
     }
 
     private IReadOnlyList<string> RenderMap()
@@ -181,10 +338,38 @@ public sealed partial class GameSession
     /// <see cref="Submit(string)"/> that backs it, which is to say it cannot rot silently, because a typo
     /// or an omission there is a compile-time or a "Unknown command" runtime fact, not a lonely string.
     /// </summary>
-    private IReadOnlyList<string> RenderHelp() => new[]
+    /// <summary>
+    /// <c>docs/tasks/T83.md</c> Done-when 4: "<c>help</c> lists them" — the three compact views, but only
+    /// in a <c>--seat</c> session. They work in <em>every</em> session (<see cref="DefaultViewNationId"/>
+    /// falls back to whichever seat currently has the turn when no <c>--seat</c> was given), so this is a
+    /// restriction on where they are <em>advertised</em>, not on where they run: listing them
+    /// unconditionally would add lines to the <c>help</c> command's own output, which
+    /// <c>tests/fixtures/cli/demo.golden.txt</c> captures (the demo script's first line is <c>help</c>,
+    /// and it never passes <c>--seat</c>) — Done-when 5 requires that golden to reproduce byte for byte, so
+    /// this is this task's own "Decision for the user" alongside Done-when 3's watch-mode choice; see the
+    /// PR body.
+    /// </summary>
+    private IReadOnlyList<string> RenderHelp()
     {
-        "Commands:",
-        "  status - show the calendar, nations, armies and cities",
+        var lines = new List<string>
+        {
+            "Commands:",
+            "  status - show the calendar, nations, armies and cities",
+        };
+
+        if (_humanSeatNationId is not null)
+        {
+            lines.Add("  status mine - show only your own nation, armies, fleets and cities");
+            lines.Add("  armies [nation] - show one nation's armies (default: yours)");
+            lines.Add("  cities [nation] - show one nation's cities (default: yours)");
+        }
+
+        lines.AddRange(RenderHelpRemainder());
+        return lines;
+    }
+
+    private IReadOnlyList<string> RenderHelpRemainder() => new[]
+    {
         $"  map - show the {World.Width}x{World.Height} terrain map with city, army and fleet markers",
         "  move <army> <x> <y> - move an army toward (x, y)",
         "  buy <army> <city> <tons> - buy supply for an army at a city (free at your own city, paid abroad)",
