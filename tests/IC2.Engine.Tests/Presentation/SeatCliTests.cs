@@ -1,9 +1,11 @@
+using System.Reflection;
 using IC2.Engine.Model;
 using IC2.Engine.Persistence;
 using IC2.Engine.Presentation;
 using IC2.Engine.Serialization;
 using IC2.Engine.Tests.Core;
 using Xunit;
+using CaptureFixtures = IC2.Engine.Tests.Cities.Capture.CaptureTestbed;
 using ModelTestPaths = IC2.Engine.Tests.Model.TestPaths;
 
 namespace IC2.Engine.Tests.Presentation;
@@ -258,6 +260,113 @@ public sealed class SeatCliTests
         var output = session.Submit(verb);
 
         Assert.DoesNotContain(output.Lines, line => line.Contains("--seat", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Review round 2, B2 (blocking regression): every one of the 28 mutating verbs <see cref="Submit"/>
+    /// recognises, gated in watch mode, and proved by more than a rendered rejection line — the state
+    /// itself must come out byte-for-byte unchanged (<see cref="GameState"/>'s own record equality, which
+    /// <see cref="ValueList{T}"/> backs with sequence equality, not reference equality). This is what
+    /// actually catches B2's own regression: <c>attack-army</c> and <c>besiege-city</c> are given a target
+    /// nation still at peace, so if <see cref="GameSession.Commands.ComposeDeclareWarIfNeeded"/>'s own gate
+    /// were ever lost again, the composed <c>diplomacy.declare-war</c> would flip a relation cell — a real
+    /// state change the rendered "rejected" line for the attack/siege itself would never reveal, since
+    /// that composed declaration is a <em>second</em>, separate dispatch outside the one
+    /// <see cref="IssueCommand"/> gates. <see cref="AllMutatingVerbLines"/>'s own count is asserted too, so
+    /// this test cannot silently stop covering a verb <see cref="Submit"/> gains later.
+    /// </summary>
+    private static readonly (string Verb, string Line)[] AllMutatingVerbLines =
+    {
+        ("move", "move north-army-1 5 5"),
+        ("buy", "buy north-army-1 arx 5"),
+        ("attack-army", "attack-army north-army-1 south-army-1"),
+        ("besiege-city", "besiege-city north-army-1 meridia"),
+        ("attack-fleet", "attack-fleet north-fleet-1 south-fleet-1"),
+        ("disband-army", "disband-army north-army-1"),
+        ("join-armies", "join-armies north-army-1 south-army-1"),
+        ("join-units", "join-units north-army-1 0 1"),
+        ("split-army", "split-army north-army-1 north-army-2 0"),
+        ("order-city", "order-city arx fortify 1"),
+        ("declare-war", "declare-war south"),
+        ("make-peace", "make-peace south"),
+        ("propose-alliance", "propose-alliance south"),
+        ("propose-trade", "propose-trade south"),
+        ("accept-offer", "accept-offer"),
+        ("mobilize", "mobilize 0 north-recruit-army"),
+        ("hire-mercenary", "hire-mercenary north-army-1 0"),
+        ("recruit-standing", "recruit-standing arx heavy_infantry 100"),
+        ("move-fleet", "move-fleet north-fleet-1 5 5"),
+        ("order-fleet", "order-fleet arx 1 north-fleet-2"),
+        ("repair-fleet", "repair-fleet north-fleet-1 1"),
+        ("scuttle-fleet", "scuttle-fleet north-fleet-1"),
+        ("split-fleet", "split-fleet north-fleet-1 north-fleet-2 1"),
+        ("join-fleets", "join-fleets north-fleet-1 south-fleet-1"),
+        ("embark-army", "embark-army north-army-1 north-fleet-1"),
+        ("disembark-army", "disembark-army north-army-1"),
+        ("buy-fleet-supply", "buy-fleet-supply north-fleet-1 arx 1"),
+        ("fleet-transfer", "fleet-transfer north-fleet-1 north-fleet-2 1 1 1"),
+    };
+
+    /// <summary>
+    /// Every id above is <c>toy-3city</c>'s own: <c>north-army-1</c>/<c>south-army-1</c>,
+    /// <c>north-fleet-1</c>/<c>south-fleet-1</c>, <c>arx</c> (north's own city) and <c>meridia</c> (south's
+    /// only city, adjacent enough for a plausible siege). North and south start at peace, so
+    /// <c>attack-army</c>/<c>besiege-city</c> are exactly the B2 repro shape. Each command's own engine-side
+    /// legality is irrelevant here — some of these would be refused even outside watch mode (a fresh
+    /// <c>north-army-1</c> has only one unit, so <c>join-units</c> fails its own gate regardless) — what
+    /// matters is that <em>none</em> of them ever reach the dispatcher at all: the message names
+    /// <c>--seat</c>, and the state is the literal same value, not merely "no obvious side effect".
+    /// </summary>
+    private static void AssertEveryMutatingVerbIsRejectedWithNoStateChange(GameSession session)
+    {
+        Assert.Equal(28, AllMutatingVerbLines.Length);
+
+        foreach (var (verb, line) in AllMutatingVerbLines)
+        {
+            var before = session.State;
+
+            var output = session.Submit(line);
+
+            Assert.DoesNotContain(
+                output.Lines, l => l.Contains("accepted", StringComparison.Ordinal));
+            Assert.Contains(
+                output.Lines, l => l.Contains("--seat", StringComparison.Ordinal));
+            Assert.Equal(before, session.State);
+        }
+    }
+
+    /// <summary>
+    /// <c>[Fact(Timeout = ...)]</c> needs an <see langword="async"/> test to actually enforce the timeout
+    /// (a synchronous one throws "Tests marked with Timeout are only supported for async tests" before
+    /// ever running) — <see cref="Task.Run(Action)"/> gives every timeout-guarded test here a background
+    /// thread xUnit can actually stop waiting on.
+    /// </summary>
+    [Fact(Timeout = 15000)]
+    public async Task Watch_mode_rejects_every_mutating_verb_and_leaves_state_untouched()
+    {
+        await Task.Run(() => AssertEveryMutatingVerbIsRejectedWithNoStateChange(NewWatchModeSession()));
+    }
+
+    /// <summary>
+    /// The same sweep, once the CLI's own <c>--seat</c> nation has fallen — <c>_seatLost</c> flipped
+    /// directly (the field <see cref="AnnounceAndAdoptWatchModeIfSeatIsLost"/> sets), so every one of
+    /// north's armies, fleets and cities is still exactly as the scenario started it. That isolates the
+    /// gate itself from elimination's own side effects (a real loss can disband the loser's armies, T84),
+    /// so the same <see cref="AllMutatingVerbLines"/> ids stay valid without a second, elimination-specific
+    /// set.
+    /// </summary>
+    [Fact(Timeout = 15000)]
+    public async Task A_lost_seat_rejects_every_mutating_verb_and_leaves_state_untouched()
+    {
+        await Task.Run(() =>
+        {
+            var toy = CoreTestbed.Toy;
+            var session = new GameSession(toy.World, toy.Ruleset, toy.Scenario, seedOverride: null, humanSeatNationId: "north");
+            typeof(GameSession).GetField("_seatLost", BindingFlags.NonPublic | BindingFlags.Instance)!
+                .SetValue(session, true);
+
+            AssertEveryMutatingVerbIsRejectedWithNoStateChange(session);
+        });
     }
 
     /// <summary>
