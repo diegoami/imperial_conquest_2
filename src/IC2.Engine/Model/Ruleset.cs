@@ -1263,8 +1263,7 @@ public sealed record VictoryRules(
 /// every column. <c>true</c> reproduces the bug (a pair both indexed &#8805; 8 never decays); <c>false</c>
 /// fixes it silently. <c>docs/task-catalogue.md</c> T19 DoD 9 names this flag by this exact name
 /// (<c>faithfulThawColumnBug</c>); <c>classical-faithful</c> sets it <c>true</c>, matching the confirmed
-/// original. Additive alongside the pre-existing <see cref="BugPolicyDiplomaticThaw"/> field, which this
-/// task's own code does not read — see T19's PR body for why both exist.
+/// original.
 /// </param>
 /// <param name="BugPolicySiegeRatioClamp">
 /// <c>docs/tasks/T63.md</c> Decision 1, extended 2026-09-23 by the user (D-A): whether TWO of the
@@ -1282,14 +1281,12 @@ public sealed record VictoryRules(
 /// through the signed comparisons above; the erosion's own wrap is the same report, the `FUN_0044b230`
 /// bullet]</c>. <c>classical-faithful</c> reproduces both wraps
 /// (<see cref="SiegeRatioClampPolicy.Reproduce16BitClamp"/>); <c>improved</c> computes both in ordinary
-/// 32-bit arithmetic (<see cref="SiegeRatioClampPolicy.Clamp32Bit"/>), never wrapping. The same pattern as
-/// <see cref="BugPolicyDiplomaticThaw"/>, additive alongside it.
+/// 32-bit arithmetic (<see cref="SiegeRatioClampPolicy.Clamp32Bit"/>), never wrapping.
 /// </param>
 public sealed record RulesetFlags(
     DiplomacyModel DiplomacyModel,
     EconomyPurseModel EconomyPurses,
     SeatAsymmetryModel SeatAsymmetry,
-    DiplomaticThawPolicy BugPolicyDiplomaticThaw,
     DefeatOutcome CombatOnDefeat,
     bool FaithfulThawColumnBug,
     SiegeRatioClampPolicy BugPolicySiegeRatioClamp,
@@ -1323,16 +1320,6 @@ public enum SeatAsymmetryModel
 
     /// <summary>Apply the same rule to every seat, human or AI.</summary>
     Normalized,
-}
-
-/// <summary>Whether the original's 8-column diplomatic-thaw bug is reproduced (audit Q8).</summary>
-public enum DiplomaticThawPolicy
-{
-    /// <summary>Thaw only the first N relation columns, reproducing the original's bug.</summary>
-    ReproduceEightColumnBug,
-
-    /// <summary>Thaw every relation column.</summary>
-    ThawAllColumns,
 }
 
 /// <summary>

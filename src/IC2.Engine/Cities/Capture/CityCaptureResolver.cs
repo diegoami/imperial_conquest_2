@@ -1,5 +1,6 @@
 using IC2.Engine.Battle;
 using IC2.Engine.Core;
+using IC2.Engine.Diplomacy;
 using IC2.Engine.Economy;
 using IC2.Engine.Model;
 using IC2.Engine.Strength;
@@ -184,7 +185,10 @@ public static class CityCaptureResolver
         {
             Nations = ReplaceNation(ReplaceNation(newState.Nations, transferredNewOwner), oldOwnerAfterElimination),
         };
+        // Both run only when this capture just eliminated the old owner -- see each method's own remarks
+        // (EliminationForces: T84; RelationTransitions.ResetAllOnElimination: rework round 1, B1).
         if (oldOwnerEliminated) newState = EliminationForces.Dispose(newState, oldOwner.Id, newOwner.Id);
+        if (oldOwnerEliminated) newState = RelationTransitions.ResetAllOnElimination(newState, ruleset, oldOwner.Id);
 
         events.Publish(new CityFallsToNation(city.Name, oldOwner.Name, newOwner.Name));
         if (oldOwnerEliminated)
@@ -256,7 +260,10 @@ public static class CityCaptureResolver
         {
             Nations = ReplaceNation(ReplaceNation(newState.Nations, transferredNewOwner), oldOwnerAfterElimination),
         };
+        // Both run only when this defection just eliminated the old owner -- see each method's own
+        // remarks (EliminationForces: T84; RelationTransitions.ResetAllOnElimination: rework round 1, B1).
         if (oldOwnerEliminated) newState = EliminationForces.Dispose(newState, oldOwner.Id, newOwner.Id);
+        if (oldOwnerEliminated) newState = RelationTransitions.ResetAllOnElimination(newState, ruleset, oldOwner.Id);
 
         events.Publish(new CityDefectsToNation(city.Name, oldOwner.Name, newOwner.Name));
         if (oldOwnerEliminated)

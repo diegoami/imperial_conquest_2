@@ -92,6 +92,13 @@ public sealed class AcceptPendingOfferCommandHandler : ICommandHandler<AcceptPen
                 $"'{pending.ProposingNationId}' is not a known nation.");
         }
 
+        if (proposer.Eliminated)
+        {
+            return CommandOutcome.Reject(
+                DiplomacyRejections.CounterpartyEliminated,
+                $"'{proposer.Name}' has been eliminated and the offer can no longer be accepted.");
+        }
+
         var relation = state.Relations.Get(pending.ProposingNationId, command.IssuingNationId);
 
         if (pending.ProposedRelationCode == codes.Alliance)

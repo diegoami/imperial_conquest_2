@@ -11,8 +11,8 @@ namespace IC2.Engine.Tests.Diplomacy;
 /// why the two forms are not equivalent in general.
 /// </summary>
 /// <remarks>
-/// The values are the shipped <c>data/worlds/toy-3city.json</c>'s own nation wealth figures (400, 360 —
-/// confirmed non-multiples-of-100 by construction: <see cref="Model.GameStateFactory.CreateInitial"/>
+/// The values are the shipped <c>data/worlds/toy-3city.json</c>'s own nation wealth figures (400, 360, of
+/// which only 360 is a non-multiple of 100 — confirmed by construction: <see cref="Model.GameStateFactory.CreateInitial"/>
 /// seeds <see cref="NationState.Wealth"/> verbatim from scenario data, never derived from population),
 /// paired with unity values chosen so the two forms land on opposite sides of the gate.
 /// </remarks>
@@ -25,6 +25,11 @@ public sealed class HonourablePeaceGateDivergenceTests
     /// Confirmed form: <c>(400/100)×80 = 320</c>, <c>(360/100)×100 = 300</c>. <c>320 &lt; 300</c> is
     /// false, so the honourable branch does <em>not</em> fire on the score term alone.
     /// </summary>
+    /// <remarks>
+    /// Mutation proof (quoted verbatim in the PR): reverting <see cref="HonourablePeaceGate.Fires"/> to
+    /// the dropped-divisor form makes this test fail with <c>Assert.False() Failure</c>. Not re-run here
+    /// (that would require the reverted code to be present); the PR body records the live run and revert.
+    /// </remarks>
     [Fact]
     public void B1_ConfirmedForm_DoesNotFireOnTheseShippedValues()
     {
@@ -52,17 +57,13 @@ public sealed class HonourablePeaceGateDivergenceTests
     }
 
     /// <summary>
-    /// Mutation proof (quoted verbatim in the PR): reverting <see cref="HonourablePeaceGate.Fires"/> to
-    /// the dropped-divisor form makes <see cref="B1_ConfirmedForm_DoesNotFireOnTheseShippedValues"/> fail
-    /// with <c>Assert.False() Failure</c>. Not re-run here (that would require the reverted code to be
-    /// present); the PR body records the live run and revert.
+    /// A pair where both forms would agree the branch fires, so this is a genuine "does the gate still
+    /// work at all" check alongside the divergence pin above — not just "always false".
     /// </summary>
     [Fact]
     public void B1_ConfirmedForm_FiresWhenTheDividedScoreActuallyIsLower()
     {
         var ruleset = DiplomacyTestbed.Ruleset;
-        // A pair where BOTH forms would agree the branch fires, so this is a genuine "does the gate
-        // still work at all" check alongside the divergence pin above -- not just "always false".
         var state = DiplomacyTestbed.StateOf(
             DiplomacyTestbed.Nation(Winner, "Winner", unity: 50, wealth: 200),
             DiplomacyTestbed.Nation(Loser, "Loser", unity: 900, wealth: 900));

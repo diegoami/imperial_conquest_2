@@ -63,6 +63,13 @@ public sealed class ProposeAllianceCommandHandler : ICommandHandler<ProposeAllia
                 ProposeAllianceRejections.UnknownTarget, $"'{command.TargetNationId}' is not a known nation.");
         }
 
+        if (target.Eliminated)
+        {
+            return CommandOutcome.Reject(
+                DiplomacyRejections.CounterpartyEliminated,
+                $"'{target.Name}' has been eliminated and can no longer ally.");
+        }
+
         var relation = state.Relations.Get(command.IssuingNationId, command.TargetNationId);
         if (relation == codes.Alliance)
         {

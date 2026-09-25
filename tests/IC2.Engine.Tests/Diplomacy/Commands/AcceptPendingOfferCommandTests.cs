@@ -215,4 +215,64 @@ public sealed class AcceptPendingOfferCommandTests
         Assert.True(result.IsAccepted);
         Assert.Equal(codes.Alliance, result.State.Relations.Get(Human, Proposer));
     }
+
+    // ---- Bug #199 (T69), Done-when 2: rejected before any state change, with the one shared code ----
+
+    [Fact]
+    public void Trade_RefusedWhenTheProposerIsEliminated()
+    {
+        var ruleset = DiplomacyTestbed.Ruleset;
+        var codes = ruleset.Diplomacy.StateCodes;
+        var state = DiplomacyTestbed.StateOf(
+            DiplomacyTestbed.Nation(Human, "Human", control: SeatControl.Human),
+            DiplomacyTestbed.Nation(Proposer, "Proposer", eliminated: true));
+        state = state with { PendingOffer = new PendingDiplomaticOffer(Proposer, codes.Trade) };
+
+        var result = DiplomacyTestbed.Dispatcher().Dispatch(state, new AcceptPendingOfferCommand(Human));
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(IC2.Engine.Diplomacy.DiplomacyRejections.CounterpartyEliminated, result.Code);
+        Assert.Same(state, result.State);
+    }
+
+    [Fact]
+    public void Alliance_RefusedWhenTheProposerIsEliminated()
+    {
+        var ruleset = DiplomacyTestbed.Ruleset;
+        var codes = ruleset.Diplomacy.StateCodes;
+        var state = DiplomacyTestbed.StateOf(
+            DiplomacyTestbed.Nation(Human, "Human", control: SeatControl.Human),
+            DiplomacyTestbed.Nation(Proposer, "Proposer", eliminated: true));
+        state = state with { PendingOffer = new PendingDiplomaticOffer(Proposer, codes.Alliance) };
+
+        var result = DiplomacyTestbed.Dispatcher().Dispatch(state, new AcceptPendingOfferCommand(Human));
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(IC2.Engine.Diplomacy.DiplomacyRejections.CounterpartyEliminated, result.Code);
+        Assert.Same(state, result.State);
+    }
+
+    // ---- #200 R2-F4: UnknownProposer had no test ----
+
+    /// <summary>
+    /// Defensive gate (<see cref="AcceptPendingOfferRejections.UnknownProposer"/>'s own remark: "never
+    /// expected"): a pending offer whose proposer no longer resolves to any nation in the state is
+    /// rejected rather than throwing.
+    /// </summary>
+    [Fact]
+    public void RefusedWhenTheProposerIsUnknown()
+    {
+        var ruleset = DiplomacyTestbed.Ruleset;
+        var codes = ruleset.Diplomacy.StateCodes;
+        var state = HumanState() with
+        {
+            PendingOffer = new PendingDiplomaticOffer("no-such-nation", codes.Trade),
+        };
+
+        var result = DiplomacyTestbed.Dispatcher().Dispatch(state, new AcceptPendingOfferCommand(Human));
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(AcceptPendingOfferRejections.UnknownProposer, result.Code);
+        Assert.Same(state, result.State);
+    }
 }

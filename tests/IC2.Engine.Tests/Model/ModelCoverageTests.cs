@@ -271,7 +271,6 @@ public class ModelCoverageTests
         Assert.Equal(DiplomacyModel.ConfirmedStateMachine, flags.DiplomacyModel);
         Assert.Equal(EconomyPurseModel.PerUnitPurses, flags.EconomyPurses);
         Assert.Equal(SeatAsymmetryModel.Faithful, flags.SeatAsymmetry);
-        Assert.Equal(DiplomaticThawPolicy.ReproduceEightColumnBug, flags.BugPolicyDiplomaticThaw);
         Assert.Equal(DefeatOutcome.Destroyed, flags.CombatOnDefeat);
     }
 

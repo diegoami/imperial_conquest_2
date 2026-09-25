@@ -62,9 +62,6 @@ public class ImprovedPresetTests
         Assert.Equal(SeatAsymmetryModel.Normalized, improved.Flags.SeatAsymmetry);
         Assert.Equal(SeatAsymmetryModel.Faithful, classical.Flags.SeatAsymmetry);
 
-        Assert.Equal(DiplomaticThawPolicy.ThawAllColumns, improved.Flags.BugPolicyDiplomaticThaw);
-        Assert.Equal(DiplomaticThawPolicy.ReproduceEightColumnBug, classical.Flags.BugPolicyDiplomaticThaw);
-
         Assert.Equal(DefeatOutcome.Scatter, improved.Flags.CombatOnDefeat);
         Assert.Equal(DefeatOutcome.Destroyed, classical.Flags.CombatOnDefeat);
 
@@ -159,7 +156,6 @@ public class ImprovedPresetTests
             "flags.diplomacyModel",
             "flags.economyPurses",
             "flags.seatAsymmetry",
-            "flags.bugPolicyDiplomaticThaw",
             "flags.combatOnDefeat",
             "flags.faithfulThawColumnBug",
             "flags.bugPolicySiegeRatioClamp",
@@ -173,11 +169,9 @@ public class ImprovedPresetTests
 
     private void CollectDifferingPaths(JsonNode? improved, JsonNode? classical, string pathPrefix, HashSet<string> differingPaths)
     {
-        // Skip _provenance nodes entirely, as per DoD 2
-        if (pathPrefix.EndsWith("._provenance"))
-        {
-            return;
-        }
+        // #254: no "pathPrefix.EndsWith(\"._provenance\")" guard here -- it could never fire. The parent
+        // loop already skips the "_provenance" key before recursing (below), so this method is never
+        // called with a path ending in "._provenance" in the first place.
 
         // Handle null cases
         if (improved is null && classical is null)

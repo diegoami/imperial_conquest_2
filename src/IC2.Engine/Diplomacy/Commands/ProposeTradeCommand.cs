@@ -67,6 +67,13 @@ public sealed class ProposeTradeCommandHandler : ICommandHandler<ProposeTradeCom
                 ProposeTradeRejections.UnknownTarget, $"'{command.TargetNationId}' is not a known nation.");
         }
 
+        if (target.Eliminated)
+        {
+            return CommandOutcome.Reject(
+                DiplomacyRejections.CounterpartyEliminated,
+                $"'{target.Name}' has been eliminated and can no longer trade.");
+        }
+
         var relation = state.Relations.Get(command.IssuingNationId, command.TargetNationId);
         if (relation < codes.Peace)
         {
