@@ -1,4 +1,5 @@
 using IC2.Engine.Model;
+using IC2.Engine.Persistence;
 using IC2.Engine.Presentation;
 using IC2.Engine.Serialization;
 using IC2.Engine.Tests.Core;
@@ -287,6 +288,40 @@ public sealed class SeatCliTests
     }
 
     /// <summary>Done-when 4: "<c>help</c> lists them" -- only in a <c>--seat</c> session (this task's own "Decision for the user", see the PR body): listing them unconditionally would move <c>tests/fixtures/cli/demo.golden.txt</c>'s own <c>help</c> line, which Done-when 5 forbids.</summary>
+    // ---- Hazard: is the --seat human flag saved with the state, or session-only? ----
+
+    /// <summary>
+    /// <c>docs/tasks/T83.md</c>'s own hazard: "If a <c>--seat</c> session is saved, record whether the
+    /// seat's human flag is saved with it or is session-only, and test a reload." It is saved with it:
+    /// <c>--seat</c> writes straight into <see cref="NationState.Control"/> (see
+    /// <see cref="Seat_marks_the_named_nation_human_in_the_state_the_engine_reads"/> above), which is part
+    /// of <see cref="GameState.Nations"/> and therefore part of every <see cref="SaveGame"/> built from
+    /// <see cref="GameSession.State"/> — nothing <c>--seat</c>-specific needed adding to T20's own save
+    /// format (<c>src/IC2.Engine/Persistence/**</c>, outside this task's Owns list) for this to round-trip;
+    /// it already carries every nation's <c>Control</c> field. Proven the same way <c>FieldBattleTests</c>'s
+    /// own delete-class round-trip check does: through <see cref="SaveManager.Serialize"/>/
+    /// <see cref="SaveManager.Load"/>, not just re-reading the in-memory record.
+    /// </summary>
+    [Fact]
+    public void The_seat_human_flag_is_saved_with_the_state_not_session_only()
+    {
+        var session = NewClassicalSeatSession("carthage");
+        var save = new SaveGame(
+            SchemaVersion: GameDataSchema.CurrentVersion,
+            Id: "t83-seat-probe",
+            Label: "T83 --seat probe",
+            ScenarioId: session.State.ScenarioId,
+            WorldId: session.State.WorldId,
+            RulesetId: session.State.RulesetId,
+            State: session.State);
+
+        var json = SaveManager.Serialize(save);
+        var reloaded = SaveManager.Load("t83-seat-probe.json", json, Classical.World, Classical.Ruleset);
+
+        Assert.Equal(SeatControl.Human, reloaded.State.NationById("carthage")!.Control);
+        Assert.Equal(json, SaveManager.Serialize(reloaded));
+    }
+
     [Fact]
     public void Help_lists_the_compact_views_only_in_a_seat_session()
     {
