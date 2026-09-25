@@ -95,9 +95,22 @@ public sealed partial class GameSession
     /// the target cannot be resolved (the attack command's own gates report that instead), or when the
     /// target is the issuing nation itself.
     /// </summary>
+    /// <remarks>
+    /// <strong>Review round 1, B2 (a regression this fixes): the watch-mode/seat-lost gate has to run
+    /// before this method ever dispatches anything</strong>, not only before the attack/siege command that
+    /// follows it. This method's own <see cref="_dispatcher"/> call is a second, separate dispatch outside
+    /// <see cref="IssueCommand"/>'s choke point — <see cref="HandleAttackArmy"/> and
+    /// <see cref="HandleBesiegeCity"/> both call this <em>before</em> their own <see cref="IssueCommand"/>
+    /// call, so gating only the attack/siege command itself left a live path for a watch-mode or seat-lost
+    /// session to still declare war "for free" ahead of a refused attack (proof, round 1's re-review: the
+    /// real CLI in watch mode accepted <c>diplomacy.declare-war</c> from <c>besiege-city</c> even though
+    /// the siege itself was correctly refused). Gating here, first, closes it at the source rather than
+    /// requiring every future caller of this method to remember to gate ahead of it.
+    /// </remarks>
     private void ComposeDeclareWarIfNeeded(string? targetNationId, List<string> lines)
     {
-        if (targetNationId is null
+        if (IsWatchModeActive
+            || targetNationId is null
             || string.Equals(targetNationId, State.ActiveNationId, StringComparison.Ordinal)
             || IsAtWar(State.ActiveNationId, targetNationId))
         {

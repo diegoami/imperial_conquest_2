@@ -109,10 +109,12 @@ public sealed partial class GameSession
     /// </param>
     /// <param name="humanSeatNationId">
     /// The CLI's <c>--seat</c> option (<c>docs/tasks/T83.md</c> Done-when 1): the nation id this session
-    /// plays interactively. Marked <see cref="Model.SeatControl.Human"/> in the starting state regardless
-    /// of what the scenario itself assigns it — additively, so a scenario that already seats a human
-    /// (such as <c>toy-3city</c>'s <c>north</c>) keeps that seat human too. <see langword="null"/> keeps
-    /// every seat exactly as the scenario assigns it.
+    /// plays interactively. Marked <see cref="Model.SeatControl.Human"/> in the starting state, and —
+    /// review round 1, N8, the user's decision of 2026-09-25 on PR #375's review, replacing round 1's own
+    /// "additively" choice — every <em>other</em> seat is marked <see cref="Model.SeatControl.Ai"/>, even
+    /// one the scenario itself seats human (such as <c>toy-3city</c>'s <c>north</c>): <c>--seat</c> makes
+    /// its nation the CLI's <em>only</em> human seat, never a second one alongside whatever the scenario
+    /// already assigned. <see langword="null"/> keeps every seat exactly as the scenario assigns it.
     /// </param>
     /// <exception cref="ArgumentException">
     /// <paramref name="humanSeatNationId"/> names a nation <paramref name="scenario"/> assigns no seat to.
@@ -139,10 +141,12 @@ public sealed partial class GameSession
         {
             scenario = scenario with
             {
-                Seats = ValueList.From(scenario.Seats.Select(seat =>
-                    string.Equals(seat.Nation, humanSeatNationId, StringComparison.Ordinal)
-                        ? seat with { Control = SeatControl.Human }
-                        : seat)),
+                Seats = ValueList.From(scenario.Seats.Select(seat => seat with
+                {
+                    Control = string.Equals(seat.Nation, humanSeatNationId, StringComparison.Ordinal)
+                        ? SeatControl.Human
+                        : SeatControl.Ai,
+                })),
             };
         }
 
@@ -362,7 +366,7 @@ public sealed partial class GameSession
     {
         if (IsWatchModeActive)
         {
-            return new[] { WatchModeRejectionLine("move") };
+            return new[] { WatchModeRejectionLine("Move") };
         }
 
         if (tokens.Length != 4
@@ -469,7 +473,7 @@ public sealed partial class GameSession
     {
         if (IsWatchModeActive)
         {
-            return new[] { WatchModeRejectionLine("buy") };
+            return new[] { WatchModeRejectionLine("Purchase") };
         }
 
         if (tokens.Length != 4
@@ -511,9 +515,17 @@ public sealed partial class GameSession
     /// </summary>
     private bool IsWatchModeActive => _isWatchMode || _seatLost;
 
-    /// <summary>The message every gated mutating command returns instead of dispatching, naming <c>--seat</c> as Done-when 3 requires.</summary>
-    private static string WatchModeRejectionLine(string verb) =>
-        $"{verb} rejected: no seat to command (watch mode, or the --seat nation has fallen). "
+    /// <summary>
+    /// The message every gated mutating command returns instead of dispatching, naming <c>--seat</c> as
+    /// Done-when 3 requires. Review round 1, N11: one style throughout, and it is the same label each
+    /// caller's own <em>real</em> rejection already uses — <see cref="IssueCommand"/> passes
+    /// <see cref="ICommand.Kind"/> (its own "<c>{Kind} rejected (code): message</c>" convention), and
+    /// <see cref="HandleMove"/>/<see cref="HandleBuy"/> pass <c>"Move"</c>/<c>"Purchase"</c> (their own
+    /// "<c>Move rejected (code): message</c>"/"<c>Purchase rejected (code): message</c>" convention) —
+    /// never a bare lowercase verb that convention does not otherwise use.
+    /// </summary>
+    private static string WatchModeRejectionLine(string label) =>
+        $"{label} rejected: no seat to command (watch mode, or the --seat nation has fallen). "
         + "Pass --seat <nation> to play one.";
 
     private IReadOnlyList<string> HandleEnd() => IsWatchModeActive ? HandleEndWatchMode() : HandleEndSeated();
@@ -562,10 +574,10 @@ public sealed partial class GameSession
     private void AppendPerSeatLine(List<string> lines, string seatId, IEnumerable<DomainEvent> events)
     {
         var ordersIssued = events.OfType<Ai.AiTurnDecided>().Sum(e => e.CommandsIssued);
-        // Not every seat played this way is actually AI-controlled -- a scenario can seat more than one
-        // human (DW1's additive case) -- but every seat here (Done-when 3's watch-mode lap, and every seat
-        // HandleEndSeated's own loop plays besides the CLI's ended one) is dispatched exactly the way an
-        // AI seat's turn is, so this wording is what every such line has always read.
+        // Every seat played this way is AI-controlled: watch mode's whole lap is (by definition of
+        // _isWatchMode), and HandleEndSeated's own loop only ever reaches a seat PausesHere() has not
+        // already stopped it on -- which, since round 1's N8, means every OTHER seat, human-in-the-
+        // scenario or not (--seat now hands every seat but its own to the AI).
         lines.Add(
             $"{NationDisplay(seatId)} takes its turn: "
             + $"{ordersIssued} order{(ordersIssued == 1 ? string.Empty : "s")} issued.");

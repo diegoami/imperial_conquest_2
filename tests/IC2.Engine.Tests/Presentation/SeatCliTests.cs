@@ -104,18 +104,20 @@ public sealed class SeatCliTests
     }
 
     /// <summary>
-    /// Done-when 1: "<c>--seat</c> on a scenario that already has human seats adds this one as human" --
-    /// <c>toy-3city</c>'s own <c>north</c> seat is human by scenario default, with no <c>--seat</c> flag
-    /// involved at all; naming <c>south</c> on top of it must add a second human seat, not replace the
-    /// first.
+    /// Done-when 1, the user's decision of 2026-09-25 on PR #375's review (N8), replacing round 1's own
+    /// "additive" choice: "<c>--seat</c> makes its nation the ONLY human seat, and the scenario's other
+    /// human seats are played by the AI." <c>toy-3city</c>'s own <c>north</c> seat is human by scenario
+    /// default, with no <c>--seat</c> flag involved at all; naming <c>south</c> instead must hand
+    /// <c>north</c> to the AI, not leave it a second, unplayed human seat (round 1's own N8: an
+    /// AI-skipped, never-played human seat printed "0 orders issued" forever).
     /// </summary>
     [Fact]
-    public void Seat_is_additive_when_the_scenario_already_seats_a_human()
+    public void Seat_makes_its_nation_the_only_human_seat_and_hands_any_other_to_the_ai()
     {
         var toy = CoreTestbed.Toy;
         var session = new GameSession(toy.World, toy.Ruleset, toy.Scenario, seedOverride: null, humanSeatNationId: "south");
 
-        Assert.Equal(SeatControl.Human, session.State.NationById("north")!.Control);
+        Assert.Equal(SeatControl.Ai, session.State.NationById("north")!.Control);
         Assert.Equal(SeatControl.Human, session.State.NationById("south")!.Control);
     }
 
