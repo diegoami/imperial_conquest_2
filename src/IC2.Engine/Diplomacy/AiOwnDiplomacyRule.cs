@@ -74,7 +74,20 @@ public static class AiOwnDiplomacyRule
         return isWinter;
     }
 
-    /// <summary><c>P(n) = (wealth / <see cref="AiOwnDiplomacyRules.PowerWealthDivisor"/>) × (unity / <see cref="AiOwnDiplomacyRules.PowerUnityDivisor"/>)</c> (report §1a).</summary>
+    /// <summary>
+    /// <c>P(n) = (wealth / <see cref="AiOwnDiplomacyRules.PowerWealthDivisor"/>) × (unity / <see cref="AiOwnDiplomacyRules.PowerUnityDivisor"/>)</c>
+    /// (report §1a) — <strong>integer arithmetic, each term truncated separately before the
+    /// multiply [confirmed: instruction level]</strong>. The report's own prose gives the formula but not
+    /// its arithmetic; its own "Reproduction" section's listing
+    /// (<c>analyzeHeadless … -postScript DumpListing.java ai_diplomacy_listing.txt 0x0044fb7c …</c>,
+    /// the local <c>ai_diplomacy_listing.txt</c>) shows it directly at <c>FUN_0044FB7C</c>'s own opening,
+    /// computing <c>P(me)</c>: <c>0044fb97 MOV EBX,0x4e20</c> (20,000) <c>; 0044fb9d IDIV EBX</c> (wealth
+    /// / 20000, truncated) <c>; 0044fba9 MOV ECX,0x64</c> (100) <c>; 0044fbaf IDIV ECX</c> (unity / 100,
+    /// truncated) <c>; 0044fbb1 IMUL EBX,EAX</c> (the two truncated terms multiplied) — no floating-point
+    /// instruction anywhere in the listing. C#'s own integer division already truncates the same way, so
+    /// <c>nation.Wealth / rule.PowerWealthDivisor</c> below needs no explicit <c>Math.Truncate</c> or cast
+    /// to reproduce it.
+    /// </summary>
     public static long Power(NationState nation, Ruleset ruleset)
     {
         ArgumentNullException.ThrowIfNull(nation);

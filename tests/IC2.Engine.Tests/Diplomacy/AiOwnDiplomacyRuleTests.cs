@@ -83,6 +83,23 @@ public sealed class AiOwnDiplomacyRuleTests
         Assert.True(AiOwnDiplomacyRule.IsBusy(state, Ruleset, "me"));
     }
 
+    // ---- Power ----
+
+    /// <summary>
+    /// Report §1a's power formula is integer arithmetic, each term truncated separately before the
+    /// multiply [confirmed: instruction level, IDIV then IDIV then IMUL -- see <see cref="AiOwnDiplomacyRule.Power"/>'s
+    /// own remarks]. Wealth 39,999 and unity 199 are chosen so the two readings disagree sharply:
+    /// truncate-then-multiply gives <c>floor(39999/20000) * floor(199/100) = 1 * 1 = 1</c>, but
+    /// multiply-then-divide would give <c>floor(39999*199 / 2000000) = 3</c>.
+    /// </summary>
+    [Fact]
+    public void PowerTruncatesEachTermSeparatelyBeforeMultiplying()
+    {
+        var nation = DiplomacyTestbed.Nation("n", "N", wealth: 39999, unity: 199);
+
+        Assert.Equal(1, AiOwnDiplomacyRule.Power(nation, Ruleset));
+    }
+
     // ---- IsProtected ----
 
     [Fact]
