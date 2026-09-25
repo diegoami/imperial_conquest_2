@@ -293,12 +293,13 @@ public sealed record TerrainRules(
 /// <c>ScuttleFleetCommandHandler</c>), and an army's named landing tile relative to its carrying fleet
 /// (<c>DisembarkArmyCommandHandler</c>). The four supply-purchase sites' own direct source is
 /// <c>supply-capacity-rounding.md</c>:33 (<c>TAFSupply_FindProviders</c>, "every city within one tile");
-/// the mobilization citation is kept because it is what T70's own Done-when 6b names as this field's
-/// source — described here as what it actually is (the mobilization receiving-army test), not as "the
-/// original's own general command-adjacency test" an earlier revision of this remark called it (review
-/// round 1, N2). Follow-up #351 R2: a later revision then said the citation was kept because T04's
-/// fixtures corpus id for this field "prescribes" it — backwards; the corpus id (below) is where the
-/// citation is tracked, not a rule that dictates it. T04 fixtures corpus id: 'command.adjacencyRadiusTiles'.
+/// the mobilization citation is kept because it is the original's one confirmed <c>d == 1</c> Chebyshev
+/// comparison, cited above — described here as what it actually is, not as "the original's own general
+/// command-adjacency test" an earlier revision of this remark called it (review round 1, N2); T70
+/// Done-when 6b recorded the choice, but is not itself the reason — a task entry is not evidence
+/// (review round 1, B5). Follow-up #351 R2: a later revision then said the citation was kept because
+/// T04's fixtures corpus id for this field "prescribes" it — backwards; the corpus id (below) is where
+/// the citation is tracked, not a rule that dictates it. T04 fixtures corpus id: 'command.adjacencyRadiusTiles'.
 /// Deliberately not merged
 /// with <see cref="AutoResupplyRadiusTiles"/> (4 — a different value, not the same one) or
 /// <see cref="ThreatenedCityAdjacencyRadius"/> (1 — the same value, but a different rule, the city-threat
