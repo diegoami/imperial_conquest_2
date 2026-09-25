@@ -94,7 +94,6 @@ public class ExportedRulesetTests
         Assert.Equal(DiplomacyModel.ConfirmedStateMachine, ruleset.Flags.DiplomacyModel);
         Assert.Equal(EconomyPurseModel.PerUnitPurses, ruleset.Flags.EconomyPurses);
         Assert.Equal(SeatAsymmetryModel.Faithful, ruleset.Flags.SeatAsymmetry);
-        Assert.Equal(DiplomaticThawPolicy.ReproduceEightColumnBug, ruleset.Flags.BugPolicyDiplomaticThaw);
         Assert.Equal(DefeatOutcome.Destroyed, ruleset.Flags.CombatOnDefeat);
         Assert.True(ruleset.Flags.FaithfulThawColumnBug);
     }
