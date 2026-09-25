@@ -92,7 +92,7 @@ in-memory record and leaves the rest untouched:
 | --- | ---: | --- |
 | `+0x000` | 11 | **name** |
 | `+0x026` | 32 | **relation row**: 16 signed shorts, on disk at DAT record `+0x0B` ([diplomacy report](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-diplomacy-peace-terms-and-instant-battles.md), 2026-09-24 addition). The starting matrix; `SaveNationTable` parses it since T73 |
-| `+0x046` | 2 | — |
+| `+0x046` | 2 | neighbour mask, 16-bit, symmetric; from DAT nation record `+0x2B` (`DatLayout.NationNeighbourOffset`; research `dat-neighbour-mask.md` §1–§2; since T85) |
 | `+0x048` | 668 | — |
 | `+0x2e4` | 320 | recruitment queue (`SaveNationLayout.RecruitmentOffset`) |
 | `+0x430` | 4 | — (then the loader copies it to `+0x434`) |
