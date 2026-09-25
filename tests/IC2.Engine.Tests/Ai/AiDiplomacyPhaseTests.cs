@@ -424,4 +424,108 @@ public sealed class AiDiplomacyPhaseTests
 
         return state with { Relations = state.Relations.WithRelation("m", "j", ruleset.Diplomacy.StateCodes.War) };
     }
+
+    /// <summary>
+    /// Rework round 1, N11: neither <c>AiCommandLegalityTests</c>' battery nor the toy soak ever issues
+    /// <c>ai-form-alliance</c> through a real, end-to-end AI turn -- every existing alliance test stops
+    /// at <see cref="AiDiplomacyPhase.Propose"/>'s own candidate list, never reaching
+    /// <see cref="AiTurn.Run"/>'s own <c>Select</c>-then-dispatch. This drives one real turn (through
+    /// <see cref="AiScriptedStates.DriveOneTurn(GameState, World, ulong)"/>, the same seam
+    /// <see cref="AiTurnSystem"/> uses) against <see cref="AllianceState"/>, searching seeds for the
+    /// <c>Random(20)</c> hit exactly as <see cref="An_alliance_candidate_appears_and_names_the_right_partner_when_the_roll_hits"/>
+    /// does, and confirms the command was not just proposed but actually accepted and issued, and that it
+    /// really wrote the alliance relation.
+    /// </summary>
+    [Fact]
+    public void AFullAiTurn_ReallyIssuesAiFormAlliance()
+    {
+        var world = AllianceWorld();
+        var state = AllianceState(partnerControl: SeatControl.Ai);
+        var ruleset = AiScriptedStates.Ruleset;
+
+        for (var seed = 0UL; seed < 2000; seed++)
+        {
+            var driven = AiScriptedStates.DriveOneTurn(state, world, seed);
+            if (!driven.IssuedKinds.Contains("diplomacy.ai-form-alliance"))
+            {
+                continue;
+            }
+
+            Assert.Equal(0, driven.Outcome.CommandsRejected);
+            Assert.Equal(
+                ruleset.Diplomacy.StateCodes.Alliance, driven.Outcome.State.Relations.Get(Acting, "m"));
+            return;
+        }
+
+        Assert.Fail("No seed under 2000 drove a real AI turn that issued diplomacy.ai-form-alliance.");
+    }
+
+    /// <summary>
+    /// Rework round 1, N11: the same gap as above, for <c>ai-swap-trade-partner</c>. <c>me</c> already
+    /// trades with a poor partner and is at peace with a richer, still-AI-controlled candidate -- every
+    /// deterministic gate <see cref="AiOwnDiplomacyRule.FindTradeSwap"/> checks is satisfied and, unlike
+    /// the alliance and war rolls, the swap is not chance-gated at all (report §1a), so no seed search is
+    /// needed: it fires on the very first action of the very first seed.
+    /// </summary>
+    [Fact]
+    public void AFullAiTurn_ReallyIssuesAiSwapTradePartner()
+    {
+        var ruleset = AiScriptedStates.Ruleset;
+        var cap = ruleset.Diplomacy.MaxTradePartners;
+
+        // Acting is already AT its own trade cap (poorer plus (cap - 1) filler partners), so
+        // EligibleTradePartners offers nothing fresh -- richer is reachable only through a swap, which
+        // (unlike a fresh trade) does not check the issuer's own cap at all, only the poorer partner's
+        // tax base against the richer candidate's.
+        var nations = new List<NationState>
+        {
+            DiplomacyFixtures.Nation(Acting, "Acting"),
+            DiplomacyFixtures.Nation("poorer", "Poorer", taxBase: 100),
+            DiplomacyFixtures.Nation("richer", "Richer", taxBase: 500),
+        };
+        var cities = new List<CityState>
+        {
+            CaptureFixtures.City(
+                "acting-city", "ActingCity", 1, 1, Acting, Acting, loyalty: 80, fortificationCode: 100,
+                populationThousands: 100, maxPopulationThousands: 100, tribute: 10),
+            CaptureFixtures.City(
+                "poorer-city", "PoorerCity", 3, 1, "poorer", "poorer", loyalty: 80, fortificationCode: 100,
+                populationThousands: 100, maxPopulationThousands: 100, tribute: 10),
+            CaptureFixtures.City(
+                "richer-city", "RicherCity", 5, 1, "richer", "richer", loyalty: 80, fortificationCode: 100,
+                populationThousands: 100, maxPopulationThousands: 100, tribute: 10),
+        };
+        for (var i = 1; i < cap; i++)
+        {
+            var fillerId = $"filler{i}";
+            nations.Add(DiplomacyFixtures.Nation(fillerId, fillerId, taxBase: 50));
+            cities.Add(CaptureFixtures.City(
+                $"{fillerId}-city", fillerId, 7 + i, 1, fillerId, fillerId, loyalty: 80, fortificationCode: 100,
+                populationThousands: 100, maxPopulationThousands: 100, tribute: 10));
+        }
+
+        var nationIds = ValueList.From(nations.Select(n => n.Id));
+        var relations = DiplomaticRelations.Uniform(nationIds, ruleset.Diplomacy.StateCodes.Peace)
+            .WithRelation(Acting, "poorer", ruleset.Diplomacy.StateCodes.Trade);
+        for (var i = 1; i < cap; i++)
+        {
+            relations = relations.WithRelation(Acting, $"filler{i}", ruleset.Diplomacy.StateCodes.Trade);
+        }
+
+        var state = BattleCommandTestbed.StateWith(nations, cities) with { Relations = relations };
+
+        // Confirms the fixture reaches the scenario the doc comment describes, not merely that some
+        // command happens to be issued: Acting is genuinely at cap, so a fresh trade with richer is not
+        // among the candidates at all, only the swap is.
+        Assert.Empty(AiOwnDiplomacyRule.EligibleTradePartners(state, ruleset, Acting));
+        Assert.Equal(("poorer", "richer"), AiOwnDiplomacyRule.FindTradeSwap(state, ruleset, Acting));
+
+        var driven = AiScriptedStates.DriveOneTurn(state, AiScriptedStates.World, seed: 1);
+
+        Assert.Contains("diplomacy.ai-swap-trade-partner", driven.IssuedKinds);
+        Assert.Equal(0, driven.Outcome.CommandsRejected);
+        Assert.Equal(
+            ruleset.Diplomacy.CooldownAfterBrokenTrade, driven.Outcome.State.Relations.Get(Acting, "poorer"));
+        Assert.Equal(ruleset.Diplomacy.StateCodes.Trade, driven.Outcome.State.Relations.Get(Acting, "richer"));
+    }
 }
