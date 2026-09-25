@@ -13,13 +13,6 @@ namespace IC2.Cli;
 /// to standard output is exactly what that call returned.
 /// </summary>
 /// <remarks>
-/// <strong><c>--seat &lt;nation&gt;</c> (<c>docs/tasks/T83.md</c>, bug #361).</strong> Makes that nation
-/// human for the session (<see cref="GameSession"/>'s own constructor parameter carries the actual
-/// override, since it also has to reach <see cref="IC2.Engine.Model.GameStateFactory.CreateInitial"/>'s
-/// state, not just this class's bookkeeping) and rejects an unknown id with the list of ids, the same
-/// shape <c>--scenario</c>/<c>--ruleset</c> already use below.
-/// </remarks>
-/// <remarks>
 /// <strong>DoD 5 (added to <c>docs/task-catalogue.md</c> T23 after PR #248's round-1 review).</strong>
 /// Before this, <see cref="Main"/> hardcoded <c>repository.Resolve("toy-3city")</c>, so T29's 334-city
 /// <c>classical-mediterranean</c> world and T36's <c>improved</c> ruleset preset were both exported and
@@ -48,6 +41,13 @@ namespace IC2.Cli;
 /// grid and its legend emits one line per city for 334 cities, with markers colliding wholesale
 /// (<c>city.Name[0]</c> is nowhere near unique at that scale). That is a viewport problem for a future
 /// task, not a defect this one introduces or should paper over with ad hoc paging.
+/// </remarks>
+/// <remarks>
+/// <strong><c>--seat &lt;nation&gt;</c> (<c>docs/tasks/T83.md</c>, bug #361).</strong> Makes that nation
+/// human for the session (<see cref="GameSession"/>'s own constructor parameter carries the actual
+/// override, since it also has to reach <see cref="IC2.Engine.Model.GameStateFactory.CreateInitial"/>'s
+/// state, not just this class's bookkeeping) and rejects an unknown id with the list of ids, the same
+/// shape <c>--scenario</c>/<c>--ruleset</c> already use above.
 /// </remarks>
 internal static class Program
 {

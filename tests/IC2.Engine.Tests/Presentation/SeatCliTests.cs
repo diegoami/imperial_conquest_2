@@ -146,6 +146,21 @@ public sealed class SeatCliTests
         var session = NewClassicalSeatSession("carthage");
         Assert.Equal("carthage", session.State.ActiveNationId);
 
+        // Review round 1, N1: "never played by the AI" is asserted directly on Carthage's own armies, not
+        // only by the absence of a rendered "takes its turn" line -- a mutation that deleted the pause
+        // condition entirely (so Carthage got AI-played every round, exactly like every other seat) would
+        // still print no such line for Carthage specifically (it would print "Carthage ends its turn"
+        // instead, from HandleEndSeated's own unconditional first RunTurn call), so the line-absence check
+        // alone cannot tell "paused correctly" apart from "played as AI under a different label". Carthage
+        // starts with exactly two armies (army-2 and army-3); an AI-controlled Carthage would very likely
+        // move at least one of them within three rounds (16-nation classical-mediterranean's own AI is far
+        // from idle -- see the seat-rome golden's own "orders issued" counts), so their positions staying
+        // fixed is the AI-was-never-in-control claim itself, not a proxy for it.
+        var startingPositions = session.State.Armies
+            .Where(a => string.Equals(a.Nation, "carthage", StringComparison.Ordinal))
+            .ToDictionary(a => a.Id, a => (a.X, a.Y));
+        Assert.Equal(2, startingPositions.Count);
+
         for (var round = 0; round < 3; round++)
         {
             var output = session.Submit("end");
@@ -154,7 +169,49 @@ public sealed class SeatCliTests
             Assert.DoesNotContain(
                 output.Lines,
                 line => line.Contains("Carthage (carthage) takes its turn", StringComparison.Ordinal));
+
+            foreach (var army in session.State.Armies)
+            {
+                if (startingPositions.TryGetValue(army.Id, out var startingPosition))
+                {
+                    Assert.Equal(startingPosition, (army.X, army.Y));
+                }
+            }
         }
+    }
+
+    /// <summary>
+    /// Review round 1, B1 (blocking): the construction-time prelude (AI seats played before the CLI's own
+    /// <c>--seat</c> nation is reached in round 1 — <see cref="AdvanceToHumanSeat"/>) was flushed onto the
+    /// first <see cref="GameSession.Submit"/> call with no test visiting it at all: a mutation that turned
+    /// that flush into a no-op left every other test green. This asserts the flush's exact shape: the
+    /// first <c>Submit</c>'s lines begin with the prelude's own "takes its turn" line, then a blank
+    /// separator, then the echoed input — and the <em>second</em> <c>Submit</c> carries no prelude at all,
+    /// since it was already consumed. Carthage (turn-order seat 1) is used deliberately, the same reason
+    /// the seat-rome golden uses Rome (seat 0, no prelude) instead: this is the one case a prelude exists
+    /// to test.
+    /// </summary>
+    [Fact]
+    public void The_first_submit_flushes_the_construction_time_prelude_and_the_second_does_not()
+    {
+        var session = NewClassicalSeatSession("carthage");
+
+        var first = session.Submit("end");
+
+        Assert.True(first.Lines.Count >= 3, "Expected at least a prelude line, a blank separator and the echoed input.");
+        Assert.StartsWith("Rome (rome) takes its turn: ", first.Lines[0]);
+        Assert.EndsWith(" issued.", first.Lines[0]);
+        Assert.Equal(string.Empty, first.Lines[1]);
+        Assert.Equal("> end", first.Lines[2]);
+
+        var second = session.Submit("end");
+
+        // "Rome takes its turn" legitimately reappears in every round's own AI loop (Rome plays right
+        // before the lap returns to Carthage each time), so the discriminator is not that line's absence
+        // but where the transcript starts: a real per-round line always follows "Carthage ends its turn",
+        // never opens the transcript the way the one-off prelude flush does.
+        Assert.Equal("> end", second.Lines[0]);
+        Assert.Equal("Carthage (carthage) ends its turn.", second.Lines[1]);
     }
 
     // ---- Done-when 3: all-AI without --seat is watch mode ----
@@ -287,7 +344,6 @@ public sealed class SeatCliTests
         Assert.Contains(output!.Lines, line => line.Contains("Unknown nation 'atlantis'", StringComparison.Ordinal));
     }
 
-    /// <summary>Done-when 4: "<c>help</c> lists them" -- only in a <c>--seat</c> session (this task's own "Decision for the user", see the PR body): listing them unconditionally would move <c>tests/fixtures/cli/demo.golden.txt</c>'s own <c>help</c> line, which Done-when 5 forbids.</summary>
     // ---- Hazard: is the --seat human flag saved with the state, or session-only? ----
 
     /// <summary>
@@ -322,11 +378,17 @@ public sealed class SeatCliTests
         Assert.Equal(json, SaveManager.Serialize(reloaded));
     }
 
+    /// <summary>
+    /// Done-when 4 ("<c>help</c> lists them"), as the user decided on PR #375's review: listed in a
+    /// <c>--seat</c> session and in watch mode, but not in a session with a scenario-assigned human seat
+    /// and no <c>--seat</c> (exactly <c>toy-3city</c>'s own default, which keeps
+    /// <c>tests/fixtures/cli/demo.golden.txt</c>'s <c>help</c> line unchanged — Done-when 5).
+    /// </summary>
     [Fact]
-    public void Help_lists_the_compact_views_only_in_a_seat_session()
+    public void Help_lists_the_compact_views_in_a_seat_session_and_in_watch_mode_but_not_in_plain_hotseat()
     {
-        var withoutSeat = NewToySession().Submit("help");
-        Assert.DoesNotContain(withoutSeat.Lines, line => line.Contains("status mine", StringComparison.Ordinal));
+        var plainHotseat = NewToySession().Submit("help");
+        Assert.DoesNotContain(plainHotseat.Lines, line => line.Contains("status mine", StringComparison.Ordinal));
 
         var toy = CoreTestbed.Toy;
         var seated = new GameSession(toy.World, toy.Ruleset, toy.Scenario, seedOverride: null, humanSeatNationId: "south");
@@ -334,5 +396,150 @@ public sealed class SeatCliTests
         Assert.Contains(withSeat.Lines, line => line.Contains("status mine", StringComparison.Ordinal));
         Assert.Contains(withSeat.Lines, line => line.Contains("armies [nation]", StringComparison.Ordinal));
         Assert.Contains(withSeat.Lines, line => line.Contains("cities [nation]", StringComparison.Ordinal));
+
+        var watchMode = NewWatchModeSession().Submit("help");
+        Assert.Contains(watchMode.Lines, line => line.Contains("status mine", StringComparison.Ordinal));
+        Assert.Contains(watchMode.Lines, line => line.Contains("armies [nation]", StringComparison.Ordinal));
+        Assert.Contains(watchMode.Lines, line => line.Contains("cities [nation]", StringComparison.Ordinal));
+    }
+
+    // ---- Done-when 7 (user decision, 2026-09-25, PR #375 review N2/N3): the seat is lost ----
+
+    /// <summary>
+    /// Forces <paramref name="mutate"/> onto <paramref name="nationId"/>'s <see cref="NationState"/> in
+    /// <paramref name="session"/>'s live state, through <see cref="GameSession.State"/>'s own private
+    /// setter — the same reflection the review's own N2/N3 probes used. There is no public way to reach
+    /// this from outside <see cref="GameSession"/> by design (nothing but <see cref="GameSession.Submit"/>
+    /// is supposed to move <see cref="GameSession.State"/> forward), so a real elimination or deposition
+    /// would normally arrive through actual play; this reaches the exact same states directly and
+    /// deterministically, without depending on the AI happening to eliminate or bankrupt a specific nation
+    /// within a bounded number of rounds. When <paramref name="alsoReassignCitiesTo"/> is given, every
+    /// city <paramref name="nationId"/> owns is handed to it too, keeping the state self-consistent the
+    /// way an actual conquest would (a real elimination never leaves an "eliminated" nation still owning
+    /// cities).
+    /// </summary>
+    private static void ForceNationState(
+        GameSession session, string nationId, Func<NationState, NationState> mutate,
+        string? alsoReassignCitiesTo = null)
+    {
+        var current = session.State;
+        var newState = current with
+        {
+            Nations = ValueList.From(current.Nations.Select(n =>
+                string.Equals(n.Id, nationId, StringComparison.Ordinal) ? mutate(n) : n)),
+            Cities = alsoReassignCitiesTo is null
+                ? current.Cities
+                : ValueList.From(current.Cities.Select(c =>
+                    string.Equals(c.Owner, nationId, StringComparison.Ordinal)
+                        ? c with { Owner = alsoReassignCitiesTo }
+                        : c)),
+        };
+
+        typeof(GameSession).GetProperty(nameof(GameSession.State))!.SetValue(session, newState);
+    }
+
+    /// <summary>
+    /// Done-when 7: "If the <c>--seat</c> nation is eliminated ... the CLI prints that it has fallen and
+    /// continues in watch mode: one round per <c>end</c>, no orders, and no seat played twice." Review
+    /// round 1, N2's own probe (Carthage eliminated, then <c>end</c>) found the pre-Done-when-7 loop
+    /// double-playing Seleucid and then pausing on Ptolemaic, an AI seat the CLI would accept orders for.
+    /// </summary>
+    [Fact]
+    public void A_seat_eliminated_mid_game_falls_and_the_session_switches_to_watch_mode()
+    {
+        var session = NewClassicalSeatSession("carthage");
+        ForceNationState(session, "carthage", n => n with { Eliminated = true }, alsoReassignCitiesTo: "rome");
+
+        var output = session.Submit("end");
+
+        Assert.Contains(
+            output.Lines,
+            line => line.Contains("Carthage", StringComparison.Ordinal)
+                    && line.Contains("has fallen", StringComparison.Ordinal));
+
+        // No seat played twice: one "takes its turn" line per seat that was not already eliminated when
+        // this round started (Carthage itself never gets one -- it is gone before its own turn, and was
+        // never re-added to the turn order to begin with).
+        var turnLines = output.Lines
+            .Where(line => line.Contains("takes its turn", StringComparison.Ordinal))
+            .ToList();
+        Assert.Equal(turnLines.Count, turnLines.Distinct(StringComparer.Ordinal).Count());
+        Assert.DoesNotContain(turnLines, line => line.StartsWith("Carthage", StringComparison.Ordinal));
+
+        // Watch mode from here on: no orders, read-only verbs still work.
+        var rejected = session.Submit("declare-war rome");
+        Assert.Contains(rejected.Lines, line => line.Contains("--seat", StringComparison.Ordinal));
+        var status = session.Submit("status");
+        Assert.DoesNotContain(status.Lines, line => line.Contains("--seat", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Done-when 7: "or deposed and handed to the AI, the CLI prints that it has fallen and continues in
+    /// watch mode". Review round 1, N3: deposition does not eliminate the nation, only flips
+    /// <see cref="NationState.Control"/> to <see cref="SeatControl.Ai"/>, so <see cref="GameSession"/>'s
+    /// pre-Done-when-7 pause condition (<c>ActiveNationId == _humanSeatNationId</c>) kept firing for it
+    /// forever, letting the AI play a seat the CLI still offered orders for.
+    /// </summary>
+    [Fact]
+    public void A_seat_deposed_to_ai_falls_and_the_session_switches_to_watch_mode()
+    {
+        var session = NewClassicalSeatSession("carthage");
+        ForceNationState(session, "carthage", n => n with { Control = SeatControl.Ai });
+
+        var output = session.Submit("end");
+
+        Assert.Contains(
+            output.Lines,
+            line => line.Contains("Carthage", StringComparison.Ordinal)
+                    && line.Contains("deposed", StringComparison.Ordinal));
+
+        var turnLines = output.Lines
+            .Where(line => line.Contains("takes its turn", StringComparison.Ordinal))
+            .ToList();
+        Assert.Equal(turnLines.Count, turnLines.Distinct(StringComparer.Ordinal).Count());
+
+        var rejected = session.Submit("declare-war rome");
+        Assert.Contains(rejected.Lines, line => line.Contains("--seat", StringComparison.Ordinal));
+    }
+
+    // ---- Review round 1, N4 / bug #376: the round footer under-counts once the news ring buffer is full ----
+
+    /// <summary>
+    /// Bug #376, found in PR #375's review (N4): <c>NewsLog.Slots.Count</c> saturates at the ruleset's
+    /// 40-slot ring buffer capacity, so a plain count subtraction reads zero new entries once the buffer
+    /// is full, even though real new entries landed (evicting old ones). <c>classical-mediterranean</c>'s
+    /// own starting news log is 27 of 40 slots (the DAT's own scripted 272-271 BC history) — padded here,
+    /// through the real <see cref="NewsLog.Append"/>, to exactly 40/40 before the round runs, so this
+    /// round's own genuine appends are guaranteed to evict something and exercise the saturated path.
+    /// </summary>
+    [Fact]
+    public void The_round_footer_lists_every_news_line_written_even_once_the_ring_buffer_is_full()
+    {
+        var session = NewClassicalSeatSession("rome");
+        Assert.Equal(27, session.State.NewsLog.Slots.Count);
+
+        var padded = session.State.NewsLog;
+        var fillerIndex = 0;
+        while (padded.Slots.Count < session.Ruleset.NewsLog.RingBufferSlots)
+        {
+            padded = padded.Append(new NewsEntry($"Filler entry {fillerIndex++}."), session.Ruleset.NewsLog);
+        }
+
+        Assert.Equal(session.Ruleset.NewsLog.RingBufferSlots, padded.Slots.Count);
+        var newStateWithPaddedLog = session.State with { NewsLog = padded };
+        typeof(GameSession).GetProperty(nameof(GameSession.State))!.SetValue(session, newStateWithPaddedLog);
+
+        var slotsBeforeRound = session.State.NewsLog.Slots.Count;
+        var output = session.Submit("end");
+
+        // The log is still exactly at capacity afterwards (every append evicted one) -- proof the round
+        // really did write through the saturated buffer, not merely append into remaining headroom.
+        Assert.Equal(slotsBeforeRound, session.State.NewsLog.Slots.Count);
+
+        // At least one of the genuine alliance-formation lines the unpadded seat-rome golden shows for
+        // round 1 on this same fixed seed is listed -- proof the footer did not fall back to reporting
+        // zero once saturated.
+        Assert.Contains(output.Lines, line => line.Contains("forms an alliance with", StringComparison.Ordinal));
+        Assert.DoesNotContain(output.Lines, line => line.Contains("Filler entry", StringComparison.Ordinal));
     }
 }

@@ -338,17 +338,19 @@ public sealed partial class GameSession
     /// <see cref="Submit(string)"/> that backs it, which is to say it cannot rot silently, because a typo
     /// or an omission there is a compile-time or a "Unknown command" runtime fact, not a lonely string.
     /// </summary>
-    /// <summary>
-    /// <c>docs/tasks/T83.md</c> Done-when 4: "<c>help</c> lists them" — the three compact views, but only
-    /// in a <c>--seat</c> session. They work in <em>every</em> session (<see cref="DefaultViewNationId"/>
-    /// falls back to whichever seat currently has the turn when no <c>--seat</c> was given), so this is a
-    /// restriction on where they are <em>advertised</em>, not on where they run: listing them
-    /// unconditionally would add lines to the <c>help</c> command's own output, which
-    /// <c>tests/fixtures/cli/demo.golden.txt</c> captures (the demo script's first line is <c>help</c>,
-    /// and it never passes <c>--seat</c>) — Done-when 5 requires that golden to reproduce byte for byte, so
-    /// this is this task's own "Decision for the user" alongside Done-when 3's watch-mode choice; see the
-    /// PR body.
-    /// </summary>
+    /// <remarks>
+    /// <strong>The three compact views (<c>docs/tasks/T83.md</c> Done-when 4) are listed only in a
+    /// <c>--seat</c> session or in watch mode — the user's decision on PR #375's review, replacing this
+    /// task's own original "only in a <c>--seat</c> session" choice.</strong> They work in <em>every</em>
+    /// session regardless (<see cref="DefaultViewNationId"/> falls back to whichever seat currently has
+    /// the turn when no <c>--seat</c> was given), so this is a restriction on where they are
+    /// <em>advertised</em>, not on where they run: listing them unconditionally would add lines to the
+    /// <c>help</c> command's own output, which <c>tests/fixtures/cli/demo.golden.txt</c> captures (the
+    /// demo script's first line is <c>help</c>, run on <c>toy-3city</c> with no <c>--seat</c> and no
+    /// all-AI seats) — Done-when 5 requires that golden to reproduce byte for byte, and a session with a
+    /// scenario-assigned human seat and no <c>--seat</c> is exactly the one case that still gets the
+    /// unadorned list.
+    /// </remarks>
     private IReadOnlyList<string> RenderHelp()
     {
         var lines = new List<string>
@@ -357,7 +359,7 @@ public sealed partial class GameSession
             "  status - show the calendar, nations, armies and cities",
         };
 
-        if (_humanSeatNationId is not null)
+        if (_humanSeatNationId is not null || _isWatchMode)
         {
             lines.Add("  status mine - show only your own nation, armies, fleets and cities");
             lines.Add("  armies [nation] - show one nation's armies (default: yours)");

@@ -55,8 +55,23 @@ public sealed partial class GameSession
     /// Dispatches <paramref name="command"/> and renders a generic outcome line — see this class's
     /// remarks for why every command added by this task shares one renderer.
     /// </summary>
+    /// <remarks>
+    /// <strong>The single choke point every mutating command here funnels through</strong> is exactly why
+    /// <c>docs/tasks/T83.md</c>'s watch-mode/seat-lost gate (<see cref="IsWatchModeActive"/>) lives here
+    /// rather than as a verb allowlist in <see cref="Submit"/> — review round 1, N5: gating a fixed list of
+    /// verb strings could not tell an unrecognised verb (a typo) from a real, refused command, so a typo
+    /// like <c>stauts</c> was reported as a watch-mode rejection instead of "Unknown command". Gating here
+    /// instead means an unrecognised verb never reaches this method at all, and still falls through to
+    /// <see cref="Submit"/>'s own <c>default</c> case. <see cref="HandleMove"/> and <see cref="HandleBuy"/>
+    /// gate themselves the same way, being the only two mutating commands that do not call this method.
+    /// </remarks>
     private IReadOnlyList<string> IssueCommand(ICommand command)
     {
+        if (IsWatchModeActive)
+        {
+            return new[] { WatchModeRejectionLine(command.Kind) };
+        }
+
         var result = _dispatcher.Dispatch(State, command);
         if (result.IsRejected)
         {

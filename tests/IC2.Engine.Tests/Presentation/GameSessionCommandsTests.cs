@@ -234,8 +234,8 @@ public sealed class GameSessionCommandsTests
         // THIS round appended is printed -- not the header alone, and not the whole log either. Because
         // round 1 is non-empty, a fixed trailing count that overshoots round 2's own growth pulls in
         // round 1's tail and fails both this count and the exact-sequence check below (shown in the PR
-        // for k = 10 and k = 50; k = 9 happens to equal this round's own true count and is expected to
-        // still pass -- see the PR body for why that is not a gap).
+        // for k = 10 and k = 50; k = 7 -- reduced from the original 9, see the T83 rework note below --
+        // happens to equal this round's own true count and is expected to still pass).
         var appendedCount = session.State.NewsLog.Slots.Count - countBeforeRound2;
         Assert.Equal(appendedCount, newsLines.Count);
 
@@ -255,11 +255,22 @@ public sealed class GameSessionCommandsTests
         }
 
         // The exact appended sequence, in order: the war declaration, an ordinary city-capture line, the
-        // dash-wrapped elimination, then this round's own two headers (south's quiet turn, then north's)
-        // -- not merely "contains a dash line somewhere", which a wrong trailing count could still
-        // satisfy by accident.
+        // dash-wrapped elimination, then this round's own single week header -- not merely "contains a
+        // dash line somewhere", which a wrong trailing count could still satisfy by accident.
+        //
+        // T83 rework round 1 (review finding N2): this used to assert 9 lines, with a second empty-plus-
+        // "Week" pair at the end. That second pair came from the pre-rework HandleEnd loop replaying north
+        // a second time within this same end -- south is eliminated by the end of north's first play here,
+        // leaving north the sole surviving seat, and SeatRotationSystem's search then lands back on north
+        // itself (nothing else left to rotate to); the old loop's only bound was a raw TurnOrder.Count
+        // guard, which never noticed north had already played and called RunTurn on it again, producing a
+        // second, superfluous turn -- and since a 2-seat turn order's rotation search passes through index
+        // 0 on every single call, that spurious second play produced its own round-tick, hence its own
+        // "Week" header. GameSession.cs's PlayUntilOneFullLapOrRepeat now stops the instant a seat would
+        // repeat, so north plays exactly once here, as Done-when 2's "no seat played twice" already
+        // required elsewhere.
         const string dashLine = "-----------------------------------------------------------";
-        Assert.Equal(9, trimmed.Count);
+        Assert.Equal(7, trimmed.Count);
         Assert.Contains("DECLARES WAR", trimmed[0], StringComparison.Ordinal);
         Assert.Contains("falls to", trimmed[1], StringComparison.Ordinal);
         Assert.Equal(dashLine, trimmed[2]);
@@ -267,8 +278,6 @@ public sealed class GameSessionCommandsTests
         Assert.Equal(dashLine, trimmed[4]);
         Assert.Equal(string.Empty, trimmed[5]);
         Assert.Contains("Week", trimmed[6], StringComparison.Ordinal);
-        Assert.Equal(string.Empty, trimmed[7]);
-        Assert.Contains("Week", trimmed[8], StringComparison.Ordinal);
     }
 
     // ---- #100 item 2: season names come from the ruleset, not a hardcoded duplicate ----
