@@ -71,38 +71,45 @@ public sealed record World(
     public NationDefinition? NationById(string id) => Nations.FindById(n => n.Id, id);
 
     /// <summary>
-    /// Validates <see cref="StartingRelations"/> against this world's own nation list and
-    /// <paramref name="ruleset"/>'s diplomacy rules. A no-op when <see cref="StartingRelations"/> is
-    /// <see langword="null"/>.
+    /// Validates <see cref="StartingRelations"/>'s <em>shape</em> against this world's own nation list —
+    /// the half of T75 Done-when 2 that needs no <see cref="Ruleset"/>, called from
+    /// <see cref="IC2.Engine.Serialization.GameDataValidation.Validate"/> at load time. A no-op when
+    /// <see cref="StartingRelations"/> is <see langword="null"/>.
     /// </summary>
     /// <remarks>
-    /// T75 Done-when 2. Not currently wired into <see cref="IC2.Engine.Serialization.GameDataLoader"/> /
-    /// <see cref="IC2.Engine.Serialization.GameDataValidation"/> — see this task's PR for why (a scope
-    /// note, not a design decision): those files are outside this task's Owns list, so "loading a world
-    /// rejects" is not yet true end-to-end. This method is the validation itself, ready to be called from
-    /// <c>GameDataValidation.ValidateWorld</c> once that wiring is agreed.
+    /// <see cref="IC2.Engine.Serialization.GameDataValidation.ValidateWorld"/> checks that every matrix
+    /// nation id actually resolves (as <see cref="IC2.Engine.Serialization.UnresolvedReferenceException"/>)
+    /// <em>before</em> calling this method — so by the time this runs, every id in
+    /// <see cref="DiplomaticRelations.NationIds"/> is already known to be one of <see cref="Nations"/>,
+    /// and the "exactly the world's nations, each once" check below is purely about missing or duplicated
+    /// ids, not unknown ones. The ruleset-dependent half — a value outside the ruleset's relation codes
+    /// and cooldown range — is <see cref="GameStateFactory"/>'s own check, made when a ruleset is actually
+    /// available.
     /// </remarks>
     /// <exception cref="InvalidOperationException">
-    /// The matrix is not symmetric, sized to its own nation list; a diagonal entry is non-zero; a value
-    /// lies outside the ruleset's relation codes and cooldown range; or a matrix nation id is not one of
-    /// <see cref="Nations"/>.
+    /// <see cref="DiplomaticRelations.NationIds"/> is not exactly <see cref="Nations"/>' own ids, each
+    /// once, in the same order (T75 rework B2: a missing or duplicated nation used to pass and then crash
+    /// the first diplomacy lookup for the missing one); the matrix is not square or not symmetric; or a
+    /// diagonal entry is non-zero.
     /// </exception>
-    public void ValidateStartingRelations(Ruleset ruleset)
+    public void ValidateStartingRelationsShape()
     {
-        ArgumentNullException.ThrowIfNull(ruleset);
-
         if (StartingRelations is not { } relations)
         {
             return;
         }
 
-        foreach (var nationId in relations.NationIds)
+        // Exactly the world's own nations, each once, in the same order -- not just the same set. The
+        // order match keeps NationIds-order iteration (QuarterlyThawSystem, PeaceTreatySystem,
+        // RelationTransitions, PendingOfferSystem) identical to the uniform-peace default's own order,
+        // and a plain set-equality check would still accept a matrix that agreed with Nations on
+        // membership but disagreed on order.
+        var worldIds = Nations.Select(n => n.Id).ToArray();
+        if (!relations.NationIds.SequenceEqual(worldIds))
         {
-            if (NationById(nationId) is null)
-            {
-                throw new InvalidOperationException(
-                    $"startingRelations names nation '{nationId}', which this world does not define.");
-            }
+            throw new InvalidOperationException(
+                "startingRelations' nation list must be exactly this world's own nations, each once, in "
+                + "the same order as \"nations\".");
         }
 
         if (!relations.IsWellFormed())
@@ -120,55 +127,27 @@ public sealed record World(
                     + $"{relations.Matrix[i][i]}, not 0.");
             }
         }
-
-        var codes = ruleset.Diplomacy.StateCodes;
-        var maxCode = Math.Max(Math.Max(codes.Peace, codes.Trade), Math.Max(codes.Alliance, codes.War));
-        var minCooldown = Math.Min(
-            Math.Min(ruleset.Diplomacy.CooldownAfterBrokenTrade, ruleset.Diplomacy.CooldownAfterBrokenAlliance),
-            Math.Min(
-                ruleset.Diplomacy.CooldownAfterEndedWar,
-                Math.Min(ruleset.Diplomacy.CooldownAfterPeaceTerms, ruleset.Diplomacy.CooldownAfterAllyPeace)));
-
-        foreach (var row in relations.Matrix)
-        {
-            foreach (var value in row)
-            {
-                if (value < minCooldown || value > maxCode)
-                {
-                    throw new InvalidOperationException(
-                        $"startingRelations has a value {value} outside the ruleset's relation-code/"
-                        + $"cooldown range [{minCooldown}, {maxCode}].");
-                }
-            }
-        }
     }
 
     /// <summary>
-    /// Validates <see cref="StartingNews"/> against <paramref name="ruleset"/>'s news-log geometry. A
-    /// no-op when <see cref="StartingNews"/> is <see langword="null"/>.
+    /// Validates <see cref="StartingNews"/>'s <em>shape</em> — the half of T75 Done-when 2 that needs no
+    /// <see cref="Ruleset"/>, called from <see cref="IC2.Engine.Serialization.GameDataValidation.Validate"/>
+    /// at load time. A no-op when <see cref="StartingNews"/> is <see langword="null"/>.
     /// </summary>
     /// <remarks>
-    /// T75 Done-when 2. Same wiring note as <see cref="ValidateStartingRelations"/>: not currently called
-    /// from the load path, for the same Owns-list scope reason.
+    /// The ruleset-dependent half — a slot text over the ruleset's message length in bytes, or holding a
+    /// byte outside the printable range the news writer and the DAT parser accept — is
+    /// <see cref="GameStateFactory"/>'s own check, made when a ruleset is actually available.
     /// </remarks>
     /// <exception cref="InvalidOperationException">
-    /// <see cref="NewsLog.MostRecentSlot"/> is outside <c>-1 .. RingBufferSlots - 1</c>, does not address
-    /// the last of <see cref="NewsLog.Slots"/>, or a slot's text exceeds the ruleset's message length.
+    /// <see cref="NewsLog.MostRecentSlot"/> does not equal <c>Slots.Count - 1</c> (<c>-1</c> for an empty
+    /// log) — the same rule <see cref="NewsLog.IsConsistent"/> enforces on a saved state.
     /// </exception>
-    public void ValidateStartingNews(Ruleset ruleset)
+    public void ValidateStartingNewsShape()
     {
-        ArgumentNullException.ThrowIfNull(ruleset);
-
         if (StartingNews is not { } news)
         {
             return;
-        }
-
-        if (news.MostRecentSlot < -1 || news.MostRecentSlot > ruleset.NewsLog.RingBufferSlots - 1)
-        {
-            throw new InvalidOperationException(
-                $"startingNews.mostRecentSlot {news.MostRecentSlot} is outside "
-                + $"-1..{ruleset.NewsLog.RingBufferSlots - 1}.");
         }
 
         if (!news.IsConsistent())
@@ -176,17 +155,6 @@ public sealed record World(
             throw new InvalidOperationException(
                 $"startingNews.mostRecentSlot {news.MostRecentSlot} does not address the last of its "
                 + $"{news.Slots.Count} slots.");
-        }
-
-        var maxTextBytes = ruleset.NewsLog.MessageByteLength - 1;
-        foreach (var slot in news.Slots)
-        {
-            if (slot.Text.Length > maxTextBytes)
-            {
-                throw new InvalidOperationException(
-                    $"startingNews has a slot text of {slot.Text.Length} bytes, over the ruleset's "
-                    + $"{maxTextBytes}-byte limit.");
-            }
         }
     }
 }

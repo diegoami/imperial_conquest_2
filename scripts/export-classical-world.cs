@@ -670,16 +670,15 @@ var scenario = new Scenario(
 GameDataValidation.Validate("classical-mediterranean.json (scenario, in-memory)", scenario);
 Console.WriteLine("Scenario passes GameDataValidation.");
 
-// Sanity: the scenario must actually build a GameState against this world/ruleset.
+// Sanity: the scenario must actually build a GameState against this world/ruleset. T75's own DoD 2
+// checks are already exercised here, end to end: GameDataValidation.Validate(world) above (section 8)
+// runs the load-time half (World.ValidateStartingRelationsShape/ValidateStartingNewsShape, wired into
+// GameDataValidation.ValidateWorld), and this call runs the ruleset-dependent half
+// (GameStateFactory's own value-range and message-length/printable-byte checks) -- so the DAT's own
+// real startingRelations/startingNews are proven to pass every one of Done-when 2's checks, not just
+// the synthetic ones in the test suite.
 _ = GameStateFactory.CreateInitial(world, ruleset, scenario);
-Console.WriteLine("Scenario + world + ruleset build an initial GameState with no errors.");
-
-// T75: the DAT's own starting relations and news seed must themselves pass the checks Done-when 2
-// describes -- not wired into GameDataLoader/GameDataValidation (outside this task's Owns list; see
-// the PR), but run here as a self-check the same way GameDataValidation.Validate above already is.
-world.ValidateStartingRelations(ruleset);
-world.ValidateStartingNews(ruleset);
-Console.WriteLine("startingRelations and startingNews pass World's own validation.");
+Console.WriteLine("Scenario + world + ruleset build an initial GameState with no errors (T75 DoD 2 checks included).");
 
 // ============================================================================================
 // 11. Write the four files, canonical form (GameJson.Serialize), UTF-8, no BOM, LF line endings

@@ -6,30 +6,30 @@ using ModelTestPaths = IC2.Engine.Tests.Model.TestPaths;
 namespace IC2.Engine.Tests.Model;
 
 /// <summary>
-/// T75 Done-when 2: <see cref="World.ValidateStartingRelations"/> and
-/// <see cref="World.ValidateStartingNews"/> each reject the six malformed shapes the task entry names,
-/// with a typed error (<see cref="InvalidOperationException"/> — the same type
-/// <see cref="TerrainGrid.Decode"/> and <see cref="Ruleset.ValidateSeasonNames"/> throw for the same
-/// reason: <c>GameDataValidation</c> is the layer that turns a model-level <see cref="InvalidOperationException"/>
-/// into a <see cref="MalformedGameDataException"/> naming the document).
+/// T75 Done-when 2's load-time half: a matrix that is not symmetric; a non-zero diagonal; a nation id
+/// not in the world; a matrix whose nation ids are not exactly the world's nations, each once (T75
+/// rework B2: missing or duplicated); and a news index that does not address the last of its slots.
+/// Each goes through <see cref="GameDataValidation.Validate"/> — the exact call
+/// <see cref="GameDataLoader.Load{T}(string,string)"/> itself makes after deserializing — so these
+/// tests prove <strong>loading</strong> rejects, not just that the checking method does (T75 rework B1).
 /// </summary>
 /// <remarks>
-/// These methods are not yet called from <see cref="GameDataLoader.Load{T}(string,string)"/> — see this
-/// task's PR for why (a scope note: wiring them in touches <c>GameDataValidation.ValidateWorld</c>, which
-/// is outside this task's Owns list). Tested here by calling them directly, against the shipped toy
-/// world's own three nations, so a future wiring change has full coverage of the checks themselves
-/// already in place.
+/// The ruleset-dependent half of Done-when 2 — a relation value outside the ruleset's codes/cooldown
+/// range, and a news text over the ruleset's message length in bytes or holding a non-printable byte —
+/// needs a <see cref="Ruleset"/>, which <see cref="GameDataValidation.ValidateWorld"/> does not have;
+/// those checks run in <see cref="GameStateFactory"/> instead and are tested in
+/// <see cref="GameStateFactoryStartingDataTests"/>.
 /// </remarks>
 public class WorldStartingDataValidationTests
 {
     private static World ToyWorld() => GameDataLoader.LoadFile<World>(ModelTestPaths.ToyWorldFile);
 
-    private static Ruleset ToyRuleset() => GameDataLoader.LoadFile<Ruleset>(ModelTestPaths.ToyRulesetFile);
-
     private static string[] ToyNationIds() => ToyWorld().Nations.Select(n => n.Id).ToArray();
 
     private static DiplomaticRelations UniformMatrix(string[] nationIds, int value) =>
         DiplomaticRelations.Uniform(ValueList.From(nationIds), value);
+
+    private const string DocumentPath = "world-under-test.json (in-memory)";
 
     /// <summary>A world with no starting data at all validates as a no-op for both checks.</summary>
     [Fact]
@@ -39,36 +39,32 @@ public class WorldStartingDataValidationTests
         Assert.Null(world.StartingRelations);
         Assert.Null(world.StartingNews);
 
-        world.ValidateStartingRelations(ToyRuleset());
-        world.ValidateStartingNews(ToyRuleset());
+        GameDataValidation.Validate(DocumentPath, world);
     }
 
-    /// <summary>A well-formed, all-peace matrix over the world's own nations passes.</summary>
+    /// <summary>A well-formed, all-peace matrix over exactly the world's own nations, in order, passes.</summary>
     [Fact]
     public void A_well_formed_all_peace_matrix_passes()
     {
         var ids = ToyNationIds();
-        var ruleset = ToyRuleset();
-        var world = ToyWorld() with { StartingRelations = UniformMatrix(ids, ruleset.Diplomacy.StateCodes.Peace) };
+        var world = ToyWorld() with { StartingRelations = UniformMatrix(ids, 0) };
 
-        world.ValidateStartingRelations(ruleset);
+        GameDataValidation.Validate(DocumentPath, world);
     }
 
     [Fact]
     public void A_matrix_that_is_not_symmetric_is_rejected()
     {
         var ids = ToyNationIds();
-        var ruleset = ToyRuleset();
-        var uniform = UniformMatrix(ids, ruleset.Diplomacy.StateCodes.Peace);
-        // WithRelation always keeps [a][b] and [b][a] equal by construction (DiplomaticRelations'
-        // own doc comment), so an intentionally lopsided matrix has to be built by hand instead.
+        var uniform = UniformMatrix(ids, 0);
+        // WithRelation always keeps [a][b] and [b][a] equal by construction (DiplomaticRelations' own
+        // doc comment), so an intentionally lopsided matrix has to be built by hand instead.
         var rows = uniform.Matrix.Select(r => r.ToArray()).ToArray();
-        rows[0][1] = ruleset.Diplomacy.StateCodes.War; // [0][1] = War but [1][0] stays Peace
+        rows[0][1] = 3; // War: [0][1] = War but [1][0] stays Peace
         var lopsided = new DiplomaticRelations(uniform.NationIds, ValueList.From(rows.Select(ValueList.From)));
-
         var world = ToyWorld() with { StartingRelations = lopsided };
 
-        var ex = Assert.Throws<InvalidOperationException>(() => world.ValidateStartingRelations(ruleset));
+        var ex = Assert.Throws<MalformedGameDataException>(() => GameDataValidation.Validate(DocumentPath, world));
         Assert.Contains("symmetric", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -76,104 +72,83 @@ public class WorldStartingDataValidationTests
     public void A_non_zero_diagonal_is_rejected()
     {
         var ids = ToyNationIds();
-        var ruleset = ToyRuleset();
-        var uniform = UniformMatrix(ids, ruleset.Diplomacy.StateCodes.Peace);
+        var uniform = UniformMatrix(ids, 0);
         var rows = uniform.Matrix.Select(r => r.ToArray()).ToArray();
-        rows[0][0] = ruleset.Diplomacy.StateCodes.War; // still "symmetric" (diagonal), just non-zero
+        rows[0][0] = 3; // War: still "symmetric" (it's the diagonal), just non-zero
         var badDiagonal = new DiplomaticRelations(uniform.NationIds, ValueList.From(rows.Select(ValueList.From)));
-
         var world = ToyWorld() with { StartingRelations = badDiagonal };
 
-        var ex = Assert.Throws<InvalidOperationException>(() => world.ValidateStartingRelations(ruleset));
+        var ex = Assert.Throws<MalformedGameDataException>(() => GameDataValidation.Validate(DocumentPath, world));
         Assert.Contains("diagonal", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
-    [Fact]
-    public void A_value_outside_the_relation_code_and_cooldown_range_is_rejected()
-    {
-        var ids = ToyNationIds();
-        var ruleset = ToyRuleset();
-        var minCooldown = new[]
-        {
-            ruleset.Diplomacy.CooldownAfterBrokenTrade,
-            ruleset.Diplomacy.CooldownAfterBrokenAlliance,
-            ruleset.Diplomacy.CooldownAfterEndedWar,
-            ruleset.Diplomacy.CooldownAfterPeaceTerms,
-            ruleset.Diplomacy.CooldownAfterAllyPeace,
-        }.Min();
-
-        // Only the off-diagonal cells go out of range -- the diagonal stays 0, so this test isolates
-        // the value-range check from the (separately tested) non-zero-diagonal check.
-        var uniform = UniformMatrix(ids, ruleset.Diplomacy.StateCodes.Peace);
-        var rows = uniform.Matrix.Select(r => r.ToArray()).ToArray();
-        rows[0][1] = minCooldown - 1;
-        rows[1][0] = minCooldown - 1; // keep it symmetric, so this is the only rule tripped
-        var outOfRange = new DiplomaticRelations(uniform.NationIds, ValueList.From(rows.Select(ValueList.From)));
-
-        var world = ToyWorld() with { StartingRelations = outOfRange };
-
-        var ex = Assert.Throws<InvalidOperationException>(() => world.ValidateStartingRelations(ruleset));
-        Assert.Contains("range", ex.Message, StringComparison.OrdinalIgnoreCase);
-    }
-
+    /// <summary>T75 rework B1: an unknown nation id is a typed reference failure, not a generic malformed one.</summary>
     [Fact]
     public void A_nation_id_not_in_the_world_is_rejected()
     {
-        var ruleset = ToyRuleset();
         var badIds = new[] { "not-a-real-nation", "also-not-real" };
-        var world = ToyWorld() with { StartingRelations = UniformMatrix(badIds, ruleset.Diplomacy.StateCodes.Peace) };
+        var world = ToyWorld() with { StartingRelations = UniformMatrix(badIds, 0) };
 
-        var ex = Assert.Throws<InvalidOperationException>(() => world.ValidateStartingRelations(ruleset));
-        Assert.Contains("not-a-real-nation", ex.Message, StringComparison.Ordinal);
+        var ex = Assert.Throws<UnresolvedReferenceException>(() => GameDataValidation.Validate(DocumentPath, world));
+        Assert.Equal("nation", ex.Kind);
+        Assert.Equal("not-a-real-nation", ex.Id);
     }
 
-    /// <summary>A well-formed news log (a few short slots, a consistent index) passes.</summary>
+    /// <summary>
+    /// T75 rework B2: a matrix missing one of the world's nations used to pass and then crash the first
+    /// diplomacy lookup for the missing nation; it is now rejected at load.
+    /// </summary>
+    [Fact]
+    public void A_matrix_missing_a_world_nation_is_rejected()
+    {
+        var ids = ToyNationIds();
+        var partial = new[] { ids[0] }; // "north" only -- "south" is missing
+        var world = ToyWorld() with { StartingRelations = UniformMatrix(partial, 0) };
+
+        var ex = Assert.Throws<MalformedGameDataException>(() => GameDataValidation.Validate(DocumentPath, world));
+        Assert.Contains("exactly this world's own nations", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>T75 rework B2: a matrix that lists one nation twice (and so omits another) is rejected.</summary>
+    [Fact]
+    public void A_matrix_with_a_duplicated_nation_id_is_rejected()
+    {
+        var ids = ToyNationIds();
+        var duplicated = new[] { ids[0], ids[0] }; // "north" twice -- "south" never appears
+        var world = ToyWorld() with { StartingRelations = UniformMatrix(duplicated, 0) };
+
+        var ex = Assert.Throws<MalformedGameDataException>(() => GameDataValidation.Validate(DocumentPath, world));
+        Assert.Contains("exactly this world's own nations", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>A well-formed news log (a few short slots, an index addressing the last one) passes.</summary>
     [Fact]
     public void A_well_formed_news_log_passes()
     {
-        var ruleset = ToyRuleset();
         var slots = ValueList.Of(new NewsEntry("First."), new NewsEntry("Second."));
         var world = ToyWorld() with { StartingNews = new NewsLog(MostRecentSlot: 1, slots) };
 
-        world.ValidateStartingNews(ruleset);
+        GameDataValidation.Validate(DocumentPath, world);
     }
 
+    /// <summary>T75 rework N1: an index below -1 (an empty log's only valid value) is rejected.</summary>
     [Fact]
-    public void A_news_text_over_the_ruleset_message_length_is_rejected()
+    public void A_news_index_of_minus_two_is_rejected()
     {
-        var ruleset = ToyRuleset();
-        var tooLong = new string('x', ruleset.NewsLog.MessageByteLength); // == limit, so 1 over the -1 budget
-        var slots = ValueList.Of(new NewsEntry(tooLong));
-        var world = ToyWorld() with { StartingNews = new NewsLog(MostRecentSlot: 0, slots) };
+        var world = ToyWorld() with { StartingNews = new NewsLog(MostRecentSlot: -2, ValueList<NewsEntry>.Empty) };
 
-        var ex = Assert.Throws<InvalidOperationException>(() => world.ValidateStartingNews(ruleset));
-        Assert.Contains("byte", ex.Message, StringComparison.OrdinalIgnoreCase);
+        var ex = Assert.Throws<MalformedGameDataException>(() => GameDataValidation.Validate(DocumentPath, world));
+        Assert.Contains("does not address", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>T75 rework N1: an index that names some slot other than the last one is rejected.</summary>
     [Fact]
-    public void A_news_index_outside_minus_one_to_slots_minus_one_is_rejected()
+    public void A_news_index_that_does_not_address_the_last_slot_is_rejected()
     {
-        var ruleset = ToyRuleset();
-        var tooManySlots = Enumerable.Range(0, ruleset.NewsLog.RingBufferSlots + 1)
-            .Select(i => new NewsEntry($"slot {i}"))
-            .ToArray();
-        var world = ToyWorld() with
-        {
-            StartingNews = new NewsLog(MostRecentSlot: ruleset.NewsLog.RingBufferSlots, ValueList.Of(tooManySlots)),
-        };
-
-        var ex = Assert.Throws<InvalidOperationException>(() => world.ValidateStartingNews(ruleset));
-        Assert.Contains("mostRecentSlot", ex.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void An_inconsistent_index_that_does_not_address_the_last_slot_is_rejected()
-    {
-        var ruleset = ToyRuleset();
         var slots = ValueList.Of(new NewsEntry("Only one slot."));
         var world = ToyWorld() with { StartingNews = new NewsLog(MostRecentSlot: 5, slots) };
 
-        var ex = Assert.Throws<InvalidOperationException>(() => world.ValidateStartingNews(ruleset));
+        var ex = Assert.Throws<MalformedGameDataException>(() => GameDataValidation.Validate(DocumentPath, world));
         Assert.Contains("does not address", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 }

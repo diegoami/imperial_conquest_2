@@ -169,7 +169,7 @@ public static class GameStateFactory
             Fleets: ValueList<FleetState>.Of(fleets),
             MercenaryPool: ValueList<MercenaryPoolSlot>.Empty,
             Relations: StartingRelationsFor(world, ruleset, nations),
-            NewsLog: world.StartingNews ?? NewsLog.Empty,
+            NewsLog: StartingNewsFor(world, ruleset),
             PendingOffer: null);
     }
 
@@ -178,16 +178,114 @@ public static class GameStateFactory
     /// carries one (T75 — the DAT's matrix, kept verbatim, no cooldowns rolled forward), otherwise
     /// uniform peace exactly as before this field existed.
     /// </summary>
+    /// <remarks>
+    /// T75 Done-when 2's ruleset-dependent half: <see cref="World.ValidateStartingRelationsShape"/> (run
+    /// at load, no ruleset available) already guarantees the matrix is well-formed and keyed to exactly
+    /// this world's nations; the one check that needs a <see cref="Ruleset"/> — every value is one of the
+    /// ruleset's own relation codes or a cooldown within its range — can only run here, once a ruleset
+    /// actually exists.
+    /// </remarks>
+    /// <exception cref="ArgumentException">
+    /// A matrix cell is neither one of <paramref name="ruleset"/>'s relation codes nor a cooldown within
+    /// its configured range.
+    /// </exception>
     private static DiplomaticRelations StartingRelationsFor(World world, Ruleset ruleset, NationState[] nations)
     {
         if (world.StartingRelations is { } startingRelations)
         {
+            ValidateStartingRelationValues(startingRelations, ruleset);
             return startingRelations;
         }
 
         return DiplomaticRelations.Uniform(
             ValueList.From(nations.Select(n => n.Id)),
             ruleset.Diplomacy.StateCodes.Peace);
+    }
+
+    /// <summary>
+    /// Checks every cell against the ruleset's own relation codes explicitly, rather than assuming the
+    /// codes are a contiguous <c>0..max</c> range: a ruleset whose codes are not contiguous would
+    /// otherwise let a gap value through (T75 rework N2).
+    /// </summary>
+    private static void ValidateStartingRelationValues(DiplomaticRelations relations, Ruleset ruleset)
+    {
+        var codes = ruleset.Diplomacy.StateCodes;
+        var validCodes = new HashSet<int> { codes.Peace, codes.Trade, codes.Alliance, codes.War };
+        var minCooldown = Math.Min(
+            Math.Min(ruleset.Diplomacy.CooldownAfterBrokenTrade, ruleset.Diplomacy.CooldownAfterBrokenAlliance),
+            Math.Min(
+                ruleset.Diplomacy.CooldownAfterEndedWar,
+                Math.Min(ruleset.Diplomacy.CooldownAfterPeaceTerms, ruleset.Diplomacy.CooldownAfterAllyPeace)));
+
+        foreach (var row in relations.Matrix)
+        {
+            foreach (var value in row)
+            {
+                var isKnownCode = validCodes.Contains(value);
+                var isCooldown = value < 0 && value >= minCooldown;
+                if (!isKnownCode && !isCooldown)
+                {
+                    throw new ArgumentException(
+                        $"startingRelations has a value {value}, which is neither one of the ruleset's "
+                        + $"relation codes ({string.Join(", ", validCodes.OrderBy(v => v))}) nor a "
+                        + $"cooldown in [{minCooldown}, -1].",
+                        nameof(ruleset));
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// The starting news log: the world's own <see cref="World.StartingNews"/> when it carries one (T75
+    /// — the DAT's 27-line seed, kept verbatim), otherwise an empty log exactly as before this field
+    /// existed.
+    /// </summary>
+    /// <remarks>
+    /// T75 Done-when 2's ruleset-dependent half: <see cref="World.ValidateStartingNewsShape"/> (run at
+    /// load, no ruleset available) already guarantees <c>mostRecentSlot</c> addresses the last slot; the
+    /// two checks that need a <see cref="Ruleset"/> — a slot's text within the message-length budget,
+    /// counted in bytes, and holding only printable bytes — can only run here.
+    /// </remarks>
+    /// <exception cref="ArgumentException">
+    /// A slot's text holds a byte outside the printable 0x20-0x7E range the news writer and the DAT
+    /// parser both accept, or exceeds <paramref name="ruleset"/>'s message length once counted in bytes.
+    /// </exception>
+    private static NewsLog StartingNewsFor(World world, Ruleset ruleset)
+    {
+        if (world.StartingNews is not { } startingNews)
+        {
+            return NewsLog.Empty;
+        }
+
+        // The printable-byte check runs first, over every character, before any length is compared:
+        // "length in bytes" only equals string.Length once every character is confirmed single-byte
+        // ASCII (T75 rework B4) -- the same invariant SaveNewsLog.ReadSlotText and
+        // NewsLogWriter.TruncateToByteLength both enforce on the DAT parse and the news writer's own
+        // output, so a slot that violates it is rejected before its "length" is trusted as a byte count.
+        var maxTextBytes = ruleset.NewsLog.MessageByteLength - 1;
+        foreach (var slot in startingNews.Slots)
+        {
+            foreach (var ch in slot.Text)
+            {
+                if (ch is < (char)0x20 or > (char)0x7E)
+                {
+                    throw new ArgumentException(
+                        $"startingNews has a slot text with a byte outside the printable 0x20-0x7E "
+                        + $"range: 0x{(int)ch:X2}.",
+                        nameof(world));
+                }
+            }
+
+            if (slot.Text.Length > maxTextBytes)
+            {
+                throw new ArgumentException(
+                    $"startingNews has a slot text of {slot.Text.Length} bytes, over the ruleset's "
+                    + $"{maxTextBytes}-byte limit.",
+                    nameof(world));
+            }
+        }
+
+        return startingNews;
     }
 
     private static int CellAt(int[] terrain, World world, int x, int y)
