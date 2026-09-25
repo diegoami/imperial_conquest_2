@@ -32,9 +32,13 @@ namespace IC2.Engine.Diplomacy;
 /// same "swap a poorer partner for a richer one" shape <see cref="AiOwnDiplomacyRule.FindTradeSwap"/>
 /// uses for the AI's own trades); offer = ALLIANCE instead — overriding a trade already set this same
 /// roll — if r is a <see cref="NeighbourGeography"/> neighbour of h and h is not at war with anyone.</c>
-/// Every one of the 6 observed pending offers in the corpus is a trade offer, consistent with this rule:
-/// none of those six human seats had a neighbouring AI (report §1b's own worked example, Rome → Thracia,
-/// is exactly this case — Thracia borders neither Rome nor any of its three trade-observed proposers).
+/// Every one of the 6 observed pending offers in the corpus is a trade offer, consistent with this rule.
+/// Rework round 1, N7 correction: this used to claim none of those six human seats had a neighbouring AI
+/// at all; the report's own worked example (§1b, Rome → Thracia) gives a narrower reason instead —
+/// Rome's own offers stayed trade-only because Rome was at war with Gaul, which alone forces the
+/// alliance override's "h is not at war with anyone" clause to fail regardless of any proposer's
+/// neighbour status. The broader "no neighbouring AI" reading is not the report's own claim and is
+/// retracted here rather than left implied.
 /// </para>
 /// <para>
 /// Registered at <see cref="TurnPhase.SeatStart"/>, matching <c>TPremierForm_StartTurn</c>'s own place in

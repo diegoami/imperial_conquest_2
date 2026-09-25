@@ -17,8 +17,12 @@ namespace IC2.Engine.Diplomacy;
 /// whole busy/war/alliance/trade sequence as a single atomic pass with the two random draws at fixed
 /// points inside it. This engine's AI is a greedy "propose every candidate, score them, take the best,
 /// look again" loop (<c>docs/game-design.md</c> §AI; <see cref="IC2.Engine.Ai.AiTurn"/>), re-run after every single
-/// action a seat takes — restructuring that loop into a once-per-turn atomic call is outside this task's
-/// Owns list (<see cref="IC2.Engine.Ai.AiTurn"/> and <see cref="IC2.Engine.Ai.AiView"/> are not in it). So the war target, the
+/// action a seat takes — restructuring that loop into a once-per-turn atomic call is still outside this
+/// task's Owns list even after the rework round 1 amendment (N7 correction: <see cref="IC2.Engine.Ai.AiTurn"/>
+/// is in the Owns list now, but only for one narrow addition — passing the seat-turn's own
+/// <see cref="IC2.Engine.Core.IRng"/> one call further into <see cref="IC2.Engine.Ai.AiDiplomacyPhase"/> — not for
+/// restructuring its own loop; <see cref="IC2.Engine.Ai.AiView"/> was never touched at all, needing no change to carry
+/// that same <c>IRng</c> through). So the war target, the
 /// alliance partner and every eligible trade partner are each offered as their own candidate instead,
 /// each written the moment it is chosen — still "direct, no consent step" — and the two chance rolls are
 /// each decided once, idempotently, from a named stream keyed by the seat and the turn

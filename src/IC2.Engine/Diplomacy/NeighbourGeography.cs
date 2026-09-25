@@ -48,17 +48,21 @@ namespace IC2.Engine.Diplomacy;
 /// <item>
 /// <strong>Whole-map Voronoi</strong> (every tile assigned to its nearest city, any nation) reproduces
 /// every relationship the report confirms — nothing is missing for Rome, Carthage or Thracia — but adds
-/// false positives: Rome ↔ Greece and Rome ↔ Ptolemaic (again, Greece's scattered colonies), and,
-/// for Thracia, Bithynia and Seleucid across the narrow strait at Byzantium.
+/// false positives: Rome ↔ Greece, Carthage ↔ Greece and Rome ↔ Ptolemaic (the first two both from
+/// Greece's scattered colonies), and, for Thracia, Bithynia and Seleucid across the narrow strait at
+/// Byzantium.
 /// </item>
 /// <item>
 /// <strong>This method</strong>: the same whole-map Voronoi, restricted to each nation's own largest
 /// connected region (dropping small colonial enclaves before any border is measured — this alone
 /// removes Carthage ↔ Greece outright, since Carthage's real territory never touches one of Greece's
 /// enclaves) and then requiring the shared border to be at least <see cref="MinimumBorderTiles"/> tiles
-/// long (dropping thin slivers — Rome ↔ Ptolemaic falls from 54/46/32/18/3 tiles per neighbour down to
-/// a 3-tile sliver once enclaves are dropped, well under the threshold, while every one of the report's
-/// nine confirmed pairs keeps a border of 18 tiles or more).
+/// long (dropping thin slivers — Rome ↔ Ptolemaic falls to a 3-tile sliver once enclaves are dropped,
+/// well under the threshold, while every one of the report's nine confirmed pairs keeps a border of 18
+/// tiles or more). Rework round 1, N7 correction: an earlier revision of this item listed Rome ↔ Greece
+/// and Rome ↔ Ptolemaic as step 3's only false positives while separately crediting this step with
+/// removing Carthage ↔ Greece — a pair step 3's own list never mentioned having added in the first
+/// place. It is added above so both items agree.
 /// </item>
 /// </list>
 /// <para>
@@ -143,15 +147,39 @@ public static class NeighbourGeography
         return map.TryGetValue(nationAId, out var neighbours) && neighbours.Contains(nationBId);
     }
 
-    /// <summary>Every nation <paramref name="nationId"/> borders in <paramref name="world"/>, in no particular order.</summary>
+    /// <summary>
+    /// Every nation <paramref name="nationId"/> borders in <paramref name="world"/>, in
+    /// <see cref="World.Nations"/>' own stable order.
+    /// </summary>
+    /// <remarks>
+    /// Rework round 1, N8: this used to hand out the internal lookup <see cref="HashSet{T}"/> directly,
+    /// "in no particular order" — a trap for a future caller that iterates the result, since the engine's
+    /// own determinism guard forbids relying on a <see cref="HashSet{T}"/>'s enumeration order elsewhere
+    /// in this codebase. <see cref="AreNeighbours"/> keeps using the cached set directly, for its O(1)
+    /// membership check; only this method's own result is now ordered, at the boundary.
+    /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="world"/> or <paramref name="nationId"/> is null.</exception>
-    public static IReadOnlySet<string> NeighboursOf(World world, string nationId)
+    public static IReadOnlyList<string> NeighboursOf(World world, string nationId)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(nationId);
 
         var map = Cache.GetValue(world, BuildNeighbourMap);
-        return map.TryGetValue(nationId, out var neighbours) ? neighbours : EmptySet;
+        if (!map.TryGetValue(nationId, out var neighbours) || neighbours.Count == 0)
+        {
+            return Array.Empty<string>();
+        }
+
+        var ordered = new List<string>(neighbours.Count);
+        foreach (var nation in world.Nations)
+        {
+            if (neighbours.Contains(nation.Id))
+            {
+                ordered.Add(nation.Id);
+            }
+        }
+
+        return ordered;
     }
 
     private static readonly HashSet<string> EmptySet = new(StringComparer.Ordinal);

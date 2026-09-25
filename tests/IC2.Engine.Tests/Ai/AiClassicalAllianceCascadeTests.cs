@@ -62,8 +62,11 @@ public sealed class AiClassicalAllianceCascadeTests
             Assert.Equal(0, result.CommandsRejected);
             Assert.Equal(0, result.ProjectionMismatches);
 
+            // Rework round 1, N6: tightened from < 5 to <= 1. Observed counts across these 5 seeds are
+            // 0, 1, 0, 0, 0 -- < 5 left a wide, untested margin above what actually happens; <= 1 still
+            // passes today and reddens well before anything resembling the old ~38-alliance cascade.
             Assert.True(
-                allianceCount < 5,
+                allianceCount <= 1,
                 $"seed {seed}: expected no alliance cascade (the user saw ~38 under the old heuristic), "
                 + $"got {allianceCount}");
         }

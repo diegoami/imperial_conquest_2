@@ -186,6 +186,12 @@ public static class AiMilitaryPhase
     /// its highest, is 6000 before any ratio bonus) — see <see cref="ProposeOwnWarDeclaration"/>'s own
     /// remarks for why that dominance is load-bearing, not just a preference.
     /// </summary>
+    /// <remarks>
+    /// Rework round 1, N5: this constant lives outside <see cref="AiWeights"/>, so it is not covered by
+    /// T79's own Done-when 2 ("nothing reads a C# constant") the way <c>AiWeights.cs</c>'s own fields are
+    /// — left here rather than moved (out of T82's Owns list to relocate), flagged so T79 (#355) finds it
+    /// when that task widens its own sweep.
+    /// </remarks>
     private const long OwnWarDeclarationScore = 10_000_000;
 
     /// <summary>

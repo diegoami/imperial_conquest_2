@@ -136,6 +136,22 @@ public sealed class NeighbourGeographyTests
         }
     }
 
+    /// <summary>
+    /// Rework round 1, N8: <see cref="NeighbourGeography.NeighboursOf"/> used to hand out its internal
+    /// <see cref="HashSet{T}"/> directly, "in no particular order". It now returns an ordered list, in
+    /// <see cref="World.Nations"/>' own stable order -- checked directly against that same order, not
+    /// merely that the right set of ids comes back.
+    /// </summary>
+    [Fact]
+    public void NeighboursOfReturnsThemInWorldNationsOwnOrder()
+    {
+        var romeNeighbours = NeighbourGeography.NeighboursOf(ClassicalWorld, "rome");
+        var nationOrder = ClassicalWorld.Nations.Select(n => n.Id).ToList();
+        var expectedOrder = nationOrder.Where(id => romeNeighbours.Contains(id)).ToList();
+
+        Assert.Equal(expectedOrder, romeNeighbours);
+    }
+
     // ---- The six known, unresolved spurious pairs (documented, not asserted away) ----
 
     /// <summary>

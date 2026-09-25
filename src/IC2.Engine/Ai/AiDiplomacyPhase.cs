@@ -185,18 +185,34 @@ public static class AiDiplomacyPhase
     /// so the greedy loop can accept more than one over successive actions this turn, each time re-
     /// checking both sides' caps against the current state.
     /// </summary>
+    /// <remarks>
+    /// Rework round 1, N4: the original picks a trade partner in index order -- loop 1 (skipping the
+    /// running war candidate), then loop 3, both over the nation table in its own fixed slot order
+    /// (report §1a). Scoring every eligible partner identically at <see cref="OwnTradeScore"/> used to
+    /// leave that choice to <c>AiTurn.Select</c>'s own exact-tie break, a draw from the seat's stream --
+    /// with more than one eligible partner this picked a random one, not the nation-order-first one the
+    /// original always does. Each successive partner in
+    /// <see cref="AiOwnDiplomacyRule.EligibleTradePartners"/>' own stable
+    /// <see cref="GameState.Nations"/> order is now scored one point lower than the last, so the first
+    /// one in that order always wins outright -- no tie, so no draw -- reproducing the original's index
+    /// order without touching <c>AiTurn.Select</c> itself (outside this task's Owns list). The largest
+    /// step this can ever take (one fewer than the world's own nation count) stays comfortably above
+    /// <see cref="OwnTradeSwapScore"/>, so the relative ordering against a swap candidate is unaffected.
+    /// </remarks>
     private static void ProposeOwnTrade(AiView view, List<AiCandidate> into)
     {
+        var rank = 0;
         foreach (var partnerId in AiOwnDiplomacyRule.EligibleTradePartners(view.State, view.Ruleset, view.NationId))
         {
             into.Add(AiCandidate.Single(
                 AiPhase.Diplomacy,
                 "ai-form-trade",
                 new AiFormTradeCommand(view.NationId, partnerId),
-                OwnTradeScore,
+                OwnTradeScore - rank,
                 Inv(
                     "trade with {0}: at peace, both sides under {1} partners",
                     partnerId, view.Ruleset.Diplomacy.MaxTradePartners)));
+            rank++;
         }
     }
 
@@ -222,10 +238,21 @@ public static class AiDiplomacyPhase
     }
 
     /// <summary>
-    /// Comfortably above every ordinary military, economy and trade candidate — see
-    /// <see cref="ProposeOwnAlliance"/>'s own remarks for why that dominance matters here too, standing
-    /// in for a turn-stable roll this phase cannot otherwise get.
+    /// Comfortably above every ordinary military, economy and trade candidate, second only to
+    /// <see cref="AiMilitaryPhase.OwnWarDeclarationScore"/> — see <see cref="ProposeOwnAlliance"/>'s own
+    /// remarks for why that ordering matters (a war declaration that is going to land this turn always
+    /// beats a trade or alliance candidate touching the same target, matching the original's own loop
+    /// order). Rework round 1, N7: this no longer stands in for anything the roll itself lacks — the
+    /// Owns amendment gave <see cref="ProposeOwnAlliance"/> a genuinely turn-stable <see cref="IRng"/>,
+    /// the same one <see cref="AiMilitaryPhase"/>'s war roll uses, so this score's own job is purely the
+    /// candidate-ordering one above.
     /// </summary>
+    /// <remarks>
+    /// Rework round 1, N5: this constant (and the two below) live outside <see cref="AiWeights"/>, so
+    /// they are not covered by T79's own Done-when 2 ("nothing reads a C# constant") the way
+    /// <c>AiWeights.cs</c>'s own fields are — left here rather than moved (out of T82's Owns list to
+    /// relocate), flagged so T79 (#355) finds them when that task widens its own sweep.
+    /// </remarks>
     private const long OwnAllianceScore = 9_000_000;
 
     /// <summary>On <see cref="AiWeights"/>'s own scale, just above the old human-facing propose-trade score.</summary>

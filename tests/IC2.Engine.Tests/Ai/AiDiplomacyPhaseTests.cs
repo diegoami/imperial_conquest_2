@@ -60,6 +60,72 @@ public sealed class AiDiplomacyPhaseTests
         Assert.Contains("ai-form-trade", Diplomacy(Rules.StateCodes.Peace, SeatControl.Ai));
     }
 
+    /// <summary>
+    /// Rework round 1, N4: with more than one eligible partner, the original always picks the first one
+    /// in the nation table's own index order (report §1a: loop 1, then loop 3, both over the fixed slot
+    /// order) -- never a random one. Three eligible partners are given deliberately non-alphabetical ids
+    /// ("z-first", "m-second", "a-third") in exactly that construction order, so a wrong implementation
+    /// keyed to alphabetical order ("a-third" first) would fail this test just as clearly as one that
+    /// still ties every score and lets the seed decide. Checked across several different <see cref="IRng"/>
+    /// seeds: before this fix, every partner scored identically at the phase's own flat
+    /// <c>OwnTradeScore</c>, so <c>AiTurn.Select</c>'s own exact-tie break (a draw from the seed's stream)
+    /// made the choice seed-dependent; now the highest-scoring "ai-form-trade" candidate always names
+    /// "z-first", regardless of seed, because the scores are no longer tied.
+    /// </summary>
+    [Theory]
+    [InlineData(1UL)]
+    [InlineData(2UL)]
+    [InlineData(3UL)]
+    [InlineData(4UL)]
+    [InlineData(5UL)]
+    public void Trade_picks_the_first_eligible_partner_in_nation_order_regardless_of_seed(ulong seed)
+    {
+        var nations = new[]
+        {
+            AiScriptedStates.AiNation(Acting, AiScriptedStates.DefaultPersonality, capitalCityId: "ours"),
+            AiScriptedStates.AiNation("z-first", AiScriptedStates.DefaultPersonality, capitalCityId: "z-city"),
+            AiScriptedStates.AiNation("m-second", AiScriptedStates.DefaultPersonality, capitalCityId: "m-city"),
+            AiScriptedStates.AiNation("a-third", AiScriptedStates.DefaultPersonality, capitalCityId: "a-city"),
+        };
+        var cities = new[]
+        {
+            CaptureFixtures.City(
+                "ours", "Ours", 1, 1, Acting, Acting, loyalty: 80, fortificationCode: 100,
+                populationThousands: 100, maxPopulationThousands: 100, tribute: 10),
+            CaptureFixtures.City(
+                "z-city", "ZCity", 6, 4, "z-first", "z-first", loyalty: 80, fortificationCode: 100,
+                populationThousands: 100, maxPopulationThousands: 100, tribute: 10),
+            CaptureFixtures.City(
+                "m-city", "MCity", 8, 4, "m-second", "m-second", loyalty: 80, fortificationCode: 100,
+                populationThousands: 100, maxPopulationThousands: 100, tribute: 10),
+            CaptureFixtures.City(
+                "a-city", "ACity", 10, 4, "a-third", "a-third", loyalty: 80, fortificationCode: 100,
+                populationThousands: 100, maxPopulationThousands: 100, tribute: 10),
+        };
+
+        var state = BattleCommandTestbed.StateWith(nations, cities);
+        var candidates = Propose(state, AiScriptedStates.World, SplitMix64Rng.ForStream(seed, "ai.turn"));
+
+        var tradeCandidates = candidates.Where(c => c.Kind == "ai-form-trade").ToList();
+        Assert.Equal(3, tradeCandidates.Count);
+
+        // The real, seed-sensitive failure mode is a tie: AiTurn.Select (outside this task's Owns list to
+        // change) breaks an exact tie for the overall best score with a draw from the seed's own stream,
+        // so a stable LINQ OrderBy over the candidate list alone would keep returning the same one
+        // regardless of whether the underlying scores are actually tied -- masking the bug this test
+        // exists to catch. Asserting the max score is unique is what actually distinguishes the fix from
+        // the mutation: flat scoring at OwnTradeScore leaves all three tied for the best, live to the
+        // random draw; the fix's per-rank scores leave exactly one holding it.
+        var maxScore = tradeCandidates.Max(c => c.Score);
+        var atMax = tradeCandidates.Where(c => c.Score == maxScore).ToList();
+        Assert.True(
+            atMax.Count == 1,
+            $"expected exactly one trade candidate to hold the max score {maxScore}, got {atMax.Count} tied");
+
+        var command = Assert.IsType<AiFormTradeCommand>(Assert.Single(atMax[0].Commands));
+        Assert.Equal("z-first", command.PartnerNationId);
+    }
+
     /// <summary>The diplomacy phase's candidate kinds against one relation value and one target control.</summary>
     private static List<string> Diplomacy(int relation, SeatControl targetControl)
     {
