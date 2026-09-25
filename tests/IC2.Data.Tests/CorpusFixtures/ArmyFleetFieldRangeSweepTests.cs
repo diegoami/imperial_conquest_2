@@ -174,7 +174,18 @@ public class ArmyFleetFieldRangeSweepTests
                 // exclude it exactly as IsLaunched does, rather than widen the range to cover it.
                 if (!f.IsLaunched)
                     Assert.InRange(f.ConstructionCountdown, (ushort)0, (ushort)200);
-                Assert.InRange(f.Moves, (ushort)0, (ushort)200);
+                // Follow-up #340 N5: 0..200 was arbitrary; the observed corpus range (0..29) is not a
+                // bound either (the rule from T64: evidence, not the observed maximum). The upper bound
+                // instead comes from the confirmed formula this project's own naval code replays exactly
+                // against real save data (FleetAttritionRule.MovesForTurn, T14 Done-when 10):
+                // moves = 30 - (ships - 50) / 10, before further, moves-only-reducing terms (a carried
+                // army, zero supply, storm damage). At this same sweep's own evidence-based ShipCount
+                // floor (5, established just below), that is 30 - (5 - 50) / 10 = 30 - (-4) = 34 --
+                // C#'s truncating integer division on the negative numerator, exactly as the formula's
+                // implementation does it. No term in the formula can raise moves above the ships-only
+                // term, so 34 is the field's true ceiling; the floor is 0, the field's own ushort width
+                // (no decompiled signedness finding exists for this field, unlike ArmyRecord.Moves).
+                Assert.InRange(f.Moves, (ushort)0, (ushort)34);
                 Assert.InRange(f.Supplies, (ushort)0, (ushort)2000);
                 Assert.InRange(f.Money, (ushort)0, (ushort)1000);
                 // T21 (folded follow-up #136, Done-when 7): 0..2000 against an actually-observed 5..100
@@ -189,8 +200,14 @@ public class ArmyFleetFieldRangeSweepTests
                 // 100% pass. Tightened to the real percentage range.
                 if (f.ConditionPercent is { } condition)
                     Assert.InRange(condition, (ushort)0, (ushort)100);
+                // Follow-up #340 N5: 0..700 was arbitrary. CarriedArmyIndex is an index into the army
+                // table, which the original caps at 198 records in play -- TUnitMap_SplitArmy's own
+                // guard, FUN_00449F08, "armyCount < 0xC6" (0xC6 = 198), the same decompiled evidence
+                // behind this project's own ArmyManagementRules.MaxArmies and the T04 fixtures corpus id
+                // caps.maxArmies (decompiled-unit-map-orders-and-record-fields.md). A 0-based index into
+                // a table that can hold at most 198 armies never exceeds 197.
                 if (f.CarriedArmyIndex is { } carried)
-                    Assert.InRange(carried, (ushort)0, (ushort)700);
+                    Assert.InRange(carried, (ushort)0, (ushort)197);
             }
         }
 
