@@ -753,8 +753,19 @@ public sealed class SeatCliTests
     /// through the real <see cref="NewsLog.Append"/>, to exactly 40/40 before the round runs, so this
     /// round's own genuine appends are guaranteed to evict something and exercise the saturated path.
     /// </summary>
+    /// <remarks>
+    /// <strong>Review round 2, N9 (naming/wording correction — this test's name and this comment
+    /// previously overclaimed):</strong> this does <em>not</em> prove the footer lists every line a round
+    /// writes, full stop — round 1 on <c>seat-rome.golden.txt</c>'s own fixed seed genuinely writes more
+    /// than 40 entries (the reviewer counted 44), and the newest 40 is still all the 40-slot ring can ever
+    /// show in one footer, faithful to the original's own ring buffer (<c>docs/design-audit.md</c>'s
+    /// confirmed behaviour). What this test actually proves is narrower and is the whole of bug #376: the
+    /// count is no longer silently <em>zero</em> merely because the buffer started this round already
+    /// full — <see cref="CountNewsAppendedSince"/> reports real news up to the ring's own capacity, not
+    /// nothing.
+    /// </remarks>
     [Fact]
-    public void The_round_footer_lists_every_news_line_written_even_once_the_ring_buffer_is_full()
+    public void The_round_footer_reports_news_even_when_the_ring_buffer_started_this_round_already_full()
     {
         var session = NewClassicalSeatSession("rome");
         Assert.Equal(27, session.State.NewsLog.Slots.Count);

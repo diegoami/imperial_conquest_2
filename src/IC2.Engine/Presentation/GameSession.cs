@@ -742,9 +742,20 @@ public sealed partial class GameSession
     /// so walking <paramref name="after"/> from its newest slot backward and stopping at the first entry
     /// <paramref name="before"/> already held, compared <em>by reference</em> rather than by
     /// <see cref="NewsEntry"/>'s own value equality (duplicate text — the same weather effect two weeks
-    /// running — is not a duplicate <em>entry</em>), finds exactly the new ones, with no dependency on the
-    /// buffer ever having room left.
+    /// running — is not a duplicate <em>entry</em>), finds exactly the new ones <em>among what
+    /// <paramref name="after"/> still holds</em> — with no dependency on the buffer having had room left
+    /// at the start of this call.
     /// </summary>
+    /// <remarks>
+    /// <strong>Review round 2, N9: this is not "how many entries this round wrote", full stop.</strong> If
+    /// a single round appends more than <see cref="Model.NewsLogRules.RingBufferSlots"/> entries, the
+    /// oldest of that round's own appends are evicted before this method is ever called — faithful to the
+    /// original's own ring buffer, which this task was never asked to widen — so the count returned here
+    /// is capped at the ring's own capacity, the same cap <c>news</c> itself is subject to. Bug #376 was
+    /// specifically that the old count-subtraction silently returned <em>zero</em> whenever the buffer
+    /// started full, not that it under-reported inside a single oversized round; this method fixes exactly
+    /// that.
+    /// </remarks>
     private static int CountNewsAppendedSince(IReadOnlyList<NewsEntry> before, IReadOnlyList<NewsEntry> after)
     {
         var beforeByReference = new HashSet<NewsEntry>(before, ReferenceEqualityComparer.Instance);
