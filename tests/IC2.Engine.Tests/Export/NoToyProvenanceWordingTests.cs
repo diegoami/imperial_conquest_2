@@ -44,6 +44,14 @@ namespace IC2.Engine.Tests.Export;
 /// constants" overclaimed -- the exporter copies every value, designed placeholders included, and
 /// only cross-checks the ones with a corpus id; corrected below and in the script's own text.
 /// </para>
+/// <para>
+/// Follow-up #332 R2-N1: the exemption above belongs to <c>classical-faithful.json</c> alone. The
+/// exporter never writes <c>improved.json</c>'s root <c>_provenance.id</c> -- T36 authors that file by
+/// hand from the faithful preset -- so nothing entitles it to describe <c>toy-ruleset.json</c> either.
+/// <see cref="FindToyProvenanceMentions"/> now takes which file it is scanning and only exempts the
+/// root key for the faithful preset; <see cref="Improved_has_no_toy_provenance_wording"/> and
+/// <see cref="A_toy_note_at_improveds_root_provenance_id_is_not_exempt"/> hold the asymmetry down.
+/// </para>
 /// </remarks>
 public class NoToyProvenanceWordingTests
 {
@@ -57,6 +65,44 @@ public class NoToyProvenanceWordingTests
     public void Improved_has_no_toy_provenance_wording()
     {
         AssertNoToyProvenanceWording(ExportedDataPaths.ImprovedRulesetFile);
+    }
+
+    /// <summary>
+    /// Review round 1, N8: the real, committed <c>improved.json</c> has no toy-worded root
+    /// <c>_provenance.id</c> today, so a mutation that silently widens the exemption to any path (the
+    /// reviewer's own probe: flipping <see cref="Improved_has_no_toy_provenance_wording"/>'s call to
+    /// pass <c>exemptRootProvenanceId: true</c>) left the whole 39-test <c>Export</c> suite green --
+    /// nothing there actually exercises the exempt/not-exempt boundary against a document that would
+    /// show the difference. <see cref="AssertNoToyProvenanceWording"/> no longer takes that boolean
+    /// from its caller at all (below); this pins its own file-identity decision directly, on a
+    /// synthetic document -- not the real file -- so the boundary is provably tested regardless of
+    /// what either shipped preset currently contains.
+    /// </summary>
+    [Fact]
+    public void AssertNoToyProvenanceWording_exempts_only_the_classical_faithful_path()
+    {
+        var tempFile = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".json");
+        File.WriteAllText(tempFile, """
+            {
+              "_provenance": {
+                "id": "this toy ruleset is set the way classical-faithful is set."
+              }
+            }
+            """);
+
+        try
+        {
+            Assert.NotEqual(ExportedDataPaths.RulesetFile, tempFile, StringComparer.Ordinal);
+
+            var exception = Record.Exception(() => AssertNoToyProvenanceWording(tempFile));
+
+            Assert.NotNull(exception);
+            Assert.Contains("toy", exception.Message, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            File.Delete(tempFile);
+        }
     }
 
     /// <summary>
@@ -78,7 +124,7 @@ public class NoToyProvenanceWordingTests
             }
             """;
 
-        var hits = FindToyProvenanceMentions(JsonDocument.Parse(regressed).RootElement);
+        var hits = FindToyProvenanceMentions(JsonDocument.Parse(regressed).RootElement, exemptRootProvenanceId: true);
 
         Assert.Single(hits);
         Assert.Contains("flags._provenance.diplomacyModel", hits[0]);
@@ -104,7 +150,7 @@ public class NoToyProvenanceWordingTests
             }
             """;
 
-        var hits = FindToyProvenanceMentions(JsonDocument.Parse(clean).RootElement);
+        var hits = FindToyProvenanceMentions(JsonDocument.Parse(clean).RootElement, exemptRootProvenanceId: true);
 
         Assert.Empty(hits);
     }
@@ -112,7 +158,7 @@ public class NoToyProvenanceWordingTests
     /// <summary>
     /// Round 2 R1-B1: the root document's own <c>_provenance.id</c> is the exporter-owned
     /// exception (see the class remarks) and may legitimately name <c>toy-ruleset.json</c> --
-    /// exactly what the real exporter now writes.
+    /// exactly what the real exporter now writes for <c>classical-faithful.json</c>.
     /// </summary>
     [Fact]
     public void The_root_documents_own_provenance_id_is_exempt()
@@ -125,9 +171,32 @@ public class NoToyProvenanceWordingTests
             }
             """;
 
-        var hits = FindToyProvenanceMentions(JsonDocument.Parse(realExporterOutput).RootElement);
+        var hits = FindToyProvenanceMentions(JsonDocument.Parse(realExporterOutput).RootElement, exemptRootProvenanceId: true);
 
         Assert.Empty(hits);
+    }
+
+    /// <summary>
+    /// Follow-up #332 R2-N1: <c>improved.json</c> gets no such exemption -- the exporter never writes
+    /// its root <c>_provenance.id</c>, so a "toy" note there is exactly bug #299's defect, not the
+    /// exporter-owned exception. This is the mutation Done-when 1 asks to show: a real
+    /// <c>improved.json</c> carrying this text fails <see cref="Improved_has_no_toy_provenance_wording"/>.
+    /// </summary>
+    [Fact]
+    public void A_toy_note_at_improveds_root_provenance_id_is_not_exempt()
+    {
+        const string improvedWithToyRootId = """
+            {
+              "_provenance": {
+                "id": "this toy ruleset is set the way classical-faithful is set, so improved.json inherits it verbatim."
+              }
+            }
+            """;
+
+        var hits = FindToyProvenanceMentions(JsonDocument.Parse(improvedWithToyRootId).RootElement, exemptRootProvenanceId: false);
+
+        Assert.Single(hits);
+        Assert.Contains("_provenance.id", hits[0]);
     }
 
     /// <summary>
@@ -149,16 +218,24 @@ public class NoToyProvenanceWordingTests
             }
             """;
 
-        var hits = FindToyProvenanceMentions(JsonDocument.Parse(nested).RootElement);
+        var hits = FindToyProvenanceMentions(JsonDocument.Parse(nested).RootElement, exemptRootProvenanceId: true);
 
         Assert.Single(hits);
         Assert.Contains("someNestedThing._provenance.id", hits[0]);
     }
 
+    /// <summary>
+    /// Review round 1, N8: <paramref name="path"/> decides the exemption itself -- only
+    /// <see cref="ExportedDataPaths.RulesetFile"/> (<c>classical-faithful.json</c>) ever gets it --
+    /// rather than taking it as a second argument each caller supplies independently. The reviewer's
+    /// mutation (flipping <see cref="Improved_has_no_toy_provenance_wording"/>'s own argument) is no
+    /// longer expressible: there is nothing left at that call site to flip.
+    /// </summary>
     private static void AssertNoToyProvenanceWording(string path)
     {
+        var exemptRootProvenanceId = string.Equals(path, ExportedDataPaths.RulesetFile, StringComparison.Ordinal);
         using var doc = JsonDocument.Parse(File.ReadAllText(path));
-        var hits = FindToyProvenanceMentions(doc.RootElement);
+        var hits = FindToyProvenanceMentions(doc.RootElement, exemptRootProvenanceId);
 
         Assert.True(hits.Count == 0,
             $"{Path.GetFileName(path)} carries a _provenance string written from toy-ruleset.json's own " +
@@ -169,13 +246,15 @@ public class NoToyProvenanceWordingTests
     /// <summary>
     /// Recursively finds every string value inside a JSON object literally named
     /// <c>_provenance</c> (anywhere in the document) that mentions "toy" case-insensitively,
-    /// except the root document's own <c>_provenance.id</c> (see the class remarks). Mirrors
+    /// except the root document's own <c>_provenance.id</c> when <paramref name="exemptRootProvenanceId"/>
+    /// is true (see the class remarks) -- true only for <c>classical-faithful.json</c>, the one file
+    /// the exporter actually writes that key for (follow-up #332 R2-N1). Mirrors
     /// <c>export-classical-world.cs</c>'s own <c>FindToyProvenanceMentions</c> local function -- kept
     /// as a separate implementation deliberately, the same way <c>ExportScriptReproducibilityTests</c>
     /// re-runs the script as a subprocess rather than sharing its internals, so this test proves the
     /// committed file is clean independently of whatever the script's own guard did or didn't catch.
     /// </summary>
-    private static List<string> FindToyProvenanceMentions(JsonElement element, string path = "")
+    private static List<string> FindToyProvenanceMentions(JsonElement element, bool exemptRootProvenanceId, string path = "")
     {
         var hits = new List<string>();
 
@@ -189,9 +268,9 @@ public class NoToyProvenanceWordingTests
                     {
                         foreach (var provenanceProperty in property.Value.EnumerateObject())
                         {
-                            if (path.Length == 0 && provenanceProperty.Name == "id")
+                            if (exemptRootProvenanceId && path.Length == 0 && provenanceProperty.Name == "id")
                             {
-                                continue; // the exporter-owned exception; see the class remarks.
+                                continue; // the exporter-owned exception; see the class remarks. classical-faithful.json only.
                             }
 
                             if (provenanceProperty.Value.ValueKind == JsonValueKind.String)
@@ -206,7 +285,7 @@ public class NoToyProvenanceWordingTests
                     }
                     else
                     {
-                        hits.AddRange(FindToyProvenanceMentions(property.Value, childPath));
+                        hits.AddRange(FindToyProvenanceMentions(property.Value, exemptRootProvenanceId, childPath));
                     }
                 }
                 break;
@@ -214,7 +293,7 @@ public class NoToyProvenanceWordingTests
                 var index = 0;
                 foreach (var item in element.EnumerateArray())
                 {
-                    hits.AddRange(FindToyProvenanceMentions(item, $"{path}[{index}]"));
+                    hits.AddRange(FindToyProvenanceMentions(item, exemptRootProvenanceId, $"{path}[{index}]"));
                     index++;
                 }
                 break;

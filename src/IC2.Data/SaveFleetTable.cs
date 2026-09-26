@@ -81,7 +81,14 @@ public sealed class SaveFleetTable
             {
                 var x = ReadWord(data, offset);
                 var y = ReadWord(data, offset + 2);
-                skipped.Add(new SkippedFleetRecord(i, x, y));
+                // #340 N1: +22 is CarriedArmyIndex on a live record (FleetRecord.CarriedArmyIndex); read
+                // it here too, under the same NoCarriedArmySentinel rule, so the import can unlink a
+                // surviving army this tombstoned fleet still claims (EmbarkationLinker).
+                var carriedArmyWord = ReadWord(data, offset + 22);
+                var carriedArmyIndex = carriedArmyWord == FleetRecord.NoCarriedArmySentinel
+                    ? (ushort?)null
+                    : carriedArmyWord;
+                skipped.Add(new SkippedFleetRecord(i, x, y, carriedArmyIndex));
                 continue;
             }
 
@@ -114,11 +121,12 @@ public sealed class SaveFleetTable
 /// Mirrors <see cref="SkippedArmyRecord"/>.</summary>
 public sealed class SkippedFleetRecord
 {
-    internal SkippedFleetRecord(int index, ushort x, ushort y)
+    internal SkippedFleetRecord(int index, ushort x, ushort y, ushort? carriedArmyIndex)
     {
         Index = index;
         X = x;
         Y = y;
+        CarriedArmyIndex = carriedArmyIndex;
     }
 
     /// <summary>The record's position (0-based) in the fleet table — its own original slot; skipping
@@ -131,6 +139,13 @@ public sealed class SkippedFleetRecord
 
     /// <summary>Map Y at +2. See <see cref="X"/>.</summary>
     public ushort Y { get; }
+
+    /// <summary>Index of the army this tombstoned fleet was carrying at +22, or null when it carried
+    /// none — the same field and the same <see cref="FleetRecord.NoCarriedArmySentinel"/> rule as
+    /// <see cref="FleetRecord.CarriedArmyIndex"/>. Follow-up #340 N1: a fleet absorbed into another
+    /// (bug #276) can still be tombstoned while carrying a surviving army; without this, the import had
+    /// no way to know that army needs unlinking (<see cref="Engine.Import.EmbarkationLinker"/>).</summary>
+    public ushort? CarriedArmyIndex { get; }
 }
 
 /// <summary>

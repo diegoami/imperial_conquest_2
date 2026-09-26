@@ -117,6 +117,43 @@ public sealed class BuySupplyCommandHandlerTests
     }
 
     /// <summary>
+    /// #351 R1 (T70 follow-up): the reject-side boundary above (distance 2) doesn't kill the accept-side
+    /// mutation at the same site -- rejecting exactly at the ruleset's own radius (distance 1) instead of
+    /// one tile beyond it. Every accepted fleet-provider fixture elsewhere
+    /// (<c>BuySupplyCommandFleetProviderTests</c>) sits at distance 0, co-located with the army, so that
+    /// boundary went untested. north-army-1 sits at (3, 2); the provider fleet sits at (4, 2) -- Chebyshev
+    /// distance 1, exactly <see cref="Economy.EconomyRules.CommandAdjacencyRadiusTiles"/> in the toy
+    /// ruleset (<c>command.adjacencyRadiusTiles</c>, see the corpus entry).
+    /// </summary>
+    [Fact]
+    public void A_provider_fleet_at_the_ruleset_radius_is_accepted()
+    {
+        var sink = new RecordingEventSink();
+        var dispatcher = Dispatcher(sink);
+        var initial = CoreTestbed.InitialState();
+        var army = initial.ArmyById("north-army-1")!; // (3, 2).
+        var before = WithArmy(initial, army with { SupplyTons = 100, Money = 50 });
+        var provider = new FleetState(
+            "radius-provider-fleet", "north", X: 4, Y: 2, Moves: 4, Ships: 5, ConditionPercent: 90,
+            Money: 0, SupplyTons: 40, ConstructionTicksRemaining: null, BuildCityId: null, CarriedArmyId: null,
+            CoveredTileCode: null); // distance 1.
+        before = before with { Fleets = ValueList.From(before.Fleets.Append(provider)) };
+
+        var result = dispatcher.Dispatch(
+            before, new BuySupplyCommand(before.ActiveNationId, army.Id, CityId: null, Tons: 10, provider.Id));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        var purchased = Assert.IsType<ArmySupplyPurchasedFromFleet>(Assert.Single(sink.Events));
+        Assert.Equal(10, purchased.RequestedTons);
+        Assert.Equal(10, purchased.AdmittedTons); // 186 - 100 = 86 room, 40 provider stock -- 10 fits both.
+
+        var updatedArmy = result.State.ArmyById(army.Id)!;
+        var updatedFleet = result.State.FleetById(provider.Id)!;
+        Assert.Equal(110, updatedArmy.SupplyTons); // 100 + 10.
+        Assert.Equal(30, updatedFleet.SupplyTons); // 40 - 10.
+    }
+
+    /// <summary>
     /// T50 Done-when 5 (issue #167): the same confirmed <c>TAFSupply_FindProviders</c> gate refuses a
     /// city whose owner is at war with the buyer, regardless of range -- the army is moved onto meridia's
     /// own tile so only the war gate is under test, not adjacency.

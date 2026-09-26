@@ -121,6 +121,27 @@ public class WorldStartingDataValidationTests
         Assert.Contains("exactly this world's own nations", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Follow-up #372 N3: <c>ValidateStartingRelationsShape</c>'s own remarks (World.cs:101-108) say a
+    /// matrix agreeing with <c>Nations</c> on membership but not on order must still be rejected -- a
+    /// plain set-equality check would wrongly accept it, and the order match exists specifically to keep
+    /// <c>NationIds</c>-order iteration (<c>QuarterlyThawSystem</c>, <c>PeaceTreatySystem</c>,
+    /// <c>RelationTransitions</c>, <c>PendingOfferSystem</c>) identical to the uniform-peace default's own
+    /// order. Same two nations as <see cref="A_well_formed_all_peace_matrix_passes"/>, reversed.
+    /// </summary>
+    [Fact]
+    public void A_matrix_with_the_worlds_own_nations_in_a_different_order_is_rejected()
+    {
+        var ids = ToyNationIds();
+        var reversed = ids.Reverse().ToArray();
+        Assert.NotEqual(ids, reversed); // the toy world's own nations are not order-symmetric already
+        var world = ToyWorld() with { StartingRelations = UniformMatrix(reversed, 0) };
+
+        var ex = Assert.Throws<MalformedGameDataException>(() => GameDataValidation.Validate(DocumentPath, world));
+        Assert.Contains("exactly this world's own nations", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("same order", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>A well-formed news log (a few short slots, an index addressing the last one) passes.</summary>
     [Fact]
     public void A_well_formed_news_log_passes()

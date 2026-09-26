@@ -12,7 +12,7 @@ namespace IC2.Engine.Model;
 /// as it did before this field existed. Reuses <see cref="DiplomaticRelations"/> (defined alongside
 /// <see cref="GameState"/>) rather than a new type, since the shape — nation ids plus an N×N matrix —
 /// is identical; only where it lives (world data, not run state) differs. See
-/// <see cref="ValidateStartingRelations"/> and
+/// <see cref="ValidateStartingRelationsShape"/> and
 /// https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-diplomacy-peace-terms-and-instant-battles.md's
 /// 2026-09-24 addition, "the starting matrix".
 /// </param>
@@ -21,7 +21,7 @@ namespace IC2.Engine.Model;
 /// the world does not carry one — <see cref="GameStateFactory"/> then opens the game with an empty
 /// log, exactly as it did before this field existed. Reuses <see cref="NewsLog"/> (defined alongside
 /// <see cref="GameState"/>) rather than a new type, for the same reason as
-/// <see cref="StartingRelations"/>. See <see cref="ValidateStartingNews"/> and
+/// <see cref="StartingRelations"/>. See <see cref="ValidateStartingNewsShape"/> and
 /// https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/news-log-format-and-messages.md
 /// §Q1, "the DAT seeds the log, and a new game starts at index 26".
 /// </param>

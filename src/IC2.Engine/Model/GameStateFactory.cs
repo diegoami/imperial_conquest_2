@@ -193,7 +193,7 @@ public static class GameStateFactory
     {
         if (world.StartingRelations is { } startingRelations)
         {
-            ValidateStartingRelationValues(startingRelations, ruleset);
+            ValidateStartingRelationValues(world, startingRelations, ruleset);
             return startingRelations;
         }
 
@@ -207,7 +207,12 @@ public static class GameStateFactory
     /// codes are a contiguous <c>0..max</c> range: a ruleset whose codes are not contiguous would
     /// otherwise let a gap value through (T75 rework N2).
     /// </summary>
-    private static void ValidateStartingRelationValues(DiplomaticRelations relations, Ruleset ruleset)
+    /// <param name="world">
+    /// Named only so a bad value's exception can name it (review round 1, B2, Owns amendment #399):
+    /// the bad data is <paramref name="world"/>'s own <c>startingRelations</c>, never
+    /// <paramref name="ruleset"/>, which only supplies the codes/cooldowns to check against.
+    /// </param>
+    private static void ValidateStartingRelationValues(World world, DiplomaticRelations relations, Ruleset ruleset)
     {
         var codes = ruleset.Diplomacy.StateCodes;
         var validCodes = new HashSet<int> { codes.Peace, codes.Trade, codes.Alliance, codes.War };
@@ -229,7 +234,7 @@ public static class GameStateFactory
                         $"startingRelations has a value {value}, which is neither one of the ruleset's "
                         + $"relation codes ({string.Join(", ", validCodes.OrderBy(v => v))}) nor a "
                         + $"cooldown in [{minCooldown}, -1].",
-                        nameof(ruleset));
+                        nameof(world));
                 }
             }
         }
@@ -250,11 +255,28 @@ public static class GameStateFactory
     /// A slot's text holds a byte outside the printable 0x20-0x7E range the news writer and the DAT
     /// parser both accept, or exceeds <paramref name="ruleset"/>'s message length once counted in bytes.
     /// </exception>
+    /// <exception cref="IC2.Engine.Serialization.MalformedGameDataException">
+    /// Follow-up <see href="https://github.com/diegoami/imperial_conquest_2/issues/372">#372</see> N6
+    /// (the user's decision of 2026-09-25): <paramref name="world"/>'s starting news seed carries more
+    /// slots than <paramref name="ruleset"/>'s own ring buffer holds. <see cref="World.ValidateStartingNewsShape"/>
+    /// cannot catch this at load time — it has no <see cref="Ruleset"/> to know the ring's capacity from
+    /// — so a seed this long would otherwise pass state validation and be silently trimmed down to size
+    /// only on the very first write (<see cref="NewsLog.Append"/>'s own eviction), rather than rejected
+    /// up front like every other malformed starting-data shape.
+    /// </exception>
     private static NewsLog StartingNewsFor(World world, Ruleset ruleset)
     {
         if (world.StartingNews is not { } startingNews)
         {
             return NewsLog.Empty;
+        }
+
+        if (startingNews.Slots.Count > ruleset.NewsLog.RingBufferSlots)
+        {
+            throw new IC2.Engine.Serialization.MalformedGameDataException(
+                world.Id,
+                $"startingNews has {startingNews.Slots.Count} slots, over the ruleset's "
+                + $"{ruleset.NewsLog.RingBufferSlots}-slot ring buffer.");
         }
 
         // The printable-byte check runs first, over every character, before any length is compared:
@@ -269,17 +291,22 @@ public static class GameStateFactory
             {
                 if (ch is < (char)0x20 or > (char)0x7E)
                 {
+                    // #372 N7: ch is a UTF-16 code unit (System.Char), not a byte -- "character", not
+                    // "byte", is what this is actually counting.
                     throw new ArgumentException(
-                        $"startingNews has a slot text with a byte outside the printable 0x20-0x7E "
-                        + $"range: 0x{(int)ch:X2}.",
+                        $"startingNews has a slot text with a character outside the printable "
+                        + $"0x20-0x7E range: 0x{(int)ch:X2}.",
                         nameof(world));
                 }
             }
 
             if (slot.Text.Length > maxTextBytes)
             {
+                // #372 N7: slot.Text.Length counts UTF-16 code units too; the printable check just
+                // above is what makes that number equal a byte count here, but the value itself is a
+                // character count, so it is named as one.
                 throw new ArgumentException(
-                    $"startingNews has a slot text of {slot.Text.Length} bytes, over the ruleset's "
+                    $"startingNews has a slot text of {slot.Text.Length} characters, over the ruleset's "
                     + $"{maxTextBytes}-byte limit.",
                     nameof(world));
             }
