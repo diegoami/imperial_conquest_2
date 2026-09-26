@@ -27,6 +27,13 @@ namespace IC2.Engine.Ai;
 /// with no random draw anywhere in them (<see cref="Battle.InstantBattleResolver"/>'s only draws are the
 /// casualty and promotion rolls, which happen after the winner is known). So for those two the AI's ratio
 /// is not an estimate at all: at a ratio over 1000 it knows it wins, and under 1000 it knows it loses.
+/// <strong>This claim needed #425 to become true</strong>: <see cref="IsControllerCapital"/> used to read
+/// only the current owner's own capital, so a city another nation's stale capital still named (T90/#409 —
+/// a defected or eliminated nation's capital never moves) could score its defender strength without the
+/// resolver's own ×5/3 capital multiplier, disagreeing with what <see cref="Battle.InstantBattleResolver"/>
+/// would actually compute for the identical siege. #425 makes the two calls the same predicate
+/// (<see cref="Cities.Capture.CapitalOwnership.IsAnyNationsCapital"/>), so the AI's ratio and the
+/// resolver's real outcome can no longer disagree.
 /// The one thing it deliberately leaves out of its siege estimate is
 /// <c>SiegeRules.AttackerIsAllegianceDefenderReductionPercent</c>, the further ×9/10 the resolver applies
 /// when the besieger is the city's own allegiance: including it would mean reproducing the resolver's
@@ -345,7 +352,7 @@ public static class AiMilitaryPhase
             var defenderPower = Cities.Capture.CompleteDefenderStrength.Compute(
                 city,
                 fortifyOrder,
-                IsControllerCapital(owner, city),
+                IsControllerCapital(view.State, city),
                 !string.Equals(city.Owner, city.Allegiance, StringComparison.Ordinal),
                 owner,
                 view.Ruleset);
@@ -633,7 +640,7 @@ public static class AiMilitaryPhase
         var defenderPower = Cities.Capture.CompleteDefenderStrength.Compute(
             city,
             fortifyOrder,
-            IsControllerCapital(owner, city),
+            IsControllerCapital(view.State, city),
             !string.Equals(city.Owner, city.Allegiance, StringComparison.Ordinal),
             owner,
             view.Ruleset);
@@ -688,8 +695,17 @@ public static class AiMilitaryPhase
         return false;
     }
 
-    private static bool IsControllerCapital(NationState owner, CityState city) =>
-        owner.CapitalCityId is { } capital && string.Equals(capital, city.Id, StringComparison.Ordinal);
+    /// <summary>
+    /// #425: matches <see cref="Cities.Capture.CompleteDefenderStrength"/>'s other three callers, all of
+    /// which read <see cref="Cities.Capture.CapitalOwnership.IsAnyNationsCapital"/> since T91 — any
+    /// nation's capital, eliminated or not, rather than only the current owner's. Before this fix a city
+    /// that another nation's stale capital still named (T90/#409's own scenario: a defected or eliminated
+    /// nation's capital never moved) scored its defender strength without the ×5/3 capital multiplier the
+    /// resolver itself applies, so this estimate could disagree with what <see cref="Battle.InstantBattleResolver"/>
+    /// actually computes for the same siege.
+    /// </summary>
+    private static bool IsControllerCapital(GameState state, CityState city) =>
+        Cities.Capture.CapitalOwnership.IsAnyNationsCapital(state, city.Id);
 
     private static CityOrderRule? FortifyOrder(Ruleset ruleset)
     {
