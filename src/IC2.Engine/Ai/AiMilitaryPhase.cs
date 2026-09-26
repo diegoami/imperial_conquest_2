@@ -184,24 +184,9 @@ public static class AiMilitaryPhase
             AiPhase.Military,
             "declare-war",
             new DeclareWarCommand(view.NationId, target),
-            OwnWarDeclarationScore,
+            view.Ruleset.Ai.OwnWarDeclarationScore,
             Inv("declare war on {0}: FUN_0044FB7C's own war-target search picked it, and the Random({1}) roll hit", target, denominator)));
     }
-
-    /// <summary>
-    /// Comfortably above every other score this AI can produce
-    /// (<see cref="Model.AiWeightsRules.BesiegeCityBaseScore"/>, its highest, is 6000 before any ratio
-    /// bonus) — see <see cref="ProposeOwnWarDeclaration"/>'s own remarks for why that dominance is
-    /// load-bearing, not just a preference.
-    /// </summary>
-    /// <remarks>
-    /// Rework round 1, N5: this constant lives outside the AI weights ruleset block, so it is not covered
-    /// by T79's own Done-when 2 ("nothing reads a C# constant") the way the moved fields are — left here
-    /// rather than moved (out of T79's own Owns list, which names only <c>AiWeights.cs</c> and the lines
-    /// that read its constants, not this standalone constant), flagged again here for whichever future
-    /// task's Owns list does reach it.
-    /// </remarks>
-    private const long OwnWarDeclarationScore = 10_000_000;
 
     /// <summary>
     /// Sails a fleet at the nearest enemy fleet. The naval half of "<em>reinforce, hold, or attack</em>":

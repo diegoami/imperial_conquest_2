@@ -1572,8 +1572,6 @@ public sealed record VictoryRules(
 /// <param name="RecruitBaseScore">Base score for placing a standing-recruitment order.</param>
 /// <param name="MobilizeReadyRecruitBaseScore">Base score for mobilizing a fully ready standing-recruitment slot into an army unit.</param>
 /// <param name="FortifyBaseScore">Base score for ordering fortification at an owned city.</param>
-/// <param name="ProposeAllianceBaseScore">Base score for proposing an alliance.</param>
-/// <param name="ProposeTradeBaseScore">Base score for proposing trade.</param>
 /// <param name="RequiredAttackRatioAtZeroAggressionPermille">The strength ratio, in permille, an attack must show at <c>aggression = 0</c>.</param>
 /// <param name="RequiredAttackRatioAtFullAggressionPermille">The strength ratio an attack must show at <c>aggression = 1</c>.</param>
 /// <param name="MaxRatioScoreContribution">How much of the strength ratio is allowed into an attack's score, capped.</param>
@@ -1584,7 +1582,19 @@ public sealed record VictoryRules(
 /// <param name="TreasuryCommitExpansionPermille">How much more of the treasury full <c>expansionDrive</c> unlocks.</param>
 /// <param name="MaxOpenRecruitmentOrdersPerCity">How many standing-recruitment orders the AI will leave open at one city at a time.</param>
 /// <param name="MaxFortifyPointsPerOrder">The largest fortification order the AI will place in one command.</param>
-/// <param name="SharedEnemyBonus">What a shared enemy adds to an alliance proposal's score.</param>
+/// <param name="OwnWarDeclarationScore">
+/// Score for the AI's own war-declaration candidate (<see cref="AiMilitaryPhase"/>'s
+/// <c>ProposeOwnWarDeclaration</c>), comfortably above every other score this AI can produce.
+/// </param>
+/// <param name="OwnAllianceScore">
+/// Score for the AI's own alliance-proposal candidate (<see cref="AiDiplomacyPhase"/>'s
+/// <c>ProposeOwnAlliance</c>).
+/// </param>
+/// <param name="OwnTradeScore">Score for the AI's own trade-proposal candidate (<see cref="AiDiplomacyPhase"/>'s <c>ProposeOwnTrade</c>).</param>
+/// <param name="OwnTradeSwapScore">
+/// Score for the AI's own trade-partner-swap candidate (<see cref="AiDiplomacyPhase"/>'s
+/// <c>ProposeOwnTradeSwap</c>), slightly below <see cref="OwnTradeScore"/>.
+/// </param>
 public sealed record AiWeightsRules(
     int PermilleScale,
     int DefaultPersonalityPermille,
@@ -1599,8 +1609,6 @@ public sealed record AiWeightsRules(
     long RecruitBaseScore,
     long MobilizeReadyRecruitBaseScore,
     long FortifyBaseScore,
-    long ProposeAllianceBaseScore,
-    long ProposeTradeBaseScore,
     long RequiredAttackRatioAtZeroAggressionPermille,
     long RequiredAttackRatioAtFullAggressionPermille,
     long MaxRatioScoreContribution,
@@ -1611,7 +1619,10 @@ public sealed record AiWeightsRules(
     long TreasuryCommitExpansionPermille,
     int MaxOpenRecruitmentOrdersPerCity,
     int MaxFortifyPointsPerOrder,
-    long SharedEnemyBonus,
+    long OwnWarDeclarationScore,
+    long OwnAllianceScore,
+    long OwnTradeScore,
+    long OwnTradeSwapScore,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>

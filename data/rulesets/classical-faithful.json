@@ -978,8 +978,6 @@
     "recruitBaseScore": 1000,
     "mobilizeReadyRecruitBaseScore": 1100,
     "fortifyBaseScore": 800,
-    "proposeAllianceBaseScore": 600,
-    "proposeTradeBaseScore": 500,
     "requiredAttackRatioAtZeroAggressionPermille": 2200,
     "requiredAttackRatioAtFullAggressionPermille": 900,
     "maxRatioScoreContribution": 2000,
@@ -990,7 +988,10 @@
     "treasuryCommitExpansionPermille": 500,
     "maxOpenRecruitmentOrdersPerCity": 2,
     "maxFortifyPointsPerOrder": 10,
-    "sharedEnemyBonus": 400,
+    "ownWarDeclarationScore": 10000000,
+    "ownAllianceScore": 9000000,
+    "ownTradeScore": 520,
+    "ownTradeSwapScore": 480,
     "_provenance": {
       "permilleScale": "[designed]: the fixed-point denominator every AI personality parameter and every scoring ratio in this block is expressed in (parts per thousand). docs/design-audit.md §1 records the original's AI as out of scope for reverse-engineering by the project's own standing decision, so every number in this block is designed rather than decompiled; there is no original fixed-point convention to transcribe.",
       "defaultPersonalityPermille": "[designed]: the value substituted for an AI seat's absent personality parameter -- the exact midpoint of the declared 0..1 range (permilleScale / 2), so an unset seat is neither a pacifist nor a warmonger. Searched docs/reports/ for an original per-nation AI default and found none: the original's TPickLeaders assigns a nation to a human or the computer and a leader name only, with no personality at all. The original's AI is out of scope by standing decision.",
@@ -1005,8 +1006,6 @@
       "recruitBaseScore": "[designed]: base score for placing a standing-recruitment order. The original's AI is out of scope by standing decision.",
       "mobilizeReadyRecruitBaseScore": "[designed]: base score for mobilizing a fully ready standing-recruitment slot into an army unit, set above recruiting (the slot is already paid for and at its permanent quality) and below reinforcing (a besieged city's own defence still outranks a routine conversion elsewhere). Searched decompiled-mobilization-and-mercenary-restock.md for a stated original priority between mobilization and other AI actions and found none. The original's AI is out of scope by standing decision.",
       "fortifyBaseScore": "[designed]: base score for ordering fortification at an owned city. The original's AI is out of scope by standing decision.",
-      "proposeAllianceBaseScore": "[designed]: base score for proposing an alliance. The original's AI is out of scope by standing decision.",
-      "proposeTradeBaseScore": "[designed]: base score for proposing trade -- the least urgent thing a turn can contain. The original's AI is out of scope by standing decision.",
       "requiredAttackRatioAtZeroAggressionPermille": "[designed]: the strength ratio, in permille, an attack must show at aggression = 0 -- 2.2 times the defender, chosen so a timid nation demands a margin large enough to survive the casualties a won battle still costs. docs/game-design.md §AI names the aggression/ratio threshold shape but not its value. The original's AI is out of scope by standing decision.",
       "requiredAttackRatioAtFullAggressionPermille": "[designed]: the strength ratio an attack must show at aggression = 1 -- 0.9 times the defender, so a fully aggressive nation attacks at a slight disadvantage but never a large one. The original's AI is out of scope by standing decision.",
       "maxRatioScoreContribution": "[designed]: how much of a strength ratio is allowed into an attack's score, capped so one overwhelming matchup cannot outrank every other action for the rest of the game. The original's AI is out of scope by standing decision.",
@@ -1017,7 +1016,10 @@
       "treasuryCommitExpansionPermille": "[designed]: how much more of the treasury full expansionDrive unlocks, so the band runs 10% to 60% -- capped well below the whole treasury because upkeep is billed quarterly and a nation that spends everything goes into debt. The original's AI is out of scope by standing decision.",
       "maxOpenRecruitmentOrdersPerCity": "[designed]: how many standing-recruitment orders the AI will leave open at one city at a time, so piling orders into one city cannot convert treasury into the garrison term with no diminishing return. The original's AI is out of scope by standing decision.",
       "maxFortifyPointsPerOrder": "[designed]: the largest fortification order the AI will place in one command, keeping a rich AI from converting a whole quarter's income into one city's walls in a single turn. The original's AI is out of scope by standing decision.",
-      "sharedEnemyBonus": "[designed]: what a shared enemy adds to an alliance proposal's score -- docs/game-design.md §AI phase 3's 'consider alliance offers from nations with a shared enemy'. The original's AI is out of scope by standing decision."
+      "ownWarDeclarationScore": "[designed]: score for the AI's own war-declaration candidate, comfortably above every other score this AI can produce (besiegeCityBaseScore, its highest ordinary score, is 6000 before any ratio bonus) -- a war declaration that is going to land this turn always beats every other candidate touching the same target, matching the original's own loop order. Moved from a standalone C# constant (AiMilitaryPhase.OwnWarDeclarationScore) that T82 (#377) introduced outside AiWeights.cs and PR #429's review (round 0, B2/N8) found unread nowhere -- it is read, by AiMilitaryPhase.ProposeOwnWarDeclaration, and belongs in this block with the rest. The original's AI is out of scope by standing decision.",
+      "ownAllianceScore": "[designed]: score for the AI's own alliance-proposal candidate, comfortably above every ordinary military, economy and trade candidate, second only to ownWarDeclarationScore. Moved from a standalone C# constant (AiDiplomacyPhase.OwnAllianceScore, T82 #377) for the same reason as ownWarDeclarationScore above. The original's AI is out of scope by standing decision.",
+      "ownTradeScore": "[designed]: score for the AI's own trade-proposal candidate, just above the old human-facing propose-trade score this replaced. Moved from a standalone C# constant (AiDiplomacyPhase.OwnTradeScore, T82 #377) for the same reason as ownWarDeclarationScore above. The original's AI is out of scope by standing decision.",
+      "ownTradeSwapScore": "[designed]: score for the AI's own trade-partner-swap candidate, slightly below ownTradeScore since a swap is a smaller net gain than a fresh partner. Moved from a standalone C# constant (AiDiplomacyPhase.OwnTradeSwapScore, T82 #377) for the same reason as ownWarDeclarationScore above. The original's AI is out of scope by standing decision."
     }
   },
   "flags": {
