@@ -118,10 +118,20 @@ public sealed partial class GameSession
     /// 1, B3(a)/(b); rework round 2, R1 — by <see cref="HandleEnd"/> too, but only on <em>that same human's
     /// own</em> <c>end</c>, not anyone else's: without expiring at all, an offer raised in one week and
     /// accepted many turns later still took the always-honourable branch with nothing left of the
-    /// original's own reasoning for it (the dialog being modal), and a single ignored offer silently
-    /// suppressed every later one for the rest of the game; expiring on <em>any</em> human's <c>end</c>
-    /// (round 1's own fix) went too far the other way in hotseat, where the offer's own human is not
-    /// necessarily the next seat the loop pauses on — see <see cref="PendingPeaceTreatyOffer.OfferedHumanNationId"/>.
+    /// original's own reasoning for it (the dialog being modal); expiring on <em>any</em> human's
+    /// <c>end</c> (round 1's own fix) went too far the other way in hotseat, where the offer's own human is
+    /// not necessarily the next seat the loop pauses on — see
+    /// <see cref="PendingPeaceTreatyOffer.OfferedHumanNationId"/>. <strong>Rework round 3, R3
+    /// (corrected):</strong> binding the lapse and the answer to that one human, on its own, reopened round
+    /// 0's B3(b) ("a single ignored offer silently suppresses every later one for the rest of the game") by
+    /// a new path: an offer whose own human is eliminated before their next prompt could never be answered
+    /// <em>or</em> lapsed by either mechanism above, since neither is ever reached for a seat that gets no
+    /// further prompt. <see cref="CapturePeaceTreatyOfferIfAny"/> now also drops the offer once
+    /// <see cref="IsOfferedHumanGone"/>, closing that gap without a new flag (deposition needs no matching
+    /// check — see that method's own remarks for why); <see cref="HandleEnd"/> does not need the same check
+    /// a second time (see its own remarks) -- every path that could eliminate the offered human already
+    /// reaches <see cref="CapturePeaceTreatyOfferIfAny"/> at least once before <see cref="HandleEnd"/>'s
+    /// own check could ever run against it.
     /// </summary>
     private PendingPeaceTreatyOffer? _pendingPeaceTreatyOffer;
 
@@ -152,6 +162,7 @@ public sealed partial class GameSession
     /// once an offer is already pending (see that field's own remarks).
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Rework round 2, N-a: this used to also refuse an event where neither side is human, proven only by
     /// a reflection test reaching into a private method, since <see cref="Battle.InstantBattleResolver"/>'s
     /// own gate (<c>exactlyOneHuman</c>) already guarantees the real engine never publishes one — there was
@@ -160,9 +171,31 @@ public sealed partial class GameSession
     /// for <see cref="PendingPeaceTreatyOffer.OfferedHumanNationId"/> regardless), not to re-prove an
     /// invariant its only caller already enforces. The reflection test
     /// (<c>AllAiPeaceTreatyOffered_IsIgnoredByTheSessionsOwnRecheck</c>) is deleted with it.
+    /// </para>
+    /// <para>
+    /// Rework round 3, R3: a pending offer whose own <see cref="PendingPeaceTreatyOffer.OfferedHumanNationId"/>
+    /// has since been eliminated, or is no longer <see cref="SeatControl.Human"/>, is dropped here, before
+    /// the early-return below — round 2's own fix (bind the answer and the expiry to that one human) left
+    /// exactly this gap: an eliminated seat never gets another prompt, so neither <see cref="HandleEnd"/>'s
+    /// own lapse nor <see cref="HandlePeaceTreatyAnswer"/> is ever reached for it again, and the early
+    /// return just below then silently drops every later human's own qualifying offer for the rest of the
+    /// game — round 0's B3(b), reached by a new path. No new flag: this reads the same
+    /// <see cref="Model.NationState.Eliminated"/>/<see cref="Model.NationState.Control"/> the rest of the
+    /// engine already keeps current (elimination and deposition both write through the ordinary state, not
+    /// a side channel this session would otherwise need to track). Silent here (no "has lapsed" line): this
+    /// runs on every command and every seat's turn regardless of whether today's own events hold anything
+    /// worth showing, and a new qualifying offer's own dialog (below) is the visible result when there is
+    /// one; printing "lapsed" here as well, on a call that most of the time raises nothing at all, would be
+    /// a line with no offer and no dialog to explain it.
+    /// </para>
     /// </remarks>
     private void CapturePeaceTreatyOfferIfAny(List<string> lines, IEnumerable<DomainEvent> events)
     {
+        if (_pendingPeaceTreatyOffer is { } current && IsOfferedHumanGone(current))
+        {
+            _pendingPeaceTreatyOffer = null;
+        }
+
         if (_pendingPeaceTreatyOffer is not null)
         {
             return;
@@ -185,6 +218,36 @@ public sealed partial class GameSession
             lines.Add("Type 'peace-yes' to accept or 'peace-no' to decline.");
             return;
         }
+    }
+
+    /// <summary>
+    /// Rework round 3, R3: whether <paramref name="pending"/>'s own
+    /// <see cref="PendingPeaceTreatyOffer.OfferedHumanNationId"/> can no longer answer or have their own
+    /// <c>end</c> lapse it — eliminated, or no longer found at all (defensive; never expected in practice).
+    /// Called only from <see cref="CapturePeaceTreatyOfferIfAny"/> — see <see cref="HandleEnd"/>'s own
+    /// remarks for why it does not call this too.
+    /// </summary>
+    /// <remarks>
+    /// <strong>No "no longer <see cref="SeatControl.Human"/>" branch, deliberately.</strong>
+    /// <c>HumanDepositionSystem</c> is the only place <see cref="Model.NationState.Control"/> ever changes,
+    /// and it fires only at the currently <em>active</em> seat's own <c>SeatStart</c>
+    /// (<c>context.ActiveNation</c>) — never at any other seat's. A human seat's <c>SeatStart</c> (and so
+    /// its own deposition check) does not run until that same seat itself submits <c>end</c>
+    /// (<see cref="HandleEndSeated"/>'s own <c>RunTurn</c> call), and <see cref="PausesHere"/> already
+    /// stops <see cref="PlayUntilOneFullLapOrRepeat"/> at that seat's own prompt (<c>ActiveControl() ==
+    /// Human</c>, read from the state as it stands <em>before</em> that <c>RunTurn</c> call) the moment
+    /// rotation reaches it — before its own deposition could ever be decided. So whenever the offered
+    /// human could be deposed at all, it has already had its own prompt, and <see cref="HandleEnd"/>'s
+    /// own offered-human-equality check (its own <c>end</c>, unconditionally) or
+    /// <see cref="HandlePeaceTreatyAnswer"/> already cleared the offer first — matching the round-2
+    /// review's own conclusion on this exact question ("Deposed: safe... the offer lapses first"). Adding
+    /// a branch here for a state this method's own caller can never observe would be exactly the kind of
+    /// untested defensive code round 2's N-a removed elsewhere in this file.
+    /// </remarks>
+    private bool IsOfferedHumanGone(PendingPeaceTreatyOffer pending)
+    {
+        var human = State.NationById(pending.OfferedHumanNationId);
+        return human is null || human.Eliminated;
     }
 
     /// <summary>
@@ -668,6 +731,18 @@ public sealed partial class GameSession
         // here is whoever is submitting this "end" (the seat about to end its turn), which round 1 wrongly
         // treated as always being the offer's own human. In hotseat that let a second human's end lapse
         // the first human's still-unanswered offer before it ever reached their own prompt.
+        //
+        // Rework round 3, R3: an offer whose own human is gone for good (eliminated) is not re-checked
+        // here as well -- deliberately. Every "end" reaches CapturePeaceTreatyOfferIfAny before this call
+        // returns (HandleEndSeated's own N-f capture for the ending seat's RunTurn, or
+        // PlayUntilOneFullLapOrRepeat's per-seat capture for every AI seat it plays), and every earlier
+        // mutating command already reached it too, through IssueCommand -- so whatever eliminated the
+        // offered human was itself a command or a played turn that already ran that check (see
+        // IsOfferedHumanGone's own remarks, including why deposition needs no check here at all). Adding
+        // the same check here as well was tried and proven redundant: removing it failed no test in the
+        // whole suite (2933/2933 stayed green), because nothing can reach this line with a stale offer
+        // that a prior capture call has not already dropped. Kept out rather than kept as untested
+        // belt-and-suspenders.
         if (_pendingPeaceTreatyOffer is { } pending
             && string.Equals(pending.OfferedHumanNationId, State.ActiveNationId, StringComparison.Ordinal))
         {

@@ -279,6 +279,131 @@ public sealed class PeaceTreatyOfferTests
     }
 
     /// <summary>
+    /// Rework round 3 (R3)'s own fixture: <see cref="ThreeSeatHotseatOfferFixture"/> plus two more east
+    /// armies. <c>east-siege</c>, at (1,1) adjacent to <c>arx</c> (north's <em>only</em> city, since
+    /// <c>portus</c> already went to east in the base fixture), is overwhelmingly large -- large enough
+    /// that <see cref="Strength.SiegeStrength.Attacker"/>'s own troop-counted-straight sum clears
+    /// whatever <see cref="Strength.SiegeStrength.Defender"/> arx's own loyalty/fortification/population
+    /// and garrison give it, without needing to weaken arx itself -- so a single <c>besiege-city</c>
+    /// captures it outright and eliminates north (its last city). <c>east-weak</c>, on <c>portus</c>'s own
+    /// tile adjacent to <c>south-army-1</c>, is deliberately weak (the same shape
+    /// <see cref="HumanWinsOfferFixture"/>'s own loser uses) so a later <c>attack-army</c> against
+    /// <c>south-army-1</c> loses cleanly, with <c>east-siege</c>'s own survival keeping
+    /// <c>armies(loser=east)</c> comfortably above <c>armies(winner=south)</c> for the human-consent gate.
+    /// </summary>
+    private static GameSession EliminatedOfferedHumanFixture()
+    {
+        var toy = CoreTestbed.Toy;
+        var customRuleset = toy.Ruleset with
+        {
+            Combat = toy.Ruleset.Combat with
+            {
+                AutoPeaceChanceNumerator = toy.Ruleset.Combat.AutoPeaceChanceDenominator,
+                AutoPeaceLoserUnityThreshold = -1,
+                AutoPeaceLoserCityThreshold = 0,
+            },
+        };
+
+        var reserve = new StartingArmy(
+            "north-reserve", "north", X: 2, Y: 1, Morale: 1, Money: 0, SupplyTons: 0, Moves: 5,
+            Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "heavy_infantry", Troops: 480000, Quality: 5, Name: "Reserve")));
+
+        var southArmy = toy.World.StartingArmies.Single(a => a.Id == "south-army-1") with { X = 4, Y = 2 };
+
+        var eastNation = new NationDefinition(
+            Id: "east", Name: "Eastern League", ColorHex: "#2e7d32", LeaderName: "Toy Leader of the East",
+            CapitalCityId: "portus", Treasury: 400, Unity: 600, Wealth: 300, TaxBase: 100, TaxRatePercent: 15,
+            MobilizedPercent: 10, Population: 80);
+
+        var portusToEast = toy.World.Cities.Single(c => c.Id == "portus") with { Owner = "east", Allegiance = "east" };
+
+        var eastSiege = new StartingArmy(
+            "east-siege", "east", X: 1, Y: 1, Morale: 60, Money: 0, SupplyTons: 0, Moves: 5,
+            Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "heavy_infantry", Troops: 500000, Quality: 6, Name: "Siege Host")));
+
+        var eastWeak = new StartingArmy(
+            "east-weak", "east", X: 5, Y: 2, Morale: 68, Money: 0, SupplyTons: 0, Moves: 5,
+            Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "light_infantry", Troops: 15000, Quality: 6, Name: "2nd Foot Battalion")));
+
+        var customWorld = toy.World with
+        {
+            Nations = ValueList.From(toy.World.Nations.Append(eastNation)),
+            Cities = ValueList.From(toy.World.Cities.Select(c => c.Id == "portus" ? portusToEast : c)),
+            StartingArmies = ValueList.From(
+                toy.World.StartingArmies.Select(a => a.Id == "south-army-1" ? southArmy : a)
+                    .Append(reserve).Append(eastSiege).Append(eastWeak)),
+            TurnOrder = ValueList.Of("north", "south", "east"),
+        };
+
+        var customScenario = toy.Scenario with
+        {
+            Seats = ValueList.From(toy.Scenario.Seats.Append(new Seat("east", SeatControl.Human, null))),
+        };
+
+        return new GameSession(customWorld, customRuleset, customScenario);
+    }
+
+    /// <summary>
+    /// Rework round 3, R3: the reviewer's own probe. South's AI turn raises an offer addressed to north;
+    /// east then eliminates north (its only city, taken by <c>besiege-city</c>) before north ever answers.
+    /// Before this fix, the stale offer stayed pending forever -- east's own <c>peace-yes</c>/<c>peace-no</c>
+    /// both refuse "not you" (north can never answer either, since it no longer has a turn), east's own
+    /// <c>end</c> does not lapse it (it is not east's offer), and a later, fully-qualifying battle against
+    /// east raises no dialog at all: round 0's B3(b) again, reached through elimination instead of the
+    /// lapse round 2 already closed for a living human.
+    /// </summary>
+    [Fact]
+    public void EliminatedOfferedHuman_DoesNotBlockALaterOfferForSomeoneElse()
+    {
+        var session = EliminatedOfferedHumanFixture();
+
+        session.Submit("declare-war south");
+        var afterAiTurn = session.Submit("end");
+        Assert.Contains(
+            afterAiTurn.Lines,
+            l => l.Contains("After defeating you in battle", StringComparison.Ordinal)
+                 && l.Contains("willing to end the war", StringComparison.Ordinal));
+        Assert.Equal("east", session.State.ActiveNationId);
+
+        // East eliminates north -- arx is north's only city (portus already went to east). The generic
+        // IssueCommand renderer only ever prints "{kind} accepted."; the capture news lands in the log,
+        // not this command's own output, so the elimination itself is the assertion that matters. This
+        // very command's own IssueCommand->CapturePeaceTreatyOfferIfAny call already drops the now-stale
+        // offer (the fix's own check runs before the early return, unconditionally, on every command) --
+        // east's own "peace-yes" right after finds nothing pending, rather than the pre-fix "addressed to
+        // Northern League (north), not you" the reviewer's own probe recorded (north can never answer
+        // either, since an eliminated seat gets no further turn).
+        var siege = session.Submit("besiege-city east-siege arx");
+        Assert.Contains(siege.Lines, l => l.Contains("battle.besiege-city accepted.", StringComparison.Ordinal));
+        Assert.True(session.State.NationById("north")!.Eliminated);
+
+        var eastYesTooEarly = session.Submit("peace-yes");
+        Assert.Contains(
+            eastYesTooEarly.Lines,
+            l => l.Contains("There is no pending peace treaty offer.", StringComparison.Ordinal));
+
+        // Two more rounds of "end" change nothing further -- the slot was already freed.
+        session.Submit("end");
+        session.Submit("end");
+
+        // East attacks south and loses, with every human-consent gate passing -- south's own remaining
+        // power stays well below east's (east-siege's own survival dominates the total). Before this
+        // fix, no dialog is shown here because the stale offer is still occupying the one pending slot.
+        var laterBattle = session.Submit("attack-army east-weak south-army-1");
+        Assert.Contains(
+            laterBattle.Lines,
+            l => l.Contains("willing to end the war", StringComparison.Ordinal));
+        Assert.Contains(
+            laterBattle.Lines,
+            l => l.Contains("peace-yes", StringComparison.Ordinal) && l.Contains("peace-no", StringComparison.Ordinal));
+
+        // And it is now east's own offer to answer.
+        var eastYes = session.Submit("peace-yes");
+        Assert.Contains(
+            eastYes.Lines, l => l.Contains("diplomacy.accept-peace-treaty accepted", StringComparison.Ordinal));
+    }
+
+    /// <summary>
     /// Rework round 2, R1: the reviewer's own probe. East (human, not a party to north-south's war) is
     /// active next after south's AI turn raises the offer against north. East's own <c>yes</c> and
     /// <c>no</c> must both be refused without consuming the offer, east's own <c>end</c> must not lapse

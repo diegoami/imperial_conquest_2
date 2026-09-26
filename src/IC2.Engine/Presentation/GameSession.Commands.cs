@@ -98,10 +98,14 @@ public sealed partial class GameSession
     /// writes the honourable peace and its news, never reparations
     /// (<see cref="Diplomacy.PeaceTreatySystem.ApplyHumanConsentedPeace"/>'s own remarks). No writes
     /// nothing at all -- the war simply continues, exactly as the report's own "<c>TBattlePols_No</c> sets
-    /// <c>ModalResult 7</c> and does nothing else" reads. Either answer clears the pending offer, whether
-    /// or not the underlying command turns out to still be legal (see
+    /// <c>ModalResult 7</c> and does nothing else" reads. An answer from the offer's own human clears the
+    /// pending offer, whether or not the underlying command turns out to still be legal (see
     /// <see cref="Diplomacy.Commands.AcceptPeaceTreatyRejections.NotAtWar"/>'s own remarks for the one way
-    /// that can happen) -- a stale offer is never left pending forever.
+    /// that can happen). <strong>Rework round 3, R3 (corrected):</strong> this method alone does not
+    /// guarantee a stale offer is never left pending forever -- an answer from anyone else is refused
+    /// without touching it (see below), so if the offer's own human can never answer again (eliminated, or
+    /// deposed to AI), this method never clears it either; <see cref="GameSession.CapturePeaceTreatyOfferIfAny"/>
+    /// and <see cref="GameSession.HandleEnd"/> are what drop that offer, not this one.
     /// </summary>
     /// <remarks>
     /// Rework round 2, R1: this only answers on the offer's own
