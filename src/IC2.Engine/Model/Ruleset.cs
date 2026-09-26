@@ -1258,6 +1258,14 @@ public sealed record LoyaltyRules(
 /// <c>+ Random(this)</c> (6) added to every moved city's loyalty formula during a conquest's mass
 /// transfer — drawn through <c>IRng</c>, one independent draw per moved city.
 /// </param>
+/// <param name="ConquestTreasuryCreditMultiplier">
+/// <c>[confirmed: decompiled-elimination-cleanup.md §4, FUN_0044C528]</c> The winner's per-city treasury
+/// credit during a conquest's mass transfer: <c>treasury += contribution × this</c> (6) — a distinct
+/// write from <see cref="DefectionTreasuryCreditMultiplier"/> (also 6, a different function,
+/// <c>FUN_0044BED8</c>) and <see cref="CaptureTreasuryCreditMultiplier"/> (4); kept as its own field for
+/// the same reason those two are already kept separate despite <see cref="DefectionTreasuryCreditMultiplier"/>'s
+/// coincidentally equal value — see that field's own remarks.
+/// </param>
 public sealed record CaptureRules(
     int CaptureTreasuryCreditMultiplier,
     int CaptureUnityGain,
@@ -1278,6 +1286,7 @@ public sealed record CaptureRules(
     int CapitalMoveMinDistanceTiles,
     int ConquestWinnerUnityGain,
     int ConquestLoyaltyRandomBonusMax,
+    int ConquestTreasuryCreditMultiplier,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>The numeric codes the relation matrix stores for each diplomatic state.</summary>

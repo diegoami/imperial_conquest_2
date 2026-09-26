@@ -764,6 +764,7 @@
     "capitalMoveMinDistanceTiles": 10,
     "conquestWinnerUnityGain": 50,
     "conquestLoyaltyRandomBonusMax": 6,
+    "conquestTreasuryCreditMultiplier": 6,
     "_provenance": {
       "captureTreasuryCreditMultiplier": "confirmed: nation-tax-base-and-city-economy-fields.md — FUN_0044bb18's own write, 'new owner's treasury += contribution * 4' -- a different field from economy.taxBaseContributionMultiplier (also 4, but the taxBase += contribution * 4 term). See the capture.treasuryCreditMultiplier corpus entry's own note. T04 fixtures corpus id: 'capture.treasuryCreditMultiplier'.",
       "captureUnityGain": "confirmed: decompiled-city-capture-resolution.md / nation-tax-base-and-city-economy-fields.md — newOwner.unity += 9 at a forced capture, clamped to economy.unityCap. T04 fixtures corpus id: 'capture.unityGain'.",
@@ -783,7 +784,8 @@
       "capitalMoveUnityLoss": "confirmed: decompiled-elimination-cleanup.md §4, FUN_0044BD2C :50234 — attempting to move the capital costs 50 unity.",
       "capitalMoveMinDistanceTiles": "confirmed: decompiled-elimination-cleanup.md §4 — the capital only actually moves to a city more than 10 tiles away (Chebyshev, the same derived metric choice as cascadeDistanceMax).",
       "conquestWinnerUnityGain": "confirmed: decompiled-elimination-cleanup.md §4, FUN_0044C528 — the winner's unity gain on conquering a nation outright is 50, clamped to economy.unityCap.",
-      "conquestLoyaltyRandomBonusMax": "confirmed: decompiled-elimination-cleanup.md §4 — every moved city's conquest loyalty formula adds + Random(6)."
+      "conquestLoyaltyRandomBonusMax": "confirmed: decompiled-elimination-cleanup.md §4 — every moved city's conquest loyalty formula adds + Random(6).",
+      "conquestTreasuryCreditMultiplier": "confirmed: decompiled-elimination-cleanup.md §4, FUN_0044C528 — the winner's per-city treasury credit during a conquest's mass transfer, treasury += contribution * 6."
     }
   },
   "diplomacy": {
