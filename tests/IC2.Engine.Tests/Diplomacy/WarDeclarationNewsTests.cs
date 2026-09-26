@@ -93,6 +93,36 @@ public sealed class WarDeclarationNewsTests
     }
 
     /// <summary>
+    /// N3 (rework round 1): the shouting rule applies to a cascade hop's own dragged-in pair, not only a
+    /// direct declaration -- <c>DeclareWarWithoutFurtherCascade</c>'s upper-casing (RelationTransitions.cs)
+    /// had no test of its own before this. Dacia (AI) declares war on Gaul (AI); Gaul is allied to Rome
+    /// (human), so the cascade drags Dacia into war with Rome too. The direct line (both AI) stays
+    /// lowercase; the cascade line (Rome is human) is uppercased in full. A mutation that hardcodes
+    /// <c>involvesHuman = false</c> in the cascade hop would leave the cascade line lowercase, failing the
+    /// second assertion below.
+    /// </summary>
+    [Fact]
+    public void WarDeclarationCascade_DraggedInPairInvolvingAHuman_IsUppercasedInFull()
+    {
+        var ruleset = DiplomacyTestbed.Ruleset;
+        const string Dacia = "dacia";
+        const string Gaul = "gaul";
+        const string Rome = "rome";
+        var state = DiplomacyTestbed.StateOf(
+            DiplomacyTestbed.Nation(Dacia, "Dacia"),
+            DiplomacyTestbed.Nation(Gaul, "Gaul"),
+            DiplomacyTestbed.Nation(Rome, "Rome", control: SeatControl.Human));
+
+        state = RelationTransitions.FormAlliance(state, ruleset, Gaul, Rome);
+        state = RelationTransitions.DeclareWar(state, ruleset, Dacia, Gaul);
+
+        var lines = state.NewsLog.Slots.Select(e => e.Text).ToList();
+        Assert.Contains("Dacia declares war on Gaul.", lines);
+        Assert.Contains("DACIA DECLARES WAR ON ROME.", lines);
+        Assert.DoesNotContain("Dacia declares war on Rome.", lines);
+    }
+
+    /// <summary>
     /// Hazard: "An alliance also declares war on each of the ally's enemies" — the cascade declaration
     /// follows the alliance line, with its own exact literal.
     /// </summary>

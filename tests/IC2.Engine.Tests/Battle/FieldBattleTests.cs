@@ -571,6 +571,59 @@ public class FieldBattleTests
     }
 
     /// <summary>
+    /// DoD 3, rework round 1 (B2): the unity gate's own draw-skip proof. <see cref="HumanConsent_UnityGate_500Fails_501Passes"/>
+    /// and <see cref="DoD08_TheUnityGateBlocksTheTreaty"/> assert only the outcome (<c>PeaceTreatyOffered</c>);
+    /// neither reads <see cref="ConstantRng.DrawCount"/>, so a mutation that moves the <c>Random(5)</c>
+    /// draw to right after the strength test (before the unity and city tests) left every test green. Same
+    /// differential proof as <see cref="StrengthGate_DrawSkippedOnFailure"/>, varying only unity across the
+    /// 500/501 boundary with the strength and city inputs held fixed (so the preceding casualty/promotion
+    /// draws are identical either way).
+    /// </summary>
+    [Fact]
+    public void UnityGate_DrawSkippedOnFailure()
+    {
+        var ruleset = BattleTestbed.Destroyed;
+        var swing = ruleset.Combat.UnitySwing;
+
+        var failing = HumanConsentFixture(
+            ruleset, winnerArmyPower: 5, loserOtherArmyPower: 50,
+            loserUnityBeforeSwing: 500 + swing, loserCityCount: 9);
+        var failingRng = new ConstantRng(0);
+        ResolveWithRng(failing, ruleset, failingRng);
+
+        var passing = HumanConsentFixture(
+            ruleset, winnerArmyPower: 5, loserOtherArmyPower: 50,
+            loserUnityBeforeSwing: 501 + swing, loserCityCount: 9);
+        var passingRng = new ConstantRng(0);
+        ResolveWithRng(passing, ruleset, passingRng);
+
+        Assert.Equal(failingRng.DrawCount + 1, passingRng.DrawCount);
+    }
+
+    /// <summary>
+    /// DoD 3, rework round 1 (B2): the city gate's own draw-skip proof, the same differential pattern as
+    /// <see cref="UnityGate_DrawSkippedOnFailure"/> and <see cref="StrengthGate_DrawSkippedOnFailure"/>,
+    /// varying only the city count across the 7/8 boundary with strength and unity held fixed.
+    /// </summary>
+    [Fact]
+    public void CityGate_DrawSkippedOnFailure()
+    {
+        var ruleset = BattleTestbed.Destroyed;
+
+        var failing = HumanConsentFixture(
+            ruleset, winnerArmyPower: 5, loserOtherArmyPower: 50, loserUnityBeforeSwing: 600, loserCityCount: 7);
+        var failingRng = new ConstantRng(0);
+        ResolveWithRng(failing, ruleset, failingRng);
+
+        var passing = HumanConsentFixture(
+            ruleset, winnerArmyPower: 5, loserOtherArmyPower: 50, loserUnityBeforeSwing: 600, loserCityCount: 8);
+        var passingRng = new ConstantRng(0);
+        ResolveWithRng(passing, ruleset, passingRng);
+
+        Assert.Equal(failingRng.DrawCount + 1, passingRng.DrawCount);
+    }
+
+    /// <summary>
     /// A battle between two AI seats never raises <see cref="PeaceTreatyOffered"/> — that is
     /// <see cref="DoD08_PeaceTreatyTriggeredIsPublishedWhenTheRollAndBothGatesPass"/>'s own path, publishing
     /// <see cref="PeaceTreatyTriggered"/> instead, unaffected by this task apart from the cascade fixes
@@ -598,7 +651,6 @@ public class FieldBattleTests
     public void HumanConsent_BothHuman_NeverPublishesEitherTreatyEvent()
     {
         var ruleset = BattleTestbed.Destroyed;
-        var initial = BattleTestbed.Initial();
         var state = HumanConsentFixture(
             ruleset, winnerArmyPower: 10, loserOtherArmyPower: 50, loserUnityBeforeSwing: 600, loserCityCount: 9);
         state = state with
