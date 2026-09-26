@@ -174,7 +174,32 @@ public class ArmyFleetFieldRangeSweepTests
                 // exclude it exactly as IsLaunched does, rather than widen the range to cover it.
                 if (!f.IsLaunched)
                     Assert.InRange(f.ConstructionCountdown, (ushort)0, (ushort)200);
-                Assert.InRange(f.Moves, (ushort)0, (ushort)200);
+                // Follow-up #340 N5, corrected by review round 1 B4: 0..200 was arbitrary, and the
+                // observed corpus range (0..29) is not a bound either (the rule from T64: evidence, not
+                // the observed maximum) -- an earlier revision of this bound (34) rested on this same
+                // sweep's own *observed* ShipCount floor (5), which is exactly the method the rule
+                // forbids, and 34 also happens to equal the corpus's own observed Moves maximum, so
+                // nothing but the derivation separated it from a disguised "observed maximum" bound.
+                // The upper bound instead comes straight from the confirmed formula (T04 fixtures
+                // corpus id fleet.moves.baseFormula, supply-driven-morale-and-fleet-attrition.md):
+                // moves = 30 - (ships - 50) / 10, before further, moves-only-reducing terms (a carried
+                // army, zero supply, storm damage -- fleet.moves.carriedArmyPenaltyFormula and the
+                // storm/zero-supply penalties, all of which only reduce this). Evaluated at its own
+                // theoretical floor, ships = 0 (no report or cap confirms a live fleet always holds at
+                // least one ship -- fleet.minShipsPerOrder = 10 is TBuildFleet_ChangeFleetSize's
+                // build-dialog clamp, not a standing invariant on a fleet that has since taken combat or
+                // storm losses): 30 - (0 - 50) / 10 = 30 - (-5) = 35 -- C#'s truncating integer division
+                // on the negative numerator, exactly as the formula's implementation does it. No term in
+                // the formula can raise moves above the ships-only term, so 35 is the field's true
+                // ceiling. Review round 1, N3: the floor of 0 is asserted here as the field's stored
+                // ushort width, not as a property of the formula -- the report's own pseudocode
+                // (supply-driven-morale-and-fleet-attrition.md:167-176) subtracts the carried-army
+                // penalty, the out-of-supply term and storm damage from the ships-only value with no
+                // clamp, so a negative result is possible in principle. No corpus record has produced
+                // one (observed maximum 34); one that did would store as a large ushort near 65,535 and
+                // rightly fail this bound, exactly like any other out-of-range record this sweep checks
+                // (no decompiled signedness finding exists for this field, unlike ArmyRecord.Moves).
+                Assert.InRange(f.Moves, (ushort)0, (ushort)35);
                 Assert.InRange(f.Supplies, (ushort)0, (ushort)2000);
                 Assert.InRange(f.Money, (ushort)0, (ushort)1000);
                 // T21 (folded follow-up #136, Done-when 7): 0..2000 against an actually-observed 5..100
@@ -189,8 +214,14 @@ public class ArmyFleetFieldRangeSweepTests
                 // 100% pass. Tightened to the real percentage range.
                 if (f.ConditionPercent is { } condition)
                     Assert.InRange(condition, (ushort)0, (ushort)100);
+                // Follow-up #340 N5: 0..700 was arbitrary. CarriedArmyIndex is an index into the army
+                // table, which the original caps at 198 records in play -- TUnitMap_SplitArmy's own
+                // guard, FUN_00449F08, "armyCount < 0xC6" (0xC6 = 198), the same decompiled evidence
+                // behind this project's own ArmyManagementRules.MaxArmies and the T04 fixtures corpus id
+                // caps.maxArmies (decompiled-unit-map-orders-and-record-fields.md). A 0-based index into
+                // a table that can hold at most 198 armies never exceeds 197.
                 if (f.CarriedArmyIndex is { } carried)
-                    Assert.InRange(carried, (ushort)0, (ushort)700);
+                    Assert.InRange(carried, (ushort)0, (ushort)197);
             }
         }
 

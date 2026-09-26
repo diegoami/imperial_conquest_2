@@ -57,9 +57,10 @@ public sealed class AiClassicalMediterraneanStallMeasurementTests
     /// Sized to stay inside the suite's time budget across ten seeds. 120 seat-turns is 7.5 rounds of
     /// this 16-nation scenario: the first stall is at seat-turn 27 (round 2), well inside the cap, but
     /// the cap covers only <em>one</em> seasonal treasury refill (the sixteen nations' turns land at
-    /// t102-118 on the seeds sampled) -- review round 1, B2/N3. A longer run would show more of the same
-    /// recurring pattern, not a different one: every stall found here repeats once per round for the
-    /// same four nations, tied to that one season boundary.
+    /// t97-112 on the seeds sampled) -- review round 1, B2/N3; corrected by follow-up #334 N6, which
+    /// found this remark said t102-118. Every stall found within the cap repeats once per round for the
+    /// same four nations, tied to that one season boundary; the cap stops there, and this measurement
+    /// says nothing about turns beyond it.
     /// </summary>
     private const int TurnCap = 120;
 
@@ -233,15 +234,28 @@ public sealed class AiClassicalMediterraneanStallMeasurementTests
         // clears neither the cheapest unit nor the cheapest fortification point. The treasury then sits
         // at that leftover level for the rest of the season, which is exactly what this diagnosis measures
         // below: a small positive budget against costs both above it.
+        //
+        // Review round 1, B1: "clears neither" used to be asserted in the text without ever being
+        // checked -- the branch fired on ownArmies == 0 && ownFleets == 0 alone. budgetClearsNothing
+        // makes the label depend on the comparison it claims: forcing both costs to 0 (the reviewer's
+        // own mutation) now moves every affected row out of this branch, since a positive budget then
+        // affords both a 0-cost unit and a 0-cost fortification point.
+        var budgetClearsNothing = budget < cheapestUnitCost
+            && (cheapestFortifyPointCost is not { } fortifyCost || budget < fortifyCost);
         var cause = military.Count == 0 && economy.Count == 0 && diplomacy.Count == 0
             ? ownArmies == 0 && ownFleets == 0
-                ? "no affordable action: the seat has no army and no fleet at all (none in this scenario's "
-                  + "own starting data, and its recruitment table has stayed empty for the whole run), so "
-                  + "military has nothing to move/attack/siege with, and its post-fortify-spree budget of "
-                  + $"{budget} clears neither the cheapest recruitable unit ({cheapestUnitCost} talents) "
-                  + $"nor its own cheapest fortification point ({FormatCost(cheapestFortifyPointCost)} "
-                  + $"talents) -- recruitment table {recruitmentSlots}/{maxRecruitmentSlots} slots, "
-                  + $"{ownCities} own cities"
+                ? budgetClearsNothing
+                    ? "no affordable action: the seat has no army and no fleet at all (none in this scenario's "
+                      + "own starting data, and its recruitment table has stayed empty for the whole run), so "
+                      + "military has nothing to move/attack/siege with, and its post-fortify-spree budget of "
+                      + $"{budget} clears neither the cheapest recruitable unit ({cheapestUnitCost} talents) "
+                      + $"nor its own cheapest fortification point ({FormatCost(cheapestFortifyPointCost)} "
+                      + $"talents) -- recruitment table {recruitmentSlots}/{maxRecruitmentSlots} slots, "
+                      + $"{ownCities} own cities"
+                    : "no candidate from any phase despite an affordable budget of "
+                      + $"{budget} (cheapest recruitable unit {cheapestUnitCost} talents, cheapest "
+                      + $"fortification point {FormatCost(cheapestFortifyPointCost)} talents), and no army "
+                      + "or fleet to act with -- something else"
                 : armiesWithMoves == 0 && fleetsWithMoves == 0
                     ? "no candidate from any phase; every owned army/fleet has zero moves left this turn, "
                       + $"and economy proposed nothing of its own despite budget {budget} -- recruitment "

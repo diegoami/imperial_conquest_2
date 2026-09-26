@@ -17,6 +17,16 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    # Follow-up #382 N12: a hang guard, since removing the repeat check in
+    # GameSession.PlayUntilOneFullLapOrRepeat means a stalled AI soak would hang the suite instead of
+    # failing it, and this workflow otherwise falls back to GitHub Actions' own 360-minute default.
+    # 20 minutes is generous headroom over the slowest green run found. Review round 1, N5: the
+    # original measurement used --limit 20, not enough runs to find the true recent slowest; re-run
+    # over the last 100 (gh run list --workflow ci.yml --limit 100 --json databaseId,conclusion,createdAt,updatedAt)
+    # on 2026-09-26, the slowest is run 36067155996 (2026-09-24T22:23:33Z -> 2026-09-24T22:25:35Z),
+    # 122 seconds -- run 36178858807 (110 seconds) is second. Still under 2.5 minutes, so 20 minutes
+    # is still roughly 10x that, not a bound tuned to one sample.
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4

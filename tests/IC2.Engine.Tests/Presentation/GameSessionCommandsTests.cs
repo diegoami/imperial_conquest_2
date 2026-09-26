@@ -201,17 +201,22 @@ public sealed class GameSessionCommandsTests
     /// <strong>Two rounds, not one (review round 1, B1).</strong> The army starts two tiles from
     /// <c>south</c>'s only city (<c>meridia</c>, at (3, 4)) with exactly one move point, so round 1's
     /// <c>end</c> cannot reach the siege: with north and south still at peace and no economy candidate on
-    /// offer, round 1's own turn actually proposes and forms an alliance (a diplomacy candidate) ahead of
-    /// the march, and the march still runs (a lower-scored second action) -- <c>MoveArmyCommandHandler</c>
-    /// stops the army at the bordering tile, and the spent move point then makes
-    /// <c>AiMilitaryPhase.Propose</c>'s own <c>army.Moves &lt;= 0</c> gate skip it for the rest of that
-    /// turn, so no siege is proposed yet. Only round 2's <c>end</c> -- a fresh turn, moves replenished, now
-    /// adjacent -- besieges, captures and eliminates <c>south</c> (declaring war overrides the alliance
-    /// round 1 formed; nothing here relies on that not happening). This is what makes "every entry the
-    /// round appended" a real claim rather than "the whole log": round 1 leaves a non-empty log behind
-    /// (the alliance announcement plus its own header), <c>countBeforeRound2</c> pins it, and round 2's
-    /// assertions check growth from that mark, not from empty. <c>south</c> plays first each round, as the
-    /// human seat, and does nothing but end its turn.
+    /// offer, the army marches -- <c>MoveArmyCommandHandler</c> stops it at the bordering tile, and the
+    /// spent move point then makes <c>AiMilitaryPhase.Propose</c>'s own <c>army.Moves &lt;= 0</c> gate skip
+    /// it for the rest of that turn, so no siege is proposed yet. Only round 2's <c>end</c> -- a fresh
+    /// turn, moves replenished, now adjacent -- besieges, captures and eliminates <c>south</c>.
+    /// <see href="https://github.com/diegoami/imperial_conquest_2/issues/334">#334</see> N5: an earlier
+    /// revision of this paragraph said round 1 also proposed and formed an alliance ahead of the march --
+    /// true under T65-era AI diplomacy, but T82 (#377, "AI diplomacy as the original has it") removed the
+    /// buggy direct alliance write this relied on, and round 1's AI turn now has no diplomacy candidate to
+    /// propose here either (bug #357's own root cause); the army's approach march is genuinely
+    /// <c>HandleEnd</c>'s only production this round. This is what makes "every entry the round appended" a
+    /// real claim rather than "the whole log": round 1 leaves a non-empty log behind regardless --
+    /// <see href="https://github.com/diegoami/imperial_conquest_2/issues/334">#334</see> N4's starting news
+    /// seed, plus every round's own mandatory blank-line-and-header pair even with no event at all
+    /// (news-log-format-and-messages.md Q3: "a quiet round costs 2 of the 40 slots") --
+    /// <c>countBeforeRound2</c> pins it, and round 2's assertions check growth from that mark, not from
+    /// empty. <c>south</c> plays first each round, as the human seat, and does nothing but end its turn.
     /// </para>
     /// </remarks>
     [Fact]
@@ -241,6 +246,14 @@ public sealed class GameSessionCommandsTests
             // north's own turn -- inside HandleEnd's while loop, not the unconditional first RunTurn
             // call, and not a human-issued command flushed before newsBefore is read.
             TurnOrder = ValueList.Of("south", "north"),
+
+            // #334 N4: a news-producing step before round 1. Without this, the log starts empty, so
+            // round 1's own printed News section is indistinguishable from "the whole log" -- a fixed
+            // "print the last N entries" mutation could still pass simply because before == []. With a
+            // starting entry already in the log, HandleEnd's own newsBefore/newsAfter slicing has
+            // something to slice away, and a fixed-N mutation that ignores it prints this seed line back
+            // out inside round 1's own section.
+            StartingNews = new NewsLog(MostRecentSlot: 0, ValueList.Of(new NewsEntry("The chronicle opens."))),
         };
         var scenario = toy.Scenario with
         {
@@ -262,16 +275,28 @@ public sealed class GameSessionCommandsTests
         // filtered around.
         const ulong Seed = 2;
         var session = new GameSession(world, toy.Ruleset, scenario, Seed);
-        Assert.Empty(session.State.NewsLog.Slots);
+        Assert.Single(session.State.NewsLog.Slots); // #334 N4: the starting news seed, before any round.
 
-        // Round 1: the approach march only. Asserted explicitly so the fixture's own claim -- "not yet
-        // adjacent, not yet eliminated" -- is pinned rather than assumed.
-        session.Submit("end");
+        // Round 1: the approach march only (#334 N5: confirmed still accurate -- see the remarks above;
+        // an earlier revision of this comment was wrong about an alliance forming here, but that relied
+        // on AI diplomacy behaviour T82 has since removed). #334 N4: capturing round 1's own News section
+        // -- not just the raw state count -- proves HandleEnd slices *this round's own* appended entries
+        // out of a log that already had the starting seed in it. A fixed "print the last N entries"
+        // mutation must now match round 1's true count as well as round 2's, and the two differ (asserted
+        // below), so no single N satisfies both -- closing the gap the old, empty-at-start fixture left
+        // open for whichever N equalled round 2's own count.
+        var round1Output = session.Submit("end");
         Assert.False(
-            session.State.NationById("south")!.Eliminated, "round 1 must only march the army into place");
+            session.State.NationById("south")!.Eliminated,
+            "round 1 must only march the army into place, not eliminate south");
+        var round1NewsLines = NewsSection(round1Output.Lines.ToList());
+        Assert.DoesNotContain(round1NewsLines, line => string.Equals(line, "The chronicle opens.", StringComparison.Ordinal));
         var round1Lines = session.State.NewsLog.Slots.Select(s => s.Text).ToList();
         var countBeforeRound2 = session.State.NewsLog.Slots.Count;
-        Assert.True(countBeforeRound2 > 0, "round 1 must leave the log non-empty, or round 2 proves nothing");
+        Assert.True(
+            countBeforeRound2 > 1,
+            "round 1 must append at least its own mandatory blank-line-and-header pair to the seeded "
+            + "log, or round 2 proves nothing");
 
         // Round 2: adjacent now, moves replenished -- the siege, the capture and the elimination.
         var output = session.Submit("end");
@@ -280,21 +305,22 @@ public sealed class GameSessionCommandsTests
             session.State.NationById("south")!.Eliminated,
             "expected south's only city to fall this round and eliminate it");
 
-        var newsIndex = output.Lines.ToList().IndexOf("News:");
-        Assert.True(newsIndex >= 0, "Expected a \"News:\" section after the round that eliminates south.");
+        var trimmed = NewsSection(output.Lines.ToList());
 
-        var newsLines = output.Lines.Skip(newsIndex + 1).ToList();
-        newsLines.RemoveAt(newsLines.Count - 1); // Submit()'s own trailing blank separator, not a news entry.
-        var trimmed = newsLines.Select(l => l.Trim()).ToList();
+        // #334 N4: round 1's own News section has a different line count than round 2's (asserted with
+        // its exact value below) -- the two rounds cannot both satisfy a single fixed-N mutation.
+        Assert.NotEqual(round1NewsLines.Count, trimmed.Count);
 
         // The DoD's own claim, made against a log that already has round 1's content in it: every entry
         // THIS round appended is printed -- not the header alone, and not the whole log either. Because
         // round 1 is non-empty, a fixed trailing count that overshoots round 2's own growth pulls in
-        // round 1's tail and fails both this count and the exact-sequence check below (shown in the PR
-        // for k = 10 and k = 50; k = 7 -- reduced from the original 9, see the T83 rework note below --
-        // happens to equal this round's own true count and is expected to still pass).
+        // round 1's tail and fails both this count and the exact-sequence check below. Review round 1,
+        // N2: this used to say a fixed k = 7 "happens to equal this round's own true count and is
+        // expected to still pass" -- stale since #334 N4's fix above: TakeLast(7) now fails here too
+        // (round 1's own News section is no longer empty, so 7 is no longer indistinguishable from the
+        // correct, computed count for every k the mutation sweep below tries, 7 included).
         var appendedCount = session.State.NewsLog.Slots.Count - countBeforeRound2;
-        Assert.Equal(appendedCount, newsLines.Count);
+        Assert.Equal(appendedCount, trimmed.Count);
 
         // Round 1's own (non-blank) content must not reappear in round 2's printed lines. Blank
         // separators are excluded: every round's header includes one, so blank-to-blank equality is
@@ -335,6 +361,29 @@ public sealed class GameSessionCommandsTests
         Assert.Equal(dashLine, trimmed[4]);
         Assert.Equal(string.Empty, trimmed[5]);
         Assert.Contains("Week", trimmed[6], StringComparison.Ordinal);
+
+        // #334 N4: round 1's own exact News section, pinned the same way round 2's is above -- no event
+        // this round (#334 N5, confirmed: no alliance forms), so only the mandatory blank-line-and-header
+        // pair every round closes with. Its count (2) is deliberately different from round 2's (7): the
+        // DoD's own worry was a fixed "print the last N entries" mutation that happens to equal one
+        // round's true count; with both counts pinned and unequal, no single N can satisfy both.
+        Assert.Equal(2, round1NewsLines.Count);
+        Assert.Equal(string.Empty, round1NewsLines[0]);
+        Assert.Contains("Week", round1NewsLines[1], StringComparison.Ordinal);
+    }
+
+    /// <summary>Extracts and trims a <c>Submit()</c> output's "News:" section, dropping the trailing
+    /// blank separator <c>Submit()</c> always appends after it (#334 N4: shared between round 1 and round
+    /// 2's own extraction in <see cref="HandleEnd_prints_the_dash_wrapped_elimination_from_an_ai_seats_own_turn"/>,
+    /// so both rounds are read the same way).</summary>
+    private static List<string> NewsSection(IReadOnlyList<string> lines)
+    {
+        var newsIndex = lines.ToList().IndexOf("News:");
+        Assert.True(newsIndex >= 0, "Expected a \"News:\" section in the round's output.");
+
+        var newsLines = lines.Skip(newsIndex + 1).ToList();
+        newsLines.RemoveAt(newsLines.Count - 1); // Submit()'s own trailing blank separator, not a news entry.
+        return newsLines.Select(l => l.Trim()).ToList();
     }
 
     // ---- #100 item 2: season names come from the ruleset, not a hardcoded duplicate ----

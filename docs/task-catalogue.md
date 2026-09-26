@@ -4,7 +4,7 @@ Every build task's scope, **Owns** list, Definition of Done, model/effort, revie
 
 **Status is not in this document.** Each task's stage (ready, in progress, merged, blocked, escalated) lives only in its GitHub issue's `status:*` label ([build-process.md §5](build-process.md#5-status-lives-on-github)). The index below links every issue.
 
-88 tasks: 23 that build the 20 design milestones (M1 and M18 span more than one task), plus T46, the second half of M7 split out of T14; eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers); 42 corrections to already-merged code (T31–T35, T38–T40, T42–T45, T50, T52, T53, T60, T63–T88); five rules no task owned (T37, the weekly city supply step; T54, the attack and siege commands; T55–T57, mobilization, the mercenary restock and the AI's use of both); two early slices — T41 of T23's CLI, and T47 of T24's Godot UI; the asset pipeline (T48, T49, T51); the auto-resolve survey and tournament (T58, T59); and two layout fixes (T61, T62).
+89 tasks: 23 that build the 20 design milestones (M1 and M18 span more than one task), plus T46, the second half of M7 split out of T14; eight pieces of scaffolding the milestone list assumes (build/CI harness, engine seams, GitHub hygiene, asset pack, nightly regression gate, the one-time export of the shipped `classical-mediterranean` world/ruleset, the authored `improved` preset, and hardening the `IC2.Data` parsers); 43 corrections to already-merged code (T31–T35, T38–T40, T42–T45, T50, T52, T53, T60, T63–T89); five rules no task owned (T37, the weekly city supply step; T54, the attack and siege commands; T55–T57, mobilization, the mercenary restock and the AI's use of both); two early slices — T41 of T23's CLI, and T47 of T24's Godot UI; the asset pipeline (T48, T49, T51); the auto-resolve survey and tournament (T58, T59); and two layout fixes (T61, T62).
 
 ---
 
@@ -188,7 +188,8 @@ graph TD
   T84[T84 elimination forces] --> T69
   T82 --> T85[T85 DAT neighbour mask]
   T85 --> T86[T86 conquest cascade]
-  T86 --> T87[T87 leader falls + rebirth]
+  T86 --> T89[T89 quarterly rebellion]
+  T89 --> T87[T87 leader falls + rebirth]
   T85 --> T88[T88 war cascade + peace]
 ```
 
@@ -211,10 +212,11 @@ Waves are dependency layers, not concurrent batches: execution is serial, one co
 | 10 | T76, T82 | Follows T21, T65 and T70, and runs after the v0.3.0 tag (the user's decision of 2026-09-24).. T82 follows T69 (it owns `Diplomacy/**`) and is never in flight with T66, T76 or T79. |
 | 11 | T56, T85 | T56 follows T13, T22, T68 and T76: the restock writes each offer's position, which T76 adds. T85 follows T82, whose `NeighbourGeography` it changes, and is never in flight with T86. |
 | 12 | T86, T88 | T86 follows T85, whose neighbour mask it merges on conquest, and is never in flight with T71 (`Persistence/**`), T78 (`OriginalSaveFieldMapping.cs`) or T87. T88 follows T85, since its peace cascade reads T85's neighbour query; it is never in flight with T79, T86 or T87 (`Diplomacy/**`). |
-| 13 | T87 | Follows T86 (conquered-by and the conquest path). Never in flight with T79. |
+| 13 | T89 | Follows T86: its last branch reads the neighbour set T86 puts in the game state, and its transfer is T86's corrected defection. Never in flight with T87. |
+| 14 | T87 | Follows T86 (conquered-by and the conquest path) and T89 (the rebellion the rebirth hangs off). Never in flight with T79. |
 | — | T53, T61, T64, T70, T71, T73, T77, T78, T79, T80, T81, T83, T84 | No merge-after dependency: each runs whenever the queue allows. T77 runs after T21 and before the v0.3.0 freeze (the user's decision of 2026-09-24). T64 must merge before T21 (the user's decision of 2026-09-23), and so must T73 (the user's decision of 2026-09-24 on #321). T67 and T71 both work in `Persistence/**` tests, so they are never in flight together.. Of the 2026-09-25 triage's tasks: T78 is never in flight with T75, T76 or T79; T79 never with T66, T67, T76 or T78; T81 never with T67, T71, T75, T76 or T78; and T80 (v0.4.0) is best merged before T24. T83 is never in flight with T80. T84 must merge before T69 (the user's decision of 2026-09-25 on #366), and is never in flight with T66, T79 or T82. |
 
-**Critical path**: `T01 → T02 → T03 → T06 → T32 → T08 → T38 → T14 → T16 → T17 → T29 → T36 → T24 → T25 → T27` — 15 of 88 tasks — with `T08 → T35 → T17` and `T31 → T33 → T16` as parallel edges into it; T29 also waits for T15 and T19, and `T17 → T23 → T24` runs one task shorter. The AI chain (`… → T17 → T18 → T22 → T28`, and now `T22 → T55 → T57 → T60`, as long as the critical path at 15 tasks) runs alongside it with the most slack and the most uncertain duration, which argues for not deferring T22.
+**Critical path**: `T01 → T02 → T03 → T06 → T32 → T08 → T38 → T14 → T16 → T17 → T29 → T36 → T24 → T25 → T27` — 15 of 89 tasks — with `T08 → T35 → T17` and `T31 → T33 → T16` as parallel edges into it; T29 also waits for T15 and T19, and `T17 → T23 → T24` runs one task shorter. The AI chain (`… → T17 → T18 → T22 → T28`, and now `T22 → T55 → T57 → T60`, as long as the critical path at 15 tasks) runs alongside it with the most slack and the most uncertain duration, which argues for not deferring T22.
 
 ### 1.2 Sequential and independent tasks
 
@@ -741,6 +743,12 @@ War cascade and peace → [full entry](tasks/T88.md) · [#391](https://github.co
 
 ---
 
+#### T89 The quarterly rebellion: a disloyal city goes to its allegiance, an attacker or a neighbour
+
+Quarterly rebellion → [full entry](tasks/T89.md) · [#397](https://github.com/diegoami/imperial_conquest_2/issues/397)
+
+---
+
 #### T24 Godot main game screen
 
 Godot main screen → [full entry](tasks/T24.md) · [#24](https://github.com/diegoami/imperial_conquest_2/issues/24)
@@ -863,7 +871,8 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T84](#t84-an-eliminated-nations-forces-are-disbanded-as-the-original-does) | Elimination forces | — | Sonnet | High | **Opus**/Medium | — | [#369](https://github.com/diegoami/imperial_conquest_2/issues/369) |
 | [T85](#t85-the-originals-neighbour-mask-loaded-from-the-dat) | DAT neighbour mask | — | Sonnet | Medium | **Opus**/Medium | T82 | [#387](https://github.com/diegoami/imperial_conquest_2/issues/387) |
 | [T86](#t86-conquest-as-the-original-has-it-below-six-cities-the-capital-move-and-what-the-winner-takes) | Conquest cascade | — | Sonnet | High | **Opus**/Medium | T85 | [#388](https://github.com/diegoami/imperial_conquest_2/issues/388) |
-| [T87](#t87-the-leader-falls-a-human-seat-is-handed-over-and-a-dead-nation-is-reborn) | Leader falls and rebirth | — | Sonnet | High | **Opus**/Medium | T86 | [#389](https://github.com/diegoami/imperial_conquest_2/issues/389) |
+| [T87](#t87-the-leader-falls-a-human-seat-is-handed-over-and-a-dead-nation-is-reborn) | Leader falls and rebirth | — | Sonnet | High | **Opus**/Medium | T86, T89 | [#389](https://github.com/diegoami/imperial_conquest_2/issues/389) |
 | [T88](#t88-war-cascades-one-step-and-an-ai-never-makes-peace-with-a-human-without-consent) | War cascade and peace | — | Sonnet | High | **Opus**/Medium | T85 | [#391](https://github.com/diegoami/imperial_conquest_2/issues/391) |
+| [T89](#t89-the-quarterly-rebellion-a-disloyal-city-goes-to-its-allegiance-an-attacker-or-a-neighbour) | Quarterly rebellion | — | Sonnet | High | **Opus**/Medium | T86 | [#397](https://github.com/diegoami/imperial_conquest_2/issues/397) |
 
-**Totals** — 88 tasks: 11 Opus, 71 Sonnet, 5 Haiku, 1 Fable. Effort: 2 Ultrahigh, 48 High, 33 Medium, 5 Low.
+**Totals** — 89 tasks: 11 Opus, 72 Sonnet, 5 Haiku, 1 Fable. Effort: 2 Ultrahigh, 49 High, 33 Medium, 5 Low.

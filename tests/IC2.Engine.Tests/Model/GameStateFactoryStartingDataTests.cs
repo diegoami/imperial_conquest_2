@@ -123,6 +123,10 @@ public class GameStateFactoryStartingDataTests
         Assert.Equal(" ", state.NewsLog.Slots[^2].Text);
         Assert.Equal(expectedHeader, state.NewsLog.Slots[^1].Text);
 
+        // #372 N4: the last-slot check above would still pass if the round tick wrote this same header
+        // twice (once at the true end, once earlier). It appears exactly once.
+        Assert.Equal(1, state.NewsLog.Slots.Count(s => s.Text == expectedHeader));
+
         // Not duplicated in the engine's own format either: the DAT seed's slot 26 ("Week 1 ... 270 BC",
         // single-spaced, no space before "BC") is byte-different from the engine's own week-1 header
         // ("Week  1 ... 270BC" -- T75 Hazards), and this confirms the round tick never independently
@@ -233,6 +237,11 @@ public class GameStateFactoryStartingDataTests
         var ex = Assert.Throws<ArgumentException>(
             () => GameStateFactory.CreateInitial(world, ruleset, classical.Scenario));
         Assert.Contains("byte", ex.Message, StringComparison.OrdinalIgnoreCase);
+
+        // Review round 1, N1: the count itself is of UTF-16 code units, so #372 N7 renamed the noun
+        // from "bytes" to "characters" (GameStateFactory.cs ~:309) -- pinned so a revert back to
+        // "bytes, over" is caught.
+        Assert.Contains("character", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -254,5 +263,126 @@ public class GameStateFactoryStartingDataTests
         var ex = Assert.Throws<ArgumentException>(
             () => GameStateFactory.CreateInitial(world, ruleset, classical.Scenario));
         Assert.Contains("printable", ex.Message, StringComparison.OrdinalIgnoreCase);
+
+        // Review round 1, N1: #372 N7 renamed the noun from "byte" to "character" here too
+        // (GameStateFactory.cs ~:297) -- pinned so a revert back to "byte outside" is caught.
+        Assert.Contains("character", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Follow-up #372 N1: a slot at exactly the byte limit (one under
+    /// <see cref="NewsLogRules.MessageByteLength"/>, the trailing NUL's own budget) passes -- proving the
+    /// check above is <c>&gt;</c>, not <c>&gt;=</c>; a mutation that changed the comparison direction
+    /// would go unnoticed without this boundary case.
+    /// </summary>
+    [Fact]
+    public void A_news_text_at_exactly_the_byte_limit_passes()
+    {
+        var classical = Classical();
+        var ruleset = classical.Ruleset;
+        var atLimit = new string('x', ruleset.NewsLog.MessageByteLength - 1);
+        var goodNews = new NewsLog(MostRecentSlot: 0, ValueList.Of(new NewsEntry(atLimit)));
+        var world = classical.World with { StartingNews = goodNews };
+
+        var state = GameStateFactory.CreateInitial(world, ruleset, classical.Scenario);
+
+        Assert.Equal(atLimit, state.NewsLog.Slots[0].Text);
+    }
+
+    /// <summary>
+    /// Follow-up #372 N2: the low end of the printable range is rejected too, not just the high end
+    /// <see cref="A_news_text_with_a_non_printable_byte_is_rejected_at_game_creation"/> already covers.
+    /// A tab (0x09) is below 0x20, the printable floor.
+    /// </summary>
+    [Fact]
+    public void A_news_text_with_a_byte_below_the_printable_floor_is_rejected_at_game_creation()
+    {
+        var classical = Classical();
+        var ruleset = classical.Ruleset;
+        var withTab = "a\tb";
+        var badNews = new NewsLog(MostRecentSlot: 0, ValueList.Of(new NewsEntry(withTab)));
+        var world = classical.World with { StartingNews = badNews };
+
+        var ex = Assert.Throws<ArgumentException>(
+            () => GameStateFactory.CreateInitial(world, ruleset, classical.Scenario));
+        Assert.Contains("printable", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Follow-up #372 N3: <see cref="GameStateFactory"/>'s own remarks on
+    /// <c>ValidateStartingRelationValues</c> (GameStateFactory.cs:205-208) say every cell is checked
+    /// against the ruleset's own relation codes explicitly, rather than assuming they are a contiguous
+    /// <c>0..max</c> range -- so a ruleset whose codes have a gap must still reject a value that falls in
+    /// that gap. The toy ruleset's own codes are contiguous (0-3), so this widens them deliberately to
+    /// leave 1 and 4-8 as gaps, and asserts a gap value (1) is rejected exactly as an out-of-range one
+    /// would be.
+    /// </summary>
+    [Fact]
+    public void A_relation_value_in_a_gap_between_non_contiguous_codes_is_rejected_at_game_creation()
+    {
+        var classical = Classical();
+        var nonContiguousCodes = new RelationStateCodes(Peace: 0, Trade: 2, Alliance: 5, War: 9);
+        var ruleset = classical.Ruleset with
+        {
+            Diplomacy = classical.Ruleset.Diplomacy with { StateCodes = nonContiguousCodes },
+        };
+
+        var badRelations = classical.World.StartingRelations!.WithRelation("rome", "gaul", 1); // the Peace-Trade gap
+        var world = classical.World with { StartingRelations = badRelations };
+
+        var ex = Assert.Throws<ArgumentException>(
+            () => GameStateFactory.CreateInitial(world, ruleset, classical.Scenario));
+        Assert.Contains("1", ex.Message, StringComparison.Ordinal);
+
+        // Review round 1, N1: review round 1, B2 (Owns amendment #399) named the bad data's owner,
+        // world, rather than ruleset, as the exception's ParamName -- pinned so a revert back to
+        // nameof(ruleset) at GameStateFactory.cs ~:237 is caught.
+        Assert.Equal("world", ex.ParamName);
+    }
+
+    /// <summary>
+    /// Follow-up #372 N6 (the user's decision of 2026-09-25): a starting news seed with more slots than
+    /// the ruleset's own ring buffer is rejected at game creation, with a typed
+    /// <see cref="MalformedGameDataException"/> -- <see cref="World.ValidateStartingNewsShape"/> cannot
+    /// catch this at load time (it has no <see cref="Ruleset"/> to know the ring's capacity from), so
+    /// without this check a seed this long would pass state validation and only be trimmed down to size
+    /// on the first write.
+    /// </summary>
+    [Fact]
+    public void A_news_seed_with_more_slots_than_the_ring_buffer_is_rejected_at_game_creation()
+    {
+        var classical = Classical();
+        var ruleset = classical.Ruleset;
+        var tooManySlots = ruleset.NewsLog.RingBufferSlots + 1;
+        var slots = ValueList.From(Enumerable.Range(0, tooManySlots).Select(i => new NewsEntry($"slot {i}")));
+        var badNews = new NewsLog(MostRecentSlot: tooManySlots - 1, slots);
+        var world = classical.World with { StartingNews = badNews };
+
+        var ex = Assert.Throws<MalformedGameDataException>(
+            () => GameStateFactory.CreateInitial(world, ruleset, classical.Scenario));
+        Assert.Contains(tooManySlots.ToString(CultureInfo.InvariantCulture), ex.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            ruleset.NewsLog.RingBufferSlots.ToString(CultureInfo.InvariantCulture), ex.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Review round 1, B3: the boundary the check above rests on was untested -- mutating
+    /// <c>&gt;</c> to <c>&gt;=</c> at <c>GameStateFactory.cs:269</c> left the whole suite green,
+    /// because no test showed a seed of exactly <see cref="NewsLogRules.RingBufferSlots"/> slots (not
+    /// one more) is still accepted.
+    /// </summary>
+    [Fact]
+    public void A_news_seed_with_exactly_the_ring_buffers_own_slot_count_is_accepted()
+    {
+        var classical = Classical();
+        var ruleset = classical.Ruleset;
+        var exactSlots = ruleset.NewsLog.RingBufferSlots;
+        var slots = ValueList.From(Enumerable.Range(0, exactSlots).Select(i => new NewsEntry($"slot {i}")));
+        var goodNews = new NewsLog(MostRecentSlot: exactSlots - 1, slots);
+        var world = classical.World with { StartingNews = goodNews };
+
+        var state = GameStateFactory.CreateInitial(world, ruleset, classical.Scenario);
+
+        Assert.Equal(exactSlots, state.NewsLog.Slots.Count);
     }
 }
