@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using IC2.Engine.Core;
+using IC2.Engine.Diplomacy;
 using IC2.Engine.Model;
 using IC2.Engine.Persistence;
 using IC2.Engine.Serialization;
@@ -130,5 +131,105 @@ public sealed class SaveMigrationTests
         Assert.Contains("disagrees", ex.Message, StringComparison.Ordinal);
         Assert.Contains((realTurnIndex + 1).ToString(), ex.Message, StringComparison.Ordinal);
         Assert.Contains(realTurnIndex.ToString(), ex.Message, StringComparison.Ordinal);
+    }
+
+    // ---- T86 Done-when 3: the neighbour set and conqueredBy migrate through SaveManager ----
+
+    /// <summary>
+    /// Builds a well-formed version-2 envelope for <paramref name="state"/> by starting from a real,
+    /// current-format (version 3) one and stripping exactly what version 2 never had: the envelope's own
+    /// version number, the nested state's <c>neighbours</c> field, and every nation's own
+    /// <c>conqueredBy</c> field. This is what an actual pre-T86 save looked like -- both fields simply
+    /// absent, never present-and-null -- so the migration step is exercised against the real shape it
+    /// has to handle, not a shape this test invented.
+    /// </summary>
+    private static JsonObject BuildVersion2Envelope(SaveGame save)
+    {
+        var envelope = (JsonObject)JsonNode.Parse(SaveManager.Serialize(save))!;
+        envelope[SaveFormat.VersionField] = 2;
+
+        var payload = (JsonObject)envelope[SaveFormat.PayloadField]!;
+        var state = (JsonObject)payload["state"]!;
+        state.Remove("neighbours");
+
+        var nations = (JsonArray)state["nations"]!;
+        foreach (var nationNode in nations)
+        {
+            ((JsonObject)nationNode!).Remove("conqueredBy");
+        }
+
+        return envelope;
+    }
+
+    /// <summary>
+    /// T86 Done-when 3's own version step: migrating a version-2 envelope to version 3 makes both new
+    /// fields explicit -- <c>state.neighbours</c> present as JSON <c>null</c>, and every nation's own
+    /// <c>conqueredBy</c> likewise -- rather than leaving them silently absent. Checked on the migrated
+    /// JSON tree directly, before deserialization, so this is a test of the migration step itself, not
+    /// only of the (identical, since both fields are optional) resulting <see cref="GameState"/>.
+    /// </summary>
+    [Fact]
+    public void MigratingAVersion2EnvelopeMakesNeighboursAndConqueredByExplicit()
+    {
+        var toy = PersistenceTestbed.Toy;
+        var state = PersistenceTestbed.PlayTurns(2);
+        var save = new SaveGame(
+            SchemaVersion: state.SchemaVersion, Id: "v2-shape-test", Label: "v2 shape test",
+            ScenarioId: state.ScenarioId, WorldId: state.WorldId, RulesetId: state.RulesetId, State: state);
+
+        var v2Envelope = BuildVersion2Envelope(save);
+        var loaded = SaveManager.Load("v2-shape-test.json", v2Envelope.ToJsonString(), toy.World, toy.Ruleset);
+
+        // The migration wrote explicit nulls -- confirmed by loading successfully at all (a required,
+        // non-defaulted field would instead throw MissingRequiredFieldException) and by the resulting
+        // state matching a fresh version-3 round trip exactly.
+        Assert.Null(loaded.State.Neighbours);
+        foreach (var nation in loaded.State.Nations)
+        {
+            Assert.Null(nation.ConqueredBy);
+        }
+    }
+
+    /// <summary>
+    /// T86 Done-when 3: "an older save migrates by taking its world's neighbours" -- proved end to end
+    /// through <see cref="SaveManager.Load"/>, not by inspecting migrated JSON. A version-2 save (built
+    /// the same way as <see cref="MigratingAVersion2EnvelopeMakesNeighboursAndConqueredByExplicit"/>)
+    /// loads with <see cref="GameState.Neighbours"/> null, and <see cref="NeighbourGeography.AreNeighbours"/>
+    /// against that loaded state and the toy world answers exactly what it would for a fresh state whose
+    /// <see cref="GameState.Neighbours"/> was populated at New Game from the same world -- the toy
+    /// scenario's own two nations, "north" and "south", the only pair there is to check.
+    /// </summary>
+    [Fact]
+    public void AnOlderSaveMissingTheNeighbourSetAnswersExactlyAsTheWorldsOwnData()
+    {
+        var toy = PersistenceTestbed.Toy;
+        var state = PersistenceTestbed.PlayTurns(2);
+        var save = new SaveGame(
+            SchemaVersion: state.SchemaVersion, Id: "v2-neighbours-test", Label: "v2 neighbours test",
+            ScenarioId: state.ScenarioId, WorldId: state.WorldId, RulesetId: state.RulesetId, State: state);
+
+        var v2Envelope = BuildVersion2Envelope(save);
+        var loaded = SaveManager.Load("v2-neighbours-test.json", v2Envelope.ToJsonString(), toy.World, toy.Ruleset);
+
+        Assert.Null(loaded.State.Neighbours);
+
+        var freshState = GameStateFactory.CreateInitial(toy.World, toy.Ruleset, toy.Scenario);
+        Assert.NotNull(freshState.Neighbours);
+
+        var nationIds = new List<string>();
+        foreach (var nation in toy.World.Nations)
+        {
+            nationIds.Add(nation.Id);
+        }
+
+        foreach (var a in nationIds)
+        {
+            foreach (var b in nationIds)
+            {
+                Assert.Equal(
+                    NeighbourGeography.AreNeighbours(freshState, toy.World, a, b),
+                    NeighbourGeography.AreNeighbours(loaded.State, toy.World, a, b));
+            }
+        }
     }
 }
