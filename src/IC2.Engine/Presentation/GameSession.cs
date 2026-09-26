@@ -174,8 +174,8 @@ public sealed partial class GameSession
     /// </para>
     /// <para>
     /// Rework round 3, R3: a pending offer whose own <see cref="PendingPeaceTreatyOffer.OfferedHumanNationId"/>
-    /// has since been eliminated, or is no longer <see cref="SeatControl.Human"/>, is dropped here, before
-    /// the early-return below — round 2's own fix (bind the answer and the expiry to that one human) left
+    /// has since been eliminated is dropped here, before the early-return below — round 2's own fix (bind
+    /// the answer and the expiry to that one human) left
     /// exactly this gap: an eliminated seat never gets another prompt, so neither <see cref="HandleEnd"/>'s
     /// own lapse nor <see cref="HandlePeaceTreatyAnswer"/> is ever reached for it again, and the early
     /// return just below then silently drops every later human's own qualifying offer for the rest of the
@@ -735,12 +735,13 @@ public sealed partial class GameSession
         // Rework round 3, R3: an offer whose own human is gone for good (eliminated) is not re-checked
         // here as well -- deliberately. Every "end" reaches CapturePeaceTreatyOfferIfAny before this call
         // returns (HandleEndSeated's own N-f capture for the ending seat's RunTurn, or
-        // PlayUntilOneFullLapOrRepeat's per-seat capture for every AI seat it plays), and every earlier
-        // mutating command already reached it too, through IssueCommand -- so whatever eliminated the
-        // offered human was itself a command or a played turn that already ran that check (see
-        // IsOfferedHumanGone's own remarks, including why deposition needs no check here at all). Adding
-        // the same check here as well was tried and proven redundant: removing it failed no test in the
-        // whole suite (2933/2933 stayed green), because nothing can reach this line with a stale offer
+        // PlayUntilOneFullLapOrRepeat's per-seat capture for every AI seat it plays). Move, buy and the
+        // composed declare-war dispatch directly, bypassing IssueCommand's own capture call, but none of
+        // them can eliminate a nation (only Cities/Capture/* calls NationElimination.ApplyIfLastCityLost),
+        // so whatever eliminated the offered human still ran through a command or a played turn that did
+        // reach a capture call (see IsOfferedHumanGone's own remarks, including why deposition needs no
+        // check here at all). Adding the same check here as well was tried and proven redundant: removing
+        // it failed no test in the whole suite, because nothing can reach this line with a stale offer
         // that a prior capture call has not already dropped. Kept out rather than kept as untested
         // belt-and-suspenders.
         if (_pendingPeaceTreatyOffer is { } pending

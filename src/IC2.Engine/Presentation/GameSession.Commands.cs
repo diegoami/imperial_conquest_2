@@ -103,9 +103,11 @@ public sealed partial class GameSession
     /// <see cref="Diplomacy.Commands.AcceptPeaceTreatyRejections.NotAtWar"/>'s own remarks for the one way
     /// that can happen). <strong>Rework round 3, R3 (corrected):</strong> this method alone does not
     /// guarantee a stale offer is never left pending forever -- an answer from anyone else is refused
-    /// without touching it (see below), so if the offer's own human can never answer again (eliminated, or
-    /// deposed to AI), this method never clears it either; <see cref="GameSession.CapturePeaceTreatyOfferIfAny"/>
-    /// and <see cref="GameSession.HandleEnd"/> are what drop that offer, not this one.
+    /// without touching it (see below), so if the offer's own human is eliminated and can never answer
+    /// again, this method never clears it either; <see cref="GameSession.CapturePeaceTreatyOfferIfAny"/> is
+    /// what drops that offer, not this one. A deposed human with a pending offer cannot occur: deposition
+    /// happens only at the seat's own <c>SeatStart</c>, which runs after that same seat's own <c>end</c>
+    /// has already lapsed its own offer.
     /// </summary>
     /// <remarks>
     /// Rework round 2, R1: this only answers on the offer's own
