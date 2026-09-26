@@ -76,13 +76,14 @@ public sealed class QuarterlyCityEconomySystemTests
     }
 
     /// <summary>
-    /// T89 (<c>#397</c>): the old, unconsumed <c>RebellionRiskDetected</c> publication is gone —
-    /// a non-capital city under the threshold now actually rebels, in code order. Portus's owner (north)
-    /// is also its allegiance, so this is branch (c)/(d); with no army and no live neighbour of north in
-    /// the toy world's own geometry (<c>startingNeighbours</c> is null for <c>toy-3city.json</c>, and its
-    /// 8×6 map does not clear <c>NeighbourGeography</c>'s own border-tile threshold for north/south), (d)
-    /// also finds no candidate, so nothing happens here but the loyalty draw itself — proven separately,
-    /// at the decision level, by <c>RebellionTests</c>.
+    /// T89 (<c>#397</c>): the old, unconsumed <c>RebellionRiskDetected</c> publication is gone — a
+    /// non-capital city under the threshold now actually rebels, in code order, end to end through the
+    /// real toy world. Portus's owner (north) is also its allegiance, so this is branch (c)/(d): no army
+    /// is at war on the map, so (c) finds nothing; north and south <em>are</em> geometric neighbours in
+    /// this world (<c>NeighbourGeography</c>'s own border-tile derivation, <c>toy-3city.json</c> carries
+    /// no <c>startingNeighbours</c> of its own), south's unity is 520 (alive), and south is the only
+    /// candidate, so (d) picks it regardless of score. The exact receiver-and-tie-break arithmetic is
+    /// <c>RebellionTests</c>' own job, at the decision level, with more than one candidate on the board.
     /// </summary>
     [Fact]
     public void ANonCapitalCityUnderTheThreshold_RunsTheRebellionStep()
@@ -94,8 +95,8 @@ public sealed class QuarterlyCityEconomySystemTests
         Assert.Equal("arx", state.NationById("north")!.CapitalCityId);
         Assert.Equal("meridia", state.NationById("south")!.CapitalCityId);
 
-        // north's tax rate (15) skips the rise draw; the fall roll misses, so Portus's loyalty is
-        // whatever this test sets it to going in, unaffected by the draws themselves.
+        // north's tax rate (15) skips the rise draw; the fall roll misses, so Portus's loyalty going into
+        // the rebellion decision is exactly the 29 this test sets, unaffected by the draws themselves.
         var cities = state.Cities.Select(c => c.Id == "portus" ? c with { Loyalty = 29 } : c);
         state = state with { Cities = ValueList.From(cities) };
 
@@ -104,12 +105,22 @@ public sealed class QuarterlyCityEconomySystemTests
 
         var result = new QuarterlyCityEconomySystem().OnQuarterBoundary(Context(state, rng, sink));
 
-        // Owner == allegiance (both "north"), no army on the map, and north has no live neighbour in this
-        // world -- (c) and (d) both find nothing, so Portus stays north's at its drawn loyalty, and no
-        // defection news is published.
-        Assert.Equal("north", result.CityById("portus")!.Owner);
-        Assert.Equal(29, result.CityById("portus")!.Loyalty);
-        Assert.Empty(sink.Events.OfType<CityDefectsToNation>());
+        // Portus's allegiance stays "north" (CityCaptureResolver.Defect never writes it), so the transfer
+        // to south is the non-allegiant loyalty formula: min(DefectionFloor, max(DefectionFormulaFloor,
+        // NonAllegiantTransferBase - 29)) -- read from the ruleset, never a bare literal here.
+        var loyalty = EconomyTestbed.Ruleset.Loyalty;
+        var expectedLoyalty = Math.Min(
+            loyalty.DefectionFloor, Math.Max(loyalty.DefectionFormulaFloor, loyalty.NonAllegiantTransferBase - 29));
+
+        var portus = result.CityById("portus")!;
+        Assert.Equal("south", portus.Owner);
+        Assert.Equal("north", portus.Allegiance);
+        Assert.Equal(expectedLoyalty, portus.Loyalty);
+
+        var news = Assert.Single(sink.Events.OfType<CityDefectsToNation>());
+        Assert.Equal("Portus", news.CityName);
+        Assert.Equal("Northern League", news.OldOwner);
+        Assert.Equal("Southern League", news.NewOwner);
     }
 
     [Fact]
