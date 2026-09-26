@@ -100,6 +100,8 @@ Now: Week 3, Spring 270 BC. Active seat: Rome (rome).
 News:
   Sidon   (Ptolemaic)  falls to Seleucid.
   Astacus   (Bithynia)  falls to Seleucid.
+  Calpe defects from Bithynia to Seleucid.
+  Pontica defects from Bithynia to Seleucid.
    
   Week  3      Spring      270BC
 
@@ -194,6 +196,8 @@ News log:
   Week 1      Spring      270 BC
   Sidon   (Ptolemaic)  falls to Seleucid.
   Astacus   (Bithynia)  falls to Seleucid.
+  Calpe defects from Bithynia to Seleucid.
+  Pontica defects from Bithynia to Seleucid.
    
   Week  3      Spring      270BC
   Seleucid destroys army of Ptolemaic.

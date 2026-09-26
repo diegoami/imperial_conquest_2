@@ -408,4 +408,91 @@ public sealed class ConquestTriggerTests
         var state = CaptureTestbed.StateWith(new[] { oldOwner, newOwner }, allCities, new[] { attacker });
         return (state, destinationId);
     }
+
+    // ---- T91 Done-when 3 (bug #409 S4): FindCapitalMoveDestination's own defender-strength scoring
+    // applies the x5/3 capital bonus to ANY nation's capital, not just OldOwner's own -- the same
+    // CapitalOwnership.IsAnyNationsCapital predicate RunCascade's gate and InstantBattleResolver's own
+    // siege-strength call share. Two candidates at the SAME qualifying distance (11 tiles) so the winner is
+    // decided purely by score, never by city-table order: a plain "competitor" at the shipped Filler stats
+    // (score 140, hand-computed below) and a "stale" candidate that only a third, ELIMINATED nation's own
+    // stale CapitalCityId names -- never OldOwner's own capital, which is "capital", captured this same
+    // call. ----
+
+    [Fact]
+    public void CapitalMove_DestinationScoring_AppliesTheCapitalBonusForAnotherNationsStaleCapital_AtLoyaltySixty()
+    {
+        // Stale candidate, loyalty 60: weighted sum 60x150 + 10x200 = 11,000; x5/3 (capital, loyalty > 59)
+        // = 18,333; /10 = 1,833; /11 = 166 -- above the competitor's own 140, so the stale candidate wins
+        // despite its OWN owner (OldOwner) never holding it as a capital.
+        var (state, staleCandidateId, _) = BuildLoyaltyBoundaryDestinationScenario(staleCandidateLoyalty: 60);
+        var sink = new RecordingEventSink();
+        var result = CityCaptureResolver.Capture(
+            state, "army", "capital", Ruleset, CaptureTestbed.ArcherUnitTypeId, CaptureTestbed.FortifyOrderId, sink);
+
+        Assert.False(result.NationById(OldOwner)!.Eliminated);
+        var moved = Assert.Single(sink.Events.OfType<NationCapitalMoved>());
+        Assert.Equal(OldOwner, moved.Nation);
+        Assert.Equal(staleCandidateId, result.NationById(OldOwner)!.CapitalCityId);
+    }
+
+    [Fact]
+    public void CapitalMove_DestinationScoring_LoyaltyBoundary_AtFiftyNineTheBonusDoesNotApply_CompetitorWins()
+    {
+        // Stale candidate, loyalty 59: weighted sum 59x150 + 10x200 = 10,850; NO bonus (loyalty not > 59):
+        // /10 = 1,085; /11 = 98 -- below the competitor's own 140, so the competitor wins even though the
+        // stale candidate IS some (eliminated) nation's capital. Checking only OldOwner's own capital would
+        // also give "no bonus" here (already correct); the decisive half of this boundary is the loyalty-60
+        // test above, where the SAME "any nation's capital" reading DOES apply the bonus.
+        var (state, _, competitorId) = BuildLoyaltyBoundaryDestinationScenario(staleCandidateLoyalty: 59);
+        var sink = new RecordingEventSink();
+        var result = CityCaptureResolver.Capture(
+            state, "army", "capital", Ruleset, CaptureTestbed.ArcherUnitTypeId, CaptureTestbed.FortifyOrderId, sink);
+
+        Assert.False(result.NationById(OldOwner)!.Eliminated);
+        Assert.Equal(competitorId, result.NationById(OldOwner)!.CapitalCityId);
+    }
+
+    /// <summary>
+    /// Two candidates at the same qualifying distance (11 tiles, past <see cref="CaptureRules.CapitalMoveMinDistanceTiles"/>):
+    /// a plain "competitor" at the shipped <see cref="Filler"/> stats (loyalty 90, fortification 0,
+    /// population 10 -- score 140, hand-computed in each test above), and a "stale" candidate at
+    /// <paramref name="staleCandidateLoyalty"/> that only a third, ELIMINATED nation's own
+    /// <see cref="NationState.CapitalCityId"/> still names.
+    /// </summary>
+    private static (GameState State, string StaleCandidateId, string CompetitorId) BuildLoyaltyBoundaryDestinationScenario(
+        int staleCandidateLoyalty)
+    {
+        const string capitalId = "capital";
+        const string staleCandidateId = "stale-candidate";
+        const string competitorId = "competitor";
+        const string staleNationId = "gone";
+
+        var capital = CaptureTestbed.City(
+            capitalId, "Capital", 0, 0, OldOwner, OldOwner, loyalty: 90, fortificationCode: 0,
+            populationThousands: 10, maxPopulationThousands: 20, tribute: 0);
+
+        // 11 tiles by Chebyshev either way -- (0,11) and (11,0) -- both past CapitalMoveMinDistanceTiles (10).
+        var staleCandidate = CaptureTestbed.City(
+            staleCandidateId, "Stale Candidate", 0, 11, OldOwner, OldOwner,
+            loyalty: staleCandidateLoyalty, fortificationCode: 0, populationThousands: 10, maxPopulationThousands: 20, tribute: 0);
+        var competitor = Filler(competitorId, 11, 0);
+
+        var fillers = new List<CityState>();
+        for (var i = 0; i < 5; i++)
+        {
+            fillers.Add(Filler($"filler-{i}", 1, 0));
+        }
+
+        var oldOwner = CaptureTestbed.Nation(OldOwner, unity: 668, capitalCityId: capitalId);
+        var newOwner = CaptureTestbed.Nation(NewOwner);
+        // #409 S4/T91: FUN_0044B8D0 has no liveness check -- an eliminated nation's own stale capital
+        // pointer gates the x5/3 exactly like a living one's.
+        var staleNation = CaptureTestbed.Nation(staleNationId, capitalCityId: staleCandidateId, eliminated: true);
+        var attacker = CaptureTestbed.Army(
+            "army", NewOwner, 0, 0, morale: 50, CaptureTestbed.Unit("heavy_infantry", 1_000_000));
+
+        var allCities = new[] { capital, staleCandidate, competitor }.Concat(fillers).ToArray();
+        var state = CaptureTestbed.StateWith(new[] { oldOwner, newOwner, staleNation }, allCities, new[] { attacker });
+        return (state, staleCandidateId, competitorId);
+    }
 }

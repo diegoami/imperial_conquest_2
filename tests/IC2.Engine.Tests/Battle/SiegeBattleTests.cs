@@ -405,4 +405,72 @@ public class SiegeBattleTests
             Archers,
             Fortify,
             NullEventSink.Instance);
+
+    // ---- T91 Done-when 3 (bug #409 S4): FUN_0044A98C's own capital test is FUN_0044B8D0 -- ANY nation's
+    // CapitalCityId, not just the besieged city's current owner's own field. Meridia's own owner (South)
+    // is detached from Meridia here -- South's own real capital moves elsewhere -- and only a THIRD,
+    // eliminated nation's stale pointer still names Meridia, exactly the state T90's own review proved
+    // reachable for the cascade's equivalent gate. ----
+
+    /// <summary>
+    /// South's own capital is moved off Meridia (to a city South does not even own -- nothing here reads
+    /// that id except the removed "owner's own capital" check), and a third, eliminated nation's own stale
+    /// <see cref="NationState.CapitalCityId"/> still names Meridia instead. The x5/3 branch still applies:
+    /// this is the SAME 104,583 <see cref="TheSiegeComparisonUsesBothConfirmedStrengthFormulas"/> pins when
+    /// South held Meridia as its own capital directly -- proving the reading is "any nation's", not "the
+    /// current owner's own".
+    /// </summary>
+    [Fact]
+    public void CapitalScaling_AppliesForAnotherEliminatedNationsStaleCapital_NotJustTheOwnersOwn()
+    {
+        var (_, result) = Resolve(FixtureWithStaleMeridiaCapital(meridiaLoyalty: 65), BattleTestbed.Destroyed);
+        Assert.Equal(104583, result.DefenderPower);
+    }
+
+    /// <summary>
+    /// Same stale-capital fixture, but loyalty is exactly <see cref="SiegeRules.HighLoyaltyThreshold"/> (59)
+    /// -- not <em>above</em> it -- so the x5/3 branch must NOT fire even though Meridia is still "some
+    /// nation's" capital. The unbranched weighted sum: 59x150 + 100x250 + 140x200 = 8,850 + 25,000 + 28,000
+    /// = 61,850.
+    /// </summary>
+    [Fact]
+    public void CapitalScaling_LoyaltyBoundary_AtFiftyNineTheBonusDoesNotApply()
+    {
+        var (_, result) = Resolve(FixtureWithStaleMeridiaCapital(meridiaLoyalty: 59), BattleTestbed.Destroyed);
+        Assert.Equal(61850, result.DefenderPower);
+    }
+
+    /// <summary>
+    /// One loyalty point higher (60, strictly above 59): the bonus now applies. 60x150 + 100x250 + 140x200
+    /// = 9,000 + 25,000 + 28,000 = 62,000; x5/3 = 103,333 (truncated).
+    /// </summary>
+    [Fact]
+    public void CapitalScaling_LoyaltyBoundary_AtSixtyTheBonusApplies()
+    {
+        var (_, result) = Resolve(FixtureWithStaleMeridiaCapital(meridiaLoyalty: 60), BattleTestbed.Destroyed);
+        Assert.Equal(103333, result.DefenderPower);
+    }
+
+    /// <summary>
+    /// <see cref="Fixture"/>, with South's own capital moved off Meridia onto an id South does not own, and
+    /// a third, eliminated nation ("gone") left holding a stale <see cref="NationState.CapitalCityId"/> of
+    /// "meridia" instead -- <c>FUN_0044B8D0</c> has no liveness check of its own (T90/#409), so an
+    /// eliminated nation's stale pointer gates this exactly like a living one's.
+    /// </summary>
+    private static GameState FixtureWithStaleMeridiaCapital(int meridiaLoyalty)
+    {
+        var state = Fixture();
+        var south = state.NationById("south")!;
+        var southWithoutMeridiaCapital = south with { CapitalCityId = "not-meridia" };
+        var staleNation = south with { Id = "gone", Name = "Gone", CapitalCityId = "meridia", Eliminated = true };
+        var meridia = state.CityById("meridia")! with { Loyalty = meridiaLoyalty };
+
+        return state with
+        {
+            Nations = ValueList.From(state.Nations
+                .Select(n => n.Id == "south" ? southWithoutMeridiaCapital : n)
+                .Append(staleNation)),
+            Cities = ValueList.From(state.Cities.Select(c => c.Id == "meridia" ? meridia : c)),
+        };
+    }
 }
