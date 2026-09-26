@@ -46,10 +46,10 @@ public sealed partial class GameSession
         lines.Add("Nations:");
         foreach (var nation in State.Nations)
         {
-            var eliminated = nation.Eliminated ? " [eliminated]" : string.Empty;
+            var statusSuffix = NationStatusSuffix(nation);
             lines.Add(
                 $"  {nation.Name} ({nation.Id}, {ControlLabel(nation.Control)}): "
-                + $"treasury {nation.Treasury}, unity {nation.Unity}, tax {nation.TaxRatePercent}%{eliminated}");
+                + $"treasury {nation.Treasury}, unity {nation.Unity}, tax {nation.TaxRatePercent}%{statusSuffix}");
         }
 
         lines.Add(string.Empty);
@@ -106,11 +106,11 @@ public sealed partial class GameSession
             return new[] { $"Unknown nation '{nationId}'." };
         }
 
-        var eliminated = nation.Eliminated ? " [eliminated]" : string.Empty;
+        var statusSuffix = NationStatusSuffix(nation);
         var lines = new List<string>
         {
             $"Nation: {nation.Name} ({nation.Id}, {ControlLabel(nation.Control)}): "
-            + $"treasury {nation.Treasury}, unity {nation.Unity}, tax {nation.TaxRatePercent}%{eliminated}",
+            + $"treasury {nation.Treasury}, unity {nation.Unity}, tax {nation.TaxRatePercent}%{statusSuffix}",
             string.Empty,
             "Armies:",
         };
@@ -425,6 +425,31 @@ public sealed partial class GameSession
     private string NationName(string nationId) => State.NationById(nationId)?.Name ?? nationId;
 
     private string NationDisplay(string nationId) => $"{NationName(nationId)} ({nationId})";
+
+    /// <summary>
+    /// T86 Done-when 6: a bracketed status suffix naming both whether a nation is eliminated and, when
+    /// known, who conquered it -- <c>" [eliminated, conquered by Seleucid (seleucid)]"</c>. Both clauses
+    /// are independent: a nation eliminated by a save written before <see cref="NationState.ConqueredBy"/>
+    /// existed carries <c>Eliminated: true</c> with no conqueror on record, and shows only
+    /// <c>" [eliminated]"</c>, exactly as it always has (<c>demo.golden.txt</c>'s own eliminated-nation
+    /// lines, none of which reach a conquest, are unchanged by this). This task's own choice of display,
+    /// stated in its PR -- the entry names no specific wording.
+    /// </summary>
+    private string NationStatusSuffix(NationState nation)
+    {
+        var clauses = new List<string>();
+        if (nation.Eliminated)
+        {
+            clauses.Add("eliminated");
+        }
+
+        if (nation.ConqueredBy is { } conquerorId)
+        {
+            clauses.Add($"conquered by {NationDisplay(conquerorId)}");
+        }
+
+        return clauses.Count > 0 ? $" [{string.Join(", ", clauses)}]" : string.Empty;
+    }
 
     private static string ControlLabel(SeatControl control) => control switch
     {
