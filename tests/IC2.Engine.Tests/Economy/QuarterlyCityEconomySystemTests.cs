@@ -148,11 +148,18 @@ public sealed class QuarterlyCityEconomySystemTests
     /// <see cref="ACapitalCityUnderTheThreshold_NeverRebels"/> above only exercises a <em>live</em>
     /// nation's capital. The capital set <see cref="QuarterlyCityEconomySystem"/> builds is every
     /// <see cref="NationState.CapitalCityId"/> with no liveness filter (<c>FUN_0044B8D0</c>'s own "any of
-    /// the sixteen nations, dead ones included"): "dead" is eliminated (unity 0) and its own
+    /// the sixteen nations, dead ones included"): "dead" is unity 0 <em>and</em>
+    /// <see cref="NationState.Eliminated"/> (review round 2, B7 -- a stale pointer into a city another
+    /// nation now owns outright is a state the engine only ever produces through
+    /// <c>NationElimination.ApplyIfLastCityLost</c>, which always sets <c>Eliminated</c>; a live-unity
+    /// fixture with the flag left at its default, <see langword="false"/>, is not a state the engine can
+    /// reach, and it let a capital gate that filtered on <c>!Eliminated</c> alone pass unnoticed). Its own
     /// <c>CapitalCityId</c> still names "old-cap", a city "strong" now owns outright. "old-cap"'s owner
     /// equals its own allegiance ("strong"), so without the capital gate this would fall straight to (d)
     /// and "third" (strong's only neighbour, alive, with its own capital) would win it -- proving the gate
-    /// actually fires, not merely that nothing else does.
+    /// actually fires, not merely that nothing else does. Review round 2, N7: "strong" is deliberately
+    /// built with no <see cref="NationState.CapitalCityId"/> of its own -- branch (d) only ever reads a
+    /// <em>candidate</em>'s capital ("third"'s here), never the rebelling city's own owner's.
     /// </summary>
     [Fact]
     public void ADeadNationsStaleCapital_NeverRebels_EvenThoughALiveNeighbourWouldOtherwiseWinIt()
@@ -164,7 +171,7 @@ public sealed class QuarterlyCityEconomySystemTests
             "third-cap", "ThirdCap", 3, 0, "third", "third", loyalty: 90, fortificationCode: 0,
             populationThousands: 10, maxPopulationThousands: 20, tribute: 5);
 
-        var dead = CaptureTestbed.Nation("dead", unity: 0, capitalCityId: "old-cap");
+        var dead = CaptureTestbed.Nation("dead", unity: 0, capitalCityId: "old-cap", eliminated: true);
         var strong = CaptureTestbed.Nation("strong", unity: 600) with { TaxRatePercent = 50 };
         var third = CaptureTestbed.Nation("third", unity: 600, capitalCityId: "third-cap");
 
@@ -324,6 +331,10 @@ public sealed class QuarterlyCityEconomySystemTests
     /// Read from a quarter-start snapshot, n1 would still show 4 cities: score 4 - 2*6 = -8, a tie with
     /// n0, so the lower index (n0) would win instead.</item>
     /// </list>
+    /// Review round 2, N7: "owner" is deliberately built with no <see cref="NationState.CapitalCityId"/>
+    /// of its own -- a live nation this hand-built fixture doesn't otherwise need one for, since branch
+    /// (d) only ever reads a <em>candidate</em>'s capital (n0's, n1's), never the rebelling city's own
+    /// owner's.
     /// </summary>
     [Fact]
     public void ASecondRebellionInTheSameQuarter_ScoresItsNeighboursLive_NotFromAQuarterStartSnapshot()
