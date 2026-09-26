@@ -309,4 +309,64 @@ public sealed class QuarterlyCityEconomySystemTests
         // the tax-0 fix's own stream position -- see this test's own remarks.
         Assert.Equal(50, first.CityById("south-cap")!.Loyalty);
     }
+
+    /// <summary>
+    /// Review round 1, B5: the "live reads" remarks in <see cref="Rebellion"/> and this class describe an
+    /// edge no test visited -- two rebellions in the same quarter, where the second one's own (d) score
+    /// must see the first one's effect on a candidate's city count, not a snapshot taken at the top of
+    /// the loop. "owner" has two rebels, r1 (10,10) then r2 (10,9), in that list order; its neighbours are
+    /// n0 (2 cities, capital at (15,10)) and n1 (4 cities, capital at (10,15)).
+    /// <list type="bullet">
+    /// <item>r1: cheb to n0's capital is 5 (score 2 - 2*5 = -8); cheb to n1's capital is 5 (score
+    /// 4 - 2*5 = -6). n1 wins and now owns 5 cities.</item>
+    /// <item>r2: cheb to n0's capital is still 5 (score unchanged, -8). cheb to n1's capital is 6.
+    /// Read live, n1 now has 5 cities: score 5 - 2*6 = -7, which beats n0's -8, so r2 also goes to n1.
+    /// Read from a quarter-start snapshot, n1 would still show 4 cities: score 4 - 2*6 = -8, a tie with
+    /// n0, so the lower index (n0) would win instead.</item>
+    /// </list>
+    /// </summary>
+    [Fact]
+    public void ASecondRebellionInTheSameQuarter_ScoresItsNeighboursLive_NotFromAQuarterStartSnapshot()
+    {
+        var r1 = CaptureTestbed.City(
+            "r1", "R1", 10, 10, "owner", "owner", loyalty: 20, fortificationCode: 0,
+            populationThousands: 10, maxPopulationThousands: 20, tribute: 5);
+        var r2 = CaptureTestbed.City(
+            "r2", "R2", 10, 9, "owner", "owner", loyalty: 20, fortificationCode: 0,
+            populationThousands: 10, maxPopulationThousands: 20, tribute: 5);
+        var ownerExtra = CaptureTestbed.City(
+            "owner-extra", "OwnerExtra", 90, 90, "owner", "owner", loyalty: 90, fortificationCode: 0,
+            populationThousands: 10, maxPopulationThousands: 20, tribute: 5);
+        var n0Capital = CaptureTestbed.City(
+            "n0-cap", "N0Cap", 15, 10, "n0", "n0", loyalty: 90, fortificationCode: 0,
+            populationThousands: 10, maxPopulationThousands: 20, tribute: 5);
+        var n1Capital = CaptureTestbed.City(
+            "n1-cap", "N1Cap", 10, 15, "n1", "n1", loyalty: 90, fortificationCode: 0,
+            populationThousands: 10, maxPopulationThousands: 20, tribute: 5);
+        var n0Extra = CaptureTestbed.FillerCities("n0", 1, startX: 50, y: 50).ToList(); // n0: 2 cities total.
+        var n1Extra = CaptureTestbed.FillerCities("n1", 3, startX: 60, y: 60).ToList(); // n1: 4 cities total.
+
+        var owner = CaptureTestbed.Nation("owner", unity: 600) with { TaxRatePercent = 50 };
+        var n0 = CaptureTestbed.Nation("n0", unity: 600, capitalCityId: "n0-cap") with { TaxRatePercent = 50 };
+        var n1 = CaptureTestbed.Nation("n1", unity: 600, capitalCityId: "n1-cap") with { TaxRatePercent = 50 };
+
+        var cities = new List<CityState> { r1, r2, n0Capital, n1Capital, ownerExtra };
+        cities.AddRange(n0Extra);
+        cities.AddRange(n1Extra);
+
+        var state = EliminationForcesTestbed.StateWith(new[] { owner, n0, n1 }, cities);
+        state = state with
+        {
+            Neighbours = ValueList.From(new[] { new NationNeighbours("owner", ValueList.From(new[] { "n0", "n1" })) }),
+        };
+
+        // Tax 50 (>= 11) skips every city's rise gate; the fall roll misses for all nine cities.
+        var rng = new ScriptedRng(nextChanceDraws: Enumerable.Repeat(false, 9).ToArray());
+        var sink = new RecordingEventSink();
+
+        var result = new QuarterlyCityEconomySystem().OnQuarterBoundary(Context(state, rng, sink));
+
+        Assert.Equal("n1", result.CityById("r1")!.Owner);
+        Assert.Equal("n1", result.CityById("r2")!.Owner); // live: n1 already has 5 cities when r2 is scored.
+    }
 }
