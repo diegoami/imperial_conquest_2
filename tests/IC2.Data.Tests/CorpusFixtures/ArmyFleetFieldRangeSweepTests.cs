@@ -191,8 +191,14 @@ public class ArmyFleetFieldRangeSweepTests
                 // storm losses): 30 - (0 - 50) / 10 = 30 - (-5) = 35 -- C#'s truncating integer division
                 // on the negative numerator, exactly as the formula's implementation does it. No term in
                 // the formula can raise moves above the ships-only term, so 35 is the field's true
-                // ceiling; the floor is 0, the field's own ushort width (no decompiled signedness
-                // finding exists for this field, unlike ArmyRecord.Moves).
+                // ceiling. Review round 1, N3: the floor of 0 is asserted here as the field's stored
+                // ushort width, not as a property of the formula -- the report's own pseudocode
+                // (supply-driven-morale-and-fleet-attrition.md:167-176) subtracts the carried-army
+                // penalty, the out-of-supply term and storm damage from the ships-only value with no
+                // clamp, so a negative result is possible in principle. No corpus record has produced
+                // one (observed maximum 34); one that did would store as a large ushort near 65,535 and
+                // rightly fail this bound, exactly like any other out-of-range record this sweep checks
+                // (no decompiled signedness finding exists for this field, unlike ArmyRecord.Moves).
                 Assert.InRange(f.Moves, (ushort)0, (ushort)35);
                 Assert.InRange(f.Supplies, (ushort)0, (ushort)2000);
                 Assert.InRange(f.Money, (ushort)0, (ushort)1000);
