@@ -2,6 +2,9 @@ using System.Linq;
 using IC2.Engine.Cities.Capture;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
+using IC2.Engine.Persistence;
+using IC2.Engine.Serialization;
+using IC2.Engine.Tests.Persistence;
 using Xunit;
 
 namespace IC2.Engine.Tests.Cities.Capture;
@@ -425,5 +428,60 @@ public sealed class ConquestCascadeTests
         Assert.Equal(result1.CityById("filler-0")!.Loyalty, result2.CityById("filler-0")!.Loyalty);
         Assert.Equal(result1.CityById("filler-1")!.Loyalty, result2.CityById("filler-1")!.Loyalty);
         Assert.Equal(result1.CityById("capital")!.Loyalty, result2.CityById("capital")!.Loyalty);
+    }
+
+    // ---- Hazards: "probe with two nations, one conquered and one surviving, and check that the state
+    // passes GameDataValidation.ValidateState and survives a SaveManager round trip." A third,
+    // uninvolved nation stands in for "one surviving" alongside the winner -- the two-entity probe this
+    // codebase's other Cities/Capture tests already use, extended to a full validate-and-round-trip
+    // check specific to a delete this sweeping (conquest deletes a whole nation's forces and moves every
+    // one of its cities at once, not just one city or one army). ----
+
+    [Fact]
+    public void AConqueredNationAndASurvivingBystander_ValidateAndRoundTripThroughSaveManager()
+    {
+        const string Bystander = "bystander-validate";
+
+        var scenario = BuildConqueringScenario();
+        var bystander = CaptureTestbed.Nation(Bystander, capitalCityId: "bystander-city");
+        var bystanderCity = CaptureTestbed.City(
+            "bystander-city", "Bystander City", 2000, 2000, Bystander, Bystander, loyalty: 80,
+            fortificationCode: 0, populationThousands: 12, maxPopulationThousands: 20, tribute: 3);
+        var bystanderArmy = CaptureTestbed.Army(
+            "bystander-army", Bystander, 2000, 2000, morale: 50, CaptureTestbed.Unit("light_infantry", 200));
+
+        var stateWithBystander = scenario.State with
+        {
+            Nations = ValueList.From(scenario.State.Nations.Append(bystander)),
+            Cities = ValueList.From(scenario.State.Cities.Append(bystanderCity)),
+            Armies = ValueList.From(scenario.State.Armies.Append(bystanderArmy)),
+            // GameDataValidation requires TurnOrder to name exactly the state's own nations -- the toy
+            // scenario's own inherited order ("north", "south") no longer matches once this fixture's
+            // own three nations replace them.
+            TurnOrder = ValueList.Of(Loser, Winner, Bystander),
+            ActiveSeatIndex = 0,
+            Relations = DiplomaticRelations.Uniform(
+                ValueList.Of(Loser, Winner, Bystander), Ruleset.Diplomacy.StateCodes.Peace),
+        };
+
+        var result = Capture((stateWithBystander, scenario.CapturedCityId), NullEventSink.Instance);
+
+        // The two-entity probe: the bystander and its own city/army are exactly untouched.
+        Assert.Equal(bystander, result.NationById(Bystander));
+        Assert.Equal(bystanderCity, result.CityById("bystander-city"));
+        Assert.Equal(bystanderArmy, result.ArmyById("bystander-army"));
+
+        // No dangling reference, resource conservation, or cap violation from the loser's own deletion --
+        // GameDataValidation.Validate rejects a save that could not be reloaded.
+        GameDataValidation.Validate("conquest-validate-probe", result);
+
+        var toy = PersistenceTestbed.Toy;
+        var save = new SaveGame(
+            SchemaVersion: result.SchemaVersion, Id: "conquest-validate-probe", Label: "Conquest validate probe",
+            ScenarioId: result.ScenarioId, WorldId: result.WorldId, RulesetId: result.RulesetId, State: result);
+        var text = SaveManager.Serialize(save);
+        var reloaded = SaveManager.Load("conquest-validate-probe.json", text, toy.World, toy.Ruleset);
+
+        Assert.Equal(result, reloaded.State);
     }
 }
