@@ -152,8 +152,9 @@ public class EmbarkationLinkerTests
     /// <see cref="EmbarkationLinker.ResolveArmyAboardFleet"/> returns <see langword="null"/> exactly as
     /// it already does for an army that was never aboard anything
     /// (<see cref="Resolve_army_not_aboard_returns_null_when_nothing_claims_it"/>), which is what makes
-    /// <c>OriginalSaveImporter</c>'s own <c>CoveredTileCode</c> assignment fall back to the army's own
-    /// record instead of null -- the army keeps its position, it is just no longer marked as embarked.
+    /// <c>OriginalSaveImporter</c>'s own <c>CoveredTileCode</c> assignment derive the tile from the
+    /// world's terrain at the army's own (X, Y) instead of reading its stale <c>CoveredCell</c> record
+    /// (review round 1, N1) -- the army keeps its position, it is just no longer marked as embarked.
     /// </summary>
     [Fact]
     public void An_army_aboard_only_a_now_tombstoned_fleet_is_unlinked_not_failed()
@@ -169,7 +170,8 @@ public class EmbarkationLinkerTests
             "test.sav",
             armiesClaimedByTombstonedFleets);
 
-        Assert.Null(fleetId); // unlinked -- the caller then reads the army's own X/Y and CoveredCell.
+        Assert.Null(fleetId); // unlinked -- the caller then derives CoveredTileCode from the world's
+                              // terrain at the army's own (X, Y), not its stale CoveredCell record.
     }
 
     /// <summary>
@@ -218,14 +220,25 @@ public class EmbarkationLinkerTests
         Assert.Null(army.AboardFleetId);
 
         // Kept its position: the same X/Y the synthetic record wrote, untouched by the unlink.
-        Assert.Equal(5, army.X);
-        Assert.Equal(7, army.Y);
+        Assert.Equal(40, army.X);
+        Assert.Equal(11, army.Y);
 
         // Review round 1, N1: the raw record's own CoveredCell is still AboardFleetSentinel (65535) --
         // nothing in the original ever had a reason to rewrite it once the carrying fleet was gone. The
-        // imported army's CoveredTileCode must be the real terrain at (5, 7), not that stale sentinel.
+        // imported army's CoveredTileCode must be the real terrain at (40, 11), not that stale sentinel.
+        //
+        // Review round 1, B1: (40, 11) is deliberately not a corner of zeros. On the real terrain grid,
+        // terrain[(11 * Width) + 40] == 4 (forest) while both 0 and the transposed cell
+        // terrain[(40 * Width) + 11] == 2 (plain) are different values. That lets this assertion tell a
+        // right lookup from two realistic wrong ones: a stub that returns the constant 0 (or the
+        // AboardFleetSentinel-adjacent value 0xFFFF), and a lookup that swaps X and Y. Both are asserted
+        // explicitly so the fixture cannot silently drift back into a corner where either mutation would
+        // still pass.
         var terrain = RealGameData.World.Terrain.Decode(RealGameData.World.Width, RealGameData.World.Height);
-        var expectedTerrain = terrain[(7 * RealGameData.World.Width) + 5];
+        var expectedTerrain = terrain[(11 * RealGameData.World.Width) + 40];
+        var transposedTerrain = terrain[(40 * RealGameData.World.Width) + 11];
+        Assert.NotEqual(0, expectedTerrain);
+        Assert.NotEqual(transposedTerrain, expectedTerrain);
         Assert.NotEqual(0xFFFF, army.CoveredTileCode);
         Assert.Equal(expectedTerrain, army.CoveredTileCode);
 
@@ -289,12 +302,15 @@ public class EmbarkationLinkerTests
             data[WorldPrefix.CityStart + i * WorldPrefix.CityRecordLength] = (byte)'C';
         }
 
-        // ---- Army table: one army (index 0), owned by nation 0, at (5, 7), marked aboard a fleet by
-        // its own covered-cell sentinel (ArmyRecord.CoveredCell == ArmyRecord.AboardFleetSentinel).
+        // ---- Army table: one army (index 0), owned by nation 0, at (40, 11) -- a land cell whose
+        // terrain code (4, forest) is non-zero and differs from its transposed cell's (2, plain), so the
+        // covered-tile assertion above can tell a right lookup from a wrong one (review round 1, B1) --
+        // marked aboard a fleet by its own covered-cell sentinel
+        // (ArmyRecord.CoveredCell == ArmyRecord.AboardFleetSentinel).
         var armyTableStart = mapAndCityLength + 2;
         WriteUInt16(data, mapAndCityLength, 1); // army count
-        WriteUInt16(data, armyTableStart + 0, 5); // X
-        WriteUInt16(data, armyTableStart + 2, 7); // Y
+        WriteUInt16(data, armyTableStart + 0, 40); // X
+        WriteUInt16(data, armyTableStart + 2, 11); // Y
         WriteUInt16(data, armyTableStart + 4, 0); // Owner (nation 0)
         WriteUInt16(data, armyTableStart + 8, ArmyRecord.AboardFleetSentinel); // CoveredCell
 
