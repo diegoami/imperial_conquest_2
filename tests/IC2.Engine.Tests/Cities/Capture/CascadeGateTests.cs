@@ -10,8 +10,9 @@ namespace IC2.Engine.Tests.Cities.Capture;
 /// <c>FUN_0044ba1c</c>'s own confirmed cascade gate, each term pinned independently: not any of the
 /// sixteen nations' own <see cref="NationState.CapitalCityId"/> (<c>FUN_0044b8d0</c>; T90/#409, replacing
 /// T17's invented <see cref="CityState.UnderSiege"/> reading — see the "no siege gate" tests below), within
-/// <see cref="CaptureRules.CascadeDistanceMax"/>, the new owner's unity under
-/// <see cref="CaptureRules.CascadeUnityThreshold"/>, the candidate's own loyalty under
+/// <see cref="CaptureRules.CascadeDistanceMax"/>, <strong>the loser's</strong> own unity under
+/// <see cref="CaptureRules.CascadeUnityThreshold"/> (T91/#415, replacing T17's own misreading of that gate
+/// as the new owner's unity — see the unity-gate tests below), the candidate's own loyalty under
 /// <see cref="CaptureRules.CascadeLoyaltyThreshold"/>, and the allegiant-sympathy defense divisor
 /// (<see cref="CaptureRules.CascadeAllegiantDefenseDivisor"/>). Every fixture here holds every other term
 /// fixed and varies exactly one, so a mutation to any single gate is caught by exactly one test —
@@ -28,8 +29,8 @@ public sealed class CascadeGateTests
     /// <summary>
     /// The always-qualifying baseline every other test in this file perturbs exactly one field of:
     /// candidate loyalty 10 (well under the 65 threshold), same allegiance as the old owner (no ÷3
-    /// divisor), distance 1 (well under the 10 threshold), not under siege, not any nation's capital, new
-    /// owner unity 500 (well under the 650 threshold), and an attacker strong enough (50,000 troops,
+    /// divisor), distance 1 (well under the 10 threshold), not under siege, not any nation's capital, the
+    /// loser's own unity 500 (well under the 650 threshold), and an attacker strong enough (50,000 troops,
     /// morale 80 → <c>SiegeStrength.Attacker</c> 50,000) that the candidate's own weak defense (1,700,
     /// undivided) never blocks the outcome on its own.
     /// </summary>
@@ -40,12 +41,17 @@ public sealed class CascadeGateTests
     /// city <see cref="OldOwner"/> owns. <c>FUN_0044b8d0</c> gates on every nation's capital pointer alike,
     /// so this is one knob for all three Done-when-1 cases.
     /// </param>
+    /// <param name="loserUnity">
+    /// <see cref="OldOwner"/>'s own unity, BEFORE <see cref="CaptureRules.CaptureUnityLoss"/> applies --
+    /// T91/#415: the cascade's own gate reads the loser's unity, not the new owner's, so this (not the new
+    /// owner's own unity) is what the unity-gate tests below vary.
+    /// </param>
     private static (GameState State, Ruleset Ruleset) BuildScenario(
         int candidateLoyalty = 10,
         string? candidateAllegiance = null,
         int candidateDistance = 1,
         bool candidateUnderSiege = false,
-        int newOwnerUnity = 500,
+        int loserUnity = 500,
         int attackerTroops = 50_000,
         int attackerMorale = 80,
         string? candidateCapitalOfNationId = null,
@@ -63,8 +69,8 @@ public sealed class CascadeGateTests
             underSiege: candidateUnderSiege);
 
         var oldOwnerIsCandidateCapital = string.Equals(candidateCapitalOfNationId, OldOwner, StringComparison.Ordinal);
-        var oldOwner = CaptureTestbed.Nation(OldOwner, capitalCityId: oldOwnerIsCandidateCapital ? CandidateId : null);
-        var newOwner = CaptureTestbed.Nation(NewOwner, unity: newOwnerUnity);
+        var oldOwner = CaptureTestbed.Nation(OldOwner, unity: loserUnity, capitalCityId: oldOwnerIsCandidateCapital ? CandidateId : null);
+        var newOwner = CaptureTestbed.Nation(NewOwner);
         var attacker = CaptureTestbed.Army(
             "army", NewOwner, 0, 0, attackerMorale, CaptureTestbed.Unit("heavy_infantry", attackerTroops));
 
@@ -167,24 +173,110 @@ public sealed class CascadeGateTests
         Assert.False(CandidateDefected(state, ruleset));
     }
 
-    // ---- B2 / N1: unity gate, exclusive threshold (new owner unity < 650, i.e. >= 650 excludes). The
-    // gate reads the new owner's unity AFTER the captured city's own +9 capture credit
-    // (CaptureRules.CaptureUnityGain) has already applied -- the cascade runs at the end of Capture, not
-    // before it -- so the input here is offset by -9 to land the gate's own read exactly on the boundary
-    // under test. ----
+    // ---- B2 / N1, T91/#415: unity gate, exclusive threshold (the LOSER's own unity < 650, i.e. >= 650
+    // excludes -- not the new owner's, T17's own original misreading). The gate reads the loser's unity
+    // AFTER the captured city's own -15 capture loss (CaptureRules.CaptureUnityLoss) has already applied --
+    // the cascade runs at the end of Capture, not before it -- so the input here is offset by
+    // +CaptureUnityLoss to land the gate's own read exactly on the boundary under test. ----
 
     [Fact]
     public void Unity_OneBelowTheThreshold_Defects()
     {
-        var (state, ruleset) = BuildScenario(newOwnerUnity: 649 - 9);
+        var rules = CaptureTestbed.Ruleset.Capture;
+        var (state, ruleset) = BuildScenario(loserUnity: 649 + rules.CaptureUnityLoss);
         Assert.True(CandidateDefected(state, ruleset));
     }
 
     [Fact]
     public void Unity_AtTheThreshold_DoesNotDefect()
     {
-        var (state, ruleset) = BuildScenario(newOwnerUnity: 650 - 9);
+        var rules = CaptureTestbed.Ruleset.Capture;
+        var (state, ruleset) = BuildScenario(loserUnity: 650 + rules.CaptureUnityLoss);
         Assert.False(CandidateDefected(state, ruleset));
+    }
+
+    /// <summary>
+    /// T91/#415's own decisive test: the SAME fixture, with the new owner's unity set ABOVE the threshold
+    /// and the loser's set BELOW it. A mutant that reverts to reading the new owner's own unity would
+    /// exclude the candidate here (new owner unity 700 >= 650); the confirmed reading includes it (loser
+    /// unity, after its own -15, is 500 -- well under 650).
+    /// </summary>
+    [Fact]
+    public void Unity_NewOwnerAboveThreshold_LoserBelowIt_Defects()
+    {
+        var (state, ruleset) = BuildScenario(loserUnity: 500 + CaptureTestbed.Ruleset.Capture.CaptureUnityLoss);
+        state = state with
+        {
+            Nations = ValueList.From(state.Nations.Select(n =>
+                string.Equals(n.Id, NewOwner, StringComparison.Ordinal) ? n with { Unity = 700 } : n)),
+        };
+        Assert.True(CandidateDefected(state, ruleset));
+    }
+
+    /// <summary>
+    /// The other way round: the new owner's unity is comfortably BELOW the threshold, but the loser's is
+    /// AT/above it. The confirmed reading (the loser's) excludes the candidate; a mutant that reads the
+    /// new owner's own unity instead would incorrectly include it.
+    /// </summary>
+    [Fact]
+    public void Unity_NewOwnerBelowThreshold_LoserAtOrAboveIt_DoesNotDefect()
+    {
+        var (state, ruleset) = BuildScenario(loserUnity: 650 + CaptureTestbed.Ruleset.Capture.CaptureUnityLoss);
+        state = state with
+        {
+            Nations = ValueList.From(state.Nations.Select(n =>
+                string.Equals(n.Id, NewOwner, StringComparison.Ordinal) ? n with { Unity = 100 } : n)),
+        };
+        Assert.False(CandidateDefected(state, ruleset));
+    }
+
+    /// <summary>
+    /// #415's own confirmed mutation target ("reading the new owner's unity again"), proven across TWO
+    /// candidates in one sweep rather than a single reading: the new owner's own unity starts one point
+    /// below the threshold (640 + <see cref="CaptureRules.CaptureUnityGain"/> = 649), so the first
+    /// candidate qualifies under EITHER reading, but its own defection then raises the new owner's unity by
+    /// <see cref="CaptureRules.DefectionUnityGain"/> (+3) to 652 -- at/above the threshold. The loser's own
+    /// unity, by contrast, starts at 400 and only ever falls (the capture's own -15, then each defection's
+    /// own -20), staying comfortably under 650 throughout. Under the confirmed reading (the loser's unity,
+    /// re-read live each candidate -- see <c>CityCaptureResolver.RunCascade</c>'s own remarks on why a
+    /// snapshot would answer identically here too) BOTH candidates defect; a mutant that reads the new
+    /// owner's own unity again would incorrectly exclude the second, since by then it has crossed 650.
+    /// </summary>
+    [Fact]
+    public void Unity_TwoCandidatesInOneSweep_BothReadTheLosersUnity_NotTheRisingNewOwnersOwn()
+    {
+        var ruleset = CaptureTestbed.Ruleset;
+
+        var captured = CaptureTestbed.City(
+            CapturedId, "Captured", 0, 0, OldOwner, OldOwner,
+            loyalty: 10, fortificationCode: 0, populationThousands: 1, maxPopulationThousands: 10, tribute: 0);
+        var firstCandidate = CaptureTestbed.City(
+            "candidate-1", "Candidate One", 1, 0, OldOwner, OldOwner,
+            loyalty: 10, fortificationCode: 0, populationThousands: 1, maxPopulationThousands: 10, tribute: 0);
+        var secondCandidate = CaptureTestbed.City(
+            "candidate-2", "Candidate Two", 2, 0, OldOwner, OldOwner,
+            loyalty: 10, fortificationCode: 0, populationThousands: 1, maxPopulationThousands: 10, tribute: 0);
+
+        var oldOwner = CaptureTestbed.Nation(OldOwner, unity: 400);
+        var newOwner = CaptureTestbed.Nation(NewOwner, unity: 640);
+        var attacker = CaptureTestbed.Army(
+            "army", NewOwner, 0, 0, 80, CaptureTestbed.Unit("heavy_infantry", 50_000));
+
+        // 6 fillers: OldOwner starts with 9 cities, loses 1 to the direct capture and 2 to defection,
+        // leaving 6 -- at ConquestCityCountThreshold, not under it, so the conquest cascade never fires
+        // and cannot sweep away the very defections this test is pinning.
+        var fillerCities = CaptureTestbed.FillerCities(OldOwner, 6, startX: 1000, y: 1000).ToArray();
+        var state = CaptureTestbed.StateWith(
+            new[] { oldOwner, newOwner },
+            new[] { captured, firstCandidate, secondCandidate }.Concat(fillerCities),
+            new[] { attacker });
+
+        var sink = new RecordingEventSink();
+        var result = CityCaptureResolver.Capture(
+            state, "army", CapturedId, ruleset, CaptureTestbed.ArcherUnitTypeId, CaptureTestbed.FortifyOrderId, sink);
+
+        var defectedNames = sink.Events.OfType<CityDefectsToNation>().Select(e => e.CityName).ToArray();
+        Assert.Equal(new[] { "Candidate One", "Candidate Two" }, defectedNames);
     }
 
     // ---- B2 / N1: loyalty gate, exclusive threshold (candidate loyalty < 65, i.e. >= 65 excludes). ----
