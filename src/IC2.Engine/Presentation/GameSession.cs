@@ -114,6 +114,11 @@ public sealed partial class GameSession
     /// without blocking the AI's own turn loop — the hazard's own "smallest design" choice. A second offer
     /// raised while one is already pending is dropped rather than replacing it: the original's own dialog
     /// is modal (one battle's treaty at a time), and this build has no queue for a second one either.
+    /// Cleared by <see cref="HandlePeaceTreatyAnswer"/> on either answer, and — rework round 1, B3(a)/(b) —
+    /// by <see cref="HandleEnd"/> too, whether or not it was ever answered: without that, an offer raised
+    /// in one week and accepted many turns later still took the always-honourable branch with nothing left
+    /// of the original's own reasoning for it (the dialog being modal), and a single ignored offer silently
+    /// suppressed every later one for the rest of the game.
     /// </summary>
     private PendingPeaceTreatyOffer? _pendingPeaceTreatyOffer;
 
@@ -159,8 +164,13 @@ public sealed partial class GameSession
     /// <c>TBattlePols_InitializeForm</c>'s "*After defeating you in battle &lt;W&gt; are willing to end
     /// …*" (winner AI) or "*After losing to you in battle &lt;L&gt; are willing to end …*" (winner human).
     /// The report's own ellipsis is exactly that — the words after "willing to end" are not read from the
-    /// decompile — and the human-consent treaty never previews reparations (it is always honourable), so
-    /// "the war" completes the sentence here rather than guessing at unconfirmed reparations wording.
+    /// decompile. <strong>[designed]</strong> (rework round 1, N6): ", " and "the war." complete the
+    /// sentence here rather than leaving it truncated, since the human-consent treaty never previews
+    /// reparations (it is always honourable) and has nothing else the ellipsis could be hiding. Searched
+    /// for a fuller quote in <c>design-audit.md</c> §1.7 ("Post-battle peace negotiation, including a
+    /// human-vs-human variant" — the closest entry to this dialog) and this task's own source report;
+    /// neither carries the completed sentence, so this fills it rather than shipping a dangling ellipsis
+    /// in the CLI's own output.
     /// </summary>
     private static string PeaceTreatyOfferDialogText(NationState winner, NationState loser) =>
         winner.Control == SeatControl.Human
@@ -602,7 +612,33 @@ public sealed partial class GameSession
         $"{label} rejected: no seat to command (watch mode, or the --seat nation has fallen). "
         + "Pass --seat <nation> to play one.";
 
-    private IReadOnlyList<string> HandleEnd() => IsWatchModeActive ? HandleEndWatchMode() : HandleEndSeated();
+    /// <summary>
+    /// <c>end</c> (rework round 1, B3(a)/(b)/(d)): a peace treaty offer still pending when the human ends
+    /// their turn without answering it lapses -- Hazard 1's own "ignoring the offer leaves the war in
+    /// place" (d), which this makes true regardless of how many turns pass, closing (a): before this, the
+    /// offer never expired, so an answer given weeks later still took the honourable branch even though
+    /// nothing about the original's own reasoning for "always honourable" (report §2.3, <c>[derived]</c>:
+    /// the dialog is modal, so nothing can move between the gate and the human's Yes) survives that much
+    /// play happening in between. Expiring on <c>end</c> also closes (b) -- a dropped offer no longer
+    /// suppresses every later one for the rest of the game, since the field is clear again by the next
+    /// battle -- and half of (c): in hotseat, a second human's own <c>end</c> now clears an offer neither
+    /// human answered, rather than leaving it pending for whoever is active next to accept (the other half
+    /// of (c), an issuer who is not this treaty's own human party, is closed at the command layer instead
+    /// -- see <see cref="Diplomacy.Commands.AcceptPeaceTreatyRejections.IssuerNotPartyToTreaty"/> and
+    /// <see cref="Diplomacy.Commands.AcceptPeaceTreatyRejections.IssuerNotHuman"/>).
+    /// </summary>
+    private IReadOnlyList<string> HandleEnd()
+    {
+        var lines = new List<string>();
+        if (_pendingPeaceTreatyOffer is not null)
+        {
+            _pendingPeaceTreatyOffer = null;
+            lines.Add("The peace treaty offer has lapsed.");
+        }
+
+        lines.AddRange(IsWatchModeActive ? HandleEndWatchMode() : HandleEndSeated());
+        return lines;
+    }
 
     /// <summary>
     /// Plays <see cref="_coordinator"/>'s currently active seat, over and over, until the seat about to

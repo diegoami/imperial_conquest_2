@@ -49,6 +49,26 @@ public static class AcceptPeaceTreatyRejections
     /// own answer, but the handler does not assume that of every future caller.
     /// </summary>
     public static readonly RejectionCode NotAtWar = new("diplomacy.not-at-war");
+
+    /// <summary>
+    /// Rework round 1, B3(c): <see cref="AcceptPeaceTreatyCommand.IssuingNationId"/> names a nation
+    /// that is neither this treaty's <see cref="AcceptPeaceTreatyCommand.WinnerNationId"/> nor its
+    /// <see cref="AcceptPeaceTreatyCommand.LoserNationId"/> — the command dispatcher's own active-seat
+    /// check (<c>CommandDispatcher</c>) only proves the issuer is whoever's turn it currently is, not that
+    /// they are a party to this particular war. Without this, any third nation, active at the moment a
+    /// stale offer is answered, could accept a peace it has no part in — the gate-free AI-to-human peace
+    /// writer bug #384 exists to close.
+    /// </summary>
+    public static readonly RejectionCode IssuerNotPartyToTreaty = new("diplomacy.issuer-not-party-to-treaty");
+
+    /// <summary>
+    /// Rework round 1, B3(c): the issuer is a party to the treaty but is not human-controlled. The whole
+    /// point of the post-battle treaty (report §2.3, #384) is that only the human's own Yes/No answers it
+    /// — an AI never ends a war with a human without consent. Without this check, the AI side of a treaty
+    /// could accept its own offer (or, in hotseat, a second human seat could accept an offer addressed to
+    /// the first human, once it becomes the active seat) — the same consent hole either way.
+    /// </summary>
+    public static readonly RejectionCode IssuerNotHuman = new("diplomacy.issuer-not-human");
 }
 
 /// <inheritdoc cref="AcceptPeaceTreatyCommand"/>
@@ -70,6 +90,24 @@ public sealed class AcceptPeaceTreatyCommandHandler : ICommandHandler<AcceptPeac
         {
             return CommandOutcome.Reject(
                 AcceptPeaceTreatyRejections.UnknownNation, "The treaty's own nations are not both known.");
+        }
+
+        var issuerIsWinner = string.Equals(command.IssuingNationId, command.WinnerNationId, StringComparison.Ordinal);
+        var issuerIsLoser = string.Equals(command.IssuingNationId, command.LoserNationId, StringComparison.Ordinal);
+        if (!issuerIsWinner && !issuerIsLoser)
+        {
+            return CommandOutcome.Reject(
+                AcceptPeaceTreatyRejections.IssuerNotPartyToTreaty,
+                $"'{command.IssuingNationId}' is not a party to the war between "
+                + $"'{winner.Name}' and '{loser.Name}'.");
+        }
+
+        var issuer = issuerIsWinner ? winner : loser;
+        if (issuer.Control != SeatControl.Human)
+        {
+            return CommandOutcome.Reject(
+                AcceptPeaceTreatyRejections.IssuerNotHuman,
+                $"'{issuer.Name}' is not human-controlled, so it cannot answer a peace treaty offer.");
         }
 
         if (state.Relations.Get(command.WinnerNationId, command.LoserNationId) != ruleset.Diplomacy.StateCodes.War)

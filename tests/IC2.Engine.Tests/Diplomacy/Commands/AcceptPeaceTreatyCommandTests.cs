@@ -93,6 +93,40 @@ public sealed class AcceptPeaceTreatyCommandTests
         Assert.Equal(AcceptPeaceTreatyRejections.NotAtWar, result.Code);
     }
 
+    /// <summary>
+    /// Rework round 1, B3(c) probe: a third nation, active at the moment it answers, has no part in this
+    /// war and must be rejected — the reviewer's own repro (dispatching as an active but unrelated
+    /// nation) found this accepted before the fix.
+    /// </summary>
+    [Fact]
+    public void Yes_IssuedByAThirdNation_IsRejected()
+    {
+        var state = WarState(SeatControl.Human, SeatControl.Ai) with { ActiveSeatIndex = 2 };
+        var command = new AcceptPeaceTreatyCommand(ThirdParty, Winner, Loser);
+        var result = DiplomacyTestbed.Dispatcher().Dispatch(state, command);
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(AcceptPeaceTreatyRejections.IssuerNotPartyToTreaty, result.Code);
+        Assert.Equal(DiplomacyTestbed.Ruleset.Diplomacy.StateCodes.War, state.Relations.Get(Winner, Loser));
+    }
+
+    /// <summary>
+    /// Rework round 1, B3(c) probe: the AI side of its own treaty must not be able to accept it on the
+    /// human's behalf, even though it is a party to the war and (as the winner) is the one the offer was
+    /// raised for.
+    /// </summary>
+    [Fact]
+    public void Yes_IssuedByTheAiPartyItself_IsRejected()
+    {
+        var state = WarState(SeatControl.Ai, SeatControl.Human);
+        var command = new AcceptPeaceTreatyCommand(Winner, Winner, Loser);
+        var result = DiplomacyTestbed.Dispatcher().Dispatch(state, command);
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(AcceptPeaceTreatyRejections.IssuerNotHuman, result.Code);
+        Assert.Equal(DiplomacyTestbed.Ruleset.Diplomacy.StateCodes.War, state.Relations.Get(Winner, Loser));
+    }
+
     /// <summary>The ally-peace cascade fires exactly as the AI-vs-AI branch's own does.</summary>
     [Fact]
     public void Yes_AlsoRunsTheAllyPeaceCascade()
