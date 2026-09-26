@@ -293,7 +293,7 @@ public sealed record TerrainRules(
 /// <c>ScuttleFleetCommandHandler</c>), and an army's named landing tile relative to its carrying fleet
 /// (<c>DisembarkArmyCommandHandler</c>). The four supply-purchase sites' own direct source is
 /// <c>supply-capacity-rounding.md</c>:33 (<c>TAFSupply_FindProviders</c>, "every city within one tile");
-/// the mobilization citation is kept because it is the original's one confirmed <c>d == 1</c> Chebyshev
+/// the mobilization citation is kept because it is a confirmed <c>d == 1</c> Chebyshev
 /// comparison, cited above — described here as what it actually is, not as "the original's own general
 /// command-adjacency test" an earlier revision of this remark called it (review round 1, N2); T70
 /// Done-when 6b recorded the choice, but is not itself the reason — a task entry is not evidence
