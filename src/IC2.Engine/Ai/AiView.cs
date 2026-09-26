@@ -159,26 +159,6 @@ public sealed class AiView
     }
 
     /// <summary>
-    /// A nation's total field-battle strength, summed over its armies with
-    /// <see cref="ArmyPower.Compute"/> — the same function
-    /// <see cref="Diplomacy.HonourablePeaceGate"/> sums for the confirmed honourable-peace test, so the
-    /// AI's idea of "who is stronger" is the engine's.
-    /// </summary>
-    public long TotalArmyPower(string nationId)
-    {
-        long total = 0;
-        foreach (var army in State.Armies)
-        {
-            if (string.Equals(army.Nation, nationId, StringComparison.Ordinal))
-            {
-                total += ArmyPower.Compute(army.Units, army.Morale, Ruleset);
-            }
-        }
-
-        return total;
-    }
-
-    /// <summary>
     /// How far along the acting nation is toward the shipped victory condition, in permille: the share of
     /// the map's cities it owns. <c>GameState.CountCitiesOwnedBy</c> is the engine's own count, the one
     /// <c>VictoryEvaluator.EvaluateTotalConquest</c> compares against <c>Cities.Count</c>.

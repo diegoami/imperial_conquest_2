@@ -681,13 +681,18 @@ public static class AiMilitaryPhase
     }
 
     /// <summary>
-    /// #425: matches <see cref="Cities.Capture.CompleteDefenderStrength"/>'s other three callers, all of
-    /// which read <see cref="Cities.Capture.CapitalOwnership.IsAnyNationsCapital"/> since T91 — any
-    /// nation's capital, eliminated or not, rather than only the current owner's. Before this fix a city
-    /// that another nation's stale capital still named (T90/#409's own scenario: a defected or eliminated
-    /// nation's capital never moved) scored its defender strength without the ×5/3 capital multiplier the
-    /// resolver itself applies, so this estimate could disagree with what <see cref="Battle.InstantBattleResolver"/>
-    /// actually computes for the same siege.
+    /// #425, rework round 1 N7 (caller count corrected): reads
+    /// <see cref="Cities.Capture.CapitalOwnership.IsAnyNationsCapital"/> since T91 — any nation's capital,
+    /// eliminated or not, rather than only the current owner's — the same predicate
+    /// <see cref="Battle.InstantBattleResolver"/> reads directly (via <see cref="Strength.SiegeStrength.Defender"/>)
+    /// for its own siege resolution, and <see cref="Cities.Capture.ConquestTrigger"/> reads for its capital-move
+    /// destination search. <see cref="Cities.Capture.CompleteDefenderStrength"/>'s one other caller,
+    /// <see cref="Cities.Capture.CityCaptureResolver"/>, already excludes capitals before calling it and passes
+    /// a hardcoded <see langword="false"/> rather than re-deriving the predicate there. Before this fix a
+    /// city that another nation's stale capital still named (T90/#409's own scenario: a defected or
+    /// eliminated nation's capital never moved) scored its defender strength without the ×5/3 capital
+    /// multiplier the resolver itself applies, so this estimate could disagree with what
+    /// <see cref="Battle.InstantBattleResolver"/> actually computes for the same siege.
     /// </summary>
     private static bool IsControllerCapital(GameState state, CityState city) =>
         Cities.Capture.CapitalOwnership.IsAnyNationsCapital(state, city.Id);

@@ -16,8 +16,10 @@ namespace IC2.Engine.Tests.Ai;
 /// The reachable case the fix targets: a city another nation's stale <see cref="NationState.CapitalCityId"/>
 /// still names, while its actual, current owner's own capital is a different city entirely (T90/#409 — a
 /// nation's capital pointer never moves on its own). The owner-only check says "not a capital" here; the
-/// any-nation's check says "yes" — the same distinction <see cref="CapitalOwnership"/>'s other four
-/// callers already draw.
+/// any-nation's check says "yes" — rework round 1 N7 (caller count corrected): the same distinction
+/// <see cref="IC2.Engine.Battle.InstantBattleResolver"/> and
+/// <see cref="IC2.Engine.Cities.Capture.ConquestTrigger"/> already draw, each reading
+/// <see cref="IC2.Engine.Cities.Capture.CapitalOwnership.IsAnyNationsCapital"/> directly.
 /// </remarks>
 public sealed class AiMilitaryPhaseCapitalOwnershipTests
 {

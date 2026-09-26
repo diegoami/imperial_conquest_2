@@ -45,7 +45,7 @@ public enum AiPhase
 /// <param name="Phase">Which design phase proposed this.</param>
 /// <param name="Kind">A short stable label for the log, e.g. <c>"besiege"</c>.</param>
 /// <param name="Commands">The commands to dispatch, in order. Never empty.</param>
-/// <param name="Score">The candidate's score on <see cref="AiWeights"/>'s shared scale.</param>
+/// <param name="Score">The candidate's score on <see cref="AiWeightsRules"/>'s shared scale.</param>
 /// <param name="Rationale">One line saying how the score was reached, written into the per-seed log.</param>
 /// <param name="SubjectId">
 /// The unit this candidate commits, when it commits one: an army id for a march, an attack or a siege, a
