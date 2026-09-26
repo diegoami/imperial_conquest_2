@@ -1246,7 +1246,62 @@ public sealed record LoyaltyRules(
 /// <c>[confirmed: decompiled-elimination-cleanup.md §4]</c> The capital only actually moves to a city more
 /// than this many tiles away (10, Chebyshev — the engine's one other map-distance convention, the same
 /// <c>[derived]</c> choice <see cref="CascadeDistanceMax"/> already makes); with none, the capital does
-/// not move and the loser is conquered instead.
+/// not move and the loser is conquered instead. The addendum (research <c>dcd8fd7</c>,
+/// <c>FUN_0044BD2C</c> :50265) confirms the test itself is <c>10 &lt; d</c>, i.e. a city must be at least
+/// 11 tiles away, not exactly 10.
+/// </param>
+/// <param name="CapitalMoveStrengthDivisor">
+/// <c>[confirmed: decompiled-elimination-cleanup.md §4 addendum, research <c>dcd8fd7</c>,
+/// FUN_0044BD2C :50267]</c> T86 review round 1, B1: every candidate destination's own full defender
+/// strength (<see cref="IC2.Engine.Cities.Capture.CompleteDefenderStrength.Compute"/>) is divided by this
+/// (10) — a signed integer division, truncating toward zero — before dividing again by the candidate's
+/// own Chebyshev distance from the fallen capital, in that order; the winning candidate needs a
+/// strictly-positive result. Numerically the same value as <see cref="CapitalMoveMinDistanceTiles"/>, but
+/// a distinct field: one is a distance threshold in tiles, this one a strength divisor, and the original
+/// never ties them together beyond the coincidence.
+/// </param>
+/// <param name="CapitalMoveNewCapitalLoyaltyGain">
+/// <c>[confirmed: decompiled-elimination-cleanup.md §4 addendum, research <c>dcd8fd7</c>,
+/// FUN_0044BD2C :50286]</c> T86 review round 1, plan PR #410: on a successful capital move, the new
+/// capital's own <see cref="CityState.Loyalty"/> gains this (8), capped at
+/// <see cref="CapitalMoveNewCapitalStatCap"/>. Applied only to the destination — every other city is
+/// untouched.
+/// </param>
+/// <param name="CapitalMoveNewCapitalFortificationGain">
+/// <c>[confirmed: decompiled-elimination-cleanup.md §4 addendum, research <c>dcd8fd7</c>,
+/// FUN_0044BD2C :50289]</c> The new capital's own raw <see cref="CityState.FortificationCode"/> word
+/// gains this (10), capped at <see cref="CapitalMoveNewCapitalStatCap"/> — applied to the stored word
+/// itself, not the decoded percentage, which is also how the original derives its own quirk: a code
+/// already above <see cref="CityOrderRule.MaxPercent"/> (an order in progress,
+/// <see cref="FortificationCode.IsOrderInProgress"/>) plus this gain always exceeds the cap, so the min
+/// collapses it to a plain finished value at the cap — discarding whatever order was pending, exactly
+/// the addendum's own "the move discards it" remark.
+/// </param>
+/// <param name="CapitalMoveNewCapitalStatCap">
+/// <c>[confirmed: decompiled-elimination-cleanup.md §4 addendum, research <c>dcd8fd7</c>,
+/// FUN_0044BD2C :50286–50291]</c> The upper bound (99) both
+/// <see cref="CapitalMoveNewCapitalLoyaltyGain"/> and <see cref="CapitalMoveNewCapitalFortificationGain"/>
+/// are capped at — the same literal <c>99</c> both of the addendum's own <c>min(99, …)</c> writes use.
+/// Kept as one shared field rather than two coincidentally-equal ones (contrast
+/// <see cref="CapitalMoveMinDistanceTiles"/>/<see cref="CapitalMoveStrengthDivisor"/>, kept separate on
+/// purpose): both fields here are the same kind of quantity, a percentage capped one below its own
+/// <c>100</c> ceiling, and the addendum gives no reason to think the original's two <c>min(99, …)</c>
+/// writes are anything but the same cap applied twice.
+/// </param>
+/// <param name="CapitalMoveNewCapitalPopulationGain">
+/// <c>[confirmed: decompiled-elimination-cleanup.md §4 addendum, research <c>dcd8fd7</c>,
+/// FUN_0044BD2C :50293]</c> The new capital's own <see cref="CityState.PopulationThousands"/> gains this
+/// (10, in thousands), uncapped — even above <see cref="CityState.MaxPopulationThousands"/>.
+/// </param>
+/// <param name="CapitalMoveNewCapitalMaxPopulationGain">
+/// <c>[confirmed: decompiled-elimination-cleanup.md §4 addendum, research <c>dcd8fd7</c>,
+/// FUN_0044BD2C :50294]</c> The new capital's own <see cref="CityState.MaxPopulationThousands"/> gains
+/// this (20), uncapped.
+/// </param>
+/// <param name="CapitalMoveNewCapitalTributeGain">
+/// <c>[confirmed: decompiled-elimination-cleanup.md §4 addendum, research <c>dcd8fd7</c>,
+/// FUN_0044BD2C :50295]</c> The new capital's own <see cref="CityState.Tribute"/> gains this (25),
+/// uncapped.
 /// </param>
 /// <param name="ConquestWinnerUnityGain">
 /// <c>[confirmed: decompiled-elimination-cleanup.md §4, FUN_0044C528]</c> The winner's unity gain on
@@ -1284,6 +1339,13 @@ public sealed record CaptureRules(
     int CapitalMoveCityCountThreshold,
     int CapitalMoveUnityLoss,
     int CapitalMoveMinDistanceTiles,
+    int CapitalMoveStrengthDivisor,
+    int CapitalMoveNewCapitalLoyaltyGain,
+    int CapitalMoveNewCapitalFortificationGain,
+    int CapitalMoveNewCapitalStatCap,
+    int CapitalMoveNewCapitalPopulationGain,
+    int CapitalMoveNewCapitalMaxPopulationGain,
+    int CapitalMoveNewCapitalTributeGain,
     int ConquestWinnerUnityGain,
     int ConquestLoyaltyRandomBonusMax,
     int ConquestTreasuryCreditMultiplier,

@@ -204,7 +204,7 @@ public static class CityCaptureResolver
         // see NationElimination's own remarks) already fully eliminated it through Defect's own path, so
         // ConquestTrigger.Evaluate below is a no-op for an already-eliminated nation.
         var (stateAfterTrigger, shouldConquer) = ConquestTrigger.Evaluate(
-            stateAfterCascade, ruleset, oldOwner.Id, formerCapitalId, wasCapital, events);
+            stateAfterCascade, ruleset, oldOwner.Id, formerCapitalId, wasCapital, fortifyOrder, events);
 
         return shouldConquer
             ? ConquestCascade.Apply(stateAfterTrigger, ruleset, oldOwner.Id, newOwner.Id, events)
