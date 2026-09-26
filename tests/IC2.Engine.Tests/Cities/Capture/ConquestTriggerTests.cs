@@ -246,6 +246,30 @@ public sealed class ConquestTriggerTests
         Assert.Equal("filler-0", result.NationById(OldOwner)!.CapitalCityId);
     }
 
+    /// <summary>
+    /// Review round 2, B4: every prior scenario in this file was a tie, a single candidate, or a score
+    /// of 0 -- none pinned "the higher score wins over list order" (Done-when 1's own added bullet), so
+    /// a mutation that stops the search at the first positive-scoring candidate (the reviewer's own MS1,
+    /// <c>if (score &gt; bestScore &amp;&amp; best is null)</c>) survived the whole suite.
+    /// </summary>
+    [Fact]
+    public void CapitalMove_WithALowerScoringCandidateBeforeAHigherScoringOne_PicksTheHigherScore()
+    {
+        // filler-0 (table order first) sits 20 tiles away: score floor(1550/20) = 77. filler-1 (table
+        // order second) sits 11 tiles away: score floor(1550/11) = 140 -- higher, despite coming later.
+        // The correct destination is filler-1; MS1 would incorrectly keep filler-0, the first city to
+        // score above 0.
+        var scenario = BuildScenario(
+            captureCapital: true, fillerCount: 7, unity: 668, fillerXCoordinates: new int?[] { 20, 11 });
+        var sink = new RecordingEventSink();
+        var result = Capture(scenario, sink);
+
+        Assert.False(result.NationById(OldOwner)!.Eliminated);
+        var moved = Assert.Single(sink.Events.OfType<NationCapitalMoved>());
+        Assert.Equal(OldOwner, moved.Nation);
+        Assert.Equal("filler-1", result.NationById(OldOwner)!.CapitalCityId);
+    }
+
     // ---- The new capital's own boosts (plan PR #410, 2026-09-26: research dcd8fd7, FUN_0044BD2C :50286-50295). ----
 
     [Fact]

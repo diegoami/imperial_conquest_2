@@ -17,8 +17,9 @@ namespace IC2.Engine.Cities.Capture;
 ///     moved = false
 ///     if loser.unity &gt; 400 and loser.cityCount &gt; 6:
 ///         unity -= 50                            // always, attempt or not
-///         if a city &gt; 10 tiles from the fallen capital exists:
-///             capital = that city; moved = true; news "have moved their capital to"
+///         best = the highest-scoring city &gt; 10 tiles from the fallen capital, score &gt;= 1  // review round 2, B4
+///         if best exists:
+///             capital = best; moved = true; news "have moved their capital to"
 ///     if not moved: conquer
 /// </code>
 /// <para>
@@ -169,8 +170,13 @@ public static class ConquestTrigger
     /// every one of <paramref name="loserId"/>'s own currently-owned cities, in
     /// <see cref="GameState.Cities"/>' own stable (city-table) order, more than
     /// <paramref name="minDistanceTiles"/> Chebyshev tiles from <paramref name="formerCapitalId"/>,
-    /// scored <c>(strength / 10) / distance</c>; the first city to reach a strictly-better-than-0 score
-    /// wins, and a later equal score never displaces it.
+    /// scored <c>(strength / 10) / distance</c>. The HIGHEST-scoring qualifying city wins outright, not
+    /// merely the first one to score above 0 (review round 2, B4: an earlier revision of this summary
+    /// read as though the search stopped at the first positive score, which is not this method's own
+    /// behaviour — <c>ConquestTriggerTests.CapitalMove_WithALowerScoringCandidateBeforeAHigherScoringOne_PicksTheHigherScore</c>
+    /// pins a later, higher-scoring city beating an earlier, lower-scoring one). Only a tie — an exactly
+    /// equal score — never displaces the earlier city, which is where "the lowest city-table index"
+    /// tie-break actually applies.
     /// </summary>
     private static CityState? FindCapitalMoveDestination(
         GameState state,
@@ -205,6 +211,13 @@ public static class ConquestTrigger
             }
 
             var ownerDiffersFromAllegiance = !string.Equals(city.Owner, city.Allegiance, StringComparison.Ordinal);
+            // N7 (review round 2): always false here, a known deviation. The addendum's own
+            // "Consequences" note that the original's x5/3 capital bonus would apply to a candidate that
+            // still passes FUN_0044B8D0 through ANOTHER nation's stale capital pointer -- something T86's
+            // own Defect path can now leave behind. Unreachable in practice until T90 (#409, tracked
+            // there as S4) generalises "is a capital" to "any nation's CapitalCityId", and T87 lands
+            // rebirth's own stale-pointer cases; not fixed here, and this line's own behaviour is
+            // unchanged.
             var strength = CompleteDefenderStrength.Compute(
                 city, fortifyOrder, isControllerCapital: false, ownerDiffersFromAllegiance, loser, ruleset);
             // Order matters in the addendum's own pseudocode (":50267, divide by 10 first, then by d"),
@@ -213,9 +226,9 @@ public static class ConquestTrigger
             // orders are provably the same result: floor(floor(x / a) / b) == floor(x / (a * b)) for
             // positive integers a, b, regardless of which division runs first. Verified empirically too:
             // swapping this line's own division order and re-running the full suite leaves all 3011+
-            // engine tests green (review round 1, B1's "swapping the division order" mutation is not
-            // observable here). Kept in the addendum's own order for fidelity to the decompile, not
-            // because a swap would be catchable.
+            // engine tests green (the coordinator's own round-1 suggestion, not round-0's B1 -- the
+            // "swapping the division order" mutation is not observable here). Kept in the addendum's own
+            // order for fidelity to the decompile, not because a swap would be catchable.
             var score = (strength / ruleset.Capture.CapitalMoveStrengthDivisor) / distance;
 
             if (score > bestScore)
