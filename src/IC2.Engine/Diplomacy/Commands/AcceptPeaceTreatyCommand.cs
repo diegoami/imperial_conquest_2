@@ -23,9 +23,15 @@ namespace IC2.Engine.Diplomacy.Commands;
 /// </remarks>
 /// <param name="IssuingNationId">
 /// The human seat answering — <see cref="Core.ICommand"/>'s own contract ("every command names the
-/// nation issuing it", checked against the active seat before any handler runs), so this is always
-/// whichever of <paramref name="WinnerNationId"/>/<paramref name="LoserNationId"/> is human: the CLI only
-/// ever lets the human answer while paused on that seat's own turn.
+/// nation issuing it", checked against the active seat before any handler runs). This handler's own
+/// <see cref="AcceptPeaceTreatyRejections.IssuerNotPartyToTreaty"/>/<see cref="AcceptPeaceTreatyRejections.IssuerNotHuman"/>
+/// checks are what actually enforce "whichever of <paramref name="WinnerNationId"/>/
+/// <paramref name="LoserNationId"/> is human" at this layer. Rework round 2, R1 (corrected): the CLI does
+/// <em>not</em> only ever let the human answer while paused on that seat's own turn -- in hotseat, the
+/// loop can pause on a different human than the one this offer is addressed to, and
+/// <c>Presentation.GameSession.HandlePeaceTreatyAnswer</c> now refuses that mismatch itself
+/// (<c>PendingPeaceTreatyOffer.OfferedHumanNationId</c>) before ever dispatching this command, rather
+/// than relying on this handler's own rejection to catch it after the offer has already been consumed.
 /// </param>
 /// <param name="WinnerNationId">The battle's winner, as <see cref="Battle.PeaceTreatyOffered"/> named it.</param>
 /// <param name="LoserNationId">The battle's loser.</param>

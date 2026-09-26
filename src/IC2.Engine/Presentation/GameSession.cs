@@ -114,26 +114,53 @@ public sealed partial class GameSession
     /// without blocking the AI's own turn loop — the hazard's own "smallest design" choice. A second offer
     /// raised while one is already pending is dropped rather than replacing it: the original's own dialog
     /// is modal (one battle's treaty at a time), and this build has no queue for a second one either.
-    /// Cleared by <see cref="HandlePeaceTreatyAnswer"/> on either answer, and — rework round 1, B3(a)/(b) —
-    /// by <see cref="HandleEnd"/> too, whether or not it was ever answered: without that, an offer raised
-    /// in one week and accepted many turns later still took the always-honourable branch with nothing left
-    /// of the original's own reasoning for it (the dialog being modal), and a single ignored offer silently
-    /// suppressed every later one for the rest of the game.
+    /// Cleared by <see cref="HandlePeaceTreatyAnswer"/> once the offered human answers, and — rework round
+    /// 1, B3(a)/(b); rework round 2, R1 — by <see cref="HandleEnd"/> too, but only on <em>that same human's
+    /// own</em> <c>end</c>, not anyone else's: without expiring at all, an offer raised in one week and
+    /// accepted many turns later still took the always-honourable branch with nothing left of the
+    /// original's own reasoning for it (the dialog being modal), and a single ignored offer silently
+    /// suppressed every later one for the rest of the game; expiring on <em>any</em> human's <c>end</c>
+    /// (round 1's own fix) went too far the other way in hotseat, where the offer's own human is not
+    /// necessarily the next seat the loop pauses on — see <see cref="PendingPeaceTreatyOffer.OfferedHumanNationId"/>.
     /// </summary>
     private PendingPeaceTreatyOffer? _pendingPeaceTreatyOffer;
 
-    /// <summary>See <see cref="_pendingPeaceTreatyOffer"/>.</summary>
-    private sealed record PendingPeaceTreatyOffer(string WinnerNationId, string LoserNationId);
+    /// <summary>
+    /// See <see cref="_pendingPeaceTreatyOffer"/>.
+    /// </summary>
+    /// <param name="WinnerNationId">The battle's winner, as <see cref="PeaceTreatyOffered"/> named it.</param>
+    /// <param name="LoserNationId">The battle's loser.</param>
+    /// <param name="OfferedHumanNationId">
+    /// Rework round 2, R1: whichever of <paramref name="WinnerNationId"/>/<paramref name="LoserNationId"/>
+    /// is human-controlled — the one human seat this specific offer is addressed to, fixed at the moment
+    /// the offer is raised. Before this field existed, <see cref="HandlePeaceTreatyAnswer"/> answered as
+    /// whichever seat happened to be <see cref="Model.GameState.ActiveNationId"/> when the CLI read the
+    /// command, and <see cref="HandleEnd"/> lapsed the offer on any human's own <c>end</c> — both correct
+    /// only when there is exactly one human seat in the game. In hotseat, an offer an AI seat's turn
+    /// raises against human A can land the CLI paused on human B's own prompt next: B's own <c>yes</c> was
+    /// only ever refused by <see cref="Diplomacy.Commands.AcceptPeaceTreatyRejections.IssuerNotPartyToTreaty"/>
+    /// at the command layer (consuming the offer in the process), B's own <c>no</c> silently declined A's
+    /// treaty, and B's own <c>end</c> lapsed it before A ever saw a prompt. Storing the offered human here
+    /// lets both call sites bind to the right seat instead.
+    /// </param>
+    private sealed record PendingPeaceTreatyOffer(string WinnerNationId, string LoserNationId, string OfferedHumanNationId);
 
     /// <summary>
     /// Scans <paramref name="events"/> for a <see cref="Battle.PeaceTreatyOffered"/> this session should
-    /// show — one whose winner or loser is currently human-controlled, i.e. worth a human's own answer
-    /// (a battle between two AI seats never raises this event at all;
-    /// <see cref="Battle.InstantBattleResolver"/>'s own gate already restricts it to exactly one human
-    /// side, but this session checks again rather than trusting that invariant blindly). Appends the
-    /// dialog text and how to answer it to <paramref name="lines"/>, the same way every other line this
-    /// call produced is appended. A no-op once an offer is already pending (see that field's own remarks).
+    /// show, and records which human seat it is addressed to. Appends the dialog text and how to answer it
+    /// to <paramref name="lines"/>, the same way every other line this call produced is appended. A no-op
+    /// once an offer is already pending (see that field's own remarks).
     /// </summary>
+    /// <remarks>
+    /// Rework round 2, N-a: this used to also refuse an event where neither side is human, proven only by
+    /// a reflection test reaching into a private method, since <see cref="Battle.InstantBattleResolver"/>'s
+    /// own gate (<c>exactlyOneHuman</c>) already guarantees the real engine never publishes one — there was
+    /// no path through <see cref="Submit"/> that could ever exercise that branch. Removed rather than kept
+    /// under test by reflection: this method's job is now to pick out <em>which</em> side is human (needed
+    /// for <see cref="PendingPeaceTreatyOffer.OfferedHumanNationId"/> regardless), not to re-prove an
+    /// invariant its only caller already enforces. The reflection test
+    /// (<c>AllAiPeaceTreatyOffered_IsIgnoredByTheSessionsOwnRecheck</c>) is deleted with it.
+    /// </remarks>
     private void CapturePeaceTreatyOfferIfAny(List<string> lines, IEnumerable<DomainEvent> events)
     {
         if (_pendingPeaceTreatyOffer is not null)
@@ -145,13 +172,15 @@ public sealed partial class GameSession
         {
             var winner = State.NationById(offered.WinnerNationId);
             var loser = State.NationById(offered.LoserNationId);
-            if (winner is null || loser is null
-                || (winner.Control != SeatControl.Human && loser.Control != SeatControl.Human))
+            if (winner is null || loser is null)
             {
                 continue;
             }
 
-            _pendingPeaceTreatyOffer = new PendingPeaceTreatyOffer(offered.WinnerNationId, offered.LoserNationId);
+            var offeredHuman = winner.Control == SeatControl.Human ? winner : loser;
+
+            _pendingPeaceTreatyOffer = new PendingPeaceTreatyOffer(
+                offered.WinnerNationId, offered.LoserNationId, offeredHuman.Id);
             lines.Add(PeaceTreatyOfferDialogText(winner, loser));
             lines.Add("Type 'peace-yes' to accept or 'peace-no' to decline.");
             return;
@@ -164,13 +193,17 @@ public sealed partial class GameSession
     /// <c>TBattlePols_InitializeForm</c>'s "*After defeating you in battle &lt;W&gt; are willing to end
     /// …*" (winner AI) or "*After losing to you in battle &lt;L&gt; are willing to end …*" (winner human).
     /// The report's own ellipsis is exactly that — the words after "willing to end" are not read from the
-    /// decompile. <strong>[designed]</strong> (rework round 1, N6): ", " and "the war." complete the
-    /// sentence here rather than leaving it truncated, since the human-consent treaty never previews
-    /// reparations (it is always honourable) and has nothing else the ellipsis could be hiding. Searched
-    /// for a fuller quote in <c>design-audit.md</c> §1.7 ("Post-battle peace negotiation, including a
-    /// human-vs-human variant" — the closest entry to this dialog) and this task's own source report;
-    /// neither carries the completed sentence, so this fills it rather than shipping a dangling ellipsis
-    /// in the CLI's own output.
+    /// decompile. <strong>[designed]</strong> (rework round 1, N6; corrected rework round 2, N-c): ", "
+    /// and "the war." complete the sentence here rather than leaving it truncated. Searched for a fuller
+    /// quote in <c>design-audit.md</c> §1.7 ("Post-battle peace negotiation, including a human-vs-human
+    /// variant" — the closest entry to this dialog) and this task's own source report; neither carries the
+    /// completed sentence, so this fills it rather than shipping a dangling ellipsis in the CLI's own
+    /// output. This is a plain completion, not a claim that it is the <em>only</em> one the ellipsis could
+    /// hide: report §2.3 itself says "the dialog previews the terms", and design-audit §1.7 quotes
+    /// <c>TBattlePols</c>'s own honourable-terms line ("An honourable peace with no reparations or
+    /// penalties"), so a terms preview is plausible wording this search did not rule out — only that
+    /// neither source states it for <em>this</em> sentence, so guessing at unconfirmed preview wording
+    /// would be worse than the plain completion used here.
     /// </summary>
     private static string PeaceTreatyOfferDialogText(NationState winner, NationState loser) =>
         winner.Control == SeatControl.Human
@@ -630,7 +663,13 @@ public sealed partial class GameSession
     private IReadOnlyList<string> HandleEnd()
     {
         var lines = new List<string>();
-        if (_pendingPeaceTreatyOffer is not null)
+
+        // Rework round 2, R1: only the offered human's own end lapses their offer -- State.ActiveNationId
+        // here is whoever is submitting this "end" (the seat about to end its turn), which round 1 wrongly
+        // treated as always being the offer's own human. In hotseat that let a second human's end lapse
+        // the first human's still-unanswered offer before it ever reached their own prompt.
+        if (_pendingPeaceTreatyOffer is { } pending
+            && string.Equals(pending.OfferedHumanNationId, State.ActiveNationId, StringComparison.Ordinal))
         {
             _pendingPeaceTreatyOffer = null;
             lines.Add("The peace treaty offer has lapsed.");
@@ -798,6 +837,15 @@ public sealed partial class GameSession
         State = result.State;
         lines.Add($"{NationDisplay(endingSeat)} ends its turn.");
         AppendWeatherLines(lines, result.Events);
+
+        // Rework round 2, N-f: this call's own SeatStart phase can depose endingSeat for debt
+        // (HumanDepositionSystem), and the same call's Orders phase then reads the just-updated Control
+        // (AiTurn.Run's own gate) -- so a human deposed by this very RunTurn can have the AI fight the
+        // other human right here, in the same call, before this method ever loops to a different seat.
+        // Without this, that battle's own PeaceTreatyOffered was reachable only through IssueCommand (a
+        // human's own command) or PlayUntilOneFullLapOrRepeat (a later seat's turn) -- neither of which
+        // this call is.
+        CapturePeaceTreatyOfferIfAny(lines, result.Events);
 
         if (!AnnounceAndAdoptWatchModeIfSeatIsLost(lines))
         {

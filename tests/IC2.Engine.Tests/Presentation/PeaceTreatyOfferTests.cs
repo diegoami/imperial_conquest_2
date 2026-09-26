@@ -1,4 +1,3 @@
-using System.Reflection;
 using IC2.Engine.Battle;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
@@ -213,6 +212,121 @@ public sealed class PeaceTreatyOfferTests
         Assert.Contains(
             afterAiTurn.Lines,
             l => l.Contains("peace-yes", StringComparison.Ordinal) && l.Contains("peace-no", StringComparison.Ordinal));
+
+        // Rework round 2, R2: the review's own mutation (moving HandleEnd's lapse block to after
+        // HandleEndSeated()) lapses this exact offer before the human ever sees the prompt, leaving every
+        // pre-existing assertion here green -- printing the dialog is not the same as it surviving to be
+        // answered. north is active again now (the loop paused there), so it can still answer it.
+        Assert.Equal("north", session.State.ActiveNationId);
+        var answer = session.Submit("peace-yes");
+        Assert.Contains(
+            answer.Lines, l => l.Contains("diplomacy.accept-peace-treaty accepted", StringComparison.Ordinal));
+        Assert.Equal(
+            session.Ruleset.Diplomacy.CooldownAfterEndedWar, session.State.Relations.Get("north", "south"));
+    }
+
+    /// <summary>
+    /// Rework round 2 (R1)'s own fixture: a third, human-controlled nation ("east", <c>portus</c> handed
+    /// to it, matching the review's own probe) alongside the shipped north/south pair, turn order
+    /// north(H), south(AI), east(H). North declares war on south and loses; south's own AI turn raises the
+    /// offer (addressed to north) while the CLI's own loop pauses at east's own prompt next -- exactly the
+    /// shape that broke before this round's fix, since the offer's own human (north) is not the next seat
+    /// the loop stops on.
+    /// </summary>
+    private static GameSession ThreeSeatHotseatOfferFixture()
+    {
+        var toy = CoreTestbed.Toy;
+        var customRuleset = toy.Ruleset with
+        {
+            Combat = toy.Ruleset.Combat with
+            {
+                AutoPeaceChanceNumerator = toy.Ruleset.Combat.AutoPeaceChanceDenominator,
+                AutoPeaceLoserUnityThreshold = -1,
+                AutoPeaceLoserCityThreshold = 0,
+            },
+        };
+
+        var reserve = new StartingArmy(
+            "north-reserve", "north", X: 2, Y: 1, Morale: 1, Money: 0, SupplyTons: 0, Moves: 5,
+            Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "heavy_infantry", Troops: 480000, Quality: 5, Name: "Reserve")));
+
+        var southArmy = toy.World.StartingArmies.Single(a => a.Id == "south-army-1") with { X = 4, Y = 2 };
+
+        var eastNation = new NationDefinition(
+            Id: "east", Name: "Eastern League", ColorHex: "#2e7d32", LeaderName: "Toy Leader of the East",
+            CapitalCityId: "portus", Treasury: 400, Unity: 600, Wealth: 300, TaxBase: 100, TaxRatePercent: 15,
+            MobilizedPercent: 10, Population: 80);
+
+        // portus is shipped owned by north (see OfferFixture's own remarks on the toy world's three
+        // cities); handed to the new "east" nation here, matching the review's own probe exactly.
+        var portusToEast = toy.World.Cities.Single(c => c.Id == "portus") with { Owner = "east", Allegiance = "east" };
+
+        var customWorld = toy.World with
+        {
+            Nations = ValueList.From(toy.World.Nations.Append(eastNation)),
+            Cities = ValueList.From(toy.World.Cities.Select(c => c.Id == "portus" ? portusToEast : c)),
+            StartingArmies = ValueList.From(
+                toy.World.StartingArmies.Select(a => a.Id == "south-army-1" ? southArmy : a).Append(reserve)),
+            TurnOrder = ValueList.Of("north", "south", "east"),
+        };
+
+        var customScenario = toy.Scenario with
+        {
+            Seats = ValueList.From(toy.Scenario.Seats.Append(new Seat("east", SeatControl.Human, null))),
+        };
+
+        return new GameSession(customWorld, customRuleset, customScenario);
+    }
+
+    /// <summary>
+    /// Rework round 2, R1: the reviewer's own probe. East (human, not a party to north-south's war) is
+    /// active next after south's AI turn raises the offer against north. East's own <c>yes</c> and
+    /// <c>no</c> must both be refused without consuming the offer, east's own <c>end</c> must not lapse
+    /// it either, and north must still be able to answer it once its own turn comes back around.
+    /// </summary>
+    [Fact]
+    public void Hotseat_TheOfferedHumanAloneCanAnswer_NotWhicheverSeatIsActiveNext()
+    {
+        var session = ThreeSeatHotseatOfferFixture();
+
+        session.Submit("declare-war south");
+        var afterAiTurn = session.Submit("end");
+
+        Assert.Contains(
+            afterAiTurn.Lines,
+            l => l.Contains("After defeating you in battle", StringComparison.Ordinal)
+                 && l.Contains("willing to end the war", StringComparison.Ordinal));
+        Assert.Equal("east", session.State.ActiveNationId);
+
+        // East's "no" does not decline north's treaty on its behalf.
+        var eastNo = session.Submit("peace-no");
+        Assert.Contains(
+            eastNo.Lines,
+            l => l.Contains("This peace treaty offer is addressed to", StringComparison.Ordinal)
+                 && l.Contains("not you", StringComparison.Ordinal));
+        Assert.DoesNotContain(eastNo.Lines, l => l.Contains("declined", StringComparison.Ordinal));
+        Assert.Equal(session.Ruleset.Diplomacy.StateCodes.War, session.State.Relations.Get("north", "south"));
+
+        // East's "yes" does not consume the offer either -- it is refused, not rejected-after-dispatch.
+        var eastYes = session.Submit("peace-yes");
+        Assert.Contains(
+            eastYes.Lines,
+            l => l.Contains("This peace treaty offer is addressed to", StringComparison.Ordinal)
+                 && l.Contains("not you", StringComparison.Ordinal));
+        Assert.DoesNotContain(eastYes.Lines, l => l.Contains("accept-peace-treaty", StringComparison.Ordinal));
+        Assert.Equal(session.Ruleset.Diplomacy.StateCodes.War, session.State.Relations.Get("north", "south"));
+
+        // East's own "end" does not lapse an offer addressed to someone else.
+        var eastEnd = session.Submit("end");
+        Assert.DoesNotContain(eastEnd.Lines, l => l.Contains("lapsed", StringComparison.Ordinal));
+        Assert.Equal("north", session.State.ActiveNationId);
+
+        // North, back at its own prompt, can still answer its own offer.
+        var northYes = session.Submit("peace-yes");
+        Assert.Contains(
+            northYes.Lines, l => l.Contains("diplomacy.accept-peace-treaty accepted", StringComparison.Ordinal));
+        Assert.Equal(
+            session.Ruleset.Diplomacy.CooldownAfterEndedWar, session.State.Relations.Get("north", "south"));
     }
 
     [Fact]
@@ -375,42 +489,6 @@ public sealed class PeaceTreatyOfferTests
             answer.Lines, l => l.Contains("diplomacy.accept-peace-treaty accepted", StringComparison.Ordinal));
         Assert.Equal(
             session.Ruleset.Diplomacy.CooldownAfterEndedWar, session.State.Relations.Get("north", "south"));
-    }
-
-    /// <summary>
-    /// Rework round 1 (B4): the session's own re-check that one side is human —
-    /// <see cref="CapturePeaceTreatyOfferIfAny"/>'s own remarks: "<c>InstantBattleResolver</c>'s own gate
-    /// already restricts it to exactly one human side, but this session checks again rather than trusting
-    /// that invariant blindly" — had no test, because the real engine can never actually produce an
-    /// all-AI <see cref="PeaceTreatyOffered"/> (the resolver's own <c>exactlyOneHuman</c> gate guarantees
-    /// it). Invoked directly, since there is no other seam to reach a defensive check the engine itself
-    /// cannot trigger: a fabricated event between two AI-controlled nations must add no dialog and leave
-    /// no pending offer.
-    /// </summary>
-    [Fact]
-    public void AllAiPeaceTreatyOffered_IsIgnoredByTheSessionsOwnRecheck()
-    {
-        var toy = CoreTestbed.Toy;
-        var bothAi = toy.Scenario with
-        {
-            Seats = ValueList.From(toy.Scenario.Seats.Select(s => s with
-            {
-                Control = SeatControl.Ai,
-                Personality = s.Personality ?? new AiPersonality(0.5, 0.5, 0.5),
-            })),
-        };
-        var session = new GameSession(toy.World, toy.Ruleset, bothAi);
-
-        var lines = new List<string>();
-        var method = typeof(GameSession).GetMethod(
-            "CapturePeaceTreatyOfferIfAny", BindingFlags.NonPublic | BindingFlags.Instance)!;
-        method.Invoke(session, new object[] { lines, new DomainEvent[] { new PeaceTreatyOffered("south", "north") } });
-
-        Assert.Empty(lines);
-
-        var answer = session.Submit("peace-yes");
-        Assert.Contains(
-            answer.Lines, l => l.Contains("There is no pending peace treaty offer.", StringComparison.Ordinal));
     }
 
     [Fact]

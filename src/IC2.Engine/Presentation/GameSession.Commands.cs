@@ -103,6 +103,17 @@ public sealed partial class GameSession
     /// <see cref="Diplomacy.Commands.AcceptPeaceTreatyRejections.NotAtWar"/>'s own remarks for the one way
     /// that can happen) -- a stale offer is never left pending forever.
     /// </summary>
+    /// <remarks>
+    /// Rework round 2, R1: this only answers on the offer's own
+    /// <see cref="PendingPeaceTreatyOffer.OfferedHumanNationId"/>'s behalf -- checked before either branch,
+    /// so a mismatch refuses without touching the pending offer at all: it neither consumes it (round 1's
+    /// own fix let a wrong-seat "yes" reach <see cref="Diplomacy.Commands.AcceptPeaceTreatyRejections.IssuerNotPartyToTreaty"/>,
+    /// dispatched anyway with <c>State.ActiveNationId</c> as the issuer, using the offer up on a rejection)
+    /// nor declines it (a "no" from the wrong seat used to speak for the offered human). In hotseat, the
+    /// CLI can pause on a human who is not this offer's own party -- an AI seat's battle against human A
+    /// can leave the loop stopped at human B's prompt next, and round 1 let B answer A's own offer either
+    /// way.
+    /// </remarks>
     private IReadOnlyList<string> HandlePeaceTreatyAnswer(string[] tokens, bool accept)
     {
         if (tokens.Length != 1)
@@ -113,6 +124,14 @@ public sealed partial class GameSession
         if (_pendingPeaceTreatyOffer is not { } pending)
         {
             return new[] { "There is no pending peace treaty offer." };
+        }
+
+        if (!string.Equals(State.ActiveNationId, pending.OfferedHumanNationId, StringComparison.Ordinal))
+        {
+            return new[]
+            {
+                $"This peace treaty offer is addressed to {NationDisplay(pending.OfferedHumanNationId)}, not you.",
+            };
         }
 
         _pendingPeaceTreatyOffer = null;

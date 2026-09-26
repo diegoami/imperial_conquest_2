@@ -243,8 +243,9 @@ public static class RelationTransitions
         // at war with, becomes an enemy of the decreeing nation too ("A declaration on B also makes A
         // declare war on each of B's allies"). T88 (bug #383): one step only -- the dragged-in war is
         // written directly, with its own news line, and starts no cascade of its own (an ally of an ally
-        // is not reached). This is the direct declaration's own hop; a caller such as FormAlliance reaches
-        // this method only for its own single hop too, via DeclareWarWithoutFurtherCascade below.
+        // is not reached). This is this method's own cascade, for a direct declaration; FormAlliance never
+        // reaches DeclareWar at all (rework round 2, N-d: corrected -- it goes straight to
+        // DeclareWarWithoutFurtherCascade below for its own single hop, the same helper this loop calls).
         foreach (var other in state.Relations.NationIds)
         {
             if (string.Equals(other, decreeing, StringComparison.Ordinal)
