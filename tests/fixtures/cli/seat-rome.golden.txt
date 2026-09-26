@@ -86,19 +86,20 @@ Numidia (numidia) takes its turn: 15 orders issued.
 Gaul (gaul) takes its turn: 5 orders issued.
 Greece (greece) takes its turn: 11 orders issued.
 Celtiberia (celtiberia) takes its turn: 6 orders issued.
-Illyria (illyria) takes its turn: 11 orders issued.
-Dacia (dacia) takes its turn: 7 orders issued.
+Illyria (illyria) takes its turn: 10 orders issued.
+Dacia (dacia) takes its turn: 6 orders issued.
 Bithynia (bithynia) takes its turn: 2 orders issued.
-Galatia (galatia) takes its turn: 2 orders issued.
+Galatia (galatia) takes its turn: 1 order issued.
 Armenia (armenia) takes its turn: 6 orders issued.
 Media (media) takes its turn: 6 orders issued.
 Thracia (thracia) takes its turn: 8 orders issued.
+  Weather: drought-reduces-supply (week 1).
+  Weather: drought-reduces-supply (week 1).
+  Weather: drought-reduces-supply (week 1).
 Now: Week 3, Spring 270 BC. Active seat: Rome (rome).
 News:
   Sidon   (Ptolemaic)  falls to Seleucid.
   Astacus   (Bithynia)  falls to Seleucid.
-  Gaul declares war on Dacia.
-  Gaul declares war on Thracia.
    
   Week  3      Spring      270BC
 
@@ -106,26 +107,23 @@ News:
 Rome (rome) ends its turn.
 Carthage (carthage) takes its turn: 1 order issued.
 Seleucid (seleucid) takes its turn: 3 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 2 orders issued.
-Macedonia (macedonia) takes its turn: 4 orders issued.
-Numidia (numidia) takes its turn: 3 orders issued.
-Gaul (gaul) takes its turn: 2 orders issued.
-Greece (greece) takes its turn: 1 order issued.
-Celtiberia (celtiberia) takes its turn: 3 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 0 orders issued.
+Macedonia (macedonia) takes its turn: 2 orders issued.
+Numidia (numidia) takes its turn: 2 orders issued.
+Gaul (gaul) takes its turn: 1 order issued.
+Greece (greece) takes its turn: 2 orders issued.
+Celtiberia (celtiberia) takes its turn: 1 order issued.
 Illyria (illyria) takes its turn: 1 order issued.
 Dacia (dacia) takes its turn: 1 order issued.
 Bithynia (bithynia) takes its turn: 1 order issued.
 Galatia (galatia) takes its turn: 1 order issued.
 Armenia (armenia) takes its turn: 0 orders issued.
-Media (media) takes its turn: 1 order issued.
-Thracia (thracia) takes its turn: 1 order issued.
+Media (media) takes its turn: 0 orders issued.
+Thracia (thracia) takes its turn: 2 orders issued.
 Now: Week 5, Spring 270 BC. Active seat: Rome (rome).
 News:
-  Ptolemaic sues Seleucid for peace and;
-      Ptolemaic ends all current trading agreements.
-      Ptolemaic  ends all current alliances.
-      Ptolemaic pays reparations of 3,004 talents.
   Seleucid destroys army of Ptolemaic.
+  Macedonia declares war on Illyria.
    
   Week  5      Spring      270BC
 
@@ -139,7 +137,7 @@ Armies:
 Fleets:
 
 Cities:
-  pisae "Pisae" @ (93,35), owner Rome: supply 139t, loyalty 74, fortification 69%
+  pisae "Pisae" @ (93,35), owner Rome: supply 119t, loyalty 74, fortification 69%
   tarquinii "Tarquinii" @ (98,39), owner Rome: supply 165t, loyalty 78, fortification 56%
   arretium "Arretium" @ (99,36), owner Rome: supply 208t, loyalty 95, fortification 72%
   caere "Caere" @ (99,42), owner Rome: supply 211t, loyalty 77, fortification 50%
@@ -196,15 +194,10 @@ News log:
   Week 1      Spring      270 BC
   Sidon   (Ptolemaic)  falls to Seleucid.
   Astacus   (Bithynia)  falls to Seleucid.
-  Gaul declares war on Dacia.
-  Gaul declares war on Thracia.
    
   Week  3      Spring      270BC
-  Ptolemaic sues Seleucid for peace and;
-      Ptolemaic ends all current trading agreements.
-      Ptolemaic  ends all current alliances.
-      Ptolemaic pays reparations of 3,004 talents.
   Seleucid destroys army of Ptolemaic.
+  Macedonia declares war on Illyria.
    
   Week  5      Spring      270BC
 
@@ -230,6 +223,8 @@ Commands:
   propose-alliance <nation> - propose an alliance to another nation
   propose-trade <nation> - propose a trade agreement to another nation
   accept-offer - accept the pending trade or alliance offer made to you, if any
+  peace-yes - accept a pending post-battle peace treaty offer, if any
+  peace-no - decline a pending post-battle peace treaty offer, if any
   mobilize <slot-index> <new-army> - mobilize a ready recruitment slot into an army unit
   hire-mercenary <army> <pool-slot-index> - hire a mercenary unit from the mercenary pool
   recruit-standing <city> <unit-type> <troops> - recruit a standing unit at one of your own cities

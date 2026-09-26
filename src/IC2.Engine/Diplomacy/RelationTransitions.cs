@@ -19,16 +19,19 @@ namespace IC2.Engine.Diplomacy;
 /// come from <see cref="DiplomacyRules"/>, never a C# literal.
 /// </para>
 /// <para>
-/// <strong>Contagion is recursive by construction, not by a separate "further cascade" step.</strong>
-/// Forming an alliance with <c>B</c> declares war on every nation <c>B</c> is already at war with
-/// (<see cref="FormAlliance"/>); declaring war on <c>B</c> declares war on every nation allied to <c>B</c>
-/// (<see cref="DeclareWar"/>). Both go through the very same <see cref="DeclareWar"/> call for each
-/// dragged-in nation, so a nation dragged in by one hop that is itself allied to yet another nation drags
-/// that nation in too — the original's own <c>FUN_00449B40</c> is one function calling itself for every
-/// state it writes, so the reimplementation's own recursion matches it rather than truncating at one hop.
-/// <see cref="DeclareWar"/>'s own early-exit (already at war ⇒ no-op) is what keeps this from looping: a
-/// nation can only ever be dragged in once, because the second attempt to declare war on an
-/// already-at-war pair does nothing.
+/// <strong>Contagion is one step, not recursive (T88, bug #383).</strong> Forming an alliance with
+/// <c>B</c> declares war on every nation <c>B</c> is already at war with (<see cref="FormAlliance"/>);
+/// declaring war on <c>B</c> declares war on every nation allied to <c>B</c> (<see cref="DeclareWar"/>).
+/// Each dragged-in nation is written directly — <see cref="DeclareWarWithoutFurtherCascade"/> sets the
+/// relation and its own news line and starts <em>no</em> cascade of its own —
+/// <strong>[confirmed: decompiled-war-cascade-and-peace-paths.md §1]</strong>: a whole-program call-graph
+/// scan of the original's setter, <c>FUN_00449B40</c>, finds 22 callers and zero calls to itself; its two
+/// propagation loops are plain double stores (<c>rel[a][k]</c> and <c>rel[k][a]</c>) plus a call to the
+/// nested news procedure, never a re-entry into the setter. In a chain of allies A–B, B–C, C–D, a
+/// declaration on A reaches only A and B — C and D stay at peace, exactly as the report's worked example
+/// (§1.4) reads a war onto A and B and no further. The doc comment this replaces claimed the original's
+/// own setter "is one function calling itself"; the byte scan says otherwise, so the fix is to match the
+/// original's one-step write, not to keep the deeper reimplementation.
 /// </para>
 /// <para>
 /// <strong>War declarations are written directly, not through the standard per-event news pipeline.</strong>
@@ -180,6 +183,11 @@ public static class RelationTransitions
         // The cascade: every nation the new ally is at war with, that the proposer is not already at war
         // with, becomes an enemy of the proposer too (news-log-format-and-messages.md Q4's own confirmed
         // note: "An alliance between A and B also makes A declare war on each nation at war with B").
+        // T88 (bug #383): one step only -- DeclareWarWithoutFurtherCascade writes the dragged-in war
+        // directly and starts no cascade of its own, matching the setter's own loop 1 (§1.1) exactly --
+        // the alliance-branch loop at 0x00449BEF, textually first in the setter (ContagionTests calls it
+        // loop 1 too), ahead of the war-branch loop (loop 2, 0x00449C71) that DeclareWar's own cascade
+        // below matches.
         foreach (var other in state.Relations.NationIds)
         {
             if (string.Equals(other, proposer, StringComparison.Ordinal)
@@ -190,7 +198,7 @@ public static class RelationTransitions
 
             if (state.Relations.Get(partner, other) == codes.War && state.Relations.Get(proposer, other) != codes.War)
             {
-                state = DeclareWar(state, ruleset, proposer, other);
+                state = DeclareWarWithoutFurtherCascade(state, ruleset, proposer, other);
             }
         }
 
@@ -206,7 +214,10 @@ public static class RelationTransitions
     /// </summary>
     /// <remarks>
     /// A no-op when the two are already at war: this is both the confirmed behaviour (there is nothing to
-    /// declare) and the guard that stops the contagion recursion from looping.
+    /// declare) and the guard the setter's own cascade loops read live (§1.1: "the guard stays the same
+    /// (<c>rel[a][k] != 3</c>), evaluated live"), so a nation already dragged in by one hop of this
+    /// method's own cascade below is skipped rather than re-declared against. There is no recursion here
+    /// to guard against (T88, bug #383): the cascade is one step, not a re-entry into this method.
     /// </remarks>
     public static GameState DeclareWar(GameState state, Ruleset ruleset, string decreeing, string target)
     {
@@ -230,7 +241,11 @@ public static class RelationTransitions
 
         // The cascade: every nation already allied to the target, that the decreeing nation is not already
         // at war with, becomes an enemy of the decreeing nation too ("A declaration on B also makes A
-        // declare war on each of B's allies").
+        // declare war on each of B's allies"). T88 (bug #383): one step only -- the dragged-in war is
+        // written directly, with its own news line, and starts no cascade of its own (an ally of an ally
+        // is not reached). This is this method's own cascade, for a direct declaration; FormAlliance never
+        // reaches DeclareWar at all (rework round 2, N-d: corrected -- it goes straight to
+        // DeclareWarWithoutFurtherCascade below for its own single hop, the same helper this loop calls).
         foreach (var other in state.Relations.NationIds)
         {
             if (string.Equals(other, decreeing, StringComparison.Ordinal)
@@ -241,11 +256,39 @@ public static class RelationTransitions
 
             if (state.Relations.Get(target, other) == codes.Alliance && state.Relations.Get(decreeing, other) != codes.War)
             {
-                state = DeclareWar(state, ruleset, decreeing, other);
+                state = DeclareWarWithoutFurtherCascade(state, ruleset, decreeing, other);
             }
         }
 
         return state;
+    }
+
+    /// <summary>
+    /// One dragged-in war, written directly with its own news line and no cascade of its own — the
+    /// setter's own two propagation loops (report §1.1: "two direct stores of 3", "then the news line"),
+    /// never a re-entry into the setter itself (T88, bug #383). Both <see cref="DeclareWar"/>'s own
+    /// cascade loop and <see cref="FormAlliance"/>'s call this for exactly the nations their loops select,
+    /// so a nation dragged in by one hop never drags a further nation in — the one-step behaviour DoD 1
+    /// pins with the report's own chain-of-four-allies example. Never called for the transition's own
+    /// direct declaration (that is <see cref="DeclareWar"/>'s own body), only for a cascade hop.
+    /// </summary>
+    private static GameState DeclareWarWithoutFurtherCascade(
+        GameState state, Ruleset ruleset, string decreeing, string target)
+    {
+        var codes = ruleset.Diplomacy.StateCodes;
+        if (state.Relations.Get(decreeing, target) == codes.War)
+        {
+            return state;
+        }
+
+        state = state with { Relations = state.Relations.WithRelation(decreeing, target, codes.War) };
+
+        var decreeingNation = state.NationById(decreeing);
+        var targetNation = state.NationById(target);
+        var involvesHuman = decreeingNation?.Control == SeatControl.Human || targetNation?.Control == SeatControl.Human;
+
+        return AppendWarDeclarationNews(
+            state, ruleset, decreeingNation?.Name ?? decreeing, targetNation?.Name ?? target, involvesHuman);
     }
 
     /// <summary>

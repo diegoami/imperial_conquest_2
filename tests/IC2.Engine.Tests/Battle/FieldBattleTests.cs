@@ -463,6 +463,314 @@ public class FieldBattleTests
         Assert.DoesNotContain(events.Events, e => e is PeaceTreatyTriggered);
     }
 
+    // ---- T88 DoD 3: the human-consent treaty (report §2.3) ----
+    //
+    // The toy scenario's own seats are "north" (human) and "south" (AI) -- Attacker/Defender below --
+    // so every fixture in this region is naturally the mixed-human case the report's own gate differs
+    // for: armies(winner) < armies(loser), tested first and with no draw; then unity(loser) > 500; then
+    // cities(loser) > 7; only then Random(5) < 2, and never taken if an earlier gate failed.
+
+    /// <summary>
+    /// DoD 3, the strength gate at its boundary: equal army power fails (not strictly less), one more on
+    /// the loser's side passes. Both other gates comfortably pass in both cases, so this isolates the
+    /// strength gate alone. Proves the draw itself is skipped on failure via <see cref="ConstantRng"/>'s
+    /// own draw count, the same differential proof <see cref="StrengthGate_DrawSkippedOnFailure"/> reuses
+    /// for the "not taken" half of the Done-when line.
+    /// </summary>
+    [Fact]
+    public void HumanConsent_StrengthGate_EqualFails_OneMoreOnTheLoserPasses()
+    {
+        var ruleset = BattleTestbed.Destroyed;
+
+        var equal = HumanConsentFixture(
+            ruleset, winnerArmyPower: 10, loserOtherArmyPower: 10, loserUnityBeforeSwing: 600, loserCityCount: 9);
+        var equalEvents = new RecordingEventSink();
+        var (_, equalResult) = ResolveWithRng(equal, ruleset, new ConstantRng(0), equalEvents);
+        Assert.False(equalResult.PeaceTreatyOffered);
+        Assert.DoesNotContain(equalEvents.Events, e => e is PeaceTreatyOffered);
+
+        var oneMore = HumanConsentFixture(
+            ruleset, winnerArmyPower: 10, loserOtherArmyPower: 11, loserUnityBeforeSwing: 600, loserCityCount: 9);
+        var oneMoreEvents = new RecordingEventSink();
+        var (_, oneMoreResult) = ResolveWithRng(oneMore, ruleset, new ConstantRng(0), oneMoreEvents);
+        Assert.True(oneMoreResult.PeaceTreatyOffered);
+        Assert.False(oneMoreResult.PeaceTreatyFired);
+        var offered = Assert.Single(oneMoreEvents.Events.OfType<PeaceTreatyOffered>());
+        Assert.Equal("north", offered.WinnerNationId);
+        Assert.Equal("south", offered.LoserNationId);
+        Assert.DoesNotContain(oneMoreEvents.Events, e => e is PeaceTreatyTriggered);
+    }
+
+    /// <summary>
+    /// DoD 3, the unity gate at its boundary: 500 (the swung value) fails, 501 passes. Pre-swing values
+    /// are 25 higher, matching <see cref="DoD08_TheUnityGateBlocksTheTreaty"/>'s own arithmetic.
+    /// </summary>
+    [Fact]
+    public void HumanConsent_UnityGate_500Fails_501Passes()
+    {
+        var ruleset = BattleTestbed.Destroyed;
+        var swing = ruleset.Combat.UnitySwing;
+
+        var atThreshold = HumanConsentFixture(
+            ruleset, winnerArmyPower: 5, loserOtherArmyPower: 50,
+            loserUnityBeforeSwing: 500 + swing, loserCityCount: 9);
+        var (afterAt, resultAt) = ResolveWithRng(atThreshold, ruleset, new ConstantRng(0));
+        Assert.Equal(500, afterAt.NationById("south")!.Unity);
+        Assert.False(resultAt.PeaceTreatyOffered);
+
+        var aboveThreshold = HumanConsentFixture(
+            ruleset, winnerArmyPower: 5, loserOtherArmyPower: 50,
+            loserUnityBeforeSwing: 501 + swing, loserCityCount: 9);
+        var (afterAbove, resultAbove) = ResolveWithRng(aboveThreshold, ruleset, new ConstantRng(0));
+        Assert.Equal(501, afterAbove.NationById("south")!.Unity);
+        Assert.True(resultAbove.PeaceTreatyOffered);
+    }
+
+    /// <summary>DoD 3, the city gate at its boundary: 7 cities fails (not strictly above), 8 passes.</summary>
+    [Fact]
+    public void HumanConsent_CityGate_7Fails_8Passes()
+    {
+        var ruleset = BattleTestbed.Destroyed;
+
+        var atThreshold = HumanConsentFixture(
+            ruleset, winnerArmyPower: 5, loserOtherArmyPower: 50, loserUnityBeforeSwing: 600, loserCityCount: 7);
+        var (afterAt, resultAt) = ResolveWithRng(atThreshold, ruleset, new ConstantRng(0));
+        Assert.Equal(7, afterAt.CountCitiesOwnedBy("south"));
+        Assert.False(resultAt.PeaceTreatyOffered);
+
+        var aboveThreshold = HumanConsentFixture(
+            ruleset, winnerArmyPower: 5, loserOtherArmyPower: 50, loserUnityBeforeSwing: 600, loserCityCount: 8);
+        var (afterAbove, resultAbove) = ResolveWithRng(aboveThreshold, ruleset, new ConstantRng(0));
+        Assert.Equal(8, afterAbove.CountCitiesOwnedBy("south"));
+        Assert.True(resultAbove.PeaceTreatyOffered);
+    }
+
+    /// <summary>
+    /// DoD 3: "The Random(5) draw is not taken when an earlier gate fails." Proved differentially, not
+    /// just by outcome: two otherwise-identical fixtures (same winner army shape, so the same number of
+    /// casualty/promotion draws precede the gate either way) differ only in whether the strength gate
+    /// passes, and <see cref="ConstantRng.DrawCount"/> differs by exactly one between them -- the one
+    /// extra draw the passing case alone takes.
+    /// </summary>
+    [Fact]
+    public void StrengthGate_DrawSkippedOnFailure()
+    {
+        var ruleset = BattleTestbed.Destroyed;
+
+        var failing = HumanConsentFixture(
+            ruleset, winnerArmyPower: 10, loserOtherArmyPower: 10, loserUnityBeforeSwing: 600, loserCityCount: 9);
+        var failingRng = new ConstantRng(0);
+        ResolveWithRng(failing, ruleset, failingRng);
+
+        var passing = HumanConsentFixture(
+            ruleset, winnerArmyPower: 10, loserOtherArmyPower: 11, loserUnityBeforeSwing: 600, loserCityCount: 9);
+        var passingRng = new ConstantRng(0);
+        ResolveWithRng(passing, ruleset, passingRng);
+
+        Assert.Equal(failingRng.DrawCount + 1, passingRng.DrawCount);
+    }
+
+    /// <summary>
+    /// DoD 3, rework round 1 (B2): the unity gate's own draw-skip proof. <see cref="HumanConsent_UnityGate_500Fails_501Passes"/>
+    /// and <see cref="DoD08_TheUnityGateBlocksTheTreaty"/> assert only the outcome (<c>PeaceTreatyOffered</c>);
+    /// neither reads <see cref="ConstantRng.DrawCount"/>, so a mutation that moves the <c>Random(5)</c>
+    /// draw to right after the strength test (before the unity and city tests) left every test green. Same
+    /// differential proof as <see cref="StrengthGate_DrawSkippedOnFailure"/>, varying only unity across the
+    /// 500/501 boundary with the strength and city inputs held fixed (so the preceding casualty/promotion
+    /// draws are identical either way).
+    /// </summary>
+    [Fact]
+    public void UnityGate_DrawSkippedOnFailure()
+    {
+        var ruleset = BattleTestbed.Destroyed;
+        var swing = ruleset.Combat.UnitySwing;
+
+        var failing = HumanConsentFixture(
+            ruleset, winnerArmyPower: 5, loserOtherArmyPower: 50,
+            loserUnityBeforeSwing: 500 + swing, loserCityCount: 9);
+        var failingRng = new ConstantRng(0);
+        ResolveWithRng(failing, ruleset, failingRng);
+
+        var passing = HumanConsentFixture(
+            ruleset, winnerArmyPower: 5, loserOtherArmyPower: 50,
+            loserUnityBeforeSwing: 501 + swing, loserCityCount: 9);
+        var passingRng = new ConstantRng(0);
+        ResolveWithRng(passing, ruleset, passingRng);
+
+        Assert.Equal(failingRng.DrawCount + 1, passingRng.DrawCount);
+    }
+
+    /// <summary>
+    /// DoD 3, rework round 1 (B2): the city gate's own draw-skip proof, the same differential pattern as
+    /// <see cref="UnityGate_DrawSkippedOnFailure"/> and <see cref="StrengthGate_DrawSkippedOnFailure"/>,
+    /// varying only the city count across the 7/8 boundary with strength and unity held fixed.
+    /// </summary>
+    [Fact]
+    public void CityGate_DrawSkippedOnFailure()
+    {
+        var ruleset = BattleTestbed.Destroyed;
+
+        var failing = HumanConsentFixture(
+            ruleset, winnerArmyPower: 5, loserOtherArmyPower: 50, loserUnityBeforeSwing: 600, loserCityCount: 7);
+        var failingRng = new ConstantRng(0);
+        ResolveWithRng(failing, ruleset, failingRng);
+
+        var passing = HumanConsentFixture(
+            ruleset, winnerArmyPower: 5, loserOtherArmyPower: 50, loserUnityBeforeSwing: 600, loserCityCount: 8);
+        var passingRng = new ConstantRng(0);
+        ResolveWithRng(passing, ruleset, passingRng);
+
+        Assert.Equal(failingRng.DrawCount + 1, passingRng.DrawCount);
+    }
+
+    /// <summary>
+    /// A battle between two AI seats never raises <see cref="PeaceTreatyOffered"/> — that is
+    /// <see cref="DoD08_PeaceTreatyTriggeredIsPublishedWhenTheRollAndBothGatesPass"/>'s own path, publishing
+    /// <see cref="PeaceTreatyTriggered"/> instead, unaffected by this task apart from the cascade fixes
+    /// (DoD 3's own last bullet).
+    /// </summary>
+    [Fact]
+    public void HumanConsent_BothAi_NeverPublishesPeaceTreatyOffered()
+    {
+        var ruleset = BattleTestbed.Destroyed;
+        var state = PeaceGateFixture(loserUnity: 560, loserCityCount: 9);
+
+        var events = new RecordingEventSink();
+        var (_, result) = ResolveWithRng(state, ruleset, new ConstantRng(0), events);
+
+        Assert.True(result.PeaceTreatyFired);
+        Assert.False(result.PeaceTreatyOffered);
+        Assert.DoesNotContain(events.Events, e => e is PeaceTreatyOffered);
+    }
+
+    /// <summary>
+    /// A battle between two human seats (hotseat) never raises either treaty event — the original's
+    /// <c>THVHBatPols</c> writes no relation at all (report §2.3).
+    /// </summary>
+    [Fact]
+    public void HumanConsent_BothHuman_NeverPublishesEitherTreatyEvent()
+    {
+        var ruleset = BattleTestbed.Destroyed;
+        var state = HumanConsentFixture(
+            ruleset, winnerArmyPower: 10, loserOtherArmyPower: 50, loserUnityBeforeSwing: 600, loserCityCount: 9);
+        state = state with
+        {
+            Nations = ValueList.From(state.Nations.Select(n =>
+                string.Equals(n.Id, "south", StringComparison.Ordinal) ? n with { Control = SeatControl.Human } : n)),
+        };
+
+        var events = new RecordingEventSink();
+        var (_, result) = ResolveWithRng(state, ruleset, new ConstantRng(0), events);
+
+        Assert.False(result.PeaceTreatyFired);
+        Assert.False(result.PeaceTreatyOffered);
+        Assert.DoesNotContain(events.Events, e => e is PeaceTreatyTriggered or PeaceTreatyOffered);
+    }
+
+    /// <summary>
+    /// A field battle fixture between the toy scenario's own human seat ("north") and AI seat ("south"),
+    /// with every input to the human-consent gate independently controllable and exact:
+    /// <see cref="Attacker"/>'s single <c>light_infantry</c> slot at morale 1 has power
+    /// <paramref name="winnerArmyPower"/> exactly (<see cref="TroopsForExactPower"/>); <see cref="Defender"/>'s
+    /// battling slot has troops = 1, which floors to army power 0 on this ruleset (<c>20 × 1 / 100 = 0</c>),
+    /// so it draws the winner zero casualties and the winner's post-battle power equals
+    /// <paramref name="winnerArmyPower"/> without resolving the battle first to find out; a second,
+    /// untouched "south" army elsewhere gives <c>armies(south)</c> exactly <paramref name="loserOtherArmyPower"/>
+    /// once the battling loser army is annihilated; <paramref name="loserUnityBeforeSwing"/> is read after
+    /// the battle's own -25 swing, exactly as the gate does; <paramref name="loserCityCount"/> is exact via
+    /// <see cref="BattleTestbed.FillerCities"/>.
+    /// </summary>
+    private static GameState HumanConsentFixture(
+        Ruleset ruleset, int winnerArmyPower, int loserOtherArmyPower, int loserUnityBeforeSwing, int loserCityCount)
+    {
+        var initial = BattleTestbed.Initial();
+
+        return BattleTestbed.StateWith(
+            armies: new[]
+            {
+                BattleTestbed.Army(
+                    Attacker, "north", 1, 2, morale: 1, money: 0, supplyTons: 0,
+                    BattleTestbed.Unit(
+                        "light_infantry", TroopsForExactPower(ruleset, winnerArmyPower), 5, "Winner Force")),
+                BattleTestbed.Army(
+                    Defender, "south", 2, 2, morale: 60, money: 0, supplyTons: 0,
+                    BattleTestbed.Unit("light_infantry", 1, 5, "Doomed Outpost")),
+                BattleTestbed.Army(
+                    "south-home-guard", "south", 50, 50, morale: 1, money: 0, supplyTons: 0,
+                    BattleTestbed.Unit(
+                        "light_infantry", TroopsForExactPower(ruleset, loserOtherArmyPower), 5, "Home Guard")),
+            },
+            cities: BattleTestbed.FillerCities("south", loserCityCount, 0, 5),
+            nations: new[]
+            {
+                BattleTestbed.NationWithUnity(initial, "north", 600),
+                BattleTestbed.NationWithUnity(initial, "south", loserUnityBeforeSwing),
+            });
+    }
+
+    /// <summary>
+    /// The exact troop count a single <c>light_infantry</c> slot at morale 1 needs to reach
+    /// <paramref name="power"/> on this ruleset, with no truncation to account for:
+    /// <c>ArmyPower.Compute</c> is <c>floor(floor(weight × troops / PowerTroopDivisor) / PowerDivisor) × morale</c>,
+    /// so <c>troops = power × PowerTroopDivisor × PowerDivisor / weight</c> lands the outer floor on
+    /// <paramref name="power"/> exactly whenever that product divides evenly by <c>weight</c> (true for
+    /// every <paramref name="power"/> this file passes, on <c>light_infantry</c>'s toy-ruleset weight).
+    /// </summary>
+    private static int TroopsForExactPower(Ruleset ruleset, int power)
+    {
+        var weight = ruleset.UnitTypeById("light_infantry")!.CombatPowerWeight;
+        return power * ruleset.Combat.PowerTroopDivisor * ruleset.Combat.PowerDivisor / weight;
+    }
+
+    private static BattleResolution ResolveWithRng(GameState state, Ruleset ruleset, IRng rng, IEventSink? events = null) =>
+        InstantBattleResolver.ResolveField(
+            state, Attacker, Defender, ruleset, BattleTestbed.World, rng, events ?? NullEventSink.Instance);
+
+    /// <summary>
+    /// Returns the same fixed value for every draw, regardless of the requested bound, and counts how
+    /// many draws it served — the two things <see cref="StrengthGate_DrawSkippedOnFailure"/> and this
+    /// region's other boundary tests need: a favourable, deterministic peace roll when the gates do pass,
+    /// and a way to prove the draw was skipped, not merely unfavourable, when they do not.
+    /// </summary>
+    private sealed class ConstantRng : IRng
+    {
+        private readonly int _value;
+
+        public ConstantRng(int value) => _value = value;
+
+        public int DrawCount { get; private set; }
+
+        public ulong Seed => 0;
+
+        public ulong State => 0;
+
+        public ulong NextUInt64()
+        {
+            DrawCount++;
+            return (ulong)_value;
+        }
+
+        public int NextInt(int exclusiveUpperBound)
+        {
+            DrawCount++;
+            return _value;
+        }
+
+        public int NextInt(int inclusiveLowerBound, int exclusiveUpperBound)
+        {
+            DrawCount++;
+            return inclusiveLowerBound;
+        }
+
+        public bool NextChance(int numerator, int denominator)
+        {
+            DrawCount++;
+            return true;
+        }
+
+        public IRng ForStream(string streamName) => this;
+    }
+
     /// <summary>
     /// Done-when 9, the land half: the confirmed news message
     /// <c>"&lt;winner&gt; destroys army of &lt;loser&gt;."</c> is emitted and renders through the
@@ -666,7 +974,13 @@ public class FieldBattleTests
             });
     }
 
-    /// <summary>The same battle, with the loser given enough unity and cities to reach the peace gate.</summary>
+    /// <summary>
+    /// The same battle, with the loser given enough unity and cities to reach the peace gate. T88: both
+    /// sides are forced AI, so this exercises the unconditional-draw AI-vs-AI path — the toy scenario's
+    /// own "north" seat is human, and the AI-vs-AI gate is unaffected by this task apart from the cascade
+    /// fixes (DoD 3's own last bullet), so pinning it against an actual mixed battle would test the wrong
+    /// path (see <see cref="HumanConsentFixture"/> for the human-involved gate instead).
+    /// </summary>
     private static GameState PeaceGateFixture(int loserUnity, int loserCityCount)
     {
         var initial = BattleTestbed.Initial();
@@ -678,11 +992,15 @@ public class FieldBattleTests
             Cities = ValueList.From(BattleTestbed.FillerCities("south", loserCityCount, 0, 5)),
             Nations = ValueList.From(new[]
             {
-                BattleTestbed.NationWithUnity(initial, "north", 600),
+                AsAi(BattleTestbed.NationWithUnity(initial, "north", 600)),
                 BattleTestbed.NationWithUnity(initial, "south", loserUnity),
             }),
         };
     }
+
+    /// <summary>T88: the toy scenario's own "north" seat is human; this forces it AI for a fixture that means to test the AI-vs-AI path specifically.</summary>
+    private static NationState AsAi(NationState nation) =>
+        nation with { Control = SeatControl.Ai, Personality = nation.Personality ?? new AiPersonality(0.5, 0.5, 0.5) };
 
     private static BattleResolution Resolve(GameState state, Ruleset ruleset, IEventSink? events = null) =>
         InstantBattleResolver.ResolveField(

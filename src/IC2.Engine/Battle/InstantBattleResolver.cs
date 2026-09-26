@@ -26,8 +26,18 @@ namespace IC2.Engine.Battle;
 /// fight to the tactical grid (<c>tests/fixtures/corpus.json</c>
 /// <c>battle.instantResolver.onlyForAiVsAi</c>). This reimplementation drops the tactical shell
 /// altogether (<c>design-audit.md</c> Q1), so every battle resolves here regardless of who is playing —
-/// a deliberate, recorded design decision, not an oversight. Nothing in this file inspects
-/// <see cref="SeatControl"/>.
+/// a deliberate, recorded design decision, not an oversight.
+/// </para>
+/// <para>
+/// <strong>T88: <see cref="ResolveField"/> now inspects <see cref="SeatControl"/>, for one reason only.</strong>
+/// The post-battle treaty's own gate differs by who is fighting (<c>decompiled-war-cascade-and-peace-paths.md</c>
+/// §2.3–§2.4): AI-vs-AI keeps drawing <c>Random(5)</c> unconditionally before its two gates, exactly as
+/// before this task; a battle with exactly one human side adds the <c>armies(winner) &lt; armies(loser)</c>
+/// gate and defers the draw until every gate has passed, then publishes <see cref="PeaceTreatyOffered"/>
+/// instead of auto-applying anything (DoD 3); and a battle between two humans never raises any treaty at
+/// all (the original's <c>THVHBatPols</c> writes no relation). Nothing else in this file reads
+/// <see cref="SeatControl"/> — casualties, promotions, money and supply are exactly as blind to who
+/// controls either side as they were before this task.
 /// </para>
 /// <para>
 /// <strong>Research held in reserve, and absent from this file on purpose.</strong> The
@@ -196,10 +206,22 @@ public static class InstantBattleResolver
         ScatterOutcome? scatter = null;
         ArmyState? survivor = null;
 
-        // The peace roll is drawn here, before the loser's fate is decided, so that both rulesets consume
-        // the same draws for everything the original itself does.
-        var peaceRoll = rng.NextInt(combat.AutoPeaceChanceDenominator) < combat.AutoPeaceChanceNumerator;
         var loserCityCount = state.CountCitiesOwnedBy(loser.Nation);
+
+        // T88 (DoD 3, bug #384): the original reaches this gate two different ways.
+        // - Both sides AI: unchanged from before this task. The draw is unconditional, before the gates
+        //   (report §2.4: "The draw is Random(5) first, then unity(L) > 500 && cities(L) > 7"), so both
+        //   rulesets keep consuming the same draws for everything the original itself does.
+        // - Exactly one side human: no draw here at all -- see below, after the battle's own state is
+        //   fully resolved, where the armies(winner) < armies(loser) gate needs the post-battle roster.
+        // - Both sides human: the original's THVHBatPols writes no relation at all (report §2.3), so
+        //   neither this nor the human-consent path below ever fires.
+        var winnerIsHuman = winnerNation.Control == SeatControl.Human;
+        var loserIsHuman = loserNation.Control == SeatControl.Human;
+        var bothAi = !winnerIsHuman && !loserIsHuman;
+        var exactlyOneHuman = winnerIsHuman != loserIsHuman;
+
+        var peaceRoll = bothAi && rng.NextInt(combat.AutoPeaceChanceDenominator) < combat.AutoPeaceChanceNumerator;
         var peaceFired = peaceRoll
                          && loserNation.Unity > combat.AutoPeaceLoserUnityThreshold
                          && loserCityCount > combat.AutoPeaceLoserCityThreshold;
@@ -266,6 +288,28 @@ public static class InstantBattleResolver
             newState = ClearCarrierLinks(newState, loser.Id);
         }
 
+        // T88 (DoD 3): the human-consent gate, evaluated only once the battle's own state is final --
+        // armies(n) reads each nation's REMAINING armies (report §2.3: "sums FUN_0044A8CC over each
+        // side's remaining armies"), which for the winner already reflects this battle's own casualties
+        // and promotions, and for the loser reflects its deletion or scatter, exactly as newState.Armies
+        // now holds them. This runs after every other draw this battle makes (casualties, promotions, the
+        // scatter distance), later than the AI-vs-AI draw above: the original's TBattleOver_OK is a wholly
+        // separate step that runs only once the tactical battle itself is over, never interleaved with it,
+        // so placing the human path's own gate-then-draw sequence after the battle is resolved is at least
+        // as faithful as guessing an interleaving the original's own two-function split does not have.
+        var peaceOffered = false;
+        if (exactlyOneHuman)
+        {
+            var winnerArmyPower = TotalArmyPower(newState.Armies, winner.Nation, ruleset);
+            var loserArmyPower = TotalArmyPower(newState.Armies, loser.Nation, ruleset);
+            var gatesPass = winnerArmyPower < loserArmyPower
+                            && loserNation.Unity > combat.AutoPeaceLoserUnityThreshold
+                            && loserCityCount > combat.AutoPeaceLoserCityThreshold;
+
+            // The draw is not taken when an earlier gate fails (DoD 3).
+            peaceOffered = gatesPass
+                           && rng.NextInt(combat.AutoPeaceChanceDenominator) < combat.AutoPeaceChanceNumerator;
+        }
 
         var result = new BattleResult(
             BattleKind.Field,
@@ -290,6 +334,7 @@ public static class InstantBattleResolver
             WinnerConditionLost: 0,
             WinnerUnitsLost: 0,
             peaceFired,
+            peaceOffered,
             scatter);
 
         if (fate == LoserFate.Scattered)
@@ -306,6 +351,11 @@ public static class InstantBattleResolver
         {
             events.Publish(new PeaceTreatyTriggered(
                 winner.Nation, loser.Nation, loserNation.Unity, loserCityCount));
+        }
+
+        if (peaceOffered)
+        {
+            events.Publish(new PeaceTreatyOffered(winner.Nation, loser.Nation));
         }
 
         events.Publish(new BattleResolved(result));
@@ -629,6 +679,7 @@ public static class InstantBattleResolver
             conditionLost,
             unitsLost,
             PeaceTreatyFired: false,
+            PeaceTreatyOffered: false,
             scatter);
 
         if (fate == LoserFate.Scattered)
@@ -953,6 +1004,7 @@ public static class InstantBattleResolver
             WinnerConditionLost: 0,
             WinnerUnitsLost: 0,
             PeaceTreatyFired: false,
+            PeaceTreatyOffered: false,
             Scatter: null,
             CityLoyaltyBefore: loyaltyBefore,
             CityLoyaltyAfter: erodedLoyalty,
@@ -1137,4 +1189,27 @@ public static class InstantBattleResolver
 
     private static string NationName(GameState state, string nationId) =>
         state.NationById(nationId)?.Name ?? nationId;
+
+    /// <summary>
+    /// A nation's total field strength across every army it owns — <c>armies(n) = Σ FUN_0044A8CC(army)</c>
+    /// (report §2.3), the human-consent treaty's own <c>armies(winner) &lt; armies(loser)</c> gate.
+    /// Deliberately its own small copy of the identical sum
+    /// <c>IC2.Engine.Diplomacy.HonourablePeaceGate.TotalArmyPower</c> computes for the AI-vs-AI treaty's
+    /// score comparison: <c>FieldBattleTests.AssertNoBattleSourceReferencesDiplomacy</c> fails the build
+    /// the moment any file under <c>src/IC2.Engine/Battle/**</c> references the Diplomacy namespace, so
+    /// this resolver cannot call that method instead of duplicating its four lines.
+    /// </summary>
+    private static long TotalArmyPower(IEnumerable<ArmyState> armies, string nationId, Ruleset ruleset)
+    {
+        long total = 0;
+        foreach (var army in armies)
+        {
+            if (string.Equals(army.Nation, nationId, StringComparison.Ordinal))
+            {
+                total += ArmyPower.Compute(army.Units, army.Morale, ruleset);
+            }
+        }
+
+        return total;
+    }
 }

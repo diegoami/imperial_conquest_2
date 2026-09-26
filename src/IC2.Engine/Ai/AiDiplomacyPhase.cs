@@ -97,29 +97,26 @@ public static class AiDiplomacyPhase
         ProposeOwnTradeSwap(view, into);
     }
 
+    /// <summary>
+    /// A no-op (T88, DoD 2, correction for bug #384). Every call this loop makes here targets a human
+    /// seat (<see cref="Propose"/>'s own filter, one member up, out of this method's Owns) — this used to
+    /// add a <see cref="MakePeaceCommand"/> candidate whenever the acting nation's own army power ratio
+    /// against that human was poor enough, and <c>MakePeaceCommandHandler</c>'s "a human target always
+    /// accepts" branch then wrote peace immediately, with no consent step. That branch is the original's
+    /// own hotseat rule -- human proposing to human -- reused here for an AI proposing to a human, which
+    /// <c>decompiled-war-cascade-and-peace-paths.md</c> §2.2/§5.2 rules out directly: "The AI never writes
+    /// peace over a war, with an AI or with a human... There is no AI peace offer of any kind, not even a
+    /// notice." The original's own war-candidate loop (<c>FUN_0044FB7C</c>) only ever considers
+    /// <c>0 &lt;= rel &lt; 3</c>, so an existing war is never revisited by anything the AI itself decides;
+    /// the only path back to peace with a human is the post-battle treaty, which needs the human's own
+    /// Yes (T88 Owns: <c>InstantBattleResolver</c>'s peace-treaty trigger and
+    /// <c>GameSession</c>'s accept/refuse). The faithful fix is therefore to remove the proposal outright,
+    /// not to add a consent step here — this method still runs, once per living human seat the acting
+    /// nation is at war with, exactly as before; it simply never adds a candidate.
+    /// </summary>
     private static void ProposePeace(
         AiView view, NationState other, int relation, long ownPower, List<AiCandidate> into)
     {
-        if (relation != view.WarCode)
-        {
-            return;
-        }
-
-        var theirPower = view.TotalArmyPower(other.Id);
-        var ratio = AiView.RatioPermille(ownPower, theirPower);
-        if (ratio >= AiWeights.SuePeaceStrengthRatioPermille)
-        {
-            return;
-        }
-
-        into.Add(AiCandidate.Single(
-            AiPhase.Diplomacy,
-            "make-peace",
-            new MakePeaceCommand(view.NationId, other.Id),
-            AiWeights.MakePeaceBaseScore,
-            Inv(
-                "sue for peace with {0}: own army power {1} vs {2} (ratio {3} permille, sue below {4})",
-                other.Id, ownPower, theirPower, ratio, AiWeights.SuePeaceStrengthRatioPermille)));
     }
 
     /// <summary>

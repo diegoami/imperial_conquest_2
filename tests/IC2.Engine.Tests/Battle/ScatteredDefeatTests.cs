@@ -47,21 +47,26 @@ public class ScatteredDefeatTests
         Assert.Equal(68, mirroredRatio);
         Assert.NotEqual(23, mirroredRatio);
 
-        // The loser's own divisors are the seed's eighth and ninth draws -- 6 and 5, so 111 and 110 --
-        // because every draw the improved ruleset adds comes after every draw the original itself makes.
-        var divisors = new[] { 111, 110 };
+        // T88: this battle is human-involved (Attacker's nation "north" is the toy scenario's own human
+        // seat), so InstantBattleResolver.ResolveField no longer draws the peace roll here at all -- the
+        // human-consent gate's own draw, if taken, comes after every other draw this battle makes (see
+        // that method's own remarks). One fewer draw ahead of this point shifts the divisors this fixture
+        // reads to 109 and 110 (were 111 and 110 before this task): floor(9000/109) x 68 = 82 x 68 =
+        // 5,576, and floor(3000/110) x 68 = 27 x 68 = 1,836 (unchanged -- this seed's stream happens to
+        // repeat 110 one position earlier).
+        var divisors = new[] { 109, 110 };
         var troops = new[] { 9000, 3000 };
         var expected = new[]
         {
             (troops[0] / divisors[0]) * mirroredRatio,
             (troops[1] / divisors[1]) * mirroredRatio,
         };
-        Assert.Equal(new[] { 5508, 1836 }, expected);
+        Assert.Equal(new[] { 5576, 1836 }, expected);
         Assert.Equal(expected.Sum(), result.LoserCasualties);
-        Assert.Equal(7344, result.LoserCasualties);
+        Assert.Equal(7412, result.LoserCasualties);
 
         var survivor = after.ArmyById(Defender)!;
-        Assert.Equal(new[] { 3492, 1164 }, survivor.Units.Select(u => u.Troops).ToArray());
+        Assert.Equal(new[] { 3424, 1164 }, survivor.Units.Select(u => u.Troops).ToArray());
         Assert.Equal(12000 - result.LoserCasualties, survivor.TotalTroops);
 
         // Relocated 2-4 tiles, and its moves are gone for the rest of the turn it lost on.
@@ -186,10 +191,14 @@ public class ScatteredDefeatTests
         Assert.NotNull(result.Scatter);
         Assert.NotNull(after.ArmyById(Loser));
 
-        // Survivors existed all along -- the mirrored ratio is 5,100 x 40 / 4,080 = 50, and at divisors
-        // 115 and 105 that costs 5,200 + 5,700 = 10,900 of 24,000 -- so only the geography differed.
-        Assert.Equal(10900, result.LoserCasualties);
-        Assert.Equal(new[] { 6800, 6300 }, after.ArmyById(Loser)!.Units.Select(u => u.Troops).ToArray());
+        // T88: Loser's nation ("north") is the toy scenario's own human seat, so this battle takes the
+        // human-consent path and draws no peace roll ahead of this point (see DoD10's own remarks) --
+        // shifting the divisors this fixture reads to 116 and 115 (were 115 and 105 before this task).
+        // The mirrored ratio is unaffected by any of this -- it is armies(winner)/armies(loser), not a
+        // draw -- and stays 5,100 x 40 / 4,080 = 50; at 116 and 115 that costs 5,150 + 5,200 = 10,350 of
+        // 24,000, so only the geography differed from DoD11_AFullyBoxedInSurvivorFallsBackToTheDestroyedOutcome.
+        Assert.Equal(10350, result.LoserCasualties);
+        Assert.Equal(new[] { 6850, 6800 }, after.ArmyById(Loser)!.Units.Select(u => u.Troops).ToArray());
     }
 
     /// <summary>

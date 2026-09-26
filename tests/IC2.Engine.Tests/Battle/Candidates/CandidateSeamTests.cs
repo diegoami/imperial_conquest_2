@@ -25,7 +25,13 @@ public class CandidateSeamTests
             Flags = CandidateTestbed.Ruleset.Flags with { CombatOnDefeat = onDefeat },
         };
         var toy = CandidateTestbed.Repository.Resolve("toy-3city");
-        var baseState = CandidateTestbed.Repository.CreateInitialState("toy-3city");
+
+        // T88: forced AI, matching CandidateTestbed.C1()'s own fixture -- the toy scenario's "north" seat
+        // is otherwise human, and InstantBattleResolver.ResolveField now reads SeatControl for its
+        // post-battle treaty gate, so an unmodified baseState here would put "direct" on a different
+        // (human-consent) path from "viaSeam"'s AI-forced C1, breaking the "wrapped UNCHANGED" comparison
+        // this test exists to make for a reason that has nothing to do with what it is testing.
+        var baseState = CandidateTestbed.AsAiControlled(CandidateTestbed.Repository.CreateInitialState("toy-3city"));
         var c1 = CandidateTestbed.C1();
 
         // T-scale pairs, so both seats win somewhere and the loser sometimes has survivors to scatter.

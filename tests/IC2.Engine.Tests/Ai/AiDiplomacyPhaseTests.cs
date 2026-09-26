@@ -177,6 +177,66 @@ public sealed class AiDiplomacyPhaseTests
             state with { Relations = state.Relations.WithRelation(Acting, Other, relation) }, Acting);
     }
 
+    // ---- Peace: never proposed, to anyone (T88, DoD 2, bug #384) ----
+    //
+    // decompiled-war-cascade-and-peace-paths.md §2.2/§5.2: "The AI never writes peace over a war, with
+    // an AI or with a human... There is no AI peace offer of any kind, not even a notice." Before this
+    // task, ProposePeace proposed a MakePeaceCommand toward a losing war against a human, and
+    // MakePeaceCommandHandler's "a human target always accepts" branch (the original's own hotseat
+    // rule) wrote peace immediately with no consent -- bug #384. ProposePeace is now a no-op.
+
+    [Fact]
+    public void No_peace_is_ever_proposed_even_at_war_with_a_human()
+    {
+        Assert.DoesNotContain("make-peace", Diplomacy(Rules.StateCodes.War, SeatControl.Human));
+    }
+
+    /// <summary>
+    /// DoD 2's own wording: "gives an AI a losing war with a human, and shows that no peace candidate is
+    /// proposed" -- the specific scenario the pre-T88 heuristic existed for (a poor army-power ratio
+    /// against the human it is at war with), built with real armies so the old code's own gate would have
+    /// fired here if it still ran.
+    /// </summary>
+    [Fact]
+    public void No_peace_is_proposed_when_losing_a_war_against_a_human_by_army_power()
+    {
+        var nations = new[]
+        {
+            AiScriptedStates.AiNation(Acting, AiScriptedStates.DefaultPersonality, capitalCityId: "ours"),
+            AiScriptedStates.AiNation(Other, AiScriptedStates.DefaultPersonality, capitalCityId: "theirs")
+                with { Control = SeatControl.Human },
+        };
+
+        var cities = new[]
+        {
+            CaptureFixtures.City(
+                "ours", "Ours", 1, 1, Acting, Acting, loyalty: 80, fortificationCode: 100,
+                populationThousands: 100, maxPopulationThousands: 100, tribute: 10),
+            CaptureFixtures.City(
+                "theirs", "Theirs", 6, 4, Other, Other, loyalty: 80, fortificationCode: 100,
+                populationThousands: 100, maxPopulationThousands: 100, tribute: 10),
+        };
+
+        var armies = new[]
+        {
+            // Acting: a token force, comfortably weaker than Other's -- exactly the "poor ratio" the old
+            // heuristic's own SuePeaceStrengthRatioPermille gate would have accepted.
+            DiplomacyFixtures.Army("ours-army", Acting, 60, DiplomacyFixtures.Unit("light_infantry", 100, 5)),
+            DiplomacyFixtures.Army("theirs-army", Other, 60, DiplomacyFixtures.Unit("light_infantry", 90000, 5)),
+        };
+
+        var state = BattleCommandTestbed.StateWith(nations, cities, armies);
+        state = AiScriptedStates.WithActiveSeat(
+            state with { Relations = state.Relations.WithRelation(Acting, Other, Rules.StateCodes.War) }, Acting);
+
+        var view = new AiView(state, AiScriptedStates.Ruleset, AiScriptedStates.World, Acting);
+        var candidates = new List<AiCandidate>();
+        AiDiplomacyPhase.Propose(
+            view, AiPersonalityProfile.For(state.NationById(Acting)!), SplitMix64Rng.ForStream(1, "ai.turn"), candidates);
+
+        Assert.DoesNotContain(candidates, c => c.Kind == "make-peace");
+    }
+
     // ---- Alliance: needs a real, multi-nation, adjacency-bearing world (NeighbourGeography's own
     // requirement -- see AiOwnDiplomacyRuleTests' remarks), so these build one directly rather than
     // reusing the shared two-nation toy world above. ----

@@ -79,7 +79,76 @@ public sealed partial class GameSession
         }
 
         State = NewsLogWriter.Append(result.State, result.Events, Ruleset.NewsLog);
-        return new[] { $"{command.Kind} accepted." };
+
+        var lines = new List<string> { $"{command.Kind} accepted." };
+
+        // T88 (DoD 3, Hazard 1): a human-issued attack-army command is one of the two places a battle can
+        // raise a post-battle treaty for the human -- the other is an AI seat's own turn, captured from
+        // PlayUntilOneFullLapOrRepeat instead. A no-op for every command that is not a battle (the vast
+        // majority of what flows through this one choke point), since none of them can publish
+        // Battle.PeaceTreatyOffered.
+        CapturePeaceTreatyOfferIfAny(lines, result.Events);
+
+        return lines;
+    }
+
+    /// <summary>
+    /// <c>peace-yes</c>/<c>peace-no</c> (T88, DoD 3): answers the pending <see cref="_pendingPeaceTreatyOffer"/>,
+    /// if any. Yes dispatches <see cref="Diplomacy.Commands.AcceptPeaceTreatyCommand"/>, which always
+    /// writes the honourable peace and its news, never reparations
+    /// (<see cref="Diplomacy.PeaceTreatySystem.ApplyHumanConsentedPeace"/>'s own remarks). No writes
+    /// nothing at all -- the war simply continues, exactly as the report's own "<c>TBattlePols_No</c> sets
+    /// <c>ModalResult 7</c> and does nothing else" reads. An answer from the offer's own human clears the
+    /// pending offer, whether or not the underlying command turns out to still be legal (see
+    /// <see cref="Diplomacy.Commands.AcceptPeaceTreatyRejections.NotAtWar"/>'s own remarks for the one way
+    /// that can happen). <strong>Rework round 3, R3 (corrected):</strong> this method alone does not
+    /// guarantee a stale offer is never left pending forever -- an answer from anyone else is refused
+    /// without touching it (see below), so if the offer's own human is eliminated and can never answer
+    /// again, this method never clears it either; <see cref="GameSession.CapturePeaceTreatyOfferIfAny"/> is
+    /// what drops that offer, not this one. A deposed human with a pending offer cannot occur: deposition
+    /// happens only at the seat's own <c>SeatStart</c>, which runs after that same seat's own <c>end</c>
+    /// has already lapsed its own offer.
+    /// </summary>
+    /// <remarks>
+    /// Rework round 2, R1: this only answers on the offer's own
+    /// <see cref="PendingPeaceTreatyOffer.OfferedHumanNationId"/>'s behalf -- checked before either branch,
+    /// so a mismatch refuses without touching the pending offer at all: it neither consumes it (round 1's
+    /// own fix let a wrong-seat "yes" reach <see cref="Diplomacy.Commands.AcceptPeaceTreatyRejections.IssuerNotPartyToTreaty"/>,
+    /// dispatched anyway with <c>State.ActiveNationId</c> as the issuer, using the offer up on a rejection)
+    /// nor declines it (a "no" from the wrong seat used to speak for the offered human). In hotseat, the
+    /// CLI can pause on a human who is not this offer's own party -- an AI seat's battle against human A
+    /// can leave the loop stopped at human B's prompt next, and round 1 let B answer A's own offer either
+    /// way.
+    /// </remarks>
+    private IReadOnlyList<string> HandlePeaceTreatyAnswer(string[] tokens, bool accept)
+    {
+        if (tokens.Length != 1)
+        {
+            return new[] { $"Usage: {(accept ? "peace-yes" : "peace-no")}" };
+        }
+
+        if (_pendingPeaceTreatyOffer is not { } pending)
+        {
+            return new[] { "There is no pending peace treaty offer." };
+        }
+
+        if (!string.Equals(State.ActiveNationId, pending.OfferedHumanNationId, StringComparison.Ordinal))
+        {
+            return new[]
+            {
+                $"This peace treaty offer is addressed to {NationDisplay(pending.OfferedHumanNationId)}, not you.",
+            };
+        }
+
+        _pendingPeaceTreatyOffer = null;
+
+        if (!accept)
+        {
+            return new[] { "Peace treaty declined. The war continues." };
+        }
+
+        return IssueCommand(
+            new AcceptPeaceTreatyCommand(State.ActiveNationId, pending.WinnerNationId, pending.LoserNationId));
     }
 
     /// <summary>
