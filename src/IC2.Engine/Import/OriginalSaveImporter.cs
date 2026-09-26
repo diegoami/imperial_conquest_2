@@ -473,6 +473,28 @@ public static class OriginalSaveImporter
 
         var relations = new DiplomaticRelations(ValueList.From(nationIds), ValueList<ValueList<int>>.Of(relationRows));
 
+        // ---- Neighbour set (T86, PR #393 review round 1, N1): every nation's own save-file mask
+        // (NationRecord.NeighbourMask, runtime +0x46), never World.StartingNeighbours -- a save may
+        // carry a mask a conquest has already merged, which the world's own fixed field never reflects.
+        // Decoded in the same bit-order-is-nation-code convention export-classical-world.cs's own
+        // startingNeighbours block uses, keyed through the same positional nationIds this importer
+        // already builds for Relations just above.
+        var importedNeighbours = new NationNeighbours[NationCount];
+        for (var code = 0; code < NationCount; code++)
+        {
+            var mask = nationTable.Nations[code].NeighbourMask;
+            var neighbourIds = new List<string>();
+            for (var bit = 0; bit < NationCount; bit++)
+            {
+                if ((mask & (1 << bit)) != 0)
+                {
+                    neighbourIds.Add(nationIds[bit]);
+                }
+            }
+
+            importedNeighbours[code] = new NationNeighbours(nationIds[code], ValueList.From(neighbourIds));
+        }
+
         // ---- News log (T73; Done-when 2's note): the save's own slots, oldest first, exactly as
         // SaveNewsLog.Parse already orders them -- never NewsLog.Empty, this importer's own earlier
         // default (review N6).
@@ -502,7 +524,8 @@ public static class OriginalSaveImporter
             MercenaryPool: ValueList.From(mercenaryPool),
             Relations: relations,
             NewsLog: newsLogState,
-            PendingOffer: pendingOfferState);
+            PendingOffer: pendingOfferState,
+            Neighbours: ValueList.From(importedNeighbours));
 
         var save = new SaveGame(
             SchemaVersion: GameDataSchema.CurrentVersion,

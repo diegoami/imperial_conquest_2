@@ -200,6 +200,10 @@ public static class OriginalSaveFieldMapping
             "Redundant with CapitalCityIndex (itself mapped); NationState.Eliminated instead uses the " +
             "same live city-count recount as CityCountAtStart, for the same 'AtStart is the import " +
             "moment' reason -- see CityCount's own entry."),
+        new FieldMapping(typeof(NationRecord), nameof(NationRecord.NeighbourMask), FieldMappingKind.Mapped,
+            "T86 (PR #393 review round 1, N1): -> GameState.Neighbours, seeded from every nation's own " +
+            "save-file mask rather than the world's startingNeighbours -- a save may carry a mask a " +
+            "conquest has already merged, which the world's own fixed field never reflects."),
 
         // ---- ArmyRecord / ArmyUnit -> ArmyState / UnitSlot (Done-when 6, 8)
         new FieldMapping(typeof(ArmyRecord), nameof(ArmyRecord.Index), FieldMappingKind.Mapped, "-> ArmyState.Id (\"army-{index}\"), and every cross-table army reference."),
