@@ -192,6 +192,9 @@ graph TD
   T89 --> T87[T87 leader falls + rebirth]
   T86 --> T90[T90 cascade capital gate]
   T90 --> T91[T91 capture fidelity]
+  T91 --> T92[T92 conquest after an emptying sweep]
+  T92 --> T87
+  T91 --> T79
   T85 --> T88[T88 war cascade + peace]
 ```
 
@@ -215,8 +218,10 @@ Waves are dependency layers, not concurrent batches: execution is serial, one co
 | 11 | T56, T85 | T56 follows T13, T22, T68 and T76: the restock writes each offer's position, which T76 adds. T85 follows T82, whose `NeighbourGeography` it changes, and is never in flight with T86. |
 | 12 | T86, T88 | T86 follows T85, whose neighbour mask it merges on conquest, and is never in flight with T71 (`Persistence/**`), T78 (`OriginalSaveFieldMapping.cs`), T87 or T88 (`Diplomacy/**`). T88 follows T85, since its peace cascade reads T85's neighbour query; it is never in flight with T79, T86 or T87 (`Diplomacy/**`). |
 | 13 | T89, T90 | T89 follows T86: its last branch reads the neighbour set T86 puts in the game state, and its transfer is T86's corrected defection. Never in flight with T87. T90 (bug #407) follows T86, which owns `Cities/Capture/**`. |
-| 14 | T87, T91 | T87 follows T86 (conquered-by and the conquest path) and T89 (the rebellion the rebirth hangs off). Never in flight with T79. T91 (bugs #415 and #416) follows T90 and runs after T89. It is never in flight with T87. |
-| — | T53, T61, T64, T70, T71, T73, T77, T78, T79, T80, T81, T83, T84 | No merge-after dependency: each runs whenever the queue allows. T77 runs after T21 and before the v0.3.0 freeze (the user's decision of 2026-09-24). T64 must merge before T21 (the user's decision of 2026-09-23), and so must T73 (the user's decision of 2026-09-24 on #321). T67 and T71 both work in `Persistence/**` tests, so they are never in flight together.. Of the 2026-09-25 triage's tasks: T78 is never in flight with T75, T76 or T79; T79 never with T66, T67, T76 or T78; T81 never with T67, T71, T75, T76 or T78; and T80 (v0.4.0) is best merged before T24. T83 is never in flight with T80. T84 must merge before T69 (the user's decision of 2026-09-25 on #366), and is never in flight with T66, T79 or T82. |
+| 14 | T91 | T91 (bugs #415 and #416) follows T90 and runs after T89. It is never in flight with T87. |
+| 15 | T92, T79 | T92 (bug #424) follows T91. T79 now follows T91, because its #425 fold uses T91's `CapitalOwnership`. |
+| 16 | T87 | Follows T86 (conquered-by and the conquest path), T89 (the rebellion that rebirth hangs off) and T92 (the conquest after an emptying sweep). Never in flight with T79 or T91. |
+| — | T53, T61, T64, T70, T71, T73, T77, T78, T80, T81, T83, T84 | No merge-after dependency: each runs whenever the queue allows. T77 runs after T21 and before the v0.3.0 freeze (the user's decision of 2026-09-24). T64 must merge before T21 (the user's decision of 2026-09-23), and so must T73 (the user's decision of 2026-09-24 on #321). T67 and T71 both work in `Persistence/**` tests, so they are never in flight together.. Of the 2026-09-25 triage's tasks: T78 is never in flight with T75, T76 or T79; T79 never with T66, T67, T76 or T78; T81 never with T67, T71, T75, T76 or T78; and T80 (v0.4.0) is best merged before T24. T83 is never in flight with T80. T84 must merge before T69 (the user's decision of 2026-09-25 on #366), and is never in flight with T66, T79 or T82. |
 
 **Critical path**: `T01 → T02 → T03 → T06 → T32 → T08 → T38 → T14 → T16 → T17 → T29 → T36 → T24 → T25 → T27` — 15 of 89 tasks — with `T08 → T35 → T17` and `T31 → T33 → T16` as parallel edges into it; T29 also waits for T15 and T19, and `T17 → T23 → T24` runs one task shorter. The AI chain (`… → T17 → T18 → T22 → T28`, and now `T22 → T55 → T57 → T60`, as long as the critical path at 15 tasks) runs alongside it with the most slack and the most uncertain duration, which argues for not deferring T22.
 
@@ -763,6 +768,12 @@ Capture fidelity → [full entry](tasks/T91.md) · [#418](https://github.com/die
 
 ---
 
+#### T92 A capture whose sweep empties the loser still conquers it
+
+Conquest after an emptying sweep → [full entry](tasks/T92.md) · [#426](https://github.com/diegoami/imperial_conquest_2/issues/426)
+
+---
+
 #### T24 Godot main game screen
 
 Godot main screen → [full entry](tasks/T24.md) · [#24](https://github.com/diegoami/imperial_conquest_2/issues/24)
@@ -877,7 +888,7 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T76](#t76-mercenary-offers-have-a-position-the-players-adjacency-rule-and-the-ais-automatic-hire) | Mercenary position | — | Sonnet | High | **Opus**/Medium | T21, T65, T70 | [#330](https://github.com/diegoami/imperial_conquest_2/issues/330) |
 | [T77](#t77-local-only-tests-skip-never-fail-without-the-original-files) | Skippable local-only tests | — | Haiku | Low | Sonnet/Medium | — | [#337](https://github.com/diegoami/imperial_conquest_2/issues/337) |
 | [T78](#t78-test-and-import-hygiene-guard-precision-scratch-isolation-untested-boundaries-and-a-tombstoned-fleets-cargo) | Test + import hygiene | — | Sonnet | Medium | **Opus**/Medium | — | [#354](https://github.com/diegoami/imperial_conquest_2/issues/354) |
-| [T79](#t79-the-ais-weights-become-ruleset-data) | AI weights as data | — | Sonnet | Medium | **Opus**/Medium | — | [#355](https://github.com/diegoami/imperial_conquest_2/issues/355) |
+| [T79](#t79-the-ais-weights-become-ruleset-data) | AI weights as data | — | Sonnet | Medium | **Opus**/Medium | T91 | [#355](https://github.com/diegoami/imperial_conquest_2/issues/355) |
 | [T80](#t80-the-cli-demo-every-order-succeeds-once-and-no-command-type-can-be-left-out) | CLI demo: every order succeeds | M18 | Sonnet | High | **Opus**/Medium | — | [#356](https://github.com/diegoami/imperial_conquest_2/issues/356) |
 | [T81](#t81-weather-paints-rough-sea-the-weekly-overlay-its-effects-on-fleets-and-its-place-in-the-save) | Rough sea | — | **Opus** | High | Sonnet/High | — | [#358](https://github.com/diegoami/imperial_conquest_2/issues/358) |
 | [T82](#t82-ai-diplomacy-as-the-original-has-it-its-own-treaties-its-offers-to-a-human-and-never-turning-on-an-ally) | AI diplomacy fidelity | — | Sonnet | High | **Opus**/Medium | T69 | [#359](https://github.com/diegoami/imperial_conquest_2/issues/359) |
@@ -885,10 +896,11 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T84](#t84-an-eliminated-nations-forces-are-disbanded-as-the-original-does) | Elimination forces | — | Sonnet | High | **Opus**/Medium | — | [#369](https://github.com/diegoami/imperial_conquest_2/issues/369) |
 | [T85](#t85-the-originals-neighbour-mask-loaded-from-the-dat) | DAT neighbour mask | — | Sonnet | Medium | **Opus**/Medium | T82 | [#387](https://github.com/diegoami/imperial_conquest_2/issues/387) |
 | [T86](#t86-conquest-as-the-original-has-it-below-six-cities-the-capital-move-and-what-the-winner-takes) | Conquest cascade | — | Sonnet | High | **Opus**/Medium | T85 | [#388](https://github.com/diegoami/imperial_conquest_2/issues/388) |
-| [T87](#t87-the-leader-falls-a-human-seat-is-handed-over-and-a-dead-nation-is-reborn) | Leader falls and rebirth | — | Sonnet | High | **Opus**/Medium | T86, T89 | [#389](https://github.com/diegoami/imperial_conquest_2/issues/389) |
+| [T87](#t87-the-leader-falls-a-human-seat-is-handed-over-and-a-dead-nation-is-reborn) | Leader falls and rebirth | — | Sonnet | High | **Opus**/Medium | T86, T89, T92 | [#389](https://github.com/diegoami/imperial_conquest_2/issues/389) |
 | [T88](#t88-war-cascades-one-step-and-an-ai-never-makes-peace-with-a-human-without-consent) | War cascade and peace | — | Sonnet | High | **Opus**/Medium | T85 | [#391](https://github.com/diegoami/imperial_conquest_2/issues/391) |
 | [T89](#t89-the-quarterly-rebellion-a-disloyal-city-goes-to-its-allegiance-an-attacker-or-a-neighbour) | Quarterly rebellion | — | Sonnet | High | **Opus**/Medium | T86 | [#397](https://github.com/diegoami/imperial_conquest_2/issues/397) |
 | [T90](#t90-cascading-defection-skips-every-nations-capital-not-a-besieged-city) | Cascade capital gate | — | Sonnet | Medium | **Opus**/Medium | T86 | [#409](https://github.com/diegoami/imperial_conquest_2/issues/409) |
 | [T91](#t91-capture-fidelity-the-cascade-reads-the-losers-unity-and-every-capital-test-is-any-nations-capital) | Capture fidelity | — | Sonnet | Medium | **Opus**/Medium | T90 | [#418](https://github.com/diegoami/imperial_conquest_2/issues/418) |
+| [T92](#t92-a-capture-whose-sweep-empties-the-loser-still-conquers-it) | Conquest after an emptying sweep | — | Sonnet | Medium | **Opus**/Medium | T91 | [#426](https://github.com/diegoami/imperial_conquest_2/issues/426) |
 
-**Totals** — 91 tasks: 11 Opus, 74 Sonnet, 5 Haiku, 1 Fable. Effort: 2 Ultrahigh, 49 High, 35 Medium, 5 Low.
+**Totals** — 92 tasks: 11 Opus, 75 Sonnet, 5 Haiku, 1 Fable. Effort: 2 Ultrahigh, 49 High, 36 Medium, 5 Low.
