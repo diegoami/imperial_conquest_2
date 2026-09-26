@@ -67,7 +67,7 @@ public sealed class GalatiaEliminationScenarioTests
         { "synnada", "pessinus", "acroinon", "ancyra", "gangra", "nyssa", "halys" };
 
     [Fact]
-    public void ReproducesTheGalatiaEliminationPattern_TwoFallsTo_SevenDefectsFrom()
+    public void ReproducesTheGalatiaEliminationPattern_OneFallsTo_SevenDefectsFrom_ThenConquersTheRest()
     {
         var ruleset = CaptureTestbed.Ruleset;
 

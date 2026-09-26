@@ -34,10 +34,15 @@ namespace IC2.Engine.Cities.Capture;
 /// <strong>Two quirks reproduced deliberately, not fixed.</strong> The original copies the loser's
 /// treasury to the winner instead of moving it (the loser's own balance is untouched), which creates
 /// money out of nothing — reproduced here exactly, not "fixed", per this task's Hazards. The original also
-/// never decrements the loser's own city count, wealth or tax base; this reimplementation derives city
-/// counts from live ownership rather than a stored counter and has no separate wealth/tax-base field for
-/// a city already moved to keep stale, so this quirk has nothing to act on here — there is no invented
-/// stale field standing in for it.
+/// never decrements the loser's own city count, wealth or tax base; <c>NationState.Wealth</c> and
+/// <c>NationState.TaxBase</c> both exist on this reimplementation's own loser and are left exactly as
+/// they stood before conquest by this method — review round 1, N2: an earlier revision of this remark
+/// claimed there was "no separate wealth/tax-base field" left stale to reproduce the quirk with, which
+/// was false; the fields are real and <see cref="Apply"/> genuinely never writes either one on
+/// <paramref name="loserId"/>'s own record, reproducing the original's own quirk rather than merely
+/// having nothing to act on. (The engine additionally derives live city <em>counts</em> from ownership
+/// rather than a stored counter, so that part of the original's quirk has no analogue here — that half
+/// of the original remark stands.)
 /// </para>
 /// </remarks>
 public static class ConquestCascade
@@ -109,6 +114,14 @@ public static class ConquestCascade
         };
 
         // 4. Relation reset (T69's helper) and the neighbour merge.
+        //
+        // Review round 1, N1: this method runs 4, then 7/8, then 5, then 6 -- not the Scope list's own
+        // 4, 5, 6, 7/8 order. Left as is rather than reordered, because the reviewer's own read confirms
+        // the RESULT is identical either way: steps 4 (relations/neighbours), 5 (forces), 6 (news) and
+        // 7/8 (the loser's own final fields) each read and write disjoint pieces of state -- none of the
+        // four reads anything the others write -- so this is four independent updates whose relative
+        // order cannot be observed from the outside, only their union at the end. Reordering purely for
+        // cosmetic Scope-list fidelity would touch working, tested code for no behavioral gain.
         var stateAfterRelations = RelationTransitions.ResetAllOnElimination(stateAfterCitiesAndWinner, ruleset, loserId);
         var stateAfterNeighbours = MergeNeighbours(stateAfterRelations, loserId, winnerId);
 

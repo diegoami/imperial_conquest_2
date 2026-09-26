@@ -30,7 +30,7 @@ public sealed class ConquestCascadeTests
     /// branch <see cref="ConquestTriggerTests"/> already covers.
     /// </summary>
     private static (GameState State, string CapturedCityId) BuildConqueringScenario(
-        int loserTreasury = 0, int loserUnity = 668, int winnerUnity = 600)
+        int loserTreasury = 0, int loserUnity = 668, int winnerUnity = 600, int loserWealth = 0, int loserTaxBase = 0)
     {
         var capturedCity = CaptureTestbed.City(
             "captured", "Captured", 0, 0, Loser, Loser, loyalty: 30, fortificationCode: 0,
@@ -48,7 +48,9 @@ public sealed class ConquestCascadeTests
             CaptureTestbed.City("filler-2", "Filler 2", 1002, 1000, Loser, Loser, 90, 0, 5, 10, 0),
         };
 
-        var loser = CaptureTestbed.Nation(Loser, treasury: loserTreasury, unity: loserUnity, capitalCityId: "capital");
+        var loser = CaptureTestbed.Nation(
+            Loser, treasury: loserTreasury, unity: loserUnity, wealth: loserWealth, taxBase: loserTaxBase,
+            capitalCityId: "capital");
         var winner = CaptureTestbed.Nation(Winner, unity: winnerUnity);
         var attacker = CaptureTestbed.Army(
             "army", Winner, 0, 0, morale: 50, CaptureTestbed.Unit("heavy_infantry", 1_000_000));
@@ -353,6 +355,41 @@ public sealed class ConquestCascadeTests
         // Same winner treasury whether the loser's own balance is 0 or negative -- neither is copied.
         Assert.Equal(zeroResult.NationById(Winner)!.Treasury, negativeResult.NationById(Winner)!.Treasury);
         Assert.Equal(-200, negativeResult.NationById(Loser)!.Treasury);
+    }
+
+    /// <summary>
+    /// Review round 1, N2: the original never decrements the loser's own wealth or tax base FOR THE
+    /// CITIES CONQUEST SEIZES, and this reimplementation reproduces that (rather than having "nothing to
+    /// act on", an earlier revision of <see cref="ConquestCascade"/>'s own remarks claimed) by simply
+    /// never writing either field on the loser's record inside <see cref="ConquestCascade.Apply"/>.
+    /// Optional per the review; added since it is cheap and closes the gap directly.
+    /// </summary>
+    /// <remarks>
+    /// The captured city itself is a separate matter: <see cref="CityCaptureResolver.Capture"/>'s own
+    /// single-city step (<see cref="Economy.CityOwnershipTaxTransfer.Transfer"/>) correctly moves ITS OWN
+    /// wealth/tax-base contribution off the loser before <see cref="ConquestCascade"/> ever runs -- that
+    /// is not the quirk. This test isolates the cascade's own quirk by asserting the loser's wealth and
+    /// tax base land exactly where the single-city transfer alone would leave them, with nothing further
+    /// subtracted for the capital and three fillers the cascade also seizes.
+    /// </remarks>
+    [Fact]
+    public void TheLosersOwnWealthAndTaxBase_AreLeftExactlyAsTheSingleCityTransferAloneLeftThem()
+    {
+        var scenario = BuildConqueringScenario(loserWealth: 100_000, loserTaxBase: 1000);
+        var capturedCity = scenario.State.CityById("captured")!;
+
+        // The single-city transfer's own delta (Capture's normal, non-quirky step) -- tribute 10,
+        // population 10, max 20: contribution = 10*10/20 = 5.
+        var economy = Ruleset.Economy;
+        var contribution = 5;
+        var expectedWealth = 100_000 - (capturedCity.PopulationThousands * economy.WealthPerPopulationThousand);
+        var expectedTaxBase = 1000 - (contribution * economy.TaxBaseContributionMultiplier);
+
+        var result = Capture(scenario, NullEventSink.Instance);
+
+        var loserAfter = result.NationById(Loser)!;
+        Assert.Equal(expectedWealth, loserAfter.Wealth);
+        Assert.Equal(expectedTaxBase, loserAfter.TaxBase);
     }
 
     // ---- Effect 4a: the relation reset (T69's helper), reused as-is. ----
