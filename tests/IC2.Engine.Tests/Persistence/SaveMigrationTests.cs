@@ -232,4 +232,33 @@ public sealed class SaveMigrationTests
             }
         }
     }
+
+    /// <summary>
+    /// T86 Done-when 3: "carried by saves" -- a <see cref="GameState.Neighbours"/> round-trips through
+    /// <see cref="SaveManager"/> exactly, both by hash and by value -- not defaulted, not dropped, not
+    /// silently re-derived from the world. Built directly rather than through a real conquest (which
+    /// would need a played-forward siege), since this test is about the persistence contract, not the
+    /// merge rule itself -- <c>ConquestCascadeTests</c> already proves the merge's own shape.
+    /// </summary>
+    [Fact]
+    public void ANeighbourSetAlreadyMergedByConquest_RoundTripsThroughSaveManagerExactly()
+    {
+        var toy = PersistenceTestbed.Toy;
+        var state = PersistenceTestbed.PlayTurns(2) with
+        {
+            Neighbours = ValueList.Of(
+                new NationNeighbours("north", ValueList.Of("south")),
+                new NationNeighbours("south", ValueList.Of("north"))),
+        };
+
+        var save = new SaveGame(
+            SchemaVersion: state.SchemaVersion, Id: "neighbour-round-trip", Label: "Neighbour round trip",
+            ScenarioId: state.ScenarioId, WorldId: state.WorldId, RulesetId: state.RulesetId, State: state);
+
+        var text = SaveManager.Serialize(save);
+        var reloaded = SaveManager.Load("neighbour-round-trip.json", text, toy.World, toy.Ruleset);
+
+        Assert.Equal(GameStateHash.Compute(state), GameStateHash.Compute(reloaded.State));
+        Assert.Equal(state.Neighbours, reloaded.State.Neighbours);
+    }
 }
