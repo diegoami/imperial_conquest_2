@@ -9,10 +9,26 @@ namespace IC2.Engine.Tests.Cities.Capture;
 /// <summary>
 /// <c>docs/task-catalogue.md</c> T17, Done-when 1: a scripted scenario reproducing the confirmed Galatia
 /// elimination (<c>galatia-elimination-and-city-resupply-confirmed.md</c>) city by city — exactly 2
-/// <c>"falls to"</c> and exactly 7 <c>"defects from"</c>, with the defections leaving population and
-/// fortification provably unchanged. Doubles as DoD 4's elimination reproduction (Galatia's own observed
-/// <c>668 → 0</c> unity and <c>0xFFFF</c> capital sentinel) and DoD 6's message coverage.
+/// <c>"falls to"</c> and, since T90 (bug #407, below), exactly 6 <c>"defects from"</c> plus one city taken
+/// by the conquest cascade instead, with every ownership change leaving population and fortification
+/// provably unchanged. Doubles as DoD 4's elimination reproduction (Galatia's own observed <c>668 → 0</c>
+/// unity and <c>0xFFFF</c> capital sentinel) and DoD 6's message coverage.
 /// </summary>
+/// <remarks>
+/// <para>
+/// <strong>T90/#409: "ancyra" is both a scripted defector and Galatia's own capital.</strong> This fixture
+/// names Galatia's capital <c>"ancyra"</c> (line below) and, independently, names one of the seven
+/// weakly-defended scripted cities <c>"ancyra"</c> too — the same city. Under T17's original (buggy) engine
+/// this collision was invisible: the cascade's only gate was the invented <see cref="CityState.UnderSiege"/>
+/// check, which "ancyra" passed like any other candidate, so it defected along with the other six. T90's
+/// corrected <c>FUN_0044b8d0</c> gate now excludes it, because it IS Galatia's capital — this is bug #407's
+/// own symptom, reproduced here rather than invented: Galatia is left owning only its capital and Gordium
+/// after the cascade, still under <see cref="CaptureRules.ConquestCityCountThreshold"/>, so the SAME call's
+/// conquest cascade (T86) sweeps both away with no capital exemption of its own (<see cref="ConquestCascade"/>
+/// takes every remaining city of the loser, capital included). The corrected numbers below were computed by
+/// hand from the ruleset's own formulas and independently confirmed by running the fixed engine.
+/// </para>
+/// </remarks>
 /// <remarks>
 /// <para>
 /// <strong>How the two mechanisms are reproduced, and what is fixture data versus what this task's code
@@ -115,15 +131,19 @@ public sealed class GalatiaEliminationScenarioTests
         var final = CityCaptureResolver.Capture(
             state, "seleucid-army", "laranda", ruleset, CaptureTestbed.ArcherUnitTypeId, CaptureTestbed.FortifyOrderId, sink);
 
-        // ---- DoD 2 / DoD 3, after Laranda's own capture plus the cascade's seven defections (before the
-        // conquest trigger's own effects below): treasury, tax base, wealth and unity all move by the
-        // confirmed single-city terms. Laranda's contribution is 10*59/80 = 7 (treasury/tax base += 7*4 =
-        // 28); every defector's own contribution truncates to 0 (tribute 2 * population <= 9 / max 30),
-        // so the cascade adds nothing further to treasury or tax base, only wealth (population*3000,
-        // summed: 6+7+6+8+9+9+7 = 52 -> 156,000) and unity (+3 per defection for Seleucid, -20 floored at
-        // 250 per defection for Galatia). These are intermediate values, not final ones -- the conquest
-        // trigger's own effects (below) add Gordium's own contribution on top, through its own distinct
-        // multipliers.
+        // ---- DoD 2 / DoD 3, after Laranda's own capture plus the cascade's six defections (T90: "ancyra"
+        // is excluded -- see the class remarks) (before the conquest trigger's own effects below):
+        // treasury, tax base, wealth and unity all move by the confirmed single-city terms. Laranda's
+        // contribution is 10*59/80 = 7 (treasury/tax base += 7*4 = 28); every defector's own contribution
+        // truncates to 0 (tribute 2 * population <= 9 / max 30), so the cascade adds nothing further to
+        // treasury or tax base, only wealth (population*3000, summed over the six non-capital defectors:
+        // 6+7+6+9+9+7 = 44 -> 132,000) and unity (+3 per defection for Seleucid, -20 floored at 250 per
+        // defection for Galatia). These are intermediate values, not final ones -- the conquest trigger's
+        // own effects (below) sweep Gordium AND "ancyra" together, adding both their contributions on top,
+        // through the conquest's own distinct multipliers. Wealth's own multiplier is the same generic one
+        // either way (see below), so moving "ancyra" from the defection mechanism to the conquest one does
+        // not change the wealth total -- only unity, whose per-event gain differs (+3 defection vs. a flat
+        // +50 once for the whole conquest, not per city).
         //
         // T86: Laranda's own loyalty is now a formula, not the flat 40 floor -- allegiance ("galatia")
         // differs from the new owner ("seleucid"), so max(ForcedCaptureFloor, min(ForcedCaptureCap,
@@ -141,27 +161,32 @@ public sealed class GalatiaEliminationScenarioTests
             .NextInt(ruleset.Capture.ConquestLoyaltyRandomBonusMax);
         Assert.Equal(65 + expectedGordiumBonus, final.CityById("gordium")!.Loyalty);
 
-        // ---- Final Seleucid totals: the single-city terms above, plus Gordium's own conquest-cascade
-        // contribution (contribution 8*23/40 = 4) through the conquest's own distinct multipliers --
-        // ConquestTreasuryCreditMultiplier (6, not the single-capture CaptureTreasuryCreditMultiplier, 4)
-        // for treasury, the same generic economy multipliers for tax base and wealth, and
-        // ConquestWinnerUnityGain (50, not the single-capture CaptureUnityGain, 9) for unity. ----
+        // ---- Final Seleucid totals: the single-city terms above, plus Gordium's AND "ancyra"'s own
+        // conquest-cascade contributions (Gordium: 8*23/40 = 4; "ancyra": 2*8/30 = 0, truncated) through
+        // the conquest's own distinct multipliers -- ConquestTreasuryCreditMultiplier (6, not the
+        // single-capture CaptureTreasuryCreditMultiplier, 4) for treasury, the same generic economy
+        // multipliers for tax base and wealth, and ConquestWinnerUnityGain (50, not the single-capture
+        // CaptureUnityGain, 9, and not per city -- one flat gain for the whole conquest) for unity. ----
         var seleucidFinal = final.NationById(Seleucid)!;
-        Assert.Equal(52, seleucidFinal.Treasury); // 28 + 4*6.
-        Assert.Equal(44, seleucidFinal.TaxBase); // 28 + 4*4 -- the same generic multiplier either way.
-        Assert.Equal(402_000, seleucidFinal.Wealth); // 333,000 + 23*3000 -- the same generic multiplier either way.
-        Assert.Equal(580, seleucidFinal.Unity); // 530 + 50 (conquest), not +9 (a second forced capture).
+        Assert.Equal(52, seleucidFinal.Treasury); // 28 + 4*6 + 0*6 ("ancyra"'s own contribution truncates to 0).
+        Assert.Equal(44, seleucidFinal.TaxBase); // 28 + 4*4 + 0*4 -- the same generic multiplier either way.
+        Assert.Equal(402_000, seleucidFinal.Wealth); // 132,000 (6 defectors) + 177,000 (Laranda) + 69,000 (Gordium) + 24,000 ("ancyra", 8*3000).
+        Assert.Equal(577, seleucidFinal.Unity); // 509 (9 capture + 6*3 defections) + 50 (one flat conquest gain covering both Gordium and "ancyra").
         Assert.Equal(9, final.CountCitiesOwnedBy(Seleucid)); // Every one of Galatia's 9 cities.
 
         // ---- Exactly 1 "falls to" (Laranda only -- Gordium's own conquest sweep writes no such event,
-        // matching the historical Galatia record's own silent transfers), exactly 7 "defects from"
-        // (DoD 1, DoD 6). ----
+        // matching the historical Galatia record's own silent transfers), exactly 6 "defects from" (T90:
+        // "ancyra" -- Galatia's own capital -- is excluded from the cascade and taken by the conquest
+        // cascade below instead; see the class remarks and Assert.Equal(Seleucid, ...) on "ancyra" further
+        // down) (DoD 1, DoD 6). ----
         var fallsTo = sink.Events.OfType<CityFallsToNation>().ToArray();
         var defectsFrom = sink.Events.OfType<CityDefectsToNation>().ToArray();
+        var nonCapitalDefectorIds = DefectorIds.Where(id => !string.Equals(id, "ancyra", System.StringComparison.Ordinal)).ToArray();
         Assert.Single(fallsTo);
-        Assert.Equal(7, defectsFrom.Length);
+        Assert.Equal(6, defectsFrom.Length);
         Assert.Equal("Laranda", Assert.Single(fallsTo).CityName);
-        Assert.Equal(DefectorIds, defectsFrom.Select(e => e.CityName).ToArray());
+        Assert.Equal(nonCapitalDefectorIds, defectsFrom.Select(e => e.CityName).ToArray());
+        Assert.DoesNotContain(defectsFrom, e => e.CityName == "ancyra");
         Assert.Equal(Galatia, fallsTo[0].OldOwner);
         Assert.Equal(Seleucid, fallsTo[0].NewOwner);
         foreach (var e in defectsFrom)
@@ -169,6 +194,10 @@ public sealed class GalatiaEliminationScenarioTests
             Assert.Equal(Galatia, e.OldOwner);
             Assert.Equal(Seleucid, e.NewOwner);
         }
+
+        // ---- T90/#409: "ancyra" -- Galatia's own capital -- still ends up owned by Seleucid (through the
+        // conquest cascade, not defection), matching Done-when 3's "the conquest rule decides the rest". ----
+        Assert.Equal(Seleucid, final.CityById("ancyra")!.Owner);
 
         // ---- Laranda keeps whatever population/fortification it already carried into the transfer:
         // FUN_0044bb18's own confirmed pseudocode has no population or fortification term, so Capture

@@ -298,9 +298,11 @@ public static class CityCaptureResolver
     /// <summary>
     /// <c>FUN_0044ba1c</c>: after a forced capture, every other city that shared the just-captured city's
     /// old owner is checked, in <see cref="GameState.Cities"/>'s own stable order, against the confirmed
-    /// gate — not already <see cref="CityState.UnderSiege"/> ("if not already contested", checked before
-    /// anything else the pseudocode does), within <see cref="CaptureRules.CascadeDistanceMax"/> of the
-    /// besieging army (Chebyshev; see <see cref="CaptureRules"/>'s own remarks on that field), the new
+    /// gate — not <see cref="NationState.CapitalCityId"/> of <em>any</em> of the sixteen nation records
+    /// (<c>FUN_0044b8d0</c>, checked before anything else the pseudocode does; T90/#409, correcting T17's
+    /// own misreading of that gate as "not already contested", <see cref="CityState.UnderSiege"/> — see
+    /// this method's own remark at the gate below), within <see cref="CaptureRules.CascadeDistanceMax"/> of
+    /// the besieging army (Chebyshev; see <see cref="CaptureRules"/>'s own remarks on that field), the new
     /// owner's unity still under <see cref="CaptureRules.CascadeUnityThreshold"/>, the candidate's
     /// <see cref="CompleteDefenderStrength"/> (halved by <see cref="CaptureRules.CascadeAllegiantDefenseDivisor"/>
     /// when the candidate's own allegiance already matches the new owner) below the besieging army's own
@@ -336,11 +338,24 @@ public static class CityCaptureResolver
                 continue;
             }
 
-            // "if not already contested" -- FUN_0044ba1c's own gate, read from CityState.UnderSiege
-            // (already a field on the model; this task's own reading of "contested"). A city already
-            // under an active siege of its own is excluded from the cascade outright, before distance is
-            // even checked, matching the pseudocode's own nesting order.
-            if (candidate.UnderSiege)
+            // T90/#409 (bug #407): FUN_0044ba1c's real gate is FUN_0044b8d0(city) -- "is this city any of
+            // the sixteen nations' own capital", read live off every NationState.CapitalCityId in
+            // currentState, not T17's CityState.UnderSiege ("if not already contested"), which the
+            // original's own sweep never checks at all. The read walks every nation record regardless of
+            // NationState.Eliminated -- FUN_0044b8d0 has no liveness check of its own, and T86's corrected
+            // Defect leaves an eliminated nation's CapitalCityId exactly as it stood (NationElimination's
+            // own remarks), so a stale capital pointer into a city the loser now owns is still reachable
+            // here and still gates it. CityState.UnderSiege itself is untouched -- other callers
+            // (AiEconomyPhase, CityOrderProgressSystem, OrderCityCommandHandler) still read it for their
+            // own, unrelated purposes; only this sweep's gate changes.
+            //
+            // The decompile checks FUN_0044b8d0 twice: here, and again just before FUN_0044bed8. The
+            // second check can never change the outcome -- no defection in this sweep writes a capital
+            // (NationElimination leaves CapitalCityId alone, and ConquestCascade's own capital-sentinel
+            // write is a different code path entirely, not reached from here) -- so only the first is
+            // reproduced.
+            if (currentState.Nations.Any(n =>
+                    n.CapitalCityId is { } capitalId && string.Equals(capitalId, candidate.Id, StringComparison.Ordinal)))
             {
                 continue;
             }
