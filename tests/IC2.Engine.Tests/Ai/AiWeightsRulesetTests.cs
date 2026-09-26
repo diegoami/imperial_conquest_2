@@ -42,6 +42,36 @@ public sealed class AiWeightsRulesetTests
     }
 
     /// <summary>
+    /// N4 (rework round 1, PR #429 review round 0): <c>ai.permilleScale</c> is a divisor at several real
+    /// call sites (<see cref="AiEconomyPhase.TurnBudget"/>, the recruit and fortify scores,
+    /// <see cref="AiPersonalityProfile"/>'s <c>ToPermille</c>, <see cref="AiView.RequiredAttackRatioPermille"/>
+    /// and <see cref="AiView.WithVictoryAwareness"/>), and the loader used to accept 0 (or a negative
+    /// value) cleanly, only failing with a <see cref="DivideByZeroException"/> the first time the AI ran
+    /// a turn. <see cref="GameDataValidation.Validate"/> now rejects both at load time, naming the field
+    /// -- the same guard T63's review round 1 (N5) added for the ruleset's other runtime divisors.
+    /// </summary>
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void A_non_positive_permille_scale_is_rejected_at_validation(int badValue)
+    {
+        var ruleset = AiScriptedStates.Ruleset with { Ai = AiScriptedStates.Ruleset.Ai with { PermilleScale = badValue } };
+
+        var error = Assert.Throws<MalformedGameDataException>(
+            () => GameDataValidation.Validate("mutated-toy-ruleset.json", ruleset));
+
+        Assert.Contains("ai.permilleScale", error.Message, StringComparison.Ordinal);
+        Assert.Contains("greater than 0", error.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>The shipped toy ruleset's own permilleScale (1000) already passes this check.</summary>
+    [Fact]
+    public void Shipped_toy_rulesets_permille_scale_passes_the_divisor_check()
+    {
+        GameDataValidation.Validate(ModelTestPaths.ToyRulesetFile, AiScriptedStates.Ruleset); // must not throw
+    }
+
+    /// <summary>
     /// Done-when 4: a test ruleset that lowers one weight (<c>recruitBaseScore</c>, the example the task
     /// entry names) changes which candidate the economy phase ranks highest, over the identical state.
     /// </summary>

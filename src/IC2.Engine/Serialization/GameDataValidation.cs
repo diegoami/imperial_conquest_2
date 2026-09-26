@@ -235,6 +235,13 @@ public static class GameDataValidation
         RequirePositiveDivisor(documentPath, ruleset.Siege.ErosionCeilingDenominator, "siege.erosionCeilingDenominator");
         RequirePositiveDivisor(documentPath, ruleset.Siege.PopulationFloorDivisor, "siege.populationFloorDivisor");
         RequirePositiveDivisor(documentPath, ruleset.Naval.StormUnitLossDivisor, "naval.stormUnitLossDivisor");
+
+        // N4 (T79 rework round 1, PR #429 review round 0): ai.permilleScale is a divisor too --
+        // AiEconomyPhase.TurnBudget divides by it directly, and it is also the denominator in the recruit
+        // and fortify scores, AiPersonalityProfile.ToPermille, AiView.RequiredAttackRatioPermille and
+        // AiView.WithVictoryAwareness. A 0 here is a DivideByZeroException the first AI turn runs, exactly
+        // the hazard N5 (T63) closed for the divisors above.
+        RequirePositiveDivisor(documentPath, ruleset.Ai.PermilleScale, "ai.permilleScale");
     }
 
     /// <summary>
