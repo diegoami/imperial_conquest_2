@@ -28,15 +28,29 @@ namespace IC2.Engine.Economy;
 /// stream and, right after each city's own draws — <c>decompiled-quarterly-rebellion.md</c>'s own code
 /// order — runs <see cref="Rebellion.Run"/> for any city whose draws leave it under
 /// <see cref="EconomyRules.RebellionLoyaltyThreshold"/> and not a capital. T89: this replaces the old,
-/// unconsumed <c>RebellionRiskDetected</c> publication. Splitting growth+rebuild from the loyalty pass
-/// changes nothing observable: neither draw reads a city's own or any other city's grown population or
-/// rebuilt tax base, only its own prior loyalty and its owner's (growth-unaffected) tax rate, so the two
-/// passes are independent except for the RNG's own draw order, which this system preserves by processing
-/// <see cref="GameState.Cities"/> in its own list order throughout — the loyalty pass below folds each
-/// city's own update, and any rebellion it triggers, back into the working <see cref="GameState"/> before
-/// moving to the next city in that same list order, exactly the "live reads" the report's own Hazards
-/// section asks for (a rebellion's own effects — city counts, unity — must be visible to a later city's
-/// own (d) score in the same quarter, not a snapshot taken once at the top of this loop).
+/// unconsumed <c>RebellionRiskDetected</c> publication.
+/// </para>
+/// <para>
+/// <strong>Splitting growth+rebuild from the loyalty pass changes nothing observable, with one
+/// unconfirmed exception (review round 1, N5).</strong> Neither draw reads a city's own or any other
+/// city's grown population or rebuilt tax base, only its own prior loyalty and its owner's
+/// (growth-unaffected) tax rate, so the two passes are independent except for the RNG's own draw order,
+/// which this system preserves by processing <see cref="GameState.Cities"/> in its own list order
+/// throughout. The loyalty pass below folds each city's own update, and any rebellion it triggers, back
+/// into the working <see cref="GameState"/> before moving to the next city in that same list order,
+/// exactly the "live reads" the report's own Hazards section asks for <c>[derived:
+/// decompiled-quarterly-rebellion.md</c> §1, "(d): cities(n) and unity(n) are read live... a later city's
+/// score can differ from what a snapshot taken at the top of the loop would give"<c>]</c> — a rebellion's
+/// own effects (city counts, unity) must be visible to a later city's own (d) score in the same quarter,
+/// not a snapshot taken once at the top of this loop. The one edge this does <em>not</em> cover, and that
+/// the report itself does not either (its own equivalence claim, §5 item 5, is stated only for a
+/// rebellion that "moves only the current city"): a rebellion that eliminates its own old owner disposes
+/// of that nation's armies mid-loop (<c>EliminationForces</c>, via <c>CityCaptureResolver.Defect</c>), and
+/// in the original a <em>later</em> city's own growth in the same loop would then see those armies already
+/// gone from <see cref="HostileArmyAdjacent.IsThreatened"/>'s own check — this engine instead grows every
+/// city first, in a separate pass, before any rebellion in this one can dispose of an army. Unconfirmed
+/// (an edge of the stale-capital edge case), left for T87, which must revisit this loop's own structure
+/// for rebirth regardless.
 /// </para>
 /// </remarks>
 [QuarterBoundaryHandler("economy.quarterly-city-tick", Order = 100)]

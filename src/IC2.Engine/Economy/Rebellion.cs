@@ -72,13 +72,15 @@ public static class Rebellion
     {
         var allegiance = state.NationById(city.Allegiance);
 
-        // (a): "dead" is unity <= 0 -- the same bare comparison the rest of the engine already uses for
-        // it (QuarterlyNationEconomySystem.cs, AiDepositionHandler.cs), not a ruleset field of its own.
-        // FUN_0044C360 (rebirth) is T87's own call: rebirth is final (no fallback to (c)/(d) when it
-        // declines), so this branch does nothing here but leave the decision, and this remark, for T87.
-        // allegiance is null only if city.Allegiance names no known nation, which never happens on a
-        // production path (every nation record persists for the scenario's life); treated the same as
-        // "dead" defensively rather than throwing.
+        // (a) [confirmed: decompiled-quarterly-rebellion.md "Answer", 'the test is unity <= 0, the same
+        // "dead" the turn loop and the diplomacy use']: "dead" is unity <= 0 -- the same bare comparison
+        // the rest of the engine already uses for it (QuarterlyNationEconomySystem.cs,
+        // AiDepositionHandler.cs), not a ruleset field of its own. FUN_0044C360 (rebirth) is T87's own
+        // call: rebirth is final [confirmed: report "(a) is final... There is no fallback to (c) or (d)"]
+        // (no fallback to (c)/(d) when it declines), so this branch does nothing here but leave the
+        // decision, and this remark, for T87. allegiance is null only if city.Allegiance names no known
+        // nation, which never happens on a production path (every nation record persists for the
+        // scenario's life); treated the same as "dead" defensively rather than throwing.
         if (allegiance is null || allegiance.Unity <= 0)
         {
             return state;
@@ -142,6 +144,15 @@ public static class Rebellion
     /// <see cref="NeighbourGeography.NeighboursOf"/> returns for a production <see cref="GameState.Neighbours"/>,
     /// itself built off <see cref="World.Nations"/>' own stable order) gives the lowest index the tie.
     /// There is no relation test: an ally, a trade partner or a human neighbour can receive the city.
+    /// <para>
+    /// Review round 1, N6: the original tests bit <c>owner</c> of <em>each candidate <c>n</c>'s own</em>
+    /// neighbour mask (<c>nation[n] + 0x46</c>) — the transpose of what
+    /// <see cref="NeighbourGeography.NeighboursOf"/> reads here (every <c>n</c> in the <em>owner's own</em>
+    /// entry). The two agree because the mask is symmetric
+    /// (<c>dat-neighbour-mask.md</c> §2) and every merge that changes it adds bits in pairs
+    /// (<c>dat-neighbour-mask.md</c> §4; <see cref="ConquestCascade"/>'s own neighbour-merge step) —
+    /// <c>[derived]</c>.
+    /// </para>
     /// </summary>
     private static string? FindBestNeighbour(GameState state, World world, Ruleset ruleset, CityState city)
     {
