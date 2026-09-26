@@ -7,14 +7,16 @@ using Xunit;
 namespace IC2.Engine.Tests.Cities.Capture;
 
 /// <summary>
-/// <c>FUN_0044ba1c</c>'s own confirmed cascade gate, each term pinned independently: not already
-/// contested (<see cref="CityState.UnderSiege"/>), within <see cref="CaptureRules.CascadeDistanceMax"/>,
-/// the new owner's unity under <see cref="CaptureRules.CascadeUnityThreshold"/>, the candidate's own
-/// loyalty under <see cref="CaptureRules.CascadeLoyaltyThreshold"/>, and the allegiant-sympathy defense
-/// divisor (<see cref="CaptureRules.CascadeAllegiantDefenseDivisor"/>). Every fixture here holds every
-/// other term fixed and varies exactly one, so a mutation to any single gate is caught by exactly one
-/// test — <c>CityCaptureResolver.cs</c>'s own review round found three of these four gates had no test at
-/// all (review round 1, findings B2/B3) and every boundary was unpinned (N1).
+/// <c>FUN_0044ba1c</c>'s own confirmed cascade gate, each term pinned independently: not any of the
+/// sixteen nations' own <see cref="NationState.CapitalCityId"/> (<c>FUN_0044b8d0</c>; T90/#409, replacing
+/// T17's invented <see cref="CityState.UnderSiege"/> reading — see the "no siege gate" tests below), within
+/// <see cref="CaptureRules.CascadeDistanceMax"/>, the new owner's unity under
+/// <see cref="CaptureRules.CascadeUnityThreshold"/>, the candidate's own loyalty under
+/// <see cref="CaptureRules.CascadeLoyaltyThreshold"/>, and the allegiant-sympathy defense divisor
+/// (<see cref="CaptureRules.CascadeAllegiantDefenseDivisor"/>). Every fixture here holds every other term
+/// fixed and varies exactly one, so a mutation to any single gate is caught by exactly one test —
+/// <c>CityCaptureResolver.cs</c>'s own review round found three of these four gates had no test at all
+/// (review round 1, findings B2/B3) and every boundary was unpinned (N1).
 /// </summary>
 public sealed class CascadeGateTests
 {
@@ -26,11 +28,18 @@ public sealed class CascadeGateTests
     /// <summary>
     /// The always-qualifying baseline every other test in this file perturbs exactly one field of:
     /// candidate loyalty 10 (well under the 65 threshold), same allegiance as the old owner (no ÷3
-    /// divisor), distance 1 (well under the 10 threshold), not under siege, new owner unity 500 (well
-    /// under the 650 threshold), and an attacker strong enough (50,000 troops, morale 80 →
-    /// <c>SiegeStrength.Attacker</c> 50,000) that the candidate's own weak defense (1,700, undivided)
-    /// never blocks the outcome on its own.
+    /// divisor), distance 1 (well under the 10 threshold), not under siege, not any nation's capital, new
+    /// owner unity 500 (well under the 650 threshold), and an attacker strong enough (50,000 troops,
+    /// morale 80 → <c>SiegeStrength.Attacker</c> 50,000) that the candidate's own weak defense (1,700,
+    /// undivided) never blocks the outcome on its own.
     /// </summary>
+    /// <param name="candidateCapitalOfNationId">
+    /// When set, some nation's <see cref="NationState.CapitalCityId"/> is pointed at the candidate --
+    /// <see cref="OldOwner"/> to make it the loser's own capital, or any other id to add a third nation
+    /// (optionally <paramref name="capitalNationEliminated"/>) whose stale capital pointer still names a
+    /// city <see cref="OldOwner"/> owns. <c>FUN_0044b8d0</c> gates on every nation's capital pointer alike,
+    /// so this is one knob for all three Done-when-1 cases.
+    /// </param>
     private static (GameState State, Ruleset Ruleset) BuildScenario(
         int candidateLoyalty = 10,
         string? candidateAllegiance = null,
@@ -38,7 +47,9 @@ public sealed class CascadeGateTests
         bool candidateUnderSiege = false,
         int newOwnerUnity = 500,
         int attackerTroops = 50_000,
-        int attackerMorale = 80)
+        int attackerMorale = 80,
+        string? candidateCapitalOfNationId = null,
+        bool capitalNationEliminated = false)
     {
         var ruleset = CaptureTestbed.Ruleset;
 
@@ -51,10 +62,17 @@ public sealed class CascadeGateTests
             candidateLoyalty, fortificationCode: 0, populationThousands: 1, maxPopulationThousands: 10, tribute: 0,
             underSiege: candidateUnderSiege);
 
-        var oldOwner = CaptureTestbed.Nation(OldOwner);
+        var oldOwnerIsCandidateCapital = string.Equals(candidateCapitalOfNationId, OldOwner, StringComparison.Ordinal);
+        var oldOwner = CaptureTestbed.Nation(OldOwner, capitalCityId: oldOwnerIsCandidateCapital ? CandidateId : null);
         var newOwner = CaptureTestbed.Nation(NewOwner, unity: newOwnerUnity);
         var attacker = CaptureTestbed.Army(
             "army", NewOwner, 0, 0, attackerMorale, CaptureTestbed.Unit("heavy_infantry", attackerTroops));
+
+        var nations = new List<NationState> { oldOwner, newOwner };
+        if (candidateCapitalOfNationId is { } thirdNationId && !oldOwnerIsCandidateCapital)
+        {
+            nations.Add(CaptureTestbed.Nation(thirdNationId, capitalCityId: CandidateId, eliminated: capitalNationEliminated));
+        }
 
         // T86: 5 filler cities, far enough away (CascadeDistanceMax is 10) that none is itself cascade-
         // eligible, so the old owner keeps 6 cities after "captured" is transferred (candidate + 5
@@ -66,7 +84,7 @@ public sealed class CascadeGateTests
         var fillerCities = CaptureTestbed.FillerCities(OldOwner, 5, startX: 1000, y: 1000).ToArray();
 
         var state = CaptureTestbed.StateWith(
-            new[] { oldOwner, newOwner }, new[] { captured, candidate }.Concat(fillerCities), new[] { attacker });
+            nations, new[] { captured, candidate }.Concat(fillerCities), new[] { attacker });
 
         return (state, ruleset);
     }
@@ -90,13 +108,47 @@ public sealed class CascadeGateTests
         Assert.True(CandidateDefected(state, ruleset));
     }
 
-    // ---- B3: "if not already contested" (CityState.UnderSiege). ----
+    // ---- Done-when 1: the capital gate (FUN_0044b8d0). A candidate that is some nation's capital never
+    // defects, regardless of which nation, and regardless of whether that nation is still alive. ----
+
+    /// <summary>The loser's own capital.</summary>
+    [Fact]
+    public void LosersOwnCapital_ExcludesTheCandidateFromTheCascade()
+    {
+        var (state, ruleset) = BuildScenario(candidateCapitalOfNationId: OldOwner);
+        Assert.False(CandidateDefected(state, ruleset));
+    }
+
+    /// <summary>A third (living) nation's capital, a city the loser itself owns.</summary>
+    [Fact]
+    public void ThirdNationsCapital_OwnedByTheLoser_ExcludesTheCandidateFromTheCascade()
+    {
+        var (state, ruleset) = BuildScenario(candidateCapitalOfNationId: "third");
+        Assert.False(CandidateDefected(state, ruleset));
+    }
+
+    /// <summary>
+    /// An eliminated nation's capital field, left stale by T86's corrected <c>Defect</c> (which never
+    /// clears <see cref="NationState.CapitalCityId"/> on elimination -- <c>NationElimination</c>'s own
+    /// remarks), still naming a city the loser now owns. The engine's state can hold this directly: an
+    /// eliminated nation's record is kept, not removed, and its capital pointer is never rewritten.
+    /// </summary>
+    [Fact]
+    public void EliminatedNationsStaleCapital_OwnedByTheLoser_ExcludesTheCandidateFromTheCascade()
+    {
+        var (state, ruleset) = BuildScenario(candidateCapitalOfNationId: "gone", capitalNationEliminated: true);
+        Assert.False(CandidateDefected(state, ruleset));
+    }
+
+    // ---- Done-when 2: no siege gate. FUN_0044ba1c's own sweep never reads CityState.UnderSiege at all --
+    // T17 invented that reading in the capital gate's place. A besieged, non-capital candidate that passes
+    // every other gate now defects like any other. Restoring the old UnderSiege gate fails this test. ----
 
     [Fact]
-    public void UnderSiege_ExcludesTheCandidateFromTheCascade()
+    public void UnderSiege_NoLongerExcludesTheCandidateFromTheCascade()
     {
         var (state, ruleset) = BuildScenario(candidateUnderSiege: true);
-        Assert.False(CandidateDefected(state, ruleset));
+        Assert.True(CandidateDefected(state, ruleset));
     }
 
     // ---- B2 / N1: distance gate, exclusive threshold (Chebyshev < 10, i.e. >= 10 excludes). ----
