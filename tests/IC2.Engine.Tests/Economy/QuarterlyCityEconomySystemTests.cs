@@ -144,6 +144,50 @@ public sealed class QuarterlyCityEconomySystemTests
     }
 
     /// <summary>
+    /// Review round 1, B1: Done-when 2's own "including a dead nation's capital" was never covered --
+    /// <see cref="ACapitalCityUnderTheThreshold_NeverRebels"/> above only exercises a <em>live</em>
+    /// nation's capital. The capital set <see cref="QuarterlyCityEconomySystem"/> builds is every
+    /// <see cref="NationState.CapitalCityId"/> with no liveness filter (<c>FUN_0044B8D0</c>'s own "any of
+    /// the sixteen nations, dead ones included"): "dead" is eliminated (unity 0) and its own
+    /// <c>CapitalCityId</c> still names "old-cap", a city "strong" now owns outright. "old-cap"'s owner
+    /// equals its own allegiance ("strong"), so without the capital gate this would fall straight to (d)
+    /// and "third" (strong's only neighbour, alive, with its own capital) would win it -- proving the gate
+    /// actually fires, not merely that nothing else does.
+    /// </summary>
+    [Fact]
+    public void ADeadNationsStaleCapital_NeverRebels_EvenThoughALiveNeighbourWouldOtherwiseWinIt()
+    {
+        var oldCap = CaptureTestbed.City(
+            "old-cap", "OldCap", 0, 0, "strong", "strong", loyalty: 20, fortificationCode: 0,
+            populationThousands: 10, maxPopulationThousands: 20, tribute: 5);
+        var thirdCapital = CaptureTestbed.City(
+            "third-cap", "ThirdCap", 3, 0, "third", "third", loyalty: 90, fortificationCode: 0,
+            populationThousands: 10, maxPopulationThousands: 20, tribute: 5);
+
+        var dead = CaptureTestbed.Nation("dead", unity: 0, capitalCityId: "old-cap");
+        var strong = CaptureTestbed.Nation("strong", unity: 600) with { TaxRatePercent = 50 };
+        var third = CaptureTestbed.Nation("third", unity: 600, capitalCityId: "third-cap");
+
+        var state = EliminationForcesTestbed.StateWith(
+            new[] { dead, strong, third }, new[] { oldCap, thirdCapital });
+        state = state with
+        {
+            Neighbours = ValueList.From(new[] { new NationNeighbours("strong", ValueList.From(new[] { "third" })) }),
+        };
+
+        // Tax 50 (>= 11) skips the rise gate outright for "old-cap"; "third-cap" (tax 15 default, loyalty
+        // 90) also draws no rise. Both cities' fall rolls miss, so neither city's loyalty moves.
+        var rng = new ScriptedRng(nextChanceDraws: new[] { false, false });
+        var sink = new RecordingEventSink();
+
+        var result = new QuarterlyCityEconomySystem().OnQuarterBoundary(Context(state, rng, sink));
+
+        Assert.Equal("strong", result.CityById("old-cap")!.Owner);
+        Assert.Equal(20, result.CityById("old-cap")!.Loyalty);
+        Assert.Empty(sink.Events.OfType<CityDefectsToNation>());
+    }
+
+    /// <summary>
     /// The loyalty draws happen in city (list) index order, over one shared stream, so a fixed script
     /// (standing in for a fixed seed) reproduces exactly which city gets which draw.
     /// </summary>
