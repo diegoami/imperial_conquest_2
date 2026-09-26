@@ -137,6 +137,128 @@ public sealed class ConquestCascadeTests
         Assert.Equal(70 + expectedBonus, result.CityById("allegiant-filler")!.Loyalty);
     }
 
+    /// <summary>
+    /// Review round 1, B2/MB4/MC4: no existing test before this file's round-1 rework used a city whose
+    /// loyalty was low enough to exercise either conquest-loyalty clamp's own upper bound
+    /// (<see cref="LoyaltyRules.ConquestNonAllegiantCap"/> 70, <see cref="LoyaltyRules.ConquestAllegiantCap"/>
+    /// 80) -- both <see cref="Math.Min"/> calls could be deleted with all 3011 tests still green. A
+    /// minimal 3-city scenario (captured + capital + one boundary filler), mirroring
+    /// <see cref="EveryLoserCity_GetsTheConquestLoyaltyFormula_Allegiant"/>'s own shape.
+    /// </summary>
+    private static (GameState State, string FillerId) BuildBoundaryLoyaltyScenario(string fillerAllegiance, int fillerLoyalty)
+    {
+        const string fillerId = "boundary-filler";
+        var capturedCity = CaptureTestbed.City(
+            "captured", "Captured", 0, 0, Loser, Loser, loyalty: 30, fortificationCode: 0,
+            populationThousands: 10, maxPopulationThousands: 20, tribute: 10);
+        var capitalCity = CaptureTestbed.City(
+            "capital", "Capital", 5, 5, Loser, Loser, loyalty: 90, fortificationCode: 0,
+            populationThousands: 8, maxPopulationThousands: 20, tribute: 4);
+        var boundaryFiller = CaptureTestbed.City(
+            fillerId, "Boundary Filler", 1000, 1000, Loser, fillerAllegiance, loyalty: fillerLoyalty,
+            fortificationCode: 0, populationThousands: 5, maxPopulationThousands: 10, tribute: 0);
+
+        var loser = CaptureTestbed.Nation(Loser, unity: 668, capitalCityId: "capital");
+        var winner = CaptureTestbed.Nation(Winner);
+        var attacker = CaptureTestbed.Army(
+            "army", Winner, 0, 0, morale: 50, CaptureTestbed.Unit("heavy_infantry", 1_000_000));
+
+        var state = CaptureTestbed.StateWith(
+            new[] { loser, winner }, new[] { capturedCity, capitalCity, boundaryFiller }, new[] { attacker });
+        return (state, fillerId);
+    }
+
+    private static int ExpectedConquestLoyalty(GameState state, string cityId, int baseLoyalty) =>
+        baseLoyalty + SplitMix64Rng.ForStream(state.RandomSeed, "capture.conquestLoyalty").ForStream(cityId)
+            .NextInt(Ruleset.Capture.ConquestLoyaltyRandomBonusMax);
+
+    [Fact]
+    public void NonAllegiantLoyalty_AtTwentyNine_ClampsAtTheCap_WhenTheRawTargetWouldExceedIt()
+    {
+        // target = 100 - 29 = 71, past ConquestNonAllegiantCap (70) -- deleting the cap's own Math.Min
+        // (MB4) would let 71 through uncapped, which this test would then catch.
+        var (state, fillerId) = BuildBoundaryLoyaltyScenario(fillerAllegiance: Loser, fillerLoyalty: 29);
+        var result = CityCaptureResolver.Capture(
+            state, "army", "captured", Ruleset, CaptureTestbed.ArcherUnitTypeId, CaptureTestbed.FortifyOrderId,
+            NullEventSink.Instance);
+
+        Assert.Equal(ExpectedConquestLoyalty(state, fillerId, 70), result.CityById(fillerId)!.Loyalty);
+    }
+
+    [Fact]
+    public void NonAllegiantLoyalty_AtThirty_LandsOnTheCapBoundaryUnclamped()
+    {
+        // target = 100 - 30 = 70, exactly ConquestNonAllegiantCap -- the companion boundary that, paired
+        // with the L=29 test above, pins the cap at exactly 70 rather than some other nearby value.
+        var (state, fillerId) = BuildBoundaryLoyaltyScenario(fillerAllegiance: Loser, fillerLoyalty: 30);
+        var result = CityCaptureResolver.Capture(
+            state, "army", "captured", Ruleset, CaptureTestbed.ArcherUnitTypeId, CaptureTestbed.FortifyOrderId,
+            NullEventSink.Instance);
+
+        Assert.Equal(ExpectedConquestLoyalty(state, fillerId, 70), result.CityById(fillerId)!.Loyalty);
+    }
+
+    [Fact]
+    public void AllegiantLoyalty_AtThirtyNine_ClampsAtTheCap_WhenTheRawTargetWouldExceedIt()
+    {
+        // target = 120 - 39 = 81, past ConquestAllegiantCap (80) -- deleting the cap's own Math.Min (MC4)
+        // would let 81 through uncapped, which this test would then catch.
+        var (state, fillerId) = BuildBoundaryLoyaltyScenario(fillerAllegiance: Winner, fillerLoyalty: 39);
+        var result = CityCaptureResolver.Capture(
+            state, "army", "captured", Ruleset, CaptureTestbed.ArcherUnitTypeId, CaptureTestbed.FortifyOrderId,
+            NullEventSink.Instance);
+
+        Assert.Equal(ExpectedConquestLoyalty(state, fillerId, 80), result.CityById(fillerId)!.Loyalty);
+    }
+
+    [Fact]
+    public void AllegiantLoyalty_AtForty_LandsOnTheCapBoundaryUnclamped()
+    {
+        // target = 120 - 40 = 80, exactly ConquestAllegiantCap -- the companion boundary that, paired
+        // with the L=39 test above, pins the cap at exactly 80 rather than some other nearby value.
+        var (state, fillerId) = BuildBoundaryLoyaltyScenario(fillerAllegiance: Winner, fillerLoyalty: 40);
+        var result = CityCaptureResolver.Capture(
+            state, "army", "captured", Ruleset, CaptureTestbed.ArcherUnitTypeId, CaptureTestbed.FortifyOrderId,
+            NullEventSink.Instance);
+
+        Assert.Equal(ExpectedConquestLoyalty(state, fillerId, 80), result.CityById(fillerId)!.Loyalty);
+    }
+
+    /// <summary>
+    /// Review round 1, B2/MA4: no existing test before this file's round-1 rework had the winner already
+    /// bordering the loser before conquest, so the neighbour merge's own "except the winner" exclusion
+    /// (<see cref="ConquestCascade"/>'s own remarks) could be deleted with all 3011 tests still green.
+    /// </summary>
+    [Fact]
+    public void TheNeighbourMerge_ExcludesTheWinnerFromItsOwnNeighbourList_WhenTheWinnerAlreadyBorderedTheLoser()
+    {
+        const string Bystander = "bystander-self-loop";
+        var scenario = BuildConqueringScenario();
+        var bystander = CaptureTestbed.Nation(Bystander);
+        var stateWithNeighbours = scenario.State with
+        {
+            Nations = ValueList.From(scenario.State.Nations.Append(bystander)),
+            Neighbours = ValueList.Of(
+                new NationNeighbours(Loser, ValueList.Of(Winner, Bystander)),
+                new NationNeighbours(Winner, ValueList.Of(Loser)),
+                new NationNeighbours(Bystander, ValueList.Of(Loser))),
+        };
+
+        var result = Capture((stateWithNeighbours, scenario.CapturedCityId), NullEventSink.Instance);
+
+        var neighbours = result.Neighbours!;
+        var winnerEntry = neighbours.Single(e => e.NationId == Winner);
+        var bystanderEntry = neighbours.Single(e => e.NationId == Bystander);
+
+        // The "except the winner" exclusion keeps the winner out of its OWN neighbour list; deleting it
+        // (MA4) would add Winner to winnerEntry's own NeighbourIds through the very same toMerge set that
+        // adds Bystander -- a self-loop the original's own BTS instructions never produce.
+        Assert.DoesNotContain(Winner, winnerEntry.NeighbourIds);
+        // The loser's OTHER neighbour still gets merged in as usual.
+        Assert.Contains(Bystander, winnerEntry.NeighbourIds);
+        Assert.Contains(Winner, bystanderEntry.NeighbourIds);
+    }
+
     /// <summary>Effect 1's own per-city credits: wealth, tax base and treasury, on the same filler as the loyalty test above.</summary>
     [Fact]
     public void EveryLoserCity_CreditsTheWinnersWealthTaxBaseAndTreasury()
