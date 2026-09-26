@@ -24,31 +24,29 @@ namespace IC2.Engine.Tests.Cities.Capture;
 /// <para>
 /// <strong>T90/#409: "ancyra" is both a scripted defection candidate and Galatia's own capital.</strong>
 /// This fixture names Galatia's capital <c>"ancyra"</c> (line below) and, independently, names one of the
-/// seven weakly-defended candidate cities <c>"ancyra"</c> too — the same city. T90's corrected
-/// <c>FUN_0044b8d0</c> gate excludes it from the cascade outright, because it IS Galatia's capital, so it
-/// can only ever leave through the conquest cascade below (T86), never through defection — matching bug
-/// #407's own symptom.
+/// seven candidate cities <c>"ancyra"</c> too — the same city. T90's corrected <c>FUN_0044b8d0</c> gate
+/// excludes it from the cascade outright, because it IS Galatia's capital, so it can only ever leave
+/// through the conquest cascade below (T86), never through defection — matching bug #407's own symptom.
 /// </para>
 /// <para>
 /// <strong>T91/#415: why the corrected gate leaves only Synnada and Acroinon as defectors, not six.</strong>
 /// Before this fix, the gate read Seleucid's (the new owner's) own unity, which starts at 500 and stays
-/// under 650 throughout regardless of what Galatia's own trajectory does — so every non-capital candidate
-/// that cleared the OTHER gates defected during Laranda's own single capture call, leaving Galatia down to
-/// one city (Gordium) immediately. Reading Galatia's own unity instead means NO candidate can defect until
-/// Galatia's own unity first crosses 650, which does not happen until AFTER Gordium's own capture (653 →
-/// 638) — so this scenario now drives two separate <see cref="CityCaptureResolver.Capture"/> calls, one per
-/// historical siege, exactly as the two "falls to" events in the save's own news log imply. Pessinus,
-/// Gangra, Nyssa and Halys are given loyalty at/above <see cref="CaptureRules.CascadeLoyaltyThreshold"/>
-/// (65) so they fail the cascade's own separate loyalty gate even once Galatia's unity gate opens for
-/// Gordium's own cascade — leaving exactly Synnada and Acroinon (loyalty 10, well under the threshold) to
-/// defect, and the remaining five (Pessinus, Ancyra, Gangra, Nyssa, Halys) to fall to the conquest cascade
-/// that fires in that same call once Galatia drops to 5 cities, under
-/// <see cref="CaptureRules.ConquestCityCountThreshold"/> (6). This is exactly the save's own news log: two
-/// "falls to" lines (Laranda, Gordium), two "defects from" lines (Synnada, Acroinon), and the conquest
-/// banner taking the rest.
+/// under 650 throughout regardless of what Galatia's own trajectory does — so, under T90's own
+/// already-corrected capital gate (immediately above), every non-capital candidate that cleared the OTHER
+/// gates defected during Laranda's own single capture call, leaving Galatia with two cities: Ancyra
+/// (excluded by the capital gate) and Gordium (not yet captured). Reading Galatia's own unity instead means
+/// NO candidate can defect until Galatia's own unity first crosses 650, which does not happen until AFTER
+/// Gordium's own capture (653 → 638) — so this scenario now drives two separate
+/// <see cref="CityCaptureResolver.Capture"/> calls, one per historical siege, exactly as the two "falls to"
+/// events in the save's own news log imply. Pessinus, Gangra, Nyssa and Halys are given loyalty at/above
+/// <see cref="CaptureRules.CascadeLoyaltyThreshold"/> (65) so they fail the cascade's own separate loyalty
+/// gate even once Galatia's unity gate opens for Gordium's own cascade — leaving exactly Synnada and
+/// Acroinon (loyalty 10, well under the threshold) to defect, and the remaining five (Pessinus, Ancyra,
+/// Gangra, Nyssa, Halys) to fall to the conquest cascade that fires in that same call once Galatia drops to
+/// 5 cities, under <see cref="CaptureRules.ConquestCityCountThreshold"/> (6). This is exactly the save's
+/// own news log: two "falls to" lines (Laranda, Gordium), two "defects from" lines (Synnada, Acroinon), and
+/// the conquest banner taking the rest.
 /// </para>
-/// </remarks>
-/// <remarks>
 /// <para>
 /// <strong>How the two mechanisms are reproduced, and what is fixture data versus what this task's code
 /// actually decides.</strong> Laranda and Gordium are captured directly through
@@ -89,12 +87,15 @@ namespace IC2.Engine.Tests.Cities.Capture;
 /// news log (<c>galatia-elimination-and-city-resupply-confirmed.md</c>): Synnada, Pessinus, Acroinon,
 /// Ancyra, Gangra, Nyssa, Halys — are placed and given loyalty/defence figures so that this task's own
 /// <see cref="CityCaptureResolver"/> code, not a scripted outcome, decides which of them defect during
-/// Gordium's own cascade (Synnada and Acroinon only, T91 — matching the corpus's own corrected
-/// <c>elimination.galatiaDefectsFromCount</c>, 2) and which are left for the conquest cascade (Pessinus,
-/// Ancyra, Gangra, Nyssa, Halys); their exact pre-elimination fortification/population are not
-/// individually in the corpus, so the assertion this scenario proves for the two defectors is the
-/// confirmed structural one — <c>defection.neverChangesPopOrFort</c> — not a
-/// specific historical number.
+/// Gordium's own cascade and which are left for the conquest cascade. Only Synnada and Acroinon are
+/// weakly-defended, low-loyalty candidates (loyalty 10) that clear every gate — matching the corpus's own
+/// corrected <c>elimination.galatiaDefectsFromCount</c>, 2. Pessinus, Gangra, Nyssa and Halys are
+/// deliberately NOT weak candidates: their loyalty (70) sits at/above
+/// <see cref="CaptureRules.CascadeLoyaltyThreshold"/> on purpose, so the cascade's own loyalty gate — not a
+/// scripted skip — is what leaves them for the conquest cascade (Pessinus, Ancyra, Gangra, Nyssa, Halys)
+/// instead. Their exact pre-elimination fortification/population are not individually in the corpus, so
+/// the assertion this scenario proves for the two defectors is the confirmed structural one —
+/// <c>defection.neverChangesPopOrFort</c> — not a specific historical number.
 /// </para>
 /// </remarks>
 public sealed class GalatiaEliminationScenarioTests

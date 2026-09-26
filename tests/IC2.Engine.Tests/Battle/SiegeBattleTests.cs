@@ -452,16 +452,20 @@ public class SiegeBattleTests
     }
 
     /// <summary>
-    /// <see cref="Fixture"/>, with South's own capital moved off Meridia onto an id South does not own, and
-    /// a third, eliminated nation ("gone") left holding a stale <see cref="NationState.CapitalCityId"/> of
-    /// "meridia" instead -- <c>FUN_0044B8D0</c> has no liveness check of its own (T90/#409), so an
-    /// eliminated nation's stale pointer gates this exactly like a living one's.
+    /// <see cref="Fixture"/>, with South's own capital cleared (review round 1, N2: <c>null</c>, not a
+    /// hand-picked id that names no city -- <c>GameDataValidation.cs:87</c> rejects a non-null
+    /// <see cref="NationState.CapitalCityId"/> that <see cref="World.CityById"/> cannot resolve, so a fake
+    /// id would be an unreachable state; <c>null</c> is always valid, the same as a nation that has not yet
+    /// been assigned or has lost its capital), and a third, eliminated nation ("gone") left holding a stale
+    /// <see cref="NationState.CapitalCityId"/> of "meridia" instead -- <c>FUN_0044B8D0</c> has no liveness
+    /// check of its own (T90/#409), so an eliminated nation's stale pointer gates this exactly like a
+    /// living one's.
     /// </summary>
     private static GameState FixtureWithStaleMeridiaCapital(int meridiaLoyalty)
     {
         var state = Fixture();
         var south = state.NationById("south")!;
-        var southWithoutMeridiaCapital = south with { CapitalCityId = "not-meridia" };
+        var southWithoutMeridiaCapital = south with { CapitalCityId = null };
         var staleNation = south with { Id = "gone", Name = "Gone", CapitalCityId = "meridia", Eliminated = true };
         var meridia = state.CityById("meridia")! with { Loyalty = meridiaLoyalty };
 

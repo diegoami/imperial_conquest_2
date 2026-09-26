@@ -387,14 +387,18 @@ public static class CityCaptureResolver
             // filter above), so this is THE LOSER's own unity, not the new owner's (T17's original
             // misreading). Read live off `currentState` -- exactly the same live-read this method already
             // used for the new owner before this fix -- so a candidate later in iteration order sees every
-            // earlier defection's own -20 (DefectionUnityLoss) already applied. (Whether that live re-read
-            // is independently observable here is a separate question from whether it is faithful: the
-            // loser's own unity only ever decreases across one sweep, and a strict "<" gate can never flip
-            // from qualifying back to not-qualifying as its own input keeps falling -- so a snapshot taken
-            // once at the top of this method would in fact answer every unity-gate query in this loop
-            // identically to a live re-read. This is still written as a live read, matching the decompile's
-            // own inline global-array access and the pattern this file already used for the new owner, not
-            // because a test can tell the two apart.)
+            // earlier defection's own -20 (DefectionUnityLoss, floored at 250) already applied. (Whether
+            // that live re-read is independently observable here is a separate question from whether it is
+            // faithful: review round 1, B2b -- the loser's own unity does not simply "only ever decrease",
+            // since Defect's own floor at 250 can RAISE a value already below that (max(250, u - 20)); the
+            // invariant that actually holds is narrower and is the one this gate needs -- once the loser's
+            // unity is below CascadeUnityThreshold (650), every later value in the same sweep (a further
+            // -20, or a floor at 250, or an elimination's reset to 0) stays below 650 too, so a strict "<"
+            // gate can never flip from qualifying back to not-qualifying as the sweep continues. A snapshot
+            // taken once at the top of this method would therefore answer every unity-gate query in this
+            // loop identically to a live re-read. This is still written as a live read, matching the
+            // decompile's own inline global-array access and the pattern this file already used for the new
+            // owner, not because a test can tell the two apart.)
             var currentCandidate = currentState.CityById(candidate.Id)!;
             var currentLoser = currentState.NationById(oldOwnerId)!;
             if (currentLoser.Unity >= rules.CascadeUnityThreshold || currentCandidate.Loyalty >= rules.CascadeLoyaltyThreshold)

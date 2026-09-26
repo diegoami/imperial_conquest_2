@@ -34,6 +34,20 @@ namespace IC2.Engine.Tests.Cities.Capture;
 /// </description></item>
 /// </list>
 /// </summary>
+/// <remarks>
+/// Review round 1, N1: step 1's reachability depends on <see cref="ConquestTrigger.Evaluate"/>'s own
+/// <c>if (loser.Eliminated)</c> early return (T86's code, outside this task's Owns) — a known engine
+/// deviation from the original, now bug #424. In the decompile, emptying a loser through the sweep does
+/// NOT skip the conquest routine: <c>FUN_0044BB18</c> (:50211–50226) always reaches
+/// <c>FUN_0044C528(loser, winner)</c> once the sweep returns, regardless of how many cities the loser has
+/// left, and that routine sets the loser's own capital pointer to <c>0xFFFF</c> — so the original would
+/// NOT leave X's stale pointer intact through this exact route. The state this test builds is reachable in
+/// the engine as it stands today (the contract for T91 asks for exactly this construction, the same one
+/// T90's own review used), but fixing #424 will make step 1 run <see cref="ConquestCascade.Apply"/> against
+/// X instead of stopping short, clearing X's capital pointer there too — which will change or retire this
+/// test. The stale-pointer state stays reachable in the original through a different mechanism (rebirth,
+/// <c>FUN_0044C360</c>), so bugs #416/#409 S4 remain correct independently of #424.
+/// </remarks>
 public sealed class StaleCapitalPostSweepBranchTests
 {
     private const string EliminatedNation = "x";

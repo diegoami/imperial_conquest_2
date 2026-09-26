@@ -217,10 +217,12 @@ public static class ConquestTrigger
             // path can leave behind -- is reproduced here through the same CapitalOwnership.IsAnyNationsCapital
             // predicate T90's cascade gate and InstantBattleResolver's own siege-strength call both use, so
             // a candidate destination scores the boosted strength whenever ANY nation's capital pointer
-            // names it -- the loser's own still-standing capital (reachable here precisely because bug
-            // #416 means "the captured city was a capital" no longer implies "the captured city was
-            // THIS loser's own capital"), a third nation's, or an eliminated one's stale pointer alike --
-            // exactly like the original's FUN_0044B8D0, never just a single nation's own field.
+            // names it: a third (living) nation's own capital, or an eliminated nation's stale one.
+            // Review round 1, B2a: the loser's OWN still-standing capital is never reachable here, and this
+            // remark no longer claims it is. `former` (below) is read from `formerCapitalId`, the loser's
+            // own CapitalCityId, so the loser's own capital is always at distance 0 from `former` and the
+            // distance filter above excludes it before this line ever runs -- exactly like the original's
+            // own `10 < d` gate in FUN_0044BD2C, measured from the same `DAT_00474AB4[loser]`.
             var strength = CompleteDefenderStrength.Compute(
                 city, fortifyOrder, CapitalOwnership.IsAnyNationsCapital(state, city.Id), ownerDiffersFromAllegiance, loser, ruleset);
             // Order matters in the addendum's own pseudocode (":50267, divide by 10 first, then by d"),
