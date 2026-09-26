@@ -37,8 +37,12 @@ public sealed class RebellionTests
     /// <summary>
     /// (a) <c>[confirmed]</c>: a dead allegiance nation (unity &lt;= 0) runs the rebirth check
     /// (T87's own call, not here) and nothing else -- the city stays exactly where it is, with no
-    /// fallback to (c) or (d). <see cref="Assert.Same"/> is the strongest form of "no write at all":
-    /// <see cref="Rebellion.Run"/> returns the very same <see cref="GameState"/> reference, not a copy.
+    /// fallback to (c) or (d). Review round 1, B2: the original fixture had no army and no neighbour, so
+    /// (c) and (d) would have found nothing anyway -- proving nothing about the fallback itself, since a
+    /// mutant that falls through to (c)/(d) on a dead allegiance would still leave this test green. "gaul"
+    /// is both at war with "rome" (an army 2 tiles away, so (c) would pick it) and "rome"'s only neighbour
+    /// (so (d) would pick it too, if (c) somehow missed) -- either fallback would move the city, so
+    /// <see cref="Assert.Same"/> genuinely proves neither runs.
     /// </summary>
     [Fact]
     public void A_DeadAllegianceNation_LeavesTheCityInPlace_WithNoFallbackToCOrD()
@@ -46,9 +50,20 @@ public sealed class RebellionTests
         var city = CaptureTestbed.City(
             "c1", "City", 0, 0, "rome", "carthage", loyalty: 20, fortificationCode: 0,
             populationThousands: 10, maxPopulationThousands: 20, tribute: 5);
+        var gaulCapital = CaptureTestbed.City(
+            "gaul-cap", "GaulCap", 3, 0, "gaul", "gaul", 90, 0, 10, 20, 5);
         var rome = CaptureTestbed.Nation("rome", unity: 600);
         var carthage = CaptureTestbed.Nation("carthage", unity: 0); // <= 0: dead.
-        var state = EliminationForcesTestbed.StateWith(new[] { rome, carthage }, new[] { city });
+        var gaul = CaptureTestbed.Nation("gaul", unity: 600, capitalCityId: "gaul-cap");
+        var gaulArmy = CaptureTestbed.Army("gaul-army", "gaul", x: 2, y: 0, morale: 50); // distance 2.
+
+        var state = EliminationForcesTestbed.StateWith(
+            new[] { rome, carthage, gaul }, new[] { city, gaulCapital }, new[] { gaulArmy });
+        state = state with
+        {
+            Relations = state.Relations.WithRelation("rome", "gaul", Ruleset.Diplomacy.StateCodes.War),
+            Neighbours = ValueList.From(new[] { new NationNeighbours("rome", ValueList.From(new[] { "gaul" })) }),
+        };
 
         var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance);
 
