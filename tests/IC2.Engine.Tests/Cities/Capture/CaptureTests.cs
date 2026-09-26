@@ -199,9 +199,14 @@ public sealed class CaptureTests
         var newOwner = CaptureTestbed.Nation("new", recruitmentSlots: ValueList.From(new[] { newOwnerSlot }));
         var attacker = CaptureTestbed.Army("army", "new", 0, 0, morale: 50, CaptureTestbed.Unit("heavy_infantry", 1000));
 
+        // T86: 5 filler cities, far from the attacker, so "old" keeps 6 cities after losing "c1" (c2 + 5
+        // fillers) -- at CaptureRules.ConquestCityCountThreshold, not below it, so the conquest cascade
+        // (which would wipe every recruitment slot outright) never fires here.
+        var fillerCities = CaptureTestbed.FillerCities("old", 5, startX: 1000, y: 1000);
+
         var state = CaptureTestbed.StateWith(
             nations: new[] { oldOwner, newOwner },
-            cities: new[] { city, otherCity },
+            cities: new[] { city, otherCity }.Concat(fillerCities),
             armies: new[] { attacker });
 
         var result = CityCaptureResolver.Capture(

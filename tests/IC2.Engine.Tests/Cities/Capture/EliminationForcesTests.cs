@@ -342,9 +342,15 @@ public sealed class EliminationForcesTests
             BuildCityId = "doomed-second",
         };
 
+        // T86: 5 filler cities, far from the attacker, so "doomed" keeps 6 cities after losing
+        // "doomed-first" (doomed-second + 5 fillers) -- at CaptureRules.ConquestCityCountThreshold, not
+        // below it, so the conquest cascade (which would dispose of doomed's forces outright) never fires
+        // here -- this test is about Capture's own JustEliminated == false guard, not conquest.
+        var fillerCities = CaptureTestbed.FillerCities("doomed", 5, startX: 1000, y: 1000);
+
         var state = EliminationForcesTestbed.StateWith(
             new[] { doomed, capturer },
-            new[] { doomedFirstCity, doomedSecondCity },
+            new[] { doomedFirstCity, doomedSecondCity }.Concat(fillerCities),
             new[] { attacker, xArmy },
             new[] { xFleet, xConstructionFleet });
 

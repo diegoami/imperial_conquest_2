@@ -105,81 +105,85 @@ public sealed class GalatiaEliminationScenarioTests
 
         var sink = new RecordingEventSink();
 
-        // Siege 1: Laranda falls, and its cascade sweeps the seven weakly-defended cities.
-        var afterLaranda = CityCaptureResolver.Capture(
+        // Siege 1: Laranda falls (not Galatia's capital -- that is "ancyra", not part of this scenario),
+        // and its cascade sweeps the seven weakly-defended cities. That leaves Galatia owning only
+        // Gordium -- 1 city, under CaptureRules.ConquestCityCountThreshold (6) -- so T86's own conquest
+        // trigger fires in this SAME call, sweeping Gordium away too, with no second siege needed. This
+        // is exactly Galatia's own historical shape (galatia-elimination-and-city-resupply-confirmed.md):
+        // a conquest below 6 cities silently takes the remaining city with no "falls to" news line of its
+        // own, only the cascade's "defects from" lines and the final "X conquers Y." banner.
+        var final = CityCaptureResolver.Capture(
             state, "seleucid-army", "laranda", ruleset, CaptureTestbed.ArcherUnitTypeId, CaptureTestbed.FortifyOrderId, sink);
 
-        // Galatia now holds only Gordium.
-        Assert.Equal(1, afterLaranda.CountCitiesOwnedBy(Galatia));
-        Assert.False(afterLaranda.NationById(Galatia)!.Eliminated);
+        // ---- DoD 2 / DoD 3, after Laranda's own capture plus the cascade's seven defections (before the
+        // conquest trigger's own effects below): treasury, tax base, wealth and unity all move by the
+        // confirmed single-city terms. Laranda's contribution is 10*59/80 = 7 (treasury/tax base += 7*4 =
+        // 28); every defector's own contribution truncates to 0 (tribute 2 * population <= 9 / max 30),
+        // so the cascade adds nothing further to treasury or tax base, only wealth (population*3000,
+        // summed: 6+7+6+8+9+9+7 = 52 -> 156,000) and unity (+3 per defection for Seleucid, -20 floored at
+        // 250 per defection for Galatia). These are intermediate values, not final ones -- the conquest
+        // trigger's own effects (below) add Gordium's own contribution on top, through its own distinct
+        // multipliers.
+        //
+        // T86: Laranda's own loyalty is now a formula, not the flat 40 floor -- allegiance ("galatia")
+        // differs from the new owner ("seleucid"), so max(ForcedCaptureFloor, min(ForcedCaptureCap,
+        // NonAllegiantTransferBase - L)) = max(40, min(60, 100 - 30)) = max(40, 60) = 60.
+        Assert.Equal(60, final.CityById("laranda")!.Loyalty);
 
-        // ---- DoD 2 / DoD 3, after Laranda's own capture plus the cascade's seven defections: treasury,
-        // tax base, wealth, unity and city count all move by the confirmed terms. Laranda's contribution
-        // is 10*59/80 = 7 (treasury/tax base += 7*4 = 28); every defector's own contribution truncates to
-        // 0 (tribute 2 * population <= 9 / max 30), so the cascade adds nothing further to treasury or tax
-        // base, only wealth (population*3000, summed: 6+7+6+8+9+9+7 = 52 -> 156,000) and unity (+3 per
-        // defection for Seleucid, -20 floored at 250 per defection for Galatia). ----
-        var seleucidAfterLaranda = afterLaranda.NationById(Seleucid)!;
-        Assert.Equal(28, seleucidAfterLaranda.Treasury); // 7*4, no further treasury credit from the (all-zero-contribution) cascade.
-        Assert.Equal(28, seleucidAfterLaranda.TaxBase);
-        Assert.Equal(333_000, seleucidAfterLaranda.Wealth); // 59*3000 (Laranda) + 52*3000 (the seven defectors' populations).
-        Assert.Equal(530, seleucidAfterLaranda.Unity); // 500 + 9 (Laranda) + 3*7 (seven defections).
+        // ---- T86: Gordium is conquered, not captured a second time -- its own conquest loyalty formula
+        // (allegiance "galatia" differs from the new owner too): min(70, max(40, 100 - 35)) = min(70, 65)
+        // = 65, plus one independent Random(6) draw the production code derives from the same
+        // GameState.RandomSeed and the city's own id (ConquestCascade's own remarks) -- reproduced here
+        // directly rather than hard-coding whatever it happens to draw, so this assertion tracks the
+        // production formula instead of one arbitrary seed's output.
+        var expectedGordiumBonus = SplitMix64Rng.ForStream(state.RandomSeed, "capture.conquestLoyalty")
+            .ForStream("gordium")
+            .NextInt(ruleset.Capture.ConquestLoyaltyRandomBonusMax);
+        Assert.Equal(65 + expectedGordiumBonus, final.CityById("gordium")!.Loyalty);
 
-        var galatiaAfterLaranda = afterLaranda.NationById(Galatia)!;
-        Assert.Equal(-28, galatiaAfterLaranda.TaxBase);
-        Assert.Equal(-333_000, galatiaAfterLaranda.Wealth);
-        Assert.Equal(513, galatiaAfterLaranda.Unity); // 668 - 15 (Laranda) - 20*7 (seven defections), none hitting the 250 floor.
-
-        // DoD 2: Laranda's loyalty moves to the forced-capture floor (owner now differs from allegiance).
-        Assert.Equal(40, afterLaranda.CityById("laranda")!.Loyalty);
-
-        // Siege 2: Gordium falls -- Galatia's last city, eliminating it.
-        var final = CityCaptureResolver.Capture(
-            afterLaranda, "seleucid-army", "gordium", ruleset, CaptureTestbed.ArcherUnitTypeId, CaptureTestbed.FortifyOrderId, sink);
-
-        // ---- DoD 2 / DoD 3 / DoD 4, after Gordium's own capture (Galatia's last city, contribution
-        // 8*23/40 = 4): the same confirmed terms, plus elimination. ----
+        // ---- Final Seleucid totals: the single-city terms above, plus Gordium's own conquest-cascade
+        // contribution (contribution 8*23/40 = 4) through the conquest's own distinct multipliers --
+        // ConquestTreasuryCreditMultiplier (6, not the single-capture CaptureTreasuryCreditMultiplier, 4)
+        // for treasury, the same generic economy multipliers for tax base and wealth, and
+        // ConquestWinnerUnityGain (50, not the single-capture CaptureUnityGain, 9) for unity. ----
         var seleucidFinal = final.NationById(Seleucid)!;
-        Assert.Equal(44, seleucidFinal.Treasury); // 28 + 4*4.
-        Assert.Equal(44, seleucidFinal.TaxBase);
-        Assert.Equal(402_000, seleucidFinal.Wealth); // 333,000 + 23*3000.
-        Assert.Equal(539, seleucidFinal.Unity); // 530 + 9.
+        Assert.Equal(52, seleucidFinal.Treasury); // 28 + 4*6.
+        Assert.Equal(44, seleucidFinal.TaxBase); // 28 + 4*4 -- the same generic multiplier either way.
+        Assert.Equal(402_000, seleucidFinal.Wealth); // 333,000 + 23*3000 -- the same generic multiplier either way.
+        Assert.Equal(580, seleucidFinal.Unity); // 530 + 50 (conquest), not +9 (a second forced capture).
         Assert.Equal(9, final.CountCitiesOwnedBy(Seleucid)); // Every one of Galatia's 9 cities.
 
-        // DoD 2: Gordium's loyalty also moves to the forced-capture floor.
-        Assert.Equal(40, final.CityById("gordium")!.Loyalty);
-
-        // ---- Exactly 2 "falls to", exactly 7 "defects from" (DoD 1, DoD 6). ----
+        // ---- Exactly 1 "falls to" (Laranda only -- Gordium's own conquest sweep writes no such event,
+        // matching the historical Galatia record's own silent transfers), exactly 7 "defects from"
+        // (DoD 1, DoD 6). ----
         var fallsTo = sink.Events.OfType<CityFallsToNation>().ToArray();
         var defectsFrom = sink.Events.OfType<CityDefectsToNation>().ToArray();
-        Assert.Equal(2, fallsTo.Length);
+        Assert.Single(fallsTo);
         Assert.Equal(7, defectsFrom.Length);
-        Assert.Equal(new[] { "Laranda", "Gordium" }, fallsTo.Select(e => e.CityName).ToArray());
+        Assert.Equal("Laranda", Assert.Single(fallsTo).CityName);
         Assert.Equal(DefectorIds, defectsFrom.Select(e => e.CityName).ToArray());
-        foreach (var e in fallsTo)
-        {
-            Assert.Equal(Galatia, e.OldOwner);
-            Assert.Equal(Seleucid, e.NewOwner);
-        }
+        Assert.Equal(Galatia, fallsTo[0].OldOwner);
+        Assert.Equal(Seleucid, fallsTo[0].NewOwner);
         foreach (var e in defectsFrom)
         {
             Assert.Equal(Galatia, e.OldOwner);
             Assert.Equal(Seleucid, e.NewOwner);
         }
 
-        // ---- The falls-to pair keeps whatever population/fortification it already carried into the
-        // transfer: FUN_0044bb18's own confirmed pseudocode has no population or fortification term, so
-        // Capture leaves both exactly as given -- the real, historical PRE-siege figures this scenario
-        // constructed them with (Laranda 41/59, Gordium 54/23). The real POST-capture figures (Laranda
-        // 30/44, Gordium 42/18, same report) are NOT asserted here, but T63 (bug #293) means this is no
-        // longer an evidence gap: FUN_0044b230's erosion formula is now decompiled and confirmed (see the
-        // class remarks), and reproducing those two figures is exactly what
+        // ---- Laranda keeps whatever population/fortification it already carried into the transfer:
+        // FUN_0044bb18's own confirmed pseudocode has no population or fortification term, so Capture
+        // leaves both exactly as given -- the real, historical PRE-siege figures this scenario
+        // constructed it with (41/59). The real POST-capture figures (30/44, same report) are NOT
+        // asserted here, but T63 (bug #293) means this is no longer an evidence gap: FUN_0044b230's
+        // erosion formula is now decompiled and confirmed (see the class remarks), and reproducing that
+        // figure is exactly what
         // SiegeAttritionTests.GalatiaHistoricalCaptures_ReproduceThePostSiegeFiguresThroughResolveSiege
         // proves, through InstantBattleResolver.ResolveSiege -- the method that owns erosion, not this
-        // one (N-2, T63 review round 3: DoD 5 is met in substance there, not by changing the two
-        // literal assertions just below). This scenario calls Capture directly, deliberately bypassing
-        // ResolveSiege, to isolate FUN_0044bb18's own transfer pseudocode from a real attempt's erosion;
-        // that isolation is the reason these two fields are unchanged here, not a missing formula. ----
+        // one. This scenario calls Capture directly, deliberately bypassing ResolveSiege, to isolate
+        // FUN_0044bb18's own transfer pseudocode from a real attempt's erosion; that isolation is the
+        // reason this field is unchanged here, not a missing formula. Gordium, being conquered rather
+        // than captured, keeps its own population/fortification unchanged too -- ConquestCascade's own
+        // effect list has no such term either, exactly like the single-city formulas. ----
         Assert.Equal(41, final.CityById("laranda")!.FortificationCode);
         Assert.Equal(59, final.CityById("laranda")!.PopulationThousands);
         Assert.Equal(54, final.CityById("gordium")!.FortificationCode);
@@ -194,12 +198,16 @@ public sealed class GalatiaEliminationScenarioTests
             Assert.Equal(Seleucid, after.Owner);
         }
 
-        // ---- DoD 4: Galatia is eliminated once its last city (Gordium) is gone. ----
+        // ---- DoD 4 / T86: Galatia is conquered once it drops below the conquest threshold. Its capital
+        // IS cleared (unlike a defection's own capital-preserving elimination -- see
+        // NationElimination's own remarks): ConquestCascade's own effect list writes the sentinel
+        // explicitly. ----
         Assert.Equal(0, final.CountCitiesOwnedBy(Galatia));
         var galatiaAfter = final.NationById(Galatia)!;
         Assert.True(galatiaAfter.Eliminated);
         Assert.Null(galatiaAfter.CapitalCityId);
         Assert.Equal(0, galatiaAfter.Unity); // The confirmed Galatia figure: 668 -> 0.
+        Assert.Equal(Seleucid, galatiaAfter.ConqueredBy);
 
         var conquered = Assert.Single(sink.Events.OfType<NationConquered>());
         Assert.Equal(Seleucid, conquered.ConqueringNation);

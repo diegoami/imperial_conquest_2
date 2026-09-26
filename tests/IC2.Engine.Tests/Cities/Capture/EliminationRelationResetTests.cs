@@ -1,3 +1,4 @@
+using System.Linq;
 using IC2.Engine.Cities.Capture;
 using IC2.Engine.Core;
 using IC2.Engine.Diplomacy;
@@ -153,7 +154,10 @@ public sealed class EliminationRelationResetTests
         const string Conqueror = "conqueror-partial";
         const string TradePartner = "surviving-trade-partner";
 
-        var notYetDoomed = CaptureTestbed.Nation(NotYetDoomed, unity: 668, capitalCityId: "capital-ntd");
+        // T86: the captured city is deliberately NOT the capital ("second-ntd" is), so this stays the
+        // plain non-capital "fewer than 6 cities" trigger, not the capital-move-or-conquest branch --
+        // simpler, and this test is about the "still owns enough cities" gate, not capital handling.
+        var notYetDoomed = CaptureTestbed.Nation(NotYetDoomed, unity: 668, capitalCityId: "second-ntd");
         var conqueror = CaptureTestbed.Nation(Conqueror);
         var tradePartner = CaptureTestbed.Nation(TradePartner);
 
@@ -166,8 +170,16 @@ public sealed class EliminationRelationResetTests
         var attacker = CaptureTestbed.Army(
             "army", Conqueror, 0, 0, morale: 50, CaptureTestbed.Unit("heavy_infantry", 400_000));
 
+        // T86: 5 filler cities, far from the attacker, so NotYetDoomed keeps 6 cities after losing
+        // "capital-ntd" (second-ntd + 5 fillers) -- at CaptureRules.ConquestCityCountThreshold, not below
+        // it, so the conquest cascade never fires and this stays the plain "still owns a city" case DoD
+        // 4 bullet 4 is actually about, not conquest sweeping the rest away too.
+        var fillerCities = CaptureTestbed.FillerCities(NotYetDoomed, 5, startX: 1000, y: 1000);
+
         var state = CaptureTestbed.StateWith(
-            new[] { notYetDoomed, conqueror, tradePartner }, new[] { capturedCity, secondCity }, new[] { attacker });
+            new[] { notYetDoomed, conqueror, tradePartner },
+            new[] { capturedCity, secondCity }.Concat(fillerCities),
+            new[] { attacker });
         state = WithRelationMatrix(state, NotYetDoomed, Conqueror, TradePartner);
 
         var codes = Ruleset.Diplomacy.StateCodes;

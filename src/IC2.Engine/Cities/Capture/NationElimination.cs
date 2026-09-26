@@ -3,9 +3,12 @@ using IC2.Engine.Model;
 namespace IC2.Engine.Cities.Capture;
 
 /// <summary>
-/// DoD 4: "losing the last city eliminates the nation (capital sentinel set, unity reset)" — shared by
-/// both <see cref="CityCaptureResolver.Capture"/> and <see cref="CityCaptureResolver.Defect"/>, since
-/// either mechanism can take a nation's last city.
+/// DoD 4: "losing the last city eliminates the nation (unity reset)" — originally shared by both
+/// <see cref="CityCaptureResolver.Capture"/> and <see cref="CityCaptureResolver.Defect"/>; T86 makes it
+/// <see cref="CityCaptureResolver.Defect"/>'s alone. A forced capture that empties a nation now always
+/// goes through <see cref="ConquestTrigger"/>/<see cref="ConquestCascade"/> instead — conquest fires at
+/// fewer than <see cref="CaptureRules.ConquestCityCountThreshold"/> cities, strictly before a capture
+/// could ever reach zero, so this method's own capture call site is gone, not merely unreachable.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -46,28 +49,43 @@ public static class NationElimination
 {
     /// <summary>
     /// Checks whether <paramref name="nation"/> now owns zero cities in <paramref name="state"/> and, if
-    /// so, returns it eliminated: <see cref="NationState.CapitalCityId"/> cleared to the sentinel
-    /// (<see langword="null"/>) and <see cref="NationState.Unity"/> reset to
-    /// <see cref="CaptureRules.EliminationUnityReset"/>. Already-eliminated is idempotent: a nation that
-    /// was eliminated earlier in the round is returned unchanged, with <c>JustEliminated</c> false, so a
-    /// caller never re-publishes <see cref="NationConquered"/> for the same nation twice.
+    /// so, returns it eliminated: <see cref="NationState.Unity"/> reset to
+    /// <see cref="CaptureRules.EliminationUnityReset"/> and <see cref="NationState.ConqueredBy"/> set to
+    /// <paramref name="conquerorId"/>. Already-eliminated is idempotent: a nation that was eliminated
+    /// earlier in the round is returned unchanged, with <c>JustEliminated</c> false, so a caller never
+    /// re-runs the rest of its own elimination handling for the same nation twice.
     /// </summary>
+    /// <remarks>
+    /// T86: <see cref="NationState.CapitalCityId"/> is deliberately <em>not</em> touched here —
+    /// <c>decompiled-elimination-cleanup.md</c> §4's own defection elimination block
+    /// (<c>FUN_0044BED8</c>, this method's only remaining caller) never writes nation-record <c>+0x444</c>
+    /// at all, unlike the conquest cascade's own explicit sentinel write
+    /// (<see cref="ConquestCascade"/>'s own effect list, item 7). An earlier revision of this method
+    /// cleared the capital unconditionally, which was correct for the forced-capture call site it also
+    /// used to have; that call site is gone (see this type's own remarks), so the capital-preserving
+    /// defection behaviour is now this method's only behaviour, not a special case of it.
+    /// </remarks>
     /// <param name="state">
     /// The state <em>after</em> the ownership change that might have taken the nation's last city — this
     /// reads <see cref="GameState.Cities"/> as it stands right now, not before the transfer.
     /// </param>
     /// <param name="nation">The nation to check, already carrying whatever this ownership change did to it.</param>
     /// <param name="ruleset">Supplies <see cref="CaptureRules.EliminationUnityReset"/>.</param>
+    /// <param name="conquerorId">
+    /// The nation that received the city taking <paramref name="nation"/> to zero — written to
+    /// <see cref="NationState.ConqueredBy"/> only when this call is what eliminates it.
+    /// </param>
     /// <returns>
     /// The (possibly updated) nation, and whether this call is what eliminated it — as opposed to it
     /// already being eliminated, or still owning at least one city.
     /// </returns>
     public static (NationState Nation, bool JustEliminated) ApplyIfLastCityLost(
-        GameState state, NationState nation, Ruleset ruleset)
+        GameState state, NationState nation, Ruleset ruleset, string conquerorId)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(nation);
         ArgumentNullException.ThrowIfNull(ruleset);
+        ArgumentException.ThrowIfNullOrWhiteSpace(conquerorId);
 
         if (nation.Eliminated || state.CountCitiesOwnedBy(nation.Id) > 0)
         {
@@ -77,8 +95,8 @@ public static class NationElimination
         var eliminated = nation with
         {
             Eliminated = true,
-            CapitalCityId = null,
             Unity = ruleset.Capture.EliminationUnityReset,
+            ConqueredBy = conquerorId,
         };
 
         return (eliminated, true);
