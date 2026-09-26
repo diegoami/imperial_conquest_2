@@ -163,10 +163,12 @@ public sealed class SaveMigrationTests
 
     /// <summary>
     /// T86 Done-when 3's own version step: migrating a version-2 envelope to version 3 makes both new
-    /// fields explicit -- <c>state.neighbours</c> present as JSON <c>null</c>, and every nation's own
-    /// <c>conqueredBy</c> likewise -- rather than leaving them silently absent. Checked on the migrated
-    /// JSON tree directly, before deserialization, so this is a test of the migration step itself, not
-    /// only of the (identical, since both fields are optional) resulting <see cref="GameState"/>.
+    /// fields explicit. <c>conqueredBy</c> is always JSON <c>null</c> (a version-2 save never had a
+    /// conquest to record). <c>neighbours</c> is populated for real, from
+    /// <c>SaveManager.Load</c>'s own <c>expectedWorld</c> (Owns amendment PR #408) — not left
+    /// <see langword="null"/>, which is the pre-amendment PR #406 behaviour
+    /// <see cref="AnOlderSaveMissingTheNeighbourSetTakesItsWorldsOwnNeighbours"/>'s own mutation proof
+    /// still demonstrates.
     /// </summary>
     [Fact]
     public void MigratingAVersion2EnvelopeMakesNeighboursAndConqueredByExplicit()
@@ -180,10 +182,11 @@ public sealed class SaveMigrationTests
         var v2Envelope = BuildVersion2Envelope(save);
         var loaded = SaveManager.Load("v2-shape-test.json", v2Envelope.ToJsonString(), toy.World, toy.Ruleset);
 
-        // The migration wrote explicit nulls -- confirmed by loading successfully at all (a required,
-        // non-defaulted field would instead throw MissingRequiredFieldException) and by the resulting
-        // state matching a fresh version-3 round trip exactly.
-        Assert.Null(loaded.State.Neighbours);
+        // T86, Owns amendment PR #408: the migration is given expectedWorld (SaveManager.Load's own
+        // parameter), so a missing `neighbours` field is populated for real --
+        // NeighbourGeography.InitialAdjacency (the toy world's own startingNeighbours field or its
+        // geometric fallback), not left null.
+        Assert.Equal(NeighbourGeography.InitialAdjacency(toy.World), loaded.State.Neighbours);
         foreach (var nation in loaded.State.Nations)
         {
             Assert.Null(nation.ConqueredBy);
@@ -194,13 +197,16 @@ public sealed class SaveMigrationTests
     /// T86 Done-when 3: "an older save migrates by taking its world's neighbours" -- proved end to end
     /// through <see cref="SaveManager.Load"/>, not by inspecting migrated JSON. A version-2 save (built
     /// the same way as <see cref="MigratingAVersion2EnvelopeMakesNeighboursAndConqueredByExplicit"/>)
-    /// loads with <see cref="GameState.Neighbours"/> null, and <see cref="NeighbourGeography.AreNeighbours"/>
-    /// against that loaded state and the toy world answers exactly what it would for a fresh state whose
-    /// <see cref="GameState.Neighbours"/> was populated at New Game from the same world -- the toy
-    /// scenario's own two nations, "north" and "south", the only pair there is to check.
+    /// loads with <see cref="GameState.Neighbours"/> equal, value for value, to a fresh state's own
+    /// (populated at New Game from the same world) -- the toy scenario's own two nations, "north" and
+    /// "south". Mutation proof (Owns amendment PR #408's own instruction): dropping
+    /// <c>SaveManager.Load</c>'s own <c>expectedWorld</c> argument at its <c>SaveMigrations.MigrateToCurrent</c>
+    /// call site (reverting to the 3-argument overload) makes the migration write <see langword="null"/>
+    /// again, and this test fails immediately on the direct equality below -- see the PR's own mutation
+    /// log (M8).
     /// </summary>
     [Fact]
-    public void AnOlderSaveMissingTheNeighbourSetAnswersExactlyAsTheWorldsOwnData()
+    public void AnOlderSaveMissingTheNeighbourSetTakesItsWorldsOwnNeighbours()
     {
         var toy = PersistenceTestbed.Toy;
         var state = PersistenceTestbed.PlayTurns(2);
@@ -211,10 +217,12 @@ public sealed class SaveMigrationTests
         var v2Envelope = BuildVersion2Envelope(save);
         var loaded = SaveManager.Load("v2-neighbours-test.json", v2Envelope.ToJsonString(), toy.World, toy.Ruleset);
 
-        Assert.Null(loaded.State.Neighbours);
-
         var freshState = GameStateFactory.CreateInitial(toy.World, toy.Ruleset, toy.Scenario);
         Assert.NotNull(freshState.Neighbours);
+
+        // The direct equality: not merely "answers the same queries", the exact same value.
+        Assert.NotNull(loaded.State.Neighbours);
+        Assert.Equal(freshState.Neighbours, loaded.State.Neighbours);
 
         var nationIds = new List<string>();
         foreach (var nation in toy.World.Nations)

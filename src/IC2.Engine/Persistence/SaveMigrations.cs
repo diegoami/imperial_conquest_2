@@ -1,4 +1,7 @@
+using System.Text.Json;
 using System.Text.Json.Nodes;
+using IC2.Engine.Diplomacy;
+using IC2.Engine.Model;
 using IC2.Engine.Serialization;
 
 namespace IC2.Engine.Persistence;
@@ -19,10 +22,21 @@ internal static class SaveMigrations
     /// Steps <paramref name="envelope"/>, declaring <paramref name="foundVersion"/>, forward to
     /// <see cref="SaveFormat.CurrentVersion"/>.
     /// </summary>
+    /// <param name="expectedWorld">
+    /// The <see cref="World"/> the caller is running under, when one is available — <see cref="MigrateV2ToV3"/>'s
+    /// own use (T86, Owns amendment PR #408): a version-2 save's own missing <c>neighbours</c> field is
+    /// populated from this world's neighbours (<see cref="NeighbourGeography.InitialAdjacency"/> --
+    /// the world's own <c>startingNeighbours</c> field, or the same geometric fallback
+    /// <see cref="GameStateFactory.CreateInitial"/> itself uses) rather than left <see langword="null"/>.
+    /// <see langword="null"/> here (the default) means no such data is available -- <see cref="SaveManager.PeekSummary"/>'s
+    /// own call, which never touches the nested state at all, so leaving the field absent has no
+    /// observable effect there.
+    /// </param>
     /// <exception cref="UnsupportedSaveFormatException">
     /// <paramref name="foundVersion"/> is older than any version this build knows how to migrate from.
     /// </exception>
-    public static JsonObject MigrateToCurrent(string documentPath, JsonObject envelope, int foundVersion)
+    public static JsonObject MigrateToCurrent(
+        string documentPath, JsonObject envelope, int foundVersion, World? expectedWorld = null)
     {
         var current = envelope;
         var version = foundVersion;
@@ -32,7 +46,7 @@ internal static class SaveMigrations
             current = version switch
             {
                 1 => MigrateV1ToV2(documentPath, current),
-                2 => MigrateV2ToV3(documentPath, current),
+                2 => MigrateV2ToV3(documentPath, current, expectedWorld),
 
                 // Nothing this build can step forward from -- either a version below
                 // SaveFormat.MinimumSupportedVersion (zero, negative, or otherwise never shipped), or
@@ -73,25 +87,26 @@ internal static class SaveMigrations
 
     /// <summary>
     /// Version 2 to version 3 (T86): makes the nested state's own <c>neighbours</c> field and every
-    /// nation's own <c>conqueredBy</c> field explicit, writing JSON <c>null</c> wherever either is
-    /// missing. Both fields are optional at the <c>GameState</c>/<c>NationState</c> level — a version-2
-    /// save that skipped this step entirely would still load correctly, with both defaulting to
-    /// <see langword="null"/> exactly as this step writes them — so this step's value is making a
-    /// migrated envelope's own shape complete going forward, not repairing something that would
-    /// otherwise fail to parse. <see cref="Diplomacy.NeighbourGeography"/> falls back to the currently
-    /// loaded <see cref="Model.World"/>'s own neighbours whenever <see cref="Model.GameState.Neighbours"/>
-    /// is <see langword="null"/> — which is what "an older save migrates by taking its world's
-    /// neighbours" means in practice (<c>docs/tasks/T86.md</c> Done-when 3): the effective answer a query
-    /// gets, not a rewritten save file recomputed against a specific world here, which this migration step
-    /// has no <see cref="Model.World"/> to do (<see cref="SaveManager.Load"/>'s own two call sites are
-    /// outside this task's Owns list, so neither threads one through).
+    /// nation's own <c>conqueredBy</c> field explicit. <c>conqueredBy</c> always writes JSON
+    /// <see langword="null"/> where it is missing — a version-2 save never had a conquest to record.
+    /// <c>neighbours</c> is populated from <paramref name="expectedWorld"/>'s own neighbours
+    /// (<see cref="NeighbourGeography.InitialAdjacency"/>) when one is given — this is what "an older
+    /// save migrates by taking its world's neighbours" means literally (<c>docs/tasks/T86.md</c>
+    /// Done-when 3), not merely what a query answers as if it had, through
+    /// <see cref="NeighbourGeography"/>'s own separate null fallback. When no world is given (only
+    /// <see cref="SaveManager.PeekSummary"/>'s own call, which never touches the nested state at all), the
+    /// field is written explicit <see langword="null"/> instead, and that fallback is what a caller that
+    /// somehow reaches a <see cref="GameState"/> without going through <see cref="SaveManager.Load"/>,
+    /// <see cref="GameStateFactory.CreateInitial"/> or <see cref="Import.OriginalSaveImporter.Import"/>
+    /// still relies on — chiefly hand-built test fixtures, which construct a <see cref="GameState"/>
+    /// directly rather than through any of those three.
     /// </summary>
     /// <exception cref="MissingRequiredFieldException">
     /// The envelope is not actually a well-formed version-2 save (missing <c>save</c>, <c>state</c> or
     /// <c>state.nations</c>).
     /// </exception>
     /// <exception cref="MalformedGameDataException"><c>state.nations</c> is not a JSON array.</exception>
-    private static JsonObject MigrateV2ToV3(string documentPath, JsonObject v2)
+    private static JsonObject MigrateV2ToV3(string documentPath, JsonObject v2, World? expectedWorld)
     {
         var v3 = (JsonObject)v2.DeepClone();
         v3[SaveFormat.VersionField] = 3;
@@ -101,7 +116,9 @@ internal static class SaveMigrations
 
         if (!state.ContainsKey("neighbours"))
         {
-            state["neighbours"] = null;
+            state["neighbours"] = expectedWorld is null
+                ? null
+                : JsonSerializer.SerializeToNode(NeighbourGeography.InitialAdjacency(expectedWorld), GameJson.Options);
         }
 
         if (!state.TryGetPropertyValue("nations", out var nationsNode) || nationsNode is null)

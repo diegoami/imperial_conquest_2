@@ -290,6 +290,32 @@ public sealed class ConquestCascadeTests
     }
 
     /// <summary>
+    /// Every production path that builds a <see cref="GameState"/> (<see cref="GameStateFactory.CreateInitial"/>,
+    /// <see cref="Import.OriginalSaveImporter.Import"/>, and — since the Owns amendment PR #408 threaded
+    /// <c>expectedWorld</c> through <see cref="Persistence.SaveMigrations.MigrateV2ToV3"/> — a native
+    /// <see cref="Persistence.SaveManager.Load"/>) now always populates <see cref="GameState.Neighbours"/>,
+    /// so a real, in-play conquest never reaches <see cref="ConquestCascade"/>'s own null branch in
+    /// practice. It stays reachable for a state built directly, bypassing all three (a hand-built test
+    /// fixture, exactly like this one) — <see cref="ConquestCascade"/>'s own remarks call this a
+    /// deliberate no-op rather than a crash; this is the test that visits it, per
+    /// build-process.md §4.2's "a comment asserting behaviour at an edge comes with the test that visits
+    /// that edge" rule.
+    /// </summary>
+    [Fact]
+    public void TheNeighbourMerge_IsANoOp_WhenTheStateCarriesNoNeighbourSetAtAll()
+    {
+        var scenario = BuildConqueringScenario();
+        var stateWithNoNeighbours = scenario.State with { Neighbours = null };
+
+        var result = Capture((stateWithNoNeighbours, scenario.CapturedCityId), NullEventSink.Instance);
+
+        // No exception, and the loser is still conquered -- the missing neighbour data blocks only the
+        // merge step, nothing else in the cascade.
+        Assert.True(result.NationById(Loser)!.Eliminated);
+        Assert.Null(result.Neighbours);
+    }
+
+    /// <summary>
     /// T86 Done-when 3: "merged on conquest only (a test for defection shows no merge)". A defection that
     /// takes a nation's last city never merges neighbours, even though it eliminates the nation exactly
     /// as conquest does -- <c>dat-neighbour-mask.md</c> §3's own whole-program scan finds no <c>+0x46</c>
