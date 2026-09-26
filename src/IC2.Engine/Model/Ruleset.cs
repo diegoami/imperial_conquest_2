@@ -1210,9 +1210,13 @@ public sealed record LoyaltyRules(
 /// <c>[derived]</c> by matching the engine's one other map-distance convention.
 /// </param>
 /// <param name="CascadeUnityThreshold">
-/// <c>[confirmed: decompiled-defection-and-siege-attrition.md]</c> The cascade only fires while the new
-/// owner's unity is below this (650) — a nation riding high on unity does not trigger spontaneous
-/// defections toward it.
+/// <c>[confirmed: decompiled-defection-and-siege-attrition.md]</c> The cascade only fires while the
+/// <strong>loser's</strong> own unity is below this (650), read live so a candidate later in the same
+/// sweep sees every earlier defection's own <see cref="DefectionUnityLoss"/> already applied — a nation
+/// already coming apart keeps coming apart. T91/#415 corrects an earlier reading of this field (and of
+/// <c>RunCascade</c>'s own gate) as the <em>new owner's</em> unity: <c>FUN_0044ba1c</c> (:50133) reads
+/// <c>candidate.owner</c>'s own unity, and every candidate in one sweep shares the same owner — the
+/// nation that just lost a city, not the nation gaining one.
 /// </param>
 /// <param name="CascadeLoyaltyThreshold">
 /// <c>[confirmed: decompiled-defection-and-siege-attrition.md]</c> The cascade only considers a candidate

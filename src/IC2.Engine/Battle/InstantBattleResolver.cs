@@ -1,3 +1,4 @@
+using IC2.Engine.Cities.Capture;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
 using IC2.Engine.Movement;
@@ -827,8 +828,14 @@ public static class InstantBattleResolver
         var strippedFortificationCode = FortificationCode.AfterSiegeAttempt(city.FortificationCode, fortifyOrder);
 
         var owner = state.NationById(city.Owner);
-        var isControllerCapital = owner?.CapitalCityId is { } capital
-                                  && string.Equals(capital, city.Id, StringComparison.Ordinal);
+        // T91/#409 S4: FUN_0044A98C's own capital test is FUN_0044B8D0(city) -- ANY of the sixteen
+        // nations' own CapitalCityId, alive or eliminated, not just this city's current owner's. A city
+        // an eliminated nation's stale pointer still names (reachable since T86's Defect leaves
+        // NationState.CapitalCityId exactly as it stood -- NationElimination's own remarks) gets the same
+        // x5/3 defender-strength scaling here as it would under the owner's own capital, exactly like the
+        // decompile and like CityCaptureResolver's own cascade gate and ConquestTrigger's own destination
+        // scoring (the same CapitalOwnership.IsAnyNationsCapital predicate backs all three).
+        var isControllerCapital = CapitalOwnership.IsAnyNationsCapital(state, city.Id);
 
         // Step 2: def.
         var defenderPower = SiegeStrength.Defender(

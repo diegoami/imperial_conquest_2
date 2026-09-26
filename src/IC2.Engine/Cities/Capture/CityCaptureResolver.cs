@@ -155,8 +155,16 @@ public static class CityCaptureResolver
         // T86: captured before any mutation below, since ConquestCascade's post-cascade trigger check
         // needs to know what the loser's capital was *at the moment it fell*, not whatever
         // CapitalCityId happens to read after this method's own city/nation transfers run.
-        var wasCapital = oldOwner.CapitalCityId is { } capitalId
-                          && string.Equals(capitalId, city.Id, StringComparison.Ordinal);
+        //
+        // T91/#416: FUN_0044BB18 (:50211) tests FUN_0044B8D0(city) here -- ANY of the sixteen nations'
+        // own CapitalCityId, not just oldOwner's -- so a city an eliminated nation's stale pointer still
+        // names takes the capital-move-or-conquer branch below even though oldOwner (the actual, current
+        // loser) never held it as its own capital. No capital pointer changes between here and
+        // ConquestTrigger.Evaluate's own read of state (RunCascade's own remarks: no defection or
+        // conquest write reaches CapitalCityId inside this method until ConquestTrigger/ConquestCascade
+        // themselves run, both strictly after this point), so reading `state` here is equivalent to
+        // reading it after the transfers below.
+        var wasCapital = CapitalOwnership.IsAnyNationsCapital(state, city.Id);
         var formerCapitalId = oldOwner.CapitalCityId;
 
         var rules = ruleset.Capture;
@@ -228,10 +236,16 @@ public static class CityCaptureResolver
     /// leaves <see cref="NationState.CapitalCityId"/> exactly as it stood — see that method's own
     /// remarks), and <see cref="NationState.ConqueredBy"/> set to the receiver. This method never calls
     /// <see cref="ConquestCascade"/>: a defection can only take a nation's literal last city, never the
-    /// <c>&lt; 6 cities</c> conquest threshold, because <see cref="RunCascade"/>'s candidates are always a
-    /// live nation's non-capital cities in the original (a defection reaching the capital, or reaching
-    /// zero cities other than through this exact path, is the pre-existing, out-of-scope cascade gap
-    /// <see cref="RunCascade"/>'s own remarks do not claim to close — see that method's remarks).
+    /// <c>&lt; 6 cities</c> conquest threshold, because <see cref="RunCascade"/>'s own candidates always
+    /// exclude every city any nation's own capital pointer names, alive or eliminated
+    /// (<see cref="CapitalOwnership.IsAnyNationsCapital"/>, T90/#409's own corrected gate). T91: an earlier
+    /// revision of this remark called a defection reaching a capital "the pre-existing, out-of-scope
+    /// cascade gap <c>RunCascade</c>'s own remarks do not claim to close" — that was true of T17's original
+    /// gate (<see cref="CityState.UnderSiege"/>, which never excluded a capital at all), but T90's
+    /// correction already closes it: the cascade's own gate now excludes a capital candidate before
+    /// <see cref="Defect"/> is ever reached for it, so this method cannot be called with a capital city
+    /// through that path (it remains directly callable with one, since it is public — see its own summary
+    /// — just never reached that way from <see cref="RunCascade"/>).
     /// </remarks>
     /// <param name="state">The state to transfer against.</param>
     /// <param name="cityId">The defecting city.</param>
@@ -299,19 +313,21 @@ public static class CityCaptureResolver
     /// <c>FUN_0044ba1c</c>: after a forced capture, every other city that shared the just-captured city's
     /// old owner is checked, in <see cref="GameState.Cities"/>'s own stable order, against the confirmed
     /// gate — not <see cref="NationState.CapitalCityId"/> of <em>any</em> of the sixteen nation records
-    /// (<c>FUN_0044b8d0</c>, checked before anything else the pseudocode does; T90/#409, correcting T17's
-    /// own misreading of that gate as "not already contested", <see cref="CityState.UnderSiege"/> — see
-    /// this method's own remark at the gate below), within <see cref="CaptureRules.CascadeDistanceMax"/> of
-    /// the besieging army (Chebyshev; see <see cref="CaptureRules"/>'s own remarks on that field), the new
-    /// owner's unity still under <see cref="CaptureRules.CascadeUnityThreshold"/>, the candidate's
-    /// <see cref="CompleteDefenderStrength"/> (halved by <see cref="CaptureRules.CascadeAllegiantDefenseDivisor"/>
-    /// when the candidate's own allegiance already matches the new owner) below the besieging army's own
-    /// <see cref="SiegeStrength.Attacker"/> strength, and the candidate's own loyalty under
-    /// <see cref="CaptureRules.CascadeLoyaltyThreshold"/>. Each qualifying candidate is passed to
-    /// <see cref="Defect"/> before the next candidate is evaluated, so a candidate later in iteration order
-    /// sees the new owner's unity <em>after</em> every earlier defection in the same sweep already raised
-    /// it — matching the decompiled loop reading the nation record live, not a snapshot taken once at the
-    /// top of the loop.
+    /// (<see cref="CapitalOwnership.IsAnyNationsCapital"/>, checked before anything else the pseudocode
+    /// does; T90/#409, correcting T17's own misreading of that gate as "not already contested",
+    /// <see cref="CityState.UnderSiege"/> — see this method's own remark at the gate below), within
+    /// <see cref="CaptureRules.CascadeDistanceMax"/> of the besieging army (Chebyshev; see
+    /// <see cref="CaptureRules"/>'s own remarks on that field), <strong>the loser's</strong> own unity
+    /// still under <see cref="CaptureRules.CascadeUnityThreshold"/> (T91/#415: not the new owner's — see
+    /// the gate's own remark below), the candidate's <see cref="CompleteDefenderStrength"/> (halved by
+    /// <see cref="CaptureRules.CascadeAllegiantDefenseDivisor"/> when the candidate's own allegiance
+    /// already matches the new owner) below the besieging army's own <see cref="SiegeStrength.Attacker"/>
+    /// strength, and the candidate's own loyalty under <see cref="CaptureRules.CascadeLoyaltyThreshold"/>.
+    /// Each qualifying candidate is passed to <see cref="Defect"/> before the next candidate is evaluated,
+    /// so a candidate later in iteration order sees the loser's own unity <em>after</em> every earlier
+    /// defection in the same sweep already lowered it by <see cref="CaptureRules.DefectionUnityLoss"/> —
+    /// matching the decompiled loop reading the nation record live, not a snapshot taken once at the top
+    /// of the loop.
     /// </summary>
     private static GameState RunCascade(
         GameState state,
@@ -347,15 +363,16 @@ public static class CityCaptureResolver
             // own remarks), so a stale capital pointer into a city the loser now owns is still reachable
             // here and still gates it. CityState.UnderSiege itself is untouched -- other callers
             // (AiEconomyPhase, CityOrderProgressSystem, OrderCityCommandHandler) still read it for their
-            // own, unrelated purposes; only this sweep's gate changes.
+            // own, unrelated purposes; only this sweep's gate changes. T91: extracted into
+            // CapitalOwnership.IsAnyNationsCapital, the same predicate InstantBattleResolver and
+            // ConquestTrigger now share for their own, separate x5/3 capital-strength readings (#409 S4).
             //
             // The decompile checks FUN_0044b8d0 twice: here, and again just before FUN_0044bed8. The
             // second check can never change the outcome -- no defection in this sweep writes a capital
             // (NationElimination leaves CapitalCityId alone, and ConquestCascade's own capital-sentinel
             // write is a different code path entirely, not reached from here) -- so only the first is
             // reproduced.
-            if (currentState.Nations.Any(n =>
-                    n.CapitalCityId is { } capitalId && string.Equals(capitalId, candidate.Id, StringComparison.Ordinal)))
+            if (CapitalOwnership.IsAnyNationsCapital(currentState, candidate.Id))
             {
                 continue;
             }
@@ -365,20 +382,35 @@ public static class CityCaptureResolver
                 continue;
             }
 
+            // T91/#415: FUN_0044ba1c's gate at :50133 reads (&DAT_00474ab0)[candidate.owner * 0x24a] --
+            // candidate.owner is `oldOwnerId` for every city that reaches this point (the loop's own entry
+            // filter above), so this is THE LOSER's own unity, not the new owner's (T17's original
+            // misreading). Read live off `currentState` -- exactly the same live-read this method already
+            // used for the new owner before this fix -- so a candidate later in iteration order sees every
+            // earlier defection's own -20 (DefectionUnityLoss) already applied. (Whether that live re-read
+            // is independently observable here is a separate question from whether it is faithful: the
+            // loser's own unity only ever decreases across one sweep, and a strict "<" gate can never flip
+            // from qualifying back to not-qualifying as its own input keeps falling -- so a snapshot taken
+            // once at the top of this method would in fact answer every unity-gate query in this loop
+            // identically to a live re-read. This is still written as a live read, matching the decompile's
+            // own inline global-array access and the pattern this file already used for the new owner, not
+            // because a test can tell the two apart.)
             var currentCandidate = currentState.CityById(candidate.Id)!;
-            var currentNewOwner = currentState.NationById(newOwnerId)!;
-            if (currentNewOwner.Unity >= rules.CascadeUnityThreshold || currentCandidate.Loyalty >= rules.CascadeLoyaltyThreshold)
+            var currentLoser = currentState.NationById(oldOwnerId)!;
+            if (currentLoser.Unity >= rules.CascadeUnityThreshold || currentCandidate.Loyalty >= rules.CascadeLoyaltyThreshold)
             {
                 continue;
             }
 
+            // T90/#409, N4: isCandidateCapital is always false here -- the capital gate above already
+            // excluded every candidate CapitalOwnership.IsAnyNationsCapital would call true, so a second,
+            // per-candidate capital lookup at this point could never fire. Removed as dead code rather than
+            // computed and discarded (T91, folding the T90 follow-up #417).
             var candidateOwner = currentState.NationById(currentCandidate.Owner)!;
-            var isCandidateCapital = candidateOwner.CapitalCityId is { } capitalId
-                                      && string.Equals(capitalId, currentCandidate.Id, StringComparison.Ordinal);
             var candidateOwnerDiffers = !string.Equals(currentCandidate.Owner, currentCandidate.Allegiance, StringComparison.Ordinal);
 
             var otherDefense = CompleteDefenderStrength.Compute(
-                currentCandidate, fortifyOrder, isCandidateCapital, candidateOwnerDiffers, candidateOwner, ruleset);
+                currentCandidate, fortifyOrder, isControllerCapital: false, candidateOwnerDiffers, candidateOwner, ruleset);
 
             if (string.Equals(currentCandidate.Allegiance, newOwnerId, StringComparison.Ordinal))
             {

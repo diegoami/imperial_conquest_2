@@ -211,15 +211,18 @@ public static class ConquestTrigger
             }
 
             var ownerDiffersFromAllegiance = !string.Equals(city.Owner, city.Allegiance, StringComparison.Ordinal);
-            // N7 (review round 2): always false here, a known deviation. The addendum's own
-            // "Consequences" note that the original's x5/3 capital bonus would apply to a candidate that
-            // still passes FUN_0044B8D0 through ANOTHER nation's stale capital pointer -- something T86's
-            // own Defect path can now leave behind. Unreachable in practice until T90 (#409, tracked
-            // there as S4) generalises "is a capital" to "any nation's CapitalCityId", and T87 lands
-            // rebirth's own stale-pointer cases; not fixed here, and this line's own behaviour is
-            // unchanged.
+            // T91/#409 S4: N7 (review round 2) is now fixed. The addendum's own "Consequences" note that
+            // the original's x5/3 capital bonus would apply to a candidate that still passes
+            // FUN_0044B8D0 through ANOTHER nation's stale capital pointer -- something T86's own Defect
+            // path can leave behind -- is reproduced here through the same CapitalOwnership.IsAnyNationsCapital
+            // predicate T90's cascade gate and InstantBattleResolver's own siege-strength call both use, so
+            // a candidate destination scores the boosted strength whenever ANY nation's capital pointer
+            // names it -- the loser's own still-standing capital (reachable here precisely because bug
+            // #416 means "the captured city was a capital" no longer implies "the captured city was
+            // THIS loser's own capital"), a third nation's, or an eliminated one's stale pointer alike --
+            // exactly like the original's FUN_0044B8D0, never just a single nation's own field.
             var strength = CompleteDefenderStrength.Compute(
-                city, fortifyOrder, isControllerCapital: false, ownerDiffersFromAllegiance, loser, ruleset);
+                city, fortifyOrder, CapitalOwnership.IsAnyNationsCapital(state, city.Id), ownerDiffersFromAllegiance, loser, ruleset);
             // Order matters in the addendum's own pseudocode (":50267, divide by 10 first, then by d"),
             // but for a non-negative strength -- which CompleteDefenderStrength.Compute always produces,
             // its three weighted terms and the garrison addend are all non-negative sums -- the two
