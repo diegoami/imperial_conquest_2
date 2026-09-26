@@ -70,8 +70,8 @@ public sealed class NeighbourGeographyTests
     [MemberData(nameof(DatConfirmedPairsData))]
     public void EveryDatConfirmedPairIsReproduced(string a, string b)
     {
-        Assert.True(NeighbourGeography.AreNeighbours(ClassicalWorld, a, b), $"'{a}' should border '{b}'.");
-        Assert.True(NeighbourGeography.AreNeighbours(ClassicalWorld, b, a), "The relation must be symmetric.");
+        Assert.True(NeighbourGeography.AreNeighbours(S(ClassicalWorld), ClassicalWorld, a, b), $"'{a}' should border '{b}'.");
+        Assert.True(NeighbourGeography.AreNeighbours(S(ClassicalWorld), ClassicalWorld, b, a), "The relation must be symmetric.");
     }
 
     /// <summary>
@@ -99,7 +99,7 @@ public sealed class NeighbourGeographyTests
             {
                 var (a, b) = (ids[i], ids[j]);
                 var expected = expectedTrue.Contains((a, b)) || expectedTrue.Contains((b, a));
-                var actual = NeighbourGeography.AreNeighbours(ClassicalWorld, a, b);
+                var actual = NeighbourGeography.AreNeighbours(S(ClassicalWorld), ClassicalWorld, a, b);
                 if (actual != expected)
                 {
                     mismatches.Add($"{a} <-> {b}: expected {expected}, got {actual}");
@@ -121,8 +121,8 @@ public sealed class NeighbourGeographyTests
             foreach (var b in ids)
             {
                 Assert.Equal(
-                    NeighbourGeography.AreNeighbours(ClassicalWorld, a, b),
-                    NeighbourGeography.AreNeighbours(ClassicalWorld, b, a));
+                    NeighbourGeography.AreNeighbours(S(ClassicalWorld), ClassicalWorld, a, b),
+                    NeighbourGeography.AreNeighbours(S(ClassicalWorld), ClassicalWorld, b, a));
             }
         }
     }
@@ -130,7 +130,7 @@ public sealed class NeighbourGeographyTests
     [Fact]
     public void ANationNeverBordersItself()
     {
-        Assert.False(NeighbourGeography.AreNeighbours(ClassicalWorld, "rome", "rome"));
+        Assert.False(NeighbourGeography.AreNeighbours(S(ClassicalWorld), ClassicalWorld, "rome", "rome"));
     }
 
     // ---- NeighboursOf agrees with AreNeighbours ----
@@ -138,7 +138,7 @@ public sealed class NeighbourGeographyTests
     [Fact]
     public void NeighboursOfAgreesWithAreNeighbours()
     {
-        var romeNeighbours = NeighbourGeography.NeighboursOf(ClassicalWorld, "rome");
+        var romeNeighbours = NeighbourGeography.NeighboursOf(S(ClassicalWorld), ClassicalWorld, "rome");
         Assert.Contains("carthage", romeNeighbours);
         Assert.Contains("gaul", romeNeighbours);
         Assert.Contains("illyria", romeNeighbours);
@@ -146,7 +146,7 @@ public sealed class NeighbourGeographyTests
 
         foreach (var other in romeNeighbours)
         {
-            Assert.True(NeighbourGeography.AreNeighbours(ClassicalWorld, "rome", other));
+            Assert.True(NeighbourGeography.AreNeighbours(S(ClassicalWorld), ClassicalWorld, "rome", other));
         }
     }
 
@@ -159,7 +159,7 @@ public sealed class NeighbourGeographyTests
     [Fact]
     public void NeighboursOfReturnsThemInWorldNationsOwnOrder()
     {
-        var romeNeighbours = NeighbourGeography.NeighboursOf(ClassicalWorld, "rome");
+        var romeNeighbours = NeighbourGeography.NeighboursOf(S(ClassicalWorld), ClassicalWorld, "rome");
         var nationOrder = ClassicalWorld.Nations.Select(n => n.Id).ToList();
         var expectedOrder = nationOrder.Where(id => romeNeighbours.Contains(id)).ToList();
 
@@ -185,8 +185,8 @@ public sealed class NeighbourGeographyTests
     {
         foreach (var (a, b) in DerivationOnlyPairs)
         {
-            Assert.False(NeighbourGeography.AreNeighbours(ClassicalWorld, a, b), $"'{a}' should not border '{b}'.");
-            Assert.False(NeighbourGeography.AreNeighbours(ClassicalWorld, b, a), $"'{b}' should not border '{a}'.");
+            Assert.False(NeighbourGeography.AreNeighbours(S(ClassicalWorld), ClassicalWorld, a, b), $"'{a}' should not border '{b}'.");
+            Assert.False(NeighbourGeography.AreNeighbours(S(ClassicalWorld), ClassicalWorld, b, a), $"'{b}' should not border '{a}'.");
         }
     }
 
@@ -200,7 +200,7 @@ public sealed class NeighbourGeographyTests
         // a 3-tile Voronoi sliver in the derivation this world no longer runs (this type's remarks,
         // search step 3 vs step 4) -- still true of the derivation itself, exercised by the hand-built
         // tiny worlds below, just no longer why this particular assertion holds.
-        Assert.False(NeighbourGeography.AreNeighbours(ClassicalWorld, "rome", "ptolemaic"));
+        Assert.False(NeighbourGeography.AreNeighbours(S(ClassicalWorld), ClassicalWorld, "rome", "ptolemaic"));
     }
 
     // ---- Review round 1, B1: BuildFromStartingNeighbours adds both directions even for a ----
@@ -229,8 +229,8 @@ public sealed class NeighbourGeographyTests
             // GameDataValidation.Validate, which would reject this as an asymmetric pair.
         };
 
-        Assert.True(NeighbourGeography.AreNeighbours(world, "a", "b"));
-        Assert.True(NeighbourGeography.AreNeighbours(world, "b", "a"));
+        Assert.True(NeighbourGeography.AreNeighbours(S(world), world, "a", "b"));
+        Assert.True(NeighbourGeography.AreNeighbours(S(world), world, "b", "a"));
     }
 
     // ---- Review round 2, B3: a present StartingNeighbours field never falls back to the ----
@@ -262,10 +262,10 @@ public sealed class NeighbourGeographyTests
         // The derivation alone (no field) would call these two neighbours -- pinned directly so a
         // change to TinyWorld's geometry can't silently make this test meaningless.
         var derivedOnly = TinyWorld(("a", 0, 0), ("b", 1, 0));
-        Assert.True(NeighbourGeography.AreNeighbours(derivedOnly, "a", "b"));
+        Assert.True(NeighbourGeography.AreNeighbours(S(derivedOnly), derivedOnly, "a", "b"));
 
-        Assert.False(NeighbourGeography.AreNeighbours(world, "a", "b"));
-        Assert.False(NeighbourGeography.AreNeighbours(world, "b", "a"));
+        Assert.False(NeighbourGeography.AreNeighbours(S(world), world, "a", "b"));
+        Assert.False(NeighbourGeography.AreNeighbours(S(world), world, "b", "a"));
     }
 
     // ---- T85 Done-when 4: the shipped toy world has no field, so it keeps the derivation ----
@@ -288,7 +288,7 @@ public sealed class NeighbourGeographyTests
         // toy-3city has exactly two nations (north, south) sharing the whole tiny map -- the same
         // "two single-city[-ish] nations always split the map and so always border" shape
         // TwoAdjacentSingleCityNationsBorderOnATinyWorld below proves for the derivation directly.
-        Assert.True(NeighbourGeography.AreNeighbours(toyWorld, "north", "south"));
+        Assert.True(NeighbourGeography.AreNeighbours(S(toyWorld), toyWorld, "north", "south"));
     }
 
     // ---- A tiny hand-built world with two adjacent, single-city nations still borders ----
@@ -298,7 +298,7 @@ public sealed class NeighbourGeographyTests
     {
         var world = TinyWorld(("a", 0, 0), ("b", 1, 0));
 
-        Assert.True(NeighbourGeography.AreNeighbours(world, "a", "b"));
+        Assert.True(NeighbourGeography.AreNeighbours(S(world), world, "a", "b"));
     }
 
     /// <summary>
@@ -313,9 +313,9 @@ public sealed class NeighbourGeographyTests
     {
         var world = TinyWorld(("a", 0, 10), ("b", 10, 10), ("c", 19, 10));
 
-        Assert.True(NeighbourGeography.AreNeighbours(world, "a", "b"));
-        Assert.True(NeighbourGeography.AreNeighbours(world, "b", "c"));
-        Assert.False(NeighbourGeography.AreNeighbours(world, "a", "c"));
+        Assert.True(NeighbourGeography.AreNeighbours(S(world), world, "a", "b"));
+        Assert.True(NeighbourGeography.AreNeighbours(S(world), world, "b", "c"));
+        Assert.False(NeighbourGeography.AreNeighbours(S(world), world, "a", "c"));
     }
 
     private static World TinyWorld(params (string NationId, int X, int Y)[] cities)
@@ -344,4 +344,32 @@ public sealed class NeighbourGeographyTests
             ValueList<StartingFleet>.Empty,
             ValueList<string>.Of(cities.Select(c => c.NationId).ToArray()));
     }
+
+    /// <summary>
+    /// T86: <see cref="NeighbourGeography.AreNeighbours(GameState, World, string, string)"/> and
+    /// <see cref="NeighbourGeography.NeighboursOf(GameState, World, string)"/> now read
+    /// <see cref="GameState.Neighbours"/> first and only fall back to <paramref name="world"/>'s own data
+    /// when it is <see langword="null"/>. Every world-geometry/DAT-mask behaviour this file pins is
+    /// exactly that fallback, so every call below is against a bare state that carries no
+    /// <see cref="GameState.Neighbours"/> of its own -- the state's other fields are irrelevant to either
+    /// method and are left at throwaway defaults.
+    /// </summary>
+    private static GameState S(World world) => new(
+        SchemaVersion: GameDataSchema.CurrentVersion,
+        WorldId: world.Id,
+        RulesetId: "test-ruleset",
+        ScenarioId: "test-scenario",
+        Calendar: new CalendarState(0, 0, 0, 0),
+        TurnOrder: world.TurnOrder,
+        ActiveSeatIndex: 0,
+        RandomSeed: 0,
+        Nations: ValueList<NationState>.Empty,
+        Cities: ValueList<CityState>.Empty,
+        Armies: ValueList<ArmyState>.Empty,
+        Fleets: ValueList<FleetState>.Empty,
+        MercenaryPool: ValueList<MercenaryPoolSlot>.Empty,
+        Relations: DiplomaticRelations.Uniform(ValueList<string>.Empty, 0),
+        NewsLog: NewsLog.Empty,
+        PendingOffer: null,
+        Neighbours: null);
 }

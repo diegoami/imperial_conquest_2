@@ -13,6 +13,17 @@ namespace IC2.Engine.Model;
 /// in here — the state references its world and ruleset by id, exactly as
 /// <c>docs/game-design.md</c> describes a <c>SaveGame</c> doing.
 /// </remarks>
+/// <param name="Neighbours">
+/// T86 (<c>dat-neighbour-mask.md</c> §7, correcting T85's own remark that the mask "changes during play
+/// only through conquest" but is nonetheless fixed for the run): the game's own, mutable "who borders
+/// whom" set, seeded by <see cref="GameStateFactory"/> from the world's own <c>startingNeighbours</c> or
+/// T85's geometric fallback, and merged — never on defection, only on conquest
+/// (<see cref="IC2.Engine.Cities.Capture.ConquestCascade"/>) — as the original's own
+/// <c>FUN_0044C528</c> does. <see langword="null"/> only for a save written before this field existed;
+/// <see cref="IC2.Engine.Diplomacy.NeighbourGeography"/> falls back to the currently loaded
+/// <see cref="World"/>'s own neighbours for exactly that case, which is what "an older save migrates by
+/// taking its world's neighbours" means in practice — the effective answer, not a rewritten save file.
+/// </param>
 public sealed record GameState(
     int SchemaVersion,
     string WorldId,
@@ -29,7 +40,8 @@ public sealed record GameState(
     ValueList<MercenaryPoolSlot> MercenaryPool,
     DiplomaticRelations Relations,
     NewsLog NewsLog,
-    PendingDiplomaticOffer? PendingOffer) : IVersionedDocument
+    PendingDiplomaticOffer? PendingOffer,
+    ValueList<NationNeighbours>? Neighbours = null) : IVersionedDocument
 {
     /// <summary>Finds a nation by id, or <see langword="null"/>.</summary>
     public NationState? NationById(string id) => Nations.FindById(n => n.Id, id);
@@ -119,6 +131,16 @@ public sealed record CalendarState(int Week, int SeasonIndex, int YearBc, int Tu
 /// simply absent, exactly like <see cref="MercenaryPoolSlot"/>.
 /// </param>
 /// <param name="PopulationAtStart">Scorecard baseline — the game-over screen reports start versus end.</param>
+/// <param name="ConqueredBy">
+/// T86: nation record <c>+0x44E</c>, <c>FUN_0044C528</c>'s own write — the nation that conquered this one
+/// outright (<see cref="IC2.Engine.Cities.Capture.ConquestCascade"/>), or <see langword="null"/> when it
+/// never has been. Set only by conquest, never by a defection taking a nation's last city
+/// (<c>decompiled-elimination-cleanup.md</c> §4: <c>FUN_0044BED8</c>'s own elimination block sets it to
+/// the receiver too, in that one case a plain last-city-lost defection — see
+/// <see cref="IC2.Engine.Cities.Capture.CityCaptureResolver.Defect"/>'s own remarks for why this is the
+/// one field defection <em>does</em> still write). Never cleared by rebirth (T87) — the original's own
+/// <c>FUN_0044C360</c> does not touch <c>+0x44E</c> either.
+/// </param>
 public sealed record NationState(
     string Id,
     string Name,
@@ -138,7 +160,8 @@ public sealed record NationState(
     int TreasuryAtStart,
     int CityCountAtStart,
     ValueList<RecruitmentSlot> RecruitmentSlots,
-    bool Eliminated);
+    bool Eliminated,
+    string? ConqueredBy = null);
 
 /// <summary>
 /// One occupied slot in a nation's standing-recruitment queue — <c>IC2.Data</c>'s

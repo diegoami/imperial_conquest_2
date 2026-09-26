@@ -161,10 +161,21 @@ public static class NeighbourGeography
 
     private static readonly ConditionalWeakTable<World, Dictionary<string, HashSet<string>>> Cache = new();
 
-    /// <summary>Whether <paramref name="nationAId"/> and <paramref name="nationBId"/> border each other in <paramref name="world"/>.</summary>
-    /// <exception cref="ArgumentNullException"><paramref name="world"/>, <paramref name="nationAId"/> or <paramref name="nationBId"/> is null.</exception>
-    public static bool AreNeighbours(World world, string nationAId, string nationBId)
+    /// <summary>
+    /// Whether <paramref name="nationAId"/> and <paramref name="nationBId"/> border each other, reading
+    /// <see cref="GameState.Neighbours"/> when it carries one (T86: every game the engine itself starts
+    /// or merges a conquest into) and falling back to <paramref name="world"/>'s own data — its
+    /// <see cref="World.StartingNeighbours"/> field or T85's geometric derivation — only for a
+    /// <paramref name="state"/> loaded from a save written before this field existed
+    /// (<see cref="GameState.Neighbours"/>'s own remarks).
+    /// </summary>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="state"/>, <paramref name="world"/>, <paramref name="nationAId"/> or
+    /// <paramref name="nationBId"/> is null.
+    /// </exception>
+    public static bool AreNeighbours(GameState state, World world, string nationAId, string nationBId)
     {
+        ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(nationAId);
         ArgumentNullException.ThrowIfNull(nationBId);
@@ -174,26 +185,61 @@ public static class NeighbourGeography
             return false;
         }
 
+        var entry = FindEntry(state.Neighbours, nationAId);
+        if (entry is not null)
+        {
+            return entry.NeighbourIds.Contains(nationBId);
+        }
+
+        if (state.Neighbours is not null)
+        {
+            // The state carries a real (possibly conquest-merged) adjacency list, and nationAId simply
+            // has no entry in it -- "no neighbours", not "fall back to world geometry".
+            return false;
+        }
+
         var map = Cache.GetValue(world, BuildNeighbourMap);
         return map.TryGetValue(nationAId, out var neighbours) && neighbours.Contains(nationBId);
     }
 
     /// <summary>
-    /// Every nation <paramref name="nationId"/> borders in <paramref name="world"/>, in
-    /// <see cref="World.Nations"/>' own stable order.
+    /// Every nation <paramref name="nationId"/> borders, in <paramref name="world"/>'s own
+    /// <see cref="World.Nations"/> stable order — see <see cref="AreNeighbours(GameState, World, string, string)"/>
+    /// for which of <paramref name="state"/> or <paramref name="world"/> actually answers.
     /// </summary>
     /// <remarks>
     /// Rework round 1, N8: this used to hand out the internal lookup <see cref="HashSet{T}"/> directly,
     /// "in no particular order" — a trap for a future caller that iterates the result, since the engine's
     /// own determinism guard forbids relying on a <see cref="HashSet{T}"/>'s enumeration order elsewhere
-    /// in this codebase. <see cref="AreNeighbours"/> keeps using the cached set directly, for its O(1)
-    /// membership check; only this method's own result is now ordered, at the boundary.
+    /// in this codebase. This method's own result is always ordered, at the boundary.
     /// </remarks>
-    /// <exception cref="ArgumentNullException"><paramref name="world"/> or <paramref name="nationId"/> is null.</exception>
-    public static IReadOnlyList<string> NeighboursOf(World world, string nationId)
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="state"/>, <paramref name="world"/> or <paramref name="nationId"/> is null.
+    /// </exception>
+    public static IReadOnlyList<string> NeighboursOf(GameState state, World world, string nationId)
     {
+        ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(nationId);
+
+        var entry = FindEntry(state.Neighbours, nationId);
+        if (entry is not null)
+        {
+            var fromState = new List<string>(entry.NeighbourIds.Count);
+            foreach (var id in entry.NeighbourIds)
+            {
+                fromState.Add(id);
+            }
+
+            return fromState;
+        }
+
+        if (state.Neighbours is not null)
+        {
+            // The state carries a real (possibly conquest-merged) adjacency list with no entry for
+            // nationId -- "no neighbours", not "fall back to world geometry".
+            return Array.Empty<string>();
+        }
 
         var map = Cache.GetValue(world, BuildNeighbourMap);
         if (!map.TryGetValue(nationId, out var neighbours) || neighbours.Count == 0)
@@ -211,6 +257,61 @@ public static class NeighbourGeography
         }
 
         return ordered;
+    }
+
+    /// <summary>Finds <paramref name="nationId"/>'s own entry in <paramref name="neighbours"/>, or <see langword="null"/>.</summary>
+    private static NationNeighbours? FindEntry(ValueList<NationNeighbours>? neighbours, string nationId)
+    {
+        if (neighbours is not { } list)
+        {
+            return null;
+        }
+
+        foreach (var entry in list)
+        {
+            if (string.Equals(entry.NationId, nationId, StringComparison.Ordinal))
+            {
+                return entry;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// T86: the adjacency <see cref="GameStateFactory.CreateInitial"/> seeds <see cref="GameState.Neighbours"/>
+    /// with at New Game — <paramref name="world"/>'s own <see cref="World.StartingNeighbours"/> when it
+    /// carries one, otherwise the same geometric derivation <see cref="BuildNeighbourMap"/> has always
+    /// run as its fallback, materialised here into the same shape the game state persists.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="world"/> is null.</exception>
+    public static ValueList<NationNeighbours> InitialAdjacency(World world)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+
+        var map = Cache.GetValue(world, BuildNeighbourMap);
+        var entries = new List<NationNeighbours>(world.Nations.Count);
+        foreach (var nation in world.Nations)
+        {
+            if (!map.TryGetValue(nation.Id, out var neighbours) || neighbours.Count == 0)
+            {
+                entries.Add(new NationNeighbours(nation.Id, ValueList<string>.Empty));
+                continue;
+            }
+
+            var ordered = new List<string>(neighbours.Count);
+            foreach (var other in world.Nations)
+            {
+                if (neighbours.Contains(other.Id))
+                {
+                    ordered.Add(other.Id);
+                }
+            }
+
+            entries.Add(new NationNeighbours(nation.Id, ValueList.From(ordered)));
+        }
+
+        return ValueList.From(entries);
     }
 
     private static readonly HashSet<string> EmptySet = new(StringComparer.Ordinal);

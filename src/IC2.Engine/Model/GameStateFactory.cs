@@ -8,6 +8,14 @@ namespace IC2.Engine.Model;
 /// This is pure data materialisation, not a rule: no value is computed, defaulted or rolled here. The
 /// only thing it reads from the <see cref="Ruleset"/> is the numeric code that means "at peace", so
 /// the starting relation matrix is built from ruleset data rather than a literal.
+/// <para>
+/// <strong>T86: <see cref="GameState.Neighbours"/>.</strong> <c>Diplomacy.NeighbourGeography.InitialAdjacency</c>
+/// is called by its fully-qualified name rather than a <c>using</c>, on purpose — <c>IC2.Engine.Model</c>
+/// otherwise depends on nothing else in the engine, and this one call is the sole exception, needed
+/// because that method carries T85's own geometric-fallback derivation (this task's Owns list gives
+/// <c>NeighbourGeography.cs</c> to this task too, exactly for this), which this factory does not
+/// duplicate.
+/// </para>
 /// </remarks>
 public static class GameStateFactory
 {
@@ -80,7 +88,8 @@ public static class GameStateFactory
                 TreasuryAtStart: definition.Treasury,
                 CityCountAtStart: cityCount,
                 RecruitmentSlots: ValueList<RecruitmentSlot>.Empty,
-                Eliminated: cityCount == 0);
+                Eliminated: cityCount == 0,
+                ConqueredBy: null);
         }
 
         var cities = new CityState[world.Cities.Count];
@@ -170,7 +179,8 @@ public static class GameStateFactory
             MercenaryPool: ValueList<MercenaryPoolSlot>.Empty,
             Relations: StartingRelationsFor(world, ruleset, nations),
             NewsLog: StartingNewsFor(world, ruleset),
-            PendingOffer: null);
+            PendingOffer: null,
+            Neighbours: Diplomacy.NeighbourGeography.InitialAdjacency(world));
     }
 
     /// <summary>

@@ -750,11 +750,27 @@
     "defectionFloor": 65,
     "allegiantRecaptureTarget": 90,
     "tierDivisor": 10,
+    "allegiantRecaptureBase": 140,
+    "nonAllegiantTransferBase": 100,
+    "forcedCaptureCap": 60,
+    "defectionFormulaFloor": 50,
+    "conquestAllegiantCap": 80,
+    "conquestAllegiantBase": 120,
+    "conquestNonAllegiantCap": 70,
+    "conquestNonAllegiantFloor": 40,
     "_provenance": {
       "forcedCaptureFloor": "confirmed: decompiled-defection-and-siege-attrition.md — a forced capture pulls loyalty toward a floor of 40. T04 fixtures corpus id: 'loyalty.floor.forcedCapture'.",
       "defectionFloor": "confirmed: decompiled-defection-and-siege-attrition.md — a defection pulls loyalty toward 65 and changes neither population nor fortification. T04 fixtures corpus id: 'loyalty.floor.defection'.",
       "allegiantRecaptureTarget": "confirmed: galatia-elimination-and-city-resupply-confirmed.md — loyalty moves toward 90 when the allegiant nation recaptures its own city. T04 fixtures corpus id: 'loyalty.target.recapture'.",
-      "tierDivisor": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TInformation_ShowCityDetails picks the loyalty tier string as names[loyalty / 10]."
+      "tierDivisor": "confirmed: decompiled-unit-map-orders-and-record-fields.md — TInformation_ShowCityDetails picks the loyalty tier string as names[loyalty / 10].",
+      "allegiantRecaptureBase": "confirmed: decompiled-quarterly-rebellion.md §3 (research 235af11) — forcedCaptureFloor/defectionFloor/allegiantRecaptureTarget are the clamp bounds of a formula, not flat targets: the allegiant transfer clamp is min(allegiantRecaptureTarget, 140 - L), shared by forced capture and defection.",
+      "nonAllegiantTransferBase": "confirmed: decompiled-quarterly-rebellion.md §3 — the non-allegiant transfer clamp's shared base (100), used by the forced-capture, defection and conquest formulas alike.",
+      "forcedCaptureCap": "confirmed: decompiled-quarterly-rebellion.md §3 — the non-allegiant forced-capture clamp is max(forcedCaptureFloor, min(60, 100 - L')); the engine's old flat 40 was wrong for 5 of the report's save captures (Mediolanum, Felsina, Brixia, Byblos, Gordium).",
+      "defectionFormulaFloor": "confirmed: decompiled-quarterly-rebellion.md §3 — the non-allegiant defection clamp is min(defectionFloor, max(50, 100 - L)); the engine's old flat 65 was wrong for 5 of the report's 8 cascade defections (Aradus, Hemesa, Palmyra, Modena, Acroinon all landed on this floor, 50).",
+      "conquestAllegiantCap": "confirmed: decompiled-elimination-cleanup.md §4 (research 43a44a1) — the mass conquest transfer's own allegiant clamp is min(80, 120 - L), textually distinct from the single-city allegiant formula.",
+      "conquestAllegiantBase": "confirmed: decompiled-elimination-cleanup.md §4 — the conquest transfer's allegiant clamp base (120).",
+      "conquestNonAllegiantCap": "confirmed: decompiled-elimination-cleanup.md §4 — the conquest transfer's non-allegiant clamp is min(70, max(40, 100 - L)).",
+      "conquestNonAllegiantFloor": "confirmed: decompiled-elimination-cleanup.md §4 — the conquest transfer's non-allegiant clamp lower bound (40)."
     }
   },
   "capture": {
@@ -770,6 +786,13 @@
     "cascadeUnityThreshold": 650,
     "cascadeLoyaltyThreshold": 65,
     "cascadeAllegiantDefenseDivisor": 3,
+    "conquestCityCountThreshold": 6,
+    "capitalMoveUnityThreshold": 400,
+    "capitalMoveCityCountThreshold": 6,
+    "capitalMoveUnityLoss": 50,
+    "capitalMoveMinDistanceTiles": 10,
+    "conquestWinnerUnityGain": 50,
+    "conquestLoyaltyRandomBonusMax": 6,
     "_provenance": {
       "captureTreasuryCreditMultiplier": "confirmed: nation-tax-base-and-city-economy-fields.md — FUN_0044bb18's own write, 'new owner's treasury += contribution * 4' -- a different field from economy.taxBaseContributionMultiplier (also 4, but the taxBase += contribution * 4 term). See the capture.treasuryCreditMultiplier corpus entry's own note. T04 fixtures corpus id: 'capture.treasuryCreditMultiplier'.",
       "captureUnityGain": "confirmed: decompiled-city-capture-resolution.md / nation-tax-base-and-city-economy-fields.md — newOwner.unity += 9 at a forced capture, clamped to economy.unityCap. T04 fixtures corpus id: 'capture.unityGain'.",
@@ -782,7 +805,14 @@
       "cascadeDistanceMax": "confirmed: decompiled-defection-and-siege-attrition.md — FUN_0044ba1c only considers another city within distance 10 of the besieging army. The report gives the threshold, not the distance metric; Chebyshev distance is used here as the engine's one other map-distance convention (IC2.Engine.Battle.ScatterPlacement), which is a derived choice. T04 fixtures corpus id: 'defection.cascadeConditions'.",
       "cascadeUnityThreshold": "confirmed: decompiled-defection-and-siege-attrition.md — the cascade only fires while new_owner.unity < 650. T04 fixtures corpus id: 'defection.cascadeConditions'.",
       "cascadeLoyaltyThreshold": "confirmed: decompiled-defection-and-siege-attrition.md — the cascade only considers a candidate city with loyalty < 65. T04 fixtures corpus id: 'defection.cascadeConditions'.",
-      "cascadeAllegiantDefenseDivisor": "confirmed: decompiled-defection-and-siege-attrition.md — otherDefense /= 3 when the candidate city's allegiance already matches the new owner. T04 fixtures corpus id: 'defection.rebelliousSympathyDivisor'."
+      "cascadeAllegiantDefenseDivisor": "confirmed: decompiled-defection-and-siege-attrition.md — otherDefense /= 3 when the candidate city's allegiance already matches the new owner. T04 fixtures corpus id: 'defection.rebelliousSympathyDivisor'.",
+      "conquestCityCountThreshold": "confirmed: decompiled-elimination-cleanup.md §4 (research 43a44a1), FUN_0044BB18 :50150 — a non-capital capture leaving the loser below 6 cities conquers it outright.",
+      "capitalMoveUnityThreshold": "confirmed: decompiled-elimination-cleanup.md §4 — the capital-move attempt requires unity > 400.",
+      "capitalMoveCityCountThreshold": "confirmed: decompiled-elimination-cleanup.md §4 — the capital-move attempt also requires more than 6 cities.",
+      "capitalMoveUnityLoss": "confirmed: decompiled-elimination-cleanup.md §4, FUN_0044BD2C :50234 — attempting to move the capital costs 50 unity.",
+      "capitalMoveMinDistanceTiles": "confirmed: decompiled-elimination-cleanup.md §4 — the capital only actually moves to a city more than 10 tiles away (Chebyshev, the same derived metric choice as cascadeDistanceMax).",
+      "conquestWinnerUnityGain": "confirmed: decompiled-elimination-cleanup.md §4, FUN_0044C528 — the winner's unity gain on conquering a nation outright is 50, clamped to economy.unityCap.",
+      "conquestLoyaltyRandomBonusMax": "confirmed: decompiled-elimination-cleanup.md §4 — every moved city's conquest loyalty formula adds + Random(6)."
     }
   },
   "diplomacy": {
