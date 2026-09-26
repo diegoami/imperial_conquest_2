@@ -256,6 +256,109 @@ public sealed class RebellionTests
         Assert.Equal("n0", result.CityById("c1")!.Owner);
     }
 
+    /// <summary>
+    /// Review round 1, B3: every (d) test above has either one candidate or a tie of equal cities and
+    /// equal distance, so <c>cities(n) - weight * cheb</c> could lose either term and still pass. This
+    /// pins the distance term: n0 has 5 cities (4 fillers plus its own capital) at distance 20 (score
+    /// -35), n1 has 1 city at distance 3 (score -5); n1 must win. Dropping the distance term entirely
+    /// (score = cities(n) alone) would give n0 5 and n1 1, flipping the winner to n0.
+    /// </summary>
+    [Fact]
+    public void D_ScoreFormula_TheDistanceTermDecidesTheWinner()
+    {
+        var city = CaptureTestbed.City("c1", "City", 0, 0, "owner", "owner", 20, 0, 10, 20, 5);
+        var n0Capital = CaptureTestbed.City("n0-cap", "N0Cap", 20, 0, "n0", "n0", 90, 0, 10, 20, 5); // distance 20.
+        var n1Capital = CaptureTestbed.City("n1-cap", "N1Cap", 3, 0, "n1", "n1", 90, 0, 10, 20, 5); // distance 3.
+        var n0Fillers = CaptureTestbed.FillerCities("n0", 4, startX: 50, y: 50);
+        var owner = CaptureTestbed.Nation("owner", unity: 600);
+        var n0 = CaptureTestbed.Nation("n0", unity: 600, capitalCityId: "n0-cap");
+        var n1 = CaptureTestbed.Nation("n1", unity: 600, capitalCityId: "n1-cap");
+        var cities = new List<CityState> { city, n0Capital, n1Capital };
+        cities.AddRange(n0Fillers);
+        var state = EliminationForcesTestbed.StateWith(new[] { owner, n0, n1 }, cities);
+        state = WithNeighbours(state, "owner", "n0", "n1");
+
+        var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance);
+
+        Assert.Equal("n1", result.CityById("c1")!.Owner);
+    }
+
+    /// <summary>
+    /// Review round 1, B3: pins the <c>cities(n)</c> term. n0 and n1 sit at the same distance (5); n0 owns
+    /// only its own capital (1 city), n1 owns its capital plus one filler (2 cities). n1 must win (score
+    /// -8 against -9). Dropping the cities term entirely (score = -weight * cheb alone) would tie both at
+    /// -10 and flip the winner to n0, the lower index.
+    /// </summary>
+    [Fact]
+    public void D_ScoreFormula_TheCitiesTermDecidesTheWinner()
+    {
+        var city = CaptureTestbed.City("c1", "City", 0, 0, "owner", "owner", 20, 0, 10, 20, 5);
+        var n0Capital = CaptureTestbed.City("n0-cap", "N0Cap", 5, 0, "n0", "n0", 90, 0, 10, 20, 5); // distance 5.
+        var n1Capital = CaptureTestbed.City("n1-cap", "N1Cap", 0, 5, "n1", "n1", 90, 0, 10, 20, 5); // distance 5.
+        var n1Filler = CaptureTestbed.FillerCities("n1", 1, startX: 50, y: 50);
+        var owner = CaptureTestbed.Nation("owner", unity: 600);
+        var n0 = CaptureTestbed.Nation("n0", unity: 600, capitalCityId: "n0-cap");
+        var n1 = CaptureTestbed.Nation("n1", unity: 600, capitalCityId: "n1-cap");
+        var cities = new List<CityState> { city, n0Capital, n1Capital };
+        cities.AddRange(n1Filler);
+        var state = EliminationForcesTestbed.StateWith(new[] { owner, n0, n1 }, cities);
+        state = WithNeighbours(state, "owner", "n0", "n1");
+
+        var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance);
+
+        Assert.Equal("n1", result.CityById("c1")!.Owner);
+    }
+
+    /// <summary>
+    /// Review round 1, B3: sensitive to the weight itself being 2 (not 3). n0: 1 city at distance 2
+    /// (score -3 at weight 2). n1: 4 cities (3 fillers plus its capital) at distance 3 (score -2 at
+    /// weight 2): n1 wins. At weight 3, both score -5 -- a tie, so n0 (the lower index) would win instead.
+    /// </summary>
+    [Fact]
+    public void D_ScoreFormula_IsSensitiveToTheWeight_NotThree()
+    {
+        var city = CaptureTestbed.City("c1", "City", 0, 0, "owner", "owner", 20, 0, 10, 20, 5);
+        var n0Capital = CaptureTestbed.City("n0-cap", "N0Cap", 2, 0, "n0", "n0", 90, 0, 10, 20, 5); // distance 2.
+        var n1Capital = CaptureTestbed.City("n1-cap", "N1Cap", 3, 0, "n1", "n1", 90, 0, 10, 20, 5); // distance 3.
+        var n1Fillers = CaptureTestbed.FillerCities("n1", 3, startX: 50, y: 50);
+        var owner = CaptureTestbed.Nation("owner", unity: 600);
+        var n0 = CaptureTestbed.Nation("n0", unity: 600, capitalCityId: "n0-cap");
+        var n1 = CaptureTestbed.Nation("n1", unity: 600, capitalCityId: "n1-cap");
+        var cities = new List<CityState> { city, n0Capital, n1Capital };
+        cities.AddRange(n1Fillers);
+        var state = EliminationForcesTestbed.StateWith(new[] { owner, n0, n1 }, cities);
+        state = WithNeighbours(state, "owner", "n0", "n1");
+
+        var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance);
+
+        Assert.Equal("n1", result.CityById("c1")!.Owner);
+    }
+
+    /// <summary>
+    /// Review round 1, B3: sensitive to the weight itself being 2 (not 1). n0: 2 cities (1 filler plus its
+    /// capital) at distance 3 (score -4 at weight 2). n1: 1 city at distance 2 (score -3 at weight 2): n1
+    /// wins. At weight 1, both score -1 -- a tie, so n0 (the lower index) would win instead.
+    /// </summary>
+    [Fact]
+    public void D_ScoreFormula_IsSensitiveToTheWeight_NotOne()
+    {
+        var city = CaptureTestbed.City("c1", "City", 0, 0, "owner", "owner", 20, 0, 10, 20, 5);
+        var n0Capital = CaptureTestbed.City("n0-cap", "N0Cap", 3, 0, "n0", "n0", 90, 0, 10, 20, 5); // distance 3.
+        var n1Capital = CaptureTestbed.City("n1-cap", "N1Cap", 2, 0, "n1", "n1", 90, 0, 10, 20, 5); // distance 2.
+        var n0Filler = CaptureTestbed.FillerCities("n0", 1, startX: 50, y: 50);
+        var owner = CaptureTestbed.Nation("owner", unity: 600);
+        var n0 = CaptureTestbed.Nation("n0", unity: 600, capitalCityId: "n0-cap");
+        var n1 = CaptureTestbed.Nation("n1", unity: 600, capitalCityId: "n1-cap");
+        var cities = new List<CityState> { city, n0Capital, n1Capital };
+        cities.AddRange(n0Filler);
+        var state = EliminationForcesTestbed.StateWith(new[] { owner, n0, n1 }, cities);
+        state = WithNeighbours(state, "owner", "n0", "n1");
+
+        var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance);
+
+        Assert.Equal("n1", result.CityById("c1")!.Owner);
+    }
+
     /// <summary>(d) <c>[confirmed]</c>: the owner has no neighbour at all -- nothing happens.</summary>
     [Fact]
     public void D_NoCandidate_NothingHappens()
