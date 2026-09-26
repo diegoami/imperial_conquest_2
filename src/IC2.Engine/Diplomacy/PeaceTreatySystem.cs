@@ -160,6 +160,15 @@ public sealed class PeaceTreatySystem : IGameSystem
     /// has answered Yes to a <see cref="Battle.PeaceTreatyOffered"/> offer <see cref="Presentation.GameSession"/>
     /// captured; a No calls neither this nor anything else ("No writes nothing").
     /// </summary>
+    /// <remarks>
+    /// <strong>The original's reseed is not reproduced (T88 Hazard: "Random streams... optional here").</strong>
+    /// The decompile sets <c>RandSeed := winner + loser</c> on every treaty (both branches, this one
+    /// included) and always draws <c>Random(taxBase(loser) / 4)</c> unconditionally, before either branch,
+    /// even though the draw is unused on the honourable path (report §4). This engine does neither: it
+    /// draws <c>rng.NextInt(share)</c> only in the sues branch below, only when <c>share &gt; 0</c>, and
+    /// never reseeds the global stream. That only matters if bit-exact random streams against the
+    /// original become a goal.
+    /// </remarks>
     public static GameState ApplyHumanConsentedPeace(
         GameState state, Ruleset ruleset, World world, string winnerId, string loserId)
     {

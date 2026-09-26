@@ -13,7 +13,9 @@ namespace IC2.Engine.Diplomacy.Commands;
 /// </summary>
 /// <remarks>
 /// <strong>T88 (DoD 5): also the human's path to end a trade or an alliance, not war alone.</strong>
-/// <c>decompiled-diplomacy-peace-terms-and-instant-battles.md</c> §2.1 reads <c>TPolitics_MakePeace</c>'s
+/// <c>decompiled-war-cascade-and-peace-paths.md</c> §2.1 (rework round 1, B5: re-cited from
+/// <c>decompiled-diplomacy-peace-terms-and-instant-battles.md</c>, which has no §2.1 and none of these
+/// claims) reads <c>TPolitics_MakePeace</c>'s
 /// own refusal precisely: it fires only when the target is AI <em>and</em> the committed relation is
 /// war (<c>rel[me][target] == 3</c>). Any other current relation — including trade (1) or alliance (2) —
 /// falls straight to "<c>working[target] = 0</c>", the same working-value reset <c>TPolitics_OK</c> later
