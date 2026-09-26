@@ -71,7 +71,7 @@ public sealed class AiEconomyPhaseTests
     }
 
     /// <summary>
-    /// The threat is worth exactly <see cref="AiWeights.ThreatenedCityBonus"/> more, at every
+    /// The threat is worth exactly <see cref="Model.AiWeightsRules.ThreatenedCityBonus"/> more, at every
     /// <c>expansionDrive</c> — which is what "added after the multiplication" means, stated as an
     /// arithmetic identity rather than as a shape.
     /// </summary>
@@ -83,7 +83,7 @@ public sealed class AiEconomyPhaseTests
         var threatened = ScoreOfRecruit(Economy(expansionDrive, threatened: true));
         var calm = ScoreOfRecruit(Economy(expansionDrive, threatened: false));
 
-        Assert.Equal(AiWeights.ThreatenedCityBonus, threatened - calm);
+        Assert.Equal(AiScriptedStates.Ruleset.Ai.ThreatenedCityBonus, threatened - calm);
     }
 
     /// <summary>
@@ -95,16 +95,19 @@ public sealed class AiEconomyPhaseTests
     [Fact]
     public void At_no_expansion_drive_a_threatened_recruitment_scores_exactly_the_threat_bonus()
     {
-        Assert.Equal(AiWeights.ThreatenedCityBonus, ScoreOfRecruit(Economy(0.0, threatened: true)));
+        Assert.Equal(AiScriptedStates.Ruleset.Ai.ThreatenedCityBonus, ScoreOfRecruit(Economy(0.0, threatened: true)));
     }
 
     /// <summary>
     /// The ambition half really does scale: a fully expansionist nation values an unthreatened
     /// recruitment at the full base score, and a half-hearted one at half of it.
     /// </summary>
+    // T79 (#355): AiWeights.RecruitBaseScore moved to ruleset data (AiScriptedStates.Ruleset.Ai.RecruitBaseScore
+    // == 1000, unchanged), so it is no longer a compile-time constant InlineData can reference; these are
+    // that committed value and its half, transcribed as literals instead.
     [Theory]
-    [InlineData(1.0, AiWeights.RecruitBaseScore)]
-    [InlineData(0.5, AiWeights.RecruitBaseScore / 2)]
+    [InlineData(1.0, 1000L)]
+    [InlineData(0.5, 500L)]
     public void The_ambition_half_scales_with_expansion_drive(double expansionDrive, long expected)
     {
         Assert.Equal(expected, ScoreOfRecruit(Economy(expansionDrive, threatened: false)));
@@ -141,7 +144,7 @@ public sealed class AiEconomyPhaseTests
     [Fact]
     public void A_nation_with_no_expansion_drive_is_granted_a_budget_it_can_actually_spend_on_recruitment()
     {
-        var budget = AiEconomyPhase.TurnBudget(Treasury, expansionDrivePermille: 0);
+        var budget = AiEconomyPhase.TurnBudget(Treasury, expansionDrivePermille: 0, AiScriptedStates.Ruleset);
 
         Assert.True(budget > 0, $"TreasuryCommitFloorPermille grants nothing at expansionDrive 0: {budget}");
         Assert.Contains(Economy(0.0, threatened: true), c => c.Kind == "recruit");
@@ -168,7 +171,7 @@ public sealed class AiEconomyPhaseTests
         var view = new AiView(state, AiScriptedStates.Ruleset, AiScriptedStates.World, Acting);
         var candidates = new List<AiCandidate>();
 
-        AiEconomyPhase.Propose(view, AiPersonalityProfile.For(state.NationById(Acting)!), candidates);
+        AiEconomyPhase.Propose(view, AiPersonalityProfile.For(state.NationById(Acting)!, view.Ruleset), candidates);
         return candidates;
     }
 

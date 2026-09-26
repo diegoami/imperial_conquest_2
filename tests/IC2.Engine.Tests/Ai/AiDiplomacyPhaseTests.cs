@@ -134,7 +134,7 @@ public sealed class AiDiplomacyPhaseTests
         var candidates = new List<AiCandidate>();
 
         AiDiplomacyPhase.Propose(
-            view, AiPersonalityProfile.For(state.NationById(Acting)!), SplitMix64Rng.ForStream(1, "ai.turn"), candidates);
+            view, AiPersonalityProfile.For(state.NationById(Acting)!, view.Ruleset), SplitMix64Rng.ForStream(1, "ai.turn"), candidates);
 
         var kinds = new List<string>();
         foreach (var candidate in candidates)
@@ -219,8 +219,11 @@ public sealed class AiDiplomacyPhaseTests
 
         var armies = new[]
         {
-            // Acting: a token force, comfortably weaker than Other's -- exactly the "poor ratio" the old
-            // heuristic's own SuePeaceStrengthRatioPermille gate would have accepted.
+            // Acting: a token force, comfortably weaker than Other's -- exactly the "poor ratio" the old,
+            // pre-T88 heuristic's own SuePeaceStrengthRatioPermille gate would have accepted. T79 (#355,
+            // Done-when 5) deleted that constant outright rather than moving it into the ruleset's ai
+            // block: since T88 turned ProposePeace into a no-op, nothing has read it, and #404 N7 removed
+            // the dead loop that used to call ProposePeace at all.
             DiplomacyFixtures.Army("ours-army", Acting, 60, DiplomacyFixtures.Unit("light_infantry", 100, 5)),
             DiplomacyFixtures.Army("theirs-army", Other, 60, DiplomacyFixtures.Unit("light_infantry", 90000, 5)),
         };
@@ -232,7 +235,7 @@ public sealed class AiDiplomacyPhaseTests
         var view = new AiView(state, AiScriptedStates.Ruleset, AiScriptedStates.World, Acting);
         var candidates = new List<AiCandidate>();
         AiDiplomacyPhase.Propose(
-            view, AiPersonalityProfile.For(state.NationById(Acting)!), SplitMix64Rng.ForStream(1, "ai.turn"), candidates);
+            view, AiPersonalityProfile.For(state.NationById(Acting)!, view.Ruleset), SplitMix64Rng.ForStream(1, "ai.turn"), candidates);
 
         Assert.DoesNotContain(candidates, c => c.Kind == "make-peace");
     }
@@ -372,7 +375,7 @@ public sealed class AiDiplomacyPhaseTests
             var view = new AiView(state, coinFlipRuleset, world, Acting);
             var candidates = new List<AiCandidate>();
             AiDiplomacyPhase.Propose(
-                view, AiPersonalityProfile.For(state.NationById(Acting)!), SplitMix64Rng.ForStream(seed, "ai.turn"), candidates);
+                view, AiPersonalityProfile.For(state.NationById(Acting)!, view.Ruleset), SplitMix64Rng.ForStream(seed, "ai.turn"), candidates);
             if (candidates.Any(c => c.Kind == "ai-form-alliance"))
             {
                 hits++;
@@ -442,7 +445,7 @@ public sealed class AiDiplomacyPhaseTests
         var candidates = new List<AiCandidate>();
 
         AiDiplomacyPhase.Propose(
-            view, AiPersonalityProfile.For(state.NationById(Acting)!), rng ?? SplitMix64Rng.ForStream(1, "ai.turn"), candidates);
+            view, AiPersonalityProfile.For(state.NationById(Acting)!, view.Ruleset), rng ?? SplitMix64Rng.ForStream(1, "ai.turn"), candidates);
 
         return candidates;
     }

@@ -33,7 +33,7 @@ namespace IC2.Engine.Tests.Ai;
 /// (<see cref="AiSubstantiveState.AreEquivalent"/>). Reading <c>AiTurn.Run</c>: the only way a turn issues
 /// zero commands is for its very first proposal pass to return no candidate at all
 /// (<c>Select</c> returns <see langword="null"/>) -- any candidate that clears
-/// <c>AiWeights.MinimumActionScore</c> gets dispatched, and dispatch increments the issued count whether
+/// <c>ruleset.Ai.MinimumActionScore</c> gets dispatched, and dispatch increments the issued count whether
 /// accepted or rejected. So every stalled turn's transcript necessarily carries the
 /// <c>"no candidate scored at least {0}; turn ends"</c> line, and the state right before that turn is
 /// enough to ask each phase directly what it would have proposed.
@@ -192,7 +192,7 @@ public sealed class AiClassicalMediterraneanStallMeasurementTests
         }
 
         var nation = state.NationById(stall.Seat)!;
-        var personality = AiPersonalityProfile.For(nation);
+        var personality = AiPersonalityProfile.For(nation, ruleset);
         var view = new AiView(state, ruleset, world, stall.Seat);
 
         var military = new List<AiCandidate>();
@@ -203,7 +203,7 @@ public sealed class AiClassicalMediterraneanStallMeasurementTests
         var diplomacy = new List<AiCandidate>();
         AiDiplomacyPhase.Propose(view, personality, SplitMix64Rng.ForStream(seed, "t65.stall-diagnosis"), diplomacy);
 
-        var budget = AiEconomyPhase.TurnBudget(nation.Treasury, personality.ExpansionDrivePermille);
+        var budget = AiEconomyPhase.TurnBudget(nation.Treasury, personality.ExpansionDrivePermille, ruleset);
         var ownArmies = view.OwnArmies().Count;
         var ownFleets = view.OwnFleets().Count;
         var armiesWithMoves = view.OwnArmies().Count(a => !a.IsEmbarked && a.Moves > 0);
@@ -216,7 +216,7 @@ public sealed class AiClassicalMediterraneanStallMeasurementTests
 
         // Named, not guessed (review round 1, B2): every candidate generator here either found nothing to
         // propose (an empty list) or found candidates that all fell short of
-        // AiWeights.MinimumActionScore (a non-empty list Select would still reject). The two are
+        // ruleset.Ai.MinimumActionScore (a non-empty list Select would still reject). The two are
         // reported differently rather than collapsed, since only the second is "legal but too weak" --
         // the class this scenario's own siege gate already proves correct (AiSiegeDiagnosticsTests).
         //
@@ -264,7 +264,7 @@ public sealed class AiClassicalMediterraneanStallMeasurementTests
             : string.Format(
                 CultureInfo.InvariantCulture,
                 "{0} military / {1} economy / {2} diplomacy candidate(s) were generated but none cleared "
-                + "AiWeights.MinimumActionScore",
+                + "ruleset.Ai.MinimumActionScore",
                 military.Count, economy.Count, diplomacy.Count);
 
         return string.Format(

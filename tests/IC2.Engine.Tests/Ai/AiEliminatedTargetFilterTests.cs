@@ -93,7 +93,7 @@ public sealed class AiEliminatedTargetFilterTests
 
         AiMilitaryPhase.Propose(
             view,
-            AiPersonalityProfile.For(state.NationById(Acting)!),
+            AiPersonalityProfile.For(state.NationById(Acting)!, view.Ruleset),
             SplitMix64Rng.ForStream(1, "ai.turn"),
             Array.Empty<string>(),
             candidates);

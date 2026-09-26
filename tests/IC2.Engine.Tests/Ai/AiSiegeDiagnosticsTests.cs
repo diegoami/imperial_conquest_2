@@ -82,8 +82,8 @@ public sealed class AiSiegeDiagnosticsTests
         // best ratio crossed 1000 while the AI still declined, the required-ratio constant is the
         // suspect and the diagnosis changes -- which is exactly the distinction T60 Done-when 3 draws.
         Assert.True(
-            gates.BestRatioPermille < AiWeights.PermilleScale,
-            $"the closest siege reached {gates.BestRatioPermille} permille, at or above the {AiWeights.PermilleScale} "
+            gates.BestRatioPermille < AiTestbed.Toy.Ruleset.Ai.PermilleScale,
+            $"the closest siege reached {gates.BestRatioPermille} permille, at or above the {AiTestbed.Toy.Ruleset.Ai.PermilleScale} "
             + "a siege must clear to be won at all. The gate is then refusing a winnable siege, and the "
             + "threshold -- not the army's size -- is the defect.");
     }

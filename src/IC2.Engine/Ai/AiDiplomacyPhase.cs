@@ -12,13 +12,18 @@ namespace IC2.Engine.Ai;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>Peace is proposed only to a human seat, and that is a rule of the engine, not a preference.</strong>
-/// <c>MakePeaceCommandHandler</c> refuses every proposal whose target is
-/// <see cref="SeatControl.Ai"/>, unconditionally: "<em>A human-controlled nation always accepts: the
-/// refusal applies only to an AI target</em>". So in an all-AI game this candidate can never be placed,
-/// and proposing one anyway would be a guaranteed rejection — the exact thing
-/// <c>docs/task-catalogue.md</c> T22 Done-when 1's "zero rejected commands" forbids. It is still built,
-/// and still tested, because a mixed scenario (the shipped <c>toy-3city.json</c> is one) does reach it.
+/// <strong>Rework round 1, N2: this phase proposes no peace at all, and that is a rule of the engine, not
+/// a preference.</strong> <c>decompiled-war-cascade-and-peace-paths.md</c> §2.2/§5.2 is explicit: "The AI
+/// never writes peace over a war, with an AI or with a human... There is no AI peace offer of any kind,
+/// not even a notice." T88 (DoD 2, correction for bug #384) turned the candidate this phase used to add
+/// into a no-op, and #404 N7 then deleted the now-dead loop, its <c>ownPower</c> computation and the
+/// no-op method itself outright (<see cref="Propose"/>'s own remarks) — there is no peace-proposing
+/// branch left here to build or test, dead or otherwise. Separately, <c>MakePeaceCommandHandler</c> also
+/// refuses every proposal whose target is <see cref="SeatControl.Ai"/>, unconditionally: "<em>A
+/// human-controlled nation always accepts: the refusal applies only to an AI target</em>" — so even if
+/// this phase proposed peace, an all-AI game could never place it. The only path back to peace with a
+/// human is the post-battle treaty, which needs the human's own Yes (T88 Owns:
+/// <c>InstantBattleResolver</c>'s peace-treaty trigger and <c>GameSession</c>'s accept/refuse).
 /// </para>
 /// <para>
 /// <strong>T82 (#359, bug #357): an AI never writes trade or an alliance to a human seat.</strong> Before
@@ -74,49 +79,18 @@ public static class AiDiplomacyPhase
         ArgumentNullException.ThrowIfNull(rng);
         ArgumentNullException.ThrowIfNull(into);
 
-        var ownPower = view.TotalArmyPower(view.NationId);
-
-        foreach (var other in view.OtherLivingNations())
-        {
-            if (other.Control != SeatControl.Human)
-            {
-                continue;
-            }
-
-            if (view.RelationBetween(view.NationId, other.Id) is not { } relation)
-            {
-                // Not both in the relation matrix: every command in this phase would throw or refuse.
-                continue;
-            }
-
-            ProposePeace(view, other, relation, ownPower, into);
-        }
-
+        // T88 (DoD 2, correction for bug #384) turned the loop that used to stand here into a no-op: every
+        // iteration only ever called ProposePeace, which decompiled-war-cascade-and-peace-paths.md
+        // §2.2/§5.2 established never adds a candidate ("The AI never writes peace over a war, with an AI
+        // or with a human... There is no AI peace offer of any kind, not even a notice"). #404 N7
+        // (T88 follow-up, PR #400's first review) removes the now-dead loop itself, its ownPower
+        // computation, and ProposePeace, rather than carrying three lines of pure overhead into every
+        // future call for a candidate that can never be added. The only path back to peace with a human
+        // remains the post-battle treaty, which needs the human's own Yes (T88 Owns:
+        // InstantBattleResolver's peace-treaty trigger and GameSession's accept/refuse).
         ProposeOwnAlliance(view, rng, into);
         ProposeOwnTrade(view, into);
         ProposeOwnTradeSwap(view, into);
-    }
-
-    /// <summary>
-    /// A no-op (T88, DoD 2, correction for bug #384). Every call this loop makes here targets a human
-    /// seat (<see cref="Propose"/>'s own filter, one member up, out of this method's Owns) — this used to
-    /// add a <see cref="MakePeaceCommand"/> candidate whenever the acting nation's own army power ratio
-    /// against that human was poor enough, and <c>MakePeaceCommandHandler</c>'s "a human target always
-    /// accepts" branch then wrote peace immediately, with no consent step. That branch is the original's
-    /// own hotseat rule -- human proposing to human -- reused here for an AI proposing to a human, which
-    /// <c>decompiled-war-cascade-and-peace-paths.md</c> §2.2/§5.2 rules out directly: "The AI never writes
-    /// peace over a war, with an AI or with a human... There is no AI peace offer of any kind, not even a
-    /// notice." The original's own war-candidate loop (<c>FUN_0044FB7C</c>) only ever considers
-    /// <c>0 &lt;= rel &lt; 3</c>, so an existing war is never revisited by anything the AI itself decides;
-    /// the only path back to peace with a human is the post-battle treaty, which needs the human's own
-    /// Yes (T88 Owns: <c>InstantBattleResolver</c>'s peace-treaty trigger and
-    /// <c>GameSession</c>'s accept/refuse). The faithful fix is therefore to remove the proposal outright,
-    /// not to add a consent step here — this method still runs, once per living human seat the acting
-    /// nation is at war with, exactly as before; it simply never adds a candidate.
-    /// </summary>
-    private static void ProposePeace(
-        AiView view, NationState other, int relation, long ownPower, List<AiCandidate> into)
-    {
     }
 
     /// <summary>
@@ -168,7 +142,7 @@ public static class AiDiplomacyPhase
             AiPhase.Diplomacy,
             "ai-form-alliance",
             new AiFormAllianceCommand(view.NationId, partner),
-            OwnAllianceScore,
+            view.Ruleset.Ai.OwnAllianceScore,
             Inv(
                 "ally with {0}: FUN_0044FB7C's own alliance search picked it (an AI already at war with a "
                 + "shared, unprotected neighbour), and the Random({1}) roll hit",
@@ -185,16 +159,17 @@ public static class AiDiplomacyPhase
     /// <remarks>
     /// Rework round 1, N4: the original picks a trade partner in index order -- loop 1 (skipping the
     /// running war candidate), then loop 3, both over the nation table in its own fixed slot order
-    /// (report §1a). Scoring every eligible partner identically at <see cref="OwnTradeScore"/> used to
-    /// leave that choice to <c>AiTurn.Select</c>'s own exact-tie break, a draw from the seat's stream --
-    /// with more than one eligible partner this picked a random one, not the nation-order-first one the
-    /// original always does. Each successive partner in
-    /// <see cref="AiOwnDiplomacyRule.EligibleTradePartners"/>' own stable
-    /// <see cref="GameState.Nations"/> order is now scored one point lower than the last, so the first
-    /// one in that order always wins outright -- no tie, so no draw -- reproducing the original's index
-    /// order without touching <c>AiTurn.Select</c> itself (outside this task's Owns list). The largest
-    /// step this can ever take (one fewer than the world's own nation count) stays comfortably above
-    /// <see cref="OwnTradeSwapScore"/>, so the relative ordering against a swap candidate is unaffected.
+    /// (report §1a). Scoring every eligible partner identically at
+    /// <see cref="Model.AiWeightsRules.OwnTradeScore"/> used to leave that choice to
+    /// <c>AiTurn.Select</c>'s own exact-tie break, a draw from the seat's stream -- with more than one
+    /// eligible partner this picked a random one, not the nation-order-first one the original always
+    /// does. Each successive partner in <see cref="AiOwnDiplomacyRule.EligibleTradePartners"/>' own
+    /// stable <see cref="GameState.Nations"/> order is now scored one point lower than the last, so the
+    /// first one in that order always wins outright -- no tie, so no draw -- reproducing the original's
+    /// index order without touching <c>AiTurn.Select</c> itself (outside this task's Owns list). The
+    /// largest step this can ever take (one fewer than the world's own nation count) stays comfortably
+    /// above <see cref="Model.AiWeightsRules.OwnTradeSwapScore"/>, so the relative ordering against a
+    /// swap candidate is unaffected.
     /// </remarks>
     private static void ProposeOwnTrade(AiView view, List<AiCandidate> into)
     {
@@ -205,7 +180,7 @@ public static class AiDiplomacyPhase
                 AiPhase.Diplomacy,
                 "ai-form-trade",
                 new AiFormTradeCommand(view.NationId, partnerId),
-                OwnTradeScore - rank,
+                view.Ruleset.Ai.OwnTradeScore - rank,
                 Inv(
                     "trade with {0}: at peace, both sides under {1} partners",
                     partnerId, view.Ruleset.Diplomacy.MaxTradePartners)));
@@ -228,33 +203,19 @@ public static class AiDiplomacyPhase
             AiPhase.Diplomacy,
             "ai-swap-trade-partner",
             new AiSwapTradePartnerCommand(view.NationId, swap.PoorerPartner, swap.RicherCandidate),
-            OwnTradeSwapScore,
+            view.Ruleset.Ai.OwnTradeSwapScore,
             Inv(
                 "swap trade partner {0} for richer {1}",
                 swap.PoorerPartner, swap.RicherCandidate)));
     }
 
-    /// <summary>
-    /// Comfortably above every ordinary military, economy and trade candidate, second only to
-    /// <see cref="AiMilitaryPhase.OwnWarDeclarationScore"/> — see <see cref="ProposeOwnAlliance"/>'s own
-    /// remarks for why that ordering matters (a war declaration that is going to land this turn always
-    /// beats a trade or alliance candidate touching the same target, matching the original's own loop
-    /// order). Rework round 1, N7: this no longer stands in for anything the roll itself lacks — the
-    /// Owns amendment gave <see cref="ProposeOwnAlliance"/> a genuinely turn-stable <see cref="IRng"/>,
-    /// the same one <see cref="AiMilitaryPhase"/>'s war roll uses, so this score's own job is purely the
-    /// candidate-ordering one above.
-    /// </summary>
-    /// <remarks>
-    /// Rework round 1, N5: this constant (and the two below) live outside <see cref="AiWeights"/>, so
-    /// they are not covered by T79's own Done-when 2 ("nothing reads a C# constant") the way
-    /// <c>AiWeights.cs</c>'s own fields are — left here rather than moved (out of T82's Owns list to
-    /// relocate), flagged so T79 (#355) finds them when that task widens its own sweep.
-    /// </remarks>
-    private const long OwnAllianceScore = 9_000_000;
-
-    /// <summary>On <see cref="AiWeights"/>'s own scale, just above the old human-facing propose-trade score.</summary>
-    private const long OwnTradeScore = 520;
-
-    /// <summary>Slightly below <see cref="OwnTradeScore"/>: a swap is a smaller net gain than a fresh partner.</summary>
-    private const long OwnTradeSwapScore = 480;
+    // Rework round 1 (B2/N8): OwnAllianceScore, OwnTradeScore and OwnTradeSwapScore -- comfortably above
+    // every ordinary military, economy and trade candidate, second only to
+    // Model.AiWeightsRules.OwnWarDeclarationScore (see ProposeOwnAlliance's own remarks for why that
+    // ordering matters: a war declaration that is going to land this turn always beats a trade or
+    // alliance candidate touching the same target, matching the original's own loop order) -- used to
+    // live here as standalone C# constants outside AiWeights.cs, found unread nowhere by name but very
+    // much read by value (PR #429 review round 0's B2/N8). They are now Ruleset.Ai.OwnAllianceScore,
+    // Ruleset.Ai.OwnTradeScore and Ruleset.Ai.OwnTradeSwapScore, with the same values and provenance
+    // explaining why each is where it is.
 }

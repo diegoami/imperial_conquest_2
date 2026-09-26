@@ -74,7 +74,7 @@ public sealed class AiNoWarOnAnAllyTests
         var candidates = new List<AiCandidate>();
         AiMilitaryPhase.Propose(
             view,
-            AiPersonalityProfile.For(state.NationById(Acting)!),
+            AiPersonalityProfile.For(state.NationById(Acting)!, view.Ruleset),
             SplitMix64Rng.ForStream(1, "ai.turn"),
             Array.Empty<string>(),
             candidates);

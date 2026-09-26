@@ -162,7 +162,7 @@ public sealed class AiDeterminismTests
         var nation = AiScriptedStates.AiNation(
             "n", new AiPersonality(value, ExpansionDrive: value, LoyaltyToAlliances: value));
 
-        var profile = AiPersonalityProfile.For(nation);
+        var profile = AiPersonalityProfile.For(nation, AiScriptedStates.Ruleset);
 
         Assert.Equal(expected, profile.AggressionPermille);
         Assert.Equal(expected, profile.ExpansionDrivePermille);
@@ -176,10 +176,10 @@ public sealed class AiDeterminismTests
         var nation = AiScriptedStates
             .AiNation("n", AiScriptedStates.DefaultPersonality) with { Personality = null };
 
-        var profile = AiPersonalityProfile.For(nation);
+        var profile = AiPersonalityProfile.For(nation, AiScriptedStates.Ruleset);
 
-        Assert.Equal(AiWeights.DefaultPersonalityPermille, profile.AggressionPermille);
-        Assert.Equal(AiWeights.DefaultPersonalityPermille, profile.ExpansionDrivePermille);
-        Assert.Equal(AiWeights.DefaultPersonalityPermille, profile.LoyaltyToAlliancesPermille);
+        Assert.Equal(AiScriptedStates.Ruleset.Ai.DefaultPersonalityPermille, profile.AggressionPermille);
+        Assert.Equal(AiScriptedStates.Ruleset.Ai.DefaultPersonalityPermille, profile.ExpansionDrivePermille);
+        Assert.Equal(AiScriptedStates.Ruleset.Ai.DefaultPersonalityPermille, profile.LoyaltyToAlliancesPermille);
     }
 }

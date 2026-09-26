@@ -159,26 +159,6 @@ public sealed class AiView
     }
 
     /// <summary>
-    /// A nation's total field-battle strength, summed over its armies with
-    /// <see cref="ArmyPower.Compute"/> — the same function
-    /// <see cref="Diplomacy.HonourablePeaceGate"/> sums for the confirmed honourable-peace test, so the
-    /// AI's idea of "who is stronger" is the engine's.
-    /// </summary>
-    public long TotalArmyPower(string nationId)
-    {
-        long total = 0;
-        foreach (var army in State.Armies)
-        {
-            if (string.Equals(army.Nation, nationId, StringComparison.Ordinal))
-            {
-                total += ArmyPower.Compute(army.Units, army.Morale, Ruleset);
-            }
-        }
-
-        return total;
-    }
-
-    /// <summary>
     /// How far along the acting nation is toward the shipped victory condition, in permille: the share of
     /// the map's cities it owns. <c>GameState.CountCitiesOwnedBy</c> is the engine's own count, the one
     /// <c>VictoryEvaluator.EvaluateTotalConquest</c> compares against <c>Cities.Count</c>.
@@ -200,7 +180,7 @@ public sealed class AiView
             return 0;
         }
 
-        return (long)State.CountCitiesOwnedBy(NationId) * AiWeights.PermilleScale / total;
+        return (long)State.CountCitiesOwnedBy(NationId) * Ruleset.Ai.PermilleScale / total;
     }
 
     /// <summary>Whether a hostile army stands next to a city — <see cref="Economy.HostileArmyAdjacent.IsThreatened"/>.</summary>
@@ -249,47 +229,56 @@ public sealed class AiView
     /// <summary>
     /// <paramref name="numerator"/> as a permille fraction of <paramref name="denominator"/>, saturating
     /// rather than dividing by zero. A zero-strength defender gives
-    /// <see cref="AiWeights.RequiredAttackRatioAtZeroAggressionPermille"/> outright — "infinitely
+    /// <see cref="Model.AiWeightsRules.RequiredAttackRatioAtZeroAggressionPermille"/> outright — "infinitely
     /// favourable", expressed as the largest ratio any gate ever asks for, so that no arithmetic
     /// downstream has to special-case infinity.
     /// </summary>
-    public static long RatioPermille(long numerator, long denominator)
+    public static long RatioPermille(long numerator, long denominator, Ruleset ruleset)
     {
+        var weights = ruleset.Ai;
         if (denominator <= 0)
         {
             return numerator <= 0
                 ? 0
                 : Math.Max(
-                    AiWeights.RequiredAttackRatioAtZeroAggressionPermille,
-                    AiWeights.MaxRatioScoreContribution);
+                    weights.RequiredAttackRatioAtZeroAggressionPermille,
+                    weights.MaxRatioScoreContribution);
         }
 
-        return numerator * AiWeights.PermilleScale / denominator;
+        return numerator * weights.PermilleScale / denominator;
     }
 
     /// <summary>
     /// The strength ratio an attack must show before this personality will place it: a straight line from
-    /// <see cref="AiWeights.RequiredAttackRatioAtZeroAggressionPermille"/> at <c>aggression = 0</c> down to
-    /// <see cref="AiWeights.RequiredAttackRatioAtFullAggressionPermille"/> at <c>aggression = 1</c>.
+    /// <see cref="Model.AiWeightsRules.RequiredAttackRatioAtZeroAggressionPermille"/> at <c>aggression = 0</c>
+    /// down to <see cref="Model.AiWeightsRules.RequiredAttackRatioAtFullAggressionPermille"/> at
+    /// <c>aggression = 1</c>.
     /// </summary>
-    public static long RequiredAttackRatioPermille(int aggressionPermille)
+    public static long RequiredAttackRatioPermille(int aggressionPermille, Ruleset ruleset)
     {
-        var span = AiWeights.RequiredAttackRatioAtZeroAggressionPermille
-                   - AiWeights.RequiredAttackRatioAtFullAggressionPermille;
-        return AiWeights.RequiredAttackRatioAtZeroAggressionPermille
-               - (span * aggressionPermille / AiWeights.PermilleScale);
+        var weights = ruleset.Ai;
+        var span = weights.RequiredAttackRatioAtZeroAggressionPermille
+                   - weights.RequiredAttackRatioAtFullAggressionPermille;
+        return weights.RequiredAttackRatioAtZeroAggressionPermille
+               - (span * aggressionPermille / weights.PermilleScale);
     }
 
-    /// <summary>How much of a strength ratio is allowed into a score — see <see cref="AiWeights.MaxRatioScoreContribution"/>.</summary>
-    public static long RatioScoreContribution(long ratioPermille) =>
-        Math.Clamp(ratioPermille, 0, AiWeights.MaxRatioScoreContribution);
+    /// <summary>
+    /// How much of a strength ratio is allowed into a score — see
+    /// <see cref="Model.AiWeightsRules.MaxRatioScoreContribution"/>.
+    /// </summary>
+    public static long RatioScoreContribution(long ratioPermille, Ruleset ruleset) =>
+        Math.Clamp(ratioPermille, 0, ruleset.Ai.MaxRatioScoreContribution);
 
     /// <summary>
     /// <c>docs/game-design.md</c> §AI phase 4, applied: a score is multiplied by
     /// <c>(1000 + VictoryProgressWeight · progress) / 1000</c>.
     /// </summary>
-    public static long WithVictoryAwareness(long score, long progressPermille) =>
-        score
-        * (AiWeights.PermilleScale + (AiWeights.VictoryProgressWeight * progressPermille / AiWeights.PermilleScale))
-        / AiWeights.PermilleScale;
+    public static long WithVictoryAwareness(long score, long progressPermille, Ruleset ruleset)
+    {
+        var weights = ruleset.Ai;
+        return score
+            * (weights.PermilleScale + (weights.VictoryProgressWeight * progressPermille / weights.PermilleScale))
+            / weights.PermilleScale;
+    }
 }

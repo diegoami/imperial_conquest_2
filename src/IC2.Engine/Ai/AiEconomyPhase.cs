@@ -78,7 +78,7 @@ public static class AiEconomyPhase
         // rule watches the treasury, which this never touches.
         ProposeMobilization(view, into);
 
-        var budget = TurnBudget(view.Nation.Treasury, personality.ExpansionDrivePermille);
+        var budget = TurnBudget(view.Nation.Treasury, personality.ExpansionDrivePermille, view.Ruleset);
         if (budget <= 0)
         {
             // A nation in debt or with nothing to commit places no new SPENDING orders at all. T39
@@ -116,7 +116,7 @@ public static class AiEconomyPhase
     /// (<see cref="Cities.Capture.CompleteDefenderStrength.GarrisonTerm"/>); mobilizing it removes that
     /// addend and replaces it with a field army standing beside the city instead — a trade, not a pure
     /// gain, at exactly the moment the city's defence is being tested. See
-    /// <see cref="AiWeights.MobilizeReadyRecruitBaseScore"/>'s remarks for the full reasoning. Nothing in
+    /// <see cref="Model.AiWeightsRules.MobilizeReadyRecruitBaseScore"/>'s remarks for the full reasoning. Nothing in
     /// <c>MobilizeRecruitSlotCommandHandler</c> itself checks this — the original's own
     /// <c>FUN_0044a4e0</c> has no siege test either — so this is this candidate generator's own
     /// tactical restraint, not a legality gate the command would otherwise enforce.
@@ -168,7 +168,7 @@ public static class AiEconomyPhase
                 AiPhase.Economy,
                 "mobilize",
                 new MobilizeRecruitSlotCommand(view.NationId, slotIndex, newArmyId),
-                AiWeights.MobilizeReadyRecruitBaseScore,
+                view.Ruleset.Ai.MobilizeReadyRecruitBaseScore,
                 Inv(
                     "mobilize recruitment slot {0} ({1} {2} troops, state {3}) at {4}",
                     slotIndex, slot.Troops, slot.UnitTypeId, slot.StateCode, city.Id)));
@@ -240,12 +240,13 @@ public static class AiEconomyPhase
     /// <c>expansionDrive = 1</c> commits three fifths. Negative treasuries give a negative budget, which
     /// the caller reads as "spend nothing".
     /// </summary>
-    public static long TurnBudget(int treasury, int expansionDrivePermille)
+    public static long TurnBudget(int treasury, int expansionDrivePermille, Ruleset ruleset)
     {
-        var sharePermille = AiWeights.TreasuryCommitFloorPermille
-                            + (AiWeights.TreasuryCommitExpansionPermille * expansionDrivePermille
-                               / AiWeights.PermilleScale);
-        return (long)treasury * sharePermille / AiWeights.PermilleScale;
+        var weights = ruleset.Ai;
+        var sharePermille = weights.TreasuryCommitFloorPermille
+                            + (weights.TreasuryCommitExpansionPermille * expansionDrivePermille
+                               / weights.PermilleScale);
+        return (long)treasury * sharePermille / weights.PermilleScale;
     }
 
     private static void ProposeRecruitment(
@@ -256,7 +257,7 @@ public static class AiEconomyPhase
         long budget,
         List<AiCandidate> into)
     {
-        if (OpenOrdersAt(view.Nation, city.Id) >= AiWeights.MaxOpenRecruitmentOrdersPerCity)
+        if (OpenOrdersAt(view.Nation, city.Id) >= view.Ruleset.Ai.MaxOpenRecruitmentOrdersPerCity)
         {
             return;
         }
@@ -291,16 +292,17 @@ public static class AiEconomyPhase
         // city is not an expansionist act.
         //
         // The second is narrower than an earlier revision of this comment claimed. It said the old shape
-        // "guaranteed it could never spend a talent" of the budget AiWeights.TreasuryCommitFloorPermille
+        // "guaranteed it could never spend a talent" of the budget ruleset.Ai.TreasuryCommitFloorPermille
         // grants an expansionDrive = 0 nation -- which is false, because ProposeFortification's own
         // multiplier is x2 at that end and never zero, so the budget was always spendable on walls. The
         // accurate statement is about this method only: it computes an affordable battalion against that
         // budget and then discarded the result unconditionally, so the recruitment path alone was
         // unreachable at one end of a parameter that is supposed to scale it rather than switch it off.
         // Pinned at both ends of the range by AiEconomyPhaseTests.
-        var score = (AiWeights.RecruitBaseScore * personality.ExpansionDrivePermille / AiWeights.PermilleScale)
-                    + (threatened ? AiWeights.ThreatenedCityBonus : 0);
-        if (score < AiWeights.MinimumActionScore)
+        var weights = view.Ruleset.Ai;
+        var score = (weights.RecruitBaseScore * personality.ExpansionDrivePermille / weights.PermilleScale)
+                    + (threatened ? weights.ThreatenedCityBonus : 0);
+        if (score < weights.MinimumActionScore)
         {
             return;
         }
@@ -363,7 +365,7 @@ public static class AiEconomyPhase
 
         var maxPoints = Math.Min(
             FortificationCode.MaxOrderablePoints(city.FortificationCode, rule),
-            AiWeights.MaxFortifyPointsPerOrder);
+            view.Ruleset.Ai.MaxFortifyPointsPerOrder);
         if (maxPoints <= 0)
         {
             return;
@@ -390,14 +392,15 @@ public static class AiEconomyPhase
             return;
         }
 
-        var score = AiWeights.FortifyBaseScore + (threatened ? AiWeights.ThreatenedCityBonus : 0);
+        var fortifyWeights = view.Ruleset.Ai;
+        var score = fortifyWeights.FortifyBaseScore + (threatened ? fortifyWeights.ThreatenedCityBonus : 0);
 
         // The mirror of recruitment's scaling: fortifying is what a nation does instead of expanding, so
         // it is worth most to the least expansionist personality. At expansion 0 the multiplier is 2,
         // at expansion 1 it is 1.
         score = score
-                * ((2 * AiWeights.PermilleScale) - personality.ExpansionDrivePermille)
-                / AiWeights.PermilleScale;
+                * ((2 * fortifyWeights.PermilleScale) - personality.ExpansionDrivePermille)
+                / fortifyWeights.PermilleScale;
 
         into.Add(AiCandidate.Single(
             AiPhase.Economy,

@@ -27,6 +27,13 @@ namespace IC2.Engine.Ai;
 /// with no random draw anywhere in them (<see cref="Battle.InstantBattleResolver"/>'s only draws are the
 /// casualty and promotion rolls, which happen after the winner is known). So for those two the AI's ratio
 /// is not an estimate at all: at a ratio over 1000 it knows it wins, and under 1000 it knows it loses.
+/// <strong>This claim needed #425 to become true</strong>: <see cref="IsControllerCapital"/> used to read
+/// only the current owner's own capital, so a city another nation's stale capital still named (T90/#409 —
+/// a defected or eliminated nation's capital never moves) could score its defender strength without the
+/// resolver's own ×5/3 capital multiplier, disagreeing with what <see cref="Battle.InstantBattleResolver"/>
+/// would actually compute for the identical siege. #425 makes the two calls the same predicate
+/// (<see cref="Cities.Capture.CapitalOwnership.IsAnyNationsCapital"/>), so the AI's ratio and the
+/// resolver's real outcome can no longer disagree.
 /// The one thing it deliberately leaves out of its siege estimate is
 /// <c>SiegeRules.AttackerIsAllegianceDefenderReductionPercent</c>, the further ×9/10 the resolver applies
 /// when the besieger is the city's own allegiance: including it would mean reproducing the resolver's
@@ -40,8 +47,8 @@ namespace IC2.Engine.Ai;
 /// <em>named, derived</em> stream (<see cref="IRng.ForStream"/>, which does not advance the caller's own
 /// generator) whose name is fixed by the two fleet ids, so the same state always produces the same
 /// estimate and the estimate never perturbs the battle's own rolls. That is a sample of a distribution,
-/// not a prediction, which is why <see cref="AiWeights.AttackFleetBaseScore"/> sits below both land
-/// attacks.
+/// not a prediction, which is why <see cref="Model.AiWeightsRules.AttackFleetBaseScore"/> sits below both
+/// land attacks.
 /// </para>
 /// <para>
 /// <strong>T82 (#359, bug #357): attacking no longer declares war.</strong> Every attack and siege below
@@ -87,7 +94,7 @@ public static class AiMilitaryPhase
         ArgumentNullException.ThrowIfNull(armiesAlreadyMarched);
         ArgumentNullException.ThrowIfNull(into);
 
-        var requiredRatio = AiView.RequiredAttackRatioPermille(personality.AggressionPermille);
+        var requiredRatio = AiView.RequiredAttackRatioPermille(personality.AggressionPermille, view.Ruleset);
         var progress = view.VictoryProgressPermille();
 
         ProposeOwnWarDeclaration(view, rng, into);
@@ -177,22 +184,9 @@ public static class AiMilitaryPhase
             AiPhase.Military,
             "declare-war",
             new DeclareWarCommand(view.NationId, target),
-            OwnWarDeclarationScore,
+            view.Ruleset.Ai.OwnWarDeclarationScore,
             Inv("declare war on {0}: FUN_0044FB7C's own war-target search picked it, and the Random({1}) roll hit", target, denominator)));
     }
-
-    /// <summary>
-    /// Comfortably above every other score this AI can produce (<see cref="AiWeights.BesiegeCityBaseScore"/>,
-    /// its highest, is 6000 before any ratio bonus) — see <see cref="ProposeOwnWarDeclaration"/>'s own
-    /// remarks for why that dominance is load-bearing, not just a preference.
-    /// </summary>
-    /// <remarks>
-    /// Rework round 1, N5: this constant lives outside <see cref="AiWeights"/>, so it is not covered by
-    /// T79's own Done-when 2 ("nothing reads a C# constant") the way <c>AiWeights.cs</c>'s own fields are
-    /// — left here rather than moved (out of T82's Owns list to relocate), flagged so T79 (#355) finds it
-    /// when that task widens its own sweep.
-    /// </remarks>
-    private const long OwnWarDeclarationScore = 10_000_000;
 
     /// <summary>
     /// Sails a fleet at the nearest enemy fleet. The naval half of "<em>reinforce, hold, or attack</em>":
@@ -266,8 +260,8 @@ public static class AiMilitaryPhase
                 continue;
             }
 
-            var score = AiWeights.SailAtFleetBaseScore - (AiWeights.DistancePenaltyPerTile * distance);
-            if (score < AiWeights.MinimumActionScore)
+            var score = view.Ruleset.Ai.SailAtFleetBaseScore - (view.Ruleset.Ai.DistancePenaltyPerTile * distance);
+            if (score < view.Ruleset.Ai.MinimumActionScore)
             {
                 continue;
             }
@@ -343,12 +337,12 @@ public static class AiMilitaryPhase
             var defenderPower = Cities.Capture.CompleteDefenderStrength.Compute(
                 city,
                 fortifyOrder,
-                IsControllerCapital(owner, city),
+                IsControllerCapital(view.State, city),
                 !string.Equals(city.Owner, city.Allegiance, StringComparison.Ordinal),
                 owner,
                 view.Ruleset);
 
-            var ratio = AiView.RatioPermille(attackerPower, defenderPower);
+            var ratio = AiView.RatioPermille(attackerPower, defenderPower, view.Ruleset);
             siegeGates?.RecordRatioGate(
                 ratio >= requiredRatio, army.Id, city.Id, attackerPower, defenderPower, ratio, requiredRatio);
             if (ratio < requiredRatio)
@@ -357,7 +351,9 @@ public static class AiMilitaryPhase
             }
 
             var score = AiView.WithVictoryAwareness(
-                AiWeights.BesiegeCityBaseScore + AiView.RatioScoreContribution(ratio), progress);
+                view.Ruleset.Ai.BesiegeCityBaseScore + AiView.RatioScoreContribution(ratio, view.Ruleset),
+                progress,
+                view.Ruleset);
 
             into.Add(AiCandidate.Single(
                 AiPhase.Military,
@@ -416,7 +412,7 @@ public static class AiMilitaryPhase
             }
 
             var defenderPower = ArmyPower.Compute(target.Units, target.Morale, view.Ruleset);
-            var ratio = AiView.RatioPermille(attackerPower, defenderPower);
+            var ratio = AiView.RatioPermille(attackerPower, defenderPower, view.Ruleset);
             if (ratio < requiredRatio)
             {
                 continue;
@@ -426,7 +422,7 @@ public static class AiMilitaryPhase
                 AiPhase.Military,
                 "attack-army",
                 attack,
-                AiWeights.AttackArmyBaseScore + AiView.RatioScoreContribution(ratio),
+                view.Ruleset.Ai.AttackArmyBaseScore + AiView.RatioScoreContribution(ratio, view.Ruleset),
                 Inv(
                     "attack {0} ({1}) with {2}: field strength {3} vs {4} "
                     + "(ratio {5} permille, need {6})",
@@ -485,7 +481,7 @@ public static class AiMilitaryPhase
                 target.Ships, target.ConditionPercent, estimate, view.Ruleset,
                 CarriedArmyStrengthOf(view, target, archerUnitTypeId));
 
-            var ratio = AiView.RatioPermille(attackerPower, defenderPower);
+            var ratio = AiView.RatioPermille(attackerPower, defenderPower, view.Ruleset);
             if (ratio < requiredRatio)
             {
                 continue;
@@ -495,7 +491,7 @@ public static class AiMilitaryPhase
                 AiPhase.Military,
                 "attack-fleet",
                 attack,
-                AiWeights.AttackFleetBaseScore + AiView.RatioScoreContribution(ratio),
+                view.Ruleset.Ai.AttackFleetBaseScore + AiView.RatioScoreContribution(ratio, view.Ruleset),
                 Inv(
                     "attack fleet {0} ({1}) with {2}: sampled naval strength {3} vs {4} "
                     + "(ratio {5} permille, need {6})",
@@ -566,12 +562,12 @@ public static class AiMilitaryPhase
                     continue;
                 }
 
-                baseScore = AiWeights.ReinforceCityBaseScore + AiWeights.ThreatenedCityBonus;
+                baseScore = view.Ruleset.Ai.ReinforceCityBaseScore + view.Ruleset.Ai.ThreatenedCityBonus;
                 why = "reinforce threatened";
             }
             else
             {
-                baseScore = AiWeights.ApproachCityBaseScore;
+                baseScore = view.Ruleset.Ai.ApproachCityBaseScore;
                 weakness = SiegeRatioAgainst(view, army, city, archerUnitTypeId, fortifyOrder);
                 why = "march at";
             }
@@ -582,15 +578,15 @@ public static class AiMilitaryPhase
                 continue;
             }
 
-            var score = baseScore + weakness - (AiWeights.DistancePenaltyPerTile * distance);
-            if (score < AiWeights.MinimumActionScore)
+            var score = baseScore + weakness - (view.Ruleset.Ai.DistancePenaltyPerTile * distance);
+            if (score < view.Ruleset.Ai.MinimumActionScore)
             {
                 continue;
             }
 
             if (!isOwn)
             {
-                score = AiView.WithVictoryAwareness(score, progress);
+                score = AiView.WithVictoryAwareness(score, progress, view.Ruleset);
             }
 
             into.Add(AiCandidate.Single(
@@ -629,12 +625,12 @@ public static class AiMilitaryPhase
         var defenderPower = Cities.Capture.CompleteDefenderStrength.Compute(
             city,
             fortifyOrder,
-            IsControllerCapital(owner, city),
+            IsControllerCapital(view.State, city),
             !string.Equals(city.Owner, city.Allegiance, StringComparison.Ordinal),
             owner,
             view.Ruleset);
 
-        return AiView.RatioScoreContribution(AiView.RatioPermille(attackerPower, defenderPower));
+        return AiView.RatioScoreContribution(AiView.RatioPermille(attackerPower, defenderPower, view.Ruleset), view.Ruleset);
     }
 
     /// <summary>
@@ -684,8 +680,22 @@ public static class AiMilitaryPhase
         return false;
     }
 
-    private static bool IsControllerCapital(NationState owner, CityState city) =>
-        owner.CapitalCityId is { } capital && string.Equals(capital, city.Id, StringComparison.Ordinal);
+    /// <summary>
+    /// #425, rework round 1 N7 (caller count corrected): reads
+    /// <see cref="Cities.Capture.CapitalOwnership.IsAnyNationsCapital"/> since T91 — any nation's capital,
+    /// eliminated or not, rather than only the current owner's — the same predicate
+    /// <see cref="Battle.InstantBattleResolver"/> reads directly (via <see cref="Strength.SiegeStrength.Defender"/>)
+    /// for its own siege resolution, and <see cref="Cities.Capture.ConquestTrigger"/> reads for its capital-move
+    /// destination search. <see cref="Cities.Capture.CompleteDefenderStrength"/>'s one other caller,
+    /// <see cref="Cities.Capture.CityCaptureResolver"/>, already excludes capitals before calling it and passes
+    /// a hardcoded <see langword="false"/> rather than re-deriving the predicate there. Before this fix a
+    /// city that another nation's stale capital still named (T90/#409's own scenario: a defected or
+    /// eliminated nation's capital never moved) scored its defender strength without the ×5/3 capital
+    /// multiplier the resolver itself applies, so this estimate could disagree with what
+    /// <see cref="Battle.InstantBattleResolver"/> actually computes for the same siege.
+    /// </summary>
+    private static bool IsControllerCapital(GameState state, CityState city) =>
+        Cities.Capture.CapitalOwnership.IsAnyNationsCapital(state, city.Id);
 
     private static CityOrderRule? FortifyOrder(Ruleset ruleset)
     {
