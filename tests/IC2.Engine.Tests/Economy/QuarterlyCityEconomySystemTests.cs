@@ -2,6 +2,7 @@ using IC2.Engine.Cities.Capture;
 using IC2.Engine.Core;
 using IC2.Engine.Economy;
 using IC2.Engine.Model;
+using IC2.Engine.Tests.Cities.Capture;
 using Xunit;
 
 namespace IC2.Engine.Tests.Economy;
@@ -188,5 +189,55 @@ public sealed class QuarterlyCityEconomySystemTests
         var second = RunOnce();
 
         Assert.Equal(GameStateHash.Compute(first), GameStateHash.Compute(second));
+    }
+
+    /// <summary>
+    /// T89 Done-when 5's second half: a real, seeded <see cref="IRng"/> reproduces a whole quarter,
+    /// including an actual rebellion, exactly -- at a tax rate of 0, so
+    /// <see cref="CityLoyaltyDraws"/>'s own tax-0 stream fix is exercised for real, not just scripted.
+    /// "Rebel" (owner == allegiance == "north", tax 0, starting loyalty 5) can only ever end its own draws
+    /// at loyalty 2-8 (a rise of at most <c>LoyaltyRiseRollBound - 1</c>, a fall that only ever subtracts),
+    /// so it always rebels; "south" is its only neighbour, so branch (d) always picks it regardless of the
+    /// exact roll. The non-allegiant defection formula then saturates at its own cap for any loyalty this
+    /// low (<c>min(65, max(50, 100 - L))</c> is 65 for every <c>L &lt;= 35</c>), so the exact final owner
+    /// and loyalty are pinned by construction, and <see cref="GameStateHash"/> shows the same seed gives
+    /// the same whole state twice.
+    /// </summary>
+    [Fact]
+    public void ATaxZeroNation_ReproducesAQuarterWithARebellion_Exactly()
+    {
+        GameState RunOnce()
+        {
+            var sleepy = CaptureTestbed.City(
+                "sleepy", "Sleepy", 0, 0, "north", "north", loyalty: 80, fortificationCode: 0,
+                populationThousands: 10, maxPopulationThousands: 20, tribute: 5);
+            var rebel = CaptureTestbed.City(
+                "rebel", "Rebel", 0, 0, "north", "north", loyalty: 5, fortificationCode: 0,
+                populationThousands: 10, maxPopulationThousands: 20, tribute: 5);
+            var southCapital = CaptureTestbed.City(
+                "south-cap", "SouthCap", 5, 5, "south", "south", loyalty: 90, fortificationCode: 0,
+                populationThousands: 10, maxPopulationThousands: 20, tribute: 5);
+
+            var north = CaptureTestbed.Nation("north", unity: 600) with { TaxRatePercent = 0 };
+            var south = CaptureTestbed.Nation("south", unity: 600, capitalCityId: "south-cap");
+
+            var state = EliminationForcesTestbed.StateWith(
+                new[] { north, south }, new[] { sleepy, rebel, southCapital });
+            state = state with
+            {
+                Neighbours = ValueList.From(new[] { new NationNeighbours("north", ValueList.From(new[] { "south" })) }),
+            };
+
+            return new QuarterlyCityEconomySystem().OnQuarterBoundary(
+                Context(state, new SplitMix64Rng(20260926UL), new RecordingEventSink()));
+        }
+
+        var first = RunOnce();
+        var second = RunOnce();
+
+        Assert.Equal(GameStateHash.Compute(first), GameStateHash.Compute(second));
+        Assert.Equal("south", first.CityById("rebel")!.Owner);
+        Assert.Equal(65, first.CityById("rebel")!.Loyalty);
+        Assert.Equal(80, first.CityById("sleepy")!.Loyalty); // tax 0: the fall roll's loss is always 0.
     }
 }
