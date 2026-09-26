@@ -19,10 +19,16 @@ namespace IC2.Engine.Model;
 /// whom" set, seeded by <see cref="GameStateFactory"/> from the world's own <c>startingNeighbours</c> or
 /// T85's geometric fallback, and merged — never on defection, only on conquest
 /// (<see cref="IC2.Engine.Cities.Capture.ConquestCascade"/>) — as the original's own
-/// <c>FUN_0044C528</c> does. <see langword="null"/> only for a save written before this field existed;
-/// <see cref="IC2.Engine.Diplomacy.NeighbourGeography"/> falls back to the currently loaded
-/// <see cref="World"/>'s own neighbours for exactly that case, which is what "an older save migrates by
-/// taking its world's neighbours" means in practice — the effective answer, not a rewritten save file.
+/// <c>FUN_0044C528</c> does. Every production path that builds a <see cref="GameState"/>
+/// (<see cref="GameStateFactory"/>, <see cref="IC2.Engine.Import.OriginalSaveImporter"/>, and — since
+/// <see cref="IC2.Engine.Persistence.SaveManager.Load"/> threads its own <c>expectedWorld</c> into
+/// <see cref="IC2.Engine.Persistence.SaveMigrations.MigrateToCurrent"/> — a native load of an older save
+/// too) populates this field for real; a version-2 save's own missing <c>neighbours</c> is rewritten from
+/// the world it loads against, not merely answered as if it had been (review round 1, B3 item 1: an
+/// earlier revision of this remark claimed the opposite). <see langword="null"/> stays possible only for
+/// a <see cref="GameState"/> built directly, bypassing all three of those paths — chiefly a hand-built
+/// test fixture — and <see cref="IC2.Engine.Diplomacy.NeighbourGeography"/> still falls back to the
+/// currently loaded <see cref="World"/>'s own neighbours for exactly that case.
 /// </param>
 public sealed record GameState(
     int SchemaVersion,
@@ -132,14 +138,22 @@ public sealed record CalendarState(int Week, int SeasonIndex, int YearBc, int Tu
 /// </param>
 /// <param name="PopulationAtStart">Scorecard baseline — the game-over screen reports start versus end.</param>
 /// <param name="ConqueredBy">
-/// T86: nation record <c>+0x44E</c>, <c>FUN_0044C528</c>'s own write — the nation that conquered this one
-/// outright (<see cref="IC2.Engine.Cities.Capture.ConquestCascade"/>), or <see langword="null"/> when it
-/// never has been. Set only by conquest, never by a defection taking a nation's last city
-/// (<c>decompiled-elimination-cleanup.md</c> §4: <c>FUN_0044BED8</c>'s own elimination block sets it to
-/// the receiver too, in that one case a plain last-city-lost defection — see
+/// T86: nation record <c>+0x44E</c> — the nation that conquered this one outright, or <see langword="null"/>
+/// when it never has been. Two writers, both already in this engine: <c>FUN_0044C528</c>'s own write
+/// (<see cref="IC2.Engine.Cities.Capture.ConquestCascade"/>), and <c>FUN_0044BED8</c>'s own elimination
+/// block (<c>decompiled-elimination-cleanup.md</c> §4), which sets it to the receiver too for the one
+/// other case that empties a nation — a plain defection taking its last city — see
 /// <see cref="IC2.Engine.Cities.Capture.CityCaptureResolver.Defect"/>'s own remarks for why this is the
-/// one field defection <em>does</em> still write). Never cleared by rebirth (T87) — the original's own
-/// <c>FUN_0044C360</c> does not touch <c>+0x44E</c> either.
+/// one field defection <em>does</em> still write.
+/// <para>
+/// <strong>Not yet cleared by rebirth.</strong> Review round 1, B3 item 4: an earlier revision of this
+/// remark claimed the opposite — that rebirth (T87) never touches <c>+0x44E</c> — which
+/// <c>decompiled-quarterly-rebellion.md</c> §4's own reset-fields list contradicts directly:
+/// <c>FUN_0044C360</c> resets <c>conquered-by</c> to <c>−1</c> (the decompiled sentinel; a fully-conquered
+/// nation with <em>no</em> rebirth path is unaffected, since nothing in this engine currently reaches
+/// <c>FUN_0044C360</c> at all). Whoever implements T87 must clear this field to <see langword="null"/> as
+/// part of that reset, not leave it standing from before the rebirth.
+/// </para>
 /// </param>
 public sealed record NationState(
     string Id,

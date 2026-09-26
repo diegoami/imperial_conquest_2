@@ -1235,8 +1235,13 @@ public sealed record LoyaltyRules(
 /// conquered outright without an attempt.
 /// </param>
 /// <param name="CapitalMoveCityCountThreshold">
-/// <c>[confirmed: decompiled-elimination-cleanup.md §4]</c> The capital-move attempt also requires more
-/// than this many cities (6) — a loser at or below it is conquered outright, capital or not.
+/// <c>[confirmed: decompiled-elimination-cleanup.md §4]</c> Only when the loser's own capital just fell:
+/// the capital-move attempt also requires more than this many cities (6); at or below it, the loser is
+/// conquered outright without an attempt. Review round 1, B3 item 5: an earlier revision of this remark
+/// said "capital or not", which is false of the separate, non-capital branch — that one conquers only
+/// below <see cref="ConquestCityCountThreshold"/>, strictly, so a non-capital capture leaving exactly 6
+/// cities does <em>not</em> conquer (<c>NonCapitalCapture_LeavingSixCities_DoesNotConquer</c>), unlike a
+/// capital capture leaving exactly 6, which does.
 /// </param>
 /// <param name="CapitalMoveUnityLoss">
 /// <c>[confirmed: decompiled-elimination-cleanup.md §4, FUN_0044BD2C :50234]</c> Attempting to move the

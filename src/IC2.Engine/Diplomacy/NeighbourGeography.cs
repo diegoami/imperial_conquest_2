@@ -163,11 +163,14 @@ public static class NeighbourGeography
 
     /// <summary>
     /// Whether <paramref name="nationAId"/> and <paramref name="nationBId"/> border each other, reading
-    /// <see cref="GameState.Neighbours"/> when it carries one (T86: every game the engine itself starts
-    /// or merges a conquest into) and falling back to <paramref name="world"/>'s own data — its
-    /// <see cref="World.StartingNeighbours"/> field or T85's geometric derivation — only for a
-    /// <paramref name="state"/> loaded from a save written before this field existed
-    /// (<see cref="GameState.Neighbours"/>'s own remarks).
+    /// <see cref="GameState.Neighbours"/> when it carries one — T86: every <see cref="GameState"/> a
+    /// production path builds, including a native load of an older save, since
+    /// <see cref="IC2.Engine.Persistence.SaveManager.Load"/> rewrites a missing set from
+    /// <paramref name="world"/>'s own data before this ever runs — and falling back to
+    /// <paramref name="world"/>'s own data itself — its <see cref="World.StartingNeighbours"/> field or
+    /// T85's geometric derivation — only for a <paramref name="state"/> built directly, bypassing every
+    /// production path (<see cref="GameState.Neighbours"/>'s own remarks; review round 1, B3 item 2: an
+    /// earlier revision of this doc comment described the now-migrated old-save case instead).
     /// </summary>
     /// <exception cref="ArgumentNullException">
     /// <paramref name="state"/>, <paramref name="world"/>, <paramref name="nationAId"/> or

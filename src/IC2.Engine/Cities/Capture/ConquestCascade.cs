@@ -168,10 +168,17 @@ public static class ConquestCascade
     /// instructions do.
     /// </summary>
     /// <remarks>
-    /// A no-op when <see cref="GameState.Neighbours"/> is <see langword="null"/> — a save from before
-    /// this field existed carries no baseline to merge into; <see cref="Diplomacy.NeighbourGeography"/>'s
-    /// own world fallback covers query answers for that case (see <see cref="GameState.Neighbours"/>'s
-    /// own remarks), and the very next migrated save carries whatever this run's queries already implied.
+    /// A no-op when <see cref="GameState.Neighbours"/> is <see langword="null"/> — reachable only for a
+    /// <see cref="GameState"/> built directly, bypassing every production path, since
+    /// <see cref="GameStateFactory"/>, <see cref="IC2.Engine.Import.OriginalSaveImporter"/> and
+    /// <see cref="IC2.Engine.Persistence.SaveManager.Load"/> all populate the field for real
+    /// (<see cref="GameState.Neighbours"/>'s own remarks); such a state carries no baseline to merge
+    /// into, and <see cref="Diplomacy.NeighbourGeography"/>'s own world fallback answers every query
+    /// against it instead, for as long as it stays <see langword="null"/> — nothing here or elsewhere
+    /// later fills it in on its own. Review round 1, B3 item 3: an earlier revision of this remark
+    /// described the pre-T86 old-save case, since fixed by <c>SaveMigrations.MigrateV2ToV3</c>, and
+    /// separately claimed "the very next migrated save" would pick up this run's merge, which was never
+    /// true of a hand-built state with no save to migrate at all.
     /// </remarks>
     private static GameState MergeNeighbours(GameState state, string loserId, string winnerId)
     {
