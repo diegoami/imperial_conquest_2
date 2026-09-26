@@ -134,6 +134,50 @@ public sealed class ContagionTests
         Assert.Contains("B declares war on X.", lines);
     }
 
+    /// <summary>
+    /// DoD 1, rework round 1 (B1): <see cref="DoD01_OneStepAllianceCascade_BEndsAtWarWithXOnly"/> gives
+    /// its "X" no ally, so there is no second hop for a recursion regression to reach -- a mutation that
+    /// restores <see cref="RelationTransitions.FormAlliance"/>'s old recursive call (using
+    /// <c>DeclareWar</c> instead of <c>DeclareWarWithoutFurtherCascade</c> for the dragged-in hop) leaves
+    /// that test green. This is the report's own second worked example instead (§1.4): A is at war with
+    /// X, and X is allied to Z. Y forms an alliance with A. Y is dragged into war with X (A's enemy, one
+    /// hop), but the cascade must not reach past X to Z, X's own ally.
+    /// </summary>
+    [Fact]
+    public void DoD01_OneStepAllianceCascade_DoesNotReachTargetsOwnAlly()
+    {
+        var ruleset = DiplomacyTestbed.Ruleset;
+        var codes = ruleset.Diplomacy.StateCodes;
+        const string ReportA = "reportA";
+        const string ReportX = "reportX";
+        const string ReportZ = "reportZ";
+        const string ReportY = "reportY";
+        var state = DiplomacyTestbed.StateOf(
+            DiplomacyTestbed.Nation(ReportA, "A"),
+            DiplomacyTestbed.Nation(ReportX, "X"),
+            DiplomacyTestbed.Nation(ReportZ, "Z"),
+            DiplomacyTestbed.Nation(ReportY, "Y"));
+
+        // A is at war with X, and X is allied to Z.
+        state = RelationTransitions.DeclareWar(state, ruleset, ReportA, ReportX);
+        state = RelationTransitions.FormAlliance(state, ruleset, ReportX, ReportZ);
+
+        // Y forms an alliance with A.
+        state = RelationTransitions.FormAlliance(state, ruleset, ReportY, ReportA);
+
+        Assert.Equal(codes.Alliance, state.Relations.Get(ReportY, ReportA));
+        Assert.Equal(codes.War, state.Relations.Get(ReportY, ReportX));
+
+        // The one-step cut: Z is X's ally, not A's -- the cascade does not reach past X to Z.
+        Assert.Equal(codes.Peace, state.Relations.Get(ReportY, ReportZ));
+        Assert.True(state.Relations.IsWellFormed());
+
+        var lines = state.NewsLog.Slots.Select(e => e.Text).ToList();
+        Assert.Contains("Y forms an alliance with A.", lines);
+        Assert.Contains("Y declares war on X.", lines);
+        Assert.DoesNotContain("Y declares war on Z.", lines);
+    }
+
     /// <summary>Already being at war with the cascade target is a no-op: no double-processing, no throw.</summary>
     [Fact]
     public void DoD04_CascadeTarget_AlreadyAtWar_IsANoOp()

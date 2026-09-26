@@ -184,7 +184,10 @@ public static class RelationTransitions
         // with, becomes an enemy of the proposer too (news-log-format-and-messages.md Q4's own confirmed
         // note: "An alliance between A and B also makes A declare war on each nation at war with B").
         // T88 (bug #383): one step only -- DeclareWarWithoutFurtherCascade writes the dragged-in war
-        // directly and starts no cascade of its own, matching the setter's own loop 2 (§1.1) exactly.
+        // directly and starts no cascade of its own, matching the setter's own loop 1 (§1.1) exactly --
+        // the alliance-branch loop at 0x00449BEF, textually first in the setter (ContagionTests calls it
+        // loop 1 too), ahead of the war-branch loop (loop 2, 0x00449C71) that DeclareWar's own cascade
+        // below matches.
         foreach (var other in state.Relations.NationIds)
         {
             if (string.Equals(other, proposer, StringComparison.Ordinal)
@@ -211,7 +214,10 @@ public static class RelationTransitions
     /// </summary>
     /// <remarks>
     /// A no-op when the two are already at war: this is both the confirmed behaviour (there is nothing to
-    /// declare) and the guard that stops the contagion recursion from looping.
+    /// declare) and the guard the setter's own cascade loops read live (§1.1: "the guard stays the same
+    /// (<c>rel[a][k] != 3</c>), evaluated live"), so a nation already dragged in by one hop of this
+    /// method's own cascade below is skipped rather than re-declared against. There is no recursion here
+    /// to guard against (T88, bug #383): the cascade is one step, not a re-entry into this method.
     /// </remarks>
     public static GameState DeclareWar(GameState state, Ruleset ruleset, string decreeing, string target)
     {
