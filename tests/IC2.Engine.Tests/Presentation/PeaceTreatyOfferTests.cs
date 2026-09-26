@@ -329,6 +329,98 @@ public sealed class PeaceTreatyOfferTests
             session.Ruleset.Diplomacy.CooldownAfterEndedWar, session.State.Relations.Get("north", "south"));
     }
 
+    /// <summary>
+    /// Rework round 2 (N-f)'s own fixture: north and south both human (plain hotseat, no <c>--seat</c>),
+    /// north starting one unity point below <see cref="EconomyRules.DebtUnityThreshold"/> so
+    /// <c>HumanDepositionSystem</c> deposes it the instant its own <c>SeatStart</c> runs -- inside
+    /// <c>HandleEndSeated</c>'s own <c>_coordinator.RunTurn(State)</c> call for the ending seat, before
+    /// this method ever loops to a different seat. North's army is given south-army-1's own shipped
+    /// (strong) composition and south's engaged army gets north-army-1's own shipped (weak) one -- the
+    /// same swap <see cref="HumanWinsOfferFixture"/> uses -- so that once north is AI-controlled, its own
+    /// Orders-phase turn (<c>AiTurn.Run</c>, gated on <em>current</em> <c>Control</c>) can win a fight
+    /// against south that <see cref="_pendingPeaceTreatyOffer"/> would restrict, given a war to fight in
+    /// the first place (declared by north while it is still human, before its own <c>end</c>).
+    /// </summary>
+    private static GameSession DepositionDuringEndFixture()
+    {
+        var toy = CoreTestbed.Toy;
+        var customRuleset = toy.Ruleset with
+        {
+            Combat = toy.Ruleset.Combat with
+            {
+                AutoPeaceChanceNumerator = toy.Ruleset.Combat.AutoPeaceChanceDenominator,
+                AutoPeaceLoserUnityThreshold = -1,
+                AutoPeaceLoserCityThreshold = 0,
+            },
+        };
+
+        var debtUnity = customRuleset.Economy.DebtUnityThreshold - 1;
+        var northNation = toy.World.Nations.Single(n => n.Id == "north") with { Unity = debtUnity };
+
+        var southReserve = new StartingArmy(
+            "south-reserve", "south", X: 0, Y: 5, Morale: 1, Money: 0, SupplyTons: 0, Moves: 5,
+            Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "heavy_infantry", Troops: 480000, Quality: 5, Name: "Reserve")));
+
+        var strongNorthArmy = toy.World.StartingArmies.Single(a => a.Id == "north-army-1") with
+        {
+            Units = ValueList.Of(new UnitSlot(MercenaryLabel: 0, "heavy_infantry", Troops: 6000, Quality: 6, Name: "1st Guards Battalion")),
+        };
+        var weakSouthArmy = toy.World.StartingArmies.Single(a => a.Id == "south-army-1") with
+        {
+            X = 4,
+            Y = 2,
+            Units = ValueList.Of(new UnitSlot(MercenaryLabel: 0, "light_infantry", Troops: 15000, Quality: 6, Name: "2nd Foot Battalion")),
+        };
+        var customWorld = toy.World with
+        {
+            Nations = ValueList.From(toy.World.Nations.Select(n => n.Id == "north" ? northNation : n)),
+            StartingArmies = ValueList.From(
+                toy.World.StartingArmies
+                    .Select(a => a.Id == "north-army-1" ? strongNorthArmy : a.Id == "south-army-1" ? weakSouthArmy : a)
+                    .Append(southReserve)),
+        };
+
+        var bothHuman = toy.Scenario with
+        {
+            Seats = ValueList.From(toy.Scenario.Seats.Select(s => s with { Control = SeatControl.Human, Personality = null })),
+        };
+
+        return new GameSession(customWorld, customRuleset, bothHuman);
+    }
+
+    /// <summary>
+    /// Rework round 2, N-f: <c>HandleEndSeated</c>'s own <c>RunTurn</c> call, for the seat that is ending
+    /// its turn, was never passed to <see cref="CapturePeaceTreatyOfferIfAny"/>. North starts below the
+    /// debt-unity threshold and declares war on south while still human; north's own <c>end</c> then
+    /// deposes it at its own <c>SeatStart</c> (<c>HumanDepositionSystem</c>), and the very same
+    /// <c>RunTurn</c> call's <c>Orders</c> phase has the now-AI north fight and beat south -- which should
+    /// raise the offer right there, in that same <c>end</c>'s own output, for south (still human) to
+    /// answer. Before the fix this offer was silently dropped.
+    /// </summary>
+    [Fact]
+    public void ADepositionMidEnd_LetsTheNewlyAiSeatsBattleAlsoRaiseTheOffer()
+    {
+        var session = DepositionDuringEndFixture();
+
+        session.Submit("declare-war south");
+        var afterEnd = session.Submit("end");
+
+        Assert.Contains(
+            afterEnd.Lines,
+            l => l.Contains("willing to end the war", StringComparison.Ordinal));
+        Assert.Contains(
+            afterEnd.Lines,
+            l => l.Contains("peace-yes", StringComparison.Ordinal) && l.Contains("peace-no", StringComparison.Ordinal));
+
+        // South is the human this offer is for, and south is exactly who the CLI is paused on now.
+        Assert.Equal("south", session.State.ActiveNationId);
+        var answer = session.Submit("peace-yes");
+        Assert.Contains(
+            answer.Lines, l => l.Contains("diplomacy.accept-peace-treaty accepted", StringComparison.Ordinal));
+        Assert.Equal(
+            session.Ruleset.Diplomacy.CooldownAfterEndedWar, session.State.Relations.Get("north", "south"));
+    }
+
     [Fact]
     public void Attack_army_raises_the_offer_and_names_how_to_answer_it()
     {
