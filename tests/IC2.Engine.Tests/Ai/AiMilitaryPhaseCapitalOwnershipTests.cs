@@ -50,6 +50,96 @@ public sealed class AiMilitaryPhaseCapitalOwnershipTests
             + "-- otherwise #425's fix is not being read.");
     }
 
+    /// <summary>
+    /// N5 (rework round 1): the siege-gate call above only reaches <c>IsControllerCapital</c> at
+    /// <c>AiMilitaryPhase.cs</c>'s adjacent-army call site (<c>ProposeSieges</c>). The march-path call
+    /// site (<c>ProposeMarches</c>'s <c>SiegeRatioAgainst</c>, used to score how close an army marching at
+    /// a <em>non-adjacent</em> enemy city is to being able to take it) goes through the identical helper
+    /// but was not covered by the first test, and the reviewer's M2b mutation -- reverting only that one
+    /// call site to the owner-only reading -- survived the full suite because of it. This drives an army
+    /// too far from the besieged city to besiege it (an "approach" candidate, not a "besiege" one) and
+    /// shows the same defender-strength difference there.
+    /// </summary>
+    [Fact]
+    public void An_approach_candidate_against_a_stale_capital_city_scores_a_weaker_march()
+    {
+        var staleCapitalWeakness = ApproachWeaknessAgainstDefenderCity(anotherNationsStaleCapitalNamesTheCity: true);
+        var ordinaryWeakness = ApproachWeaknessAgainstDefenderCity(anotherNationsStaleCapitalNamesTheCity: false);
+
+        Assert.True(ordinaryWeakness > 0, "the ordinary scenario's own siege-ratio term must be strictly positive for this comparison to mean anything");
+        Assert.True(
+            staleCapitalWeakness < ordinaryWeakness,
+            $"marching at a city another nation's stale capital names ({staleCapitalWeakness}) must score a "
+            + $"weaker siege-ratio term than the same city when nobody's capital names it ({ordinaryWeakness}) "
+            + "-- otherwise the march-path call to IsControllerCapital is not reading #425's fix.");
+    }
+
+    /// <summary>
+    /// The "{4} tiles away, base score {4}, siege ratio {5} permille" line's own siege-ratio term
+    /// (<c>AiMilitaryPhase.SiegeRatioAgainst</c>'s return value, folded into the approach candidate's
+    /// score as "weakness") for the one approach candidate that targets <c>defender-city</c>.
+    /// </summary>
+    private static long ApproachWeaknessAgainstDefenderCity(bool anotherNationsStaleCapitalNamesTheCity)
+    {
+        var ruleset = AiScriptedStates.Ruleset;
+
+        var nations = new[]
+        {
+            AiScriptedStates.AiNation(
+                Acting,
+                AiScriptedStates.DefaultPersonality,
+                capitalCityId: anotherNationsStaleCapitalNamesTheCity ? "defender-city" : "acting-city"),
+            AiScriptedStates.AiNation(Other, AiScriptedStates.DefaultPersonality, capitalCityId: "other-home"),
+        };
+
+        var cities = new[]
+        {
+            CaptureFixtures.City(
+                "acting-city", "Acting City", 0, 0, Acting, Acting,
+                loyalty: 90, fortificationCode: 100, populationThousands: 200,
+                maxPopulationThousands: 200, tribute: 10),
+            CaptureFixtures.City(
+                "defender-city", "Defender City", 7, 5, Other, Other,
+                loyalty: 90, fortificationCode: 100, populationThousands: 200,
+                maxPopulationThousands: 200, tribute: 10),
+            CaptureFixtures.City(
+                "other-home", "Other Home", 9, 9, Other, Other,
+                loyalty: 90, fortificationCode: 100, populationThousands: 200,
+                maxPopulationThousands: 200, tribute: 10),
+        };
+
+        var armies = new[]
+        {
+            // Chebyshev distance from (0, 0) to "defender-city" (7, 5) is 7 -- comfortably over the
+            // adjacency threshold ProposeSieges/ProposeArmyAttacks gate on, so this army's only military
+            // candidate against defender-city is an "approach" march, never a "besiege".
+            CaptureFixtures.Army("marcher", Acting, 0, 0, morale: 60, CaptureFixtures.Unit("archers", 40000))
+                with { Moves = 5 },
+        };
+
+        var state = AiScriptedStates.WithActiveSeat(
+            BattleCommandTestbed.AtWar(BattleCommandTestbed.StateWith(nations, cities, armies), Acting, Other),
+            Acting);
+
+        var view = new AiView(state, ruleset, AiScriptedStates.World, Acting);
+        var candidates = new List<AiCandidate>();
+
+        AiMilitaryPhase.Propose(
+            view,
+            AiPersonalityProfile.For(state.NationById(Acting)!, ruleset),
+            SplitMix64Rng.ForStream(1, "ai.turn"),
+            Array.Empty<string>(),
+            candidates);
+
+        var approach = Assert.Single(
+            candidates,
+            c => c.Kind == AiCandidate.ApproachKind && c.Rationale.Contains("defender-city", StringComparison.Ordinal));
+
+        // "{why} {city.Id} with {army.Id}: {distance} tiles away, base score {baseScore}, siege ratio {weakness} permille"
+        var weaknessText = approach.Rationale.Split("siege ratio ")[1].Split(" permille")[0];
+        return long.Parse(weaknessText);
+    }
+
     private static AiSiegeGateTally ProposeAgainst(bool anotherNationsStaleCapitalNamesTheCity)
     {
         var ruleset = AiScriptedStates.Ruleset;
