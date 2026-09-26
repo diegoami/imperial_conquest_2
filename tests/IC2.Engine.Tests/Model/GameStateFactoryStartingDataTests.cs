@@ -237,6 +237,11 @@ public class GameStateFactoryStartingDataTests
         var ex = Assert.Throws<ArgumentException>(
             () => GameStateFactory.CreateInitial(world, ruleset, classical.Scenario));
         Assert.Contains("byte", ex.Message, StringComparison.OrdinalIgnoreCase);
+
+        // Review round 1, N1: the count itself is of UTF-16 code units, so #372 N7 renamed the noun
+        // from "bytes" to "characters" (GameStateFactory.cs ~:309) -- pinned so a revert back to
+        // "bytes, over" is caught.
+        Assert.Contains("character", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -258,6 +263,10 @@ public class GameStateFactoryStartingDataTests
         var ex = Assert.Throws<ArgumentException>(
             () => GameStateFactory.CreateInitial(world, ruleset, classical.Scenario));
         Assert.Contains("printable", ex.Message, StringComparison.OrdinalIgnoreCase);
+
+        // Review round 1, N1: #372 N7 renamed the noun from "byte" to "character" here too
+        // (GameStateFactory.cs ~:297) -- pinned so a revert back to "byte outside" is caught.
+        Assert.Contains("character", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -324,6 +333,11 @@ public class GameStateFactoryStartingDataTests
         var ex = Assert.Throws<ArgumentException>(
             () => GameStateFactory.CreateInitial(world, ruleset, classical.Scenario));
         Assert.Contains("1", ex.Message, StringComparison.Ordinal);
+
+        // Review round 1, N1: review round 1, B2 (Owns amendment #399) named the bad data's owner,
+        // world, rather than ruleset, as the exception's ParamName -- pinned so a revert back to
+        // nameof(ruleset) at GameStateFactory.cs ~:237 is caught.
+        Assert.Equal("world", ex.ParamName);
     }
 
     /// <summary>
