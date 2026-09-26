@@ -173,7 +173,7 @@
 
     { "id": "elimination.galatiaCitiesTransferred", "value": 9, "source": "galatia-elimination-and-city-resupply-confirmed.md", "tag": "confirmed" },
     { "id": "elimination.galatiaFallsToCount", "value": 2, "source": "galatia-elimination-and-city-resupply-confirmed.md", "tag": "confirmed", "note": "Laranda and Gordium: forced capture, fortification and population both changed." },
-    { "id": "elimination.galatiaDefectsFromCount", "value": 7, "source": "galatia-elimination-and-city-resupply-confirmed.md", "tag": "confirmed", "note": "Synnada, Pessinus, Acroinon, Ancyra, Gangra, Nyssa, Halys: defection, neither fortification nor population changed." },
+    { "id": "elimination.galatiaDefectsFromCount", "value": 2, "source": "galatia-elimination-and-city-resupply-confirmed.md", "tag": "confirmed", "note": "The news log shows only Synnada and Acroinon 'defect from' Galatia; Pessinus, Ancyra, Gangra, Nyssa and Halys go by the conquest cascade instead once Galatia drops below 6 cities. Bug #415 (T91): this entry previously counted all seven as defections, matching T17's own buggy new-owner-unity cascade gate rather than the save." },
     { "id": "elimination.galatiaLaranda.fortBefore", "value": 41, "source": "galatia-elimination-and-city-resupply-confirmed.md", "tag": "confirmed" },
     { "id": "elimination.galatiaLaranda.fortAfter", "value": 30, "source": "galatia-elimination-and-city-resupply-confirmed.md", "tag": "confirmed" },
     { "id": "elimination.galatiaLaranda.popBefore", "value": 59, "source": "galatia-elimination-and-city-resupply-confirmed.md", "tag": "confirmed", "note": "Population field, thousands." },
