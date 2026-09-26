@@ -21,7 +21,7 @@ namespace IC2.Engine.Ai;
 /// declaration actually landed, although the projection said it would be legal. Also required to be zero.
 /// See <see cref="AiTurn"/>'s remarks.
 /// </param>
-/// <param name="HitActionCap">Whether the turn stopped because it reached <see cref="AiWeights.MaxActionsPerTurn"/>.</param>
+/// <param name="HitActionCap">Whether the turn stopped because it reached <see cref="AiWeightsRules.MaxActionsPerTurn"/>.</param>
 public sealed record AiTurnOutcome(
     GameState State,
     string NationId,
@@ -111,7 +111,7 @@ public static class AiTurn
             return new AiTurnOutcome(state, nationId, log, 0, 0, 0, HitActionCap: false);
         }
 
-        var personality = AiPersonalityProfile.For(nation);
+        var personality = AiPersonalityProfile.For(nation, ruleset);
         log.Add(Inv(
             "seat {0}: aggression {1}, expansionDrive {2}, loyaltyToAlliances {3} (permille)",
             nationId,
@@ -134,7 +134,7 @@ public static class AiTurn
         // once per action rather than once per turn. See AiSiegeGateTally.
         var siegeGates = new AiSiegeGateTally();
 
-        for (var action = 0; action < AiWeights.MaxActionsPerTurn; action++)
+        for (var action = 0; action < ruleset.Ai.MaxActionsPerTurn; action++)
         {
             var view = new AiView(state, ruleset, world, nationId);
             var candidates = new List<AiCandidate>();
@@ -147,10 +147,10 @@ public static class AiTurn
             // AiDiplomacyPhase.ProposeOwnAlliance's own remarks for why that stability matters.
             AiDiplomacyPhase.Propose(view, personality, rng, candidates);
 
-            var chosen = Select(candidates, rng);
+            var chosen = Select(candidates, rng, ruleset);
             if (chosen is null)
             {
-                log.Add(Inv("no candidate scored at least {0}; turn ends", AiWeights.MinimumActionScore));
+                log.Add(Inv("no candidate scored at least {0}; turn ends", ruleset.Ai.MinimumActionScore));
                 hitCap = false;
                 break;
             }
@@ -184,7 +184,7 @@ public static class AiTurn
 
         if (hitCap)
         {
-            log.Add(Inv("action cap {0} reached", AiWeights.MaxActionsPerTurn));
+            log.Add(Inv("action cap {0} reached", ruleset.Ai.MaxActionsPerTurn));
         }
 
         if (siegeGates.Describe() is { } gates)
@@ -196,8 +196,8 @@ public static class AiTurn
     }
 
     /// <summary>
-    /// The highest-scoring candidate at or above <see cref="AiWeights.MinimumActionScore"/>, with exact
-    /// ties broken by one draw from the seat's stream.
+    /// The highest-scoring candidate at or above <see cref="Model.AiWeightsRules.MinimumActionScore"/>,
+    /// with exact ties broken by one draw from the seat's stream.
     /// </summary>
     /// <remarks>
     /// The tied set is collected in candidate order — that is, in the order the three phases proposed
@@ -205,12 +205,12 @@ public static class AiTurn
     /// picks means the same thing on every run. A single-element tie takes no draw at all, so the number
     /// of draws a turn makes depends only on how many exact ties it saw.
     /// </remarks>
-    private static AiCandidate? Select(List<AiCandidate> candidates, IRng rng)
+    private static AiCandidate? Select(List<AiCandidate> candidates, IRng rng, Ruleset ruleset)
     {
         var bestScore = long.MinValue;
         foreach (var candidate in candidates)
         {
-            if (candidate.Score >= AiWeights.MinimumActionScore && candidate.Score > bestScore)
+            if (candidate.Score >= ruleset.Ai.MinimumActionScore && candidate.Score > bestScore)
             {
                 bestScore = candidate.Score;
             }

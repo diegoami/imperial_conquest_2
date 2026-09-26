@@ -40,8 +40,8 @@ namespace IC2.Engine.Ai;
 /// <em>named, derived</em> stream (<see cref="IRng.ForStream"/>, which does not advance the caller's own
 /// generator) whose name is fixed by the two fleet ids, so the same state always produces the same
 /// estimate and the estimate never perturbs the battle's own rolls. That is a sample of a distribution,
-/// not a prediction, which is why <see cref="AiWeights.AttackFleetBaseScore"/> sits below both land
-/// attacks.
+/// not a prediction, which is why <see cref="Model.AiWeightsRules.AttackFleetBaseScore"/> sits below both
+/// land attacks.
 /// </para>
 /// <para>
 /// <strong>T82 (#359, bug #357): attacking no longer declares war.</strong> Every attack and siege below
@@ -87,7 +87,7 @@ public static class AiMilitaryPhase
         ArgumentNullException.ThrowIfNull(armiesAlreadyMarched);
         ArgumentNullException.ThrowIfNull(into);
 
-        var requiredRatio = AiView.RequiredAttackRatioPermille(personality.AggressionPermille);
+        var requiredRatio = AiView.RequiredAttackRatioPermille(personality.AggressionPermille, view.Ruleset);
         var progress = view.VictoryProgressPermille();
 
         ProposeOwnWarDeclaration(view, rng, into);
@@ -182,15 +182,17 @@ public static class AiMilitaryPhase
     }
 
     /// <summary>
-    /// Comfortably above every other score this AI can produce (<see cref="AiWeights.BesiegeCityBaseScore"/>,
-    /// its highest, is 6000 before any ratio bonus) — see <see cref="ProposeOwnWarDeclaration"/>'s own
-    /// remarks for why that dominance is load-bearing, not just a preference.
+    /// Comfortably above every other score this AI can produce
+    /// (<see cref="Model.AiWeightsRules.BesiegeCityBaseScore"/>, its highest, is 6000 before any ratio
+    /// bonus) — see <see cref="ProposeOwnWarDeclaration"/>'s own remarks for why that dominance is
+    /// load-bearing, not just a preference.
     /// </summary>
     /// <remarks>
-    /// Rework round 1, N5: this constant lives outside <see cref="AiWeights"/>, so it is not covered by
-    /// T79's own Done-when 2 ("nothing reads a C# constant") the way <c>AiWeights.cs</c>'s own fields are
-    /// — left here rather than moved (out of T82's Owns list to relocate), flagged so T79 (#355) finds it
-    /// when that task widens its own sweep.
+    /// Rework round 1, N5: this constant lives outside the AI weights ruleset block, so it is not covered
+    /// by T79's own Done-when 2 ("nothing reads a C# constant") the way the moved fields are — left here
+    /// rather than moved (out of T79's own Owns list, which names only <c>AiWeights.cs</c> and the lines
+    /// that read its constants, not this standalone constant), flagged again here for whichever future
+    /// task's Owns list does reach it.
     /// </remarks>
     private const long OwnWarDeclarationScore = 10_000_000;
 
@@ -266,8 +268,8 @@ public static class AiMilitaryPhase
                 continue;
             }
 
-            var score = AiWeights.SailAtFleetBaseScore - (AiWeights.DistancePenaltyPerTile * distance);
-            if (score < AiWeights.MinimumActionScore)
+            var score = view.Ruleset.Ai.SailAtFleetBaseScore - (view.Ruleset.Ai.DistancePenaltyPerTile * distance);
+            if (score < view.Ruleset.Ai.MinimumActionScore)
             {
                 continue;
             }
@@ -348,7 +350,7 @@ public static class AiMilitaryPhase
                 owner,
                 view.Ruleset);
 
-            var ratio = AiView.RatioPermille(attackerPower, defenderPower);
+            var ratio = AiView.RatioPermille(attackerPower, defenderPower, view.Ruleset);
             siegeGates?.RecordRatioGate(
                 ratio >= requiredRatio, army.Id, city.Id, attackerPower, defenderPower, ratio, requiredRatio);
             if (ratio < requiredRatio)
@@ -357,7 +359,9 @@ public static class AiMilitaryPhase
             }
 
             var score = AiView.WithVictoryAwareness(
-                AiWeights.BesiegeCityBaseScore + AiView.RatioScoreContribution(ratio), progress);
+                view.Ruleset.Ai.BesiegeCityBaseScore + AiView.RatioScoreContribution(ratio, view.Ruleset),
+                progress,
+                view.Ruleset);
 
             into.Add(AiCandidate.Single(
                 AiPhase.Military,
@@ -416,7 +420,7 @@ public static class AiMilitaryPhase
             }
 
             var defenderPower = ArmyPower.Compute(target.Units, target.Morale, view.Ruleset);
-            var ratio = AiView.RatioPermille(attackerPower, defenderPower);
+            var ratio = AiView.RatioPermille(attackerPower, defenderPower, view.Ruleset);
             if (ratio < requiredRatio)
             {
                 continue;
@@ -426,7 +430,7 @@ public static class AiMilitaryPhase
                 AiPhase.Military,
                 "attack-army",
                 attack,
-                AiWeights.AttackArmyBaseScore + AiView.RatioScoreContribution(ratio),
+                view.Ruleset.Ai.AttackArmyBaseScore + AiView.RatioScoreContribution(ratio, view.Ruleset),
                 Inv(
                     "attack {0} ({1}) with {2}: field strength {3} vs {4} "
                     + "(ratio {5} permille, need {6})",
@@ -485,7 +489,7 @@ public static class AiMilitaryPhase
                 target.Ships, target.ConditionPercent, estimate, view.Ruleset,
                 CarriedArmyStrengthOf(view, target, archerUnitTypeId));
 
-            var ratio = AiView.RatioPermille(attackerPower, defenderPower);
+            var ratio = AiView.RatioPermille(attackerPower, defenderPower, view.Ruleset);
             if (ratio < requiredRatio)
             {
                 continue;
@@ -495,7 +499,7 @@ public static class AiMilitaryPhase
                 AiPhase.Military,
                 "attack-fleet",
                 attack,
-                AiWeights.AttackFleetBaseScore + AiView.RatioScoreContribution(ratio),
+                view.Ruleset.Ai.AttackFleetBaseScore + AiView.RatioScoreContribution(ratio, view.Ruleset),
                 Inv(
                     "attack fleet {0} ({1}) with {2}: sampled naval strength {3} vs {4} "
                     + "(ratio {5} permille, need {6})",
@@ -566,12 +570,12 @@ public static class AiMilitaryPhase
                     continue;
                 }
 
-                baseScore = AiWeights.ReinforceCityBaseScore + AiWeights.ThreatenedCityBonus;
+                baseScore = view.Ruleset.Ai.ReinforceCityBaseScore + view.Ruleset.Ai.ThreatenedCityBonus;
                 why = "reinforce threatened";
             }
             else
             {
-                baseScore = AiWeights.ApproachCityBaseScore;
+                baseScore = view.Ruleset.Ai.ApproachCityBaseScore;
                 weakness = SiegeRatioAgainst(view, army, city, archerUnitTypeId, fortifyOrder);
                 why = "march at";
             }
@@ -582,15 +586,15 @@ public static class AiMilitaryPhase
                 continue;
             }
 
-            var score = baseScore + weakness - (AiWeights.DistancePenaltyPerTile * distance);
-            if (score < AiWeights.MinimumActionScore)
+            var score = baseScore + weakness - (view.Ruleset.Ai.DistancePenaltyPerTile * distance);
+            if (score < view.Ruleset.Ai.MinimumActionScore)
             {
                 continue;
             }
 
             if (!isOwn)
             {
-                score = AiView.WithVictoryAwareness(score, progress);
+                score = AiView.WithVictoryAwareness(score, progress, view.Ruleset);
             }
 
             into.Add(AiCandidate.Single(
@@ -634,7 +638,7 @@ public static class AiMilitaryPhase
             owner,
             view.Ruleset);
 
-        return AiView.RatioScoreContribution(AiView.RatioPermille(attackerPower, defenderPower));
+        return AiView.RatioScoreContribution(AiView.RatioPermille(attackerPower, defenderPower, view.Ruleset), view.Ruleset);
     }
 
     /// <summary>

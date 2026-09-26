@@ -265,7 +265,7 @@ public sealed class AiSiegeGateTallyTests
     private static void Propose(GameState state, List<AiCandidate> into, AiSiegeGateTally? tally) =>
         AiMilitaryPhase.Propose(
             new AiView(state, Ruleset, AiScriptedStates.World, Acting),
-            AiPersonalityProfile.For(state.NationById(Acting)!),
+            AiPersonalityProfile.For(state.NationById(Acting)!, Ruleset),
             SplitMix64Rng.ForStream(1, "ai.turn"),
             Array.Empty<string>(),
             into,

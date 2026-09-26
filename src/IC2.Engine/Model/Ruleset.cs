@@ -46,6 +46,7 @@ public sealed record Ruleset(
     NewsLogRules NewsLog,
     MapMarkerRules MapMarkers,
     VictoryRules Victory,
+    AiWeightsRules Ai,
     RulesetFlags Flags,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null) : IVersionedDocument
 {
@@ -1534,6 +1535,83 @@ public sealed record VictoryRules(
     bool TotalConquestRequiresEveryCity,
     int HardEndYearBc,
     int? DefaultTurnLimit,
+    [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
+
+/// <summary>
+/// The heuristic AI's scoring constants (<c>docs/task-catalogue.md</c> T79, correction for
+/// <see href="https://github.com/diegoami/imperial_conquest_2/issues/347">#347</see>): every number the
+/// AI's four phases (<c>Ai/AiMilitaryPhase.cs</c>, <c>AiEconomyPhase.cs</c>, <c>AiDiplomacyPhase.cs</c>,
+/// <c>AiTurn.cs</c>, <c>AiPersonalityProfile.cs</c> and <c>AiView.cs</c>) use to rank one candidate
+/// action against another, moved out of the C# constants <c>AiWeights.cs</c> used to hold.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <strong>Every field is <c>[designed]</c>, and that is the expected answer.</strong>
+/// <c>docs/game-design.md</c> §AI and <c>docs/design-audit.md</c> §1 record the original's AI as "lives
+/// in unnamed AI-only code" and out of scope for reverse-engineering by the project's own standing
+/// decision. Nothing here is transcribed from a decompile and nothing here claims to be — each field's
+/// own <c>_provenance</c> entry says what it weighs and repeats that the original's AI is out of scope.
+/// </para>
+/// <para>
+/// <strong>Everything is an integer</strong> (<see cref="int"/> or <see cref="long"/>, never
+/// <see cref="double"/>), on one scale shared by all four phases, so a candidate from one phase and a
+/// candidate from another are directly comparable and the AI's determinism guarantee (the same seed gives
+/// the same game, exactly) never depends on floating-point rounding.
+/// </para>
+/// </remarks>
+/// <param name="PermilleScale">The fixed-point denominator every personality parameter and every ratio is expressed in.</param>
+/// <param name="DefaultPersonalityPermille">The value substituted for an AI seat's absent personality parameter.</param>
+/// <param name="MaxActionsPerTurn">The hard ceiling on commands one AI seat may place in one turn, checked before anything else.</param>
+/// <param name="MinimumActionScore">The score a candidate must reach to be worth placing at all.</param>
+/// <param name="BesiegeCityBaseScore">Base score for besieging an adjacent enemy city — the highest of the per-phase base scores.</param>
+/// <param name="AttackArmyBaseScore">Base score for attacking an adjacent enemy army.</param>
+/// <param name="AttackFleetBaseScore">Base score for attacking an adjacent enemy fleet.</param>
+/// <param name="ApproachCityBaseScore">Base score for marching an army at an enemy city it is not yet adjacent to.</param>
+/// <param name="SailAtFleetBaseScore">Base score for sailing a fleet at an enemy fleet.</param>
+/// <param name="ReinforceCityBaseScore">Base score for marching an army at one of its own cities a hostile army stands next to.</param>
+/// <param name="RecruitBaseScore">Base score for placing a standing-recruitment order.</param>
+/// <param name="MobilizeReadyRecruitBaseScore">Base score for mobilizing a fully ready standing-recruitment slot into an army unit.</param>
+/// <param name="FortifyBaseScore">Base score for ordering fortification at an owned city.</param>
+/// <param name="ProposeAllianceBaseScore">Base score for proposing an alliance.</param>
+/// <param name="ProposeTradeBaseScore">Base score for proposing trade.</param>
+/// <param name="RequiredAttackRatioAtZeroAggressionPermille">The strength ratio, in permille, an attack must show at <c>aggression = 0</c>.</param>
+/// <param name="RequiredAttackRatioAtFullAggressionPermille">The strength ratio an attack must show at <c>aggression = 1</c>.</param>
+/// <param name="MaxRatioScoreContribution">How much of the strength ratio is allowed into an attack's score, capped.</param>
+/// <param name="ThreatenedCityBonus">What a threatened city adds to the score of every action that answers the threat.</param>
+/// <param name="DistancePenaltyPerTile">How far a score decays per tile of distance between an army and what it is marching at.</param>
+/// <param name="VictoryProgressWeight">The weight victory-awareness puts on a nation's progress toward the victory condition.</param>
+/// <param name="TreasuryCommitFloorPermille">The share of the treasury an AI with <c>expansionDrive = 0</c> will commit in one turn.</param>
+/// <param name="TreasuryCommitExpansionPermille">How much more of the treasury full <c>expansionDrive</c> unlocks.</param>
+/// <param name="MaxOpenRecruitmentOrdersPerCity">How many standing-recruitment orders the AI will leave open at one city at a time.</param>
+/// <param name="MaxFortifyPointsPerOrder">The largest fortification order the AI will place in one command.</param>
+/// <param name="SharedEnemyBonus">What a shared enemy adds to an alliance proposal's score.</param>
+public sealed record AiWeightsRules(
+    int PermilleScale,
+    int DefaultPersonalityPermille,
+    int MaxActionsPerTurn,
+    long MinimumActionScore,
+    long BesiegeCityBaseScore,
+    long AttackArmyBaseScore,
+    long AttackFleetBaseScore,
+    long ApproachCityBaseScore,
+    long SailAtFleetBaseScore,
+    long ReinforceCityBaseScore,
+    long RecruitBaseScore,
+    long MobilizeReadyRecruitBaseScore,
+    long FortifyBaseScore,
+    long ProposeAllianceBaseScore,
+    long ProposeTradeBaseScore,
+    long RequiredAttackRatioAtZeroAggressionPermille,
+    long RequiredAttackRatioAtFullAggressionPermille,
+    long MaxRatioScoreContribution,
+    long ThreatenedCityBonus,
+    long DistancePenaltyPerTile,
+    long VictoryProgressWeight,
+    long TreasuryCommitFloorPermille,
+    long TreasuryCommitExpansionPermille,
+    int MaxOpenRecruitmentOrdersPerCity,
+    int MaxFortifyPointsPerOrder,
+    long SharedEnemyBonus,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>

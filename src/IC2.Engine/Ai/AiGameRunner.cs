@@ -32,7 +32,7 @@ public enum AiGameEnding
 /// <param name="CommandsIssued">Commands dispatched by AI seats across the whole game.</param>
 /// <param name="CommandsRejected">How many of them were refused. Required to be zero.</param>
 /// <param name="ProjectionMismatches">Attacks abandoned after their declaration landed. Required to be zero.</param>
-/// <param name="TurnsHittingActionCap">AI turns that stopped at <see cref="AiWeights.MaxActionsPerTurn"/>.</param>
+/// <param name="TurnsHittingActionCap">AI turns that stopped at <see cref="AiWeightsRules.MaxActionsPerTurn"/>.</param>
 /// <param name="CommandlessTurns">AI turns that issued nothing at all.</param>
 /// <param name="LongestStallRun">
 /// The longest run of consecutive turns that both issued no command and left

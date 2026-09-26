@@ -28,7 +28,7 @@ public sealed class AiVictoryAwarenessTests
     [InlineData(1000, 2000)]
     public void A_nation_closer_to_victory_scores_a_city_higher(long progressPermille, long expected)
     {
-        Assert.Equal(expected, AiView.WithVictoryAwareness(1000, progressPermille));
+        Assert.Equal(expected, AiView.WithVictoryAwareness(1000, progressPermille, AiScriptedStates.Ruleset));
     }
 
     /// <summary>
@@ -97,7 +97,7 @@ public sealed class AiVictoryAwarenessTests
 
         AiMilitaryPhase.Propose(
             view,
-            AiPersonalityProfile.For(state.NationById(AiScriptedStates.Attacker)!),
+            AiPersonalityProfile.For(state.NationById(AiScriptedStates.Attacker)!, view.Ruleset),
             IC2.Engine.Core.SplitMix64Rng.ForStream(1, "ai.turn"),
             Array.Empty<string>(),
             candidates);

@@ -63,7 +63,7 @@ public sealed class AiEconomyPhaseMobilizationTests
         var candidates = Propose(OneSlotState(Recruitment.MobilizationMinStateCodeAiSeat));
 
         var mobilize = Assert.Single(candidates, c => c.Kind == "mobilize");
-        Assert.Equal(AiWeights.MobilizeReadyRecruitBaseScore, mobilize.Score);
+        Assert.Equal(AiScriptedStates.Ruleset.Ai.MobilizeReadyRecruitBaseScore, mobilize.Score);
 
         var command = Assert.IsType<MobilizeRecruitSlotCommand>(Assert.Single(mobilize.Commands));
         Assert.Equal(Acting, command.IssuingNationId);
@@ -116,7 +116,7 @@ public sealed class AiEconomyPhaseMobilizationTests
         var slots = new List<RecruitmentSlot>();
         for (var i = 0; i < Recruitment.MaxSlots - 1; i++)
         {
-            // Different cities, so AiWeights.MaxOpenRecruitmentOrdersPerCity never confounds this: the
+            // Different cities, so AiScriptedStates.Ruleset.Ai.MaxOpenRecruitmentOrdersPerCity never confounds this: the
             // table-full gate must be the one doing the suppressing.
             slots.Add(new RecruitmentSlot($"filler-{i}", "light_infantry", 1000, StateCode: 0));
         }
@@ -345,7 +345,7 @@ public sealed class AiEconomyPhaseMobilizationTests
 
         // In debt, so ProposeRecruitment/ProposeFortification never fire: a driven turn's only action is
         // the one candidate this generates. Otherwise a same-city recruit order (still under
-        // AiWeights.MaxOpenRecruitmentOrdersPerCity) could add a THIRD slot and confound the "the
+        // AiScriptedStates.Ruleset.Ai.MaxOpenRecruitmentOrdersPerCity) could add a THIRD slot and confound the "the
         // untouched slot survives verbatim" assertion below.
         var state = StateWith(new List<RecruitmentSlot> { notReadySlot, readySlot }, underSiege: false, treasury: -1);
 
@@ -416,7 +416,7 @@ public sealed class AiEconomyPhaseMobilizationTests
     {
         var view = new AiView(state, AiScriptedStates.Ruleset, OpenWorld, Acting);
         var candidates = new List<AiCandidate>();
-        AiEconomyPhase.Propose(view, AiPersonalityProfile.For(state.NationById(Acting)!), candidates);
+        AiEconomyPhase.Propose(view, AiPersonalityProfile.For(state.NationById(Acting)!, view.Ruleset), candidates);
         return candidates;
     }
 

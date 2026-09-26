@@ -73,7 +73,7 @@ public sealed class AiWarDeclarationRollTests
 
             AiMilitaryPhase.Propose(
                 view,
-                AiPersonalityProfile.For(state.NationById(Acting)!),
+                AiPersonalityProfile.For(state.NationById(Acting)!, view.Ruleset),
                 SplitMix64Rng.ForStream(seed, "ai.turn"),
                 Array.Empty<string>(),
                 candidates);

@@ -149,14 +149,17 @@ public sealed class AiPersonalityTests
         var defender = state.ArmyById("defender-army")!;
         var ratio = AiView.RatioPermille(
             IC2.Engine.Strength.ArmyPower.Compute(attacker.Units, attacker.Morale, ruleset),
-            IC2.Engine.Strength.ArmyPower.Compute(defender.Units, defender.Morale, ruleset));
+            IC2.Engine.Strength.ArmyPower.Compute(defender.Units, defender.Morale, ruleset),
+            ruleset);
 
-        var boldGate = AiView.RequiredAttackRatioPermille(AiPersonalityProfile.For(
-            state.NationById(AiScriptedStates.Attacker)!).AggressionPermille);
+        var boldGate = AiView.RequiredAttackRatioPermille(
+            AiPersonalityProfile.For(state.NationById(AiScriptedStates.Attacker)!, ruleset).AggressionPermille,
+            ruleset);
         var timidGate = AiView.RequiredAttackRatioPermille(
             AiPersonalityProfile.For(
-                AiScriptedStates.TwoArmiesInContact(Timid).NationById(AiScriptedStates.Attacker)!)
-                .AggressionPermille);
+                AiScriptedStates.TwoArmiesInContact(Timid).NationById(AiScriptedStates.Attacker)!, ruleset)
+                .AggressionPermille,
+            ruleset);
 
         Assert.Equal(1480, ratio);
         Assert.Equal(1030, boldGate);
@@ -177,7 +180,7 @@ public sealed class AiPersonalityTests
 
         AiMilitaryPhase.Propose(
             view,
-            AiPersonalityProfile.For(state.NationById(AiScriptedStates.Attacker)!),
+            AiPersonalityProfile.For(state.NationById(AiScriptedStates.Attacker)!, view.Ruleset),
             SplitMix64Rng.ForStream(1, "ai.turn"),
             Array.Empty<string>(),
             candidates);

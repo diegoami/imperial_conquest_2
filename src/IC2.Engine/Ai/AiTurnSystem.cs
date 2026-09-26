@@ -20,7 +20,7 @@ namespace IC2.Engine.Ai;
 /// <param name="CommandsIssued">How many commands were dispatched.</param>
 /// <param name="CommandsRejected">How many came back refused. Required to be zero.</param>
 /// <param name="ProjectionMismatches">How many attacks were abandoned after their declaration landed. Required to be zero.</param>
-/// <param name="HitActionCap">Whether the turn stopped at <see cref="AiWeights.MaxActionsPerTurn"/>.</param>
+/// <param name="HitActionCap">Whether the turn stopped at <see cref="AiWeightsRules.MaxActionsPerTurn"/>.</param>
 [DomainEvent("ai.turn-decided")]
 public sealed record AiTurnDecided(
     string NationId,

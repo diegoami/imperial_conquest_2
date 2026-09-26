@@ -192,7 +192,7 @@ public sealed class AiClassicalMediterraneanStallMeasurementTests
         }
 
         var nation = state.NationById(stall.Seat)!;
-        var personality = AiPersonalityProfile.For(nation);
+        var personality = AiPersonalityProfile.For(nation, ruleset);
         var view = new AiView(state, ruleset, world, stall.Seat);
 
         var military = new List<AiCandidate>();
@@ -203,7 +203,7 @@ public sealed class AiClassicalMediterraneanStallMeasurementTests
         var diplomacy = new List<AiCandidate>();
         AiDiplomacyPhase.Propose(view, personality, SplitMix64Rng.ForStream(seed, "t65.stall-diagnosis"), diplomacy);
 
-        var budget = AiEconomyPhase.TurnBudget(nation.Treasury, personality.ExpansionDrivePermille);
+        var budget = AiEconomyPhase.TurnBudget(nation.Treasury, personality.ExpansionDrivePermille, ruleset);
         var ownArmies = view.OwnArmies().Count;
         var ownFleets = view.OwnFleets().Count;
         var armiesWithMoves = view.OwnArmies().Count(a => !a.IsEmbarked && a.Moves > 0);
