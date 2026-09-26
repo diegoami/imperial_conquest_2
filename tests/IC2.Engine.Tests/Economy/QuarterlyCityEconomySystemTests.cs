@@ -1,3 +1,4 @@
+using IC2.Engine.Cities.Capture;
 using IC2.Engine.Core;
 using IC2.Engine.Economy;
 using IC2.Engine.Model;
@@ -74,8 +75,17 @@ public sealed class QuarterlyCityEconomySystemTests
         Assert.Equal(238, result.CityById("arx")!.PopulationThousands); // grew, exactly as computed above.
     }
 
+    /// <summary>
+    /// T89 (<c>#397</c>): the old, unconsumed <c>RebellionRiskDetected</c> publication is gone —
+    /// a non-capital city under the threshold now actually rebels, in code order. Portus's owner (north)
+    /// is also its allegiance, so this is branch (c)/(d); with no army and no live neighbour of north in
+    /// the toy world's own geometry (<c>startingNeighbours</c> is null for <c>toy-3city.json</c>, and its
+    /// 8×6 map does not clear <c>NeighbourGeography</c>'s own border-tile threshold for north/south), (d)
+    /// also finds no candidate, so nothing happens here but the loyalty draw itself — proven separately,
+    /// at the decision level, by <c>RebellionTests</c>.
+    /// </summary>
     [Fact]
-    public void RebellionRiskDetected_PublishesForANonCapitalCityUnderTheThreshold()
+    public void ANonCapitalCityUnderTheThreshold_RunsTheRebellionStep()
     {
         var state = EconomyTestbed.InitialState();
 
@@ -92,15 +102,18 @@ public sealed class QuarterlyCityEconomySystemTests
         var rng = new ScriptedRng(nextChanceDraws: new[] { false, false, false });
         var sink = new RecordingEventSink();
 
-        new QuarterlyCityEconomySystem().OnQuarterBoundary(Context(state, rng, sink));
+        var result = new QuarterlyCityEconomySystem().OnQuarterBoundary(Context(state, rng, sink));
 
-        var risk = Assert.Single(sink.Events.OfType<RebellionRiskDetected>());
-        Assert.Equal("portus", risk.CityId);
-        Assert.Equal(29, risk.Loyalty);
+        // Owner == allegiance (both "north"), no army on the map, and north has no live neighbour in this
+        // world -- (c) and (d) both find nothing, so Portus stays north's at its drawn loyalty, and no
+        // defection news is published.
+        Assert.Equal("north", result.CityById("portus")!.Owner);
+        Assert.Equal(29, result.CityById("portus")!.Loyalty);
+        Assert.Empty(sink.Events.OfType<CityDefectsToNation>());
     }
 
     [Fact]
-    public void RebellionRiskDetected_NeverPublishesForACapital()
+    public void ACapitalCityUnderTheThreshold_NeverRebels()
     {
         var state = EconomyTestbed.InitialState();
         var cities = state.Cities.Select(c => c.Id == "arx" ? c with { Loyalty = 5 } : c); // arx is north's capital.
@@ -109,9 +122,13 @@ public sealed class QuarterlyCityEconomySystemTests
         var rng = new ScriptedRng(nextChanceDraws: new[] { false, false, false });
         var sink = new RecordingEventSink();
 
-        new QuarterlyCityEconomySystem().OnQuarterBoundary(Context(state, rng, sink));
+        var result = new QuarterlyCityEconomySystem().OnQuarterBoundary(Context(state, rng, sink));
 
-        Assert.Empty(sink.Events.OfType<RebellionRiskDetected>());
+        // Arx's own draws leave its loyalty at 5 (rise skipped, fall roll misses) -- Done-when 2: a
+        // capital at loyalty under the threshold still never rebels.
+        Assert.Equal("north", result.CityById("arx")!.Owner);
+        Assert.Equal(5, result.CityById("arx")!.Loyalty);
+        Assert.Empty(sink.Events.OfType<CityDefectsToNation>());
     }
 
     /// <summary>
