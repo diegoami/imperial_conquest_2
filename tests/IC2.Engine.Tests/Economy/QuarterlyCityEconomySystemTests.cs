@@ -199,9 +199,24 @@ public sealed class QuarterlyCityEconomySystemTests
     /// at loyalty 2-8 (a rise of at most <c>LoyaltyRiseRollBound - 1</c>, a fall that only ever subtracts),
     /// so it always rebels; "south" is its only neighbour, so branch (d) always picks it regardless of the
     /// exact roll. The non-allegiant defection formula then saturates at its own cap for any loyalty this
-    /// low (<c>min(65, max(50, 100 - L))</c> is 65 for every <c>L &lt;= 35</c>), so the exact final owner
-    /// and loyalty are pinned by construction, and <see cref="GameStateHash"/> shows the same seed gives
-    /// the same whole state twice.
+    /// low (<c>min(65, max(50, 100 - L))</c> is 65 for every <c>L &lt;= 35</c>), so "rebel"'s own final
+    /// owner and loyalty are pinned by construction, independent of the stream -- which is exactly why
+    /// they alone cannot prove the tax-0 fix (review round 1, B4): removing it changes nothing "rebel" or
+    /// "sleepy" (also draw-independent at tax 0, since the loss is 0 either way) end up showing.
+    /// <see cref="GameStateHash"/> across two runs proves only that the RNG is itself deterministic, not
+    /// that the fix's own draw happened.
+    /// <para>
+    /// "watcher" (south's own capital, tax 5, starting loyalty 50) is what actually pins the fix: its own
+    /// rise/fall draws are read from the shared stream right after "sleepy"'s and "rebel"'s, so its exact
+    /// resulting loyalty depends on whether "sleepy" drew the tax-0 fix's extra <see cref="IRng.NextUInt64"/>
+    /// call. The seed below (<c>1895</c>) was chosen, by a throwaway brute-force search over
+    /// <see cref="SplitMix64Rng"/> seeds 1..2000, for exactly this: "sleepy"'s own <c>Random(3)</c> roll
+    /// hits (so the fix's extra draw actually fires), which shifts every later draw by one raw
+    /// <see cref="IRng.NextUInt64"/> call and changes "watcher"'s own final loyalty from 50 to 51 (review
+    /// round 1, B4's own suggestion: "a later draw"). Verified directly: reverting the tax-0 fix to its
+    /// pre-T89 shape (<c>ownerTaxRatePercent &gt; 0 ? rng.NextInt(...) : 0</c>) turns "watcher"'s loyalty
+    /// into 51 at this exact seed, confirmed by a mutation run before this assertion was written.
+    /// </para>
     /// </summary>
     [Fact]
     public void ATaxZeroNation_ReproducesAQuarterWithARebellion_Exactly()
@@ -214,22 +229,28 @@ public sealed class QuarterlyCityEconomySystemTests
             var rebel = CaptureTestbed.City(
                 "rebel", "Rebel", 0, 0, "north", "north", loyalty: 5, fortificationCode: 0,
                 populationThousands: 10, maxPopulationThousands: 20, tribute: 5);
-            var southCapital = CaptureTestbed.City(
-                "south-cap", "SouthCap", 5, 5, "south", "south", loyalty: 90, fortificationCode: 0,
+            var watcher = CaptureTestbed.City(
+                "south-cap", "Watcher", 5, 5, "south", "south", loyalty: 50, fortificationCode: 0,
                 populationThousands: 10, maxPopulationThousands: 20, tribute: 5);
 
             var north = CaptureTestbed.Nation("north", unity: 600) with { TaxRatePercent = 0 };
-            var south = CaptureTestbed.Nation("south", unity: 600, capitalCityId: "south-cap");
+            // "watcher" is south's own capital -- irrelevant to (d)'s neighbour lookup beyond its
+            // position -- and, at tax 5 (< 11) with starting loyalty 50 (< 80), it draws a real rise
+            // every run. Its own draws come from the shared stream right after "sleepy" and "rebel", so
+            // its exact resulting loyalty is sensitive to whether "sleepy" actually drew the tax-0 fix's
+            // extra IRng.NextUInt64 -- unlike "rebel", whose own loyalty the defection formula saturates
+            // regardless (see this test's own remarks below).
+            var south = CaptureTestbed.Nation("south", unity: 600, capitalCityId: "south-cap") with { TaxRatePercent = 5 };
 
             var state = EliminationForcesTestbed.StateWith(
-                new[] { north, south }, new[] { sleepy, rebel, southCapital });
+                new[] { north, south }, new[] { sleepy, rebel, watcher });
             state = state with
             {
                 Neighbours = ValueList.From(new[] { new NationNeighbours("north", ValueList.From(new[] { "south" })) }),
             };
 
             return new QuarterlyCityEconomySystem().OnQuarterBoundary(
-                Context(state, new SplitMix64Rng(20260926UL), new RecordingEventSink()));
+                Context(state, new SplitMix64Rng(1895UL), new RecordingEventSink()));
         }
 
         var first = RunOnce();
@@ -239,5 +260,9 @@ public sealed class QuarterlyCityEconomySystemTests
         Assert.Equal("south", first.CityById("rebel")!.Owner);
         Assert.Equal(65, first.CityById("rebel")!.Loyalty);
         Assert.Equal(80, first.CityById("sleepy")!.Loyalty); // tax 0: the fall roll's loss is always 0.
+
+        // The actual pin (review round 1, B4): 50 is the exact drawn value at seed 1895, sensitive to
+        // the tax-0 fix's own stream position -- see this test's own remarks.
+        Assert.Equal(50, first.CityById("south-cap")!.Loyalty);
     }
 }
