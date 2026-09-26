@@ -103,4 +103,25 @@ public sealed class CityLoyaltyDrawsTests
         Assert.Equal(loyalty, result.Loyalty);
         Assert.Equal(expectedRisk, result.RebellionRisk);
     }
+
+    /// <summary>
+    /// T89 (<c>#397</c>, decompiled-quarterly-rebellion.md §"Random draws"): at tax 0, the fall roll's
+    /// <c>Random(taxRate)</c> still advances the stream -- the original's own <c>Random(0)</c> does too,
+    /// per the report's own confirmed listing citation. The loss is 0 either way (nothing here asserts
+    /// otherwise), but <see cref="ScriptedRng.AssertAllDrawsConsumed"/> is what actually pins this: it
+    /// throws unless the single scripted <see cref="IRng.NextUInt64"/> draw was consumed, so this test
+    /// fails outright if the implementation goes back to skipping the draw at tax 0 (the pre-T89 shape,
+    /// <c>ownerTaxRatePercent &gt; 0 ? rng.NextInt(...) : 0</c>) -- exactly the mutation this line guards.
+    /// </summary>
+    [Fact]
+    public void ATaxZeroCity_StillDrawsTheStream_ForTheFallRoll()
+    {
+        var city = City(loyalty: 80); // >= 80: the rise gate never applies here, at any tax rate.
+        var rng = new ScriptedRng(nextChanceDraws: new[] { true }, nextUInt64Draws: new ulong[] { 0xABCDEF01 });
+
+        var result = CityLoyaltyDraws.Apply(city, ownerTaxRatePercent: 0, isCapital: false, Economy, rng);
+
+        Assert.Equal(80, result.Loyalty); // Random(0) also returns 0: the loss is 0 either way.
+        rng.AssertAllDrawsConsumed();
+    }
 }

@@ -1326,6 +1326,28 @@ public sealed record LoyaltyRules(
 /// the same reason those two are already kept separate despite <see cref="DefectionTreasuryCreditMultiplier"/>'s
 /// coincidentally equal value — see that field's own remarks.
 /// </param>
+/// <param name="RebellionArmyDistanceMax">
+/// <c>[confirmed: decompiled-quarterly-rebellion.md "Answer" and its §1 "The distance is Chebyshev"]</c>
+/// T89, <c>FUN_0044C204</c> branch (c): an army of a nation at war with the city's owner qualifies only
+/// within this Chebyshev distance of the rebelling city — the comparison is <c>&lt; 10</c>, so a distance
+/// of exactly 10 does not qualify. Review round 1, N1: no siege is required and nothing about the army's
+/// own state is read (troops, morale, embarkation) — any live army of a nation at war with the owner
+/// qualifies, not only one actively besieging that city. Numerically the same value and metric as
+/// <see cref="CascadeDistanceMax"/>, but a distinct field: that one gates the forced-capture cascade
+/// (<c>FUN_0044ba1c</c>), this one gates a wholly different routine (<c>FUN_0044c204</c>) that happens to
+/// share the threshold — the same reasoning already given for <see cref="CapitalMoveMinDistanceTiles"/>
+/// being kept apart from <see cref="CascadeDistanceMax"/>.
+/// </param>
+/// <param name="RebellionNeighbourScoreDistanceWeight">
+/// <c>[confirmed: decompiled-quarterly-rebellion.md "Answer"]</c> T89, branch (d)'s candidate score:
+/// <c>cities(n) − this × cheb(city, capital(n))</c> (2).
+/// </param>
+/// <param name="RebellionNeighbourScoreFloor">
+/// <c>[confirmed: decompiled-quarterly-rebellion.md "Answer"]</c> T89, branch (d): the running best score
+/// starts here (−1000) before any candidate is scored, so only a strictly greater score ever replaces it
+/// — the report's own note that a candidate scoring at or below this "cannot happen on a 320 × 140 map"
+/// is about the shipped map's own bound, not a reason to change this starting value itself.
+/// </param>
 public sealed record CaptureRules(
     int CaptureTreasuryCreditMultiplier,
     int CaptureUnityGain,
@@ -1354,6 +1376,9 @@ public sealed record CaptureRules(
     int ConquestWinnerUnityGain,
     int ConquestLoyaltyRandomBonusMax,
     int ConquestTreasuryCreditMultiplier,
+    int RebellionArmyDistanceMax,
+    int RebellionNeighbourScoreDistanceWeight,
+    int RebellionNeighbourScoreFloor,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>The numeric codes the relation matrix stores for each diplomatic state.</summary>

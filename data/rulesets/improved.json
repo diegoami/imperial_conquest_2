@@ -772,6 +772,9 @@
     "conquestWinnerUnityGain": 50,
     "conquestLoyaltyRandomBonusMax": 6,
     "conquestTreasuryCreditMultiplier": 6,
+    "rebellionArmyDistanceMax": 10,
+    "rebellionNeighbourScoreDistanceWeight": 2,
+    "rebellionNeighbourScoreFloor": -1000,
     "_provenance": {
       "captureTreasuryCreditMultiplier": "confirmed: nation-tax-base-and-city-economy-fields.md — FUN_0044bb18's own write, 'new owner's treasury += contribution * 4' -- a different field from economy.taxBaseContributionMultiplier (also 4, but the taxBase += contribution * 4 term). See the capture.treasuryCreditMultiplier corpus entry's own note. T04 fixtures corpus id: 'capture.treasuryCreditMultiplier'.",
       "captureUnityGain": "confirmed: decompiled-city-capture-resolution.md / nation-tax-base-and-city-economy-fields.md — newOwner.unity += 9 at a forced capture, clamped to economy.unityCap. T04 fixtures corpus id: 'capture.unityGain'.",
@@ -799,7 +802,10 @@
       "capitalMoveNewCapitalTributeGain": "confirmed: decompiled-elimination-cleanup.md §4 addendum (research dcd8fd7), FUN_0044BD2C :50295 — the new capital's own tribute gains 25, uncapped. T86 plan PR #410.",
       "conquestWinnerUnityGain": "confirmed: decompiled-elimination-cleanup.md §4, FUN_0044C528 — the winner's unity gain on conquering a nation outright is 50, clamped to economy.unityCap.",
       "conquestLoyaltyRandomBonusMax": "confirmed: decompiled-elimination-cleanup.md §4 — every moved city's conquest loyalty formula adds + Random(6).",
-      "conquestTreasuryCreditMultiplier": "confirmed: decompiled-elimination-cleanup.md §4, FUN_0044C528 — the winner's per-city treasury credit during a conquest's mass transfer, treasury += contribution * 6."
+      "conquestTreasuryCreditMultiplier": "confirmed: decompiled-elimination-cleanup.md §4, FUN_0044C528 — the winner's per-city treasury credit during a conquest's mass transfer, treasury += contribution * 6.",
+      "rebellionArmyDistanceMax": "confirmed: decompiled-quarterly-rebellion.md 'Answer' and §1 'The distance is Chebyshev' — FUN_0044c204 branch (c) only considers an army within Chebyshev distance 10 of the rebelling city (the test is < 10). Numerically the same value and metric as cascadeDistanceMax, but a distinct field for a distinct routine — see the field's own C# remarks.",
+      "rebellionNeighbourScoreDistanceWeight": "confirmed: decompiled-quarterly-rebellion.md 'Answer' — branch (d)'s candidate score is cities(n) - 2 * cheb(city, capital(n)).",
+      "rebellionNeighbourScoreFloor": "confirmed: decompiled-quarterly-rebellion.md 'Answer' — branch (d)'s running best score starts at -1000 before any candidate is scored."
     }
   },
   "diplomacy": {

@@ -29,6 +29,7 @@ internal sealed class ScriptedRng : IRng
 {
     private readonly Queue<int> _nextIntDraws;
     private readonly Queue<bool> _nextChanceDraws;
+    private readonly Queue<ulong> _nextUInt64Draws;
     private readonly Queue<int>? _expectedNextIntBounds;
     private readonly Queue<(int Numerator, int Denominator)>? _expectedNextChanceOdds;
 
@@ -36,10 +37,12 @@ internal sealed class ScriptedRng : IRng
         IEnumerable<int>? nextIntDraws = null,
         IEnumerable<bool>? nextChanceDraws = null,
         IEnumerable<int>? expectedNextIntBounds = null,
-        IEnumerable<(int Numerator, int Denominator)>? expectedNextChanceOdds = null)
+        IEnumerable<(int Numerator, int Denominator)>? expectedNextChanceOdds = null,
+        IEnumerable<ulong>? nextUInt64Draws = null)
     {
         _nextIntDraws = new Queue<int>(nextIntDraws ?? Array.Empty<int>());
         _nextChanceDraws = new Queue<bool>(nextChanceDraws ?? Array.Empty<bool>());
+        _nextUInt64Draws = new Queue<ulong>(nextUInt64Draws ?? Array.Empty<ulong>());
         _expectedNextIntBounds = expectedNextIntBounds is null ? null : new Queue<int>(expectedNextIntBounds);
         _expectedNextChanceOdds = expectedNextChanceOdds is null
             ? null
@@ -50,7 +53,22 @@ internal sealed class ScriptedRng : IRng
 
     public ulong State => 0;
 
-    public ulong NextUInt64() => throw new NotSupportedException("Not scripted by this test double.");
+    /// <summary>
+    /// T89: scripted like the other draw kinds, rather than throwing outright, so a test can pin
+    /// <see cref="Economy.CityLoyaltyDraws"/>'s own tax-0 <c>Random(taxRate)</c> stand-in
+    /// (<see cref="IRng.NextUInt64"/>) as one more call in an exact sequence. Unscripted (the default,
+    /// empty queue) still throws <see cref="InvalidOperationException"/> -- every existing script that
+    /// never expects this call keeps failing loudly if the production code starts making it unexpectedly.
+    /// </summary>
+    public ulong NextUInt64()
+    {
+        if (_nextUInt64Draws.Count == 0)
+        {
+            throw new InvalidOperationException("ScriptedRng has no more scripted NextUInt64 draws.");
+        }
+
+        return _nextUInt64Draws.Dequeue();
+    }
 
     public int NextInt(int exclusiveUpperBound)
     {
@@ -122,4 +140,20 @@ internal sealed class ScriptedRng : IRng
     }
 
     public IRng ForStream(string streamName) => this;
+
+    /// <summary>
+    /// T89: throws unless every scripted draw of every kind was actually consumed. Given each draw kind
+    /// keeps its own queue, this is the one way to prove a call the production code was expected to make
+    /// (for instance, <see cref="Economy.CityLoyaltyDraws"/>'s tax-0 <see cref="IRng.NextUInt64"/> stand-in)
+    /// actually happened, rather than merely that nothing else broke.
+    /// </summary>
+    public void AssertAllDrawsConsumed()
+    {
+        if (_nextIntDraws.Count != 0 || _nextChanceDraws.Count != 0 || _nextUInt64Draws.Count != 0)
+        {
+            throw new InvalidOperationException(
+                $"ScriptedRng has unconsumed draws: {_nextIntDraws.Count} NextInt, "
+                + $"{_nextChanceDraws.Count} NextChance, {_nextUInt64Draws.Count} NextUInt64.");
+        }
+    }
 }

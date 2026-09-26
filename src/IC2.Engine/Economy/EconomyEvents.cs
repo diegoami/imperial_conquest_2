@@ -15,9 +15,6 @@ namespace IC2.Engine.Economy;
 [DomainEvent("economy.weather-event-fired")]
 public sealed record WeatherEventFired(int SeasonIndex, int Week, string EffectId) : DomainEvent;
 
-[DomainEvent("economy.rebellion-risk-detected")]
-public sealed record RebellionRiskDetected(string CityId, int Loyalty) : DomainEvent;
-
 /// <summary>
 /// An AI nation's leader is deposed for debt (<c>FUN_0044c8f0</c>) — <c>docs/task-catalogue.md</c>
 /// "T39 Quarterly upkeep: who pays, mercenary desertion, and deposition for debt", Done-when 6 and 7.
