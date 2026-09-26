@@ -56,8 +56,17 @@ public sealed class CascadeGateTests
         var attacker = CaptureTestbed.Army(
             "army", NewOwner, 0, 0, attackerMorale, CaptureTestbed.Unit("heavy_infantry", attackerTroops));
 
+        // T86: 5 filler cities, far enough away (CascadeDistanceMax is 10) that none is itself cascade-
+        // eligible, so the old owner keeps 6 cities after "captured" is transferred (candidate + 5
+        // fillers) -- at or above CaptureRules.ConquestCityCountThreshold, so the conquest cascade never
+        // fires and overrides whatever this file's own cascade-gate tests are checking. Without this,
+        // every "does not defect" test here would see "candidate" taken anyway by conquest (the old
+        // owner would otherwise be left with well under 6 cities), which is a different mechanism from
+        // the one under test.
+        var fillerCities = CaptureTestbed.FillerCities(OldOwner, 5, startX: 1000, y: 1000).ToArray();
+
         var state = CaptureTestbed.StateWith(
-            new[] { oldOwner, newOwner }, new[] { captured, candidate }, new[] { attacker });
+            new[] { oldOwner, newOwner }, new[] { captured, candidate }.Concat(fillerCities), new[] { attacker });
 
         return (state, ruleset);
     }

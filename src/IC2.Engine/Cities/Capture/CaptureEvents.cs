@@ -50,3 +50,18 @@ public sealed record CityDefectsToNation(string CityName, string OldOwner, strin
 /// <param name="ConqueredNation">The eliminated nation's display name.</param>
 [DomainEvent("nation.conquered", NewsWorthy = true)]
 public sealed record NationConquered(string ConqueringNation, string ConqueredNation) : DomainEvent;
+
+/// <summary>
+/// T86: a nation whose capital just fell moved its capital elsewhere instead of being conquered —
+/// <c>FUN_0044BD2C</c> (<c>decompiled-elimination-cleanup.md</c> §4, :50234). Matches the already-
+/// registered <c>nation.capital-moved</c> template, <c>"&lt;nation&gt; have moved their capital to
+/// &lt;cityName&gt;."</c> (added to the catalog by T42 from <c>news-log-format-and-messages.md</c> Q4
+/// #8, never previously published by any event). Published only by
+/// <see cref="ConquestTrigger.Evaluate"/>, only when a destination city was actually found; the -50 unity
+/// cost is applied whether or not one was (see <see cref="Model.CaptureRules.CapitalMoveUnityLoss"/>'s
+/// own remarks), so it is not part of this event.
+/// </summary>
+/// <param name="Nation">The nation whose capital moved.</param>
+/// <param name="CityName">The new capital's display name.</param>
+[DomainEvent("nation.capital-moved", NewsWorthy = true)]
+public sealed record NationCapitalMoved(string Nation, string CityName) : DomainEvent;

@@ -1062,12 +1062,84 @@ public sealed record SiegeRules(
     int PopulationFloorAddend,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
-/// <summary>Loyalty floors and tiering.</summary>
+/// <summary>
+/// Loyalty floors, tiering, and (T86) the transfer formulas' own shared and per-mechanism terms —
+/// <c>decompiled-quarterly-rebellion.md</c> §3 (research <c>235af11</c>), which corrected
+/// <see cref="ForcedCaptureFloor"/>, <see cref="DefectionFloor"/> and <see cref="AllegiantRecaptureTarget"/>
+/// from flat targets into the clamp bounds of a formula: a single-city forced capture writes
+/// <c>max(ForcedCaptureFloor, min(ForcedCaptureCap, NonAllegiantTransferBase − L′))</c> when the city's
+/// allegiance differs from the new owner, or <c>min(AllegiantRecaptureTarget, AllegiantRecaptureBase − L′)</c>
+/// when it matches (<c>L′</c> = loyalty after any siege erosion already applied); a single-city defection
+/// writes <c>min(DefectionFloor, max(DefectionFormulaFloor, NonAllegiantTransferBase − L))</c> or the same
+/// allegiant clamp, against pre-transfer loyalty <c>L</c>. <see cref="IC2.Engine.Cities.Capture.CityCaptureResolver"/>
+/// applies both; the mass conquest transfer (<c>decompiled-elimination-cleanup.md</c> §4 point 2, research
+/// <c>43a44a1</c>) has its own, textually different clamp bounds — see <see cref="ConquestAllegiantCap"/>
+/// and friends — applied by <see cref="IC2.Engine.Cities.Capture.ConquestCascade"/>.
+/// </summary>
+/// <param name="ForcedCaptureFloor">
+/// <c>[confirmed]</c> The non-allegiant forced-capture clamp's lower bound (40) — was a flat target before
+/// T86; the report's 5 save captures (Mediolanum, Felsina, Brixia, Byblos, Gordium) show the engine's old
+/// flat 40 is wrong for all 5 once read as this formula's floor instead.
+/// </param>
+/// <param name="DefectionFloor">
+/// <c>[confirmed]</c> The non-allegiant defection clamp's <em>upper</em> bound (65) — was a flat target
+/// before T86; the report's 5 non-allegiant cascade defections (Aradus, Hemesa, Palmyra, Modena, Acroinon)
+/// all actually resolved to 50 (the formula's floor, <see cref="DefectionFormulaFloor"/>), not this cap.
+/// </param>
+/// <param name="AllegiantRecaptureTarget">
+/// <c>[confirmed]</c> The allegiant clamp's upper bound (90), shared by the forced-capture and defection
+/// formulas — was a flat target before T86; the report's Synnada defection (62 → 78) and Tarquinii/Ariminum
+/// defections (→ 90) show the formula, not a flat 90, both under this same cap.
+/// </param>
+/// <param name="TierDivisor">Unrelated to the transfer formulas: the loyalty-tier display divisor.</param>
+/// <param name="AllegiantRecaptureBase">
+/// <c>[confirmed]</c> The allegiant clamp's base (140): <c>min(AllegiantRecaptureTarget, 140 − L)</c>,
+/// shared by the forced-capture and defection formulas.
+/// </param>
+/// <param name="NonAllegiantTransferBase">
+/// <c>[confirmed]</c> The non-allegiant clamp's shared base (100): <c>100 − L</c> (defection) or
+/// <c>100 − L′</c> (forced capture) — also the base the conquest transfer's own non-allegiant formula
+/// uses (<see cref="ConquestNonAllegiantFloor"/>).
+/// </param>
+/// <param name="ForcedCaptureCap">
+/// <c>[confirmed]</c> The non-allegiant forced-capture clamp's upper bound (60).
+/// </param>
+/// <param name="DefectionFormulaFloor">
+/// <c>[confirmed]</c> The non-allegiant defection clamp's lower bound (50) — the value 6 of the report's 8
+/// cascade defections actually landed on, that the engine's old flat 65 missed.
+/// </param>
+/// <param name="ConquestAllegiantCap">
+/// <c>[confirmed: decompiled-elimination-cleanup.md §4]</c> The mass conquest transfer's own allegiant
+/// clamp upper bound (80): <c>min(80, 120 − L)</c> — deliberately different from the single-city
+/// <see cref="AllegiantRecaptureTarget"/>/<see cref="AllegiantRecaptureBase"/> pair; <c>FUN_0044C528</c>'s
+/// own loyalty write is textually distinct from <c>FUN_0044BB18</c>'s/<c>FUN_0044BED8</c>'s.
+/// </param>
+/// <param name="ConquestAllegiantBase">
+/// <c>[confirmed: decompiled-elimination-cleanup.md §4]</c> The conquest transfer's allegiant clamp base
+/// (120) — see <see cref="ConquestAllegiantCap"/>.
+/// </param>
+/// <param name="ConquestNonAllegiantCap">
+/// <c>[confirmed: decompiled-elimination-cleanup.md §4]</c> The conquest transfer's non-allegiant clamp
+/// upper bound (70): <c>min(70, max(40, 100 − L))</c>.
+/// </param>
+/// <param name="ConquestNonAllegiantFloor">
+/// <c>[confirmed: decompiled-elimination-cleanup.md §4]</c> The conquest transfer's non-allegiant clamp
+/// lower bound (40) — see <see cref="ConquestNonAllegiantCap"/>; shares <see cref="NonAllegiantTransferBase"/>
+/// (100) as its base.
+/// </param>
 public sealed record LoyaltyRules(
     int ForcedCaptureFloor,
     int DefectionFloor,
     int AllegiantRecaptureTarget,
     int TierDivisor,
+    int AllegiantRecaptureBase,
+    int NonAllegiantTransferBase,
+    int ForcedCaptureCap,
+    int DefectionFormulaFloor,
+    int ConquestAllegiantCap,
+    int ConquestAllegiantBase,
+    int ConquestNonAllegiantCap,
+    int ConquestNonAllegiantFloor,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>
@@ -1151,6 +1223,109 @@ public sealed record LoyaltyRules(
 /// strength is divided by this (3) when the city's allegiance already matches the new owner — "rebellious
 /// sympathy weakens it further".
 /// </param>
+/// <param name="ConquestCityCountThreshold">
+/// <c>[confirmed: decompiled-elimination-cleanup.md §4, FUN_0044BB18 :50150]</c> T86: a non-capital
+/// capture that leaves the loser with fewer than this many cities (6) conquers it outright —
+/// <see cref="IC2.Engine.Cities.Capture.ConquestCascade"/> — instead of the engine's old "only at zero
+/// cities" elimination rule.
+/// </param>
+/// <param name="CapitalMoveUnityThreshold">
+/// <c>[confirmed: decompiled-elimination-cleanup.md §4, FUN_0044BB18]</c> When the loser's capital falls,
+/// it may attempt to move its capital only while its unity is over this (400); at or below it, it is
+/// conquered outright without an attempt.
+/// </param>
+/// <param name="CapitalMoveCityCountThreshold">
+/// <c>[confirmed: decompiled-elimination-cleanup.md §4]</c> Only when the loser's own capital just fell:
+/// the capital-move attempt also requires more than this many cities (6); at or below it, the loser is
+/// conquered outright without an attempt. Review round 1, B3 item 5: an earlier revision of this remark
+/// said "capital or not", which is false of the separate, non-capital branch — that one conquers only
+/// below <see cref="ConquestCityCountThreshold"/>, strictly, so a non-capital capture leaving exactly 6
+/// cities does <em>not</em> conquer (<c>NonCapitalCapture_LeavingSixCities_DoesNotConquer</c>), unlike a
+/// capital capture leaving exactly 6, which does.
+/// </param>
+/// <param name="CapitalMoveUnityLoss">
+/// <c>[confirmed: decompiled-elimination-cleanup.md §4, FUN_0044BD2C :50234]</c> Attempting to move the
+/// capital costs 50 unity, whether or not a destination city is actually found.
+/// </param>
+/// <param name="CapitalMoveMinDistanceTiles">
+/// <c>[confirmed: decompiled-elimination-cleanup.md §4]</c> The capital only actually moves to a city more
+/// than this many tiles away (10, Chebyshev — the engine's one other map-distance convention, the same
+/// <c>[derived]</c> choice <see cref="CascadeDistanceMax"/> already makes); with none, the capital does
+/// not move and the loser is conquered instead. The addendum (research <c>dcd8fd7</c>,
+/// <c>FUN_0044BD2C</c> :50265) confirms the test itself is <c>10 &lt; d</c>, i.e. a city must be at least
+/// 11 tiles away, not exactly 10.
+/// </param>
+/// <param name="CapitalMoveStrengthDivisor">
+/// <c>[confirmed: decompiled-elimination-cleanup.md §4 addendum, research <c>dcd8fd7</c>,
+/// FUN_0044BD2C :50267]</c> T86 review round 1, B1: every candidate destination's own full defender
+/// strength (<see cref="IC2.Engine.Cities.Capture.CompleteDefenderStrength.Compute"/>) is divided by this
+/// (10) — a signed integer division, truncating toward zero — before dividing again by the candidate's
+/// own Chebyshev distance from the fallen capital, in that order; the winning candidate needs a
+/// strictly-positive result. Numerically the same value as <see cref="CapitalMoveMinDistanceTiles"/>, but
+/// a distinct field: one is a distance threshold in tiles, this one a strength divisor, and the original
+/// never ties them together beyond the coincidence.
+/// </param>
+/// <param name="CapitalMoveNewCapitalLoyaltyGain">
+/// <c>[confirmed: decompiled-elimination-cleanup.md §4 addendum, research <c>dcd8fd7</c>,
+/// FUN_0044BD2C :50286]</c> T86 review round 1, plan PR #410: on a successful capital move, the new
+/// capital's own <see cref="CityState.Loyalty"/> gains this (8), capped at
+/// <see cref="CapitalMoveNewCapitalStatCap"/>. Applied only to the destination — every other city is
+/// untouched.
+/// </param>
+/// <param name="CapitalMoveNewCapitalFortificationGain">
+/// <c>[confirmed: decompiled-elimination-cleanup.md §4 addendum, research <c>dcd8fd7</c>,
+/// FUN_0044BD2C :50289]</c> The new capital's own raw <see cref="CityState.FortificationCode"/> word
+/// gains this (10), capped at <see cref="CapitalMoveNewCapitalStatCap"/> — applied to the stored word
+/// itself, not the decoded percentage, which is also how the original derives its own quirk: a code
+/// already above <see cref="CityOrderRule.MaxPercent"/> (an order in progress,
+/// <see cref="FortificationCode.IsOrderInProgress"/>) plus this gain always exceeds the cap, so the min
+/// collapses it to a plain finished value at the cap — discarding whatever order was pending, exactly
+/// the addendum's own "the move discards it" remark.
+/// </param>
+/// <param name="CapitalMoveNewCapitalStatCap">
+/// <c>[confirmed: decompiled-elimination-cleanup.md §4 addendum, research <c>dcd8fd7</c>,
+/// FUN_0044BD2C :50286–50291]</c> The upper bound (99) both
+/// <see cref="CapitalMoveNewCapitalLoyaltyGain"/> and <see cref="CapitalMoveNewCapitalFortificationGain"/>
+/// are capped at — the same literal <c>99</c> both of the addendum's own <c>min(99, …)</c> writes use.
+/// Kept as one shared field rather than two coincidentally-equal ones (contrast
+/// <see cref="CapitalMoveMinDistanceTiles"/>/<see cref="CapitalMoveStrengthDivisor"/>, kept separate on
+/// purpose): both fields here are the same kind of quantity, a percentage capped one below its own
+/// <c>100</c> ceiling, and the addendum gives no reason to think the original's two <c>min(99, …)</c>
+/// writes are anything but the same cap applied twice.
+/// </param>
+/// <param name="CapitalMoveNewCapitalPopulationGain">
+/// <c>[confirmed: decompiled-elimination-cleanup.md §4 addendum, research <c>dcd8fd7</c>,
+/// FUN_0044BD2C :50293]</c> The new capital's own <see cref="CityState.PopulationThousands"/> gains this
+/// (10, in thousands), uncapped — even above <see cref="CityState.MaxPopulationThousands"/>.
+/// </param>
+/// <param name="CapitalMoveNewCapitalMaxPopulationGain">
+/// <c>[confirmed: decompiled-elimination-cleanup.md §4 addendum, research <c>dcd8fd7</c>,
+/// FUN_0044BD2C :50294]</c> The new capital's own <see cref="CityState.MaxPopulationThousands"/> gains
+/// this (20), uncapped.
+/// </param>
+/// <param name="CapitalMoveNewCapitalTributeGain">
+/// <c>[confirmed: decompiled-elimination-cleanup.md §4 addendum, research <c>dcd8fd7</c>,
+/// FUN_0044BD2C :50295]</c> The new capital's own <see cref="CityState.Tribute"/> gains this (25),
+/// uncapped.
+/// </param>
+/// <param name="ConquestWinnerUnityGain">
+/// <c>[confirmed: decompiled-elimination-cleanup.md §4, FUN_0044C528]</c> The winner's unity gain on
+/// conquering a nation outright (50, clamped to <see cref="EconomyRules.UnityCap"/>) — distinct from, and
+/// far larger than, a single-city <see cref="CaptureUnityGain"/>.
+/// </param>
+/// <param name="ConquestLoyaltyRandomBonusMax">
+/// <c>[confirmed: decompiled-elimination-cleanup.md §4]</c> The exclusive upper bound of the
+/// <c>+ Random(this)</c> (6) added to every moved city's loyalty formula during a conquest's mass
+/// transfer — drawn through <c>IRng</c>, one independent draw per moved city.
+/// </param>
+/// <param name="ConquestTreasuryCreditMultiplier">
+/// <c>[confirmed: decompiled-elimination-cleanup.md §4, FUN_0044C528]</c> The winner's per-city treasury
+/// credit during a conquest's mass transfer: <c>treasury += contribution × this</c> (6) — a distinct
+/// write from <see cref="DefectionTreasuryCreditMultiplier"/> (also 6, a different function,
+/// <c>FUN_0044BED8</c>) and <see cref="CaptureTreasuryCreditMultiplier"/> (4); kept as its own field for
+/// the same reason those two are already kept separate despite <see cref="DefectionTreasuryCreditMultiplier"/>'s
+/// coincidentally equal value — see that field's own remarks.
+/// </param>
 public sealed record CaptureRules(
     int CaptureTreasuryCreditMultiplier,
     int CaptureUnityGain,
@@ -1164,6 +1339,21 @@ public sealed record CaptureRules(
     int CascadeUnityThreshold,
     int CascadeLoyaltyThreshold,
     int CascadeAllegiantDefenseDivisor,
+    int ConquestCityCountThreshold,
+    int CapitalMoveUnityThreshold,
+    int CapitalMoveCityCountThreshold,
+    int CapitalMoveUnityLoss,
+    int CapitalMoveMinDistanceTiles,
+    int CapitalMoveStrengthDivisor,
+    int CapitalMoveNewCapitalLoyaltyGain,
+    int CapitalMoveNewCapitalFortificationGain,
+    int CapitalMoveNewCapitalStatCap,
+    int CapitalMoveNewCapitalPopulationGain,
+    int CapitalMoveNewCapitalMaxPopulationGain,
+    int CapitalMoveNewCapitalTributeGain,
+    int ConquestWinnerUnityGain,
+    int ConquestLoyaltyRandomBonusMax,
+    int ConquestTreasuryCreditMultiplier,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>The numeric codes the relation matrix stores for each diplomatic state.</summary>

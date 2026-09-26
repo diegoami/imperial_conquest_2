@@ -29,12 +29,16 @@ public static class SaveFormat
 
     /// <summary>
     /// The highest save format version this build writes and reads. Version 1 wrapped a bare
-    /// <c>SaveGame</c> with no other envelope field; version 2 adds <see cref="TurnIndexField"/>.
-    /// <see cref="SaveMigrations"/> carries the real version-1-to-2 step, exercised by
+    /// <c>SaveGame</c> with no other envelope field; version 2 adds <see cref="TurnIndexField"/>;
+    /// version 3 (T86) makes the nested state's own <c>nations[].conqueredBy</c> and
+    /// <c>state.neighbours</c> fields explicit on every migrated envelope, rather than relying on their
+    /// being optional at the <c>GameState</c>/<c>NationState</c> level (both are — see each field's own
+    /// remarks) to carry an older save through unmodified. <see cref="SaveMigrations"/> carries the real
+    /// version-1-to-2 and version-2-to-3 steps; the version-1 step is exercised by
     /// <c>tests/fixtures/saves/toy-3city-turn-10.v1.json</c> — a save written by this task's own
     /// version-1 code, committed before this constant became 2.
     /// </summary>
-    public const int CurrentVersion = 2;
+    public const int CurrentVersion = 3;
 
     /// <summary>
     /// The lowest save format version this build has ever shipped and can migrate from

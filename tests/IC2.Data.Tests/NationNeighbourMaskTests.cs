@@ -3,11 +3,12 @@ using Xunit;
 namespace IC2.Data.Tests;
 
 /// <summary>
-/// T85 Done-when 1 (#387, correction for #385): <see cref="SaveNationTable.NeighbourMasks"/>, the
+/// T85 Done-when 1 (#387, correction for #385): <see cref="NationRecord.NeighbourMask"/>, the
 /// 16-bit neighbour mask at DAT nation-record <c>+0x2B</c> (<see cref="DatLayout.NationNeighbourOffset"/>)
 /// / SAV runtime <c>+0x46</c> — 24 symmetric pairs, no nation neighbouring itself, and Rome's own row
-/// (Carthage, Gaul, Illyria). See
-/// https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/dat-neighbour-mask.md
+/// (Carthage, Gaul, Illyria). T86 moved this off <c>SaveNationTable.NeighbourMasks</c>'s own parallel
+/// array (a stopgap, see that field's own former remarks) onto <see cref="NationRecord"/> itself.
+/// See https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/dat-neighbour-mask.md
 /// §2, "The mask in the DAT".
 /// </summary>
 public class NationNeighbourMaskTests
@@ -36,7 +37,11 @@ public class NationNeighbourMaskTests
         Skip.IfNot(LocalAssets.IsConfigured, LocalAssets.SkipReason);
         var data = File.ReadAllBytes(LocalAssets.Settings!.DatPath);
         var table = SaveNationTable.Parse(data);
-        var masks = table.NeighbourMasks;
+        var masks = new List<ushort>(table.Nations.Count);
+        foreach (var nation in table.Nations)
+        {
+            masks.Add(nation.NeighbourMask);
+        }
 
         Assert.Equal(16, table.Nations.Count);
         Assert.Equal(16, masks.Count);
@@ -77,7 +82,12 @@ public class NationNeighbourMaskTests
     public void At_least_three_local_saves_neighbour_masks_equal_the_dats()
     {
         Skip.IfNot(LocalAssets.IsConfigured, LocalAssets.SkipReason);
-        var datMasks = SaveNationTable.Parse(File.ReadAllBytes(LocalAssets.Settings!.DatPath)).NeighbourMasks;
+        var datTable = SaveNationTable.Parse(File.ReadAllBytes(LocalAssets.Settings!.DatPath));
+        var datMasks = new ushort[datTable.Nations.Count];
+        for (var i = 0; i < datMasks.Length; i++)
+        {
+            datMasks[i] = datTable.Nations[i].NeighbourMask;
+        }
 
         // Three saves spanning the corpus's own date range (report §2's "against the saves" table):
         // the earliest (spring, week 1) and a later one from a different campaign each.
@@ -90,8 +100,14 @@ public class NationNeighbourMaskTests
 
         foreach (var saveName in saveNames)
         {
-            var saveMasks = SaveNationTable.Parse(File.ReadAllBytes(FixtureResolver.ResolveOrThrow(saveName))).NeighbourMasks;
-            Assert.Equal(16, saveMasks.Count);
+            var saveTable = SaveNationTable.Parse(File.ReadAllBytes(FixtureResolver.ResolveOrThrow(saveName)));
+            var saveMasks = new ushort[saveTable.Nations.Count];
+            for (var i = 0; i < saveMasks.Length; i++)
+            {
+                saveMasks[i] = saveTable.Nations[i].NeighbourMask;
+            }
+
+            Assert.Equal(16, saveMasks.Length);
             for (var i = 0; i < 16; i++)
             {
                 Assert.Equal(datMasks[i], saveMasks[i]);

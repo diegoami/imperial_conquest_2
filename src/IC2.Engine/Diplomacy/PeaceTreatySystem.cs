@@ -273,7 +273,7 @@ public sealed class PeaceTreatySystem : IGameSystem
         state = state with { Relations = state.Relations.WithRelation(allyId, side, cooldown) };
 
         var allyControl = state.NationById(allyId)?.Control;
-        if (NeighbourGeography.AreNeighbours(world, allyId, enemy) || allyControl == SeatControl.Human)
+        if (NeighbourGeography.AreNeighbours(state, world, allyId, enemy) || allyControl == SeatControl.Human)
         {
             return state;
         }

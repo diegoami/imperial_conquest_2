@@ -230,10 +230,10 @@ public class EmbarkationLinkerTests
         // Review round 1, B1: (40, 11) is deliberately not a corner of zeros. On the real terrain grid,
         // terrain[(11 * Width) + 40] == 4 (forest) while both 0 and the transposed cell
         // terrain[(40 * Width) + 11] == 2 (plain) are different values. That lets this assertion tell a
-        // right lookup from two realistic wrong ones: a stub that returns the constant 0 (or the
-        // AboardFleetSentinel-adjacent value 0xFFFF), and a lookup that swaps X and Y. Both are asserted
-        // explicitly so the fixture cannot silently drift back into a corner where either mutation would
-        // still pass.
+        // right lookup from two realistic wrong ones: a stub that returns the constant 0 (or
+        // ArmyRecord.AboardFleetSentinel itself, 0xFFFF -- SaveArmyTable.cs ~:184), and a lookup that
+        // swaps X and Y. Both are asserted explicitly so the fixture cannot silently drift back into a
+        // corner where either mutation would still pass.
         var terrain = RealGameData.World.Terrain.Decode(RealGameData.World.Width, RealGameData.World.Height);
         var expectedTerrain = terrain[(11 * RealGameData.World.Width) + 40];
         var transposedTerrain = terrain[(40 * RealGameData.World.Width) + 11];

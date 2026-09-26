@@ -152,6 +152,13 @@ public static class CityCaptureResolver
         var newOwner = RequireNation(state, attackerArmy.Nation);
         var oldOwner = RequireNation(state, city.Owner);
 
+        // T86: captured before any mutation below, since ConquestCascade's post-cascade trigger check
+        // needs to know what the loser's capital was *at the moment it fell*, not whatever
+        // CapitalCityId happens to read after this method's own city/nation transfers run.
+        var wasCapital = oldOwner.CapitalCityId is { } capitalId
+                          && string.Equals(capitalId, city.Id, StringComparison.Ordinal);
+        var formerCapitalId = oldOwner.CapitalCityId;
+
         var rules = ruleset.Capture;
         var contribution = CityTaxContribution.Compute(city);
         var (transferredNewOwner, transferredOldOwner) = CityOwnershipTaxTransfer.Transfer(city, newOwner, oldOwner, ruleset);
@@ -173,48 +180,64 @@ public static class CityCaptureResolver
         var transferredCity = city with
         {
             Owner = newOwner.Id,
-            Loyalty = LoyaltyAfterTransfer(city, newOwner.Id, ruleset, forcedCapture: true),
+            Loyalty = LoyaltyAfterCapture(city, newOwner.Id, ruleset),
         };
 
         var newState = state with { Cities = ReplaceCity(state.Cities, transferredCity) };
-
-        var (oldOwnerAfterElimination, oldOwnerEliminated) =
-            NationElimination.ApplyIfLastCityLost(newState, transferredOldOwner, ruleset);
-
         newState = newState with
         {
-            Nations = ReplaceNation(ReplaceNation(newState.Nations, transferredNewOwner), oldOwnerAfterElimination),
+            Nations = ReplaceNation(ReplaceNation(newState.Nations, transferredNewOwner), transferredOldOwner),
         };
-        // Both run only when this capture just eliminated the old owner -- see each method's own remarks
-        // (EliminationForces: T84; RelationTransitions.ResetAllOnElimination: rework round 1, B1).
-        if (oldOwnerEliminated) newState = EliminationForces.Dispose(newState, oldOwner.Id, newOwner.Id);
-        if (oldOwnerEliminated) newState = RelationTransitions.ResetAllOnElimination(newState, ruleset, oldOwner.Id);
 
         events.Publish(new CityFallsToNation(city.Name, oldOwner.Name, newOwner.Name));
-        if (oldOwnerEliminated)
-        {
-            events.Publish(new NationConquered(newOwner.Name, oldOwner.Name));
-        }
 
         var attackerStrength = SiegeStrength.Attacker(attackerArmy.Units, attackerArmy.Morale, ruleset, archerUnitTypeId);
         var fortifyOrder = RequireCityOrder(ruleset, fortifyOrderId);
 
-        return RunCascade(newState, transferredCity, oldOwner.Id, newOwner.Id, attackerStrength, attackerArmy, fortifyOrder, ruleset, events);
+        var stateAfterCascade = RunCascade(
+            newState, transferredCity, oldOwner.Id, newOwner.Id, attackerStrength, attackerArmy, fortifyOrder, ruleset, events);
+
+        // T86: the conquest trigger reads the loser's city count *after* this single capture and the
+        // regular cascade have both already run, exactly as FUN_0044BB18's own checks do ("These checks
+        // run after the city has moved and the cascade FUN_0044BA1C has run" -- decompiled-elimination-
+        // cleanup.md §4). A defection reaching the old owner's last city during the cascade above (rare;
+        // see NationElimination's own remarks) already fully eliminated it through Defect's own path, so
+        // ConquestTrigger.Evaluate below is a no-op for an already-eliminated nation.
+        var (stateAfterTrigger, shouldConquer) = ConquestTrigger.Evaluate(
+            stateAfterCascade, ruleset, oldOwner.Id, formerCapitalId, wasCapital, fortifyOrder, events);
+
+        return shouldConquer
+            ? ConquestCascade.Apply(stateAfterTrigger, ruleset, oldOwner.Id, newOwner.Id, events)
+            : stateAfterTrigger;
     }
 
     /// <summary>
     /// <c>FUN_0044bed8</c>: a city changes hands without a siege. Transfers tax base and wealth, credits
     /// the new owner's treasury at its own (different) multiplier, moves unity +3/−20 floored at 250, moves
-    /// loyalty, clears the old owner's recruitment slots at this city, and checks the old owner for
-    /// elimination — but never touches <see cref="CityState.PopulationThousands"/> or
-    /// <see cref="CityState.FortificationCode"/> (<c>defection.neverChangesPopOrFort</c>). Public so it is
-    /// independently testable, and so <see cref="RunCascade"/> can call it for each qualifying candidate.
+    /// loyalty, clears the old owner's recruitment slots at this city that still hold troops (a 0-troop
+    /// slot stays -- <c>decompiled-quarterly-rebellion.md</c> §"The engine removes every slot at the
+    /// city", corrected by T86), and checks the old owner for elimination — but never touches
+    /// <see cref="CityState.PopulationThousands"/> or <see cref="CityState.FortificationCode"/>
+    /// (<c>defection.neverChangesPopOrFort</c>). Public so it is independently testable, and so
+    /// <see cref="RunCascade"/> can call it for each qualifying candidate.
     /// </summary>
+    /// <remarks>
+    /// <strong>T86: matches the original's own defection elimination block exactly</strong>
+    /// (<c>decompiled-elimination-cleanup.md</c> §4, <c>FUN_0044BED8</c> — "does less" than conquest): no
+    /// conquest news, no treasury change, no capital sentinel (<see cref="NationElimination.ApplyIfLastCityLost"/>
+    /// leaves <see cref="NationState.CapitalCityId"/> exactly as it stood — see that method's own
+    /// remarks), and <see cref="NationState.ConqueredBy"/> set to the receiver. This method never calls
+    /// <see cref="ConquestCascade"/>: a defection can only take a nation's literal last city, never the
+    /// <c>&lt; 6 cities</c> conquest threshold, because <see cref="RunCascade"/>'s candidates are always a
+    /// live nation's non-capital cities in the original (a defection reaching the capital, or reaching
+    /// zero cities other than through this exact path, is the pre-existing, out-of-scope cascade gap
+    /// <see cref="RunCascade"/>'s own remarks do not claim to close — see that method's remarks).
+    /// </remarks>
     /// <param name="state">The state to transfer against.</param>
     /// <param name="cityId">The defecting city.</param>
     /// <param name="newOwnerId">The nation the city defects to.</param>
     /// <param name="ruleset">Every constant this resolver uses.</param>
-    /// <param name="events">Where this publishes <c>city.defects-to</c> (and <c>nation.conquered</c> on elimination).</param>
+    /// <param name="events">Where this publishes <c>city.defects-to</c>.</param>
     /// <exception cref="ArgumentException"><paramref name="cityId"/> or <paramref name="newOwnerId"/> is not known.</exception>
     public static GameState Defect(GameState state, string cityId, string newOwnerId, Ruleset ruleset, IEventSink events)
     {
@@ -240,7 +263,7 @@ public static class CityCaptureResolver
         transferredOldOwner = transferredOldOwner with
         {
             Unity = Math.Max(rules.DefectionUnityLossFloor, transferredOldOwner.Unity - rules.DefectionUnityLoss),
-            RecruitmentSlots = WithoutSlotsTargeting(transferredOldOwner.RecruitmentSlots, city.Id),
+            RecruitmentSlots = WithoutTroopSlotsTargeting(transferredOldOwner.RecruitmentSlots, city.Id),
         };
 
         // Population and fortification are deliberately absent from this `with`: FUN_0044bed8 never
@@ -248,13 +271,13 @@ public static class CityCaptureResolver
         var transferredCity = city with
         {
             Owner = newOwner.Id,
-            Loyalty = LoyaltyAfterTransfer(city, newOwner.Id, ruleset, forcedCapture: false),
+            Loyalty = LoyaltyAfterDefection(city, newOwner.Id, ruleset),
         };
 
         var newState = state with { Cities = ReplaceCity(state.Cities, transferredCity) };
 
         var (oldOwnerAfterElimination, oldOwnerEliminated) =
-            NationElimination.ApplyIfLastCityLost(newState, transferredOldOwner, ruleset);
+            NationElimination.ApplyIfLastCityLost(newState, transferredOldOwner, ruleset, conquerorId: newOwnerId);
 
         newState = newState with
         {
@@ -262,14 +285,12 @@ public static class CityCaptureResolver
         };
         // Both run only when this defection just eliminated the old owner -- see each method's own
         // remarks (EliminationForces: T84; RelationTransitions.ResetAllOnElimination: rework round 1, B1).
+        // T86: no NationConquered here -- the original's own defection elimination block writes no
+        // conquest news (see this method's own remarks).
         if (oldOwnerEliminated) newState = EliminationForces.Dispose(newState, oldOwner.Id, newOwner.Id);
         if (oldOwnerEliminated) newState = RelationTransitions.ResetAllOnElimination(newState, ruleset, oldOwner.Id);
 
         events.Publish(new CityDefectsToNation(city.Name, oldOwner.Name, newOwner.Name));
-        if (oldOwnerEliminated)
-        {
-            events.Publish(new NationConquered(newOwner.Name, oldOwner.Name));
-        }
 
         return newState;
     }
@@ -359,21 +380,50 @@ public static class CityCaptureResolver
     }
 
     /// <summary>
-    /// DoD 2: loyalty moves to <see cref="LoyaltyRules.AllegiantRecaptureTarget"/> (90) when the city's
-    /// allegiance already matches the new owner, or otherwise to
-    /// <see cref="LoyaltyRules.ForcedCaptureFloor"/> (40, <c>[confirmed]</c> — the Sidon example's exact
-    /// 90 → 40) for a forced capture and <see cref="LoyaltyRules.DefectionFloor"/> (65, <c>[derived]</c> by
-    /// the same structural pattern) for a defection. Every observed example is an exact assignment, not a
-    /// partial move, so this assigns directly.
+    /// T86 (<c>decompiled-quarterly-rebellion.md</c> §3, research <c>235af11</c>): a forced capture's
+    /// loyalty is a formula, not the flat floor DoD 2 originally assigned. When the city's allegiance
+    /// already matches the new owner: <c>min(AllegiantRecaptureTarget, AllegiantRecaptureBase − L′)</c>
+    /// (90, 140). Otherwise: <c>max(ForcedCaptureFloor, min(ForcedCaptureCap, NonAllegiantTransferBase −
+    /// L′))</c> (40, 60, 100). <c>L′</c> is <paramref name="city"/>'s own <see cref="CityState.Loyalty"/>
+    /// at the point this runs — already post-siege-erosion, since <see cref="InstantBattleResolver.ResolveSiege"/>
+    /// applied that to <c>state</c> before <see cref="Capture"/> ever reads <paramref name="city"/> from it.
+    /// The engine's old flat 40 was wrong for 5 of the report's save captures (Mediolanum, Felsina,
+    /// Brixia, Byblos, Gordium); the corrected formula reproduces all 7 (the two allegiant captures,
+    /// Laranda and Caere, both land on 90 either way).
     /// </summary>
-    private static int LoyaltyAfterTransfer(CityState city, string newOwnerId, Ruleset ruleset, bool forcedCapture)
+    private static int LoyaltyAfterCapture(CityState city, string newOwnerId, Ruleset ruleset)
     {
+        var loyalty = ruleset.Loyalty;
         if (string.Equals(city.Allegiance, newOwnerId, StringComparison.Ordinal))
         {
-            return ruleset.Loyalty.AllegiantRecaptureTarget;
+            return Math.Min(loyalty.AllegiantRecaptureTarget, loyalty.AllegiantRecaptureBase - city.Loyalty);
         }
 
-        return forcedCapture ? ruleset.Loyalty.ForcedCaptureFloor : ruleset.Loyalty.DefectionFloor;
+        var target = loyalty.NonAllegiantTransferBase - city.Loyalty;
+        return Math.Max(loyalty.ForcedCaptureFloor, Math.Min(loyalty.ForcedCaptureCap, target));
+    }
+
+    /// <summary>
+    /// T86 (<c>decompiled-quarterly-rebellion.md</c> §3): a defection's loyalty is likewise a formula.
+    /// Allegiant case: the same <c>min(AllegiantRecaptureTarget, AllegiantRecaptureBase − L)</c> capture
+    /// uses (Synnada 62 → 78, Tarquinii/Ariminum → 90). Otherwise:
+    /// <c>min(DefectionFloor, max(DefectionFormulaFloor, NonAllegiantTransferBase − L))</c> (65, 50, 100)
+    /// — note the outer/inner clamp order is swapped from the capture formula's own (max-of-min there,
+    /// min-of-max here), exactly as the report gives each. <c>L</c> is pre-transfer loyalty; a defection
+    /// has no siege erosion. The engine's old flat 65 was wrong for 5 of the report's 8 cascade
+    /// defections (Aradus, Hemesa, Palmyra, Modena, Acroinon all actually land on 50, this formula's
+    /// floor).
+    /// </summary>
+    private static int LoyaltyAfterDefection(CityState city, string newOwnerId, Ruleset ruleset)
+    {
+        var loyalty = ruleset.Loyalty;
+        if (string.Equals(city.Allegiance, newOwnerId, StringComparison.Ordinal))
+        {
+            return Math.Min(loyalty.AllegiantRecaptureTarget, loyalty.AllegiantRecaptureBase - city.Loyalty);
+        }
+
+        var target = loyalty.NonAllegiantTransferBase - city.Loyalty;
+        return Math.Min(loyalty.DefectionFloor, Math.Max(loyalty.DefectionFormulaFloor, target));
     }
 
     private static ValueList<RecruitmentSlot> WithoutSlotsTargeting(ValueList<RecruitmentSlot> slots, string cityId)
@@ -390,7 +440,30 @@ public static class CityCaptureResolver
         return ValueList.From(kept);
     }
 
-    private static ValueList<CityState> ReplaceCity(ValueList<CityState> cities, CityState updated)
+    /// <summary>
+    /// T86 (<c>decompiled-quarterly-rebellion.md</c> §"Nothing is written before the transfer" / the
+    /// slot-removal note): a defection removes only the old owner's recruitment slots at
+    /// <paramref name="cityId"/> that still hold troops — a 0-troop slot stays, unlike
+    /// <see cref="WithoutSlotsTargeting"/> (a forced capture's own rule, which removes every matching
+    /// slot regardless of troop count; the report does not correct that one).
+    /// </summary>
+    private static ValueList<RecruitmentSlot> WithoutTroopSlotsTargeting(ValueList<RecruitmentSlot> slots, string cityId)
+    {
+        var kept = new List<RecruitmentSlot>(slots.Count);
+        foreach (var slot in slots)
+        {
+            var targetsThisCityWithTroops = slot.Troops > 0
+                                             && string.Equals(slot.TargetCityId, cityId, StringComparison.Ordinal);
+            if (!targetsThisCityWithTroops)
+            {
+                kept.Add(slot);
+            }
+        }
+
+        return ValueList.From(kept);
+    }
+
+    internal static ValueList<CityState> ReplaceCity(ValueList<CityState> cities, CityState updated)
     {
         var replaced = new List<CityState>(cities.Count);
         foreach (var city in cities)
@@ -401,7 +474,7 @@ public static class CityCaptureResolver
         return ValueList.From(replaced);
     }
 
-    private static ValueList<NationState> ReplaceNation(ValueList<NationState> nations, NationState updated)
+    internal static ValueList<NationState> ReplaceNation(ValueList<NationState> nations, NationState updated)
     {
         var replaced = new List<NationState>(nations.Count);
         foreach (var nation in nations)

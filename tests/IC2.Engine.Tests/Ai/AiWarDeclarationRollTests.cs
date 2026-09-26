@@ -50,6 +50,17 @@ public sealed class AiWarDeclarationRollTests
         baseState = baseState with { TurnOrder = ValueList.Of(Acting, Target) };
         baseState = AiScriptedStates.WithActiveSeat(baseState, Acting);
 
+        // T86 setup-only fix: BattleCommandTestbed.StateWith starts from the toy world's own baked-in
+        // GameState.Neighbours (its "north"/"south" adjacency, seeded by GameStateFactory), which has no
+        // entry at all for "me"/"them" -- the nations this test actually builds, on the locally-built
+        // TwoNationWorld below. Left as-is, NeighbourGeography.AreNeighbours would read that stale,
+        // unrelated snapshot (a real, populated Neighbours list simply lacking "me") and answer "not
+        // neighbours" without ever considering TwoNationWorld's own 14-tile shared border, so the AI
+        // would never find an eligible war target and every seed would miss. Clearing it back to null
+        // makes the query fall back to `world` below -- exactly the documented behaviour for a state that
+        // carries no neighbour data of its own -- and TwoNationWorld's geometry decides it correctly.
+        baseState = baseState with { Neighbours = null };
+
         var hits = 0;
         var misses = 0;
         for (ulong seed = 1; seed <= 100; seed++)

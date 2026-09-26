@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using IC2.Engine.Core;
+using IC2.Engine.Diplomacy;
 using IC2.Engine.Model;
 using IC2.Engine.Persistence;
 using IC2.Engine.Serialization;
@@ -130,5 +131,142 @@ public sealed class SaveMigrationTests
         Assert.Contains("disagrees", ex.Message, StringComparison.Ordinal);
         Assert.Contains((realTurnIndex + 1).ToString(), ex.Message, StringComparison.Ordinal);
         Assert.Contains(realTurnIndex.ToString(), ex.Message, StringComparison.Ordinal);
+    }
+
+    // ---- T86 Done-when 3: the neighbour set and conqueredBy migrate through SaveManager ----
+
+    /// <summary>
+    /// Builds a well-formed version-2 envelope for <paramref name="state"/> by starting from a real,
+    /// current-format (version 3) one and stripping exactly what version 2 never had: the envelope's own
+    /// version number, the nested state's <c>neighbours</c> field, and every nation's own
+    /// <c>conqueredBy</c> field. This is what an actual pre-T86 save looked like -- both fields simply
+    /// absent, never present-and-null -- so the migration step is exercised against the real shape it
+    /// has to handle, not a shape this test invented.
+    /// </summary>
+    private static JsonObject BuildVersion2Envelope(SaveGame save)
+    {
+        var envelope = (JsonObject)JsonNode.Parse(SaveManager.Serialize(save))!;
+        envelope[SaveFormat.VersionField] = 2;
+
+        var payload = (JsonObject)envelope[SaveFormat.PayloadField]!;
+        var state = (JsonObject)payload["state"]!;
+        state.Remove("neighbours");
+
+        var nations = (JsonArray)state["nations"]!;
+        foreach (var nationNode in nations)
+        {
+            ((JsonObject)nationNode!).Remove("conqueredBy");
+        }
+
+        return envelope;
+    }
+
+    /// <summary>
+    /// T86 Done-when 3's own version step: migrating a version-2 envelope to version 3 makes both new
+    /// fields explicit. <c>conqueredBy</c> is always JSON <c>null</c> (a version-2 save never had a
+    /// conquest to record). <c>neighbours</c> is populated for real, from
+    /// <c>SaveManager.Load</c>'s own <c>expectedWorld</c> (Owns amendment PR #408) — not left
+    /// <see langword="null"/>, which is the pre-amendment PR #406 behaviour
+    /// <see cref="AnOlderSaveMissingTheNeighbourSetTakesItsWorldsOwnNeighbours"/>'s own mutation proof
+    /// still demonstrates.
+    /// </summary>
+    [Fact]
+    public void MigratingAVersion2EnvelopeMakesNeighboursAndConqueredByExplicit()
+    {
+        var toy = PersistenceTestbed.Toy;
+        var state = PersistenceTestbed.PlayTurns(2);
+        var save = new SaveGame(
+            SchemaVersion: state.SchemaVersion, Id: "v2-shape-test", Label: "v2 shape test",
+            ScenarioId: state.ScenarioId, WorldId: state.WorldId, RulesetId: state.RulesetId, State: state);
+
+        var v2Envelope = BuildVersion2Envelope(save);
+        var loaded = SaveManager.Load("v2-shape-test.json", v2Envelope.ToJsonString(), toy.World, toy.Ruleset);
+
+        // T86, Owns amendment PR #408: the migration is given expectedWorld (SaveManager.Load's own
+        // parameter), so a missing `neighbours` field is populated for real --
+        // NeighbourGeography.InitialAdjacency (the toy world's own startingNeighbours field or its
+        // geometric fallback), not left null.
+        Assert.Equal(NeighbourGeography.InitialAdjacency(toy.World), loaded.State.Neighbours);
+        foreach (var nation in loaded.State.Nations)
+        {
+            Assert.Null(nation.ConqueredBy);
+        }
+    }
+
+    /// <summary>
+    /// T86 Done-when 3: "an older save migrates by taking its world's neighbours" -- proved end to end
+    /// through <see cref="SaveManager.Load"/>, not by inspecting migrated JSON. A version-2 save (built
+    /// the same way as <see cref="MigratingAVersion2EnvelopeMakesNeighboursAndConqueredByExplicit"/>)
+    /// loads with <see cref="GameState.Neighbours"/> equal, value for value, to a fresh state's own
+    /// (populated at New Game from the same world) -- the toy scenario's own two nations, "north" and
+    /// "south". Mutation proof (Owns amendment PR #408's own instruction): dropping
+    /// <c>SaveManager.Load</c>'s own <c>expectedWorld</c> argument at its <c>SaveMigrations.MigrateToCurrent</c>
+    /// call site (reverting to the 3-argument overload) makes the migration write <see langword="null"/>
+    /// again, and this test fails immediately on the direct equality below -- see the PR's own mutation
+    /// log (M8).
+    /// </summary>
+    [Fact]
+    public void AnOlderSaveMissingTheNeighbourSetTakesItsWorldsOwnNeighbours()
+    {
+        var toy = PersistenceTestbed.Toy;
+        var state = PersistenceTestbed.PlayTurns(2);
+        var save = new SaveGame(
+            SchemaVersion: state.SchemaVersion, Id: "v2-neighbours-test", Label: "v2 neighbours test",
+            ScenarioId: state.ScenarioId, WorldId: state.WorldId, RulesetId: state.RulesetId, State: state);
+
+        var v2Envelope = BuildVersion2Envelope(save);
+        var loaded = SaveManager.Load("v2-neighbours-test.json", v2Envelope.ToJsonString(), toy.World, toy.Ruleset);
+
+        var freshState = GameStateFactory.CreateInitial(toy.World, toy.Ruleset, toy.Scenario);
+        Assert.NotNull(freshState.Neighbours);
+
+        // The direct equality: not merely "answers the same queries", the exact same value.
+        Assert.NotNull(loaded.State.Neighbours);
+        Assert.Equal(freshState.Neighbours, loaded.State.Neighbours);
+
+        var nationIds = new List<string>();
+        foreach (var nation in toy.World.Nations)
+        {
+            nationIds.Add(nation.Id);
+        }
+
+        foreach (var a in nationIds)
+        {
+            foreach (var b in nationIds)
+            {
+                Assert.Equal(
+                    NeighbourGeography.AreNeighbours(freshState, toy.World, a, b),
+                    NeighbourGeography.AreNeighbours(loaded.State, toy.World, a, b));
+            }
+        }
+    }
+
+    /// <summary>
+    /// T86 Done-when 3: "carried by saves" -- a <see cref="GameState.Neighbours"/> round-trips through
+    /// <see cref="SaveManager"/> exactly, both by hash and by value -- not defaulted, not dropped, not
+    /// silently re-derived from the world. Built directly rather than through a real conquest (which
+    /// would need a played-forward siege), since this test is about the persistence contract, not the
+    /// merge rule itself -- <c>ConquestCascadeTests</c> already proves the merge's own shape.
+    /// </summary>
+    [Fact]
+    public void ANeighbourSetAlreadyMergedByConquest_RoundTripsThroughSaveManagerExactly()
+    {
+        var toy = PersistenceTestbed.Toy;
+        var state = PersistenceTestbed.PlayTurns(2) with
+        {
+            Neighbours = ValueList.Of(
+                new NationNeighbours("north", ValueList.Of("south")),
+                new NationNeighbours("south", ValueList.Of("north"))),
+        };
+
+        var save = new SaveGame(
+            SchemaVersion: state.SchemaVersion, Id: "neighbour-round-trip", Label: "Neighbour round trip",
+            ScenarioId: state.ScenarioId, WorldId: state.WorldId, RulesetId: state.RulesetId, State: state);
+
+        var text = SaveManager.Serialize(save);
+        var reloaded = SaveManager.Load("neighbour-round-trip.json", text, toy.World, toy.Ruleset);
+
+        Assert.Equal(GameStateHash.Compute(state), GameStateHash.Compute(reloaded.State));
+        Assert.Equal(state.Neighbours, reloaded.State.Neighbours);
     }
 }

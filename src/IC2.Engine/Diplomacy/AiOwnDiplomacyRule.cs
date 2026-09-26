@@ -215,7 +215,7 @@ public static class AiOwnDiplomacyRule
                 continue;
             }
 
-            if (!NeighbourGeography.AreNeighbours(world, meId, candidate.Id))
+            if (!NeighbourGeography.AreNeighbours(state, world, meId, candidate.Id))
             {
                 continue;
             }
@@ -265,7 +265,7 @@ public static class AiOwnDiplomacyRule
                 continue;
             }
 
-            if (!NeighbourGeography.AreNeighbours(world, meId, j.Id))
+            if (!NeighbourGeography.AreNeighbours(state, world, meId, j.Id))
             {
                 continue;
             }

@@ -174,8 +174,14 @@ public static class SaveManager
             throw new UnsupportedSaveFormatException(documentPath, foundVersion, SaveFormat.CurrentVersion);
         }
 
+        // T86 (#388, Owns amendment PR #408): expectedWorld is threaded into the migration so a
+        // version-2 save's own missing `neighbours` field is populated from the world it is being
+        // loaded against, not left null -- "an older save migrates by taking its world's neighbours"
+        // (docs/tasks/T86.md Done-when 3), not merely answering as if it had, through
+        // NeighbourGeography's own separate fallback. PeekSummary's own call (below) has no World to
+        // give -- it never touches the nested state at all, so it keeps the 3-argument overload.
         var current = foundVersion < SaveFormat.CurrentVersion
-            ? SaveMigrations.MigrateToCurrent(documentPath, envelope, foundVersion)
+            ? SaveMigrations.MigrateToCurrent(documentPath, envelope, foundVersion, expectedWorld)
             : envelope;
 
         if (!current.TryGetPropertyValue(SaveFormat.PayloadField, out var payloadNode) || payloadNode is null)
