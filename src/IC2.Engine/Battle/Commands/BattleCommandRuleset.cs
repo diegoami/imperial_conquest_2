@@ -3,9 +3,11 @@ using IC2.Engine.Model;
 namespace IC2.Engine.Battle.Commands;
 
 /// <summary>
-/// The one ruleset id this task's commands must hand to the merged resolvers that <see cref="Ruleset"/>
-/// still does not name by behaviour, resolved from the loaded <see cref="Ruleset"/> rather than written
-/// as a call-site literal.
+/// The two ids this task's commands must hand to the merged resolvers, resolved from the loaded
+/// <see cref="Ruleset"/> rather than written as a call-site literal: the archer unit type, now a real
+/// <see cref="Ruleset.ArcherUnitTypeId"/> field (bug #221 N1, T66), and the fortification order, which
+/// <see cref="Ruleset"/> still does not name by any field and which this class finds by behaviour
+/// instead.
 /// </summary>
 /// <remarks>
 /// <para>

@@ -284,11 +284,13 @@ public class BattleCasualtyArithmeticTests
     {
         var rules = BattleTestbed.Destroyed.Combat;
 
+        // 10 hulls, ratio 2000, divisor 105 (draw 0): the raw (ships x ratio) / divisor is
+        // (10 x 2000) / 105 = 190, nineteen times the fleet's own size. Only the cap can bring that
+        // back down to 10 -- this assertion is on the method's actual return value, not a restated
+        // literal, so removing Math.Min(ships, lost) makes it fail rather than merely documenting why.
         var lost = BattleCasualties.ApplyToFleet(10, 2000, new ScriptedDivisorRng(0), rules);
 
         Assert.Equal(10, lost);
-        Assert.Equal(190, (10 * 2000) / 105); // the uncapped expression this test would return without the cap.
-        Assert.NotEqual(190, lost);
     }
 
     /// <summary>

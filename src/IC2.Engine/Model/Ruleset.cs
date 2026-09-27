@@ -35,15 +35,17 @@ namespace IC2.Engine.Model;
 /// <c>BattleCommandRuleset.ArcherUnitTypeId</c> literal T54 had to introduce because this field did
 /// not yet exist (bug #221 N1) — see <see cref="IC2.Engine.Battle.Commands.BattleCommandRuleset"/>'s
 /// own remarks for the full search that preceded it (every <see cref="UnitTypeRules"/> field, the
-/// whole of this record, and the reports). This is the weaker of the two pointers T54 needed: the
-/// fortification order is found by its own behaviour
-/// (<see cref="IC2.Engine.Battle.Commands.CityOrderRule.WipedBySiegeAttempt"/>), because nothing in
-/// <see cref="UnitTypeRules"/> marks a type as the one the siege formula triples, so no equivalent
-/// behavioural handle exists for this one — the id itself is the only evidence there is. A ruleset
-/// whose value here names no declared unit type is not rejected at load; the caller-facing accessor,
+/// whole of this record, and the reports). This is the weaker of the two pointers T54 needed:
+/// nothing in <see cref="UnitTypeRules"/> marks a type as the one the siege formula triples, so this
+/// one has no behavioural handle equivalent to the fortification order's — the id itself is the only
+/// evidence there is. The fortification order, by contrast, needs no pointer field at all: it is found
+/// by its own behaviour
+/// (<see cref="IC2.Engine.Battle.Commands.CityOrderRule.WipedBySiegeAttempt"/>). A ruleset whose value
+/// here names no <em>declared</em> unit type is caught before either resolver runs, by
+/// <see cref="IC2.Engine.Battle.Commands.AttackLegality"/>'s own gates: the caller-facing accessor,
 /// <see cref="IC2.Engine.Battle.Commands.BattleCommandRuleset.ArcherUnitTypeIdIn"/>, returns
-/// <see langword="null"/> for it, which is the existing typed-rejection path every resolver already
-/// has for a missing archer type.
+/// <see langword="null"/> for it, and the gate that calls it refuses the command with a typed
+/// rejection rather than letting <see cref="IC2.Engine.Strength.SiegeStrength.Attacker"/> throw.
 /// </param>
 public sealed record Ruleset(
     int SchemaVersion,

@@ -429,10 +429,12 @@ public static class InstantBattleResolver
     /// <param name="rng">The battle's random stream. See the draw order above.</param>
     /// <param name="archerUnitTypeId">
     /// The unit type this ruleset calls archers, forwarded to <see cref="SiegeStrength.Attacker"/> for a
-    /// carried army's contribution. Passed in rather than read from the ruleset because no
-    /// <see cref="Ruleset"/> field names the archer type — <see cref="SiegeStrength.Attacker"/> takes it
-    /// as a parameter for exactly that reason (T33), and inventing a field for it would mean editing a
-    /// record this task does not own.
+    /// carried army's contribution. <see cref="Ruleset.ArcherUnitTypeId"/> is a real field (bug #221 N1,
+    /// T66); this parameter is the caller's already-resolved value, via
+    /// <see cref="IC2.Engine.Battle.Commands.BattleCommandRuleset.ArcherUnitTypeIdIn"/>, not a raw
+    /// <see cref="Ruleset"/> read inside this resolver — <see cref="SiegeStrength.Attacker"/> still takes
+    /// it as a parameter too (T33), so this resolver does as well, rather than each of its several
+    /// combat-strength call sites re-deriving it from the ruleset on its own.
     /// </param>
     /// <param name="events">Where the battle publishes.</param>
     /// <exception cref="ArgumentException">
@@ -770,9 +772,11 @@ public static class InstantBattleResolver
     /// <param name="fortifyOrderId">
     /// The ruleset's fortification order, whose <see cref="CityOrderRule.MaxPercent"/> and
     /// <see cref="CityOrderRule.InProgressEncodingRadix"/> decode the city's stored fortification word.
-    /// Passed in for the same reason as <paramref name="archerUnitTypeId"/>: <see cref="CityOrderRules"/>
-    /// is a plain list keyed by id and names no order as "the" fortification order, so the alternative
-    /// would be a C# literal.
+    /// Unlike the archer type, this one has no <see cref="Ruleset"/> pointer field at all, by the user's
+    /// 2026-09-23 decision (bug #221 N1): <see cref="CityOrderRules"/> is a plain list keyed by id and
+    /// names no order as "the" fortification order, so it is found by its own behaviour instead
+    /// (<see cref="IC2.Engine.Battle.Commands.CityOrderRule.WipedBySiegeAttempt"/>) and passed in here as
+    /// a parameter, the same as every other id this resolver takes rather than re-deriving on its own.
     /// </param>
     /// <param name="events">Where the battle publishes.</param>
     /// <exception cref="ArgumentException">
