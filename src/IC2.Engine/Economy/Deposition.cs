@@ -16,15 +16,19 @@ namespace IC2.Engine.Economy;
 /// implemented here — Done-when 7 leaves it a known-open data gap: the name pool lives only in the DAT,
 /// and <see cref="Model.NationState.LeaderName"/> is left unchanged.
 /// <para>
-/// <strong>T87 revisited this gap and it still stands.</strong> Neither <c>World.cs</c>'s own
+/// <strong>The new-leader step stays <c>[open]</c> — the user's own decision of 2026-09-27, on #389,
+/// after T87's implementation (plan PR #438).</strong> T87 re-checked this gap and it still stands: the
+/// 16 × 12 name pool is in the DAT at <c>0x2089A</c>, but neither <c>World.cs</c>'s own
 /// <see cref="Model.NationDefinition"/> nor any research report gives the twelve names any nation actually
 /// draws from — <c>upkeep-payment-and-desertion.md</c> and <c>decompiled-quarterly-rebellion.md</c> both
 /// state the mechanic ("a different random name from the nation's 12-name table" / "one <c>Random(12)</c>
 /// from the nation's 12 names") without transcribing the table itself, which is exactly the "lives only in
 /// the DAT" gap this remark already named. <see cref="Model.World"/> is outside this task's Owns list in
 /// any case (T87's Scope: <c>HumanDepositionSystem.cs</c>/<c>AiDepositionHandler.cs</c>/this file, never
-/// <c>Model/World.cs</c>), so even with the data in hand this would need a separate task. Reported rather
-/// than invented: no placeholder name pool is added here.
+/// <c>Model/World.cs</c>), so even with the data in hand this would need a separate, later export task.
+/// Reported rather than invented: no placeholder name pool is added here, and both the fall
+/// (<see cref="ApplyEffects"/>) and rebirth (<see cref="Rebirth"/>) leave <see cref="Model.NationState.LeaderName"/>
+/// exactly as it was.
 /// </para>
 /// </remarks>
 public static class Deposition
