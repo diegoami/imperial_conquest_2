@@ -310,6 +310,25 @@ public sealed record TerrainRules(
 /// change; only the five files' seven hardcoded comparisons do (review round 1, B1: an earlier revision
 /// said "five hardcoded copies").
 /// </para>
+/// <para>
+/// <strong>T87's rebirth additions</strong> (<c>docs/tasks/T87.md</c> "The leader falls, a human seat is
+/// handed over, and a dead nation is reborn", DoD 4), transcribed from
+/// <c>decompiled-quarterly-rebellion.md</c> §4, <c>FUN_0044C360</c> — all six <c>[confirmed: decompile]</c>.
+/// <see cref="RebirthCandidateLoyaltyThreshold"/> and <see cref="RebirthMinimumQualifyingCityCount"/> are
+/// the rebirth test itself: a dead nation (unity ≤ 0) comes back once more than
+/// <see cref="RebirthMinimumQualifyingCityCount"/> of its own allegiant cities have loyalty under
+/// <see cref="RebirthCandidateLoyaltyThreshold"/> — a higher threshold than, and not to be confused with,
+/// <see cref="RebellionLoyaltyThreshold"/>'s own city-rebellion trigger (30 vs. 40, and counting cities
+/// rather than gating one). <see cref="RebirthUnity"/>, <see cref="RebirthTaxRatePercent"/> and
+/// <see cref="RebirthMobilizedPercent"/> are the reborn nation's own reset fields (unity 450, tax rate 20,
+/// mobilization 50) — treasury, tax base and city count reset to 0 needs no field of its own (0 is not a
+/// gameplay constant to trace, and this engine's own city count is always derived live, never stored).
+/// <see cref="RebirthDefectionRelationPenalty"/> is the symmetric −8 cooldown written between the reborn
+/// nation and each moved city's own former owner, before that city's own defection. The new capital's own
+/// stat gains reuse T86's existing <see cref="CaptureRules.CapitalMoveNewCapitalLoyaltyGain"/> and
+/// siblings — numerically identical in the report's own rebirth listing, so no new field is added for
+/// them.
+/// </para>
 /// </remarks>
 public sealed record EconomyRules(
     int TaxRateDivisor,
@@ -365,6 +384,12 @@ public sealed record EconomyRules(
     int CitySupplyCapTonsPerPopulationThousand,
     int FamineLoyaltyLossProbabilityDenominator,
     int FamineLoyaltyLossAmount,
+    int RebirthCandidateLoyaltyThreshold,
+    int RebirthMinimumQualifyingCityCount,
+    int RebirthUnity,
+    int RebirthTaxRatePercent,
+    int RebirthMobilizedPercent,
+    int RebirthDefectionRelationPenalty,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>
