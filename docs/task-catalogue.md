@@ -778,7 +778,7 @@ Conquest after an emptying sweep → [full entry](tasks/T92.md) · [#426](https:
 
 #### T93 An army embarks from a tile next to its fleet
 
-Embark from an adjacent tile → [full entry](tasks/T93.md) · issue to be created on merge
+Embark from an adjacent tile → [full entry](tasks/T93.md) · [#456](https://github.com/diegoami/imperial_conquest_2/issues/456)
 
 ---
 
@@ -910,6 +910,6 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T90](#t90-cascading-defection-skips-every-nations-capital-not-a-besieged-city) | Cascade capital gate | — | Sonnet | Medium | **Opus**/Medium | T86 | [#409](https://github.com/diegoami/imperial_conquest_2/issues/409) |
 | [T91](#t91-capture-fidelity-the-cascade-reads-the-losers-unity-and-every-capital-test-is-any-nations-capital) | Capture fidelity | — | Sonnet | Medium | **Opus**/Medium | T90 | [#418](https://github.com/diegoami/imperial_conquest_2/issues/418) |
 | [T92](#t92-a-capture-whose-sweep-empties-the-loser-still-conquers-it) | Conquest after an emptying sweep | — | Sonnet | Medium | **Opus**/Medium | T91 | [#426](https://github.com/diegoami/imperial_conquest_2/issues/426) |
-| [T93](#t93-an-army-embarks-from-a-tile-next-to-its-fleet) | Embark from an adjacent tile | — | Sonnet | Medium | **Opus**/Medium | T80 | issue on merge |
+| [T93](#t93-an-army-embarks-from-a-tile-next-to-its-fleet) | Embark from an adjacent tile | — | Sonnet | Medium | **Opus**/Medium | T80 | [#456](https://github.com/diegoami/imperial_conquest_2/issues/456) |
 
 **Totals** — 93 tasks: 11 Opus, 79 Sonnet, 2 Haiku (T36 and T77, merged before Haiku was retired on 2026-09-27), 1 Fable. Effort: 2 Ultrahigh, 49 High, 37 Medium, 5 Low.
