@@ -72,6 +72,7 @@ public sealed partial class GameSession
             return new[] { WatchModeRejectionLine(command.Kind) };
         }
 
+        var nationsBeforeDispatch = State.Nations;
         var result = _dispatcher.Dispatch(State, command);
         if (result.IsRejected)
         {
@@ -89,36 +90,50 @@ public sealed partial class GameSession
         // Battle.PeaceTreatyOffered.
         CapturePeaceTreatyOfferIfAny(lines, result.Events);
 
+        // T87 (DoD 3): a human-issued capture (besiege-city, attack-army/attack-fleet's own cascade) can
+        // eliminate a *different* human seat outright -- only reachable in hotseat, since the CLI's own
+        // --seat mode never has a second human seat to eliminate.
+        // AnnounceAndAdoptWatchModeIfSeatIsLost only ever speaks for the CLI's own --seat nation, so this
+        // is the one place left that shows the fall message for anyone else, and the one place a human
+        // command (rather than a played AI turn or this task's own turn-start check) can be the last thing
+        // that leaves no human seat at all.
+        AppendFallMessagesForNewlyLostHumanSeats(lines, nationsBeforeDispatch);
+        AnnounceGameOverIfNoHumanSeatRemains(lines);
+
         return lines;
     }
 
     /// <summary>
-    /// <c>peace-yes</c>/<c>peace-no</c> (T88, DoD 3): answers the pending <see cref="_pendingPeaceTreatyOffer"/>,
-    /// if any. Yes dispatches <see cref="Diplomacy.Commands.AcceptPeaceTreatyCommand"/>, which always
+    /// <c>peace-yes</c>/<c>peace-no</c> (T88, DoD 3): answers the pending offer addressed to the active
+    /// seat, if any, read from <see cref="GameSession._pendingPeaceTreatyOffers"/>'s own per-human slot
+    /// (T87, N-g). Yes dispatches <see cref="Diplomacy.Commands.AcceptPeaceTreatyCommand"/>, which always
     /// writes the honourable peace and its news, never reparations
     /// (<see cref="Diplomacy.PeaceTreatySystem.ApplyHumanConsentedPeace"/>'s own remarks). No writes
     /// nothing at all -- the war simply continues, exactly as the report's own "<c>TBattlePols_No</c> sets
-    /// <c>ModalResult 7</c> and does nothing else" reads. An answer from the offer's own human clears the
-    /// pending offer, whether or not the underlying command turns out to still be legal (see
+    /// <c>ModalResult 7</c> and does nothing else" reads. An answer from the offer's own human clears its
+    /// own slot, whether or not the underlying command turns out to still be legal (see
     /// <see cref="Diplomacy.Commands.AcceptPeaceTreatyRejections.NotAtWar"/>'s own remarks for the one way
-    /// that can happen). <strong>Rework round 3, R3 (corrected):</strong> this method alone does not
-    /// guarantee a stale offer is never left pending forever -- an answer from anyone else is refused
-    /// without touching it (see below), so if the offer's own human is eliminated and can never answer
-    /// again, this method never clears it either; <see cref="GameSession.CapturePeaceTreatyOfferIfAny"/> is
-    /// what drops that offer, not this one. A deposed human with a pending offer cannot occur: deposition
-    /// happens only at the seat's own <c>SeatStart</c>, which runs after that same seat's own <c>end</c>
-    /// has already lapsed its own offer.
+    /// that can happen). <strong>Rework round 3, R3:</strong> this method alone does not guarantee a stale
+    /// offer is never left pending forever -- an answer from anyone else is refused without touching it
+    /// (see below), so if the offer's own human is eliminated and can never answer again, this method
+    /// never clears it either; <see cref="GameSession.CapturePeaceTreatyOfferIfAny"/> is what drops that
+    /// offer, not this one. <strong>T87 (bug #380):</strong> a deposed human with a pending offer <em>can</em>
+    /// occur now that human deposition is checked before a seat's own prompt, not only at that seat's own
+    /// <c>end</c> — the same method also drops it, via the widened <see cref="GameSession.IsOfferedHumanGone"/>.
     /// </summary>
     /// <remarks>
     /// Rework round 2, R1: this only answers on the offer's own
-    /// <see cref="PendingPeaceTreatyOffer.OfferedHumanNationId"/>'s behalf -- checked before either branch,
-    /// so a mismatch refuses without touching the pending offer at all: it neither consumes it (round 1's
-    /// own fix let a wrong-seat "yes" reach <see cref="Diplomacy.Commands.AcceptPeaceTreatyRejections.IssuerNotPartyToTreaty"/>,
-    /// dispatched anyway with <c>State.ActiveNationId</c> as the issuer, using the offer up on a rejection)
-    /// nor declines it (a "no" from the wrong seat used to speak for the offered human). In hotseat, the
-    /// CLI can pause on a human who is not this offer's own party -- an AI seat's battle against human A
-    /// can leave the loop stopped at human B's prompt next, and round 1 let B answer A's own offer either
-    /// way.
+    /// <see cref="PendingPeaceTreatyOffer.OfferedHumanNationId"/>'s behalf. Before T87 this was a runtime
+    /// check ("checked before either branch, so a mismatch refuses without touching the pending offer at
+    /// all"); T87's per-seat dictionary makes it true by construction instead -- the active seat's own id
+    /// is the lookup key, so a lookup miss already means "nothing pending for you", never "something
+    /// pending for someone else that this call might touch by mistake" (round 1's own regression: a
+    /// wrong-seat "yes" reaching <see cref="Diplomacy.Commands.AcceptPeaceTreatyRejections.IssuerNotPartyToTreaty"/>
+    /// dispatched anyway with <c>State.ActiveNationId</c> as the issuer, using the offer up on a
+    /// rejection). In hotseat, the CLI can pause on a human who is not this offer's own party -- an AI
+    /// seat's battle against human A can leave the loop stopped at human B's prompt next -- and B's own
+    /// slot is simply empty, or holds B's own, unrelated offer; either way this method only ever touches
+    /// the active seat's own entry.
     /// </remarks>
     private IReadOnlyList<string> HandlePeaceTreatyAnswer(string[] tokens, bool accept)
     {
@@ -127,20 +142,22 @@ public sealed partial class GameSession
             return new[] { $"Usage: {(accept ? "peace-yes" : "peace-no")}" };
         }
 
-        if (_pendingPeaceTreatyOffer is not { } pending)
+        if (!_pendingPeaceTreatyOffers.TryGetValue(State.ActiveNationId, out var pending))
         {
-            return new[] { "There is no pending peace treaty offer." };
+            // T87, N-g: naming who a stray offer is "addressed to" only when exactly one is live and it
+            // is not this seat's own -- unambiguous either way. With more than one human seat's own offer
+            // pending at once, picking one from a dictionary whose enumeration order the language does not
+            // guarantee would make this line non-deterministic; a bare "not pending" is exactly as true.
+            return _pendingPeaceTreatyOffers.Count == 1
+                ? new[]
+                {
+                    $"This peace treaty offer is addressed to "
+                    + $"{NationDisplay(_pendingPeaceTreatyOffers.Values.Single().OfferedHumanNationId)}, not you.",
+                }
+                : new[] { "There is no pending peace treaty offer." };
         }
 
-        if (!string.Equals(State.ActiveNationId, pending.OfferedHumanNationId, StringComparison.Ordinal))
-        {
-            return new[]
-            {
-                $"This peace treaty offer is addressed to {NationDisplay(pending.OfferedHumanNationId)}, not you.",
-            };
-        }
-
-        _pendingPeaceTreatyOffer = null;
+        _pendingPeaceTreatyOffers.Remove(State.ActiveNationId);
 
         if (!accept)
         {
