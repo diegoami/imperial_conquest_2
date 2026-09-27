@@ -404,6 +404,35 @@ public sealed class PeaceTreatyOfferTests
     }
 
     /// <summary>
+    /// T87, DoD 3: the human seat's own conquered-by text, shown the moment a human-issued capture
+    /// eliminates a <em>different</em> human seat — <c>GameSession.IssueCommand</c>'s own new sweep
+    /// (<c>AppendFallMessagesForNewlyLostHumanSeats</c>), since
+    /// <c>GameSession.AnnounceAndAdoptWatchModeIfSeatIsLost</c> only ever speaks for the CLI's own
+    /// <c>--seat</c> nation and this fixture (hotseat, north and east both human) has none. East itself
+    /// stays human throughout, so "no human seat remains" never fires here — that is a separate case
+    /// (<c>SeatCliTests</c>' own <c>--seat</c> coverage; a true "every human seat falls" hotseat case
+    /// would need a third fixture this task did not need to build for its own Done-when).
+    /// </summary>
+    [Fact]
+    public void EliminatingAnotherHumanSeat_ShowsItsOwnConqueredByText_AndGameOverDoesNotFire()
+    {
+        var session = EliminatedOfferedHumanFixture();
+
+        session.Submit("declare-war south");
+        session.Submit("end");
+        var siege = session.Submit("besiege-city east-siege arx");
+
+        Assert.True(session.State.NationById("north")!.Eliminated);
+        Assert.Contains(
+            siege.Lines,
+            l => l.Contains("Your nation has been conquerred by", StringComparison.Ordinal)
+                 && l.Contains("Eastern League", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            siege.Lines, l => l.Contains("No human seat remains", StringComparison.Ordinal));
+        Assert.False(siege.ShouldExit);
+    }
+
+    /// <summary>
     /// Rework round 2, R1: the reviewer's own probe. East (human, not a party to north-south's war) is
     /// active next after south's AI turn raises the offer against north. East's own <c>yes</c> and
     /// <c>no</c> must both be refused without consuming the offer, east's own <c>end</c> must not lapse
