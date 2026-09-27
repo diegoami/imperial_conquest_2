@@ -73,7 +73,7 @@ public sealed class EconomySystemRegistrationTests
     /// of its <em>next</em> turn (#380's own symptom, reintroduced), and lets the same <c>RunTurn</c>'s own
     /// <c>Orders</c> phase immediately play the just-deposed seat as AI, in the same round as its own
     /// human turn. The check now runs only from <c>GameSession</c>'s own turn-rotation code
-    /// (<c>DepositeActiveHumanSeatIfItShouldFallAtTurnStart</c>), before any <c>RunTurn</c> call for that
+    /// (<c>DepositActiveHumanSeatIfItShouldFallAtTurnStart</c>), before any <c>RunTurn</c> call for that
     /// seat at all — no phase, no registration. This test is not replaced; there is nothing left to
     /// register into <see cref="TurnPhase.SeatStart"/> for.
     /// </summary>

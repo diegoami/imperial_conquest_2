@@ -848,7 +848,7 @@ public sealed class SeatCliTests
     }
 
     /// <summary>
-    /// T87 rework round 1 (review B7): <see cref="GameSession.DepositeActiveHumanSeatIfItShouldFallAtTurnStart"/>'s
+    /// T87 rework round 1 (review B7): <see cref="GameSession.DepositActiveHumanSeatIfItShouldFallAtTurnStart"/>'s
     /// own effects (<see cref="Deposition.ApplyEffects"/>, <see cref="Deposition.ResetRelations"/>) had no
     /// test of their own beyond the deleted <c>HumanDepositionSystem</c>'s copy — a mutation dropping
     /// either one left the whole suite green. North starts at unity 300 (well under

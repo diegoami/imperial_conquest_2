@@ -410,7 +410,7 @@ public sealed partial class GameSession
     private List<string>? AdvanceToHumanSeat()
     {
         var lines = new List<string>();
-        DepositeActiveHumanSeatIfItShouldFallAtTurnStart(lines);
+        DepositActiveHumanSeatIfItShouldFallAtTurnStart(lines);
         if (AnnounceAndAdoptWatchModeIfSeatIsLost(lines) || AnnounceGameOverIfNoHumanSeatRemains(lines))
         {
             return lines.Count > 0 ? lines : null;
@@ -455,7 +455,7 @@ public sealed partial class GameSession
     /// before deciding whether to still stop here or play the now-AI seat's turn this same pass.
     /// </para>
     /// </remarks>
-    private void DepositeActiveHumanSeatIfItShouldFallAtTurnStart(List<string> lines)
+    private void DepositActiveHumanSeatIfItShouldFallAtTurnStart(List<string> lines)
     {
         var nation = State.NationById(State.ActiveNationId);
         if (nation is null
@@ -564,7 +564,7 @@ public sealed partial class GameSession
     /// <summary>
     /// DoD 3's third bullet: "When no human seat remains, the session reports that the game is over."
     /// Checked wherever a seat's fall could have just removed the last one — this task's own
-    /// <see cref="DepositeActiveHumanSeatIfItShouldFallAtTurnStart"/>, every place
+    /// <see cref="DepositActiveHumanSeatIfItShouldFallAtTurnStart"/>, every place
     /// <see cref="AnnounceAndAdoptWatchModeIfSeatIsLost"/> is already checked, and
     /// <see cref="IssueCommand"/> (a human-issued capture eliminating a different human seat,
     /// hotseat only), since only those paths can change any nation's <see cref="Model.NationState.Control"/>
@@ -1025,7 +1025,7 @@ public sealed partial class GameSession
     /// </param>
     /// <remarks>
     /// <strong>T87 (bug #380):</strong> every iteration starts by giving whichever seat is now active a
-    /// chance to fall at the true start of its own turn (<see cref="DepositeActiveHumanSeatIfItShouldFallAtTurnStart"/>),
+    /// chance to fall at the true start of its own turn (<see cref="DepositActiveHumanSeatIfItShouldFallAtTurnStart"/>),
     /// <em>before</em> asking <paramref name="stopEarly"/> whether to pause here — <see cref="PausesHere"/>
     /// keys a <c>--seat</c> session purely on nation id, not <see cref="Model.NationState.Control"/>, so
     /// without this a seat this same check just deposed would still be paused on as if it were human.
@@ -1037,7 +1037,7 @@ public sealed partial class GameSession
     {
         while (true)
         {
-            DepositeActiveHumanSeatIfItShouldFallAtTurnStart(lines);
+            DepositActiveHumanSeatIfItShouldFallAtTurnStart(lines);
             if (AnnounceAndAdoptWatchModeIfSeatIsLost(lines) || AnnounceGameOverIfNoHumanSeatRemains(lines))
             {
                 return;
@@ -1065,7 +1065,7 @@ public sealed partial class GameSession
             // T87 rework round 1 (review B3): an AI seat's own turn can eliminate a *different* human
             // seat outright (a capture taking that human's last city) -- the only path
             // AnnounceAndAdoptWatchModeIfSeatIsLost (below, --seat-only) and
-            // DepositeActiveHumanSeatIfItShouldFallAtTurnStart (above, the *active* seat only) do not
+            // DepositActiveHumanSeatIfItShouldFallAtTurnStart (above, the *active* seat only) do not
             // already cover.
             AppendFallMessagesForNewlyLostHumanSeats(lines, nationsBeforeThisSeatsTurn);
 
@@ -1101,7 +1101,7 @@ public sealed partial class GameSession
     /// <remarks>
     /// T87, DoD 3: a deposition-caused fall (year, total conquest, unity or debt) already printed its own
     /// specific <see cref="HumanLeaderFallsMessage"/> the moment it happened, in
-    /// <see cref="DepositeActiveHumanSeatIfItShouldFallAtTurnStart"/> — this method's own generic "has been
+    /// <see cref="DepositActiveHumanSeatIfItShouldFallAtTurnStart"/> — this method's own generic "has been
     /// deposed" line is only the watch-mode-adoption notice for that case, not a second copy of the reason.
     /// An elimination (conquest or defection, outside this task's Owns) has no earlier message at all, so
     /// this is the first and only place that shows its own specific reason text (almost always "conquered
@@ -1201,7 +1201,7 @@ public sealed partial class GameSession
         // T87 rework round 1 (bug #380, review B2/B5): there used to be a second check here, for
         // HumanDepositionSystem depositing endingSeat inside this very RunTurn call (its own SeatStart
         // phase). That system is deleted: the turn-start check now runs only from
-        // DepositeActiveHumanSeatIfItShouldFallAtTurnStart, strictly before a seat's own RunTurn is ever
+        // DepositActiveHumanSeatIfItShouldFallAtTurnStart, strictly before a seat's own RunTurn is ever
         // called for it, and nothing else changes NationState.Control during endingSeat's own RunTurn --
         // its own Orders phase is a no-op for a Human-controlled active seat (AiTurn.Run's own gate), so
         // this call can eliminate or depose neither endingSeat nor anyone else. The old check printed a
