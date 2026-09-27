@@ -243,8 +243,10 @@ public sealed class EliminationRelationResetTests
     // -- runs the conquest routine (and the relation reset inside it) against this contrived input
     // exactly like any other sub-threshold capture, breaking AlreadyDoomed's trade with TradePartner down
     // to its cooldown. Since the scenario is already established as unreachable through real play, and
-    // the conquest routine's own effects on a live capture are pinned by StaleCapitalPostSweepBranchTests
-    // and the Cities/Capture suite's many other conquest tests, this contrived case is dropped rather than
+    // the conquest routine's own effects on a live capture are pinned by ConquestAfterEmptyingSweepTests
+    // (rework round 1, N4: StaleCapitalPostSweepBranchTests asserts the conquest does NOT run -- it is the
+    // wrong citation for this remark) and the Cities/Capture suite's many other conquest tests, this
+    // contrived case is dropped rather than
     // flipped to assert the opposite of what it used to: it would add no coverage
     // NationElimination.ApplyIfLastCityLost_AlreadyEliminated_ReturnsUnchangedAndNotJustEliminated (the
     // Defect path's own idempotency, still exercised and still correct) does not already give.
