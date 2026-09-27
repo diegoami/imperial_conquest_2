@@ -382,6 +382,21 @@ public class FieldBattleTests
     /// moment battle code actually references diplomacy, whether or not anything happens to be
     /// registered anywhere else in the assembly.
     /// </summary>
+    /// <remarks>
+    /// <strong>T66 DoD 4 (bug #221 N2), stated so the next implementer meets a rule rather than an
+    /// unexplained failure.</strong> This scan predates <c>Battle/Commands/**</c>: it was written to
+    /// keep this file's own resolver <em>publishing</em> <see cref="PeaceTreatyTriggered"/> rather than
+    /// calling diplomacy directly (the DoD 8 test above), and its blast radius grew to cover the whole
+    /// <c>Battle/**</c> tree once T54's attack, siege and naval commands landed under
+    /// <c>Battle/Commands/</c>. That growth also forbids an attack command from declaring war itself.
+    /// The user's 2026-09-23 decision on #221 keeps it that way, deliberately: <strong>attacking a
+    /// nation not at war is two commands, <c>DeclareWarCommand</c> then the attack</strong> — never one
+    /// command that calls <c>RelationTransitions.DeclareWar</c> inline — exactly the sequence
+    /// <c>DeclareWarCommand</c>'s own remarks already document as the auto-declaration path. The scanned
+    /// paths are <em>unchanged</em>: this scan still walks every file under <c>Battle/**</c>, commands
+    /// included, and the two-command form is why that continues to pass rather than a narrowed grant on
+    /// this file alone.
+    /// </remarks>
     private static void AssertNoBattleSourceReferencesDiplomacy()
     {
         var offenders = DiplomacyReferencesInBattleSource();

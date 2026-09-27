@@ -43,7 +43,7 @@ public sealed class AttackFleetCommandTests
 
         var direct = InstantBattleResolver.ResolveNaval(
             state, AttackerId, TargetId, ToyRuleset, ToyWorld, RngFor(state, command.Kind),
-            BattleCommandRuleset.ArcherUnitTypeId, NullEventSink.Instance);
+            ToyRuleset.ArcherUnitTypeId, NullEventSink.Instance);
 
         var sink = new RecordingEventSink();
         var result = Dispatcher(sink).Dispatch(state, command);
@@ -87,6 +87,27 @@ public sealed class AttackFleetCommandTests
     }
 
     /// <summary>
+    /// Rework round 1, F1: <see cref="AttackFleetRejections.NoArcherUnitType"/> (<c>AttackLegality.cs</c>,
+    /// the naval <c>Check</c> overload) had no test at all before this round -- gap predates this task,
+    /// fix lives in the same file this task edits. The check runs unconditionally, before either fleet's
+    /// strength is probed, so no carried army is needed to reach it: <c>"archers"</c> stays declared, and
+    /// only <see cref="Ruleset.ArcherUnitTypeId"/> is moved to an undeclared id.
+    /// </summary>
+    [Fact]
+    public void T66F1_NavalIsRefusedWhenThePointerNamesAnUndeclaredTypeEvenThoughArchersStillExists()
+    {
+        var state = Fixture();
+
+        var pointerDangles = ToyRuleset with { ArcherUnitTypeId = "phantom_archers" };
+
+        Assert.NotNull(pointerDangles.UnitTypeById("archers"));
+        Assert.Null(pointerDangles.UnitTypeById("phantom_archers"));
+        Assert.Equal(
+            AttackFleetRejections.NoArcherUnitType,
+            AttackLegality.Check(state, pointerDangles, Attack())!.Code);
+    }
+
+    /// <summary>
     /// T23 follow-up <see href="https://github.com/diegoami/imperial_conquest_2/issues/222">#222</see>:
     /// the boundary theory <see cref="AttackArmyCommandTests.DoD01_AdjacencyIsChebyshevDistanceOne"/> gives
     /// the army gate, now given to the naval gate too — a diagonal neighbour is adjacent (Chebyshev, not
@@ -123,9 +144,11 @@ public sealed class AttackFleetCommandTests
             state, new AttackFleetCommand(NorthNationId, TargetId, AttackerId), AttackFleetRejections.NotYourFleet);
         AssertRefused(AtPeaceFixture(), Attack(), AttackFleetRejections.NotAtWar);
 
+        // T66 DoD 3 (bug #222 N2): at Chebyshev distance 2 from the attacker (6, 5), not 4 -- so this
+        // fixture itself fails the "distance <= 2" mutation, rather than only the boundary theory below.
         var apart = state with
         {
-            Fleets = ValueList.From(state.Fleets.Select(f => f.Id == TargetId ? f with { X = 2, Y = 5 } : f)),
+            Fleets = ValueList.From(state.Fleets.Select(f => f.Id == TargetId ? f with { X = 4, Y = 5 } : f)),
         };
         AssertRefused(apart, Attack(), AttackFleetRejections.NotAdjacent);
 

@@ -272,6 +272,52 @@ public class BattleCasualtyArithmeticTests
     }
 
     /// <summary>
+    /// T66 DoD 1 (bug #187 N1): <see cref="BattleCasualties.ApplyToFleet"/>'s doc-promised cap is now
+    /// pinned. T52's own review found this untested -- removing the <c>Math.Min(ships, lost)</c> cap
+    /// passed all 72 Battle tests at the time, because the sole call site only ever observes the result
+    /// inside a <c>lost &lt; ships</c> guard. Here the raw expression is forced past the fleet's own hull
+    /// count directly: 10 hulls, ratio 2000, divisor 105 (draw 0) gives <c>(10 x 2000) / 105 = 190</c>,
+    /// nineteen times the fleet's own size -- removing the cap would return 190, not 10.
+    /// </summary>
+    [Fact]
+    public void T66DoD01_ApplyToFleetCapsAtTheFleetsOwnHullCountWhenTheRawLossExceedsIt()
+    {
+        var rules = BattleTestbed.Destroyed.Combat;
+
+        // 10 hulls, ratio 2000, divisor 105 (draw 0): the raw (ships x ratio) / divisor is
+        // (10 x 2000) / 105 = 190, nineteen times the fleet's own size. Only the cap can bring that
+        // back down to 10 -- this assertion is on the method's actual return value, not a restated
+        // literal, so removing Math.Min(ships, lost) makes it fail rather than merely documenting why.
+        var lost = BattleCasualties.ApplyToFleet(10, 2000, new ScriptedDivisorRng(0), rules);
+
+        Assert.Equal(10, lost);
+    }
+
+    /// <summary>
+    /// T66 DoD 2 (bug #187 N2): <see cref="BattleCasualties.ApplyToFleet"/>'s documented "still draws"
+    /// behaviour for a non-positive ratio is now pinned, rather than resting on T52's own reviewer note
+    /// that it is "plausibly unreachable" from <c>InstantBattleResolver.cs</c>'s one call site but never
+    /// proven so. The divisor draw happens unconditionally, before the <c>ratio &lt;= 0</c> check --
+    /// moving the draw after the check (so a non-positive ratio short-circuits before drawing at all)
+    /// would make this test observe zero draws instead of one, which is exactly what would silently shift
+    /// every later stream position in the same battle (the scatter distance draw right after this one).
+    /// </summary>
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-7)]
+    public void T66DoD02_ApplyToFleetWithNonPositiveRatioStillConsumesExactlyOneDraw(int ratio)
+    {
+        var rules = BattleTestbed.Destroyed.Combat;
+        var recorder = new BoundRecordingRng(new SplitMix64Rng(BattleTestbed.Seed));
+
+        var lost = BattleCasualties.ApplyToFleet(100, ratio, recorder, rules);
+
+        Assert.Equal(0, lost);
+        Assert.Single(recorder.Values);
+        Assert.Equal(rules.CasualtyDivisorRandomSpan, recorder.Bounds[0]);
+    }
+
+    /// <summary>
     /// T52 DoD 5, the two-entity probe: the same 300 troops, once as a single 300-troop slot the OLD code
     /// already annihilated correctly (<c>300 / 105 = 2</c>, nonzero, so the saturating ratio was never
     /// truncated to zero), and once split into three 100-troop slots, where <c>100 / 105 = 0</c> truncated

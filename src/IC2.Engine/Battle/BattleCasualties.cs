@@ -257,6 +257,16 @@ public static class BattleCasualties
     /// <strong>One draw, unconditionally</strong> — reusing <see cref="CombatRules.CasualtyDivisorBase"/>
     /// and <see cref="CombatRules.CasualtyDivisorRandomSpan"/>, the same two fields <see cref="Apply"/>
     /// draws from, so the two halves of one setting cannot diverge again. No third ruleset field is added.
+    /// The divisor draw happens before the <c>ratio &lt;= 0</c> check below, not after: T52's own review
+    /// (bug #187 N2) found this untested and noted only that a non-positive ratio is "plausibly
+    /// unreachable" from the one production call site (<see cref="InstantBattleResolver.ResolveNaval"/>),
+    /// without proving it. It cannot be proven in general either: that call site's ratio comes from
+    /// <see cref="Ratio"/> fed a ruleset-configured numerator
+    /// (<see cref="ScatteredDefeatRules.SurvivorCasualtyNumerator"/>), so a ratio of exactly zero is a
+    /// data question, not a compile-time guarantee. <c>T66DoD02_ApplyToFleetWithNonPositiveRatioStillConsumesExactlyOneDraw</c>
+    /// pins the behaviour directly instead: moving the draw after the check would make that test observe
+    /// zero draws where it expects one, which is exactly the silent stream-position shift the class
+    /// remarks warn about.
     /// </para>
     /// </remarks>
     /// <param name="ships">The beaten fleet's own hull count.</param>

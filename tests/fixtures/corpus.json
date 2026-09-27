@@ -253,7 +253,7 @@
     { "id": "unitType.heavyCavalry.recruitCostQuarterly", "value": 4, "source": "unit-type-stat-table-in-dat.md", "tag": "confirmed" },
     { "id": "unitType.heavyCavalry.powerWeight", "value": 120, "source": "decompiled-unit-map-orders-and-record-fields.md", "tag": "confirmed", "note": "+0x26." },
 
-    { "id": "matrix.lightInfantry.vs.lightInfantry", "value": 4, "source": "combat-type-effectiveness-matrix.md", "tag": "confirmed", "note": "Read as value[attackerType][defenderType]; row=attacker, column=defender is the report's own candidate orientation, chosen because it produces sensible unit relationships -- NOT fully pinned down by tracing the index arithmetic. The 25 raw values themselves are confirmed reads from the DAT; only the axis labeling is uncertain (see report caveat)." },
+    { "id": "matrix.lightInfantry.vs.lightInfantry", "value": 4, "source": "combat-type-effectiveness-matrix.md", "tag": "confirmed", "note": "Read as value[attackerType][defenderType]; row=attacker, column=defender is the CONFIRMED orientation (bug #327): re-reading the melee function's index arithmetic settles it -- a 10-byte row stride indexed by the attacker's type, a 2-byte column stride indexed by the defender's type, both type fields independently confirmed because they also index the unit-type name table. The 25 raw values were always confirmed reads from the DAT, and the axis labeling is now settled the same way (see battle-replayed-rout-mechanic-and-combat-constants.md)." },
     { "id": "matrix.lightInfantry.vs.heavyInfantry", "value": 1, "source": "combat-type-effectiveness-matrix.md", "tag": "confirmed" },
     { "id": "matrix.lightInfantry.vs.archers", "value": 0, "source": "combat-type-effectiveness-matrix.md", "tag": "confirmed" },
     { "id": "matrix.lightInfantry.vs.lightCavalry", "value": 3, "source": "combat-type-effectiveness-matrix.md", "tag": "confirmed" },
@@ -278,7 +278,6 @@
     { "id": "matrix.heavyCavalry.vs.archers", "value": 3, "source": "combat-type-effectiveness-matrix.md", "tag": "confirmed" },
     { "id": "matrix.heavyCavalry.vs.lightCavalry", "value": 0, "source": "combat-type-effectiveness-matrix.md", "tag": "confirmed" },
     { "id": "matrix.heavyCavalry.vs.heavyCavalry", "value": 2, "source": "combat-type-effectiveness-matrix.md", "tag": "confirmed" },
-    { "id": "matrix.orientationCaveat", "value": "row=attackerType, column=defenderType is a candidate reading chosen for producing sensible game design, not fully confirmed by tracing the index arithmetic to certain semantic identity", "source": "combat-type-effectiveness-matrix.md", "tag": "derived" },
 
     { "id": "diplomacy.relationState.peace", "value": 0, "source": "decompiled-diplomacy-peace-terms-and-instant-battles.md", "tag": "confirmed" },
     { "id": "diplomacy.relationState.trade", "value": 1, "source": "decompiled-diplomacy-peace-terms-and-instant-battles.md", "tag": "confirmed" },
