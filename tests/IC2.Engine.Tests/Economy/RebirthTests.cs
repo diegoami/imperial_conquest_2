@@ -321,12 +321,31 @@ public sealed class RebirthTests
     [Fact]
     public void ARebornNation_IsNoLongerSkippedByAiTurnsOwnGate_AndAOnceHumanSeatStaysAiPlayed()
     {
-        var dead = CaptureTestbed.Nation("dead", unity: 0, eliminated: true) with { Control = SeatControl.Ai };
+        // T87 rework round 1 (review B8, bug #441): "dead" starts Human-controlled, owning exactly one
+        // city -- its last -- which is defected away for real through CityCaptureResolver.Defect, the
+        // same path any ordinary elimination takes. NationElimination.ApplyIfLastCityLost's own fix
+        // (this round) hands a human seat to the AI on elimination; the old version of this test set
+        // Control = SeatControl.Ai by hand, which was tautological (Rebirth.Run itself never touches
+        // Control either way, so the assertion below proved nothing about the engine's own elimination
+        // path).
+        var deadLastCity = CaptureTestbed.City(
+            "dead-last-city", "DeadLastCity", 0, 0, "dead", "dead", loyalty: 20, fortificationCode: 0,
+            populationThousands: 10, maxPopulationThousands: 20, tribute: 5);
+        var dead = CaptureTestbed.Nation("dead", unity: 600) with { Control = SeatControl.Human };
+        var receiver = CaptureTestbed.Nation("receiver", unity: 600);
         var owner = CaptureTestbed.Nation("owner", unity: 600);
-        var cities = Enumerable.Range(0, 8).Select(i => QualifyingCity($"q{i}", "owner", "dead")).ToList();
-        var state = EliminationForcesTestbed.StateWith(new[] { dead, owner }, cities);
 
-        var result = Rebirth.Run(state, Ruleset, dead, NullEventSink.Instance);
+        var qualifying = Enumerable.Range(0, 8).Select(i => QualifyingCity($"q{i}", "owner", "dead")).ToList();
+        var cities = new List<CityState> { deadLastCity };
+        cities.AddRange(qualifying);
+        var state = EliminationForcesTestbed.StateWith(new[] { dead, receiver, owner }, cities);
+
+        var afterElimination = CityCaptureResolver.Defect(state, "dead-last-city", "receiver", Ruleset, NullEventSink.Instance);
+        var eliminatedDead = afterElimination.NationById("dead")!;
+        Assert.True(eliminatedDead.Eliminated);
+        Assert.Equal(SeatControl.Ai, eliminatedDead.Control); // bug #441's own fix, proven through the real path.
+
+        var result = Rebirth.Run(afterElimination, Ruleset, eliminatedDead, NullEventSink.Instance);
         var reborn = result.NationById("dead")!;
 
         Assert.False(reborn.Eliminated); // AiTurn.Run's own gate no longer skips it.
