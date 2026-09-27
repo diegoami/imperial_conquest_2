@@ -848,6 +848,45 @@ public sealed class SeatCliTests
     }
 
     /// <summary>
+    /// T87 rework round 1 (review B7): <see cref="GameSession.DepositeActiveHumanSeatIfItShouldFallAtTurnStart"/>'s
+    /// own effects (<see cref="Deposition.ApplyEffects"/>, <see cref="Deposition.ResetRelations"/>) had no
+    /// test of their own beyond the deleted <c>HumanDepositionSystem</c>'s copy — a mutation dropping
+    /// either one left the whole suite green. North starts at unity 300 (well under
+    /// <see cref="EconomyRules.DebtUnityThreshold"/>, so <see cref="Deposition.ApplyEffects"/>'s own
+    /// <c>max(unity, min(550, unity + 150))</c> gives exactly 450, not merely "not still 300"), treasury
+    /// −1,000,000 (so the negative-treasury floor-to-zero branch is exercised, not the positive-treasury
+    /// plus-1,000 one),
+    /// and a −3 cooldown toward south (inside <see cref="EconomyRules.DepositionRelationResetThreshold"/>'s
+    /// own <c>[-5, -1)</c> range, so it must reset to 0).
+    /// </summary>
+    [Fact]
+    public void ADebtorSeatReachedByRotation_GetsTheFullDepositionEffect_NotJustAControlFlip()
+    {
+        var toy = CoreTestbed.Toy;
+        var nationIds = ValueList.From(toy.World.Nations.Select(n => n.Id));
+        var startingRelations = DiplomaticRelations
+            .Uniform(nationIds, toy.Ruleset.Diplomacy.StateCodes.Peace)
+            .WithRelation("north", "south", -3);
+        var world = toy.World with
+        {
+            Nations = ValueList.From(toy.World.Nations.Select(n =>
+                string.Equals(n.Id, "north", StringComparison.Ordinal)
+                    ? n with { Treasury = -1_000_000, Unity = 300 }
+                    : n)),
+            TurnOrder = ValueList.Of("south", "north"),
+            StartingRelations = startingRelations,
+        };
+        var session = new GameSession(world, toy.Ruleset, toy.Scenario, humanSeatNationId: "north");
+
+        var north = session.State.NationById("north")!;
+        Assert.Equal(SeatControl.Ai, north.Control);
+        Assert.Equal(450, north.Unity); // max(300, min(550, 300 + 150)) = 450, not a bare Control flip.
+        Assert.Equal(0, north.Treasury); // negative treasury floors to 0 (no +1,000 credit); a bare
+                                          // Control flip would have left it at -1,000,000.
+        Assert.Equal(0, session.State.Relations.Get("north", "south")); // -3 is inside the reset range.
+    }
+
+    /// <summary>
     /// T87, DoD 3's third bullet: "When no human seat remains, the session reports that the game is
     /// over." Plain hotseat (no <c>--seat</c>), both toy seats made human and both put deep in debt.
     /// Since review B4's own fix, <see cref="GameSession.AdvanceToHumanSeat"/> runs at construction for
