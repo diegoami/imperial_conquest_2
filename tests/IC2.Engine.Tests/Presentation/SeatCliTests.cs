@@ -698,6 +698,62 @@ public sealed class SeatCliTests
     }
 
     /// <summary>
+    /// T87 rework round 2, R1 (bug #441's conquest half): the same world/army shape as
+    /// <see cref="NewEliminationFixtureSession"/>, but genuine hotseat -- south's own <see cref="Seat"/> is
+    /// <see cref="SeatControl.Human"/> from the scenario itself, never through the constructor's own
+    /// <c>humanSeatNationId</c> parameter -- so <see cref="AnnounceGameOverIfNoHumanSeatRemains"/>, which
+    /// refuses to fire at all while that parameter is set (T83's own lost-seat fallback takes precedence
+    /// there instead), can actually run once south, the only human seat, is conquered by north's own AI
+    /// attack. Before <c>ConquestCascade.Apply</c>'s own seat hand-over (this round's fix), south's
+    /// <see cref="NationState.Control"/> stayed <see cref="SeatControl.Human"/> after its own elimination,
+    /// so this check never noticed no human seat was left.
+    /// </summary>
+    [Fact(Timeout = 15000)]
+    public async Task A_hotseat_conquest_of_the_last_human_seat_reaches_game_over()
+    {
+        await Task.Run(() =>
+        {
+            var toy = CoreTestbed.Toy;
+            var world = toy.World with
+            {
+                Nations = ValueList.Of(
+                    toy.World.NationById("north")! with { Treasury = 0, Wealth = 40_000 },
+                    toy.World.NationById("south")! with { Treasury = 0 }),
+                StartingArmies = ValueList.Of(
+                    new StartingArmy(
+                        "north-overwhelming-army", "north", X: 3, Y: 2, Morale: 60, Money: 0, SupplyTons: 0,
+                        Moves: 1, Units: ValueList.Of(CaptureFixtures.Unit("archers", 400_000)))),
+                TurnOrder = ValueList.Of("south", "north"),
+            };
+            var scenario = toy.Scenario with
+            {
+                Seats = ValueList.Of(
+                    new Seat("south", SeatControl.Human),
+                    new Seat(
+                        "north", SeatControl.Ai,
+                        new AiPersonality(Aggression: 0.5, ExpansionDrive: 0.5, LoyaltyToAlliances: 0.5))),
+            };
+            var session = new GameSession(world, toy.Ruleset, scenario, seedOverride: 2);
+            Assert.Equal("south", session.State.ActiveNationId);
+
+            var round1 = session.Submit("end"); // round 1: approach march only.
+            Assert.False(session.State.NationById("south")!.Eliminated, "round 1 is only the approach march");
+            Assert.False(round1.ShouldExit);
+
+            var round2 = session.Submit("end"); // round 2: siege, capture, and the conquest of south's last city.
+
+            Assert.True(session.State.NationById("south")!.Eliminated);
+            Assert.Equal(SeatControl.Ai, session.State.NationById("south")!.Control); // this round's own fix.
+            Assert.Contains(
+                round2.Lines,
+                l => l.Contains("Your nation has been conquerred by", StringComparison.Ordinal)
+                     && l.Contains("Northern League", StringComparison.Ordinal));
+            Assert.Contains(round2.Lines, l => l.Contains("No human seat remains", StringComparison.Ordinal));
+            Assert.True(round2.ShouldExit);
+        });
+    }
+
+    /// <summary>
     /// Forces <paramref name="mutate"/> onto <paramref name="nationId"/>'s <see cref="NationState"/> in
     /// <paramref name="session"/>'s live state, through <see cref="GameSession.State"/>'s own private
     /// setter. Kept only for <see cref="Watch_mode_completes_one_lap_without_hanging_when_a_non_active_nation_is_eliminated_mid_lap"/>

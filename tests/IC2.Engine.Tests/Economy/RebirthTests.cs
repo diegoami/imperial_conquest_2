@@ -366,6 +366,43 @@ public sealed class RebirthTests
     }
 
     /// <summary>
+    /// T87 rework round 2 (review R1, bug #441's conquest half): the same shape as the sibling test
+    /// above, but eliminating "dead" through <see cref="ConquestCascade.Apply"/> -- the conquest path --
+    /// rather than <see cref="CityCaptureResolver.Defect"/>, proving this round's own fix in
+    /// <c>ConquestCascade.cs</c>, not only the defection path's <c>NationElimination.cs</c> one. "dead"
+    /// owns only its own capital; <c>ConquestCascade.Apply</c> transfers whatever a loser currently owns
+    /// regardless of city count, so it need not actually clear the conquest threshold here -- this test's
+    /// own subject is the seat hand-over that method's elimination step now makes, not the trigger that
+    /// decides to call it (<c>ConquestCascadeTests</c>' own job).
+    /// </summary>
+    [Fact]
+    public void ARebornNation_ThatFellByConquest_AlsoStaysAiPlayed()
+    {
+        var deadCap = CaptureTestbed.City(
+            "dead-cap", "DeadCap", 0, 0, "dead", "dead", loyalty: 20, fortificationCode: 0,
+            populationThousands: 10, maxPopulationThousands: 20, tribute: 5);
+        var dead = CaptureTestbed.Nation("dead", unity: 600, capitalCityId: "dead-cap") with { Control = SeatControl.Human };
+        var winner = CaptureTestbed.Nation("winner", unity: 600);
+        var owner = CaptureTestbed.Nation("owner", unity: 600);
+
+        var qualifying = Enumerable.Range(0, 8).Select(i => QualifyingCity($"q{i}", "owner", "dead")).ToList();
+        var cities = new List<CityState> { deadCap };
+        cities.AddRange(qualifying);
+        var state = EliminationForcesTestbed.StateWith(new[] { dead, winner, owner }, cities);
+
+        var afterConquest = ConquestCascade.Apply(state, Ruleset, "dead", "winner", NullEventSink.Instance);
+        var eliminatedDead = afterConquest.NationById("dead")!;
+        Assert.True(eliminatedDead.Eliminated);
+        Assert.Equal(SeatControl.Ai, eliminatedDead.Control); // this round's own fix, proven through the real path.
+
+        var result = Rebirth.Run(afterConquest, Ruleset, eliminatedDead, NullEventSink.Instance, new ScriptedRng(nextIntDraws: new[] { 0 }));
+        var reborn = result.NationById("dead")!;
+
+        Assert.False(reborn.Eliminated);
+        Assert.Equal(SeatControl.Ai, reborn.Control); // still AI-played, even though it fell as a human seat.
+    }
+
+    /// <summary>
     /// A real <see cref="DeclareWarCommand"/> dispatch against the reborn nation, through the same
     /// <see cref="CommandDispatcher"/>/<see cref="SystemRegistry"/> the CLI itself uses -- proving
     /// <see cref="DiplomacyRejections.CounterpartyEliminated"/> no longer fires, not merely that the flag
