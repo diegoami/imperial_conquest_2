@@ -105,7 +105,7 @@ Models are chosen per task, not uniformly:
   - Low: a test-only correction (T32).
   - High: tasks that must read a format off decompiled code (T30), widen the shared domain model (T35), or rework merged economy code (T38, T39).
   - T10 moved from Haiku to Sonnet after its first attempt didn't converge. Integration design across the engine's seams is not Haiku work.
-- **Haiku: 4 tasks** (T18, T26, T28, T36) that are small, fully specified and CI-gated.
+- **Haiku: retired on 2026-09-27** by the user's decision. It is no longer assigned to any task, and new tasks never get it. T26's Haiku implementer wrote outside its Owns list instead of stopping as its brief required, then produced a reflection test that found zero properties and could never fail, and documented a victory type that does not exist. A task small enough for Haiku is cheap enough on Sonnet. T18 had already moved to Sonnet on 2026-09-19. T26 and T28 moved on 2026-09-27, and T36 and T77 were merged on Haiku before that.
 - **Fable: 1 task** (T05): pure templates and configuration. Never used for anything that must compile against the domain model.
 
 ### 3.4 Why the reviewer's model differs from the implementer's
@@ -119,8 +119,8 @@ Models are chosen per task, not uniformly:
 | Opus (T02, T03, T16, T22) | Opus / High | `/code-review --effort ultra` ([§3.5](#35-where-the-code-review-skill-fits)) |
 | Sonnet on fidelity-critical tasks (T04, T07, T08, T10, T13, T14, T17, T19, T20, T21, T29, T30, T31, T33, T34, T37, T38, T39, T40, T42, T43) | **Opus / Medium** | — |
 | Sonnet widening the shared domain model (T35) | **Opus / High** | — |
-| Sonnet on structural tasks (T01, T06, T09, T11, T12, T15, T23, T24, T25, T27, T32, T41) | Sonnet / High | human visual review on T24 and T25 |
-| Haiku / Fable (T05, T18, T26, T28, T36) | Sonnet / Medium | — |
+| Sonnet on structural tasks (T01, T06, T09, T11, T12, T15, T23, T24, T25, T26, T27, T28, T32, T41) | Sonnet / High | human visual review on T24 and T25 |
+| Fable (T05), and the tasks merged on Haiku before it was retired (T36, T77) | Sonnet / Medium | — |
 
 ### 3.5 Where the `/code-review` skill fits
 
