@@ -1,0 +1,339 @@
+using IC2.Engine.Ai;
+using IC2.Engine.Cities.Capture;
+using IC2.Engine.Core;
+using IC2.Engine.Diplomacy;
+using IC2.Engine.Diplomacy.Commands;
+using IC2.Engine.Economy;
+using IC2.Engine.Model;
+using IC2.Engine.Tests.Cities.Capture;
+using Xunit;
+
+namespace IC2.Engine.Tests.Economy;
+
+/// <summary>
+/// T87 (<c>#389</c>), DoD 4: <see cref="Rebirth.Run"/> (<c>FUN_0044C360</c>)
+/// <see href="https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-quarterly-rebellion.md">
+/// decompiled-quarterly-rebellion.md</see> §4, at the decision level — hand-built fixtures, the same
+/// convention <c>RebellionTests</c> already uses (<see cref="EliminationForcesTestbed.StateWith"/>, never
+/// <see cref="CaptureTestbed.StateWith"/>, so an arbitrary nation set still passes
+/// <see cref="IC2.Engine.Serialization.GameDataValidation"/>).
+/// </summary>
+public sealed class RebirthTests
+{
+    private static Ruleset Ruleset => CaptureTestbed.Ruleset;
+
+    /// <summary>One qualifying city: allegiance names <paramref name="deadNationId"/>, loyalty under the rebirth threshold.</summary>
+    private static CityState QualifyingCity(
+        string id, string ownerId, string deadNationId, int fortificationCode = 0, int populationThousands = 10) =>
+        CaptureTestbed.City(
+            id, id, x: 0, y: 0, ownerId, deadNationId, loyalty: 20, fortificationCode,
+            populationThousands, maxPopulationThousands: 500, tribute: 5);
+
+    // ---------------------------------------------------------------------------------------------
+    // The 7/8-city boundary.
+    // ---------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Exactly <see cref="EconomyRules.RebirthMinimumQualifyingCityCount"/> (7) qualifying cities: the
+    /// report's own "proceeds only if the count is &gt; 7" is a strict inequality, so exactly 7 does not
+    /// qualify. <see cref="Assert.Same"/> proves <paramref name="state"/> comes back untouched, not merely
+    /// unchanged in value.
+    /// </summary>
+    [Fact]
+    public void SevenQualifyingCities_DoesNotRebirth()
+    {
+        var dead = CaptureTestbed.Nation("dead", unity: 0, eliminated: true);
+        var owner = CaptureTestbed.Nation("owner", unity: 600);
+        var cities = Enumerable.Range(0, 7).Select(i => QualifyingCity($"q{i}", "owner", "dead")).ToList();
+        var state = EliminationForcesTestbed.StateWith(new[] { dead, owner }, cities);
+
+        var result = Rebirth.Run(state, Ruleset, dead, NullEventSink.Instance);
+
+        Assert.Same(state, result);
+    }
+
+    /// <summary>Eight qualifying cities clears the strict <c>&gt; 7</c> gate and rebirth proceeds.</summary>
+    [Fact]
+    public void EightQualifyingCities_Rebirths()
+    {
+        var dead = CaptureTestbed.Nation("dead", unity: 0, eliminated: true);
+        var owner = CaptureTestbed.Nation("owner", unity: 600);
+        var cities = Enumerable.Range(0, 8).Select(i => QualifyingCity($"q{i}", "owner", "dead")).ToList();
+        var state = EliminationForcesTestbed.StateWith(new[] { dead, owner }, cities);
+
+        var result = Rebirth.Run(state, Ruleset, dead, NullEventSink.Instance);
+
+        Assert.True(result.NationById("dead")!.Unity > 0);
+        Assert.NotSame(state, result);
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Every reset field, the defections and the capital choice, in one fixture.
+    // ---------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Eight qualifying cities across two different owners ("ownerA" three, "ownerB" five), one
+    /// non-qualifying control city (allegiance "dead" but loyalty at the threshold, owned by "ownerA")
+    /// left untouched, and one city with no connection to "dead" at all (owned and allegiant to
+    /// "ownerA") also left untouched. "q7" is given a far higher fortification and population than every
+    /// other qualifying city, so it is unambiguously the strongest after its own defection (all eight
+    /// start at the same pre-defection loyalty, so <see cref="CityCaptureResolver.Defect"/>'s own
+    /// loyalty-after-transfer formula gives them all the same post-defection loyalty — fortification and
+    /// population are what this fixture actually varies). Two of "dead"'s own 40 recruitment slots start
+    /// with non-zero troops, one targeting a city outside this fixture entirely (so
+    /// <see cref="CityCaptureResolver.Defect"/>'s own per-city slot removal never reaches it) — proving
+    /// the slot reset is rebirth's own field write, not a side effect of any single defection.
+    /// </summary>
+    [Fact]
+    public void EightQualifyingCities_ResetsEveryField_DefectsEachOne_AndPicksTheStrongestAsCapital()
+    {
+        var dead = CaptureTestbed.Nation(
+            "dead", treasury: -500, unity: 0, wealth: 999, capitalCityId: "old-cap", eliminated: true,
+            recruitmentSlots: ValueList.Of(
+                new RecruitmentSlot("some-other-city", "archers", Troops: 4000, StateCode: 6),
+                new RecruitmentSlot("q0", "light_infantry", Troops: 2500, StateCode: 10)));
+        var ownerA = CaptureTestbed.Nation("ownerA", unity: 600);
+        var ownerB = CaptureTestbed.Nation("ownerB", unity: 600);
+
+        var qualifying = new List<CityState>();
+        for (var i = 0; i < 3; i++)
+        {
+            qualifying.Add(QualifyingCity($"q{i}", "ownerA", "dead"));
+        }
+
+        for (var i = 3; i < 7; i++)
+        {
+            qualifying.Add(QualifyingCity($"q{i}", "ownerB", "dead"));
+        }
+
+        // The strongest of the eight: far higher fortification and population than the rest.
+        qualifying.Add(QualifyingCity("q7", "ownerB", "dead", fortificationCode: 90, populationThousands: 400));
+
+        var oldCap = CaptureTestbed.City(
+            "old-cap", "OldCap", 1, 1, "dead", "dead", loyalty: 50, fortificationCode: 0,
+            populationThousands: 10, maxPopulationThousands: 20, tribute: 5);
+        // Control: allegiance names "dead" but loyalty is AT the threshold (not under it) -- never a candidate.
+        var atThreshold = CaptureTestbed.City(
+            "at-threshold", "AtThreshold", 2, 2, "ownerA", "dead",
+            loyalty: Ruleset.Economy.RebirthCandidateLoyaltyThreshold, fortificationCode: 0,
+            populationThousands: 10, maxPopulationThousands: 20, tribute: 5);
+        // Control: no connection to "dead" at all -- proves the sweep does not touch every city in the game.
+        var unrelated = CaptureTestbed.City(
+            "unrelated", "Unrelated", 3, 3, "ownerA", "ownerA", loyalty: 10, fortificationCode: 0,
+            populationThousands: 10, maxPopulationThousands: 20, tribute: 5);
+        // ownerB owns only candidate cities otherwise -- a spare, non-candidate city of its own keeps it
+        // from being eliminated once all five of its own candidates defect away (which would trigger
+        // RelationTransitions.ResetAllOnElimination against it, an effect this test does not mean to
+        // exercise and that would confound the ownerA<->ownerB relation assertion below).
+        var ownerBSpare = CaptureTestbed.City(
+            "ownerb-spare", "OwnerBSpare", 4, 4, "ownerB", "ownerB", loyalty: 50, fortificationCode: 0,
+            populationThousands: 10, maxPopulationThousands: 20, tribute: 5);
+
+        var cities = new List<CityState> { oldCap, atThreshold, unrelated, ownerBSpare };
+        cities.AddRange(qualifying);
+
+        var state = EliminationForcesTestbed.StateWith(new[] { dead, ownerA, ownerB }, cities);
+        state = state with
+        {
+            Relations = state.Relations
+                .WithRelation("dead", "ownerA", -2)
+                .WithRelation("dead", "ownerB", -3)
+                .WithRelation("ownerA", "ownerB", -1),
+        };
+
+        var sink = new RecordingEventSink();
+        var result = Rebirth.Run(state, Ruleset, dead, sink);
+
+        var reborn = result.NationById("dead")!;
+
+        // ---- Reset fields ----
+        // Unity resets to RebirthUnity, then each of the eight defections' own CityCaptureResolver.Defect
+        // call credits the receiver (the reborn nation itself) DefectionUnityGain, capped at UnityCap --
+        // Rebellion.cs's own report citation ("Who calls what": FUN_0044C360's own caller list names
+        // FUN_0044BED8, the same defection routine, for each moved city) confirms rebirth reuses the full
+        // defection effect, not a trimmed version that skips the receiver's own unity credit.
+        var expectedUnity = Ruleset.Economy.RebirthUnity;
+        for (var i = 0; i < 8; i++)
+        {
+            expectedUnity = Math.Min(Ruleset.Economy.UnityCap, expectedUnity + Ruleset.Capture.DefectionUnityGain);
+        }
+
+        Assert.Equal(expectedUnity, reborn.Unity);
+        Assert.Null(reborn.ConqueredBy);
+        // Treasury and tax base reset to 0, then the eight defections' own credits accumulate on top
+        // (CityCaptureResolver.Defect's own treasury/tax-base transfer) -- so both end up positive, not 0.
+        Assert.True(reborn.Treasury > 0);
+        Assert.True(reborn.TaxBase >= 0);
+        Assert.Equal(Ruleset.Economy.RebirthTaxRatePercent, reborn.TaxRatePercent);
+        Assert.Equal(Ruleset.Economy.RebirthMobilizedPercent, reborn.MobilizedPercent);
+        Assert.False(reborn.Eliminated);
+        Assert.All(reborn.RecruitmentSlots, slot => Assert.Equal(0, slot.Troops));
+        // The slots themselves (state, type, target) are kept, not removed.
+        Assert.Equal(2, reborn.RecruitmentSlots.Count);
+        Assert.Contains(reborn.RecruitmentSlots, s => s.TargetCityId == "some-other-city" && s.UnitTypeId == "archers" && s.StateCode == 6);
+        // The LeaderName step stays [open] -- see Rebirth.cs's own remarks. Not renamed.
+        Assert.Equal(dead.LeaderName, reborn.LeaderName);
+
+        // ---- Relations: the reborn nation's own row is zeroed, then each moved city's own -8 penalty
+        // is written against its own former owner (both owners here) ----
+        Assert.Equal(Ruleset.Economy.RebirthDefectionRelationPenalty, result.Relations.Get("dead", "ownerA"));
+        Assert.Equal(Ruleset.Economy.RebirthDefectionRelationPenalty, result.Relations.Get("dead", "ownerB"));
+        // Third parties' own cooldowns are untouched by rebirth's own row reset (this engine's row is
+        // symmetric by construction, but nothing here writes ownerA<->ownerB directly).
+        Assert.Equal(-1, result.Relations.Get("ownerA", "ownerB"));
+
+        // ---- The defections: all eight moved, the two controls did not ----
+        foreach (var id in Enumerable.Range(0, 8).Select(i => $"q{i}"))
+        {
+            Assert.Equal("dead", result.CityById(id)!.Owner);
+        }
+
+        Assert.Equal("ownerA", result.CityById("at-threshold")!.Owner); // untouched: at the threshold, not under it.
+        Assert.Equal("ownerA", result.CityById("unrelated")!.Owner); // untouched: no connection to "dead".
+        Assert.Equal(8, sink.Events.OfType<CityDefectsToNation>().Count());
+
+        // ---- The capital choice: q7, unambiguously the strongest ----
+        Assert.Equal("q7", reborn.CapitalCityId);
+        var newCapital = result.CityById("q7")!;
+        var capture = Ruleset.Capture;
+        Assert.Equal(
+            Math.Min(capture.CapitalMoveNewCapitalStatCap, newCapital.Loyalty - capture.CapitalMoveNewCapitalLoyaltyGain + capture.CapitalMoveNewCapitalLoyaltyGain),
+            newCapital.Loyalty);
+        Assert.Equal(Math.Min(capture.CapitalMoveNewCapitalStatCap, 90 + capture.CapitalMoveNewCapitalFortificationGain), newCapital.FortificationCode);
+        Assert.Equal(400 + capture.CapitalMoveNewCapitalPopulationGain, newCapital.PopulationThousands);
+        Assert.Equal(500 + capture.CapitalMoveNewCapitalMaxPopulationGain, newCapital.MaxPopulationThousands);
+        Assert.Equal(5 + capture.CapitalMoveNewCapitalTributeGain, newCapital.Tribute);
+
+        // The old capital is left exactly as it was -- rebirth's own capital pick only ever touches the
+        // new capital (this type's own remarks; the old-capital marker repaint is presentation, unmodelled
+        // here exactly as ConquestTrigger's own remarks already note for the capital-move case).
+        Assert.Equal("dead", result.CityById("old-cap")!.Owner);
+        Assert.Equal(50, result.CityById("old-cap")!.Loyalty);
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Hazard: probe two dead nations, one reborn and one not.
+    // ---------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// "dead-a" has eight qualifying cities (rebirths); "dead-b" has only three (does not). Run through
+    /// <see cref="Rebellion.Run"/> itself, not <see cref="Rebirth.Run"/> directly, so this also proves
+    /// <see cref="Rebellion.cs"/>'s own branch (a) reaches the right nation for the right city.
+    /// </summary>
+    [Fact]
+    public void TwoDeadNations_OnlyTheOneWithEnoughQualifyingCitiesReturns()
+    {
+        var deadA = CaptureTestbed.Nation("dead-a", unity: 0, eliminated: true);
+        var deadB = CaptureTestbed.Nation("dead-b", unity: 0, eliminated: true);
+        var owner = CaptureTestbed.Nation("owner", unity: 600);
+
+        var citiesA = Enumerable.Range(0, 8).Select(i => QualifyingCity($"a{i}", "owner", "dead-a")).ToList();
+        var citiesB = Enumerable.Range(0, 3).Select(i => QualifyingCity($"b{i}", "owner", "dead-b")).ToList();
+        var allCities = new List<CityState>();
+        allCities.AddRange(citiesA);
+        allCities.AddRange(citiesB);
+
+        var state = EliminationForcesTestbed.StateWith(new[] { deadA, deadB, owner }, allCities);
+
+        // Rebellion.Run is invoked once per rebelling city, exactly as QuarterlyCityEconomySystem's own
+        // loop would for each of "dead-a"/"dead-b"'s own allegiant cities under the rebellion threshold --
+        // any one qualifying city triggers the same nation-wide count.
+        var afterA = Rebellion.Run(state, EconomyTestbed.Toy.World, Ruleset, allCities[0], NullEventSink.Instance);
+        var afterB = Rebellion.Run(afterA, EconomyTestbed.Toy.World, Ruleset, citiesB[0], NullEventSink.Instance);
+
+        Assert.False(afterB.NationById("dead-a")!.Eliminated);
+        Assert.True(afterB.NationById("dead-a")!.Unity > 0);
+        Assert.True(afterB.NationById("dead-b")!.Eliminated); // untouched: only 3 qualifying cities.
+        Assert.Equal(0, afterB.NationById("dead-b")!.Unity);
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // No armies or fleets added; T84's own deletions stay deleted.
+    // ---------------------------------------------------------------------------------------------
+
+    [Fact]
+    public void Rebirth_AddsNoArmiesOrFleets()
+    {
+        var dead = CaptureTestbed.Nation("dead", unity: 0, eliminated: true); // T84 already disposed of its forces.
+        var owner = CaptureTestbed.Nation("owner", unity: 600);
+        var ownerArmy = CaptureTestbed.Army("owner-army", "owner", x: 5, y: 5, morale: 50);
+        // "owner" keeps an extra, non-candidate city of its own so the eight defections below do not
+        // themselves eliminate it (which would dispose of ownerArmy too, through EliminationForces --
+        // a real effect of losing a nation's own last city, not something this test means to exercise).
+        var ownerSpare = CaptureTestbed.City(
+            "owner-spare", "OwnerSpare", 9, 9, "owner", "owner", loyalty: 50, fortificationCode: 0,
+            populationThousands: 10, maxPopulationThousands: 20, tribute: 5);
+        var cities = Enumerable.Range(0, 8).Select(i => QualifyingCity($"q{i}", "owner", "dead")).ToList();
+        cities.Add(ownerSpare);
+        var state = EliminationForcesTestbed.StateWith(new[] { dead, owner }, cities, new[] { ownerArmy });
+
+        var result = Rebirth.Run(state, Ruleset, dead, NullEventSink.Instance);
+
+        Assert.True(result.NationById("dead")!.Unity > 0); // rebirth did happen.
+        Assert.False(result.NationById("owner")!.Eliminated); // owner-spare kept it alive.
+        Assert.DoesNotContain(result.Armies, a => a.Nation == "dead");
+        Assert.DoesNotContain(result.Fleets, f => f.Nation == "dead");
+        Assert.Single(result.Armies); // "owner-army" -- untouched, and nothing new added anywhere.
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Hazards: a once-human reborn nation is still AI-played; it takes turns and is a legal
+    // diplomatic target again.
+    // ---------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// <see cref="AiTurn.Run"/>'s own gate (<c>src/IC2.Engine/Ai/AiTurn.cs:104</c>) skips a seat only when
+    /// it is <see cref="NationState.Eliminated"/>, unknown, or not <see cref="SeatControl.Ai"/> --
+    /// unlike the original, it does not re-test unity directly. Rebirth clears <c>Eliminated</c> and
+    /// never touches <see cref="NationState.Control"/>, so a nation that was human before it fell (its own
+    /// <c>Control</c> already flipped to <see cref="SeatControl.Ai"/> by the fall itself, not by rebirth)
+    /// comes back exactly as the report's own "it comes back as a computer nation" says -- still AI, and
+    /// no longer skipped.
+    /// </summary>
+    [Fact]
+    public void ARebornNation_IsNoLongerSkippedByAiTurnsOwnGate_AndAOnceHumanSeatStaysAiPlayed()
+    {
+        var dead = CaptureTestbed.Nation("dead", unity: 0, eliminated: true) with { Control = SeatControl.Ai };
+        var owner = CaptureTestbed.Nation("owner", unity: 600);
+        var cities = Enumerable.Range(0, 8).Select(i => QualifyingCity($"q{i}", "owner", "dead")).ToList();
+        var state = EliminationForcesTestbed.StateWith(new[] { dead, owner }, cities);
+
+        var result = Rebirth.Run(state, Ruleset, dead, NullEventSink.Instance);
+        var reborn = result.NationById("dead")!;
+
+        Assert.False(reborn.Eliminated); // AiTurn.Run's own gate no longer skips it.
+        Assert.Equal(SeatControl.Ai, reborn.Control); // still AI-played, even though it fell as a human seat.
+    }
+
+    /// <summary>
+    /// A real <see cref="DeclareWarCommand"/> dispatch against the reborn nation, through the same
+    /// <see cref="CommandDispatcher"/>/<see cref="SystemRegistry"/> the CLI itself uses -- proving
+    /// <see cref="DiplomacyRejections.CounterpartyEliminated"/> no longer fires, not merely that the flag
+    /// reads <see langword="false"/>.
+    /// </summary>
+    [Fact]
+    public void ARebornNation_CanBeDeclaredWarOnAgain_NoLongerRejectedAsEliminated()
+    {
+        var dead = CaptureTestbed.Nation("dead", unity: 0, eliminated: true);
+        var owner = CaptureTestbed.Nation("owner", unity: 600);
+        var ownerSpare = CaptureTestbed.City(
+            "owner-spare", "OwnerSpare", 9, 9, "owner", "owner", loyalty: 50, fortificationCode: 0,
+            populationThousands: 10, maxPopulationThousands: 20, tribute: 5);
+        var cities = Enumerable.Range(0, 8).Select(i => QualifyingCity($"q{i}", "owner", "dead")).ToList();
+        cities.Add(ownerSpare);
+        var state = EliminationForcesTestbed.StateWith(new[] { dead, owner }, cities);
+
+        var reborn = Rebirth.Run(state, Ruleset, dead, NullEventSink.Instance);
+        // Relations start at Peace (EliminationForcesTestbed.StateWith's own uniform matrix), so a fresh
+        // declare-war is legal on every other ground once the eliminated-counterparty gate is cleared.
+        // Dispatch as "owner" -- CommandDispatcher's own issuer-is-the-active-seat gate needs the active
+        // seat to actually be the issuer, so this points ActiveSeatIndex at "owner" rather than "dead"
+        // (StateWith's own default, index 0 of the nation list passed above).
+        reborn = reborn with { ActiveSeatIndex = reborn.TurnOrder.IndexOfId(id => id, "owner") };
+
+        var dispatcher = new CommandDispatcher(SystemRegistry.FromEngineAssembly(), Ruleset, EconomyTestbed.Toy.World, NullEventSink.Instance);
+        var result = dispatcher.Dispatch(reborn, new DeclareWarCommand("owner", "dead"));
+
+        Assert.False(result.IsRejected);
+    }
+}
