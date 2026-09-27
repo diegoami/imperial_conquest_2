@@ -256,6 +256,7 @@ A ruleset file is stored under `data/rulesets/` as a JSON file. It defines all g
 | `description` | string | Yes | Description of the ruleset (e.g., "the original game's rules, bugs included"). |
 | `calendar` | object | Yes | Calendar configuration. See "Calendar rules" below. |
 | `unitTypes` | array | Yes | Unit type stat table. See "Unit types" below. |
+| `archerUnitTypeId` | string | Yes | The `unitTypes` id (`"archers"` in all three shipped rulesets) that the siege and naval instant-resolver paths treat as archers — the type the original triples in the siege attacker's strength sum and carries into a fleet's carried-army term. A value naming no declared unit type is not rejected at load; the caller-facing accessor returns no id for it instead. |
 | `terrain` | object | Yes | Terrain movement costs and defaults. See "Terrain rules" below. |
 | `economy` | object | Yes | Economy parameters (tax rates, income formulas, etc.). |
 | `recruitment` | object | Yes | Recruitment costs and formulas. |

@@ -25,6 +25,26 @@ namespace IC2.Engine.Model;
 /// not invented.
 /// </para>
 /// </remarks>
+/// <param name="ArcherUnitTypeId">
+/// The unit type id the siege and naval instant-resolver paths treat as "archers" — the type the
+/// original triples in the siege attacker's strength sum
+/// (<see cref="IC2.Engine.Strength.SiegeStrength.Attacker"/>) and carries into
+/// <see cref="IC2.Engine.Strength.FleetPower.Compute"/>'s carried-army term. <c>"archers"</c> in all
+/// three shipped rulesets, per <c>IC2.Data.UnitCatalog</c>'s original type code <c>2</c>
+/// <strong>[confirmed: decompiled-unit-map-orders-and-record-fields.md]</strong>. Replaces the
+/// <c>BattleCommandRuleset.ArcherUnitTypeId</c> literal T54 had to introduce because this field did
+/// not yet exist (bug #221 N1) — see <see cref="IC2.Engine.Battle.Commands.BattleCommandRuleset"/>'s
+/// own remarks for the full search that preceded it (every <see cref="UnitTypeRules"/> field, the
+/// whole of this record, and the reports). This is the weaker of the two pointers T54 needed: the
+/// fortification order is found by its own behaviour
+/// (<see cref="IC2.Engine.Battle.Commands.CityOrderRule.WipedBySiegeAttempt"/>), because nothing in
+/// <see cref="UnitTypeRules"/> marks a type as the one the siege formula triples, so no equivalent
+/// behavioural handle exists for this one — the id itself is the only evidence there is. A ruleset
+/// whose value here names no declared unit type is not rejected at load; the caller-facing accessor,
+/// <see cref="IC2.Engine.Battle.Commands.BattleCommandRuleset.ArcherUnitTypeIdIn"/>, returns
+/// <see langword="null"/> for it, which is the existing typed-rejection path every resolver already
+/// has for a missing archer type.
+/// </param>
 public sealed record Ruleset(
     int SchemaVersion,
     string Id,
@@ -32,6 +52,7 @@ public sealed record Ruleset(
     string Description,
     CalendarRules Calendar,
     ValueList<UnitTypeRules> UnitTypes,
+    string ArcherUnitTypeId,
     TerrainRules Terrain,
     EconomyRules Economy,
     RecruitmentRules Recruitment,
