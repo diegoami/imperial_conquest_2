@@ -443,4 +443,85 @@ public sealed class QuarterlyCityEconomySystemTests
         Assert.Equal("n1", result.CityById("r1")!.Owner);
         Assert.Equal("n1", result.CityById("r2")!.Owner); // live: n1 already has 5 cities when r2 is scored.
     }
+
+    /// <summary>
+    /// T87 (#421, N9): a rebirth mid-quarter sets a new capital, and that capital must not be treated as
+    /// a rebel candidate for the rest of the same quarter's own loyalty pass —
+    /// <c>decompiled-quarterly-rebellion.md</c> §5, item 5; this system's own remarks on why its capital
+    /// test now reads <see cref="NationState.CapitalCityId"/> live rather than from a set built once
+    /// before the loop. "dead" starts eliminated (unity 0, no cities); <c>q0..q7</c> are all "owner"'s
+    /// own cities, allegiant to "dead" and under the rebirth threshold. <c>q0</c>'s own draws leave it
+    /// under <see cref="EconomyRules.RebellionLoyaltyThreshold"/>, which triggers <see cref="Rebellion.Run"/>
+    /// → <see cref="Rebirth.Run"/> mid-loop: all eight defect to "dead" (using a lowered
+    /// <see cref="LoyaltyRules.DefectionFloor"/> override so every moved city's own post-defection
+    /// loyalty — not just <c>q0</c>'s pre-rebirth one — is also under the rebellion threshold; without
+    /// this override, <c>CityCaptureResolver.Defect</c>'s own formula floor keeps every moved city
+    /// comfortably above it, and this test could never observe a difference either way), and <c>q7</c>
+    /// (the strongest of the eight — far higher fortification and population) is chosen as the new
+    /// capital. "receiver" is "dead"'s own live neighbour, so a non-capital candidate under the
+    /// threshold has somewhere real to go (branch (d)'s own gate) — without a real receiver, the
+    /// snapshot bug and this fix would look identical (neither has anywhere to send <c>q7</c>).
+    /// </summary>
+    /// <remarks>
+    /// Proved by mutation: reverting <see cref="QuarterlyCityEconomySystem"/>'s own capital test to a set
+    /// built once before the loyalty pass (this system's own pre-T87 shape) makes this test fail — <c>q7</c>
+    /// is then read as "not a capital" against the stale, pre-rebirth snapshot (which held no capital for
+    /// "dead" at all, since it was eliminated), so its own loyalty draw sees <c>isCapital = false</c>, and
+    /// (with its own loyalty also under the threshold from the lowered <c>DefectionFloor</c>) it defects
+    /// again, this time to "receiver" — verified locally, then reverted.
+    /// </remarks>
+    [Fact]
+    public void ARebirthMidQuarter_SetsANewCapital_AndThatCapitalIsNotTreatedAsARebelCandidate()
+    {
+        var ruleset = EconomyTestbed.Ruleset with
+        {
+            // Every candidate's own allegiance already equals "dead" (that is what made it a rebirth
+            // candidate), so CityCaptureResolver.Defect's own allegiant branch applies
+            // (min(AllegiantRecaptureTarget, AllegiantRecaptureBase - preLoyalty)), not the non-allegiant
+            // formula -- lowering the target is what actually needs overriding here.
+            Loyalty = EconomyTestbed.Ruleset.Loyalty with { AllegiantRecaptureTarget = 10 },
+        };
+
+        var dead = CaptureTestbed.Nation("dead", unity: 0, eliminated: true);
+        var owner = CaptureTestbed.Nation("owner", unity: 600) with { TaxRatePercent = 50 };
+        var receiverCap = CaptureTestbed.City(
+            "receiver-cap", "ReceiverCap", 90, 90, "receiver", "receiver", loyalty: 90, fortificationCode: 0,
+            populationThousands: 10, maxPopulationThousands: 20, tribute: 5);
+        var receiver = CaptureTestbed.Nation("receiver", unity: 600, capitalCityId: "receiver-cap") with { TaxRatePercent = 50 };
+
+        var candidates = new List<CityState>();
+        for (var i = 0; i < 7; i++)
+        {
+            candidates.Add(CaptureTestbed.City(
+                $"q{i}", $"Q{i}", 0, 0, "owner", "dead", loyalty: 20, fortificationCode: 0,
+                populationThousands: 10, maxPopulationThousands: 500, tribute: 5));
+        }
+
+        // q7: strongest of the eight, so Rebirth.Run's own capital pick lands on it.
+        candidates.Add(CaptureTestbed.City(
+            "q7", "Q7", 0, 0, "owner", "dead", loyalty: 20, fortificationCode: 90,
+            populationThousands: 400, maxPopulationThousands: 500, tribute: 5));
+
+        var cities = new List<CityState> { receiverCap };
+        cities.AddRange(candidates);
+
+        var state = EliminationForcesTestbed.StateWith(new[] { dead, owner, receiver }, cities);
+        state = state with
+        {
+            Neighbours = ValueList.From(new[] { new NationNeighbours("dead", ValueList.From(new[] { "receiver" })) }),
+        };
+
+        // Nine cities total (receiver-cap + q0..q7), each drawing exactly one fall roll (tax >= 11%
+        // everywhere skips every rise draw) -- all scripted to miss, so nothing here moves loyalty on
+        // its own; every move below comes from a rebellion/rebirth decision, never a loyalty roll.
+        var rng = new ScriptedRng(nextChanceDraws: Enumerable.Repeat(false, 9).ToArray());
+        var sink = new RecordingEventSink();
+        var context = new QuarterBoundaryContext(state, ruleset, EconomyTestbed.Toy.World, EndingSeasonIndex: 0, rng, sink);
+
+        var result = new QuarterlyCityEconomySystem().OnQuarterBoundary(context);
+
+        var reborn = result.NationById("dead")!;
+        Assert.Equal("q7", reborn.CapitalCityId);
+        Assert.Equal("dead", result.CityById("q7")!.Owner); // stays put: the live capital read excludes it.
+    }
 }

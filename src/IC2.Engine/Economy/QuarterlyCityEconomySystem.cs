@@ -52,22 +52,26 @@ namespace IC2.Engine.Economy;
 /// </para>
 /// <para>
 /// <strong>T87 (#421, N9) revisited this for rebirth, and the answer is the same: kept, not restructured
-/// to match.</strong> Rebirth (<c>Rebellion.cs</c>'s own first branch, once the ruleset data it needs
-/// exists — see that file's own remarks) would eliminate a still-live owner the very same way an ordinary
-/// rebellion-elimination already can today: a city defecting to the reborn nation can leave its former
-/// owner with zero cities, running <c>EliminationForces</c> mid-loop exactly as above. It is the identical
-/// divergence, not a new one rebirth would introduce. Restructuring into one combined growth-and-draws
-/// pass (the "changed to match" option Done-when 8 also allows) would need every later city in the same
-/// quarter to grow <em>after</em> whichever earlier city's rebellion disposed of an owner's armies, which
-/// the RNG-stream-preserving argument above does not by itself require (growth draws nothing) but would
-/// still touch this system's own two-pass shape for a case the report itself (§5 item 5) never asked this
-/// task to fix — that item is about the capital set being read live, fixed separately in the loyalty pass
+/// to match.</strong> Rebirth (<c>Rebellion.cs</c>'s own first branch, calling <c>Rebirth.Run</c>) can
+/// eliminate a still-live owner the very same way an ordinary rebellion-elimination already could before
+/// this task: a city defecting to the reborn nation can leave its former owner with zero cities, running
+/// <c>EliminationForces</c> mid-loop exactly as above. It is the identical divergence, not a new one
+/// rebirth introduces. Restructuring into one combined growth-and-draws pass (the "changed to match"
+/// option Done-when 8 also allows) would need every later city in the same quarter to grow <em>after</em>
+/// whichever earlier city's rebellion or rebirth disposed of an owner's armies, which the
+/// RNG-stream-preserving argument above does not by itself require (growth draws nothing) but would still
+/// touch this system's own two-pass shape for a case the report itself (§5 item 5) never asked this task
+/// to fix — that item is about the capital set being read live, fixed separately in the loyalty pass
 /// below, not about pass ordering. Left as the same named, unconfirmed edge this remark already carried.
 /// <c>QuarterlyCityEconomySystemTests.AnOwnerRebellionEliminatesMidQuarter_ItsArmyStillCountsAgainstAnEarlierCitysGrowth</c>
-/// pins the divergence's current shape with a runnable check through the mechanism already merged
-/// (ordinary rebellion-elimination, T89) rather than leaving it only a comment — satisfying Done-when 8's
-/// own "a test shows it" for the structural half; the rebirth-specific half of Done-when 8 could not be
-/// tested this way because <c>Rebirth.cs</c> itself is blocked (see this task's own report).
+/// pins the divergence's current shape with a runnable check through the mechanism already merged before
+/// this task (ordinary rebellion-elimination, T89) rather than leaving it only a comment — satisfying
+/// Done-when 8's own "a test shows it" for the structural half. The live capital read itself — the other
+/// half of §5 item 5 — is proven directly by
+/// <c>QuarterlyCityEconomySystemTests.ARebirthMidQuarter_SetsANewCapital_AndThatCapitalIsNotTreatedAsARebelCandidate</c>,
+/// a real rebirth setting a new capital mid-quarter whose own city a stale, pre-rebirth snapshot would
+/// have (wrongly) let rebel again in the same quarter (proved by mutation: reverting this method's own
+/// capital test to a set built once before the loop makes that test fail, verified locally and reverted).
 /// </para>
 /// </remarks>
 [QuarterBoundaryHandler("economy.quarterly-city-tick", Order = 100)]
