@@ -41,7 +41,10 @@ public class ScenarioAuthoringDocumentationTest
             }
         }
 
-        Assert.Empty(missingProperties, $"The following properties are missing from docs/scenario-authoring.md:\n{string.Join("\n", missingProperties)}");
+        if (missingProperties.Any())
+        {
+            Assert.Fail($"The following properties are missing from docs/scenario-authoring.md:\n{string.Join("\n", missingProperties)}");
+        }
     }
 
     /// <summary>
@@ -74,15 +77,20 @@ public class ScenarioAuthoringDocumentationTest
         return char.ToLowerInvariant(pascalCaseName[0]) + pascalCaseName.Substring(1);
     }
 
-    /// <summary>Finds the repository root by looking for a <c>.git</c> directory or <c>imperial_conquest_2</c> folder.</summary>
+    /// <summary>Finds the repository root by looking for the <c>IC2.sln</c> file.</summary>
     private static string FindRepositoryRoot()
     {
-        var current = Directory.GetCurrentDirectory();
-        while (!Directory.Exists(Path.Combine(current, ".git")) && Directory.GetParent(current) is not null)
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
         {
-            current = Directory.GetParent(current)!.FullName;
+            if (File.Exists(Path.Combine(directory.FullName, "IC2.sln")))
+            {
+                return directory.FullName;
+            }
+
+            directory = directory.Parent;
         }
 
-        return current;
+        throw new InvalidOperationException("Could not find the repository root (IC2.sln not found).");
     }
 }
