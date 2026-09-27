@@ -377,7 +377,15 @@ public sealed partial class GameSession
         var initial = GameStateFactory.CreateInitial(world, ruleset, scenario);
         State = seedOverride.HasValue ? initial with { RandomSeed = seedOverride.Value } : initial;
 
-        if (_humanSeatNationId is not null)
+        // T87 rework round 1 (bug #380, review B4): this used to run only for a --seat session
+        // (_humanSeatNationId is not null), so a plain hotseat session's own first turn-order seat was
+        // never checked at the true start of its own turn -- reachable the instant that seat starts
+        // already in debt, past the hard end year, or otherwise fallen. AdvanceToHumanSeat's own logic
+        // (the turn-start check, then PausesHere-gated advancing) already generalizes to hotseat without
+        // any change, since PausesHere already branches on _humanSeatNationId itself; only pure watch
+        // mode (no human seat anywhere) is excluded, matching HandleEndWatchMode's own "one round per
+        // end" contract, which construction must not pre-empt.
+        if (!_isWatchMode)
         {
             _pendingNewsBaseline = State.NewsLog.Slots;
             _pendingPrelude = AdvanceToHumanSeat();
@@ -458,13 +466,21 @@ public sealed partial class GameSession
             return;
         }
 
+        // T87 rework round 1 (review B1): the message is built from the pre-fall nation, not the
+        // post-fall one. THumanFalls_InitializeForm reads the fall's own reason (chiefly unity) before
+        // FUN_0044C8F0 ever writes its own +150 -- TPremierForm_HumanLeaderFalls (dump :50787) runs
+        // before the unity/treasury/relation writes (:50795-50798) -- so a nation at unity 399 (just
+        // under DebtUnityThreshold) must still read as "unpopularity", not the wrong branch a
+        // post-fall unity of 549 would select.
+        var message = HumanLeaderFallsMessage(nation);
+
         var deposed = Deposition.ApplyEffects(nation, Ruleset) with { Control = SeatControl.Ai };
         var relations = Deposition.ResetRelations(State.Relations, nation.Id, Ruleset);
         var updatedNations = State.Nations.Select(n =>
             string.Equals(n.Id, nation.Id, StringComparison.Ordinal) ? deposed : n);
         State = State with { Nations = ValueList.From(updatedNations), Relations = relations };
 
-        lines.Add(HumanLeaderFallsMessage(deposed));
+        lines.Add(message);
     }
 
     /// <summary>
@@ -1036,6 +1052,7 @@ public sealed partial class GameSession
 
             var seat = State.ActiveNationId;
             playedThisRound.Add(seat);
+            var nationsBeforeThisSeatsTurn = State.Nations;
             var result = _coordinator.RunTurn(State);
             State = result.State;
             AppendPerSeatLine(lines, seat, result.Events);
@@ -1044,6 +1061,13 @@ public sealed partial class GameSession
             // post-battle treaty for the human, who is not "at the prompt" here -- see
             // _pendingPeaceTreatyOffers's own remarks for why this cannot block the AI's turn loop.
             CapturePeaceTreatyOfferIfAny(lines, result.Events);
+
+            // T87 rework round 1 (review B3): an AI seat's own turn can eliminate a *different* human
+            // seat outright (a capture taking that human's last city) -- the only path
+            // AnnounceAndAdoptWatchModeIfSeatIsLost (below, --seat-only) and
+            // DepositeActiveHumanSeatIfItShouldFallAtTurnStart (above, the *active* seat only) do not
+            // already cover.
+            AppendFallMessagesForNewlyLostHumanSeats(lines, nationsBeforeThisSeatsTurn);
 
             if (AnnounceAndAdoptWatchModeIfSeatIsLost(lines) || AnnounceGameOverIfNoHumanSeatRemains(lines))
             {
@@ -1174,25 +1198,16 @@ public sealed partial class GameSession
         lines.Add($"{NationDisplay(endingSeat)} ends its turn.");
         AppendWeatherLines(lines, result.Events);
 
-        // Rework round 2, N-f: this call's own SeatStart phase can depose endingSeat for debt
-        // (HumanDepositionSystem), and the same call's Orders phase then reads the just-updated Control
-        // (AiTurn.Run's own gate) -- so a human deposed by this very RunTurn can have the AI fight the
-        // other human right here, in the same call, before this method ever loops to a different seat.
-        // Without this, that battle's own PeaceTreatyOffered was reachable only through IssueCommand (a
-        // human's own command) or PlayUntilOneFullLapOrRepeat (a later seat's turn) -- neither of which
-        // this call is.
-        //
-        // T87 (DoD 3): this is the one remaining path where HumanDepositionSystem can still depose a seat
-        // itself, not DepositeActiveHumanSeatIfItShouldFallAtTurnStart -- a nation not in debt at the start
-        // of its own turn that spends its way into it before typing `end` (see HumanDepositionSystem's own
-        // remarks on why the two call sites necessarily duplicate the same short sequence). Shown here,
-        // for whichever mode, since AnnounceAndAdoptWatchModeIfSeatIsLost below only ever speaks for the
-        // CLI's own --seat nation.
-        if (State.NationById(endingSeat) is { Eliminated: false, Control: not SeatControl.Human } endingSeatFallen)
-        {
-            lines.Add(HumanLeaderFallsMessage(endingSeatFallen));
-        }
-
+        // T87 rework round 1 (bug #380, review B2/B5): there used to be a second check here, for
+        // HumanDepositionSystem depositing endingSeat inside this very RunTurn call (its own SeatStart
+        // phase). That system is deleted: the turn-start check now runs only from
+        // DepositeActiveHumanSeatIfItShouldFallAtTurnStart, strictly before a seat's own RunTurn is ever
+        // called for it, and nothing else changes NationState.Control during endingSeat's own RunTurn --
+        // its own Orders phase is a no-op for a Human-controlled active seat (AiTurn.Run's own gate), so
+        // this call can eliminate or depose neither endingSeat nor anyone else. The old check printed a
+        // fall message for the ending seat whether or not it had ever been human before this same call
+        // (review B2's own probe), which this removal also closes -- there is nothing left here for it
+        // to catch.
         CapturePeaceTreatyOfferIfAny(lines, result.Events);
 
         if (!AnnounceAndAdoptWatchModeIfSeatIsLost(lines) && !AnnounceGameOverIfNoHumanSeatRemains(lines))

@@ -528,18 +528,21 @@ public sealed class PeaceTreatyOfferTests
     }
 
     /// <summary>
-    /// Rework round 2 (N-f)'s own fixture: north and south both human (plain hotseat, no <c>--seat</c>),
-    /// north starting one unity point below <see cref="EconomyRules.DebtUnityThreshold"/> so
-    /// <c>HumanDepositionSystem</c> deposes it the instant its own <c>SeatStart</c> runs -- inside
-    /// <c>HandleEndSeated</c>'s own <c>_coordinator.RunTurn(State)</c> call for the ending seat, before
-    /// this method ever loops to a different seat. North's army is given south-army-1's own shipped
-    /// (strong) composition and south's engaged army gets north-army-1's own shipped (weak) one -- the
-    /// same swap <see cref="HumanWinsOfferFixture"/> uses -- so that once north is AI-controlled, its own
-    /// Orders-phase turn (<c>AiTurn.Run</c>, gated on <em>current</em> <c>Control</c>) can win a fight
-    /// against south that <see cref="_pendingPeaceTreatyOffers"/> would restrict, given a war to fight in
-    /// the first place (declared by north while it is still human, before its own <c>end</c>).
+    /// T87 rework round 1's own fixture (formerly rework round 2 (N-f)'s <c>DepositionDuringEndFixture</c>,
+    /// rewritten for bug #380's own fix, review B4): north and south both human (plain hotseat, no
+    /// <c>--seat</c>), north (turn-order seat 0) starting one unity point below
+    /// <see cref="EconomyRules.DebtUnityThreshold"/> so it is deposed the moment construction's own
+    /// <see cref="GameSession.AdvanceToHumanSeat"/> reaches it — before any command, human or AI, is ever
+    /// issued. North and south already stand at war (set directly here, since the old fixture's own
+    /// "north declares war while still human, before its own <c>end</c>" step can no longer happen: north
+    /// never gets a prompt at all). North's army is given south-army-1's own shipped (strong) composition
+    /// and south's engaged army gets north-army-1's own shipped (weak) one -- the same swap
+    /// <see cref="HumanWinsOfferFixture"/> uses -- so that once north is AI-controlled, the same
+    /// construction call's own continued rotation (<c>AiTurn.Run</c>, gated on <em>current</em>
+    /// <c>Control</c>) plays its turn and wins a fight against south that
+    /// <see cref="_pendingPeaceTreatyOffers"/> would restrict.
     /// </summary>
-    private static GameSession DepositionDuringEndFixture()
+    private static GameSession DepositionAtConstructionFixture()
     {
         var toy = CoreTestbed.Toy;
         var customRuleset = toy.Ruleset with
@@ -569,6 +572,11 @@ public sealed class PeaceTreatyOfferTests
             Y = 2,
             Units = ValueList.Of(new UnitSlot(MercenaryLabel: 0, "light_infantry", Troops: 15000, Quality: 6, Name: "2nd Foot Battalion")),
         };
+        var nationIds = ValueList.From(toy.World.Nations.Select(n => n.Id));
+        var startingRelations = DiplomaticRelations
+            .Uniform(nationIds, toy.Ruleset.Diplomacy.StateCodes.Peace)
+            .WithRelation("north", "south", toy.Ruleset.Diplomacy.StateCodes.War);
+
         var customWorld = toy.World with
         {
             Nations = ValueList.From(toy.World.Nations.Select(n => n.Id == "north" ? northNation : n)),
@@ -576,6 +584,7 @@ public sealed class PeaceTreatyOfferTests
                 toy.World.StartingArmies
                     .Select(a => a.Id == "north-army-1" ? strongNorthArmy : a.Id == "south-army-1" ? weakSouthArmy : a)
                     .Append(southReserve)),
+            StartingRelations = startingRelations,
         };
 
         var bothHuman = toy.Scenario with
@@ -587,27 +596,30 @@ public sealed class PeaceTreatyOfferTests
     }
 
     /// <summary>
-    /// Rework round 2, N-f: <c>HandleEndSeated</c>'s own <c>RunTurn</c> call, for the seat that is ending
-    /// its turn, was never passed to <see cref="CapturePeaceTreatyOfferIfAny"/>. North starts below the
-    /// debt-unity threshold and declares war on south while still human; north's own <c>end</c> then
-    /// deposes it at its own <c>SeatStart</c> (<c>HumanDepositionSystem</c>), and the very same
-    /// <c>RunTurn</c> call's <c>Orders</c> phase has the now-AI north fight and beat south -- which should
-    /// raise the offer right there, in that same <c>end</c>'s own output, for south (still human) to
-    /// answer. Before the fix this offer was silently dropped.
+    /// T87 rework round 1 (bug #380, review B4/B5): a human deposed at the true start of its own turn
+    /// (construction's own <c>AdvanceToHumanSeat</c>) is immediately played as AI in that same call, and
+    /// that AI turn's own battle against south must still raise the peace-treaty offer -- reachable
+    /// through the exact same <see cref="CapturePeaceTreatyOfferIfAny"/> call
+    /// <see cref="GameSession.PlayUntilOneFullLapOrRepeat"/> already makes for any other AI seat's own
+    /// turn. The offer, and north's own fall message, both land in the construction-time prelude, flushed
+    /// on the first command submitted. (Formerly this fixture drove the same battle through
+    /// <c>HandleEndSeated</c>'s own <c>end</c>-triggered <c>RunTurn</c>, which bug #380's fix removes as a
+    /// deposition trigger entirely -- see <c>EconomySystemRegistrationTests</c>' own remarks.)
     /// </summary>
     [Fact]
-    public void ADepositionMidEnd_LetsTheNewlyAiSeatsBattleAlsoRaiseTheOffer()
+    public void ADepositionAtTurnStart_LetsTheNewlyAiSeatsBattleAlsoRaiseTheOffer()
     {
-        var session = DepositionDuringEndFixture();
+        var session = DepositionAtConstructionFixture();
 
-        session.Submit("declare-war south");
-        var afterEnd = session.Submit("end");
+        Assert.Equal(SeatControl.Ai, session.State.NationById("north")!.Control);
+
+        var first = session.Submit("status");
 
         Assert.Contains(
-            afterEnd.Lines,
+            first.Lines,
             l => l.Contains("willing to end the war", StringComparison.Ordinal));
         Assert.Contains(
-            afterEnd.Lines,
+            first.Lines,
             l => l.Contains("peace-yes", StringComparison.Ordinal) && l.Contains("peace-no", StringComparison.Ordinal));
 
         // South is the human this offer is for, and south is exactly who the CLI is paused on now.

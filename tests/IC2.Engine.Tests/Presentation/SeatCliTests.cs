@@ -850,17 +850,15 @@ public sealed class SeatCliTests
     /// <summary>
     /// T87, DoD 3's third bullet: "When no human seat remains, the session reports that the game is
     /// over." Plain hotseat (no <c>--seat</c>), both toy seats made human and both put deep in debt.
-    /// <c>north</c> (turn-order seat 0) is never pre-checked before its own very first prompt — that
-    /// construction-time fast-forward is <c>AdvanceToHumanSeat</c>'s own, <c>--seat</c>-only concern — so
-    /// its own fall is still caught the old way, at its own <c>end</c>
-    /// (<see cref="HumanDepositionSystem"/>'s residual case, restated in <see cref="GameSession.HandleEndSeated"/>'s
-    /// own remarks). That same <c>end</c> call's own tail loop then reaches <c>south</c>, still human and
-    /// still in debt, and <em>this</em> is where the true bug #380 fix applies:
-    /// <see cref="GameSession.DepositeActiveHumanSeatIfItShouldFallAtTurnStart"/> deposes it before it
-    /// ever gets a prompt of its own. With neither seat human any more,
+    /// Since review B4's own fix, <see cref="GameSession.AdvanceToHumanSeat"/> runs at construction for
+    /// hotseat too, not only <c>--seat</c>: <c>north</c> (turn-order seat 0) is checked and deposed
+    /// there, and the same call's own rotation then reaches and deposes <c>south</c> before either one
+    /// ever gets a prompt. With neither seat human any more,
     /// <see cref="GameSession.AnnounceAndAdoptWatchModeIfSeatIsLost"/> (which only ever speaks for a
     /// <c>--seat</c> session) never fires, and <see cref="GameSession.AnnounceGameOverIfNoHumanSeatRemains"/>
-    /// is the one that reports it, ending the session (<see cref="SessionOutput.ShouldExit"/>).
+    /// is the one that reports it — flushed into the very first command's own output as the
+    /// construction-time prelude, ending the session (<see cref="SessionOutput.ShouldExit"/>) on that
+    /// same first call.
     /// </summary>
     [Fact]
     public void BothHotseatHumanSeatsFalling_ReportsGameOverAndEndsTheSession()
@@ -876,14 +874,14 @@ public sealed class SeatCliTests
                 toy.Scenario.Seats.Select(s => s with { Control = SeatControl.Human, Personality = null })),
         };
         var session = new GameSession(world, toy.Ruleset, bothHuman);
-        Assert.Equal("north", session.State.ActiveNationId);
-
-        var afterNorthEnd = session.Submit("end");
 
         Assert.NotEqual(SeatControl.Human, session.State.NationById("north")!.Control);
         Assert.NotEqual(SeatControl.Human, session.State.NationById("south")!.Control);
-        Assert.Contains(afterNorthEnd.Lines, l => l.Contains("No human seat remains", StringComparison.Ordinal));
-        Assert.True(afterNorthEnd.ShouldExit);
+
+        var first = session.Submit("status");
+
+        Assert.Contains(first.Lines, l => l.Contains("No human seat remains", StringComparison.Ordinal));
+        Assert.True(first.ShouldExit);
     }
 
     // ---- Review round 1, N4 / bug #376: the round footer under-counts once the news ring buffer is full ----
