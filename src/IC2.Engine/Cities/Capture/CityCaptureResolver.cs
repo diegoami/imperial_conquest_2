@@ -208,9 +208,15 @@ public static class CityCaptureResolver
         // T86: the conquest trigger reads the loser's city count *after* this single capture and the
         // regular cascade have both already run, exactly as FUN_0044BB18's own checks do ("These checks
         // run after the city has moved and the cascade FUN_0044BA1C has run" -- decompiled-elimination-
-        // cleanup.md §4). A defection reaching the old owner's last city during the cascade above (rare;
-        // see NationElimination's own remarks) already fully eliminated it through Defect's own path, so
-        // ConquestTrigger.Evaluate below is a no-op for an already-eliminated nation.
+        // cleanup.md §4). T92 (bug #424): a defection reaching the old owner's last city during the
+        // cascade above (see NationElimination's own remarks) already fully eliminates it through
+        // Defect's own path, but ConquestTrigger.Evaluate below is NOT a no-op for that case -- FUN_0044BB18
+        // has no liveness check of its own, so it still reaches FUN_0044C528 (or the capital-move attempt)
+        // against an already-eliminated loser exactly as it would against a live one, and this call does
+        // the same: cityCount reads 0 either way, so the plain branch's own threshold and the capital
+        // branch's own attemptsMove gate both resolve to "conquer" with no special case needed. An earlier
+        // revision of this remark claimed the opposite (a since-removed early return in ConquestTrigger.Evaluate
+        // made it true at the time); that guard is gone.
         var (stateAfterTrigger, shouldConquer) = ConquestTrigger.Evaluate(
             stateAfterCascade, ruleset, oldOwner.Id, formerCapitalId, wasCapital, fortifyOrder, events);
 

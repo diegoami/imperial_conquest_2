@@ -72,7 +72,13 @@ public static class ConquestTrigger
     /// away from <paramref name="loserId"/> by the time this runs, so <paramref name="state"/> can no
     /// longer answer "was the captured city the capital" itself.
     /// </param>
-    /// <param name="capturedCityWasCapital">Whether the city <see cref="CityCaptureResolver.Capture"/> just transferred was <paramref name="formerCapitalId"/>.</param>
+    /// <param name="capturedCityWasCapital">
+    /// Whether the city <see cref="CityCaptureResolver.Capture"/> just transferred is ANY nation's own
+    /// <see cref="NationState.CapitalCityId"/> (<see cref="CapitalOwnership.IsAnyNationsCapital"/>, T91's
+    /// review N5, bug #416) -- alive or eliminated, and not necessarily <paramref name="loserId"/>'s own.
+    /// A different, eliminated nation's stale pointer can still name it, in which case this is
+    /// <see langword="true"/> even though it was never <paramref name="formerCapitalId"/>.
+    /// </param>
     /// <param name="fortifyOrder">
     /// The ruleset's <c>"fortify"</c> order, forwarded to <see cref="CompleteDefenderStrength.Compute"/>
     /// for every candidate destination's own strength score.
@@ -102,14 +108,17 @@ public static class ConquestTrigger
         var loser = state.NationById(loserId)
                     ?? throw new ArgumentException($"'{loserId}' is not a known nation.", nameof(loserId));
 
-        // Defensive: a nation the regular defection cascade already emptied to zero cities (through
-        // CityCaptureResolver.Defect's own elimination path -- rare; see NationElimination's own
-        // remarks) is already fully handled. Nothing here re-runs against an already-eliminated nation.
-        if (loser.Eliminated)
-        {
-            return (state, false);
-        }
-
+        // T92 (bug #424): FUN_0044BB18 (:50211-50226) has no liveness test of its own -- it always
+        // reaches FUN_0044C528 (or the capital-move attempt) once the sweep returns, even for a loser
+        // the sweep's own defections (CityCaptureResolver.Defect's elimination path -- see
+        // NationElimination's own remarks) already emptied to zero cities inside the SAME capture. An
+        // earlier revision of this method returned early here instead, which skipped the conquest
+        // routine entirely for that loser -- the engine's own deviation from the decompile, filed as
+        // bug #424 and corrected by this task. Nothing below needs a special case for that: cityCount is
+        // 0 either way, so the plain branch's own "< ConquestCityCountThreshold" reads true, and the
+        // capital branch's own "cityCount > CapitalMoveCityCountThreshold" reads false, so attemptsMove
+        // is false and this still returns "conquer" -- exactly FUN_0044BB18's own two branches, run
+        // against whatever state the sweep left behind, eliminated or not.
         var cityCount = state.CountCitiesOwnedBy(loserId);
 
         if (!capturedCityWasCapital)
