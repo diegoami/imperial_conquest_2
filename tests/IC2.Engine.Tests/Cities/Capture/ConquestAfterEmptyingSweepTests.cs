@@ -46,7 +46,23 @@ public sealed class ConquestAfterEmptyingSweepTests
     /// "loser" before this capture -- Done-when 2's own "two or three nations" probe, and the one nation
     /// the neighbour merge (Scope item 5) has anything to actually merge onto "winner".
     /// </summary>
-    private static (GameState State, string CapturedCityId) BuildScenario()
+    /// <param name="capturedCityIsLosersOwnCapital">
+    /// Rework round 1, B1: <see langword="false"/> (every other test in this file) keeps "loser-target"
+    /// a plain, non-capital city, so <c>FUN_0044BB18</c>'s "&lt; 6 cities" branch fires and the sentinel
+    /// write (<c>Assert.Null(loser.CapitalCityId)</c>, Scope item 1) is true whether or not
+    /// <see cref="ConquestCascade.Apply"/> ever writes it -- the mutation the reviewer ran (deleting
+    /// <c>CapitalCityId = null</c> at <c>ConquestCascade.cs:138</c>) leaves every other test in this file
+    /// green, so none of them actually pins the sentinel. <see langword="true"/> (this parameter's own
+    /// caller below) makes "loser-target" -- the besieged city -- "loser"'s own capital instead, so this
+    /// scenario reaches the sentinel write through <c>FUN_0044BB18</c>'s <em>other</em> branch (:50218-50227):
+    /// the captured city is the loser's own capital, the sweep still takes "loser-last" (the loser's only
+    /// other city) in the same call, so <c>cityCount</c> is 0 once <see cref="ConquestTrigger.Evaluate"/>
+    /// runs -- <c>6 &lt; cityCount</c> fails, so <c>FUN_0044BD2C</c> (the capital-move attempt) is never
+    /// even tried, and <c>FUN_0044C528</c> runs and writes <c>0xffff</c> (:50745) unconditionally. Under
+    /// the same mutation, this variant's own sentinel assertion fails, since nothing else in
+    /// <see cref="ConquestTrigger"/> or <see cref="CityCaptureResolver"/> ever nulls a capital pointer.
+    /// </param>
+    private static (GameState State, string CapturedCityId) BuildScenario(bool capturedCityIsLosersOwnCapital = false)
     {
         var loserTarget = CaptureTestbed.City(
             "loser-target", "Loser Target", 0, 0, Loser, Loser,
@@ -79,7 +95,8 @@ public sealed class ConquestAfterEmptyingSweepTests
         // own WithoutTroopSlotsTargeting("loser-last") untouched, right up until the conquest's own blanket
         // wipe (Scope item 8) clears it.
         var loser = CaptureTestbed.Nation(
-            Loser, treasury: 500, unity: 660, capitalCityId: null,
+            Loser, treasury: 500, unity: 660,
+            capitalCityId: capturedCityIsLosersOwnCapital ? "loser-target" : null,
             recruitmentSlots: ValueList.Of(new RecruitmentSlot("winner-home", "heavy_infantry", 100, 0)));
         var winner = CaptureTestbed.Nation(Winner, treasury: 0, unity: 100, capitalCityId: "winner-home");
         var bystander = CaptureTestbed.Nation(Bystander, treasury: 0, unity: 500, capitalCityId: "bystander-city");
@@ -147,6 +164,17 @@ public sealed class ConquestAfterEmptyingSweepTests
         Assert.Equal(Winner, result.CityById("loser-target")!.Owner);
         Assert.Equal(0, result.CountCitiesOwnedBy(Loser));
 
+        // Rework round 1, N2 (Hazards: "news order must follow the decompile"): "falls to" (the direct
+        // siege, :49821), then "defects from" (the cascade sweep, :50374), then the conquest's own banner
+        // (:50731) -- the three orderings a mutation to CityCaptureResolver's own wiring could scramble.
+        var eventTypes = sink.Events.Select(e => e.GetType()).ToList();
+        var fallsIndex = eventTypes.IndexOf(typeof(CityFallsToNation));
+        var defectsIndex = eventTypes.IndexOf(typeof(CityDefectsToNation));
+        var conqueredIndex = eventTypes.IndexOf(typeof(NationConquered));
+        Assert.True(fallsIndex >= 0 && defectsIndex > fallsIndex && conqueredIndex > defectsIndex,
+            $"Expected CityFallsToNation < CityDefectsToNation < NationConquered; got indices "
+            + $"{fallsIndex}, {defectsIndex}, {conqueredIndex} in {string.Join(", ", eventTypes.Select(t => t.Name))}.");
+
         // 1. The capital sentinel: already null on entry (never "loser"'s own capital), and still null --
         // ConquestCascade's own explicit write, not merely untouched.
         Assert.Null(loser.CapitalCityId);
@@ -165,13 +193,56 @@ public sealed class ConquestAfterEmptyingSweepTests
         // copied (not moved -- this type's own remarks on the quirk) onto "winner"'s starting 0.
         Assert.Equal(500, winner.Treasury);
 
-        // 6. Conquered-by: the capturer ("winner"), not "loser-last"'s own receiver -- here the same
-        // nation either way, so see the elimination-hooks test below for the case that tells them apart.
+        // 6. Conquered-by: "winner". No test in this file can tell "the capturer" apart from "the last
+        // defection's own receiver" (rework round 1, N1): in the original, they are the SAME value by
+        // construction. FUN_0044BA1C's own sweep calls FUN_0044BED8(city, sVar1) at :50137, where sVar1 is
+        // the capturing army's nation -- the identical local_14 FUN_0044BB18 later passes to
+        // FUN_0044C528. RunCascade mirrors this: every candidate Defects to newOwnerId, the same nation
+        // ConquestCascade.Apply later conquers for, so the last defection's receiver and the capturer are
+        // one and the same nation in every reachable capture, not merely in this fixture.
         Assert.Equal(Winner, loser.ConqueredBy);
 
         // 8. Every recruitment slot's troops zeroed: "loser"'s one slot (targeting "winner-home", never
         // captured or defected this scenario, so neither per-city removal above ever touched it) is gone.
         Assert.Empty(loser.RecruitmentSlots);
+    }
+
+    /// <summary>
+    /// Rework round 1, B1: the sentinel write (Scope item 1) pinned through <c>FUN_0044BB18</c>'s OTHER
+    /// branch -- the besieged city IS "loser"'s own capital, and the same call's sweep still empties it.
+    /// <see cref="Capture_ThatEmptiesTheLoserThroughItsOwnSweep_RunsTheConquest"/>'s own
+    /// <c>Assert.Null(loser.CapitalCityId)</c> holds vacuously there (that scenario starts with
+    /// <c>capitalCityId: null</c>, so the assertion is true whether or not the conquest ever writes it --
+    /// the reviewer's own M2 mutation, deleting <c>ConquestCascade.cs</c>'s <c>CapitalCityId = null</c>,
+    /// left that test and every other one in this file green). Here "loser" starts with a real, non-null
+    /// capital pointer naming the besieged city itself, so a null result can only be
+    /// <see cref="ConquestCascade.Apply"/>'s own explicit write.
+    /// </summary>
+    [Fact]
+    public void Capture_OfTheLosersOwnCapital_ThatEmptiesItThroughTheSameSweep_StillNullsTheSentinel()
+    {
+        var scenario = BuildScenario(capturedCityIsLosersOwnCapital: true);
+        var sink = new RecordingEventSink();
+        var result = Capture(scenario, sink);
+
+        var loser = result.NationById(Loser)!;
+        Assert.Equal(0, result.CountCitiesOwnedBy(Loser));
+
+        // The sentinel: null, not merely "never set" -- "loser" started this capture with a real,
+        // non-null CapitalCityId ("loser-target", the besieged city itself), so this can only be
+        // ConquestCascade.Apply's own write.
+        Assert.Null(loser.CapitalCityId);
+
+        // Exactly one NationConquered, and -- since cityCount is 0 by the time ConquestTrigger.Evaluate
+        // runs, so attemptsMove's own "cityCount > CapitalMoveCityCountThreshold" reads false regardless
+        // of unity -- the capital-move attempt is never even tried: no NationCapitalMoved published. (A
+        // successful move would ALSO leave a non-null CapitalCityId -- the destination's, not null -- so
+        // this event check and the sentinel assertion above catch two different mutations of the same
+        // branch.)
+        var conquered = Assert.Single(sink.Events.OfType<NationConquered>());
+        Assert.Equal("winner", conquered.ConqueringNation);
+        Assert.Equal("loser", conquered.ConqueredNation);
+        Assert.Empty(sink.Events.OfType<NationCapitalMoved>());
     }
 
     /// <summary>
@@ -246,7 +317,9 @@ public sealed class ConquestAfterEmptyingSweepTests
 
         // "loser" itself: eliminated, unity reset, conquered-by the capturer -- NationElimination's own
         // reset (fired first, during the defection) and ConquestCascade's own final write (fired second)
-        // agree on every one of these, so this cannot tell the two apart either; see the class remarks.
+        // agree on every one of these by construction (see RunsTheConquest's own remark on ConqueredBy,
+        // rework round 1 N1), not merely in this fixture, so no assertion here can tell the two firings
+        // apart either.
         var loser = result.NationById(Loser)!;
         Assert.True(loser.Eliminated);
         Assert.Equal(Ruleset.Capture.EliminationUnityReset, loser.Unity);
