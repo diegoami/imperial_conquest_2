@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "id": "tiny-duel-scenario",
+  "name": "Tiny Duel: Two Nations on a Small World",
+  "worldId": "tiny-duel-world",
+  "rulesetId": "toy-ruleset",
+  "seats": [
+    {
+      "nation": "north-realm",
+      "control": "human",
+      "personality": null
+    },
+    {
+      "nation": "south-realm",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.7,
+        "expansionDrive": 0.8,
+        "loyaltyToAlliances": 0.3
+      }
+    }
+  ],
+  "victory": {
+    "type": "totalConquest",
+    "goal": null
+  },
+  "turnLimit": 50,
+  "blindHotseat": false,
+  "randomSeed": 20250921,
+  "_provenance": {
+    "worldId": "designed: references the custom tiny-duel-world, a small 5x5 test world",
+    "rulesetId": "designed: uses the toy-ruleset for fast testing",
+    "seats": "designed: demonstrates human vs AI seating on the custom world",
+    "turnLimit": "designed: a limit appropriate for the small world",
+    "randomSeed": "designed: fixed seed for reproducibility"
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "id": "classical-med-improved-ruleset",
+  "name": "Classical Mediterranean with Improved Ruleset",
+  "worldId": "classical-mediterranean",
+  "rulesetId": "improved",
+  "seats": [
+    {
+      "nation": "rome",
+      "control": "human",
+      "personality": null
+    },
+    {
+      "nation": "gaul",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.6,
+        "expansionDrive": 0.7,
+        "loyaltyToAlliances": 0.4
+      }
+    },
+    {
+      "nation": "egypt",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.6,
+        "loyaltyToAlliances": 0.5
+      }
+    }
+  ],
+  "victory": {
+    "type": "totalConquest",
+    "goal": null
+  },
+  "turnLimit": 100,
+  "blindHotseat": false,
+  "randomSeed": 20250920,
+  "_provenance": {
+    "worldId": "designed: references the shipped classical-mediterranean world",
+    "rulesetId": "designed: uses the improved ruleset, which selects friendlier/designed alternatives where the design audit found a faithful-vs-improved fork",
+    "seats": "designed: demonstrates mixed human and AI seating on the classical world",
+    "turnLimit": "designed: a limit long enough to reach interesting mid-game states on the classical map, but short enough to test in reasonable time",
+    "randomSeed": "designed: a fixed seed so test runs are reproducible"
+  }
+}

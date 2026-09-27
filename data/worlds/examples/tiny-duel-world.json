@@ -1,0 +1,186 @@
+{
+  "schemaVersion": 1,
+  "id": "tiny-duel-world",
+  "name": "Tiny Duel World",
+  "width": 5,
+  "height": 5,
+  "terrain": {
+    "encoding": "runLength",
+    "runs": [
+      { "code": 2, "count": 5 },
+      { "code": 2, "count": 5 },
+      { "code": 2, "count": 5 },
+      { "code": 2, "count": 5 },
+      { "code": 2, "count": 5 }
+    ],
+    "data": null
+  },
+  "tileTypes": [
+    {
+      "id": "plain",
+      "code": 2,
+      "name": "Plain",
+      "passableByArmies": true,
+      "passableByFleets": false,
+      "_provenance": {
+        "code": "confirmed: terrain-move-cost-table-in-dat.md",
+        "passableByArmies": "confirmed: terrain-move-cost-table-in-dat.md"
+      }
+    }
+  ],
+  "nations": [
+    {
+      "id": "north-realm",
+      "name": "Northern Realm",
+      "colorHex": "#1565c0",
+      "leaderName": "King of the North",
+      "capitalCityId": "north-capital",
+      "treasury": 600,
+      "unity": 600,
+      "wealth": 400,
+      "taxBase": 80,
+      "taxRatePercent": 25,
+      "mobilizedPercent": 30,
+      "population": 120,
+      "_provenance": {
+        "treasury": "designed: a toy fixture value for the tiny-duel-world",
+        "unity": "designed: set above 500 so the nations start at peace",
+        "taxBase": "designed: toy fixture value specific to this small world",
+        "taxRatePercent": "confirmed shape: decompiled-quarterly-billing-and-economy.md",
+        "mobilizedPercent": "designed: toy fixture value"
+      }
+    },
+    {
+      "id": "south-realm",
+      "name": "Southern Realm",
+      "colorHex": "#c62828",
+      "leaderName": "Queen of the South",
+      "capitalCityId": "south-capital",
+      "treasury": 550,
+      "unity": 580,
+      "wealth": 380,
+      "taxBase": 70,
+      "taxRatePercent": 25,
+      "mobilizedPercent": 25,
+      "population": 110,
+      "_provenance": {
+        "treasury": "designed: toy fixture value",
+        "unity": "designed: set above 500 so the nations start at peace",
+        "taxBase": "designed: toy fixture value specific to this small world",
+        "mobilizedPercent": "designed: toy fixture value"
+      }
+    }
+  ],
+  "cities": [
+    {
+      "id": "north-capital",
+      "name": "Northern Capital",
+      "x": 1,
+      "y": 1,
+      "owner": "north-realm",
+      "allegiance": "north-realm",
+      "loyalty": 80,
+      "supplyTons": 300,
+      "fortificationCode": 60,
+      "populationThousands": 150,
+      "maxPopulationThousands": 200,
+      "tribute": 40,
+      "garrison": [
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "heavy_infantry",
+          "troops": 6000,
+          "quality": 6,
+          "name": "1st Northern Guard"
+        }
+      ],
+      "_provenance": {
+        "fortificationCode": "confirmed encoding: decompiled-unit-map-orders-and-record-fields.md",
+        "garrison[0].troops": "confirmed: unit-type-stat-table-in-dat.md — 6,000 is heavy infantry's standard battalion size"
+      }
+    },
+    {
+      "id": "south-capital",
+      "name": "Southern Capital",
+      "x": 3,
+      "y": 3,
+      "owner": "south-realm",
+      "allegiance": "south-realm",
+      "loyalty": 80,
+      "supplyTons": 300,
+      "fortificationCode": 60,
+      "populationThousands": 140,
+      "maxPopulationThousands": 200,
+      "tribute": 40,
+      "garrison": [
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "light_infantry",
+          "troops": 15000,
+          "quality": 6,
+          "name": "1st Southern Guard"
+        }
+      ],
+      "_provenance": {
+        "fortificationCode": "confirmed encoding: decompiled-unit-map-orders-and-record-fields.md",
+        "garrison[0].troops": "confirmed: unit-type-stat-table-in-dat.md — 15,000 is light infantry's standard battalion size"
+      }
+    }
+  ],
+  "startingArmies": [
+    {
+      "id": "north-army-1",
+      "nation": "north-realm",
+      "x": 0,
+      "y": 2,
+      "morale": 70,
+      "money": 250,
+      "supplyTons": 150,
+      "moves": 5,
+      "units": [
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "light_infantry",
+          "troops": 15000,
+          "quality": 5,
+          "name": "2nd Northern Infantry"
+        }
+      ],
+      "_provenance": {
+        "morale": "confirmed field: decompiled-unit-map-orders-and-record-fields.md",
+        "money": "confirmed field and value shape: decompiled-unit-map-orders-and-record-fields.md"
+      }
+    },
+    {
+      "id": "south-army-1",
+      "nation": "south-realm",
+      "x": 4,
+      "y": 2,
+      "morale": 70,
+      "money": 250,
+      "supplyTons": 150,
+      "moves": 5,
+      "units": [
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "heavy_infantry",
+          "troops": 6000,
+          "quality": 5,
+          "name": "2nd Southern Infantry"
+        }
+      ],
+      "_provenance": {
+        "morale": "confirmed field: decompiled-unit-map-orders-and-record-fields.md",
+        "money": "confirmed field: decompiled-unit-map-orders-and-record-fields.md"
+      }
+    }
+  ],
+  "startingFleets": [],
+  "turnOrder": ["north-realm", "south-realm"],
+  "_provenance": {
+    "width": "designed: a minimal 5x5 map so tests run fast and are easy to visualize",
+    "height": "designed: minimal map size",
+    "terrain": "designed: all plains for simplicity in the example",
+    "turnOrder": "confirmed shape: decompiled-turn-and-calendar-sequencing.md"
+  }
+}
