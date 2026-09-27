@@ -137,6 +137,13 @@ public static class ConquestCascade
             Unity = rules.EliminationUnityReset,
             CapitalCityId = null,
             RecruitmentSlots = ValueList<RecruitmentSlot>.Empty,
+            // T87 rework round 2 (bug #441's other half, R1): FUN_0044C528 (conquest) calls FUN_0044C8F0
+            // for a human loser too, the same as FUN_0044BED8 (defection) -- decompiled-elimination-cleanup.md
+            // §3's own callers list is "human-only in both". NationElimination.ApplyIfLastCityLost already
+            // makes this same hand-over for the defection path; this is the conquest path's own copy of
+            // it, not a second implementation of anything -- both are one-line, one-field writes beside
+            // the rest of their own elimination step.
+            Control = finalLoser.Control == SeatControl.Human ? SeatControl.Ai : finalLoser.Control,
         };
         var stateWithFinalLoser = stateAfterNeighbours with
         {

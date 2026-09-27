@@ -164,4 +164,90 @@ public sealed class DepositionTests
 
         Assert.Equal(untouchedValue, after.Get("north", "south"));
     }
+
+    // ---- T87 (bug #380, #374): ShouldFallAtHumanTurnStart's own four-way test, one trigger at a time.
+    // The toy world starts at 270 BC with 3 cities total (north: arx + portus, south: meridia), and its
+    // own hardEndYearBc is 250 -- decompiled-elimination-cleanup.md §3's own "250 BC, 334 cities, unity
+    // < 400, or in debt" citation, generalized off Ruleset.Victory.HardEndYearBc and GameState.Cities'
+    // own live count rather than either literal (VictoryEvaluator's own precedent). ----
+
+    [Fact]
+    public void ShouldFallAtHumanTurnStart_YearAtOrBelowHardEnd_IsTrue_EvenWithNoOtherTrigger()
+    {
+        var ruleset = EconomyTestbed.Ruleset;
+        var state = EconomyTestbed.InitialState() with
+        {
+            Calendar = EconomyTestbed.InitialState().Calendar with { YearBc = ruleset.Victory.HardEndYearBc },
+        };
+        var north = BaseNation(treasury: 1_000_000, unity: 990, wealth: 0);
+
+        Assert.True(Deposition.ShouldFallAtHumanTurnStart(north, state, ruleset));
+    }
+
+    [Fact]
+    public void ShouldFallAtHumanTurnStart_YearOneAboveHardEnd_IsFalse_WithNoOtherTrigger()
+    {
+        var ruleset = EconomyTestbed.Ruleset;
+        var state = EconomyTestbed.InitialState() with
+        {
+            Calendar = EconomyTestbed.InitialState().Calendar with { YearBc = ruleset.Victory.HardEndYearBc + 1 },
+        };
+        var north = BaseNation(treasury: 1_000_000, unity: 990, wealth: 0);
+
+        Assert.False(Deposition.ShouldFallAtHumanTurnStart(north, state, ruleset));
+    }
+
+    [Fact]
+    public void ShouldFallAtHumanTurnStart_OwnsEveryCity_IsTrue_EvenWithNoOtherTrigger()
+    {
+        var ruleset = EconomyTestbed.Ruleset;
+        var state = EconomyTestbed.InitialState();
+        state = state with
+        {
+            Cities = ValueList.From(state.Cities.Select(c => c with { Owner = "north", Allegiance = "north" })),
+        };
+        var north = BaseNation(treasury: 1_000_000, unity: 990, wealth: 0);
+
+        Assert.True(Deposition.ShouldFallAtHumanTurnStart(north, state, ruleset));
+    }
+
+    [Fact]
+    public void ShouldFallAtHumanTurnStart_OwnsSomeButNotEveryCity_IsFalse_WithNoOtherTrigger()
+    {
+        var ruleset = EconomyTestbed.Ruleset;
+        var state = EconomyTestbed.InitialState(); // north already owns 2 of the toy world's 3 cities.
+        var north = BaseNation(treasury: 1_000_000, unity: 990, wealth: 0);
+
+        Assert.False(Deposition.ShouldFallAtHumanTurnStart(north, state, ruleset));
+    }
+
+    [Fact]
+    public void ShouldFallAtHumanTurnStart_InDebt_IsTrue_TheSameAsInDebtAlone()
+    {
+        var ruleset = EconomyTestbed.Ruleset;
+        var state = EconomyTestbed.InitialState();
+        var north = BaseNation(treasury: -20_001, unity: 990, wealth: 0);
+
+        Assert.True(Deposition.ShouldFallAtHumanTurnStart(north, state, ruleset));
+    }
+
+    [Fact]
+    public void ShouldFallAtHumanTurnStart_UnityBelowFourHundred_IsTrue_ViaInDebtsOwnUnityArm()
+    {
+        var ruleset = EconomyTestbed.Ruleset;
+        var state = EconomyTestbed.InitialState();
+        var north = BaseNation(treasury: 1_000_000, unity: 399, wealth: 0);
+
+        Assert.True(Deposition.ShouldFallAtHumanTurnStart(north, state, ruleset));
+    }
+
+    [Fact]
+    public void ShouldFallAtHumanTurnStart_NoneOfTheFourTriggers_IsFalse()
+    {
+        var ruleset = EconomyTestbed.Ruleset;
+        var state = EconomyTestbed.InitialState();
+        var north = BaseNation(treasury: 0, unity: 990, wealth: 0);
+
+        Assert.False(Deposition.ShouldFallAtHumanTurnStart(north, state, ruleset));
+    }
 }

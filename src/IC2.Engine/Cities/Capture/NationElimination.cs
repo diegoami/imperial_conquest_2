@@ -97,6 +97,15 @@ public static class NationElimination
             Eliminated = true,
             Unity = ruleset.Capture.EliminationUnityReset,
             ConqueredBy = conquerorId,
+            // T87 rework round 1 (bug #441, folded from review B3/B8): both elimination paths call
+            // FUN_0044C8F0 for a human seat (decompiled-elimination-cleanup.md §3's own callers list:
+            // "FUN_0044BED8 (0x0044C13C) and FUN_0044C528 (0x0044C81E), human-only in both"), which
+            // (through FUN_00449078) clears the human flag and hands the seat to the computer. This
+            // engine's own elimination path never did, so an eliminated human nation kept
+            // Control == Human forever -- GameSession's own "no human seat remains" check
+            // (State.Nations.Any(n => n.Control == Human)) never noticed it had fallen, and a rebirth of
+            // that same nation came back still marked Human even though nothing plays its turns as one.
+            Control = nation.Control == SeatControl.Human ? SeatControl.Ai : nation.Control,
         };
 
         return (eliminated, true);

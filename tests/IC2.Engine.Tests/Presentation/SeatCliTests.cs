@@ -698,6 +698,71 @@ public sealed class SeatCliTests
     }
 
     /// <summary>
+    /// T87 rework round 2, R1 (bug #441's conquest half): the same world/army shape as
+    /// <see cref="NewEliminationFixtureSession"/>, but genuine hotseat -- south's own <see cref="Seat"/> is
+    /// <see cref="SeatControl.Human"/> from the scenario itself, never through the constructor's own
+    /// <c>humanSeatNationId</c> parameter -- so <see cref="AnnounceGameOverIfNoHumanSeatRemains"/>, which
+    /// refuses to fire at all while that parameter is set (T83's own lost-seat fallback takes precedence
+    /// there instead), can actually run once south, the only human seat, is conquered by north's own AI
+    /// attack. Before <c>ConquestCascade.Apply</c>'s own seat hand-over (this round's fix), south's
+    /// <see cref="NationState.Control"/> stayed <see cref="SeatControl.Human"/> after its own elimination,
+    /// so this check never noticed no human seat was left.
+    /// </summary>
+    /// <remarks>
+    /// Review round 2, R5: also the test the B3 fix (round 1) itself was still missing --
+    /// <c>PlayUntilOneFullLapOrRepeat</c>'s own <c>AppendFallMessagesForNewlyLostHumanSeats</c> call is
+    /// exactly what north's own AI turn (this test's own last seat, per its own <c>TurnOrder</c>) reaches
+    /// to print south's own "Your nation has been conquerred by..." line below -- <em>not</em>
+    /// <c>HandleEndSeated</c>'s own copy (round 2's own R3 fix), since south, not north, is the one
+    /// submitting <c>end</c> here. Proved by mutation: removing that call leaves this test's own
+    /// "conquerred by" assertion failing, verified locally and reverted.
+    /// </remarks>
+    [Fact(Timeout = 15000)]
+    public async Task A_hotseat_conquest_of_the_last_human_seat_reaches_game_over()
+    {
+        await Task.Run(() =>
+        {
+            var toy = CoreTestbed.Toy;
+            var world = toy.World with
+            {
+                Nations = ValueList.Of(
+                    toy.World.NationById("north")! with { Treasury = 0, Wealth = 40_000 },
+                    toy.World.NationById("south")! with { Treasury = 0 }),
+                StartingArmies = ValueList.Of(
+                    new StartingArmy(
+                        "north-overwhelming-army", "north", X: 3, Y: 2, Morale: 60, Money: 0, SupplyTons: 0,
+                        Moves: 1, Units: ValueList.Of(CaptureFixtures.Unit("archers", 400_000)))),
+                TurnOrder = ValueList.Of("south", "north"),
+            };
+            var scenario = toy.Scenario with
+            {
+                Seats = ValueList.Of(
+                    new Seat("south", SeatControl.Human),
+                    new Seat(
+                        "north", SeatControl.Ai,
+                        new AiPersonality(Aggression: 0.5, ExpansionDrive: 0.5, LoyaltyToAlliances: 0.5))),
+            };
+            var session = new GameSession(world, toy.Ruleset, scenario, seedOverride: 2);
+            Assert.Equal("south", session.State.ActiveNationId);
+
+            var round1 = session.Submit("end"); // round 1: approach march only.
+            Assert.False(session.State.NationById("south")!.Eliminated, "round 1 is only the approach march");
+            Assert.False(round1.ShouldExit);
+
+            var round2 = session.Submit("end"); // round 2: siege, capture, and the conquest of south's last city.
+
+            Assert.True(session.State.NationById("south")!.Eliminated);
+            Assert.Equal(SeatControl.Ai, session.State.NationById("south")!.Control); // this round's own fix.
+            Assert.Contains(
+                round2.Lines,
+                l => l.Contains("Your nation has been conquerred by", StringComparison.Ordinal)
+                     && l.Contains("Northern League", StringComparison.Ordinal));
+            Assert.Contains(round2.Lines, l => l.Contains("No human seat remains", StringComparison.Ordinal));
+            Assert.True(round2.ShouldExit);
+        });
+    }
+
+    /// <summary>
     /// Forces <paramref name="mutate"/> onto <paramref name="nationId"/>'s <see cref="NationState"/> in
     /// <paramref name="session"/>'s live state, through <see cref="GameSession.State"/>'s own private
     /// setter. Kept only for <see cref="Watch_mode_completes_one_lap_without_hanging_when_a_non_active_nation_is_eliminated_mid_lap"/>
@@ -807,6 +872,304 @@ public sealed class SeatCliTests
             var rejected = session.Submit("declare-war rome");
             Assert.Contains(rejected.Lines, l => l.Contains("--seat", StringComparison.Ordinal));
         });
+    }
+
+    /// <summary>
+    /// T87, bug #380: the human deposition check moved to the true start of the seat's own turn, before
+    /// it can issue any order — not, as before, inside the processing its own <c>end</c> triggers, after
+    /// it has already had a full turn to act. <c>north</c> is turn-order seat 1 here (south plays first),
+    /// so reaching it needs a real rotation, exactly the shape the bug was found in: "the engine deposes
+    /// only after the human types <c>end</c>", now fixed so the deposition happens when rotation reaches
+    /// the seat, before this session's own construction (which flushes south's play and north's own fall
+    /// into <see cref="GameSession"/>'s pending prelude) ever returns control for a first command.
+    /// </summary>
+    /// <remarks>
+    /// Review round 2, R4: only <see cref="NationState.Treasury"/> is overridden here, so north's own
+    /// unity stays the toy world's shipped 600 (well above <see cref="EconomyRules.DebtUnityThreshold"/>'s
+    /// 400) both before and after the fall's own <c>+150</c> gain -- the message is exactly "Your army
+    /// have deposed you because they have not been paid.", never "Your unpopularity...", which an earlier
+    /// revision of this test accepted either of. That earlier, looser assertion could not have caught
+    /// review round 1's own B1 regression (reading the message from the post-fall nation): this fixture's
+    /// own unity never crosses <c>THumanFalls_InitializeForm</c>'s own <c>unity &lt; 400</c> branch either
+    /// way, pre-fall or post-fall, so it was never capable of proving which one the code actually read.
+    /// <see cref="ADebtorSeatReachedByRotation_UnityAloneInDebt_ReadsTheMessageFromThePreFallNation_NotThePostFallOne"/>
+    /// below is what actually kills that mutation.
+    /// </remarks>
+    [Fact]
+    public void ADebtorSeatReachedByRotation_IsDeposedBeforeItsOwnFirstOrder_NotAfterItsOwnEnd()
+    {
+        var toy = CoreTestbed.Toy;
+        var world = toy.World with
+        {
+            Nations = ValueList.From(toy.World.Nations.Select(n =>
+                string.Equals(n.Id, "north", StringComparison.Ordinal) ? n with { Treasury = -1_000_000 } : n)),
+            TurnOrder = ValueList.Of("south", "north"),
+        };
+        var session = new GameSession(world, toy.Ruleset, toy.Scenario, humanSeatNationId: "north");
+
+        // Nothing has been submitted yet -- south's own play and north's own fall both happened during
+        // construction (AdvanceToHumanSeat), before any command could reach north at all. The first
+        // Submit call only flushes that pending prelude; it does not cause the fall.
+        Assert.Equal(SeatControl.Ai, session.State.NationById("north")!.Control);
+
+        var first = session.Submit("status");
+        Assert.Contains(
+            first.Lines,
+            l => l.Contains(
+                "Your army have deposed you because they have not been paid.", StringComparison.Ordinal));
+        Assert.DoesNotContain(first.Lines, l => l.Contains("Your unpopularity", StringComparison.Ordinal));
+
+        // north never had a prompt to give any order at all -- refused as "no seat to command" (watch
+        // mode), never as a real, even if illegal, order against north's own game state.
+        var attempted = session.Submit("move north-army-1 3 2");
+        Assert.Contains(attempted.Lines, l => l.Contains("no seat to command", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Review round 2, R4 (the B1 fix, actually proven this time): north's own unity is overridden to 399
+    /// -- just under <see cref="EconomyRules.DebtUnityThreshold"/>'s 400, the exact boundary
+    /// <c>THumanFalls_InitializeForm</c>'s own message branch reads -- and treasury/wealth are left alone
+    /// (the toy world's own shipped, healthy defaults), so unity is the <em>only</em> reason north falls,
+    /// and the only reason the message could ever read "unpopularity" specifically. Deposition's own
+    /// <c>+150</c> unity gain (<c>max(399, min(550, 399+150)) = 549</c>) would cross the 400 line the
+    /// other way if the message were (wrongly) read from the post-fall nation instead of the pre-fall one
+    /// -- proved by mutation: changing <c>DepositActiveHumanSeatIfItShouldFallAtTurnStart</c>'s own
+    /// <c>HumanLeaderFallsMessage(nation)</c> to <c>HumanLeaderFallsMessage(Deposition.ApplyEffects(nation, Ruleset))</c>
+    /// makes this test fail (it then reads "Your army have deposed you..." instead), verified locally and
+    /// reverted.
+    /// </summary>
+    [Fact]
+    public void ADebtorSeatReachedByRotation_UnityAloneInDebt_ReadsTheMessageFromThePreFallNation_NotThePostFallOne()
+    {
+        var toy = CoreTestbed.Toy;
+        var world = toy.World with
+        {
+            Nations = ValueList.From(toy.World.Nations.Select(n =>
+                string.Equals(n.Id, "north", StringComparison.Ordinal) ? n with { Unity = 399 } : n)),
+            TurnOrder = ValueList.Of("south", "north"),
+        };
+        var session = new GameSession(world, toy.Ruleset, toy.Scenario, humanSeatNationId: "north");
+
+        Assert.Equal(SeatControl.Ai, session.State.NationById("north")!.Control);
+        Assert.Equal(549, session.State.NationById("north")!.Unity); // max(399, min(550, 399+150)).
+
+        var first = session.Submit("status");
+        Assert.Contains(
+            first.Lines,
+            l => l.Contains("Your unpopularity has forced the army to overthrow you.", StringComparison.Ordinal));
+        Assert.DoesNotContain(first.Lines, l => l.Contains("Your army have deposed you", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// T87 rework round 2, R2 (the reviewer's own exact probe): the default toy scenario's own north is
+    /// already <see cref="SeatControl.Human"/> without any <c>--seat</c> parameter, so a genuine hotseat
+    /// session with north in debt has no other human seat at all (south is <see cref="SeatControl.Ai"/>
+    /// by the same default). Construction deposes north (the only, and turn-order-first, seat) before it
+    /// can act, and finds no human seat left anywhere -- unlike the sibling test above's own <c>--seat</c>
+    /// session, where <see cref="GameSession.AnnounceGameOverIfNoHumanSeatRemains"/> is gated off entirely
+    /// in favour of T83's own lost-seat fallback (line 603's own <c>_humanSeatNationId is not null</c>
+    /// check), this session has no such gate: <c>_gameOver</c> is set, and the flushed prelude already
+    /// carries "No human seat remains. The game is over." Before this round's fix, a command submitted
+    /// anyway (the reviewer's own <c>declare-war south</c>) still dispatched and changed state; now every
+    /// further command is refused, unconditionally, before it ever reaches the dispatcher.
+    /// </summary>
+    [Fact]
+    public void AGameOverSession_RefusesEveryFurtherCommand_BeforeItEverDispatches()
+    {
+        var toy = CoreTestbed.Toy;
+        var world = toy.World with
+        {
+            Nations = ValueList.From(toy.World.Nations.Select(n =>
+                string.Equals(n.Id, "north", StringComparison.Ordinal) ? n with { Treasury = -1_000_000 } : n)),
+        };
+        var session = new GameSession(world, toy.Ruleset, toy.Scenario);
+
+        Assert.Equal(SeatControl.Ai, session.State.NationById("north")!.Control);
+        Assert.Equal(SeatControl.Ai, session.State.NationById("south")!.Control);
+
+        var relationsBefore = session.State.Relations.Get("north", "south");
+
+        // The reviewer's own exact probe: a mutating command, submitted anyway, after the game is
+        // already over.
+        var afterDeclareWar = session.Submit("declare-war south");
+
+        Assert.Contains(afterDeclareWar.Lines, l => l.Contains("game is over", StringComparison.Ordinal));
+        Assert.DoesNotContain(afterDeclareWar.Lines, l => l.Contains("declare-war accepted", StringComparison.Ordinal));
+        Assert.True(afterDeclareWar.ShouldExit);
+        Assert.Equal(relationsBefore, session.State.Relations.Get("north", "south")); // untouched: never dispatched.
+
+        // A second command afterward changes nothing either -- not a one-shot gate.
+        var again = session.Submit("status");
+        Assert.Contains(again.Lines, l => l.Contains("game is over", StringComparison.Ordinal));
+        Assert.True(again.ShouldExit);
+    }
+
+    /// <summary>
+    /// T87 rework round 2, R3: the ending seat's own turn can eliminate it, not only some other seat's --
+    /// when that seat is also the round's own last seat, the same <c>RunTurn</c> call also runs every
+    /// round-scoped phase, including the quarterly economic tick's rebellion/rebirth, which can defect
+    /// away a human's last city inside its own <c>end</c>. A third nation ("owner") holds one of the
+    /// toy world's three cities throughout, deliberately, so north does not end up owning literally every
+    /// city on the map once south's own city defects to it -- the reviewer's own probe confounded exactly
+    /// this: north incidentally hit its own, unrelated total-conquest fall trigger at its own next turn
+    /// start, producing *some* fall line regardless of whether this fix existed, which proved nothing
+    /// about south's own missing one.
+    /// </summary>
+    /// <remarks>
+    /// "meridia" is deliberately south's <em>only</em> city but not its capital: south's own
+    /// <see cref="NationState.CapitalCityId"/> is overridden to <see langword="null"/>, since
+    /// <see cref="CapitalOwnership.IsAnyNationsCapital"/> would otherwise exclude "meridia" from ever
+    /// being a rebellion candidate at all. Its own allegiance is overridden to "north" (not "south"), and
+    /// its loyalty to 5, so <see cref="Rebellion"/>'s branch (b) (owner ≠ allegiance, allegiance alive)
+    /// picks it the moment the quarterly loyalty draws leave it under
+    /// <see cref="EconomyRules.RebellionLoyaltyThreshold"/> -- south's own tax rate (the toy world's
+    /// shipped 20, above <see cref="EconomyRules.LowTaxLoyaltyThresholdPercent"/>'s 11) already skips the
+    /// rise draw deterministically, so loyalty never moves off 5 regardless of the real, unscripted
+    /// <see cref="IRng"/> this session actually plays with. The ruleset's own
+    /// <see cref="CalendarRules.StartWeek"/> is overridden to <see cref="CalendarRules.SeasonAdvanceFromWeek"/>
+    /// so the very first round already wraps the quarter boundary.
+    /// </remarks>
+    [Fact]
+    public void ATurnEndingSeatsOwnRoundScopedQuarterTick_CanEliminateItThatSameEnd()
+    {
+        var toy = CoreTestbed.Toy;
+        var ownerNation = new NationDefinition(
+            Id: "owner", Name: "Ownership League", ColorHex: "#795548", LeaderName: "Toy Leader of Ownership",
+            CapitalCityId: "portus", Treasury: 400, Unity: 600, Wealth: 300, TaxBase: 100, TaxRatePercent: 15,
+            MobilizedPercent: 10, Population: 80);
+        var portusToOwner = toy.World.Cities.Single(c => c.Id == "portus") with { Owner = "owner", Allegiance = "owner" };
+        var meridiaRebellionCandidate = toy.World.Cities.Single(c => c.Id == "meridia") with
+        {
+            Allegiance = "north",
+            Loyalty = 5,
+        };
+        var southNoCapital = toy.World.NationById("south")! with { CapitalCityId = null };
+
+        var world = toy.World with
+        {
+            Nations = ValueList.From(
+                toy.World.Nations.Select(n => n.Id == "south" ? southNoCapital : n).Append(ownerNation)),
+            Cities = ValueList.From(
+                toy.World.Cities.Select(c => c.Id switch
+                {
+                    "portus" => portusToOwner,
+                    "meridia" => meridiaRebellionCandidate,
+                    _ => c,
+                })),
+            TurnOrder = ValueList.Of("owner", "north", "south"),
+        };
+        var ruleset = toy.Ruleset with
+        {
+            Calendar = toy.Ruleset.Calendar with { StartWeek = toy.Ruleset.Calendar.SeasonAdvanceFromWeek },
+        };
+        var scenario = toy.Scenario with
+        {
+            // The toy scenario's own shipped south is AI by default -- overridden Human here so this
+            // fixture is genuine hotseat (north and south both human), the shape R3's own probe needs.
+            Seats = ValueList.From(
+                toy.Scenario.Seats.Select(s => s.Nation == "south" ? s with { Control = SeatControl.Human, Personality = null } : s)
+                    .Append(new Seat("owner", SeatControl.Ai))),
+        };
+        var session = new GameSession(world, ruleset, scenario);
+
+        // "owner" (AI, turn-order first) already played at construction; north (human) is paused on next.
+        Assert.Equal("north", session.State.ActiveNationId);
+        Assert.Equal(SeatControl.Human, session.State.NationById("south")!.Control);
+
+        session.Submit("end"); // north's own turn: nothing for it to do, pauses on south next.
+        Assert.Equal("south", session.State.ActiveNationId);
+
+        // south's own end is also the round's last seat -- the quarterly tick runs inside this same call.
+        var southEnd = session.Submit("end");
+
+        Assert.True(session.State.NationById("south")!.Eliminated);
+        Assert.Equal(SeatControl.Ai, session.State.NationById("south")!.Control); // bug #441's own fix.
+        Assert.Equal("north", session.State.CityById("meridia")!.Owner);
+        Assert.Contains(
+            southEnd.Lines,
+            l => l.Contains("Your nation has been conquerred by", StringComparison.Ordinal)
+                 && l.Contains("Northern League", StringComparison.Ordinal));
+
+        // Unconfounded: "owner" still owns "portus" throughout, so north never triggers its own,
+        // unrelated total-conquest fall message alongside south's.
+        Assert.Equal("owner", session.State.CityById("portus")!.Owner);
+        Assert.DoesNotContain(southEnd.Lines, l => l.Contains("conquerred the", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// T87 rework round 1 (review B7): <see cref="GameSession.DepositActiveHumanSeatIfItShouldFallAtTurnStart"/>'s
+    /// own effects (<see cref="Deposition.ApplyEffects"/>, <see cref="Deposition.ResetRelations"/>) had no
+    /// test of their own beyond the deleted <c>HumanDepositionSystem</c>'s copy — a mutation dropping
+    /// either one left the whole suite green. North starts at unity 300 (well under
+    /// <see cref="EconomyRules.DebtUnityThreshold"/>, so <see cref="Deposition.ApplyEffects"/>'s own
+    /// <c>max(unity, min(550, unity + 150))</c> gives exactly 450, not merely "not still 300"), treasury
+    /// −1,000,000 (so the negative-treasury floor-to-zero branch is exercised, not the positive-treasury
+    /// plus-1,000 one),
+    /// and a −3 cooldown toward south (inside <see cref="EconomyRules.DepositionRelationResetThreshold"/>'s
+    /// own <c>[-5, -1)</c> range, so it must reset to 0).
+    /// </summary>
+    [Fact]
+    public void ADebtorSeatReachedByRotation_GetsTheFullDepositionEffect_NotJustAControlFlip()
+    {
+        var toy = CoreTestbed.Toy;
+        var nationIds = ValueList.From(toy.World.Nations.Select(n => n.Id));
+        var startingRelations = DiplomaticRelations
+            .Uniform(nationIds, toy.Ruleset.Diplomacy.StateCodes.Peace)
+            .WithRelation("north", "south", -3);
+        var world = toy.World with
+        {
+            Nations = ValueList.From(toy.World.Nations.Select(n =>
+                string.Equals(n.Id, "north", StringComparison.Ordinal)
+                    ? n with { Treasury = -1_000_000, Unity = 300 }
+                    : n)),
+            TurnOrder = ValueList.Of("south", "north"),
+            StartingRelations = startingRelations,
+        };
+        var session = new GameSession(world, toy.Ruleset, toy.Scenario, humanSeatNationId: "north");
+
+        var north = session.State.NationById("north")!;
+        Assert.Equal(SeatControl.Ai, north.Control);
+        Assert.Equal(450, north.Unity); // max(300, min(550, 300 + 150)) = 450, not a bare Control flip.
+        Assert.Equal(0, north.Treasury); // negative treasury floors to 0 (no +1,000 credit); a bare
+                                          // Control flip would have left it at -1,000,000.
+        Assert.Equal(0, session.State.Relations.Get("north", "south")); // -3 is inside the reset range.
+    }
+
+    /// <summary>
+    /// T87, DoD 3's third bullet: "When no human seat remains, the session reports that the game is
+    /// over." Plain hotseat (no <c>--seat</c>), both toy seats made human and both put deep in debt.
+    /// Since review B4's own fix, <see cref="GameSession.AdvanceToHumanSeat"/> runs at construction for
+    /// hotseat too, not only <c>--seat</c>: <c>north</c> (turn-order seat 0) is checked and deposed
+    /// there, and the same call's own rotation then reaches and deposes <c>south</c> before either one
+    /// ever gets a prompt. With neither seat human any more,
+    /// <see cref="GameSession.AnnounceAndAdoptWatchModeIfSeatIsLost"/> (which only ever speaks for a
+    /// <c>--seat</c> session) never fires, and <see cref="GameSession.AnnounceGameOverIfNoHumanSeatRemains"/>
+    /// is the one that reports it — flushed into the very first command's own output as the
+    /// construction-time prelude, ending the session (<see cref="SessionOutput.ShouldExit"/>) on that
+    /// same first call.
+    /// </summary>
+    [Fact]
+    public void BothHotseatHumanSeatsFalling_ReportsGameOverAndEndsTheSession()
+    {
+        var toy = CoreTestbed.Toy;
+        var world = toy.World with
+        {
+            Nations = ValueList.From(toy.World.Nations.Select(n => n with { Treasury = -1_000_000 })),
+        };
+        var bothHuman = toy.Scenario with
+        {
+            Seats = ValueList.From(
+                toy.Scenario.Seats.Select(s => s with { Control = SeatControl.Human, Personality = null })),
+        };
+        var session = new GameSession(world, toy.Ruleset, bothHuman);
+
+        Assert.NotEqual(SeatControl.Human, session.State.NationById("north")!.Control);
+        Assert.NotEqual(SeatControl.Human, session.State.NationById("south")!.Control);
+
+        var first = session.Submit("status");
+
+        Assert.Contains(first.Lines, l => l.Contains("No human seat remains", StringComparison.Ordinal));
+        Assert.True(first.ShouldExit);
     }
 
     // ---- Review round 1, N4 / bug #376: the round footer under-counts once the news ring buffer is full ----

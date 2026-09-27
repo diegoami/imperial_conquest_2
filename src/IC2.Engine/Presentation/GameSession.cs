@@ -76,6 +76,15 @@ public sealed partial class GameSession
     private bool _seatLost;
 
     /// <summary>
+    /// T87, DoD 3: set once <see cref="AnnounceGameOverIfNoHumanSeatRemains"/> finds no
+    /// <see cref="Model.SeatControl.Human"/> nation left anywhere in <see cref="State"/> — every human
+    /// seat, not only the CLI's own <c>--seat</c> nation (contrast <see cref="_seatLost"/>). Read by
+    /// <see cref="Submit"/> to set <see cref="SessionOutput.ShouldExit"/> on whichever call first reaches
+    /// it, the same signal <c>quit</c> already uses. Never cleared.
+    /// </summary>
+    private bool _gameOver;
+
+    /// <summary>
     /// Lines produced by fast-forwarding past AI seats that come before <see cref="_humanSeatNationId"/>
     /// in the very first round — <c>docs/tasks/T83.md</c> Done-when 1 ("The CLI pauses on that seat every
     /// round"): the session has to reach the named seat before it can accept the first command, and this
@@ -102,41 +111,85 @@ public sealed partial class GameSession
 
     /// <summary>
     /// A post-battle peace treaty <see cref="Battle.PeaceTreatyOffered"/> raised, waiting on the human's
-    /// own <c>peace-yes</c>/<c>peace-no</c> answer (T88, DoD 3, Hazard 1). At most one at a time, the same
-    /// convention <see cref="Model.GameState.PendingOffer"/> uses for a trade/alliance offer — but this
-    /// cannot live on <see cref="Model.GameState"/> itself, which is outside this task's Owns list, so it
-    /// lives here instead: a session-scoped field, exactly like <see cref="_pendingPrelude"/> above. A
-    /// battle raises this offer whether the human is "at the prompt" or not — it can happen inside an AI
-    /// seat's own turn, when the human's army is the one that lost — so <see cref="_dispatcher"/>'s own
-    /// per-command <see cref="Battle.PeaceTreatyOffered"/> (via <see cref="IssueCommand"/>) and every AI
-    /// seat played through <see cref="PlayUntilOneFullLapOrRepeat"/> both feed
-    /// <see cref="CapturePeaceTreatyOfferIfAny"/>, so the decision survives to be shown and answered later
-    /// without blocking the AI's own turn loop — the hazard's own "smallest design" choice. A second offer
-    /// raised while one is already pending is dropped rather than replacing it: the original's own dialog
-    /// is modal (one battle's treaty at a time), and this build has no queue for a second one either.
+    /// own <c>peace-yes</c>/<c>peace-no</c> answer (T88, DoD 3, Hazard 1) — keyed by
+    /// <see cref="PendingPeaceTreatyOffer.OfferedHumanNationId"/>, <strong>one slot per human seat, not one
+    /// for the whole session (T87, <c>#389</c>, folding #404's N-g)</strong>. The same
+    /// <see cref="Model.GameState.PendingOffer"/> convention this started from is itself one-per-session,
+    /// but a single shared slot meant a hotseat human A's own unanswered offer occupied the one slot
+    /// through every other human's whole turn, silently dropping a qualifying offer raised for a
+    /// <em>different</em> human B in the meantime (#404's own probe: "the single offer slot is now held
+    /// through other humans' whole turns"). Keying by the offered human closes that without touching the
+    /// single-offer-per-human rule itself — B's own new offer no longer competes with A's for the one
+    /// slot, because each human now has their own. This cannot live on <see cref="Model.GameState"/>
+    /// itself, which is outside this task's Owns list, so it lives here instead: a session-scoped field,
+    /// exactly like <see cref="_pendingPrelude"/> above.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A battle raises an offer whether the human it is addressed to is "at the prompt" or not — it can
+    /// happen inside an AI seat's own turn, when the human's army is the one that lost — so
+    /// <see cref="_dispatcher"/>'s own per-command <see cref="Battle.PeaceTreatyOffered"/> (via
+    /// <see cref="IssueCommand"/>) and every AI seat played through <see cref="PlayUntilOneFullLapOrRepeat"/>
+    /// both feed <see cref="CapturePeaceTreatyOfferIfAny"/>, so the decision survives to be shown and
+    /// answered later without blocking the AI's own turn loop — the hazard's own "smallest design" choice.
+    /// A second offer raised for the <em>same</em> human while one is already pending for them is still
+    /// dropped rather than replacing it: the original's own dialog is modal (one battle's treaty at a time
+    /// <em>per human</em>), and this build has no queue for a second one either — only the "one slot for
+    /// the whole session" limitation is lifted, not "one slot per human".
+    /// </para>
+    /// <para>
     /// Cleared by <see cref="HandlePeaceTreatyAnswer"/> once the offered human answers, and — rework round
     /// 1, B3(a)/(b); rework round 2, R1 — by <see cref="HandleEnd"/> too, but only on <em>that same human's
-    /// own</em> <c>end</c>, not anyone else's: without expiring at all, an offer raised in one week and
-    /// accepted many turns later still took the always-honourable branch with nothing left of the
-    /// original's own reasoning for it (the dialog being modal); expiring on <em>any</em> human's
-    /// <c>end</c> (round 1's own fix) went too far the other way in hotseat, where the offer's own human is
-    /// not necessarily the next seat the loop pauses on — see
-    /// <see cref="PendingPeaceTreatyOffer.OfferedHumanNationId"/>. <strong>Rework round 3, R3
-    /// (corrected):</strong> binding the lapse and the answer to that one human, on its own, reopened round
-    /// 0's B3(b) ("a single ignored offer silently suppresses every later one for the rest of the game") by
-    /// a new path: an offer whose own human is eliminated before their next prompt could never be answered
-    /// <em>or</em> lapsed by either mechanism above, since neither is ever reached for a seat that gets no
-    /// further prompt. <see cref="CapturePeaceTreatyOfferIfAny"/> now also drops the offer once
-    /// <see cref="IsOfferedHumanGone"/>, closing that gap without a new flag (deposition needs no matching
-    /// check — see that method's own remarks for why); <see cref="HandleEnd"/> does not need the same check
-    /// a second time (see its own remarks) -- every path that could eliminate the offered human already
-    /// reaches <see cref="CapturePeaceTreatyOfferIfAny"/> at least once before <see cref="HandleEnd"/>'s
-    /// own check could ever run against it.
-    /// </summary>
-    private PendingPeaceTreatyOffer? _pendingPeaceTreatyOffer;
+    /// own</em> <c>end</c>, not anyone else's (T87's own dictionary keying makes this the natural, no
+    /// longer special-cased, behaviour: removing <em>that human's own</em> entry can never touch another
+    /// human's). <strong>Rework round 3, R3:</strong> an offer whose own human is eliminated before their
+    /// next prompt could never be answered <em>or</em> lapsed by either mechanism above, since neither is
+    /// ever reached for a seat that gets no further prompt. <see cref="CapturePeaceTreatyOfferIfAny"/> also
+    /// drops any such entry once <see cref="IsOfferedHumanGone"/>, closing that gap without a new flag
+    /// (deposition needs no matching check — see that method's own remarks for why); <see cref="HandleEnd"/>
+    /// does not need the same check a second time (see its own remarks) -- every path that could eliminate
+    /// an offered human already reaches <see cref="CapturePeaceTreatyOfferIfAny"/> at least once before
+    /// <see cref="HandleEnd"/>'s own check could ever run against it.
+    /// </para>
+    /// <para>
+    /// <strong>T87, #404's N-j (rework round 1, review B9): no branch added.</strong> #404's own scope:
+    /// "if the engine cannot reach that ordering, the PR shows why, and no branch is added for it" — the
+    /// ordering is an AI turn that both loses a gated battle to human X and then takes X's last city, in
+    /// that order, within the same turn. A first attempt at this check (round 0 of this PR) added an
+    /// unconditional <c>if (offeredHuman.Eliminated) continue;</c> with no test proving that ordering is
+    /// reachable — deleting it left the whole suite green (review B9's own M10). It is removed here
+    /// rather than kept unproven. Reaching it needs an AI army that loses an attack against a human's own
+    /// field army (clearing <c>AiMilitaryPhase</c>'s own required-attack-ratio gate at the odds needed to
+    /// actually lose sometimes, not merely refuse to attack), <em>and</em>, in the very same turn, a
+    /// second AI action taking that same human's last, separately-undefended city — the independent
+    /// reviewer of PR #400 (round 3) already attempted the equivalent construction and reported "the AI
+    /// took the city without attacking the army"; this task's own attempt in the time available did not
+    /// improve on that. <strong>Rework round 2, N-c: the concrete reason.</strong>
+    /// <see cref="IC2.Engine.Ai.AiMilitaryPhase.Propose"/>'s own per-army loop proposes every siege candidate for that
+    /// army before that same army's own attack candidates (<c>ProposeSieges</c> then
+    /// <c>ProposeArmyAttacks</c>), and <see cref="IC2.Engine.Ai.AiTurn"/>'s own action loop re-proposes and re-scores
+    /// from scratch after <em>every single action</em> it takes, rather than working through a plan built
+    /// once at the top of the turn — so whenever a human's last city is already undefended enough to
+    /// clear <c>AttackLegality</c>'s own siege gate, that candidate exists from the very first
+    /// re-proposal of the turn, before an attack against that same human's own field army has had any
+    /// chance to run at all. The ordering #404 asks for needs the field-army attack to run — and lose —
+    /// <em>first</em>, with the siege only becoming reachable afterward (the army's own loss leaving the
+    /// city undefended in a way it was not before); constructing that means the siege candidate must be
+    /// invalid or absent at the turn's own start and only become legal because of the earlier attack's own
+    /// outcome, not merely under-scored against it — a narrower, harder case than "make the attack lose"
+    /// alone, and the independent reviewer's own probe and this task's own attempt both found the AI
+    /// reaching the city directly instead. If a later task does construct it,
+    /// <see cref="CapturePeaceTreatyOfferIfAny"/> is where the branch belongs — reading <see cref="State"/>,
+    /// already advanced past the triggering <see cref="TurnCoordinator.RunTurn"/> or dispatch by the time
+    /// this runs, would already show the side as <see cref="Model.NationState.Eliminated"/> the moment
+    /// such an event is found.
+    /// </para>
+    /// </remarks>
+    private readonly Dictionary<string, PendingPeaceTreatyOffer> _pendingPeaceTreatyOffers =
+        new(StringComparer.Ordinal);
 
     /// <summary>
-    /// See <see cref="_pendingPeaceTreatyOffer"/>.
+    /// See <see cref="_pendingPeaceTreatyOffers"/>.
     /// </summary>
     /// <param name="WinnerNationId">The battle's winner, as <see cref="PeaceTreatyOffered"/> named it.</param>
     /// <param name="LoserNationId">The battle's loser.</param>
@@ -191,14 +244,15 @@ public sealed partial class GameSession
     /// </remarks>
     private void CapturePeaceTreatyOfferIfAny(List<string> lines, IEnumerable<DomainEvent> events)
     {
-        if (_pendingPeaceTreatyOffer is { } current && IsOfferedHumanGone(current))
+        // T87, N-g: drop any entry whose own human is gone, one per seat, before scanning for anything
+        // new -- was a single nullable field's own early check; now a dictionary can hold more than one
+        // stale entry at once (one per fallen human seat), so every one of them is dropped, not just one.
+        foreach (var staleHumanId in _pendingPeaceTreatyOffers
+                     .Where(entry => IsOfferedHumanGone(entry.Value))
+                     .Select(entry => entry.Key)
+                     .ToList())
         {
-            _pendingPeaceTreatyOffer = null;
-        }
-
-        if (_pendingPeaceTreatyOffer is not null)
-        {
-            return;
+            _pendingPeaceTreatyOffers.Remove(staleHumanId);
         }
 
         foreach (var offered in events.OfType<PeaceTreatyOffered>())
@@ -212,11 +266,18 @@ public sealed partial class GameSession
 
             var offeredHuman = winner.Control == SeatControl.Human ? winner : loser;
 
-            _pendingPeaceTreatyOffer = new PendingPeaceTreatyOffer(
+            // N-g: one slot per human seat -- a second qualifying offer for a human who already has one
+            // pending is still dropped (the original's dialog is modal per human), but it no longer
+            // competes with a different human's own slot.
+            if (_pendingPeaceTreatyOffers.ContainsKey(offeredHuman.Id))
+            {
+                continue;
+            }
+
+            _pendingPeaceTreatyOffers[offeredHuman.Id] = new PendingPeaceTreatyOffer(
                 offered.WinnerNationId, offered.LoserNationId, offeredHuman.Id);
             lines.Add(PeaceTreatyOfferDialogText(winner, loser));
             lines.Add("Type 'peace-yes' to accept or 'peace-no' to decline.");
-            return;
         }
     }
 
@@ -228,26 +289,22 @@ public sealed partial class GameSession
     /// remarks for why it does not call this too.
     /// </summary>
     /// <remarks>
-    /// <strong>No "no longer <see cref="SeatControl.Human"/>" branch, deliberately.</strong>
-    /// <c>HumanDepositionSystem</c> is the only place <see cref="Model.NationState.Control"/> ever changes,
-    /// and it fires only at the currently <em>active</em> seat's own <c>SeatStart</c>
-    /// (<c>context.ActiveNation</c>) — never at any other seat's. A human seat's <c>SeatStart</c> (and so
-    /// its own deposition check) does not run until that same seat itself submits <c>end</c>
-    /// (<see cref="HandleEndSeated"/>'s own <c>RunTurn</c> call), and <see cref="PausesHere"/> already
-    /// stops <see cref="PlayUntilOneFullLapOrRepeat"/> at that seat's own prompt (<c>ActiveControl() ==
-    /// Human</c>, read from the state as it stands <em>before</em> that <c>RunTurn</c> call) the moment
-    /// rotation reaches it — before its own deposition could ever be decided. So whenever the offered
-    /// human could be deposed at all, it has already had its own prompt, and <see cref="HandleEnd"/>'s
-    /// own offered-human-equality check (its own <c>end</c>, unconditionally) or
-    /// <see cref="HandlePeaceTreatyAnswer"/> already cleared the offer first — matching the round-2
-    /// review's own conclusion on this exact question ("Deposed: safe... the offer lapses first"). Adding
-    /// a branch here for a state this method's own caller can never observe would be exactly the kind of
-    /// untested defensive code round 2's N-a removed elsewhere in this file.
+    /// <strong>T87 added the "no longer <see cref="SeatControl.Human"/>" branch the round-2 review found
+    /// deliberately absent.</strong> That review's own reasoning no longer holds: it rested on a human
+    /// seat's <c>SeatStart</c> (and so its own deposition check) never running until that same seat itself
+    /// submitted <c>end</c>, which meant <see cref="HandleEnd"/>'s own lapse always ran first. T87 (bug
+    /// #380) moved the human deposition check to <em>before</em> a seat's own prompt — the moment rotation
+    /// reaches it, in <see cref="PlayUntilOneFullLapOrRepeat"/> and <see cref="AdvanceToHumanSeat"/> — so a
+    /// human with a pending offer can now be deposed for debt, unity, the hard end year or total conquest
+    /// <em>without ever reaching another prompt</em>, exactly the gap this method's own R3 fix already
+    /// closed for elimination. Reading <see cref="Model.NationState.Control"/> here closes it for
+    /// deposition the same way <see cref="Model.NationState.Eliminated"/> already closes it for elimination
+    /// — both leave the seat with no further prompt to answer or lapse the offer at.
     /// </remarks>
     private bool IsOfferedHumanGone(PendingPeaceTreatyOffer pending)
     {
         var human = State.NationById(pending.OfferedHumanNationId);
-        return human is null || human.Eliminated;
+        return human is null || human.Eliminated || human.Control != SeatControl.Human;
     }
 
     /// <summary>
@@ -335,7 +392,15 @@ public sealed partial class GameSession
         var initial = GameStateFactory.CreateInitial(world, ruleset, scenario);
         State = seedOverride.HasValue ? initial with { RandomSeed = seedOverride.Value } : initial;
 
-        if (_humanSeatNationId is not null)
+        // T87 rework round 1 (bug #380, review B4): this used to run only for a --seat session
+        // (_humanSeatNationId is not null), so a plain hotseat session's own first turn-order seat was
+        // never checked at the true start of its own turn -- reachable the instant that seat starts
+        // already in debt, past the hard end year, or otherwise fallen. AdvanceToHumanSeat's own logic
+        // (the turn-start check, then PausesHere-gated advancing) already generalizes to hotseat without
+        // any change, since PausesHere already branches on _humanSeatNationId itself; only pure watch
+        // mode (no human seat anywhere) is excluded, matching HandleEndWatchMode's own "one round per
+        // end" contract, which construction must not pre-empt.
+        if (!_isWatchMode)
         {
             _pendingNewsBaseline = State.NewsLog.Slots;
             _pendingPrelude = AdvanceToHumanSeat();
@@ -350,21 +415,214 @@ public sealed partial class GameSession
     /// against. <see cref="_humanSeatNationId"/> itself is never played here (Done-when 2: "Carthage is
     /// never played by the AI").
     /// </summary>
+    /// <remarks>
+    /// T87 (bug #380): the starting seat gets the same turn-start fall check every later seat gets from
+    /// <see cref="PlayUntilOneFullLapOrRepeat"/>'s own loop, before this method's own <see cref="PausesHere"/>
+    /// gate — a freshly constructed scenario is never expected to start a human seat already in debt or
+    /// past the hard end year, but nothing here assumes that; it is simply checked, the same way every
+    /// later turn boundary is.
+    /// </remarks>
     private List<string>? AdvanceToHumanSeat()
     {
-        if (PausesHere())
+        var lines = new List<string>();
+        DepositActiveHumanSeatIfItShouldFallAtTurnStart(lines);
+        if (AnnounceAndAdoptWatchModeIfSeatIsLost(lines) || AnnounceGameOverIfNoHumanSeatRemains(lines))
         {
-            return null;
+            return lines.Count > 0 ? lines : null;
         }
 
-        // Shares PlayUntilOneFullLapOrRepeat with HandleEndSeated's own AI loop and HandleEndWatchMode --
-        // the same "stop the instant a seat would repeat" rule this task's review asked for is exactly as
-        // correct here as it is mid-game, even though a freshly created scenario can never actually start
-        // with an eliminated or deposed seat, so AnnounceAndAdoptWatchModeIfSeatIsLost is not expected to
-        // fire from inside this call in practice.
-        var lines = new List<string>();
-        PlayUntilOneFullLapOrRepeat(lines, new HashSet<string>(StringComparer.Ordinal), PausesHere);
+        if (!PausesHere())
+        {
+            // Shares PlayUntilOneFullLapOrRepeat with HandleEndSeated's own AI loop and HandleEndWatchMode
+            // -- the same "stop the instant a seat would repeat" rule this task's review asked for is
+            // exactly as correct here as it is mid-game.
+            PlayUntilOneFullLapOrRepeat(lines, new HashSet<string>(StringComparer.Ordinal), PausesHere);
+        }
+
         return lines.Count > 0 ? lines : null;
+    }
+
+    /// <summary>
+    /// <strong>T87, bug #380: the human deposition check, moved to the true start of a seat's own turn —
+    /// before it can issue any order</strong>, not the seat's own <c>end</c>
+    /// (<see cref="HumanDepositionSystem"/>'s own remarks explain why that system alone could not be the
+    /// fix). Called at the one place a seat becomes the active one and has not yet been given any order:
+    /// the top of <see cref="PlayUntilOneFullLapOrRepeat"/>'s own loop, and <see cref="AdvanceToHumanSeat"/>
+    /// for the very first seat of the session. A no-op unless the <em>active</em> seat is human — the
+    /// AI's own debt check is <see cref="AiDepositionHandler"/>'s, at the quarter boundary, untouched.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Mutates <see cref="State"/> directly with the same three calls
+    /// <see cref="HumanDepositionSystem.Execute"/> makes — <see cref="Deposition.ShouldFallAtHumanTurnStart"/>,
+    /// <see cref="Deposition.ApplyEffects"/>, <see cref="Deposition.ResetRelations"/> — rather than going
+    /// through <see cref="TurnCoordinator.RunTurn"/>: running the <em>whole</em> seat-scoped pipeline this
+    /// early would also run <see cref="TurnPhase.Orders"/> and <see cref="TurnPhase.SeatEnd"/> (which
+    /// rotates to the next seat) before this seat had a chance to act at all, which is not what "moved to
+    /// the start of the turn" means.
+    /// </para>
+    /// <para>
+    /// Appends the same fall message <see cref="HumanLeaderFallsMessage"/> gives any human seat's fall,
+    /// keyed by the reason (year, total conquest, unpopularity or unpaid upkeep) exactly as
+    /// <c>THumanFalls_InitializeForm</c> reads it — see that method's own remarks for the citations. Does
+    /// <em>not</em> itself call <see cref="AnnounceAndAdoptWatchModeIfSeatIsLost"/> or
+    /// <see cref="AnnounceGameOverIfNoHumanSeatRemains"/>: both callers check those immediately afterwards,
+    /// before deciding whether to still stop here or play the now-AI seat's turn this same pass.
+    /// </para>
+    /// </remarks>
+    private void DepositActiveHumanSeatIfItShouldFallAtTurnStart(List<string> lines)
+    {
+        var nation = State.NationById(State.ActiveNationId);
+        if (nation is null
+            || nation.Control != SeatControl.Human
+            || nation.Eliminated
+            || !Deposition.ShouldFallAtHumanTurnStart(nation, State, Ruleset))
+        {
+            return;
+        }
+
+        // T87 rework round 1 (review B1): the message is built from the pre-fall nation, not the
+        // post-fall one. THumanFalls_InitializeForm reads the fall's own reason (chiefly unity) before
+        // FUN_0044C8F0 ever writes its own +150 -- TPremierForm_HumanLeaderFalls (dump :50787) runs
+        // before the unity/treasury/relation writes (:50795-50798) -- so a nation at unity 399 (just
+        // under DebtUnityThreshold) must still read as "unpopularity", not the wrong branch a
+        // post-fall unity of 549 would select.
+        var message = HumanLeaderFallsMessage(nation);
+
+        var deposed = Deposition.ApplyEffects(nation, Ruleset) with { Control = SeatControl.Ai };
+        var relations = Deposition.ResetRelations(State.Relations, nation.Id, Ruleset);
+        var updatedNations = State.Nations.Select(n =>
+            string.Equals(n.Id, nation.Id, StringComparison.Ordinal) ? deposed : n);
+        State = State with { Nations = ValueList.From(updatedNations), Relations = relations };
+
+        lines.Add(message);
+    }
+
+    /// <summary>
+    /// The <c>THumanFalls</c> screen's own reason text (<c>THumanFalls_InitializeForm</c>, :56391–56404),
+    /// read in the original's own priority order: total conquest, the hard end year, then — only when
+    /// <paramref name="fallen"/> was <em>not</em> conquered — unpopularity or unpaid upkeep; conquered
+    /// otherwise. DoD 3's own two-way split ("the conquered text when conquered-by is set, and a
+    /// deposition text otherwise") is this order's own last two branches; the other two apply equally to
+    /// an elimination (a nation that happens to reach either while falling) and to this task's own
+    /// deposition-at-turn-start check.
+    /// </summary>
+    /// <remarks>
+    /// <strong>[confirmed: decompile]</strong>, read directly from the dump
+    /// (<c>%LOCALAPPDATA%\ReTools\all_app_functions.txt</c>, <c>THumanFalls_InitializeForm</c> @
+    /// <c>0x00455e38</c>, :56391–56404 — the same function <c>decompiled-elimination-cleanup.md</c> §3
+    /// already cites for the conquered-by text): <c>if cityCount &gt;= 0x14e (334): "You have conquerred
+    /// the Mediterranean, a unique achievement."; elif year==0xfa (250): "You have reached the end of your
+    /// allotted 20 years."; elif conqueredBy &lt; 0 (not conquered): unity&lt;400 ? "Your unpopularity has
+    /// forced the army to overthrow you." : "Your army have deposed you because they have not been paid.";
+    /// else: "Your nation has been conquerred by &lt;X&gt;."</c>. The first and third of these four strings
+    /// are already in <c>tests/fixtures/corpus.json</c> as <c>gameOverForm.victoryAllCities</c> and
+    /// <c>gameOverForm.conqueredByNation</c> (T42, cited to a different report reaching the same lines);
+    /// the "20 years" and "unpopularity"/"unpaid" strings are not yet in that corpus (outside this task's
+    /// Owns list to add), but the latter two are already quoted verbatim in
+    /// <c>upkeep-payment-and-desertion.md</c> (<see cref="Deposition"/>'s own top-level citation), and the
+    /// "334 cities"/"250 BC" thresholds are the same ones <see cref="Deposition.ShouldFallAtHumanTurnStart"/>
+    /// already generalizes off <see cref="GameState.Cities"/>'s own count and <see cref="VictoryRules.HardEndYearBc"/>
+    /// — never a re-invented literal.
+    /// </remarks>
+    private string HumanLeaderFallsMessage(NationState fallen)
+    {
+        var totalCities = State.Cities.Count;
+        var ownedByFallen = State.Cities.Count(c => string.Equals(c.Owner, fallen.Id, StringComparison.Ordinal));
+        if (totalCities > 0 && ownedByFallen >= totalCities)
+        {
+            return "You have conquerred the Mediterranean, a unique achievement.";
+        }
+
+        if (State.Calendar.YearBc <= Ruleset.Victory.HardEndYearBc)
+        {
+            return "You have reached the end of your allotted 20 years.";
+        }
+
+        if (fallen.ConqueredBy is null)
+        {
+            return fallen.Unity < Ruleset.Economy.DebtUnityThreshold
+                ? "Your unpopularity has forced the army to overthrow you."
+                : "Your army have deposed you because they have not been paid.";
+        }
+
+        return $"Your nation has been conquerred by {NationDisplay(fallen.ConqueredBy)}.";
+    }
+
+    /// <summary>
+    /// T87, DoD 3: shows the fall message for any nation in <paramref name="before"/> that was
+    /// <see cref="SeatControl.Human"/> and is not any more (eliminated, or deposed) — the general form of
+    /// what <see cref="AnnounceAndAdoptWatchModeIfSeatIsLost"/> already does for the CLI's own <c>--seat</c>
+    /// nation specifically. Called from <see cref="IssueCommand"/>, the one path that can eliminate a
+    /// human seat other than the active one (a human-issued capture against another human, hotseat only —
+    /// the CLI's own <c>--seat</c> mode never seats a second human). Iterates <paramref name="before"/> in
+    /// its own list order (<see cref="GameState.Nations"/>'s own, deterministic), never a
+    /// <see cref="Dictionary{TKey,TValue}"/>'s.
+    /// </summary>
+    private void AppendFallMessagesForNewlyLostHumanSeats(List<string> lines, IReadOnlyList<NationState> before)
+    {
+        foreach (var previously in before)
+        {
+            if (previously.Control != SeatControl.Human || previously.Eliminated)
+            {
+                continue;
+            }
+
+            var now = State.NationById(previously.Id);
+            if (now is not null && (now.Eliminated || now.Control != SeatControl.Human))
+            {
+                lines.Add(HumanLeaderFallsMessage(now));
+            }
+        }
+    }
+
+    /// <summary>
+    /// DoD 3's third bullet: "When no human seat remains, the session reports that the game is over."
+    /// Checked wherever a seat's fall could have just removed the last one — this task's own
+    /// <see cref="DepositActiveHumanSeatIfItShouldFallAtTurnStart"/>, every place
+    /// <see cref="AnnounceAndAdoptWatchModeIfSeatIsLost"/> is already checked, and
+    /// <see cref="IssueCommand"/> (a human-issued capture eliminating a different human seat,
+    /// hotseat only), since only those paths can change any nation's <see cref="Model.NationState.Control"/>
+    /// or <see cref="Model.NationState.Eliminated"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>[designed]</strong>: the original closes the whole application once
+    /// <c>FUN_00449078</c> finds no human seat left (<c>decompiled-elimination-cleanup.md</c> §3, "If no
+    /// human seat is left, it closes the forms and the game is over") rather than printing anything — a
+    /// CLI has no window to close, so this reports it as a line instead and asks <see cref="Submit"/> to
+    /// end the session (<see cref="SessionOutput.ShouldExit"/>), the same signal the <c>quit</c> command
+    /// already uses.
+    /// </para>
+    /// <para>
+    /// <strong>Never for a <c>--seat</c> session.</strong> Such a session names exactly one human seat
+    /// (Done-when 2's own "<c>--seat</c> makes its nation the CLI's <em>only</em> human seat"), so that
+    /// seat falling is <em>always</em> "no human seat remains" in the literal sense — but T83's own
+    /// <see cref="AnnounceAndAdoptWatchModeIfSeatIsLost"/> already exists precisely to answer that case
+    /// with watch mode, not a stopped session ("T83's lost-seat fallback to watch mode still holds",
+    /// this task's own Done-when 3). This method's own "no human seat remains" is instead about hotseat,
+    /// where more than one seat can be human and there is no single CLI-designated seat to fall back to
+    /// watching once every one of them has fallen.
+    /// </para>
+    /// </remarks>
+    private bool AnnounceGameOverIfNoHumanSeatRemains(List<string> lines)
+    {
+        if (_gameOver)
+        {
+            return true;
+        }
+
+        // A session that started in watch mode never had a human seat to lose in the first place -- this
+        // is "no human seat remains [any more]", not "there never was one" (Done-when 3's own wording,
+        // "a human seat is handed over", presupposes one existed).
+        if (_isWatchMode || _humanSeatNationId is not null || State.Nations.Any(n => n.Control == SeatControl.Human))
+        {
+            return false;
+        }
+
+        _gameOver = true;
+        lines.Add("No human seat remains. The game is over.");
+        return true;
     }
 
     /// <summary>The world this session is playing on.</summary>
@@ -404,6 +662,22 @@ public sealed partial class GameSession
         {
             lines.Add(string.Empty);
             return new SessionOutput(lines, shouldExit);
+        }
+
+        // T87 rework round 2, R2: DoD 2's own "before it can issue an order" also covers the moment
+        // AFTER the game is already over -- _gameOver can already be true here, set by this same call's
+        // own flushed prelude above (AdvanceToHumanSeat, at construction) or by an earlier Submit call,
+        // and nothing past this point should still run: not a mutating command (IsWatchModeActive's own
+        // gate below never runs once no seat exists to be "active" in the first place), and not a
+        // read-only one either -- once no human seat remains anywhere, there is no seat left whose view
+        // "status" or "news" would even be showing. ShouldExit was already true on whichever earlier call
+        // first set _gameOver (Submit's own final "shouldExit || _gameOver"); this is only reached at all
+        // if the caller submits again anyway.
+        if (_gameOver)
+        {
+            lines.Add("The game is over. No further commands are accepted.");
+            lines.Add(string.Empty);
+            return new SessionOutput(lines, true);
         }
 
         var tokens = trimmed.Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -539,7 +813,11 @@ public sealed partial class GameSession
         }
 
         lines.Add(string.Empty);
-        return new SessionOutput(lines, shouldExit);
+
+        // T87, DoD 3: whichever command's own processing first found no human seat left (an "end" that
+        // played the last human seat's fall, or a human-issued capture that eliminated the last other
+        // human seat) also ends the session -- the same signal `quit` already uses.
+        return new SessionOutput(lines, shouldExit || _gameOver);
     }
 
     private IReadOnlyList<string> HandleMove(string[] tokens)
@@ -744,10 +1022,9 @@ public sealed partial class GameSession
         // it failed no test in the whole suite, because nothing can reach this line with a stale offer
         // that a prior capture call has not already dropped. Kept out rather than kept as untested
         // belt-and-suspenders.
-        if (_pendingPeaceTreatyOffer is { } pending
-            && string.Equals(pending.OfferedHumanNationId, State.ActiveNationId, StringComparison.Ordinal))
+        // T87, N-g: each human's own end lapses only their own slot, never another human's.
+        if (_pendingPeaceTreatyOffers.Remove(State.ActiveNationId))
         {
-            _pendingPeaceTreatyOffer = null;
             lines.Add("The peace treaty offer has lapsed.");
         }
 
@@ -777,24 +1054,53 @@ public sealed partial class GameSession
     /// for the seated path, or <see langword="null"/> for pure watch mode (which has no seat to pause on,
     /// only a lap to complete).
     /// </param>
+    /// <remarks>
+    /// <strong>T87 (bug #380):</strong> every iteration starts by giving whichever seat is now active a
+    /// chance to fall at the true start of its own turn (<see cref="DepositActiveHumanSeatIfItShouldFallAtTurnStart"/>),
+    /// <em>before</em> asking <paramref name="stopEarly"/> whether to pause here — <see cref="PausesHere"/>
+    /// keys a <c>--seat</c> session purely on nation id, not <see cref="Model.NationState.Control"/>, so
+    /// without this a seat this same check just deposed would still be paused on as if it were human.
+    /// <see cref="AnnounceAndAdoptWatchModeIfSeatIsLost"/> is what actually notices the control change and
+    /// stops the loop instead of pausing on it; both stop-checks are repeated after playing a seat too,
+    /// for the ordinary elimination case that check already covered before this task.
+    /// </remarks>
     private void PlayUntilOneFullLapOrRepeat(List<string> lines, HashSet<string> playedThisRound, Func<bool>? stopEarly)
     {
-        while ((stopEarly is null || !stopEarly())
-               && !playedThisRound.Contains(State.ActiveNationId)
-               && playedThisRound.Count < State.TurnOrder.Count)
+        while (true)
         {
+            DepositActiveHumanSeatIfItShouldFallAtTurnStart(lines);
+            if (AnnounceAndAdoptWatchModeIfSeatIsLost(lines) || AnnounceGameOverIfNoHumanSeatRemains(lines))
+            {
+                return;
+            }
+
+            if ((stopEarly is not null && stopEarly())
+                || playedThisRound.Contains(State.ActiveNationId)
+                || playedThisRound.Count >= State.TurnOrder.Count)
+            {
+                return;
+            }
+
             var seat = State.ActiveNationId;
             playedThisRound.Add(seat);
+            var nationsBeforeThisSeatsTurn = State.Nations;
             var result = _coordinator.RunTurn(State);
             State = result.State;
             AppendPerSeatLine(lines, seat, result.Events);
 
             // T88 (DoD 3, Hazard 1): an AI seat's own turn can resolve a battle that raises a
             // post-battle treaty for the human, who is not "at the prompt" here -- see
-            // _pendingPeaceTreatyOffer's own remarks for why this cannot block the AI's turn loop.
+            // _pendingPeaceTreatyOffers's own remarks for why this cannot block the AI's turn loop.
             CapturePeaceTreatyOfferIfAny(lines, result.Events);
 
-            if (AnnounceAndAdoptWatchModeIfSeatIsLost(lines))
+            // T87 rework round 1 (review B3): an AI seat's own turn can eliminate a *different* human
+            // seat outright (a capture taking that human's last city) -- the only path
+            // AnnounceAndAdoptWatchModeIfSeatIsLost (below, --seat-only) and
+            // DepositActiveHumanSeatIfItShouldFallAtTurnStart (above, the *active* seat only) do not
+            // already cover.
+            AppendFallMessagesForNewlyLostHumanSeats(lines, nationsBeforeThisSeatsTurn);
+
+            if (AnnounceAndAdoptWatchModeIfSeatIsLost(lines) || AnnounceGameOverIfNoHumanSeatRemains(lines))
             {
                 return;
             }
@@ -823,6 +1129,15 @@ public sealed partial class GameSession
     /// this call started (seated or not) has already correctly played every seat up to this point without
     /// a repeat, which is all Done-when 7 asks for ("no seat played twice").
     /// </summary>
+    /// <remarks>
+    /// T87, DoD 3: a deposition-caused fall (year, total conquest, unity or debt) already printed its own
+    /// specific <see cref="HumanLeaderFallsMessage"/> the moment it happened, in
+    /// <see cref="DepositActiveHumanSeatIfItShouldFallAtTurnStart"/> — this method's own generic "has been
+    /// deposed" line is only the watch-mode-adoption notice for that case, not a second copy of the reason.
+    /// An elimination (conquest or defection, outside this task's Owns) has no earlier message at all, so
+    /// this is the first and only place that shows its own specific reason text (almost always "conquered
+    /// by", per <see cref="HumanLeaderFallsMessage"/>'s own priority order).
+    /// </remarks>
     private bool AnnounceAndAdoptWatchModeIfSeatIsLost(List<string> lines)
     {
         if (_seatLost || _humanSeatNationId is null)
@@ -839,8 +1154,8 @@ public sealed partial class GameSession
         _seatLost = true;
         lines.Add(
             nation.Eliminated
-                ? $"{NationDisplay(_humanSeatNationId)} has fallen. Watch mode from here on: "
-                  + "one round per end, no orders."
+                ? $"{NationDisplay(_humanSeatNationId)} has fallen: {HumanLeaderFallsMessage(nation)} "
+                  + "Watch mode from here on: one round per end, no orders."
                 : $"{NationDisplay(_humanSeatNationId)} has been deposed and handed to the AI. "
                   + "Watch mode from here on: one round per end, no orders.");
         return true;
@@ -909,21 +1224,38 @@ public sealed partial class GameSession
         var newsBeforeSlots = _pendingNewsBaseline ?? State.NewsLog.Slots;
         _pendingNewsBaseline = null;
 
+        // T87 rework round 2, R3: this seat's own RunTurn is not only its own Orders/SeatEnd phases --
+        // when endingSeat is also the round's own last seat, the same call runs every round-scoped phase
+        // too (CityTick among them), including the quarterly economic tick's rebellion and rebirth. Either
+        // one can defect away any nation's last city, human or not, endingSeat's own or another seat's
+        // entirely -- see nationsBeforeThisSeatsTurn's own use in PlayUntilOneFullLapOrRepeat for the
+        // identical shape. Snapshotting before the call, not after, is what lets the sweep below tell
+        // "was human and now is not" from "was already AI".
+        var nationsBeforeThisSeatsTurn = State.Nations;
+
         var result = _coordinator.RunTurn(State);
         State = result.State;
         lines.Add($"{NationDisplay(endingSeat)} ends its turn.");
         AppendWeatherLines(lines, result.Events);
 
-        // Rework round 2, N-f: this call's own SeatStart phase can depose endingSeat for debt
-        // (HumanDepositionSystem), and the same call's Orders phase then reads the just-updated Control
-        // (AiTurn.Run's own gate) -- so a human deposed by this very RunTurn can have the AI fight the
-        // other human right here, in the same call, before this method ever loops to a different seat.
-        // Without this, that battle's own PeaceTreatyOffered was reachable only through IssueCommand (a
-        // human's own command) or PlayUntilOneFullLapOrRepeat (a later seat's turn) -- neither of which
-        // this call is.
+        // T87 rework round 1 (bug #380, review B2/B5): there used to be a second check here, for
+        // HumanDepositionSystem depositing endingSeat inside this very RunTurn call (its own SeatStart
+        // phase). That system is deleted: the turn-start check now runs only from
+        // DepositActiveHumanSeatIfItShouldFallAtTurnStart, strictly before a seat's own RunTurn is ever
+        // called for it, and endingSeat's own Orders phase is a no-op for a Human-controlled active seat
+        // (AiTurn.Run's own gate) -- neither of those two phases can still change Control or Eliminated
+        // here. Review round 2, R3: an earlier revision of this remark generalized from that to "this call
+        // can eliminate or depose neither endingSeat nor anyone else", which is false -- the round-scoped
+        // phases this same RunTurn call also runs, when endingSeat ends the round, are a third path this
+        // remark had not accounted for (see nationsBeforeThisSeatsTurn's own remark above). The old check
+        // this replaced printed a fall message for the ending seat whether or not it had ever been human
+        // before this same call (review B2's own probe), which its removal still correctly closes --
+        // nationsBeforeThisSeatsTurn's own live comparison below only ever fires for a seat that
+        // demonstrably was human just before this call, never unconditionally.
+        AppendFallMessagesForNewlyLostHumanSeats(lines, nationsBeforeThisSeatsTurn);
         CapturePeaceTreatyOfferIfAny(lines, result.Events);
 
-        if (!AnnounceAndAdoptWatchModeIfSeatIsLost(lines))
+        if (!AnnounceAndAdoptWatchModeIfSeatIsLost(lines) && !AnnounceGameOverIfNoHumanSeatRemains(lines))
         {
             var playedThisRound = new HashSet<string>(StringComparer.Ordinal) { endingSeat };
             PlayUntilOneFullLapOrRepeat(lines, playedThisRound, PausesHere);

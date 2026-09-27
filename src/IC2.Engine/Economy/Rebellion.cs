@@ -51,39 +51,54 @@ public static class Rebellion
     /// <param name="ruleset">Supplies every rebellion constant; never a C# literal.</param>
     /// <param name="city">The rebelling city — read for its own Id/Owner/Allegiance/X/Y only.</param>
     /// <param name="events">Where <see cref="CityCaptureResolver.Defect"/>'s own defection news is published.</param>
+    /// <param name="rng">
+    /// Review round 1, N1: threaded through to <see cref="Rebirth.Run"/>'s own branch below for its one
+    /// consumed-and-discarded leader-name draw — this method's own two other branches ((b), (c)/(d)) draw
+    /// nothing and never touch it. The one caller (<see cref="QuarterlyCityEconomySystem"/>) passes its
+    /// own shared <c>QuarterBoundaryContext.Rng</c> straight through, unchanged, the same stream every
+    /// other draw in that same quarterly loop already shares.
+    /// </param>
     /// <returns>The resulting state — <paramref name="state"/> itself, unchanged, if nothing happens.</returns>
-    public static GameState Run(GameState state, World world, Ruleset ruleset, CityState city, IEventSink events)
+    public static GameState Run(GameState state, World world, Ruleset ruleset, CityState city, IEventSink events, IRng rng)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(ruleset);
         ArgumentNullException.ThrowIfNull(city);
         ArgumentNullException.ThrowIfNull(events);
+        ArgumentNullException.ThrowIfNull(rng);
 
         return string.Equals(city.Owner, city.Allegiance, StringComparison.Ordinal)
             ? RunOwnerIsAllegiance(state, world, ruleset, city, events)
-            : RunOwnerNotAllegiance(state, ruleset, city, events);
+            : RunOwnerNotAllegiance(state, ruleset, city, events, rng);
     }
 
     /// <summary>
     /// (a)/(b) <c>[confirmed]</c>: the owner is not the city's allegiance nation.
     /// </summary>
-    private static GameState RunOwnerNotAllegiance(GameState state, Ruleset ruleset, CityState city, IEventSink events)
+    private static GameState RunOwnerNotAllegiance(GameState state, Ruleset ruleset, CityState city, IEventSink events, IRng rng)
     {
         var allegiance = state.NationById(city.Allegiance);
 
         // (a) [confirmed: decompiled-quarterly-rebellion.md "Answer", 'the test is unity <= 0, the same
         // "dead" the turn loop and the diplomacy use']: "dead" is unity <= 0 -- the same bare comparison
         // the rest of the engine already uses for it (QuarterlyNationEconomySystem.cs,
-        // AiDepositionHandler.cs), not a ruleset field of its own. FUN_0044C360 (rebirth) is T87's own
-        // call: rebirth is final [confirmed: report "(a) is final... There is no fallback to (c) or (d)"]
-        // (no fallback to (c)/(d) when it declines), so this branch does nothing here but leave the
-        // decision, and this remark, for T87. allegiance is null only if city.Allegiance names no known
-        // nation, which never happens on a production path (every nation record persists for the
-        // scenario's life); treated the same as "dead" defensively rather than throwing.
-        if (allegiance is null || allegiance.Unity <= 0)
+        // AiDepositionHandler.cs), not a ruleset field of its own. FUN_0044C360 (rebirth), T87
+        // (Rebirth.Run, see its own remarks): rebirth is final [confirmed: report "(a) is final... There
+        // is no fallback to (c) or (d)"] (no fallback to (c)/(d) when it declines) whether or not the
+        // nation's own qualifying-city count actually clears Rebirth.Run's own threshold -- Rebirth.Run
+        // itself returns state unchanged when it does not, which this branch simply returns as-is, same
+        // as always. allegiance is null only if city.Allegiance names no known nation, which never
+        // happens on a production path (every nation record persists for the scenario's life); treated
+        // the same as "dead" defensively rather than throwing.
+        if (allegiance is null)
         {
             return state;
+        }
+
+        if (allegiance.Unity <= 0)
+        {
+            return Rebirth.Run(state, ruleset, allegiance, events, rng);
         }
 
         // (b): no war, no distance, no AI check -- the allegiance nation may be human.

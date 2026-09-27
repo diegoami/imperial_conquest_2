@@ -598,6 +598,37 @@ public sealed class ConquestCascadeTests
         Assert.Empty(result.NationById(Loser)!.RecruitmentSlots);
     }
 
+    // ---- T87 rework round 2, R1 (bug #441's conquest half): a human loser's own seat goes to the AI,
+    // the same as the defection path's NationElimination.ApplyIfLastCityLost already does. ----
+
+    [Fact]
+    public void AHumanLosersOwnSeat_GoesToTheAi_OnConquestTheSameAsOnDefection()
+    {
+        var scenario = BuildConqueringScenario();
+        var humanState = scenario.State with
+        {
+            Nations = ValueList.From(scenario.State.Nations.Select(
+                n => n.Id == Loser ? n with { Control = SeatControl.Human } : n)),
+        };
+
+        var result = Capture((humanState, scenario.CapturedCityId), NullEventSink.Instance);
+
+        var loser = result.NationById(Loser)!;
+        Assert.True(loser.Eliminated);
+        Assert.Equal(SeatControl.Ai, loser.Control);
+    }
+
+    /// <summary>An AI loser's own seat is left exactly as it was -- this fix writes only Human -> Ai.</summary>
+    [Fact]
+    public void AnAiLosersOwnSeat_IsUnaffected_ByTheSameFix()
+    {
+        var scenario = BuildConqueringScenario();
+
+        var result = Capture(scenario, NullEventSink.Instance);
+
+        Assert.Equal(SeatControl.Ai, result.NationById(Loser)!.Control);
+    }
+
     // ---- The loyalty draw is reproducible from the same seed. ----
 
     [Fact]
