@@ -1,9 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using Godot;
+using IC2.Engine.Assets;
 using IC2.Engine.Model;
 using IC2.Engine.Presentation;
 using IC2.Engine.Serialization;
+using IC2.Slice.Assets;
 
 namespace IC2.Slice;
 
@@ -61,6 +64,15 @@ public partial class Slice : Node2D
     private GameSession? _session;
     private int _framesRendered;
 
+    /// <summary>
+    /// T48: resolves an <see cref="AssetKeys"/> key to a texture through T11's placeholder pack.
+    /// <see langword="null"/> when the pack itself could not be loaded at all (logged once in
+    /// <see cref="_Ready"/>) -- every marker then falls back to T47's coloured shape, the same
+    /// per-key fallback <see cref="AssetPackTextureLoader.TryGetTexture"/> already gives a single
+    /// missing/unreadable asset.
+    /// </summary>
+    private AssetPackTextureLoader? _assetLoader;
+
     public override void _Ready()
     {
         GD.Print("T47 slice: loading the toy world/ruleset/scenario through IC2.Engine's own GameStateFactory...");
@@ -72,6 +84,12 @@ public partial class Slice : Node2D
             // knowledge of where Godot's working directory happens to be.
             var repositoryRoot = Path.GetFullPath(Path.Combine(ProjectSettings.GlobalizePath("res://"), ".."));
             var dataDirectory = Path.Combine(repositoryRoot, "data");
+
+            // T48: the same repository-root convention above, not a second one -- see
+            // AssetPackTextureLoader's own remarks for why the pack lives outside res:// at all.
+            _assetLoader = AssetPackTextureLoader.TryLoadPlaceholderPack(
+                repositoryRoot,
+                onFailure: key => GD.PushWarning($"T48 slice: asset pack could not resolve or load '{key}'; falling back to the coloured marker."));
 
             var repository = GameDataRepository.Load(dataDirectory);
             var resolved = repository.Resolve("toy-3city");
@@ -112,6 +130,18 @@ public partial class Slice : Node2D
     /// gate any check asserts on). Opt-in via the <c>IC2_SLICE_SCREENSHOT_PATH</c> environment variable,
     /// so an ordinary run of this scene never writes a file as a side effect.
     /// </summary>
+    /// <remarks>
+    /// T48 folded follow-up <see href="https://github.com/diegoami/imperial_conquest_2/issues/156">#156</see>:
+    /// <see cref="Viewport.GetTexture"/>'s <see cref="Texture2D.GetImage"/> throws <c>"Parameter 't'
+    /// is null"</c> on Godot 4.7.2's headless dummy rendering backend, which has no texture to read
+    /// back at all -- confirmed twice, and not fixable from script code (there is no image to
+    /// capture). A headless run with <c>IC2_SLICE_SCREENSHOT_PATH</c> set used to let that exception
+    /// escape <see cref="_Process"/> uncaught; Godot logs an uncaught script exception and keeps
+    /// running, so the run still exited 0 and no Done-when check ever noticed. This is guarded now
+    /// so the failure is reported plainly instead of surfacing as an unexplained engine log line: a
+    /// screenshot still needs a short <strong>windowed</strong> run (this task's own DoD 7, the same
+    /// way T47's was captured), never a headless one.
+    /// </remarks>
     public override void _Process(double delta)
     {
         if (_framesRendered >= 3)
@@ -131,15 +161,25 @@ public partial class Slice : Node2D
             return;
         }
 
-        var image = GetViewport().GetTexture().GetImage();
-        var error = image.SavePng(path);
-        if (error != Error.Ok)
+        try
         {
-            GD.PushError($"T47 slice: could not save screenshot to '{path}': {error}.");
+            var image = GetViewport().GetTexture().GetImage();
+            var error = image.SavePng(path);
+            if (error != Error.Ok)
+            {
+                GD.PushError($"T47 slice: could not save screenshot to '{path}': {error}.");
+            }
+            else
+            {
+                GD.Print($"T47 slice: saved screenshot to '{path}'.");
+            }
         }
-        else
+        catch (Exception ex)
         {
-            GD.Print($"T47 slice: saved screenshot to '{path}'.");
+            GD.PushError(
+                $"T48 slice: screenshot capture is unavailable in this run (issue #156 -- headless "
+                + $"capture cannot work on Godot 4.7.2's dummy rendering backend, which has no "
+                + $"texture to read back). Run windowed instead. Underlying error: {ex.Message}");
         }
     }
 
@@ -172,18 +212,7 @@ public partial class Slice : Node2D
 
         foreach (var city in _session.State.Cities)
         {
-            var center = new Vector2(
-                (city.X + 0.5f) * TileSize,
-                (city.Y + 0.5f) * TileSize);
-
-            var fillColor = NationColor(city.Owner);
-
-            // A dark halo behind the fill keeps the city legible against whichever terrain colour
-            // (above) happens to sit under it -- the toy world's Plain and Desert are both light
-            // enough that the CityRingColor arc alone was not always enough contrast on its own.
-            DrawCircle(center, (TileSize / 3f) + 3f, new Color(0f, 0f, 0f, 0.55f));
-            DrawCircle(center, TileSize / 3f, fillColor);
-            DrawArc(center, TileSize / 3f, 0f, Mathf.Tau, 32, CityRingColor, 2.5f);
+            DrawCity(city);
         }
 
         foreach (var army in _session.State.Armies)
@@ -237,32 +266,207 @@ public partial class Slice : Node2D
     }
 
     /// <summary>
-    /// One diamond marker per army, owner-coloured from the same <see cref="World.NationById"/> lookup
-    /// (and the same <see cref="NationColor"/> helper) the city markers use above -- deliberately not
-    /// a second, independently-invented palette. <c>MapViewer.cs</c>'s own <c>OwnerColor</c> table is
+    /// One coloured circle+ring city marker, owner-coloured from <see cref="NationColor"/>, with the
+    /// pack's own city icon (T48) drawn on top when the asset loader can resolve one -- capital
+    /// cities get <see cref="AssetKeys.CityCapitalIcon"/> (<see cref="NationState.CapitalCityId"/> is
+    /// confirmed, orthogonal to population -- <c>game-design.md</c> §"City markers"), every other
+    /// city gets a population tier from the ruleset's own (currently empty in every shipped ruleset)
+    /// <see cref="MapMarkerRules.CityPopulationTierThresholds"/> -- never an invented boundary.
+    /// A missing/unreadable icon (<see cref="AssetPackTextureLoader.TryGetTexture"/> returning
+    /// <see langword="null"/>) leaves exactly T47's plain circle+ring on screen (DoD 4).
+    /// </summary>
+    private void DrawCity(CityState city)
+    {
+        var center = new Vector2((city.X + 0.5f) * TileSize, (city.Y + 0.5f) * TileSize);
+        var fillColor = NationColor(city.Owner);
+        var radius = TileSize / 3f;
+
+        var texture = _assetLoader?.TryGetTexture(CityIconKey(city));
+
+        // A dark halo behind the fill/icon keeps the marker legible against whichever terrain colour
+        // (above) happens to sit under it -- the toy world's Plain and Desert are both light enough
+        // that a ring alone was not always enough contrast on its own.
+        DrawCircle(center, radius + 3f, new Color(0f, 0f, 0f, 0.55f));
+
+        if (texture is not null)
+        {
+            // The pack's city icons are flat, key-specific colours, not nation-specific ones (T11's
+            // manifest carries no per-nation art) -- [designed]: the owner-coloured ring is what keeps
+            // ownership legible once the icon replaces the plain fill, the same role
+            // CityRingColor's ring played for T47's plain circle.
+            DrawArc(center, radius + 3f, 0f, Mathf.Tau, 32, fillColor, 3f);
+            var rect = new Rect2(center - new Vector2(radius, radius), new Vector2(radius, radius) * 2f);
+            DrawTextureRect(texture, rect, false);
+            return;
+        }
+
+        DrawCircle(center, radius, fillColor);
+        DrawArc(center, radius, 0f, Mathf.Tau, 32, CityRingColor, 2.5f);
+    }
+
+    /// <summary>
+    /// Which pack key <see cref="DrawCity"/> asks the asset loader for -- [designed]: capital status
+    /// is <c>[confirmed]</c> orthogonal to population (<c>game-design.md</c> §"City markers"), but the
+    /// population-tier boundaries themselves are `[open]` (no decompiled banding function for cities,
+    /// unlike armies/fleets), so every shipped ruleset ships an empty
+    /// <see cref="MapMarkerRules.CityPopulationTierThresholds"/> -- <see cref="TierIndex"/> then
+    /// always returns tier 0 and every non-capital city draws <see cref="AssetKeys.CityTier1Icon"/>
+    /// until a future decompilation pass supplies real boundaries (the ruleset's own provenance note
+    /// on that field explains why it is empty, not this scene inventing a number).
+    /// </summary>
+    private string CityIconKey(CityState city)
+    {
+        var nation = _session?.World.NationById(city.Owner);
+        if (nation is not null && string.Equals(nation.CapitalCityId, city.Id, StringComparison.Ordinal))
+        {
+            return AssetKeys.CityCapitalIcon;
+        }
+
+        var thresholds = _session?.Ruleset.MapMarkers.CityPopulationTierThresholds ?? ValueList<int>.Empty;
+        return TierIndex(city.PopulationThousands, thresholds) switch
+        {
+            0 => AssetKeys.CityTier1Icon,
+            1 => AssetKeys.CityTier2Icon,
+            _ => AssetKeys.CityTier3Icon,
+        };
+    }
+
+    /// <summary>
+    /// One marker per army, owner-coloured from the same <see cref="World.NationById"/> lookup (and
+    /// the same <see cref="NationColor"/> helper) the city markers use above -- deliberately not a
+    /// second, independently-invented palette. <c>MapViewer.cs</c>'s own <c>OwnerColor</c> table is
     /// not reused either: the user found it has two byte-identical colour pairs (issue #154), and
     /// copying a known-broken palette into a second place would just give this scene the same defect.
     /// A palette that stays visually distinct across more than the toy world's two nations is a
     /// question for #154 and T24, not this walking skeleton.
     /// </summary>
+    /// <remarks>
+    /// T48 draws the pack's per-unit-type icon (<see cref="UnitTypeIconKey"/>) when the asset loader
+    /// can resolve one; a missing/unreadable icon leaves exactly T47's plain diamond on screen (DoD 4).
+    /// </remarks>
     private void DrawArmy(ArmyState army)
     {
         var center = new Vector2((army.X + 0.5f) * TileSize, (army.Y + 0.5f) * TileSize);
-        var half = TileSize / 4.5f;
+        var fillColor = NationColor(army.Nation);
+
+        var iconKey = UnitTypeIconKey(army);
+        var texture = iconKey is not null ? _assetLoader?.TryGetTexture(iconKey) : null;
+
+        if (texture is not null)
+        {
+            var half = TileSize * 0.22f;
+            DrawCircle(center, half + 4f, new Color(0f, 0f, 0f, 0.55f));
+
+            // Same reasoning as DrawCity: the icon is a flat, unit-type-specific colour, not a
+            // nation-specific one, so the owner-coloured ring is what keeps ownership legible once
+            // the icon replaces the plain diamond fill.
+            DrawArc(center, half + 4f, 0f, Mathf.Tau, 24, fillColor, 3f);
+            var rect = new Rect2(center - new Vector2(half, half), new Vector2(half, half) * 2f);
+            DrawTextureRect(texture, rect, false);
+            return;
+        }
+
+        var diamondHalf = TileSize / 4.5f;
         var points = new[]
         {
-            center + new Vector2(0, -half),
-            center + new Vector2(half, 0),
-            center + new Vector2(0, half),
-            center + new Vector2(-half, 0),
+            center + new Vector2(0, -diamondHalf),
+            center + new Vector2(diamondHalf, 0),
+            center + new Vector2(0, diamondHalf),
+            center + new Vector2(-diamondHalf, 0),
         };
 
-        var fillColor = NationColor(army.Nation);
         DrawColoredPolygon(points, fillColor);
         for (var i = 0; i < points.Length; i++)
         {
             DrawLine(points[i], points[(i + 1) % points.Length], CityRingColor, 2f);
         }
+    }
+
+    /// <summary>
+    /// Maps <see cref="UnitSlot.UnitTypeId"/> to the pack's matching per-unit-type icon key -- the
+    /// exact five ids every shipped ruleset (toy, classical-faithful, improved) declares, matching
+    /// <see cref="AssetKeys"/>'s own five <c>unit.*.icon</c> keys one for one.
+    /// </summary>
+    private static readonly Dictionary<string, string> UnitTypeIconKeysById = new(StringComparer.Ordinal)
+    {
+        ["light_infantry"] = AssetKeys.UnitLightInfantryIcon,
+        ["heavy_infantry"] = AssetKeys.UnitHeavyInfantryIcon,
+        ["archers"] = AssetKeys.UnitArchersIcon,
+        ["light_cavalry"] = AssetKeys.UnitLightCavalryIcon,
+        ["heavy_cavalry"] = AssetKeys.UnitHeavyCavalryIcon,
+    };
+
+    /// <summary>
+    /// Which of the pack's icons represents a multi-unit-type army -- <strong>[designed]</strong>:
+    /// no research report covers UI presentation, so there is nothing to source here and inventing a
+    /// citation would be worse than admitting the choice. The pack also offers `army.tier1..3`
+    /// (T48's Done-when explicitly allows either); this scene picks the pack's five per-unit-type
+    /// icons instead, because an army's unit-type mix (a Roman army fields infantry, archers and
+    /// cavalry together -- <c>game-design.md</c>'s own mockup) is exactly the detail a flat size-tier
+    /// icon throws away, and the size tiers stay available on <see cref="ArmyState.TotalTroops"/> for
+    /// a later task that wants both. A mixed army draws by <strong>troop plurality</strong> -- the
+    /// unit type contributing the most troops, ties broken by whichever type appears first among the
+    /// army's own <see cref="ArmyState.Units"/> (stable and deterministic, so no <c>IRng</c> draw is
+    /// needed for a presentation-only choice). Returns <see langword="null"/> for an empty army or a
+    /// unit type id this pack has no icon for, which <see cref="DrawArmy"/> treats the same as a
+    /// resolvable-but-missing asset: fall back to the plain diamond.
+    /// </summary>
+    private static string? UnitTypeIconKey(ArmyState army)
+    {
+        var troopsByType = new Dictionary<string, int>(StringComparer.Ordinal);
+        var firstSeenOrder = new List<string>();
+
+        foreach (var unit in army.Units)
+        {
+            if (!troopsByType.ContainsKey(unit.UnitTypeId))
+            {
+                troopsByType[unit.UnitTypeId] = 0;
+                firstSeenOrder.Add(unit.UnitTypeId);
+            }
+
+            troopsByType[unit.UnitTypeId] += unit.Troops;
+        }
+
+        string? dominantTypeId = null;
+        var dominantTroops = -1;
+        foreach (var typeId in firstSeenOrder)
+        {
+            if (troopsByType[typeId] > dominantTroops)
+            {
+                dominantTroops = troopsByType[typeId];
+                dominantTypeId = typeId;
+            }
+        }
+
+        if (dominantTypeId is not null && UnitTypeIconKeysById.TryGetValue(dominantTypeId, out var key))
+        {
+            return key;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// The same tier-band arithmetic <see cref="IC2.Engine.Naval.FleetMarker.Encode"/> uses for
+    /// ships (index 0 below every threshold, stepping up by one per threshold crossed) -- written
+    /// again here rather than reused because <c>FleetMarker</c> returns an <em>encoded map-marker
+    /// int</em> specific to naval code, not a bare tier index, and this scene never draws fleets
+    /// (T47 doesn't render them; out of this task's own scope).
+    /// </summary>
+    private static int TierIndex(int value, IReadOnlyList<int> thresholds)
+    {
+        var tierIndex = 0;
+        foreach (var threshold in thresholds)
+        {
+            if (value < threshold)
+            {
+                break;
+            }
+
+            tierIndex++;
+        }
+
+        return tierIndex;
     }
 
     /// <summary>
