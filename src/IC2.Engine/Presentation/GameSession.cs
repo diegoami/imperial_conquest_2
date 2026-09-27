@@ -164,10 +164,25 @@ public sealed partial class GameSession
     /// second AI action taking that same human's last, separately-undefended city — the independent
     /// reviewer of PR #400 (round 3) already attempted the equivalent construction and reported "the AI
     /// took the city without attacking the army"; this task's own attempt in the time available did not
-    /// improve on that. If a later task does construct it, <see cref="CapturePeaceTreatyOfferIfAny"/> is
-    /// where the branch belongs — reading <see cref="State"/>, already advanced past the triggering
-    /// <see cref="TurnCoordinator.RunTurn"/> or dispatch by the time this runs, would already show the
-    /// side as <see cref="Model.NationState.Eliminated"/> the moment such an event is found.
+    /// improve on that. <strong>Rework round 2, N-c: the concrete reason.</strong>
+    /// <see cref="IC2.Engine.Ai.AiMilitaryPhase.Propose"/>'s own per-army loop proposes every siege candidate for that
+    /// army before that same army's own attack candidates (<c>ProposeSieges</c> then
+    /// <c>ProposeArmyAttacks</c>), and <see cref="IC2.Engine.Ai.AiTurn"/>'s own action loop re-proposes and re-scores
+    /// from scratch after <em>every single action</em> it takes, rather than working through a plan built
+    /// once at the top of the turn — so whenever a human's last city is already undefended enough to
+    /// clear <c>AttackLegality</c>'s own siege gate, that candidate exists from the very first
+    /// re-proposal of the turn, before an attack against that same human's own field army has had any
+    /// chance to run at all. The ordering #404 asks for needs the field-army attack to run — and lose —
+    /// <em>first</em>, with the siege only becoming reachable afterward (the army's own loss leaving the
+    /// city undefended in a way it was not before); constructing that means the siege candidate must be
+    /// invalid or absent at the turn's own start and only become legal because of the earlier attack's own
+    /// outcome, not merely under-scored against it — a narrower, harder case than "make the attack lose"
+    /// alone, and the independent reviewer's own probe and this task's own attempt both found the AI
+    /// reaching the city directly instead. If a later task does construct it,
+    /// <see cref="CapturePeaceTreatyOfferIfAny"/> is where the branch belongs — reading <see cref="State"/>,
+    /// already advanced past the triggering <see cref="TurnCoordinator.RunTurn"/> or dispatch by the time
+    /// this runs, would already show the side as <see cref="Model.NationState.Eliminated"/> the moment
+    /// such an event is found.
     /// </para>
     /// </remarks>
     private readonly Dictionary<string, PendingPeaceTreatyOffer> _pendingPeaceTreatyOffers =

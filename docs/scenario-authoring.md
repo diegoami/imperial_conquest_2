@@ -381,7 +381,7 @@ objects documented in their own subsections below.
 | `citySupplyCapTonsPerPopulationThousand` | integer | tons per 1,000 pop | `CityWeeklySupply`: a city's supply stock is capped at `population × this`. |
 | `famineLoyaltyLossProbabilityDenominator` | integer | 1-in-this | `CityWeeklySupply`: chance a Winter city whose stock just hit 0 loses loyalty. |
 | `famineLoyaltyLossAmount` | integer | loyalty points | The loyalty lost when the famine-unrest roll fires. |
-| `rebirthCandidateLoyaltyThreshold` | integer | 0–100 loyalty | `Rebirth`: a dead nation's own city qualifies for rebirth when its loyalty is below this (a higher threshold than, and not to be confused with, `rebellionLoyaltyThreshold`). |
+| `rebirthCandidateLoyaltyThreshold` | integer | 0–100 loyalty | `Rebirth`: a city whose *allegiance* is the dead nation (whoever currently *owns* it) qualifies for rebirth when its loyalty is below this (a higher threshold than, and not to be confused with, `rebellionLoyaltyThreshold`). |
 | `rebirthMinimumQualifyingCityCount` | integer | city count | `Rebirth`: proceeds only when strictly more than this many qualifying cities exist. |
 | `rebirthUnity` | integer | 0–unityCap | `Rebirth`: the reborn nation's own reset unity. |
 | `rebirthTaxRatePercent` | integer | tax rate % | `Rebirth`: the reborn nation's own reset tax rate. |
