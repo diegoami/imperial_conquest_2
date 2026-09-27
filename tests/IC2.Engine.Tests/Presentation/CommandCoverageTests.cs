@@ -119,9 +119,11 @@ public sealed class CommandCoverageTests
 
     /// <summary>
     /// This test's own curated verb map -- see this class's remarks on why it is manually maintained
-    /// rather than parsed from <c>GameSession.cs</c>.
+    /// rather than parsed from <c>GameSession.cs</c>. <c>internal</c> (T80 rework round 2, B3) so
+    /// <see cref="Presentation.SuccessScriptTests"/> can build its own inverse (kind-by-verb) from the
+    /// same single source, rather than keeping a second, driftable copy.
     /// </summary>
-    private static readonly Dictionary<string, string> VerbByKind = new(StringComparer.Ordinal)
+    internal static readonly Dictionary<string, string> VerbByKind = new(StringComparer.Ordinal)
     {
         ["armies.disband-army"] = "disband-army",
         ["armies.join-armies"] = "join-armies",

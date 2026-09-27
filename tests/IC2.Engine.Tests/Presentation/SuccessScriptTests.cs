@@ -78,15 +78,27 @@ namespace IC2.Engine.Tests.Presentation;
 /// this script's own window at that seed.
 /// </para>
 /// <para>
-/// <strong>Why 3, specifically.</strong> I ran this exact, committed script through the real CLI once per
-/// seed from 1 to 40 (<c>--seed &lt;n&gt;</c>, nothing else changed) and counted each run's own
-/// <c>"rejected ("</c> lines: every seed in that range produces exactly one rejection (the
-/// <c>accept-offer</c> line above) <em>except</em> seeds <strong>3, 10, 13 and 20</strong>, which produce
-/// zero. 3 is the first. Changing the seed reshuffles every other random-driven line too (weather, city
-/// loyalty, casualty counts, and which nation's own <c>accept-offer</c> ends up pending, if any), which is
-/// why the whole golden was regenerated through the CLI under <c>--seed 3</c> rather than hand-patched,
-/// and why this remark states only the sweep actually run (1 through 40) rather than extrapolating beyond
-/// it.
+/// <strong>Why 3, specifically.</strong>
+/// <strong>T80 rework round 2, N5: the previous version of this paragraph said seeds 3, 10, 13 and 20
+/// all have every line accepted — corrected here after an independent re-sweep of my own, not by
+/// copying the reviewer's number.</strong> I ran this exact, committed script through the real CLI once
+/// per seed from 1 to 40 (<c>--seed &lt;n&gt;</c>, nothing else changed) and checked, for each run, both
+/// its <c>"rejected ("</c> count and whether <c>peace-yes</c> printed
+/// <c>"There is no pending peace treaty offer."</c> (a failure that carries no <c>"rejected ("</c> text
+/// at all, since the CLI answers it before any command is even dispatched). Every seed in 1–40 produces
+/// exactly one <c>"rejected ("</c> line (the <c>accept-offer</c> line above) <em>except</em> seeds
+/// <strong>3, 10, 13 and 20</strong>, which produce zero — but at <strong>13 and 20</strong>,
+/// <c>peace-yes</c> itself fails that second way: at those two seeds specifically, neither of this
+/// script's own two sacrifices against <c>army-14</c> clears <see cref="Battle.InstantBattleResolver"/>'s
+/// own gate-then-roll (confirmed directly: <c>peace-yes</c> answers "There is no pending peace treaty
+/// offer." right after the very first attack, with no battle in between that could have raised and then
+/// dropped one), so the offer this script's own <c>peace-yes</c> line expects is simply never raised at
+/// all. <strong>3 and 10</strong> are the only seeds in 1–40 where every line is genuinely accepted; 3 is
+/// the first. Changing the seed
+/// reshuffles every other random-driven line too (weather, city loyalty, casualty counts, and which
+/// nation's own <c>accept-offer</c> ends up pending, if any), which is why the whole golden was
+/// regenerated through the CLI under <c>--seed 3</c> rather than hand-patched, and why this remark
+/// states only the sweep actually run (1 through 40) rather than extrapolating beyond it.
 /// </para>
 /// <para>
 /// <strong>Random consumers.</strong> <see cref="Battle.BattleCasualties"/>'s casualty divisor
@@ -175,17 +187,54 @@ public sealed class SuccessScriptTests
     };
 
     /// <summary>
-    /// Whether <paramref name="block"/>'s own outcome reads as an accepted command — the generic
-    /// renderer's exact <c>"... accepted."</c> or composed <c>"... accepted ("</c> forms, or <c>move</c>/
-    /// <c>buy</c>'s own bespoke wording (see <see cref="CommandCoverageTests.HasAcceptedLine"/>'s own
-    /// remarks for why these are the only three shapes a genuine acceptance takes).
+    /// The inverse of <see cref="CommandCoverageTests.VerbByKind"/> — one source of truth for which verb
+    /// maps to which <see cref="Core.ICommand.Kind"/>, shared rather than kept as a second, driftable copy.
     /// </summary>
-    private static bool BlockLooksAccepted(GoldenTranscriptBlocks.Block block) =>
-        block.Outcome.Contains(" accepted.", StringComparison.Ordinal)
-        || block.Outcome.Contains(" accepted (", StringComparison.Ordinal)
-        || (block.Verb == "move" && block.Outcome.Contains("moved from (", StringComparison.Ordinal))
-        || (block.Verb == "buy" && block.Outcome.Contains("bought ", StringComparison.Ordinal)
-            && block.Outcome.Contains(" tons of supply", StringComparison.Ordinal));
+    private static readonly Dictionary<string, string> KindByVerb = CommandCoverageTests.VerbByKind
+        .ToDictionary(pair => pair.Value, pair => pair.Key, StringComparer.Ordinal);
+
+    /// <summary>
+    /// Whether <paramref name="block"/>'s own outcome reads as an accepted command for <em>its own
+    /// verb</em> — the generic renderer's exact <c>"{kind} accepted."</c>, where <c>kind</c> is the kind
+    /// <see cref="KindByVerb"/> says this block's own verb maps to (never any other kind's line, composed
+    /// or not), or <c>move</c>/<c>buy</c>'s own bespoke wording. Rejected outright, regardless of verb, if
+    /// the outcome contains <c>" rejected"</c> anywhere — the composed
+    /// <c>diplomacy.declare-war accepted (composed ahead of the attack).</c> line
+    /// <c>attack-army</c>/<c>besiege-city</c>/<c>attack-fleet</c> print ahead of their own outcome must
+    /// never let a rejection of the primary command through.
+    /// </summary>
+    /// <remarks>
+    /// T80 rework round 2, B3 (blocking): the previous version accepted a block if its outcome contained
+    /// <em>any</em> <c>" accepted."</c> or <c>" accepted ("</c> substring, anywhere — so a composed
+    /// declare-war line ahead of a <em>rejected</em> primary command (e.g. <c>besiege-city</c> not
+    /// adjacent) still counted as accepted, exactly the same shape of bug B1 fixed for coverage but never
+    /// applied here. Proved by mutation: appending <c>besiege-city mac-marines volubilis</c> (not
+    /// adjacent, so its own <c>battle.besiege-city</c> is rejected after the declare-war composes) after
+    /// <c>accept-offer</c> in <c>success.txt</c>, and regenerating the golden through the CLI, used to
+    /// leave all ten tests in this class and <see cref="CommandCoverageTests"/> green; this fixed version
+    /// fails, naming that exact line. Reverted afterward — see the PR for the before/after.
+    /// </remarks>
+    private static bool BlockLooksAccepted(GoldenTranscriptBlocks.Block block)
+    {
+        if (block.Outcome.Contains(" rejected", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (block.Verb == "move")
+        {
+            return block.Outcome.Contains("moved from (", StringComparison.Ordinal);
+        }
+
+        if (block.Verb == "buy")
+        {
+            return block.Outcome.Contains("bought ", StringComparison.Ordinal)
+                && block.Outcome.Contains(" tons of supply", StringComparison.Ordinal);
+        }
+
+        return KindByVerb.TryGetValue(block.Verb, out var kind)
+            && block.Outcome.Contains($"{kind} accepted.", StringComparison.Ordinal);
+    }
 
     /// <summary>
     /// Done-when 1, read literally: "each line's outcome in the transcript is an accepted command, not a
@@ -197,6 +246,7 @@ public sealed class SuccessScriptTests
     /// pass a bare <c>"rejected ("</c> search while still containing one of those.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// T80 rework round 1, N2: the previous version of both "no rejection" tests below asserted only
     /// <c>Assert.DoesNotContain("rejected (", golden)</c>, which is silent on every shape named above.
     /// Proved by mutation: inserting a repeated <c>peace-yes</c> (prints "There is no pending peace treaty
@@ -204,10 +254,23 @@ public sealed class SuccessScriptTests
     /// <c>Unknown command 'frobnicate'</c> into <c>success.txt</c>, then regenerating the golden through
     /// the CLI, left the old assertion green while this one fails, naming all three lines — reverted
     /// afterward.
+    /// </para>
+    /// <para>
+    /// T80 rework round 2, N6: <c>GoldenTranscriptBlocks.Parse</c> returns an empty list for a transcript
+    /// with no <c>"&gt; "</c> prompts at all (an empty file, or one whose echo format changed out from
+    /// under this parser), and a <c>foreach</c>/<c>Where</c> over an empty sequence finds nothing bad —
+    /// this assertion would have passed vacuously. <see cref="Assert.NotEmpty{T}"/> below closes that.
+    /// Proved by mutation: truncating a copy of <c>success.golden.txt</c> to empty now fails this
+    /// assertion (before the fix, only the byte-compare and coverage tests caught it) — reverted
+    /// afterward.
+    /// </para>
     /// </remarks>
     private static void AssertEveryMutatingLineProducedAnAcceptedOutcome(string golden)
     {
-        var bad = GoldenTranscriptBlocks.Parse(golden)
+        var blocks = GoldenTranscriptBlocks.Parse(golden);
+        Assert.NotEmpty(blocks);
+
+        var bad = blocks
             .Where(b => !ReadOnlyVerbs.Contains(b.Verb) && !BlockLooksAccepted(b))
             .Select(b => b.Line)
             .ToList();
