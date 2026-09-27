@@ -315,7 +315,7 @@ Retired labels from the orchestrator era: `docs:pending`, `orchestrator:pause`, 
 
 ## 7. Concurrency, single-instance, and local-only
 
-- **One task in flight at a time**: its implementer, its reviewer, and its rework, one after another.
+- **One task in flight at a time per machine**: its implementer, its reviewer, and its rework, one after another. With two machines, two tasks may be in flight at once under §8's conditions.
 - **A subagent cannot be pointed at a worktree.** Every agent starts in the session's working
   directory, the main checkout; an agent works in its worktree only because its brief tells it to
   use `git -C <worktree>` or to `cd` there first. That shell directory is **not inherited** by
@@ -344,22 +344,68 @@ Retired labels from the orchestrator era: `docs:pending`, `orchestrator:pause`, 
 
 ---
 
-## 8. Adding a second machine later
+## 8. Two machines
 
-**What already generalises:**
-- all pipeline state: issues, labels, PRs and milestones;
-- branch-per-task, with a worktree per agent;
-- the fixtures corpus and the toy world;
-- the CI gate and the review contract.
+Two computers can work on the build at once. Each runs **its own main session**, with its own clone,
+its own `ic2-work\` worktrees and its own local skill installs. GitHub is the only thing they share:
+issues, labels, PRs and CI. Adopted 2026-09-27 by the user's decision.
 
-**What is tied to this machine:** the Godot install and export templates (T24, T25, T27), the original saves and `assets.local.ini` (T21, T29, T30, T34), and in-process `Agent` dispatch.
+**Identity.** Each machine has a short name, set once in its environment as `IC2_MACHINE` (for example
+`desktop` or `laptop`), and a matching `machine:<name>` label. Both machines authenticate as
+`diegoami`, so a GitHub assignee cannot tell them apart; the label is the claim.
 
-**To add a second machine**, make three changes:
-1. Use `gh issue edit --add-assignee` as an atomic claim on a task.
-2. Add capability labels (`requires:godot`, `requires:original-saves`).
-3. Make CI the authority on test results, with the reviewer's local run covering only the local-only subset.
+**Claiming a task.** Before dispatching an implementer, the main session:
+1. checks that the issue carries **no** `machine:*` label;
+2. adds `machine:$IC2_MACHINE`;
+3. re-reads the labels. If another machine's label is also there, the machine that claimed second
+   removes its label and picks something else.
 
-No queue, scheduler or service is built now.
+The claim stays on the issue after the merge as a record of where the task ran. A task left in
+flight is resumed only by the machine that claimed it, unless the user moves it.
+
+**Capability.** Existing labels say what a task needs:
+- `local-only`: the original DAT and saves through `assets.local.ini`, including any task that
+  re-runs `scripts/export-classical-world.cs`;
+- `single-instance`: a Godot 4.7.2 install, and never two Godot processes on one machine.
+
+A machine claims only tasks whose labels it can satisfy. A task that turns out to need the original
+files or Godot without carrying the label gets the label added, and the claim moves to a machine
+that can run it.
+
+**What may run at once.** Each machine runs **one task at a time** (§7). Two tasks on two machines may
+be in flight together only when:
+- their Owns lists are disjoint, counting the §2.3 shared files (the CLI goldens, the
+  `scenario-authoring.md` field reference) as overlapping if both might touch them;
+- neither task's entry says it is "never in flight with" the other;
+- neither redefines an engine seam (§7).
+
+When both PRs touch a shared file anyway, the second to merge brings `main` in and re-runs CI. It never
+force-pushes.
+
+**Who does what.**
+- **Each machine merges only the PRs of tasks it claimed**, after its own review and green CI (§4),
+  and runs §4.7's after-merge steps for them.
+- **Triage and planning stay with one machine**, named in the operating guide as the primary. Its
+  session triages `triage:needed` and opens plan PRs. The other machine files bugs and follow-ups
+  with `triage:needed` and leaves them. That keeps plan PRs from colliding in the catalogue.
+- **CI is the authority on test results.** A reviewer's local run adds the `local-only` subset that CI
+  cannot run.
+
+**Setting up a machine.**
+1. Clone this repository. Install the .NET 10 SDK, `gh` (logged in as `diegoami`) and `jq`.
+2. Set `IC2_MACHINE`, and create its `machine:<name>` label if it is new.
+3. Install the local skills verbatim from their fenced blocks ([operating-guide.md §2.3](operating-guide.md#23-the-two-skills)).
+   Skills load at session start, so start the session after installing them.
+4. Only for `local-only` tasks: the original game files, and `assets.local.ini` copied from
+   `assets.example.ini`.
+5. Only for `single-instance` tasks: Godot 4.7.2 mono ([operating-guide.md §1.3](operating-guide.md#13-local-toolchain-outside-both-repositories)).
+6. Only for research work: a checkout of the research repository and the ReTools toolchain.
+
+The agent briefs in Appendices A and B name this machine's paths
+(`C:\Users\diego\projects\imperial_conquest_2`, `...\ic2-work\`). On another machine, the main
+session substitutes its own paths when it fills in a template.
+
+No queue, scheduler or service is built: the labels are the whole protocol.
 
 ---
 
@@ -372,7 +418,7 @@ Decided by the user; in force until changed.
 - **Q-C, cost profile.**
   - Opus implements four tasks, and reviews the fidelity-critical PRs ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers)).
   - `/code-review --effort ultra` runs on the architecture PRs.
-  - One task is in flight at a time.
+  - One task is in flight at a time per machine; two machines may run two file-disjoint tasks at once (§8).
   - There is no orchestrator layer and no per-merge documentation agent (simplified 2026-09-14).
 - **Q-D, open audit questions become ruleset flags.** Every affected task ships the confirmed behaviour behind a named ruleset flag. The flags are grouped into two user-facing presets, `classical-faithful` and `improved`, chosen at New Game (`game-design.md` "Two shipped presets"). The mapping:
   - Q3 → T19's `diplomacy.model`;
@@ -597,7 +643,9 @@ round (before T61 split the catalogue, that pointer cost ~85,000 tokens to reach
 ids, run them in that order; given none, take the first status:ready task in the catalogue index.
 Report to the user after each task; stop at any escalation.
 
-0. CHECK. `gh issue list --label triage:needed --state open`: triage anything that names this
+0. CHECK. Skip any task that carries another machine's `machine:*` label; claim this one as
+   §8 describes (add `machine:$IC2_MACHINE`, re-read, back off if another machine's label appears).
+   `gh issue list --label triage:needed --state open`: triage anything that names this
    task, or ask the user. Confirm every merge-after dependency is status:merged and the issue is
    status:ready. Don't start a local-only or single-instance task whose prerequisite is missing.
 1. IMPLEMENT. Label status:in-progress. Dispatch the implementer: Agent(general-purpose, model =
