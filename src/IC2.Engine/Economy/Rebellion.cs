@@ -75,15 +75,22 @@ public static class Rebellion
         // (a) [confirmed: decompiled-quarterly-rebellion.md "Answer", 'the test is unity <= 0, the same
         // "dead" the turn loop and the diplomacy use']: "dead" is unity <= 0 -- the same bare comparison
         // the rest of the engine already uses for it (QuarterlyNationEconomySystem.cs,
-        // AiDepositionHandler.cs), not a ruleset field of its own. FUN_0044C360 (rebirth) is T87's own
-        // call: rebirth is final [confirmed: report "(a) is final... There is no fallback to (c) or (d)"]
-        // (no fallback to (c)/(d) when it declines), so this branch does nothing here but leave the
-        // decision, and this remark, for T87. allegiance is null only if city.Allegiance names no known
-        // nation, which never happens on a production path (every nation record persists for the
-        // scenario's life); treated the same as "dead" defensively rather than throwing.
-        if (allegiance is null || allegiance.Unity <= 0)
+        // AiDepositionHandler.cs), not a ruleset field of its own. FUN_0044C360 (rebirth), T87
+        // (Rebirth.Run, see its own remarks): rebirth is final [confirmed: report "(a) is final... There
+        // is no fallback to (c) or (d)"] (no fallback to (c)/(d) when it declines) whether or not the
+        // nation's own qualifying-city count actually clears Rebirth.Run's own threshold -- Rebirth.Run
+        // itself returns state unchanged when it does not, which this branch simply returns as-is, same
+        // as always. allegiance is null only if city.Allegiance names no known nation, which never
+        // happens on a production path (every nation record persists for the scenario's life); treated
+        // the same as "dead" defensively rather than throwing.
+        if (allegiance is null)
         {
             return state;
+        }
+
+        if (allegiance.Unity <= 0)
+        {
+            return Rebirth.Run(state, ruleset, allegiance, events);
         }
 
         // (b): no war, no distance, no AI check -- the allegiance nation may be human.
