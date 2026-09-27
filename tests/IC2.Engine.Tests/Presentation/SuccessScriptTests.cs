@@ -51,20 +51,42 @@ namespace IC2.Engine.Tests.Presentation;
 /// </para>
 /// <para>
 /// <strong>Why seed 3, not the scenario's own 270 (Hazards: "Determinism. Say which seed and why").</strong>
+/// <strong>T80 rework round 1, B2 (blocking): the previous version of this remark misdescribed the gate,
+/// misdiagnosed what fails at 270, and asserted an unverified "218 of 250, never 1" sweep. All three are
+/// corrected here, against the engine as read, not as assumed.</strong>
+/// </para>
+/// <para>
 /// <c>peace-yes</c> (<see cref="Diplomacy.Commands.AcceptPeaceTreatyCommand"/>) only ever becomes
-/// answerable when <see cref="Battle.InstantBattleResolver"/> raises the post-battle treaty offer, which
-/// needs the battle's own loser to clear <c>unity &gt; 500 &amp;&amp; cities &gt; 7</c> (macedonia's own
-/// sixteen cities and 800+ starting unity clear this easily whenever macedonia itself is the one who
-/// loses) <em>and</em> a further, independent <c>Random(5) == 0</c> roll. At the scenario's own seed
-/// (270), seven separate under-strength sacrifices against <c>army-14</c> (Thracia) never landed that
-/// roll (PR #452's own finding). <c>--seed 3</c> was found by running this exact script's own setup (every
-/// line up to and including the first <c>attack-army mac-detached army-14</c>) against seeds 1 through
-/// 250 and keeping the first one whose second sacrificial attack (<c>mac-sac-1</c>) draws the offer —
-/// <c>attacksNeeded == 2</c> at every one of the 218 seeds (of 250) that landed it at all inside three
-/// sacrifices, never <c>1</c>, so this script's own two attacks are not a seed-3 idiosyncrasy but the
-/// shape the mechanic actually takes here. Changing the seed reshuffles every other random-driven line
-/// too (weather, city loyalty, casualty counts), which is why the whole golden was regenerated through the
-/// CLI under <c>--seed 3</c> rather than hand-patched.
+/// answerable when <see cref="Battle.InstantBattleResolver"/> (l.302–314) raises the post-battle treaty
+/// offer, gated on <c>winnerArmyPower &lt; loserArmyPower &amp;&amp; loserNation.Unity &gt;
+/// combat.AutoPeaceLoserUnityThreshold &amp;&amp; loserCityCount &gt; combat.AutoPeaceLoserCityThreshold</c>
+/// — the battle's winner having <em>less</em> total army power than its loser, not merely "macedonia
+/// loses" — and then, only once that gate passes, an independent
+/// <c>rng.NextInt(combat.AutoPeaceChanceDenominator) &lt; combat.AutoPeaceChanceNumerator</c> roll.
+/// <c>classical-faithful.json</c>'s own <c>combat</c> block reads
+/// <c>autoPeaceLoserUnityThreshold: 500</c>, <c>autoPeaceLoserCityThreshold: 7</c>,
+/// <c>autoPeaceChanceNumerator: 2</c>, <c>autoPeaceChanceDenominator: 5</c> — a <strong>2-in-5</strong>
+/// chance once gated, not the 1-in-5 an earlier draft of this remark claimed.
+/// </para>
+/// <para>
+/// <strong>Seed 270 does not fail at <c>peace-yes</c>.</strong> Running this exact, committed script
+/// (unmodified) with <c>--seed 270</c> instead of 3: the offer is raised at the second sacrifice
+/// (<c>mac-sac-1</c>'s attack) and <c>peace-yes</c> is accepted, exactly as it is at seed 3. The one line
+/// that actually fails at 270 is <c>accept-offer</c>, rejected
+/// <c>diplomacy.no-pending-offer</c> ("There is no pending offer to accept.") — the natural pending offer
+/// <see cref="Diplomacy.PendingOfferSystem"/> rerolls every human turn start never happens to land within
+/// this script's own window at that seed.
+/// </para>
+/// <para>
+/// <strong>Why 3, specifically.</strong> I ran this exact, committed script through the real CLI once per
+/// seed from 1 to 40 (<c>--seed &lt;n&gt;</c>, nothing else changed) and counted each run's own
+/// <c>"rejected ("</c> lines: every seed in that range produces exactly one rejection (the
+/// <c>accept-offer</c> line above) <em>except</em> seeds <strong>3, 10, 13 and 20</strong>, which produce
+/// zero. 3 is the first. Changing the seed reshuffles every other random-driven line too (weather, city
+/// loyalty, casualty counts, and which nation's own <c>accept-offer</c> ends up pending, if any), which is
+/// why the whole golden was regenerated through the CLI under <c>--seed 3</c> rather than hand-patched,
+/// and why this remark states only the sweep actually run (1 through 40) rather than extrapolating beyond
+/// it.
 /// </para>
 /// <para>
 /// <strong>Random consumers.</strong> <see cref="Battle.BattleCasualties"/>'s casualty divisor
@@ -90,11 +112,15 @@ namespace IC2.Engine.Tests.Presentation;
 /// which asks only that the <em>command</em> is accepted, not that the battle is won.
 /// </para>
 /// <para>
-/// <strong>Confirmed unreachable, and excluded rather than forced (docs/tasks/T80.md's own Hazards:
-/// "STOP and report which command, and why"; Done-when 2b: "keyed exceptions, and nothing else").</strong>
-/// Three command types have no accepted line in either script, each keyed to the issue that will remove
-/// the exception — see <see cref="CommandCoverageTests"/>'s own <c>ConfirmedUnreachable</c> set and its
-/// remarks for the full account:
+/// <strong>Confirmed unreachable, and excluded rather than forced (docs/tasks/T80.md Done-when 2b:
+/// "keyed exceptions, and nothing else").</strong>
+/// <strong>T80 rework round 1, N3: the previous version of this remark quoted "docs/tasks/T80.md's own
+/// Hazards: 'STOP and report which command, and why'" — that sentence is not in T80.md and never was
+/// (confirmed against its own history); it paraphrased an instruction from outside the task file, not a
+/// quote from it, and is dropped here rather than misattributed.</strong> Three command types have no
+/// accepted line in either script, each keyed to the issue that will remove the exception — see
+/// <see cref="CommandCoverageTests"/>'s own <c>ConfirmedUnreachable</c> set and its remarks for the full
+/// account:
 /// </para>
 /// <list type="bullet">
 /// <item><description><c>hire-mercenary</c> (<see cref="Recruitment.Commands.HireMercenaryCommand"/>),
@@ -141,6 +167,55 @@ public sealed class SuccessScriptTests
     /// <summary>The scenario's own committed seed (20250913); north is already its own default human seat.</summary>
     private static GameSession NewFleetSession() =>
         new(Toy.World, Toy.Ruleset, Toy.Scenario, seedOverride: null);
+
+    /// <summary>Verbs that print nothing to accept or reject — excluded from the per-line accepted check below.</summary>
+    private static readonly HashSet<string> ReadOnlyVerbs = new(StringComparer.Ordinal)
+    {
+        "end", "status", "news", "quit", "help", "armies", "cities", "map",
+    };
+
+    /// <summary>
+    /// Whether <paramref name="block"/>'s own outcome reads as an accepted command — the generic
+    /// renderer's exact <c>"... accepted."</c> or composed <c>"... accepted ("</c> forms, or <c>move</c>/
+    /// <c>buy</c>'s own bespoke wording (see <see cref="CommandCoverageTests.HasAcceptedLine"/>'s own
+    /// remarks for why these are the only three shapes a genuine acceptance takes).
+    /// </summary>
+    private static bool BlockLooksAccepted(GoldenTranscriptBlocks.Block block) =>
+        block.Outcome.Contains(" accepted.", StringComparison.Ordinal)
+        || block.Outcome.Contains(" accepted (", StringComparison.Ordinal)
+        || (block.Verb == "move" && block.Outcome.Contains("moved from (", StringComparison.Ordinal))
+        || (block.Verb == "buy" && block.Outcome.Contains("bought ", StringComparison.Ordinal)
+            && block.Outcome.Contains(" tons of supply", StringComparison.Ordinal));
+
+    /// <summary>
+    /// Done-when 1, read literally: "each line's outcome in the transcript is an accepted command, not a
+    /// rejection." Checked per script line (<see cref="GoldenTranscriptBlocks"/>), not by scanning the
+    /// whole transcript for one fixed substring — <see langword="rejected"/> is only one of several
+    /// non-acceptance shapes the session prints (<c>Usage: ...</c>, <c>Unknown command '...'</c>,
+    /// <c>There is no pending peace treaty offer.</c>, a peace-treaty offer "addressed to" someone else,
+    /// the watch-mode "no seat to command" line, which carries no parenthesis at all), and a golden could
+    /// pass a bare <c>"rejected ("</c> search while still containing one of those.
+    /// </summary>
+    /// <remarks>
+    /// T80 rework round 1, N2: the previous version of both "no rejection" tests below asserted only
+    /// <c>Assert.DoesNotContain("rejected (", golden)</c>, which is silent on every shape named above.
+    /// Proved by mutation: inserting a repeated <c>peace-yes</c> (prints "There is no pending peace treaty
+    /// offer."), a malformed <c>join-armies army-8</c> (prints its own <c>Usage:</c> line) and an
+    /// <c>Unknown command 'frobnicate'</c> into <c>success.txt</c>, then regenerating the golden through
+    /// the CLI, left the old assertion green while this one fails, naming all three lines — reverted
+    /// afterward.
+    /// </remarks>
+    private static void AssertEveryMutatingLineProducedAnAcceptedOutcome(string golden)
+    {
+        var bad = GoldenTranscriptBlocks.Parse(golden)
+            .Where(b => !ReadOnlyVerbs.Contains(b.Verb) && !BlockLooksAccepted(b))
+            .Select(b => b.Line)
+            .ToList();
+
+        Assert.True(
+            bad.Count == 0,
+            "The following script line(s) did not produce an accepted outcome: " + string.Join(", ", bad));
+    }
 
     /// <summary>Runs every line through <paramref name="session"/> and renders exactly what the CLI would print.</summary>
     private static string RunTranscript(GameSession session, IEnumerable<string> scriptLines)
@@ -199,20 +274,11 @@ public sealed class SuccessScriptTests
         Assert.Equal(first, second);
     }
 
-    /// <summary>
-    /// Done-when 1, read literally: "each line's outcome in the transcript is an accepted command, not a
-    /// rejection." Every mutating line's own outcome is exactly a <c>"{kind} accepted."</c> line
-    /// (<see cref="GameSession.Commands"/>'s generic renderer), a composed
-    /// <c>diplomacy.declare-war accepted (composed ahead of the attack).</c> line, or one of the two
-    /// hand-worded successes T41 pins (<c>move</c> and <c>buy</c>) — never a <c>"... rejected (...)"</c>
-    /// line, anywhere in the whole transcript.
-    /// </summary>
+    /// <summary>See <see cref="AssertEveryMutatingLineProducedAnAcceptedOutcome"/>.</summary>
     [Fact]
-    public void No_line_in_the_success_golden_transcript_is_a_rejection()
+    public void Every_mutating_line_in_the_success_golden_produced_an_accepted_outcome()
     {
-        var golden = File.ReadAllText(SuccessGoldenPath);
-
-        Assert.DoesNotContain("rejected (", golden, StringComparison.Ordinal);
+        AssertEveryMutatingLineProducedAnAcceptedOutcome(File.ReadAllText(SuccessGoldenPath));
     }
 
     // ---- success-fleet.txt ----
@@ -246,12 +312,10 @@ public sealed class SuccessScriptTests
         Assert.Equal(first, second);
     }
 
-    /// <summary>No line in the fleet golden is a rejection either — see the class remarks above.</summary>
+    /// <summary>See <see cref="AssertEveryMutatingLineProducedAnAcceptedOutcome"/>.</summary>
     [Fact]
-    public void No_line_in_the_fleet_golden_transcript_is_a_rejection()
+    public void Every_mutating_line_in_the_fleet_golden_produced_an_accepted_outcome()
     {
-        var golden = File.ReadAllText(SuccessFleetGoldenPath);
-
-        Assert.DoesNotContain("rejected (", golden, StringComparison.Ordinal);
+        AssertEveryMutatingLineProducedAnAcceptedOutcome(File.ReadAllText(SuccessFleetGoldenPath));
     }
 }
