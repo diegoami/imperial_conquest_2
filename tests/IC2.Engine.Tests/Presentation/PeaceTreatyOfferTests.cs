@@ -344,6 +344,50 @@ public sealed class PeaceTreatyOfferTests
     }
 
     /// <summary>
+    /// T87, N-g's own core case: "Human A's unanswered offer no longer drops human B's qualifying offer."
+    /// South's AI turn beats north (offer pending for north); before north ever gets a prompt of its own,
+    /// east — active next — loses its own battle against the same south, which must still raise east's
+    /// own offer rather than being silently dropped because a slot was already occupied. Both offers are
+    /// then shown to be answerable independently: east answers its own first, then north answers its own
+    /// once rotation returns to it, neither one touching the other's slot.
+    /// </summary>
+    [Fact]
+    public void HotseatTwoHumans_BothHaveIndependentOffersPendingAtOnce_NeitherDropsTheOther()
+    {
+        var session = EliminatedOfferedHumanFixture();
+
+        session.Submit("declare-war south");
+        var afterAiTurn = session.Submit("end"); // south's AI turn beats north; offer pending for north.
+        Assert.Contains(
+            afterAiTurn.Lines,
+            l => l.Contains("After defeating you in battle", StringComparison.Ordinal)
+                 && l.Contains("willing to end the war", StringComparison.Ordinal));
+        Assert.Equal("east", session.State.ActiveNationId);
+
+        // East, still at its own prompt with north's own offer untouched and unanswered, loses its own
+        // battle against south -- before this fix, the one shared slot was already occupied, so this
+        // would have raised nothing at all.
+        var eastBattle = session.Submit("attack-army east-weak south-army-1");
+        Assert.Contains(eastBattle.Lines, l => l.Contains("willing to end the war", StringComparison.Ordinal));
+        Assert.Contains(
+            eastBattle.Lines,
+            l => l.Contains("peace-yes", StringComparison.Ordinal) && l.Contains("peace-no", StringComparison.Ordinal));
+
+        // East answers its own -- not north's, and doing so does not touch north's own slot.
+        var eastYes = session.Submit("peace-yes");
+        Assert.Contains(
+            eastYes.Lines, l => l.Contains("diplomacy.accept-peace-treaty accepted", StringComparison.Ordinal));
+
+        // North's own offer, from the earlier battle, survived east's own answer untouched -- it can
+        // still answer it once its own turn comes back around.
+        session.Submit("end"); // east ends its own turn.
+        Assert.Equal("north", session.State.ActiveNationId);
+        var northYes = session.Submit("peace-yes");
+        Assert.Contains(
+            northYes.Lines, l => l.Contains("diplomacy.accept-peace-treaty accepted", StringComparison.Ordinal));
+    }
+
+    /// <summary>
     /// Rework round 3, R3: the reviewer's own probe. South's AI turn raises an offer addressed to north;
     /// east then eliminates north (its only city, taken by <c>besiege-city</c>) before north ever answers.
     /// Before this fix, the stale offer stayed pending forever -- east's own <c>peace-yes</c>/<c>peace-no</c>
