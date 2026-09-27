@@ -437,6 +437,52 @@ Example:
 
 ---
 
+## Authoring Custom Rulesets
+
+While the shipped rulesets (`classical-faithful` and `improved`) cover the game's core mechanics, a modder can create entirely custom rulesets by authoring a new `.json` file under `data/rulesets/`.
+
+A custom ruleset file follows the exact structure of `Ruleset` in this document. **Every numeric value must carry provenance**:
+- **`confirmed:`** if transcribed from a report in `docs/reports/`
+- **`designed:`** if a new design choice (must state what was searched and found empty)
+- **`derived:`** if computed from other confirmed data
+
+### Example: Custom ruleset based on a shipped one
+
+A practical approach is to copy a shipped ruleset (e.g., `classical-faithful.json`), change a few clearly-labelled values, and document each change with `_provenance`. For instance:
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "my-custom-ruleset",
+  "name": "My House Rules",
+  "description": "Classical rules with house-rule modifications",
+  "calendar": { /* ... copy from classical-faithful ... */ },
+  "economy": {
+    "taxableIncome": 150,
+    "_provenance": {
+      "taxableIncome": "designed: lowered from 200 to make economy tighter. Searched docs/reports/ and no original value was found to lock to, so this is a design choice."
+    }
+    /* ... rest of economy ... */
+  },
+  /* ... other rule sections ... */
+}
+```
+
+Then author a scenario referencing it:
+
+```json
+{
+  "id": "my-scenario",
+  "worldId": "classical-mediterranean",
+  "rulesetId": "my-custom-ruleset",
+  /* ... */
+}
+```
+
+Load with: `IC2.Cli --scenario my-scenario`
+
+---
+
 ## Tips for custom scenarios
 
 1. **Keep it small for testing**: Use a small world (e.g., 10×10) for fast unit tests.

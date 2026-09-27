@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "id": "classical-med-improved-ruleset",
+  "id": "example-classical-improved",
   "name": "Classical Mediterranean with Improved Ruleset",
   "worldId": "classical-mediterranean",
   "rulesetId": "improved",

@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "id": "tiny-duel-scenario",
+  "id": "example-tiny-duel",
   "name": "Tiny Duel: Two Nations on a Small World",
-  "worldId": "tiny-duel-world",
+  "worldId": "example-tiny-duel",
   "rulesetId": "toy-ruleset",
   "seats": [
     {
