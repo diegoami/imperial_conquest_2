@@ -1,6 +1,6 @@
+split-army army-8 mac-detached 0
 split-army army-8 mac-split 0
 join-armies army-8 mac-split
-split-army army-8 mac-detached 0
 split-army army-8 mac-marines 1
 split-army army-8 mac-spare 1
 order-city pella fortify 1
@@ -25,18 +25,25 @@ move army-8 135 52
 end
 besiege-city army-8 phoenice
 end
+split-army army-8 mac-sac-1 0
+end
+move mac-sac-1 151 31
+end
+move mac-sac-1 151 31
+end
+move mac-sac-1 151 31
+end
+move mac-sac-1 151 31
+end
+move mac-sac-1 151 31
+end
+attack-army mac-sac-1 army-14
+peace-yes
 make-peace illyria
-end
-accept-offer
-end
-end
 mobilize 0 mac-recruit-0
 end
 mobilize 0 mac-recruit-1
 join-units mac-marines 1 2
-end
-end
-end
 end
 move-fleet mac-fleet-1 149 40
 split-fleet mac-fleet-1 mac-fleet-2 10
@@ -45,6 +52,8 @@ join-fleets mac-fleet-1 mac-fleet-2
 buy-fleet-supply mac-fleet-1 amphipolis 5
 repair-fleet mac-fleet-1 1
 scuttle-fleet mac-fleet-1
+end
+accept-offer
 status
 news
 quit

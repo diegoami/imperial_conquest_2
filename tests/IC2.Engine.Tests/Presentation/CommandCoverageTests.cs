@@ -36,14 +36,15 @@ namespace IC2.Engine.Tests.Presentation;
 /// that is not AI-controlled (<c>AiFormAllianceRejections.IssuerNotAi</c> and its two siblings), so even
 /// adding a verb for them would only ever print a refusal from a human seat — these are the AI's own
 /// direct, no-consent writes, not a human order with no keyboard shortcut yet.</description></item>
-/// <item><description><see cref="ConfirmedUnreachable"/> — five command types that <em>do</em> have a
-/// real CLI verb, wired exactly like every other command here, but that cannot be driven to an accepted
-/// outcome by any script this task can still call thin, each for a reason confirmed by reading the
-/// engine (not merely by running out of turns) — see each entry's own remark, and
-/// <see cref="Presentation.SuccessScriptTests"/>'s class remarks for the full account of all five. This is
-/// this task's own Hazards note, followed literally: "If an order cannot be made to succeed ... do not
-/// change <c>src/</c>. STOP and report which command, and why. That is a defect or a gap for the main
-/// session to plan." rather than force one.</description></item>
+/// <item><description><see cref="ConfirmedUnreachable"/> — <strong>keyed exceptions, and nothing else</strong>
+/// (docs/tasks/T80.md Done-when 2b, added 2026-09-27 after PR #452's review): exactly three command types
+/// that <em>do</em> have a real CLI verb, wired exactly like every other command here, each keyed to the
+/// GitHub issue whose own task removes it, and each named with its reason inline — see
+/// <see cref="Presentation.SuccessScriptTests"/>'s class remarks for the full account. <c>attack-fleet</c>
+/// and <c>peace-yes</c> — the two PR #452 originally reported as unreachable too — get no exception per
+/// that same Done-when 2b: both now have an accepted line (<c>success-fleet.golden.txt</c> and a
+/// re-seeded <c>success.golden.txt</c> respectively), described in full in
+/// <c>SuccessScriptTests</c>.</description></item>
 /// </list>
 /// </remarks>
 public sealed class CommandCoverageTests
@@ -75,17 +76,35 @@ public sealed class CommandCoverageTests
     };
 
     /// <summary>
-    /// Five command types with a real CLI verb that cannot be driven to an accepted outcome by any script
-    /// — see <see cref="Presentation.SuccessScriptTests"/>'s class remarks for the full, per-type account
-    /// this class only summarises.
+    /// docs/tasks/T80.md Done-when 2b: "The coverage test may exempt exactly these, each named in the
+    /// test with its reason ... Each keyed exception names its issue. The task that closes that issue
+    /// removes the exception and adds the command's line to the success script." Three entries, no more:
+    /// <c>attack-fleet</c> and <c>peace-yes</c> are deliberately absent — both must succeed, and both do
+    /// (see <see cref="Presentation.SuccessScriptTests"/>'s class remarks).
     /// </summary>
     private static readonly HashSet<string> ConfirmedUnreachable = new(StringComparer.Ordinal)
     {
-        "recruitment.hire-mercenary", // the mercenary pool is never populated by any merged system (T56, #229, still open).
-        "naval.embark-army", // an army can never occupy the same cell as a fleet -- see SuccessScriptTests.
-        "naval.disembark-army", // can only ever follow a successful embark, which is itself unreachable.
-        "battle.attack-fleet", // no nation both owns a fleet and can still succeed at propose-alliance.
-        "diplomacy.accept-peace-treaty", // the post-battle offer needs a further, independent 1-in-5 roll this seed never hit.
+        // Keyed to #229 (T56, the quarterly mercenary restock, still open). GameStateFactory.CreateInitial
+        // hardcodes MercenaryPool empty for every scenario -- no world/scenario JSON field feeds it -- and
+        // the only write to GameState.MercenaryPool anywhere in the engine is OriginalSaveImporter's (a
+        // legacy-save import the CLI has no flag to reach). T56's own Scope line ("T22's soak fires the
+        // hire in the first quarters") describes the ORIGINAL decompiled game, not this reimplementation:
+        // AiEconomyPhase never calls HireMercenaryCommand at all (confirmed by grep), so no AI turn, in any
+        // scenario, at any seed, can populate or drain the pool either. T56 removes this exception.
+        "recruitment.hire-mercenary",
+
+        // Keyed to #453 (T93). EmbarkArmyCommandHandler requires the army and the fleet at the exact same
+        // (X, Y). MoveArmyCommandHandler blocks an army from ever entering any city's own cell (friendly or
+        // not), while a fleet can only ever occupy a sea cell or, by CoastalCity's own documented exception,
+        // a city's cell (for repairing) -- never open land. No cell is ever both "an army can stand here"
+        // and "a fleet can stand here": confirmed against this world's actual terrain grid at four
+        // different coastal cities, and true of the move handlers' own rules regardless of world or seed.
+        // T93 removes this exception.
+        "naval.embark-army",
+
+        // Keyed to #453 (T93) too: disembark-army can only ever follow a successful embark, which is
+        // itself unreachable for the same reason.
+        "naval.disembark-army",
     };
 
     /// <summary>
@@ -204,12 +223,17 @@ public sealed class CommandCoverageTests
     /// <summary>
     /// Done-when 2, second half: "or has no line in the success-path script that the golden shows
     /// accepted" — for every command type this class has not named as a confirmed, documented gap.
+    /// Done-when 2b widened this to two goldens (<c>success.golden.txt</c> carries every command except
+    /// <c>attack-fleet</c>; <c>success-fleet.golden.txt</c> carries only <c>attack-fleet</c>) — a type
+    /// passes if its accepted line shows up in either.
     /// </summary>
     [Fact]
     public void Every_reachable_command_type_has_an_accepted_line_in_the_success_golden()
     {
         var golden = File.ReadAllText(
-            Path.Combine(ModelTestPaths.RepositoryRoot, "tests", "fixtures", "cli", "success.golden.txt"));
+            Path.Combine(ModelTestPaths.RepositoryRoot, "tests", "fixtures", "cli", "success.golden.txt"))
+            + File.ReadAllText(
+            Path.Combine(ModelTestPaths.RepositoryRoot, "tests", "fixtures", "cli", "success-fleet.golden.txt"));
 
         var missing = new List<string>();
         foreach (var commandType in AllCommandTypes)
@@ -228,7 +252,7 @@ public sealed class CommandCoverageTests
 
         Assert.True(
             missing.Count == 0,
-            "The following command type(s) have no accepted line in success.golden.txt: "
+            "The following command type(s) have no accepted line in success.golden.txt or success-fleet.golden.txt: "
             + string.Join(", ", missing));
     }
 
