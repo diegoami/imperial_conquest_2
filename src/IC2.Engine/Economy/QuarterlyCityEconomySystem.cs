@@ -30,9 +30,43 @@ namespace IC2.Engine.Economy;
 /// own code order — runs <see cref="Rebellion.Run"/> for any city whose draws leave it under
 /// <see cref="EconomyRules.RebellionLoyaltyThreshold"/> and not a capital, before moving to the next city
 /// in that same list order. T89: this replaces the old, unconsumed <c>RebellionRiskDetected</c>
-/// publication. <see cref="NationTaxBaseRebuild.Rebuild"/> runs once, after the loop, over the final city
-/// list — pure and idempotent (zero-then-sum over each city's current owner and population), so running it
-/// once at the end gives the same result as running it after every city, without the redundancy.
+/// publication.
+/// </para>
+/// <para>
+/// <strong>T87 rework round 2 (review R6): wealth and tax base — the reasoning below this remark
+/// previously carried was wrong, and this system's own shape is an intentionally named, still-open
+/// divergence, not a fix.</strong> <see cref="NationTaxBaseRebuild.Rebuild"/> runs once, after the whole
+/// loop, over the <em>final</em> city list — a claim that this "gives the same result as running it after
+/// every city" is false whenever a city changes owner mid-loop: the original (<c>FUN_00451b40</c>, dump
+/// :54832–54836) credits each city's own <c>population×3000</c> and <c>contribution×4</c> to whichever
+/// nation owns it <em>at the moment its own growth runs</em>, right before that same city's own loyalty
+/// draws — not to whichever nation ends up owning it once the whole quarter has settled.
+/// </para>
+/// <para>
+/// <strong>Why this is not simply fixed by crediting each city once, at its own growth.</strong> Doing so
+/// (with every nation's <c>Wealth</c>/<c>TaxBase</c> zeroed once before the loop, matching the report's own
+/// "zeroed" step) was tried and reverted: <see cref="Rebirth.Run"/> defects every qualifying city — not
+/// only the one whose own rebellion triggered it — in one call, so a city later in
+/// <see cref="GameState.Cities"/>' own list order than the triggering one is moved to the reborn nation
+/// <em>before this loop's own iteration ever reaches it</em>, at whatever population it held at that
+/// moment (not yet grown this quarter). <see cref="CityOwnershipTaxTransfer.Transfer"/> — the same
+/// full-value move <see cref="CityCaptureResolver.Defect"/> already makes for any ownership change, reused
+/// here as everywhere else, never a second implementation — moves that (pre-growth) value from the old
+/// owner to the reborn one immediately. When this loop's own iteration later reaches that same city and
+/// grows it, a second, <em>full</em> credit under the new owner double-counts the city's own contribution;
+/// crediting only <em>growth's own delta</em> instead avoids the double count only if every nation's
+/// <c>Wealth</c>/<c>TaxBase</c> already correctly reflects its cities' <em>current</em> contribution
+/// before this quarter began — true only if some earlier mechanism (a previous quarter's own full rebuild)
+/// already established it, which a freshly-loaded <see cref="Model.World"/>'s own author-provided
+/// <see cref="Model.NationDefinition.Wealth"/>/<see cref="Model.NationDefinition.TaxBase"/> fields are not
+/// guaranteed to (<see cref="Model.GameStateFactory"/> copies them as given, never rebuilding them against
+/// city ownership) — exactly the gap a full, zero-then-sum rebuild exists to close. Reconciling a
+/// per-city, growth-time credit against <see cref="Rebirth.Run"/>'s own already-merged, multi-city sweep
+/// needs either a decompile-level check of how <c>FUN_00451b40</c> and <c>FUN_0044bed8</c>/<c>FUN_0044bb18</c>
+/// actually interact when a rebirth moves a city ahead of its own turn (this task's own Owns list does not
+/// reach the research repository), or a design decision on which of the two known-imperfect shapes to
+/// keep. Left as this system's own pre-existing shape (the final rebuild) rather than a confidently wrong
+/// replacement — the user's decision, not invented here.
 /// </para>
 /// <para>
 /// <strong>Why interleaved, not split.</strong> An earlier revision of this system ran two passes — every
@@ -135,11 +169,10 @@ public sealed class QuarterlyCityEconomySystem : IQuarterBoundaryHandler
             }
         }
 
+        // T87 rework round 2 (review R6): kept as this system's own pre-existing shape, a named divergence
+        // -- see this class's own remarks on why a per-city, growth-time credit was tried and reverted.
         // NationTaxBaseRebuild.Rebuild is pure (zero-then-sum over state.Cities' own current owner and
-        // population, city-population-growth.md.cs's own remarks) -- run once, after every city's own
-        // growth and every rebellion/rebirth this quarter has settled ownership, it reflects exactly
-        // "after that quarter's population growth" against the FINAL city list, the same result running
-        // it once per city (redundant, since it always recomputes from scratch) would give.
+        // population), run once after the loop against the final city list.
         state = NationTaxBaseRebuild.Rebuild(state, ruleset);
 
         return state;

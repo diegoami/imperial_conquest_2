@@ -541,4 +541,77 @@ public sealed class QuarterlyCityEconomySystemTests
         Assert.Equal("q7", reborn.CapitalCityId);
         Assert.Equal("dead", result.CityById("q7")!.Owner); // stays put: the live capital read excludes it.
     }
+
+    /// <summary>
+    /// Review round 2, R6 (the "growth under the reborn owner" half — the wealth/tax-base half is a named,
+    /// still-open divergence instead; see <see cref="QuarterlyCityEconomySystem"/>'s own remarks on why a
+    /// per-city, growth-time credit was tried and reverted). <c>q0</c>'s own rebellion triggers
+    /// <see cref="Rebirth.Run"/> mid-loop (eight qualifying cities, over
+    /// <see cref="EconomyRules.RebirthMinimumQualifyingCityCount"/>'s 7): all eight (<c>q0..q7</c>) defect
+    /// to "dead" inside that same call, before <c>q1..q7</c> have had their own turn in this system's own
+    /// per-city loop at all. "owner"'s own tax rate (50) and mobilization (0) differ from "dead"'s own
+    /// reset values (<see cref="EconomyRules.RebirthTaxRatePercent"/> 20,
+    /// <see cref="EconomyRules.RebirthMobilizedPercent"/> 50), so growth under the wrong owner's rates is
+    /// numerically distinguishable, not merely a different id.
+    /// </summary>
+    /// <remarks>
+    /// <c>q7</c> is reached by this system's own per-city loop <em>after</em> <c>q0</c>'s own rebirth has
+    /// already defected it to "dead" -- its own growth must therefore read "dead"'s own (reborn) tax rate
+    /// and mobilization, not "owner"'s pre-rebirth ones, or "owner"'s stale rates it never actually had
+    /// once this quarter's rebirth ran. Proved by mutation: reading each city's own owner from a snapshot
+    /// taken before this loop runs (<c>context.State.CityById(cityId)!.Owner</c>, rather than the live
+    /// <c>state.CityById(cityId)!.Owner</c> this system already uses) makes <c>q7</c>'s own expected
+    /// population assertion below fail (it would still grow under "owner"'s own rates instead), verified
+    /// locally and reverted.
+    /// </remarks>
+    [Fact]
+    public void ARebirthMidQuarter_GrowsALaterCityUnderTheRebornOwnersOwnRates()
+    {
+        var ruleset = EconomyTestbed.Ruleset;
+        var economy = ruleset.Economy;
+
+        var dead = CaptureTestbed.Nation("dead", unity: 0, eliminated: true);
+        var owner = CaptureTestbed.Nation("owner", unity: 600) with { TaxRatePercent = 50, MobilizedPercent = 0 };
+
+        var candidates = new List<CityState>();
+        for (var i = 0; i < 8; i++)
+        {
+            candidates.Add(CaptureTestbed.City(
+                $"q{i}", $"Q{i}", 0, 0, "owner", "dead", loyalty: 20, fortificationCode: 0,
+                populationThousands: 10, maxPopulationThousands: 500, tribute: 5));
+        }
+
+        var state = EliminationForcesTestbed.StateWith(new[] { dead, owner }, candidates);
+
+        // Eight cities total (q0..q7), each drawing exactly one fall roll ("owner"'s own tax rate, 50, is
+        // >= lowTaxLoyaltyThresholdPercent, so the rise draw is always skipped) -- all scripted to miss,
+        // so nothing here moves loyalty except the rebellion/rebirth decision itself.
+        var rng = new ScriptedRng(
+            nextChanceDraws: Enumerable.Repeat(false, 8).ToArray(),
+            nextIntDraws: new[] { 0 });
+        var sink = new RecordingEventSink();
+        var context = new QuarterBoundaryContext(state, ruleset, EconomyTestbed.Toy.World, EndingSeasonIndex: 0, rng, sink);
+
+        var result = new QuarterlyCityEconomySystem().OnQuarterBoundary(context);
+
+        Assert.Equal("dead", result.CityById("q7")!.Owner);
+        Assert.False(result.NationById("dead")!.Eliminated);
+
+        // q7's own growth, computed here under "dead"'s own reborn rates -- the value this system's own
+        // live owner-fetch must match.
+        var expectedQ7Growth = CityPopulationGrowth.Grow(
+            populationThousands: 10, maxPopulationThousands: 500,
+            ownerTaxRatePercent: economy.RebirthTaxRatePercent, ownerMobilizedPercent: economy.RebirthMobilizedPercent,
+            threatened: false, economy);
+        Assert.Equal(expectedQ7Growth, result.CityById("q7")!.PopulationThousands);
+
+        // The same growth, under "owner"'s own (wrong, pre-rebirth) rates, is a different number --
+        // proving this assertion actually distinguishes the two, not merely restating whatever the code
+        // happens to produce.
+        var growthUnderOwnersOwnRates = CityPopulationGrowth.Grow(
+            populationThousands: 10, maxPopulationThousands: 500,
+            ownerTaxRatePercent: owner.TaxRatePercent, ownerMobilizedPercent: owner.MobilizedPercent,
+            threatened: false, economy);
+        Assert.NotEqual(growthUnderOwnersOwnRates, expectedQ7Growth);
+    }
 }
