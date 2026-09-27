@@ -1,0 +1,7 @@
+move-fleet north-fleet-1 0 5
+end
+move-fleet north-fleet-1 6 5
+attack-fleet north-fleet-1 south-fleet-1
+status
+news
+quit
