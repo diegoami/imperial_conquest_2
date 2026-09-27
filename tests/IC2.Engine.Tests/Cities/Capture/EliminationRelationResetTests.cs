@@ -233,45 +233,21 @@ public sealed class EliminationRelationResetTests
         Assert.Equal(codes.Trade, result.Relations.Get(NotYetDoomed, TradePartner));
     }
 
-    /// <summary>
-    /// DoD 4, bullet 4 (the "already eliminated" half of the gate): contrived but directly exercises
-    /// <c>JustEliminated</c>'s idempotency one layer above <c>NationElimination</c> itself, mirroring
-    /// <c>EliminationTests.ApplyIfLastCityLost_AlreadyEliminated_ReturnsUnchangedAndNotJustEliminated</c> —
-    /// a nation already marked eliminated that (only for this test) still owns the city being captured, so
-    /// the reset must not fire a second time. The Hazards note in <c>docs/tasks/T69.md</c> is explicit that
-    /// no live game state can reach this: an eliminated nation owns no city, so no later capture can ever
-    /// name it as the old owner.
-    /// </summary>
-    [Fact]
-    public void Capture_OfACityOwnedByAnAlreadyEliminatedNation_LeavesRelationsUnchanged()
-    {
-        const string AlreadyDoomed = "already-doomed";
-        const string Conqueror = "conqueror-already";
-        const string TradePartner = "trade-partner-already";
-
-        var alreadyDoomed = CaptureTestbed.Nation(AlreadyDoomed, unity: 0, eliminated: true);
-        var conqueror = CaptureTestbed.Nation(Conqueror);
-        var tradePartner = CaptureTestbed.Nation(TradePartner);
-
-        var city = CaptureTestbed.City(
-            "already-doomed-city", "City", 0, 0, AlreadyDoomed, AlreadyDoomed,
-            loyalty: 40, fortificationCode: 0, populationThousands: 10, maxPopulationThousands: 20, tribute: 5);
-        var attacker = CaptureTestbed.Army(
-            "army", Conqueror, 0, 0, morale: 50, CaptureTestbed.Unit("heavy_infantry", 400_000));
-
-        var state = CaptureTestbed.StateWith(
-            new[] { alreadyDoomed, conqueror, tradePartner }, new[] { city }, new[] { attacker });
-        state = WithRelationMatrix(state, AlreadyDoomed, Conqueror, TradePartner);
-
-        var codes = Ruleset.Diplomacy.StateCodes;
-        state = state with { Relations = state.Relations.WithRelation(AlreadyDoomed, TradePartner, codes.Trade) };
-
-        var result = CityCaptureResolver.Capture(
-            state, "army", "already-doomed-city", Ruleset, CaptureTestbed.ArcherUnitTypeId,
-            CaptureTestbed.FortifyOrderId, new RecordingEventSink());
-
-        Assert.Equal(codes.Trade, result.Relations.Get(AlreadyDoomed, TradePartner));
-    }
+    // T92 (bug #424): Capture_OfACityOwnedByAnAlreadyEliminatedNation_LeavesRelationsUnchanged, formerly
+    // here, is retired. It pinned ConquestTrigger.Evaluate's own (then-present) `if (loser.Eliminated)`
+    // guard -- a capture against a city whose owner record already read Eliminated: true (contrived; the
+    // Hazards note in docs/tasks/T69.md is explicit that no live game state can reach this, since an
+    // eliminated nation owns no city for a later capture to ever name as the old owner) used to skip the
+    // whole post-cascade routine, so the reset asserted here never ran a second time. Bug #424 removed
+    // that guard: FUN_0044BB18 has no liveness check of its own, so the decompile -- and now this engine
+    // -- runs the conquest routine (and the relation reset inside it) against this contrived input
+    // exactly like any other sub-threshold capture, breaking AlreadyDoomed's trade with TradePartner down
+    // to its cooldown. Since the scenario is already established as unreachable through real play, and
+    // the conquest routine's own effects on a live capture are pinned by StaleCapitalPostSweepBranchTests
+    // and the Cities/Capture suite's many other conquest tests, this contrived case is dropped rather than
+    // flipped to assert the opposite of what it used to: it would add no coverage
+    // NationElimination.ApplyIfLastCityLost_AlreadyEliminated_ReturnsUnchangedAndNotJustEliminated (the
+    // Defect path's own idempotency, still exercised and still correct) does not already give.
 
     /// <summary>
     /// DoD 4, bullet 5: a pair already at peace, or already on a cooldown, holds whatever
