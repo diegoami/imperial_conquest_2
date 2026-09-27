@@ -809,6 +809,44 @@ public sealed class SeatCliTests
         });
     }
 
+    /// <summary>
+    /// T87, bug #380: the human deposition check moved to the true start of the seat's own turn, before
+    /// it can issue any order — not, as before, inside the processing its own <c>end</c> triggers, after
+    /// it has already had a full turn to act. <c>north</c> is turn-order seat 1 here (south plays first),
+    /// so reaching it needs a real rotation, exactly the shape the bug was found in: "the engine deposes
+    /// only after the human types <c>end</c>", now fixed so the deposition happens when rotation reaches
+    /// the seat, before this session's own construction (which flushes south's play and north's own fall
+    /// into <see cref="GameSession"/>'s pending prelude) ever returns control for a first command.
+    /// </summary>
+    [Fact]
+    public void ADebtorSeatReachedByRotation_IsDeposedBeforeItsOwnFirstOrder_NotAfterItsOwnEnd()
+    {
+        var toy = CoreTestbed.Toy;
+        var world = toy.World with
+        {
+            Nations = ValueList.From(toy.World.Nations.Select(n =>
+                string.Equals(n.Id, "north", StringComparison.Ordinal) ? n with { Treasury = -1_000_000 } : n)),
+            TurnOrder = ValueList.Of("south", "north"),
+        };
+        var session = new GameSession(world, toy.Ruleset, toy.Scenario, humanSeatNationId: "north");
+
+        // Nothing has been submitted yet -- south's own play and north's own fall both happened during
+        // construction (AdvanceToHumanSeat), before any command could reach north at all. The first
+        // Submit call only flushes that pending prelude; it does not cause the fall.
+        Assert.Equal(SeatControl.Ai, session.State.NationById("north")!.Control);
+
+        var first = session.Submit("status");
+        Assert.Contains(
+            first.Lines,
+            l => l.Contains("Your army have deposed you", StringComparison.Ordinal)
+                 || l.Contains("Your unpopularity", StringComparison.Ordinal));
+
+        // north never had a prompt to give any order at all -- refused as "no seat to command" (watch
+        // mode), never as a real, even if illegal, order against north's own game state.
+        var attempted = session.Submit("move north-army-1 3 2");
+        Assert.Contains(attempted.Lines, l => l.Contains("no seat to command", StringComparison.Ordinal));
+    }
+
     // ---- Review round 1, N4 / bug #376: the round footer under-counts once the news ring buffer is full ----
 
     /// <summary>

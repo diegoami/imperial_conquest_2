@@ -7,9 +7,13 @@ namespace IC2.Engine.Tests.Economy;
 /// <summary>
 /// <c>docs/task-catalogue.md</c> "T39 Quarterly upkeep: who pays, mercenary desertion, and deposition
 /// for debt", Done-when 6's human clause: "a human nation in debt at the start of its turn is deposed
-/// and its seat passes to the AI." Run through the real <see cref="IC2.Engine.Core.TurnCoordinator"/>,
-/// narrowed to just this system, so the trigger is genuinely <see cref="IC2.Engine.Core.TurnPhase.SeatStart"/>
-/// — "the start of its turn" — not a direct call.
+/// and its seat passes to the AI"; widened by T87 (<c>#389</c>) to the system's own full four-way test
+/// (<see cref="Deposition.ShouldFallAtHumanTurnStart"/>). Run through the real
+/// <see cref="IC2.Engine.Core.TurnCoordinator"/>, narrowed to just this system, so the trigger is
+/// genuinely <see cref="IC2.Engine.Core.TurnPhase.SeatStart"/> — "the start of its turn" — not a direct
+/// call. This proves the <em>system's own</em> predicate is right; the CLI's own separate timing fix for
+/// bug #380 (checked <em>before</em> <see cref="IC2.Engine.Core.TurnCoordinator.RunTurn"/> is ever called for a human
+/// seat, not only inside it) is <c>GameSessionCommandsTests</c>' own concern.
 /// </summary>
 public sealed class HumanDepositionSystemTests
 {
@@ -45,6 +49,38 @@ public sealed class HumanDepositionSystemTests
 
         Assert.Equal(before, after.NationById("north"));
         Assert.Equal(SeatControl.Human, after.NationById("north")!.Control);
+    }
+
+    // ---- T87 (bug #380, #374): the other two of the four triggers FUN_00452034 actually ORs together
+    // (decompiled-elimination-cleanup.md §3), exercised the same way as the debt/unity arm above -- through
+    // the real pipeline, so the trigger is genuinely SeatStart. ----
+
+    [Fact]
+    public void RunTurn_HumanNationAtOrPastTheHardEndYear_IsDeposed_EvenWithNoOtherTrigger()
+    {
+        var state = EconomyTestbed.InitialState();
+        var ruleset = EconomyTestbed.Ruleset;
+        state = state with { Calendar = state.Calendar with { YearBc = ruleset.Victory.HardEndYearBc } };
+
+        var coordinator = EconomyTestbed.CoordinatorOnly(sink: null, typeof(HumanDepositionSystem));
+        var after = coordinator.RunTurn(state).State;
+
+        Assert.Equal(SeatControl.Ai, after.NationById("north")!.Control);
+    }
+
+    [Fact]
+    public void RunTurn_HumanNationOwningEveryCity_IsDeposed_EvenWithNoOtherTrigger()
+    {
+        var state = EconomyTestbed.InitialState();
+        state = state with
+        {
+            Cities = ValueList.From(state.Cities.Select(c => c with { Owner = "north", Allegiance = "north" })),
+        };
+
+        var coordinator = EconomyTestbed.CoordinatorOnly(sink: null, typeof(HumanDepositionSystem));
+        var after = coordinator.RunTurn(state).State;
+
+        Assert.Equal(SeatControl.Ai, after.NationById("north")!.Control);
     }
 
     [Fact]
