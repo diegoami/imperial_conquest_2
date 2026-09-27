@@ -31,6 +31,7 @@
     "worldId": "designed: references the custom tiny-duel-world, a small 5x5 test world",
     "rulesetId": "designed: uses the toy-ruleset for fast testing",
     "seats": "designed: demonstrates human vs AI seating on the custom world",
+    "seats[south-realm].personality": "designed: example/[designed] aggressive, expansionist, low-loyalty profile — the original's own AI is out of scope for reverse-engineering (docs/design-audit.md §1), so this is not a claim about the original game",
     "turnLimit": "designed: a limit appropriate for the small world",
     "randomSeed": "designed: fixed seed for reproducibility"
   }

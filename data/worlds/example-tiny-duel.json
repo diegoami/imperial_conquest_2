@@ -43,11 +43,15 @@
       "mobilizedPercent": 30,
       "population": 120,
       "_provenance": {
+        "colorHex": "designed: example/[designed] map colour for this toy fixture, not a claim about the original game",
+        "leaderName": "designed: example/[designed] flavour name for this toy fixture, not a claim about the original game",
         "treasury": "designed: a toy fixture value for the tiny-duel-world",
         "unity": "designed: set above 500 so the nations start at peace",
+        "wealth": "designed: toy fixture value specific to this small world",
         "taxBase": "designed: toy fixture value specific to this small world",
         "taxRatePercent": "confirmed shape: decompiled-quarterly-billing-and-economy.md",
-        "mobilizedPercent": "designed: toy fixture value"
+        "mobilizedPercent": "designed: toy fixture value",
+        "population": "designed: toy fixture value specific to this small world"
       }
     },
     {
@@ -64,10 +68,15 @@
       "mobilizedPercent": 25,
       "population": 110,
       "_provenance": {
+        "colorHex": "designed: example/[designed] map colour for this toy fixture, not a claim about the original game",
+        "leaderName": "designed: example/[designed] flavour name for this toy fixture, not a claim about the original game",
         "treasury": "designed: toy fixture value",
         "unity": "designed: set above 500 so the nations start at peace",
+        "wealth": "designed: toy fixture value specific to this small world",
         "taxBase": "designed: toy fixture value specific to this small world",
-        "mobilizedPercent": "designed: toy fixture value"
+        "taxRatePercent": "confirmed shape: decompiled-quarterly-billing-and-economy.md",
+        "mobilizedPercent": "designed: toy fixture value",
+        "population": "designed: toy fixture value specific to this small world"
       }
     }
   ],
@@ -95,8 +104,19 @@
         }
       ],
       "_provenance": {
-        "fortificationCode": "confirmed encoding: decompiled-unit-map-orders-and-record-fields.md",
-        "garrison[0].troops": "confirmed: unit-type-stat-table-in-dat.md — 6,000 is heavy infantry's standard battalion size"
+        "x": "designed: example/[designed] placement on this toy fixture's 5x5 map, not a claim about the original game",
+        "y": "designed: example/[designed] placement on this toy fixture's 5x5 map, not a claim about the original game",
+        "loyalty": "designed: toy fixture value",
+        "supplyTons": "designed: toy fixture value",
+        "fortificationCode": "designed: example/[designed] value (60%, no order pending) for this toy fixture, not a claim about the original game. The encoding itself (values at or below a ruleset's cityOrders.orders[].maxPercent are a plain finished percentage) is confirmed: decompiled-unit-map-orders-and-record-fields.md.",
+        "populationThousands": "designed: toy fixture value specific to this small world",
+        "maxPopulationThousands": "designed: toy fixture value specific to this small world",
+        "tribute": "designed: toy fixture value",
+        "garrison[0].mercenaryLabel": "designed: a regular (non-mercenary) unit, the example's own choice",
+        "garrison[0].unitTypeId": "designed: example's own choice of shipped unit type",
+        "garrison[0].troops": "confirmed: unit-type-stat-table-in-dat.md — 6,000 is heavy infantry's standard battalion size",
+        "garrison[0].quality": "designed: example/[designed] quality tier for this toy fixture, not a claim about the original game",
+        "garrison[0].name": "designed: example/[designed] flavour name for this toy fixture, not a claim about the original game"
       }
     },
     {
@@ -122,8 +142,19 @@
         }
       ],
       "_provenance": {
-        "fortificationCode": "confirmed encoding: decompiled-unit-map-orders-and-record-fields.md",
-        "garrison[0].troops": "confirmed: unit-type-stat-table-in-dat.md — 15,000 is light infantry's standard battalion size"
+        "x": "designed: example/[designed] placement on this toy fixture's 5x5 map, not a claim about the original game",
+        "y": "designed: example/[designed] placement on this toy fixture's 5x5 map, not a claim about the original game",
+        "loyalty": "designed: toy fixture value",
+        "supplyTons": "designed: toy fixture value",
+        "fortificationCode": "designed: example/[designed] value (60%, no order pending) for this toy fixture, not a claim about the original game. The encoding itself (values at or below a ruleset's cityOrders.orders[].maxPercent are a plain finished percentage) is confirmed: decompiled-unit-map-orders-and-record-fields.md.",
+        "populationThousands": "designed: toy fixture value specific to this small world",
+        "maxPopulationThousands": "designed: toy fixture value specific to this small world",
+        "tribute": "designed: toy fixture value",
+        "garrison[0].mercenaryLabel": "designed: a regular (non-mercenary) unit, the example's own choice",
+        "garrison[0].unitTypeId": "designed: example's own choice of shipped unit type",
+        "garrison[0].troops": "confirmed: unit-type-stat-table-in-dat.md — 15,000 is light infantry's standard battalion size",
+        "garrison[0].quality": "designed: example/[designed] quality tier for this toy fixture, not a claim about the original game",
+        "garrison[0].name": "designed: example/[designed] flavour name for this toy fixture, not a claim about the original game"
       }
     }
   ],
@@ -147,8 +178,17 @@
         }
       ],
       "_provenance": {
+        "x": "designed: example/[designed] placement on this toy fixture's 5x5 map, not a claim about the original game",
+        "y": "designed: example/[designed] placement on this toy fixture's 5x5 map, not a claim about the original game",
         "morale": "confirmed field: decompiled-unit-map-orders-and-record-fields.md",
-        "money": "confirmed field and value shape: decompiled-unit-map-orders-and-record-fields.md"
+        "money": "confirmed field and value shape: decompiled-unit-map-orders-and-record-fields.md",
+        "supplyTons": "designed: toy fixture value",
+        "moves": "designed: toy fixture value",
+        "units[0].mercenaryLabel": "designed: a regular (non-mercenary) unit, the example's own choice",
+        "units[0].unitTypeId": "designed: example's own choice of shipped unit type",
+        "units[0].troops": "confirmed: unit-type-stat-table-in-dat.md — 15,000 is light infantry's standard battalion size",
+        "units[0].quality": "designed: example/[designed] quality tier for this toy fixture, not a claim about the original game",
+        "units[0].name": "designed: example/[designed] flavour name for this toy fixture, not a claim about the original game"
       }
     },
     {
@@ -170,8 +210,17 @@
         }
       ],
       "_provenance": {
+        "x": "designed: example/[designed] placement on this toy fixture's 5x5 map, not a claim about the original game",
+        "y": "designed: example/[designed] placement on this toy fixture's 5x5 map, not a claim about the original game",
         "morale": "confirmed field: decompiled-unit-map-orders-and-record-fields.md",
-        "money": "confirmed field: decompiled-unit-map-orders-and-record-fields.md"
+        "money": "confirmed field: decompiled-unit-map-orders-and-record-fields.md",
+        "supplyTons": "designed: toy fixture value",
+        "moves": "designed: toy fixture value",
+        "units[0].mercenaryLabel": "designed: a regular (non-mercenary) unit, the example's own choice",
+        "units[0].unitTypeId": "designed: example's own choice of shipped unit type",
+        "units[0].troops": "confirmed: unit-type-stat-table-in-dat.md — 6,000 is heavy infantry's standard battalion size",
+        "units[0].quality": "designed: example/[designed] quality tier for this toy fixture, not a claim about the original game",
+        "units[0].name": "designed: example/[designed] flavour name for this toy fixture, not a claim about the original game"
       }
     }
   ],
