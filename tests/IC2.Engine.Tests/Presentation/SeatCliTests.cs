@@ -948,6 +948,98 @@ public sealed class SeatCliTests
     }
 
     /// <summary>
+    /// T87 rework round 2, R3: the ending seat's own turn can eliminate it, not only some other seat's --
+    /// when that seat is also the round's own last seat, the same <c>RunTurn</c> call also runs every
+    /// round-scoped phase, including the quarterly economic tick's rebellion/rebirth, which can defect
+    /// away a human's last city inside its own <c>end</c>. A third nation ("owner") holds one of the
+    /// toy world's three cities throughout, deliberately, so north does not end up owning literally every
+    /// city on the map once south's own city defects to it -- the reviewer's own probe confounded exactly
+    /// this: north incidentally hit its own, unrelated total-conquest fall trigger at its own next turn
+    /// start, producing *some* fall line regardless of whether this fix existed, which proved nothing
+    /// about south's own missing one.
+    /// </summary>
+    /// <remarks>
+    /// "meridia" is deliberately south's <em>only</em> city but not its capital: south's own
+    /// <see cref="NationState.CapitalCityId"/> is overridden to <see langword="null"/>, since
+    /// <see cref="CapitalOwnership.IsAnyNationsCapital"/> would otherwise exclude "meridia" from ever
+    /// being a rebellion candidate at all. Its own allegiance is overridden to "north" (not "south"), and
+    /// its loyalty to 5, so <see cref="Rebellion"/>'s branch (b) (owner ≠ allegiance, allegiance alive)
+    /// picks it the moment the quarterly loyalty draws leave it under
+    /// <see cref="EconomyRules.RebellionLoyaltyThreshold"/> -- south's own tax rate (the toy world's
+    /// shipped 20, above <see cref="EconomyRules.LowTaxLoyaltyThresholdPercent"/>'s 11) already skips the
+    /// rise draw deterministically, so loyalty never moves off 5 regardless of the real, unscripted
+    /// <see cref="IRng"/> this session actually plays with. The ruleset's own
+    /// <see cref="CalendarRules.StartWeek"/> is overridden to <see cref="CalendarRules.SeasonAdvanceFromWeek"/>
+    /// so the very first round already wraps the quarter boundary.
+    /// </remarks>
+    [Fact]
+    public void ATurnEndingSeatsOwnRoundScopedQuarterTick_CanEliminateItThatSameEnd()
+    {
+        var toy = CoreTestbed.Toy;
+        var ownerNation = new NationDefinition(
+            Id: "owner", Name: "Ownership League", ColorHex: "#795548", LeaderName: "Toy Leader of Ownership",
+            CapitalCityId: "portus", Treasury: 400, Unity: 600, Wealth: 300, TaxBase: 100, TaxRatePercent: 15,
+            MobilizedPercent: 10, Population: 80);
+        var portusToOwner = toy.World.Cities.Single(c => c.Id == "portus") with { Owner = "owner", Allegiance = "owner" };
+        var meridiaRebellionCandidate = toy.World.Cities.Single(c => c.Id == "meridia") with
+        {
+            Allegiance = "north",
+            Loyalty = 5,
+        };
+        var southNoCapital = toy.World.NationById("south")! with { CapitalCityId = null };
+
+        var world = toy.World with
+        {
+            Nations = ValueList.From(
+                toy.World.Nations.Select(n => n.Id == "south" ? southNoCapital : n).Append(ownerNation)),
+            Cities = ValueList.From(
+                toy.World.Cities.Select(c => c.Id switch
+                {
+                    "portus" => portusToOwner,
+                    "meridia" => meridiaRebellionCandidate,
+                    _ => c,
+                })),
+            TurnOrder = ValueList.Of("owner", "north", "south"),
+        };
+        var ruleset = toy.Ruleset with
+        {
+            Calendar = toy.Ruleset.Calendar with { StartWeek = toy.Ruleset.Calendar.SeasonAdvanceFromWeek },
+        };
+        var scenario = toy.Scenario with
+        {
+            // The toy scenario's own shipped south is AI by default -- overridden Human here so this
+            // fixture is genuine hotseat (north and south both human), the shape R3's own probe needs.
+            Seats = ValueList.From(
+                toy.Scenario.Seats.Select(s => s.Nation == "south" ? s with { Control = SeatControl.Human, Personality = null } : s)
+                    .Append(new Seat("owner", SeatControl.Ai))),
+        };
+        var session = new GameSession(world, ruleset, scenario);
+
+        // "owner" (AI, turn-order first) already played at construction; north (human) is paused on next.
+        Assert.Equal("north", session.State.ActiveNationId);
+        Assert.Equal(SeatControl.Human, session.State.NationById("south")!.Control);
+
+        session.Submit("end"); // north's own turn: nothing for it to do, pauses on south next.
+        Assert.Equal("south", session.State.ActiveNationId);
+
+        // south's own end is also the round's last seat -- the quarterly tick runs inside this same call.
+        var southEnd = session.Submit("end");
+
+        Assert.True(session.State.NationById("south")!.Eliminated);
+        Assert.Equal(SeatControl.Ai, session.State.NationById("south")!.Control); // bug #441's own fix.
+        Assert.Equal("north", session.State.CityById("meridia")!.Owner);
+        Assert.Contains(
+            southEnd.Lines,
+            l => l.Contains("Your nation has been conquerred by", StringComparison.Ordinal)
+                 && l.Contains("Northern League", StringComparison.Ordinal));
+
+        // Unconfounded: "owner" still owns "portus" throughout, so north never triggers its own,
+        // unrelated total-conquest fall message alongside south's.
+        Assert.Equal("owner", session.State.CityById("portus")!.Owner);
+        Assert.DoesNotContain(southEnd.Lines, l => l.Contains("conquerred the", StringComparison.Ordinal));
+    }
+
+    /// <summary>
     /// T87 rework round 1 (review B7): <see cref="GameSession.DepositActiveHumanSeatIfItShouldFallAtTurnStart"/>'s
     /// own effects (<see cref="Deposition.ApplyEffects"/>, <see cref="Deposition.ResetRelations"/>) had no
     /// test of their own beyond the deleted <c>HumanDepositionSystem</c>'s copy — a mutation dropping

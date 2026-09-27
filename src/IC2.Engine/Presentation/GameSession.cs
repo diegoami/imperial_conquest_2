@@ -1209,6 +1209,15 @@ public sealed partial class GameSession
         var newsBeforeSlots = _pendingNewsBaseline ?? State.NewsLog.Slots;
         _pendingNewsBaseline = null;
 
+        // T87 rework round 2, R3: this seat's own RunTurn is not only its own Orders/SeatEnd phases --
+        // when endingSeat is also the round's own last seat, the same call runs every round-scoped phase
+        // too (CityTick among them), including the quarterly economic tick's rebellion and rebirth. Either
+        // one can defect away any nation's last city, human or not, endingSeat's own or another seat's
+        // entirely -- see nationsBeforeThisSeatsTurn's own use in PlayUntilOneFullLapOrRepeat for the
+        // identical shape. Snapshotting before the call, not after, is what lets the sweep below tell
+        // "was human and now is not" from "was already AI".
+        var nationsBeforeThisSeatsTurn = State.Nations;
+
         var result = _coordinator.RunTurn(State);
         State = result.State;
         lines.Add($"{NationDisplay(endingSeat)} ends its turn.");
@@ -1218,12 +1227,17 @@ public sealed partial class GameSession
         // HumanDepositionSystem depositing endingSeat inside this very RunTurn call (its own SeatStart
         // phase). That system is deleted: the turn-start check now runs only from
         // DepositActiveHumanSeatIfItShouldFallAtTurnStart, strictly before a seat's own RunTurn is ever
-        // called for it, and nothing else changes NationState.Control during endingSeat's own RunTurn --
-        // its own Orders phase is a no-op for a Human-controlled active seat (AiTurn.Run's own gate), so
-        // this call can eliminate or depose neither endingSeat nor anyone else. The old check printed a
-        // fall message for the ending seat whether or not it had ever been human before this same call
-        // (review B2's own probe), which this removal also closes -- there is nothing left here for it
-        // to catch.
+        // called for it, and endingSeat's own Orders phase is a no-op for a Human-controlled active seat
+        // (AiTurn.Run's own gate) -- neither of those two phases can still change Control or Eliminated
+        // here. Review round 2, R3: an earlier revision of this remark generalized from that to "this call
+        // can eliminate or depose neither endingSeat nor anyone else", which is false -- the round-scoped
+        // phases this same RunTurn call also runs, when endingSeat ends the round, are a third path this
+        // remark had not accounted for (see nationsBeforeThisSeatsTurn's own remark above). The old check
+        // this replaced printed a fall message for the ending seat whether or not it had ever been human
+        // before this same call (review B2's own probe), which its removal still correctly closes --
+        // nationsBeforeThisSeatsTurn's own live comparison below only ever fires for a seat that
+        // demonstrably was human just before this call, never unconditionally.
+        AppendFallMessagesForNewlyLostHumanSeats(lines, nationsBeforeThisSeatsTurn);
         CapturePeaceTreatyOfferIfAny(lines, result.Events);
 
         if (!AnnounceAndAdoptWatchModeIfSeatIsLost(lines) && !AnnounceGameOverIfNoHumanSeatRemains(lines))
