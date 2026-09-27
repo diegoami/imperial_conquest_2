@@ -614,4 +614,59 @@ public sealed class QuarterlyCityEconomySystemTests
             threatened: false, economy);
         Assert.NotEqual(growthUnderOwnersOwnRates, expectedQ7Growth);
     }
+
+    /// <summary>
+    /// Review round 2, F1 (DoD 8: "the loyalty draws under the reborn owner ... are tested") — the
+    /// sibling test above pins <em>growth</em> under the reborn owner's own rates; this one pins the
+    /// <em>loyalty draw</em>'s own tax-rate bound the same way. <c>q7</c> (the 8th and last city, reached
+    /// only after <c>q0</c>'s own rebirth has already defected it to "dead") is scripted to hit its own
+    /// fall roll, whose magnitude draw is bounded by <c>ownerTaxRatePercent</c>
+    /// (<see cref="CityLoyaltyDraws.Apply"/>: <c>rng.NextInt(ownerTaxRatePercent) / LoyaltyFallTaxDivisor</c>)
+    /// — this must be "dead"'s own reborn rate (<see cref="EconomyRules.RebirthTaxRatePercent"/>, 20), not
+    /// "owner"'s stale pre-rebirth one (50). <see cref="ScriptedRng"/>'s own <c>expectedNextIntBounds</c>
+    /// enforces the bound directly, rather than relying on a drawn value of 0 producing the same loss
+    /// (<c>0 / LoyaltyFallTaxDivisor</c>) either way, which is exactly why the sibling growth test's own
+    /// technique (comparing the two rates' own numeric results) cannot catch this half: reading the wrong
+    /// tax rate here changes only the bound a draw is legal within, not the loyalty outcome of a drawn 0.
+    /// </summary>
+    /// <remarks>
+    /// Proved by mutation: changing this system's own <c>CityLoyaltyDraws.Apply</c> call to pass a
+    /// pre-quarter owner's tax rate instead of the live one makes this test fail with "ScriptedRng expected
+    /// NextInt(20) but the caller drew NextInt(50)", verified locally and reverted.
+    /// </remarks>
+    [Fact]
+    public void ARebirthMidQuarter_DrawsALaterCitysLoyaltyFallUnderTheRebornOwnersOwnTaxRate()
+    {
+        var ruleset = EconomyTestbed.Ruleset;
+        var economy = ruleset.Economy;
+
+        var dead = CaptureTestbed.Nation("dead", unity: 0, eliminated: true);
+        var owner = CaptureTestbed.Nation("owner", unity: 600) with { TaxRatePercent = 50, MobilizedPercent = 0 };
+
+        var candidates = new List<CityState>();
+        for (var i = 0; i < 8; i++)
+        {
+            candidates.Add(CaptureTestbed.City(
+                $"q{i}", $"Q{i}", 0, 0, "owner", "dead", loyalty: 20, fortificationCode: 0,
+                populationThousands: 10, maxPopulationThousands: 500, tribute: 5));
+        }
+
+        var state = EliminationForcesTestbed.StateWith(new[] { dead, owner }, candidates);
+
+        // Eight cities (q0..q7): the first seven's own fall rolls miss, q7's (the last) hits. Two NextInt
+        // draws follow, in order: q0's own rebirth leader-name draw (bound 12), then q7's own fall
+        // magnitude draw, whose expected bound (RebirthTaxRatePercent, 20) is what actually pins this --
+        // ScriptedRng throws if the caller's own bound ever differs.
+        var rng = new ScriptedRng(
+            nextChanceDraws: Enumerable.Repeat(false, 7).Append(true).ToArray(),
+            nextIntDraws: new[] { 0, 0 },
+            expectedNextIntBounds: new[] { 12, economy.RebirthTaxRatePercent });
+        var sink = new RecordingEventSink();
+        var context = new QuarterBoundaryContext(state, ruleset, EconomyTestbed.Toy.World, EndingSeasonIndex: 0, rng, sink);
+
+        var result = new QuarterlyCityEconomySystem().OnQuarterBoundary(context);
+
+        Assert.Equal("dead", result.CityById("q7")!.Owner);
+        Assert.False(result.NationById("dead")!.Eliminated);
+    }
 }
