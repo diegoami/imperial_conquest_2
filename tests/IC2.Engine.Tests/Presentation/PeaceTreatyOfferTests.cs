@@ -477,6 +477,118 @@ public sealed class PeaceTreatyOfferTests
     }
 
     /// <summary>
+    /// Review round 1, N5: <c>IsOfferedHumanGone</c>'s <c>|| human.Control != SeatControl.Human</c> arm --
+    /// a human offered a treaty falls into debt (unity) before ever answering, is deposed rather than
+    /// eliminated, and its own pending offer must still be dropped. <see cref="EliminatedOfferedHumanFixture"/>'s
+    /// own north/south/east setup, with one change: north's own starting unity is
+    /// <c>DebtUnityThreshold + UnitySwing - 5</c> -- just above the debt floor when its own turn begins, so
+    /// construction's own turn-start check does not depose it before it can even declare war, but exactly
+    /// <c>UnitySwing - 5</c> below it once south's own battle win applies the ordinary loser-side unity
+    /// swing (<c>InstantBattleResolver.ApplyUnitySwing</c>) -- the same effect every other battle in this
+    /// file already exercises, not a new one added for this test. North keeps every one of its own cities
+    /// throughout (only "portus", never north's own), so <see cref="Model.NationState.Eliminated"/> stays
+    /// <see langword="false"/> the whole time -- the <c>Control</c> arm is what this test isolates, not the
+    /// already-covered <c>Eliminated</c> one above.
+    /// </summary>
+    private static GameSession DepositionOfOfferedHumanFixture()
+    {
+        var toy = CoreTestbed.Toy;
+        var customRuleset = toy.Ruleset with
+        {
+            Combat = toy.Ruleset.Combat with
+            {
+                AutoPeaceChanceNumerator = toy.Ruleset.Combat.AutoPeaceChanceDenominator,
+                AutoPeaceLoserUnityThreshold = -1,
+                AutoPeaceLoserCityThreshold = 0,
+            },
+        };
+
+        var debtAdjacentUnity = customRuleset.Economy.DebtUnityThreshold + customRuleset.Combat.UnitySwing - 5;
+
+        var reserve = new StartingArmy(
+            "north-reserve", "north", X: 2, Y: 1, Morale: 1, Money: 0, SupplyTons: 0, Moves: 5,
+            Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "heavy_infantry", Troops: 480000, Quality: 5, Name: "Reserve")));
+
+        var southArmy = toy.World.StartingArmies.Single(a => a.Id == "south-army-1") with { X = 4, Y = 2 };
+
+        var eastNation = new NationDefinition(
+            Id: "east", Name: "Eastern League", ColorHex: "#2e7d32", LeaderName: "Toy Leader of the East",
+            CapitalCityId: "portus", Treasury: 400, Unity: 600, Wealth: 300, TaxBase: 100, TaxRatePercent: 15,
+            MobilizedPercent: 10, Population: 80);
+
+        var portusToEast = toy.World.Cities.Single(c => c.Id == "portus") with { Owner = "east", Allegiance = "east" };
+
+        var customWorld = toy.World with
+        {
+            Nations = ValueList.From(
+                toy.World.Nations.Select(n => n.Id == "north" ? n with { Unity = debtAdjacentUnity } : n)
+                    .Append(eastNation)),
+            Cities = ValueList.From(toy.World.Cities.Select(c => c.Id == "portus" ? portusToEast : c)),
+            StartingArmies = ValueList.From(
+                toy.World.StartingArmies.Select(a => a.Id == "south-army-1" ? southArmy : a).Append(reserve)),
+            TurnOrder = ValueList.Of("north", "south", "east"),
+        };
+
+        var customScenario = toy.Scenario with
+        {
+            Seats = ValueList.From(toy.Scenario.Seats.Append(new Seat("east", SeatControl.Human, null))),
+        };
+
+        return new GameSession(customWorld, customRuleset, customScenario);
+    }
+
+    /// <summary>
+    /// Review round 1, N5: north declares war and loses its own battle to south, exactly as
+    /// <see cref="HotseatTwoHumans_BothHaveIndependentOffersPendingAtOnce_NeitherDropsTheOther"/> does, but
+    /// this fixture's own north starts <see cref="EconomyRules.DebtUnityThreshold"/>-adjacent rather than
+    /// far above it, so the very same battle's own unity swing pushes north into debt. North already had
+    /// its own turn this lap (it went first, to declare war) before south's own AI turn ever ran, so its
+    /// own newly-true debt is not checked until its own turn-start comes around again, next lap -- one more
+    /// <c>end</c>, submitted by east (the seat rotation is paused on), completes the lap and reaches it,
+    /// deposing north -- not eliminating it -- and playing it on as AI before continuing back to east.
+    /// Proved by mutation: dropping <c>IsOfferedHumanGone</c>'s own <c>|| human.Control != SeatControl.Human</c>
+    /// arm makes east's own later <c>peace-yes</c> wrongly find north's stale offer still pending (and be
+    /// refused as "not you") instead of finding nothing pending at all, verified locally and reverted.
+    /// </summary>
+    [Fact]
+    public void ADepositedOfferedHuman_DropsItsOwnPendingOffer_WithoutBeingEliminated()
+    {
+        var session = DepositionOfOfferedHumanFixture();
+        Assert.Equal(SeatControl.Human, session.State.NationById("north")!.Control);
+
+        session.Submit("declare-war south");
+        var afterAiTurn = session.Submit("end"); // south's AI turn beats north; the swing pushes it into debt.
+
+        Assert.Contains(
+            afterAiTurn.Lines,
+            l => l.Contains("After defeating you in battle", StringComparison.Ordinal)
+                 && l.Contains("willing to end the war", StringComparison.Ordinal));
+        Assert.Equal("east", session.State.ActiveNationId);
+
+        // North's own debt is real now, but this lap's rotation already passed it by (it went first,
+        // before south's own battle even ran) -- its own turn-start check does not run again until its
+        // own next turn, next lap, exactly like any other start-of-turn trigger. Still Human here.
+        Assert.Equal(SeatControl.Human, session.State.NationById("north")!.Control);
+
+        // East's own "end" does not touch north's own offer (a different seat's own slot -- see
+        // Hotseat_TheOfferedHumanAloneCanAnswer_NotWhicheverSeatIsActiveNext); it completes the lap,
+        // wrapping rotation back to north's own turn-start check, which now finds the debt and deposes
+        // it -- not eliminates it -- playing it on as AI before continuing back around to east.
+        session.Submit("end");
+
+        var north = session.State.NationById("north")!;
+        Assert.Equal(SeatControl.Ai, north.Control);
+        Assert.False(north.Eliminated);
+        Assert.Equal("east", session.State.ActiveNationId);
+
+        // North's own pending offer is gone -- not merely unanswerable by east, but dropped outright, the
+        // same "There is no pending offer" every other exhausted-offer test in this file reports.
+        var eastYes = session.Submit("peace-yes");
+        Assert.Contains(
+            eastYes.Lines, l => l.Contains("There is no pending peace treaty offer.", StringComparison.Ordinal));
+    }
+
+    /// <summary>
     /// Rework round 2, R1: the reviewer's own probe. East (human, not a party to north-south's war) is
     /// active next after south's AI turn raises the offer against north. East's own <c>yes</c> and
     /// <c>no</c> must both be refused without consuming the offer, east's own <c>end</c> must not lapse
