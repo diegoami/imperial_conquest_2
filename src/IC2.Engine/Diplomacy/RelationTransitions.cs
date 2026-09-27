@@ -384,13 +384,36 @@ public static class RelationTransitions
 /// from the local dump (<c>%LOCALAPPDATA%\ReTools\all_app_functions.txt</c> :55120–55122),
 /// <c>TPolitics_ChangeIR</c> gates the calls to <c>TPolitics_MakePeace</c>/<c>MakeTrade</c>/
 /// <c>MakeAlliance</c> and the war selection on <c>(0 &lt; (short)(&amp;DAT_00474ab0)[sVar3 * 0x24a])</c> —
-/// the target's own unity. Both decompiled elimination paths zero it: <c>(&amp;DAT_00474ab0)[iVar2 *
+/// the target's own unity, <strong>four actions</strong> (peace, trade, alliance, the war selection), not
+/// five: the fifth diplomatic path this remark's own citation lists — accepting a pending offer — is
+/// gated by the offer roll <c>FUN_00452034</c> instead, not by <c>TPolitics_ChangeIR</c> (T87, <c>#389</c>,
+/// correcting follow-up <see href="https://github.com/diegoami/imperial_conquest_2/issues/374">#374</see>'s
+/// F2). Both decompiled elimination paths zero the target's unity: <c>(&amp;DAT_00474ab0)[iVar2 *
 /// 0x24a] = 0</c> at :50383 (<c>FUN_0044bed8</c>) and :50743 (<c>FUN_0044c528</c>). So the original does
 /// not merely grey out a menu entry: <c>TPolitics_ChangeIR</c> is a decompiled function that refuses every
-/// one of these five diplomatic actions against any nation whose unity has reached 0 — which every
+/// one of these four diplomatic actions against any nation whose unity has reached 0 — which every
 /// elimination causes, by construction (<see cref="IC2.Engine.Cities.Capture.NationElimination"/>'s own
 /// use of <see cref="Model.CaptureRules.EliminationUnityReset"/>). This rejection is therefore confirmed,
 /// not designed.
+/// </para>
+/// <para>
+/// <strong>#374's F1: a human eliminated by defection does not, in the original, stay at unity 0.</strong>
+/// <c>FUN_0044bed8</c> (defection) zeroes unity at :50383 and then, for a human seat, calls
+/// <c>FUN_0044c8f0</c> (:50386, decompiled-elimination-cleanup.md §3) — the very same leader-falls routine
+/// T87 implements as <see cref="IC2.Engine.Economy.Deposition.ApplyEffects"/> — which raises it back to
+/// <c>max(unity, min(550, unity + 150))</c>, i.e. <strong>150</strong>, before the call returns. That is
+/// an order quirk <c>[derived]</c>: <c>FUN_0044c528</c> (conquest) zeroes unity <em>after</em> its own
+/// <c>FUN_0044c8f0</c> call (:50741, :50743), so a conquered human ends at 0 exactly as this remark
+/// describes, but a defected-away human does not. In the original, that nation therefore stays a legal
+/// diplomatic target after a defection eliminates it, at unity 150, while it does not after a conquest.
+/// <strong>This engine does not reproduce that quirk</strong>: it keys "alive" on
+/// <see cref="Model.NationState.Eliminated"/> rather than on live unity, and nothing sets
+/// <see cref="Model.NationState.Eliminated"/> back to <see langword="false"/> merely because unity is
+/// raised afterwards, so a human nation this engine eliminates by defection is refused as a diplomatic
+/// target exactly as one it eliminates by conquest is — the two paths are not distinguished the way the
+/// original's own unity value would distinguish them. Item 7 of
+/// <see href="https://github.com/diegoami/imperial_conquest_2/issues/368">#368</see> already recorded this
+/// as the user's own decision, not an open gap this remark should keep implying is unaddressed.
 /// </para>
 /// <para>
 /// <strong>One tracked difference, not this task's to close.</strong> The original's own gate is the
