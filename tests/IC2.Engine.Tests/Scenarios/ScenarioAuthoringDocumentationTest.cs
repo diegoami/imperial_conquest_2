@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Text.RegularExpressions;
 using IC2.Engine.Model;
 using Xunit;
@@ -6,75 +5,92 @@ using Xunit;
 namespace IC2.Engine.Tests.Scenarios;
 
 /// <summary>
-/// Reflection-driven test that asserts <c>docs/scenario-authoring.md</c> documents every public
-/// property of <see cref="World"/>, <see cref="Ruleset"/>, and <see cref="Scenario"/>.
+/// Reflection-driven test that asserts <c>docs/scenario-authoring.md</c> documents every JSON field of
+/// <see cref="World"/>, <see cref="Ruleset"/> and <see cref="Scenario"/> — including, recursively, every
+/// nested model type they serialize (a record, or the element type of a <see cref="ValueList{T}"/> of
+/// one) — so the doc cannot silently go stale as new fields are added.
 /// </summary>
+/// <remarks>
+/// Field names are asserted in their JSON (camelCase, or an explicit <c>JsonPropertyName</c> override
+/// such as <c>"_provenance"</c>) spelling, via <see cref="JsonContract"/> — the same reflection-derived
+/// contract <c>GameDataLoader</c>/<c>SchemaValidator</c> validate a loaded document against, so this test
+/// and the loader can never disagree about what a field is called. <see cref="JsonContract.For"/>
+/// already returns <see langword="null"/> for anything outside the model (primitives, <see cref="string"/>,
+/// enums, and framework types), which is exactly where this walk needs to stop.
+/// </remarks>
 public class ScenarioAuthoringDocumentationTest
 {
     [Fact]
-    public void ScenarioAuthoringDocNamesThenObjectsPublicProperties()
+    public void ScenarioAuthoringDocNamesEveryModelField()
     {
-        var docPath = FindRepositoryRoot();
-        docPath = Path.Combine(docPath, "docs", "scenario-authoring.md");
-
+        var docPath = Path.Combine(FindRepositoryRoot(), "docs", "scenario-authoring.md");
         var docContent = File.ReadAllText(docPath);
 
-        var worldProperties = GetPublicProperties(typeof(World));
-        var rulesetProperties = GetPublicProperties(typeof(Ruleset));
-        var scenarioProperties = GetPublicProperties(typeof(Scenario));
+        var fieldNames = new SortedSet<string>(StringComparer.Ordinal);
+        var visited = new HashSet<Type>();
+        CollectFieldNames(typeof(World), fieldNames, visited);
+        CollectFieldNames(typeof(Ruleset), fieldNames, visited);
+        CollectFieldNames(typeof(Scenario), fieldNames, visited);
 
-        var allProperties = worldProperties.Concat(rulesetProperties).Concat(scenarioProperties).Distinct().ToList();
+        // The walk must be doing real recursive work, not silently finding nothing -- this is exactly
+        // the failure mode PR #434's review found: GetProperties(BindingFlags.Public |
+        // BindingFlags.IgnoreCase), missing Instance/Static, matched zero members, so the old test's
+        // "assert every found property is named in the doc" passed unconditionally regardless of what
+        // the doc said. A field several nested levels deep in Ruleset's economy block, only reachable if
+        // the walk actually recurses through EconomyRules -> SupplyConsumptionRules, is a canary for that:
+        // if this line ever fails, the walk stopped finding fields again, not that the doc regressed.
+        Assert.Contains("citySupplyCapTonsPerPopulationThousand", fieldNames);
+        Assert.True(
+            fieldNames.Count > 250,
+            "Expected well over 250 distinct JSON field names across World/Ruleset/Scenario and their "
+            + $"nested model types; found {fieldNames.Count}. The reflection walk may have stopped early "
+            + "(e.g. a type moved out of the IC2.Engine.Model namespace, or JsonContract.For changed shape).");
 
-        var missingProperties = new List<string>();
-        foreach (var propertyName in allProperties)
+        var missing = new List<string>();
+        foreach (var fieldName in fieldNames)
         {
-            // Properties in camelCase in JSON (by JsonPropertyName or default convention).
-            var camelCaseName = ToCamelCase(propertyName);
-
-            // Search for the property name in various contexts in the doc:
-            // 1. In a markdown code block: `propertyName`
-            // 2. In a table cell: | propertyName |
-            // 3. In a backtick context
-            if (!Regex.IsMatch(docContent, @"[`|\s]" + Regex.Escape(camelCaseName) + @"[`|\s]", RegexOptions.IgnoreCase))
+            // Matches the field name in a markdown code span (`fieldName`), a table cell
+            // (| fieldName |), or plain prose -- any context where the doc names the field at all.
+            if (!Regex.IsMatch(docContent, @"[`|\s]" + Regex.Escape(fieldName) + @"[`|\s]"))
             {
-                missingProperties.Add(propertyName + " (camelCase: " + camelCaseName + ")");
+                missing.Add(fieldName);
             }
         }
 
-        if (missingProperties.Any())
+        if (missing.Count > 0)
         {
-            Assert.Fail($"The following properties are missing from docs/scenario-authoring.md:\n{string.Join("\n", missingProperties)}");
+            Assert.Fail(
+                "The following JSON field names (from World, Ruleset, Scenario, and every nested model "
+                + "type they serialize) are missing from docs/scenario-authoring.md:\n"
+                + string.Join("\n", missing));
         }
     }
 
     /// <summary>
-    /// Gets all public properties and fields of a type that would be serialized by System.Text.Json.
-    /// Excludes indexer properties and properties marked with [JsonIgnore].
+    /// Recursively collects the JSON field names of <paramref name="type"/>'s <see cref="JsonContract"/>
+    /// into <paramref name="names"/>, and recurses into every member whose type -- or, for a
+    /// <see cref="ValueList{T}"/> member, whose element type -- is itself a model type with its own
+    /// contract. Stops where <see cref="JsonContract.For"/> returns <see langword="null"/> (a primitive,
+    /// <see cref="string"/>, an enum, or a type outside <c>IC2.Engine.Model</c> -- including
+    /// <see cref="ProvenanceMap"/>, which carries its own <see cref="System.Text.Json.Serialization.JsonConverterAttribute"/>
+    /// and is therefore opaque to the walk, exactly as it is to schema validation). <paramref name="visited"/>
+    /// guards against a cycle (none exists in the model today, but nothing here assumes that stays true).
     /// </summary>
-    private static IEnumerable<string> GetPublicProperties(Type type)
+    private static void CollectFieldNames(Type type, ISet<string> names, ISet<Type> visited)
     {
-        var properties = type
-            .GetProperties(BindingFlags.Public | BindingFlags.IgnoreCase)
-            .Where(p => p.GetMethod is not null && !p.IsSpecialName)
-            .Where(p => !p.GetCustomAttributes().OfType<System.Text.Json.Serialization.JsonIgnoreAttribute>().Any())
-            .Select(p =>
-            {
-                var jsonNameAttr = p.GetCustomAttribute<System.Text.Json.Serialization.JsonPropertyNameAttribute>();
-                return jsonNameAttr?.Name ?? p.Name;
-            });
-
-        return properties;
-    }
-
-    /// <summary>Convert a PascalCase name to camelCase.</summary>
-    private static string ToCamelCase(string pascalCaseName)
-    {
-        if (string.IsNullOrEmpty(pascalCaseName))
+        var contract = JsonContract.For(type);
+        if (contract is null || !visited.Add(type))
         {
-            return pascalCaseName;
+            return;
         }
 
-        return char.ToLowerInvariant(pascalCaseName[0]) + pascalCaseName.Substring(1);
+        foreach (var member in contract.Members)
+        {
+            names.Add(member.JsonName);
+
+            var elementType = JsonContract.ValueListElementType(member.Type);
+            CollectFieldNames(elementType ?? member.Type, names, visited);
+        }
     }
 
     /// <summary>Finds the repository root by looking for the <c>IC2.sln</c> file.</summary>
