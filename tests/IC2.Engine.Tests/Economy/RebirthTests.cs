@@ -88,12 +88,24 @@ public sealed class RebirthTests
     public void EightQualifyingCities_ResetsEveryField_DefectsEachOne_AndPicksTheStrongestAsCapital()
     {
         var dead = CaptureTestbed.Nation(
-            "dead", treasury: -500, unity: 0, wealth: 999, capitalCityId: "old-cap", eliminated: true,
+            "dead", treasury: -500, unity: 0, wealth: 999, taxBase: 777, capitalCityId: "old-cap", eliminated: true,
             recruitmentSlots: ValueList.Of(
                 new RecruitmentSlot("some-other-city", "archers", Troops: 4000, StateCode: 6),
-                new RecruitmentSlot("q0", "light_infantry", Troops: 2500, StateCode: 10)));
+                new RecruitmentSlot("q0", "light_infantry", Troops: 2500, StateCode: 10))) with
+        {
+            // T87 rework round 1 (review B6, mutation M3): a non-null starting ConqueredBy, so a
+            // mutation that drops `ConqueredBy = null` from Rebirth.Run's own reset is not trivially
+            // true against CaptureTestbed.Nation's own default (null).
+            ConqueredBy = "somebody",
+        };
         var ownerA = CaptureTestbed.Nation("ownerA", unity: 600);
         var ownerB = CaptureTestbed.Nation("ownerB", unity: 600);
+        // T87 rework round 1 (review B6, mutation M4): a third nation with its own cooldown toward
+        // "dead" that is not one of the moved cities' own owners -- ownerA's and ownerB's own relations
+        // get overwritten by their own -8 defection penalty regardless of whether the row is actually
+        // zeroed first, so neither proves the row reset on its own. "outsider" has no city connection to
+        // this rebirth at all, so its own relation can only change if the row-zero step itself runs.
+        var outsider = CaptureTestbed.Nation("outsider", unity: 600);
 
         var qualifying = new List<CityState>();
         for (var i = 0; i < 3; i++)
@@ -132,12 +144,13 @@ public sealed class RebirthTests
         var cities = new List<CityState> { oldCap, atThreshold, unrelated, ownerBSpare };
         cities.AddRange(qualifying);
 
-        var state = EliminationForcesTestbed.StateWith(new[] { dead, ownerA, ownerB }, cities);
+        var state = EliminationForcesTestbed.StateWith(new[] { dead, ownerA, ownerB, outsider }, cities);
         state = state with
         {
             Relations = state.Relations
                 .WithRelation("dead", "ownerA", -2)
                 .WithRelation("dead", "ownerB", -3)
+                .WithRelation("dead", "outsider", -5)
                 .WithRelation("ownerA", "ownerB", -1),
         };
 
@@ -159,11 +172,21 @@ public sealed class RebirthTests
         }
 
         Assert.Equal(expectedUnity, reborn.Unity);
+        // T87 rework round 1 (review B6, M3): "dead" started with ConqueredBy = "somebody" -- proves the
+        // reset writes null, not merely that CaptureTestbed.Nation's own default already was null.
         Assert.Null(reborn.ConqueredBy);
         // Treasury and tax base reset to 0, then the eight defections' own credits accumulate on top
         // (CityCaptureResolver.Defect's own treasury/tax-base transfer) -- so both end up positive, not 0.
+        // T87 rework round 1 (review B6, M2): the exact expected tax base, computed through the same
+        // CityTaxContribution.Compute formula CityOwnershipTaxTransfer.Transfer itself uses, against
+        // each moved city's own (pre-defection, population/tribute unaffected by a defection)
+        // record -- proves the reset to 0 before these credits, not merely that the total is
+        // non-negative (which "dead"'s own starting taxBase: 777, left untouched by a dropped reset,
+        // would also satisfy).
         Assert.True(reborn.Treasury > 0);
-        Assert.True(reborn.TaxBase >= 0);
+        var expectedTaxBase = qualifying.Sum(
+            city => CityTaxContribution.Compute(city) * Ruleset.Economy.TaxBaseContributionMultiplier);
+        Assert.Equal(expectedTaxBase, reborn.TaxBase);
         Assert.Equal(Ruleset.Economy.RebirthTaxRatePercent, reborn.TaxRatePercent);
         Assert.Equal(Ruleset.Economy.RebirthMobilizedPercent, reborn.MobilizedPercent);
         Assert.False(reborn.Eliminated);
@@ -178,6 +201,11 @@ public sealed class RebirthTests
         // is written against its own former owner (both owners here) ----
         Assert.Equal(Ruleset.Economy.RebirthDefectionRelationPenalty, result.Relations.Get("dead", "ownerA"));
         Assert.Equal(Ruleset.Economy.RebirthDefectionRelationPenalty, result.Relations.Get("dead", "ownerB"));
+        // T87 rework round 1 (review B6, M4): "outsider" holds no city connection to this rebirth at
+        // all, so its own -5 cooldown toward "dead" can only reach 0 through the row-zero step itself --
+        // ownerA's and ownerB's own assertions above would stay green even if that step were replaced
+        // with a no-op, since their own -8 defection penalty overwrites whatever the row reset left.
+        Assert.Equal(0, result.Relations.Get("dead", "outsider"));
         // Third parties' own cooldowns are untouched by rebirth's own row reset (this engine's row is
         // symmetric by construction, but nothing here writes ownerA<->ownerB directly).
         Assert.Equal(-1, result.Relations.Get("ownerA", "ownerB"));
