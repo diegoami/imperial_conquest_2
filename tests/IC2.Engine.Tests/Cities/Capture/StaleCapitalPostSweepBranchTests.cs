@@ -27,14 +27,26 @@ namespace IC2.Engine.Tests.Cities.Capture;
 /// capture whose sweep empties the loser now always runs <see cref="ConquestCascade.Apply"/> against it,
 /// same as the original <c>FUN_0044BB18</c> always did, and that routine nulls the loser's own capital
 /// pointer. The two-capture reconstruction's own first step is therefore no longer reachable with a stale
-/// (non-null) result -- it is the exact gap #424 closed, not a side effect of this task. Rebellion
-/// (<c>FUN_0044C204</c> → <see cref="CityCaptureResolver.Defect"/>) cannot reach it either: rebellion and
-/// the regular cascade both only ever consider a NON-capital city (<see cref="CapitalOwnership.IsAnyNationsCapital"/>
-/// excludes every capital candidate from both), so neither can take a nation's last city when that city is
-/// its own capital -- the only way a capital city ever changes hands is a direct siege capture, and
-/// <see cref="ConquestTrigger.Evaluate"/> now resolves that outright, every time, into either a fresh
-/// (moved) capital or a nulled (conquered) one. There is no reachable "eliminated, but still stale"
-/// window left to construct through live play.
+/// (non-null) result -- it is the exact gap #424 closed, not a side effect of this task.
+/// </para>
+/// <para>
+/// <strong>Review round 1, B3: the state stays reachable in the ORIGINAL, through rebirth, then
+/// rebellion -- just not yet through this engine.</strong> An earlier revision of this remark claimed
+/// rebellion "cannot reach it either" and that "the only way a capital city ever changes hands is a
+/// direct siege capture", concluding "there is no reachable 'eliminated, but still stale' window left to
+/// construct through live play" -- true of THIS engine, since it has no rebirth yet (<see cref="IC2.Engine.Economy.Rebellion"/>'s
+/// own remarks: <c>FUN_0044C360</c> is left to T87), but false of the original the task's own Scope cites
+/// ("Stale capitals stay reachable in the original through defection by rebellion … and through rebirth").
+/// Rebirth (<c>FUN_0044C360</c>) defects every city whose allegiance is the reborn nation and whose
+/// loyalty is under 40, through <c>FUN_0044BED8</c> (:50559) -- with no <c>FUN_0044B8D0</c> capital test
+/// of its own, unlike the regular cascade's gate and rebellion's own caller. So a LIVE nation's capital
+/// city can change hands this way: if it was that nation's last city, the nation is eliminated
+/// immediately with a stale (non-null) capital pointer, since <c>FUN_0044BED8</c> writes no capital field
+/// at all; if it was not the last city, the quarterly rebellion (caller :54851-54856, which skips only a
+/// city that IS a capital) can later take the nation's remaining non-capital cities and eliminate it with
+/// that same stale pointer -- the Scope's own "defection by rebellion" path. Once this engine models
+/// rebirth (T87 or whoever adds it), this construction should be replaced with that live path; until then,
+/// a directly built state is an acceptable stand-in, per <strong>What replaces it</strong> below.
 /// </para>
 /// <para>
 /// <strong>What replaces it.</strong> The property this test pins -- <c>Capture</c>'s own branch decision
