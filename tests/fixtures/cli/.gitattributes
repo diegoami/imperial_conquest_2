@@ -9,3 +9,7 @@ demo.golden.txt text eol=lf
 # T83 Done-when 5: the same byte-stability requirement, for the new --seat golden.
 seat-rome.txt text eol=lf
 seat-rome.golden.txt text eol=lf
+
+# T80 Done-when 1: the same byte-stability requirement, for the success-path golden.
+success.txt text eol=lf
+success.golden.txt text eol=lf
