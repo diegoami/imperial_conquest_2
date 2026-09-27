@@ -81,20 +81,26 @@ namespace IC2.Engine.Tests.Presentation;
 /// <strong>Why 3, specifically.</strong>
 /// <strong>T80 rework round 2, N5: the previous version of this paragraph said seeds 3, 10, 13 and 20
 /// all have every line accepted — corrected here after an independent re-sweep of my own, not by
-/// copying the reviewer's number.</strong> I ran this exact, committed script through the real CLI once
-/// per seed from 1 to 40 (<c>--seed &lt;n&gt;</c>, nothing else changed) and checked, for each run, both
+/// copying the reviewer's number.</strong>
+/// <strong>T80 rework round 3, B4: the round-2 correction was itself wrong for seed 13 — "never raised
+/// at all" does not hold there. Corrected again, verified by running the CLI at both seeds myself before
+/// writing this.</strong> I ran this exact, committed script through the real CLI once per seed from 1
+/// to 40 (<c>--seed &lt;n&gt;</c>, nothing else changed) and checked, for each run, both
 /// its <c>"rejected ("</c> count and whether <c>peace-yes</c> printed
 /// <c>"There is no pending peace treaty offer."</c> (a failure that carries no <c>"rejected ("</c> text
 /// at all, since the CLI answers it before any command is even dispatched). Every seed in 1–40 produces
 /// exactly one <c>"rejected ("</c> line (the <c>accept-offer</c> line above) <em>except</em> seeds
 /// <strong>3, 10, 13 and 20</strong>, which produce zero — but at <strong>13 and 20</strong>,
-/// <c>peace-yes</c> itself fails that second way: at those two seeds specifically, neither of this
-/// script's own two sacrifices against <c>army-14</c> clears <see cref="Battle.InstantBattleResolver"/>'s
-/// own gate-then-roll (confirmed directly: <c>peace-yes</c> answers "There is no pending peace treaty
-/// offer." right after the very first attack, with no battle in between that could have raised and then
-/// dropped one), so the offer this script's own <c>peace-yes</c> line expects is simply never raised at
-/// all. <strong>3 and 10</strong> are the only seeds in 1–40 where every line is genuinely accepted; 3 is
-/// the first. Changing the seed
+/// <c>peace-yes</c> itself fails that second way, and not for the same reason at each: at
+/// <strong>seed 13</strong>, the <em>first</em> attack (<c>mac-detached</c>'s) does raise the offer
+/// ("Thracia are willing to end the war"), but the very next <c>end</c> prints
+/// <c>"The peace treaty offer has lapsed."</c> (<c>GameSession.cs</c>'s own lapse check) before this
+/// script's own <c>peace-yes</c> line — which comes only after the <em>second</em> attack
+/// (<c>mac-sac-1</c>'s) — is ever reached, so the answer is "no pending offer" because the one real offer
+/// already expired, not because none was ever raised. At <strong>seed 20</strong>, by contrast, neither
+/// attack raises an offer at all — <c>InstantBattleResolver</c>'s own gate-then-roll simply never clears
+/// on either sacrifice against <c>army-14</c>. <strong>3 and 10</strong> are the only seeds in 1–40 where
+/// every line is genuinely accepted; 3 is the first. Changing the seed
 /// reshuffles every other random-driven line too (weather, city loyalty, casualty counts, and which
 /// nation's own <c>accept-offer</c> ends up pending, if any), which is why the whole golden was
 /// regenerated through the CLI under <c>--seed 3</c> rather than hand-patched, and why this remark
