@@ -492,7 +492,7 @@ public sealed class PeaceTreatyOfferTests
     /// (strong) composition and south's engaged army gets north-army-1's own shipped (weak) one -- the
     /// same swap <see cref="HumanWinsOfferFixture"/> uses -- so that once north is AI-controlled, its own
     /// Orders-phase turn (<c>AiTurn.Run</c>, gated on <em>current</em> <c>Control</c>) can win a fight
-    /// against south that <see cref="_pendingPeaceTreatyOffer"/> would restrict, given a war to fight in
+    /// against south that <see cref="_pendingPeaceTreatyOffers"/> would restrict, given a war to fight in
     /// the first place (declared by north while it is still human, before its own <c>end</c>).
     /// </summary>
     private static GameSession DepositionDuringEndFixture()
@@ -689,7 +689,7 @@ public sealed class PeaceTreatyOfferTests
     /// <summary>
     /// Rework round 1, B3(b): a dropped offer must not silently suppress every later one for the rest of
     /// the game. Before this fix, <c>CapturePeaceTreatyOfferIfAny</c> stayed a no-op forever once
-    /// <c>_pendingPeaceTreatyOffer</c> was first set, because nothing but an answer ever cleared it. The
+    /// <c>_pendingPeaceTreatyOffers</c> was first set, because nothing but an answer ever cleared it. The
     /// first battle's offer is left to lapse on <c>end</c>; a second, unrelated battle then still raises
     /// its own offer rather than being silently swallowed.
     /// </summary>
@@ -713,7 +713,7 @@ public sealed class PeaceTreatyOfferTests
 
     /// <summary>
     /// Rework round 1 (B4): "a second offer raised while one is already pending is dropped rather than
-    /// replacing it" (<c>_pendingPeaceTreatyOffer</c>'s own remarks) had no test. Both battles run back to
+    /// replacing it" (<c>_pendingPeaceTreatyOffers</c>'s own remarks) had no test. Both battles run back to
     /// back with no <c>end</c> or answer in between, so the first offer is still pending when the second
     /// battle resolves; the second battle's own output must not show the dialog again.
     /// </summary>
