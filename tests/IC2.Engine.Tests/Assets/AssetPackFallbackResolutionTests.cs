@@ -1,5 +1,6 @@
 using System.Collections.Frozen;
 using IC2.Engine.Assets;
+using IC2.Slice.Assets;
 using Xunit;
 
 namespace IC2.Engine.Tests.Assets;
@@ -11,79 +12,27 @@ namespace IC2.Engine.Tests.Assets;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>Why this test does not import the actual loader.</strong> The real, shipped loader is
-/// <c>godot/Assets/AssetKeyResolver.cs</c> — deliberately Godot-free (no <c>using Godot;</c>) so its
-/// logic is a plain, testable class. It cannot be referenced from this project, though:
-/// <c>godot/IC2.MapViewer.csproj</c> is excluded from <c>IC2.sln</c> entirely (T47's own scope note
-/// — it needs the Godot 4.7.2 .NET SDK, not installed on CI runners), and this test project
-/// (<c>tests/IC2.Engine.Tests.csproj</c>, T01's, not in this task's Owns list) is built by
-/// <c>dotnet test IC2.sln</c>, which must stay green without Godot (T48 DoD 8 / T47 DoD 6). Adding a
-/// project reference to pull in one Godot-free file would still require editing that csproj, which
-/// is outside this task's Owns list.
+/// This test exercises the real, shipped <see cref="AssetKeyResolver"/> — not a copy. That type
+/// lives at <c>godot/Assets/AssetKeyResolver.cs</c>, inside <c>godot/IC2.MapViewer.csproj</c> (which
+/// is excluded from <c>IC2.sln</c> entirely — T47's own scope note, it needs the Godot 4.7.2 .NET
+/// SDK). It reaches this CI-covered test project through exactly one linked
+/// <c>&lt;Compile Include&gt;</c> in <c>tests/IC2.Engine.Tests.csproj</c> (the same physical file,
+/// compiled into a second assembly, not a copy) — granted narrowly by the user on
+/// <see href="https://github.com/diegoami/imperial_conquest_2/pull/450">PR #450</see>'s first
+/// review (blocking finding 2) and recorded in <c>docs/tasks/T48.md</c>'s Owns list via
+/// <see href="https://github.com/diegoami/imperial_conquest_2/pull/451">plan PR #451</see>. See that
+/// csproj's own comment for the grant's exact wording and its "no other change to this file" limit.
 /// </para>
 /// <para>
-/// So <see cref="Resolver"/> below is a byte-for-byte mirror of
-/// <c>godot/Assets/AssetKeyResolver.TryResolveFile</c>'s algorithm (resolve the key through
-/// <see cref="AssetPack.TryResolveAsset"/>, confirm the file actually exists, log the key exactly
-/// once on either kind of miss, never throw) — kept deliberately tiny so the two stay in sync by
-/// inspection. Everything this test exercises is the exact logic that ships; only the
-/// <c>Godot.Image</c>/<c>Texture2D</c> half of the real loader (<c>AssetPackTextureLoader</c>) is
-/// left to the manual windowed run this task's screenshot (DoD 7) already requires.
-/// </para>
-/// <para>
-/// <strong>A review round asked whether the real type could be pulled in without a csproj edit</strong>
-/// (a linked <c>&lt;Compile Include&gt;</c>, or a file-level symlink placed inside this project's own
-/// <c>Assets/</c> folder so the SDK's default compile-item glob would just pick it up). Checked and
-/// rejected: this repository's own git config has <c>core.symlinks=false</c> (confirmed by
-/// <c>git config --get core.symlinks</c>), and no symlink is committed anywhere in the tree today —
-/// a committed symlink here would check out as a plain text file containing the link-target string
-/// on this exact repository/machine combination, and very likely on CI runners too, silently
-/// breaking the test everywhere except a machine an operator remembered to configure for symlinks.
-/// That is worse than an honestly-labelled mirror. An explicit <c>&lt;Compile Include&gt;</c> in
-/// <c>tests/IC2.Engine.Tests.csproj</c> would work, but that file is outside this task's Owns list,
-/// so it is not this task's edit to make — flagged here for the reviewer's own judgement rather than
-/// made unilaterally.
+/// Before this grant, this test hand-mirrored <see cref="AssetKeyResolver.TryResolveFile"/>'s
+/// algorithm in a private nested class — reviewed and correctly flagged as not actually proving
+/// anything about the shipped type (it would have kept passing even if the real fallback logic were
+/// deleted). That mirror is gone; every assertion below runs against
+/// <see cref="AssetKeyResolver"/> itself.
 /// </para>
 /// </remarks>
 public sealed class AssetPackFallbackResolutionTests
 {
-    /// <summary>Mirrors <c>godot/Assets/AssetKeyResolver.cs</c> — see the type-level remarks above.</summary>
-    private sealed class Resolver
-    {
-        private readonly AssetPack _pack;
-        private readonly string _packDirectory;
-        private readonly Action<string> _onFailure;
-        private readonly HashSet<string> _loggedFailures = new(StringComparer.Ordinal);
-
-        public Resolver(AssetPack pack, string packDirectory, Action<string> onFailure)
-        {
-            _pack = pack;
-            _packDirectory = packDirectory;
-            _onFailure = onFailure;
-        }
-
-        public bool TryResolveFile(string assetKey, out string fullPath)
-        {
-            if (_pack.TryResolveAsset(assetKey, out var relativePath))
-            {
-                var candidate = Path.Combine(_packDirectory, relativePath);
-                if (File.Exists(candidate))
-                {
-                    fullPath = candidate;
-                    return true;
-                }
-            }
-
-            fullPath = string.Empty;
-            if (_loggedFailures.Add(assetKey))
-            {
-                _onFailure(assetKey);
-            }
-
-            return false;
-        }
-    }
-
     private const string PresentKey = "test.present.icon";
     private const string MissingFileKey = "test.missing_file.icon";
     private const string AbsentKey = "test.absent_key.icon";
@@ -124,7 +73,7 @@ public sealed class AssetPackFallbackResolutionTests
         try
         {
             var failures = new List<string>();
-            var resolver = new Resolver(pack, packDirectory, failures.Add);
+            var resolver = new AssetKeyResolver(pack, packDirectory, failures.Add);
 
             var resolved = resolver.TryResolveFile(PresentKey, out var fullPath);
 
@@ -145,7 +94,7 @@ public sealed class AssetPackFallbackResolutionTests
         try
         {
             var failures = new List<string>();
-            var resolver = new Resolver(pack, packDirectory, failures.Add);
+            var resolver = new AssetKeyResolver(pack, packDirectory, failures.Add);
 
             var firstAttempt = resolver.TryResolveFile(MissingFileKey, out var firstPath);
             var secondAttempt = resolver.TryResolveFile(MissingFileKey, out var secondPath);
@@ -174,7 +123,7 @@ public sealed class AssetPackFallbackResolutionTests
         try
         {
             var failures = new List<string>();
-            var resolver = new Resolver(pack, packDirectory, failures.Add);
+            var resolver = new AssetKeyResolver(pack, packDirectory, failures.Add);
 
             var resolved = resolver.TryResolveFile(AbsentKey, out var fullPath);
             resolver.TryResolveFile(AbsentKey, out _);

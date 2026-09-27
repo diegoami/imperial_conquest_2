@@ -314,9 +314,21 @@ public partial class Slice : Node2D
     /// until a future decompilation pass supplies real boundaries (the ruleset's own provenance note
     /// on that field explains why it is empty, not this scene inventing a number).
     /// </summary>
+    /// <remarks>
+    /// PR #450 review round 1, blocking finding 3: this used to read
+    /// <see cref="World.NationById"/> (<see cref="NationDefinition.CapitalCityId"/>) -- the
+    /// <em>scenario-start</em> definition, set once at load and never updated. The live capital is
+    /// <see cref="GameState.NationById"/>'s own <see cref="NationState.CapitalCityId"/>, which
+    /// <c>Rebirth.cs</c> (T87 rebirth) and <c>ConquestCascade.cs</c> (T87 conquest) already mutate at
+    /// runtime on <c>main</c> -- reading the static definition meant the capital icon would freeze on
+    /// whichever city was the capital at scenario start, through any later rebirth or full conquest.
+    /// Fixed to read <see cref="_session"/>'s live <see cref="GameSession.State"/> instead, the same
+    /// state <see cref="DrawCity"/>'s own <paramref name="city"/> parameter and
+    /// <see cref="NationColor"/> already come from.
+    /// </remarks>
     private string CityIconKey(CityState city)
     {
-        var nation = _session?.World.NationById(city.Owner);
+        var nation = _session?.State.NationById(city.Owner);
         if (nation is not null && string.Equals(nation.CapitalCityId, city.Id, StringComparison.Ordinal))
         {
             return AssetKeys.CityCapitalIcon;
