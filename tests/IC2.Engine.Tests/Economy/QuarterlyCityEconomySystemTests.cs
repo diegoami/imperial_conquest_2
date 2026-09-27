@@ -149,12 +149,20 @@ public sealed class QuarterlyCityEconomySystemTests
     /// nation's capital. The capital set <see cref="QuarterlyCityEconomySystem"/> builds is every
     /// <see cref="NationState.CapitalCityId"/> with no liveness filter (<c>FUN_0044B8D0</c>'s own "any of
     /// the sixteen nations, dead ones included"): "dead" is unity 0 <em>and</em>
-    /// <see cref="NationState.Eliminated"/> (review round 2, B7 -- a stale pointer into a city another
-    /// nation now owns outright is a state the engine only ever produces through
-    /// <c>NationElimination.ApplyIfLastCityLost</c>, which always sets <c>Eliminated</c>; a live-unity
-    /// fixture with the flag left at its default, <see langword="false"/>, is not a state the engine can
-    /// reach, and it let a capital gate that filtered on <c>!Eliminated</c> alone pass unnoticed). Its own
-    /// <c>CapitalCityId</c> still names "old-cap", a city "strong" now owns outright. "old-cap"'s owner
+    /// <see cref="NationState.Eliminated"/> (review round 2, B7 -- corrected by T87, <c>#421</c> N8: the
+    /// round-1 fixture this finding was about had unity 0 <em>with the <see cref="NationState.Eliminated"/>
+    /// flag left at its own default, <see langword="false"/></em> — not, as an earlier revision of this
+    /// remark said, "a live-unity fixture"; the fault was the mismatch between the two, not either value
+    /// alone. A stale pointer into a city another nation now owns outright is a state the engine only ever
+    /// produced through <c>NationElimination.ApplyIfLastCityLost</c> before this task, which always sets
+    /// <c>Eliminated</c> alongside unity 0 — so unity 0 with <c>Eliminated</c> still <see langword="false"/>
+    /// was not a state the engine could reach, and it let a capital gate that filtered on <c>!Eliminated</c>
+    /// alone pass unnoticed. <strong>T87 adds a second, narrower source of a stale capital pointer: rebirth
+    /// (<c>Rebellion.cs</c>'s own first branch) can set a <em>live</em> nation's own capital away from a
+    /// city it no longer owns, mid-quarter, without eliminating anyone — see
+    /// <c>QuarterlyCityEconomySystem</c>'s own remarks on why its capital test now reads
+    /// <see cref="NationState.CapitalCityId"/> live rather than from a set built once before the loop.</strong>
+    /// "old-cap" still names "old-cap", a city "strong" now owns outright. "old-cap"'s owner
     /// equals its own allegiance ("strong"), so without the capital gate this would fall straight to (d)
     /// and "third" (strong's only neighbour, alive, with its own capital) would win it -- proving the gate
     /// actually fires, not merely that nothing else does. Review round 2, N7: "strong" is deliberately
@@ -336,6 +344,61 @@ public sealed class QuarterlyCityEconomySystemTests
     /// (d) only ever reads a <em>candidate</em>'s capital (n0's, n1's), never the rebelling city's own
     /// owner's.
     /// </summary>
+    /// <summary>
+    /// T87 (#421, N9): the "grow everything first" remark's own named, unconfirmed edge, pinned with a
+    /// runnable check rather than left only a comment — <see cref="QuarterlyCityEconomySystem"/>'s own
+    /// class remarks explain why this task revisits it and still keeps the two-pass shape. "loser" owns
+    /// exactly one city and defects it away to "receiver" (branch (b): owner ≠ allegiance, allegiance
+    /// alive), which leaves "loser" with zero cities and eliminates it, disposing of its own army
+    /// (<c>EliminationForces</c>). That army starts adjacent to "watcher-owner"'s own city, at war with
+    /// it, so <see cref="HostileArmyAdjacent.IsThreatened"/> reads it as a real threat — but only during
+    /// the growth pass, which runs for every city <em>before</em> any city's own loyalty draws, so "loser"
+    /// is still alive and its army still on the map when "watcher-owner"'s own city is grown, even though
+    /// "loser" no longer exists by the time this same quarter ends. If the original's own interleaved
+    /// pass order were reproduced, a later city's growth would see the army already gone; this engine's
+    /// two-pass split means it does not, so "watcher-owner"'s own city is suppressed from growing this
+    /// quarter by a threat that will not exist once the quarter is over.
+    /// </summary>
+    [Fact]
+    public void AnOwnerRebellionEliminatesMidQuarter_ItsArmyStillCountsAgainstAnEarlierCitysGrowth()
+    {
+        var loserCity = CaptureTestbed.City(
+            "loser-city", "LoserCity", 10, 10, "loser", "receiver", loyalty: 20, fortificationCode: 0,
+            populationThousands: 10, maxPopulationThousands: 20, tribute: 5);
+        var watchedCity = CaptureTestbed.City(
+            "watched-city", "WatchedCity", 10, 11, "watcher-owner", "watcher-owner", loyalty: 90,
+            fortificationCode: 0, populationThousands: 220, maxPopulationThousands: 300, tribute: 5);
+
+        var loser = CaptureTestbed.Nation("loser", unity: 600);
+        var receiver = CaptureTestbed.Nation("receiver", unity: 600);
+        var watcherOwner = CaptureTestbed.Nation("watcher-owner", unity: 600) with { MobilizedPercent = 20 };
+
+        var loserArmy = CaptureTestbed.Army(
+            "loser-army", "loser", x: 10, y: 11, morale: 60, CaptureTestbed.Unit("light_infantry", 5000));
+
+        var state = EliminationForcesTestbed.StateWith(
+            new[] { loser, receiver, watcherOwner },
+            new[] { loserCity, watchedCity },
+            armies: new[] { loserArmy });
+        state = state with { Relations = state.Relations.WithRelation("loser", "watcher-owner", EconomyTestbed.Ruleset.Diplomacy.StateCodes.War) };
+
+        // Both cities' own tax rates (15, CaptureTestbed.Nation's default) skip the rise draw; both fall
+        // rolls miss, so neither city's own loyalty moves from what this test set it to -- loser-city
+        // stays under the rebellion threshold, watched-city stays well above it.
+        var rng = new ScriptedRng(nextChanceDraws: new[] { false, false });
+        var sink = new RecordingEventSink();
+
+        var result = new QuarterlyCityEconomySystem().OnQuarterBoundary(Context(state, rng, sink));
+
+        Assert.True(result.NationById("loser")!.Eliminated); // the rebellion-elimination actually happened.
+        Assert.Equal("receiver", result.CityById("loser-city")!.Owner);
+        Assert.Empty(result.Armies); // loser's own army, disposed of by EliminationForces.
+
+        // The divergence itself: watched-city did not grow, even though the army that "threatened" it
+        // during the growth pass belonged to a nation eliminated before this same quarter ended.
+        Assert.Equal(220, result.CityById("watched-city")!.PopulationThousands);
+    }
+
     [Fact]
     public void ASecondRebellionInTheSameQuarter_ScoresItsNeighboursLive_NotFromAQuarterStartSnapshot()
     {
