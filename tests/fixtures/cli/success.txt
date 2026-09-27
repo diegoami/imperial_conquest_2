@@ -1,0 +1,59 @@
+split-army army-8 mac-detached 0
+split-army army-8 mac-split 0
+join-armies army-8 mac-split
+split-army army-8 mac-marines 1
+split-army army-8 mac-spare 1
+order-city pella fortify 1
+recruit-standing pella light_infantry 200
+recruit-standing pella light_infantry 200
+order-fleet amphipolis 20 mac-fleet-1
+propose-trade illyria
+propose-alliance dacia
+declare-war armenia
+end
+move mac-marines 144 40
+buy mac-marines pella 5
+move mac-spare 145 41
+disband-army mac-spare
+move mac-detached 157 31
+move army-8 135 52
+end
+attack-army mac-detached army-14
+move army-8 135 52
+end
+move army-8 135 52
+end
+besiege-city army-8 phoenice
+end
+split-army army-8 mac-sac-1 0
+end
+move mac-sac-1 151 31
+end
+move mac-sac-1 151 31
+end
+move mac-sac-1 151 31
+end
+move mac-sac-1 151 31
+end
+move mac-sac-1 151 31
+end
+attack-army mac-sac-1 army-14
+peace-yes
+make-peace illyria
+mobilize 0 mac-recruit-0
+end
+mobilize 0 mac-recruit-1
+join-units mac-marines 1 2
+end
+move-fleet mac-fleet-1 149 40
+split-fleet mac-fleet-1 mac-fleet-2 10
+fleet-transfer mac-fleet-1 mac-fleet-2 1 1 0
+join-fleets mac-fleet-1 mac-fleet-2
+buy-fleet-supply mac-fleet-1 amphipolis 5
+repair-fleet mac-fleet-1 1
+scuttle-fleet mac-fleet-1
+end
+accept-offer
+status
+news
+quit
