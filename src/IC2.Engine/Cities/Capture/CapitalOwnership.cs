@@ -29,7 +29,8 @@ namespace IC2.Engine.Cities.Capture;
 /// already depends on <c>Battle</c> for <see cref="Battle.BattleResult"/> and a reference back the other
 /// way would be circular in spirit even though same-assembly. This type is different in kind: a single,
 /// pure, side-effect-free predicate over <see cref="GameState.Nations"/> (not the multi-step, per-slot
-/// garrison sum that call avoided duplicating), shared by four call sites (three of them outside
+/// garrison sum that call chose to duplicate instead -- R1-N2: an earlier revision of this remark said
+/// "avoided duplicating", backwards from what that call actually did), shared by four call sites (three of them outside
 /// <see cref="Battle"/> entirely) — Done-when 3 asks for exactly "one helper decides 'any nation's capital'
 /// for all three [capital-strength] places", and duplicating this one instead would leave three copies of
 /// the same loop to keep in sync by hand. Both directions are same-assembly namespace references either
