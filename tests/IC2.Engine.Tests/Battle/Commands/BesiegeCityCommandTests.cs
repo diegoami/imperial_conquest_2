@@ -306,6 +306,47 @@ public sealed class BesiegeCityCommandTests
         Assert.Equal(CaptureTestbed.FortifyOrderId, BattleCommandRuleset.FortificationOrderIdIn(ToyRuleset));
     }
 
+    /// <summary>
+    /// Rework round 1, F1: the previous test above only ever removed the <c>"archers"</c> unit type
+    /// itself, which a reverted <c>ArcherUnitTypeIdIn</c> (hardcoded back to the literal
+    /// <c>"archers"</c>) refuses exactly the same way -- so nothing distinguished a pointer-driven
+    /// lookup from the old constant. Here <c>"archers"</c> stays declared, and only
+    /// <see cref="Ruleset.ArcherUnitTypeId"/> is moved to an id the ruleset does not declare at all:
+    /// the siege gate must still refuse it. A reverted accessor would instead resolve the untouched
+    /// <c>"archers"</c> unit type and accept the command, so this fails under that mutation where the
+    /// test above does not.
+    /// </summary>
+    [Fact]
+    public void T66F1_SiegeIsRefusedWhenThePointerNamesAnUndeclaredTypeEvenThoughArchersStillExists()
+    {
+        var state = Fixture();
+
+        var pointerDangles = ToyRuleset with { ArcherUnitTypeId = "phantom_archers" };
+
+        Assert.NotNull(pointerDangles.UnitTypeById("archers"));
+        Assert.Null(pointerDangles.UnitTypeById("phantom_archers"));
+        Assert.Equal(
+            BesiegeCityRejections.NoArcherUnitType,
+            AttackLegality.Check(state, pointerDangles, Besiege())!.Code);
+    }
+
+    /// <summary>
+    /// Rework round 1, F1: the positive case a reverted accessor cannot pass. Pointing
+    /// <see cref="Ruleset.ArcherUnitTypeId"/> at a different, still-declared unit type
+    /// (<c>"heavy_infantry"</c>) must resolve to THAT id, not to the old <c>"archers"</c> constant --
+    /// the one assertion that tells a field read apart from a hardcoded literal, since both agree
+    /// whenever the field happens to say <c>"archers"</c>.
+    /// </summary>
+    [Fact]
+    public void T66F1_ArcherUnitTypeIdInFollowsThePointerToWhateverDeclaredTypeItNames()
+    {
+        var repointed = ToyRuleset with { ArcherUnitTypeId = "heavy_infantry" };
+
+        Assert.NotNull(repointed.UnitTypeById("heavy_infantry"));
+        Assert.Equal("heavy_infantry", BattleCommandRuleset.ArcherUnitTypeIdIn(repointed));
+        Assert.NotEqual("archers", BattleCommandRuleset.ArcherUnitTypeIdIn(repointed));
+    }
+
     private static void AssertRefused(GameState state, BesiegeCityCommand command, RejectionCode expected)
     {
         var sink = new RecordingEventSink();
