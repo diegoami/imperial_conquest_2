@@ -98,6 +98,11 @@ The in-game battle pacing delay is a per-nation preference (the `TBattleDelays` 
 ### 1.3 Local toolchain (outside both repositories)
 
 - **General tools:** `gh` (authenticated as `diegoami`), `jq`, Python 3.14, Node, the .NET 10 SDK, Godot 4.7.2 (.NET).
+- **Godot 4.7.2 mono** (matching `Godot.NET.Sdk/4.7.2` in `godot/IC2.MapViewer.csproj`) is at `C:\Program Files\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64_console.exe`.
+  - `godot` is on PATH from Git Bash (a shim at `~/.local/bin/godot`), and `godot.cmd` from PowerShell. Both run the **console** build, so `print()` and script errors reach the terminal.
+  - To run headless: `godot --headless --path godot --quit-after 2 [res://Scene.tscn]`. Since T47, the main scene is the engine slice, so the research inspector needs `res://MapViewer.tscn` passed explicitly.
+  - **Headless screenshots do not work.** The headless display driver has no texture, so `GetViewport().GetTexture().GetImage()` throws "Parameter 't' is null" (#156). Visual evidence needs a short **windowed** run.
+  - Opening the editor dirties `godot/project.godot` and `godot/MapViewer.cs` with whitespace churn. `scripts/check-godot-churn.ps1` reverts the benign churn and leaves real edits alone. Never run two Godot processes at once.
 - **ffmpeg** is at `%LOCALAPPDATA%\ReTools\ffmpeg-master-latest-win64-gpl\bin\ffmpeg.exe`. To extract frames: `ffmpeg -ss <startSeconds> -i "<recording.mp4>" -vf fps=1 -frames:v <N> <outdir>/f_%03d.png`, then read the frames. The tactical battle's combat-resolution panel gives exact per-exchange troop counts, and the user will record more battles on request.
 - **`%LOCALAPPDATA%\ReTools\`** holds:
   - Temurin JDK 21 (`jdk-21.0.12.1+1\`) and Ghidra 12.1.3 (`ghidra_12.1.3_PUBLIC\`);
@@ -132,6 +137,8 @@ The **main session runs on Opus** and is the one the user talks to. It plans, ru
 5. The main session applies the doc claims the merge made stale, and reports to the user.
 
 Give it task ids to run them in order, or nothing to take the next ready task. It stops at any escalation.
+
+**Checking which model an agent ran on.** The Agent tool's `opus` and `sonnet` aliases resolve to the newest model in the family, so entries need no version pin. To check, grep the subagent transcript, never read it whole. The transcripts are at `%USERPROFILE%\.claude\projects\<project>\<session-id>\subagents\agent-<id>.jsonl`; the task `.output` files are often empty. Use `grep -oE '"model" ?: ?"claude-[^"]*"' agent-<id>.jsonl | sort | uniq -c`. Don't spawn a probe agent: one cost about 54,000 tokens of startup context.
 
 ### 2.3 The two skills
 
@@ -185,7 +192,9 @@ These are kept in step with the auto-memory feedback notes. When a preference ch
 - **Upstream defects go through the bug list**: suspend, file, plan, resume. Never an ad-hoc patch across Owns lists.
 - **Evidence goes through the two-stage pipeline**: `/process-evidence`, stage 1 then stage 2, never combined.
 - **Relay reviewer findings in full** on rework.
-- **An external reviewer posts to the PR.** Any review prompt handed to another model (a plan PR, a code PR, a milestone) tells it to post its result as one PR comment. The main session reads it from GitHub, so the user never relays a review by hand.
+- **An external reviewer posts to the PR.** Any review prompt handed to another model (a plan PR, a code PR, a milestone) tells it to post its result as one PR comment, starting with a "… review (<model>)" line and the verdict. The prompt also forbids editing, committing, pushing, merging, and closing keywords before `#<n>`. The main session reads it from GitHub, so the user never relays a review by hand. The external reviewer is **GPT-6 Luna** (since 2026-09-25; DeepSeek before). Its first review (#370) arrived cut off at about 400 characters, so check that a posted review is complete before acting on it. If it is cut off, apply what is readable and give the user a short prompt to repost the rest as one comment.
+- **The main session's own edits never land where an agent works.** A doc or plan edit goes in its own worktree on a new branch (`git worktree add ../ic2-work/<name> -b <branch> origin/main`), even when it is harmless. Reading via `git show` is not a substitute. Merges happen on GitHub's side (`gh pr merge`), and conflicts are resolved in an isolated worktree, so a merge never disturbs a running agent. Two incidents under the old shared-checkout model led to this: a doc fix landed on an implementer's task branch, and a skill file was written while a reviewer was active.
+- **Don't start a rework round as the session winds down.** When the user stops for the day, that covers the current round only. If a review then returns a blocking finding, leave the task at `status:rework` with the full review on the PR, tell the user what is outstanding, and stop; the next session resumes it deliberately. A round is 10–40 minutes of agent time plus a re-review, and the user would rather resume on purpose than have work begin on the way out (said 2026-09-19).
 - **Non-blocking review findings become one follow-up issue per merge**, and each item is folded into the next task that touches those files.
 - **No Haiku.** Implementers and reviewers are Opus or Sonnet (Fable only for pure templates). Haiku was retired on 2026-09-27 after T26 ([build-process.md §3.3](build-process.md#33-model-selection)).
 - **The main session runs the build directly** with `/run-task`. There is no orchestrator layer; it was retired on 2026-09-14 as more overhead than value for serial execution.
