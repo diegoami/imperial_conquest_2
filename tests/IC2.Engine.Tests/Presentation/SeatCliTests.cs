@@ -708,6 +708,15 @@ public sealed class SeatCliTests
     /// <see cref="NationState.Control"/> stayed <see cref="SeatControl.Human"/> after its own elimination,
     /// so this check never noticed no human seat was left.
     /// </summary>
+    /// <remarks>
+    /// Review round 2, R5: also the test the B3 fix (round 1) itself was still missing --
+    /// <c>PlayUntilOneFullLapOrRepeat</c>'s own <c>AppendFallMessagesForNewlyLostHumanSeats</c> call is
+    /// exactly what north's own AI turn (this test's own last seat, per its own <c>TurnOrder</c>) reaches
+    /// to print south's own "Your nation has been conquerred by..." line below -- <em>not</em>
+    /// <c>HandleEndSeated</c>'s own copy (round 2's own R3 fix), since south, not north, is the one
+    /// submitting <c>end</c> here. Proved by mutation: removing that call leaves this test's own
+    /// "conquerred by" assertion failing, verified locally and reverted.
+    /// </remarks>
     [Fact(Timeout = 15000)]
     public async Task A_hotseat_conquest_of_the_last_human_seat_reaches_game_over()
     {
@@ -874,6 +883,18 @@ public sealed class SeatCliTests
     /// the seat, before this session's own construction (which flushes south's play and north's own fall
     /// into <see cref="GameSession"/>'s pending prelude) ever returns control for a first command.
     /// </summary>
+    /// <remarks>
+    /// Review round 2, R4: only <see cref="NationState.Treasury"/> is overridden here, so north's own
+    /// unity stays the toy world's shipped 600 (well above <see cref="EconomyRules.DebtUnityThreshold"/>'s
+    /// 400) both before and after the fall's own <c>+150</c> gain -- the message is exactly "Your army
+    /// have deposed you because they have not been paid.", never "Your unpopularity...", which an earlier
+    /// revision of this test accepted either of. That earlier, looser assertion could not have caught
+    /// review round 1's own B1 regression (reading the message from the post-fall nation): this fixture's
+    /// own unity never crosses <c>THumanFalls_InitializeForm</c>'s own <c>unity &lt; 400</c> branch either
+    /// way, pre-fall or post-fall, so it was never capable of proving which one the code actually read.
+    /// <see cref="ADebtorSeatReachedByRotation_UnityAloneInDebt_ReadsTheMessageFromThePreFallNation_NotThePostFallOne"/>
+    /// below is what actually kills that mutation.
+    /// </remarks>
     [Fact]
     public void ADebtorSeatReachedByRotation_IsDeposedBeforeItsOwnFirstOrder_NotAfterItsOwnEnd()
     {
@@ -894,13 +915,49 @@ public sealed class SeatCliTests
         var first = session.Submit("status");
         Assert.Contains(
             first.Lines,
-            l => l.Contains("Your army have deposed you", StringComparison.Ordinal)
-                 || l.Contains("Your unpopularity", StringComparison.Ordinal));
+            l => l.Contains(
+                "Your army have deposed you because they have not been paid.", StringComparison.Ordinal));
+        Assert.DoesNotContain(first.Lines, l => l.Contains("Your unpopularity", StringComparison.Ordinal));
 
         // north never had a prompt to give any order at all -- refused as "no seat to command" (watch
         // mode), never as a real, even if illegal, order against north's own game state.
         var attempted = session.Submit("move north-army-1 3 2");
         Assert.Contains(attempted.Lines, l => l.Contains("no seat to command", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Review round 2, R4 (the B1 fix, actually proven this time): north's own unity is overridden to 399
+    /// -- just under <see cref="EconomyRules.DebtUnityThreshold"/>'s 400, the exact boundary
+    /// <c>THumanFalls_InitializeForm</c>'s own message branch reads -- and treasury/wealth are left alone
+    /// (the toy world's own shipped, healthy defaults), so unity is the <em>only</em> reason north falls,
+    /// and the only reason the message could ever read "unpopularity" specifically. Deposition's own
+    /// <c>+150</c> unity gain (<c>max(399, min(550, 399+150)) = 549</c>) would cross the 400 line the
+    /// other way if the message were (wrongly) read from the post-fall nation instead of the pre-fall one
+    /// -- proved by mutation: changing <c>DepositActiveHumanSeatIfItShouldFallAtTurnStart</c>'s own
+    /// <c>HumanLeaderFallsMessage(nation)</c> to <c>HumanLeaderFallsMessage(Deposition.ApplyEffects(nation, Ruleset))</c>
+    /// makes this test fail (it then reads "Your army have deposed you..." instead), verified locally and
+    /// reverted.
+    /// </summary>
+    [Fact]
+    public void ADebtorSeatReachedByRotation_UnityAloneInDebt_ReadsTheMessageFromThePreFallNation_NotThePostFallOne()
+    {
+        var toy = CoreTestbed.Toy;
+        var world = toy.World with
+        {
+            Nations = ValueList.From(toy.World.Nations.Select(n =>
+                string.Equals(n.Id, "north", StringComparison.Ordinal) ? n with { Unity = 399 } : n)),
+            TurnOrder = ValueList.Of("south", "north"),
+        };
+        var session = new GameSession(world, toy.Ruleset, toy.Scenario, humanSeatNationId: "north");
+
+        Assert.Equal(SeatControl.Ai, session.State.NationById("north")!.Control);
+        Assert.Equal(549, session.State.NationById("north")!.Unity); // max(399, min(550, 399+150)).
+
+        var first = session.Submit("status");
+        Assert.Contains(
+            first.Lines,
+            l => l.Contains("Your unpopularity has forced the army to overthrow you.", StringComparison.Ordinal));
+        Assert.DoesNotContain(first.Lines, l => l.Contains("Your army have deposed you", StringComparison.Ordinal));
     }
 
     /// <summary>
