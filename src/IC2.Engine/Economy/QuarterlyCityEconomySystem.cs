@@ -21,53 +21,46 @@ namespace IC2.Engine.Economy;
 /// past T08's default 0 states that rather than leaving it to registration order.
 /// </para>
 /// <para>
-/// One pass computes every city's grown population (reading each owner's <em>current</em>, pre-decay
-/// tax rate and mobilization — <see cref="QuarterlyNationEconomySystem"/> decays mobilization later);
-/// <see cref="NationTaxBaseRebuild.Rebuild"/> then reads that grown population. A second pass applies the
-/// loyalty draws in city (list) index order over one shared <see cref="QuarterBoundaryContext.Rng"/>
-/// stream and, right after each city's own draws — <c>decompiled-quarterly-rebellion.md</c>'s own code
-/// order — runs <see cref="Rebellion.Run"/> for any city whose draws leave it under
-/// <see cref="EconomyRules.RebellionLoyaltyThreshold"/> and not a capital. T89: this replaces the old,
-/// unconsumed <c>RebellionRiskDetected</c> publication.
+/// <strong>T87 rework round 1 (review B10): one interleaved pass, not growth-then-draws.</strong> A single
+/// loop over <see cref="GameState.Cities"/>' own list order computes each city's grown population (reading
+/// its owner's <em>current</em>, pre-decay tax rate and mobilization — <see cref="QuarterlyNationEconomySystem"/>
+/// decays mobilization later), folds that growth back into the working <see cref="GameState"/>, then
+/// immediately applies that same city's own loyalty draws over one shared
+/// <see cref="QuarterBoundaryContext.Rng"/> stream and, right after those draws — <c>decompiled-quarterly-rebellion.md</c>'s
+/// own code order — runs <see cref="Rebellion.Run"/> for any city whose draws leave it under
+/// <see cref="EconomyRules.RebellionLoyaltyThreshold"/> and not a capital, before moving to the next city
+/// in that same list order. T89: this replaces the old, unconsumed <c>RebellionRiskDetected</c>
+/// publication. <see cref="NationTaxBaseRebuild.Rebuild"/> runs once, after the loop, over the final city
+/// list — pure and idempotent (zero-then-sum over each city's current owner and population), so running it
+/// once at the end gives the same result as running it after every city, without the redundancy.
 /// </para>
 /// <para>
-/// <strong>Splitting growth+rebuild from the loyalty pass changes nothing observable, with one
-/// unconfirmed exception (review round 1, N5).</strong> Neither draw reads a city's own or any other
-/// city's grown population or rebuilt tax base, only its own prior loyalty and its owner's
-/// (growth-unaffected) tax rate, so the two passes are independent except for the RNG's own draw order,
-/// which this system preserves by processing <see cref="GameState.Cities"/> in its own list order
-/// throughout. The loyalty pass below folds each city's own update, and any rebellion it triggers, back
-/// into the working <see cref="GameState"/> before moving to the next city in that same list order,
-/// exactly the "live reads" the report's own Hazards section asks for <c>[derived:
-/// decompiled-quarterly-rebellion.md</c> §1, "(d): cities(n) and unity(n) are read live... a later city's
-/// score can differ from what a snapshot taken at the top of the loop would give"<c>]</c> — a rebellion's
-/// own effects (city counts, unity) must be visible to a later city's own (d) score in the same quarter,
-/// not a snapshot taken once at the top of this loop. The one edge this does <em>not</em> cover, and that
-/// the report itself does not either (its own equivalence claim, §5 item 5, is stated only for a
-/// rebellion that "moves only the current city"): a rebellion that eliminates its own old owner disposes
-/// of that nation's armies mid-loop (<c>EliminationForces</c>, via <c>CityCaptureResolver.Defect</c>), and
-/// in the original a <em>later</em> city's own growth in the same loop would then see those armies already
-/// gone from <see cref="HostileArmyAdjacent.IsThreatened"/>'s own check — this engine instead grows every
-/// city first, in a separate pass, before any rebellion in this one can dispose of an army.
+/// <strong>Why interleaved, not split.</strong> An earlier revision of this system ran two passes — every
+/// city's growth, then every city's loyalty draws and rebellions — reasoning that neither draw reads a
+/// city's own or any other city's grown population or rebuilt tax base, only its own prior loyalty and its
+/// owner's (growth-unaffected) tax rate, so the split looked safe (except for review round 1, N5's own
+/// capital-liveness edge, fixed separately by reading each capital live rather than from a set built once
+/// before the loop). That reasoning missed one case, found by review round 1, B10: a rebellion or rebirth
+/// that eliminates its own old owner disposes of that nation's armies mid-loop
+/// (<c>EliminationForces</c>, via <c>CityCaptureResolver.Defect</c>), and in the original a <em>later</em>
+/// city's own growth in the same quarter sees those armies already gone from
+/// <see cref="HostileArmyAdjacent.IsThreatened"/>'s own check (<c>decompiled-quarterly-rebellion.md</c> §2's
+/// own last paragraph, §5 item 5) — a two-pass split grows every city <em>before</em> any rebellion in that
+/// same quarter can dispose of an army, so a later city stayed suppressed by a threat that would not exist
+/// once the quarter was over. Interleaving growth and draws per city, in list order, matches the original's
+/// own per-city loop and removes the divergence: whichever city's own rebellion or rebirth disposes of an
+/// army, every city after it in list order sees that army already gone when its own growth runs.
+/// <c>QuarterlyCityEconomySystemTests.AnOwnerRebellionEliminatesMidQuarter_ALaterCitysGrowthSeesItsArmyAlreadyGone</c>
+/// proves it (through the mechanism already merged before this task, ordinary rebellion-elimination, T89) —
+/// proved by mutation: reverting this loop back to the old two-pass split makes that test fail, verified
+/// locally and reverted.
 /// </para>
 /// <para>
-/// <strong>T87 (#421, N9) revisited this for rebirth, and the answer is the same: kept, not restructured
-/// to match.</strong> Rebirth (<c>Rebellion.cs</c>'s own first branch, calling <c>Rebirth.Run</c>) can
-/// eliminate a still-live owner the very same way an ordinary rebellion-elimination already could before
-/// this task: a city defecting to the reborn nation can leave its former owner with zero cities, running
-/// <c>EliminationForces</c> mid-loop exactly as above. It is the identical divergence, not a new one
-/// rebirth introduces. Restructuring into one combined growth-and-draws pass (the "changed to match"
-/// option Done-when 8 also allows) would need every later city in the same quarter to grow <em>after</em>
-/// whichever earlier city's rebellion or rebirth disposed of an owner's armies, which the
-/// RNG-stream-preserving argument above does not by itself require (growth draws nothing) but would still
-/// touch this system's own two-pass shape for a case the report itself (§5 item 5) never asked this task
-/// to fix — that item is about the capital set being read live, fixed separately in the loyalty pass
-/// below, not about pass ordering. Left as the same named, unconfirmed edge this remark already carried.
-/// <c>QuarterlyCityEconomySystemTests.AnOwnerRebellionEliminatesMidQuarter_ItsArmyStillCountsAgainstAnEarlierCitysGrowth</c>
-/// pins the divergence's current shape with a runnable check through the mechanism already merged before
-/// this task (ordinary rebellion-elimination, T89) rather than leaving it only a comment — satisfying
-/// Done-when 8's own "a test shows it" for the structural half. The live capital read itself — the other
-/// half of §5 item 5 — is proven directly by
+/// <strong>Rebirth (T87, <c>#421</c>) introduces the identical divergence, not a new one</strong> — a city
+/// defecting to a reborn nation can leave its former still-live owner with zero cities, running
+/// <c>EliminationForces</c> mid-loop exactly as an ordinary rebellion-elimination already could before this
+/// task — and the interleaved restructuring above fixes it the same way for both. The live capital read
+/// itself — the other half of §5 item 5 — is proven directly by
 /// <c>QuarterlyCityEconomySystemTests.ARebirthMidQuarter_SetsANewCapital_AndThatCapitalIsNotTreatedAsARebelCandidate</c>,
 /// a real rebirth setting a new capital mid-quarter whose own city a stale, pre-rebirth snapshot would
 /// have (wrongly) let rebel again in the same quarter (proved by mutation: reverting this method's own
@@ -86,13 +79,26 @@ public sealed class QuarterlyCityEconomySystem : IQuarterBoundaryHandler
         var ruleset = context.Ruleset;
         var economy = ruleset.Economy;
 
-        var grownCities = new List<CityState>(state.Cities.Count);
-        foreach (var city in state.Cities)
+        // T87 rework round 1 (review B10): growth and the loyalty draws are interleaved per city, in
+        // city (list) index order, matching the report's own per-city loop (§2's own last paragraph and
+        // §5 item 5: "a rebirth moves later cities before their growth and draws, so it breaks the
+        // equivalence" the old two-pass split assumed). Snapshotting the loop's own city order up front,
+        // before any city in it can be touched: a rebellion/rebirth below only ever changes a city's
+        // Owner/Loyalty in place (CityCaptureResolver.Defect never adds, removes or reorders
+        // GameState.Cities), so re-fetching each id from the working `state` inside the loop always finds
+        // it, and this list stays the correct index order for the whole pass.
+        var cityIdsInOrder = new List<string>(state.Cities.Count);
+        foreach (var snapshotCity in state.Cities)
         {
+            cityIdsInOrder.Add(snapshotCity.Id);
+        }
+
+        foreach (var cityId in cityIdsInOrder)
+        {
+            var city = state.CityById(cityId)!;
             var owner = state.NationById(city.Owner);
             if (owner is null)
             {
-                grownCities.Add(city);
                 continue;
             }
 
@@ -104,32 +110,8 @@ public sealed class QuarterlyCityEconomySystem : IQuarterBoundaryHandler
                 owner.MobilizedPercent,
                 threatened,
                 economy);
-
-            grownCities.Add(city with { PopulationThousands = grownPopulation });
-        }
-
-        state = state with { Cities = ValueList.From(grownCities) };
-        state = NationTaxBaseRebuild.Rebuild(state, ruleset);
-
-        // Snapshotting the loop's own city order up front, before any city in it can be touched: a
-        // rebellion below only ever changes a city's Owner/Loyalty in place (CityCaptureResolver.Defect
-        // never adds, removes or reorders GameState.Cities), so re-fetching each id from the working
-        // `state` inside the loop always finds it, and this list stays the correct index order for the
-        // whole pass.
-        var cityIdsInLoyaltyPassOrder = new List<string>(state.Cities.Count);
-        foreach (var snapshotCity in state.Cities)
-        {
-            cityIdsInLoyaltyPassOrder.Add(snapshotCity.Id);
-        }
-
-        foreach (var cityId in cityIdsInLoyaltyPassOrder)
-        {
-            var city = state.CityById(cityId)!;
-            var owner = state.NationById(city.Owner);
-            if (owner is null)
-            {
-                continue;
-            }
+            var grownCity = city with { PopulationThousands = grownPopulation };
+            state = state with { Cities = CityCaptureResolver.ReplaceCity(state.Cities, grownCity) };
 
             // T87 (#421, N9): read live, not from a set built once before this loop. Rebirth (T87's own
             // Rebellion.cs call) can set a nation's capital partway through this same quarter's loop --
@@ -138,9 +120,11 @@ public sealed class QuarterlyCityEconomySystem : IQuarterBoundaryHandler
             // cities(n) and unity(n) are read live"). A set built once before the loop -- this system's
             // own pre-T87 shape -- would miss a capital rebirth had just assigned to a still-live nation,
             // and would keep treating a capital a rebirth just took away from its old owner as one.
-            var isCapital = IsCapitalOfAnyLiveNation(state, city.Id);
-            var result = CityLoyaltyDraws.Apply(city, owner.TaxRatePercent, isCapital, economy, context.Rng);
-            var updatedCity = city with { Loyalty = result.Loyalty };
+            // Review round 1, N3: reuses CapitalOwnership.IsAnyNationsCapital rather than a second,
+            // duplicate scan of GameState.Nations.
+            var isCapital = CapitalOwnership.IsAnyNationsCapital(state, grownCity.Id);
+            var result = CityLoyaltyDraws.Apply(grownCity, owner.TaxRatePercent, isCapital, economy, context.Rng);
+            var updatedCity = grownCity with { Loyalty = result.Loyalty };
             state = state with { Cities = CityCaptureResolver.ReplaceCity(state.Cities, updatedCity) };
 
             if (result.RebellionRisk)
@@ -149,28 +133,13 @@ public sealed class QuarterlyCityEconomySystem : IQuarterBoundaryHandler
             }
         }
 
+        // NationTaxBaseRebuild.Rebuild is pure (zero-then-sum over state.Cities' own current owner and
+        // population, city-population-growth.md.cs's own remarks) -- run once, after every city's own
+        // growth and every rebellion/rebirth this quarter has settled ownership, it reflects exactly
+        // "after that quarter's population growth" against the FINAL city list, the same result running
+        // it once per city (redundant, since it always recomputes from scratch) would give.
+        state = NationTaxBaseRebuild.Rebuild(state, ruleset);
+
         return state;
-    }
-
-    /// <summary>
-    /// Whether <paramref name="cityId"/> is named by any nation's own <see cref="NationState.CapitalCityId"/>
-    /// in <paramref name="state"/> <em>as it currently stands</em> — see this method's own call site for
-    /// why "currently" matters. Deliberately "any nation's", not only <c>city.Owner</c>'s own: the original
-    /// (and <c>decompiled-elimination-cleanup.md</c>'s own "a former capital of another nation still passes
-    /// <c>FUN_0044B8D0</c> through the stale pointer") tests the raw pointer match, not ownership, and a
-    /// stale pointer left by a capital move or an old elimination is exactly the case this task's own
-    /// rebirth mechanic (T87) can now also produce for a live nation, per this method's own call site.
-    /// </summary>
-    private static bool IsCapitalOfAnyLiveNation(GameState state, string cityId)
-    {
-        foreach (var nation in state.Nations)
-        {
-            if (string.Equals(nation.CapitalCityId, cityId, StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

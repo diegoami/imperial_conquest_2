@@ -158,8 +158,13 @@ public sealed class QuarterlyCityEconomySystemTests
     /// <c>Eliminated</c> alongside unity 0 — so unity 0 with <c>Eliminated</c> still <see langword="false"/>
     /// was not a state the engine could reach, and it let a capital gate that filtered on <c>!Eliminated</c>
     /// alone pass unnoticed. <strong>T87 adds a second, narrower source of a stale capital pointer: rebirth
-    /// (<c>Rebellion.cs</c>'s own first branch) can set a <em>live</em> nation's own capital away from a
-    /// city it no longer owns, mid-quarter, without eliminating anyone — see
+    /// (<c>Rebellion.cs</c>'s own first branch), through <c>CityCaptureResolver.Defect</c>, can move a
+    /// still-<em>live</em> nation's own capital city away to the reborn nation without ever touching that
+    /// live nation's own <see cref="NationState.CapitalCityId"/> field — <c>Defect</c> only ever writes a
+    /// city's <c>Owner</c>/<c>Allegiance</c>, never any nation's capital pointer, so the live nation's own
+    /// field is left stale, still naming a city it no longer owns, mid-quarter, without eliminating anyone
+    /// (review round 1, N3: an earlier revision of this remark wrongly said rebirth itself "sets" that
+    /// capital away, as if it wrote the field; nothing writes it, which is exactly why it goes stale) — see
     /// <c>QuarterlyCityEconomySystem</c>'s own remarks on why its capital test now reads
     /// <see cref="NationState.CapitalCityId"/> live rather than from a set built once before the loop.</strong>
     /// "old-cap" still names "old-cap", a city "strong" now owns outright. "old-cap"'s owner
@@ -345,22 +350,29 @@ public sealed class QuarterlyCityEconomySystemTests
     /// owner's.
     /// </summary>
     /// <summary>
-    /// T87 (#421, N9): the "grow everything first" remark's own named, unconfirmed edge, pinned with a
-    /// runnable check rather than left only a comment — <see cref="QuarterlyCityEconomySystem"/>'s own
-    /// class remarks explain why this task revisits it and still keeps the two-pass shape. "loser" owns
-    /// exactly one city and defects it away to "receiver" (branch (b): owner ≠ allegiance, allegiance
-    /// alive), which leaves "loser" with zero cities and eliminates it, disposing of its own army
-    /// (<c>EliminationForces</c>). That army starts adjacent to "watcher-owner"'s own city, at war with
-    /// it, so <see cref="HostileArmyAdjacent.IsThreatened"/> reads it as a real threat — but only during
-    /// the growth pass, which runs for every city <em>before</em> any city's own loyalty draws, so "loser"
-    /// is still alive and its army still on the map when "watcher-owner"'s own city is grown, even though
-    /// "loser" no longer exists by the time this same quarter ends. If the original's own interleaved
-    /// pass order were reproduced, a later city's growth would see the army already gone; this engine's
-    /// two-pass split means it does not, so "watcher-owner"'s own city is suppressed from growing this
-    /// quarter by a threat that will not exist once the quarter is over.
+    /// T87 rework round 1, B10: the "grow everything first" remark's own named, unconfirmed edge (review
+    /// round 1) is now fixed, not merely pinned — <see cref="QuarterlyCityEconomySystem"/>'s own class
+    /// remarks explain why growth and the loyalty draws are now interleaved per city, in list order,
+    /// rather than split into two passes. "loser" owns exactly one city and defects it away to "receiver"
+    /// (branch (b): owner ≠ allegiance, allegiance alive), which leaves "loser" with zero cities and
+    /// eliminates it, disposing of its own army (<c>EliminationForces</c>). That army starts adjacent to
+    /// "watcher-owner"'s own city, at war with it, so <see cref="HostileArmyAdjacent.IsThreatened"/> would
+    /// read it as a real threat if "watcher-owner"'s city were grown before "loser-city"'s own loyalty
+    /// draw ran its rebellion. "loser-city" is earlier in <see cref="GameState.Cities"/>' own list order
+    /// than "watched-city", so with growth and draws interleaved per city, "loser"'s elimination (and its
+    /// army's disposal) has already happened by the time "watched-city" is reached, and its growth
+    /// correctly sees no threat — matching the original's own per-city loop
+    /// (<c>decompiled-quarterly-rebellion.md</c> §2's own last paragraph, §5 item 5). Before this rework
+    /// round's restructuring, the old two-pass split grew every city first, so "watched-city" was grown
+    /// while "loser"'s army was still on the map, suppressing its growth by a threat that would not exist
+    /// once the quarter ended; this test used to pin that divergence (population staying at 220) and now
+    /// proves the fix instead (proved by mutation: reverting <see cref="QuarterlyCityEconomySystem"/>'s
+    /// own interleaved loop to the old two-pass split — growing every city, then running every city's own
+    /// loyalty draws in a second pass — makes this test fail with 220 again, verified locally and
+    /// reverted).
     /// </summary>
     [Fact]
-    public void AnOwnerRebellionEliminatesMidQuarter_ItsArmyStillCountsAgainstAnEarlierCitysGrowth()
+    public void AnOwnerRebellionEliminatesMidQuarter_ALaterCitysGrowthSeesItsArmyAlreadyGone()
     {
         var loserCity = CaptureTestbed.City(
             "loser-city", "LoserCity", 10, 10, "loser", "receiver", loyalty: 20, fortificationCode: 0,
@@ -394,9 +406,10 @@ public sealed class QuarterlyCityEconomySystemTests
         Assert.Equal("receiver", result.CityById("loser-city")!.Owner);
         Assert.Empty(result.Armies); // loser's own army, disposed of by EliminationForces.
 
-        // The divergence itself: watched-city did not grow, even though the army that "threatened" it
-        // during the growth pass belonged to a nation eliminated before this same quarter ended.
-        Assert.Equal(220, result.CityById("watched-city")!.PopulationThousands);
+        // The fix itself: watched-city DOES grow, because by the time this later city (in list order)
+        // is reached, loser's elimination and its army's disposal (earlier in the same per-city loop)
+        // have already happened, so HostileArmyAdjacent.IsThreatened no longer sees a threat.
+        Assert.Equal(238, result.CityById("watched-city")!.PopulationThousands);
     }
 
     [Fact]
