@@ -109,6 +109,14 @@ public static class Rebirth
     /// export format this engine's own scenarios never carry a pool for, not a gameplay balance number a
     /// ruleset could tune. See this type's own remarks on the leader-name draw.
     /// </summary>
+    /// <remarks>
+    /// Review round 2, N-a (the user's own decision on #389): stays a cited C# constant here, not an
+    /// <see cref="EconomyRules"/> field — this task's own ruleset grant is limited to the six rebirth
+    /// keys the reset writes actually use, and a name-pool <em>width</em> with no pool behind it in any
+    /// scenario this engine loads is not something a ruleset author could meaningfully tune anyway. It
+    /// becomes derivable from the exported pool itself, not ruleset data, once a later export task adds
+    /// that pool (see this type's own remarks on why exporting it is outside this task's Owns list).
+    /// </remarks>
     private const int LeaderNamePoolSize = 12;
 
     /// <summary>

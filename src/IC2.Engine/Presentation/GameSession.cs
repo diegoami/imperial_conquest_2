@@ -649,6 +649,22 @@ public sealed partial class GameSession
             return new SessionOutput(lines, shouldExit);
         }
 
+        // T87 rework round 2, R2: DoD 2's own "before it can issue an order" also covers the moment
+        // AFTER the game is already over -- _gameOver can already be true here, set by this same call's
+        // own flushed prelude above (AdvanceToHumanSeat, at construction) or by an earlier Submit call,
+        // and nothing past this point should still run: not a mutating command (IsWatchModeActive's own
+        // gate below never runs once no seat exists to be "active" in the first place), and not a
+        // read-only one either -- once no human seat remains anywhere, there is no seat left whose view
+        // "status" or "news" would even be showing. ShouldExit was already true on whichever earlier call
+        // first set _gameOver (Submit's own final "shouldExit || _gameOver"); this is only reached at all
+        // if the caller submits again anyway.
+        if (_gameOver)
+        {
+            lines.Add("The game is over. No further commands are accepted.");
+            lines.Add(string.Empty);
+            return new SessionOutput(lines, true);
+        }
+
         var tokens = trimmed.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         var verb = tokens[0].ToLowerInvariant();
 

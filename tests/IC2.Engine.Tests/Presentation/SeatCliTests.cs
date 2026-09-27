@@ -904,6 +904,50 @@ public sealed class SeatCliTests
     }
 
     /// <summary>
+    /// T87 rework round 2, R2 (the reviewer's own exact probe): the default toy scenario's own north is
+    /// already <see cref="SeatControl.Human"/> without any <c>--seat</c> parameter, so a genuine hotseat
+    /// session with north in debt has no other human seat at all (south is <see cref="SeatControl.Ai"/>
+    /// by the same default). Construction deposes north (the only, and turn-order-first, seat) before it
+    /// can act, and finds no human seat left anywhere -- unlike the sibling test above's own <c>--seat</c>
+    /// session, where <see cref="GameSession.AnnounceGameOverIfNoHumanSeatRemains"/> is gated off entirely
+    /// in favour of T83's own lost-seat fallback (line 603's own <c>_humanSeatNationId is not null</c>
+    /// check), this session has no such gate: <c>_gameOver</c> is set, and the flushed prelude already
+    /// carries "No human seat remains. The game is over." Before this round's fix, a command submitted
+    /// anyway (the reviewer's own <c>declare-war south</c>) still dispatched and changed state; now every
+    /// further command is refused, unconditionally, before it ever reaches the dispatcher.
+    /// </summary>
+    [Fact]
+    public void AGameOverSession_RefusesEveryFurtherCommand_BeforeItEverDispatches()
+    {
+        var toy = CoreTestbed.Toy;
+        var world = toy.World with
+        {
+            Nations = ValueList.From(toy.World.Nations.Select(n =>
+                string.Equals(n.Id, "north", StringComparison.Ordinal) ? n with { Treasury = -1_000_000 } : n)),
+        };
+        var session = new GameSession(world, toy.Ruleset, toy.Scenario);
+
+        Assert.Equal(SeatControl.Ai, session.State.NationById("north")!.Control);
+        Assert.Equal(SeatControl.Ai, session.State.NationById("south")!.Control);
+
+        var relationsBefore = session.State.Relations.Get("north", "south");
+
+        // The reviewer's own exact probe: a mutating command, submitted anyway, after the game is
+        // already over.
+        var afterDeclareWar = session.Submit("declare-war south");
+
+        Assert.Contains(afterDeclareWar.Lines, l => l.Contains("game is over", StringComparison.Ordinal));
+        Assert.DoesNotContain(afterDeclareWar.Lines, l => l.Contains("declare-war accepted", StringComparison.Ordinal));
+        Assert.True(afterDeclareWar.ShouldExit);
+        Assert.Equal(relationsBefore, session.State.Relations.Get("north", "south")); // untouched: never dispatched.
+
+        // A second command afterward changes nothing either -- not a one-shot gate.
+        var again = session.Submit("status");
+        Assert.Contains(again.Lines, l => l.Contains("game is over", StringComparison.Ordinal));
+        Assert.True(again.ShouldExit);
+    }
+
+    /// <summary>
     /// T87 rework round 1 (review B7): <see cref="GameSession.DepositActiveHumanSeatIfItShouldFallAtTurnStart"/>'s
     /// own effects (<see cref="Deposition.ApplyEffects"/>, <see cref="Deposition.ResetRelations"/>) had no
     /// test of their own beyond the deleted <c>HumanDepositionSystem</c>'s copy — a mutation dropping
