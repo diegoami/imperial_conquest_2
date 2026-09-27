@@ -40,4 +40,21 @@
     <ProjectReference Include="../../src/IC2.Inspect/IC2.Inspect.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!--
+      T48 (tests/IC2.Engine.Tests/Assets/AssetPackFallbackResolutionTests.cs): DoD 4 needs "a test
+      that points the loader at a pack with a deliberately missing entry", but
+      godot/IC2.MapViewer.csproj is outside IC2.sln, so without this line the test could only
+      exercise a hand-copied mirror of godot/Assets/AssetKeyResolver.cs, one that stays green even
+      if the shipped fallback were deleted. Granted 2026-09-27, narrowly, by the user on PR #450's
+      review (blocking finding 2), recorded in plan PR #451 and docs/tasks/T48.md's Owns list: this
+      one Compile Include only, linking the real, Godot-free resolver class in place (never a
+      second copy of it, and no other change to this file). AssetKeyResolver.cs itself has only a
+      using IC2.Engine.Assets directive, no reference to Godot anywhere, so linking it here adds no
+      Godot dependency to this project, the same guarantee T21's ProjectReference grant above gave
+      for IC2.Data/IC2.Inspect.
+    -->
+    <Compile Include="../../godot/Assets/AssetKeyResolver.cs" Link="Assets/AssetKeyResolver.cs" />
+  </ItemGroup>
+
 </Project>
