@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "id": "example-tiny-duel",
+  "name": "Tiny Duel: Two Nations on a Small World",
+  "worldId": "example-tiny-duel",
+  "rulesetId": "toy-ruleset",
+  "seats": [
+    {
+      "nation": "north-realm",
+      "control": "human",
+      "personality": null
+    },
+    {
+      "nation": "south-realm",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.7,
+        "expansionDrive": 0.8,
+        "loyaltyToAlliances": 0.3
+      }
+    }
+  ],
+  "victory": {
+    "type": "totalConquest",
+    "goal": null
+  },
+  "turnLimit": 50,
+  "blindHotseat": false,
+  "randomSeed": 20250921,
+  "_provenance": {
+    "worldId": "designed: references the custom tiny-duel-world, a small 5x5 test world",
+    "rulesetId": "designed: uses the toy-ruleset for fast testing",
+    "seats": "designed: demonstrates human vs AI seating on the custom world",
+    "seats[south-realm].personality": "designed: example/[designed] aggressive, expansionist, low-loyalty profile — the original's own AI is out of scope for reverse-engineering (docs/design-audit.md §1), so this is not a claim about the original game",
+    "turnLimit": "designed: a limit appropriate for the small world",
+    "randomSeed": "designed: fixed seed for reproducibility"
+  }
+}
