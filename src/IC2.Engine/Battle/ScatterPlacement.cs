@@ -1,5 +1,6 @@
 using IC2.Engine.Model;
 using IC2.Engine.Movement;
+using IC2.Engine.Naval;
 
 namespace IC2.Engine.Battle;
 
@@ -118,19 +119,20 @@ public static class ScatterPlacement
         {
             for (var x = origin.X - distance; x <= origin.X + distance; x++)
             {
+                var candidate = new GridPoint(x, y);
+
                 // The ring at exactly this Chebyshev distance, not the filled square.
-                if (Math.Max(Math.Abs(x - origin.X), Math.Abs(y - origin.Y)) != distance)
+                if (LandingTile.ChebyshevDistance(candidate, origin) != distance)
                 {
                     continue;
                 }
 
-                var candidate = new GridPoint(x, y);
                 if (!IsValid(candidate, forFleet, movingId, state, world, terrain))
                 {
                     continue;
                 }
 
-                var rank = Math.Max(Math.Abs(x - ideal.X), Math.Abs(y - ideal.Y));
+                var rank = LandingTile.ChebyshevDistance(candidate, ideal);
 
                 // Ascending y then ascending x is the scan order itself, so a strict improvement is the
                 // only reason to replace the incumbent -- ties keep the earlier, lower-(y, x) tile.

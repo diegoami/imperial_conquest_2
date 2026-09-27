@@ -1,5 +1,7 @@
 using IC2.Engine.Core;
 using IC2.Engine.Model;
+using IC2.Engine.Movement;
+using IC2.Engine.Naval;
 using IC2.Engine.Strength;
 
 namespace IC2.Engine.Battle.Commands;
@@ -80,7 +82,7 @@ public static class AttackLegality
     /// <param name="by">Second y.</param>
     /// <returns><see langword="true"/> when the two tiles adjoin or coincide.</returns>
     public static bool AreAdjacent(int ax, int ay, int bx, int by) =>
-        Math.Max(Math.Abs(ax - bx), Math.Abs(ay - by)) <= 1;
+        LandingTile.ChebyshevDistance(new GridPoint(ax, ay), new GridPoint(bx, by)) <= 1;
 
     /// <summary>Whether <paramref name="command"/> would be accepted by its handler.</summary>
     /// <param name="state">The state the command would be decided against.</param>
@@ -352,7 +354,7 @@ public static class AttackLegality
         {
             return Refuse(
                 AttackFleetRejections.NoArcherUnitType,
-                $"Ruleset '{ruleset.Id}' declares no '{BattleCommandRuleset.ArcherUnitTypeId}' unit type, which a "
+                $"Ruleset '{ruleset.Id}' declares no '{ruleset.ArcherUnitTypeId}' unit type, which a "
                 + "carried army's strength is measured with.");
         }
 
@@ -431,8 +433,9 @@ public static class AttackLegality
 
     /// <summary>
     /// The two ids the siege path must hand the merged resolvers, refused as a typed rejection rather
-    /// than thrown — see <see cref="BattleCommandRuleset"/> for why they are not <see cref="Ruleset"/>
-    /// fields.
+    /// than thrown. The archer type is a real <see cref="Ruleset.ArcherUnitTypeId"/> field but can still
+    /// name an undeclared unit type; the fortification order has no pointer field at all and is found by
+    /// behaviour instead — see <see cref="BattleCommandRuleset"/>'s remarks for both.
     /// </summary>
     private static CommandRejection? ResolverIdsCheck(
         Ruleset ruleset, RejectionCode noArcher, RejectionCode noFortificationOrder)
@@ -441,7 +444,7 @@ public static class AttackLegality
         {
             return Refuse(
                 noArcher,
-                $"Ruleset '{ruleset.Id}' declares no '{BattleCommandRuleset.ArcherUnitTypeId}' unit type, which the "
+                $"Ruleset '{ruleset.Id}' declares no '{ruleset.ArcherUnitTypeId}' unit type, which the "
                 + "besieger's strength is measured with.");
         }
 

@@ -43,7 +43,7 @@ public sealed class AttackFleetCommandTests
 
         var direct = InstantBattleResolver.ResolveNaval(
             state, AttackerId, TargetId, ToyRuleset, ToyWorld, RngFor(state, command.Kind),
-            BattleCommandRuleset.ArcherUnitTypeId, NullEventSink.Instance);
+            ToyRuleset.ArcherUnitTypeId, NullEventSink.Instance);
 
         var sink = new RecordingEventSink();
         var result = Dispatcher(sink).Dispatch(state, command);
@@ -123,9 +123,11 @@ public sealed class AttackFleetCommandTests
             state, new AttackFleetCommand(NorthNationId, TargetId, AttackerId), AttackFleetRejections.NotYourFleet);
         AssertRefused(AtPeaceFixture(), Attack(), AttackFleetRejections.NotAtWar);
 
+        // T66 DoD 3 (bug #222 N2): at Chebyshev distance 2 from the attacker (6, 5), not 4 -- so this
+        // fixture itself fails the "distance <= 2" mutation, rather than only the boundary theory below.
         var apart = state with
         {
-            Fleets = ValueList.From(state.Fleets.Select(f => f.Id == TargetId ? f with { X = 2, Y = 5 } : f)),
+            Fleets = ValueList.From(state.Fleets.Select(f => f.Id == TargetId ? f with { X = 4, Y = 5 } : f)),
         };
         AssertRefused(apart, Attack(), AttackFleetRejections.NotAdjacent);
 

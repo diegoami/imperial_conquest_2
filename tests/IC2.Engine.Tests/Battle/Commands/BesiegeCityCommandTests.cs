@@ -226,9 +226,11 @@ public sealed class BesiegeCityCommandTests
         AssertRefused(state, Besiege(city: "arx"), BesiegeCityRejections.OwnCity);
         AssertRefused(AtPeaceFixture(), Besiege(), BesiegeCityRejections.NotAtWar);
 
+        // T66 DoD 3 (bug #222 N2): at Chebyshev distance 2 from meridia (3, 4), not 4 -- so this fixture
+        // itself fails the "distance <= 2" mutation, rather than only the boundary theory above doing so.
         var moved = state with
         {
-            Armies = ValueList.From(state.Armies.Select(a => a with { X = 0, Y = 0 })),
+            Armies = ValueList.From(state.Armies.Select(a => a with { X = 1, Y = 4 })),
         };
         AssertRefused(moved, Besiege(), BesiegeCityRejections.NotAdjacent);
 
@@ -269,7 +271,10 @@ public sealed class BesiegeCityCommandTests
     /// The two ids the merged resolvers take as parameters are resolved from the loaded ruleset, and a
     /// ruleset that carries neither is refused rather than throwing out of
     /// <see cref="Strength.SiegeStrength.Attacker"/> — see <see cref="BattleCommandRuleset"/> for why
-    /// these are looked up at all.
+    /// these are looked up at all. T66 DoD 5's third bullet: the archer id is now a real
+    /// <see cref="Ruleset.ArcherUnitTypeId"/> field, and this is the case where that field still names
+    /// no <em>declared</em> unit type — the existing typed rejection below, unchanged from before the
+    /// field existed.
     /// </summary>
     [Fact]
     public void ARulesetMissingEitherResolverIdIsRefusedRatherThanThrowing()
@@ -278,7 +283,7 @@ public sealed class BesiegeCityCommandTests
 
         var withoutArchers = ToyRuleset with
         {
-            UnitTypes = ValueList.From(ToyRuleset.UnitTypes.Where(u => u.Id != BattleCommandRuleset.ArcherUnitTypeId)),
+            UnitTypes = ValueList.From(ToyRuleset.UnitTypes.Where(u => u.Id != ToyRuleset.ArcherUnitTypeId)),
         };
         Assert.Equal(
             BesiegeCityRejections.NoArcherUnitType,
@@ -295,8 +300,9 @@ public sealed class BesiegeCityCommandTests
             BesiegeCityRejections.NoFortificationOrder,
             AttackLegality.Check(state, withoutFortifyOrder, Besiege())!.Code);
 
-        // And the shipped ruleset resolves both, by behaviour rather than by a hardcoded id.
-        Assert.Equal(BattleCommandRuleset.ArcherUnitTypeId, BattleCommandRuleset.ArcherUnitTypeIdIn(ToyRuleset));
+        // The shipped ruleset resolves both: the archer type via its own Ruleset field, the
+        // fortification order still by behaviour rather than by a hardcoded id.
+        Assert.Equal(ToyRuleset.ArcherUnitTypeId, BattleCommandRuleset.ArcherUnitTypeIdIn(ToyRuleset));
         Assert.Equal(CaptureTestbed.FortifyOrderId, BattleCommandRuleset.FortificationOrderIdIn(ToyRuleset));
     }
 
