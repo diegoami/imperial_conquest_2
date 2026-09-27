@@ -251,9 +251,9 @@ describes. The shipped resolver does not read it. It holds:
   and `meleeLossHardCap 30000` (K16);
 - `inRangeShotMultiplier 2` (K21).
 
-Candidates should read those values from there. Its `_provenance` still calls the matrix orientation
-a *"candidate orientation"*. [`rout`][rout] has since settled it (K15), so the provenance string is
-stale but the values are right.
+Candidates should read those values from there. [`rout`][rout] settled the matrix orientation (K15),
+and since T66 (bug #327) the `typeEffectiveness` `_provenance` in all three rulesets says so, citing
+that settlement. It no longer calls the orientation a candidate.
 
 The ruleset does **not** carry:
 - the shooting vulnerability K20 (`+0x20`), which is in no `unitTypes[]` entry;
