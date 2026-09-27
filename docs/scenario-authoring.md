@@ -1047,11 +1047,11 @@ A practical approach is to copy a shipped ruleset (e.g., `classical-faithful.jso
   "description": "Classical rules with house-rule modifications",
   "calendar": { /* ... copy from classical-faithful ... */ },
   "economy": {
-    "taxableIncome": 150,
+    "taxRateDivisor": 80,
     "_provenance": {
-      "taxableIncome": "designed: lowered from 200 to make economy tighter. Searched docs/reports/ and no original value was found to lock to, so this is a design choice."
+      "taxRateDivisor": "designed: lowered from the shipped 100 so a given tax rate yields more income, making the economy tighter to balance around. Searched docs/reports/ and found no evidence the original ever used a different divisor, so this is a design choice, not a correction."
     }
-    /* ... rest of economy ... */
+    /* ... rest of economy (every other field from the copied ruleset, unchanged) ... */
   },
   /* ... other rule sections ... */
 }
