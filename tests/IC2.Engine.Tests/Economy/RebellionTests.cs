@@ -65,7 +65,7 @@ public sealed class RebellionTests
             Neighbours = ValueList.From(new[] { new NationNeighbours("rome", ValueList.From(new[] { "gaul" })) }),
         };
 
-        var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance);
+        var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance, new ScriptedRng());
 
         Assert.Same(state, result);
     }
@@ -96,7 +96,7 @@ public sealed class RebellionTests
         var state = EliminationForcesTestbed.StateWith(new[] { rome, carthage }, new[] { city, romeOtherCity });
 
         var sink = new RecordingEventSink();
-        var result = Rebellion.Run(state, World, Ruleset, city, sink);
+        var result = Rebellion.Run(state, World, Ruleset, city, sink, new ScriptedRng());
 
         Assert.Equal("carthage", result.CityById("c1")!.Owner);
         Assert.Equal("carthage", result.CityById("c1")!.Allegiance); // Defect never writes allegiance.
@@ -144,7 +144,7 @@ public sealed class RebellionTests
                 .WithRelation("owner", "raider2", Ruleset.Diplomacy.StateCodes.War),
         };
 
-        var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance);
+        var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance, new ScriptedRng());
 
         Assert.Equal("raider2", result.CityById("c1")!.Owner);
     }
@@ -161,7 +161,7 @@ public sealed class RebellionTests
         var state = EliminationForcesTestbed.StateWith(new[] { owner, neutral }, new[] { city }, armies);
         state = WithNeighbours(state, "owner"); // no candidate for (d) either, so nothing happens overall.
 
-        var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance);
+        var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance, new ScriptedRng());
 
         Assert.Same(state, result);
     }
@@ -190,7 +190,7 @@ public sealed class RebellionTests
                 .WithRelation("owner", "raider2", Ruleset.Diplomacy.StateCodes.War),
         };
 
-        var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance);
+        var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance, new ScriptedRng());
 
         Assert.Equal("raider2", result.CityById("c1")!.Owner);
     }
@@ -209,7 +209,7 @@ public sealed class RebellionTests
         var state = EliminationForcesTestbed.StateWith(new[] { owner, dead }, new[] { city });
         state = WithNeighbours(state, "owner", "dead");
 
-        var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance);
+        var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance, new ScriptedRng());
 
         Assert.Same(state, result);
     }
@@ -228,7 +228,7 @@ public sealed class RebellionTests
             Relations = state.Relations.WithRelation("owner", "ally", Ruleset.Diplomacy.StateCodes.Alliance),
         };
 
-        var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance);
+        var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance, new ScriptedRng());
 
         Assert.Equal("ally", result.CityById("c1")!.Owner);
     }
@@ -251,7 +251,7 @@ public sealed class RebellionTests
             new[] { owner, n0, n1 }, new[] { city, n0Capital, n1Capital });
         state = WithNeighbours(state, "owner", "n0", "n1"); // ascending index order: n0 first.
 
-        var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance);
+        var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance, new ScriptedRng());
 
         Assert.Equal("n0", result.CityById("c1")!.Owner);
     }
@@ -278,7 +278,7 @@ public sealed class RebellionTests
         var state = EliminationForcesTestbed.StateWith(new[] { owner, n0, n1 }, cities);
         state = WithNeighbours(state, "owner", "n0", "n1");
 
-        var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance);
+        var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance, new ScriptedRng());
 
         Assert.Equal("n1", result.CityById("c1")!.Owner);
     }
@@ -304,7 +304,7 @@ public sealed class RebellionTests
         var state = EliminationForcesTestbed.StateWith(new[] { owner, n0, n1 }, cities);
         state = WithNeighbours(state, "owner", "n0", "n1");
 
-        var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance);
+        var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance, new ScriptedRng());
 
         Assert.Equal("n1", result.CityById("c1")!.Owner);
     }
@@ -329,7 +329,7 @@ public sealed class RebellionTests
         var state = EliminationForcesTestbed.StateWith(new[] { owner, n0, n1 }, cities);
         state = WithNeighbours(state, "owner", "n0", "n1");
 
-        var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance);
+        var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance, new ScriptedRng());
 
         Assert.Equal("n1", result.CityById("c1")!.Owner);
     }
@@ -354,7 +354,7 @@ public sealed class RebellionTests
         var state = EliminationForcesTestbed.StateWith(new[] { owner, n0, n1 }, cities);
         state = WithNeighbours(state, "owner", "n0", "n1");
 
-        var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance);
+        var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance, new ScriptedRng());
 
         Assert.Equal("n1", result.CityById("c1")!.Owner);
     }
@@ -368,7 +368,7 @@ public sealed class RebellionTests
         var state = EliminationForcesTestbed.StateWith(new[] { owner }, new[] { city });
         state = WithNeighbours(state, "owner"); // an entry with an empty neighbour list.
 
-        var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance);
+        var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance, new ScriptedRng());
 
         Assert.Same(state, result);
     }
@@ -398,7 +398,7 @@ public sealed class RebellionTests
         var state = EliminationForcesTestbed.StateWith(
             new[] { weak, strong }, new[] { city }, new[] { weakArmy });
 
-        var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance);
+        var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance, new ScriptedRng());
 
         var eliminatedWeak = result.NationById("weak")!;
         Assert.True(eliminatedWeak.Eliminated);

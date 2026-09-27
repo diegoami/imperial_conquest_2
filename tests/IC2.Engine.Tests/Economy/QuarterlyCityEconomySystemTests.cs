@@ -527,7 +527,11 @@ public sealed class QuarterlyCityEconomySystemTests
         // Nine cities total (receiver-cap + q0..q7), each drawing exactly one fall roll (tax >= 11%
         // everywhere skips every rise draw) -- all scripted to miss, so nothing here moves loyalty on
         // its own; every move below comes from a rebellion/rebirth decision, never a loyalty roll.
-        var rng = new ScriptedRng(nextChanceDraws: Enumerable.Repeat(false, 9).ToArray());
+        // Review round 1, N1: q0's own rebellion triggers Rebirth.Run (dead's unity is 0), which now
+        // makes and discards one leader-name draw of its own -- a separate, independent scripted queue.
+        var rng = new ScriptedRng(
+            nextChanceDraws: Enumerable.Repeat(false, 9).ToArray(),
+            nextIntDraws: new[] { 0 });
         var sink = new RecordingEventSink();
         var context = new QuarterBoundaryContext(state, ruleset, EconomyTestbed.Toy.World, EndingSeasonIndex: 0, rng, sink);
 

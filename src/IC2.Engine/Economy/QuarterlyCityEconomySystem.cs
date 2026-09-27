@@ -129,7 +129,9 @@ public sealed class QuarterlyCityEconomySystem : IQuarterBoundaryHandler
 
             if (result.RebellionRisk)
             {
-                state = Rebellion.Run(state, context.World, ruleset, updatedCity, context.Events);
+                // Review round 1, N1: Rebellion.Run's own signature grew an IRng parameter for Rebirth's
+                // one consumed-and-discarded leader-name draw; this same shared stream, unchanged.
+                state = Rebellion.Run(state, context.World, ruleset, updatedCity, context.Events, context.Rng);
             }
         }
 

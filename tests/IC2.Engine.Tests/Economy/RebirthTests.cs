@@ -47,7 +47,8 @@ public sealed class RebirthTests
         var cities = Enumerable.Range(0, 7).Select(i => QualifyingCity($"q{i}", "owner", "dead")).ToList();
         var state = EliminationForcesTestbed.StateWith(new[] { dead, owner }, cities);
 
-        var result = Rebirth.Run(state, Ruleset, dead, NullEventSink.Instance);
+        // No draw: the qualifying-city check fails before the leader-name draw is reached.
+        var result = Rebirth.Run(state, Ruleset, dead, NullEventSink.Instance, new ScriptedRng());
 
         Assert.Same(state, result);
     }
@@ -61,10 +62,16 @@ public sealed class RebirthTests
         var cities = Enumerable.Range(0, 8).Select(i => QualifyingCity($"q{i}", "owner", "dead")).ToList();
         var state = EliminationForcesTestbed.StateWith(new[] { dead, owner }, cities);
 
-        var result = Rebirth.Run(state, Ruleset, dead, NullEventSink.Instance);
+        // Review round 1, N1: rebirth qualifies, so the one leader-name draw is made and discarded --
+        // AssertAllDrawsConsumed below proves the draw actually happened, not merely that a scripted one
+        // would have been accepted if made (proved by mutation: dropping Rebirth.Run's own `rng.NextInt`
+        // call makes this assertion fail with one unconsumed NextInt draw, verified locally and reverted).
+        var rng = new ScriptedRng(nextIntDraws: new[] { 0 });
+        var result = Rebirth.Run(state, Ruleset, dead, NullEventSink.Instance, rng);
 
         Assert.True(result.NationById("dead")!.Unity > 0);
         Assert.NotSame(state, result);
+        rng.AssertAllDrawsConsumed();
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -155,7 +162,8 @@ public sealed class RebirthTests
         };
 
         var sink = new RecordingEventSink();
-        var result = Rebirth.Run(state, Ruleset, dead, sink);
+        // Review round 1, N1: rebirth qualifies (eight cities), so the leader-name draw runs once, discarded.
+        var result = Rebirth.Run(state, Ruleset, dead, sink, new ScriptedRng(nextIntDraws: new[] { 0 }));
 
         var reborn = result.NationById("dead")!;
 
@@ -265,9 +273,12 @@ public sealed class RebirthTests
 
         // Rebellion.Run is invoked once per rebelling city, exactly as QuarterlyCityEconomySystem's own
         // loop would for each of "dead-a"/"dead-b"'s own allegiant cities under the rebellion threshold --
-        // any one qualifying city triggers the same nation-wide count.
-        var afterA = Rebellion.Run(state, EconomyTestbed.Toy.World, Ruleset, allCities[0], NullEventSink.Instance);
-        var afterB = Rebellion.Run(afterA, EconomyTestbed.Toy.World, Ruleset, citiesB[0], NullEventSink.Instance);
+        // any one qualifying city triggers the same nation-wide count. Review round 1, N1: only "dead-a"
+        // (eight qualifying cities) actually rebirths and draws a leader name; "dead-b" (three) does not,
+        // so one shared, once-scripted rng covers both calls.
+        var rng = new ScriptedRng(nextIntDraws: new[] { 0 });
+        var afterA = Rebellion.Run(state, EconomyTestbed.Toy.World, Ruleset, allCities[0], NullEventSink.Instance, rng);
+        var afterB = Rebellion.Run(afterA, EconomyTestbed.Toy.World, Ruleset, citiesB[0], NullEventSink.Instance, rng);
 
         Assert.False(afterB.NationById("dead-a")!.Eliminated);
         Assert.True(afterB.NationById("dead-a")!.Unity > 0);
@@ -295,7 +306,8 @@ public sealed class RebirthTests
         cities.Add(ownerSpare);
         var state = EliminationForcesTestbed.StateWith(new[] { dead, owner }, cities, new[] { ownerArmy });
 
-        var result = Rebirth.Run(state, Ruleset, dead, NullEventSink.Instance);
+        // Review round 1, N1: qualifies, so the leader-name draw runs once, discarded.
+        var result = Rebirth.Run(state, Ruleset, dead, NullEventSink.Instance, new ScriptedRng(nextIntDraws: new[] { 0 }));
 
         Assert.True(result.NationById("dead")!.Unity > 0); // rebirth did happen.
         Assert.False(result.NationById("owner")!.Eliminated); // owner-spare kept it alive.
@@ -345,7 +357,8 @@ public sealed class RebirthTests
         Assert.True(eliminatedDead.Eliminated);
         Assert.Equal(SeatControl.Ai, eliminatedDead.Control); // bug #441's own fix, proven through the real path.
 
-        var result = Rebirth.Run(afterElimination, Ruleset, eliminatedDead, NullEventSink.Instance);
+        // Review round 1, N1: qualifies, so the leader-name draw runs once, discarded.
+        var result = Rebirth.Run(afterElimination, Ruleset, eliminatedDead, NullEventSink.Instance, new ScriptedRng(nextIntDraws: new[] { 0 }));
         var reborn = result.NationById("dead")!;
 
         Assert.False(reborn.Eliminated); // AiTurn.Run's own gate no longer skips it.
@@ -370,7 +383,8 @@ public sealed class RebirthTests
         cities.Add(ownerSpare);
         var state = EliminationForcesTestbed.StateWith(new[] { dead, owner }, cities);
 
-        var reborn = Rebirth.Run(state, Ruleset, dead, NullEventSink.Instance);
+        // Review round 1, N1: qualifies, so the leader-name draw runs once, discarded.
+        var reborn = Rebirth.Run(state, Ruleset, dead, NullEventSink.Instance, new ScriptedRng(nextIntDraws: new[] { 0 }));
         // Relations start at Peace (EliminationForcesTestbed.StateWith's own uniform matrix), so a fresh
         // declare-war is legal on every other ground once the eliminated-counterparty gate is cleared.
         // Dispatch as "owner" -- CommandDispatcher's own issuer-is-the-active-seat gate needs the active
