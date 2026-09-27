@@ -187,6 +187,7 @@ These are kept in step with the auto-memory feedback notes. When a preference ch
 - **Relay reviewer findings in full** on rework.
 - **An external reviewer posts to the PR.** Any review prompt handed to another model (a plan PR, a code PR, a milestone) tells it to post its result as one PR comment. The main session reads it from GitHub, so the user never relays a review by hand.
 - **Non-blocking review findings become one follow-up issue per merge**, and each item is folded into the next task that touches those files.
+- **No Haiku.** Implementers and reviewers are Opus or Sonnet (Fable only for pure templates). Haiku was retired on 2026-09-27 after T26 ([build-process.md §3.3](build-process.md#33-model-selection)).
 - **The main session runs the build directly** with `/run-task`. There is no orchestrator layer; it was retired on 2026-09-14 as more overhead than value for serial execution.
 - **No status snapshots in documents.** Status lives in GitHub labels only.
 - When correcting a claim after user feedback, fix the document or report text itself, not only the chat.

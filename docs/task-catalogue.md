@@ -827,7 +827,7 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T15](#t15-army-and-unit-management) | Army/unit management | M14 | Sonnet | Medium | Sonnet/High | T08, T13 | [#15](https://github.com/diegoami/imperial_conquest_2/issues/15) |
 | [T16](#t16-battle-resolution--all-three-variants) | Battle resolution | M8 | **Opus** | High | Opus/High + ultra | T07, T08, T14, T31, T33, T42 | [#16](https://github.com/diegoami/imperial_conquest_2/issues/16) |
 | [T17](#t17-city-capture-siege-and-the-defection-cascade) | Capture, siege, defection | M9 | Sonnet | High | **Opus**/Medium | T16, T33, T35, T42 | [#17](https://github.com/diegoami/imperial_conquest_2/issues/17) |
-| [T18](#t18-city-orders-fortification) | City orders | M10 | **Haiku** | Medium | Sonnet/Medium | T08, T17 | [#18](https://github.com/diegoami/imperial_conquest_2/issues/18) |
+| [T18](#t18-city-orders-fortification) | City orders | M10 | Sonnet | Medium | Sonnet/Medium | T08, T17 | [#18](https://github.com/diegoami/imperial_conquest_2/issues/18) |
 | [T19](#t19-diplomacy) | Diplomacy | M11 | Sonnet | High | **Opus**/Medium | T06, T16, T35, T42 | [#19](https://github.com/diegoami/imperial_conquest_2/issues/19) |
 | [T20](#t20-new-format-saveload-and-versioning) | Save/load and versioning | M16 | Sonnet | High | **Opus**/Medium | T15, T17, T19 | [#20](https://github.com/diegoami/imperial_conquest_2/issues/20) |
 | [T21](#t21-original-save-import-bridge) | Original-save import | M15 | Sonnet | High | **Opus**/Medium | T10, T20, T29, T30, T34, T64, T73 | [#21](https://github.com/diegoami/imperial_conquest_2/issues/21) |
@@ -835,9 +835,9 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T23](#t23-command-layer-and-headless-cli-harness) | Command layer and CLI | M18 | Sonnet | Medium | Sonnet/High | T17, T19, T41 | [#23](https://github.com/diegoami/imperial_conquest_2/issues/23) |
 | [T24](#t24-godot-main-game-screen) | Godot main screen | M18 | Sonnet | High | Sonnet/High + human | T11, T23, T29, T34, T36 | [#24](https://github.com/diegoami/imperial_conquest_2/issues/24) |
 | [T25](#t25-battle-result-diplomacy-and-hotseat-handoff-screens) | Godot screens | M18 | Sonnet | Medium | Sonnet/High + human | T24 | [#25](https://github.com/diegoami/imperial_conquest_2/issues/25) |
-| [T26](#t26-scenario-authoring-docs-and-example-scenarios) | Scenario docs and examples | M19 | **Haiku** | Medium | Sonnet/Medium | T23, T29 | [#26](https://github.com/diegoami/imperial_conquest_2/issues/26) |
+| [T26](#t26-scenario-authoring-docs-and-example-scenarios) | Scenario docs and examples | M19 | **Sonnet** | Medium | Sonnet/High | T23, T29 | [#26](https://github.com/diegoami/imperial_conquest_2/issues/26) |
 | [T27](#t27-packaging) | Packaging | M20 | Sonnet | Medium | Sonnet/High | T25, T26 | [#27](https://github.com/diegoami/imperial_conquest_2/issues/27) |
-| [T28](#t28-nightly-regression-and-soak-gate) | Nightly gate | — | **Haiku** | Low | Sonnet/Medium | T22 | [#28](https://github.com/diegoami/imperial_conquest_2/issues/28) |
+| [T28](#t28-nightly-regression-and-soak-gate) | Nightly gate | — | **Sonnet** | Low | Sonnet/High | T22 | [#28](https://github.com/diegoami/imperial_conquest_2/issues/28) |
 | [T29](#t29-export-the-shipped-classical-mediterranean-world-and-ruleset) | Export classical-mediterranean world | — | Sonnet | High | **Opus**/Medium | T02, T04, T30, T34, T15, T17, T19, T37 | [#32](https://github.com/diegoami/imperial_conquest_2/issues/32) |
 | [T30](#t30-harden-ic2data-army-tombstones-and-the-dats-own-file-layout) | `IC2.Data`: tombstones + DAT layout | — | Sonnet | High | **Opus**/Medium | T01 | [#37](https://github.com/diegoami/imperial_conquest_2/issues/37) |
 | [T31](#t31-correct-rulesetsieges-defender-strength-field-identities) | Correct `Ruleset.Siege` defender fields | — | Sonnet | Medium | **Opus**/Medium | T02 | [#45](https://github.com/diegoami/imperial_conquest_2/issues/45) |
@@ -903,4 +903,4 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T91](#t91-capture-fidelity-the-cascade-reads-the-losers-unity-and-every-capital-test-is-any-nations-capital) | Capture fidelity | — | Sonnet | Medium | **Opus**/Medium | T90 | [#418](https://github.com/diegoami/imperial_conquest_2/issues/418) |
 | [T92](#t92-a-capture-whose-sweep-empties-the-loser-still-conquers-it) | Conquest after an emptying sweep | — | Sonnet | Medium | **Opus**/Medium | T91 | [#426](https://github.com/diegoami/imperial_conquest_2/issues/426) |
 
-**Totals** — 92 tasks: 11 Opus, 75 Sonnet, 5 Haiku, 1 Fable. Effort: 2 Ultrahigh, 49 High, 36 Medium, 5 Low.
+**Totals** — 92 tasks: 11 Opus, 78 Sonnet, 2 Haiku (T36 and T77, merged before Haiku was retired on 2026-09-27), 1 Fable. Effort: 2 Ultrahigh, 49 High, 36 Medium, 5 Low.

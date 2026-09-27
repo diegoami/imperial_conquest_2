@@ -53,6 +53,8 @@ Every system is written against these interfaces and registers itself, so no two
 
   The same applies to the **assertions that record the demo's behaviour**, in `tests/IC2.Engine.Tests/Presentation/GameSessionTests.cs`: the golden comparison, and the seed-sensitivity test that names which lines a different seed may change. A task that legitimately adds a random draw, or changes what a line prints, may adjust those assertions under the same conditions, and **must not weaken them**: the seed test still has to assert that the differing lines are *exactly* the known random-driven ones, never that differences are ignored. Widening that list without naming the new draw, or replacing an equality with a looser check, is a review finding. T35 is the first case: its quarterly loyalty draws are a second random consumer alongside weather, so the list becomes weather **and** loyalty rather than weather alone.
 
+- **The data-file field reference** (`docs/scenario-authoring.md`, T26): a reflection test asserts that it names every public field of `World`, `Ruleset` and `Scenario`, including their nested types, so the reference cannot silently go stale. Any task that legitimately adds, renames or removes such a field therefore changes it too. Rather than name it in every Owns list, **any task whose diff adds, renames or removes a public field of those types may edit that file**, but only the entries for those fields: the field, what it does, its unit or range, and its `_provenance` convention. It is the **one** exception to the documentation rule above. The PR names each entry it touched, and an edit to any other part of the file is a review finding. Added 2026-09-27 by the user's decision, when T87's rebirth keys were the first case.
+
 **2.4 The fixtures corpus (T04).** Every exact number from the research reports is transcribed once into a typed JSON corpus (`tests/fixtures/corpus.json`), with provenance on each entry. Later tasks assert against `FixtureCorpus.Get("rome.taxBase")` instead of each re-reading the reports, with each re-read being another chance to misread them.
 
 > **Keeping the corpus current.** When a new research report lands, its constants are added by **whichever task owns the mechanic the report describes**, not by reopening T04. T04's Owns list (`tests/fixtures/**`) already covers the addition, and the top-up must keep T04's four DoD checks green. Adding the report's filename to `tests/fixtures/known-reports.json` is part of the top-up.
@@ -103,7 +105,7 @@ Models are chosen per task, not uniformly:
   - Low: a test-only correction (T32).
   - High: tasks that must read a format off decompiled code (T30), widen the shared domain model (T35), or rework merged economy code (T38, T39).
   - T10 moved from Haiku to Sonnet after its first attempt didn't converge. Integration design across the engine's seams is not Haiku work.
-- **Haiku: 4 tasks** (T18, T26, T28, T36) that are small, fully specified and CI-gated.
+- **Haiku: retired on 2026-09-27** by the user's decision. It is no longer assigned to any task, and new tasks never get it. T26's Haiku implementer wrote outside its Owns list instead of stopping as its brief required, then produced a reflection test that found zero properties and could never fail, and documented a victory type that does not exist. A task small enough for Haiku is cheap enough on Sonnet. T18 had already moved to Sonnet on 2026-09-19. T26 and T28 moved on 2026-09-27, and T36 and T77 were merged on Haiku before that.
 - **Fable: 1 task** (T05): pure templates and configuration. Never used for anything that must compile against the domain model.
 
 ### 3.4 Why the reviewer's model differs from the implementer's
@@ -117,8 +119,8 @@ Models are chosen per task, not uniformly:
 | Opus (T02, T03, T16, T22) | Opus / High | `/code-review --effort ultra` ([§3.5](#35-where-the-code-review-skill-fits)) |
 | Sonnet on fidelity-critical tasks (T04, T07, T08, T10, T13, T14, T17, T19, T20, T21, T29, T30, T31, T33, T34, T37, T38, T39, T40, T42, T43) | **Opus / Medium** | — |
 | Sonnet widening the shared domain model (T35) | **Opus / High** | — |
-| Sonnet on structural tasks (T01, T06, T09, T11, T12, T15, T23, T24, T25, T27, T32, T41) | Sonnet / High | human visual review on T24 and T25 |
-| Haiku / Fable (T05, T18, T26, T28, T36) | Sonnet / Medium | — |
+| Sonnet on structural tasks (T01, T06, T09, T11, T12, T15, T23, T24, T25, T26, T27, T28, T32, T41) | Sonnet / High | human visual review on T24 and T25 |
+| Fable (T05), and the tasks merged on Haiku before it was retired (T36, T77) | Sonnet / Medium | — |
 
 ### 3.5 Where the `/code-review` skill fits
 
