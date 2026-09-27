@@ -152,14 +152,22 @@ public sealed partial class GameSession
     /// <see cref="HandleEnd"/>'s own check could ever run against it.
     /// </para>
     /// <para>
-    /// <strong>T87, #404's N-j: never recorded for a side already eliminated when the capture runs.</strong>
-    /// <see cref="CapturePeaceTreatyOfferIfAny"/> reads <see cref="State"/> (already advanced past the
-    /// triggering <see cref="TurnCoordinator.RunTurn"/> or dispatch by the time it runs) to resolve
-    /// <see cref="Battle.PeaceTreatyOffered.WinnerNationId"/>/<c>LoserNationId</c> into the current
-    /// <see cref="Model.NationState"/>, so a side eliminated by a <em>later</em> event in the very same
-    /// batch — an AI turn that both loses a gated battle to human X and then takes X's last city — is
-    /// already <see cref="Model.NationState.Eliminated"/> by the time this runs. The recording loop now
-    /// skips such an event instead of keying a dead human's own new entry.
+    /// <strong>T87, #404's N-j (rework round 1, review B9): no branch added.</strong> #404's own scope:
+    /// "if the engine cannot reach that ordering, the PR shows why, and no branch is added for it" — the
+    /// ordering is an AI turn that both loses a gated battle to human X and then takes X's last city, in
+    /// that order, within the same turn. A first attempt at this check (round 0 of this PR) added an
+    /// unconditional <c>if (offeredHuman.Eliminated) continue;</c> with no test proving that ordering is
+    /// reachable — deleting it left the whole suite green (review B9's own M10). It is removed here
+    /// rather than kept unproven. Reaching it needs an AI army that loses an attack against a human's own
+    /// field army (clearing <c>AiMilitaryPhase</c>'s own required-attack-ratio gate at the odds needed to
+    /// actually lose sometimes, not merely refuse to attack), <em>and</em>, in the very same turn, a
+    /// second AI action taking that same human's last, separately-undefended city — the independent
+    /// reviewer of PR #400 (round 3) already attempted the equivalent construction and reported "the AI
+    /// took the city without attacking the army"; this task's own attempt in the time available did not
+    /// improve on that. If a later task does construct it, <see cref="CapturePeaceTreatyOfferIfAny"/> is
+    /// where the branch belongs — reading <see cref="State"/>, already advanced past the triggering
+    /// <see cref="TurnCoordinator.RunTurn"/> or dispatch by the time this runs, would already show the
+    /// side as <see cref="Model.NationState.Eliminated"/> the moment such an event is found.
     /// </para>
     /// </remarks>
     private readonly Dictionary<string, PendingPeaceTreatyOffer> _pendingPeaceTreatyOffers =
@@ -242,14 +250,6 @@ public sealed partial class GameSession
             }
 
             var offeredHuman = winner.Control == SeatControl.Human ? winner : loser;
-
-            // T87, N-j: a side already eliminated by a later event in this same batch (see this field's
-            // own remarks) can never answer or have this lapse for them -- never recorded at all, rather
-            // than keyed under a dead human's own id.
-            if (offeredHuman.Eliminated)
-            {
-                continue;
-            }
 
             // N-g: one slot per human seat -- a second qualifying offer for a human who already has one
             // pending is still dropped (the original's dialog is modal per human), but it no longer
