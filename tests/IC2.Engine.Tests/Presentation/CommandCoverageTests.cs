@@ -51,14 +51,24 @@ public sealed class CommandCoverageTests
 {
     /// <summary>
     /// Every <see cref="ICommand"/>-implementing type in the engine assembly, found by reflection —
-    /// exactly the reflection Done-when 2 asks for. <c>IsAssignableFrom</c> over concrete, non-abstract
-    /// types only; <see cref="ICommand"/> itself and any handler interface are excluded by construction
-    /// (neither is assignable to itself as a proper subtype here since only <c>record</c> command types
-    /// implement the interface at all).
+    /// exactly the reflection Done-when 2 asks for. <c>IsAssignableFrom</c> over concrete types only;
+    /// <see cref="ICommand"/> itself and any handler interface are excluded by <c>!IsInterface</c>, and
+    /// there is no abstract command base to exclude further.
     /// </summary>
+    /// <remarks>
+    /// T80 rework round 1, N1/N4: this used to require <c>IsClass: true</c> too, on the premise that
+    /// "only <c>record</c> command types implement the interface at all" — false, since
+    /// <c>ICommandHandler&lt;TCommand&gt; where TCommand : ICommand</c> carries no <c>class</c>
+    /// constraint, so a <c>record struct</c> (or any value type) command is legal and dispatchable, and
+    /// the old filter silently dropped it from every set below — the exact "a newly added command type
+    /// join(s) the demo" gap this task exists to close. Proved by mutation: a throwaway
+    /// <c>readonly record struct</c> command with no verb, added under
+    /// <c>src/IC2.Engine/Naval/Commands/</c> and reverted, made both coverage tests below fail, naming it,
+    /// only after this filter was corrected — see the PR for the before/after.
+    /// </remarks>
     private static IReadOnlyList<Type> AllCommandTypes { get; } = typeof(ICommand).Assembly
         .GetTypes()
-        .Where(t => t is { IsClass: true, IsAbstract: false } && typeof(ICommand).IsAssignableFrom(t))
+        .Where(t => !t.IsInterface && !t.IsAbstract && typeof(ICommand).IsAssignableFrom(t))
         .OrderBy(t => t.FullName, StringComparer.Ordinal)
         .ToList();
 
@@ -227,13 +237,28 @@ public sealed class CommandCoverageTests
     /// <c>attack-fleet</c>; <c>success-fleet.golden.txt</c> carries only <c>attack-fleet</c>) — a type
     /// passes if its accepted line shows up in either.
     /// </summary>
+    /// <remarks>
+    /// T80 rework round 1, B1 (blocking): this used to search the whole golden text for
+    /// <c>"{kind} accepted"</c> as a bare substring, which also matches
+    /// <c>diplomacy.declare-war accepted (composed ahead of the attack).</c> — a line
+    /// <c>attack-army</c>/<c>besiege-city</c> print from their own block, not a <c>declare-war</c> script
+    /// line's own outcome. So a golden with zero <c>declare-war</c> lines, but at least one composing
+    /// attack, still "covered" <see cref="Diplomacy.Commands.DeclareWarCommand"/>. Fixed by attributing
+    /// coverage to the exact <see cref="GoldenTranscriptBlocks.Block"/> the verb's own script line produced
+    /// (<see cref="HasAcceptedLine"/>), so a composed declare-war inside an <c>attack-army</c> block can
+    /// never satisfy <c>declare-war</c>'s own coverage. Proved by mutation: removing
+    /// <c>declare-war armenia</c> from <c>success.txt</c> and regenerating the golden through the CLI now
+    /// fails this test, naming <see cref="Diplomacy.Commands.DeclareWarCommand"/> — see the PR for the
+    /// before/after.
+    /// </remarks>
     [Fact]
     public void Every_reachable_command_type_has_an_accepted_line_in_the_success_golden()
     {
-        var golden = File.ReadAllText(
-            Path.Combine(ModelTestPaths.RepositoryRoot, "tests", "fixtures", "cli", "success.golden.txt"))
-            + File.ReadAllText(
-            Path.Combine(ModelTestPaths.RepositoryRoot, "tests", "fixtures", "cli", "success-fleet.golden.txt"));
+        var blocks = GoldenTranscriptBlocks.Parse(File.ReadAllText(
+                Path.Combine(ModelTestPaths.RepositoryRoot, "tests", "fixtures", "cli", "success.golden.txt")))
+            .Concat(GoldenTranscriptBlocks.Parse(File.ReadAllText(
+                Path.Combine(ModelTestPaths.RepositoryRoot, "tests", "fixtures", "cli", "success-fleet.golden.txt"))))
+            .ToList();
 
         var missing = new List<string>();
         foreach (var commandType in AllCommandTypes)
@@ -244,7 +269,7 @@ public sealed class CommandCoverageTests
                 continue;
             }
 
-            if (!HasAcceptedLine(golden, kind))
+            if (!VerbByKind.TryGetValue(kind, out var verb) || !HasAcceptedLine(blocks, kind, verb))
             {
                 missing.Add($"{commandType.FullName} (kind '{kind}')");
             }
@@ -252,22 +277,45 @@ public sealed class CommandCoverageTests
 
         Assert.True(
             missing.Count == 0,
-            "The following command type(s) have no accepted line in success.golden.txt or success-fleet.golden.txt: "
-            + string.Join(", ", missing));
+            "The following command type(s) have no accepted line, attributed to their own verb's script "
+            + "line, in success.golden.txt or success-fleet.golden.txt: " + string.Join(", ", missing));
     }
 
     /// <summary>
-    /// <c>move</c> and <c>buy</c> keep <c>GameSession.Commands</c>'s own bespoke wording (T41's contract:
-    /// see that file's own remarks), so their accepted line is not <c>"{kind} accepted."</c>; every other
-    /// kind shares the one generic renderer, whether composed ahead of an attack or not.
+    /// Whether some block whose own prompt verb is <paramref name="verb"/> shows an accepted outcome for
+    /// <paramref name="kind"/>. <c>move</c> and <c>buy</c> keep <c>GameSession.Commands</c>'s own bespoke
+    /// wording (T41's contract: see that file's own remarks), so their accepted line is not
+    /// <c>"{kind} accepted."</c>; every other kind shares the one generic renderer's exact,
+    /// full-stop-terminated line — a composed declare-war line reads
+    /// <c>"...accepted (composed ahead of the attack)."</c>, which does not contain
+    /// <c>"...accepted."</c> as a substring, so it cannot false-positive a plain <c>declare-war</c> line
+    /// even before the per-block verb attribution is taken into account (B1's own belt and suspenders).
     /// </summary>
-    private static bool HasAcceptedLine(string golden, string kind) => kind switch
+    private static bool HasAcceptedLine(IReadOnlyList<GoldenTranscriptBlocks.Block> blocks, string kind, string verb)
     {
-        "movement.move-army" => golden.Contains("moved from (", StringComparison.Ordinal),
-        "economy.buy-supply" => golden.Contains("bought ", StringComparison.Ordinal)
-            && golden.Contains(" tons of supply", StringComparison.Ordinal),
-        _ => golden.Contains($"{kind} accepted", StringComparison.Ordinal),
-    };
+        foreach (var block in blocks)
+        {
+            if (!string.Equals(block.Verb, verb, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var accepted = verb switch
+            {
+                "move" => block.Outcome.Contains("moved from (", StringComparison.Ordinal),
+                "buy" => block.Outcome.Contains("bought ", StringComparison.Ordinal)
+                    && block.Outcome.Contains(" tons of supply", StringComparison.Ordinal),
+                _ => block.Outcome.Contains($"{kind} accepted.", StringComparison.Ordinal),
+            };
+
+            if (accepted)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>
     /// Cross-check on <see cref="NoCliVerbByDesign"/> and <see cref="ConfirmedUnreachable"/> themselves:
