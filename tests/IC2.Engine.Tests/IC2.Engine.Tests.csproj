@@ -65,6 +65,17 @@
     -->
     <Compile Include="../../godot/UI/RulesetPresets.cs" Link="Ui/RulesetPresets.cs" />
     <Compile Include="../../godot/UI/NewGameSelection.cs" Link="Ui/NewGameSelection.cs" />
+
+    <!--
+      T25 (tests/IC2.Engine.Tests/Ui/Screens/**): the same seam, one file further. BattleResultViewModel.cs,
+      DiplomacyGridViewModel.cs and HotseatHandoffDetector.cs (godot/Screens/**) each have no `using Godot`
+      anywhere — every one is exercised here by plain xunit tests, never only by the headless Godot checks
+      under godot/Screens/Checks/**, which CI cannot run (no Godot SDK). Never a second, hand-maintained
+      copy of any of the three.
+    -->
+    <Compile Include="../../godot/Screens/BattleResultViewModel.cs" Link="Ui/Screens/BattleResultViewModel.cs" />
+    <Compile Include="../../godot/Screens/DiplomacyGridViewModel.cs" Link="Ui/Screens/DiplomacyGridViewModel.cs" />
+    <Compile Include="../../godot/Screens/HotseatHandoffDetector.cs" Link="Ui/Screens/HotseatHandoffDetector.cs" />
   </ItemGroup>
 
 </Project>
