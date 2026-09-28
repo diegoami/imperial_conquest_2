@@ -1,11 +1,10 @@
 name: CI
 
 # T01 (docs/task-catalogue.md "Build scaffolding and CI"): restore, build and test
-# IC2.sln on every push and pull request. This job intentionally never references
-# godot/IC2.MapViewer.csproj - it requires the Godot 4.7.2 .NET SDK, which is not installed on
-# GitHub-hosted runners and cannot build here. See IC2.sln's header comment and docs/operating-guide.md
-# section 6 for the Godot-headless-run caveat that scripts/check-godot-churn.ps1 guards against locally;
-# that script is not invoked by this workflow because no step here runs Godot.
+# IC2.sln on every push and pull request. The build-and-test job never references
+# godot/IC2.MapViewer.csproj; the godot-headless job below (2026-09-28) downloads the Godot 4.7.2
+# .NET editor and runs the project's headless checks, so the Godot lane is checked by CI and not
+# only by a reviewer's machine and the user's visual sign-off.
 
 on:
   # push only on main: a PR from a same-repo branch would otherwise run twice on
@@ -83,3 +82,96 @@ jobs:
 
       - name: Test
         run: dotnet test IC2.sln --no-build --configuration Release --logger "console;verbosity=detailed"
+
+  # The Godot lane in CI (2026-09-28, item 5 of the process review). Runs what T24's and T25's
+  # Done-when lines run locally: the main scene headless (T24 DoD 1), one order of each type through
+  # the command layer (T24 DoD 2, OrderCoverageCheck), the New Game ruleset chooser (T24 DoD 4,
+  # RulesetFlowCheck), the three T25 screens (ScreensCheck), and the churn guard (T24 DoD 3). Each check
+  # scene quits with its own exit code, so a failing assertion fails the step. Each step also requires
+  # the scene's own "exiting with code 0" line in the output (review of PR #477, Luna R1 and Opus N1):
+  # Godot exits 0 when --quit-after fires, so a scene that never reached _Ready, or outgrew its frame
+  # budget, would otherwise pass silently. The budget is a generous watchdog for the same reason. The
+  # screenshot tours are not run: the headless driver has no texture to capture (operating-guide.md,
+  # Practical caveats). T95's SaveResumeCheck gets its own step here once it merges.
+  #
+  # The editor binary comes from the godotengine/godot release, cached by version. It is the .NET
+  # ("mono") build, whose GodotSharp/ directory must sit next to the binary, so the zip's folder is
+  # kept whole and a symlink named godot is put on PATH. The C# assembly is built with dotnet first:
+  # Godot.NET.Sdk writes it where the editor loads it from (.godot/mono/temp/bin/Debug), and a project
+  # run outside the editor does not build it itself. `--import` then imports the resources once, so the
+  # first real run does not spend its --quit-after frames importing.
+  godot-headless:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GODOT_VERSION: 4.7.2-stable
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Cache the Godot editor
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-mono-linux-x86_64
+
+      - name: Download the Godot .NET editor
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          set -eu
+          mkdir -p "$HOME/godot"
+          curl -sSL --retry 3 -o "$RUNNER_TEMP/godot.zip" \
+            "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_mono_linux_x86_64.zip"
+          unzip -q "$RUNNER_TEMP/godot.zip" -d "$HOME/godot"
+
+      - name: Put godot on PATH
+        run: |
+          set -eu
+          dir="$HOME/godot/Godot_v${GODOT_VERSION}_mono_linux_x86_64"
+          bin="$dir/Godot_v${GODOT_VERSION}_mono_linux.x86_64"
+          test -f "$bin"
+          chmod +x "$bin"
+          ln -sf "$bin" "$dir/godot"
+          echo "$dir" >> "$GITHUB_PATH"
+
+      - name: Godot version
+        run: godot --version
+
+      - name: Build the Godot project
+        run: dotnet build godot/IC2.MapViewer.csproj --configuration Debug
+
+      - name: Import resources
+        run: godot --headless --path godot --import
+
+      - name: T24 DoD 1, the main scene runs headless
+        run: |
+          set -eo pipefail
+          godot --headless --path godot --quit-after 2 2>&1 | tee "$RUNNER_TEMP/main-scene.txt"
+          ! grep -q 'SCRIPT ERROR' "$RUNNER_TEMP/main-scene.txt"
+
+      - name: T24 DoD 2, one order of each type through the command layer
+        run: |
+          set -eo pipefail
+          godot --headless --path godot res://Checks/OrderCoverageCheck.tscn --quit-after 600 2>&1 | tee "$RUNNER_TEMP/order-coverage.txt"
+          grep -q 'OrderCoverageCheck: exiting with code 0.' "$RUNNER_TEMP/order-coverage.txt"
+
+      - name: T24 DoD 4, the New Game ruleset chooser
+        run: |
+          set -eo pipefail
+          godot --headless --path godot res://Checks/RulesetFlowCheck.tscn --quit-after 600 2>&1 | tee "$RUNNER_TEMP/ruleset-flow.txt"
+          grep -q 'RulesetFlowCheck: exiting with code 0.' "$RUNNER_TEMP/ruleset-flow.txt"
+
+      - name: T25, the three screens open from a scripted state
+        run: |
+          set -eo pipefail
+          godot --headless --path godot res://Screens/Checks/ScreensCheck.tscn --quit-after 600 2>&1 | tee "$RUNNER_TEMP/screens.txt"
+          grep -q 'ScreensCheck: exiting with code 0.' "$RUNNER_TEMP/screens.txt"
+
+      - name: T24 DoD 3, no headless churn left in the tree
+        run: pwsh scripts/check-godot-churn.ps1
