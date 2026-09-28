@@ -20,11 +20,21 @@ namespace IC2.Slice.Checks;
 /// The first four checks satisfy the original Done-when directly: each of the three screens is
 /// constructed from a scripted fixture/state and added to the tree (Godot headless still builds a real
 /// <see cref="Control"/> tree and runs real layout code; only pixel readback needs a window — see
-/// <c>godot/Checks/ScreenshotTour.cs</c>'s own remarks). The last three drive the real
+/// <c>godot/Checks/ScreenshotTour.cs</c>'s own remarks). The rest drive the real
 /// <see cref="MainGameScreen"/> through <see cref="MainGameScreen.SubmitForCheck"/> and
 /// <see cref="MainGameScreen.OpenDiplomacyScreen"/> — the same entry points a real map click, a real
 /// "Diplomacy" button press, or a real "End Turn" press reach — and assert on
 /// <see cref="MainGameScreen.ActiveOverlay"/>, never a hand-rolled mirror of that wiring.
+/// </para>
+/// <para>
+/// <strong>Rework round 1 (PR #476 review, gate 5):</strong>
+/// <see cref="CheckTwoBattlesInOneEndShowBothBattleResultOverlaysInTurn"/> was added because
+/// <c>MainGameScreen.OnCommandIssued</c>'s own "more than one battle in a single 'end' never stacks
+/// silently" remark had nothing driving two battles through one <c>Submit</c> to prove it — see that
+/// method's own doc comment for the fixture. The same round also added
+/// <c>GameSessionBattleResultsTests.An_AI_seats_own_attack_during_end_is_captured</c> and
+/// <c>...Two_AI_battles_within_one_end_are_both_captured_in_order_and_do_not_leak_into_the_next_submit</c>,
+/// covering the AI-turn capture site (<c>PlayUntilOneFullLapOrRepeat</c>) this check exercises indirectly.
 /// </para>
 /// <para>
 /// <strong>Never two Godot processes at once</strong> (this task's own binding instruction) — this check
@@ -44,6 +54,7 @@ public partial class ScreensCheck : Node
             CheckDiplomacyScreenOpensFromAScriptedState();
             CheckHotseatHandoffScreenOpensBlindAndNotBlindFromAScriptedState();
             CheckAttackThroughMainGameScreenOpensTheBattleResultScreen();
+            CheckTwoBattlesInOneEndShowBothBattleResultOverlaysInTurn();
             CheckDiplomacyControlOpensTheGridThroughMainGameScreen();
             CheckEndingATurnInTwoHumanHotseatShowsTheHandoff();
         }
@@ -160,6 +171,63 @@ public partial class ScreensCheck : Node
         mainGame.QueueFree();
     }
 
+    /// <summary>
+    /// Rework round 1 (PR #476 review, gate 5): <c>MainGameScreen.OnCommandIssued</c>'s own remark that
+    /// more than one battle in a single "end" "never stacks silently" — its <c>_pendingBattleOverlays</c>
+    /// queue shows each battle's own screen in turn — had no check driving two battles through one
+    /// <c>Submit</c> at all. <see cref="TwoAiBattlesReadySession"/> gives the AI seat two armies, each
+    /// adjacent to its own separate, much weaker enemy; the toy ruleset's <c>ai.maxActionsPerTurn</c> (24)
+    /// lets both attacks fire inside the AI's one turn, exactly like
+    /// <c>GameSessionBattleResultsTests.Two_AI_battles_within_one_end_are_both_captured_in_order</c> (same
+    /// fixture shape, duplicated here for the reason <see cref="BattleReadySession"/>'s own remarks give).
+    /// </summary>
+    private void CheckTwoBattlesInOneEndShowBothBattleResultOverlaysInTurn()
+    {
+        var mainGame = new MainGameScreen { Session = TwoAiBattlesReadySession(), RepositoryRoot = GameDataContext.RepositoryRoot };
+        AddChild(mainGame);
+
+        mainGame.SubmitForCheck("declare-war south");
+        mainGame.SubmitForCheck("end");
+
+        var firstIsBattleScreen = mainGame.ActiveOverlay is BattleResultScreen;
+        Check(
+            firstIsBattleScreen,
+            $"two battles in one 'end' open a battle-result screen for the first one "
+            + $"(got {mainGame.ActiveOverlay?.GetType().Name ?? "null"})");
+
+        var seenAttackers = new List<string>();
+        if (mainGame.ActiveOverlay is BattleResultScreen first)
+        {
+            seenAttackers.Add(first.Result.AttackerId);
+            first.Close();
+        }
+
+        var secondIsBattleScreen = mainGame.ActiveOverlay is BattleResultScreen;
+        Check(
+            secondIsBattleScreen,
+            $"closing the first battle-result screen shows the second battle's own screen next, "
+            + $"rather than stacking silently or skipping it (got {mainGame.ActiveOverlay?.GetType().Name ?? "null"})");
+
+        if (mainGame.ActiveOverlay is BattleResultScreen second)
+        {
+            seenAttackers.Add(second.Result.AttackerId);
+            second.Close();
+        }
+
+        Check(
+            seenAttackers.Count == 2 && seenAttackers.Contains("south-army-1") && seenAttackers.Contains("south-army-2"),
+            $"both of the AI's own two battles were shown, exactly once each, in turn "
+            + $"(saw: {string.Join(", ", seenAttackers)})");
+
+        Check(
+            mainGame.ActiveOverlay is null,
+            $"once both battle screens are dismissed nothing is left open "
+            + $"(got {mainGame.ActiveOverlay?.GetType().Name ?? "null"})");
+
+        RemoveChild(mainGame);
+        mainGame.QueueFree();
+    }
+
     private void CheckDiplomacyControlOpensTheGridThroughMainGameScreen()
     {
         var toy = GameDataContext.Repository.Resolve("toy-3city");
@@ -249,6 +317,36 @@ public partial class ScreensCheck : Node
         {
             StartingArmies = ValueList.From(
                 toy.World.StartingArmies.Select(a => a.Id == "south-army-1" ? southArmy : a)),
+        };
+
+        return new GameSession(customWorld, toy.Ruleset, toy.Scenario);
+    }
+
+    /// <summary>
+    /// <see cref="BattleReadySession"/>'s own pair, plus a second, independent pair at (0,0)/(1,0) -- the
+    /// same tiles/shapes <c>tests/IC2.Engine.Tests/Presentation/GameSessionBattleResultsTests.TwoAiBattlesFixture</c>
+    /// uses (itself following <c>PeaceTreatyOfferTests.TwoBattleOfferFixture</c>'s already-proven-safe
+    /// tiles), with ordinary (non-zero) moves on both AI armies so each attacks its own adjacent enemy on
+    /// its own initiative once war is declared.
+    /// </summary>
+    private static GameSession TwoAiBattlesReadySession()
+    {
+        var toy = GameDataContext.Repository.Resolve("toy-3city");
+        var southArmy = toy.World.StartingArmies.Single(a => a.Id == "south-army-1") with { X = 4, Y = 2 };
+
+        var northArmy2 = new StartingArmy(
+            "north-army-2", "north", X: 0, Y: 0, Morale: 68, Money: 0, SupplyTons: 0, Moves: 5,
+            Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "light_infantry", Troops: 15000, Quality: 6, Name: "2nd Battalion")));
+
+        var southArmy2 = new StartingArmy(
+            "south-army-2", "south", X: 1, Y: 0, Morale: 59, Money: 0, SupplyTons: 0, Moves: 5,
+            Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "heavy_infantry", Troops: 6000, Quality: 6, Name: "2nd Guards Battalion")));
+
+        var customWorld = toy.World with
+        {
+            StartingArmies = ValueList.From(
+                toy.World.StartingArmies.Select(a => a.Id == "south-army-1" ? southArmy : a)
+                    .Append(northArmy2).Append(southArmy2)),
         };
 
         return new GameSession(customWorld, toy.Ruleset, toy.Scenario);
