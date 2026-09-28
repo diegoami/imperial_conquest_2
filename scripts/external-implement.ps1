@@ -32,7 +32,8 @@
 .PARAMETER BriefFile
     The filled Appendix A brief.
 .PARAMETER Model
-    mimo-flash-free (default), mimo-pro, mimo-flash, glm, or luna.
+    mimo-flash-free (default), deepseek-flash (DeepSeek V4.1 Flash at max, index 39, the paid
+    everyday option when the free endpoint is limited), mimo-pro, mimo-flash, glm, or luna.
 .PARAMETER LocalOnly
     Copy assets.local.ini from the main checkout into the worktree.
 .PARAMETER FixturesDir
@@ -50,7 +51,7 @@ param(
     [Parameter(Mandatory)] [string] $Slug,
     [int] $Issue,
     [Parameter(Mandatory)] [string] $BriefFile,
-    [ValidateSet('mimo-flash-free', 'mimo-pro', 'mimo-flash', 'glm', 'luna')] [string] $Model = 'mimo-flash-free',
+    [ValidateSet('mimo-flash-free', 'deepseek-flash', 'mimo-pro', 'mimo-flash', 'glm', 'luna')] [string] $Model = 'mimo-flash-free',
     [switch] $LocalOnly,
     [string] $FixturesDir
 )
@@ -67,12 +68,13 @@ $ErrorActionPreference = 'Stop'
 # lists them, and mimo-flash-free is the default until then.
 $models = @{
     'mimo-flash-free' = 'opencode/mimo-v2.6-flash-free'
+    'deepseek-flash'  = 'opencode/deepseek-v4.1-flash'
     'mimo-pro'        = 'opencode/mimo-v2.6-pro'
     'mimo-flash'      = 'opencode/mimo-v2.6-flash'
     'glm'             = 'opencode/glm-5.3'
     'luna'            = 'opencode/gpt-6-luna'
 }
-$variants = @{ 'mimo-flash-free' = ''; 'mimo-pro' = ''; 'mimo-flash' = ''; 'glm' = 'max'; 'luna' = 'high' }
+$variants = @{ 'mimo-flash-free' = ''; 'deepseek-flash' = 'max'; 'mimo-pro' = ''; 'mimo-flash' = ''; 'glm' = 'max'; 'luna' = 'high' }
 $modelId = $models[$Model]
 $variant = $variants[$Model]
 
