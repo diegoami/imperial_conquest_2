@@ -53,6 +53,11 @@ public partial class HotseatHandoffScreen : Control
         }
 
         content.AddChild(new HSeparator());
-        content.AddChild(UiKit.MakeButton($"I am {Info.NextNationName} — Continue", () => Continued?.Invoke()));
+        content.AddChild(UiKit.MakeButton($"I am {Info.NextNationName} — Continue", Continue));
     }
+
+    /// <summary>Confirms the incoming seat is ready — what the "Continue" button does, exposed under its
+    /// own name for <c>godot/Screens/Checks/**</c>, the same convention <see cref="BattleResultScreen.Close"/>
+    /// uses.</summary>
+    public void Continue() => Continued?.Invoke();
 }

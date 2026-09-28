@@ -61,8 +61,12 @@ public partial class DiplomacyScreen : Control
         }
 
         content.AddChild(new HSeparator());
-        content.AddChild(UiKit.MakeButton("Close", () => Closed?.Invoke()));
+        content.AddChild(UiKit.MakeButton("Close", Close));
     }
+
+    /// <summary>Dismisses this screen — what the "Close" button does, exposed under its own name for
+    /// <c>godot/Screens/Checks/**</c>, the same convention <see cref="BattleResultScreen.Close"/> uses.</summary>
+    public void Close() => Closed?.Invoke();
 
     private void AddHeaderRow()
     {

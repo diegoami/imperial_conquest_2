@@ -69,8 +69,13 @@ public partial class BattleResultScreen : Control
         content.AddChild(UiKit.MakeLabel(PeaceLineText(), 13, UiKit.MutedTextColor));
 
         content.AddChild(new HSeparator());
-        content.AddChild(UiKit.MakeButton("Close", () => Closed?.Invoke()));
+        content.AddChild(UiKit.MakeButton("Close", Close));
     }
+
+    /// <summary>Dismisses this screen — what the "Close" button does, exposed under its own name so a
+    /// headless check can call it directly, the same convention <c>RulesetChooserScreen.ConfirmSelection</c>
+    /// and <c>ScenarioSeatScreen.ConfirmSeatAndStart</c> already use rather than simulating a click.</summary>
+    public void Close() => Closed?.Invoke();
 
     private string DisplayNation(string nationId) => Session.State.NationById(nationId)?.Name ?? nationId;
 

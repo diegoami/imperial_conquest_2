@@ -243,8 +243,13 @@ public partial class MainGameScreen : Control
         ShowOverlay(screen);
     }
 
-    /// <summary>T25: opens <see cref="Screens.DiplomacyScreen"/> from the bottom toolbar's own control.</summary>
-    private void OpenDiplomacyScreen()
+    /// <summary>
+    /// T25: opens <see cref="Screens.DiplomacyScreen"/> — the bottom toolbar's own "Diplomacy" button
+    /// calls this directly. Public, rather than only reachable through that button, so a headless check
+    /// can call it directly too (<c>godot/Screens/Checks/**</c>) — the same convention
+    /// <see cref="SubmitForCheck"/> already establishes for driving a command.
+    /// </summary>
+    public void OpenDiplomacyScreen()
     {
         var screen = new DiplomacyScreen { Session = Session };
         screen.CommandIssued += OnCommandIssued;
