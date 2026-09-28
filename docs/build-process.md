@@ -26,7 +26,7 @@ This document changes **no design decision**. Every rule, constant and Done-when
 ## 1. Constraints the pipeline works around
 
 1. **The milestone list has real sequential dependencies.** Strength functions (M5) feed M8, M9 and M12. Economy (M3) gates recruitment (M4), naval (M7) and army management (M14). Battle resolution (M8) gates siege (M9), diplomacy's reparation trigger (M11) and the AI (M12). The real graph is in [task-catalogue.md §1](task-catalogue.md#1-the-dependency-graph).
-2. **Godot and the original game files exist only on the user's machines** ([§8](#8-two-machines)). GitHub Actions can build and test everything *except* the Godot project.
+2. **Godot exists only on the user's machines; the original game files are on the user's machines and in the private fixtures repository CI fetches** ([§7](#7-concurrency-single-instance-and-local-only), [§8](#8-two-machines)). GitHub Actions can build and test everything *except* the Godot project.
    - Anything that launches or exports Godot is **single-instance**.
    - Anything that reads the user's original `.sav`/`.dat` files is **local-only**. Those files are, and stay, outside the repository.
 3. **Merge conflicts are a real cost**, not agent time. The foundation tasks (T01–T03) bought conflict-free seams so that later tasks touch disjoint files.
@@ -114,10 +114,11 @@ Models are chosen per task, in the task's entry, by what an error would cost:
 | Opus, on an architecture task (T02, T03, T16, T22) | Opus / High | `/code-review --effort ultra` ([§3.5](#35-where-the-code-review-skill-fits)) |
 | Sonnet, on a fidelity-critical task (a rule's constants or integer semantics) | **Opus / Medium** | — |
 | Sonnet, widening the shared domain model | **Opus / High** | — |
+| Opus, on a correction whose evidence is still open when its entry is written | **Sonnet / High**, a different model; or the pair the entry names, with its reason | — |
 | Sonnet, on a structural task (scaffolding, CLI, UI, data files, docs) | Sonnet / High | human visual review on the Godot screens ([§9](#9-standing-governance-decisions) Q-B) |
 | Fable, and the two tasks merged on Haiku | Sonnet / Medium | — |
 
-Each task's entry names its own pair; the table is the rule the entry applies.
+Each task's entry names its own pair; the table is the rule the entry applies. An entry may raise the reviewer one tier above its row, and says why.
 
 ### 3.5 Where the `/code-review` skill fits
 
@@ -159,7 +160,7 @@ issue status:ready, every merge-after dependency merged
 
 ### 4.2 What the reviewer checks
 
-Before the gates, **gate 0: the reviewer proves it is looking at the right code** — its HEAD equals the PR's head, and its `origin/main...HEAD` file list equals the PR's own file list, with both pasted into the review ([Appendix B](#appendix-b-reviewer-prompt-template)). An empty diff means the wrong tree. Every finding must name a file from that diff; anything else is a separate report.
+Before the gates, **gate 0: the reviewer proves it is looking at the right code** — its HEAD equals the PR's head, and its `origin/main...HEAD` file list equals the PR's own file list, with both pasted into the review ([Appendix B](#appendix-b-reviewer-prompt-template); incident 5). An empty diff means the wrong tree. Every finding must name a file from that diff; anything else is a separate report.
 
 Five gates, in order. Any failure means `status:rework`.
 
@@ -359,7 +360,7 @@ Retired labels from the orchestrator era: `docs:pending`, `orchestrator:pause`, 
   directory, the main checkout; an agent works in its worktree only because its brief tells it to
   use `git -C <worktree>` or to `cd` there first. That shell directory is **not inherited** by
   anything it spawns, so a skill or agent it forks starts back in the main checkout, where
-  `origin/main...HEAD` is empty. That caused incident 5. Two consequences:
+  `origin/main...HEAD` is empty. That is incident 5 ([§3.5](#35-where-the-code-review-skill-fits)). Two consequences:
   - an agent that needs a sweep of its diff does it **inline**, or passes the target explicitly
     (`/code-review --effort high <pr>`), never bare;
   - **every agent states where it worked**, so a wrong location is visible rather than inferred
@@ -373,10 +374,10 @@ Retired labels from the orchestrator era: `docs:pending`, `orchestrator:pause`, 
   - An implementer runs `git -C C:\Users\diego\projects\imperial_conquest_2 worktree add C:\Users\diego\projects\ic2-work\T<nn> task/T<nn>-<slug>`, creating the branch from `origin/main` if it doesn't exist yet.
   - A reviewer checks out the PR head detached, in `...\ic2-work\T<nn>-review`.
   - An implementer detaches its worktree (`git checkout --detach`) before it finishes, so the branch is free for the next checkout.
-- **`local-only` tasks** need the user's original DAT and saves via `assets.local.ini`. The file is git-ignored, so the agent copies it from the main checkout into its worktree's root. T24, T25 and T27 need a Godot install. These tests **skip explicitly** when the prerequisite is absent, so CI on GitHub's runners stays green.
+- **`local-only` tasks** need the user's original DAT and saves via `assets.local.ini`. The file is git-ignored, so the agent copies it from the main checkout into its worktree's root. The tasks that launch Godot need a Godot install. These tests **skip explicitly** when the prerequisite is absent, so CI on GitHub's runners stays green.
 
   For `IC2.Data.Tests` that is not the whole picture: since T53, **CI fetches the fixtures** from the private `ic2-test-fixtures` repository and runs those tests for real, while a **worktree** without `assets.local.ini` still skips them, because the file is per-checkout. A brief never quotes a skip count (incident 11). The Godot tasks do still skip in CI.
-- **`single-instance` tasks** launch or export Godot 4.7.2. The Godot lane is one serial chain.
+- **`single-instance` tasks** may not run two at once on one machine: the ones that launch or export Godot 4.7.2, and any whose entry says why. The Godot tasks form one serial chain, ordered by their merge-after and never-in-flight lines.
 - **Two tasks that both write `tests/fixtures/**`** (corpus top-ups) never run back to back without a rebase.
 - **Tasks that redefine engine seams** (T03, T40) run with nothing else in flight.
 
@@ -465,10 +466,10 @@ Decided by the user; in force until changed.
 - **Q-A, merge autonomy.** The main session squash-merges any PR that has an approving review and green CI without asking, **except** the architecture PRs T16 and T22. Those wait for the user's thumbs-up and the user's own `/code-review --effort ultra`. T02 and T03 are already merged.
 - **Q-B, Godot visual review.** T24 and T25 post a screenshot of every new screen to their PR as they land, and "looks right" is the user's call on each one. The published mockup (`game-design.md` §UI) is the layout intent.
 - **Q-C, cost profile.**
-  - Opus implements four tasks, and reviews the fidelity-critical PRs ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers)).
+  - Opus implements the tasks [§3.3](#33-model-selection)'s criteria name, and reviews the fidelity-critical PRs ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers)).
   - `/code-review --effort ultra` runs on the architecture PRs.
   - One task is in flight at a time per machine; two machines may run two file-disjoint tasks at once (§8).
-  - There is no orchestrator layer and no per-merge documentation agent (simplified 2026-09-14).
+  - There is no orchestrator layer and no per-merge documentation agent (incident 13).
 - **Q-D, open audit questions become ruleset flags.** Every affected task ships the confirmed behaviour behind a named ruleset flag. The flags are grouped into two user-facing presets, `classical-faithful` and `improved`, chosen at New Game (`game-design.md` "Two shipped presets"). The mapping:
   - Q3 → T19's `diplomacy.model`;
   - Q4 → T08's `economy.purses`;
@@ -554,7 +555,7 @@ Rules for all engine code:
   - If your change DELETES an entity (an army, a fleet, a city, a unit slot), sweep your own
     diff before you finish: does anything still reference it, are its resources conserved, does
     a cap still hold? A dangling id makes a save that cannot be reloaded, and the paths in
-    between degrade silently. The review will find it.
+    between degrade silently (incident 7). The review will find it.
 
 When done:
   1. `dotnet build IC2.sln` and `dotnet test IC2.sln` pass in your worktree.
@@ -640,7 +641,7 @@ Run five gates, in order. Any failure is status:rework:
     is covered only if a test visits every path that reaches it.
     If the diff DELETES an entity from GameState, ask all three: does anything still reference
     it, are its resources conserved, does a cap still hold? A dangling id makes a save that
-    cannot be reloaded. Probe it with two entities — one
+    cannot be reloaded (incident 7). Probe it with two entities — one
     deleted, one surviving — since an over-broad clear passes every single-entity test.
     PROVE a candidate before reporting it: run it, or delete the behaviour and watch exactly which
     test fails. Say so when a finding is unverified.
@@ -689,7 +690,7 @@ catalogue whole (CLAUDE.md rule 11):
   Read docs/tasks/T<nn>.md
 **Paste that extracted entry into every brief you dispatch** (CLAUDE.md rule 15). An agent given
 a pointer instead reads the index, the entry and whatever the entry links to, once per agent per
-round. Given task
+round (incident 14). Given task
 ids, run them in that order; given none, take the first status:ready task in the catalogue index.
 Report to the user after each task; stop at any escalation.
 Given `#<issue>` of a bug labelled `fix`, run the fix lane (build-process.md §4.10) through the
