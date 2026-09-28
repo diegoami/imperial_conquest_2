@@ -14,8 +14,9 @@
          model of the reviewer, feeding it the brief plus the output rules. The run is watched
          (scripts/Invoke-OpenCodeWatched.ps1) with stdin closed, because `opencode run` waits for
          stdin's end-of-file before it creates a session (the cause of the 2026-09-28 hangs). If
-         OpenCode creates no session within -StartupTimeoutSec or does not finish within
-         -TotalTimeoutSec, its process tree is killed;
+         OpenCode creates no session within -StartupTimeoutSec, its session makes no progress
+         for -IdleTimeoutSec, or it does not finish within -TotalTimeoutSec, its process tree is
+         killed;
       3. takes the run's final message as the review, checks it is complete (header line,
          verdict line, and the verdict repeated as the last line), and posts it as one PR comment
          with `gh pr comment --body-file`. A review that arrives flattened onto one line (seen
@@ -25,8 +26,8 @@
          verdict, as a Claude reviewer would (never for a plan PR);
       5. removes the worktree it created, and only that one.
     With -Reviewer auto (the default) the models form a chain: GLM, then Luna, then DeepSeek, each
-    tried once. The next model runs ONLY on an infrastructure failure: no session in time, no exit
-    in time, a run that exits without a session, a non-zero exit, the fallback-to-default-agent
+    tried once. The next model runs ONLY on an infrastructure failure: no session in time, an idle
+    session, no exit in time, a run that exits without a session, a non-zero exit, the fallback-to-default-agent
     guard, or an incomplete (cut-off) review. Any other error stops the script with a non-zero exit
     that is not 3. The worktree is recreated for each attempt. The posted header names the model that reviewed and
     the ones that failed before it, e.g. "Plan review (Luna; GLM failed: no session in 180 s)".
@@ -65,6 +66,10 @@
     How long a run may take to create its OpenCode session before it is killed (default 180).
 .PARAMETER TotalTimeoutSec
     How long a run may take in all before it is killed (default 3600).
+.PARAMETER IdleTimeoutSec
+    How long the run's session may go without its `updated` time advancing before the run is
+    killed (default 600; 0 disables). `updated` advances at each step boundary, not while a tool
+    runs or a reply streams, so this must exceed the longest single step of a review.
 .PARAMETER ModelIds
     Overrides of the reviewer -> model id map, e.g. @{ glm = 'opencode/glm-5.4' }, for when
     `opencode models` shows a different id (or, in a test, a bad id to exercise the chain).
@@ -85,6 +90,7 @@ param(
     [switch] $DryRun,
     [int] $StartupTimeoutSec = 180,
     [int] $TotalTimeoutSec = 3600,
+    [int] $IdleTimeoutSec = 600,
     [hashtable] $ModelIds
 )
 
@@ -204,9 +210,9 @@ OUTPUT RULES (from scripts/external-review.ps1; they override anything above tha
     # The helper appends a random token to the title, so the session found is this run's.
     try {
         $run = Invoke-OpenCodeWatched -Arguments $ocArgs -Prompt $prompt -WorkDir $worktree -Title "ic2-pr$Pr-$Name" `
-            -StartupTimeoutSec $StartupTimeoutSec -TotalTimeoutSec $TotalTimeoutSec
+            -StartupTimeoutSec $StartupTimeoutSec -TotalTimeoutSec $TotalTimeoutSec -IdleTimeoutSec $IdleTimeoutSec
     } catch {
-        # Only OpenCode's own failures (not found, no session, no exit, exited without a session)
+        # Only OpenCode's own failures (not found, no session, idle, no exit, exited without a session)
         # advance the chain. Anything else is a defect here: rethrown, exit non-zero, not 3.
         if (-not (Test-OpenCodeInfraFailure $_)) { throw }
         return (& $fail $_.Exception.Data['Reason'] $_.Exception.Message)

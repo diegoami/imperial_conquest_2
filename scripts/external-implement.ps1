@@ -15,14 +15,15 @@
          the chosen model, feeding it the brief plus the run rules. The run is watched
          (scripts/Invoke-OpenCodeWatched.ps1) with stdin closed, because `opencode run` waits for
          stdin's end-of-file before it creates a session (the cause of the 2026-09-28 hangs). If
-         OpenCode creates no session within -StartupTimeoutSec or does not finish within
-         -TotalTimeoutSec, its process tree is killed;
+         OpenCode creates no session within -StartupTimeoutSec, its session makes no progress
+         for -IdleTimeoutSec, or it does not finish within -TotalTimeoutSec, its process tree is
+         killed;
       4. checks the outcome: a PR exists for the branch, the worktree is clean and pushed, and
          it is detached so the branch is free for the reviewer; saves the run's output next to
          the worktree as <name>.implementer.log and prints its tail.
     With -Model auto (the default) the models form a chain: deepseek-flash, then mimo-flash-free,
     then glm, each tried once. The next model runs ONLY on an infrastructure failure (no session
-    in time, no exit in time, a run that exits without a session, a non-zero exit, the
+    in time, an idle session, no exit in time, a run that exits without a session, a non-zero exit, the
     fallback-to-default-agent guard), and only when the failed run left nothing behind: no new
     commit, locally or on origin, and no PR. Otherwise the script exits 1 and the main session
     decides. When every model fails, or OpenCode is not installed, it exits 3 ("OpenCode
@@ -56,6 +57,10 @@
     How long a run may take to create its OpenCode session before it is killed (default 180).
 .PARAMETER TotalTimeoutSec
     How long a run may take in all before it is killed (default 10800).
+.PARAMETER IdleTimeoutSec
+    How long the run's session may go without its `updated` time advancing before the run is
+    killed (default 900; 0 disables). `updated` advances at each step boundary, not while a tool
+    runs or a reply streams, so this must exceed the longest single step (a long generation).
 .PARAMETER ModelIds
     Overrides of the model name -> model id map, e.g. @{ 'deepseek-flash' = 'opencode/deepseek-v4.2-flash' },
     for when `opencode models` shows a different id (or, in a test, a bad id to exercise the chain).
@@ -77,6 +82,7 @@ param(
     [string] $FixturesDir,
     [int] $StartupTimeoutSec = 180,
     [int] $TotalTimeoutSec = 10800,
+    [int] $IdleTimeoutSec = 900,
     [hashtable] $ModelIds
 )
 
@@ -178,10 +184,11 @@ $prompt = $brief + $rules
 if ($FixturesDir) { $env:IC2_FIXTURES_DIR = $FixturesDir }
 # The run is watched (scripts/Invoke-OpenCodeWatched.ps1). It starts OpenCode with stdin CLOSED
 # (an empty file): `opencode run` creates no session until stdin's end-of-file, so an inherited
-# pipe hung both 2026-09-28 runs. No session within StartupTimeoutSec, or no exit within
-# TotalTimeoutSec, kills its process tree. The helper reads the output as UTF-8.
-# The next model runs only on an infrastructure failure (no session, no exit, an exit without a
-# session, a non-zero exit, the fallback-agent guard), and only when the failed run left nothing
+# pipe hung both 2026-09-28 runs. No session within StartupTimeoutSec, a session idle for
+# IdleTimeoutSec, or no exit within TotalTimeoutSec kills its process tree. The helper reads the
+# output as UTF-8.
+# The next model runs only on an infrastructure failure (no session, idle, no exit, an exit
+# without a session, a non-zero exit, the fallback-agent guard), and only when the failed run left nothing
 # behind: no new commit, locally or on origin, and no PR. Its uncommitted edits are discarded.
 # An implementer that stops and reports exits 0: that is not a failure, and it is never retried
 # on another model.
@@ -196,7 +203,7 @@ foreach ($m in $chain) {
     $reason = $null
     try {
         $run = Invoke-OpenCodeWatched -Arguments $ocArgs -Prompt $prompt -WorkDir $worktree -Title "ic2-$name-$m" `
-            -StartupTimeoutSec $StartupTimeoutSec -TotalTimeoutSec $TotalTimeoutSec
+            -StartupTimeoutSec $StartupTimeoutSec -TotalTimeoutSec $TotalTimeoutSec -IdleTimeoutSec $IdleTimeoutSec
         $output = $run.Output
         if ($run.ExitCode -ne 0) { $reason = "exit $($run.ExitCode)" }
         elseif ($output -match 'Falling back to default agent') { $reason = 'fell back to the default agent' }

@@ -24,14 +24,20 @@
          the process tree and throws "OpenCode created no session within N s ...". A run that
          exits without a session also throws;
       4. then waits for the run to exit until -TotalTimeoutSec after the start, killing the tree
-         and throwing on timeout;
+         and throwing on timeout. While it waits, the IDLE WATCH polls the session's `updated`
+         time (the same bounded `session list` lookup, every -PollSec but at most once a minute):
+         if it has not advanced for -IdleTimeoutSec, it kills the tree and throws "OpenCode
+         session idle for N s". `updated` advances at each step boundary of the run (a tool
+         call's completion, the next model turn), not while a tool runs or a reply streams
+         (measured 2026-09-28), so -IdleTimeoutSec must exceed the longest single step;
       5. returns the output and the exit code. A non-zero exit is returned, not thrown: the caller
          decides. The run's temporary files are deleted after an exit 0 and kept otherwise (their
          paths are in the result and in any thrown message).
-    Every failure of OpenCode itself (not found, no session, no exit, exited without a session)
-    is thrown with Data['OpenCodeInfra'] = $true and a short Data['Reason'] ("no session in 180 s",
-    "no exit in 3600 s") for a fallback chain; test it with Test-OpenCodeInfraFailure. Anything
-    else thrown is a defect of the caller, not a reason to try another model.
+    Every failure of OpenCode itself (not found, no session, no exit, exited without a session,
+    idle) is thrown with Data['OpenCodeInfra'] = $true and a short Data['Reason'] ("no session in
+    180 s", "no exit in 3600 s", "session idle for 600 s") for a fallback chain; test it with
+    Test-OpenCodeInfraFailure. Anything else thrown is a defect of the caller, not a reason to try
+    another model.
 
     Only processes this function started are ever killed (taskkill /T on their own PIDs).
 #>
@@ -148,6 +154,9 @@ function Invoke-OpenCodeWatched {
         [Parameter(Mandatory)] [string] $Title,
         [int] $StartupTimeoutSec = 180,
         [int] $TotalTimeoutSec = 3600,
+        # Kill the run when its session's `updated` time has not advanced for this long; 0 disables.
+        # The callers pass their own default (external-implement.ps1 900, external-review.ps1 600).
+        [int] $IdleTimeoutSec = 600,
         [int] $PollSec = 10,
         # Where the run's files go; deleted after an exit 0, kept for diagnosis otherwise.
         [string] $LogDir = (Join-Path ([System.IO.Path]::GetTempPath()) 'ic2-opencode')
@@ -196,11 +205,31 @@ function Invoke-OpenCodeWatched {
         }
         if ($session) { Write-Host "opencode: session $($session.id) started after $([int]$clock.Elapsed.TotalSeconds) s" }
 
-        # Run watch: the whole run ends within TotalTimeoutSec of the start.
-        $remainingMs = [Math]::Max(0, $totalMs - $clock.ElapsedMilliseconds)
-        if (-not $p.WaitForExit([int]$remainingMs)) {
-            Stop-OpenCodeTree $p
-            throw (New-OpenCodeFailure "no exit in $TotalTimeoutSec s" -Timeout ("OpenCode did not finish within $TotalTimeoutSec s; killed pid $($p.Id). Files kept: $($files -join ', '). stderr tail:`n$(Get-OpenCodeTail $errFile)"))
+        # Run watch: the whole run ends within TotalTimeoutSec of the start, and (the idle watch)
+        # its session's `updated` time advances at least every IdleTimeoutSec. `updated` is epoch
+        # ms on this machine's clock, so the idle time is now minus the last `updated` seen; a
+        # lookup that fails or times out leaves it unchanged, so the idle clock keeps running.
+        $idleMs = [long]$IdleTimeoutSec * 1000
+        $idlePollMs = [int]([Math]::Max($PollSec, [Math]::Min(60, [Math]::Ceiling($IdleTimeoutSec / 5))) * 1000)
+        $lastUpdated = if ($session) { [long]$session.updated } else { $startedMs }
+        while ($true) {
+            $remainingMs = [Math]::Max(0, $totalMs - $clock.ElapsedMilliseconds)
+            $waitMs = if ($session -and $idleMs -gt 0) { [Math]::Min($idlePollMs, $remainingMs) } else { $remainingMs }
+            if ($p.WaitForExit([int]$waitMs)) { break }
+            if ($clock.ElapsedMilliseconds -ge $totalMs) {
+                Stop-OpenCodeTree $p
+                throw (New-OpenCodeFailure "no exit in $TotalTimeoutSec s" -Timeout ("OpenCode did not finish within $TotalTimeoutSec s; killed pid $($p.Id). Files kept: $($files -join ', '). stderr tail:`n$(Get-OpenCodeTail $errFile)"))
+            }
+            $seen = Find-OpenCodeSession -Exe $exe -WorkDir $WorkDir -Title $Title -StartedMs $startedMs -LogDir $LogDir `
+                -InFile $inFile -TimeoutMs ([int][Math]::Max(0, [Math]::Min(30000, $totalMs - $clock.ElapsedMilliseconds)))
+            if ($p.HasExited) { break }
+            if ($seen -and [long]$seen.updated -gt $lastUpdated) { $lastUpdated = [long]$seen.updated }
+            $idleFor = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() - $lastUpdated
+            if ($idleFor -ge $idleMs) {
+                Stop-OpenCodeTree $p
+                $secs = [int]($idleFor / 1000)
+                throw (New-OpenCodeFailure "session idle for $IdleTimeoutSec s" -Timeout ("OpenCode session idle for $secs s (its updated time last advanced $secs s ago; the limit is $IdleTimeoutSec s); killed pid $($p.Id). Files kept: $($files -join ', '). stderr tail:`n$(Get-OpenCodeTail $errFile)"))
+            }
         }
         $p.WaitForExit()
         # A run that finished before the first poll: its session must still exist, or it never ran.
