@@ -87,8 +87,12 @@ jobs:
   # Done-when lines run locally: the main scene headless (T24 DoD 1), one order of each type through
   # the command layer (T24 DoD 2, OrderCoverageCheck), the New Game ruleset chooser (T24 DoD 4,
   # RulesetFlowCheck), the three T25 screens (ScreensCheck), and the churn guard (T24 DoD 3). Each check
-  # scene quits with its own exit code, so a failing assertion fails the step. The screenshot tours are
-  # not run: the headless driver has no texture to capture (operating-guide.md, Practical caveats).
+  # scene quits with its own exit code, so a failing assertion fails the step. Each step also requires
+  # the scene's own "exiting with code 0" line in the output (review of PR #477, Luna R1 and Opus N1):
+  # Godot exits 0 when --quit-after fires, so a scene that never reached _Ready, or outgrew its frame
+  # budget, would otherwise pass silently. The budget is a generous watchdog for the same reason. The
+  # screenshot tours are not run: the headless driver has no texture to capture (operating-guide.md,
+  # Practical caveats). T95's SaveResumeCheck gets its own step here once it merges.
   #
   # The editor binary comes from the godotengine/godot release, cached by version. It is the .NET
   # ("mono") build, whose GodotSharp/ directory must sit next to the binary, so the zip's folder is
@@ -146,16 +150,28 @@ jobs:
         run: godot --headless --path godot --import
 
       - name: T24 DoD 1, the main scene runs headless
-        run: godot --headless --path godot --quit-after 2
+        run: |
+          set -eo pipefail
+          godot --headless --path godot --quit-after 2 2>&1 | tee "$RUNNER_TEMP/main-scene.txt"
+          ! grep -q 'SCRIPT ERROR' "$RUNNER_TEMP/main-scene.txt"
 
       - name: T24 DoD 2, one order of each type through the command layer
-        run: godot --headless --path godot res://Checks/OrderCoverageCheck.tscn --quit-after 6
+        run: |
+          set -eo pipefail
+          godot --headless --path godot res://Checks/OrderCoverageCheck.tscn --quit-after 600 2>&1 | tee "$RUNNER_TEMP/order-coverage.txt"
+          grep -q 'OrderCoverageCheck: exiting with code 0.' "$RUNNER_TEMP/order-coverage.txt"
 
       - name: T24 DoD 4, the New Game ruleset chooser
-        run: godot --headless --path godot res://Checks/RulesetFlowCheck.tscn --quit-after 4
+        run: |
+          set -eo pipefail
+          godot --headless --path godot res://Checks/RulesetFlowCheck.tscn --quit-after 600 2>&1 | tee "$RUNNER_TEMP/ruleset-flow.txt"
+          grep -q 'RulesetFlowCheck: exiting with code 0.' "$RUNNER_TEMP/ruleset-flow.txt"
 
       - name: T25, the three screens open from a scripted state
-        run: godot --headless --path godot res://Screens/Checks/ScreensCheck.tscn --quit-after 4
+        run: |
+          set -eo pipefail
+          godot --headless --path godot res://Screens/Checks/ScreensCheck.tscn --quit-after 600 2>&1 | tee "$RUNNER_TEMP/screens.txt"
+          grep -q 'ScreensCheck: exiting with code 0.' "$RUNNER_TEMP/screens.txt"
 
       - name: T24 DoD 3, no headless churn left in the tree
         run: pwsh scripts/check-godot-churn.ps1
