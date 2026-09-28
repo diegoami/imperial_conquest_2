@@ -25,7 +25,7 @@
     then glm, each tried once. The next model runs ONLY on an infrastructure failure (no session
     in time, an idle session, no exit in time, a run that exits without a session, a non-zero exit, the
     fallback-to-default-agent guard), and only when the failed run left nothing behind: no new
-    commit, locally or on origin, and no PR. Otherwise the script exits 1 and the main session
+    commit, locally or on origin, and no new PR. Otherwise the script exits 1 and the main session
     decides. When every model fails, or OpenCode is not installed, it exits 3 ("OpenCode
     unavailable: ..."), and the task falls back to the catalogue's Claude model (operating-guide
     §3). An implementer that stops and reports exits 0: it has not failed and is never retried.
@@ -189,10 +189,14 @@ if ($FixturesDir) { $env:IC2_FIXTURES_DIR = $FixturesDir }
 # output as UTF-8.
 # The next model runs only on an infrastructure failure (no session, idle, no exit, an exit
 # without a session, a non-zero exit, the fallback-agent guard), and only when the failed run left nothing
-# behind: no new commit, locally or on origin, and no PR. Its uncommitted edits are discarded.
+# behind: no new commit, locally or on origin, and no new PR. Its uncommitted edits are discarded.
 # An implementer that stops and reports exits 0: that is not a failure, and it is never retried
 # on another model.
+# "Nothing behind" is judged against the state before the first attempt, so a resumed branch
+# (unpushed local commits, or a rework round whose PR is already open) can still fall back.
 $startSha = git -C $worktree rev-parse HEAD
+$startRemote = git -C $repo rev-parse "origin/$branch" 2>$null
+$startPr = gh pr list --head $branch --state open --json number --jq '.[0].number' 2>$null
 $failures = @()
 $output = $null
 [System.IO.File]::WriteAllText($log, '')
@@ -217,9 +221,10 @@ foreach ($m in $chain) {
     Write-Warning "$m failed: $reason"
     $failures += "${m}: $reason"
     git -C $repo fetch -q origin
+    $prNow = gh pr list --head $branch --state open --json number --jq '.[0].number' 2>$null
     $leftWork = (git -C $worktree rev-parse HEAD) -ne $startSha -or
-        ((git -C $repo rev-parse "origin/$branch" 2>$null) -ne $startSha) -or
-        (gh pr list --head $branch --state open --json number --jq '.[0].number')
+        ((git -C $repo rev-parse "origin/$branch" 2>$null) -ne $startRemote) -or
+        ($prNow -and $prNow -ne $startPr)
     if ($leftWork) { [Console]::Error.WriteLine("$m failed ($reason) after committing, pushing or opening a PR on $branch; not retrying on another model. The main session decides. Log: $log"); exit 1 }
     git -C $worktree reset -q --hard $startSha
     git -C $worktree clean -q -fd
