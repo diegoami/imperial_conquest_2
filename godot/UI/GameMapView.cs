@@ -105,6 +105,13 @@ public partial class GameMapView : Control
     {
         FocusMode = FocusModeEnum.All;
 
+        // User visual review (Q-B): the baked terrain image is one pixel per world tile
+        // (BakeTerrainTexture), then stretched by DrawTextureRect up to MaxZoom (12x) -- Godot's default
+        // canvas texture filter is linear, which blurred that upscale badly at higher zoom. Nearest-
+        // neighbour keeps each tile a crisp block instead. Set only on this CanvasItem (never
+        // project.godot's project-wide default), so no other screen's text/UI is affected.
+        TextureFilter = TextureFilterEnum.Nearest;
+
         // A container (HSplitContainer) only assigns this control its real Size on its own layout pass,
         // which has not necessarily run yet the moment Attach() is called from MainGameScreen._Ready --
         // this control's own Size can still read (0,0) at that point. Refitting once the first non-zero
