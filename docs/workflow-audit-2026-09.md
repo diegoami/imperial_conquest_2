@@ -15,6 +15,9 @@ can be reused as they are.
 - `git log origin/main` (371 commits) and the three tags.
 - All 226 PRs and 267 issues, fetched through the GitHub API, with each issue's label events.
 - The descriptions and reviews of #264, #465, #471, #475, #477, #479, #480 and #482.
+- **Revised after #482 merged** (`dce2d3f`, the evening of 2026-09-28). The counts below were pulled
+  while it was still open and stay as they were. The verdicts on the OpenCode bridge (§2.3, §4.3, §5
+  and §6) were revised to what #482 landed.
 
 The raw pulls sit in the auditing session's scratchpad and are not committed; every count below can be
 re-derived from the API. "Incident N" means entry N on the
@@ -54,7 +57,7 @@ on #491: "found by the user's first play of v0.4.0 (2026-09-28)".
 
 The interval columns count commit subjects on `main`. Across the whole repository, the API gives:
 - 84 task PRs;
-- 127 plan PRs (125 merged, #279 closed, #482 open);
+- 127 plan PRs (125 merged, #279 closed, and #482 open when the data was pulled; it has merged since);
 - 8 `Docs:` PRs;
 - 1 fix PR (#492, the only one the fix lane has run);
 - 2 review PRs (#113, and #343, which was never merged by design);
@@ -205,7 +208,8 @@ risk, and it is last", and T47 proved the seam that same day. The UI chain still
 | **Labels-only status** | §5 | Model + harness | **Keep, with about eight labels**: `task`, `bug`, `triage:needed`, `status:{ready,in-progress,in-review,rework,merged}`, `review-round:{1,2}`. Drop `phase:*`, `model:*`, `effort:*`, `lane:*` (while there is one lane), `release:*` (use a GitHub milestone per release, if anything), and the phase milestones. |
 | **Two machines** (§8, `machine:*` claims, one primary for triage) | #445, 09-27 | Shape | **Cond., and not on day one.** Seven tasks carry a `machine:*` label, two of them on the second machine. Two tasks of parallelism cost a 100-line section and three plan PRs (#445, #462, and part of #479). |
 | **`local-only` and `single-instance` labels** | §7 | Shape | **Cond.**: original files outside CI, or a single-instance tool. Since T53 CI fetches the fixtures, so `local-only` now matters only for work that needs the original executable. |
-| **The external reviewer script** (OpenCode: GLM → Luna → DeepSeek) | #480, #490, and the user preference of 09-25 | Model | **Cond.** Its case is independence: a different vendor's model. It bought one confirmed catch in the PRs read here: on #477, Luna found that `--quit-after` could give a false green. Against that stand two startup hangs (the stdin EOF bug), a cut-off first review (#370) and 538 lines of PowerShell. Adopt it when a defect class has twice escaped the Claude reviewer and a trial shows the other model catches it. |
+| **The external reviewer script** (OpenCode: GLM → Luna → DeepSeek) | #480, #490, and the user preference of 09-25 | Model | **Cond.** Its case is independence: a different vendor's model. It bought one confirmed catch in the PRs read here: on #477, Luna found that `--quit-after` could give a false green. Against that stand two startup hangs (the stdin EOF bug), a cut-off first review (#370) and 538 lines of PowerShell. Adopt it when a defect class has twice escaped the Claude reviewer and a trial shows the other model catches it. Since #482 it can no longer review a PR its own model implemented (`-ExcludeModel`). |
+| **The external implementer** (#482: OpenCode, `deepseek-flash` → `mimo-flash-free` → `glm`, falling back to Claude; Opus only on architecture tasks; Sonnet no longer implements) | #482, and the user's decision of 2026-09-28 that Claude credit is the scarce resource | Cost | **Keep, if Claude credit is the constraint, as it is for you.** It is a cost decision, not a quality one, and nothing has measured it yet. All the rework and bug evidence in this report comes from Claude implementers. With a cheaper implementer, the rules that guard against model failures matter more: the DoD immutability, a reviewer from another family re-running the DoD, provenance, and mutation. Measure its rework rate against the 82% baseline over the first 10–20 tasks. |
 | **`/code-review --effort ultra`**, and the user's own for T16 and T22 | §3.5 | Harness | **Cond.**: architecture-critical PRs only, always with an explicit PR target (incident 5). |
 | **Milestone review** (a never-merged review PR, freeze and re-freeze) | `milestone-review.md`, #343 | — | **Keep for the first public release, not before.** The document is already portable. |
 | **The release plan** (286 lines, five rungs, SemVer reasoning) | 09-13 | — | **Drop the document; keep two rules**: tag capability jumps, not phases; notes are generated from GitHub at cut time. |
@@ -324,7 +328,8 @@ drop them for a current model:
 
 The failures they prevent (weakened assertions, vacuous tests, confident comments about unvisited
 edges, trusting a tool's output about the wrong tree) are ones I make. The 82% rework rate on Sonnet
-and Opus implementers is the evidence that they still happen.
+and Opus implementers is the evidence that they still happen. Since #482, most tasks are implemented by
+cheaper OpenCode models, and that makes these rules more necessary, not less.
 
 What is over-engineered is the **contract bookkeeping** built on top:
 - line-level Owns;
@@ -460,7 +465,7 @@ Each PR body records the Agent results' token totals for its implementer and rev
 | Milestone review with freeze branches | The first public or packaged release. |
 | A release-plan document | Packaging (1.0) needs gates beyond "a person can do X". |
 | `phase:`, `lane:`, `model:`, `effort:`, `release:` labels | A second lane runs concurrently and a query needs them. |
-| External implementer on cheap models (#482) | Its open points are settled and a trial matches Sonnet's review pass rate. |
+| A fallback chain across several OpenCode models, and the two-failures suspension (#482) | The first chain failure in practice. Day one needs one model, the watched runner and a fallback to Claude. |
 | An orchestrator agent | Never, while execution is serial. |
 
 ---
@@ -526,6 +531,15 @@ buys defects caught. The larger saving is in **how many task-shaped units there 
 
 The biggest saving is not a token saving at all. It is the order of work (§1.4).
 
+**After #482: the Claude share.** From #482 on, the implementer runs on OpenCode, so the Claude tokens
+per task are the reviewer runs, the main session, and the implementer only on an architecture task or a
+fallback. That is about 1.5–2.4 reviewer runs × 160k–510k, plus 40k–120k for the main session: **~0.3M–1.3M
+Claude tokens per task**, roughly half of the figure above. The implementer's tokens move to OpenCode at
+the per-task prices #482 records (for example $0.27 per benchmark task for `deepseek-flash`). Two
+assumptions could break this:
+- **the rework rate holds.** A cheaper implementer that needs more rounds adds Claude reviewer runs.
+- **fallbacks to Claude stay rare.** Each one is a full Claude implementer run.
+
 **Totals to `v0.4.0`:**
 - this process: 84 tasks × 0.7–2.8M, or **~60M–235M tokens**, plus the plan and triage overhead of
   sessions not tied to a task;
@@ -538,7 +552,8 @@ The biggest saving is not a token saving at all. It is the order of work (§1.4)
   applies there.
 - **Main-session token totals.**
 - **Cached versus uncached input.**
-- **The cost of the external-reviewer runs on OpenCode.**
+- **The cost of the OpenCode runs**, reviewers and (since #482) implementers.
+- **An OpenCode implementer's rework rate.** #482's T93 trial is one run.
 
 The starter kit's §9 fixes this for the next project: record each Agent result's token total in the PR
 body from the first task.
@@ -551,9 +566,9 @@ body from the first task.
 | --- | --- | --- |
 | `/run-task` skill (build-process Appendix C, ~70 lines) | **Copy and adapt** | Keep steps 1–5 and the "Never" list verbatim; they are generic. Replace hand-built worktree paths with `isolation: "worktree"`. Remove the machine claim (step 0), the T16/T22 stop and the fix-lane substitution paragraph (move it to `process.md` §5). Keep "paste the extracted entry" and "check the where-I-worked block". |
 | Implementer and reviewer templates (Appendices A and B, ~90 lines each) | **Rewrite, about 30 lines each** | Most of their length is Windows paths, worktree creation and this project's DoD shape. Keep: stop and report, no `git stash`, gate 0's SHA and file-list check, the mutation admissibility paragraph, and "paste the entry at the end". |
-| `scripts/Invoke-OpenCodeWatched.ps1` (236 lines) | **Copy as is**, if OpenCode is used | Generic: stdin closed at EOF, a session-creation watchdog, a total timeout, and a UTF-8 read-back. The stdin discovery (#490) is worth keeping on its own. |
-| `scripts/external-review.ps1` (302 lines) and `.opencode/agents/external-reviewer.md` | **Copy and adapt**, conditional (§4.3) | Paths, the model chain, label names. Keep the agent file's deny-list permission block exactly, and the guard against OpenCode's silent fallback to the full-permission agent found on #480. |
-| `scripts/external-implement.ps1` (#482) | **Do not copy yet** | Not merged. Its open points, including the review chain reusing the implementer's model, are unresolved. |
+| `scripts/Invoke-OpenCodeWatched.ps1` (323 lines since #482) | **Copy, and port to the new project's script language**, if OpenCode is used | It is the core of the bridge. Keep everything it learned:<br>• stdin closed at EOF (#490);<br>• a session-creation watchdog, an idle timeout and a total timeout. The idle timeout is calibrated: a session's `updated` time advances at step boundaries, not during a tool call or a streamed reply, hence 900 s for an implementer and 600 s for a review;<br>• the fallback-agent check reads the session record (`opencode export`), not the output text. A reviewer quoting the phrase made both of #482's own reviews fail falsely;<br>• failure classes, and stopping after the same cause twice;<br>• a UTF-8 read-back. |
+| `scripts/external-review.ps1` (351 lines) and `.opencode/agents/external-reviewer.md` | **Copy and adapt** | Paths, the model chain, label names. Keep the agent file's deny-list permission block exactly, the copy-the-agent-into-the-worktree guard (#480), and `-ExcludeModel`, so a review never runs on the implementer's model. |
+| `scripts/external-implement.ps1` (269 lines) and `.opencode/agents/external-implementer.md` (41 lines) | **Copy and adapt** | Keep:<br>• the left-work guard. It records the branch and the open PR before the first attempt, and falls back only when a failed run left nothing behind;<br>• the "implemented by" line;<br>• "stop and report is not a failure".<br><br>Replace the IC2 worktree paths with the new project's. Start with one model plus the Claude fallback; add the chain when it is needed (§4.3). |
 | CI (`.github/workflows/ci.yml`, 177 lines) | **Copy and adapt** | The shape is reusable: build and test; fetch a private fixtures repository through a secret and set `IC2_FIXTURES_DIR`; a separate headless job for the engine host. Keep #477's fix: grep each scene's own exit line under `pipefail`, with a watchdog timeout, rather than trusting `--quit-after`. |
 | `scripts/check-godot-churn.ps1` | **Copy as is**, if Godot | |
 | Evidence pipeline (`evidence-pipeline.md`'s skill block) and `/parse-recording` (`recording-analysis.md`) | **Copy and adapt** | The two stages, the four routes, and "a recording needs no note" are generic. The prerequisites table and the paths are this project's. |
