@@ -123,7 +123,7 @@ The **main session runs on Opus** and is the one the user talks to. It plans, ru
 
 | Role | Dispatched as | Works in | Reference |
 | --- | --- | --- | --- |
-| Main session | — | The main checkout. Plan and design changes go on a plan PR; [build-process.md §4.9](build-process.md#49-plan-prs-two-tiers) says which tier merges it. | [build-process.md §3.1](build-process.md#31-the-roles) |
+| Main session | — | The main checkout. Plan and design changes go on a plan PR; [build-process.md §4.9](build-process.md#49-plan-prs-two-tiers) says who merges it. | [build-process.md §3.1](build-process.md#31-the-roles) |
 | Implementer | Subagent, model per the catalogue | Its own worktree under `ic2-work\` | [build-process.md Appendix A](build-process.md#appendix-a-implementer-prompt-template) |
 | Reviewer | Subagent, a different model per the catalogue | Its own worktree at the PR head | [build-process.md Appendix B](build-process.md#appendix-b-reviewer-prompt-template) |
 | Researcher | Opus subagent: the `/process-evidence` stages and targeted research passes | The research repo's checkout; stage 2 in its own worktree here | [evidence-pipeline.md](evidence-pipeline.md) |
@@ -155,7 +155,7 @@ Both are **local, git-ignored installs** under `.claude/skills/`, and the fenced
 
 - **One task in flight at a time per machine.** Agents never work in the main checkout ([build-process.md §7](build-process.md#7-concurrency-single-instance-and-local-only)). With a second machine, each claims its tasks with a `machine:*` label, and two file-disjoint tasks may run at once ([build-process.md §8](build-process.md#8-two-machines)).
 - **The primary machine** is this one, `C:\Users\diego\projects\imperial_conquest_2` (`IC2_MACHINE=desktop`). Its main session triages and opens plan PRs; another machine runs the tasks it claims, and may open a plan PR only for the entry of a task it has claimed ([build-process.md §8](build-process.md#8-two-machines)).
-- **Branch or `main`, case by case.** A merge's routine doc claims go straight to `main`. New or substantive content goes to a branch for review: a design correction, a new mechanism, catalogue changes. When unsure, ask. Which plan PRs the main session merges itself and which wait for the user: [build-process.md §4.9](build-process.md#49-plan-prs-two-tiers).
+- **Branch or `main`, case by case.** A merge's routine doc claims go straight to `main`. New or substantive content goes to a branch for review: a design correction, a new mechanism, catalogue changes. When unsure, ask. Which plan PRs merge on the opener's authority, which on another session's review, and which wait for the user: [build-process.md §4.9](build-process.md#49-plan-prs-two-tiers).
 - **Review is a label, not a GitHub review.** The reviewer applies `status:approved` or `status:rework`, and the main session reads the label.
 - **Relay reviewer findings in full** on rework, never a hand-picked subset.
 - **Merging** happens on GitHub's side: `gh pr merge --squash`. Afterwards, `git pull` in the main checkout is safe, because no agent uses it.
@@ -190,7 +190,7 @@ These are kept in step with the auto-memory feedback notes. When a preference ch
 
 - **Commit and push reverse-engineering work without asking.** New reports, roadmap updates and research-repo fixes go straight to the research repo's `main`. Destructive git operations (force-push, amend, `reset --hard`) still need an explicit request.
 - **A question is not a request to change files.** Answer it. If a fix turns up along the way, propose it and wait.
-- **Branch or `main`, case by case.** Routine doc claims go straight to `main`; novel content goes on a branch for review; ask when unsure. Since 2026-09-28 a routine-tier plan PR merges on the main session's authority ([build-process.md §4.9](build-process.md#49-plan-prs-two-tiers)).
+- **Branch or `main`, case by case.** Routine doc claims go straight to `main`; novel content goes on a branch for review; ask when unsure. Since 2026-09-28 a routine-tier plan PR merges on the opener's authority, and a contract-tier one on a cross-session review's approval; the user merges only when the review says `user decision` ([build-process.md §4.9](build-process.md#49-plan-prs-two-tiers)).
 - **Upstream defects go through the bug list**: suspend, file, plan, resume. Never an ad-hoc patch across Owns lists.
 - **Evidence goes through the two-stage pipeline**: `/process-evidence`, stage 1 then stage 2, never combined.
 - **Relay reviewer findings in full** on rework.
