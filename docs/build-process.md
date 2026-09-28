@@ -388,6 +388,11 @@ force-pushes.
 - **Triage and planning stay with one machine**, named in the operating guide as the primary. Its
   session triages `triage:needed` and opens plan PRs. The other machine files bugs and follow-ups
   with `triage:needed` and leaves them. That keeps plan PRs from colliding in the catalogue.
+  **One exception (the user's decision of 2026-09-28, after plan PR #460):** a machine may open a
+  plan PR that edits **only** `docs/tasks/T<nn>.md` for a task it has claimed, for example to settle
+  a contract finding its own review raised. Anything else goes through the primary: other tasks'
+  entries, new tasks, the catalogue index, the process documents and triage. The user reviews and
+  merges every plan PR either way.
 - **CI is the authority on test results.** A reviewer's local run adds the `local-only` subset that CI
   cannot run.
 
