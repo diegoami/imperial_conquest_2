@@ -133,12 +133,16 @@ try {
     #    output is the final message alone.
     if ($FixturesDir) { $env:IC2_FIXTURES_DIR = $FixturesDir }
     $started = (Get-Date).ToUniversalTime().ToString('o')
+    # OpenCode writes UTF-8; without this, Windows PowerShell decodes its output with the console
+    # codepage, and every non-ASCII character (an em dash, a curly quote) reaches the PR as mojibake.
+    $prevConsoleEncoding = [Console]::OutputEncoding
+    [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
     Push-Location $worktree
     try {
         $ocArgs = @('run', '--dir', $worktree, '--agent', 'external-reviewer', '--model', $model)
         if ($variant) { $ocArgs += @('--variant', $variant) }
         $review = (& opencode @ocArgs $prompt 2>&1 | Out-String)
-    } finally { Pop-Location }
+    } finally { Pop-Location; [Console]::OutputEncoding = $prevConsoleEncoding }
     if ($LASTEXITCODE -ne 0) { throw "opencode exited with $LASTEXITCODE`n$review" }
     if ($review -match 'Falling back to default agent') { throw "OpenCode did not load the external-reviewer agent (it fell back to its default, full-permission agent). Nothing posted. Output:`n$review" }
 
