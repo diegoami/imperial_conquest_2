@@ -8,6 +8,8 @@ This document is the **process contract** for building the reimplementation. It 
 
 **What** gets built (every task's scope, Owns list, Definition of Done and dependencies) lives in the task entries, one file per task under [`tasks/`](tasks/), indexed by [task-catalogue.md](task-catalogue.md). **Why** (the design and the evidence behind it) lives in [game-design.md](game-design.md) and [design-audit.md](design-audit.md). Day-to-day operation, and where everything lives, is in [operating-guide.md](operating-guide.md).
 
+The rules here are stated without their history. The incidents that produced them are numbered on the wiki's [Process incidents](https://github.com/diegoami/imperial_conquest_2/wiki/Process-incidents) page, and a rule cites its incident as "(incident N)".
+
 This document changes **no design decision**. Every rule, constant and Done-when line traces back to `game-design.md` and `design-audit.md`. Where a task would need a design decision those documents don't make, it escalates to the user rather than inventing one ([§4.5](#45-when-to-escalate-to-the-user)).
 
 > **These documents are the intent. GitHub is the state.**
@@ -24,11 +26,11 @@ This document changes **no design decision**. Every rule, constant and Done-when
 ## 1. Constraints the pipeline works around
 
 1. **The milestone list has real sequential dependencies.** Strength functions (M5) feed M8, M9 and M12. Economy (M3) gates recruitment (M4), naval (M7) and army management (M14). Battle resolution (M8) gates siege (M9), diplomacy's reparation trigger (M11) and the AI (M12). The real graph is in [task-catalogue.md §1](task-catalogue.md#1-the-dependency-graph).
-2. **One Windows machine.** Godot 4.7.2 (.NET edition) and the .NET 10 SDK are installed locally. GitHub Actions can build and test everything *except* the Godot project.
+2. **Godot exists only on the user's machines; the original game files are on the user's machines and in the private fixtures repository CI fetches** ([§7](#7-concurrency-single-instance-and-local-only), [§8](#8-two-machines)). GitHub Actions can build and test everything *except* the Godot project.
    - Anything that launches or exports Godot is **single-instance**.
    - Anything that reads the user's original `.sav`/`.dat` files is **local-only**. Those files are, and stay, outside the repository.
 3. **Merge conflicts are a real cost**, not agent time. The foundation tasks (T01–T03) bought conflict-free seams so that later tasks touch disjoint files.
-4. **Fidelity is the thing that can silently go wrong.** `design-audit.md` §2 is a catalogue of plausible-looking claims that did not survive checking. §4.5 of that audit ends in a hard rule, promoted here to a review gate: *a `[designed]` tag is only valid if the document says what was searched and came up empty*. A pipeline that merges wrong constants quickly is worse than a slow one. Most of the corrections so far (T31–T35, T38–T40) came from reviews and research, not from the implementers.
+4. **Fidelity is the thing that can silently go wrong.** `design-audit.md` §2 is a catalogue of plausible-looking claims that did not survive checking. §4.5 of that audit ends in a hard rule, promoted here to a review gate: *a `[designed]` tag is only valid if the document says what was searched and came up empty*. A pipeline that merges wrong constants quickly is worse than a slow one. Most corrections have come from reviews and research, not from the implementers (incident 1).
 
 ---
 
@@ -49,11 +51,11 @@ Every system is written against these interfaces and registers itself, so no two
 - **`IC2.sln`**: T01 pre-declared every project the backlog needs, so no later task edits the solution.
 - **A system-registration list**: replaced by assembly-scanned registration. Each system declares itself with an attribute, so adding a system touches only that system's own file.
 - **Documentation**: task branches never edit a Markdown file anywhere under `docs/` (`docs/**/*.md`, which includes the task entries in `docs/tasks/`) or `README.md`. The PR lists the document claims its change makes stale ("Docs affected"), and the main session applies them on `main` after the merge ([§4.7](#47-after-a-merge)).
-- **The CLI demo's golden transcript** (`tests/fixtures/cli/demo.golden.txt`): it records what the engine prints, so any task that legitimately changes what the engine prints changes it too. Rather than name it in every Owns list, **any task whose change alters the demo's output may regenerate it** — by running the demo (`dotnet run --project src/IC2.Cli -- --script tests/fixtures/cli/demo.txt`), never by hand — and its PR shows the resulting diff and explains every changed line. A diff with a line the change doesn't explain is a review finding. T38 and T42 carry the older per-task permission in their entries; this rule supersedes it.
+- **The CLI demo's golden transcript** (`tests/fixtures/cli/demo.golden.txt`): it records what the engine prints, so any task that legitimately changes what the engine prints changes it too. Rather than name it in every Owns list, **any task whose change alters the demo's output may regenerate it** — by running the demo (`dotnet run --project src/IC2.Cli -- --script tests/fixtures/cli/demo.txt`), never by hand — and its PR shows the resulting diff and explains every changed line. A diff with a line the change doesn't explain is a review finding. This rule supersedes the older per-task permissions (incident 2).
 
-  The same applies to the **assertions that record the demo's behaviour**, in `tests/IC2.Engine.Tests/Presentation/GameSessionTests.cs`: the golden comparison, and the seed-sensitivity test that names which lines a different seed may change. A task that legitimately adds a random draw, or changes what a line prints, may adjust those assertions under the same conditions, and **must not weaken them**: the seed test still has to assert that the differing lines are *exactly* the known random-driven ones, never that differences are ignored. Widening that list without naming the new draw, or replacing an equality with a looser check, is a review finding. T35 is the first case: its quarterly loyalty draws are a second random consumer alongside weather, so the list becomes weather **and** loyalty rather than weather alone.
+  The same applies to the **assertions that record the demo's behaviour**, in `tests/IC2.Engine.Tests/Presentation/GameSessionTests.cs`: the golden comparison, and the seed-sensitivity test that names which lines a different seed may change. A task that legitimately adds a random draw, or changes what a line prints, may adjust those assertions under the same conditions, and **must not weaken them**: the seed test still has to assert that the differing lines are *exactly* the known random-driven ones, never that differences are ignored. Widening that list without naming the new draw, or replacing an equality with a looser check, is a review finding (incident 2).
 
-- **The data-file field reference** (`docs/scenario-authoring.md`, T26): a reflection test asserts that it names every public field of `World`, `Ruleset` and `Scenario`, including their nested types, so the reference cannot silently go stale. Any task that legitimately adds, renames or removes such a field therefore changes it too. Rather than name it in every Owns list, **any task whose diff adds, renames or removes a public field of those types may edit that file**, but only the entries for those fields: the field, what it does, its unit or range, and its `_provenance` convention. It is the **one** exception to the documentation rule above. The PR names each entry it touched, and an edit to any other part of the file is a review finding. Added 2026-09-27 by the user's decision, when T87's rebirth keys were the first case.
+- **The data-file field reference** (`docs/scenario-authoring.md`, T26): a reflection test asserts that it names every public field of `World`, `Ruleset` and `Scenario`, including their nested types, so the reference cannot silently go stale. Any task that legitimately adds, renames or removes such a field therefore changes it too. Rather than name it in every Owns list, **any task whose diff adds, renames or removes a public field of those types may edit that file**, but only the entries for those fields: the field, what it does, its unit or range, and its `_provenance` convention. It is the **one** exception to the documentation rule above. The PR names each entry it touched, and an edit to any other part of the file is a review finding. Added 2026-09-27 by the user's decision (incident 3).
 
 **2.4 The fixtures corpus (T04).** Every exact number from the research reports is transcribed once into a typed JSON corpus (`tests/fixtures/corpus.json`), with provenance on each entry. Later tasks assert against `FixtureCorpus.Get("rome.taxBase")` instead of each re-reading the reports, with each re-read being another chance to misread them.
 
@@ -81,7 +83,7 @@ Every system is written against these interfaces and registers itself, so no two
 | **Reviewer** | A subagent, a different model per [§3.4](#34-why-the-reviewers-model-differs-from-the-implementers) | Independently re-runs the DoD commands at the PR head **in its own worktree**, audits provenance and scope, posts its findings as a PR comment, and applies `status:approved` or `status:rework`. It is never the agent that implemented. |
 | **Researcher** | Opus subagents | Evidence work in the research repository: the two `/process-evidence` stages ([evidence-pipeline.md](evidence-pipeline.md)) and targeted research passes. |
 
-**Only one task is in flight at a time**: its implementer, then its reviewer, then any rework. Pipeline agents never work in the main checkout (`C:\Users\diego\projects\imperial_conquest_2`). Each creates its own worktree ([§7](#7-concurrency-single-instance-and-local-only)). The main checkout belongs to the main session.
+**Only one task is in flight at a time per machine** ([§8](#8-two-machines)): its implementer, then its reviewer, then any rework. Pipeline agents never work in the main checkout (`C:\Users\diego\projects\imperial_conquest_2`). Each creates its own worktree ([§7](#7-concurrency-single-instance-and-local-only)). The main checkout belongs to the main session.
 
 ### 3.2 The effort scale
 
@@ -94,19 +96,12 @@ Every system is written against these interfaces and registers itself, so no two
 
 ### 3.3 Model selection
 
-Models are chosen per task, not uniformly:
+Models are chosen per task, in the task's entry, by what an error would cost:
 
-- **Opus: 4 implementation tasks** (T02, T03, T16, T22), where an error is not local.
-  - The domain model and engine seams are consumed by every other task.
-  - Battle resolution feeds five downstream systems and is the most integer-semantics-sensitive code in the project.
-  - The AI has the most design latitude and the hardest failure mode: a soak that never terminates.
-- **Sonnet: 34 tasks.** The default for "the design document already says what to build, and the hard part is building it correctly".
-  - Medium: correction tasks whose evidence is fully pinned in the entry (T31, T33, T34, T40, T42), and T37, a rule no task owned.
-  - Low: a test-only correction (T32).
-  - High: tasks that must read a format off decompiled code (T30), widen the shared domain model (T35), or rework merged economy code (T38, T39).
-  - T10 moved from Haiku to Sonnet after its first attempt didn't converge. Integration design across the engine's seams is not Haiku work.
-- **Haiku: retired on 2026-09-27** by the user's decision. It is no longer assigned to any task, and new tasks never get it. T26's Haiku implementer wrote outside its Owns list instead of stopping as its brief required, then produced a reflection test that found zero properties and could never fail, and documented a victory type that does not exist. A task small enough for Haiku is cheap enough on Sonnet. T18 had already moved to Sonnet on 2026-09-19. T26 and T28 moved on 2026-09-27, and T36 and T77 were merged on Haiku before that.
-- **Fable: 1 task** (T05): pure templates and configuration. Never used for anything that must compile against the domain model.
+- **Opus** where an error is not local: the domain model and the engine seams, which every task consumes; battle resolution, the most integer-semantics-sensitive code in the project; the AI, whose hardest failure is a soak that never terminates; and a correction whose evidence is still open when its entry is written.
+- **Sonnet** for everything else: the design document says what to build, and the hard part is building it correctly. Medium when the evidence is fully pinned in the entry; High when the task reads a format off decompiled code, widens the shared domain model, or reworks merged rules code; Low for a test-only correction.
+- **Haiku** is retired (the user's decision of 2026-09-27) and is never assigned; a task small enough for Haiku is cheap enough on Sonnet (incident 4). Two tasks merged on Haiku before that, T36 and T77.
+- **Fable** for pure templates and configuration, never for anything that must compile against the domain model.
 
 ### 3.4 Why the reviewer's model differs from the implementer's
 
@@ -116,11 +111,14 @@ Models are chosen per task, not uniformly:
 
 | Implementer | Reviewer | Plus |
 | --- | --- | --- |
-| Opus (T02, T03, T16, T22) | Opus / High | `/code-review --effort ultra` ([§3.5](#35-where-the-code-review-skill-fits)) |
-| Sonnet on fidelity-critical tasks (T04, T07, T08, T10, T13, T14, T17, T19, T20, T21, T29, T30, T31, T33, T34, T37, T38, T39, T40, T42, T43) | **Opus / Medium** | — |
-| Sonnet widening the shared domain model (T35) | **Opus / High** | — |
-| Sonnet on structural tasks (T01, T06, T09, T11, T12, T15, T23, T24, T25, T26, T27, T28, T32, T41) | Sonnet / High | human visual review on T24 and T25 |
-| Fable (T05), and the tasks merged on Haiku before it was retired (T36, T77) | Sonnet / Medium | — |
+| Opus, on an architecture task (T02, T03, T16, T22) | Opus / High | `/code-review --effort ultra` ([§3.5](#35-where-the-code-review-skill-fits)) |
+| Sonnet, on a fidelity-critical task (a rule's constants or integer semantics) | **Opus / Medium** | — |
+| Sonnet, widening the shared domain model | **Opus / High** | — |
+| Opus, on a correction whose evidence is still open when its entry is written | **Sonnet / High**, a different model; or the pair the entry names, with its reason | — |
+| Sonnet, on a structural task (scaffolding, CLI, UI, data files, docs) | Sonnet / High | human visual review on the Godot screens ([§9](#9-standing-governance-decisions) Q-B) |
+| Fable, and the two tasks merged on Haiku | Sonnet / Medium | — |
+
+Each task's entry names its own pair; the table is the rule the entry applies. An entry may raise the reviewer one tier above its row, and says why.
 
 ### 3.5 Where the `/code-review` skill fits
 
@@ -131,7 +129,7 @@ The purpose-built reviewer agent is the **default gate**, not `/code-review`. Th
 
 The reviewer must also re-run DoD commands locally, including Godot-headless runs and local-only fixtures that a cloud reviewer cannot reach.
 
-> **The skill cannot be used from inside a reviewer agent in this session.** Invoked there without an explicit target it forks; the fork runs in the main checkout rather than the reviewer's worktree, so `origin/main...HEAD` is empty and it falls back to `HEAD~1..HEAD` — reviewing whatever `main` merged last. On 2026-09-18 that wasted four review passes and twice produced nine confident findings about an unrelated commit, caught only because the main session noticed the findings named files outside the PR. **Reviewers sweep the diff inline instead**, and [Appendix B](#appendix-b-reviewer-prompt-template)'s gate 0 makes the target verifiable. If the skill is invoked at all, it gets the PR number as an explicit target, and its output is discarded unless every finding names a file from that PR's diff.
+> **The skill is not used from inside a reviewer agent.** Invoked there without an explicit target it forks; the fork runs in the main checkout rather than the reviewer's worktree, so `origin/main...HEAD` is empty and it falls back to `HEAD~1..HEAD`, reviewing whatever `main` merged last (incident 5). **Reviewers sweep the diff inline instead**, and [Appendix B](#appendix-b-reviewer-prompt-template)'s gate 0 makes the target verifiable. If the skill is invoked at all, it gets the PR number as an explicit target, and its output is discarded unless every finding names a file from that PR's diff.
 
 The correctness sweep runs **inside** every reviewer's run. `/code-review --effort ultra` adds scrutiny on the four Opus architecture PRs and on any PR at rework round 2. Every agent shares one GitHub account, so an ultra review launched from inside the pipeline is not independent. For **T16 and T22**, the user runs `/code-review --effort ultra` personally, from their own session.
 
@@ -162,7 +160,7 @@ issue status:ready, every merge-after dependency merged
 
 ### 4.2 What the reviewer checks
 
-Before the gates, **gate 0: the reviewer proves it is looking at the right code** — its HEAD equals the PR's head, and its `origin/main...HEAD` file list equals the PR's own file list, with both pasted into the review ([Appendix B](#appendix-b-reviewer-prompt-template)). An empty diff means the wrong tree. Every finding must name a file from that diff; anything else is a separate report.
+Before the gates, **gate 0: the reviewer proves it is looking at the right code** — its HEAD equals the PR's head, and its `origin/main...HEAD` file list equals the PR's own file list, with both pasted into the review ([Appendix B](#appendix-b-reviewer-prompt-template); incident 5). An empty diff means the wrong tree. Every finding must name a file from that diff; anything else is a separate report.
 
 Five gates, in order. Any failure means `status:rework`.
 
@@ -177,20 +175,20 @@ Five gates, in order. Any failure means `status:rework`.
    - a division or modulo whose denominator can be zero;
    - an unguarded null, empty collection or missing id;
    - order-dependent iteration, or a dictionary where order would leak into a result;
-   - a branch that can never be taken (T12's domination win was dead code that shipped);
-   - **a delete that leaves something behind** — three questions, every time an entity is removed from `GameState`: does anything still **reference** it, are its **resources** conserved, and does a **cap** still hold afterwards? This class has blocked three tasks (T14's fleet-to-fleet transfer, T39's mercenary desertion, and T46 was specified from the first). Both blockers produced the same symptom: a dangling id that `GameDataValidation.ValidateState` rejects, so the game writes a save it **cannot reload** — and the code paths in between degrade silently, which is why nothing surfaces until the load. `FleetState.CarriedArmyId` is the model's one cross-reference to an army id and the usual culprit; the reviewer's sweep is the whole model, not just that field;
+   - a branch that can never be taken (incident 6);
+   - **a delete that leaves something behind** — three questions, every time an entity is removed from `GameState`: does anything still **reference** it, are its **resources** conserved, and does a **cap** still hold afterwards? The symptom, every time this class has struck (incident 7), is a dangling id that `GameDataValidation.ValidateState` rejects, so the game writes a save it **cannot reload** — and the code paths in between degrade silently, which is why nothing surfaces until the load. `FleetState.CarriedArmyId` is the model's one cross-reference to an army id and the usual culprit; the reviewer's sweep is the whole model, not just that field;
    - **a test that would still pass if the behaviour were deleted** — the most common finding here, and the reason mutation is the proof below.
-   - **a comment that asserts behaviour at an edge no test visits.** In this codebase a comment is load-bearing: it is how a `[designed]` value justifies itself to a reviewer who cannot check it against a report, which makes an **unverified comment the same defect class as an unverified constant**. T22 shipped **five** false comments, caught by **three different readers** across an agent review, a rework round and the user's own `ultra` pass — and three of the five described edges the played fixtures never reach: `expansionDrive = 0`, an empty treasury, a fleet beside a stronger enemy. **That is exactly why none of them failed a test.** The rule: *a comment asserting behaviour at an edge arrives with the test that visits that edge, or it is not written.* Cheap at the keyboard, and every one of the five would have been caught there. **A comment is covered only if a test visits every path that reaches it**: a mutation killed on one path does not cover a comment that a second path also reaches (T20's cleanup comment, [#286](https://github.com/diegoami/imperial_conquest_2/issues/286)).
+   - **a comment that asserts behaviour at an edge no test visits.** In this codebase a comment is load-bearing: it is how a `[designed]` value justifies itself to a reviewer who cannot check it against a report, which makes an **unverified comment the same defect class as an unverified constant**. A false comment about an edge no fixture reaches fails no test (incident 8). The rule: *a comment asserting behaviour at an edge arrives with the test that visits that edge, or it is not written.* Cheap at the keyboard. **A comment is covered only if a test visits every path that reaches it**: a mutation killed on one path does not cover a comment that a second path also reaches (incident 8).
 
    A candidate is **proved before it is reported**: run it, or delete the behaviour and watch exactly which test fails. A finding with neither is labelled as unverified.
 
    **A mutation result is only admissible after `touch` and an explicit clean rebuild.** `--no-build` and incremental builds are **never** admissible after a mutation cycle. Restoring a mutated file — `mv file.bak file`, `git checkout --`, a `cp` from a copy — can give the restored source an **mtime older than the DLL built from the mutated version**, so MSBuild's up-to-date check skips the rebuild and the next run tests the **stale assembly**. A clean rebuild of this solution costs about a second; there is no cost argument against mandating it.
 
-   **`git status` clean and `grep` showing the correct source are not evidence the binary matches.** Both were true, on this project, while a mutated assembly was under test.
+   **`git status` clean and `grep` showing the correct source are not evidence the binary matches** (incident 9).
 
-   **A mutation helper lives in the worktree it mutates, or takes that worktree as a required argument with no default.** A shared script whose target path points at another worktree mutates one checkout and tests another, and produces the same phantom green as a stale binary (T55, [#245](https://github.com/diegoami/imperial_conquest_2/issues/245)).
+   **A mutation helper lives in the worktree it mutates, or takes that worktree as a required argument with no default.** A shared script whose target path points at another worktree mutates one checkout and tests another, and produces the same phantom green as a stale binary (incident 9).
 
-   **The dangerous direction is the quiet one.** A stale *mutated* binary produces a phantom **red** — alarming, and it announces itself. A stale *clean* binary produces a phantom **green**, which gets written into a PR as *“mutation M-n: no test caught this”* — a **false finding**, either an invented coverage gap or a real gap declared harmless and never closed. It is silent, it is durable, and a reviewer reading the results table has no way to tell a genuine negative from a stale one. **A negative mutation result — a claim that nothing failed — therefore carries the same burden as a positive one, and is the entry a reviewer should re-take rather than read.** Found on T22, whose implementer diagnosed its own unreproducible flake rather than waving it away, and whose reviewer then re-took the one negative result that mattered.
+   **The dangerous direction is the quiet one.** A stale *mutated* binary produces a phantom **red** — alarming, and it announces itself. A stale *clean* binary produces a phantom **green**, which gets written into a PR as *“mutation M-n: no test caught this”* — a **false finding**, either an invented coverage gap or a real gap declared harmless and never closed. It is silent, it is durable, and a reviewer reading the results table has no way to tell a genuine negative from a stale one. **A negative mutation result — a claim that nothing failed — therefore carries the same burden as a positive one, and is the entry a reviewer should re-take rather than read** (incident 9).
 
    **Fanning out is allowed, and is how the sweep scales**: the reviewer may dispatch one verification agent per candidate, each given the explicit claim, the file and line, and what evidence would confirm or refute it — never left to infer a target from its working directory ([§7](#7-concurrency-single-instance-and-local-only)). Verdicts come back confirmed, plausible or refuted, and "plausible" is reported as plausible.
 
@@ -257,7 +255,7 @@ In the same turn as the merge, the main session:
 1. **Unblocks.** Every `status:blocked` task whose merge-after dependencies are now all merged, and which isn't suspended on an open bug, becomes `status:ready`. **Until v0.4.0 is tagged, the next task is the next ready task of the UI chain, T24, then T25, then T27**, taken before any engine task, on whichever machine is running ([§8](#8-two-machines)). The rule names the chain, not the label: a `lane:ui` task labelled `post-v0.4.0`, such as T51, is not part of it.
 2. **Files the follow-up** ([§4.6](#46-bugs-and-follow-ups)), if the review had non-blocking findings, and proposes where each item folds.
 3. **Makes any Owns widening durable.** A widening recorded by an issue comment ([§4.2](#42-what-the-reviewer-checks) gate 4) is added to the task's entry, `docs/tasks/T<nn>.md`, in this step's `Docs:` commit, so a later disjointness check ([§8](#8-two-machines)) reads the entry, not a comment.
-   **Records the PR's "Docs affected" list**, and applies only what would otherwise leave a document **factually wrong**: a formula the code now implements differently, an `[open]` item the merge closed, a mis-attributed citation. Those go straight to `main` in a small `Docs:` commit, because a wrong provenance claim is what the review gates exist to catch. **Everything else waits for the release docs pass** ([release-plan.md §5](release-plan.md#5-release-checklist)): re-wording, counts, narrative and anything about where the build stands. Per-merge prose syncing was retired on 2026-09-18 — it was the step that kept drifting anyway, and the living pages now live in the [wiki](https://github.com/diegoami/imperial_conquest_2/wiki) where they carry no contractual force.
+   **Records the PR's "Docs affected" list**, and applies only what would otherwise leave a document **factually wrong**: a formula the code now implements differently, an `[open]` item the merge closed, a mis-attributed citation. Those go straight to `main` in a small `Docs:` commit, because a wrong provenance claim is what the review gates exist to catch. **Everything else waits for the release docs pass** ([release-plan.md §5](release-plan.md#5-release-checklist)): re-wording, counts, narrative and anything about where the build stands. The living pages are in the [wiki](https://github.com/diegoami/imperial_conquest_2/wiki), where they carry no contractual force (incident 10).
 4. **Cleans up** the agents' worktrees for the task.
 5. **Reports to the user**: the merge commit, what the review found, the follow-ups filed, and what is ready next.
 
@@ -286,7 +284,7 @@ A plan PR is any PR that changes `docs/tasks/**`, `task-catalogue.md`, `release-
   The title starts `Plan (routine):`. A fold adds Done-when lines, so this tier is the one place a DoD changes without a fresh decision by the user ([§4.3](#43-the-dod-is-not-negotiable-by-an-agent)): the decision is this tier, made once. A routine-tier PR is merged by the session that opened it, on either machine.
 - **Contract tier: the user reviews and merges.** Everything else: a new task; a change to an existing Done-when line's assertion, or its removal; a Scope change; a merge-after dependency on an unmerged task; a change to `release-plan.md`'s gates; any edit to this document, `operating-guide.md` or `CLAUDE.md`; and any routine-tier change the main session is unsure about. The title starts `Plan:`.
 
-A routine PR the user later disagrees with is reverted by a contract-tier PR. That is the tier's cost, and cheaper than the wait it replaces: on 2026-09-28 the repository held about 125 plan and process PRs against about 75 task PRs, each one waiting for the user.
+A routine PR the user later disagrees with is reverted by a contract-tier PR. That is the tier's cost, and cheaper than the wait it replaces (incident 12).
 
 ### 4.10 The fix lane
 
@@ -298,7 +296,7 @@ A fix:
 - **is dispatched by `/run-task #<issue>`** ([Appendix C](#appendix-c-the-run-task-skill)): implementer Sonnet/Medium in worktree `ic2-work\fix-<issue>` on branch `fix/<issue>-<slug>`, with the bug body in place of the task entry in Appendix A's brief, commit subject `fix <issue>: <subject>` (no `#`, so the squash closes nothing early), PR body `Closes #<issue>` as Appendix A already allows, reviewer Opus/Medium at gates 0, 1, 3 and 4 plus a read of the diff. Gate 2 reduces to confirming no constant changed; the mutation protocol does not apply.
 - **gets one rework round** ([§4.4](#44-rework)). A review that fails while the issue carries `review-round:1` turns it into a correction task: the main session files the task at the contract tier, keeps the branch, and stops.
 
-The lane exists because about half the catalogue's tasks were corrections whose fix fit in one or two files, each carrying the full task ceremony.
+Why the lane exists: incident 12.
 
 ---
 
@@ -351,7 +349,7 @@ gh issue list --label task --label release:v0.2.0 --state all   # a release gate
 | GitHub milestone | One per phase: `Phase 0 Foundation`, `Phase 1 Pure rules`, `Phase 2 Systems`, `Phase 3 Delivery` |
 | Labels | `task`; `bug`; `phase:0..3`; `lane:engine\|data\|ui\|infra`; `status:*`; `review-round:1\|2`; `triage:needed`; `model:*`; `effort:*`; `release:*`; `local-only`; `single-instance`; `needs-human` |
 
-Retired labels from the orchestrator era: `docs:pending`, `orchestrator:pause`, `triage:scheduled`, `triage:deferred`, `blocking`. They stay on old issues as history and are no longer applied. Tracking issue #29 is closed.
+Retired labels from the orchestrator era: `docs:pending`, `orchestrator:pause`, `triage:scheduled`, `triage:deferred`, `blocking`. They stay on old issues as history and are no longer applied (incident 13).
 
 ---
 
@@ -362,8 +360,7 @@ Retired labels from the orchestrator era: `docs:pending`, `orchestrator:pause`, 
   directory, the main checkout; an agent works in its worktree only because its brief tells it to
   use `git -C <worktree>` or to `cd` there first. That shell directory is **not inherited** by
   anything it spawns, so a skill or agent it forks starts back in the main checkout, where
-  `origin/main...HEAD` is empty. That is the whole cause of the 2026-09-18 review failures
-  ([§3.5](#35-where-the-code-review-skill-fits)). Two consequences:
+  `origin/main...HEAD` is empty. That is incident 5 ([§3.5](#35-where-the-code-review-skill-fits)). Two consequences:
   - an agent that needs a sweep of its diff does it **inline**, or passes the target explicitly
     (`/code-review --effort high <pr>`), never bare;
   - **every agent states where it worked**, so a wrong location is visible rather than inferred
@@ -377,10 +374,10 @@ Retired labels from the orchestrator era: `docs:pending`, `orchestrator:pause`, 
   - An implementer runs `git -C C:\Users\diego\projects\imperial_conquest_2 worktree add C:\Users\diego\projects\ic2-work\T<nn> task/T<nn>-<slug>`, creating the branch from `origin/main` if it doesn't exist yet.
   - A reviewer checks out the PR head detached, in `...\ic2-work\T<nn>-review`.
   - An implementer detaches its worktree (`git checkout --detach`) before it finishes, so the branch is free for the next checkout.
-- **`local-only` tasks** (T21, T29, T30, T34) need the user's original DAT and saves via `assets.local.ini`. The file is git-ignored, so the agent copies it from the main checkout into its worktree's root. T24, T25 and T27 need a Godot install. These tests **skip explicitly** when the prerequisite is absent, so CI on GitHub's runners stays green.
+- **`local-only` tasks** need the user's original DAT and saves via `assets.local.ini`. The file is git-ignored, so the agent copies it from the main checkout into its worktree's root. The tasks that launch Godot need a Godot install. These tests **skip explicitly** when the prerequisite is absent, so CI on GitHub's runners stays green.
 
-  **Corrected 2026-09-19**: this is no longer the whole picture for `IC2.Data.Tests`. Since T53, **CI fetches the fixtures** from the private `ic2-test-fixtures` repository and runs those tests for real — **126 passed, 0 skipped**. A brief that tells an agent to expect *“90 skipped without `assets.local.ini`”* is repeating a figure that stopped being true, and a **worktree** still skips them because the file is per-checkout. The Godot tasks (T24, T25, T27) are unchanged and do still skip.
-- **`single-instance` tasks** (T24, T25, T27) launch or export Godot 4.7.2. The Godot lane is one serial chain.
+  For `IC2.Data.Tests` that is not the whole picture: since T53, **CI fetches the fixtures** from the private `ic2-test-fixtures` repository and runs those tests for real, while a **worktree** without `assets.local.ini` still skips them, because the file is per-checkout. A brief never quotes a skip count (incident 11). The Godot tasks do still skip in CI.
+- **`single-instance` tasks** may not run two at once on one machine: the ones that launch or export Godot 4.7.2, and any whose entry says why. The Godot tasks form one serial chain, ordered by their merge-after and never-in-flight lines.
 - **Two tasks that both write `tests/fixtures/**`** (corpus top-ups) never run back to back without a rebase.
 - **Tasks that redefine engine seams** (T03, T40) run with nothing else in flight.
 
@@ -469,10 +466,10 @@ Decided by the user; in force until changed.
 - **Q-A, merge autonomy.** The main session squash-merges any PR that has an approving review and green CI without asking, **except** the architecture PRs T16 and T22. Those wait for the user's thumbs-up and the user's own `/code-review --effort ultra`. T02 and T03 are already merged.
 - **Q-B, Godot visual review.** T24 and T25 post a screenshot of every new screen to their PR as they land, and "looks right" is the user's call on each one. The published mockup (`game-design.md` §UI) is the layout intent.
 - **Q-C, cost profile.**
-  - Opus implements four tasks, and reviews the fidelity-critical PRs ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers)).
+  - Opus implements the tasks [§3.3](#33-model-selection)'s criteria name, and reviews the fidelity-critical PRs ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers)).
   - `/code-review --effort ultra` runs on the architecture PRs.
   - One task is in flight at a time per machine; two machines may run two file-disjoint tasks at once (§8).
-  - There is no orchestrator layer and no per-merge documentation agent (simplified 2026-09-14).
+  - There is no orchestrator layer and no per-merge documentation agent (incident 13).
 - **Q-D, open audit questions become ruleset flags.** Every affected task ships the confirmed behaviour behind a named ruleset flag. The flags are grouped into two user-facing presets, `classical-faithful` and `improved`, chosen at New Game (`game-design.md` "Two shipped presets"). The mapping:
   - Q3 → T19's `diplomacy.model`;
   - Q4 → T08's `economy.purses`;
@@ -558,7 +555,7 @@ Rules for all engine code:
   - If your change DELETES an entity (an army, a fleet, a city, a unit slot), sweep your own
     diff before you finish: does anything still reference it, are its resources conserved, does
     a cap still hold? A dangling id makes a save that cannot be reloaded, and the paths in
-    between degrade silently. This has blocked three tasks; the review will find it.
+    between degrade silently (incident 7). The review will find it.
 
 When done:
   1. `dotnet build IC2.sln` and `dotnet test IC2.sln` pass in your worktree.
@@ -643,8 +640,8 @@ Run five gates, in order. Any failure is status:rework:
     pass even with the behaviour deleted (build-process.md §4.2 gate 5 lists these). A comment
     is covered only if a test visits every path that reaches it.
     If the diff DELETES an entity from GameState, ask all three: does anything still reference
-    it, are its resources conserved, does a cap still hold? That class has blocked three tasks,
-    twice by producing a save that cannot be reloaded. Probe it with two entities — one
+    it, are its resources conserved, does a cap still hold? A dangling id makes a save that
+    cannot be reloaded (incident 7). Probe it with two entities — one
     deleted, one surviving — since an over-broad clear passes every single-entity test.
     PROVE a candidate before reporting it: run it, or delete the behaviour and watch exactly which
     test fails. Say so when a finding is unverified.
@@ -653,8 +650,7 @@ Run five gates, in order. Any failure is status:rework:
     working directory; it starts in the main checkout, not here.
     Do NOT invoke the /code-review skill: from inside a reviewer agent it forks, the fork runs in
     the MAIN CHECKOUT rather than your worktree, its `origin/main...HEAD` is empty there, and it
-    silently falls back to reviewing main's last commit. It produced full, confident findings about
-    an unrelated merged commit four times on 2026-09-18 (§3.5). If you invoke it anyway, pass the
+    silently falls back to reviewing main's last commit (§3.5). If you invoke it anyway, pass the
     PR number as an explicit target, then discard the run unless every finding names a file from
     gate 0's diff.
 
@@ -694,7 +690,7 @@ catalogue whole (CLAUDE.md rule 11):
   Read docs/tasks/T<nn>.md
 **Paste that extracted entry into every brief you dispatch** (CLAUDE.md rule 15). An agent given
 a pointer instead reads the index, the entry and whatever the entry links to, once per agent per
-round (before T61 split the catalogue, that pointer cost ~85,000 tokens to reach ~1,450 of contract). Given task
+round (incident 14). Given task
 ids, run them in that order; given none, take the first status:ready task in the catalogue index.
 Report to the user after each task; stop at any escalation.
 Given `#<issue>` of a bug labelled `fix`, run the fix lane (build-process.md §4.10) through the

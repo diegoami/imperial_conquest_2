@@ -38,10 +38,10 @@ Agreed on [#264](https://github.com/diegoami/imperial_conquest_2/issues/264), wh
     The terrain grid is the sidecar `classical-mediterranean.terrain.b64`, a 119,468-character base64
     string on one line. It is never worth reading; its schema is in `src/IC2.Engine/Model/`.
 
-    **Both layout fixes this rule was a workaround for have landed**: [T61](https://github.com/diegoami/imperial_conquest_2/issues/273)
-    split the catalogue into per-task files, and [T62](https://github.com/diegoami/imperial_conquest_2/issues/274)
-    moved the terrain grid to a sidecar. What stays excerpt-only is what is large by nature: the world's
-    city list, the rulesets, the fixtures corpus and the long design documents above.
+    What stays excerpt-only is what is large by nature: the world's city list, the rulesets, the fixtures
+    corpus and the long design documents above ([T61](https://github.com/diegoami/imperial_conquest_2/issues/273)
+    split the catalogue per task and [T62](https://github.com/diegoami/imperial_conquest_2/issues/274) moved the
+    terrain grid to a sidecar).
 
 12. **Scope every search.** `grep -rn "<pattern>" src tests`, never `grep -rn "<pattern>" .`. Prefer
     `git ls-files` over `find`: it honours `.gitignore` for free. Never traverse `bin/`, `obj/`,
@@ -63,8 +63,8 @@ Agreed on [#264](https://github.com/diegoami/imperial_conquest_2/issues/264), wh
 15. **A subagent brief carries the excerpt, not the pointer.** `/run-task` dispatches an implementer
     and then an independent reviewer, each cold, each in its own worktree, and a rework round doubles
     it again. A brief that points at the contract instead of carrying it makes **every agent, every round**
-    read the index, the entry and whatever the entry links to (before T61's split, that pointer cost
-    ~85,000 tokens). So **paste the extracted task entry into the brief**, name the exact files in its Owns
+    read the index, the entry and whatever the entry links to (incident 14 on the wiki's
+    [Process incidents](https://github.com/diegoami/imperial_conquest_2/wiki/Process-incidents) page). So **paste the extracted task entry into the brief**, name the exact files in its Owns
     list, and quote the `build-process.md` section the brief depends on with an anchor for the rest.
     On a rework round, relay the reviewer's findings in full (rule 7) — the findings, not the diff
     they refer to. **This is the highest-leverage rule here**: 11–14 save one agent's budget; this

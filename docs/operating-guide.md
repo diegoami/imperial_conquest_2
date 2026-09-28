@@ -8,6 +8,7 @@ and the tasks are in [task-catalogue.md](task-catalogue.md).
 - [Where the build stands](https://github.com/diegoami/imperial_conquest_2/wiki/Where-the-build-stands) — how to read the board, and what becomes runnable when
 - [Open questions](https://github.com/diegoami/imperial_conquest_2/wiki/Open-questions) — research-level items not yet established
 - [Practical caveats](https://github.com/diegoami/imperial_conquest_2/wiki/Practical-caveats) — Godot headless churn, build order, Ghidra quirks, local corpus drift
+- [Process incidents](https://github.com/diegoami/imperial_conquest_2/wiki/Process-incidents) — the numbered incidents that build-process.md's rules cite; append-only
 - [Dated reviews](https://github.com/diegoami/imperial_conquest_2/wiki/Review-2026-09-18-repository-and-direction)
 
 Status itself lives only in GitHub labels ([build-process.md §5](build-process.md#5-status-lives-on-github)):
