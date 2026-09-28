@@ -478,6 +478,35 @@ public sealed class SaveAndResumeTests : IDisposable
         Assert.False(output.ShouldExit);
     }
 
+    /// <summary>
+    /// N3 (rework round 1, non-blocking): Done-when 5 reads "a different world <em>or ruleset</em>" — the
+    /// world case above shares a save with a session under a different ruleset but the <em>same</em>
+    /// world, closing the reading DoD 5's "a test for each" asks for.
+    /// </summary>
+    [Fact]
+    public void Load_of_a_save_for_a_different_ruleset_is_refused_and_the_session_keeps_running()
+    {
+        var classical = Classical;
+        var improvedRuleset = GameDataRepository.Load(TestPaths.DataRoot).RulesetById("improved")!;
+
+        var classicalFaithfulSession = new GameSession(classical.World, classical.Ruleset, classical.Scenario);
+        var path = PathFor("classical-faithful.json");
+        classicalFaithfulSession.Submit($"save {path}");
+
+        // Same world as the save (classical), a different ruleset (improved) -- the CLI's own --ruleset
+        // override already proves this world/ruleset pairing is legal to construct directly.
+        var improvedSession = new GameSession(classical.World, improvedRuleset, classical.Scenario);
+        var stateBefore = improvedSession.State;
+
+        var output = improvedSession.Submit($"load {path}");
+
+        Assert.Contains(output.Lines, l =>
+            l.StartsWith("Could not load", StringComparison.Ordinal)
+            && l.Contains("ruleset", StringComparison.Ordinal));
+        Assert.Equal(stateBefore, improvedSession.State);
+        Assert.False(output.ShouldExit);
+    }
+
     // ---- save/load command parsing ----
 
     [Fact]
