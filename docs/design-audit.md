@@ -211,7 +211,7 @@ Fleets, army transport (1 army, 500 troops/ship), condition and paid repair, scu
 
 > **User's decision: ship both, as a prominent, user-selectable ruleset choice, not a one-off pick.** `classical-faithful` uses the confirmed model exactly as coded (option a). `improved` uses the confirmed model with the opinion score layered on top as the AI's decision input (option c) — the strongest of the three options on offer, since it keeps every confirmed rule intact and only adds the one genuinely-missing piece (the AI's *willingness*), rather than replacing recovered mechanics with an invented model (option b, now dropped). See `game-design.md`'s `diplomacy.model` flag.
 
-The confirmed model is: 4 states, symmetric matrix, max 3 trade partners, negative cooldowns of −8 (broken trade) / −24 (broken alliance) / −18 (ended war) that thaw quarterly, alliances and wars contagious to allies, attacking = declaring war, AI nations refuse peace while at war but human seats always accept, and a concrete reparation formula.
+The confirmed model is: 4 states, symmetric matrix, max 3 trade partners, negative cooldowns of −8 (broken trade) / −24 (broken alliance) / −18 (ended war) that thaw quarterly, alliances and wars contagious to allies, one step deep, attacking = declaring war, AI nations refuse peace while at war but human seats always accept, and a concrete reparation formula.
 
 ### Q4. Keep per-army and per-fleet money purses? — **ANSWERED: ship both, as the same ruleset flag family**
 

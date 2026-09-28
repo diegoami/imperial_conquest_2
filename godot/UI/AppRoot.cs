@@ -41,10 +41,22 @@ public partial class AppRoot : Control
         SwapTo(flow);
     }
 
+    /// <summary>
+    /// <c>docs/tasks/T95.md</c> (#467), Owns addendum 2026-09-28: routes <see cref="LoadGameScreen.GameResumed"/>
+    /// to the main game screen — the "only" grant this task adds for this file — mirroring
+    /// <see cref="ShowNewGameFlow"/>'s own <c>GameStarted</c> handler exactly, so a resumed session
+    /// reaches <see cref="MainGameScreen"/> the same way a newly started one already does, and
+    /// <see cref="CurrentScreen"/> stays accurate through <see cref="SwapTo"/> either way.
+    /// </summary>
     public void ShowLoadGame()
     {
         var screen = new LoadGameScreen();
         screen.BackRequested += ShowMainMenu;
+        screen.GameResumed += session =>
+        {
+            var mainScreen = new MainGameScreen { Session = session, RepositoryRoot = GameDataContext.RepositoryRoot };
+            SwapTo(mainScreen);
+        };
         SwapTo(screen);
     }
 

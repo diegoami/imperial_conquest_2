@@ -26,7 +26,7 @@ This document changes **no design decision**. Every rule, constant and Done-when
 ## 1. Constraints the pipeline works around
 
 1. **The milestone list has real sequential dependencies.** Strength functions (M5) feed M8, M9 and M12. Economy (M3) gates recruitment (M4), naval (M7) and army management (M14). Battle resolution (M8) gates siege (M9), diplomacy's reparation trigger (M11) and the AI (M12). The real graph is in [task-catalogue.md §1](task-catalogue.md#1-the-dependency-graph).
-2. **Godot exists only on the user's machines; the original game files are on the user's machines and in the private fixtures repository CI fetches** ([§7](#7-concurrency-single-instance-and-local-only), [§8](#8-two-machines)). GitHub Actions can build and test everything *except* the Godot project.
+2. **Godot exists only on the user's machines; the original game files are on the user's machines and in the private fixtures repository CI fetches** ([§7](#7-concurrency-single-instance-and-local-only), [§8](#8-two-machines)). GitHub Actions builds and tests everything, the Godot project included: since 2026-09-28 the `godot-headless` job ([#477](https://github.com/diegoami/imperial_conquest_2/pull/477)) downloads the Godot .NET editor, builds `godot/IC2.MapViewer.csproj` and runs the T24 and T25 check scenes. Only the screenshot tours and the visual sign-off stay on the user's machines.
    - Anything that launches or exports Godot is **single-instance**.
    - Anything that reads the user's original `.sav`/`.dat` files is **local-only**. Those files are, and stay, outside the repository.
 3. **Merge conflicts are a real cost**, not agent time. The foundation tasks (T01–T03) bought conflict-free seams so that later tasks touch disjoint files.
@@ -112,7 +112,7 @@ Models are chosen per task, in the task's entry, by what an error would cost:
 
 | Implementer | Reviewer | Plus |
 | --- | --- | --- |
-| An architecture task (T02, T03, T16, T22), implemented on Claude Opus | Opus / High | `/code-review --effort ultra` ([§3.5](#35-where-the-code-review-skill-fits)) |
+| An architecture task (T02, T03, T16, T22), implemented on Claude Opus | Opus / High | `/code-review --effort ultra` ([§3.5](#35-where-the-code-review-skill-fits)), and the external reviewer (`scripts/external-review.ps1`) as the different model |
 | A fidelity-critical task (a rule's constants or integer semantics) | **Opus / Medium** | — |
 | A task widening the shared domain model | **Opus / High** | — |
 | A correction whose evidence is still open when its entry is written | **Opus / High** | — |
@@ -197,7 +197,7 @@ A defect the reviewer finds in **another task's already-merged** code is not a f
 
 ### 4.3 The DoD is not negotiable by an agent
 
-An implementer that can't satisfy a DoD line **stops and reports**. It never edits the DoD, never weakens an assertion to a range, never marks a test `Skip`, and never deletes a failing assertion. A DoD line changes only by a commit to the task's entry, `docs/tasks/T<nn>.md`, after a decision by the user. One exception is Owns widening for implicitly owned files (tests, their fixtures and goldens, and their `<Compile Include>` lines), which the main session records by a comment on the issue ([§4.2](#42-what-the-reviewer-checks) gate 4). The other is a fold at the routine tier of [§4.9](#49-plan-prs-two-tiers), which adds Done-when lines to a task at `status:blocked`; the user's standing decision is the tier. DoD, Scope and dependency changes still go through a plan PR. The reviewer treats any diff from a task branch to `task-catalogue.md`, to any file under `docs/tasks/` (the task's own entry included), or to this document as an automatic `status:rework`.
+An implementer that can't satisfy a DoD line **stops and reports**. It never edits the DoD, never weakens an assertion to a range, never marks a test `Skip`, and never deletes a failing assertion. A DoD line changes only by a commit to the task's entry, `docs/tasks/T<nn>.md`, after a decision by the user. One exception is Owns widening for implicitly owned files (tests, their fixtures and goldens, and their `<Compile Include>` lines), which the main session records by a comment on the issue ([§4.2](#42-what-the-reviewer-checks) gate 4). The others are a fold at the routine tier of [§4.9](#49-plan-prs-two-tiers), which adds Done-when lines to a task at `status:blocked`, and a contract-tier plan PR merged on a cross-session review's approval ([§4.9](#49-plan-prs-two-tiers)); the user's standing decision is the tier. DoD, Scope and dependency changes still go through a plan PR. The reviewer treats any diff from a task branch to `task-catalogue.md`, to any file under `docs/tasks/` (the task's own entry included), or to this document as an automatic `status:rework`.
 
 ### 4.4 Rework
 
@@ -273,7 +273,7 @@ Everything else keeps its issue open, loses `triage:needed`, and gains the label
 
 ### 4.9 Plan PRs: two tiers
 
-A plan PR is any PR that changes `docs/tasks/**`, `task-catalogue.md`, `release-plan.md` or a process document (this one, `operating-guide.md`, `CLAUDE.md`). Two tiers, decided by the user on 2026-09-28. The tier decides who merges, wherever the PR was opened ([§8](#8-two-machines)).
+A plan PR is any PR that changes `docs/tasks/**`, `task-catalogue.md`, `release-plan.md` or a process document (this one, `operating-guide.md`, `CLAUDE.md`). A PR that is neither a task's nor a fix's (a workflow, a script, a tooling change) is merged as a contract-tier plan PR. Two tiers, decided by the user on 2026-09-28. The tier decides who merges, wherever the PR was opened ([§8](#8-two-machines)).
 
 - **Routine tier: the main session merges it after green CI and reports it in its next message to the user.** A plan PR is routine when **every** change in it is one of:
   - a fold of a bug or follow-up into a task at `status:blocked` ([§4.6](#46-bugs-and-follow-ups) step 3) that adds Done-when lines, and Owns paths no other open task's entry names, and changes no existing Scope, Done-when or dependency line;
@@ -282,8 +282,10 @@ A plan PR is any PR that changes `docs/tasks/**`, `task-catalogue.md`, `release-
   - a merge-after dependency on a task that is already merged;
   - bookkeeping: the catalogue's stub, the index row, and graph edges to tasks already merged. A graph edge to an unmerged task is a dependency, and contract.
 
-  The title starts `Plan (routine):`. A fold adds Done-when lines, so this tier is the one place a DoD changes without a fresh decision by the user ([§4.3](#43-the-dod-is-not-negotiable-by-an-agent)): the decision is this tier, made once. A routine-tier PR is merged by the session that opened it, on either machine.
-- **Contract tier: the user reviews and merges.** Everything else: a new task; a change to an existing Done-when line's assertion, or its removal; a Scope change; a merge-after dependency on an unmerged task; a change to `release-plan.md`'s gates; any edit to this document, `operating-guide.md` or `CLAUDE.md`; and any routine-tier change the main session is unsure about. The title starts `Plan:`.
+  The title starts `Plan (routine):`. A fold adds Done-when lines, so a DoD changes here without a fresh decision by the user ([§4.3](#43-the-dod-is-not-negotiable-by-an-agent)): the decision is this tier, made once. A routine-tier PR is merged by the session that opened it, on either machine.
+- **Contract tier: a cross-session review merges it.** Everything else: a new task; a change to an existing Done-when line's assertion, or its removal; a Scope change; a merge-after dependency on an unmerged task; a change to `release-plan.md`'s gates; any edit to this document, `operating-guide.md` or `CLAUDE.md`; and any routine-tier change the main session is unsure about. The title starts `Plan:`.
+
+  **How a contract-tier PR merges** (the user's decision of 2026-09-28). The session that opened it never reviews it. A different session reviews it, in this order of preference: another main session ([§8](#8-two-machines)); then the external reviewer's chain (`scripts/external-review.ps1`, operating-guide §3: GLM, then Luna, then DeepSeek, each tried once, the next only on an infrastructure failure); then, when OpenCode itself is unavailable (the script exits 3), a cold Claude Opus reviewer that the main session dispatches in its own worktree, which counts as the cross-session review; the PR waits as a `user decision` only when none of these can run. The main session records every fallback in the PR comment. The reviewer posts one comment whose second line is the verdict. On **approve**, the opener merges after green CI. On **approve after named fixes**, the opener applies them, replies with one comment mapping each finding to its change, and the reviewer answers that reply with one line confirming them; then the opener merges. If a fix is missing or wrong, the reviewer names the unresolved finding and the opener gets one more round; a second miss makes the verdict `user decision`. The user reads the merge in the opener's next report, and a revert is one contract-tier PR. **The user merges only when the verdict says `user decision`**: a design question, a release gate, a `[designed]` value, a change to Q-A to Q-G, anything [§4.5](#45-when-to-escalate-to-the-user) escalates, or something the reviewer cannot verify. A reviewer that would need the user for part of a PR says so in the verdict, and the whole PR waits.
 
 A routine PR the user later disagrees with is reverted by a contract-tier PR. That is the tier's cost, and cheaper than the wait it replaces (incident 12).
 
@@ -377,7 +379,7 @@ Retired labels from the orchestrator era: `docs:pending`, `orchestrator:pause`, 
   - An implementer detaches its worktree (`git checkout --detach`) before it finishes, so the branch is free for the next checkout.
 - **`local-only` tasks** need the user's original DAT and saves via `assets.local.ini`. The file is git-ignored, so the agent copies it from the main checkout into its worktree's root. The tasks that launch Godot need a Godot install. These tests **skip explicitly** when the prerequisite is absent, so CI on GitHub's runners stays green.
 
-  For `IC2.Data.Tests` that is not the whole picture: since T53, **CI fetches the fixtures** from the private `ic2-test-fixtures` repository and runs those tests for real, while a **worktree** without `assets.local.ini` still skips them, because the file is per-checkout. A brief never quotes a skip count (incident 11). The Godot tasks do still skip in CI.
+  For `IC2.Data.Tests` that is not the whole picture: since T53, **CI fetches the fixtures** from the private `ic2-test-fixtures` repository and runs those tests for real, while a **worktree** without `assets.local.ini` still skips them, because the file is per-checkout. A brief never quotes a skip count (incident 11). The Godot checks no longer skip: since 2026-09-28 the `godot-headless` job runs the T24 and T25 check scenes in CI, and a check scene a Godot task adds gets its own step there (a one-line follow-up once the task merges, since `.github/workflows/ci.yml` is outside a task's Owns). Only the screenshot tours skip in CI, since the headless driver cannot capture.
 - **`single-instance` tasks** may not run two at once on one machine: the ones that launch or export Godot 4.7.2, and any whose entry says why. The Godot tasks form one serial chain, ordered by their merge-after and never-in-flight lines.
 - **Two tasks that both write `tests/fixtures/**`** (corpus top-ups) never run back to back without a rebase.
 - **Tasks that redefine engine seams** (T03, T40) run with nothing else in flight.
@@ -388,7 +390,10 @@ Retired labels from the orchestrator era: `docs:pending`, `orchestrator:pause`, 
 
 Two computers can work on the build at once. Each runs **its own main session**, with its own clone,
 its own `ic2-work\` worktrees and its own local skill installs. GitHub is the only thing they share:
-issues, labels, PRs and CI. Adopted 2026-09-27 by the user's decision.
+issues, labels, PRs and CI. Adopted 2026-09-27 by the user's decision. A **cloud session** (Claude Code
+on the web, with its own clone and no Godot or original files) is a third main session: it triages
+nothing, claims no task, opens its plan PRs on `plan/<name>` branches, and merges only its own PRs
+under [§4.9](#49-plan-prs-two-tiers).
 
 **Identity.** Each machine has a short name, set once in its environment as `IC2_MACHINE` (for example
 `desktop` or `laptop`), and a matching `machine:<name>` label. Both machines authenticate as
@@ -438,7 +443,8 @@ force-pushes.
   a contract finding its own review raised. Anything else goes through the primary: other tasks'
   entries, new tasks, the catalogue index, the process documents and triage. Whoever opened it,
   [§4.9](#49-plan-prs-two-tiers)'s tier decides who reviews and merges a plan PR: the session that opened a
-  routine-tier PR merges it; the user merges a contract-tier PR.
+  routine-tier PR merges it; a contract-tier PR merges on another session's approval, and waits for the
+  user only when that review says so.
 - **CI is the authority on test results.** A reviewer's local run adds the `local-only` subset that CI
   cannot run.
 
@@ -482,7 +488,7 @@ Decided by the user; in force until changed.
   - Q1 follow-up → T16's `combat.onDefeat`;
   - Q10 → no change to `combat.onDefeat`.
 - **Q-E, non-blocking review findings.** At each merge that has any, the main session files one `T<nn> follow-up` issue, and folds each item into the next task that touches those files ([§4.6](#46-bugs-and-follow-ups)).
-- **Q-F, plan PR tiers** (2026-09-28). The routine tier of [§4.9](#49-plan-prs-two-tiers) merges on the main session's authority after green CI; the contract tier waits for the user.
+- **Q-F, plan PR tiers** (2026-09-28). The routine tier of [§4.9](#49-plan-prs-two-tiers) merges on the opener's authority after green CI. The contract tier merges on a cross-session review's approval, and waits for the user only when the verdict says `user decision`.
 - **Q-G, the fix lane** (2026-09-28). A bug labelled `fix` runs without a catalogue entry under [§4.10](#410-the-fix-lane), and merges under Q-A.
 
 ---

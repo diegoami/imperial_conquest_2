@@ -5,7 +5,7 @@ Read [`docs/operating-guide.md`](docs/operating-guide.md) before doing anything.
 1. **The main session runs the build.** It plans, runs tasks with `/run-task` (an implementer, then an independent reviewer, then the merge), triages bugs, and talks to the user. There is no orchestrator ([build-process.md §3.1](docs/build-process.md#31-the-roles), [Appendix C](docs/build-process.md#appendix-c-the-run-task-skill)).
 2. **Agents never work in the main checkout.** Implementers and reviewers use their own worktrees under `C:\Users\diego\projects\ic2-work\`, and the main checkout is the main session's ([build-process.md §7](docs/build-process.md#7-concurrency-single-instance-and-local-only)).
 3. **Status lives on GitHub labels only.** No document carries a status snapshot, so never add one ([build-process.md §5](docs/build-process.md#5-status-lives-on-github)). **Contracts live in the repository** (the catalogue, the process, the design documents and the investigations) because a review diffs them against a commit; **living reference lives in the [wiki](https://github.com/diegoami/imperial_conquest_2/wiki)** and is edited there, not here.
-4. **Plan and design changes go to a plan PR.** The contract tier waits for the user's review; the routine tier merges on the main session's authority ([build-process.md §4.9](docs/build-process.md#49-plan-prs-two-tiers)). A merge's routine doc claims go straight to `main`. When unsure, ask.
+4. **Plan and design changes go to a plan PR.** The routine tier merges on the opener's authority; the contract tier merges on another session's review, and waits for the user only when that review says `user decision` ([build-process.md §4.9](docs/build-process.md#49-plan-prs-two-tiers)). A merge's routine doc claims go straight to `main`. When unsure, ask.
 5. **A question is not a request to edit files.** Answer it; propose any fix and wait.
 6. **Upstream defects go through the bug list.** Suspend, file, plan, resume; never patch another task's Owns list. A bug whose fix stays in the files it names and changes no rule's outcome runs as a `fix`, not a task ([build-process.md §4.6](docs/build-process.md#46-bugs-and-follow-ups), [§4.10](docs/build-process.md#410-the-fix-lane)).
 7. **Relay review findings in full**: the whole list, linked or verbatim, never a subset.
@@ -76,11 +76,3 @@ Agreed on [#264](https://github.com/diegoami/imperial_conquest_2/issues/264), wh
     replay cost while keeping the reasoning, and a forced restart discards the half worth keeping.
     Any handoff names **issue numbers and labels only**; a prose summary of where the build stands is
     the status snapshot rule 3 forbids.
-
----
-
-## Until v0.4.0
-
-This section is deleted in the v0.4.0 release docs pass ([release-plan.md §5](docs/release-plan.md#5-release-checklist)).
-
-17. **Play first.** Until v0.4.0 is tagged, the next ready task of the UI chain (T24, then T25, then T27) is taken before any engine task, and only defects that break play become tasks or folds; everything else is labelled `post-v0.4.0` ([build-process.md §4.8](docs/build-process.md#48-the-playability-gate-until-v040), [§8](docs/build-process.md#8-two-machines)).
