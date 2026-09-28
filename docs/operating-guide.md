@@ -132,7 +132,7 @@ The **main session runs on Opus** and is the one the user talks to. It plans, ru
 `/run-task [T<nn> | #<issue> ...]` runs tasks, and `fix` bugs, end to end, one at a time ([build-process.md Appendix C](build-process.md#appendix-c-the-run-task-skill)):
 1. The implementer builds the task.
 2. An independent reviewer checks it.
-3. Any rework goes back to the implementer, at most two rounds.
+3. Any rework goes back to the implementer, at most two rounds (one for a `fix`).
 4. The main session merges it.
 5. The main session applies the doc claims the merge made stale, and reports to the user.
 
@@ -164,7 +164,7 @@ Both are **local, git-ignored installs** under `.claude/skills/`, and the fenced
 
 - **Bugs.** A defect in already-merged code is filed as a `bug` issue, and the task that found it is suspended. It is never patched from inside another task's Owns list. A bug whose fix stays within the files it names and changes no rule's outcome runs as a `fix`, with no catalogue entry ([build-process.md §4.10](build-process.md#410-the-fix-lane)).
 - **Follow-ups.** Non-blocking review findings go into one `T<nn> follow-up` issue per merge.
-- **Triage.** Both are filed with `triage:needed`, which is the main session's queue. Triage decides one of three outcomes: a correction task, folding the item into an upcoming task, or closing it with a reason. It records the outcome in a comment and removes the label. When a bug blocks a task, the catalogue records the dependency ([build-process.md §4.6](build-process.md#46-bugs-and-follow-ups)).
+- **Triage.** Both are filed with `triage:needed`, which is the main session's queue. Triage decides one of four outcomes: a `fix` ([build-process.md §4.10](build-process.md#410-the-fix-lane)), a correction task, folding the item into an upcoming task, or closing it with a reason. It records the outcome in a comment and removes the label. When a bug blocks a task, the catalogue records the dependency ([build-process.md §4.6](build-process.md#46-bugs-and-follow-ups)).
 
 ### 2.6 New evidence and how it reaches the build
 
