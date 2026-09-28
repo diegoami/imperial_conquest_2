@@ -124,7 +124,7 @@ The **main session runs on Opus** and is the one the user talks to. It plans, ru
 | Role | Dispatched as | Works in | Reference |
 | --- | --- | --- | --- |
 | Main session | — | The main checkout. Plan and design changes go on a plan PR; [build-process.md §4.9](build-process.md#49-plan-prs-two-tiers) says which tier merges it. | [build-process.md §3.1](build-process.md#31-the-roles) |
-| Implementer | Subagent, model per the catalogue | Its own worktree under `ic2-work\` | [build-process.md Appendix A](build-process.md#appendix-a-implementer-prompt-template) |
+| Implementer | An OpenCode run via `scripts/external-implement.ps1`, model per the catalogue, the cheap tier by default; a Claude subagent only on an architecture task | Its own worktree under `ic2-work\` | [build-process.md Appendix A](build-process.md#appendix-a-implementer-prompt-template) |
 | Reviewer | Subagent, a different model per the catalogue | Its own worktree at the PR head | [build-process.md Appendix B](build-process.md#appendix-b-reviewer-prompt-template) |
 | Researcher | Opus subagent: the `/process-evidence` stages and targeted research passes | The research repo's checkout; stage 2 in its own worktree here | [evidence-pipeline.md](evidence-pipeline.md) |
 
@@ -200,7 +200,8 @@ These are kept in step with the auto-memory feedback notes. When a preference ch
 - **Non-blocking review findings become one follow-up issue per merge**, and each item is folded into the next task that touches those files.
 - **The UI chain is taken first, until v0.4.0** (2026-09-28). The next ready task of T24, then T25, then T27 comes before any engine task, on whichever machine is running; no machine is bound to the UI lane, and a `lane:ui` task labelled `post-v0.4.0` (T51) is not part of the chain ([build-process.md §8](build-process.md#8-two-machines)).
 - **The playability gate, until v0.4.0** (2026-09-28). A bug or follow-up becomes a task or a fold only if it breaks play: a crash, an AI stall, an unwinnable game, a save that won't load, or an order that can never succeed. Everything else is labelled `post-v0.4.0` ([build-process.md §4.8](build-process.md#48-the-playability-gate-until-v040)).
-- **No Haiku.** Implementers and reviewers are Opus or Sonnet (Fable only for pure templates). Haiku was retired on 2026-09-27 after T26 ([build-process.md §3.3](build-process.md#33-model-selection)).
+- **Implementers run on OpenCode's cheap tier** (2026-09-28): Claude credit is the scarce resource. `deepseek-flash` unless the entry says why a larger model (`deepseek-pro`, `luna`); Claude Opus only on an architecture task; reviewers stay Claude, so the reviewer's model is never the implementer's ([build-process.md §3.3](build-process.md#33-model-selection), [§3.4](build-process.md#34-why-the-reviewers-model-differs-from-the-implementers)).
+- **No Haiku.** Reviewers are Opus or Sonnet (Fable only for pure templates); implementers are OpenCode models. Haiku was retired on 2026-09-27 after T26 ([build-process.md §3.3](build-process.md#33-model-selection)).
 - **The main session runs the build directly** with `/run-task`. There is no orchestrator layer; it was retired on 2026-09-14 as more overhead than value for serial execution.
 - **No status snapshots in documents.** Status lives in GitHub labels only.
 - When correcting a claim after user feedback, fix the document or report text itself, not only the chat.

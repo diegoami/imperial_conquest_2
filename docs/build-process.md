@@ -79,7 +79,7 @@ Every system is written against these interfaces and registers itself, so no two
 | Role | Who | What it does |
 | --- | --- | --- |
 | **Main session** | The session the user talks to, on Opus | Plans and runs the build. It owns the task entries (`docs/tasks/T<nn>.md`, indexed by [task-catalogue.md](task-catalogue.md)) and this document: scope, Definitions of Done, dependencies and order. It triages bugs and follow-ups, coordinates `/process-evidence`, and brings design questions and escalations to the user. **It runs tasks with `/run-task`** ([Appendix C](#appendix-c-the-run-task-skill)): it dispatches the implementer, then an independent reviewer, relays rework, merges approved PRs, and applies the doc claims each merge makes stale. |
-| **Implementer** | A subagent, model per the catalogue | One task, one branch, one PR, **in its own worktree**. Writes code and tests, runs the DoD commands, pushes work in progress as it goes, and opens the PR with evidence and a "Docs affected" list. |
+| **Implementer** | An OpenCode run (`scripts/external-implement.ps1`) on the model the entry names, the cheap tier by default; a Claude subagent only on an architecture task ([§3.3](#33-model-selection)) | One task, one branch, one PR, **in its own worktree**. Writes code and tests, runs the DoD commands, pushes work in progress as it goes, and opens the PR with evidence and a "Docs affected" list. |
 | **Reviewer** | A subagent, a different model per [§3.4](#34-why-the-reviewers-model-differs-from-the-implementers) | Independently re-runs the DoD commands at the PR head **in its own worktree**, audits provenance and scope, posts its findings as a PR comment, and applies `status:approved` or `status:rework`. It is never the agent that implemented. |
 | **Researcher** | Opus subagents | Evidence work in the research repository: the two `/process-evidence` stages ([evidence-pipeline.md](evidence-pipeline.md)) and targeted research passes. |
 
@@ -98,8 +98,9 @@ Every system is written against these interfaces and registers itself, so no two
 
 Models are chosen per task, in the task's entry, by what an error would cost:
 
-- **Opus** where an error is not local: the domain model and the engine seams, which every task consumes; battle resolution, the most integer-semantics-sensitive code in the project; the AI, whose hardest failure is a soak that never terminates; and a correction whose evidence is still open when its entry is written.
-- **Sonnet** for everything else: the design document says what to build, and the hard part is building it correctly. Medium when the evidence is fully pinned in the entry; High when the task reads a format off decompiled code, widens the shared domain model, or reworks merged rules code; Low for a test-only correction.
+- **OpenCode, cheap tier, by default** (the user's decision of 2026-09-28: Claude credit is the scarce resource). `deepseek-flash` (`opencode/deepseek-v4.1-flash`) implements every task and fix unless its entry names another model. An entry that still says Sonnet reads as `deepseek-flash`.
+- **OpenCode, larger, where the entry says why**: `deepseek-pro` (`opencode/deepseek-v4-pro`) or `luna` (`opencode/gpt-6-luna`, variant `high`). An entry that says Opus and is not an architecture task reads as `luna`.
+- **Claude Opus only on an architecture task**, where an error is not local: the domain model and the engine seams, battle resolution, the AI (T02, T03, T16, T22). Sonnet no longer implements; it reviews structural tasks ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers)).
 - **Haiku** is retired (the user's decision of 2026-09-27) and is never assigned; a task small enough for Haiku is cheap enough on Sonnet (incident 4). Two tasks merged on Haiku before that, T36 and T77.
 - **Fable** for pure templates and configuration, never for anything that must compile against the domain model.
 
@@ -111,14 +112,14 @@ Models are chosen per task, in the task's entry, by what an error would cost:
 
 | Implementer | Reviewer | Plus |
 | --- | --- | --- |
-| Opus, on an architecture task (T02, T03, T16, T22) | Opus / High | `/code-review --effort ultra` ([§3.5](#35-where-the-code-review-skill-fits)) |
-| Sonnet, on a fidelity-critical task (a rule's constants or integer semantics) | **Opus / Medium** | — |
-| Sonnet, widening the shared domain model | **Opus / High** | — |
-| Opus, on a correction whose evidence is still open when its entry is written | **Sonnet / High**, a different model; or the pair the entry names, with its reason | — |
-| Sonnet, on a structural task (scaffolding, CLI, UI, data files, docs) | Sonnet / High | human visual review on the Godot screens ([§9](#9-standing-governance-decisions) Q-B) |
+| An architecture task (T02, T03, T16, T22), implemented on Claude Opus | Opus / High | `/code-review --effort ultra` ([§3.5](#35-where-the-code-review-skill-fits)) |
+| A fidelity-critical task (a rule's constants or integer semantics) | **Opus / Medium** | — |
+| A task widening the shared domain model | **Opus / High** | — |
+| A correction whose evidence is still open when its entry is written | **Opus / High** | — |
+| A structural task (scaffolding, CLI, UI, data files, docs) | Sonnet / High, or `luna` through `scripts/external-review.ps1` | human visual review on the Godot screens ([§9](#9-standing-governance-decisions) Q-B) |
 | Fable, and the two tasks merged on Haiku | Sonnet / Medium | — |
 
-Each task's entry names its own pair; the table is the rule the entry applies. An entry may raise the reviewer one tier above its row, and says why.
+Each task's entry names its own pair; the table is the rule the entry applies. An entry may raise the reviewer one tier above its row, and says why. **The reviewer's model is never the implementer's**: an OpenCode implementer is reviewed by a Claude model, or by a different OpenCode model on a structural task, so the different-model rule holds by construction.
 
 ### 3.5 Where the `/code-review` skill fits
 
@@ -371,7 +372,7 @@ Retired labels from the orchestrator era: `docs:pending`, `orchestrator:pause`, 
   `git diff --name-only origin/main...HEAD`. The main session checks that block before it relays a
   review or merges a PR: a report without it, or one naming the main checkout, is not acted on.
 - **Agents work in their own worktrees**, never in the main checkout:
-  - An implementer runs `git -C C:\Users\diego\projects\imperial_conquest_2 worktree add C:\Users\diego\projects\ic2-work\T<nn> task/T<nn>-<slug>`, creating the branch from `origin/main` if it doesn't exist yet.
+  - For an OpenCode implementer, `scripts/external-implement.ps1` creates the worktree and branch before the run. A Claude implementer runs `git -C C:\Users\diego\projects\imperial_conquest_2 worktree add C:\Users\diego\projects\ic2-work\T<nn> task/T<nn>-<slug>`, creating the branch from `origin/main` if it doesn't exist yet.
   - A reviewer checks out the PR head detached, in `...\ic2-work\T<nn>-review`.
   - An implementer detaches its worktree (`git checkout --detach`) before it finishes, so the branch is free for the next checkout.
 - **`local-only` tasks** need the user's original DAT and saves via `assets.local.ini`. The file is git-ignored, so the agent copies it from the main checkout into its worktree's root. The tasks that launch Godot need a Godot install. These tests **skip explicitly** when the prerequisite is absent, so CI on GitHub's runners stays green.
@@ -710,10 +711,17 @@ the docs item applies only if the review named a claim.
    `gh issue list --label triage:needed --state open`: triage anything that names this
    task, or ask the user. Confirm every merge-after dependency is status:merged and the issue is
    status:ready. Don't start a local-only or single-instance task whose prerequisite is missing.
-1. IMPLEMENT. Label status:in-progress. Dispatch the implementer: Agent(general-purpose, model =
-   the catalogue's, run_in_background, prompt = build-process.md Appendix A filled in from the
-   task entry, plus any review URLs from an earlier attempt). Wait for its completion
-   notification; don't poll. If it reports a defect in merged code, go to step 5 (bug).
+1. IMPLEMENT. Label status:in-progress. Fill build-process.md Appendix A from the task entry
+   (plus any review URLs from an earlier attempt). Then, by the entry's model (§3.3: Sonnet reads
+   as deepseek-flash, a non-architecture Opus as luna):
+   - an OpenCode model (deepseek-flash, deepseek-pro, luna): write the brief to a file and run
+     `pwsh scripts/external-implement.ps1 -Task T<nn> -Slug <slug> -Issue <n> -Model <model>
+     -BriefFile <file>` (`-Fix <issue>` for a fix; `-LocalOnly` where the label says). It creates
+     the worktree and branch, runs OpenCode there, and returns with the PR number or a warning;
+     read its tail. It is a foreground command; run it and wait.
+   - a Claude model: Agent(general-purpose, model = the catalogue's, run_in_background, prompt =
+     the brief). Wait for its completion notification; don't poll.
+   If the implementer reports a defect in merged code, go to step 5 (bug).
 2. REVIEW. Check the PR exists and CI has run. Label status:in-review. Dispatch the reviewer:
    Agent(model = the catalogue's reviewer model, prompt = Appendix B filled in). Wait.
 3. DECIDE on the label the reviewer applied:
