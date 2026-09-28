@@ -12,10 +12,22 @@
          an existing remote branch is resumed, never recreated;
       2. copies assets.local.ini into the worktree for a -LocalOnly task;
       3. runs `opencode run` there with the .opencode/agents/external-implementer.md agent and
-         the chosen model, feeding it the brief plus the run rules;
+         the chosen model, feeding it the brief plus the run rules. The run is watched
+         (scripts/Invoke-OpenCodeWatched.ps1) with stdin closed, because `opencode run` waits for
+         stdin's end-of-file before it creates a session (the cause of the 2026-09-28 hangs). If
+         OpenCode creates no session within -StartupTimeoutSec or does not finish within
+         -TotalTimeoutSec, its process tree is killed;
       4. checks the outcome: a PR exists for the branch, the worktree is clean and pushed, and
          it is detached so the branch is free for the reviewer; saves the run's output next to
          the worktree as <name>.implementer.log and prints its tail.
+    With -Model auto (the default) the models form a chain: deepseek-flash, then mimo-flash-free,
+    then glm, each tried once. The next model runs ONLY on an infrastructure failure (no session
+    in time, no exit in time, a run that exits without a session, a non-zero exit, the
+    fallback-to-default-agent guard), and only when the failed run left nothing behind: no new
+    commit, locally or on origin, and no PR. Otherwise the script exits 1 and the main session
+    decides. When every model fails, or OpenCode is not installed, it exits 3 ("OpenCode
+    unavailable: ..."), and the task falls back to the catalogue's Claude model (operating-guide
+    §3). An implementer that stops and reports exits 0: it has not failed and is never retried.
     The script never merges, labels or reviews; the main session does those (Appendix C).
 
     Model names -> OpenCode model ids (`opencode models` lists what this machine has). The
@@ -32,13 +44,21 @@
 .PARAMETER BriefFile
     The filled Appendix A brief.
 .PARAMETER Model
-    deepseek-flash (default: DeepSeek V4.1 Flash at max, index 39, proven on this repository in
-    #279), mimo-flash-free (index 38, free; the endpoint's limits are unknown), mimo-pro,
-    mimo-flash, glm, or luna.
+    auto (default: the chain deepseek-flash, then mimo-flash-free, then glm), or one model alone:
+    deepseek-flash (DeepSeek V4.1 Flash at max, index 39, proven on this repository in #279),
+    mimo-flash-free (index 38, free; the endpoint's limits are unknown), mimo-pro, mimo-flash,
+    glm, or luna.
 .PARAMETER LocalOnly
     Copy assets.local.ini from the main checkout into the worktree.
 .PARAMETER FixturesDir
     A clone of ic2-test-fixtures, exported as IC2_FIXTURES_DIR for the run.
+.PARAMETER StartupTimeoutSec
+    How long a run may take to create its OpenCode session before it is killed (default 180).
+.PARAMETER TotalTimeoutSec
+    How long a run may take in all before it is killed (default 10800).
+.PARAMETER ModelIds
+    Overrides of the model name -> model id map, e.g. @{ 'deepseek-flash' = 'opencode/deepseek-v4.2-flash' },
+    for when `opencode models` shows a different id (or, in a test, a bad id to exercise the chain).
 
 .EXAMPLE
     pwsh scripts/external-implement.ps1 -Task T71 -Slug persistence-hardening -Issue 308 -BriefFile C:\tmp\T71-brief.md
@@ -52,12 +72,16 @@ param(
     [Parameter(Mandatory)] [string] $Slug,
     [int] $Issue,
     [Parameter(Mandatory)] [string] $BriefFile,
-    [ValidateSet('deepseek-flash', 'mimo-flash-free', 'mimo-pro', 'mimo-flash', 'glm', 'luna')] [string] $Model = 'deepseek-flash',
+    [ValidateSet('auto', 'deepseek-flash', 'mimo-flash-free', 'mimo-pro', 'mimo-flash', 'glm', 'luna')] [string] $Model = 'auto',
     [switch] $LocalOnly,
-    [string] $FixturesDir
+    [string] $FixturesDir,
+    [int] $StartupTimeoutSec = 180,
+    [int] $TotalTimeoutSec = 10800,
+    [hashtable] $ModelIds
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'Invoke-OpenCodeWatched.ps1')
 
 # Chosen on 2026-09-28 from the OpenCode Go table and the comparison of the plan's own models:
 # DeepSeek V4.1 Flash at max effort (index 39, $0.27, the implementer of the #279 rehearsal) is the
@@ -76,15 +100,23 @@ $models = @{
     'glm'             = 'opencode/glm-5.3'
     'luna'            = 'opencode/gpt-6-luna'
 }
+if ($ModelIds) { foreach ($k in $ModelIds.Keys) { $models[$k] = $ModelIds[$k] } }
 $variants = @{ 'mimo-flash-free' = ''; 'deepseek-flash' = 'max'; 'mimo-pro' = ''; 'mimo-flash' = ''; 'glm' = 'max'; 'luna' = 'high' }
-$modelId = $models[$Model]
-$variant = $variants[$Model]
+# The fallback chain (the user's decision of 2026-09-28): each model once, the next only on an
+# infrastructure failure. An explicit -Model runs that model alone.
+$chain = if ($Model -eq 'auto') { @('deepseek-flash', 'mimo-flash-free', 'glm') } else { @($Model) }
 
 if (-not $Task -and -not $Fix) { throw 'Give -Task T<nn> or -Fix <issue>.' }
 if ($Task -and $Fix) { throw '-Task and -Fix are mutually exclusive.' }
 if ($Task -and $Task -notmatch '^T\d{2,3}$') { throw "-Task must look like T24; got $Task" }
 if (-not (Test-Path $BriefFile)) { throw "Brief not found: $BriefFile" }
-foreach ($tool in 'opencode', 'gh', 'git') { if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) { throw "$tool is not on PATH." } }
+# OpenCode not installed or not found: the same exit 3 as every model failing.
+try { $null = Resolve-OpenCodeExe } catch {
+    if (-not (Test-OpenCodeInfraFailure $_)) { throw }
+    [Console]::Error.WriteLine("OpenCode unavailable: $($_.Exception.Message) The task falls back to the catalogue's Claude model (operating-guide §3).")
+    exit 3
+}
+foreach ($tool in 'gh', 'git') { if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) { throw "$tool is not on PATH." } }
 
 $repo = (Resolve-Path (git rev-parse --show-toplevel)).Path
 # ic2-work sits beside the MAIN checkout, even when this script runs from a worktree.
@@ -144,19 +176,54 @@ RUN RULES (from scripts/external-implement.ps1; they override the brief where th
 "@
 $prompt = $brief + $rules
 if ($FixturesDir) { $env:IC2_FIXTURES_DIR = $FixturesDir }
-$ocArgs = @('run', '--dir', $worktree, '--agent', 'external-implementer', '--model', $modelId)
-if ($variant) { $ocArgs += @('--variant', $variant) }
-# OpenCode writes UTF-8; decode it as such, or the log and the report arrive as mojibake.
-$prevConsoleEncoding = [Console]::OutputEncoding
-[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
-Push-Location $worktree
-try {
-    $output = (& opencode @ocArgs $prompt 2>&1 | Out-String)
-} finally { Pop-Location; [Console]::OutputEncoding = $prevConsoleEncoding }
-Set-Content -LiteralPath $log -Value $output -Encoding utf8
+# The run is watched (scripts/Invoke-OpenCodeWatched.ps1). It starts OpenCode with stdin CLOSED
+# (an empty file): `opencode run` creates no session until stdin's end-of-file, so an inherited
+# pipe hung both 2026-09-28 runs. No session within StartupTimeoutSec, or no exit within
+# TotalTimeoutSec, kills its process tree. The helper reads the output as UTF-8.
+# The next model runs only on an infrastructure failure (no session, no exit, an exit without a
+# session, a non-zero exit, the fallback-agent guard), and only when the failed run left nothing
+# behind: no new commit, locally or on origin, and no PR. Its uncommitted edits are discarded.
+# An implementer that stops and reports exits 0: that is not a failure, and it is never retried
+# on another model.
+$startSha = git -C $worktree rev-parse HEAD
+$failures = @()
+$output = $null
+[System.IO.File]::WriteAllText($log, '')
+foreach ($m in $chain) {
+    $ocArgs = @('run', '--dir', $worktree, '--agent', 'external-implementer', '--model', $models[$m])
+    if ($variants[$m]) { $ocArgs += @('--variant', $variants[$m]) }
+    Write-Host "attempt: $m ($($models[$m]))"
+    $reason = $null
+    try {
+        $run = Invoke-OpenCodeWatched -Arguments $ocArgs -Prompt $prompt -WorkDir $worktree -Title "ic2-$name-$m" `
+            -StartupTimeoutSec $StartupTimeoutSec -TotalTimeoutSec $TotalTimeoutSec
+        $output = $run.Output
+        if ($run.ExitCode -ne 0) { $reason = "exit $($run.ExitCode)" }
+        elseif ($output -match 'Falling back to default agent') { $reason = 'fell back to the default agent' }
+    } catch {
+        # Only OpenCode's own failures advance the chain; anything else is rethrown (exit 1).
+        if (-not (Test-OpenCodeInfraFailure $_)) { throw }
+        $reason = $_.Exception.Data['Reason']; $output = $_.Exception.Message
+    }
+    Add-Content -LiteralPath $log -Value "=== $m ($($models[$m])): $(if ($reason) { "failed: $reason" } else { 'ran' }) ===`n$output" -Encoding utf8
+    if (-not $reason) { break }
+    Write-Warning "$m failed: $reason"
+    $failures += "${m}: $reason"
+    git -C $repo fetch -q origin
+    $leftWork = (git -C $worktree rev-parse HEAD) -ne $startSha -or
+        ((git -C $repo rev-parse "origin/$branch" 2>$null) -ne $startSha) -or
+        (gh pr list --head $branch --state open --json number --jq '.[0].number')
+    if ($leftWork) { [Console]::Error.WriteLine("$m failed ($reason) after committing, pushing or opening a PR on $branch; not retrying on another model. The main session decides. Log: $log"); exit 1 }
+    git -C $worktree reset -q --hard $startSha
+    git -C $worktree clean -q -fd
+}
 Write-Host "run output: $log"
-if ($LASTEXITCODE -ne 0) { Write-Warning "opencode exited with $LASTEXITCODE" }
-if ($output -match 'Falling back to default agent') { Write-Error "OpenCode did not load the external-implementer agent (it fell back to its default, full-permission agent). Check the PR it may have opened by hand. Log: $log"; exit 1 }
+if ($failures.Count -eq $chain.Count) {
+    # Not Write-Error: under ErrorActionPreference Stop it would end the script with exit 1, not 3.
+    [Console]::Error.WriteLine("OpenCode unavailable: $($failures -join '; '). The task falls back to the catalogue's Claude model (operating-guide §3). Log: $log")
+    exit 3
+}
+if ($failures) { Write-Host "fell back: $($failures -join '; ')" }
 
 # 4. The outcome. The PR is the deliverable; a clean, pushed, detached worktree is the handover.
 git -C $repo fetch -q origin
