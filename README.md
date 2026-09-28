@@ -6,7 +6,9 @@ A modern, moddable reimplementation of *Imperial Conquest 2* (1996) — the game
 
 ## Current state
 
-**[`v0.3.0`](https://github.com/diegoami/imperial_conquest_2/releases/tag/v0.3.0) — *Headless playable*** is the latest release. `IC2.Cli` loads a scenario, takes every order type, ends turns, and plays the other seats with the AI. What each release adds is in [release-plan.md §2](docs/release-plan.md#2-the-release-ladder).
+**[`v0.4.0`](https://github.com/diegoami/imperial_conquest_2/releases/tag/v0.4.0) — *Playable with a UI, from source*** is the latest release. The Godot project, run from source, plays a game with the map, the context panel, the news log and the battle-result, diplomacy and hotseat-handoff screens, and saves and resumes it; `IC2.Cli` plays the same engine headless. What each release adds is in [release-plan.md §2](docs/release-plan.md#2-the-release-ladder).
+
+- **Play in Godot, from source.** Install Godot .NET 4.7.2 and the .NET 10 SDK, open `godot/project.godot`, and run the project (its main scene is `res://UI/AppRoot.tscn`). The main menu leads to New Game (the ruleset chooser, then the scenario and its seats), Load and Settings. The main game screen has the map, the context panel, the news log and a Save action, and opens the battle-result, diplomacy and hotseat-handoff screens. It reads the shipped data under `data/`, so it needs none of your original game files.
 
 - **Play in the terminal.** Pick a scenario and the nation you play, and the AI plays every other seat:
 
@@ -19,18 +21,18 @@ A modern, moddable reimplementation of *Imperial Conquest 2* (1996) — the game
   - `--seat <nation>` makes that nation yours, for example `rome` or `carthage`.
   - `--seed <n>` overrides the scenario's seed.
 
-  An unknown id is rejected with the list of valid ids. Type `help` for the commands.
+  An unknown id is rejected with the list of valid ids. Type `help` for the commands. `save <path>` writes the game to a file, and `load <path>` (or `--load <path>` at start) resumes it.
 
-Progress lives on GitHub, not in this file: each [task issue](https://github.com/diegoami/imperial_conquest_2/issues?q=label%3Atask)'s `status:*` label, and the [pull requests](https://github.com/diegoami/imperial_conquest_2/pulls). What is built and what is next is in the [task catalogue](docs/task-catalogue.md). How to query the board: [operating-guide.md §1](https://github.com/diegoami/imperial_conquest_2/wiki/Where-the-build-stands).
+Progress lives on GitHub, not in this file: each [task issue](https://github.com/diegoami/imperial_conquest_2/issues?q=label%3Atask)'s `status:*` label, and the [pull requests](https://github.com/diegoami/imperial_conquest_2/pulls). What is built and what is next is in the [task catalogue](docs/task-catalogue.md). How to query the board: [Where the build stands](https://github.com/diegoami/imperial_conquest_2/wiki/Where-the-build-stands) on the wiki.
 
-- **Try the demo** (T41) — a text walking skeleton of the rules built so far, on the small 3-city toy world (`data/worlds/toy-3city.json`, north human against a south seat with no AI yet):
+- **Try the demo** (T41) — a text walking skeleton of the rules built so far, on the small 3-city toy world (`data/worlds/toy-3city.json`, the human north against the AI's south):
 
   ```bash
   dotnet run --project src/IC2.Cli -- --script tests/fixtures/cli/demo.txt   # the scripted demo
   dotnet run --project src/IC2.Cli                                          # play it yourself
   ```
 
-  `help` lists every command. `--seed <n>` overrides the scenario's seed, and every random draw in the game comes from it. What becomes runnable when: [operating-guide.md §1.1](https://github.com/diegoami/imperial_conquest_2/wiki/Where-the-build-stands#what-becomes-runnable-and-when).
+  `help` lists every command. `--seed <n>` overrides the scenario's seed, and every random draw in the game comes from it. What becomes runnable when: [Where the build stands](https://github.com/diegoami/imperial_conquest_2/wiki/Where-the-build-stands#what-becomes-runnable-and-when) on the wiki.
 - **Build and test now**:
   ```bash
   dotnet build IC2.sln   # 0 warnings, 0 errors
@@ -77,13 +79,13 @@ dotnet run --project src/IC2.Inspect/IC2.Inspect.csproj -- --render-map rendered
 
 Run from the repository root. `--compare-saves` reports hashes, map transitions, and city/army/fleet-record byte changes between two saves. `--inspect-city`/`--inspect-army`/`--inspect-nation`/`--inspect-turn` print one entity's decoded fields. `--list-armies`/`--list-fleets`/`--list-mercenaries` enumerate without needing coordinates. `--to-json` dumps everything known about a save (turn, all nations, all cities with garrisons, all armies, all fleets, all mercenary offers) to one file. `--render-map` writes an SVG from the DAT's terrain/cities. `--config <path>` selects a different INI for automation. Never executes or modifies the original game.
 
-### Godot map viewer (part of the inspector, not the reimplementation's UI yet)
+### Godot map viewer (part of the inspector)
 
-After setting `assets.local.ini`, open `godot/project.godot` with Godot .NET 4.7.2 and run the project — draws the 320×140 map and 334 cities, click a city/army/fleet marker for its decoded fields, a nation selector, and the save's calendar header. Read-only; no turns or commands yet (that's what `IC2.Cli`/the Godot screens in the build plan will add).
+The Godot project's main scene is the game (above). The research inspector is its `res://MapViewer.tscn` scene: after setting `assets.local.ini`, run that scene. It draws the original's 320×140 map and 334 cities from your DAT and a save, with a click on a city/army/fleet marker for its decoded fields, a nation selector, and the save's calendar header. It is read-only and never touches the engine.
 
 ## Further reading
 
-- [Operating guide](docs/operating-guide.md) — start here: current state, where everything lives, how the sessions, skills and pipeline are run, what's still open.
+- [Operating guide](docs/operating-guide.md) — start here: where everything lives, how the sessions, skills and pipeline are run, what's still open.
 - [Game design](docs/game-design.md) and its [design audit](docs/design-audit.md) — what the reimplementation will be, and what the evidence actually supports.
 - [Task catalogue](docs/task-catalogue.md) — the build tasks and their dependency graph.
 - [Build process](docs/build-process.md) — how tasks are dispatched, reviewed, merged and documented by the agent pipeline.
