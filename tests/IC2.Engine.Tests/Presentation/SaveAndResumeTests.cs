@@ -518,4 +518,129 @@ public sealed class SaveAndResumeTests : IDisposable
         var loadOutput = session.Submit($"load {path}");
         Assert.Contains(loadOutput.Lines, l => l.StartsWith("Loaded", StringComparison.Ordinal));
     }
+
+    // ---- B2 (rework round 1, blocking): DoD 2's CLI half -- load <path> mid-session and --load at
+    // startup -- had no automated test that would fail if either stopped resuming. Mutation M5 (HandleLoad's
+    // own ResumeFrom(save); replaced with _ = save;) left the entire engine suite green. ----
+
+    /// <summary>
+    /// <c>load &lt;path&gt;</c>, mid-session, on a session sitting on a <em>different</em> state (a
+    /// different <c>--seat</c>, never played forward) — the independent reviewer's own suggested shape.
+    /// Asserts <see cref="GameSession.State"/> equals the saved state exactly, then that the next commands
+    /// match the uninterrupted session's own continuation byte for byte. Dies under M5: a no-op
+    /// <c>ResumeFrom</c> would leave <c>differentSession</c> on carthage's own turn-0 state, matching
+    /// neither the saved state nor the uninterrupted transcript.
+    /// </summary>
+    [Fact]
+    public void The_load_command_mid_session_resumes_and_continues_exactly_like_the_uninterrupted_game()
+    {
+        var classical = Classical;
+        var follow = new[] { "end", "status" };
+
+        var toSave = new GameSession(
+            classical.World, classical.Ruleset, classical.Scenario, seedOverride: null, humanSeatNationId: "rome");
+        RunEach(toSave, new[] { "end", "end", "end" });
+
+        var path = PathFor("load-command-b2.json");
+        toSave.Submit($"save {path}");
+        var uninterruptedTail = RunEach(toSave, follow);
+
+        // A different session entirely: a fresh --seat carthage game, never played forward -- proving
+        // "load <path>" replaces this session's own state and bookkeeping wholesale, not merely
+        // continuing whatever it already had.
+        var differentSession = new GameSession(
+            classical.World, classical.Ruleset, classical.Scenario, seedOverride: null, humanSeatNationId: "carthage");
+        var loadOutput = differentSession.Submit($"load {path}");
+        Assert.Contains(loadOutput.Lines, l => l.StartsWith("Loaded", StringComparison.Ordinal));
+
+        var save = SaveManager.LoadFile(path, classical.World, classical.Ruleset);
+        Assert.Equal(save.State, differentSession.State);
+
+        var resumedTail = RunEach(differentSession, follow);
+        Assert.Equal(string.Concat(uninterruptedTail), string.Concat(resumedTail));
+    }
+
+    /// <summary>
+    /// <c>--load &lt;path&gt;</c> at CLI startup (<c>src/IC2.Cli/Program.cs</c>), run through the real
+    /// built executable — the same reasoning <c>CliProcessTests</c> gives for every test that spawns
+    /// <c>IC2.Cli.dll</c> directly rather than only exercising <see cref="GameSession"/> in process:
+    /// <c>--load</c>'s own resolution (<c>Program.LoadSession</c>) runs before any <see cref="GameSession"/>
+    /// exists. Compares the CLI's own stdout, after <c>--load</c>, against the same continuation an
+    /// in-process resumed session gives for the identical script.
+    /// </summary>
+    [Fact]
+    public void The_load_flag_at_cli_startup_resumes_and_continues_exactly_like_the_uninterrupted_game()
+    {
+        var cliDll = FindCliDll();
+        if (cliDll is null)
+        {
+            return;
+        }
+
+        var classical = Classical;
+        var follow = new[] { "end", "status" };
+
+        var toSave = new GameSession(
+            classical.World, classical.Ruleset, classical.Scenario, seedOverride: null, humanSeatNationId: "rome");
+        RunEach(toSave, new[] { "end", "end", "end" });
+
+        var savePath = PathFor("cli-load-flag-b2.json");
+        toSave.Submit($"save {savePath}");
+        var uninterruptedTail = RunEach(toSave, follow);
+
+        var scriptPath = PathFor("cli-load-flag-script-b2.txt");
+        File.WriteAllText(scriptPath, "end\nstatus\nquit\n");
+
+        using var process = StartCli(cliDll, $"--load \"{savePath}\" --script \"{scriptPath}\"");
+        var stdout = process.StandardOutput.ReadToEnd();
+        var stderr = process.StandardError.ReadToEnd();
+        process.WaitForExit();
+
+        Assert.Equal(0, process.ExitCode);
+        Assert.Contains("Loaded save", stderr, StringComparison.Ordinal);
+        Assert.DoesNotContain("Unhandled exception", stderr, StringComparison.Ordinal);
+
+        // The CLI's own Main loop prints every SessionOutput.Lines entry via Console.WriteLine (Program.cs
+        // sets Console.Out.NewLine = "\n"), one call per script line -- the identical shape RunEach builds
+        // here in process. stdout after --load must therefore contain this exact continuation verbatim
+        // (a leading substring check, not full equality: the script's own trailing "quit" adds a further
+        // "> quit\nGoodbye.\n\n" block the in-process reference never runs).
+        Assert.Contains(string.Concat(uninterruptedTail), stdout, StringComparison.Ordinal);
+    }
+
+    /// <summary>Starts the built CLI with the given argument string, redirecting both output streams —
+    /// the same helper <c>CliProcessTests</c> uses, duplicated here rather than shared (neither file may
+    /// add a third file this task does not own to hold it in common).</summary>
+    private static Process StartCli(string cliDll, string arguments)
+    {
+        var startInfo = new ProcessStartInfo("dotnet", $"\"{cliDll}\" {arguments}")
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            WorkingDirectory = TestPaths.RepositoryRoot,
+        };
+
+        var process = Process.Start(startInfo);
+        Assert.NotNull(process);
+        return process!;
+    }
+
+    /// <summary>Finds the built <c>IC2.Cli.dll</c> next to this test assembly's own build output — see
+    /// <c>CliProcessTests.FindCliDll</c>'s own remarks for why this is not shared.</summary>
+    private static string? FindCliDll()
+    {
+        var testOutputDir = new DirectoryInfo(AppContext.BaseDirectory.TrimEnd(
+            Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        var targetFramework = testOutputDir.Name;
+        var configuration = testOutputDir.Parent?.Name;
+        if (configuration is null)
+        {
+            return null;
+        }
+
+        var candidate = Path.Combine(
+            TestPaths.RepositoryRoot, "src", "IC2.Cli", "bin", configuration, targetFramework, "IC2.Cli.dll");
+        return File.Exists(candidate) ? candidate : null;
+    }
 }
