@@ -209,6 +209,50 @@ public sealed partial class GameSession
     private sealed record PendingPeaceTreatyOffer(string WinnerNationId, string LoserNationId, string OfferedHumanNationId);
 
     /// <summary>
+    /// T25 (plan #474): every <see cref="Battle.BattleResult"/> a <see cref="Battle.BattleResolved"/> event
+    /// published since the last flush — accumulated at the same three call sites
+    /// <see cref="CapturePeaceTreatyOfferIfAny"/> already runs from (<see cref="IssueCommand"/>'s own human
+    /// dispatch, <see cref="PlayUntilOneFullLapOrRepeat"/>'s per-seat AI turn, and
+    /// <see cref="HandleEndSeated"/>'s own ending seat's <c>RunTurn</c>), and drained into
+    /// <see cref="SessionOutput.Battles"/> by every <see cref="Submit"/> return path. A construction-time
+    /// prelude (<see cref="AdvanceToHumanSeat"/>) can also populate this before any <see cref="Submit"/>
+    /// call exists — those battles are flushed on the very first <see cref="Submit"/> call, the same way
+    /// <see cref="_pendingPrelude"/>'s own lines are.
+    /// </summary>
+    private readonly List<Battle.BattleResult> _pendingBattleResults = new();
+
+    /// <summary>
+    /// Appends every <see cref="Battle.BattleResult"/> found in <paramref name="events"/> to
+    /// <see cref="_pendingBattleResults"/> — see that field's own remarks for the call sites and why. A
+    /// no-op for any event stream that resolved no battle, which is most of them.
+    /// </summary>
+    private void CaptureBattleResultsIfAny(IEnumerable<DomainEvent> events)
+    {
+        foreach (var resolved in events.OfType<Battle.BattleResolved>())
+        {
+            _pendingBattleResults.Add(resolved.Result);
+        }
+    }
+
+    /// <summary>
+    /// Drains <see cref="_pendingBattleResults"/> for one <see cref="Submit"/> return — called at every
+    /// return path in <see cref="Submit"/>, exactly as <see cref="SessionOutput.Battles"/> requires. Returns
+    /// an empty array (not merely an empty list) when nothing is pending, matching
+    /// <see cref="SessionOutput.Battles"/>'s own default.
+    /// </summary>
+    private IReadOnlyList<Battle.BattleResult> FlushPendingBattleResults()
+    {
+        if (_pendingBattleResults.Count == 0)
+        {
+            return Array.Empty<Battle.BattleResult>();
+        }
+
+        var flushed = _pendingBattleResults.ToArray();
+        _pendingBattleResults.Clear();
+        return flushed;
+    }
+
+    /// <summary>
     /// Scans <paramref name="events"/> for a <see cref="Battle.PeaceTreatyOffered"/> this session should
     /// show, and records which human seat it is addressed to. Appends the dialog text and how to answer it
     /// to <paramref name="lines"/>, the same way every other line this call produced is appended. A no-op
@@ -661,7 +705,7 @@ public sealed partial class GameSession
         if (trimmed.Length == 0)
         {
             lines.Add(string.Empty);
-            return new SessionOutput(lines, shouldExit);
+            return new SessionOutput(lines, shouldExit, FlushPendingBattleResults());
         }
 
         // T87 rework round 2, R2: DoD 2's own "before it can issue an order" also covers the moment
@@ -677,7 +721,7 @@ public sealed partial class GameSession
         {
             lines.Add("The game is over. No further commands are accepted.");
             lines.Add(string.Empty);
-            return new SessionOutput(lines, true);
+            return new SessionOutput(lines, true, FlushPendingBattleResults());
         }
 
         var tokens = trimmed.Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -817,7 +861,7 @@ public sealed partial class GameSession
         // T87, DoD 3: whichever command's own processing first found no human seat left (an "end" that
         // played the last human seat's fall, or a human-issued capture that eliminated the last other
         // human seat) also ends the session -- the same signal `quit` already uses.
-        return new SessionOutput(lines, shouldExit || _gameOver);
+        return new SessionOutput(lines, shouldExit || _gameOver, FlushPendingBattleResults());
     }
 
     private IReadOnlyList<string> HandleMove(string[] tokens)
@@ -1092,6 +1136,7 @@ public sealed partial class GameSession
             // post-battle treaty for the human, who is not "at the prompt" here -- see
             // _pendingPeaceTreatyOffers's own remarks for why this cannot block the AI's turn loop.
             CapturePeaceTreatyOfferIfAny(lines, result.Events);
+            CaptureBattleResultsIfAny(result.Events);
 
             // T87 rework round 1 (review B3): an AI seat's own turn can eliminate a *different* human
             // seat outright (a capture taking that human's last city) -- the only path
@@ -1254,6 +1299,7 @@ public sealed partial class GameSession
         // demonstrably was human just before this call, never unconditionally.
         AppendFallMessagesForNewlyLostHumanSeats(lines, nationsBeforeThisSeatsTurn);
         CapturePeaceTreatyOfferIfAny(lines, result.Events);
+        CaptureBattleResultsIfAny(result.Events);
 
         if (!AnnounceAndAdoptWatchModeIfSeatIsLost(lines) && !AnnounceGameOverIfNoHumanSeatRemains(lines))
         {

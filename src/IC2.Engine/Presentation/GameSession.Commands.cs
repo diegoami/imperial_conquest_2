@@ -89,6 +89,7 @@ public sealed partial class GameSession
         // majority of what flows through this one choke point), since none of them can publish
         // Battle.PeaceTreatyOffered.
         CapturePeaceTreatyOfferIfAny(lines, result.Events);
+        CaptureBattleResultsIfAny(result.Events);
 
         // T87 (DoD 3): a human-issued capture (besiege-city, attack-army/attack-fleet's own cascade) can
         // eliminate a *different* human seat outright -- only reachable in hotseat, since the CLI's own
