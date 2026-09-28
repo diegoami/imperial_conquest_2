@@ -238,11 +238,12 @@ Everything else merges without the user, subject to [§9](#9-standing-governance
 1. **Suspend.** The task that found it goes to `status:blocked` and its issue says "suspended on #N". It doesn't touch the upstream Owns list.
 2. **File.** The defect becomes a GitHub issue labelled `bug` and `triage:needed`. It states what is wrong, the exact evidence, and the affected files or fields. If it blocks tasks, its body opens with `Blocks: T<nn>[, T<nn>]`.
 3. **Plan.** The main session triages it. It picks one of:
+   - a **fix** ([§4.10](#410-the-fix-lane)): when the fix stays within the files the bug names and changes no rule's outcome. No catalogue entry, no `T` number; the bug issue is the contract;
    - a **correction task**: the next free `T` number, in full catalogue shape, when the fix needs its own Owns list, model and reviewer;
    - **folding it into an upcoming task's DoD**: the default for small fixes and for follow-ups, folded into the next task that touches those files. **A task at `status:ready` gains no new DoD items** (the user's decision of 2026-09-28): a later finding folds into a follow-on task, or a new one, never into a ready task's entry;
    - **deferring it**: close it as *not planned* with the reason. A bug that blocks a task is deferred only on the user's decision.
 
-   Blocking is recorded in the blocked task's entry (`docs/tasks/T<nn>.md`, with its index row and graph edge in [task-catalogue.md](task-catalogue.md)): either as a `merge-after` dependency on the correction, or as a DoD line in the blocked task. After that, the normal ready check enforces it. Catalogue changes go to a branch for the user's review. When triage is done, the main session removes `triage:needed` and comments where the item went.
+   Blocking is recorded in the blocked task's entry (`docs/tasks/T<nn>.md`, with its index row and graph edge in [task-catalogue.md](task-catalogue.md)): either as a `merge-after` dependency on the correction, or as a DoD line in the blocked task. After that, the normal ready check enforces it. Catalogue changes go to a plan PR, and [§4.9](#49-plan-prs-two-tiers) says which tier merges it. When triage is done, the main session removes `triage:needed` and comments where the item went.
 4. **Resume.** The suspended task rebases onto the merged correction and continues.
 
 **Follow-ups.** A reviewer may approve with findings that fail no gate. At merge, the main session collects them into one `T<nn> follow-up` issue labelled `triage:needed`, which links the review comments. A follow-up is not a bug, and no task is suspended for it. It is triaged the same way, usually folded into the next task that touches the files concerned.
@@ -270,6 +271,34 @@ Adopted 2026-09-28 by the user's decision, to reach v0.4.0, the playable Godot U
 - an order that can never succeed.
 
 Everything else keeps its issue open, loses `triage:needed`, and gains the label `post-v0.4.0`. Evidence findings outside that class are recorded in the research repository, with an issue here labelled `post-v0.4.0` that points at the report. No catalogue entry is written for them until the tag. After the tag, the `post-v0.4.0` issues are triaged under [§4.6](#46-bugs-and-follow-ups) as usual.
+
+### 4.9 Plan PRs: two tiers
+
+A plan PR is any PR that changes `docs/tasks/**`, `task-catalogue.md`, `release-plan.md` or a process document (this one, `operating-guide.md`, `CLAUDE.md`). Two tiers, decided by the user on 2026-09-28. The tier decides who merges, wherever the PR was opened ([§8](#8-two-machines)).
+
+- **Routine tier: the main session merges it after green CI and reports it in its next message to the user.** A plan PR is routine when **every** change in it is one of:
+  - a fold of a bug or follow-up into a task that is not yet `status:ready` ([§4.6](#46-bugs-and-follow-ups) step 3);
+  - a "never in flight with" constraint;
+  - an Owns amendment that stays inside the task's own lane and takes nothing from another open task's Owns;
+  - a merge-after dependency on a task that is already merged;
+  - a bookkeeping edit to the catalogue's graph or index, or the catalogue's stub for a task.
+
+  The title starts `Plan (routine):`. A fold adds Done-when lines, so this tier is the one place a DoD changes without a fresh decision by the user ([§4.3](#43-the-dod-is-not-negotiable-by-an-agent)): the decision is this tier, made once.
+- **Contract tier: the user reviews and merges.** Everything else: a new task; a change to an existing Done-when line's assertion, or its removal; a Scope change; a merge-after dependency on an unmerged task; a change to `release-plan.md`'s gates; any edit to this document, `operating-guide.md` or `CLAUDE.md`; and any routine-tier change the main session is unsure about. The title starts `Plan:`.
+
+A routine PR the user later disagrees with is reverted by a contract-tier PR. That is the tier's cost, and cheaper than the wait it replaces: on 2026-09-28 the repository held about 125 plan and process PRs against about 75 task PRs, each one waiting for the user.
+
+### 4.10 The fix lane
+
+A bug qualifies for the fix lane when its fix **stays within the files the bug names and changes no rule's outcome**: it corrects a message, a guard, a rejection, a parser, a view, a validation, a test, a save path or a data file's provenance. A change that alters what a rule computes, a gameplay constant, a resolver's result or an AI decision is a correction task under [§4.6](#46-bugs-and-follow-ups) step 3, however small. The main session decides at triage and labels the bug `fix`.
+
+A fix:
+- **has no catalogue entry and no `T` number.** The bug issue is the contract. Its Owns is the files the bug names plus gate 4's implicit set ([§4.2](#42-what-the-reviewer-checks)); its DoD is the bug's reproduction turned into a test that fails before the change and passes after it, plus a green `dotnet build IC2.sln` and `dotnet test IC2.sln`.
+- **runs through the same labels as a task** (`status:in-progress`, `in-review`, `approved` or `rework`, `merged`), the same `machine:*` claim, and `local-only` or `single-instance` where they apply. It is the machine's one task while it runs ([§7](#7-concurrency-single-instance-and-local-only), [§8](#8-two-machines)), and its files must be disjoint from every task in flight.
+- **is dispatched by `/run-task #<issue>`** ([Appendix C](#appendix-c-the-run-task-skill)): implementer Sonnet/Medium on branch `fix/<issue>-<slug>`, PR body `Fixes #<issue>` (the closing keyword is wanted here), reviewer Opus/Medium at gates 0, 1, 3 and 4 plus a read of the diff. Gate 2 reduces to confirming no constant changed; the mutation protocol does not apply.
+- **gets one rework round.** A second failing review turns it into a correction task: the main session files the task at the contract tier, keeps the branch, and stops.
+
+The lane exists because about half the catalogue's tasks were corrections whose fix fit in one or two files, each carrying the full task ceremony.
 
 ---
 
@@ -409,8 +438,8 @@ force-pushes.
   **One exception (the user's decision of 2026-09-28, after plan PR #460):** a machine may open a
   plan PR that edits **only** `docs/tasks/T<nn>.md` for a task it has claimed, for example to settle
   a contract finding its own review raised. Anything else goes through the primary: other tasks'
-  entries, new tasks, the catalogue index, the process documents and triage. The user reviews and
-  merges every plan PR either way.
+  entries, new tasks, the catalogue index, the process documents and triage. Whoever opened it,
+  [§4.9](#49-plan-prs-two-tiers)'s tier decides who reviews and merges a plan PR.
 - **CI is the authority on test results.** A reviewer's local run adds the `local-only` subset that CI
   cannot run.
 
@@ -454,6 +483,8 @@ Decided by the user; in force until changed.
   - Q1 follow-up → T16's `combat.onDefeat`;
   - Q10 → no change to `combat.onDefeat`.
 - **Q-E, non-blocking review findings.** At each merge that has any, the main session files one `T<nn> follow-up` issue, and folds each item into the next task that touches those files ([§4.6](#46-bugs-and-follow-ups)).
+- **Q-F, plan PR tiers** (2026-09-28). The routine tier of [§4.9](#49-plan-prs-two-tiers) merges on the main session's authority after green CI; the contract tier waits for the user.
+- **Q-G, the fix lane** (2026-09-28). A bug labelled `fix` runs without a catalogue entry under [§4.10](#410-the-fix-lane), and merges under Q-A.
 
 ---
 
@@ -655,7 +686,7 @@ description: Run Imperial Conquest 2 build tasks end to end — dispatch the imp
   independent reviewer, relay rework, merge, apply doc claims, report. Main session only.
 ---
 
-# /run-task [T<nn> ...]
+# /run-task [T<nn> | #<issue> ...]
 
 Read docs/build-process.md §4 first, and **extract** each task's entry rather than reading the
 catalogue whole (CLAUDE.md rule 11):
@@ -665,6 +696,13 @@ a pointer instead reads the index, the entry and whatever the entry links to, on
 round (before T61 split the catalogue, that pointer cost ~85,000 tokens to reach ~1,450 of contract). Given task
 ids, run them in that order; given none, take the first status:ready task in the catalogue index.
 Report to the user after each task; stop at any escalation.
+Given `#<issue>` of a bug labelled `fix`, run the fix lane (build-process.md §4.10) through the
+same steps: the bug body is the entry; Owns = the files it names plus gate 4's implicit set;
+DoD = the bug's reproduction as a test that fails before and passes after, plus green build and
+test; branch fix/<issue>-<slug>; implementer Sonnet/Medium; reviewer Opus/Medium with the line
+"Fix lane: gates 0, 1, 3 and 4 plus a read of the diff; no mutation protocol" at the top of its
+brief; the PR body says "Fixes #<issue>"; at most one rework round, then file a correction task
+at the contract tier and stop. Skip step 4's follow-up and docs items unless the review named one.
 
 0. CHECK. Skip any task that carries another machine's `machine:*` label; claim this one as
    §8 describes (add `machine:$IC2_MACHINE`, re-read, back off if another machine's label appears).
