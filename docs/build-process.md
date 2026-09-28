@@ -170,6 +170,7 @@ Five gates, in order. Any failure means `status:rework`.
 2. **Provenance.** Every constant traces to a `tests/fixtures` entry, a cited report, or a `docs/investigations/` document. Any `[designed]` value must say *what was searched and came up empty* (`design-audit.md` §4.5).
 3. **Determinism.** Gameplay paths use no `System.Random`, no wall clock, no `Guid.NewGuid`, and no order-dependent iteration. Every random draw goes through `IRng`, and a seeded test proves reproducibility.
 4. **Scope.** Every changed file is inside the task's Owns list. A change outside it is a finding even if it's a good change. The PR's "Docs affected" list is plausible for what the diff does.
+   **Owned implicitly** (the user's decision of 2026-09-28): the tests of files in the task's Owns list, the fixtures and goldens those tests read, and the `<Compile Include>` lines that register them. When a reviewer's **only** gate-4 finding is such a file, the main session widens Owns by a comment on the task's issue, and the reviewer proceeds. That needs no plan PR. Any change to a DoD line, the Scope or a dependency still goes through a plan PR ([§4.3](#43-the-dod-is-not-negotiable-by-an-agent)).
 5. **Correctness sweep**, in the reviewer's own context ([§3.5](#35-where-the-code-review-skill-fits) says why the skill is not used here). It is a read of the PR's own diff, hunk by hunk, plus the surrounding code the diff doesn't show, hunting the classes that have actually bitten this project:
    - integer truncation and operation order (the original truncates at every step);
    - off-by-one in a cap or threshold, and the boundary either side of it;
@@ -197,7 +198,7 @@ A defect the reviewer finds in **another task's already-merged** code is not a f
 
 ### 4.3 The DoD is not negotiable by an agent
 
-An implementer that can't satisfy a DoD line **stops and reports**. It never edits the DoD, never weakens an assertion to a range, never marks a test `Skip`, and never deletes a failing assertion. A DoD line changes only by a commit to the task's entry, `docs/tasks/T<nn>.md`, after a decision by the user. The reviewer treats any diff from a task branch to `task-catalogue.md`, to any file under `docs/tasks/` (the task's own entry included), or to this document as an automatic `status:rework`.
+An implementer that can't satisfy a DoD line **stops and reports**. It never edits the DoD, never weakens an assertion to a range, never marks a test `Skip`, and never deletes a failing assertion. A DoD line changes only by a commit to the task's entry, `docs/tasks/T<nn>.md`, after a decision by the user. The one exception is Owns widening for implicitly owned files (tests, their fixtures and goldens, and their `<Compile Include>` lines), which the main session records by a comment on the issue ([§4.2](#42-what-the-reviewer-checks) gate 4). DoD, Scope and dependency changes still go through a plan PR. The reviewer treats any diff from a task branch to `task-catalogue.md`, to any file under `docs/tasks/` (the task's own entry included), or to this document as an automatic `status:rework`.
 
 ### 4.4 Rework
 
@@ -238,7 +239,7 @@ Everything else merges without the user, subject to [§9](#9-standing-governance
 2. **File.** The defect becomes a GitHub issue labelled `bug` and `triage:needed`. It states what is wrong, the exact evidence, and the affected files or fields. If it blocks tasks, its body opens with `Blocks: T<nn>[, T<nn>]`.
 3. **Plan.** The main session triages it. It picks one of:
    - a **correction task**: the next free `T` number, in full catalogue shape, when the fix needs its own Owns list, model and reviewer;
-   - **folding it into an upcoming task's DoD**: the default for small fixes and for follow-ups, folded into the next task that touches those files;
+   - **folding it into an upcoming task's DoD**: the default for small fixes and for follow-ups, folded into the next task that touches those files. **A task at `status:ready` gains no new DoD items** (the user's decision of 2026-09-28): a later finding folds into a follow-on task, or a new one, never into a ready task's entry;
    - **deferring it**: close it as *not planned* with the reason. A bug that blocks a task is deferred only on the user's decision.
 
    Blocking is recorded in the blocked task's entry (`docs/tasks/T<nn>.md`, with its index row and graph edge in [task-catalogue.md](task-catalogue.md)): either as a `merge-after` dependency on the correction, or as a DoD line in the blocked task. After that, the normal ready check enforces it. Catalogue changes go to a branch for the user's review. When triage is done, the main session removes `triage:needed` and comments where the item went.
@@ -252,11 +253,22 @@ Everything else merges without the user, subject to [§9](#9-standing-governance
 
 In the same turn as the merge, the main session:
 
-1. **Unblocks.** Every `status:blocked` task whose merge-after dependencies are now all merged, and which isn't suspended on an open bug, becomes `status:ready`.
+1. **Unblocks.** Every `status:blocked` task whose merge-after dependencies are now all merged, and which isn't suspended on an open bug, becomes `status:ready`. **Until v0.4.0 is tagged, the next task is a ready `lane:ui` task if there is one** (T24, then T25, then T27), taken before any engine task, on whichever machine is running ([§8](#8-two-machines)).
 2. **Files the follow-up** ([§4.6](#46-bugs-and-follow-ups)), if the review had non-blocking findings, and proposes where each item folds.
 3. **Records the PR's "Docs affected" list**, and applies only what would otherwise leave a document **factually wrong**: a formula the code now implements differently, an `[open]` item the merge closed, a mis-attributed citation. Those go straight to `main` in a small `Docs:` commit, because a wrong provenance claim is what the review gates exist to catch. **Everything else waits for the release docs pass** ([release-plan.md §5](release-plan.md#5-release-checklist)): re-wording, counts, narrative and anything about where the build stands. Per-merge prose syncing was retired on 2026-09-18 — it was the step that kept drifting anyway, and the living pages now live in the [wiki](https://github.com/diegoami/imperial_conquest_2/wiki) where they carry no contractual force.
 4. **Cleans up** the agents' worktrees for the task.
 5. **Reports to the user**: the merge commit, what the review found, the follow-ups filed, and what is ready next.
+
+### 4.8 The playability gate, until v0.4.0
+
+Adopted 2026-09-28 by the user's decision, to reach v0.4.0, the playable Godot UI. **Until v0.4.0 is tagged, a bug or follow-up becomes a correction task or a fold only if it breaks play**:
+- a crash;
+- an AI stall;
+- an unwinnable game;
+- a save that will not load;
+- an order that can never succeed.
+
+Everything else keeps its issue open, loses `triage:needed`, and gains the label `post-v0.4.0`. Evidence findings outside that class are recorded in the research repository and labelled the same way. No catalogue entry is written for them until the tag. After the tag, the `post-v0.4.0` issues are triaged under [§4.6](#46-bugs-and-follow-ups) as usual.
 
 ---
 
@@ -381,6 +393,8 @@ be in flight together only when:
 
 When both PRs touch a shared file anyway, the second to merge brings `main` in and re-runs CI. It never
 force-pushes.
+
+**Which task next, until v0.4.0** (the user's decision of 2026-09-28). When a main session looks for its next task, it takes a ready `lane:ui` task (T24, then T25, then T27) before any engine task, on whichever machine is running. No machine is bound to the UI lane. `single-instance` still means only one Godot task is in flight, so a second machine that comes online while a `lane:ui` task runs takes engine tasks. A `lane:ui` task is never left at `status:ready` while a machine dispatches an engine task, unless the user says so on the issue.
 
 **Who does what.**
 - **Each machine merges only the PRs of tasks it claimed**, after its own review and green CI (§4),
