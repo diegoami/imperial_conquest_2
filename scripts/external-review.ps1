@@ -14,8 +14,9 @@
          model of the reviewer, feeding it the brief plus the output rules. The run is watched
          (scripts/Invoke-OpenCodeWatched.ps1) with stdin closed, because `opencode run` waits for
          stdin's end-of-file before it creates a session (the cause of the 2026-09-28 hangs). If
-         OpenCode creates no session within -StartupTimeoutSec or does not finish within
-         -TotalTimeoutSec, its process tree is killed;
+         OpenCode creates no session within -StartupTimeoutSec, its session makes no progress
+         for -IdleTimeoutSec, or it does not finish within -TotalTimeoutSec, its process tree is
+         killed;
       3. takes the run's final message as the review, checks it is complete (header line,
          verdict line, and the verdict repeated as the last line), and posts it as one PR comment
          with `gh pr comment --body-file`. A review that arrives flattened onto one line (seen
@@ -25,13 +26,18 @@
          verdict, as a Claude reviewer would (never for a plan PR);
       5. removes the worktree it created, and only that one.
     With -Reviewer auto (the default) the models form a chain: GLM, then Luna, then DeepSeek, each
-    tried once. The next model runs ONLY on an infrastructure failure: no session in time, no exit
-    in time, a run that exits without a session, a non-zero exit, the fallback-to-default-agent
+    tried once. The next model runs ONLY on an infrastructure failure: no session in time, an idle
+    session, no exit in time, a run that exits without a session, a non-zero exit, the fallback-to-default-agent
     guard, or an incomplete (cut-off) review. Any other error stops the script with a non-zero exit
     that is not 3. The worktree is recreated for each attempt. The posted header names the model that reviewed and
     the ones that failed before it, e.g. "Plan review (Luna; GLM failed: no session in 180 s)".
-    If every model fails, or OpenCode is not installed, nothing is posted and the script exits 3
-    ("OpenCode unavailable: ...");
+    Two consecutive attempts failing with the same cause (Get-OpenCodeFailureClass: two startup
+    hangs, two idle kills, two cut-off reviews, ...) stop the chain early.
+    The model that implemented the PR never reviews it: -ExcludeModel (or, when that is not given,
+    a model:<name> label on the PR or on -Issue naming an OpenCode model) drops it from the chain,
+    and an explicit -Reviewer naming it is refused with exit 1.
+    If every model fails, the chain stops early, the exclusion leaves no model, or OpenCode is not
+    installed, nothing is posted and the script exits 3 ("OpenCode unavailable: ...");
     build-process.md §4.9 says what the main session does then. An explicit -Reviewer runs only
     that model, and exits 3 the same way when it fails.
     The model never writes to GitHub: the agent file denies push, merge, comment and label
@@ -65,6 +71,15 @@
     How long a run may take to create its OpenCode session before it is killed (default 180).
 .PARAMETER TotalTimeoutSec
     How long a run may take in all before it is killed (default 3600).
+.PARAMETER IdleTimeoutSec
+    How long the run's session may go without its `updated` time advancing before the run is
+    killed (default 600; 0 disables). `updated` advances at each step boundary, not while a tool
+    runs or a reply streams, so this must exceed the longest single step of a review.
+.PARAMETER ExcludeModel
+    The model that implemented the PR, as external-implement.ps1 names it on its "implemented by:"
+    line (deepseek-flash, mimo-flash-free, mimo-pro, mimo-flash, glm, luna; or a reviewer name).
+    The reviewer of the same model (deepseek-flash is DeepSeek) is dropped from the chain. Without
+    it, a model:<name> label on the PR or on -Issue is used when one names an OpenCode model.
 .PARAMETER ModelIds
     Overrides of the reviewer -> model id map, e.g. @{ glm = 'opencode/glm-5.4' }, for when
     `opencode models` shows a different id (or, in a test, a bad id to exercise the chain).
@@ -85,6 +100,8 @@ param(
     [switch] $DryRun,
     [int] $StartupTimeoutSec = 180,
     [int] $TotalTimeoutSec = 3600,
+    [int] $IdleTimeoutSec = 600,
+    [ValidateSet('deepseek-flash', 'mimo-flash-free', 'mimo-pro', 'mimo-flash', 'glm', 'luna', 'deepseek')] [string] $ExcludeModel,
     [hashtable] $ModelIds
 )
 
@@ -140,6 +157,29 @@ try { $null = Resolve-OpenCodeExe } catch {
     exit 3
 }
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { throw 'gh is not on PATH.' }
+
+# The reviewer's model is never the implementer's (build-process.md §3.4). The implementing model
+# comes from -ExcludeModel, else from a model:<name> label on the PR or its issue that names an
+# OpenCode model (model:opus and model:sonnet name Claude, which is not in this chain). Implementer
+# name -> the reviewer running the same model; the MiMo models have no reviewer here.
+$reviewerOf = @{ 'deepseek-flash' = 'deepseek'; 'deepseek' = 'deepseek'; 'glm' = 'glm'; 'luna' = 'luna' }
+$implementers = if ($ExcludeModel) { @($ExcludeModel) } else {
+    $labels = @(gh pr view $Pr --json labels --jq '.labels[].name' 2>$null)
+    if ($Issue) { $labels += @(gh issue view $Issue --json labels --jq '.labels[].name' 2>$null) }
+    @($labels | Where-Object { $_ -match '^model:(.+)$' } | ForEach-Object { $_.Substring(6) } |
+        Where-Object { $_ -in 'deepseek-flash', 'mimo-flash-free', 'mimo-pro', 'mimo-flash', 'glm', 'luna', 'deepseek' } | Select-Object -Unique)
+}
+$excluded = @($implementers | ForEach-Object { $reviewerOf[$_] } | Where-Object { $_ } | Select-Object -Unique)
+if ($implementers) { Write-Host "implemented by: $($implementers -join ', '); excluded from review: $(if ($excluded) { $excluded -join ', ' } else { 'none' })" }
+if ($Reviewer -ne 'auto' -and $excluded -contains $Reviewer) {
+    [Console]::Error.WriteLine("Refused: -Reviewer $Reviewer is the model that implemented PR #$Pr ($($implementers -join ', ')); the reviewer's model is never the implementer's (build-process.md §3.4). Use -Reviewer auto or another model. Nothing posted.")
+    exit 1
+}
+$chain = @($chain | Where-Object { $excluded -notcontains $_ })
+if (-not $chain) {
+    [Console]::Error.WriteLine("OpenCode unavailable: no reviewer model left after excluding the implementer's ($($implementers -join ', ')). Nothing posted.")
+    exit 3
+}
 
 $headSha = gh pr view $Pr --json headRefOid --jq .headRefOid
 if (-not $headSha) { throw "Could not read PR #$Pr's head." }
@@ -204,16 +244,18 @@ OUTPUT RULES (from scripts/external-review.ps1; they override anything above tha
     # The helper appends a random token to the title, so the session found is this run's.
     try {
         $run = Invoke-OpenCodeWatched -Arguments $ocArgs -Prompt $prompt -WorkDir $worktree -Title "ic2-pr$Pr-$Name" `
-            -StartupTimeoutSec $StartupTimeoutSec -TotalTimeoutSec $TotalTimeoutSec
+            -StartupTimeoutSec $StartupTimeoutSec -TotalTimeoutSec $TotalTimeoutSec -IdleTimeoutSec $IdleTimeoutSec
     } catch {
-        # Only OpenCode's own failures (not found, no session, no exit, exited without a session)
+        # Only OpenCode's own failures (not found, no session, idle, no exit, exited without a session)
         # advance the chain. Anything else is a defect here: rethrown, exit non-zero, not 3.
         if (-not (Test-OpenCodeInfraFailure $_)) { throw }
         return (& $fail $_.Exception.Data['Reason'] $_.Exception.Message)
     }
     $output = $run.Output
     if ($run.ExitCode -ne 0) { return (& $fail "exit $($run.ExitCode)" $output) }
-    if ($output -match 'Falling back to default agent') { return (& $fail 'fell back to the default agent' "OpenCode did not load the external-reviewer agent (it fell back to its default, full-permission agent). Output:`n$output") }
+    # OpenCode's own evidence (its stderr warning, the session's recorded agent), never the model's
+    # words: a reviewer reading these scripts quotes the warning text (PR #482, 2026-09-28).
+    if ($run.AgentFallback) { return (& $fail 'fell back to the default agent' "OpenCode did not load the external-reviewer agent (it fell back to its default, full-permission agent). Output:`n$output") }
 
     # 3. Completeness. The review starts at the header line (OpenCode may print tool chatter
     #    before it); it must have a verdict on line 2 and repeat it as the last non-empty line.
@@ -248,6 +290,7 @@ OUTPUT RULES (from scripts/external-review.ps1; they override anything above tha
 
 $result = $null
 $failures = @()
+$sameCause = $null
 try {
     if ($FixturesDir) { $env:IC2_FIXTURES_DIR = $FixturesDir }
     $n = 0
@@ -259,6 +302,11 @@ try {
         Write-Host "attempt $n/$($chain.Count): $($displayNames[$name]) failed: $($attempt.Reason)"
         Write-Host ((($attempt.Detail -split "`r?`n") | Select-Object -Last 20) -join "`n")
         $failures += $attempt
+        # Two consecutive attempts failing with one cause stop the chain (operating-guide §3).
+        if ($failures.Count -ge 2 -and (Get-OpenCodeFailureClass $failures[-1].Reason) -eq (Get-OpenCodeFailureClass $failures[-2].Reason)) {
+            $sameCause = Get-OpenCodeFailureClass $attempt.Reason
+            break
+        }
     }
     if ($result) {
         $review = $result.Review
@@ -297,6 +345,7 @@ finally {
 
 if (-not $result) {
     $reasons = ($failures | ForEach-Object { "$($displayNames[$_.Name]): $($_.Reason)" }) -join '; '
+    if ($sameCause) { $reasons = "same failure twice: $sameCause ($reasons)" }
     [Console]::Error.WriteLine("OpenCode unavailable: $reasons. Nothing posted.")
     exit 3
 }

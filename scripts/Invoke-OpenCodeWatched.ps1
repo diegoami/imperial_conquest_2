@@ -24,14 +24,20 @@
          the process tree and throws "OpenCode created no session within N s ...". A run that
          exits without a session also throws;
       4. then waits for the run to exit until -TotalTimeoutSec after the start, killing the tree
-         and throwing on timeout;
+         and throwing on timeout. While it waits, the IDLE WATCH polls the session's `updated`
+         time (the same bounded `session list` lookup, every -PollSec but at most once a minute):
+         if it has not advanced for -IdleTimeoutSec, it kills the tree and throws "OpenCode
+         session idle for N s". `updated` advances at each step boundary of the run (a tool
+         call's completion, the next model turn), not while a tool runs or a reply streams
+         (measured 2026-09-28), so -IdleTimeoutSec must exceed the longest single step;
       5. returns the output and the exit code. A non-zero exit is returned, not thrown: the caller
          decides. The run's temporary files are deleted after an exit 0 and kept otherwise (their
          paths are in the result and in any thrown message).
-    Every failure of OpenCode itself (not found, no session, no exit, exited without a session)
-    is thrown with Data['OpenCodeInfra'] = $true and a short Data['Reason'] ("no session in 180 s",
-    "no exit in 3600 s") for a fallback chain; test it with Test-OpenCodeInfraFailure. Anything
-    else thrown is a defect of the caller, not a reason to try another model.
+    Every failure of OpenCode itself (not found, no session, no exit, exited without a session,
+    idle) is thrown with Data['OpenCodeInfra'] = $true and a short Data['Reason'] ("no session in
+    180 s", "no exit in 3600 s", "session idle for 600 s") for a fallback chain; test it with
+    Test-OpenCodeInfraFailure. Anything else thrown is a defect of the caller, not a reason to try
+    another model.
 
     Only processes this function started are ever killed (taskkill /T on their own PIDs).
 #>
@@ -46,6 +52,50 @@ function New-OpenCodeFailure([string] $Reason, [string] $Message, [switch] $Time
 
 function Test-OpenCodeInfraFailure($ErrorRecord) {
     return [bool]($ErrorRecord.Exception -and $ErrorRecord.Exception.Data['OpenCodeInfra'])
+}
+
+function Get-OpenCodeFailureClass([string] $Reason) {
+    # A failed attempt's cause without its numbers, so a chain can tell the same failure twice
+    # (two startup hangs, two idle kills) from two different ones. The user's decision of
+    # 2026-09-28: two consecutive attempts failing with one cause stop the chain with exit 3.
+    switch -Regex ($Reason) {
+        '^opencode not found'               { return 'not-found' }
+        '^no session in'                    { return 'no-session' }
+        '^session idle'                     { return 'idle' }
+        '^no exit in'                       { return 'total-timeout' }
+        '^exited without a session'         { return 'exited-without-session' }
+        'fell back to the default agent'    { return 'fallback-agent' }
+        '^exit -?\d+'                       { return 'non-zero-exit' }
+        'cut off|no header line|no verdict' { return 'cut-off' }
+        default                             { return $Reason }
+    }
+}
+
+function Test-OpenCodeAgentWarning([string] $StdErr, [string] $Agent) {
+    # OpenCode's own warning when --agent names an agent it cannot find, as OpenCode 1.18 prints it
+    # on stderr (checked 2026-09-28 with --agent no-such-agent-xyz):
+    #   ESC[93mESC[1m! ESC[0m agent "no-such-agent-xyz" not found. Falling back to default agent
+    # Matched only at the start of a line, after the "!" marker and colour codes, and only for the
+    # requested agent's name, so a tool's output quoting the phrase does not trip it.
+    $ansi = '(?:\x1b\[[0-9;]*m|[ \t])*'
+    $pattern = '(?m)^' + $ansi + '!' + $ansi + 'agent "?' + [regex]::Escape($Agent) + '"? not found\. Falling back to default agent'
+    return [bool]($StdErr -match $pattern)
+}
+
+function Get-OpenCodeSessionAgent {
+    param([string] $Exe, [string] $WorkDir, [string] $SessionId, [string] $LogDir, [string] $InFile, [int] $TimeoutMs = 30000)
+    # The agent OpenCode recorded for the session (`opencode export <id>`: .info.agent), or $null
+    # when the export fails or overruns; bounded and killed like the session lookup.
+    $out = Join-Path $LogDir "$SessionId.export.json"
+    $err = Join-Path $LogDir "$SessionId.export.err.txt"
+    try {
+        $p = Start-Process -FilePath $Exe -ArgumentList "export $SessionId" -WorkingDirectory $WorkDir `
+            -NoNewWindow -PassThru -RedirectStandardInput $InFile -RedirectStandardOutput $out -RedirectStandardError $err
+        if (-not $p.WaitForExit($TimeoutMs)) { Stop-OpenCodeTree $p; return $null }
+        $json = [System.IO.File]::ReadAllText($out, [System.Text.Encoding]::UTF8)
+        return (($json | ConvertFrom-Json).info.agent)
+    } catch { return $null }
+    finally { Remove-Item -LiteralPath $out, $err -Force -ErrorAction SilentlyContinue }
 }
 
 function Resolve-OpenCodeExe {
@@ -148,6 +198,9 @@ function Invoke-OpenCodeWatched {
         [Parameter(Mandatory)] [string] $Title,
         [int] $StartupTimeoutSec = 180,
         [int] $TotalTimeoutSec = 3600,
+        # Kill the run when its session's `updated` time has not advanced for this long; 0 disables.
+        # The callers pass their own default (external-implement.ps1 900, external-review.ps1 600).
+        [int] $IdleTimeoutSec = 600,
         [int] $PollSec = 10,
         # Where the run's files go; deleted after an exit 0, kept for diagnosis otherwise.
         [string] $LogDir = (Join-Path ([System.IO.Path]::GetTempPath()) 'ic2-opencode')
@@ -196,11 +249,31 @@ function Invoke-OpenCodeWatched {
         }
         if ($session) { Write-Host "opencode: session $($session.id) started after $([int]$clock.Elapsed.TotalSeconds) s" }
 
-        # Run watch: the whole run ends within TotalTimeoutSec of the start.
-        $remainingMs = [Math]::Max(0, $totalMs - $clock.ElapsedMilliseconds)
-        if (-not $p.WaitForExit([int]$remainingMs)) {
-            Stop-OpenCodeTree $p
-            throw (New-OpenCodeFailure "no exit in $TotalTimeoutSec s" -Timeout ("OpenCode did not finish within $TotalTimeoutSec s; killed pid $($p.Id). Files kept: $($files -join ', '). stderr tail:`n$(Get-OpenCodeTail $errFile)"))
+        # Run watch: the whole run ends within TotalTimeoutSec of the start, and (the idle watch)
+        # its session's `updated` time advances at least every IdleTimeoutSec. `updated` is epoch
+        # ms on this machine's clock, so the idle time is now minus the last `updated` seen; a
+        # lookup that fails or times out leaves it unchanged, so the idle clock keeps running.
+        $idleMs = [long]$IdleTimeoutSec * 1000
+        $idlePollMs = [int]([Math]::Max($PollSec, [Math]::Min(60, [Math]::Ceiling($IdleTimeoutSec / 5))) * 1000)
+        $lastUpdated = if ($session) { [long]$session.updated } else { $startedMs }
+        while ($true) {
+            $remainingMs = [Math]::Max(0, $totalMs - $clock.ElapsedMilliseconds)
+            $waitMs = if ($session -and $idleMs -gt 0) { [Math]::Min($idlePollMs, $remainingMs) } else { $remainingMs }
+            if ($p.WaitForExit([int]$waitMs)) { break }
+            if ($clock.ElapsedMilliseconds -ge $totalMs) {
+                Stop-OpenCodeTree $p
+                throw (New-OpenCodeFailure "no exit in $TotalTimeoutSec s" -Timeout ("OpenCode did not finish within $TotalTimeoutSec s; killed pid $($p.Id). Files kept: $($files -join ', '). stderr tail:`n$(Get-OpenCodeTail $errFile)"))
+            }
+            $seen = Find-OpenCodeSession -Exe $exe -WorkDir $WorkDir -Title $Title -StartedMs $startedMs -LogDir $LogDir `
+                -InFile $inFile -TimeoutMs ([int][Math]::Max(0, [Math]::Min(30000, $totalMs - $clock.ElapsedMilliseconds)))
+            if ($p.HasExited) { break }
+            if ($seen -and [long]$seen.updated -gt $lastUpdated) { $lastUpdated = [long]$seen.updated }
+            $idleFor = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() - $lastUpdated
+            if ($idleFor -ge $idleMs) {
+                Stop-OpenCodeTree $p
+                $secs = [int]($idleFor / 1000)
+                throw (New-OpenCodeFailure "session idle for $IdleTimeoutSec s" -Timeout ("OpenCode session idle for $secs s (its updated time last advanced $secs s ago; the limit is $IdleTimeoutSec s); killed pid $($p.Id). Files kept: $($files -join ', '). stderr tail:`n$(Get-OpenCodeTail $errFile)"))
+            }
         }
         $p.WaitForExit()
         # A run that finished before the first poll: its session must still exist, or it never ran.
@@ -221,6 +294,17 @@ function Invoke-OpenCodeWatched {
 
     $stdout = [System.IO.File]::ReadAllText($outFile, [System.Text.Encoding]::UTF8)
     $stderr = [System.IO.File]::ReadAllText($errFile, [System.Text.Encoding]::UTF8)
+    # Did OpenCode load the requested --agent? Checked on OpenCode's own evidence only, never on the
+    # model's words (a reviewer reading these scripts quotes the warning text: the false positive
+    # of PR #482's reviews, 2026-09-28): OpenCode's warning line on stderr, anchored to its exact
+    # form and the requested agent's name. The session record (`opencode export`: .info.agent) is
+    # the authority when it can be read; the stderr line is the fallback when it cannot.
+    $agentIdx = [array]::IndexOf($Arguments, '--agent')
+    $requestedAgent = if ($agentIdx -ge 0 -and $agentIdx + 1 -lt $Arguments.Count) { $Arguments[$agentIdx + 1] } else { $null }
+    $sessionAgent = if ($requestedAgent -and $session) { Get-OpenCodeSessionAgent -Exe $exe -WorkDir $WorkDir -SessionId $session.id -LogDir $LogDir -InFile $inFile } else { $null }
+    $agentFallback = if (-not $requestedAgent) { $false }
+        elseif ($sessionAgent) { $sessionAgent -ne $requestedAgent }
+        else { Test-OpenCodeAgentWarning -StdErr $stderr -Agent $requestedAgent }
     if ($p.ExitCode -eq 0) { Remove-Item -LiteralPath $files -Force -ErrorAction SilentlyContinue }
     else { Write-Host "opencode: exit $($p.ExitCode); files kept: $($files -join ', ')" }
     return [pscustomobject]@{
@@ -230,6 +314,9 @@ function Invoke-OpenCodeWatched {
         ExitCode  = $p.ExitCode
         SessionId = $session.id
         Title     = $Title
+        # True when OpenCode ran its default agent instead of the requested --agent.
+        AgentFallback = $agentFallback
+        SessionAgent  = $sessionAgent
         Files     = if ($p.ExitCode -eq 0) { @() } else { $files }
         Seconds   = [int]$clock.Elapsed.TotalSeconds
     }
