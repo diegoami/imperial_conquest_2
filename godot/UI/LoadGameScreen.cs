@@ -22,20 +22,18 @@ namespace IC2.Slice.UI;
 /// (the same shared repository <see cref="NewGameFlow"/> uses), and builds the resumed session.
 /// </para>
 /// <para>
-/// <strong>Known gap, reported rather than worked around: this screen does not itself navigate to
-/// <see cref="MainGameScreen"/>.</strong> <c>godot/UI/AppRoot.cs</c> is the only place that owns
-/// swapping the displayed screen and keeping its own <c>CurrentScreen</c> in step (its own remarks:
-/// "Owns every screen swap itself ... so <c>ScreenshotTour.cs</c> can navigate and inspect the real
-/// scene tree"), and <c>AppRoot.cs</c> is outside this task's Owns list
-/// (<c>src/IC2.Engine/Presentation/GameSession*.cs</c>; <c>src/IC2.Cli/Program.cs</c>; this file and
-/// <see cref="MainGameScreen"/> only). Swapping the scene tree from here directly, bypassing
-/// <c>AppRoot</c>, would leave its own <c>CurrentScreen</c> pointing at this (freed) screen — exactly
-/// the invariant its own remarks say <c>ScreenshotTour.cs</c> relies on — so this screen instead builds
-/// the resumed session fully and raises <see cref="GameResumed"/> with it, the same
-/// <c>event Action&lt;GameSession&gt;?</c> shape <see cref="NewGameFlow.GameStarted"/> already uses for
-/// <c>AppRoot.ShowNewGameFlow</c> to subscribe to. Wiring <c>AppRoot.ShowLoadGame</c> to this event —
-/// one line, mirroring its own <c>ShowNewGameFlow</c> — is left to whichever task can touch
-/// <c>AppRoot.cs</c>; see this task's PR body.
+/// <strong>This screen does not itself navigate to <see cref="MainGameScreen"/>.</strong>
+/// <c>godot/UI/AppRoot.cs</c> is the only place that owns swapping the displayed screen and keeping its
+/// own <c>CurrentScreen</c> in step (its own remarks: "Owns every screen swap itself ... so
+/// <c>ScreenshotTour.cs</c> can navigate and inspect the real scene tree"). Swapping the scene tree from
+/// here directly, bypassing <c>AppRoot</c>, would leave its own <c>CurrentScreen</c> pointing at this
+/// (freed) screen — exactly the invariant its own remarks say <c>ScreenshotTour.cs</c> relies on — so
+/// this screen instead builds the resumed session fully and raises <see cref="GameResumed"/> with it,
+/// the same <c>event Action&lt;GameSession&gt;?</c> shape <see cref="NewGameFlow.GameStarted"/> already
+/// uses for <c>AppRoot.ShowNewGameFlow</c> to subscribe to. <strong>Added 2026-09-28, after PR #481's
+/// STOP</strong>: T95's Owns list was widened to include exactly this one wiring line in
+/// <c>AppRoot.ShowLoadGame</c> (mirroring its own <c>ShowNewGameFlow</c>), so a "Continue" press now
+/// really does reach <see cref="MainGameScreen"/>.
 /// </para>
 /// </remarks>
 public partial class LoadGameScreen : Control
@@ -178,14 +176,23 @@ public partial class LoadGameScreen : Control
         var session = new GameSession(world, ruleset, scenario, save);
 
         // Done-when 2/4: the resumed session's own active seat and human-seat bookkeeping already come
-        // from the save's own state (GameSession.ResumeFrom) -- this line is only a human-readable
-        // confirmation that it worked, since AppRoot does not yet route to MainGameScreen for it (see
-        // this class's own remarks).
+        // from the save's own state (GameSession.ResumeFrom). AppRoot.ShowLoadGame's own GameResumed
+        // subscriber swaps to MainGameScreen right after this line, so this message is only ever seen for
+        // the instant before that swap (or not at all, in the normal click-through case) -- kept anyway
+        // for a caller that does not swap screens, such as this task's own headless check.
         _messageLabel.Text =
             $"Resumed '{summary.Label}' — scenario '{scenario.Id}', turn {summary.TurnIndex}. "
-            + $"Active seat: {session.State.NationById(session.State.ActiveNationId)?.Name ?? session.State.ActiveNationId}. "
-            + "Opening the game screen needs a one-line AppRoot wire-up outside this task's Owns list — see the PR body.";
+            + $"Active seat: {session.State.NationById(session.State.ActiveNationId)?.Name ?? session.State.ActiveNationId}.";
 
         GameResumed?.Invoke(session);
     }
+
+    /// <summary>
+    /// Resumes <paramref name="path"/> exactly as a real "Continue" click would (<see cref="OnContinuePressed"/>)
+    /// — exposed so <c>godot/Checks/SaveResumeCheck.cs</c> and <c>godot/Checks/SaveResumeScreenshotTour.cs</c>
+    /// can drive this screen without simulating mouse coordinates, the same reason
+    /// <see cref="MainGameScreen.SubmitForCheck"/> and <see cref="ScenarioSeatScreen.ConfirmSeatAndStart"/>
+    /// are public.
+    /// </summary>
+    public void ContinueForCheck(string path) => OnContinuePressed(path);
 }

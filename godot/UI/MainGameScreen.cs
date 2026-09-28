@@ -50,6 +50,7 @@ public partial class MainGameScreen : Control
 
     private Label _calendarLabel = null!;
     private Label _activeNationLabel = null!;
+    private Label _saveConfirmationLabel = null!;
     private GameMapView _mapView = null!;
     private ContextPanel _contextPanel = null!;
     private NewsLogPanel _newsLog = null!;
@@ -132,6 +133,15 @@ public partial class MainGameScreen : Control
         row.AddChild(UiKit.MakeButton("Save", OnSavePressed, 16));
         row.AddChild(UiKit.MakeButton("End Turn", OnEndTurnPressed, 16));
 
+        // T95: the Save action's own confirmation/refusal line. Not routed through OnCommandIssued's own
+        // _lastCommandLabel (below the bottom toolbar): that label always shows Submit's own trailing
+        // blank separator line (SessionOutput.Lines's last entry, every command's own convention, shared
+        // by every control on this screen, none of which this task's narrow "a Save action" grant may
+        // change) -- so it never actually displays anything, for Save or for End Turn alike. This label
+        // is this task's own, showing HandleSave's real last non-empty line instead.
+        _saveConfirmationLabel = UiKit.MakeLabel(string.Empty, 14, UiKit.MutedTextColor);
+        row.AddChild(_saveConfirmationLabel);
+
         return bar;
     }
 
@@ -171,11 +181,20 @@ public partial class MainGameScreen : Control
     /// file under <c>user://saves</c> <strong>[designed]</strong>, the same per-user directory
     /// <see cref="LoadGameScreen"/> already lists <c>*.json</c> saves from. Routed through
     /// <see cref="GameSession.Submit"/>'s own <c>save &lt;path&gt;</c> command (<c>GameSession.Commands.cs</c>)
-    /// via <see cref="SubmitForCheck"/> — the same choke point every other command on this screen already
-    /// goes through — rather than calling <c>SaveManager.WriteFile</c> directly, so the confirmation (or
-    /// refusal) line lands in <see cref="_lastCommandLabel"/> exactly the way every other command's own
-    /// outcome already does.
+    /// — the real path every other command on this screen already goes through — rather than calling
+    /// <c>SaveManager.WriteFile</c> directly.
     /// </summary>
+    /// <remarks>
+    /// Calls <see cref="GameSession.Submit"/> directly, then <see cref="OnCommandIssued"/>, rather than
+    /// going through <see cref="SubmitForCheck"/> alone: <see cref="OnCommandIssued"/>'s own
+    /// <see cref="_lastCommandLabel"/> update (<c>lines[^1]</c>) always lands on <see cref="SessionOutput"/>'s
+    /// own trailing blank separator line, every command's shared convention, so it never actually shows a
+    /// save's own outcome (or any command's). This method still runs the identical
+    /// <see cref="OnCommandIssued"/> refresh (map, context panel, top bar) that <see cref="SubmitForCheck"/>
+    /// would have, and additionally shows the real last non-empty line — <c>"Saved to '...'."</c> or a
+    /// refusal — in <see cref="_saveConfirmationLabel"/>, a label this task's own narrow Save-action grant
+    /// owns outright.
+    /// </remarks>
     private void OnSavePressed()
     {
         var directory = ProjectSettings.GlobalizePath(SavesDirectory);
@@ -183,8 +202,28 @@ public partial class MainGameScreen : Control
 
         var fileName = $"{Session.Scenario.Id}-turn-{Session.State.Calendar.TurnIndex}.json";
         var path = Path.Combine(directory, fileName);
-        SubmitForCheck($"save {path}");
+        LastSavedPath = path;
+
+        var output = Session.Submit($"save {path}");
+        OnCommandIssued(output.Lines);
+        _saveConfirmationLabel.Text = output.Lines.LastOrDefault(line => line.Length > 0) ?? string.Empty;
     }
+
+    /// <summary>
+    /// The path <see cref="OnSavePressed"/> last wrote to (or attempted to), set just before it submits
+    /// the real <c>save &lt;path&gt;</c> command — <see langword="null"/> before any save. Exposed, with
+    /// <see cref="PressSaveForCheck"/>, so <c>godot/Checks/SaveResumeCheck.cs</c> and
+    /// <c>godot/Checks/SaveResumeScreenshotTour.cs</c> can find the exact file the Save button produced
+    /// without duplicating its naming rule.
+    /// </summary>
+    public string? LastSavedPath { get; private set; }
+
+    /// <summary>
+    /// Presses the "Save" button exactly as a real click would — public for the same reason
+    /// <see cref="SubmitForCheck"/> and <see cref="LoadGameScreen.ContinueForCheck"/> are: a headless
+    /// check drives the real handler, not a simulated mouse click at hardcoded coordinates.
+    /// </summary>
+    public void PressSaveForCheck() => OnSavePressed();
 
     /// <summary>
     /// T25: submits one raw command line through <see cref="GameSession.Submit"/> and runs the result
