@@ -31,8 +31,10 @@
     guard, or an incomplete (cut-off) review. Any other error stops the script with a non-zero exit
     that is not 3. The worktree is recreated for each attempt. The posted header names the model that reviewed and
     the ones that failed before it, e.g. "Plan review (Luna; GLM failed: no session in 180 s)".
-    If every model fails, or OpenCode is not installed, nothing is posted and the script exits 3
-    ("OpenCode unavailable: ...");
+    Two consecutive attempts failing with the same cause (Get-OpenCodeFailureClass: two startup
+    hangs, two idle kills, two cut-off reviews, ...) stop the chain early.
+    If every model fails, the chain stops early, or OpenCode is not
+    installed, nothing is posted and the script exits 3 ("OpenCode unavailable: ...");
     build-process.md §4.9 says what the main session does then. An explicit -Reviewer runs only
     that model, and exits 3 the same way when it fails.
     The model never writes to GitHub: the agent file denies push, merge, comment and label
@@ -254,6 +256,7 @@ OUTPUT RULES (from scripts/external-review.ps1; they override anything above tha
 
 $result = $null
 $failures = @()
+$sameCause = $null
 try {
     if ($FixturesDir) { $env:IC2_FIXTURES_DIR = $FixturesDir }
     $n = 0
@@ -265,6 +268,11 @@ try {
         Write-Host "attempt $n/$($chain.Count): $($displayNames[$name]) failed: $($attempt.Reason)"
         Write-Host ((($attempt.Detail -split "`r?`n") | Select-Object -Last 20) -join "`n")
         $failures += $attempt
+        # Two consecutive attempts failing with one cause stop the chain (operating-guide §3).
+        if ($failures.Count -ge 2 -and (Get-OpenCodeFailureClass $failures[-1].Reason) -eq (Get-OpenCodeFailureClass $failures[-2].Reason)) {
+            $sameCause = Get-OpenCodeFailureClass $attempt.Reason
+            break
+        }
     }
     if ($result) {
         $review = $result.Review
@@ -303,6 +311,7 @@ finally {
 
 if (-not $result) {
     $reasons = ($failures | ForEach-Object { "$($displayNames[$_.Name]): $($_.Reason)" }) -join '; '
+    if ($sameCause) { $reasons = "same failure twice: $sameCause ($reasons)" }
     [Console]::Error.WriteLine("OpenCode unavailable: $reasons. Nothing posted.")
     exit 3
 }

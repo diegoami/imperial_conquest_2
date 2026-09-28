@@ -26,8 +26,9 @@
     in time, an idle session, no exit in time, a run that exits without a session, a non-zero exit, the
     fallback-to-default-agent guard), and only when the failed run left nothing behind: no new
     commit, locally or on origin, and no new PR. Otherwise the script exits 1 and the main session
-    decides. When every model fails, or OpenCode is not installed, it exits 3 ("OpenCode
-    unavailable: ..."), and the task falls back to the catalogue's Claude model (operating-guide
+    decides. Two consecutive attempts failing with the same cause (Get-OpenCodeFailureClass: two
+    startup hangs, two idle kills, ...) stop the chain early. When every model fails, the chain
+    stops that way, or OpenCode is not installed, it exits 3 ("OpenCode unavailable: ..."), and the task falls back to the catalogue's Claude model (operating-guide
     §3). An implementer that stops and reports exits 0: it has not failed and is never retried.
     The script never merges, labels or reviews; the main session does those (Appendix C).
 
@@ -199,6 +200,9 @@ $startRemote = git -C $repo rev-parse "origin/$branch" 2>$null
 $startPr = gh pr list --head $branch --state open --json number --jq '.[0].number' 2>$null
 $failures = @()
 $output = $null
+$lastClass = $null
+$sameCause = $null
+$implementedBy = $null
 [System.IO.File]::WriteAllText($log, '')
 foreach ($m in $chain) {
     $ocArgs = @('run', '--dir', $worktree, '--agent', 'external-implementer', '--model', $models[$m])
@@ -217,7 +221,7 @@ foreach ($m in $chain) {
         $reason = $_.Exception.Data['Reason']; $output = $_.Exception.Message
     }
     Add-Content -LiteralPath $log -Value "=== $m ($($models[$m])): $(if ($reason) { "failed: $reason" } else { 'ran' }) ===`n$output" -Encoding utf8
-    if (-not $reason) { break }
+    if (-not $reason) { $implementedBy = $m; break }
     Write-Warning "$m failed: $reason"
     $failures += "${m}: $reason"
     git -C $repo fetch -q origin
@@ -228,11 +232,17 @@ foreach ($m in $chain) {
     if ($leftWork) { [Console]::Error.WriteLine("$m failed ($reason) after committing, pushing or opening a PR on $branch; not retrying on another model. The main session decides. Log: $log"); exit 1 }
     git -C $worktree reset -q --hard $startSha
     git -C $worktree clean -q -fd
+    # Two consecutive attempts failing with one cause (two startup hangs, two idle kills) mean
+    # OpenCode itself is the problem, not the model: stop the chain (operating-guide §3).
+    $class = Get-OpenCodeFailureClass $reason
+    if ($class -eq $lastClass) { $sameCause = $class; break }
+    $lastClass = $class
 }
 Write-Host "run output: $log"
-if ($failures.Count -eq $chain.Count) {
+if (-not $implementedBy) {
     # Not Write-Error: under ErrorActionPreference Stop it would end the script with exit 1, not 3.
-    [Console]::Error.WriteLine("OpenCode unavailable: $($failures -join '; '). The task falls back to the catalogue's Claude model (operating-guide §3). Log: $log")
+    $why = if ($sameCause) { "same failure twice: $sameCause ($($failures -join '; '))" } else { $failures -join '; ' }
+    [Console]::Error.WriteLine("OpenCode unavailable: $why. The task falls back to the catalogue's Claude model (operating-guide §3). Log: $log")
     exit 3
 }
 if ($failures) { Write-Host "fell back: $($failures -join '; ')" }

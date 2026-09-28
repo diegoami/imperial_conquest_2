@@ -54,6 +54,23 @@ function Test-OpenCodeInfraFailure($ErrorRecord) {
     return [bool]($ErrorRecord.Exception -and $ErrorRecord.Exception.Data['OpenCodeInfra'])
 }
 
+function Get-OpenCodeFailureClass([string] $Reason) {
+    # A failed attempt's cause without its numbers, so a chain can tell the same failure twice
+    # (two startup hangs, two idle kills) from two different ones. The user's decision of
+    # 2026-09-28: two consecutive attempts failing with one cause stop the chain with exit 3.
+    switch -Regex ($Reason) {
+        '^opencode not found'               { return 'not-found' }
+        '^no session in'                    { return 'no-session' }
+        '^session idle'                     { return 'idle' }
+        '^no exit in'                       { return 'total-timeout' }
+        '^exited without a session'         { return 'exited-without-session' }
+        'fell back to the default agent'    { return 'fallback-agent' }
+        '^exit -?\d+'                       { return 'non-zero-exit' }
+        'cut off|no header line|no verdict' { return 'cut-off' }
+        default                             { return $Reason }
+    }
+}
+
 function Resolve-OpenCodeExe {
     # The real executable, never the npm shim: `opencode.cmd` cannot carry a multi-line prompt
     # through cmd.exe, and killing the shim's process would leave opencode.exe running.
