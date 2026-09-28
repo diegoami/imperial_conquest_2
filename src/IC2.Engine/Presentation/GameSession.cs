@@ -537,18 +537,62 @@ public sealed partial class GameSession
     /// prelude field is simply cleared.
     /// </para>
     /// <para>
-    /// <strong>Left empty, not restored — a documented gap, not a Done-when 2/3 failure.</strong>
-    /// <see cref="_pendingPeaceTreatyOffers"/> has no counterpart anywhere in <see cref="Model.SaveGame"/>
-    /// or <see cref="Model.GameState"/> (only <see cref="Model.GameState.PendingOffer"/>, a single,
-    /// different alliance/trade slot); persisting it would mean changing one of those two types, both
-    /// outside this task's Owns. Neither Done-when 2 ("the same state, the same seats, and the same
-    /// active seat and phase") nor Done-when 3 (a deterministic-continuation transcript that never issues
-    /// <c>peace-yes</c>/<c>peace-no</c>) names a pending peace-treaty dialog, so this is reported rather
-    /// than a STOP: a save taken while a post-battle peace offer is still awaiting an answer silently
-    /// drops that one dialog on resume — the war simply continues, as if the offer had lapsed on its own
-    /// human's own <c>end</c>, rather than the dialog itself surviving to be answered. See this task's PR
-    /// body.
+    /// <strong>Not restored, and now refused rather than silently dropped — rework round 1, B1 (the
+    /// user's decision, 2026-09-28).</strong> <see cref="_pendingPeaceTreatyOffers"/> has no counterpart
+    /// anywhere in <see cref="Model.SaveGame"/> or <see cref="Model.GameState"/> (only
+    /// <see cref="Model.GameState.PendingOffer"/>, a single, different alliance/trade slot); persisting it
+    /// would mean changing one of those two types, both outside this task's Owns. The first round of this
+    /// PR treated this as a documented gap (a save taken mid-offer would silently drop the dialog on
+    /// resume — the war continuing as if the offer had never been raised, a different game from the one
+    /// that was saved). The independent reviewer's own probe showed that is not an acceptable gap: it
+    /// breaks Done-when 2 ("the same state, the same seats, and the same active seat and phase") and the
+    /// wording of Done-when 3 for a game saved at that turn. The fix instead lives in
+    /// <c>GameSession.Commands.cs</c>'s own <c>HandleSave</c>: <c>save &lt;path&gt;</c> is refused outright
+    /// while <see cref="_pendingPeaceTreatyOffers"/> is non-empty, so no save can ever capture the state
+    /// this field's own loss would corrupt.
     /// </para>
+    /// <para>
+    /// <strong>N1 (rework round 1, non-blocking): the seat mode is not fully recoverable from
+    /// <see cref="Model.NationState.Control"/> alone, so some sessions resume in a different <em>mode</em>
+    /// than they ran in — proved by the independent reviewer's own probes, not fixed (no in-Owns fix is
+    /// clean; a follow-up is filed separately).</strong> Three cases:
+    /// </para>
+    /// <list type="number">
+    /// <item><description>
+    /// <strong>A scenario-driven session with exactly one human seat and no <c>--seat</c></strong> (for
+    /// example <c>toy-3city</c>, run with no <c>--seat</c> flag at all). The uninterrupted session has
+    /// <see cref="_humanSeatNationId"/> <see langword="null"/> (plain hotseat, one human seat by scenario
+    /// design); a save resumed from it has <see cref="_humanSeatNationId"/> set to that one nation
+    /// (<c>--seat</c>-style), because <see cref="ResumeFrom"/> cannot tell the two apart from
+    /// <see cref="Model.NationState.Control"/> alone. Observable: <c>help</c>'s own compact-view lines
+    /// (<c>status mine</c>/<c>armies</c>/<c>cities</c>, gated on <c>_humanSeatNationId is not null ||
+    /// _isWatchMode</c>) appear after resume but not before; and if that seat is later lost, the
+    /// uninterrupted session ends entirely ("No human seat remains. The game is over.",
+    /// <see cref="AnnounceGameOverIfNoHumanSeatRemains"/>) while the resumed one falls back to watch mode
+    /// (<see cref="AnnounceAndAdoptWatchModeIfSeatIsLost"/>) and keeps running. The same applies to a
+    /// hotseat game saved after one of its two humans was already deposed, leaving exactly one.
+    /// </description></item>
+    /// <item><description>
+    /// <strong>A <c>--seat</c> session saved after its own seat was already lost.</strong> The saved state
+    /// has zero <see cref="Model.SeatControl.Human"/> nations, so the resumed session is watch mode from
+    /// construction (<see cref="_isWatchMode"/> true, <see cref="_humanSeatNationId"/> <see langword="null"/>)
+    /// rather than "watch mode because <em>this</em> seat fell" (<see cref="_seatLost"/> true with
+    /// <see cref="_humanSeatNationId"/> still naming the fallen seat, the uninterrupted session's own
+    /// shape). Observable: <see cref="DefaultViewNationId"/> falls back to whichever seat is currently
+    /// active rather than naming the fallen seat by id — <c>armies</c>/<c>status mine</c> show a different
+    /// nation's own view. <c>end</c> itself still matches (both paths reach
+    /// <see cref="HandleEndWatchMode"/>).
+    /// </description></item>
+    /// <item><description>
+    /// Both cases are the same root cause: <see cref="Model.NationState.Control"/> records <em>who is
+    /// human now</em>, not <em>how this session was started</em> (a single designated seat versus plain
+    /// hotseat), and a fallen seat's own identity is gone once no nation is <see cref="Model.SeatControl.Human"/>
+    /// at all. The <c>--seat</c>-style reading <see cref="ResumeFrom"/> picks for "exactly one human
+    /// nation" is right for Godot (which always resumes with a single seat in mind), so this is left as
+    /// designed rather than changed; whether "the same seats" (Done-when 2) is read to cover session
+    /// *mode* as well as seat *control* is the user's call, folded into B1's own decision if so.
+    /// </description></item>
+    /// </list>
     /// </remarks>
     [System.Diagnostics.CodeAnalysis.MemberNotNull(nameof(State))]
     private void ResumeFrom(SaveGame save)

@@ -524,12 +524,33 @@ public sealed partial class GameSession
     /// commands are), so it works in watch mode, mid-hotseat, or after the CLI's own <c>--seat</c> nation
     /// has fallen, exactly like <c>status</c>/<c>news</c>/<c>help</c> do.
     /// </summary>
+    /// <remarks>
+    /// <strong>Rework round 1, B1 (the user's decision, 2026-09-28): refused while a post-battle peace
+    /// treaty offer is pending.</strong> <see cref="_pendingPeaceTreatyOffers"/> has no counterpart in
+    /// <see cref="Model.SaveGame"/> or <see cref="Model.GameState"/> (see <see cref="ResumeFrom"/>'s own
+    /// remarks), so a save taken while one is awaiting an answer would resume with the dialog silently
+    /// gone — the war continuing as if the offer had never been raised, a different game from the one that
+    /// was saved (the independent reviewer's own probe on PR #481: the uninterrupted session's own
+    /// <c>peace-yes</c> writes the honourable peace and its cooldown; the resumed one answers into a war
+    /// that never had an offer to accept). Persisting the offer needs a <see cref="Model.SaveGame"/>/
+    /// <see cref="Model.GameState"/> change outside this task's Owns, so the fix is here instead: refuse
+    /// the save outright, for every pending offer regardless of which seat it addresses (a hotseat game
+    /// can have more than one <see cref="_pendingPeaceTreatyOffers"/> entry at once), so no save can ever
+    /// capture the lost state. The Godot Save button gets this refusal for free — it renders through
+    /// <c>MainGameScreen</c>'s own <c>_saveConfirmationLabel</c>, exactly like a successful save's own
+    /// confirmation.
+    /// </remarks>
     private IReadOnlyList<string> HandleSave(string trimmedLine)
     {
         var path = PathArgument(trimmedLine);
         if (path is null)
         {
             return new[] { "Usage: save <path>" };
+        }
+
+        if (_pendingPeaceTreatyOffers.Count > 0)
+        {
+            return new[] { "Answer the pending peace treaty offer (peace-yes / peace-no) before saving." };
         }
 
         try

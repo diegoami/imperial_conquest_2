@@ -1,7 +1,9 @@
+using System.Diagnostics;
 using IC2.Engine.Model;
 using IC2.Engine.Persistence;
 using IC2.Engine.Presentation;
 using IC2.Engine.Serialization;
+using IC2.Engine.Tests.Core;
 using IC2.Engine.Tests.Model;
 using Xunit;
 
@@ -82,6 +84,105 @@ public sealed class SaveAndResumeTests : IDisposable
         var loaded = SaveManager.LoadFile(path, classical.World, classical.Ruleset);
         Assert.Equal("rome", loaded.State.NationById("rome")!.Id);
         Assert.Equal(SeatControl.Human, loaded.State.NationById("rome")!.Control);
+    }
+
+    // ---- B1 (rework round 1, the user's decision 2026-09-28): save refuses while a post-battle peace
+    // treaty offer is pending, since GameSession.ResumeFrom's own remarks note _pendingPeaceTreatyOffers
+    // has no counterpart in SaveGame/GameState -- a save taken mid-offer would otherwise resume into a
+    // different game (the independent reviewer's own probe on PR #481, T88's OfferFixture below, copied
+    // from PeaceTreatyOfferTests.cs so this file does not need to change that one). ----
+
+    /// <summary>
+    /// <see cref="PeaceTreatyOfferTests.OfferFixture"/>'s own fixture, copied here rather than exposed
+    /// from that file (outside this task's "new tests" grant to modify): the shipped toy world/scenario,
+    /// with the two threshold gates relaxed and the <c>Random(5)</c> draw always favourable so
+    /// <c>south</c> (AI) reliably beats <c>north-army-1</c> and <c>north</c> (the toy scenario's own human
+    /// seat) is offered the treaty. See that class's own remarks for why each override exists.
+    /// </summary>
+    private static GameSession OfferFixture()
+    {
+        var toy = CoreTestbed.Toy;
+        var customRuleset = toy.Ruleset with
+        {
+            Combat = toy.Ruleset.Combat with
+            {
+                AutoPeaceChanceNumerator = toy.Ruleset.Combat.AutoPeaceChanceDenominator,
+                AutoPeaceLoserUnityThreshold = -1,
+                AutoPeaceLoserCityThreshold = 0,
+            },
+        };
+
+        var reserve = new StartingArmy(
+            "north-reserve", "north", X: 2, Y: 1, Morale: 1, Money: 0, SupplyTons: 0, Moves: 5,
+            Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "heavy_infantry", Troops: 480000, Quality: 5, Name: "Reserve")));
+
+        var southArmy = toy.World.StartingArmies.Single(a => a.Id == "south-army-1") with { X = 4, Y = 2 };
+        var customWorld = toy.World with
+        {
+            StartingArmies = ValueList.From(
+                toy.World.StartingArmies.Select(a => a.Id == "south-army-1" ? southArmy : a).Append(reserve)),
+        };
+
+        return new GameSession(customWorld, customRuleset, toy.Scenario);
+    }
+
+    [Fact]
+    public void Save_is_refused_while_a_peace_treaty_offer_is_pending_and_writes_no_file()
+    {
+        var session = OfferFixture();
+        session.Submit("attack-army north-army-1 south-army-1");
+
+        var path = PathFor("save-pending-offer.json");
+        var output = session.Submit($"save {path}");
+
+        Assert.Contains(
+            output.Lines,
+            l => l.Contains("Answer the pending peace treaty offer", StringComparison.Ordinal)
+                 && l.Contains("peace-yes", StringComparison.Ordinal)
+                 && l.Contains("peace-no", StringComparison.Ordinal));
+        Assert.False(File.Exists(path));
+    }
+
+    /// <summary>
+    /// The other half of B1: once the offer is answered, <c>save</c> succeeds again, and the resumed game
+    /// continues exactly like the uninterrupted one — the same byte-for-byte proof Done-when 3 uses, run
+    /// past a real battle and a real peace this time (Done-when 3's own committed test never fights one).
+    /// </summary>
+    [Fact]
+    public void Save_succeeds_after_answering_the_offer_and_the_resumed_game_continues_exactly_like_the_uninterrupted_one()
+    {
+        var follow = new[] { "end", "status" };
+
+        // One shared "end" runs identically in both branches before either saves or diverges: a session's
+        // very first "end" ever shows every news entry back to construction, not just that round's own
+        // (T87's own _pendingNewsBaseline convention: "news written during the prelude must appear in the
+        // first end's summary") -- a real but unrelated quirk of "was this the first end", not of save and
+        // resume. Every other byte-for-byte test in this file (Done-when 3, B3) only ever saves after at
+        // least one "end" has already consumed that baseline; this one battles and answers a peace treaty
+        // before its own first "end", so it is given the same one here, in both branches, before the save
+        // point -- keeping the comparison about B1's own claim (save/resume around a peace answer), not
+        // about which side happens to still be showing prelude-era news.
+        var uninterrupted = OfferFixture();
+        uninterrupted.Submit("attack-army north-army-1 south-army-1");
+        uninterrupted.Submit("peace-yes");
+        uninterrupted.Submit("end");
+        var uninterruptedTail = RunEach(uninterrupted, follow);
+
+        var toSave = OfferFixture();
+        toSave.Submit("attack-army north-army-1 south-army-1");
+        toSave.Submit("peace-yes");
+        toSave.Submit("end");
+
+        var path = PathFor("save-after-offer-answered.json");
+        var saveOutput = toSave.Submit($"save {path}");
+        Assert.Contains(saveOutput.Lines, l => l.StartsWith("Saved to", StringComparison.Ordinal));
+        Assert.True(File.Exists(path));
+
+        var save = SaveManager.LoadFile(path, toSave.World, toSave.Ruleset);
+        var resumed = new GameSession(toSave.World, toSave.Ruleset, toSave.Scenario, save);
+        var resumedTail = RunEach(resumed, follow);
+
+        Assert.Equal(string.Concat(uninterruptedTail), string.Concat(resumedTail));
     }
 
     // ---- Done-when 2: resume ----
