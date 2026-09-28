@@ -8,6 +8,10 @@ permission:
   bash:
     "*": allow
     "git push *": deny
+    "git -C * push*": deny
+    "git -C * commit*": deny
+    "git -C * stash*": deny
+    "git -C * worktree *": deny
     "gh pr merge *": deny
     "gh pr comment *": deny
     "gh pr review *": deny

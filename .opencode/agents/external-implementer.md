@@ -11,6 +11,10 @@ permission:
     "git push -f *": deny
     "git stash*": deny
     "git worktree *": deny
+    "git -C * push --force*": deny
+    "git -C * push -f*": deny
+    "git -C * stash*": deny
+    "git -C * worktree *": deny
     "gh pr merge *": deny
     "gh pr review *": deny
     "gh issue edit *": deny

@@ -29,7 +29,9 @@
     decides. Two consecutive attempts failing with the same cause (Get-OpenCodeFailureClass: two
     startup hangs, two idle kills, ...) stop the chain early. When every model fails, the chain
     stops that way, or OpenCode is not installed, it exits 3 ("OpenCode unavailable: ..."), and the task falls back to the catalogue's Claude model (operating-guide
-    §3). An implementer that stops and reports exits 0: it has not failed and is never retried.
+    §3). An implementer that stops and reports has not failed: its OpenCode run exits 0, so it is
+    never retried on another model; the script then exits 1 ("No open PR") and the main session
+    reads the report.
     Before the run's tail it prints the model that ran ("implemented by: <name>"); the review passes it to
     external-review.ps1 as -ExcludeModel, so the reviewer is never the implementer's model.
     The script never merges, labels or reviews; the main session does those (Appendix C).
@@ -193,8 +195,8 @@ if ($FixturesDir) { $env:IC2_FIXTURES_DIR = $FixturesDir }
 # The next model runs only on an infrastructure failure (no session, idle, no exit, an exit
 # without a session, a non-zero exit, the fallback-agent guard), and only when the failed run left nothing
 # behind: no new commit, locally or on origin, and no new PR. Its uncommitted edits are discarded.
-# An implementer that stops and reports exits 0: that is not a failure, and it is never retried
-# on another model.
+# An implementer that stops and reports is not a failure: its OpenCode run exits 0, so it is never
+# retried on another model; the script then exits 1 at "No open PR" and the main session reads the report.
 # "Nothing behind" is judged against the state before the first attempt, so a resumed branch
 # (unpushed local commits, or a rework round whose PR is already open) can still fall back.
 $startSha = git -C $worktree rev-parse HEAD

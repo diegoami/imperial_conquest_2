@@ -100,7 +100,7 @@ Models are chosen per task, in the task's entry, by what an error would cost:
 
 - **OpenCode, cheap tier, by default** (the user's decision of 2026-09-28: Claude credit is the scarce resource). `deepseek-flash` (DeepSeek V4.1 Flash at max effort, index 39, the implementer of the #279 rehearsal) implements every task and fix unless its entry names another model; `mimo-flash-free` (MiMo-V2.6-Flash, index 38, the plan's free endpoint) is the second cheap option, to be tried on a fix first, since the endpoint's limits are unknown. `mimo-pro` (MiMo-V2.6-Pro, 46) becomes the default the day the plan lists it. An entry that still says Sonnet reads as the default. Chosen from the OpenCode Go table of 2026-09-28: the highest intelligence index at the lowest cost per task.
 - **OpenCode, larger, where the entry says why**: `glm` (GLM-5.3, variant `max`, index up to 45 on the 2026-09-28 comparison) for a High-effort entry and after a task fails a rework round on the default, a different vendor at a still-small cost. An entry that says Opus and is not an architecture task reads as `glm`. `luna` (GPT-6 Luna, 29 to 37) is the cheap routine option, never the escalation.
-- **Claude Opus only on an architecture task**, where an error is not local: the domain model and the engine seams, battle resolution, the AI (T02, T03, T16, T22). Sonnet no longer implements; it reviews structural tasks ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers)).
+- **Claude Opus only on an architecture task**, where an error is not local: the domain model and the engine seams, battle resolution, the AI (T02, T03, T16, T22). Sonnet implements only as the fallback when OpenCode is unavailable (the script exits 3); otherwise it reviews structural tasks ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers)).
 - **Haiku** is retired (the user's decision of 2026-09-27) and is never assigned; a task small enough for Haiku is cheap enough on Sonnet (incident 4). Two tasks merged on Haiku before that, T36 and T77.
 - **Fable** for pure templates and configuration, never for anything that must compile against the domain model.
 
@@ -722,8 +722,10 @@ the docs item applies only if the review named a claim.
    as the default, a non-architecture Opus and a High-effort entry as glm; a fix or a Low-effort task
    is the default too):
    - an OpenCode model (deepseek-flash, mimo-flash-free, mimo-pro, mimo-flash, glm, luna): write the brief to a file and run
-     `pwsh scripts/external-implement.ps1 -Task T<nn> -Slug <slug> -Issue <n> -Model <model>
-     -BriefFile <file>` (`-Fix <issue>` for a fix; `-LocalOnly` where the label says). It creates
+     `pwsh scripts/external-implement.ps1 -Task T<nn> -Slug <slug> -Issue <n> -Model auto
+     -BriefFile <file>` (`-Fix <issue>` for a fix; `-LocalOnly` where the label says). `-Model auto`
+     (the default) runs the chain deepseek-flash, mimo-flash-free, glm; pass an explicit `-Model
+     <model>` only when the entry names another model (glm, luna, ...), which then runs alone. It creates
      the worktree and branch, runs OpenCode there, and returns with the PR number or a warning;
      read its tail. Run it in the background and watch it (operating-guide §3): the session must
      start and keep making progress; on a failure read its stderr and the OpenCode log, record the
@@ -732,7 +734,9 @@ the docs item applies only if the review named a claim.
      the brief). Wait for its completion notification; don't poll.
    If the implementer reports a defect in merged code, go to step 5 (bug).
 2. REVIEW. Check the PR exists and CI has run. Label status:in-review. Dispatch the reviewer:
-   Agent(model = the catalogue's reviewer model, prompt = Appendix B filled in). Wait.
+   Agent(model = the catalogue's reviewer model, prompt = Appendix B filled in). Wait. A review
+   through `scripts/external-review.ps1` passes the implementer's `implemented by:` name as
+   `-ExcludeModel`; the flag is required, since model:sonnet and model:opus labels exclude nothing.
 3. DECIDE on the label the reviewer applied:
    - status:approved: wait for CI green. If the branch is behind main, run
      `gh pr update-branch <pr>` and wait for green again. For T16 and T22, stop and get the
