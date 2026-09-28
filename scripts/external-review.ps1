@@ -79,7 +79,13 @@ function Get-RepoRoot {
 }
 
 $repo = Get-RepoRoot
-$workRoot = Join-Path (Split-Path $repo -Parent) 'ic2-work'
+# ic2-work sits beside the MAIN checkout, even when this script runs from a worktree: resolve the
+# main checkout through the common git dir rather than the current worktree's root.
+$commonDir = (git -C $repo rev-parse --path-format=absolute --git-common-dir).Trim()
+$mainRoot = Split-Path $commonDir -Parent
+$workRoot = Join-Path (Split-Path $mainRoot -Parent) 'ic2-work'
+$agentFile = Join-Path $repo '.opencode/agents/external-reviewer.md'
+if (-not (Test-Path -LiteralPath $agentFile)) { throw "Agent file not found: $agentFile" }
 $worktree = Join-Path $workRoot "$Pr-external-review"
 if (-not (Test-Path $BriefFile)) { throw "Brief not found: $BriefFile" }
 $brief = Get-Content -Raw -LiteralPath $BriefFile
@@ -96,6 +102,12 @@ git -C $repo fetch -q origin "pull/$Pr/head"
 if (Test-Path $worktree) { git -C $repo worktree remove --force $worktree }
 git -C $repo worktree add --detach $worktree $headSha | Out-Null
 Write-Host "worktree: $worktree at $headSha"
+# The PR under review usually does not carry this agent file, and OpenCode silently falls back to
+# its default, full-permission agent when --agent names one it cannot find. Copy the read-only
+# agent into the review worktree (untracked; the worktree is removed afterwards).
+$agentDir = Join-Path $worktree '.opencode/agents'
+New-Item -ItemType Directory -Force -Path $agentDir | Out-Null
+Copy-Item -LiteralPath $agentFile -Destination (Join-Path $agentDir 'external-reviewer.md') -Force
 
 $verdicts = 'approve after named fixes', 'approve', 'rework', 'user decision'
 $rules = @"
@@ -123,11 +135,12 @@ try {
     $started = (Get-Date).ToUniversalTime().ToString('o')
     Push-Location $worktree
     try {
-        $args = @('run', '--dir', $worktree, '--agent', 'external-reviewer', '--model', $model)
-        if ($variant) { $args += @('--variant', $variant) }
-        $review = (& opencode @args $prompt 2>&1 | Out-String)
+        $ocArgs = @('run', '--dir', $worktree, '--agent', 'external-reviewer', '--model', $model)
+        if ($variant) { $ocArgs += @('--variant', $variant) }
+        $review = (& opencode @ocArgs $prompt 2>&1 | Out-String)
     } finally { Pop-Location }
     if ($LASTEXITCODE -ne 0) { throw "opencode exited with $LASTEXITCODE`n$review" }
+    if ($review -match 'Falling back to default agent') { throw "OpenCode did not load the external-reviewer agent (it fell back to its default, full-permission agent). Nothing posted. Output:`n$review" }
 
     # 3. Completeness. The review starts at the header line (OpenCode may print tool chatter
     #    before it); it must have a verdict on line 2 and repeat it as the last non-empty line.
