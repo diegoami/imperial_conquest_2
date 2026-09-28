@@ -7,7 +7,9 @@ using IC2.Engine.Diplomacy.Commands;
 using IC2.Engine.Model;
 using IC2.Engine.Naval.Commands;
 using IC2.Engine.News;
+using IC2.Engine.Persistence;
 using IC2.Engine.Recruitment.Commands;
+using IC2.Engine.Serialization;
 
 namespace IC2.Engine.Presentation;
 
@@ -513,5 +515,106 @@ public sealed partial class GameSession
 
         return IssueCommand(
             new FleetToFleetTransferCommand(State.ActiveNationId, tokens[1], tokens[2], ships, supplyTons, money));
+    }
+
+    /// <summary>
+    /// <c>save &lt;path&gt;</c> — <c>docs/tasks/T95.md</c> (#467), Done-when 1: writes the current game
+    /// through <see cref="SaveManager.WriteFile"/>. Never gated by <see cref="IsWatchModeActive"/>: saving
+    /// is not a game order (nothing about it is rejected the way <see cref="IssueCommand"/>'s own mutating
+    /// commands are), so it works in watch mode, mid-hotseat, or after the CLI's own <c>--seat</c> nation
+    /// has fallen, exactly like <c>status</c>/<c>news</c>/<c>help</c> do.
+    /// </summary>
+    private IReadOnlyList<string> HandleSave(string trimmedLine)
+    {
+        var path = PathArgument(trimmedLine);
+        if (path is null)
+        {
+            return new[] { "Usage: save <path>" };
+        }
+
+        try
+        {
+            SaveManager.WriteFile(path, BuildSaveGame());
+        }
+        catch (SaveWriteException ex)
+        {
+            return new[] { $"Could not save to '{path}': {ex.Message}" };
+        }
+
+        return new[] { $"Saved to '{path}'." };
+    }
+
+    /// <summary>
+    /// <c>load &lt;path&gt;</c> — <c>docs/tasks/T95.md</c> (#467), Done-when 2: resumes a previously saved
+    /// game into this same session, through <see cref="ResumeFrom"/>. Also never gated by
+    /// <see cref="IsWatchModeActive"/>, for the same reason <see cref="HandleSave"/> is not — a session
+    /// stuck in watch mode (or one whose <c>--seat</c> nation has fallen) is exactly the case a player
+    /// most wants to be able to resume a different save from.
+    /// </summary>
+    /// <remarks>
+    /// Done-when 5: a missing file, a malformed save, and a save for a different world or ruleset are all
+    /// <see cref="GameDataException"/> (<see cref="SaveManager.LoadFile"/>'s own documented exception
+    /// surface — a missing file surfaces as <see cref="Serialization.MalformedGameDataException"/>, "the
+    /// file could not be read"), so one catch covers all three: the session's own <see cref="State"/> and
+    /// every other field are left exactly as they were (nothing here runs before the catch can still
+    /// throw), and the session keeps running.
+    /// </remarks>
+    private IReadOnlyList<string> HandleLoad(string trimmedLine)
+    {
+        var path = PathArgument(trimmedLine);
+        if (path is null)
+        {
+            return new[] { "Usage: load <path>" };
+        }
+
+        SaveGame save;
+        try
+        {
+            save = SaveManager.LoadFile(path, World, Ruleset);
+        }
+        catch (GameDataException ex)
+        {
+            return new[] { $"Could not load '{path}': {ex.Message}" };
+        }
+
+        ResumeFrom(save);
+        return new[]
+        {
+            $"Loaded '{path}': {save.Label} (turn {State.Calendar.TurnIndex}). "
+            + $"Active seat: {NationDisplay(State.ActiveNationId)}.",
+        };
+    }
+
+    /// <summary>
+    /// The current game as a <see cref="SaveGame"/> — <see cref="HandleSave"/>'s own builder, and the one
+    /// place a save's <see cref="SaveGame.Id"/>/<see cref="SaveGame.Label"/> are chosen. Both are
+    /// deterministic (the scenario id and the calendar's own turn index), never <c>DateTime.Now</c> or
+    /// <c>Guid.NewGuid</c> — see this task's PR for why a wall-clock label was not needed here.
+    /// </summary>
+    private SaveGame BuildSaveGame() => new(
+        SchemaVersion: GameDataSchema.CurrentVersion,
+        Id: $"{Scenario.Id}-turn-{State.Calendar.TurnIndex}",
+        Label: $"{Scenario.Id}, turn {State.Calendar.TurnIndex}",
+        ScenarioId: State.ScenarioId,
+        WorldId: State.WorldId,
+        RulesetId: State.RulesetId,
+        State: State);
+
+    /// <summary>
+    /// Everything after <paramref name="trimmedLine"/>'s first space, or <see langword="null"/> if there
+    /// is none or it is empty — a file path, unlike every other command's arguments, can itself contain
+    /// spaces, so this reads the rest of the line raw rather than reusing <see cref="Submit"/>'s own
+    /// whitespace-split <c>tokens</c> array (which would silently mangle a path like <c>C:\a b\save.json</c>).
+    /// </summary>
+    private static string? PathArgument(string trimmedLine)
+    {
+        var spaceIndex = trimmedLine.IndexOf(' ');
+        if (spaceIndex < 0)
+        {
+            return null;
+        }
+
+        var path = trimmedLine[(spaceIndex + 1)..].Trim();
+        return path.Length == 0 ? null : path;
     }
 }

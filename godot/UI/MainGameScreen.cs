@@ -27,6 +27,14 @@ public partial class MainGameScreen : Control
 
     public required string RepositoryRoot { get; init; }
 
+    /// <summary>
+    /// Where <see cref="OnSavePressed"/> writes — the same <c>user://saves</c> convention
+    /// <see cref="LoadGameScreen"/> already reads <c>*.json</c> saves from (its own private constant of
+    /// the same name and value; duplicated rather than shared, since neither file may add a third file
+    /// this task does not own to hold it in common).
+    /// </summary>
+    private const string SavesDirectory = "user://saves";
+
     /// <summary>Exposed (rather than kept private) so <c>godot/Checks/ScreenshotTour.cs</c> can drive a
     /// selection and open the news log for the visual sign-off screenshot without simulating clicks.</summary>
     public GameMapView MapView => _mapView;
@@ -119,6 +127,9 @@ public partial class MainGameScreen : Control
         var spacer = new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         row.AddChild(spacer);
 
+        // T95 (#467), Done-when 1: "a Save action in the main game screen." Next to End Turn, the other
+        // always-available top-bar action.
+        row.AddChild(UiKit.MakeButton("Save", OnSavePressed, 16));
         row.AddChild(UiKit.MakeButton("End Turn", OnEndTurnPressed, 16));
 
         return bar;
@@ -154,6 +165,26 @@ public partial class MainGameScreen : Control
     }
 
     private void OnEndTurnPressed() => SubmitForCheck("end");
+
+    /// <summary>
+    /// The "Save" button — <c>docs/tasks/T95.md</c> (#467), Done-when 1: writes the current game to a
+    /// file under <c>user://saves</c> <strong>[designed]</strong>, the same per-user directory
+    /// <see cref="LoadGameScreen"/> already lists <c>*.json</c> saves from. Routed through
+    /// <see cref="GameSession.Submit"/>'s own <c>save &lt;path&gt;</c> command (<c>GameSession.Commands.cs</c>)
+    /// via <see cref="SubmitForCheck"/> — the same choke point every other command on this screen already
+    /// goes through — rather than calling <c>SaveManager.WriteFile</c> directly, so the confirmation (or
+    /// refusal) line lands in <see cref="_lastCommandLabel"/> exactly the way every other command's own
+    /// outcome already does.
+    /// </summary>
+    private void OnSavePressed()
+    {
+        var directory = ProjectSettings.GlobalizePath(SavesDirectory);
+        Directory.CreateDirectory(directory);
+
+        var fileName = $"{Session.Scenario.Id}-turn-{Session.State.Calendar.TurnIndex}.json";
+        var path = Path.Combine(directory, fileName);
+        SubmitForCheck($"save {path}");
+    }
 
     /// <summary>
     /// T25: submits one raw command line through <see cref="GameSession.Submit"/> and runs the result

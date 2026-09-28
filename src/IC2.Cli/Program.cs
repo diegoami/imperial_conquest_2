@@ -1,5 +1,7 @@
 using System.Globalization;
 using System.Linq;
+using IC2.Engine.Model;
+using IC2.Engine.Persistence;
 using IC2.Engine.Presentation;
 using IC2.Engine.Serialization;
 
@@ -49,6 +51,18 @@ namespace IC2.Cli;
 /// state, not just this class's bookkeeping) and rejects an unknown id with the list of ids, the same
 /// shape <c>--scenario</c>/<c>--ruleset</c> already use above.
 /// </remarks>
+/// <remarks>
+/// <strong><c>--load &lt;path&gt;</c> (<c>docs/tasks/T95.md</c>, #467).</strong> The <c>load &lt;path&gt;</c>
+/// command alone cannot serve a cold start: it needs an already-constructed <see cref="GameSession"/>
+/// whose World/Ruleset already happen to match the save (<see cref="SaveManager.LoadFile"/>'s own check),
+/// which means the caller would first have to guess the right <c>--scenario</c>/<c>--ruleset</c> for a
+/// save it has not opened yet. <c>--load</c> instead reads the save's own recorded ids first
+/// (<see cref="SaveManager.PeekSummaryFile"/>), resolves World/Ruleset/Scenario from those, and builds
+/// the session directly from the save through <see cref="GameSession"/>'s resume constructor — so
+/// <c>--scenario</c>/<c>--ruleset</c> need never be given (and are ignored, with a note to standard
+/// error, if they are). <c>--seed</c> and <c>--seat</c> are ignored the same way: Done-when 3's random
+/// stream and Done-when 4's human seat both come from the save itself, never from a flag.
+/// </remarks>
 internal static class Program
 {
     /// <summary>The scenario loaded when <c>--scenario</c> is not given — unchanged from before DoD 5.</summary>
@@ -66,6 +80,7 @@ internal static class Program
         var scenarioId = DefaultScenarioId;
         string? rulesetOverrideId = null;
         string? seatNationId = null;
+        string? loadPath = null;
 
         for (var i = 0; i < args.Length; i++)
         {
@@ -123,6 +138,16 @@ internal static class Program
                     seatNationId = args[++i];
                     break;
 
+                case "--load":
+                    if (i + 1 >= args.Length)
+                    {
+                        Console.Error.WriteLine("--load requires a file path.");
+                        return 1;
+                    }
+
+                    loadPath = args[++i];
+                    break;
+
                 default:
                     Console.Error.WriteLine($"Unknown argument: {args[i]}");
                     return 1;
@@ -140,44 +165,65 @@ internal static class Program
         {
             var repository = GameDataRepository.Load(Path.Combine(FindRepositoryRoot(), "data"));
 
-            if (repository.ScenarioById(scenarioId) is null)
+            if (loadPath is not null)
             {
-                var available = string.Join(", ", repository.Scenarios.Select(s => s.Id).OrderBy(id => id, StringComparer.Ordinal));
-                Console.Error.WriteLine($"Unknown scenario '{scenarioId}'. Available scenarios: {available}.");
-                return 1;
-            }
-
-            var resolved = repository.Resolve(scenarioId);
-
-            if (rulesetOverrideId is not null)
-            {
-                var overrideRuleset = repository.RulesetById(rulesetOverrideId);
-                if (overrideRuleset is null)
+                if (scenarioId != DefaultScenarioId || rulesetOverrideId is not null || seatNationId is not null || seed is not null)
                 {
-                    var available = string.Join(", ", repository.Rulesets.Select(r => r.Id).OrderBy(id => id, StringComparer.Ordinal));
-                    Console.Error.WriteLine($"Unknown ruleset '{rulesetOverrideId}'. Available rulesets: {available}.");
+                    Console.Error.WriteLine(
+                        "--load resumes the save's own scenario, world, ruleset, seed and human seat; "
+                        + "--scenario/--ruleset/--seat/--seed are ignored.");
+                }
+
+                var (loadedSession, loadError) = LoadSession(repository, loadPath);
+                if (loadError is not null)
+                {
+                    Console.Error.WriteLine(loadError);
                     return 1;
                 }
 
-                resolved = resolved with { Ruleset = overrideRuleset };
+                session = loadedSession!;
             }
-
-            // docs/tasks/T83.md Done-when 1: "an unknown nation id is rejected with the list of ids" --
-            // the same shape as --scenario/--ruleset above, checked against the resolved World (every
-            // nation the world defines has exactly one seat -- GameStateFactory.CreateInitial's own
-            // invariant -- so the world's own nation ids are the complete, authoritative list).
-            if (seatNationId is not null && resolved.World.NationById(seatNationId) is null)
+            else
             {
-                var available = string.Join(
-                    ", ", resolved.World.Nations.Select(n => n.Id).OrderBy(id => id, StringComparer.Ordinal));
-                Console.Error.WriteLine($"Unknown nation '{seatNationId}'. Available nations: {available}.");
-                return 1;
+                if (repository.ScenarioById(scenarioId) is null)
+                {
+                    var available = string.Join(", ", repository.Scenarios.Select(s => s.Id).OrderBy(id => id, StringComparer.Ordinal));
+                    Console.Error.WriteLine($"Unknown scenario '{scenarioId}'. Available scenarios: {available}.");
+                    return 1;
+                }
+
+                var resolved = repository.Resolve(scenarioId);
+
+                if (rulesetOverrideId is not null)
+                {
+                    var overrideRuleset = repository.RulesetById(rulesetOverrideId);
+                    if (overrideRuleset is null)
+                    {
+                        var available = string.Join(", ", repository.Rulesets.Select(r => r.Id).OrderBy(id => id, StringComparer.Ordinal));
+                        Console.Error.WriteLine($"Unknown ruleset '{rulesetOverrideId}'. Available rulesets: {available}.");
+                        return 1;
+                    }
+
+                    resolved = resolved with { Ruleset = overrideRuleset };
+                }
+
+                // docs/tasks/T83.md Done-when 1: "an unknown nation id is rejected with the list of ids" --
+                // the same shape as --scenario/--ruleset above, checked against the resolved World (every
+                // nation the world defines has exactly one seat -- GameStateFactory.CreateInitial's own
+                // invariant -- so the world's own nation ids are the complete, authoritative list).
+                if (seatNationId is not null && resolved.World.NationById(seatNationId) is null)
+                {
+                    var available = string.Join(
+                        ", ", resolved.World.Nations.Select(n => n.Id).OrderBy(id => id, StringComparer.Ordinal));
+                    Console.Error.WriteLine($"Unknown nation '{seatNationId}'. Available nations: {available}.");
+                    return 1;
+                }
+
+                Console.Error.WriteLine(
+                    $"Loaded scenario '{resolved.Scenario.Id}': world '{resolved.World.Id}', ruleset '{resolved.Ruleset.Id}'.");
+
+                session = new GameSession(resolved.World, resolved.Ruleset, resolved.Scenario, seed, seatNationId);
             }
-
-            Console.Error.WriteLine(
-                $"Loaded scenario '{resolved.Scenario.Id}': world '{resolved.World.Id}', ruleset '{resolved.Ruleset.Id}'.");
-
-            session = new GameSession(resolved.World, resolved.Ruleset, resolved.Scenario, seed, seatNationId);
         }
         catch (GameDataException ex)
         {
@@ -200,6 +246,57 @@ internal static class Program
         }
 
         return 0;
+    }
+
+    /// <summary>
+    /// <c>--load &lt;path&gt;</c>'s own resolution: reads <paramref name="loadPath"/>'s own recorded
+    /// scenario/world/ruleset ids (<see cref="SaveManager.PeekSummaryFile"/>), resolves them against
+    /// <paramref name="repository"/>, and builds the session directly from the save through
+    /// <see cref="GameSession"/>'s resume constructor — see this class's own <c>--load</c> remarks for why
+    /// this cannot simply reuse the ordinary <c>--scenario</c>/<c>--ruleset</c> path above.
+    /// </summary>
+    /// <returns>
+    /// The resumed session, or (<see langword="null"/>, a message already worded for standard error) on
+    /// any of the three refusals <c>docs/tasks/T95.md</c> Done-when 5 names: a missing file, a malformed
+    /// save, or a save recorded against a world/ruleset/scenario this build does not have.
+    /// </returns>
+    private static (GameSession? Session, string? Error) LoadSession(GameDataRepository repository, string loadPath)
+    {
+        SaveSummary summary;
+        try
+        {
+            summary = SaveManager.PeekSummaryFile(loadPath);
+        }
+        catch (GameDataException ex)
+        {
+            return (null, $"Could not read save '{loadPath}': {ex.Message}");
+        }
+
+        var world = repository.WorldById(summary.WorldId);
+        var ruleset = repository.RulesetById(summary.RulesetId);
+        var scenario = repository.ScenarioById(summary.ScenarioId);
+        if (world is null || ruleset is null || scenario is null)
+        {
+            return (null,
+                $"Save '{loadPath}' names a world/ruleset/scenario this build does not have "
+                + $"(world '{summary.WorldId}', ruleset '{summary.RulesetId}', scenario '{summary.ScenarioId}').");
+        }
+
+        SaveGame save;
+        try
+        {
+            save = SaveManager.LoadFile(loadPath, world, ruleset);
+        }
+        catch (GameDataException ex)
+        {
+            return (null, $"Could not load save '{loadPath}': {ex.Message}");
+        }
+
+        Console.Error.WriteLine(
+            $"Loaded save '{summary.Label}': scenario '{scenario.Id}', world '{world.Id}', "
+            + $"ruleset '{ruleset.Id}', turn {summary.TurnIndex}.");
+
+        return (new GameSession(world, ruleset, scenario, save), null);
     }
 
     private static IEnumerable<string> ReadLines(string? scriptPath)

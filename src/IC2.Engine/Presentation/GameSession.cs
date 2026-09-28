@@ -53,7 +53,14 @@ public sealed partial class GameSession
     /// <see cref="Model.SeatControl.Human"/> in the state the engine reads, so nothing downstream needs to
     /// know the CLI exists.
     /// </summary>
-    private readonly string? _humanSeatNationId;
+    /// <remarks>
+    /// T95, Done-when 4 (#382's hazard): no longer <see langword="readonly"/> — <see cref="ResumeFrom"/>
+    /// reassigns this after a <c>load &lt;path&gt;</c> command or the resume constructor, read fresh from
+    /// the loaded state's own <see cref="Model.NationState.Control"/> rather than kept from however this
+    /// session was originally started (never from <paramref name="humanSeatNationId"/>'s own value, nor
+    /// from <paramref name="scenario"/>).
+    /// </remarks>
+    private string? _humanSeatNationId;
 
     /// <summary>
     /// Whether this session has no seat to command at all — no <c>--seat</c> flag, and the scenario's own
@@ -63,7 +70,13 @@ public sealed partial class GameSession
     /// <c>HumanDepositionSystem</c> can flip mid-game): the CLI's own mode is a property of how the
     /// session was started, not of anything a turn can later change.
     /// </summary>
-    private readonly bool _isWatchMode;
+    /// <remarks>
+    /// T95: no longer <see langword="readonly"/> for the same reason as <see cref="_humanSeatNationId"/>
+    /// above — <see cref="ResumeFrom"/> recomputes it too, deliberately from the loaded state's own live
+    /// <c>Control</c> (there is no scenario-time seat list left to fall back to once a game has been
+    /// played forward and saved).
+    /// </remarks>
+    private bool _isWatchMode;
 
     /// <summary>
     /// Whether the CLI's own <c>--seat</c> nation has fallen — eliminated, or deposed and handed to the
@@ -451,6 +464,112 @@ public sealed partial class GameSession
             _pendingNewsBaseline = State.NewsLog.Slots;
             _pendingPrelude = AdvanceToHumanSeat();
         }
+    }
+
+    /// <summary>
+    /// Builds a session already in progress from <paramref name="save"/> — <c>docs/tasks/T95.md</c>
+    /// (#467), Done-when 2: continues the same game (same state, same seats, same active seat and phase)
+    /// rather than starting a new one through <see cref="Model.GameStateFactory.CreateInitial"/>.
+    /// </summary>
+    /// <param name="world">
+    /// The world the caller has already resolved and checked <paramref name="save"/> against (typically
+    /// <see cref="Persistence.SaveManager.LoadFile"/>'s own <c>expectedWorld</c>).
+    /// </param>
+    /// <param name="ruleset">The ruleset the caller has already resolved and checked <paramref name="save"/> against.</param>
+    /// <param name="scenario">
+    /// The scenario the caller resolved from <paramref name="save"/>'s own <see cref="Model.SaveGame.ScenarioId"/>
+    /// (<see cref="Persistence.SaveManager.LoadFile"/> does not itself check it, only World/Ruleset — see
+    /// <c>game-design.md</c> §"Original-save compatibility"). Kept for this session's own public
+    /// <see cref="Scenario"/> exposure (its seat list, its map size); every seat's actual control comes
+    /// from <paramref name="save"/>'s state, never from this parameter's own <c>Seats</c> — see
+    /// <see cref="ResumeFrom"/>.
+    /// </param>
+    /// <param name="save">
+    /// The save to resume, already loaded and validated by the caller (typically
+    /// <see cref="Persistence.SaveManager.LoadFile"/>, which throws a typed
+    /// <see cref="Serialization.GameDataException"/> for a missing file, a malformed save, or a save
+    /// recorded against a different world or ruleset — Done-when 5).
+    /// </param>
+    public GameSession(World world, Ruleset ruleset, Scenario scenario, SaveGame save)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(ruleset);
+        ArgumentNullException.ThrowIfNull(scenario);
+        ArgumentNullException.ThrowIfNull(save);
+
+        World = world;
+        Ruleset = ruleset;
+        Scenario = scenario;
+
+        _registry = SystemRegistry.FromEngineAssembly();
+        _dispatcher = new CommandDispatcher(_registry, ruleset, world, NullEventSink.Instance);
+        _coordinator = new TurnCoordinator(_registry, ruleset, world, NullEventSink.Instance, _dispatcher);
+
+        ResumeFrom(save);
+    }
+
+    /// <summary>
+    /// Restores this session's own bookkeeping from <paramref name="save"/> — shared by the resume
+    /// constructor just above and the <c>load &lt;path&gt;</c> command
+    /// (<c>GameSession.Commands.cs</c>'s own <c>HandleLoad</c>), so a mid-session <c>load</c> and a
+    /// cold-start resume behave identically.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Done-when 4 (#382's hazard): the human seat comes from the saved state, never from the
+    /// scenario or a <c>--seat</c> override.</strong> Exactly one <see cref="Model.SeatControl.Human"/>
+    /// nation among <paramref name="save"/>'s own <see cref="Model.GameState.Nations"/> is treated the
+    /// same way a <c>--seat</c> construction treats its one named nation — <see cref="_humanSeatNationId"/>
+    /// set, watch mode adopted if that one seat is later lost (<see cref="AnnounceAndAdoptWatchModeIfSeatIsLost"/>)
+    /// rather than the whole session ending. Two or more is hotseat (<see cref="_humanSeatNationId"/> stays
+    /// <see langword="null"/>, exactly like a scenario-driven hotseat session — <see cref="PausesHere"/>
+    /// and <see cref="AnnounceGameOverIfNoHumanSeatRemains"/> already fall back to
+    /// <see cref="Model.NationState.Control"/> for that case). Zero is watch mode. This reads the state's
+    /// own <em>current</em> control, unlike the ordinary constructor's own <see cref="_isWatchMode"/>
+    /// (fixed once, from the scenario, at construction) — deliberately: a resumed session has no
+    /// scenario-time seat list left that still means anything once the game has been played forward.
+    /// </para>
+    /// <para>
+    /// <strong>No fast-forward.</strong> The ordinary constructor's own <see cref="AdvanceToHumanSeat"/>
+    /// exists to reach the human seat from a freshly built scenario's own turn-order start; a save's own
+    /// <see cref="Model.GameState.ActiveSeatIndex"/> already records exactly where play stopped
+    /// (Done-when 2's "the same active seat and phase"), so nothing here plays a single turn — every
+    /// prelude field is simply cleared.
+    /// </para>
+    /// <para>
+    /// <strong>Left empty, not restored — a documented gap, not a Done-when 2/3 failure.</strong>
+    /// <see cref="_pendingPeaceTreatyOffers"/> has no counterpart anywhere in <see cref="Model.SaveGame"/>
+    /// or <see cref="Model.GameState"/> (only <see cref="Model.GameState.PendingOffer"/>, a single,
+    /// different alliance/trade slot); persisting it would mean changing one of those two types, both
+    /// outside this task's Owns. Neither Done-when 2 ("the same state, the same seats, and the same
+    /// active seat and phase") nor Done-when 3 (a deterministic-continuation transcript that never issues
+    /// <c>peace-yes</c>/<c>peace-no</c>) names a pending peace-treaty dialog, so this is reported rather
+    /// than a STOP: a save taken while a post-battle peace offer is still awaiting an answer silently
+    /// drops that one dialog on resume — the war simply continues, as if the offer had lapsed on its own
+    /// human's own <c>end</c>, rather than the dialog itself surviving to be answered. See this task's PR
+    /// body.
+    /// </para>
+    /// </remarks>
+    [System.Diagnostics.CodeAnalysis.MemberNotNull(nameof(State))]
+    private void ResumeFrom(SaveGame save)
+    {
+        ArgumentNullException.ThrowIfNull(save);
+
+        State = save.State;
+
+        var humanNationIds = State.Nations
+            .Where(n => n.Control == SeatControl.Human)
+            .Select(n => n.Id)
+            .ToList();
+        _humanSeatNationId = humanNationIds.Count == 1 ? humanNationIds[0] : null;
+        _isWatchMode = humanNationIds.Count == 0;
+        _seatLost = false;
+        _gameOver = false;
+        _pendingPrelude = null;
+        _pendingNewsBaseline = null;
+        _pendingPeaceTreatyOffers.Clear();
+        _pendingBattleResults.Clear();
+        LastBattles = Array.Empty<Battle.BattleResult>();
     }
 
     /// <summary>
@@ -853,6 +972,12 @@ public sealed partial class GameSession
                 break;
             case "end":
                 lines.AddRange(HandleEnd());
+                break;
+            case "save":
+                lines.AddRange(HandleSave(trimmed));
+                break;
+            case "load":
+                lines.AddRange(HandleLoad(trimmed));
                 break;
             case "news":
                 lines.AddRange(RenderNews());

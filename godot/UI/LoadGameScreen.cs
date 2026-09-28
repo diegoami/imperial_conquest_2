@@ -1,5 +1,6 @@
 using Godot;
 using IC2.Engine.Persistence;
+using IC2.Engine.Presentation;
 
 namespace IC2.Slice.UI;
 
@@ -11,19 +12,42 @@ namespace IC2.Slice.UI;
 /// Godot project keeps its own saves, rather than writing into the repository checkout.
 /// </summary>
 /// <remarks>
-/// <strong>Known gap, reported rather than worked around (docs/tasks/T24.md's own instruction: "If a
-/// screen needs an engine or view-model capability that GameSession doesn't expose, do NOT change src/.
-/// STOP and report what's missing").</strong> <c>IC2.Engine.Presentation.GameSession</c>'s only
-/// constructor always calls <c>GameStateFactory.CreateInitial</c> — there is no way to hand it an
-/// already-restored <c>GameState</c> (what <see cref="SaveManager.LoadFile"/> actually produces). This
-/// screen can therefore list saves and read their summary metadata, but cannot yet resume one into a
-/// playable session; selecting a save says so plainly instead of silently doing nothing or crashing.
-/// <c>docs/tasks/T94.md</c> already owns malformed-save handling and the load-seat hazard for whatever
-/// task adds that constructor/factory seam.
+/// <para>
+/// <strong>T95 (#467): resuming a chosen save.</strong> <see cref="GameSession"/> now has a resume
+/// constructor (<c>src/IC2.Engine/Presentation/GameSession.cs</c>) that takes an already-loaded
+/// <see cref="SaveManager.LoadFile"/> result instead of always calling
+/// <c>GameStateFactory.CreateInitial</c> — the gap this screen's own remarks used to describe.
+/// <see cref="OnContinuePressed"/> reads the chosen save's own recorded scenario/world/ruleset ids
+/// (<see cref="SaveManager.PeekSummaryFile"/>), resolves them through <see cref="GameDataContext.Repository"/>
+/// (the same shared repository <see cref="NewGameFlow"/> uses), and builds the resumed session.
+/// </para>
+/// <para>
+/// <strong>Known gap, reported rather than worked around: this screen does not itself navigate to
+/// <see cref="MainGameScreen"/>.</strong> <c>godot/UI/AppRoot.cs</c> is the only place that owns
+/// swapping the displayed screen and keeping its own <c>CurrentScreen</c> in step (its own remarks:
+/// "Owns every screen swap itself ... so <c>ScreenshotTour.cs</c> can navigate and inspect the real
+/// scene tree"), and <c>AppRoot.cs</c> is outside this task's Owns list
+/// (<c>src/IC2.Engine/Presentation/GameSession*.cs</c>; <c>src/IC2.Cli/Program.cs</c>; this file and
+/// <see cref="MainGameScreen"/> only). Swapping the scene tree from here directly, bypassing
+/// <c>AppRoot</c>, would leave its own <c>CurrentScreen</c> pointing at this (freed) screen — exactly
+/// the invariant its own remarks say <c>ScreenshotTour.cs</c> relies on — so this screen instead builds
+/// the resumed session fully and raises <see cref="GameResumed"/> with it, the same
+/// <c>event Action&lt;GameSession&gt;?</c> shape <see cref="NewGameFlow.GameStarted"/> already uses for
+/// <c>AppRoot.ShowNewGameFlow</c> to subscribe to. Wiring <c>AppRoot.ShowLoadGame</c> to this event —
+/// one line, mirroring its own <c>ShowNewGameFlow</c> — is left to whichever task can touch
+/// <c>AppRoot.cs</c>; see this task's PR body.
+/// </para>
 /// </remarks>
 public partial class LoadGameScreen : Control
 {
     public event Action? BackRequested;
+
+    /// <summary>
+    /// Raised once <see cref="OnContinuePressed"/> has successfully built a resumed
+    /// <see cref="GameSession"/> from the chosen save — see this class's own remarks for why this screen
+    /// does not itself navigate to <see cref="MainGameScreen"/>.
+    /// </summary>
+    public event Action<GameSession>? GameResumed;
 
     private const string SavesDirectory = "user://saves";
 
@@ -109,10 +133,59 @@ public partial class LoadGameScreen : Control
         row.AddChild(UiKit.MakeButton("Continue", () => OnContinuePressed(path), 14));
     }
 
+    /// <summary>
+    /// Resumes <paramref name="path"/> into a playable <see cref="GameSession"/> and raises
+    /// <see cref="GameResumed"/> — <c>docs/tasks/T95.md</c> Done-when 2 and Done-when 5 (a missing file, a
+    /// malformed save, or a save for a world/ruleset/scenario this build does not have is reported in
+    /// <see cref="_messageLabel"/> rather than thrown out of a button handler).
+    /// </summary>
     private void OnContinuePressed(string path)
     {
+        SaveSummary summary;
+        try
+        {
+            summary = SaveManager.PeekSummaryFile(path);
+        }
+        catch (Exception ex)
+        {
+            _messageLabel.Text = $"Could not read '{Path.GetFileName(path)}': {ex.Message}";
+            return;
+        }
+
+        var repository = GameDataContext.Repository;
+        var world = repository.WorldById(summary.WorldId);
+        var ruleset = repository.RulesetById(summary.RulesetId);
+        var scenario = repository.ScenarioById(summary.ScenarioId);
+        if (world is null || ruleset is null || scenario is null)
+        {
+            _messageLabel.Text =
+                $"'{Path.GetFileName(path)}' names a world/ruleset/scenario this build does not have "
+                + $"(world '{summary.WorldId}', ruleset '{summary.RulesetId}', scenario '{summary.ScenarioId}').";
+            return;
+        }
+
+        Engine.Model.SaveGame save;
+        try
+        {
+            save = SaveManager.LoadFile(path, world, ruleset);
+        }
+        catch (Exception ex)
+        {
+            _messageLabel.Text = $"Could not load '{Path.GetFileName(path)}': {ex.Message}";
+            return;
+        }
+
+        var session = new GameSession(world, ruleset, scenario, save);
+
+        // Done-when 2/4: the resumed session's own active seat and human-seat bookkeeping already come
+        // from the save's own state (GameSession.ResumeFrom) -- this line is only a human-readable
+        // confirmation that it worked, since AppRoot does not yet route to MainGameScreen for it (see
+        // this class's own remarks).
         _messageLabel.Text =
-            "Resuming a saved game is not available yet: GameSession has no constructor that accepts a "
-            + "restored GameState (only GameStateFactory.CreateInitial). See this task's PR body.";
+            $"Resumed '{summary.Label}' — scenario '{scenario.Id}', turn {summary.TurnIndex}. "
+            + $"Active seat: {session.State.NationById(session.State.ActiveNationId)?.Name ?? session.State.ActiveNationId}. "
+            + "Opening the game screen needs a one-line AppRoot wire-up outside this task's Owns list — see the PR body.";
+
+        GameResumed?.Invoke(session);
     }
 }
