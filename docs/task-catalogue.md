@@ -134,6 +134,7 @@ graph TD
   T24 --> T25[T25 battle/diplo/handoff screens]
   T24 --> T94[T94 main screen follow-ups]
   T94 --> T27
+  T24 --> T95[T95 save and resume]
   T23 --> T26[T26 scenario docs+examples]
   T29 --> T26
   T22 --> T28[T28 nightly soak gate]
@@ -204,7 +205,7 @@ graph TD
 
 Waves are dependency layers, not concurrent batches: execution is serial, one code-modifying agent at a time ([build-process.md §7](build-process.md#7-concurrency-single-instance-and-local-only)).
 
-**Frozen on 2026-09-28.** The table below is not updated for tasks after T94. Each entry's Start-after and Merge-after lines, and the graph above, are the authority; a new task adds its graph edges, its stub and its index row, and nothing here.
+**Frozen on 2026-09-28.** The table below is not updated for tasks after T95. Each entry's Start-after and Merge-after lines, and the graph above, are the authority; a new task adds its graph edges, its stub and its index row, and nothing here.
 
 | Wave | Tasks | Notes |
 | --- | --- | --- |
@@ -227,6 +228,7 @@ Waves are dependency layers, not concurrent batches: execution is serial, one co
 | 16 | T87 | Follows T86 (conquered-by and the conquest path), T89 (the rebellion that rebirth hangs off) and T92 (the conquest after an emptying sweep). Never in flight with T79 or T91. |
 | 17 | T93 | T93 (bug #453) follows T80: it removes T80's #453 exception from the coverage test. |
 | 18 | T94 | T94 follows T24, which it was split from (2026-09-28), and precedes T27. It is never in flight with T25; both work under `godot/**`. |
+| 19 | T95 | T95 (bug #467) follows T24, whose Load screen it wires. It is never in flight with T25 or T94. |
 | — | T53, T61, T64, T70, T71, T73, T77, T78, T80, T81, T83, T84 | No merge-after dependency: each runs whenever the queue allows. T77 runs after T21 and before the v0.3.0 freeze (the user's decision of 2026-09-24). T64 must merge before T21 (the user's decision of 2026-09-23), and so must T73 (the user's decision of 2026-09-24 on #321). T67 and T71 both work in `Persistence/**` tests, so they are never in flight together.. Of the 2026-09-25 triage's tasks: T78 is never in flight with T75, T76 or T79; T79 never with T66, T67, T76 or T78; T81 never with T67, T71, T75, T76 or T78; and T80 (v0.4.0) is best merged before T24. T83 is never in flight with T80. T84 must merge before T69 (the user's decision of 2026-09-25 on #366), and is never in flight with T66, T79 or T82. |
 
 **Critical path**: `T01 → T02 → T03 → T06 → T32 → T08 → T38 → T14 → T16 → T17 → T29 → T36 → T24 → T25 → T27` — 15 tasks — with `T08 → T35 → T17` and `T31 → T33 → T16` as parallel edges into it; T29 also waits for T15 and T19, and `T17 → T23 → T24` runs one task shorter. The AI chain (`… → T17 → T18 → T22 → T28`, and now `T22 → T55 → T57 → T60`, as long as the critical path at 15 tasks) runs alongside it with the most slack and the most uncertain duration, which argues for not deferring T22.
@@ -798,6 +800,12 @@ Main screen follow-ups → [full entry](tasks/T94.md) · [#464](https://github.c
 
 ---
 
+#### T95 Save and resume a game
+
+Save and resume → [full entry](tasks/T95.md) · [#469](https://github.com/diegoami/imperial_conquest_2/issues/469)
+
+---
+
 #### T25 Battle result, diplomacy, and hotseat handoff screens
 
 Godot screens → [full entry](tasks/T25.md) · [#25](https://github.com/diegoami/imperial_conquest_2/issues/25)
@@ -922,3 +930,4 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T92](#t92-a-capture-whose-sweep-empties-the-loser-still-conquers-it) | Conquest after an emptying sweep | — | Sonnet | Medium | **Opus**/Medium | T91 | [#426](https://github.com/diegoami/imperial_conquest_2/issues/426) |
 | [T93](#t93-an-army-embarks-from-a-tile-next-to-its-fleet) | Embark from an adjacent tile | — | Sonnet | Medium | **Opus**/Medium | T80 | [#456](https://github.com/diegoami/imperial_conquest_2/issues/456) |
 | [T94](#t94-godot-main-screen-follow-ups-size-markers-palette-malformed-save-handling-load-seat) | Main screen follow-ups | M18 | Sonnet | Medium | Sonnet/High + human | T24 | [#464](https://github.com/diegoami/imperial_conquest_2/issues/464) |
+| [T95](#t95-save-and-resume-a-game) | Save and resume | — | Sonnet | High | **Opus**/Medium | T24 | [#469](https://github.com/diegoami/imperial_conquest_2/issues/469) |
