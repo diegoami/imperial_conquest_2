@@ -930,4 +930,4 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T92](#t92-a-capture-whose-sweep-empties-the-loser-still-conquers-it) | Conquest after an emptying sweep | — | Sonnet | Medium | **Opus**/Medium | T91 | [#426](https://github.com/diegoami/imperial_conquest_2/issues/426) |
 | [T93](#t93-an-army-embarks-from-a-tile-next-to-its-fleet) | Embark from an adjacent tile | — | Sonnet | Medium | **Opus**/Medium | T80 | [#456](https://github.com/diegoami/imperial_conquest_2/issues/456) |
 | [T94](#t94-godot-main-screen-follow-ups-size-markers-palette-malformed-save-handling-load-seat) | Main screen follow-ups | M18 | Sonnet | Medium | Sonnet/High + human | T24 | [#464](https://github.com/diegoami/imperial_conquest_2/issues/464) |
-| [T95](#t95-save-and-resume-a-game) | Save and resume | — | Sonnet | High | **Opus**/Medium | T24 | [#469](https://github.com/diegoami/imperial_conquest_2/issues/469) |
+| [T95](#t95-save-and-resume-a-game) | Save and resume | — | Sonnet | High | **Opus**/Medium + human | T24 | [#469](https://github.com/diegoami/imperial_conquest_2/issues/469) |
