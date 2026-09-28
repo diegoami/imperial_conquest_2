@@ -18,8 +18,8 @@
          the worktree as <name>.implementer.log and prints its tail.
     The script never merges, labels or reviews; the main session does those (Appendix C).
 
-    Model names -> OpenCode model ids (Zen ids; `opencode models opencode` lists what this
-    machine has). The cheap tier is the default (the user's decision of 2026-09-28).
+    Model names -> OpenCode model ids (`opencode models` lists what this machine has). The
+    cheap tier is the default (the user's decision of 2026-09-28).
 
 .PARAMETER Task
     T<nn>, for a task. Mutually exclusive with -Fix.
@@ -32,7 +32,7 @@
 .PARAMETER BriefFile
     The filled Appendix A brief.
 .PARAMETER Model
-    deepseek-flash (default), deepseek-pro, or luna.
+    mimo-pro (default), mimo-flash, glm, or luna.
 .PARAMETER LocalOnly
     Copy assets.local.ini from the main checkout into the worktree.
 .PARAMETER FixturesDir
@@ -41,7 +41,7 @@
 .EXAMPLE
     pwsh scripts/external-implement.ps1 -Task T71 -Slug persistence-hardening -Issue 308 -BriefFile C:\tmp\T71-brief.md
 .EXAMPLE
-    pwsh scripts/external-implement.ps1 -Fix 346 -Slug migration-message -BriefFile C:\tmp\346-brief.md -Model deepseek-flash
+    pwsh scripts/external-implement.ps1 -Fix 346 -Slug migration-message -BriefFile C:\tmp\346-brief.md -Model mimo-flash
 #>
 [CmdletBinding()]
 param(
@@ -50,19 +50,24 @@ param(
     [Parameter(Mandatory)] [string] $Slug,
     [int] $Issue,
     [Parameter(Mandatory)] [string] $BriefFile,
-    [ValidateSet('deepseek-flash', 'deepseek-pro', 'luna')] [string] $Model = 'deepseek-flash',
+    [ValidateSet('mimo-pro', 'mimo-flash', 'glm', 'luna')] [string] $Model = 'mimo-pro',
     [switch] $LocalOnly,
     [string] $FixturesDir
 )
 
 $ErrorActionPreference = 'Stop'
 
+# Chosen on 2026-09-28 from the OpenCode Go table (intelligence index / cost per benchmark task):
+# MiMo-V2.6-Pro 46 / $0.13 is the default; MiMo-V2.6-Flash 38 / $0.06 for fixes and Low effort;
+# GLM-5.3 45 / $2.01 is the escalation after a failed rework round; Luna is the reviewer's model
+# and implements only when an entry says why. Confirm the ids with `opencode models` on first use.
 $models = @{
-    'deepseek-flash' = 'opencode/deepseek-v4.1-flash'
-    'deepseek-pro'   = 'opencode/deepseek-v4-pro'
-    'luna'           = 'opencode/gpt-6-luna'
+    'mimo-pro'   = 'opencode/mimo-v2.6-pro'
+    'mimo-flash' = 'opencode/mimo-v2.6-flash'
+    'glm'        = 'opencode/glm-5.3'
+    'luna'       = 'opencode/gpt-6-luna'
 }
-$variants = @{ 'deepseek-flash' = ''; 'deepseek-pro' = ''; 'luna' = 'high' }
+$variants = @{ 'mimo-pro' = ''; 'mimo-flash' = ''; 'glm' = 'max'; 'luna' = 'high' }
 $modelId = $models[$Model]
 $variant = $variants[$Model]
 
