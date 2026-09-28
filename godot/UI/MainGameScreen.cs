@@ -1,5 +1,7 @@
 using Godot;
+using IC2.Engine.Model;
 using IC2.Engine.Presentation;
+using IC2.Slice.Screens;
 
 namespace IC2.Slice.UI;
 
@@ -9,6 +11,16 @@ namespace IC2.Slice.UI;
 /// (<see cref="GameMapView"/>), the persistent contextual side panel (<see cref="ContextPanel"/>), the
 /// bottom filter toolbar, and the non-modal news log (<see cref="NewsLogPanel"/>).
 /// </summary>
+/// <remarks>
+/// T25 (plan #474): also opens the three screens item 2 leads into —
+/// <see cref="Screens.BattleResultScreen"/> after an attack or siege that resolved a battle
+/// (<see cref="GameSession.Submit"/>'s own new <see cref="SessionOutput.Battles"/>, read from
+/// <see cref="OnCommandIssued"/> so it fires whichever control actually issued the command —
+/// <see cref="GameMapView"/>'s own map-click attack, or a future control of this screen's own), the
+/// <see cref="Screens.DiplomacyScreen"/> from the bottom toolbar's own "Diplomacy" button, and the
+/// <see cref="Screens.HotseatHandoffScreen"/> whenever <see cref="GameState.ActiveNationId"/> passes from
+/// one human seat to a different one (<see cref="HotseatHandoffDetector"/>).
+/// </remarks>
 public partial class MainGameScreen : Control
 {
     public required GameSession Session { get; init; }
@@ -23,12 +35,21 @@ public partial class MainGameScreen : Control
 
     public NewsLogPanel NewsLog => _newsLog;
 
+    /// <summary>The currently open modal overlay (a battle result, the diplomacy grid, or the hotseat
+    /// handoff), if any — <see langword="null"/> when the map is fully interactive. Exposed for
+    /// <c>godot/Screens/Checks/**</c>.</summary>
+    public Control? ActiveOverlay { get; private set; }
+
     private Label _calendarLabel = null!;
     private Label _activeNationLabel = null!;
     private GameMapView _mapView = null!;
     private ContextPanel _contextPanel = null!;
     private NewsLogPanel _newsLog = null!;
     private Label _lastCommandLabel = null!;
+
+    private readonly Queue<Engine.Battle.BattleResult> _pendingBattleOverlays = new();
+    private string? _lastKnownActiveNationId;
+    private bool _lastKnownActiveWasHuman;
 
     public override void _Ready()
     {
@@ -74,6 +95,11 @@ public partial class MainGameScreen : Control
         _contextPanel.CommandIssued += OnCommandIssued;
 
         _mapView.Attach(Session, RepositoryRoot);
+
+        var activeNation = Session.State.NationById(Session.State.ActiveNationId);
+        _lastKnownActiveNationId = Session.State.ActiveNationId;
+        _lastKnownActiveWasHuman = activeNation?.Control == SeatControl.Human;
+
         RefreshTopBar();
     }
 
@@ -112,6 +138,9 @@ public partial class MainGameScreen : Control
         var spacer = new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         row.AddChild(spacer);
 
+        // T25 (plan #474, docs/game-design.md item 4): the diplomacy grid's own control, opening
+        // Screens.DiplomacyScreen -- "the diplomacy grid from a control."
+        row.AddChild(UiKit.MakeButton("Diplomacy", OpenDiplomacyScreen, 14));
         row.AddChild(UiKit.MakeButton("News", () => _newsLog.Toggle(), 14));
 
         return bar;
@@ -124,7 +153,20 @@ public partial class MainGameScreen : Control
         return button;
     }
 
-    private void OnEndTurnPressed() => OnCommandIssued(Session.Submit("end").Lines);
+    private void OnEndTurnPressed() => SubmitForCheck("end");
+
+    /// <summary>
+    /// T25: submits one raw command line through <see cref="GameSession.Submit"/> and runs the result
+    /// through <see cref="OnCommandIssued"/> — exactly what <see cref="OnEndTurnPressed"/> already does for
+    /// "end", exposed under its own name so a headless check can also drive an attack/siege command this
+    /// way. Exposed rather than only reachable through <see cref="GameMapView"/>'s own private
+    /// screen-to-tile click transform (<c>godot/UI/GameMapView.cs</c>, outside this task's Owns list) — the
+    /// same reason <see cref="MapView"/>/<see cref="ContextPanel"/>/<see cref="NewsLog"/> are exposed for
+    /// <c>godot/Checks/ScreenshotTour.cs</c>. A real click or context-panel button still reaches the
+    /// identical <see cref="OnCommandIssued"/> pipeline through <see cref="GameMapView.CommandIssued"/> or
+    /// <see cref="ContextPanel.CommandIssued"/> — this is not a second, parallel path, only a second way in.
+    /// </summary>
+    public void SubmitForCheck(string commandLine) => OnCommandIssued(Session.Submit(commandLine).Lines);
 
     private void OnCommandIssued(IReadOnlyList<string> lines)
     {
@@ -136,6 +178,108 @@ public partial class MainGameScreen : Control
         {
             _newsLog.Refresh();
         }
+
+        // T25 (plan #474): every BattleResult this Submit call produced -- a human attack/siege, or any AI
+        // seat's own battle played within an "end" -- queues its own BattleResultScreen. Shown one at a
+        // time (ShowNextOverlay drains the queue as each is closed), so more than one battle in a single
+        // "end" never stacks silently.
+        foreach (var battle in Session.LastBattles)
+        {
+            _pendingBattleOverlays.Enqueue(battle);
+        }
+
+        ShowNextOverlay();
+    }
+
+    private void ShowNextOverlay()
+    {
+        if (_pendingBattleOverlays.Count > 0)
+        {
+            ShowBattleResultOverlay(_pendingBattleOverlays.Dequeue());
+            return;
+        }
+
+        CheckForHotseatHandoff();
+    }
+
+    private void ShowBattleResultOverlay(Engine.Battle.BattleResult battle)
+    {
+        var screen = new BattleResultScreen { Session = Session, Result = BattleResultViewModel.FromResult(battle) };
+        screen.Closed += () =>
+        {
+            CloseOverlay(screen);
+            ShowNextOverlay();
+        };
+        ShowOverlay(screen);
+    }
+
+    /// <summary>
+    /// T25 (plan #474, docs/game-design.md item 5): shows <see cref="HotseatHandoffScreen"/> whenever
+    /// <see cref="HotseatHandoffDetector.Detect"/> finds that play just passed from one human seat to a
+    /// different one. Called once every queued battle overlay has been dismissed (<see cref="ShowNextOverlay"/>),
+    /// so a battle a human's own turn just resolved is always seen before the handoff that follows it.
+    /// </summary>
+    private void CheckForHotseatHandoff()
+    {
+        var info = HotseatHandoffDetector.Detect(
+            Session.State, Session.Scenario, _lastKnownActiveNationId, _lastKnownActiveWasHuman);
+
+        var activeNation = Session.State.NationById(Session.State.ActiveNationId);
+        _lastKnownActiveNationId = Session.State.ActiveNationId;
+        _lastKnownActiveWasHuman = activeNation?.Control == SeatControl.Human;
+
+        if (info is null)
+        {
+            return;
+        }
+
+        var calendar = Session.State.Calendar;
+        var screen = new HotseatHandoffScreen
+        {
+            Info = info,
+            CalendarLine = $"Week {calendar.Week}, {calendar.YearBc} BC (turn {calendar.TurnIndex})",
+        };
+        screen.Continued += () => CloseOverlay(screen);
+        ShowOverlay(screen);
+    }
+
+    /// <summary>
+    /// T25: opens <see cref="Screens.DiplomacyScreen"/> — the bottom toolbar's own "Diplomacy" button
+    /// calls this directly. Public, rather than only reachable through that button, so a headless check
+    /// can call it directly too (<c>godot/Screens/Checks/**</c>) — the same convention
+    /// <see cref="SubmitForCheck"/> already establishes for driving a command.
+    /// </summary>
+    public void OpenDiplomacyScreen()
+    {
+        var screen = new DiplomacyScreen { Session = Session };
+        screen.CommandIssued += OnCommandIssued;
+        screen.Closed += () => CloseOverlay(screen);
+        ShowOverlay(screen);
+    }
+
+    private void ShowOverlay(Control overlay)
+    {
+        if (ActiveOverlay is { } previous)
+        {
+            RemoveChild(previous);
+            previous.QueueFree();
+        }
+
+        ActiveOverlay = overlay;
+        overlay.SetAnchorsPreset(LayoutPreset.FullRect);
+        AddChild(overlay);
+    }
+
+    private void CloseOverlay(Control overlay)
+    {
+        if (!ReferenceEquals(ActiveOverlay, overlay))
+        {
+            return;
+        }
+
+        ActiveOverlay = null;
+        RemoveChild(overlay);
+        overlay.QueueFree();
     }
 
     private void RefreshTopBar()
