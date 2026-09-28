@@ -99,7 +99,7 @@ Every system is written against these interfaces and registers itself, so no two
 Models are chosen per task, in the task's entry, by what an error would cost:
 
 - **OpenCode, cheap tier, by default** (the user's decision of 2026-09-28: Claude credit is the scarce resource). `mimo-pro` (MiMo-V2.6-Pro) implements every task unless its entry names another model, and `mimo-flash` (MiMo-V2.6-Flash) implements a fix and a Low-effort task; until the OpenCode plan lists those two, `mimo-flash-free` (MiMo-V2.6-Flash, the free tier) stands in for both. An entry that still says Sonnet reads as the default. Chosen from the OpenCode Go table of 2026-09-28: the highest intelligence index at the lowest cost per task.
-- **OpenCode, larger, where the entry says why**: `glm` (GLM-5.3, variant `max`) after a task fails a rework round on `mimo-pro`, a different vendor at a still-small cost; `luna` (GPT-6 Luna, variant `high`) where an entry says why. An entry that says Opus and is not an architecture task reads as `luna`.
+- **OpenCode, larger, where the entry says why**: `glm` (GLM-5.3, variant `max`, index up to 45 on the 2026-09-28 comparison) for a High-effort entry and after a task fails a rework round on the default, a different vendor at a still-small cost. An entry that says Opus and is not an architecture task reads as `glm`. `luna` (GPT-6 Luna, 29 to 37) is the cheap routine option, never the escalation.
 - **Claude Opus only on an architecture task**, where an error is not local: the domain model and the engine seams, battle resolution, the AI (T02, T03, T16, T22). Sonnet no longer implements; it reviews structural tasks ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers)).
 - **Haiku** is retired (the user's decision of 2026-09-27) and is never assigned; a task small enough for Haiku is cheap enough on Sonnet (incident 4). Two tasks merged on Haiku before that, T36 and T77.
 - **Fable** for pure templates and configuration, never for anything that must compile against the domain model.
@@ -116,7 +116,7 @@ Models are chosen per task, in the task's entry, by what an error would cost:
 | A fidelity-critical task (a rule's constants or integer semantics) | **Opus / Medium** | — |
 | A task widening the shared domain model | **Opus / High** | — |
 | A correction whose evidence is still open when its entry is written | **Opus / High** | — |
-| A structural task (scaffolding, CLI, UI, data files, docs) | Sonnet / High, or `luna` through `scripts/external-review.ps1` | human visual review on the Godot screens ([§9](#9-standing-governance-decisions) Q-B) |
+| A structural task (scaffolding, CLI, UI, data files, docs) | Sonnet / High, or `glm` at max effort through `scripts/external-review.ps1` | human visual review on the Godot screens ([§9](#9-standing-governance-decisions) Q-B) |
 | Fable, and the two tasks merged on Haiku | Sonnet / Medium | — |
 
 Each task's entry names its own pair; the table is the rule the entry applies. An entry may raise the reviewer one tier above its row, and says why. **The reviewer's model is never the implementer's**: an OpenCode implementer is reviewed by a Claude model, or by a different OpenCode model on a structural task, so the different-model rule holds by construction.
@@ -713,8 +713,8 @@ the docs item applies only if the review named a claim.
    status:ready. Don't start a local-only or single-instance task whose prerequisite is missing.
 1. IMPLEMENT. Label status:in-progress. Fill build-process.md Appendix A from the task entry
    (plus any review URLs from an earlier attempt). Then, by the entry's model (§3.3: Sonnet reads
-   as the default, a non-architecture Opus as luna; a fix or a Low-effort task is mimo-flash, or the
-   default while the plan lacks it):
+   as the default, a non-architecture Opus and a High-effort entry as glm; a fix or a Low-effort task
+   is mimo-flash, or the default while the plan lacks it):
    - an OpenCode model (mimo-flash-free, mimo-pro, mimo-flash, glm, luna): write the brief to a file and run
      `pwsh scripts/external-implement.ps1 -Task T<nn> -Slug <slug> -Issue <n> -Model <model>
      -BriefFile <file>` (`-Fix <issue>` for a fix; `-LocalOnly` where the label says). It creates

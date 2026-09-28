@@ -57,10 +57,11 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-# Chosen on 2026-09-28 from the OpenCode Go table (intelligence index / cost per benchmark task):
-# MiMo-V2.6-Pro 46 / $0.13 is the default; MiMo-V2.6-Flash 38 / $0.06 for fixes and Low effort;
-# GLM-5.3 45 / $2.01 is the escalation after a failed rework round; Luna is the reviewer's model
-# and implements only when an entry says why. Confirm the ids with `opencode models` on first use.
+# Chosen on 2026-09-28 from the OpenCode Go table and the comparison of the plan's own models:
+# MiMo-V2.6-Flash (index 38, free on this plan) is the default; GLM-5.3 at max effort (up to 45)
+# implements a High-effort entry and is the escalation after a failed rework round; Luna (29-37) is
+# the cheap routine option and never the escalation; MiMo Pro (46, $0.13) becomes the default the
+# day the plan lists it. Confirm the ids with `opencode models` on first use.
 # On 2026-09-28 the desktop's `opencode models` listed mimo-v2.6-flash-free, glm-5.3 and gpt-6-luna,
 # but neither mimo-v2.6-pro nor mimo-v2.6-flash; those two stay in the table for the day the plan
 # lists them, and mimo-flash-free is the default until then.
