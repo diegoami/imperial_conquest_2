@@ -244,11 +244,13 @@ public sealed partial class GameSession
     {
         if (_pendingBattleResults.Count == 0)
         {
-            return Array.Empty<Battle.BattleResult>();
+            LastBattles = Array.Empty<Battle.BattleResult>();
+            return LastBattles;
         }
 
         var flushed = _pendingBattleResults.ToArray();
         _pendingBattleResults.Clear();
+        LastBattles = flushed;
         return flushed;
     }
 
@@ -680,6 +682,17 @@ public sealed partial class GameSession
 
     /// <summary>The session's current state. Advances only through <see cref="Submit"/>.</summary>
     public GameState State { get; private set; }
+
+    /// <summary>
+    /// T25 (plan #474): the same <see cref="Battle.BattleResult"/> list the most recent <see cref="Submit"/>
+    /// call returned as <see cref="SessionOutput.Battles"/> — mirrored here so a caller that only sees a
+    /// command's rendered lines (<see cref="GameMapView"/>'s and <see cref="ContextPanel"/>'s own
+    /// <c>CommandIssued</c> events carry <c>IReadOnlyList&lt;string&gt;</c>, not the whole
+    /// <see cref="SessionOutput"/>) can still ask "did that just resolve a battle" without every event in
+    /// the UI layer having to be widened to carry a <see cref="SessionOutput"/> instead. Empty before the
+    /// first <see cref="Submit"/> call, and again whenever that call resolved no battle.
+    /// </summary>
+    public IReadOnlyList<Battle.BattleResult> LastBattles { get; private set; } = Array.Empty<Battle.BattleResult>();
 
     /// <summary>
     /// Parses and runs one command line, returning what to print and whether the session should stop.
