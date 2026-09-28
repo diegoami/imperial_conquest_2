@@ -229,8 +229,10 @@ OUTPUT RULES (from scripts/external-review.ps1; they override anything above tha
         $flat = $review.Substring($header.Length).Trim()
         $verdict = $verdicts | Where-Object { $flat -match "(?i)^$([regex]::Escape($_))(\s|$)" } | Select-Object -First 1
         if (-not $verdict) { return (& $fail 'no verdict after the header' "The review is on one line and does not start with a verdict. Output:`n$review") }
-        if ($flat -notmatch "(?i)(^|\s)$([regex]::Escape($verdict))\s*$") { return (& $fail 'review cut off' "The one-line review does not end with its verdict ('$verdict'): cut off. Output:`n$review") }
-        $middle = $flat.Substring($verdict.Length)
+        # After the leading verdict there must be a closing verdict of its own; the header and one
+        # verdict alone is a cut-off review, not an exception.
+        $middle = $flat.Substring($verdict.Length).Trim()
+        if ($middle.Length -lt $verdict.Length -or $middle -notmatch "(?i)(^|\s)$([regex]::Escape($verdict))\s*$") { return (& $fail 'review cut off' "The one-line review does not end with a closing verdict ('$verdict'): cut off. Output:`n$review") }
         $middle = $middle.Substring(0, $middle.Length - $verdict.Length).Trim()
         $review = @($header, $verdict, '', (($middle -split ' {2,}') -join "`n`n"), '', $verdict) -join "`n"
         $lines = $review -split "`n"

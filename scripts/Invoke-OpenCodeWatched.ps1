@@ -204,9 +204,10 @@ function Invoke-OpenCodeWatched {
         }
         $p.WaitForExit()
         # A run that finished before the first poll: its session must still exist, or it never ran.
+        # This lookup is bounded like the others: the time left before the total deadline, at most 15 s.
         if (-not $session) {
             $session = Find-OpenCodeSession -Exe $exe -WorkDir $WorkDir -Title $Title -StartedMs $startedMs -LogDir $LogDir `
-                -InFile $inFile -TimeoutMs 60000
+                -InFile $inFile -TimeoutMs ([int][Math]::Max(0, [Math]::Min(15000, $totalMs - $clock.ElapsedMilliseconds)))
             if (-not $session) {
                 throw (New-OpenCodeFailure "exited without a session (exit $($p.ExitCode))" ("OpenCode exited with $($p.ExitCode) without creating a session. Files kept: $($files -join ', '). stderr tail:`n$(Get-OpenCodeTail $errFile)"))
             }
