@@ -153,7 +153,7 @@ Both are **local, git-ignored installs** under `.claude/skills/`, and the fenced
 ### 2.4 Working rules
 
 - **One task in flight at a time per machine.** Agents never work in the main checkout ([build-process.md §7](build-process.md#7-concurrency-single-instance-and-local-only)). With a second machine, each claims its tasks with a `machine:*` label, and two file-disjoint tasks may run at once ([build-process.md §8](build-process.md#8-two-machines)).
-- **The primary machine** is this one, `C:\Users\diego\projects\imperial_conquest_2` (`IC2_MACHINE=desktop`). Its main session triages and opens plan PRs; another machine only runs the tasks it claims.
+- **The primary machine** is this one, `C:\Users\diego\projects\imperial_conquest_2` (`IC2_MACHINE=desktop`). Its main session triages and opens plan PRs; another machine runs the tasks it claims, and may open a plan PR only for the entry of a task it has claimed ([build-process.md §8](build-process.md#8-two-machines)).
 - **Branch or `main`, case by case.** A merge's routine doc claims go straight to `main`. New or substantive content goes to a branch for review: a design correction, a new mechanism, catalogue changes. When unsure, ask.
 - **Review is a label, not a GitHub review.** The reviewer applies `status:approved` or `status:rework`, and the main session reads the label.
 - **Relay reviewer findings in full** on rework, never a hand-picked subset.
