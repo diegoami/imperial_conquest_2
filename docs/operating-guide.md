@@ -98,7 +98,7 @@ The in-game battle pacing delay is a per-nation preference (the `TBattleDelays` 
 
 ### 1.3 Local toolchain (outside both repositories)
 
-- **General tools:** `gh` (authenticated as `diegoami`), `jq`, Python 3.14, Node, the .NET 10 SDK, Godot 4.7.2 (.NET), and OpenCode with the DeepSeek and Luna providers, for `scripts/external-review.ps1`.
+- **General tools:** `gh` (authenticated as `diegoami`), `jq`, Python 3.14, Node, the .NET 10 SDK, Godot 4.7.2 (.NET), and OpenCode with the GLM, DeepSeek and Luna models, for `scripts/external-review.ps1`.
 - **Godot 4.7.2 mono** (matching `Godot.NET.Sdk/4.7.2` in `godot/IC2.MapViewer.csproj`) is at `C:\Program Files\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64_console.exe`.
   - `godot` is on PATH from Git Bash (a shim at `~/.local/bin/godot`), and `godot.cmd` from PowerShell. Both run the **console** build, so `print()` and script errors reach the terminal.
   - To run headless: `godot --headless --path godot --quit-after 2 [res://Scene.tscn]`. Since T47, the main scene is the engine slice, so the research inspector needs `res://MapViewer.tscn` passed explicitly.
