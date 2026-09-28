@@ -50,6 +50,14 @@ public sealed class NewGameSelectionTests
     [Fact]
     public void CreateSession_applies_the_ai_personality_override_to_every_ai_seat_but_not_the_human_seat()
     {
+        // Rework round 1, PR #466 review, non-blocking finding 4: this test's own name promises the
+        // human seat is checked too, but it used to `continue` past "rome" without ever asserting
+        // anything about it -- so a regression that applied the override to every seat, human included,
+        // could not have failed this test. Fixed by asserting the human seat's own Personality
+        // explicitly, against the value the base scenario itself ships (null -- confirmed:
+        // data/scenarios/classical-mediterranean.json's own "rome" seat carries no personality), not
+        // merely "not the override" (which null already satisfies, but stating the concrete expected
+        // value is what actually pins the behaviour rather than a weaker not-equal check).
         var personality = new AiPersonality(0.9, 0.1, 0.4);
         var selection = new NewGameSelection
         {
@@ -59,6 +67,9 @@ public sealed class NewGameSelectionTests
         };
 
         var session = GameSessionFactory.CreateSession(Repository, selection);
+
+        var humanSeat = session.Scenario.Seats.Single(seat => seat.Nation == "rome");
+        Assert.Null(humanSeat.Personality);
 
         foreach (var seat in session.Scenario.Seats)
         {
