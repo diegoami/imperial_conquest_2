@@ -216,7 +216,8 @@ foreach ($m in $chain) {
             -StartupTimeoutSec $StartupTimeoutSec -TotalTimeoutSec $TotalTimeoutSec -IdleTimeoutSec $IdleTimeoutSec
         $output = $run.Output
         if ($run.ExitCode -ne 0) { $reason = "exit $($run.ExitCode)" }
-        elseif ($output -match 'Falling back to default agent') { $reason = 'fell back to the default agent' }
+        # OpenCode's own evidence (its stderr warning, the session's recorded agent), never the model's words.
+        elseif ($run.AgentFallback) { $reason = 'fell back to the default agent' }
     } catch {
         # Only OpenCode's own failures advance the chain; anything else is rethrown (exit 1).
         if (-not (Test-OpenCodeInfraFailure $_)) { throw }

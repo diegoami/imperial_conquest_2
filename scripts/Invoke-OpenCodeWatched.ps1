@@ -71,6 +71,33 @@ function Get-OpenCodeFailureClass([string] $Reason) {
     }
 }
 
+function Test-OpenCodeAgentWarning([string] $StdErr, [string] $Agent) {
+    # OpenCode's own warning when --agent names an agent it cannot find, as OpenCode 1.18 prints it
+    # on stderr (checked 2026-09-28 with --agent no-such-agent-xyz):
+    #   ESC[93mESC[1m! ESC[0m agent "no-such-agent-xyz" not found. Falling back to default agent
+    # Matched only at the start of a line, after the "!" marker and colour codes, and only for the
+    # requested agent's name, so a tool's output quoting the phrase does not trip it.
+    $ansi = '(?:\x1b\[[0-9;]*m|[ \t])*'
+    $pattern = '(?m)^' + $ansi + '!' + $ansi + 'agent "?' + [regex]::Escape($Agent) + '"? not found\. Falling back to default agent'
+    return [bool]($StdErr -match $pattern)
+}
+
+function Get-OpenCodeSessionAgent {
+    param([string] $Exe, [string] $WorkDir, [string] $SessionId, [string] $LogDir, [string] $InFile, [int] $TimeoutMs = 30000)
+    # The agent OpenCode recorded for the session (`opencode export <id>`: .info.agent), or $null
+    # when the export fails or overruns; bounded and killed like the session lookup.
+    $out = Join-Path $LogDir "$SessionId.export.json"
+    $err = Join-Path $LogDir "$SessionId.export.err.txt"
+    try {
+        $p = Start-Process -FilePath $Exe -ArgumentList "export $SessionId" -WorkingDirectory $WorkDir `
+            -NoNewWindow -PassThru -RedirectStandardInput $InFile -RedirectStandardOutput $out -RedirectStandardError $err
+        if (-not $p.WaitForExit($TimeoutMs)) { Stop-OpenCodeTree $p; return $null }
+        $json = [System.IO.File]::ReadAllText($out, [System.Text.Encoding]::UTF8)
+        return (($json | ConvertFrom-Json).info.agent)
+    } catch { return $null }
+    finally { Remove-Item -LiteralPath $out, $err -Force -ErrorAction SilentlyContinue }
+}
+
 function Resolve-OpenCodeExe {
     # The real executable, never the npm shim: `opencode.cmd` cannot carry a multi-line prompt
     # through cmd.exe, and killing the shim's process would leave opencode.exe running.
@@ -267,6 +294,17 @@ function Invoke-OpenCodeWatched {
 
     $stdout = [System.IO.File]::ReadAllText($outFile, [System.Text.Encoding]::UTF8)
     $stderr = [System.IO.File]::ReadAllText($errFile, [System.Text.Encoding]::UTF8)
+    # Did OpenCode load the requested --agent? Checked on OpenCode's own evidence only, never on the
+    # model's words (a reviewer reading these scripts quotes the warning text: the false positive
+    # of PR #482's reviews, 2026-09-28): OpenCode's warning line on stderr, anchored to its exact
+    # form and the requested agent's name. The session record (`opencode export`: .info.agent) is
+    # the authority when it can be read; the stderr line is the fallback when it cannot.
+    $agentIdx = [array]::IndexOf($Arguments, '--agent')
+    $requestedAgent = if ($agentIdx -ge 0 -and $agentIdx + 1 -lt $Arguments.Count) { $Arguments[$agentIdx + 1] } else { $null }
+    $sessionAgent = if ($requestedAgent -and $session) { Get-OpenCodeSessionAgent -Exe $exe -WorkDir $WorkDir -SessionId $session.id -LogDir $LogDir -InFile $inFile } else { $null }
+    $agentFallback = if (-not $requestedAgent) { $false }
+        elseif ($sessionAgent) { $sessionAgent -ne $requestedAgent }
+        else { Test-OpenCodeAgentWarning -StdErr $stderr -Agent $requestedAgent }
     if ($p.ExitCode -eq 0) { Remove-Item -LiteralPath $files -Force -ErrorAction SilentlyContinue }
     else { Write-Host "opencode: exit $($p.ExitCode); files kept: $($files -join ', ')" }
     return [pscustomobject]@{
@@ -276,6 +314,9 @@ function Invoke-OpenCodeWatched {
         ExitCode  = $p.ExitCode
         SessionId = $session.id
         Title     = $Title
+        # True when OpenCode ran its default agent instead of the requested --agent.
+        AgentFallback = $agentFallback
+        SessionAgent  = $sessionAgent
         Files     = if ($p.ExitCode -eq 0) { @() } else { $files }
         Seconds   = [int]$clock.Elapsed.TotalSeconds
     }

@@ -253,7 +253,9 @@ OUTPUT RULES (from scripts/external-review.ps1; they override anything above tha
     }
     $output = $run.Output
     if ($run.ExitCode -ne 0) { return (& $fail "exit $($run.ExitCode)" $output) }
-    if ($output -match 'Falling back to default agent') { return (& $fail 'fell back to the default agent' "OpenCode did not load the external-reviewer agent (it fell back to its default, full-permission agent). Output:`n$output") }
+    # OpenCode's own evidence (its stderr warning, the session's recorded agent), never the model's
+    # words: a reviewer reading these scripts quotes the warning text (PR #482, 2026-09-28).
+    if ($run.AgentFallback) { return (& $fail 'fell back to the default agent' "OpenCode did not load the external-reviewer agent (it fell back to its default, full-permission agent). Output:`n$output") }
 
     # 3. Completeness. The review starts at the header line (OpenCode may print tool chatter
     #    before it); it must have a verdict on line 2 and repeat it as the last non-empty line.
