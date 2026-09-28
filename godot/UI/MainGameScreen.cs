@@ -195,12 +195,24 @@ public partial class MainGameScreen : Control
     /// refusal — in <see cref="_saveConfirmationLabel"/>, a label this task's own narrow Save-action grant
     /// owns outright.
     /// </remarks>
-    private void OnSavePressed()
+    private void OnSavePressed() => OnSavePressed(checkUniqueSuffix: null);
+
+    /// <summary>
+    /// <paramref name="checkUniqueSuffix"/> (rework round 1, N2, non-blocking): a real player's click
+    /// always calls the parameterless overload above, so their own save's file name is unchanged —
+    /// <c>&lt;scenario&gt;-turn-&lt;N&gt;.json</c>, exactly as before. <see cref="PressSaveForCheck"/>
+    /// passes a fixed, check-specific suffix instead, so a Godot check's own save can never collide with,
+    /// overwrite or (after cleanup) delete a real save of the same scenario and turn — see that method's
+    /// own remarks.
+    /// </summary>
+    private void OnSavePressed(string? checkUniqueSuffix)
     {
         var directory = ProjectSettings.GlobalizePath(SavesDirectory);
         Directory.CreateDirectory(directory);
 
-        var fileName = $"{Session.Scenario.Id}-turn-{Session.State.Calendar.TurnIndex}.json";
+        var fileName = checkUniqueSuffix is null
+            ? $"{Session.Scenario.Id}-turn-{Session.State.Calendar.TurnIndex}.json"
+            : $"{Session.Scenario.Id}-turn-{Session.State.Calendar.TurnIndex}-{checkUniqueSuffix}.json";
         var path = Path.Combine(directory, fileName);
         LastSavedPath = path;
 
@@ -210,7 +222,7 @@ public partial class MainGameScreen : Control
     }
 
     /// <summary>
-    /// The path <see cref="OnSavePressed"/> last wrote to (or attempted to), set just before it submits
+    /// The path <see cref="OnSavePressed()"/> last wrote to (or attempted to), set just before it submits
     /// the real <c>save &lt;path&gt;</c> command — <see langword="null"/> before any save. Exposed, with
     /// <see cref="PressSaveForCheck"/>, so <c>godot/Checks/SaveResumeCheck.cs</c> and
     /// <c>godot/Checks/SaveResumeScreenshotTour.cs</c> can find the exact file the Save button produced
@@ -223,7 +235,15 @@ public partial class MainGameScreen : Control
     /// <see cref="SubmitForCheck"/> and <see cref="LoadGameScreen.ContinueForCheck"/> are: a headless
     /// check drives the real handler, not a simulated mouse click at hardcoded coordinates.
     /// </summary>
-    public void PressSaveForCheck() => OnSavePressed();
+    /// <param name="checkUniqueSuffix">
+    /// N2 (rework round 1, non-blocking): a fixed, check-specific token appended to the saved file's own
+    /// name (<c>&lt;scenario&gt;-turn-&lt;N&gt;-&lt;checkUniqueSuffix&gt;.json</c>), so a check's own save
+    /// can never be mistaken for, collide with, overwrite, or — once the check cleans up after itself — a
+    /// player's real save of the same scenario and turn. <see langword="null"/> (the default) reproduces
+    /// a real click's own file name exactly, for a test that specifically wants that. Every caller under
+    /// <c>godot/Checks/**</c> passes a distinct, non-empty value instead.
+    /// </param>
+    public void PressSaveForCheck(string? checkUniqueSuffix = null) => OnSavePressed(checkUniqueSuffix);
 
     /// <summary>
     /// T25: submits one raw command line through <see cref="GameSession.Submit"/> and runs the result

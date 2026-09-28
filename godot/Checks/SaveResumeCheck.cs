@@ -18,10 +18,15 @@ namespace IC2.Slice.Checks;
 /// build's own <c>--help</c>: no such option, and none of the "data-dir"/"profile"/"config" flags it does
 /// list override <c>user://</c> per invocation) to redirect <c>user://</c> (where the real Save action
 /// always writes, <c>MainGameScreen</c>'s own <c>user://saves</c> convention) to a temporary directory for
-/// this one process. So this check deletes its own save file (and the <c>saves</c> directory, if it left
-/// it empty) once it is done with it, in a <c>finally</c> block that runs whether the checks above passed
-/// or failed — the file never lands in the repository (nothing under <c>user://</c> ever does), and never
-/// lingers in the real Godot profile directory afterward either.
+/// this one process. So this check does two things instead (rework round 1, N2): it saves under a fixed,
+/// check-specific file-name suffix (<see cref="MainGameScreen.PressSaveForCheck"/>'s own
+/// <c>checkUniqueSuffix</c> parameter — <c>"t95-saveresumecheck"</c> here — never the bare
+/// <c>&lt;scenario&gt;-turn-&lt;N&gt;.json</c> name a real player's own click produces), so this check's
+/// own save file can never be mistaken for, collide with, or overwrite a real save of the same scenario
+/// and turn; and it deletes only that uniquely-named file (and the <c>saves</c> directory, if it left it
+/// empty) once it is done with it, in a <c>finally</c> block (<see cref="_Ready"/>) that runs whether the
+/// checks above passed, failed, or threw — a real player's own, differently-named save is never touched
+/// by either the write or the cleanup.
 /// </summary>
 /// <remarks>
 /// Drives the real <see cref="AppRoot"/>/<see cref="NewGameFlow"/>/<see cref="LoadGameScreen"/>/
@@ -123,7 +128,8 @@ public partial class SaveResumeCheck : Node
         var originalTurn = originalState.Calendar.TurnIndex;
 
         // ---- save through the main game screen's own Save action (Done-when 1, the Godot half) ----
-        originalScreen.PressSaveForCheck();
+        // N2: a check-unique suffix, never the bare filename a real player's own click would produce.
+        originalScreen.PressSaveForCheck("t95-saveresumecheck");
         var savedPath = originalScreen.LastSavedPath;
         _savedPathToCleanUp = savedPath;
         if (!Check(

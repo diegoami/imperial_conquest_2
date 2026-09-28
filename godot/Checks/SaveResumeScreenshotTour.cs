@@ -20,11 +20,20 @@ namespace IC2.Slice.Checks;
 /// <c>godot/Checks/ScreenshotTour.cs</c> already establishes (<see cref="AppRoot.CurrentScreen"/>,
 /// <c>ConfirmSelection</c>, <c>ConfirmSeatAndStart</c>) plus this task's own two additions
 /// (<see cref="MainGameScreen.PressSaveForCheck"/>, <see cref="LoadGameScreen.ContinueForCheck"/>) —
-/// never simulated mouse clicks at hardcoded coordinates. The save file this tour produces (through the
-/// real Save action, exactly like <c>godot/Checks/SaveResumeCheck.cs</c>) is deleted once the last
-/// screenshot is captured, the same "never leaves a save behind" cleanup that check performs — see its
-/// own remarks for why no <c>--user-data-dir</c> flag exists in this Godot build to avoid the real
-/// profile directory in the first place.
+/// never simulated mouse clicks at hardcoded coordinates.
+/// </remarks>
+/// <remarks>
+/// <strong>N2 (rework round 1, non-blocking): never a real player's own save.</strong> The save this tour
+/// produces (through the real Save action, exactly like <c>godot/Checks/SaveResumeCheck.cs</c>) is
+/// written under a fixed, tour-specific file-name suffix
+/// (<see cref="MainGameScreen.PressSaveForCheck"/>'s own <c>checkUniqueSuffix</c> parameter,
+/// <c>"t95-screenshottour"</c> here), never the bare <c>&lt;scenario&gt;-turn-&lt;N&gt;.json</c> name a
+/// real click produces — so it can never collide with, overwrite, or (once cleaned up) delete a player's
+/// own save of the same scenario and turn. Cleanup runs from <see cref="_ExitTree"/> rather than only at
+/// the tour's own last step: <see cref="_ExitTree"/> is called whenever this node leaves the scene tree,
+/// including an ordinary <c>GetTree().Quit()</c> and a <c>--quit-after</c> shorter than this tour's own
+/// full run — the case the first round of this PR left open (a cut-short tour left its save behind). The
+/// explicit call this class used to make from its own last step is removed as redundant, not doubled.
 /// </remarks>
 public partial class SaveResumeScreenshotTour : Control
 {
@@ -58,6 +67,14 @@ public partial class SaveResumeScreenshotTour : Control
         AddChild(_appRoot);
     }
 
+    /// <summary>
+    /// N2: cleans up whatever save this tour produced, whether it ran to completion or was cut short —
+    /// Godot calls this whenever the node leaves the scene tree, which an ordinary <c>GetTree().Quit()</c>
+    /// (this tour's own last step) and a <c>--quit-after</c> that cuts the tour off early both do. See
+    /// this class's own remarks.
+    /// </summary>
+    public override void _ExitTree() => CleanUpSavedFile();
+
     public override void _Process(double delta)
     {
         _frame++;
@@ -86,7 +103,8 @@ public partial class SaveResumeScreenshotTour : Control
 
             case 3 when _frame >= SettleFrames:
                 Capture("01-main-game-screen-save-control.png");
-                ((MainGameScreen)_appRoot.CurrentScreen!).PressSaveForCheck();
+                // N2: a tour-unique suffix, never the bare filename a real player's own click would produce.
+                ((MainGameScreen)_appRoot.CurrentScreen!).PressSaveForCheck("t95-screenshottour");
                 _savedPath = ((MainGameScreen)_appRoot.CurrentScreen!).LastSavedPath;
                 _frame = 0;
                 _step = 4;
@@ -112,9 +130,8 @@ public partial class SaveResumeScreenshotTour : Control
 
             case 6 when _frame >= SettleFrames:
                 Capture("04-resumed-main-game-screen.png");
-                CleanUpSavedFile();
                 GD.Print("SaveResumeScreenshotTour: done.");
-                GetTree().Quit(0);
+                GetTree().Quit(0); // triggers _ExitTree, which cleans up the save this tour produced
                 break;
         }
     }
