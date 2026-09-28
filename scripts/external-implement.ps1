@@ -28,7 +28,7 @@
     commit, locally or on origin, and no new PR. Otherwise the script exits 1 and the main session
     decides. Two consecutive attempts failing with the same cause (Get-OpenCodeFailureClass: two
     startup hangs, two idle kills, ...) stop the chain early. When every model fails, the chain
-    stops that way, or OpenCode is not installed, it exits 3 ("OpenCode unavailable: ..."), and the task falls back to the catalogue's Claude model (operating-guide
+    stops that way, or OpenCode is not installed, it exits 3 ("OpenCode unavailable: ..."), and the task falls back to Claude Sonnet (operating-guide
     §3). An implementer that stops and reports has not failed: its OpenCode run exits 0, so it is
     never retried on another model; the script then exits 1 ("No open PR") and the main session
     reads the report.
@@ -124,7 +124,7 @@ if (-not (Test-Path $BriefFile)) { throw "Brief not found: $BriefFile" }
 # OpenCode not installed or not found: the same exit 3 as every model failing.
 try { $null = Resolve-OpenCodeExe } catch {
     if (-not (Test-OpenCodeInfraFailure $_)) { throw }
-    [Console]::Error.WriteLine("OpenCode unavailable: $($_.Exception.Message) The task falls back to the catalogue's Claude model (operating-guide §3).")
+    [Console]::Error.WriteLine("OpenCode unavailable: $($_.Exception.Message) The task falls back to Claude Sonnet (operating-guide §3).")
     exit 3
 }
 foreach ($tool in 'gh', 'git') { if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) { throw "$tool is not on PATH." } }
@@ -247,7 +247,7 @@ Write-Host "run output: $log"
 if (-not $implementedBy) {
     # Not Write-Error: under ErrorActionPreference Stop it would end the script with exit 1, not 3.
     $why = if ($sameCause) { "same failure twice: $sameCause ($($failures -join '; '))" } else { $failures -join '; ' }
-    [Console]::Error.WriteLine("OpenCode unavailable: $why. The task falls back to the catalogue's Claude model (operating-guide §3). Log: $log")
+    [Console]::Error.WriteLine("OpenCode unavailable: $why. The task falls back to Claude Sonnet (operating-guide §3). Log: $log")
     exit 3
 }
 if ($failures) { Write-Host "fell back: $($failures -join '; ')" }
