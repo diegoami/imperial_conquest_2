@@ -70,7 +70,11 @@ public partial class ScenarioSeatScreen : Control
         column.AddChild(new HSeparator());
         column.AddChild(UiKit.MakeLabel("Play as:", 18, UiKit.TextColor));
 
-        _seatPicker = new OptionButton { CustomMinimumSize = new Vector2(260, 36) };
+        _seatPicker = new OptionButton
+        {
+            CustomMinimumSize = new Vector2(260, 36),
+            SizeFlagsHorizontal = SizeFlags.ShrinkBegin,
+        };
         foreach (var option in _seatOptions)
         {
             _seatPicker.AddItem(option.DisplayName);
@@ -118,6 +122,11 @@ public partial class ScenarioSeatScreen : Control
         row.AddChild(slider);
         return slider;
     }
+
+    /// <summary>Confirms the current seat picker/slider values and raises <see cref="Started"/> — public
+    /// so the DoD 4 headless check, any test, and <c>godot/Checks/ScreenshotTour.cs</c> can advance the
+    /// flow without simulating a mouse click, mirroring <see cref="RulesetChooserScreen.ConfirmSelection"/>.</summary>
+    public void ConfirmSeatAndStart() => OnStartPressed();
 
     private void OnStartPressed()
     {

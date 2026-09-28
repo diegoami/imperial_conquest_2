@@ -15,6 +15,14 @@ public partial class MainGameScreen : Control
 
     public required string RepositoryRoot { get; init; }
 
+    /// <summary>Exposed (rather than kept private) so <c>godot/Checks/ScreenshotTour.cs</c> can drive a
+    /// selection and open the news log for the visual sign-off screenshot without simulating clicks.</summary>
+    public GameMapView MapView => _mapView;
+
+    public ContextPanel ContextPanel => _contextPanel;
+
+    public NewsLogPanel NewsLog => _newsLog;
+
     private Label _calendarLabel = null!;
     private Label _activeNationLabel = null!;
     private GameMapView _mapView = null!;
@@ -32,8 +40,10 @@ public partial class MainGameScreen : Control
 
         root.AddChild(BuildTopBar());
 
-        var body = new HSplitContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
-        body.SetSplitOffset(-320);
+        // A plain HBoxContainer, not HSplitContainer: SplitContainer's own split_offset sign convention
+        // left the context panel with no visible width at all (T24's first pass) -- simpler and
+        // predictable is the map taking whatever the panel's own fixed CustomMinimumSize does not.
+        var body = new HBoxContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
         root.AddChild(body);
 
         _mapView = new GameMapView { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
@@ -43,7 +53,8 @@ public partial class MainGameScreen : Control
         {
             Session = Session,
             MapView = _mapView,
-            CustomMinimumSize = new Vector2(300, 0),
+            CustomMinimumSize = new Vector2(340, 0),
+            SizeFlagsVertical = SizeFlags.ExpandFill,
         };
         body.AddChild(_contextPanel);
 
@@ -103,7 +114,7 @@ public partial class MainGameScreen : Control
 
         row.AddChild(UiKit.MakeButton("News", () => _newsLog.Toggle(), 14));
 
-        return row;
+        return bar;
     }
 
     private Control MakeFilterToggle(string label, bool initial, Action<bool> onToggled)

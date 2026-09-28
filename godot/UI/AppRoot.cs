@@ -10,12 +10,17 @@ namespace IC2.Slice.UI;
 /// </summary>
 public partial class AppRoot : Control
 {
+    /// <summary>The screen currently on display — exposed (rather than kept private) so
+    /// <c>godot/Checks/ScreenshotTour.cs</c> (this task's own DoD/visual-sign-off driver) can navigate
+    /// and inspect the real scene tree without simulating mouse events.</summary>
+    public Control? CurrentScreen { get; private set; }
+
     public override void _Ready()
     {
         ShowMainMenu();
     }
 
-    private void ShowMainMenu()
+    public void ShowMainMenu()
     {
         var menu = new MainMenu();
         menu.NewGameRequested += ShowNewGameFlow;
@@ -24,7 +29,7 @@ public partial class AppRoot : Control
         SwapTo(menu);
     }
 
-    private void ShowNewGameFlow()
+    public void ShowNewGameFlow()
     {
         var flow = new NewGameFlow();
         flow.BackToMenuRequested += ShowMainMenu;
@@ -36,14 +41,14 @@ public partial class AppRoot : Control
         SwapTo(flow);
     }
 
-    private void ShowLoadGame()
+    public void ShowLoadGame()
     {
         var screen = new LoadGameScreen();
         screen.BackRequested += ShowMainMenu;
         SwapTo(screen);
     }
 
-    private void ShowSettings()
+    public void ShowSettings()
     {
         var screen = new SettingsScreen();
         screen.BackRequested += ShowMainMenu;
@@ -60,5 +65,14 @@ public partial class AppRoot : Control
 
         screen.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(screen);
+
+        // Belt and suspenders alongside the anchors above: a screen added the very same frame this
+        // root's own size last changed can otherwise sit one resize notification behind (observed while
+        // capturing this task's own main-game-screen screenshot, where the swapped-in screen kept
+        // reading (0,0) several frames later) -- an explicit, exact match is always correct here, never
+        // just a fallback for a transient timing gap.
+        screen.Size = Size;
+
+        CurrentScreen = screen;
     }
 }

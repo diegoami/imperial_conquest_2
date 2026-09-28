@@ -99,10 +99,30 @@ public partial class GameMapView : Control
 
     private PendingMapAction _pendingAction = PendingMapAction.None;
     private string? _pendingActorId;
+    private bool _fittedOnce;
 
     public override void _Ready()
     {
         FocusMode = FocusModeEnum.All;
+
+        // A container (HSplitContainer) only assigns this control its real Size on its own layout pass,
+        // which has not necessarily run yet the moment Attach() is called from MainGameScreen._Ready --
+        // this control's own Size can still read (0,0) at that point. Refitting once the first non-zero
+        // Resized fires closes that gap without re-fitting (and so discarding the player's own zoom/pan)
+        // on every later resize too.
+        Resized += OnResized;
+    }
+
+    private void OnResized()
+    {
+        if (_fittedOnce || _session is null || Size.X <= 0 || Size.Y <= 0)
+        {
+            return;
+        }
+
+        FitToView();
+        _fittedOnce = true;
+        QueueRedraw();
     }
 
     /// <summary>Loads (or reloads) this view against a fresh session — called once by
@@ -115,7 +135,12 @@ public partial class GameMapView : Control
             onFailure: key => GD.PushWarning($"T24 map: asset pack could not resolve or load '{key}'; falling back to the coloured marker."));
 
         BakeTerrainTexture();
-        FitToView();
+        if (Size.X > 0 && Size.Y > 0)
+        {
+            FitToView();
+            _fittedOnce = true;
+        }
+
         QueueRedraw();
     }
 

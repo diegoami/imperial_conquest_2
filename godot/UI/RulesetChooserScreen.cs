@@ -98,7 +98,7 @@ public partial class RulesetChooserScreen : Control
         var button = new Button
         {
             ToggleMode = true,
-            CustomMinimumSize = new Vector2(320, 260),
+            CustomMinimumSize = new Vector2(420, 360),
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
             SizeFlagsStretchRatio = 1f,
             ClipText = false,
@@ -107,10 +107,21 @@ public partial class RulesetChooserScreen : Control
         button.Pressed += () => SelectPreset(card.Preset);
         CardButtons[card.Preset] = button;
 
+        // A MarginContainer, not a bare FullRect anchor, so the card's own text keeps a real inset from
+        // the button's edges: a Control added straight to a Button and FullRect-anchored ignores that
+        // Button's own StyleBoxFlat content margins (those only apply to the Button's own built-in text),
+        // which left T24's first pass with bullet text flush against the card's left/top border.
+        var margin = new MarginContainer();
+        margin.SetAnchorsPreset(LayoutPreset.FullRect);
+        margin.AddThemeConstantOverride("margin_left", 16);
+        margin.AddThemeConstantOverride("margin_right", 16);
+        margin.AddThemeConstantOverride("margin_top", 14);
+        margin.AddThemeConstantOverride("margin_bottom", 14);
+        button.AddChild(margin);
+
         var content = new VBoxContainer();
-        content.SetAnchorsPreset(LayoutPreset.FullRect);
         content.AddThemeConstantOverride("separation", 8);
-        button.AddChild(content);
+        margin.AddChild(content);
 
         var name = UiKit.MakeLabel(card.DisplayName, 22, UiKit.TextColor);
         name.HorizontalAlignment = HorizontalAlignment.Center;
