@@ -1,5 +1,6 @@
 using IC2.Engine.Core;
 using IC2.Engine.Model;
+using IC2.Engine.Movement;
 
 namespace IC2.Engine.Naval.Commands;
 
@@ -57,10 +58,21 @@ public sealed class EmbarkArmyCommandHandler : ICommandHandler<EmbarkArmyCommand
                 EmbarkArmyRejections.FleetAlreadyCarrying, $"Fleet '{fleet.Id}' is already carrying an army.");
         }
 
-        if (army.X != fleet.X || army.Y != fleet.Y)
+        // The original's rule (the user's decision on bug #453, 2026-09-27): an army embarks from a tile
+        // adjacent to its fleet and then moves onto the fleet's tile. "Adjacent" is the same radius
+        // disembark already uses -- Economy.CommandAdjacencyRadiusTiles (T70, bug #345) -- measured with
+        // the same LandingTile.ChebyshevDistance. The decompile's own embark check
+        // (TUnitMap_SelectUnit, 0x004466CC, decompiled-unit-map-orders-and-record-fields.md) records the
+        // capacity test and the FUN_0044B79C call with no distance test -- it is a click on a friendly
+        // fleet -- while FUN_0044B79C itself "snaps the army's coordinates to the fleet's", the move the
+        // check below admits; the radius is the user's rule, not a reported field.
+        var distance = LandingTile.ChebyshevDistance(new GridPoint(army.X, army.Y), new GridPoint(fleet.X, fleet.Y));
+        if (distance > context.Ruleset.Economy.CommandAdjacencyRadiusTiles)
         {
             return CommandOutcome.Reject(
-                EmbarkArmyRejections.NotCoLocated, "The army and the fleet must be on the same tile to embark.");
+                EmbarkArmyRejections.NotAdjacent,
+                $"Army '{army.Id}' at ({army.X}, {army.Y}) is not adjacent to fleet '{fleet.Id}' "
+                + $"at ({fleet.X}, {fleet.Y}).");
         }
 
         var capacity = fleet.Ships * context.Ruleset.Naval.TransportTroopsPerShip;
