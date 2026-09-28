@@ -118,13 +118,40 @@ public partial class ContextPanel : Control
 
     private void Heading(string text) => _content.AddChild(UiKit.MakeLabel(text, 20, UiKit.AccentColor));
 
-    private void Fact(string text) => _content.AddChild(UiKit.MakeLabel(text, 14, UiKit.TextColor));
+    /// <summary>
+    /// Fix #491: an unwrapped <see cref="Label"/>'s minimum size is its full single-line text width, so
+    /// a long stats/Troops line (<c>"5000x heavy_infantry, ..."</c>) forced this panel's
+    /// <see cref="VBoxContainer"/> — and with it <c>MainGameScreen</c>'s 340&#160;px
+    /// <c>CustomMinimumSize</c> panel — wider than the viewport, pushing the panel (and its order
+    /// buttons) off-screen. <see cref="Note"/> already wraps for exactly this reason; <c>Fact</c> now
+    /// does the same, which lets the panel settle back to its 340&#160;px floor.
+    /// </summary>
+    private void Fact(string text)
+    {
+        var label = UiKit.MakeLabel(text, 14, UiKit.TextColor);
+        label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _content.AddChild(label);
+    }
 
     private void Note(string text)
     {
         var label = UiKit.MakeLabel(text, 12, UiKit.MutedTextColor);
         label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _content.AddChild(label);
+    }
+
+    /// <summary>
+    /// Fix #491: a <see cref="Button"/>'s own minimum width is likewise its unclipped label's full
+    /// width ("Attack (click a target on the map)" is longer than the 340&#160;px panel itself), which
+    /// forced the panel wide even after <see cref="Fact"/> started wrapping. Every button this panel
+    /// adds goes through here instead of a bare <c>UiKit.MakeButton</c> call, so it clips to whatever
+    /// width the panel actually settles at rather than demanding more.
+    /// </summary>
+    private void AddButton(string text, Action onPressed)
+    {
+        var button = UiKit.MakeButton(text, onPressed);
+        button.ClipText = true;
+        _content.AddChild(button);
     }
 
     private void BuildNationOverview()
@@ -179,18 +206,18 @@ public partial class ContextPanel : Control
         var troopSpin = new SpinBox { MinValue = 10, MaxValue = 2000, Step = 10, Value = 200 };
         _content.AddChild(troopSpin);
 
-        _content.AddChild(UiKit.MakeButton("Recruit", () =>
+        AddButton("Recruit", () =>
         {
             var unitTypeId = UnitTypes[typePicker.Selected].Id;
             Issue($"recruit-standing {city.Id} {unitTypeId} {(int)troopSpin.Value}");
-        }));
+        });
 
         _content.AddChild(new HSeparator());
         _content.AddChild(UiKit.MakeLabel("Fortify", 15, UiKit.TextColor));
         var fortifyPoints = new SpinBox { MinValue = 1, MaxValue = 100, Step = 1, Value = 10 };
         _content.AddChild(fortifyPoints);
-        _content.AddChild(UiKit.MakeButton("Order Fortification", () =>
-            Issue($"order-city {city.Id} fortify {(int)fortifyPoints.Value}")));
+        AddButton("Order Fortification", () =>
+            Issue($"order-city {city.Id} fortify {(int)fortifyPoints.Value}"));
 
         _content.AddChild(new HSeparator());
         _content.AddChild(UiKit.MakeLabel("Supply transfer (troop/money slider)", 15, UiKit.TextColor));
@@ -216,11 +243,11 @@ public partial class ContextPanel : Control
         _content.AddChild(tonsSlider);
         _content.AddChild(tonsLabel);
 
-        _content.AddChild(UiKit.MakeButton("Transfer Supply", () =>
+        AddButton("Transfer Supply", () =>
         {
             var armyId = ownArmies[armyPicker.Selected].Id;
             Issue($"buy {armyId} {city.Id} {(int)tonsSlider.Value}");
-        }));
+        });
     }
 
     private void BuildArmyPanel(ArmyState army)
@@ -237,10 +264,10 @@ public partial class ContextPanel : Control
         }
 
         _content.AddChild(new HSeparator());
-        _content.AddChild(UiKit.MakeButton("Move (click a tile on the map)", () => MapView.BeginMoveOrder(army.Id)));
-        _content.AddChild(UiKit.MakeButton("Attack (click a target on the map)", () => MapView.BeginAttackOrder(army.Id)));
-        _content.AddChild(UiKit.MakeButton("Mobilize first ready slot", () => MobilizeFirstReadySlot(army.Id)));
-        _content.AddChild(UiKit.MakeButton("Disband", () => Issue($"disband-army {army.Id}")));
+        AddButton("Move (click a tile on the map)", () => MapView.BeginMoveOrder(army.Id));
+        AddButton("Attack (click a target on the map)", () => MapView.BeginAttackOrder(army.Id));
+        AddButton("Mobilize first ready slot", () => MobilizeFirstReadySlot(army.Id));
+        AddButton("Disband", () => Issue($"disband-army {army.Id}"));
     }
 
     private void BuildFleetPanel(FleetState fleet)
@@ -259,8 +286,8 @@ public partial class ContextPanel : Control
         var repairPoints = new SpinBox { MinValue = 1, MaxValue = 100, Step = 1, Value = 10 };
         _content.AddChild(UiKit.MakeLabel("Repair points", 13, UiKit.MutedTextColor));
         _content.AddChild(repairPoints);
-        _content.AddChild(UiKit.MakeButton("Repair", () => Issue($"repair-fleet {fleet.Id} {(int)repairPoints.Value}")));
-        _content.AddChild(UiKit.MakeButton("Scuttle", () => Issue($"scuttle-fleet {fleet.Id}")));
+        AddButton("Repair", () => Issue($"repair-fleet {fleet.Id} {(int)repairPoints.Value}"));
+        AddButton("Scuttle", () => Issue($"scuttle-fleet {fleet.Id}"));
     }
 
     /// <summary>
