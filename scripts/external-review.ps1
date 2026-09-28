@@ -8,24 +8,30 @@
     The main session fills the reviewer brief itself (build-process.md Appendix B for a task PR,
     the plan-review prompt for a plan PR) and passes it as -BriefFile, exactly as it would to a
     Claude reviewer. This script then:
-      1. creates a detached worktree at the PR head under ic2-work\<pr>-external-review;
+      1. creates a detached worktree at the PR head under ic2-work\<pr>-external-review-<token>,
+         a path of its own, so two reviews of one PR never touch each other's tree;
       2. runs `opencode run` there with the .opencode/agents/external-reviewer.md agent and the
          model of the reviewer, feeding it the brief plus the output rules. The run is watched
-         (scripts/Invoke-OpenCodeWatched.ps1): if OpenCode creates no session within
-         -StartupTimeoutSec (the 2026-09-28 startup hang) or does not finish within
+         (scripts/Invoke-OpenCodeWatched.ps1) with stdin closed, because `opencode run` waits for
+         stdin's end-of-file before it creates a session (the cause of the 2026-09-28 hangs). If
+         OpenCode creates no session within -StartupTimeoutSec or does not finish within
          -TotalTimeoutSec, its process tree is killed;
       3. takes the run's final message as the review, checks it is complete (header line,
          verdict line, and the verdict repeated as the last line), and posts it as one PR comment
-         with `gh pr comment --body-file`;
+         with `gh pr comment --body-file`. A review that arrives flattened onto one line (seen
+         from Luna on 2026-09-28) is accepted when it starts with the header and a verdict and
+         ends with the same verdict; its runs of spaces are turned back into paragraph breaks;
       4. with -ApplyLabel, applies status:approved or status:rework to the task's issue from the
          verdict, as a Claude reviewer would (never for a plan PR);
-      5. removes the worktree.
+      5. removes the worktree it created, and only that one.
     With -Reviewer auto (the default) the models form a chain: GLM, then Luna, then DeepSeek, each
     tried once. The next model runs ONLY on an infrastructure failure: no session in time, no exit
-    in time, a non-zero exit, the fallback-to-default-agent guard, or an incomplete review. The
-    worktree is recreated for each attempt. The posted header names the model that reviewed and
+    in time, a run that exits without a session, a non-zero exit, the fallback-to-default-agent
+    guard, or an incomplete (cut-off) review. Any other error stops the script with a non-zero exit
+    that is not 3. The worktree is recreated for each attempt. The posted header names the model that reviewed and
     the ones that failed before it, e.g. "Plan review (Luna; GLM failed: no session in 180 s)".
-    If every model fails, nothing is posted and the script exits 3 ("OpenCode unavailable: ...");
+    If every model fails, or OpenCode is not installed, nothing is posted and the script exits 3
+    ("OpenCode unavailable: ...");
     build-process.md §4.9 says what the main session does then. An explicit -Reviewer runs only
     that model, and exits 3 the same way when it fails.
     The model never writes to GitHub: the agent file denies push, merge, comment and label
@@ -117,7 +123,9 @@ $mainRoot = Split-Path $commonDir -Parent
 $workRoot = Join-Path (Split-Path $mainRoot -Parent) 'ic2-work'
 $agentFile = Join-Path $repo '.opencode/agents/external-reviewer.md'
 if (-not (Test-Path -LiteralPath $agentFile)) { throw "Agent file not found: $agentFile" }
-$worktree = Join-Path $workRoot "$Pr-external-review"
+# A path of this invocation's own: a second review of the same PR never removes this one's tree.
+$worktree = Join-Path $workRoot "$Pr-external-review-$([guid]::NewGuid().ToString('N').Substring(0, 8))"
+$script:worktreeCreated = $false
 if (-not (Test-Path $BriefFile)) { throw "Brief not found: $BriefFile" }
 $brief = Get-Content -Raw -LiteralPath $BriefFile
 $briefLines = $brief -split "`r?`n"
@@ -125,7 +133,12 @@ $briefHeader = $briefLines[0].Trim()
 $briefRest = ($briefLines | Select-Object -Skip 1) -join "`n"
 if ($briefHeader -notmatch 'review \(') { throw "The brief's first line must be the review header, e.g. 'Plan review (Luna)'; got: $briefHeader" }
 if ($ApplyLabel -and -not $Issue) { throw '-ApplyLabel needs -Issue.' }
-$null = Resolve-OpenCodeExe   # throws if opencode is not installed
+# OpenCode not installed or not found is the same signal as every model failing: exit 3.
+try { $null = Resolve-OpenCodeExe } catch {
+    if (-not (Test-OpenCodeInfraFailure $_)) { throw }
+    [Console]::Error.WriteLine("OpenCode unavailable: $($_.Exception.Message) Nothing posted.")
+    exit 3
+}
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { throw 'gh is not on PATH.' }
 
 $headSha = gh pr view $Pr --json headRefOid --jq .headRefOid
@@ -134,12 +147,18 @@ git -C $repo fetch -q origin "pull/$Pr/head"
 
 function New-ReviewWorktree {
     # 1. A detached worktree at the PR head. Never the main checkout. Recreated for every attempt,
-    #    so a failed run leaves nothing behind for the next model.
-    if (Test-Path $worktree) { git -C $repo worktree remove --force $worktree 2>$null }
-    if (Test-Path $worktree) { Remove-Item -Recurse -Force -LiteralPath $worktree }
-    git -C $repo worktree prune
+    #    so a failed run leaves nothing behind for the next model. Only a tree this invocation
+    #    created is ever removed.
+    if ($script:worktreeCreated) {
+        git -C $repo worktree remove --force $worktree 2>$null
+        if (Test-Path $worktree) { Remove-Item -Recurse -Force -LiteralPath $worktree }
+        git -C $repo worktree prune
+        $script:worktreeCreated = $false
+    }
+    if (Test-Path $worktree) { throw "$worktree already exists and is not this run's." }
     git -C $repo worktree add --detach $worktree $headSha 2>$null | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "git worktree add failed for $worktree at $headSha" }
+    $script:worktreeCreated = $true
     Write-Host "worktree: $worktree at $headSha"
     # The PR under review usually does not carry this agent file, and OpenCode silently falls back
     # to its default, full-permission agent when --agent names one it cannot find. Copy the
@@ -182,14 +201,15 @@ OUTPUT RULES (from scripts/external-review.ps1; they override anything above tha
     #    UTF-8, so an em dash or a curly quote reaches the PR intact.
     $ocArgs = @('run', '--dir', $worktree, '--agent', 'external-reviewer', '--model', $model)
     if ($variant) { $ocArgs += @('--variant', $variant) }
-    $title = "ic2-pr$Pr-$Name-$(Get-Date -Format yyyyMMddHHmmss)"
+    # The helper appends a random token to the title, so the session found is this run's.
     try {
-        $run = Invoke-OpenCodeWatched -Arguments $ocArgs -Prompt $prompt -WorkDir $worktree -Title $title `
+        $run = Invoke-OpenCodeWatched -Arguments $ocArgs -Prompt $prompt -WorkDir $worktree -Title "ic2-pr$Pr-$Name" `
             -StartupTimeoutSec $StartupTimeoutSec -TotalTimeoutSec $TotalTimeoutSec
-    } catch [System.TimeoutException] {
-        return (& $fail $_.Exception.Data['Reason'] $_.Exception.Message)
     } catch {
-        return (& $fail "could not run ($($_.Exception.Message.Split("`n")[0]))" $_.Exception.Message)
+        # Only OpenCode's own failures (not found, no session, no exit, exited without a session)
+        # advance the chain. Anything else is a defect here: rethrown, exit non-zero, not 3.
+        if (-not (Test-OpenCodeInfraFailure $_)) { throw }
+        return (& $fail $_.Exception.Data['Reason'] $_.Exception.Message)
     }
     $output = $run.Output
     if ($run.ExitCode -ne 0) { return (& $fail "exit $($run.ExitCode)" $output) }
@@ -202,6 +222,20 @@ OUTPUT RULES (from scripts/external-review.ps1; they override anything above tha
     if ($idx -lt 0) { return (& $fail 'no header line in its output' "The run's output has no header line '$header'. Output:`n$output") }
     $review = $review.Substring($idx).TrimEnd()
     $lines = $review -split "`r?`n"
+    if ($lines[0].Trim() -ne $header) {
+        # Flattened: the review came back on the header's line (Luna, 2026-09-28, paragraphs
+        # separated by runs of spaces). Accept it when the text after the header starts with a
+        # verdict and ends with the same verdict, and restore the paragraph breaks.
+        $flat = $review.Substring($header.Length).Trim()
+        $verdict = $verdicts | Where-Object { $flat -match "(?i)^$([regex]::Escape($_))(\s|$)" } | Select-Object -First 1
+        if (-not $verdict) { return (& $fail 'no verdict after the header' "The review is on one line and does not start with a verdict. Output:`n$review") }
+        if ($flat -notmatch "(?i)(^|\s)$([regex]::Escape($verdict))\s*$") { return (& $fail 'review cut off' "The one-line review does not end with its verdict ('$verdict'): cut off. Output:`n$review") }
+        $middle = $flat.Substring($verdict.Length)
+        $middle = $middle.Substring(0, $middle.Length - $verdict.Length).Trim()
+        $review = @($header, $verdict, '', (($middle -split ' {2,}') -join "`n`n"), '', $verdict) -join "`n"
+        $lines = $review -split "`n"
+        Write-Host "note: the review arrived on one line; its paragraph breaks were restored."
+    }
     $verdict = if ($lines.Count -gt 1) { $lines[1].Trim().ToLowerInvariant() } else { '' }
     if ($verdicts -notcontains $verdict) { return (& $fail 'no verdict on line 2' "Line 2 is not a verdict ('$verdict'). Output:`n$review") }
     $last = ($lines | Where-Object { $_.Trim() } | Select-Object -Last 1).Trim().ToLowerInvariant()
@@ -255,8 +289,8 @@ try {
     }
 }
 finally {
-    # 5. Clean up.
-    git -C $repo worktree remove --force $worktree 2>$null
+    # 5. Clean up: this invocation's tree only.
+    if ($script:worktreeCreated) { git -C $repo worktree remove --force $worktree 2>$null }
 }
 
 if (-not $result) {
