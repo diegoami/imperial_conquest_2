@@ -6,7 +6,20 @@ A modern, moddable reimplementation of *Imperial Conquest 2* (1996) — the game
 
 ## Current state
 
-**[`v0.1.0`](https://github.com/diegoami/imperial_conquest_2/releases/tag/v0.1.0) — *the rules run*** is the first tag: the confirmed economy, calendar, movement, strength and victory rules are executable and covered by tests, and the text demo below plays on the toy world. There are no battles, capture, recruitment, diplomacy or AI yet ([release-plan.md §2](docs/release-plan.md#2-the-release-ladder)).
+**[`v0.3.0`](https://github.com/diegoami/imperial_conquest_2/releases/tag/v0.3.0) — *Headless playable*** is the latest release. `IC2.Cli` loads a scenario, takes every order type, ends turns, and plays the other seats with the AI. What each release adds is in [release-plan.md §2](docs/release-plan.md#2-the-release-ladder).
+
+- **Play in the terminal.** Pick a scenario and the nation you play, and the AI plays every other seat:
+
+  ```bash
+  dotnet run --project src/IC2.Cli -- --scenario classical-mediterranean --seat rome
+  ```
+
+  - `--scenario <id>` loads a scenario from `data/scenarios/`; without it, the CLI loads `toy-3city`.
+  - `--ruleset <id>` replaces the scenario's ruleset: `classical-faithful` or `improved`.
+  - `--seat <nation>` makes that nation yours, for example `rome` or `carthage`.
+  - `--seed <n>` overrides the scenario's seed.
+
+  An unknown id is rejected with the list of valid ids. Type `help` for the commands.
 
 Progress lives on GitHub, not in this file: each [task issue](https://github.com/diegoami/imperial_conquest_2/issues?q=label%3Atask)'s `status:*` label, and the [pull requests](https://github.com/diegoami/imperial_conquest_2/pulls). What is built and what is next is in the [task catalogue](docs/task-catalogue.md). How to query the board: [operating-guide.md §1](https://github.com/diegoami/imperial_conquest_2/wiki/Where-the-build-stands).
 
@@ -17,7 +30,7 @@ Progress lives on GitHub, not in this file: each [task issue](https://github.com
   dotnet run --project src/IC2.Cli                                          # play it yourself
   ```
 
-  Commands: `status`, `map`, `move <army> <x> <y>`, `buy <army> <city> <tons>`, `end`, `news`, `help`, `quit`. `--seed <n>` overrides the scenario's seed, which drives weather only; everything else is deterministic. What isn't built yet (battles, capture, recruitment, diplomacy, the AI) is simply absent, the AI seat passes with no orders, and `help` says so. T23 later extends this same harness to the full command set; the first graphical screen is T24. What becomes runnable when: [operating-guide.md §1.1](https://github.com/diegoami/imperial_conquest_2/wiki/Where-the-build-stands#what-becomes-runnable-and-when).
+  Commands: `status`, `map`, `move <army> <x> <y>`, `buy <army> <city> <tons>`, `end`, `news`, `help`, `quit`. `--seed <n>` overrides the scenario's seed, which drives weather only; everything else is deterministic. T23 later extends this same harness to the full command set; the first graphical screen is T24. What becomes runnable when: [operating-guide.md §1.1](https://github.com/diegoami/imperial_conquest_2/wiki/Where-the-build-stands#what-becomes-runnable-and-when).
 - **Build and test now**:
   ```bash
   dotnet build IC2.sln   # 0 warnings, 0 errors
