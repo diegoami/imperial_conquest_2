@@ -32,8 +32,9 @@
 .PARAMETER BriefFile
     The filled Appendix A brief.
 .PARAMETER Model
-    mimo-flash-free (default), deepseek-flash (DeepSeek V4.1 Flash at max, index 39, the paid
-    everyday option when the free endpoint is limited), mimo-pro, mimo-flash, glm, or luna.
+    deepseek-flash (default: DeepSeek V4.1 Flash at max, index 39, proven on this repository in
+    #279), mimo-flash-free (index 38, free; the endpoint's limits are unknown), mimo-pro,
+    mimo-flash, glm, or luna.
 .PARAMETER LocalOnly
     Copy assets.local.ini from the main checkout into the worktree.
 .PARAMETER FixturesDir
@@ -42,7 +43,7 @@
 .EXAMPLE
     pwsh scripts/external-implement.ps1 -Task T71 -Slug persistence-hardening -Issue 308 -BriefFile C:\tmp\T71-brief.md
 .EXAMPLE
-    pwsh scripts/external-implement.ps1 -Fix 346 -Slug migration-message -BriefFile C:\tmp\346-brief.md -Model mimo-flash
+    pwsh scripts/external-implement.ps1 -Fix 346 -Slug migration-message -BriefFile C:\tmp\346-brief.md -Model mimo-flash-free
 #>
 [CmdletBinding()]
 param(
@@ -51,7 +52,7 @@ param(
     [Parameter(Mandatory)] [string] $Slug,
     [int] $Issue,
     [Parameter(Mandatory)] [string] $BriefFile,
-    [ValidateSet('mimo-flash-free', 'deepseek-flash', 'mimo-pro', 'mimo-flash', 'glm', 'luna')] [string] $Model = 'mimo-flash-free',
+    [ValidateSet('deepseek-flash', 'mimo-flash-free', 'mimo-pro', 'mimo-flash', 'glm', 'luna')] [string] $Model = 'deepseek-flash',
     [switch] $LocalOnly,
     [string] $FixturesDir
 )
@@ -59,16 +60,17 @@ param(
 $ErrorActionPreference = 'Stop'
 
 # Chosen on 2026-09-28 from the OpenCode Go table and the comparison of the plan's own models:
-# MiMo-V2.6-Flash (index 38, free on this plan) is the default; GLM-5.3 at max effort (up to 45)
-# implements a High-effort entry and is the escalation after a failed rework round; Luna (29-37) is
-# the cheap routine option and never the escalation; MiMo Pro (46, $0.13) becomes the default the
-# day the plan lists it. Confirm the ids with `opencode models` on first use.
+# DeepSeek V4.1 Flash at max effort (index 39, $0.27, the implementer of the #279 rehearsal) is the
+# default; MiMo-V2.6-Flash (38, free endpoint, limits unknown) is the second cheap option; GLM-5.3
+# at max effort (up to 45) implements a High-effort entry and is the escalation after a failed rework
+# round; Luna (29-37) is the cheap routine option and never the escalation; MiMo Pro (46, $0.13)
+# becomes the default the day the plan lists it. Confirm the ids with `opencode models` on first use.
 # On 2026-09-28 the desktop's `opencode models` listed mimo-v2.6-flash-free, glm-5.3 and gpt-6-luna,
 # but neither mimo-v2.6-pro nor mimo-v2.6-flash; those two stay in the table for the day the plan
 # lists them, and mimo-flash-free is the default until then.
 $models = @{
-    'mimo-flash-free' = 'opencode/mimo-v2.6-flash-free'
     'deepseek-flash'  = 'opencode/deepseek-v4.1-flash'
+    'mimo-flash-free' = 'opencode/mimo-v2.6-flash-free'
     'mimo-pro'        = 'opencode/mimo-v2.6-pro'
     'mimo-flash'      = 'opencode/mimo-v2.6-flash'
     'glm'             = 'opencode/glm-5.3'
