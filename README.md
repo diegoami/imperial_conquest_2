@@ -8,7 +8,7 @@ A modern, moddable reimplementation of *Imperial Conquest 2* (1996) — the game
 
 **[`v0.4.0`](https://github.com/diegoami/imperial_conquest_2/releases/tag/v0.4.0) — *Playable with a UI, from source*** is the latest release. The Godot project, run from source, plays a game with the map, the context panel, the news log and the battle-result, diplomacy and hotseat-handoff screens, and saves and resumes it; `IC2.Cli` plays the same engine headless. What each release adds is in [release-plan.md §2](docs/release-plan.md#2-the-release-ladder).
 
-- **Play in Godot, from source**. Install Godot .NET 4.7.2 and the .NET 10 SDK, open `godot/project.godot`, and run the project (its main scene is `res://UI/AppRoot.tscn`). The main menu leads to New Game (the ruleset chooser, then the scenario and its seats), Load and Settings. The main game screen has the map, the context panel, the news log and a Save action, and opens the battle-result, diplomacy and hotseat-handoff screens. It reads the shipped data under `data/`, so it needs none of your original game files.
+- **Play in Godot, from source.** Install Godot .NET 4.7.2 and the .NET 10 SDK, open `godot/project.godot`, and run the project (its main scene is `res://UI/AppRoot.tscn`). The main menu leads to New Game (the ruleset chooser, then the scenario and its seats), Load and Settings. The main game screen has the map, the context panel, the news log and a Save action, and opens the battle-result, diplomacy and hotseat-handoff screens. It reads the shipped data under `data/`, so it needs none of your original game files.
 
 - **Play in the terminal.** Pick a scenario and the nation you play, and the AI plays every other seat:
 
