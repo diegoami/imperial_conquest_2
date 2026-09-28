@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Checks/RulesetFlowCheck.cs" id="1_ruleset_flow"]
+
+[node name="RulesetFlowCheck" type="Node"]
+script = ExtResource("1_ruleset_flow")
