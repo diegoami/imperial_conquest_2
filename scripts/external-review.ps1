@@ -33,7 +33,10 @@
     the ones that failed before it, e.g. "Plan review (Luna; GLM failed: no session in 180 s)".
     Two consecutive attempts failing with the same cause (Get-OpenCodeFailureClass: two startup
     hangs, two idle kills, two cut-off reviews, ...) stop the chain early.
-    If every model fails, the chain stops early, or OpenCode is not
+    The model that implemented the PR never reviews it: -ExcludeModel (or, when that is not given,
+    a model:<name> label on the PR or on -Issue naming an OpenCode model) drops it from the chain,
+    and an explicit -Reviewer naming it is refused with exit 1.
+    If every model fails, the chain stops early, the exclusion leaves no model, or OpenCode is not
     installed, nothing is posted and the script exits 3 ("OpenCode unavailable: ...");
     build-process.md §4.9 says what the main session does then. An explicit -Reviewer runs only
     that model, and exits 3 the same way when it fails.
@@ -72,6 +75,11 @@
     How long the run's session may go without its `updated` time advancing before the run is
     killed (default 600; 0 disables). `updated` advances at each step boundary, not while a tool
     runs or a reply streams, so this must exceed the longest single step of a review.
+.PARAMETER ExcludeModel
+    The model that implemented the PR, as external-implement.ps1 names it on its "implemented by:"
+    line (deepseek-flash, mimo-flash-free, mimo-pro, mimo-flash, glm, luna; or a reviewer name).
+    The reviewer of the same model (deepseek-flash is DeepSeek) is dropped from the chain. Without
+    it, a model:<name> label on the PR or on -Issue is used when one names an OpenCode model.
 .PARAMETER ModelIds
     Overrides of the reviewer -> model id map, e.g. @{ glm = 'opencode/glm-5.4' }, for when
     `opencode models` shows a different id (or, in a test, a bad id to exercise the chain).
@@ -93,6 +101,7 @@ param(
     [int] $StartupTimeoutSec = 180,
     [int] $TotalTimeoutSec = 3600,
     [int] $IdleTimeoutSec = 600,
+    [ValidateSet('deepseek-flash', 'mimo-flash-free', 'mimo-pro', 'mimo-flash', 'glm', 'luna', 'deepseek')] [string] $ExcludeModel,
     [hashtable] $ModelIds
 )
 
@@ -148,6 +157,29 @@ try { $null = Resolve-OpenCodeExe } catch {
     exit 3
 }
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { throw 'gh is not on PATH.' }
+
+# The reviewer's model is never the implementer's (build-process.md §3.4). The implementing model
+# comes from -ExcludeModel, else from a model:<name> label on the PR or its issue that names an
+# OpenCode model (model:opus and model:sonnet name Claude, which is not in this chain). Implementer
+# name -> the reviewer running the same model; the MiMo models have no reviewer here.
+$reviewerOf = @{ 'deepseek-flash' = 'deepseek'; 'deepseek' = 'deepseek'; 'glm' = 'glm'; 'luna' = 'luna' }
+$implementers = if ($ExcludeModel) { @($ExcludeModel) } else {
+    $labels = @(gh pr view $Pr --json labels --jq '.labels[].name' 2>$null)
+    if ($Issue) { $labels += @(gh issue view $Issue --json labels --jq '.labels[].name' 2>$null) }
+    @($labels | Where-Object { $_ -match '^model:(.+)$' } | ForEach-Object { $_.Substring(6) } |
+        Where-Object { $_ -in 'deepseek-flash', 'mimo-flash-free', 'mimo-pro', 'mimo-flash', 'glm', 'luna', 'deepseek' } | Select-Object -Unique)
+}
+$excluded = @($implementers | ForEach-Object { $reviewerOf[$_] } | Where-Object { $_ } | Select-Object -Unique)
+if ($implementers) { Write-Host "implemented by: $($implementers -join ', '); excluded from review: $(if ($excluded) { $excluded -join ', ' } else { 'none' })" }
+if ($Reviewer -ne 'auto' -and $excluded -contains $Reviewer) {
+    [Console]::Error.WriteLine("Refused: -Reviewer $Reviewer is the model that implemented PR #$Pr ($($implementers -join ', ')); the reviewer's model is never the implementer's (build-process.md §3.4). Use -Reviewer auto or another model. Nothing posted.")
+    exit 1
+}
+$chain = @($chain | Where-Object { $excluded -notcontains $_ })
+if (-not $chain) {
+    [Console]::Error.WriteLine("OpenCode unavailable: no reviewer model left after excluding the implementer's ($($implementers -join ', ')). Nothing posted.")
+    exit 3
+}
 
 $headSha = gh pr view $Pr --json headRefOid --jq .headRefOid
 if (-not $headSha) { throw "Could not read PR #$Pr's head." }

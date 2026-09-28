@@ -30,6 +30,8 @@
     startup hangs, two idle kills, ...) stop the chain early. When every model fails, the chain
     stops that way, or OpenCode is not installed, it exits 3 ("OpenCode unavailable: ..."), and the task falls back to the catalogue's Claude model (operating-guide
     §3). An implementer that stops and reports exits 0: it has not failed and is never retried.
+    The last line names the model that ran ("implemented by: <name>"); the review passes it to
+    external-review.ps1 as -ExcludeModel, so the reviewer is never the implementer's model.
     The script never merges, labels or reviews; the main session does those (Appendix C).
 
     Model names -> OpenCode model ids (`opencode models` lists what this machine has). The
@@ -246,6 +248,8 @@ if (-not $implementedBy) {
     exit 3
 }
 if ($failures) { Write-Host "fell back: $($failures -join '; ')" }
+# The reviewer must not be this model: pass it to external-review.ps1 as -ExcludeModel.
+Write-Host "implemented by: $implementedBy ($($models[$implementedBy]))"
 
 # 4. The outcome. The PR is the deliverable; a clean, pushed, detached worktree is the handover.
 git -C $repo fetch -q origin

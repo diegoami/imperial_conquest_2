@@ -119,7 +119,7 @@ Models are chosen per task, in the task's entry, by what an error would cost:
 | A structural task (scaffolding, CLI, UI, data files, docs) | Sonnet / High, or `glm` at max effort through `scripts/external-review.ps1` | human visual review on the Godot screens ([§9](#9-standing-governance-decisions) Q-B) |
 | Fable, and the two tasks merged on Haiku | Sonnet / Medium | — |
 
-Each task's entry names its own pair; the table is the rule the entry applies. An entry may raise the reviewer one tier above its row, and says why. **The reviewer's model is never the implementer's**: an OpenCode implementer is reviewed by a Claude model, or by a different OpenCode model on a structural task, so the different-model rule holds by construction.
+Each task's entry names its own pair; the table is the rule the entry applies. An entry may raise the reviewer one tier above its row, and says why. **The reviewer's model is never the implementer's**: an OpenCode implementer is reviewed by a Claude model, or by a different OpenCode model on a structural task, so the different-model rule holds by construction. `scripts/external-review.ps1 -ExcludeModel <name>` (the name on `external-implement.ps1`'s `implemented by:` line, or a `model:<name>` label on the PR or issue) drops that model from the review chain and refuses it as an explicit `-Reviewer`; when no model is left, the script exits 3 and the cold Claude Opus reviewer takes the review.
 
 ### 3.5 Where the `/code-review` skill fits
 
