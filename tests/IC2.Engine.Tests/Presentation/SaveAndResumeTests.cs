@@ -241,6 +241,84 @@ public sealed class SaveAndResumeTests : IDisposable
         Assert.Equal(string.Concat(fullBlocks[3..]), string.Concat(afterBlocks));
     }
 
+    /// <summary>
+    /// B3 (rework round 1, blocking): the test above uses <c>classical.Scenario</c> unmodified, whose own
+    /// 16 seats are every one AI by default — so it only ever exercises a <em>watch-mode</em> resume, and
+    /// a mutation that reads <c>_isWatchMode</c> from <c>Scenario.Seats</c> instead of the loaded state's
+    /// own <see cref="Model.NationState.Control"/> (exactly the #382 hazard Done-when 4 forbids) passed
+    /// the whole suite regardless (the independent reviewer's own M3b). This is the same byte-for-byte
+    /// proof, seated (<c>--seat rome</c>) this time: under that mutation, the resumed session would
+    /// recompute watch mode from the scenario's own all-AI seat list and stop pausing on rome at all, so
+    /// <c>end</c> would play every AI seat in one call instead of stopping back at rome — a transcript
+    /// that cannot match the uninterrupted, still-seated session's own.
+    /// </summary>
+    [Fact]
+    public void A_seated_game_saved_and_resumed_continues_exactly_as_the_uninterrupted_game_does()
+    {
+        var classical = Classical;
+        var script = new[] { "end", "end", "end", "end", "end", "end" };
+
+        var uninterrupted = new GameSession(
+            classical.World, classical.Ruleset, classical.Scenario, seedOverride: null, humanSeatNationId: "rome");
+        var fullBlocks = RunEach(uninterrupted, script);
+
+        var toSave = new GameSession(
+            classical.World, classical.Ruleset, classical.Scenario, seedOverride: null, humanSeatNationId: "rome");
+        RunEach(toSave, script[..3]);
+
+        var path = PathFor("save-seated-b3.json");
+        var saveOutput = toSave.Submit($"save {path}");
+        Assert.DoesNotContain(saveOutput.Lines, l => l.StartsWith("Could not", StringComparison.Ordinal));
+
+        var save = SaveManager.LoadFile(path, classical.World, classical.Ruleset);
+        var resumed = new GameSession(classical.World, classical.Ruleset, classical.Scenario, save);
+        var afterBlocks = RunEach(resumed, script[3..]);
+
+        Assert.Equal(string.Concat(fullBlocks[3..]), string.Concat(afterBlocks));
+    }
+
+    /// <summary>
+    /// B3's second test: a resumed <c>--seat carthage</c> save whose very first <c>end</c> must match the
+    /// uninterrupted session's own first <c>end</c> — a narrower, more direct pin of the same watch-mode
+    /// hazard than the byte-for-byte test above (M3b's own effect is visible on the very first command).
+    /// Saved before any command is submitted, so both sessions start from an identical, freshly built
+    /// state; if the resumed session recomputed watch mode from the scenario instead of the saved
+    /// <see cref="Model.NationState.Control"/>, its "end" would play every AI seat in one lap (no pause on
+    /// carthage) instead of ending only carthage's own turn and pausing there again.
+    /// </summary>
+    [Fact]
+    public void A_resumed_seat_carthage_save_s_first_end_matches_the_uninterrupted_sessions_first_end()
+    {
+        var classical = Classical;
+
+        // Carthage is not classical-mediterranean's own turn-order seat 0, so --seat carthage's own
+        // construction fast-forwards past every AI seat before it (rome among them) and queues that
+        // narration as a pending prelude, flushed onto the very first Submit call ever made -- whichever
+        // command that happens to be. A plain "status" first consumes that flush harmlessly on both
+        // branches (it does not touch State either way), so the "end" comparison below is not
+        // contaminated by which session happens to be asked its first-ever question, only by whether
+        // "end" itself pauses back on carthage the same way for both.
+        var uninterrupted = new GameSession(
+            classical.World, classical.Ruleset, classical.Scenario, seedOverride: null, humanSeatNationId: "carthage");
+        uninterrupted.Submit("status");
+        var uninterruptedFirstEnd = uninterrupted.Submit("end");
+
+        var toSave = new GameSession(
+            classical.World, classical.Ruleset, classical.Scenario, seedOverride: null, humanSeatNationId: "carthage");
+        toSave.Submit("status");
+        var path = PathFor("save-carthage-b3.json");
+        var saveOutput = toSave.Submit($"save {path}");
+        Assert.DoesNotContain(saveOutput.Lines, l => l.StartsWith("Could not", StringComparison.Ordinal));
+
+        var save = SaveManager.LoadFile(path, classical.World, classical.Ruleset);
+        var resumed = new GameSession(classical.World, classical.Ruleset, classical.Scenario, save);
+        var resumedFirstEnd = resumed.Submit("end");
+
+        Assert.Equal(
+            string.Concat(uninterruptedFirstEnd.Lines.Select(l => l + "\n")),
+            string.Concat(resumedFirstEnd.Lines.Select(l => l + "\n")));
+    }
+
     private static List<string> RunEach(GameSession session, IEnumerable<string> lines)
     {
         var blocks = new List<string>();
