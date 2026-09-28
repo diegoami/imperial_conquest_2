@@ -85,7 +85,12 @@ if (-not (Test-Path $BriefFile)) { throw "Brief not found: $BriefFile" }
 foreach ($tool in 'opencode', 'gh', 'git') { if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) { throw "$tool is not on PATH." } }
 
 $repo = (Resolve-Path (git rev-parse --show-toplevel)).Path
-$workRoot = Join-Path (Split-Path $repo -Parent) 'ic2-work'
+# ic2-work sits beside the MAIN checkout, even when this script runs from a worktree.
+$commonDir = (git -C $repo rev-parse --path-format=absolute --git-common-dir).Trim()
+$mainRoot = Split-Path $commonDir -Parent
+$workRoot = Join-Path (Split-Path $mainRoot -Parent) 'ic2-work'
+$agentFile = Join-Path $repo '.opencode/agents/external-implementer.md'
+if (-not (Test-Path -LiteralPath $agentFile)) { throw "Agent file not found: $agentFile" }
 if ($Task) { $name = $Task; $branch = "task/$Task-$Slug" } else { $name = "fix-$Fix"; $branch = "fix/$Fix-$Slug"; if (-not $Issue) { $Issue = $Fix } }
 $worktree = Join-Path $workRoot $name
 $log = Join-Path $workRoot "$name.implementer.log"
@@ -109,6 +114,19 @@ if ($LocalOnly) {
     Copy-Item $ini (Join-Path $worktree 'assets.local.ini') -Force
 }
 Write-Host "worktree: $worktree on $branch"
+# OpenCode silently falls back to its default, full-permission agent when --agent names one it
+# cannot find, and a branch cut from a main that predates this file does not carry it. Copy the
+# agent into the worktree, and keep the copy out of git so the implementer cannot commit it.
+$agentRel = '.opencode/agents/external-implementer.md'
+if (-not (git -C $worktree ls-files -- $agentRel)) {
+    $agentDir = Join-Path $worktree '.opencode/agents'
+    New-Item -ItemType Directory -Force -Path $agentDir | Out-Null
+    Copy-Item -LiteralPath $agentFile -Destination (Join-Path $agentDir 'external-implementer.md') -Force
+    $exclude = Join-Path $commonDir 'info/exclude'
+    if (-not (Test-Path $exclude) -or -not (Select-String -LiteralPath $exclude -SimpleMatch $agentRel -Quiet)) {
+        Add-Content -LiteralPath $exclude -Value $agentRel
+    }
+}
 
 # 3. The run.
 $brief = Get-Content -Raw -LiteralPath $BriefFile
@@ -124,15 +142,19 @@ RUN RULES (from scripts/external-implement.ps1; they override the brief where th
 "@
 $prompt = $brief + $rules
 if ($FixturesDir) { $env:IC2_FIXTURES_DIR = $FixturesDir }
-$args = @('run', '--dir', $worktree, '--agent', 'external-implementer', '--model', $modelId)
-if ($variant) { $args += @('--variant', $variant) }
+$ocArgs = @('run', '--dir', $worktree, '--agent', 'external-implementer', '--model', $modelId)
+if ($variant) { $ocArgs += @('--variant', $variant) }
+# OpenCode writes UTF-8; decode it as such, or the log and the report arrive as mojibake.
+$prevConsoleEncoding = [Console]::OutputEncoding
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 Push-Location $worktree
 try {
-    $output = (& opencode @args $prompt 2>&1 | Out-String)
-} finally { Pop-Location }
+    $output = (& opencode @ocArgs $prompt 2>&1 | Out-String)
+} finally { Pop-Location; [Console]::OutputEncoding = $prevConsoleEncoding }
 Set-Content -LiteralPath $log -Value $output -Encoding utf8
 Write-Host "run output: $log"
 if ($LASTEXITCODE -ne 0) { Write-Warning "opencode exited with $LASTEXITCODE" }
+if ($output -match 'Falling back to default agent') { Write-Error "OpenCode did not load the external-implementer agent (it fell back to its default, full-permission agent). Check the PR it may have opened by hand. Log: $log"; exit 1 }
 
 # 4. The outcome. The PR is the deliverable; a clean, pushed, detached worktree is the handover.
 git -C $repo fetch -q origin
