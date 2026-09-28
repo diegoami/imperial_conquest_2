@@ -153,15 +153,19 @@ public sealed class SaveAndResumeTests : IDisposable
     {
         var follow = new[] { "end", "status" };
 
-        // One shared "end" runs identically in both branches before either saves or diverges: a session's
-        // very first "end" ever shows every news entry back to construction, not just that round's own
-        // (T87's own _pendingNewsBaseline convention: "news written during the prelude must appear in the
-        // first end's summary") -- a real but unrelated quirk of "was this the first end", not of save and
-        // resume. Every other byte-for-byte test in this file (Done-when 3, B3) only ever saves after at
-        // least one "end" has already consumed that baseline; this one battles and answers a peace treaty
-        // before its own first "end", so it is given the same one here, in both branches, before the save
-        // point -- keeping the comparison about B1's own claim (save/resume around a peace answer), not
-        // about which side happens to still be showing prelude-era news.
+        // One shared "end" runs identically in both branches before either saves or diverges. This steps
+        // around a REAL, documented resume gap (rework round 2, R2-B1; the user's decision on #469,
+        // 2026-09-28, accepted as a gap rather than fixed -- see GameSession.ResumeFrom's own remarks and
+        // follow-up #487 item 1): a save made before the saving session's own first "end" loses
+        // GameSession's _pendingNewsBaseline (T87 N4's pre-seat news snapshot, restored to null by
+        // ResumeFrom rather than persisted -- nothing in SaveGame records it), so a RESUMED session's own
+        // first "end" shows only that round's own news, where the UNINTERRUPTED session's first "end"
+        // would also have shown the pre-seat AI turns' news bundled in. Running one "end" here, identically
+        // in both branches, before either saves or diverges, consumes that baseline on both sides while
+        // they are still guaranteed identical -- so the save happens strictly after the gap could bite,
+        // and this test is free to prove what it actually sets out to prove (B1's own claim: save refuses
+        // while an offer is pending, succeeds once answered, and the resumed game then continues exactly
+        // like the uninterrupted one) without also tripping over R2-B1's separate, accepted gap.
         var uninterrupted = OfferFixture();
         uninterrupted.Submit("attack-army north-army-1 south-army-1");
         uninterrupted.Submit("peace-yes");
@@ -293,11 +297,22 @@ public sealed class SaveAndResumeTests : IDisposable
 
         // Carthage is not classical-mediterranean's own turn-order seat 0, so --seat carthage's own
         // construction fast-forwards past every AI seat before it (rome among them) and queues that
-        // narration as a pending prelude, flushed onto the very first Submit call ever made -- whichever
-        // command that happens to be. A plain "status" first consumes that flush harmlessly on both
-        // branches (it does not touch State either way), so the "end" comparison below is not
-        // contaminated by which session happens to be asked its first-ever question, only by whether
-        // "end" itself pauses back on carthage the same way for both.
+        // narration as a pending PRELUDE (GameSession._pendingPrelude, the fast-forward's own printed
+        // lines), flushed onto the very first Submit call ever made -- whichever command that happens to
+        // be. A plain "status" first consumes that flush harmlessly on both branches (it does not touch
+        // State either way), so the "end" comparison below is not contaminated by which session happens to
+        // be asked its first-ever question, only by whether "end" itself pauses back on carthage the same
+        // way for both.
+        //
+        // This is a DIFFERENT quirk from R2-B1 (rework round 2; the user's decision on #469, accepted as a
+        // documented gap -- see GameSession.ResumeFrom's own remarks and follow-up #487 item 1): R2-B1 is
+        // about _pendingNewsBaseline, the NEWS LOG's own pre-seat snapshot, which a resumed session never
+        // gets back, so a resumed session's own first "end" can show fewer News lines than the
+        // uninterrupted one's first "end" would have. This test does not trip over that gap: the
+        // independent reviewer's own probe found carthage is one of the three classical seats (with rome
+        // and seleucid) whose own pre-seat AI turns produce zero prelude news, so there is nothing for
+        // _pendingNewsBaseline's loss to omit here. A seat that does produce pre-seat news (for example
+        // ptolemaic) would need the same accepted-gap workaround B1's own test above uses, not this one's.
         var uninterrupted = new GameSession(
             classical.World, classical.Ruleset, classical.Scenario, seedOverride: null, humanSeatNationId: "carthage");
         uninterrupted.Submit("status");
@@ -418,6 +433,33 @@ public sealed class SaveAndResumeTests : IDisposable
         Assert.NotEqual(firstSeat, secondSeat);
         Assert.Equal(SeatControl.Human, resumed.State.NationById(secondSeat)!.Control);
         Assert.False(afterEnd.ShouldExit);
+    }
+
+    /// <summary>
+    /// N1's cheapest pin (round 2, R2-N1, non-blocking; <c>GameSession.ResumeFrom</c>'s own remarks,
+    /// case 1): <c>toy-3city</c> with no <c>--seat</c> is a plain, scenario-driven hotseat session with
+    /// exactly one human seat ("north") — <c>_humanSeatNationId</c> stays <see langword="null"/>
+    /// uninterrupted, so <c>help</c> does not list the compact-view lines (gated on
+    /// <c>_humanSeatNationId is not null || _isWatchMode</c>). A save resumed from it cannot tell that
+    /// apart from a <c>--seat</c> session, so <c>_humanSeatNationId</c> is set and <c>help</c> gains those
+    /// lines it never had before.
+    /// </summary>
+    [Fact]
+    public void A_resumed_toy_scenario_session_with_no_seat_gains_the_seat_style_help_lines()
+    {
+        var toy = Toy;
+        var session = new GameSession(toy.World, toy.Ruleset, toy.Scenario);
+        var uninterruptedHelp = session.Submit("help");
+        Assert.DoesNotContain(uninterruptedHelp.Lines, l => l.Contains("status mine", StringComparison.Ordinal));
+
+        var path = PathFor("n1-toy-no-seat.json");
+        session.Submit($"save {path}");
+
+        var save = SaveManager.LoadFile(path, toy.World, toy.Ruleset);
+        var resumed = new GameSession(toy.World, toy.Ruleset, toy.Scenario, save);
+        var resumedHelp = resumed.Submit("help");
+
+        Assert.Contains(resumedHelp.Lines, l => l.Contains("status mine", StringComparison.Ordinal));
     }
 
     // ---- Done-when 5: errors ----

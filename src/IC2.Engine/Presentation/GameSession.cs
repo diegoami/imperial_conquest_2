@@ -537,6 +537,33 @@ public sealed partial class GameSession
     /// prelude field is simply cleared.
     /// </para>
     /// <para>
+    /// <strong>Documented gap — rework round 2, R2-B1 (the user's decision on
+    /// <see href="https://github.com/diegoami/imperial_conquest_2/issues/469">#469</see>, 2026-09-28):
+    /// a save made before the saving session's own first <c>end</c> resumes with a different first
+    /// <c>end</c> footer.</strong> <see cref="_pendingNewsBaseline"/> is cleared here rather than
+    /// restored, same as <see cref="_pendingPrelude"/> just above — but unlike the prelude's own
+    /// narration (which the <em>saving</em> session already flushed on its own first <see cref="Submit"/>
+    /// call, whichever command that was, so it is never lost), the baseline itself is what T87 N4's
+    /// <see cref="HandleEndSeated"/> reads for its own <em>first-ever</em> call's "News:" section — the
+    /// pre-seat AI turns' own news, snapshotted at construction, shown bundled into whichever <c>end</c>
+    /// happens to be the human's first. A save taken before that first <c>end</c> has no such snapshot to
+    /// give a resumed session (nothing in <see cref="Model.SaveGame"/> records it), so the resumed
+    /// session's own first <c>end</c> shows only that round's own news, while the uninterrupted session's
+    /// first <c>end</c> would have shown the pre-seat news too — the independent reviewer's own probe: 13
+    /// of classical-mediterranean's 16 <c>--seat</c> choices lose 4–5 News lines this way, including a
+    /// player's own city falling. <strong>Not a state divergence</strong>: <see cref="State"/> is
+    /// identical either way, every <c>end</c> from the second one on matches, and every entry is still in
+    /// <see cref="Model.GameState.NewsLog"/> — the <c>news</c> command shows them regardless. No in-Owns
+    /// fix is clean (nothing in a save records whether the baseline was already consumed, and a heuristic
+    /// keyed on the turn index is wrong for a hotseat game saved on a later human's own first turn), so
+    /// this is accepted as a documented gap rather than fixed — see
+    /// <see href="https://github.com/diegoami/imperial_conquest_2/issues/487">#487</see> (item 1) for the
+    /// follow-up, and <see href="https://github.com/diegoami/imperial_conquest_2/issues/486">#486</see>
+    /// for the pre-existing T87 inconsistency (the same baseline is also never restored for a session's
+    /// own <em>later</em> commands issued before its first <c>end</c>, uninterrupted or not) that produces
+    /// the toy-world half of this same symptom.
+    /// </para>
+    /// <para>
     /// <strong>Not restored, and now refused rather than silently dropped — rework round 1, B1 (the
     /// user's decision, 2026-09-28).</strong> <see cref="_pendingPeaceTreatyOffers"/> has no counterpart
     /// anywhere in <see cref="Model.SaveGame"/> or <see cref="Model.GameState"/> (only
@@ -552,10 +579,12 @@ public sealed partial class GameSession
     /// this field's own loss would corrupt.
     /// </para>
     /// <para>
-    /// <strong>N1 (rework round 1, non-blocking): the seat mode is not fully recoverable from
-    /// <see cref="Model.NationState.Control"/> alone, so some sessions resume in a different <em>mode</em>
-    /// than they ran in — proved by the independent reviewer's own probes, not fixed (no in-Owns fix is
-    /// clean; a follow-up is filed separately).</strong> Three cases:
+    /// <strong>N1 (rework round 1, non-blocking; round 2, R2-N1): the seat mode is not fully recoverable
+    /// from <see cref="Model.NationState.Control"/> alone, so some sessions resume in a different
+    /// <em>mode</em> than they ran in — proved by the independent reviewer's own probes, not fixed (no
+    /// in-Owns fix is clean; the follow-up is
+    /// <see href="https://github.com/diegoami/imperial_conquest_2/issues/487">#487</see>, item 2).</strong>
+    /// Three cases:
     /// </para>
     /// <list type="number">
     /// <item><description>
