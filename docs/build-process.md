@@ -272,7 +272,7 @@ Everything else keeps its issue open, loses `triage:needed`, and gains the label
 
 ### 4.9 Plan PRs: two tiers
 
-A plan PR is any PR that changes `docs/tasks/**`, `task-catalogue.md`, `release-plan.md` or a process document (this one, `operating-guide.md`, `CLAUDE.md`). Two tiers, decided by the user on 2026-09-28. The tier decides who merges, wherever the PR was opened ([§8](#8-two-machines)).
+A plan PR is any PR that changes `docs/tasks/**`, `task-catalogue.md`, `release-plan.md` or a process document (this one, `operating-guide.md`, `CLAUDE.md`). A PR that is neither a task's nor a fix's (a workflow, a script, a tooling change) is merged as a contract-tier plan PR. Two tiers, decided by the user on 2026-09-28. The tier decides who merges, wherever the PR was opened ([§8](#8-two-machines)).
 
 - **Routine tier: the main session merges it after green CI and reports it in its next message to the user.** A plan PR is routine when **every** change in it is one of:
   - a fold of a bug or follow-up into a task at `status:blocked` ([§4.6](#46-bugs-and-follow-ups) step 3) that adds Done-when lines, and Owns paths no other open task's entry names, and changes no existing Scope, Done-when or dependency line;
@@ -282,7 +282,9 @@ A plan PR is any PR that changes `docs/tasks/**`, `task-catalogue.md`, `release-
   - bookkeeping: the catalogue's stub, the index row, and graph edges to tasks already merged. A graph edge to an unmerged task is a dependency, and contract.
 
   The title starts `Plan (routine):`. A fold adds Done-when lines, so this tier is the one place a DoD changes without a fresh decision by the user ([§4.3](#43-the-dod-is-not-negotiable-by-an-agent)): the decision is this tier, made once. A routine-tier PR is merged by the session that opened it, on either machine.
-- **Contract tier: the user reviews and merges.** Everything else: a new task; a change to an existing Done-when line's assertion, or its removal; a Scope change; a merge-after dependency on an unmerged task; a change to `release-plan.md`'s gates; any edit to this document, `operating-guide.md` or `CLAUDE.md`; and any routine-tier change the main session is unsure about. The title starts `Plan:`.
+- **Contract tier: a cross-session review merges it.** Everything else: a new task; a change to an existing Done-when line's assertion, or its removal; a Scope change; a merge-after dependency on an unmerged task; a change to `release-plan.md`'s gates; any edit to this document, `operating-guide.md` or `CLAUDE.md`; and any routine-tier change the main session is unsure about. The title starts `Plan:`.
+
+  **How a contract-tier PR merges** (the user's decision of 2026-09-28). The session that opened it never reviews it. A different session reviews it (the desktop's main session for a PR the cloud session opened, and the reverse; or the external reviewer), and posts one comment whose second line is the verdict. On **approve**, the opener merges after green CI. On **approve after named fixes**, the opener applies them, replies with one comment mapping each finding to its change, and the reviewer answers that reply with one line confirming them; then the opener merges. The user reads the merge in the opener's next report, and a revert is one contract-tier PR. **The user merges only when the verdict says `user decision`**: a design question, a release gate, a `[designed]` value, a change to Q-A to Q-G, or something the reviewer cannot verify. A reviewer that would need the user for part of a PR says so in the verdict, and the whole PR waits.
 
 A routine PR the user later disagrees with is reverted by a contract-tier PR. That is the tier's cost, and cheaper than the wait it replaces (incident 12).
 
@@ -437,7 +439,8 @@ force-pushes.
   a contract finding its own review raised. Anything else goes through the primary: other tasks'
   entries, new tasks, the catalogue index, the process documents and triage. Whoever opened it,
   [§4.9](#49-plan-prs-two-tiers)'s tier decides who reviews and merges a plan PR: the session that opened a
-  routine-tier PR merges it; the user merges a contract-tier PR.
+  routine-tier PR merges it; a contract-tier PR merges on another session's approval, and waits for the
+  user only when that review says so.
 - **CI is the authority on test results.** A reviewer's local run adds the `local-only` subset that CI
   cannot run.
 
@@ -481,7 +484,7 @@ Decided by the user; in force until changed.
   - Q1 follow-up → T16's `combat.onDefeat`;
   - Q10 → no change to `combat.onDefeat`.
 - **Q-E, non-blocking review findings.** At each merge that has any, the main session files one `T<nn> follow-up` issue, and folds each item into the next task that touches those files ([§4.6](#46-bugs-and-follow-ups)).
-- **Q-F, plan PR tiers** (2026-09-28). The routine tier of [§4.9](#49-plan-prs-two-tiers) merges on the main session's authority after green CI; the contract tier waits for the user.
+- **Q-F, plan PR tiers** (2026-09-28). The routine tier of [§4.9](#49-plan-prs-two-tiers) merges on the opener's authority after green CI. The contract tier merges on a cross-session review's approval, and waits for the user only when the verdict says `user decision`.
 - **Q-G, the fix lane** (2026-09-28). A bug labelled `fix` runs without a catalogue entry under [§4.10](#410-the-fix-lane), and merges under Q-A.
 
 ---
