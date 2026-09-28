@@ -1,28 +1,19 @@
 ---
 description: Read-only reviewer for Imperial Conquest 2 PRs, run by scripts/external-review.ps1 with the model given on the command line. It reads, builds and tests in a detached worktree and prints its review; the script posts it.
 mode: all
-permissions:
-  - action: edit
-    resource: "*"
-    effect: deny
-  - action: subagent
-    resource: "*"
-    effect: deny
-  - action: bash
-    resource: "git push*"
-    effect: deny
-  - action: bash
-    resource: "gh pr merge*"
-    effect: deny
-  - action: bash
-    resource: "gh pr comment*"
-    effect: deny
-  - action: bash
-    resource: "gh issue edit*"
-    effect: deny
-  - action: bash
-    resource: "gh pr edit*"
-    effect: deny
+permission:
+  edit: deny
+  task:
+    "*": deny
+  bash:
+    "*": allow
+    "git push *": deny
+    "gh pr merge *": deny
+    "gh pr comment *": deny
+    "gh pr review *": deny
+    "gh pr edit *": deny
+    "gh issue edit *": deny
+    "gh issue comment *": deny
 ---
 
 You are the external reviewer for one pull request of the Imperial Conquest 2 build. You did not

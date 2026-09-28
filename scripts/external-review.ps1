@@ -20,9 +20,10 @@
     commands, and this script is the only writer. A cut-off review (the 2026-09-25 #370 case)
     therefore cannot reach the PR: the run is reported as incomplete and nothing is posted.
 
-    Reviewer -> OpenCode model id. Verify the ids against `opencode models` on this machine
-    before the first run; they are the ones the 2026-09-22 rehearsal (PR #279) used, updated
-    for the 2026-09-25 switch to GPT-6 Luna.
+    Reviewer -> OpenCode model id, from the Zen model list (`opencode/gpt-6-luna`,
+    `opencode/deepseek-v4.1-flash`); `opencode models opencode` shows what this machine has.
+    OpenCode reads CLAUDE.md as its instructions file when no AGENTS.md exists; that is
+    harmless here (the reviewer gets the token-economy rules) and no AGENTS.md is added.
 
 .PARAMETER Pr
     The pull request number.
@@ -61,11 +62,15 @@ $ErrorActionPreference = 'Stop'
 
 # Reviewer name -> OpenCode model id. Edit here if `opencode models` shows a different id.
 $models = @{
-    luna     = 'opencode/gpt-6-luna#high'
+    luna     = 'opencode/gpt-6-luna'
     deepseek = 'opencode/deepseek-v4.1-flash'
 }
+# Provider-specific variant, passed as `--variant` (the docs' flag; a `#variant` suffix on the model
+# id is not documented). Empty means none.
+$variants = @{ luna = 'high'; deepseek = '' }
 $displayNames = @{ luna = 'Luna'; deepseek = 'DeepSeek' }
 $model = $models[$Reviewer]
+$variant = $variants[$Reviewer]
 
 function Get-RepoRoot {
     $root = git rev-parse --show-toplevel 2>$null
@@ -109,14 +114,18 @@ OUTPUT RULES (from scripts/external-review.ps1; they override anything above tha
 $prompt = $brief + $rules
 
 try {
-    # 2. Run OpenCode in the worktree. `opencode run` is non-interactive: it prints the final
-    #    message and exits. If this machine's OpenCode names these flags differently, this is the
-    #    one line to fix (see `opencode run --help`).
+    # 2. Run OpenCode in the worktree. `opencode run [message..]` is non-interactive; `--dir` sets
+    #    the directory it runs in, `--agent` and `--model provider/model` are the documented flags,
+    #    and `--variant` carries the provider-specific variant. What `run` prints on stdout is not
+    #    documented beyond "formatted", so step 3 looks for the header line rather than assuming the
+    #    output is the final message alone.
     if ($FixturesDir) { $env:IC2_FIXTURES_DIR = $FixturesDir }
     $started = (Get-Date).ToUniversalTime().ToString('o')
     Push-Location $worktree
     try {
-        $review = (& opencode run --agent external-reviewer --model $model $prompt 2>&1 | Out-String)
+        $args = @('run', '--dir', $worktree, '--agent', 'external-reviewer', '--model', $model)
+        if ($variant) { $args += @('--variant', $variant) }
+        $review = (& opencode @args $prompt 2>&1 | Out-String)
     } finally { Pop-Location }
     if ($LASTEXITCODE -ne 0) { throw "opencode exited with $LASTEXITCODE`n$review" }
 
