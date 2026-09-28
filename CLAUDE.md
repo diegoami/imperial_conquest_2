@@ -81,4 +81,6 @@ Agreed on [#264](https://github.com/diegoami/imperial_conquest_2/issues/264), wh
 
 ## Until v0.4.0
 
-17. **Play first.** Until v0.4.0 is tagged, a ready `lane:ui` task is taken before any engine task, and only defects that break play become tasks or folds; everything else is labelled `post-v0.4.0` ([build-process.md §4.8](docs/build-process.md#48-the-playability-gate-until-v040), [§8](docs/build-process.md#8-two-machines)).
+This section is deleted in the v0.4.0 release docs pass ([release-plan.md §5](docs/release-plan.md#5-release-checklist)).
+
+17. **Play first.** Until v0.4.0 is tagged, the next ready task of the UI chain (T24, then T25, then T27) is taken before any engine task, and only defects that break play become tasks or folds; everything else is labelled `post-v0.4.0` ([build-process.md §4.8](docs/build-process.md#48-the-playability-gate-until-v040), [§8](docs/build-process.md#8-two-machines)).

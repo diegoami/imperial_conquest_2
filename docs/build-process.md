@@ -43,7 +43,7 @@ This document changes **no design decision**. Every rule, constant and Done-when
 
 Every system is written against these interfaces and registers itself, so no two tasks edit a shared wiring file.
 
-**2.2 Declared file ownership.** Every task has an **Owns** list of paths. An implementer may only create or modify files inside its Owns list plus its own tests; anything else is a review failure. A defect found in another task's files goes through the bug list ([§4.6](#46-bugs-and-follow-ups)), never an inline patch.
+**2.2 Declared file ownership.** Every task has an **Owns** list of paths. An implementer may only create or modify files inside its Owns list plus its own tests and the other files [§4.2](#42-what-the-reviewer-checks) gate 4 treats as implicitly owned; anything else is a review failure. A defect found in another task's files goes through the bug list ([§4.6](#46-bugs-and-follow-ups)), never an inline patch.
 
 **2.3 No shared registry files.** Three kinds of file would otherwise be edited by nearly every task:
 - **`IC2.sln`**: T01 pre-declared every project the backlog needs, so no later task edits the solution.
@@ -253,9 +253,10 @@ Everything else merges without the user, subject to [§9](#9-standing-governance
 
 In the same turn as the merge, the main session:
 
-1. **Unblocks.** Every `status:blocked` task whose merge-after dependencies are now all merged, and which isn't suspended on an open bug, becomes `status:ready`. **Until v0.4.0 is tagged, the next task is a ready `lane:ui` task if there is one** (T24, then T25, then T27), taken before any engine task, on whichever machine is running ([§8](#8-two-machines)).
+1. **Unblocks.** Every `status:blocked` task whose merge-after dependencies are now all merged, and which isn't suspended on an open bug, becomes `status:ready`. **Until v0.4.0 is tagged, the next task is the next ready task of the UI chain, T24, then T25, then T27**, taken before any engine task, on whichever machine is running ([§8](#8-two-machines)). The rule names the chain, not the label: a `lane:ui` task labelled `post-v0.4.0`, such as T51, is not part of it.
 2. **Files the follow-up** ([§4.6](#46-bugs-and-follow-ups)), if the review had non-blocking findings, and proposes where each item folds.
-3. **Records the PR's "Docs affected" list**, and applies only what would otherwise leave a document **factually wrong**: a formula the code now implements differently, an `[open]` item the merge closed, a mis-attributed citation. Those go straight to `main` in a small `Docs:` commit, because a wrong provenance claim is what the review gates exist to catch. **Everything else waits for the release docs pass** ([release-plan.md §5](release-plan.md#5-release-checklist)): re-wording, counts, narrative and anything about where the build stands. Per-merge prose syncing was retired on 2026-09-18 — it was the step that kept drifting anyway, and the living pages now live in the [wiki](https://github.com/diegoami/imperial_conquest_2/wiki) where they carry no contractual force.
+3. **Makes any Owns widening durable.** A widening recorded by an issue comment ([§4.2](#42-what-the-reviewer-checks) gate 4) is added to the task's entry, `docs/tasks/T<nn>.md`, in this step's `Docs:` commit, so a later disjointness check ([§8](#8-two-machines)) reads the entry, not a comment.
+   **Records the PR's "Docs affected" list**, and applies only what would otherwise leave a document **factually wrong**: a formula the code now implements differently, an `[open]` item the merge closed, a mis-attributed citation. Those go straight to `main` in a small `Docs:` commit, because a wrong provenance claim is what the review gates exist to catch. **Everything else waits for the release docs pass** ([release-plan.md §5](release-plan.md#5-release-checklist)): re-wording, counts, narrative and anything about where the build stands. Per-merge prose syncing was retired on 2026-09-18 — it was the step that kept drifting anyway, and the living pages now live in the [wiki](https://github.com/diegoami/imperial_conquest_2/wiki) where they carry no contractual force.
 4. **Cleans up** the agents' worktrees for the task.
 5. **Reports to the user**: the merge commit, what the review found, the follow-ups filed, and what is ready next.
 
@@ -268,7 +269,7 @@ Adopted 2026-09-28 by the user's decision, to reach v0.4.0, the playable Godot U
 - a save that will not load;
 - an order that can never succeed.
 
-Everything else keeps its issue open, loses `triage:needed`, and gains the label `post-v0.4.0`. Evidence findings outside that class are recorded in the research repository and labelled the same way. No catalogue entry is written for them until the tag. After the tag, the `post-v0.4.0` issues are triaged under [§4.6](#46-bugs-and-follow-ups) as usual.
+Everything else keeps its issue open, loses `triage:needed`, and gains the label `post-v0.4.0`. Evidence findings outside that class are recorded in the research repository, with an issue here labelled `post-v0.4.0` that points at the report. No catalogue entry is written for them until the tag. After the tag, the `post-v0.4.0` issues are triaged under [§4.6](#46-bugs-and-follow-ups) as usual.
 
 ---
 
@@ -387,14 +388,17 @@ that can run it.
 **What may run at once.** Each machine runs **one task at a time** (§7). Two tasks on two machines may
 be in flight together only when:
 - their Owns lists are disjoint, counting the §2.3 shared files (the CLI goldens, the
-  `scenario-authoring.md` field reference) as overlapping if both might touch them;
+  `scenario-authoring.md` field reference) as overlapping if both might touch them. Each task's Owns
+  includes its implicitly owned files ([§4.2](#42-what-the-reviewer-checks) gate 4: the tests of its
+  Owns files, their fixtures and goldens, and their `<Compile Include>` lines) and any widening recorded
+  on its issue;
 - neither task's entry says it is "never in flight with" the other;
 - neither redefines an engine seam (§7).
 
 When both PRs touch a shared file anyway, the second to merge brings `main` in and re-runs CI. It never
 force-pushes.
 
-**Which task next, until v0.4.0** (the user's decision of 2026-09-28). When a main session looks for its next task, it takes a ready `lane:ui` task (T24, then T25, then T27) before any engine task, on whichever machine is running. No machine is bound to the UI lane. `single-instance` still means only one Godot task is in flight, so a second machine that comes online while a `lane:ui` task runs takes engine tasks. A `lane:ui` task is never left at `status:ready` while a machine dispatches an engine task, unless the user says so on the issue.
+**Which task next, until v0.4.0** (the user's decision of 2026-09-28). When a main session looks for its next task, it takes the next ready task of the UI chain, **T24, then T25, then T27**, before any engine task, on whichever machine is running. The rule names the chain, not the `lane:ui` label: a `lane:ui` task labelled `post-v0.4.0`, such as T51, is not part of it. No machine is bound to the UI lane. `single-instance` still means only one Godot task is in flight, so a second machine that comes online while a chain task runs takes engine tasks. A chain task is never left at `status:ready` while a machine dispatches an engine task, unless the user says so on the issue.
 
 **Who does what.**
 - **Each machine merges only the PRs of tasks it claimed**, after its own review and green CI (§4),
