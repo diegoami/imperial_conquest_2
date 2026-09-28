@@ -55,6 +55,16 @@
       for IC2.Data/IC2.Inspect.
     -->
     <Compile Include="../../godot/Assets/AssetKeyResolver.cs" Link="Assets/AssetKeyResolver.cs" />
+
+    <!--
+      T24 (tests/IC2.Engine.Tests/Ui/**): the same seam the AssetKeyResolver link above already
+      established. RulesetPresets.cs and NewGameSelection.cs (which also carries GameSessionFactory
+      and SeatOption) have no `using Godot` anywhere — both are exercised here by plain xunit tests
+      rather than only by the headless Godot checks under godot/Checks/**, which CI cannot run (no
+      Godot SDK). Never a second, hand-maintained copy of either file.
+    -->
+    <Compile Include="../../godot/UI/RulesetPresets.cs" Link="Ui/RulesetPresets.cs" />
+    <Compile Include="../../godot/UI/NewGameSelection.cs" Link="Ui/NewGameSelection.cs" />
   </ItemGroup>
 
 </Project>
