@@ -33,6 +33,8 @@ Commands:
   buy-fleet-supply <fleet> <city> <tons> - buy supply for a fleet at a city
   fleet-transfer <from-fleet> <to-fleet> <ships> <supply-tons> <money> - transfer resources between two of your own fleets
   end - end your turn
+  save <path> - save the current game to a file
+  load <path> - load a game from a file, replacing the current one
   news - show the news log
   help - show this help
   quit - exit

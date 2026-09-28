@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Checks/SaveResumeScreenshotTour.cs" id="1_save_resume_screenshot_tour"]
+
+[node name="SaveResumeScreenshotTour" type="Control"]
+script = ExtResource("1_save_resume_screenshot_tour")
