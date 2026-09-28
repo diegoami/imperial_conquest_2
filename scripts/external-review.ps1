@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Hands one pull request to the local OpenCode install for an external review (DeepSeek or Luna),
+    Hands one pull request to the local OpenCode install for an external review (GLM, Luna or DeepSeek),
     and posts the result as the one PR comment build-process.md §4.9 expects.
 
 .DESCRIPTION
@@ -28,7 +28,7 @@
 .PARAMETER Pr
     The pull request number.
 .PARAMETER Reviewer
-    luna or deepseek.
+    glm (default: GLM-5.3 at max effort, the strongest of the three), luna, or deepseek.
 .PARAMETER BriefFile
     The filled reviewer brief. Its first line must be the review header the model is to print,
     for example "Plan review (Luna)" or "T94 review (DeepSeek)".
@@ -50,7 +50,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)] [int] $Pr,
-    [Parameter(Mandatory)] [ValidateSet('luna', 'deepseek')] [string] $Reviewer,
+    [ValidateSet('glm', 'luna', 'deepseek')] [string] $Reviewer = 'glm',
     [Parameter(Mandatory)] [string] $BriefFile,
     [int] $Issue,
     [switch] $ApplyLabel,
@@ -61,14 +61,18 @@ param(
 $ErrorActionPreference = 'Stop'
 
 # Reviewer name -> OpenCode model id. Edit here if `opencode models` shows a different id.
+# From the 2026-09-28 comparison of the models this OpenCode plan lists: glm-5.3 at max effort
+# (index up to 45) is the review model; gpt-6-luna (29-37) is the cheap routine model and a
+# second opinion; deepseek stays for a third. `opencode models` lists what this machine has.
 $models = @{
+    glm      = 'opencode/glm-5.3'
     luna     = 'opencode/gpt-6-luna'
     deepseek = 'opencode/deepseek-v4.1-flash'
 }
 # Provider-specific variant, passed as `--variant` (the docs' flag; a `#variant` suffix on the model
 # id is not documented). Empty means none.
-$variants = @{ luna = 'high'; deepseek = '' }
-$displayNames = @{ luna = 'Luna'; deepseek = 'DeepSeek' }
+$variants = @{ glm = 'max'; luna = 'high'; deepseek = '' }
+$displayNames = @{ glm = 'GLM'; luna = 'Luna'; deepseek = 'DeepSeek' }
 $model = $models[$Reviewer]
 $variant = $variants[$Reviewer]
 
