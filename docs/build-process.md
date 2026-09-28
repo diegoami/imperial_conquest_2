@@ -111,7 +111,7 @@ Models are chosen per task, in the task's entry, by what an error would cost:
 
 | Implementer | Reviewer | Plus |
 | --- | --- | --- |
-| Opus, on an architecture task (T02, T03, T16, T22) | Opus / High | `/code-review --effort ultra` ([§3.5](#35-where-the-code-review-skill-fits)) |
+| Opus, on an architecture task (T02, T03, T16, T22) | Opus / High | `/code-review --effort ultra` ([§3.5](#35-where-the-code-review-skill-fits)), and the external reviewer (`scripts/external-review.ps1`) as the different model |
 | Sonnet, on a fidelity-critical task (a rule's constants or integer semantics) | **Opus / Medium** | — |
 | Sonnet, widening the shared domain model | **Opus / High** | — |
 | Opus, on a correction whose evidence is still open when its entry is written | **Sonnet / High**, a different model; or the pair the entry names, with its reason | — |
