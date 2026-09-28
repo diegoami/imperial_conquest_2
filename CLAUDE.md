@@ -76,11 +76,3 @@ Agreed on [#264](https://github.com/diegoami/imperial_conquest_2/issues/264), wh
     replay cost while keeping the reasoning, and a forced restart discards the half worth keeping.
     Any handoff names **issue numbers and labels only**; a prose summary of where the build stands is
     the status snapshot rule 3 forbids.
-
----
-
-## Until v0.4.0
-
-This section is deleted in the v0.4.0 release docs pass ([release-plan.md §5](docs/release-plan.md#5-release-checklist)).
-
-17. **Play first.** Until v0.4.0 is tagged, the next ready task of the UI chain (T24, then T25, then T27) is taken before any engine task, and only defects that break play become tasks or folds; everything else is labelled `post-v0.4.0` ([build-process.md §4.8](docs/build-process.md#48-the-playability-gate-until-v040), [§8](docs/build-process.md#8-two-machines)).
