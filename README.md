@@ -4,55 +4,73 @@ A modern, moddable reimplementation of *Imperial Conquest 2* (1996) — the game
 
 **The reverse-engineering research lives in a separate repository: [diegoami/imperial-conquest-2-research](https://github.com/diegoami/imperial-conquest-2-research)** — save/DAT format writeups, decompiled formulas, evidence-based reports. This repo cites those reports directly.
 
+## Quick start
+
+### 1. Install
+
+- The **.NET 10 SDK**.
+- **Godot 4.7.2, .NET edition**: the download named `Godot_v4.7.2-stable_mono_win64.zip`, not the standard build, which cannot run C#. Unzip it anywhere. It contains two executables: `Godot_v4.7.2-stable_mono_win64.exe` and `..._console.exe`. Use the `_console` one from a terminal, because it prints errors there.
+
+No original game files are needed to build, test or play: the game reads the shipped data under `data/`.
+
+### 2. Build everything
+
+From the repository root:
+
+```bash
+dotnet build IC2.sln                        # the engine, data parsers, CLI, inspector and tests
+dotnet build godot/IC2.MapViewer.csproj     # the Godot game UI: NOT part of IC2.sln, so build it separately
+```
+
+Build both. `IC2.sln` deliberately leaves the Godot project out, because building it needs Godot's SDK. Godot does not compile the C# itself when you launch it from a terminal, so rebuild the Godot project after every pull.
+
+### 3. Test (optional)
+
+```bash
+dotnet test IC2.sln
+```
+
+The data tests that read your own original game files skip without `assets.local.ini` ([below](#the-research-inspector-tools-ic2inspect)). CI runs the same: [Actions](https://github.com/diegoami/imperial_conquest_2/actions).
+
+### 4. Play in Godot
+
+In PowerShell, from the repository root, with the path to your unzipped Godot:
+
+```powershell
+$godot = "C:\path\to\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64_console.exe"
+& $godot --headless --path godot --import     # first time only: imports the textures and scenes
+& $godot --path godot                         # the game: main menu, New Game, Load, Settings
+```
+
+In bash it is the same, with `godot` standing for that executable: `godot --path godot`.
+
+Alternatively, start the Godot editor, import `godot/project.godot` and press **Play** (F5). The editor builds the C# itself.
+
+The research inspector is the same project with its scene named: `& $godot --path godot res://MapViewer.tscn`. It reads your own original DAT and saves, so it needs `assets.local.ini` ([below](#the-research-inspector-tools-ic2inspect)).
+
+### 5. Play in the terminal
+
+Pick a scenario and the nation you play, and the AI plays every other seat:
+
+```bash
+dotnet run --project src/IC2.Cli -- --scenario classical-mediterranean --seat rome
+```
+
+- `--scenario <id>` loads a scenario from `data/scenarios/`; without it, the CLI loads `toy-3city`.
+- `--ruleset <id>` replaces the scenario's ruleset: `classical-faithful` or `improved`.
+- `--seat <nation>` makes that nation yours, for example `rome` or `carthage`.
+- `--seed <n>` overrides the scenario's seed; every random draw in the game comes from it.
+
+An unknown id is rejected with the list of valid ids. Type `help` for the commands. `save <path>` writes the game to a file, and `load <path>` (or `--load <path>` at start) resumes it. A scripted run on the small toy world: `dotnet run --project src/IC2.Cli -- --script tests/fixtures/cli/demo.txt`.
+
 ## Current state
 
-**[`v0.4.0`](https://github.com/diegoami/imperial_conquest_2/releases/tag/v0.4.0) — *Playable with a UI, from source*** is the latest release. The Godot project, run from source, plays a game with the map, the context panel, the news log and the battle-result, diplomacy and hotseat-handoff screens, and saves and resumes it; `IC2.Cli` plays the same engine headless. What each release adds is in [release-plan.md §2](docs/release-plan.md#2-the-release-ladder).
-
-- **Play in Godot, from source.** Install Godot .NET 4.7.2 and the .NET 10 SDK, open `godot/project.godot`, and run the project (its main scene is `res://UI/AppRoot.tscn`). The main menu leads to New Game (the ruleset chooser, then the scenario and its seats), Load and Settings. The main game screen has the map, the context panel, the news log and a Save action, and opens the battle-result, diplomacy and hotseat-handoff screens. It reads the shipped data under `data/`, so it needs none of your original game files.
-
-  From a terminal, at the repository root (`godot` is the Godot 4.7.2 **.NET** executable, e.g.
-  `Godot_v4.7.2-stable_mono_win64_console.exe`, whose console build prints script errors to the terminal):
-
-  ```bash
-  dotnet build godot/IC2.MapViewer.csproj        # Godot does not compile the C# itself outside the editor
-  godot --headless --path godot --import         # first run only: imports the resources
-  godot --path godot                             # the game: main menu, New Game, Load, Settings
-  ```
-
-  The research inspector is the same project with its scene named, `godot --path godot res://MapViewer.tscn`;
-  it needs `assets.local.ini` ([below](#the-research-inspector-tools-ic2inspect)).
-
-- **Play in the terminal.** Pick a scenario and the nation you play, and the AI plays every other seat:
-
-  ```bash
-  dotnet run --project src/IC2.Cli -- --scenario classical-mediterranean --seat rome
-  ```
-
-  - `--scenario <id>` loads a scenario from `data/scenarios/`; without it, the CLI loads `toy-3city`.
-  - `--ruleset <id>` replaces the scenario's ruleset: `classical-faithful` or `improved`.
-  - `--seat <nation>` makes that nation yours, for example `rome` or `carthage`.
-  - `--seed <n>` overrides the scenario's seed.
-
-  An unknown id is rejected with the list of valid ids. Type `help` for the commands. `save <path>` writes the game to a file, and `load <path>` (or `--load <path>` at start) resumes it.
+**[`v0.4.0`](https://github.com/diegoami/imperial_conquest_2/releases/tag/v0.4.0) — *Playable with a UI, from source*** is the latest release. The Godot project plays a game with the map, the context panel, the news log and the battle-result, diplomacy and hotseat-handoff screens, and saves and resumes it. `IC2.Cli` plays the same engine headless. What each release adds is in [release-plan.md §2](docs/release-plan.md#2-the-release-ladder).
 
 Progress lives on GitHub, not in this file: each [task issue](https://github.com/diegoami/imperial_conquest_2/issues?q=label%3Atask)'s `status:*` label, and the [pull requests](https://github.com/diegoami/imperial_conquest_2/pulls). What is built and what is next is in the [task catalogue](docs/task-catalogue.md). How to query the board: [Where the build stands](https://github.com/diegoami/imperial_conquest_2/wiki/Where-the-build-stands) on the wiki.
 
-- **Try the demo** (T41) — a text walking skeleton of the rules built so far, on the small 3-city toy world (`data/worlds/toy-3city.json`, the human north against the AI's south):
-
-  ```bash
-  dotnet run --project src/IC2.Cli -- --script tests/fixtures/cli/demo.txt   # the scripted demo
-  dotnet run --project src/IC2.Cli                                          # play it yourself
-  ```
-
-  `help` lists every command. `--seed <n>` overrides the scenario's seed, and every random draw in the game comes from it. What becomes runnable when: [Where the build stands](https://github.com/diegoami/imperial_conquest_2/wiki/Where-the-build-stands#what-becomes-runnable-and-when) on the wiki.
-- **Build and test now**:
-  ```bash
-  dotnet build IC2.sln   # 0 warnings, 0 errors
-  dotnet test IC2.sln
-  ```
-  The data tests that read your original game files skip without `assets.local.ini` (below). CI: [Actions](https://github.com/diegoami/imperial_conquest_2/actions).
-
 Operating the project — the task loop, the skills, where everything lives, bugs: [docs/operating-guide.md](docs/operating-guide.md).
+
 
 ## Building the reimplementation
 
