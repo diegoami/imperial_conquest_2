@@ -1,0 +1,156 @@
+{
+  "schemaVersion": 1,
+  "description": "T51: one prompt per AssetKeys constant, authored from docs/asset-specification.md (T49). Sprite prompts bake in the neutral-silhouette style the generator keys out to alpha: a light/white subject on a plain flat black background. The sixteen-nation palette (asset-specification.md 2.3) is applied at DRAW time by tinting, not baked into the sprites, because the keys are one per tier, not one per nation. Terrain prompts are full-frame opaque tiles. sfx prompts describe short sound cues, synthesized locally (no image API produces audio). Every prompt describes a generic ancient-Mediterranean subject and never references the original game, its art, its name or its screenshots (T51 DoD 7).",
+  "prompts": [
+    {
+      "key": "unit.light_infantry.icon",
+      "kind": "sprite",
+      "prompt": "An ancient Mediterranean light infantry soldier standing in side profile: a lightly clad foot soldier in a short tunic with no body armour, a small round shield held forward on the leading arm and two throwing javelins in the other hand. Pixel-art game sprite: a single subject centred in the frame with clear empty margins, drawn as a bold, simple silhouette in light grey to near-white, with strong simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. Plain, uniform, solid black background filling the frame - no scenery, no ground line, no shading on the background, no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.1 unit icons table: 'Light infantry - a lightly-armoured foot soldier, minimal shield'"
+    },
+    {
+      "key": "unit.heavy_infantry.icon",
+      "kind": "sprite",
+      "prompt": "An ancient Mediterranean heavy infantry soldier standing in side profile: an armoured foot soldier with a crested bronze helmet and body armour, carrying a large tall shield on the leading arm and a thrusting spear in the other hand. Pixel-art game sprite: a single subject centred in the frame with clear empty margins, drawn as a bold, simple silhouette in light grey to near-white, with strong simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. Plain, uniform, solid black background filling the frame - no scenery, no ground line, no shading on the background, no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.1 unit icons table: 'Heavy infantry - armoured foot soldier, large shield, close order'"
+    },
+    {
+      "key": "unit.archers.icon",
+      "kind": "sprite",
+      "prompt": "An ancient Mediterranean archer standing in side profile: a lightly clad foot soldier drawing a recurve bow, a quiver of arrows on the back and no shield. Pixel-art game sprite: a single subject centred in the frame with clear empty margins, drawn as a bold, simple silhouette in light grey to near-white, with strong simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. Plain, uniform, solid black background filling the frame - no scenery, no ground line, no shading on the background, no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.1 unit icons table: 'Archers - a bow-armed foot soldier'"
+    },
+    {
+      "key": "unit.light_cavalry.icon",
+      "kind": "sprite",
+      "prompt": "An ancient Mediterranean light cavalry rider on a horse in side profile: a lightly clad rider with a small round shield and a javelin, on an unarmoured horse at a gallop. Pixel-art game sprite: a single subject centred in the frame with clear empty margins, drawn as a bold, simple silhouette in light grey to near-white, with strong simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. Plain, uniform, solid black background filling the frame - no scenery, no ground line, no shading on the background, no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.1 unit icons table: 'Light cavalry - a lightly-armoured mounted soldier'"
+    },
+    {
+      "key": "unit.heavy_cavalry.icon",
+      "kind": "sprite",
+      "prompt": "An ancient Mediterranean heavy cavalry rider on a horse in side profile: a rider in a helmet and body armour carrying a long spear, on a horse with heavier tack and a saddle cloth. Pixel-art game sprite: a single subject centred in the frame with clear empty margins, drawn as a bold, simple silhouette in light grey to near-white, with strong simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. Plain, uniform, solid black background filling the frame - no scenery, no ground line, no shading on the background, no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.1 unit icons table: 'Heavy cavalry - an armoured mounted soldier, heavier tack'"
+    },
+    {
+      "key": "army.tier1.icon",
+      "kind": "sprite",
+      "prompt": "A single small upright ancient soldier pictogram facing forward: one helmeted figure with a shield, the smallest and lightest army marker. Pixel-art game sprite: a single subject centred in the frame with clear empty margins, drawn as a bold, simple silhouette in light grey to near-white, with strong simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. Plain, uniform, solid black background filling the frame - no scenery, no ground line, no shading on the background, no border, no frame, no text.",
+      "source": "docs/asset-specification.md 3.1: 'Depict the same army silhouette at increasing size/weight (more figures, a denser formation, a larger banner) across the three tiers' - tier 1 is under 25,000 troops, the small upright figure pictogram"
+    },
+    {
+      "key": "army.tier2.icon",
+      "kind": "sprite",
+      "prompt": "Three upright ancient soldier pictograms standing shoulder to shoulder in a close row: helmeted figures with shields, with a small square banner on a short pole above them. Pixel-art game sprite: a single subject centred in the frame with clear empty margins, drawn as a bold, simple silhouette in light grey to near-white, with strong simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. Plain, uniform, solid black background filling the frame - no scenery, no ground line, no shading on the background, no border, no frame, no text.",
+      "source": "docs/asset-specification.md 3.1: 'more figures, a denser formation' - tier 2 is 25,000-49,999 troops, the same subject drawn heavier"
+    },
+    {
+      "key": "army.tier3.icon",
+      "kind": "sprite",
+      "prompt": "A dense block of five upright ancient soldier pictograms in close order: helmeted figures with shields and spears, with a large rectangular standard on a tall pole rising above the formation. Pixel-art game sprite: a single subject centred in the frame with clear empty margins, drawn as a bold, simple silhouette in light grey to near-white, with strong simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. Plain, uniform, solid black background filling the frame - no scenery, no ground line, no shading on the background, no border, no frame, no text.",
+      "source": "docs/asset-specification.md 3.1: 'a larger banner' - tier 3 is 50,000 troops or more, the heaviest band"
+    },
+    {
+      "key": "fleet.tier1.icon",
+      "kind": "sprite",
+      "prompt": "A single small ancient Mediterranean warship in side profile: a plain curved hull, one mast with a horizontal yardarm near the top, a small flat furled sail mass on the yard, and a forked anchor at the bow. Pixel-art game sprite: a single subject centred in the frame with clear empty margins, drawn as a bold, simple silhouette in light grey to near-white, with strong simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. Plain, uniform, solid black background filling the frame - no scenery, no ground line, no shading on the background, no border, no frame, no text.",
+      "source": "docs/asset-specification.md 3.2: 'a ship silhouette - a hull, a mast with a horizontal yardarm/crossbar near the top, and a forked shape at the base reading as an anchor ... the upper-quadrant masses flanking the mast read plausibly as sails' - tier 1 is under 25 ships"
+    },
+    {
+      "key": "fleet.tier2.icon",
+      "kind": "sprite",
+      "prompt": "A larger ancient Mediterranean warship in side profile: a longer curved hull with a ram beak at the waterline, one mast with a horizontal yardarm, a broad filled rectangular sail catching the wind, and a forked anchor at the bow. Pixel-art game sprite: a single subject centred in the frame with clear empty margins, drawn as a bold, simple silhouette in light grey to near-white, with strong simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. Plain, uniform, solid black background filling the frame - no scenery, no ground line, no shading on the background, no border, no frame, no text.",
+      "source": "docs/asset-specification.md 3.2: 'Depict the ship silhouette itself ... at increasing size/count across the three tiers' - tier 2 is 25-49 ships, the same subject drawn heavier"
+    },
+    {
+      "key": "fleet.tier3.icon",
+      "kind": "sprite",
+      "prompt": "The largest ancient Mediterranean warship in side profile: a long hull with two levels of oars and a ram beak at the waterline, one tall mast with a wide yardarm, a full large rectangular sail with rigging lines, and a forked anchor at the bow. Pixel-art game sprite: a single subject centred in the frame with clear empty margins, drawn as a bold, simple silhouette in light grey to near-white, with strong simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. Plain, uniform, solid black background filling the frame - no scenery, no ground line, no shading on the background, no border, no frame, no text.",
+      "source": "docs/asset-specification.md 3.2: 'at increasing size/count across the three tiers' - tier 3 is 50 ships or more, the heaviest band"
+    },
+    {
+      "key": "city.tier1.icon",
+      "kind": "sprite",
+      "prompt": "A small ancient Mediterranean house pictogram facing forward: a compact peaked roof with a small chimney tick over a narrow body with two small window openings per row, the most modest city marker. Pixel-art game sprite: a single subject centred in the frame with clear empty margins, drawn as a bold, simple silhouette in light grey to near-white, with strong simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. Plain, uniform, solid black background filling the frame - no scenery, no ground line, no shading on the background, no border, no frame, no text.",
+      "source": "docs/asset-specification.md 3.3: 'A small house: a compact peaked roof over a narrower body with two window/door openings per row ... a chimney tick on the roofline - both houses carry one' (corrected per N11); the tier-to-shape assignment is this pack's designed choice - 3.3 leaves the original's variant meaning open"
+    },
+    {
+      "key": "city.tier2.icon",
+      "kind": "sprite",
+      "prompt": "A large ancient Mediterranean town-house pictogram facing forward: a broader, more angled roofline with a chimney tick over a wider body carrying two rows of five small window openings, with a divider between the rows. Pixel-art game sprite: a single subject centred in the frame with clear empty margins, drawn as a bold, simple silhouette in light grey to near-white, with strong simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. Plain, uniform, solid black background filling the frame - no scenery, no ground line, no shading on the background, no border, no frame, no text.",
+      "source": "docs/asset-specification.md 3.3: 'A large house ... two rows of five window openings - about ten panes in total: 3 + 2 either side of a central divider, with an open band between the rows' (corrected per N11); the tier-to-shape assignment is this pack's designed choice"
+    },
+    {
+      "key": "city.tier3.icon",
+      "kind": "sprite",
+      "prompt": "A classical ancient temple pictogram facing forward: a stepped triangular pediment over four round columns standing on a stepped base. Pixel-art game sprite: a single subject centred in the frame with clear empty margins, drawn as a bold, simple silhouette in light grey to near-white, with strong simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. Plain, uniform, solid black background filling the frame - no scenery, no ground line, no shading on the background, no border, no frame, no text.",
+      "source": "docs/asset-specification.md 3.3: 'A columned temple with a stepped triangular pediment and four columns'; the tier-to-shape assignment is this pack's designed choice"
+    },
+    {
+      "key": "city.capital.icon",
+      "kind": "sprite",
+      "prompt": "A walled ancient citadel pictogram facing forward: crenellated walls with two corner towers and a central gatehouse, with a raised banner on a pole above the gate marking the capital. Pixel-art game sprite: a single subject centred in the frame with clear empty margins, drawn as a bold, simple silhouette in light grey to near-white, with strong simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. Plain, uniform, solid black background filling the frame - no scenery, no ground line, no shading on the background, no border, no frame, no text.",
+      "source": "docs/asset-specification.md 3.3: 'A crenellated walled castle with two corner towers and a gatehouse'; the raised banner is 3.3's own designed fallback distinguishing mark for city.capital.icon"
+    },
+    {
+      "key": "terrain.plain.tile",
+      "kind": "tile",
+      "prompt": "Open grassland: a bright green base with one soft brown undulating ridge line running across the tile and scattered small dark-green and red speckles. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
+      "source": "docs/asset-specification.md 4.5 terrain tiles table: 'Grassland - bright green base with a brown undulating ridge line and scattered dark-green/red speckles'"
+    },
+    {
+      "key": "terrain.desert.tile",
+      "kind": "tile",
+      "prompt": "Arid desert: an olive-tan sandy base with an olive cast rather than a bright yellow, gentle dune ridges in a slightly darker olive, and sparse darker speckles. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
+      "source": "docs/asset-specification.md 4.5: 'Arid terrain in an olive-to-tan range ... the area map's #808000 olive band is the corpus's only colour evidence and should be the starting point, not an unrelated tan/yellow guess'"
+    },
+    {
+      "key": "terrain.forest.tile",
+      "kind": "tile",
+      "prompt": "Dense woodland: a green base with a dense motif of round-topped trees and brush in two shades of green. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
+      "source": "docs/asset-specification.md 4.5 terrain tiles table: 'Wooded terrain - green base with a dense tree/brush motif'"
+    },
+    {
+      "key": "terrain.mountain.tile",
+      "kind": "tile",
+      "prompt": "Mountain range: a grey base with jagged black peaks, white snow caps on the peaks and a dark red-brown foothill band along the lower edge of the tile. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
+      "source": "docs/asset-specification.md 4.5 terrain tiles table: 'Mountainous terrain - grey base, jagged black peaks, white snow caps, a dark red-brown foothill band'"
+    },
+    {
+      "key": "terrain.river.tile",
+      "kind": "tile",
+      "prompt": "A river reach crossing flat grassland: a broad blue water band flowing straight across the middle of the tile with lighter ripple highlights, green banks above and below the water. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
+      "source": "docs/asset-specification.md 4.5 terrain tiles table: 'A river-bearing tile' - one static sprite for the six-way river connectivity problem is the gap 4.5 itself records; a single straight horizontal reach is this pack's designed choice"
+    },
+    {
+      "key": "terrain.sea_coastal.tile",
+      "kind": "tile",
+      "prompt": "Shallow coastal sea: light blue water with a gentle repeating wave motif in lighter and darker blue. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
+      "source": "docs/asset-specification.md 4.5 terrain tiles table: 'Shallow/coastal sea - lighter blue, wave motif'"
+    },
+    {
+      "key": "terrain.sea_deep.tile",
+      "kind": "tile",
+      "prompt": "Deep open sea: dark blue water with the same gentle repeating wave motif in slightly lighter blue. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
+      "source": "docs/asset-specification.md 4.5 terrain tiles table: 'Deep sea - darker blue, same wave motif'"
+    },
+    {
+      "key": "sfx.city_captured",
+      "kind": "sfx",
+      "prompt": "A short triumphant fanfare for a city taken by force: a rising three-note brass call answered by one low drum hit.",
+      "source": "docs/asset-specification.md 4.6 sound effects table: 'A city changes owner by force (\"falls to\")' - synthesized locally by the generator (no image API produces audio); the mapping of the original's ten undifferentiated WAV files is the gap 4.6 records"
+    },
+    {
+      "key": "sfx.battle",
+      "kind": "sfx",
+      "prompt": "A short battle-resolution clash: overlapping metallic shield and sword impacts over a low war drum, settling into stillness.",
+      "source": "docs/asset-specification.md 4.6 sound effects table: 'A battle resolves' - synthesized locally by the generator"
+    },
+    {
+      "key": "sfx.unit_move",
+      "kind": "sfx",
+      "prompt": "A short march cue: a steady rhythmic tread of boots on packed earth, eight even steps.",
+      "source": "docs/asset-specification.md 4.6 sound effects table: 'An army or fleet completes a move order' - synthesized locally by the generator"
+    }
+  ]
+}
