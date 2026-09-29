@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Checks/MapClipCheck.cs" id="1_map_clip_check"]
+
+[node name="MapClipCheck" type="Control"]
+script = ExtResource("1_map_clip_check")
