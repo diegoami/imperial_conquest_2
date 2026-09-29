@@ -62,7 +62,7 @@ import urllib.request
 import wave
 
 try:
-    from PIL import Image, ImageChops, ImageDraw
+    from PIL import Image, ImageChops, ImageDraw, ImageFilter
 except ImportError:  # pragma: no cover - environment guard
     sys.stderr.write(
         "Pillow is required for image conforming: pip install Pillow\n"
@@ -93,7 +93,12 @@ LOCK_FILE_NAME = ".generator.lock"
 # light subject can never be eaten. Alpha is 1 - excess / background excess, with a dead
 # zone at each end that absorbs the model's background noise.
 MAGENTA = (255, 0, 255)
-MIN_BACKGROUND_EXCESS = 128  # the border must be at least this magenta, or the model ignored the key
+# The model's "magenta" is not exactly #FF00FF (Gemini returned (228, 39, 146), a hot pink,
+# whose excess is 107 not 255), so the key is measured against the colour ESTIMATED from the
+# frame's border, not against pure magenta: anything saturated on the magenta/pink side
+# (red and blue both well above green) is accepted as the chroma background.
+MIN_BACKGROUND_EXCESS = 64  # border median min(R,B) - G at least this, or the model ignored the key
+MIN_BORDER_FLATNESS = 0.8   # and this fraction of the border ring must be at least half as chroma-y
 KEY_OPAQUE_T = 0.10  # excess <= 10% of the background's: fully opaque subject
 KEY_CLEAR_T = 0.90   # excess >= 90% of the background's: fully clear background
 SPRITE_MARGIN_PX = 1  # transparent margin around the cropped subject, in output pixels
@@ -228,12 +233,31 @@ def estimate_background(img: Image.Image):
 
 
 def _magenta_excess(rgb: Image.Image) -> Image.Image:
-    """Per pixel: min(R, B) - G, clipped at 0 (an 'L' image). Pure magenta scores 255.
+    """Per pixel: min(R, B) - G, clipped at 0 (an 'L' image). Pure magenta scores 255 and
+    the model's hot-pink "magenta" about 107.
     White, every grey, and any subject colour without both a strong red AND a strong
     blue component over a weak green one scores ~0, so the test cannot hit a light or
     neutral subject - which is exactly why the prompts ask for magenta, not black."""
     red, green, blue = rgb.split()
     return ImageChops.subtract(ImageChops.darker(red, blue), green)
+
+
+def _border_flatness(excess: Image.Image, background_excess: float) -> float:
+    """The fraction of the border ring whose magenta excess is at least half the
+    estimated background's. A flat chroma background is ~100%; a scene that merely has
+    a pink median is not."""
+    width, height = excess.size
+    ring = max(2, min(width, height) // 64)
+    strips = [excess.crop((0, 0, width, ring)), excess.crop((0, height - ring, width, height)),
+              excess.crop((0, ring, ring, height - ring)),
+              excess.crop((width - ring, ring, width, height - ring))]
+    floor = int(background_excess * 0.5)
+    total = hits = 0
+    for strip in strips:
+        histogram = strip.histogram()
+        total += sum(histogram)
+        hits += sum(histogram[floor:])
+    return hits / total if total else 0.0
 
 
 def _alpha_lut(background_excess: float) -> list:
@@ -251,9 +275,11 @@ def _alpha_lut(background_excess: float) -> list:
 
 
 def key_magenta(img: Image.Image) -> Image.Image:
-    """Full-resolution RGBA with the magenta background keyed out to alpha and the
-    magenta spill removed from the anti-aliased edge. Raises ConformError when the
-    image's border is not a strongly magenta flat background."""
+    """Full-resolution RGBA with the chroma background keyed out to alpha and its spill
+    removed from the anti-aliased edge. The key colour is the one MEASURED on the frame's
+    border (any saturated magenta/pink), and alpha and despill are scaled to it. Dark
+    and light subject pixels alike (excess ~0) stay opaque: the black outline survives.
+    Raises ConformError when the border is not a saturated, flat magenta-side chroma."""
     if img.mode in ("RGBA", "LA", "PA") or "transparency" in img.info:
         # A model that already returned transparency: flatten onto pure magenta so
         # one path keys everything.
@@ -265,9 +291,14 @@ def key_magenta(img: Image.Image) -> Image.Image:
     background_excess = min(background[0], background[2]) - background[1]
     if background_excess < MIN_BACKGROUND_EXCESS:
         raise ConformError(
-            f"the frame's border is not flat magenta (border median rgb {background}); "
-            "the model ignored the chroma-key background")
+            f"the frame's border is not a saturated magenta/pink chroma background "
+            f"(border median rgb {background}); the model ignored the chroma-key background")
     excess = _magenta_excess(rgb)
+    flatness = _border_flatness(excess, background_excess)
+    if flatness < MIN_BORDER_FLATNESS:
+        raise ConformError(
+            f"the frame's border is not a flat background (only {flatness:.0%} of it is "
+            f"magenta-side chroma; median rgb {background}): a busy scene, not a chroma key")
     alpha = excess.point(_alpha_lut(float(background_excess)))
 
     # Decontaminate the partially covered edge: pixel = a*fg + (1-a)*bg, so
@@ -336,7 +367,9 @@ def conform_sprite_image(img: Image.Image) -> Image.Image:
     to alpha (removing the edge spill), crop to the subject, pad to a square, downscale
     with a high-quality filter, make the silhouette SOLID, and normalize the subject to
     a light neutral silhouette (the nation palette is applied at DRAW time by tinting,
-    not baked in)."""
+    not baked in). Normalisation is luminance-preserving: the brightest subject pixel is
+    stretched to 255 and every pixel keeps its relative brightness, so a black outline
+    stays black and the tinted marker reads as a dark outline around a tinted body."""
     canvas = crop_to_subject(key_magenta(img))
     small = canvas.resize((SIZE, SIZE), LANCZOS)  # RGBA resizes premultiplied
     pixels = small.load()
@@ -519,13 +552,17 @@ def _check(failures: list, name: str, ok: bool, detail: str = "") -> None:
         failures.append(name)
 
 
-def _synthetic_figure(frame: int, box: tuple, colour: tuple, noise: int = 0):
+def _synthetic_figure(frame: int, box: tuple, colour: tuple, noise: int = 0,
+                      background_colour: tuple = MAGENTA, outline: tuple | None = None):
     """A stick-figure soldier (head, torso, shield, spear) in `colour`, anti-aliased,
     blended over flat magenta in a frame x frame image - drawn in code, never
     downloaded. `box` = (left, top, width, height) of the figure inside the frame.
     Returns (image, figure_mask); the mask is the exact 0..255 coverage, so the caller
     knows the true subject area and bounding box. `noise` adds +/-noise of per-channel
-    random ripple to the background only (a model's imperfect flat colour)."""
+    random ripple to the background only (a model's imperfect flat colour).
+    `background_colour` is the chroma colour (the real model returns (228, 39, 146), not
+    pure magenta); `outline`, when given, draws a border of that colour around the figure
+    (the model's black outline) and the returned mask covers figure plus outline."""
     scale = 4
     left, top, width, height = box
     big = Image.new("L", (frame * scale, frame * scale), 0)
@@ -546,16 +583,22 @@ def _synthetic_figure(frame: int, box: tuple, colour: tuple, noise: int = 0):
     oval(0.02, 0.28, 0.26, 0.58)   # shield
     rect(0.80, 0.02, 0.86, 1.00)   # spear shaft
     mask = big.resize((frame, frame), BOX)
-    background = Image.new("RGB", (frame, frame), MAGENTA)
+    background = Image.new("RGB", (frame, frame), background_colour)
     if noise:
         rng = random.Random(7)
         pixels = background.load()
         for y in range(frame):
             for x in range(frame):
                 pixels[x, y] = tuple(
-                    max(0, min(255, c + rng.randint(-noise, noise))) for c in MAGENTA)
+                    max(0, min(255, c + rng.randint(-noise, noise))) for c in background_colour)
+    outer = mask
+    if outline is not None:
+        radius = max(2, frame // 200)
+        outer = mask.filter(ImageFilter.MaxFilter(2 * radius + 1)).filter(
+            ImageFilter.GaussianBlur(1))
+        background = Image.composite(Image.new("RGB", (frame, frame), outline), background, outer)
     image = Image.composite(Image.new("RGB", (frame, frame), colour), background, mask)
-    return image, mask
+    return image, outer
 
 
 def _sprite_stats(sprite: Image.Image) -> dict:
@@ -680,6 +723,62 @@ def self_check() -> list:
                "(no visible pixel with a magenta cast)",
                keyed_cast <= 8 and stats["cast"] <= 8,
                f"worst cast {keyed_cast} after keying, {stats['cast']} in the 32x32 output")
+
+    # The REAL model's "magenta" is a hot pink, (228, 39, 146) (excess 107, not 255), and
+    # its figures are white/light grey WITH BLACK OUTLINES. The key is measured against the
+    # border, and the black outline must survive as dark opaque pixels.
+    hot_pink = (228, 39, 146)
+    source, mask = _synthetic_figure(800, tall_box, (245, 245, 245), noise=3,
+                                     background_colour=hot_pink, outline=(8, 8, 8))
+    sprite = conform_sprite_image(source)
+    stats = _sprite_stats(sprite)
+    sprite_pixels = sprite.load()
+    dark = sum(1 for y in range(SIZE) for x in range(SIZE)
+               if sprite_pixels[x, y][3] == 255 and sprite_pixels[x, y][0] <= 80)
+    light = sum(1 for y in range(SIZE) for x in range(SIZE)
+                if sprite_pixels[x, y][3] == 255 and sprite_pixels[x, y][0] >= 200)
+    figure_box = mask.point(lambda v: 255 if v >= 128 else 0).getbbox()
+    long_side = max(figure_box[2] - figure_box[0], figure_box[3] - figure_box[1])
+    padded_side = math.ceil(long_side * SIZE / (SIZE - 2 * SPRITE_MARGIN_PX))
+    area = sum(1 for v in mask.tobytes() if v >= 128)
+    expected = area / (padded_side * padded_side) * SIZE * SIZE
+    box = stats["box"]
+    long_out = max(box[2] - box[0], box[3] - box[1]) if box else 0
+    _check(failures, "hot-pink (228,39,146) background, white figure with a black outline: "
+           "keyed against the measured border colour (opaque area within 15% of the "
+           "drawn figure plus outline, 0 partial pixels)",
+           abs(stats["opaque"] - expected) <= 0.15 * expected and stats["partial"] == 0,
+           f"{stats['opaque']} opaque vs ~{expected:.0f} expected, {stats['partial']} partial")
+    _check(failures, "hot-pink background: the black outline survives as dark opaque pixels "
+           "and the body stays light", dark >= 20 and light >= 30,
+           f"{dark} dark (<= 80) and {light} light (>= 200) opaque pixels")
+    _check(failures, "hot-pink background: fills the tile and leaves no pink fringe",
+           long_out >= 26 and stats["cast"] <= 8,
+           f"{long_out} px long side, worst cast {stats['cast']}")
+    keyed_hot = key_magenta(source)
+    raw = keyed_hot.tobytes()
+    cast_hot = max((min(raw[i], raw[i + 2]) - raw[i + 1])
+                   for i in range(0, len(raw), 4) if raw[i + 3] > 0)
+    _check(failures, "hot-pink background: keyed pixels carry no pink spill (despilled "
+           "against the estimated colour)", cast_hot <= 8, f"worst cast {cast_hot}")
+    for label, background_colour in (("white", (255, 255, 255)), ("grey", (128, 128, 128)),
+                                     ("green", (60, 200, 60))):
+        try:
+            conform_sprite_image(Image.new("RGB", (256, 256), background_colour))
+            rejected = False
+        except ConformError:
+            rejected = True
+        _check(failures, f"a {label} frame is rejected (not a magenta-side chroma)", rejected)
+    scene = Image.new("RGB", (256, 256), hot_pink)
+    scene_draw = ImageDraw.Draw(scene)
+    for index in range(0, 256, 16):  # a busy border: alternating pink and green bars
+        scene_draw.rectangle((index, 0, index + 7, 255), fill=(40, 180, 60))
+    try:
+        conform_sprite_image(scene)
+        rejected = False
+    except ConformError:
+        rejected = True
+    _check(failures, "a busy frame whose border is only half pink is rejected", rejected)
 
     noisy, _ = _synthetic_figure(600, (200, 120, 160, 300), (200, 200, 200), noise=14)
     noisy_stats = _sprite_stats(conform_sprite_image(noisy))
