@@ -243,14 +243,17 @@ static TileType TileType(string id, int code, string name, bool passableByArmies
 //    nation gets an explicit, non-DAT placeholder leader name, and no field here claims DAT
 //    provenance for it.
 // ============================================================================================
-// A 16-way palette, chosen to be pairwise distinct (godot/MapViewer.cs's own palette has two
-// byte-identical pairs and a near-duplicate -- issue #154 -- so this export does not reuse it).
+// A 16-way palette: docs/asset-specification.md §2.3's settled sixteen-nation palette (T49),
+// applied verbatim in NationCatalog order (0 Rome … 15 Thracia), chosen there for pairwise
+// distinguishability against the terrain and against each other -- the same values the research
+// inspector has drawn since T94. Bug #525 replaced T29's pre-T49 placeholders here so a re-export
+// cannot revert the world file to them.
 // [designed]: no report records an original in-game nation colour scheme to transcribe; searched
-// docs/reports/ and found none, so this is a placeholder pending T49's asset specification.
+// docs/reports/ and found none, so §2.3's designed palette is the source, not the DAT.
 var palette = new[]
 {
-    "#c62828", "#1565c0", "#2e7d32", "#f9a825", "#6a1b9a", "#00838f", "#ef6c00", "#4e342e",
-    "#ad1457", "#283593", "#00695c", "#9e9d24", "#5d4037", "#37474f", "#8e24aa", "#d84315",
+    "#4C0D19", "#DDB69C", "#671E0B", "#E1EC25", "#719D16", "#C3E155", "#107A16", "#93F6D6",
+    "#29796D", "#A7DCF8", "#237084", "#5F50E6", "#4C0C8D", "#D760E8", "#581B45", "#D46CBB",
 };
 if (palette.Distinct(StringComparer.OrdinalIgnoreCase).Count() != 16)
     throw new InvalidOperationException("Nation colour palette has a duplicate.");
@@ -283,7 +286,7 @@ for (var i = 0; i < 16; i++)
         Population: population,
         Provenance: ProvenanceMap.Of(
             ("name", "confirmed: T30's DAT nation-table parse (IC2.Data.SaveNationTable.Parse), DAT 0x1B100; cross-checked against NationCatalog -- docs/investigations/dat-file-layout.md."),
-            ("colorHex", "designed: no report records an original nation colour scheme; searched docs/reports/ and found none. Placeholder pending T49's asset specification."),
+            ("colorHex", "designed: docs/asset-specification.md §2.3's settled sixteen-nation palette (T49), applied verbatim in NationCatalog order; supersedes T29's pre-T49 placeholder."),
             ("leaderName", "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one."),
             ("capitalCityId", "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse."),
             ("treasury", "confirmed: DAT nation record +0x40d, T30's parse."),
