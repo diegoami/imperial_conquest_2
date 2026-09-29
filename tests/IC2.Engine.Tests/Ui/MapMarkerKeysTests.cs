@@ -80,19 +80,35 @@ public sealed class MapMarkerKeysTests
 
         var army = state.Armies.Single(a => a.Id == "north-army-1");
         Assert.True(army.TotalTroops < 25_000);
-        Assert.Equal(AssetKeys.ArmyTier1Icon, MapMarkerKeys.ArmyIcon(army, rules.MapMarkers));
-        Assert.Equal(
-            AssetKeys.ArmyTier2Icon,
-            MapMarkerKeys.ArmyIcon(army with { Units = OneUnitOf(30_000) }, rules.MapMarkers));
-        Assert.Equal(
-            AssetKeys.ArmyTier3Icon,
-            MapMarkerKeys.ArmyIcon(army with { Units = OneUnitOf(60_000) }, rules.MapMarkers));
+        state = state with
+        {
+            Armies = ValueList.From(new[]
+            {
+                army,
+                army with { Id = "mid-army", Units = OneUnitOf(30_000) },
+                army with { Id = "large-army", Units = OneUnitOf(60_000) },
+            }),
+        };
+
+        Assert.Equal(AssetKeys.ArmyTier1Icon, MapMarkerKeys.ArmyIcon(Army(state, "north-army-1"), rules.MapMarkers));
+        Assert.Equal(AssetKeys.ArmyTier2Icon, MapMarkerKeys.ArmyIcon(Army(state, "mid-army"), rules.MapMarkers));
+        Assert.Equal(AssetKeys.ArmyTier3Icon, MapMarkerKeys.ArmyIcon(Army(state, "large-army"), rules.MapMarkers));
 
         var fleet = state.Fleets.Single(f => f.Id == "north-fleet-1");
         Assert.True(fleet.Ships < 25);
-        Assert.Equal(AssetKeys.FleetTier1Icon, MapMarkerKeys.FleetIcon(fleet, rules.MapMarkers));
-        Assert.Equal(AssetKeys.FleetTier2Icon, MapMarkerKeys.FleetIcon(fleet with { Ships = 30 }, rules.MapMarkers));
-        Assert.Equal(AssetKeys.FleetTier3Icon, MapMarkerKeys.FleetIcon(fleet with { Ships = 60 }, rules.MapMarkers));
+        state = state with
+        {
+            Fleets = ValueList.From(new[]
+            {
+                fleet,
+                fleet with { Id = "mid-fleet", Ships = 30 },
+                fleet with { Id = "large-fleet", Ships = 60 },
+            }),
+        };
+
+        Assert.Equal(AssetKeys.FleetTier1Icon, MapMarkerKeys.FleetIcon(Fleet(state, "north-fleet-1"), rules.MapMarkers));
+        Assert.Equal(AssetKeys.FleetTier2Icon, MapMarkerKeys.FleetIcon(Fleet(state, "mid-fleet"), rules.MapMarkers));
+        Assert.Equal(AssetKeys.FleetTier3Icon, MapMarkerKeys.FleetIcon(Fleet(state, "large-fleet"), rules.MapMarkers));
     }
 
     /// <summary>
@@ -159,6 +175,10 @@ public sealed class MapMarkerKeysTests
 
     private static ValueList<UnitSlot> OneUnitOf(int troops) =>
         ValueList<UnitSlot>.Of(new UnitSlot(0, "light_infantry", troops, 6, "test unit"));
+
+    private static ArmyState Army(GameState state, string id) => state.Armies.Single(a => a.Id == id);
+
+    private static FleetState Fleet(GameState state, string id) => state.Fleets.Single(f => f.Id == id);
 
     private static ValueList<CityState> ReplaceCity(ValueList<CityState> cities, CityState updated) =>
         ValueList.From(cities.Select(c => c.Id == updated.Id ? updated : c));
