@@ -136,7 +136,7 @@
     {
       "id": "rome",
       "name": "Rome",
-      "colorHex": "#c62828",
+      "colorHex": "#4C0D19",
       "leaderName": "(unassigned -- drawn at New Game)",
       "capitalCityId": "rome",
       "treasury": 2200,
@@ -148,7 +148,7 @@
       "population": 859,
       "_provenance": {
         "name": "confirmed: T30's DAT nation-table parse (IC2.Data.SaveNationTable.Parse), DAT 0x1B100; cross-checked against NationCatalog -- docs/investigations/dat-file-layout.md.",
-        "colorHex": "designed: no report records an original nation colour scheme; searched docs/reports/ and found none. Placeholder pending T49's asset specification.",
+        "colorHex": "designed: docs/asset-specification.md §2.3's settled sixteen-nation palette (T49), applied verbatim in NationCatalog order; supersedes T29's pre-T49 placeholder.",
         "leaderName": "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one.",
         "capitalCityId": "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse.",
         "treasury": "confirmed: DAT nation record +0x40d, T30's parse.",
@@ -163,7 +163,7 @@
     {
       "id": "carthage",
       "name": "Carthage",
-      "colorHex": "#1565c0",
+      "colorHex": "#DDB69C",
       "leaderName": "(unassigned -- drawn at New Game)",
       "capitalCityId": "carthago",
       "treasury": 11000,
@@ -175,7 +175,7 @@
       "population": 1607,
       "_provenance": {
         "name": "confirmed: T30's DAT nation-table parse (IC2.Data.SaveNationTable.Parse), DAT 0x1B100; cross-checked against NationCatalog -- docs/investigations/dat-file-layout.md.",
-        "colorHex": "designed: no report records an original nation colour scheme; searched docs/reports/ and found none. Placeholder pending T49's asset specification.",
+        "colorHex": "designed: docs/asset-specification.md §2.3's settled sixteen-nation palette (T49), applied verbatim in NationCatalog order; supersedes T29's pre-T49 placeholder.",
         "leaderName": "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one.",
         "capitalCityId": "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse.",
         "treasury": "confirmed: DAT nation record +0x40d, T30's parse.",
@@ -190,7 +190,7 @@
     {
       "id": "seleucid",
       "name": "Seleucid",
-      "colorHex": "#2e7d32",
+      "colorHex": "#671E0B",
       "leaderName": "(unassigned -- drawn at New Game)",
       "capitalCityId": "antioch",
       "treasury": 2700,
@@ -202,7 +202,7 @@
       "population": 5648,
       "_provenance": {
         "name": "confirmed: T30's DAT nation-table parse (IC2.Data.SaveNationTable.Parse), DAT 0x1B100; cross-checked against NationCatalog -- docs/investigations/dat-file-layout.md.",
-        "colorHex": "designed: no report records an original nation colour scheme; searched docs/reports/ and found none. Placeholder pending T49's asset specification.",
+        "colorHex": "designed: docs/asset-specification.md §2.3's settled sixteen-nation palette (T49), applied verbatim in NationCatalog order; supersedes T29's pre-T49 placeholder.",
         "leaderName": "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one.",
         "capitalCityId": "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse.",
         "treasury": "confirmed: DAT nation record +0x40d, T30's parse.",
@@ -217,7 +217,7 @@
     {
       "id": "ptolemaic",
       "name": "Ptolemaic",
-      "colorHex": "#f9a825",
+      "colorHex": "#E1EC25",
       "leaderName": "(unassigned -- drawn at New Game)",
       "capitalCityId": "alexandria",
       "treasury": 4900,
@@ -229,7 +229,7 @@
       "population": 3397,
       "_provenance": {
         "name": "confirmed: T30's DAT nation-table parse (IC2.Data.SaveNationTable.Parse), DAT 0x1B100; cross-checked against NationCatalog -- docs/investigations/dat-file-layout.md.",
-        "colorHex": "designed: no report records an original nation colour scheme; searched docs/reports/ and found none. Placeholder pending T49's asset specification.",
+        "colorHex": "designed: docs/asset-specification.md §2.3's settled sixteen-nation palette (T49), applied verbatim in NationCatalog order; supersedes T29's pre-T49 placeholder.",
         "leaderName": "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one.",
         "capitalCityId": "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse.",
         "treasury": "confirmed: DAT nation record +0x40d, T30's parse.",
@@ -244,7 +244,7 @@
     {
       "id": "macedonia",
       "name": "Macedonia",
-      "colorHex": "#6a1b9a",
+      "colorHex": "#719D16",
       "leaderName": "(unassigned -- drawn at New Game)",
       "capitalCityId": "pella",
       "treasury": 775,
@@ -256,7 +256,7 @@
       "population": 596,
       "_provenance": {
         "name": "confirmed: T30's DAT nation-table parse (IC2.Data.SaveNationTable.Parse), DAT 0x1B100; cross-checked against NationCatalog -- docs/investigations/dat-file-layout.md.",
-        "colorHex": "designed: no report records an original nation colour scheme; searched docs/reports/ and found none. Placeholder pending T49's asset specification.",
+        "colorHex": "designed: docs/asset-specification.md §2.3's settled sixteen-nation palette (T49), applied verbatim in NationCatalog order; supersedes T29's pre-T49 placeholder.",
         "leaderName": "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one.",
         "capitalCityId": "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse.",
         "treasury": "confirmed: DAT nation record +0x40d, T30's parse.",
@@ -271,7 +271,7 @@
     {
       "id": "numidia",
       "name": "Numidia",
-      "colorHex": "#00838f",
+      "colorHex": "#C3E155",
       "leaderName": "(unassigned -- drawn at New Game)",
       "capitalCityId": "gemellae",
       "treasury": 410,
@@ -283,7 +283,7 @@
       "population": 225,
       "_provenance": {
         "name": "confirmed: T30's DAT nation-table parse (IC2.Data.SaveNationTable.Parse), DAT 0x1B100; cross-checked against NationCatalog -- docs/investigations/dat-file-layout.md.",
-        "colorHex": "designed: no report records an original nation colour scheme; searched docs/reports/ and found none. Placeholder pending T49's asset specification.",
+        "colorHex": "designed: docs/asset-specification.md §2.3's settled sixteen-nation palette (T49), applied verbatim in NationCatalog order; supersedes T29's pre-T49 placeholder.",
         "leaderName": "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one.",
         "capitalCityId": "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse.",
         "treasury": "confirmed: DAT nation record +0x40d, T30's parse.",
@@ -298,7 +298,7 @@
     {
       "id": "gaul",
       "name": "Gaul",
-      "colorHex": "#ef6c00",
+      "colorHex": "#107A16",
       "leaderName": "(unassigned -- drawn at New Game)",
       "capitalCityId": "nimes",
       "treasury": 315,
@@ -310,7 +310,7 @@
       "population": 504,
       "_provenance": {
         "name": "confirmed: T30's DAT nation-table parse (IC2.Data.SaveNationTable.Parse), DAT 0x1B100; cross-checked against NationCatalog -- docs/investigations/dat-file-layout.md.",
-        "colorHex": "designed: no report records an original nation colour scheme; searched docs/reports/ and found none. Placeholder pending T49's asset specification.",
+        "colorHex": "designed: docs/asset-specification.md §2.3's settled sixteen-nation palette (T49), applied verbatim in NationCatalog order; supersedes T29's pre-T49 placeholder.",
         "leaderName": "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one.",
         "capitalCityId": "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse.",
         "treasury": "confirmed: DAT nation record +0x40d, T30's parse.",
@@ -325,7 +325,7 @@
     {
       "id": "greece",
       "name": "Greece",
-      "colorHex": "#4e342e",
+      "colorHex": "#93F6D6",
       "leaderName": "(unassigned -- drawn at New Game)",
       "capitalCityId": "athens",
       "treasury": 920,
@@ -337,7 +337,7 @@
       "population": 850,
       "_provenance": {
         "name": "confirmed: T30's DAT nation-table parse (IC2.Data.SaveNationTable.Parse), DAT 0x1B100; cross-checked against NationCatalog -- docs/investigations/dat-file-layout.md.",
-        "colorHex": "designed: no report records an original nation colour scheme; searched docs/reports/ and found none. Placeholder pending T49's asset specification.",
+        "colorHex": "designed: docs/asset-specification.md §2.3's settled sixteen-nation palette (T49), applied verbatim in NationCatalog order; supersedes T29's pre-T49 placeholder.",
         "leaderName": "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one.",
         "capitalCityId": "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse.",
         "treasury": "confirmed: DAT nation record +0x40d, T30's parse.",
@@ -352,7 +352,7 @@
     {
       "id": "celtiberia",
       "name": "Celtiberia",
-      "colorHex": "#ad1457",
+      "colorHex": "#29796D",
       "leaderName": "(unassigned -- drawn at New Game)",
       "capitalCityId": "numantia",
       "treasury": 440,
@@ -364,7 +364,7 @@
       "population": 372,
       "_provenance": {
         "name": "confirmed: T30's DAT nation-table parse (IC2.Data.SaveNationTable.Parse), DAT 0x1B100; cross-checked against NationCatalog -- docs/investigations/dat-file-layout.md.",
-        "colorHex": "designed: no report records an original nation colour scheme; searched docs/reports/ and found none. Placeholder pending T49's asset specification.",
+        "colorHex": "designed: docs/asset-specification.md §2.3's settled sixteen-nation palette (T49), applied verbatim in NationCatalog order; supersedes T29's pre-T49 placeholder.",
         "leaderName": "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one.",
         "capitalCityId": "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse.",
         "treasury": "confirmed: DAT nation record +0x40d, T30's parse.",
@@ -379,7 +379,7 @@
     {
       "id": "illyria",
       "name": "Illyria",
-      "colorHex": "#283593",
+      "colorHex": "#A7DCF8",
       "leaderName": "(unassigned -- drawn at New Game)",
       "capitalCityId": "scodra",
       "treasury": 580,
@@ -391,7 +391,7 @@
       "population": 209,
       "_provenance": {
         "name": "confirmed: T30's DAT nation-table parse (IC2.Data.SaveNationTable.Parse), DAT 0x1B100; cross-checked against NationCatalog -- docs/investigations/dat-file-layout.md.",
-        "colorHex": "designed: no report records an original nation colour scheme; searched docs/reports/ and found none. Placeholder pending T49's asset specification.",
+        "colorHex": "designed: docs/asset-specification.md §2.3's settled sixteen-nation palette (T49), applied verbatim in NationCatalog order; supersedes T29's pre-T49 placeholder.",
         "leaderName": "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one.",
         "capitalCityId": "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse.",
         "treasury": "confirmed: DAT nation record +0x40d, T30's parse.",
@@ -406,7 +406,7 @@
     {
       "id": "dacia",
       "name": "Dacia",
-      "colorHex": "#00695c",
+      "colorHex": "#237084",
       "leaderName": "(unassigned -- drawn at New Game)",
       "capitalCityId": "sirmium",
       "treasury": 180,
@@ -418,7 +418,7 @@
       "population": 119,
       "_provenance": {
         "name": "confirmed: T30's DAT nation-table parse (IC2.Data.SaveNationTable.Parse), DAT 0x1B100; cross-checked against NationCatalog -- docs/investigations/dat-file-layout.md.",
-        "colorHex": "designed: no report records an original nation colour scheme; searched docs/reports/ and found none. Placeholder pending T49's asset specification.",
+        "colorHex": "designed: docs/asset-specification.md §2.3's settled sixteen-nation palette (T49), applied verbatim in NationCatalog order; supersedes T29's pre-T49 placeholder.",
         "leaderName": "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one.",
         "capitalCityId": "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse.",
         "treasury": "confirmed: DAT nation record +0x40d, T30's parse.",
@@ -433,7 +433,7 @@
     {
       "id": "bithynia",
       "name": "Bithynia",
-      "colorHex": "#9e9d24",
+      "colorHex": "#5F50E6",
       "leaderName": "(unassigned -- drawn at New Game)",
       "capitalCityId": "sinope",
       "treasury": 550,
@@ -445,7 +445,7 @@
       "population": 444,
       "_provenance": {
         "name": "confirmed: T30's DAT nation-table parse (IC2.Data.SaveNationTable.Parse), DAT 0x1B100; cross-checked against NationCatalog -- docs/investigations/dat-file-layout.md.",
-        "colorHex": "designed: no report records an original nation colour scheme; searched docs/reports/ and found none. Placeholder pending T49's asset specification.",
+        "colorHex": "designed: docs/asset-specification.md §2.3's settled sixteen-nation palette (T49), applied verbatim in NationCatalog order; supersedes T29's pre-T49 placeholder.",
         "leaderName": "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one.",
         "capitalCityId": "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse.",
         "treasury": "confirmed: DAT nation record +0x40d, T30's parse.",
@@ -460,7 +460,7 @@
     {
       "id": "galatia",
       "name": "Galatia",
-      "colorHex": "#5d4037",
+      "colorHex": "#4C0C8D",
       "leaderName": "(unassigned -- drawn at New Game)",
       "capitalCityId": "ancyra",
       "treasury": 440,
@@ -472,7 +472,7 @@
       "population": 228,
       "_provenance": {
         "name": "confirmed: T30's DAT nation-table parse (IC2.Data.SaveNationTable.Parse), DAT 0x1B100; cross-checked against NationCatalog -- docs/investigations/dat-file-layout.md.",
-        "colorHex": "designed: no report records an original nation colour scheme; searched docs/reports/ and found none. Placeholder pending T49's asset specification.",
+        "colorHex": "designed: docs/asset-specification.md §2.3's settled sixteen-nation palette (T49), applied verbatim in NationCatalog order; supersedes T29's pre-T49 placeholder.",
         "leaderName": "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one.",
         "capitalCityId": "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse.",
         "treasury": "confirmed: DAT nation record +0x40d, T30's parse.",
@@ -487,7 +487,7 @@
     {
       "id": "armenia",
       "name": "Armenia",
-      "colorHex": "#37474f",
+      "colorHex": "#D760E8",
       "leaderName": "(unassigned -- drawn at New Game)",
       "capitalCityId": "erivan",
       "treasury": 530,
@@ -499,7 +499,7 @@
       "population": 358,
       "_provenance": {
         "name": "confirmed: T30's DAT nation-table parse (IC2.Data.SaveNationTable.Parse), DAT 0x1B100; cross-checked against NationCatalog -- docs/investigations/dat-file-layout.md.",
-        "colorHex": "designed: no report records an original nation colour scheme; searched docs/reports/ and found none. Placeholder pending T49's asset specification.",
+        "colorHex": "designed: docs/asset-specification.md §2.3's settled sixteen-nation palette (T49), applied verbatim in NationCatalog order; supersedes T29's pre-T49 placeholder.",
         "leaderName": "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one.",
         "capitalCityId": "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse.",
         "treasury": "confirmed: DAT nation record +0x40d, T30's parse.",
@@ -514,7 +514,7 @@
     {
       "id": "media",
       "name": "Media",
-      "colorHex": "#8e24aa",
+      "colorHex": "#581B45",
       "leaderName": "(unassigned -- drawn at New Game)",
       "capitalCityId": "ecbatana",
       "treasury": 760,
@@ -526,7 +526,7 @@
       "population": 631,
       "_provenance": {
         "name": "confirmed: T30's DAT nation-table parse (IC2.Data.SaveNationTable.Parse), DAT 0x1B100; cross-checked against NationCatalog -- docs/investigations/dat-file-layout.md.",
-        "colorHex": "designed: no report records an original nation colour scheme; searched docs/reports/ and found none. Placeholder pending T49's asset specification.",
+        "colorHex": "designed: docs/asset-specification.md §2.3's settled sixteen-nation palette (T49), applied verbatim in NationCatalog order; supersedes T29's pre-T49 placeholder.",
         "leaderName": "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one.",
         "capitalCityId": "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse.",
         "treasury": "confirmed: DAT nation record +0x40d, T30's parse.",
@@ -541,7 +541,7 @@
     {
       "id": "thracia",
       "name": "Thracia",
-      "colorHex": "#d84315",
+      "colorHex": "#D46CBB",
       "leaderName": "(unassigned -- drawn at New Game)",
       "capitalCityId": "byzantium",
       "treasury": 520,
@@ -553,7 +553,7 @@
       "population": 426,
       "_provenance": {
         "name": "confirmed: T30's DAT nation-table parse (IC2.Data.SaveNationTable.Parse), DAT 0x1B100; cross-checked against NationCatalog -- docs/investigations/dat-file-layout.md.",
-        "colorHex": "designed: no report records an original nation colour scheme; searched docs/reports/ and found none. Placeholder pending T49's asset specification.",
+        "colorHex": "designed: docs/asset-specification.md §2.3's settled sixteen-nation palette (T49), applied verbatim in NationCatalog order; supersedes T29's pre-T49 placeholder.",
         "leaderName": "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one.",
         "capitalCityId": "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse.",
         "treasury": "confirmed: DAT nation record +0x40d, T30's parse.",
