@@ -43,13 +43,24 @@ namespace IC2.Slice.UI;
 /// </para>
 /// <para>
 /// <strong>T94 rework round 1 (N3, the user's decision of 2026-09-29): the icon is tinted with its
-/// owner's colour.</strong> One bitmap otherwise draws every nation identically and only the thin ring
-/// told owners apart, where the pre-T94 shapes were filled in the owner's colour. The
-/// <c>modulate</c> argument of <see cref="CanvasItem.DrawTextureRect"/> now carries
-/// <see cref="NationColor"/> — built from <see cref="MarkerTint.ForOwner"/>, the world's own
-/// <c>colorHex</c> — so the owner's colour is the icon itself; the dark halo and the thin ring stay for
-/// contrast against terrain. The placeholder pack's flat squares are tinted as they are (not
-/// special-cased), and T51's neutral silhouettes tint the same way with no further code change.
+/// owner's colour.</strong> One bitmap otherwise draws every nation identically, where the pre-T94
+/// shapes were filled in the owner's colour. The <c>modulate</c> argument of
+/// <see cref="CanvasItem.DrawTextureRect"/> now carries <see cref="NationColor"/> — built from
+/// <see cref="MarkerTint.ForOwner"/>, the world's own <c>colorHex</c> — so the owner's colour is the
+/// icon itself. The placeholder pack's flat squares are tinted as they are (not special-cased), and
+/// T51's neutral silhouettes tint the same way with no further code change.
+/// </para>
+/// <para>
+/// <strong>Marker style A (bug
+/// <see href="https://github.com/diegoami/imperial_conquest_2/issues/517">#517</see> rework round 1,
+/// the user's visual review of 2026-09-29): the icon sits on a dark square.</strong> The tinted icon
+/// alone, inside a round dark halo with a thin owner-coloured ring, read as a coloured blob at normal
+/// zoom. The original game's look, chosen on the PR, is drawn instead: a small near-black, mostly
+/// opaque <see cref="MarkerBackdropColor"/> square at the icon's own size, the owner-tinted silhouette
+/// on top, and no owner-coloured ring at all. A selected marker gets a bright
+/// <see cref="SelectedRingColor"/> outline around that square instead — see
+/// <see cref="DrawCity"/>, <see cref="DrawArmy"/> and <see cref="DrawFleet"/>. The no-texture fallback
+/// shapes (filled in the owner's colour and ringed as before) are unchanged.
 /// </para>
 /// </remarks>
 public partial class GameMapView : Control
@@ -67,6 +78,13 @@ public partial class GameMapView : Control
     private static readonly Color GridColor = new(0f, 0f, 0f, 0.15f);
     private static readonly Color CityRingColor = new(1.0f, 0.97f, 0.86f);
     private static readonly Color SelectedRingColor = new(0.95f, 0.78f, 0.35f);
+
+    /// <summary>Marker style A's dark square behind every pack-textured city, army and fleet marker
+    /// (bug <see href="https://github.com/diegoami/imperial_conquest_2/issues/517">#517</see> rework
+    /// round 1): near-black and mostly opaque, the icon's own size, so the owner-tinted silhouette on
+    /// top keeps contrast against any terrain. The user chose this, the original game's look, on the
+    /// PR after the round halo and thin owner-coloured ring read as a coloured blob at normal zoom.</summary>
+    private static readonly Color MarkerBackdropColor = new(0.02f, 0.02f, 0.03f, 0.85f);
     private static readonly Color UnknownTerrainColor = new(0.24f, 0.24f, 0.24f);
     private static readonly Color UnknownNationColor = new(0.6f, 0.6f, 0.6f);
 
@@ -154,11 +172,24 @@ public partial class GameMapView : Control
 
     /// <summary>Loads (or reloads) this view against a fresh session — called once by
     /// <see cref="MainGameScreen"/> after "Start Game".</summary>
+    /// <remarks>
+    /// Bug <see href="https://github.com/diegoami/imperial_conquest_2/issues/517">#517</see>: the pack
+    /// this scene's one loader resolves is <see cref="SettingsScreen.SelectedPackId"/>, read here when
+    /// the scene attaches — so a selection made in Settings applies to the next game started or
+    /// loaded, while the game already on screen keeps the pack it began with (T94 folded #454 item 6).
+    /// A <see langword="null"/> selection keeps <see cref="AssetPackTextureLoader.TryLoadPack"/>'s own
+    /// default (<c>authored</c> when present and valid, otherwise <c>placeholder</c>), and a selected
+    /// pack that is missing or malformed falls back to the placeholder, reported once and never
+    /// thrown. <see cref="MainGameScreen"/> owns the attach call and is the screen that knows the
+    /// repository root; reading the selection here keeps this one seam instead of adding a property to
+    /// a file this fix does not own.
+    /// </remarks>
     public void Attach(GameSession session, string repositoryRoot)
     {
         _session = session;
-        _assetLoader ??= AssetPackTextureLoader.TryLoadPlaceholderPack(
+        _assetLoader ??= AssetPackTextureLoader.TryLoadPack(
             repositoryRoot,
+            SettingsScreen.SelectedPackId,
             onFailure: key => GD.PushWarning($"T24 map: asset pack could not resolve or load '{key}'; falling back to the coloured marker."));
 
         BakeTerrainTexture();
@@ -173,6 +204,12 @@ public partial class GameMapView : Control
 
     /// <summary>Re-renders against the session's current state — called after every command that mutates it.</summary>
     public void Refresh() => QueueRedraw();
+
+    /// <summary>The id of the pack this view's one loader resolved — exposed so
+    /// <c>godot/Checks/AssetPackSelectionCheck.cs</c> can assert the Settings selection really reaches
+    /// the map. <see langword="null"/> before <see cref="Attach"/>, or when no pack (not even the
+    /// placeholder) could be loaded.</summary>
+    public string? LoadedPackIdForCheck => _assetLoader?.PackId;
 
     /// <summary>The current zoom factor — exposed for <c>godot/Checks/MapClipCheck.cs</c>, which drives
     /// this view to <see cref="MaxZoom"/> and asserts the drawing stays inside its own rect.</summary>
@@ -488,8 +525,6 @@ public partial class GameMapView : Control
         var radius = Mathf.Max(tileSize * 0.55f, 3f);
         var selected = string.Equals(city.Id, _selectedCityId, StringComparison.Ordinal);
 
-        DrawCircle(center, radius + 1.5f, new Color(0f, 0f, 0f, 0.55f));
-
         // T94: key selection (live capital vs. population tier) is MapMarkerKeys' single decision,
         // shared with Slice.cs -- of game-design.md's [open] "City markers" section, only capital
         // status (orthogonal to population, live on NationState.CapitalCityId) is confirmed; the
@@ -497,12 +532,22 @@ public partial class GameMapView : Control
         var texture = _assetLoader?.TryGetTexture(MapMarkerKeys.CityIcon(_session!.State, city, _session.Ruleset.MapMarkers));
         if (texture is not null)
         {
+            // Marker style A (#517 rework round 1): a dark square at the icon's size, the owner-tinted
+            // silhouette on top, and no owner-coloured ring -- only a selected marker is outlined.
             var rect = new Rect2(center - new Vector2(radius, radius), new Vector2(radius, radius) * 2f);
+            DrawRect(rect, MarkerBackdropColor);
             DrawTextureRect(texture, rect, false, fillColor);
-            DrawArc(center, radius, 0f, Mathf.Tau, 24, selected ? SelectedRingColor : fillColor, selected ? 2.5f : 1.5f);
+            if (selected)
+            {
+                DrawRect(rect, SelectedRingColor, false, 2.5f);
+            }
+
             return;
         }
 
+        // No texture (or no loader, bug #517): the pre-T94 shape is unchanged -- the round dark halo
+        // behind the owner-coloured disc stays exactly as it was.
+        DrawCircle(center, radius + 1.5f, new Color(0f, 0f, 0f, 0.55f));
         DrawCircle(center, radius, fillColor);
         DrawArc(center, radius, 0f, Mathf.Tau, 24, selected ? SelectedRingColor : CityRingColor, selected ? 2.5f : 1.2f);
     }
@@ -524,11 +569,17 @@ public partial class GameMapView : Control
         var texture = _assetLoader?.TryGetTexture(MapMarkerKeys.ArmyIcon(army, _session!.Ruleset.MapMarkers));
         if (texture is not null)
         {
-            DrawCircle(center, half + 2f, new Color(0f, 0f, 0f, 0.55f));
-            var rect = new Rect2(center - new Vector2(half, half), new Vector2(half, half) * 2f);
             // N3: the owner's colour is the icon's modulate tint (see this class's remarks).
+            // Marker style A (#517 rework round 1): a dark square at the icon's size, the tinted
+            // silhouette on top, and no owner-coloured ring -- only a selected marker is outlined.
+            var rect = new Rect2(center - new Vector2(half, half), new Vector2(half, half) * 2f);
+            DrawRect(rect, MarkerBackdropColor);
             DrawTextureRect(texture, rect, false, fillColor);
-            DrawArc(center, half + 2f, 0f, Mathf.Tau, 24, selected ? SelectedRingColor : fillColor, selected ? 2.5f : 1.5f);
+            if (selected)
+            {
+                DrawRect(rect, SelectedRingColor, false, 2.5f);
+            }
+
             return;
         }
 
@@ -560,12 +611,17 @@ public partial class GameMapView : Control
         var texture = _assetLoader?.TryGetTexture(MapMarkerKeys.FleetIcon(fleet, _session!.Ruleset.MapMarkers));
         if (texture is not null)
         {
-            var half = radius + 1.5f;
-            DrawCircle(center, half, new Color(0f, 0f, 0f, 0.55f));
-            var rect = new Rect2(center - new Vector2(radius, radius), new Vector2(radius, radius) * 2f);
             // N3: the owner's colour is the icon's modulate tint (see this class's remarks).
+            // Marker style A (#517 rework round 1): a dark square at the icon's size, the tinted
+            // silhouette on top, and no owner-coloured ring -- only a selected marker is outlined.
+            var rect = new Rect2(center - new Vector2(radius, radius), new Vector2(radius, radius) * 2f);
+            DrawRect(rect, MarkerBackdropColor);
             DrawTextureRect(texture, rect, false, fillColor);
-            DrawRect(rect, selected ? SelectedRingColor : fillColor, false, selected ? 2.5f : 1.5f);
+            if (selected)
+            {
+                DrawRect(rect, SelectedRingColor, false, 2.5f);
+            }
+
             return;
         }
 
@@ -575,11 +631,12 @@ public partial class GameMapView : Control
     }
 
     /// <summary>
-    /// The owner's colour for every marker fill, icon tint and ring: the loaded world's own
+    /// The owner's colour for every marker fill and pack-icon tint: the loaded world's own
     /// <see cref="NationDefinition.ColorHex"/>, parsed by the Godot-free <see cref="MarkerTint.ForOwner"/>
     /// (T94 rework round 1, N3) so the exact components a texture is modulated with are testable. An
     /// unknown nation or an unparseable colour falls back to <see cref="UnknownNationColor"/>, exactly
-    /// as the previous Godot-side parse did.
+    /// as the previous Godot-side parse did. Marker style A (#517 rework round 1) rings no textured
+    /// marker with it: the fallback shapes keep <see cref="CityRingColor"/>.
     /// </summary>
     private Color NationColor(string nationId)
     {
