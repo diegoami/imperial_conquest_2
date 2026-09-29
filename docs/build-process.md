@@ -509,7 +509,9 @@ that directory: it is the main session's checkout. Work in your own worktree:
       git -C C:\Users\diego\projects\imperial_conquest_2 worktree add -b task/T<nn>-<slug> C:\Users\diego\projects\ic2-work\T<nn> origin/main
       git -C C:\Users\diego\projects\ic2-work\T<nn> push -u origin task/T<nn>-<slug>
   - <local-only tasks only> copy C:\Users\diego\projects\imperial_conquest_2\assets.local.ini into
-    the worktree root. It is git-ignored; never commit it.
+    the worktree root. It is git-ignored; never commit it. (For an OpenCode run this setup is
+    already done: `scripts/external-implement.ps1` created the worktree and `-LocalOnly` copied the
+    file, so skip this whole block.)
 
 SAY WHERE YOU ARE WORKING. Your very first tool call, before reading anything, prints these four
 lines, and your final report repeats them:
@@ -523,10 +525,21 @@ If the first line is C:\Users\diego\projects\imperial_conquest_2, you are in the
 checkout: STOP and fix that before doing anything else. Nothing you spawn inherits your shell
 directory, so always pass `git -C <your worktree>` explicitly rather than relying on `cd`.
 
+STAY INSIDE YOUR WORKTREE. Once it exists (the setup block above is the only exception, and an
+OpenCode run skips it), never read, list, write or run anything by a path outside it: not
+%TEMP% or $env:TEMP, not ~ or $env:USERPROFILE, not C:\Program Files, not the NuGet cache, not the
+main checkout, and not another worktree. OpenCode's permission guard auto-rejects such a call, and
+the rejection ENDS your run, stranding any unpushed work (issue #501). Invoke tools by name from
+PATH (`dotnet`, `git`, `gh`, `python`, and `godot` in bash or `godot.cmd` in PowerShell), and never
+inspect their installs. Scratch files go inside your worktree, under the git-ignored `rendered/`
+or deleted before you commit, and never in TEMP (the user's rule of 2026-09-29). A mutation check
+runs in place and uncommitted: mutate, rebuild clean, test, then `git checkout -- <file>`, touch
+it, rebuild clean and test again (§4.2 gate 5).
+
 Never use `git stash`: the stash is shared by every worktree in the repository, so another
-agent's push or pop can swap entries with yours. To test the base without your change, add a
-detached worktree at origin/main under C:\Users\diego\projects\ic2-work\ and remove it afterwards;
-to set work aside, commit it.
+agent's push or pop can swap entries with yours. To test the base without your change, commit
+your work, `git -C <your worktree> checkout --detach origin/main`, test, and check your branch out
+again; to set work aside, commit it.
 
 Your task entry is reproduced in full at the end of this brief — it is the contract, and you
 should not need to open the catalogue at all. If you do need a different entry, extract that one
@@ -617,10 +630,17 @@ Nothing you spawn inherits your shell directory: a forked skill or agent starts 
 CHECKOUT, not here. So pass `git -C <your worktree>` explicitly rather than relying on `cd`, and
 see gate 5 before considering any forked tool.
 
+Scratch files, a mutation copy included, go inside your own worktrees under
+C:\Users\diego\projects\ic2-work\ (the git-ignored `rendered/` is the place), never in TEMP (the
+user's rule of 2026-09-29). An OpenCode reviewer (`scripts/external-review.ps1`) may not reach
+outside the worktree the script made for it at all: its permission guard rejects the call, and the
+rejection ends the review (issue #501).
+
 Never use `git stash`: the stash is shared by every worktree in the repository, so another
-agent's push or pop can swap entries with yours. To test the base without your change, add a
-detached worktree at origin/main under C:\Users\diego\projects\ic2-work\ and remove it afterwards;
-to set work aside, commit it.
+agent's push or pop can swap entries with yours. To test the base without the change, in your own
+worktree: `git -C <your worktree> checkout --detach origin/main`, test, then
+`git -C <your worktree> checkout --detach <the PR head>`, and confirm HEAD equals the PR's
+headRefOid again (gate 0) before you write any finding.
 
 The task entry is reproduced in full at the end of this brief; you should not need to open the
 catalogue. Read docs/build-process.md §4.2 "What the reviewer checks", docs/game-design.md

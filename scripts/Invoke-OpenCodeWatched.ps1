@@ -66,6 +66,7 @@ function Get-OpenCodeFailureClass([string] $Reason) {
         '^exited without a session'         { return 'exited-without-session' }
         'fell back to the default agent'    { return 'fallback-agent' }
         '^exit -?\d+'                       { return 'non-zero-exit' }
+        '^permission rejected'              { return 'permission-rejected' }
         'cut off|no header line|no verdict' { return 'cut-off' }
         default                             { return $Reason }
     }
@@ -80,6 +81,22 @@ function Test-OpenCodeAgentWarning([string] $StdErr, [string] $Agent) {
     $ansi = '(?:\x1b\[[0-9;]*m|[ \t])*'
     $pattern = '(?m)^' + $ansi + '!' + $ansi + 'agent "?' + [regex]::Escape($Agent) + '"? not found\. Falling back to default agent'
     return [bool]($StdErr -match $pattern)
+}
+
+function Get-OpenCodePermissionRejection([string] $Text) {
+    # What OpenCode's permission guard refused, or $null. In a non-interactive `opencode run` a
+    # tool call that needs a permission the agent lacks (a path outside --dir: external_directory)
+    # is auto-rejected, and the rejection ENDS the run with exit 0 -- so without this check the
+    # run looks finished (issue #501: three runs on 2026-09-29, T94 twice and T51 once). OpenCode
+    # 1.18 prints, at the start of a line:
+    #   ESC[93mESC[1m! ESC[0mpermission requested: external_directory (C:\...\Temp\*); auto-rejecting
+    # Matched only after the "!" marker and colour codes, so a tool's output quoting the phrase
+    # (a log line with a prefix, a comment like this one) does not trip it. Returns the last one.
+    $ansi = '(?:\x1b\[[0-9;]*m|[ \t])*'
+    $pattern = '(?m)^' + $ansi + '!' + $ansi + 'permission requested: (?<what>[^\r\n]*?); auto-rejecting'
+    $found = [regex]::Matches($Text, $pattern)
+    if ($found.Count -eq 0) { return $null }
+    return $found[$found.Count - 1].Groups['what'].Value
 }
 
 function Get-OpenCodeSessionAgent {
@@ -317,6 +334,8 @@ function Invoke-OpenCodeWatched {
         # True when OpenCode ran its default agent instead of the requested --agent.
         AgentFallback = $agentFallback
         SessionAgent  = $sessionAgent
+        # What OpenCode's permission guard auto-rejected (the rejection ended the run), or $null.
+        PermissionRejected = Get-OpenCodePermissionRejection ($stdout + "`n" + $stderr)
         Files     = if ($p.ExitCode -eq 0) { @() } else { $files }
         Seconds   = [int]$clock.Elapsed.TotalSeconds
     }
