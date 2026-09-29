@@ -86,6 +86,9 @@ DEFAULT_RAW_DIR = os.path.join(REPO_ROOT, "rendered", "authored-raw")
 HTTP_TIMEOUT_SECONDS = 300  # image generation can take a minute or more per call
 MODELS_TIMEOUT_SECONDS = 30
 LOCK_FILE_NAME = ".generator.lock"
+# The lock is runtime state, so it lives under the git-ignored /rendered/, never inside the
+# committed pack directory where a `git add assets/packs/authored` could pick it up.
+DEFAULT_LOCK_DIR = os.path.join(REPO_ROOT, "rendered")
 
 # Chroma-key background (sprite prompts ask for a solid flat pure magenta #FF00FF). The key
 # is a HUE test, not a distance-to-background test: a pixel's magenta excess is
@@ -620,24 +623,34 @@ def _sprite_stats(sprite: Image.Image) -> dict:
 
 
 def _self_check_run_survives_failures(failures: list) -> None:
-    """generate_selection with a stubbed model: a no-image reply, an HTTP error and a
-    conform rejection each land in the failed list with their reason, the keys after
-    them are still generated, and the reason is reported on stderr."""
+    """run_generation with a stubbed model. Every way a key can fail - a no-image reply,
+    an HTTP error, a conform rejection, and, AFTER the image was paid for, a save_raw
+    OSError and a non-ConformError raised inside conform_image - lands in the failed list
+    with its reason; a cost that is not a number is reported as unknown instead of
+    crashing; every key is still attempted, the keys after the failures are generated,
+    the manifest and the failed-key summary are still written, and the exit code is 1."""
     import contextlib
     import shutil
+
+    global save_raw, conform_image
 
     good_frame, _ = _synthetic_figure(256, (60, 40, 130, 176), (235, 235, 235))
     good_buffer = io.BytesIO()
     good_frame.save(good_buffer, format="PNG")
+    good = good_buffer.getvalue()
     bad_buffer = io.BytesIO()
     Image.new("RGB", (256, 256), (0, 0, 0)).save(bad_buffer, format="PNG")  # no magenta
 
+    # key -> reply: image bytes, (image bytes, usage), or an exception to raise.
     replies = {
-        "unit.a.icon": good_buffer.getvalue(),
+        "unit.a.icon": (good, {"cost": 0.04}),
         "unit.b.icon": RuntimeError("the model returned no image in message.images; it said: `"),
         "unit.c.icon": RuntimeError("HTTP 502 from POST chat/completions; the provider said: bad gateway"),
         "unit.d.icon": bad_buffer.getvalue(),
-        "unit.e.icon": good_buffer.getvalue(),
+        "unit.e.icon": (good, {"cost": "n/a"}),          # paid for, cost is not a number
+        "unit.f.icon": (good, {"cost": 0.04}),           # save_raw fails (patched below)
+        "unit.g.icon": (good, {"cost": 0.04}),           # conform_image blows up (patched below)
+        "unit.h.icon": (good, {"cost": 0.04}),
     }
     calls = []
 
@@ -646,32 +659,62 @@ def _self_check_run_survives_failures(failures: list) -> None:
         reply = replies[prompt]
         if isinstance(reply, Exception):
             raise reply
+        if isinstance(reply, tuple):
+            return reply
         return reply, {}
+
+    real_save_raw, real_conform_image = save_raw, conform_image
+
+    def failing_save_raw(raw_dir, key, image_bytes, image):
+        if key == "unit.f.icon":
+            raise OSError("disk full (simulated)")
+        return real_save_raw(raw_dir, key, image_bytes, image)
+
+    def failing_conform_image(kind, image):
+        if calls[-1] == "unit.g.icon":
+            raise KeyError("simulated conforming bug")
+        return real_conform_image(kind, image)
 
     selection = [{"key": key, "kind": "sprite", "prompt": key} for key in replies]
     scratch_root = os.path.join(REPO_ROOT, "rendered")
     os.makedirs(scratch_root, exist_ok=True)
     scratch = os.path.join(scratch_root, "selfcheck-run-%d" % os.getpid())
-    stderr = io.StringIO()
+    pack = os.path.join(scratch, "pack")
+    stdout, stderr = io.StringIO(), io.StringIO()
+    save_raw, conform_image = failing_save_raw, failing_conform_image
     try:
-        with contextlib.redirect_stderr(stderr), contextlib.redirect_stdout(io.StringIO()):
-            generated, failed = generate_selection(
-                {}, selection, os.path.join(scratch, "pack"), os.path.join(scratch, "raw"),
-                call=stub)
-        failed_keys = [key for key, _ in failed]
-        written = sorted(name for name in os.listdir(os.path.join(scratch, "pack", "units")))
+        with contextlib.redirect_stderr(stderr), contextlib.redirect_stdout(stdout):
+            exit_code = run_generation(
+                {}, selection, selection, pack, os.path.join(scratch, "raw"),
+                call=stub, lock_dir=scratch)
+        written = sorted(os.listdir(os.path.join(pack, "units")))
+        manifest_written = os.path.exists(os.path.join(pack, "manifest.json"))
+        lock_left = os.path.exists(os.path.join(scratch, LOCK_FILE_NAME))
     finally:
+        save_raw, conform_image = real_save_raw, real_conform_image
         shutil.rmtree(scratch, ignore_errors=True)
-    errors = stderr.getvalue()
+    errors, output = stderr.getvalue(), stdout.getvalue()
     _check(failures, "run: every selected key is attempted after a failure (no abort)",
-           len(calls) == 5)
-    _check(failures, "run: the failed keys are exactly b, c and d",
-           failed_keys == ["unit.b.icon", "unit.c.icon", "unit.d.icon"], str(failed_keys))
-    _check(failures, "run: the keys after the failures are still generated",
-           generated == 2 and written == ["a.bmp", "e.bmp"], f"{generated} {written}")
+           len(calls) == 8, str(len(calls)))
+    _check(failures, "run: the exit code is 1 when any key failed", exit_code == 1, str(exit_code))
+    _check(failures, "run: the keys that could be generated are, and nothing else is written",
+           written == ["a.bmp", "e.bmp", "h.bmp"], str(written))
+    _check(failures, "run: the manifest is still written after failures", manifest_written)
+    _check(failures, "run: the failed-key summary names exactly b, c, d, f and g",
+           "5 key(s) FAILED: ['unit.b.icon', 'unit.c.icon', 'unit.d.icon', "
+           "'unit.f.icon', 'unit.g.icon']" in errors)
     _check(failures, "run: each failure is reported on stderr with the model's reason",
            "no image in message.images" in errors and "HTTP 502" in errors
            and "unit.d.icon" in errors)
+    _check(failures, "run: a save_raw error after payment is recorded, not raised",
+           "OSError: disk full (simulated)" in errors)
+    _check(failures, "run: a non-ConformError from conform_image is recorded, not raised",
+           "KeyError" in errors and "simulated conforming bug" in errors)
+    _check(failures, "run: a cost that is not a number is reported as unknown, not a crash",
+           "reported cost unknown ('n/a')" in output)
+    _check(failures, "run: the lock is released", not lock_left)
+    _check(failures, "run: the default lock lives under the git-ignored rendered/, not in the pack",
+           os.path.relpath(DEFAULT_LOCK_DIR, REPO_ROOT) == "rendered")
 
 
 def self_check() -> list:
@@ -680,7 +723,8 @@ def self_check() -> list:
     check: 32x32, BMP structure, bit depth per kind, and transparency for sprites.
     Runs automatically before every real generation - the conforming step is proved
     before any money is spent."""
-    print("Self-check: conforming step proven on synthetic images (in memory, no network)")
+    print("Self-check: conforming step proven on synthetic images (no network, no key; "
+          "the run case writes a scratch pack under rendered/ and deletes it)")
     failures = []
 
     # Synthetic sprite: a near-white disc with a bar inside, on solid flat magenta.
@@ -824,16 +868,105 @@ def self_check() -> list:
         except ConformError:
             rejected = True
         _check(failures, f"a {label} frame is rejected (not a magenta-side chroma)", rejected)
+    # A busy border that the background-strength test alone would reject: alternating
+    # pink and green bars, green being MORE than half of the ring, so the per-channel
+    # median lands on green (no saturated background at all).
     scene = Image.new("RGB", (256, 256), hot_pink)
     scene_draw = ImageDraw.Draw(scene)
-    for index in range(0, 256, 16):  # a busy border: alternating pink and green bars
+    for index in range(0, 256, 16):
         scene_draw.rectangle((index, 0, index + 7, 255), fill=(40, 180, 60))
     try:
         conform_sprite_image(scene)
         rejected = False
     except ConformError:
         rejected = True
-    _check(failures, "a busy frame whose border is only half pink is rejected", rejected)
+    _check(failures, "a busy frame whose border is half green is rejected (weak background)",
+           rejected)
+
+    # A busy border that only the FLATNESS test catches: pink is the majority (70%), so the
+    # median IS a strong pink and MIN_BACKGROUND_EXCESS passes, but 30% of the ring is
+    # green bars, so the ring is not a flat chroma background.
+    scene = Image.new("RGB", (256, 256), hot_pink)
+    scene_draw = ImageDraw.Draw(scene)
+    for index in range(0, 256, 20):
+        scene_draw.rectangle((index, 0, index + 5, 255), fill=(40, 180, 60))
+    scene_draw.rectangle((100, 90, 156, 170), fill=(235, 235, 235))
+    try:
+        conform_sprite_image(scene)
+        flatness_message = ""
+    except ConformError as error:
+        flatness_message = str(error)
+    _check(failures, "a busy frame with a pink MEDIAN is rejected by the flatness test alone "
+           "(MIN_BORDER_FLATNESS)", "not a flat background" in flatness_message,
+           flatness_message[:60])
+
+    # The background-strength test alone: a flat but faint pink (excess 20 < 64) around a
+    # real subject. Flatness passes, so only MIN_BACKGROUND_EXCESS can reject it.
+    faint, _ = _synthetic_figure(600, (200, 120, 160, 300), (100, 100, 100),
+                                 background_colour=(255, 200, 220))
+    try:
+        conform_sprite_image(faint)
+        faint_message = ""
+    except ConformError as error:
+        faint_message = str(error)
+    _check(failures, "a flat but faint pink background is rejected by MIN_BACKGROUND_EXCESS",
+           "not a saturated" in faint_message, faint_message[:60])
+
+    # Decontamination: a subject pixel half covered over hot pink must come out as the
+    # SUBJECT colour, not a blend. A 50% blend of (200,200,200) over (228,39,146) is
+    # (214,120,173) before decontamination; after it, it is ~(200,200,200) again.
+    blend = Image.new("RGB", (64, 64), hot_pink)
+    blend_draw = ImageDraw.Draw(blend)
+    blend_draw.rectangle((20, 20, 40, 40), fill=(200, 200, 200))
+    blend_draw.line((19, 20, 19, 40), fill=(214, 120, 173))
+    edge = key_magenta(blend).load()[19, 30]
+    _check(failures, "decontamination: a half-covered edge pixel is restored to the subject "
+           "colour (not left as a pink blend)",
+           all(abs(edge[c] - 200) <= 12 for c in range(3)) and 100 <= edge[3] <= 156,
+           str(edge))
+
+    # The alpha ramp's dead zones (KEY_OPAQUE_T / KEY_CLEAR_T) against a hot-pink key
+    # (background excess 107): 10% of it (10) is still fully opaque, 90% of it (97) is
+    # already fully clear, and the ramp between them is monotonic and spans 0..255.
+    lut = _alpha_lut(107.0)
+    _check(failures, "alpha ramp: an excess of 10 (<= 10% of the background's) is fully "
+           "opaque, 97 (>= 90%) is fully clear", lut[10] == 255 and lut[97] == 0,
+           f"lut[10]={lut[10]} lut[97]={lut[97]}")
+    _check(failures, "alpha ramp: monotonic falling, and 11..96 is partial (the ramp exists)",
+           all(lut[i] >= lut[i + 1] for i in range(255)) and 0 < lut[53] < 255,
+           f"lut[53]={lut[53]}")
+
+    # Luminance stretch: a DIM subject (110 grey) is stretched to a white-ish silhouette
+    # and stays neutral, so the draw-time tint has a light silhouette to multiply.
+    dim, _ = _synthetic_figure(800, tall_box, (110, 110, 110))
+    dim_pixels = conform_sprite_image(dim).load()
+    dim_opaque = [dim_pixels[x, y] for y in range(SIZE) for x in range(SIZE)
+                  if dim_pixels[x, y][3] == 255]
+    _check(failures, "a dim (110 grey) subject is stretched to a light neutral silhouette "
+           "(brightest opaque pixel >= 250, all opaque pixels R==G==B)",
+           bool(dim_opaque) and max(p[0] for p in dim_opaque) >= 250
+           and all(p[0] == p[1] == p[2] for p in dim_opaque),
+           f"max {max((p[0] for p in dim_opaque), default=None)}")
+
+    # SPRITE_MARGIN_PX, stated with the literal 1 (the earlier area checks compute their
+    # expectation FROM the constant, so they cannot notice it being changed): a full-height
+    # subject leaves a transparent row above and below it.
+    tall_stats = _sprite_stats(conform_sprite_image(_synthetic_figure(800, tall_box, (215, 215, 215))[0]))
+    tall_bounds = tall_stats["box"] or (0, 0, 0, 0)
+    _check(failures, "the subject keeps a 1 px transparent margin (box within 1..31 on both "
+           "axes) and still fills the tile (long side >= 28)",
+           tall_bounds[0] >= 1 and tall_bounds[1] >= 1 and tall_bounds[2] <= SIZE - 1
+           and tall_bounds[3] <= SIZE - 1 and tall_bounds[3] - tall_bounds[1] >= 28,
+           str(tall_bounds))
+
+    # The speck floor: two lone 1 px dust specks far from the figure are not the subject,
+    # so the crop (and therefore the whole sprite) is byte-identical with or without them.
+    clean, _ = _synthetic_figure(800, tall_box, (215, 215, 215))
+    dusty = clean.copy()
+    dusty.putpixel((30, 30), (200, 200, 200))
+    dusty.putpixel((770, 770), (200, 200, 200))
+    _check(failures, "lone 1 px specks do not move the crop (the speck floor)",
+           conform_sprite(clean) == conform_sprite(dusty))
 
     noisy, _ = _synthetic_figure(600, (200, 120, 160, 300), (200, 200, 200), noise=14)
     noisy_stats = _sprite_stats(conform_sprite_image(noisy))
@@ -1098,12 +1231,12 @@ def missing_pack_files(out_dir: str, entries: list) -> list:
     ]
 
 
-def acquire_lock(out_dir: str) -> str:
+def acquire_lock(lock_dir: str = DEFAULT_LOCK_DIR) -> str:
     """The task entry's single-instance hazard, made mechanical: one billable run at a
-    time. The lock lives inside the pack directory as runtime state; it is never part
-    of the pack - delete it if a crashed run left it behind."""
-    os.makedirs(out_dir, exist_ok=True)
-    path = os.path.join(out_dir, LOCK_FILE_NAME)
+    time. The lock lives under the git-ignored rendered/ (DEFAULT_LOCK_DIR), never in the
+    pack - delete it if a crashed run left it behind."""
+    os.makedirs(lock_dir, exist_ok=True)
+    path = os.path.join(lock_dir, LOCK_FILE_NAME)
     try:
         handle = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
         os.write(handle, time.strftime("%Y-%m-%dT%H:%M:%S").encode("ascii"))
@@ -1298,9 +1431,18 @@ def run_real(config: dict, entries: list, selection: list, out_dir: str,
               file=sys.stderr)
         return 1
 
-    lock_path = acquire_lock(out_dir)
+    return run_generation(config, entries, selection, out_dir, raw_dir)
+
+
+def run_generation(config: dict, entries: list, selection: list, out_dir: str, raw_dir: str,
+                   call=None, lock_dir: str = DEFAULT_LOCK_DIR) -> int:
+    """The billable part of a real run, after every preflight: take the lock, generate
+    the selection (a per-key failure never aborts it), ALWAYS write the manifest, report
+    what is still missing and every failed key, and return the exit code (1 when any key
+    failed). `call` and `lock_dir` exist so a self-check can stub the network."""
+    lock_path = acquire_lock(lock_dir)
     try:
-        generated, failed = generate_selection(config, selection, out_dir, raw_dir)
+        generated, failed = generate_selection(config, selection, out_dir, raw_dir, call=call)
 
         manifest_path = write_manifest(out_dir, entries)
         print(f"  wrote {os.path.relpath(manifest_path, REPO_ROOT)}")
@@ -1327,6 +1469,18 @@ def run_real(config: dict, entries: list, selection: list, out_dir: str,
         return 0
     finally:
         release_lock(lock_path)
+
+
+def _cost_note(usage) -> str:
+    """", reported cost $x.xxxx", ", reported cost unknown ('n/a')" for a value that is
+    not a number, or "" when the provider reported none. Never raises."""
+    cost = usage.get("cost") if isinstance(usage, dict) else None
+    if cost is None:
+        return ""
+    try:
+        return f", reported cost ${float(cost):.4f}"
+    except (TypeError, ValueError):
+        return f", reported cost unknown ({cost!r})"
 
 
 def generate_selection(config: dict, selection: list, out_dir: str, raw_dir: str,
@@ -1374,21 +1528,37 @@ def generate_selection(config: dict, selection: list, out_dir: str, raw_dir: str
             print(f"  FAILED {key}: {reason}. Nothing was written to the pack for it; "
                   "continuing with the next key.", file=sys.stderr)
             continue
-        # Keep the original BEFORE conforming: it was paid for, and every later
-        # conforming change is applied to it offline (--reconform).
-        raw_path = save_raw(raw_dir, key, image_bytes, image)
-        cost = usage.get("cost")
-        cost_note = f", reported cost ${float(cost):.4f}" if cost is not None else ""
+        # The image was paid for, so from here on ANY failure is recorded for this key and
+        # the run continues (a bad cost figure, a full disk and a conforming bug included).
+        cost_note = _cost_note(usage)
+        raw_path = None
         try:
+            # Keep the original BEFORE conforming: every later conforming change is
+            # applied to it offline (--reconform).
+            raw_path = save_raw(raw_dir, key, image_bytes, image)
             bmp, depth = conform_image(kind, image)
-        except ConformError as error:
-            failed.append((key, f"could not be conformed: {error}"))
-            print(f"  FAILED to conform {key}: {error}. The original is kept at "
-                  f"{os.path.relpath(raw_path, REPO_ROOT)}{cost_note}; nothing was "
-                  "written to the pack for it.", file=sys.stderr)
+            temp_path = full_path + ".tmp"
+            try:
+                with open(temp_path, "wb") as handle:
+                    handle.write(bmp)
+                os.replace(temp_path, full_path)
+            finally:
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+        except Exception as error:  # noqa: BLE001 - see above
+            kept = (f"The original is kept at {os.path.relpath(raw_path, REPO_ROOT)}"
+                    if raw_path else "The original could not be saved")
+            if isinstance(error, ConformError):
+                reason = f"could not be conformed: {error}"
+                label = "FAILED to conform"
+            else:
+                reason = f"{type(error).__name__}: {error}"
+                label = "FAILED (after the image was paid for)"
+            failed.append((key, reason))
+            print(f"  {label} {key}: {error if isinstance(error, ConformError) else reason}. "
+                  f"{kept}{cost_note}; nothing was written to the pack for it; "
+                  "continuing with the next key.", file=sys.stderr)
             continue
-        with open(full_path, "wb") as handle:
-            handle.write(bmp)
         print(f"  generated {relpath} (source {image.size[0]}x{image.size[1]} kept at "
               f"{os.path.relpath(raw_path, REPO_ROOT)} -> {SIZE}x{SIZE} {depth}"
               f"{' overwrote' if existed else ''}{cost_note})")
@@ -1429,7 +1599,7 @@ def run_reconform(entries: list, selection: list, out_dir: str, raw_dir: str,
           + ("" if write else " [dry run: nothing is written]"))
     print(f"  originals : {os.path.relpath(raw_dir, REPO_ROOT)}")
     print(f"  pack      : {os.path.relpath(out_dir, REPO_ROOT)}")
-    lock_path = acquire_lock(out_dir) if write else None
+    lock_path = acquire_lock() if write else None
     try:
         done = []
         no_raw = []
@@ -1508,7 +1678,7 @@ def main(argv: list | None = None) -> int:
                              "with --dry-run it writes nothing.")
     parser.add_argument("--self-check", action="store_true",
                         help="run only the conforming self-check on synthetic images "
-                             "(no network, no writes, free)")
+                             "(no network, no key, free; writes only a scratch pack under rendered/, which it deletes)")
     parser.add_argument("--config", default=DEFAULT_CONFIG, metavar="PATH",
                         help="local config path (default: " + DEFAULT_CONFIG_NAME
                              + " in the repository root)")
