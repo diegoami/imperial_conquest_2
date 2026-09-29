@@ -103,6 +103,7 @@ Models are chosen per task, in the task's entry, by what an error would cost:
 - **Claude Opus only on an architecture task**, where an error is not local: the domain model and the engine seams, battle resolution, the AI (T02, T03, T16, T22). Sonnet implements only as the fallback when OpenCode is unavailable (the script exits 3), and then for every task OpenCode would have run, whatever model the entry names (the user's decision of 2026-09-29); otherwise it reviews structural tasks ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers)).
 - **Haiku** is retired (the user's decision of 2026-09-27) and is never assigned; a task small enough for Haiku is cheap enough on Sonnet (incident 4). Two tasks merged on Haiku before that, T36 and T77.
 - **Fable** for pure templates and configuration, never for anything that must compile against the domain model.
+- **The order is per machine, and switches with the week's credit** (the user's decision of 2026-09-29). `models.local.json` at the repository root (git-ignored; copied from `models.example.json`) names the active profile: the implementer chain `-Model auto` runs, the reviewer chain `-Reviewer auto` runs, and whether a task's reviewer is a Claude subagent or the OpenCode reviewer script (`taskReviewer`: `claude` or `opencode`). `/model-order` ([Appendix D](#appendix-d-the-model-order-skill)) shows and switches it; `pwsh scripts/Get-ModelOrder.ps1 -Show` prints the effective order. The built-in order, used when the file is absent, is the one above. OpenAI's models through OpenCode's `openai` provider are in the tables as `gpt-mini` (cheap, an implementer) and `gpt` (strong, a reviewer); their ids are filled per machine from `opencode models openai`, and a name whose id is unfilled is dropped from every chain.
 
 ### 3.4 Why the reviewer's model differs from the implementer's
 
@@ -119,7 +120,7 @@ Models are chosen per task, in the task's entry, by what an error would cost:
 | A structural task (scaffolding, CLI, UI, data files, docs) | Sonnet / High, or `glm` at max effort through `scripts/external-review.ps1` | human visual review on the Godot screens ([§9](#9-standing-governance-decisions) Q-B) |
 | Fable, and the two tasks merged on Haiku | Sonnet / Medium | — |
 
-Each task's entry names its own pair; the table is the rule the entry applies. An entry may raise the reviewer one tier above its row, and says why. **The reviewer's model is never the implementer's**: an OpenCode implementer is reviewed by a Claude model, or by a different OpenCode model on a structural task, so the different-model rule holds by construction. `scripts/external-review.ps1 -ExcludeModel <name>` (the name on `external-implement.ps1`'s `implemented by:` line, or a `model:<name>` label on the PR or issue) drops that model from the review chain and refuses it as an explicit `-Reviewer`; when no model is left, the script exits 3 and the cold Claude Opus reviewer takes the review.
+Each task's entry names its own pair; the table is the rule the entry applies. An entry may raise the reviewer one tier above its row, and says why. **The reviewer's model is never the implementer's**: an OpenCode implementer is reviewed by a Claude model, or by a different OpenCode model on a structural task, so the different-model rule holds by construction. `scripts/external-review.ps1 -ExcludeModel <name>` (the name on `external-implement.ps1`'s `implemented by:` line, or a `model:<name>` label on the PR or issue) drops that model from the review chain and refuses it as an explicit `-Reviewer`; when no model is left, the script exits 3 and the cold Claude Opus reviewer takes the review. The scripts enforce it by vendor: the implementer's vendor is dropped from the reviewer chain, so `deepseek-flash` is never reviewed by `deepseek` and `gpt-mini` never by `gpt`. When the active model order's task reviewer is `opencode` (a week with little Claude credit), every task's reviewer runs through `scripts/external-review.ps1` and its chain, the rows above that name Opus included: that is the user's trade of tier for credit, made per machine with `/model-order`, and the merge rule (an approving review and green CI) is unchanged.
 
 ### 3.5 Where the `/code-review` skill fits
 
@@ -741,10 +742,11 @@ the docs item applies only if the review named a claim.
    (plus any review URLs from an earlier attempt). Then, by the entry's model (§3.3: Sonnet reads
    as the default, a non-architecture Opus and a High-effort entry as glm; a fix or a Low-effort task
    is the default too):
-   - an OpenCode model (deepseek-flash, mimo-flash-free, mimo-pro, mimo-flash, glm, luna): write the brief to a file and run
+   - an OpenCode model (deepseek-flash, mimo-flash-free, mimo-pro, mimo-flash, glm, luna, gpt-mini, gpt): write the brief to a file and run
      `pwsh scripts/external-implement.ps1 -Task T<nn> -Slug <slug> -Issue <n> -Model auto
      -BriefFile <file>` (`-Fix <issue>` for a fix; `-LocalOnly` where the label says). `-Model auto`
-     (the default) runs the chain deepseek-flash, mimo-flash-free, glm; pass an explicit `-Model
+     (the default) runs the active model order's implementer chain (`/model-order`; built-in:
+     deepseek-flash, mimo-flash-free, glm); pass an explicit `-Model
      <model>` only when the entry names another model (glm, luna, ...), which then runs alone. It creates
      the worktree and branch, runs OpenCode there, and returns with the PR number or a warning;
      read its tail. Run it in the background and watch it (operating-guide §3): the session must
@@ -753,10 +755,15 @@ the docs item applies only if the review named a claim.
    - a Claude model: Agent(general-purpose, model = the catalogue's, run_in_background, prompt =
      the brief). Wait for its completion notification; don't poll.
    If the implementer reports a defect in merged code, go to step 5 (bug).
-2. REVIEW. Check the PR exists and CI has run. Label status:in-review. Dispatch the reviewer:
-   Agent(model = the catalogue's reviewer model, prompt = Appendix B filled in). Wait. A review
-   through `scripts/external-review.ps1` passes the implementer's `implemented by:` name as
-   `-ExcludeModel`; the flag is required, since model:sonnet and model:opus labels exclude nothing.
+2. REVIEW. Check the PR exists and CI has run. Label status:in-review. Dispatch the reviewer by
+   the active model order's task reviewer (`pwsh scripts/Get-ModelOrder.ps1 -Show`):
+   - claude: Agent(model = the catalogue's reviewer model, prompt = Appendix B filled in). Wait.
+   - opencode: write Appendix B to a file and run `pwsh scripts/external-review.ps1 -Pr <pr>
+     -Issue <n> -ApplyLabel -ExcludeModel <implemented by> -BriefFile <file>` in the background,
+     watched like the implementer; its chain is the order's reviewer chain.
+   A review through `scripts/external-review.ps1` passes the implementer's `implemented by:` name as
+   `-ExcludeModel`; the flag is required, since model:sonnet and model:opus labels exclude nothing,
+   and the script drops the implementer's vendor from its chain.
 3. DECIDE on the label the reviewer applied:
    - status:approved: wait for CI green. If the branch is behind main, run
      `gh pr update-branch <pr>` and wait for green again. For T16 and T22, stop and get the
@@ -792,4 +799,41 @@ the docs item applies only if the review named a claim.
 Never: merge without an approving review and green CI; weaken a DoD; let the implementing agent
 review its own PR; force-push; delete a task branch that holds unmerged work; patch a defect in
 another task's Owns list; relay only part of a review.
+```
+
+## Appendix D: the `/model-order` skill
+
+The skill is installed locally (git-ignored) at `.claude/skills/model-order/SKILL.md`; reinstall it verbatim from this block if it's missing. Skills load when a session starts. It is run by the main session, on the user's word about the week's credit; it edits `models.local.json` (per machine, git-ignored) and never commits. [§3.3](#33-model-selection) says what the order decides and what it never changes.
+
+```markdown
+---
+name: model-order
+description: Show or switch this machine's implementer and reviewer model order (and whether a
+  task's reviewer is a Claude subagent or the OpenCode reviewer script), by the week's credit.
+  Edits models.local.json only; never commits. Main session only.
+---
+
+Usage:
+  /model-order                       show the active profile and the effective chains
+  /model-order <profile>             make that profile active: claude-full (Claude credit available),
+                                     claude-low (Claude credit low: OpenCode implements and reviews),
+                                     opencode-low (OpenCode credit low: OpenAI through OpenCode implements,
+                                     Claude reviews), or any profile models.local.json defines
+  /model-order implementer a,b,c     set the active profile's implementer chain, in order
+  /model-order reviewer a,b,c        set the active profile's reviewer chain, in order
+  /model-order task-reviewer claude|opencode   who reviews a task PR
+  /model-order id <name> <provider/model> [variant]   add or fix a model id (for example the openai ids)
+
+1. If models.local.json is missing at the repository root, copy models.example.json to it and say so.
+2. Read it as JSON. Apply the change and write it back, keeping every other profile and map as it
+   was. A name must be one `pwsh scripts/Get-ModelOrder.ps1 -List` prints; refuse an unknown name
+   and print the list. Refuse a chain whose every id is unfilled (contains "<").
+3. Run `pwsh scripts/Get-ModelOrder.ps1 -Show` and print its output: that is the order the next
+   dispatch uses. A run already started keeps its chain.
+4. Say what the order never changes: the reviewer's model is never the implementer's (the scripts
+   drop the implementer's vendor from the reviewer chain, so a profile whose only reviewer shares the
+   implementer's vendor leaves no reviewer, and the review then waits or goes to Claude); a merge
+   needs the approving review and green CI; T16 and T22 need the user's thumbs-up.
+5. Never commit models.local.json, never edit models.example.json here (that is a plan PR), and
+   never change a task's model:* label: the order says who runs, the label says who ran.
 ```

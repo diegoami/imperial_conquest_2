@@ -24,6 +24,7 @@ __determinism-guard-scratch__/
 *.zip
 *.mp4
 /assets.local.ini
+/models.local.json
 /assets-generator.local.ini
 /private-assets/
 /rendered/
