@@ -254,8 +254,9 @@ Two different code paths already exist, for two different moments, and they must
 
 ### 2.1 Why this section exists: the current offenders
 
-Sixteen nations need sixteen distinguishable colours. Today the game has **two** palettes, and neither
-is fit for purpose. `godot/MapViewer.cs`'s `OwnerColor` (`:595-614`) is the one already in play, in
+Sixteen nations need sixteen distinguishable colours. When this section was written the game had **two** palettes, and neither
+was fit for purpose. **Since T94 (PR #500), `godot/MapViewer.cs`'s `OwnerColor` carries §2.3's sixteen values and its dark-glyph list;
+the game screen still tints from `data/worlds/*.json`'s `colorHex` (issue #504).** The table below is the old `OwnerColor` (`:595-614`), the one then in play, in
 `NationCatalog`'s index order (`0`=Rome … `15`=Thracia, confirmed against `NationCatalog.cs` and the
 DAT's own 16-name nation table at stride 1,055, `investigations/dat-file-layout.md:120-124`):
 
