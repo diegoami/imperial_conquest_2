@@ -25,6 +25,17 @@ variable, is never printed, and request headers are never echoed. One run at a t
 run is long, billable and network-bound, and the script takes a lock file to keep two
 runs from double-billing.
 
+Originals and offline re-conforming: every real run first saves the full-resolution image
+exactly as the model returned it to rendered/authored-raw/<asset-key>.png (git-ignored),
+before any conforming. `--reconform` then rebuilds assets/packs/authored/ (images plus
+manifest) from those originals with NO network and NO key - free - so a change to the
+conforming step never means paying again. `--key` narrows it; keys with no original are
+reported. Sprites are conformed by a chroma key: the prompts ask for the subject on a solid
+flat pure magenta (#FF00FF), which is keyed out by HUE (so a light or white subject is
+never eaten), the magenta spill is removed from the anti-aliased edge, the result is
+cropped to the subject's bounding box, padded to a square, downscaled with Lanczos, and
+made a solid silhouette (alpha 255 or 0).
+
 Sound effects (the three sfx.* keys) are synthesized locally and deterministically in the
 mono 44.1 kHz 16-bit PCM shape of docs/asset-specification.md par. 1.4 - no image API
 produces audio - from the same prompts.json entries that describe them.
@@ -42,6 +53,7 @@ import io
 import json
 import math
 import os
+import random
 import struct
 import sys
 import time
@@ -50,7 +62,7 @@ import urllib.request
 import wave
 
 try:
-    from PIL import Image, ImageDraw
+    from PIL import Image, ImageChops, ImageDraw
 except ImportError:  # pragma: no cover - environment guard
     sys.stderr.write(
         "Pillow is required for image conforming: pip install Pillow\n"
@@ -67,19 +79,31 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_PROMPTS = os.path.join(REPO_ROOT, "assets", "prompts.json")
 DEFAULT_OUT_DIR = os.path.join(REPO_ROOT, "assets", "packs", "authored")
 DEFAULT_CONFIG = os.path.join(REPO_ROOT, DEFAULT_CONFIG_NAME)
+# Every real run keeps the full-resolution image exactly as the model returned it, BEFORE
+# any conforming, so a change to the conforming step is re-applied offline (--reconform)
+# instead of paying for every image again. /rendered/ is git-ignored: never committed.
+DEFAULT_RAW_DIR = os.path.join(REPO_ROOT, "rendered", "authored-raw")
 HTTP_TIMEOUT_SECONDS = 300  # image generation can take a minute or more per call
 MODELS_TIMEOUT_SECONDS = 30
 LOCK_FILE_NAME = ".generator.lock"
 
-# Background keying: a pixel within this RGB distance of the estimated background colour
-# becomes transparent. The prompts ask for a near-white subject on a solid black
-# background, so subject pixels sit far outside this radius; the radius exists to absorb
-# the model's background shading and compression noise.
-KEY_TOLERANCE = 90.0
+# Chroma-key background (sprite prompts ask for a solid flat pure magenta #FF00FF). The key
+# is a HUE test, not a distance-to-background test: a pixel's magenta excess is
+# min(R, B) - G, which is ~255 on magenta and ~0 on white, grey and light subjects, so a
+# light subject can never be eaten. Alpha is 1 - excess / background excess, with a dead
+# zone at each end that absorbs the model's background noise.
+MAGENTA = (255, 0, 255)
+MIN_BACKGROUND_EXCESS = 128  # the border must be at least this magenta, or the model ignored the key
+KEY_OPAQUE_T = 0.10  # excess <= 10% of the background's: fully opaque subject
+KEY_CLEAR_T = 0.90   # excess >= 90% of the background's: fully clear background
+SPRITE_MARGIN_PX = 1  # transparent margin around the cropped subject, in output pixels
+# Solid silhouette cut-off on the downscaled alpha (see conform_sprite_image).
+SOLID_ALPHA_CUTOFF = 96
 
 # The high-quality downscale filter, under either of Pillow's spellings:
 # Image.Resampling.LANCZOS since Pillow 9.1, Image.LANCZOS before that.
 LANCZOS = getattr(getattr(Image, "Resampling", Image), "LANCZOS")
+BOX = getattr(getattr(Image, "Resampling", Image), "BOX")
 
 # Cost estimate assumptions for the chat-completions image route (stated in every
 # estimate the script prints; actual usage is reported by the provider per call).
@@ -177,7 +201,12 @@ def bmp_bytes(img: Image.Image, bit_count: int) -> bytes:
     return bytes(out)
 
 
-# --- Conforming (DoD 5): downscale, key the background out to alpha, write BMP -------------
+# --- Conforming (DoD 5): key the chroma background out, crop, downscale, solidify ---------
+
+
+class ConformError(Exception):
+    """An image the conforming step cannot turn into a sprite (no magenta background,
+    or no subject). The raw original is already on disk, so nothing is lost."""
 
 
 def estimate_background(img: Image.Image):
@@ -198,53 +227,152 @@ def estimate_background(img: Image.Image):
     return tuple(sorted(channel)[len(channel) // 2] for channel in channels)
 
 
-def conform_sprite(img: Image.Image) -> bytes:
-    """A marker/unit sprite: key the plain background out to alpha, downscale to 32x32
-    with a high-quality filter, normalize the subject to a light/white neutral
-    silhouette (the nation palette is applied at DRAW time by tinting, not baked in),
-    and write a 32-bit BGRA BMP."""
-    img = img.convert("RGBA")
-    background = estimate_background(img)
-    pixels = img.load()
-    width, height = img.size
+def _magenta_excess(rgb: Image.Image) -> Image.Image:
+    """Per pixel: min(R, B) - G, clipped at 0 (an 'L' image). Pure magenta scores 255.
+    White, every grey, and any subject colour without both a strong red AND a strong
+    blue component over a weak green one scores ~0, so the test cannot hit a light or
+    neutral subject - which is exactly why the prompts ask for magenta, not black."""
+    red, green, blue = rgb.split()
+    return ImageChops.subtract(ImageChops.darker(red, blue), green)
+
+
+def _alpha_lut(background_excess: float) -> list:
+    """Map a pixel's magenta excess to alpha. A pixel that is a blend of alpha `a` of a
+    neutral subject over magenta has excess (1 - a) * background_excess exactly, so
+    physical alpha is 1 - t with t = excess / background_excess. The dead zones at each
+    end (t <= KEY_OPAQUE_T fully opaque, t >= KEY_CLEAR_T fully clear) absorb the
+    model's background noise and compression ripple."""
+    lut = []
+    for excess in range(256):
+        t = min(1.0, excess / background_excess)
+        a = (KEY_CLEAR_T - t) / (KEY_CLEAR_T - KEY_OPAQUE_T)
+        lut.append(int(round(255 * max(0.0, min(1.0, a)))))
+    return lut
+
+
+def key_magenta(img: Image.Image) -> Image.Image:
+    """Full-resolution RGBA with the magenta background keyed out to alpha and the
+    magenta spill removed from the anti-aliased edge. Raises ConformError when the
+    image's border is not a strongly magenta flat background."""
+    if img.mode in ("RGBA", "LA", "PA") or "transparency" in img.info:
+        # A model that already returned transparency: flatten onto pure magenta so
+        # one path keys everything.
+        flat = Image.new("RGBA", img.size, MAGENTA + (255,))
+        flat.alpha_composite(img.convert("RGBA"))
+        img = flat
+    rgb = img.convert("RGB")
+    background = estimate_background(rgb)
+    background_excess = min(background[0], background[2]) - background[1]
+    if background_excess < MIN_BACKGROUND_EXCESS:
+        raise ConformError(
+            f"the frame's border is not flat magenta (border median rgb {background}); "
+            "the model ignored the chroma-key background")
+    excess = _magenta_excess(rgb)
+    alpha = excess.point(_alpha_lut(float(background_excess)))
+
+    # Decontaminate the partially covered edge: pixel = a*fg + (1-a)*bg, so
+    # fg = (pixel - (1-a)*bg) / a, with the PHYSICAL a = 1 - t (not the dead-zoned one).
+    width, height = rgb.size
+    pixels = rgb.load()
+    alpha_pixels = alpha.load()
+    excess_pixels = excess.load()
     for y in range(height):
         for x in range(width):
-            pixel = pixels[x, y]
-            distance = math.sqrt(
-                (pixel[0] - background[0]) ** 2
-                + (pixel[1] - background[1]) ** 2
-                + (pixel[2] - background[2]) ** 2
-            )
-            if distance <= KEY_TOLERANCE:
-                pixels[x, y] = (0, 0, 0, 0)
-    small = img.resize((SIZE, SIZE), LANCZOS)
-    small_pixels = small.load()
-    # Kill faint background ghosts the resize smeared in; keep straight (non-premultiplied)
-    # alpha for the rest, per docs/asset-specification.md par. 1.2.
+            if 0 < alpha_pixels[x, y] < 255:
+                t = min(1.0, excess_pixels[x, y] / background_excess)
+                physical = max(0.05, 1.0 - t)
+                p = pixels[x, y]
+                pixels[x, y] = tuple(
+                    max(0, min(255, int(round((p[c] - t * background[c]) / physical))))
+                    for c in range(3))
+    # Despill what decontamination cannot see: pull any remaining magenta cast (red and
+    # blue both above green) down to neutral, so no pink fringe survives the tint.
+    spill = _magenta_excess(rgb)
+    red, green, blue = rgb.split()
+    rgb = Image.merge("RGB", (ImageChops.subtract(red, spill), green,
+                              ImageChops.subtract(blue, spill)))
+    keyed = rgb.convert("RGBA")
+    keyed.putalpha(alpha)
+    return keyed
+
+
+def _subject_bbox(alpha: Image.Image):
+    """Bounding box (x0, y0, x1, y1) of the subject: the pixels at least half covered,
+    ignoring specks. A coarse pass (box-averaged blocks that are >= ~10% covered)
+    finds the subject and drops noise; a fine pass then measures it exactly."""
+    mask = alpha.point(lambda v: 255 if v >= 128 else 0)
+    width, height = mask.size
+    block = max(1, min(width, height) // 128)
+    coarse = mask.resize((max(1, width // block), max(1, height // block)), BOX)
+    coarse_box = coarse.point(lambda v: 255 if v >= 26 else 0).getbbox()
+    if coarse_box is None:
+        return None
+    region = (max(0, (coarse_box[0] - 1) * block), max(0, (coarse_box[1] - 1) * block),
+              min(width, (coarse_box[2] + 1) * block), min(height, (coarse_box[3] + 1) * block))
+    fine = mask.crop(region).getbbox()
+    if fine is None:
+        return None
+    return (region[0] + fine[0], region[1] + fine[1], region[0] + fine[2], region[1] + fine[3])
+
+
+def crop_to_subject(keyed: Image.Image) -> Image.Image:
+    """Crop the keyed image to the subject's bounding box, pad it to a SQUARE with
+    transparency (aspect ratio kept, subject centred) leaving SPRITE_MARGIN_PX at 32 px
+    on every side, so the subject fills the tile instead of the middle half of it."""
+    box = _subject_bbox(keyed.getchannel("A"))
+    if box is None:
+        raise ConformError("no subject found after keying the magenta background out")
+    subject = keyed.crop(box)
+    side = max(subject.size)
+    padded_side = int(math.ceil(side * SIZE / (SIZE - 2 * SPRITE_MARGIN_PX)))
+    canvas = Image.new("RGBA", (padded_side, padded_side), (0, 0, 0, 0))
+    canvas.paste(subject, ((padded_side - subject.size[0]) // 2,
+                           (padded_side - subject.size[1]) // 2))
+    return canvas
+
+
+def conform_sprite_image(img: Image.Image) -> Image.Image:
+    """A marker/unit sprite as a 32x32 RGBA image: key the flat magenta background out
+    to alpha (removing the edge spill), crop to the subject, pad to a square, downscale
+    with a high-quality filter, make the silhouette SOLID, and normalize the subject to
+    a light neutral silhouette (the nation palette is applied at DRAW time by tinting,
+    not baked in)."""
+    canvas = crop_to_subject(key_magenta(img))
+    small = canvas.resize((SIZE, SIZE), LANCZOS)  # RGBA resizes premultiplied
+    pixels = small.load()
+    # Solid silhouette: alpha at or above SOLID_ALPHA_CUTOFF becomes 255, below becomes
+    # 0. The cut-off sits below one half so that thin strokes (a spear shaft, a mast) a
+    # pixel wide, which straddle two pixels at ~50% coverage each, survive the cut
+    # instead of vanishing; it is not lower, so the edge does not fatten by a full
+    # pixel. The result has no partial-alpha pixels: crisp pixel-art edges that a
+    # draw-time tint cannot wash out.
+    opaque = 0
     max_luminance = 0.0
     for y in range(SIZE):
         for x in range(SIZE):
-            r, g, b, a = small_pixels[x, y]
-            if a == 0:
+            r, g, b, a = pixels[x, y]
+            if a < SOLID_ALPHA_CUTOFF:
+                pixels[x, y] = (0, 0, 0, 0)
                 continue
-            if a < 32:
-                small_pixels[x, y] = (0, 0, 0, 0)
-                continue
-            luminance = 0.299 * r + 0.587 * g + 0.114 * b
-            if luminance > max_luminance:
-                max_luminance = luminance
-    if max_luminance <= 0:
-        max_luminance = 255.0
-    scale = 255.0 / max_luminance
+            opaque += 1
+            max_luminance = max(max_luminance, 0.299 * r + 0.587 * g + 0.114 * b)
+    if opaque == 0:
+        raise ConformError("the subject vanished in the downscale")
+    scale = 255.0 / max_luminance if max_luminance > 0 else 1.0
     for y in range(SIZE):
         for x in range(SIZE):
-            r, g, b, a = small_pixels[x, y]
+            r, g, b, a = pixels[x, y]
             if a == 0:
                 continue
-            luminance = min(255.0, (0.299 * r + 0.587 * g + 0.114 * b) * scale)
-            value = max(0, min(255, int(round(luminance))))
-            small_pixels[x, y] = (value, value, value, a)
-    return bmp_bytes(small, 32)
+            value = max(0, min(255, int(round(
+                min(255.0, (0.299 * r + 0.587 * g + 0.114 * b) * scale)))))
+            pixels[x, y] = (value, value, value, 255)
+    return small
+
+
+def conform_sprite(img: Image.Image) -> bytes:
+    """conform_sprite_image, serialized as a 32-bit BGRA BMP."""
+    return bmp_bytes(conform_sprite_image(img), 32)
 
 
 def conform_tile(img: Image.Image) -> bytes:
@@ -391,6 +519,63 @@ def _check(failures: list, name: str, ok: bool, detail: str = "") -> None:
         failures.append(name)
 
 
+def _synthetic_figure(frame: int, box: tuple, colour: tuple, noise: int = 0):
+    """A stick-figure soldier (head, torso, shield, spear) in `colour`, anti-aliased,
+    blended over flat magenta in a frame x frame image - drawn in code, never
+    downloaded. `box` = (left, top, width, height) of the figure inside the frame.
+    Returns (image, figure_mask); the mask is the exact 0..255 coverage, so the caller
+    knows the true subject area and bounding box. `noise` adds +/-noise of per-channel
+    random ripple to the background only (a model's imperfect flat colour)."""
+    scale = 4
+    left, top, width, height = box
+    big = Image.new("L", (frame * scale, frame * scale), 0)
+    draw = ImageDraw.Draw(big)
+
+    def rect(x0, y0, x1, y1):
+        draw.rectangle([(left + x0 * width) * scale, (top + y0 * height) * scale,
+                        (left + x1 * width) * scale, (top + y1 * height) * scale], fill=255)
+
+    def oval(x0, y0, x1, y1):
+        draw.ellipse([(left + x0 * width) * scale, (top + y0 * height) * scale,
+                      (left + x1 * width) * scale, (top + y1 * height) * scale], fill=255)
+
+    oval(0.30, 0.00, 0.60, 0.16)   # head
+    rect(0.28, 0.18, 0.62, 0.62)   # torso
+    rect(0.30, 0.62, 0.44, 1.00)   # legs
+    rect(0.48, 0.62, 0.60, 1.00)
+    oval(0.02, 0.28, 0.26, 0.58)   # shield
+    rect(0.80, 0.02, 0.86, 1.00)   # spear shaft
+    mask = big.resize((frame, frame), BOX)
+    background = Image.new("RGB", (frame, frame), MAGENTA)
+    if noise:
+        rng = random.Random(7)
+        pixels = background.load()
+        for y in range(frame):
+            for x in range(frame):
+                pixels[x, y] = tuple(
+                    max(0, min(255, c + rng.randint(-noise, noise))) for c in MAGENTA)
+    image = Image.composite(Image.new("RGB", (frame, frame), colour), background, mask)
+    return image, mask
+
+
+def _sprite_stats(sprite: Image.Image) -> dict:
+    """Opaque/partial pixel counts, bounding box and worst magenta cast of a 32x32 sprite."""
+    pixels = sprite.load()
+    opaque = partial = 0
+    cast = 0
+    for y in range(SIZE):
+        for x in range(SIZE):
+            r, g, b, a = pixels[x, y]
+            if a == 255:
+                opaque += 1
+            elif a > 0:
+                partial += 1
+            if a > 0:
+                cast = max(cast, min(r, b) - g)
+    box = sprite.getchannel("A").point(lambda v: 255 if v > 0 else 0).getbbox()
+    return {"opaque": opaque, "partial": partial, "box": box, "cast": cast}
+
+
 def self_check() -> list:
     """Run the conforming step on synthetic images drawn in code (never downloaded)
     and validate the output bytes against exactly what the C# conformance test will
@@ -400,8 +585,8 @@ def self_check() -> list:
     print("Self-check: conforming step proven on synthetic images (in memory, no network)")
     failures = []
 
-    # Synthetic sprite: a near-white disc with a bar inside, on solid black.
-    sprite_source = Image.new("RGB", (256, 256), (0, 0, 0))
+    # Synthetic sprite: a near-white disc with a bar inside, on solid flat magenta.
+    sprite_source = Image.new("RGB", (256, 256), MAGENTA)
     draw = ImageDraw.Draw(sprite_source)
     draw.ellipse((56, 56, 200, 200), fill=(235, 235, 235))
     draw.rectangle((116, 116, 140, 200), fill=(255, 255, 255))
@@ -454,6 +639,62 @@ def self_check() -> list:
     print("  note: Pillow's BMP reader ignores the 4th byte of a 32-bit BI_RGB BMP; "
           "the alpha channel is verified from the file bytes, per par. 1.2's own open "
           "item about readers.")
+
+    # --- The chroma-key conforming rules (the user's first real image was faint, fill
+    # --- half the tile and washed out; these prove the fix without spending anything).
+    tall_box = (300, 150, 130, 230)  # a small tall subject in the middle of a 800 px frame
+    for label, colour in (("light-grey", (215, 215, 215)), ("pure-white", (255, 255, 255))):
+        source, mask = _synthetic_figure(800, tall_box, colour)
+        sprite = conform_sprite_image(source)
+        stats = _sprite_stats(sprite)
+        figure_box = mask.point(lambda v: 255 if v >= 128 else 0).getbbox()
+        long_side = max(figure_box[2] - figure_box[0], figure_box[3] - figure_box[1])
+        padded_side = math.ceil(long_side * SIZE / (SIZE - 2 * SPRITE_MARGIN_PX))
+        area = sum(1 for v in mask.tobytes() if v >= 128)
+        expected = area / (padded_side * padded_side) * SIZE * SIZE
+        visible = stats["opaque"] + stats["partial"]
+        _check(failures, f"{label} figure on magenta: mostly opaque, "
+               "0 partial pixels outside a thin edge",
+               visible > 0 and stats["opaque"] / visible >= 0.9 and stats["partial"] == 0,
+               f"{stats['opaque']} opaque, {stats['partial']} partial")
+        _check(failures, f"{label} figure on magenta: the light subject was not keyed out "
+               "(opaque area within 15% of the drawn figure's)",
+               abs(stats["opaque"] - expected) <= 0.15 * expected,
+               f"{stats['opaque']} opaque vs ~{expected:.0f} expected")
+        box = stats["box"]
+        long_out = max(box[2] - box[0], box[3] - box[1]) if box else 0
+        _check(failures, f"{label} small subject in a large frame fills the tile "
+               "(bounding box long side >= 26 px)", long_out >= 26,
+               f"{long_out} px on the long side of {SIZE}")
+        if label == "light-grey":
+            aspect_in = (figure_box[2] - figure_box[0]) / (figure_box[3] - figure_box[1])
+            aspect_out = (box[2] - box[0]) / (box[3] - box[1])
+            _check(failures, "crop keeps the aspect ratio (padded to a square, not "
+                   "stretched)", abs(aspect_in - aspect_out) <= 0.12,
+                   f"{aspect_in:.2f} in vs {aspect_out:.2f} out")
+        keyed = key_magenta(source)
+        raw = keyed.tobytes()
+        keyed_cast = max((min(raw[i], raw[i + 2]) - raw[i + 1])
+                         for i in range(0, len(raw), 4) if raw[i + 3] > 0)
+        _check(failures, f"{label} figure: no pink fringe survives the keying "
+               "(no visible pixel with a magenta cast)",
+               keyed_cast <= 8 and stats["cast"] <= 8,
+               f"worst cast {keyed_cast} after keying, {stats['cast']} in the 32x32 output")
+
+    noisy, _ = _synthetic_figure(600, (200, 120, 160, 300), (200, 200, 200), noise=14)
+    noisy_stats = _sprite_stats(conform_sprite_image(noisy))
+    _check(failures, "rippled magenta background (+/-14 per channel) still keys out cleanly",
+           noisy_stats["partial"] == 0 and 200 <= noisy_stats["opaque"] <= 700
+           and noisy_stats["box"] is not None and noisy_stats["box"][0] > 0,
+           f"{noisy_stats['opaque']} opaque, {noisy_stats['partial']} partial")
+
+    try:
+        conform_sprite_image(Image.new("RGB", (256, 256), (0, 0, 0)))
+        rejected = False
+    except ConformError:
+        rejected = True
+    _check(failures, "a frame with no magenta background is rejected, not turned into a "
+           "solid block", rejected)
 
     # Synthetic tile: a green base with a brown undulating ridge (par. 4.5's plain).
     tile_source = Image.new("RGB", (256, 256), (60, 200, 60))
@@ -843,7 +1084,7 @@ def dry_run(config: dict, entries: list, selection: list, models: list | None) -
 
 
 def run_real(config: dict, entries: list, selection: list, out_dir: str,
-             prompts_path: str) -> int:
+             prompts_path: str, raw_dir: str = DEFAULT_RAW_DIR) -> int:
     print("T51 asset generator - REAL RUN (billable, network-bound, single-instance)")
 
     if "config_error" in config:
@@ -902,6 +1143,7 @@ def run_real(config: dict, entries: list, selection: list, out_dir: str,
     lock_path = acquire_lock(out_dir)
     try:
         generated = 0
+        failed = []
         for entry in selection:
             key = entry["key"]
             kind = entry["kind"]
@@ -927,16 +1169,25 @@ def run_real(config: dict, entries: list, selection: list, out_dir: str,
                 continue
             image_bytes, usage = call_image_model(config, entry["prompt"])
             image = Image.open(io.BytesIO(image_bytes))
-            if not image.mode.startswith("RGB"):
-                image = image.convert("RGB")
-            bmp = conform_sprite(image) if kind == "sprite" else conform_tile(image)
-            with open(full_path, "wb") as handle:
-                handle.write(bmp)
-            depth = "32-bit BGRA" if kind == "sprite" else "24-bit opaque"
+            image.load()
+            # Keep the original BEFORE conforming: it was paid for, and every later
+            # conforming change is applied to it offline (--reconform).
+            raw_path = save_raw(raw_dir, key, image_bytes, image)
             cost = usage.get("cost")
             cost_note = f", reported cost ${float(cost):.4f}" if cost is not None else ""
-            print(f"  generated {relpath} (source {image.size[0]}x{image.size[1]} -> "
-                  f"{SIZE}x{SIZE} {depth}{' overwrote' if existed else ''}{cost_note})")
+            try:
+                bmp, depth = conform_image(kind, image)
+            except ConformError as error:
+                failed.append(key)
+                print(f"  FAILED to conform {key}: {error}. The original is kept at "
+                      f"{os.path.relpath(raw_path, REPO_ROOT)}{cost_note}; nothing was "
+                      "written to the pack for it.", file=sys.stderr)
+                continue
+            with open(full_path, "wb") as handle:
+                handle.write(bmp)
+            print(f"  generated {relpath} (source {image.size[0]}x{image.size[1]} kept at "
+                  f"{os.path.relpath(raw_path, REPO_ROOT)} -> {SIZE}x{SIZE} {depth}"
+                  f"{' overwrote' if existed else ''}{cost_note})")
             generated += 1
 
         manifest_path = write_manifest(out_dir, entries)
@@ -952,9 +1203,96 @@ def run_real(config: dict, entries: list, selection: list, out_dir: str,
                   "AssetLoader.ValidateAssets will report zero missing.")
         print(f"real run finished: {generated} asset(s) generated into "
               f"{os.path.relpath(out_dir, REPO_ROOT)}")
+        if failed:
+            print(f"  {len(failed)} image(s) could not be conformed: {failed}. Their "
+                  "originals are kept; fix the cause, then run --reconform (free) "
+                  "instead of paying again.", file=sys.stderr)
+            return 1
         return 0
     finally:
         release_lock(lock_path)
+
+
+def raw_path_for(raw_dir: str, key: str) -> str:
+    return os.path.join(raw_dir, key + ".png")
+
+
+def save_raw(raw_dir: str, key: str, image_bytes: bytes, image: Image.Image) -> str:
+    """Write the full-resolution image as the model returned it (PNG bytes are kept
+    verbatim; any other format is re-encoded losslessly as PNG, keeping its pixels)."""
+    os.makedirs(raw_dir, exist_ok=True)
+    path = raw_path_for(raw_dir, key)
+    if image.format == "PNG":
+        with open(path, "wb") as handle:
+            handle.write(image_bytes)
+    else:
+        image.save(path, format="PNG")
+    return path
+
+
+def conform_image(kind: str, image: Image.Image) -> tuple:
+    """The conforming step for one image kind: (BMP bytes, depth description)."""
+    if kind == "sprite":
+        return conform_sprite(image), "32-bit BGRA"
+    return conform_tile(image), "24-bit opaque"
+
+
+def run_reconform(entries: list, selection: list, out_dir: str, raw_dir: str,
+                  write: bool = True) -> int:
+    """Offline re-conform: no network, no key, no bill. Rebuilds the pack (images plus
+    manifest) from the originals in `raw_dir` for every selected key that has one, and
+    reports every selected image key that has none."""
+    print("T51 asset generator - RECONFORM (offline: no network, no key, no bill)"
+          + ("" if write else " [dry run: nothing is written]"))
+    print(f"  originals : {os.path.relpath(raw_dir, REPO_ROOT)}")
+    print(f"  pack      : {os.path.relpath(out_dir, REPO_ROOT)}")
+    lock_path = acquire_lock(out_dir) if write else None
+    try:
+        done = []
+        no_raw = []
+        failed = []
+        for entry in selection:
+            key = entry["key"]
+            kind = entry["kind"]
+            if kind == "sfx":
+                continue  # synthesized locally, has no original
+            raw_path = raw_path_for(raw_dir, key)
+            if not os.path.exists(raw_path):
+                no_raw.append(key)
+                continue
+            try:
+                with Image.open(raw_path) as opened:
+                    opened.load()
+                    image = opened.copy()
+                bmp, depth = conform_image(kind, image)
+            except ConformError as error:
+                failed.append(key)
+                print(f"  FAILED {key}: {error}", file=sys.stderr)
+                continue
+            relpath = asset_relpath(key)
+            if write:
+                full_path = os.path.join(out_dir, relpath)
+                os.makedirs(os.path.dirname(full_path), exist_ok=True)
+                with open(full_path, "wb") as handle:
+                    handle.write(bmp)
+            done.append(key)
+            verb = "reconformed" if write else "would reconform"
+            print(f"  {verb} {relpath} ({image.size[0]}x{image.size[1]} -> "
+                  f"{SIZE}x{SIZE} {depth})")
+        if write:
+            manifest_path = write_manifest(out_dir, entries)
+            print(f"  wrote {os.path.relpath(manifest_path, REPO_ROOT)}")
+        print(f"reconform finished: {len(done)} reconformed, {len(no_raw)} with no original, "
+              f"{len(failed)} failed")
+        if no_raw:
+            print("  no original in " + os.path.relpath(raw_dir, REPO_ROOT)
+                  + " (generate these with --key; they are not re-conformable):")
+            for key in no_raw:
+                print(f"    {key}")
+        return 1 if failed else 0
+    finally:
+        if lock_path:
+            release_lock(lock_path)
 
 
 SYNTHESIZERS = {
@@ -978,6 +1316,13 @@ def main(argv: list | None = None) -> int:
     parser.add_argument("--key", action="append", default=[], metavar="AssetKey",
                         help="REAL RUN: regenerate only this key (repeatable). Any "
                              "selection without --dry-run is a billable run.")
+    parser.add_argument("--reconform", action="store_true",
+                        help="OFFLINE and FREE (no network, no key): rebuild the pack "
+                             "(images plus manifest) from the full-resolution originals "
+                             "every real run saves in rendered/authored-raw/. Use it after "
+                             "tuning the conforming step. --key selects which keys; keys "
+                             "with no original are reported, not re-conformable. Combined "
+                             "with --dry-run it writes nothing.")
     parser.add_argument("--self-check", action="store_true",
                         help="run only the conforming self-check on synthetic images "
                              "(no network, no writes, free)")
@@ -988,6 +1333,9 @@ def main(argv: list | None = None) -> int:
                         help="prompts.json path (default: assets/prompts.json)")
     parser.add_argument("--out", default=DEFAULT_OUT_DIR, metavar="DIR",
                         help="output pack directory (default: assets/packs/authored)")
+    parser.add_argument("--raw", default=DEFAULT_RAW_DIR, metavar="DIR",
+                        help="where full-resolution originals are kept and re-conformed "
+                             "from (default: rendered/authored-raw, git-ignored)")
     args = parser.parse_args(argv)
 
     entries = load_prompts(args.prompts)
@@ -1008,6 +1356,10 @@ def main(argv: list | None = None) -> int:
     if args.self_check:
         return 1 if self_check() else 0
 
+    if args.reconform:
+        return run_reconform(entries, selection, args.out, args.raw,
+                             write=not args.dry_run)
+
     real = (args.all or bool(args.key)) and not args.dry_run
     if not real:
         config = load_config(args.config)
@@ -1024,7 +1376,7 @@ def main(argv: list | None = None) -> int:
         selection = list(entries)
 
     config = load_config(args.config)
-    return run_real(config, entries, selection, args.out, args.prompts)
+    return run_real(config, entries, selection, args.out, args.prompts, args.raw)
 
 
 if __name__ == "__main__":
