@@ -72,7 +72,7 @@
       "key": "city.tier1.icon",
       "kind": "sprite",
       "prompt": "A small ancient Mediterranean house pictogram facing forward: a compact peaked roof with a small chimney tick over a narrow body with two small window openings per row, the most modest city marker. Pixel-art game sprite: a single subject centred in the frame with clear empty margins, drawn as a bold, simple silhouette in light grey to near-white, with strong simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. Plain, uniform, solid black background filling the frame - no scenery, no ground line, no shading on the background, no border, no frame, no text.",
-      "source": "docs/asset-specification.md 3.3: 'A small house: a compact peaked roof over a narrower body with two window/door openings per row ... a chimney tick on the roofline - both houses carry one' (corrected per N11); the tier-to-shape assignment is this pack's designed choice - 3.3 leaves the original's variant meaning open"
+      "source": "docs/asset-specification.md 3.3: 'A small house: a compact peaked roof over a narrower body with two window/door openings per row ... a chimney tick on the roofline - both houses carry one' (corrected per N11); the tier-to-shape assignment is this pack's designed choice - 3.3 leaves the variant meaning open"
     },
     {
       "key": "city.tier2.icon",
@@ -138,7 +138,7 @@
       "key": "sfx.city_captured",
       "kind": "sfx",
       "prompt": "A short triumphant fanfare for a city taken by force: a rising three-note brass call answered by one low drum hit.",
-      "source": "docs/asset-specification.md 4.6 sound effects table: 'A city changes owner by force (\"falls to\")' - synthesized locally by the generator (no image API produces audio); the mapping of the original's ten undifferentiated WAV files is the gap 4.6 records"
+      "source": "docs/asset-specification.md 4.6 sound effects table: 'A city changes owner by force (\"falls to\")' - synthesized locally by the generator (no image API produces audio); the mapping of the ten undifferentiated reference WAV files is the gap 4.6 records"
     },
     {
       "key": "sfx.battle",
