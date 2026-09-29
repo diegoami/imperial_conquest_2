@@ -236,7 +236,7 @@ Everything else merges without the user, subject to [§9](#9-standing-governance
 
 1. **Suspend.** The task that found it goes to `status:blocked` and its issue says "suspended on #N". It doesn't touch the upstream Owns list.
 2. **File.** The defect becomes a GitHub issue labelled `bug` and `triage:needed`. It states what is wrong, the exact evidence, and the affected files or fields. If it blocks tasks, its body opens with `Blocks: T<nn>[, T<nn>]`.
-3. **Plan.** The main session triages it. It picks one of:
+3. **Plan.** The main session triages it. A new bug arrives at triage with Jev's proposed `fix`-versus-task label and playability answer ([operating-guide.md §3](operating-guide.md#3-standing-user-preferences)), which the main session confirms or overrides. It picks one of:
    - a **fix** ([§4.10](#410-the-fix-lane)): when the fix stays within the files the bug names and changes no rule's outcome. No catalogue entry, no `T` number; the bug issue is the contract;
    - a **correction task**: the next free `T` number, in full catalogue shape, when the fix needs its own Owns list, model and reviewer;
    - **folding it into an upcoming task's DoD**: the default for small fixes and for follow-ups, folded into the next task that touches those files. **A task at `status:ready` gains no new DoD items** (the user's decision of 2026-09-28): a later finding folds into a follow-on task, or a new one, never into a ready task's entry;
