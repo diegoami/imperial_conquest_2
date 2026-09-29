@@ -95,6 +95,15 @@
       anywhere; never a second, hand-maintained copy.
     -->
     <Compile Include="../../godot/Assets/MarkerTint.cs" Link="Ui/MarkerTint.cs" />
+
+    <!--
+      Fix #513 (tests/IC2.Engine.Tests/Ui/**): the same seam again. RecruitmentPanelViewModel.cs is the
+      Godot-free model behind the city panel's "In training here" list, the nation overview's
+      "Regiments in training" list and the army panel's mobilize choice, so the fix's own test can
+      assert all three against a real GameState. No `using Godot` anywhere; never a second,
+      hand-maintained copy.
+    -->
+    <Compile Include="../../godot/UI/RecruitmentPanelViewModel.cs" Link="Ui/RecruitmentPanelViewModel.cs" />
   </ItemGroup>
 
 </Project>
