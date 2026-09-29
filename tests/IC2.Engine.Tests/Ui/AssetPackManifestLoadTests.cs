@@ -56,6 +56,29 @@ public sealed class AssetPackManifestLoadTests : IDisposable
         Assert.Contains(path, failure);
     }
 
+    /// <summary>
+    /// Rework round 1, N1: <c>{"assets": null}</c> is valid JSON, so
+    /// <see cref="AssetLoader.LoadManifest"/> gets past deserialization and then calls
+    /// <c>ToFrozenDictionary()</c> on the null table — an <see cref="ArgumentNullException"/> the
+    /// loader's original catch list did not cover. <see cref="ArgumentException"/> is the catch that
+    /// closes it, since <see cref="ArgumentNullException"/> derives from it.
+    /// </summary>
+    [Fact]
+    public void TryLoad_returns_null_and_no_pack_for_a_manifest_whose_assets_are_null()
+    {
+        var path = Path.Combine(_directory, "null-assets.json");
+        File.WriteAllText(path, "{ \"assets\": null }");
+
+        // The exact exception the catch had to grow to cover, raised by the engine's own loader.
+        Assert.Throws<ArgumentNullException>(() => AssetLoader.LoadManifest(path));
+
+        var pack = AssetPackManifestLoader.TryLoad(path, out var failure);
+
+        Assert.Null(pack);
+        Assert.NotNull(failure);
+        Assert.Contains(path, failure);
+    }
+
     [Fact]
     public void TryLoad_returns_null_and_no_pack_for_a_missing_manifest()
     {

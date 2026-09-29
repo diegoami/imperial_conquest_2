@@ -20,18 +20,22 @@ namespace IC2.Slice.Assets;
 /// <para>
 /// <strong>Why the catch covers more than a missing file.</strong>
 /// <see cref="AssetLoader.LoadManifest"/> throws <see cref="FileNotFoundException"/> for a missing
-/// manifest, <see cref="InvalidOperationException"/> when deserialization returns null, and
-/// <see cref="JsonException"/> for malformed JSON. The original catch covered only the first two, so a
-/// corrupt manifest crashed the caller despite the contract; that is the defect this class closes.
+/// manifest, <see cref="InvalidOperationException"/> when deserialization returns null,
+/// <see cref="JsonException"/> for malformed JSON, and <see cref="ArgumentException"/> (as its
+/// <see cref="ArgumentNullException"/> subclass) when the JSON is valid but has no asset table:
+/// <c>{"assets": null}</c> deserializes to a null <c>Assets</c> dictionary, which
+/// <c>ToAssetPack</c> then passes to <c>ToFrozenDictionary()</c>. The original catch covered only the
+/// first two, so a corrupt manifest crashed the caller despite the contract; that is the defect this
+/// class closes.
 /// </para>
 /// </remarks>
 public static class AssetPackManifestLoader
 {
     /// <summary>
     /// Loads <paramref name="manifestPath"/> through <see cref="AssetLoader.LoadManifest"/>, returning
-    /// <see langword="null"/> — never throwing — when the manifest is missing, unreadable as JSON, or
-    /// deserializes to nothing. <paramref name="failureMessage"/> names the path and the underlying
-    /// reason for the caller's own log line.
+    /// <see langword="null"/> — never throwing — when the manifest is missing, unreadable as JSON,
+    /// deserializes to nothing, or carries no asset table. <paramref name="failureMessage"/> names the
+    /// path and the underlying reason for the caller's own log line.
     /// </summary>
     public static AssetPack? TryLoad(string manifestPath, out string? failureMessage)
     {
@@ -40,7 +44,8 @@ public static class AssetPackManifestLoader
             failureMessage = null;
             return AssetLoader.LoadManifest(manifestPath);
         }
-        catch (Exception ex) when (ex is FileNotFoundException or InvalidOperationException or JsonException)
+        catch (Exception ex) when (
+            ex is FileNotFoundException or InvalidOperationException or JsonException or ArgumentException)
         {
             failureMessage = $"asset pack manifest at '{manifestPath}': {ex.Message}";
             return null;
