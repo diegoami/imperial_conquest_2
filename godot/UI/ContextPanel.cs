@@ -147,10 +147,11 @@ public partial class ContextPanel : Control
     /// adds goes through here instead of a bare <c>UiKit.MakeButton</c> call, so it clips to whatever
     /// width the panel actually settles at rather than demanding more.
     /// </summary>
-    private void AddButton(string text, Action onPressed)
+    private void AddButton(string text, Action onPressed, bool enabled = true)
     {
         var button = UiKit.MakeButton(text, onPressed);
         button.ClipText = true;
+        button.Disabled = !enabled;
         _content.AddChild(button);
     }
 
@@ -171,6 +172,25 @@ public partial class ContextPanel : Control
         Fact($"Tax base: {nation.TaxBase}  ·  Tax rate: {nation.TaxRatePercent}%");
         Fact($"Population: {nation.Population}");
         Fact($"Cities: {Session.State.Cities.Count(c => c.Owner == nation.Id)}");
+
+        // Fix #513, Defect 1: a regiment ordered with "Recruit" is a NationState.RecruitmentSlot, and
+        // nothing here showed one until this list -- so the player could not tell whether the order
+        // worked. Readiness and weeks-until-ready come from the engine's own MobilizationReadiness,
+        // never a second threshold.
+        var inTraining = RecruitmentPanelViewModel.TrainingForNation(Session.State, Session.Ruleset, nation.Id);
+        _content.AddChild(UiKit.MakeLabel("Regiments in training", 15, UiKit.TextColor));
+        if (inTraining.Count == 0)
+        {
+            Note("None.");
+        }
+        else
+        {
+            foreach (var regiment in inTraining)
+            {
+                Fact($"{regiment.UnitTypeId} — {regiment.Troops} troops — {regiment.ReadinessText} — at {CityName(regiment.TargetCityId)}");
+            }
+        }
+
         Note("Select a city, army or fleet on the map for its own actions.");
     }
 
@@ -185,6 +205,23 @@ public partial class ContextPanel : Control
         Fact($"Tax rate: {(owner?.TaxRatePercent.ToString() ?? "?")}%  (display-only — no command sets it; see this class's remarks)");
 
         Fact($"Garrison: {(city.Garrison.Count == 0 ? "none" : string.Join(", ", city.Garrison.Select(u => $"{u.Troops}x {u.UnitTypeId}")))}");
+
+        // Fix #513, Defect 1: the regiments this city is training, among everything else the panel says
+        // about the city. Shown for any owner's city (a captured city's queue has been cleared by the
+        // engine, but the panel never invents that); only the commands below are gated on the active seat.
+        var inTraining = RecruitmentPanelViewModel.TrainingAtCity(Session.State, Session.Ruleset, city.Owner, city.Id);
+        _content.AddChild(UiKit.MakeLabel("In training here", 15, UiKit.TextColor));
+        if (inTraining.Count == 0)
+        {
+            Note("No regiment is training here.");
+        }
+        else
+        {
+            foreach (var regiment in inTraining)
+            {
+                Fact($"{regiment.UnitTypeId} — {regiment.Troops} troops — {regiment.ReadinessText}");
+            }
+        }
 
         if (!string.Equals(city.Owner, Session.State.ActiveNationId, StringComparison.Ordinal))
         {
@@ -266,7 +303,19 @@ public partial class ContextPanel : Control
         _content.AddChild(new HSeparator());
         AddButton("Move (click a tile on the map)", () => MapView.BeginMoveOrder(army.Id));
         AddButton("Attack (click a target on the map)", () => MapView.BeginAttackOrder(army.Id));
-        AddButton("Mobilize first ready slot", () => MobilizeFirstReadySlot(army.Id));
+
+        // Fix #513, Defect 2: the choice is the engine's own readiness gate, so the button can only
+        // issue "mobilize <a ready index>" -- and says why it is disabled when nothing is ready.
+        var mobilize = RecruitmentPanelViewModel.ChooseMobilization(Session.State, Session.Ruleset, army.Nation);
+        AddButton(
+            "Mobilize first ready slot",
+            () => MobilizeFirstReadySlot(army.Id, mobilize.SlotIndex!.Value),
+            mobilize.IsEnabled);
+        if (!mobilize.IsEnabled)
+        {
+            Note(mobilize.Reason!);
+        }
+
         AddButton("Disband", () => Issue($"disband-army {army.Id}"));
     }
 
@@ -291,25 +340,28 @@ public partial class ContextPanel : Control
     }
 
     /// <summary>
-    /// Mobilizes recruitment slot 0 — <strong>[designed]</strong>: <c>mobilize</c> takes a bare slot
-    /// index (<c>MobilizeRecruitSlotCommand</c>), not a "ready" flag this panel could filter on, so
-    /// "first" is simply index 0; whether that slot is actually ready is exactly what
-    /// <c>MobilizeRecruitSlotCommandHandler</c>'s own rejection reports back through
-    /// <see cref="Issue"/> when it is not.
+    /// Mobilizes <paramref name="slotIndex"/> — the first slot <see cref="MobilizationReadiness"/> says
+    /// this seat may actually mobilize, chosen by
+    /// <see cref="RecruitmentPanelViewModel.ChooseMobilization"/> in <see cref="BuildArmyPanel"/>.
     /// </summary>
-    private void MobilizeFirstReadySlot(string newArmyName)
+    /// <remarks>
+    /// <strong>Fix #513, Defect 2.</strong> The old button issued <c>mobilize 0 …</c> whatever slot 0's
+    /// state was, so an order given while slot 0 was still training was refused — and #484 made the
+    /// refusal silent. This method now only ever receives an index the engine's own gate accepted; when
+    /// none is ready, <see cref="BuildArmyPanel"/> disables the button and shows
+    /// <see cref="MobilizeChoice.Reason"/> instead of issuing anything.
+    /// </remarks>
+    /// <param name="newArmyName">The army id prefix; the engine appends <c>-recruit</c> (see
+    /// <see cref="BuildArmyPanel"/>).</param>
+    /// <param name="slotIndex">The index into the nation's <see cref="NationState.RecruitmentSlots"/>.</param>
+    private void MobilizeFirstReadySlot(string newArmyName, int slotIndex)
     {
-        var nation = Session.State.NationById(Session.State.ActiveNationId);
-        if (nation is null || nation.RecruitmentSlots.Count == 0)
-        {
-            CommandIssued?.Invoke(new[] { "No recruitment slot to mobilize." });
-            return;
-        }
-
-        Issue($"mobilize 0 {newArmyName}-recruit");
+        Issue($"mobilize {slotIndex} {newArmyName}-recruit");
     }
 
     private string DisplayNation(string nationId) => Session.State.NationById(nationId)?.Name ?? nationId;
+
+    private string CityName(string cityId) => Session.State.CityById(cityId)?.Name ?? cityId;
 
     private void Issue(string commandLine)
     {
