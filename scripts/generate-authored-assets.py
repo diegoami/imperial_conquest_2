@@ -619,6 +619,61 @@ def _sprite_stats(sprite: Image.Image) -> dict:
     return {"opaque": opaque, "partial": partial, "box": box, "cast": cast}
 
 
+def _self_check_run_survives_failures(failures: list) -> None:
+    """generate_selection with a stubbed model: a no-image reply, an HTTP error and a
+    conform rejection each land in the failed list with their reason, the keys after
+    them are still generated, and the reason is reported on stderr."""
+    import contextlib
+    import shutil
+
+    good_frame, _ = _synthetic_figure(256, (60, 40, 130, 176), (235, 235, 235))
+    good_buffer = io.BytesIO()
+    good_frame.save(good_buffer, format="PNG")
+    bad_buffer = io.BytesIO()
+    Image.new("RGB", (256, 256), (0, 0, 0)).save(bad_buffer, format="PNG")  # no magenta
+
+    replies = {
+        "unit.a.icon": good_buffer.getvalue(),
+        "unit.b.icon": RuntimeError("the model returned no image in message.images; it said: `"),
+        "unit.c.icon": RuntimeError("HTTP 502 from POST chat/completions; the provider said: bad gateway"),
+        "unit.d.icon": bad_buffer.getvalue(),
+        "unit.e.icon": good_buffer.getvalue(),
+    }
+    calls = []
+
+    def stub(config, prompt):
+        calls.append(prompt)
+        reply = replies[prompt]
+        if isinstance(reply, Exception):
+            raise reply
+        return reply, {}
+
+    selection = [{"key": key, "kind": "sprite", "prompt": key} for key in replies]
+    scratch_root = os.path.join(REPO_ROOT, "rendered")
+    os.makedirs(scratch_root, exist_ok=True)
+    scratch = os.path.join(scratch_root, "selfcheck-run-%d" % os.getpid())
+    stderr = io.StringIO()
+    try:
+        with contextlib.redirect_stderr(stderr), contextlib.redirect_stdout(io.StringIO()):
+            generated, failed = generate_selection(
+                {}, selection, os.path.join(scratch, "pack"), os.path.join(scratch, "raw"),
+                call=stub)
+        failed_keys = [key for key, _ in failed]
+        written = sorted(name for name in os.listdir(os.path.join(scratch, "pack", "units")))
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+    errors = stderr.getvalue()
+    _check(failures, "run: every selected key is attempted after a failure (no abort)",
+           len(calls) == 5)
+    _check(failures, "run: the failed keys are exactly b, c and d",
+           failed_keys == ["unit.b.icon", "unit.c.icon", "unit.d.icon"], str(failed_keys))
+    _check(failures, "run: the keys after the failures are still generated",
+           generated == 2 and written == ["a.bmp", "e.bmp"], f"{generated} {written}")
+    _check(failures, "run: each failure is reported on stderr with the model's reason",
+           "no image in message.images" in errors and "HTTP 502" in errors
+           and "unit.d.icon" in errors)
+
+
 def self_check() -> list:
     """Run the conforming step on synthetic images drawn in code (never downloaded)
     and validate the output bytes against exactly what the C# conformance test will
@@ -822,6 +877,10 @@ def self_check() -> list:
         _check(failures, "wav: mono 44100 Hz 16-bit PCM",
                wav_file.getnchannels() == 1 and wav_file.getframerate() == SAMPLE_RATE
                and wav_file.getsampwidth() == 2)
+
+    # Run robustness: one key failing must not abort the run. call_image_model is stubbed,
+    # so this uses no network and no key; the scratch pack goes under rendered/ (never TEMP).
+    _self_check_run_survives_failures(failures)
 
     if failures:
         print(f"Self-check FAILED: {len(failures)} check(s) failed: {failures}")
@@ -1241,53 +1300,7 @@ def run_real(config: dict, entries: list, selection: list, out_dir: str,
 
     lock_path = acquire_lock(out_dir)
     try:
-        generated = 0
-        failed = []
-        for entry in selection:
-            key = entry["key"]
-            kind = entry["kind"]
-            relpath = asset_relpath(key)
-            full_path = os.path.join(out_dir, relpath)
-            os.makedirs(os.path.dirname(full_path), exist_ok=True)
-            existed = os.path.exists(full_path)
-            if kind == "sfx":
-                synthesizer = SYNTHESIZERS.get(key)
-                if synthesizer is None:
-                    print(f"error: no local synthesizer for sfx key {key} - add one "
-                          "before regenerating it.", file=sys.stderr)
-                    return 1
-                samples = synthesizer()
-                data = wav_bytes(samples)
-                with open(full_path, "wb") as handle:
-                    handle.write(data)
-                duration = len(samples) / SAMPLE_RATE
-                print(f"  synthesized {relpath} "
-                      f"(mono {SAMPLE_RATE} Hz 16-bit PCM, {duration:.2f}s, "
-                      f"{'overwrote' if existed else 'wrote'})")
-                generated += 1
-                continue
-            image_bytes, usage = call_image_model(config, entry["prompt"])
-            image = Image.open(io.BytesIO(image_bytes))
-            image.load()
-            # Keep the original BEFORE conforming: it was paid for, and every later
-            # conforming change is applied to it offline (--reconform).
-            raw_path = save_raw(raw_dir, key, image_bytes, image)
-            cost = usage.get("cost")
-            cost_note = f", reported cost ${float(cost):.4f}" if cost is not None else ""
-            try:
-                bmp, depth = conform_image(kind, image)
-            except ConformError as error:
-                failed.append(key)
-                print(f"  FAILED to conform {key}: {error}. The original is kept at "
-                      f"{os.path.relpath(raw_path, REPO_ROOT)}{cost_note}; nothing was "
-                      "written to the pack for it.", file=sys.stderr)
-                continue
-            with open(full_path, "wb") as handle:
-                handle.write(bmp)
-            print(f"  generated {relpath} (source {image.size[0]}x{image.size[1]} kept at "
-                  f"{os.path.relpath(raw_path, REPO_ROOT)} -> {SIZE}x{SIZE} {depth}"
-                  f"{' overwrote' if existed else ''}{cost_note})")
-            generated += 1
+        generated, failed = generate_selection(config, selection, out_dir, raw_dir)
 
         manifest_path = write_manifest(out_dir, entries)
         print(f"  wrote {os.path.relpath(manifest_path, REPO_ROOT)}")
@@ -1303,13 +1316,84 @@ def run_real(config: dict, entries: list, selection: list, out_dir: str,
         print(f"real run finished: {generated} asset(s) generated into "
               f"{os.path.relpath(out_dir, REPO_ROOT)}")
         if failed:
-            print(f"  {len(failed)} image(s) could not be conformed: {failed}. Their "
-                  "originals are kept; fix the cause, then run --reconform (free) "
-                  "instead of paying again.", file=sys.stderr)
+            print(f"  {len(failed)} key(s) FAILED: {[key for key, _ in failed]}.",
+                  file=sys.stderr)
+            for key, reason in failed:
+                print(f"    {key}: {reason}", file=sys.stderr)
+            print("  Rerun just those with --key <AssetKey> (a failed call is usually not "
+                  "billed); a key whose original was kept but would not conform can be "
+                  "fixed with --reconform (free) instead of paying again.", file=sys.stderr)
             return 1
         return 0
     finally:
         release_lock(lock_path)
+
+
+def generate_selection(config: dict, selection: list, out_dir: str, raw_dir: str,
+                       call=None) -> tuple:
+    """Generate every selected key. One key failing (the model returned no image, an HTTP
+    or network error, an undecodable image, a conform rejection) is reported on stderr
+    with its reason and the run CONTINUES with the next key: a crash on key 20 must not
+    strand the paid-for keys 21-40. Returns (generated_count, [(key, reason), ...]);
+    the caller exits 1 when the list is not empty. `call` defaults to call_image_model
+    and exists so a self-check can stub the network."""
+    call = call or call_image_model
+    generated = 0
+    failed = []
+    for entry in selection:
+        key = entry["key"]
+        kind = entry["kind"]
+        relpath = asset_relpath(key)
+        full_path = os.path.join(out_dir, relpath)
+        os.makedirs(os.path.dirname(full_path), exist_ok=True)
+        existed = os.path.exists(full_path)
+        if kind == "sfx":
+            synthesizer = SYNTHESIZERS.get(key)
+            if synthesizer is None:
+                reason = "no local synthesizer for this sfx key - add one before regenerating it"
+                failed.append((key, reason))
+                print(f"  FAILED {key}: {reason}", file=sys.stderr)
+                continue
+            samples = synthesizer()
+            data = wav_bytes(samples)
+            with open(full_path, "wb") as handle:
+                handle.write(data)
+            duration = len(samples) / SAMPLE_RATE
+            print(f"  synthesized {relpath} "
+                  f"(mono {SAMPLE_RATE} Hz 16-bit PCM, {duration:.2f}s, "
+                  f"{'overwrote' if existed else 'wrote'})")
+            generated += 1
+            continue
+        try:
+            image_bytes, usage = call(config, entry["prompt"])
+            image = Image.open(io.BytesIO(image_bytes))
+            image.load()
+        except Exception as error:  # noqa: BLE001 - any per-key failure must not abort the run
+            reason = f"{type(error).__name__}: {error}"
+            failed.append((key, reason))
+            print(f"  FAILED {key}: {reason}. Nothing was written to the pack for it; "
+                  "continuing with the next key.", file=sys.stderr)
+            continue
+        # Keep the original BEFORE conforming: it was paid for, and every later
+        # conforming change is applied to it offline (--reconform).
+        raw_path = save_raw(raw_dir, key, image_bytes, image)
+        cost = usage.get("cost")
+        cost_note = f", reported cost ${float(cost):.4f}" if cost is not None else ""
+        try:
+            bmp, depth = conform_image(kind, image)
+        except ConformError as error:
+            failed.append((key, f"could not be conformed: {error}"))
+            print(f"  FAILED to conform {key}: {error}. The original is kept at "
+                  f"{os.path.relpath(raw_path, REPO_ROOT)}{cost_note}; nothing was "
+                  "written to the pack for it.", file=sys.stderr)
+            continue
+        with open(full_path, "wb") as handle:
+            handle.write(bmp)
+        print(f"  generated {relpath} (source {image.size[0]}x{image.size[1]} kept at "
+              f"{os.path.relpath(raw_path, REPO_ROOT)} -> {SIZE}x{SIZE} {depth}"
+              f"{' overwrote' if existed else ''}{cost_note})")
+        generated += 1
+    return generated, failed
 
 
 def raw_path_for(raw_dir: str, key: str) -> str:
