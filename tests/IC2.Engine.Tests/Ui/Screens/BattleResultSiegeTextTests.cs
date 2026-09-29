@@ -100,6 +100,7 @@ public sealed class BattleResultSiegeTextTests
         var viewModel = BattleResultViewModel.FromResult(battle);
         Assert.NotNull(viewModel.SiegeCityText(stateAfter.CityById("felsina")!.Name));
         Assert.Null(viewModel.FailedSiegeShortfallText());
+        Assert.Null(viewModel.EmptiedBesiegerText());
     }
 
     /// <summary>

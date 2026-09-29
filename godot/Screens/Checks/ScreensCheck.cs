@@ -4,7 +4,6 @@ using IC2.Engine.Model;
 using IC2.Engine.Presentation;
 using IC2.Slice.Screens;
 using IC2.Slice.UI;
-using System.Globalization;
 
 namespace IC2.Slice.Checks;
 
@@ -52,6 +51,7 @@ public partial class ScreensCheck : Node
         {
             CheckBattleResultScreenOpensFromAScriptedDestroyedFixture();
             CheckBattleResultScreenOpensFromAScriptedScatteredFixture();
+            CheckAnEmptiedBesiegersScreenShowsTheWipedOutLineNotANegativeShortfall();
             CheckDiplomacyScreenOpensFromAScriptedState();
             CheckHotseatHandoffScreenOpensBlindAndNotBlindFromAScriptedState();
             CheckAttackThroughMainGameScreenOpensTheBattleResultScreen();
@@ -103,6 +103,38 @@ public partial class ScreensCheck : Node
         Check(
             screen.FateLabel.Text.Contains("Scattered", StringComparison.Ordinal),
             $"the battle-result screen shows 'Scattered' for a scattered-loser fixture (got '{screen.FateLabel.Text}')");
+
+        screen.Close();
+        RemoveChild(screen);
+        screen.QueueFree();
+    }
+
+    /// <summary>
+    /// bug #499 rework round 1 (B1): the T63 N7 state scripted — the attacker out-powered the city
+    /// (300 against 200) but the defender is reported the winner because the besieger's own losses
+    /// emptied it. The screen must render the wiped-out line, never the first round's
+    /// "The attack fell short by -100: 300 against 200."
+    /// </summary>
+    private void CheckAnEmptiedBesiegersScreenShowsTheWipedOutLineNotANegativeShortfall()
+    {
+        var screen = new BattleResultScreen
+        {
+            Session = ToySession(),
+            Result = BattleResultViewModel.FromResult(MakeEmptiedBesiegerResult()),
+        };
+        AddChild(screen);
+
+        const string wipedOutLine =
+            "Strong enough (300 against 200), but the besieging army was wiped out by its own losses, so the city held.";
+        var text = LabelText(screen);
+
+        Check(
+            text.Contains(wipedOutLine, StringComparison.Ordinal),
+            $"bug #499 B1: an emptied besieger's screen says the army was wiped out and the city held, "
+            + $"as exactly '{wipedOutLine}'");
+        Check(
+            !text.Contains("-100", StringComparison.Ordinal),
+            "bug #499 B1: the emptied besieger's screen never shows a negative shortfall");
 
         screen.Close();
         RemoveChild(screen);
@@ -251,12 +283,13 @@ public partial class ScreensCheck : Node
             + $"('{winnerName}'s casualties: {result.WinnerCasualties}' and "
             + $"'{loserName}'s casualties: {result.LoserCasualties}')");
 
-        var shortfall = result.DefenderPower - result.AttackerPower;
+        var shortfallLine =
+            $"The attack fell short by {result.DefenderPower - result.AttackerPower}: "
+            + $"{result.AttackerPower} against {result.DefenderPower}.";
         Check(
-            text.Contains("fell short", StringComparison.Ordinal)
-            && text.Contains(shortfall.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal),
-            $"bug #499: the screen says the attack fell short by {shortfall} "
-            + $"({result.AttackerPower} against {result.DefenderPower})");
+            text.Contains(shortfallLine, StringComparison.Ordinal),
+            $"bug #499: the screen says the attack fell short, with both powers, as exactly "
+            + $"'{shortfallLine}'");
 
         Check(
             text.Contains($"loyalty {result.CityLoyaltyBefore} -> {result.CityLoyaltyAfter}", StringComparison.Ordinal)
@@ -508,6 +541,45 @@ public partial class ScreensCheck : Node
         Scatter: fate == LoserFate.Scattered
             ? new ScatterOutcome(FromX: 4, FromY: 2, ToX: 5, ToY: 3, RequestedDistance: 2, ActualDistance: 2)
             : null);
+
+    /// <summary>
+    /// bug #499 rework B1's own fixture: the shape <c>InstantBattleResolver.ResolveSiege</c> produces for
+    /// T63's N7 state — 300 attack against 200 defence, reported as a defender win because the besieger's
+    /// own attrition emptied it. Scripted here by hand because <c>godot/IC2.MapViewer.csproj</c> cannot
+    /// reference the xunit test assembly that owns <c>CaptureTestbed</c>; the real-resolver assertion lives
+    /// in <c>tests/IC2.Engine.Tests/Ui/Screens/BattleResultWordingTests.cs</c>.
+    /// </summary>
+    private static BattleResult MakeEmptiedBesiegerResult() => new(
+        Kind: BattleKind.Siege,
+        AttackerId: "army",
+        DefenderId: "c1",
+        AttackerNationId: "north",
+        DefenderNationId: "south",
+        AttackerPower: 300,
+        DefenderPower: 200,
+        Winner: BattleSide.Defender,
+        AppliedDefeatOutcome: null,
+        LoserFate: LoserFate.Unaffected,
+        WinnerCasualties: 0,
+        LoserCasualties: 8,
+        UnitCasualties: ValueList<UnitCasualty>.Empty,
+        Promotions: ValueList<UnitPromotion>.Empty,
+        AbsorbedMoney: 0,
+        AbsorbedSupplyTons: 0,
+        WinnerUnityDelta: 0,
+        LoserUnityDelta: 0,
+        WinnerShipsLost: 0,
+        WinnerConditionLost: 0,
+        WinnerUnitsLost: 0,
+        PeaceTreatyFired: false,
+        PeaceTreatyOffered: false,
+        Scatter: null,
+        CityLoyaltyBefore: 0,
+        CityLoyaltyAfter: 0,
+        CityFortificationPercentBefore: 0,
+        CityFortificationPercentAfter: 0,
+        CityPopulationThousandsBefore: 1,
+        CityPopulationThousandsAfter: 1);
 
     private bool Check(bool condition, string description)
     {

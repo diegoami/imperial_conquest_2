@@ -25,8 +25,12 @@ namespace IC2.Slice.Screens;
 /// was the whole casualty report, so the besieging army's own attrition (the loser's casualties, 1,872
 /// troops in the reproduced Felsina siege) is now shown beside it; a siege also shows the besieged
 /// city's before/after loyalty, fortification and population — each attempt wears the city down — and a
-/// siege the attacker lost says how far short the attack fell. The strings themselves live on
-/// <see cref="BattleResultViewModel"/> so the Godot-free test reads exactly what this screen renders.
+/// siege the attacker lost says how far short the attack fell — or, when it out-powered the city but
+/// this attempt's own attrition emptied it (<c>T63 N7</c>, review B1), that the army was wiped out and
+/// the city held. A naval battle's loser line says "ships lost" (review N2), since
+/// <see cref="BattleResultViewModel.WinnerCasualties"/> beside it counts troops. The strings themselves
+/// live on <see cref="BattleResultViewModel"/> so the Godot-free test reads exactly what this screen
+/// renders.
 /// </para>
 /// </remarks>
 public partial class BattleResultScreen : Control
@@ -67,6 +71,11 @@ public partial class BattleResultScreen : Control
         if (Result.FailedSiegeShortfallText() is { } shortfall)
         {
             content.AddChild(UiKit.MakeLabel(shortfall, 15, UiKit.TextColor));
+        }
+
+        if (Result.EmptiedBesiegerText() is { } emptiedBesieger)
+        {
+            content.AddChild(UiKit.MakeLabel(emptiedBesieger, 15, UiKit.TextColor));
         }
 
         content.AddChild(new HSeparator());

@@ -125,10 +125,14 @@ public sealed record BattleResultViewModel(
     /// holds — 1,872 troops in the reproduced Felsina siege — and which the unchanged screen never
     /// showed: "Gaul's casualties: 0" was the whole casualty report. For a field battle it is the
     /// loser's own losses, and for a naval battle its hulls, exactly as <see cref="BattleResult"/>
-    /// documents.
+    /// documents — so a naval battle says "ships lost", because <see cref="WinnerCasualties"/> beside it
+    /// counts the winning fleet's carried army's <em>troops</em> and the bare "casualties" read as the
+    /// same unit (bug #499 review N2).
     /// </summary>
     public string LoserCasualtiesText(string loserName) =>
-        $"{loserName}'s casualties: {LoserCasualties}";
+        Kind == BattleKind.Naval
+            ? $"{loserName}'s ships lost: {LoserCasualties}"
+            : $"{loserName}'s casualties: {LoserCasualties}";
 
     /// <summary>
     /// The besieged city's before/after loyalty, fortification and population (bug #499), or
@@ -148,11 +152,31 @@ public sealed record BattleResultViewModel(
     /// How far short a failed siege fell (bug #499), or <see langword="null"/> for anything else. The
     /// confirmed rule is "the attacker wins only if <c>atk &gt; def</c>, ties to the defender"
     /// (<c>docs/game-design.md</c> §Combat), so the shortfall is <c>DefenderPower - AttackerPower</c> —
-    /// zero on an exact tie.
+    /// never negative. An exact tie says the tie goes to the defender rather than "fell short by 0"
+    /// (review N1), and a besieger that out-powered the city but was emptied by its own losses
+    /// (<see cref="EmptiedBesiegerText"/>) gets its own line instead of a negative shortfall (review B1).
     /// </summary>
     public string? FailedSiegeShortfallText() =>
-        Kind == BattleKind.Siege && !AttackerWon
-            ? $"The attack fell short by {DefenderPower - AttackerPower}: "
-              + $"{AttackerPower} against {DefenderPower}."
+        Kind == BattleKind.Siege && !AttackerWon && AttackerPower <= DefenderPower
+            ? AttackerPower == DefenderPower
+                ? $"The attack fell short: a tie goes to the defender "
+                  + $"({AttackerPower} against {DefenderPower})."
+                : $"The attack fell short by {DefenderPower - AttackerPower}: "
+                  + $"{AttackerPower} against {DefenderPower}."
+            : null;
+
+    /// <summary>
+    /// The distinct line for the T63 N7 state (bug #499 review B1): a siege the attacker lost even though
+    /// its <see cref="AttackerPower"/> beat the <see cref="DefenderPower"/>, because this same attempt's
+    /// own attrition emptied the besieging army — <c>InstantBattleResolver.ResolveSiege</c> then reports
+    /// the defender as the winner rather than an unresolved capture
+    /// (<c>SiegeAttritionTests.EmptiedBesieger_ReportsTheDefenderAsWinner_NotACaptureTheCityDidNotYield</c>).
+    /// There is no shortfall to state here, so <see cref="FailedSiegeShortfallText"/> is
+    /// <see langword="null"/> and this is <see langword="null"/> for every other battle.
+    /// </summary>
+    public string? EmptiedBesiegerText() =>
+        Kind == BattleKind.Siege && !AttackerWon && AttackerPower > DefenderPower
+            ? $"Strong enough ({AttackerPower} against {DefenderPower}), but the besieging army was "
+              + "wiped out by its own losses, so the city held."
             : null;
 }

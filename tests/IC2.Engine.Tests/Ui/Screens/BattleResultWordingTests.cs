@@ -59,6 +59,11 @@ public sealed class BattleResultWordingTests
         // B1: no negative figure anywhere in the line -- on the reviewed head this was "-100".
         Assert.DoesNotContain("-", shortfall ?? string.Empty, StringComparison.Ordinal);
         Assert.Null(shortfall);
+
+        // ...and the emptied state gets its own, true line instead of a shortfall.
+        Assert.Equal(
+            "Strong enough (300 against 200), but the besieging army was wiped out by its own losses, so the city held.",
+            viewModel.EmptiedBesiegerText());
     }
 
     /// <summary>
@@ -81,6 +86,7 @@ public sealed class BattleResultWordingTests
         Assert.Equal(
             "The attack fell short: a tie goes to the defender (4000 against 4000).",
             viewModel.FailedSiegeShortfallText());
+        Assert.Null(viewModel.EmptiedBesiegerText()); // a tie is a shortfall, not the emptied case
     }
 
     /// <summary>
