@@ -701,7 +701,7 @@ public partial class MapViewer : Control
         // and gave Rome and Gaul colours one channel apart, so markers belonging to different
         // nations were indistinguishable. The hex values are the specification's own; nation code
         // order is the catalogue's (0 Rome ... 15 Thracia).
-        0 => new Color("4C0D19"), // Rome
+        0 => new Color("D32F2F"), // Rome
         1 => new Color("DDB69C"), // Carthage
         2 => new Color("671E0B"), // Seleucid
         3 => new Color("E1EC25"), // Ptolemaic

@@ -136,7 +136,7 @@
     {
       "id": "rome",
       "name": "Rome",
-      "colorHex": "#4C0D19",
+      "colorHex": "#D32F2F",
       "leaderName": "(unassigned -- drawn at New Game)",
       "capitalCityId": "rome",
       "treasury": 2200,
@@ -148,7 +148,7 @@
       "population": 859,
       "_provenance": {
         "name": "confirmed: T30's DAT nation-table parse (IC2.Data.SaveNationTable.Parse), DAT 0x1B100; cross-checked against NationCatalog -- docs/investigations/dat-file-layout.md.",
-        "colorHex": "designed: docs/asset-specification.md §2.3's settled sixteen-nation palette (T49), applied verbatim in NationCatalog order; supersedes T29's pre-T49 placeholder.",
+        "colorHex": "designed: docs/asset-specification.md §2.3's settled sixteen-nation palette (T49), applied verbatim in NationCatalog order; Rome changed to the strong red #D32F2F by the user's decision of 2026-09-29 (bug #530); supersedes T29's pre-T49 placeholder.",
         "leaderName": "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one.",
         "capitalCityId": "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse.",
         "treasury": "confirmed: DAT nation record +0x40d, T30's parse.",

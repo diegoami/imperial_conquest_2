@@ -248,11 +248,14 @@ static TileType TileType(string id, int code, string name, bool passableByArmies
 // distinguishability against the terrain and against each other -- the same values the research
 // inspector has drawn since T94. Bug #525 replaced T29's pre-T49 placeholders here so a re-export
 // cannot revert the world file to them.
+// Bug #530 (the user's decision of 2026-09-29): the optimiser's #4C0D19 read as nearly black on
+// the map; the user chose a strong red, so Rome is #D32F2F, per §2.3's Rome row. It keeps the
+// light glyph (luminance 0.161 < 0.190).
 // [designed]: no report records an original in-game nation colour scheme to transcribe; searched
 // docs/reports/ and found none, so §2.3's designed palette is the source, not the DAT.
 var palette = new[]
 {
-    "#4C0D19", "#DDB69C", "#671E0B", "#E1EC25", "#719D16", "#C3E155", "#107A16", "#93F6D6",
+    "#D32F2F", "#DDB69C", "#671E0B", "#E1EC25", "#719D16", "#C3E155", "#107A16", "#93F6D6",
     "#29796D", "#A7DCF8", "#237084", "#5F50E6", "#4C0C8D", "#D760E8", "#581B45", "#D46CBB",
 };
 if (palette.Distinct(StringComparer.OrdinalIgnoreCase).Count() != 16)
@@ -286,7 +289,9 @@ for (var i = 0; i < 16; i++)
         Population: population,
         Provenance: ProvenanceMap.Of(
             ("name", "confirmed: T30's DAT nation-table parse (IC2.Data.SaveNationTable.Parse), DAT 0x1B100; cross-checked against NationCatalog -- docs/investigations/dat-file-layout.md."),
-            ("colorHex", "designed: docs/asset-specification.md §2.3's settled sixteen-nation palette (T49), applied verbatim in NationCatalog order; supersedes T29's pre-T49 placeholder."),
+            ("colorHex", i == 0
+                ? "designed: docs/asset-specification.md §2.3's settled sixteen-nation palette (T49), applied verbatim in NationCatalog order; Rome changed to the strong red #D32F2F by the user's decision of 2026-09-29 (bug #530); supersedes T29's pre-T49 placeholder."
+                : "designed: docs/asset-specification.md §2.3's settled sixteen-nation palette (T49), applied verbatim in NationCatalog order; supersedes T29's pre-T49 placeholder."),
             ("leaderName", "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one."),
             ("capitalCityId", "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse."),
             ("treasury", "confirmed: DAT nation record +0x40d, T30's parse."),
