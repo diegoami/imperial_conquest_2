@@ -299,13 +299,12 @@ public partial class Slice : Node2D
 
         if (texture is not null)
         {
-            // The pack's city icons are flat, key-specific colours, not nation-specific ones (T11's
-            // manifest carries no per-nation art) -- [designed]: the owner-coloured ring is what keeps
-            // ownership legible once the icon replaces the plain fill, the same role
-            // CityRingColor's ring played for T47's plain circle.
+            // T94 rework round 1 (N3, the user's decision of 2026-09-29): the pack image is drawn with
+            // the owner's colour as its modulate tint, so the one flat bitmap reads as that nation.
+            // The owner-coloured ring and the dark halo above stay for outline and terrain contrast.
             DrawArc(center, radius + 3f, 0f, Mathf.Tau, 32, fillColor, 3f);
             var rect = new Rect2(center - new Vector2(radius, radius), new Vector2(radius, radius) * 2f);
-            DrawTextureRect(texture, rect, false);
+            DrawTextureRect(texture, rect, false, fillColor);
             return;
         }
 
@@ -342,12 +341,11 @@ public partial class Slice : Node2D
             var half = TileSize * 0.22f;
             DrawCircle(center, half + 4f, new Color(0f, 0f, 0f, 0.55f));
 
-            // Same reasoning as DrawCity: the icon is a flat, unit-type-specific colour, not a
-            // nation-specific one, so the owner-coloured ring is what keeps ownership legible once
-            // the icon replaces the plain diamond fill.
+            // Same reasoning as DrawCity: the owner's colour is the icon's modulate tint (T94 rework
+            // round 1, N3), and the ring stays as an outline.
             DrawArc(center, half + 4f, 0f, Mathf.Tau, 24, fillColor, 3f);
             var rect = new Rect2(center - new Vector2(half, half), new Vector2(half, half) * 2f);
-            DrawTextureRect(texture, rect, false);
+            DrawTextureRect(texture, rect, false, fillColor);
             return;
         }
 

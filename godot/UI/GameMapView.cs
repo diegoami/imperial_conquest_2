@@ -41,6 +41,16 @@ namespace IC2.Slice.UI;
 /// <see href="https://github.com/diegoami/imperial_conquest_2/issues/454">#454</see> item 3). When the
 /// loader cannot resolve a key, the pre-T94 coloured shape remains the fallback, exactly as before.
 /// </para>
+/// <para>
+/// <strong>T94 rework round 1 (N3, the user's decision of 2026-09-29): the icon is tinted with its
+/// owner's colour.</strong> One bitmap otherwise draws every nation identically and only the thin ring
+/// told owners apart, where the pre-T94 shapes were filled in the owner's colour. The
+/// <c>modulate</c> argument of <see cref="CanvasItem.DrawTextureRect"/> now carries
+/// <see cref="NationColor"/> — built from <see cref="MarkerTint.ForOwner"/>, the world's own
+/// <c>colorHex</c> — so the owner's colour is the icon itself; the dark halo and the thin ring stay for
+/// contrast against terrain. The placeholder pack's flat squares are tinted as they are (not
+/// special-cased), and T51's neutral silhouettes tint the same way with no further code change.
+/// </para>
 /// </remarks>
 public partial class GameMapView : Control
 {
@@ -453,7 +463,7 @@ public partial class GameMapView : Control
         if (texture is not null)
         {
             var rect = new Rect2(center - new Vector2(radius, radius), new Vector2(radius, radius) * 2f);
-            DrawTextureRect(texture, rect, false);
+            DrawTextureRect(texture, rect, false, fillColor);
             DrawArc(center, radius, 0f, Mathf.Tau, 24, selected ? SelectedRingColor : fillColor, selected ? 2.5f : 1.5f);
             return;
         }
@@ -481,7 +491,8 @@ public partial class GameMapView : Control
         {
             DrawCircle(center, half + 2f, new Color(0f, 0f, 0f, 0.55f));
             var rect = new Rect2(center - new Vector2(half, half), new Vector2(half, half) * 2f);
-            DrawTextureRect(texture, rect, false);
+            // N3: the owner's colour is the icon's modulate tint (see this class's remarks).
+            DrawTextureRect(texture, rect, false, fillColor);
             DrawArc(center, half + 2f, 0f, Mathf.Tau, 24, selected ? SelectedRingColor : fillColor, selected ? 2.5f : 1.5f);
             return;
         }
@@ -517,7 +528,8 @@ public partial class GameMapView : Control
             var half = radius + 1.5f;
             DrawCircle(center, half, new Color(0f, 0f, 0f, 0.55f));
             var rect = new Rect2(center - new Vector2(radius, radius), new Vector2(radius, radius) * 2f);
-            DrawTextureRect(texture, rect, false);
+            // N3: the owner's colour is the icon's modulate tint (see this class's remarks).
+            DrawTextureRect(texture, rect, false, fillColor);
             DrawRect(rect, selected ? SelectedRingColor : fillColor, false, selected ? 2.5f : 1.5f);
             return;
         }
@@ -527,29 +539,19 @@ public partial class GameMapView : Control
         DrawRect(fallbackRect, selected ? SelectedRingColor : CityRingColor, false, selected ? 2f : 1f);
     }
 
+    /// <summary>
+    /// The owner's colour for every marker fill, icon tint and ring: the loaded world's own
+    /// <see cref="NationDefinition.ColorHex"/>, parsed by the Godot-free <see cref="MarkerTint.ForOwner"/>
+    /// (T94 rework round 1, N3) so the exact components a texture is modulated with are testable. An
+    /// unknown nation or an unparseable colour falls back to <see cref="UnknownNationColor"/>, exactly
+    /// as the previous Godot-side parse did.
+    /// </summary>
     private Color NationColor(string nationId)
     {
-        var nation = _session?.World.NationById(nationId);
-        return nation is not null && ColorFromHex(nation.ColorHex, out var parsed) ? parsed : UnknownNationColor;
-    }
-
-    private static bool ColorFromHex(string? hex, out Color color)
-    {
-        color = UnknownNationColor;
-        if (string.IsNullOrWhiteSpace(hex))
-        {
-            return false;
-        }
-
-        try
-        {
-            color = new Color(hex);
-            return true;
-        }
-        catch (ArgumentException)
-        {
-            return false;
-        }
+        var tint = MarkerTint.ForOwner(_session?.World, nationId);
+        return tint is { } owned
+            ? new Color(owned.Red, owned.Green, owned.Blue, owned.Alpha)
+            : UnknownNationColor;
     }
 
     private enum PendingMapAction
