@@ -254,6 +254,15 @@ Two different code paths already exist, for two different moments, and they must
 
 ## 2. The sixteen-nation palette
 
+> **Superseded for nations by the original's own colours (T97, 2026-09-29).** The original draws each nation's
+> marker as a square in a **background** colour with the glyph in a **foreground** colour, one pair per nation, all
+> from the 16-colour Windows palette: the research report
+> [`2026-09-29-nation-marker-colours.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-09-29-nation-marker-colours.md).
+> The designed palette below optimised distinctness but coloured the glyph alone, so its greens vanished on the green map
+> (the user's visual review). Once T97 lands, the game and the inspector read the report's pairs (`colorHex` the background,
+> `glyphColorHex` the foreground). This section stays as the record of the designed alternative, including the Rome change
+> below, which T97 also supersedes: the original's Rome is purple with a blue glyph.
+
 ### 2.1 Why this section exists: the current offenders
 
 Sixteen nations need sixteen distinguishable colours. When this section was written the game had **two** palettes, and neither
