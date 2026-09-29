@@ -133,12 +133,12 @@ public partial class MainGameScreen : Control
         row.AddChild(UiKit.MakeButton("Save", OnSavePressed, 16));
         row.AddChild(UiKit.MakeButton("End Turn", OnEndTurnPressed, 16));
 
-        // T95: the Save action's own confirmation/refusal line. Not routed through OnCommandIssued's own
-        // _lastCommandLabel (below the bottom toolbar): that label always shows Submit's own trailing
-        // blank separator line (SessionOutput.Lines's last entry, every command's own convention, shared
-        // by every control on this screen, none of which this task's narrow "a Save action" grant may
-        // change) -- so it never actually displays anything, for Save or for End Turn alike. This label
-        // is this task's own, showing HandleSave's real last non-empty line instead.
+        // T95: the Save action's own confirmation/refusal line. Kept by fix #484 even though the shared
+        // rule below now makes it redundant: _lastCommandLabel shows the identical
+        // CommandOutcomeText.LastNonEmptyLine text for every command, Save included, but a fix takes
+        // nothing T95 added away -- its narrow "a Save action" grant owns this label outright. Before
+        // fix #484 the shared label was always Submit's own trailing blank separator line
+        // (SessionOutput.Lines's last entry), so this was the only place a save's own outcome appeared.
         _saveConfirmationLabel = UiKit.MakeLabel(string.Empty, 14, UiKit.MutedTextColor);
         row.AddChild(_saveConfirmationLabel);
 
@@ -187,13 +187,10 @@ public partial class MainGameScreen : Control
     /// <remarks>
     /// Calls <see cref="GameSession.Submit"/> directly, then <see cref="OnCommandIssued"/>, rather than
     /// going through <see cref="SubmitForCheck"/> alone: <see cref="OnCommandIssued"/>'s own
-    /// <see cref="_lastCommandLabel"/> update (<c>lines[^1]</c>) always lands on <see cref="SessionOutput"/>'s
-    /// own trailing blank separator line, every command's shared convention, so it never actually shows a
-    /// save's own outcome (or any command's). This method still runs the identical
-    /// <see cref="OnCommandIssued"/> refresh (map, context panel, top bar) that <see cref="SubmitForCheck"/>
-    /// would have, and additionally shows the real last non-empty line — <c>"Saved to '...'."</c> or a
-    /// refusal — in <see cref="_saveConfirmationLabel"/>, a label this task's own narrow Save-action grant
-    /// owns outright.
+    /// <see cref="_lastCommandLabel"/> update now shows the real last non-empty line (fix #484's
+    /// <see cref="CommandOutcomeText.LastNonEmptyLine"/>), and this method additionally writes that same
+    /// outcome — <c>"Saved to '...'."</c> or a refusal — into <see cref="_saveConfirmationLabel"/>, the
+    /// dedicated label next to the top bar's Save button that T95 owns outright.
     /// </remarks>
     private void OnSavePressed() => OnSavePressed(checkUniqueSuffix: null);
 
@@ -218,7 +215,7 @@ public partial class MainGameScreen : Control
 
         var output = Session.Submit($"save {path}");
         OnCommandIssued(output.Lines);
-        _saveConfirmationLabel.Text = output.Lines.LastOrDefault(line => line.Length > 0) ?? string.Empty;
+        _saveConfirmationLabel.Text = CommandOutcomeText.LastNonEmptyLine(output.Lines);
     }
 
     /// <summary>
@@ -229,6 +226,24 @@ public partial class MainGameScreen : Control
     /// without duplicating its naming rule.
     /// </summary>
     public string? LastSavedPath { get; private set; }
+
+    /// <summary>
+    /// The text the shared last-command label (<see cref="_lastCommandLabel"/>, under the bottom
+    /// toolbar) currently shows: fix #484's <see cref="CommandOutcomeText.LastNonEmptyLine"/> of the most
+    /// recent <see cref="GameSession.Submit"/> call — an order's acceptance line, a rejection's own
+    /// reason, or an <c>end</c> round's closing summary. Exposed for the same reason
+    /// <see cref="LastSavedPath"/> is: <c>godot/Checks/CommandFeedbackCheck.cs</c> reads the real label
+    /// after driving real commands, rather than re-deriving its text from a second copy of the rule.
+    /// </summary>
+    public string LastCommandText => _lastCommandLabel.Text;
+
+    /// <summary>
+    /// T95's own Save confirmation label's text, kept by fix #484 as its own dedicated slot even though
+    /// the shared rule now gives <see cref="LastCommandText"/> the same text. Exposed for
+    /// <c>godot/Checks/CommandFeedbackCheck.cs</c>, so the check can assert T95's label still shows the
+    /// save's real outcome after the fix.
+    /// </summary>
+    public string SaveConfirmationText => _saveConfirmationLabel.Text;
 
     /// <summary>
     /// Presses the "Save" button exactly as a real click would — public for the same reason
@@ -260,7 +275,11 @@ public partial class MainGameScreen : Control
 
     private void OnCommandIssued(IReadOnlyList<string> lines)
     {
-        _lastCommandLabel.Text = lines.Count == 0 ? string.Empty : lines[^1];
+        // Fix #484: Submit always ends its output with a blank separator line, so lines[^1] was always
+        // empty and this label never showed a command's result. CommandOutcomeText.LastNonEmptyLine is
+        // the screen's one shared rule (T95's Save label uses it too), and every input path -- map click,
+        // context-panel button, End Turn, SubmitForCheck, Save -- funnels through here.
+        _lastCommandLabel.Text = CommandOutcomeText.LastNonEmptyLine(lines);
         _mapView.Refresh();
         _contextPanel.Refresh();
         RefreshTopBar();
