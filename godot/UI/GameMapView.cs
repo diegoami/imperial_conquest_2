@@ -53,14 +53,16 @@ namespace IC2.Slice.UI;
 /// <para>
 /// <strong>Marker style A (bug
 /// <see href="https://github.com/diegoami/imperial_conquest_2/issues/517">#517</see> rework round 1,
-/// the user's visual review of 2026-09-29): the icon sits on a dark square.</strong> The tinted icon
-/// alone, inside a round dark halo with a thin owner-coloured ring, read as a coloured blob at normal
-/// zoom. The original game's look, chosen on the PR, is drawn instead: a small near-black, mostly
-/// opaque <see cref="MarkerBackdropColor"/> square at the icon's own size, the owner-tinted silhouette
-/// on top, and no owner-coloured ring at all. A selected marker gets a bright
-/// <see cref="SelectedRingColor"/> outline around that square instead — see
-/// <see cref="DrawCity"/>, <see cref="DrawArmy"/> and <see cref="DrawFleet"/>. The no-texture fallback
-/// shapes (filled in the owner's colour and ringed as before) are unchanged.
+/// revised by bug <see href="https://github.com/diegoami/imperial_conquest_2/issues/530">#530</see>,
+/// the user's visual review of 2026-09-29): the owner-tinted silhouette alone.</strong> The tinted
+/// icon inside a round dark halo and a thin owner-coloured ring read as a coloured blob at normal
+/// zoom; a near-black square behind it then read as black squares, so the user asked for no backing
+/// at all. The pack's silhouettes carry their own dark outline, so the owner-tinted icon is drawn
+/// directly, and no owner-coloured ring is drawn either. A selected marker keeps a bright
+/// <see cref="SelectedRingColor"/> outline around the icon's own rect instead — see
+/// <see cref="DrawCity"/>, <see cref="DrawArmy"/> and <see cref="DrawFleet"/>. The size tiers
+/// (<see cref="MapMarkerKeys"/>) and the no-texture fallback shapes (filled in the owner's colour and
+/// ringed as before) are unchanged.
 /// </para>
 /// </remarks>
 public partial class GameMapView : Control
@@ -78,13 +80,6 @@ public partial class GameMapView : Control
     private static readonly Color GridColor = new(0f, 0f, 0f, 0.15f);
     private static readonly Color CityRingColor = new(1.0f, 0.97f, 0.86f);
     private static readonly Color SelectedRingColor = new(0.95f, 0.78f, 0.35f);
-
-    /// <summary>Marker style A's dark square behind every pack-textured city, army and fleet marker
-    /// (bug <see href="https://github.com/diegoami/imperial_conquest_2/issues/517">#517</see> rework
-    /// round 1): near-black and mostly opaque, the icon's own size, so the owner-tinted silhouette on
-    /// top keeps contrast against any terrain. The user chose this, the original game's look, on the
-    /// PR after the round halo and thin owner-coloured ring read as a coloured blob at normal zoom.</summary>
-    private static readonly Color MarkerBackdropColor = new(0.02f, 0.02f, 0.03f, 0.85f);
     private static readonly Color UnknownTerrainColor = new(0.24f, 0.24f, 0.24f);
     private static readonly Color UnknownNationColor = new(0.6f, 0.6f, 0.6f);
 
@@ -532,10 +527,10 @@ public partial class GameMapView : Control
         var texture = _assetLoader?.TryGetTexture(MapMarkerKeys.CityIcon(_session!.State, city, _session.Ruleset.MapMarkers));
         if (texture is not null)
         {
-            // Marker style A (#517 rework round 1): a dark square at the icon's size, the owner-tinted
-            // silhouette on top, and no owner-coloured ring -- only a selected marker is outlined.
+            // Marker style A (#517 rework round 1, bug #530): the owner-tinted silhouette alone --
+            // the pack's own dark outline supplies the contrast, so there is no backing square. Only
+            // a selected marker is outlined.
             var rect = new Rect2(center - new Vector2(radius, radius), new Vector2(radius, radius) * 2f);
-            DrawRect(rect, MarkerBackdropColor);
             DrawTextureRect(texture, rect, false, fillColor);
             if (selected)
             {
@@ -570,10 +565,10 @@ public partial class GameMapView : Control
         if (texture is not null)
         {
             // N3: the owner's colour is the icon's modulate tint (see this class's remarks).
-            // Marker style A (#517 rework round 1): a dark square at the icon's size, the tinted
-            // silhouette on top, and no owner-coloured ring -- only a selected marker is outlined.
+            // Marker style A (#517 rework round 1, bug #530): the owner-tinted silhouette alone --
+            // the pack's own dark outline supplies the contrast, so there is no backing square. Only
+            // a selected marker is outlined.
             var rect = new Rect2(center - new Vector2(half, half), new Vector2(half, half) * 2f);
-            DrawRect(rect, MarkerBackdropColor);
             DrawTextureRect(texture, rect, false, fillColor);
             if (selected)
             {
@@ -612,10 +607,10 @@ public partial class GameMapView : Control
         if (texture is not null)
         {
             // N3: the owner's colour is the icon's modulate tint (see this class's remarks).
-            // Marker style A (#517 rework round 1): a dark square at the icon's size, the tinted
-            // silhouette on top, and no owner-coloured ring -- only a selected marker is outlined.
+            // Marker style A (#517 rework round 1, bug #530): the owner-tinted silhouette alone --
+            // the pack's own dark outline supplies the contrast, so there is no backing square. Only
+            // a selected marker is outlined.
             var rect = new Rect2(center - new Vector2(radius, radius), new Vector2(radius, radius) * 2f);
-            DrawRect(rect, MarkerBackdropColor);
             DrawTextureRect(texture, rect, false, fillColor);
             if (selected)
             {
@@ -635,8 +630,8 @@ public partial class GameMapView : Control
     /// <see cref="NationDefinition.ColorHex"/>, parsed by the Godot-free <see cref="MarkerTint.ForOwner"/>
     /// (T94 rework round 1, N3) so the exact components a texture is modulated with are testable. An
     /// unknown nation or an unparseable colour falls back to <see cref="UnknownNationColor"/>, exactly
-    /// as the previous Godot-side parse did. Marker style A (#517 rework round 1) rings no textured
-    /// marker with it: the fallback shapes keep <see cref="CityRingColor"/>.
+    /// as the previous Godot-side parse did. Marker style A (#517 rework round 1, bug #530) rings no
+    /// textured marker with it: the fallback shapes keep <see cref="CityRingColor"/>.
     /// </summary>
     private Color NationColor(string nationId)
     {
