@@ -9,23 +9,29 @@ namespace IC2.Slice.UI;
 /// T11's placeholder pack from — and lets the player pick which one <see cref="GameMapView"/> loads.
 /// </summary>
 /// <remarks>
-/// Only <c>assets/packs/placeholder/</c> ships today, so the picker lists exactly one, pre-selected,
-/// entry — this is the real state of the repository, not a stub: a second pack simply appearing under
-/// <c>assets/packs/</c> is picked up the next time this screen runs, with no code change.
-/// <strong>Known gap</strong>: <see cref="Assets.AssetPackTextureLoader.TryLoadPlaceholderPack"/> only
-/// ever loads the one pack its own name says — there is no "load pack by id" overload yet for
-/// <see cref="SelectedPackId"/> to actually drive, so with only one pack shipped this screen's own
-/// selection has nothing else to disagree with, but it does not yet change what
-/// <see cref="GameMapView"/> loads. Left as read here rather than adding that overload to
-/// <c>godot/Assets/AssetPackTextureLoader.cs</c> unasked — a second pack is what would actually need it.
+/// The picker lists every pack under <c>assets/packs/</c> that has a <c>manifest.json</c> — T11's
+/// <c>placeholder</c> and T51's generated <c>authored</c>, as the repository ships both today; a
+/// further pack simply appearing there is picked up the next time this screen runs, with no code
+/// change. Nothing selected yet defaults to <see cref="Assets.AssetPackManifestLoader.DefaultPackId"/>
+/// (<c>authored</c>) when it is listed, the same pack <see cref="Assets.AssetPackTextureLoader.TryLoadPack"/>
+/// loads by default, so the picker shows what the map will actually use.
+/// <para>
+/// <strong>What the choice drives (bug
+/// <see href="https://github.com/diegoami/imperial_conquest_2/issues/517">#517</see>).</strong>
+/// <see cref="SelectedPackId"/> is read by <see cref="GameMapView.Attach"/> when a game's map builds
+/// its one asset-pack loader (T94 folded #454 item 6), so a change here applies to the <em>next</em>
+/// game started or loaded; the game already on screen keeps the pack it began with. A selected pack
+/// that is missing or malformed falls back to the <c>placeholder</c> pack, reported and never thrown.
+/// </para>
 /// </remarks>
 public partial class SettingsScreen : Control
 {
     public event Action? BackRequested;
 
-    /// <summary>The pack id chosen here, read by <see cref="AppRoot"/> when it builds
-    /// <see cref="GameMapView"/> — <see langword="null"/> keeps <see cref="Assets.AssetPackTextureLoader"/>'s
-    /// own default ("placeholder").</summary>
+    /// <summary>The pack id chosen here, read by <see cref="GameMapView.Attach"/> when a game's map
+    /// builds its own loader — <see langword="null"/> keeps
+    /// <see cref="Assets.AssetPackTextureLoader.TryLoadPack"/>'s own default
+    /// (<c>authored</c> when present and valid, otherwise <c>placeholder</c>).</summary>
     public static string? SelectedPackId { get; private set; }
 
     public override void _Ready()
@@ -64,7 +70,11 @@ public partial class SettingsScreen : Control
 
         if (packs.Count > 0)
         {
-            var selectedIndex = SelectedPackId is not null ? packs.IndexOf(SelectedPackId) : 0;
+            // No selection yet shows the loader's own default (authored when listed), so the picker
+            // and the pack GameMapView will load agree from the first frame.
+            var selectedIndex = SelectedPackId is not null
+                ? packs.IndexOf(SelectedPackId)
+                : packs.IndexOf(Assets.AssetPackManifestLoader.DefaultPackId);
             picker.Selected = Math.Max(selectedIndex, 0);
             SelectedPackId = packs[picker.Selected];
         }

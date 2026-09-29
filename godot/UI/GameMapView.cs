@@ -154,11 +154,24 @@ public partial class GameMapView : Control
 
     /// <summary>Loads (or reloads) this view against a fresh session — called once by
     /// <see cref="MainGameScreen"/> after "Start Game".</summary>
+    /// <remarks>
+    /// Bug <see href="https://github.com/diegoami/imperial_conquest_2/issues/517">#517</see>: the pack
+    /// this scene's one loader resolves is <see cref="SettingsScreen.SelectedPackId"/>, read here when
+    /// the scene attaches — so a selection made in Settings applies to the next game started or
+    /// loaded, while the game already on screen keeps the pack it began with (T94 folded #454 item 6).
+    /// A <see langword="null"/> selection keeps <see cref="AssetPackTextureLoader.TryLoadPack"/>'s own
+    /// default (<c>authored</c> when present and valid, otherwise <c>placeholder</c>), and a selected
+    /// pack that is missing or malformed falls back to the placeholder, reported once and never
+    /// thrown. <see cref="MainGameScreen"/> owns the attach call and is the screen that knows the
+    /// repository root; reading the selection here keeps this one seam instead of adding a property to
+    /// a file this fix does not own.
+    /// </remarks>
     public void Attach(GameSession session, string repositoryRoot)
     {
         _session = session;
-        _assetLoader ??= AssetPackTextureLoader.TryLoadPlaceholderPack(
+        _assetLoader ??= AssetPackTextureLoader.TryLoadPack(
             repositoryRoot,
+            SettingsScreen.SelectedPackId,
             onFailure: key => GD.PushWarning($"T24 map: asset pack could not resolve or load '{key}'; falling back to the coloured marker."));
 
         BakeTerrainTexture();
@@ -173,6 +186,12 @@ public partial class GameMapView : Control
 
     /// <summary>Re-renders against the session's current state — called after every command that mutates it.</summary>
     public void Refresh() => QueueRedraw();
+
+    /// <summary>The id of the pack this view's one loader resolved — exposed so
+    /// <c>godot/Checks/AssetPackSelectionCheck.cs</c> can assert the Settings selection really reaches
+    /// the map. <see langword="null"/> before <see cref="Attach"/>, or when no pack (not even the
+    /// placeholder) could be loaded.</summary>
+    public string? LoadedPackIdForCheck => _assetLoader?.PackId;
 
     /// <summary>The current zoom factor — exposed for <c>godot/Checks/MapClipCheck.cs</c>, which drives
     /// this view to <see cref="MaxZoom"/> and asserts the drawing stays inside its own rect.</summary>
