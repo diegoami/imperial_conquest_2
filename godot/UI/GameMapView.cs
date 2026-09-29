@@ -118,6 +118,13 @@ public partial class GameMapView : Control
     {
         FocusMode = FocusModeEnum.All;
 
+        // Bug #498 part 1: _Draw draws the terrain texture and every marker at _pan + tile * tileSize
+        // with no bounds of its own, so zoomed in the drawing spilled over the sibling controls
+        // MainGameScreen builds -- the top bar (Save, End Turn) and the bottom toolbar -- leaving the
+        // player unable to end a turn or save while zoomed in. ClipContents keeps every draw inside this
+        // control's own rect, the rect MainGameScreen's own HBoxContainer lays out between those bars.
+        ClipContents = true;
+
         // User visual review (Q-B): the baked terrain image is one pixel per world tile
         // (BakeTerrainTexture), then stretched by DrawTextureRect up to MaxZoom (12x) -- Godot's default
         // canvas texture filter is linear, which blurred that upscale badly at higher zoom. Nearest-
