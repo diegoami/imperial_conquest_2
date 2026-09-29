@@ -98,7 +98,7 @@ The in-game battle pacing delay is a per-nation preference (the `TBattleDelays` 
 
 ### 1.3 Local toolchain (outside both repositories)
 
-- **General tools:** `gh` (authenticated as `diegoami`), `jq`, Python 3.14, Node, the .NET 10 SDK, Godot 4.7.2 (.NET), and OpenCode with the GLM, DeepSeek and Luna models, for `scripts/external-review.ps1`.
+- **General tools:** `gh` (authenticated as `diegoami`), `jq`, Python 3.14, Node, the .NET 10 SDK, Godot 4.7.2 (.NET), OpenCode with the GLM, DeepSeek and Luna models, for `scripts/external-review.ps1`, and OpenRouter, for the image models and for Jev (§2.1's router).
 - **Godot 4.7.2 mono** (matching `Godot.NET.Sdk/4.7.2` in `godot/IC2.MapViewer.csproj`) is at `C:\Program Files\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64_console.exe`.
   - `godot` is on PATH from Git Bash (a shim at `~/.local/bin/godot`), and `godot.cmd` from PowerShell. Both run the **console** build, so `print()` and script errors reach the terminal.
   - To run headless: `godot --headless --path godot --quit-after 2 [res://Scene.tscn]`. Since T24, the main scene is the game UI (`res://UI/AppRoot.tscn`), so the engine slice needs `res://Slice/Slice.tscn` and the research inspector `res://MapViewer.tscn` passed explicitly.
@@ -128,6 +128,7 @@ The **main session runs on Opus** and is the one the user talks to. It plans, ru
 | Implementer | An OpenCode run via `scripts/external-implement.ps1`, model per the catalogue, the cheap tier by default; a Claude subagent only on an architecture task | Its own worktree under `ic2-work\` | [build-process.md Appendix A](build-process.md#appendix-a-implementer-prompt-template) |
 | Reviewer | Subagent, a different model per the catalogue | Its own worktree at the PR head | [build-process.md Appendix B](build-process.md#appendix-b-reviewer-prompt-template) |
 | Researcher | Opus subagent: the `/process-evidence` stages and targeted research passes | The research repo's checkout; stage 2 in its own worktree here | [evidence-pipeline.md](evidence-pipeline.md) |
+| Router | Jev (TypeSafe AI's typed-decision model, through OpenRouter, pinned to `jev-1.13`), called from a script in the research repository's `scripts/`; no session, no worktree | On stage 0's outputs and on triage, for the decisions [§3](#3-standing-user-preferences)'s Jev preference names | [evidence-pipeline.md](evidence-pipeline.md#the-stages) |
 
 ### 2.2 Running tasks
 
@@ -189,6 +190,7 @@ Targeted research passes (for example "what does the original do when upkeep can
 
 These are kept in step with the auto-memory feedback notes. When a preference changes, update it here in the same session.
 
+- **Repeated decisions with known answers go to Jev, not to a session** (the user's decision of 2026-09-29). Jev (TypeSafe AI, through OpenRouter, pinned to `jev-1.13`) answers Choice, Score and yes-or-no questions over a state with a calibrated probability, and writes no text. The main session delegates to it, through the router script, whenever a decision repeats over many items, the possible answers are known up front, and no written explanation is needed. The uses this project has: routing stage 0's corpus mismatches to a rule family and to known-divergence versus defect; yes-or-no questions over a sweep table (did the outcome change, is the change monotonic); a proposed `fix`-versus-task label and playability verdict on a new bug, which the main session confirms at triage. The split is the one `newscollection2027` settled on: act on a probability at or above 0.9, discard below 0.1, and hand the middle to a Claude pass. Jev never decides a review verdict, a merge, or a label on its own, and nothing of it enters the engine or the coach, which stay deterministic and offline. The states it sees are derived from the private evidence and leave to OpenRouter; that is the user's decision. Until the router script exists (it waits on stage 0's batch variant), the main session notes in the research roadmap which stage 0 outputs it is for.
 - **Commit and push reverse-engineering work without asking.** New reports, roadmap updates and research-repo fixes go straight to the research repo's `main`. Destructive git operations (force-push, amend, `reset --hard`) still need an explicit request.
 - **A question is not a request to change files.** Answer it. If a fix turns up along the way, propose it and wait.
 - **Branch or `main`, case by case.** Routine doc claims go straight to `main`; novel content goes on a branch for review; ask when unsure. Since 2026-09-28 a routine-tier plan PR merges on the opener's authority, and a contract-tier one on a cross-session review's approval; the user merges only when the review says `user decision` ([build-process.md §4.9](build-process.md#49-plan-prs-two-tiers)).
