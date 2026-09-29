@@ -24,7 +24,7 @@
     With -Model auto (the default) the models form a chain: deepseek-flash, then mimo-flash-free,
     then glm, each tried once. The next model runs ONLY on an infrastructure failure (no session
     in time, an idle session, no exit in time, a run that exits without a session, a non-zero exit, the
-    fallback-to-default-agent guard), and only when the failed run left nothing behind: no new
+    fallback-to-default-agent guard, a tool call the permission guard rejected -- issue #501), and only when the failed run left nothing behind: no new
     commit, locally or on origin, and no new PR. Otherwise the script exits 1 and the main session
     decides. Two consecutive attempts failing with the same cause (Get-OpenCodeFailureClass: two
     startup hangs, two idle kills, ...) stop the chain early. When every model fails, the chain
@@ -184,6 +184,11 @@ RUN RULES (from scripts/external-implement.ps1; they override the brief where th
 - Everything else in the brief is binding: Owns, Done-when, the rules for engine code, the PR
   body, the detach at the end, and the report.
 - The PR body's "Closes #$Issue" is the only place a closing keyword may precede #<n>.
+- Stay inside $worktree: never read, list, write or run anything by a path outside it (not TEMP,
+  not your home directory, not Program Files, not another worktree). OpenCode rejects such a call
+  and the rejection ENDS your run. Scratch files go under rendered/ in the worktree (git-ignored)
+  or are deleted before you commit. Invoke tools by name from PATH (dotnet, git, gh, python,
+  godot.cmd in PowerShell or godot in bash). A mutation check runs in place, uncommitted.
 "@
 $prompt = $brief + $rules
 if ($FixturesDir) { $env:IC2_FIXTURES_DIR = $FixturesDir }
@@ -193,7 +198,7 @@ if ($FixturesDir) { $env:IC2_FIXTURES_DIR = $FixturesDir }
 # IdleTimeoutSec, or no exit within TotalTimeoutSec kills its process tree. The helper reads the
 # output as UTF-8.
 # The next model runs only on an infrastructure failure (no session, idle, no exit, an exit
-# without a session, a non-zero exit, the fallback-agent guard), and only when the failed run left nothing
+# without a session, a non-zero exit, the fallback-agent guard, a permission-guard rejection), and only when the failed run left nothing
 # behind: no new commit, locally or on origin, and no new PR. Its uncommitted edits are discarded.
 # An implementer that stops and reports is not a failure: its OpenCode run exits 0, so it is never
 # retried on another model; the script then exits 1 at "No open PR" and the main session reads the report.
@@ -220,6 +225,8 @@ foreach ($m in $chain) {
         if ($run.ExitCode -ne 0) { $reason = "exit $($run.ExitCode)" }
         # OpenCode's own evidence (its stderr warning, the session's recorded agent), never the model's words.
         elseif ($run.AgentFallback) { $reason = 'fell back to the default agent' }
+        # A rejected tool call ends the run with exit 0 (issue #501): a failure, named by its path.
+        elseif ($run.PermissionRejected) { $reason = "permission rejected: $($run.PermissionRejected)" }
     } catch {
         # Only OpenCode's own failures advance the chain; anything else is rethrown (exit 1).
         if (-not (Test-OpenCodeInfraFailure $_)) { throw }

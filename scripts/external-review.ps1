@@ -256,6 +256,8 @@ OUTPUT RULES (from scripts/external-review.ps1; they override anything above tha
     # OpenCode's own evidence (its stderr warning, the session's recorded agent), never the model's
     # words: a reviewer reading these scripts quotes the warning text (PR #482, 2026-09-28).
     if ($run.AgentFallback) { return (& $fail 'fell back to the default agent' "OpenCode did not load the external-reviewer agent (it fell back to its default, full-permission agent). Output:`n$output") }
+    # A rejected tool call ends the run with exit 0 (issue #501): a failure, named by its path.
+    if ($run.PermissionRejected) { return (& $fail "permission rejected: $($run.PermissionRejected)" "OpenCode's permission guard auto-rejected a tool call ($($run.PermissionRejected)), which ended the run. The reviewer reached outside its worktree. Output:`n$output") }
 
     # 3. Completeness. The review starts at the header line (OpenCode may print tool chatter
     #    before it); it must have a verdict on line 2 and repeat it as the last non-empty line.
