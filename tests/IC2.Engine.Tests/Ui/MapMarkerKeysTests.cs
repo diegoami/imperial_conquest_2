@@ -67,6 +67,42 @@ public sealed class MapMarkerKeysTests
     }
 
     /// <summary>
+    /// Rework round 1, B1, city half: the tier boundary itself, against the same test fixture's two
+    /// thresholds (100 and 200). 99 is under the first, 100 and 199 are exactly between the two, 200
+    /// reaches the third — the values a <c>&lt;=</c> comparison would misplace.
+    /// </summary>
+    /// <remarks>
+    /// The thresholds are test fixtures (100, 200), not shipped values, for the same reason the test
+    /// above records: every shipped ruleset deliberately leaves
+    /// <see cref="MapMarkerRules.CityPopulationTierThresholds"/> empty.
+    /// </remarks>
+    [Theory]
+    [InlineData(99, AssetKeys.CityTier1Icon)]
+    [InlineData(100, AssetKeys.CityTier2Icon)]
+    [InlineData(199, AssetKeys.CityTier2Icon)]
+    [InlineData(200, AssetKeys.CityTier3Icon)]
+    public void City_marker_key_switches_at_the_fixture_population_boundaries(int population, string expectedKey)
+    {
+        var resolved = Repository.Resolve("toy-3city");
+        var rules = resolved.Ruleset with
+        {
+            MapMarkers = resolved.Ruleset.MapMarkers with
+            {
+                CityPopulationTierThresholds = ValueList<int>.Of(100, 200),
+            },
+        };
+        var state = GameStateFactory.CreateInitial(resolved.World, rules, resolved.Scenario);
+
+        var portus = state.CityById("portus")!;
+        var atBoundary = portus with { PopulationThousands = population };
+        var atBoundaryState = state with { Cities = ReplaceCity(state.Cities, atBoundary) };
+
+        Assert.Equal(
+            expectedKey,
+            MapMarkerKeys.CityIcon(atBoundaryState, atBoundaryState.CityById("portus")!, rules.MapMarkers));
+    }
+
+    /// <summary>
     /// DoD 1, army and fleet halves: <see cref="ArmyState.TotalTroops"/> and
     /// <see cref="FleetState.Ships"/> from the toy world's own loaded armies/fleets decide the three
     /// confirmed tiers, whose boundaries come from the loaded ruleset (25,000/50,000 and 25/50).
@@ -109,6 +145,56 @@ public sealed class MapMarkerKeysTests
         Assert.Equal(AssetKeys.FleetTier1Icon, MapMarkerKeys.FleetIcon(Fleet(state, "north-fleet-1"), rules.MapMarkers));
         Assert.Equal(AssetKeys.FleetTier2Icon, MapMarkerKeys.FleetIcon(Fleet(state, "mid-fleet"), rules.MapMarkers));
         Assert.Equal(AssetKeys.FleetTier3Icon, MapMarkerKeys.FleetIcon(Fleet(state, "large-fleet"), rules.MapMarkers));
+    }
+
+    /// <summary>
+    /// Rework round 1, B1, army half: the confirmed 25,000/50,000 split asserted on both sides of each
+    /// boundary. 24,999 is still tier 1; 25,000 is already tier 2; 49,999 is still tier 2; 50,000 is
+    /// tier 3. The edges are the loaded ruleset's own thresholds, read back here and asserted to be the
+    /// confirmed values before they are used, so a re-tiered ruleset fails instead of re-pointing the
+    /// test at different numbers.
+    /// </summary>
+    [Theory]
+    [InlineData(24_999, AssetKeys.ArmyTier1Icon)]
+    [InlineData(25_000, AssetKeys.ArmyTier2Icon)]
+    [InlineData(49_999, AssetKeys.ArmyTier2Icon)]
+    [InlineData(50_000, AssetKeys.ArmyTier3Icon)]
+    public void Army_marker_key_switches_at_the_shipped_troop_boundaries(int troops, string expectedKey)
+    {
+        var resolved = Repository.Resolve("toy-3city");
+        var rules = resolved.Ruleset;
+        var state = GameStateFactory.CreateInitial(resolved.World, rules, resolved.Scenario);
+        var army = state.Armies.Single(a => a.Id == "north-army-1");
+
+        Assert.Equal(25_000, rules.MapMarkers.ArmyTroopTierThresholds[0]);
+        Assert.Equal(50_000, rules.MapMarkers.ArmyTroopTierThresholds[1]);
+
+        var atBoundary = army with { Units = OneUnitOf(troops) };
+        Assert.Equal(troops, atBoundary.TotalTroops);
+        Assert.Equal(expectedKey, MapMarkerKeys.ArmyIcon(atBoundary, rules.MapMarkers));
+    }
+
+    /// <summary>
+    /// Rework round 1, B1, fleet half: the confirmed 25/50 split asserted on both sides of each
+    /// boundary — 24 ships is tier 1, 25 is tier 2, 49 is still tier 2, 50 is tier 3.
+    /// </summary>
+    [Theory]
+    [InlineData(24, AssetKeys.FleetTier1Icon)]
+    [InlineData(25, AssetKeys.FleetTier2Icon)]
+    [InlineData(49, AssetKeys.FleetTier2Icon)]
+    [InlineData(50, AssetKeys.FleetTier3Icon)]
+    public void Fleet_marker_key_switches_at_the_shipped_ship_boundaries(int ships, string expectedKey)
+    {
+        var resolved = Repository.Resolve("toy-3city");
+        var rules = resolved.Ruleset;
+        var state = GameStateFactory.CreateInitial(resolved.World, rules, resolved.Scenario);
+        var fleet = state.Fleets.Single(f => f.Id == "north-fleet-1");
+
+        Assert.Equal(25, rules.MapMarkers.FleetShipTierThresholds[0]);
+        Assert.Equal(50, rules.MapMarkers.FleetShipTierThresholds[1]);
+
+        var atBoundary = fleet with { Ships = ships };
+        Assert.Equal(expectedKey, MapMarkerKeys.FleetIcon(atBoundary, rules.MapMarkers));
     }
 
     /// <summary>
