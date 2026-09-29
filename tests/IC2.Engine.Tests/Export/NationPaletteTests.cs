@@ -28,7 +28,7 @@ public sealed class NationPaletteTests
     /// </summary>
     private static readonly (string Id, string Hex)[] SettledPalette =
     {
-        ("rome", "#4C0D19"),
+        ("rome", "#D32F2F"),
         ("carthage", "#DDB69C"),
         ("seleucid", "#671E0B"),
         ("ptolemaic", "#E1EC25"),
