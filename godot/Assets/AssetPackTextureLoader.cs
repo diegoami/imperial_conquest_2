@@ -40,8 +40,8 @@ namespace IC2.Slice.Assets;
 /// path is fixed for the process (<c>assets/packs/placeholder</c>) and re-attaching a different
 /// scenario keeps the same pack, so there is nothing a reload path would refresh. When the main
 /// menu's own "asset-pack selection" (<c>game-design.md</c> §User interface item 1) becomes real,
-/// this loader gains a <c>Reload</c> that clears <c>_textureCache</c> and re-resolves — a one-loader
-/// -per-scene design keeps that a single, local change.
+/// this loader gains a <c>Reload</c> that clears <c>_textureCache</c> and re-resolves — a
+/// one-loader-per-scene design keeps that a single, local change.
 /// </para>
 /// </remarks>
 public sealed class AssetPackTextureLoader
