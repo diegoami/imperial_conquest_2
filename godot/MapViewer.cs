@@ -204,6 +204,13 @@ public partial class MapViewer : Control
         // The three confirmed tiers draw progressively larger, since this inspector has no asset
         // pack to draw the original's separate tier sprites from (slice/screen draw the pack's
         // army.tierN.icon instead -- see MapMarkerKeys).
+        //
+        // [designed]: the 1 + (tier * 0.22) radius ramp is a presentation choice with no evidence
+        // behind it. What was searched and came up empty: the decompiled marker arithmetic
+        // (decompiled-unit-map-orders-and-record-fields.md, part 3 FUN_0044A80C/FUN_0044A878, quoted
+        // in game-design.md "Army and fleet markers scale with size") and TUnitMap_SelectUnit's
+        // accepted 200..247 / 300..347 ranges give a marker code's tier, never how large that tier
+        // was drawn -- no report states a per-tier draw size.
         var radius = Math.Clamp(step * 0.46f, 3f, 12f) * (1f + (tier * 0.22f));
         DrawCircle(center, radius, MarkerOutline);
         var poleX = center.X - radius * 0.22f;
@@ -217,6 +224,9 @@ public partial class MapViewer : Control
 
     private void DrawFleet(Vector2 center, float step, ushort ownerCode, int tier)
     {
+        // Same confirmed size tiers and the same [designed] 1 + (tier * 0.22) radius ramp as
+        // DrawArmy above: the confirmed fleet bands (300..315 / 316..331 / 332..347, see FleetTier)
+        // select the tier, and no report gives a per-tier draw size, so the ramp is ours.
         var radius = Math.Clamp(step * 0.46f, 3f, 12f) * (1f + (tier * 0.22f));
         DrawCircle(center, radius, OwnerColor(ownerCode));
         DrawLine(center + new Vector2(-radius * 0.7f, radius * 0.35f),
