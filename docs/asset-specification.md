@@ -322,7 +322,7 @@ below wherever it is applied, per DoD 8's folded follow-up (`#154`, T24 DoD 7).
 
 | Index | Nation | Hex | RGB | Relative luminance | Glyph |
 | ---: | --- | --- | --- | ---: | --- |
-| 0 | Rome | `#4C0D19` | (76, 13, 25) | 0.019 | light |
+| 0 | Rome | `#D32F2F` | (211, 47, 47) | 0.161 | light |
 | 1 | Carthage | `#DDB69C` | (221, 182, 156) | 0.512 | **dark** |
 | 2 | Seleucid | `#671E0B` | (103, 30, 11) | 0.038 | light |
 | 3 | Ptolemaic | `#E1EC25` | (225, 236, 37) | 0.761 | **dark** |
@@ -338,6 +338,10 @@ below wherever it is applied, per DoD 8's folded follow-up (`#154`, T24 DoD 7).
 | 13 | Armenia | `#D760E8` | (215, 96, 232) | 0.286 | **dark** |
 | 14 | Media | `#581B45` | (88, 27, 69) | 0.033 | light |
 | 15 | Thracia | `#D46CBB` | (212, 108, 187) | 0.283 | **dark** |
+
+**Rome, changed by the user's decision of 2026-09-29:** the optimiser's `#4C0D19` (a very dark maroon,
+luminance 0.019) read as nearly black on the map, and the user chose a strong red, `#D32F2F`. It stays distinct from
+Seleucid's dark rust `#671E0B`, Armenia's violet and Thracia's pink, and keeps the light glyph (0.161 < 0.190).
 
 **Relative luminance** uses the standard sRGB-to-linear + WCAG luminance formula
 (`0.2126R + 0.7152G + 0.0722B` in linear space).
