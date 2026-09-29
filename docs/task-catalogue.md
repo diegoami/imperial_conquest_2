@@ -135,6 +135,7 @@ graph TD
   T24 --> T94[T94 main screen follow-ups]
   T94 --> T27
   T24 --> T95[T95 save and resume]
+  T96[T96 last-command label]
   T23 --> T26[T26 scenario docs+examples]
   T29 --> T26
   T22 --> T28[T28 nightly soak gate]
@@ -806,6 +807,12 @@ Save and resume → [full entry](tasks/T95.md) · [#469](https://github.com/dieg
 
 ---
 
+#### T96 The last-command label: visible, the command's own outcome, its last lines
+
+Last-command label (correction task for bug #484) → [full entry](tasks/T96.md) · [#522](https://github.com/diegoami/imperial_conquest_2/issues/522)
+
+---
+
 #### T25 Battle result, diplomacy, and hotseat handoff screens
 
 Godot screens → [full entry](tasks/T25.md) · [#25](https://github.com/diegoami/imperial_conquest_2/issues/25)
@@ -931,3 +938,4 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T93](#t93-an-army-embarks-from-a-tile-next-to-its-fleet) | Embark from an adjacent tile | — | Sonnet | Medium | **Opus**/Medium | T80 | [#456](https://github.com/diegoami/imperial_conquest_2/issues/456) |
 | [T94](#t94-godot-main-screen-follow-ups-size-markers-palette-malformed-save-handling-load-seat) | Main screen follow-ups | M18 | Sonnet | Medium | Sonnet/High + human | T24 | [#464](https://github.com/diegoami/imperial_conquest_2/issues/464) |
 | [T95](#t95-save-and-resume-a-game) | Save and resume | — | Sonnet | High | **Opus**/Medium + human | T24 | [#469](https://github.com/diegoami/imperial_conquest_2/issues/469) |
+| [T96](#t96-the-last-command-label-visible-the-commands-own-outcome-its-last-lines) | Last-command label | — | Sonnet | Medium | **Opus**/Medium + human | — | [#522](https://github.com/diegoami/imperial_conquest_2/issues/522) |
