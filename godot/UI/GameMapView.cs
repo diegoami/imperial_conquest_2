@@ -56,8 +56,12 @@ public partial class GameMapView : Control
 {
     private const float BaseTileSize = 6f;
     private const float MinZoom = 0.5f;
-    private const float MaxZoom = 12f;
     private const float DragThreshold = 4f;
+
+    /// <summary>The largest zoom factor <see cref="Zoom"/> clamps to — exposed so
+    /// <c>godot/Checks/MapClipCheck.cs</c> can assert the maximum-zoom case without restating the
+    /// constant.</summary>
+    public const float MaxZoom = 12f;
 
     private static readonly Color BackgroundColor = new(0.05f, 0.08f, 0.11f);
     private static readonly Color GridColor = new(0f, 0f, 0f, 0.15f);
@@ -162,6 +166,30 @@ public partial class GameMapView : Control
 
     /// <summary>Re-renders against the session's current state — called after every command that mutates it.</summary>
     public void Refresh() => QueueRedraw();
+
+    /// <summary>The current zoom factor — exposed for <c>godot/Checks/MapClipCheck.cs</c>, which drives
+    /// this view to <see cref="MaxZoom"/> and asserts the drawing stays inside its own rect.</summary>
+    public float ZoomFactor => _zoom;
+
+    /// <summary>Zooms to <see cref="MaxZoom"/> through the same <see cref="Zoom"/> path the mouse wheel
+    /// uses, so <c>godot/Checks/MapClipCheck.cs</c> reproduces the maximum-zoom case without simulating
+    /// wheel events.</summary>
+    public void ZoomToMaxForCheck()
+    {
+        if (Size.X <= 0 || Size.Y <= 0)
+        {
+            return;
+        }
+
+        Zoom(Size / 2f, MaxZoom / _zoom);
+    }
+
+    /// <summary>The rect <see cref="_Draw"/> would draw the terrain texture in at the current zoom and
+    /// pan — exposed so <c>godot/Checks/MapClipCheck.cs</c> can prove the maximum-zoom case really does
+    /// draw past this control's own rect (the bug's precondition), not merely that clipping is enabled.</summary>
+    public Rect2 TerrainDrawRectForCheck => _session is null
+        ? new Rect2(_pan, Vector2.Zero)
+        : new Rect2(_pan, new Vector2(_session.World.Width, _session.World.Height) * BaseTileSize * _zoom);
 
     public void ClearSelection()
     {
