@@ -49,7 +49,9 @@ function Get-ModelOrder {
     $vendors = @{
         'deepseek-flash' = 'deepseek'; 'deepseek' = 'deepseek'
         'mimo-flash-free' = 'mimo'; 'mimo-pro' = 'mimo'; 'mimo-flash' = 'mimo'
-        'glm' = 'glm'; 'luna' = 'luna'; 'gpt-mini' = 'openai'; 'gpt' = 'openai'
+        # luna is GPT-6 Luna through OpenCode Zen: the same OpenAI model a machine may fill as gpt-mini
+        # (openai/gpt-6-luna), so its vendor is openai, or Luna could review its own work (#526's review, R1).
+        'glm' = 'glm'; 'luna' = 'openai'; 'gpt-mini' = 'openai'; 'gpt' = 'openai'
     }
     $display = @{
         'deepseek-flash' = 'DeepSeek'; 'deepseek' = 'DeepSeek'; 'mimo-flash-free' = 'MiMo Flash'

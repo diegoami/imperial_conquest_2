@@ -827,7 +827,9 @@ Usage:
 1. If models.local.json is missing at the repository root, copy models.example.json to it and say so.
 2. Read it as JSON. Apply the change and write it back, keeping every other profile and map as it
    was. A name must be one `pwsh scripts/Get-ModelOrder.ps1 -List` prints; refuse an unknown name
-   and print the list. Refuse a chain whose every id is unfilled (contains "<").
+   and print the list. Refuse a chain whose every id is unfilled (contains "<"), and refuse to make a profile active
+   when its implementer or reviewer chain has no filled id. For `id <name> <provider/model> [variant]`, write
+   the id into "ids" and, when a variant is given, the variant into "variants" (an empty string clears it).
 3. Run `pwsh scripts/Get-ModelOrder.ps1 -Show` and print its output: that is the order the next
    dispatch uses. A run already started keeps its chain.
 4. Say what the order never changes: the reviewer's model is never the implementer's (the scripts
