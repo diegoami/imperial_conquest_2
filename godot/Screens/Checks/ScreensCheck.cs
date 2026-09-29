@@ -4,6 +4,7 @@ using IC2.Engine.Model;
 using IC2.Engine.Presentation;
 using IC2.Slice.Screens;
 using IC2.Slice.UI;
+using System.Globalization;
 
 namespace IC2.Slice.Checks;
 
@@ -54,6 +55,7 @@ public partial class ScreensCheck : Node
             CheckDiplomacyScreenOpensFromAScriptedState();
             CheckHotseatHandoffScreenOpensBlindAndNotBlindFromAScriptedState();
             CheckAttackThroughMainGameScreenOpensTheBattleResultScreen();
+            CheckAFailedSiegeShowsBothSidesAndTheCitysAttrition();
             CheckTwoBattlesInOneEndShowBothBattleResultOverlaysInTurn();
             CheckDiplomacyControlOpensTheGridThroughMainGameScreen();
             CheckEndingATurnInTwoHumanHotseatShowsTheHandoff();
@@ -169,6 +171,133 @@ public partial class ScreensCheck : Node
 
         RemoveChild(mainGame);
         mainGame.QueueFree();
+    }
+
+    /// <summary>
+    /// bug #499's own reproduction, driven by the battle the user played: Rome's army-0 beside Felsina
+    /// (Gaul) — a siege the attacker loses, 20,720 attack against 34,050 defense. A failed siege costs
+    /// the besieger its own attrition through <c>BattleCasualties</c> (1,872 troops on this scenario's
+    /// seed), but the unchanged screen printed only the winner's figure ("Gaul's casualties: 0"), never
+    /// the city's own before/after erosion, and never how far short the attack fell. This opens the real
+    /// <see cref="BattleResultScreen"/> through <see cref="MainGameScreen.SubmitForCheck"/> and reads
+    /// every rendered <see cref="Label"/>.
+    /// </summary>
+    /// <remarks>
+    /// Written to compile and run against the screen <em>before</em> this bug's fix — where the text
+    /// assertions below fail — and against the fixed screen, where they pass; that is why it walks the
+    /// labels generically instead of reading fields the fix adds.
+    /// </remarks>
+    private void CheckAFailedSiegeShowsBothSidesAndTheCitysAttrition()
+    {
+        var resolved = GameDataContext.Repository.Resolve("classical-mediterranean");
+
+        // army-0's shipped (100,37) is six tiles from Felsina (98,31); put it directly south of the
+        // city, the adjacent tile the triage reproduction used. The user plays Rome, so rome's seat is
+        // switched to human — the same "scenario variant in code" seam
+        // CheckEndingATurnInTwoHumanHotseatShowsTheHandoff uses.
+        var romeArmy = resolved.World.StartingArmies.Single(a => a.Id == "army-0") with { X = 98, Y = 32 };
+        var world = resolved.World with
+        {
+            StartingArmies = ValueList.From(
+                resolved.World.StartingArmies.Select(a => a.Id == "army-0" ? romeArmy : a)),
+        };
+        var scenario = resolved.Scenario with
+        {
+            Seats = ValueList.From(resolved.Scenario.Seats.Select(s =>
+                s.Nation == "rome" ? s with { Control = SeatControl.Human } : s)),
+        };
+
+        var mainGame = new MainGameScreen
+        {
+            Session = new GameSession(world, resolved.Ruleset, scenario),
+            RepositoryRoot = GameDataContext.RepositoryRoot,
+        };
+        AddChild(mainGame);
+
+        mainGame.SubmitForCheck("besiege-city army-0 felsina");
+
+        Check(
+            mainGame.ActiveOverlay is BattleResultScreen,
+            $"bug #499: besieging Felsina through MainGameScreen opens the battle-result screen "
+            + $"(got {mainGame.ActiveOverlay?.GetType().Name ?? "null"})");
+
+        if (mainGame.ActiveOverlay is not BattleResultScreen screen)
+        {
+            RemoveChild(mainGame);
+            mainGame.QueueFree();
+            return;
+        }
+
+        var result = screen.Result;
+
+        Check(
+            result.Kind == BattleKind.Siege && !result.AttackerWon,
+            $"bug #499: the battle this screen shows is a failed siege (kind {result.Kind}, winner {result.Winner})");
+
+        Check(
+            result.LoserId == "army-0" && result.WinnerCasualties == 0 && result.LoserCasualties > 0,
+            $"bug #499's unverified claim, established from the real battle: the failed siege puts the "
+            + $"besieger's own attrition in LoserCasualties (army-0 lost {result.LoserCasualties}; the "
+            + $"defending city's side lost {result.WinnerCasualties})");
+
+        var text = LabelText(screen);
+        var winnerName = screen.Session.State.NationById(result.WinnerNationId)?.Name ?? result.WinnerNationId;
+        var loserName = screen.Session.State.NationById(result.LoserNationId)?.Name ?? result.LoserNationId;
+
+        Check(
+            text.Contains($"{winnerName}'s casualties: {result.WinnerCasualties}", StringComparison.Ordinal)
+            && text.Contains($"{loserName}'s casualties: {result.LoserCasualties}", StringComparison.Ordinal),
+            $"bug #499: the screen shows both sides' casualties "
+            + $"('{winnerName}'s casualties: {result.WinnerCasualties}' and "
+            + $"'{loserName}'s casualties: {result.LoserCasualties}')");
+
+        var shortfall = result.DefenderPower - result.AttackerPower;
+        Check(
+            text.Contains("fell short", StringComparison.Ordinal)
+            && text.Contains(shortfall.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal),
+            $"bug #499: the screen says the attack fell short by {shortfall} "
+            + $"({result.AttackerPower} against {result.DefenderPower})");
+
+        Check(
+            text.Contains($"loyalty {result.CityLoyaltyBefore} -> {result.CityLoyaltyAfter}", StringComparison.Ordinal)
+            && text.Contains(
+                $"fortification {result.CityFortificationPercentBefore}% -> {result.CityFortificationPercentAfter}%",
+                StringComparison.Ordinal)
+            && text.Contains(
+                $"population {result.CityPopulationThousandsBefore}k -> {result.CityPopulationThousandsAfter}k",
+                StringComparison.Ordinal),
+            $"bug #499: the screen shows the city's before/after loyalty, fortification and population "
+            + $"({result.CityLoyaltyBefore} -> {result.CityLoyaltyAfter}, "
+            + $"{result.CityFortificationPercentBefore}% -> {result.CityFortificationPercentAfter}%, "
+            + $"{result.CityPopulationThousandsBefore}k -> {result.CityPopulationThousandsAfter}k)");
+
+        screen.Close();
+        RemoveChild(mainGame);
+        mainGame.QueueFree();
+    }
+
+    /// <summary>
+    /// Every <see cref="Label"/>'s text under <paramref name="node"/>, newline-joined — the generic read
+    /// this bug's check uses so the same code compiles and runs against the screen before the fix.
+    /// </summary>
+    private static string LabelText(Node node)
+    {
+        var builder = new System.Text.StringBuilder();
+        AppendLabelText(node, builder);
+        return builder.ToString();
+    }
+
+    private static void AppendLabelText(Node node, System.Text.StringBuilder builder)
+    {
+        foreach (var child in node.GetChildren())
+        {
+            if (child is Label label)
+            {
+                builder.AppendLine(label.Text);
+            }
+
+            AppendLabelText(child, builder);
+        }
     }
 
     /// <summary>
