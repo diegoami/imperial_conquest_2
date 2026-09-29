@@ -228,6 +228,10 @@ OUTPUT RULES (from scripts/external-review.ps1; they override anything above tha
   as the very last line. A review that does not end with the verdict line is treated as cut off
   and is not posted.
 - The worktree you are in is $worktree at $headSha. Pass git -C "$worktree" explicitly.
+- Stay inside ${worktree}: never read, list, write or run anything by a path outside it (not TEMP,
+  not your home directory, not another worktree). OpenCode rejects such a call and the rejection
+  ENDS your review. Scratch files go under rendered/ inside it. A mutation runs in place, uncommitted,
+  and is restored with git checkout -- and a clean rebuild.
 "@
     $prompt = $header + "`n" + $briefRest + $rules
     $fail = { param($reason, $detail) [pscustomobject]@{ Ok = $false; Name = $Name; Model = $model; Header = $header; Reason = $reason; Detail = $detail } }
@@ -257,7 +261,7 @@ OUTPUT RULES (from scripts/external-review.ps1; they override anything above tha
     # words: a reviewer reading these scripts quotes the warning text (PR #482, 2026-09-28).
     if ($run.AgentFallback) { return (& $fail 'fell back to the default agent' "OpenCode did not load the external-reviewer agent (it fell back to its default, full-permission agent). Output:`n$output") }
     # A rejected tool call ends the run with exit 0 (issue #501): a failure, named by its path.
-    if ($run.PermissionRejected) { return (& $fail "permission rejected: $($run.PermissionRejected)" "OpenCode's permission guard auto-rejected a tool call ($($run.PermissionRejected)), which ended the run. The reviewer reached outside its worktree. Output:`n$output") }
+    if ($run.PermissionRejected) { return (& $fail "permission rejected: $($run.PermissionRejected)" "OpenCode's permission guard auto-rejected a tool call ($($run.PermissionRejected)), which ended the run. For external_directory, the reviewer reached outside its worktree. Output:`n$output") }
 
     # 3. Completeness. The review starts at the header line (OpenCode may print tool chatter
     #    before it); it must have a verdict on line 2 and repeat it as the last non-empty line.

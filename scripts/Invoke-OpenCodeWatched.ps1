@@ -66,8 +66,8 @@ function Get-OpenCodeFailureClass([string] $Reason) {
         '^exited without a session'         { return 'exited-without-session' }
         'fell back to the default agent'    { return 'fallback-agent' }
         '^exit -?\d+'                       { return 'non-zero-exit' }
-        'cut off|no header line|no verdict' { return 'cut-off' }
         '^permission rejected'              { return 'permission-rejected' }
+        'cut off|no header line|no verdict' { return 'cut-off' }
         default                             { return $Reason }
     }
 }

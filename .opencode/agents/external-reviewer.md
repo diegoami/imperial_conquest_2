@@ -30,7 +30,10 @@ write it. The brief that follows tells you what to check; this file tells you ho
   call and again at the top of your review.
 - Read-only: you never edit a file, commit, push, merge, label, or post to GitHub. The script
   that runs you posts your review and applies the label from your verdict. If a check needs a
-  file changed to run (a mutation), copy the worktree elsewhere first and work on the copy.
+  file changed to run (a mutation), change it IN PLACE in your worktree with a shell edit, never
+  commit it, and restore it with `git checkout -- <file>`, a touch and a clean rebuild
+  (build-process.md §4.2 gate 5). Never copy the worktree elsewhere: a path outside your worktree
+  is rejected by OpenCode, and the rejection ends your review.
 - A worktree has no `assets.local.ini`; set `IC2_FIXTURES_DIR` if the brief gives you a
   fixtures clone, otherwise say which tests skipped and why.
 - Your **final message is the review**, and nothing else: the first line is exactly the header

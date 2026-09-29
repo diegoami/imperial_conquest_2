@@ -180,7 +180,8 @@ $rules = @"
 ---
 RUN RULES (from scripts/external-implement.ps1; they override the brief where they conflict):
 - Your worktree is $worktree on branch $branch, already created and pushed. Skip the brief's
-  worktree and branch creation; never run git worktree. Pass git -C "$worktree" explicitly.
+  whole setup block (worktree and branch creation, and any assets.local.ini copy: -LocalOnly has
+  already copied it); never run git worktree. Pass git -C "$worktree" explicitly.
 - Everything else in the brief is binding: Owns, Done-when, the rules for engine code, the PR
   body, the detach at the end, and the report.
 - The PR body's "Closes #$Issue" is the only place a closing keyword may precede #<n>.
