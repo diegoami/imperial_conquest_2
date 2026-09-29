@@ -51,6 +51,11 @@ public sealed class BattleResultViewModelTests
 
         Assert.Equal(LoserFate.Destroyed, viewModel.LoserFate);
         Assert.Null(viewModel.Scatter);
+
+        // bug #499's two siege-only text methods: a field battle gets neither line, whichever side won.
+        Assert.Null(viewModel.SiegeCityText("anywhere"));
+        Assert.Null(viewModel.FailedSiegeShortfallText());
+
         AssertSharedFieldsMatch(result, viewModel);
     }
 

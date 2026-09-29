@@ -14,10 +14,19 @@ namespace IC2.Slice.Screens;
 /// <c>T16</c> to change.
 /// </summary>
 /// <remarks>
+/// <para>
 /// Godot-free (no <c>using Godot</c> anywhere in this file) so
 /// <c>tests/IC2.Engine.Tests/Ui/Screens/BattleResultViewModelTests.cs</c> can exercise it directly, the
 /// same seam T24 established for <c>RulesetPresets.cs</c>/<c>NewGameSelection.cs</c> — see this task's own
 /// PR body and <c>tests/IC2.Engine.Tests/IC2.Engine.Tests.csproj</c>'s new <c>Compile Include</c> line.
+/// </para>
+/// <para>
+/// <strong>bug #499: the screen's own wording lives here too.</strong> The text methods below are the
+/// exact strings <see cref="BattleResultScreen"/> renders for both sides' casualties, a siege's
+/// before/after city values, and a failed siege's shortfall — so the Godot-free test can assert the
+/// same strings the screen shows, without a Godot run and without re-deriving a format the screen is
+/// free to ignore. They add no field and change no number.
+/// </para>
 /// </remarks>
 public sealed record BattleResultViewModel(
     BattleKind Kind,
@@ -102,4 +111,48 @@ public sealed record BattleResultViewModel(
         result.LoserNationId,
         result.WinnerPower,
         result.LoserPower);
+
+    /// <summary>
+    /// The winning side's casualty line — the screen's existing wording, kept as the first half of the
+    /// pair so the losing side's figure can finally sit beside it (bug #499).
+    /// </summary>
+    public string WinnerCasualtiesText(string winnerName) =>
+        $"{winnerName}'s casualties: {WinnerCasualties}";
+
+    /// <summary>
+    /// The losing side's casualty line (bug #499). For a failed siege the loser is the <em>besieging
+    /// army</em>, so this is that army's own attrition, which <see cref="BattleResult.LoserCasualties"/>
+    /// holds — 1,872 troops in the reproduced Felsina siege — and which the unchanged screen never
+    /// showed: "Gaul's casualties: 0" was the whole casualty report. For a field battle it is the
+    /// loser's own losses, and for a naval battle its hulls, exactly as <see cref="BattleResult"/>
+    /// documents.
+    /// </summary>
+    public string LoserCasualtiesText(string loserName) =>
+        $"{loserName}'s casualties: {LoserCasualties}";
+
+    /// <summary>
+    /// The besieged city's before/after loyalty, fortification and population (bug #499), or
+    /// <see langword="null"/> when this was not a siege — the six <c>City*</c> fields are set together
+    /// or not at all. The player never saw this before: every attempt erodes the city, and on the
+    /// reproduced Felsina siege that is loyalty 79 -> 76, fortification 68% -> 65%, population
+    /// 26k -> 25k.
+    /// </summary>
+    public string? SiegeCityText(string cityName) =>
+        Kind != BattleKind.Siege || CityLoyaltyBefore is null
+            ? null
+            : $"{cityName}: loyalty {CityLoyaltyBefore} -> {CityLoyaltyAfter}, "
+              + $"fortification {CityFortificationPercentBefore}% -> {CityFortificationPercentAfter}%, "
+              + $"population {CityPopulationThousandsBefore}k -> {CityPopulationThousandsAfter}k";
+
+    /// <summary>
+    /// How far short a failed siege fell (bug #499), or <see langword="null"/> for anything else. The
+    /// confirmed rule is "the attacker wins only if <c>atk &gt; def</c>, ties to the defender"
+    /// (<c>docs/game-design.md</c> §Combat), so the shortfall is <c>DefenderPower - AttackerPower</c> —
+    /// zero on an exact tie.
+    /// </summary>
+    public string? FailedSiegeShortfallText() =>
+        Kind == BattleKind.Siege && !AttackerWon
+            ? $"The attack fell short by {DefenderPower - AttackerPower}: "
+              + $"{AttackerPower} against {DefenderPower}."
+            : null;
 }
