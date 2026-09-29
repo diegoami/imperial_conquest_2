@@ -120,7 +120,9 @@ anything in this document's sources.
 
 **The actual argument for 32-bit BGRA, stated as what it is**: a forward-looking `[designed]` choice for
 the *new* renderer, not a claim about the original's fidelity. `AssetPack`/`AssetLoader` are already
-built for T47 and T48 to draw markers as discrete shapes composited over terrain, not as full
+built — as a key→path manifest map and a missing-file validator, not drawing code (`#176` N14:
+substance right, attribution loose) — for T47 and T48 to draw markers as discrete shapes composited
+over terrain, not as full
 terrain-tile backgrounds — and while the original's own convention for the *tiles this document has
 direct evidence of* happens to be fully opaque, that is a fact about the original, not a constraint this
 new renderer must repeat. A future glyph that *isn't* a plain square (a rounder icon, a banner, anything
@@ -426,12 +428,18 @@ way the autumn frame draws it over a city.
 
 **What the glyph itself shows, with the cursor and halo set aside**: a **ship silhouette** — a hull, a
 mast with a horizontal yardarm/crossbar near the top, and a forked shape at the base reading as an
-anchor — rendered in white against the black cursor fill behind it in this one observed instance.
+anchor — rendered in white against a black interior in this one observed instance. **The black's
+attribution is left open** (corrected, `#176` N12: this passage previously attributed it to "the
+black cursor fill," but the same selection cursor over Felsina — §1.2's own evidence — is a *hollow
+outline*, so the black is more plausibly the marker's own fill than the cursor's), and the
+upper-quadrant masses flanking the mast read plausibly as **sails** — if they are, the "hull, mast
+with crossbar, anchor" enumeration above omits them; recorded here rather than guessed either way.
 **The corpus contains exactly one fleet marker, and it is the selected one**: nothing in this document's
 sources shows an *unselected* fleet, so its true field colour (presumably Carthage's own nation colour,
 by analogy with the army and city markers, but not directly observable here) and its border shape (a
 plain square, matching every other confirmed marker, or something else) are **not established** by this
-citation. Depict the ship silhouette itself — hull, mast with crossbar, anchor — at increasing size/count
+citation. Depict the ship silhouette itself — hull, mast with crossbar, the sail-like upper masses,
+anchor — at increasing size/count
 across the three tiers, on the tier's own nation-coloured square background (matching the army and city
 convention, §1.2), **without** a diamond outline or a cursor halo, which belong to the game's selection
 UI, not to any one marker type.
@@ -479,19 +487,27 @@ search result was false, and I re-ran it by eye, at 6–10x pixel zoom, tile by 
 round 2): the first correction (round 1) itself undercounted — there are four distinct shapes, not
 three, because the "house" is actually two different sprites, not one house at a shared size.**
 
-- **A small house**: a compact peaked roof over a narrower body with **two plain vertical window/door
-  bars**, no internal subdivision — the more common of the two house variants, in every nation colour
-  sampled (e.g. cyan glyph on a dark-maroon tile, magenta glyph on cyan, white glyph on purple, gold
-  glyph on navy — all in `screenshots-processed/1_rome_270_summer_7_1.png`).
-- **A large house**: a wider body under a broader, more angled roofline with a small chimney tick, and a
-  **2×2 grid of windows** — four separate panes divided by a visible cross-frame, not two plain bars.
-  Confirmed directly, side by side with a small house at identical zoom: a cyan-on-maroon large house at
-  one map location and a cyan-on-maroon small house elsewhere in the same screenshot
-  (`screenshots-processed/1_rome_270_summer_7_1.png`) are unmistakably different sprites, not the same
-  shape at two scales — the large one has genuine additional structure (the window grid), matching the
-  "same motif, bigger, with more detail" pattern §3 sets out for armies and fleets. This is the
-  strongest visual hint the corpus holds about what the variant code might select, and a description
-  that collapses it into "one or two vertical bars" loses it.
+- **A small house**: a compact peaked roof over a narrower body with **two window/door openings per
+  row** — with a central divider and a pane-shape change (corrected, `#176` N11: this passage
+  previously said "no internal subdivision," which overstated it) — the more common of the two house
+  variants, in every nation colour sampled (e.g. cyan glyph on a dark-maroon tile, magenta glyph on
+  cyan, white glyph on purple, gold glyph on navy — all in
+  `screenshots-processed/1_rome_270_summer_7_1.png`). Body 10×6 px, with a chimney tick on the
+  roofline — **both** houses carry one (corrected, `#176` N11: the tick was previously listed as a
+  large-house feature only).
+- **A large house**: a wider body under a broader, more angled roofline with a small chimney tick, and
+  **two rows of five window openings** — about ten panes in total: 3 + 2 either side of a central
+  divider, with an open band between the rows (corrected, `#176` N11: previously "a 2×2 grid of
+  windows — four separate panes divided by a visible cross-frame," which the pixels contradict).
+  Body 14×8 px. Confirmed directly, side by side with a small house at identical zoom: a
+  cyan-on-maroon large house at one map location and a cyan-on-maroon small house elsewhere in the
+  same screenshot (`screenshots-processed/1_rome_270_summer_7_1.png`) are unmistakably different
+  sprites, not the same shape at two scales — the large one has genuine additional structure (the
+  denser window rows), and the measured dimensions confirm it independently: a 1.4× scale-up of the
+  small house's 10×6 px body with 2 openings per row would give two *wider* openings, not five
+  narrower ones in two rows — matching the "same motif, bigger, with more detail" pattern §3 sets out
+  for armies and fleets. This is the strongest visual hint the corpus holds about what the variant
+  code might select, and a description that collapses it into "one or two vertical bars" loses it.
 - **A columned temple with a stepped triangular pediment and four columns** (corrected from "three": the
   column band reads two outer pairs of white members flanking a wider central gap, four members in
   total, not three), structurally distinct from either house — not a recolour, a different silhouette —
@@ -518,8 +534,9 @@ variants is a sharper statement of the open question than three against five: it
 variant this document has not seen an example of, rather than two.
 
 **Depiction for an artist, kept deliberately general given the above**: draw at least the four shapes
-directly observed — a small house, a large house (the same motif, scaled up and given a real window
-grid, not just a bigger copy of the small one), a columned temple, and a walled castle — as the working
+directly observed — a small house, a large house (the same motif, scaled up and given its denser
+two-row window pattern, not just a bigger copy of the small one), a columned temple, and a walled
+castle — as the working
 example of the kind of variety the five-variant code plausibly selects between, each recognisable at
 32×32 and each distinct from the others in silhouette, not just colour, matching `MapViewer.cs`'s own
 synthetic `DrawCity` glyph shape (`:179-182`, three line segments forming a roofline-and-walls
@@ -709,7 +726,9 @@ section actually require:
     vertical bar** (split fleet — corrected; previously described as "two ships either side of a
     divider," which is the button this description belongs to, not the one before it), ship with a plus
     sign (build/add ships), a tilted beached ship over a blue line (scuttle), and a plain white circle
-    (clear filter).
+    (clear filter). The functional meanings in those parentheticals — load / repair / join / split /
+    build / scuttle / clear — are **provisional, inferred from icon shape**, not verified; the pixel
+    descriptions beside them are verified (`#176` N13).
 
   That is **13 + 7 = 20 buttons across the two toolbars I actually counted** (corrected, rework round 2:
   previously miscounted as "at least 18," an arithmetic error against this section's own enumeration),
