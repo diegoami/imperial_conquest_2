@@ -76,6 +76,17 @@
     <Compile Include="../../godot/Screens/BattleResultViewModel.cs" Link="Ui/Screens/BattleResultViewModel.cs" />
     <Compile Include="../../godot/Screens/DiplomacyGridViewModel.cs" Link="Ui/Screens/DiplomacyGridViewModel.cs" />
     <Compile Include="../../godot/Screens/HotseatHandoffDetector.cs" Link="Ui/Screens/HotseatHandoffDetector.cs" />
+
+    <!--
+      T94 (tests/IC2.Engine.Tests/Ui/**): the same seam, for the two Godot-free classes this task
+      adds under godot/Assets/**. MapMarkerKeys.cs resolves a marker's asset-pack icon from the live
+      GameState/ruleset (DoD 1 and folded #454 item 2), and AssetPackManifestLoader.cs is the
+      "degrade without throwing on a malformed manifest" half of AssetPackTextureLoader (folded #454
+      item 1, which cannot be linked directly because AssetPackTextureLoader.cs references Godot).
+      Neither has a `using Godot` anywhere; never a second, hand-maintained copy of either.
+    -->
+    <Compile Include="../../godot/Assets/MapMarkerKeys.cs" Link="Ui/MapMarkerKeys.cs" />
+    <Compile Include="../../godot/Assets/AssetPackManifestLoader.cs" Link="Ui/AssetPackManifestLoader.cs" />
   </ItemGroup>
 
 </Project>
