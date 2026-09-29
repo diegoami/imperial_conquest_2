@@ -20,6 +20,7 @@ __determinism-guard-scratch__/
 # Placeholder audio stubs are generated and committed (not original game audio);
 # the *.wav / *.WAV exclusions above still cover user-provided asset files.
 !assets/packs/placeholder/**/*.wav
+!assets/packs/authored/**/*.wav
 *.zip
 *.mp4
 /assets.local.ini
