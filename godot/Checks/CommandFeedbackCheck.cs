@@ -6,9 +6,10 @@ namespace IC2.Slice.Checks;
 
 /// <summary>
 /// Fix #484: the main game screen's shared last-command label must echo a real command's own outcome —
-/// an accepted order's acceptance line, a rejected order's reason text, an <c>end</c>'s closing summary —
-/// instead of the blank separator line <c>GameSession.Submit</c> always ends its output with (the
-/// pre-fix <c>lines[^1]</c>); and T95's separate Save confirmation label must keep working. Run headless:
+/// an accepted order's acceptance line, a rejected order's declaration of war and reason text, an
+/// <c>end</c>'s closing summary up to (but never including) the news section — instead of the blank
+/// separator line <c>GameSession.Submit</c> always ends its output with (the pre-fix <c>lines[^1]</c>);
+/// and T95's separate Save confirmation label must keep working. Run headless:
 /// <code>
 /// godot --headless --path godot res://Checks/CommandFeedbackCheck.tscn
 /// </code>
@@ -23,6 +24,15 @@ namespace IC2.Slice.Checks;
 /// <see cref="MainGameScreen.SaveConfirmationText"/>. It never rebuilds the rule itself: the xunit half
 /// (<c>tests/IC2.Engine.Tests/Ui/CommandOutcomeTextTests.cs</c>) pins the rule against real
 /// <c>Submit</c> output, this check pins that the screen really assigns it to the labels.
+/// </para>
+/// <para>
+/// <strong>Review round 1 rework.</strong> B1: the <c>end</c> assertions now pin the label's last line
+/// to the exact <c>"Now: Week …"</c> line <c>SubmitForCheck</c> returns from the real output, and pin
+/// that no line of the news section after <c>News:</c> (the week banner included) appears in the label.
+/// N3: the rejected order's assertion now expects the composed <c>diplomacy.declare-war</c> line as
+/// well as the refusal. N2: a real <c>news</c> command's whitespace-only spacer line must not reach the
+/// label. N1 is pinned by <see cref="MainGameScreen"/>'s own label construction (wrapping, a three-line
+/// ceiling with an ellipsis and the full text in the tooltip), which a headless run cannot measure.
 /// </para>
 /// <para>
 /// The Save half writes under <c>user://saves</c> (the real Save action's own convention, which no
@@ -71,22 +81,69 @@ public partial class CommandFeedbackCheck : Node
             mainGame.LastCommandText == "recruitment.recruit-standing-unit accepted.",
             $"an accepted order's label shows its acceptance line (got '{mainGame.LastCommandText}')");
 
-        // ---- a rejected order from a non-adjacent tile (the bug's second half) ----
+        // ---- a rejected order from a non-adjacent tile (the bug's second half). Rome starts at peace
+        //      with Carthage, so Submit composes the declaration of war ahead of the refusal: the label
+        //      shows the whole own outcome, both lines (review N3). ----
         mainGame.SubmitForCheck("besiege-city army-0 misurata");
+        var siegeLabelLines = mainGame.LastCommandText.Split('\n');
         Check(
-            mainGame.LastCommandText.Contains("battle.siege-not-adjacent", StringComparison.Ordinal)
-            && mainGame.LastCommandText.Contains("is not adjacent to 'misurata'", StringComparison.Ordinal),
-            $"a rejected order's label shows the rejection's reason text (got '{mainGame.LastCommandText}')");
+            siegeLabelLines.Length == 2
+            && siegeLabelLines[0] == "diplomacy.declare-war accepted (composed ahead of the attack)."
+            && siegeLabelLines[1].StartsWith("battle.besiege-city rejected (battle.siege-not-adjacent): ", StringComparison.Ordinal)
+            && siegeLabelLines[1].Contains("is not adjacent to 'misurata'", StringComparison.Ordinal),
+            $"a rejected order's label shows its whole own outcome, declaration and reason (got '{mainGame.LastCommandText}')");
 
-        // ---- end (the bug's third half: the label must not be blank) ----
-        mainGame.SubmitForCheck("end");
+        // ---- end (the bug's third half): the round's own closing summary, never the news banner
+        //      (review B1). The exact "Now: Week ..." line from the real Submit output, and no line of
+        //      the news section after News: anywhere in the label. ----
+        var endLines = mainGame.SubmitForCheck("end");
+        var nowLine = endLines.FirstOrDefault(line => line.StartsWith("Now: Week ", StringComparison.Ordinal));
         Check(
-            !string.IsNullOrWhiteSpace(mainGame.LastCommandText),
-            "an end turn's label is not blank");
+            nowLine is not null
+            && nowLine.StartsWith($"Now: Week {session.State.Calendar.Week},", StringComparison.Ordinal),
+            $"the end's real output carries the round footer's Now: line with the new week (got '{nowLine}')");
+
+        var endLabelLines = mainGame.LastCommandText.Split('\n');
         Check(
-            mainGame.LastCommandText.StartsWith("Now: Week ", StringComparison.Ordinal)
-            || mainGame.LastCommandText.StartsWith("  ", StringComparison.Ordinal),
-            $"an end turn's label shows the round footer or the newest news entry (got '{mainGame.LastCommandText}')");
+            nowLine is not null && endLabelLines[^1] == nowLine,
+            $"an end turn's label ends on the exact Now: Week line, not the news banner (its last line: '{endLabelLines[^1]}')");
+        Check(
+            !endLabelLines.Any(string.IsNullOrWhiteSpace)
+            && !endLabelLines.Any(line => !string.Equals(line, line.Trim(), StringComparison.Ordinal)),
+            "an end turn's label carries no blank or padded lines");
+
+        var newsHeaderIndex = -1;
+        for (var i = 0; i < endLines.Count; i++)
+        {
+            if (string.Equals(endLines[i].Trim(), "News:", StringComparison.Ordinal))
+            {
+                newsHeaderIndex = i;
+                break;
+            }
+        }
+
+        var newsLines = newsHeaderIndex >= 0
+            ? endLines.Skip(newsHeaderIndex + 1)
+                .Where(line => !string.IsNullOrWhiteSpace(line))
+                .Select(line => line.Trim())
+                .ToList()
+            : new List<string>();
+        Check(
+            newsHeaderIndex >= 0 && newsLines.Count > 0,
+            "the end's real output really carries a News: section to exclude");
+        Check(
+            !endLabelLines.Any(newsLines.Contains),
+            "no news line (the week banner included) appears in the label");
+
+        // ---- review N2: after an end has produced news, a real news command's output really carries
+        //      the news log's whitespace-only spacer line, and it must never reach the label ----
+        var newsOutput = mainGame.SubmitForCheck("news");
+        Check(
+            newsOutput.Any(line => line.Length > 0 && string.IsNullOrWhiteSpace(line)),
+            "the news command's real output carries a whitespace-only spacer line");
+        Check(
+            !mainGame.LastCommandText.Split('\n').Any(string.IsNullOrWhiteSpace),
+            "no whitespace-only spacer reaches the label");
 
         // ---- T95's own Save confirmation label, kept by fix #484 ----
         mainGame.PressSaveForCheck("fix484-commandfeedbackcheck");
