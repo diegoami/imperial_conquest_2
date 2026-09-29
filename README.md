@@ -10,6 +10,18 @@ A modern, moddable reimplementation of *Imperial Conquest 2* (1996) — the game
 
 - **Play in Godot, from source.** Install Godot .NET 4.7.2 and the .NET 10 SDK, open `godot/project.godot`, and run the project (its main scene is `res://UI/AppRoot.tscn`). The main menu leads to New Game (the ruleset chooser, then the scenario and its seats), Load and Settings. The main game screen has the map, the context panel, the news log and a Save action, and opens the battle-result, diplomacy and hotseat-handoff screens. It reads the shipped data under `data/`, so it needs none of your original game files.
 
+  From a terminal, at the repository root (`godot` is the Godot 4.7.2 **.NET** executable, e.g.
+  `Godot_v4.7.2-stable_mono_win64_console.exe`, whose console build prints script errors to the terminal):
+
+  ```bash
+  dotnet build godot/IC2.MapViewer.csproj        # Godot does not compile the C# itself outside the editor
+  godot --headless --path godot --import         # first run only: imports the resources
+  godot --path godot                             # the game: main menu, New Game, Load, Settings
+  ```
+
+  The research inspector is the same project with its scene named, `godot --path godot res://MapViewer.tscn`;
+  it needs `assets.local.ini` ([below](#the-research-inspector-tools-ic2inspect)).
+
 - **Play in the terminal.** Pick a scenario and the nation you play, and the AI plays every other seat:
 
   ```bash
