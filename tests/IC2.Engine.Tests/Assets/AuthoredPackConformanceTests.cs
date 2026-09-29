@@ -30,11 +30,9 @@ namespace IC2.Engine.Tests.Assets;
 /// opaque, 24-bit, per §1.2.
 /// </para>
 /// <para>
-/// <b>These pack-reading facts fail on purpose until the generation run lands</b>: the pack is
-/// produced by a billable, deliberate, human-run generation (Phase 2 of the task), not by CI.
-/// No <c>Skip</c>, no weakened assertion, and no placeholder pack is committed to make them
-/// pass — the prompts ↔ <see cref="AssetKeys"/> facts below pass from the first commit, and
-/// the pack facts turn green the moment the real pack is committed.
+/// <b>The pack is committed</b>: it was produced by a billable, deliberate, human-run generation
+/// (Phase 2 of the task), not by CI, and these facts read the committed files. No <c>Skip</c> and
+/// no weakened assertion is used; regenerating the pack is not part of any test run.
 /// </para>
 /// </remarks>
 public sealed class AuthoredPackConformanceTests
@@ -90,7 +88,7 @@ public sealed class AuthoredPackConformanceTests
     }
 
     // --- DoD 6: the committed pack parses through the same AssetPack/AssetLoader types the
-    // --- placeholder pack uses, and ValidateAssets reports zero missing (fails until Phase 2) ---
+    // --- placeholder pack uses, and ValidateAssets reports zero missing ---
 
     [Fact]
     public void AuthoredPack_DirectoryAndManifest_Exist()
@@ -128,7 +126,7 @@ public sealed class AuthoredPackConformanceTests
     }
 
     // --- DoD 5: format conformance, read from the committed files - never by trusting the
-    // --- generator (fails until Phase 2) ---
+    // --- generator ---
 
     [Fact]
     public void AuthoredPack_ImageAssets_ConformToFormatSpecification()
@@ -176,6 +174,7 @@ public sealed class AuthoredPackConformanceTests
             var transparentCount = 0;
             var opaqueCount = 0;
             var lightNeutralFound = false;
+            var nonNeutralOpaque = 0;
             for (var i = 54; i + 3 < bytes.Length; i += 4)
             {
                 var b = bytes[i];
@@ -191,8 +190,14 @@ public sealed class AuthoredPackConformanceTests
                     opaqueCount++;
                     // Draw-time tint (the #173 decision): the silhouette must be light and
                     // colourless - a bright owner tint multiplied against it must stay bright,
-                    // which needs a near-white subject, not a dark or coloured one.
-                    if (r >= 200 && r == g && g == b)
+                    // which needs a near-white subject, not a dark or coloured one. EVERY opaque
+                    // pixel must be neutral (R == G == B): a baked-in nation colour anywhere
+                    // would multiply with the draw-time tint into the wrong colour.
+                    if (r != g || g != b)
+                    {
+                        nonNeutralOpaque++;
+                    }
+                    else if (r >= 200)
                     {
                         lightNeutralFound = true;
                     }
@@ -204,6 +209,9 @@ public sealed class AuthoredPackConformanceTests
                 + "transparency is required for every marker/icon sprite)");
             Assert.True(opaqueCount > 0,
                 $"{key}: no opaque pixel - the subject itself is missing or fully transparent");
+            Assert.True(nonNeutralOpaque == 0,
+                $"{key}: {nonNeutralOpaque} opaque pixel(s) are not neutral grey (R==G==B) - a marker/icon "
+                + "sprite must be a colourless silhouette, the nation colour is applied at draw time");
             Assert.True(lightNeutralFound,
                 $"{key}: no light neutral (>= 200, R==G==B) opaque pixel - the silhouette must read as a "
                 + "light/white subject so the draw-time owner tint stays visible");
