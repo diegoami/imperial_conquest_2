@@ -84,7 +84,7 @@ public partial class AssetPackSelectionCheck : Node
         Check(packItems.Contains("authored"), $"the picker lists 'authored' (items: {string.Join(", ", packItems)})");
         Check(packItems.Contains("placeholder"), $"the picker lists 'placeholder' (items: {string.Join(", ", packItems)})");
 
-        var placeholderIndex = picker.GetItemIndex("placeholder");
+        var placeholderIndex = packItems.IndexOf("placeholder");
         picker.Select(placeholderIndex);
         picker.EmitSignal(OptionButton.SignalName.ItemSelected, placeholderIndex);
         Check(
