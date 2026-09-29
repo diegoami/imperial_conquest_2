@@ -1,5 +1,4 @@
 using Godot;
-using IC2.Engine.Assets;
 using IC2.Engine.Model;
 using IC2.Engine.Presentation;
 using IC2.Slice.Assets;
@@ -33,6 +32,25 @@ namespace IC2.Slice.UI;
 /// next map click issues a real <c>move &lt;army&gt; &lt;x&gt; &lt;y&gt;</c> through
 /// <see cref="GameSession.Submit"/> — never a direct mutation of <see cref="GameSession.State"/>.
 /// </para>
+/// <para>
+/// <strong>T94: markers draw the pack's confirmed size tiers.</strong> Every city/army/fleet marker's
+/// icon key comes from <see cref="MapMarkerKeys"/> — the <em>live</em> capital
+/// (<see cref="NationState.CapitalCityId"/>) or population tier for cities, the original's own
+/// 25,000/50,000 troop bands and 25/50 ship bands for armies and fleets — replacing T48's
+/// <c>[designed]</c> per-unit-type army icon choice (folded
+/// <see href="https://github.com/diegoami/imperial_conquest_2/issues/454">#454</see> item 3). When the
+/// loader cannot resolve a key, the pre-T94 coloured shape remains the fallback, exactly as before.
+/// </para>
+/// <para>
+/// <strong>T94 rework round 1 (N3, the user's decision of 2026-09-29): the icon is tinted with its
+/// owner's colour.</strong> One bitmap otherwise draws every nation identically and only the thin ring
+/// told owners apart, where the pre-T94 shapes were filled in the owner's colour. The
+/// <c>modulate</c> argument of <see cref="CanvasItem.DrawTextureRect"/> now carries
+/// <see cref="NationColor"/> — built from <see cref="MarkerTint.ForOwner"/>, the world's own
+/// <c>colorHex</c> — so the owner's colour is the icon itself; the dark halo and the thin ring stay for
+/// contrast against terrain. The placeholder pack's flat squares are tinted as they are (not
+/// special-cased), and T51's neutral silhouettes tint the same way with no further code change.
+/// </para>
 /// </remarks>
 public partial class GameMapView : Control
 {
@@ -58,15 +76,6 @@ public partial class GameMapView : Control
             ["Mountains"] = new Color(0.42f, 0.38f, 0.36f),
             ["River"] = new Color(0.14f, 0.46f, 0.70f),
         };
-
-    private static readonly Dictionary<string, string> UnitTypeIconKeysById = new(StringComparer.Ordinal)
-    {
-        ["light_infantry"] = AssetKeys.UnitLightInfantryIcon,
-        ["heavy_infantry"] = AssetKeys.UnitHeavyInfantryIcon,
-        ["archers"] = AssetKeys.UnitArchersIcon,
-        ["light_cavalry"] = AssetKeys.UnitLightCavalryIcon,
-        ["heavy_cavalry"] = AssetKeys.UnitHeavyCavalryIcon,
-    };
 
     /// <summary>Fired when a city is clicked (and no move/attack order is pending).</summary>
     public event Action<string>? CitySelected;
@@ -445,6 +454,20 @@ public partial class GameMapView : Control
         var selected = string.Equals(city.Id, _selectedCityId, StringComparison.Ordinal);
 
         DrawCircle(center, radius + 1.5f, new Color(0f, 0f, 0f, 0.55f));
+
+        // T94: key selection (live capital vs. population tier) is MapMarkerKeys' single decision,
+        // shared with Slice.cs -- of game-design.md's [open] "City markers" section, only capital
+        // status (orthogonal to population, live on NationState.CapitalCityId) is confirmed; the
+        // tier boundaries are the ruleset's, and every shipped ruleset ships them empty.
+        var texture = _assetLoader?.TryGetTexture(MapMarkerKeys.CityIcon(_session!.State, city, _session.Ruleset.MapMarkers));
+        if (texture is not null)
+        {
+            var rect = new Rect2(center - new Vector2(radius, radius), new Vector2(radius, radius) * 2f);
+            DrawTextureRect(texture, rect, false, fillColor);
+            DrawArc(center, radius, 0f, Mathf.Tau, 24, selected ? SelectedRingColor : fillColor, selected ? 2.5f : 1.5f);
+            return;
+        }
+
         DrawCircle(center, radius, fillColor);
         DrawArc(center, radius, 0f, Mathf.Tau, 24, selected ? SelectedRingColor : CityRingColor, selected ? 2.5f : 1.2f);
     }
@@ -460,6 +483,19 @@ public partial class GameMapView : Control
         var fillColor = NationColor(army.Nation);
         var half = Mathf.Max(tileSize * 0.4f, 2.5f);
         var selected = string.Equals(army.Id, _selectedArmyId, StringComparison.Ordinal);
+
+        // T94 (#454 item 3): the confirmed three-tier size marker -- MapMarkerKeys reads the ruleset's
+        // own 25,000/50,000 boundaries, never T48's [designed] per-unit-type plurality.
+        var texture = _assetLoader?.TryGetTexture(MapMarkerKeys.ArmyIcon(army, _session!.Ruleset.MapMarkers));
+        if (texture is not null)
+        {
+            DrawCircle(center, half + 2f, new Color(0f, 0f, 0f, 0.55f));
+            var rect = new Rect2(center - new Vector2(half, half), new Vector2(half, half) * 2f);
+            // N3: the owner's colour is the icon's modulate tint (see this class's remarks).
+            DrawTextureRect(texture, rect, false, fillColor);
+            DrawArc(center, half + 2f, 0f, Mathf.Tau, 24, selected ? SelectedRingColor : fillColor, selected ? 2.5f : 1.5f);
+            return;
+        }
 
         var points = new[]
         {
@@ -484,34 +520,38 @@ public partial class GameMapView : Control
         var radius = Mathf.Max(tileSize * 0.35f, 2f);
         var selected = string.Equals(fleet.Id, _selectedFleetId, StringComparison.Ordinal);
 
-        var rect = new Rect2(center - new Vector2(radius, radius), new Vector2(radius, radius) * 2f);
-        DrawRect(rect, fillColor);
-        DrawRect(rect, selected ? SelectedRingColor : CityRingColor, false, selected ? 2f : 1f);
+        // T94: the confirmed three-tier fleet marker (ruleset's own 25/50 ship boundaries) -- the
+        // fleet equivalent of DrawArmy's tier icon.
+        var texture = _assetLoader?.TryGetTexture(MapMarkerKeys.FleetIcon(fleet, _session!.Ruleset.MapMarkers));
+        if (texture is not null)
+        {
+            var half = radius + 1.5f;
+            DrawCircle(center, half, new Color(0f, 0f, 0f, 0.55f));
+            var rect = new Rect2(center - new Vector2(radius, radius), new Vector2(radius, radius) * 2f);
+            // N3: the owner's colour is the icon's modulate tint (see this class's remarks).
+            DrawTextureRect(texture, rect, false, fillColor);
+            DrawRect(rect, selected ? SelectedRingColor : fillColor, false, selected ? 2.5f : 1.5f);
+            return;
+        }
+
+        var fallbackRect = new Rect2(center - new Vector2(radius, radius), new Vector2(radius, radius) * 2f);
+        DrawRect(fallbackRect, fillColor);
+        DrawRect(fallbackRect, selected ? SelectedRingColor : CityRingColor, false, selected ? 2f : 1f);
     }
 
+    /// <summary>
+    /// The owner's colour for every marker fill, icon tint and ring: the loaded world's own
+    /// <see cref="NationDefinition.ColorHex"/>, parsed by the Godot-free <see cref="MarkerTint.ForOwner"/>
+    /// (T94 rework round 1, N3) so the exact components a texture is modulated with are testable. An
+    /// unknown nation or an unparseable colour falls back to <see cref="UnknownNationColor"/>, exactly
+    /// as the previous Godot-side parse did.
+    /// </summary>
     private Color NationColor(string nationId)
     {
-        var nation = _session?.World.NationById(nationId);
-        return nation is not null && ColorFromHex(nation.ColorHex, out var parsed) ? parsed : UnknownNationColor;
-    }
-
-    private static bool ColorFromHex(string? hex, out Color color)
-    {
-        color = UnknownNationColor;
-        if (string.IsNullOrWhiteSpace(hex))
-        {
-            return false;
-        }
-
-        try
-        {
-            color = new Color(hex);
-            return true;
-        }
-        catch (ArgumentException)
-        {
-            return false;
-        }
+        var tint = MarkerTint.ForOwner(_session?.World, nationId);
+        return tint is { } owned
+            ? new Color(owned.Red, owned.Green, owned.Blue, owned.Alpha)
+            : UnknownNationColor;
     }
 
     private enum PendingMapAction

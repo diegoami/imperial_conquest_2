@@ -31,6 +31,18 @@ namespace IC2.Slice.Assets;
 /// the only route regardless of format, and it was confirmed against this pack's actual 32×32
 /// 24bpp uncompressed BMPs during this task (see the PR body) rather than assumed.
 /// </para>
+/// <para>
+/// <strong>One loader per scene; the cache lives as long as it does.</strong> T94 folded follow-up
+/// (issue <see href="https://github.com/diegoami/imperial_conquest_2/issues/454">#454</see>, item 6):
+/// <see cref="TryGetTexture"/> caches hits and misses for the life of the loader, and the callers
+/// (<c>godot/Slice/Slice.cs</c>, <c>godot/UI/GameMapView.cs</c>) each build exactly one loader per
+/// scene instance. Runtime switching of packs or scenarios is <em>not</em> supported today: the pack
+/// path is fixed for the process (<c>assets/packs/placeholder</c>) and re-attaching a different
+/// scenario keeps the same pack, so there is nothing a reload path would refresh. When the main
+/// menu's own "asset-pack selection" (<c>game-design.md</c> §User interface item 1) becomes real,
+/// this loader gains a <c>Reload</c> that clears <c>_textureCache</c> and re-resolves — a
+/// one-loader-per-scene design keeps that a single, local change.
+/// </para>
 /// </remarks>
 public sealed class AssetPackTextureLoader
 {
@@ -44,25 +56,31 @@ public sealed class AssetPackTextureLoader
 
     /// <summary>
     /// Loads T11's placeholder pack (<c>assets/packs/placeholder/manifest.json</c>) relative to
-    /// <paramref name="repositoryRoot"/>, through <see cref="AssetLoader.LoadManifest"/> — never a
-    /// second JSON parser of this task's own. Returns <see langword="null"/> instead of throwing
-    /// when the manifest itself cannot be loaded (a pack that is entirely missing or corrupt is the
-    /// same "degrade, don't throw" contract as a single missing key — every marker then falls back
-    /// to T47's coloured shape), logging once via <paramref name="onFailure"/>.
+    /// <paramref name="repositoryRoot"/>, through <see cref="AssetPackManifestLoader"/> (itself through
+    /// <see cref="AssetLoader.LoadManifest"/>) — never a second JSON parser of this task's own. Returns
+    /// <see langword="null"/> instead of throwing when the manifest itself cannot be loaded (a pack that
+    /// is entirely missing <em>or corrupt</em> is the same "degrade, don't throw" contract as a single
+    /// missing key — every marker then falls back to T47's coloured shape), logging once via
+    /// <paramref name="onFailure"/>.
     /// </summary>
+    /// <remarks>
+    /// T94 folded follow-up (issue
+    /// <see href="https://github.com/diegoami/imperial_conquest_2/issues/454">#454</see>, item 1): the
+    /// manifest-loading try/catch moved into <see cref="AssetPackManifestLoader"/> so it covers
+    /// <see cref="System.Text.Json.JsonException"/> (which <see cref="AssetLoader.LoadManifest"/> throws
+    /// for malformed JSON) and so a plain xunit test can feed it malformed JSON —
+    /// <c>tests/IC2.Engine.Tests/Ui/AssetPackManifestLoadTests.cs</c>, linked through the same
+    /// <c>&lt;Compile Include&gt;</c> seam <see cref="AssetKeyResolver"/> already uses.
+    /// </remarks>
     public static AssetPackTextureLoader? TryLoadPlaceholderPack(string repositoryRoot, Action<string> onFailure)
     {
         var packDirectory = Path.Combine(repositoryRoot, "assets", "packs", "placeholder");
         var manifestPath = Path.Combine(packDirectory, "manifest.json");
 
-        AssetPack pack;
-        try
+        var pack = AssetPackManifestLoader.TryLoad(manifestPath, out var failure);
+        if (pack is null)
         {
-            pack = AssetLoader.LoadManifest(manifestPath);
-        }
-        catch (Exception ex) when (ex is FileNotFoundException or InvalidOperationException)
-        {
-            onFailure($"asset pack manifest at '{manifestPath}': {ex.Message}");
+            onFailure(failure!);
             return null;
         }
 

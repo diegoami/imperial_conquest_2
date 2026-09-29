@@ -150,8 +150,8 @@ public partial class MapViewer : Control
         {
             var point = mapRect.Position + new Vector2((unit.X + 0.5f) * step, (unit.Y + 0.5f) * step);
             if (!viewport.HasPoint(point)) continue;
-            if (unit.Fleet) DrawFleet(point, step, unit.OwnerCode);
-            else DrawArmy(point, step, unit.OwnerCode);
+            if (unit.Fleet) DrawFleet(point, step, unit.OwnerCode, FleetTier(unit.Code));
+            else DrawArmy(point, step, unit.OwnerCode, ArmyTier(unit.Code));
         }
         if (_selected is not null) DrawSelection(mapRect, step, _selected.X, _selected.Y);
         if (_selectedUnit is { } selectedUnit) DrawSelection(mapRect, step, selectedUnit.X, selectedUnit.Y);
@@ -175,16 +175,43 @@ public partial class MapViewer : Control
         DrawRect(rect, OwnerColor(ownerCode));
         DrawRect(rect, MarkerOutline, false, 1f);
         if (side < 10f) return;
-        var glyphColor = ownerCode is 4 or 5 or 7 or 8 or 13 or 14 ? MarkerOutline : CityColor;
+        // T94: with T49's palette (docs/asset-specification.md §2.3) these are the nations whose
+        // marker background is light enough that CityColor's pale glyph would vanish: the
+        // specification's own dark-glyph set {1, 3, 4, 5, 7, 9, 13, 15}, replacing the
+        // {4, 5, 7, 8, 13, 14} that matched the old, broken table. Keep them in step -- a stale list
+        // makes exactly these nations' city glyphs invisible.
+        var glyphColor = ownerCode is 1 or 3 or 4 or 5 or 7 or 9 or 13 or 15 ? MarkerOutline : CityColor;
         var roofY = center.Y - side * 0.22f;
         DrawLine(new Vector2(center.X - side * 0.28f, roofY), new Vector2(center.X + side * 0.28f, roofY), glyphColor, 1.5f);
         DrawLine(new Vector2(center.X - side * 0.22f, roofY), new Vector2(center.X - side * 0.22f, center.Y + side * 0.26f), glyphColor, 1.5f);
         DrawLine(new Vector2(center.X + side * 0.22f, roofY), new Vector2(center.X + side * 0.22f, center.Y + side * 0.26f), glyphColor, 1.5f);
     }
 
-    private void DrawArmy(Vector2 center, float step, ushort ownerCode)
+    /// <summary>
+    /// The confirmed army size tier for a marker code (T94). <c>docs/game-design.md</c> §"Army and
+    /// fleet markers scale with size": <c>armyMarker = owner + (troopsThousands &lt; 25 ? 200 :
+    /// troopsThousands &lt; 50 ? 216 : 232)</c>, so the code's own 16-wide band is the tier —
+    /// 200..215 / 216..231 / 232..247, the exact range <c>TUnitMap_SelectUnit</c> accepts. The
+    /// inspector carries no troop count in a map cell; the band <em>is</em> the confirmed size.
+    /// </summary>
+    private static int ArmyTier(ushort code) => code < 216 ? 0 : code < 232 ? 1 : 2;
+
+    /// <summary>The fleet twin of <see cref="ArmyTier"/>: 300..315 / 316..331 / 332..347.</summary>
+    private static int FleetTier(ushort code) => code < 316 ? 0 : code < 332 ? 1 : 2;
+
+    private void DrawArmy(Vector2 center, float step, ushort ownerCode, int tier)
     {
-        var radius = Math.Clamp(step * 0.46f, 3f, 12f);
+        // The three confirmed tiers draw progressively larger, since this inspector has no asset
+        // pack to draw the original's separate tier sprites from (slice/screen draw the pack's
+        // army.tierN.icon instead -- see MapMarkerKeys).
+        //
+        // [designed]: the 1 + (tier * 0.22) radius ramp is a presentation choice with no evidence
+        // behind it. What was searched and came up empty: the decompiled marker arithmetic
+        // (decompiled-unit-map-orders-and-record-fields.md, part 3 FUN_0044A80C/FUN_0044A878, quoted
+        // in game-design.md "Army and fleet markers scale with size") and TUnitMap_SelectUnit's
+        // accepted 200..247 / 300..347 ranges give a marker code's tier, never how large that tier
+        // was drawn -- no report states a per-tier draw size.
+        var radius = Math.Clamp(step * 0.46f, 3f, 12f) * (1f + (tier * 0.22f));
         DrawCircle(center, radius, MarkerOutline);
         var poleX = center.X - radius * 0.22f;
         DrawLine(new Vector2(poleX, center.Y - radius * 0.65f), new Vector2(poleX, center.Y + radius * 0.65f), FleetColor, MathF.Max(1f, radius * 0.16f));
@@ -195,9 +222,12 @@ public partial class MapViewer : Control
         }, OwnerColor(ownerCode));
     }
 
-    private void DrawFleet(Vector2 center, float step, ushort ownerCode)
+    private void DrawFleet(Vector2 center, float step, ushort ownerCode, int tier)
     {
-        var radius = Math.Clamp(step * 0.46f, 3f, 12f);
+        // Same confirmed size tiers and the same [designed] 1 + (tier * 0.22) radius ramp as
+        // DrawArmy above: the confirmed fleet bands (300..315 / 316..331 / 332..347, see FleetTier)
+        // select the tier, and no report gives a per-tier draw size, so the ramp is ours.
+        var radius = Math.Clamp(step * 0.46f, 3f, 12f) * (1f + (tier * 0.22f));
         DrawCircle(center, radius, OwnerColor(ownerCode));
         DrawLine(center + new Vector2(-radius * 0.7f, radius * 0.35f),
             center + new Vector2(radius * 0.7f, radius * 0.35f), FleetColor, MathF.Max(1.4f, radius * 0.22f));
@@ -372,26 +402,32 @@ public partial class MapViewer : Control
         QueueRedraw();
     }
 
+    /// <summary>
+    /// Loads one source (the DAT at index 0, or a <c>.sav</c>) into the map. T94: a malformed save
+    /// <em>degrades</em> — the status line names what failed and the previous map stays — rather than
+    /// escaping <c>_Ready</c> as an uncaught exception. That covers both the shared world/army
+    /// prefix (<see cref="InvalidDataException"/> from <see cref="WorldPrefix.Parse"/>, and
+    /// <see cref="UnrecognizedSaveFormatException"/> from <c>SaveFormat.Detect</c> when a file is
+    /// neither DAT- nor SAV-shaped) and each optional detail table, which
+    /// <see cref="ParseSaveDetails"/> catches individually.
+    /// </summary>
     private void LoadSource(int index)
     {
-        if (_initialWorld is null || (uint)index >= _sourcePaths.Count) return;
+        if ((uint)index >= _sourcePaths.Count) return;
+        var path = _sourcePaths[index];
+        // Index 0 is the DAT-derived initial world for the picker; when no DAT could be loaded at all
+        // (no assets.local.ini) index 0 has only ever been added by LoadSourceForCheck, so it is a
+        // save path and is parsed as one.
+        var isInitialWorld = index == 0 && _initialWorld is not null;
         try
         {
-            var saveData = index == 0 ? null : File.ReadAllBytes(_sourcePaths[index]);
-            var world = saveData is null ? _initialWorld : WorldPrefix.Parse(saveData);
+            var saveData = isInitialWorld ? null : File.ReadAllBytes(path);
+            var world = saveData is null ? _initialWorld! : WorldPrefix.Parse(saveData);
             var armyTable = saveData is null ? null : SaveArmyTable.Parse(saveData);
-            SaveRecruitmentTable? recruitmentTable = null;
-            SaveNationTable? nationTable = null;
-            SaveTurnState? turn = null;
-            if (saveData is not null)
-            {
-                try { recruitmentTable = SaveRecruitmentTable.Parse(saveData); }
-                catch (InvalidDataException ex) { GD.Print($"Recruitment details unavailable for {Path.GetFileName(_sourcePaths[index])}: {ex.Message}"); }
-                try { nationTable = SaveNationTable.Parse(saveData); }
-                catch (InvalidDataException ex) { GD.Print($"Nation details unavailable for {Path.GetFileName(_sourcePaths[index])}: {ex.Message}"); }
-                try { turn = SaveTurnState.Parse(saveData); }
-                catch (InvalidDataException ex) { GD.Print($"Calendar details unavailable for {Path.GetFileName(_sourcePaths[index])}: {ex.Message}"); }
-            }
+
+            var details = ParseSaveDetails(saveData, Path.GetFileName(path), out var detailFailures);
+            foreach (var failure in detailFailures) GD.Print(failure);
+
             var image = Image.CreateEmpty(WorldPrefix.MapWidth, WorldPrefix.MapHeight, false, Image.Format.Rgba8);
             var units = new List<UnitMarker>();
             for (var y = 0; y < WorldPrefix.MapHeight; y++)
@@ -402,21 +438,25 @@ public partial class MapViewer : Control
                     var backgroundCode = code;
                     if (code >= 20)
                     {
-                        var originalCode = _initialWorld.CellAt(x, y);
+                        var originalCode = _initialWorld is null ? code : _initialWorld.CellAt(x, y);
                         backgroundCode = originalCode < 20 ? originalCode : (ushort)(code >= 300 ? 0 : 2);
                     }
                     image.SetPixel(x, y, TerrainColor(backgroundCode));
-                    if (code is >= 200 and < 300)
+                    // T94: exactly the confirmed marker ranges (game-design.md §"Army and fleet
+                    // markers scale with size": TUnitMap_SelectUnit accepts 200..247 for armies and
+                    // 300..347 for fleets). The old >= 332 fleet test dropped every tier-1 and tier-2
+                    // fleet, and 200..299 treated codes outside the confirmed range as armies.
+                    if (code is >= 200 and < 248)
                         units.Add(new UnitMarker(x, y, code, (ushort)((code - 200) % 16), false));
-                    else if (code is >= 332 and < 348)
-                        units.Add(new UnitMarker(x, y, code, (ushort)(code - 332), true));
+                    else if (code is >= 300 and < 348)
+                        units.Add(new UnitMarker(x, y, code, (ushort)((code - 300) % 16), true));
                 }
             }
             _world = world;
             _armyTable = armyTable;
-            _recruitmentTable = recruitmentTable;
-            _nationTable = nationTable;
-            _turn = turn;
+            _recruitmentTable = details.Recruitment;
+            _nationTable = details.Nations;
+            _turn = details.Turn;
             _terrain = ImageTexture.CreateFromImage(image);
             _units.Clear();
             _units.AddRange(units);
@@ -426,15 +466,77 @@ public partial class MapViewer : Control
             _detailPanel.Visible = false;
             var armies = 0;
             foreach (var unit in _units) if (!unit.Fleet) armies++;
-            var calendar = turn is null ? "" : $" · Week {turn.Week} {turn.SeasonName} {turn.YearBc} BC · {NationCatalog.Name(turn.CurrentNationCode)} turn";
+            var calendar = details.Turn is null ? "" : $" · Week {details.Turn.Week} {details.Turn.SeasonName} {details.Turn.YearBc} BC · {NationCatalog.Name(details.Turn.CurrentNationCode)} turn";
             _status.Text = $"{_sourcePicker.GetItemText(index)}{calendar} · {armies} army and {_units.Count - armies} fleet markers · wheel: zoom · drag: move";
             QueueRedraw();
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException
+            or InvalidDataException or UnrecognizedSaveFormatException)
         {
-            _status.Text = $"Could not load {Path.GetFileName(_sourcePaths[index])}: {ex.Message}";
+            _status.Text = $"Could not load {Path.GetFileName(path)}: {ex.Message}";
             GD.PushError(_status.Text);
         }
+    }
+
+    /// <summary>The three optional detail tables <see cref="LoadSource"/> shows when present.</summary>
+    private readonly record struct SaveDetails(SaveRecruitmentTable? Recruitment, SaveNationTable? Nations, SaveTurnState? Turn);
+
+    /// <summary>
+    /// Parses the recruitment, nation and calendar tables independently, collecting one message per
+    /// table that could not be read rather than letting the first failure drop the other two or
+    /// escape — the pre-T94 behaviour, except that the catch now also covers
+    /// <see cref="UnrecognizedSaveFormatException"/>, the exception <c>SaveFormat.Detect</c> throws
+    /// for a file that is neither DAT- nor SAV-shaped (issue #454's malformed-save half of T94 DoD 2).
+    /// </summary>
+    /// <remarks>
+    /// Extracted from <see cref="LoadSource"/> by T94 so a headless check can drive the exact same
+    /// parse/catch path without a DAT or the source picker (<see cref="ParseSaveDetailsForCheck"/>).
+    /// </remarks>
+    private static SaveDetails ParseSaveDetails(byte[]? saveData, string label, out List<string> failures)
+    {
+        failures = new List<string>();
+        if (saveData is null) return default;
+
+        SaveRecruitmentTable? recruitment = null;
+        SaveNationTable? nations = null;
+        SaveTurnState? turn = null;
+        try { recruitment = SaveRecruitmentTable.Parse(saveData); }
+        catch (Exception ex) when (ex is InvalidDataException or UnrecognizedSaveFormatException)
+        { failures.Add($"Recruitment details unavailable for {label}: {ex.Message}"); }
+        try { nations = SaveNationTable.Parse(saveData); }
+        catch (Exception ex) when (ex is InvalidDataException or UnrecognizedSaveFormatException)
+        { failures.Add($"Nation details unavailable for {label}: {ex.Message}"); }
+        try { turn = SaveTurnState.Parse(saveData); }
+        catch (Exception ex) when (ex is InvalidDataException or UnrecognizedSaveFormatException)
+        { failures.Add($"Calendar details unavailable for {label}: {ex.Message}"); }
+
+        return new SaveDetails(recruitment, nations, turn);
+    }
+
+    /// <summary>
+    /// T94's headless check seam: loads <paramref name="path"/> through the very
+    /// <see cref="LoadSource"/> path the source picker drives and returns the status line the viewer
+    /// shows, so <c>godot/Checks/MalformedSaveCheck.cs</c> can assert a malformed save degrades
+    /// (never throws) without simulating the picker or needing <c>assets.local.ini</c> and the DAT.
+    /// </summary>
+    public string LoadSourceForCheck(string path)
+    {
+        _sourcePaths.Add(path);
+        LoadSource(_sourcePaths.Count - 1);
+        return _status.Text;
+    }
+
+    /// <summary>
+    /// T94's headless check seam for the three optional detail tables: runs the same
+    /// <see cref="ParseSaveDetails"/> the loader runs and returns one message per table that was
+    /// unavailable. A deliberately malformed file yields exactly three messages — proving the three
+    /// catch clauses degrade instead of throwing <see cref="UnrecognizedSaveFormatException"/> or
+    /// <see cref="InvalidDataException"/> at the caller.
+    /// </summary>
+    public static IReadOnlyList<string> ParseSaveDetailsForCheck(byte[] saveData, string label)
+    {
+        ParseSaveDetails(saveData, label, out var failures);
+        return failures;
     }
 
     private Rect2 MapViewportRect() => new(new Vector2(24f, 80f),
@@ -594,22 +696,27 @@ public partial class MapViewer : Control
 
     private static Color OwnerColor(ushort code) => code switch
     {
-        0 => new Color(0.50f, 0f, 0.50f),
-        1 => new Color(1f, 0f, 0f),
-        2 => new Color(0.50f, 0.50f, 0f),
-        3 => new Color(0f, 0f, 0.50f),
-        4 => new Color(1f, 1f, 1f),
-        5 => new Color(0f, 1f, 0f),
-        6 => new Color(0.50f, 0f, 0f),
-        7 => new Color(0f, 1f, 1f),
-        8 => new Color(1f, 1f, 0f),
-        9 => new Color(0f, 0f, 0.50f),
-        10 => new Color(0f, 0.50f, 0f),
-        11 => new Color(0f, 0.50f, 0.50f),
-        12 => new Color(0f, 0f, 1f),
-        13 => new Color(1f, 0f, 1f),
-        14 => new Color(1f, 0f, 0f),
-        15 => new Color(0.50f, 0.50f, 0.50f),
+        // T49's settled 16-nation palette (docs/asset-specification.md §2.3), applied by T94
+        // (folded issue #154). The table this replaces had two byte-identical pairs (1/14 and 3/9)
+        // and gave Rome and Gaul colours one channel apart, so markers belonging to different
+        // nations were indistinguishable. The hex values are the specification's own; nation code
+        // order is the catalogue's (0 Rome ... 15 Thracia).
+        0 => new Color("4C0D19"), // Rome
+        1 => new Color("DDB69C"), // Carthage
+        2 => new Color("671E0B"), // Seleucid
+        3 => new Color("E1EC25"), // Ptolemaic
+        4 => new Color("719D16"), // Macedonia
+        5 => new Color("C3E155"), // Numidia
+        6 => new Color("107A16"), // Gaul
+        7 => new Color("93F6D6"), // Greece
+        8 => new Color("29796D"), // Celtiberia
+        9 => new Color("A7DCF8"), // Illyria
+        10 => new Color("237084"), // Dacia
+        11 => new Color("5F50E6"), // Bithynia
+        12 => new Color("4C0C8D"), // Galatia
+        13 => new Color("D760E8"), // Armenia
+        14 => new Color("581B45"), // Media
+        15 => new Color("D46CBB"), // Thracia
         _ => new Color(0.72f, 0.71f, 0.59f)
     };
 
