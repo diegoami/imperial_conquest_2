@@ -184,7 +184,7 @@ RUN RULES (from scripts/external-implement.ps1; they override the brief where th
 - Everything else in the brief is binding: Owns, Done-when, the rules for engine code, the PR
   body, the detach at the end, and the report.
 - The PR body's "Closes #$Issue" is the only place a closing keyword may precede #<n>.
-- Stay inside $worktree: never read, list, write or run anything by a path outside it (not TEMP,
+- Stay inside ${worktree}: never read, list, write or run anything by a path outside it (not TEMP,
   not your home directory, not Program Files, not another worktree). OpenCode rejects such a call
   and the rejection ENDS your run. Scratch files go under rendered/ in the worktree (git-ignored)
   or are deleted before you commit. Invoke tools by name from PATH (dotnet, git, gh, python,
