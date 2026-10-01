@@ -8,7 +8,9 @@ New files in the **unprocessed** side of the original game directory's evidence 
 
 **A recording needs no note.** This paragraph used to end *"raw saves or recordings with no note are lower priority and can wait until one is written"* — which was wrong, and expensively so: three recordings sat unannotated for a week and were nearly left out of the evidence releases on the grounds that nothing mapped them, when in fact four reports cite them. A recording plus the saves either side plus **rough timestamps** is a complete input, handled by [`/parse-recording`](recording-analysis.md). Writing notes by hand is the most expensive part of producing evidence and the first thing skipped, so the pipeline no longer depends on it.
 
-**A research report this repository has not evaluated.** Reports are also written and corrected in the research repository's own sessions, for example when its findings intake promotes a draft from the bot repository, and nothing here sees that happen. A report counts as **evaluated** once an issue or PR in this repository mentions its file name and was updated after the report's last commit. At session start (CLAUDE.md rule 10) the main session runs `bash scripts/unevaluated-reports.sh`. It pulls the research checkout, takes the reports added or changed in the last 14 days, and lists those with no later mention here. It makes two GitHub listing calls and matches locally, because one search per report exceeds the search API's limit of 30 a minute. A gap of more than 14 days between sessions is covered by passing the last session's date. The window never starts before 2026-10-01, when mentions became the marker: earlier reports were evaluated without leaving one. A correction or a cross-link counts as a change, so stage 2 sees it. The state is GitHub's: nothing is recorded in a document.
+**A research report this repository has not evaluated.** Reports are also written and corrected in the research repository's own sessions, for example when its findings intake promotes a draft from the bot repository, and nothing here sees that happen. A report counts as **evaluated** once an issue or PR in this repository carries the line `Evaluated: <file name> @ <commit>`, where the commit is the first 7 characters of the research commit that last changed the report. The main session posts that line when stage 2 has dealt with the report (the skill's step 8). A plain mention in a discussion is not an evaluation, and a later change to the report needs a new line.
+
+At session start (CLAUDE.md rule 10) the main session runs `bash scripts/unevaluated-reports.sh`. It pulls the research checkout, takes every report added or changed since 2026-10-01, when the marker was introduced (earlier reports were evaluated without leaving one), and lists those without the line for their last commit. It always scans from that date, so a long gap between sessions misses nothing; the date is raised by a reviewed change when the scan grows slow. It makes two GitHub listing calls and matches locally, because one search per report exceeds the search API's limit of 30 a minute. A correction or a cross-link counts as a change. The state is GitHub's: nothing is recorded in a document.
 
 ## Prerequisites, and where to get each one
 
@@ -75,8 +77,10 @@ unevaluated research reports: `bash scripts/unevaluated-reports.sh` ("What trigg
 1. Verify the prerequisites in `docs/evidence-pipeline.md`'s table: `assets.local.ini` configured,
    the named evidence files exist, `gh` can reach `diegoami/imperial-conquest-2-research`. Stop and
    ask the user if any are missing rather than guessing.
-   Unevaluated research reports skip stages 1 to 4: go to step 5 with those reports and their last
-   research commits as stage 1's output.
+   Unevaluated research reports skip stages 1 to 4. First read each one's last research commit
+   (`git -C <research checkout> show --stat <commit> -- <report>`, then its diff if the stat is
+   small): a change that only adds links or updates counts goes straight to step 8. The rest go
+   to step 5, with those reports and their last research commits as stage 1's output.
 2. Dispatch **stage 1** (Opus, fresh agent, a full self-contained brief per the "Stage 1" section).
    Do not dispatch stage 2 yet.
 3. Wait for stage 1's completion notification. Do not poll.
@@ -91,9 +95,10 @@ unevaluated research reports: `bash scripts/unevaluated-reports.sh` ("What trigg
 7. Relay to the user: what stage 1 found and where (research-repo commit), what stage 2 proposes and
    where (this repo's branch), the bug issues it filed (in your `triage:needed` queue,
    build-process.md §4.6), and any open question for a human decision.
-8. Every evaluated report must end up mentioned here. If stage 2 changed nothing here for a report,
-   open an issue "Evidence evaluated, no change here" that names each such report file and its
-   research commit, and close it at once.
+8. Mark every report this run dealt with: post one line per report, `Evaluated: <file name> @ <commit>`
+   (the 7-character research commit that last changed it), as a comment on stage 2's PR or bug issue
+   when it made one, otherwise in an issue "Evidence evaluated, no change here" that you open and close
+   at once. Without that line the report stays unevaluated.
 
 This skill is run by the main session. It never dispatches build tasks; `/run-task` does that.
 ```
