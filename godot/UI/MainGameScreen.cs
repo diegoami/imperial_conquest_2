@@ -365,15 +365,6 @@ public partial class MainGameScreen : Control
     }
 
     /// <summary>
-    /// T96 (B1 as displayed): keeps the label's window on the <em>last</em> <see
-    /// cref="LastCommandVisibleLineCount"/> lines of its wrapped text. <see cref="Label.MaxLinesVisible"/>
-    /// alone caps how many lines are drawn but draws the <em>first</em> ones, which hid an <c>end</c>'s
-    /// <c>Now: Week …</c> footer; <see cref="Label.LinesSkipped"/> drops the lines above the tail.
-    /// <see cref="Label.GetLineCount"/> shapes the text at the label's current width, so this runs after
-    /// every text change and on every resize: a command issued before the first layout pass is
-    /// recomputed once the label gets its real width.
-    /// </summary>
-    /// <summary>
     /// T99: the original's own attack prompt — a click that resolves to an attack, besiege or naval
     /// attack against a nation the active seat is not at war with asks before it orders. The prompt
     /// is the entry's own <see cref="ConfirmPrompt"/>; its answers go back to the map
@@ -396,6 +387,16 @@ public partial class MainGameScreen : Control
     }
 
     /// <summary>
+    /// T96 (B1 as displayed): keeps the label's window on the <em>last</em> <see
+    /// cref="LastCommandVisibleLineCount"/> lines of its wrapped text. <see cref="Label.MaxLinesVisible"/>
+    /// alone caps how many lines are drawn but draws the <em>first</em> ones, which hid an <c>end</c>'s
+    /// <c>Now: Week …</c> footer; <see cref="Label.LinesSkipped"/> drops the lines above the tail.
+    /// <see cref="Label.GetLineCount"/> shapes the text at the label's current width, so this runs after
+    /// every text change and on every resize: a command issued before the first layout pass is
+    /// recomputed once the label gets its real width.
+    /// </summary>
+
+    /// <summary>
     /// T99, cancel selection: <strong>Shift+X</strong> [confirmed:
     /// <c>ptolemy-run-ui-inventory-and-leader-draw.md</c> §4] and <strong>Esc</strong> [designed] clear
     /// the map's selection. The menu entry is T100's, not this screen's. An open overlay is modal: while
@@ -403,6 +404,14 @@ public partial class MainGameScreen : Control
     /// nothing — the unhandled path only, so a focused control's own keys (a text field's, a button's)
     /// are never stolen.
     /// </summary>
+    /// <remarks>
+    /// Esc is [designed] because the audit's §1.8 ("Keyboard shortcuts found in the code") records that
+    /// among the menu-item shortcuts <em>only Shift+X is observed</em> — the rest are [open] in the form
+    /// stream — so no Esc cancel binding was found in the investigation
+    /// (<c>original-ui-command-audit.md</c> §1.8; Shift+X itself is the §1.6 "Cancel selection" row's
+    /// [confirmed: <c>ptolemy-run-ui-inventory-and-leader-draw.md</c> §4] shortcut). The task entry tags
+    /// Esc [designed] as well.
+    /// </remarks>
     public override void _UnhandledInput(InputEvent @event)
     {
         if (ActiveOverlay is not null)

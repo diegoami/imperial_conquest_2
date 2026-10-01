@@ -6,7 +6,6 @@ using IC2.Slice.UI;
 namespace IC2.Slice.Checks;
 
 /// <summary>
-/// <summary>
 /// Bug #491's own reproduction turned into a headless check: selecting an army whose Troops line is long
 /// (five unit slots, e.g. <c>"5000x heavy_infantry, ..."</c>) no longer pushes the persistent side panel
 /// (<see cref="ContextPanel"/>) past its 340&#160;px <see cref="MainGameScreen"/> floor, and every one of

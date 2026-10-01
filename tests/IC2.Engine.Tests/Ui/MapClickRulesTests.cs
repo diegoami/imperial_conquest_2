@@ -196,6 +196,51 @@ public sealed class MapClickRulesTests
     }
 
     [Fact]
+    public void An_own_army_without_moves_clicking_an_adjacent_enemy_city_drops_the_selection_and_shows_the_target()
+    {
+        // The besiege row's moves >= 1 gate: with no moves left the selection is simply dropped
+        // (audit §2.1's besiege row), exactly as the attack-army row's own no-moves test asserts.
+        var outcome = MapClickRules.Resolve(Click(target: ForeignCity(), selection: OwnArmy(moves: 0)));
+
+        Assert.Equal(MapClickOutcomeKind.DropSelectionAndShowTarget, outcome.Kind);
+        Assert.Null(outcome.OrderLine);
+        Assert.Equal(MapEntityKind.City, outcome.FocusKind);
+        Assert.Equal("carthago", outcome.FocusId);
+    }
+
+    [Fact]
+    public void An_own_army_clicking_an_enemy_city_at_distance_2_drops_the_selection_and_shows_the_target()
+    {
+        // The besiege row's distance-exactly-1 gate.
+        var outcome = MapClickRules.Resolve(Click(target: ForeignCity(), selection: OwnArmy(), distance: 2));
+
+        Assert.Equal(MapClickOutcomeKind.DropSelectionAndShowTarget, outcome.Kind);
+        Assert.Null(outcome.OrderLine);
+    }
+
+    [Fact]
+    public void An_own_fleet_without_moves_clicking_an_adjacent_enemy_fleet_drops_the_selection_and_shows_the_target()
+    {
+        // The naval-attack row's moves >= 1 gate.
+        var outcome = MapClickRules.Resolve(Click(target: ForeignFleet(), selection: OwnFleet(moves: 0)));
+
+        Assert.Equal(MapClickOutcomeKind.DropSelectionAndShowTarget, outcome.Kind);
+        Assert.Null(outcome.OrderLine);
+        Assert.Equal(MapEntityKind.Fleet, outcome.FocusKind);
+        Assert.Equal("fleet-b", outcome.FocusId);
+    }
+
+    [Fact]
+    public void An_own_fleet_clicking_an_enemy_fleet_at_distance_2_drops_the_selection_and_shows_the_target()
+    {
+        // The naval-attack row's distance-exactly-1 gate.
+        var outcome = MapClickRules.Resolve(Click(target: ForeignFleet(), selection: OwnFleet(), distance: 2));
+
+        Assert.Equal(MapClickOutcomeKind.DropSelectionAndShowTarget, outcome.Kind);
+        Assert.Null(outcome.OrderLine);
+    }
+
+    [Fact]
     public void A_foreign_target_clicked_with_nothing_selected_drops_nothing_and_shows_the_target()
     {
         var outcome = MapClickRules.Resolve(Click(target: ForeignArmy(), selection: null));

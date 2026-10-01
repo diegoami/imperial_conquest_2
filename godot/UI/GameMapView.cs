@@ -709,8 +709,14 @@ public partial class GameMapView : Control
     private CityState? FindCityAt(int x, int y) =>
         _session?.State.Cities.FirstOrDefault(c => c.X == x && c.Y == y);
 
+    /// <summary>
+    /// The army marker on a tile, for the click's target lookup. An embarked army has its fleet's own
+    /// X/Y (<c>EmbarkArmyCommandHandler</c> copies the fleet's position and <c>MoveFleetCommandHandler</c>
+    /// carries it along) but is not drawn there — <see cref="DrawArmy"/> skips it — so it must not win
+    /// the click over the visible fleet carrying it (review round 1, B1).
+    /// </summary>
     private ArmyState? FindArmyAt(int x, int y) =>
-        _session?.State.Armies.FirstOrDefault(a => a.X == x && a.Y == y);
+        _session?.State.Armies.FirstOrDefault(a => a.X == x && a.Y == y && a.AboardFleetId is null);
 
     private FleetState? FindFleetAt(int x, int y) =>
         _session?.State.Fleets.FirstOrDefault(f => f.X == x && f.Y == y && !f.IsUnderConstruction);
