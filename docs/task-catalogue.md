@@ -137,6 +137,7 @@ graph TD
   T24 --> T95[T95 save and resume]
   T96[T96 last-command label]
   T97[T97 nation marker colours]
+  T98[T98 OpenCode scripts on 2.x]
   T23 --> T26[T26 scenario docs+examples]
   T29 --> T26
   T22 --> T28[T28 nightly soak gate]
@@ -820,6 +821,12 @@ Nation marker colours → [full entry](tasks/T97.md) · [#532](https://github.co
 
 ---
 
+#### T98 The OpenCode scripts on the 2.x CLI
+
+OpenCode scripts on 2.x (after bug #540) → [full entry](tasks/T98.md) · [#541](https://github.com/diegoami/imperial_conquest_2/issues/541)
+
+---
+
 #### T25 Battle result, diplomacy, and hotseat handoff screens
 
 Godot screens → [full entry](tasks/T25.md) · [#25](https://github.com/diegoami/imperial_conquest_2/issues/25)
@@ -947,3 +954,4 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T95](#t95-save-and-resume-a-game) | Save and resume | — | Sonnet | High | **Opus**/Medium + human | T24 | [#469](https://github.com/diegoami/imperial_conquest_2/issues/469) |
 | [T96](#t96-the-last-command-label-visible-the-commands-own-outcome-its-last-lines) | Last-command label | — | Sonnet | Medium | **Opus**/Medium + human | — | [#522](https://github.com/diegoami/imperial_conquest_2/issues/522) |
 | [T97](#t97-nation-markers-as-the-original-draws-them-a-background-square-and-a-foreground-glyph-per-nation) | Nation marker colours | — | Sonnet | Medium | **Opus**/Medium + human | — | [#532](https://github.com/diegoami/imperial_conquest_2/issues/532) |
+| [T98](#t98-the-opencode-scripts-on-the-2x-cli) | OpenCode scripts on 2.x | — | Sonnet | Medium | **Opus**/Medium | bug #540 | [#541](https://github.com/diegoami/imperial_conquest_2/issues/541) |

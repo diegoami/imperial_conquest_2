@@ -21,8 +21,12 @@
       4. checks the outcome: a PR exists for the branch, the worktree is clean and pushed, and
          it is detached so the branch is free for the reviewer; saves the run's output next to
          the worktree as <name>.implementer.log and prints its tail.
-    With -Model auto (the default) the models form a chain: deepseek-flash, then mimo-flash-free,
-    then glm, each tried once. The next model runs ONLY on an infrastructure failure (no session
+    With -Model auto (the default) the models form a chain: glm-flash, then deepseek-flash, then
+    luna, each tried once. Luna is last until the cause of her long-run `Bad Request` on Go is
+    understood (issue #551's comments, decided in #554): she failed both of #551's real implementer
+    runs once the context grew, and Get-OpenCodeFailureClass puts every non-zero exit in one class,
+    so a Luna failure early in the chain could stop it before DeepSeek ever ran. The next model runs
+    ONLY on an infrastructure failure (no session
     in time, an idle session, no exit in time, a run that exits without a session, a non-zero exit, the
     fallback-to-default-agent guard, a tool call the permission guard rejected -- issue #501), and only when the failed run left nothing behind: no new
     commit, locally or on origin, and no new PR. Otherwise the script exits 1 and the main session
@@ -36,8 +40,8 @@
     external-review.ps1 as -ExcludeModel, so the reviewer is never the implementer's model.
     The script never merges, labels or reviews; the main session does those (Appendix C).
 
-    Model names -> OpenCode model ids (`opencode models` lists what this machine has). The
-    cheap tier is the default (the user's decision of 2026-09-28).
+    Model names -> OpenCode model ids (`opencode models` lists what this machine has). The runs
+    are on OpenCode Go, `opencode-go/…`, per the user's decision of 2026-10-01 (issue #551).
 
 .PARAMETER Task
     T<nn>, for a task. Mutually exclusive with -Fix.
@@ -50,10 +54,11 @@
 .PARAMETER BriefFile
     The filled Appendix A brief.
 .PARAMETER Model
-    auto (default: the chain deepseek-flash, then mimo-flash-free, then glm), or one model alone:
-    deepseek-flash (DeepSeek V4.1 Flash at max, index 39, proven on this repository in #279),
-    mimo-flash-free (index 38, free; the endpoint's limits are unknown), mimo-pro, mimo-flash,
-    glm, or luna.
+    auto (default: the chain glm-flash, then deepseek-flash, then luna; luna is last until the
+    cause of her long-run `Bad Request` on Go is understood, issue #554), or one model alone:
+    luna (GPT-6 Luna at high effort), glm-flash (GLM-5.3 Flash at max), glm (GLM-5.3 at max),
+    deepseek-flash (DeepSeek V4.1 Flash at max, proven on this repository in #279), mimo-pro, or
+    mimo-flash.
 .PARAMETER LocalOnly
     Copy assets.local.ini from the main checkout into the worktree.
 .PARAMETER FixturesDir
@@ -67,13 +72,13 @@
     killed (default 900; 0 disables). `updated` advances at each step boundary, not while a tool
     runs or a reply streams, so this must exceed the longest single step (a long generation).
 .PARAMETER ModelIds
-    Overrides of the model name -> model id map, e.g. @{ 'deepseek-flash' = 'opencode/deepseek-v4.2-flash' },
+    Overrides of the model name -> model id map, e.g. @{ 'deepseek-flash' = 'opencode-go/deepseek-v4.2-flash' },
     for when `opencode models` shows a different id (or, in a test, a bad id to exercise the chain).
 
 .EXAMPLE
     pwsh scripts/external-implement.ps1 -Task T71 -Slug persistence-hardening -Issue 308 -BriefFile C:\tmp\T71-brief.md
 .EXAMPLE
-    pwsh scripts/external-implement.ps1 -Fix 346 -Slug migration-message -BriefFile C:\tmp\346-brief.md -Model mimo-flash-free
+    pwsh scripts/external-implement.ps1 -Fix 346 -Slug migration-message -BriefFile C:\tmp\346-brief.md -Model luna
 #>
 [CmdletBinding()]
 param(
@@ -82,7 +87,7 @@ param(
     [Parameter(Mandatory)] [string] $Slug,
     [int] $Issue,
     [Parameter(Mandatory)] [string] $BriefFile,
-    [ValidateSet('auto', 'deepseek-flash', 'mimo-flash-free', 'mimo-pro', 'mimo-flash', 'glm', 'luna')] [string] $Model = 'auto',
+    [ValidateSet('auto', 'luna', 'glm-flash', 'glm', 'deepseek-flash', 'mimo-pro', 'mimo-flash')] [string] $Model = 'auto',
     [switch] $LocalOnly,
     [string] $FixturesDir,
     [int] $StartupTimeoutSec = 180,
@@ -94,28 +99,28 @@ param(
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Invoke-OpenCodeWatched.ps1')
 
-# Chosen on 2026-09-28 from the OpenCode Go table and the comparison of the plan's own models:
-# DeepSeek V4.1 Flash at max effort (index 39, $0.27, the implementer of the #279 rehearsal) is the
-# default; MiMo-V2.6-Flash (38, free endpoint, limits unknown) is the second cheap option; GLM-5.3
-# at max effort (up to 45) implements a High-effort entry and is the escalation after a failed rework
-# round; Luna (29-37) is the cheap routine option and never the escalation; MiMo Pro (46, $0.13)
-# becomes the default the day the plan lists it. Confirm the ids with `opencode models` on first use.
-# On 2026-09-28 the desktop's `opencode models` listed mimo-v2.6-flash-free, glm-5.3 and gpt-6-luna,
-# but neither mimo-v2.6-pro nor mimo-v2.6-flash; those two stay in the table for the day the plan
-# lists them, and mimo-flash-free is the default until then.
+# On 2026-10-01 the user moved the OpenCode runs from OpenCode Zen to OpenCode Go (issue #551):
+# every id is `opencode-go/…` and no Zen model is used, the free ones included. The chain is
+# GLM-5.3 Flash (max), then DeepSeek V4.1 Flash (max), then GPT-6 Luna (high effort), each tried
+# once; mimo-flash-free is dropped, Go does not offer it. GLM-5.3 at max effort implements a
+# High-effort entry and stays the escalation after a failed rework round; MiMo Pro and MiMo
+# Flash stay in the table for the day the plan lists them. Confirm the ids with `opencode models`
+# on first use; -ModelIds overrides any of them.
 $models = @{
-    'deepseek-flash'  = 'opencode/deepseek-v4.1-flash'
-    'mimo-flash-free' = 'opencode/mimo-v2.6-flash-free'
-    'mimo-pro'        = 'opencode/mimo-v2.6-pro'
-    'mimo-flash'      = 'opencode/mimo-v2.6-flash'
-    'glm'             = 'opencode/glm-5.3'
-    'luna'            = 'opencode/gpt-6-luna'
+    'luna'            = 'opencode-go/gpt-6-luna'
+    'glm-flash'       = 'opencode-go/glm-5.3-flash'
+    'glm'             = 'opencode-go/glm-5.3'
+    'deepseek-flash'  = 'opencode-go/deepseek-v4.1-flash'
+    'mimo-pro'        = 'opencode-go/mimo-v2.6-pro'
+    'mimo-flash'      = 'opencode-go/mimo-v2.6-flash'
 }
 if ($ModelIds) { foreach ($k in $ModelIds.Keys) { $models[$k] = $ModelIds[$k] } }
-$variants = @{ 'mimo-flash-free' = ''; 'deepseek-flash' = 'max'; 'mimo-pro' = ''; 'mimo-flash' = ''; 'glm' = 'max'; 'luna' = 'high' }
-# The fallback chain (the user's decision of 2026-09-28): each model once, the next only on an
-# infrastructure failure. An explicit -Model runs that model alone.
-$chain = if ($Model -eq 'auto') { @('deepseek-flash', 'mimo-flash-free', 'glm') } else { @($Model) }
+$variants = @{ 'luna' = 'high'; 'glm-flash' = 'max'; 'glm' = 'max'; 'deepseek-flash' = 'max'; 'mimo-pro' = ''; 'mimo-flash' = '' }
+# The fallback chain (the user's decision of 2026-10-01, issue #554, replacing #551's order; luna
+# is last until the cause of her long-run `Bad Request` on Go is understood, #551's comments):
+# each model once, the next only on an infrastructure failure. An explicit -Model runs that model
+# alone.
+$chain = if ($Model -eq 'auto') { @('glm-flash', 'deepseek-flash', 'luna') } else { @($Model) }
 
 if (-not $Task -and -not $Fix) { throw 'Give -Task T<nn> or -Fix <issue>.' }
 if ($Task -and $Fix) { throw '-Task and -Fix are mutually exclusive.' }
@@ -214,10 +219,12 @@ $lastClass = $null
 $sameCause = $null
 $implementedBy = $null
 [System.IO.File]::WriteAllText($log, '')
+$attempt = 0
 foreach ($m in $chain) {
+    $attempt++
     $ocArgs = @('run', '--dir', $worktree, '--agent', 'external-implementer', '--model', $models[$m])
     if ($variants[$m]) { $ocArgs += @('--variant', $variants[$m]) }
-    Write-Host "attempt: $m ($($models[$m]))"
+    Write-Host "attempt $attempt/$($chain.Count): $m ($($models[$m]))"
     $reason = $null
     try {
         $run = Invoke-OpenCodeWatched -Arguments $ocArgs -Prompt $prompt -WorkDir $worktree -Title "ic2-$name-$m" `
