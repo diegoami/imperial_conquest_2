@@ -8,6 +8,8 @@ New files in the **unprocessed** side of the original game directory's evidence 
 
 **A recording needs no note.** This paragraph used to end *"raw saves or recordings with no note are lower priority and can wait until one is written"* — which was wrong, and expensively so: three recordings sat unannotated for a week and were nearly left out of the evidence releases on the grounds that nothing mapped them, when in fact four reports cite them. A recording plus the saves either side plus **rough timestamps** is a complete input, handled by [`/parse-recording`](recording-analysis.md). Writing notes by hand is the most expensive part of producing evidence and the first thing skipped, so the pipeline no longer depends on it.
 
+**A research report this repository has not evaluated.** Reports are also written and corrected in the research repository's own sessions, for example when its findings intake promotes a draft from the bot repository, and nothing here sees that happen. A report counts as **evaluated** once an issue or PR in this repository mentions its file name and was updated after the report's last commit. At session start (CLAUDE.md rule 10) the main session runs `bash scripts/unevaluated-reports.sh`. It pulls the research checkout, takes the reports added or changed in the last 14 days, and lists those with no later mention here. It makes two GitHub listing calls and matches locally, because one search per report exceeds the search API's limit of 30 a minute. A gap of more than 14 days between sessions is covered by passing the last session's date. The window never starts before 2026-10-01, when mentions became the marker: earlier reports were evaluated without leaving one. A correction or a cross-link counts as a change, so stage 2 sees it. The state is GitHub's: nothing is recorded in a document.
+
 ## Prerequisites, and where to get each one
 
 | Prerequisite | What it's for | Where it comes from |
@@ -35,7 +37,7 @@ Stage 0 runs before the skill and outside it; stages 1 and 2 are the skill's two
 
 **Stage 1 — evidence → RE findings.** One Opus agent, dispatched fresh (no shared context assumed). Give it: the specific note file (or a description of what's new), the research-repo write instructions above, the local evidence-folder paths, and the toolchain paths in case it needs them. Its job: read the note, correlate the named saves/recording, run controlled comparisons, decompile further only if the note's claim needs code-level confirmation and isn't already covered by an existing report, write a new report or update an existing one in the research repo following its `[confirmed]`/`[derived]`/`[designed]` discipline (any existing report shows the house style), commit and push to the research repo's `main` directly, and move the now-cited save/recording files to their `-processed/` siblings. Report back: which report(s) changed, the commit hash, a plain summary of what was newly confirmed or corrected, and anything it could not settle.
 
-**Stage 2 — RE findings → this repository**, dispatched only after stage 1 reports back (never both at once — a real sequential dependency). A second, fresh Opus agent. Give it exactly what stage 1 changed (report names and commit hash — don't make it re-discover this). Its job is to check **every document claim** the new evidence touches, applied to the new evidence instead of a merged task. Each finding takes exactly one of four routes:
+**Stage 2 — RE findings → this repository**, dispatched only after stage 1 reports back (never both at once — a real sequential dependency). A second, fresh Opus agent. Give it exactly what stage 1 changed (report names and commit hash — don't make it re-discover this). For an unevaluated research report there is no stage 1, because the report is already its output: give stage 2 the report names and each one's last research commit. Its job is to check **every document claim** the new evidence touches, applied to the new evidence instead of a merged task. Each finding takes exactly one of four routes:
 
 1. **Claims.** For each document — `design-audit.md` and `game-design.md` claims, the investigations index, release-plan gates, the operating guide's §7 open items, the README — decide whether the new evidence confirms, corrects or closes something, and draft the fix in place (current fact only, cited).
 2. **Defects in merged code.** A merged constant, field or rule the evidence shows to be wrong is **filed as a `bug` issue, labelled `triage:needed`**, with the evidence ([build-process.md §4.6](build-process.md#46-bugs-and-follow-ups)), never patched. The main session's triage decides what happens to it.
@@ -45,56 +47,6 @@ Stage 0 runs before the skill and outside it; stages 1 and 2 are the skill's two
 Stage 2 writes no status, because status lives only in GitHub labels. It works in **its own worktree on a new branch** off `origin/main`, never in the main checkout, pushes that branch, and does not merge: evidence-driven changes are new content, so they go through review rather than straight to `main`. **Report back to the main session**: the branch, what changed and why, any bug issues filed, and any open question for the human. The planner triages the bugs ([build-process.md §4.6](build-process.md#46-bugs-and-follow-ups)), takes the branch and the open questions to the user, and decides what enters the build.
 
 **The main session invokes `/process-evidence`** and coordinates both dispatches: dispatch stage 1, wait for its completion notification (don't poll), dispatch stage 2 with stage 1's actual output as input, then relay the result to the user. Neither stage dispatches build tasks. If stage 1 finds nothing worth writing up, stop there and say so — no stage 2 over nothing.
-
-## Findings intake from ic2-conquest
-
-[`diegoami/ic2-conquest`](https://github.com/diegoami/ic2-conquest) is a bot that plays the original game headless and drafts rule discoveries in its `findings/` folder, on any branch. A draft is a claim, not evidence. The research repository is the gate: its project skill `retrieve-findings` (`.claude/skills/retrieve-findings/SKILL.md` on its `main`) reviews each draft against the saves and the code, and promotes or corrects it into `docs/reports/`. Its ledger `docs/findings-intake.md` records every outcome: promoted, corrected, deferred or rejected. **A draft with no ledger row is unreviewed and is not citable; only promoted reports are.**
-
-**Step 1, at every session start** (CLAUDE.md rule 10), and on demand ("retrieve findings"). List every draft under `findings/` on every remote branch of ic2-conquest, minus `README` and `PROMPT`. Drop those whose file name is in the ledger and whose content is unchanged since the reviewed commit; what remains is pending.
-- **With the clone.** On the desktop it is in WSL, so run the research skill's step 1 there: `wsl.exe -e bash -lc 'cd ~/projects/ic2-conquest && git fetch --all --prune && for r in $(git for-each-ref --format="%(refname:short)" refs/remotes/origin); do git ls-tree -r $r -- findings/ | grep -v -e README -e PROMPT; done'`.
-- **Without a clone.** Read the same branches through `gh api repos/diegoami/ic2-conquest/branches` and each branch's `git/trees/<sha>?recursive=1`.
-
-Report the pending count, and the source used (the clone, the API, or neither reachable), in the session-start message only, never in a document (CLAUDE.md rule 3). Pull the research repository first, so the ledger is current.
-
-**When drafts are pending**, `/retrieve-findings` runs the intake. It dispatches one fresh Opus Researcher in the research repository's checkout (`C:\Users\diego\projects\RE-imperial-conquest-2`). The main session reads the research skill's text from that checkout's `main` at dispatch time and pastes it into the brief (CLAUDE.md rule 15). The brief also says:
-- **commit and push** to the research repository's `main` (operating-guide §3). This is the "asked" the research skill's own "do not push unless asked" waits for;
-- **never write to ic2-conquest**: read it through the WSL clone, read-only;
-- **promote nothing it could not verify**: deferrals and rejections go in the ledger with their reason.
-
-**When it promotes or corrects a report**, stage 2 above runs on that change exactly as `/process-evidence` dispatches it. Its input is the promoted or corrected reports and the research commit. There is no second brief: stage 2 evaluates what the change means here, files defects in merged code as `bug` issues labelled `triage:needed` (never patching them), poses design decisions without deciding them, and edits only tasks not yet dispatched.
-
-**The gate** (build-process.md Appendix C, step 0). Before `/run-task` dispatches a task, the main session compares each pending draft's headline and key terms with the task's Owns and Scope. If a draft concerns a rule the task touches, the task is held, the user is told why, and the intake runs first. Otherwise the intake never blocks work.
-
-**Cadence.** Every session start, and on demand. A scheduled run is proposed to the user only if it fits how they work; none is created unasked.
-
-### The retrieve-findings skill file
-
-```markdown
----
-name: retrieve-findings
-description: Run the research repository's findings intake on pending ic2-conquest drafts, then stage 2 on anything it promoted or corrected. A thin dispatcher; main session only.
----
-
-# /retrieve-findings
-
-Context: the "Findings intake from ic2-conquest" section of `docs/evidence-pipeline.md` in
-`imperial_conquest_2`.
-
-1. Pull the research repository (`git -C C:\Users\diego\projects\RE-imperial-conquest-2 pull --ff-only`) and run
-   step 1 of the intake (the clone in WSL, else the GitHub API). If nothing is pending, say so and stop.
-2. Read `.claude/skills/retrieve-findings/SKILL.md` from the research repository's `main`. Dispatch ONE fresh
-   Opus Researcher in that checkout with a brief that PASTES that text in full, names the pending drafts
-   and their branches, and adds:
-   - commit and push to the research repository's main;
-   - never write to ic2-conquest (read it through `wsl.exe -e bash -lc 'cd ~/projects/ic2-conquest && …'`);
-   - promote nothing you could not verify, and record every deferral and rejection in the ledger;
-   - report each draft's outcome, the research commit, and every report created or corrected.
-3. Wait for its completion notification (don't poll).
-4. If it promoted or corrected anything, dispatch stage 2 exactly as /process-evidence does (the same
-   brief, from docs/evidence-pipeline.md "Stage 2"), with those reports and the commit as input.
-5. Relay to the user: each draft's outcome, the research commit, stage 2's proposals, and every bug it
-   filed or decision it posed. Write no status anywhere.
-```
 
 ## The actual skill file
 
@@ -115,13 +67,16 @@ full before dispatching anything. It has the repo and toolchain paths and the st
 If given a path (e.g. a `notes/*.txt` file) or a description, that's the evidence to process. If
 given nothing, scan the original game directory's `notes/` folder (path from this repo's
 `assets.local.ini`) for a note not yet cited by any research-repo report — check the research repo's
-existing reports for the note's referenced save names before assuming it's new.
+existing reports for the note's referenced save names before assuming it's new. Also list the
+unevaluated research reports: `bash scripts/unevaluated-reports.sh` ("What triggers it").
 
 ## Steps
 
 1. Verify the prerequisites in `docs/evidence-pipeline.md`'s table: `assets.local.ini` configured,
    the named evidence files exist, `gh` can reach `diegoami/imperial-conquest-2-research`. Stop and
    ask the user if any are missing rather than guessing.
+   Unevaluated research reports skip stages 1 to 4: go to step 5 with those reports and their last
+   research commits as stage 1's output.
 2. Dispatch **stage 1** (Opus, fresh agent, a full self-contained brief per the "Stage 1" section).
    Do not dispatch stage 2 yet.
 3. Wait for stage 1's completion notification. Do not poll.
@@ -136,6 +91,9 @@ existing reports for the note's referenced save names before assuming it's new.
 7. Relay to the user: what stage 1 found and where (research-repo commit), what stage 2 proposes and
    where (this repo's branch), the bug issues it filed (in your `triage:needed` queue,
    build-process.md §4.6), and any open question for a human decision.
+8. Every evaluated report must end up mentioned here. If stage 2 changed nothing here for a report,
+   open an issue "Evidence evaluated, no change here" that names each such report file and its
+   research commit, and close it at once.
 
 This skill is run by the main session. It never dispatches build tasks; `/run-task` does that.
 ```

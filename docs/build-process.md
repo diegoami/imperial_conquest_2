@@ -737,9 +737,9 @@ the docs item applies only if the review named a claim.
    `gh issue list --label triage:needed --state open`: triage anything that names this
    task, or ask the user. Confirm every merge-after dependency is status:merged and the issue is
    status:ready. Don't start a local-only or single-instance task whose prerequisite is missing.
-   If an ic2-conquest finding is pending (evidence-pipeline.md, "Findings intake") and its
-   headline or key terms match a rule the task's Owns or Scope touches, hold the task, say why,
-   and run /retrieve-findings first. A pending draft that no task touches never blocks work.
+   If an unevaluated research report (evidence-pipeline.md, "What triggers it") concerns a rule
+   the task's Owns or Scope touches (its title or key terms match), hold the task, tell the user
+   why, and run /process-evidence first. A report that no task touches never blocks work.
 1. IMPLEMENT. Label status:in-progress. Fill build-process.md Appendix A from the task entry
    (plus any review URLs from an earlier attempt). Then, by the entry's model (§3.3: Sonnet reads
    as the default, a non-architecture Opus and a High-effort entry as glm; a fix or a Low-effort task
