@@ -201,6 +201,32 @@ function Find-OpenCodeSession {
     return $null
 }
 
+function Initialize-OpenCodeDataHome {
+    # Issue #540: gives every OpenCode process this script starts its OWN data directory, so the
+    # OpenCode desktop app (which shares ~/.local/share/opencode/ and moved opencode.db to its 2.x
+    # schema on 2026-10-01, which the npm CLI 1.18 cannot read: "no such column: project_id") can
+    # never reach it. OpenCode keeps its data under $XDG_DATA_HOME\opencode\, and the child
+    # processes (run, session list, export) inherit this process's environment, so all three see
+    # the same database. Only the data directory is separated: ~/.config/opencode/opencode.json
+    # and the repository's .opencode/agents/ stay shared. auth.json is COPIED (never read, printed
+    # or logged: it holds API keys) from the default directory when the copy is missing or older,
+    # so a re-authentication carries over.
+    $home1x = if ($env:IC2_OPENCODE_DATA_HOME) { $env:IC2_OPENCODE_DATA_HOME } else { Join-Path $HOME '.local\share\ic2-opencode-1x' }
+    $dataDir = Join-Path $home1x 'opencode'
+    New-Item -ItemType Directory -Force -Path $dataDir | Out-Null
+    $env:XDG_DATA_HOME = $home1x
+    $src = Join-Path $HOME '.local\share\opencode\auth.json'
+    $dst = Join-Path $dataDir 'auth.json'
+    $auth = 'auth.json already current'
+    if (Test-Path -LiteralPath $src) {
+        if (-not (Test-Path -LiteralPath $dst) -or (Get-Item -LiteralPath $src).LastWriteTimeUtc -gt (Get-Item -LiteralPath $dst).LastWriteTimeUtc) {
+            Copy-Item -LiteralPath $src -Destination $dst -Force
+            $auth = 'auth.json copied'
+        }
+    } elseif (-not (Test-Path -LiteralPath $dst)) { $auth = 'no auth.json to copy' }
+    Write-Host "opencode: data directory $dataDir (XDG_DATA_HOME=$home1x; $auth)"
+}
+
 function Invoke-OpenCodeWatched {
     [CmdletBinding()]
     param(
@@ -225,6 +251,7 @@ function Invoke-OpenCodeWatched {
     if ($Arguments[0] -ne 'run') { throw "Invoke-OpenCodeWatched runs 'opencode run'; got '$($Arguments[0])'." }
     $WorkDir = (Resolve-Path -LiteralPath $WorkDir).Path
     $exe = Resolve-OpenCodeExe
+    Initialize-OpenCodeDataHome
     $Title = "$Title-$([guid]::NewGuid().ToString('N').Substring(0, 12))"
     New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
     $outFile = Join-Path $LogDir "$Title.out.txt"
