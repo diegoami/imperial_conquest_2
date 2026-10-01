@@ -98,8 +98,8 @@ Every system is written against these interfaces and registers itself, so no two
 
 Models are chosen per task, in the task's entry, by what an error would cost:
 
-- **OpenCode Go, by default** (the user's decision of 2026-09-28: Claude credit is the scarce resource; moved from OpenCode Zen to OpenCode Go, `opencode-go/…`, on 2026-10-01, fix #551). `-Model auto` runs the user's chain of 2026-10-01: `glm-flash` (GLM-5.3 Flash, max), then `deepseek-flash` (DeepSeek V4.1 Flash, max), then `luna` (GPT-6 Luna, high), each tried once and the next only on an infrastructure failure; Luna is last because Go's Luna endpoint returns `Bad Request` in long runs (fix 554, #553). No free or Zen model is used. An entry that still says Sonnet reads as the default.
-- **OpenCode, larger, where the entry says why**: `glm` (GLM-5.3, variant `max`, index up to 45 on the 2026-09-28 comparison) for a High-effort entry and after a task fails a rework round on the default, a different vendor at a still-small cost. An entry that says Opus and is not an architecture task reads as `glm`. `luna` (GPT-6 Luna, 29 to 37) is the cheap routine option, never the escalation.
+- **OpenCode Go, by default** (the user's decision of 2026-09-28: Claude credit is the scarce resource; moved from OpenCode Zen to OpenCode Go, `opencode-go/…`, on 2026-10-01, fix #551). `-Model auto` runs the user's chain of 2026-10-01: `deepseek-flash` (DeepSeek V4.1 Flash, max), then `luna` (GPT-6 Luna, high), each tried once and the next only on an infrastructure failure. GLM implements nothing by default: GLM-5.3 ended T99's run early (fix 573). Luna is second despite Go's `Bad Request` in some long runs (#553). No free or Zen model is used. An entry that still says Sonnet reads as the default.
+- **No larger OpenCode tier for implementers** (the user's decision of 2026-10-01, fix 573): a High-effort entry, an entry that says Opus and is not an architecture task, and a task that failed a rework round all run the default chain, then Claude Sonnet. `glm` and `glm-flash` stay valid as an explicit `-Model` value. Reviews keep GLM.
 - **Claude Opus only on an architecture task**, where an error is not local: the domain model and the engine seams, battle resolution, the AI (T02, T03, T16, T22). Sonnet implements only as the fallback when OpenCode is unavailable (the script exits 3), and then for every task OpenCode would have run, whatever model the entry names (the user's decision of 2026-09-29); otherwise it reviews structural tasks ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers)).
 - **Haiku** is retired (the user's decision of 2026-09-27) and is never assigned; a task small enough for Haiku is cheap enough on Sonnet (incident 4). Two tasks merged on Haiku before that, T36 and T77.
 - **Fable** for pure templates and configuration, never for anything that must compile against the domain model.
@@ -744,12 +744,12 @@ the docs item applies only if the review named a claim.
    a failed script holds nothing: report the failure and go on.
 1. IMPLEMENT. Label status:in-progress. Fill build-process.md Appendix A from the task entry
    (plus any review URLs from an earlier attempt). Then, by the entry's model (§3.3: Sonnet reads
-   as the default, a non-architecture Opus and a High-effort entry as glm; a fix or a Low-effort task
+   as the default, and so do a non-architecture Opus and a High-effort entry; a fix or a Low-effort task
    is the default too):
    - an OpenCode model (luna, glm-flash, deepseek-flash, glm, mimo-pro, mimo-flash): write the brief to a file and run
      `pwsh scripts/external-implement.ps1 -Task T<nn> -Slug <slug> -Issue <n> -Model auto
      -BriefFile <file>` (`-Fix <issue>` for a fix; `-LocalOnly` where the label says). `-Model auto`
-     (the default) runs the chain glm-flash, deepseek-flash, luna; pass an explicit `-Model
+     (the default) runs the chain deepseek-flash, luna; pass an explicit `-Model
      <model>` only when the entry names another model (glm, luna, ...), which then runs alone. It creates
      the worktree and branch, runs OpenCode there, and returns with the PR number or a warning;
      read its tail. Run it in the background and watch it (operating-guide §3): the session must
