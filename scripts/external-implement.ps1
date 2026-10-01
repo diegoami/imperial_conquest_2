@@ -21,8 +21,12 @@
       4. checks the outcome: a PR exists for the branch, the worktree is clean and pushed, and
          it is detached so the branch is free for the reviewer; saves the run's output next to
          the worktree as <name>.implementer.log and prints its tail.
-    With -Model auto (the default) the models form a chain: luna, then glm-flash, then
-    deepseek-flash, each tried once. The next model runs ONLY on an infrastructure failure (no session
+    With -Model auto (the default) the models form a chain: glm-flash, then deepseek-flash, then
+    luna, each tried once. Luna is last until the cause of her long-run `Bad Request` on Go is
+    understood (issue #551's comments, decided in #554): she failed both of #551's real implementer
+    runs once the context grew, and Get-OpenCodeFailureClass puts every non-zero exit in one class,
+    so a Luna failure early in the chain could stop it before DeepSeek ever ran. The next model runs
+    ONLY on an infrastructure failure (no session
     in time, an idle session, no exit in time, a run that exits without a session, a non-zero exit, the
     fallback-to-default-agent guard, a tool call the permission guard rejected -- issue #501), and only when the failed run left nothing behind: no new
     commit, locally or on origin, and no new PR. Otherwise the script exits 1 and the main session
@@ -50,10 +54,11 @@
 .PARAMETER BriefFile
     The filled Appendix A brief.
 .PARAMETER Model
-    auto (default: the chain luna, then glm-flash, then deepseek-flash), or one model alone:
-    luna (GPT-6 Luna at high effort), glm-flash (GLM-5.3 Flash at max; Go's acceptance of the
-    variant is to be confirmed live), glm (GLM-5.3 at max), deepseek-flash (DeepSeek V4.1 Flash
-    at max, proven on this repository in #279), mimo-pro, or mimo-flash.
+    auto (default: the chain glm-flash, then deepseek-flash, then luna; luna is last until the
+    cause of her long-run `Bad Request` on Go is understood, issue #554), or one model alone:
+    luna (GPT-6 Luna at high effort), glm-flash (GLM-5.3 Flash at max), glm (GLM-5.3 at max),
+    deepseek-flash (DeepSeek V4.1 Flash at max, proven on this repository in #279), mimo-pro, or
+    mimo-flash.
 .PARAMETER LocalOnly
     Copy assets.local.ini from the main checkout into the worktree.
 .PARAMETER FixturesDir
@@ -96,7 +101,7 @@ $ErrorActionPreference = 'Stop'
 
 # On 2026-10-01 the user moved the OpenCode runs from OpenCode Zen to OpenCode Go (issue #551):
 # every id is `opencode-go/…` and no Zen model is used, the free ones included. The chain is
-# GPT-6 Luna (high effort), then GLM-5.3 Flash (max), then DeepSeek V4.1 Flash (max), each tried
+# GLM-5.3 Flash (max), then DeepSeek V4.1 Flash (max), then GPT-6 Luna (high effort), each tried
 # once; mimo-flash-free is dropped, Go does not offer it. GLM-5.3 at max effort implements a
 # High-effort entry and stays the escalation after a failed rework round; MiMo Pro and MiMo
 # Flash stay in the table for the day the plan lists them. Confirm the ids with `opencode models`
@@ -111,9 +116,11 @@ $models = @{
 }
 if ($ModelIds) { foreach ($k in $ModelIds.Keys) { $models[$k] = $ModelIds[$k] } }
 $variants = @{ 'luna' = 'high'; 'glm-flash' = 'max'; 'glm' = 'max'; 'deepseek-flash' = 'max'; 'mimo-pro' = ''; 'mimo-flash' = '' }
-# The fallback chain (the user's decision of 2026-10-01, issue #551): each model once, the next
-# only on an infrastructure failure. An explicit -Model runs that model alone.
-$chain = if ($Model -eq 'auto') { @('luna', 'glm-flash', 'deepseek-flash') } else { @($Model) }
+# The fallback chain (the user's decision of 2026-10-01, issue #554, replacing #551's order; luna
+# is last until the cause of her long-run `Bad Request` on Go is understood, #551's comments):
+# each model once, the next only on an infrastructure failure. An explicit -Model runs that model
+# alone.
+$chain = if ($Model -eq 'auto') { @('glm-flash', 'deepseek-flash', 'luna') } else { @($Model) }
 
 if (-not $Task -and -not $Fix) { throw 'Give -Task T<nn> or -Fix <issue>.' }
 if ($Task -and $Fix) { throw '-Task and -Fix are mutually exclusive.' }
