@@ -22,7 +22,7 @@ gh issue list --label triage:needed --state open         # untriaged bugs and fo
 
 ## 1. Where things live
 
-### 1.1 The two repositories
+### 1.1 The repositories
 
 - **This repository**, [`diegoami/imperial_conquest_2`](https://github.com/diegoami/imperial_conquest_2): design, plans, and all code (`IC2.Data`, `IC2.Inspect`, `IC2.Engine`, `IC2.Cli`, `godot/`).
   - The main checkout is `C:\Users\diego\projects\imperial_conquest_2` and belongs to the main session.

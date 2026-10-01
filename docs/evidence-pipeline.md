@@ -24,7 +24,9 @@ At session start (CLAUDE.md rule 10) the main session runs `bash scripts/unevalu
 
 ## The stages
 
-Stage 0 runs before the skill and outside it; stages 1 and 2 are the skill's two dispatches, unchanged. An experiment's output enters stage 1 the way a note does, as the path or description the skill is given.
+Stages 1 and 2 are the skill's two dispatches, unchanged. Stage 0 has two runners, which differ in how they are reached and in where their results go:
+- **The research repository's runner** runs before the skill and outside it. Its output enters stage 1 the way a note does, as the path or description the skill is given.
+- **The EXPLORE runner** is reached from the skill's step 1, by a request the user relays. Its result returns as a research report, through the research repository's findings intake, not as stage 1's input.
 
 **Stage 0 — experiments: a rule question → a controlled run of the original.** The original game runs headless under Wine and Xvfb in a cloud container, and its fast variant finishes turns with no human at the keyboard ([autosave-hook feasibility report](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-09-28-autosave-hook-feasibility.md), §5). An experiment uses that to answer a question by running the original on purpose, instead of waiting for a play-through to happen to show the answer.
 
@@ -33,8 +35,8 @@ Stage 0 runs before the skill and outside it; stages 1 and 2 are the skill's two
   - a **before-and-after pair**: a save, the original's next turn run on it, and the save the original writes at the end of that turn, both parsed into the clone's model (`IC2.Inspect`, [prerequisites](#prerequisites-and-where-to-get-each-one)) and diffed;
   - a **sweep table**: one save crafted several times, with one field varied across a range at the offset [decompiled-sav-file-layout.md](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-sav-file-layout.md) gives, each copy run through one turn, one row per value with the fields that moved.
 - **Where it runs, and where its outputs go.** The runner lives in the research repository, under `scripts/`, in the same repository as the [evidence index](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/evidence-index.md) that maps its outputs. It runs in a cloud environment for the research repository with Wine, Xvfb and the fixtures repository attached ([operating-guide.md §1.3](operating-guide.md#13-local-toolchain-outside-both-repositories)). The saves it starts from, the crafted ones and the ones the original writes are game files, so they go to a release in [`diegoami/imp_conquest_fixtures`](https://github.com/diegoami/imp_conquest_fixtures/releases), as saves do today, and the evidence index gains their entries. The diff or the table is what the report cites.
-- **What stage 1 receives.** When an experiment can answer the question, stage 1 receives the diff or the table, never a recording. A recording stays the input for what an experiment cannot produce, above all the tactical battle panel's per-exchange counts ([recording-analysis.md](recording-analysis.md)), and **a recording still needs no note**.
-- **A second runner: the EXPLORE session.** The bot repository [`diegoami/ic2-conquest`](https://github.com/diegoami/ic2-conquest) runs the same patched original headless under Wine, in WSL on the desktop. It has an order driver (move, attack, recruit, mobilise, tax, fleets, split, join and more, each checked by a save diff), seeded and byte-repeatable turns, and experiments under its `runs/experiments/`. A Claude session the user runs there, **IC2 CONQUEST EXPLORE**, takes experiment requests. It is often the quicker runner, because it already drives the orders a rule question needs.
+- **What stage 1 receives** (from the research repository's runner). When an experiment can answer the question, stage 1 receives the diff or the table, never a recording. A recording stays the input for what an experiment cannot produce, above all the tactical battle panel's per-exchange counts ([recording-analysis.md](recording-analysis.md)), and **a recording still needs no note**.
+- **A second runner: the EXPLORE session.** The bot repository [`diegoami/ic2-conquest`](https://github.com/diegoami/ic2-conquest) runs the same patched original headless under Wine, in WSL on the desktop. It has an order driver (move, attack, recruit, mobilise, tax, fleets, split, join and more, each checked by a save diff), seeded and byte-repeatable turns, and experiments under its `runs/experiments/`. A Claude session the user runs there, **IC2 CONQUEST EXPLORE**, takes experiment requests. **Which runner:** a question settled by issuing orders and watching the next turn goes to EXPLORE, because its driver already issues the orders. A crafted-save sweep, with one SAV field varied across a range, goes to the research repository's runner.
   - **The hand-off is a prompt the user relays.** The main session writes a self-contained request ([template below](#an-explore-experiment-request)), and the user pastes it into the EXPLORE session. The EXPLORE session doesn't appear among the sessions the main session can message, and nothing in this repository writes to ic2-conquest.
   - **The result comes back through the research intake.** The EXPLORE session writes a `findings/` draft in ic2-conquest, with its saves in that repository's `run-<id>` release. The research repository's own findings intake reviews it and promotes it into `docs/reports/`. Session start (CLAUDE.md rule 10) then lists the new report as unevaluated, and `/process-evidence` evaluates it like any other. This repository never reads the drafts.
 - **Wine is not the desktop.** A result seen only under Wine gets one confirmation on the desktop, the user's Windows machine where the game is played, before it settles a rule. Until then the report carries it as a candidate. Both runners use Wine.
@@ -114,11 +116,13 @@ unevaluated research reports: `bash scripts/unevaluated-reports.sh` ("What trigg
    rate or count the game uses), no `[confirmed]`/`[derived]`/`[designed]` tag and no confirmation
    note. A trivial range goes straight to step 8. Everything else, and anything in doubt, goes to
    step 5, with those reports and their ranges as stage 1's output.
-   A rule question with no evidence yet that a run of the original would settle goes to stage 0
-   instead (docs/evidence-pipeline.md, "Stage 0"). Write an EXPLORE experiment request from the
+   A rule question with no evidence yet, which issuing orders in a run of the original would
+   settle, goes to stage 0 instead (docs/evidence-pipeline.md, "Stage 0"; a crafted-save sweep
+   goes to the research repository's runner). Write an EXPLORE experiment request from the
    template "An EXPLORE experiment request", give it to the user to paste into the IC2 CONQUEST
-   EXPLORE session in WSL, and stop for that question. Its result returns as a research report,
-   which a later session start lists as unevaluated.
+   EXPLORE session in WSL, and stop for that question alone: the run's other notes and
+   unevaluated reports keep their routes. Its result returns as a research report, which a
+   later session start lists as unevaluated.
 2. Dispatch **stage 1** (Opus, fresh agent, a full self-contained brief per the "Stage 1" section).
    Do not dispatch stage 2 yet.
 3. Wait for stage 1's completion notification. Do not poll.
