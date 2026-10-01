@@ -387,16 +387,6 @@ public partial class MainGameScreen : Control
     }
 
     /// <summary>
-    /// T96 (B1 as displayed): keeps the label's window on the <em>last</em> <see
-    /// cref="LastCommandVisibleLineCount"/> lines of its wrapped text. <see cref="Label.MaxLinesVisible"/>
-    /// alone caps how many lines are drawn but draws the <em>first</em> ones, which hid an <c>end</c>'s
-    /// <c>Now: Week …</c> footer; <see cref="Label.LinesSkipped"/> drops the lines above the tail.
-    /// <see cref="Label.GetLineCount"/> shapes the text at the label's current width, so this runs after
-    /// every text change and on every resize: a command issued before the first layout pass is
-    /// recomputed once the label gets its real width.
-    /// </summary>
-
-    /// <summary>
     /// T99, cancel selection: <strong>Shift+X</strong> [confirmed:
     /// <c>ptolemy-run-ui-inventory-and-leader-draw.md</c> §4] and <strong>Esc</strong> [designed] clear
     /// the map's selection. The menu entry is T100's, not this screen's. An open overlay is modal: while
@@ -428,6 +418,15 @@ public partial class MainGameScreen : Control
         }
     }
 
+    /// <summary>
+    /// T96 (B1 as displayed): keeps the label's window on the <em>last</em> <see
+    /// cref="LastCommandVisibleLineCount"/> lines of its wrapped text. <see cref="Label.MaxLinesVisible"/>
+    /// alone caps how many lines are drawn but draws the <em>first</em> ones, which hid an <c>end</c>'s
+    /// <c>Now: Week …</c> footer; <see cref="Label.LinesSkipped"/> drops the lines above the tail.
+    /// <see cref="Label.GetLineCount"/> shapes the text at the label's current width, so this runs after
+    /// every text change and on every resize: a command issued before the first layout pass is
+    /// recomputed once the label gets its real width.
+    /// </summary>
     private void UpdateLastCommandLinesSkipped()
     {
         var lineCount = _lastCommandLabel.GetLineCount();
