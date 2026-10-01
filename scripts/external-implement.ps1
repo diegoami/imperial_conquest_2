@@ -41,7 +41,8 @@
     The script never merges, labels or reviews; the main session does those (Appendix C).
 
     Model names -> OpenCode model ids (`opencode models` lists what this machine has). The runs
-    are on OpenCode Go, `opencode-go/…`, per the user's decision of 2026-10-01 (issue #551).
+    are on OpenCode Go, `opencode-go/…`, per the user's decision of 2026-10-01 (issue #551), except
+    luna: the direct OpenAI route, `openai/gpt-6-luna`, via the machine's OpenAI login (issue #575).
 
 .PARAMETER Task
     T<nn>, for a task. Mutually exclusive with -Fix.
@@ -56,9 +57,9 @@
 .PARAMETER Model
     auto (default: deepseek-flash alone, then the main session runs Claude Sonnet; issue #575
     keeps one OpenCode model per role before Claude), or one model alone: luna (GPT-6 Luna at
-    high effort), glm-flash (GLM-5.3 Flash at high), glm (GLM-5.3 at high, only selected
-    explicitly), deepseek-flash (DeepSeek V4.1 Flash at high, proven on this repository in
-    #279), mimo-pro, or mimo-flash.
+    high effort, direct OpenAI via the machine's OpenAI login), glm-flash (GLM-5.3 Flash at
+    high), glm (GLM-5.3 at high, only selected explicitly), deepseek-flash (DeepSeek V4.1 Flash
+    at high, proven on this repository in #279), mimo-pro, or mimo-flash.
 .PARAMETER LocalOnly
     Copy assets.local.ini from the main checkout into the worktree.
 .PARAMETER FixturesDir
@@ -100,16 +101,18 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Invoke-OpenCodeWatched.ps1')
 
 # On 2026-10-01 the user moved the OpenCode runs from OpenCode Zen to OpenCode Go (issue #551):
-# every id is `opencode-go/…` and no Zen model is used, the free ones included. The default chain
-# is DeepSeek V4.1 Flash (high effort) alone (issue #575: one OpenCode model per role before
-# Claude), then the main session runs Claude Sonnet. GLM left the implementer side in #573
-# (GLM-5.3 ended T99's run early, mid-exploration, with no error, #557) and luna is no longer on
-# the default path, but glm, glm-flash and luna stay valid as explicit -Model values.
+# every id is `opencode-go/…` and no Zen model is used, the free ones included. The one exception
+# is luna: the direct OpenAI route, `openai/gpt-6-luna`, via the machine's OpenAI login (issue
+# #575). The default chain is DeepSeek V4.1 Flash (high effort) alone (issue #575: one OpenCode
+# model per role before Claude), then the main session runs Claude Sonnet. GLM left the
+# implementer side in #573 (GLM-5.3 ended T99's run early, mid-exploration, with no error, #557)
+# and luna is no longer on the default path, but glm, glm-flash and luna stay valid as explicit
+# -Model values.
 # mimo-flash-free is dropped, Go does not offer it; MiMo Pro and MiMo Flash stay in the table for
 # the day the plan lists them. Confirm the ids with `opencode models` on first use; -ModelIds
 # overrides any of them.
 $models = @{
-    'luna'            = 'opencode-go/gpt-6-luna'
+    'luna'            = 'openai/gpt-6-luna'
     'glm-flash'       = 'opencode-go/glm-5.3-flash'
     'glm'             = 'opencode-go/glm-5.3'
     'deepseek-flash'  = 'opencode-go/deepseek-v4.1-flash'

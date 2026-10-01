@@ -1,8 +1,8 @@
 <#
 .SYNOPSIS
-    Hands one pull request to the local OpenCode install for an external review (GLM Flash alone;
-    the main session runs a cold Claude Opus on the exit-3 failure), and posts the result as the
-    one PR comment build-process.md §4.9 expects.
+    Hands one pull request to the local OpenCode install for an external review (Luna alone on the
+    direct OpenAI route; the main session runs a cold Claude Opus on the exit-3 failure), and posts
+    the result as the one PR comment build-process.md §4.9 expects.
 
 .DESCRIPTION
     The main session fills the reviewer brief itself (build-process.md Appendix B for a task PR,
@@ -34,14 +34,15 @@
       4. with -ApplyLabel, applies status:approved or status:rework to the task's issue from the
          verdict, as a Claude reviewer would (never for a plan PR; never for a flagged review);
       5. removes the worktree it created, and only that one.
-    With -Reviewer auto (the default) the chain is GLM Flash alone (issue #575: one OpenCode
-    model per role before Claude); on its failure the script exits 3 and the main session runs a
-    cold Claude Opus reviewer. The next model runs ONLY on an infrastructure failure: no session
+    With -Reviewer auto (the default) the chain is Luna alone on `openai/gpt-6-luna` (issue #575:
+    one OpenCode model per role before Claude); on its failure the script exits 3 and the main
+    session runs a cold Claude Opus reviewer. The next model runs ONLY on an infrastructure
+    failure: no session
     in time, an idle session, no exit in time, a run that exits without a session, a non-zero
     exit, the fallback-to-default-agent guard, or no review at all. Any other error stops the
     script with a non-zero exit that is not 3. The worktree is recreated for each attempt. The
     posted header names the model that reviewed and the ones that failed before it, e.g. "Plan
-    review (GLM Flash; DeepSeek failed: no session in 180 s)". Two consecutive attempts failing
+    review (Luna; DeepSeek failed: no session in 180 s)". Two consecutive attempts failing
     with the same cause (Get-OpenCodeFailureClass) stop the chain early.
     The model that implemented the PR never reviews it: -ExcludeModel (or, when that is not given,
     a model:<name> label on the PR or on -Issue naming an OpenCode model) drops it from the chain,
@@ -54,17 +55,20 @@
     commands, and this script is the only writer. A cut-off review (the 2026-09-25 #370 case) is
     posted with a note and no label and the script exits 4 (issue #575); it is never acted on.
 
-    Reviewer -> OpenCode model id, from the OpenCode Go list (`opencode-go/glm-5.3-flash`,
-    `opencode-go/gpt-6-luna`); `opencode models opencode-go` shows what this machine has.
+    Reviewer -> OpenCode model id. GLM Flash and DeepSeek are on the OpenCode Go list
+    (`opencode-go/glm-5.3-flash`, `opencode-go/deepseek-v4.1-flash`); luna is the direct OpenAI
+    route, `openai/gpt-6-luna`, via the machine's OpenAI login (not Go's proxied
+    `opencode-go/gpt-6-luna`, whose upstream returned Bad Request in long runs, #553).
+    `opencode models` shows what this machine has.
     OpenCode reads CLAUDE.md as its instructions file when no AGENTS.md exists; that is
     harmless here (the reviewer gets the token-economy rules) and no AGENTS.md is added.
 
 .PARAMETER Pr
     The pull request number.
 .PARAMETER Reviewer
-    auto (default: GLM-5.3 Flash at high effort alone, then a cold Claude Opus by hand; issue
-    #575 keeps one OpenCode model per role before Claude), or glm-flash, glm, luna, deepseek for
-    that model alone, each at high effort.
+    auto (default: Luna on openai/gpt-6-luna at high effort alone, then a cold Claude Opus by
+    hand; issue #575 keeps one OpenCode model per role before Claude), or glm-flash, glm, luna,
+    deepseek for that model alone, each at high effort.
 .PARAMETER BriefFile
     The filled reviewer brief. Its first line must be the review header the model is to print,
     for example "Plan review (Luna)" or "T94 review (DeepSeek)". With -Reviewer auto, the text in
@@ -93,8 +97,10 @@
 .PARAMETER ExcludeModel
     The model that implemented the PR, as external-implement.ps1 names it on its "implemented by:"
     line (deepseek-flash, glm-flash, glm, luna, mimo-pro, mimo-flash; or a reviewer name).
-    The reviewer of the same model (deepseek-flash is DeepSeek) is dropped from the chain. Without
-    it, a model:<name> label on the PR or on -Issue is used when one names an OpenCode model.
+    The reviewer of the same model (deepseek-flash is DeepSeek) is dropped from the chain. A
+    deepseek-flash implementer never collides with the Luna reviewer; a luna implementer leaves no
+    OpenCode reviewer, so the script exits 3 and a cold Claude Opus reviews. Without it, a
+    model:<name> label on the PR or on -Issue is used when one names an OpenCode model.
 .PARAMETER ModelIds
     Overrides of the reviewer -> model id map, e.g. @{ glm = 'opencode-go/glm-5.4' }, for when
     `opencode models` shows a different id (or, in a test, a bad id to exercise the chain).
@@ -303,13 +309,15 @@ if (-not $BriefFile) { throw '-BriefFile is required.' }
 
 # Reviewer name -> OpenCode model id. Edit here (or pass -ModelIds) if `opencode models` shows a
 # different id. On 2026-10-01 the user moved the OpenCode runs from OpenCode Zen to OpenCode Go
-# (issue #551): every id is `opencode-go/…`. GLM-5.3 Flash at high effort is the review model
-# (issue #575: one OpenCode model per role before Claude); glm, luna and deepseek stay valid as
-# explicit -Reviewer values, and no default path picks them.
+# (issue #551), except the reviewer: it is Luna on the direct OpenAI route, `openai/gpt-6-luna`,
+# via the machine's OpenAI login (issue #575; Go's proxied `opencode-go/gpt-6-luna` upstream
+# returned Bad Request in long runs, #553). Luna at high effort is the review model (one OpenCode
+# model per role before Claude); glm-flash, glm and deepseek stay valid as explicit -Reviewer
+# values, and no default path picks them.
 $models = @{
     'glm-flash' = 'opencode-go/glm-5.3-flash'
     glm         = 'opencode-go/glm-5.3'
-    luna        = 'opencode-go/gpt-6-luna'
+    luna        = 'openai/gpt-6-luna'
     deepseek    = 'opencode-go/deepseek-v4.1-flash'
 }
 if ($ModelIds) { foreach ($k in $ModelIds.Keys) { $models[$k] = $ModelIds[$k] } }
@@ -318,9 +326,10 @@ if ($ModelIds) { foreach ($k in $ModelIds.Keys) { $models[$k] = $ModelIds[$k] } 
 # overkill); luna was already high.
 $variants = @{ 'glm-flash' = 'high'; glm = 'high'; luna = 'high'; deepseek = '' }
 $displayNames = @{ 'glm-flash' = 'GLM Flash'; glm = 'GLM'; luna = 'Luna'; deepseek = 'DeepSeek' }
-# The fallback chain (the user's decision of 2026-10-01, issue #575): GLM Flash alone, then the
-# main session runs a cold Claude Opus reviewer. One OpenCode model per role before Claude.
-$chain = if ($Reviewer -eq 'auto') { @('glm-flash') } else { @($Reviewer) }
+# The fallback chain (the user's decision of 2026-10-01, issue #575): Luna alone on the direct
+# OpenAI route, then the main session runs a cold Claude Opus reviewer. One OpenCode model per
+# role before Claude.
+$chain = if ($Reviewer -eq 'auto') { @('luna') } else { @($Reviewer) }
 
 function Get-RepoRoot {
     $root = git rev-parse --show-toplevel 2>$null
@@ -358,9 +367,9 @@ if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { throw 'gh is not on P
 # comes from -ExcludeModel, else from a model:<name> label on the PR or its issue that names an
 # OpenCode model (model:opus and model:sonnet name Claude, which is not in this chain). Implementer
 # name -> the reviewer names running the same model; the MiMo models have no reviewer here. With
-# GLM Flash as the only auto reviewer (issue #575), a glm-flash implementer excludes it and
-# leaves no OpenCode reviewer, so the script exits 3 and a cold Claude Opus reviews; both GLM
-# names exclude both GLM reviewers (same model family), as before.
+# Luna as the only auto reviewer (issue #575), a luna implementer excludes it and leaves no
+# OpenCode reviewer, so the script exits 3 and a cold Claude Opus reviews; both GLM names exclude
+# both GLM reviewers (same model family), as before.
 $reviewerOf = @{
     'deepseek-flash' = @('deepseek')
     'deepseek'       = @('deepseek')
