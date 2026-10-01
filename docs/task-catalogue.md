@@ -878,7 +878,7 @@ Overview mini-map → [full entry](tasks/T102.md) · [#560](https://github.com/d
 
 #### T103 A command sets the nation's tax rate
 
-Set the tax rate (bug #468) → [full entry](tasks/T103.md) · [#561](https://github.com/diegoami/imperial_conquest_2/issues/561)
+Set the tax rate (bug #468; after the range is read) → [full entry](tasks/T103.md) · [#561](https://github.com/diegoami/imperial_conquest_2/issues/561)
 
 ---
 
