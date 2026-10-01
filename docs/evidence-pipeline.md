@@ -46,6 +46,56 @@ Stage 2 writes no status, because status lives only in GitHub labels. It works i
 
 **The main session invokes `/process-evidence`** and coordinates both dispatches: dispatch stage 1, wait for its completion notification (don't poll), dispatch stage 2 with stage 1's actual output as input, then relay the result to the user. Neither stage dispatches build tasks. If stage 1 finds nothing worth writing up, stop there and say so — no stage 2 over nothing.
 
+## Findings intake from ic2-conquest
+
+[`diegoami/ic2-conquest`](https://github.com/diegoami/ic2-conquest) is a bot that plays the original game headless and drafts rule discoveries in its `findings/` folder, on any branch. A draft is a claim, not evidence. The research repository is the gate: its project skill `retrieve-findings` (`.claude/skills/retrieve-findings/SKILL.md` on its `main`) reviews each draft against the saves and the code, and promotes or corrects it into `docs/reports/`. Its ledger `docs/findings-intake.md` records every outcome: promoted, corrected, deferred or rejected. **A draft with no ledger row is unreviewed and is not citable; only promoted reports are.**
+
+**Step 1, at every session start** (CLAUDE.md rule 10), and on demand ("retrieve findings"). List every draft under `findings/` on every remote branch of ic2-conquest, minus `README` and `PROMPT`. Drop those whose file name is in the ledger and whose content is unchanged since the reviewed commit; what remains is pending.
+- **With the clone.** On the desktop it is in WSL, so run the research skill's step 1 there: `wsl.exe -e bash -lc 'cd ~/projects/ic2-conquest && git fetch --all --prune && for r in $(git for-each-ref --format="%(refname:short)" refs/remotes/origin); do git ls-tree -r $r -- findings/ | grep -v -e README -e PROMPT; done'`.
+- **Without a clone.** Read the same branches through `gh api repos/diegoami/ic2-conquest/branches` and each branch's `git/trees/<sha>?recursive=1`.
+
+Report the pending count, and the source used (the clone, the API, or neither reachable), in the session-start message only, never in a document (CLAUDE.md rule 3). Pull the research repository first, so the ledger is current.
+
+**When drafts are pending**, `/retrieve-findings` runs the intake. It dispatches one fresh Opus Researcher in the research repository's checkout (`C:\Users\diego\projects\RE-imperial-conquest-2`). The main session reads the research skill's text from that checkout's `main` at dispatch time and pastes it into the brief (CLAUDE.md rule 15). The brief also says:
+- **commit and push** to the research repository's `main` (operating-guide §3). This is the "asked" the research skill's own "do not push unless asked" waits for;
+- **never write to ic2-conquest**: read it through the WSL clone, read-only;
+- **promote nothing it could not verify**: deferrals and rejections go in the ledger with their reason.
+
+**When it promotes or corrects a report**, stage 2 above runs on that change exactly as `/process-evidence` dispatches it. Its input is the promoted or corrected reports and the research commit. There is no second brief: stage 2 evaluates what the change means here, files defects in merged code as `bug` issues labelled `triage:needed` (never patching them), poses design decisions without deciding them, and edits only tasks not yet dispatched.
+
+**The gate** (build-process.md Appendix C, step 0). Before `/run-task` dispatches a task, the main session compares each pending draft's headline and key terms with the task's Owns and Scope. If a draft concerns a rule the task touches, the task is held, the user is told why, and the intake runs first. Otherwise the intake never blocks work.
+
+**Cadence.** Every session start, and on demand. A scheduled run is proposed to the user only if it fits how they work; none is created unasked.
+
+### The retrieve-findings skill file
+
+```markdown
+---
+name: retrieve-findings
+description: Run the research repository's findings intake on pending ic2-conquest drafts, then stage 2 on anything it promoted or corrected. A thin dispatcher; main session only.
+---
+
+# /retrieve-findings
+
+Context: the "Findings intake from ic2-conquest" section of `docs/evidence-pipeline.md` in
+`imperial_conquest_2`.
+
+1. Pull the research repository (`git -C C:\Users\diego\projects\RE-imperial-conquest-2 pull --ff-only`) and run
+   step 1 of the intake (the clone in WSL, else the GitHub API). If nothing is pending, say so and stop.
+2. Read `.claude/skills/retrieve-findings/SKILL.md` from the research repository's `main`. Dispatch ONE fresh
+   Opus Researcher in that checkout with a brief that PASTES that text in full, names the pending drafts
+   and their branches, and adds:
+   - commit and push to the research repository's main;
+   - never write to ic2-conquest (read it through `wsl.exe -e bash -lc 'cd ~/projects/ic2-conquest && …'`);
+   - promote nothing you could not verify, and record every deferral and rejection in the ledger;
+   - report each draft's outcome, the research commit, and every report created or corrected.
+3. Wait for its completion notification (don't poll).
+4. If it promoted or corrected anything, dispatch stage 2 exactly as /process-evidence does (the same
+   brief, from docs/evidence-pipeline.md "Stage 2"), with those reports and the commit as input.
+5. Relay to the user: each draft's outcome, the research commit, stage 2's proposals, and every bug it
+   filed or decision it posed. Write no status anywhere.
+```
+
 ## The actual skill file
 
 ```markdown

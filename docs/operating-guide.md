@@ -30,6 +30,8 @@ gh issue list --label triage:needed --state open         # untriaged bugs and fo
 - **The research repository**, [`diegoami/imperial-conquest-2-research`](https://github.com/diegoami/imperial-conquest-2-research): every reverse-engineering report (`docs/reports/`), the roadmap, the decompilation plan and the research notes.
   - Its local checkout is `C:\Users\diego\projects\RE-imperial-conquest-2`. Run `git pull --ff-only` before writing to it.
   - For static-analysis work, start from its `docs/decompilation-plan.md`, the live record of what has been decompiled.
+- **The bot repository**, [`diegoami/ic2-conquest`](https://github.com/diegoami/ic2-conquest): a bot that plays the original game headless and drafts rule discoveries in `findings/`. A draft is not citable until the research repository's findings intake has promoted it into `docs/reports/` ([evidence-pipeline.md](evidence-pipeline.md#findings-intake-from-ic2-conquest)). **Nothing in this repository or the research repository writes to it.**
+  - On the desktop its clone is in WSL, `/home/diego/projects/ic2-conquest`, reached from Windows with `wsl.exe -e bash -lc 'cd ~/projects/ic2-conquest && …'`. Without a clone, the intake's step 1 reads the same branches through the GitHub API.
 
 | Document | What it is |
 | --- | --- |
@@ -152,6 +154,7 @@ Both are **local, git-ignored installs** under `.claude/skills/`, and the fenced
 | `/run-task [T<nn> | #<issue> ...]` | `.claude/skills/run-task/SKILL.md` | [build-process.md Appendix C](build-process.md#appendix-c-the-run-task-skill) | Runs build tasks, and `fix` bugs, end to end |
 | `/process-evidence [path]` | `.claude/skills/process-evidence/SKILL.md` | [evidence-pipeline.md](evidence-pipeline.md#the-actual-skill-file) | Turns new saves, recordings and notes into research findings, then into design implications |
 | `pwsh scripts/jev-ask.ps1 -StateFile <f> -QuestionsFile <q> [-ItemsDir <d>] [-DryRun]` | `scripts/jev-ask.ps1` (tracked; needs `OPENROUTER_API_KEY`) | — | Asks Jev named Choice, Score and yes-or-no questions over one state, or over every file in `-ItemsDir`; prints JSON, one entry per question: the answer, its probability and a bucket (act at 0.9 and above, discard below 0.1, claude between). Posts nothing. [Wiki: Jev](https://github.com/diegoami/imperial_conquest_2/wiki/Jev) |
+| `/retrieve-findings` | `.claude/skills/retrieve-findings/SKILL.md` | [evidence-pipeline.md](evidence-pipeline.md#the-retrieve-findings-skill-file) | Dispatches an Opus Researcher that runs the research repository's own `retrieve-findings` procedure (pasted into its brief) on pending ic2-conquest drafts, then stage 2 on anything it promoted or corrected. A thin local skill: it never copies the research skill's body |
 | `/parse-recording [recording] [saves] [timestamps]` | `.claude/skills/parse-recording/SKILL.md` | [recording-analysis.md](recording-analysis.md#the-actual-skill-file) | Reads a screen recording into findings — frame extraction, panel reading, correlation against the saves either side. **Needs no written notes**, only rough timestamps |
 
 ### 2.4 Working rules
