@@ -113,6 +113,14 @@
       anywhere; never a second, hand-maintained copy.
     -->
     <Compile Include="../../godot/UI/CommandOutcomeText.cs" Link="Ui/CommandOutcomeText.cs" />
+
+    <!--
+      T99 (tests/IC2.Engine.Tests/Ui/MapClickRulesTests.cs): the same seam once more. MapClickRules.cs is
+      the Godot-free click decision table behind the Unit map's click handling (one row per row of the
+      UI command audit's §2.1), so a correction from the original exploration in flight lands there and
+      nowhere else. No `using Godot` anywhere; never a second, hand-maintained copy.
+    -->
+    <Compile Include="../../godot/UI/MapClickRules.cs" Link="Ui/MapClickRules.cs" />
   </ItemGroup>
 
 </Project>
