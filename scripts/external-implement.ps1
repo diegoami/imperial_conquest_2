@@ -50,10 +50,13 @@
 .PARAMETER BriefFile
     The filled Appendix A brief.
 .PARAMETER Model
-    auto (default: the chain deepseek-flash, then mimo-flash-free, then glm), or one model alone:
+    auto (default: the active model order's implementer chain, from models.local.json when it
+    exists, else the built-in deepseek-flash, then mimo-flash-free, then glm; `pwsh
+    scripts/Get-ModelOrder.ps1 -Show` prints it and /model-order switches it), or one model alone:
     deepseek-flash (DeepSeek V4.1 Flash at max, index 39, proven on this repository in #279),
     mimo-flash-free (index 38, free; the endpoint's limits are unknown), mimo-pro, mimo-flash,
-    glm, or luna.
+    glm, luna, or OpenAI's gpt-mini and gpt through OpenCode's openai provider once
+    models.local.json carries their ids (`pwsh scripts/Get-ModelOrder.ps1 -List`).
 .PARAMETER LocalOnly
     Copy assets.local.ini from the main checkout into the worktree.
 .PARAMETER FixturesDir
@@ -82,7 +85,7 @@ param(
     [Parameter(Mandatory)] [string] $Slug,
     [int] $Issue,
     [Parameter(Mandatory)] [string] $BriefFile,
-    [ValidateSet('auto', 'deepseek-flash', 'mimo-flash-free', 'mimo-pro', 'mimo-flash', 'glm', 'luna')] [string] $Model = 'auto',
+    [string] $Model = 'auto',
     [switch] $LocalOnly,
     [string] $FixturesDir,
     [int] $StartupTimeoutSec = 180,
@@ -103,19 +106,23 @@ $ErrorActionPreference = 'Stop'
 # On 2026-09-28 the desktop's `opencode models` listed mimo-v2.6-flash-free, glm-5.3 and gpt-6-luna,
 # but neither mimo-v2.6-pro nor mimo-v2.6-flash; those two stay in the table for the day the plan
 # lists them, and mimo-flash-free is the default until then.
-$models = @{
-    'deepseek-flash'  = 'opencode/deepseek-v4.1-flash'
-    'mimo-flash-free' = 'opencode/mimo-v2.6-flash-free'
-    'mimo-pro'        = 'opencode/mimo-v2.6-pro'
-    'mimo-flash'      = 'opencode/mimo-v2.6-flash'
-    'glm'             = 'opencode/glm-5.3'
-    'luna'            = 'opencode/gpt-6-luna'
-}
-if ($ModelIds) { foreach ($k in $ModelIds.Keys) { $models[$k] = $ModelIds[$k] } }
-$variants = @{ 'mimo-flash-free' = ''; 'deepseek-flash' = 'max'; 'mimo-pro' = ''; 'mimo-flash' = ''; 'glm' = 'max'; 'luna' = 'high' }
-# The fallback chain (the user's decision of 2026-09-28): each model once, the next only on an
+# The tables and the chain live in Get-ModelOrder.ps1 (built-in) and models.local.json (this
+# machine's order, switched by /model-order with the week's credit; the user's decision of
+# 2026-09-29). The fallback chain (2026-09-28): each model once, the next only on an
 # infrastructure failure. An explicit -Model runs that model alone.
-$chain = if ($Model -eq 'auto') { @('deepseek-flash', 'mimo-flash-free', 'glm') } else { @($Model) }
+. (Join-Path $PSScriptRoot 'Get-ModelOrder.ps1')
+$order = Get-ModelOrder
+$models = @{}
+foreach ($k in $order.Ids.Keys) { $models[$k] = $order.Ids[$k] }
+if ($ModelIds) { foreach ($k in $ModelIds.Keys) { $models[$k] = $ModelIds[$k] } }
+$variants = $order.Variants
+if ($Model -ne 'auto') {
+    if (-not $models.ContainsKey($Model)) { throw "Unknown model '$Model'. Known: $($models.Keys -join ', ') (pwsh scripts/Get-ModelOrder.ps1 -List)." }
+    if ($models[$Model] -like '*<*') { throw "Model '$Model' has no id yet ($($models[$Model])); fill it in models.local.json (/model-order id $Model <provider/model>)." }
+}
+$chain = if ($Model -eq 'auto') { @($order.Implementer) } else { @($Model) }
+if (-not $chain) { throw "The active model order '$($order.Profile)' ($($order.Source)) leaves no implementer with a filled id." }
+Write-Host "model order: $($order.Profile); implementer chain: $($chain -join ', ')"
 
 if (-not $Task -and -not $Fix) { throw 'Give -Task T<nn> or -Fix <issue>.' }
 if ($Task -and $Fix) { throw '-Task and -Fix are mutually exclusive.' }

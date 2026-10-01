@@ -1,0 +1,32 @@
+{
+  "_comment": "Copy to models.local.json (git-ignored, per machine). /model-order edits it; scripts/Get-ModelOrder.ps1 -Show prints the effective order. Fill the openai ids from `opencode models openai`; a name whose id still contains '<' is dropped from every chain.",
+  "active": "claude-full",
+  "profiles": {
+    "claude-full": {
+      "_comment": "Claude credit available: OpenCode cheap tier implements, Claude reviews tasks, GLM reviews plan PRs.",
+      "implementer": ["deepseek-flash", "mimo-flash-free", "glm"],
+      "reviewer": ["glm", "luna", "deepseek"],
+      "taskReviewer": "claude"
+    },
+    "claude-low": {
+      "_comment": "Claude credit low: OpenCode implements and reviews; the reviewer chain skips the implementer's vendor.",
+      "implementer": ["deepseek-flash", "mimo-flash-free", "gpt-mini"],
+      "reviewer": ["glm", "gpt", "luna"],
+      "taskReviewer": "opencode"
+    },
+    "opencode-low": {
+      "_comment": "OpenCode credit low: OpenAI through OpenCode implements, Claude reviews tasks; gpt reviews plan PRs it did not implement.",
+      "implementer": ["gpt-mini", "gpt"],
+      "reviewer": ["gpt"],
+      "taskReviewer": "claude"
+    }
+  },
+  "ids": {
+    "gpt-mini": "openai/<id from opencode models openai>",
+    "gpt": "openai/<id from opencode models openai>"
+  },
+  "variants": {
+    "gpt-mini": "",
+    "gpt": "high"
+  }
+}

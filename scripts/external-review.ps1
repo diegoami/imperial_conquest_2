@@ -52,8 +52,11 @@
 .PARAMETER Pr
     The pull request number.
 .PARAMETER Reviewer
-    auto (default: the chain GLM-5.3 at max effort, then Luna, then DeepSeek), or glm, luna,
-    deepseek for that model alone.
+    auto (default: the active model order's reviewer chain, from models.local.json when it exists,
+    else the built-in GLM-5.3 at max effort, then Luna, then DeepSeek; `pwsh
+    scripts/Get-ModelOrder.ps1 -Show` prints it and /model-order switches it), or one name alone:
+    glm, luna, deepseek, or OpenAI's gpt through OpenCode's openai provider once models.local.json
+    carries its id.
 .PARAMETER BriefFile
     The filled reviewer brief. Its first line must be the review header the model is to print,
     for example "Plan review (Luna)" or "T94 review (DeepSeek)". With -Reviewer auto, the text in
@@ -92,7 +95,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)] [int] $Pr,
-    [ValidateSet('auto', 'glm', 'luna', 'deepseek')] [string] $Reviewer = 'auto',
+    [string] $Reviewer = 'auto',
     [Parameter(Mandatory)] [string] $BriefFile,
     [int] $Issue,
     [switch] $ApplyLabel,
@@ -101,7 +104,7 @@ param(
     [int] $StartupTimeoutSec = 180,
     [int] $TotalTimeoutSec = 3600,
     [int] $IdleTimeoutSec = 600,
-    [ValidateSet('deepseek-flash', 'mimo-flash-free', 'mimo-pro', 'mimo-flash', 'glm', 'luna', 'deepseek')] [string] $ExcludeModel,
+    [string] $ExcludeModel,
     [hashtable] $ModelIds
 )
 
@@ -112,19 +115,25 @@ $ErrorActionPreference = 'Stop'
 # different id. From the 2026-09-28 comparison of the models this OpenCode plan lists: glm-5.3 at
 # max effort (index up to 45) is the review model; gpt-6-luna (29-37) is the cheap routine model and
 # a second opinion; deepseek stays for a third. `opencode models` lists what this machine has.
-$models = @{
-    glm      = 'opencode/glm-5.3'
-    luna     = 'opencode/gpt-6-luna'
-    deepseek = 'opencode/deepseek-v4.1-flash'
-}
+# The tables and the chain live in Get-ModelOrder.ps1 (built-in) and models.local.json (this
+# machine's order, switched by /model-order with the week's credit; the user's decision of
+# 2026-09-29). The variant is passed as `--variant` (the docs' flag; a `#variant` suffix on the
+# model id is not documented); empty means none. The fallback chain (2026-09-28): each model once,
+# the next only on an infrastructure failure.
+. (Join-Path $PSScriptRoot 'Get-ModelOrder.ps1')
+$order = Get-ModelOrder
+$models = @{}
+foreach ($k in $order.Ids.Keys) { $models[$k] = $order.Ids[$k] }
 if ($ModelIds) { foreach ($k in $ModelIds.Keys) { $models[$k] = $ModelIds[$k] } }
-# Provider-specific variant, passed as `--variant` (the docs' flag; a `#variant` suffix on the model
-# id is not documented). Empty means none.
-$variants = @{ glm = 'max'; luna = 'high'; deepseek = '' }
-$displayNames = @{ glm = 'GLM'; luna = 'Luna'; deepseek = 'DeepSeek' }
-# The fallback chain (the user's decision of 2026-09-28): each model once, the next only on an
-# infrastructure failure.
-$chain = if ($Reviewer -eq 'auto') { @('glm', 'luna', 'deepseek') } else { @($Reviewer) }
+$variants = $order.Variants
+$displayNames = $order.Display
+if ($Reviewer -ne 'auto') {
+    if (-not $models.ContainsKey($Reviewer)) { throw "Unknown reviewer '$Reviewer'. Known: $($models.Keys -join ', ') (pwsh scripts/Get-ModelOrder.ps1 -List)." }
+    if ($models[$Reviewer] -like '*<*') { throw "Reviewer '$Reviewer' has no id yet ($($models[$Reviewer])); fill it in models.local.json (/model-order id $Reviewer <provider/model>)." }
+}
+if ($ExcludeModel -and -not $models.ContainsKey($ExcludeModel)) { throw "Unknown -ExcludeModel '$ExcludeModel'. Known: $($models.Keys -join ', ')." }
+$chain = if ($Reviewer -eq 'auto') { @($order.Reviewer) } else { @($Reviewer) }
+Write-Host "model order: $($order.Profile); reviewer chain: $($chain -join ', ')"
 
 function Get-RepoRoot {
     $root = git rev-parse --show-toplevel 2>$null
@@ -160,22 +169,24 @@ if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { throw 'gh is not on P
 
 # The reviewer's model is never the implementer's (build-process.md §3.4). The implementing model
 # comes from -ExcludeModel, else from a model:<name> label on the PR or its issue that names an
-# OpenCode model (model:opus and model:sonnet name Claude, which is not in this chain). Implementer
-# name -> the reviewer running the same model; the MiMo models have no reviewer here.
-$reviewerOf = @{ 'deepseek-flash' = 'deepseek'; 'deepseek' = 'deepseek'; 'glm' = 'glm'; 'luna' = 'luna' }
+# OpenCode model (model:opus and model:sonnet name Claude, which is not in this chain). The
+# exclusion is by vendor (Get-ModelOrder's table): deepseek-flash excludes deepseek, gpt-mini
+# excludes gpt, and a vendor with no reviewer here (MiMo) excludes nothing.
+$knownNames = @($models.Keys)
 $implementers = if ($ExcludeModel) { @($ExcludeModel) } else {
     $labels = @(gh pr view $Pr --json labels --jq '.labels[].name' 2>$null)
     if ($Issue) { $labels += @(gh issue view $Issue --json labels --jq '.labels[].name' 2>$null) }
     @($labels | Where-Object { $_ -match '^model:(.+)$' } | ForEach-Object { $_.Substring(6) } |
-        Where-Object { $_ -in 'deepseek-flash', 'mimo-flash-free', 'mimo-pro', 'mimo-flash', 'glm', 'luna', 'deepseek' } | Select-Object -Unique)
+        Where-Object { $_ -in $knownNames } | Select-Object -Unique)
 }
-$excluded = @($implementers | ForEach-Object { $reviewerOf[$_] } | Where-Object { $_ } | Select-Object -Unique)
+$excludedVendors = @($implementers | ForEach-Object { $order.Vendors[$_] } | Where-Object { $_ } | Select-Object -Unique)
+$excluded = @($chain | Where-Object { $order.Vendors[$_] -in $excludedVendors })
 if ($implementers) { Write-Host "implemented by: $($implementers -join ', '); excluded from review: $(if ($excluded) { $excluded -join ', ' } else { 'none' })" }
-if ($Reviewer -ne 'auto' -and $excluded -contains $Reviewer) {
+if ($Reviewer -ne 'auto' -and $order.Vendors[$Reviewer] -in $excludedVendors) {
     [Console]::Error.WriteLine("Refused: -Reviewer $Reviewer is the model that implemented PR #$Pr ($($implementers -join ', ')); the reviewer's model is never the implementer's (build-process.md §3.4). Use -Reviewer auto or another model. Nothing posted.")
     exit 1
 }
-$chain = @($chain | Where-Object { $excluded -notcontains $_ })
+$chain = @($chain | Where-Object { $order.Vendors[$_] -notin $excludedVendors })
 if (-not $chain) {
     [Console]::Error.WriteLine("OpenCode unavailable: no reviewer model left after excluding the implementer's ($($implementers -join ', ')). Nothing posted.")
     exit 3
