@@ -59,7 +59,7 @@ while read -r path; do
     if git -C "$research" rev-parse -q --verify "$oldest^" >/dev/null; then
       base=$(git -C "$research" rev-parse --short=7 "$oldest^")
     else
-      base=$(git -C "$research" hash-object -t tree /dev/null | cut -c1-7)
+      base=$(git -C "$research" hash-object -t tree /dev/null)  # the full hash: the empty tree is not stored, so a short one does not resolve
     fi
     range="$base..$commit"
     count=$(git -C "$research" rev-list --count --since="$since" "$ref" -- "$path")
