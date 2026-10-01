@@ -44,8 +44,8 @@
     commands, and this script is the only writer. A cut-off review (the 2026-09-25 #370 case)
     therefore cannot reach the PR: the run is reported as incomplete and nothing is posted.
 
-    Reviewer -> OpenCode model id, from the Zen model list (`opencode/gpt-6-luna`,
-    `opencode/deepseek-v4.1-flash`); `opencode models opencode` shows what this machine has.
+    Reviewer -> OpenCode model id, from the OpenCode Go list (`opencode-go/gpt-6-luna`,
+    `opencode-go/deepseek-v4.1-flash`); `opencode models opencode-go` shows what this machine has.
     OpenCode reads CLAUDE.md as its instructions file when no AGENTS.md exists; that is
     harmless here (the reviewer gets the token-economy rules) and no AGENTS.md is added.
 
@@ -77,11 +77,11 @@
     runs or a reply streams, so this must exceed the longest single step of a review.
 .PARAMETER ExcludeModel
     The model that implemented the PR, as external-implement.ps1 names it on its "implemented by:"
-    line (deepseek-flash, mimo-flash-free, mimo-pro, mimo-flash, glm, luna; or a reviewer name).
+    line (deepseek-flash, glm-flash, glm, luna, mimo-pro, mimo-flash; or a reviewer name).
     The reviewer of the same model (deepseek-flash is DeepSeek) is dropped from the chain. Without
     it, a model:<name> label on the PR or on -Issue is used when one names an OpenCode model.
 .PARAMETER ModelIds
-    Overrides of the reviewer -> model id map, e.g. @{ glm = 'opencode/glm-5.4' }, for when
+    Overrides of the reviewer -> model id map, e.g. @{ glm = 'opencode-go/glm-5.4' }, for when
     `opencode models` shows a different id (or, in a test, a bad id to exercise the chain).
 
 .EXAMPLE
@@ -101,7 +101,7 @@ param(
     [int] $StartupTimeoutSec = 180,
     [int] $TotalTimeoutSec = 3600,
     [int] $IdleTimeoutSec = 600,
-    [ValidateSet('deepseek-flash', 'mimo-flash-free', 'mimo-pro', 'mimo-flash', 'glm', 'luna', 'deepseek')] [string] $ExcludeModel,
+    [ValidateSet('deepseek-flash', 'glm-flash', 'glm', 'luna', 'mimo-pro', 'mimo-flash', 'deepseek')] [string] $ExcludeModel,
     [hashtable] $ModelIds
 )
 
@@ -109,13 +109,13 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Invoke-OpenCodeWatched.ps1')
 
 # Reviewer name -> OpenCode model id. Edit here (or pass -ModelIds) if `opencode models` shows a
-# different id. From the 2026-09-28 comparison of the models this OpenCode plan lists: glm-5.3 at
-# max effort (index up to 45) is the review model; gpt-6-luna (29-37) is the cheap routine model and
-# a second opinion; deepseek stays for a third. `opencode models` lists what this machine has.
+# different id. On 2026-10-01 the user moved the OpenCode runs from OpenCode Zen to OpenCode Go
+# (issue #551): every id is `opencode-go/…`. glm-5.3 at max effort is the review model; gpt-6-luna
+# (high effort) is the cheap routine model and a second opinion; deepseek stays for a third.
 $models = @{
-    glm      = 'opencode/glm-5.3'
-    luna     = 'opencode/gpt-6-luna'
-    deepseek = 'opencode/deepseek-v4.1-flash'
+    glm      = 'opencode-go/glm-5.3'
+    luna     = 'opencode-go/gpt-6-luna'
+    deepseek = 'opencode-go/deepseek-v4.1-flash'
 }
 if ($ModelIds) { foreach ($k in $ModelIds.Keys) { $models[$k] = $ModelIds[$k] } }
 # Provider-specific variant, passed as `--variant` (the docs' flag; a `#variant` suffix on the model
@@ -162,12 +162,12 @@ if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { throw 'gh is not on P
 # comes from -ExcludeModel, else from a model:<name> label on the PR or its issue that names an
 # OpenCode model (model:opus and model:sonnet name Claude, which is not in this chain). Implementer
 # name -> the reviewer running the same model; the MiMo models have no reviewer here.
-$reviewerOf = @{ 'deepseek-flash' = 'deepseek'; 'deepseek' = 'deepseek'; 'glm' = 'glm'; 'luna' = 'luna' }
+$reviewerOf = @{ 'deepseek-flash' = 'deepseek'; 'deepseek' = 'deepseek'; 'glm-flash' = 'glm'; 'glm' = 'glm'; 'luna' = 'luna' }
 $implementers = if ($ExcludeModel) { @($ExcludeModel) } else {
     $labels = @(gh pr view $Pr --json labels --jq '.labels[].name' 2>$null)
     if ($Issue) { $labels += @(gh issue view $Issue --json labels --jq '.labels[].name' 2>$null) }
     @($labels | Where-Object { $_ -match '^model:(.+)$' } | ForEach-Object { $_.Substring(6) } |
-        Where-Object { $_ -in 'deepseek-flash', 'mimo-flash-free', 'mimo-pro', 'mimo-flash', 'glm', 'luna', 'deepseek' } | Select-Object -Unique)
+        Where-Object { $_ -in 'deepseek-flash', 'glm-flash', 'glm', 'luna', 'mimo-pro', 'mimo-flash', 'deepseek' } | Select-Object -Unique)
 }
 $excluded = @($implementers | ForEach-Object { $reviewerOf[$_] } | Where-Object { $_ } | Select-Object -Unique)
 if ($implementers) { Write-Host "implemented by: $($implementers -join ', '); excluded from review: $(if ($excluded) { $excluded -join ', ' } else { 'none' })" }
