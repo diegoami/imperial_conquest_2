@@ -100,8 +100,9 @@ unevaluated research reports: `bash scripts/unevaluated-reports.sh` ("What trigg
    where (this repo's branch), the bug issues it filed (in your `triage:needed` queue,
    build-process.md §4.6), and any open question for a human decision.
 8. Mark every report this run dealt with: post one line per report, `Evaluated: <file name> @ <commit>`,
-   in a conversation comment (not a review). The commit is the one the script printed at step 1,
-   never one read now: a research session may have pushed since, and that change is unread.
+   in a conversation comment (not a review). The commit is the one the script printed at step 1, or,
+   for a report stage 1 changed in this run, the commit stage 1 reported; never one read now: a
+   research session may have pushed since, and that change is unread.
    Where to post it:
    - stage 2 pushed a branch: on the PR you open for that branch;
    - stage 2 filed a bug and pushed no branch: on that bug;

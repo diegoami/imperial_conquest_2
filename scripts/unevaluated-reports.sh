@@ -53,7 +53,15 @@ while read -r path; do
     if [[ -z $from ]] || git -C "$research" merge-base --is-ancestor "$from" "$c"; then from=$c; fi
   done
   if [[ -z $from ]]; then
-    range="$since..$commit"
+    # No marker: start at the parent of the oldest commit since the start date that touched the report,
+    # or at the empty tree when that commit is the repository's root. The range is a real revision range.
+    oldest=$(git -C "$research" rev-list --reverse --since="$since" "$ref" -- "$path" | head -1)
+    if git -C "$research" rev-parse -q --verify "$oldest^" >/dev/null; then
+      base=$(git -C "$research" rev-parse --short=7 "$oldest^")
+    else
+      base=$(git -C "$research" hash-object -t tree /dev/null | cut -c1-7)
+    fi
+    range="$base..$commit"
     count=$(git -C "$research" rev-list --count --since="$since" "$ref" -- "$path")
   else
     range="$from..$commit"
