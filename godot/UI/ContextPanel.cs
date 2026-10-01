@@ -87,6 +87,18 @@ public partial class ContextPanel : Control
         Rebuild();
     }
 
+    /// <summary>
+    /// T99, the user's two-button decision of 2026-10-01: shows the clicked entity's unit list — a
+    /// city's garrison, an army's units, or a fleet's ships and any army aboard — without making it
+    /// the map's selection. <see cref="MainGameScreen"/> wires
+    /// <see cref="GameMapView.UnitListRequested"/> to this.
+    /// </summary>
+    public void ShowUnitList(MapEntityKind entity, string id)
+    {
+        _selection = Selection.ForUnitList(entity, id);
+        Rebuild();
+    }
+
     /// <summary>Re-reads the current selection's own state and rebuilds this panel's controls — call after
     /// any command that might have changed what is selected (a city captured, an army disbanded, ...).</summary>
     public void Refresh() => Rebuild();
@@ -109,6 +121,9 @@ public partial class ContextPanel : Control
                 break;
             case SelectionKind.Fleet when Session.State.FleetById(_selection.Id!) is { } fleet:
                 BuildFleetPanel(fleet);
+                break;
+            case SelectionKind.UnitList:
+                BuildUnitListPanel(_selection.Entity, _selection.Id!);
                 break;
             default:
                 BuildNationOverview();
@@ -291,18 +306,24 @@ public partial class ContextPanel : Control
     {
         Heading($"Army — {army.Id}");
         Fact($"Nation: {DisplayNation(army.Nation)}  ·  Position: ({army.X}, {army.Y})");
-        Fact($"Moves: {army.Moves}  ·  Morale: {army.Morale}  ·  Money: {army.Money}  ·  Supply: {army.SupplyTons}t");
-        Fact($"Troops: {(army.Units.Count == 0 ? "none" : string.Join(", ", army.Units.Select(u => $"{u.Troops}x {u.UnitTypeId}")))}");
 
         if (!string.Equals(army.Nation, Session.State.ActiveNationId, StringComparison.Ordinal))
         {
+            // T99, the original's own foreign-army fog [confirmed: ptolemy-run-ui-inventory-and-leader-draw.md
+            // §5]: a foreign army's moves, morale, money and supply are withheld — the panel names each
+            // withheld field but shows no number for it. Fleets and cities are unchanged. The exact
+            // glyph the original used is not transcribed in the audit, so naming the withholding is
+            // this panel's own [designed] rendering of the confirmed rule.
+            Fact("Moves: withheld  ·  Morale: withheld  ·  Money: withheld  ·  Supply: withheld");
+            Fact($"Troops: {(army.Units.Count == 0 ? "none" : string.Join(", ", army.Units.Select(u => $"{u.Troops}x {u.UnitTypeId}")))}");
             Note("Only the active seat's own armies can be ordered.");
             return;
         }
 
+        Fact($"Moves: {army.Moves}  ·  Morale: {army.Morale}  ·  Money: {army.Money}  ·  Supply: {army.SupplyTons}t");
+        Fact($"Troops: {(army.Units.Count == 0 ? "none" : string.Join(", ", army.Units.Select(u => $"{u.Troops}x {u.UnitTypeId}")))}");
+
         _content.AddChild(new HSeparator());
-        AddButton("Move (click a tile on the map)", () => MapView.BeginMoveOrder(army.Id));
-        AddButton("Attack (click a target on the map)", () => MapView.BeginAttackOrder(army.Id));
 
         // Fix #513, Defect 2: the choice is the engine's own readiness gate, so the button can only
         // issue "mobilize <a ready index>" -- and says why it is disabled when nothing is ready.
@@ -337,6 +358,69 @@ public partial class ContextPanel : Control
         _content.AddChild(repairPoints);
         AddButton("Repair", () => Issue($"repair-fleet {fleet.Id} {(int)repairPoints.Value}"));
         AddButton("Scuttle", () => Issue($"scuttle-fleet {fleet.Id}"));
+    }
+
+    /// <summary>
+    /// T99's unit-list view — what the original's right button shows
+    /// (<c>ShowCityUnits</c>/<c>ShowArmyUnits</c>/<c>ShowFleetUnits</c>, audit §2.1): a city's garrison,
+    /// an army's units, or a fleet's ships and any army aboard. It is the panel's one view that is
+    /// <em>not</em> a selection: the map's selection, and any order armed by it, are untouched.
+    /// </summary>
+    private void BuildUnitListPanel(MapEntityKind entity, string id)
+    {
+        switch (entity)
+        {
+            case MapEntityKind.City when Session.State.CityById(id) is { } city:
+                Heading($"Units — {city.Name}");
+                Fact($"Owner: {DisplayNation(city.Owner)}  ·  Population: {city.PopulationThousands}k");
+                Note("The garrison:");
+                ListUnitSlots(city.Garrison);
+                return;
+
+            case MapEntityKind.Army when Session.State.ArmyById(id) is { } army:
+                Heading($"Units — {army.Id}");
+                Fact($"Nation: {DisplayNation(army.Nation)}  ·  Position: ({army.X}, {army.Y})");
+                Note("The army's units:");
+                ListUnitSlots(army.Units);
+                return;
+
+            case MapEntityKind.Fleet when Session.State.FleetById(id) is { } fleet:
+                Heading($"Units — {fleet.Id}");
+                Fact($"Nation: {DisplayNation(fleet.Nation)}  ·  Position: ({fleet.X}, {fleet.Y})");
+                Fact($"Ships: {fleet.Ships}  ·  Condition: {fleet.ConditionPercent}%");
+                if (fleet.CarriedArmyId is { } aboard && Session.State.ArmyById(aboard) is { } carried)
+                {
+                    Note($"The army aboard ({carried.Id}):");
+                    ListUnitSlots(carried.Units);
+                }
+                else
+                {
+                    Note("No army aboard.");
+                }
+
+                return;
+
+            default:
+                Heading("Units");
+                Note("Nothing is here.");
+                return;
+        }
+    }
+
+    /// <summary>One line per unit slot — the list shape the original's unit list shows.</summary>
+    private void ListUnitSlots(IEnumerable<UnitSlot> slots)
+    {
+        var any = false;
+        foreach (var slot in slots)
+        {
+            any = true;
+            Fact($"{slot.Troops}x {slot.UnitTypeId}{(string.IsNullOrEmpty(slot.Name) ? string.Empty : $" — {slot.Name}")}");
+        }
+
+        if (!any)
+        {
+            Note("None.");
+        }
     }
 
     /// <summary>
@@ -377,16 +461,22 @@ public partial class ContextPanel : Control
         City,
         Army,
         Fleet,
+
+        /// <summary>T99: the right button's unit-list view — a city's garrison, an army's units, or a fleet's ships and any army aboard.</summary>
+        UnitList,
     }
 
-    private readonly record struct Selection(SelectionKind Kind, string? Id)
+    private readonly record struct Selection(SelectionKind Kind, MapEntityKind Entity, string? Id)
     {
-        public static Selection None() => new(SelectionKind.None, null);
+        public static Selection None() => new(SelectionKind.None, MapEntityKind.City, null);
 
-        public static Selection ForCity(string id) => new(SelectionKind.City, id);
+        public static Selection ForCity(string id) => new(SelectionKind.City, MapEntityKind.City, id);
 
-        public static Selection ForArmy(string id) => new(SelectionKind.Army, id);
+        public static Selection ForArmy(string id) => new(SelectionKind.Army, MapEntityKind.Army, id);
 
-        public static Selection ForFleet(string id) => new(SelectionKind.Fleet, id);
+        public static Selection ForFleet(string id) => new(SelectionKind.Fleet, MapEntityKind.Fleet, id);
+
+        public static Selection ForUnitList(MapEntityKind entity, string id) =>
+            new(SelectionKind.UnitList, entity, id);
     }
 }

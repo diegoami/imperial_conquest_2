@@ -139,6 +139,18 @@ public partial class MainGameScreen : Control
         _mapView.CommandIssued += OnCommandIssued;
         _contextPanel.CommandIssued += OnCommandIssued;
 
+        // T99, the right-click route: the map's right button opens the clicked marker's unit list in
+        // the panel (a city's garrison, an army's units, a fleet's ships and any army aboard) — a
+        // panel view that is not a selection, so the map's own selection and any armed order are
+        // untouched.
+        _mapView.UnitListRequested += (entity, id) => _contextPanel.ShowUnitList(entity, id);
+
+        // T99, the original's attack prompt (audit §2.1, confirmed: a click against a nation the
+        // seat is not at war with asks before it orders): the map raises it, this screen owns the
+        // prompt, and the answer goes back to the map — Yes submits the order, No drops the
+        // selection. The engine composes the declaration of war itself, so nothing here submits one.
+        _mapView.AttackConfirmationRequested += ShowAttackPrompt;
+
         _mapView.Attach(Session, RepositoryRoot);
 
         var activeNation = Session.State.NationById(Session.State.ActiveNationId);
@@ -361,6 +373,52 @@ public partial class MainGameScreen : Control
     /// every text change and on every resize: a command issued before the first layout pass is
     /// recomputed once the label gets its real width.
     /// </summary>
+    /// <summary>
+    /// T99: the original's own attack prompt — a click that resolves to an attack, besiege or naval
+    /// attack against a nation the active seat is not at war with asks before it orders. The prompt
+    /// is the entry's own <see cref="ConfirmPrompt"/>; its answers go back to the map
+    /// (<see cref="GameMapView.AnswerAttackConfirmation"/>), which holds the confirmed order.
+    /// </summary>
+    private void ShowAttackPrompt(MapClickOutcome outcome)
+    {
+        var prompt = new ConfirmPrompt { Question = outcome.ConfirmationText ?? string.Empty };
+        prompt.Confirmed += () =>
+        {
+            CloseOverlay(prompt);
+            _mapView.AnswerAttackConfirmation(yes: true);
+        };
+        prompt.Refused += () =>
+        {
+            CloseOverlay(prompt);
+            _mapView.AnswerAttackConfirmation(yes: false);
+        };
+        ShowOverlay(prompt);
+    }
+
+    /// <summary>
+    /// T99, cancel selection: <strong>Shift+X</strong> [confirmed:
+    /// <c>ptolemy-run-ui-inventory-and-leader-draw.md</c> §4] and <strong>Esc</strong> [designed] clear
+    /// the map's selection. The menu entry is T100's, not this screen's. An open overlay is modal: while
+    /// one is up its own keys rule (<see cref="ConfirmPrompt"/>'s Esc answers its No), so this does
+    /// nothing — the unhandled path only, so a focused control's own keys (a text field's, a button's)
+    /// are never stolen.
+    /// </summary>
+    public override void _UnhandledInput(InputEvent @event)
+    {
+        if (ActiveOverlay is not null)
+        {
+            return;
+        }
+
+        var cancel = @event is InputEventKey { Pressed: true, Keycode: Key.Escape }
+            || @event is InputEventKey { Pressed: true, Keycode: Key.X, ShiftPressed: true };
+        if (cancel)
+        {
+            _mapView.ClearSelection();
+            GetViewport().SetInputAsHandled();
+        }
+    }
+
     private void UpdateLastCommandLinesSkipped()
     {
         var lineCount = _lastCommandLabel.GetLineCount();
