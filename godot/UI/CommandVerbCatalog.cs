@@ -54,7 +54,7 @@ public static class CommandVerbCatalog
     /// <summary>Verbs that print nothing to accept or reject — no outcome to judge.</summary>
     public static readonly IReadOnlySet<string> ReadOnlyVerbs = new HashSet<string>(StringComparer.Ordinal)
     {
-        "end", "status", "news", "quit", "help", "armies", "cities", "map",
+        "end", "status", "news", "balance", "quit", "help", "armies", "cities", "map",
     };
 
     /// <summary>This catalogue's own curated verb map — see this class's own remarks for why it is

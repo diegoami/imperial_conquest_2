@@ -60,6 +60,54 @@ public static class ArmyUpkeep
         return ComputeUnit(unit, ruleset, ruleset.Recruitment);
     }
 
+    /// <summary>
+    /// Splits every army a nation owns into its regulars' upkeep and its mercenaries' pay, one
+    /// <see cref="ComputeUnit"/> call per slot — the same per-slot formula
+    /// <see cref="MercenaryDesertion.BillArmy"/> charges the treasury and each army's purse with.
+    /// <see cref="QuarterlyEconomySystem"/> aggregates the regulars' side from
+    /// <see cref="MercenaryDesertion.BillArmy"/>; this method exists so the balance-sheet projection
+    /// (<c>docs/tasks/T104.md</c>) can list the two sides as its own two lines.
+    /// </summary>
+    /// <param name="state">Supplies the armies.</param>
+    /// <param name="nationId">The owning nation to sum for.</param>
+    /// <param name="ruleset">
+    /// Supplies <see cref="RecruitmentRules.TroopsPerCostUnit"/>,
+    /// <see cref="RecruitmentRules.MercenaryUpkeepQualityDivisor"/> and each unit type's
+    /// <see cref="UnitTypeRules.QuarterlyPrice"/> — never a C# literal.
+    /// </param>
+    /// <returns>The nation's total regulars' upkeep and total mercenaries' pay for one quarter.</returns>
+    /// <exception cref="ArgumentException">A unit's <see cref="UnitSlot.UnitTypeId"/> is not in <paramref name="ruleset"/>.</exception>
+    public static (int Regulars, int Mercenaries) ComputeForNation(GameState state, string nationId, Ruleset ruleset)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(nationId);
+        ArgumentNullException.ThrowIfNull(ruleset);
+
+        var regulars = 0;
+        var mercenaries = 0;
+        foreach (var army in state.Armies)
+        {
+            if (!string.Equals(army.Nation, nationId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            foreach (var unit in army.Units)
+            {
+                if (unit.IsMercenary)
+                {
+                    mercenaries += ComputeUnit(unit, ruleset);
+                }
+                else
+                {
+                    regulars += ComputeUnit(unit, ruleset);
+                }
+            }
+        }
+
+        return (regulars, mercenaries);
+    }
+
     private static int ComputeUnit(UnitSlot unit, Ruleset ruleset, RecruitmentRules recruitment)
     {
         var type = ruleset.UnitTypeById(unit.UnitTypeId)

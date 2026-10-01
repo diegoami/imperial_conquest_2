@@ -21,4 +21,33 @@ public static class ShipUpkeep
         ArgumentNullException.ThrowIfNull(ruleset);
         return ships * ruleset.Economy.ShipUpkeepPerQuarter;
     }
+
+    /// <summary>
+    /// Sums <see cref="Compute"/> over every launched fleet a nation owns — the exact term
+    /// <see cref="QuarterlyEconomySystem"/> charges that nation's treasury, extracted here so the
+    /// balance-sheet projection (<c>docs/tasks/T104.md</c>) shares the aggregation rather than restating
+    /// which fleets are billed.
+    /// </summary>
+    /// <param name="state">Supplies the fleets (a fleet still under construction is never billed).</param>
+    /// <param name="nationId">The owning nation to sum for.</param>
+    /// <param name="ruleset">Supplies <see cref="EconomyRules.ShipUpkeepPerQuarter"/> — never a C# literal.</param>
+    public static int ComputeForNation(GameState state, string nationId, Ruleset ruleset)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(nationId);
+        ArgumentNullException.ThrowIfNull(ruleset);
+
+        var total = 0;
+        foreach (var fleet in state.Fleets)
+        {
+            if (fleet.IsUnderConstruction || !string.Equals(fleet.Nation, nationId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            total += Compute(fleet.Ships, ruleset);
+        }
+
+        return total;
+    }
 }

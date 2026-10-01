@@ -47,9 +47,36 @@ public static class Deposition
         ArgumentNullException.ThrowIfNull(ruleset);
 
         var economy = ruleset.Economy;
-        return nation.Treasury < -(nation.Wealth / economy.DebtWealthDivisor)
-               || nation.Treasury < economy.DebtTreasuryFloor
+        return nation.Treasury < -DebtLimit(nation, ruleset)
                || nation.Unity < economy.DebtUnityThreshold;
+    }
+
+    /// <summary>
+    /// The magnitude of the wealth-based debt line — <c>min(wealth / DebtWealthDivisor, 20000)</c>, where
+    /// the <c>20000</c> is the magnitude of <see cref="EconomyRules.DebtTreasuryFloor"/>. A nation is over
+    /// this line when <c>treasury &lt; −DebtLimit</c>; the same figure is the balance sheet's "Debt limit"
+    /// line (<c>docs/tasks/T104.md</c>), so the projection and the deposition test can never disagree.
+    /// </summary>
+    /// <remarks>
+    /// <strong>[confirmed: upkeep-payment-and-desertion.md]</strong>: the original ORs
+    /// <c>treasury &lt; −(wealth / DebtWealthDivisor)</c> with <c>treasury &lt; DebtTreasuryFloor</c>, which
+    /// is exactly <c>treasury &lt; −min(wealth / DebtWealthDivisor, −DebtTreasuryFloor)</c> in integer
+    /// arithmetic — the less-negative of the two thresholds is the one that binds. This method restates
+    /// neither term: <see cref="InDebt"/> now calls it, so the debt test and the projection share one
+    /// computation.
+    /// </remarks>
+    /// <param name="nation">The nation whose wealth is read.</param>
+    /// <param name="ruleset">
+    /// Supplies <see cref="EconomyRules.DebtWealthDivisor"/> and <see cref="EconomyRules.DebtTreasuryFloor"/>
+    /// — never a C# literal.
+    /// </param>
+    public static int DebtLimit(NationState nation, Ruleset ruleset)
+    {
+        ArgumentNullException.ThrowIfNull(nation);
+        ArgumentNullException.ThrowIfNull(ruleset);
+
+        var economy = ruleset.Economy;
+        return Math.Min(nation.Wealth / economy.DebtWealthDivisor, -economy.DebtTreasuryFloor);
     }
 
     /// <summary>

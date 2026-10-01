@@ -1055,6 +1055,9 @@ public sealed partial class GameSession
             case "news":
                 lines.AddRange(RenderNews());
                 break;
+            case "balance":
+                lines.AddRange(RenderBalance());
+                break;
             case "help":
                 lines.AddRange(RenderHelp());
                 break;
