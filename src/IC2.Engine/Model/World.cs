@@ -459,6 +459,13 @@ public sealed record TileType(
 /// <c>nation-tax-base-and-city-economy-fields.md</c>).
 /// </param>
 /// <param name="MobilizedPercent">Starting <see cref="Model.NationState.MobilizedPercent"/>, 0–100.</param>
+/// <param name="GlyphColorHex">
+/// The foreground colour the original draws this nation's marker glyph in — its background is
+/// <see cref="ColorHex"/> (T97, <c>2026-09-29-nation-marker-colours.md</c>). Optional and trailing
+/// deliberately: every pre-T97 construction (tests, the toy world) keeps compiling and loading with
+/// it absent, and a nation without one draws a black or white glyph chosen by its background's
+/// luminance.
+/// </param>
 public sealed record NationDefinition(
     string Id,
     string Name,
@@ -472,7 +479,8 @@ public sealed record NationDefinition(
     int TaxRatePercent,
     int MobilizedPercent,
     int Population,
-    [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
+    [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null,
+    string? GlyphColorHex = null);
 
 /// <summary>A city as the world defines it at scenario start.</summary>
 /// <param name="Owner">The nation that currently controls the city (city record <c>+6</c>).</param>
