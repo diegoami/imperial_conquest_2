@@ -25,11 +25,12 @@
          non-empty lines after the header (a short where-I-worked block may come first), it may
          carry Markdown, a "Verdict:" prefix or trailing punctuation, and the closing verdict may
          sit among the last three non-empty lines -- is normalised (canonical header, bare verdict
-         on line 2, closing verdict at the end; anything after the closing verdict, a sign-off
-         included, is dropped) and posted as one PR comment with `gh pr comment --body-file`. A
-         review whose verdict cannot be read, or that looks cut off (no closing verdict), is
-         posted as it arrived with a "> Note from scripts/external-review.ps1: ..." first line,
-         applies no label and exits 4, and the main session reads it and decides. A closing
+         on line 2, closing verdict at the end; the matched closing verdict line is removed and
+         every line after it, a sign-off included, is kept) and posted as one PR comment with
+         `gh pr comment --body-file`. A review whose verdict cannot be read, that looks cut off
+         (no closing verdict), or that carries finding-shaped lines after its closing verdict,
+         is posted as it arrived with a "> Note from scripts/external-review.ps1: ..." first
+         line, applies no label and exits 4, and the main session reads it and decides. A closing
          keyword is rewritten to its bare word plus the number without the hash ("fixes #551" ->
          "fixes 551"; "Fixes: #551", "fixes#551" and "owner/repo#551" too) and the review is
          still posted. A review that arrives flattened onto one line (seen from Luna on
@@ -197,8 +198,9 @@ function Read-ReviewOutput {
     #                               class; the next attempt runs, or the chain exits 3.
     #   Ok=$true, Flagged=$false -- Review (canonical header, bare verdict on line 2, closing
     #                               verdict at the end) and Verdict.
-    #   Ok=$true, Flagged=$true  -- FlagNote 'verdict unreadable' or 'may be cut off', and the text
-    #                               as it arrived: post it with the note, no label.
+    #   Ok=$true, Flagged=$true  -- FlagNote 'verdict unreadable', 'may be cut off' or 'text after
+    #                               the closing verdict', and the text as it arrived: post it with
+    #                               the note, no label.
     param([string] $Text, [string] $Header)
     if ($null -eq $Text) { $Text = '' }
     $lines = @($Text -split "`r?`n")
@@ -286,17 +288,19 @@ function Read-ReviewOutput {
     if (-not $closed) {
         return [pscustomobject]@{ Ok = $true; Flagged = $true; FlagNote = 'may be cut off'; Review = $raw; Verdict = $verdict }
     }
-    # Normalise: header, bare verdict, the body, the closing verdict. Everything after the matched
-    # closing verdict (a sign-off) is dropped so the verdict is not duplicated (rework R5); the
-    # matched line itself is replaced by the canonical verdict at the end.
-    if ($closeIdx -ge 0 -and $closeIdx -lt $bodyLines.Count - 1) {
-        $bodyLines = @($bodyLines | Select-Object -First ($closeIdx + 1))
+    # Normalise: header, bare verdict, the body, the closing verdict. Only the matched closing
+    # verdict line is removed; every line after it (a sign-off) is kept, so no text a review put
+    # after its closing verdict is ever dropped (rework round 2, N1). A finding-shaped line after
+    # the closing verdict (R2/N3/...) means the review is not trustworthy to act on: flag it and
+    # post it whole, no label, exit 4.
+    if ($closeIdx -ge 0) {
+        $after = @($bodyLines | Select-Object -Skip ($closeIdx + 1))
+        if (@($after | Where-Object { $_ -match '^\s*[RN]\d+' }).Count -gt 0) {
+            return [pscustomobject]@{ Ok = $true; Flagged = $true; FlagNote = 'text after the closing verdict'; Review = $raw; Verdict = $verdict }
+        }
+        $bodyLines = @(@($bodyLines | Select-Object -First $closeIdx) + $after)
     }
     while ($bodyLines.Count -gt 0 -and -not $bodyLines[0].Trim()) { $bodyLines = @($bodyLines | Select-Object -Skip 1) }
-    while ($bodyLines.Count -gt 0 -and -not $bodyLines[-1].Trim()) { $bodyLines = @($bodyLines | Select-Object -First ($bodyLines.Count - 1)) }
-    if ($bodyLines.Count -gt 0 -and (Get-ReviewVerdict $bodyLines[-1]) -eq $verdict) {
-        $bodyLines = @($bodyLines | Select-Object -First ($bodyLines.Count - 1))
-    }
     while ($bodyLines.Count -gt 0 -and -not $bodyLines[-1].Trim()) { $bodyLines = @($bodyLines | Select-Object -First ($bodyLines.Count - 1)) }
     if ($bodyLines.Count -eq 0) {
         return [pscustomobject]@{ Ok = $true; Flagged = $false; Review = (@($Header, $verdict) -join "`n"); Verdict = $verdict }
@@ -305,10 +309,11 @@ function Read-ReviewOutput {
 }
 
 function Invoke-ReviewParserSelfTest {
-    # DoD 4 of fix #575 (rework round 1): the sample outputs through Read-ReviewOutput, each showing
+    # DoD 4 of fix #575 (rework round 2): the sample outputs through Read-ReviewOutput, each showing
     # what the script would do -- post and act, post flagged with no label, or fail. MustContain
-    # asserts a flagged review's body survived; NoHash asserts the closing-keyword rewrite;
-    # VerdictLines asserts the normalised review does not repeat the verdict. Exits 0 when all match.
+    # asserts the posted review kept the text the model wrote (flagged or acted on); NoHash asserts
+    # the closing-keyword rewrite; VerdictLines asserts the normalised review does not repeat the
+    # verdict. Exits 0 when all match.
     $h = 'T575 review (Luna)'
     $whereIWorked = "Where I worked: C:/Users/diego/projects/ic2-work/fix-575`nHEAD cce70f3 | branch fix/575-one-model-tolerant-review`nchanged: scripts/external-review.ps1`ntests: parse check and self-test"
     $samples = @(
@@ -318,7 +323,10 @@ function Invoke-ReviewParserSelfTest {
         [pscustomobject]@{ Name = 'bold verdict';           Text = "$h`n**approve**`n`nR1. fine`n**approve**";             Expect = 'act' },
         [pscustomobject]@{ Name = 'Verdict: prefix';        Text = "$h`nVerdict: approve`n`nR1. fine`nVerdict: approve"; Expect = 'act' },
         [pscustomobject]@{ Name = 'trailing punctuation';   Text = "$h`napprove.`n`nR1. fine`napprove.";                   Expect = 'act' },
-        [pscustomobject]@{ Name = 'sign-off after verdict'; Text = "$h`napprove`n`nR1. fine`napprove`n- Luna";           Expect = 'act'; VerdictLines = 2 },
+        [pscustomobject]@{ Name = 'sign-off after verdict'; Text = "$h`napprove`n`nR1. fine`napprove`n- Luna";           Expect = 'act'; VerdictLines = 2; MustContain = @('- Luna') },
+        # N1 (rework round 2): findings after the closing verdict are never dropped; the review is
+        # posted whole, flagged, with no label and exit 4.
+        [pscustomobject]@{ Name = 'findings after closing verdict'; Text = "$h`napprove`n`nR1. fine`napprove`nR2. BLOCKING: the label path is wrong`nR3. another"; Expect = 'text after the closing verdict'; MustContain = @('R2. BLOCKING: the label path is wrong', 'R3. another') },
         [pscustomobject]@{ Name = 'closing keyword';        Text = "$h`napprove`n`nR1. This fixes #551.`nR2. Fixes: #552.`nR3. fixes#553`nR4. fixes diegoami/imperial_conquest_2#554`napprove"; Expect = 'act'; NoHash = @('#551', '#552', '#553', '#554') },
         [pscustomobject]@{ Name = 'one-line review';        Text = "$h approve R1. fine  approve";                         Expect = 'act' },
         # R2: a decorated header with a trailing colon; the verdict follows on the next line.
@@ -339,7 +347,7 @@ function Invoke-ReviewParserSelfTest {
         $r = Read-ReviewOutput -Text $s.Text -Header $h
         $outcome = if (-not $r.Ok) { 'failure' } elseif ($r.Flagged) { $r.FlagNote } else { 'act' }
         $ok = $outcome -eq $s.Expect
-        # R1: whatever the outcome, a postable review must keep the body the model wrote.
+        # R1/N1: whatever the outcome, a postable review must keep the body the model wrote.
         foreach ($needle in @($s.MustContain)) {
             if ($needle -and $r.Review -notlike "*$needle*") { $ok = $false }
         }
@@ -584,9 +592,16 @@ try {
         if ($failures) {
             # Name the models that failed before this one in the posted header.
             $note = ($failures | ForEach-Object { "$($displayNames[$_.Name]) failed: $($_.Reason)" }) -join '; '
-            $lines = $review -split "`r?`n"
-            $lines[0] = $result.Header -replace '\)\s*$', "; $note)"
-            $review = $lines -join "`n"
+            if ($result.Flagged) {
+                # A flagged review is posted as it arrived: its first line may be the whole
+                # flattened review, so never replace it. Prepend the failed attempts as their own
+                # note line instead (rework round 2, N2).
+                $review = "> Note from scripts/external-review.ps1: $note`n`n$review"
+            } else {
+                $lines = $review -split "`r?`n"
+                $lines[0] = $result.Header -replace '\)\s*$', "; $note)"
+                $review = $lines -join "`n"
+            }
         }
         $body = $review + "`n`n— $($displayNames[$result.Name]), via scripts/external-review.ps1 ($($result.Model))"
         if ($result.Flagged) {
