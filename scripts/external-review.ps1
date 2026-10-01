@@ -20,17 +20,22 @@
       3. takes the run's final message as the review. A review is never thrown away (issue #575):
          the only failure is no review at all (no header line anywhere, only tool chatter or
          nothing), which moves to the next attempt. A readable review -- the header may carry
-         Markdown and follow a preamble, blank lines may precede the verdict, the verdict may
+         Markdown (a trailing ':' or '.' is tolerated) and follow a preamble, blank lines may
+         precede the verdict, the verdict is the first verdict-shaped line among the first five
+         non-empty lines after the header (a short where-I-worked block may come first), it may
          carry Markdown, a "Verdict:" prefix or trailing punctuation, and the closing verdict may
          sit among the last three non-empty lines -- is normalised (canonical header, bare verdict
-         on line 2, closing verdict at the end) and posted as one PR comment with
-         `gh pr comment --body-file`. A review whose verdict cannot be read, or that looks cut
-         off (no closing verdict), is posted with a "> Note from scripts/external-review.ps1:
-         ..." first line, applies no label and exits 4, and the main session reads it and decides.
-         A closing keyword is rewritten to its bare word ("fixes #551" -> "fixes 551") and the
-         review is still posted. A review that arrives flattened onto one line (seen from Luna on
+         on line 2, closing verdict at the end; anything after the closing verdict, a sign-off
+         included, is dropped) and posted as one PR comment with `gh pr comment --body-file`. A
+         review whose verdict cannot be read, or that looks cut off (no closing verdict), is
+         posted as it arrived with a "> Note from scripts/external-review.ps1: ..." first line,
+         applies no label and exits 4, and the main session reads it and decides. A closing
+         keyword is rewritten to its bare word plus the number without the hash ("fixes #551" ->
+         "fixes 551"; "Fixes: #551", "fixes#551" and "owner/repo#551" too) and the review is
+         still posted. A review that arrives flattened onto one line (seen from Luna on
          2026-09-28) is accepted when it starts with the header and a verdict and ends with the
-         same verdict; its runs of spaces are turned back into paragraph breaks;
+         same verdict; its runs of spaces are turned back into paragraph breaks; a flattened
+         review that does not parse is posted whole, not cut down to its header;
       4. with -ApplyLabel, applies status:approved or status:rework to the task's issue from the
          verdict, as a Claude reviewer would (never for a plan PR; never for a flagged review);
       5. removes the worktree it created, and only that one.
@@ -84,8 +89,8 @@
     Do everything except post and label; print the review to stdout instead, and the exit code it
     would use (0, or 4 when the review would be posted flagged).
 .PARAMETER SelfTest
-    Run the twelve review-parser samples (fix #575 DoD 4) and exit 0 when all match; no PR, no
-    brief and no OpenCode run.
+    Run the review-parser samples (fix #575 DoD 4) and exit 0 when all match; no PR, no brief and
+    no OpenCode run.
 .PARAMETER StartupTimeoutSec
     How long a run may take to create its OpenCode session before it is killed (default 180).
 .PARAMETER TotalTimeoutSec
@@ -137,6 +142,26 @@ $ErrorActionPreference = 'Stop'
 # looks cut off (no closing verdict), is posted with a note, applies no label, and exits 4 so the
 # main session reads it and decides.
 $verdicts = 'approve after named fixes', 'approve', 'rework', 'user decision'
+$closingKeywords = 'close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved'
+
+function Remove-ClosingKeywordHash {
+    # Rewrites a closing keyword's link -- "fixes #551", "Fixes: #551", "fixes#551" and
+    # "fixes owner/repo#551" -- to the bare word and the number without the hash (issue #575
+    # rework R4), so a review is never discarded for one. The run's log notes the rewrite.
+    param([string] $Text)
+    if ($null -eq $Text) { return '' }
+    $pattern = "(?i)\b($closingKeywords)(\s*:?\s*)((?:[\w.-]+/[\w.-]+)\s*)?#(\d+)"
+    return [regex]::Replace($Text, $pattern, {
+        param($m)
+        $mid = $m.Groups[2].Value
+        $repo = $m.Groups[3].Value
+        # "Fixes: #12" keeps its colon; "fixes#12" and "owner/repo#12" gain the space the hash
+        # took, so the word (or the repo) and the number never run together.
+        $before = if ($repo) { $repo } else { $mid }
+        $space = if ($before -match '\s$') { '' } else { ' ' }
+        return "$($m.Groups[1].Value)$mid$repo$space$($m.Groups[4].Value)"
+    })
+}
 
 function Remove-ReviewDecoration {
     # A line without the Markdown around it: a leading '>' or '#', bold/italic markers and
@@ -181,17 +206,23 @@ function Read-ReviewOutput {
     $headerLine = -1
     $flatTail = $null
     for ($i = 0; $i -lt $lines.Count; $i++) {
-        # The header may carry Markdown around it, case-insensitively, after any preamble.
-        if ((Remove-ReviewDecoration $lines[$i]) -ieq $headerPlain) { $headerLine = $i; break }
+        # The header may carry Markdown around it, case-insensitively, after any preamble; a
+        # trailing ':' or '.' (e.g. "Plan review (Luna):") is tolerated (rework R2).
+        if ((Remove-ReviewDecoration $lines[$i]).TrimEnd(':', '.', ' ', "`t") -ieq $headerPlain) { $headerLine = $i; break }
         # Flattened: the header starts the line and the review follows on it (Luna, 2026-09-28).
         $stripped = $lines[$i].TrimStart(' ', "`t", '>', '#', '*', '_', '`')
         if ($stripped.StartsWith($headerPlain, [System.StringComparison]::OrdinalIgnoreCase)) {
             $tail = $stripped.Substring($headerPlain.Length).Trim(' ', "`t", '*', '_', '`')
-            if ($tail) { $headerLine = $i; $flatTail = $tail; break }
+            # A tail of punctuation alone (a bare "header:") is not a flattened review; keep
+            # looking for the header (rework R2).
+            if ($tail -match '\w') { $headerLine = $i; $flatTail = $tail.TrimStart(':', ' ', "`t"); break }
         }
     }
     if ($headerLine -lt 0) { return [pscustomobject]@{ Ok = $false; Reason = 'no header line in its output' } }
     $content = @($lines | Select-Object -Skip $headerLine)
+    # A flagged flattened review is posted as it arrived, so keep the line before the canonical
+    # header replaces it (rework R1: the review must not shrink to its header).
+    $rawAsArrived = ($content -join "`n").TrimEnd()
     $content[0] = $Header
     $raw = ($content -join "`n").TrimEnd()
 
@@ -199,18 +230,18 @@ function Read-ReviewOutput {
         # The one-line review: leading verdict, findings, closing verdict, runs of spaces between
         # the paragraphs. The verdicts may carry Markdown and trailing punctuation.
         $flat = (@($flatTail) + @($content | Select-Object -Skip 1)) -join "`n"
-        $lead = $flat -replace '^[\s>#*_`]+', ''
+        $lead = $flat -replace '^[\s>#*_`:]+', ''
         $verdict = ''
         foreach ($v in $verdicts) {
             if ($lead -imatch "^$([regex]::Escape($v))([\s*_`.,!:;]|$)") { $verdict = $v; break }
         }
         if (-not $verdict) {
-            return [pscustomobject]@{ Ok = $true; Flagged = $true; FlagNote = 'verdict unreadable'; Review = $raw; Verdict = '' }
+            return [pscustomobject]@{ Ok = $true; Flagged = $true; FlagNote = 'verdict unreadable'; Review = $rawAsArrived; Verdict = '' }
         }
         $middle = Remove-ReviewDecoration ($lead.Substring($verdict.Length))
         $closing = "(?i)(^|\s)$([regex]::Escape($verdict))[\s*_`.,!:;]*$"
         if ($middle -notmatch $closing) {
-            return [pscustomobject]@{ Ok = $true; Flagged = $true; FlagNote = 'may be cut off'; Review = $raw; Verdict = $verdict }
+            return [pscustomobject]@{ Ok = $true; Flagged = $true; FlagNote = 'may be cut off'; Review = $rawAsArrived; Verdict = $verdict }
         }
         $body = @(([regex]::Replace($middle, $closing, '') -split "`n") | Where-Object { $_.Trim() }) -join "`n`n"
         $body = ($body -split ' {2,}') -join "`n`n"
@@ -221,30 +252,46 @@ function Read-ReviewOutput {
         return [pscustomobject]@{ Ok = $true; Flagged = $false; Review = (@($Header, $verdict, '', $body, '', $verdict) -join "`n"); Verdict = $verdict }
     }
 
-    # The first non-empty line after the header is the verdict; blank lines before it are skipped.
-    $verdictIdx = -1
-    for ($i = 1; $i -lt $content.Count; $i++) {
-        if ($content[$i].Trim()) { $verdictIdx = $i; break }
-    }
+    # The verdict is the first verdict-shaped line among the first five non-empty lines after the
+    # header; blank lines are skipped and a short where-I-worked block may come before it
+    # (rework R3).
     $verdict = ''
-    if ($verdictIdx -ge 0) { $verdict = Get-ReviewVerdict $content[$verdictIdx] }
+    $verdictIdx = -1
+    $seen = 0
+    for ($i = 1; $i -lt $content.Count; $i++) {
+        if (-not $content[$i].Trim()) { continue }
+        $seen++
+        if ($seen -gt 5) { break }
+        $v = Get-ReviewVerdict $content[$i]
+        if ($v) { $verdict = $v; $verdictIdx = $i; break }
+    }
     if (-not $verdict) {
         return [pscustomobject]@{ Ok = $true; Flagged = $true; FlagNote = 'verdict unreadable'; Review = $raw; Verdict = '' }
     }
-    $bodyLines = @($content | Select-Object -Skip ($verdictIdx + 1))
+    # The body is everything after the header except the leading verdict line; lines before it (a
+    # where-I-worked block) are kept.
+    $bodyLines = @()
+    if ($verdictIdx -gt 1) { $bodyLines += @($content | Select-Object -Skip 1 -First ($verdictIdx - 1)) }
+    $bodyLines += @($content | Select-Object -Skip ($verdictIdx + 1))
     # The closing verdict may sit among the last three non-empty lines: a sign-off after it is fine.
-    $nonEmpty = @($bodyLines | Where-Object { $_.Trim() })
-    $closed = $nonEmpty.Count -eq 0   # the leading verdict is the only verdict (as before #575)
+    $nonEmptyIdx = @()
+    for ($i = 0; $i -lt $bodyLines.Count; $i++) { if ($bodyLines[$i].Trim()) { $nonEmptyIdx += $i } }
+    $closeIdx = -1
+    $closed = $nonEmptyIdx.Count -eq 0   # the leading verdict is the only verdict (as before #575)
     if (-not $closed) {
-        foreach ($l in @($nonEmpty | Select-Object -Last 3)) {
-            if ((Get-ReviewVerdict $l) -eq $verdict) { $closed = $true; break }
+        foreach ($idx in @($nonEmptyIdx | Select-Object -Last 3)) {
+            if ((Get-ReviewVerdict $bodyLines[$idx]) -eq $verdict) { $closed = $true; $closeIdx = $idx; break }
         }
     }
     if (-not $closed) {
         return [pscustomobject]@{ Ok = $true; Flagged = $true; FlagNote = 'may be cut off'; Review = $raw; Verdict = $verdict }
     }
-    # Normalise: header, bare verdict, the body, the closing verdict. A body line that only repeats
-    # the closing verdict is dropped and replaced by the canonical one at the end.
+    # Normalise: header, bare verdict, the body, the closing verdict. Everything after the matched
+    # closing verdict (a sign-off) is dropped so the verdict is not duplicated (rework R5); the
+    # matched line itself is replaced by the canonical verdict at the end.
+    if ($closeIdx -ge 0 -and $closeIdx -lt $bodyLines.Count - 1) {
+        $bodyLines = @($bodyLines | Select-Object -First ($closeIdx + 1))
+    }
     while ($bodyLines.Count -gt 0 -and -not $bodyLines[0].Trim()) { $bodyLines = @($bodyLines | Select-Object -Skip 1) }
     while ($bodyLines.Count -gt 0 -and -not $bodyLines[-1].Trim()) { $bodyLines = @($bodyLines | Select-Object -First ($bodyLines.Count - 1)) }
     if ($bodyLines.Count -gt 0 -and (Get-ReviewVerdict $bodyLines[-1]) -eq $verdict) {
@@ -258,9 +305,12 @@ function Read-ReviewOutput {
 }
 
 function Invoke-ReviewParserSelfTest {
-    # DoD 4 of fix #575: twelve sample outputs through Read-ReviewOutput, each showing what the
-    # script would do -- post and act, post flagged with no label, or fail. Exits 0 when all match.
-    $h = 'T575 review (GLM Flash)'
+    # DoD 4 of fix #575 (rework round 1): the sample outputs through Read-ReviewOutput, each showing
+    # what the script would do -- post and act, post flagged with no label, or fail. MustContain
+    # asserts a flagged review's body survived; NoHash asserts the closing-keyword rewrite;
+    # VerdictLines asserts the normalised review does not repeat the verdict. Exits 0 when all match.
+    $h = 'T575 review (Luna)'
+    $whereIWorked = "Where I worked: C:/Users/diego/projects/ic2-work/fix-575`nHEAD cce70f3 | branch fix/575-one-model-tolerant-review`nchanged: scripts/external-review.ps1`ntests: parse check and self-test"
     $samples = @(
         [pscustomobject]@{ Name = 'bold header';            Text = "**$h**`napprove`n`nR1. fine`napprove";                Expect = 'act' },
         [pscustomobject]@{ Name = 'hash header';            Text = "# $h`napprove`n`nR1. fine`napprove";                  Expect = 'act' },
@@ -268,11 +318,18 @@ function Invoke-ReviewParserSelfTest {
         [pscustomobject]@{ Name = 'bold verdict';           Text = "$h`n**approve**`n`nR1. fine`n**approve**";             Expect = 'act' },
         [pscustomobject]@{ Name = 'Verdict: prefix';        Text = "$h`nVerdict: approve`n`nR1. fine`nVerdict: approve"; Expect = 'act' },
         [pscustomobject]@{ Name = 'trailing punctuation';   Text = "$h`napprove.`n`nR1. fine`napprove.";                   Expect = 'act' },
-        [pscustomobject]@{ Name = 'sign-off after verdict'; Text = "$h`napprove`n`nR1. fine`napprove`n- GLM Flash";      Expect = 'act' },
-        [pscustomobject]@{ Name = 'closing keyword';        Text = "$h`napprove`n`nR1. This fixes #551.`napprove";         Expect = 'act'; NoHash = '#551' },
+        [pscustomobject]@{ Name = 'sign-off after verdict'; Text = "$h`napprove`n`nR1. fine`napprove`n- Luna";           Expect = 'act'; VerdictLines = 2 },
+        [pscustomobject]@{ Name = 'closing keyword';        Text = "$h`napprove`n`nR1. This fixes #551.`nR2. Fixes: #552.`nR3. fixes#553`nR4. fixes diegoami/imperial_conquest_2#554`napprove"; Expect = 'act'; NoHash = @('#551', '#552', '#553', '#554') },
         [pscustomobject]@{ Name = 'one-line review';        Text = "$h approve R1. fine  approve";                         Expect = 'act' },
+        # R2: a decorated header with a trailing colon; the verdict follows on the next line.
+        [pscustomobject]@{ Name = 'header trailing colon';  Text = "### $($h):`napprove`n`nR1. fine`napprove";              Expect = 'act' },
+        # R3: a four-line where-I-worked block may sit between the header and the verdict.
+        [pscustomobject]@{ Name = 'where-I-worked first';   Text = "$h`n$whereIWorked`napprove`n`nR1. fine`napprove";      Expect = 'act' },
+        # R1: a flagged flattened review keeps its whole text, not just the header.
+        [pscustomobject]@{ Name = 'flat cut off';           Text = "$h approve R1. fine  R2. the keyword rewrite is";      Expect = 'may be cut off'; MustContain = @('R1. fine', 'R2. the keyword rewrite is') },
+        [pscustomobject]@{ Name = 'flat unreadable';        Text = "$h Looks good overall  R1. fine";                      Expect = 'verdict unreadable'; MustContain = @('Looks good overall', 'R1. fine') },
         [pscustomobject]@{ Name = 'no closing verdict';     Text = "$h`napprove`n`nR1. fine`nR2. another";               Expect = 'may be cut off' },
-        [pscustomobject]@{ Name = 'unreadable verdict';     Text = "$h`nLooks good to me.`n`nR1. fine`napprove";         Expect = 'verdict unreadable' },
+        [pscustomobject]@{ Name = 'unreadable verdict';     Text = "$h`nLooks good to me.`n`nR1. fine`nR2. another";     Expect = 'verdict unreadable' },
         [pscustomobject]@{ Name = 'no header, chatter';     Text = "reading files...`nrunning tests...`nno review";      Expect = 'failure' }
     )
     $failed = 0
@@ -282,11 +339,22 @@ function Invoke-ReviewParserSelfTest {
         $r = Read-ReviewOutput -Text $s.Text -Header $h
         $outcome = if (-not $r.Ok) { 'failure' } elseif ($r.Flagged) { $r.FlagNote } else { 'act' }
         $ok = $outcome -eq $s.Expect
+        # R1: whatever the outcome, a postable review must keep the body the model wrote.
+        foreach ($needle in @($s.MustContain)) {
+            if ($needle -and $r.Review -notlike "*$needle*") { $ok = $false }
+        }
         if ($ok -and $r.Ok -and -not $r.Flagged) {
-            # The posting path rewrites a closing keyword; apply it here too and require none left.
-            $posted = [regex]::Replace($r.Review, '(?i)\b(close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s+#(\d+)', '$1 $2')
-            if ($s.NoHash -and $posted -match [regex]::Escape($s.NoHash)) { $ok = $false }
-            if ($posted -match '(?i)\b(close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s+#\d+') { $ok = $false }
+            # The posting path rewrites closing keywords; use the same helper and require none left.
+            $posted = Remove-ClosingKeywordHash $r.Review
+            foreach ($hash in @($s.NoHash)) {
+                if ($hash -and $posted -match [regex]::Escape($hash)) { $ok = $false }
+            }
+            if ($posted -match "(?i)\b($closingKeywords)(\s*:?\s*)((?:[\w.-]+/[\w.-]+)\s*)?#\d+") { $ok = $false }
+            # R5: the normalised review carries the leading verdict and one closing verdict only.
+            if ($null -ne $s.VerdictLines) {
+                $count = @($posted -split "`r?`n" | Where-Object { (Get-ReviewVerdict $_) -eq $r.Verdict }).Count
+                if ($count -ne $s.VerdictLines) { $ok = $false }
+            }
         }
         if (-not $ok) { $failed++ }
         $label = if ($outcome -eq 'act') { 'post and act' } elseif ($outcome -eq 'failure') { 'failure' } else { "post flagged, no label ($outcome)" }
@@ -484,7 +552,9 @@ OUTPUT RULES (from scripts/external-review.ps1; they override anything above tha
     $parsed = Read-ReviewOutput -Text $run.StdOut -Header $header
     if (-not $parsed.Ok) { return (& $fail $parsed.Reason "The run's output has no header line '$header'. Output:`n$output") }
     $review = $parsed.Review
-    $rewritten = [regex]::Replace($review, '(?i)\b(close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s+#(\d+)', '$1 $2')
+    # Never discard a review for a closing keyword: rewrite every form and note it (issue #575
+    # rework R4). The posting path and the self-test share Remove-ClosingKeywordHash.
+    $rewritten = Remove-ClosingKeywordHash $review
     if ($rewritten -ne $review) { Write-Host "note: rewrote closing keyword(s) in the review (e.g. 'fixes #551' -> 'fixes 551') so it can be posted." }
     return [pscustomobject]@{ Ok = $true; Name = $Name; Model = $model; Header = $header; Review = $rewritten; Verdict = $parsed.Verdict; Flagged = $parsed.Flagged; FlagNote = $parsed.FlagNote }
 }
