@@ -104,6 +104,15 @@
       hand-maintained copy.
     -->
     <Compile Include="../../godot/UI/RecruitmentPanelViewModel.cs" Link="Ui/RecruitmentPanelViewModel.cs" />
+
+    <!--
+      Fix #484 (tests/IC2.Engine.Tests/Ui/**): the same seam once more. CommandOutcomeText.cs is the
+      Godot-free shared rule behind the main game screen's last-command label and T95's Save
+      confirmation label (the last non-empty line of GameSession.Submit's output), so the fix's own
+      reproduction can assert what the label shows against real Submit output. No `using Godot`
+      anywhere; never a second, hand-maintained copy.
+    -->
+    <Compile Include="../../godot/UI/CommandOutcomeText.cs" Link="Ui/CommandOutcomeText.cs" />
   </ItemGroup>
 
 </Project>

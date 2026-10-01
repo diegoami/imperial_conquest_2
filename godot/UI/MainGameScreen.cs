@@ -35,6 +35,16 @@ public partial class MainGameScreen : Control
     /// </summary>
     private const string SavesDirectory = "user://saves";
 
+    /// <summary>
+    /// T96: how many lines of the last command's outcome the label shows — its <em>last</em> lines, not
+    /// its first (see <see cref="UpdateLastCommandLinesSkipped"/>), with the full block in the tooltip.
+    /// Three lines are also the label's explicit minimum height: a Godot <see cref="Label"/> with
+    /// autowrap plus clipping or an overrun behaviour reports a minimum size of (1, 1), so without the
+    /// floor the root VBox lays it out 1&#160;px tall and it shows nothing (bug #484's symptom again;
+    /// PR #521's re-review measured it as R1-B1).
+    /// </summary>
+    private const int LastCommandVisibleLineCount = 3;
+
     /// <summary>Exposed (rather than kept private) so <c>godot/Checks/ScreenshotTour.cs</c> can drive a
     /// selection and open the news log for the visual sign-off screenshot without simulating clicks.</summary>
     public GameMapView MapView => _mapView;
@@ -90,8 +100,34 @@ public partial class MainGameScreen : Control
 
         root.AddChild(BuildBottomToolbar());
 
+        // Fix #484 (review N1): a command's whole own outcome can carry a long rejection reason or a
+        // Save path. Wrapping at word boundaries, a three-line ceiling with an ellipsis, and the full
+        // text in the tooltip keep a long result from widening this full-rect root or pushing the
+        // context panel off-screen.
         _lastCommandLabel = UiKit.MakeLabel(string.Empty, 12, UiKit.MutedTextColor);
+        _lastCommandLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _lastCommandLabel.MaxLinesVisible = LastCommandVisibleLineCount;
+        _lastCommandLabel.ClipText = true;
+        _lastCommandLabel.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
         root.AddChild(_lastCommandLabel);
+
+        // T96 (R1-B1): the wrap/clip/overrun combination above reports a (1, 1) minimum size, so the
+        // root VBox used to lay the label out 1 px tall with zero visible lines -- #484's own symptom.
+        // Three lines' height from the label's own theme font is the floor that keeps it visible. The
+        // pitch is the glyph height plus the Label theme's own "line_spacing" constant (3 in Godot's
+        // default theme): Label.GetLineHeight() returns only the former, and a floor of three glyph
+        // heights lays out three lines but lets GetVisibleLineCount() count just two. The explicit size
+        // also keeps the block's last-lines view (below) from ever collapsing.
+        var lineSpacing = _lastCommandLabel.GetThemeConstant("line_spacing");
+        var linePitch = _lastCommandLabel.GetLineHeight() + lineSpacing;
+        _lastCommandLabel.CustomMinimumSize = new Vector2(
+            0, Mathf.Ceil(LastCommandVisibleLineCount * linePitch));
+
+        // T96 (B1 as displayed): the label shows the block's *last* lines, so an end's
+        // "Now: Week …, Active seat: …" footer is what the player sees rather than the first AI-turn
+        // lines. LinesSkipped is recomputed on every command and whenever a layout pass changes the
+        // label's width (which is what decides how many lines the text wraps to).
+        _lastCommandLabel.Resized += UpdateLastCommandLinesSkipped;
 
         _newsLog = new NewsLogPanel { Session = Session, CustomMinimumSize = new Vector2(0, 200) };
         root.AddChild(_newsLog);
@@ -133,12 +169,12 @@ public partial class MainGameScreen : Control
         row.AddChild(UiKit.MakeButton("Save", OnSavePressed, 16));
         row.AddChild(UiKit.MakeButton("End Turn", OnEndTurnPressed, 16));
 
-        // T95: the Save action's own confirmation/refusal line. Not routed through OnCommandIssued's own
-        // _lastCommandLabel (below the bottom toolbar): that label always shows Submit's own trailing
-        // blank separator line (SessionOutput.Lines's last entry, every command's own convention, shared
-        // by every control on this screen, none of which this task's narrow "a Save action" grant may
-        // change) -- so it never actually displays anything, for Save or for End Turn alike. This label
-        // is this task's own, showing HandleSave's real last non-empty line instead.
+        // T95: the Save action's own confirmation/refusal line. Kept by fix #484 even though the shared
+        // rule below now makes it redundant: _lastCommandLabel shows the identical
+        // CommandOutcomeText.OutcomeBlock text for every command, Save included, but a fix takes
+        // nothing T95 added away -- its narrow "a Save action" grant owns this label outright. Before
+        // fix #484 the shared label was always Submit's own trailing blank separator line
+        // (SessionOutput.Lines's last entry), so this was the only place a save's own outcome appeared.
         _saveConfirmationLabel = UiKit.MakeLabel(string.Empty, 14, UiKit.MutedTextColor);
         row.AddChild(_saveConfirmationLabel);
 
@@ -187,13 +223,10 @@ public partial class MainGameScreen : Control
     /// <remarks>
     /// Calls <see cref="GameSession.Submit"/> directly, then <see cref="OnCommandIssued"/>, rather than
     /// going through <see cref="SubmitForCheck"/> alone: <see cref="OnCommandIssued"/>'s own
-    /// <see cref="_lastCommandLabel"/> update (<c>lines[^1]</c>) always lands on <see cref="SessionOutput"/>'s
-    /// own trailing blank separator line, every command's shared convention, so it never actually shows a
-    /// save's own outcome (or any command's). This method still runs the identical
-    /// <see cref="OnCommandIssued"/> refresh (map, context panel, top bar) that <see cref="SubmitForCheck"/>
-    /// would have, and additionally shows the real last non-empty line — <c>"Saved to '...'."</c> or a
-    /// refusal — in <see cref="_saveConfirmationLabel"/>, a label this task's own narrow Save-action grant
-    /// owns outright.
+    /// <see cref="_lastCommandLabel"/> update now shows the command's whole own outcome (fix #484's
+    /// <see cref="CommandOutcomeText.OutcomeBlock"/>), and this method additionally writes that same
+    /// outcome — <c>"Saved to '...'."</c> or a refusal — into <see cref="_saveConfirmationLabel"/>, the
+    /// dedicated label next to the top bar's Save button that T95 owns outright.
     /// </remarks>
     private void OnSavePressed() => OnSavePressed(checkUniqueSuffix: null);
 
@@ -218,7 +251,7 @@ public partial class MainGameScreen : Control
 
         var output = Session.Submit($"save {path}");
         OnCommandIssued(output.Lines);
-        _saveConfirmationLabel.Text = output.Lines.LastOrDefault(line => line.Length > 0) ?? string.Empty;
+        _saveConfirmationLabel.Text = CommandOutcomeText.OutcomeBlock(output.Lines);
     }
 
     /// <summary>
@@ -229,6 +262,28 @@ public partial class MainGameScreen : Control
     /// without duplicating its naming rule.
     /// </summary>
     public string? LastSavedPath { get; private set; }
+
+    /// <summary>
+    /// The text the shared last-command label (<see cref="_lastCommandLabel"/>, under the bottom
+    /// toolbar) currently carries: fix #484's <see cref="CommandOutcomeText.OutcomeBlock"/> of the most
+    /// recent <see cref="GameSession.Submit"/> call — the order's own acceptance or refusal lines (a
+    /// composed declaration of war included), or an <c>end</c> round's closing summary up to its news.
+    /// The label displays its last <see cref="LastCommandVisibleLineCount"/> wrapped lines and keeps the
+    /// whole block in its tooltip; this property is the whole block, so a check that wants what is
+    /// visible reads the label's own <see cref="Label.LinesSkipped"/> and <see cref="Label.GetVisibleLineCount"/>.
+    /// Exposed for the same reason
+    /// <see cref="LastSavedPath"/> is: <c>godot/Checks/CommandFeedbackCheck.cs</c> reads the real label
+    /// after driving real commands, rather than re-deriving its text from a second copy of the rule.
+    /// </summary>
+    public string LastCommandText => _lastCommandLabel.Text;
+
+    /// <summary>
+    /// T95's own Save confirmation label's text, kept by fix #484 as its own dedicated slot even though
+    /// the shared rule now gives <see cref="LastCommandText"/> the same text. Exposed for
+    /// <c>godot/Checks/CommandFeedbackCheck.cs</c>, so the check can assert T95's label still shows the
+    /// save's real outcome after the fix.
+    /// </summary>
+    public string SaveConfirmationText => _saveConfirmationLabel.Text;
 
     /// <summary>
     /// Presses the "Save" button exactly as a real click would — public for the same reason
@@ -249,18 +304,34 @@ public partial class MainGameScreen : Control
     /// T25: submits one raw command line through <see cref="GameSession.Submit"/> and runs the result
     /// through <see cref="OnCommandIssued"/> — exactly what <see cref="OnEndTurnPressed"/> already does for
     /// "end", exposed under its own name so a headless check can also drive an attack/siege command this
-    /// way. Exposed rather than only reachable through <see cref="GameMapView"/>'s own private
+    /// way. Returns the real <see cref="SessionOutput.Lines"/> so a check can pin the label against the
+    /// engine's own output (for example the round footer's exact <c>"Now: Week …"</c> line) instead of
+    /// re-deriving it. Exposed rather than only reachable through <see cref="GameMapView"/>'s own private
     /// screen-to-tile click transform (<c>godot/UI/GameMapView.cs</c>, outside this task's Owns list) — the
     /// same reason <see cref="MapView"/>/<see cref="ContextPanel"/>/<see cref="NewsLog"/> are exposed for
     /// <c>godot/Checks/ScreenshotTour.cs</c>. A real click or context-panel button still reaches the
     /// identical <see cref="OnCommandIssued"/> pipeline through <see cref="GameMapView.CommandIssued"/> or
     /// <see cref="ContextPanel.CommandIssued"/> — this is not a second, parallel path, only a second way in.
     /// </summary>
-    public void SubmitForCheck(string commandLine) => OnCommandIssued(Session.Submit(commandLine).Lines);
+    public IReadOnlyList<string> SubmitForCheck(string commandLine)
+    {
+        var lines = Session.Submit(commandLine).Lines;
+        OnCommandIssued(lines);
+        return lines;
+    }
 
     private void OnCommandIssued(IReadOnlyList<string> lines)
     {
-        _lastCommandLabel.Text = lines.Count == 0 ? string.Empty : lines[^1];
+        // Fix #484: Submit always ends its output with a blank separator line, so lines[^1] was always
+        // empty and this label never showed a command's result. CommandOutcomeText.OutcomeBlock is the
+        // screen's one shared rule (T95's Save label uses it too): the command's whole own outcome, up to
+        // the round footer's News: section, trimmed, with whitespace-only spacer lines dropped. Every
+        // input path -- map click, context-panel button, End Turn, SubmitForCheck, Save -- funnels
+        // through here.
+        var outcome = CommandOutcomeText.OutcomeBlock(lines);
+        _lastCommandLabel.Text = outcome;
+        _lastCommandLabel.TooltipText = outcome;
+        UpdateLastCommandLinesSkipped();
         _mapView.Refresh();
         _contextPanel.Refresh();
         RefreshTopBar();
@@ -279,6 +350,21 @@ public partial class MainGameScreen : Control
         }
 
         ShowNextOverlay();
+    }
+
+    /// <summary>
+    /// T96 (B1 as displayed): keeps the label's window on the <em>last</em> <see
+    /// cref="LastCommandVisibleLineCount"/> lines of its wrapped text. <see cref="Label.MaxLinesVisible"/>
+    /// alone caps how many lines are drawn but draws the <em>first</em> ones, which hid an <c>end</c>'s
+    /// <c>Now: Week …</c> footer; <see cref="Label.LinesSkipped"/> drops the lines above the tail.
+    /// <see cref="Label.GetLineCount"/> shapes the text at the label's current width, so this runs after
+    /// every text change and on every resize: a command issued before the first layout pass is
+    /// recomputed once the label gets its real width.
+    /// </summary>
+    private void UpdateLastCommandLinesSkipped()
+    {
+        var lineCount = _lastCommandLabel.GetLineCount();
+        _lastCommandLabel.LinesSkipped = Mathf.Max(0, lineCount - LastCommandVisibleLineCount);
     }
 
     private void ShowNextOverlay()
