@@ -138,6 +138,31 @@ graph TD
   T96[T96 last-command label]
   T97[T97 nation marker colours]
   T98[T98 OpenCode scripts on 2.x]
+  T99[T99 map-click orders]
+  T101[T101 toolbar icon keys]
+  T99 --> T100[T100 menu bar and toolbars]
+  T101 --> T100
+  T100 --> T102[T102 overview mini-map]
+  T103[T103 set tax rate]
+  T104[T104 balance sheet]
+  T105[T105 treasury-purse transfer]
+  T106[T106 army-to-army transfer]
+  T107[T107 change units]
+  T108[T108 disband a recruitment slot]
+  T100 --> T109[T109 Strategy dialogs]
+  T103 --> T109
+  T104 --> T109
+  T108 --> T109
+  T100 --> T110[T110 Nations and Area map]
+  T102 --> T110
+  T100 --> T111[T111 Army orders]
+  T105 --> T111
+  T106 --> T111
+  T107 --> T111
+  T111 --> T112[T112 Fleet and City orders, command strip]
+  T76 --> T113[T113 mercenaries on the map]
+  T110 --> T113
+  T112 --> T113
   T23 --> T26[T26 scenario docs+examples]
   T29 --> T26
   T22 --> T28[T28 nightly soak gate]
@@ -827,6 +852,96 @@ OpenCode scripts on 2.x (after bug #540) → [full entry](tasks/T98.md) · [#541
 
 ---
 
+#### T99 Orders on the map: click a unit, then its target
+
+Map-click orders → [full entry](tasks/T99.md) · [#557](https://github.com/diegoami/imperial_conquest_2/issues/557)
+
+---
+
+#### T100 The menu bar and the main toolbar, driven by one command table
+
+Menu bar and toolbars → [full entry](tasks/T100.md) · [#558](https://github.com/diegoami/imperial_conquest_2/issues/558)
+
+---
+
+#### T101 Asset keys for the toolbar icons
+
+Toolbar icon keys → [full entry](tasks/T101.md) · [#559](https://github.com/diegoami/imperial_conquest_2/issues/559)
+
+---
+
+#### T102 The overview mini-map
+
+Overview mini-map → [full entry](tasks/T102.md) · [#560](https://github.com/diegoami/imperial_conquest_2/issues/560)
+
+---
+
+#### T103 A command sets the nation's tax rate
+
+Set the tax rate (bug #468; after the range is read) → [full entry](tasks/T103.md) · [#561](https://github.com/diegoami/imperial_conquest_2/issues/561)
+
+---
+
+#### T104 The balance sheet: a read-only projection of the quarter's budget
+
+Balance sheet → [full entry](tasks/T104.md) · [#562](https://github.com/diegoami/imperial_conquest_2/issues/562)
+
+---
+
+#### T105 A command moves money between the treasury and a purse
+
+Treasury-purse transfer → [full entry](tasks/T105.md) · [#563](https://github.com/diegoami/imperial_conquest_2/issues/563)
+
+---
+
+#### T106 Army-to-army transfer of units, supply and money
+
+Army-to-army transfer → [full entry](tasks/T106.md) · [#564](https://github.com/diegoami/imperial_conquest_2/issues/564)
+
+---
+
+#### T107 Change units: split, rename and disband a single unit
+
+Change units → [full entry](tasks/T107.md) · [#565](https://github.com/diegoami/imperial_conquest_2/issues/565)
+
+---
+
+#### T108 Disband a recruitment slot
+
+Disband a recruitment slot (after a research read) → [full entry](tasks/T108.md) · [#566](https://github.com/diegoami/imperial_conquest_2/issues/566)
+
+---
+
+#### T109 The Strategy menu's dialogs: Taxation, Balance sheet, Recruit unit and Build fleet
+
+Strategy dialogs → [full entry](tasks/T109.md) · [#567](https://github.com/diegoami/imperial_conquest_2/issues/567)
+
+---
+
+#### T110 The Nations and Area map menus: the viewed nation, highlights and Find a city
+
+Nations and Area map → [full entry](tasks/T110.md) · [#568](https://github.com/diegoami/imperial_conquest_2/issues/568)
+
+---
+
+#### T111 The Unit map's Army orders, each in its own dialog
+
+Army orders → [full entry](tasks/T111.md) · [#569](https://github.com/diegoami/imperial_conquest_2/issues/569)
+
+---
+
+#### T112 The Unit map's Fleet and City orders, and the selected unit's command strip
+
+Fleet and City orders, command strip → [full entry](tasks/T112.md) · [#570](https://github.com/diegoami/imperial_conquest_2/issues/570)
+
+---
+
+#### T113 Mercenaries on the map: Show mercenaries and Recruit mercenaries
+
+Mercenaries on the map (after T76) → [full entry](tasks/T113.md) · [#571](https://github.com/diegoami/imperial_conquest_2/issues/571)
+
+---
+
 #### T25 Battle result, diplomacy, and hotseat handoff screens
 
 Godot screens → [full entry](tasks/T25.md) · [#25](https://github.com/diegoami/imperial_conquest_2/issues/25)
@@ -955,3 +1070,18 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T96](#t96-the-last-command-label-visible-the-commands-own-outcome-its-last-lines) | Last-command label | — | Sonnet | Medium | **Opus**/Medium + human | — | [#522](https://github.com/diegoami/imperial_conquest_2/issues/522) |
 | [T97](#t97-nation-markers-as-the-original-draws-them-a-background-square-and-a-foreground-glyph-per-nation) | Nation marker colours | — | Sonnet | Medium | **Opus**/Medium + human | — | [#532](https://github.com/diegoami/imperial_conquest_2/issues/532) |
 | [T98](#t98-the-opencode-scripts-on-the-2x-cli) | OpenCode scripts on 2.x | — | Sonnet | Medium | **Opus**/Medium | bug #540 | [#541](https://github.com/diegoami/imperial_conquest_2/issues/541) |
+| [T99](#t99-orders-on-the-map-click-a-unit-then-its-target) | Map-click orders | M18 | Sonnet | High | **Opus**/Medium + human | — | [#557](https://github.com/diegoami/imperial_conquest_2/issues/557) |
+| [T100](#t100-the-menu-bar-and-the-main-toolbar-driven-by-one-command-table) | Menu bar and toolbars | M18 | Sonnet | High | **Opus**/Medium + human | T99, T101 | [#558](https://github.com/diegoami/imperial_conquest_2/issues/558) |
+| [T101](#t101-asset-keys-for-the-toolbar-icons) | Toolbar icon keys | M18 | Sonnet | Medium | **Opus**/Medium + human | — | [#559](https://github.com/diegoami/imperial_conquest_2/issues/559) |
+| [T102](#t102-the-overview-mini-map) | Overview mini-map | M18 | Sonnet | Medium | **Opus**/Medium + human | T100 | [#560](https://github.com/diegoami/imperial_conquest_2/issues/560) |
+| [T103](#t103-a-command-sets-the-nations-tax-rate) | Set the tax rate | M3 | Sonnet | Medium | **Opus**/Medium | — | [#561](https://github.com/diegoami/imperial_conquest_2/issues/561) |
+| [T104](#t104-the-balance-sheet-a-read-only-projection-of-the-quarters-budget) | Balance sheet | M3 | Sonnet | Medium | **Opus**/Medium | — | [#562](https://github.com/diegoami/imperial_conquest_2/issues/562) |
+| [T105](#t105-a-command-moves-money-between-the-treasury-and-a-purse) | Treasury-purse transfer | M3 | Sonnet | Medium | **Opus**/Medium | — | [#563](https://github.com/diegoami/imperial_conquest_2/issues/563) |
+| [T106](#t106-army-to-army-transfer-of-units-supply-and-money) | Army-to-army transfer | M14 | Sonnet | High | **Opus**/Medium | — | [#564](https://github.com/diegoami/imperial_conquest_2/issues/564) |
+| [T107](#t107-change-units-split-rename-and-disband-a-single-unit) | Change units | M14 | Sonnet | Medium | **Opus**/Medium | — | [#565](https://github.com/diegoami/imperial_conquest_2/issues/565) |
+| [T108](#t108-disband-a-recruitment-slot) | Disband a recruitment slot | M4 | Sonnet | Medium | **Opus**/Medium | — | [#566](https://github.com/diegoami/imperial_conquest_2/issues/566) |
+| [T109](#t109-the-strategy-menus-dialogs-taxation-balance-sheet-recruit-unit-and-build-fleet) | Strategy dialogs | M18 | Sonnet | High | **Opus**/Medium + human | T100, T103, T104, T108, bug #519's fix | [#567](https://github.com/diegoami/imperial_conquest_2/issues/567) |
+| [T110](#t110-the-nations-and-area-map-menus-the-viewed-nation-highlights-and-find-a-city) | Nations and Area map | M18 | Sonnet | High | **Opus**/Medium + human | T100, T102 | [#568](https://github.com/diegoami/imperial_conquest_2/issues/568) |
+| [T111](#t111-the-unit-maps-army-orders-each-in-its-own-dialog) | Army orders | M18 | Sonnet | High | **Opus**/Medium + human | T100, T105, T106, T107, bug #555's correction | [#569](https://github.com/diegoami/imperial_conquest_2/issues/569) |
+| [T112](#t112-the-unit-maps-fleet-and-city-orders-and-the-selected-units-command-strip) | Fleet and City orders, command strip | M18 | Sonnet | High | **Opus**/Medium + human | T111, bug #555's correction | [#570](https://github.com/diegoami/imperial_conquest_2/issues/570) |
+| [T113](#t113-mercenaries-on-the-map-show-mercenaries-and-recruit-mercenaries) | Mercenaries on the map | M18 | Sonnet | Medium | **Opus**/Medium + human | T76, T110, T112 | [#571](https://github.com/diegoami/imperial_conquest_2/issues/571) |
