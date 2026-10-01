@@ -3,18 +3,18 @@ using IC2.Engine.Model;
 namespace IC2.Slice.Assets;
 
 /// <summary>
-/// T94 rework round 1, N3 (the user's decision of 2026-09-29): the <em>owner tint</em> a map marker's
-/// asset-pack icon is drawn with. With a texture, every nation's icon is the same bitmap, and only
-/// the thin ring around it told owners apart; the pre-T94 shapes were filled in the owner's colour.
-/// Tinting the texture with the owner's own colour restores that, and it is what makes a neutral
-/// silhouette pack (T51) draw owner-coloured figures with no further code change. The placeholder
-/// pack's deliberately flat, single-colour squares are deliberately <strong>not</strong> special-cased:
-/// they are tinted as they are.
+/// The two colours one owner's map marker is drawn with (T97, the correction from the user's visual
+/// review of 2026-09-29): the <em>background</em> square filled with
+/// <see cref="NationDefinition.ColorHex"/>, and the <em>foreground</em> glyph tinted with
+/// <see cref="NationDefinition.GlyphColorHex"/> — the original's own scheme, one (background,
+/// foreground) pair per nation (<c>2026-09-29-nation-marker-colours.md</c>).
+/// <see cref="ForOwner"/> returns the pair for a loaded world's nation, falling back to
+/// <see cref="FallbackForeground"/> for a nation that carries no foreground.
 /// </summary>
 /// <remarks>
 /// Godot-free by construction, like <see cref="MapMarkerKeys"/> and <see cref="AssetKeyResolver"/>: it
-/// is linked into <c>tests/IC2.Engine.Tests</c> so a test can assert the exact components a marker is
-/// modulated with, rather than trusting a screenshot. The parser accepts Godot's documented HTML
+/// is linked into <c>tests/IC2.Engine.Tests</c> so a test can assert the exact colours a marker is
+/// drawn with, rather than trusting a screenshot. The parser accepts Godot's documented HTML
 /// subset (3/4/6/8 hex digits, optional <c>#</c>, one-digit channels doubled) and normalises with the
 /// same <c>byte / 255</c> arithmetic Godot's own <c>Color.html</c>/<c>Color(code)</c> uses — see the
 /// Godot 4 <c>Color</c> class reference's <c>html()</c> example
@@ -26,16 +26,46 @@ namespace IC2.Slice.Assets;
 public readonly record struct MarkerTint(float Red, float Green, float Blue, float Alpha)
 {
     /// <summary>
-    /// The tint an owned marker is drawn with: <paramref name="nationId"/>'s own
-    /// <see cref="NationDefinition.ColorHex"/> from the loaded world. <see langword="null"/> when the
-    /// nation is unknown or its colour is not a parseable HTML hex string, which callers render with
-    /// their unknown-nation colour.
+    /// The (background, foreground) pair an owned marker is drawn with: <paramref name="nationId"/>'s
+    /// own <see cref="NationDefinition.ColorHex"/> and <see cref="NationDefinition.GlyphColorHex"/>
+    /// from the loaded world. <see langword="null"/> when the nation is unknown or its background
+    /// colour is not a parseable HTML hex string, which callers render with their unknown-nation
+    /// colour. A nation with no foreground (every pre-T97 construction) falls back to
+    /// <see cref="FallbackForeground"/>.
     /// </summary>
-    public static MarkerTint? ForOwner(World? world, string nationId)
+    public static MarkerColors? ForOwner(World? world, string nationId)
     {
         ArgumentNullException.ThrowIfNull(nationId);
 
-        return TryParseHtml(world?.NationById(nationId)?.ColorHex);
+        var nation = world?.NationById(nationId);
+        if (TryParseHtml(nation?.ColorHex) is not { } background)
+        {
+            return null;
+        }
+
+        return new MarkerColors(
+            background,
+            TryParseHtml(nation?.GlyphColorHex) ?? FallbackForeground(background));
+    }
+
+    /// <summary>
+    /// The glyph colour for a background the world gives no foreground for: white on a dark
+    /// background, black on a light one, chosen by the background's WCAG relative luminance
+    /// (<c>0.2126 R + 0.7152 G + 0.0722 B</c>, threshold 0.5).
+    /// </summary>
+    /// <remarks>
+    /// [designed] presentation fallback: the report (<c>2026-09-29-nation-marker-colours.md</c>)
+    /// records a foreground for all 16 nations and no rule for one that lacks it, and the DAT carries
+    /// no such field either. Searched the report, <c>docs/investigations/</c> and the terrain/marker
+    /// reports and found no fallback rule, so this is the conventional luminance choice, pinned by
+    /// <c>MarkerTintTests</c>.
+    /// </remarks>
+    public static MarkerTint FallbackForeground(MarkerTint background)
+    {
+        var luminance = (0.2126f * background.Red) + (0.7152f * background.Green) + (0.0722f * background.Blue);
+        return luminance >= 0.5f
+            ? new MarkerTint(0f, 0f, 0f, 1f)
+            : new MarkerTint(1f, 1f, 1f, 1f);
     }
 
     /// <summary>
@@ -111,3 +141,10 @@ public readonly record struct MarkerTint(float Red, float Green, float Blue, flo
         _ => -1,
     };
 }
+
+/// <summary>
+/// One nation's marker colours (T97): the <paramref name="Background"/> the marker's square is
+/// filled with and the <paramref name="Foreground"/> its glyph is tinted with. Both are the world's
+/// own parsed hex values, or a luminance-chosen fallback for a nation with no foreground.
+/// </summary>
+public readonly record struct MarkerColors(MarkerTint Background, MarkerTint Foreground);

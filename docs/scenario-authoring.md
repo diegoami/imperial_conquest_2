@@ -116,6 +116,7 @@ Each nation in `nations` is an object with:
 | `id` | string | Yes | Unique identifier (e.g., "rome", "gaul", "egypt"). |
 | `name` | string | Yes | Display name (e.g., "Roman Republic"). |
 | `colorHex` | string | Yes | Hex color code for the nation (e.g., "#c62828"). |
+| `glyphColorHex` | string | No | Hex color code for the glyph drawn on the nation's markers (e.g., "#0000FF"); `colorHex` is the background square. |
 | `leaderName` | string | Yes | Name of the nation's leader. |
 | `capitalCityId` | string | Yes | The `id` of the city that is this nation's capital (must resolve to a city in `cities`). |
 | `treasury` | integer | Yes | Starting treasury (gold coins). |

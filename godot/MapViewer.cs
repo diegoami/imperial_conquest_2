@@ -175,12 +175,11 @@ public partial class MapViewer : Control
         DrawRect(rect, OwnerColor(ownerCode));
         DrawRect(rect, MarkerOutline, false, 1f);
         if (side < 10f) return;
-        // T94: with T49's palette (docs/asset-specification.md §2.3) these are the nations whose
-        // marker background is light enough that CityColor's pale glyph would vanish: the
-        // specification's own dark-glyph set {1, 3, 4, 5, 7, 9, 13, 15}, replacing the
-        // {4, 5, 7, 8, 13, 14} that matched the old, broken table. Keep them in step -- a stale list
-        // makes exactly these nations' city glyphs invisible.
-        var glyphColor = ownerCode is 1 or 3 or 4 or 5 or 7 or 9 or 13 or 15 ? MarkerOutline : CityColor;
+        // T97: the glyph is the owner's foreground colour from the report's table
+        // (2026-09-29-nation-marker-colours.md) -- the first record of the foregrounds, replacing the
+        // {1, 3, 4, 5, 7, 9, 13, 15} dark-glyph set that was an approximation for T49's designed
+        // palette. An unrecognised nation code keeps the pale CityColor, as before.
+        var glyphColor = GlyphColor(ownerCode);
         var roofY = center.Y - side * 0.22f;
         DrawLine(new Vector2(center.X - side * 0.28f, roofY), new Vector2(center.X + side * 0.28f, roofY), glyphColor, 1.5f);
         DrawLine(new Vector2(center.X - side * 0.22f, roofY), new Vector2(center.X - side * 0.22f, center.Y + side * 0.26f), glyphColor, 1.5f);
@@ -696,28 +695,57 @@ public partial class MapViewer : Control
 
     private static Color OwnerColor(ushort code) => code switch
     {
-        // T49's settled 16-nation palette (docs/asset-specification.md §2.3), applied by T94
-        // (folded issue #154). The table this replaces had two byte-identical pairs (1/14 and 3/9)
-        // and gave Rome and Gaul colours one channel apart, so markers belonging to different
-        // nations were indistinguishable. The hex values are the specification's own; nation code
-        // order is the catalogue's (0 Rome ... 15 Thracia).
-        0 => new Color("4C0D19"), // Rome
-        1 => new Color("DDB69C"), // Carthage
-        2 => new Color("671E0B"), // Seleucid
-        3 => new Color("E1EC25"), // Ptolemaic
-        4 => new Color("719D16"), // Macedonia
-        5 => new Color("C3E155"), // Numidia
-        6 => new Color("107A16"), // Gaul
-        7 => new Color("93F6D6"), // Greece
-        8 => new Color("29796D"), // Celtiberia
-        9 => new Color("A7DCF8"), // Illyria
-        10 => new Color("237084"), // Dacia
-        11 => new Color("5F50E6"), // Bithynia
-        12 => new Color("4C0C8D"), // Galatia
-        13 => new Color("D760E8"), // Armenia
-        14 => new Color("581B45"), // Media
-        15 => new Color("D46CBB"), // Thracia
+        // T97: the original's own marker backgrounds, from the research repository's
+        // docs/reports/2026-09-29-nation-marker-colours.md (the report's background column, read from
+        // the user's 2026-09-29 screenshot strip and equal to this table's pre-T94 values at commit
+        // 1c3fa6f). T49's designed palette, applied by T94, is superseded. Nation code order is the
+        // catalogue's (0 Rome ... 15 Thracia). Two backgrounds are shared on purpose -- red
+        // (Carthage/Media) and navy (Ptolemaic/Illyria) -- and the foreground glyph (GlyphColor)
+        // tells each pair apart.
+        0 => new Color("800080"), // Rome
+        1 => new Color("FF0000"), // Carthage
+        2 => new Color("808000"), // Seleucid
+        3 => new Color("000080"), // Ptolemaic
+        4 => new Color("FFFFFF"), // Macedonia
+        5 => new Color("00FF00"), // Numidia
+        6 => new Color("800000"), // Gaul
+        7 => new Color("00FFFF"), // Greece
+        8 => new Color("FFFF00"), // Celtiberia
+        9 => new Color("000080"), // Illyria
+        10 => new Color("008000"), // Dacia
+        11 => new Color("008080"), // Bithynia
+        12 => new Color("0000FF"), // Galatia
+        13 => new Color("FF00FF"), // Armenia
+        14 => new Color("FF0000"), // Media
+        15 => new Color("808080"), // Thracia
         _ => new Color(0.72f, 0.71f, 0.59f)
+    };
+
+    /// <summary>
+    /// T97: the foreground colour of a nation's marker glyph, from the report's foreground column
+    /// (<c>2026-09-29-nation-marker-colours.md</c>). The inspector draws its city glyph with this and
+    /// its background square with <see cref="OwnerColor"/>; an unrecognised nation code keeps the pale
+    /// <c>CityColor</c> the old dark-glyph heuristic gave it.
+    /// </summary>
+    private static Color GlyphColor(ushort code) => code switch
+    {
+        0 => new Color("0000FF"), // Rome
+        1 => new Color("FFFFFF"), // Carthage
+        2 => new Color("800000"), // Seleucid
+        3 => new Color("FF00FF"), // Ptolemaic
+        4 => new Color("0000FF"), // Macedonia
+        5 => new Color("008080"), // Numidia
+        6 => new Color("00FFFF"), // Gaul
+        7 => new Color("FF00FF"), // Greece
+        8 => new Color("FF0000"), // Celtiberia
+        9 => new Color("808000"), // Illyria
+        10 => new Color("FFFF00"), // Dacia
+        11 => new Color("0000FF"), // Bithynia
+        12 => new Color("00FFFF"), // Galatia
+        13 => new Color("FF0000"), // Armenia
+        14 => new Color("800080"), // Media
+        15 => new Color("000000"), // Thracia
+        _ => CityColor
     };
 
     private Label MakeLabel(string text, int fontSize)
