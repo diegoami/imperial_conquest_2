@@ -34,7 +34,10 @@ Stage 0 runs before the skill and outside it; stages 1 and 2 are the skill's two
   - a **sweep table**: one save crafted several times, with one field varied across a range at the offset [decompiled-sav-file-layout.md](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-sav-file-layout.md) gives, each copy run through one turn, one row per value with the fields that moved.
 - **Where it runs, and where its outputs go.** The runner lives in the research repository, under `scripts/`, in the same repository as the [evidence index](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/evidence-index.md) that maps its outputs. It runs in a cloud environment for the research repository with Wine, Xvfb and the fixtures repository attached ([operating-guide.md §1.3](operating-guide.md#13-local-toolchain-outside-both-repositories)). The saves it starts from, the crafted ones and the ones the original writes are game files, so they go to a release in [`diegoami/imp_conquest_fixtures`](https://github.com/diegoami/imp_conquest_fixtures/releases), as saves do today, and the evidence index gains their entries. The diff or the table is what the report cites.
 - **What stage 1 receives.** When an experiment can answer the question, stage 1 receives the diff or the table, never a recording. A recording stays the input for what an experiment cannot produce, above all the tactical battle panel's per-exchange counts ([recording-analysis.md](recording-analysis.md)), and **a recording still needs no note**.
-- **Wine is not the desktop.** A result seen only under Wine gets one confirmation on the desktop, the user's Windows machine where the game is played, before it settles a rule. Until then the report carries it as a candidate.
+- **A second runner: the EXPLORE session.** The bot repository [`diegoami/ic2-conquest`](https://github.com/diegoami/ic2-conquest) runs the same patched original headless under Wine, in WSL on the desktop. It has an order driver (move, attack, recruit, mobilise, tax, fleets, split, join and more, each checked by a save diff), seeded and byte-repeatable turns, and experiments under its `runs/experiments/`. A Claude session the user runs there, **IC2 CONQUEST EXPLORE**, takes experiment requests. It is often the quicker runner, because it already drives the orders a rule question needs.
+  - **The hand-off is a prompt the user relays.** The main session writes a self-contained request ([template below](#an-explore-experiment-request)), and the user pastes it into the EXPLORE session. The EXPLORE session doesn't appear among the sessions the main session can message, and nothing in this repository writes to ic2-conquest.
+  - **The result comes back through the research intake.** The EXPLORE session writes a `findings/` draft in ic2-conquest, with its saves in that repository's `run-<id>` release. The research repository's own findings intake reviews it and promotes it into `docs/reports/`. Session start (CLAUDE.md rule 10) then lists the new report as unevaluated, and `/process-evidence` evaluates it like any other. This repository never reads the drafts.
+- **Wine is not the desktop.** A result seen only under Wine gets one confirmation on the desktop, the user's Windows machine where the game is played, before it settles a rule. Until then the report carries it as a candidate. Both runners use Wine.
 - **Prerequisites.** Stage 0 runs only once all three exist, and cannot build any of them for itself: (a) the **fast** variant of the executable; (b) the **autosave and log hook**, which saves at the end of every player turn and logs each firing (the feasibility report above is its design); (c) a **batch** variant that ends the turn on load, autosaves and exits. The variants are built by `patch_exe.py` in the originals folder.
 
 **Stage 1 — evidence → RE findings.** One Opus agent, dispatched fresh (no shared context assumed). Give it: the specific note file (or a description of what's new), the research-repo write instructions above, the local evidence-folder paths, and the toolchain paths in case it needs them. Its job: read the note, correlate the named saves/recording, run controlled comparisons, decompile further only if the note's claim needs code-level confirmation and isn't already covered by an existing report, write a new report or update an existing one in the research repo following its `[confirmed]`/`[derived]`/`[designed]` discipline (any existing report shows the house style), commit and push to the research repo's `main` directly, and move the now-cited save/recording files to their `-processed/` siblings. Report back: which report(s) changed, the commit hash, a plain summary of what was newly confirmed or corrected, and anything it could not settle.
@@ -49,6 +52,33 @@ Stage 0 runs before the skill and outside it; stages 1 and 2 are the skill's two
 Stage 2 writes no status, because status lives only in GitHub labels. It works in **its own worktree on a new branch** off `origin/main`, never in the main checkout, pushes that branch, and does not merge: evidence-driven changes are new content, so they go through review rather than straight to `main`. **Report back to the main session**: the branch, what changed and why, any bug issues filed, and any open question for the human. The planner triages the bugs ([build-process.md §4.6](build-process.md#46-bugs-and-follow-ups)), takes the branch and the open questions to the user, and decides what enters the build.
 
 **The main session invokes `/process-evidence`** and coordinates both dispatches: dispatch stage 1, wait for its completion notification (don't poll), dispatch stage 2 with stage 1's actual output as input, then relay the result to the user. Neither stage dispatches build tasks. If stage 1 finds nothing worth writing up, stop there and say so — no stage 2 over nothing.
+
+## An EXPLORE experiment request
+
+The main session fills this in and gives it to the user to paste into the IC2 CONQUEST EXPLORE session. It must stand alone: that session knows ic2-conquest, not this repository.
+
+```text
+Experiment request from the imperial_conquest_2 main session (relayed by the user).
+
+QUESTION: <one rule question, e.g. "Does the original accept a recruit order in an owned non-capital
+town, and does the answer depend on the town's fortification?">
+WHY: <what the clone does today and which issue or report it bears on, with links>
+WHAT IS ALREADY KNOWN: <the research reports that touch it, by file name, and what they leave open>
+
+DESIGN (adjust if the driver needs it, and say what you changed):
+- start save: <bare file name, and where it comes from: a run-<id> release, the fixtures repository, or a new game>
+- seed: fixed, so the run repeats byte for byte
+- shape: a before-and-after pair | a sweep of <field> over <values> (offsets from decompiled-sav-file-layout.md)
+- orders: <the driver orders to issue, in order>
+- measure: <the SAV fields or dialog contents to compare>
+
+DELIVER, in ic2-conquest's usual way:
+- the saves in a run-<id> release, cited by bare file name;
+- a findings/ draft with Method, Observations (with the save names) and Inferences kept apart, and a
+  "What this does not establish" section; a Wine-only result is a candidate until the desktop confirms it;
+- tell the user the draft's file name and branch, so the research repository's findings intake can review it.
+Do not write to imperial_conquest_2 or the research repository.
+```
 
 ## The actual skill file
 
@@ -84,6 +114,11 @@ unevaluated research reports: `bash scripts/unevaluated-reports.sh` ("What trigg
    rate or count the game uses), no `[confirmed]`/`[derived]`/`[designed]` tag and no confirmation
    note. A trivial range goes straight to step 8. Everything else, and anything in doubt, goes to
    step 5, with those reports and their ranges as stage 1's output.
+   A rule question with no evidence yet that a run of the original would settle goes to stage 0
+   instead (docs/evidence-pipeline.md, "Stage 0"). Write an EXPLORE experiment request from the
+   template "An EXPLORE experiment request", give it to the user to paste into the IC2 CONQUEST
+   EXPLORE session in WSL, and stop for that question. Its result returns as a research report,
+   which a later session start lists as unevaluated.
 2. Dispatch **stage 1** (Opus, fresh agent, a full self-contained brief per the "Stage 1" section).
    Do not dispatch stage 2 yet.
 3. Wait for stage 1's completion notification. Do not poll.

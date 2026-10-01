@@ -30,6 +30,9 @@ gh issue list --label triage:needed --state open         # untriaged bugs and fo
 - **The research repository**, [`diegoami/imperial-conquest-2-research`](https://github.com/diegoami/imperial-conquest-2-research): every reverse-engineering report (`docs/reports/`), the roadmap, the decompilation plan and the research notes.
   - Its local checkout is `C:\Users\diego\projects\RE-imperial-conquest-2`. Run `git pull --ff-only` before writing to it.
   - For static-analysis work, start from its `docs/decompilation-plan.md`, the live record of what has been decompiled.
+- **The bot repository**, [`diegoami/ic2-conquest`](https://github.com/diegoami/ic2-conquest): a bot that plays the original headless under Wine, in WSL on the desktop (`/home/diego/projects/ic2-conquest`).
+  - The user's IC2 CONQUEST EXPLORE session there runs [stage 0 experiments](evidence-pipeline.md#the-stages) from requests the main session writes and the user relays.
+  - Its results reach this repository only as research reports, through the research repository's findings intake. Nothing here reads its drafts or writes to it.
 
 | Document | What it is |
 | --- | --- |
