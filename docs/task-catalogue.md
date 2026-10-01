@@ -954,4 +954,4 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T95](#t95-save-and-resume-a-game) | Save and resume | — | Sonnet | High | **Opus**/Medium + human | T24 | [#469](https://github.com/diegoami/imperial_conquest_2/issues/469) |
 | [T96](#t96-the-last-command-label-visible-the-commands-own-outcome-its-last-lines) | Last-command label | — | Sonnet | Medium | **Opus**/Medium + human | — | [#522](https://github.com/diegoami/imperial_conquest_2/issues/522) |
 | [T97](#t97-nation-markers-as-the-original-draws-them-a-background-square-and-a-foreground-glyph-per-nation) | Nation marker colours | — | Sonnet | Medium | **Opus**/Medium + human | — | [#532](https://github.com/diegoami/imperial_conquest_2/issues/532) |
-| [T98](#t98-the-opencode-scripts-on-the-2x-cli) | OpenCode scripts on 2.x | — | Sonnet | Medium | **Opus**/Medium | fix #540 | [#541](https://github.com/diegoami/imperial_conquest_2/issues/541) |
+| [T98](#t98-the-opencode-scripts-on-the-2x-cli) | OpenCode scripts on 2.x | — | Sonnet | Medium | **Opus**/Medium | bug #540 | [#541](https://github.com/diegoami/imperial_conquest_2/issues/541) |
