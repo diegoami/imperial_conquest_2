@@ -17,14 +17,16 @@ namespace IC2.Engine.Tests.Ui;
 /// <c>MainGameScreen.OnCommandIssued</c> now assigns to the label.
 /// </summary>
 /// <remarks>
-/// <strong>The rule is the command's whole own outcome</strong> — every non-blank line up to, but not
-/// including, the round footer's <c>News:</c> header, trimmed and joined with newlines — chosen over
-/// "the last non-empty line" after review round 1 (B1, N2, N3): that rule showed an <c>end</c>'s news
-/// banner instead of the round's own closing summary, could select a whitespace-only spacer, and hid
-/// the declaration of war composed ahead of a rejected attack. <see cref="CommandOutcomeText"/>'s own
-/// remarks carry the full reasoning. Nothing here is a hand-written output line: each expected text is
-/// asserted against the real <c>Submit</c> output or copied from the engine's own constants (the
-/// rejection codes).
+/// <strong>The rule is the command's whole own outcome</strong> — every non-blank line <em>after</em>
+/// <c>Submit</c>'s own <c>&gt; &lt;command&gt;</c> echo line, up to but not including the round footer's
+/// <c>News:</c> header, trimmed and joined with newlines — chosen over "the last non-empty line" after
+/// review round 1 (B1, N2, N3): that rule showed an <c>end</c>'s news banner instead of the round's own
+/// closing summary, could select a whitespace-only spacer, and hid the declaration of war composed ahead
+/// of a rejected attack. T96's re-review (R1-B2) added the echo start: <c>Submit</c> prepends the AI
+/// seats played before a non-first human seat's first turn above the echo, and scanning from the top
+/// buried that seat's first order under AI-turn lines. <see cref="CommandOutcomeText"/>'s own remarks
+/// carry the full reasoning. Nothing here is a hand-written output line: each expected text is asserted
+/// against the real <c>Submit</c> output or copied from the engine's own constants (the rejection codes).
 /// </remarks>
 public sealed class CommandOutcomeTextTests
 {
@@ -181,6 +183,78 @@ public sealed class CommandOutcomeTextTests
                 .Select(line => line.Trim()));
         Assert.Equal(expected, string.Join('\n', labelLines));
         Assert.NotEqual(output.Lines[^1], string.Join('\n', labelLines));
+    }
+
+    /// <summary>
+    /// T96 DoD 4: a plain rejected order shows its one line. The first siege composes the declaration of
+    /// war ahead of its refusal (the case above); once Rome is at war, the identical second siege has no
+    /// declaration left to compose, so its label is exactly the refusal line.
+    /// </summary>
+    [Fact]
+    public void A_plain_rejected_order_shows_its_one_line()
+    {
+        var session = RomeSession();
+        session.Submit("besiege-city army-0 misurata");
+        var output = session.Submit("besiege-city army-0 misurata");
+
+        Assert.DoesNotContain(
+            output.Lines, line => line.Contains("diplomacy.declare-war", StringComparison.Ordinal));
+
+        var labelLines = CommandOutcomeText.OutcomeBlock(output.Lines).Split('\n');
+
+        Assert.Single(labelLines);
+        Assert.StartsWith(
+            "battle.besiege-city rejected (battle.siege-not-adjacent): ", labelLines[0], StringComparison.Ordinal);
+        Assert.Contains("is not adjacent to 'misurata'", labelLines[0], StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// T96 DoD 3 (PR #521's re-review R1-B2): <c>GameSession.Submit</c> prepends the AI seats played
+    /// before a non-first human seat's first turn (<c>_pendingPrelude</c>) <em>above</em> the
+    /// <c>&gt; &lt;command&gt;</c> echo, and nothing in the GUI consumes it first. A block that scanned
+    /// from the top therefore made Thracia's first order 16 lines long, with the acceptance hidden under
+    /// the AI-turn lines by the label's three-line window. The prelude is not part of the command's own
+    /// outcome: the block starts after the echo.
+    /// </summary>
+    [Fact]
+    public void A_non_first_seats_first_order_shows_only_its_own_outcome_not_the_ai_prelude()
+    {
+        var classical = Classical();
+        var session = new GameSession(
+            classical.World,
+            classical.Ruleset,
+            classical.Scenario,
+            seedOverride: 1,
+            humanSeatNationId: "thracia");
+
+        var output = session.Submit("recruit-standing byzantium light_infantry 15000");
+
+        // The real output really carries a non-empty prelude above the echo, and the order is really
+        // accepted, so this case is not vacuous.
+        var echoIndex = -1;
+        for (var i = 0; i < output.Lines.Count; i++)
+        {
+            if (output.Lines[i].StartsWith("> ", StringComparison.Ordinal))
+            {
+                echoIndex = i;
+                break;
+            }
+        }
+
+        Assert.True(echoIndex > 0, "the non-first seat's first output carries the AI prelude above the echo");
+        var preludeLines = output.Lines
+            .Take(echoIndex)
+            .Where(line => !string.IsNullOrWhiteSpace(line))
+            .Select(line => line.Trim())
+            .ToList();
+        Assert.NotEmpty(preludeLines);
+        Assert.Contains("recruitment.recruit-standing-unit accepted.", output.Lines, StringComparer.Ordinal);
+
+        var label = CommandOutcomeText.OutcomeBlock(output.Lines);
+
+        Assert.Equal("recruitment.recruit-standing-unit accepted.", label);
+        Assert.DoesNotContain(preludeLines, line => label.Contains(line, StringComparison.Ordinal));
+        Assert.DoesNotContain("takes its turn", label, StringComparison.Ordinal);
     }
 
     private static int FindNewsHeader(IReadOnlyList<string> lines)

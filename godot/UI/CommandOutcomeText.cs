@@ -2,8 +2,9 @@ namespace IC2.Slice.UI;
 
 /// <summary>
 /// Fix #484's one rule for what a command's result label shows: the command's <em>whole own outcome</em>
-/// — every non-blank line <c>GameSession.Submit</c> rendered for that command, up to but not including
-/// the round footer's <c>News:</c> header and the news entries after it.
+/// — every non-blank line <c>GameSession.Submit</c> rendered for that command after its own
+/// <c>&gt; &lt;command&gt;</c> echo line, up to but not including the round footer's <c>News:</c> header
+/// and the news entries after it.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -14,6 +15,14 @@ namespace IC2.Slice.UI;
 /// <c>"   "</c> spacer) is skipped rather than shown, and the engine's own <c>&gt; &lt;command&gt;</c>
 /// echo line (the input the player just gave, not an outcome) is skipped too, so the label can never be
 /// visually blank while a real outcome exists.
+/// </para>
+/// <para>
+/// <strong>The block starts <em>after</em> the echo line (T96, R1-B2).</strong> <c>Submit</c> prepends
+/// <c>GameSession._pendingPrelude</c> — the AI seats played before a non-first human seat's first turn
+/// (<c>GameSession.cs</c>, <c>AdvanceToHumanSeat</c>) — above the echo, and nothing in the GUI consumes
+/// it first. Scanning from the top therefore buried a non-first seat's first order under AI-turn lines;
+/// the prelude is not part of the command's own outcome, so the scan starts at the first line after the
+/// echo. The engine emits no line beginning with <c>"&gt; "</c> other than the echo.
 /// </para>
 /// <para>
 /// <strong>Why the whole own outcome and not a single line.</strong> Round 1 shipped "the last
@@ -29,43 +38,53 @@ namespace IC2.Slice.UI;
 /// </para>
 /// <para>
 /// The block can be long (an <c>end</c> carries every AI seat's turn line and the weather), so the
-/// screen's label wraps, shows at most three lines with an ellipsis, and keeps the full text in its
-/// tooltip — see <c>MainGameScreen</c> — and a long rejection or Save path can never widen the window
-/// or push the context panel off-screen.
+/// screen's label wraps, shows the block's <em>last</em> three lines with an ellipsis, and keeps the
+/// full text in its tooltip — see <c>MainGameScreen</c> — and a long rejection or Save path can never
+/// widen the window or push the context panel off-screen. Showing the last lines is what surfaces an
+/// <c>end</c>'s <c>Now: Week …</c> footer, which the first-three-lines ceiling hid (T96, B1 as
+/// displayed).
 /// </para>
 /// </remarks>
 public static class CommandOutcomeText
 {
     /// <summary>
-    /// The text a result label should show for <paramref name="lines"/>: every non-blank line up to, but
-    /// not including, a <c>News:</c> header — minus <c>Submit</c>'s own <c>&gt; &lt;command&gt;</c> echo
-    /// line — each trimmed and joined with newlines. When every such line is blank, the last non-blank
-    /// line instead; and <see cref="string.Empty"/> when there is no non-blank line at all — never
-    /// <see langword="null"/>.
+    /// The text a result label should show for <paramref name="lines"/>: every non-blank line after
+    /// <c>Submit</c>'s own <c>&gt; &lt;command&gt;</c> echo line up to, but not including, a <c>News:</c>
+    /// header, each trimmed and joined with newlines. When every such line is blank, the last non-blank
+    /// line after the echo instead; and <see cref="string.Empty"/> when there is no non-blank line at all
+    /// — never <see langword="null"/>.
     /// </summary>
     public static string OutcomeBlock(IReadOnlyList<string> lines)
     {
         ArgumentNullException.ThrowIfNull(lines);
 
-        var block = new List<string>();
-        foreach (var line in lines)
+        // Submit's own echo line is "> <the command just typed>" (GameSession.Submit's echo of its
+        // input) -- what the player issued, not an outcome. Anything above it is the pending prelude
+        // (AI seats played before a non-first human seat's first turn), also not this command's own
+        // outcome, so the scan starts just after the first echo line. The engine emits no other line
+        // beginning with this marker; when there is none (a defensive fallback for callers that pass
+        // output from somewhere else), the whole list is scanned.
+        var start = 0;
+        for (var i = 0; i < lines.Count; i++)
         {
-            // Submit's own first line is "> <the command just typed>" (GameSession.Submit's echo of its
-            // input) -- what the player issued, not an outcome, so the label must not repeat it. The
-            // engine emits no other line beginning with this marker.
-            if (line.StartsWith("> ", StringComparison.Ordinal))
+            if (lines[i].StartsWith("> ", StringComparison.Ordinal))
             {
-                continue;
+                start = i + 1;
+                break;
             }
+        }
 
-            if (string.Equals(line.Trim(), "News:", StringComparison.Ordinal))
+        var block = new List<string>();
+        for (var i = start; i < lines.Count; i++)
+        {
+            if (string.Equals(lines[i].Trim(), "News:", StringComparison.Ordinal))
             {
                 break;
             }
 
-            if (!string.IsNullOrWhiteSpace(line))
+            if (!string.IsNullOrWhiteSpace(lines[i]))
             {
-                block.Add(line.Trim());
+                block.Add(lines[i].Trim());
             }
         }
 
@@ -74,9 +93,9 @@ public static class CommandOutcomeText
             return string.Join('\n', block);
         }
 
-        for (var i = lines.Count - 1; i >= 0; i--)
+        for (var i = lines.Count - 1; i >= start; i--)
         {
-            if (!string.IsNullOrWhiteSpace(lines[i]) && !lines[i].StartsWith("> ", StringComparison.Ordinal))
+            if (!string.IsNullOrWhiteSpace(lines[i]))
             {
                 return lines[i].Trim();
             }

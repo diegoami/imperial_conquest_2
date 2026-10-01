@@ -35,6 +35,16 @@ public partial class MainGameScreen : Control
     /// </summary>
     private const string SavesDirectory = "user://saves";
 
+    /// <summary>
+    /// T96: how many lines of the last command's outcome the label shows — its <em>last</em> lines, not
+    /// its first (see <see cref="UpdateLastCommandLinesSkipped"/>), with the full block in the tooltip.
+    /// Three lines are also the label's explicit minimum height: a Godot <see cref="Label"/> with
+    /// autowrap plus clipping or an overrun behaviour reports a minimum size of (1, 1), so without the
+    /// floor the root VBox lays it out 1&#160;px tall and it shows nothing (bug #484's symptom again;
+    /// PR #521's re-review measured it as R1-B1).
+    /// </summary>
+    private const int LastCommandVisibleLineCount = 3;
+
     /// <summary>Exposed (rather than kept private) so <c>godot/Checks/ScreenshotTour.cs</c> can drive a
     /// selection and open the news log for the visual sign-off screenshot without simulating clicks.</summary>
     public GameMapView MapView => _mapView;
@@ -96,10 +106,28 @@ public partial class MainGameScreen : Control
         // context panel off-screen.
         _lastCommandLabel = UiKit.MakeLabel(string.Empty, 12, UiKit.MutedTextColor);
         _lastCommandLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _lastCommandLabel.MaxLinesVisible = 3;
+        _lastCommandLabel.MaxLinesVisible = LastCommandVisibleLineCount;
         _lastCommandLabel.ClipText = true;
         _lastCommandLabel.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
         root.AddChild(_lastCommandLabel);
+
+        // T96 (R1-B1): the wrap/clip/overrun combination above reports a (1, 1) minimum size, so the
+        // root VBox used to lay the label out 1 px tall with zero visible lines -- #484's own symptom.
+        // Three lines' height from the label's own theme font is the floor that keeps it visible. The
+        // pitch is the glyph height plus the Label theme's own "line_spacing" constant (3 in Godot's
+        // default theme): Label.GetLineHeight() returns only the former, and a floor of three glyph
+        // heights lays out three lines but lets GetVisibleLineCount() count just two. The explicit size
+        // also keeps the block's last-lines view (below) from ever collapsing.
+        var lineSpacing = _lastCommandLabel.GetThemeConstant("line_spacing");
+        var linePitch = _lastCommandLabel.GetLineHeight() + lineSpacing;
+        _lastCommandLabel.CustomMinimumSize = new Vector2(
+            0, Mathf.Ceil(LastCommandVisibleLineCount * linePitch));
+
+        // T96 (B1 as displayed): the label shows the block's *last* lines, so an end's
+        // "Now: Week …, Active seat: …" footer is what the player sees rather than the first AI-turn
+        // lines. LinesSkipped is recomputed on every command and whenever a layout pass changes the
+        // label's width (which is what decides how many lines the text wraps to).
+        _lastCommandLabel.Resized += UpdateLastCommandLinesSkipped;
 
         _newsLog = new NewsLogPanel { Session = Session, CustomMinimumSize = new Vector2(0, 200) };
         root.AddChild(_newsLog);
@@ -237,9 +265,12 @@ public partial class MainGameScreen : Control
 
     /// <summary>
     /// The text the shared last-command label (<see cref="_lastCommandLabel"/>, under the bottom
-    /// toolbar) currently shows: fix #484's <see cref="CommandOutcomeText.OutcomeBlock"/> of the most
+    /// toolbar) currently carries: fix #484's <see cref="CommandOutcomeText.OutcomeBlock"/> of the most
     /// recent <see cref="GameSession.Submit"/> call — the order's own acceptance or refusal lines (a
     /// composed declaration of war included), or an <c>end</c> round's closing summary up to its news.
+    /// The label displays its last <see cref="LastCommandVisibleLineCount"/> wrapped lines and keeps the
+    /// whole block in its tooltip; this property is the whole block, so a check that wants what is
+    /// visible reads the label's own <see cref="Label.LinesSkipped"/> and <see cref="Label.GetVisibleLineCount"/>.
     /// Exposed for the same reason
     /// <see cref="LastSavedPath"/> is: <c>godot/Checks/CommandFeedbackCheck.cs</c> reads the real label
     /// after driving real commands, rather than re-deriving its text from a second copy of the rule.
@@ -300,6 +331,7 @@ public partial class MainGameScreen : Control
         var outcome = CommandOutcomeText.OutcomeBlock(lines);
         _lastCommandLabel.Text = outcome;
         _lastCommandLabel.TooltipText = outcome;
+        UpdateLastCommandLinesSkipped();
         _mapView.Refresh();
         _contextPanel.Refresh();
         RefreshTopBar();
@@ -318,6 +350,21 @@ public partial class MainGameScreen : Control
         }
 
         ShowNextOverlay();
+    }
+
+    /// <summary>
+    /// T96 (B1 as displayed): keeps the label's window on the <em>last</em> <see
+    /// cref="LastCommandVisibleLineCount"/> lines of its wrapped text. <see cref="Label.MaxLinesVisible"/>
+    /// alone caps how many lines are drawn but draws the <em>first</em> ones, which hid an <c>end</c>'s
+    /// <c>Now: Week …</c> footer; <see cref="Label.LinesSkipped"/> drops the lines above the tail.
+    /// <see cref="Label.GetLineCount"/> shapes the text at the label's current width, so this runs after
+    /// every text change and on every resize: a command issued before the first layout pass is
+    /// recomputed once the label gets its real width.
+    /// </summary>
+    private void UpdateLastCommandLinesSkipped()
+    {
+        var lineCount = _lastCommandLabel.GetLineCount();
+        _lastCommandLabel.LinesSkipped = Mathf.Max(0, lineCount - LastCommandVisibleLineCount);
     }
 
     private void ShowNextOverlay()
