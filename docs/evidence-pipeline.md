@@ -8,6 +8,10 @@ New files in the **unprocessed** side of the original game directory's evidence 
 
 **A recording needs no note.** This paragraph used to end *"raw saves or recordings with no note are lower priority and can wait until one is written"* — which was wrong, and expensively so: three recordings sat unannotated for a week and were nearly left out of the evidence releases on the grounds that nothing mapped them, when in fact four reports cite them. A recording plus the saves either side plus **rough timestamps** is a complete input, handled by [`/parse-recording`](recording-analysis.md). Writing notes by hand is the most expensive part of producing evidence and the first thing skipped, so the pipeline no longer depends on it.
 
+**A research report this repository has not evaluated.** Reports are also written and corrected in the research repository's own sessions, for example when its findings intake promotes a draft from the bot repository, and nothing here sees that happen. A report counts as **evaluated** once an issue or PR in this repository carries, in its body or a conversation comment, the line `Evaluated: <file name> @ <commit>`. The commit is the 7-character research commit the report was at when the evaluation started: the one `scripts/unevaluated-reports.sh` printed for it. The main session posts that line when the run has dealt with the report (the skill's step 8). A plain mention in a discussion is not an evaluation, and a later change to the report needs a new line.
+
+At session start (CLAUDE.md rule 10) the main session runs `bash scripts/unevaluated-reports.sh`. It fetches the research repository, reads its `origin/main` (it never pulls or touches the checkout), takes every report added, changed or renamed since the script's `FLOOR` date, when the marker was introduced (earlier reports were evaluated without leaving one), and prints each one without the line for its current commit. For each it also prints the **range** to read: from the report's newest earlier marker, or from the start date when it has none, to its current commit, and how many commits that is. An evaluation reads the whole range, never only the last commit, because a small edit can follow a substantive one. The script always scans from `FLOOR`, so a long gap between sessions misses nothing; `FLOOR` is raised by a reviewed change, and only to a date up to which the script reports 0. It makes two GitHub listing calls and matches locally, because one search per report exceeds the search API's limit of 30 a minute, and it stops with an error rather than guess when a listing fails or hits its row limit. The state is GitHub's: nothing is recorded in a document.
+
 ## Prerequisites, and where to get each one
 
 | Prerequisite | What it's for | Where it comes from |
@@ -35,7 +39,7 @@ Stage 0 runs before the skill and outside it; stages 1 and 2 are the skill's two
 
 **Stage 1 — evidence → RE findings.** One Opus agent, dispatched fresh (no shared context assumed). Give it: the specific note file (or a description of what's new), the research-repo write instructions above, the local evidence-folder paths, and the toolchain paths in case it needs them. Its job: read the note, correlate the named saves/recording, run controlled comparisons, decompile further only if the note's claim needs code-level confirmation and isn't already covered by an existing report, write a new report or update an existing one in the research repo following its `[confirmed]`/`[derived]`/`[designed]` discipline (any existing report shows the house style), commit and push to the research repo's `main` directly, and move the now-cited save/recording files to their `-processed/` siblings. Report back: which report(s) changed, the commit hash, a plain summary of what was newly confirmed or corrected, and anything it could not settle.
 
-**Stage 2 — RE findings → this repository**, dispatched only after stage 1 reports back (never both at once — a real sequential dependency). A second, fresh Opus agent. Give it exactly what stage 1 changed (report names and commit hash — don't make it re-discover this). Its job is to check **every document claim** the new evidence touches, applied to the new evidence instead of a merged task. Each finding takes exactly one of four routes:
+**Stage 2 — RE findings → this repository**, dispatched only after stage 1 reports back (never both at once — a real sequential dependency). A second, fresh Opus agent. Give it exactly what stage 1 changed (report names and commit hash — don't make it re-discover this). For an unevaluated research report there is no stage 1, because the report is already its output: give stage 2 the report names and each one's range of research commits, as `scripts/unevaluated-reports.sh` printed it. Its job is to check **every document claim** the new evidence touches, applied to the new evidence instead of a merged task. Each finding takes exactly one of four routes:
 
 1. **Claims.** For each document — `design-audit.md` and `game-design.md` claims, the investigations index, release-plan gates, the operating guide's §7 open items, the README — decide whether the new evidence confirms, corrects or closes something, and draft the fix in place (current fact only, cited).
 2. **Defects in merged code.** A merged constant, field or rule the evidence shows to be wrong is **filed as a `bug` issue, labelled `triage:needed`**, with the evidence ([build-process.md §4.6](build-process.md#46-bugs-and-follow-ups)), never patched. The main session's triage decides what happens to it.
@@ -65,17 +69,26 @@ full before dispatching anything. It has the repo and toolchain paths and the st
 If given a path (e.g. a `notes/*.txt` file) or a description, that's the evidence to process. If
 given nothing, scan the original game directory's `notes/` folder (path from this repo's
 `assets.local.ini`) for a note not yet cited by any research-repo report — check the research repo's
-existing reports for the note's referenced save names before assuming it's new.
+existing reports for the note's referenced save names before assuming it's new. Also list the
+unevaluated research reports: `bash scripts/unevaluated-reports.sh` ("What triggers it").
 
 ## Steps
 
 1. Verify the prerequisites in `docs/evidence-pipeline.md`'s table: `assets.local.ini` configured,
    the named evidence files exist, `gh` can reach `diegoami/imperial-conquest-2-research`. Stop and
    ask the user if any are missing rather than guessing.
+   Unevaluated research reports skip steps 2 to 4. First triage each one's whole range, as the
+   script printed it (`git -C <research checkout> diff <range> -- <report>`: every commit in it,
+   not only the last). A range is trivial only if it adds or fixes cross-reference links or counts
+   of cited evidence (how many saves, a sample size), and changes no rule value (no amount, cost,
+   rate or count the game uses), no `[confirmed]`/`[derived]`/`[designed]` tag and no confirmation
+   note. A trivial range goes straight to step 8. Everything else, and anything in doubt, goes to
+   step 5, with those reports and their ranges as stage 1's output.
 2. Dispatch **stage 1** (Opus, fresh agent, a full self-contained brief per the "Stage 1" section).
    Do not dispatch stage 2 yet.
 3. Wait for stage 1's completion notification. Do not poll.
-4. If stage 1 found nothing worth writing up, stop and report that to the user — no stage 2.
+4. If stage 1 found nothing worth writing up, stop and report that to the user — no stage 2 for
+   the note. Unevaluated research reports from step 1 still go to step 5.
 5. Otherwise dispatch **stage 2** (Opus, fresh agent, given exactly what stage 1 changed) per the
    "Stage 2" section: every document claim the new evidence touches, defects in merged code
    filed as `bug` issues labelled `triage:needed` (never patched), catalogue edits only for tasks
@@ -86,6 +99,16 @@ existing reports for the note's referenced save names before assuming it's new.
 7. Relay to the user: what stage 1 found and where (research-repo commit), what stage 2 proposes and
    where (this repo's branch), the bug issues it filed (in your `triage:needed` queue,
    build-process.md §4.6), and any open question for a human decision.
+8. Mark every report this run dealt with: post one line per report, `Evaluated: <file name> @ <commit>`,
+   in a conversation comment (not a review). The commit is the one the script printed at step 1, or,
+   for a report stage 1 changed in this run, the commit stage 1 reported; never one read now: a
+   research session may have pushed since, and that change is unread.
+   Where to post it:
+   - stage 2 pushed a branch: on the PR you open for that branch;
+   - stage 2 filed a bug and pushed no branch: on that bug;
+   - no branch and no bug, or the triage skipped stage 2: in an issue "Evidence evaluated, no
+     change here" that you open and close at once.
+   Without that line the report stays unevaluated.
 
 This skill is run by the main session. It never dispatches build tasks; `/run-task` does that.
 ```
