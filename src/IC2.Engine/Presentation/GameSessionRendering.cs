@@ -403,10 +403,9 @@ public sealed partial class GameSession
         }
 
         // T104: the balance sheet is a read-only strategy command like the compact views above. Its help
-        // line is advertised in watch mode only: the two committed help transcripts
-        // (tests/fixtures/cli/demo.golden.txt and seat-rome.golden.txt) are compared byte for byte, and
-        // neither golden is among T104's Owns paths, so the line is placed where no golden captures it.
-        // The verb itself runs in every session, seat or watch mode.
+        // line is advertised in watch mode only: both committed help transcripts (demo.golden.txt and
+        // seat-rome.golden.txt) are compared byte for byte, and this task changes neither, so the line is
+        // placed where no transcript captures it. The verb itself runs in every session, seat or watch.
         if (_isWatchMode)
         {
             lines.Add("  balance - show the active nation's quarterly budget");

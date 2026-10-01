@@ -65,6 +65,7 @@ public sealed class QuarterlyEconomySystem : IQuarterBoundaryHandler
         // 1a: ships, every launched fleet, no balance check. The per-nation aggregation is
         // ShipUpkeep.ComputeForNation, so the balance-sheet projection shares the same function rather
         // than restating which fleets are billed (docs/tasks/T104.md).
+
         // 1b: armies, in army-index order -- regulars to the treasury, mercenaries to the army's own
         // purse, with desertion on an empty purse.
         var regularUpkeepByNation = new Dictionary<string, int>(StringComparer.Ordinal);
