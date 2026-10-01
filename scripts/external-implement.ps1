@@ -21,11 +21,12 @@
       4. checks the outcome: a PR exists for the branch, the worktree is clean and pushed, and
          it is detached so the branch is free for the reviewer; saves the run's output next to
          the worktree as <name>.implementer.log and prints its tail.
-    With -Model auto (the default) the models form a chain: deepseek-flash, then luna, each tried
-    once. GLM left the implementer side on 2026-10-01 (issue #573): GLM-5.3 ended T99's implementer
-    run early, mid-exploration, with no error (#557), while DeepSeek V4.1 Flash implemented T97 in
-    one go. Luna stays second despite her long-run `Bad Request` on Go (#553). The next model runs
-    ONLY on an infrastructure failure (no session
+    With -Model auto (the default) the chain is deepseek-flash alone (issue #575: one OpenCode
+    model per role before Claude), then the main session runs Claude Sonnet. GLM left the
+    implementer side on 2026-10-01 (issue #573): GLM-5.3 ended T99's implementer run early,
+    mid-exploration, with no error (#557), while DeepSeek V4.1 Flash implemented T97 in one go.
+    glm, glm-flash and luna stay valid as explicit -Model values, and no default path picks them.
+    The next model runs ONLY on an infrastructure failure (no session
     in time, an idle session, no exit in time, a run that exits without a session, a non-zero exit, the
     fallback-to-default-agent guard, a tool call the permission guard rejected -- issue #501), and only when the failed run left nothing behind: no new
     commit, locally or on origin, and no new PR. Otherwise the script exits 1 and the main session
@@ -40,7 +41,8 @@
     The script never merges, labels or reviews; the main session does those (Appendix C).
 
     Model names -> OpenCode model ids (`opencode models` lists what this machine has). The runs
-    are on OpenCode Go, `opencode-go/…`, per the user's decision of 2026-10-01 (issue #551).
+    are on OpenCode Go, `opencode-go/…`, per the user's decision of 2026-10-01 (issue #551), except
+    luna: the direct OpenAI route, `openai/gpt-6-luna`, via the machine's OpenAI login (issue #575).
 
 .PARAMETER Task
     T<nn>, for a task. Mutually exclusive with -Fix.
@@ -53,11 +55,11 @@
 .PARAMETER BriefFile
     The filled Appendix A brief.
 .PARAMETER Model
-    auto (default: the chain deepseek-flash, then luna; GLM left the implementer side on
-    2026-10-01, issue #573, because GLM-5.3 ended T99's run early with no error, #557), or one
-    model alone: luna (GPT-6 Luna at high effort), glm-flash (GLM-5.3 Flash at max), glm (GLM-5.3
-    at max, now only selected explicitly), deepseek-flash (DeepSeek V4.1 Flash at max, proven on
-    this repository in #279), mimo-pro, or mimo-flash.
+    auto (default: deepseek-flash alone, then the main session runs Claude Sonnet; issue #575
+    keeps one OpenCode model per role before Claude), or one model alone: luna (GPT-6 Luna at
+    high effort, direct OpenAI via the machine's OpenAI login), glm-flash (GLM-5.3 Flash at
+    high), glm (GLM-5.3 at high, only selected explicitly), deepseek-flash (DeepSeek V4.1 Flash
+    at high, proven on this repository in #279), mimo-pro, or mimo-flash.
 .PARAMETER LocalOnly
     Copy assets.local.ini from the main checkout into the worktree.
 .PARAMETER FixturesDir
@@ -99,15 +101,18 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Invoke-OpenCodeWatched.ps1')
 
 # On 2026-10-01 the user moved the OpenCode runs from OpenCode Zen to OpenCode Go (issue #551):
-# every id is `opencode-go/…` and no Zen model is used, the free ones included. The default chain
-# is DeepSeek V4.1 Flash (max), then GPT-6 Luna (high effort), each tried once; GLM left the
-# implementer side (#573: GLM-5.3 ended T99's run early, mid-exploration, with no error, #557) but
-# glm and glm-flash stay valid as explicit -Model values, and no default path picks them.
+# every id is `opencode-go/…` and no Zen model is used, the free ones included. The one exception
+# is luna: the direct OpenAI route, `openai/gpt-6-luna`, via the machine's OpenAI login (issue
+# #575). The default chain is DeepSeek V4.1 Flash (high effort) alone (issue #575: one OpenCode
+# model per role before Claude), then the main session runs Claude Sonnet. GLM left the
+# implementer side in #573 (GLM-5.3 ended T99's run early, mid-exploration, with no error, #557)
+# and luna is no longer on the default path, but glm, glm-flash and luna stay valid as explicit
+# -Model values.
 # mimo-flash-free is dropped, Go does not offer it; MiMo Pro and MiMo Flash stay in the table for
 # the day the plan lists them. Confirm the ids with `opencode models` on first use; -ModelIds
 # overrides any of them.
 $models = @{
-    'luna'            = 'opencode-go/gpt-6-luna'
+    'luna'            = 'openai/gpt-6-luna'
     'glm-flash'       = 'opencode-go/glm-5.3-flash'
     'glm'             = 'opencode-go/glm-5.3'
     'deepseek-flash'  = 'opencode-go/deepseek-v4.1-flash'
@@ -115,12 +120,14 @@ $models = @{
     'mimo-flash'      = 'opencode-go/mimo-v2.6-flash'
 }
 if ($ModelIds) { foreach ($k in $ModelIds.Keys) { $models[$k] = $ModelIds[$k] } }
-$variants = @{ 'luna' = 'high'; 'glm-flash' = 'max'; 'glm' = 'max'; 'deepseek-flash' = 'max'; 'mimo-pro' = ''; 'mimo-flash' = '' }
-# The fallback chain (the user's decision of 2026-10-01, issue #573, replacing #554's order): GLM
-# left the implementer side, and luna stays second despite her long-run `Bad Request` on Go
-# (#553). Each model once, the next only on an infrastructure failure. An explicit -Model runs
-# that model alone.
-$chain = if ($Model -eq 'auto') { @('deepseek-flash', 'luna') } else { @($Model) }
+# Provider-specific variant, passed as `--variant` (the docs' flag; a `#variant` suffix on the
+# model id is not documented). Empty means none. Effort is `high` everywhere (issue #575: `max`
+# is overkill); luna was already high.
+$variants = @{ 'luna' = 'high'; 'glm-flash' = 'high'; 'glm' = 'high'; 'deepseek-flash' = 'high'; 'mimo-pro' = ''; 'mimo-flash' = '' }
+# The fallback chain (the user's decision of 2026-10-01, issue #575): DeepSeek V4.1 Flash alone,
+# then the main session runs Claude Sonnet. One OpenCode model per role before Claude. An
+# explicit -Model runs that model alone.
+$chain = if ($Model -eq 'auto') { @('deepseek-flash') } else { @($Model) }
 
 if (-not $Task -and -not $Fix) { throw 'Give -Task T<nn> or -Fix <issue>.' }
 if ($Task -and $Fix) { throw '-Task and -Fix are mutually exclusive.' }
@@ -224,7 +231,7 @@ foreach ($m in $chain) {
     $attempt++
     $ocArgs = @('run', '--dir', $worktree, '--agent', 'external-implementer', '--model', $models[$m])
     if ($variants[$m]) { $ocArgs += @('--variant', $variants[$m]) }
-    Write-Host "attempt $attempt/$($chain.Count): $m ($($models[$m]))"
+    Write-Host "attempt $attempt/$($chain.Count): $m ($($models[$m]))$(if ($variants[$m]) { " with --variant $($variants[$m])" })"
     $reason = $null
     try {
         $run = Invoke-OpenCodeWatched -Arguments $ocArgs -Prompt $prompt -WorkDir $worktree -Title "ic2-$name-$m" `
