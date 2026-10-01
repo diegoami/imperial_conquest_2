@@ -737,9 +737,11 @@ the docs item applies only if the review named a claim.
    `gh issue list --label triage:needed --state open`: triage anything that names this
    task, or ask the user. Confirm every merge-after dependency is status:merged and the issue is
    status:ready. Don't start a local-only or single-instance task whose prerequisite is missing.
-   If an unevaluated research report (evidence-pipeline.md, "What triggers it") concerns a rule
-   the task's Owns or Scope touches (its title or key terms match), hold the task, tell the user
-   why, and run /process-evidence first. A report that no task touches never blocks work.
+   Run `bash scripts/unevaluated-reports.sh` (evidence-pipeline.md, "What triggers it"); the
+   session-start count may be stale. If a listed report concerns a rule the task's Owns or Scope
+   touches (the report's title or key terms match the task's), hold the task, tell the user why,
+   and run /process-evidence first. A report that does not concern this task never holds it, and
+   a failed script holds nothing: report the failure and go on.
 1. IMPLEMENT. Label status:in-progress. Fill build-process.md Appendix A from the task entry
    (plus any review URLs from an earlier attempt). Then, by the entry's model (§3.3: Sonnet reads
    as the default, a non-architecture Opus and a High-effort entry as glm; a fix or a Low-effort task

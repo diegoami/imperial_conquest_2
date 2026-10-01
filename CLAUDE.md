@@ -11,7 +11,7 @@ Read [`docs/operating-guide.md`](docs/operating-guide.md) before doing anything.
 7. **Relay review findings in full**: the whole list, linked or verbatim, never a subset.
 8. **Merge only with an approving review and green CI.** T16 and T22 also need the user's thumbs-up.
 9. **Commit and push research-repo work without asking.**
-10. **At session start**, check the triage queue (`gh issue list --label triage:needed --state open`) and any task left in flight (`status:in-progress`, `in-review`, `rework`, `escalated`), and tell the user where things stand. A task carrying another machine's `machine:*` label is that machine's: report it, never resume it ([build-process.md §8](docs/build-process.md#8-two-machines)). Also count the **unevaluated research reports** with `bash scripts/unevaluated-reports.sh` ([evidence-pipeline.md](docs/evidence-pipeline.md#what-triggers-it)). Report the count in the session-start message only, never in a document, and run `/process-evidence` when it is not zero.
+10. **At session start**, check the triage queue (`gh issue list --label triage:needed --state open`) and any task left in flight (`status:in-progress`, `in-review`, `rework`, `escalated`), and tell the user where things stand. A task carrying another machine's `machine:*` label is that machine's: report it, never resume it ([build-process.md §8](docs/build-process.md#8-two-machines)). Also count the **unevaluated research reports** with `bash scripts/unevaluated-reports.sh` ([evidence-pipeline.md](docs/evidence-pipeline.md#what-triggers-it)). Report the count in the session-start message only, never in a document, and offer to run `/process-evidence` when it is not zero. If the script fails, report the failure and go on: it blocks nothing.
 
 ---
 
