@@ -758,8 +758,11 @@ the docs item applies only if the review named a claim.
    - a Claude model: Agent(general-purpose, model = the catalogue's, run_in_background, prompt =
      the brief). Wait for its completion notification; don't poll.
    If the implementer reports a defect in merged code, go to step 5 (bug).
-2. REVIEW. Check the PR exists and CI has run. Label status:in-review. Dispatch the reviewer:
-   Agent(model = the catalogue's reviewer model, prompt = Appendix B filled in). Wait. A review
+2. REVIEW. Check the PR exists and CI has run. Label status:in-review. Dispatch the reviewer.
+   A code PR (a task or a fix) gets a Claude Opus reviewer directly: Agent(model opus, prompt =
+   Appendix B filled in), never the OpenCode review script (the user's decision of 2026-10-02:
+   GPT-6 Luna approved T99 with no findings where Opus proved two blocking bugs). A plan PR (docs)
+   goes through `scripts/external-review.ps1` (Luna, then Opus). Wait. A review
    through `scripts/external-review.ps1` passes the implementer's `implemented by:` name as
    `-ExcludeModel`; the flag is required, since model:sonnet and model:opus labels exclude nothing.
    Exit 4 means the review was posted flagged (cut off, verdict unreadable, or findings after the
