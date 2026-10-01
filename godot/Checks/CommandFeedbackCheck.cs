@@ -81,6 +81,7 @@ public partial class CommandFeedbackCheck : Control
     private Label _lastCommandLabel = null!;
     private int _frame;
     private int _step;
+    private bool _finished;
     private float _baselineRootMinWidth;
 
     private IReadOnlyList<string> _acceptedLines = null!;
@@ -110,6 +111,13 @@ public partial class CommandFeedbackCheck : Control
 
     public override void _Process(double delta)
     {
+        if (_finished)
+        {
+            // A windowed run holds the final state for the visual review (see Finish): stop stepping so
+            // the checks do not re-run every frame until the reviewer closes the window.
+            return;
+        }
+
         _frame++;
 
         try
@@ -162,6 +170,7 @@ public partial class CommandFeedbackCheck : Control
 
                 case 7 when _frame >= CommandSettleFrames:
                     CheckFinalEndVisual();
+                    _finished = true;
                     Finish();
                     break;
             }
@@ -169,6 +178,7 @@ public partial class CommandFeedbackCheck : Control
         catch (Exception ex)
         {
             GD.PrintErr($"CommandFeedbackCheck: unhandled exception: {ex}");
+            GD.Print("CommandFeedbackCheck: exiting with code 1.");
             GetTree().Quit(1);
         }
     }
@@ -243,12 +253,13 @@ public partial class CommandFeedbackCheck : Control
         CheckLinesMapOneToOne("an end turn");
 
         var visible = VisibleLines();
+        var visibleTail = visible.Length > 0 ? visible[^1] : "(none)";
         Check(
             visible.Length == 3,
             $"an end turn's label shows three visible lines (got {visible.Length})");
         Check(
-            _nowLine is not null && visible[^1] == _nowLine,
-            $"an end turn's visible lines end on the exact Now: Week line (their last line: '{visible[^1]}')");
+            _nowLine is not null && visible.Length > 0 && visible[^1] == _nowLine,
+            $"an end turn's visible lines end on the exact Now: Week line (their last line: '{visibleTail}')");
         Check(
             visible.All(line => !string.IsNullOrWhiteSpace(line)
                 && string.Equals(line, line.Trim(), StringComparison.Ordinal)),
