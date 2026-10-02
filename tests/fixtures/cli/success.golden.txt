@@ -894,6 +894,9 @@ News log:
    
   Week  5      Autumn      270BC
 
+> set-tax 20
+economy.set-tax accepted.
+
 > quit
 Goodbye.
 

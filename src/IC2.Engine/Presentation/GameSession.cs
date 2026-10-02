@@ -1058,6 +1058,9 @@ public sealed partial class GameSession
             case "balance":
                 lines.AddRange(RenderBalance());
                 break;
+            case "set-tax":
+                lines.AddRange(HandleSetTax(tokens));
+                break;
             case "help":
                 lines.AddRange(RenderHelp());
                 break;
