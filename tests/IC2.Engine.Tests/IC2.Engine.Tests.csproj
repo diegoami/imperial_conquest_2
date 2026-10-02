@@ -121,6 +121,15 @@
       nowhere else. No `using Godot` anywhere; never a second, hand-maintained copy.
     -->
     <Compile Include="../../godot/UI/MapClickRules.cs" Link="Ui/MapClickRules.cs" />
+
+    <!--
+      T100 (tests/IC2.Engine.Tests/Ui/GameCommandTableTests.cs): the same seam once more.
+      GameCommandTable.cs is the one table behind the menu bar and the main toolbar - each command's
+      id, menu (and submenu), caption, icon key, shortcut and whether this task wires it - so a plain
+      xunit test can assert the table's exact contents without the Godot SDK. No `using Godot`
+      anywhere; never a second, hand-maintained copy.
+    -->
+    <Compile Include="../../godot/UI/GameCommandTable.cs" Link="Ui/GameCommandTable.cs" />
   </ItemGroup>
 
 </Project>
