@@ -203,8 +203,8 @@
     {
       "key": "ui.command.build_fleet.icon",
       "kind": "ui",
-      "prompt": "A simple pictorial user-interface toolbar icon showing a ship with a raised sail. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
-      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'Build fleet - a ship with a raised sail' [designed] - the source game's own art cannot ship"
+      "prompt": "A simple pictorial user-interface toolbar icon showing a ship's hull on a wooden slipway with a hammer, with no water. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'Build fleet - a ship's hull on a wooden slipway with a hammer, no water' [designed] - the source game's own art cannot ship"
     },
     {
       "key": "ui.command.show_cities.icon",

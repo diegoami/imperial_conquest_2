@@ -776,7 +776,7 @@ original's own art cannot ship, so every icon is new work; the command each key 
 | `ui.command.taxation.icon` | Taxation | a coin purse with coins |
 | `ui.command.balance_sheet.icon` | Balance sheet | a two-pan balance scale |
 | `ui.command.recruit_unit.icon` | Recruit unit | a crested soldier's helmet |
-| `ui.command.build_fleet.icon` | Build fleet | a ship with a raised sail |
+| `ui.command.build_fleet.icon` | Build fleet | a ship's hull on a wooden slipway with a hammer, no water |
 | `ui.command.show_cities.icon` | Show cities | a house with a pitched roof |
 | `ui.command.show_capital.icon` | Show capital | a crown above a columned building |
 | `ui.command.show_armies.icon` | Show armies | a round shield with a spear |
