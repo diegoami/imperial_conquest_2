@@ -10,8 +10,9 @@ docs/asset-specification.md - calls the configured OpenRouter-compatible chat-co
 endpoint with modalities ["image", "text"] (the image returns as a base64 data URL in the
 assistant message's `images` field), conforms each result to the specification's format
 rules (docs/asset-specification.md par. 1: 32x32 BMP, 24-bit opaque terrain tiles, 32-bit
-BGRA sprites with the background keyed out to alpha), and writes assets/packs/authored/
-with a manifest in the same shape as T11's placeholder pack.
+BGRA sprites with the background keyed out to alpha, and T101's 32-bit BGRA ui.command.*
+toolbar icons - keyed to alpha but kept full-colour, never neutral-silhouetted), and writes
+assets/packs/authored/ with a manifest in the same shape as T11's placeholder pack.
 
 Non-determinism is the defining constraint: the same prompt does not give the same pixels
 twice, so the committed images are the source of truth, exactly as T29's exported JSON is.
@@ -1352,6 +1353,7 @@ def dry_run(config: dict, entries: list, selection: list, models: list | None) -
     print()
     print(f"  Billable images this selection would request: {len(image_keys)} "
           f"({sum(1 for e in image_keys if e['kind'] == 'sprite')} sprites -> 32-bit BGRA "
+          f"+ {sum(1 for e in image_keys if e['kind'] == 'ui')} toolbar icons -> 32-bit BGRA "
           f"+ {sum(1 for e in image_keys if e['kind'] == 'tile')} terrain tiles -> 24-bit "
           "opaque)")
     print(f"  Not billed: {len(sfx_keys)} sfx synthesized locally "
@@ -1723,7 +1725,8 @@ def main(argv: list | None = None) -> int:
                         help="force a dry run even with --key/--all (the default without "
                              "them)")
     parser.add_argument("--all", action="store_true",
-                        help="REAL RUN: regenerate every key (22 billable images)")
+                        help="REAL RUN: regenerate every key (58 billable images: 22 markers, "
+                             "36 toolbar icons, 0 locally synthesized sfx)")
     parser.add_argument("--key", action="append", default=[], metavar="AssetKey",
                         help="REAL RUN: regenerate only this key (repeatable). Any "
                              "selection without --dry-run is a billable run.")
