@@ -117,4 +117,66 @@ public class AssetKeysTests
             Assert.True(parts.Length >= 2, $"Key '{key}' should have at least 2 dot-separated parts");
         }
     }
+
+    /// <summary>
+    /// T101 DoD 1: <see cref="AssetKeys.AllKeys"/> yields exactly the 25 pre-T101 keys plus the
+    /// 36 <c>ui.command.*</c> keys (audit §3.5: 9 main, 12 Area-map, 15 unit-map), and nothing
+    /// else.
+    /// </summary>
+    [Fact]
+    public void AllKeys_HasExactlyThePreT101AndToolbarCommandKeys()
+    {
+        var allKeys = AssetKeys.AllKeys.ToList();
+
+        Assert.Equal(61, allKeys.Count);
+        Assert.Equal(25, allKeys.Count(k => !k.StartsWith("ui.command.", StringComparison.Ordinal)));
+        Assert.Equal(36, allKeys.Count(k => k.StartsWith("ui.command.", StringComparison.Ordinal)));
+    }
+
+    /// <summary>
+    /// T101 DoD 1: every new toolbar-command key's exact string, one per row, so a rename of any
+    /// id fails here rather than silently changing what a parallel task (T100, #558) expects.
+    /// </summary>
+    [Theory]
+    [InlineData(AssetKeys.UiCommandOpenIcon, "ui.command.open.icon")]
+    [InlineData(AssetKeys.UiCommandSaveIcon, "ui.command.save.icon")]
+    [InlineData(AssetKeys.UiCommandEndTurnIcon, "ui.command.end_turn.icon")]
+    [InlineData(AssetKeys.UiCommandNewsIcon, "ui.command.news.icon")]
+    [InlineData(AssetKeys.UiCommandRelationsIcon, "ui.command.relations.icon")]
+    [InlineData(AssetKeys.UiCommandTaxationIcon, "ui.command.taxation.icon")]
+    [InlineData(AssetKeys.UiCommandBalanceSheetIcon, "ui.command.balance_sheet.icon")]
+    [InlineData(AssetKeys.UiCommandRecruitUnitIcon, "ui.command.recruit_unit.icon")]
+    [InlineData(AssetKeys.UiCommandBuildFleetIcon, "ui.command.build_fleet.icon")]
+    [InlineData(AssetKeys.UiCommandShowCitiesIcon, "ui.command.show_cities.icon")]
+    [InlineData(AssetKeys.UiCommandShowCapitalIcon, "ui.command.show_capital.icon")]
+    [InlineData(AssetKeys.UiCommandShowArmiesIcon, "ui.command.show_armies.icon")]
+    [InlineData(AssetKeys.UiCommandShowFleetsIcon, "ui.command.show_fleets.icon")]
+    [InlineData(AssetKeys.UiCommandShowAllIcon, "ui.command.show_all.icon")]
+    [InlineData(AssetKeys.UiCommandShowMercsLightInfantryIcon, "ui.command.show_mercs_light_infantry.icon")]
+    [InlineData(AssetKeys.UiCommandShowMercsHeavyInfantryIcon, "ui.command.show_mercs_heavy_infantry.icon")]
+    [InlineData(AssetKeys.UiCommandShowMercsArchersIcon, "ui.command.show_mercs_archers.icon")]
+    [InlineData(AssetKeys.UiCommandShowMercsLightCavalryIcon, "ui.command.show_mercs_light_cavalry.icon")]
+    [InlineData(AssetKeys.UiCommandShowMercsHeavyCavalryIcon, "ui.command.show_mercs_heavy_cavalry.icon")]
+    [InlineData(AssetKeys.UiCommandShowMercsAllIcon, "ui.command.show_mercs_all.icon")]
+    [InlineData(AssetKeys.UiCommandFindCityIcon, "ui.command.find_city.icon")]
+    [InlineData(AssetKeys.UiCommandArmySupplyIcon, "ui.command.army_supply.icon")]
+    [InlineData(AssetKeys.UiCommandArmyRecruitMercenariesIcon, "ui.command.army_recruit_mercenaries.icon")]
+    [InlineData(AssetKeys.UiCommandArmyTransferUnitIcon, "ui.command.army_transfer_unit.icon")]
+    [InlineData(AssetKeys.UiCommandArmySplitIcon, "ui.command.army_split.icon")]
+    [InlineData(AssetKeys.UiCommandArmyJoinIcon, "ui.command.army_join.icon")]
+    [InlineData(AssetKeys.UiCommandArmyChangeUnitsIcon, "ui.command.army_change_units.icon")]
+    [InlineData(AssetKeys.UiCommandArmyDisbandIcon, "ui.command.army_disband.icon")]
+    [InlineData(AssetKeys.UiCommandFleetSupplyIcon, "ui.command.fleet_supply.icon")]
+    [InlineData(AssetKeys.UiCommandFleetRepairIcon, "ui.command.fleet_repair.icon")]
+    [InlineData(AssetKeys.UiCommandFleetTransferShipsIcon, "ui.command.fleet_transfer_ships.icon")]
+    [InlineData(AssetKeys.UiCommandFleetSplitIcon, "ui.command.fleet_split.icon")]
+    [InlineData(AssetKeys.UiCommandFleetJoinIcon, "ui.command.fleet_join.icon")]
+    [InlineData(AssetKeys.UiCommandFleetScuttleIcon, "ui.command.fleet_scuttle.icon")]
+    [InlineData(AssetKeys.UiCommandCityFortifyIcon, "ui.command.city_fortify.icon")]
+    [InlineData(AssetKeys.UiCommandCancelSelectionIcon, "ui.command.cancel_selection.icon")]
+    public void UiCommandConstant_HasItsExactString(string actual, string expected)
+    {
+        Assert.Equal(expected, actual);
+        Assert.Contains(actual, AssetKeys.AllKeys);
+    }
 }

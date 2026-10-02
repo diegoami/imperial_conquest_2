@@ -20,9 +20,8 @@ namespace IC2.Engine.Tests.Assets;
 /// </para>
 /// <para>
 /// Gap/candidate keys discussed elsewhere in the document (river tile variants, candidate new sfx
-/// keys, chrome candidates) are deliberately outside this block: DoD 4 only requires the *existing*
-/// 25 to round-trip, and a proposed key must not affect this test either way, since
-/// <c>src/IC2.Engine/Assets/AssetKeys.cs</c> is outside this task's Owns list to change.
+/// keys) are deliberately outside this block: this test only requires the *existing* keys - all 61
+/// after T101 - to round-trip, and a proposed key must not affect it either way.
 /// </para>
 /// </remarks>
 public class AssetSpecificationCoverageTests
@@ -71,9 +70,8 @@ public class AssetSpecificationCoverageTests
         // A cheap sanity check on the parse itself: distinct, non-empty keys, and — asserted
         // directly here, not just implied by the other two tests — exactly as many of them as
         // AssetKeys.AllKeys yields today. If this ever fails because a real key was added or
-        // removed, that is exactly the drift this test exists to catch — update AssetKeys.cs's own
-        // count claim and this specification's §6 block together (this task's Owns list covers the
-        // doc; AssetKeys.cs is T11's).
+        // removed, that is exactly the drift this test exists to catch: update AssetKeys.cs and
+        // this specification's §6 block together.
         var documented = ReadGroundTruthKeys();
         var engineKeyCount = AssetKeys.AllKeys.Count();
 
