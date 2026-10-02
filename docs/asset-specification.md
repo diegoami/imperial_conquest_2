@@ -743,8 +743,9 @@ section actually require:
     vertical bar is **Split fleet** (corrected; previously described as "two ships either side of a
     divider," a description that belongs to the Join button, not this one), and the tilted beached ship
     over a blue line is **Scuttle fleet** — those four matches remain **provisional, inferred from icon
-    shape**, not verified. The seventh, white circle is outside the fleet group: **perhaps** the
-    unit-map strip's 15th button, whose meaning is [open] (audit §3.3); T101's
+    shape**, not verified. The seventh, white circle is outside the fleet group: most likely the
+    unit-map strip's 15th button, Cancel selection, which the fleet strip's tooltips name
+    **[Wine candidate: [`2026-10-02-fleet-orders-live.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-02-fleet-orders-live.md)]** (audit §3.3); T101's
     `ui.command.cancel_selection.icon` is `[designed]` for that slot. The pixel descriptions beside
     each are verified (`#176` N13).
 
@@ -763,7 +764,7 @@ section actually require:
   because what they do is [open] (audit §1.5, §3.2), and adds `find_city` — the audit §3.2 names that
   sole candidate for what the coin means — and `cancel_selection`. The 16 nation buttons and All
   nations are colour swatches (§2's palette) and get no key; `cancel_selection` is `[designed]`: the
-  unit-map strip's 15th button is unread and Cancel selection fits it (audit §3.3). Every key is
+  unit-map strip's 15th button is most likely Cancel selection, a Wine candidate (audit §3.3). Every key is
   `ui.command.<id>.icon`, 32×32 32-bit BGRA with straight alpha (§1.2, §1.3).
   A later command that gains a toolbar icon extends this table and `AssetKeys` together.
 
