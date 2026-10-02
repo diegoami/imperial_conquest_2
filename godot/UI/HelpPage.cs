@@ -53,10 +53,10 @@ public partial class HelpPage : Control
         AddSection(column, "Menus");
         AddLine(column, "File: start a new game, open or save one, or leave this game.");
         AddLine(column, "Game: end the current turn.");
-        AddLine(column, "Strategy: the news log, international relations, and the nation's economic dialogs.");
-        AddLine(column, "Nations: choose the nation you are viewing.");
-        AddLine(column, "Area map: highlight cities, capitals, armies, fleets or mercenaries on the overview.");
-        AddLine(column, "Unit map: give the selected army, fleet or city its orders, or cancel the selection.");
+        AddLine(column, "Strategy: the news log and international relations (the economic dialogs are not yet available; shown disabled).");
+        AddLine(column, "Nations: choose the nation you are viewing (not yet available; shown disabled).");
+        AddLine(column, "Area map: highlight cities, capitals, armies, fleets or mercenaries on the overview (not yet available; shown disabled).");
+        AddLine(column, "Unit map: cancel the selection; the order entries are not yet available (shown disabled).");
         AddLine(column, "Help: this page, the tooltip hints, and the about box.");
 
         AddSection(column, "Where the rules come from");

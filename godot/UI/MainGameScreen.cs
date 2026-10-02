@@ -580,10 +580,14 @@ public partial class MainGameScreen : Control
     /// <summary>
     /// T99, cancel selection: <strong>Shift+X</strong> [confirmed:
     /// <c>ptolemy-run-ui-inventory-and-leader-draw.md</c> §4] and <strong>Esc</strong> [designed] clear
-    /// the map's selection. The menu entry is T100's, not this screen's. An open overlay is modal: while
-    /// one is up its own keys rule (<see cref="ConfirmPrompt"/>'s Esc answers its No), so this does
-    /// nothing — the unhandled path only, so a focused control's own keys (a text field's, a button's)
-    /// are never stolen.
+    /// the map's selection. Shift+X is the Unit map → Cancel selection table row's own shortcut, so the
+    /// key runs the table's one handler — the same path the menu item and its toolbar icon take, and
+    /// the same <see cref="GameCommandTable.IssuedCount"/> a check reads. The menu shows the shortcut
+    /// in its tooltip but deliberately registers no live accelerator (rework B4): an accelerator acts
+    /// in Godot's shortcut-input pass, before this guarded path, and would fire through a modal. An
+    /// open overlay is modal: while one is up its own keys rule (<see cref="ConfirmPrompt"/>'s Esc
+    /// answers its No), so this does nothing — the unhandled path only, so a focused control's own keys
+    /// (a text field's, a button's) are never stolen.
     /// </summary>
     /// <remarks>
     /// Esc is [designed] because the audit's §1.8 ("Keyboard shortcuts found in the code") records that

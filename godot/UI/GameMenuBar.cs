@@ -27,7 +27,14 @@ namespace IC2.Slice.UI;
 /// <para>
 /// <strong>Show hints</strong> owns the check mark (<see cref="SetHintsEnabled"/>): the original's
 /// <c>TPremierForm_ToggleHints</c> toggles the tooltips and the menu check mark together (audit §1.7),
-/// and this bar sets each item's tooltip to its own caption when hints are on and clears it when off.
+/// and this bar shows each item's caption, plus its observed shortcut when it has one, in that item's
+/// tooltip (and clears the tooltip when hints are off).
+/// </para>
+/// <para>
+/// A row's shortcut is <em>shown</em> (in the tooltip), never registered as a Godot accelerator
+/// (rework B4): an accelerator acts in Godot's shortcut-input pass, before
+/// <c>MainGameScreen._UnhandledInput</c>'s overlay guard, so Shift+X would clear the selection while a
+/// modal overlay is up. The key reaches that guarded path instead.
 /// </para>
 /// </remarks>
 public partial class GameMenuBar : HBoxContainer
@@ -48,9 +55,11 @@ public partial class GameMenuBar : HBoxContainer
 
     private readonly Dictionary<string, PopupMenu> _submenus = new(StringComparer.Ordinal);
 
-    /// <summary>Each item's own popup, item index and item id — enough to read disabled/checked state
-    /// and to emit the real <c>IdPressed</c> signal from <see cref="PressItemForCheck"/>.</summary>
-    private readonly Dictionary<string, (PopupMenu Popup, int Index, int Id)> _items = new(StringComparer.Ordinal);
+    /// <summary>Each item's own popup, item index, item id and tooltip text — enough to read
+    /// disabled/checked state and to emit the real <c>IdPressed</c> signal from
+    /// <see cref="PressItemForCheck"/>. The tooltip carries the menu's shortcut (rework B4), so the
+    /// shortcut is shown without becoming a live accelerator.</summary>
+    private readonly Dictionary<string, (PopupMenu Popup, int Index, int Id, string TooltipText)> _items = new(StringComparer.Ordinal);
 
     private bool _hintsEnabled = true;
 
@@ -158,10 +167,13 @@ public partial class GameMenuBar : HBoxContainer
         popup.AddItem(row.Caption, id);
         popup.SetItemDisabled(index, !row.Wired);
         popup.SetItemChecked(index, string.Equals(row.Id, "help.show_hints", StringComparison.Ordinal) && _hintsEnabled);
-        if (row.Shortcut is { } shortcut && AcceleratorFor(shortcut) is { } accelerator)
-        {
-            popup.SetItemAccelerator(index, accelerator);
-        }
+
+        // The observed shortcut is shown, never registered as a Godot accelerator (rework B4). A live
+        // accelerator acts in Godot's shortcut-input pass, before MainGameScreen._UnhandledInput's
+        // overlay guard, so Shift+X would clear the selection with a modal overlay up (T99's contract
+        // is that an open overlay is modal). The key reaches the guarded path instead; here the
+        // shortcut is only text in the item's tooltip.
+        var tooltipText = row.Shortcut is { } shortcut ? $"{row.Caption} ({shortcut})" : row.Caption;
 
         var commandId = row.Id;
         var itemId = id;
@@ -173,27 +185,14 @@ public partial class GameMenuBar : HBoxContainer
             }
         };
 
-        _items[row.Id] = (popup, index, id);
+        _items[row.Id] = (popup, index, id, tooltipText);
     }
-
-    /// <summary>
-    /// Godot's accelerator for a row's <see cref="GameCommandRow.Shortcut"/> string, or
-    /// <see langword="null"/> when the table names no shortcut (or names one whose modifier this parser
-    /// does not know). Only <c>Shift+X</c> is confirmed (audit §1.6); every other menu shortcut lives in
-    /// the EXE's unread form stream (audit §5, gap 2), so this deliberately knows the one form rather
-    /// than inventing a shortcut grammar from a stream nobody has read.
-    /// </summary>
-    public static Key? AcceleratorFor(string shortcut) => shortcut switch
-    {
-        "Shift+X" => (Key)((long)Key.X | (long)KeyModifierMask.MaskShift),
-        _ => null,
-    };
 
     private void ApplyHints()
     {
-        foreach (var (popup, index, _) in _items.Values)
+        foreach (var (popup, index, _, tooltipText) in _items.Values)
         {
-            popup.SetItemTooltip(index, _hintsEnabled ? popup.GetItemText(index) : string.Empty);
+            popup.SetItemTooltip(index, _hintsEnabled ? tooltipText : string.Empty);
         }
 
         foreach (var button in _menuButtons.Values)

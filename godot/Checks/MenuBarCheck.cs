@@ -15,14 +15,16 @@ namespace IC2.Slice.Checks;
 /// calendar by one turn and each increment the table's one handler counter;</item>
 /// <item>Done-when 5 — International relations opens <see cref="DiplomacyScreen"/>, News toggles the
 /// news log, Help topics opens <see cref="HelpPage"/>, About opens <see cref="AboutDialog"/>, and
-/// Shift+X clears a selection;</item>
+/// Shift+X clears a selection exactly once with no overlay while an open HelpPage or File → New
+/// confirmation blocks it;</item>
 /// <item>Done-when 6 — every enabled toolbar button has a non-empty tooltip with hints on, none with
 /// Show hints off, and the menu item's check mark follows;</item>
-/// <item>Done-when 7 — every disabled menu entry and toolbar button issues no command;</item>
+/// <item>Done-when 7 — every disabled menu entry and toolbar button issues no command, the toolbar
+/// sweep driven from the table and pressed through real GUI input;</item>
 /// </list>
 /// Run headless via:
 /// <code>
-/// godot --headless --path godot res://Checks/MenuBarCheck.tscn --quit-after 600
+/// godot --headless --path godot res://Checks/MenuBarCheck.tscn --quit-after 900
 /// </code>
 /// </summary>
 /// <remarks>
@@ -50,6 +52,10 @@ public partial class MenuBarCheck : Control
     private int _commandsSeen;
     private int _selectionsCleared;
     private int _armiesSelected;
+
+    /// <summary>The unwired table rows, with a toolbar button, that the real-input sweep presses
+    /// (built in <see cref="CheckDisabledEntriesIssueNothing"/>, pressed in the next step).</summary>
+    private IReadOnlyList<GameCommandRow> _sweptToolbarRows = Array.Empty<GameCommandRow>();
 
     private int _beforeIssued;
     private int _beforeCommands;
@@ -130,8 +136,11 @@ public partial class MenuBarCheck : Control
             (InitialSettleFrames, CheckMenuStructure),
             (BetweenStepsFrames, CheckHintsOn),
 
-            // Done-when 7.
+            // Done-when 7. The toolbar half presses the real buttons through GUI input before the
+            // counts are asserted (rework B3).
             (BetweenStepsFrames, CheckDisabledEntriesIssueNothing),
+            (BetweenStepsFrames, PressDisabledToolbarButtonsThroughRealInput),
+            (BetweenStepsFrames, AssertDisabledToolbarPressesIssuedNothing),
 
             // Done-when 5: the four overlays and the news toggle, none of which mutates the turn.
             (BetweenStepsFrames, CheckNewsToggles),
@@ -139,11 +148,17 @@ public partial class MenuBarCheck : Control
             (BetweenStepsFrames, CheckHelpTopics),
             (BetweenStepsFrames, CheckAbout),
 
-            // Done-when 5, the key: select an own army, then Shift+X.
+            // Done-when 5, the key: select an own army, prove the overlay guard blocks Shift+X with
+            // HelpPage and with File -> New's ConfirmPrompt open, then clear exactly once with no
+            // overlay (rework B4).
             (BetweenStepsFrames, SelectOwnArmy),
             (BetweenStepsFrames, AssertOwnArmySelected),
-            (BetweenStepsFrames, PressShiftX),
-            (BetweenStepsFrames, AssertShiftXCleared),
+            (BetweenStepsFrames, OpenHelpPageForShortcutGuard),
+            (BetweenStepsFrames, AssertShiftXBlockedByHelpPage),
+            (BetweenStepsFrames, OpenNewConfirmForShortcutGuard),
+            (BetweenStepsFrames, AssertShiftXBlockedByConfirmPrompt),
+            (BetweenStepsFrames, PressShiftXRealInput),
+            (BetweenStepsFrames, AssertShiftXClearedExactlyOnce),
 
             // Done-when 3: the menu item, then the toolbar button, through the one handler.
             (BetweenStepsFrames, PressEndTurnMenu),
@@ -184,8 +199,10 @@ public partial class MenuBarCheck : Control
     }
 
     /// <summary>
-    /// Rework N5: the Cancel selection row's <see cref="GameCommandRow.Shortcut"/> is shown as Godot's
-    /// menu accelerator (the Shift+X bit), and the item still lives in the Unit map menu.
+    /// Rework B4: the Cancel selection row's <see cref="GameCommandRow.Shortcut"/> is <em>shown</em> in
+    /// the item's tooltip but registers no live Godot accelerator — an accelerator acts in Godot's
+    /// shortcut-input pass, before <c>MainGameScreen._UnhandledInput</c>'s overlay guard, and so would
+    /// fire through a modal. The item still lives in the Unit map menu.
     /// </summary>
     private void CheckCancelSelectionShortcut()
     {
@@ -197,12 +214,15 @@ public partial class MenuBarCheck : Control
             return;
         }
 
-        var accelerator = unitMap!.GetItemAccelerator(index);
-        var shift = ((long)accelerator & (long)KeyModifierMask.MaskShift) != 0;
-        var code = (Key)((long)accelerator & ~(long)KeyModifierMask.MaskShift);
+        var accelerator = (long)unitMap!.GetItemAccelerator(index);
         Check(
-            shift && code == Key.X,
-            $"Cancel selection shows the Shift+X accelerator (got 0x{(long)accelerator:X}: shift={shift}, code={code})");
+            accelerator == 0,
+            $"Cancel selection registers no live accelerator (got 0x{accelerator:X})");
+
+        var tooltip = unitMap.GetItemTooltip(index);
+        Check(
+            tooltip.Contains("Shift+X", StringComparison.Ordinal),
+            $"Cancel selection shows Shift+X in its tooltip (got '{tooltip}')");
     }
 
     private void CheckSubmenu(string menu, string submenu)
@@ -240,17 +260,13 @@ public partial class MenuBarCheck : Control
         _beforeIssued = _mainGame.CommandTable.IssuedCount;
         _beforeCommands = _commandsSeen;
 
-        // Rework N2: sweep every disabled control, not a three-entry sample. Each press goes through
-        // the same disabled guard a real click does (PressItemForCheck / PressForCheck refuse to emit
-        // when the control is disabled), so the counts below must not move over any of them.
+        // The menu half drives from the table: every unwired row, not a sample. Every press goes
+        // through the same disabled guard a real click does (PressItemForCheck refuses to emit when
+        // the item is disabled).
         var disabledMenuRows = GameCommandTable.Rows.Where(row => !row.Wired).ToList();
-        var disabledToolbarCommands = _mainGame.Toolbar.DisabledCommandIds;
         Check(
             disabledMenuRows.Count > 0,
             $"the table has disabled menu entries to sweep ({disabledMenuRows.Count})");
-        Check(
-            disabledToolbarCommands.Count > 0,
-            $"the toolbar has disabled buttons to sweep ({disabledToolbarCommands.Count})");
 
         var menuPresses = disabledMenuRows
             .Where(row => _mainGame.MenuBar.PressItemForCheck(row.Id))
@@ -261,21 +277,55 @@ public partial class MenuBarCheck : Control
             $"every one of the {disabledMenuRows.Count} disabled menu entries refuses the press "
             + $"(pressed: {(menuPresses.Count == 0 ? "<none>" : string.Join(", ", menuPresses))})");
 
-        var toolbarPresses = disabledToolbarCommands
-            .Where(_mainGame.Toolbar.PressForCheck)
+        // Rework B3: the toolbar half drives from the table too — every unwired row that has a toolbar
+        // button, plus the 17 nation swatches (which the table also holds) — never from each button's
+        // own Disabled flag, because a wrongly enabled button would then drop out of its own sweep.
+        var nationRows = GameCommandTable.Rows
+            .Where(row => string.Equals(row.Menu, "Nations", StringComparison.Ordinal))
+            .ToList();
+        Check(nationRows.Count == 17, $"the table has 17 nation rows ({nationRows.Count})");
+
+        _sweptToolbarRows = GameCommandTable.Rows
+            .Where(row => !row.Wired && _mainGame.Toolbar.ButtonFor(row.Id) is not null)
             .ToList();
         Check(
-            toolbarPresses.Count == 0,
-            $"every one of the {disabledToolbarCommands.Count} disabled toolbar buttons refuses the press "
-            + $"(pressed: {(toolbarPresses.Count == 0 ? "<none>" : string.Join(", ", toolbarPresses))})");
+            _sweptToolbarRows.Count == 21,
+            $"every unwired toolbar command is swept (got {_sweptToolbarRows.Count})");
 
+        var unexpectedlyEnabled = _sweptToolbarRows
+            .Where(row => _mainGame.Toolbar.ButtonFor(row.Id)!.Disabled == false)
+            .Select(row => row.Id)
+            .ToList();
+        Check(
+            unexpectedlyEnabled.Count == 0,
+            $"every one of the {_sweptToolbarRows.Count} swept toolbar buttons is Disabled "
+            + $"(enabled: {(unexpectedlyEnabled.Count == 0 ? "<none>" : string.Join(", ", unexpectedlyEnabled))})");
+    }
+
+    /// <summary>
+    /// Rework B3: presses every swept toolbar button through Godot's real GUI input path (a mouse
+    /// press/release at the button's centre, <see cref="Viewport.PushInput"/>), not through a helper
+    /// that skips the input system. The next step asserts the handler and session counts did not move.
+    /// </summary>
+    private void PressDisabledToolbarButtonsThroughRealInput()
+    {
+        _beforeIssued = _mainGame.CommandTable.IssuedCount;
+        _beforeCommands = _commandsSeen;
+        foreach (var row in _sweptToolbarRows)
+        {
+            ClickControl(_mainGame.Toolbar.ButtonFor(row.Id)!);
+        }
+    }
+
+    private void AssertDisabledToolbarPressesIssuedNothing()
+    {
         Check(
             _mainGame.CommandTable.IssuedCount == _beforeIssued,
-            $"no disabled entry of the {disabledMenuRows.Count + disabledToolbarCommands.Count} reached the "
-            + $"table's handler ({_beforeIssued} -> {_mainGame.CommandTable.IssuedCount})");
+            $"no disabled toolbar button reached the table's handler "
+            + $"({_beforeIssued} -> {_mainGame.CommandTable.IssuedCount})");
         Check(
             _commandsSeen == _beforeCommands,
-            $"no disabled entry issued a session command ({_beforeCommands} -> {_commandsSeen})");
+            $"no disabled toolbar button issued a session command ({_beforeCommands} -> {_commandsSeen})");
     }
 
     // ---- Done-when 5 ----
@@ -355,27 +405,97 @@ public partial class MenuBarCheck : Control
     private void AssertOwnArmySelected() =>
         Check(_armiesSelected > _beforeArmies, "a left click on Rome's own army selects it");
 
-    private void PressShiftX()
+    /// <summary>
+    /// Rework B4: Shift+X with a modal overlay up must clear nothing and reach no handler. Every one of
+    /// the four presses below goes through <see cref="Viewport.PushInput"/> with a real
+    /// <see cref="InputEventKey"/>, never a direct <c>_UnhandledInput</c> call, so a live accelerator or
+    /// Godot's shortcut-input pass would be seen if one still existed.
+    /// </summary>
+    private void OpenHelpPageForShortcutGuard()
+    {
+        _mainGame.MenuBar.PressItemForCheck("help.topics");
+        Check(
+            _mainGame.ActiveOverlay is HelpPage,
+            $"the help page is open before the guarded Shift+X press "
+            + $"(got {_mainGame.ActiveOverlay?.GetType().Name ?? "null"})");
+    }
+
+    private void AssertShiftXBlockedByHelpPage()
     {
         _beforeCleared = _selectionsCleared;
         _beforeIssued = _mainGame.CommandTable.IssuedCount;
-        _mainGame._UnhandledInput(new InputEventKey
-        {
-            Keycode = Key.X,
-            Pressed = true,
-            ShiftPressed = true,
-        });
+        PushShiftX();
+        Check(
+            _mainGame.CommandTable.IssuedCount == _beforeIssued,
+            "Shift+X with the help page open does not reach the table's handler "
+            + $"({_beforeIssued} -> {_mainGame.CommandTable.IssuedCount})");
+        Check(
+            _selectionsCleared == _beforeCleared,
+            "Shift+X with the help page open does not clear the selection "
+            + $"({_beforeCleared} -> {_selectionsCleared})");
+        CloseOverlay<HelpPage>();
     }
 
-    private void AssertShiftXCleared()
+    private void OpenNewConfirmForShortcutGuard()
+    {
+        _mainGame.MenuBar.PressItemForCheck("file.new");
+        Check(
+            _mainGame.ActiveOverlay is ConfirmPrompt,
+            $"File -> New's confirmation is open before the guarded Shift+X press "
+            + $"(got {_mainGame.ActiveOverlay?.GetType().Name ?? "null"})");
+    }
+
+    private void AssertShiftXBlockedByConfirmPrompt()
+    {
+        _beforeCleared = _selectionsCleared;
+        _beforeIssued = _mainGame.CommandTable.IssuedCount;
+        PushShiftX();
+        Check(
+            _mainGame.CommandTable.IssuedCount == _beforeIssued,
+            "Shift+X with the New confirmation open does not reach the table's handler "
+            + $"({_beforeIssued} -> {_mainGame.CommandTable.IssuedCount})");
+        Check(
+            _selectionsCleared == _beforeCleared,
+            "Shift+X with the New confirmation open does not clear the selection "
+            + $"({_beforeCleared} -> {_selectionsCleared})");
+        CloseConfirmPromptForCheck();
+    }
+
+    private void PressShiftXRealInput()
+    {
+        _beforeCleared = _selectionsCleared;
+        _beforeIssued = _mainGame.CommandTable.IssuedCount;
+        PushShiftX();
+    }
+
+    private void AssertShiftXClearedExactlyOnce()
     {
         Check(
-            _selectionsCleared > _beforeCleared,
-            "Shift+X clears the selection (GameMapView.SelectionCleared fired)");
+            _selectionsCleared == _beforeCleared + 1,
+            "Shift+X with no overlay clears the selection exactly once "
+            + $"({_beforeCleared} -> {_selectionsCleared})");
         Check(
             _mainGame.CommandTable.IssuedCount == _beforeIssued + 1,
-            "Shift+X runs the table's Cancel selection handler, the menu item's own path "
+            "Shift+X with no overlay runs the table's Cancel selection handler exactly once "
             + $"({_beforeIssued} -> {_mainGame.CommandTable.IssuedCount})");
+    }
+
+    private void PushShiftX() => GetViewport().PushInput(new InputEventKey
+    {
+        Keycode = Key.X,
+        Pressed = true,
+        ShiftPressed = true,
+    });
+
+    private void CloseConfirmPromptForCheck()
+    {
+        // Bring the help page up: MainGameScreen.ShowOverlay removes the confirmation through its own
+        // path, not the prompt's Escape handler — that handler frees the prompt mid-call and then
+        // dereferences its now-null viewport (ConfirmPrompt._UnhandledInput:97, an outside-PR defect).
+        // The help page then closes through its public Close().
+        _mainGame.MenuBar.PressItemForCheck("help.topics");
+        Check(_mainGame.ActiveOverlay is HelpPage, "the confirmation is replaced by the help page");
+        CloseOverlay<HelpPage>();
     }
 
     // ---- Done-when 3 ----
@@ -493,6 +613,33 @@ public partial class MenuBarCheck : Control
             ButtonIndex = MouseButton.Left,
             Pressed = false,
             Position = position,
+        });
+    }
+
+    /// <summary>
+    /// Clicks <paramref name="control"/> the way a user does — a real mouse press and release at its
+    /// centre through <see cref="Viewport.PushInput"/>, not the control's own helper — so a control
+    /// that wrongly became enabled would issue its command (rework B3).
+    /// </summary>
+    private void ClickControl(Control control)
+    {
+        var center = control.GlobalPosition + (control.Size / 2f);
+        var viewport = GetViewport();
+        viewport.PushInput(new InputEventMouseMotion { Position = center, GlobalPosition = center });
+        viewport.PushInput(new InputEventMouseButton
+        {
+            ButtonIndex = MouseButton.Left,
+            Pressed = true,
+            Position = center,
+            GlobalPosition = center,
+            ButtonMask = MouseButtonMask.Left,
+        });
+        viewport.PushInput(new InputEventMouseButton
+        {
+            ButtonIndex = MouseButton.Left,
+            Pressed = false,
+            Position = center,
+            GlobalPosition = center,
         });
     }
 
