@@ -139,12 +139,14 @@ public static class AssetKeys
 
     // ===== Toolbar command icons (ui.command.*) =====
     //
-    // One pictorial icon per toolbar command (T101), from the counts in
-    // docs/investigations/original-ui-command-audit.md 3.5 and catalogued in
+    // One pictorial icon per toolbar command (T101), catalogued in
     // docs/asset-specification.md 4.7: 9 main-toolbar commands, 12 Area-map strip commands and
-    // 15 unit-map strip commands. The 16 nation buttons and All nations are colour swatches and
-    // need no key; the Area-map strip's ToggleMap and gold-coin buttons are [open] and get none.
-    // Every icon is 32x32 32-bit BGRA with straight alpha (asset-specification.md 1.2 and 1.3).
+    // 15 unit-map strip commands. The total of 36 equals the audit's 3.5 total
+    // (docs/investigations/original-ui-command-audit.md), but not its per-strip split (9 / 13 / 14
+    // plus one [open]): this grouping drops the Area-map strip's ToggleMap and gold-coin buttons,
+    // whose meanings are [open] (audit 3.2), and adds find_city (audit 3.2's candidate for the coin)
+    // and cancel_selection. The 16 nation buttons and All nations are colour swatches and need no
+    // key. Every icon is 32x32 32-bit BGRA with straight alpha (asset-specification.md 1.2 and 1.3).
 
     // --- Main toolbar (9) ---
 

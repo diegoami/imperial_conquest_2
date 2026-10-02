@@ -733,18 +733,20 @@ section actually require:
     filter); five plain geometric overlay toggles (`+`, `×`, `#`, an outlined diamond, an outlined
     circle); a combined multi-symbol icon (toggle-all); and a gold coin (an economy/money overlay).
   - The **unit-map toolbar** in `screenshots/1_cartago_271_spring_3_1.png` carries **7 buttons** on a
-    teal background. The code read for the audit settles **six fleet orders** — Supply, Repair,
-    Transfer ships, Split, Join, Scuttle — and that reading corrects the earlier shape-only labels:
-    the ship with cargo and a marker is **Supply fleet**, the ship ringed with dots is **Repair
+    teal background. The code read for the audit settles the **list of six fleet orders** — Supply,
+    Repair, Transfer ships, Split, Join, Scuttle — as `[derived: code]`. Matching those six orders to
+    the seven buttons is **provisional, inferred from icon shape**, not verified. The audit's own
+    wording calls the ship with cargo and a marker and the ship with a plus sign **the likely match** —
+    Supply fleet and Transfer ships respectively (§3.3) — while the ship ringed with dots is **Repair
     fleet**, the two ships inside a bracket/frame are **Join fleets** (corrected, rework round 2:
     previously mis-described as "ship with a '1' and split arrows"), the single ship bisected by a
     vertical bar is **Split fleet** (corrected; previously described as "two ships either side of a
-    divider," a description that belongs to the Join button, not this one), the ship with a plus sign
-    is **Transfer ships**, and the tilted beached ship over a blue line is **Scuttle fleet**. The
-    seventh, white circle is outside the fleet group: the unit-map strip's 15th button, whose meaning
-    is [open] (audit §3.3); T101's `ui.command.cancel_selection.icon` is `[designed]` for that slot.
-    The pixel descriptions beside each are verified (`#176` N13); the shape-to-order match is the
-    audit's `[derived: code]` reading.
+    divider," a description that belongs to the Join button, not this one), and the tilted beached ship
+    over a blue line is **Scuttle fleet** — those four matches remain **provisional, inferred from icon
+    shape**, not verified. The seventh, white circle is outside the fleet group: **perhaps** the
+    unit-map strip's 15th button, whose meaning is [open] (audit §3.3); T101's
+    `ui.command.cancel_selection.icon` is `[designed]` for that slot. The pixel descriptions beside
+    each are verified (`#176` N13).
 
   That is **13 + 7 = 20 buttons across the two toolbars I actually counted** (corrected, rework round 2:
   previously miscounted as "at least 18," an arithmetic error against this section's own enumeration),
@@ -754,14 +756,16 @@ section actually require:
   This is a floor, not a ceiling — I checked two toolbar rows in two screenshots, not the full menu
   surface `menu-and-toolbar-inventory.md` itself says is still incompletely mapped. **The "no new asset
   needed" conclusion in this bullet's first draft cannot stand against this evidence.** Recorded here as
-  a real gap. T101 adopted the `ui.command.<id>.icon` naming and the audit's §3.5 count of **36 pictorial
-  toolbar commands**: 9 on the main toolbar, 12 on the Area-map strip and 15 on the unit-map strip. The
-  16 nation buttons and All nations are colour swatches (§2's palette) and get no key; the Area-map
-  strip's ToggleMap and gold-coin buttons get no key because what they do is [open] (audit §1.5, §3.2).
-  `cancel_selection` is `[designed]`: the strip's 15th button is unread and Cancel selection fits it
-  (audit §3.3). Every key is `ui.command.<id>.icon`, 32×32 32-bit BGRA with straight alpha (§1.2, §1.3).
-  The audit's count is the authority for this list, not a re-count of the two screenshots; a later
-  command that gains a toolbar icon extends this table and `AssetKeys` together.
+  a real gap. T101 adopted the `ui.command.<id>.icon` naming for **36 pictorial toolbar commands**,
+  equal to the audit's §3.5 total although not its per-strip split (the audit's table gives 9 / 13 / 14
+  plus one [open]). This catalogue regroups the same total as 9 on the main toolbar, 12 on the Area-map
+  strip and 15 on the unit-map strip: it drops the Area-map strip's ToggleMap and gold-coin buttons,
+  because what they do is [open] (audit §1.5, §3.2), and adds `find_city` — the audit §3.2 names that
+  sole candidate for what the coin means — and `cancel_selection`. The 16 nation buttons and All
+  nations are colour swatches (§2's palette) and get no key; `cancel_selection` is `[designed]`: the
+  unit-map strip's 15th button is unread and Cancel selection fits it (audit §3.3). Every key is
+  `ui.command.<id>.icon`, 32×32 32-bit BGRA with straight alpha (§1.2, §1.3).
+  A later command that gains a toolbar icon extends this table and `AssetKeys` together.
 
 **The 36 toolbar-command keys and their commands (T101).** Each depiction is `[designed]` — the
 original's own art cannot ship, so every icon is new work; the command each key serves is the audit's.

@@ -1027,18 +1027,33 @@ def self_check() -> list:
     _check(failures, "ui icon: pixel array is 4096 bytes",
            ui_header["image_size"] == SIZE * SIZE * 4 == len(ui_bmp) - 54)
     # Read the bytes directly: Pillow's 32-bit BI_RGB reader drops the fourth byte.
-    def ui_pixel(x: int, y_from_top: int):
+    def bmp_pixel(bmp_bytes: bytes, x: int, y_from_top: int):
         y_from_bottom = SIZE - 1 - y_from_top
         i = 54 + (y_from_bottom * SIZE + x) * 4
-        return (ui_bmp[i + 2], ui_bmp[i + 1], ui_bmp[i], ui_bmp[i + 3])
-    ui_corner = ui_pixel(0, 0)
-    ui_centre = ui_pixel(16, 16)
+        return (bmp_bytes[i + 2], bmp_bytes[i + 1], bmp_bytes[i], bmp_bytes[i + 3])
+    ui_corner = bmp_pixel(ui_bmp, 0, 0)
+    ui_centre = bmp_pixel(ui_bmp, 16, 16)
     _check(failures, "ui icon: background keyed out to alpha 0 at a corner",
            ui_corner[3] == 0, f"alpha {ui_corner[3]}")
     _check(failures, "ui icon: the centre is opaque and keeps a saturated non-neutral colour "
            "(pictorial, not a light silhouette)",
            ui_centre[3] == 255 and max(ui_centre[:3]) - min(ui_centre[:3]) >= 60,
            f"rgba {ui_centre}")
+    # A real --key or --reconform run conforms through conform_image's `if kind == "ui"`
+    # dispatch, not a direct conform_ui call. Exercise the dispatch here, so deleting it
+    # fails the self-check rather than silently writing these icons as 24-bit opaque tiles
+    # after the image has been paid for.
+    ui_dispatch_bmp, ui_depth = conform_image("ui", ui_source)
+    _check(failures, "ui icon: conform_image('ui', ...) returns a 32-bit BGRA result",
+           _parse_bmp_header(ui_dispatch_bmp)["bit_count"] == 32,
+           f"{_parse_bmp_header(ui_dispatch_bmp)['bit_count']}-bit")
+    _check(failures, "ui icon: conform_image('ui', ...) keys a corner to alpha 0",
+           bmp_pixel(ui_dispatch_bmp, 0, 0)[3] == 0,
+           f"alpha {bmp_pixel(ui_dispatch_bmp, 0, 0)[3]}")
+    _check(failures, "ui icon: conform_image('ui', ...) reports the full-colour depth label",
+           ui_depth == "32-bit BGRA (full-colour icon)", str(ui_depth))
+    _check(failures, "ui icon: conform_image('ui', ...) matches a direct conform_ui",
+           ui_dispatch_bmp == ui_bmp)
 
     # Synthetic tile: a green base with a brown undulating ridge (par. 4.5's plain).
     tile_source = Image.new("RGB", (256, 256), (60, 200, 60))
@@ -1725,8 +1740,9 @@ def main(argv: list | None = None) -> int:
                         help="force a dry run even with --key/--all (the default without "
                              "them)")
     parser.add_argument("--all", action="store_true",
-                        help="REAL RUN: regenerate every key (58 billable images: 22 markers, "
-                             "36 toolbar icons, 0 locally synthesized sfx)")
+                        help="REAL RUN: regenerate every key (58 billable images: 15 sprites, "
+                             "36 toolbar icons, 7 terrain tiles; 3 sfx synthesized locally, not "
+                             "billed)")
     parser.add_argument("--key", action="append", default=[], metavar="AssetKey",
                         help="REAL RUN: regenerate only this key (repeatable). Any "
                              "selection without --dry-run is a billable run.")
