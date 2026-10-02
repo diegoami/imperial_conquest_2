@@ -136,7 +136,10 @@ record[0x490] = 0;                              // human-player flag: nobody is 
 
 with the leader pool being the 4,992-byte table at `0x2089A` (16 nations × 12 candidates × 26 bytes),
 and `TPickLeaders_InitializeForm` the dialog that lets the player override the draw. The same
-function seeds the 16-entry turn-order table by shuffling `0 … 15`.
+function seeds the 16-entry turn-order table by shuffling `0 … 15`. With the seed fixed, all 16
+single-human starts share one order whoever is human (Rome 12th for seed 12345), and each nation's
+start is the world as the AI seats before it have left it **[Wine candidate:
+[`2026-10-02-start-as-each-nation.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-02-start-as-each-nation.md)]**.
 
 This matters for **T29**: a DAT export cannot source leader names or seat assignment from the DAT,
 because the original does not either. They are New Game state, not world data.

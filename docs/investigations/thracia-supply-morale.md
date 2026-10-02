@@ -303,6 +303,14 @@ But the two mechanics are **not** the same rule, and a faithful implementation m
 The fleet mechanic is the harsher of the two in outcome (starvation is eventually lethal) but far
 slower per turn, and it costs money to undo rather than healing free.
 
+Run live, two fleets (90 and 70 ships) sailing over calm sea for three rounds follow steps 3 to 5
+and the supply line on every reading after the first turn: supplies fall by `ships` tons a turn
+(80 → 0 for the 90-ship fleet, 80 → 10 → 0 for the 70-ship one), the moves are the formula's (23
+for the starved 90-ship fleet, 28, 25 and 24 for the other), and condition falls 3 to 5 points a
+turn **[Wine candidate:
+[`2026-10-02-fleets-sail-and-drift.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-02-fleets-sail-and-drift.md)]**.
+Their first-turn 25 moves are the DAT fleet records' stored moves, before any tick has run.
+
 ### 3. The "repair" value in the UI — already covered, not a new field [confirmed]
 
 Checked on the coordinator's lead. `TRepairFleet` (`0x00440AC4` …,
