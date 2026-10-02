@@ -87,8 +87,8 @@ reason to guess PNG back in now without it.
 
 ### 1.2 Visual assets: colour depth and transparency
 
-The shipped placeholder pack is uniformly **24-bit RGB, no alpha channel** — confirmed by reading every
-placeholder file's own DIB header (`width=32, height=32, bitCount=24, compression=0`). That is correct
+The shipped placeholder pack's marker, unit and terrain images are **24-bit RGB, no alpha channel** — confirmed by reading every
+such placeholder file's own DIB header (`width=32, height=32, bitCount=24, compression=0`). Its 36 `ui.command.*` toolbar stand-ins are 32-bit BGRA, under the chrome rule (§1.3, §4.7). That is correct
 for a **terrain tile**, which always fully covers its grid cell.
 
 **Correction (rework round 1): every marker examined in the corpus is fully opaque, and the previous
