@@ -1061,6 +1061,9 @@ public sealed partial class GameSession
             case "set-tax":
                 lines.AddRange(HandleSetTax(tokens));
                 break;
+            case "transfer-money":
+                lines.AddRange(HandleTransferMoney(tokens));
+                break;
             case "help":
                 lines.AddRange(RenderHelp());
                 break;

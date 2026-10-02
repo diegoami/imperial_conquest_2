@@ -5,8 +5,9 @@ namespace IC2.Engine.Economy;
 /// <summary>
 /// The supply dialog's money-transfer panel, <c>TAFSupply_ChangeMoney</c> — <c>docs/task-catalogue.md</c>
 /// "T38 Supply dialog follow-ups, treasury ↔ purse transfers, and automatic resupply" (issue #78),
-/// Done-when 6. Moves talents between the national treasury and one army's or fleet's own purse, in
-/// either direction, within the same dialog the supply transfer itself uses.
+/// Done-when 6, and T105's <c>transfer-money</c> command. Moves talents between the national treasury (or,
+/// with a <c>via</c> fleet, that fleet's own purse) and one army's or fleet's own purse, in either
+/// direction, within the same dialog the supply transfer itself uses.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -25,33 +26,32 @@ namespace IC2.Engine.Economy;
 /// is needed for that requirement to hold.
 /// </para>
 /// <para>
-/// <strong><c>[open]</c>: a co-located fleet as an alternative source/target, instead of the treasury.</strong>
-/// The task entry names this explicitly and settles it as open, not a gap to close here. Searched:
-/// <c>supply-capacity-rounding.md</c> (this task's cited evidence) does not mention
-/// <c>TAFSupply_ChangeMoney</c> at all — grepped, zero occurrences. Its own 1,000-value statement belongs
-/// to a different function, <c>FUN_0044F6D8</c>'s automatic-resupply purse-excess rule, not the dialog's
-/// money-transfer panel. What that report <em>does</em> say, and this note previously omitted: a fleet
-/// can stand in as a provider of <em>supply</em> — <c>TAFSupply_FindProviders</c> "also offers the
-/// nation's own fleets within one tile", and the free path's provider stock is "city <c>+0x18</c>, or
-/// the fleet's supplies". That is where the alternative-source idea comes from, but it is about the
-/// tons-transfer panel <see cref="SupplyPurchase"/> already implements, not about the money-transfer
-/// panel here — it does not establish a fleet as a <em>money</em> source. The actual source for
-/// <c>TAFSupply_ChangeMoney</c>'s 1,000 cap is <c>decompiled-unit-map-orders-and-record-fields.md</c>
-/// (cited correctly above), which names only the nation ↔ one unit's own purse direction, with no
-/// mention of a fleet acting as the money source/target in place of the treasury. Neither report
-/// disassembles <c>TAFSupply_ChangeMoney</c> itself beyond that cap, so there is no instruction evidence
-/// either way for the fleet-as-money-source variant — implementing it would be invention, not
-/// transcription. <see cref="TransferWithArmy"/> and <see cref="TransferWithFleet"/> therefore implement
-/// only the nation ↔ one unit's own purse direction, which is exactly what Done-when 6's checkable
-/// assertion requires ("moves talents between the national treasury... and an army or fleet in the
-/// dialog, in either direction"); a fleet standing in for the treasury is left <c>[open]</c> for
-/// whichever later task's evidence settles it.
+/// <strong>The co-located fleet as the money's other side — implemented here (T105), not <c>[open]</c>.</strong>
+/// The audit's Supply row reads: <c>TAFSupply_ChangeMoney</c> "moves money between the treasury, or a
+/// co-located fleet, and the army, capped at 1,000" <strong>[confirmed:
+/// <c>decompiled-unit-map-orders-and-record-fields.md</c>, <c>supply-capacity-rounding.md</c>; quoted in
+/// <c>docs/investigations/original-ui-command-audit.md</c> §1.6]</strong>. The same report that
+/// establishes the 1,000 cap therefore <em>does</em> name a fleet as the money's other side, and only says
+/// it must be co-located. A previous revision of this note claimed the reports named only the
+/// nation ↔ one unit's own purse direction and that the fleet variant "would be invention"; that was
+/// wrong, and is retracted with the code here. <see cref="TransferBetweenPurses"/> is that direction:
+/// with <c>via &lt;fleet&gt;</c> the other account is that fleet's own purse rather than the treasury, and
+/// both rules (<see cref="ClampToSource"/> and <see cref="PurseAccounting.Credit"/>) are the same ones the
+/// treasury path already uses. "Co-located" is the dialog's own provider radius — the audit's §1.6
+/// <c>TAFSupply_FindProviders</c> "within one tile" reading, mapped onto
+/// <see cref="EconomyRules.CommandAdjacencyRadiusTiles"/> by
+/// <see cref="Commands.TransferMoneyCommandHandler"/> — and the fleet carrying the named army always
+/// counts: an embarked army's X/Y follow its carrier in this engine (<c>EmbarkArmyCommandHandler</c>,
+/// <c>MoveFleetCommandHandler</c>), so that branch is belt-and-braces against a hand-built state, not a
+/// distinct position case.
 /// </para>
 /// <para>
-/// <strong>Conservation</strong>: the amount actually applied is derived from the purse's own before/after
-/// balance (via <see cref="PurseAccounting.Credit"/>, which enforces the cap), and the treasury moves by
-/// exactly that applied amount in the opposite direction — so <c>nation.Treasury + unit.Money</c> is
-/// invariant across the call.
+/// <strong>Conservation</strong>: the amount actually applied is derived from the receiving purse's own
+/// before/after balance (via <see cref="PurseAccounting.Credit"/>, which enforces the cap), and the funding
+/// account moves by exactly that applied amount in the opposite direction — so both
+/// <c>nation.Treasury + unit.Money</c> (the treasury paths) and
+/// <c>fromMoney + toMoney</c> (the <c>via</c>-fleet <see cref="TransferBetweenPurses"/> path) are invariant
+/// across the call.
 /// </para>
 /// </remarks>
 public static class TreasuryPurseTransfer
@@ -85,14 +85,10 @@ public static class TreasuryPurseTransfer
         ArgumentNullException.ThrowIfNull(army);
         ArgumentNullException.ThrowIfNull(ruleset);
 
-        var clampedRequest = ClampToSource(talentsIntoPurse, nation.Treasury, army.Money);
-        var updatedMoney = PurseAccounting.Credit(army.Money, clampedRequest, ruleset);
-        var applied = updatedMoney - army.Money;
+        var (updatedTreasury, updatedMoney, applied) =
+            ApplyTransfer(nation.Treasury, army.Money, talentsIntoPurse, ruleset);
 
-        var updatedArmy = army with { Money = updatedMoney };
-        var updatedNation = nation with { Treasury = nation.Treasury - applied };
-
-        return new ArmyResult(updatedNation, updatedArmy, applied);
+        return new ArmyResult(nation with { Treasury = updatedTreasury }, army with { Money = updatedMoney }, applied);
     }
 
     /// <summary>The result of one treasury ↔ fleet-purse transfer — the naval twin of <see cref="ArmyResult"/>.</summary>
@@ -105,19 +101,87 @@ public static class TreasuryPurseTransfer
         ArgumentNullException.ThrowIfNull(fleet);
         ArgumentNullException.ThrowIfNull(ruleset);
 
-        var clampedRequest = ClampToSource(talentsIntoPurse, nation.Treasury, fleet.Money);
-        var updatedMoney = PurseAccounting.Credit(fleet.Money, clampedRequest, ruleset);
-        var applied = updatedMoney - fleet.Money;
+        var (updatedTreasury, updatedMoney, applied) =
+            ApplyTransfer(nation.Treasury, fleet.Money, talentsIntoPurse, ruleset);
 
-        var updatedFleet = fleet with { Money = updatedMoney };
-        var updatedNation = nation with { Treasury = nation.Treasury - applied };
-
-        return new FleetResult(updatedNation, updatedFleet, applied);
+        return new FleetResult(nation with { Treasury = updatedTreasury }, fleet with { Money = updatedMoney }, applied);
     }
 
     /// <summary>
-    /// Never takes more than the source holds: a positive request (treasury → purse) is capped at the
-    /// treasury's own balance; a negative request (purse → treasury) is capped at the purse's own balance.
+    /// The result of one purse ↔ purse transfer — the <c>via &lt;fleet&gt;</c> direction T105 adds.
+    /// </summary>
+    /// <param name="FromMoney">The <c>via</c> fleet's (first argument's) new balance.</param>
+    /// <param name="ToMoney">The named unit's (second argument's) new balance.</param>
+    /// <param name="AppliedTalents">
+    /// The talents actually moved into <paramref name="ToMoney"/> — positive or negative, after the
+    /// funding purse's balance clamp and the receiving purse's
+    /// <see cref="EconomyRules.PurseCapPerUnit"/> cap. Whichever of the two purses receives is the one
+    /// capped: a negative request is evaluated with the roles swapped (T105 review round 1, B1).
+    /// </param>
+    public sealed record PursesResult(int FromMoney, int ToMoney, int AppliedTalents);
+
+    /// <summary>
+    /// Moves <paramref name="talentsIntoTo"/> talents from one purse into another (or, if negative, that
+    /// many back out of <paramref name="toMoney"/> into <paramref name="fromMoney"/>) — the same rules
+    /// <see cref="TransferWithArmy"/> and <see cref="TransferWithFleet"/> apply, with a purse standing in
+    /// for the treasury on the funding side.
+    /// </summary>
+    /// <param name="fromMoney">The purse the <c>via</c> fleet holds; funds a positive move.</param>
+    /// <param name="toMoney">The named unit's own purse; funds a negative move.</param>
+    /// <param name="talentsIntoTo">The requested signed move, clamped exactly as the treasury paths clamp it.</param>
+    /// <param name="ruleset">Supplies <see cref="EconomyRules.PurseCapPerUnit"/> — never a C# literal.</param>
+    public static PursesResult TransferBetweenPurses(int fromMoney, int toMoney, int talentsIntoTo, Ruleset ruleset)
+    {
+        ArgumentNullException.ThrowIfNull(ruleset);
+
+        // T105 review round 1, B1: ApplyTransfer caps its *target* argument, but on a negative request the
+        // named unit funds and the via fleet receives, so the cap landed on the funder and the receiving
+        // fromMoney could climb past PurseCapPerUnit. Route a negative request with the two purses
+        // swapped, so whichever purse receives is the one Credit caps, then map the pair back and negate
+        // the applied amount. The treasury paths are unaffected — the treasury has no cap.
+        if (talentsIntoTo < 0)
+        {
+            var (negativeUpdatedTo, negativeUpdatedFrom, appliedIntoFrom) =
+                ApplyTransfer(toMoney, fromMoney, -talentsIntoTo, ruleset);
+            return new PursesResult(negativeUpdatedFrom, negativeUpdatedTo, -appliedIntoFrom);
+        }
+
+        var (updatedFrom, updatedTo, applied) = ApplyTransfer(fromMoney, toMoney, talentsIntoTo, ruleset);
+        return new PursesResult(updatedFrom, updatedTo, applied);
+    }
+
+    /// <summary>
+    /// The one place the source-balance clamp and the receiving-purse cap are combined: a positive
+    /// <paramref name="talentsIntoTarget"/> is funded by <paramref name="sourceMoney"/>, a negative one by
+    /// <paramref name="targetMoney"/>, and the receiving side is capped by
+    /// <see cref="PurseAccounting.Credit"/>. Every public transfer above pairs its two accounts and calls
+    /// this — the rule is not copied per direction.
+    /// </summary>
+    private static (int SourceMoney, int TargetMoney, int AppliedTalents) ApplyTransfer(
+        int sourceMoney, int targetMoney, int talentsIntoTarget, Ruleset ruleset)
+    {
+        var clampedRequest = ClampToSource(talentsIntoTarget, sourceMoney, targetMoney);
+        var updatedTarget = PurseAccounting.Credit(targetMoney, clampedRequest, ruleset);
+        var applied = updatedTarget - targetMoney;
+
+        // T105 review round 1, N5: a target that already sits above PurseCapPerUnit is clamped back down to
+        // the cap by Credit even for a positive request, which would make `applied` negative and move
+        // money out of the target and into the source. A request to move money *in* must never move it
+        // backwards: apply nothing in that case.
+        if (clampedRequest > 0 && applied < 0)
+        {
+            updatedTarget = targetMoney;
+            applied = 0;
+        }
+
+        return (sourceMoney - applied, updatedTarget, applied);
+    }
+
+    /// <summary>
+    /// Never takes more than the source holds: a positive request (the first account funds the second) is
+    /// capped at the first's own balance; a negative request (the second funds the first) is capped at the
+    /// second's own balance. The first account is the treasury — or a funding purse for
+    /// <see cref="TransferBetweenPurses"/> — and the second is always the receiving purse.
     /// </summary>
     /// <remarks>
     /// Review round 1, B1: a negative source balance must clamp the request to zero, not pass it
