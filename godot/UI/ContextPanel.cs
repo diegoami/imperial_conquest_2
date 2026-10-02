@@ -218,7 +218,8 @@ public partial class ContextPanel : Control
             return;
         }
 
-        Heading($"Nation — {nation.Name}");
+        Heading("Nation Overview");
+        Fact(nation.Name);
         foreach (var line in NationStatusModel.Build(
             Session.State, Session.Ruleset, viewed, viewerNationId: Session.State.ActiveNationId))
         {

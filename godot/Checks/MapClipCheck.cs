@@ -142,7 +142,7 @@ public partial class MapClipCheck : Control
         ok &= Check(
             map.ClipContents,
             "the map control clips its drawing to its own rect (Control.ClipContents), so no tile or "
-            + "marker can cover the top bar or the bottom toolbar");
+            + "marker can cover the top bar or the side column");
 
         ok &= Check(
             ProjectSettings.GetSetting("display/window/stretch/aspect").AsString() == "expand",
