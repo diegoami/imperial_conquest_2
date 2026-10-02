@@ -90,7 +90,7 @@
     Do everything except post and label; print the review to stdout instead, and the exit code it
     would use (0, or 4 when the review would be posted flagged).
 .PARAMETER SelfTest
-    Run the review-parser samples (fix #575 DoD 4) and the fix #590 prompt/agent checks, and exit 0
+    Run the review-parser samples (fix #575 DoD 4) and the issue #590 prompt/agent checks, and exit 0
     when all match; no PR, no brief and no OpenCode run.
 .PARAMETER StartupTimeoutSec
     How long a run may take to create its OpenCode session before it is killed (default 180).
@@ -309,7 +309,7 @@ function Read-ReviewOutput {
 }
 
 function Get-ReviewOutputRules {
-    # The OUTPUT RULES the script appends to the reviewer's brief (fix #590). Factored out of the
+    # The OUTPUT RULES the script appends to the reviewer's brief (issue #590). Factored out of the
     # live path so -SelfTest can build and check the prompt text without an OpenCode run. The
     # reviewer runs inside the worktree: it runs git there as it is, never passes -C and never
     # types the worktree path (a mistyped 60-char path is an external_directory rejection that
@@ -405,12 +405,12 @@ function Invoke-ReviewParserSelfTest {
             Write-Host "     note line: > Note from scripts/external-review.ps1: $($r.FlagNote)"
         }
     }
-    # --- fix #590: the reviewer runs git in its worktree, without -C ----------------------------
+    # --- issue #590: the reviewer runs git in its worktree, without -C ----------------------------
     # The live prompt (this same function) must tell the reviewer to run git where it stands --
     # no -C, no worktree path typed -- and to prove its tree with the named worktree, the named
     # head commit and a non-empty diff. The agent body says the same; only its permission block
     # may mention git -C, and it must deny the plain commit, stash and worktree forms a bare git
-    # would otherwise allow (fix #590).
+    # would otherwise allow (issue #590).
     $sampleWorktree = 'C:/Users/diego/projects/ic2-work/590-external-review-deadbeef'
     $sampleHead = '7a8574d'
     $rules = Get-ReviewOutputRules -Header $h -Worktree $sampleWorktree -HeadSha $sampleHead
