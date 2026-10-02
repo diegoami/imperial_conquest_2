@@ -9,7 +9,7 @@ namespace IC2.Slice.Checks;
 /// Bug #491's own reproduction turned into a headless check: selecting an army whose Troops line is long
 /// (five unit slots, e.g. <c>"5000x heavy_infantry, ..."</c>) no longer pushes the persistent side panel
 /// (<see cref="ContextPanel"/>) past its 340&#160;px <see cref="MainGameScreen"/> floor, and every one of
-/// its order buttons (Move/Attack/Mobilize/Disband) stays inside the viewport. Godot headless still
+/// its order buttons (T99's list: Mobilize/Disband) stays inside the viewport. Godot headless still
 /// builds a real <see cref="Control"/> tree and runs real layout code (see
 /// <c>godot/Screens/Checks/ScreensCheck.cs</c>'s own remarks) — only pixel readback needs a window, and
 /// this check never reads a pixel. Run headless via:
@@ -35,9 +35,11 @@ public partial class ContextPanelWidthCheck : Control
     private const int SettleFrames = 6;
     private const string LongTroopsArmyId = "north-army-1";
 
+    // T99: "Move" and "Attack" went with the button-armed pending action — orders are map clicks now.
+    // The army panel's remaining order buttons, all still laid out inside the viewport.
     private static readonly string[] OrderButtonLabels =
     {
-        "Move", "Attack", "Mobilize first ready slot", "Disband",
+        "Mobilize first ready slot", "Disband",
     };
 
     private MainGameScreen _mainGame = null!;

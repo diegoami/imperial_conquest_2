@@ -28,9 +28,15 @@ namespace IC2.Slice.UI;
 /// prior classes rather than either one wholesale.
 /// </para>
 /// <para>
-/// <strong>Given commands, not merely read.</strong> <see cref="BeginMoveOrder"/> arms this view so the
-/// next map click issues a real <c>move &lt;army&gt; &lt;x&gt; &lt;y&gt;</c> through
-/// <see cref="GameSession.Submit"/> — never a direct mutation of <see cref="GameSession.State"/>.
+/// <strong>Given commands, not merely read (T99).</strong> Orders are given on this map exactly as the
+/// original's Unit map takes them (<c>docs/investigations/original-ui-command-audit.md</c> §2.1): a
+/// click is resolved by <see cref="MapClickRules"/> — the Godot-free decision table whose every row is
+/// that audit's — and the row's composed order is submitted through <see cref="GameSession.Submit"/>,
+/// never a direct mutation of <see cref="GameSession.State"/>. The left button selects and orders; the
+/// right button only opens the clicked marker's unit list. The pre-T99 button-armed "pending action"
+/// (a context-panel button arming the next click, an arming the original never had) is gone: the only
+/// confirmation is the attack prompt a click against a nation the seat is not at war with raises
+/// (<see cref="AttackConfirmationRequested"/>).
 /// </para>
 /// <para>
 /// <strong>T94: markers draw the pack's confirmed size tiers.</strong> Every city/army/fleet marker's
@@ -85,7 +91,11 @@ public partial class GameMapView : Control
             ["River"] = new Color(0.14f, 0.46f, 0.70f),
         };
 
-    /// <summary>Fired when a city is clicked (and no move/attack order is pending).</summary>
+    /// <summary>
+    /// Fired when a city becomes the information panel's subject — selected by a left click, or shown
+    /// after a foreign target a selection could not attack dropped it (T99: the original's "the
+    /// selection is cleared and only the information panel changes" row).
+    /// </summary>
     public event Action<string>? CitySelected;
 
     public event Action<string>? ArmySelected;
@@ -94,8 +104,28 @@ public partial class GameMapView : Control
 
     public event Action? SelectionCleared;
 
-    /// <summary>Fired after a pending move/attack order is issued, with the session's own output lines.</summary>
+    /// <summary>Fired after a map order is issued, with the session's own output lines.</summary>
     public event Action<IReadOnlyList<string>>? CommandIssued;
+
+    /// <summary>
+    /// T99, the user's two-button decision of 2026-10-01: fired when the right button clicks a city,
+    /// army or fleet, so the panel shows its unit list (a city's garrison, an army's units, a fleet's
+    /// ships and any army aboard). Fired <em>instead of</em> any selection change or order — a right
+    /// click never selects and never orders.
+    /// </summary>
+    public event Action<MapEntityKind, string>? UnitListRequested;
+
+    /// <summary>
+    /// T99, the original's own attack prompt (confirmed:
+    /// <c>decompiled-diplomacy-peace-terms-and-instant-battles.md</c>): fired when a left click
+    /// resolves to an attack, besiege or naval attack against a nation the active seat is <em>not</em>
+    /// at war with, with the whole outcome (its <see cref="MapClickOutcome.OrderLine"/> and
+    /// <see cref="MapClickOutcome.ConfirmationText"/>). The screen that wires this opens its
+    /// <c>ConfirmPrompt</c>; its answer comes back through
+    /// <see cref="AnswerAttackConfirmation"/> — Yes submits the order (the engine composes the
+    /// declaration of war itself), No drops the selection. Never raised when already at war.
+    /// </summary>
+    public event Action<MapClickOutcome>? AttackConfirmationRequested;
 
     public bool ShowCities = true;
     public bool ShowArmies = true;
@@ -109,13 +139,13 @@ public partial class GameMapView : Control
     private bool _dragging;
     private bool _dragMoved;
     private ImageTexture? _terrainTexture;
+    private int[]? _terrainCells;
 
     private string? _selectedCityId;
     private string? _selectedArmyId;
     private string? _selectedFleetId;
 
-    private PendingMapAction _pendingAction = PendingMapAction.None;
-    private string? _pendingActorId;
+    private MapClickOutcome? _pendingConfirmedAttack;
     private bool _fittedOnce;
 
     public override void _Ready()
@@ -221,6 +251,19 @@ public partial class GameMapView : Control
         ? new Rect2(_pan, Vector2.Zero)
         : new Rect2(_pan, new Vector2(_session.World.Width, _session.World.Height) * BaseTileSize * _zoom);
 
+    /// <summary>
+    /// The screen-space position of tile (<paramref name="x"/>, <paramref name="y"/>)'s centre at the
+    /// current zoom and pan — the exact inverse of <see cref="HandleClick"/>'s own screen-to-tile
+    /// transform, exposed so <c>godot/Checks/MapClickCheck.cs</c> can drive <see cref="_GuiInput"/>
+    /// with real mouse events at real positions instead of a helper that skips the input path.
+    /// </summary>
+    public Vector2 TileCenterForCheck(int x, int y) =>
+        _pan + new Vector2(x + 0.5f, y + 0.5f) * (BaseTileSize * _zoom);
+
+    /// <summary>
+    /// Clears the map's selection — T99's own cancel path (the entry's Esc/Shift+X wiring calls this),
+    /// and the end of every order row the audit says ends the selection.
+    /// </summary>
     public void ClearSelection()
     {
         _selectedCityId = null;
@@ -229,22 +272,6 @@ public partial class GameMapView : Control
         SelectionCleared?.Invoke();
         QueueRedraw();
     }
-
-    /// <summary>Arms the map so the next click issues <c>move &lt;armyId&gt; &lt;x&gt; &lt;y&gt;</c>.</summary>
-    public void BeginMoveOrder(string armyId)
-    {
-        _pendingAction = PendingMapAction.MoveArmy;
-        _pendingActorId = armyId;
-    }
-
-    /// <summary>Arms the map so the next click on an enemy army/fleet/city issues an attack order.</summary>
-    public void BeginAttackOrder(string attackerArmyId)
-    {
-        _pendingAction = PendingMapAction.AttackWithArmy;
-        _pendingActorId = attackerArmyId;
-    }
-
-    public void CancelPendingAction() => _pendingAction = PendingMapAction.None;
 
     private void BakeTerrainTexture()
     {
@@ -255,6 +282,11 @@ public partial class GameMapView : Control
 
         var world = _session.World;
         var cells = world.Terrain.Decode(world.Width, world.Height);
+
+        // T99: the same decode the click path reads (a click's land/sea class comes from the tile
+        // type of the cell under the cursor, never a second terrain table) — kept instead of decoded
+        // again per click.
+        _terrainCells = cells;
         var image = Image.CreateEmpty(world.Width, world.Height, false, Image.Format.Rgba8);
         for (var y = 0; y < world.Height; y++)
         {
@@ -316,9 +348,16 @@ public partial class GameMapView : Control
                 _dragging = false;
                 if (!_dragMoved)
                 {
-                    HandleClick(released.Position);
+                    HandleClick(released.Position, MapClickButton.Left);
                 }
 
+                AcceptEvent();
+                break;
+            case InputEventMouseButton { ButtonIndex: MouseButton.Right, Pressed: false } rightReleased:
+                // T99, the user's two-button decision: the right button only opens the clicked
+                // marker's unit list. It never starts (or can be mistaken for) a drag, so it needs
+                // no press state — the release alone is the click.
+                HandleClick(rightReleased.Position, MapClickButton.Right);
                 AcceptEvent();
                 break;
             case InputEventMouseMotion motion when _dragging:
@@ -348,7 +387,15 @@ public partial class GameMapView : Control
         QueueRedraw();
     }
 
-    private void HandleClick(Vector2 screenPosition)
+    /// <summary>
+    /// Resolves one mouse click to its <see cref="MapClickRules"/> row and applies it — the whole T99
+    /// order path. The context is gathered from the live state (the marker on the tile, the selection's
+    /// moves, the Chebyshev distance, the relation) and the resolved row is applied exactly as the audit
+    /// describes: order rows submit their composed command through <see cref="GameSession.Submit"/>,
+    /// select rows raise the panel's events, and the confirmable attack rows raise
+    /// <see cref="AttackConfirmationRequested"/> instead of submitting anything.
+    /// </summary>
+    private void HandleClick(Vector2 screenPosition, MapClickButton button)
     {
         if (_session is null)
         {
@@ -359,27 +406,197 @@ public partial class GameMapView : Control
         var x = Mathf.FloorToInt(tile.X);
         var y = Mathf.FloorToInt(tile.Y);
 
-        var city = FindCityAt(x, y);
-        var army = FindArmyAt(x, y);
-        var fleet = FindFleetAt(x, y);
+        var outcome = MapClickRules.Resolve(BuildClickContext(button, x, y));
+        ApplyOutcome(outcome);
+        QueueRedraw();
+    }
 
-        if (_pendingAction != PendingMapAction.None)
+    private MapClickContext BuildClickContext(MapClickButton button, int x, int y)
+    {
+        var state = _session!.State;
+        var world = _session.World;
+
+        MapClickTarget? target = null;
+        if (x >= 0 && x < world.Width && y >= 0 && y < world.Height)
         {
-            ResolvePendingAction(x, y, city, army, fleet);
+            if (FindArmyAt(x, y) is { } army)
+            {
+                target = new MapClickTarget(MapEntityKind.Army, army.Id, army.Nation);
+            }
+            else if (FindFleetAt(x, y) is { } fleet)
+            {
+                target = new MapClickTarget(MapEntityKind.Fleet, fleet.Id, fleet.Nation, fleet.CarriedArmyId);
+            }
+            else if (FindCityAt(x, y) is { } city)
+            {
+                target = new MapClickTarget(MapEntityKind.City, city.Id, city.Owner);
+            }
+        }
+
+        MapClickSelection? selection = null;
+        if (_selectedArmyId is { } selectedArmyId && state.ArmyById(selectedArmyId) is { } selectedArmy)
+        {
+            selection = new MapClickSelection(MapEntityKind.Army, selectedArmy.Id, selectedArmy.Moves);
+        }
+        else if (_selectedFleetId is { } selectedFleetId && state.FleetById(selectedFleetId) is { } selectedFleet)
+        {
+            selection = new MapClickSelection(
+                MapEntityKind.Fleet, selectedFleet.Id, selectedFleet.Moves, selectedFleet.CarriedArmyId);
+        }
+
+        // The tile's land/sea class is the engine's own terrain table — never a second one here.
+        // Outside the world, neither class holds (a click off the map matches no row at all).
+        var land = false;
+        var sea = false;
+        if (x >= 0 && x < world.Width && y >= 0 && y < world.Height && _terrainCells is { } cells)
+        {
+            var tileType = world.TileTypeByCode(cells[(y * world.Width) + x]);
+            land = tileType?.PassableByArmies == true;
+            sea = tileType?.PassableByFleets == true;
+        }
+
+        // The Chebyshev distance the audit settles — the engine's shared metric, not an inline copy.
+        var distance = selection is null
+            ? 0
+            : Math.Max(
+                Math.Abs(SelectionX(selection, state) - x),
+                Math.Abs(SelectionY(selection, state) - y));
+
+        var codes = _session.Ruleset.Diplomacy.StateCodes;
+        var relation = RelationTo(target?.Nation, codes);
+
+        return new MapClickContext(
+            Button: button,
+            X: x,
+            Y: y,
+            TileIsLand: land,
+            TileIsSea: sea,
+            Target: target,
+            Selection: selection,
+            Distance: distance,
+            Relation: relation,
+            WarCode: codes.War,
+            ActiveNationId: state.ActiveNationId);
+    }
+
+    private static int SelectionX(MapClickSelection selection, GameState state) =>
+        selection.Kind == MapEntityKind.Army
+            ? state.ArmyById(selection.Id)?.X ?? 0
+            : state.FleetById(selection.Id)?.X ?? 0;
+
+    private static int SelectionY(MapClickSelection selection, GameState state) =>
+        selection.Kind == MapEntityKind.Army
+            ? state.ArmyById(selection.Id)?.Y ?? 0
+            : state.FleetById(selection.Id)?.Y ?? 0;
+
+    /// <summary>
+    /// The relation between the active seat and the target's nation, failing closed exactly as
+    /// <see cref="GameSession"/>'s own <c>IsAtWar</c> does for an unknown nation: an unknown nation is
+    /// not at war, so the click still asks the prompt and the engine's own gates report whatever they
+    /// report. <see langword="null"/> when there is no target (no relation to read).
+    /// </summary>
+    private int RelationTo(string? targetNation, RelationStateCodes codes)
+    {
+        if (targetNation is null)
+        {
+            return codes.Peace;
+        }
+
+        var relations = _session!.State.Relations;
+        return relations.IndexOf(_session.State.ActiveNationId) >= 0 && relations.IndexOf(targetNation) >= 0
+            ? relations.Get(_session.State.ActiveNationId, targetNation)
+            : codes.Peace;
+    }
+
+    private void ApplyOutcome(MapClickOutcome outcome)
+    {
+        switch (outcome.Kind)
+        {
+            case MapClickOutcomeKind.Nothing:
+                return;
+
+            case MapClickOutcomeKind.Select:
+                FocusAsSelection(outcome.FocusKind ?? MapEntityKind.City, outcome.FocusId!);
+                return;
+
+            case MapClickOutcomeKind.ShowUnitList:
+                UnitListRequested?.Invoke(outcome.FocusKind ?? MapEntityKind.City, outcome.FocusId!);
+                return;
+
+            case MapClickOutcomeKind.DropSelectionAndShowTarget:
+                // The audit's own row: the selection is cleared and only the information panel
+                // changes — the target's details show without becoming the map's selection.
+                ClearSelection();
+                ShowDetails(outcome.FocusKind ?? MapEntityKind.City, outcome.FocusId!);
+                return;
+
+            case MapClickOutcomeKind.EmbarkArmy:
+                SubmitMapOrder(outcome.OrderLine!);
+                // "Then the fleet becomes the selection" — the fleet is the clicked target.
+                FocusAsSelection(MapEntityKind.Fleet, outcome.FocusId!);
+                return;
+
+            case MapClickOutcomeKind.DisembarkArmy:
+                SubmitMapOrder(outcome.OrderLine!);
+                // "The selection is cleared and the army's details are shown."
+                ClearSelection();
+                ShowDetails(MapEntityKind.Army, outcome.FocusId!);
+                return;
+
+            case MapClickOutcomeKind.MoveArmy:
+                SubmitMoveOrder(outcome, MapEntityKind.Army);
+                return;
+
+            case MapClickOutcomeKind.MoveFleet:
+                SubmitMoveOrder(outcome, MapEntityKind.Fleet);
+                return;
+
+            case MapClickOutcomeKind.AttackArmy:
+            case MapClickOutcomeKind.BesiegeCity:
+            case MapClickOutcomeKind.AttackFleet:
+                if (outcome.RequiresWarConfirmation)
+                {
+                    // The original's own flow: the confirmation is part of the click — nothing is
+                    // submitted until the prompt answers Yes. The screen wires the prompt; the
+                    // answer comes back through AnswerAttackConfirmation.
+                    _pendingConfirmedAttack = outcome;
+                    AttackConfirmationRequested?.Invoke(outcome);
+                    return;
+                }
+
+                SubmitMapOrder(outcome.OrderLine!);
+                ClearSelection();
+                return;
+
+            default:
+                return;
+        }
+    }
+
+    /// <summary>
+    /// Submits a move or move-fleet row and applies the audit's stay-selected rule
+    /// (<c>TUnitMap_MoveHumanArmy</c>): the unit stays selected while it still has moves left, and the
+    /// selection ends when they reach 0 — read from the post-order state, since only the engine knows
+    /// how many moves the walk spent.
+    /// </summary>
+    private void SubmitMoveOrder(MapClickOutcome outcome, MapEntityKind moverKind)
+    {
+        var moverId = moverKind == MapEntityKind.Army ? _selectedArmyId : _selectedFleetId;
+        SubmitMapOrder(outcome.OrderLine!);
+
+        if (moverId is null)
+        {
+            ClearSelection();
             return;
         }
 
-        if (army is not null)
+        var state = _session!.State;
+        var moves = moverKind == MapEntityKind.Army
+            ? state.ArmyById(moverId)?.Moves
+            : state.FleetById(moverId)?.Moves;
+        if (moves is >= 1)
         {
-            SelectArmy(army.Id);
-        }
-        else if (fleet is not null)
-        {
-            SelectFleet(fleet.Id);
-        }
-        else if (city is not null)
-        {
-            SelectCity(city.Id);
+            FocusAsSelection(moverKind, moverId);
         }
         else
         {
@@ -387,39 +604,79 @@ public partial class GameMapView : Control
         }
     }
 
-    private void ResolvePendingAction(int x, int y, CityState? city, ArmyState? army, FleetState? fleet)
+    /// <summary>
+    /// The one submission path every map order goes through: the composed line through
+    /// <see cref="GameSession.Submit"/>, its lines to <see cref="CommandIssued"/> (which the screen
+    /// funnels into its shared outcome label and battle overlays), and a redraw.
+    /// </summary>
+    private void SubmitMapOrder(string orderLine)
     {
-        if (_session is null || _pendingActorId is null)
+        if (_session is null)
         {
-            _pendingAction = PendingMapAction.None;
             return;
         }
 
-        var actorId = _pendingActorId;
-        var action = _pendingAction;
-        _pendingAction = PendingMapAction.None;
-        _pendingActorId = null;
+        var lines = _session.Submit(orderLine).Lines;
+        CommandIssued?.Invoke(lines);
+        QueueRedraw();
+    }
 
-        IReadOnlyList<string> lines;
-        switch (action)
+    /// <summary>
+    /// The answer to a raised <see cref="AttackConfirmationRequested"/>: Yes submits the order (the
+    /// engine's own <c>ComposeDeclareWarIfNeeded</c> puts the declaration of war in front of it, so
+    /// the UI never submits a second one) and ends the selection; No submits nothing and drops the
+    /// selection. The prompt's own buttons call this — public for the screen that wires them.
+    /// </summary>
+    public void AnswerAttackConfirmation(bool yes)
+    {
+        if (_pendingConfirmedAttack is not { } outcome)
         {
-            case PendingMapAction.MoveArmy:
-                lines = _session.Submit($"move {actorId} {x} {y}").Lines;
-                break;
-            case PendingMapAction.AttackWithArmy when army is not null:
-                lines = _session.Submit($"attack-army {actorId} {army.Id}").Lines;
-                break;
-            case PendingMapAction.AttackWithArmy when city is not null:
-                lines = _session.Submit($"besiege-city {actorId} {city.Id}").Lines;
-                break;
-            default:
-                lines = new[] { "No valid target at that tile." };
-                break;
+            return;
         }
 
-        CommandIssued?.Invoke(lines);
-        SelectArmy(actorId);
-        QueueRedraw();
+        _pendingConfirmedAttack = null;
+        if (yes)
+        {
+            SubmitMapOrder(outcome.OrderLine!);
+        }
+
+        // Either answer ends the selection: the audit's "On no … the selection is simply dropped", and
+        // "the selection also ends by itself after an attack".
+        ClearSelection();
+    }
+
+    /// <summary>Raises the panel's subject event for the entity the outcome focuses, without holding it as the map's selection.</summary>
+    private void ShowDetails(MapEntityKind kind, string id)
+    {
+        switch (kind)
+        {
+            case MapEntityKind.City:
+                CitySelected?.Invoke(id);
+                break;
+            case MapEntityKind.Army:
+                ArmySelected?.Invoke(id);
+                break;
+            case MapEntityKind.Fleet:
+                FleetSelected?.Invoke(id);
+                break;
+        }
+    }
+
+    /// <summary>Makes the entity the map's selection (and the panel's subject) through the same path a plain select uses.</summary>
+    private void FocusAsSelection(MapEntityKind kind, string id)
+    {
+        switch (kind)
+        {
+            case MapEntityKind.City:
+                SelectCity(id);
+                break;
+            case MapEntityKind.Army:
+                SelectArmy(id);
+                break;
+            case MapEntityKind.Fleet:
+                SelectFleet(id);
+                break;
+        }
     }
 
     private void SelectCity(string cityId)
@@ -452,8 +709,14 @@ public partial class GameMapView : Control
     private CityState? FindCityAt(int x, int y) =>
         _session?.State.Cities.FirstOrDefault(c => c.X == x && c.Y == y);
 
+    /// <summary>
+    /// The army marker on a tile, for the click's target lookup. An embarked army has its fleet's own
+    /// X/Y (<c>EmbarkArmyCommandHandler</c> copies the fleet's position and <c>MoveFleetCommandHandler</c>
+    /// carries it along) but is not drawn there — <see cref="DrawArmy"/> skips it — so it must not win
+    /// the click over the visible fleet carrying it (review round 1, B1).
+    /// </summary>
     private ArmyState? FindArmyAt(int x, int y) =>
-        _session?.State.Armies.FirstOrDefault(a => a.X == x && a.Y == y);
+        _session?.State.Armies.FirstOrDefault(a => a.X == x && a.Y == y && a.AboardFleetId is null);
 
     private FleetState? FindFleetAt(int x, int y) =>
         _session?.State.Fleets.FirstOrDefault(f => f.X == x && f.Y == y && !f.IsUnderConstruction);
@@ -636,11 +899,4 @@ public partial class GameMapView : Control
     }
 
     private static Color ToColor(MarkerTint tint) => new(tint.Red, tint.Green, tint.Blue, tint.Alpha);
-
-    private enum PendingMapAction
-    {
-        None,
-        MoveArmy,
-        AttackWithArmy,
-    }
 }
