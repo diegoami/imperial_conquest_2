@@ -352,9 +352,22 @@ public sealed record TerrainRules(
 /// siblings — numerically identical in the report's own rebirth listing, so no new field is added for
 /// them.
 /// </para>
+/// <para>
+/// <strong>T103's two bounds</strong> (<c>docs/tasks/T103.md</c> "A command sets the nation's tax rate"):
+/// <see cref="TaxRateMinPercent"/> and <see cref="TaxRateMaxPercent"/>. The
+/// original's <c>TChangeTax</c> slider reports minimum 0 and maximum 40, line size 1 and page size 5
+/// <strong>[Wine candidate: 2026-10-02-unit-map-mouse-orders-and-tax-range.md, (g)]</strong>; the
+/// 5-per-Page step belongs to the dialog (T109), so only the two inclusive bounds are ruleset fields.
+/// 20, the <see cref="RebirthTaxRatePercent"/> reset, sits inside the range. These are the dialog's own
+/// bounds, distinct from the population-growth formula's <c>/120</c> divisor
+/// (<see cref="PopulationGrowthTaxDivisor"/>) — the original's AI may set a rate above 40, which is not
+/// this command's concern.
+/// </para>
 /// </remarks>
 public sealed record EconomyRules(
     int TaxRateDivisor,
+    int TaxRateMinPercent,
+    int TaxRateMaxPercent,
     int ShipUpkeepPerQuarter,
     int MobilizationDecayPerQuarter,
     int UnityCap,

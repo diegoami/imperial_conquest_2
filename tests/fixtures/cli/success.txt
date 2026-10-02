@@ -56,4 +56,5 @@ end
 accept-offer
 status
 news
+set-tax 20
 quit

@@ -4,6 +4,7 @@ using IC2.Engine.Battle.Commands;
 using IC2.Engine.Cities.Orders;
 using IC2.Engine.Core;
 using IC2.Engine.Diplomacy.Commands;
+using IC2.Engine.Economy.Commands;
 using IC2.Engine.Model;
 using IC2.Engine.Naval.Commands;
 using IC2.Engine.News;
@@ -316,6 +317,26 @@ public sealed partial class GameSession
         }
 
         return IssueCommand(new OrderCityCommand(State.ActiveNationId, tokens[1], tokens[2], points));
+    }
+
+    // ---- economy ----
+
+    /// <summary>
+    /// <c>set-tax &lt;percent&gt;</c> — <c>docs/tasks/T103.md</c>. The only parse-level rule is that the
+    /// percent is a whole integer: a blank or non-numeric argument never reaches the command layer and
+    /// prints the usage line instead, leaving the state untouched. The inclusive 0–40 range is the
+    /// ruleset's own <c>economy</c> bounds and is enforced by
+    /// <see cref="IC2.Engine.Economy.Commands.SetTaxRateCommandHandler"/>, so this method never restates it.
+    /// </summary>
+    private IReadOnlyList<string> HandleSetTax(string[] tokens)
+    {
+        if (tokens.Length != 2
+            || !int.TryParse(tokens[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var percent))
+        {
+            return new[] { "Usage: set-tax <percent>" };
+        }
+
+        return IssueCommand(new SetTaxRateCommand(State.ActiveNationId, percent));
     }
 
     // ---- diplomacy ----
