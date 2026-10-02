@@ -90,8 +90,8 @@
     Do everything except post and label; print the review to stdout instead, and the exit code it
     would use (0, or 4 when the review would be posted flagged).
 .PARAMETER SelfTest
-    Run the review-parser samples (fix #575 DoD 4) and exit 0 when all match; no PR, no brief and
-    no OpenCode run.
+    Run the review-parser samples (fix #575 DoD 4) and the fix #590 prompt/agent checks, and exit 0
+    when all match; no PR, no brief and no OpenCode run.
 .PARAMETER StartupTimeoutSec
     How long a run may take to create its OpenCode session before it is killed (default 180).
 .PARAMETER TotalTimeoutSec
