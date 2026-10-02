@@ -150,6 +150,40 @@ public class PlaceholderPackIntegrationTests
         Assert.NotEqual(hashCapital, hash3);
     }
 
+    /// <summary>
+    /// T101 DoD 4: every <c>ui.command.*</c> placeholder stand-in is byte-distinct from every
+    /// other. The generator derives each pattern from a SHA-256 of the key; this test proves the
+    /// derivation actually separates all 36 keys rather than trusting it to.
+    /// </summary>
+    [Fact]
+    public void UiCommandPlaceholderIcons_AreAllByteDistinct()
+    {
+        // Arrange
+        var manifestPath = Path.Combine(_placeholderPackDir, "manifest.json");
+        var pack = AssetLoader.LoadManifest(manifestPath);
+
+        var uiKeys = AssetKeys.AllKeys
+            .Where(key => key.StartsWith("ui.command.", StringComparison.Ordinal))
+            .ToList();
+        Assert.Equal(36, uiKeys.Count);
+
+        // Act
+        var hashToKey = new Dictionary<string, string>();
+        foreach (var key in uiKeys)
+        {
+            var fullPath = Path.Combine(_placeholderPackDir, pack.ResolveAsset(key));
+            Assert.True(File.Exists(fullPath), $"Placeholder icon not found for {key} ({fullPath})");
+
+            var hash = ComputeSHA256(fullPath);
+            Assert.False(hashToKey.TryGetValue(hash, out var collidesWith),
+                $"Placeholder icons for {key} and {collidesWith} are byte-identical");
+            hashToKey[hash] = key;
+        }
+
+        // Assert
+        Assert.Equal(uiKeys.Count, hashToKey.Count);
+    }
+
     [Fact]
     public void ManifestJSON_IsValid()
     {
@@ -228,7 +262,12 @@ public class PlaceholderPackIntegrationTests
             var fullPath = Path.Combine(_placeholderPackDir, relativePath);
 
             Assert.True(File.Exists(fullPath), $"Image file not found: {key}");
-            ValidateBMPStructure(fullPath, key);
+
+            // T101: the ui.command.* stand-ins are 32-bit BGRA (section 1.2's chrome rule and
+            // the key's own format); the pre-T101 placeholder markers and tiles stay their
+            // shipped 24-bit shape.
+            var expectedBitCount = key.StartsWith("ui.command.", StringComparison.Ordinal) ? 32 : 24;
+            ValidateBMPStructure(fullPath, key, expectedBitCount);
         }
     }
 
@@ -310,14 +349,15 @@ public class PlaceholderPackIntegrationTests
     /// on disk, rather than trusting any single field: the "BM" signature; the file-header's
     /// declared total size against the file's actual length; the 40-byte BITMAPINFOHEADER's own
     /// size field, declared width/height (both positive, matching the 32x32 the generator
-    /// produces), bit depth (24) and compression (0, BI_RGB - uncompressed); the DIB header's
+    /// produces), the expected bit depth (24 for the pre-T101 placeholder images, 32 for the
+    /// T101 ui.command.* stand-ins) and compression (0, BI_RGB - uncompressed); the DIB header's
     /// declared pixel-array size against the bytes actually remaining in the file; and that the
     /// pixel array's length matches width/height/bit-depth with 4-byte row padding accounted for.
     /// This is the BMP-format equivalent of the PNG chunk-CRC check this test used to run before
     /// the switch to BMP (see PR #96): every field the format defines is independently
     /// recomputed and compared, not read once and assumed correct.
     /// </summary>
-    private static void ValidateBMPStructure(string bmpPath, string assetKey)
+    private static void ValidateBMPStructure(string bmpPath, string assetKey, int expectedBitCount)
     {
         var bytes = File.ReadAllBytes(bmpPath);
         var actualLength = bytes.Length;
@@ -346,7 +386,7 @@ public class PlaceholderPackIntegrationTests
         Assert.Equal(32, height);
 
         var bitCount = BitConverter.ToUInt16(bytes, 28);
-        Assert.Equal((ushort)24, bitCount);
+        Assert.Equal((ushort)expectedBitCount, bitCount);
 
         var compression = BitConverter.ToUInt32(bytes, 30);
         Assert.Equal(0u, compression); // BI_RGB - uncompressed, so no codec bug can hide here either
@@ -362,7 +402,7 @@ public class PlaceholderPackIntegrationTests
         var expectedPixelDataSize = rowSize * height;
 
         Assert.True(declaredImageSize == (uint)expectedPixelDataSize,
-            $"{assetKey}: DIB header declares image size {declaredImageSize}, expected {expectedPixelDataSize} for a {width}x{height} 24bpp bottom-up bitmap");
+            $"{assetKey}: DIB header declares image size {declaredImageSize}, expected {expectedPixelDataSize} for a {width}x{height} {expectedBitCount}bpp bottom-up bitmap");
 
         var actualPixelBytes = actualLength - (int)pixelDataOffset;
         Assert.True(actualPixelBytes == expectedPixelDataSize,

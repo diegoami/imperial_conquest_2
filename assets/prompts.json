@@ -151,6 +151,222 @@
       "kind": "sfx",
       "prompt": "A short march cue: a steady rhythmic tread of boots on packed earth, eight even steps.",
       "source": "docs/asset-specification.md 4.6 sound effects table: 'An army or fleet completes a move order' - synthesized locally by the generator"
+    },
+    {
+      "key": "ui.command.open.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing an open folder. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'Open - an open folder' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "ui.command.save.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing a floppy disk. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'Save - a floppy disk' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "ui.command.end_turn.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing an hourglass. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'End turn - an hourglass' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "ui.command.news.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing a rolled scroll. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'News - a rolled scroll' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "ui.command.relations.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing two clasped hands. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'International relations - two clasped hands' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "ui.command.taxation.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing a coin purse with coins. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'Taxation - a coin purse with coins' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "ui.command.balance_sheet.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing a two-pan balance scale. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'Balance sheet - a two-pan balance scale' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "ui.command.recruit_unit.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing a crested soldier's helmet. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'Recruit unit - a crested soldier's helmet' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "ui.command.build_fleet.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing a ship's hull on a wooden slipway with a hammer, with no water. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'Build fleet - a ship's hull on a wooden slipway with a hammer, no water' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "ui.command.show_cities.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing a house with a pitched roof. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'Show cities - a house with a pitched roof' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "ui.command.show_capital.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing a crown above a columned building. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'Show capital - a crown above a columned building' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "ui.command.show_armies.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing a round shield with a spear. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'Show armies - a round shield with a spear' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "ui.command.show_fleets.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing a sailing ship in side view. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'Show fleets - a sailing ship in side view' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "ui.command.show_all.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing a house, a crown, a shield and a ship together. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'Show all - a house, a crown, a shield and a ship together' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "ui.command.show_mercs_light_infantry.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing a throwing javelin. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'Show mercenaries Light infantry - a throwing javelin' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "ui.command.show_mercs_heavy_infantry.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing a large round shield. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'Show mercenaries Heavy infantry - a large round shield' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "ui.command.show_mercs_archers.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing a bow with an arrow. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'Show mercenaries Archers - a bow with an arrow' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "ui.command.show_mercs_light_cavalry.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing a horse's head. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'Show mercenaries Light cavalry - a horse's head' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "ui.command.show_mercs_heavy_cavalry.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing an armoured rider on a horse. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'Show mercenaries Heavy cavalry - an armoured rider on a horse' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "ui.command.show_mercs_all.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing a cluster of crossed weapons. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'Show mercenaries All mercenaries - a cluster of crossed weapons' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "ui.command.find_city.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing a magnifying glass over a house. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'Find a city - a magnifying glass over a house' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "ui.command.army_supply.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing a woven supply basket with grain. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'Army Supply army - a woven supply basket with grain' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "ui.command.army_recruit_mercenaries.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing a helmet with a stack of coins. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'Army Recruit mercenaries - a helmet with a stack of coins' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "ui.command.army_transfer_unit.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing two arrows pointing in opposite directions. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'Army Transfer unit - two arrows pointing in opposite directions' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "ui.command.army_split.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing one arrow branching into two. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'Army Split army - one arrow branching into two' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "ui.command.army_join.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing two arrows merging into one. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'Army Join armies - two arrows merging into one' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "ui.command.army_change_units.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing two curved arrows forming a cycle. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'Army Change units - two curved arrows forming a cycle' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "ui.command.army_disband.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing a broken sword. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'Army Disband army - a broken sword' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "ui.command.fleet_supply.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing a supply amphora over a wave. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'Fleet Supply fleet - a supply amphora over a wave' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "ui.command.fleet_repair.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing a hammer crossed with a wrench. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'Fleet Repair fleet - a hammer crossed with a wrench' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "ui.command.fleet_transfer_ships.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing two arrows in opposite directions over a wave. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'Fleet Transfer ships - two arrows in opposite directions over a wave' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "ui.command.fleet_split.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing one arrow branching into two over a wave. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'Fleet Split fleet - one arrow branching into two over a wave' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "ui.command.fleet_join.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing two arrows merging into one over a wave. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'Fleet Join fleets - two arrows merging into one over a wave' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "ui.command.fleet_scuttle.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing an anchor with a downward arrow. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'Fleet Scuttle fleet - an anchor with a downward arrow' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "ui.command.city_fortify.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing a crenellated castle wall with a tower. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'City Fortify city - a crenellated castle wall with a tower' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "ui.command.cancel_selection.icon",
+      "kind": "ui",
+      "prompt": "A simple pictorial user-interface toolbar icon showing a circle with a diagonal slash. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 toolbar icon table: 'Cancel selection - a circle with a diagonal slash' [designed] - the source game's own art cannot ship"
     }
   ]
 }

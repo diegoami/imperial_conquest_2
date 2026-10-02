@@ -87,8 +87,8 @@ reason to guess PNG back in now without it.
 
 ### 1.2 Visual assets: colour depth and transparency
 
-The shipped placeholder pack is uniformly **24-bit RGB, no alpha channel** — confirmed by reading every
-placeholder file's own DIB header (`width=32, height=32, bitCount=24, compression=0`). That is correct
+The shipped placeholder pack's marker, unit and terrain images are **24-bit RGB, no alpha channel** — confirmed by reading every
+such placeholder file's own DIB header (`width=32, height=32, bitCount=24, compression=0`). Its 36 `ui.command.*` toolbar stand-ins are 32-bit BGRA, under the chrome rule (§1.3, §4.7). That is correct
 for a **terrain tile**, which always fully covers its grid cell.
 
 **Correction (rework round 1): every marker examined in the corpus is fully opaque, and the previous
@@ -732,16 +732,21 @@ section actually require:
     filter); a grey ship/anchor icon (fleet filter); a small combined soldier-and-house icon (a combined
     filter); five plain geometric overlay toggles (`+`, `×`, `#`, an outlined diamond, an outlined
     circle); a combined multi-symbol icon (toggle-all); and a gold coin (an economy/money overlay).
-  - The **unit-map toolbar** in `screenshots/1_cartago_271_spring_3_1.png` carries **7 buttons**, all
-    fleet-order commands on a teal background: ship-with-cargo-and-marker (load an army), ship ringed
-    with dots (repair), **two ships inside a bracket/frame** (join fleets — corrected, rework round 2:
-    this was previously described as "ship with a '1' and split arrows"), **a single ship bisected by a
-    vertical bar** (split fleet — corrected; previously described as "two ships either side of a
-    divider," which is the button this description belongs to, not the one before it), ship with a plus
-    sign (build/add ships), a tilted beached ship over a blue line (scuttle), and a plain white circle
-    (clear filter). The functional meanings in those parentheticals — load / repair / join / split /
-    build / scuttle / clear — are **provisional, inferred from icon shape**, not verified; the pixel
-    descriptions beside them are verified (`#176` N13).
+  - The **unit-map toolbar** in `screenshots/1_cartago_271_spring_3_1.png` carries **7 buttons** on a
+    teal background. The code read for the audit settles the **list of six fleet orders** — Supply,
+    Repair, Transfer ships, Split, Join, Scuttle — as `[derived: code]`. Matching those six orders to
+    the seven buttons is **provisional, inferred from icon shape**, not verified. The audit's own
+    wording calls the ship with cargo and a marker and the ship with a plus sign **the likely match** —
+    Supply fleet and Transfer ships respectively (§3.3) — while the ship ringed with dots is **Repair
+    fleet**, the two ships inside a bracket/frame are **Join fleets** (corrected, rework round 2:
+    previously mis-described as "ship with a '1' and split arrows"), the single ship bisected by a
+    vertical bar is **Split fleet** (corrected; previously described as "two ships either side of a
+    divider," a description that belongs to the Join button, not this one), and the tilted beached ship
+    over a blue line is **Scuttle fleet** — those four matches remain **provisional, inferred from icon
+    shape**, not verified. The seventh, white circle is outside the fleet group: **perhaps** the
+    unit-map strip's 15th button, whose meaning is [open] (audit §3.3); T101's
+    `ui.command.cancel_selection.icon` is `[designed]` for that slot. The pixel descriptions beside
+    each are verified (`#176` N13).
 
   That is **13 + 7 = 20 buttons across the two toolbars I actually counted** (corrected, rework round 2:
   previously miscounted as "at least 18," an arithmetic error against this section's own enumeration),
@@ -751,14 +756,58 @@ section actually require:
   This is a floor, not a ceiling — I checked two toolbar rows in two screenshots, not the full menu
   surface `menu-and-toolbar-inventory.md` itself says is still incompletely mapped. **The "no new asset
   needed" conclusion in this bullet's first draft cannot stand against this evidence.** Recorded here as
-  a real, still only partially enumerated gap: a `ui.toolbar.*` or `ui.command.*` category (naming left
-  to whichever task first wires the toolbar, since committing to specific key names without also wiring
-  their commands would be presumptuous) covering at minimum the type-filter icons beyond the five already
-  in `AssetKeys` (a temple/capital filter, a fleet filter distinct from `fleet.tier*`, a combined-unit
-  filter), the geometric overlay toggles, an economy/money icon, and the seven fleet-order command icons.
-  Producing the exhaustive, authoritative version of this list is `menu-and-toolbar-inventory.md`'s own
-  job — this section records that the gap is real and roughly this size, not a substitute for that
-  report's own complete inventory.
+  a real gap. T101 adopted the `ui.command.<id>.icon` naming for **36 pictorial toolbar commands**,
+  equal to the audit's §3.5 total although not its per-strip split (the audit's table gives 9 / 13 / 14
+  plus one [open]). This catalogue regroups the same total as 9 on the main toolbar, 12 on the Area-map
+  strip and 15 on the unit-map strip: it drops the Area-map strip's ToggleMap and gold-coin buttons,
+  because what they do is [open] (audit §1.5, §3.2), and adds `find_city` — the audit §3.2 names that
+  sole candidate for what the coin means — and `cancel_selection`. The 16 nation buttons and All
+  nations are colour swatches (§2's palette) and get no key; `cancel_selection` is `[designed]`: the
+  unit-map strip's 15th button is unread and Cancel selection fits it (audit §3.3). Every key is
+  `ui.command.<id>.icon`, 32×32 32-bit BGRA with straight alpha (§1.2, §1.3).
+  A later command that gains a toolbar icon extends this table and `AssetKeys` together.
+
+**The 36 toolbar-command keys and their commands (T101).** Each depiction is `[designed]` — the
+original's own art cannot ship, so every icon is new work; the command each key serves is the audit's.
+
+| Key | Command | Depiction |
+| --- | --- | --- |
+| `ui.command.open.icon` | Open | an open folder |
+| `ui.command.save.icon` | Save | a floppy disk |
+| `ui.command.end_turn.icon` | End turn | an hourglass |
+| `ui.command.news.icon` | News | a rolled scroll |
+| `ui.command.relations.icon` | International relations | two clasped hands |
+| `ui.command.taxation.icon` | Taxation | a coin purse with coins |
+| `ui.command.balance_sheet.icon` | Balance sheet | a two-pan balance scale |
+| `ui.command.recruit_unit.icon` | Recruit unit | a crested soldier's helmet |
+| `ui.command.build_fleet.icon` | Build fleet | a ship's hull on a wooden slipway with a hammer, no water |
+| `ui.command.show_cities.icon` | Show cities | a house with a pitched roof |
+| `ui.command.show_capital.icon` | Show capital | a crown above a columned building |
+| `ui.command.show_armies.icon` | Show armies | a round shield with a spear |
+| `ui.command.show_fleets.icon` | Show fleets | a sailing ship in side view |
+| `ui.command.show_all.icon` | Show all | a house, a crown, a shield and a ship together |
+| `ui.command.show_mercs_light_infantry.icon` | Show mercenaries Light infantry | a throwing javelin |
+| `ui.command.show_mercs_heavy_infantry.icon` | Show mercenaries Heavy infantry | a large round shield |
+| `ui.command.show_mercs_archers.icon` | Show mercenaries Archers | a bow with an arrow |
+| `ui.command.show_mercs_light_cavalry.icon` | Show mercenaries Light cavalry | a horse's head |
+| `ui.command.show_mercs_heavy_cavalry.icon` | Show mercenaries Heavy cavalry | an armoured rider on a horse |
+| `ui.command.show_mercs_all.icon` | Show mercenaries All mercenaries | a cluster of crossed weapons |
+| `ui.command.find_city.icon` | Find a city | a magnifying glass over a house |
+| `ui.command.army_supply.icon` | Army Supply army | a woven supply basket with grain |
+| `ui.command.army_recruit_mercenaries.icon` | Army Recruit mercenaries | a helmet with a stack of coins |
+| `ui.command.army_transfer_unit.icon` | Army Transfer unit | two arrows pointing in opposite directions |
+| `ui.command.army_split.icon` | Army Split army | one arrow branching into two |
+| `ui.command.army_join.icon` | Army Join armies | two arrows merging into one |
+| `ui.command.army_change_units.icon` | Army Change units | two curved arrows forming a cycle |
+| `ui.command.army_disband.icon` | Army Disband army | a broken sword |
+| `ui.command.fleet_supply.icon` | Fleet Supply fleet | a supply amphora over a wave |
+| `ui.command.fleet_repair.icon` | Fleet Repair fleet | a hammer crossed with a wrench |
+| `ui.command.fleet_transfer_ships.icon` | Fleet Transfer ships | two arrows in opposite directions over a wave |
+| `ui.command.fleet_split.icon` | Fleet Split fleet | one arrow branching into two over a wave |
+| `ui.command.fleet_join.icon` | Fleet Join fleets | two arrows merging into one over a wave |
+| `ui.command.fleet_scuttle.icon` | Fleet Scuttle fleet | an anchor with a downward arrow |
+| `ui.command.city_fortify.icon` | City Fortify city | a crenellated castle wall with a tower |
+| `ui.command.cancel_selection.icon` | Cancel selection | a circle with a diagonal slash |
 - **T24 diplomacy relation grid (peace/trade/alliance/war): no new asset — text/colour, per the cited
   report.** `game-design.md` §UI item 4 describes it as *"the original's peace/trade/ally/war grid...
   reused as-is"* from `menu-and-toolbar-inventory.md`'s International Relations screen — a grid, not an
@@ -772,8 +821,9 @@ section actually require:
 
 **Net finding for this section — corrected, rework round 1**: this section's first draft concluded that
 every UI-chrome callout resolves to "no new asset required." That conclusion does not survive checking
-the evidence it claimed to have checked: the **T24 toolbar** gap is real, and enumerable at 20 buttons
-(13 + 7, corrected rework round 2) across two toolbar rows this document counted directly. Two
+the evidence it claimed to have checked: the **T24 toolbar** gap is real: 20 buttons (13 + 7, corrected
+rework round 2) across the two toolbar rows this document counted directly, and **36 pictorial commands**
+on the audit's full count (9 + 12 + 15, T101's catalogue above). Two
 resolutions still hold on inspection
 — **T16/T25 battle-screen iconography** (a text/numeric summary, nothing icon-shaped named anywhere) and
 **T17/T18 fortification/siege state** (no visual difference confirmed for the one city checked, though
@@ -806,9 +856,10 @@ this task's Owns list to change.
 
 ## 6. Existing keys — machine-checked ground truth
 
-The exact 25 keys `AssetKeys.AllKeys` yields today, one per line, in the same six-group order as
-`AssetKeys.cs` itself. This block is read verbatim by `AssetSpecificationCoverageTests.cs`; do not
-reformat it without updating that test's expectations.
+The exact 61 keys `AssetKeys.AllKeys` yields today (the 25 original keys plus T101's 36 toolbar
+commands), one per line, in the same seven-group order as `AssetKeys.cs` itself. This block is read
+verbatim by `AssetSpecificationCoverageTests.cs`; do not reformat it without updating that test's
+expectations.
 
 ```text
 unit.light_infantry.icon
@@ -836,6 +887,42 @@ terrain.sea_deep.tile
 sfx.city_captured
 sfx.battle
 sfx.unit_move
+ui.command.open.icon
+ui.command.save.icon
+ui.command.end_turn.icon
+ui.command.news.icon
+ui.command.relations.icon
+ui.command.taxation.icon
+ui.command.balance_sheet.icon
+ui.command.recruit_unit.icon
+ui.command.build_fleet.icon
+ui.command.show_cities.icon
+ui.command.show_capital.icon
+ui.command.show_armies.icon
+ui.command.show_fleets.icon
+ui.command.show_all.icon
+ui.command.show_mercs_light_infantry.icon
+ui.command.show_mercs_heavy_infantry.icon
+ui.command.show_mercs_archers.icon
+ui.command.show_mercs_light_cavalry.icon
+ui.command.show_mercs_heavy_cavalry.icon
+ui.command.show_mercs_all.icon
+ui.command.find_city.icon
+ui.command.army_supply.icon
+ui.command.army_recruit_mercenaries.icon
+ui.command.army_transfer_unit.icon
+ui.command.army_split.icon
+ui.command.army_join.icon
+ui.command.army_change_units.icon
+ui.command.army_disband.icon
+ui.command.fleet_supply.icon
+ui.command.fleet_repair.icon
+ui.command.fleet_transfer_ships.icon
+ui.command.fleet_split.icon
+ui.command.fleet_join.icon
+ui.command.fleet_scuttle.icon
+ui.command.city_fortify.icon
+ui.command.cancel_selection.icon
 ```
 
 ---

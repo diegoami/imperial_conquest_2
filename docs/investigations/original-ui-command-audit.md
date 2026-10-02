@@ -317,10 +317,10 @@ which of these are toolbar buttons is **[open]**.
 ### 3.5 Asset needs
 
 The two shipped packs (`assets/packs/placeholder/manifest.json`, `assets/packs/authored/manifest.json`)
-hold only `unit.*.icon`, `army|fleet.tier1–3.icon`, `city.tier1–3|capital.icon`, `terrain.*.tile` and `sfx.*`.
-**There is no `ui.*` key at all.** [asset-specification.md §4.7](../asset-specification.md#47-chrome-with-no-key-today--the-main-screen-dialog-and-battle-result-gaps)
-records the toolbar as a real, uncatalogued gap, and leaves the key naming to the task that wires the
-toolbar. On this audit's count the need is:
+hold `unit.*.icon`, `army|fleet.tier1–3.icon`, `city.tier1–3|capital.icon`, `terrain.*.tile`, `sfx.*` and,
+since [T101](https://github.com/diegoami/imperial_conquest_2/issues/559), 36 `ui.command.<id>.icon` toolbar keys,
+catalogued in [asset-specification.md §4.7](../asset-specification.md#47-chrome-with-no-key-today--the-main-screen-dialog-and-battle-result-gaps)
+(which explains how its per-strip split differs from the table below). On this audit's count the need is:
 
 | Toolbar | Pictorial icons | Notes |
 | --- | ---: | --- |

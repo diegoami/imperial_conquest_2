@@ -27,7 +27,9 @@ namespace IC2.Engine.Tests.Assets;
 /// palette (<c>docs/asset-specification.md</c> §2.3) is applied at DRAW time by tinting each
 /// marker with its owner's colour, not baked into sixteen per-nation variants, because the
 /// asset keys are one per tier, not one per nation. Terrain tiles are full-colour, fully
-/// opaque, 24-bit, per §1.2.
+/// opaque, 24-bit, per §1.2. T101's <c>ui.command.*</c> icons are the deliberate exception:
+/// pictorial, full-colour 32-bit BGRA on a transparent background, never tinted, checked by
+/// their own format/size/transparency test rather than the silhouette test.
 /// </para>
 /// <para>
 /// <b>The pack is committed</b>: it was produced by a billable, deliberate, human-run generation
@@ -156,13 +158,19 @@ public sealed class AuthoredPackConformanceTests
     {
         var pack = AssetLoader.LoadManifest(Path.Combine(AuthoredPackDirectory, "manifest.json"));
 
-        var spriteKeys = AssetKeys.AllKeys
-            .Where(k => !k.StartsWith("terrain.", StringComparison.Ordinal)
-                     && !k.StartsWith("sfx.", StringComparison.Ordinal))
+        // T101: narrowed to the MARKER categories. A unit icon or an army/fleet/city marker is
+        // a neutral light silhouette so the draw-time nation tint (the #173 decision) stays
+        // visible. A ui.command icon is pictorial and full-colour and is never tinted, so it is
+        // deliberately excluded here and checked by its own test below.
+        var markerKeys = AssetKeys.AllKeys
+            .Where(k => k.StartsWith("unit.", StringComparison.Ordinal)
+                     || k.StartsWith("army.", StringComparison.Ordinal)
+                     || k.StartsWith("fleet.", StringComparison.Ordinal)
+                     || k.StartsWith("city.", StringComparison.Ordinal))
             .ToList();
 
-        Assert.NotEmpty(spriteKeys);
-        foreach (var key in spriteKeys)
+        Assert.NotEmpty(markerKeys);
+        foreach (var key in markerKeys)
         {
             var fullPath = Path.Combine(AuthoredPackDirectory, pack.ResolveAsset(key));
             var bytes = File.ReadAllBytes(fullPath);
@@ -218,6 +226,54 @@ public sealed class AuthoredPackConformanceTests
         }
     }
 
+    /// <summary>
+    /// T101 DoD 5: each <c>ui.command.*</c> authored icon is a 32x32 32-bit BGRA BMP with at
+    /// least one transparent pixel. Unlike a marker it is NOT a light neutral silhouette - it is
+    /// pictorial and full-colour (the task entry's Style line) - so only format, size and
+    /// transparency are pinned here, not the colours or the silhouette shape.
+    /// </summary>
+    [Fact]
+    public void AuthoredPack_UiCommandIcons_ConformToFormatSpecification()
+    {
+        var pack = AssetLoader.LoadManifest(Path.Combine(AuthoredPackDirectory, "manifest.json"));
+
+        var uiKeys = AssetKeys.AllKeys
+            .Where(k => k.StartsWith("ui.command.", StringComparison.Ordinal))
+            .ToList();
+        Assert.Equal(36, uiKeys.Count);
+
+        foreach (var key in uiKeys)
+        {
+            var relativePath = pack.ResolveAsset(key);
+            var fullPath = Path.Combine(AuthoredPackDirectory, relativePath);
+
+            Assert.True(File.Exists(fullPath), $"Image file not found: {key} ({fullPath})");
+
+            var bytes = File.ReadAllBytes(fullPath);
+
+            // 32x32, 32-bit BGRA, BI_RGB, 4096-byte pixel array, per docs/asset-specification.md
+            // 1.2 and 1.3.
+            ValidateBmpStructure(bytes, key, 32);
+
+            // A transparent background is what makes the icon composite over the toolbar; a
+            // fully opaque icon is a square, not an icon. Read the alpha byte straight from the
+            // BGRA quads (Pillow's BMP reader ignores it, so the test reads the bytes itself).
+            var transparentPixelFound = false;
+            for (var i = 54; i + 3 < bytes.Length; i += 4)
+            {
+                if (bytes[i + 3] == 0)
+                {
+                    transparentPixelFound = true;
+                    break;
+                }
+            }
+
+            Assert.True(transparentPixelFound,
+                $"{key}: no transparent pixel - a ui.command icon needs a transparent background "
+                + "(32-bit BGRA with straight alpha, docs/asset-specification.md 1.2)");
+        }
+    }
+
     [Fact]
     public void AuthoredPack_SoundAssets_AreValidWavWithTheSpecifiedEnvelope()
     {
@@ -255,6 +311,7 @@ public sealed class AuthoredPackConformanceTests
     {
         _ when key.StartsWith("terrain.", StringComparison.Ordinal) => "tile",
         _ when key.StartsWith("sfx.", StringComparison.Ordinal) => "sfx",
+        _ when key.StartsWith("ui.command.", StringComparison.Ordinal) => "ui",
         _ => "sprite",
     };
 
