@@ -127,6 +127,14 @@ public partial class GameMapView : Control
     /// </summary>
     public event Action<MapClickOutcome>? AttackConfirmationRequested;
 
+    /// <summary>
+    /// T102: fired whenever this view's own zoom or pan changes — a wheel zoom, a drag, a re-fit, or
+    /// <see cref="CentreOnTile"/>. The overview mini-map (<see cref="AreaMapView"/>) listens so its view
+    /// rectangle follows every pan and zoom (<c>docs/game-design.md</c>'s Screen/flow "Overview mini-map"
+    /// bullet), without this class knowing the mini-map exists.
+    /// </summary>
+    public event Action? ViewChanged;
+
     public bool ShowCities = true;
     public bool ShowArmies = true;
     public bool ShowFleets = true;
@@ -252,6 +260,54 @@ public partial class GameMapView : Control
         : new Rect2(_pan, new Vector2(_session.World.Width, _session.World.Height) * BaseTileSize * _zoom);
 
     /// <summary>
+    /// T102: the tile rectangle the order map currently shows, in tile coordinates — the inverse of
+    /// <see cref="HandleClick"/>'s screen-to-tile transform. The overview mini-map
+    /// (<see cref="AreaMapView"/>) maps this through <see cref="AreaMapGeometry"/> to draw the view
+    /// rectangle, so the two views cannot disagree about what is on screen. Returns an empty rect
+    /// before <see cref="Attach"/>.
+    /// </summary>
+    public Rect2 VisibleTileRect
+    {
+        get
+        {
+            if (_session is null)
+            {
+                return new Rect2(Vector2.Zero, Vector2.Zero);
+            }
+
+            var tileSize = BaseTileSize * _zoom;
+            return new Rect2(-_pan / tileSize, Size / tileSize);
+        }
+    }
+
+    /// <summary>
+    /// T102: re-centres this view on a tile — the original's Area-map click
+    /// (<c>TAreaMap_AreaMapClick</c> → <c>TUnitMap_AreaMapClicked</c>, confirmed by
+    /// <c>2026-09-29-nation-view-origin-and-unit-map-clicks.md</c> and
+    /// <c>original-ui-command-audit.md</c> §1.5). The tile's centre is placed at this view's own centre
+    /// at the current zoom. It changes no selection and submits no order; it raises
+    /// <see cref="ViewChanged"/>.
+    /// </summary>
+    public void CentreOnTile(int x, int y)
+    {
+        if (_session is null || Size.X <= 0 || Size.Y <= 0)
+        {
+            return;
+        }
+
+        var tileSize = BaseTileSize * _zoom;
+        _pan = (Size / 2f) - (new Vector2(x + 0.5f, y + 0.5f) * tileSize);
+        NotifyViewChanged();
+    }
+
+    /// <summary>The one place this view's zoom/pan updates announce themselves and redraw.</summary>
+    private void NotifyViewChanged()
+    {
+        QueueRedraw();
+        ViewChanged?.Invoke();
+    }
+
+    /// <summary>
     /// The screen-space position of tile (<paramref name="x"/>, <paramref name="y"/>)'s centre at the
     /// current zoom and pan — the exact inverse of <see cref="HandleClick"/>'s own screen-to-tile
     /// transform, exposed so <c>godot/Checks/MapClickCheck.cs</c> can drive <see cref="_GuiInput"/>
@@ -317,6 +373,7 @@ public partial class GameMapView : Control
         {
             _zoom = 1f;
             _pan = Vector2.Zero;
+            NotifyViewChanged();
             return;
         }
 
@@ -324,6 +381,7 @@ public partial class GameMapView : Control
         _zoom = Mathf.Clamp(Mathf.Min(viewport.X / mapSize.X, viewport.Y / mapSize.Y), MinZoom, MaxZoom);
         var scaledSize = mapSize * _zoom;
         _pan = (viewport - scaledSize) / 2f;
+        NotifyViewChanged();
     }
 
     public override void _GuiInput(InputEvent @event)
@@ -367,7 +425,7 @@ public partial class GameMapView : Control
                     _dragMoved = true;
                 }
 
-                QueueRedraw();
+                NotifyViewChanged();
                 AcceptEvent();
                 break;
         }
@@ -384,7 +442,7 @@ public partial class GameMapView : Control
         var normalized = (cursor - _pan) / _zoom;
         _zoom = nextZoom;
         _pan = cursor - normalized * _zoom;
-        QueueRedraw();
+        NotifyViewChanged();
     }
 
     /// <summary>
