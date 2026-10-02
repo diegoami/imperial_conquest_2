@@ -94,6 +94,7 @@ public partial class MainGameScreen : Control
     private Label _activeNationLabel = null!;
     private Label _saveConfirmationLabel = null!;
     private GameMapView _mapView = null!;
+    private AreaMapView _areaMapView = null!;
     private ContextPanel _contextPanel = null!;
     private NewsLogPanel _newsLog = null!;
     private Label _lastCommandLabel = null!;
@@ -138,6 +139,16 @@ public partial class MainGameScreen : Control
         _mapView = new GameMapView { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
         body.AddChild(_mapView);
 
+        // T102: the right-hand column is the overview mini-map above the context panel. The mini-map's
+        // own 320 px width stays inside the context panel's 340 px floor, so the column -- and the
+        // screen -- is exactly as wide as before. The panel keeps ExpandFill, so it takes the rest of
+        // the column below the mini-map.
+        var sideColumn = new VBoxContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
+        body.AddChild(sideColumn);
+
+        _areaMapView = new AreaMapView { SizeFlagsHorizontal = SizeFlags.ShrinkCenter };
+        sideColumn.AddChild(_areaMapView);
+
         _contextPanel = new ContextPanel
         {
             Session = Session,
@@ -145,7 +156,7 @@ public partial class MainGameScreen : Control
             CustomMinimumSize = new Vector2(340, 0),
             SizeFlagsVertical = SizeFlags.ExpandFill,
         };
-        body.AddChild(_contextPanel);
+        sideColumn.AddChild(_contextPanel);
 
         root.AddChild(BuildBottomToolbar());
 
@@ -203,6 +214,7 @@ public partial class MainGameScreen : Control
         BindCommands();
 
         _mapView.Attach(Session, RepositoryRoot);
+        _areaMapView.Attach(Session, _mapView);
 
         var activeNation = Session.State.NationById(Session.State.ActiveNationId);
         _lastKnownActiveNationId = Session.State.ActiveNationId;

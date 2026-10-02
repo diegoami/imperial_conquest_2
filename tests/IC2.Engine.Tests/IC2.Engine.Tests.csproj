@@ -130,6 +130,15 @@
       anywhere; never a second, hand-maintained copy.
     -->
     <Compile Include="../../godot/UI/GameCommandTable.cs" Link="Ui/GameCommandTable.cs" />
+
+    <!--
+      T102 (tests/IC2.Engine.Tests/Ui/AreaMapGeometryTests.cs): the same seam once more.
+      AreaMapGeometry.cs is the Godot-free arithmetic behind the overview mini-map — the tile-to-pixel
+      mapping and the order map's visible tile rectangle mapped onto the mini-map and clamped — so a
+      plain xunit test can pin it without the Godot SDK. No `using Godot` anywhere; never a second,
+      hand-maintained copy.
+    -->
+    <Compile Include="../../godot/UI/AreaMapGeometry.cs" Link="Ui/AreaMapGeometry.cs" />
   </ItemGroup>
 
 </Project>
