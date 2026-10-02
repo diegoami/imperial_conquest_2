@@ -135,10 +135,6 @@ public partial class GameMapView : Control
     /// </summary>
     public event Action? ViewChanged;
 
-    public bool ShowCities = true;
-    public bool ShowArmies = true;
-    public bool ShowFleets = true;
-
     private GameSession? _session;
     private AssetPackTextureLoader? _assetLoader;
     private float _zoom = 1f;
@@ -809,28 +805,22 @@ public partial class GameMapView : Control
             DrawTextureRect(_terrainTexture, mapRect, false);
         }
 
-        if (ShowCities)
+        // T110: the map always draws every layer. The bottom toolbar's Cities/Armies/Fleets toggles hid
+        // them, which the original never does; the Area map's Show entries paint highlights instead, so
+        // there is no hide flag left to consult here.
+        foreach (var city in _session.State.Cities)
         {
-            foreach (var city in _session.State.Cities)
-            {
-                DrawCity(city, tileSize);
-            }
+            DrawCity(city, tileSize);
         }
 
-        if (ShowArmies)
+        foreach (var army in _session.State.Armies)
         {
-            foreach (var army in _session.State.Armies)
-            {
-                DrawArmy(army, tileSize);
-            }
+            DrawArmy(army, tileSize);
         }
 
-        if (ShowFleets)
+        foreach (var fleet in _session.State.Fleets.Where(f => !f.IsUnderConstruction))
         {
-            foreach (var fleet in _session.State.Fleets.Where(f => !f.IsUnderConstruction))
-            {
-                DrawFleet(fleet, tileSize);
-            }
+            DrawFleet(fleet, tileSize);
         }
     }
 
