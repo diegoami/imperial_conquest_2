@@ -58,7 +58,7 @@ Nothing in `game-design.md` mentions armies travelling by sea or fleets fighting
 ### 1.5 Army and unit management orders **[confirmed]**
 
 - **Join armies**: ≤ 20 units and ≤ 100,000 troops combined, neither aboard a fleet, survivor's moves zeroed, money and supplies pooled.
-- **Split army**: needs ≥ 2 units; hard cap of **198 armies** in play; a new army starts with morale 59, no money, no supplies, and **0 moves for a human nation / 1 move for an AI one**.
+- **Split army**: needs ≥ 2 units; hard cap of **198 armies** in play; a new army starts with morale 59, no money, no supplies, and **0 moves for a human nation / 1 move for an AI one**. It is placed on an adjacent tile, one step diagonally (+1, +1), not on the parent's tile **[Wine candidate: [`2026-10-02-unit-map-mouse-orders-and-tax-range.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-02-unit-map-mouse-orders-and-tax-range.md)]**; which tile the game picks when that one is blocked is **[open]**.
 - **Disband army**: only near one of your own cities; money → treasury, supplies → that city.
 - **Unit-level join** (inside one army): regulars only, same type only, and the merged troop count must not exceed that type's **standard battalion size** (unit-type table `+0x1A`) — which is what that previously-purpose-less field is for. The merged unit's quality is the **arithmetic mean** of the merged qualities.
 - **Unit-level split/rename**, with the auto-naming scheme (`Nth Foot/Guards/Bowmen/Lancers/Dragoons Battalion`, ordinal counted across the whole nation) that every roster in [`army-records-and-roman-roster.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/army-records-and-roman-roster.md) exhibits.

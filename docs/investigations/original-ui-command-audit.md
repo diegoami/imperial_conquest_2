@@ -12,6 +12,7 @@ Show-mercenaries filters wait on mercenary offers having a position. Of the exis
 Transfer ships require the *same tile*, but the original takes the partner at distance exactly 1. That is the
 shape of the embark defect ([#453](https://github.com/diegoami/imperial_conquest_2/issues/453)).
 The map-click model is now known from the code. The original has two map windows: an overview *Area map* and a 32-px *Unit map*. Orders are given only on the Unit map.
+A run of the original under Wine observed the select, move, peace-time attack prompt and Cancel selection rows (§2.1), the Taxation slider's range (§1.3) and where Split army puts the new army (§1.6). Each is a candidate until the desktop original confirms it. On one row it disagrees with the code reading: **No** on the attack prompt keeps the army selected.
 
 This is an audit, not a plan: the task split and the design questions that follow from it go to the main
 session, which writes them into the catalogue and the design document.
@@ -19,6 +20,8 @@ session, which writes them into the catalogue and the design document.
 ## Evidence and tags
 
 Tags follow [README.md](README.md): **[confirmed]**, **[derived]**, **[designed]**, **[open]**.
+
+- **[Wine candidate: …]** marks a result observed only in a run of the original under Wine. It settles nothing until the desktop original confirms it ([evidence-pipeline.md](../evidence-pipeline.md)).
 
 - **Research reports** are cited by name, from
   [`imperial-conquest-2-research/docs/reports/`](https://github.com/diegoami/imperial-conquest-2-research/tree/main/docs/reports).
@@ -60,7 +63,7 @@ same code [derived: code, `TPremierForm_StrategicDecision` `0x0045B2BC`].
 
 | Original entry | What it does in the original | Engine today | UI today | Status | Evidence gaps |
 | --- | --- | --- | --- | --- | --- |
-| End turn | Ends the active nation's turn [confirmed: the inventory, which lists a speed button too]. `TPremierForm_EndTurn` `0x0045B0A8`. | `end` verb | Top-bar **End Turn** button | **present** | — |
+| End turn | Ends the active nation's turn [confirmed: the inventory, which lists a speed button too]. `TPremierForm_EndTurn` `0x0045B0A8`. When an army of the player's needs supplies, it first asks *"End turn ?"* ("An army of yours needs supplies. …"), with the buttons **End turn** and **Make more moves** **[Wine candidate: [`2026-10-02-unit-map-mouse-orders-and-tax-range.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-02-unit-map-mouse-orders-and-tax-range.md)]**. | `end` verb | Top-bar **End Turn** button. Nothing asks about an army that needs supplies. | **present** | Which armies count as needing supplies (the threshold) |
 | New player | Opens the leader-picking form (`TPickLeaders`), which adds a human seat in mid-game. If no human seat remains, the game ends. If the active nation is now computer-run, its turn ends [derived: code, `TPremierForm_NewPlayer` `0x0045B148`; the form is identified by its VMT address `0x456D00`, which precedes `TPickLeaders`' methods]. Adding the Ptolemaic human seat changes only three bytes of the save [confirmed: `2026-09-29-nation-view-origin-and-unit-map-clicks.md`]. | none. Seats are fixed at New Game (`ScenarioSeatScreen`). | none | **out of scope (proposed)**: it changes seats in mid-game, and the clone fixes seats at New Game. The user decides. | What `TPickLeaders` allows in mid-game |
 | New nation | Asks *"Are you sure you want to lead a different nation ?"*. On yes, the current nation drops to computer control and `TPickLeaders` opens [derived: code, `TPremierForm_NewNation` `0x0045B198`]. | none | none | **out of scope (proposed)**, as New player | — |
 | Abdicate | Asks *"Are you sure you want to abdicate ?"*. On yes, it calls the "nation drops out" handler `FUN_00449078`: the nation becomes computer-run with a new random leader. If no human seat remains, every form closes and the menus switch off [derived: code, `0x0045B24C`, `FUN_00449078`]. It is the same path as a human leader falling [confirmed: `decompiled-diplomacy-peace-terms-and-instant-battles.md`]. | none. The deposition path (`GameSession.cs` ~:730, `Control = SeatControl.Ai`) is the nearest. | none | **engine missing** (small: it reuses deposition). The user decides whether it is in scope. | — |
@@ -77,7 +80,7 @@ identified by its VMT address, which precedes that class's own methods [derived:
 | --- | --- | --- | --- | --- | --- |
 | News | Prints the news log into the information window [derived: code]. | `NewsLogWriter`, `news` verb | Bottom-toolbar **News** toggle (`NewsLogPanel`) | **present** | — |
 | International relations | The `TPolitics` row editor: peace / trade / ally / war per nation, committed on OK. Its methods are `MakePeace`, `MakeTrade`, `MakeAlliance`, `ChangeIR` and `OK` [confirmed: the inventory; `decompiled-diplomacy-peace-terms-and-instant-battles.md`]. | `declare-war`, `make-peace`, `propose-alliance`, `propose-trade`, `accept-offer`, `peace-yes`/`peace-no` | `DiplomacyScreen`, from the bottom-toolbar **Diplomacy** button: one action button per cell, not a row edited then committed | **present** (shape differs) | — |
-| Taxation | The `TChangeTax` dialog: a slider over the current and new tax rate and income (`income = taxBase × tax% / 100`). OK writes nation `+0x44A` [confirmed: `decompiled-fleet-tax-and-mercenary-formulas.md`, `rome-tax-increase-and-sidon-capture.md`; the OK write is derived: code, `TChangeTax_OK` `0x004540B8`]. | **none**: nothing writes `NationState.TaxRatePercent` ([#468](https://github.com/diegoami/imperial_conquest_2/issues/468)) | The city and nation panels show it read-only (`ContextPanel.BuildCityPanel`) | **engine missing** | The slider's minimum and maximum (they are in the form stream, not in the code read) |
+| Taxation | The `TChangeTax` dialog ("Change tax level"): a slider over the current and new tax rate and income (`income = taxBase × tax% / 100`). OK writes nation `+0x44A` [confirmed: `decompiled-fleet-tax-and-mercenary-formulas.md`, `rome-tax-increase-and-sidon-capture.md`; the OK write is derived: code, `TChangeTax_OK` `0x004540B8`]. The slider runs over the integers **0 to 40**, one step per arrow key and **5 per Page key**; OK at either end writes 0 or 40 to `+0x44A` **[Wine candidate: [`2026-10-02-unit-map-mouse-orders-and-tax-range.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-02-unit-map-mouse-orders-and-tax-range.md)]**. | **none**: nothing writes `NationState.TaxRatePercent` ([#468](https://github.com/diegoami/imperial_conquest_2/issues/468)) | The city and nation panels show it read-only (`ContextPanel.BuildCityPanel`) | **engine missing** | Whether the slider opens at the current rate (the run's own click moved it) |
 | Balance sheet | The `TBalanceSheet` dialog, read-only (OK only). It shows the active nation's quarterly budget. Income: tax income, `taxBase / 4`, and trade income (`FUN_004499ec`), with a total. Expenditure: `cities × 7 + wealth / 20000`, ships × 3, recruitment-slot upkeep, regulars' upkeep and mercenaries' pay, with a total. It also shows the treasury, and `wealth / 500`, capped at 20,000 and rounded [derived: code, `TBalanceSheet_PaintBalance` `0x0045376C`]. These are exactly the terms of the quarterly treasury credit and of the upkeep bill [confirmed: `decompiled-quarterly-billing-and-economy.md`, `upkeep-payment-and-desertion.md`]. `wealth / 500` is the deposition-for-debt threshold [confirmed: `upkeep-payment-and-desertion.md`]; its on-screen label is unknown. | **none**: the terms are computed inside the quarterly systems (`Economy/Quarterly*System.cs`), and there is no read-only projection | `BalanceSheet` (`src/IC2.Engine/Economy/BalanceSheet.cs`) and the `balance` verb, since T104 (PR #580) | **UI-only missing** (T109 builds the dialog) | Every line's caption, and the rounding steps of the last figure |
 | Recruit unit | The `TArmyRecruits` dialog: pick a city, a type and a size; it shows initial and quarterly cost. Its buttons are **Recruit unit**, **Mobilize** and **Disband**, over a list of the city's units in training [confirmed: the inventory; `ptolemy-run-ui-inventory-and-leader-draw.md` §1; methods `RecruitUnit`, `MobilizeUnits`, `DisbandUnits`]. | `recruit-standing`, `mobilize`. **Nothing disbands a recruitment slot.** | The city panel's **Recruit** (type picker, troop spin box). The army panel's **Mobilize first ready slot**. The training list is on the nation and city panels. | **partial**: Disband is engine missing, and there is no dialog | Which cities may recruit ([#515](https://github.com/diegoami/imperial_conquest_2/issues/515)). What a disbanded slot refunds. |
 | Build fleet | First lists the fleets under construction (*"A fleet of N ships will be ready in W weeks at C."*). It refuses with *"Only nations with coastal cities can build fleets."*, *"You do not have a free coastal city at this time."* or *"You cannot build a fleet at this time."* (the fleet table is full at 99). Otherwise it opens `TBuildFleet`: 10–100 ships, at `ships × 10` [derived: code, `TPremierForm_BuildNewFleet` `0x0045B3A8`; costs confirmed: `decompiled-unit-map-orders-and-record-fields.md`]. | `order-fleet` (`OrderFleetCommand`) | none | **UI-only missing** | — |
@@ -134,7 +137,7 @@ launched fleets [derived: code]. The player never picks the partner.
 | Army → Supply army | `TAFSupply`: buy supply from a city or an own fleet within one tile (free from one's own, paid from a foreign city). `TAFSupply_ChangeMoney` moves money between the treasury, or a co-located fleet, and the army, capped at 1,000 [confirmed: `decompiled-unit-map-orders-and-record-fields.md`, `supply-capacity-rounding.md`]. | `buy` (`BuySupplyCommand`, from a city or a fleet). The money transfer is a function (`Economy/TreasuryPurseTransfer.cs`) **with no command**. | The city panel's **Transfer Supply** slider (0–50 t, to any own army) | **partial** | — |
 | Army → Recruit mercenaries | `TRecruitMercs`: only from the offers of the first city at distance exactly 1. With none, nothing happens. The hire is paid from the army's purse [confirmed: `decompiled-mercenary-offer-list-and-position.md`, `decompiled-unit-map-orders-and-record-fields.md`]. | `hire-mercenary`. It can never succeed today: the pool is empty and has no position (`CommandVerbCatalog.ConfirmedUnreachable`; #325, #457; T76). | none | **partial** (the engine is blocked on T76) | — |
 | Army → Transfer unit | `TArmyToArmy`: two unit lists with Transfer/Disband under each, and supply and money spinners. Conservation is exact [confirmed: `army-to-army-transfer-confirmed.md`]. The partner is the adjacent own army (above). | **none** | none | **engine missing** | — |
-| Army → Split army | `TSplitArmyUnit`: needs 2 or more units; the 198-army cap; units, supply and money are allocated by hand [confirmed: `decompiled-unit-map-orders-and-record-fields.md`, `ptolemy-run-ui-inventory-and-leader-draw.md` §4]. | `split-army` | none | **UI-only missing** | Where the new army is placed (`FUN_00449F08`'s position argument) |
+| Army → Split army | `TSplitArmyUnit`: needs 2 or more units; the 198-army cap; units, supply and money are allocated by hand [confirmed: `decompiled-unit-map-orders-and-record-fields.md`, `ptolemy-run-ui-inventory-and-leader-draw.md` §4]. The new army stands on an **adjacent tile, one step diagonally (+1, +1)**, not on the parent's tile **[Wine candidate: [`2026-10-02-unit-map-mouse-orders-and-tax-range.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-02-unit-map-mouse-orders-and-tax-range.md)]**. | `split-army`, which puts the new army on the parent's tile (`SplitArmyCommandHandler.cs` ~:116, [#584](https://github.com/diegoami/imperial_conquest_2/issues/584)) | none | **UI-only missing**. The engine's placement differs from the original. | Which tile the game picks when (+1, +1) is blocked (`FUN_00449F08`'s position argument) |
 | Army → Join armies | Joins with the adjacent own army: 20 units and 100,000 troops at most, neither aboard a fleet, and the survivor's moves are zeroed [confirmed: the same report]. | `join-armies`, but its gate is **same tile** (`JoinArmiesCommandHandler.cs:53`) | none | **UI-only missing**. The engine gate differs from the original (§4). | — |
 | Army → Change units | `TChangeArmyUnits`: **rename, split, join and disband** single units [confirmed: `decompiled-unit-map-orders-and-record-fields.md`; methods `RenameUnit`, `SplitUnit`, `JoinUnits`, `Disband`, `RemoveUnit`]. | Only `join-units`. Split-unit, rename-unit and disband-unit do not exist, although [T15](../tasks/T15.md)'s scope names them. | none | **engine missing** (three of the four) | — |
 | Army → Disband army | Only next to one's own city; asks for confirmation; money goes to the treasury and supplies to the city [confirmed: the same report; `attack-and-siege-are-adjacency-orders.md`]. | `disband-army` | The army panel's **Disband** | **present** | — |
@@ -145,7 +148,7 @@ launched fleets [derived: code]. The player never picks the partner.
 | Fleet → Join fleets | Joins with the adjacent own fleet. The combined fleet must hold fewer than 101 ships (`< 0x65`) and neither may carry an army [confirmed: the same report; the `< 0x65` test is derived: code, `TUnitMap_JoinFleets` `0x00447A48`]. | `join-fleets`, with a **same-tile** gate (`JoinFleetsCommandHandler.cs:68`). For the cap, see [#166](https://github.com/diegoami/imperial_conquest_2/issues/166). | none | **UI-only missing**. The engine gate differs (§4). | The Fleet submenu was read from form data only [the inventory] |
 | Fleet → Scuttle fleet | Next to an own city, not while carrying an army, with confirmation [confirmed] | `scuttle-fleet` | The fleet panel's **Scuttle** | **present** | — |
 | City → Fortify city | `TFortifyCity`: 0 … (100 − current) points at `population(k) × points`. It is refused under siege or when already fortifying [confirmed: the same report]. | `order-city … fortify` | The city panel's **Order Fortification** | **present** | [#549](https://github.com/diegoami/imperial_conquest_2/issues/549) (the treasury gate) |
-| Cancel selection | `TUnitMap_EndUMSelection`: clears the selected army, fleet and city and switches every unit-map button off [derived: code, `0x00446EAC`]. Shortcut **Shift+X** [confirmed: `ptolemy-run-ui-inventory-and-leader-draw.md` §4]. | — | A click on empty map clears the selection (`GameMapView.HandleClick`). `CancelPendingAction` exists but nothing calls it. There is no menu entry and no key. | **partial** | — |
+| Cancel selection | `TUnitMap_EndUMSelection`: clears the selected army, fleet and city and switches every unit-map button off [derived: code, `0x00446EAC`]. Shortcut **Shift+X** [confirmed: `ptolemy-run-ui-inventory-and-leader-draw.md` §4]. Shift+X drops the selection and empties the unit strip, and the information panel **keeps showing** the army **[Wine candidate: [`2026-10-02-unit-map-mouse-orders-and-tax-range.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-02-unit-map-mouse-orders-and-tax-range.md)]**. | — | Esc and Shift+X clear the selection (`MainGameScreen._UnhandledInput`), and the panel switches to the nation overview ([#583](https://github.com/diegoami/imperial_conquest_2/issues/583)). There is no menu entry. | **partial** | — |
 
 ### 1.7 Help
 
@@ -180,15 +183,17 @@ A click on the Unit map (`TUnitMap_UnitMapClick` `0x00446420`) reads the map wor
    button shows its details (`ShowCityDetails`/`ShowArmyDetails`/`ShowFleetDetails`); the right button shows
    its unit list (`ShowCityUnits`/`ShowArmyUnits`/`ShowFleetUnits`). Then `TUnitMap_SelectUnit` runs [derived:
    code. Reading the third parameter as the mouse button follows Delphi's `OnMouseDown(Sender, Button, Shift,
-   X, Y)` register convention, which also accounts for the report's `X div 32`, `(Y − 30) div 32`].
+   X, Y)` register convention, which also accounts for the report's `X div 32`, `(Y − 30) div 32`]. On an own,
+   selected army, a left click shows its details and a right click replaces them with its unit list (name, type,
+   troops and quality per unit), in the same panel; the army stays selected and no window opens **[Wine candidate: [`2026-10-02-unit-map-mouse-orders-and-tax-range.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-02-unit-map-mouse-orders-and-tax-range.md)]**.
 
 `TUnitMap_SelectUnit` (`0x004466CC`) decides, from what is already selected and what was clicked [derived:
 code; the prompts and the war declaration are confirmed: `decompiled-diplomacy-peace-terms-and-instant-battles.md`]:
 
 | Selected | Clicked | Result |
 | --- | --- | --- |
-| an own army **with moves ≥ 1, at distance exactly 1** | an enemy **city** | If not already at war, it asks *"Are you sure you want to attack this city ?"*. On yes it declares war (`FUN_00449B40(…, 3)`), then **besieges** (`FUN_0044B27C`), clears the selection and prints the news. **On no, or if the army is not adjacent or has no moves, the selection is simply dropped.** |
-| an own army, as above | an enemy **army** | The same, with *"…attack this army ?"*, then **field battle** (`FUN_0044AEE4`) |
+| an own army **with moves ≥ 1, at distance exactly 1** | an enemy **city** | If not already at war, it asks *"Are you sure you want to attack this city ?"*, with the buttons Cancel, No and Yes. On yes it declares war (`FUN_00449B40(…, 3)`), then **besieges** (`FUN_0044B27C`), clears the selection and prints the news. If the army is not adjacent or has no moves, the selection is dropped. **On no, nothing changes: the relation, the army's tile, its moves and the selection stay as they were** **[Wine candidate: [`2026-10-02-unit-map-mouse-orders-and-tax-range.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-02-unit-map-mouse-orders-and-tax-range.md)]**. At war there is no box and the siege resolves on the click; at peace, Yes writes the war (relation 0 → 3, the news line) and the siege follows on the same click **[Wine candidate: [`2026-10-02-unit-map-mouse-orders-and-tax-range.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-02-unit-map-mouse-orders-and-tax-range.md)]**. Cancel was not tried. |
+| an own army, as above | an enemy **army** | The same, with *"…attack this army ?"*, then **field battle** (`FUN_0044AEE4`). Not observed on an army. |
 | an own army, as above | an own **fleet** carrying no army | **Embark**, if `ships ≥ troops / 500`. Otherwise *"The army is too large for this fleet ?"*. Then the fleet becomes the selection. |
 | an own fleet with moves ≥ 1, at distance 1 | an enemy **fleet** | *"…attack this fleet ?"*, then **naval battle** (`FUN_0044B5D0`). The game refuses with *"You cannot attack a fleet docked at its own city !"* when the target is docked at one of its own cities. |
 | anything | an **own** army, fleet or city | It becomes the selection, and the unit map's button strip switches to its orders (§3.3) |
@@ -198,7 +203,7 @@ code; the prompts and the war declaration are confirmed: `decompiled-diplomacy-p
 
 | Selected | Clicked terrain | Result |
 | --- | --- | --- |
-| an own army | land (code 2 or more) | **Move**: a Bresenham walk toward the tile [confirmed: `decompiled-army-movement-and-river-cost.md`]. A second walk follows if moves remain short of the tile. **The army stays selected while it has moves left**, and the selection ends when they reach 0 (`TUnitMap_MoveHumanArmy` `0x00446D9C`). |
+| an own army | land (code 2 or more) | **Move**: a Bresenham walk toward the tile [confirmed: `decompiled-army-movement-and-river-cost.md`]. A second walk follows if moves remain short of the tile. **The army stays selected while it has moves left**, and the selection ends when they reach 0 (`TUnitMap_MoveHumanArmy` `0x00446D9C`). Observed for one army: 8 moves → 4 stays selected, 4 → 0 is deselected, with no box **[Wine candidate: [`2026-10-02-unit-map-mouse-orders-and-tax-range.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-02-unit-map-mouse-orders-and-tax-range.md)]**. |
 | an own fleet | sea (0 or 1) | **Move fleet**, the same pattern (`TUnitMap_MoveHumanFleet` `0x00446E24`) |
 | an own fleet **carrying an army** | land (2–11) at distance 1 | **Disembark** onto that tile (`FUN_0044B840`). The selection is cleared and the army's details are shown. |
 
@@ -210,10 +215,10 @@ Three consequences, all **[derived: code]**:
 - **Clicking an own city with an army selected does nothing to the army.** The army is deselected, and the
   city and its Fortify button are selected. No order moves an army onto a city tile, which agrees with the
   report above [confirmed].
-- **Attack confirmation is part of the click**, and it is skipped when already at war.
+- **Attack confirmation is part of the click**, and it is skipped when already at war. Both are observed for a city **[Wine candidate: [`2026-10-02-unit-map-mouse-orders-and-tax-range.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-02-unit-map-mouse-orders-and-tax-range.md)]**.
 
 **Cancel selection** is the menu entry or Shift+X (§1.6). The selection also ends by itself after an attack,
-a disembark, or an army or fleet running out of moves.
+a disembark, or an army or fleet running out of moves. It does not end on No at the attack prompt (above).
 
 ### 2.2 What the clone does today
 
@@ -239,8 +244,8 @@ a disembark, or an army or fleet running out of moves.
 
 ### 2.3 What is unknown
 
-- Whether the left and right buttons act on mouse-down or mouse-up. The mapping itself is derived from the
-  calling convention, not observed.
+- Whether the left and right buttons act on mouse-down or mouse-up. The mapping itself is observed on an own,
+  selected army **[Wine candidate: [`2026-10-02-unit-map-mouse-orders-and-tax-range.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-02-unit-map-mouse-orders-and-tax-range.md)]**; a click on an unselected own army, an enemy army or a city was not tried.
 - The adjacency metric is settled: Chebyshev, by `FUN_00449018` [confirmed:
   `attack-and-siege-are-adjacency-orders.md`]. "Exactly 1" for the attack, embark and partner tests is
   derived from code read for this audit.
@@ -331,8 +336,9 @@ original (§1.6, `FUN_00449D64`/`FUN_00449DD8`). The clone's commands require th
 `JoinArmiesCommandHandler.cs:53`, `JoinFleetsCommandHandler.cs:68` and `FleetToFleetTransferCommandHandler.cs:65`.
 This is the gate that made embarking unreachable ([#453](https://github.com/diegoami/imperial_conquest_2/issues/453)).
 The clone's army walk refuses a tile with another army on it (`MoveArmyCommandHandler.IsBlocked`, ~:86), so
-in play the only way two armies share a tile may be a fresh split. Where the split places the new army is
-itself **[open]** in the original. This audit does not file the defect. Under
+in play the only way two armies share a tile may be a fresh split. The original's split places the new army one
+step diagonally, at distance 1 **[Wine candidate: [`2026-10-02-unit-map-mouse-orders-and-tax-range.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-02-unit-map-mouse-orders-and-tax-range.md)]**, so its partner is in reach at once; the clone's split puts it on the
+parent's tile ([#584](https://github.com/diegoami/imperial_conquest_2/issues/584)). This audit does not file the defect. Under
 [build-process.md §4.6](../build-process.md#46-bugs-and-follow-ups) it goes to the bug list, and its fix may
 fold into T93's adjacency change.
 
@@ -343,14 +349,14 @@ Things the reports and this audit do not settle. Each is marked **[open]** above
 1. **Promote the code reads.** Every **[derived: code]** row in this document comes from the local dump and
    has not been checked by a research session. The highest-value reads are `TUnitMap_SelectUnit`,
    `CheckForMove`, the button-strip functions and `TBalanceSheet_PaintBalance`.
-2. **The form stream.** It holds the Balance sheet's line captions, the Taxation slider's range, the toolbar
+2. **The form stream.** It holds the Balance sheet's line captions, the toolbar
    order and separators, the menu shortcuts (only Shift+X is observed), and the two key-handler modifier
    constants.
 3. What `TAreaMap_ToggleMap` toggles, and what the Area-map gold coin and the unit-map strip's 15th button are.
 4. What a foreign nation's status panel withholds.
 5. What disbanding a recruitment slot in `TArmyRecruits` refunds.
-6. Where `FUN_00449F08` places a split army, which decides whether the clone's same-tile join is ever
-   reachable.
-7. A recording of one attack would confirm three things at once: the click order, the left/right-button
-   reading and the confirmation prompt. `attack-and-siege-are-adjacency-orders.md` already proposes such a
-   capture.
+6. Which tile `FUN_00449F08` gives a split army when (+1, +1) is blocked. The one observed split, and a second
+   consistent datum, put it at (+1, +1) [Wine candidate].
+7. The desktop confirmation of the Wine run's click results (the click order, the left/right-button reading,
+   the confirmation prompt and its No), and the rows it did not reach: an attack on an army, embark and
+   disembark by click, and a click on a fleet.
