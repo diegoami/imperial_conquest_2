@@ -1,13 +1,15 @@
 using Godot;
 using IC2.Engine.Model;
 using IC2.Engine.Presentation;
+using IC2.Slice.Assets;
 using IC2.Slice.Screens;
 
 namespace IC2.Slice.UI;
 
 /// <summary>
 /// The main game screen — <c>docs/game-design.md</c> §"User interface" item 2, "the dominant,
-/// near-always-visible view": a top bar (calendar, active seat, End Turn), the map
+/// near-always-visible view": the original's menu bar (<see cref="GameMenuBar"/>) and main toolbar
+/// (<see cref="CommandToolbar"/>), a top bar (calendar, active seat), the map
 /// (<see cref="GameMapView"/>), the persistent contextual side panel (<see cref="ContextPanel"/>), the
 /// bottom filter toolbar, and the non-modal news log (<see cref="NewsLogPanel"/>).
 /// </summary>
@@ -17,7 +19,8 @@ namespace IC2.Slice.UI;
 /// (<see cref="GameSession.Submit"/>'s own new <see cref="SessionOutput.Battles"/>, read from
 /// <see cref="OnCommandIssued"/> so it fires whichever control actually issued the command —
 /// <see cref="GameMapView"/>'s own map-click attack, or a future control of this screen's own), the
-/// <see cref="Screens.DiplomacyScreen"/> from the bottom toolbar's own "Diplomacy" button, and the
+/// <see cref="Screens.DiplomacyScreen"/> from the Strategy menu's International relations entry (or its
+/// toolbar button), and the
 /// <see cref="Screens.HotseatHandoffScreen"/> whenever <see cref="GameState.ActiveNationId"/> passes from
 /// one human seat to a different one (<see cref="HotseatHandoffDetector"/>).
 /// </remarks>
@@ -53,10 +56,39 @@ public partial class MainGameScreen : Control
 
     public NewsLogPanel NewsLog => _newsLog;
 
-    /// <summary>The currently open modal overlay (a battle result, the diplomacy grid, or the hotseat
-    /// handoff), if any — <see langword="null"/> when the map is fully interactive. Exposed for
-    /// <c>godot/Screens/Checks/**</c>.</summary>
+    /// <summary>
+    /// T100: the one table the menu bar and the toolbar are built from. Exposed so
+    /// <c>godot/Checks/MenuBarCheck.cs</c> can read its handler counter
+    /// (<see cref="GameCommandTable.IssuedCount"/>) without re-deriving which commands were pressed.
+    /// </summary>
+    public GameCommandTable CommandTable { get; } = new();
+
+    /// <summary>T100: the original's seven-menu menu bar. Exposed for <c>godot/Checks/MenuBarCheck.cs</c>.</summary>
+    public GameMenuBar MenuBar { get; private set; } = null!;
+
+    /// <summary>T100: the main shortcut toolbar. Exposed for the checks, and for
+    /// <c>godot/Checks/MapClipCheck.cs</c> to read the moved Save/End turn buttons.</summary>
+    public CommandToolbar Toolbar { get; private set; } = null!;
+
+    /// <summary>Raised after any command issued through this screen, with the session's own output lines.
+    /// The menu bar and toolbar raise it from <see cref="OnCommandIssued"/>, so a check can assert a
+    /// disabled entry issues none (T100 Done-when 7).</summary>
+    public event Action<IReadOnlyList<string>>? CommandIssued;
+
+    /// <summary>
+    /// When set, the Save handler appends this token to the file it writes — the same check-unique
+    /// suffix seam <see cref="PressSaveForCheck"/> already gives (<c>godot/Checks/MenuBarCheck.cs</c>
+    /// sets it before pressing the real File → Save menu item, so its save can never collide with a
+    /// player's own).
+    /// </summary>
+    public string? CheckSaveSuffix { get; set; }
+
+    /// <summary>The currently open modal overlay (a battle result, the diplomacy grid, the hotseat
+    /// handoff, or T100's help/about), if any — <see langword="null"/> when the map is fully
+    /// interactive. Exposed for <c>godot/Screens/Checks/**</c> and <c>godot/Checks/MenuBarCheck.cs</c>.</summary>
     public Control? ActiveOverlay { get; private set; }
+
+    private bool _hintsEnabled = true;
 
     private Label _calendarLabel = null!;
     private Label _activeNationLabel = null!;
@@ -77,6 +109,23 @@ public partial class MainGameScreen : Control
         var root = new VBoxContainer();
         root.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(root);
+
+        // T100: the original's menu bar and main toolbar sit above everything else, the way the
+        // original's form puts them. Every entry and button is one row of CommandTable.
+        MenuBar = new GameMenuBar { Table = CommandTable };
+        root.AddChild(MenuBar);
+
+        Toolbar = new CommandToolbar
+        {
+            Table = CommandTable,
+            World = Session.World,
+            AssetLoader = AssetPackTextureLoader.TryLoadPack(
+                RepositoryRoot,
+                SettingsScreen.SelectedPackId,
+                onFailure: key => GD.PushWarning(
+                    $"T100 toolbar: asset pack could not resolve or load '{key}'; falling back to the caption.")),
+        };
+        root.AddChild(Toolbar);
 
         root.AddChild(BuildTopBar());
 
@@ -151,6 +200,8 @@ public partial class MainGameScreen : Control
         // selection. The engine composes the declaration of war itself, so nothing here submits one.
         _mapView.AttackConfirmationRequested += ShowAttackPrompt;
 
+        BindCommands();
+
         _mapView.Attach(Session, RepositoryRoot);
 
         var activeNation = Session.State.NationById(Session.State.ActiveNationId);
@@ -176,17 +227,10 @@ public partial class MainGameScreen : Control
         var spacer = new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         row.AddChild(spacer);
 
-        // T95 (#467), Done-when 1: "a Save action in the main game screen." Next to End Turn, the other
-        // always-available top-bar action.
-        row.AddChild(UiKit.MakeButton("Save", OnSavePressed, 16));
-        row.AddChild(UiKit.MakeButton("End Turn", OnEndTurnPressed, 16));
-
-        // T95: the Save action's own confirmation/refusal line. Kept by fix #484 even though the shared
-        // rule below now makes it redundant: _lastCommandLabel shows the identical
-        // CommandOutcomeText.OutcomeBlock text for every command, Save included, but a fix takes
-        // nothing T95 added away -- its narrow "a Save action" grant owns this label outright. Before
-        // fix #484 the shared label was always Submit's own trailing blank separator line
-        // (SessionOutput.Lines's last entry), so this was the only place a save's own outcome appeared.
+        // T100: the top bar keeps only the calendar and the active seat; T95's Save and End Turn buttons
+        // moved into the toolbar above (File -> Save, Game -> End turn), which run the same handlers.
+        // The confirmation/refusal line stays here (T95's own narrow "a Save action" grant owns it, and
+        // fix #484 keeps it even though the shared last-command label now shows the same text).
         _saveConfirmationLabel = UiKit.MakeLabel(string.Empty, 14, UiKit.MutedTextColor);
         row.AddChild(_saveConfirmationLabel);
 
@@ -200,17 +244,12 @@ public partial class MainGameScreen : Control
         row.AddThemeConstantOverride("separation", 10);
         bar.AddChild(row);
 
+        // T100: the bottom Cities/Armies/Fleets layer toggles stay until T110 replaces them. The
+        // Diplomacy and News buttons that used to sit here moved into the toolbar's Strategy group
+        // (Strategy -> International relations, Strategy -> News), which run the same handlers.
         row.AddChild(MakeFilterToggle("Cities", true, value => _mapView.ShowCities = value));
         row.AddChild(MakeFilterToggle("Armies", true, value => _mapView.ShowArmies = value));
         row.AddChild(MakeFilterToggle("Fleets", true, value => _mapView.ShowFleets = value));
-
-        var spacer = new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        row.AddChild(spacer);
-
-        // T25 (plan #474, docs/game-design.md item 4): the diplomacy grid's own control, opening
-        // Screens.DiplomacyScreen -- "the diplomacy grid from a control."
-        row.AddChild(UiKit.MakeButton("Diplomacy", OpenDiplomacyScreen, 14));
-        row.AddChild(UiKit.MakeButton("News", () => _newsLog.Toggle(), 14));
 
         return bar;
     }
@@ -222,10 +261,151 @@ public partial class MainGameScreen : Control
         return button;
     }
 
+    /// <summary>
+    /// T100: binds each <see cref="GameCommandRow.Wired"/> row to its handler, so the menu bar's entry
+    /// and the toolbar's icon for one command run the identical code. The rows T100 does not wire
+    /// (Taxation, Balance sheet, Recruit unit, Build fleet, the whole Area map and Unit map except
+    /// Cancel selection, the 17 nations) stay unbound and are shown disabled by the two controls.
+    /// </summary>
+    private void BindCommands()
+    {
+        // File: New/Open/Close leave the game, each after a confirmation [designed]; Save and Save As
+        // save. The seat commands are not in the table at all (the user's decision, T100's Scope).
+        CommandTable.Bind("file.new", () => ConfirmLeavingGame("start a new game", () => OwningAppRoot?.ShowNewGameFlow()));
+        CommandTable.Bind("file.open", () => ConfirmLeavingGame("open a saved game", () => OwningAppRoot?.ShowLoadGame()));
+        CommandTable.Bind("file.save", () => OnSavePressed(checkUniqueSuffix: null));
+        CommandTable.Bind("file.save_as", ShowSaveAsPrompt);
+        CommandTable.Bind("file.close", () => ConfirmLeavingGame("return to the main menu", () => OwningAppRoot?.ShowMainMenu()));
+
+        // Game: the one command, the same handler the old top-bar button called.
+        CommandTable.Bind("game.end_turn", OnEndTurnPressed);
+
+        // Strategy: News and International relations are the two whose screens already exist.
+        CommandTable.Bind("strategy.news", () => _newsLog.Toggle());
+        CommandTable.Bind("strategy.relations", OpenDiplomacyScreen);
+
+        // Unit map: Cancel selection is T99's own handler (Shift+X already reaches it too).
+        CommandTable.Bind("unit_map.cancel_selection", () => _mapView.ClearSelection());
+
+        // Help: the new page, the hints toggle, and the about box.
+        CommandTable.Bind("help.topics", ShowHelpPage);
+        CommandTable.Bind("help.show_hints", ToggleHints);
+        CommandTable.Bind("help.about", ShowAbout);
+    }
+
+    /// <summary>The <see cref="AppRoot"/> this screen was swapped into, or <see langword="null"/> when
+    /// it is driven directly (a headless check). The three File commands that leave the game need it.</summary>
+    private AppRoot? OwningAppRoot => GetParent() as AppRoot;
+
+    /// <summary>Asks before leaving the current game (T100 Scope: New, Open and Close confirm; Save does
+    /// not). [designed]: the original's own prompts are in the form stream and unread.</summary>
+    private void ConfirmLeavingGame(string action, Action onConfirmed)
+    {
+        var prompt = new ConfirmPrompt { Question = $"The current game will be left to {action}. Continue?" };
+        prompt.Confirmed += () =>
+        {
+            CloseOverlay(prompt);
+            onConfirmed();
+        };
+        prompt.Refused += () => CloseOverlay(prompt);
+        ShowOverlay(prompt);
+    }
+
+    /// <summary>Save As: a name prompt, then a save under <c>user://saves</c>. [designed]: the original
+    /// used a file dialog; a Godot file dialog cannot run under the headless checks, and the task's own
+    /// wording is "a name prompt, then a save".</summary>
+    private void ShowSaveAsPrompt()
+    {
+        var prompt = new Control { Name = "SaveAsPrompt" };
+
+        var backdrop = new ColorRect { Color = new Color(0f, 0f, 0f, 0.6f), MouseFilter = MouseFilterEnum.Stop };
+        backdrop.SetAnchorsPreset(LayoutPreset.FullRect);
+        prompt.AddChild(backdrop);
+
+        var center = new CenterContainer();
+        center.SetAnchorsPreset(LayoutPreset.FullRect);
+        prompt.AddChild(center);
+
+        var panel = UiKit.MakePanel(UiKit.PanelColor);
+        panel.CustomMinimumSize = new Vector2(440, 0);
+        center.AddChild(panel);
+
+        var column = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        column.AddThemeConstantOverride("separation", 12);
+        panel.AddChild(column);
+
+        column.AddChild(UiKit.MakeLabel("Save As", 18, UiKit.AccentColor));
+        var nameEdit = new LineEdit { Text = $"{Session.Scenario.Id}-save" };
+        column.AddChild(nameEdit);
+
+        var buttons = new HBoxContainer
+        {
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            Alignment = BoxContainer.AlignmentMode.End,
+        };
+        buttons.AddThemeConstantOverride("separation", 10);
+        column.AddChild(buttons);
+
+        buttons.AddChild(UiKit.MakeButton("Cancel", () => CloseOverlay(prompt)));
+        buttons.AddChild(UiKit.MakeButton("Save", () =>
+        {
+            CloseOverlay(prompt);
+            SaveToName(nameEdit.Text);
+        }));
+
+        ShowOverlay(prompt);
+    }
+
+    private void SaveToName(string name)
+    {
+        var cleaned = name.Trim();
+        if (cleaned.Length == 0)
+        {
+            cleaned = $"{Session.Scenario.Id}-save";
+        }
+
+        foreach (var invalid in Path.GetInvalidFileNameChars())
+        {
+            cleaned = cleaned.Replace(invalid, '_');
+        }
+
+        if (!cleaned.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+        {
+            cleaned += ".json";
+        }
+
+        var directory = ProjectSettings.GlobalizePath(SavesDirectory);
+        Directory.CreateDirectory(directory);
+        SaveToFile(Path.Combine(directory, cleaned));
+    }
+
+    /// <summary>Show hints: flips the menu bar's and toolbar's tooltips and the menu check mark together
+    /// (T100 Done-when 6). On by default and kept for the session.</summary>
+    private void ToggleHints()
+    {
+        _hintsEnabled = !_hintsEnabled;
+        MenuBar.SetHintsEnabled(_hintsEnabled);
+        Toolbar.SetHintsEnabled(_hintsEnabled);
+    }
+
+    private void ShowHelpPage()
+    {
+        var page = new HelpPage();
+        page.Closed += () => CloseOverlay(page);
+        ShowOverlay(page);
+    }
+
+    private void ShowAbout()
+    {
+        var about = new AboutDialog();
+        about.Closed += () => CloseOverlay(about);
+        ShowOverlay(about);
+    }
+
     private void OnEndTurnPressed() => SubmitForCheck("end");
 
     /// <summary>
-    /// The "Save" button — <c>docs/tasks/T95.md</c> (#467), Done-when 1: writes the current game to a
+    /// The Save command (File → Save, and the toolbar's Save button) — <c>docs/tasks/T95.md</c> (#467), Done-when 1: writes the current game to a
     /// file under <c>user://saves</c> <strong>[designed]</strong>, the same per-user directory
     /// <see cref="LoadGameScreen"/> already lists <c>*.json</c> saves from. Routed through
     /// <see cref="GameSession.Submit"/>'s own <c>save &lt;path&gt;</c> command (<c>GameSession.Commands.cs</c>)
@@ -255,10 +435,19 @@ public partial class MainGameScreen : Control
         var directory = ProjectSettings.GlobalizePath(SavesDirectory);
         Directory.CreateDirectory(directory);
 
-        var fileName = checkUniqueSuffix is null
+        var suffix = checkUniqueSuffix ?? CheckSaveSuffix;
+        var fileName = suffix is null
             ? $"{Session.Scenario.Id}-turn-{Session.State.Calendar.TurnIndex}.json"
-            : $"{Session.Scenario.Id}-turn-{Session.State.Calendar.TurnIndex}-{checkUniqueSuffix}.json";
-        var path = Path.Combine(directory, fileName);
+            : $"{Session.Scenario.Id}-turn-{Session.State.Calendar.TurnIndex}-{suffix}.json";
+        SaveToFile(Path.Combine(directory, fileName));
+    }
+
+    /// <summary>
+    /// Writes the current game to <paramref name="path"/> through the real <c>save &lt;path&gt;</c>
+    /// command and shows its outcome, the one path both Save and Save As use.
+    /// </summary>
+    private void SaveToFile(string path)
+    {
         LastSavedPath = path;
 
         var output = Session.Submit($"save {path}");
@@ -340,6 +529,8 @@ public partial class MainGameScreen : Control
         // the round footer's News: section, trimmed, with whitespace-only spacer lines dropped. Every
         // input path -- map click, context-panel button, End Turn, SubmitForCheck, Save -- funnels
         // through here.
+        CommandIssued?.Invoke(lines);
+
         var outcome = CommandOutcomeText.OutcomeBlock(lines);
         _lastCommandLabel.Text = outcome;
         _lastCommandLabel.TooltipText = outcome;
@@ -389,10 +580,14 @@ public partial class MainGameScreen : Control
     /// <summary>
     /// T99, cancel selection: <strong>Shift+X</strong> [confirmed:
     /// <c>ptolemy-run-ui-inventory-and-leader-draw.md</c> §4] and <strong>Esc</strong> [designed] clear
-    /// the map's selection. The menu entry is T100's, not this screen's. An open overlay is modal: while
-    /// one is up its own keys rule (<see cref="ConfirmPrompt"/>'s Esc answers its No), so this does
-    /// nothing — the unhandled path only, so a focused control's own keys (a text field's, a button's)
-    /// are never stolen.
+    /// the map's selection. Shift+X is the Unit map → Cancel selection table row's own shortcut, so the
+    /// key runs the table's one handler — the same path the menu item and its toolbar icon take, and
+    /// the same <see cref="GameCommandTable.IssuedCount"/> a check reads. The menu shows the shortcut
+    /// in its tooltip but deliberately registers no live accelerator (rework B4): an accelerator acts
+    /// in Godot's shortcut-input pass, before this guarded path, and would fire through a modal. An
+    /// open overlay is modal: while one is up its own keys rule (<see cref="ConfirmPrompt"/>'s Esc
+    /// answers its No), so this does nothing — the unhandled path only, so a focused control's own keys
+    /// (a text field's, a button's) are never stolen.
     /// </summary>
     /// <remarks>
     /// Esc is [designed] because the audit's §1.8 ("Keyboard shortcuts found in the code") records that
@@ -409,9 +604,20 @@ public partial class MainGameScreen : Control
             return;
         }
 
-        var cancel = @event is InputEventKey { Pressed: true, Keycode: Key.Escape }
-            || @event is InputEventKey { Pressed: true, Keycode: Key.X, ShiftPressed: true };
-        if (cancel)
+        // Shift+X is the Unit map → Cancel selection row's own shortcut, so the key goes through the
+        // table's one handler — the same path the menu item and its toolbar icon take, and the same
+        // IssuedCount the check reads (T100 Done-when 5 and rework N5).
+        if (@event is InputEventKey { Pressed: true, Keycode: Key.X, ShiftPressed: true })
+        {
+            if (CommandTable.TryInvoke("unit_map.cancel_selection"))
+            {
+                GetViewport().SetInputAsHandled();
+            }
+
+            return;
+        }
+
+        if (@event is InputEventKey { Pressed: true, Keycode: Key.Escape })
         {
             _mapView.ClearSelection();
             GetViewport().SetInputAsHandled();
@@ -486,8 +692,8 @@ public partial class MainGameScreen : Control
     }
 
     /// <summary>
-    /// T25: opens <see cref="Screens.DiplomacyScreen"/> — the bottom toolbar's own "Diplomacy" button
-    /// calls this directly. Public, rather than only reachable through that button, so a headless check
+    /// T25: opens <see cref="Screens.DiplomacyScreen"/> — the Strategy menu's International relations entry and its toolbar button
+    /// call this. Public, rather than only reachable through them, so a headless check
     /// can call it directly too (<c>godot/Screens/Checks/**</c>) — the same convention
     /// <see cref="SubmitForCheck"/> already establishes for driving a command.
     /// </summary>

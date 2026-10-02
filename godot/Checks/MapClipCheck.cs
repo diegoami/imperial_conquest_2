@@ -7,16 +7,16 @@ namespace IC2.Slice.Checks;
 /// <summary>
 /// Bug #498 part 1's reproduction as a headless check: at the map's maximum zoom, the real
 /// <see cref="GameMapView"/> must keep all of its drawing inside its own rect instead of spilling over
-/// the sibling top bar (<c>Save</c> and <c>End Turn</c>) and the bottom toolbar — which is what left the
-/// player unable to end a turn or save while zoomed in (bug #498). The check builds the real
+/// the sibling main toolbar (<c>Save</c> and <c>End turn</c>, moved there by T100) and the bottom
+/// toolbar — which is what left the player unable to end a turn or save while zoomed in (bug #498). The check builds the real
 /// <see cref="MainGameScreen"/> exactly as the app does, zooms through the view's own zoom path, and
 /// asserts:
 /// <list type="bullet">
 /// <item>the map really reached <see cref="GameMapView.MaxZoom"/> and its terrain drawing really does
 /// extend past its own rect at that zoom (the bug's precondition, so the clipping assertion below is
 /// not vacuous);</item>
-/// <item>the top bar's <c>Save</c> and <c>End Turn</c> buttons stay outside the map's rect, centre and
-/// bounds both;</item>
+/// <item>the main toolbar's <c>Save</c> and <c>End turn</c> buttons, and the menu bar itself, stay
+/// outside the map's rect, centre and bounds both;</item>
 /// <item><see cref="Control.ClipContents"/> is set on the map, the mechanism that keeps every tile and
 /// marker inside that rect;</item>
 /// <item>Godot resolves <c>display/window/stretch/aspect</c> to <c>expand</c> and
@@ -40,7 +40,11 @@ public partial class MapClipCheck : Control
     private const int SettleFrames = 6;
     private const float ZoomTolerance = 0.001f;
 
-    private static readonly string[] TopBarButtonLabels = { "Save", "End Turn" };
+    // T100 moved the Save and End Turn buttons out of the top bar and into the main toolbar (the menu
+    // bar and toolbar now sit above the map). This is the list of moved commands that must stay outside
+    // the map's rect. The buttons are icon-only (rework B5), so they are looked up by command id through
+    // the table rather than by their now-empty Text.
+    private static readonly string[] ToolbarCommandIds = { "file.save", "game.end_turn" };
 
     private MainGameScreen _mainGame = null!;
     private int _frame;
@@ -110,10 +114,10 @@ public partial class MapClipCheck : Control
             $"the maximum-zoom terrain drawing really does extend past the map control's own rect "
             + $"(terrain {terrainRect} vs control {mapRect}) -- the bug's precondition");
 
-        foreach (var label in TopBarButtonLabels)
+        foreach (var commandId in ToolbarCommandIds)
         {
-            var button = FindButtons(_mainGame).FirstOrDefault(candidate => candidate.Text == label);
-            if (!Check(button is not null, $"the top bar renders its '{label}' button"))
+            var button = _mainGame.Toolbar.ButtonFor(commandId);
+            if (!Check(button is not null, $"the main toolbar renders the '{commandId}' button"))
             {
                 continue;
             }
@@ -122,11 +126,18 @@ public partial class MapClipCheck : Control
             var centre = rect.GetCenter();
             ok &= Check(
                 !mapRect.HasPoint(centre),
-                $"the top bar's '{label}' button centre {centre} lies outside the map's rect {mapRect}");
+                $"the main toolbar's '{commandId}' button centre {centre} lies outside the map's rect {mapRect}");
             ok &= Check(
                 !rect.Intersects(mapRect),
-                $"the top bar's '{label}' button rect {rect} does not overlap the map's rect {mapRect}");
+                $"the main toolbar's '{commandId}' button rect {rect} does not overlap the map's rect {mapRect}");
         }
+
+        // Rework N10: the menu bar sits above the toolbar and the map, and must not overlap the map
+        // either, so a menu title can never cover the map's own tiles.
+        var menuBarRect = _mainGame.MenuBar.GetGlobalRect();
+        ok &= Check(
+            !menuBarRect.Intersects(mapRect),
+            $"the menu bar's rect {menuBarRect} does not overlap the map's rect {mapRect}");
 
         ok &= Check(
             map.ClipContents,
@@ -144,22 +155,6 @@ public partial class MapClipCheck : Control
             + "container layout gives the extra room to the map)");
 
         return ok;
-    }
-
-    private static IEnumerable<Button> FindButtons(Node root)
-    {
-        foreach (var child in root.GetChildren())
-        {
-            if (child is Button button)
-            {
-                yield return button;
-            }
-
-            foreach (var nested in FindButtons(child))
-            {
-                yield return nested;
-            }
-        }
     }
 
     private static bool Check(bool condition, string description)
