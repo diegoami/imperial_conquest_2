@@ -141,8 +141,9 @@ public sealed class TransferMoneyCommandHandler : ICommandHandler<TransferMoneyC
                 TransferMoneyRejections.ViaFleetIsTheUnit, "The via fleet cannot be the named unit itself.");
         }
 
-        // The fleet carrying the named army is co-located by construction even when the army's own
-        // last land position is elsewhere; every other candidate is the dialog's one-tile provider radius.
+        // The fleet carrying the named army always counts: an embarked army's X/Y follow its carrier in
+        // this engine (EmbarkArmyCommandHandler, MoveFleetCommandHandler), so this branch is belt-and-
+        // braces against a hand-built state; every other candidate is the one-tile provider radius.
         var carriedByVia = army is not null
             && string.Equals(army.AboardFleetId, viaFleet.Id, StringComparison.Ordinal);
         if (!carriedByVia)
@@ -162,7 +163,8 @@ public sealed class TransferMoneyCommandHandler : ICommandHandler<TransferMoneyC
         var unitMoney = army?.Money ?? fleet!.Money;
 
         // Positive moves the via fleet's purse into the named unit's; negative moves it back. Both are
-        // purses, so the shared rule clamps the funding side and caps the receiving side.
+        // purses, so the shared rule clamps whichever funds and caps whichever receives; on a negative
+        // move it swaps the roles internally, so the receiving via purse is the one capped (B1).
         var (updatedViaMoney, updatedUnitMoney, _) =
             TreasuryPurseTransfer.TransferBetweenPurses(viaFleet.Money, unitMoney, command.Amount, context.Ruleset);
 

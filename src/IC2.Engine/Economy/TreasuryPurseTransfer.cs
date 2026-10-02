@@ -40,8 +40,10 @@ namespace IC2.Engine.Economy;
 /// treasury path already uses. "Co-located" is the dialog's own provider radius — the audit's §1.6
 /// <c>TAFSupply_FindProviders</c> "within one tile" reading, mapped onto
 /// <see cref="EconomyRules.CommandAdjacencyRadiusTiles"/> by
-/// <see cref="Commands.TransferMoneyCommandHandler"/> — and the fleet carrying the named army counts even
-/// when the army's own last land position is elsewhere.
+/// <see cref="Commands.TransferMoneyCommandHandler"/> — and the fleet carrying the named army always
+/// counts: an embarked army's X/Y follow its carrier in this engine (<c>EmbarkArmyCommandHandler</c>,
+/// <c>MoveFleetCommandHandler</c>), so that branch is belt-and-braces against a hand-built state, not a
+/// distinct position case.
 /// </para>
 /// <para>
 /// <strong>Conservation</strong>: the amount actually applied is derived from the receiving purse's own
@@ -108,12 +110,13 @@ public static class TreasuryPurseTransfer
     /// <summary>
     /// The result of one purse ↔ purse transfer — the <c>via &lt;fleet&gt;</c> direction T105 adds.
     /// </summary>
-    /// <param name="FromMoney">The funding purse's new balance.</param>
-    /// <param name="ToMoney">The receiving purse's new balance.</param>
+    /// <param name="FromMoney">The <c>via</c> fleet's (first argument's) new balance.</param>
+    /// <param name="ToMoney">The named unit's (second argument's) new balance.</param>
     /// <param name="AppliedTalents">
-    /// The talents actually moved into <paramref name="ToMoney"/> — positive or negative, after both the
+    /// The talents actually moved into <paramref name="ToMoney"/> — positive or negative, after the
     /// funding purse's balance clamp and the receiving purse's
-    /// <see cref="EconomyRules.PurseCapPerUnit"/> cap.
+    /// <see cref="EconomyRules.PurseCapPerUnit"/> cap. Whichever of the two purses receives is the one
+    /// capped: a negative request is evaluated with the roles swapped (T105 review round 1, B1).
     /// </param>
     public sealed record PursesResult(int FromMoney, int ToMoney, int AppliedTalents);
 
@@ -130,6 +133,18 @@ public static class TreasuryPurseTransfer
     public static PursesResult TransferBetweenPurses(int fromMoney, int toMoney, int talentsIntoTo, Ruleset ruleset)
     {
         ArgumentNullException.ThrowIfNull(ruleset);
+
+        // T105 review round 1, B1: ApplyTransfer caps its *target* argument, but on a negative request the
+        // named unit funds and the via fleet receives, so the cap landed on the funder and the receiving
+        // fromMoney could climb past PurseCapPerUnit. Route a negative request with the two purses
+        // swapped, so whichever purse receives is the one Credit caps, then map the pair back and negate
+        // the applied amount. The treasury paths are unaffected — the treasury has no cap.
+        if (talentsIntoTo < 0)
+        {
+            var (negativeUpdatedTo, negativeUpdatedFrom, appliedIntoFrom) =
+                ApplyTransfer(toMoney, fromMoney, -talentsIntoTo, ruleset);
+            return new PursesResult(negativeUpdatedFrom, negativeUpdatedTo, -appliedIntoFrom);
+        }
 
         var (updatedFrom, updatedTo, applied) = ApplyTransfer(fromMoney, toMoney, talentsIntoTo, ruleset);
         return new PursesResult(updatedFrom, updatedTo, applied);
@@ -148,6 +163,16 @@ public static class TreasuryPurseTransfer
         var clampedRequest = ClampToSource(talentsIntoTarget, sourceMoney, targetMoney);
         var updatedTarget = PurseAccounting.Credit(targetMoney, clampedRequest, ruleset);
         var applied = updatedTarget - targetMoney;
+
+        // T105 review round 1, N5: a target that already sits above PurseCapPerUnit is clamped back down to
+        // the cap by Credit even for a positive request, which would make `applied` negative and move
+        // money out of the target and into the source. A request to move money *in* must never move it
+        // backwards: apply nothing in that case.
+        if (clampedRequest > 0 && applied < 0)
+        {
+            updatedTarget = targetMoney;
+            applied = 0;
+        }
 
         return (sourceMoney - applied, updatedTarget, applied);
     }
