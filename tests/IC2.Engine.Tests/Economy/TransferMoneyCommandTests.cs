@@ -192,6 +192,40 @@ public sealed class TransferMoneyCommandTests
         Assert.Equal(500, result.State.NationById("north")!.Treasury);
     }
 
+    /// <summary>
+    /// The named unit is a fleet, and the other side a co-located own fleet: the two purses move, with
+    /// balances asserted, and the treasury is untouched (review round 1, N2).
+    /// </summary>
+    [Fact]
+    public void NamedFleet_WithVia_MovesBetweenTheTwoPurses_AndLeavesTheTreasuryAlone()
+    {
+        var named = Fleet("named-fleet", "north", x: 3, y: 3, money: 200);
+        var via = Fleet("via-fleet", "north", x: 3, y: 4, money: 400);
+        var state = WithNorthTreasury(EconomyTestbed.InitialState() with
+        {
+            Armies = ValueList<ArmyState>.Empty,
+            Fleets = ValueList.Of(named, via),
+        }, 500);
+
+        var dispatcher = Dispatcher();
+
+        var intoNamed = dispatcher.Dispatch(
+            state, new TransferMoneyCommand("north", named.Id, 50, via.Id));
+        Assert.True(intoNamed.IsAccepted, intoNamed.ToString());
+        Assert.Equal(250, intoNamed.State.FleetById(named.Id)!.Money);
+        Assert.Equal(350, intoNamed.State.FleetById(via.Id)!.Money);
+        Assert.Equal(600, intoNamed.State.FleetById(named.Id)!.Money + intoNamed.State.FleetById(via.Id)!.Money);
+        Assert.Equal(500, intoNamed.State.NationById("north")!.Treasury);
+
+        var back = dispatcher.Dispatch(
+            intoNamed.State, new TransferMoneyCommand("north", named.Id, -50, via.Id));
+        Assert.True(back.IsAccepted, back.ToString());
+        Assert.Equal(200, back.State.FleetById(named.Id)!.Money);
+        Assert.Equal(400, back.State.FleetById(via.Id)!.Money);
+        Assert.Equal(600, back.State.FleetById(named.Id)!.Money + back.State.FleetById(via.Id)!.Money);
+        Assert.Equal(500, back.State.NationById("north")!.Treasury);
+    }
+
     // ---- Done-when 4 ----
 
     /// <summary>A <c>via</c> fleet two tiles away is refused and the state is unchanged.</summary>
@@ -247,6 +281,25 @@ public sealed class TransferMoneyCommandTests
 
         Assert.True(result.IsRejected);
         Assert.Equal(TransferMoneyRejections.ViaFleetIsTheUnit, result.Code);
+        Assert.Same(state, result.State);
+    }
+
+    /// <summary>An unknown <c>via</c> fleet id is refused and the state is unchanged (review round 1, N2).</summary>
+    [Fact]
+    public void UnknownViaFleet_IsRefused_WithTheStateUnchanged()
+    {
+        var army = Army("own-army", "north", x: 3, y: 2, money: 100);
+        var state = WithNorthTreasury(EconomyTestbed.InitialState() with
+        {
+            Armies = ValueList.Of(army),
+            Fleets = ValueList<FleetState>.Empty,
+        }, 500);
+
+        var result = Dispatcher().Dispatch(
+            state, new TransferMoneyCommand("north", army.Id, 100, "no-such-fleet"));
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(TransferMoneyRejections.UnknownViaFleet, result.Code);
         Assert.Same(state, result.State);
     }
 
@@ -333,6 +386,107 @@ public sealed class TransferMoneyCommandTests
         Assert.Equal(expected.Nation.Treasury, result.State.NationById("north")!.Treasury);
         Assert.Equal(50, result.State.ArmyById(army.Id)!.Money - army.Money);
         Assert.Equal(0, result.State.NationById("north")!.Treasury);
+    }
+
+    /// <summary>
+    /// Review round 1, B1, negative direction: the named army funds and the <c>via</c> fleet receives,
+    /// so the cap must hold on the via fleet. 950 + 100 would pass the 1,000 cap, so only 50 moves.
+    /// Asserted against <see cref="TreasuryPurseTransfer.TransferBetweenPurses"/>'s own result, with the
+    /// receiving purse at or below the cap and the two purses conserved.
+    /// </summary>
+    [Fact]
+    public void NegativeViaMove_IntoANearlyFullViaPurse_RespectsTheCap()
+    {
+        var army = Army("cap-army", "north", x: 3, y: 2, money: 100);
+        var fleet = Fleet("cap-via", "north", x: 3, y: 3, money: 950);
+        var state = WithNorthTreasury(EconomyTestbed.InitialState() with
+        {
+            Armies = ValueList.Of(army),
+            Fleets = ValueList.Of(fleet),
+        }, 500);
+
+        var ruleset = EconomyTestbed.Ruleset;
+        var cap = ruleset.Economy.PurseCapPerUnit;
+        var expected = TreasuryPurseTransfer.TransferBetweenPurses(fleet.Money, army.Money, -100, ruleset);
+
+        var result = Dispatcher().Dispatch(state, new TransferMoneyCommand("north", army.Id, -100, fleet.Id));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        Assert.True(expected.FromMoney <= cap, $"via purse {expected.FromMoney} exceeds cap {cap}");
+        Assert.True(result.State.FleetById(fleet.Id)!.Money <= cap);
+        Assert.Equal(expected.FromMoney, result.State.FleetById(fleet.Id)!.Money);
+        Assert.Equal(expected.ToMoney, result.State.ArmyById(army.Id)!.Money);
+        Assert.Equal(cap, result.State.FleetById(fleet.Id)!.Money); // 950 + the 50 that fits.
+        Assert.Equal(50, result.State.ArmyById(army.Id)!.Money); // 100 - the 50 that moved.
+        Assert.Equal(
+            fleet.Money + army.Money,
+            result.State.FleetById(fleet.Id)!.Money + result.State.ArmyById(army.Id)!.Money);
+        Assert.Equal(500, result.State.NationById("north")!.Treasury);
+    }
+
+    /// <summary>
+    /// Review round 1, B1, positive direction: the <c>via</c> fleet funds and the named army receives, so
+    /// the cap must hold on the named purse. 950 + 100 clamps to the 1,000 cap, moving only 50. Asserted
+    /// against <see cref="TreasuryPurseTransfer.TransferBetweenPurses"/>'s own result, with the receiving
+    /// purse at or below the cap and the two purses conserved.
+    /// </summary>
+    [Fact]
+    public void PositiveViaMove_IntoANearlyFullNamedPurse_RespectsTheCap()
+    {
+        var army = Army("cap-army", "north", x: 3, y: 2, money: 950);
+        var fleet = Fleet("cap-via", "north", x: 3, y: 3, money: 500);
+        var state = WithNorthTreasury(EconomyTestbed.InitialState() with
+        {
+            Armies = ValueList.Of(army),
+            Fleets = ValueList.Of(fleet),
+        }, 500);
+
+        var ruleset = EconomyTestbed.Ruleset;
+        var cap = ruleset.Economy.PurseCapPerUnit;
+        var expected = TreasuryPurseTransfer.TransferBetweenPurses(fleet.Money, army.Money, 100, ruleset);
+
+        var result = Dispatcher().Dispatch(state, new TransferMoneyCommand("north", army.Id, 100, fleet.Id));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        Assert.True(expected.ToMoney <= cap, $"named purse {expected.ToMoney} exceeds cap {cap}");
+        Assert.True(result.State.ArmyById(army.Id)!.Money <= cap);
+        Assert.Equal(expected.FromMoney, result.State.FleetById(fleet.Id)!.Money);
+        Assert.Equal(expected.ToMoney, result.State.ArmyById(army.Id)!.Money);
+        Assert.Equal(450, result.State.FleetById(fleet.Id)!.Money); // 500 - the 50 that fit.
+        Assert.Equal(cap, result.State.ArmyById(army.Id)!.Money); // 950 + the 50 that fit.
+        Assert.Equal(
+            fleet.Money + army.Money,
+            result.State.FleetById(fleet.Id)!.Money + result.State.ArmyById(army.Id)!.Money);
+        Assert.Equal(500, result.State.NationById("north")!.Treasury);
+    }
+
+    /// <summary>
+    /// Review round 1, N5: a positive move into a purse already over the cap must apply nothing rather
+    /// than let <see cref="PurseAccounting.Credit"/>'s clamp-<em>down</em> move money backwards into the
+    /// treasury. The result is asserted against <see cref="TreasuryPurseTransfer"/>'s own result.
+    /// </summary>
+    [Fact]
+    public void PositiveMove_IntoAPurseAlreadyOverTheCap_AppliesNothing()
+    {
+        var army = Army("over-cap-army", "north", x: 3, y: 2, money: 1090);
+        var state = WithNorthTreasury(EconomyTestbed.InitialState() with
+        {
+            Armies = ValueList.Of(army),
+            Fleets = ValueList<FleetState>.Empty,
+        }, treasury: 500);
+
+        var ruleset = EconomyTestbed.Ruleset;
+        var expected = TreasuryPurseTransfer.TransferWithArmy(
+            state.NationById("north")!, army, 10, ruleset);
+
+        var result = Dispatcher().Dispatch(state, new TransferMoneyCommand("north", army.Id, 10));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        Assert.Equal(0, expected.AppliedTalents);
+        Assert.Equal(expected.Army.Money, result.State.ArmyById(army.Id)!.Money);
+        Assert.Equal(expected.Nation.Treasury, result.State.NationById("north")!.Treasury);
+        Assert.Equal(1090, result.State.ArmyById(army.Id)!.Money);
+        Assert.Equal(500, result.State.NationById("north")!.Treasury);
     }
 
     // ---- Done-when 6 ----
