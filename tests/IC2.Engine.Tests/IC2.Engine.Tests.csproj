@@ -139,6 +139,16 @@
       hand-maintained copy.
     -->
     <Compile Include="../../godot/UI/AreaMapGeometry.cs" Link="Ui/AreaMapGeometry.cs" />
+
+    <!--
+      T110 (tests/IC2.Engine.Tests/Ui/AreaMapHighlightsTests.cs and NationStatusModelTests.cs): the same
+      seam once more. AreaMapHighlights.cs is the Godot-free rule for which tiles each Area-map Show
+      entry marks, and NationStatusModel.cs is the Godot-free status panel's lines for any nation, so
+      plain xunit tests can pin both against a real GameState without the Godot SDK. Neither has a
+      `using Godot` anywhere; never a second, hand-maintained copy.
+    -->
+    <Compile Include="../../godot/UI/AreaMapHighlights.cs" Link="Ui/AreaMapHighlights.cs" />
+    <Compile Include="../../godot/UI/NationStatusModel.cs" Link="Ui/NationStatusModel.cs" />
   </ItemGroup>
 
 </Project>

@@ -332,11 +332,15 @@ public partial class MenuBarCheck : Control
             .ToList();
         Check(nationRows.Count == 17, $"the table has 17 nation rows ({nationRows.Count})");
 
+        // T110 wires the 17 Nations rows and the five Area-map Show entries plus Find a city, so the only
+        // unwired rows with a toolbar button left are the four Strategy entries T109 wires. The count is
+        // updated here because T110's own Done-when 8 requires this check to stay green; the sweep's
+        // intent is unchanged (every unwired toolbar command is swept and must be disabled).
         _sweptToolbarRows = GameCommandTable.Rows
             .Where(row => !row.Wired && _mainGame.Toolbar.ButtonFor(row.Id) is not null)
             .ToList();
         Check(
-            _sweptToolbarRows.Count == 21,
+            _sweptToolbarRows.Count == 4,
             $"every unwired toolbar command is swept (got {_sweptToolbarRows.Count})");
 
         var unexpectedlyEnabled = _sweptToolbarRows

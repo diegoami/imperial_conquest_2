@@ -10,8 +10,8 @@ namespace IC2.Slice.UI;
 /// The main game screen — <c>docs/game-design.md</c> §"User interface" item 2, "the dominant,
 /// near-always-visible view": the original's menu bar (<see cref="GameMenuBar"/>) and main toolbar
 /// (<see cref="CommandToolbar"/>), a top bar (calendar, active seat), the map
-/// (<see cref="GameMapView"/>), the persistent contextual side panel (<see cref="ContextPanel"/>), the
-/// bottom filter toolbar, and the non-modal news log (<see cref="NewsLogPanel"/>).
+/// (<see cref="GameMapView"/>), the persistent contextual side panel (<see cref="ContextPanel"/>), and
+/// the non-modal news log (<see cref="NewsLogPanel"/>).
 /// </summary>
 /// <remarks>
 /// T25 (plan #474): also opens the three screens item 2 leads into —
@@ -70,6 +70,17 @@ public partial class MainGameScreen : Control
     /// <c>godot/Checks/MapClipCheck.cs</c> to read the moved Save/End turn buttons.</summary>
     public CommandToolbar Toolbar { get; private set; } = null!;
 
+    /// <summary>T110: the overview mini-map, with its highlight layer. Exposed so
+    /// <c>godot/Checks/NationsAreaMapCheck.cs</c> can read the highlight set.</summary>
+    public AreaMapView AreaMapView => _areaMapView;
+
+    /// <summary>
+    /// T110: the viewed nation — one of the 16, or <see langword="null"/> for All nations (the original's
+    /// index 16, audit §1.4). It scopes the status panel and the Area-map highlights. Starts as the active
+    /// seat's nation and follows the active seat when a turn starts [designed].
+    /// </summary>
+    public string? ViewedNationId { get; private set; }
+
     /// <summary>Raised after any command issued through this screen, with the session's own output lines.
     /// The menu bar and toolbar raise it from <see cref="OnCommandIssued"/>, so a check can assert a
     /// disabled entry issues none (T100 Done-when 7).</summary>
@@ -100,7 +111,9 @@ public partial class MainGameScreen : Control
     private Label _lastCommandLabel = null!;
 
     private readonly Queue<Engine.Battle.BattleResult> _pendingBattleOverlays = new();
+    private readonly ButtonGroup _nationSwatchGroup = new();
     private string? _lastKnownActiveNationId;
+    private int _lastKnownTurnIndex;
     private bool _lastKnownActiveWasHuman;
 
     public override void _Ready()
@@ -116,15 +129,19 @@ public partial class MainGameScreen : Control
         MenuBar = new GameMenuBar { Table = CommandTable };
         root.AddChild(MenuBar);
 
+        // One pack loader for the main toolbar and T110's Area-map strip, so both draw the same keys and
+        // a missing texture falls back the same way in each.
+        var assetLoader = AssetPackTextureLoader.TryLoadPack(
+            RepositoryRoot,
+            SettingsScreen.SelectedPackId,
+            onFailure: key => GD.PushWarning(
+                $"T100 toolbar: asset pack could not resolve or load '{key}'; falling back to the caption."));
+
         Toolbar = new CommandToolbar
         {
             Table = CommandTable,
             World = Session.World,
-            AssetLoader = AssetPackTextureLoader.TryLoadPack(
-                RepositoryRoot,
-                SettingsScreen.SelectedPackId,
-                onFailure: key => GD.PushWarning(
-                    $"T100 toolbar: asset pack could not resolve or load '{key}'; falling back to the caption.")),
+            AssetLoader = assetLoader,
         };
         root.AddChild(Toolbar);
 
@@ -139,14 +156,20 @@ public partial class MainGameScreen : Control
         _mapView = new GameMapView { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
         body.AddChild(_mapView);
 
-        // T102: the right-hand column is the overview mini-map above the context panel. The mini-map's
-        // own 320 px width stays inside the context panel's 340 px floor, so the column -- and the
-        // screen -- is exactly as wide as before. The panel keeps ExpandFill, so it takes the rest of
-        // the column below the mini-map.
+        // T102/T110: the right-hand column is the Area-map strip above the overview mini-map above the
+        // context panel. The mini-map's own 320 px width stays inside the context panel's 340 px floor, and
+        // the strip wraps into six columns, so the column -- and the screen -- is never widened. The panel
+        // keeps ExpandFill, so it takes the rest of the column below.
         var sideColumn = new VBoxContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
         body.AddChild(sideColumn);
 
-        _areaMapView = new AreaMapView { SizeFlagsHorizontal = SizeFlags.ShrinkCenter };
+        _areaMapView = new AreaMapView
+        {
+            Table = CommandTable,
+            AssetLoader = assetLoader,
+            SizeFlagsHorizontal = SizeFlags.ShrinkCenter,
+        };
+        sideColumn.AddChild(_areaMapView.BuildStrip());
         sideColumn.AddChild(_areaMapView);
 
         _contextPanel = new ContextPanel
@@ -157,8 +180,6 @@ public partial class MainGameScreen : Control
             SizeFlagsVertical = SizeFlags.ExpandFill,
         };
         sideColumn.AddChild(_contextPanel);
-
-        root.AddChild(BuildBottomToolbar());
 
         // Fix #484 (review N1): a command's whole own outcome can carry a long rejection reason or a
         // Save path. Wrapping at word boundaries, a three-line ceiling with an ellipsis, and the full
@@ -212,14 +233,19 @@ public partial class MainGameScreen : Control
         _mapView.AttackConfirmationRequested += ShowAttackPrompt;
 
         BindCommands();
+        WireNationSwatches();
 
         _mapView.Attach(Session, RepositoryRoot);
         _areaMapView.Attach(Session, _mapView);
 
         var activeNation = Session.State.NationById(Session.State.ActiveNationId);
         _lastKnownActiveNationId = Session.State.ActiveNationId;
+        _lastKnownTurnIndex = Session.State.Calendar.TurnIndex;
         _lastKnownActiveWasHuman = activeNation?.Control == SeatControl.Human;
 
+        // T110 [designed]: a new game starts with the active seat's nation viewed, and a turn's start
+        // follows the new active seat (OnCommandIssued). This also paints the panel's first contents.
+        SetViewedNation(Session.State.ActiveNationId);
         RefreshTopBar();
     }
 
@@ -247,30 +273,6 @@ public partial class MainGameScreen : Control
         row.AddChild(_saveConfirmationLabel);
 
         return bar;
-    }
-
-    private Control BuildBottomToolbar()
-    {
-        var bar = UiKit.MakePanel(UiKit.PanelColorRaised, cornerRadius: 0);
-        var row = new HBoxContainer();
-        row.AddThemeConstantOverride("separation", 10);
-        bar.AddChild(row);
-
-        // T100: the bottom Cities/Armies/Fleets layer toggles stay until T110 replaces them. The
-        // Diplomacy and News buttons that used to sit here moved into the toolbar's Strategy group
-        // (Strategy -> International relations, Strategy -> News), which run the same handlers.
-        row.AddChild(MakeFilterToggle("Cities", true, value => _mapView.ShowCities = value));
-        row.AddChild(MakeFilterToggle("Armies", true, value => _mapView.ShowArmies = value));
-        row.AddChild(MakeFilterToggle("Fleets", true, value => _mapView.ShowFleets = value));
-
-        return bar;
-    }
-
-    private Control MakeFilterToggle(string label, bool initial, Action<bool> onToggled)
-    {
-        var button = new CheckButton { Text = label, ButtonPressed = initial };
-        button.Toggled += onToggled.Invoke;
-        return button;
     }
 
     /// <summary>
@@ -303,6 +305,206 @@ public partial class MainGameScreen : Control
         CommandTable.Bind("help.topics", ShowHelpPage);
         CommandTable.Bind("help.show_hints", ToggleHints);
         CommandTable.Bind("help.about", ShowAbout);
+
+        // T110: the Nations menu and its toolbar swatches set the viewed nation. None of these submits a
+        // command (Done-when 7) — only the panel and the highlight scope change.
+        foreach (var row in GameCommandTable.Rows.Where(
+            r => string.Equals(r.Menu, "Nations", StringComparison.Ordinal)))
+        {
+            var nationId = string.Equals(row.Id, "nations.all", StringComparison.Ordinal)
+                ? null
+                : row.Id["nations.".Length..];
+            CommandTable.Bind(row.Id, () => SetViewedNation(nationId));
+        }
+
+        // T110: the Area map's five Show entries toggle their own highlight layer and its check marks;
+        // Find a city opens the TFindCity dialog. The Show mercenaries rows stay unwired (T113), so no
+        // handler is bound for them. They highlight and hide nothing.
+        CommandTable.Bind("area_map.show_cities", () =>
+        {
+            _areaMapView.ToggleHighlight(AreaMapHighlightKind.Cities);
+            SyncShowChecks();
+        });
+        CommandTable.Bind("area_map.show_capital", () =>
+        {
+            _areaMapView.ToggleHighlight(AreaMapHighlightKind.Capital);
+            SyncShowChecks();
+        });
+        CommandTable.Bind("area_map.show_armies", () =>
+        {
+            _areaMapView.ToggleHighlight(AreaMapHighlightKind.Armies);
+            SyncShowChecks();
+        });
+        CommandTable.Bind("area_map.show_fleets", () =>
+        {
+            _areaMapView.ToggleHighlight(AreaMapHighlightKind.Fleets);
+            SyncShowChecks();
+        });
+        CommandTable.Bind("area_map.show_all", () =>
+        {
+            _areaMapView.ToggleShowAll();
+            SyncShowChecks();
+        });
+        CommandTable.Bind("area_map.find_city", () => OpenFindCityDialog());
+    }
+
+    /// <summary>
+    /// T110: makes <paramref name="nationId"/> the viewed nation (or <see langword="null"/> for All
+    /// nations): the context panel shows its status panel, the Area-map highlights re-scope to it, its
+    /// Nations menu item is checked and its toolbar swatch is pressed (a radio group). Choosing All
+    /// nations shows no status panel.
+    /// </summary>
+    public void SetViewedNation(string? nationId)
+    {
+        ViewedNationId = nationId;
+
+        // N7: the Find a city highlight belongs to the view it was chosen under; changing the viewed
+        // nation (or All nations) clears it, so a city found under one nation does not stay lit while
+        // another nation's public facts are shown.
+        _areaMapView.SetFindCityHighlight(null);
+        _contextPanel.SetViewedNation(nationId);
+        _areaMapView.SetViewedNation(nationId);
+        SyncNationChecksAndSwatches();
+    }
+
+    /// <summary>
+    /// T110: enables and wires the main toolbar's 17 nation swatches. <c>CommandToolbar</c> builds them
+    /// disabled and with no handler (T100 left them for this task); the screen enables them, makes them a
+    /// radio group and routes each press through the table, so a swatch and its menu entry run the same
+    /// handler.
+    /// </summary>
+    private void WireNationSwatches()
+    {
+        foreach (var row in GameCommandTable.Rows.Where(
+            r => string.Equals(r.Menu, "Nations", StringComparison.Ordinal)))
+        {
+            if (Toolbar.ButtonFor(row.Id) is not { } button)
+            {
+                continue;
+            }
+
+            button.Disabled = false;
+            button.ToggleMode = true;
+            button.ButtonGroup = _nationSwatchGroup;
+
+            // N4: CommandToolbar gives "pressed" the same stylebox as "normal", so a radio-pressed
+            // swatch looked identical to an unpressed one. Override "pressed" with the nation's own
+            // normal stylebox plus a thicker accent border, so the viewed nation's swatch is visibly
+            // distinct. Done here (inside T110's Owns) rather than in CommandToolbar.cs (T100's).
+            if (button.GetThemeStylebox("normal") is StyleBoxFlat normal)
+            {
+                var pressed = (StyleBoxFlat)normal.Duplicate();
+                pressed.BorderColor = UiKit.AccentColor;
+                pressed.BorderWidthTop = 4;
+                pressed.BorderWidthBottom = 4;
+                pressed.BorderWidthLeft = 4;
+                pressed.BorderWidthRight = 4;
+                button.AddThemeStyleboxOverride("pressed", pressed);
+            }
+
+            var commandId = row.Id;
+            button.Pressed += () => CommandTable.TryInvoke(commandId);
+        }
+
+        SyncNationChecksAndSwatches();
+    }
+
+    /// <summary>The table row a viewed nation's swatch and menu item answer to.</summary>
+    private static string NationRowId(string? nationId) =>
+        nationId is null ? "nations.all" : "nations." + nationId;
+
+    /// <summary>
+    /// Moves the Nations menu's check mark and the toolbar's radio group to the viewed nation. The menu
+    /// bar's item indices are read from the live popup by caption, so this never depends on the table's
+    /// own order duplicating the menu's.
+    /// </summary>
+    private void SyncNationChecksAndSwatches()
+    {
+        var currentRow = NationRowId(ViewedNationId);
+        foreach (var row in GameCommandTable.Rows.Where(
+            r => string.Equals(r.Menu, "Nations", StringComparison.Ordinal)))
+        {
+            if (Toolbar.ButtonFor(row.Id) is { } button)
+            {
+                button.ButtonPressed = string.Equals(row.Id, currentRow, StringComparison.Ordinal);
+            }
+        }
+
+        if (MenuBar.MenuForCheck("Nations") is not { } popup)
+        {
+            return;
+        }
+
+        for (var i = 0; i < popup.ItemCount; i++)
+        {
+            var row = GameCommandTable.Rows.FirstOrDefault(r =>
+                string.Equals(r.Menu, "Nations", StringComparison.Ordinal)
+                && string.Equals(r.Caption, popup.GetItemText(i), StringComparison.Ordinal));
+            if (row is not null)
+            {
+                // B3: GameMenuBar adds every item plain (AddItem), so a check mark is never drawn until
+                // the item is made checkable. The 17 Nations entries (16 nations + All nations) are a
+                // radio group: exactly one is checked, the viewed nation. SetItemAsRadioCheckable resets
+                // the checked flag, so it must run before SetItemChecked.
+                popup.SetItemAsRadioCheckable(i, true);
+                popup.SetItemChecked(i, string.Equals(row.Id, currentRow, StringComparison.Ordinal));
+            }
+        }
+    }
+
+    /// <summary>
+    /// T110: moves the Area map menu's check marks to match the highlight layers that are on. Read by
+    /// caption from the live popup because the Show mercenaries submenu item sits between the direct
+    /// entries.
+    /// </summary>
+    private void SyncShowChecks()
+    {
+        if (MenuBar.MenuForCheck("Area map") is not { } popup)
+        {
+            return;
+        }
+
+        for (var i = 0; i < popup.ItemCount; i++)
+        {
+            var row = GameCommandTable.Rows.FirstOrDefault(r =>
+                string.Equals(r.Menu, "Area map", StringComparison.Ordinal)
+                && r.Submenu is null
+                && string.Equals(r.Caption, popup.GetItemText(i), StringComparison.Ordinal));
+            if (row is null)
+            {
+                continue;
+            }
+
+            // B3: only the five Show entries are check items; Find a city stays a plain item so no
+            // check box is drawn beside it. Again the checkable flag resets the mark, so set it first.
+            if (IsShowEntry(row.Id))
+            {
+                popup.SetItemAsCheckable(i, true);
+                popup.SetItemChecked(i, IsShowLayerOn(row.Id));
+            }
+        }
+    }
+
+    /// <summary>The five Area map Show entries — the ones that are check items, unlike Find a city.</summary>
+    private static bool IsShowEntry(string commandId) =>
+        commandId is "area_map.show_cities"
+            or "area_map.show_capital"
+            or "area_map.show_armies"
+            or "area_map.show_fleets"
+            or "area_map.show_all";
+
+    private bool IsShowLayerOn(string commandId)
+    {
+        var active = _areaMapView.ActiveHighlightsForCheck;
+        return commandId switch
+        {
+            "area_map.show_cities" => active.Contains(AreaMapHighlightKind.Cities),
+            "area_map.show_capital" => active.Contains(AreaMapHighlightKind.Capital),
+            "area_map.show_armies" => active.Contains(AreaMapHighlightKind.Armies),
+            "area_map.show_fleets" => active.Contains(AreaMapHighlightKind.Fleets),
+            "area_map.show_all" => Enum.GetValues<AreaMapHighlightKind>().All(active.Contains),
+            _ => false,
+        };
     }
 
     /// <summary>The <see cref="AppRoot"/> this screen was swapped into, or <see langword="null"/> when
@@ -398,6 +600,37 @@ public partial class MainGameScreen : Control
         _hintsEnabled = !_hintsEnabled;
         MenuBar.SetHintsEnabled(_hintsEnabled);
         Toolbar.SetHintsEnabled(_hintsEnabled);
+        _areaMapView.SetHintsEnabled(_hintsEnabled);
+    }
+
+    /// <summary>
+    /// T110: opens <c>TFindCity</c> — a nation dropdown and that nation's cities, with capitals marked.
+    /// Choosing a city centres the order map on it and highlights it on the mini-map (audit §1.5:
+    /// <c>TFindCity_FillListBox</c>/<c>ChangeCity</c>). Public so <c>NationsAreaMapCheck</c> can drive
+    /// the real dialog rather than a hand-built mirror.
+    /// </summary>
+    public FindCityDialog OpenFindCityDialog()
+    {
+        var dialog = new FindCityDialog { Session = Session, InitialNationId = ViewedNationId };
+        dialog.CityChosen += cityId =>
+        {
+            CloseOverlay(dialog);
+            OnCityFound(cityId);
+        };
+        dialog.Closed += () => CloseOverlay(dialog);
+        ShowOverlay(dialog);
+        return dialog;
+    }
+
+    private void OnCityFound(string cityId)
+    {
+        if (Session.State.CityById(cityId) is not { } city)
+        {
+            return;
+        }
+
+        _mapView.CentreOnTile(city.X, city.Y);
+        _areaMapView.SetFindCityHighlight(cityId);
     }
 
     private void ShowHelpPage()
@@ -477,8 +710,8 @@ public partial class MainGameScreen : Control
     public string? LastSavedPath { get; private set; }
 
     /// <summary>
-    /// The text the shared last-command label (<see cref="_lastCommandLabel"/>, under the bottom
-    /// toolbar) currently carries: fix #484's <see cref="CommandOutcomeText.OutcomeBlock"/> of the most
+    /// The text the shared last-command label (<see cref="_lastCommandLabel"/>, under the map and the
+    /// side column) currently carries: fix #484's <see cref="CommandOutcomeText.OutcomeBlock"/> of the most
     /// recent <see cref="GameSession.Submit"/> call — the order's own acceptance or refusal lines (a
     /// composed declaration of war included), or an <c>end</c> round's closing summary up to its news.
     /// The label displays its last <see cref="LastCommandVisibleLineCount"/> wrapped lines and keeps the
@@ -547,6 +780,31 @@ public partial class MainGameScreen : Control
         _lastCommandLabel.Text = outcome;
         _lastCommandLabel.TooltipText = outcome;
         UpdateLastCommandLinesSkipped();
+
+        // T110 [designed]: at every turn start the viewed nation is the active seat's (Scope), even when
+        // the active seat itself is unchanged — in a one-human game "end" plays every AI seat and comes
+        // back to the same seat, so a seat comparison alone missed the turn boundary and a viewed
+        // Carthage carried into Rome's next turn. The calendar's turn index is the boundary; the active
+        // seat id changing mid-turn (a hotseat pass) is the other. _lastKnownActiveNationId is still the
+        // prior turn's until CheckForHotseatHandoff updates it later in this method.
+        var activeId = Session.State.ActiveNationId;
+        var turnIndex = Session.State.Calendar.TurnIndex;
+        var turnStarted = turnIndex != _lastKnownTurnIndex;
+        _lastKnownTurnIndex = turnIndex;
+        if (turnStarted || !string.Equals(activeId, _lastKnownActiveNationId, StringComparison.Ordinal))
+        {
+            // Only re-view when it actually differs: an unconditional SetViewedNation on every "end"
+            // would clear a Find-a-city highlight chosen this turn for a view that did not change.
+            if (!string.Equals(ViewedNationId, activeId, StringComparison.Ordinal))
+            {
+                SetViewedNation(activeId);
+            }
+        }
+
+        // B1: every issued command can move an army, capture a city or end a turn, which changes the
+        // tiles the active Show layers mark. Re-queue the mini-map's own redraw so the painted
+        // highlights follow the live state rather than going stale until something else redraws.
+        _areaMapView.Refresh();
         _mapView.Refresh();
         _contextPanel.Refresh();
         RefreshTopBar();

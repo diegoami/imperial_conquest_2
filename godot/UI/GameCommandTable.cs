@@ -179,28 +179,31 @@ public sealed class GameCommandTable
         };
 
         // ---- Nations (audit §1.4): the original's own 16, in the shipped world's order, plus All nations ----
+        // T110 wires them: choosing one sets the viewed nation and shows its status panel.
         foreach (var (id, name) in NationRows)
         {
-            rows.Add(new GameCommandRow($"nations.{id}", "Nations", null, name, null, null, Wired: false));
+            rows.Add(new GameCommandRow($"nations.{id}", "Nations", null, name, null, null, Wired: true));
         }
 
-        rows.Add(new GameCommandRow("nations.all", "Nations", null, "All nations", null, null, Wired: false));
+        rows.Add(new GameCommandRow("nations.all", "Nations", null, "All nations", null, null, Wired: true));
 
-        // ---- Area map (audit §1.5); none is wired here ----
+        // ---- Area map (audit §1.5); T110 wires the five Show entries and Find a city. The six Show
+        // mercenaries entries stay disabled until T113: offers have no position in the engine yet
+        // (#325/#457), so every one of them is shown disabled, exactly as before. ----
         rows.AddRange(new[]
         {
-            new GameCommandRow("area_map.show_cities", "Area map", null, "Show cities", "ui.command.show_cities.icon", null, Wired: false),
-            new GameCommandRow("area_map.show_capital", "Area map", null, "Show capital", "ui.command.show_capital.icon", null, Wired: false),
-            new GameCommandRow("area_map.show_armies", "Area map", null, "Show armies", "ui.command.show_armies.icon", null, Wired: false),
-            new GameCommandRow("area_map.show_fleets", "Area map", null, "Show fleets", "ui.command.show_fleets.icon", null, Wired: false),
-            new GameCommandRow("area_map.show_all", "Area map", null, "Show all", "ui.command.show_all.icon", null, Wired: false),
+            new GameCommandRow("area_map.show_cities", "Area map", null, "Show cities", "ui.command.show_cities.icon", null, Wired: true),
+            new GameCommandRow("area_map.show_capital", "Area map", null, "Show capital", "ui.command.show_capital.icon", null, Wired: true),
+            new GameCommandRow("area_map.show_armies", "Area map", null, "Show armies", "ui.command.show_armies.icon", null, Wired: true),
+            new GameCommandRow("area_map.show_fleets", "Area map", null, "Show fleets", "ui.command.show_fleets.icon", null, Wired: true),
+            new GameCommandRow("area_map.show_all", "Area map", null, "Show all", "ui.command.show_all.icon", null, Wired: true),
             new GameCommandRow("area_map.show_mercs_light_infantry", "Area map", "Show mercenaries", "Light infantry", "ui.command.show_mercs_light_infantry.icon", null, Wired: false),
             new GameCommandRow("area_map.show_mercs_heavy_infantry", "Area map", "Show mercenaries", "Heavy infantry", "ui.command.show_mercs_heavy_infantry.icon", null, Wired: false),
             new GameCommandRow("area_map.show_mercs_archers", "Area map", "Show mercenaries", "Archers", "ui.command.show_mercs_archers.icon", null, Wired: false),
             new GameCommandRow("area_map.show_mercs_light_cavalry", "Area map", "Show mercenaries", "Light cavalry", "ui.command.show_mercs_light_cavalry.icon", null, Wired: false),
             new GameCommandRow("area_map.show_mercs_heavy_cavalry", "Area map", "Show mercenaries", "Heavy cavalry", "ui.command.show_mercs_heavy_cavalry.icon", null, Wired: false),
             new GameCommandRow("area_map.show_mercs_all", "Area map", "Show mercenaries", "All mercenaries", "ui.command.show_mercs_all.icon", null, Wired: false),
-            new GameCommandRow("area_map.find_city", "Area map", null, "Find a city", "ui.command.find_city.icon", null, Wired: false),
+            new GameCommandRow("area_map.find_city", "Area map", null, "Find a city", "ui.command.find_city.icon", null, Wired: true),
         });
 
         // ---- Unit map (audit §1.6); only Cancel selection is wired here ----

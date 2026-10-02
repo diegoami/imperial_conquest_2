@@ -45,6 +45,13 @@ public partial class ContextPanel : Control
 
     private VBoxContainer _content = null!;
     private Selection _selection = Selection.None();
+    private string? _viewedNationId;
+    private bool _viewedNationSet;
+
+    /// <summary>The status lines the last status-panel rebuild rendered — the panel's own output, not a
+    /// re-run of <see cref="NationStatusModel.Build"/>. Empty for All nations and for the "No nation."
+    /// branch; a check reads it to prove what the panel actually shows.</summary>
+    private IReadOnlyList<NationStatusLine> _viewedNationLines = Array.Empty<NationStatusLine>();
 
     public override void _Ready()
     {
@@ -68,6 +75,39 @@ public partial class ContextPanel : Control
         _selection = Selection.None();
         Rebuild();
     }
+
+    /// <summary>
+    /// T110: shows the <em>viewed</em> nation's status panel — <see langword="null"/> is the original's
+    /// All nations selection, which shows no status panel. <see cref="MainGameScreen"/> calls this from
+    /// the Nations menu and the nation swatches.
+    /// </summary>
+    public void SetViewedNation(string? nationId)
+    {
+        _viewedNationId = nationId;
+        _viewedNationSet = true;
+        _selection = Selection.None();
+        Rebuild();
+    }
+
+    /// <summary>The nation whose status panel is currently shown, or <see langword="null"/> when a unit
+    /// is selected or the view is All nations — what <c>NationsAreaMapCheck</c> asserts.</summary>
+    public string? StatusNationIdForCheck =>
+        _selection.Kind == SelectionKind.None ? EffectiveViewedNationId() : null;
+
+    /// <summary>Whether the panel is showing the All nations view (no status panel).</summary>
+    public bool ShowsAllNationsForCheck =>
+        _selection.Kind == SelectionKind.None && EffectiveViewedNationId() is null;
+
+    /// <summary>The status lines the panel actually rendered for the viewed nation, or
+    /// <see langword="null"/> when a selection (a city, army, fleet or unit list) is showing instead.
+    /// This is the panel's own output, so a check can assert the public-facts rule at the panel rather
+    /// than re-running <see cref="NationStatusModel.Build"/>.</summary>
+    public IReadOnlyList<NationStatusLine>? ViewedNationLinesForCheck =>
+        _selection.Kind == SelectionKind.None ? _viewedNationLines : null;
+
+    /// <summary>Whether the viewed nation's rendered status panel carries a line with this key.</summary>
+    public bool HasViewedNationLineForCheck(string key) =>
+        ViewedNationLinesForCheck?.Any(line => string.Equals(line.Key, key, StringComparison.Ordinal)) == true;
 
     public void ShowCity(string cityId)
     {
@@ -126,7 +166,7 @@ public partial class ContextPanel : Control
                 BuildUnitListPanel(_selection.Entity, _selection.Id!);
                 break;
             default:
-                BuildNationOverview();
+                BuildViewedNationPanel();
                 break;
         }
     }
@@ -170,44 +210,54 @@ public partial class ContextPanel : Control
         _content.AddChild(button);
     }
 
-    private void BuildNationOverview()
+    /// <summary>
+    /// T110: the viewed nation's status panel, or the All nations view when the viewed nation is null.
+    /// The own nation's lines come from <see cref="NationStatusModel"/> with the full confirmed list; a
+    /// foreign nation's are its public facts only (the user's decision of 2026-10-01).
+    /// </summary>
+    private void BuildViewedNationPanel()
     {
-        var nation = Session.State.NationById(Session.State.ActiveNationId);
-        Heading("Nation Overview");
-        if (nation is null)
+        var viewed = EffectiveViewedNationId();
+        _viewedNationLines = Array.Empty<NationStatusLine>();
+        if (viewed is null)
         {
-            Note("No active nation.");
+            Heading("All nations");
+            Note("Every nation's highlights are shown. Choose a nation for its status panel.");
+            Note("Select a city, army or fleet on the map for its own details.");
             return;
         }
 
-        Fact($"{nation.Name}");
-        Fact($"Treasury: {nation.Treasury}");
-        Fact($"Unity: {nation.Unity}");
-        Fact($"Wealth: {nation.Wealth}");
-        Fact($"Tax base: {nation.TaxBase}  ·  Tax rate: {nation.TaxRatePercent}%");
-        Fact($"Population: {nation.Population}");
-        Fact($"Cities: {Session.State.Cities.Count(c => c.Owner == nation.Id)}");
-
-        // Fix #513, Defect 1: a regiment ordered with "Recruit" is a NationState.RecruitmentSlot, and
-        // nothing here showed one until this list -- so the player could not tell whether the order
-        // worked. Readiness and weeks-until-ready come from the engine's own MobilizationReadiness,
-        // never a second threshold.
-        var inTraining = RecruitmentPanelViewModel.TrainingForNation(Session.State, Session.Ruleset, nation.Id);
-        _content.AddChild(UiKit.MakeLabel("Regiments in training", 15, UiKit.TextColor));
-        if (inTraining.Count == 0)
+        var nation = Session.State.NationById(viewed);
+        if (nation is null)
         {
-            Note("None.");
+            Heading("Nation Overview");
+            Note("No nation.");
+            return;
         }
-        else
+
+        Heading("Nation Overview");
+        Fact(nation.Name);
+        _viewedNationLines = NationStatusModel.Build(
+            Session.State, Session.Ruleset, viewed, viewerNationId: Session.State.ActiveNationId);
+        foreach (var line in _viewedNationLines)
         {
-            foreach (var regiment in inTraining)
+            if (string.Equals(line.Key, NationStatusModel.TrainingHeaderKey, StringComparison.Ordinal))
             {
-                Fact($"{regiment.UnitTypeId} — {regiment.Troops} troops — {regiment.ReadinessText} — at {CityName(regiment.TargetCityId)}");
+                _content.AddChild(UiKit.MakeLabel(line.Text, 15, UiKit.TextColor));
+            }
+            else
+            {
+                Fact(line.Text);
             }
         }
 
-        Note("Select a city, army or fleet on the map for its own actions.");
+        Note("Select a city, army or fleet on the map for its own details.");
     }
+
+    /// <summary>The viewed nation once <see cref="SetViewedNation"/> has run; before that, the active
+    /// seat's nation, so the panel's first paint is unchanged.</summary>
+    private string? EffectiveViewedNationId() =>
+        _viewedNationSet ? _viewedNationId : Session.State.ActiveNationId;
 
     private void BuildCityPanel(CityState city)
     {
