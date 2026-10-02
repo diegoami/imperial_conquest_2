@@ -44,10 +44,12 @@ namespace IC2.Engine.Economy;
 /// when the army's own last land position is elsewhere.
 /// </para>
 /// <para>
-/// <strong>Conservation</strong>: the amount actually applied is derived from the purse's own before/after
-/// balance (via <see cref="PurseAccounting.Credit"/>, which enforces the cap), and the treasury moves by
-/// exactly that applied amount in the opposite direction — so <c>nation.Treasury + unit.Money</c> is
-/// invariant across the call.
+/// <strong>Conservation</strong>: the amount actually applied is derived from the receiving purse's own
+/// before/after balance (via <see cref="PurseAccounting.Credit"/>, which enforces the cap), and the funding
+/// account moves by exactly that applied amount in the opposite direction — so both
+/// <c>nation.Treasury + unit.Money</c> (the treasury paths) and
+/// <c>fromMoney + toMoney</c> (the <c>via</c>-fleet <see cref="TransferBetweenPurses"/> path) are invariant
+/// across the call.
 /// </para>
 /// </remarks>
 public static class TreasuryPurseTransfer
