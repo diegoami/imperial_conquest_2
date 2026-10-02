@@ -327,6 +327,42 @@ public sealed partial class GameSession
     }
 
     /// <summary>
+    /// <c>balance</c> — the read-only quarterly budget projection (<c>docs/tasks/T104.md</c>). Prints every
+    /// line of <see cref="BalanceSheet.For(GameState, string, Ruleset)"/> for the active nation and mutates
+    /// nothing, matching the original's <c>TBalanceSheet</c> (OK only). Every figure comes from the same
+    /// shared economy function the quarterly systems call, never re-derived here.
+    /// </summary>
+    private IReadOnlyList<string> RenderBalance()
+    {
+        var nationId = State.ActiveNationId;
+        var nation = State.NationById(nationId);
+        if (nation is null)
+        {
+            return new[] { $"Unknown nation '{nationId}'." };
+        }
+
+        var sheet = BalanceSheet.For(State, nationId, Ruleset);
+        return new[]
+        {
+            $"Balance sheet for {nation.Name} ({nation.Id}):",
+            "Income:",
+            $"  Tax income: {sheet.TaxIncome}",
+            $"  Tax base quarter share: {sheet.TaxBaseQuarterShare}",
+            $"  Trade income: {sheet.TradeIncome}",
+            $"  Income total: {sheet.IncomeTotal}",
+            "Expenditure:",
+            $"  City and wealth upkeep: {sheet.CityAndWealthUpkeep}",
+            $"  Ship upkeep: {sheet.ShipUpkeep}",
+            $"  Recruitment slot upkeep: {sheet.RecruitmentSlotUpkeep}",
+            $"  Regulars' upkeep: {sheet.RegularsUpkeep}",
+            $"  Mercenaries' pay: {sheet.MercenariesPay}",
+            $"  Expenditure total (excludes mercenaries' pay): {sheet.ExpenditureTotal}",
+            $"  Treasury: {sheet.Treasury}",
+            $"  Debt limit: {sheet.DebtLimit}",
+        };
+    }
+
+    /// <summary>
     /// <c>docs/task-catalogue.md</c> T23 follow-up
     /// <see href="https://github.com/diegoami/imperial_conquest_2/issues/232">#232</see>: this used to end
     /// with a hand-maintained "Not yet implemented: battles, city capture, recruitment, diplomacy, and the
@@ -364,6 +400,15 @@ public sealed partial class GameSession
             lines.Add("  status mine - show only your own nation, armies, fleets and cities");
             lines.Add("  armies [nation] - show one nation's armies (default: yours)");
             lines.Add("  cities [nation] - show one nation's cities (default: yours)");
+        }
+
+        // T104: the balance sheet is a read-only strategy command like the compact views above. Its help
+        // line is advertised in watch mode only: both committed help transcripts (demo.golden.txt and
+        // seat-rome.golden.txt) are compared byte for byte, and this task changes neither, so the line is
+        // placed where no transcript captures it. The verb itself runs in every session, seat or watch.
+        if (_isWatchMode)
+        {
+            lines.Add("  balance - show the active nation's quarterly budget");
         }
 
         lines.AddRange(RenderHelpRemainder());

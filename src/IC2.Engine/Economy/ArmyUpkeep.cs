@@ -60,6 +60,66 @@ public static class ArmyUpkeep
         return ComputeUnit(unit, ruleset, ruleset.Recruitment);
     }
 
+    /// <summary>
+    /// Splits every army a nation owns into the regulars' upkeep the treasury is actually charged and its
+    /// mercenaries' nominal pay, so the balance-sheet projection (<c>docs/tasks/T104.md</c>) can list the
+    /// two sides as its own two lines.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The regulars' side is <see cref="MercenaryDesertion.BillArmy"/>'s
+    /// <see cref="MercenaryDesertion.Result.RegularUpkeepCharged"/>, summed over the nation's armies — the
+    /// exact function <see cref="QuarterlyEconomySystem"/> charges the treasury with. It is <em>not</em> a
+    /// second per-slot sum: when an unfunded mercenary deserts, BillArmy's swap-remove moves the last slot
+    /// into the hole and the loop advances past it, so a regular that lands there is not billed that quarter,
+    /// and this method must skip it too or the projection would disagree with the treasury change.
+    /// </para>
+    /// <para>
+    /// The mercenaries' side is the nominal per-slot <see cref="ComputeUnit"/> sum over the same armies
+    /// before any desertion. It is shown for information only: mercenary pay is charged to each army's own
+    /// purse, never the treasury, so it is not part of the projection's expenditure total.
+    /// </para>
+    /// </remarks>
+    /// <param name="state">Supplies the armies.</param>
+    /// <param name="nationId">The owning nation to sum for.</param>
+    /// <param name="ruleset">
+    /// Supplies <see cref="RecruitmentRules.TroopsPerCostUnit"/>,
+    /// <see cref="RecruitmentRules.MercenaryUpkeepQualityDivisor"/> and each unit type's
+    /// <see cref="UnitTypeRules.QuarterlyPrice"/> — never a C# literal.
+    /// </param>
+    /// <returns>The nation's total regulars' upkeep and total mercenaries' pay for one quarter.</returns>
+    /// <exception cref="ArgumentException">A unit's <see cref="UnitSlot.UnitTypeId"/> is not in <paramref name="ruleset"/>.</exception>
+    public static (int Regulars, int Mercenaries) ComputeForNation(GameState state, string nationId, Ruleset ruleset)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(nationId);
+        ArgumentNullException.ThrowIfNull(ruleset);
+
+        var regulars = 0;
+        var mercenaries = 0;
+        foreach (var army in state.Armies)
+        {
+            if (!string.Equals(army.Nation, nationId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            // The same call the quarterly billing makes, so the two can never disagree about which
+            // regulars an unfunded mercenary's swap-remove skips.
+            regulars += MercenaryDesertion.BillArmy(army, ruleset).RegularUpkeepCharged;
+
+            foreach (var unit in army.Units)
+            {
+                if (unit.IsMercenary)
+                {
+                    mercenaries += ComputeUnit(unit, ruleset);
+                }
+            }
+        }
+
+        return (regulars, mercenaries);
+    }
+
     private static int ComputeUnit(UnitSlot unit, Ruleset ruleset, RecruitmentRules recruitment)
     {
         var type = ruleset.UnitTypeById(unit.UnitTypeId)
