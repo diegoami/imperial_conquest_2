@@ -20,7 +20,8 @@ namespace IC2.Slice.Checks;
 /// <item>Done-when 6 — every enabled toolbar button has a non-empty tooltip with hints on, none with
 /// Show hints off, and the menu item's check mark follows;</item>
 /// <item>Done-when 7 — every disabled menu entry and toolbar button issues no command, the toolbar
-/// sweep driven from the table and pressed through real GUI input;</item>
+/// sweep driven from the table and pressed through real viewport-local GUI input, with an enabled
+/// End turn click as the positive control that proves the clicks land (rework N-a);</item>
 /// </list>
 /// Run headless via:
 /// <code>
@@ -132,15 +133,19 @@ public partial class MenuBarCheck : Control
     {
         _plan.AddRange(new (int WaitFrames, Action Run)[]
         {
-            // Done-when 2 and Done-when 6 (hints on).
+            // Done-when 2 and Done-when 6 (hints on), plus rework B5's fit and icon-only assertions.
             (InitialSettleFrames, CheckMenuStructure),
             (BetweenStepsFrames, CheckHintsOn),
+            (BetweenStepsFrames, CheckToolbarFitsAndIsIconOnly),
 
             // Done-when 7. The toolbar half presses the real buttons through GUI input before the
-            // counts are asserted (rework B3).
+            // counts are asserted (rework B3); the enabled End turn click is the positive control that
+            // proves those real-input clicks land (rework N-a).
             (BetweenStepsFrames, CheckDisabledEntriesIssueNothing),
             (BetweenStepsFrames, PressDisabledToolbarButtonsThroughRealInput),
             (BetweenStepsFrames, AssertDisabledToolbarPressesIssuedNothing),
+            (BetweenStepsFrames, ClickEnabledEndTurnToolbarThroughRealInput),
+            (BetweenStepsFrames, AssertEnabledEndTurnToolbarAdvanced),
 
             // Done-when 5: the four overlays and the news toggle, none of which mutates the turn.
             (BetweenStepsFrames, CheckNewsToggles),
@@ -253,6 +258,48 @@ public partial class MenuBarCheck : Control
             "the Show hints menu item is checked while hints are on");
     }
 
+    // ---- Rework B5: the toolbar fits the design viewport and is icon-only ----
+
+    /// <summary>
+    /// Rework B5: every command button draws its icon and keeps the caption in the tooltip rather than
+    /// on the button, so the toolbar's minimum width stays inside the 1500&#160;px design viewport and
+    /// cannot push the context panel (and the last nation swatches) off-screen. A missing texture is the
+    /// one allowed fallback, and then the caption is the button's text — never both.
+    /// </summary>
+    private void CheckToolbarFitsAndIsIconOnly()
+    {
+        var viewportWidth = GetViewport().GetVisibleRect().Size.X;
+        var toolbarRight = _mainGame.Toolbar.GetGlobalRect().End.X;
+        Check(
+            toolbarRight <= 1500.5f,
+            $"the toolbar's right edge {toolbarRight} fits the 1500 px design viewport "
+            + $"(viewport is {viewportWidth} px)");
+
+        var iconRows = GameCommandTable.Rows
+            .Where(row => row.IconKey is not null && _mainGame.Toolbar.ButtonFor(row.Id) is not null)
+            .ToList();
+        Check(iconRows.Count == 9, $"the toolbar has 9 icon command buttons ({iconRows.Count})");
+
+        var badStates = new List<string>();
+        foreach (var row in iconRows)
+        {
+            var button = _mainGame.Toolbar.ButtonFor(row.Id)!;
+            if (button.Icon is null || !string.IsNullOrEmpty(button.Text))
+            {
+                badStates.Add($"{row.Id}(icon={(button.Icon is null ? "null" : "set")}, text='{button.Text}')");
+            }
+            else if (string.IsNullOrEmpty(button.TooltipText))
+            {
+                badStates.Add($"{row.Id}(empty tooltip)");
+            }
+        }
+
+        Check(
+            badStates.Count == 0,
+            "every icon command button has its icon set, empty text and the caption as tooltip "
+            + $"(bad: {(badStates.Count == 0 ? "<none>" : string.Join(", ", badStates))})");
+    }
+
     // ---- Done-when 7 ----
 
     private void CheckDisabledEntriesIssueNothing()
@@ -304,8 +351,10 @@ public partial class MenuBarCheck : Control
 
     /// <summary>
     /// Rework B3: presses every swept toolbar button through Godot's real GUI input path (a mouse
-    /// press/release at the button's centre, <see cref="Viewport.PushInput"/>), not through a helper
-    /// that skips the input system. The next step asserts the handler and session counts did not move.
+    /// press/release at the button's centre, <see cref="Viewport.PushInput"/> in viewport-local
+    /// coordinates, rework N-a), not through a helper that skips the input system. The next step asserts
+    /// the handler and session counts did not move; the enabled End turn positive control in the same
+    /// helper path proves these clicks actually land.
     /// </summary>
     private void PressDisabledToolbarButtonsThroughRealInput()
     {
@@ -326,6 +375,31 @@ public partial class MenuBarCheck : Control
         Check(
             _commandsSeen == _beforeCommands,
             $"no disabled toolbar button issued a session command ({_beforeCommands} -> {_commandsSeen})");
+    }
+
+    /// <summary>
+    /// Rework N-a: the positive control for <see cref="ClickControl"/>. A real viewport-local click on
+    /// the enabled End turn toolbar button must advance the turn and the table's handler counter by one,
+    /// so the sweep's "nothing happened" assertions are not vacuous (before rework N-a the default window
+    /// coordinates meant even an enabled button's click landed nowhere).
+    /// </summary>
+    private void ClickEnabledEndTurnToolbarThroughRealInput()
+    {
+        _beforeTurn = _mainGame.Session.State.Calendar.TurnIndex;
+        _beforeIssued = _mainGame.CommandTable.IssuedCount;
+        ClickControl(_mainGame.Toolbar.ButtonFor("game.end_turn")!);
+    }
+
+    private void AssertEnabledEndTurnToolbarAdvanced()
+    {
+        Check(
+            _mainGame.Session.State.Calendar.TurnIndex == _beforeTurn + 1,
+            "a real-input click on the enabled End turn toolbar button advances the calendar by one turn "
+            + $"({_beforeTurn} -> {_mainGame.Session.State.Calendar.TurnIndex})");
+        Check(
+            _mainGame.CommandTable.IssuedCount == _beforeIssued + 1,
+            "a real-input click on the enabled End turn toolbar button increments the table's handler "
+            + $"counter ({_beforeIssued} -> {_mainGame.CommandTable.IssuedCount})");
     }
 
     // ---- Done-when 5 ----
@@ -618,14 +692,17 @@ public partial class MenuBarCheck : Control
 
     /// <summary>
     /// Clicks <paramref name="control"/> the way a user does — a real mouse press and release at its
-    /// centre through <see cref="Viewport.PushInput"/>, not the control's own helper — so a control
-    /// that wrongly became enabled would issue its command (rework B3).
+    /// centre through <see cref="Viewport.PushInput"/> — so a control that wrongly became enabled would
+    /// issue its command (rework B3). The events are pushed with <c>in_local_coords: true</c> (rework
+    /// N-a): the default window coordinates do not map to the control under the headless 0&#215;0 window,
+    /// so the click would otherwise land nowhere. <see cref="ClickEnabledEndTurnToolbarThroughRealInput"/>
+    /// is the positive control that proves this helper's clicks actually register.
     /// </summary>
     private void ClickControl(Control control)
     {
         var center = control.GlobalPosition + (control.Size / 2f);
         var viewport = GetViewport();
-        viewport.PushInput(new InputEventMouseMotion { Position = center, GlobalPosition = center });
+        viewport.PushInput(new InputEventMouseMotion { Position = center, GlobalPosition = center }, true);
         viewport.PushInput(new InputEventMouseButton
         {
             ButtonIndex = MouseButton.Left,
@@ -633,14 +710,14 @@ public partial class MenuBarCheck : Control
             Position = center,
             GlobalPosition = center,
             ButtonMask = MouseButtonMask.Left,
-        });
+        }, true);
         viewport.PushInput(new InputEventMouseButton
         {
             ButtonIndex = MouseButton.Left,
             Pressed = false,
             Position = center,
             GlobalPosition = center,
-        });
+        }, true);
     }
 
     private void Finish()

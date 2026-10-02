@@ -26,11 +26,12 @@ namespace IC2.Slice.UI;
 /// (T100's Scope).
 /// </para>
 /// <para>
-/// Each pictorial button draws its command's <c>ui.command.&lt;id&gt;.icon</c> key through the pack
-/// loader (<see cref="AssetPackTextureLoader.TryGetTexture"/>). The caption is always the button's own
-/// <see cref="Button.Text"/>: when the pack has no texture yet it is the whole button, and when the
-/// texture resolves the icon draws beside it — so a missing texture can never leave an empty button
-/// (T100's Scope).
+/// Each command button draws its command's <c>ui.command.&lt;id&gt;.icon</c> key through the pack
+/// loader (<see cref="AssetPackTextureLoader.TryGetTexture"/>) and is <strong>icon-only</strong>: the
+/// caption lives in the tooltip (while <strong>Show hints</strong> is on), not on the button, so the
+/// row fits the 1500&#160;px design viewport and cannot push the context panel off-screen. When the pack
+/// has no texture for the key, the button falls back to the caption as its own <see cref="Button.Text"/>
+/// — so a missing texture can never leave an empty button (T100's Scope).
 /// </para>
 /// </remarks>
 public partial class CommandToolbar : PanelContainer
@@ -124,14 +125,20 @@ public partial class CommandToolbar : PanelContainer
         var button = new Button
         {
             Name = NameFor(row.Id),
-            Text = row.Caption,
             Disabled = !row.Wired,
             CustomMinimumSize = new Vector2(0, 36),
         };
 
         if (row.IconKey is { } iconKey && AssetLoader?.TryGetTexture(iconKey) is { } texture)
         {
+            // Icon-only: the caption is the tooltip, so the row's minimum width stays small enough for
+            // the 1500 px design viewport (rework B5).
             button.Icon = texture;
+        }
+        else
+        {
+            // A missing texture falls back to the caption as text, never an empty button (T100's Scope).
+            button.Text = row.Caption;
         }
 
         button.Pressed += () => Table.TryInvoke(row.Id);

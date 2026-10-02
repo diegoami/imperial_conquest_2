@@ -41,9 +41,10 @@ public partial class MapClipCheck : Control
     private const float ZoomTolerance = 0.001f;
 
     // T100 moved the Save and End Turn buttons out of the top bar and into the main toolbar (the menu
-    // bar and toolbar now sit above the map). This is the list of moved controls that must stay outside
-    // the map's rect; the caption is "End turn" in the inventory's own casing.
-    private static readonly string[] ToolbarButtonLabels = { "Save", "End turn" };
+    // bar and toolbar now sit above the map). This is the list of moved commands that must stay outside
+    // the map's rect. The buttons are icon-only (rework B5), so they are looked up by command id through
+    // the table rather than by their now-empty Text.
+    private static readonly string[] ToolbarCommandIds = { "file.save", "game.end_turn" };
 
     private MainGameScreen _mainGame = null!;
     private int _frame;
@@ -113,10 +114,10 @@ public partial class MapClipCheck : Control
             $"the maximum-zoom terrain drawing really does extend past the map control's own rect "
             + $"(terrain {terrainRect} vs control {mapRect}) -- the bug's precondition");
 
-        foreach (var label in ToolbarButtonLabels)
+        foreach (var commandId in ToolbarCommandIds)
         {
-            var button = FindButtons(_mainGame).FirstOrDefault(candidate => candidate.Text == label);
-            if (!Check(button is not null, $"the main toolbar renders its '{label}' button"))
+            var button = _mainGame.Toolbar.ButtonFor(commandId);
+            if (!Check(button is not null, $"the main toolbar renders the '{commandId}' button"))
             {
                 continue;
             }
@@ -125,10 +126,10 @@ public partial class MapClipCheck : Control
             var centre = rect.GetCenter();
             ok &= Check(
                 !mapRect.HasPoint(centre),
-                $"the main toolbar's '{label}' button centre {centre} lies outside the map's rect {mapRect}");
+                $"the main toolbar's '{commandId}' button centre {centre} lies outside the map's rect {mapRect}");
             ok &= Check(
                 !rect.Intersects(mapRect),
-                $"the main toolbar's '{label}' button rect {rect} does not overlap the map's rect {mapRect}");
+                $"the main toolbar's '{commandId}' button rect {rect} does not overlap the map's rect {mapRect}");
         }
 
         // Rework N10: the menu bar sits above the toolbar and the map, and must not overlap the map
@@ -154,22 +155,6 @@ public partial class MapClipCheck : Control
             + "container layout gives the extra room to the map)");
 
         return ok;
-    }
-
-    private static IEnumerable<Button> FindButtons(Node root)
-    {
-        foreach (var child in root.GetChildren())
-        {
-            if (child is Button button)
-            {
-                yield return button;
-            }
-
-            foreach (var nested in FindButtons(child))
-            {
-                yield return nested;
-            }
-        }
     }
 
     private static bool Check(bool condition, string description)
