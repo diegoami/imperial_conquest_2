@@ -32,20 +32,27 @@ public readonly record struct AreaMapPixelRect(float X, float Y, float Width, fl
 /// (<c>godot/Checks/ContextPanelWidthCheck.cs</c>), so the mini-map's own pixel budget is
 /// <see cref="DefaultMaxPixelWidth"/> × <see cref="DefaultMaxPixelHeight"/>: 320&#160;px fits inside the
 /// 340&#160;px floor without widening the screen, and 140&#160;px is the world's own height at one pixel
-/// per tile. Both maxima are <strong>[designed]</strong> — no report names a mini-map size — and the
-/// integer scale below keeps every tile whole pixels (the "one pixel or more per tile" line in the task
-/// entry's Scope).
+/// per tile. Both maxima are <strong>[designed]</strong> — a search of <c>docs/game-design.md</c>'s
+/// Screen/flow "Overview mini-map" bullet, <c>docs/design-audit.md</c> §2 and
+/// <c>docs/investigations/original-ui-command-audit.md</c> §1.5 found no report naming a mini-map size —
+/// and the integer scale below keeps every tile whole pixels (the "one pixel or more per tile" line in
+/// the task entry's Scope).
 /// </para>
 /// </remarks>
 public sealed class AreaMapGeometry
 {
     /// <summary>The mini-map's width budget: the 340&#160;px right-hand column's floor leaves 20&#160;px
     /// of margin, so a 320-tile-wide world renders at one pixel per tile without widening the screen.
-    /// <strong>[designed]</strong> — no report names a size; chosen against the column's own 340&#160;px
-    /// floor (<c>godot/Checks/ContextPanelWidthCheck.cs</c>).</summary>
+    /// <strong>[designed]</strong> — searched <c>docs/game-design.md</c>'s Screen/flow "Overview mini-map"
+    /// bullet, <c>docs/design-audit.md</c> §2 and
+    /// <c>docs/investigations/original-ui-command-audit.md</c> §1.5 for a mini-map size and found none;
+    /// chosen against the column's own 340&#160;px floor
+    /// (<c>godot/Checks/ContextPanelWidthCheck.cs</c>).</summary>
     public const int DefaultMaxPixelWidth = 320;
 
-    /// <summary>The mini-map's height budget. <strong>[designed]</strong> — no report names a size; the
+    /// <summary>The mini-map's height budget. <strong>[designed]</strong> — the same search
+    /// (<c>docs/game-design.md</c>'s Screen/flow bullet, <c>docs/design-audit.md</c> §2 and
+    /// <c>docs/investigations/original-ui-command-audit.md</c> §1.5) found no reported size; the
     /// classical world is 140 tiles tall, so this leaves a little headroom for a shorter world to scale
     /// up while the context panel keeps the rest of the column.</summary>
     public const int DefaultMaxPixelHeight = 180;
@@ -152,21 +159,13 @@ public sealed class AreaMapGeometry
     /// </summary>
     public AreaMapPixelRect MapTileRect(float left, float top, float right, float bottom)
     {
+        // N1 (T102 review): no swap of a reversed pair is needed. Clamping keeps left <= right and
+        // top <= bottom (the clamp is monotonic), and both callers pass an ordered rectangle:
+        // ViewRectangle builds centre +/- half, and VisibleTileRect always has a non-negative size.
         var x0 = Math.Clamp(left, 0f, WorldWidth) * Scale;
         var y0 = Math.Clamp(top, 0f, WorldHeight) * Scale;
         var x1 = Math.Clamp(right, 0f, WorldWidth) * Scale;
         var y1 = Math.Clamp(bottom, 0f, WorldHeight) * Scale;
-
-        if (x1 < x0)
-        {
-            (x0, x1) = (x1, x0);
-        }
-
-        if (y1 < y0)
-        {
-            (y0, y1) = (y1, y0);
-        }
-
         return new AreaMapPixelRect(x0, y0, x1 - x0, y1 - y0);
     }
 }

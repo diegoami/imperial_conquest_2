@@ -128,10 +128,10 @@ public partial class GameMapView : Control
     public event Action<MapClickOutcome>? AttackConfirmationRequested;
 
     /// <summary>
-    /// T102: fired whenever this view's own zoom or pan changes — a wheel zoom, a drag, a re-fit, or
-    /// <see cref="CentreOnTile"/>. The overview mini-map (<see cref="AreaMapView"/>) listens so its view
-    /// rectangle follows every pan and zoom (<c>docs/game-design.md</c>'s Screen/flow "Overview mini-map"
-    /// bullet), without this class knowing the mini-map exists.
+    /// T102: fired whenever this view's visible tile rectangle changes — a wheel zoom, a drag, a re-fit,
+    /// <see cref="CentreOnTile"/>, or a resize. The overview mini-map (<see cref="AreaMapView"/>) listens
+    /// so its view rectangle follows every pan and zoom (<c>docs/game-design.md</c>'s Screen/flow
+    /// "Overview mini-map" bullet), without this class knowing the mini-map exists.
     /// </summary>
     public event Action? ViewChanged;
 
@@ -184,13 +184,25 @@ public partial class GameMapView : Control
 
     private void OnResized()
     {
-        if (_fittedOnce || _session is null || Size.X <= 0 || Size.Y <= 0)
+        if (_session is null || Size.X <= 0 || Size.Y <= 0)
         {
             return;
         }
 
-        FitToView();
-        _fittedOnce = true;
+        if (!_fittedOnce)
+        {
+            FitToView();
+            _fittedOnce = true;
+        }
+        else
+        {
+            // B1 (T102 review): VisibleTileRect depends on Size, and project.godot sets
+            // window/stretch/aspect "expand", so a later resize (a window resize or maximise) changes
+            // the visible tile rectangle even though the player's own zoom and pan did not. Announce
+            // it so the mini-map's view rectangle follows; without this the rectangle goes stale.
+            NotifyViewChanged();
+        }
+
         QueueRedraw();
     }
 
