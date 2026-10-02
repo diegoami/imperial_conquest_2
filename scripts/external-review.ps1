@@ -329,8 +329,10 @@ OUTPUT RULES (from scripts/external-review.ps1; they override anything above tha
 - Your working directory is the worktree the script started you in: $Worktree at $HeadSha. Run
   git there as it is, without -C, and never type the worktree's path. Your first tool call prints
   git rev-parse --show-toplevel, git rev-parse HEAD and git diff --name-only origin/main...HEAD.
-  The top level must be $Worktree and HEAD must be $HeadSha, and the diff must not be empty;
-  otherwise your final message says you are in the wrong tree and stops, with no verdict.
+  The top level must be $($Worktree -replace '\\','/') -- git prints forward slashes, and slash
+  direction and letter case do not count -- HEAD must be $HeadSha, and the diff must not be empty.
+  Otherwise line 1 of your final message is still the header $Header, then it says you are in the
+  wrong tree and stops, with no verdict, so the script flags it instead of reporting no review.
 - Stay inside ${Worktree}: never read, list, write or run anything by a path outside it (not
   TEMP, not your home directory, not another worktree). OpenCode rejects such a call and the
   rejection ENDS your review. Scratch files go under rendered/ inside it. A mutation runs in
@@ -408,10 +410,12 @@ function Invoke-ReviewParserSelfTest {
     # --- issue #590: the reviewer runs git in its worktree, without -C ----------------------------
     # The live prompt (this same function) must tell the reviewer to run git where it stands --
     # no -C, no worktree path typed -- and to prove its tree with the named worktree, the named
-    # head commit and a non-empty diff. The agent body says the same; only its permission block
-    # may mention git -C, and it must deny the plain commit, stash and worktree forms a bare git
-    # would otherwise allow (issue #590).
-    $sampleWorktree = 'C:/Users/diego/projects/ic2-work/590-external-review-deadbeef'
+    # head commit and a non-empty diff. The worktree is built with Join-Path (backslashes) but
+    # `git rev-parse --show-toplevel` prints forward slashes, so the rules must show git's form
+    # and say slash direction and case do not count. The agent body says the same; only its
+    # permission block may mention git -C, and it must deny the plain push, commit, stash and
+    # worktree forms a bare git would otherwise allow (issue #590).
+    $sampleWorktree = 'C:\Users\diego\projects\ic2-work\590-external-review-deadbeef'
     $sampleHead = '7a8574d'
     $rules = Get-ReviewOutputRules -Header $h -Worktree $sampleWorktree -HeadSha $sampleHead
     $agentPath = Join-Path $PSScriptRoot '../.opencode/agents/external-reviewer.md'
@@ -423,9 +427,10 @@ function Invoke-ReviewParserSelfTest {
         [pscustomobject]@{ Name = 'prompt rules do not ask for git -C'; Ok = ($rules -notmatch 'git -C') },
         [pscustomobject]@{ Name = 'agent body does not ask for git -C'; Ok = ($agentBody -notmatch 'git -C') },
         [pscustomobject]@{ Name = 'prompt rules name the worktree';     Ok = ($rules -like "*$sampleWorktree*") },
+        [pscustomobject]@{ Name = 'prompt rules show git top-level form'; Ok = ($rules -like "*$($sampleWorktree -replace '\\','/')*") },
         [pscustomobject]@{ Name = 'prompt rules name the head commit';  Ok = ($rules -like "*$sampleHead*") }
     )
-    foreach ($perm in @('git commit*', 'git stash*', 'git worktree *', 'git -C * push*', 'git -C * commit*', 'git -C * stash*', 'git -C * worktree *')) {
+    foreach ($perm in @('git push *', 'git commit*', 'git stash*', 'git worktree *', 'git -C * push*', 'git -C * commit*', 'git -C * stash*', 'git -C * worktree *')) {
         $pattern = '(?m)^\s*' + [regex]::Escape('"' + $perm + '":') + '\s*deny\s*$'
         $ruleChecks += [pscustomobject]@{ Name = "agent denies `"$perm`""; Ok = ($agentPermissions -match $pattern) }
     }

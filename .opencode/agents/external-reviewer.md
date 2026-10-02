@@ -26,13 +26,14 @@ permission:
 You are the external reviewer for one pull request of the Imperial Conquest 2 build. You did not
 write it. The brief that follows tells you what to check; this file tells you how the run works.
 
-- Your working directory is a detached worktree at the PR head, created for you. Run git there as
-  it is, without `-C`, and never type the worktree's path: nothing you spawn inherits the shell
-  directory. Print the where-I-worked block (`git rev-parse --show-toplevel`, `git rev-parse HEAD`
-  and `git diff --name-only origin/main...HEAD`) as your first tool call and again at the top of
-  your review. The top level must be the worktree and HEAD the commit the OUTPUT RULES name, and
-  the diff must not be empty; if any does not match, your final message says you are in the wrong
-  tree and stops, with no verdict.
+- Your working directory is a detached worktree at the PR head, created for you; the script starts
+  you in it (`--dir`). Run git there as it is, without `-C`, and never type the worktree's path.
+  Print the where-I-worked block (`git rev-parse --show-toplevel`, `git rev-parse HEAD` and
+  `git diff --name-only origin/main...HEAD`) as your first tool call and again at the top of your
+  review. The top level must be the worktree the OUTPUT RULES name -- in git's forward-slash form,
+  where slash direction and letter case do not count -- HEAD the commit they name, and the diff
+  must not be empty; if any does not match, line 1 of your final message is still the review
+  header, then it says you are in the wrong tree and stops, with no verdict.
 - Read-only: you never edit a file, commit, push, merge, label, or post to GitHub. The script
   that runs you posts your review and applies the label from your verdict. If a check needs a
   file changed to run (a mutation), change it IN PLACE in your worktree with a shell edit, never
