@@ -331,6 +331,8 @@ objects documented in their own subsections below.
 | Field | Type | Range / unit | Meaning |
 |-------|------|--------------|---------|
 | `taxRateDivisor` | integer | divisor | `TaxIncome`: quarterly tax income = `taxBase × taxRatePercent / this`. |
+| `taxRateMinPercent` | integer | whole percent | `SetTaxRateCommandHandler`: the lowest rate `set-tax` accepts — the original `TChangeTax` slider's minimum. |
+| `taxRateMaxPercent` | integer | whole percent | `SetTaxRateCommandHandler`: the highest rate `set-tax` accepts — the original `TChangeTax` slider's maximum. |
 | `shipUpkeepPerQuarter` | integer | talents/ship | `ShipUpkeep`: quarterly fleet upkeep = `ships × this`. |
 | `mobilizationDecayPerQuarter` | integer | percentage points | `NationUnityUpdate.DecayMobilization`: mobilization lost each quarter, floored at 0. |
 | `unityCap` | integer | 0–this | The upper clamp every unity-changing formula in the engine respects. |

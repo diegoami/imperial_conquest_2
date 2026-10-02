@@ -154,6 +154,8 @@
   },
   "economy": {
     "taxRateDivisor": 100,
+    "taxRateMinPercent": 0,
+    "taxRateMaxPercent": 40,
     "shipUpkeepPerQuarter": 3,
     "mobilizationDecayPerQuarter": 3,
     "unityCap": 990,
@@ -267,6 +269,8 @@
     },
     "_provenance": {
       "taxRateDivisor": "confirmed: decompiled-quarterly-billing-and-economy.md and decompiled-fleet-tax-and-mercenary-formulas.md — income = nationTaxBase × taxRate / 100.",
+      "taxRateMinPercent": "derived: 2026-10-02-unit-map-mouse-orders-and-tax-range.md §(g) (Wine candidate) — the original's TChangeTax slider reports minimum 0, read live from the control (TBM_GETRANGEMIN). The range is the dialog's own, not the DAT's or the T04 fixtures corpus's; a Wine-only observation until the desktop original confirms it.",
+      "taxRateMaxPercent": "derived: 2026-10-02-unit-map-mouse-orders-and-tax-range.md §(g) (Wine candidate) — the same slider reports maximum 40 (TBM_GETRANGEMAX), which the report states is the control's real maximum, not the driver's assumption; OK at the top end writes 40 to nation +0x44A. Wine-only until the desktop original confirms it.",
       "shipUpkeepPerQuarter": "confirmed: fleet-order-at-caere.md and decompiled-fleet-tax-and-mercenary-formulas.md — ships cost 3 talents each per quarter.",
       "mobilizationDecayPerQuarter": "confirmed: city-population-growth.md — renamed from unityDecayPerQuarter (bug #68): FUN_00451b40's nation-loop '-3' is applied to mobilization (+0x442), not unity; 71 of 80 nation-quarters matched exactly across 5 quarter pairs, the other 9 being AIs recruiting or disbanding in the round. decompiled-quarterly-billing-and-economy.md's original 'unity decays 3 per quarter, clamped at 0' misattributed the field.",
       "unityCap": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — the instant resolver clamps the winner's unity with min(990, ...); city-population-growth.md's own quarterly unity update (T35) clamps to this same cap.",
