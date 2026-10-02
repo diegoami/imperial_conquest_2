@@ -85,6 +85,10 @@ public static class NationTreasuryCredit
     /// </summary>
     public static int TradeIncome(NationState nation, GameState state, Ruleset ruleset)
     {
+        ArgumentNullException.ThrowIfNull(nation);
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(ruleset);
+
         var stateCodes = ruleset.Diplomacy.StateCodes;
         var divisor = ruleset.Economy.TradeIncomeTaxBaseDivisor;
         var total = 0;

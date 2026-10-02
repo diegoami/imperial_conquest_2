@@ -181,6 +181,62 @@ public sealed class BalanceSheetTests
         Assert.Equal(romeAfter.Treasury - rome.Treasury, sheet.IncomeTotal - sheet.ExpenditureTotal);
     }
 
+    /// <summary>
+    /// The same identity on an <em>unmodified</em> real nation that owns both launched fleets and
+    /// mercenaries with empty purses, so the ship, mercenary and regular terms are non-zero and the
+    /// quarter actually exercises <see cref="MercenaryDesertion.BillArmy"/>'s swap-remove desertion path.
+    /// This is the case that catches a regulars' line aggregated per slot instead of taken from the
+    /// billing: a regular that the swap-remove moves into a deserting mercenary's hole is not billed, and
+    /// the projection must skip it too. Carthage and Ptolemaic both have 100-talent army purses and
+    /// mercenaries whose pay exceeds that, so at least one mercenary deserts in the quarter.
+    /// </summary>
+    [Theory]
+    [InlineData("carthage")]
+    [InlineData("ptolemaic")]
+    public void UnmodifiedFleetAndMercenaryNation_WithUnfundedMercenaries_Reconciles(string nationId)
+    {
+        var ruleset = Classical.Ruleset;
+        var before = ClassicalOnTheLastWeekBeforeAQuarter();
+
+        // Keep every nation out of the AI deposition path (order 300, after the credit) so nothing but the
+        // billing and the credit moves a treasury between the two reads. Control does not affect the
+        // economy systems themselves.
+        before = before with
+        {
+            Nations = ValueList.From(before.Nations.Select(nation => nation with { Control = SeatControl.Human })),
+        };
+
+        var nationBefore = before.NationById(nationId)!;
+        var sheet = BalanceSheet.For(before, nationId, ruleset);
+
+        Assert.True(sheet.ShipUpkeep > 0, $"{nationId} must have launched fleets for this case.");
+        Assert.True(sheet.MercenariesPay > 0, $"{nationId} must have mercenaries for this case.");
+
+        // The desertion path is actually exercised: an unfunded mercenary deserts this quarter, and the
+        // regulars' line is the billing's own charge rather than the naive per-slot sum (which B1 showed
+        // overstates it whenever the swap-remove skips a regular).
+        var ownedArmies = before.Armies
+            .Where(army => string.Equals(army.Nation, nationId, StringComparison.Ordinal))
+            .ToList();
+        var deserted = ownedArmies.Sum(army => MercenaryDesertion.BillArmy(army, ruleset).DesertedUnitCount);
+        Assert.True(deserted > 0, $"{nationId} must desert an unfunded mercenary for this case to cover B1.");
+
+        var naiveRegulars = ownedArmies
+            .SelectMany(army => army.Units)
+            .Where(unit => !unit.IsMercenary)
+            .Sum(unit => ArmyUpkeep.ComputeUnit(unit, ruleset));
+        Assert.NotEqual(naiveRegulars, sheet.RegularsUpkeep);
+
+        // The three income lines match the credit's three income terms one for one.
+        Assert.Equal(TaxIncome.Compute(nationBefore.TaxBase, nationBefore.TaxRatePercent, ruleset), sheet.TaxIncome);
+        Assert.Equal(NationTreasuryCredit.TaxBaseQuarterShare(nationBefore, ruleset), sheet.TaxBaseQuarterShare);
+        Assert.Equal(NationTreasuryCredit.TradeIncome(nationBefore, before, ruleset), sheet.TradeIncome);
+
+        var after = FireQuarter(before);
+        var nationAfter = after.NationById(nationId)!;
+        Assert.Equal(nationAfter.Treasury - nationBefore.Treasury, sheet.IncomeTotal - sheet.ExpenditureTotal);
+    }
+
     // ---- Done-when 3 ----
 
     /// <summary>
@@ -247,8 +303,8 @@ public sealed class BalanceSheetTests
     // ---- Done-when 5 ----
 
     /// <summary>
-    /// <c>balance</c> prints every line of the sheet, and the state is unchanged after it, asserted by
-    /// serialising the state before and after.
+    /// <c>balance</c> prints every line of the sheet with the right value, and the state is unchanged after
+    /// it, asserted by serialising the state before and after.
     /// </summary>
     [Fact]
     public void BalanceVerb_PrintsEveryLineOfTheSheet_AndLeavesTheStateUnchanged()
@@ -264,6 +320,37 @@ public sealed class BalanceSheetTests
 
         Assert.Equal(before, after);
 
+        var nationId = session.State.ActiveNationId;
+        var nation = session.State.NationById(nationId)!;
+        var sheet = BalanceSheet.For(session.State, nationId, classical.Ruleset);
+
+        // Every rendered line, label and value, in order -- not just the labels.
+        var expected = new[]
+        {
+            $"Balance sheet for {nation.Name} ({nation.Id}):",
+            "Income:",
+            $"  Tax income: {sheet.TaxIncome}",
+            $"  Tax base quarter share: {sheet.TaxBaseQuarterShare}",
+            $"  Trade income: {sheet.TradeIncome}",
+            $"  Income total: {sheet.IncomeTotal}",
+            "Expenditure:",
+            $"  City and wealth upkeep: {sheet.CityAndWealthUpkeep}",
+            $"  Ship upkeep: {sheet.ShipUpkeep}",
+            $"  Recruitment slot upkeep: {sheet.RecruitmentSlotUpkeep}",
+            $"  Regulars' upkeep: {sheet.RegularsUpkeep}",
+            $"  Mercenaries' pay: {sheet.MercenariesPay}",
+            $"  Expenditure total (excludes mercenaries' pay): {sheet.ExpenditureTotal}",
+            $"  Treasury: {sheet.Treasury}",
+            $"  Debt limit: {sheet.DebtLimit}",
+        };
+
+        Assert.Equal(
+            expected,
+            output.Lines
+                .SkipWhile(line => !line.StartsWith("Balance sheet for ", StringComparison.Ordinal))
+                .Take(expected.Length)
+                .ToArray());
+
         var labels = new[]
         {
             "Balance sheet for Rome",
@@ -278,7 +365,7 @@ public sealed class BalanceSheetTests
             "Recruitment slot upkeep:",
             "Regulars' upkeep:",
             "Mercenaries' pay:",
-            "Expenditure total:",
+            "Expenditure total (excludes mercenaries' pay):",
             "Treasury:",
             "Debt limit:",
         };

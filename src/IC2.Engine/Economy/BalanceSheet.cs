@@ -35,7 +35,12 @@ namespace IC2.Engine.Economy;
 /// </param>
 /// <param name="ShipUpkeep">The nation's launched fleets' quarterly upkeep.</param>
 /// <param name="RecruitmentSlotUpkeep">The nation's recruitment slots' quarterly upkeep.</param>
-/// <param name="RegularsUpkeep">The nation's deployed regulars' quarterly upkeep (treasury-charged).</param>
+/// <param name="RegularsUpkeep">
+/// The nation's deployed regulars' quarterly upkeep (treasury-charged) — the sum of
+/// <see cref="MercenaryDesertion.BillArmy"/>'s <see cref="MercenaryDesertion.Result.RegularUpkeepCharged"/>
+/// over the nation's armies, the same charge the quarterly system applies, so a regular skipped by an
+/// unfunded mercenary's swap-remove is skipped here too.
+/// </param>
 /// <param name="MercenariesPay">The nation's deployed mercenaries' quarterly pay (army-purse-charged).</param>
 /// <param name="Treasury">The nation's treasury at projection time.</param>
 /// <param name="DebtLimit">The magnitude of the wealth-based debt line (<see cref="Deposition.DebtLimit"/>).</param>

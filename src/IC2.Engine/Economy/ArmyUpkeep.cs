@@ -61,13 +61,25 @@ public static class ArmyUpkeep
     }
 
     /// <summary>
-    /// Splits every army a nation owns into its regulars' upkeep and its mercenaries' pay, one
-    /// <see cref="ComputeUnit"/> call per slot — the same per-slot formula
-    /// <see cref="MercenaryDesertion.BillArmy"/> charges the treasury and each army's purse with.
-    /// <see cref="QuarterlyEconomySystem"/> aggregates the regulars' side from
-    /// <see cref="MercenaryDesertion.BillArmy"/>; this method exists so the balance-sheet projection
-    /// (<c>docs/tasks/T104.md</c>) can list the two sides as its own two lines.
+    /// Splits every army a nation owns into the regulars' upkeep the treasury is actually charged and its
+    /// mercenaries' nominal pay, so the balance-sheet projection (<c>docs/tasks/T104.md</c>) can list the
+    /// two sides as its own two lines.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The regulars' side is <see cref="MercenaryDesertion.BillArmy"/>'s
+    /// <see cref="MercenaryDesertion.Result.RegularUpkeepCharged"/>, summed over the nation's armies — the
+    /// exact function <see cref="QuarterlyEconomySystem"/> charges the treasury with. It is <em>not</em> a
+    /// second per-slot sum: when an unfunded mercenary deserts, BillArmy's swap-remove moves the last slot
+    /// into the hole and the loop advances past it, so a regular that lands there is not billed that quarter,
+    /// and this method must skip it too or the projection would disagree with the treasury change.
+    /// </para>
+    /// <para>
+    /// The mercenaries' side is the nominal per-slot <see cref="ComputeUnit"/> sum over the same armies
+    /// before any desertion. It is shown for information only: mercenary pay is charged to each army's own
+    /// purse, never the treasury, so it is not part of the projection's expenditure total.
+    /// </para>
+    /// </remarks>
     /// <param name="state">Supplies the armies.</param>
     /// <param name="nationId">The owning nation to sum for.</param>
     /// <param name="ruleset">
@@ -92,15 +104,15 @@ public static class ArmyUpkeep
                 continue;
             }
 
+            // The same call the quarterly billing makes, so the two can never disagree about which
+            // regulars an unfunded mercenary's swap-remove skips.
+            regulars += MercenaryDesertion.BillArmy(army, ruleset).RegularUpkeepCharged;
+
             foreach (var unit in army.Units)
             {
                 if (unit.IsMercenary)
                 {
                     mercenaries += ComputeUnit(unit, ruleset);
-                }
-                else
-                {
-                    regulars += ComputeUnit(unit, ruleset);
                 }
             }
         }
