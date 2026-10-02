@@ -118,18 +118,25 @@ BOX = getattr(getattr(Image, "Resampling", Image), "BOX")
 ESTIMATED_PROMPT_TOKENS = 120
 ESTIMATED_IMAGE_OUTPUT_TOKENS = 1300
 
-VALID_KINDS = ("sprite", "tile", "sfx")
+VALID_KINDS = ("sprite", "ui", "tile", "sfx")
 
 
 # --- Key conventions (docs/asset-specification.md par. 1.5) ------------------------------
 
 
 def kind_for_key(key: str) -> str:
-    """The asset kind implied by the key's first segment (sanity-checked against prompts.json)."""
+    """The asset kind implied by the key's first segment (sanity-checked against prompts.json).
+
+    `ui` is T101's toolbar-command category (`ui.command.<id>.icon`): 32-bit BGRA like a
+    sprite, but pictorial and full-colour rather than a neutral silhouette, because the
+    draw-time nation tint applies to markers only (docs/asset-specification.md 4.7).
+    """
     if key.startswith("terrain."):
         return "tile"
     if key.startswith("sfx."):
         return "sfx"
+    if key.startswith("ui.command."):
+        return "ui"
     return "sprite"  # unit icons and army/fleet/city markers
 
 
@@ -417,6 +424,24 @@ def conform_tile(img: Image.Image) -> bytes:
     always fully covers its grid cell)."""
     img = img.convert("RGB").resize((SIZE, SIZE), LANCZOS)
     return bmp_bytes(img, 24)
+
+
+def conform_ui_icon(img: Image.Image) -> Image.Image:
+    """A toolbar-command icon (`ui.command.*`, T101): key the flat magenta background out to
+    alpha and crop/pad/downscale exactly like a sprite, but KEEP the subject's own colours.
+    A marker is a neutral silhouette so the sixteen-nation palette can be multiplied onto it
+    at draw time; a ui.command icon is pictorial, full-colour and never tinted (the task
+    entry's Style line, docs/asset-specification.md 4.7) - so the luminance-stretch and solid
+    neutral silhouette steps of `conform_sprite_image` deliberately do not apply here. The
+    result is 32-bit BGRA with transparency at the edges, which is what
+    AuthoredPackConformanceTests' ui.command format/size/transparency check reads."""
+    canvas = crop_to_subject(key_magenta(img))
+    return canvas.resize((SIZE, SIZE), LANCZOS)
+
+
+def conform_ui(img: Image.Image) -> bytes:
+    """conform_ui_icon, serialized as a 32-bit BGRA BMP."""
+    return bmp_bytes(conform_ui_icon(img), 32)
 
 
 # --- Sound synthesis (deterministic, stdlib only; docs/asset-specification.md par. 1.4) ---
@@ -982,6 +1007,37 @@ def self_check() -> list:
         rejected = True
     _check(failures, "a frame with no magenta background is rejected, not turned into a "
            "solid block", rejected)
+
+    # Toolbar-command icons (ui.command.*, T101): the chroma key and crop apply, but the
+    # subject KEEPS its own colours - a pictorial, full-colour icon, never tinted at draw
+    # time (unlike the neutral silhouette a marker gets).
+    ui_source = Image.new("RGB", (256, 256), MAGENTA)
+    ui_draw = ImageDraw.Draw(ui_source)
+    ui_draw.rectangle((72, 72, 184, 184), fill=(196, 64, 40))
+    ui_draw.rectangle((104, 104, 152, 152), fill=(40, 80, 200))
+    ui_bmp = conform_ui(ui_source)
+    ui_header = _parse_bmp_header(ui_bmp)
+    _check(failures, "ui icon: 'BM' signature", ui_header["signature"] == b"BM")
+    _check(failures, "ui icon: file header size matches the file",
+           ui_header["file_size"] == len(ui_bmp))
+    _check(failures, "ui icon: 32x32", (ui_header["width"], ui_header["height"]) == (SIZE, SIZE))
+    _check(failures, "ui icon: 32-bit BGRA", ui_header["bit_count"] == 32)
+    _check(failures, "ui icon: BI_RGB uncompressed", ui_header["compression"] == 0)
+    _check(failures, "ui icon: pixel array is 4096 bytes",
+           ui_header["image_size"] == SIZE * SIZE * 4 == len(ui_bmp) - 54)
+    # Read the bytes directly: Pillow's 32-bit BI_RGB reader drops the fourth byte.
+    def ui_pixel(x: int, y_from_top: int):
+        y_from_bottom = SIZE - 1 - y_from_top
+        i = 54 + (y_from_bottom * SIZE + x) * 4
+        return (ui_bmp[i + 2], ui_bmp[i + 1], ui_bmp[i], ui_bmp[i + 3])
+    ui_corner = ui_pixel(0, 0)
+    ui_centre = ui_pixel(16, 16)
+    _check(failures, "ui icon: background keyed out to alpha 0 at a corner",
+           ui_corner[3] == 0, f"alpha {ui_corner[3]}")
+    _check(failures, "ui icon: the centre is opaque and keeps a saturated non-neutral colour "
+           "(pictorial, not a light silhouette)",
+           ui_centre[3] == 255 and max(ui_centre[:3]) - min(ui_centre[:3]) >= 60,
+           f"rgba {ui_centre}")
 
     # Synthetic tile: a green base with a brown undulating ridge (par. 4.5's plain).
     tile_source = Image.new("RGB", (256, 256), (60, 200, 60))
@@ -1587,6 +1643,8 @@ def conform_image(kind: str, image: Image.Image) -> tuple:
     """The conforming step for one image kind: (BMP bytes, depth description)."""
     if kind == "sprite":
         return conform_sprite(image), "32-bit BGRA"
+    if kind == "ui":
+        return conform_ui(image), "32-bit BGRA (full-colour icon)"
     return conform_tile(image), "24-bit opaque"
 
 
