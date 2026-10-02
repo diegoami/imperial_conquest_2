@@ -51,10 +51,15 @@ fleet-transfer mac-fleet-1 mac-fleet-2 1 1 0
 join-fleets mac-fleet-1 mac-fleet-2
 buy-fleet-supply mac-fleet-1 amphipolis 5
 repair-fleet mac-fleet-1 1
-scuttle-fleet mac-fleet-1
+split-fleet mac-fleet-1 mac-fleet-keep 10
 end
 accept-offer
 status
 news
 set-tax 20
+transfer-money mac-fleet-1 100
+transfer-money mac-fleet-1 -50 via mac-fleet-keep
+scuttle-fleet mac-fleet-1
+transfer-money army-8 100
+transfer-money army-8 -50
 quit

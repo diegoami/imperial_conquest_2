@@ -339,6 +339,30 @@ public sealed partial class GameSession
         return IssueCommand(new SetTaxRateCommand(State.ActiveNationId, percent));
     }
 
+    /// <summary>
+    /// <c>transfer-money &lt;unit&gt; &lt;amount&gt; [via &lt;fleet&gt;]</c> — <c>docs/tasks/T105.md</c>.
+    /// The amount is a signed whole integer; a blank or non-numeric one never reaches the command layer and
+    /// prints the usage line instead, leaving the state untouched. Everything else — whether the id is an
+    /// army or fleet, whether it and the <c>via</c> fleet are the issuing nation's own, and the signed
+    /// amount's 1,000 ceiling — is enforced by
+    /// <see cref="IC2.Engine.Economy.Commands.TransferMoneyCommandHandler"/>, so this method never restates it.
+    /// </summary>
+    private IReadOnlyList<string> HandleTransferMoney(string[] tokens)
+    {
+        // transfer-money <unit> <amount>            (3 tokens)
+        // transfer-money <unit> <amount> via <fleet> (5 tokens)
+        var viaSyntaxOk = tokens.Length == 3
+            || (tokens.Length == 5 && string.Equals(tokens[3], "via", StringComparison.Ordinal));
+        if (!viaSyntaxOk
+            || !int.TryParse(tokens[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var amount))
+        {
+            return new[] { "Usage: transfer-money <unit> <amount> [via <fleet>]" };
+        }
+
+        var viaFleetId = tokens.Length == 5 ? tokens[4] : null;
+        return IssueCommand(new TransferMoneyCommand(State.ActiveNationId, tokens[1], amount, viaFleetId));
+    }
+
     // ---- diplomacy ----
 
     private IReadOnlyList<string> HandleDeclareWar(string[] tokens)

@@ -141,6 +141,7 @@ public sealed class CommandCoverageTests
         ["diplomacy.propose-trade"] = "propose-trade",
         ["economy.buy-supply"] = "buy",
         ["economy.set-tax"] = "set-tax",
+        ["economy.transfer-money"] = "transfer-money",
         ["movement.move-army"] = "move",
         ["naval.buy-fleet-supply"] = "buy-fleet-supply",
         ["naval.disembark-army"] = "disembark-army",
