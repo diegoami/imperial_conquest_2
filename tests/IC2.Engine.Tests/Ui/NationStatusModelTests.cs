@@ -54,13 +54,19 @@ public sealed class NationStatusModelTests
         Assert.Equal($"Mobilized: {rome.MobilizedPercent}%", byKey[NationStatusModel.MobilizedKey]);
         Assert.Equal($"Treasury: {rome.Treasury}", byKey[NationStatusModel.TreasuryKey]);
 
-        // Relations: one line per other nation (15 of the world's 16), and Carthage is among them.
-        Assert.Equal(state.Nations.Count - 1, lines.Count(line =>
-            line.Key.StartsWith(NationStatusModel.RelationKeyPrefix, StringComparison.Ordinal)));
-        Assert.Contains(
-            lines,
-            line => string.Equals(line.Key, NationStatusModel.RelationKeyPrefix + CarthageId, StringComparison.Ordinal)
-                && line.Text.StartsWith("Carthage:", StringComparison.Ordinal));
+        // Relations: one line per other nation (15 of the world's 16), each label read back from the
+        // live relation value through the ruleset's StateCodes. Asserting every line — not just a name
+        // prefix — is what makes a wrong value (M5, every relation forced to 0) fail.
+        var codes = session.Ruleset.Diplomacy.StateCodes;
+        var relationLines = lines.Where(line =>
+            line.Key.StartsWith(NationStatusModel.RelationKeyPrefix, StringComparison.Ordinal)).ToList();
+        Assert.Equal(state.Nations.Count - 1, relationLines.Count);
+        foreach (var other in state.Nations.Where(nation => !string.Equals(nation.Id, RomeId, StringComparison.Ordinal)))
+        {
+            Assert.Equal(
+                $"{other.Name}: {ExpectedRelationLabel(state.Relations.Get(RomeId, other.Id), codes)}",
+                byKey[NationStatusModel.RelationKeyPrefix + other.Id]);
+        }
 
         // Bug #513's fix stays: the own panel carries the training section.
         Assert.Contains(lines, line => string.Equals(line.Key, NationStatusModel.TrainingHeaderKey, StringComparison.Ordinal));
@@ -85,10 +91,9 @@ public sealed class NationStatusModelTests
         Assert.Equal($"Leader: {carthage.LeaderName}", byKey[NationStatusModel.LeaderKey]);
         Assert.Equal($"Capital: {capital.Name}", byKey[NationStatusModel.CapitalKey]);
         Assert.Equal($"Cities: {state.CountCitiesOwnedBy(CarthageId)}", byKey[NationStatusModel.CitiesKey]);
-        Assert.Contains(
-            lines,
-            line => string.Equals(line.Key, NationStatusModel.RelationKeyPrefix + RomeId, StringComparison.Ordinal)
-                && line.Text.StartsWith("Rome:", StringComparison.Ordinal));
+        Assert.Equal(
+            $"Rome: {ExpectedRelationLabel(state.Relations.Get(CarthageId, RomeId), session.Ruleset.Diplomacy.StateCodes)}",
+            byKey[NationStatusModel.RelationKeyPrefix + RomeId]);
 
         // 2. Only the one viewer relation, not the whole per-nation list.
         Assert.Equal(1, lines.Count(line =>
@@ -130,5 +135,40 @@ public sealed class NationStatusModelTests
         Assert.DoesNotContain(asForeign, line => string.Equals(line.Key, NationStatusModel.TreasuryKey, StringComparison.Ordinal));
         Assert.Contains(asOwn, line => string.Equals(line.Key, NationStatusModel.TreasuryKey, StringComparison.Ordinal));
         Assert.Contains(asOwn, line => string.Equals(line.Key, NationStatusModel.TrainingHeaderKey, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// The model's own relation wording, re-derived from the state value through the ruleset's
+    /// <see cref="RelationStateCodes"/> — the same four states plus the negative cooldown the model
+    /// documents. The assertion is against the state, not against a hand-copied word.
+    /// </summary>
+    private static string ExpectedRelationLabel(int value, RelationStateCodes codes)
+    {
+        if (value < 0)
+        {
+            return $"Cooldown ({-value})";
+        }
+
+        if (value == codes.War)
+        {
+            return "War";
+        }
+
+        if (value == codes.Alliance)
+        {
+            return "Alliance";
+        }
+
+        if (value == codes.Trade)
+        {
+            return "Trade";
+        }
+
+        if (value == codes.Peace)
+        {
+            return "Peace";
+        }
+
+        return $"Unknown ({value})";
     }
 }

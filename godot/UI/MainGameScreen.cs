@@ -113,6 +113,7 @@ public partial class MainGameScreen : Control
     private readonly Queue<Engine.Battle.BattleResult> _pendingBattleOverlays = new();
     private readonly ButtonGroup _nationSwatchGroup = new();
     private string? _lastKnownActiveNationId;
+    private int _lastKnownTurnIndex;
     private bool _lastKnownActiveWasHuman;
 
     public override void _Ready()
@@ -239,6 +240,7 @@ public partial class MainGameScreen : Control
 
         var activeNation = Session.State.NationById(Session.State.ActiveNationId);
         _lastKnownActiveNationId = Session.State.ActiveNationId;
+        _lastKnownTurnIndex = Session.State.Calendar.TurnIndex;
         _lastKnownActiveWasHuman = activeNation?.Control == SeatControl.Human;
 
         // T110 [designed]: a new game starts with the active seat's nation viewed, and a turn's start
@@ -355,6 +357,11 @@ public partial class MainGameScreen : Control
     public void SetViewedNation(string? nationId)
     {
         ViewedNationId = nationId;
+
+        // N7: the Find a city highlight belongs to the view it was chosen under; changing the viewed
+        // nation (or All nations) clears it, so a city found under one nation does not stay lit while
+        // another nation's public facts are shown.
+        _areaMapView.SetFindCityHighlight(null);
         _contextPanel.SetViewedNation(nationId);
         _areaMapView.SetViewedNation(nationId);
         SyncNationChecksAndSwatches();
@@ -379,6 +386,22 @@ public partial class MainGameScreen : Control
             button.Disabled = false;
             button.ToggleMode = true;
             button.ButtonGroup = _nationSwatchGroup;
+
+            // N4: CommandToolbar gives "pressed" the same stylebox as "normal", so a radio-pressed
+            // swatch looked identical to an unpressed one. Override "pressed" with the nation's own
+            // normal stylebox plus a thicker accent border, so the viewed nation's swatch is visibly
+            // distinct. Done here (inside T110's Owns) rather than in CommandToolbar.cs (T100's).
+            if (button.GetThemeStylebox("normal") is StyleBoxFlat normal)
+            {
+                var pressed = (StyleBoxFlat)normal.Duplicate();
+                pressed.BorderColor = UiKit.AccentColor;
+                pressed.BorderWidthTop = 4;
+                pressed.BorderWidthBottom = 4;
+                pressed.BorderWidthLeft = 4;
+                pressed.BorderWidthRight = 4;
+                button.AddThemeStyleboxOverride("pressed", pressed);
+            }
+
             var commandId = row.Id;
             button.Pressed += () => CommandTable.TryInvoke(commandId);
         }
@@ -419,6 +442,11 @@ public partial class MainGameScreen : Control
                 && string.Equals(r.Caption, popup.GetItemText(i), StringComparison.Ordinal));
             if (row is not null)
             {
+                // B3: GameMenuBar adds every item plain (AddItem), so a check mark is never drawn until
+                // the item is made checkable. The 17 Nations entries (16 nations + All nations) are a
+                // radio group: exactly one is checked, the viewed nation. SetItemAsRadioCheckable resets
+                // the checked flag, so it must run before SetItemChecked.
+                popup.SetItemAsRadioCheckable(i, true);
                 popup.SetItemChecked(i, string.Equals(row.Id, currentRow, StringComparison.Ordinal));
             }
         }
@@ -442,12 +470,28 @@ public partial class MainGameScreen : Control
                 string.Equals(r.Menu, "Area map", StringComparison.Ordinal)
                 && r.Submenu is null
                 && string.Equals(r.Caption, popup.GetItemText(i), StringComparison.Ordinal));
-            if (row is not null)
+            if (row is null)
             {
+                continue;
+            }
+
+            // B3: only the five Show entries are check items; Find a city stays a plain item so no
+            // check box is drawn beside it. Again the checkable flag resets the mark, so set it first.
+            if (IsShowEntry(row.Id))
+            {
+                popup.SetItemAsCheckable(i, true);
                 popup.SetItemChecked(i, IsShowLayerOn(row.Id));
             }
         }
     }
+
+    /// <summary>The five Area map Show entries — the ones that are check items, unlike Find a city.</summary>
+    private static bool IsShowEntry(string commandId) =>
+        commandId is "area_map.show_cities"
+            or "area_map.show_capital"
+            or "area_map.show_armies"
+            or "area_map.show_fleets"
+            or "area_map.show_all";
 
     private bool IsShowLayerOn(string commandId)
     {
@@ -737,15 +781,30 @@ public partial class MainGameScreen : Control
         _lastCommandLabel.TooltipText = outcome;
         UpdateLastCommandLinesSkipped();
 
-        // T110 [designed]: when a turn starts and the active seat has changed, the viewed nation follows
-        // it. _lastKnownActiveNationId is the prior turn's until CheckForHotseatHandoff updates it later
-        // in this method, so the comparison sees exactly the turn boundary.
+        // T110 [designed]: at every turn start the viewed nation is the active seat's (Scope), even when
+        // the active seat itself is unchanged — in a one-human game "end" plays every AI seat and comes
+        // back to the same seat, so a seat comparison alone missed the turn boundary and a viewed
+        // Carthage carried into Rome's next turn. The calendar's turn index is the boundary; the active
+        // seat id changing mid-turn (a hotseat pass) is the other. _lastKnownActiveNationId is still the
+        // prior turn's until CheckForHotseatHandoff updates it later in this method.
         var activeId = Session.State.ActiveNationId;
-        if (!string.Equals(activeId, _lastKnownActiveNationId, StringComparison.Ordinal))
+        var turnIndex = Session.State.Calendar.TurnIndex;
+        var turnStarted = turnIndex != _lastKnownTurnIndex;
+        _lastKnownTurnIndex = turnIndex;
+        if (turnStarted || !string.Equals(activeId, _lastKnownActiveNationId, StringComparison.Ordinal))
         {
-            SetViewedNation(activeId);
+            // Only re-view when it actually differs: an unconditional SetViewedNation on every "end"
+            // would clear a Find-a-city highlight chosen this turn for a view that did not change.
+            if (!string.Equals(ViewedNationId, activeId, StringComparison.Ordinal))
+            {
+                SetViewedNation(activeId);
+            }
         }
 
+        // B1: every issued command can move an army, capture a city or end a turn, which changes the
+        // tiles the active Show layers mark. Re-queue the mini-map's own redraw so the painted
+        // highlights follow the live state rather than going stale until something else redraws.
+        _areaMapView.Refresh();
         _mapView.Refresh();
         _contextPanel.Refresh();
         RefreshTopBar();

@@ -51,6 +51,16 @@ public partial class NationsAreaMapCheck : Control
 
     private CityState _carthageCapital = null!;
 
+    /// <summary>The turn commands this check itself issues (the two "end"s of B1 and B2); the final
+    /// Done-when 7 step asserts that no <em>other</em> command reached the session.</summary>
+    private int _expectedSessionCommands;
+
+    /// <summary>The mini-map's draw count when the B1 scenario was arranged, compared after "end".</summary>
+    private int _drawCountBeforeEnd;
+
+    /// <summary>The table's handler counter before the strip button click (N5).</summary>
+    private int _stripIssuedBefore;
+
     public override void _Ready()
     {
         Size = GetViewport().GetVisibleRect().Size;
@@ -122,15 +132,25 @@ public partial class NationsAreaMapCheck : Control
             (BetweenStepsFrames, AssertRomeSwatchClickLanded),
             (BetweenStepsFrames, ClickCarthageSwatchRealInput),
             (BetweenStepsFrames, AssertCarthageFromSwatch),
+            (BetweenStepsFrames, ClickAreaMapStripCitiesRealInput),
+            (BetweenStepsFrames, AssertAreaMapStripButtonRanItsRow),
             (BetweenStepsFrames, ChooseAllNations),
             (BetweenStepsFrames, AssertAllNationsNoPanel),
             (BetweenStepsFrames, ResetToRomeAndShowArmies),
             (BetweenStepsFrames, AssertRomeHighlightSet),
             (BetweenStepsFrames, ChooseAllNationsForHighlights),
             (BetweenStepsFrames, AssertAllNationsHighlightSet),
+            (BetweenStepsFrames, PrepareShowAllCheck),
+            (BetweenStepsFrames, PressShowAllMenu),
+            (BetweenStepsFrames, AssertShowAllUnion),
             (BetweenStepsFrames, ResetToRomeForFindCity),
             (BetweenStepsFrames, OpenFindCityAndChooseCapital),
             (BetweenStepsFrames, AssertFindCityCentredAndHighlighted),
+            (BetweenStepsFrames, PrepareHighlightRefreshAfterEnd),
+            (8, IssueEndTurnForHighlightRefresh),
+            (8, AssertHighlightRefreshAfterEnd),
+            (BetweenStepsFrames, ViewCarthageBeforeTurnReset),
+            (8, EndTurnAndAssertViewedNationReset),
             (BetweenStepsFrames, AssertNoEntrySubmittedACommand),
         });
     }
@@ -169,14 +189,131 @@ public partial class NationsAreaMapCheck : Control
         Check(
             _mainGame.Toolbar.ButtonFor("nations.rome") is { ButtonPressed: false },
             "Rome's swatch is no longer pressed (the swatches are a radio group)");
+
+        // B3: the menu items must be radio-checkable, or SetItemChecked draws no mark at all.
+        var popup = _mainGame.MenuBar.MenuForCheck("Nations")!;
+        Check(
+            popup.ItemCount == 17,
+            $"the Nations menu carries all 17 items, 16 nations plus All nations (got {popup.ItemCount})");
+        Check(
+            Enumerable.Range(0, popup.ItemCount).All(popup.IsItemRadioCheckable),
+            "every Nations item is radio-checkable, so the viewed nation's mark is actually drawn");
+        Check(
+            popup.IsItemChecked(CaptionIndex(popup, "Carthage")),
+            "Carthage's Nations menu mark is checked while Carthage is viewed");
+        Check(
+            !popup.IsItemChecked(CaptionIndex(popup, "Rome")),
+            "Rome's Nations menu mark is unchecked while Carthage is viewed");
+
+        // N4: a pressed swatch must be visibly different from an unpressed one.
+        AssertPressedSwatchStyleDiffers();
+
+        // B4: Carthage is foreign to the active seat (Rome), so its panel is public facts only.
+        AssertCarthagePanelIsPublicOnly();
     }
 
     private void ResetToRomeFromMenu()
     {
-        _mainGame.MenuBar.PressItemForCheck("nations.rome");
         Check(
-            string.Equals(_mainGame.ViewedNationId, RomeId, StringComparison.Ordinal),
+            _mainGame.MenuBar.PressItemForCheck("nations.rome"),
             "the Nations menu can set the viewed nation back to Rome");
+        var popup = _mainGame.MenuBar.MenuForCheck("Nations")!;
+        Check(
+            popup.IsItemChecked(CaptionIndex(popup, "Rome")),
+            "Rome's Nations menu mark is checked after choosing it");
+        Check(
+            !popup.IsItemChecked(CaptionIndex(popup, "Carthage")),
+            "Carthage's Nations menu mark cleared");
+
+        // B4: Rome is the active seat's own nation, so its panel carries the full list.
+        AssertRomePanelIsFull();
+    }
+
+    // ---- B3, N4, B4 helpers ----
+
+    private static int CaptionIndex(PopupMenu popup, string caption)
+    {
+        for (var i = 0; i < popup.ItemCount; i++)
+        {
+            if (string.Equals(popup.GetItemText(i), caption, StringComparison.Ordinal))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private void AssertPressedSwatchStyleDiffers()
+    {
+        var swatch = _mainGame.Toolbar.ButtonFor("nations.carthage")!;
+        var normal = swatch.GetThemeStylebox("normal");
+        var pressed = swatch.GetThemeStylebox("pressed");
+        if (normal is StyleBoxFlat normalFlat && pressed is StyleBoxFlat pressedFlat)
+        {
+            Check(
+                normalFlat.BorderWidthTop != pressedFlat.BorderWidthTop
+                    || normalFlat.BorderColor != pressedFlat.BorderColor,
+                "a pressed nation swatch's border differs from an unpressed one's");
+        }
+        else
+        {
+            Check(false, "a nation swatch carries flat normal and pressed styleboxes");
+        }
+    }
+
+    private void AssertCarthagePanelIsPublicOnly()
+    {
+        var panel = _mainGame.ContextPanel;
+        foreach (var shown in new[]
+        {
+            NationStatusModel.LeaderKey,
+            NationStatusModel.CapitalKey,
+            NationStatusModel.CitiesKey,
+            NationStatusModel.CityNamesKey,
+            NationStatusModel.RelationKeyPrefix + RomeId,
+        })
+        {
+            Check(panel.HasViewedNationLineForCheck(shown), $"Carthage's foreign panel shows '{shown}'");
+        }
+
+        foreach (var withheld in new[]
+        {
+            NationStatusModel.TreasuryKey,
+            NationStatusModel.TaxRateKey,
+            NationStatusModel.PopulationKey,
+            NationStatusModel.UnityKey,
+            NationStatusModel.MobilizedKey,
+            NationStatusModel.TrainingHeaderKey,
+            NationStatusModel.TrainingNoneKey,
+        })
+        {
+            Check(!panel.HasViewedNationLineForCheck(withheld), $"Carthage's foreign panel withholds '{withheld}'");
+        }
+
+        Check(
+            panel.ViewedNationLinesForCheck?.Any(line =>
+                line.Key.StartsWith(NationStatusModel.TrainingKeyPrefix, StringComparison.Ordinal)) != true,
+            "Carthage's foreign panel withholds units in training");
+    }
+
+    private void AssertRomePanelIsFull()
+    {
+        var panel = _mainGame.ContextPanel;
+        foreach (var shown in new[]
+        {
+            NationStatusModel.LeaderKey,
+            NationStatusModel.CapitalKey,
+            NationStatusModel.CitiesKey,
+            NationStatusModel.PopulationKey,
+            NationStatusModel.UnityKey,
+            NationStatusModel.TaxRateKey,
+            NationStatusModel.MobilizedKey,
+            NationStatusModel.TreasuryKey,
+        })
+        {
+            Check(panel.HasViewedNationLineForCheck(shown), $"Rome's own panel shows '{shown}'");
+        }
     }
 
     // ---- Done-when 3, the real-input swatch click ----
@@ -210,6 +347,36 @@ public partial class NationsAreaMapCheck : Control
         Check(
             _mainGame.Toolbar.ButtonFor("nations.carthage") is { ButtonPressed: true },
             "Carthage's swatch is pressed after the click");
+    }
+
+    // ---- N5: the Area-map strip's real buttons ----
+
+    private void ClickAreaMapStripCitiesRealInput()
+    {
+        // Start with the layer off, so the click is what turns it on.
+        _mainGame.AreaMapView.SetHighlight(AreaMapHighlightKind.Cities, false);
+        _stripIssuedBefore = _mainGame.CommandTable.IssuedCount;
+
+        var button = _mainGame.AreaMapView.StripButtonForCheck("area_map.show_cities");
+        Check(button is not null, "the Area-map strip carries the Show cities button");
+        if (button is not null)
+        {
+            ClickControl(button);
+        }
+    }
+
+    private void AssertAreaMapStripButtonRanItsRow()
+    {
+        Check(
+            _mainGame.CommandTable.IssuedCount > _stripIssuedBefore,
+            $"the strip button really ran its table row (handlers {_stripIssuedBefore} -> "
+            + $"{_mainGame.CommandTable.IssuedCount})");
+        Check(
+            _mainGame.AreaMapView.ActiveHighlightsForCheck.Contains(AreaMapHighlightKind.Cities),
+            "the Show cities strip button turned its highlight on");
+        Check(
+            _mainGame.AreaMapView.StripButtonForCheck("area_map.show_cities") is { ButtonPressed: true },
+            "the Show cities strip button shows as pressed after the click");
     }
 
     private void ChooseAllNations() => _mainGame.MenuBar.PressItemForCheck("nations.all");
@@ -288,6 +455,120 @@ public partial class NationsAreaMapCheck : Control
             $"the all-nations set is wider than Rome's own ({actual.Count} vs {romeOnly.Count})");
     }
 
+    // ---- B7: the UI's Show all is the same union the unit test pins ----
+
+    private void PrepareShowAllCheck()
+    {
+        _mainGame.MenuBar.PressItemForCheck("nations.rome");
+        foreach (var kind in Enum.GetValues<AreaMapHighlightKind>())
+        {
+            _mainGame.AreaMapView.SetHighlight(kind, false);
+        }
+    }
+
+    private void PressShowAllMenu() => Check(
+        _mainGame.MenuBar.PressItemForCheck("area_map.show_all"),
+        "the Area map's Show all entry is enabled and takes a press");
+
+    private void AssertShowAllUnion()
+    {
+        var expected = AreaMapHighlights.AllTiles(_mainGame.Session.State, RomeId);
+        var actual = _mainGame.AreaMapView.HighlightTilesForCheck;
+
+        Check(
+            Enum.GetValues<AreaMapHighlightKind>().All(_mainGame.AreaMapView.ActiveHighlightsForCheck.Contains),
+            "the UI's Show all turned every one of the four layers on");
+        Check(
+            actual.Count == expected.Count && expected.All(actual.Contains),
+            $"the UI's Show all equals AreaMapHighlights.AllTiles for Rome "
+            + $"(mini {actual.Count} tiles, expected {expected.Count})");
+
+        var popup = _mainGame.MenuBar.MenuForCheck("Area map")!;
+        foreach (var caption in new[] { "Show cities", "Show capital", "Show armies", "Show fleets", "Show all" })
+        {
+            Check(
+                popup.IsItemCheckable(CaptionIndex(popup, caption)),
+                $"the Area map's '{caption}' item is checkable, so its mark is drawn");
+        }
+
+        Check(
+            popup.IsItemChecked(CaptionIndex(popup, "Show all")),
+            "Show all's menu mark follows the toggle");
+    }
+
+    // ---- B1: the highlights are redrawn from the live state after a command ----
+
+    private void PrepareHighlightRefreshAfterEnd()
+    {
+        _mainGame.MenuBar.PressItemForCheck("nations.rome");
+        foreach (var kind in Enum.GetValues<AreaMapHighlightKind>())
+        {
+            _mainGame.AreaMapView.SetHighlight(kind, false);
+        }
+
+        _mainGame.AreaMapView.SetFindCityHighlight(null);
+        _mainGame.AreaMapView.SetHighlight(AreaMapHighlightKind.Armies, true);
+        _drawCountBeforeEnd = _mainGame.AreaMapView.DrawCountForCheck;
+
+        Check(
+            string.Equals(_mainGame.ViewedNationId, RomeId, StringComparison.Ordinal),
+            "B1's scenario views Rome before the command");
+    }
+
+    private void IssueEndTurnForHighlightRefresh()
+    {
+        _mainGame.SubmitForCheck("end");
+        _expectedSessionCommands++;
+    }
+
+    private void AssertHighlightRefreshAfterEnd()
+    {
+        Check(
+            _mainGame.AreaMapView.DrawCountForCheck > _drawCountBeforeEnd,
+            $"the mini-map redrew after the command (draws {_drawCountBeforeEnd} -> "
+            + $"{_mainGame.AreaMapView.DrawCountForCheck})");
+
+        var live = _mainGame.AreaMapView.HighlightTilesForCheck;
+        var drawn = _mainGame.AreaMapView.LastDrawnHighlightTilesForCheck;
+        Check(
+            drawn.Count == live.Count && live.All(drawn.Contains),
+            $"the painted highlight set equals the live set after 'end' (drawn {drawn.Count}, live {live.Count})");
+        Check(
+            _mainGame.AreaMapView.ActiveHighlightsForCheck.Contains(AreaMapHighlightKind.Armies),
+            "Show armies stayed on across the turn");
+    }
+
+    // ---- B2: every turn start re-views the active seat ----
+
+    private void ViewCarthageBeforeTurnReset()
+    {
+        Check(
+            _mainGame.MenuBar.PressItemForCheck("nations.carthage"),
+            "Carthage can be viewed before the turn reset");
+        Check(
+            string.Equals(_mainGame.ViewedNationId, CarthageId, StringComparison.Ordinal),
+            "Carthage is the viewed nation before the turn reset");
+    }
+
+    private void EndTurnAndAssertViewedNationReset()
+    {
+        var turnBefore = _mainGame.Session.State.Calendar.TurnIndex;
+        _mainGame.SubmitForCheck("end");
+        _expectedSessionCommands++;
+
+        Check(
+            _mainGame.Session.State.Calendar.TurnIndex > turnBefore,
+            $"B2's command started a new turn ({turnBefore} -> {_mainGame.Session.State.Calendar.TurnIndex})");
+        Check(
+            string.Equals(_mainGame.ViewedNationId, RomeId, StringComparison.Ordinal),
+            $"a turn start resets the viewed nation to the active seat's (got "
+            + $"'{_mainGame.ViewedNationId ?? "<all>"}')");
+        Check(
+            string.Equals(_mainGame.ContextPanel.StatusNationIdForCheck, RomeId, StringComparison.Ordinal),
+            $"the panel shows the active seat's status after the turn reset (got "
+            + $"'{_mainGame.ContextPanel.StatusNationIdForCheck ?? "<none>"}')");
+    }
+
     // ---- Done-when 5 ----
 
     private void ResetToRomeForFindCity() => _mainGame.MenuBar.PressItemForCheck("nations.rome");
@@ -354,8 +635,9 @@ public partial class NationsAreaMapCheck : Control
             _commandsSeen == commandsBefore,
             $"no Nations or Area map entry submits a session command ({commandsBefore} -> {_commandsSeen})");
         Check(
-            _commandsSeen == 0,
-            $"the whole check issued no session command ({_commandsSeen})");
+            _commandsSeen == _expectedSessionCommands,
+            $"only the check's own {_expectedSessionCommands} turn commands reached the session "
+            + $"({_commandsSeen})");
     }
 
     /// <summary>

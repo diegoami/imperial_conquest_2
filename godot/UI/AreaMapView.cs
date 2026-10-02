@@ -51,7 +51,14 @@ public partial class AreaMapView : Control
             ["River"] = new Color(0.14f, 0.46f, 0.70f),
         };
 
-    /// <summary>The fill and outline of one highlighted tile — the Area map's Show layers (T110).</summary>
+    /// <summary>
+    /// The fill and outline of one highlighted tile — the Area map's Show layers (T110).
+    /// <strong>[designed]</strong>: the audit's §1.5 table names the four Show functions and their
+    /// addresses but does not transcribe the original's highlight colour, and no report or investigation
+    /// carries a colour for the Area map's markers. Searched <c>docs/investigations/</c> for
+    /// "Area map" highlight/marker colour and "TAreaMap_Show" pixels; empty. Amber over the terrain is
+    /// this task's own choice.
+    /// </summary>
     private static readonly Color HighlightFillColor = new(1f, 0.85f, 0.2f, 0.45f);
     private static readonly Color HighlightLineColor = new(1f, 0.85f, 0.2f, 0.95f);
 
@@ -77,6 +84,13 @@ public partial class AreaMapView : Control
         "area_map.find_city",
     };
 
+    /// <summary>
+    /// The strip wraps at six columns. <strong>[designed]</strong>: the audit's §1.5 lists the entries
+    /// and §3.2 lists the original's 13 buttons as one sequence, with no column count (and marks only
+    /// the gold-coin button <c>[open]</c>); searched <c>docs/investigations/</c> for the Area-map toolbar
+    /// layout / column count and found none. Six columns keep the strip inside the mini-map's own
+    /// 320&#160;px (and the context panel's 340&#160;px floor).
+    /// </summary>
     private const int StripColumns = 6;
 
     /// <summary>The one command table the strip's buttons run, the same one the menus and toolbar run.</summary>
@@ -104,6 +118,14 @@ public partial class AreaMapView : Control
     private readonly Dictionary<string, Button> _stripButtons = new(StringComparer.Ordinal);
     private bool _hintsEnabled = true;
 
+    /// <summary>How many times <see cref="_Draw"/> has painted. Exposed so <c>NationsAreaMapCheck</c>
+    /// can prove a command re-queued a redraw (the highlight layer must not go stale).</summary>
+    private int _drawCount;
+
+    /// <summary>The highlight tiles the last <see cref="_Draw"/> actually painted — the drawn set, as
+    /// opposed to <see cref="HighlightTilesForCheck"/>'s live set.</summary>
+    private IReadOnlySet<(int X, int Y)> _lastDrawnHighlights = new HashSet<(int X, int Y)>();
+
     /// <summary>The geometry this mini-map is currently laid out with — exposed so the headless
     /// <c>godot/Checks/AreaMapCheck.cs</c> can send its click at a real tile's mini-map pixel.</summary>
     public AreaMapGeometry GeometryForCheck =>
@@ -119,6 +141,28 @@ public partial class AreaMapView : Control
     /// <summary>Whether the terrain image has been baked — the check's precondition for the view
     /// rectangle being meaningful.</summary>
     public bool HasTerrainForCheck => _terrainTexture is not null;
+
+    /// <summary>How many times this mini-map has painted. <c>NationsAreaMapCheck</c> reads it before and
+    /// after a command to prove the highlights were re-queued rather than left stale.</summary>
+    public int DrawCountForCheck => _drawCount;
+
+    /// <summary>The highlight tiles the last paint actually drew. Comparing this with
+    /// <see cref="HighlightTilesForCheck"/> is what catches a stale layer: the live set can move while
+    /// the painted pixels still show the old tiles.</summary>
+    public IReadOnlySet<(int X, int Y)> LastDrawnHighlightTilesForCheck => _lastDrawnHighlights;
+
+    /// <summary>The strip button for <paramref name="commandId"/>, or <see langword="null"/> when the
+    /// strip does not carry it — exposed so <c>NationsAreaMapCheck</c> can click the real button.</summary>
+    public Button? StripButtonForCheck(string commandId) =>
+        _stripButtons.TryGetValue(commandId, out var button) ? button : null;
+
+    /// <summary>
+    /// Re-queues a redraw so the highlight layer reflects the current state. <see cref="MainGameScreen"/>
+    /// calls this after <em>every</em> issued command: a move, a capture, an "end" all change which
+    /// tiles the active Show layers mark, and without this the painted pixels keep the old positions
+    /// until something else happens to redraw.
+    /// </summary>
+    public void Refresh() => QueueRedraw();
 
     /// <summary>
     /// Builds the Area-map toolbar strip — the row of <c>ui.command.*</c> buttons above the mini-map
@@ -440,17 +484,22 @@ public partial class AreaMapView : Control
         DrawTextureRect(_terrainTexture, mapRect, false);
         DrawRect(mapRect, BorderColor, false, 1f);
 
-        var view = _viewRect;
-        DrawRect(new Rect2(view.X, view.Y, view.Width, view.Height), ViewRectColor, false, 1.5f);
-
-        // T110: the Show layers' highlight tiles, painted over the terrain and under the view rectangle's
-        // outline. HighlightTilesForCheck is the same set a headless check compares, so the drawn pixels
-        // and the asserted set cannot drift.
-        foreach (var (x, y) in HighlightTilesForCheck)
+        // T110: the Show layers' highlight tiles, painted over the terrain and *under* the view
+        // rectangle's outline (drawn last, just below), so the rectangle stays visible on top of the
+        // tiles it frames. The exact set painted is snapshotted here, and DrawCountForCheck counts the
+        // paint, so a headless check can compare what was actually drawn with HighlightTilesForCheck's
+        // live set and catch a stale layer.
+        var highlights = HighlightTilesForCheck;
+        _lastDrawnHighlights = highlights;
+        _drawCount++;
+        foreach (var (x, y) in highlights)
         {
             var tile = new Rect2(_geometry.TileToPixelX(x), _geometry.TileToPixelY(y), _geometry.Scale, _geometry.Scale);
             DrawRect(tile, HighlightFillColor, true);
             DrawRect(tile, HighlightLineColor, false, 1f);
         }
+
+        var view = _viewRect;
+        DrawRect(new Rect2(view.X, view.Y, view.Width, view.Height), ViewRectColor, false, 1.5f);
     }
 }

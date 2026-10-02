@@ -48,6 +48,11 @@ public partial class ContextPanel : Control
     private string? _viewedNationId;
     private bool _viewedNationSet;
 
+    /// <summary>The status lines the last status-panel rebuild rendered — the panel's own output, not a
+    /// re-run of <see cref="NationStatusModel.Build"/>. Empty for All nations and for the "No nation."
+    /// branch; a check reads it to prove what the panel actually shows.</summary>
+    private IReadOnlyList<NationStatusLine> _viewedNationLines = Array.Empty<NationStatusLine>();
+
     public override void _Ready()
     {
         var panel = UiKit.MakePanel(UiKit.PanelColor);
@@ -92,6 +97,17 @@ public partial class ContextPanel : Control
     /// <summary>Whether the panel is showing the All nations view (no status panel).</summary>
     public bool ShowsAllNationsForCheck =>
         _selection.Kind == SelectionKind.None && EffectiveViewedNationId() is null;
+
+    /// <summary>The status lines the panel actually rendered for the viewed nation, or
+    /// <see langword="null"/> when a selection (a city, army, fleet or unit list) is showing instead.
+    /// This is the panel's own output, so a check can assert the public-facts rule at the panel rather
+    /// than re-running <see cref="NationStatusModel.Build"/>.</summary>
+    public IReadOnlyList<NationStatusLine>? ViewedNationLinesForCheck =>
+        _selection.Kind == SelectionKind.None ? _viewedNationLines : null;
+
+    /// <summary>Whether the viewed nation's rendered status panel carries a line with this key.</summary>
+    public bool HasViewedNationLineForCheck(string key) =>
+        ViewedNationLinesForCheck?.Any(line => string.Equals(line.Key, key, StringComparison.Ordinal)) == true;
 
     public void ShowCity(string cityId)
     {
@@ -202,6 +218,7 @@ public partial class ContextPanel : Control
     private void BuildViewedNationPanel()
     {
         var viewed = EffectiveViewedNationId();
+        _viewedNationLines = Array.Empty<NationStatusLine>();
         if (viewed is null)
         {
             Heading("All nations");
@@ -220,8 +237,9 @@ public partial class ContextPanel : Control
 
         Heading("Nation Overview");
         Fact(nation.Name);
-        foreach (var line in NationStatusModel.Build(
-            Session.State, Session.Ruleset, viewed, viewerNationId: Session.State.ActiveNationId))
+        _viewedNationLines = NationStatusModel.Build(
+            Session.State, Session.Ruleset, viewed, viewerNationId: Session.State.ActiveNationId);
+        foreach (var line in _viewedNationLines)
         {
             if (string.Equals(line.Key, NationStatusModel.TrainingHeaderKey, StringComparison.Ordinal))
             {
