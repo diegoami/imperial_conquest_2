@@ -90,8 +90,8 @@
     Do everything except post and label; print the review to stdout instead, and the exit code it
     would use (0, or 4 when the review would be posted flagged).
 .PARAMETER SelfTest
-    Run the review-parser samples (fix #575 DoD 4) and exit 0 when all match; no PR, no brief and
-    no OpenCode run.
+    Run the review-parser samples (fix #575 DoD 4) and the issue #590 prompt/agent checks, and exit 0
+    when all match; no PR, no brief and no OpenCode run.
 .PARAMETER StartupTimeoutSec
     How long a run may take to create its OpenCode session before it is killed (default 180).
 .PARAMETER TotalTimeoutSec
@@ -308,6 +308,39 @@ function Read-ReviewOutput {
     return [pscustomobject]@{ Ok = $true; Flagged = $false; Review = ((@($Header, $verdict, '') + $bodyLines + @('', $verdict)) -join "`n"); Verdict = $verdict }
 }
 
+function Get-ReviewOutputRules {
+    # The OUTPUT RULES the script appends to the reviewer's brief (issue #590). Factored out of the
+    # live path so -SelfTest can build and check the prompt text without an OpenCode run. The
+    # reviewer runs inside the worktree: it runs git there as it is, never passes -C and never
+    # types the worktree path (a mistyped 60-char path is an external_directory rejection that
+    # ends the run). It proves its tree before reviewing.
+    param([string] $Header, [string] $Worktree, [string] $HeadSha)
+    return @"
+
+---
+OUTPUT RULES (from scripts/external-review.ps1; they override anything above that conflicts):
+- Do not post to GitHub, edit, commit, push, label or merge anything. The script that runs you
+  posts your review and applies the label.
+- Your final message is the review and nothing else. Line 1 is exactly: $Header
+  Line 2 is the verdict, one of: approve, approve after named fixes, rework, user decision.
+  Then the findings (R1, R2, ... with file and line, blocking or not), then the verdict again
+  as the very last line. A review that does not end with the verdict line is treated as cut off:
+  the script still posts it, with a note, and applies no label.
+- Your working directory is the worktree the script started you in: $Worktree at $HeadSha. Run
+  git there as it is, without -C, and never type the worktree's path. Your first tool call prints
+  git rev-parse --show-toplevel, git rev-parse HEAD and git diff --name-only origin/main...HEAD.
+  The top level must be $($Worktree -replace '\\','/') -- git prints forward slashes, and slash
+  direction and letter case do not count -- HEAD must be $HeadSha, and the diff must not be empty.
+  Otherwise line 1 of your final message is still the header $Header, then it says you are in the
+  wrong tree and stops, with no verdict, so the script flags it instead of reporting no review.
+- Stay inside ${Worktree}: never read, list, write or run anything by a path outside it (not
+  TEMP, not your home directory, not another worktree). OpenCode rejects such a call and the
+  rejection ENDS your review. Scratch files go under rendered/ inside it. A mutation runs in
+  place, uncommitted, and is restored with git checkout -- <file>, run in the worktree, and a
+  clean rebuild.
+"@
+}
+
 function Invoke-ReviewParserSelfTest {
     # DoD 4 of fix #575 (rework round 2): the sample outputs through Read-ReviewOutput, each showing
     # what the script would do -- post and act, post flagged with no label, or fail. MustContain
@@ -374,7 +407,39 @@ function Invoke-ReviewParserSelfTest {
             Write-Host "     note line: > Note from scripts/external-review.ps1: $($r.FlagNote)"
         }
     }
-    Write-Host "self-test: $($samples.Count - $failed)/$($samples.Count) passed"
+    # --- issue #590: the reviewer runs git in its worktree, without -C ----------------------------
+    # The live prompt (this same function) must tell the reviewer to run git where it stands --
+    # no -C, no worktree path typed -- and to prove its tree with the named worktree, the named
+    # head commit and a non-empty diff. The worktree is built with Join-Path (backslashes) but
+    # `git rev-parse --show-toplevel` prints forward slashes, so the rules must show git's form
+    # and say slash direction and case do not count. The agent body says the same; only its
+    # permission block may mention git -C, and it must deny the plain push, commit, stash and
+    # worktree forms a bare git would otherwise allow (issue #590).
+    $sampleWorktree = 'C:\Users\diego\projects\ic2-work\590-external-review-deadbeef'
+    $sampleHead = '7a8574d'
+    $rules = Get-ReviewOutputRules -Header $h -Worktree $sampleWorktree -HeadSha $sampleHead
+    $agentPath = Join-Path $PSScriptRoot '../.opencode/agents/external-reviewer.md'
+    $agentText = Get-Content -Raw -LiteralPath $agentPath
+    $fm = [regex]::Match($agentText, '(?s)^---\r?\n(.*?)\r?\n---\r?\n(.*)$')
+    $agentPermissions = if ($fm.Success) { $fm.Groups[1].Value } else { '' }
+    $agentBody = if ($fm.Success) { $fm.Groups[2].Value } else { $agentText }
+    $ruleChecks = @(
+        [pscustomobject]@{ Name = 'prompt rules do not ask for git -C'; Ok = ($rules -notmatch 'git -C') },
+        [pscustomobject]@{ Name = 'agent body does not ask for git -C'; Ok = ($agentBody -notmatch 'git -C') },
+        [pscustomobject]@{ Name = 'prompt rules name the worktree';     Ok = ($rules -like "*$sampleWorktree*") },
+        [pscustomobject]@{ Name = 'prompt rules show git top-level form'; Ok = ($rules -like "*$($sampleWorktree -replace '\\','/')*") },
+        [pscustomobject]@{ Name = 'prompt rules name the head commit';  Ok = ($rules -like "*$sampleHead*") }
+    )
+    foreach ($perm in @('git push *', 'git commit*', 'git stash*', 'git worktree *', 'git -C * push*', 'git -C * commit*', 'git -C * stash*', 'git -C * worktree *')) {
+        $pattern = '(?m)^\s*' + [regex]::Escape('"' + $perm + '":') + '\s*deny\s*$'
+        $ruleChecks += [pscustomobject]@{ Name = "agent denies `"$perm`""; Ok = ($agentPermissions -match $pattern) }
+    }
+    foreach ($c in $ruleChecks) {
+        $n++
+        if (-not $c.Ok) { $failed++ }
+        Write-Host ("[{0,2}] {1}  {2}  -- {3}" -f $n, $(if ($c.Ok) { 'PASS' } else { 'FAIL' }), 'check', $c.Name)
+    }
+    Write-Host "self-test: $($n - $failed)/$n passed"
     if ($failed) { return 1 }
     return 0
 }
@@ -505,23 +570,7 @@ function Invoke-ReviewAttempt([string] $Name) {
     $model = $models[$Name]
     $variant = $variants[$Name]
     $header = if ($Reviewer -eq 'auto') { $briefHeader -replace '\([^()]*\)\s*$', "($($displayNames[$Name]))" } else { $briefHeader }
-    $rules = @"
-
----
-OUTPUT RULES (from scripts/external-review.ps1; they override anything above that conflicts):
-- Do not post to GitHub, edit, commit, push, label or merge anything. The script that runs you
-  posts your review and applies the label.
-- Your final message is the review and nothing else. Line 1 is exactly: $header
-  Line 2 is the verdict, one of: approve, approve after named fixes, rework, user decision.
-  Then the findings (R1, R2, ... with file and line, blocking or not), then the verdict again
-  as the very last line. A review that does not end with the verdict line is treated as cut off:
-  the script still posts it, with a note, and applies no label.
-- The worktree you are in is $worktree at $headSha. Pass git -C "$worktree" explicitly.
-- Stay inside ${worktree}: never read, list, write or run anything by a path outside it (not TEMP,
-  not your home directory, not another worktree). OpenCode rejects such a call and the rejection
-  ENDS your review. Scratch files go under rendered/ inside it. A mutation runs in place, uncommitted,
-  and is restored with git checkout -- and a clean rebuild.
-"@
+    $rules = Get-ReviewOutputRules -Header $header -Worktree $worktree -HeadSha $headSha
     $prompt = $header + "`n" + $briefRest + $rules
     $fail = { param($reason, $detail) [pscustomobject]@{ Ok = $false; Name = $Name; Model = $model; Header = $header; Reason = $reason; Detail = $detail } }
 
