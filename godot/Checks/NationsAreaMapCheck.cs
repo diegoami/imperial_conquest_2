@@ -146,8 +146,9 @@ public partial class NationsAreaMapCheck : Control
             (BetweenStepsFrames, ResetToRomeForFindCity),
             (BetweenStepsFrames, OpenFindCityAndChooseCapital),
             (BetweenStepsFrames, AssertFindCityCentredAndHighlighted),
-            (BetweenStepsFrames, PrepareHighlightRefreshAfterEnd),
-            (8, IssueEndTurnForHighlightRefresh),
+            (BetweenStepsFrames, AssertFindCityHighlightClearedOnNationChange),
+            (8, PrepareHighlightRefreshAfterEnd),
+            (12, IssueEndTurnForHighlightRefresh),
             (8, AssertHighlightRefreshAfterEnd),
             (BetweenStepsFrames, ViewCarthageBeforeTurnReset),
             (8, EndTurnAndAssertViewedNationReset),
@@ -496,6 +497,19 @@ public partial class NationsAreaMapCheck : Control
             "Show all's menu mark follows the toggle");
     }
 
+    // ---- N7: the Find a city highlight does not survive a nation change ----
+
+    private void AssertFindCityHighlightClearedOnNationChange()
+    {
+        Check(
+            _mainGame.AreaMapView.FindCityIdForCheck is not null,
+            "the chosen city is highlighted before the viewed nation changes");
+        _mainGame.MenuBar.PressItemForCheck("nations.carthage");
+        Check(
+            _mainGame.AreaMapView.FindCityIdForCheck is null,
+            "changing the viewed nation clears the Find a city highlight");
+    }
+
     // ---- B1: the highlights are redrawn from the live state after a command ----
 
     private void PrepareHighlightRefreshAfterEnd()
@@ -508,7 +522,6 @@ public partial class NationsAreaMapCheck : Control
 
         _mainGame.AreaMapView.SetFindCityHighlight(null);
         _mainGame.AreaMapView.SetHighlight(AreaMapHighlightKind.Armies, true);
-        _drawCountBeforeEnd = _mainGame.AreaMapView.DrawCountForCheck;
 
         Check(
             string.Equals(_mainGame.ViewedNationId, RomeId, StringComparison.Ordinal),
@@ -517,6 +530,10 @@ public partial class NationsAreaMapCheck : Control
 
     private void IssueEndTurnForHighlightRefresh()
     {
+        // The scenario's own SetHighlight queued a redraw; the plan waits before this step so it has
+        // settled, and only then is the draw count read. Otherwise the increase after "end" could be
+        // that queued redraw rather than the command's own refresh, and the check would pass vacuously.
+        _drawCountBeforeEnd = _mainGame.AreaMapView.DrawCountForCheck;
         _mainGame.SubmitForCheck("end");
         _expectedSessionCommands++;
     }
