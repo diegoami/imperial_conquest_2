@@ -41,6 +41,9 @@ News log:
   NORTHERN LEAGUE DECLARES WAR ON SOUTHERN LEAGUE.
   Southern League sinks fleet of Northern League.
 
+> transfer-money north-army-1 100
+economy.transfer-money accepted.
+
 > quit
 Goodbye.
 

@@ -4,4 +4,5 @@ move-fleet north-fleet-1 6 5
 attack-fleet north-fleet-1 south-fleet-1
 status
 news
+transfer-money north-army-1 100
 quit
