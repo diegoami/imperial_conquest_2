@@ -15,8 +15,8 @@ namespace IC2.Slice.Checks;
 /// <item>the map really reached <see cref="GameMapView.MaxZoom"/> and its terrain drawing really does
 /// extend past its own rect at that zoom (the bug's precondition, so the clipping assertion below is
 /// not vacuous);</item>
-/// <item>the main toolbar's <c>Save</c> and <c>End turn</c> buttons stay outside the map's rect, centre
-/// and bounds both;</item>
+/// <item>the main toolbar's <c>Save</c> and <c>End turn</c> buttons, and the menu bar itself, stay
+/// outside the map's rect, centre and bounds both;</item>
 /// <item><see cref="Control.ClipContents"/> is set on the map, the mechanism that keeps every tile and
 /// marker inside that rect;</item>
 /// <item>Godot resolves <c>display/window/stretch/aspect</c> to <c>expand</c> and
@@ -130,6 +130,13 @@ public partial class MapClipCheck : Control
                 !rect.Intersects(mapRect),
                 $"the main toolbar's '{label}' button rect {rect} does not overlap the map's rect {mapRect}");
         }
+
+        // Rework N10: the menu bar sits above the toolbar and the map, and must not overlap the map
+        // either, so a menu title can never cover the map's own tiles.
+        var menuBarRect = _mainGame.MenuBar.GetGlobalRect();
+        ok &= Check(
+            !menuBarRect.Intersects(mapRect),
+            $"the menu bar's rect {menuBarRect} does not overlap the map's rect {mapRect}");
 
         ok &= Check(
             map.ClipContents,

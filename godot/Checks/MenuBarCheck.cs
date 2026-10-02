@@ -18,7 +18,7 @@ namespace IC2.Slice.Checks;
 /// Shift+X clears a selection;</item>
 /// <item>Done-when 6 — every enabled toolbar button has a non-empty tooltip with hints on, none with
 /// Show hints off, and the menu item's check mark follows;</item>
-/// <item>Done-when 7 — a disabled menu entry and a disabled toolbar button issue no command.</item>
+/// <item>Done-when 7 — every disabled menu entry and toolbar button issues no command;</item>
 /// </list>
 /// Run headless via:
 /// <code>
@@ -179,6 +179,30 @@ public partial class MenuBarCheck : Control
         CheckSubmenu("Unit map", "Fleet");
         CheckSubmenu("Unit map", "City");
         CheckSubmenu("Area map", "Show mercenaries");
+
+        CheckCancelSelectionShortcut();
+    }
+
+    /// <summary>
+    /// Rework N5: the Cancel selection row's <see cref="GameCommandRow.Shortcut"/> is shown as Godot's
+    /// menu accelerator (the Shift+X bit), and the item still lives in the Unit map menu.
+    /// </summary>
+    private void CheckCancelSelectionShortcut()
+    {
+        var unitMap = _mainGame.MenuBar.MenuForCheck("Unit map");
+        var index = unitMap is null ? -1 : FindItemIndex(unitMap, "Cancel selection");
+        Check(index >= 0, "the Unit map menu has a Cancel selection entry");
+        if (index < 0)
+        {
+            return;
+        }
+
+        var accelerator = unitMap!.GetItemAccelerator(index);
+        var shift = ((long)accelerator & (long)KeyModifierMask.MaskShift) != 0;
+        var code = (Key)((long)accelerator & ~(long)KeyModifierMask.MaskShift);
+        Check(
+            shift && code == Key.X,
+            $"Cancel selection shows the Shift+X accelerator (got 0x{(long)accelerator:X}: shift={shift}, code={code})");
     }
 
     private void CheckSubmenu(string menu, string submenu)
@@ -216,16 +240,39 @@ public partial class MenuBarCheck : Control
         _beforeIssued = _mainGame.CommandTable.IssuedCount;
         _beforeCommands = _commandsSeen;
 
-        var menuPressed = _mainGame.MenuBar.PressItemForCheck("strategy.taxation");
-        var toolbarPressed = _mainGame.Toolbar.PressForCheck("strategy.taxation");
-        var nationPressed = _mainGame.Toolbar.PressForCheck("nations.rome");
+        // Rework N2: sweep every disabled control, not a three-entry sample. Each press goes through
+        // the same disabled guard a real click does (PressItemForCheck / PressForCheck refuse to emit
+        // when the control is disabled), so the counts below must not move over any of them.
+        var disabledMenuRows = GameCommandTable.Rows.Where(row => !row.Wired).ToList();
+        var disabledToolbarCommands = _mainGame.Toolbar.DisabledCommandIds;
+        Check(
+            disabledMenuRows.Count > 0,
+            $"the table has disabled menu entries to sweep ({disabledMenuRows.Count})");
+        Check(
+            disabledToolbarCommands.Count > 0,
+            $"the toolbar has disabled buttons to sweep ({disabledToolbarCommands.Count})");
 
-        Check(!menuPressed, "the disabled Taxation menu entry reports it was not pressed");
-        Check(!toolbarPressed, "the disabled Taxation toolbar button reports it was not pressed");
-        Check(!nationPressed, "the disabled nation toolbar button reports it was not pressed");
+        var menuPresses = disabledMenuRows
+            .Where(row => _mainGame.MenuBar.PressItemForCheck(row.Id))
+            .Select(row => row.Id)
+            .ToList();
+        Check(
+            menuPresses.Count == 0,
+            $"every one of the {disabledMenuRows.Count} disabled menu entries refuses the press "
+            + $"(pressed: {(menuPresses.Count == 0 ? "<none>" : string.Join(", ", menuPresses))})");
+
+        var toolbarPresses = disabledToolbarCommands
+            .Where(_mainGame.Toolbar.PressForCheck)
+            .ToList();
+        Check(
+            toolbarPresses.Count == 0,
+            $"every one of the {disabledToolbarCommands.Count} disabled toolbar buttons refuses the press "
+            + $"(pressed: {(toolbarPresses.Count == 0 ? "<none>" : string.Join(", ", toolbarPresses))})");
+
         Check(
             _mainGame.CommandTable.IssuedCount == _beforeIssued,
-            $"no disabled entry reached the table's handler ({_beforeIssued} -> {_mainGame.CommandTable.IssuedCount})");
+            $"no disabled entry of the {disabledMenuRows.Count + disabledToolbarCommands.Count} reached the "
+            + $"table's handler ({_beforeIssued} -> {_mainGame.CommandTable.IssuedCount})");
         Check(
             _commandsSeen == _beforeCommands,
             $"no disabled entry issued a session command ({_beforeCommands} -> {_commandsSeen})");
@@ -311,6 +358,7 @@ public partial class MenuBarCheck : Control
     private void PressShiftX()
     {
         _beforeCleared = _selectionsCleared;
+        _beforeIssued = _mainGame.CommandTable.IssuedCount;
         _mainGame._UnhandledInput(new InputEventKey
         {
             Keycode = Key.X,
@@ -319,10 +367,16 @@ public partial class MenuBarCheck : Control
         });
     }
 
-    private void AssertShiftXCleared() =>
+    private void AssertShiftXCleared()
+    {
         Check(
             _selectionsCleared > _beforeCleared,
             "Shift+X clears the selection (GameMapView.SelectionCleared fired)");
+        Check(
+            _mainGame.CommandTable.IssuedCount == _beforeIssued + 1,
+            "Shift+X runs the table's Cancel selection handler, the menu item's own path "
+            + $"({_beforeIssued} -> {_mainGame.CommandTable.IssuedCount})");
+    }
 
     // ---- Done-when 3 ----
 

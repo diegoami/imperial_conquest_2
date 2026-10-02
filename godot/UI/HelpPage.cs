@@ -47,7 +47,7 @@ public partial class HelpPage : Control
         AddSection(column, "Controls");
         AddLine(column, "Left click: select your army, fleet or city; click a target to give the selected unit an order.");
         AddLine(column, "Right click: show the clicked city's, army's or fleet's unit list.");
-        AddLine(column, "Mouse wheel: zoom the map. Drag with the middle button: pan.");
+        AddLine(column, "Mouse wheel: zoom the map. Drag with the left button: pan.");
         AddLine(column, "Esc or Shift+X: cancel the current selection.");
 
         AddSection(column, "Menus");

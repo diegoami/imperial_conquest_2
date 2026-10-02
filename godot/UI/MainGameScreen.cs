@@ -19,7 +19,8 @@ namespace IC2.Slice.UI;
 /// (<see cref="GameSession.Submit"/>'s own new <see cref="SessionOutput.Battles"/>, read from
 /// <see cref="OnCommandIssued"/> so it fires whichever control actually issued the command —
 /// <see cref="GameMapView"/>'s own map-click attack, or a future control of this screen's own), the
-/// <see cref="Screens.DiplomacyScreen"/> from the bottom toolbar's own "Diplomacy" button, and the
+/// <see cref="Screens.DiplomacyScreen"/> from the Strategy menu's International relations entry (or its
+/// toolbar button), and the
 /// <see cref="Screens.HotseatHandoffScreen"/> whenever <see cref="GameState.ActiveNationId"/> passes from
 /// one human seat to a different one (<see cref="HotseatHandoffDetector"/>).
 /// </remarks>
@@ -69,14 +70,9 @@ public partial class MainGameScreen : Control
     /// <c>godot/Checks/MapClipCheck.cs</c> to read the moved Save/End turn buttons.</summary>
     public CommandToolbar Toolbar { get; private set; } = null!;
 
-    /// <summary>
-    /// T100 Done-when 7: how many commands the session has been asked to run from this screen — every
-    /// path funnels through <see cref="OnCommandIssued"/>. The menu bar and toolbar raise
-    /// <see cref="CommandIssued"/> from there, so a check can assert a disabled entry issues none.
-    /// </summary>
-    public int CommandCount { get; private set; }
-
-    /// <summary>Raised after any command issued through this screen, with the session's own output lines.</summary>
+    /// <summary>Raised after any command issued through this screen, with the session's own output lines.
+    /// The menu bar and toolbar raise it from <see cref="OnCommandIssued"/>, so a check can assert a
+    /// disabled entry issues none (T100 Done-when 7).</summary>
     public event Action<IReadOnlyList<string>>? CommandIssued;
 
     /// <summary>
@@ -409,7 +405,7 @@ public partial class MainGameScreen : Control
     private void OnEndTurnPressed() => SubmitForCheck("end");
 
     /// <summary>
-    /// The "Save" button — <c>docs/tasks/T95.md</c> (#467), Done-when 1: writes the current game to a
+    /// The Save command (File → Save, and the toolbar's Save button) — <c>docs/tasks/T95.md</c> (#467), Done-when 1: writes the current game to a
     /// file under <c>user://saves</c> <strong>[designed]</strong>, the same per-user directory
     /// <see cref="LoadGameScreen"/> already lists <c>*.json</c> saves from. Routed through
     /// <see cref="GameSession.Submit"/>'s own <c>save &lt;path&gt;</c> command (<c>GameSession.Commands.cs</c>)
@@ -533,7 +529,6 @@ public partial class MainGameScreen : Control
         // the round footer's News: section, trimmed, with whitespace-only spacer lines dropped. Every
         // input path -- map click, context-panel button, End Turn, SubmitForCheck, Save -- funnels
         // through here.
-        CommandCount++;
         CommandIssued?.Invoke(lines);
 
         var outcome = CommandOutcomeText.OutcomeBlock(lines);
@@ -605,9 +600,20 @@ public partial class MainGameScreen : Control
             return;
         }
 
-        var cancel = @event is InputEventKey { Pressed: true, Keycode: Key.Escape }
-            || @event is InputEventKey { Pressed: true, Keycode: Key.X, ShiftPressed: true };
-        if (cancel)
+        // Shift+X is the Unit map → Cancel selection row's own shortcut, so the key goes through the
+        // table's one handler — the same path the menu item and its toolbar icon take, and the same
+        // IssuedCount the check reads (T100 Done-when 5 and rework N5).
+        if (@event is InputEventKey { Pressed: true, Keycode: Key.X, ShiftPressed: true })
+        {
+            if (CommandTable.TryInvoke("unit_map.cancel_selection"))
+            {
+                GetViewport().SetInputAsHandled();
+            }
+
+            return;
+        }
+
+        if (@event is InputEventKey { Pressed: true, Keycode: Key.Escape })
         {
             _mapView.ClearSelection();
             GetViewport().SetInputAsHandled();
@@ -682,8 +688,8 @@ public partial class MainGameScreen : Control
     }
 
     /// <summary>
-    /// T25: opens <see cref="Screens.DiplomacyScreen"/> — the bottom toolbar's own "Diplomacy" button
-    /// calls this directly. Public, rather than only reachable through that button, so a headless check
+    /// T25: opens <see cref="Screens.DiplomacyScreen"/> — the Strategy menu's International relations entry and its toolbar button
+    /// call this. Public, rather than only reachable through them, so a headless check
     /// can call it directly too (<c>godot/Screens/Checks/**</c>) — the same convention
     /// <see cref="SubmitForCheck"/> already establishes for driving a command.
     /// </summary>

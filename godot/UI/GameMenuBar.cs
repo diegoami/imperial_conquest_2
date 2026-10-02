@@ -158,6 +158,10 @@ public partial class GameMenuBar : HBoxContainer
         popup.AddItem(row.Caption, id);
         popup.SetItemDisabled(index, !row.Wired);
         popup.SetItemChecked(index, string.Equals(row.Id, "help.show_hints", StringComparison.Ordinal) && _hintsEnabled);
+        if (row.Shortcut is { } shortcut && AcceleratorFor(shortcut) is { } accelerator)
+        {
+            popup.SetItemAccelerator(index, accelerator);
+        }
 
         var commandId = row.Id;
         var itemId = id;
@@ -171,6 +175,19 @@ public partial class GameMenuBar : HBoxContainer
 
         _items[row.Id] = (popup, index, id);
     }
+
+    /// <summary>
+    /// Godot's accelerator for a row's <see cref="GameCommandRow.Shortcut"/> string, or
+    /// <see langword="null"/> when the table names no shortcut (or names one whose modifier this parser
+    /// does not know). Only <c>Shift+X</c> is confirmed (audit §1.6); every other menu shortcut lives in
+    /// the EXE's unread form stream (audit §5, gap 2), so this deliberately knows the one form rather
+    /// than inventing a shortcut grammar from a stream nobody has read.
+    /// </summary>
+    public static Key? AcceleratorFor(string shortcut) => shortcut switch
+    {
+        "Shift+X" => (Key)((long)Key.X | (long)KeyModifierMask.MaskShift),
+        _ => null,
+    };
 
     private void ApplyHints()
     {

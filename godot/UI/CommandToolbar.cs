@@ -61,6 +61,11 @@ public partial class CommandToolbar : PanelContainer
     /// <c>godot/Checks/MenuBarCheck.cs</c> and <c>godot/Checks/MapClipCheck.cs</c>.</summary>
     public IReadOnlyList<Button> Buttons { get; private set; } = Array.Empty<Button>();
 
+    /// <summary>The command ids of the toolbar's disabled buttons — the sweep
+    /// <c>godot/Checks/MenuBarCheck.cs</c> runs to prove every disabled button refuses a press (T100
+    /// Done-when 7 / rework N2).</summary>
+    public IReadOnlyList<string> DisabledCommandIds { get; private set; } = Array.Empty<string>();
+
     private readonly Dictionary<string, Button> _buttonByCommand = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _captionByCommand = new(StringComparer.Ordinal);
     private bool _hintsEnabled = true;
@@ -84,6 +89,10 @@ public partial class CommandToolbar : PanelContainer
         }
 
         Buttons = _buttonByCommand.Values.ToList();
+        DisabledCommandIds = _buttonByCommand
+            .Where(entry => entry.Value.Disabled)
+            .Select(entry => entry.Key)
+            .ToList();
         ApplyHints();
     }
 

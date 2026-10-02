@@ -84,7 +84,7 @@ public sealed class GameCommandTableTests
         ("Unit map", "Fleet", "Repair fleet"),
         ("Unit map", "Fleet", "Transfer ships"),
         ("Unit map", "Fleet", "Split fleet"),
-        ("Unit map", "Fleet", "Join fleet"),
+        ("Unit map", "Fleet", "Join fleets"),
         ("Unit map", "Fleet", "Scuttle fleet"),
         ("Unit map", "City", "Fortify city"),
         ("Unit map", null, "Cancel selection"),
