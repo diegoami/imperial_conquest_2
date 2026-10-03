@@ -39,7 +39,8 @@
     Before the run's tail it prints the model that ran ("implemented by: <name>"); the review passes it to
     external-review.ps1 as -ExcludeModel, so the reviewer is never the implementer's model.
     The script never merges, labels or reviews; the main session does those (Appendix C).
-    It runs on OpenCode 1.x (the npm CLI) or 2.x (the desktop app's CLI): see
+    It runs on OpenCode 1.x (the npm CLI, the default) or 2.x (the desktop app's CLI, opt-in through
+    IC2_OPENCODE_EXE): see
     scripts/Invoke-OpenCodeWatched.ps1 for which one runs and how its arguments differ.
     The same agent file (.opencode/agents/external-implementer.md) serves both.
 

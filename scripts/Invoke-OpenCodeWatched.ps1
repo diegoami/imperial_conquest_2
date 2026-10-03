@@ -41,9 +41,11 @@
 
     Only processes this function started are ever killed (taskkill /T on their own PIDs).
 
-    OpenCode 1.x and 2.x (T98). Which CLI runs: IC2_OPENCODE_EXE, else the newest
-    %APPDATA%\ai.opencode.desktop\cli\<version>\opencode-cli.exe (the desktop app's 2.x), else the
-    npm CLI (1.x). `--version` is read once per executable (Get-OpenCodeCli); the arguments are
+    OpenCode 1.x and 2.x (T98). Which CLI runs (user decision of 2026-10-03: prefer the npm 1.x CLI
+    until a 2.x OpenCode Go login is proven): IC2_OPENCODE_EXE, else the npm CLI (1.x), else, only on
+    a machine without npm, the newest %APPDATA%\ai.opencode.desktop\cli\<version>\opencode-cli.exe
+    (the desktop app's 2.x). 2.x is opt-in through IC2_OPENCODE_EXE. The log line names the CLI and
+    why it was chosen. `--version` is read once per executable (Get-OpenCodeCli); the arguments are
     built by the major version (Get-OpenCodeRunArguments); an unknown major fails with
     Reason 'unsupported opencode version' (the callers exit 3). 2.x differs from 1.x in four ways
     the watcher depends on: `run --dir` is gone (the process's own working directory is used), the
@@ -192,7 +194,7 @@ function Get-OpenCodeCli {
     # bills a model for nothing.
     $exe = Resolve-OpenCodeExe
     if (-not $script:OpenCodeCliCache) { $script:OpenCodeCliCache = @{} }
-    if ($script:OpenCodeCliCache.ContainsKey($exe)) { return $script:OpenCodeCliCache[$exe] }
+    if ($script:OpenCodeCliCache.ContainsKey($exe)) { $script:OpenCodeCliCache[$exe].Why = $script:OpenCodeExeWhy; return $script:OpenCodeCliCache[$exe] }
     $text = ''
     try {
         $psi = [System.Diagnostics.ProcessStartInfo]::new($exe, '--version')
@@ -221,7 +223,7 @@ function Get-OpenCodeCli {
     if ($major -ne 1 -and $major -ne 2) {
         throw (New-OpenCodeFailure "unsupported opencode version $($Matches[0])" "OpenCode $($Matches[0]) ($exe) is not supported: these scripts build arguments for OpenCode 1.x and 2.x only. Set IC2_OPENCODE_EXE to a supported CLI.")
     }
-    $cli = [pscustomobject]@{ Exe = $exe; Version = "$($Matches[1]).$($Matches[2]).$($Matches[3])"; Major = $major }
+    $cli = [pscustomobject]@{ Exe = $exe; Version = "$($Matches[1]).$($Matches[2]).$($Matches[3])"; Major = $major; Why = $script:OpenCodeExeWhy }
     $script:OpenCodeCliCache[$exe] = $cli
     return $cli
 }
@@ -259,33 +261,51 @@ function Get-OpenCodeExportArguments([int] $Major, [string] $SessionId) {
 function Resolve-OpenCodeExe {
     # The real executable, never the npm shim: `opencode.cmd` cannot carry a multi-line prompt
     # through cmd.exe, and killing the shim's process would leave opencode.exe running.
-    # IC2_OPENCODE_EXE wins; then the newest opencode-cli.exe the desktop app bundles (2.x), then
-    # the npm CLI (1.x) -- a machine without the desktop app has only npm (T98).
+    # Which CLI runs (user decision of 2026-10-03: prefer the npm 1.x CLI until a 2.x OpenCode Go
+    # login is proven): IC2_OPENCODE_EXE wins; otherwise the npm CLI (1.x); only on a machine
+    # without npm, the newest opencode-cli.exe the desktop app bundles (2.x). The reason is kept in
+    # $script:OpenCodeExeWhy for the log line.
     if ($env:IC2_OPENCODE_EXE) {
-        if (Test-Path -LiteralPath $env:IC2_OPENCODE_EXE) { return (Resolve-Path -LiteralPath $env:IC2_OPENCODE_EXE).Path }
+        if (Test-Path -LiteralPath $env:IC2_OPENCODE_EXE) {
+            $script:OpenCodeExeWhy = 'IC2_OPENCODE_EXE is set'
+            return (Resolve-Path -LiteralPath $env:IC2_OPENCODE_EXE).Path
+        }
         throw (New-OpenCodeFailure 'opencode not found' "IC2_OPENCODE_EXE points at a missing file: $env:IC2_OPENCODE_EXE")
     }
+    $npm = Find-OpenCodePathExe
+    if ($npm.Exe) {
+        $script:OpenCodeExeWhy = 'the npm CLI on PATH, preferred over the desktop app until a 2.x opencode-go login is proven'
+        return $npm.Exe
+    }
     $desktop = Get-OpenCodeDesktopExe
-    if ($desktop) { return $desktop }
+    if ($desktop) {
+        $script:OpenCodeExeWhy = 'the newest desktop app CLI, because no npm CLI was found'
+        return $desktop
+    }
+    throw (New-OpenCodeFailure 'opencode not found' $npm.Problem)
+}
+
+function Find-OpenCodePathExe {
+    # The npm CLI's real executable from PATH: @{ Exe = <path> } or @{ Exe = $null; Problem = <why not> }.
     $found = @(Get-Command opencode -All -ErrorAction SilentlyContinue)
-    if (-not $found) { throw (New-OpenCodeFailure 'opencode not found' 'opencode is not on PATH.') }
+    if (-not $found) { return @{ Exe = $null; Problem = 'opencode is not on PATH, and the desktop app has no CLI under %APPDATA%\ai.opencode.desktop\cli.' } }
     foreach ($c in $found) {
-        if ($c.Source -and $c.Source -like '*.exe') { return $c.Source }
+        if ($c.Source -and $c.Source -like '*.exe') { return @{ Exe = $c.Source } }
     }
     foreach ($c in $found) {
         if (-not $c.Source) { continue }
         $dir = Split-Path $c.Source -Parent
         # The npm layout: <prefix>\opencode.cmd -> <prefix>\node_modules\opencode-ai\bin\opencode.exe
         $npmExe = Join-Path $dir 'node_modules\opencode-ai\bin\opencode.exe'
-        if (Test-Path -LiteralPath $npmExe) { return $npmExe }
+        if (Test-Path -LiteralPath $npmExe) { return @{ Exe = $npmExe } }
         # Any other shim: take the .exe path it names, relative to its own directory.
         $text = Get-Content -Raw -LiteralPath $c.Source -ErrorAction SilentlyContinue
         if ($text -match '(?:%dp0%|\$basedir)[\\/]+([^"\s]+?\.exe)') {
             $exe = Join-Path $dir ($Matches[1] -replace '/', '\')
-            if (Test-Path -LiteralPath $exe) { return $exe }
+            if (Test-Path -LiteralPath $exe) { return @{ Exe = $exe } }
         }
     }
-    throw (New-OpenCodeFailure 'opencode not found' "Could not find opencode.exe behind $($found[0].Source); set IC2_OPENCODE_EXE to it.")
+    return @{ Exe = $null; Problem = "Could not find opencode.exe behind $($found[0].Source); set IC2_OPENCODE_EXE to it." }
 }
 
 function ConvertTo-OpenCodeArgument([string] $Value) {
@@ -395,12 +415,16 @@ function Initialize-OpenCodeDataHome {
     # to <root>\data (cache and state beside it); without this move the 1.x lane would lose its login
     # and every opencode-go run would fail "Provider not found". Moved once, before any process
     # starts, only for 1.x, and only when the old folder exists and the new one does not (so it is
-    # idempotent, and never merges two databases).
+    # idempotent, and never merges two databases). The move is atomic: it either happens whole or not at all.
     $oldDir = Join-Path $root 'opencode'
     if ($Major -eq 1 -and (Test-Path -LiteralPath $oldDir) -and -not (Test-Path -LiteralPath $dataDir)) {
         try {
             New-Item -ItemType Directory -Force -Path $dirs.XDG_DATA_HOME | Out-Null
-            Move-Item -LiteralPath $oldDir -Destination $dataDir -ErrorAction Stop
+            # ONE atomic rename, never Move-Item: when a file inside is open (SQLite holds the database
+            # open; an older run may still be using it) Move-Item falls back to moving file by file,
+            # leaving a split folder that the guard above then never retries. Directory.Move moves
+            # everything or nothing, so a failure leaves <root>\opencode whole and the next run retries.
+            [System.IO.Directory]::Move($oldDir, $dataDir)
         } catch {
             throw (New-OpenCodeFailure 'data directory migration failed' "Could not move the old 1.x data directory $oldDir to $dataDir ($($_.Exception.Message)). Is an older OpenCode run still using it? Nothing was started.")
         }
@@ -498,7 +522,7 @@ function Invoke-OpenCodeWatched {
     $ocArgs = Get-OpenCodeRunArguments -Major $cli.Major -WorkDir $WorkDir -Agent $Agent -Model $Model -Variant $Variant -Title $fullTitle
     if ($WhatIf) {
         $line = ($ocArgs | ForEach-Object { ConvertTo-OpenCodeArgument $_ }) -join ' '
-        Write-Host "opencode $($cli.Version) ($($cli.Exe)), working directory $WorkDir"
+        Write-Host "opencode $($cli.Version) ($($cli.Exe); $($cli.Why)), working directory $WorkDir"
         Write-Host "  would run: $line <prompt, $($Prompt.Length) characters>"
         return [pscustomobject]@{ WhatIf = $true; Exe = $cli.Exe; Version = $cli.Version; Major = $cli.Major; ArgumentLine = "$line <prompt>"; Arguments = $ocArgs }
     }
@@ -550,7 +574,7 @@ function Invoke-OpenCodeRun {
 
     $startedMs = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
     $clock = [System.Diagnostics.Stopwatch]::StartNew()
-    Write-Host "opencode: running $($Cli.Version) ($($Cli.Major).x arguments) from $exe"
+    Write-Host "opencode: running $($Cli.Version) ($($Cli.Major).x arguments) from $exe ($($Cli.Why))"
     $p = Start-Process -FilePath $exe -ArgumentList $argLine -WorkingDirectory $WorkDir -NoNewWindow -PassThru `
         -RedirectStandardInput $inFile -RedirectStandardOutput $outFile -RedirectStandardError $errFile
     $null = $p.Handle   # keeps the handle, so ExitCode is readable after the exit
