@@ -3,6 +3,19 @@ description: Implementer for one Imperial Conquest 2 task or fix, run by scripts
 mode: all
 permission:
   edit: allow
+  # The guard that keeps a run inside its worktree (issue #501). The user's global opencode.json
+  # allows external_directory everywhere, which would switch it off, so each agent asks (a run
+  # auto-rejects an ask, and the rejection is what the scripts report), and then re-allows
+  # OpenCode's own spill directories for long tool output. Last match wins, so the allows follow.
+  # The allows are as narrow as a static file can make them: the scripts' data directory is always
+  # <root>\data\opencode, so they match only <anything>\data\opencode\tool-output\ and
+  # ...\data\opencode\shell\ (either separator), not the desktop app's own ~\.local\share\opencode.
+  # The run's exact root is not known to a tracked file (IC2_OPENCODE_DATA_HOME can move it).
+  # OpenCode 1.x and 2.x both read this one format; 2.x maps bash to shell and task to subagent.
+  external_directory:
+    "*": ask
+    "*?data?opencode?tool-output?*": allow
+    "*?data?opencode?shell?*": allow
   task:
     "*": deny
   bash:

@@ -39,6 +39,10 @@
     Before the run's tail it prints the model that ran ("implemented by: <name>"); the review passes it to
     external-review.ps1 as -ExcludeModel, so the reviewer is never the implementer's model.
     The script never merges, labels or reviews; the main session does those (Appendix C).
+    It runs on OpenCode 1.x (the npm CLI, the default) or 2.x (the desktop app's CLI, opt-in through
+    IC2_OPENCODE_EXE): see
+    scripts/Invoke-OpenCodeWatched.ps1 for which one runs and how its arguments differ.
+    The same agent file (.opencode/agents/external-implementer.md) serves both.
 
     Model names -> OpenCode model ids (`opencode models` lists what this machine has). The runs
     are on OpenCode Go, `opencode-go/…`, per the user's decision of 2026-10-01 (issue #551), except
@@ -72,6 +76,9 @@
     How long the run's session may go without its `updated` time advancing before the run is
     killed (default 900; 0 disables). `updated` advances at each step boundary, not while a tool
     runs or a reply streams, so this must exceed the longest single step (a long generation).
+.PARAMETER WhatIf
+    Print each chain model's OpenCode argument line (the CLI's version decides its syntax) and exit 0,
+    without creating a worktree, starting a run or billing a model (it does start `opencode --version`, in its own scratch directories).
 .PARAMETER ModelIds
     Overrides of the model name -> model id map, e.g. @{ 'deepseek-flash' = 'opencode-go/deepseek-v4.2-flash' },
     for when `opencode models` shows a different id (or, in a test, a bad id to exercise the chain).
@@ -94,6 +101,7 @@ param(
     [int] $StartupTimeoutSec = 180,
     [int] $TotalTimeoutSec = 10800,
     [int] $IdleTimeoutSec = 900,
+    [switch] $WhatIf,
     [hashtable] $ModelIds
 )
 
@@ -120,8 +128,8 @@ $models = @{
     'mimo-flash'      = 'opencode-go/mimo-v2.6-flash'
 }
 if ($ModelIds) { foreach ($k in $ModelIds.Keys) { $models[$k] = $ModelIds[$k] } }
-# Provider-specific variant, passed as `--variant` (the docs' flag; a `#variant` suffix on the
-# model id is not documented). Empty means none. Effort is `high` everywhere (issue #575: `max`
+# Provider-specific variant. Invoke-OpenCodeWatched passes it by the CLI's major version (1.x
+# `--variant v`, 2.x the model's `#v` suffix). Empty means none. Effort is `high` everywhere (issue #575: `max`
 # is overkill); luna was already high.
 $variants = @{ 'luna' = 'high'; 'glm-flash' = 'high'; 'glm' = 'high'; 'deepseek-flash' = 'high'; 'mimo-pro' = ''; 'mimo-flash' = '' }
 # The fallback chain (the user's decision of 2026-10-01, issue #575): DeepSeek V4.1 Flash alone,
@@ -133,11 +141,22 @@ if (-not $Task -and -not $Fix) { throw 'Give -Task T<nn> or -Fix <issue>.' }
 if ($Task -and $Fix) { throw '-Task and -Fix are mutually exclusive.' }
 if ($Task -and $Task -notmatch '^T\d{2,3}$') { throw "-Task must look like T24; got $Task" }
 if (-not (Test-Path $BriefFile)) { throw "Brief not found: $BriefFile" }
-# OpenCode not installed or not found: the same exit 3 as every model failing.
-try { $null = Resolve-OpenCodeExe } catch {
+# OpenCode not installed or not found, or a major version this script has no arguments for (only 1.x
+# and 2.x): the same exit 3 as every model failing. The version is read once (T98).
+try { $cli = Get-OpenCodeCli } catch {
     if (-not (Test-OpenCodeInfraFailure $_)) { throw }
     [Console]::Error.WriteLine("OpenCode unavailable: $($_.Exception.Message) The task falls back to Claude Sonnet (operating-guide §3).")
     exit 3
+}
+if ($WhatIf) {
+    # No worktree, no OpenCode, no billing: only the argument line each chain model would get.
+    $whatIfPrompt = Get-Content -Raw -LiteralPath $BriefFile
+    foreach ($m in $chain) {
+        Write-Host "would attempt: $m"
+        $null = Invoke-OpenCodeWatched -WhatIf -Agent 'external-implementer' -Model $models[$m] -Variant $variants[$m] -Prompt $whatIfPrompt `
+            -WorkDir (Get-Location).Path -Title "ic2-$(if ($Task) { $Task } else { "fix-$Fix" })-$m"
+    }
+    exit 0
 }
 foreach ($tool in 'gh', 'git') { if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) { throw "$tool is not on PATH." } }
 
@@ -229,19 +248,18 @@ $implementedBy = $null
 $attempt = 0
 foreach ($m in $chain) {
     $attempt++
-    $ocArgs = @('run', '--dir', $worktree, '--agent', 'external-implementer', '--model', $models[$m])
-    if ($variants[$m]) { $ocArgs += @('--variant', $variants[$m]) }
-    Write-Host "attempt $attempt/$($chain.Count): $m ($($models[$m]))$(if ($variants[$m]) { " with --variant $($variants[$m])" })"
+    Write-Host "attempt $attempt/$($chain.Count): $m ($($models[$m]))$(if ($variants[$m]) { " with variant $($variants[$m])" }), OpenCode $($cli.Version)"
     $reason = $null
     try {
-        $run = Invoke-OpenCodeWatched -Arguments $ocArgs -Prompt $prompt -WorkDir $worktree -Title "ic2-$name-$m" `
+        $run = Invoke-OpenCodeWatched -Agent 'external-implementer' -Model $models[$m] -Variant $variants[$m] -Prompt $prompt -WorkDir $worktree -Title "ic2-$name-$m" `
             -StartupTimeoutSec $StartupTimeoutSec -TotalTimeoutSec $TotalTimeoutSec -IdleTimeoutSec $IdleTimeoutSec
         $output = $run.Output
-        if ($run.ExitCode -ne 0) { $reason = "exit $($run.ExitCode)" }
+        # A rejected tool call ends the run (issue #501): exit 0 under 1.x, exit 1 under 2.x. It is
+        # named by its path, and checked first so the 2.x exit 1 does not hide it as a plain "exit 1".
+        if ($run.PermissionRejected) { $reason = "permission rejected: $($run.PermissionRejected)" }
+        elseif ($run.ExitCode -ne 0) { $reason = "exit $($run.ExitCode)" }
         # OpenCode's own evidence (its stderr warning, the session's recorded agent), never the model's words.
         elseif ($run.AgentFallback) { $reason = 'fell back to the default agent' }
-        # A rejected tool call ends the run with exit 0 (issue #501): a failure, named by its path.
-        elseif ($run.PermissionRejected) { $reason = "permission rejected: $($run.PermissionRejected)" }
     } catch {
         # Only OpenCode's own failures advance the chain; anything else is rethrown (exit 1).
         if (-not (Test-OpenCodeInfraFailure $_)) { throw }

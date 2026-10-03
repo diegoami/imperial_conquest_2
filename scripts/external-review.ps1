@@ -89,6 +89,11 @@
 .PARAMETER DryRun
     Do everything except post and label; print the review to stdout instead, and the exit code it
     would use (0, or 4 when the review would be posted flagged).
+.PARAMETER WhatIf
+    Print each chain reviewer's OpenCode argument line (the CLI's version decides its syntax) and exit 0,
+    without fetching the PR, creating a worktree, starting a run or billing a model. Unlike -DryRun,
+    which runs the reviewer (and bills it), this starts only `opencode --version`, in its own scratch directories. The chain shown is before -ExcludeModel
+    and the model:<name> label are applied.
 .PARAMETER SelfTest
     Run the review-parser samples (fix #575 DoD 4) and the issue #590 prompt/agent checks, and exit 0
     when all match; no PR, no brief and no OpenCode run.
@@ -126,6 +131,7 @@ param(
     [string] $FixturesDir,
     [switch] $DryRun,
     [switch] $SelfTest,
+    [switch] $WhatIf,
     [int] $StartupTimeoutSec = 180,
     [int] $TotalTimeoutSec = 3600,
     [int] $IdleTimeoutSec = 600,
@@ -462,8 +468,8 @@ $models = @{
     deepseek    = 'opencode-go/deepseek-v4.1-flash'
 }
 if ($ModelIds) { foreach ($k in $ModelIds.Keys) { $models[$k] = $ModelIds[$k] } }
-# Provider-specific variant, passed as `--variant` (the docs' flag; a `#variant` suffix on the model
-# id is not documented). Empty means none. Effort is `high` everywhere (issue #575: `max` is
+# Provider-specific variant. Invoke-OpenCodeWatched passes it by the CLI's major version (1.x
+# `--variant v`, 2.x the model's `#v` suffix). Empty means none. Effort is `high` everywhere (issue #575: `max` is
 # overkill); luna was already high.
 $variants = @{ 'glm-flash' = 'high'; glm = 'high'; luna = 'high'; deepseek = '' }
 $displayNames = @{ 'glm-flash' = 'GLM Flash'; glm = 'GLM'; luna = 'Luna'; deepseek = 'DeepSeek' }
@@ -496,11 +502,21 @@ $briefHeader = $briefLines[0].Trim()
 $briefRest = ($briefLines | Select-Object -Skip 1) -join "`n"
 if ($briefHeader -notmatch 'review \(') { throw "The brief's first line must be the review header, e.g. 'Plan review (Luna)'; got: $briefHeader" }
 if ($ApplyLabel -and -not $Issue) { throw '-ApplyLabel needs -Issue.' }
-# OpenCode not installed or not found is the same signal as every model failing: exit 3.
-try { $null = Resolve-OpenCodeExe } catch {
+# OpenCode not installed or not found, or a major version this script has no arguments for (only 1.x
+# and 2.x), is the same signal as every model failing: exit 3. The version is read once (T98).
+try { $cli = Get-OpenCodeCli } catch {
     if (-not (Test-OpenCodeInfraFailure $_)) { throw }
     [Console]::Error.WriteLine("OpenCode unavailable: $($_.Exception.Message) Nothing posted.")
     exit 3
+}
+if ($WhatIf) {
+    # No PR fetch, no worktree, no OpenCode, no billing: only the argument line each chain reviewer would get.
+    foreach ($name in $chain) {
+        Write-Host "would attempt: $($displayNames[$name])"
+        $null = Invoke-OpenCodeWatched -WhatIf -Agent 'external-reviewer' -Model $models[$name] -Variant $variants[$name] -Prompt $brief `
+            -WorkDir (Get-Location).Path -Title "ic2-pr$Pr-$name"
+    }
+    exit 0
 }
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { throw 'gh is not on PATH.' }
 
@@ -576,16 +592,16 @@ function Invoke-ReviewAttempt([string] $Name) {
 
     New-ReviewWorktree
     # 2. Run OpenCode in the worktree, watched. `opencode run [message..]` is non-interactive;
-    #    `--dir` sets the directory it runs in, `--agent` and `--model provider/model` are the
-    #    documented flags, and `--variant` carries the provider-specific variant. What `run` prints
+    #    The directory it runs in is the worktree (1.x `--dir`, 2.x the process's own working
+    #    directory), `--agent` and `--model provider/model` are the documented flags, and the
+    #    provider-specific variant is `--variant` (1.x) or the model's `#variant` (2.x); the watcher
+    #    builds the arguments by the CLI's major version. What `run` prints
     #    on stdout is not documented beyond "formatted", so step 3 looks for the header line rather
     #    than assuming the output is the final message alone. The helper reads the output back as
     #    UTF-8, so an em dash or a curly quote reaches the PR intact.
-    $ocArgs = @('run', '--dir', $worktree, '--agent', 'external-reviewer', '--model', $model)
-    if ($variant) { $ocArgs += @('--variant', $variant) }
     # The helper appends a random token to the title, so the session found is this run's.
     try {
-        $run = Invoke-OpenCodeWatched -Arguments $ocArgs -Prompt $prompt -WorkDir $worktree -Title "ic2-pr$Pr-$Name" `
+        $run = Invoke-OpenCodeWatched -Agent 'external-reviewer' -Model $model -Variant $variant -Prompt $prompt -WorkDir $worktree -Title "ic2-pr$Pr-$Name" `
             -StartupTimeoutSec $StartupTimeoutSec -TotalTimeoutSec $TotalTimeoutSec -IdleTimeoutSec $IdleTimeoutSec
     } catch {
         # Only OpenCode's own failures (not found, no session, idle, no exit, exited without a session)
@@ -594,12 +610,13 @@ function Invoke-ReviewAttempt([string] $Name) {
         return (& $fail $_.Exception.Data['Reason'] $_.Exception.Message)
     }
     $output = $run.Output
+    # A rejected tool call ends the run (issue #501): exit 0 under 1.x, exit 1 under 2.x. It is named by its
+    # path, and checked first so the 2.x exit 1 does not hide it as a plain "exit 1".
+    if ($run.PermissionRejected) { return (& $fail "permission rejected: $($run.PermissionRejected)" "OpenCode's permission guard auto-rejected a tool call ($($run.PermissionRejected)), which ended the run. For external_directory, the reviewer reached outside its worktree. Output:`n$output") }
     if ($run.ExitCode -ne 0) { return (& $fail "exit $($run.ExitCode)" $output) }
     # OpenCode's own evidence (its stderr warning, the session's recorded agent), never the model's
     # words: a reviewer reading these scripts quotes the warning text (PR #482, 2026-09-28).
     if ($run.AgentFallback) { return (& $fail 'fell back to the default agent' "OpenCode did not load the external-reviewer agent (it fell back to its default, full-permission agent). Output:`n$output") }
-    # A rejected tool call ends the run with exit 0 (issue #501): a failure, named by its path.
-    if ($run.PermissionRejected) { return (& $fail "permission rejected: $($run.PermissionRejected)" "OpenCode's permission guard auto-rejected a tool call ($($run.PermissionRejected)), which ended the run. For external_directory, the reviewer reached outside its worktree. Output:`n$output") }
 
     # 3. Completeness (issue #575). No header line anywhere in the output is the only failure:
     #    the next model runs, or the chain exits 3. Anything with a header is never thrown away: a
@@ -624,7 +641,7 @@ try {
     $n = 0
     foreach ($name in $chain) {
         $n++
-        Write-Host "attempt $n/$($chain.Count): $($displayNames[$name]) ($($models[$name]))$(if ($variants[$name]) { " with --variant $($variants[$name])" })"
+        Write-Host "attempt $n/$($chain.Count): $($displayNames[$name]) ($($models[$name]))$(if ($variants[$name]) { " with variant $($variants[$name])" }), OpenCode $($cli.Version)"
         $attempt = Invoke-ReviewAttempt $name
         if ($attempt.Ok) { $result = $attempt; break }
         Write-Host "attempt $n/$($chain.Count): $($displayNames[$name]) failed: $($attempt.Reason)"
