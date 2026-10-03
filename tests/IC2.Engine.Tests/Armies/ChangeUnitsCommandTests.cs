@@ -158,6 +158,7 @@ public sealed class ChangeUnitsCommandTests
         Assert.Equal(
             ArmiesTestbed.Ruleset.ArmyManagement.MaxUnitsPerArmy,
             result.State.ArmyById("cap-room")!.Units.Count);
+        Assert.Equal(state.ArmyById("cap-room")!.TotalTroops, result.State.ArmyById("cap-room")!.TotalTroops);
     }
 
     [Fact]
@@ -177,6 +178,7 @@ public sealed class ChangeUnitsCommandTests
         Assert.Equal(6, splitOff.Quality);
         Assert.Equal(0, splitOff.MercenaryLabel);
         Assert.True(splitOff.IsRegular);
+        Assert.Equal(state.ArmyById("inherit-a")!.TotalTroops, result.State.ArmyById("inherit-a")!.TotalTroops);
     }
 
     [Fact]
@@ -226,6 +228,7 @@ public sealed class ChangeUnitsCommandTests
         Assert.True(result.IsAccepted, result.ToString());
         var splitOff = result.State.ArmyById("names-a")!.Units[^1];
         Assert.Equal("8th Foot Battalion", splitOff.Name);
+        Assert.Equal(state.ArmyById("names-a")!.TotalTroops, result.State.ArmyById("names-a")!.TotalTroops);
     }
 
     // ---- rejections (Done-when 3) ----
