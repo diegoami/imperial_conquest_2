@@ -58,7 +58,7 @@
     The model family that implemented the PR never reviews it: -ExcludeModel (or, when that is not
     given, a model:<name> label on the PR or on -Issue naming an OpenCode model) drops every
     reviewer of that family from the chain (OpenAI: luna, sol; GLM: glm, glm-flash; DeepSeek:
-    deepseek, deepseek-flash), and an explicit -Reviewer of that family is refused with exit 1.
+    deepseek, deepseek-pro, deepseek-flash), and an explicit -Reviewer of that family is refused with exit 1.
     If every model fails, the chain stops early, the exclusion leaves no model, or OpenCode is not
     installed, nothing is posted and the script exits 3 ("OpenCode unavailable: ...");
     build-process.md §4.9 says what the main session does then. An explicit -Reviewer runs only
@@ -71,7 +71,9 @@
     (`opencode-go/glm-5.3-flash`, `opencode-go/deepseek-v4.1-flash`); luna is the direct OpenAI
     route, `openai/gpt-6-luna`, via the machine's OpenAI login (not Go's proxied
     `opencode-go/gpt-6-luna`, whose upstream returned Bad Request in long runs, #553); sol is
-    `openai/gpt-6-sol` on the same login.
+    `openai/gpt-6-sol` on the same login; deepseek-pro is `opencode-go/deepseek-v4-pro`. An OpenAI
+    run that fails with "The usage limit has been reached" means the OpenAI account is out of
+    quota, Luna included (build-process.md §3.4).
     `opencode models` shows what this machine has.
     OpenCode reads CLAUDE.md as its instructions file when no AGENTS.md exists; that is
     harmless here (the reviewer gets the token-economy rules) and no AGENTS.md is added.
@@ -81,8 +83,10 @@
 .PARAMETER Reviewer
     auto (default: Luna on openai/gpt-6-luna at high effort alone, then a cold Claude Opus by
     hand; issue #575 keeps one OpenCode model per role before Claude), or glm-flash, glm, luna,
-    sol, deepseek for that model alone, each at high effort. sol (GPT-6 Sol) is the complex tier's
-    reviewer; luna with glm or deepseek, in two runs, is the Luna pair (build-process.md §3.4).
+    sol, deepseek, deepseek-pro for that model alone, each at high effort (deepseek has no variant).
+    sol (GPT-6 Sol) is the complex tier's reviewer; luna with glm or deepseek, in two runs, is the
+    Luna pair; glm, then deepseek-pro (DeepSeek V4 Pro, `opencode-go/deepseek-v4-pro`), then luna
+    are Sol's substitutes when it cannot review (build-process.md §3.4).
 .PARAMETER BriefFile
     The filled reviewer brief. Its first line must be the review header the model is to print,
     for example "Plan review (Luna)" or "T94 review (DeepSeek)". With -Reviewer auto, the text in
@@ -117,8 +121,8 @@
     The model that implemented the PR, as external-implement.ps1 names it on its "implemented by:"
     line (deepseek-flash, glm-flash, glm, luna, mimo-pro, mimo-flash; or a reviewer name, sol
     included). Every reviewer of the same family is dropped from the chain (deepseek-flash is
-    DeepSeek; luna and sol are both OpenAI). A deepseek-flash implementer never collides with the
-    Luna or Sol reviewer; a luna implementer excludes both, so -Reviewer auto leaves no OpenCode
+    DeepSeek, as are deepseek and deepseek-pro; luna and sol are both OpenAI). A deepseek-flash
+    implementer never collides with the Luna or Sol reviewer; a luna implementer excludes both, so -Reviewer auto leaves no OpenCode
     reviewer, the script exits 3 and a cold Claude Opus reviews. sonnet and opus name a Claude
     implementer (the Sonnet fallback, or Opus on an architecture task): accepted so that every run
     can pass -ExcludeModel, they exclude no OpenCode reviewer, since this script has no Claude
@@ -138,7 +142,7 @@
 [CmdletBinding()]
 param(
     [int] $Pr,
-    [ValidateSet('auto', 'glm-flash', 'glm', 'luna', 'sol', 'deepseek')] [string] $Reviewer = 'auto',
+    [ValidateSet('auto', 'glm-flash', 'glm', 'luna', 'sol', 'deepseek', 'deepseek-pro')] [string] $Reviewer = 'auto',
     [string] $BriefFile,
     [int] $Issue,
     [switch] $ApplyLabel,
@@ -149,7 +153,7 @@ param(
     [int] $StartupTimeoutSec = 180,
     [int] $TotalTimeoutSec = 3600,
     [int] $IdleTimeoutSec = 600,
-    [ValidateSet('deepseek-flash', 'glm-flash', 'glm', 'luna', 'sol', 'mimo-pro', 'mimo-flash', 'deepseek', 'sonnet', 'opus')] [string] $ExcludeModel,
+    [ValidateSet('deepseek-flash', 'glm-flash', 'glm', 'luna', 'sol', 'mimo-pro', 'mimo-flash', 'deepseek', 'deepseek-pro', 'sonnet', 'opus')] [string] $ExcludeModel,
     [hashtable] $ModelIds
 )
 
@@ -476,6 +480,12 @@ function Invoke-ReviewParserSelfTest {
     foreach ($claude in 'sonnet', 'opus') {
         $ruleChecks += [pscustomobject]@{ Name = "-ExcludeModel $claude is accepted and excludes no OpenCode reviewer"; Ok = ($excludeSet -contains $claude -and $reviewerOf.ContainsKey($claude) -and @($reviewerOf[$claude]).Count -eq 0) }
     }
+    # Sol's substitutes (the user's policy of 2026-10-03): deepseek-pro is DeepSeek V4 Pro on Go, in
+    # the DeepSeek family.
+    $ruleChecks += [pscustomobject]@{ Name = 'deepseek-pro is opencode-go/deepseek-v4-pro at high, shown as DeepSeek Pro'; Ok = ($models['deepseek-pro'] -eq 'opencode-go/deepseek-v4-pro' -and $variants['deepseek-pro'] -eq 'high' -and $displayNames['deepseek-pro'] -eq 'DeepSeek Pro') }
+    $ruleChecks += [pscustomobject]@{ Name = 'a deepseek-flash implementer excludes deepseek and deepseek-pro'; Ok = ((@($reviewerOf['deepseek-flash']) | Sort-Object) -join ',' -eq 'deepseek,deepseek-pro') }
+    $ruleChecks += [pscustomobject]@{ Name = 'a glm implementer excludes neither deepseek-pro nor luna'; Ok = (@($reviewerOf['glm']) -notcontains 'deepseek-pro' -and @($reviewerOf['glm']) -notcontains 'luna') }
+    $ruleChecks += [pscustomobject]@{ Name = 'a deepseek-pro implementer is accepted and excludes its family'; Ok = ($excludeSet -contains 'deepseek-pro' -and (@($reviewerOf['deepseek-pro']) | Sort-Object) -join ',' -eq 'deepseek,deepseek-pro') }
     foreach ($c in $ruleChecks) {
         $n++
         if (-not $c.Ok) { $failed++ }
@@ -501,25 +511,30 @@ $models = @{
     luna        = 'openai/gpt-6-luna'
     sol         = 'openai/gpt-6-sol'
     deepseek    = 'opencode-go/deepseek-v4.1-flash'
+    # DeepSeek V4 Pro, Sol's second substitute (the user's policy of 2026-10-03, build-process.md
+    # §3.4 "When Sol cannot review"); `opencode models opencode-go --verbose` lists its variants as
+    # high and max, so it runs at high like the others.
+    'deepseek-pro' = 'opencode-go/deepseek-v4-pro'
 }
 if ($ModelIds) { foreach ($k in $ModelIds.Keys) { $models[$k] = $ModelIds[$k] } }
 # Provider-specific variant. Invoke-OpenCodeWatched passes it by the CLI's major version (1.x
 # `--variant v`, 2.x the model's `#v` suffix). Empty means none. Effort is `high` everywhere (issue #575: `max` is
 # overkill); luna was already high.
-$variants = @{ 'glm-flash' = 'high'; glm = 'high'; luna = 'high'; sol = 'high'; deepseek = '' }
-$displayNames = @{ 'glm-flash' = 'GLM Flash'; glm = 'GLM'; luna = 'Luna'; sol = 'Sol'; deepseek = 'DeepSeek' }
+$variants = @{ 'glm-flash' = 'high'; glm = 'high'; luna = 'high'; sol = 'high'; deepseek = ''; 'deepseek-pro' = 'high' }
+$displayNames = @{ 'glm-flash' = 'GLM Flash'; glm = 'GLM'; luna = 'Luna'; sol = 'Sol'; deepseek = 'DeepSeek'; 'deepseek-pro' = 'DeepSeek Pro' }
 # The reviewer's model family is never the implementer's (build-process.md §3.4). The implementing
 # model comes from -ExcludeModel, else from a model:<name> label on the PR or its issue that names an
 # OpenCode model (model:opus and model:sonnet name Claude, which is not in this chain). Implementer
 # name -> the reviewer names of the same family; the MiMo models have no reviewer here. The families
 # (the user's decision of 2026-10-03): OpenAI is luna and sol, GLM is glm and glm-flash, DeepSeek is
-# deepseek and deepseek-flash. A luna or sol implementer excludes both OpenAI reviewers, so -Reviewer
+# deepseek, deepseek-pro and deepseek-flash. A luna or sol implementer excludes both OpenAI reviewers, so -Reviewer
 # auto leaves no OpenCode reviewer and the script exits 3 (a cold Claude Opus reviews), and -Reviewer
 # sol or luna is refused. A Claude implementer (sonnet, opus) excludes no OpenCode reviewer: the
 # Claude family has no reviewer here, and the main session keeps Claude off that PR's review.
 $reviewerOf = @{
-    'deepseek-flash' = @('deepseek')
-    'deepseek'       = @('deepseek')
+    'deepseek-flash' = @('deepseek', 'deepseek-pro')
+    'deepseek'       = @('deepseek', 'deepseek-pro')
+    'deepseek-pro'   = @('deepseek', 'deepseek-pro')
     'glm-flash'      = @('glm-flash', 'glm')
     'glm'            = @('glm-flash', 'glm')
     'luna'           = @('luna', 'sol')
@@ -583,7 +598,7 @@ $implementers = if ($ExcludeModel) { @($ExcludeModel) } else {
     $labels = @(gh pr view $Pr --json labels --jq '.labels[].name' 2>$null)
     if ($Issue) { $labels += @(gh issue view $Issue --json labels --jq '.labels[].name' 2>$null) }
     @($labels | Where-Object { $_ -match '^model:(.+)$' } | ForEach-Object { $_.Substring(6) } |
-        Where-Object { $_ -in 'deepseek-flash', 'glm-flash', 'glm', 'luna', 'sol', 'mimo-pro', 'mimo-flash', 'deepseek' } | Select-Object -Unique)
+        Where-Object { $_ -in 'deepseek-flash', 'glm-flash', 'glm', 'luna', 'sol', 'mimo-pro', 'mimo-flash', 'deepseek', 'deepseek-pro' } | Select-Object -Unique)
 }
 $excluded = @($implementers | ForEach-Object { $reviewerOf[$_] } | Where-Object { $_ } | Select-Object -Unique)
 if ($implementers) { Write-Host "implemented by: $($implementers -join ', '); excluded from review: $(if ($excluded) { $excluded -join ', ' } else { 'none' })" }

@@ -114,18 +114,35 @@ Models are chosen per task, in the task's entry, by what an error would cost:
 
 | Tier | Which PRs | Reviewed by |
 | --- | --- | --- |
-| **Simple** | A documentation PR that changes no task contract: evidence-only doc claims, and routine-tier bookkeeping ([§4.9](#49-plan-prs-two-tiers): the catalogue's stub, index row and graph edges to merged tasks, a "never in flight with" constraint, a merge-after on an already merged task) when it is reviewed at all. A routine-tier fold that adds Done-when lines, and an Owns amendment, change a task's contract and are **complex** | Luna alone (`external-review.ps1 -Reviewer auto`); a cold Claude Opus on exit 3 |
-| **Complex** | Every task or fix PR, and every plan PR that adds or changes a task contract or edits a process document, unless it is very complex | GPT-6 Sol (`-Reviewer sol`, `openai/gpt-6-sol`), whoever implemented it unless OpenAI did. When Sol exits 3: a cold Claude Opus, or, when Claude implemented, the Luna pair. An OpenAI implementer: a cold Claude Opus directly. The **Luna pair** is also the main session's alternative to Sol when two independent families add value |
-| **Very complex** | A task or fix PR that meets a very-complex criterion below | A cold Claude Opus, unless Claude (Sonnet or Opus) implemented it: then Sol **and** the Luna pair, three reviews, and the pair alone when Sol exits 3 |
+| **Simple** | A documentation PR that changes no task contract: evidence-only doc claims, and routine-tier bookkeeping ([§4.9](#49-plan-prs-two-tiers): the catalogue's stub, index row and graph edges to merged tasks, a "never in flight with" constraint, a merge-after on an already merged task) when it is reviewed at all. A routine-tier fold that adds Done-when lines, and an Owns amendment, change a task's contract and are **complex** | Luna alone (`external-review.ps1 -Reviewer auto`); when the OpenAI account is out of quota, GLM-5.3, then DeepSeek V4 Pro (below); a cold Claude Opus on any other exit 3 |
+| **Complex** | Every task or fix PR, and every plan PR that adds or changes a task contract or edits a process document, unless it is very complex | GPT-6 Sol (`-Reviewer sol`, `openai/gpt-6-sol`), whoever implemented it unless OpenAI did. When Sol cannot review: its substitutes (below: GLM-5.3, then DeepSeek V4 Pro, then Luna), then a cold Claude Opus unless Claude implemented, and escalation if it did. An OpenAI implementer: a cold Claude Opus directly. The **Luna pair** is also the main session's alternative to Sol when two independent families add value |
+| **Very complex** | A task or fix PR that meets a very-complex criterion below | A cold Claude Opus, unless Claude (Sonnet or Opus) implemented it: then Sol **and** the Luna pair, three reviews; when Sol cannot review, a substitute of a family not already in the pair takes its place, else the pair alone |
 
 **The Luna pair** is two independent reviews: Luna (`-Reviewer luna`), plus one of GLM 5.3 (`-Reviewer glm`, `opencode-go/glm-5.3`), DeepSeek (`-Reviewer deepseek`, `opencode-go/deepseek-v4.1-flash`) or Claude Sonnet (a subagent on [Appendix B](#appendix-b-reviewer-prompt-template)), from a model **family** the implementer did not use. Both must approve. The second is GLM, then DeepSeek, then Sonnet: the first one whose family the implementer did not use (the user's decision of 2026-10-03); for the default `deepseek-flash` implementer that is GLM. **A PR with two or three reviews** is labelled by the main session, not by a reviewer: each run goes without `-ApplyLabel` (a Claude reviewer's brief says not to label), and the main session applies `status:approved` only when every review approves, `status:rework` when any asks for rework, relaying every review in full ([§4.4](#44-rework)), and escalates on any `user decision`.
 
-**The families** (the user's decision of 2026-10-03): OpenAI is `luna` and `sol`; GLM is `glm` and `glm-flash`; DeepSeek is `deepseek` and `deepseek-flash`; Claude is Sonnet and Opus; MiMo has no reviewer. What follows from them: an OpenAI implementer (`luna`) leaves neither Sol nor the Luna pair, so its complex and very complex reviews are both a cold Claude Opus; a Claude implementer (the Sonnet fallback, or Opus on an architecture task) is never reviewed by Opus or Sonnet, so its complex review is Sol and falls back to the Luna pair with GLM or DeepSeek, and its very complex review is Sol plus that pair, or the pair alone when Sol exits 3. When no reviewer of a permitted family can run (a Claude implementer while OpenCode is unavailable), the main session escalates ([§4.5](#45-when-to-escalate-to-the-user)) rather than break the family rule. [Appendix C](#appendix-c-the-run-task-skill) step 2 spells out every path as commands.
+**The families** (the user's decision of 2026-10-03): OpenAI is `luna` and `sol`; GLM is `glm` and `glm-flash`; DeepSeek is `deepseek`, `deepseek-pro` and `deepseek-flash`; Claude is Sonnet and Opus; MiMo has no reviewer. What follows from them: an OpenAI implementer (`luna`) leaves neither Sol nor the Luna pair, so its complex and very complex reviews are both a cold Claude Opus; a Claude implementer (the Sonnet fallback, or Opus on an architecture task) is never reviewed by Opus or Sonnet, so its complex review is Sol and falls back to Sol's substitutes (below), and its very complex review is Sol plus the Luna pair, with Sol's place taken by a substitute when it cannot review. When no reviewer of a permitted family can run (a Claude implementer while OpenCode is unavailable), the main session escalates ([§4.5](#45-when-to-escalate-to-the-user)) rather than break the family rule. [Appendix C](#appendix-c-the-run-task-skill) step 2 spells out every path as commands.
 
 **The criteria Jev scores** (the user's decisions of 2026-10-03: the scope of simple and complex, the very-complex triggers (a)–(g) with their size limits, and High effort alone not being one). A task or fix PR is never simple, and a plan PR is never very complex.
 - **Simple**: the PR's `--stat` touches nothing under `src/`, `tests/`, `godot/`, `scripts/`, `data/`, `.github/` or `.opencode/`; it adds no task, changes no task's Owns, Scope or Done-when line, adds no dependency on an unmerged task (a merge-after on an already merged task is bookkeeping), and does not edit this document, `operating-guide.md` or `CLAUDE.md`. A routine-tier fold that adds Done-when lines is therefore complex.
 - **Very complex**: at least one of (a) an architecture task (T02, T03, T16, T22) or an Ultrahigh effort; (b) a new subsystem: a new project, a new top-level folder under `src/IC2.Engine/` or `src/IC2.Data/`, or a new turn-pipeline phase; (c) a save-format or serialization change: the save reader or writer, the JSON round-trip, a schema version, or a field added to a serialized model type; (d) a widening of the shared domain model (`src/IC2.Engine/Model/`) that other tasks build on; (e) a change to a battle resolver's or the AI's outcomes under a seed that re-baselines existing seeded expectations (values in `tests/fixtures/corpus.json` or `expected-corpus-outcomes.json`, existing golden lines, a soak or a seeded measurement) rather than only adding new ones; (f) a correction task whose entry says its evidence is still open; (g) size: an Owns list of more than 15 files, or a `--stat` of more than 20 files or 1,500 changed lines outside `tests/fixtures/`. A High-effort entry alone is complex, not very complex: 59 of the catalogue's 120 entries are High, and counting them would bring Opus back to half the code PRs.
 - **Complex**: everything else.
+
+**When Sol cannot review** (the user's policy of 2026-10-03). Sol is the hard tiers' reviewer: wherever a complex or very complex review names Sol, a substitute takes it rather than the review waiting, unless the user says to wait. It supersedes, for the order of fallbacks, the "Sol, then a cold Claude Opus" of the user's first rule that day: Sol's substitutes come first, and a cold Claude Opus comes after them, only when Claude did not implement the PR; when Claude did, the main session escalates ([§4.5](#45-when-to-escalate-to-the-user)) and never falls back to a Claude reviewer.
+1. **Diagnose.** When Sol (or Luna) exits 3, read the run's files, which the script keeps on a failure and names in its output, and the newest OpenCode log under `%USERPROFILE%\.local\share\ic2-opencode-1x\data\opencode\log\`. The text **`The usage limit has been reached`** (or OpenAI's `insufficient_quota`) means the whole OpenAI account is out of quota, Luna included; confirm it with the one-prompt probe of Luna below. Any other cause, or the user asking to avoid Sol's cost, means only Sol is unavailable, and Luna is still an option.
+2. **Substitutes, in order**, each skipped when it shares the implementer's family:
+
+   | Situation | Hard review (complex, very complex) | Easy review (simple) |
+   | --- | --- | --- |
+   | Only Sol is unavailable | GLM-5.3 (`-Reviewer glm`), then DeepSeek V4 Pro (`-Reviewer deepseek-pro`, `opencode-go/deepseek-v4-pro`), then Luna, with the reason in its header | Luna, as usual |
+   | The OpenAI account is out of quota | GLM-5.3, then DeepSeek V4 Pro | GLM-5.3, then DeepSeek V4 Pro |
+   | The implementer is GLM | DeepSeek V4 Pro (then Luna when only Sol is out) | DeepSeek V4 Pro when OpenAI is out of quota |
+   | The implementer is DeepSeek (the default `deepseek-flash`) | GLM-5.3 (then Luna when only Sol is out) | GLM-5.3 when OpenAI is out of quota |
+
+   Luna is a light reviewer: it takes Sol's place on a hard review only when no heavy third-family reviewer can run, and its header says so. On a very complex PR that Claude implemented, Sol's place beside the Luna pair goes to the first substitute whose family is not already in the pair (normally DeepSeek V4 Pro); when none can run, the pair alone reviews (the user's decision of 2026-10-03). When the OpenAI account is out of quota the pair cannot form, so that PR is reviewed by GLM-5.3 and DeepSeek V4 Pro together, and escalated when either cannot run.
+3. **How a substitute runs.** Probe it first with `-WhatIf` (below). Reuse Sol's brief unchanged except that its header line names the substitute ("T<nn> review (GLM)", or "T<nn> review (Luna, in Sol's place: <reason>)" for Luna), one sentence says it reviews in Sol's place and why, and Sol's earlier reviews on the PR are linked so that it re-takes their attacks. Run it; move to the next substitute only on exit 3 (exit 4 is read and decided, as always).
+4. **Record it.** For a task PR, the main session commits a one-line note to the Reviewer field of `docs/tasks/T<nn>.md` on `main`, as a routine doc claim ("Docs: T<nn> reviewer"), with the date, the substitute and the reason; a fix or a plan PR records it in the tier comment. It also appends one entry to the wiki's [Model trials](https://github.com/diegoami/imperial_conquest_2/wiki/Model-trials) page (append-only, like Process incidents): the error, the probe results, the substitute, and what it caught or missed against Sol's earlier rounds.
+5. **Probes.** The free probe is `pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer <x> -BriefFile <brief> -WhatIf`: it checks the CLI and the argument line and bills nothing, but it does not reach the provider. When a quota diagnosis needs the provider, the one-prompt probe bills a little: with `XDG_DATA_HOME` set to `%USERPROFILE%\.local\share\ic2-opencode-1x\data` and stdin closed (operating-guide §3 says why), `$null | opencode run --model openai/gpt-6-luna "Reply with the word OK."`; an `OK` means Luna is served, `The usage limit has been reached` means the account is out of quota.
+6. **Prevention.** One provider's quota must never block a hard PR's last review: before every complex or very complex review ([Appendix C](#appendix-c-the-run-task-skill) step 2c), the main session runs the `-WhatIf` probes of `sol`, `glm` and `deepseek-pro`, and a red probe is fixed, or recorded in the tier comment, before it is needed.
 
 Unchanged by the tier: `/code-review --effort ultra` on the four architecture PRs and at rework round 2 ([§3.5](#35-where-the-code-review-skill-fits)), the user's own ultra review of T16 and T22, and the human visual review of the Godot screens ([§9](#9-standing-governance-decisions) Q-B). A machine's model order may swap a tier's Claude form for its OpenCode form when Claude credit is short (Opus for Sol plus the Luna pair), and never lowers a tier.
 
@@ -782,39 +799,70 @@ the docs item applies only if the review named a claim.
       otherwise; bucket claude: decide by §3.4's criteria. A task or fix PR is never simple,
       whatever Jev says. A failed Jev call blocks nothing: decide by the criteria. Record the tier,
       Jev's answer and probability, and any override in one PR comment.
-   c. WHO IMPLEMENTED. IMPL is the name on external-implement.ps1's "implemented by:" line
-      (deepseek-flash, glm, luna, ...), or sonnet or opus when Claude implemented (the Sonnet
+   c. WHO IMPLEMENTED, AND PROBES. IMPL is the name on external-implement.ps1's "implemented by:"
+      line (deepseek-flash, glm, luna, ...), or sonnet or opus when Claude implemented (the Sonnet
       fallback, or Opus on an architecture task). Families: OpenAI = luna, sol; GLM = glm,
-      glm-flash; DeepSeek = deepseek, deepseek-flash; Claude = sonnet, opus. Every script run
-      passes `-ExcludeModel <IMPL>` (sonnet and opus are accepted and exclude no OpenCode
-      reviewer); never pick a reviewer of IMPL's family, Claude included. Each brief is Appendix B
-      filled in, written to rendered/review-tier/<pr>-<reviewer>.md, its first line the header
-      "T<nn> review (<Name>)", <Name> being Sol, Luna, GLM or DeepSeek (always pass -Reviewer,
-      never a -ModelIds override). Run every script in the background and watch it
-      (operating-guide §3). While OpenCode is suspended for reviews (two failures of the same
-      cause), treat every script command below as exit 3.
+      glm-flash; DeepSeek = deepseek, deepseek-pro, deepseek-flash; Claude = sonnet, opus. Every
+      script run passes `-ExcludeModel <IMPL>` (sonnet and opus are accepted and exclude no
+      OpenCode reviewer); never pick a reviewer of IMPL's family, Claude included. Each brief is
+      Appendix B filled in, written to rendered/review-tier/<pr>-<reviewer>.md, its first line the
+      header "T<nn> review (<Name>)", <Name> being Sol, Luna, GLM, DeepSeek or DeepSeek Pro
+      (always pass -Reviewer, never a -ModelIds override). Before a complex or very complex
+      review, probe Sol's substitutes so that one provider's quota cannot block it:
+        pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer sol -BriefFile rendered/review-tier/<pr>-sol.md -WhatIf
+        pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer glm -BriefFile rendered/review-tier/<pr>-sol.md -WhatIf
+        pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer deepseek-pro -BriefFile rendered/review-tier/<pr>-sol.md -WhatIf
+      (exit 0 each; they bill nothing). Note a red probe in the tier comment. Run every review
+      script in the background and watch it (operating-guide §3). While OpenCode is suspended for
+      reviews (two failures of the same cause), treat every script command below as exit 3.
    d. DISPATCH. The commands:
         SOL    pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer sol -ExcludeModel <IMPL> -BriefFile rendered/review-tier/<pr>-sol.md -Issue <n> -ApplyLabel
-        SOL-   the same command without -Issue <n> -ApplyLabel (one of several reviews)
         LUNA   pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer luna -ExcludeModel <IMPL> -BriefFile rendered/review-tier/<pr>-luna.md
         GLM    pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer glm -ExcludeModel <IMPL> -BriefFile rendered/review-tier/<pr>-glm.md
         DS     pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer deepseek -ExcludeModel <IMPL> -BriefFile rendered/review-tier/<pr>-deepseek.md
+        SUB x  pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer x -ExcludeModel <IMPL> -BriefFile rendered/review-tier/<pr>-x-for-sol.md -Issue <n> -ApplyLabel
+               (x is glm, deepseek-pro or luna; the brief is Sol's, unchanged except that its
+               header names x, with "Luna, in Sol's place: <reason>" for Luna, one sentence says it
+               reviews in Sol's place and why, and Sol's earlier reviews on the PR are linked so it
+               re-takes their attacks; probe x with -WhatIf first)
         OPUS   Agent(model opus, prompt = Appendix B filled in): a cold reviewer, which applies the label
         SONNET Agent(model sonnet, prompt = Appendix B filled in, plus "Do not apply a status label;
                the main session applies it from every review.")
+      A trailing "-" (SOL-, SUB- x) means the same command without -Issue <n> -ApplyLabel: one of
+      several reviews.
+      DIAGNOSE, when SOL or LUNA exits 3: search the files the script kept and named, and the newest
+      log in %USERPROFILE%\.local\share\ic2-opencode-1x\data\opencode\log\, for "The usage limit has
+      been reached" (or "insufficient_quota"). Found: confirm with the one-prompt Luna probe, which
+      bills a little: in PowerShell, $env:XDG_DATA_HOME = "$env:USERPROFILE\.local\share\ic2-opencode-1x\data";
+      $null | opencode run --model openai/gpt-6-luna "Reply with the word OK." The same text again
+      means QUOTA (the OpenAI account is out); an OK, or no such text, means SOL-ONLY.
+      SOL'S SUBSTITUTES, skipping any of IMPL's family, the next only on exit 3:
+        SOL-ONLY (or the user asked to avoid Sol's cost): SUB glm, then SUB deepseek-pro, then SUB luna.
+        QUOTA: SUB glm, then SUB deepseek-pro.
+      After the last one: OPUS when IMPL is not Claude; escalate (step 5) when it is. Never wait for
+      Sol unless the user says to.
       THE PAIR: run LUNA, and a second review: GLM unless IMPL is GLM; when GLM is excluded or
       exits 3, DS unless IMPL is DeepSeek; when DS is excluded or exits 3, SONNET unless IMPL is
       Claude. The pair has failed when LUNA exits 3 or no second review can run.
-      - complex, IMPL DeepSeek, GLM or MiMo: SOL. Exit 3: OPUS. (Your alternative, recorded in the
-        tier comment: THE PAIR in place of SOL; if the pair fails, OPUS.)
-      - complex, IMPL Claude: SOL. Exit 3: THE PAIR. The pair fails: escalate (step 5).
+      - complex, IMPL DeepSeek, GLM or MiMo: SOL. Exit 3: DIAGNOSE, then SOL'S SUBSTITUTES, then
+        OPUS. (Your alternative, recorded in the tier comment: THE PAIR in place of SOL; if the
+        pair fails, OPUS.)
+      - complex, IMPL Claude: SOL. Exit 3: DIAGNOSE, then SOL'S SUBSTITUTES, then escalate.
       - complex or very complex, IMPL OpenAI (luna): OPUS.
       - very complex, IMPL not Claude: OPUS.
-      - very complex, IMPL Claude: SOL- and THE PAIR, three reviews. SOL- exits 3: THE PAIR alone,
-        recorded in the tier comment. The pair fails: escalate (step 5).
-      Labels: with one review, its reviewer labels (SOL or OPUS). With two or three, the main
-      session labels: status:approved only when every review approves, status:rework when any asks
-      for rework (step 3 relays every review in full), and it escalates on any user decision.
+      - very complex, IMPL Claude: SOL- and THE PAIR, three reviews. SOL- exits 3: DIAGNOSE.
+        SOL-ONLY: SUB- of the first of glm and deepseek-pro whose family is not already in the pair
+        (normally deepseek-pro), and THE PAIR alone when none can run. QUOTA: the pair cannot
+        form; run SUB- glm and SUB- deepseek-pro, two reviews, and escalate when either exits 3.
+        The pair fails: escalate (step 5).
+      Labels: with one review, its reviewer labels (SOL, SUB x or OPUS). With two or three, the
+      main session labels: status:approved only when every review approves, status:rework when any
+      asks for rework (step 3 relays every review in full), and it escalates on any user decision.
+      RECORD a substitute: for a task, commit on main a one-line note in docs/tasks/T<nn>.md's
+      Reviewer field ("2026-MM-DD: <substitute> reviewed in Sol's place: <reason>"), subject
+      "Docs: T<nn> reviewer", a routine doc claim; for a fix, put it in the tier comment. Append
+      one entry to the wiki page Model trials: the error, the probe results, the substitute, and
+      what it caught or missed against Sol's earlier rounds.
    Exit 4 means a review was posted flagged (cut off, verdict unreadable, or findings after the
    closing verdict) and no label was set: read it on the PR and decide (count it by its content,
    or run that path's next reviewer). Exit 1 with "Refused" means a reviewer of IMPL's family was
