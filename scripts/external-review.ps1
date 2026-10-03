@@ -83,7 +83,9 @@
 .PARAMETER Reviewer
     auto (default: Luna on openai/gpt-6-luna at high effort alone, then a cold Claude Opus by
     hand; issue #575 keeps one OpenCode model per role before Claude), or glm-flash, glm, luna,
-    sol, deepseek, deepseek-pro for that model alone, each at high effort (deepseek has no variant).
+    sol, deepseek, deepseek-pro for that model alone, each at high effort (deepseek has no variant)
+    except sol, which runs at low effort by default and at medium with -Effort medium, never higher
+    (the user's decision of 2026-10-03: Sol is used sparingly and light).
     sol (GPT-6 Sol) is the complex tier's reviewer; luna with glm or deepseek-pro, in two runs, is the
     Luna pair; glm, then deepseek-pro (DeepSeek V4 Pro, `opencode-go/deepseek-v4-pro`), then luna
     are Sol's substitutes when it cannot review (build-process.md §3.4).
@@ -128,6 +130,11 @@
     can pass -ExcludeModel, they exclude no OpenCode reviewer, since this script has no Claude
     one (the main session never picks a Claude reviewer for that PR). Without it, a
     model:<name> label on the PR or on -Issue is used when one names an OpenCode model.
+.PARAMETER Effort
+    Sol's effort (its OpenCode variant): low (the default when this is not given) or medium. It
+    applies to sol only; every other reviewer keeps its own variant. high and above cannot be
+    passed (the user's decision of 2026-10-03: Sol never at high, at most medium, better light).
+    build-process.md §3.4 says when medium earns its cost.
 .PARAMETER ModelIds
     Overrides of the reviewer -> model id map, e.g. @{ glm = 'opencode-go/glm-5.4' }, for when
     `opencode models` shows a different id (or, in a test, a bad id to exercise the chain).
@@ -154,7 +161,8 @@ param(
     [int] $TotalTimeoutSec = 3600,
     [int] $IdleTimeoutSec = 600,
     [ValidateSet('deepseek-flash', 'glm-flash', 'glm', 'luna', 'sol', 'mimo-pro', 'mimo-flash', 'deepseek', 'deepseek-pro', 'sonnet', 'opus')] [string] $ExcludeModel,
-    [hashtable] $ModelIds
+    [hashtable] $ModelIds,
+    [ValidateSet('low', 'medium')] [string] $Effort
 )
 
 $ErrorActionPreference = 'Stop'
@@ -460,7 +468,7 @@ function Invoke-ReviewParserSelfTest {
     }
     # --- the review tiers (the user's decision of 2026-10-03, build-process.md §3.4) ---------------
     # Every -Reviewer value but auto has a model id, a variant entry and a display name; sol is GPT-6
-    # Sol at high effort; and the exclusion is by family: an OpenAI implementer
+    # Sol at low effort by default, medium at most; and the exclusion is by family: an OpenAI implementer
     # (luna or sol) excludes both OpenAI reviewers, and a DeepSeek implementer excludes neither.
     $reviewerSet = @((Get-Command $PSCommandPath).Parameters['Reviewer'].Attributes |
         Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] } |
@@ -468,7 +476,15 @@ function Invoke-ReviewParserSelfTest {
     foreach ($name in $reviewerSet) {
         $ruleChecks += [pscustomobject]@{ Name = "reviewer $name has a model, a variant and a display name"; Ok = ($models.ContainsKey($name) -and $variants.ContainsKey($name) -and $displayNames.ContainsKey($name)) }
     }
-    $ruleChecks += [pscustomobject]@{ Name = 'sol is openai/gpt-6-sol at high, shown as Sol'; Ok = ($models['sol'] -eq 'openai/gpt-6-sol' -and $variants['sol'] -eq 'high' -and $displayNames['sol'] -eq 'Sol') }
+    $ruleChecks += [pscustomobject]@{ Name = 'sol is openai/gpt-6-sol, shown as Sol'; Ok = ($models['sol'] -eq 'openai/gpt-6-sol' -and $displayNames['sol'] -eq 'Sol') }
+    # The user's decision of 2026-10-03: Sol at low by default, medium at most, never high.
+    $effortSet = @((Get-Command $PSCommandPath).Parameters['Effort'].Attributes |
+        Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] } |
+        ForEach-Object { $_.ValidValues })
+    $ruleChecks += [pscustomobject]@{ Name = 'sol defaults to low effort'; Ok = ((Get-SolVariant '') -eq 'low') }
+    $ruleChecks += [pscustomobject]@{ Name = '-Effort medium gives sol medium'; Ok = ((Get-SolVariant 'medium') -eq 'medium') }
+    $ruleChecks += [pscustomobject]@{ Name = '-Effort admits only low and medium (high is refused)'; Ok = ((($effortSet | Sort-Object) -join ',') -eq 'low,medium') }
+    $ruleChecks += [pscustomobject]@{ Name = '-Effort changes no other reviewer (luna, glm, deepseek-pro at high)'; Ok = ($variants['luna'] -eq 'high' -and $variants['glm'] -eq 'high' -and $variants['deepseek-pro'] -eq 'high') }
     $ruleChecks += [pscustomobject]@{ Name = 'a luna implementer excludes luna and sol'; Ok = ((@($reviewerOf['luna']) | Sort-Object) -join ',' -eq 'luna,sol') }
     $ruleChecks += [pscustomobject]@{ Name = 'a sol implementer excludes luna and sol'; Ok = ((@($reviewerOf['sol']) | Sort-Object) -join ',' -eq 'luna,sol') }
     $ruleChecks += [pscustomobject]@{ Name = 'a deepseek-flash implementer excludes neither luna nor sol'; Ok = (@($reviewerOf['deepseek-flash']) -notcontains 'luna' -and @($reviewerOf['deepseek-flash']) -notcontains 'sol') }
@@ -520,7 +536,11 @@ if ($ModelIds) { foreach ($k in $ModelIds.Keys) { $models[$k] = $ModelIds[$k] } 
 # Provider-specific variant. Invoke-OpenCodeWatched passes it by the CLI's major version (1.x
 # `--variant v`, 2.x the model's `#v` suffix). Empty means none. Effort is `high` everywhere (issue #575: `max` is
 # overkill); luna was already high.
-$variants = @{ 'glm-flash' = 'high'; glm = 'high'; luna = 'high'; sol = 'high'; deepseek = ''; 'deepseek-pro' = 'high' }
+# Sol runs light: low by default, medium with -Effort medium, never high or above (the user's
+# decision of 2026-10-03; its variants are none, low, medium, high, xhigh and max). -Effort's
+# ValidateSet admits only low and medium, and it changes sol's variant alone.
+function Get-SolVariant([string] $Requested) { if ($Requested) { return $Requested } return 'low' }
+$variants = @{ 'glm-flash' = 'high'; glm = 'high'; luna = 'high'; sol = (Get-SolVariant $Effort); deepseek = ''; 'deepseek-pro' = 'high' }
 $displayNames = @{ 'glm-flash' = 'GLM Flash'; glm = 'GLM'; luna = 'Luna'; sol = 'Sol'; deepseek = 'DeepSeek'; 'deepseek-pro' = 'DeepSeek Pro' }
 # The reviewer's model family is never the implementer's (build-process.md §3.4). The implementing
 # model comes from -ExcludeModel, else from a model:<name> label on the PR or its issue that names an
