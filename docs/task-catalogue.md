@@ -953,37 +953,37 @@ Mercenaries on the map (after T76) → [full entry](tasks/T113.md) · [#571](htt
 
 #### T114 Join armies, Join fleets and Transfer ships take their partner one tile away
 
-Join and transfer at distance 1 (correction task for bug #555, after T93) → [full entry](tasks/T114.md) · issue to be created on merge
+Join and transfer at distance 1 (correction task for bug #555, after T93) → [full entry](tasks/T114.md) · [#633](https://github.com/diegoami/imperial_conquest_2/issues/633)
 
 ---
 
 #### T115 In `classical-faithful`, recruiting and fortifying can put the treasury into debt
 
-Faithful recruit and fortify into debt (correction task for bug #549) → [full entry](tasks/T115.md) · issue to be created on merge
+Faithful recruit and fortify into debt (correction task for bug #549) → [full entry](tasks/T115.md) · [#634](https://github.com/diegoami/imperial_conquest_2/issues/634)
 
 ---
 
 #### T116 A battle fought against a human seat in the AI phase is shown at that seat's turn start
 
-AI-phase battles at the turn start (#603) → [full entry](tasks/T116.md) · issue to be created on merge
+AI-phase battles at the turn start (#603) → [full entry](tasks/T116.md) · [#635](https://github.com/diegoami/imperial_conquest_2/issues/635)
 
 ---
 
 #### T117 Army-to-army transfer rebalances supply as the original's `OK` does, and never refuses on capacity
 
-Army transfer rebalances supply (correction task for bug #619, folds #620 N2 and N8) → [full entry](tasks/T117.md) · issue to be created on merge
+Army transfer rebalances supply (correction task for bug #619, folds #620 N2 and N8) → [full entry](tasks/T117.md) · [#636](https://github.com/diegoami/imperial_conquest_2/issues/636)
 
 ---
 
 #### T118 The "End turn ?" box: the original's six checks, for human seats
 
-End turn box (correction task for bug #586) → [full entry](tasks/T118.md) · issue to be created on merge
+End turn box (correction task for bug #586) → [full entry](tasks/T118.md) · [#637](https://github.com/diegoami/imperial_conquest_2/issues/637)
 
 ---
 
 #### T119 In `classical-faithful`, New Game shuffles the turn order with the original's algorithm
 
-Faithful turn-order shuffle (#602) → [full entry](tasks/T119.md) · issue to be created on merge
+Faithful turn-order shuffle (#602) → [full entry](tasks/T119.md) · [#638](https://github.com/diegoami/imperial_conquest_2/issues/638)
 
 ---
 
@@ -1130,9 +1130,9 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T111](#t111-the-unit-maps-army-orders-each-in-its-own-dialog) | Army orders | M18 | Sonnet | High | **Opus**/Medium + human | T100, T105, T106, T107, T114, T117 | [#569](https://github.com/diegoami/imperial_conquest_2/issues/569) |
 | [T112](#t112-the-unit-maps-fleet-and-city-orders-and-the-selected-units-command-strip) | Fleet and City orders, command strip | M18 | Sonnet | High | **Opus**/Medium + human | T111, T114 | [#570](https://github.com/diegoami/imperial_conquest_2/issues/570) |
 | [T113](#t113-mercenaries-on-the-map-show-mercenaries-and-recruit-mercenaries) | Mercenaries on the map | M18 | Sonnet | Medium | **Opus**/Medium + human | T76, T110, T112 | [#571](https://github.com/diegoami/imperial_conquest_2/issues/571) |
-| [T114](#t114-join-armies-join-fleets-and-transfer-ships-take-their-partner-one-tile-away) | Join and transfer at distance 1 | — | Sonnet | Medium | **Opus**/Medium | T93 | issue on merge |
-| [T115](#t115-in-classical-faithful-recruiting-and-fortifying-can-put-the-treasury-into-debt) | Faithful recruit and fortify into debt | — | Sonnet | Medium | **Opus**/Medium | — | issue on merge |
-| [T116](#t116-a-battle-fought-against-a-human-seat-in-the-ai-phase-is-shown-at-that-seats-turn-start) | AI-phase battles at the turn start | M18 | Sonnet | Medium | **Opus**/Medium + human | — | issue on merge |
-| [T117](#t117-army-to-army-transfer-rebalances-supply-as-the-originals-ok-does-and-never-refuses-on-capacity) | Army transfer rebalances supply | — | Sonnet | Medium | **Opus**/Medium | T106 | issue on merge |
-| [T118](#t118-the-end-turn--box-the-originals-six-checks-for-human-seats) | End turn box | M18 | Sonnet | High | **Opus**/Medium + human | — | issue on merge |
-| [T119](#t119-in-classical-faithful-new-game-shuffles-the-turn-order-with-the-originals-algorithm) | Faithful turn-order shuffle | — | Sonnet | High | **Opus**/Medium | — | issue on merge |
+| [T114](#t114-join-armies-join-fleets-and-transfer-ships-take-their-partner-one-tile-away) | Join and transfer at distance 1 | — | Sonnet | Medium | **Opus**/Medium | T93 | [#633](https://github.com/diegoami/imperial_conquest_2/issues/633) |
+| [T115](#t115-in-classical-faithful-recruiting-and-fortifying-can-put-the-treasury-into-debt) | Faithful recruit and fortify into debt | — | Sonnet | Medium | **Opus**/Medium | — | [#634](https://github.com/diegoami/imperial_conquest_2/issues/634) |
+| [T116](#t116-a-battle-fought-against-a-human-seat-in-the-ai-phase-is-shown-at-that-seats-turn-start) | AI-phase battles at the turn start | M18 | Sonnet | Medium | **Opus**/Medium + human | — | [#635](https://github.com/diegoami/imperial_conquest_2/issues/635) |
+| [T117](#t117-army-to-army-transfer-rebalances-supply-as-the-originals-ok-does-and-never-refuses-on-capacity) | Army transfer rebalances supply | — | Sonnet | Medium | **Opus**/Medium | T106 | [#636](https://github.com/diegoami/imperial_conquest_2/issues/636) |
+| [T118](#t118-the-end-turn--box-the-originals-six-checks-for-human-seats) | End turn box | M18 | Sonnet | High | **Opus**/Medium + human | — | [#637](https://github.com/diegoami/imperial_conquest_2/issues/637) |
+| [T119](#t119-in-classical-faithful-new-game-shuffles-the-turn-order-with-the-originals-algorithm) | Faithful turn-order shuffle | — | Sonnet | High | **Opus**/Medium | — | [#638](https://github.com/diegoami/imperial_conquest_2/issues/638) |
