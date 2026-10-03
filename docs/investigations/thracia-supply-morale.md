@@ -277,7 +277,9 @@ if (fleet[+10] == -1) {                              // launched and at sea
 > the army's casualties (T63, #295, 562e608).
 
 Two consequences of that ordering are worth keeping. The **death check precedes the supply penalty**,
-so `−random(0..1)` can leave a fleet below 40 without killing it until the *next* turn's check. And
+so `−random(0..1)` can leave a fleet below 40 without killing it until the *next* turn's check. Run live, four fleets that a storm left at exactly 40 fell to 39 on the supply term and survived
+the turn **[Wine candidate:
+[`2026-10-03-storms-and-losses-at-sea.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-03-storms-and-losses-at-sea.md)]**. And
 the storm term `random(100 − condition) / 10` **escalates as the fleet degrades**, which makes naval
 attrition a death spiral rather than a linear decline — the dominant effect by far, with the supply
 rider adding at most 1 per turn on top.
@@ -446,10 +448,16 @@ treat `owner == 0xFFFF` as a tombstone and skip the record rather than reject th
 
 ### Still open
 
-- **The storm-damage constants, end to end.** `FUN_004494e4` (the "away from friendly coast" test
-  that doubles damage) and `fleet[+24] == 1` (which triples it) are both inferred from magnitudes
-  here, not decompiled. The Cartago series is consistent with the doubling branch being active
-  throughout but cannot prove which predicate selected it.
+- **The storm-damage constants, end to end — answered since.** Both predicates are now decompiled.
+  `FUN_004494e4` returns a city of the fleet's own nation in its clamped 3×3, else −1, so the
+  `× 2 + 1` branch means *not next to one of its own cities*. `fleet[+24] == 1` is the fleet's
+  in-rough-sea flag, which the weekly weather overlay sets and clears **[confirmed:
+  [`decompiled-map-code1-overlay.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-map-code1-overlay.md)]**.
+  Run live, the whole pass matches 90 storms in 12 cells: rough sea, calm sea away from the fleet's
+  cities, next to one, Winter, condition 85 and 45, and an army aboard. A fleet two tiles from its
+  own city took the `× 2 + 1` damage, and one next to it took half **[Wine candidate:
+  [`2026-10-03-storms-and-losses-at-sea.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-03-storms-and-losses-at-sea.md)]**.
+  The 1-in-20 Winter spike rests on the code alone: that run neither confirms nor excludes it.
 - **The 2:1 decay-to-regen asymmetry is confirmed as code but unexplained as design.** Worth a
   deliberate decision in `game-design.md` rather than being inherited silently, since it makes
   starvation roughly twice as expensive to undo as to incur.
