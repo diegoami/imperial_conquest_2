@@ -140,10 +140,10 @@ Models are chosen per task, in the task's entry, by what an error would cost:
    | The implementer is GLM | DeepSeek V4 Pro (then Luna when only Sol is out) | DeepSeek V4 Pro when OpenAI is out of quota |
    | The implementer is DeepSeek (the default `deepseek-flash`) | GLM-5.3 (then Luna when only Sol is out) | GLM-5.3 when OpenAI is out of quota |
 
-   Luna is a light reviewer: it takes Sol's place on a hard review only when no heavy third-family reviewer can run, and its header says so. On a very complex PR that Claude implemented, Sol's place beside the Luna pair goes to the first substitute whose family is not already in the pair (normally DeepSeek V4 Pro when the pair's second is GLM); when none can run, the pair alone reviews. When the OpenAI account is out of quota the pair cannot form, so that PR is reviewed by GLM-5.3 and DeepSeek V4 Pro together, and escalated when either cannot run (both the user's decisions of 2026-10-03).
+   Luna is a light reviewer: it takes Sol's place on a hard review only when no heavy third-family reviewer can run, and its header says so. On a very complex PR that Claude implemented, On a very complex PR that Claude implemented, Sol runs first and the pair is dispatched only once Sol's outcome is known (its review posted, or an exit 3 diagnosed), so no review is posted before the count is settled. Sol posted: the pair follows, three reviews. Only Sol out: the pair, then Sol's place goes to the first substitute whose family is not already in the pair (normally DeepSeek V4 Pro when the pair's second is GLM), three reviews. The OpenAI account out of quota: neither Sol nor Luna can post, so GLM-5.3 and DeepSeek V4 Pro review together, the two reviews the user confirmed (both the user's decisions of 2026-10-03). The PR escalates when fewer reviews than that can run.
 3. **How a substitute runs.** Probe it first with `-WhatIf` (below). Reuse Sol's brief unchanged except that its header line names the substitute ("T<nn> review (GLM)", or "T<nn> review (Luna, in Sol's place: <reason>)" for Luna), one sentence says it reviews in Sol's place and why, and Sol's earlier reviews on the PR are linked so that it re-takes their attacks. Run it; move to the next substitute only on exit 3 (exit 4 is read and decided, as always).
 4. **Record it.** For a task PR, the main session commits a one-line note to the Reviewer field of `docs/tasks/T<nn>.md` on `main`, as a routine doc claim ("Docs: T<nn> reviewer"), with the date, the substitute and the reason; a fix or a plan PR records it in the tier comment. It also appends one entry to the wiki's [Model trials](https://github.com/diegoami/imperial_conquest_2/wiki/Model-trials) page (append-only, like Process incidents): the error, the probe results, the substitute, and what it caught or missed against Sol's earlier rounds.
-5. **Probes.** The free probe is `pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer <x> -BriefFile <brief> -WhatIf`: it checks the CLI and the argument line and bills nothing, but it does not reach the provider. When a quota diagnosis needs the provider, the one-prompt probe bills a little: with `XDG_DATA_HOME` set to `%USERPROFILE%\.local\share\ic2-opencode-1x\data` and stdin closed (operating-guide §3 says why), `$null | opencode run --model openai/gpt-6-luna "Reply with the word OK."`; an `OK` means Luna is served, `The usage limit has been reached` means the account is out of quota.
+5. **Probes.** The free probe is `pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer <x> -ExcludeModel <implemented by> -BriefFile <brief> -WhatIf`: it runs the family check first (a reviewer of the implementer's family is refused with exit 1), then checks the CLI and the argument line, and bills nothing; it does not reach the provider, so a green probe says nothing about quota. When a quota diagnosis needs the provider, the one-prompt probe bills a little: with `XDG_DATA_HOME` set to `%USERPROFILE%\.local\share\ic2-opencode-1x\data` and stdin closed (operating-guide §3 says why), `$null | opencode run --model openai/gpt-6-luna "Reply with the word OK."`; an `OK` means Luna is served, `The usage limit has been reached` means the account is out of quota.
 6. **Prevention.** One provider's quota must never block a hard PR's last review: before every complex or very complex review, not at session start (the user's decision of 2026-10-03) ([Appendix C](#appendix-c-the-run-task-skill) step 2c), the main session runs the `-WhatIf` probes of `sol`, `glm` and `deepseek-pro`, and a red probe is fixed, or recorded in the tier comment, before it is needed.
 
 Unchanged by the tier: `/code-review --effort ultra` on the four architecture PRs and at rework round 2 ([§3.5](#35-where-the-code-review-skill-fits)), the user's own ultra review of T16 and T22, and the human visual review of the Godot screens ([§9](#9-standing-governance-decisions) Q-B). A machine's model order may swap a tier's Claude form for its OpenCode form when Claude credit is short (Opus for Sol plus the Luna pair), and never lowers a tier.
@@ -812,10 +812,13 @@ the docs item applies only if the review named a claim.
       (always pass -Reviewer, never a -ModelIds override). Before a complex or very complex
       review (not at session start; the user's decision of 2026-10-03), probe Sol's substitutes so
       that one provider's quota cannot block it:
-        pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer sol -BriefFile rendered/review-tier/<pr>-sol.md -WhatIf
-        pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer glm -BriefFile rendered/review-tier/<pr>-sol.md -WhatIf
-        pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer deepseek-pro -BriefFile rendered/review-tier/<pr>-sol.md -WhatIf
-      (exit 0 each; they bill nothing). Note a red probe in the tier comment. Run every review
+        pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer sol -ExcludeModel <IMPL> -BriefFile rendered/review-tier/<pr>-sol.md -WhatIf
+        pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer glm -ExcludeModel <IMPL> -BriefFile rendered/review-tier/<pr>-sol.md -WhatIf
+        pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer deepseek-pro -ExcludeModel <IMPL> -BriefFile rendered/review-tier/<pr>-sol.md -WhatIf
+      They bill nothing. -WhatIf runs the family check first: exit 1 "Refused" means that
+      reviewer is of IMPL's family and is skipped, which is not a red probe; exit 0 means the CLI,
+      the argument line and the family are fine, not that the provider will serve the run. Note
+      a red probe (any other failure) in the tier comment. Run every review
       script in the background and watch it (operating-guide §3). While OpenCode is suspended for
       reviews (two failures of the same cause), treat every script command below as exit 3.
    d. DISPATCH. The commands:
@@ -857,11 +860,16 @@ the docs item applies only if the review named a claim.
       - complex, IMPL Claude: SOL. Exit 3: DIAGNOSE, then SOL'S SUBSTITUTES, then escalate.
       - complex or very complex, IMPL OpenAI (luna): OPUS.
       - very complex, IMPL not Claude: OPUS.
-      - very complex, IMPL Claude (the user's decision of 2026-10-03): SOL- and THE PAIR, three reviews. SOL- exits 3: DIAGNOSE.
-        SOL-ONLY: SUB- of the first of glm and deepseek-pro whose family is not already in the pair
-        (normally deepseek-pro), and THE PAIR alone when none can run. QUOTA: the pair cannot
-        form; run SUB- glm and SUB- deepseek-pro, two reviews, and escalate when either exits 3.
-        The pair fails: escalate (step 5).
+      - very complex, IMPL Claude (the user's decision of 2026-10-03), in this order:
+        1. Run SOL- alone (with -Effort medium) and wait for its outcome. Start nothing else yet.
+        2. SOL- posted: run THE PAIR. Count: SOL- + LUNA + the second = three.
+        3. SOL- exits 3: DIAGNOSE.
+           SOL-ONLY: run THE PAIR, then SUB- of the first of glm and deepseek-pro whose family the
+           pair did not use (normally deepseek-pro). Count: the pair + SUB- = three.
+           QUOTA: Luna cannot post either, so there is no pair: run SUB- glm and SUB- deepseek-pro.
+           Count: two, the form the user confirmed for a quota outage.
+        4. Escalate (step 5) when the count cannot be reached: THE PAIR fails, no SUB- can run, or
+           under QUOTA either SUB- exits 3.
       Labels: with one review, its reviewer labels (SOL, SUB x or OPUS). With two or three, the
       main session labels: status:approved only when every review approves, status:rework when any
       asks for rework (step 3 relays every review in full), and it escalates on any user decision.
@@ -870,6 +878,10 @@ the docs item applies only if the review named a claim.
       "Docs: T<nn> reviewer", a routine doc claim; for a fix, put it in the tier comment. Append
       one entry to the wiki page Model trials: the error, the probe results, the substitute, and
       what it caught or missed against Sol's earlier rounds.
+   Exit 5 means GitHub did not take the comment (gh pr comment failed twice, or returned no
+   comment URL; bug #645): nothing was posted and no label was set; read the saved file the
+   script names (rendered\review-not-posted-pr<pr>-<reviewer>-<time>.md), post it by hand with
+   `gh pr comment <pr> --body-file <that file>`, and act on its verdict as if the script had.
    Exit 4 means a review was posted flagged (cut off, verdict unreadable, or findings after the
    closing verdict) and no label was set: read it on the PR and decide (count it by its content,
    or run that path's next reviewer). Exit 1 with "Refused" means a reviewer of IMPL's family was

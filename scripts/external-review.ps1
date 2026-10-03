@@ -42,6 +42,12 @@
       4. with -ApplyLabel, applies status:approved or status:rework to the task's issue from the
          verdict, as a Claude reviewer would (never for a plan PR; never for a flagged review);
       5. removes the worktree it created, and only that one.
+    A post that GitHub does not take (gh exits non-zero, or no comment URL comes back; bug #645)
+    is retried once; if it fails again the script prints "NOT posted:", saves the review to
+    rendered\review-not-posted-pr<pr>-<reviewer>-<time>.md, applies no label and exits 5: the main
+    session reads the saved file and posts it by hand. Exit codes: 0 posted (and labelled with
+    -ApplyLabel), 1 refused or a defect, 3 no review (OpenCode unavailable or every model failed),
+    4 posted flagged with no label, 5 not posted, saved.
     With -Reviewer auto (the default) the chain is Luna alone on `openai/gpt-6-luna` (issue #575:
     one OpenCode model per role before Claude), the simple tier's reviewer; on its failure the
     script exits 3 and the main session runs a cold Claude Opus reviewer. The main session picks
@@ -107,7 +113,8 @@
     Print each chain reviewer's OpenCode argument line (the CLI's version decides its syntax) and exit 0,
     without fetching the PR, creating a worktree, starting a run or billing a model. Unlike -DryRun,
     which runs the reviewer (and bills it), this starts only `opencode --version`, in its own scratch directories. The chain shown is before -ExcludeModel
-    and the model:<name> label are applied.
+    and the model:<name> label are applied. With -ExcludeModel, -WhatIf first runs the family
+    check, so a reviewer of the implementer's family is refused with exit 1 (PR #642 review R6).
 .PARAMETER SelfTest
     Run the review-parser samples (fix #575 DoD 4) and the issue #590 prompt/agent checks, and exit 0
     when all match; no PR, no brief and no OpenCode run.
@@ -488,6 +495,29 @@ function Invoke-ReviewParserSelfTest {
     $ruleChecks += [pscustomobject]@{ Name = 'a luna implementer excludes luna and sol'; Ok = ((@($reviewerOf['luna']) | Sort-Object) -join ',' -eq 'luna,sol') }
     $ruleChecks += [pscustomobject]@{ Name = 'a sol implementer excludes luna and sol'; Ok = ((@($reviewerOf['sol']) | Sort-Object) -join ',' -eq 'luna,sol') }
     $ruleChecks += [pscustomobject]@{ Name = 'a deepseek-flash implementer excludes neither luna nor sol'; Ok = (@($reviewerOf['deepseek-flash']) -notcontains 'luna' -and @($reviewerOf['deepseek-flash']) -notcontains 'sol') }
+    # PR #642 review R6: the family check uses one helper, and runs before -WhatIf returns.
+    $ruleChecks += [pscustomobject]@{ Name = 'Get-ExcludedReviewers: a luna implementer excludes sol'; Ok = ((Get-ExcludedReviewers @('luna')) -contains 'sol') }
+    $ruleChecks += [pscustomobject]@{ Name = 'Get-ExcludedReviewers: a sonnet implementer excludes nothing'; Ok = (@(Get-ExcludedReviewers @('sonnet')).Count -eq 0) }
+    $probeDir = Join-Path (Split-Path $PSScriptRoot -Parent) 'rendered'
+    New-Item -ItemType Directory -Force -Path $probeDir | Out-Null
+    $probeBrief = Join-Path $probeDir "selftest-brief-$([guid]::NewGuid().ToString('N').Substring(0, 8)).md"
+    Set-Content -LiteralPath $probeBrief -Value "T0 review (Sol)`nself-test probe brief" -Encoding utf8
+    $null = & pwsh -NoProfile -File $PSCommandPath -Pr 1 -Reviewer sol -ExcludeModel luna -BriefFile $probeBrief -WhatIf 2>&1
+    $whatIfCode = $LASTEXITCODE
+    Remove-Item -LiteralPath $probeBrief -Force -ErrorAction SilentlyContinue
+    $ruleChecks += [pscustomobject]@{ Name = "-WhatIf -Reviewer sol -ExcludeModel luna is refused with exit 1 (got $whatIfCode)"; Ok = ($whatIfCode -eq 1) }
+    # Bug #645: a failed post is never reported as posted. gh stubbed to fail twice, then to answer
+    # without a comment URL, then to succeed.
+    $failGh = { $global:LASTEXITCODE = 1; 'Post "https://api.github.com/graphql": unexpected EOF' }
+    $noUrlGh = { $global:LASTEXITCODE = 0; '' }
+    $okGh = { $global:LASTEXITCODE = 0; 'https://github.com/diegoami/imperial_conquest_2/pull/1#issuecomment-1' }
+    $script:ghCalls = 0
+    $countingFailGh = { $script:ghCalls++; $global:LASTEXITCODE = 1; 'unexpected EOF' }
+    $ruleChecks += [pscustomobject]@{ Name = 'a gh failure is not posted'; Ok = ($null -eq (Publish-ReviewComment -Pr 1 -BodyFile 'x' -Gh $failGh 6>$null)) }
+    $null = Publish-ReviewComment -Pr 1 -BodyFile 'x' -Gh $countingFailGh 6>$null
+    $ruleChecks += [pscustomobject]@{ Name = "a failed post is retried once (gh called $($script:ghCalls) times)"; Ok = ($script:ghCalls -eq 2) }
+    $ruleChecks += [pscustomobject]@{ Name = 'exit 0 with no comment URL is not posted'; Ok = ($null -eq (Publish-ReviewComment -Pr 1 -BodyFile 'x' -Gh $noUrlGh 6>$null)) }
+    $ruleChecks += [pscustomobject]@{ Name = 'a comment URL is posted'; Ok = ((Publish-ReviewComment -Pr 1 -BodyFile 'x' -Gh $okGh 6>$null) -like '*#issuecomment-1') }
     # PR #642 review R1: a Claude implementer passes -ExcludeModel sonnet or opus like any other;
     # both are valid values and exclude no OpenCode reviewer.
     $excludeSet = @((Get-Command $PSCommandPath).Parameters['ExcludeModel'].Attributes |
@@ -563,6 +593,29 @@ $reviewerOf = @{
     'opus'           = @()
 }
 
+function Get-ExcludedReviewers([string[]] $Implementers) {
+    # The reviewer names the implementers' families exclude (build-process.md §3.4).
+    return @($Implementers | ForEach-Object { $reviewerOf[$_] } | Where-Object { $_ } | Select-Object -Unique)
+}
+
+function Publish-ReviewComment {
+    # Posts the review as one PR comment and returns the comment's URL, or $null when it was not
+    # posted (bug #645: during GitHub's 2026-10-03 outage `gh pr comment` failed with
+    # 'Post "https://api.github.com/graphql": unexpected EOF' and the script still said "posted").
+    # It checks gh's exit code AND that a comment URL came back, and retries once. -Gh is the gh
+    # invocation, replaceable so -SelfTest can stub a failing gh.
+    param([int] $Pr, [string] $BodyFile, [scriptblock] $Gh = { & gh @args })
+    for ($try = 1; $try -le 2; $try++) {
+        $global:LASTEXITCODE = 0
+        $out = (& $Gh pr comment $Pr --body-file $BodyFile 2>&1 | Out-String)
+        $code = $global:LASTEXITCODE
+        $url = [regex]::Match($out, 'https://github\.com/\S+#issuecomment-\d+').Value
+        if ($code -eq 0 -and $url) { return $url }
+        Write-Host "gh pr comment failed (try $try of 2, exit $code): $($out.Trim())"
+    }
+    return $null
+}
+
 if ($SelfTest) { exit (Invoke-ReviewParserSelfTest) }
 if (-not $Pr) { throw '-Pr is required (or use -SelfTest).' }
 if (-not $BriefFile) { throw '-BriefFile is required.' }
@@ -596,6 +649,28 @@ $briefHeader = $briefLines[0].Trim()
 $briefRest = ($briefLines | Select-Object -Skip 1) -join "`n"
 if ($briefHeader -notmatch 'review \(') { throw "The brief's first line must be the review header, e.g. 'Plan review (Luna)'; got: $briefHeader" }
 if ($ApplyLabel -and -not $Issue) { throw '-ApplyLabel needs -Issue.' }
+# The family check runs before the OpenCode probe and before -WhatIf returns (PR #642 review R6), so
+# a green -WhatIf probe also says the reviewer is permitted for -ExcludeModel's implementer. Without
+# -ExcludeModel, -WhatIf reads no labels and says the family was not checked.
+if (-not $ExcludeModel -and -not $WhatIf -and -not (Get-Command gh -ErrorAction SilentlyContinue)) { throw 'gh is not on PATH.' }
+$implementers = if ($ExcludeModel) { @($ExcludeModel) } elseif ($WhatIf) { @() } else {
+    $labels = @(gh pr view $Pr --json labels --jq '.labels[].name' 2>$null)
+    if ($Issue) { $labels += @(gh issue view $Issue --json labels --jq '.labels[].name' 2>$null) }
+    @($labels | Where-Object { $_ -match '^model:(.+)$' } | ForEach-Object { $_.Substring(6) } |
+        Where-Object { $_ -in 'deepseek-flash', 'glm-flash', 'glm', 'luna', 'sol', 'mimo-pro', 'mimo-flash', 'deepseek', 'deepseek-pro' } | Select-Object -Unique)
+}
+if ($WhatIf -and -not $ExcludeModel) { Write-Host 'family not checked: pass -ExcludeModel <implemented by> to check it.' }
+$excluded = Get-ExcludedReviewers $implementers
+if ($implementers) { Write-Host "implemented by: $($implementers -join ', '); excluded from review: $(if ($excluded) { $excluded -join ', ' } else { 'none' })" }
+if ($Reviewer -ne 'auto' -and $excluded -contains $Reviewer) {
+    [Console]::Error.WriteLine("Refused: -Reviewer $Reviewer is of the model family that implemented PR #$Pr ($($implementers -join ', ')); the reviewer's model family is never the implementer's (build-process.md §3.4). Use -Reviewer auto or another model. Nothing posted.")
+    exit 1
+}
+$chain = @($chain | Where-Object { $excluded -notcontains $_ })
+if (-not $chain) {
+    [Console]::Error.WriteLine("OpenCode unavailable: no reviewer model left after excluding the implementer's ($($implementers -join ', ')). Nothing posted.")
+    exit 3
+}
 # OpenCode not installed or not found, or a major version this script has no arguments for (only 1.x
 # and 2.x), is the same signal as every model failing: exit 3. The version is read once (T98).
 try { $cli = Get-OpenCodeCli } catch {
@@ -613,24 +688,6 @@ if ($WhatIf) {
     exit 0
 }
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { throw 'gh is not on PATH.' }
-
-$implementers = if ($ExcludeModel) { @($ExcludeModel) } else {
-    $labels = @(gh pr view $Pr --json labels --jq '.labels[].name' 2>$null)
-    if ($Issue) { $labels += @(gh issue view $Issue --json labels --jq '.labels[].name' 2>$null) }
-    @($labels | Where-Object { $_ -match '^model:(.+)$' } | ForEach-Object { $_.Substring(6) } |
-        Where-Object { $_ -in 'deepseek-flash', 'glm-flash', 'glm', 'luna', 'sol', 'mimo-pro', 'mimo-flash', 'deepseek', 'deepseek-pro' } | Select-Object -Unique)
-}
-$excluded = @($implementers | ForEach-Object { $reviewerOf[$_] } | Where-Object { $_ } | Select-Object -Unique)
-if ($implementers) { Write-Host "implemented by: $($implementers -join ', '); excluded from review: $(if ($excluded) { $excluded -join ', ' } else { 'none' })" }
-if ($Reviewer -ne 'auto' -and $excluded -contains $Reviewer) {
-    [Console]::Error.WriteLine("Refused: -Reviewer $Reviewer is of the model family that implemented PR #$Pr ($($implementers -join ', ')); the reviewer's model family is never the implementer's (build-process.md §3.4). Use -Reviewer auto or another model. Nothing posted.")
-    exit 1
-}
-$chain = @($chain | Where-Object { $excluded -notcontains $_ })
-if (-not $chain) {
-    [Console]::Error.WriteLine("OpenCode unavailable: no reviewer model left after excluding the implementer's ($($implementers -join ', ')). Nothing posted.")
-    exit 3
-}
 
 $headSha = gh pr view $Pr --json headRefOid --jq .headRefOid
 if (-not $headSha) { throw "Could not read PR #$Pr's head." }
@@ -763,11 +820,19 @@ try {
             # 4. Post, and label (only a readable review is acted on).
             $bodyFile = Join-Path $env:TEMP "ic2-review-$Pr.md"
             Set-Content -LiteralPath $bodyFile -Value $body -Encoding utf8
-            gh pr comment $Pr --body-file $bodyFile | Out-Null
-            if ($result.Flagged) {
-                Write-Host "posted with the note line; no label applied ($($result.FlagNote)). Read it and decide."
+            $script:postedUrl = Publish-ReviewComment -Pr $Pr -BodyFile $bodyFile
+            if (-not $script:postedUrl) {
+                # Bug #645: never report or label a review GitHub did not take. Keep its text in a
+                # named file for the main session to post by hand, and exit 5.
+                $savedDir = Join-Path $repo 'rendered'
+                New-Item -ItemType Directory -Force -Path $savedDir | Out-Null
+                $script:savedReview = Join-Path $savedDir "review-not-posted-pr$Pr-$($result.Name)-$(Get-Date -Format 'yyyyMMdd-HHmmss').md"
+                Set-Content -LiteralPath $script:savedReview -Value $body -Encoding utf8
+                Write-Host "NOT posted: $(($review -split "`r?`n")[0]) / $($result.Verdict); no label applied; the review is saved in $script:savedReview"
+            } elseif ($result.Flagged) {
+                Write-Host "posted with the note line ($script:postedUrl); no label applied ($($result.FlagNote)). Read it and decide."
             } else {
-                Write-Host "posted: $(($review -split "`r?`n")[0]) / $($result.Verdict)"
+                Write-Host "posted: $(($review -split "`r?`n")[0]) / $($result.Verdict) ($script:postedUrl)"
                 if ($ApplyLabel) {
                     if ($result.Verdict -eq 'approve') {
                         gh issue edit $Issue --add-label status:approved --remove-label status:in-review | Out-Null
@@ -791,6 +856,10 @@ if (-not $result) {
     if ($sameCause) { $reasons = "same failure twice: $sameCause ($reasons)" }
     [Console]::Error.WriteLine("OpenCode unavailable: $reasons. Nothing posted.")
     exit 3
+}
+if ($script:savedReview) {
+    [Console]::Error.WriteLine("Review on PR #$Pr was NOT posted (gh pr comment failed twice); no label applied. Read $script:savedReview and post it by hand (exit 5).")
+    exit 5
 }
 if ($result.Flagged) {
     [Console]::Error.WriteLine("Review on PR #$Pr is $($result.FlagNote); posted without a label. Read it and decide (exit 4).")
