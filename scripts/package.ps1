@@ -172,6 +172,8 @@ function Invoke-WithScrubbedEnvironment {
         if ($env:PATH -match 'Godot') { Fail "the scrubbed PATH still contains Godot: $env:PATH" }
         if ($env:PATH -match 'dotnet') { Fail "the scrubbed PATH still contains dotnet: $env:PATH" }
 
+        Write-Step "scrubbed run: PATH='$env:PATH', DOTNET_ROOT unset; launching $Executable $($Arguments -join ' ')"
+
         # Start-Process rather than a pipeline: the release export is a GUI-subsystem executable, and
         # PowerShell's `*>` redirection captures nothing (and leaves $LASTEXITCODE null) for it.
         $stdout = "$LogPath.stdout"
