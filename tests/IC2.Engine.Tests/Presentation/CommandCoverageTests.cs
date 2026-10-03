@@ -127,9 +127,12 @@ public sealed class CommandCoverageTests
     {
         ["armies.army-transfer"] = "army-transfer",
         ["armies.disband-army"] = "disband-army",
+        ["armies.disband-unit"] = "disband-unit",
         ["armies.join-armies"] = "join-armies",
         ["armies.join-units"] = "join-units",
+        ["armies.rename-unit"] = "rename-unit",
         ["armies.split-army"] = "split-army",
+        ["armies.split-unit"] = "split-unit",
         ["battle.attack-army"] = "attack-army",
         ["battle.attack-fleet"] = "attack-fleet",
         ["battle.besiege-city"] = "besiege-city",

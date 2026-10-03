@@ -294,6 +294,44 @@ public sealed partial class GameSession
         return IssueCommand(new JoinUnitsCommand(State.ActiveNationId, tokens[1], first, second));
     }
 
+    private IReadOnlyList<string> HandleSplitUnit(string[] tokens)
+    {
+        if (tokens.Length != 4
+            || !int.TryParse(tokens[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var unitIndex)
+            || !int.TryParse(tokens[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var troops))
+        {
+            return new[] { "Usage: split-unit <army> <unit-index> <troops>" };
+        }
+
+        return IssueCommand(new SplitUnitCommand(State.ActiveNationId, tokens[1], unitIndex, troops));
+    }
+
+    private IReadOnlyList<string> HandleRenameUnit(string[] tokens)
+    {
+        if (tokens.Length < 4
+            || !int.TryParse(tokens[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var unitIndex))
+        {
+            return new[] { "Usage: rename-unit <army> <unit-index> <name>" };
+        }
+
+        // The name is free text and may contain spaces ("Legio I"); the tokenizer splits only on spaces, so
+        // runs of spaces collapse to one on rejoin. A tab survives the split and is rejected anyway by
+        // RenameUnitCommandHandler.IsValidName, as is a leading or trailing space.
+        var name = string.Join(' ', tokens[3..]);
+        return IssueCommand(new RenameUnitCommand(State.ActiveNationId, tokens[1], unitIndex, name));
+    }
+
+    private IReadOnlyList<string> HandleDisbandUnit(string[] tokens)
+    {
+        if (tokens.Length != 3
+            || !int.TryParse(tokens[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var unitIndex))
+        {
+            return new[] { "Usage: disband-unit <army> <unit-index>" };
+        }
+
+        return IssueCommand(new DisbandUnitCommand(State.ActiveNationId, tokens[1], unitIndex));
+    }
+
     private IReadOnlyList<string> HandleSplitArmy(string[] tokens)
     {
         if (tokens.Length != 4

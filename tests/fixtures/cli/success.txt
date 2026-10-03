@@ -65,4 +65,7 @@ transfer-money army-8 -50
 move army-8 136 42
 move mac-marines 137 41
 army-transfer army-8 mac-marines supply=10 money=20
+split-unit mac-marines 0 1000
+rename-unit mac-marines 0 LegioX
+disband-unit mac-marines 1
 quit

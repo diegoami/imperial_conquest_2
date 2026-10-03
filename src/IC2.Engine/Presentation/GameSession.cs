@@ -983,6 +983,15 @@ public sealed partial class GameSession
             case "army-transfer":
                 lines.AddRange(HandleArmyTransfer(tokens));
                 break;
+            case "split-unit":
+                lines.AddRange(HandleSplitUnit(tokens));
+                break;
+            case "rename-unit":
+                lines.AddRange(HandleRenameUnit(tokens));
+                break;
+            case "disband-unit":
+                lines.AddRange(HandleDisbandUnit(tokens));
+                break;
             case "order-city":
                 lines.AddRange(HandleOrderCity(tokens));
                 break;
