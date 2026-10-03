@@ -310,11 +310,15 @@ public sealed class MapClickRulesTests
         var outcome = MapClickRules.Resolve(Click(
             selection: OwnFleet(carriedArmyId: "army-a"),
             target: null,
+            x: 47,
+            y: 23,
             land: true,
             sea: false));
 
         Assert.Equal(MapClickOutcomeKind.DisembarkArmy, outcome.Kind);
-        Assert.Equal("disembark-army army-a", outcome.OrderLine);
+        // Bug #594: the order names the clicked landing tile, not just the army -- landing on the first
+        // passable neighbour was the defect the original's click-to-land tile rules out.
+        Assert.Equal("disembark-army army-a 47 23", outcome.OrderLine);
         Assert.Equal(MapEntityKind.Army, outcome.FocusKind);
         Assert.Equal("army-a", outcome.FocusId);
         Assert.False(outcome.KeepSelectionWhileMovesRemain);

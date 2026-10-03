@@ -282,23 +282,23 @@ Everything else merges without the user, subject to [§9](#9-standing-governance
 
 In the same turn as the merge, the main session:
 
-1. **Unblocks.** Every `status:blocked` task whose merge-after dependencies are now all merged, and which isn't suspended on an open bug, becomes `status:ready`. **Until v0.4.0 is tagged, the next task is the next ready task of the UI chain, T24, then T25, then T27**, taken before any engine task, on whichever machine is running ([§8](#8-two-machines)). The rule names the chain, not the label: a `lane:ui` task labelled `post-v0.4.0`, such as T51, is not part of it.
+1. **Unblocks.** Every `status:blocked` task whose merge-after dependencies are now all merged, and which isn't suspended on an open bug, becomes `status:ready`. **Until v0.5.0 is tagged, the next task is the next ready task of the UI chain, T24, then T25, then T27**, taken before any engine task, on whichever machine is running ([§8](#8-two-machines)). The rule names the chain, not the label: a `lane:ui` task labelled `post-v0.5.0`, such as T51, is not part of it.
 2. **Files the follow-up** ([§4.6](#46-bugs-and-follow-ups)), if the review had non-blocking findings, and proposes where each item folds.
 3. **Makes any Owns widening durable.** A widening recorded by an issue comment ([§4.2](#42-what-the-reviewer-checks) gate 4) is added to the task's entry, `docs/tasks/T<nn>.md`, in this step's `Docs:` commit, so a later disjointness check ([§8](#8-two-machines)) reads the entry, not a comment.
    **Records the PR's "Docs affected" list**, and applies only what would otherwise leave a document **factually wrong**: a formula the code now implements differently, an `[open]` item the merge closed, a mis-attributed citation. Those go straight to `main` in a small `Docs:` commit, because a wrong provenance claim is what the review gates exist to catch. **Everything else waits for the release docs pass** ([release-plan.md §5](release-plan.md#5-release-checklist)): re-wording, counts, narrative and anything about where the build stands. The living pages are in the [wiki](https://github.com/diegoami/imperial_conquest_2/wiki), where they carry no contractual force (incident 10).
 4. **Cleans up** the agents' worktrees for the task.
 5. **Reports to the user**: the merge commit, what the review found, the follow-ups filed, and what is ready next.
 
-### 4.8 The playability gate, until v0.4.0
+### 4.8 The playability gate, until v0.5.0
 
-Adopted 2026-09-28 by the user's decision, to reach v0.4.0, the playable Godot UI. **Until v0.4.0 is tagged, a bug or follow-up becomes a correction task or a fold only if it breaks play**:
+Adopted 2026-09-28 by the user's decision, to reach v0.4.0, the playable Godot UI, and extended to v0.5.0, the next release (which the user names "Battles"), by the user's decisions of 2026-10-03 (v0.4.0 was tagged on 2026-09-28, and the label was renamed from `post-v0.4.0` to `post-v0.5.0`). **Until v0.5.0 is tagged, a bug or follow-up becomes a correction task or a fold only if it breaks play**:
 - a crash;
 - an AI stall;
 - an unwinnable game;
 - a save that will not load;
 - an order that can never succeed.
 
-Everything else keeps its issue open, loses `triage:needed`, and gains the label `post-v0.4.0`. Evidence findings outside that class are recorded in the research repository, with an issue here labelled `post-v0.4.0` that points at the report. No catalogue entry is written for them until the tag. After the tag, the `post-v0.4.0` issues are triaged under [§4.6](#46-bugs-and-follow-ups) as usual. Until v0.4.0, the fix lane ([§4.10](#410-the-fix-lane)) takes only bugs in this class, and a fix never goes ahead of a ready UI-chain task ([§8](#8-two-machines)).
+Everything else keeps its issue open, loses `triage:needed`, and gains the label `post-v0.5.0`. Evidence findings outside that class are recorded in the research repository, with an issue here labelled `post-v0.5.0` that points at the report. No catalogue entry is written for them until the v0.5.0 tag, except where the user decides otherwise (as for T114–T119 at the triage of 2026-10-03). After the tag, the `post-v0.5.0` issues are triaged under [§4.6](#46-bugs-and-follow-ups) as usual. Until v0.5.0, the fix lane ([§4.10](#410-the-fix-lane)) takes only bugs in this class, and a fix never goes ahead of a ready UI-chain task ([§8](#8-two-machines)).
 
 ### 4.9 Plan PRs: two tiers
 
@@ -320,7 +320,7 @@ A routine PR the user later disagrees with is reverted by a contract-tier PR. Th
 
 ### 4.10 The fix lane
 
-A bug qualifies for the fix lane when its fix **stays within the files the bug names and changes no rule's outcome**: it corrects a message, a guard, a rejection, a parser, a view, a validation, a test, a save path or a data file's provenance. A change that alters what a rule computes, a gameplay constant, a resolver's result or an AI decision is a correction task under [§4.6](#46-bugs-and-follow-ups) step 3, however small. The main session decides at triage and labels the bug `fix` and `status:ready`. The test the triager applies from the bug, and the reviewer checks from the diff: **a fix changes no ruleset key, no `tests/fixtures/corpus.json` value, no seeded measurement, and no CLI golden line outside the bug's own reproduction.** If it would, it is a correction task; the list above is examples, not the test. Until v0.4.0 the lane takes only bugs in [§4.8](#48-the-playability-gate-until-v040)'s class.
+A bug qualifies for the fix lane when its fix **stays within the files the bug names and changes no rule's outcome**: it corrects a message, a guard, a rejection, a parser, a view, a validation, a test, a save path or a data file's provenance. A change that alters what a rule computes, a gameplay constant, a resolver's result or an AI decision is a correction task under [§4.6](#46-bugs-and-follow-ups) step 3, however small. The main session decides at triage and labels the bug `fix` and `status:ready`. The test the triager applies from the bug, and the reviewer checks from the diff: **a fix changes no ruleset key, no `tests/fixtures/corpus.json` value, no seeded measurement, and no CLI golden line outside the bug's own reproduction.** If it would, it is a correction task; the list above is examples, not the test. Until v0.5.0 the lane takes only bugs in [§4.8](#48-the-playability-gate-until-v050)'s class.
 
 A fix:
 - **has no catalogue entry and no `T` number.** The bug issue is the contract. Its Owns is the files the bug names, read from the issue body, plus gate 4's implicit set ([§4.2](#42-what-the-reviewer-checks)); once the PR exists, its file list is the authority for [§8](#8-two-machines)'s disjointness check; its DoD is the bug's reproduction turned into a test that fails before the change and passes after it, plus a green `dotnet build IC2.sln` and `dotnet test IC2.sln`.
@@ -459,7 +459,7 @@ be in flight together only when:
 When both PRs touch a shared file anyway, the second to merge brings `main` in and re-runs CI. It never
 force-pushes.
 
-**Which task next, until v0.4.0** (the user's decision of 2026-09-28). When a main session looks for its next task, it takes the next ready task of the UI chain, **T24, then T25, then T27**, before any engine task, on whichever machine is running. The rule names the chain, not the `lane:ui` label: a `lane:ui` task labelled `post-v0.4.0`, such as T51, is not part of it. No machine is bound to the UI lane. `single-instance` still means only one Godot task is in flight, so a second machine that comes online while a chain task runs takes engine tasks. A chain task is never left at `status:ready` while a machine dispatches an engine task, unless the user says so on the issue. A `fix` ([§4.10](#410-the-fix-lane)) counts as an engine task here.
+**Which task next, until v0.5.0** (the user's decision of 2026-09-28, extended to v0.5.0 on 2026-10-03). When a main session looks for its next task, it takes the next ready task of the UI chain, **T24, then T25, then T27**, before any engine task, on whichever machine is running. The rule names the chain, not the `lane:ui` label: a `lane:ui` task labelled `post-v0.5.0`, such as T51, is not part of it. No machine is bound to the UI lane. `single-instance` still means only one Godot task is in flight, so a second machine that comes online while a chain task runs takes engine tasks. A chain task is never left at `status:ready` while a machine dispatches an engine task, unless the user says so on the issue. A `fix` ([§4.10](#410-the-fix-lane)) counts as an engine task here.
 
 **Who does what.**
 - **Each machine merges only the PRs of tasks it claimed**, after its own review and green CI (§4),

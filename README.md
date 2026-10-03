@@ -46,6 +46,8 @@ In bash it is the same, with `godot` standing for that executable: `godot --path
 
 Alternatively, start the Godot editor, import `godot/project.godot` and press **Play** (F5). The editor builds the C# itself.
 
+**A packaged build** needs no Godot and no .NET SDK on the machine that runs it. `pwsh scripts/package.ps1` exports a self-contained Windows build to `rendered\export\ic2\`; start `rendered\export\ic2\game\IC2.MapViewer.exe`. Building it needs the Godot 4.7.2 .NET export templates; see [docs/packaging.md](docs/packaging.md).
+
 The research inspector is the same project with its scene named: `& $godot --path godot res://MapViewer.tscn`. It reads your own original DAT and saves, so it needs `assets.local.ini` ([below](#the-research-inspector-tools-ic2inspect)).
 
 ### 5. Play in the terminal
