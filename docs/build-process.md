@@ -262,7 +262,7 @@ In the same turn as the merge, the main session:
 
 ### 4.8 The playability gate, until v1.0.0
 
-Adopted 2026-09-28 by the user's decision, to reach v0.4.0, the playable Godot UI, and extended to v1.0.0, the first packaged release, by the user's decision of 2026-10-03 (v0.4.0 was tagged on 2026-09-28, and the label was renamed from `post-v1.0.0`). **Until v1.0.0 is tagged, a bug or follow-up becomes a correction task or a fold only if it breaks play**:
+Adopted 2026-09-28 by the user's decision, to reach v0.4.0, the playable Godot UI, and extended to v1.0.0, the first packaged release, by the user's decision of 2026-10-03 (v0.4.0 was tagged on 2026-09-28, and the label was renamed from `post-v0.4.0` to `post-v1.0.0`). **Until v1.0.0 is tagged, a bug or follow-up becomes a correction task or a fold only if it breaks play**:
 - a crash;
 - an AI stall;
 - an unwinnable game;
@@ -430,7 +430,7 @@ be in flight together only when:
 When both PRs touch a shared file anyway, the second to merge brings `main` in and re-runs CI. It never
 force-pushes.
 
-**Which task next, until v1.0.0** (the user's decision of 2026-09-28). When a main session looks for its next task, it takes the next ready task of the UI chain, **T24, then T25, then T27**, before any engine task, on whichever machine is running. The rule names the chain, not the `lane:ui` label: a `lane:ui` task labelled `post-v1.0.0`, such as T51, is not part of it. No machine is bound to the UI lane. `single-instance` still means only one Godot task is in flight, so a second machine that comes online while a chain task runs takes engine tasks. A chain task is never left at `status:ready` while a machine dispatches an engine task, unless the user says so on the issue. A `fix` ([§4.10](#410-the-fix-lane)) counts as an engine task here.
+**Which task next, until v1.0.0** (the user's decision of 2026-09-28, extended to v1.0.0 on 2026-10-03). When a main session looks for its next task, it takes the next ready task of the UI chain, **T24, then T25, then T27**, before any engine task, on whichever machine is running. The rule names the chain, not the `lane:ui` label: a `lane:ui` task labelled `post-v1.0.0`, such as T51, is not part of it. No machine is bound to the UI lane. `single-instance` still means only one Godot task is in flight, so a second machine that comes online while a chain task runs takes engine tasks. A chain task is never left at `status:ready` while a machine dispatches an engine task, unless the user says so on the issue. A `fix` ([§4.10](#410-the-fix-lane)) counts as an engine task here.
 
 **Who does what.**
 - **Each machine merges only the PRs of tasks it claimed**, after its own review and green CI (§4),
