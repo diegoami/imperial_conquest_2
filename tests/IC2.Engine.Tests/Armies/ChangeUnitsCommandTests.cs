@@ -3,6 +3,7 @@ using IC2.Engine.Core;
 using IC2.Engine.Model;
 using IC2.Engine.Presentation;
 using IC2.Engine.Serialization;
+using IC2.Engine.Tests.Core;
 using Xunit;
 using static IC2.Engine.Tests.Armies.ArmiesTestbed;
 using ModelTestPaths = IC2.Engine.Tests.Model.TestPaths;
@@ -89,19 +90,20 @@ public sealed class ChangeUnitsCommandTests
     {
         var state = ClassicalInitial();
         var army = RomanArmy(state);
-        var before = army.TotalTroops;
+        const int target = 1; // non-zero, so an index off-by-one cannot pass silently.
+        var expected = army.Units
+            .Select((unit, index) => index == target ? unit with { Name = "Legio I" } : unit)
+            .ToList();
 
         var result = ClassicalDispatcher().Dispatch(
-            state, new RenameUnitCommand("rome", army.Id, 0, "Legio I"));
+            state, new RenameUnitCommand("rome", army.Id, target, "Legio I"));
 
         Assert.True(result.IsAccepted, result.ToString());
 
+        // The whole unit list equals the original with only the target renamed: a mutation that renames
+        // every unit, or reorders/removes one, fails here.
         var updated = result.State.ArmyById(army.Id)!;
-        Assert.Equal("Legio I", updated.Units[0].Name);
-        Assert.Equal(army.Units[0].Troops, updated.Units[0].Troops);
-        Assert.Equal(army.Units[0].Quality, updated.Units[0].Quality);
-        Assert.Equal(army.Units[0].MercenaryLabel, updated.Units[0].MercenaryLabel);
-        Assert.Equal(before, updated.TotalTroops);
+        Assert.Equal(expected, updated.Units);
     }
 
     [Fact]
@@ -124,6 +126,20 @@ public sealed class ChangeUnitsCommandTests
         Assert.Equal(before - removed.Troops, updated.TotalTroops);
         Assert.Equal(army.SupplyTons, updated.SupplyTons); // no refund of supply or money
         Assert.Equal(army.Money, updated.Money);
+    }
+
+    [Fact]
+    public void RenameUnit_ThroughTheSession_AcceptsANameWithSpaces()
+    {
+        // N1: the CLI parser joins tokens[3..], so "Legio I" reaches the handler as one name.
+        var session = new GameSession(
+            CoreTestbed.Toy.World, CoreTestbed.Toy.Ruleset, CoreTestbed.Toy.Scenario);
+
+        var output = session.Submit("rename-unit north-army-1 0 Legio I");
+
+        Assert.Contains(
+            output.Lines, line => line.Contains("armies.rename-unit accepted", StringComparison.Ordinal));
+        Assert.Equal("Legio I", session.State.ArmyById("north-army-1")!.Units[0].Name);
     }
 
     // ---- sourced rules (Done-when 2) ----
@@ -445,6 +461,23 @@ public sealed class ChangeUnitsCommandTests
         var state = WithArmies(InitialState(), Army("name-ctl", NorthNationId, 5, 5, new[] { RegularUnit("a", troops: 100) }));
 
         var result = Dispatcher().Dispatch(state, new RenameUnitCommand(NorthNationId, "name-ctl", 0, "a\tb"));
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(RenameUnitRejections.InvalidName, result.Code);
+        Assert.Same(state, result.State);
+    }
+
+    [Theory]
+    [InlineData(" ")]
+    [InlineData("   ")]
+    [InlineData(" Legio I")]
+    [InlineData("Legio I ")]
+    public void RenameUnit_WhitespacePaddedOrBlankName_IsRejectedAndTheStateIsUntouched(string name)
+    {
+        // N4: SaveArmyTable.cs:111 trims on import, so a padded or blank name cannot round-trip.
+        var state = WithArmies(InitialState(), Army("name-ws", NorthNationId, 5, 5, new[] { RegularUnit("a", troops: 100) }));
+
+        var result = Dispatcher().Dispatch(state, new RenameUnitCommand(NorthNationId, "name-ws", 0, name));
 
         Assert.True(result.IsRejected);
         Assert.Equal(RenameUnitRejections.InvalidName, result.Code);

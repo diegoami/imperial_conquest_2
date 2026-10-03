@@ -308,13 +308,17 @@ public sealed partial class GameSession
 
     private IReadOnlyList<string> HandleRenameUnit(string[] tokens)
     {
-        if (tokens.Length != 4
+        if (tokens.Length < 4
             || !int.TryParse(tokens[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var unitIndex))
         {
             return new[] { "Usage: rename-unit <army> <unit-index> <name>" };
         }
 
-        return IssueCommand(new RenameUnitCommand(State.ActiveNationId, tokens[1], unitIndex, tokens[3]));
+        // The name is free text and may contain spaces ("Legio I"); the tokenizer already collapsed runs
+        // of whitespace, so rejoin with one space. A leading or trailing space cannot survive this and is
+        // rejected anyway by RenameUnitCommandHandler.IsValidName.
+        var name = string.Join(' ', tokens[3..]);
+        return IssueCommand(new RenameUnitCommand(State.ActiveNationId, tokens[1], unitIndex, name));
     }
 
     private IReadOnlyList<string> HandleDisbandUnit(string[] tokens)

@@ -47,7 +47,7 @@ public sealed class RenameUnitCommandHandler : ICommandHandler<RenameUnitCommand
         {
             return CommandOutcome.Reject(
                 RenameUnitRejections.InvalidName,
-                $"A unit name must be 1 to {MaxUnitNameLength} printable ASCII characters.");
+                $"A unit name must be 1 to {MaxUnitNameLength} printable ASCII characters, with no leading or trailing space.");
         }
 
         var renamed = army.Units[command.UnitIndex] with { Name = command.Name };
@@ -66,11 +66,14 @@ public sealed class RenameUnitCommandHandler : ICommandHandler<RenameUnitCommand
 
     /// <summary>
     /// Non-empty, at most <see cref="MaxUnitNameLength"/> characters, every byte in the printable-ASCII
-    /// range <c>0x20..0x7e</c> the save reader accepts (<c>src/IC2.Data/SaveArmyTable.cs:109</c>).
+    /// range <c>0x20..0x7e</c> the save reader accepts (<c>src/IC2.Data/SaveArmyTable.cs:109</c>), and no
+    /// leading or trailing whitespace: the save reader trims names on import
+    /// (<c>src/IC2.Data/SaveArmyTable.cs:111</c>), so a padded name would not round-trip through an
+    /// original save.
     /// </summary>
     private static bool IsValidName(string name)
     {
-        if (name.Length == 0 || name.Length > MaxUnitNameLength)
+        if (name.Length == 0 || name.Length > MaxUnitNameLength || !string.Equals(name, name.Trim(), StringComparison.Ordinal))
         {
             return false;
         }
