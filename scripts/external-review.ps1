@@ -1,8 +1,10 @@
 <#
 .SYNOPSIS
     Hands one pull request to the local OpenCode install for an external review (Luna alone on the
-    direct OpenAI route; the main session runs a cold Claude Opus on the exit-3 failure), and posts
-    the result as the one PR comment build-process.md §4.9 expects.
+    direct OpenAI route by default, or the one reviewer the main session names for the PR's review
+    tier, build-process.md §3.4: `sol` for a complex PR, `luna` plus `glm` or `deepseek-pro` for the
+    Luna pair; the main session runs a cold Claude Opus on the exit-3 failure), and posts the
+    result as the one PR comment build-process.md §4.9 expects.
 
 .DESCRIPTION
     The main session fills the reviewer brief itself (build-process.md Appendix B for a task PR,
@@ -40,9 +42,18 @@
       4. with -ApplyLabel, applies status:approved or status:rework to the task's issue from the
          verdict, as a Claude reviewer would (never for a plan PR; never for a flagged review);
       5. removes the worktree it created, and only that one.
+    A post that GitHub does not take (gh exits non-zero, or no comment URL comes back; bug #645)
+    is retried once; if it fails again the script prints "NOT posted:", saves the review to
+    rendered\review-not-posted-pr<pr>-<reviewer>-<time>.md, applies no label and exits 5: the main
+    session reads the saved file and posts it by hand. Exit codes: 0 posted (and labelled with
+    -ApplyLabel), 1 refused or a defect, 3 no review (OpenCode unavailable or every model failed),
+    4 posted flagged with no label, 5 not posted, saved.
     With -Reviewer auto (the default) the chain is Luna alone on `openai/gpt-6-luna` (issue #575:
-    one OpenCode model per role before Claude); on its failure the script exits 3 and the main
-    session runs a cold Claude Opus reviewer. The next model runs ONLY on an infrastructure
+    one OpenCode model per role before Claude), the simple tier's reviewer; on its failure the
+    script exits 3 and the main session runs a cold Claude Opus reviewer. The main session picks
+    the tier (build-process.md §3.4) and passes every other tier's reviewer explicitly: -Reviewer
+    sol (GPT-6 Sol, `openai/gpt-6-sol`) for a complex PR, and one run per reviewer for the Luna
+    pair; auto never picks sol. The next model runs ONLY on an infrastructure
     failure: no session
     in time, an idle session, no exit in time, a run that exits without a session, a non-zero
     exit, the fallback-to-default-agent guard, or no review at all. Any other error stops the
@@ -50,9 +61,10 @@
     posted header names the model that reviewed and the ones that failed before it, e.g. "Plan
     review (Luna; DeepSeek failed: no session in 180 s)". Two consecutive attempts failing
     with the same cause (Get-OpenCodeFailureClass) stop the chain early.
-    The model that implemented the PR never reviews it: -ExcludeModel (or, when that is not given,
-    a model:<name> label on the PR or on -Issue naming an OpenCode model) drops it from the chain,
-    and an explicit -Reviewer naming it is refused with exit 1.
+    The model family that implemented the PR never reviews it: -ExcludeModel (or, when that is not
+    given, a model:<name> label on the PR or on -Issue naming an OpenCode model) drops every
+    reviewer of that family from the chain (OpenAI: luna, sol; GLM: glm, glm-flash; DeepSeek:
+    deepseek, deepseek-pro, deepseek-flash), and an explicit -Reviewer of that family is refused with exit 1.
     If every model fails, the chain stops early, the exclusion leaves no model, or OpenCode is not
     installed, nothing is posted and the script exits 3 ("OpenCode unavailable: ...");
     build-process.md §4.9 says what the main session does then. An explicit -Reviewer runs only
@@ -64,7 +76,10 @@
     Reviewer -> OpenCode model id. GLM Flash and DeepSeek are on the OpenCode Go list
     (`opencode-go/glm-5.3-flash`, `opencode-go/deepseek-v4.1-flash`); luna is the direct OpenAI
     route, `openai/gpt-6-luna`, via the machine's OpenAI login (not Go's proxied
-    `opencode-go/gpt-6-luna`, whose upstream returned Bad Request in long runs, #553).
+    `opencode-go/gpt-6-luna`, whose upstream returned Bad Request in long runs, #553); sol is
+    `openai/gpt-6-sol` on the same login; deepseek-pro is `opencode-go/deepseek-v4-pro`. An OpenAI
+    run that fails with "The usage limit has been reached" means the OpenAI account is out of
+    quota, Luna included (build-process.md §3.4).
     `opencode models` shows what this machine has.
     OpenCode reads CLAUDE.md as its instructions file when no AGENTS.md exists; that is
     harmless here (the reviewer gets the token-economy rules) and no AGENTS.md is added.
@@ -74,7 +89,12 @@
 .PARAMETER Reviewer
     auto (default: Luna on openai/gpt-6-luna at high effort alone, then a cold Claude Opus by
     hand; issue #575 keeps one OpenCode model per role before Claude), or glm-flash, glm, luna,
-    deepseek for that model alone, each at high effort.
+    sol, deepseek, deepseek-pro for that model alone, each at high effort (deepseek has no variant)
+    except sol, which runs at low effort by default and at medium with -Effort medium, never higher
+    (the user's decision of 2026-10-03: Sol is used sparingly and light).
+    sol (GPT-6 Sol) is the complex tier's reviewer; luna with glm or deepseek-pro, in two runs, is the
+    Luna pair; glm, then deepseek-pro (DeepSeek V4 Pro, `opencode-go/deepseek-v4-pro`), then luna
+    are Sol's substitutes when it cannot review (build-process.md §3.4).
 .PARAMETER BriefFile
     The filled reviewer brief. Its first line must be the review header the model is to print,
     for example "Plan review (Luna)" or "T94 review (DeepSeek)". With -Reviewer auto, the text in
@@ -93,7 +113,8 @@
     Print each chain reviewer's OpenCode argument line (the CLI's version decides its syntax) and exit 0,
     without fetching the PR, creating a worktree, starting a run or billing a model. Unlike -DryRun,
     which runs the reviewer (and bills it), this starts only `opencode --version`, in its own scratch directories. The chain shown is before -ExcludeModel
-    and the model:<name> label are applied.
+    and the model:<name> label are applied. With -ExcludeModel, -WhatIf first runs the family
+    check, so a reviewer of the implementer's family is refused with exit 1 (PR #642 review R6).
 .PARAMETER SelfTest
     Run the review-parser samples (fix #575 DoD 4) and the issue #590 prompt/agent checks, and exit 0
     when all match; no PR, no brief and no OpenCode run.
@@ -107,11 +128,20 @@
     runs or a reply streams, so this must exceed the longest single step of a review.
 .PARAMETER ExcludeModel
     The model that implemented the PR, as external-implement.ps1 names it on its "implemented by:"
-    line (deepseek-flash, glm-flash, glm, luna, mimo-pro, mimo-flash; or a reviewer name).
-    The reviewer of the same model (deepseek-flash is DeepSeek) is dropped from the chain. A
-    deepseek-flash implementer never collides with the Luna reviewer; a luna implementer leaves no
-    OpenCode reviewer, so the script exits 3 and a cold Claude Opus reviews. Without it, a
+    line (deepseek-flash, glm-flash, glm, luna, mimo-pro, mimo-flash; or a reviewer name, sol
+    included). Every reviewer of the same family is dropped from the chain (deepseek-flash is
+    DeepSeek, as are deepseek and deepseek-pro; luna and sol are both OpenAI). A deepseek-flash
+    implementer never collides with the Luna or Sol reviewer; a luna implementer excludes both, so -Reviewer auto leaves no OpenCode
+    reviewer, the script exits 3 and a cold Claude Opus reviews. sonnet and opus name a Claude
+    implementer (the Sonnet fallback, or Opus on an architecture task): accepted so that every run
+    can pass -ExcludeModel, they exclude no OpenCode reviewer, since this script has no Claude
+    one (the main session never picks a Claude reviewer for that PR). Without it, a
     model:<name> label on the PR or on -Issue is used when one names an OpenCode model.
+.PARAMETER Effort
+    Sol's effort (its OpenCode variant): low (the default when this is not given) or medium. It
+    applies to sol only; every other reviewer keeps its own variant. high and above cannot be
+    passed (the user's decision of 2026-10-03: Sol never at high, at most medium, better light).
+    build-process.md §3.4 says when medium earns its cost.
 .PARAMETER ModelIds
     Overrides of the reviewer -> model id map, e.g. @{ glm = 'opencode-go/glm-5.4' }, for when
     `opencode models` shows a different id (or, in a test, a bad id to exercise the chain).
@@ -119,12 +149,14 @@
 .EXAMPLE
     pwsh scripts/external-review.ps1 -Pr 479 -BriefFile C:\tmp\479-brief.md
 .EXAMPLE
+    pwsh scripts/external-review.ps1 -Pr 640 -Reviewer sol -ExcludeModel deepseek-flash -BriefFile rendered\640-brief.md -Issue 600 -ApplyLabel
+.EXAMPLE
     pwsh scripts/external-review.ps1 -Pr 466 -Reviewer deepseek -BriefFile C:\tmp\466-brief.md -Issue 24 -ApplyLabel -FixturesDir C:\Users\diego\projects\ic2-test-fixtures
 #>
 [CmdletBinding()]
 param(
     [int] $Pr,
-    [ValidateSet('auto', 'glm-flash', 'glm', 'luna', 'deepseek')] [string] $Reviewer = 'auto',
+    [ValidateSet('auto', 'glm-flash', 'glm', 'luna', 'sol', 'deepseek', 'deepseek-pro')] [string] $Reviewer = 'auto',
     [string] $BriefFile,
     [int] $Issue,
     [switch] $ApplyLabel,
@@ -135,8 +167,9 @@ param(
     [int] $StartupTimeoutSec = 180,
     [int] $TotalTimeoutSec = 3600,
     [int] $IdleTimeoutSec = 600,
-    [ValidateSet('deepseek-flash', 'glm-flash', 'glm', 'luna', 'mimo-pro', 'mimo-flash', 'deepseek')] [string] $ExcludeModel,
-    [hashtable] $ModelIds
+    [ValidateSet('deepseek-flash', 'glm-flash', 'glm', 'luna', 'sol', 'mimo-pro', 'mimo-flash', 'deepseek', 'deepseek-pro', 'sonnet', 'opus')] [string] $ExcludeModel,
+    [hashtable] $ModelIds,
+    [ValidateSet('low', 'medium')] [string] $Effort
 )
 
 $ErrorActionPreference = 'Stop'
@@ -440,6 +473,65 @@ function Invoke-ReviewParserSelfTest {
         $pattern = '(?m)^\s*' + [regex]::Escape('"' + $perm + '":') + '\s*deny\s*$'
         $ruleChecks += [pscustomobject]@{ Name = "agent denies `"$perm`""; Ok = ($agentPermissions -match $pattern) }
     }
+    # --- the review tiers (the user's decision of 2026-10-03, build-process.md §3.4) ---------------
+    # Every -Reviewer value but auto has a model id, a variant entry and a display name; sol is GPT-6
+    # Sol at low effort by default, medium at most; and the exclusion is by family: an OpenAI implementer
+    # (luna or sol) excludes both OpenAI reviewers, and a DeepSeek implementer excludes neither.
+    $reviewerSet = @((Get-Command $PSCommandPath).Parameters['Reviewer'].Attributes |
+        Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] } |
+        ForEach-Object { $_.ValidValues }) | Where-Object { $_ -ne 'auto' }
+    foreach ($name in $reviewerSet) {
+        $ruleChecks += [pscustomobject]@{ Name = "reviewer $name has a model, a variant and a display name"; Ok = ($models.ContainsKey($name) -and $variants.ContainsKey($name) -and $displayNames.ContainsKey($name)) }
+    }
+    $ruleChecks += [pscustomobject]@{ Name = 'sol is openai/gpt-6-sol, shown as Sol'; Ok = ($models['sol'] -eq 'openai/gpt-6-sol' -and $displayNames['sol'] -eq 'Sol') }
+    # The user's decision of 2026-10-03: Sol at low by default, medium at most, never high.
+    $effortSet = @((Get-Command $PSCommandPath).Parameters['Effort'].Attributes |
+        Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] } |
+        ForEach-Object { $_.ValidValues })
+    $ruleChecks += [pscustomobject]@{ Name = 'sol defaults to low effort'; Ok = ((Get-SolVariant '') -eq 'low') }
+    $ruleChecks += [pscustomobject]@{ Name = '-Effort medium gives sol medium'; Ok = ((Get-SolVariant 'medium') -eq 'medium') }
+    $ruleChecks += [pscustomobject]@{ Name = '-Effort admits only low and medium (high is refused)'; Ok = ((($effortSet | Sort-Object) -join ',') -eq 'low,medium') }
+    $ruleChecks += [pscustomobject]@{ Name = '-Effort changes no other reviewer (luna, glm, deepseek-pro at high)'; Ok = ($variants['luna'] -eq 'high' -and $variants['glm'] -eq 'high' -and $variants['deepseek-pro'] -eq 'high') }
+    $ruleChecks += [pscustomobject]@{ Name = 'a luna implementer excludes luna and sol'; Ok = ((@($reviewerOf['luna']) | Sort-Object) -join ',' -eq 'luna,sol') }
+    $ruleChecks += [pscustomobject]@{ Name = 'a sol implementer excludes luna and sol'; Ok = ((@($reviewerOf['sol']) | Sort-Object) -join ',' -eq 'luna,sol') }
+    $ruleChecks += [pscustomobject]@{ Name = 'a deepseek-flash implementer excludes neither luna nor sol'; Ok = (@($reviewerOf['deepseek-flash']) -notcontains 'luna' -and @($reviewerOf['deepseek-flash']) -notcontains 'sol') }
+    # PR #642 review R6: the family check uses one helper, and runs before -WhatIf returns.
+    $ruleChecks += [pscustomobject]@{ Name = 'Get-ExcludedReviewers: a luna implementer excludes sol'; Ok = ((Get-ExcludedReviewers @('luna')) -contains 'sol') }
+    $ruleChecks += [pscustomobject]@{ Name = 'Get-ExcludedReviewers: a sonnet implementer excludes nothing'; Ok = (@(Get-ExcludedReviewers @('sonnet')).Count -eq 0) }
+    $probeDir = Join-Path (Split-Path $PSScriptRoot -Parent) 'rendered'
+    New-Item -ItemType Directory -Force -Path $probeDir | Out-Null
+    $probeBrief = Join-Path $probeDir "selftest-brief-$([guid]::NewGuid().ToString('N').Substring(0, 8)).md"
+    Set-Content -LiteralPath $probeBrief -Value "T0 review (Sol)`nself-test probe brief" -Encoding utf8
+    $null = & pwsh -NoProfile -File $PSCommandPath -Pr 1 -Reviewer sol -ExcludeModel luna -BriefFile $probeBrief -WhatIf 2>&1
+    $whatIfCode = $LASTEXITCODE
+    Remove-Item -LiteralPath $probeBrief -Force -ErrorAction SilentlyContinue
+    $ruleChecks += [pscustomobject]@{ Name = "-WhatIf -Reviewer sol -ExcludeModel luna is refused with exit 1 (got $whatIfCode)"; Ok = ($whatIfCode -eq 1) }
+    # Bug #645: a failed post is never reported as posted. gh stubbed to fail twice, then to answer
+    # without a comment URL, then to succeed.
+    $failGh = { $global:LASTEXITCODE = 1; 'Post "https://api.github.com/graphql": unexpected EOF' }
+    $noUrlGh = { $global:LASTEXITCODE = 0; '' }
+    $okGh = { $global:LASTEXITCODE = 0; 'https://github.com/diegoami/imperial_conquest_2/pull/1#issuecomment-1' }
+    $script:ghCalls = 0
+    $countingFailGh = { $script:ghCalls++; $global:LASTEXITCODE = 1; 'unexpected EOF' }
+    $ruleChecks += [pscustomobject]@{ Name = 'a gh failure is not posted'; Ok = ($null -eq (Publish-ReviewComment -Pr 1 -BodyFile 'x' -Gh $failGh 6>$null)) }
+    $null = Publish-ReviewComment -Pr 1 -BodyFile 'x' -Gh $countingFailGh 6>$null
+    $ruleChecks += [pscustomobject]@{ Name = "a failed post is retried once (gh called $($script:ghCalls) times)"; Ok = ($script:ghCalls -eq 2) }
+    $ruleChecks += [pscustomobject]@{ Name = 'exit 0 with no comment URL is not posted'; Ok = ($null -eq (Publish-ReviewComment -Pr 1 -BodyFile 'x' -Gh $noUrlGh 6>$null)) }
+    $ruleChecks += [pscustomobject]@{ Name = 'a comment URL is posted'; Ok = ((Publish-ReviewComment -Pr 1 -BodyFile 'x' -Gh $okGh 6>$null) -like '*#issuecomment-1') }
+    # PR #642 review R1: a Claude implementer passes -ExcludeModel sonnet or opus like any other;
+    # both are valid values and exclude no OpenCode reviewer.
+    $excludeSet = @((Get-Command $PSCommandPath).Parameters['ExcludeModel'].Attributes |
+        Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] } |
+        ForEach-Object { $_.ValidValues })
+    foreach ($claude in 'sonnet', 'opus') {
+        $ruleChecks += [pscustomobject]@{ Name = "-ExcludeModel $claude is accepted and excludes no OpenCode reviewer"; Ok = ($excludeSet -contains $claude -and $reviewerOf.ContainsKey($claude) -and @($reviewerOf[$claude]).Count -eq 0) }
+    }
+    # Sol's substitutes (the user's policy of 2026-10-03): deepseek-pro is DeepSeek V4 Pro on Go, in
+    # the DeepSeek family.
+    $ruleChecks += [pscustomobject]@{ Name = 'deepseek-pro is opencode-go/deepseek-v4-pro at high, shown as DeepSeek Pro'; Ok = ($models['deepseek-pro'] -eq 'opencode-go/deepseek-v4-pro' -and $variants['deepseek-pro'] -eq 'high' -and $displayNames['deepseek-pro'] -eq 'DeepSeek Pro') }
+    $ruleChecks += [pscustomobject]@{ Name = 'a deepseek-flash implementer excludes deepseek and deepseek-pro'; Ok = ((@($reviewerOf['deepseek-flash']) | Sort-Object) -join ',' -eq 'deepseek,deepseek-pro') }
+    $ruleChecks += [pscustomobject]@{ Name = 'a glm implementer excludes neither deepseek-pro nor luna'; Ok = (@($reviewerOf['glm']) -notcontains 'deepseek-pro' -and @($reviewerOf['glm']) -notcontains 'luna') }
+    $ruleChecks += [pscustomobject]@{ Name = 'a deepseek-pro implementer is accepted and excludes its family'; Ok = ($excludeSet -contains 'deepseek-pro' -and (@($reviewerOf['deepseek-pro']) | Sort-Object) -join ',' -eq 'deepseek,deepseek-pro') }
     foreach ($c in $ruleChecks) {
         $n++
         if (-not $c.Ok) { $failed++ }
@@ -450,29 +542,84 @@ function Invoke-ReviewParserSelfTest {
     return 0
 }
 
-if ($SelfTest) { exit (Invoke-ReviewParserSelfTest) }
-if (-not $Pr) { throw '-Pr is required (or use -SelfTest).' }
-if (-not $BriefFile) { throw '-BriefFile is required.' }
-
 # Reviewer name -> OpenCode model id. Edit here (or pass -ModelIds) if `opencode models` shows a
 # different id. On 2026-10-01 the user moved the OpenCode runs from OpenCode Zen to OpenCode Go
 # (issue #551), except the reviewer: it is Luna on the direct OpenAI route, `openai/gpt-6-luna`,
 # via the machine's OpenAI login (issue #575; Go's proxied `opencode-go/gpt-6-luna` upstream
 # returned Bad Request in long runs, #553). Luna at high effort is the review model (one OpenCode
 # model per role before Claude); glm-flash, glm and deepseek stay valid as explicit -Reviewer
-# values, and no default path picks them.
+# values, and no default path picks them. sol (GPT-6 Sol, `openai/gpt-6-sol`, the same OpenAI login)
+# is the complex tier's reviewer and luna plus glm or deepseek-pro the Luna pair (the user's decision of
+# 2026-10-03, build-process.md §3.4); the main session passes them explicitly, so auto stays Luna.
 $models = @{
     'glm-flash' = 'opencode-go/glm-5.3-flash'
     glm         = 'opencode-go/glm-5.3'
     luna        = 'openai/gpt-6-luna'
+    sol         = 'openai/gpt-6-sol'
     deepseek    = 'opencode-go/deepseek-v4.1-flash'
+    # DeepSeek V4 Pro, Sol's second substitute (the user's policy of 2026-10-03, build-process.md
+    # §3.4 "When Sol cannot review"); `opencode models opencode-go --verbose` lists its variants as
+    # high and max, so it runs at high like the others.
+    'deepseek-pro' = 'opencode-go/deepseek-v4-pro'
 }
 if ($ModelIds) { foreach ($k in $ModelIds.Keys) { $models[$k] = $ModelIds[$k] } }
 # Provider-specific variant. Invoke-OpenCodeWatched passes it by the CLI's major version (1.x
 # `--variant v`, 2.x the model's `#v` suffix). Empty means none. Effort is `high` everywhere (issue #575: `max` is
 # overkill); luna was already high.
-$variants = @{ 'glm-flash' = 'high'; glm = 'high'; luna = 'high'; deepseek = '' }
-$displayNames = @{ 'glm-flash' = 'GLM Flash'; glm = 'GLM'; luna = 'Luna'; deepseek = 'DeepSeek' }
+# Sol runs light: low by default, medium with -Effort medium, never high or above (the user's
+# decision of 2026-10-03; its variants are none, low, medium, high, xhigh and max). -Effort's
+# ValidateSet admits only low and medium, and it changes sol's variant alone.
+function Get-SolVariant([string] $Requested) { if ($Requested) { return $Requested } return 'low' }
+$variants = @{ 'glm-flash' = 'high'; glm = 'high'; luna = 'high'; sol = (Get-SolVariant $Effort); deepseek = ''; 'deepseek-pro' = 'high' }
+$displayNames = @{ 'glm-flash' = 'GLM Flash'; glm = 'GLM'; luna = 'Luna'; sol = 'Sol'; deepseek = 'DeepSeek'; 'deepseek-pro' = 'DeepSeek Pro' }
+# The reviewer's model family is never the implementer's (build-process.md §3.4). The implementing
+# model comes from -ExcludeModel, else from a model:<name> label on the PR or its issue that names an
+# OpenCode model (model:opus and model:sonnet name Claude, which is not in this chain). Implementer
+# name -> the reviewer names of the same family; the MiMo models have no reviewer here. The families
+# (the user's decision of 2026-10-03): OpenAI is luna and sol, GLM is glm and glm-flash, DeepSeek is
+# deepseek, deepseek-pro and deepseek-flash. A luna or sol implementer excludes both OpenAI reviewers, so -Reviewer
+# auto leaves no OpenCode reviewer and the script exits 3 (a cold Claude Opus reviews), and -Reviewer
+# sol or luna is refused. A Claude implementer (sonnet, opus) excludes no OpenCode reviewer: the
+# Claude family has no reviewer here, and the main session keeps Claude off that PR's review.
+$reviewerOf = @{
+    'deepseek-flash' = @('deepseek', 'deepseek-pro')
+    'deepseek'       = @('deepseek', 'deepseek-pro')
+    'deepseek-pro'   = @('deepseek', 'deepseek-pro')
+    'glm-flash'      = @('glm-flash', 'glm')
+    'glm'            = @('glm-flash', 'glm')
+    'luna'           = @('luna', 'sol')
+    'sol'            = @('luna', 'sol')
+    'sonnet'         = @()
+    'opus'           = @()
+}
+
+function Get-ExcludedReviewers([string[]] $Implementers) {
+    # The reviewer names the implementers' families exclude (build-process.md §3.4).
+    return @($Implementers | ForEach-Object { $reviewerOf[$_] } | Where-Object { $_ } | Select-Object -Unique)
+}
+
+function Publish-ReviewComment {
+    # Posts the review as one PR comment and returns the comment's URL, or $null when it was not
+    # posted (bug #645: during GitHub's 2026-10-03 outage `gh pr comment` failed with
+    # 'Post "https://api.github.com/graphql": unexpected EOF' and the script still said "posted").
+    # It checks gh's exit code AND that a comment URL came back, and retries once. -Gh is the gh
+    # invocation, replaceable so -SelfTest can stub a failing gh.
+    param([int] $Pr, [string] $BodyFile, [scriptblock] $Gh = { & gh @args })
+    for ($try = 1; $try -le 2; $try++) {
+        $global:LASTEXITCODE = 0
+        $out = (& $Gh pr comment $Pr --body-file $BodyFile 2>&1 | Out-String)
+        $code = $global:LASTEXITCODE
+        $url = [regex]::Match($out, 'https://github\.com/\S+#issuecomment-\d+').Value
+        if ($code -eq 0 -and $url) { return $url }
+        Write-Host "gh pr comment failed (try $try of 2, exit $code): $($out.Trim())"
+    }
+    return $null
+}
+
+if ($SelfTest) { exit (Invoke-ReviewParserSelfTest) }
+if (-not $Pr) { throw '-Pr is required (or use -SelfTest).' }
+if (-not $BriefFile) { throw '-BriefFile is required.' }
+
 # The fallback chain (the user's decision of 2026-10-01, issue #575): Luna alone on the direct
 # OpenAI route, then the main session runs a cold Claude Opus reviewer. One OpenCode model per
 # role before Claude.
@@ -502,6 +649,28 @@ $briefHeader = $briefLines[0].Trim()
 $briefRest = ($briefLines | Select-Object -Skip 1) -join "`n"
 if ($briefHeader -notmatch 'review \(') { throw "The brief's first line must be the review header, e.g. 'Plan review (Luna)'; got: $briefHeader" }
 if ($ApplyLabel -and -not $Issue) { throw '-ApplyLabel needs -Issue.' }
+# The family check runs before the OpenCode probe and before -WhatIf returns (PR #642 review R6), so
+# a green -WhatIf probe also says the reviewer is permitted for -ExcludeModel's implementer. Without
+# -ExcludeModel, -WhatIf reads no labels and says the family was not checked.
+if (-not $ExcludeModel -and -not $WhatIf -and -not (Get-Command gh -ErrorAction SilentlyContinue)) { throw 'gh is not on PATH.' }
+$implementers = if ($ExcludeModel) { @($ExcludeModel) } elseif ($WhatIf) { @() } else {
+    $labels = @(gh pr view $Pr --json labels --jq '.labels[].name' 2>$null)
+    if ($Issue) { $labels += @(gh issue view $Issue --json labels --jq '.labels[].name' 2>$null) }
+    @($labels | Where-Object { $_ -match '^model:(.+)$' } | ForEach-Object { $_.Substring(6) } |
+        Where-Object { $_ -in 'deepseek-flash', 'glm-flash', 'glm', 'luna', 'sol', 'mimo-pro', 'mimo-flash', 'deepseek', 'deepseek-pro' } | Select-Object -Unique)
+}
+if ($WhatIf -and -not $ExcludeModel) { Write-Host 'family not checked: pass -ExcludeModel <implemented by> to check it.' }
+$excluded = Get-ExcludedReviewers $implementers
+if ($implementers) { Write-Host "implemented by: $($implementers -join ', '); excluded from review: $(if ($excluded) { $excluded -join ', ' } else { 'none' })" }
+if ($Reviewer -ne 'auto' -and $excluded -contains $Reviewer) {
+    [Console]::Error.WriteLine("Refused: -Reviewer $Reviewer is of the model family that implemented PR #$Pr ($($implementers -join ', ')); the reviewer's model family is never the implementer's (build-process.md §3.4). Use -Reviewer auto or another model. Nothing posted.")
+    exit 1
+}
+$chain = @($chain | Where-Object { $excluded -notcontains $_ })
+if (-not $chain) {
+    [Console]::Error.WriteLine("OpenCode unavailable: no reviewer model left after excluding the implementer's ($($implementers -join ', ')). Nothing posted.")
+    exit 3
+}
 # OpenCode not installed or not found, or a major version this script has no arguments for (only 1.x
 # and 2.x), is the same signal as every model failing: exit 3. The version is read once (T98).
 try { $cli = Get-OpenCodeCli } catch {
@@ -519,38 +688,6 @@ if ($WhatIf) {
     exit 0
 }
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { throw 'gh is not on PATH.' }
-
-# The reviewer's model is never the implementer's (build-process.md §3.4). The implementing model
-# comes from -ExcludeModel, else from a model:<name> label on the PR or its issue that names an
-# OpenCode model (model:opus and model:sonnet name Claude, which is not in this chain). Implementer
-# name -> the reviewer names running the same model; the MiMo models have no reviewer here. With
-# Luna as the only auto reviewer (issue #575), a luna implementer excludes it and leaves no
-# OpenCode reviewer, so the script exits 3 and a cold Claude Opus reviews; both GLM names exclude
-# both GLM reviewers (same model family), as before.
-$reviewerOf = @{
-    'deepseek-flash' = @('deepseek')
-    'deepseek'       = @('deepseek')
-    'glm-flash'      = @('glm-flash', 'glm')
-    'glm'            = @('glm-flash', 'glm')
-    'luna'           = @('luna')
-}
-$implementers = if ($ExcludeModel) { @($ExcludeModel) } else {
-    $labels = @(gh pr view $Pr --json labels --jq '.labels[].name' 2>$null)
-    if ($Issue) { $labels += @(gh issue view $Issue --json labels --jq '.labels[].name' 2>$null) }
-    @($labels | Where-Object { $_ -match '^model:(.+)$' } | ForEach-Object { $_.Substring(6) } |
-        Where-Object { $_ -in 'deepseek-flash', 'glm-flash', 'glm', 'luna', 'mimo-pro', 'mimo-flash', 'deepseek' } | Select-Object -Unique)
-}
-$excluded = @($implementers | ForEach-Object { $reviewerOf[$_] } | Where-Object { $_ } | Select-Object -Unique)
-if ($implementers) { Write-Host "implemented by: $($implementers -join ', '); excluded from review: $(if ($excluded) { $excluded -join ', ' } else { 'none' })" }
-if ($Reviewer -ne 'auto' -and $excluded -contains $Reviewer) {
-    [Console]::Error.WriteLine("Refused: -Reviewer $Reviewer is the model that implemented PR #$Pr ($($implementers -join ', ')); the reviewer's model is never the implementer's (build-process.md §3.4). Use -Reviewer auto or another model. Nothing posted.")
-    exit 1
-}
-$chain = @($chain | Where-Object { $excluded -notcontains $_ })
-if (-not $chain) {
-    [Console]::Error.WriteLine("OpenCode unavailable: no reviewer model left after excluding the implementer's ($($implementers -join ', ')). Nothing posted.")
-    exit 3
-}
 
 $headSha = gh pr view $Pr --json headRefOid --jq .headRefOid
 if (-not $headSha) { throw "Could not read PR #$Pr's head." }
@@ -683,11 +820,19 @@ try {
             # 4. Post, and label (only a readable review is acted on).
             $bodyFile = Join-Path $env:TEMP "ic2-review-$Pr.md"
             Set-Content -LiteralPath $bodyFile -Value $body -Encoding utf8
-            gh pr comment $Pr --body-file $bodyFile | Out-Null
-            if ($result.Flagged) {
-                Write-Host "posted with the note line; no label applied ($($result.FlagNote)). Read it and decide."
+            $script:postedUrl = Publish-ReviewComment -Pr $Pr -BodyFile $bodyFile
+            if (-not $script:postedUrl) {
+                # Bug #645: never report or label a review GitHub did not take. Keep its text in a
+                # named file for the main session to post by hand, and exit 5.
+                $savedDir = Join-Path $repo 'rendered'
+                New-Item -ItemType Directory -Force -Path $savedDir | Out-Null
+                $script:savedReview = Join-Path $savedDir "review-not-posted-pr$Pr-$($result.Name)-$(Get-Date -Format 'yyyyMMdd-HHmmss').md"
+                Set-Content -LiteralPath $script:savedReview -Value $body -Encoding utf8
+                Write-Host "NOT posted: $(($review -split "`r?`n")[0]) / $($result.Verdict); no label applied; the review is saved in $script:savedReview"
+            } elseif ($result.Flagged) {
+                Write-Host "posted with the note line ($script:postedUrl); no label applied ($($result.FlagNote)). Read it and decide."
             } else {
-                Write-Host "posted: $(($review -split "`r?`n")[0]) / $($result.Verdict)"
+                Write-Host "posted: $(($review -split "`r?`n")[0]) / $($result.Verdict) ($script:postedUrl)"
                 if ($ApplyLabel) {
                     if ($result.Verdict -eq 'approve') {
                         gh issue edit $Issue --add-label status:approved --remove-label status:in-review | Out-Null
@@ -711,6 +856,10 @@ if (-not $result) {
     if ($sameCause) { $reasons = "same failure twice: $sameCause ($reasons)" }
     [Console]::Error.WriteLine("OpenCode unavailable: $reasons. Nothing posted.")
     exit 3
+}
+if ($script:savedReview) {
+    [Console]::Error.WriteLine("Review on PR #$Pr was NOT posted (gh pr comment failed twice); no label applied. Read $script:savedReview and post it by hand (exit 5).")
+    exit 5
 }
 if ($result.Flagged) {
     [Console]::Error.WriteLine("Review on PR #$Pr is $($result.FlagNote); posted without a label. Read it and decide (exit 4).")
