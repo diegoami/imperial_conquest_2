@@ -921,6 +921,15 @@ mac-marines moved from (144,40) to (137,41), spending 9 of 9 moves.
 > army-transfer army-8 mac-marines supply=10 money=20
 armies.army-transfer accepted.
 
+> split-unit mac-marines 0 1000
+armies.split-unit accepted.
+
+> rename-unit mac-marines 0 LegioX
+armies.rename-unit accepted.
+
+> disband-unit mac-marines 1
+armies.disband-unit accepted.
+
 > quit
 Goodbye.
 
