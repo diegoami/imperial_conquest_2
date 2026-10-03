@@ -294,6 +294,40 @@ public sealed partial class GameSession
         return IssueCommand(new JoinUnitsCommand(State.ActiveNationId, tokens[1], first, second));
     }
 
+    private IReadOnlyList<string> HandleSplitUnit(string[] tokens)
+    {
+        if (tokens.Length != 4
+            || !int.TryParse(tokens[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var unitIndex)
+            || !int.TryParse(tokens[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var troops))
+        {
+            return new[] { "Usage: split-unit <army> <unit-index> <troops>" };
+        }
+
+        return IssueCommand(new SplitUnitCommand(State.ActiveNationId, tokens[1], unitIndex, troops));
+    }
+
+    private IReadOnlyList<string> HandleRenameUnit(string[] tokens)
+    {
+        if (tokens.Length != 4
+            || !int.TryParse(tokens[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var unitIndex))
+        {
+            return new[] { "Usage: rename-unit <army> <unit-index> <name>" };
+        }
+
+        return IssueCommand(new RenameUnitCommand(State.ActiveNationId, tokens[1], unitIndex, tokens[3]));
+    }
+
+    private IReadOnlyList<string> HandleDisbandUnit(string[] tokens)
+    {
+        if (tokens.Length != 3
+            || !int.TryParse(tokens[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var unitIndex))
+        {
+            return new[] { "Usage: disband-unit <army> <unit-index>" };
+        }
+
+        return IssueCommand(new DisbandUnitCommand(State.ActiveNationId, tokens[1], unitIndex));
+    }
+
     private IReadOnlyList<string> HandleSplitArmy(string[] tokens)
     {
         if (tokens.Length != 4
