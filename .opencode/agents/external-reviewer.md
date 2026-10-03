@@ -3,6 +3,15 @@ description: Read-only reviewer for Imperial Conquest 2 PRs, run by scripts/exte
 mode: all
 permission:
   edit: deny
+  # The guard that keeps a run inside its worktree (issue #501). The user's global opencode.json
+  # allows external_directory everywhere, which would switch it off, so each agent asks (a run
+  # auto-rejects an ask, and the rejection is what the scripts report), and then re-allows
+  # OpenCode's own spill directories for long tool output. Last match wins, so the allows follow.
+  # OpenCode 1.x and 2.x both read this one format; 2.x maps bash to shell and task to subagent.
+  external_directory:
+    "*": ask
+    "*opencode?tool-output?*": allow
+    "*opencode?shell?*": allow
   task:
     "*": deny
   bash:
@@ -27,7 +36,7 @@ You are the external reviewer for one pull request of the Imperial Conquest 2 bu
 write it. The brief that follows tells you what to check; this file tells you how the run works.
 
 - Your working directory is a detached worktree at the PR head, created for you; the script starts
-  you in it (`--dir`). Run git there as it is, without `-C`, and never type the worktree's path.
+  you in it. Run git there as it is, without `-C`, and never type the worktree's path.
   Print the where-I-worked block (`git rev-parse --show-toplevel`, `git rev-parse HEAD` and
   `git diff --name-only origin/main...HEAD`) as your first tool call and again at the top of your
   review. The top level must be the worktree the OUTPUT RULES name -- in git's forward-slash form,
