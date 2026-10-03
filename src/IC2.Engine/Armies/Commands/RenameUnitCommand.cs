@@ -35,8 +35,9 @@ namespace IC2.Engine.Armies.Commands;
 /// the highest ordinal for reuse by renaming that unit away. This is what the original's own name-parsing
 /// scan implies, pending the EXPLORE experiment. One consequence of that interaction is known and
 /// deliberately not clamped here: a split-off's generated name can exceed the 23-character save field this
-/// command enforces, because <see cref="ArmyNaming"/> has no 99 cap — renaming a unit to the 23-character
-/// <c>"99th Dragoons Battalion"</c> makes the next Dragoons split <c>"100th Dragoons Battalion"</c>
+/// command enforces, because <see cref="ArmyNaming"/> has no 99 cap — renaming a regular Dragoons unit to
+/// the 23-character <c>"99th Dragoons Battalion"</c> makes the next Dragoons split
+/// <c>"100th Dragoons Battalion"</c>
 /// (24 characters), which <c>rename-unit</c> then rejects — and that naming cap is T15's
 /// <see cref="ArmyNaming"/> to settle, reported separately as a bug.
 /// </para>

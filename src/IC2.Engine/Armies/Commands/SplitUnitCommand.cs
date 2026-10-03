@@ -38,8 +38,12 @@ namespace IC2.Engine.Armies.Commands;
 /// source's label, so carrying the source name follows that rule. The one open edge is a mercenary renamed
 /// before its split, where the label rule would give the table's name rather than the renamed one; this
 /// task's own <c>[designed]</c> choice is therefore the source name, derived from the cited sentence rather
-/// than from a user decision, because the label table at <c>DAT_0049CC94</c> has no located DAT offset (the
-/// report's line 396), so the engine cannot reproduce the table name. This is pending the EXPLORE
+/// than from a user decision. The label table is now located in the original's DAT (<c>0x1F8C6</c>, the
+/// report's 2026-09-24 update; the strings are in
+/// <c>decompiled-mercenary-offer-list-and-position.md</c> §5), but this engine carries no label-name table:
+/// hire-mercenary itself names a hired unit <c>Mercenary unit (label N)</c>
+/// (<c>src/IC2.Engine/Recruitment/Commands/HireMercenaryCommandHandler.cs:86</c>), so a split-off keeps the
+/// source's name rather than reproducing a table the engine does not hold. This is pending the EXPLORE
 /// experiment.
 /// </para>
 /// <para>
