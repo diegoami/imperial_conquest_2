@@ -522,6 +522,41 @@ public sealed class GameSessionCommandsTests
         Assert.Contains(output.Lines, line => line == "Usage: disembark-army <army> [<x> <y>]");
     }
 
+    /// <summary>
+    /// Bug #594 rework R1: <c>int.TryParse</c> accepts <see cref="int.MinValue"/>, and forwarding it to
+    /// <c>LandingTile.ChebyshevDistance</c> made <c>Math.Abs</c> throw an <see cref="OverflowException"/>
+    /// out of <see cref="GameSession.Submit(string)"/>. A negative coordinate is now refused at the parser
+    /// boundary: it prints the usage line and never reaches the engine, so the call cannot throw.
+    /// </summary>
+    [Theory]
+    [InlineData("-2147483648 3")]
+    [InlineData("3 -2147483648")]
+    public void Disembark_army_with_an_out_of_range_negative_tile_prints_the_usage_line(string tail)
+    {
+        var session = EmbarkedSession();
+
+        var output = session.Submit($"disembark-army {EmbarkedArmyId} {tail}");
+
+        Assert.Contains(output.Lines, line => line == "Usage: disembark-army <army> [<x> <y>]");
+    }
+
+    /// <summary>
+    /// The other half of R1's boundary: only negative coordinates are refused at the parser. A positive
+    /// off-map tile still reaches the engine, which rejects it cleanly through its own distance gate (the
+    /// fleet sits at (0, 3), so 1_000_000 is far beyond the adjacency radius) without throwing. This pins
+    /// that the R1 guard did not turn every off-map tile into a usage error.
+    /// </summary>
+    [Fact]
+    public void Disembark_army_with_an_off_map_positive_tile_is_rejected_without_throwing()
+    {
+        var session = EmbarkedSession();
+
+        var output = session.Submit($"disembark-army {EmbarkedArmyId} 1000000 3");
+
+        Assert.Contains(
+            output.Lines, line => line.Contains("naval.landing-tile-too-far", StringComparison.Ordinal));
+    }
+
     // ---- Done-when 2: a human move ending against a non-hostile city resupplies automatically ----
 
     /// <summary>
