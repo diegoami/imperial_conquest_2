@@ -220,9 +220,28 @@ public sealed class ArmyTransferCommandHandler : ICommandHandler<ArmyTransferCom
             .Where(a => !string.Equals(a.Id, source.Id, StringComparison.Ordinal))
             .Select(a => string.Equals(a.Id, target.Id, StringComparison.Ordinal) ? mergedTarget : a);
 
+        // Deletion sweep (build-process.md §4.2 gate 5): the emptied army is gone, so any fleet whose
+        // own CarriedArmyId still names it would point at nothing -- a state GameDataValidation rejects
+        // as unsaveable. The clear is keyed on the fleet's own claim, not the dead army's AboardFleetId,
+        // the same choice QuarterlyEconomySystem and EliminationForces make. This does not decide the
+        // task's open army-aboard-a-fleet question: the transfer itself is still governed only by the
+        // distance rule; only the now-dangling back-reference is dropped.
+        var carriedBy = source.AboardFleetId;
+        var updatedFleets = carriedBy is null
+            ? state.Fleets
+            : ValueList.From(state.Fleets.Select(f =>
+                string.Equals(f.Id, carriedBy, StringComparison.Ordinal)
+                    && string.Equals(f.CarriedArmyId, source.Id, StringComparison.Ordinal)
+                        ? f with { CarriedArmyId = null }
+                        : f));
+
         if (excessToTreasury == 0)
         {
-            return CommandOutcome.Accept(state with { Armies = ValueList.From(updatedArmies) });
+            return CommandOutcome.Accept(state with
+            {
+                Armies = ValueList.From(updatedArmies),
+                Fleets = updatedFleets,
+            });
         }
 
         var updatedNation = context.IssuingNation with
@@ -235,6 +254,7 @@ public sealed class ArmyTransferCommandHandler : ICommandHandler<ArmyTransferCom
         return CommandOutcome.Accept(state with
         {
             Armies = ValueList.From(updatedArmies),
+            Fleets = updatedFleets,
             Nations = ValueList.From(updatedNations),
         });
     }

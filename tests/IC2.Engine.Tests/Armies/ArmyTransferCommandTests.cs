@@ -302,8 +302,33 @@ public sealed class ArmyTransferCommandTests
     }
 
     [Fact]
-    public void Transfer_AThirdUninvolvedArmy_IsUntouched()
+    public void Transfer_ThatEmptiesAnEmbarkedArmy_ClearsTheCarryingFleetsBackReference()
     {
+        // Deletion sweep (build-process.md §4.2 gate 5): the original has no observed rule for an army
+        // aboard a fleet, so the transfer is governed only by the distance rule; but deleting the army
+        // must not leave the fleet's own CarriedArmyId pointing at nothing.
+        var carrier = new FleetState(
+            "carrier", NorthNationId, 5, 5, Moves: 5, Ships: 10, ConditionPercent: 100,
+            Money: 0, SupplyTons: 0, ConstructionTicksRemaining: null, BuildCityId: null,
+            CarriedArmyId: "boarding", CoveredTileCode: 5);
+        var state = WithArmies(
+            InitialState(),
+            Army("boarding", NorthNationId, 5, 5, Units(1, troops: 700), coveredTileCode: null, aboardFleetId: "carrier"),
+            Army("landing", NorthNationId, 6, 5, Units(1, troops: 800, prefix: "v"))) with
+        {
+            Fleets = ValueList.Of(carrier),
+        };
+
+        var result = Dispatcher().Dispatch(
+            state, new ArmyTransferCommand(NorthNationId, "boarding", "landing", ValueList.Of(0), 0, 0));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        Assert.Null(result.State.ArmyById("boarding"));
+        Assert.Null(result.State.FleetById("carrier")!.CarriedArmyId);
+    }
+
+    [Fact]
+    public void Transfer_AThirdUninvolvedArmy_IsUntouched()    {
         var bystander = Army("bystander", NorthNationId, 9, 9, Units(3, prefix: "b"), money: 77, supplyTons: 11);
         var state = WithArmies(
             InitialState(),
