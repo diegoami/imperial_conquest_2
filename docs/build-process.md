@@ -80,7 +80,7 @@ Every system is written against these interfaces and registers itself, so no two
 | --- | --- | --- |
 | **Main session** | The session the user talks to, on Opus | Plans and runs the build. It owns the task entries (`docs/tasks/T<nn>.md`, indexed by [task-catalogue.md](task-catalogue.md)) and this document: scope, Definitions of Done, dependencies and order. It triages bugs and follow-ups, coordinates `/process-evidence`, and brings design questions and escalations to the user. **It runs tasks with `/run-task`** ([Appendix C](#appendix-c-the-run-task-skill)): it dispatches the implementer, then an independent reviewer, relays rework, merges approved PRs, and applies the doc claims each merge makes stale. |
 | **Implementer** | An OpenCode run (`scripts/external-implement.ps1`) on the model the entry names, the cheap tier by default; a Claude subagent only on an architecture task ([§3.3](#33-model-selection)) | One task, one branch, one PR, **in its own worktree**. Writes code and tests, runs the DoD commands, pushes work in progress as it goes, and opens the PR with evidence and a "Docs affected" list. |
-| **Reviewer** | A subagent, a different model per [§3.4](#34-why-the-reviewers-model-differs-from-the-implementers) | Independently re-runs the DoD commands at the PR head **in its own worktree**, audits provenance and scope, posts its findings as a PR comment, and applies `status:approved` or `status:rework`. It is never the agent that implemented. |
+| **Reviewer** | An OpenCode run (`scripts/external-review.ps1`) or a Claude subagent, by the PR's review tier, never of the implementer's model family ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers)) | Independently re-runs the DoD commands at the PR head **in its own worktree**, audits provenance and scope, posts its findings as a PR comment, and applies `status:approved` or `status:rework` (with two or three reviews, the main session applies it from all of them). It is never the agent that implemented. |
 | **Researcher** | Opus subagents | Evidence work in the research repository: the two `/process-evidence` stages ([evidence-pipeline.md](evidence-pipeline.md)) and targeted research passes. |
 
 **Only one task is in flight at a time per machine** ([§8](#8-two-machines)): its implementer, then its reviewer, then any rework. Pipeline agents never work in the main checkout (`C:\Users\diego\projects\imperial_conquest_2`). Each creates its own worktree ([§7](#7-concurrency-single-instance-and-local-only)). The main checkout belongs to the main session.
@@ -99,7 +99,7 @@ Every system is written against these interfaces and registers itself, so no two
 Models are chosen per task, in the task's entry, by what an error would cost:
 
 - **OpenCode Go, by default** (the user's decision of 2026-09-28: Claude credit is the scarce resource; moved from OpenCode Zen to OpenCode Go, `opencode-go/…`, on 2026-10-01, fix #551). `-Model auto` runs `deepseek-flash` (DeepSeek V4.1 Flash, effort `high`) alone, the user's decision of 2026-10-01 (fix 575): one OpenCode model, then Claude Sonnet. GLM ended long implementer runs early (#557, #562), and Go's Luna failed long runs with `Bad Request` (#553). All OpenCode runs use effort `high`, not `max`. No free or Zen model is used. An entry that still says Sonnet reads as the default.
-- **No larger OpenCode tier for implementers** (the user's decision of 2026-10-01, fix 573): a High-effort entry, an entry that says Opus and is not an architecture task, and a task that failed a rework round all run `deepseek-flash`, then Claude Sonnet. `glm`, `glm-flash` and `luna` stay valid as an explicit `-Model` value. The reviewer is `luna` on `openai/gpt-6-luna`, then a cold Claude Opus (fix 575).
+- **No larger OpenCode tier for implementers** (the user's decision of 2026-10-01, fix 573): a High-effort entry, an entry that says Opus and is not an architecture task, and a task that failed a rework round all run `deepseek-flash`, then Claude Sonnet. `glm`, `glm-flash` and `luna` stay valid as an explicit `-Model` value. The reviewer is set by the PR's review tier ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers), the user's decision of 2026-10-03): Luna for a simple PR, GPT-6 Sol or the Luna pair for a complex one, a cold Claude Opus for a very complex one. An entry's **Reviewer** field, and the catalogue index's Reviewer column, were written under the earlier rule and now name only the tier's default (an "Opus" there is the very complex tier's reviewer, or the fallback); the tier rule decides, and a `+ human visual review` or `+ ultra` suffix still applies.
 - **Claude Opus only on an architecture task**, where an error is not local: the domain model and the engine seams, battle resolution, the AI (T02, T03, T16, T22). Sonnet implements only as the fallback when OpenCode is unavailable (the script exits 3), and then for every task OpenCode would have run, whatever model the entry names (the user's decision of 2026-09-29); otherwise it reviews structural tasks ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers)).
 - **Haiku** is retired (the user's decision of 2026-09-27) and is never assigned; a task small enough for Haiku is cheap enough on Sonnet (incident 4). Two tasks merged on Haiku before that, T36 and T77.
 - **Fable** for pure templates and configuration, never for anything that must compile against the domain model.
@@ -110,16 +110,26 @@ Models are chosen per task, in the task's entry, by what an error would cost:
 2. **Cost asymmetry.** Reviewing a diff costs a fraction of producing it, so moving the reviewer up one tier is cheap leverage.
 3. **Task fit.** The reviewer's job is close reading and verification: "does this constant match the report it cites? does this integer division truncate the way Delphi's did?"
 
-| Implementer | Reviewer | Plus |
-| --- | --- | --- |
-| An architecture task (T02, T03, T16, T22), implemented on Claude Opus | Opus / High | `/code-review --effort ultra` ([§3.5](#35-where-the-code-review-skill-fits)), and the external reviewer (`scripts/external-review.ps1`) as the different model |
-| A fidelity-critical task (a rule's constants or integer semantics) | **Opus / Medium** | — |
-| A task widening the shared domain model | **Opus / High** | — |
-| A correction whose evidence is still open when its entry is written | **Opus / High** | — |
-| A structural task (scaffolding, CLI, UI, data files, docs) | Sonnet / High, or `luna` (OpenAI, effort `high`) through `scripts/external-review.ps1` | human visual review on the Godot screens ([§9](#9-standing-governance-decisions) Q-B) |
-| Fable, and the two tasks merged on Haiku | Sonnet / Medium | — |
+**The review tiers** (the user's decision of 2026-10-03, which replaces the Claude Opus reviewer every code PR had since 2026-10-02). Before a PR is reviewed, the main session sets its tier ([Appendix C](#appendix-c-the-run-task-skill) step 2 for a task or a fix, [§4.9](#49-plan-prs-two-tiers) for a plan PR): Jev classifies it with `scripts/jev/review-complexity.json`, and the main session confirms or overrides the answer, acting on it alone at a probability of 0.9 or above (operating-guide §3's Jev preference). The tier is set once per PR; a rework round's re-review keeps it, and may raise it, never lower it.
 
-Each task's entry names its own pair; the table is the rule the entry applies. An entry may raise the reviewer one tier above its row, and says why. **The reviewer's model is never the implementer's**: an OpenCode implementer is reviewed by a Claude model, or by a different OpenCode model on a structural task, so the different-model rule holds by construction. `scripts/external-review.ps1 -ExcludeModel <name>` (the name on `external-implement.ps1`'s `implemented by:` line, or a `model:<name>` label on the PR or issue) drops that model from the review chain and refuses it as an explicit `-Reviewer`; when no model is left, the script exits 3 and the cold Claude Opus reviewer takes the review.
+| Tier | Which PRs | Reviewed by |
+| --- | --- | --- |
+| **Simple** | A documentation PR that changes no contract: evidence-only doc claims, and routine-tier bookkeeping ([§4.9](#49-plan-prs-two-tiers)) when it is reviewed at all | Luna alone (`external-review.ps1 -Reviewer auto`); a cold Claude Opus on exit 3 |
+| **Complex** | Every task or fix PR, and every plan PR that adds or changes a task contract or edits a process document, unless it is very complex | GPT-6 Sol (`-Reviewer sol`, `openai/gpt-6-sol`); a cold Claude Opus on exit 3, or the Luna pair when Claude implemented. The **Luna pair** is the main session's alternative to Sol: when Sol fails or is unavailable, or when two independent families add value |
+| **Very complex** | A task or fix PR that meets a very-complex criterion below | A cold Claude Opus, unless Claude (Sonnet or Opus) implemented it: then Sol **and** the Luna pair, three reviews |
+
+**The Luna pair** is two independent reviews: Luna (`-Reviewer luna`), plus one of GLM 5.3 (`-Reviewer glm`, `opencode-go/glm-5.3`), DeepSeek (`-Reviewer deepseek`, `opencode-go/deepseek-v4.1-flash`) or Claude Sonnet (a subagent on [Appendix B](#appendix-b-reviewer-prompt-template)), from a model **family** the implementer did not use. Both must approve. *(Proposed: the second is GLM, then DeepSeek, then Sonnet, the first one whose family the implementer did not use; for the default `deepseek-flash` implementer that is GLM.)* **A PR with two or three reviews** is labelled by the main session, not by a reviewer: each run goes without `-ApplyLabel` (a Claude reviewer's brief says not to label), and the main session applies `status:approved` only when every review approves, `status:rework` when any asks for rework, relaying every review in full ([§4.4](#44-rework)), and escalates on any `user decision`.
+
+**The families** (the user's decision of 2026-10-03): OpenAI is `luna` and `sol`; GLM is `glm` and `glm-flash`; DeepSeek is `deepseek` and `deepseek-flash`; Claude is Sonnet and Opus; MiMo has no reviewer. What follows from them: an OpenAI implementer (`luna`) leaves neither Sol nor the Luna pair, so its complex and very complex reviews are both a cold Claude Opus; a Claude implementer (the Sonnet fallback, or Opus on an architecture task) is never reviewed by Opus or Sonnet, so its complex review falls back to the Luna pair with GLM or DeepSeek, and its very complex review is Sol plus that pair.
+
+**The criteria Jev scores** *(proposed for the reviewer to check; the scope of simple and complex is the user's, the very-complex list is this plan's)*. A task or fix PR is never simple, and a plan PR is never very complex.
+- **Simple**: the PR's `--stat` touches nothing under `src/`, `tests/`, `godot/`, `scripts/`, `data/`, `.github/` or `.opencode/`; it adds no task, changes no Scope, Done-when or dependency line, and does not edit this document, `operating-guide.md` or `CLAUDE.md`.
+- **Very complex**: at least one of (a) an architecture task (T02, T03, T16, T22) or an Ultrahigh effort; (b) a new subsystem: a new project, a new top-level folder under `src/IC2.Engine/` or `src/IC2.Data/`, or a new turn-pipeline phase; (c) a save-format or serialization change: the save reader or writer, the JSON round-trip, a schema version, or a field added to a serialized model type; (d) a widening of the shared domain model (`src/IC2.Engine/Model/`) that other tasks build on; (e) a change to a battle resolver's or the AI's outcomes under a seed that re-baselines existing seeded expectations (values in `tests/fixtures/corpus.json` or `expected-corpus-outcomes.json`, existing golden lines, a soak or a seeded measurement) rather than only adding new ones; (f) a correction task whose entry says its evidence is still open; (g) size: an Owns list of more than 15 files, or a `--stat` of more than 20 files or 1,500 changed lines outside `tests/fixtures/`. A High-effort entry alone is complex, not very complex: 59 of the catalogue's 120 entries are High, and counting them would bring Opus back to half the code PRs.
+- **Complex**: everything else.
+
+Unchanged by the tier: `/code-review --effort ultra` on the four architecture PRs and at rework round 2 ([§3.5](#35-where-the-code-review-skill-fits)), the user's own ultra review of T16 and T22, and the human visual review of the Godot screens ([§9](#9-standing-governance-decisions) Q-B). A machine's model order may swap a tier's Claude form for its OpenCode form when Claude credit is short (Opus for Sol plus the Luna pair), and never lowers a tier.
+
+**The reviewer's model family is never the implementer's.** `scripts/external-review.ps1 -ExcludeModel <name>` (the name on `external-implement.ps1`'s `implemented by:` line, or a `model:<name>` label on the PR or issue) drops every reviewer of that family from the chain and refuses an explicit `-Reviewer` of it; when no model is left, the script exits 3 and the tier's fallback takes the review. The script has no Claude reviewer, so for a Claude implementer the main session applies the rule itself: `model:sonnet` and `model:opus` labels exclude nothing.
 
 ### 3.5 Where the `/code-review` skill fits
 
@@ -285,7 +295,7 @@ A plan PR is any PR that changes `docs/tasks/**`, `task-catalogue.md`, `release-
   The title starts `Plan (routine):`. A fold adds Done-when lines, so a DoD changes here without a fresh decision by the user ([§4.3](#43-the-dod-is-not-negotiable-by-an-agent)): the decision is this tier, made once. A routine-tier PR is merged by the session that opened it, on either machine.
 - **Contract tier: a cross-session review merges it.** Everything else: a new task; a change to an existing Done-when line's assertion, or its removal; a Scope change; a merge-after dependency on an unmerged task; a change to `release-plan.md`'s gates; any edit to this document, `operating-guide.md` or `CLAUDE.md`; and any routine-tier change the main session is unsure about. The title starts `Plan:`.
 
-  **How a contract-tier PR merges** (the user's decision of 2026-09-28). The session that opened it never reviews it. A different session reviews it, in this order of preference: another main session ([§8](#8-two-machines)); then the external reviewer's chain (`scripts/external-review.ps1`, operating-guide §3: `luna` on `openai/gpt-6-luna`, the one OpenCode reviewer, since fix 575); then, when OpenCode itself is unavailable (the script exits 3, or OpenCode is suspended for reviews after two failures of the same cause, operating-guide §3), a cold Claude Opus reviewer that the main session dispatches in its own worktree, which counts as the cross-session review; the PR waits as a `user decision` only when none of these can run. The main session records every fallback in the PR comment. The reviewer posts one comment whose second line is the verdict. On **approve**, the opener merges after green CI. On **approve after named fixes**, the opener applies them, replies with one comment mapping each finding to its change, and the reviewer answers that reply with one line confirming them; then the opener merges. If a fix is missing or wrong, the reviewer names the unresolved finding and the opener gets one more round; a second miss makes the verdict `user decision`. The user reads the merge in the opener's next report, and a revert is one contract-tier PR. **The user merges only when the verdict says `user decision`**: a design question, a release gate, a `[designed]` value, a change to Q-A to Q-G, anything [§4.5](#45-when-to-escalate-to-the-user) escalates, or something the reviewer cannot verify. A reviewer that would need the user for part of a PR says so in the verdict, and the whole PR waits.
+  **How a contract-tier PR merges** (the user's decision of 2026-09-28). The session that opened it never reviews it. A different session reviews it, by its review tier ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers), the user's decision of 2026-10-03): a contract-tier plan PR is **complex**, so GPT-6 Sol through `scripts/external-review.ps1 -Reviewer sol`, or the Luna pair as the main session's alternative; a routine-tier or evidence-only doc-claim PR, when it is reviewed at all, is **simple**, so Luna alone (`-Reviewer auto`). Jev proposes the tier and the main session confirms it. When OpenCode itself is unavailable (the script exits 3, or OpenCode is suspended for reviews after two failures of the same cause, operating-guide §3), a cold Claude Opus reviewer that the main session dispatches in its own worktree counts as the cross-session review, and so does another main session's review ([§8](#8-two-machines)), which now takes the Opus fallback's place rather than coming first; the PR waits as a `user decision` only when none of these can run. The main session records every fallback in the PR comment. The reviewer posts one comment whose second line is the verdict. On **approve**, the opener merges after green CI. On **approve after named fixes**, the opener applies them, replies with one comment mapping each finding to its change, and the reviewer answers that reply with one line confirming them; then the opener merges. If a fix is missing or wrong, the reviewer names the unresolved finding and the opener gets one more round; a second miss makes the verdict `user decision`. The user reads the merge in the opener's next report, and a revert is one contract-tier PR. **The user merges only when the verdict says `user decision`**: a design question, a release gate, a `[designed]` value, a change to Q-A to Q-G, anything [§4.5](#45-when-to-escalate-to-the-user) escalates, or something the reviewer cannot verify. A reviewer that would need the user for part of a PR says so in the verdict, and the whole PR waits.
 
 A routine PR the user later disagrees with is reverted by a contract-tier PR. That is the tier's cost, and cheaper than the wait it replaces (incident 12).
 
@@ -296,7 +306,7 @@ A bug qualifies for the fix lane when its fix **stays within the files the bug n
 A fix:
 - **has no catalogue entry and no `T` number.** The bug issue is the contract. Its Owns is the files the bug names, read from the issue body, plus gate 4's implicit set ([§4.2](#42-what-the-reviewer-checks)); once the PR exists, its file list is the authority for [§8](#8-two-machines)'s disjointness check; its DoD is the bug's reproduction turned into a test that fails before the change and passes after it, plus a green `dotnet build IC2.sln` and `dotnet test IC2.sln`.
 - **runs through the same labels as a task** (`status:in-progress`, `in-review`, `approved` or `rework`, `merged`), the same `machine:*` claim, and `local-only` or `single-instance` where they apply. It is the machine's one task while it runs ([§7](#7-concurrency-single-instance-and-local-only), [§8](#8-two-machines)), and its files must be disjoint from every task in flight.
-- **is dispatched by `/run-task #<issue>`** ([Appendix C](#appendix-c-the-run-task-skill)): implementer Sonnet/Medium in worktree `ic2-work\fix-<issue>` on branch `fix/<issue>-<slug>`, with the bug body in place of the task entry in Appendix A's brief, commit subject `fix <issue>: <subject>` (no `#`, so the squash closes nothing early), PR body `Closes #<issue>` as Appendix A already allows, reviewer Opus/Medium at gates 0, 1, 3 and 4 plus a read of the diff. Gate 2 reduces to confirming no constant changed; the mutation protocol does not apply.
+- **is dispatched by `/run-task #<issue>`** ([Appendix C](#appendix-c-the-run-task-skill)): implementer Sonnet/Medium in worktree `ic2-work\fix-<issue>` on branch `fix/<issue>-<slug>`, with the bug body in place of the task entry in Appendix A's brief, commit subject `fix <issue>: <subject>` (no `#`, so the squash closes nothing early), PR body `Closes #<issue>` as Appendix A already allows, reviewer by the PR's review tier ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers): complex at least, so GPT-6 Sol by default) at gates 0, 1, 3 and 4 plus a read of the diff. Gate 2 reduces to confirming no constant changed; the mutation protocol does not apply.
 - **gets one rework round** ([§4.4](#44-rework)). A review that fails while the issue carries `review-round:1` turns it into a correction task: the main session files the task at the contract tier, keeps the branch, and stops.
 
 Why the lane exists: incident 12.
@@ -473,7 +483,7 @@ Decided by the user; in force until changed.
 - **Q-A, merge autonomy.** The main session squash-merges any PR that has an approving review and green CI without asking, **except** the architecture PRs T16 and T22. Those wait for the user's thumbs-up and the user's own `/code-review --effort ultra`. T02 and T03 are already merged.
 - **Q-B, Godot visual review.** T24 and T25 post a screenshot of every new screen to their PR as they land, and "looks right" is the user's call on each one. The published mockup (`game-design.md` §UI) is the layout intent.
 - **Q-C, cost profile.**
-  - Opus implements the tasks [§3.3](#33-model-selection)'s criteria name, and reviews the fidelity-critical PRs ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers)).
+  - Opus implements the tasks [§3.3](#33-model-selection)'s criteria name, and reviews the very complex PRs that Claude did not implement ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers)'s review tiers, the user's decision of 2026-10-03; it reviewed the fidelity-critical PRs before).
   - `/code-review --effort ultra` runs on the architecture PRs.
   - One task is in flight at a time per machine; two machines may run two file-disjoint tasks at once (§8).
   - There is no orchestrator layer and no per-merge documentation agent (incident 13).
@@ -726,8 +736,8 @@ check holds as written; the bug body replaces the task entry in Appendix A's bri
 files it names plus gate 4's implicit set; DoD = the bug's reproduction as a test that fails
 before and passes after, plus green build and test; worktree ic2-work\fix-<issue>, branch
 fix/<issue>-<slug>, commit subject "fix <issue>: <subject>" (no #), PR body "Closes #<issue>";
-implementer Sonnet/Medium; reviewer Opus/Medium with the line "Fix lane: gates 0, 1, 3 and 4
-plus a read of the diff; no mutation protocol" at the top of its brief. In step 3, a failing
+implementer Sonnet/Medium; reviewer by step 2's tier (complex at least) with the line "Fix lane:
+gates 0, 1, 3 and 4 plus a read of the diff; no mutation protocol" at the top of its brief. In step 3, a failing
 review while the issue carries review-round:1 files a correction task at the contract tier and
 stops; there is no review-round:2. In step 4 the follow-up issue is "#<issue> follow-up", and
 the docs item applies only if the review named a claim.
@@ -758,16 +768,39 @@ the docs item applies only if the review named a claim.
    - a Claude model: Agent(general-purpose, model = the catalogue's, run_in_background, prompt =
      the brief). Wait for its completion notification; don't poll.
    If the implementer reports a defect in merged code, go to step 5 (bug).
-2. REVIEW. Check the PR exists and CI has run. Label status:in-review. Dispatch the reviewer.
-   A code PR (a task or a fix) gets a Claude Opus reviewer directly: Agent(model opus, prompt =
-   Appendix B filled in), never the OpenCode review script (the user's decision of 2026-10-02:
-   GPT-6 Luna approved T99 with no findings where Opus proved two blocking bugs). A plan PR (docs)
-   goes through `scripts/external-review.ps1` (Luna, then Opus). Wait. A review
-   through `scripts/external-review.ps1` passes the implementer's `implemented by:` name as
-   `-ExcludeModel`; the flag is required, since model:sonnet and model:opus labels exclude nothing.
-   Exit 4 means the review was posted flagged (cut off, verdict unreadable, or findings after the
-   closing verdict) and no label was set: read it on the PR and decide (relabel by its content, or
-   dispatch a cold Opus reviewer); exit 3 means no review at all, so fall back to the Opus reviewer.
+2. REVIEW. Check the PR exists and CI has run. Label status:in-review. Set the review tier, then
+   dispatch by it (build-process.md §3.4, the user's decision of 2026-10-03; a plan PR is
+   reviewed per §4.9, not here).
+   a. CLASSIFY. Write rendered/review-tier/<pr>.txt: a line "PR kind: task" (or "fix"), the
+      extracted task entry (the bug body for a fix), and the PR's stat
+      (`git fetch -q origin pull/<pr>/head` then `git diff --stat origin/main...FETCH_HEAD`). Run
+      `pwsh scripts/jev-ask.ps1 -StateFile rendered/review-tier/<pr>.txt -QuestionsFile
+      scripts/jev/review-complexity.json`.
+   b. CONFIRM. Bucket act (probability 0.9 or above): take Jev's tier unless §3.4's criteria say
+      otherwise; bucket claude: decide by §3.4's criteria. A task or fix PR is never simple,
+      whatever Jev says. A failed Jev call blocks nothing: decide by the criteria. Record the tier,
+      Jev's answer and probability, and any override in one PR comment.
+   c. DISPATCH. Families: OpenAI = luna, sol; GLM = glm, glm-flash; DeepSeek = deepseek,
+      deepseek-flash; Claude = sonnet, opus. No reviewer shares the implementer's family.
+      - complex: `pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer sol -Issue <n> -ApplyLabel
+        -ExcludeModel <implemented by> -BriefFile <file>`, the brief being Appendix B filled in,
+        its first line "T<nn> review (Sol)". Exit 3: a cold Opus reviewer, or the Luna pair when
+        Claude implemented. An OpenAI implementer: a cold Opus reviewer directly. The Luna pair
+        is your alternative to Sol when two independent families add value.
+      - very complex: Agent(model opus, prompt = Appendix B filled in), unless Claude implemented
+        (Sonnet, or Opus on an architecture task): then Sol plus the Luna pair, three reviews.
+      - the Luna pair: `-Reviewer luna`, and a second review from the first of glm, deepseek or a
+        Sonnet Agent on Appendix B whose family the implementer did not use, each with its own
+        header ("T<nn> review (Luna)", "... (GLM)"). With two or three reviews, run none with
+        -ApplyLabel and tell a Sonnet reviewer not to label; apply status:approved only when
+        every review approves, else status:rework, and step 3 relays every review in full.
+   Every run of `scripts/external-review.ps1` passes the implementer's `implemented by:` name as
+   `-ExcludeModel` (required: model:sonnet and model:opus labels exclude nothing; for a Claude
+   implementer, choose no Claude reviewer yourself). Run it in the background and watch it
+   (operating-guide §3). Exit 4 means the review was posted flagged (cut off, verdict unreadable,
+   or findings after the closing verdict) and no label was set: read it on the PR and decide
+   (relabel by its content, or dispatch the tier's fallback); exit 3 means no review at all, so
+   fall back as the tier says. A rework round's re-review keeps the tier and its reviewers.
 3. DECIDE on the label the reviewer applied:
    - status:approved: wait for CI green. If the branch is behind main, run
      `gh pr update-branch <pr>` and wait for green again. For T16 and T22, stop and get the

@@ -1,8 +1,10 @@
 <#
 .SYNOPSIS
     Hands one pull request to the local OpenCode install for an external review (Luna alone on the
-    direct OpenAI route; the main session runs a cold Claude Opus on the exit-3 failure), and posts
-    the result as the one PR comment build-process.md §4.9 expects.
+    direct OpenAI route by default, or the one reviewer the main session names for the PR's review
+    tier, build-process.md §3.4: `sol` for a complex PR, `luna` plus `glm` or `deepseek` for the
+    Luna pair; the main session runs a cold Claude Opus on the exit-3 failure), and posts the
+    result as the one PR comment build-process.md §4.9 expects.
 
 .DESCRIPTION
     The main session fills the reviewer brief itself (build-process.md Appendix B for a task PR,
@@ -41,8 +43,11 @@
          verdict, as a Claude reviewer would (never for a plan PR; never for a flagged review);
       5. removes the worktree it created, and only that one.
     With -Reviewer auto (the default) the chain is Luna alone on `openai/gpt-6-luna` (issue #575:
-    one OpenCode model per role before Claude); on its failure the script exits 3 and the main
-    session runs a cold Claude Opus reviewer. The next model runs ONLY on an infrastructure
+    one OpenCode model per role before Claude), the simple tier's reviewer; on its failure the
+    script exits 3 and the main session runs a cold Claude Opus reviewer. The main session picks
+    the tier (build-process.md §3.4) and passes every other tier's reviewer explicitly: -Reviewer
+    sol (GPT-6 Sol, `openai/gpt-6-sol`) for a complex PR, and one run per reviewer for the Luna
+    pair; auto never picks sol. The next model runs ONLY on an infrastructure
     failure: no session
     in time, an idle session, no exit in time, a run that exits without a session, a non-zero
     exit, the fallback-to-default-agent guard, or no review at all. Any other error stops the
@@ -50,9 +55,10 @@
     posted header names the model that reviewed and the ones that failed before it, e.g. "Plan
     review (Luna; DeepSeek failed: no session in 180 s)". Two consecutive attempts failing
     with the same cause (Get-OpenCodeFailureClass) stop the chain early.
-    The model that implemented the PR never reviews it: -ExcludeModel (or, when that is not given,
-    a model:<name> label on the PR or on -Issue naming an OpenCode model) drops it from the chain,
-    and an explicit -Reviewer naming it is refused with exit 1.
+    The model family that implemented the PR never reviews it: -ExcludeModel (or, when that is not
+    given, a model:<name> label on the PR or on -Issue naming an OpenCode model) drops every
+    reviewer of that family from the chain (OpenAI: luna, sol; GLM: glm, glm-flash; DeepSeek:
+    deepseek, deepseek-flash), and an explicit -Reviewer of that family is refused with exit 1.
     If every model fails, the chain stops early, the exclusion leaves no model, or OpenCode is not
     installed, nothing is posted and the script exits 3 ("OpenCode unavailable: ...");
     build-process.md §4.9 says what the main session does then. An explicit -Reviewer runs only
@@ -64,7 +70,8 @@
     Reviewer -> OpenCode model id. GLM Flash and DeepSeek are on the OpenCode Go list
     (`opencode-go/glm-5.3-flash`, `opencode-go/deepseek-v4.1-flash`); luna is the direct OpenAI
     route, `openai/gpt-6-luna`, via the machine's OpenAI login (not Go's proxied
-    `opencode-go/gpt-6-luna`, whose upstream returned Bad Request in long runs, #553).
+    `opencode-go/gpt-6-luna`, whose upstream returned Bad Request in long runs, #553); sol is
+    `openai/gpt-6-sol` on the same login.
     `opencode models` shows what this machine has.
     OpenCode reads CLAUDE.md as its instructions file when no AGENTS.md exists; that is
     harmless here (the reviewer gets the token-economy rules) and no AGENTS.md is added.
@@ -74,7 +81,8 @@
 .PARAMETER Reviewer
     auto (default: Luna on openai/gpt-6-luna at high effort alone, then a cold Claude Opus by
     hand; issue #575 keeps one OpenCode model per role before Claude), or glm-flash, glm, luna,
-    deepseek for that model alone, each at high effort.
+    sol, deepseek for that model alone, each at high effort. sol (GPT-6 Sol) is the complex tier's
+    reviewer; luna with glm or deepseek, in two runs, is the Luna pair (build-process.md §3.4).
 .PARAMETER BriefFile
     The filled reviewer brief. Its first line must be the review header the model is to print,
     for example "Plan review (Luna)" or "T94 review (DeepSeek)". With -Reviewer auto, the text in
@@ -107,10 +115,11 @@
     runs or a reply streams, so this must exceed the longest single step of a review.
 .PARAMETER ExcludeModel
     The model that implemented the PR, as external-implement.ps1 names it on its "implemented by:"
-    line (deepseek-flash, glm-flash, glm, luna, mimo-pro, mimo-flash; or a reviewer name).
-    The reviewer of the same model (deepseek-flash is DeepSeek) is dropped from the chain. A
-    deepseek-flash implementer never collides with the Luna reviewer; a luna implementer leaves no
-    OpenCode reviewer, so the script exits 3 and a cold Claude Opus reviews. Without it, a
+    line (deepseek-flash, glm-flash, glm, luna, mimo-pro, mimo-flash; or a reviewer name, sol
+    included). Every reviewer of the same family is dropped from the chain (deepseek-flash is
+    DeepSeek; luna and sol are both OpenAI). A deepseek-flash implementer never collides with the
+    Luna or Sol reviewer; a luna implementer excludes both, so -Reviewer auto leaves no OpenCode
+    reviewer, the script exits 3 and a cold Claude Opus reviews. Without it, a
     model:<name> label on the PR or on -Issue is used when one names an OpenCode model.
 .PARAMETER ModelIds
     Overrides of the reviewer -> model id map, e.g. @{ glm = 'opencode-go/glm-5.4' }, for when
@@ -119,12 +128,14 @@
 .EXAMPLE
     pwsh scripts/external-review.ps1 -Pr 479 -BriefFile C:\tmp\479-brief.md
 .EXAMPLE
+    pwsh scripts/external-review.ps1 -Pr 640 -Reviewer sol -ExcludeModel deepseek-flash -BriefFile rendered\640-brief.md -Issue 600 -ApplyLabel
+.EXAMPLE
     pwsh scripts/external-review.ps1 -Pr 466 -Reviewer deepseek -BriefFile C:\tmp\466-brief.md -Issue 24 -ApplyLabel -FixturesDir C:\Users\diego\projects\ic2-test-fixtures
 #>
 [CmdletBinding()]
 param(
     [int] $Pr,
-    [ValidateSet('auto', 'glm-flash', 'glm', 'luna', 'deepseek')] [string] $Reviewer = 'auto',
+    [ValidateSet('auto', 'glm-flash', 'glm', 'luna', 'sol', 'deepseek')] [string] $Reviewer = 'auto',
     [string] $BriefFile,
     [int] $Issue,
     [switch] $ApplyLabel,
@@ -135,7 +146,7 @@ param(
     [int] $StartupTimeoutSec = 180,
     [int] $TotalTimeoutSec = 3600,
     [int] $IdleTimeoutSec = 600,
-    [ValidateSet('deepseek-flash', 'glm-flash', 'glm', 'luna', 'mimo-pro', 'mimo-flash', 'deepseek')] [string] $ExcludeModel,
+    [ValidateSet('deepseek-flash', 'glm-flash', 'glm', 'luna', 'sol', 'mimo-pro', 'mimo-flash', 'deepseek')] [string] $ExcludeModel,
     [hashtable] $ModelIds
 )
 
@@ -440,6 +451,20 @@ function Invoke-ReviewParserSelfTest {
         $pattern = '(?m)^\s*' + [regex]::Escape('"' + $perm + '":') + '\s*deny\s*$'
         $ruleChecks += [pscustomobject]@{ Name = "agent denies `"$perm`""; Ok = ($agentPermissions -match $pattern) }
     }
+    # --- the review tiers (the user's decision of 2026-10-03, build-process.md §3.4) ---------------
+    # Every -Reviewer value but auto has a model id, a variant entry and a display name; sol is GPT-6
+    # Sol at high effort; and the exclusion is by family: an OpenAI implementer
+    # (luna or sol) excludes both OpenAI reviewers, and a DeepSeek implementer excludes neither.
+    $reviewerSet = @((Get-Command $PSCommandPath).Parameters['Reviewer'].Attributes |
+        Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] } |
+        ForEach-Object { $_.ValidValues }) | Where-Object { $_ -ne 'auto' }
+    foreach ($name in $reviewerSet) {
+        $ruleChecks += [pscustomobject]@{ Name = "reviewer $name has a model, a variant and a display name"; Ok = ($models.ContainsKey($name) -and $variants.ContainsKey($name) -and $displayNames.ContainsKey($name)) }
+    }
+    $ruleChecks += [pscustomobject]@{ Name = 'sol is openai/gpt-6-sol at high, shown as Sol'; Ok = ($models['sol'] -eq 'openai/gpt-6-sol' -and $variants['sol'] -eq 'high' -and $displayNames['sol'] -eq 'Sol') }
+    $ruleChecks += [pscustomobject]@{ Name = 'a luna implementer excludes luna and sol'; Ok = ((@($reviewerOf['luna']) | Sort-Object) -join ',' -eq 'luna,sol') }
+    $ruleChecks += [pscustomobject]@{ Name = 'a sol implementer excludes luna and sol'; Ok = ((@($reviewerOf['sol']) | Sort-Object) -join ',' -eq 'luna,sol') }
+    $ruleChecks += [pscustomobject]@{ Name = 'a deepseek-flash implementer excludes neither luna nor sol'; Ok = (@($reviewerOf['deepseek-flash']) -notcontains 'luna' -and @($reviewerOf['deepseek-flash']) -notcontains 'sol') }
     foreach ($c in $ruleChecks) {
         $n++
         if (-not $c.Ok) { $failed++ }
@@ -450,29 +475,49 @@ function Invoke-ReviewParserSelfTest {
     return 0
 }
 
-if ($SelfTest) { exit (Invoke-ReviewParserSelfTest) }
-if (-not $Pr) { throw '-Pr is required (or use -SelfTest).' }
-if (-not $BriefFile) { throw '-BriefFile is required.' }
-
 # Reviewer name -> OpenCode model id. Edit here (or pass -ModelIds) if `opencode models` shows a
 # different id. On 2026-10-01 the user moved the OpenCode runs from OpenCode Zen to OpenCode Go
 # (issue #551), except the reviewer: it is Luna on the direct OpenAI route, `openai/gpt-6-luna`,
 # via the machine's OpenAI login (issue #575; Go's proxied `opencode-go/gpt-6-luna` upstream
 # returned Bad Request in long runs, #553). Luna at high effort is the review model (one OpenCode
 # model per role before Claude); glm-flash, glm and deepseek stay valid as explicit -Reviewer
-# values, and no default path picks them.
+# values, and no default path picks them. sol (GPT-6 Sol, `openai/gpt-6-sol`, the same OpenAI login)
+# is the complex tier's reviewer and luna plus glm or deepseek the Luna pair (the user's decision of
+# 2026-10-03, build-process.md §3.4); the main session passes them explicitly, so auto stays Luna.
 $models = @{
     'glm-flash' = 'opencode-go/glm-5.3-flash'
     glm         = 'opencode-go/glm-5.3'
     luna        = 'openai/gpt-6-luna'
+    sol         = 'openai/gpt-6-sol'
     deepseek    = 'opencode-go/deepseek-v4.1-flash'
 }
 if ($ModelIds) { foreach ($k in $ModelIds.Keys) { $models[$k] = $ModelIds[$k] } }
 # Provider-specific variant. Invoke-OpenCodeWatched passes it by the CLI's major version (1.x
 # `--variant v`, 2.x the model's `#v` suffix). Empty means none. Effort is `high` everywhere (issue #575: `max` is
 # overkill); luna was already high.
-$variants = @{ 'glm-flash' = 'high'; glm = 'high'; luna = 'high'; deepseek = '' }
-$displayNames = @{ 'glm-flash' = 'GLM Flash'; glm = 'GLM'; luna = 'Luna'; deepseek = 'DeepSeek' }
+$variants = @{ 'glm-flash' = 'high'; glm = 'high'; luna = 'high'; sol = 'high'; deepseek = '' }
+$displayNames = @{ 'glm-flash' = 'GLM Flash'; glm = 'GLM'; luna = 'Luna'; sol = 'Sol'; deepseek = 'DeepSeek' }
+# The reviewer's model family is never the implementer's (build-process.md §3.4). The implementing
+# model comes from -ExcludeModel, else from a model:<name> label on the PR or its issue that names an
+# OpenCode model (model:opus and model:sonnet name Claude, which is not in this chain). Implementer
+# name -> the reviewer names of the same family; the MiMo models have no reviewer here. The families
+# (the user's decision of 2026-10-03): OpenAI is luna and sol, GLM is glm and glm-flash, DeepSeek is
+# deepseek and deepseek-flash. A luna or sol implementer excludes both OpenAI reviewers, so -Reviewer
+# auto leaves no OpenCode reviewer and the script exits 3 (a cold Claude Opus reviews), and -Reviewer
+# sol or luna is refused.
+$reviewerOf = @{
+    'deepseek-flash' = @('deepseek')
+    'deepseek'       = @('deepseek')
+    'glm-flash'      = @('glm-flash', 'glm')
+    'glm'            = @('glm-flash', 'glm')
+    'luna'           = @('luna', 'sol')
+    'sol'            = @('luna', 'sol')
+}
+
+if ($SelfTest) { exit (Invoke-ReviewParserSelfTest) }
+if (-not $Pr) { throw '-Pr is required (or use -SelfTest).' }
+if (-not $BriefFile) { throw '-BriefFile is required.' }
+
 # The fallback chain (the user's decision of 2026-10-01, issue #575): Luna alone on the direct
 # OpenAI route, then the main session runs a cold Claude Opus reviewer. One OpenCode model per
 # role before Claude.
@@ -520,30 +565,16 @@ if ($WhatIf) {
 }
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { throw 'gh is not on PATH.' }
 
-# The reviewer's model is never the implementer's (build-process.md §3.4). The implementing model
-# comes from -ExcludeModel, else from a model:<name> label on the PR or its issue that names an
-# OpenCode model (model:opus and model:sonnet name Claude, which is not in this chain). Implementer
-# name -> the reviewer names running the same model; the MiMo models have no reviewer here. With
-# Luna as the only auto reviewer (issue #575), a luna implementer excludes it and leaves no
-# OpenCode reviewer, so the script exits 3 and a cold Claude Opus reviews; both GLM names exclude
-# both GLM reviewers (same model family), as before.
-$reviewerOf = @{
-    'deepseek-flash' = @('deepseek')
-    'deepseek'       = @('deepseek')
-    'glm-flash'      = @('glm-flash', 'glm')
-    'glm'            = @('glm-flash', 'glm')
-    'luna'           = @('luna')
-}
 $implementers = if ($ExcludeModel) { @($ExcludeModel) } else {
     $labels = @(gh pr view $Pr --json labels --jq '.labels[].name' 2>$null)
     if ($Issue) { $labels += @(gh issue view $Issue --json labels --jq '.labels[].name' 2>$null) }
     @($labels | Where-Object { $_ -match '^model:(.+)$' } | ForEach-Object { $_.Substring(6) } |
-        Where-Object { $_ -in 'deepseek-flash', 'glm-flash', 'glm', 'luna', 'mimo-pro', 'mimo-flash', 'deepseek' } | Select-Object -Unique)
+        Where-Object { $_ -in 'deepseek-flash', 'glm-flash', 'glm', 'luna', 'sol', 'mimo-pro', 'mimo-flash', 'deepseek' } | Select-Object -Unique)
 }
 $excluded = @($implementers | ForEach-Object { $reviewerOf[$_] } | Where-Object { $_ } | Select-Object -Unique)
 if ($implementers) { Write-Host "implemented by: $($implementers -join ', '); excluded from review: $(if ($excluded) { $excluded -join ', ' } else { 'none' })" }
 if ($Reviewer -ne 'auto' -and $excluded -contains $Reviewer) {
-    [Console]::Error.WriteLine("Refused: -Reviewer $Reviewer is the model that implemented PR #$Pr ($($implementers -join ', ')); the reviewer's model is never the implementer's (build-process.md §3.4). Use -Reviewer auto or another model. Nothing posted.")
+    [Console]::Error.WriteLine("Refused: -Reviewer $Reviewer is of the model family that implemented PR #$Pr ($($implementers -join ', ')); the reviewer's model family is never the implementer's (build-process.md §3.4). Use -Reviewer auto or another model. Nothing posted.")
     exit 1
 }
 $chain = @($chain | Where-Object { $excluded -notcontains $_ })
