@@ -980,6 +980,9 @@ public sealed partial class GameSession
             case "split-army":
                 lines.AddRange(HandleSplitArmy(tokens));
                 break;
+            case "army-transfer":
+                lines.AddRange(HandleArmyTransfer(tokens));
+                break;
             case "order-city":
                 lines.AddRange(HandleOrderCity(tokens));
                 break;
