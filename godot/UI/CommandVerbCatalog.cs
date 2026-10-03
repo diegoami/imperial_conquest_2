@@ -61,6 +61,7 @@ public static class CommandVerbCatalog
     /// manually maintained rather than parsed from <c>GameSession.cs</c>.</summary>
     public static readonly IReadOnlyDictionary<string, string> VerbByKind = new Dictionary<string, string>(StringComparer.Ordinal)
     {
+        ["armies.army-transfer"] = "army-transfer",
         ["armies.disband-army"] = "disband-army",
         ["armies.join-armies"] = "join-armies",
         ["armies.join-units"] = "join-units",

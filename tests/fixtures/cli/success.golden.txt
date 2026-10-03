@@ -912,6 +912,15 @@ economy.transfer-money accepted.
 > transfer-money army-8 -50
 economy.transfer-money accepted.
 
+> move army-8 136 42
+army-8 moved from (136,51) to (136,42), spending 10 of 10 moves.
+
+> move mac-marines 137 41
+mac-marines moved from (144,40) to (137,41), spending 9 of 9 moves.
+
+> army-transfer army-8 mac-marines supply=10 money=20
+armies.army-transfer accepted.
+
 > quit
 Goodbye.
 

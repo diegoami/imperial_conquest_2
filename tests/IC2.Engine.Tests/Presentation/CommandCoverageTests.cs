@@ -125,6 +125,7 @@ public sealed class CommandCoverageTests
     /// </summary>
     internal static readonly Dictionary<string, string> VerbByKind = new(StringComparer.Ordinal)
     {
+        ["armies.army-transfer"] = "army-transfer",
         ["armies.disband-army"] = "disband-army",
         ["armies.join-armies"] = "join-armies",
         ["armies.join-units"] = "join-units",

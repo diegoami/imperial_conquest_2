@@ -306,6 +306,82 @@ public sealed partial class GameSession
             new SplitArmyCommand(State.ActiveNationId, tokens[1], tokens[2], ValueList.Of(unitIndex)));
     }
 
+    /// <summary>
+    /// <c>army-transfer &lt;from&gt; &lt;to&gt; [units=&lt;i,j,...&gt;] [supply=&lt;tons&gt;]
+    /// [money=&lt;talents&gt;]</c> — <c>docs/tasks/T106.md</c>. Only the option syntax is parsed here (each
+    /// option once, whole numbers, comma-separated non-negative unit indexes); everything the rules
+    /// disallow — an unknown or foreign army, a distance other than 1, an out-of-range unit index, a
+    /// source that cannot cover the move, and every receiving cap — is enforced by
+    /// <see cref="IC2.Engine.Armies.Commands.ArmyTransferCommandHandler"/>, so this method never restates it.
+    /// </summary>
+    private IReadOnlyList<string> HandleArmyTransfer(string[] tokens)
+    {
+        const string usage =
+            "Usage: army-transfer <from> <to> [units=<i,j,...>] [supply=<tons>] [money=<talents>]";
+
+        if (tokens.Length < 3)
+        {
+            return new[] { usage };
+        }
+
+        var unitIndexes = new List<int>();
+        var supplyTons = 0;
+        var money = 0;
+        var seenOptions = new HashSet<string>(StringComparer.Ordinal);
+
+        for (var i = 3; i < tokens.Length; i++)
+        {
+            var separator = tokens[i].IndexOf('=', StringComparison.Ordinal);
+            if (separator <= 0 || separator == tokens[i].Length - 1)
+            {
+                return new[] { usage };
+            }
+
+            var key = tokens[i][..separator];
+            var value = tokens[i][(separator + 1)..];
+            if (!seenOptions.Add(key))
+            {
+                return new[] { usage };
+            }
+
+            switch (key)
+            {
+                case "units":
+                    foreach (var part in value.Split(','))
+                    {
+                        if (!int.TryParse(part, NumberStyles.Integer, CultureInfo.InvariantCulture, out var index)
+                            || index < 0)
+                        {
+                            return new[] { usage };
+                        }
+
+                        unitIndexes.Add(index);
+                    }
+
+                    break;
+                case "supply":
+                    if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out supplyTons))
+                    {
+                        return new[] { usage };
+                    }
+
+                    break;
+                case "money":
+                    if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out money))
+                    {
+                        return new[] { usage };
+                    }
+
+                    break;
+                default:
+                    return new[] { usage };
+            }
+        }
+
+        return IssueCommand(new ArmyTransferCommand(
+            State.ActiveNationId, tokens[1], tokens[2], ValueList.From(unitIndexes), supplyTons, money));
+    }
+
     // ---- cities ----
 
     private IReadOnlyList<string> HandleOrderCity(string[] tokens)
