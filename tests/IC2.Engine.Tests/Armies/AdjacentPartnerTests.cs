@@ -117,4 +117,64 @@ public sealed class AdjacentPartnerTests
 
         Assert.Null(AdjacentPartner.Fleet(state, "selected"));
     }
+
+    [Fact]
+    public void Army_SkipsACoLocatedOwnArmy_AndReturnsTheDistanceOneOne()
+    {
+        // Distance exactly 1, not AreAdjacent's <= 1: a sibling on the selected army's own tile is never
+        // the partner, even when it is later in the state's order (review B3, M6).
+        var state = WithArmies(
+            InitialState(),
+            Army("selected", NorthNationId, 10, 10, Units(1, "s")),
+            Army("distance-one", NorthNationId, 11, 10, Units(1, "a")),
+            Army("same-tile", NorthNationId, 10, 10, Units(1, "c")));
+
+        var partner = AdjacentPartner.Army(state, "selected");
+
+        Assert.NotNull(partner);
+        Assert.Equal("distance-one", partner!.Id);
+    }
+
+    [Fact]
+    public void Army_WithOnlyACoLocatedOwnArmy_ReturnsNone()
+    {
+        var state = WithArmies(
+            InitialState(),
+            Army("selected", NorthNationId, 10, 10, Units(1, "s")),
+            Army("same-tile", NorthNationId, 10, 10, Units(1, "c")));
+
+        Assert.Null(AdjacentPartner.Army(state, "selected"));
+    }
+
+    [Fact]
+    public void Fleet_SkipsACoLocatedOwnLaunchedFleet_AndReturnsTheDistanceOneOne()
+    {
+        // Distance exactly 1: a launched sibling on the selected fleet's own tile is never the partner,
+        // even when it is later in the state's order (review B3, M7).
+        var state = InitialState() with
+        {
+            Fleets = ValueList.Of(
+                Fleet("selected", NorthNationId, 10, 10, launched: true),
+                Fleet("distance-one", NorthNationId, 11, 10, launched: true),
+                Fleet("same-tile", NorthNationId, 10, 10, launched: true)),
+        };
+
+        var partner = AdjacentPartner.Fleet(state, "selected");
+
+        Assert.NotNull(partner);
+        Assert.Equal("distance-one", partner!.Id);
+    }
+
+    [Fact]
+    public void Fleet_WithOnlyACoLocatedOwnLaunchedFleet_ReturnsNone()
+    {
+        var state = InitialState() with
+        {
+            Fleets = ValueList.Of(
+                Fleet("selected", NorthNationId, 10, 10, launched: true),
+                Fleet("same-tile", NorthNationId, 10, 10, launched: true)),
+        };
+
+        Assert.Null(AdjacentPartner.Fleet(state, "selected"));
+    }
 }

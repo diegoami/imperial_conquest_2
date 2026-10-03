@@ -18,7 +18,11 @@ public sealed class ArmyTransferCommandTests
     private static IEnumerable<UnitSlot> Units(int count, int troops = 1000, string prefix = "u") =>
         Enumerable.Range(0, count).Select(i => RegularUnit($"{prefix}{i}", troops: troops));
 
-    /// <summary>Troops, supply and money summed over every army in <paramref name="state"/>.</summary>
+    /// <summary>
+    /// Troops and supply summed over every army, and money summed over every army's purse <em>and</em> every
+    /// nation's treasury. The treasury is where the emptied-army branch credits a pooled purse's excess, so
+    /// counting only the armies would miss money the transfer conserved there (review B2).
+    /// </summary>
     private static (int Troops, int Supply, int Money) Totals(GameState state)
     {
         var troops = 0;
@@ -29,6 +33,11 @@ public sealed class ArmyTransferCommandTests
             troops += army.TotalTroops;
             supply += army.SupplyTons;
             money += army.Money;
+        }
+
+        foreach (var nation in state.Nations)
+        {
+            money += nation.Treasury;
         }
 
         return (troops, supply, money);
@@ -373,5 +382,156 @@ public sealed class ArmyTransferCommandTests
         Assert.True(result.IsRejected);
         Assert.Equal(ArmyTransferRejections.InsufficientSupply, result.Code);
         Assert.Same(state, result.State);
+    }
+
+    [Fact]
+    public void Transfer_MoreMoneyThanTheSourceHolds_IsRejectedAndTheStateIsUntouched()
+    {
+        // The giver can never go negative: `money=` larger than its own purse is refused (the entry's
+        // min(otherArmyAmount, ...) rule; review B1, M1).
+        var state = WithArmies(
+            InitialState(),
+            Army("rich-a", NorthNationId, 5, 5, Units(2), money: 30),
+            Army("rich-b", NorthNationId, 6, 5, Units(1, prefix: "v"), money: 1));
+
+        var result = Dispatcher().Dispatch(
+            state, new ArmyTransferCommand(NorthNationId, "rich-a", "rich-b", ValueList<int>.Empty, 0, 31));
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(ArmyTransferRejections.InsufficientMoney, result.Code);
+        Assert.Same(state, result.State);
+    }
+
+    [Fact]
+    public void Transfer_NegativeUnitIndex_IsRejectedAndTheStateIsUntouched()
+    {
+        var state = WithArmies(
+            InitialState(),
+            Army("neg-a", NorthNationId, 5, 5, Units(2)),
+            Army("neg-b", NorthNationId, 6, 5, Units(1, prefix: "v")));
+
+        var result = Dispatcher().Dispatch(
+            state, new ArmyTransferCommand(NorthNationId, "neg-a", "neg-b", ValueList.Of(-1), 0, 0));
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(ArmyTransferRejections.UnknownUnitIndex, result.Code);
+        Assert.Same(state, result.State);
+    }
+
+    [Fact]
+    public void Transfer_NegativeSupply_IsRejectedAndTheStateIsUntouched()
+    {
+        // A negative amount would pull supply from the receiver instead; the parser accepts the sign, so
+        // only the handler's amount guard stops it (review B1, M4).
+        var state = WithArmies(
+            InitialState(),
+            Army("neg-a", NorthNationId, 5, 5, Units(2), supplyTons: 3),
+            Army("neg-b", NorthNationId, 6, 5, Units(1, prefix: "v")));
+
+        var result = Dispatcher().Dispatch(
+            state, new ArmyTransferCommand(NorthNationId, "neg-a", "neg-b", ValueList<int>.Empty, -1, 0));
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(ArmyTransferRejections.InvalidAmount, result.Code);
+        Assert.Same(state, result.State);
+    }
+
+    [Fact]
+    public void Transfer_NegativeMoney_IsRejectedAndTheStateIsUntouched()
+    {
+        var state = WithArmies(
+            InitialState(),
+            Army("neg-c", NorthNationId, 5, 5, Units(2), money: 3),
+            Army("neg-d", NorthNationId, 6, 5, Units(1, prefix: "v")));
+
+        var result = Dispatcher().Dispatch(
+            state, new ArmyTransferCommand(NorthNationId, "neg-c", "neg-d", ValueList<int>.Empty, 0, -1));
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(ArmyTransferRejections.InvalidAmount, result.Code);
+        Assert.Same(state, result.State);
+    }
+
+    [Fact]
+    public void Transfer_DuplicateUnitIndexes_IsRejectedAndTheStateIsUntouched()
+    {
+        // The same index twice is refused, not silently de-duplicated by the handler's HashSet
+        // (review B1, M2).
+        var state = WithArmies(
+            InitialState(),
+            Army("dup-a", NorthNationId, 5, 5, Units(2)),
+            Army("dup-b", NorthNationId, 6, 5, Units(1, prefix: "v")));
+
+        var result = Dispatcher().Dispatch(
+            state, new ArmyTransferCommand(NorthNationId, "dup-a", "dup-b", ValueList.Of(0, 0), 0, 0));
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(ArmyTransferRejections.DuplicateUnitIndex, result.Code);
+        Assert.Same(state, result.State);
+    }
+
+    [Fact]
+    public void Transfer_WithNoUnitsSupplyOrMoney_IsRejectedAndTheStateIsUntouched()
+    {
+        // An empty order moves nothing, so it is refused before any state is touched (review B1, M3).
+        var state = WithArmies(
+            InitialState(),
+            Army("noop-a", NorthNationId, 5, 5, Units(2)),
+            Army("noop-b", NorthNationId, 6, 5, Units(1, prefix: "v")));
+
+        var result = Dispatcher().Dispatch(
+            state, new ArmyTransferCommand(NorthNationId, "noop-a", "noop-b", ValueList<int>.Empty, 0, 0));
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(ArmyTransferRejections.InvalidAmount, result.Code);
+        Assert.Same(state, result.State);
+    }
+
+    [Fact]
+    public void Transfer_ToItself_IsRejectedWithTheSameArmyCode()
+    {
+        // The same id on both sides is its own rejection, not merely `not-adjacent` at distance 0
+        // (review N5, M14).
+        var state = WithArmies(
+            InitialState(),
+            Army("self-a", NorthNationId, 5, 5, Units(2)));
+
+        var result = Dispatcher().Dispatch(
+            state, new ArmyTransferCommand(NorthNationId, "self-a", "self-a", ValueList.Of(0), 0, 0));
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(ArmyTransferRejections.SameArmy, result.Code);
+        Assert.Same(state, result.State);
+    }
+
+    [Fact]
+    public void Transfer_ThatEmptiesOneArmy_SpillsTheExcessPurseToTheTreasury()
+    {
+        // Both purses sit exactly at the cap, so the merge pools 2 x cap; the survivor keeps exactly the
+        // cap and the excess is credited to the nation's treasury, conserving the money (review B2, M5).
+        var cap = ArmiesTestbed.Ruleset.Economy.PurseCapPerUnit;
+        var state = WithArmies(
+            InitialState(),
+            Army("spill-a", NorthNationId, 5, 5, Units(1, troops: 700), money: cap),
+            Army("spill-b", NorthNationId, 6, 5, new[] { RegularUnit("spill-keep", troops: 800) }, money: cap));
+        var before = Totals(state);
+        var treasuryBefore = state.NationById(NorthNationId)!.Treasury;
+
+        var result = Dispatcher().Dispatch(
+            state, new ArmyTransferCommand(NorthNationId, "spill-a", "spill-b", ValueList.Of(0), 0, 0));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        Assert.Null(result.State.ArmyById("spill-a"));
+
+        var survivor = result.State.ArmyById("spill-b")!;
+        Assert.Equal(cap, survivor.Money);
+
+        var treasuryAfter = result.State.NationById(NorthNationId)!.Treasury;
+        Assert.Equal(cap, treasuryAfter - treasuryBefore);
+
+        var after = Totals(result.State);
+        Assert.Equal(before.Troops, after.Troops);
+        Assert.Equal(before.Supply, after.Supply);
+        Assert.Equal(before.Money, after.Money);
     }
 }
