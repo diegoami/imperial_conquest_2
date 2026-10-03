@@ -163,6 +163,11 @@ graph TD
   T76 --> T113[T113 mercenaries on the map]
   T110 --> T113
   T112 --> T113
+  T93 --> T114[T114 join and transfer at distance 1]
+  T114 --> T111
+  T114 --> T112
+  T115[T115 faithful recruit and fortify into debt]
+  T25 --> T116[T116 AI-phase battles at the turn start]
   T23 --> T26[T26 scenario docs+examples]
   T29 --> T26
   T22 --> T28[T28 nightly soak gate]
@@ -942,6 +947,24 @@ Mercenaries on the map (after T76) → [full entry](tasks/T113.md) · [#571](htt
 
 ---
 
+#### T114 Join armies, Join fleets and Transfer ships take their partner one tile away
+
+Join and transfer at distance 1 (correction task for bug #555, after T93) → [full entry](tasks/T114.md) · issue to be created on merge
+
+---
+
+#### T115 In `classical-faithful`, recruiting and fortifying can put the treasury into debt
+
+Faithful recruit and fortify into debt (correction task for bug #549) → [full entry](tasks/T115.md) · issue to be created on merge
+
+---
+
+#### T116 A battle fought against a human seat in the AI phase is shown at that seat's turn start
+
+AI-phase battles at the turn start (#603) → [full entry](tasks/T116.md) · issue to be created on merge
+
+---
+
 #### T25 Battle result, diplomacy, and hotseat handoff screens
 
 Godot screens → [full entry](tasks/T25.md) · [#25](https://github.com/diegoami/imperial_conquest_2/issues/25)
@@ -1082,6 +1105,9 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T108](#t108-disband-a-recruitment-slot) | Disband a recruitment slot | M4 | Sonnet | Medium | **Opus**/Medium | — | [#566](https://github.com/diegoami/imperial_conquest_2/issues/566) |
 | [T109](#t109-the-strategy-menus-dialogs-taxation-balance-sheet-recruit-unit-and-build-fleet) | Strategy dialogs | M18 | Sonnet | High | **Opus**/Medium + human | T100, T103, T104, T108, bug #519's fix | [#567](https://github.com/diegoami/imperial_conquest_2/issues/567) |
 | [T110](#t110-the-nations-and-area-map-menus-the-viewed-nation-highlights-and-find-a-city) | Nations and Area map | M18 | Sonnet | High | **Opus**/Medium + human | T100, T102 | [#568](https://github.com/diegoami/imperial_conquest_2/issues/568) |
-| [T111](#t111-the-unit-maps-army-orders-each-in-its-own-dialog) | Army orders | M18 | Sonnet | High | **Opus**/Medium + human | T100, T105, T106, T107, bug #555's correction | [#569](https://github.com/diegoami/imperial_conquest_2/issues/569) |
-| [T112](#t112-the-unit-maps-fleet-and-city-orders-and-the-selected-units-command-strip) | Fleet and City orders, command strip | M18 | Sonnet | High | **Opus**/Medium + human | T111, bug #555's correction | [#570](https://github.com/diegoami/imperial_conquest_2/issues/570) |
+| [T111](#t111-the-unit-maps-army-orders-each-in-its-own-dialog) | Army orders | M18 | Sonnet | High | **Opus**/Medium + human | T100, T105, T106, T107, T114 | [#569](https://github.com/diegoami/imperial_conquest_2/issues/569) |
+| [T112](#t112-the-unit-maps-fleet-and-city-orders-and-the-selected-units-command-strip) | Fleet and City orders, command strip | M18 | Sonnet | High | **Opus**/Medium + human | T111, T114 | [#570](https://github.com/diegoami/imperial_conquest_2/issues/570) |
 | [T113](#t113-mercenaries-on-the-map-show-mercenaries-and-recruit-mercenaries) | Mercenaries on the map | M18 | Sonnet | Medium | **Opus**/Medium + human | T76, T110, T112 | [#571](https://github.com/diegoami/imperial_conquest_2/issues/571) |
+| [T114](#t114-join-armies-join-fleets-and-transfer-ships-take-their-partner-one-tile-away) | Join and transfer at distance 1 | — | Sonnet | Medium | **Opus**/Medium | T93 | issue on merge |
+| [T115](#t115-in-classical-faithful-recruiting-and-fortifying-can-put-the-treasury-into-debt) | Faithful recruit and fortify into debt | — | Sonnet | Medium | **Opus**/Medium | — | issue on merge |
+| [T116](#t116-a-battle-fought-against-a-human-seat-in-the-ai-phase-is-shown-at-that-seats-turn-start) | AI-phase battles at the turn start | M18 | Sonnet | Medium | **Opus**/Medium + human | — | issue on merge |
