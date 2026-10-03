@@ -119,7 +119,10 @@
     included). Every reviewer of the same family is dropped from the chain (deepseek-flash is
     DeepSeek; luna and sol are both OpenAI). A deepseek-flash implementer never collides with the
     Luna or Sol reviewer; a luna implementer excludes both, so -Reviewer auto leaves no OpenCode
-    reviewer, the script exits 3 and a cold Claude Opus reviews. Without it, a
+    reviewer, the script exits 3 and a cold Claude Opus reviews. sonnet and opus name a Claude
+    implementer (the Sonnet fallback, or Opus on an architecture task): accepted so that every run
+    can pass -ExcludeModel, they exclude no OpenCode reviewer, since this script has no Claude
+    one (the main session never picks a Claude reviewer for that PR). Without it, a
     model:<name> label on the PR or on -Issue is used when one names an OpenCode model.
 .PARAMETER ModelIds
     Overrides of the reviewer -> model id map, e.g. @{ glm = 'opencode-go/glm-5.4' }, for when
@@ -146,7 +149,7 @@ param(
     [int] $StartupTimeoutSec = 180,
     [int] $TotalTimeoutSec = 3600,
     [int] $IdleTimeoutSec = 600,
-    [ValidateSet('deepseek-flash', 'glm-flash', 'glm', 'luna', 'sol', 'mimo-pro', 'mimo-flash', 'deepseek')] [string] $ExcludeModel,
+    [ValidateSet('deepseek-flash', 'glm-flash', 'glm', 'luna', 'sol', 'mimo-pro', 'mimo-flash', 'deepseek', 'sonnet', 'opus')] [string] $ExcludeModel,
     [hashtable] $ModelIds
 )
 
@@ -465,6 +468,14 @@ function Invoke-ReviewParserSelfTest {
     $ruleChecks += [pscustomobject]@{ Name = 'a luna implementer excludes luna and sol'; Ok = ((@($reviewerOf['luna']) | Sort-Object) -join ',' -eq 'luna,sol') }
     $ruleChecks += [pscustomobject]@{ Name = 'a sol implementer excludes luna and sol'; Ok = ((@($reviewerOf['sol']) | Sort-Object) -join ',' -eq 'luna,sol') }
     $ruleChecks += [pscustomobject]@{ Name = 'a deepseek-flash implementer excludes neither luna nor sol'; Ok = (@($reviewerOf['deepseek-flash']) -notcontains 'luna' -and @($reviewerOf['deepseek-flash']) -notcontains 'sol') }
+    # PR #642 review R1: a Claude implementer passes -ExcludeModel sonnet or opus like any other;
+    # both are valid values and exclude no OpenCode reviewer.
+    $excludeSet = @((Get-Command $PSCommandPath).Parameters['ExcludeModel'].Attributes |
+        Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] } |
+        ForEach-Object { $_.ValidValues })
+    foreach ($claude in 'sonnet', 'opus') {
+        $ruleChecks += [pscustomobject]@{ Name = "-ExcludeModel $claude is accepted and excludes no OpenCode reviewer"; Ok = ($excludeSet -contains $claude -and $reviewerOf.ContainsKey($claude) -and @($reviewerOf[$claude]).Count -eq 0) }
+    }
     foreach ($c in $ruleChecks) {
         $n++
         if (-not $c.Ok) { $failed++ }
@@ -504,7 +515,8 @@ $displayNames = @{ 'glm-flash' = 'GLM Flash'; glm = 'GLM'; luna = 'Luna'; sol = 
 # (the user's decision of 2026-10-03): OpenAI is luna and sol, GLM is glm and glm-flash, DeepSeek is
 # deepseek and deepseek-flash. A luna or sol implementer excludes both OpenAI reviewers, so -Reviewer
 # auto leaves no OpenCode reviewer and the script exits 3 (a cold Claude Opus reviews), and -Reviewer
-# sol or luna is refused.
+# sol or luna is refused. A Claude implementer (sonnet, opus) excludes no OpenCode reviewer: the
+# Claude family has no reviewer here, and the main session keeps Claude off that PR's review.
 $reviewerOf = @{
     'deepseek-flash' = @('deepseek')
     'deepseek'       = @('deepseek')
@@ -512,6 +524,8 @@ $reviewerOf = @{
     'glm'            = @('glm-flash', 'glm')
     'luna'           = @('luna', 'sol')
     'sol'            = @('luna', 'sol')
+    'sonnet'         = @()
+    'opus'           = @()
 }
 
 if ($SelfTest) { exit (Invoke-ReviewParserSelfTest) }
