@@ -77,7 +77,7 @@
     runs or a reply streams, so this must exceed the longest single step (a long generation).
 .PARAMETER WhatIf
     Print each chain model's OpenCode argument line (the CLI's version decides its syntax) and exit 0,
-    without creating a worktree, starting OpenCode or billing a model.
+    without creating a worktree, starting a run or billing a model (it does start `opencode --version`, in its own scratch directories).
 .PARAMETER ModelIds
     Overrides of the model name -> model id map, e.g. @{ 'deepseek-flash' = 'opencode-go/deepseek-v4.2-flash' },
     for when `opencode models` shows a different id (or, in a test, a bad id to exercise the chain).

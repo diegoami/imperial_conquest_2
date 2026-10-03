@@ -52,8 +52,12 @@
     so every 2.x call it makes, `run`, `session list` and `session export`, passes `--standalone`),
     and the export is `session export <id>`.
 
-    Every OpenCode process the watcher starts runs with its own XDG data, cache and state
-    directories (Initialize-OpenCodeDataHome), restored in the calling process afterwards.
+    Every OpenCode process the watcher starts for a run (run, session list, session export, and the
+    opencode-go login check) runs with its own XDG data, cache and state directories
+    (Initialize-OpenCodeDataHome), restored in the calling process afterwards. The one exception is
+    the `--version` probe (Get-OpenCodeCli): it runs before the root is known (the root depends on
+    the major version it reports), so it gets a neutral directory of its own,
+    ~\.local\share\ic2-opencode-probe, which is where 2.x writes its startup log line.
 #>
 
 function New-OpenCodeFailure([string] $Reason, [string] $Message, [switch] $Timeout) {
@@ -194,6 +198,14 @@ function Get-OpenCodeCli {
         $psi = [System.Diagnostics.ProcessStartInfo]::new($exe, '--version')
         $psi.RedirectStandardOutput = $true; $psi.RedirectStandardError = $true; $psi.RedirectStandardInput = $true
         $psi.UseShellExecute = $false; $psi.CreateNoWindow = $true
+        # 2.x writes a startup log line under XDG_DATA_HOME even for --version: keep it out of the
+        # caller's (and the desktop app's shared) directories. The environment of this one child only.
+        $probe = Join-Path $HOME '.local\share\ic2-opencode-probe'
+        foreach ($pair in @(@('XDG_DATA_HOME', 'data'), @('XDG_CACHE_HOME', 'cache'), @('XDG_STATE_HOME', 'state'))) {
+            $d = Join-Path $probe $pair[1]
+            New-Item -ItemType Directory -Force -Path $d | Out-Null
+            $psi.Environment[$pair[0]] = $d
+        }
         $vp = [System.Diagnostics.Process]::Start($psi)
         $vp.StandardInput.Close()
         $outTask = $vp.StandardOutput.ReadToEndAsync()
@@ -371,14 +383,31 @@ function Initialize-OpenCodeDataHome {
     $dirs = [ordered]@{ XDG_DATA_HOME = (Join-Path $root 'data'); XDG_CACHE_HOME = (Join-Path $root 'cache'); XDG_STATE_HOME = (Join-Path $root 'state') }
     $dataDir = Join-Path $dirs.XDG_DATA_HOME 'opencode'
     $src = if ($env:IC2_OPENCODE_AUTH_SOURCE) { Resolve-OpenCodeFullPath $env:IC2_OPENCODE_AUTH_SOURCE } else { Join-Path $HOME '.local\share\opencode\auth.json' }
-    foreach ($d in @($dataDir, $dirs.XDG_CACHE_HOME, $dirs.XDG_STATE_HOME)) { New-Item -ItemType Directory -Force -Path $d | Out-Null }
     $marker = Join-Path $root 'schema-major.txt'
     if (Test-Path -LiteralPath $marker) {
         $seen = ([System.IO.File]::ReadAllText($marker)).Trim()
         if ($seen -ne "$Major") {
             throw (New-OpenCodeFailure "data directory holds OpenCode $seen.x data" "The OpenCode data directory $root was used by OpenCode $seen.x and this run is $Major.x: the schemas differ (a 2.x run migrates the database, and 1.x cannot read it afterwards). Unset IC2_OPENCODE_DATA_HOME, or point it at a directory of its own for this major version.")
         }
-    } else { [System.IO.File]::WriteAllText($marker, "$Major") }
+    }
+    # The 1.x layout before T98 had XDG_DATA_HOME = <root>, so its database, its auth.json and the
+    # opencode-go console login (stored in that database) are in <root>\opencode. T98 moved the data
+    # to <root>\data (cache and state beside it); without this move the 1.x lane would lose its login
+    # and every opencode-go run would fail "Provider not found". Moved once, before any process
+    # starts, only for 1.x, and only when the old folder exists and the new one does not (so it is
+    # idempotent, and never merges two databases).
+    $oldDir = Join-Path $root 'opencode'
+    if ($Major -eq 1 -and (Test-Path -LiteralPath $oldDir) -and -not (Test-Path -LiteralPath $dataDir)) {
+        try {
+            New-Item -ItemType Directory -Force -Path $dirs.XDG_DATA_HOME | Out-Null
+            Move-Item -LiteralPath $oldDir -Destination $dataDir -ErrorAction Stop
+        } catch {
+            throw (New-OpenCodeFailure 'data directory migration failed' "Could not move the old 1.x data directory $oldDir to $dataDir ($($_.Exception.Message)). Is an older OpenCode run still using it? Nothing was started.")
+        }
+        Write-Host "opencode: migrated the 1.x data directory $oldDir -> $dataDir (the login and the history move with it)"
+    }
+    foreach ($d in @($dataDir, $dirs.XDG_CACHE_HOME, $dirs.XDG_STATE_HOME)) { New-Item -ItemType Directory -Force -Path $d | Out-Null }
+    if (-not (Test-Path -LiteralPath $marker)) { [System.IO.File]::WriteAllText($marker, "$Major") }
     $dst = Join-Path $dataDir 'auth.json'
     if (Test-Path -LiteralPath $src) {
         if (-not (Test-Path -LiteralPath $dst) -or (Get-Item -LiteralPath $src).LastWriteTimeUtc -gt (Get-Item -LiteralPath $dst).LastWriteTimeUtc) {
@@ -388,7 +417,7 @@ function Initialize-OpenCodeDataHome {
     } elseif (Test-Path -LiteralPath $dst) {
         $auth = 'auth.json source missing, the existing copy is used'
     } else {
-        throw (New-OpenCodeFailure 'no authentication' "No authentication: there is no auth.json to copy ($src is missing) and none in the run's data directory ($dst). OpenCode would call no model. Run 'opencode auth login' (it writes the default auth.json), or set IC2_OPENCODE_AUTH_SOURCE to an auth.json. Nothing was started.")
+        throw (New-OpenCodeFailure 'no authentication' "No authentication: there is no auth.json to copy ($src is missing) and none in the run's data directory ($dst). OpenCode would call no model. For the API-key providers run 'opencode auth login' (it writes the default auth.json), or set IC2_OPENCODE_AUTH_SOURCE to an auth.json. For opencode-go (the Go console login, which is stored in the data directory's database, not in auth.json) run 'opencode console login' with XDG_DATA_HOME=$($dirs.XDG_DATA_HOME). Nothing was started.")
     }
     $saved = [ordered]@{}
     foreach ($name in $dirs.Keys) {
@@ -397,6 +426,28 @@ function Initialize-OpenCodeDataHome {
     }
     Write-Host "opencode: data directory $dataDir (XDG_DATA_HOME=$($dirs.XDG_DATA_HOME), XDG_CACHE_HOME=$($dirs.XDG_CACHE_HOME), XDG_STATE_HOME=$($dirs.XDG_STATE_HOME); $auth)"
     return [pscustomobject]@{ Root = $root; DataDir = $dataDir; Saved = $saved }
+}
+
+function Test-OpenCodeGoLogin {
+    param($Cli, [string] $WorkDir, [string] $Root, [string] $InFile)
+    # Whether the run's data directory holds the opencode-go console login. Under 1.x, `models
+    # opencode-go` (no session, no billing, in the run's isolated environment) answers "Error:
+    # Provider not found: opencode-go" with exit 1 when the login is missing (observed 1.18.34); only
+    # that exact answer counts as missing, so any other failure (a timeout, a network error) lets the
+    # run go on. 2.0.18 has no per-provider `models` and no `console` command, and its `models
+    # --standalone` printed nothing even with a fresh root, so a missing login cannot be detected
+    # cheaply and reliably there: it is $true (unknown), and the run itself reports it.
+    if ($Cli.Major -ge 2) { return $true }
+    $out = Join-Path $Root 'go-login-check.out.txt'
+    $err = Join-Path $Root 'go-login-check.err.txt'
+    try {
+        $p = Start-Process -FilePath $Cli.Exe -ArgumentList 'models opencode-go' -WorkingDirectory $WorkDir `
+            -NoNewWindow -PassThru -RedirectStandardInput $InFile -RedirectStandardOutput $out -RedirectStandardError $err
+        if (-not $p.WaitForExit(60000)) { Stop-OpenCodeTree $p; return $true }
+        $text = [System.IO.File]::ReadAllText($err, [System.Text.Encoding]::UTF8) + [System.IO.File]::ReadAllText($out, [System.Text.Encoding]::UTF8)
+        return -not ($p.ExitCode -ne 0 -and $text -match 'Provider not found: opencode-go')
+    } catch { return $true }
+    finally { Remove-Item -LiteralPath $out, $err -Force -ErrorAction SilentlyContinue }
 }
 
 function Restore-OpenCodeDataHome($State) {
@@ -435,8 +486,9 @@ function Invoke-OpenCodeWatched {
         # Where the run's files go; deleted after an exit 0, kept for diagnosis otherwise. The
         # session's transcript export is KEPT here, <title>.export.json, after any run whose session started.
         [string] $LogDir = (Join-Path ([System.IO.Path]::GetTempPath()) 'ic2-opencode'),
-        # Prints the CLI that would run and its argument line, and returns without starting OpenCode
-        # (no session, no model, no billing, no directory made): the check that costs nothing.
+        # Prints the CLI that would run and its argument line, and returns without starting a run
+        # (no session, no model, no billing, no data directory made): the check that costs nothing.
+        # It does start `opencode --version`, with the neutral probe directories described above.
         [switch] $WhatIf
     )
     $WorkDir = (Resolve-Path -LiteralPath $WorkDir).Path
@@ -451,6 +503,16 @@ function Invoke-OpenCodeWatched {
         return [pscustomobject]@{ WhatIf = $true; Exe = $cli.Exe; Version = $cli.Version; Major = $cli.Major; ArgumentLine = "$line <prompt>"; Arguments = $ocArgs }
     }
     $state = Initialize-OpenCodeDataHome -Major $cli.Major
+    if ($Model -like 'opencode-go/*') {
+        # Before the run, so a missing Go login stops here with its cause instead of a "Provider not found" run.
+        $goIn = Join-Path $state.Root 'go-login-check.in.txt'
+        [System.IO.File]::WriteAllText($goIn, '')
+        $goOk = try { Test-OpenCodeGoLogin -Cli $cli -WorkDir $WorkDir -Root $state.Root -InFile $goIn } finally { Remove-Item -LiteralPath $goIn -Force -ErrorAction SilentlyContinue }
+        if (-not $goOk) {
+            Restore-OpenCodeDataHome $state
+            throw (New-OpenCodeFailure 'no authentication' "No authentication: the data directory $($state.Root)\data has no opencode-go login (OpenCode: 'Provider not found: opencode-go'), so $Model cannot run. The Go console login is stored in that directory's database, not in auth.json: run 'opencode console login' with XDG_DATA_HOME=$($state.Root)\data (each root, one per major version, needs its own login). Nothing was started.")
+        }
+    }
     # OpenCode 2.x takes its working directory from the PWD environment variable when one is set, not
     # from the process's own directory: a watcher started from a git-bash shell inherited PWD=<the
     # shell's directory>, so the run's session was recorded under that directory (found 2026-10-03,

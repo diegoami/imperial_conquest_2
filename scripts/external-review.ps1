@@ -91,8 +91,8 @@
     would use (0, or 4 when the review would be posted flagged).
 .PARAMETER WhatIf
     Print each chain reviewer's OpenCode argument line (the CLI's version decides its syntax) and exit 0,
-    without fetching the PR, creating a worktree, starting OpenCode or billing a model. Unlike -DryRun,
-    which runs the reviewer (and bills it), this starts nothing. The chain shown is before -ExcludeModel
+    without fetching the PR, creating a worktree, starting a run or billing a model. Unlike -DryRun,
+    which runs the reviewer (and bills it), this starts only `opencode --version`, in its own scratch directories. The chain shown is before -ExcludeModel
     and the model:<name> label are applied.
 .PARAMETER SelfTest
     Run the review-parser samples (fix #575 DoD 4) and the issue #590 prompt/agent checks, and exit 0
