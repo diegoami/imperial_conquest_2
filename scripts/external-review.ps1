@@ -2,7 +2,7 @@
 .SYNOPSIS
     Hands one pull request to the local OpenCode install for an external review (Luna alone on the
     direct OpenAI route by default, or the one reviewer the main session names for the PR's review
-    tier, build-process.md §3.4: `sol` for a complex PR, `luna` plus `glm` or `deepseek` for the
+    tier, build-process.md §3.4: `sol` for a complex PR, `luna` plus `glm` or `deepseek-pro` for the
     Luna pair; the main session runs a cold Claude Opus on the exit-3 failure), and posts the
     result as the one PR comment build-process.md §4.9 expects.
 
@@ -84,7 +84,7 @@
     auto (default: Luna on openai/gpt-6-luna at high effort alone, then a cold Claude Opus by
     hand; issue #575 keeps one OpenCode model per role before Claude), or glm-flash, glm, luna,
     sol, deepseek, deepseek-pro for that model alone, each at high effort (deepseek has no variant).
-    sol (GPT-6 Sol) is the complex tier's reviewer; luna with glm or deepseek, in two runs, is the
+    sol (GPT-6 Sol) is the complex tier's reviewer; luna with glm or deepseek-pro, in two runs, is the
     Luna pair; glm, then deepseek-pro (DeepSeek V4 Pro, `opencode-go/deepseek-v4-pro`), then luna
     are Sol's substitutes when it cannot review (build-process.md §3.4).
 .PARAMETER BriefFile
@@ -503,7 +503,7 @@ function Invoke-ReviewParserSelfTest {
 # returned Bad Request in long runs, #553). Luna at high effort is the review model (one OpenCode
 # model per role before Claude); glm-flash, glm and deepseek stay valid as explicit -Reviewer
 # values, and no default path picks them. sol (GPT-6 Sol, `openai/gpt-6-sol`, the same OpenAI login)
-# is the complex tier's reviewer and luna plus glm or deepseek the Luna pair (the user's decision of
+# is the complex tier's reviewer and luna plus glm or deepseek-pro the Luna pair (the user's decision of
 # 2026-10-03, build-process.md §3.4); the main session passes them explicitly, so auto stays Luna.
 $models = @{
     'glm-flash' = 'opencode-go/glm-5.3-flash'
