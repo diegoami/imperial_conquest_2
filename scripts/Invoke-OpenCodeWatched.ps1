@@ -94,12 +94,12 @@ function Test-OpenCodeAgentWarning([string] $StdErr, [string] $Agent) {
     #   ESC[93mESC[1m! ESC[0m agent "no-such-agent-xyz" not found. Falling back to default agent
     # Matched only at the start of a line, after the "!" marker and colour codes, and only for the
     # requested agent's name, so a tool's output quoting the phrase does not trip it.
-    # OpenCode 2.x (T98): the session record (`session export`: .info.agent) is the authority; this
-    # line is the fallback when the export cannot be read. 2.x may print the marker as "warn" or
-    # "warning" instead of "!", so those are accepted too (settled by the 2.x run of Done-when 2).
+    # OpenCode 2.x (T98) has no such fallback: --agent with an unknown name stops the run with
+    # exit 1 and "Error: Agent not found: "no-such-agent-xyz"" (recorded from 2.0.18, 2026-10-03), so
+    # a non-zero exit covers it there. The session record (the export's .info.agent) stays the
+    # authority where it is read.
     $ansi = '(?:\x1b\[[0-9;]*m|[ \t])*'
-    $marker = '(?:!|warn(?:ing)?:?)'
-    $pattern = '(?mi)^' + $ansi + $marker + $ansi + 'agent "?' + [regex]::Escape($Agent) + '"? not found\. Falling back to default agent'
+    $pattern = '(?m)^' + $ansi + '!' + $ansi + 'agent "?' + [regex]::Escape($Agent) + '"? not found\. Falling back to default agent'
     return [bool]($StdErr -match $pattern)
 }
 
@@ -451,6 +451,13 @@ function Invoke-OpenCodeWatched {
         return [pscustomobject]@{ WhatIf = $true; Exe = $cli.Exe; Version = $cli.Version; Major = $cli.Major; ArgumentLine = "$line <prompt>"; Arguments = $ocArgs }
     }
     $state = Initialize-OpenCodeDataHome -Major $cli.Major
+    # OpenCode 2.x takes its working directory from the PWD environment variable when one is set, not
+    # from the process's own directory: a watcher started from a git-bash shell inherited PWD=<the
+    # shell's directory>, so the run's session was recorded under that directory (found 2026-10-03,
+    # T98) and the watcher never found it. Children get PWD = the run's directory, restored afterwards
+    # with the XDG variables.
+    $state.Saved['PWD'] = [System.Environment]::GetEnvironmentVariable('PWD', 'Process')
+    [System.Environment]::SetEnvironmentVariable('PWD', $WorkDir, 'Process')
     try {
         return Invoke-OpenCodeRun -Cli $cli -RunArguments $ocArgs -Agent $Agent -Prompt $Prompt -WorkDir $WorkDir -Title $fullTitle `
             -StartupTimeoutSec $StartupTimeoutSec -TotalTimeoutSec $TotalTimeoutSec -IdleTimeoutSec $IdleTimeoutSec -PollSec $PollSec -LogDir $LogDir
