@@ -149,6 +149,15 @@
     -->
     <Compile Include="../../godot/UI/AreaMapHighlights.cs" Link="Ui/AreaMapHighlights.cs" />
     <Compile Include="../../godot/UI/NationStatusModel.cs" Link="Ui/NationStatusModel.cs" />
+
+    <!--
+      Fix #519 (tests/IC2.Engine.Tests/Ui/RecruitTroopBoundsTests.cs): the same seam once more.
+      RecruitTroopBounds.cs is the Godot-free rule behind the city panel's recruit troop box — its
+      min, max, default, step and page step for one unit type, read from the ruleset's own standard
+      battalion size — so a plain xunit test can pin every type's bounds without the Godot SDK. No
+      `using Godot` anywhere; never a second, hand-maintained copy.
+    -->
+    <Compile Include="../../godot/UI/RecruitTroopBounds.cs" Link="Ui/RecruitTroopBounds.cs" />
   </ItemGroup>
 
 </Project>

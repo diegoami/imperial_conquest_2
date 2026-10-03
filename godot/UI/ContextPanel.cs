@@ -305,7 +305,45 @@ public partial class ContextPanel : Control
 
         _content.AddChild(typePicker);
 
-        var troopSpin = new SpinBox { MinValue = 10, MaxValue = 2000, Step = 10, Value = 200 };
+        // Fix #519: the box's range is the selected type's own standard battalion (max) and a fifth of
+        // it (min and default), read from the session's ruleset — never the invented 10..2000 literal
+        // this used to carry. The step is the original dialog's 100; its page keys move 1,000.
+        var troopSpin = new SpinBox();
+        void ApplyTroopBounds()
+        {
+            var index = typePicker.Selected < 0 ? 0 : typePicker.Selected;
+            var bounds = RecruitTroopBounds.For(Session.Ruleset, UnitTypes[index].Id);
+            troopSpin.MinValue = bounds.Minimum;
+            troopSpin.MaxValue = bounds.Maximum;
+            troopSpin.Step = bounds.Step;
+            troopSpin.Value = bounds.DefaultValue;
+        }
+
+        ApplyTroopBounds();
+        typePicker.ItemSelected += _ => ApplyTroopBounds();
+
+        // Godot's SpinBox has no page-key handling (Range.Page belongs to ScrollBar/Slider only), so
+        // PageUp/PageDown are handled on the box's own LineEdit. Accepting the event keeps the LineEdit
+        // from also moving its caret on the same key.
+        troopSpin.GetLineEdit().GuiInput += @event =>
+        {
+            if (@event is not InputEventKey { Pressed: true, Echo: false } key)
+            {
+                return;
+            }
+
+            if (key.IsAction("ui_page_up"))
+            {
+                troopSpin.Value += RecruitTroopBounds.PageStepSize;
+                troopSpin.AcceptEvent();
+            }
+            else if (key.IsAction("ui_page_down"))
+            {
+                troopSpin.Value -= RecruitTroopBounds.PageStepSize;
+                troopSpin.AcceptEvent();
+            }
+        };
+
         _content.AddChild(troopSpin);
 
         AddButton("Recruit", () =>
