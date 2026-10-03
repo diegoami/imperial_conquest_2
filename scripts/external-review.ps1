@@ -610,12 +610,13 @@ function Invoke-ReviewAttempt([string] $Name) {
         return (& $fail $_.Exception.Data['Reason'] $_.Exception.Message)
     }
     $output = $run.Output
+    # A rejected tool call ends the run (issue #501): exit 0 under 1.x, exit 1 under 2.x. It is named by its
+    # path, and checked first so the 2.x exit 1 does not hide it as a plain "exit 1".
+    if ($run.PermissionRejected) { return (& $fail "permission rejected: $($run.PermissionRejected)" "OpenCode's permission guard auto-rejected a tool call ($($run.PermissionRejected)), which ended the run. For external_directory, the reviewer reached outside its worktree. Output:`n$output") }
     if ($run.ExitCode -ne 0) { return (& $fail "exit $($run.ExitCode)" $output) }
     # OpenCode's own evidence (its stderr warning, the session's recorded agent), never the model's
     # words: a reviewer reading these scripts quotes the warning text (PR #482, 2026-09-28).
     if ($run.AgentFallback) { return (& $fail 'fell back to the default agent' "OpenCode did not load the external-reviewer agent (it fell back to its default, full-permission agent). Output:`n$output") }
-    # A rejected tool call ends the run with exit 0 (issue #501): a failure, named by its path.
-    if ($run.PermissionRejected) { return (& $fail "permission rejected: $($run.PermissionRejected)" "OpenCode's permission guard auto-rejected a tool call ($($run.PermissionRejected)), which ended the run. For external_directory, the reviewer reached outside its worktree. Output:`n$output") }
 
     # 3. Completeness (issue #575). No header line anywhere in the output is the only failure:
     #    the next model runs, or the chain exits 3. Anything with a header is never thrown away: a

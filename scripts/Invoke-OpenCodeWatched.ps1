@@ -112,12 +112,12 @@ function Get-OpenCodePermissionRejection([string] $Text) {
     #   ESC[93mESC[1m! ESC[0mpermission requested: external_directory (C:\...\Temp\*); auto-rejecting
     # Matched only after the "!" marker and colour codes, so a tool's output quoting the phrase
     # (a log line with a prefix, a comment like this one) does not trip it. Returns the last one.
-    # OpenCode 2.x (T98) keeps the guard (`run --auto` is its opt-out). Its counterpart is matched
-    # by the same pattern widened a little: the same sentence at the start of a line with or without
-    # the "!" marker, ending "auto-rejecting" or "auto-rejected". The exact 2.x line is recorded by
-    # the 2.x run of Done-when 2 (the PR shows it), and this pattern is narrowed to it there.
+    # OpenCode 2.x (T98) keeps the guard (`run --auto` is its opt-out) and prints the same line,
+    # recorded from 2.0.18 on 2026-10-03 (a read of C:\Windows\win.ini): the run then exits 1, not 0,
+    # so the callers check the rejection before the exit code.
+    #   ESC[93mESC[1m! ESC[0mpermission requested: external_directory (C:/Windows/*); auto-rejecting
     $ansi = '(?:\x1b\[[0-9;]*m|[ \t])*'
-    $pattern = '(?m)^' + $ansi + '(?:!' + $ansi + ')?permission requested: (?<what>[^\r\n]*?); auto-reject(?:ing|ed)'
+    $pattern = '(?m)^' + $ansi + '!' + $ansi + 'permission requested: (?<what>[^\r\n]*?); auto-rejecting'
     $found = [regex]::Matches($Text, $pattern)
     if ($found.Count -eq 0) { return $null }
     return $found[$found.Count - 1].Groups['what'].Value

@@ -253,11 +253,12 @@ foreach ($m in $chain) {
         $run = Invoke-OpenCodeWatched -Agent 'external-implementer' -Model $models[$m] -Variant $variants[$m] -Prompt $prompt -WorkDir $worktree -Title "ic2-$name-$m" `
             -StartupTimeoutSec $StartupTimeoutSec -TotalTimeoutSec $TotalTimeoutSec -IdleTimeoutSec $IdleTimeoutSec
         $output = $run.Output
-        if ($run.ExitCode -ne 0) { $reason = "exit $($run.ExitCode)" }
+        # A rejected tool call ends the run (issue #501): exit 0 under 1.x, exit 1 under 2.x. It is
+        # named by its path, and checked first so the 2.x exit 1 does not hide it as a plain "exit 1".
+        if ($run.PermissionRejected) { $reason = "permission rejected: $($run.PermissionRejected)" }
+        elseif ($run.ExitCode -ne 0) { $reason = "exit $($run.ExitCode)" }
         # OpenCode's own evidence (its stderr warning, the session's recorded agent), never the model's words.
         elseif ($run.AgentFallback) { $reason = 'fell back to the default agent' }
-        # A rejected tool call ends the run with exit 0 (issue #501): a failure, named by its path.
-        elseif ($run.PermissionRejected) { $reason = "permission rejected: $($run.PermissionRejected)" }
     } catch {
         # Only OpenCode's own failures advance the chain; anything else is rethrown (exit 1).
         if (-not (Test-OpenCodeInfraFailure $_)) { throw }
