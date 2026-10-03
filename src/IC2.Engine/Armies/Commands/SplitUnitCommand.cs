@@ -6,7 +6,7 @@ namespace IC2.Engine.Armies.Commands;
 /// Splits <see cref="Troops"/> troops off one of an army's own unit slots into a new unit of the same
 /// type, quality and regular-or-mercenary marker, still in the same army —
 /// <c>docs/tasks/T107.md</c> "Change units: split, rename and disband a single unit", the original's
-/// <c>TChangeArmyUnits</c> dialog's <c>SplitArmy</c> method (<c>TSplitArmyUnit_OK</c>,
+/// <c>TChangeArmyUnits</c> dialog's <c>SplitUnit</c> method (<c>TSplitArmyUnit_OK</c>,
 /// <c>0x004444CC</c>).
 /// </summary>
 /// <remarks>
@@ -30,14 +30,15 @@ namespace IC2.Engine.Armies.Commands;
 /// report's naming sentence is about the <em>split-off</em> unit, so the new unit is the one
 /// <see cref="ArmyNaming.NextName"/> names (the source keeps its own name and its own identity). For a
 /// regular split that is the confirmed <c>"Nth &lt;label&gt; Battalion"</c> scheme. For a
-/// <em>mercenary</em> split the report is silent and <see cref="ArmyNaming"/> cannot help: its whole design
-/// is that a mercenary never takes a battalion number (see its remarks — the nation-wide scan skips every
-/// non-regular unit). This task therefore leaves the split-off mercenary carrying the source unit's own
-/// name, <c>[designed]</c>: I searched <c>decompiled-unit-map-orders-and-record-fields.md</c>,
-/// <c>army-records-and-roman-roster.md</c> and <c>decompiled-mobilization-and-mercenary-restock.md</c> for
-/// a mercenary naming rule (an ethnic-name generator, an ordinal, a suffix) and found none, so inventing
-/// one would invent a rule; duplicating the source name is the one behaviour that adds no new scheme and
-/// keeps the slot round-trippable.
+/// <em>mercenary</em> split <see cref="ArmyNaming"/> cannot help — its whole design is that a mercenary
+/// never takes a battalion number (see its remarks; the nation-wide scan skips every non-regular unit) —
+/// but the reports do give the naming rule: <c>decompiled-mobilization-and-mercenary-restock.md</c> records
+/// that <c>TRecruitMercs_RecruitMercUnit</c> "writes <c>*psVar1 = label</c> and then names the unit from
+/// <c>&amp;DAT_0049CC94 + label × 0x14</c> ("Gallic"), instead of numbering it." The split-off keeps the
+/// source's label, so carrying the source name follows that rule. The one open edge is a mercenary renamed
+/// before its split, where the label rule would give the table's name rather than the renamed one; the
+/// user's <c>[designed]</c> choice is therefore the source name (issue #565), pending the EXPLORE
+/// experiment.
 /// </para>
 /// <para>
 /// <strong>The minimum and maximum troop counts are <c>[designed]</c></strong>, resolved on

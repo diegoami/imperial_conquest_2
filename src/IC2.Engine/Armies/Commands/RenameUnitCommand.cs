@@ -28,11 +28,18 @@ namespace IC2.Engine.Armies.Commands;
 /// command cannot live behind a ruleset field: the limit is a property of the file format the engine must
 /// round-trip, and <c>src/IC2.Data</c> is not this task's to edit.
 /// </para>
+/// <para>
+/// <strong>A rename feeds <see cref="ArmyNaming.NextName"/>'s scan, because that scan reads the ordinal
+/// out of the name.</strong> A rename can therefore duplicate an existing battalion name, raise the next
+/// ordinal — renaming a unit to <c>"98th Foot Battalion"</c> makes the next split <c>"99th"</c> — or free
+/// the highest ordinal for reuse by renaming that unit away. This is what the original's own name-parsing
+/// scan implies, pending the EXPLORE experiment.
+/// </para>
 /// </remarks>
 /// <param name="IssuingNationId">The nation issuing the order; the army must be its own.</param>
 /// <param name="ArmyId">The army holding the unit being renamed.</param>
 /// <param name="UnitIndex">Index into <see cref="Model.ArmyState.Units"/> of the unit being renamed.</param>
-/// <param name="Name">The new name: non-empty, printable ASCII (<c>0x20..0x7e</c>), at most 23 characters.</param>
+/// <param name="Name">The new name: non-empty, printable ASCII (<c>0x20..0x7e</c>), at most 23 characters, with no leading or trailing whitespace.</param>
 public sealed record RenameUnitCommand(
     string IssuingNationId, string ArmyId, int UnitIndex, string Name) : ICommand
 {
@@ -52,6 +59,6 @@ public static class RenameUnitRejections
     /// <summary>The unit index is outside the army's own unit list.</summary>
     public static readonly RejectionCode InvalidUnitIndex = new("armies.invalid-unit-index");
 
-    /// <summary>The name is empty, longer than 23 characters, or has a byte outside <c>0x20..0x7e</c>.</summary>
+    /// <summary>The name is empty, has leading or trailing whitespace, is longer than 23 characters, or has a byte outside <c>0x20..0x7e</c>.</summary>
     public static readonly RejectionCode InvalidName = new("armies.rename-unit-invalid-name");
 }

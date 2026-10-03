@@ -9,15 +9,18 @@ namespace IC2.Engine.Armies.Commands;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>The dialog confirms a per-unit disband exists; the report is silent on the refund and on an
-/// army's last unit</strong> <c>[confirmed: decompiled-unit-map-orders-and-record-fields.md</c>]: "Opens
-/// <c>TChangeArmyUnits</c> — rename, split, join and disband individual units inside one army." Nothing in
-/// that report or in <c>army-to-army-transfer-confirmed.md</c> decompiles <c>Disband</c>'s own body, so
-/// both open points are <c>[designed]</c>, resolved on
+/// <strong>The dialog confirms a per-unit disband exists; what an army's last unit does here is still
+/// open</strong> <c>[confirmed: decompiled-unit-map-orders-and-record-fields.md</c>]: "Opens
+/// <c>TChangeArmyUnits</c> — rename, split, join and disband individual units inside one army." Nothing
+/// in that report or in <c>army-to-army-transfer-confirmed.md</c> decompiles <c>TChangeArmyUnits</c>'s own
+/// <c>Disband</c> body. The transfer report does record a last-unit branch, but in the sibling
+/// <c>TArmyToArmy</c> dialog: after a transfer, if either army's unit count reads zero, <c>OK</c> "merges
+/// that now-empty army's supply and money into the other and disbands it" (<c>FUN_0044ab90</c>). That
+/// branch has a partner army to receive the stores and is not <c>TChangeArmyUnits</c>, so it does not
+/// settle this dialog's last unit. The user's default (refuse) therefore stands as a <c>[designed]</c>
+/// choice, resolved on
 /// <see href="https://github.com/diegoami/imperial_conquest_2/issues/565">issue #565</see> (user decision,
-/// 2026-10-03). I searched <c>decompiled-unit-map-orders-and-record-fields.md</c>,
-/// <c>army-to-army-transfer-confirmed.md</c>, <c>pending-offer-block-army-split-and-naupactus.md</c> and
-/// <c>army-records-and-roman-roster.md</c> for a refund sentence or a last-unit branch and found none.
+/// 2026-10-03), pending the EXPLORE experiment.
 /// </para>
 /// <para>
 /// <strong>No refund, and the last unit is refused rather than disbanding the army.</strong> The troops
@@ -30,9 +33,12 @@ namespace IC2.Engine.Armies.Commands;
 /// <para>
 /// <strong><c>RemoveUnit</c> is not built.</strong> The report's opening list names ten
 /// <c>TUnitMap_*</c> methods including <c>ChangeUnitDetails</c>, and the task entry's Scope names
-/// <c>RemoveUnit</c> as a fifth dialog method distinct from <c>Disband</c>, but no report decompiles it and
-/// the audit's "Change unit details" row names only the four. With no evidence of what it does, this task
-/// leaves it unbuilt rather than guessing (see the task's PR body).
+/// <c>RemoveUnit</c> as a fifth dialog method distinct from <c>Disband</c>, but the evidence reads it as a
+/// list helper rather than an order: <c>army-to-army-transfer-confirmed.md</c> records that <c>MoveUnit</c>
+/// "calls <c>RemoveUnit</c> to drop it from the source's displayed list". The report's own "Change unit
+/// details" row names only the four, while the audit's §1.6 row
+/// (<c>original-ui-command-audit.md:142</c>) does list <c>RemoveUnit</c> among five methods. With no
+/// evidence of an order body, this task leaves it unbuilt rather than guessing (see the task's PR body).
 /// </para>
 /// </remarks>
 /// <param name="IssuingNationId">The nation issuing the order; the army must be its own.</param>
