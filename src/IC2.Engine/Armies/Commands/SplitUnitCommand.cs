@@ -36,8 +36,10 @@ namespace IC2.Engine.Armies.Commands;
 /// that <c>TRecruitMercs_RecruitMercUnit</c> "writes <c>*psVar1 = label</c> and then names the unit from
 /// <c>&amp;DAT_0049CC94 + label × 0x14</c> ("Gallic"), instead of numbering it." The split-off keeps the
 /// source's label, so carrying the source name follows that rule. The one open edge is a mercenary renamed
-/// before its split, where the label rule would give the table's name rather than the renamed one; the
-/// user's <c>[designed]</c> choice is therefore the source name (issue #565), pending the EXPLORE
+/// before its split, where the label rule would give the table's name rather than the renamed one; this
+/// task's own <c>[designed]</c> choice is therefore the source name, derived from the cited sentence rather
+/// than from a user decision, because the label table at <c>DAT_0049CC94</c> has no located DAT offset (the
+/// report's line 396), so the engine cannot reproduce the table name. This is pending the EXPLORE
 /// experiment.
 /// </para>
 /// <para>

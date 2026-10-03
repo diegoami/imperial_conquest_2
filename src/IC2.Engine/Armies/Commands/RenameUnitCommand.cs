@@ -33,7 +33,12 @@ namespace IC2.Engine.Armies.Commands;
 /// out of the name.</strong> A rename can therefore duplicate an existing battalion name, raise the next
 /// ordinal — renaming a unit to <c>"98th Foot Battalion"</c> makes the next split <c>"99th"</c> — or free
 /// the highest ordinal for reuse by renaming that unit away. This is what the original's own name-parsing
-/// scan implies, pending the EXPLORE experiment.
+/// scan implies, pending the EXPLORE experiment. One consequence of that interaction is known and
+/// deliberately not clamped here: a split-off's generated name can exceed the 23-character save field this
+/// command enforces, because <see cref="ArmyNaming"/> has no 99 cap — renaming a unit to the 23-character
+/// <c>"99th Dragoons Battalion"</c> makes the next Dragoons split <c>"100th Dragoons Battalion"</c>
+/// (24 characters), which <c>rename-unit</c> then rejects — and that naming cap is T15's
+/// <see cref="ArmyNaming"/> to settle, reported separately as a bug.
 /// </para>
 /// </remarks>
 /// <param name="IssuingNationId">The nation issuing the order; the army must be its own.</param>

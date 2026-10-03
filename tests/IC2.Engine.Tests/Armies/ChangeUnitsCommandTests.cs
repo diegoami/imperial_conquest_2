@@ -455,16 +455,33 @@ public sealed class ChangeUnitsCommandTests
         Assert.Same(state, result.State);
     }
 
-    [Fact]
-    public void RenameUnit_NonPrintableCharacter_IsRejectedAndTheStateIsUntouched()
+    [Theory]
+    [InlineData("a\tb")]       // 0x09, below the printable floor
+    [InlineData("a\u007fb")]   // 0x7f, the first byte above the printable ceiling
+    [InlineData("L\u00e9gio")] // a non-ASCII byte
+    public void RenameUnit_NonPrintableCharacter_IsRejectedAndTheStateIsUntouched(string name)
     {
         var state = WithArmies(InitialState(), Army("name-ctl", NorthNationId, 5, 5, new[] { RegularUnit("a", troops: 100) }));
 
-        var result = Dispatcher().Dispatch(state, new RenameUnitCommand(NorthNationId, "name-ctl", 0, "a\tb"));
+        var result = Dispatcher().Dispatch(state, new RenameUnitCommand(NorthNationId, "name-ctl", 0, name));
 
         Assert.True(result.IsRejected);
         Assert.Equal(RenameUnitRejections.InvalidName, result.Code);
         Assert.Same(state, result.State);
+    }
+
+    [Fact]
+    public void RenameUnit_Tilde_IsAcceptedAsTheLastPrintableByte()
+    {
+        // B4: the upper edge of the printable-ASCII range — '~' (0x7e) is the last byte the save reader
+        // accepts; 0x7f and above are rejected (see the theory above).
+        var state = WithArmies(InitialState(), Army("name-tilde", NorthNationId, 5, 5, new[] { RegularUnit("a", troops: 100) }));
+
+        var result = Dispatcher().Dispatch(state, new RenameUnitCommand(NorthNationId, "name-tilde", 0, "~"));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        Assert.Equal("~", result.State.ArmyById("name-tilde")!.Units[0].Name);
+        Assert.Equal(100, result.State.ArmyById("name-tilde")!.TotalTroops);
     }
 
     [Theory]

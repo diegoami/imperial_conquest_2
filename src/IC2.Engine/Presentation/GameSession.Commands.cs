@@ -314,9 +314,9 @@ public sealed partial class GameSession
             return new[] { "Usage: rename-unit <army> <unit-index> <name>" };
         }
 
-        // The name is free text and may contain spaces ("Legio I"); the tokenizer already collapsed runs
-        // of whitespace, so rejoin with one space. A leading or trailing space cannot survive this and is
-        // rejected anyway by RenameUnitCommandHandler.IsValidName.
+        // The name is free text and may contain spaces ("Legio I"); the tokenizer splits only on spaces, so
+        // runs of spaces collapse to one on rejoin. A tab survives the split and is rejected anyway by
+        // RenameUnitCommandHandler.IsValidName, as is a leading or trailing space.
         var name = string.Join(' ', tokens[3..]);
         return IssueCommand(new RenameUnitCommand(State.ActiveNationId, tokens[1], unitIndex, name));
     }
