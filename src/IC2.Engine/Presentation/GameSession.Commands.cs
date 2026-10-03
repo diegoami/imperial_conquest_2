@@ -641,14 +641,29 @@ public sealed partial class GameSession
         return IssueCommand(new EmbarkArmyCommand(State.ActiveNationId, tokens[1], tokens[2]));
     }
 
+    /// <summary>
+    /// <c>disembark-army &lt;army&gt; [&lt;x&gt; &lt;y&gt;]</c> — bug #594. The two-token form names no
+    /// landing tile: an AI seat's own automatic branch then picks one, while a human seat is still refused
+    /// with <see cref="IC2.Engine.Naval.Commands.DisembarkArmyRejections.LandingTileRequired"/> exactly as
+    /// before. The four-token form names the landing tile, which the engine's own adjacency and passability
+    /// gates still check — this parser restates neither. A malformed tile (non-numeric, or a missing
+    /// coordinate) never reaches the command layer and prints the usage line instead.
+    /// </summary>
     private IReadOnlyList<string> HandleDisembarkArmy(string[] tokens)
     {
-        if (tokens.Length != 2)
+        if (tokens.Length == 2)
         {
-            return new[] { "Usage: disembark-army <army>" };
+            return IssueCommand(new DisembarkArmyCommand(State.ActiveNationId, tokens[1], null, null));
         }
 
-        return IssueCommand(new DisembarkArmyCommand(State.ActiveNationId, tokens[1], null, null));
+        if (tokens.Length != 4
+            || !int.TryParse(tokens[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var x)
+            || !int.TryParse(tokens[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var y))
+        {
+            return new[] { "Usage: disembark-army <army> [<x> <y>]" };
+        }
+
+        return IssueCommand(new DisembarkArmyCommand(State.ActiveNationId, tokens[1], x, y));
     }
 
     private IReadOnlyList<string> HandleBuyFleetSupply(string[] tokens)

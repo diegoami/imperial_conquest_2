@@ -16,6 +16,47 @@ public sealed class GameSessionCommandsTests
     private static GameSession NewSession(ulong? seed = null) =>
         new(CoreTestbed.Toy.World, CoreTestbed.Toy.Ruleset, CoreTestbed.Toy.Scenario, seed);
 
+    // ---- bug #594's fixture: the toy scenario's human seat (north) with an army already aboard a fleet ----
+
+    private const string EmbarkedArmyId = "594-embarked-army";
+    private const string EmbarkedFleetId = "594-embarked-fleet";
+
+    /// <summary>
+    /// A session paused on the toy scenario's human seat (<c>north</c>) whose state carries an army already
+    /// embarked on the sea tile (0, 3), with (1, 3) as an adjacent passable land tile -- the same
+    /// direct-state shape <c>DisembarkArmyCommandHandlerTests</c> builds, since embarking through the
+    /// commands is bug #453 (T93). A save is the only public way to hand <see cref="GameSession"/> a state
+    /// that did not come from <see cref="GameStateFactory"/>'s own scenario start; <c>ResumeFrom</c> reads
+    /// its seats, it does not replay any turn.
+    /// </summary>
+    private static GameSession EmbarkedSession()
+    {
+        var toy = CoreTestbed.Toy;
+        var initial = GameStateFactory.CreateInitial(toy.World, toy.Ruleset, toy.Scenario);
+
+        var fleet = new FleetState(
+            EmbarkedFleetId, "north", X: 0, Y: 3, Moves: 5, Ships: 10, ConditionPercent: 100,
+            Money: 0, SupplyTons: 50, ConstructionTicksRemaining: null, BuildCityId: null,
+            CarriedArmyId: EmbarkedArmyId, CoveredTileCode: null);
+
+        var army = new ArmyState(
+            EmbarkedArmyId, "north", X: 0, Y: 3, Moves: 0, Morale: 60, Money: 0, SupplyTons: 10,
+            CoveredTileCode: null, AboardFleetId: EmbarkedFleetId,
+            Units: ValueList.Of(new UnitSlot(0, "light_infantry", 4000, 6, "Embarked Test Battalion")));
+
+        var state = initial with { Armies = ValueList.Of(army), Fleets = ValueList.Of(fleet) };
+        var save = new SaveGame(
+            SchemaVersion: state.SchemaVersion,
+            Id: "594-embarked-probe",
+            Label: "Bug 594 -- embarked probe",
+            ScenarioId: state.ScenarioId,
+            WorldId: state.WorldId,
+            RulesetId: state.RulesetId,
+            State: state);
+
+        return new GameSession(toy.World, toy.Ruleset, toy.Scenario, save);
+    }
+
     // ---- #221: the CLI composes DeclareWarCommand ahead of an attack, when the two nations are at peace ----
 
     [Fact]
@@ -418,6 +459,67 @@ public sealed class GameSessionCommandsTests
 
         Assert.DoesNotContain(
             output.Lines, line => line.Contains("Not yet implemented", StringComparison.Ordinal));
+    }
+
+    // ---- bug #594: the disembark-army verb names the landing tile ----
+
+    /// <summary>
+    /// A human seat that names an adjacent passable land tile lands its embarked army there. This is the
+    /// parser-level half of bug #594: before the fix the verb accepted only <c>disembark-army &lt;army&gt;</c>,
+    /// so the four-token line printed the usage line and never reached the handler at all (and the handler's
+    /// own automatic branch refuses a human seat with <c>naval.landing-tile-required</c>). The fixture's
+    /// fleet sits on the toy grid's sea tile (0, 3); (1, 3) is adjacent plain/land.
+    /// </summary>
+    [Fact]
+    public void Disembark_army_with_a_named_adjacent_passable_tile_lands_the_human_army_there()
+    {
+        var session = EmbarkedSession();
+
+        var output = session.Submit($"disembark-army {EmbarkedArmyId} 1 3");
+
+        Assert.Contains(
+            output.Lines, line => line.Contains("naval.disembark-army accepted", StringComparison.Ordinal));
+        var army = session.State.ArmyById(EmbarkedArmyId)!;
+        Assert.Null(army.AboardFleetId);
+        Assert.Equal(1, army.X);
+        Assert.Equal(3, army.Y);
+        Assert.Equal(0, army.Moves);
+    }
+
+    /// <summary>
+    /// The two-token form is unchanged: a human seat that names no tile is still refused by the handler with
+    /// <c>naval.landing-tile-required</c> (the automatic branch stays AI-only), and the army stays aboard.
+    /// </summary>
+    [Fact]
+    public void Disembark_army_without_a_tile_still_refuses_a_human_seat()
+    {
+        var session = EmbarkedSession();
+
+        var output = session.Submit($"disembark-army {EmbarkedArmyId}");
+
+        Assert.Contains(
+            output.Lines, line => line.Contains("naval.landing-tile-required", StringComparison.Ordinal));
+        var army = session.State.ArmyById(EmbarkedArmyId)!;
+        Assert.Equal(0, army.X);
+        Assert.Equal(3, army.Y);
+        Assert.Equal(EmbarkedFleetId, army.AboardFleetId);
+    }
+
+    /// <summary>
+    /// A malformed landing tile -- a non-numeric coordinate, or a missing one -- never reaches the command
+    /// layer and prints the usage line. "1" is the missing-y case (only three tokens).
+    /// </summary>
+    [Theory]
+    [InlineData("abc 3")]
+    [InlineData("1")]
+    [InlineData("1 xyz")]
+    public void Disembark_army_with_a_malformed_tile_prints_the_usage_line(string tail)
+    {
+        var session = EmbarkedSession();
+
+        var output = session.Submit($"disembark-army {EmbarkedArmyId} {tail}");
+
+        Assert.Contains(output.Lines, line => line == "Usage: disembark-army <army> [<x> <y>]");
     }
 
     // ---- Done-when 2: a human move ending against a non-hostile city resupplies automatically ----

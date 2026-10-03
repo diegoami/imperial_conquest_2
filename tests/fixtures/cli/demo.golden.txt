@@ -29,7 +29,7 @@ Commands:
   split-fleet <fleet> <new-fleet> <ships> - split ships off into a new fleet
   join-fleets <survivor-fleet> <absorbed-fleet> - merge one fleet into another
   embark-army <army> <fleet> - load an army aboard an adjacent fleet
-  disembark-army <army> - unload an embarked army
+  disembark-army <army> [<x> <y>] - unload an embarked army onto an adjacent land tile
   buy-fleet-supply <fleet> <city> <tons> - buy supply for a fleet at a city
   fleet-transfer <from-fleet> <to-fleet> <ships> <supply-tons> <money> - transfer resources between two of your own fleets
   end - end your turn

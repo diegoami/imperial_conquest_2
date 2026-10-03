@@ -68,7 +68,7 @@ public enum MapClickOutcomeKind
     /// <summary><c>embark-army &lt;army&gt; &lt;fleet&gt;</c> — the army boards the fleet, and the fleet becomes the selection.</summary>
     EmbarkArmy,
 
-    /// <summary><c>disembark-army &lt;army&gt;</c> — the carried army lands; the selection ends and the army's details show.</summary>
+    /// <summary><c>disembark-army &lt;army&gt; &lt;x&gt; &lt;y&gt;</c> — the carried army lands on the clicked tile; the selection ends and the army's details show.</summary>
     DisembarkArmy,
 
     /// <summary>The selection is dropped and the clicked target's details show — the original's "cannot be attacked from here" row.</summary>
@@ -215,9 +215,9 @@ public sealed record MapClickOutcome(
     public static MapClickOutcome MoveFleet(string fleetId, int x, int y) =>
         new(MapClickOutcomeKind.MoveFleet, OrderLine: $"move-fleet {fleetId} {x} {y}", KeepSelectionWhileMovesRemain: true);
 
-    /// <summary>The terrain table's disembark row: the carried army lands, and its details show.</summary>
-    public static MapClickOutcome Disembark(string carriedArmyId) =>
-        new(MapClickOutcomeKind.DisembarkArmy, MapEntityKind.Army, carriedArmyId, $"disembark-army {carriedArmyId}");
+    /// <summary>The terrain table's disembark row: the carried army lands on the clicked tile, and its details show.</summary>
+    public static MapClickOutcome Disembark(string carriedArmyId, int x, int y) =>
+        new(MapClickOutcomeKind.DisembarkArmy, MapEntityKind.Army, carriedArmyId, $"disembark-army {carriedArmyId} {x} {y}");
 
     /// <summary>The marker table's embark row: the army boards, and the clicked fleet becomes the selection.</summary>
     public static MapClickOutcome Embark(string armyId, MapClickTarget clickedFleet) =>
@@ -313,7 +313,7 @@ public static class MapClickRules
         }
 
         return click.TileIsLand && click.Distance == 1 && selection.CarriedArmyId is { } carried
-            ? MapClickOutcome.Disembark(carried)
+            ? MapClickOutcome.Disembark(carried, click.X, click.Y)
             : MapClickOutcome.Nothing();
     }
 
