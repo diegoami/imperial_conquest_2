@@ -1073,7 +1073,7 @@ Tactical battle golden master against the original's recorded battles (#496) →
 
 #### T131 Every release carries Windows assets: the zip and the installer, built by a release workflow
 
-Release assets (the user's decision of 2026-10-04: every milestone and fix release gets a Windows zip and installer; the highest priority, so it runs next) → [full entry](tasks/T131.md) · #TBD-T131
+Release assets (the user's decision of 2026-10-04: every milestone and fix release gets a Windows zip and installer; the highest priority, so it runs next) → [full entry](tasks/T131.md) · #688
 
 ---
 
@@ -1237,4 +1237,4 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T128](#t128-the-battle-screens-assets-15-recolourable-unit-icons-the-ground-tile-the-cursor-and-the-toolbar-glyphs) | Battle assets | M21 | Sonnet | Medium | **Opus**/Medium + human | T122 | #669 |
 | [T129](#t129-the-tactical-battles-golden-master-the-port-replays-the-originals-recorded-battles-half-round-by-half-round) | Tactical golden master | M21 | Sonnet | High | **Opus**/High | T123, T124, T125 | #670 |
 | [T130](#t130-the-improved-rulesets-tactical-battle-save-at-a-half-rounds-start-the-quirks-fixed-a-half-round-cap-no-slow-advance-and-retreat-losses-and-scatter-for-the-loser) | Improved tactical rules | M21 | **Opus** | High | Sol + Luna pair | T125, T129 | #674 |
-| [T131](#t131-every-release-carries-windows-assets-the-zip-and-the-installer-built-by-a-release-workflow) | Release assets | M20 | Sonnet | High | Sol | — | #TBD-T131 |
+| [T131](#t131-every-release-carries-windows-assets-the-zip-and-the-installer-built-by-a-release-workflow) | Release assets | M20 | Sonnet | High | Sol | — | #688 |
