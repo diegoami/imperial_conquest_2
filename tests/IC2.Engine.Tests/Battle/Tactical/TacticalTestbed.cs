@@ -72,7 +72,7 @@ public static class TacticalTestbed
     public const int HC = 4;
 
     /// <summary>The toy ruleset.</summary>
-    public static Ruleset Ruleset => BattleTestbed.Destroyed;
+    public static Ruleset ToyRuleset => BattleTestbed.Destroyed;
 
     /// <summary>The toy ruleset's tactical context.</summary>
     public static TacticalContext Context { get; } = TacticalContext.From(BattleTestbed.Destroyed);
