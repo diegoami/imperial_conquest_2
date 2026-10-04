@@ -66,3 +66,18 @@ public static class GeneralTestbed
         return (state, halfRounds);
     }
 }
+
+/// <summary>A draw seam that always returns 0 (a shot's loss 0, so no morale loss and no rout draw), recording every bound.</summary>
+public sealed class ZeroDraws : IBattleDraws
+{
+    private readonly List<int> _bounds = new();
+
+    /// <summary>The bounds of every call so far.</summary>
+    public IReadOnlyList<int> Bounds => _bounds;
+
+    public int Random(int n)
+    {
+        _bounds.Add(n);
+        return 0;
+    }
+}
