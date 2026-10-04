@@ -85,7 +85,9 @@ public class MidBattleSaveTests
         Assert.Equal(Order, turn.TurnOrder);
         Assert.Equal(2, news.NewestIndex);
         Assert.Equal(3, news.Slots.Count);
-        Assert.False(offer.HasOffer);
+        // SyntheticSaveBuilder.AppendTrailer leaves the offer block zeroed, i.e. nation 0/state 0.
+        Assert.Equal((ushort)0, offer.ProposingNationIndex);
+        Assert.Equal((ushort)0, offer.ProposedRelationState);
     }
 
     [Fact]
@@ -105,7 +107,9 @@ public class MidBattleSaveTests
         Assert.Equal(expectedTurn.CurrentNationCode, turn.CurrentNationCode);
         Assert.Equal(2, news.NewestIndex);
         Assert.Equal(SaveNewsLog.Parse(baseData).Slots, news.Slots);
-        Assert.False(offer.HasOffer);
+        var expectedOffer = SavePendingOffer.Parse(baseData);
+        Assert.Equal(expectedOffer.ProposingNationIndex, offer.ProposingNationIndex);
+        Assert.Equal(expectedOffer.ProposedRelationState, offer.ProposedRelationState);
     }
 
     [Fact]
