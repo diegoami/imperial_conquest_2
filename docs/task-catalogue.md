@@ -172,6 +172,7 @@ graph TD
   T117 --> T111
   T118[T118 End turn box]
   T119[T119 faithful turn-order shuffle]
+  T120[T120 real melee matrix] --> T121[T121 tournament re-run]
   T23 --> T26[T26 scenario docs+examples]
   T29 --> T26
   T22 --> T28[T28 nightly soak gate]
@@ -987,6 +988,18 @@ Faithful turn-order shuffle (#602) → [full entry](tasks/T119.md) · [#638](htt
 
 ---
 
+#### T120 The rulesets carry the original's melee matrix, DAT `0x1F7A6`, and the corpus states the tactical morale rules as the code has them
+
+Real melee matrix (correction task for bugs #647 and #649) → [full entry](tasks/T120.md) · [#TBD-T120](https://github.com/diegoami/imperial_conquest_2/issues/TBD-T120). It is an exception to the playability gate (§4.8), by the user's decision of 2026-10-04: neither bug breaks play, but the v0.5.0 battle and T121 build on the real values.
+
+---
+
+#### T121 Re-run the auto-resolve tournament on the original's melee matrix
+
+Tournament re-run (after T120) → [full entry](tasks/T121.md) · [#TBD-T121](https://github.com/diegoami/imperial_conquest_2/issues/TBD-T121). With T120, it is an exception to the playability gate (§4.8), by the user's decision of 2026-10-04.
+
+---
+
 #### T25 Battle result, diplomacy, and hotseat handoff screens
 
 Godot screens → [full entry](tasks/T25.md) · [#25](https://github.com/diegoami/imperial_conquest_2/issues/25)
@@ -1136,3 +1149,5 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T117](#t117-army-to-army-transfer-rebalances-supply-as-the-originals-ok-does-and-never-refuses-on-capacity) | Army transfer rebalances supply | — | Sonnet | Medium | **Opus**/Medium | T106 | [#636](https://github.com/diegoami/imperial_conquest_2/issues/636) |
 | [T118](#t118-the-end-turn--box-the-originals-six-checks-for-human-seats) | End turn box | M18 | Sonnet | High | **Opus**/Medium + human | — | [#637](https://github.com/diegoami/imperial_conquest_2/issues/637) |
 | [T119](#t119-in-classical-faithful-new-game-shuffles-the-turn-order-with-the-originals-algorithm) | Faithful turn-order shuffle | — | Sonnet | High | **Opus**/Medium | — | [#638](https://github.com/diegoami/imperial_conquest_2/issues/638) |
+| [T120](#t120-the-rulesets-carry-the-originals-melee-matrix-dat-0x1f7a6-and-the-corpus-states-the-tactical-morale-rules-as-the-code-has-them) | Real melee matrix | — | Sonnet | High | **Opus**/High | — | [#TBD-T120](https://github.com/diegoami/imperial_conquest_2/issues/TBD-T120) |
+| [T121](#t121-re-run-the-auto-resolve-tournament-on-the-originals-melee-matrix) | Tournament re-run | — | Sonnet | High | **Opus**/Medium | T120 | [#TBD-T121](https://github.com/diegoami/imperial_conquest_2/issues/TBD-T121) |
