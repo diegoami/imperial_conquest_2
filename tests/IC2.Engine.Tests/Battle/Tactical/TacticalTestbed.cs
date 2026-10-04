@@ -102,7 +102,7 @@ public static class TacticalTestbed
     /// A battle with the given slots (every other slot empty), its grid painted from the live slots in
     /// slot order, after placement, attacker to move, both sides human unless stated.
     /// </summary>
-    public static TacticalBattleState Battle(
+    public static TacticalBattleState Arena(
         IEnumerable<(int Slot, TacticalSlot Unit)> units,
         int sideToMove = TacticalBattleState.AttackerSide,
         bool placed = true,
@@ -143,7 +143,7 @@ public static class TacticalTestbed
             ValueList<TacticalEvent>.Empty);
     }
 
-    public static TacticalBattleState Battle(params (int Slot, TacticalSlot Unit)[] units) => Battle(units.AsEnumerable());
+    public static TacticalBattleState Arena(params (int Slot, TacticalSlot Unit)[] units) => Arena(units.AsEnumerable());
 
     public static int Cell(int x, int y) => (x * Rules.BoardHeight) + y;
 
