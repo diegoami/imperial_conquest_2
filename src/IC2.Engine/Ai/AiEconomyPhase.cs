@@ -18,12 +18,9 @@ namespace IC2.Engine.Ai;
 /// <strong>One declared deviation from that sentence, and the reason for it.</strong> The
 /// <em>effectiveness matrix</em> it names is <c>combat.detailedResolver.typeEffectiveness</c>, which
 /// belongs to the <strong>reserve</strong> — the optional detailed resolver <c>docs/game-design.md</c>
-/// §Combat holds back and the shipped <see cref="Battle.InstantBattleResolver"/> never reads. Two things
-/// follow. First, this task is explicitly instructed not to touch the reserve, and making the AI's
-/// spending depend on it would make a held-back block load-bearing in shipped play. Second, the matrix's
-/// orientation is not settled: <c>toy-ruleset.json</c>'s own provenance for it says the attacker-row
-/// versus defender-row assignment "is a reasoned inference, not re-traced index arithmetic", so an AI
-/// keyed to it would silently invert if that inference is ever corrected.
+/// §Combat holds back and the shipped <see cref="Battle.InstantBattleResolver"/> never reads. This task
+/// is explicitly instructed not to touch the reserve, and making the AI's spending depend on it would
+/// make a held-back block load-bearing in shipped play.
 /// </para>
 /// <para>
 /// So the AI ranks unit types by the number the <em>shipped</em> resolver actually fights with:
@@ -32,8 +29,8 @@ namespace IC2.Engine.Ai;
 /// decompiled-unit-map-orders-and-record-fields.md]</strong>, divided by what a battalion of it costs
 /// through <see cref="StandingRecruitmentCost.InitialCost"/>. That is "the most fighting strength per
 /// talent, measured the way this engine measures fighting strength" — a weaker rule than countering a
-/// specific threat, stated as weaker rather than dressed up. When the detailed resolver is built and its
-/// orientation settled, this is the one method that should change.
+/// specific threat, stated as weaker rather than dressed up. When the detailed resolver is built, this
+/// is the one method that should change.
 /// </para>
 /// <para>
 /// <strong>The threat half of the sentence is kept</strong>, through
