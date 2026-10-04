@@ -9,8 +9,8 @@ namespace IC2.Engine.Battle.Tactical;
 /// <remarks>
 /// <para>
 /// <strong>[confirmed: code, static, <c>2026-10-04-decompiled-tactical-battle-rules.md</c>, "Every
-/// <c>Random</c> call, in draw order"]</strong>: every draw of the battle module is Delphi's
-/// <c>System.Random(n)</c> (<c>FUN_0040284C</c>), which returns a value in <c>[0, n)</c>, and
+/// <c>Random</c> call, in draw order"]</strong>: every draw of the battle module is
+/// the Delphi runtime's <c>Random(n)</c> (<c>FUN_0040284C</c>), which returns a value in <c>[0, n)</c>, and
 /// <c>Random(0)</c> returns 0 <em>and still advances the generator</em>. Every routine under
 /// <c>Battle/Tactical</c> draws only through this interface, so the order of the draws is the order of
 /// the calls, and the battle's trace (<see cref="TacticalDrawEvent"/>) records each one.
@@ -77,7 +77,7 @@ public sealed class RngBattleDraws : IBattleDraws
 }
 
 /// <summary>
-/// The original's own generator, Delphi <c>System.Random</c> (<c>FUN_0040284C</c>), so the golden master
+/// The original's own generator, the Delphi runtime's <c>Random</c> (<c>FUN_0040284C</c>), so the golden master
 /// (T129) can replay a battle from the lab build's baked <c>RandSeed</c>.
 /// </summary>
 /// <remarks>
