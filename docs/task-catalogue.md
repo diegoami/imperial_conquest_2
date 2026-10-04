@@ -1013,49 +1013,49 @@ Tournament re-run (after T120) → [full entry](tasks/T121.md) · [#655](https:/
 
 #### T122 The tactical battle's constants and computer-general tables as ruleset data
 
-Tactical battle constants as ruleset data (#496) → [full entry](tasks/T122.md) · #TBD-T122
+Tactical battle constants as ruleset data (#496) → [full entry](tasks/T122.md) · #663
 
 ---
 
 #### T123 The tactical battle's rules engine: a port of the decompiled `TBattleMap`
 
-Tactical battle rules engine, a port of `TBattleMap` (#496) → [full entry](tasks/T123.md) · #TBD-T123
+Tactical battle rules engine, a port of `TBattleMap` (#496) → [full entry](tasks/T123.md) · #664
 
 ---
 
 #### T124 The tactical battle's computer general: placement, target choice and the three movement passes
 
-Tactical battle computer general (#496) → [full entry](tasks/T124.md) · #TBD-T124
+Tactical battle computer general (#496) → [full entry](tasks/T124.md) · #665
 
 ---
 
 #### T125 A human's attack on an army opens the tactical battle in the session and the CLI, and its result is written back
 
-Tactical battle wired into the session and the CLI (#496) → [full entry](tasks/T125.md) · #TBD-T125
+Tactical battle wired into the session and the CLI (#496) → [full entry](tasks/T125.md) · #666
 
 ---
 
 #### T126 An AI seat's attack on a human's army opens the tactical battle during the AI phase
 
-AI-phase battles against a human on the board (#496; conditional on the user's answer there) → [full entry](tasks/T126.md) · #TBD-T126
+AI-phase battles against a human on the board (#496; conditional on the user's answer there) → [full entry](tasks/T126.md) · #667
 
 ---
 
 #### T127 The Godot battle screen and the *Battle ended* window
 
-Godot battle screen and *Battle ended* window (#496) → [full entry](tasks/T127.md) · #TBD-T127
+Godot battle screen and *Battle ended* window (#496) → [full entry](tasks/T127.md) · #668
 
 ---
 
 #### T128 The battle screen's assets: 15 recolourable unit icons, the ground tile, the cursor and the toolbar glyphs
 
-Battle screen assets (#496) → [full entry](tasks/T128.md) · #TBD-T128
+Battle screen assets (#496) → [full entry](tasks/T128.md) · #669
 
 ---
 
 #### T129 The tactical battle's golden master: the port replays the original's recorded battles half-round by half-round
 
-Tactical battle golden master against the original's recorded battles (#496) → [full entry](tasks/T129.md) · #TBD-T129
+Tactical battle golden master against the original's recorded battles (#496) → [full entry](tasks/T129.md) · #670
 
 ---
 
@@ -1210,11 +1210,11 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T119](#t119-in-classical-faithful-new-game-shuffles-the-turn-order-with-the-originals-algorithm) | Faithful turn-order shuffle | — | Sonnet | High | **Opus**/Medium | — | [#638](https://github.com/diegoami/imperial_conquest_2/issues/638) |
 | [T120](#t120-the-rulesets-carry-the-originals-melee-matrix-dat-0x1f7a6-and-the-corpus-states-the-tactical-morale-rules-as-the-code-has-them) | Real melee matrix | — | Sonnet | High | **Opus**/High | — | [#654](https://github.com/diegoami/imperial_conquest_2/issues/654) |
 | [T121](#t121-re-run-the-auto-resolve-tournament-on-the-originals-melee-matrix) | Tournament re-run | — | Sonnet | High | **Opus**/Medium | T120 | [#655](https://github.com/diegoami/imperial_conquest_2/issues/655) |
-| [T122](#t122-the-tactical-battles-constants-and-computer-general-tables-as-ruleset-data) | Tactical ruleset data | M21 | Sonnet | High | **Opus**/Medium | — | #TBD-T122 |
-| [T123](#t123-the-tactical-battles-rules-engine-a-port-of-the-decompiled-tbattlemap) | Tactical battle engine | M21 | **Opus** | High | Sol + Luna pair + ultra | T122 | #TBD-T123 |
-| [T124](#t124-the-tactical-battles-computer-general-placement-target-choice-and-the-three-movement-passes) | Tactical computer general | M21 | **Opus** | High | Sol + Luna pair | T123 | #TBD-T124 |
-| [T125](#t125-a-humans-attack-on-an-army-opens-the-tactical-battle-in-the-session-and-the-cli-and-its-result-is-written-back) | Tactical battle in the session | M21 | **Opus** | High | Sol + Luna pair | T123, T124 | #TBD-T125 |
-| [T126](#t126-an-ai-seats-attack-on-a-humans-army-opens-the-tactical-battle-during-the-ai-phase) | AI-phase tactical battles | M21 | **Opus** | High | Sol + Luna pair | T125, T116 | #TBD-T126 |
-| [T127](#t127-the-godot-battle-screen-and-the-battle-ended-window) | Battle screen | M21, M18 | Sonnet | High | **Opus**/Medium + human | T125, T128 (T126 when it runs) | #TBD-T127 |
-| [T128](#t128-the-battle-screens-assets-15-recolourable-unit-icons-the-ground-tile-the-cursor-and-the-toolbar-glyphs) | Battle assets | M21 | Sonnet | Medium | **Opus**/Medium + human | — | #TBD-T128 |
-| [T129](#t129-the-tactical-battles-golden-master-the-port-replays-the-originals-recorded-battles-half-round-by-half-round) | Tactical golden master | M21 | Sonnet | High | **Opus**/High | T123, T124 | #TBD-T129 |
+| [T122](#t122-the-tactical-battles-constants-and-computer-general-tables-as-ruleset-data) | Tactical ruleset data | M21 | Sonnet | High | **Opus**/Medium | — | #663 |
+| [T123](#t123-the-tactical-battles-rules-engine-a-port-of-the-decompiled-tbattlemap) | Tactical battle engine | M21 | **Opus** | High | Sol + Luna pair + ultra | T122 | #664 |
+| [T124](#t124-the-tactical-battles-computer-general-placement-target-choice-and-the-three-movement-passes) | Tactical computer general | M21 | **Opus** | High | Sol + Luna pair | T123 | #665 |
+| [T125](#t125-a-humans-attack-on-an-army-opens-the-tactical-battle-in-the-session-and-the-cli-and-its-result-is-written-back) | Tactical battle in the session | M21 | **Opus** | High | Sol + Luna pair | T123, T124 | #666 |
+| [T126](#t126-an-ai-seats-attack-on-a-humans-army-opens-the-tactical-battle-during-the-ai-phase) | AI-phase tactical battles | M21 | **Opus** | High | Sol + Luna pair | T125, T116 | #667 |
+| [T127](#t127-the-godot-battle-screen-and-the-battle-ended-window) | Battle screen | M21, M18 | Sonnet | High | **Opus**/Medium + human | T125, T128 (T126 when it runs) | #668 |
+| [T128](#t128-the-battle-screens-assets-15-recolourable-unit-icons-the-ground-tile-the-cursor-and-the-toolbar-glyphs) | Battle assets | M21 | Sonnet | Medium | **Opus**/Medium + human | — | #669 |
+| [T129](#t129-the-tactical-battles-golden-master-the-port-replays-the-originals-recorded-battles-half-round-by-half-round) | Tactical golden master | M21 | Sonnet | High | **Opus**/High | T123, T124 | #670 |
