@@ -101,6 +101,20 @@ public partial class MainGameScreen : Control
 
     private bool _hintsEnabled = true;
 
+    // T132: the right-hand column and the narrow button on its left edge that hides and shows it. The
+    // shown/hidden choice is SidePanelToggle's static, so a New Game or Load in the same run keeps it.
+    private readonly SidePanelToggle _sidePanelToggle = new();
+    private VBoxContainer _sideColumn = null!;
+    private Button _sidePanelButton = null!;
+
+    /// <summary>T132: the whole right-hand column (Area-map strip, mini-map, context panel) — exposed
+    /// for <c>godot/Checks/SidePanelToggleCheck.cs</c>.</summary>
+    public Control SideColumn => _sideColumn;
+
+    /// <summary>T132: the button that hides and shows <see cref="SideColumn"/> — exposed for
+    /// <c>godot/Checks/SidePanelToggleCheck.cs</c>.</summary>
+    public Button SidePanelButton => _sidePanelButton;
+
     private Label _calendarLabel = null!;
     private Label _activeNationLabel = null!;
     private Label _saveConfirmationLabel = null!;
@@ -160,8 +174,25 @@ public partial class MainGameScreen : Control
         // context panel. The mini-map's own 320 px width stays inside the context panel's 340 px floor, and
         // the strip wraps into six columns, so the column -- and the screen -- is never widened. The panel
         // keeps ExpandFill, so it takes the rest of the column below.
+        // T132: a narrow button in the body row, between the map and the column, so it stays on screen
+        // while the column is hidden. The column hides with Visible = false (not a zero width, which
+        // would leave its 340 px floor in the row).
+        _sidePanelButton = new Button
+        {
+            CustomMinimumSize = new Vector2(24, 0),
+            SizeFlagsVertical = SizeFlags.ExpandFill,
+            FocusMode = FocusModeEnum.None,
+        };
+        _sidePanelButton.Pressed += ToggleSidePanel;
+        body.AddChild(_sidePanelButton);
+
         var sideColumn = new VBoxContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
+        _sideColumn = sideColumn;
         body.AddChild(sideColumn);
+        ApplySidePanelState();
+
+        // T132 (R3): every live screen follows the shared state; _ExitTree unsubscribes.
+        SidePanelToggle.Changed += ApplySidePanelState;
 
         _areaMapView = new AreaMapView
         {
@@ -874,6 +905,16 @@ public partial class MainGameScreen : Control
             return;
         }
 
+        // T132: F12 (no modifier) hides and shows the right-hand column, like the button beside it.
+        if (@event is InputEventKey { Pressed: true, Echo: false } panelKey
+            && SidePanelToggle.IsToggleKey(
+                panelKey.Keycode.ToString(), panelKey.CtrlPressed, panelKey.ShiftPressed, panelKey.AltPressed))
+        {
+            ToggleSidePanel();
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+
         // Shift+X is the Unit map → Cancel selection row's own shortcut, so the key goes through the
         // table's one handler — the same path the menu item and its toolbar icon take, and the same
         // IssuedCount the check reads (T100 Done-when 5 and rework N5).
@@ -892,6 +933,24 @@ public partial class MainGameScreen : Control
             _mapView.ClearSelection();
             GetViewport().SetInputAsHandled();
         }
+    }
+
+    public override void _ExitTree()
+    {
+        SidePanelToggle.Changed -= ApplySidePanelState;
+    }
+
+    private void ToggleSidePanel()
+    {
+        _sidePanelToggle.Toggle();
+        ApplySidePanelState();
+    }
+
+    private void ApplySidePanelState()
+    {
+        _sideColumn.Visible = _sidePanelToggle.IsShown;
+        _sidePanelButton.Text = _sidePanelToggle.Caption;
+        _sidePanelButton.TooltipText = _sidePanelToggle.Tooltip;
     }
 
     /// <summary>

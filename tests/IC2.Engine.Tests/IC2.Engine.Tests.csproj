@@ -121,6 +121,7 @@
       nowhere else. No `using Godot` anywhere; never a second, hand-maintained copy.
     -->
     <Compile Include="../../godot/UI/MapClickRules.cs" Link="Ui/MapClickRules.cs" />
+    <Compile Include="../../godot/UI/SidePanelToggle.cs" Link="Ui/SidePanelToggle.cs" />
 
     <!--
       T100 (tests/IC2.Engine.Tests/Ui/GameCommandTableTests.cs): the same seam once more.
