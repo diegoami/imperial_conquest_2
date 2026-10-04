@@ -954,7 +954,9 @@ the docs item applies only if the review named a claim.
      class (the user's decision of 2026-10-04). Your findings go with the review's, on whichever
      path follows: into this rework; at review-round:2, into the escalation comment; on a fix at
      review-round:1, into the correction task's entry.
-     Then, if the issue carries review-round:2, escalate (step 5). Otherwise set the next round
+     Then, on a fix whose issue carries review-round:1, file the correction task at the contract tier
+     with the review's findings and yours, keep the branch, and stop (§4.10: a fix gets one rework
+     round). Otherwise, if the issue carries review-round:2, escalate (step 5). Otherwise set the next round
      (none → review-round:1 → review-round:2) and send the implementer the FULL review comment
      URL: SendMessage if it is reachable, else a fresh implementer resuming the branch. Then go
      back to step 2.
