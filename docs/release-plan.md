@@ -20,7 +20,7 @@ Related reading, in order: [operating-guide.md](operating-guide.md) → [game-de
 | --- | --- | --- |
 | **MAJOR** `0` → `1` | Bumps exactly once: the first packaged build a player can install and finish a game in. | A breaking change to the `classical-faithful` ruleset's *confirmed* behaviour, or a save file the previous MAJOR cannot load. |
 | **MINOR** `0.x` | A new **user-visible capability** — something a person can do that they could not do at the previous tag. Also any change to a shipped preset's flag values or defaults. | New capability or preset, backwards-compatible saves. |
-| **PATCH** `0.x.y` | Fixes only, to a defect the tag above it shipped. No new capability, no preset change. | Same. |
+| **PATCH** `0.x.y` | Fixes to a defect the tag above it shipped, **and small changes the user asks for after playing it**: UI tweaks, wording, or how an existing rule is presented (the user's decision of 2026-10-04). No new capability, no change to a shipped preset's rules. | The same definition, unchanged after `1.0`: defect fixes and small changes the user asks for after playing, no new capability, no change to a shipped preset's rules (the user's decision of 2026-10-04 is not limited to pre-1.0). |
 
 **No `-alpha.N` on the `0.x` tags.** SemVer §4 already says `0.y.z` means "anything may change at any time"; an `-alpha` suffix on top of a `0.x` tag repeats that and makes tags harder to sort and to read at a glance. The pre-release axis is reserved for the one place it earns its keep: **`-rc.N` candidates of `v1.0.0`**, cut when the packaging task has merged but a gate that is *not* a test — the human visual sign-off from [Q-B](build-process.md#9-standing-governance-decisions) — is still outstanding. That is a genuinely different state from "released", and it deserves a name.
 
@@ -28,7 +28,7 @@ Related reading, in order: [operating-guide.md](operating-guide.md) → [game-de
 
 Stated explicitly, because "what makes this a MINOR rather than a PATCH" is exactly the question an agent running the build autonomously will get wrong:
 
-- **A MINOR bump requires a new capability *reachable by a person*, or a preset change.** A merged task that only adds internal test coverage, refactors behind a seam, or fixes a constant is a PATCH, however large its diff. Conversely a one-line change to `data/rulesets/improved.json`'s `combat.onDefeat` scatter range is a **MINOR**, because it changes what a player experiences — see [§4.2](#42-what-a-release-note-must-contain).
+- **A MINOR bump requires a new capability *reachable by a person*, or a preset change.** A merged task that only adds internal test coverage, refactors behind a seam, or fixes a constant is a PATCH, however large its diff. So is a small change the user asks for after playing a release, such as a UI tweak, a wording change, or a change to how an existing rule is presented, as long as it adds no capability and leaves every shipped preset's rules as they were (the user's decision of 2026-10-04). Conversely a one-line change to `data/rulesets/improved.json`'s `combat.onDefeat` scatter range is a **MINOR**, because it changes what a player experiences — see [§4.2](#42-what-a-release-note-must-contain).
 - **`1.0.0` is crossed by packaging, not by feature count.** The strategic engine was complete at `v0.3.0`, and `v0.5.0` adds the tactical battle ([#496](https://github.com/diegoami/imperial_conquest_2/issues/496)); `v1.0.0` is reached when [T27](task-catalogue.md#t27-packaging)'s export launches on a machine with no Godot and no .NET SDK on `PATH` and [T28](task-catalogue.md#t28-nightly-regression-and-soak-gate)'s nightly gate is green. "Playable" means *installable and finishable*, not *implemented*.
 - **Pre-1.0, the save format and the ruleset schema may break at any MINOR.** This is safe rather than reckless only because [T20](task-catalogue.md#t20-new-format-saveload-and-versioning)'s DoD requires an unknown *future* save version to be rejected with a typed error and an older one to load through a migration — a broken save fails loudly, never silently best-effort parses. Every release note must state whether the previous tag's saves still load ([§4.2](#42-what-a-release-note-must-contain) item 6).
 
@@ -38,7 +38,7 @@ Stated explicitly, because "what makes this a MINOR rather than a PATCH" is exac
 
 ### 1.4 Do phase completions get tags? — **DECIDED: no. Capability jumps only.**
 
-Only the six cut points in [§2](#2-the-release-ladder) get a tag, and every one of them gets a GitHub Release. A phase boundary that is not also a capability jump gets nothing.
+Only the six cut points in [§2](#2-the-release-ladder), and the patch releases between them ([§2.2](#22-patch-releases)), get a tag, and every one of them gets a GitHub Release. A phase boundary that is not also a capability jump gets nothing.
 
 The justification is the build process's own rule ([build-process.md](build-process.md)): *"These documents are the intent. GitHub is the state."* Phase completion **already has a representation** — the phase's GitHub milestone closes and its issues all read `status:merged`. A `v0.0.x-phase0` tag would duplicate state GitHub already holds, on the one axis (git history) the process deliberately keeps free of progress tracking. Tags are reserved for the thing GitHub milestones *cannot* express: "here is a tree someone can go and use."
 
@@ -89,13 +89,13 @@ A gate is met when every issue it lists is closed as `status:merged`.
 
 ### 2.2 Patch releases
 
-Cut a `v0.x.y` only when something merged after a tag **fixes a defect that tag shipped** — a wrong constant reaching `main` is the failure mode this project has already hit ([design-audit.md §2](design-audit.md), T31), and it deserves its own tag so "which build had the bad number" is answerable. Ordinary forward progress toward the next capability jump is **not** a patch release; it is untagged commits on `main`.
+Patch releases are **regular**, not exceptional (the user's decision of 2026-10-04): the user plays each release, finds things to fix or change, and expects them back as `v0.4.1`, `v0.4.2` and so on, each a GitHub Release with the Windows assets attached ([§5](#5-release-checklist) item 20). So cut a `v0.x.y` whenever fixes or changes merged since the last tag are ready for the user to play: a defect that tag shipped (a wrong constant reaching `main` is the failure mode this project has already hit, [design-audit.md §2](design-audit.md), T31, and it deserves its own tag so "which build had the bad number" is answerable), or a small change the user asked for after playing it (a UI tweak, wording, how an existing rule is presented; [§1.1](#11-what-each-position-means--decided)'s PATCH row, the user's decision of 2026-10-04). [§1.2](#12-what-crosses-each-boundary--decided) still decides the number: a change that adds a capability or changes a shipped preset's rules is a MINOR, not a patch. Ordinary forward progress toward the next capability jump is **not** a patch release; it is untagged commits on `main` until its gate is met.
 
 ### 2.2.1 v0.4.x patches
 
 The user's decisions of 2026-10-04, recorded on [#690](https://github.com/diegoami/imperial_conquest_2/issues/690):
 
-- **A v0.4.x is cut from `main`, guarded.** It ships everything merged since the last tag plus the items on its list. There is no maintenance branch and no cherry-pick. The v0.5.0 work stays invisible in every v0.4.x release: the tactical battle stays switched off (`HumanBattles = Instant`) until the `v0.5.0` tag (below). After T125 merges, the cut moves to a `release/0.4` branch (below): this refines the user's "cut from `main`" for that period only.
+- **A v0.4.x is cut from `main`, guarded.** It ships everything merged since the last tag plus the items on its list. There is no maintenance branch and no cherry-pick. The v0.5.0 work stays invisible in every v0.4.x release: the tactical battle stays switched off (`HumanBattles = Instant`) until the `v0.5.0` tag (below). **T125 waits until the user says the v0.4.x line is done** (the user's decision of 2026-10-04, on [PR 691](https://github.com/diegoami/imperial_conquest_2/pull/691)), so every v0.4.x is cut from `main` (below).
 - **An item the user puts on a v0.4.x list bypasses the playability gate** ([build-process.md §4.8](build-process.md#48-the-playability-gate-until-v050)). It becomes a task or a `fix` at once, labelled with its patch's `release:v0.4.x` label (`release:v0.4.1`). The gate still applies to every other finding.
 - **`v0.4.1` is cut as soon as its first item, [T132](tasks/T132.md) (the hideable right-hand panel, [#690](https://github.com/diegoami/imperial_conquest_2/issues/690)), merges.** Items the user lists after that go to `v0.4.2`. `v0.4.1` ships T132 and everything merged since `v0.4.0`, notably the generated *authored* icon pack (T51, [#503](https://github.com/diegoami/imperial_conquest_2/pull/503); the default pack since fix 517, [#524](https://github.com/diegoami/imperial_conquest_2/pull/524); T101's toolbar keys, [#588](https://github.com/diegoami/imperial_conquest_2/pull/588)) and the game screen like the original's (T99–T113). The release note lists the rest from GitHub ([§4.1](#41-where-the-note-comes-from--decided-generated-at-cut-time-from-github-no-changelogmd)).
 - **Every v0.4.x carries the Windows zip and installer**, built by T131's release workflow. If T131 has not merged when a v0.4.x is cut, the main session builds and attaches them by hand, as it did for `v0.4.0` on 2026-10-04.
@@ -104,25 +104,27 @@ The user's decisions of 2026-10-04, recorded on [#690](https://github.com/diegoa
 
 **What these decisions supersede, for every v0.4.x until the `v0.5.0` tag** (`v0.4.1`, `v0.4.2`, …; the rules apply unchanged to every other release):
 
-- [§1.1](#11-what-each-position-means--decided)'s PATCH row ("no new capability, no preset change") and [§1.2](#12-what-crosses-each-boundary--decided)'s MINOR test: a v0.4.x may carry new capabilities and preset changes merged on `main` before T125, and is still a PATCH, numbered by the user.
+- [§1.1](#11-what-each-position-means--decided)'s PATCH row ("no new capability, no preset change") and [§1.2](#12-what-crosses-each-boundary--decided)'s MINOR test: a v0.4.x may carry new capabilities and preset changes merged on `main`, and is still a PATCH, numbered by the user.
 - [§1.4](#14-do-phase-completions-get-tags--decided-no-capability-jumps-only)'s "only the six cut points get a tag": every v0.4.x gets an annotated tag and a GitHub Release.
-- [§2.2](#22-patch-releases)'s "a patch only for a defect the tag shipped": a v0.4.x also ships the small changes the user asked for after playing, and everything merged before it on its branch.
-- [§3.1](#31-naming-and-placement--decided)'s "`main` only" for the tag's place: after T125, a v0.4.x is tagged on `release/0.4` (below).
+- [§2.2](#22-patch-releases)'s "a patch only for a defect the tag shipped": a v0.4.x also ships the small changes the user asked for after playing, and everything merged on `main` before it.
+- [§7](#7-summary)'s *Tags* row (six tags) and *Published by* row (the human for `v0.4.0`, `v0.5.0` and `v1.0.0`): every v0.4.x is tagged too, and the main session publishes it (below).
+
+A v0.4.x is tagged on `main` like every other release: [§3.1](#31-naming-and-placement--decided), [§3.3](#33-how-this-interacts-with-branch-per-task-and-squash-merge)'s "no release branches" and [§5](#5-release-checklist) item 17 hold unchanged.
 
 [§1.3](#13-the-save-format-version-is-a-separate-axis) is **not** superseded: no v0.4.x bumps the save schema. Every v0.4.x keeps `SaveFormat.CurrentVersion = 3`, and the guard below enforces it.
 
-**How a v0.4.x stays guarded.** No v0.5.0 work may be reachable from a v0.4.x, whether by a new game, an attack or a loaded save. T125 is where the tactical battle enters the session: besides the `HumanBattles` switch (default `Instant`), it makes a save carry an open battle behind save schema 4, and **a loaded save holding a battle reopens it whatever the switch says** ([T125](tasks/T125.md), Hazards). A default switch alone is therefore not a guard. The guard is **the absence of T125** from the cut:
+**How a v0.4.x stays guarded.** No v0.5.0 work may be reachable from a v0.4.x, whether by a new game, an attack or a loaded save. T125 is where the tactical battle enters the session: besides the `HumanBattles` switch (default `Instant`), it makes a save carry an open battle behind save schema 4, and **a loaded save holding a battle reopens it whatever the switch says** ([T125](tasks/T125.md), Hazards). A default switch alone is therefore not a guard. The guard is **the absence of T125 from `main`**:
 
-1. **Before T125 merges, a v0.4.x is cut from `main`.** Nothing tactical is reachable there: T122's ruleset keys are read by no command, and T123's and T124's engine is called by no session. T125 is the first task to wire the battle into play, and T126, T127, T129 and T130 all merge after it.
-2. **After T125 merges, a v0.4.x is cut from `release/0.4`**, a branch the main session creates once, from the parent of T125's squash commit on `main` (`git branch release/0.4 <T125's commit>^`, pushed to `origin`). A later v0.4.x's items are merged to `main` as usual and then ported to `release/0.4` in a PR of their own against `release/0.4` (a `git cherry-pick -x` of the squash commit when it applies cleanly, a port otherwise), reviewed like a fix; CI runs on that PR, since `ci.yml`'s `pull_request` trigger has no branch filter (its `push` trigger covers `main` only), and "CI is green" for a cut from `release/0.4` means the last port PR's run. A port that would need T125 or anything after it does not go to `release/0.4`; the user is asked whether it waits for `v0.5.0`. The branch is never merged back into `main`, and it is deleted at the `v0.5.0` tag. This refines the user's decision of 2026-10-04 ("cut from `main`, no maintenance branch") **only for the period between T125's merge and the `v0.5.0` tag**; before T125 there is no branch.
-3. **The check at every v0.4.x cut**, run by the main session on the commit it is about to tag (`<cut>`, on `main` or `release/0.4`), before `git tag -a`. All three must hold:
-   - `git log --format=%s <cut> | grep -cE '^T125[ :]'` prints `0` (T125's squash commit is not in the cut's history);
-   - `git grep -n "HumanBattles" <cut> -- src godot` prints nothing (the session has no switch, so no session path to a tactical battle);
-   - `git show <cut>:src/IC2.Engine/Persistence/SaveFormat.cs | grep -c 'CurrentVersion = 3;'` prints `1` (the save schema is still 3, so no save can carry a battle and §1.3 holds).
+1. **T125 is held** (`status:blocked`, with a comment naming this section) until the user says the v0.4.x line is done. T126, T127, T129 and T130 merge after T125, so they are held with it. Nothing else tactical is reachable on `main`: T122's ruleset keys are read by no command, T123's and T124's engine is called by no session, and T128 adds asset files that no screen loads before T127. A v0.5.0 task that would make any of it reachable before T125 is a plan change, brought to the user.
+2. **There is no maintenance branch and no cherry-pick**, at any point. After the user ends the v0.4.x line, the next release from `main` is `v0.5.0`. A defect found in a v0.4.x after that ships in `v0.5.0` or a `v0.5.x`.
+3. **The check at every v0.4.x cut**, run in PowerShell by the main session on the `main` commit it is about to tag (`$cut`), before `git tag -a`. These checks read the cut's tree, not commit subjects. Each one reads git's exit code, because `git grep` exits 1 when nothing matches and 128 or more when the command itself failed. All three must hold:
+   - `git grep -n "HumanBattles" $cut -- src godot` prints nothing and `$LASTEXITCODE` is `1`. That means no match: the tree has no switch, so no session path to a tactical battle. Exit 0 (a match) or any other code (the command failed) fails the check.
+   - `git grep -c "CurrentVersion = 3;" $cut -- src/IC2.Engine/Persistence/SaveFormat.cs` prints exactly one line ending in `:1`, and `$LASTEXITCODE` is `0`. The save schema is still 3, so no save can carry a battle, and §1.3 holds. Exit 1 means the line is gone; any other code means the command failed. Either fails the check.
+   - `gh issue view 666 --json state,labels --jq '[.state, ([.labels[].name] | index("status:merged"))]'` prints `["OPEN",null]` and `$LASTEXITCODE` is `0`: T125 has not merged.
 
-   If any fails, nothing is tagged and the user is asked.
+   If any check fails, nothing is tagged and the user is asked.
 
-**The main session publishes a v0.4.x without asking** (the user's decision of 2026-10-04; [§3.2](#32-who-cuts-the-tag--recommended-consistent-with-q-a)'s v0.4.x row). When the patch's listed tasks and fixes are merged and CI is green on the branch it cuts from (`main`, or `release/0.4` after T125), it runs the guard check above and the [§5](#5-release-checklist) checklist's agent lines, then: tags the release; creates the GitHub Release with its notes and the Windows zip and installer; publishes it; and installs the update on the user's machine by running the Release's `setup.exe` silently (`/VERYSILENT /SUPPRESSMSGBOXES /NORESTART`), which upgrades the existing install in place (the user's standing instruction). It reports the tag, the Release's link and the install's result to the user.
+**The main session publishes a v0.4.x without asking** (the user's decision of 2026-10-04; [§3.2](#32-who-cuts-the-tag--recommended-consistent-with-q-a)'s v0.4.x row). When the patch's listed tasks and fixes are merged and CI is green on `main` at the commit it cuts, it runs the guard check above and the [§5](#5-release-checklist) checklist's agent lines, then: tags the release; creates the GitHub Release with its notes and the Windows zip and installer; publishes it; and installs the update on the user's machine by running the Release's `setup.exe` silently (`/VERYSILENT /SUPPRESSMSGBOXES /NORESTART`), which upgrades the existing install in place (the user's standing instruction). It reports the tag, the Release's link and the install's result to the user.
 
 ### 2.3 What is explicitly *not* in this ladder
 
@@ -142,7 +144,7 @@ The **tactical battle** is no longer one of them: it belongs to **`v0.5.0` *Batt
 | Tag kind | **Annotated** (`git tag -a`), never lightweight — the message carries the gate (the issue numbers) so `git show <tag>` explains itself |
 | Tag message subject | `v0.3.0 — Headless playable (closes #18–#23)` |
 | Where | **`main` only**, always on a squash-merge commit — never on a task branch, never on a rebase artifact |
-| GitHub Release | One per tag, always; title = the tag plus the ladder's short name (`v0.3.0 — Headless playable`); body = [§4](#4-release-notes) |
+| GitHub Release | One per tag, always; title = the tag plus the ladder's short name (`v0.3.0 — Headless playable`); body = [§4](#4-release-notes); assets = the Windows zip and installer, from v0.4.0 on ([§5](#5-release-checklist) item 20) |
 | Pre-1.0 marker | Every `0.x` release and every `-rc` is published with GitHub's **pre-release** flag set; only `v1.0.0` is a full release |
 | Moving a tag | **Never.** Re-pointing a published tag is a destructive git operation under [build-process.md §4.5](build-process.md#45-when-to-escalate-to-the-user) case 10. A mistake is corrected by a new PATCH tag. |
 
@@ -245,10 +247,13 @@ The concrete "done when" for cutting a release, in the task catalogue's style: *
 17. The tag is annotated, on `main`, on a squash-merge commit, matches the name pattern, and does not already exist — `git tag -l <tag>` is empty before `git tag -a`.
 18. **Human** *(v0.4.0, v0.5.0, v1.0.0 only)*: visual sign-off given on every screenshot posted by T24/T25/T27 (and, for `v0.5.0`, by T127), per [Q-B](build-process.md#9-standing-governance-decisions).
 19. **Human** *(v0.4.0, v0.5.0, v1.0.0 only)*: the draft Release is published by the user. For `v0.1.0`–`v0.3.0`, the main session publishes (see [§3.2](#32-who-cuts-the-tag--recommended-consistent-with-q-a)).
+20. *(from v0.4.1; every tag, milestone or patch)* **The Windows assets are on the Release before it is published.** Pushing the tag runs the release workflow ([T131](tasks/T131.md), `.github/workflows/release.yml`), which builds the tag with `scripts/release-assets.ps1` and attaches `ImperialConquest2-<tag>-windows-x64.zip` and `ImperialConquest2-<tag>-windows-x64-setup.exe` to the tag's Release, creating it as a draft when none exists. Checked by `gh release view <tag> --json assets` listing both files, which holds whichever run attached them, the tag push or a later dispatch, and by the run that did: `gh run list --workflow release.yml --json event,headBranch,displayTitle,conclusion,url --limit 20` shows a `success` run for the tag (event `push` with `headBranch` `<tag>`, or event `workflow_dispatch` whose title names `<tag>`; the workflow's `run-name` puts the tag in the title). It runs after item 17 and before item 19. The workflow never replaces an asset a Release already holds; a re-upload is the user's, by hand.
 
-Items 1–17 are checkable by an agent. Items 18–19 are the only human steps, and neither is new — both are [Q-B](build-process.md#9-standing-governance-decisions)'s existing answer applied at the release boundary.
+Items 1–17 and 20 are checkable by an agent. Items 18–19 are the only human steps, and neither is new — both are [Q-B](build-process.md#9-standing-governance-decisions)'s existing answer applied at the release boundary.
 
 **If a check fails**, the release does not get cut and nothing is tagged. Fix forward on `main` and re-run the checklist; a failed checklist is never worked around by weakening a line, for exactly the reason [build-process.md §4.3](build-process.md#43-the-dod-is-not-negotiable-by-an-agent) gives about DoDs.
+
+**Item 20 is the exception, because it runs after the tag exists.** If the release workflow fails, the tag stays: it is never moved or deleted (§3.1). The Release stays a draft and is not published (item 19) until it carries both assets. When the cause is the runner or the workflow and not the tagged tree, the main session fixes it on `main` and re-runs the workflow with `gh workflow run release.yml -f tag=<tag>` (a dispatch runs `main`'s workflow and script on the tag's tree). When the tagged tree itself cannot be packaged, the fix merges on `main` and ships in the next patch release (§2.2), which gets its own assets; the failed tag's draft stays unpublished, and the user decides what becomes of it.
 
 ---
 
@@ -311,15 +316,19 @@ Items 10–13 and 18 are v0.4.0 or v1.0.0 only. Item 19: the main session publis
 
 ---
 
+**`v0.4.0`'s Windows assets were attached by hand on 2026-10-04**, after the Release was published, by the user's decision of that day that every release carries a Windows build a player can start without Godot. The main session packaged the tag (`99ba0d3`) with `main`'s `scripts/package.ps1` and `godot/export_presets.cfg` copied onto it, since T27 merged after the tag; the tag lacks `-Verify`'s check scene, so a headless launch with a scrubbed `PATH` and `DOTNET_ROOT` stood in for it and exited 0. It attached `ImperialConquest2-v0.4.0-windows-x64.zip` (74.7 MB) and `ImperialConquest2-v0.4.0-windows-x64-setup.exe` (52 MB, Inno Setup 6.7.3, a per-user install that upgrades in place), the installer tested by a silent install, a headless launch and a silent uninstall that left no file. [T131](tasks/T131.md) automates the same steps for every later tag ([§5](#5-release-checklist) item 20).
+
+---
+
 ## 7. Summary
 
 | | |
 | --- | --- |
 | Scheme | SemVer 2.0.0, `v`-prefixed, annotated tags on `main` only; `0.x` through the build, `-rc.N` only ahead of `v1.0.0` |
-| Tags | Six: `v0.1.0`, `v0.2.0`, `v0.3.0`, `v0.4.0`, `v0.5.0`, `v1.0.0` — at capability jumps, **not** at phase boundaries |
+| Tags | Six on the ladder: `v0.1.0`, `v0.2.0`, `v0.3.0`, `v0.4.0`, `v0.5.0`, `v1.0.0` — at capability jumps, **not** at phase boundaries — plus regular patch releases between them ([§2.2](#22-patch-releases)) |
 | Gate | A set of merged task issues, tracked by a `release:*` label; never a date |
 | Cut by | The main session, right after merging the last gating task, before dispatching the next |
 | Published by | The main session for `v0.1.0`–`v0.3.0`; the **human** for `v0.4.0`, `v0.5.0` and `v1.0.0`, inheriting Q-B's visual sign-off |
 | Notes | Generated at cut time from GitHub + the shipped ruleset JSON; no `CHANGELOG.md`; eight required sections, presets and `[designed]` mechanics among them |
 | Reviewed by | The existing reviewer role (Opus / Medium), applying build-process.md §4.2's gates to the draft Release body |
-| Blocking constraint | 19 checklist lines; 17 agent-checkable, 2 human, none of them new |
+| Blocking constraint | 20 checklist lines; 18 agent-checkable, 2 human; item 20, the Windows assets, added 2026-10-04 by the user's decision |
