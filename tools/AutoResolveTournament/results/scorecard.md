@@ -19,9 +19,9 @@
 | SV-c | ≥ 0.05 | -0.0001 (σ(Z) 0.6461 over 25200 − σ(H) 0.6462 over 50400) — **FAIL** | 0.0000 (σ(Z) 0.0000 over 23126 − σ(H) 0.0000 over 53563) — **FAIL** | -0.0424 (σ(Z) 0.4649 over 26800 − σ(H) 0.5073 over 50400) — **FAIL** | 0.0657 (σ(Z) 0.6168 over 30864 − σ(H) 0.5510 over 43819) — **pass** | 0.0731 (σ(Z) 0.3467 over 23927 − σ(H) 0.2736 over 51740) — **pass** |
 | SV-d | ≥ 0.05 | 0.0029 (mean τ over 88200 battles with survivors) — **FAIL** | undefined (mean τ over 0 battles with survivors) — **undefined** | 0.1770 (mean τ over 86997 battles with survivors) — **pass** | 0.0888 (mean τ over 88200 battles with survivors) — **pass** | 0.3029 (mean τ over 88200 battles with survivors) — **pass** |
 | DET | 100/100 byte-identical (two processes) and 100/100 draws as stated; no other randomness source | 100/100 byte-identical across two processes; draw count as stated: 0/100 — **FAIL** | 100/100 identical; 100/100 draws — **pass** | 100/100 identical; 100/100 draws — **pass** | 100/100 identical; 100/100 draws — **pass** | 100/100 identical; 100/100 draws — **pass** |
-| COST mean t_c | (reported) | 0.0116 ms | 0.0154 ms | 0.0035 ms | 0.0051 ms | 0.0128 ms |
-| COST p99 | ≤ 50 ms | 0.0564 ms — **pass** | 0.0474 ms — **pass** | 0.0081 ms — **pass** | 0.0119 ms — **pass** | 0.0299 ms — **pass** |
-| COST E_c = E0 + B × (t_c − t_1) | ≤ 240 s | 1.7300 s — **pass** | 1.7302 s — **pass** | 1.7296 s — **pass** | 1.7297 s — **pass** | 1.7301 s — **pass** |
+| COST mean t_c | (reported) | 0.0099 ms | 0.0159 ms | 0.0040 ms | 0.0056 ms | 0.0126 ms |
+| COST p99 | ≤ 50 ms | 0.0456 ms — **pass** | 0.0482 ms — **pass** | 0.0075 ms — **pass** | 0.0128 ms — **pass** | 0.0304 ms — **pass** |
+| COST E_c = E0 + B × (t_c − t_1) | ≤ 240 s | 2.3700 s — **pass** | 2.3703 s — **pass** | 2.3697 s — **pass** | 2.3698 s — **pass** | 2.3701 s — **pass** |
 
 Per-composition score s(A), T-scale / P-scale:
 
