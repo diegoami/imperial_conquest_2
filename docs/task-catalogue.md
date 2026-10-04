@@ -1084,6 +1084,12 @@ Hideable info panel (the user's request of 2026-10-04 after playing v0.4.0, the 
 
 ---
 
+#### T133 CI runs on pushes to release branches
+
+CI on maintenance lines (the first item of the `release/0.4` line, [release-plan.md §2.2.2](release-plan.md#222-two-release-lines-a-maintenance-branch-per-patched-minor)) → [full entry](tasks/T133.md) · [#696](https://github.com/diegoami/imperial_conquest_2/issues/696)
+
+---
+
 #### T25 Battle result, diplomacy, and hotseat handoff screens
 
 Godot screens → [full entry](tasks/T25.md) · [#25](https://github.com/diegoami/imperial_conquest_2/issues/25)
@@ -1246,3 +1252,4 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T130](#t130-the-improved-rulesets-tactical-battle-save-at-a-half-rounds-start-the-quirks-fixed-a-half-round-cap-no-slow-advance-and-retreat-losses-and-scatter-for-the-loser) | Improved tactical rules | M21 | **Opus** | High | Sol + Luna pair | T125, T129 | #674 |
 | [T131](#t131-every-release-carries-windows-assets-the-zip-and-the-installer-built-by-a-release-workflow) | Release assets | M20 | Sonnet | High | Sol | — | #688 |
 | [T132](#t132-the-right-hand-info-panel-can-be-hidden-and-shown-again) | Hideable info panel | M18 | Sonnet | Medium | Sol + human | — | [#690](https://github.com/diegoami/imperial_conquest_2/issues/690) |
+| [T133](#t133-ci-runs-on-pushes-to-release-branches) | CI on release branches | M20 | Sonnet | Low | Sol | — | [#696](https://github.com/diegoami/imperial_conquest_2/issues/696) |

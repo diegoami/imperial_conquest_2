@@ -190,7 +190,7 @@ issue status:ready, every merge-after dependency merged
 
 ### 4.2 What the reviewer checks
 
-Before the gates, **gate 0: the reviewer proves it is looking at the right code** — its HEAD equals the PR's head, and its `origin/main...HEAD` file list equals the PR's own file list, with both pasted into the review ([Appendix B](#appendix-b-reviewer-prompt-template); incident 5). An empty diff means the wrong tree. Every finding must name a file from that diff; anything else is a separate report.
+Before the gates, **gate 0: the reviewer proves it is looking at the right code** — its HEAD equals the PR's head, and its `origin/main...HEAD` file list (`origin/release/0.4...HEAD` for a PR against a maintenance line, [release-plan.md §2.2.2](release-plan.md#222-two-release-lines-a-maintenance-branch-per-patched-minor)) equals the PR's own file list, with both pasted into the review ([Appendix B](#appendix-b-reviewer-prompt-template); incident 5). An empty diff means the wrong tree. Every finding must name a file from that diff; anything else is a separate report.
 
 Five gates, in order. Any failure means `status:rework`. **What makes a finding blocking** is spelled out in every review brief, in a "Blocking means" section written for that task ([Appendix B](#appendix-b-reviewer-prompt-template); harness lesson L47, adopted by the user's decision of 2026-10-04). The rule it encodes: **a proven way past what the task protects is blocking**, never "follow-up hardening". The boundary of what a task protects is set before review, in its entry's `Protects:` line (which may name what it explicitly does not cover); a review cannot reclassify a proven bypass inside that boundary. In the harness's PR 29 replay a reviewer proved three bypasses of the guard under review, rated them all non-blocking and approved, while two other reviewers asked for rework on the same head. Every brief, a plan PR's included, also carries the section "Report every blocking finding in this one review", pasted in full right after "Blocking means" ([Appendix B](#appendix-b-reviewer-prompt-template); the user's decision of 2026-10-04, after a reviewer in ic2-conquest PR #38 asked for rework eight times, one blocking finding per round): one review lists every blocking finding, numbered R1, R2, …, and says "Final pass done" just before its closing verdict.
 
@@ -328,7 +328,7 @@ A fix:
 - **has no catalogue entry and no `T` number.** The bug issue is the contract. Its Owns is the files the bug names, read from the issue body, plus gate 4's implicit set ([§4.2](#42-what-the-reviewer-checks)); once the PR exists, its file list is the authority for [§8](#8-two-machines)'s disjointness check; its DoD is the bug's reproduction turned into a test that fails before the change and passes after it, plus a green `dotnet build IC2.sln` and `dotnet test IC2.sln`.
 - **runs through the same labels as a task** (`status:in-progress`, `in-review`, `approved` or `rework`, `merged`), the same `machine:*` claim, and `local-only` or `single-instance` where they apply. It is the machine's one task while it runs ([§7](#7-concurrency-single-instance-and-local-only), [§8](#8-two-machines)), and its files must be disjoint from every task in flight.
 - **is dispatched by `/run-task #<issue>`** ([Appendix C](#appendix-c-the-run-task-skill)): implementer the default OpenCode chain (`deepseek-flash`, then Claude Sonnet, [§3.3](#33-model-selection)) in worktree `ic2-work\fix-<issue>` on branch `fix/<issue>-<slug>`, with the bug body in place of the task entry in Appendix A's brief, commit subject `fix <issue>: <subject>` (no `#`, so the squash closes nothing early), PR body `Closes #<issue>` as Appendix A already allows, reviewer by the PR's review tier ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers): complex at least, so GPT-6 Sol by default) at gates 0, 1, 3 and 4 plus a read of the diff. Gate 2 reduces to confirming no constant changed; the mutation protocol does not apply.
-- **on a maintenance line** (a bug labelled for a `v0.4.x`, [release-plan.md §2.2.2](release-plan.md#222-two-release-lines-a-maintenance-branch-per-patched-minor)) branches from `origin/release/0.4`, targets it with `--base release/0.4`, says `Refs #<issue>` in place of `Closes`, and is then ported forward to `main` by a cherry-pick PR that closes the issue. A v0.4.x task runs the same way.
+- **on a maintenance line** (a bug labelled for a `v0.4.x`, [release-plan.md §2.2.2](release-plan.md#222-two-release-lines-a-maintenance-branch-per-patched-minor)) branches from `origin/release/0.4`, targets it with `--base release/0.4`, says `Refs #<issue>` in place of `Closes`, and is then ported forward to `main` by a cherry-pick PR that closes the issue. A v0.4.x task runs the same way. [Appendix C](#appendix-c-the-run-task-skill) lists the overrides.
 - **gets one rework round** ([§4.4](#44-rework)). A review that fails while the issue carries `review-round:1` turns it into a correction task: the main session files the task at the contract tier, keeps the branch, and stops.
 
 Why the lane exists: incident 12.
@@ -975,6 +975,17 @@ the docs item applies only if the review named a claim.
    - Bug in merged code (§4.6): label the task status:blocked with "suspended on #N". File the
      bug (bug, triage:needed; the body opens "Blocks: T<nn>"). Triage it, or bring it to the
      user. Stop the run.
+
+A MAINTENANCE-LINE ITEM (a task or fix labelled release:v0.4.x after v0.4.1, release-plan.md
+§2.2.2) runs through the same steps with these overrides. Before step 1, the main session creates
+and pushes its branch from origin/release/0.4 (git branch <branch> origin/release/0.4; git push -u
+origin <branch>), so every implementer resumes it. In Appendix A's and B's briefs, in gate 0 and in
+step 2's state file, every origin/main reads origin/release/0.4, and the brief's first line says so.
+The PR is opened with --base release/0.4 and says "Refs #<issue>", never "Closes". In step 3, the
+merge is followed at once by the forward port: a port/<issue>-<slug> branch from origin/main with
+git cherry-pick -x <the squash commit>, a PR against main saying "Closes #<issue>", reviewed per
+release-plan §2.2.2 and merged on an approving review and green CI. The issue is status:merged when
+the port merges, or when the recorded no-port reason has been told to the user.
 
 Never: merge without an approving review and green CI; weaken a DoD; let the implementing agent
 review its own PR; force-push; delete a task branch that holds unmerged work; patch a defect in
