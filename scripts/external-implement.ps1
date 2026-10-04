@@ -121,8 +121,8 @@ $ErrorActionPreference = 'Stop'
 # overrides any of them.
 $models = @{
     'luna'            = 'openai/gpt-6-luna'
-    'glm-flash'       = 'opencode-go/glm-5.3-flash'
-    'glm'             = 'opencode-go/glm-5.3'
+    'glm-flash'       = 'zai-coding-plan/glm-5.3-flash'
+    'glm'             = 'zai-coding-plan/glm-5.3'
     'deepseek-flash'  = 'opencode-go/deepseek-v4.1-flash'
     'mimo-pro'        = 'opencode-go/mimo-v2.6-pro'
     'mimo-flash'      = 'opencode-go/mimo-v2.6-flash'

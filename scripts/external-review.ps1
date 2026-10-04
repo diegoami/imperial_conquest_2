@@ -74,7 +74,7 @@
     posted with a note and no label and the script exits 4 (issue #575); it is never acted on.
 
     Reviewer -> OpenCode model id. GLM Flash and DeepSeek are on the OpenCode Go list
-    (`opencode-go/glm-5.3-flash`, `opencode-go/deepseek-v4.1-flash`); luna is the direct OpenAI
+    (`opencode-go/deepseek-v4.1-flash`; GLM is on the Z.AI Coding Plan, `zai-coding-plan/glm-5.3` and `zai-coding-plan/glm-5.3-flash`, the user's decision of 2026-10-04); luna is the direct OpenAI
     route, `openai/gpt-6-luna`, via the machine's OpenAI login (not Go's proxied
     `opencode-go/gpt-6-luna`, whose upstream returned Bad Request in long runs, #553); sol is
     `openai/gpt-6-sol` on the same login; deepseek-pro is `opencode-go/deepseek-v4-pro`. An OpenAI
@@ -552,8 +552,8 @@ function Invoke-ReviewParserSelfTest {
 # is the complex tier's reviewer and luna plus glm or deepseek-pro the Luna pair (the user's decision of
 # 2026-10-03, build-process.md §3.4); the main session passes them explicitly, so auto stays Luna.
 $models = @{
-    'glm-flash' = 'opencode-go/glm-5.3-flash'
-    glm         = 'opencode-go/glm-5.3'
+    'glm-flash' = 'zai-coding-plan/glm-5.3-flash'
+    glm         = 'zai-coding-plan/glm-5.3'
     luna        = 'openai/gpt-6-luna'
     sol         = 'openai/gpt-6-sol'
     deepseek    = 'opencode-go/deepseek-v4.1-flash'
