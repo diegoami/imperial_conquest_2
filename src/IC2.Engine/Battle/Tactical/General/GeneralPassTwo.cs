@@ -26,9 +26,10 @@ namespace IC2.Engine.Battle.Tactical.General;
 /// </list>
 /// <para>
 /// The <c>div 4</c> and the <c>2 × … div 3</c> are the pass's own shape (report §7); <c>combat.tactical</c>
-/// has no field for them (T122's entry), so they are written here, cited. A bound <c>s</c> of 0, which a
-/// wrapped 32-bit shot base could give, would divide by zero in the original; the port skips that enemy
-/// rather than crash <strong>[designed: the report does not reach the case]</strong>.
+/// has no field for them, so they are written here, cited (T124's entry, amended by plan PR #686). The key
+/// is the report's plain <c>troops div s</c>, with no guard: the report gives none, so a bound of 0 divides
+/// by zero here as the original's <c>div</c> would. No battle state the original can hold reaches it (the
+/// troops word cannot hold the ≥ 131,070 troops whose 16-bit <c>min</c> makes the bound 0).
 /// </para>
 /// </remarks>
 public static class GeneralPassTwo
@@ -51,11 +52,18 @@ public static class GeneralPassTwo
         return board.Freeze();
     }
 
-    /// <summary>The pass-2 shot key of enemy <paramref name="enemy"/> for unit <paramref name="slot"/>: <c>troops div (s + s div 4 if it shoots)</c>, or <see langword="null"/> for a zero bound.</summary>
-    public static int? ShotKey(TacticalBattleState state, int slot, int enemy, TacticalContext context)
+    /// <summary>The pass-2 shot key of enemy <paramref name="enemy"/> for unit <paramref name="slot"/>: <c>troops div (s + s div 4 if it shoots)</c>.</summary>
+    public static int ShotKey(TacticalBattleState state, int slot, int enemy, TacticalContext context)
     {
         var board = TacticalBoard.Thaw(state, context, draws: null);
         return ShotKey(board, slot, enemy);
+    }
+
+    /// <summary>The pass-2 melee key of enemy <paramref name="enemy"/> for unit <paramref name="slot"/>: <c>theirs − focus × theirs</c>, 32-bit, wrapping.</summary>
+    public static int MeleeKey(TacticalBattleState state, int slot, int enemy, TacticalContext context)
+    {
+        var board = TacticalBoard.Thaw(state, context, draws: null);
+        return MeleeKey(board, slot, enemy);
     }
 
     internal static void Apply(TacticalBoard board, IList<GeneralDecision>? journal)
@@ -82,11 +90,12 @@ public static class GeneralPassTwo
             var bestKey = 0;
             for (var e = enemyFirst; e < enemyFirst + board.SlotsPerSide; e++)
             {
-                if (!board.IsLive(e) || board.Distance(slot, e) > range || ShotKey(board, slot, e) is not { } key)
+                if (!board.IsLive(e) || board.Distance(slot, e) > range)
                 {
                     continue;
                 }
 
+                var key = ShotKey(board, slot, e);
                 if (best < 0 || key < bestKey)
                 {
                     best = e;
@@ -109,7 +118,6 @@ public static class GeneralPassTwo
             return;
         }
 
-        var side = board.SideOf(slot);
         var melee = -1;
         var meleeTheirs = 0;
         for (var e = enemyFirst; e < enemyFirst + board.SlotsPerSide; e++)
@@ -119,8 +127,7 @@ public static class GeneralPassTwo
                 continue;
             }
 
-            var theirs = board.Slots[e].Troops;
-            var adjusted = unchecked(theirs - (GeneralTargeting.Focus(board, side, e) * theirs));
+            var adjusted = MeleeKey(board, slot, e);
             if (melee < 0 || adjusted < meleeTheirs)
             {
                 melee = e;
@@ -135,7 +142,13 @@ public static class GeneralPassTwo
         }
     }
 
-    internal static int? ShotKey(TacticalBoard board, int slot, int enemy)
+    internal static int MeleeKey(TacticalBoard board, int slot, int enemy)
+    {
+        var theirs = board.Slots[enemy].Troops;
+        return unchecked(theirs - (GeneralTargeting.Focus(board, board.SideOf(slot), enemy) * theirs));
+    }
+
+    internal static int ShotKey(TacticalBoard board, int slot, int enemy)
     {
         var unit = board.Slots[slot];
         var them = board.Slots[enemy];
@@ -145,6 +158,6 @@ public static class GeneralPassTwo
             s = unchecked(s + (s / ShooterBonusDivisor));
         }
 
-        return s == 0 ? null : them.Troops / s;
+        return them.Troops / s;
     }
 }

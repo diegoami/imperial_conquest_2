@@ -161,6 +161,105 @@ public class PathTests
         Assert.Equal(0, after.Slots[0].Moves);
     }
 
+    /// <summary>
+    /// Detours: a step off the straight line. T123's movement takes one when the path cell is blocked
+    /// (<c>FUN_00438A6C</c>; T123's <c>MovementTests</c> pin each case). The general's own walks cannot
+    /// take one. It walks only to a cell whose line <see cref="GeneralLine"/> has just found clear, on the
+    /// same grid and by the same Bresenham cursor the walk follows, and nothing fills a cell during a walk:
+    /// its shots and routs only empty cells.
+    /// </summary>
+    /// <remarks>
+    /// The first part shows the oracle sees a detour: T123's walk from (2,5) to (6,5) with (3,5) held steps
+    /// to (3,6) (the row's +1 alternative), which is not the line's (3,5), so the oracle rejects it. The
+    /// second part runs 60 whole battles between two computer generals and checks every step of every walk
+    /// the general makes: each must be the next cell of the line from where the walk began to the
+    /// journal's destination. Not one detours.
+    /// </remarks>
+    [Fact]
+    public void A_blocked_path_detours_but_the_generals_own_walks_never_do()
+    {
+        // The oracle against a real detour: the straight line (3,5), (4,5) … is blocked at (3,5).
+        var blocked = Arena((0, Unit(LC, 2, 5, 5000)), (1, Unit(HI, 3, 5, 5000)), (D0, Unit(LI, 13, 11, 5000)));
+        var detoured = TacticalMovement.MoveUnit(blocked, 0, 6, 5, Context, NoDraws.Instance);
+        Assert.Equal(new[] { (3, 6), (4, 5), (5, 5), (6, 5) }, Path(detoured, 0));
+        var fakeWalk = new GeneralDecision(0, GeneralStep.ApproachLine, -1, 6, 5);
+        // The first step leaves the line, so it and every step after it are left over: all 4.
+        Assert.Equal(4, Detours(blocked, [fakeWalk], detoured.Log.OfType<TacticalMovedEvent>().ToList()));
+
+        // The general's walks across 60 battles.
+        var walks = 0;
+        var steps = 0;
+        for (uint seed = 1; seed <= 30; seed++)
+        {
+            foreach (var scale in new[] { 1, 2 })
+            {
+                var journal = new List<GeneralDecision>();
+                var general = new ComputerGeneral(journal);
+                var draws = new DelphiBattleDraws(seed * 7919u);
+                var state = FreshBattle(Army(1), Army(scale));
+                for (var halfRound = 0; halfRound < 400 && !state.IsOver; halfRound++)
+                {
+                    if (state.Placed)
+                    {
+                        var before = state;
+                        var decided = journal.Count;
+                        state = general.Move(state, Context, draws);
+                        var moves = state.Log.Skip(before.Log.Count).OfType<TacticalMovedEvent>().ToList();
+                        var decisions = journal.Skip(decided).Where(IsWalk).ToList();
+                        Assert.Equal(0, Detours(before, decisions, moves));
+                        walks += decisions.Count;
+                        steps += moves.Count;
+                    }
+                    else
+                    {
+                        state = general.Place(state, Context, draws);
+                    }
+
+                    state = TacticalHalfRound.End(state, Context, draws);
+                }
+
+                Assert.True(state.IsOver);
+            }
+        }
+
+        Assert.True(walks > 500 && steps > 1000, $"{walks} walks, {steps} steps");
+    }
+
+    private static TacticalSlot[] Army(int scale) =>
+    [
+        Unit(LI, 0, 0, 6000 * scale), Unit(HI, 0, 0, 3000 * scale, quality: 6), Unit(AR, 0, 0, 1500 * scale),
+        Unit(LC, 0, 0, 2500 * scale), Unit(HC, 0, 0, 1000 * scale, quality: 6), Unit(HI, 0, 0, 2500 * scale),
+        Unit(LI, 0, 0, 4000 * scale, quality: 4), Unit(AR, 0, 0, 1200 * scale, quality: 4),
+    ];
+
+    private static bool IsWalk(GeneralDecision d) =>
+        d.Step is GeneralStep.ApproachLine or GeneralStep.ApproachBox or GeneralStep.ThreatLine
+            or GeneralStep.ThreatBox or GeneralStep.Flank;
+
+    /// <summary>
+    /// The steps of <paramref name="moves"/> that are not on their walk's line: each walk decision, in
+    /// order, takes the following steps of its unit while each is the next cell of the line from the unit's
+    /// cell to the decision's destination. Any step left over means a walk left its line: the count is the
+    /// first off-line step and every step after it.
+    /// </summary>
+    private static int Detours(TacticalBattleState before, IReadOnlyList<GeneralDecision> walks, IReadOnlyList<TacticalMovedEvent> moves)
+    {
+        var at = before.Slots.Select(s => (s.X, s.Y)).ToArray();
+        var next = 0;
+        foreach (var walk in walks)
+        {
+            var line = BresenhamCells(at[walk.Slot].X, at[walk.Slot].Y, walk.X, walk.Y);
+            for (var k = 0; k < line.Count && next < moves.Count && moves[next].Slot == walk.Slot
+                            && (moves[next].ToX, moves[next].ToY) == line[k]; k++)
+            {
+                at[walk.Slot] = line[k];
+                next++;
+            }
+        }
+
+        return moves.Count - next;
+    }
+
     /// <summary>The design's line, written out independently: <c>err = 2 × minor − major</c>; while <c>err ≥ 0</c> a minor step, then the major step.</summary>
     private static List<(int, int)> BresenhamCells(int x1, int y1, int x2, int y2)
     {

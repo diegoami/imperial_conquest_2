@@ -53,6 +53,21 @@ public class PassTests
     }
 
     [Fact]
+    public void Pass_2s_shot_key_divides_by_the_bound_with_no_guard()
+    {
+        // The report's key is a plain troops div s, with no case for s = 0, so the port has none: a bound
+        // of 0 divides by zero, as the original's div would. Reaching it takes a crafted state (no ruleset
+        // change): a target of 131,070 troops, which the original's troops word cannot hold. Its
+        // troops div 2 = 65,535 is −1 as a 16-bit word, so the shot bound's 16-bit min is
+        // min(114, min(1000, −1)) = −1, and s = −1 + 1 = 0 (no shooter bonus: the target has no shots).
+        var state = General((0, Unit(LI, 5, 5, 3000)), (D0, Unit(LI, 5, 6, 131_070, shots: 0)));
+
+        Assert.Equal(0, TacticalShooting.Bound(state.Slots[0], state.Slots[D0], 1, Context));
+        Assert.Throws<DivideByZeroException>(() => GeneralPassTwo.ShotKey(state, 0, D0, Context));
+        Assert.Throws<DivideByZeroException>(() => GeneralPassTwo.Run(state, Context, new ZeroDraws()));
+    }
+
+    [Fact]
     public void Pass_2_ignores_enemies_out_of_range()
     {
         // The better key is at distance 2, beyond light infantry's range 1.
@@ -153,6 +168,12 @@ public class PassTests
             (D0, Unit(HI, 5, 6, 4000)), (D0 + 1, Unit(HI, 6, 6, 30000)));
 
         Assert.Equal(4, GeneralTargeting.Focus(state, 0, D0 + 1, Context));
+
+        // The key itself pins the width: 32 bits give −90,000. A 16-bit reading would give 4 × 30000 =
+        // 120,000 → (short) −11,072; 30000 + 11072 = 41,072 → (short) −24,464. Both pick B here, so which
+        // width the original uses is T129's to replay; this pins the port's.
+        Assert.Equal(-90_000, GeneralPassTwo.MeleeKey(state, 0, D0 + 1, Context));
+        Assert.Equal(4000, GeneralPassTwo.MeleeKey(state, 0, D0, Context));
         Assert.Equal(D0 + 1, GeneralPassTwo.Run(state, Context, NoDraws.Instance).Slots[0].Target);
     }
 
