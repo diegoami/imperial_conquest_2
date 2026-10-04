@@ -181,7 +181,11 @@ graph TD
   T116 --> T126
   T125 --> T127[T127 battle screen]
   T128[T128 battle assets] --> T127
-  T126 -.-> T127
+  T126 --> T127
+  T122 --> T128
+  T125 --> T129
+  T125 --> T130[T130 improved tactical rules]
+  T129 --> T130
   T123 --> T129[T129 tactical golden master]
   T124 --> T129
   T23 --> T26[T26 scenario docs+examples]
@@ -1037,7 +1041,7 @@ Tactical battle wired into the session and the CLI (#496) → [full entry](tasks
 
 #### T126 An AI seat's attack on a human's army opens the tactical battle during the AI phase
 
-AI-phase battles against a human on the board (#496; conditional on the user's answer there) → [full entry](tasks/T126.md) · #667
+AI-phase battles against a human on the board (#496, the user's decision of 2026-10-04) → [full entry](tasks/T126.md) · #667
 
 ---
 
@@ -1056,6 +1060,12 @@ Battle screen assets (#496) → [full entry](tasks/T128.md) · #669
 #### T129 The tactical battle's golden master: the port replays the original's recorded battles half-round by half-round
 
 Tactical battle golden master against the original's recorded battles (#496) → [full entry](tasks/T129.md) · #670
+
+---
+
+#### T130 The `improved` ruleset's tactical battle: save at a half-round's start, the quirks fixed, a half-round cap, no slow advance, and retreat losses and scatter for the loser
+
+`improved`'s tactical rules (#496, the user's decisions of 2026-10-04) → [full entry](tasks/T130.md) · #TBD-T130
 
 ---
 
@@ -1215,6 +1225,7 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T124](#t124-the-tactical-battles-computer-general-placement-target-choice-and-the-three-movement-passes) | Tactical computer general | M21 | **Opus** | High | Sol + Luna pair | T123 | #665 |
 | [T125](#t125-a-humans-attack-on-an-army-opens-the-tactical-battle-in-the-session-and-the-cli-and-its-result-is-written-back) | Tactical battle in the session | M21 | **Opus** | High | Sol + Luna pair | T123, T124 | #666 |
 | [T126](#t126-an-ai-seats-attack-on-a-humans-army-opens-the-tactical-battle-during-the-ai-phase) | AI-phase tactical battles | M21 | **Opus** | High | Sol + Luna pair | T125, T116 | #667 |
-| [T127](#t127-the-godot-battle-screen-and-the-battle-ended-window) | Battle screen | M21, M18 | Sonnet | High | **Opus**/Medium + human | T125, T128 (T126 when it runs) | #668 |
-| [T128](#t128-the-battle-screens-assets-15-recolourable-unit-icons-the-ground-tile-the-cursor-and-the-toolbar-glyphs) | Battle assets | M21 | Sonnet | Medium | **Opus**/Medium + human | — | #669 |
-| [T129](#t129-the-tactical-battles-golden-master-the-port-replays-the-originals-recorded-battles-half-round-by-half-round) | Tactical golden master | M21 | Sonnet | High | **Opus**/High | T123, T124 | #670 |
+| [T127](#t127-the-godot-battle-screen-and-the-battle-ended-window) | Battle screen | M21, M18 | Sonnet | High | **Opus**/Medium + human | T125, T126, T128 | #668 |
+| [T128](#t128-the-battle-screens-assets-15-recolourable-unit-icons-the-ground-tile-the-cursor-and-the-toolbar-glyphs) | Battle assets | M21 | Sonnet | Medium | **Opus**/Medium + human | T122 | #669 |
+| [T129](#t129-the-tactical-battles-golden-master-the-port-replays-the-originals-recorded-battles-half-round-by-half-round) | Tactical golden master | M21 | Sonnet | High | **Opus**/High | T123, T124, T125 | #670 |
+| [T130](#t130-the-improved-rulesets-tactical-battle-save-at-a-half-rounds-start-the-quirks-fixed-a-half-round-cap-no-slow-advance-and-retreat-losses-and-scatter-for-the-loser) | Improved tactical rules | M21 | **Opus** | High | Sol + Luna pair | T125, T129 | #TBD-T130 |
