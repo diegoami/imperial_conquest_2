@@ -558,7 +558,7 @@ two nested groups for the naval variant and the reserved "detailed" resolver.
 | `naval` | object | — | The naval variant of the instant resolver. See "Naval combat" below. |
 | `scatteredDefeat` | object | — | The `improved` ruleset's alternative to annihilating the loser. See "Scattered defeat" below. |
 | `detailedResolver` | object | — | Reserved constants for an optional, not-yet-wired resolver. See "Detailed resolver (reserved)" below. |
-| `tactical` | object | — | Every constant of the v0.5.0 tactical battle (the ported `TBattleMap`). See "Tactical battle" below. |
+| `tactical` | object | — | Every constant of the v0.6.0 tactical battle (the ported `TBattleMap`). See "Tactical battle" below. |
 | `_provenance` | object | No | Provenance map. |
 
 #### Naval combat (`combat.naval`)
@@ -611,7 +611,7 @@ consume them does not exist yet.
 #### Tactical battle (`combat.tactical`)
 
 `TacticalBattleRules`: every gameplay constant of the original's 14 × 12 grid battle (`TBattleMap`),
-transcribed from `2026-10-04-decompiled-tactical-battle-rules.md`. Read by the v0.5.0 tactical battle
+transcribed from `2026-10-04-decompiled-tactical-battle-rules.md`. Read by the v0.6.0 tactical battle
 (T123, T124), never by the shipped instant resolver. Field names are designed; every value is
 confirmed from the report section named in each field's own provenance note.
 
