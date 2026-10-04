@@ -57,9 +57,9 @@ public sealed class SavePendingOffer
         if (data.Length < 23)
             throw new InvalidDataException("Save ends before the pending-offer block.");
 
-        // fileLength - 23, not the report's stated "fileLength - 22" — see this class's remarks.
-        // The trailer itself is located through the shared helper, because a mid-battle save writes a
-        // battle block after it (bug #675); trailer +32 is this block's offset.
+        // trailer +32, not the report's stated "fileLength - 22" — see this class's remarks. The
+        // trailer is located through the shared helper, because a mid-battle save writes a battle
+        // block after it (bug #675); this block's offset is trailer +32.
         var offset = SaveTurnState.LocateTrailerStart(data) + 32;
         var proposingNationIndex = BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(offset, 2));
         var proposedRelationState = BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(offset + 2, 2));
