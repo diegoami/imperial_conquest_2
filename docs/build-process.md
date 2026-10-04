@@ -192,7 +192,7 @@ issue status:ready, every merge-after dependency merged
 
 Before the gates, **gate 0: the reviewer proves it is looking at the right code** — its HEAD equals the PR's head, and its `origin/main...HEAD` file list equals the PR's own file list, with both pasted into the review ([Appendix B](#appendix-b-reviewer-prompt-template); incident 5). An empty diff means the wrong tree. Every finding must name a file from that diff; anything else is a separate report.
 
-Five gates, in order. Any failure means `status:rework`.
+Five gates, in order. Any failure means `status:rework`. **What makes a finding blocking** is spelled out in every review brief, in a "Blocking means" section written for that task ([Appendix B](#appendix-b-reviewer-prompt-template); harness lesson L47, adopted by the user's decision of 2026-10-04). The rule it encodes: **a proven way past what the task protects is blocking**, never "follow-up hardening". The boundary of what a task protects is set before review, in its entry's `Protects:` line (which may name what it explicitly does not cover); a review cannot reclassify a proven bypass inside that boundary. In the harness's PR 29 replay a reviewer proved three bypasses of the guard under review, rated them all non-blocking and approved, while two other reviewers asked for rework on the same head.
 
 1. **DoD, independently reproduced.** The reviewer runs the commands itself at the PR head. The PR body's evidence is a convenience, never the proof. A DoD line with no runnable check is itself a finding.
 2. **Provenance.** Every constant traces to a `tests/fixtures` entry, a cited report, or a `docs/investigations/` document. Any `[designed]` value must say *what was searched and came up empty* (`design-audit.md` §4.5).
@@ -686,8 +686,8 @@ Run five gates, in order. Any failure is status:rework:
  3. Determinism. No System.Random, wall clock, Guid.NewGuid or order-dependent iteration in
     gameplay paths. Randomness goes through IRng, and a test proves seeded reproducibility.
  4. Scope. Every changed file is inside the task's declared Owns list. A file outside it is a
-    finding even if the change is good. Any diff to a Markdown file under docs/ (docs/**/*.md, including docs/tasks/) is an
-    automatic rework. The PR's
+    finding even if the change is good. Any diff to a Markdown file under docs/ (docs/**/*.md, including docs/tasks/) that
+    the Owns list does not name is an automatic rework. The PR's
     "Docs affected" list matches what the diff actually changes.
  5. Correctness. Sweep the diff for ordinary bugs YOURSELF, in your own context: read it hunk by
     hunk, plus the surrounding code it doesn't show, and hunt integer truncation and operation
@@ -712,7 +712,29 @@ Run five gates, in order. Any failure is status:rework:
 
 A defect you find in ANOTHER task's already-merged code is not a finding against this PR. Report
 it separately in your summary, so the main session files it as a bug (build-process.md §4.6).
-Mark each finding as blocking (fails a gate) or non-blocking.
+Mark each finding as blocking or non-blocking, by this section:
+
+Blocking means (any one is enough; a blocking finding means rework, never approve):
+1. A Done-when line fails, or cannot be run as written.
+2. What this task protects can be got past: <the main session names it, from the Scope's
+   "Protects:" line: the guard, check, invariant, rule value or file the task exists to protect;
+   on a guard task, the list of forbidden actions or results it must stop. An entry written
+   before 2026-10-04 has no such line: the main session derives it from the entry's Scope and
+   Done-when and writes "(derived by the main session)" after it. For a fix, it is the bug's
+   reproduction: the wrong result the bug describes must not recur by any path>. A bypass you proved
+   is blocking, even when it looks like an edge case. Never rate it "follow-up hardening" or
+   "outside the threat model": the boundary is the one named here, set before review, and only a
+   path this item explicitly excludes is outside it.
+3. Behaviour the task forbids, or behaviour nobody asked for, inside a file the task requires.
+4. Any failure of the gates this brief asks for (gates 2 to 5; a fix-lane brief asks for gates
+   3 and 4 plus a read of the diff, and only those count here): a constant with no evidence; a
+   random draw outside IRng or an order-dependent result; a file outside Owns, including a
+   docs/**/*.md file the Owns list does not name; a test that passes with the behaviour deleted; a comment or doc claim that asserts
+   behaviour no test or report supports; a status written into a document.
+Not blocking: wording and style that assert nothing false. A defect in code the PR did not change
+is not a finding against this PR: report it separately for the bug list (§4.6).
+When unsure, rate it blocking and say why. An approve with a proven bypass is the costliest
+mistake a review can make.
 
 Post your findings as a PR comment (`gh pr comment <pr> --body-file ...`): specific, actionable,
 with file and line, covering all five gates explicitly. Never put close/closes/fix/fixes/resolve/
@@ -807,7 +829,9 @@ the docs item applies only if the review named a claim.
       glm-flash; DeepSeek = deepseek, deepseek-pro, deepseek-flash; Claude = sonnet, opus. Every
       script run passes `-ExcludeModel <IMPL>` (sonnet and opus are accepted and exclude no
       OpenCode reviewer); never pick a reviewer of IMPL's family, Claude included. Each brief is
-      Appendix B filled in, written to rendered/review-tier/<pr>-<reviewer>.md, its first line the
+      Appendix B filled in, written to rendered/review-tier/<pr>-<reviewer>.md (before dispatch,
+      `grep -n '<the main session' <brief>` must print nothing: item 2 of its "Blocking means" is
+      named, never left as the placeholder), its first line the
       header "T<nn> review (<Name>)", <Name> being Sol, Luna, GLM, DeepSeek or DeepSeek Pro
       (always pass -Reviewer, never a -ModelIds override). Before a complex or very complex
       review (not at session start; the user's decision of 2026-10-03), probe Sol's substitutes so
@@ -892,6 +916,10 @@ the docs item applies only if the review named a claim.
    IMPL's family does not exclude, with the earlier reviews linked in its brief, and back to
    SOL only when the fixes rewrote more than the named findings.
 3. DECIDE on the label the reviewer applied:
+   - Before acting on an approve that carries "not blocking" findings, read every one. If one is a
+     proven way past what the brief's "Blocking means" item 2 names, treat the review as rework:
+     say so on the PR, set status:rework, and record it on the wiki page Model trials (harness
+     lesson L47, the user's decision of 2026-10-04).
    - status:approved: wait for CI green. If the branch is behind main, run
      `gh pr update-branch <pr>` and wait for green again. For T16 and T22, stop and get the
      user's thumbs-up first. Then `gh pr merge <pr> --squash --delete-branch`, label
