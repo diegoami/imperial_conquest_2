@@ -267,13 +267,13 @@ if (palette.Zip(glyphPalette).Distinct().Count() != 16)
 
 // ---- T122: the nation battle-icon colours ----
 // FUN_0044A6C8 substitutes a tactical-battle icon's purple / white / blue with the nation record's
-// +0x424 / +0x428 / +0x42C (2026-10-04-decompiled-tactical-battle-rules.md §10). Those are
-// in-memory/SAV offsets: the DAT stores none of the three (SaveNationTable.ParseDat reports
-// BattleColors == null; the derived +0x3FD / +0x401 / +0x405 offsets read 0 in all 16 DAT records,
-// and no triple appears anywhere in the file), while three separate saves agree on the same triple
-// per nation. So the values come from the start save the T04 fixtures name, resolved through the
-// same documented search order every other corpus fixture uses (the three plain save folders, then
-// releases/<tag>/). The per-nation provenance note records both facts.
+// +0x424 / +0x428 / +0x42C (2026-10-04-decompiled-tactical-battle-rules.md §10). The SAV holds those
+// three words in a 12-byte block between its own recruitment queue (+0x2E4..+0x424) and wealth
+// (+0x430); the DAT has no such block (its queue +0x2C9..+0x409 runs straight into wealth), and no
+// nation's triple occurs anywhere in the DAT's raw bytes (T122 review B3). Saves of separate campaigns
+// agree on the same triple per nation. So the values come from the start save the T04 fixtures name,
+// resolved through the same documented search order every other corpus fixture uses (the three plain
+// save folders, then releases/<tag>/). The per-nation provenance note records both facts.
 const string startSaveName = "1_rome_270_winter_11.sav";
 var startSaveNations = SaveNationTable.Parse(File.ReadAllBytes(ResolveStartSave(settings, startSaveName)));
 
@@ -318,7 +318,7 @@ for (var i = 0; i < 16; i++)
         Provenance: ProvenanceMap.Of(
             ("name", "confirmed: T30's DAT nation-table parse (IC2.Data.SaveNationTable.Parse), DAT 0x1B100; cross-checked against NationCatalog -- docs/investigations/dat-file-layout.md."),
             ("colorHex", "confirmed: 2026-09-29-nation-marker-colours.md -- the report's background-square colour for this nation (read from the user's 2026-09-29 screenshot strip, cross-checked against the pre-T94 research inspector's OwnerColor table); replaces T49's designed palette."),
-            ("battleColorsHex", "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §10 -- FUN_0044A6C8 substitutes a battle icon's purple 0x800080, white and blue with the nation record's +0x424, +0x428 and +0x42C. The DAT stores none of the three (its 1,055-byte record ends at the recruitment queue, and the derived +0x3FD/+0x401/+0x405 offsets read zero), so they are read from the +0x424/+0x428/+0x42C words of the start save 1_rome_270_winter_11.sav."),
+            ("battleColorsHex", "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §10 -- FUN_0044A6C8 substitutes a battle icon's purple 0x800080, white and blue with the nation record's +0x424, +0x428 and +0x42C. The SAV holds the three words in a 12-byte block between its recruitment queue (+0x2E4..+0x424) and wealth (+0x430); the DAT has no such block (its queue +0x2C9..+0x409 runs straight into wealth), and no nation's triple occurs anywhere in the DAT's bytes, so the values are read from the +0x424/+0x428/+0x42C words of the start save 1_rome_270_winter_11.sav."),
             ("glyphColorHex", "confirmed: 2026-09-29-nation-marker-colours.md -- the report's foreground glyph colour for this nation, the first record of it."),
             ("leaderName", "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one."),
             ("capitalCityId", "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse."),

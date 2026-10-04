@@ -99,7 +99,7 @@ public class TacticalRulesetTests
         Assert.Equal(30, t.RoutCascadeBelow);
         Assert.Equal(5, t.RoutEnemyBonus);
 
-        // Computer general -- report §2 (Form), §7 (the rest).
+        // Computer general -- report §2 (Form), §7 (order, preferences, scoring), §3 (danger term).
         var expectedFormations = new[]
         {
             new[] { "heavy_cavalry", "heavy_infantry", "light_infantry", "light_cavalry" },

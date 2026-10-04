@@ -470,9 +470,10 @@ public sealed record TileType(
 /// The nation's three tactical-battle icon colours, as three <c>#RRGGBB</c> strings in the original's
 /// substitution order (<c>2026-10-04-decompiled-tactical-battle-rules.md</c> §10: <c>FUN_0044A6C8</c>
 /// replaces a battle icon's purple <c>0x800080</c>, white and blue with the nation record's
-/// <c>+0x424</c>, <c>+0x428</c> and <c>+0x42C</c>). Optional: a nation without one falls back to the
-/// icon's own palette colours. T128 recolours the 5 × 3 unit icons from this list. Declared before
-/// <see cref="GlyphColorHex"/> so that adding it to the committed world data appends a property
+/// <c>+0x424</c>, <c>+0x428</c> and <c>+0x42C</c>). Optional, because a scenario authored before T122
+/// has none and nothing reads the field yet: T128 recolours the 5 × 3 unit icons from this list, and
+/// defining the fallback for a nation without one is T128's to settle, not implemented here. Declared
+/// before <see cref="GlyphColorHex"/> so that adding it to the committed world data appends a property
 /// without rewriting the line that already closes each nation object — the T122 export's own
 /// "additions only" invariant.
 /// </param>

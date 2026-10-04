@@ -171,9 +171,10 @@ public sealed record CalendarRules(
 /// <c>docs/game-design.md</c> §Combat, "The tactical battle"). T122 carries it as a field so T123
 /// and T124 read it rather than writing a literal, per design principle 1. The shipped instant
 /// resolver never reads it. <strong>[confirmed: code, static,
-/// <c>2026-10-04-decompiled-tactical-battle-rules.md</c> §4]</strong> — the same report that first
-/// identified the field; <c>unit-type-stat-table-in-dat.md</c> published the values without
-/// identifying <c>+0x20</c>.
+/// <c>2026-10-04-decompiled-tactical-battle-rules.md</c> §4]</strong> for the tactical shot formula's
+/// use. The field's identity is earlier: <c>battle-replayed-rout-mechanic-and-combat-constants.md</c>
+/// read <c>+0x20</c> as the shooting vulnerability, and <c>unit-type-stat-table-in-dat.md</c> carries
+/// an Update saying the same.
 /// </param>
 public sealed record UnitTypeRules(
     string Id,
@@ -1109,7 +1110,7 @@ public sealed record DetailedResolverRules(
 /// </param>
 /// <param name="DangerQualityDivisor">
 /// The last-move danger term <c>S = (troops × quality div this) × morale × M[mine][theirs]</c> (report
-/// §7).
+/// §3, "Movement", computer-controlled only).
 /// </param>
 public sealed record TacticalBattleRules(
     int BoardWidth,
