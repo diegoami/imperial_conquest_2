@@ -1365,9 +1365,10 @@ band.
   losing more than about 70% of its troops in a single round. At D31's pace, P-scale battles do not
   do that. C4's endings are therefore `collapse` (or `cap`) in essentially every battle. This follows
   from C4 being an army-morale model, and it is stated here so that it is not read as a discovery.
-  **Measured, 2026-09-23 (T59, #250, 33dc106): the prediction did not hold.** C4 **passes** EN-b
-  (0.8223), because 17.8% of its battles end at the 30-round cap rather than by collapse; it fails EN-a
-  instead. See [`auto-resolve-tournament-results.md`](auto-resolve-tournament-results.md).
+  **Measured on the real matrix (T121, [#655](https://github.com/diegoami/imperial_conquest_2/issues/655)): the prediction holds.** C4 **fails** EN-b
+  (1.0000): every P-scale battle ends in collapse and none at the cap, so it passes EN-a. T59's first
+  measurement (#250, 33dc106) had C4 passing EN-b (0.8223, 17.8% at the cap), but it read the AI tables
+  in place of the melee matrix (T120). See [`auto-resolve-tournament-results.md`](auto-resolve-tournament-results.md).
 - **C5, expected direction only (not a construction result):** the withdrawal test (60% relative
   strength, from round 3) pushes C5's endings toward `withdrawal`. Whether that pushes it past EN-b's
   0.90 is what T59 measures.
