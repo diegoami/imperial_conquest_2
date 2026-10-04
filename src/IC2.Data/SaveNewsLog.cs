@@ -79,7 +79,10 @@ public sealed class SaveNewsLog
         var slotsStart = newsIndexOffset + 2;
         var slotCount = newsIndex + 1;
         var slotsEnd = slotsStart + slotCount * SlotLength;
-        var trailerStart = data.Length - 55;
+        // The trailer is not always the file's last 55 bytes: a mid-battle save writes a battle
+        // block after it (bug #675). Locate it through the one shared helper rather than counting
+        // back from length here.
+        var trailerStart = SaveTurnState.LocateTrailerStart(data);
         // "Layout 100,956 + 2 + A×656 + 2 + F×26 + 18,752 + 600 + 2 + (newsIndex+1)×61 + 55 = file
         // length" — checked on 54 of 54 saves; here, checked the equivalent way: the news slots must
         // run exactly up to where the 55-byte trailer starts, with nothing left over and nothing

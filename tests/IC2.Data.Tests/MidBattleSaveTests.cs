@@ -121,4 +121,36 @@ public class MidBattleSaveTests
         var ex = Assert.Throws<InvalidDataException>(() => SaveTurnState.Parse(data));
         Assert.Contains("trailer", ex.Message);
     }
+
+    // ---- direct synthetic tests of the shared locator (NO fixtures) ------------------------------
+
+    [Fact]
+    public void LocateTrailerStart_reads_the_last_55_bytes_when_the_battle_flag_is_zero()
+    {
+        var data = new byte[100];
+        data[^1] = 0;
+
+        Assert.Equal(45, SaveTurnState.LocateTrailerStart(data));
+    }
+
+    [Fact]
+    public void LocateTrailerStart_skips_the_battle_block_when_the_battle_flag_is_one()
+    {
+        var data = new byte[100 + SaveTurnState.BattleBlockLength];
+        data[99] = 1; // trailer +54 of the mid-battle save, at length - 2,105 - 1
+        data[^1] = 0x01; // the block's own last byte, deliberately not a flag 0
+
+        Assert.Equal(2105, SaveTurnState.BattleBlockLength);
+        Assert.Equal(45, SaveTurnState.LocateTrailerStart(data));
+    }
+
+    [Fact]
+    public void LocateTrailerStart_rejects_a_file_whose_length_fits_neither_shape()
+    {
+        var data = new byte[100];
+        data[^1] = 0x7F; // not the flag 0, and far too short to carry a 2,105-byte block
+
+        var ex = Assert.Throws<InvalidDataException>(() => SaveTurnState.LocateTrailerStart(data));
+        Assert.Contains("cannot be located", ex.Message);
+    }
 }
