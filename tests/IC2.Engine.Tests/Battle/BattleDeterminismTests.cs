@@ -123,9 +123,13 @@ public class BattleDeterminismTests
         // candidates there ARE the reserve research, implemented as measurement code behind a seam the user
         // gates, and the shipped resolver never calls them. The companion test below asserts that no file in
         // the engine outside Candidates/ references them, so the research cannot reach the shipped path.
+        // Battle/Tactical/ is exempt the same way (T123, plan PR #681): v0.5.0 ports the original's tactical
+        // battle, which reads exactly these combat.detailedResolver names, so they are no longer reserve
+        // there. The companion asserts that nothing else under Battle/ references the tactical namespace, so
+        // the instant path still cannot consume them.
         var battleSources = Directory.GetFiles(
                 Path.Combine(TestPaths.RepositoryRoot, "src", "IC2.Engine", "Battle"), "*.cs", SearchOption.AllDirectories)
-            .Where(file => !IsUnderCandidates(file))
+            .Where(file => !IsUnderCandidates(file) && !IsUnderTactical(file))
             .ToArray();
         Assert.NotEmpty(battleSources);
 
@@ -146,8 +150,9 @@ public class BattleDeterminismTests
             offenders.Count == 0,
             "The shipped instant resolver must not consume the reserve tactical research: "
             + string.Join(", ", offenders)
-            + " (Battle/Candidates/ alone is exempt: T59's candidates are measurement code, gated by the user, "
-            + "and never called by the shipped resolver.)");
+            + " (Battle/Candidates/ and Battle/Tactical/ alone are exempt: T59's candidates are measurement code, "
+            + "gated by the user, and T123's tactical battle is the v0.5.0 port that reads them; neither is called "
+            + "by the shipped instant resolver.)");
     }
 
     /// <summary>
@@ -200,6 +205,74 @@ public class BattleDeterminismTests
             offenders.Count == 0,
             "Only src/IC2.Engine/Battle/Candidates/ may use the auto-resolve candidates (T59 measurement code, "
             + "gated by the user); no production source under src/ or godot/ may reference them: " + string.Join(", ", offenders));
+
+        // The other half of the Battle/Tactical/ exemption (T123, plan PR #681): every file under
+        // src/IC2.Engine/Battle/ outside Tactical/ and Candidates/ -- InstantBattleResolver.cs and
+        // BattleCasualties.cs among them -- references neither the tactical battle's namespace or types nor
+        // any banned reserve name, so the instant path's outcomes cannot move.
+        const string TacticalNamespace = "IC2.Engine.Battle.Tactical";
+        var tacticalTypes = typeof(InstantBattleResolver).Assembly.GetTypes()
+            .Where(t => t.Namespace is { } ns
+                        && (ns == TacticalNamespace || ns.StartsWith(TacticalNamespace + ".", StringComparison.Ordinal))
+                        && !t.IsNested
+                        && !t.Name.Contains('<', StringComparison.Ordinal))
+            .Select(t => t.Name.Split('`')[0])
+            .ToList();
+        Assert.NotEmpty(tacticalTypes);
+
+        var instantTokens = tacticalTypes.Append(TacticalNamespace).Distinct(StringComparer.Ordinal).ToList();
+        var instantSources = Directory.GetFiles(
+                Path.Combine(TestPaths.RepositoryRoot, "src", "IC2.Engine", "Battle"), "*.cs", SearchOption.AllDirectories)
+            .Where(file => !IsUnderCandidates(file) && !IsUnderTactical(file) && !IsBuildOutput(file))
+            .OrderBy(file => file, StringComparer.Ordinal)
+            .ToArray();
+        Assert.Contains(instantSources, f => f.EndsWith("InstantBattleResolver.cs", StringComparison.Ordinal));
+        Assert.Contains(instantSources, f => f.EndsWith("BattleCasualties.cs", StringComparison.Ordinal));
+
+        var instantOffenders = new List<string>();
+        foreach (var file in instantSources)
+        {
+            var code = StripComments(File.ReadAllText(file));
+            foreach (var token in instantTokens)
+            {
+                if (Regex.IsMatch(code, $@"\b{Regex.Escape(token)}\b"))
+                {
+                    instantOffenders.Add($"{Path.GetRelativePath(TestPaths.RepositoryRoot, file)}: {token}");
+                }
+            }
+
+            // The banned names, matched as the reserve guard matches them (a substring, so a longer field
+            // such as MeleeLossCapPercent is caught too).
+            foreach (var name in ReservedTacticalResearch)
+            {
+                if (code.Contains(name, StringComparison.Ordinal))
+                {
+                    instantOffenders.Add($"{Path.GetRelativePath(TestPaths.RepositoryRoot, file)}: {name}");
+                }
+            }
+        }
+
+        Assert.True(
+            instantOffenders.Count == 0,
+            "Only src/IC2.Engine/Battle/Tactical/ may use the tactical battle and the reserve names it reads; "
+            + "no other file under src/IC2.Engine/Battle/ may reference them: " + string.Join(", ", instantOffenders));
+    }
+
+    /// <summary>The names the reserve guard bans outside <c>Battle/Candidates/</c> and <c>Battle/Tactical/</c>.</summary>
+    private static readonly string[] ReservedTacticalResearch =
+    {
+        "DetailedResolver",
+        "TypeEffectiveness",
+        "MeleeLossCap",
+        "MeleeBasePowerFloor",
+        "MeleePowerDivisor",
+        "InRangeShotMultiplier",
+    };
+
+    private static bool IsUnderTactical(string file)
+    {
+        var tactical = Path.Combine(TestPaths.RepositoryRoot, "src", "IC2.Engine", "Battle", "Tactical") + Path.DirectorySeparatorChar;
+        return Path.GetFullPath(file).StartsWith(Path.GetFullPath(tactical), StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsUnderCandidates(string file)
