@@ -23,9 +23,10 @@ namespace IC2.Engine.Battle.Tactical.General;
 /// <para>
 /// Two numbers are the <c>Form</c> table's geometry, not ruleset values: a block is 3 columns wide and the
 /// first block starts at column 1 (report §2, <c>3g + 1 … 3g + 3</c>). <c>combat.tactical</c> carries no
-/// field for them (T122's entry), so they are written here, cited. Which type the archers follow is the
-/// slow advance's exempt type, <c>combat.tactical.slowAdvanceExemptType</c>, the ruleset's only field
-/// naming heavy infantry (T122's entry: "heavy infantry standing for HI + Ar").
+/// field for them, so they are written here, cited (T124's entry, amended by plan PR #686). The archers are
+/// <see cref="IC2.Engine.Model.Ruleset.ArcherUnitTypeId"/>; the block they join is the formation table's
+/// <c>heavy_infantry</c> entry, which stands for "HI + Ar" (report §2's <c>Form</c> table; T122's
+/// Done-when 1), named once here as <see cref="ArchersJoinTypeId"/>.
 /// </para>
 /// </remarks>
 public static class GeneralPlacement
@@ -35,6 +36,12 @@ public static class GeneralPlacement
 
     /// <summary>The first block's first column: <c>3 × 0 + 1</c> (report §2).</summary>
     private const int FirstBlockColumn = 1;
+
+    /// <summary>
+    /// The formation entry whose block the archers continue: report §2's <c>Form</c> table reads "HI + Ar",
+    /// and <c>combat.tactical.placementFormations</c> writes it as <c>heavy_infantry</c> (T122's Done-when 1).
+    /// </summary>
+    public const string ArchersJoinTypeId = "heavy_infantry";
 
     /// <summary>Places the side to move's units by formation.</summary>
     public static TacticalBattleState Place(
@@ -67,7 +74,7 @@ public static class GeneralPlacement
         var attacker = side == TacticalBattleState.AttackerSide;
         var baseRow = attacker ? rules.HomeRows - 1 : rules.BoardHeight - rules.HomeRows;
         var rowStep = attacker ? -1 : 1;
-        var archersFollow = context.SlowAdvanceExemptType;
+        var archersFollow = context.TypeIndexOf(ArchersJoinTypeId);
 
         var formation = formations[r];
         for (var g = 0; g < formation.Count; g++)

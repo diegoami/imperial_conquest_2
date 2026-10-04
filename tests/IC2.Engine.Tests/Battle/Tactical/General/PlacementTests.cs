@@ -104,6 +104,30 @@ public class PlacementTests
     }
 
     [Fact]
+    public void The_archers_join_the_heavy_infantry_block_whatever_the_slow_advance_exempts()
+    {
+        // A ruleset copy whose slow advance exempts light cavalry instead: the HI + Ar block is the
+        // formations' heavy_infantry entry (T122's Done-when 1; T124's entry as amended by plan PR #686), not
+        // a type borrowed from slowAdvanceExemptType. r = 0: HI in g = 1, so the archers land at (5,2), not
+        // after the light cavalry in g = 3 (11,2).
+        var ruleset = ToyRuleset with
+        {
+            Combat = ToyRuleset.Combat with
+            {
+                Tactical = ToyRuleset.Combat.Tactical with { SlowAdvanceExemptType = "light_cavalry" },
+            },
+        };
+        var context = TacticalContext.From(ruleset);
+        Assert.Equal(LC, context.SlowAdvanceExemptType);
+
+        var placed = GeneralPlacement.Place(OneOfEach(TacticalBattleState.AttackerSide), context, new ScriptedDraws(0));
+
+        Assert.Equal((4, 2), (placed.Slots[HI].X, placed.Slots[HI].Y));
+        Assert.Equal((5, 2), (placed.Slots[AR].X, placed.Slots[AR].Y));
+        Assert.Equal((10, 2), (placed.Slots[LC].X, placed.Slots[LC].Y));
+    }
+
+    [Fact]
     public void Ten_or_more_heavy_infantry_and_archers_stack_on_the_third_row()
     {
         // Defender, r = 2: heavy infantry's block is g = 3, columns 10–12, rows 9, 10, 11. Seven heavy
