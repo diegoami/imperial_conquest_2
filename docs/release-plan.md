@@ -91,7 +91,9 @@ Cut a `v0.x.y` only when something merged after a tag **fixes a defect that tag 
 
 ### 2.3 What is explicitly *not* in this ladder
 
-Nothing here commits to scope beyond `game-design.md`. The tactical/animated battle screen, the in-game scenario editor, network multiplayer and further asset packs are all in that document's "Open questions genuinely left for later" — they are **post-1.0 MINOR candidates**, not gates on any tag above, and no release note should imply otherwise.
+Nothing here commits to scope beyond `game-design.md`. The in-game scenario editor, network multiplayer and further asset packs are all in that document's "Open questions genuinely left for later" — they are **post-1.0 MINOR candidates**, not gates on any tag above, and no release note should imply otherwise.
+
+The **tactical battle** is no longer one of them: it belongs to **`v0.5.0` *Battles*** (the user's decision of 2026-10-03, revised 2026-10-04; [#496](https://github.com/diegoami/imperial_conquest_2/issues/496)). Its gate row joins the ladder above when #496's tasks are filed, and `game-design.md`'s design principle 3 and its tactical battle sections are rewritten under #496 before any task is cut.
 
 ---
 
