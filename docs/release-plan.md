@@ -38,7 +38,7 @@ Stated explicitly, because "what makes this a MINOR rather than a PATCH" is exac
 
 ### 1.4 Do phase completions get tags? — **DECIDED: no. Capability jumps only.**
 
-Only the six cut points in [§2](#2-the-release-ladder) get a tag, and every one of them gets a GitHub Release. A phase boundary that is not also a capability jump gets nothing.
+Only the six cut points in [§2](#2-the-release-ladder), and the patch releases between them ([§2.2](#22-patch-releases)), get a tag, and every one of them gets a GitHub Release. A phase boundary that is not also a capability jump gets nothing.
 
 The justification is the build process's own rule ([build-process.md](build-process.md)): *"These documents are the intent. GitHub is the state."* Phase completion **already has a representation** — the phase's GitHub milestone closes and its issues all read `status:merged`. A `v0.0.x-phase0` tag would duplicate state GitHub already holds, on the one axis (git history) the process deliberately keeps free of progress tracking. Tags are reserved for the thing GitHub milestones *cannot* express: "here is a tree someone can go and use."
 
@@ -89,7 +89,7 @@ A gate is met when every issue it lists is closed as `status:merged`.
 
 ### 2.2 Patch releases
 
-Cut a `v0.x.y` only when something merged after a tag **fixes a defect that tag shipped** — a wrong constant reaching `main` is the failure mode this project has already hit ([design-audit.md §2](design-audit.md), T31), and it deserves its own tag so "which build had the bad number" is answerable. Ordinary forward progress toward the next capability jump is **not** a patch release; it is untagged commits on `main`.
+Patch releases are **regular**, not exceptional (the user's decision of 2026-10-04): the user plays each release, finds things to fix or change, and expects them back as `v0.4.1`, `v0.4.2` and so on, each a GitHub Release with the Windows assets attached ([§5](#5-release-checklist) item 20). So cut a `v0.x.y` whenever fixes or changes merged since the last tag are ready for the user to play: a defect that tag shipped (a wrong constant reaching `main` is the failure mode this project has already hit, [design-audit.md §2](design-audit.md), T31, and it deserves its own tag so "which build had the bad number" is answerable), or a change the user asked for after playing it. §1.2 still decides the number: a change that adds a capability or changes a shipped preset is a MINOR, not a patch. Ordinary forward progress toward the next capability jump is **not** a patch release; it is untagged commits on `main` until its gate is met.
 
 ### 2.3 What is explicitly *not* in this ladder
 
@@ -109,7 +109,7 @@ The **tactical battle** is no longer one of them: it belongs to **`v0.5.0` *Batt
 | Tag kind | **Annotated** (`git tag -a`), never lightweight — the message carries the gate (the issue numbers) so `git show <tag>` explains itself |
 | Tag message subject | `v0.3.0 — Headless playable (closes #18–#23)` |
 | Where | **`main` only**, always on a squash-merge commit — never on a task branch, never on a rebase artifact |
-| GitHub Release | One per tag, always; title = the tag plus the ladder's short name (`v0.3.0 — Headless playable`); body = [§4](#4-release-notes) |
+| GitHub Release | One per tag, always; title = the tag plus the ladder's short name (`v0.3.0 — Headless playable`); body = [§4](#4-release-notes); assets = the Windows zip and installer, from v0.4.0 on ([§5](#5-release-checklist) item 20) |
 | Pre-1.0 marker | Every `0.x` release and every `-rc` is published with GitHub's **pre-release** flag set; only `v1.0.0` is a full release |
 | Moving a tag | **Never.** Re-pointing a published tag is a destructive git operation under [build-process.md §4.5](build-process.md#45-when-to-escalate-to-the-user) case 10. A mistake is corrected by a new PATCH tag. |
 
@@ -211,8 +211,9 @@ The concrete "done when" for cutting a release, in the task catalogue's style: *
 17. The tag is annotated, on `main`, on a squash-merge commit, matches the name pattern, and does not already exist — `git tag -l <tag>` is empty before `git tag -a`.
 18. **Human** *(v0.4.0, v0.5.0, v1.0.0 only)*: visual sign-off given on every screenshot posted by T24/T25/T27 (and, for `v0.5.0`, by T127), per [Q-B](build-process.md#9-standing-governance-decisions).
 19. **Human** *(v0.4.0, v0.5.0, v1.0.0 only)*: the draft Release is published by the user. For `v0.1.0`–`v0.3.0`, the main session publishes (see [§3.2](#32-who-cuts-the-tag--recommended-consistent-with-q-a)).
+20. *(from v0.4.1; every tag, milestone or patch)* **The Windows assets are on the Release before it is published.** Pushing the tag runs the release workflow ([T131](tasks/T131.md), `.github/workflows/release.yml`), which builds the tag with `scripts/release-assets.ps1` and attaches `ImperialConquest2-<tag>-windows-x64.zip` and `ImperialConquest2-<tag>-windows-x64-setup.exe` to the tag's Release, creating it as a draft when none exists. Checked by `gh run list --workflow release.yml --branch <tag> --limit 1 --json conclusion` (`success`) and `gh release view <tag> --json assets` (both files). A failed run is fixed forward and re-run with `gh workflow run release.yml -f tag=<tag>`, never by moving the tag (§3.1). It runs after item 17 and before item 19.
 
-Items 1–17 are checkable by an agent. Items 18–19 are the only human steps, and neither is new — both are [Q-B](build-process.md#9-standing-governance-decisions)'s existing answer applied at the release boundary.
+Items 1–17 and 20 are checkable by an agent. Items 18–19 are the only human steps, and neither is new — both are [Q-B](build-process.md#9-standing-governance-decisions)'s existing answer applied at the release boundary.
 
 **If a check fails**, the release does not get cut and nothing is tagged. Fix forward on `main` and re-run the checklist; a failed checklist is never worked around by weakening a line, for exactly the reason [build-process.md §4.3](build-process.md#43-the-dod-is-not-negotiable-by-an-agent) gives about DoDs.
 
@@ -277,15 +278,19 @@ Items 10–13 and 18 are v0.4.0 or v1.0.0 only. Item 19: the main session publis
 
 ---
 
+**`v0.4.0`'s Windows assets were attached by hand on 2026-10-04**, after the Release was published, by the user's decision of that day that every release carries a Windows build a player can start without Godot. The main session packaged the tag (`99ba0d3`) with `main`'s `scripts/package.ps1` and `godot/export_presets.cfg` copied onto it, since T27 merged after the tag; the tag lacks `-Verify`'s check scene, so a headless launch with a scrubbed `PATH` and `DOTNET_ROOT` stood in for it and exited 0. It attached `ImperialConquest2-v0.4.0-windows-x64.zip` (74.7 MB) and `ImperialConquest2-v0.4.0-windows-x64-setup.exe` (52 MB, Inno Setup 6.7.3, a per-user install that upgrades in place), the installer tested by a silent install, a headless launch and a silent uninstall that left no file. [T131](tasks/T131.md) automates the same steps for every later tag ([§5](#5-release-checklist) item 20).
+
+---
+
 ## 7. Summary
 
 | | |
 | --- | --- |
 | Scheme | SemVer 2.0.0, `v`-prefixed, annotated tags on `main` only; `0.x` through the build, `-rc.N` only ahead of `v1.0.0` |
-| Tags | Six: `v0.1.0`, `v0.2.0`, `v0.3.0`, `v0.4.0`, `v0.5.0`, `v1.0.0` — at capability jumps, **not** at phase boundaries |
+| Tags | Six on the ladder: `v0.1.0`, `v0.2.0`, `v0.3.0`, `v0.4.0`, `v0.5.0`, `v1.0.0` — at capability jumps, **not** at phase boundaries — plus regular patch releases between them ([§2.2](#22-patch-releases)) |
 | Gate | A set of merged task issues, tracked by a `release:*` label; never a date |
 | Cut by | The main session, right after merging the last gating task, before dispatching the next |
 | Published by | The main session for `v0.1.0`–`v0.3.0`; the **human** for `v0.4.0`, `v0.5.0` and `v1.0.0`, inheriting Q-B's visual sign-off |
 | Notes | Generated at cut time from GitHub + the shipped ruleset JSON; no `CHANGELOG.md`; eight required sections, presets and `[designed]` mechanics among them |
 | Reviewed by | The existing reviewer role (Opus / Medium), applying build-process.md §4.2's gates to the draft Release body |
-| Blocking constraint | 19 checklist lines; 17 agent-checkable, 2 human, none of them new |
+| Blocking constraint | 20 checklist lines; 18 agent-checkable, 2 human; item 20, the Windows assets, added 2026-10-04 by the user's decision |
