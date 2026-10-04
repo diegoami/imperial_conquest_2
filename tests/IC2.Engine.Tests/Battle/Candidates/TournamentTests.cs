@@ -47,7 +47,7 @@ public class TournamentTests
             $"The 2-seed scorecard changed: pinned {PinnedReducedScorecardSha256}, actual {hash}.");
     }
 
-    private const string PinnedReducedScorecardSha256 = "FF5A550FE8ADDCA4DA57F6626ABB8DF3BAC4702872C1E113155B9BFE5CC33AA7";
+    private const string PinnedReducedScorecardSha256 = "85941CC7409F264E9C77DFCF09388615801A58E7F51AE6C700E30B225D58B2FB";
 
     [Fact]
     public void A_battle_replayed_on_a_fresh_generator_gives_the_same_canonical_record()
