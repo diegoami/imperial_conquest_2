@@ -91,6 +91,25 @@ A gate is met when every issue it lists is closed as `status:merged`.
 
 Cut a `v0.x.y` only when something merged after a tag **fixes a defect that tag shipped** — a wrong constant reaching `main` is the failure mode this project has already hit ([design-audit.md §2](design-audit.md), T31), and it deserves its own tag so "which build had the bad number" is answerable. Ordinary forward progress toward the next capability jump is **not** a patch release; it is untagged commits on `main`.
 
+### 2.2.1 v0.4.x patches
+
+The user's decisions of 2026-10-04, recorded on [#690](https://github.com/diegoami/imperial_conquest_2/issues/690):
+
+- **A v0.4.x is cut from `main`, guarded.** It ships everything merged since the last tag plus the items on its list. There is no maintenance branch and no cherry-pick. The v0.5.0 work stays invisible in every v0.4.x release: the tactical battle stays switched off (`HumanBattles = Instant`) until the `v0.5.0` tag (below).
+- **An item the user puts on a v0.4.x list bypasses the playability gate** ([build-process.md §4.8](build-process.md#48-the-playability-gate-until-v050)). It becomes a task or a `fix` at once, labelled with its patch's `release:v0.4.x` label (`release:v0.4.1`). The gate still applies to every other finding.
+- **`v0.4.1` is cut as soon as its first item, [T132](tasks/T132.md) (the hideable right-hand panel, [#690](https://github.com/diegoami/imperial_conquest_2/issues/690)), merges.** Items the user lists after that go to `v0.4.2`. `v0.4.1` ships T132 and everything merged since `v0.4.0`, notably the generated *authored* icon pack (T51, [#503](https://github.com/diegoami/imperial_conquest_2/pull/503); the default pack since fix 517, [#524](https://github.com/diegoami/imperial_conquest_2/pull/524); T101's toolbar keys, [#588](https://github.com/diegoami/imperial_conquest_2/pull/588)) and the game screen like the original's (T99–T113). The release note lists the rest from GitHub ([§4.1](#41-where-the-note-comes-from--decided-generated-at-cut-time-from-github-no-changelogmd)).
+- **Every v0.4.x carries the Windows zip and installer**, built by T131's release workflow. If T131 has not merged when a v0.4.x is cut, the main session builds and attaches them by hand, as it did for `v0.4.0` on 2026-10-04.
+- **The number is the user's, not §1.2's.** Under [§1.2](#12-what-crosses-each-boundary--decided), part of what merged since `v0.4.0` would make the next tag a MINOR: T99–T113 add orders and dialogs a player could not reach before, and T120 changed both presets' melee matrix ([#657](https://github.com/diegoami/imperial_conquest_2/pull/657)). The user named this cut `v0.4.1`, so §1.2 does not renumber a v0.4.x cut from `main` before `v0.5.0`; its release note still lists T120's matrix under [§4.2](#42-what-a-release-note-must-contain) item 2.
+
+**How a v0.4.x stays guarded.** No tactical battle may be reachable from a v0.4.x's Windows assets, which are the Godot export (`scripts/package.ps1` packages no CLI):
+
+1. **Before T125 merges, nothing tactical is reachable.** T122's ruleset keys are read by no command, and T123's and T124's engine is called by no session.
+2. **After T125, its switch defaults to `Instant`.** `GameSession.HumanBattles` is `Instant` unless a caller sets it, and the Godot UI's two sessions (`godot/UI/NewGameSelection.cs` ~:113, `godot/UI/LoadGameScreen.cs` ~:176) do not set it. The CLI's `--human-battles tactical` is opt-in and not in the assets. T126's AI-phase battles open only under `Tactical`.
+3. **T127 is what turns the tactical battle on in Godot**: it sets `HumanBattles = Tactical` on those two sessions. Merged before the `v0.5.0` tag, it would put the tactical battle on `main`, and so into any v0.4.x cut after it. So **T127 merges last of the `v0.5.0` gate**: its Merge-after names every other gate task ([T127](tasks/T127.md)), and the main session cuts `v0.5.0` right after it, before dispatching anything else ([§7](#7-summary)'s "Cut by"). No v0.4.x can be cut between T127's merge and the tag.
+4. **The check at every v0.4.x cut**, run by the main session before `git tag -a`: `git grep -n "HumanBattles" -- godot ':!godot/Checks' ':!godot/Screens/Checks'` shows no `Tactical`. If it does, nothing is tagged and the user is asked.
+
+**Who publishes a v0.4.x** is not in [§3.2](#32-who-cuts-the-tag--recommended-consistent-with-q-a)'s table. Until the user says otherwise, a v0.4.x follows `v0.4.0`'s row: the main session tags it and drafts the Release, and the user publishes it, since the listed items are changes the user asked for after playing and the user's visual sign-off on them is the point of the patch.
+
 ### 2.3 What is explicitly *not* in this ladder
 
 Nothing here commits to scope beyond `game-design.md`. The in-game scenario editor, network multiplayer and further asset packs are all in that document's "Open questions genuinely left for later" — they are **post-1.0 MINOR candidates**, not gates on any tag above, and no release note should imply otherwise.

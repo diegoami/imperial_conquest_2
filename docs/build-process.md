@@ -300,7 +300,7 @@ Adopted 2026-09-28 by the user's decision, to reach v0.4.0, the playable Godot U
 - a save that will not load;
 - an order that can never succeed.
 
-Everything else keeps its issue open, loses `triage:needed`, and gains the label `post-v0.5.0`. Evidence findings outside that class are recorded in the research repository, with an issue here labelled `post-v0.5.0` that points at the report. No catalogue entry is written for them until the v0.5.0 tag, except where the user decides otherwise (as for T114–T119 at the triage of 2026-10-03). After the tag, the `post-v0.5.0` issues are triaged under [§4.6](#46-bugs-and-follow-ups) as usual. Until v0.5.0, the fix lane ([§4.10](#410-the-fix-lane)) takes only bugs in this class, and a fix never goes ahead of a ready UI-chain task ([§8](#8-two-machines)).
+Everything else keeps its issue open, loses `triage:needed`, and gains the label `post-v0.5.0`. Evidence findings outside that class are recorded in the research repository, with an issue here labelled `post-v0.5.0` that points at the report. No catalogue entry is written for them until the v0.5.0 tag, except where the user decides otherwise (as for T114–T119 at the triage of 2026-10-03). After the tag, the `post-v0.5.0` issues are triaged under [§4.6](#46-bugs-and-follow-ups) as usual. Until v0.5.0, the fix lane ([§4.10](#410-the-fix-lane)) takes only bugs in this class, and a fix never goes ahead of a ready UI-chain task ([§8](#8-two-machines)). **An item the user puts on a v0.4.x patch list bypasses this gate** (the user's decision of 2026-10-04): it becomes a task or a fix at once, labelled with its patch's `release:v0.4.x` label, and ships in that patch ([release-plan.md §2.2.1](release-plan.md#221-v04x-patches)).
 
 ### 4.9 Plan PRs: two tiers
 
