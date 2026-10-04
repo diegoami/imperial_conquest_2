@@ -620,39 +620,39 @@
       ],
       "typeEffectiveness": [
         [
+          15,
           4,
-          1,
-          0,
-          3,
-          0
+          20,
+          5,
+          3
         ],
         [
-          1,
-          4,
-          3,
-          3,
-          4
+          60,
+          5,
+          65,
+          15,
+          8
         ],
         [
-          0,
-          1,
+          10,
           3,
-          0,
-          1
+          18,
+          5,
+          3
         ],
         [
-          4,
-          4,
-          3,
-          1,
-          0
+          25,
+          8,
+          28,
+          15,
+          8
         ],
         [
-          1,
-          4,
-          3,
-          0,
-          2
+          18,
+          12,
+          20,
+          12,
+          8
         ]
       ],
       "_provenance": {
@@ -662,7 +662,7 @@
         "meleeBasePowerFloor": "confirmed: combat-type-effectiveness-matrix.md, quoting decompiled-combat-formula-structure.md — the melee power term ends '+ 12', so a zero-effectiveness matchup still deals minimum damage.",
         "meleePowerDivisor": "confirmed: combat-type-effectiveness-matrix.md — (matrix × troops × qualityTerm) / 2000 + 12.",
         "inRangeShotMultiplier": "confirmed: decompiled-combat-formula-structure.md — shots that are in range are doubled.",
-        "typeEffectiveness": "confirmed: combat-type-effectiveness-matrix.md — the 25 values are read directly from the DAT file immediately after the unit-type table, and the row/attacker versus column/defender orientation is now confirmed rather than a candidate: the report's own caveat is resolved by re-reading the melee function's index arithmetic, a 10-byte row stride indexed by the attacker's type and a 2-byte column stride indexed by the defender's type, both type fields independently confirmed because they also index the unit-type name table (see battle-replayed-rout-mechanic-and-combat-constants.md; bug #327). Rows are read here as the attacker, matching the confirmed orientation; typeEffectivenessOrder records which axis order the rows and columns use. Identical to classical-faithful.json -- this is not one of the improved column's flag-gated fields.",
+        "typeEffectiveness": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §5 — the 25 values are the melee matrix the code reads from DAT_0047946C, which the DAT loader fills from DAT offset 0x1F7A6; the earlier values, read from DAT 0x1F3B8, were two other tables (the AI placement formations at 0x479078 and the AI type order at 0x4790A0). Row = attacker and column = defender, unchanged from bug #327's confirmed orientation; typeEffectivenessOrder records which axis order the rows and columns use. Identical to classical-faithful.json -- this is not one of the improved column's flag-gated fields.",
         "_group": "This whole block belongs to the optional 'detailed' resolver held in reserve by docs/game-design.md §Combat. The shipped instant resolver does not read any of it; it is carried here so that adding the reserve resolver later is a ruleset change rather than a model change."
       }
     },

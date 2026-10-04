@@ -37,9 +37,10 @@ them, and the user decides from T59's scorecard. Task T58, [#251](https://github
 > corrected where it is stated, and the candidates are again not redesigned:
 > - **K15's values were the wrong table.** The 25 values of §4.3 as first published are two AI tables
 >   (placement formations and type order); the melee code reads DAT `0x1F7A6`. §4.3 now gives the real
->   matrix. The merged rulesets still carry the old values
->   ([#647](https://github.com/diegoami/imperial_conquest_2/issues/647)), so every candidate that reads
->   the matrix (C2–C5) was implemented and measured on them; C1 reads no matrix.
+>   matrix. The three merged rulesets carry the real values since T120
+>   ([#654](https://github.com/diegoami/imperial_conquest_2/issues/654)); T59's measurements
+>   ([#250](https://github.com/diegoami/imperial_conquest_2/issues/250)) were taken on the old ones
+>   until T121 ([#655](https://github.com/diegoami/imperial_conquest_2/issues/655)) re-runs them.
 > - **D07 is settled, and the placeholder departs.** The ±2/−3 comparison is `troops div loss`, not power.
 > - **D06 is settled, and the placeholder departs.** A shot is legal at Chebyshev distance `≤ range`,
 >   adjacent included, and doubles when `distance < range`: only archers, at distance 1.
@@ -438,9 +439,10 @@ none" means the search found nothing in any of them.
 | **HC** | 18 | 12 | 20 | 12 | 8 |
 
 The table first published here (and in [`matrix`][matrix]) held other values: they are the AI
-placement formations and the AI type order, not the melee matrix. The merged rulesets, and so T59's
-implementation and measurements, still use those
-([#647](https://github.com/diegoami/imperial_conquest_2/issues/647)).
+placement formations and the AI type order, not the melee matrix. The merged rulesets carry the real
+values since T120 ([#654](https://github.com/diegoami/imperial_conquest_2/issues/654)); T59's
+implementation and measurements used the old ones until T121
+([#655](https://github.com/diegoami/imperial_conquest_2/issues/655)) re-runs them.
 
 ### 4.4 The exchange formulas (K16–K22), transcribed
 

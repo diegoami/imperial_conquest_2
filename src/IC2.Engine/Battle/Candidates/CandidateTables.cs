@@ -180,7 +180,8 @@ public static class CandidateConstants
 
 /// <summary>
 /// The per-type tables every candidate reads, resolved once from a <see cref="Ruleset"/>: indices follow
-/// <c>combat.detailedResolver.typeEffectivenessOrder</c>, so <see cref="Matrix"/> is K15 exactly as shipped.
+/// <c>combat.detailedResolver.typeEffectivenessOrder</c>, so <see cref="Matrix"/> is the melee matrix the
+/// original's code reads from DAT <c>0x1F7A6</c> (report §5), K15 with its corrected values.
 /// </summary>
 public sealed class CandidateTables
 {
@@ -215,7 +216,7 @@ public sealed class CandidateTables
             IsCavalry[i] = CandidateConstants.IsCavalry(TypeIds[i]);
             for (var j = 0; j < count; j++)
             {
-                Matrix[i, j] = detailed.TypeEffectiveness[i][j]; // K15, value[attacker][defender]
+                Matrix[i, j] = detailed.TypeEffectiveness[i][j]; // K15, DAT 0x1F7A6, value[attacker][defender]
             }
         }
     }
@@ -253,7 +254,7 @@ public sealed class CandidateTables
     /// <summary>Light or heavy cavalry.</summary>
     public bool[] IsCavalry { get; }
 
-    /// <summary>K15, <c>[attackerType, defenderType]</c>.</summary>
+    /// <summary>K15, DAT <c>0x1F7A6</c>: <c>[attackerType, defenderType]</c>.</summary>
     public int[,] Matrix { get; }
 
     /// <summary>Builds the tables for <paramref name="ruleset"/>.</summary>
