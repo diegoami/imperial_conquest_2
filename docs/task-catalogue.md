@@ -1065,7 +1065,7 @@ Tactical battle golden master against the original's recorded battles (#496) →
 
 #### T130 The `improved` ruleset's tactical battle: save at a half-round's start, the quirks fixed, a half-round cap, no slow advance, and retreat losses and scatter for the loser
 
-`improved`'s tactical rules (#496, the user's decisions of 2026-10-04) → [full entry](tasks/T130.md) · #TBD-T130
+`improved`'s tactical rules (#496, the user's decisions of 2026-10-04) → [full entry](tasks/T130.md) · #674
 
 ---
 
@@ -1228,4 +1228,4 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T127](#t127-the-godot-battle-screen-and-the-battle-ended-window) | Battle screen | M21, M18 | Sonnet | High | **Opus**/Medium + human | T125, T126, T128 | #668 |
 | [T128](#t128-the-battle-screens-assets-15-recolourable-unit-icons-the-ground-tile-the-cursor-and-the-toolbar-glyphs) | Battle assets | M21 | Sonnet | Medium | **Opus**/Medium + human | T122 | #669 |
 | [T129](#t129-the-tactical-battles-golden-master-the-port-replays-the-originals-recorded-battles-half-round-by-half-round) | Tactical golden master | M21 | Sonnet | High | **Opus**/High | T123, T124, T125 | #670 |
-| [T130](#t130-the-improved-rulesets-tactical-battle-save-at-a-half-rounds-start-the-quirks-fixed-a-half-round-cap-no-slow-advance-and-retreat-losses-and-scatter-for-the-loser) | Improved tactical rules | M21 | **Opus** | High | Sol + Luna pair | T125, T129 | #TBD-T130 |
+| [T130](#t130-the-improved-rulesets-tactical-battle-save-at-a-half-rounds-start-the-quirks-fixed-a-half-round-cap-no-slow-advance-and-retreat-losses-and-scatter-for-the-loser) | Improved tactical rules | M21 | **Opus** | High | Sol + Luna pair | T125, T129 | #674 |
