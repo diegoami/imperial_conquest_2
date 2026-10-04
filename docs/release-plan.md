@@ -4,7 +4,7 @@ This document says **when a version number changes, what it is called, who creat
 
 It **invents no new structure**. Every release gate below is a set of task issues from the [task index](task-catalogue.md#3-task-index); every human sign-off is one the [standing governance decisions](build-process.md#9-standing-governance-decisions) already reserve to the user; the reviewer of a release note is the pipeline's existing reviewer role, not a new one. Where this document *decides* something, it says so; where it only *recommends*, it says that too.
 
-> **Two different things both called "milestone".** `game-design.md` has **design milestones** M1–M20 (subsystems). The build has four **GitHub build-phase milestones** (Phase 0 Foundation, Phase 1 Pure rules, Phase 2 Systems, Phase 3 Delivery). This document adds a third axis — **release versions** — and deliberately does **not** turn them into GitHub milestones; see [§6](#6-what-was-created-in-github-and-what-was-not).
+> **Two different things both called "milestone".** `game-design.md` has **design milestones** M1–M21 (subsystems). The build has four **GitHub build-phase milestones** (Phase 0 Foundation, Phase 1 Pure rules, Phase 2 Systems, Phase 3 Delivery). This document adds a third axis — **release versions** — and deliberately does **not** turn them into GitHub milestones; see [§6](#6-what-was-created-in-github-and-what-was-not).
 
 Related reading, in order: [operating-guide.md](operating-guide.md) → [game-design.md](game-design.md) → [design-audit.md](design-audit.md) → [task-catalogue.md](task-catalogue.md) → [build-process.md](build-process.md) → this document. Live pipeline state: the task issues' labels ([operating-guide.md §1](https://github.com/diegoami/imperial_conquest_2/wiki/Where-the-build-stands)).
 
@@ -29,7 +29,7 @@ Related reading, in order: [operating-guide.md](operating-guide.md) → [game-de
 Stated explicitly, because "what makes this a MINOR rather than a PATCH" is exactly the question an agent running the build autonomously will get wrong:
 
 - **A MINOR bump requires a new capability *reachable by a person*, or a preset change.** A merged task that only adds internal test coverage, refactors behind a seam, or fixes a constant is a PATCH, however large its diff. Conversely a one-line change to `data/rulesets/improved.json`'s `combat.onDefeat` scatter range is a **MINOR**, because it changes what a player experiences — see [§4.2](#42-what-a-release-note-must-contain).
-- **`1.0.0` is crossed by packaging, not by feature count.** The engine is feature-complete at `v0.3.0`; `v1.0.0` is reached when [T27](task-catalogue.md#t27-packaging)'s export launches on a machine with no Godot and no .NET SDK on `PATH` and [T28](task-catalogue.md#t28-nightly-regression-and-soak-gate)'s nightly gate is green. "Playable" means *installable and finishable*, not *implemented*.
+- **`1.0.0` is crossed by packaging, not by feature count.** The strategic engine was complete at `v0.3.0`, and `v0.5.0` adds the tactical battle ([#496](https://github.com/diegoami/imperial_conquest_2/issues/496)); `v1.0.0` is reached when [T27](task-catalogue.md#t27-packaging)'s export launches on a machine with no Godot and no .NET SDK on `PATH` and [T28](task-catalogue.md#t28-nightly-regression-and-soak-gate)'s nightly gate is green. "Playable" means *installable and finishable*, not *implemented*.
 - **Pre-1.0, the save format and the ruleset schema may break at any MINOR.** This is safe rather than reckless only because [T20](task-catalogue.md#t20-new-format-saveload-and-versioning)'s DoD requires an unknown *future* save version to be rejected with a typed error and an older one to load through a migration — a broken save fails loudly, never silently best-effort parses. Every release note must state whether the previous tag's saves still load ([§4.2](#42-what-a-release-note-must-contain) item 6).
 
 ### 1.3 The save-format version is a separate axis
@@ -38,7 +38,7 @@ Stated explicitly, because "what makes this a MINOR rather than a PATCH" is exac
 
 ### 1.4 Do phase completions get tags? — **DECIDED: no. Capability jumps only.**
 
-Only the five cut points in [§2](#2-the-release-ladder) get a tag, and every one of them gets a GitHub Release. A phase boundary that is not also a capability jump gets nothing.
+Only the six cut points in [§2](#2-the-release-ladder) get a tag, and every one of them gets a GitHub Release. A phase boundary that is not also a capability jump gets nothing.
 
 The justification is the build process's own rule ([build-process.md](build-process.md)): *"These documents are the intent. GitHub is the state."* Phase completion **already has a representation** — the phase's GitHub milestone closes and its issues all read `status:merged`. A `v0.0.x-phase0` tag would duplicate state GitHub already holds, on the one axis (git history) the process deliberately keeps free of progress tracking. Tags are reserved for the thing GitHub milestones *cannot* express: "here is a tree someone can go and use."
 
@@ -52,13 +52,13 @@ The two schemes only differ in three places, which is worth knowing before disag
 | Phase 3 complete (T23–T28) | **Yes** — `v1.0.0` | The packaged build. |
 | *Mid-Phase 2* (T13–T17, T35, T38 and T39 merged) | **Yes** — `v0.2.0` | Not a phase boundary at all, but the largest fidelity jump in the build: naval + battle + capture. Waiting for all of Phase 2 would hide it behind the AI, which has the most uncertain duration of any task. |
 
-So: three of five releases land on a phase boundary, one lands a task past one, and one lands mid-phase — which is the argument for tying tags to capability rather than to phase in the first place.
+So: three of six releases land on a phase boundary, one lands a task past one, one lands mid-phase, and one (`v0.5.0`, the tactical battle) is a capability added after the phases — which is the argument for tying tags to capability rather than to phase in the first place.
 
 ---
 
 ## 2. The release ladder
 
-Five releases, anchored to merged task issues, not to dates — this project has no calendar, only dependency order ([task-catalogue.md §1.1](task-catalogue.md#11-waves-and-the-critical-path)).
+Six releases, anchored to merged task issues, not to dates — this project has no calendar, only dependency order ([task-catalogue.md §1.1](task-catalogue.md#11-waves-and-the-critical-path)).
 
 | Tag | Gate: all of these `status:merged` | Design milestones complete | What a user can actually do |
 | --- | --- | --- | --- |
@@ -66,13 +66,15 @@ Five releases, anchored to merged task issues, not to dates — this project has
 | **`v0.2.0`** *A war is simulable* | + #13–#17, #63, #78 and #81 (T13–T17, T35, T38, T39) | + M4, M7, M8, M9, M14 | Still no runnable program. A developer can script a fixture in which an army is recruited, sails, fights a field/naval/siege battle under either preset, and takes a city with the defection cascade firing. |
 | **`v0.3.0`** *Headless playable* | + #18–#23, #32, and T36's and T37's issues (T18–T23, T29, T36, T37) — Phase 2 complete + the CLI | + M10, M11, M12, M15, M16, M18 (headless half), M17 | **First downloadable thing anyone can run.** `IC2.Cli` loads a scenario, issues one order of every type, ends turns, and an all-AI toy scenario runs to a victory condition **or its stated turn cap**, matching T22's settled Done-when 2 (reworded 2026-09-23 on the user's decision on [#267](https://github.com/diegoami/imperial_conquest_2/issues/267): a siege-scaled soak world comes after `v0.3.0`, and #267 stays open for it). Native saves round-trip; an original `.sav` imports (locally, with `assets.local.ini`); the exported `classical-mediterranean` world and both preset rulesets ship. No graphics. |
 | **`v0.4.0`** *Playable with a UI, from source* | + #24, #25, #26, #469 (T24–T26, T95; T24 without the follow-ups split into T94 on 2026-09-28) | + M18 (UI half), M19 | Launch the Godot project **from source** (needs Godot 4.7.2 + .NET 10 SDK), pick `Classical Faithful` or `Improved` at New Game, play the map with the contextual panel, news log, battle-result, diplomacy and hotseat-handoff screens. |
-| **`v1.0.0`** *First packaged playable release* | + #27, #28, #464 (T27, T28, T94) — everything | **All 20** (M1–M20) | Download an export, launch it on a machine with no dev toolchain, and play a scenario end to end to a victory condition. |
+| **`v0.5.0`** *Battles* | + #635 (T116) and the issues of T122–T129 (#TBD-T122 … #TBD-T129; T126 only if the user answers #496's AI-phase question yes) | + M21 | A field battle with a human side opens the original's **tactical battle**: place the army on a 14 × 12 board, move, shoot and fight half-round by half-round against the original's own computer general (or let *Computer general* play a side), surrender, and read the original's *Battle ended* window; the survivors, promotions, money, supplies and unity are written back as the original does. A battle with no human side still resolves at once, unchanged. Under `classical-faithful` a battle cannot be saved mid-way, as in the original. The port is checked against the original's recorded battles half-round by half-round. |
+| **`v1.0.0`** *First packaged playable release* | + #27, #28, #464 (T27, T28, T94) — everything in the gates above, `v0.5.0`'s included | **All 21** (M1–M21) | Download an export, launch it on a machine with no dev toolchain, and play a scenario end to end to a victory condition. |
 
 Notes on the gates:
 
 - **`v0.2.0` deliberately stops at T17.** T16 (battle resolution) and T14 (naval) are on the critical path and gate six downstream tasks between them; T17 is the first task that consumes T16 and proves it against a real recorded event (the Galatia elimination, city by city). That is the natural place to stop and write down what fidelity is now proven.
 - **`v0.3.0` includes T23 from Phase 3** because Phase 2's close leaves the engine complete but unreachable. T23's `merge-after` is only T17 and T19, so it is available well before T22 (AI) lands; the tag waits for both.
 - **T21 (original-save import) is `local-only`.** Its tests skip explicitly on a machine without the user's files (T21 DoD 4), so `v0.3.0` can be cut from a clean CI-green tree; the release note must say the import path was verified locally, by whom, and against which saves.
+- **`v0.5.0` waits for T116 as well as the battle's own tasks** (the user's decision of 2026-10-04 on [#496](https://github.com/diegoami/imperial_conquest_2/issues/496): T116 ships first, unchanged). Its last gate, the golden master (T129), needs the original's recorded battles from the research side; until they exist the tag waits, and a release without it is the user's call, not an agent's.
 - **`v1.0.0` needs a green *scheduled* nightly run**, not just a green manual dispatch — a workflow that only ever ran on demand has not demonstrated it runs.
 
 ### 2.1 Gate progress
@@ -93,7 +95,7 @@ Cut a `v0.x.y` only when something merged after a tag **fixes a defect that tag 
 
 Nothing here commits to scope beyond `game-design.md`. The in-game scenario editor, network multiplayer and further asset packs are all in that document's "Open questions genuinely left for later" — they are **post-1.0 MINOR candidates**, not gates on any tag above, and no release note should imply otherwise.
 
-The **tactical battle** is no longer one of them: it belongs to **`v0.5.0` *Battles*** (the user's decision of 2026-10-03, revised 2026-10-04; [#496](https://github.com/diegoami/imperial_conquest_2/issues/496)). Its gate row joins the ladder above when #496's tasks are filed, and `game-design.md`'s design principle 3 and its tactical battle sections are rewritten under #496 before any task is cut.
+The **tactical battle** is no longer one of them: it belongs to **`v0.5.0` *Battles*** (the user's decision of 2026-10-03, revised 2026-10-04; [#496](https://github.com/diegoami/imperial_conquest_2/issues/496)). Its gate row is in the ladder above, and `game-design.md`'s design principle 3 and its Combat section's "The tactical battle" carry the design.
 
 ---
 
@@ -118,11 +120,11 @@ The **tactical battle** is no longer one of them: it belongs to **`v0.5.0` *Batt
 | Release | Tag + draft Release | Publish |
 | --- | --- | --- |
 | `v0.1.0`, `v0.2.0`, `v0.3.0` | The main session, autonomously | The main session, autonomously |
-| `v0.4.0`, `v1.0.0` (and any `-rc`) | The main session, autonomously, as a **draft** | **Human**, after the visual sign-off Q-B already requires |
+| `v0.4.0`, `v0.5.0`, `v1.0.0` (and any `-rc`) | The main session, autonomously, as a **draft** | **Human**, after the visual sign-off Q-B already requires |
 
-The reasoning is that a tag is a *consequence* of merges, not a new decision. Every merge in a `0.1`–`0.3` gate was one the main session was already authorized to make; refusing it the tag would add a human gate without adding a human judgment. `v0.4.0` and `v1.0.0` are different in kind: their gating tasks (T24, T25, T27) each carry "**+ human visual review**" in the task catalogue, so a person is in the loop *anyway* — the release simply inherits that gate rather than inventing a second one.
+The reasoning is that a tag is a *consequence* of merges, not a new decision. Every merge in a `0.1`–`0.3` gate was one the main session was already authorized to make; refusing it the tag would add a human gate without adding a human judgment. `v0.4.0`, `v0.5.0` and `v1.0.0` are different in kind: their gating tasks (T24, T25, T27; T116 and T127 for `v0.5.0`) each carry "**+ human visual review**" in the task catalogue, so a person is in the loop *anyway* — the release simply inherits that gate rather than inventing a second one.
 
-Worth noticing: **every release in the ladder already has a human touchpoint upstream of it**, with no new gate invented. `v0.1.0` inherits the T02/T03 architecture thumbs-up; `v0.2.0` inherits T16's; `v0.3.0` inherits T22's; `v0.4.0` and `v1.0.0` inherit the Q-B screenshot reviews.
+Worth noticing: **every release in the ladder already has a human touchpoint upstream of it**, with no new gate invented. `v0.1.0` inherits the T02/T03 architecture thumbs-up; `v0.2.0` inherits T16's; `v0.3.0` inherits T22's; `v0.4.0`, `v0.5.0` and `v1.0.0` inherit the Q-B screenshot reviews.
 
 ### 3.3 How this interacts with branch-per-task and squash-merge
 
@@ -159,7 +161,7 @@ Eight required sections. An agent drafting a note that omits one has not finishe
 1. **Header** — tag, previous tag, the gate (issue numbers), and the ladder's one-line "what a user can actually do" statement, verbatim from [§2](#2-the-release-ladder).
 2. **Rulesets and presets** — the whole point of this section is that `classical-faithful` vs `improved` is a **player-facing choice that will keep evolving** (`game-design.md` §"Two shipped presets"). Required: which presets ship; **which is the New Game default** (`classical-faithful`, per that section); and a table of every ruleset flag with its value under each preset. Regenerated from `data/rulesets/*.json` at cut time, so it cannot go stale. As of this writing that table is `diplomacy.model`, `economy.purses`, `victory.default`, `seatAsymmetry`, `bugPolicy.diplomaticThaw`, `combat.onDefeat`, plus the per-task flags the catalogue adds (`faithfulThawColumnBug`, T18's `cityOrders` table) — but the note reports what the files say, never this list.
 3. **Newly playable `[designed]` mechanics** — anything tagged `[designed, no original analogue]` that a player can now encounter, named as such, with its placeholder-constant status. The first of these is the `improved` preset's **`combat.onDefeat` scatter** (T16): the loser survives at a mirrored casualty ratio and relocates 2–4 tiles away with its moves zeroed. `game-design.md` is explicit that its survivor fraction and scatter range are documented placeholders meant to be retuned from play, not derived from the original — the release note is where a player is told that, so feedback comes back as tuning rather than as a bug report.
-4. **Known gaps vs `game-design.md`** — which of M1–M20 are not complete, each with the issue number that will close it. Plus the still-open evidence items the shipped rulesets carry as `[open]` `_provenance`: `design-audit.md` Q9's paid case (where a foreign supply purchase's talents go), and anything else [operating-guide.md §7](https://github.com/diegoami/imperial_conquest_2/wiki/Open-questions) lists that a shipped rule depends on.
+4. **Known gaps vs `game-design.md`** — which of M1–M21 are not complete, each with the issue number that will close it. Plus the still-open evidence items the shipped rulesets carry as `[open]` `_provenance`: `design-audit.md` Q9's paid case (where a foreign supply purchase's talents go), and anything else [operating-guide.md §7](https://github.com/diegoami/imperial_conquest_2/wiki/Open-questions) lists that a shipped rule depends on.
 5. **Fidelity statement** — which golden fixtures from real play pass ([`full-battle-resolution-rome-vs-gaul.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/full-battle-resolution-rome-vs-gaul.md), [`battle-recording-melee-cap-confirmed.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/battle-recording-melee-cap-confirmed.md), [`army-to-army-transfer-confirmed.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/army-to-army-transfer-confirmed.md), [`galatia-elimination-and-city-resupply-confirmed.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/galatia-elimination-and-city-resupply-confirmed.md), as each becomes applicable), the determinism guard's status, and from `v0.3.0` the 50-seed AI soak result. This is the section that distinguishes this project from a generic reimplementation and it should read as evidence, not as a claim.
 6. **Compatibility** — `SaveGame.schemaVersion`; whether the previous tag's saves load; whether original-`.sav` import still targets `classical-mediterranean` + `classical-faithful` only (it does, by policy).
 7. **Artifacts and how to run them** — what is attached, the runtime prerequisites, and the local-only caveats (original-save import needs `assets.local.ini`; before `v1.0.0`, a Godot install).
@@ -200,15 +202,15 @@ The concrete "done when" for cutting a release, in the task catalogue's style: *
 8. *(from v0.3.0)* The 50-seed AI soak (T22 DoD 1–2) completes inside its stated wall-clock budget with zero stalls, zero rejected commands, zero exceptions.
 9. *(from v0.3.0)* The original-save import (T21) was run **locally** against the 3–4 representative saves, or the note states it was skipped and why — a CI skip is not a pass.
 10. *(from v0.4.0)* The headless Godot script exits 0 and `scripts/check-godot-churn.ps1` reports a clean tree afterwards (T24 DoD 1, 3).
-11. *(v1.0.0 only)* The packaging script's export launches and loads a scenario from a shell with scrubbed `PATH`/`DOTNET_ROOT`, exit 0 (T27 DoD).
+11. *(v1.0.0 only)* The packaging script's export launches and loads a scenario from a shell with scrubbed `PATH`/`DOTNET_ROOT`, exit 0 (T27 DoD): `pwsh scripts/package.ps1 -Verify`.
 12. *(v1.0.0 only)* The nightly workflow (T28) has a green **scheduled** run within the last 24 hours, not merely a green manual dispatch.
 13. *(v1.0.0 only)* The packaged artifact contains **no file originating from the user's original installation** — no `.exe`/`.dat`/`.hlp`/`.cnt`/`.wav`/`.sav` from `imp_conq_original`, asserted by a manifest scan of the export, not by inspection. This is the project's oldest standing constraint and the one release step where a mistake is public and irreversible.
 14. The release note's preset table was **regenerated** from `data/rulesets/*.json` and diffs clean against the draft — the table is never typed by hand.
 15. The known-gaps section lists exactly the design milestones whose tasks are not all `status:merged`, derived mechanically from GitHub, not written from memory.
 16. The reviewer agent ([§4.3](#43-who-reviews-it--the-existing-reviewer-role-on-the-draft-release-body)) has re-run items 4–13 itself and approved the draft.
 17. The tag is annotated, on `main`, on a squash-merge commit, matches the name pattern, and does not already exist — `git tag -l <tag>` is empty before `git tag -a`.
-18. **Human** *(v0.4.0, v1.0.0 only)*: visual sign-off given on every screenshot posted by T24/T25/T27, per [Q-B](build-process.md#9-standing-governance-decisions).
-19. **Human** *(v0.4.0, v1.0.0 only)*: the draft Release is published by the user. For `v0.1.0`–`v0.3.0`, the main session publishes (see [§3.2](#32-who-cuts-the-tag--recommended-consistent-with-q-a)).
+18. **Human** *(v0.4.0, v0.5.0, v1.0.0 only)*: visual sign-off given on every screenshot posted by T24/T25/T27 (and, for `v0.5.0`, by T127), per [Q-B](build-process.md#9-standing-governance-decisions).
+19. **Human** *(v0.4.0, v0.5.0, v1.0.0 only)*: the draft Release is published by the user. For `v0.1.0`–`v0.3.0`, the main session publishes (see [§3.2](#32-who-cuts-the-tag--recommended-consistent-with-q-a)).
 
 Items 1–17 are checkable by an agent. Items 18–19 are the only human steps, and neither is new — both are [Q-B](build-process.md#9-standing-governance-decisions)'s existing answer applied at the release boundary.
 
@@ -218,7 +220,7 @@ Items 1–17 are checkable by an agent. Items 18–19 are the only human steps, 
 
 ## 6. What was created in GitHub, and what was not
 
-**Created: five `release:*` labels**, applied one per task issue — the first release whose gate includes it.
+**Created: `release:*` labels**, applied one per task issue — the first release whose gate includes it. Five were created with this document; `release:v0.5.0` is created when [#496](https://github.com/diegoami/imperial_conquest_2/issues/496)'s tasks are filed.
 
 | Label | Applied to |
 | --- | --- |
@@ -226,6 +228,7 @@ Items 1–17 are checkable by an agent. Items 18–19 are the only human steps, 
 | `release:v0.2.0` | #13–#17, #63 (T35), #78 (T38), #81 (T39) |
 | `release:v0.3.0` | #18–#23, #32 (T29), #64 (T36), #70 (T37) |
 | `release:v0.4.0` | #24, #25, #26 |
+| `release:v0.5.0` | #635 (T116), and T122–T129's issues |
 | `release:v1.0.0` | #27, #28 |
 
 This makes checklist items 1 and 15 a single `gh issue list` query instead of a hand-maintained list, it is additive and reversible like every other label, and it does not disturb anything the task loop relies on.
@@ -279,10 +282,10 @@ Items 10–13 and 18 are v0.4.0 or v1.0.0 only. Item 19: the main session publis
 | | |
 | --- | --- |
 | Scheme | SemVer 2.0.0, `v`-prefixed, annotated tags on `main` only; `0.x` through the build, `-rc.N` only ahead of `v1.0.0` |
-| Tags | Five: `v0.1.0`, `v0.2.0`, `v0.3.0`, `v0.4.0`, `v1.0.0` — at capability jumps, **not** at phase boundaries |
+| Tags | Six: `v0.1.0`, `v0.2.0`, `v0.3.0`, `v0.4.0`, `v0.5.0`, `v1.0.0` — at capability jumps, **not** at phase boundaries |
 | Gate | A set of merged task issues, tracked by a `release:*` label; never a date |
 | Cut by | The main session, right after merging the last gating task, before dispatching the next |
-| Published by | The main session for `v0.1.0`–`v0.3.0`; the **human** for `v0.4.0` and `v1.0.0`, inheriting Q-B's visual sign-off |
+| Published by | The main session for `v0.1.0`–`v0.3.0`; the **human** for `v0.4.0`, `v0.5.0` and `v1.0.0`, inheriting Q-B's visual sign-off |
 | Notes | Generated at cut time from GitHub + the shipped ruleset JSON; no `CHANGELOG.md`; eight required sections, presets and `[designed]` mechanics among them |
 | Reviewed by | The existing reviewer role (Opus / Medium), applying build-process.md §4.2's gates to the draft Release body |
 | Blocking constraint | 19 checklist lines; 17 agent-checkable, 2 human, none of them new |
