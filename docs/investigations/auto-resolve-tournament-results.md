@@ -11,6 +11,16 @@ other than each metric band's own pass or fail, and no row totals the passes.
 Nothing here changes how the game resolves a battle. `InstantBattleResolver` is untouched, no ruleset
 gains a field or a flag, and nothing in the game calls the candidates.
 
+> **Corrected 2026-10-04: C2–C5 were measured on the wrong matrix.** Every candidate that reads the
+> effectiveness matrix (C2–C5; C1 reads none) took it from the rulesets'
+> `combat.detailedResolver.typeEffectiveness`, and those 25 values are two AI tables, not the
+> original's melee matrix ([`2026-10-04-decompiled-tactical-battle-rules.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-04-decompiled-tactical-battle-rules.md) §5, a static
+> decompile; [#647](https://github.com/diegoami/imperial_conquest_2/issues/647)). The same report settles
+> two of C2's placeholders differently from how C2 implements them: the melee morale comparison (D07)
+> and the shooting distance (D06) ([`auto-resolve-approaches.md`](auto-resolve-approaches.md)'s
+> correction of 2026-10-04). The numbers below are what T59's code measured at `5e119d3`; for C2–C5
+> they do not measure the original's matrix, and C2's do not measure the original's tactical rules.
+
 ## Contents
 
 1. [What was run](#1-what-was-run)

@@ -701,6 +701,23 @@ section actually require:
   in the published mockup. **No new asset key is required for any current DoD.** If a future task wants a
   visual flourish (a victory/defeat banner), that is a new gap to record *then*, tagged `[designed]` at
   that point — inventing one now would be art direction this document is not supposed to specify.
+- **The original's tactical battle screen: what it draws, for whichever task builds one.** No current
+  DoD needs these, and no key is proposed here; the inventory is recorded so that the task that builds
+  a battlefield ([#496](https://github.com/diegoami/imperial_conquest_2/issues/496)) starts from it
+  **[confirmed: code and the `TBATTLEMAP` resource, static, not yet compared with the running game:
+  [`2026-10-04-decompiled-tactical-battle-rules.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-04-decompiled-tactical-battle-rules.md) §10]**:
+  - **15 unit icons, 32 × 32**: the five unit types at **three sizes** each (small, medium, large),
+    the size being `min(2, troops div (standardBattalionSize div 3))` and recomputed after every loss.
+    These are not §4.1's five strategic icons: §4.1's roster is complete for the strategic map only.
+  - **Three recolourable regions per icon**: purple `0x800080`, white and blue are replaced by the
+    nation's three colours (nation `+0x424`, `+0x428`, `+0x42C`), once per side; the green dotted cell
+    border is kept. Which colours each nation has was not read.
+  - **One ground tile** (grass with brown contour lines; the battlefield has no terrain) and **one
+    selection cursor** (drawn with an erase raster op). There is no routed, selected or wounded image:
+    a routed unit's cell becomes empty ground.
+  - **Eight 20 × 20 toolbar glyphs**: Unit moves, Friendly units, Enemy units, Cancel selection, End
+    turn, Change pauses, Computer general on, Surrender.
+  - The board is 14 × 12 cells of 32 px, a 448 × 414 client area.
 - **T17/T18 fortification and siege states: no sprite is confirmed needed, from the one data point
   available.** Checked the original's own screenshots directly — **correction (rework round 1): the
   citation named the wrong file.** Felsina at 51% fortification is in
