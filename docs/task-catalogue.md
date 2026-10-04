@@ -287,6 +287,7 @@ Conventions used by every entry:
 
 - **Branch**: `task/T<nn>-<slug>`. One branch per task, never reused.
 - **Owns**: the only paths the implementer may create or modify, besides its own tests. Anything else → escalate; a defect in another task's files → the bug list ([build-process.md §4.6](build-process.md#46-bugs-and-follow-ups)). A parenthesis narrows a shared file to the part the task may change — for example `Ruleset.cs` (the `NavalRules` record only); ruleset schema changes follow [build-process.md §2.6](build-process.md#2-how-the-build-avoids-conflicts).
+- **Scope**: opens with one line, `Protects: …`, naming what the task exists to protect (a guard, check, invariant, rule value or file), so a review brief's "Blocking means" item 2 can name it. On a guard task (one whose failure lets a wrong result or a forbidden action through) it lists the forbidden actions or results the guard must stop. Required for entries written from 2026-10-04 (harness lesson L47); older entries gain it when next amended.
 - **Done when**: each line is a single assertion an agent can check by running a command. A DoD line is **immutable to the implementer** — see [build-process.md §4.3](build-process.md#43-the-dod-is-not-negotiable-by-an-agent).
 - Numbers cited without a report name are already cited in `game-design.md`/`design-audit.md` at the referenced milestone.
 
