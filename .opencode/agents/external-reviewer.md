@@ -59,4 +59,7 @@ write it. The brief that follows tells you what to check; this file tells you ho
   the brief gives you (for example `Plan review (Luna)`), the second line is the verdict
   (`approve`, `approve after named fixes`, `rework`, or `user decision`), then the findings as
   R1, R2, ... with file and line, blocking or not, then the verdict line once more as the last
-  line. Never put close/closes/fix/fixes/resolve/resolves directly before `#<n>`.
+  line. When the brief asks for a "Final pass done" line, it is the line just before that closing
+  verdict, never between the header and line 2's verdict, and no finding (R1, N2, ...) follows
+  the closing verdict: the script reads the verdict from the first five lines and the last three,
+  and flags a review with findings after its closing verdict. Never put close/closes/fix/fixes/resolve/resolves directly before `#<n>`.
