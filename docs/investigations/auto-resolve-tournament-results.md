@@ -55,10 +55,12 @@ gains a field or a flag, and nothing in the game calls the candidates.
   C2 and C5 share one engine (`TacticalBattle`), so they differ only in what happens after a break, as
   §6.5 requires. Every constant is either read from the ruleset or is a candidate-local constant cited
   to its K or D row (`CandidateConstants`). Every draw goes through the `IRng` the battle is handed.
-- **C1 is the merged code.** It is `ResolveField` at `562e608`, the T63 merge, which **includes #289's
-  small-unit deletion pass** (`BattleCasualties.DeleteBelowThreshold`). C1 covers exactly the
-  **field-battle** resolver, whose one game call site is `AttackArmyCommandHandler`. `ResolveSiege` and
-  `ResolveNaval` are not wrapped, and no metric scores a siege or a naval battle (survey §1).
+- **C1 is the merged code as of this run's commit (`5e35cfb`, above).** It is `ResolveField` as merged
+  at that commit, which carries T63's `562e608` small-unit deletion pass
+  (`BattleCasualties.DeleteBelowThreshold`) **and** the later battle-path merges named below (`bc1a843`
+  among them) — not the resolver as it stood at `562e608`. C1 covers exactly the **field-battle**
+  resolver, whose one game call site is `AttackArmyCommandHandler`. `ResolveSiege` and `ResolveNaval`
+  are not wrapped, and no metric scores a siege or a naval battle (survey §1).
 - **C1's draws are the merged count, not the original's.** `BattleCasualties.Apply` draws one
   `Random(15)` per unit-list entry, where the original's `FUN_0044AE20` always draws 20 (#290; survey §6.1
   "Draws"). Every C1 draw number below is the merged count.
@@ -130,6 +132,8 @@ The draw-formula check also ran on **every** battle, not only on §8.5's 100: 0 
 battles for C2–C5. C1's reads 186,000 of 186,000 because its stated formula still counts the peace
 draw that `bc1a843` skips for its one-human-side battles; that is bug
 [#659](https://github.com/diegoami/imperial_conquest_2/issues/659), recorded not fixed (§4, Diagnostics).
+C1's DET **FAIL** in the table above is that same stale formula, not non-determinism: its byte-identity
+half is 100/100 across the two processes, and only its draw-count half reads 0/100.
 
 ## 3. The baseline's real numbers
 
@@ -249,7 +253,7 @@ build), with nothing else running.
 
 What these numbers can and cannot carry:
 - **No candidate is visibly disqualified on cost.** The headless-tactical engine that T59's hazard
-  asked to budget for first (C2, and C5 on the same engine) runs at about 15 µs per P-scale battle, over
+  asked to budget for first (C2, and C5 on the same engine) runs at about 16 µs per P-scale battle, over
   a mean of 13.0 rounds and 407 draws. So it did not have to be cut, and the finding the hazard feared
   does not arise.
 - **The soak cannot tell the candidates apart.** With `B = 50` field battles over 50 games, even a
@@ -383,8 +387,9 @@ None of them was chosen by looking at a result.
    seeds are therefore reused across the four values of κ and both seats.
 5. **Medians and ties in the metrics.** A median over an even count is the mean of the two middle
    values. In CD-b, types with equal mean loss are ordered by type index, and an opponent against which
-   the uniform mix never won is recorded as *no data* and counts as no clear top. That affects C3 (9
-   opponents) and C4 (6), whose uniform army loses every battle against those opponents.
+   the uniform mix never won is recorded as *no data* and counts as no clear top. That affects C3 (13
+   opponents), C4 (5), C2 (1: HI) and C5 (2: HI and HI+A), whose uniform army loses every battle
+   against those opponents.
 6. **K27's placeholder (C2, C5)** was kept as the survey specifies: +3 to **both** sides, used only to
    seed `m` and not written back. The original gives +3 to a computer-controlled side only (research
    `1762c84`). The survey leaves that choice to the user, and so does this document.
@@ -444,13 +449,14 @@ dotnet build tools/AutoResolveTournament -c Release
 dotnet run -c Release --no-build --project tools/AutoResolveTournament -- soak
 dotnet test tests/IC2.Engine.Tests -c Release --filter "FullyQualifiedName~AiSoakTests.Fifty_fixed_seeds" --logger "console;verbosity=detailed"
 dotnet run -c Release --no-build --project tools/AutoResolveTournament -- run --e0 2.37 --b 50
-dotnet run -c Release --no-build --project tools/AutoResolveTournament -- run --no-timing --e0 2.37 --b 50
+dotnet run -c Release --no-build --project tools/AutoResolveTournament -- run --no-timing --e0 2.37 --b 50 --out rendered/notiming
 dotnet run -c Release --no-build --project tools/AutoResolveTournament -- smoke --corpus <asset directory>
 dotnet run -c Release --no-build --project tools/AutoResolveTournament -- trace --candidate C5 --attacker 15 --defender 4 --seed 3
 ```
 
 The two `run` commands were the run: the first timed (it wrote the committed files), the second with
-`--no-timing` into a separate directory. Both printed the same SHA-256,
+`--no-timing` into a separate directory (`rendered/notiming`, so it cannot overwrite the committed
+files). Both printed the same SHA-256,
 `07A4C3D499D4E4921925141ED5C3F5D0E71B809F999BA5DFAF763FAAC1DB7B98`. `--e0 2.37` is this machine's
 `AiSoakTests` E0 and `--b 50` is its soak's `B`.
 
