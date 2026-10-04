@@ -466,6 +466,16 @@ public sealed record TileType(
 /// it absent, and a nation without one draws a black or white glyph chosen by its background's
 /// luminance.
 /// </param>
+/// <param name="BattleColorsHex">
+/// The nation's three tactical-battle icon colours, as three <c>#RRGGBB</c> strings in the original's
+/// substitution order (<c>2026-10-04-decompiled-tactical-battle-rules.md</c> §10: <c>FUN_0044A6C8</c>
+/// replaces a battle icon's purple <c>0x800080</c>, white and blue with the nation record's
+/// <c>+0x424</c>, <c>+0x428</c> and <c>+0x42C</c>). Optional: a nation without one falls back to the
+/// icon's own palette colours. T128 recolours the 5 × 3 unit icons from this list. Declared before
+/// <see cref="GlyphColorHex"/> so that adding it to the committed world data appends a property
+/// without rewriting the line that already closes each nation object — the T122 export's own
+/// "additions only" invariant.
+/// </param>
 public sealed record NationDefinition(
     string Id,
     string Name,
@@ -480,6 +490,7 @@ public sealed record NationDefinition(
     int MobilizedPercent,
     int Population,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null,
+    ValueList<string>? BattleColorsHex = null,
     string? GlyphColorHex = null);
 
 /// <summary>A city as the world defines it at scenario start.</summary>

@@ -265,6 +265,18 @@ if (palette.Length != 16 || glyphPalette.Length != 16)
 if (palette.Zip(glyphPalette).Distinct().Count() != 16)
     throw new InvalidOperationException("Two nations share the same (background, foreground) pair.");
 
+// ---- T122: the nation battle-icon colours ----
+// FUN_0044A6C8 substitutes a tactical-battle icon's purple / white / blue with the nation record's
+// +0x424 / +0x428 / +0x42C (2026-10-04-decompiled-tactical-battle-rules.md §10). Those are
+// in-memory/SAV offsets: the DAT stores none of the three (SaveNationTable.ParseDat reports
+// BattleColors == null; the derived +0x3FD / +0x401 / +0x405 offsets read 0 in all 16 DAT records,
+// and no triple appears anywhere in the file), while three separate saves agree on the same triple
+// per nation. So the values come from the start save the T04 fixtures name, resolved through the
+// same documented search order every other corpus fixture uses (the three plain save folders, then
+// releases/<tag>/). The per-nation provenance note records both facts.
+const string startSaveName = "1_rome_270_winter_11.sav";
+var startSaveNations = SaveNationTable.Parse(File.ReadAllBytes(ResolveStartSave(settings, startSaveName)));
+
 var nationDefs = new NationDefinition[16];
 for (var i = 0; i < 16; i++)
 {
@@ -277,6 +289,16 @@ for (var i = 0; i < 16; i++)
     string? capitalId = n.CapitalCityIndex == SaveNationTable.NoCapitalSentinel
         ? null
         : CityId(n.CapitalCityIndex);
+
+    var battleColors = startSaveNations.Nations[i].BattleColors
+        ?? throw new InvalidOperationException(
+            $"T122: start save '{startSaveName}' nation {i} ({startSaveNations.Nations[i].Name}) carries no +0x424/+0x428/+0x42C battle colours.");
+    if (battleColors.Count != 3)
+        throw new InvalidOperationException(
+            $"T122: start save '{startSaveName}' nation {i} has {battleColors.Count} battle colours, not 3.");
+    var battleColorsHex = ValueList.Of(battleColors
+        .Select(c => $"#{c & 0xFF:X2}{(c >> 8) & 0xFF:X2}{(c >> 16) & 0xFF:X2}")
+        .ToArray());
 
     nationDefs[i] = new NationDefinition(
         Id: nationIds[i],
@@ -292,9 +314,11 @@ for (var i = 0; i < 16; i++)
         TaxRatePercent: n.TaxRatePercent,
         MobilizedPercent: n.MobilizedPercent,
         Population: population,
+        BattleColorsHex: battleColorsHex,
         Provenance: ProvenanceMap.Of(
             ("name", "confirmed: T30's DAT nation-table parse (IC2.Data.SaveNationTable.Parse), DAT 0x1B100; cross-checked against NationCatalog -- docs/investigations/dat-file-layout.md."),
             ("colorHex", "confirmed: 2026-09-29-nation-marker-colours.md -- the report's background-square colour for this nation (read from the user's 2026-09-29 screenshot strip, cross-checked against the pre-T94 research inspector's OwnerColor table); replaces T49's designed palette."),
+            ("battleColorsHex", "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §10 -- FUN_0044A6C8 substitutes a battle icon's purple 0x800080, white and blue with the nation record's +0x424, +0x428 and +0x42C. The DAT stores none of the three (its 1,055-byte record ends at the recruitment queue, and the derived +0x3FD/+0x401/+0x405 offsets read zero), so they are read from the +0x424/+0x428/+0x42C words of the start save 1_rome_270_winter_11.sav."),
             ("glyphColorHex", "confirmed: 2026-09-29-nation-marker-colours.md -- the report's foreground glyph colour for this nation, the first record of it."),
             ("leaderName", "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one."),
             ("capitalCityId", "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse."),
@@ -784,6 +808,44 @@ static string FindThisFileDirectory([System.Runtime.CompilerServices.CallerFileP
     Path.GetDirectoryName(path)!;
 
 /// <summary>
+/// T122: resolves the start save the nation battle-icon colours come from. Mirrors
+/// <c>IC2.Inspect.CorpusFileLocator</c>'s documented search order (the three plain save folders, then
+/// every <c>releases/&lt;tag&gt;/</c> subtree) rather than duplicating a private guess: this file-based
+/// script declares only two project references and cannot take a third (the toy-guard test rewrites
+/// exactly those two), so the locator cannot be referenced here.
+/// </summary>
+static string ResolveStartSave(AssetSettings settings, string fileName)
+{
+    foreach (var dir in new[] { "saves", "saves-processed", Path.Combine("saves-processed", "processed") })
+    {
+        var candidate = Path.Combine(settings.DirectoryPath, dir, fileName);
+        if (File.Exists(candidate))
+        {
+            return candidate;
+        }
+    }
+
+    var releases = Path.Combine(settings.DirectoryPath, "releases");
+    if (Directory.Exists(releases))
+    {
+        foreach (var tagDir in Directory.GetDirectories(releases).OrderBy(d => d, StringComparer.Ordinal))
+        {
+            var hit = Directory.EnumerateFiles(tagDir, fileName, SearchOption.AllDirectories)
+                .OrderBy(p => p, StringComparer.Ordinal)
+                .FirstOrDefault();
+            if (hit is not null)
+            {
+                return hit;
+            }
+        }
+    }
+
+    throw new InvalidOperationException(
+        $"T122 needs the start save '{fileName}' for the nation battle colours, but it was not found " +
+        $"under '{settings.DirectoryPath}' (the three documented save folders and releases/ were searched).");
+}
+
+/// <summary>
 /// Recursively finds every string value inside an object literally named <c>_provenance</c>
 /// (anywhere in the tree) that mentions "toy" case-insensitively -- the #299 guard. Returns each
 /// hit as <c>"dotted.path.key: \"text\""</c> for a readable error.
@@ -955,6 +1017,49 @@ internal static class RulesetCorpusMap
         ("combat.detailedResolver.typeEffectiveness.4.2", "matrix.heavyCavalry.vs.archers"),
         ("combat.detailedResolver.typeEffectiveness.4.3", "matrix.heavyCavalry.vs.lightCavalry"),
         ("combat.detailedResolver.typeEffectiveness.4.4", "matrix.heavyCavalry.vs.heavyCavalry"),
+        // T122: the tactical battle's constants (2026-10-04-decompiled-tactical-battle-rules.md).
+        ("combat.tactical.boardWidth", "tactical.board.width"),
+        ("combat.tactical.boardHeight", "tactical.board.height"),
+        ("combat.tactical.homeRows", "tactical.board.homeRows"),
+        ("combat.tactical.copyInColumns", "tactical.board.copyInColumns"),
+        ("combat.tactical.computerArmyMoraleBonus", "tactical.copyIn.computerArmyMoraleBonus"),
+        ("combat.tactical.moraleQualityFactor", "tactical.copyIn.moraleQualityFactor"),
+        ("combat.tactical.moraleMin", "tactical.copyIn.moraleMin"),
+        ("combat.tactical.moraleMax", "tactical.copyIn.moraleMax"),
+        ("combat.tactical.slowAdvanceMoves", "tactical.slowAdvance.moves"),
+        ("combat.tactical.slowAdvanceMinDistance", "tactical.slowAdvance.minDistance"),
+        ("combat.tactical.slowAdvanceHalfRounds", "tactical.slowAdvance.halfRounds"),
+        ("combat.tactical.shotTroopsFactor", "tactical.shooting.troopsFactor"),
+        ("combat.tactical.shotDivisorBase", "tactical.shooting.divisorBase"),
+        ("combat.tactical.shotShooterTroopsDivisor", "tactical.shooting.shooterTroopsDivisor"),
+        ("combat.tactical.shotTargetTroopsDivisor", "tactical.shooting.targetTroopsDivisor"),
+        ("combat.tactical.shotMoraleNumerator", "tactical.shooting.moraleNumerator"),
+        ("combat.tactical.shotMoraleCap", "tactical.shooting.moraleCap"),
+        ("combat.tactical.meleeFocusCap", "tactical.melee.focusCap"),
+        ("combat.tactical.meleeAttackerExchangeDivisor", "tactical.melee.attackerExchangeDivisor"),
+        ("combat.tactical.meleeDefenderExchangeDivisor", "tactical.melee.defenderExchangeDivisor"),
+        ("combat.tactical.moraleWinnerDelta", "tactical.melee.moraleWinnerDelta"),
+        ("combat.tactical.moraleLoserDelta", "tactical.melee.moraleLoserDelta"),
+        ("combat.tactical.moraleCap", "tactical.melee.moraleCap"),
+        ("combat.tactical.routTroopsDivisor", "tactical.rout.troopsDivisor"),
+        ("combat.tactical.routMoraleAutomatic", "tactical.rout.moraleAutomatic"),
+        ("combat.tactical.routMoraleSafe", "tactical.rout.moraleSafe"),
+        ("combat.tactical.routDrawThreshold", "tactical.rout.drawThreshold"),
+        ("combat.tactical.routFriendPenalty", "tactical.rout.friendPenalty"),
+        ("combat.tactical.routCascadeBelow", "tactical.rout.cascadeBelow"),
+        ("combat.tactical.routEnemyBonus", "tactical.rout.enemyBonus"),
+        // The computer general's table-valued rows: the corpus entry is an array (or an array of
+        // objects), so it is cited on combat.tactical's _provenance but not diffed, the same
+        // convention as every formula-string citation above.
+        ("combat.tactical.placementFormations", "tactical.computerGeneral.placementFormations"),
+        ("combat.tactical.typeOrder", "tactical.computerGeneral.typeOrder"),
+        ("combat.tactical.targetPreferences", "tactical.computerGeneral.targetPreferences"),
+        ("combat.tactical.scoreDivisor", "tactical.computerGeneral.scoreDivisor"),
+        ("combat.tactical.claimLimit", "tactical.computerGeneral.claimLimit"),
+        ("combat.tactical.archerEngageDistance", "tactical.computerGeneral.archerEngageDistance"),
+        ("combat.tactical.approachBoxRadius", "tactical.computerGeneral.approachBoxRadius"),
+        ("combat.tactical.flankFlipChanceDenominator", "tactical.computerGeneral.flankFlipChanceDenominator"),
+        ("combat.tactical.dangerQualityDivisor", "tactical.computerGeneral.dangerQualityDivisor"),
         ("combat.naval.conditionDivisor", "battle.naval.strengthFormula"),
         // Review round 1 B2: all three fit battle.naval.winnerDamageFormula, the same corpus id
         // combat.naval.winnerDamageDivisor already cites below -- the formula string literally
@@ -1169,6 +1274,12 @@ internal static class RulesetCorpusMap
         ("unitTypes.4.recruitCost", "unitType.heavyCavalry.recruitCostInitial"),
         ("unitTypes.4.shots", "unitType.heavyCavalry.shots"),
         ("unitTypes.4.standardBattalionSize", "unitType.heavyCavalry.battalionSize"),
+        // T122: the per-type shooting-vulnerability weight (+0x20), read by the tactical shot formula.
+        ("unitTypes.0.shotVulnerability", "unitType.lightInfantry.shotVulnerability"),
+        ("unitTypes.1.shotVulnerability", "unitType.heavyInfantry.shotVulnerability"),
+        ("unitTypes.2.shotVulnerability", "unitType.archers.shotVulnerability"),
+        ("unitTypes.3.shotVulnerability", "unitType.lightCavalry.shotVulnerability"),
+        ("unitTypes.4.shotVulnerability", "unitType.heavyCavalry.shotVulnerability"),
         ("victory.hardEndYearBc", "victory.yearLimitBC"),
         ("victory.totalConquestRequiresEveryCity", "victory.allCitiesThreshold"),
     };

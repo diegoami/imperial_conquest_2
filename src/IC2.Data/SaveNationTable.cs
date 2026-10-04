@@ -79,11 +79,21 @@ public sealed class SaveNationTable
             // https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/nation-tax-base-and-city-economy-fields.md.
             var wealth = BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(offset + 0x430, 4));
             var taxBase = BinaryPrimitives.ReadInt16LittleEndian(data.AsSpan(offset + 0x44C, 2));
+            // T122: the three 4-byte Delphi TColor battle-icon colours (0x00BBGGRR), at nation-record
+            // +0x424 / +0x428 / +0x42C -- the offsets FUN_0044A6C8 substitutes for a battle icon's
+            // purple / white / blue (2026-10-04-decompiled-tactical-battle-rules.md §10). In-memory/SAV
+            // only: the DAT record has no such field (see ParseDat).
+            var battleColors = new[]
+            {
+                BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(offset + 0x424, 4)),
+                BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(offset + 0x428, 4)),
+                BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(offset + 0x42C, 4)),
+            };
             nations[i] = new NationRecord((ushort)i, name, leader,
                 BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(offset + 0x438, 4)),
                 ReadWord(data, offset + 0x440), ReadWord(data, offset + 0x442),
                 capitalCity, cities, ReadWord(data, offset + 0x44A), wealth, taxBase,
-                humanPlayer: human == 1, source: SaveFileFormat.Sav, relations: relations,
+                battleColors, humanPlayer: human == 1, source: SaveFileFormat.Sav, relations: relations,
                 neighbourMask: neighbourMask);
         }
         return new SaveNationTable(nations);
@@ -117,6 +127,10 @@ public sealed class SaveNationTable
                 ReadWord(data, offset + DatLayout.NationUnityOffset),
                 ReadWord(data, offset + DatLayout.NationMobilizedOffset),
                 capitalCity, cities, ReadWord(data, offset + DatLayout.NationTaxOffset), wealth, taxBase,
+                // T122: the DAT stores no battle-icon colours -- its 1,055-byte record ends at the
+                // recruitment queue, and the three words TColor lives only in the runtime/SAV record
+                // (see NationRecord.BattleColors). Read as an explicit absence, not a fabricated zero.
+                battleColors: null,
                 humanPlayer: null, source: SaveFileFormat.Dat, relations: relations,
                 neighbourMask: neighbourMask);
         }
@@ -202,8 +216,8 @@ public sealed class NationRecord
 
     internal NationRecord(ushort code, string name, string? leader, int treasury, ushort unityValue,
         ushort mobilizedPercent, ushort capitalCityIndex, ushort cityCount, ushort taxRatePercent,
-        int wealth, short taxBase, bool? humanPlayer, SaveFileFormat source, short[] relations,
-        ushort neighbourMask)
+        int wealth, short taxBase, IReadOnlyList<int>? battleColors, bool? humanPlayer,
+        SaveFileFormat source, short[] relations, ushort neighbourMask)
     {
         Code = code;
         Name = name;
@@ -216,6 +230,7 @@ public sealed class NationRecord
         TaxRatePercent = taxRatePercent;
         Wealth = wealth;
         TaxBase = taxBase;
+        BattleColors = battleColors;
         _humanPlayer = humanPlayer;
         Source = source;
         // Array.AsReadOnly, not the array itself cast to IReadOnlyList<short>: a caller that casts
@@ -283,6 +298,18 @@ public sealed class NationRecord
     /// formula. See
     /// https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/nation-tax-base-and-city-economy-fields.md.</summary>
     public short TaxBase { get; }
+
+    /// <summary>
+    /// The nation's three 4-byte Delphi <c>TColor</c> battle-icon colours (<c>0x00BBGGRR</c>), in the
+    /// order <c>FUN_0044A6C8</c> substitutes them for a tactical-battle icon's purple, white and blue:
+    /// the in-memory/SAV nation record's <c>+0x424</c>, <c>+0x428</c> and <c>+0x42C</c> (T122,
+    /// <c>2026-10-04-decompiled-tactical-battle-rules.md</c> §10). <see langword="null"/> on a
+    /// <see cref="SaveFileFormat.Dat"/> record, because the DAT genuinely stores none of the three —
+    /// its 1,055-byte record ends at the recruitment queue, and the values are New-Game state the
+    /// original holds only at runtime and in a SAV. Modelled as an explicit absence, like
+    /// <see cref="Leader"/>, rather than a fabricated zero.
+    /// </summary>
+    public IReadOnlyList<int>? BattleColors { get; }
 
     /// <summary>True if this is a human-controlled seat, false if AI-controlled. Throws
     /// <see cref="DatDataNotPresentException"/> when <see cref="Source"/> is
