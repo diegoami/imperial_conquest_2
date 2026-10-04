@@ -191,6 +191,9 @@ public partial class MainGameScreen : Control
         body.AddChild(sideColumn);
         ApplySidePanelState();
 
+        // T132 (R3): every live screen follows the shared state; _ExitTree unsubscribes.
+        SidePanelToggle.Changed += ApplySidePanelState;
+
         _areaMapView = new AreaMapView
         {
             Table = CommandTable,
@@ -930,6 +933,11 @@ public partial class MainGameScreen : Control
             _mapView.ClearSelection();
             GetViewport().SetInputAsHandled();
         }
+    }
+
+    public override void _ExitTree()
+    {
+        SidePanelToggle.Changed -= ApplySidePanelState;
     }
 
     private void ToggleSidePanel()

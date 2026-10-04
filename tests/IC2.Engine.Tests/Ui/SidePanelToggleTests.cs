@@ -56,4 +56,24 @@ public sealed class SidePanelToggleTests
         Assert.False(second.IsShown);
         Assert.Equal("«", second.Caption);
     }
+
+    [Fact]
+    public void ChangedFiresOnEveryChangeAndNotOnANoOpSet()
+    {
+        var toggle = new SidePanelToggle();
+        var count = 0;
+        void Handler() => count++;
+        SidePanelToggle.Changed += Handler;
+        try
+        {
+            toggle.Toggle();
+            toggle.Toggle();
+            toggle.Set(true);
+            Assert.Equal(2, count);
+        }
+        finally
+        {
+            SidePanelToggle.Changed -= Handler;
+        }
+    }
 }

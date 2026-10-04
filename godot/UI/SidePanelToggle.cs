@@ -23,6 +23,9 @@ public sealed class SidePanelToggle
 
     private static bool s_shown = true;
 
+    /// <summary>Raised whenever the shared state changes, so every live screen follows it.</summary>
+    public static event Action? Changed;
+
     /// <summary>Whether the column is shown (the state is shared by every instance in the process).</summary>
     public bool IsShown => s_shown;
 
@@ -36,11 +39,21 @@ public sealed class SidePanelToggle
     public bool Toggle()
     {
         s_shown = !s_shown;
+        Changed?.Invoke();
         return s_shown;
     }
 
     /// <summary>Sets the state explicitly (a check restores the default with it).</summary>
-    public void Set(bool shown) => s_shown = shown;
+    public void Set(bool shown)
+    {
+        if (s_shown == shown)
+        {
+            return;
+        }
+
+        s_shown = shown;
+        Changed?.Invoke();
+    }
 
     /// <summary>Whether a pressed key is the toggle: F12 with no modifier, nothing else.</summary>
     public static bool IsToggleKey(string keyName, bool ctrl, bool shift, bool alt) =>
