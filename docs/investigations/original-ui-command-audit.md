@@ -310,12 +310,15 @@ fleet group, most likely the 15th button above, Cancel selection [Wine candidate
 
 ### 3.4 Battle toolbar
 
-**Out of scope.** The clone resolves battles instantly, and a tactical battle presentation is reserved, not
-built ([game-design.md](../game-design.md), "User interface", item 3). For the record: the reports name only
-the **Computer general** button
-[`2026-09-28-battle-minigame-headless-feasibility.md`]. `TBattleMap` also has `Surrender`, `EndTurn`,
-`CancelSelection` and `ChangePauses` [`battle-code-entry-points.md`, and the method list in the dump], but
-which of these are toolbar buttons is **[open]**.
+**In scope for v0.5.0 *Battles*** ([game-design.md](../game-design.md), Combat, "The tactical battle", and
+"User interface", item 3; T127 builds the screen). The battle window has no menu and a toolbar of **eight
+buttons**, in this order: *Unit moves*, *Friendly units*, *Enemy units*, *Cancel selection*, *End turn*,
+*Change pauses*, *Computer general on*, *Surrender* **[confirmed: code and the `TBATTLEMAP` resource, static,
+[`2026-10-04-decompiled-tactical-battle-rules.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-04-decompiled-tactical-battle-rules.md)
+§10; Wine candidate: a tooltip scan of the running battle window found the same eight in the same order,
+[`2026-10-04-battle-probe.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-04-battle-probe.md)
+item 1]**. The main window's toolbar *Save* does nothing during a battle; *File → Save As* writes a save
+with the battle block **[Wine candidate: the same report, item 2]**.
 
 ### 3.5 Asset needs
 
