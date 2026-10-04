@@ -1,4 +1,5 @@
 using System;
+using System.Buffers.Binary;
 using System.IO;
 using Xunit;
 
@@ -19,6 +20,16 @@ public class MidBattleSaveTests
     /// <summary>9 header bytes + 40 × 44 slot bytes + a 14 × 12 grid of 2-byte entries.</summary>
     private const int BattleBlockLength = 2105;
 
+    /// <summary>The block's trailing icon grid: 14 × 12 little-endian 16-bit words, 336 bytes.</summary>
+    private const int IconGridLength = 14 * 12 * 2;
+
+    /// <summary>The value a real block writes in an empty icon-grid cell: the research layout says 50
+    /// ("empty"), every non-empty entry at most 34 — so every word's <b>high</b> byte is 0 and the
+    /// file's last byte is 0 on every real mid-battle save. See
+    /// https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-04-decompiled-tactical-battle-rules.md
+    /// §1 and its <c>scripts/battle-block-check.py</c>.</summary>
+    private const ushort EmptyIconCell = 50;
+
     private static readonly ushort[] Order =
         { 4, 2, 7, 9, 8, 15, 13, 11, 0, 5, 14, 1, 6, 10, 3, 12 };
 
@@ -32,16 +43,42 @@ public class MidBattleSaveTests
             turnOrderIndex: 3, currentNation: 9, week: 1, yearBc: 270, season: 0);
     }
 
-    /// <summary>Returns <paramref name="baseSave"/> with the trailer's battle flag set to 1 and the
-    /// 2,105-byte battle block appended. The block's last byte is deliberately non-zero (a populated
-    /// 14 × 12 icon grid) so the last byte is not mistaken for a no-block battle flag of 0.</summary>
+    /// <summary>Returns <paramref name="baseSave"/> with the trailer's battle flag set to 1 and a
+    /// <b>realistic</b> 2,105-byte battle block appended: its 14 × 12 icon grid is 168 little-endian
+    /// words, all 50 (empty). Every real mid-battle save therefore ends with a grid word whose high
+    /// byte is 0 — i.e. the file's last byte is 0, exactly like a no-block save's battle flag, so a
+    /// locator that trusted that byte would mistake the block for a trailer (bug #675, review R1).</summary>
     private static byte[] WithBattleBlock(byte[] baseSave)
     {
         var midBattle = new byte[baseSave.Length + BattleBlockLength];
         Array.Copy(baseSave, midBattle, baseSave.Length);
         midBattle[baseSave.Length - 1] = 1; // trailer +54, the battle flag
-        midBattle[^1] = 0x2A;
+        FillEmptyIconGrid(midBattle, blockStart: baseSave.Length);
         return midBattle;
+    }
+
+    /// <summary>Writes the block that starts at <paramref name="blockStart"/> as a real save writes
+    /// it: the trailing 168-word icon grid holds the empty-cell value 50 in every cell.</summary>
+    private static void FillEmptyIconGrid(byte[] data, int blockStart)
+    {
+        var gridStart = blockStart + BattleBlockLength - IconGridLength;
+        for (var i = 0; i < IconGridLength / 2; i++)
+            BinaryPrimitives.WriteUInt16LittleEndian(data.AsSpan(gridStart + i * 2, 2), EmptyIconCell);
+    }
+
+    /// <summary>Writes a complete, structurally valid 55-byte trailer at <paramref name="offset"/>
+    /// (<see cref="Order"/>, nation 9 at index 3, week 1, year 270 BC, spring) with the given battle
+    /// flag at <c>+54</c>.</summary>
+    private static void WriteTrailerAt(byte[] data, int offset, byte battleFlag)
+    {
+        for (var i = 0; i < Order.Length; i++)
+            BinaryPrimitives.WriteUInt16LittleEndian(data.AsSpan(offset + i * 2, 2), Order[i]);
+        BinaryPrimitives.WriteUInt16LittleEndian(data.AsSpan(offset + 36, 2), 9); // current nation
+        BinaryPrimitives.WriteUInt16LittleEndian(data.AsSpan(offset + 38, 2), 3); // turn-order index
+        BinaryPrimitives.WriteUInt16LittleEndian(data.AsSpan(offset + 40, 2), 1); // week
+        BinaryPrimitives.WriteUInt16LittleEndian(data.AsSpan(offset + 42, 2), 270); // year BC
+        BinaryPrimitives.WriteUInt16LittleEndian(data.AsSpan(offset + 44, 2), 0); // season
+        data[offset + 54] = battleFlag;
     }
 
     [SkippableFact]
@@ -101,7 +138,10 @@ public class MidBattleSaveTests
         var news = SaveNewsLog.Parse(midBattle);
         var offer = SavePendingOffer.Parse(midBattle);
 
+        // The block's realistic empty grid leaves the last byte 0 — the same value a no-block
+        // save's battle flag has, which is exactly what broke the old last-byte locator.
         Assert.Equal(BattleBlockLength, midBattle.Length - baseData.Length);
+        Assert.Equal(0, midBattle[^1]);
         Assert.Equal(expectedTurn.TurnOrder, turn.TurnOrder);
         Assert.Equal(expectedTurn.TurnOrderIndex, turn.TurnOrderIndex);
         Assert.Equal(expectedTurn.CurrentNationCode, turn.CurrentNationCode);
@@ -110,6 +150,29 @@ public class MidBattleSaveTests
         var expectedOffer = SavePendingOffer.Parse(baseData);
         Assert.Equal(expectedOffer.ProposingNationIndex, offer.ProposingNationIndex);
         Assert.Equal(expectedOffer.ProposedRelationState, offer.ProposedRelationState);
+    }
+
+    [Fact]
+    public void A_block_free_save_whose_byte_at_length_minus_2106_is_one_still_locs_the_no_block_trailer()
+    {
+        // Review R2: a no-block save can by coincidence have the value 1 at the byte where a
+        // mid-battle save's battle flag sits (length − 2,105 − 1). That single byte must not re-route
+        // the file through the block shape: its structure at length − 2,105 − 2,105 is not a trailer,
+        // so the real trailer is still the one at length − 55.
+        var data = SyntheticBaseSav();
+        data[data.Length - (BattleBlockLength + 1)] = 1;
+
+        var turn = SaveTurnState.Parse(data);
+        var news = SaveNewsLog.Parse(data);
+        var offer = SavePendingOffer.Parse(data);
+
+        Assert.Equal(Order, turn.TurnOrder);
+        Assert.Equal((ushort)3, turn.TurnOrderIndex);
+        Assert.Equal((ushort)9, turn.CurrentNationCode);
+        Assert.Equal(2, news.NewestIndex);
+        Assert.Equal(3, news.Slots.Count);
+        Assert.Equal((ushort)0, offer.ProposingNationIndex);
+        Assert.Equal((ushort)0, offer.ProposedRelationState);
     }
 
     [Fact]
@@ -136,11 +199,13 @@ public class MidBattleSaveTests
     [Fact]
     public void LocateTrailerStart_skips_the_battle_block_when_the_battle_flag_is_one()
     {
-        var data = new byte[100 + SaveTurnState.BattleBlockLength];
-        data[99] = 1; // trailer +54 of the mid-battle save, at length - 2,105 - 1
-        data[^1] = 0x01; // the block's own last byte, deliberately not a flag 0
+        // A real mid-battle save: a valid trailer at length − 55 − 2,105 (flag 1) followed by the
+        // block, whose realistic empty icon grid leaves the file's last byte 0 — the same value a
+        // no-block save ends with. The flag byte alone cannot tell the two apart.
+        var data = new byte[100 + BattleBlockLength];
+        WriteTrailerAt(data, offset: 45, battleFlag: 1);
+        FillEmptyIconGrid(data, blockStart: 45 + 55);
 
-        Assert.Equal(2105, SaveTurnState.BattleBlockLength);
         Assert.Equal(45, SaveTurnState.LocateTrailerStart(data));
     }
 
