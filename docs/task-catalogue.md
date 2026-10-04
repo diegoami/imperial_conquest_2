@@ -188,6 +188,7 @@ graph TD
   T129 --> T130
   T123 --> T129[T129 tactical golden master]
   T124 --> T129
+  T132[T132 hideable info panel]
   T23 --> T26[T26 scenario docs+examples]
   T29 --> T26
   T22 --> T28[T28 nightly soak gate]
@@ -1073,7 +1074,13 @@ Tactical battle golden master against the original's recorded battles (#496) →
 
 #### T131 Every release carries Windows assets: the zip and the installer, built by a release workflow
 
-Release assets (the user's decision of 2026-10-04: every milestone and fix release gets a Windows zip and installer; the highest priority, so it runs next) → [full entry](tasks/T131.md) · #688
+Release assets (the user's decision of 2026-10-04: every milestone and fix release gets a Windows zip and installer; the highest priority; it runs right after T132, the user's decision of 2026-10-04) → [full entry](tasks/T131.md) · #688
+
+---
+
+#### T132 The right-hand info panel can be hidden and shown again
+
+Hideable info panel (the user's request of 2026-10-04 after playing v0.4.0, the first item of `v0.4.1`) → [full entry](tasks/T132.md) · [#690](https://github.com/diegoami/imperial_conquest_2/issues/690). A v0.4.x item, so it bypasses the playability gate (§4.8); `v0.4.1` is cut as soon as it merges ([release-plan.md §2.2.1](release-plan.md#221-v04x-patches)).
 
 ---
 
@@ -1238,3 +1245,4 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T129](#t129-the-tactical-battles-golden-master-the-port-replays-the-originals-recorded-battles-half-round-by-half-round) | Tactical golden master | M21 | Sonnet | High | **Opus**/High | T123, T124, T125 | #670 |
 | [T130](#t130-the-improved-rulesets-tactical-battle-save-at-a-half-rounds-start-the-quirks-fixed-a-half-round-cap-no-slow-advance-and-retreat-losses-and-scatter-for-the-loser) | Improved tactical rules | M21 | **Opus** | High | Sol + Luna pair | T125, T129 | #674 |
 | [T131](#t131-every-release-carries-windows-assets-the-zip-and-the-installer-built-by-a-release-workflow) | Release assets | M20 | Sonnet | High | Sol | — | #688 |
+| [T132](#t132-the-right-hand-info-panel-can-be-hidden-and-shown-again) | Hideable info panel | M18 | Sonnet | Medium | Sol + human | — | [#690](https://github.com/diegoami/imperial_conquest_2/issues/690) |
