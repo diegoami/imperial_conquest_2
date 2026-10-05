@@ -384,7 +384,8 @@ Things the reports and this audit do not settle. Each is marked **[open]** above
    army partner gate `FUN_00449D64` with the whole `TArmyToArmy` dialog, and the End-turn gate
    (`2026-10-03-army-to-army-ok-supply-rebalancing.md`, `2026-10-03-end-turn-warning-box.md`).
 2. **The form stream.** It holds the toolbar order and separators. The feature inventory has since read the
-   menu shortcuts and the two key-handler modifiers from it (§1.8) and the Balance sheet's captions from a
+   menu shortcuts from it (§1.8, row K01), the two key-handler modifiers (Shift and Ctrl) from the code of
+   `TPremierForm_KeyPressed` (rows K02–K03, not the form stream), and the Balance sheet's captions from a
    screenshot (§1.3), so those wait only on the desktop confirmation.
 3. What the Area-map gold coin is. `TAreaMap_ToggleMap` is Toggle colour (§1.5). The unit-map strip's 15th button
    is most likely Cancel selection [Wine candidate, §3.3].
