@@ -947,7 +947,7 @@ Change units → [full entry](tasks/T107.md) · [#565](https://github.com/diegoa
 
 #### T108 Disband a recruitment slot
 
-Disband a recruitment slot (after a research read) → [full entry](tasks/T108.md) · [#566](https://github.com/diegoami/imperial_conquest_2/issues/566)
+Disband a recruitment slot (its research read is research `9ae8924`'s disband report) → [full entry](tasks/T108.md) · [#566](https://github.com/diegoami/imperial_conquest_2/issues/566)
 
 ---
 
