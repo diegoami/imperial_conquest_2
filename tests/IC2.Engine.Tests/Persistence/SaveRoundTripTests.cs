@@ -95,4 +95,37 @@ public sealed class SaveRoundTripTests
         // probes established over hundreds of seat-turns across multiple scenarios; see the PR body's
         // "RNG decision" section.
     }
+
+    /// <summary>
+    /// T76 Done-when 1: the mercenary pool slot's city-tile position (<c>x</c>/<c>y</c>) round-trips
+    /// exactly, named on its own rather than only through the whole-state equality above.
+    /// </summary>
+    [Fact]
+    public void A_mercenary_pool_slots_city_tile_round_trips()
+    {
+        var toy = PersistenceTestbed.Toy;
+        var original = PersistenceTestbed.PlayTurns(2) with
+        {
+            MercenaryPool = ValueList.Of(new MercenaryPoolSlot(
+                SlotIndex: 33, X: 98, Y: 31, NameLabel: 11,
+                UnitTypeId: "light_infantry", Troops: 6438, Quality: 8)),
+        };
+
+        var save = new SaveGame(
+            SchemaVersion: original.SchemaVersion,
+            Id: "mercenary-position-round-trip",
+            Label: "A mercenary offer's city tile",
+            ScenarioId: original.ScenarioId,
+            WorldId: original.WorldId,
+            RulesetId: original.RulesetId,
+            State: original);
+
+        var reloaded = SaveManager.Load(
+            "mercenary-position-round-trip.json", SaveManager.Serialize(save), toy.World, toy.Ruleset);
+
+        var slot = Assert.Single(reloaded.State.MercenaryPool);
+        Assert.Equal(98, slot.X);
+        Assert.Equal(31, slot.Y);
+        Assert.Equal(original.MercenaryPool, reloaded.State.MercenaryPool);
+    }
 }

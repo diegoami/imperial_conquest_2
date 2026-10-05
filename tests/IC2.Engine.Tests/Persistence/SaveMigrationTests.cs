@@ -269,4 +269,65 @@ public sealed class SaveMigrationTests
         Assert.Equal(GameStateHash.Compute(state), GameStateHash.Compute(reloaded.State));
         Assert.Equal(state.Neighbours, reloaded.State.Neighbours);
     }
+
+    // ---- T76 Done-when 1: the mercenary position migrates through SaveManager ----
+
+    /// <summary>
+    /// Builds a well-formed version-3 envelope by starting from a current-format (version 4) one and
+    /// stripping exactly what version 3 never had: the envelope's own version number and every
+    /// mercenary-pool slot's <c>x</c>/<c>y</c>. This is the real pre-T76 shape — the position was simply
+    /// absent — so the migration step is exercised against what it has to handle.
+    /// </summary>
+    private static JsonObject BuildVersion3Envelope(SaveGame save)
+    {
+        var envelope = (JsonObject)JsonNode.Parse(SaveManager.Serialize(save))!;
+        envelope[SaveFormat.VersionField] = 3;
+
+        var payload = (JsonObject)envelope[SaveFormat.PayloadField]!;
+        var state = (JsonObject)payload["state"]!;
+        var pool = (JsonArray)state["mercenaryPool"]!;
+        foreach (var slotNode in pool)
+        {
+            ((JsonObject)slotNode!).Remove("x");
+            ((JsonObject)slotNode!).Remove("y");
+        }
+
+        return envelope;
+    }
+
+    /// <summary>
+    /// A version-3 save's occupied mercenary slots have no position; the migration supplies the DAT's own
+    /// never-filled default <c>(0, 0)</c>, because the value was not persisted before this version
+    /// <strong>[confirmed: decompiled-mercenary-offer-list-and-position.md §4]</strong>. Without the step,
+    /// <see cref="SchemaValidator"/> would reject the missing required fields instead of loading.
+    /// </summary>
+    [Fact]
+    public void MigratingAVersion3EnvelopeGivesMercenaryPoolSlotsTheDefaultPosition()
+    {
+        var toy = PersistenceTestbed.Toy;
+        var state = PersistenceTestbed.PlayTurns(2) with
+        {
+            MercenaryPool = ValueList.Of(new MercenaryPoolSlot(
+                SlotIndex: 33, X: 98, Y: 31, NameLabel: 11,
+                UnitTypeId: "light_infantry", Troops: 6438, Quality: 8)),
+        };
+        var save = new SaveGame(
+            SchemaVersion: state.SchemaVersion, Id: "v3-mercenary-position", Label: "v3 mercenary position",
+            ScenarioId: state.ScenarioId, WorldId: state.WorldId, RulesetId: state.RulesetId, State: state);
+
+        var v3Envelope = BuildVersion3Envelope(save);
+
+        // Premise: the version-3 shape really carries no x/y on the slot.
+        var v3Slot = (JsonObject)((JsonArray)((JsonObject)((JsonObject)v3Envelope[SaveFormat.PayloadField]!)["state"]!)["mercenaryPool"]!)[0]!;
+        Assert.False(v3Slot.ContainsKey("x"));
+        Assert.False(v3Slot.ContainsKey("y"));
+
+        var loaded = SaveManager.Load(
+            "v3-mercenary-position.json", v3Envelope.ToJsonString(), toy.World, toy.Ruleset);
+
+        var slot = Assert.Single(loaded.State.MercenaryPool);
+        Assert.Equal(0, slot.X);
+        Assert.Equal(0, slot.Y);
+        Assert.Equal(6438, slot.Troops);
+    }
 }
