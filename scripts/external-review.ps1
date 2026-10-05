@@ -48,7 +48,7 @@
     session reads the saved file and posts it by hand. Exit codes: 0 posted (and labelled with
     -ApplyLabel), 1 refused or a defect, 3 no review (OpenCode unavailable or every model failed),
     4 posted flagged with no label, 5 not posted, saved.
-    With -Reviewer auto (the default) the chain is Luna alone on `openai/gpt-6-luna` (issue #575:
+    With -Reviewer auto (the default) the chain is Luna alone on `openai/gpt-5.6-luna` (issue #575:
     one OpenCode model per role before Claude), the simple tier's reviewer; on its failure the
     script exits 3 and the main session runs a cold Claude Opus reviewer. The main session picks
     the tier (build-process.md §3.4) and passes every other tier's reviewer explicitly: -Reviewer
@@ -75,11 +75,13 @@
 
     Reviewer -> OpenCode model id. GLM Flash and DeepSeek are on the OpenCode Go list
     (`opencode-go/deepseek-v4.1-flash`; GLM is on the Z.AI Coding Plan, `zai-coding-plan/glm-5.3` and `zai-coding-plan/glm-5.3-flash`, the user's decision of 2026-10-04); luna is the direct OpenAI
-    route, `openai/gpt-6-luna`, via the machine's OpenAI login (not Go's proxied
-    `opencode-go/gpt-6-luna`, whose upstream returned Bad Request in long runs, #553); sol is
+    route, `openai/gpt-5.6-luna` (GPT-5.6 Luna, on its own weekly OpenAI pool; harness_imperial L51,
+    the user's decision of 2026-10-05), via the machine's OpenAI login (never a Luna on OpenCode Go:
+    Go's proxied `opencode-go/gpt-6-luna` returned Bad Request in long runs, #553); sol is
     `openai/gpt-6-sol` on the same login; deepseek-pro is `opencode-go/deepseek-v4-pro`. An OpenAI
-    run that fails with "The usage limit has been reached" means the OpenAI account is out of
-    quota, Luna included (build-process.md §3.4).
+    run that fails with "The usage limit has been reached" means that model's OpenAI quota is out.
+    GPT-5.6 Luna draws on its own weekly window, separate from Sol's: read quota-tracker
+    (docs/environment.md) rather than probing Luna (build-process.md §3.4).
     `opencode models` shows what this machine has.
     OpenCode reads CLAUDE.md as its instructions file when no AGENTS.md exists; that is
     harmless here (the reviewer gets the token-economy rules) and no AGENTS.md is added.
@@ -87,11 +89,13 @@
 .PARAMETER Pr
     The pull request number.
 .PARAMETER Reviewer
-    auto (default: Luna on openai/gpt-6-luna at high effort alone, then a cold Claude Opus by
+    auto (default: Luna on openai/gpt-5.6-luna at high effort alone, then a cold Claude Opus by
     hand; issue #575 keeps one OpenCode model per role before Claude), or glm-flash, glm, luna,
-    sol, deepseek, deepseek-pro for that model alone, each at high effort (deepseek has no variant)
-    except sol, which runs at low effort by default and at medium with -Effort medium, never higher
-    (the user's decision of 2026-10-03: Sol is used sparingly and light).
+    sol, deepseek, deepseek-pro for that model alone. Light models run at high effort (luna,
+    glm-flash; deepseek has no variant). Heavy models run light (the user's decision of 2026-10-05:
+    medium rather than high, or light when medium is not needed): glm at low (GLM-5.3 offers only
+    low, high and max), deepseek-pro at high (DeepSeek V4 Pro offers only high and max), and sol at
+    low by default and medium with -Effort medium, never higher (the user's decision of 2026-10-03).
     sol (GPT-6 Sol) is the complex tier's reviewer; luna with glm or deepseek-pro, in two runs, is the
     Luna pair; glm, then deepseek-pro (DeepSeek V4 Pro, `opencode-go/deepseek-v4-pro`), then luna
     are Sol's substitutes when it cannot review (build-process.md §3.4).
@@ -491,7 +495,8 @@ function Invoke-ReviewParserSelfTest {
     $ruleChecks += [pscustomobject]@{ Name = 'sol defaults to low effort'; Ok = ((Get-SolVariant '') -eq 'low') }
     $ruleChecks += [pscustomobject]@{ Name = '-Effort medium gives sol medium'; Ok = ((Get-SolVariant 'medium') -eq 'medium') }
     $ruleChecks += [pscustomobject]@{ Name = '-Effort admits only low and medium (high is refused)'; Ok = ((($effortSet | Sort-Object) -join ',') -eq 'low,medium') }
-    $ruleChecks += [pscustomobject]@{ Name = '-Effort changes no other reviewer (luna, glm, deepseek-pro at high)'; Ok = ($variants['luna'] -eq 'high' -and $variants['glm'] -eq 'high' -and $variants['deepseek-pro'] -eq 'high') }
+    $ruleChecks += [pscustomobject]@{ Name = '-Effort changes no other reviewer (luna and deepseek-pro at high, glm at low)'; Ok = ($variants['luna'] -eq 'high' -and $variants['glm'] -eq 'low' -and $variants['deepseek-pro'] -eq 'high') }
+    $ruleChecks += [pscustomobject]@{ Name = 'luna is GPT-5.6 Luna on the direct OpenAI route (L51)'; Ok = ($models['luna'] -eq 'openai/gpt-5.6-luna') }
     $ruleChecks += [pscustomobject]@{ Name = 'a luna implementer excludes luna and sol'; Ok = ((@($reviewerOf['luna']) | Sort-Object) -join ',' -eq 'luna,sol') }
     $ruleChecks += [pscustomobject]@{ Name = 'a sol implementer excludes luna and sol'; Ok = ((@($reviewerOf['sol']) | Sort-Object) -join ',' -eq 'luna,sol') }
     $ruleChecks += [pscustomobject]@{ Name = 'a deepseek-flash implementer excludes neither luna nor sol'; Ok = (@($reviewerOf['deepseek-flash']) -notcontains 'luna' -and @($reviewerOf['deepseek-flash']) -notcontains 'sol') }
@@ -544,7 +549,7 @@ function Invoke-ReviewParserSelfTest {
 
 # Reviewer name -> OpenCode model id. Edit here (or pass -ModelIds) if `opencode models` shows a
 # different id. On 2026-10-01 the user moved the OpenCode runs from OpenCode Zen to OpenCode Go
-# (issue #551), except the reviewer: it is Luna on the direct OpenAI route, `openai/gpt-6-luna`,
+# (issue #551), except the reviewer: it is Luna on the direct OpenAI route, `openai/gpt-5.6-luna`,
 # via the machine's OpenAI login (issue #575; Go's proxied `opencode-go/gpt-6-luna` upstream
 # returned Bad Request in long runs, #553). Luna at high effort is the review model (one OpenCode
 # model per role before Claude); glm-flash, glm and deepseek stay valid as explicit -Reviewer
@@ -554,7 +559,7 @@ function Invoke-ReviewParserSelfTest {
 $models = @{
     'glm-flash' = 'zai-coding-plan/glm-5.3-flash'
     glm         = 'zai-coding-plan/glm-5.3'
-    luna        = 'openai/gpt-6-luna'
+    luna        = 'openai/gpt-5.6-luna'
     sol         = 'openai/gpt-6-sol'
     deepseek    = 'opencode-go/deepseek-v4.1-flash'
     # DeepSeek V4 Pro, Sol's second substitute (the user's policy of 2026-10-03, build-process.md
@@ -570,7 +575,7 @@ if ($ModelIds) { foreach ($k in $ModelIds.Keys) { $models[$k] = $ModelIds[$k] } 
 # decision of 2026-10-03; its variants are none, low, medium, high, xhigh and max). -Effort's
 # ValidateSet admits only low and medium, and it changes sol's variant alone.
 function Get-SolVariant([string] $Requested) { if ($Requested) { return $Requested } return 'low' }
-$variants = @{ 'glm-flash' = 'high'; glm = 'high'; luna = 'high'; sol = (Get-SolVariant $Effort); deepseek = ''; 'deepseek-pro' = 'high' }
+$variants = @{ 'glm-flash' = 'high'; glm = 'low'; luna = 'high'; sol = (Get-SolVariant $Effort); deepseek = ''; 'deepseek-pro' = 'high' }
 $displayNames = @{ 'glm-flash' = 'GLM Flash'; glm = 'GLM'; luna = 'Luna'; sol = 'Sol'; deepseek = 'DeepSeek'; 'deepseek-pro' = 'DeepSeek Pro' }
 # The reviewer's model family is never the implementer's (build-process.md §3.4). The implementing
 # model comes from -ExcludeModel, else from a model:<name> label on the PR or its issue that names an

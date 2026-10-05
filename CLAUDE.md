@@ -76,3 +76,25 @@ Agreed on [#264](https://github.com/diegoami/imperial_conquest_2/issues/264), wh
     replay cost while keeping the reasoning, and a forced restart discards the half worth keeping.
     Any handoff names **issue numbers and labels only**; a prose summary of where the build stands is
     the status snapshot rule 3 forbids.
+
+---
+
+## Model choice
+
+17. **Check quota before choosing a model** (harness_imperial L50). Before choosing, recommending or
+    delegating to a model (an OpenCode implementer or reviewer, a Claude agent or subagent), check
+    how much quota its provider has left with quota-tracker (`curl -s localhost:8765/avoid`;
+    [docs/environment.md](docs/environment.md)). A provider whose status is `exhausted` is not used
+    until it is usable again: take the next model of the chain whose provider has quota, pass it
+    explicitly (`-Reviewer`/`-Model`, or the Agent call's model), and say so in the run's report or
+    the PR body ("GLM skipped: zai exhausted until 21:40; reviewed by Luna"). Where the service does
+    not answer, go on without it and count a usage-limit error as `exhausted`. Model ids come from the
+    provider's live list (`opencode models <provider>`), never memory. Heavy models run at `medium`
+    effort rather than `high`, or lighter when medium is not needed (the user's decision of
+    2026-10-05).
+
+18. **The light OpenAI model, and the reviewer `luna`, is GPT-5.6 Luna** (harness_imperial L51) on
+    the direct OpenAI route: `openai/gpt-5.6-luna`, effort `high`, on its own weekly pool. It is not
+    GPT-6 Luna (`openai/gpt-6-luna`), which draws on OpenAI's main pool with Sol and is never the
+    reviewer. Never use a Luna on OpenCode Go (`opencode-go/…`): a proxy behind it returns
+    `Bad Request` in long agent loops.
