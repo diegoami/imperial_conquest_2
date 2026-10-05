@@ -169,6 +169,14 @@
       without the Godot SDK. No `using Godot` anywhere; never a second, hand-maintained copy.
     -->
     <Compile Include="../../godot/UI/Dialogs/SupplyDialogModel.cs" Link="Ui/SupplyDialogModel.cs" />
+
+    <!--
+      T138 (tests/IC2.Engine.Tests/Ui/Screens/GameEndViewModelTests.cs): the same seam once more.
+      GameEndViewModel.cs is the Godot-free model behind the game-end window — its title, the engine's own
+      fall text, the years-in-power line and the start-against-end table — so a plain xunit test can pin
+      every value without the Godot SDK. No `using Godot` anywhere; never a second, hand-maintained copy.
+    -->
+    <Compile Include="../../godot/Screens/GameEndViewModel.cs" Link="Ui/Screens/GameEndViewModel.cs" />
   </ItemGroup>
 
 </Project>
