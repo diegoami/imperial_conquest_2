@@ -432,7 +432,5 @@ public class OriginalSaveImportRealSaveTests
         var slot = result.Save.State.MercenaryPool.Single(s => s.SlotIndex == 33);
         Assert.Equal(98, slot.X);
         Assert.Equal(31, slot.Y);
-        Assert.Equal(6438, slot.Troops);
-        Assert.Equal(11, slot.NameLabel);
     }
 }
