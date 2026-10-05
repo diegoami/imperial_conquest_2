@@ -10,8 +10,8 @@ namespace IC2.Engine.Tests.Recruitment;
 
 /// <summary>
 /// <c>docs/task-catalogue.md</c> "T13 Recruitment and mercenaries", Done-when 2 and 4: the Felsina hire
-/// (6,438 troops, "very good") costs the confirmed formula exactly, is debited from the <strong>army
-/// purse</strong> with the <strong>treasury unchanged</strong>, and leaves the pool slot at the
+/// (6,438 troops, "very good") passes the confirmed formula's gate exactly, leaves the <strong>army purse
+/// and the treasury unchanged</strong> (T143, bug #755), and leaves the pool slot at the
 /// <c>0xFFFF</c> sentinel (modelled as absent, matching <see cref="MercenaryPoolSlot"/>'s own "empty
 /// slots are simply absent" convention); and the 100,000-troop army cap blocks an over-cap hire with a
 /// typed rejection.
@@ -33,7 +33,7 @@ public sealed class HireMercenaryCommandHandlerTests
         SlotIndex: 7, X: 5, Y: 2, NameLabel: 3, UnitTypeId: "heavy_infantry", Troops: 2000, Quality: 5);
 
     [Fact]
-    public void Felsina_hire_costs_the_confirmed_formula_debits_the_army_purse_and_empties_the_pool_slot()
+    public void Felsina_hire_passes_the_confirmed_gate_leaves_the_army_purse_and_empties_the_pool_slot()
     {
         var sink = new RecordingEventSink();
         var dispatcher = RecruitmentTestbed.Dispatcher(sink);
@@ -43,19 +43,19 @@ public sealed class HireMercenaryCommandHandlerTests
         var nation = initial.NationById("north")!;
         var before = RecruitmentTestbed.WithMercenaryPool(initial, FelsinaOffer, OtherOffer);
 
-        var expectedCost = FixtureCorpus.Get("mercenary.felsina.troops").AsInt() * 1 / 1000
+        var expectedGate = FixtureCorpus.Get("mercenary.felsina.troops").AsInt() * 1 / 1000
             * FixtureCorpus.Get("mercenary.felsina.qualityCode").AsInt(); // (6438*1)/1000*8 = 48.
-        Assert.Equal(48, expectedCost);
+        Assert.Equal(48, expectedGate);
 
         var result = dispatcher.Dispatch(before, new HireMercenaryCommand(before.ActiveNationId, army.Id, FelsinaOffer.SlotIndex));
 
         Assert.True(result.IsAccepted);
         var hired = Assert.IsType<MercenaryHired>(Assert.Single(sink.Events));
-        Assert.Equal(expectedCost, hired.TalentsPaid);
+        Assert.Equal(expectedGate, hired.HireGate);
 
-        // Debited from the ARMY's own purse.
+        // Bug #755/T143: the ARMY's own purse is UNCHANGED — the gate is not a debit.
         var updatedArmy = result.State.ArmyById(army.Id)!;
-        Assert.Equal(army.Money - expectedCost, updatedArmy.Money);
+        Assert.Equal(army.Money, updatedArmy.Money);
 
         // Treasury UNCHANGED.
         var updatedNation = result.State.NationById(nation.Id)!;
@@ -143,7 +143,7 @@ public sealed class HireMercenaryCommandHandlerTests
         var dispatcher = RecruitmentTestbed.Dispatcher();
         var initial = RecruitmentTestbed.InitialState();
         var army = initial.ArmyById("north-army-1")!;
-        var poorArmy = army with { Money = 0 }; // Felsina hire costs 48; 0 can't afford it.
+        var poorArmy = army with { Money = 0 }; // Felsina hire's gate is 48; 0 is below it.
         var before = RecruitmentTestbed.WithMercenaryPool(
             RecruitmentTestbed.WithArmy(initial, poorArmy), FelsinaOffer);
 
@@ -167,7 +167,7 @@ public sealed class HireMercenaryCommandHandlerTests
         var army = initial.ArmyById("north-army-1")!;
         Assert.Equal(18_500, army.TotalTroops);
 
-        var richArmy = army with { Money = 1000 }; // plenty to afford the hire itself.
+        var richArmy = army with { Money = 1000 }; // plenty to pass the hire's gate itself.
         var bigOffer = new MercenaryPoolSlot(SlotIndex: 5, X: 2, Y: 1, NameLabel: 7, UnitTypeId: "light_infantry", Troops: 90_000, Quality: 6);
         var before = RecruitmentTestbed.WithMercenaryPool(
             RecruitmentTestbed.WithArmy(initial, richArmy), bigOffer);
@@ -186,9 +186,12 @@ public sealed class HireMercenaryCommandHandlerTests
     /// cap -- inclusive, so 19 units accepting a hire (ending at 20) is still allowed. Small troop counts
     /// throughout, and plenty of money, so only the unit count is under test.
     /// </summary>
+    // SupplyTons 1,000, not 0 (bug #769): a hire now passes the original's supply floor of 15 per
+    // 10,000 troops, and these small test armies (10 troops a unit) would otherwise be refused before
+    // the unit cap this theory exists to probe.
     private static ArmyState ArmyWithUnits(int unitCount, string id = "unit-cap-army") =>
         new(
-            id, "north", 3, 2, Moves: 5, Morale: 68, Money: 1000, SupplyTons: 0,
+            id, "north", 3, 2, Moves: 5, Morale: 68, Money: 1000, SupplyTons: 1000,
             CoveredTileCode: 2, AboardFleetId: null,
             Units: ValueList.From(Enumerable.Range(0, unitCount)
                 .Select(i => new UnitSlot(0, "light_infantry", 10, 6, $"filler {i}"))));
