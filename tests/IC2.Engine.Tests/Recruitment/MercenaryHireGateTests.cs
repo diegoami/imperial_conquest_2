@@ -85,27 +85,58 @@ public sealed class MercenaryHireGateTests
     }
 
     [Fact]
-    public void The_report_second_hire_passes_the_heavy_cavalry_gate_of_27_and_leaves_the_purse_at_30()
+    public void The_report_second_hire_carries_the_first_hire_into_the_second_and_leaves_the_purse_at_30()
     {
         var dispatcher = Dispatcher();
         var initial = RecruitmentTestbed.InitialState();
         var army = initial.ArmyById(ArmyId)!;
         var nation = initial.NationById(NationId)!;
 
-        var gate = MercenaryHireCost.Compute(
+        var lightGate = MercenaryHireCost.Compute(
+            LightInfantryOffer.Troops, LightInfantryOffer.UnitTypeId, LightInfantryOffer.Quality,
+            RecruitmentTestbed.Ruleset);
+        Assert.Equal(24, lightGate);
+        var heavyGate = MercenaryHireCost.Compute(
             HeavyCavalryOffer.Troops, HeavyCavalryOffer.UnitTypeId, HeavyCavalryOffer.Quality,
             RecruitmentTestbed.Ruleset);
-        Assert.Equal(27, gate);
+        Assert.Equal(27, heavyGate);
 
-        var before = RecruitmentTestbed.WithMercenaryPool(WithArmyMoney(initial, 30), HeavyCavalryOffer);
-        var result = dispatcher.Dispatch(
-            before, new HireMercenaryCommand(before.ActiveNationId, army.Id, HeavyCavalryOffer.SlotIndex));
+        // Done-when 2: the same army, after its first light-infantry hire, hires the heavy cavalry.
+        // Both offers sit on the same city's tile from the start, so the first hire's state still
+        // carries the second offer and its consumed slot is visible in the second hire's state.
+        var before = RecruitmentTestbed.WithMercenaryPool(
+            WithArmyMoney(initial, 30), LightInfantryOffer, HeavyCavalryOffer);
 
-        Assert.True(result.IsAccepted, result.ToString());
-        var updatedArmy = result.State.ArmyById(army.Id)!;
-        Assert.Single(updatedArmy.Units, u => u.Troops == HeavyCavalryOffer.Troops);
+        var firstHire = dispatcher.Dispatch(
+            before, new HireMercenaryCommand(before.ActiveNationId, army.Id, LightInfantryOffer.SlotIndex));
+        Assert.True(firstHire.IsAccepted, firstHire.ToString());
+
+        // The first hire consumes only its own slot; the heavy-cavalry offer is still there.
+        var remainingOffer = Assert.Single(firstHire.State.MercenaryPool);
+        Assert.Equal(HeavyCavalryOffer.SlotIndex, remainingOffer.SlotIndex);
+
+        var secondHire = dispatcher.Dispatch(
+            firstHire.State,
+            new HireMercenaryCommand(firstHire.State.ActiveNationId, army.Id, HeavyCavalryOffer.SlotIndex));
+        Assert.True(secondHire.IsAccepted, secondHire.ToString());
+
+        // Both hired units are in the army, on top of the ones it already had.
+        var updatedArmy = secondHire.State.ArmyById(army.Id)!;
+        Assert.Equal(army.Units.Count + 2, updatedArmy.Units.Count);
+        var lightUnit = Assert.Single(updatedArmy.Units, u => u.Troops == LightInfantryOffer.Troops);
+        Assert.True(lightUnit.IsMercenary);
+        Assert.Equal(LightInfantryOffer.UnitTypeId, lightUnit.UnitTypeId);
+        var heavyUnit = Assert.Single(updatedArmy.Units, u => u.Troops == HeavyCavalryOffer.Troops);
+        Assert.True(heavyUnit.IsMercenary);
+        Assert.Equal(HeavyCavalryOffer.UnitTypeId, heavyUnit.UnitTypeId);
+
+        // Both pool slots are consumed.
+        Assert.Empty(secondHire.State.MercenaryPool);
+
+        // The gate is never a charge: the same 30 talents survive both hires, and the treasury is
+        // unchanged throughout.
         Assert.Equal(30, updatedArmy.Money);
-        Assert.Equal(nation.Treasury, result.State.NationById(nation.Id)!.Treasury);
+        Assert.Equal(nation.Treasury, secondHire.State.NationById(nation.Id)!.Treasury);
     }
 
     [Fact]
