@@ -930,6 +930,64 @@ armies.rename-unit accepted.
 > disband-unit mac-marines 1
 armies.disband-unit accepted.
 
+> end
+Macedonia (macedonia) ends its turn.
+Numidia (numidia) takes its turn: 1 order issued.
+Gaul (gaul) takes its turn: 1 order issued.
+Greece (greece) takes its turn: 0 orders issued.
+Celtiberia (celtiberia) takes its turn: 1 order issued.
+Illyria (illyria) takes its turn: 1 order issued.
+Dacia (dacia) takes its turn: 0 orders issued.
+Bithynia (bithynia) takes its turn: 1 order issued.
+Galatia (galatia) takes its turn: 1 order issued.
+Armenia (armenia) takes its turn: 0 orders issued.
+Media (media) takes its turn: 1 order issued.
+Thracia (thracia) takes its turn: 1 order issued.
+  Weather: drought-reduces-supply (week 5).
+Rome (rome) takes its turn: 1 order issued.
+Carthage (carthage) takes its turn: 1 order issued.
+Seleucid (seleucid) takes its turn: 1 order issued.
+Ptolemaic (ptolemaic) takes its turn: 1 order issued.
+Now: Week 7, Autumn 270 BC. Active seat: Macedonia (macedonia).
+News:
+   
+  Week  7      Autumn      270BC
+
+> move army-8 141 40
+army-8 moved from (136,42) to (141,40), spending 7 of 10 moves.
+
+> end
+Macedonia (macedonia) ends its turn.
+Numidia (numidia) takes its turn: 0 orders issued.
+Gaul (gaul) takes its turn: 1 order issued.
+Greece (greece) takes its turn: 0 orders issued.
+Celtiberia (celtiberia) takes its turn: 1 order issued.
+Illyria (illyria) takes its turn: 0 orders issued.
+Dacia (dacia) takes its turn: 0 orders issued.
+Bithynia (bithynia) takes its turn: 1 order issued.
+Galatia (galatia) takes its turn: 1 order issued.
+Armenia (armenia) takes its turn: 0 orders issued.
+Media (media) takes its turn: 0 orders issued.
+Thracia (thracia) takes its turn: 1 order issued.
+  Weather: storm-damages-fleet (week 7).
+Rome (rome) takes its turn: 1 order issued.
+Carthage (carthage) takes its turn: 1 order issued.
+Seleucid (seleucid) takes its turn: 1 order issued.
+Ptolemaic (ptolemaic) takes its turn: 0 orders issued.
+Now: Week 9, Autumn 270 BC. Active seat: Macedonia (macedonia).
+News:
+   
+  Week  9      Autumn      270BC
+
+> move army-8 148 40
+army-8 moved from (141,40) to (148,40), spending 7 of 10 moves.
+
+> embark-army army-8 mac-fleet-keep
+naval.embark-army accepted.
+
+> disembark-army army-8 148 40
+naval.disembark-army accepted.
+
 > quit
 Goodbye.
 

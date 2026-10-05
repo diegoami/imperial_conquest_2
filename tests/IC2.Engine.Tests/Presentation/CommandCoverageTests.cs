@@ -37,14 +37,15 @@ namespace IC2.Engine.Tests.Presentation;
 /// adding a verb for them would only ever print a refusal from a human seat — these are the AI's own
 /// direct, no-consent writes, not a human order with no keyboard shortcut yet.</description></item>
 /// <item><description><see cref="ConfirmedUnreachable"/> — <strong>keyed exceptions, and nothing else</strong>
-/// (docs/tasks/T80.md Done-when 2b, added 2026-09-27 after PR #452's review): exactly three command types
-/// that <em>do</em> have a real CLI verb, wired exactly like every other command here, each keyed to the
-/// GitHub issue whose own task removes it, and each named with its reason inline — see
+/// (docs/tasks/T80.md Done-when 2b, added 2026-09-27 after PR #452's review): exactly one command type
+/// that <em>does</em> have a real CLI verb, wired exactly like every other command here, keyed to the
+/// GitHub issue whose own task removes it, and named with its reason inline — see
 /// <see cref="Presentation.SuccessScriptTests"/>'s class remarks for the full account. <c>attack-fleet</c>
 /// and <c>peace-yes</c> — the two PR #452 originally reported as unreachable too — get no exception per
-/// that same Done-when 2b: both now have an accepted line (<c>success-fleet.golden.txt</c> and a
-/// re-seeded <c>success.golden.txt</c> respectively), described in full in
-/// <c>SuccessScriptTests</c>.</description></item>
+/// that same Done-when 2b: both have an accepted line (<c>success-fleet.golden.txt</c> and a
+/// re-seeded <c>success.golden.txt</c> respectively), described in full in <c>SuccessScriptTests</c>. T93
+/// removed the last two it had added for #453 (<c>embark-army</c>, <c>disembark-army</c>), which now have
+/// accepted lines in <c>success.golden.txt</c>.</description></item>
 /// </list>
 /// </remarks>
 public sealed class CommandCoverageTests
@@ -88,9 +89,11 @@ public sealed class CommandCoverageTests
     /// <summary>
     /// docs/tasks/T80.md Done-when 2b: "The coverage test may exempt exactly these, each named in the
     /// test with its reason ... Each keyed exception names its issue. The task that closes that issue
-    /// removes the exception and adds the command's line to the success script." Three entries, no more:
-    /// <c>attack-fleet</c> and <c>peace-yes</c> are deliberately absent — both must succeed, and both do
-    /// (see <see cref="Presentation.SuccessScriptTests"/>'s class remarks).
+    /// removes the exception and adds the command's line to the success script." One entry, and no more:
+    /// <c>attack-fleet</c> and <c>peace-yes</c> are deliberately absent — both must succeed, and both do —
+    /// and T93/#453 removed the <c>embark-army</c> and <c>disembark-army</c> entries by adding an accepted
+    /// line for each to <c>success.txt</c> (see <see cref="Presentation.SuccessScriptTests"/>'s class
+    /// remarks).
     /// </summary>
     private static readonly HashSet<string> ConfirmedUnreachable = new(StringComparer.Ordinal)
     {
@@ -102,19 +105,6 @@ public sealed class CommandCoverageTests
         // AiEconomyPhase never calls HireMercenaryCommand at all (confirmed by grep), so no AI turn, in any
         // scenario, at any seed, can populate or drain the pool either. T56 removes this exception.
         "recruitment.hire-mercenary",
-
-        // Keyed to #453 (T93). EmbarkArmyCommandHandler requires the army and the fleet at the exact same
-        // (X, Y). MoveArmyCommandHandler blocks an army from ever entering any city's own cell (friendly or
-        // not), while a fleet can only ever occupy a sea cell or, by CoastalCity's own documented exception,
-        // a city's cell (for repairing) -- never open land. No cell is ever both "an army can stand here"
-        // and "a fleet can stand here": confirmed against this world's actual terrain grid at four
-        // different coastal cities, and true of the move handlers' own rules regardless of world or seed.
-        // T93 removes this exception.
-        "naval.embark-army",
-
-        // Keyed to #453 (T93) too: disembark-army can only ever follow a successful embark, which is
-        // itself unreachable for the same reason.
-        "naval.disembark-army",
     };
 
     /// <summary>
