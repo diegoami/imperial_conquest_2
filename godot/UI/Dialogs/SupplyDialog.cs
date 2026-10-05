@@ -55,6 +55,7 @@ public partial class SupplyDialog : Control
     private Label _stagedLabel = null!;
     private Label _moneyLabel = null!;
     private Label _replyLabel = null!;
+    private readonly List<Button> _paidOnlyButtons = new();
 
     /// <summary>The live model, exposed so a headless check can read the staged amount and the rows.</summary>
     public SupplyDialogModel ModelForCheck => _model;
@@ -105,9 +106,9 @@ public partial class SupplyDialog : Control
         column.AddChild(supplyButtons);
         supplyButtons.AddChild(UiKit.MakeButton("+10 t", () => PressSupply(SupplyDialogModel.SupplyStepTons)));
         supplyButtons.AddChild(UiKit.MakeButton("+100 t", () => PressSupply(SupplyDialogModel.SupplyLargeStepTons)));
-        supplyButtons.AddChild(UiKit.MakeButton("-10 t", () => PressSupply(-SupplyDialogModel.SupplyStepTons)));
-        supplyButtons.AddChild(UiKit.MakeButton("-100 t", () => PressSupply(-SupplyDialogModel.SupplyLargeStepTons)));
-        supplyButtons.AddChild(UiKit.MakeButton("Transfer", () => SubmitIfAny(_model.TransferStaged())));
+        _paidOnlyButtons.Add(AddPaidOnly(supplyButtons, "-10 t", () => PressSupply(-SupplyDialogModel.SupplyStepTons)));
+        _paidOnlyButtons.Add(AddPaidOnly(supplyButtons, "-100 t", () => PressSupply(-SupplyDialogModel.SupplyLargeStepTons)));
+        _paidOnlyButtons.Add(AddPaidOnly(supplyButtons, "Transfer", () => SubmitIfAny(_model.TransferStaged())));
 
         _stagedLabel = UiKit.MakeLabel(string.Empty, 13, UiKit.TextColor);
         column.AddChild(_stagedLabel);
@@ -197,6 +198,14 @@ public partial class SupplyDialog : Control
         }
     }
 
+    /// <summary>Adds a button that is only meaningful on the paid (foreign-city) path.</summary>
+    private static Button AddPaidOnly(Container parent, string text, Action onPressed)
+    {
+        var button = UiKit.MakeButton(text, onPressed);
+        parent.AddChild(button);
+        return button;
+    }
+
     private void PressSupply(int stepTons)
     {
         var line = _model.PressSupply(stepTons);
@@ -266,6 +275,12 @@ public partial class SupplyDialog : Control
         }
 
         var selected = _model.SelectedProvider;
+        var paid = selected is { IsFree: false };
+        foreach (var button in _paidOnlyButtons)
+        {
+            button.Disabled = !paid;
+        }
+
         _providerKindLabel.Text = selected is null
             ? "No provider."
             : selected.IsFree
