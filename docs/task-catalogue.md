@@ -198,6 +198,8 @@ graph TD
   T138 --> T139
   T109 --> T140[T140 information panels]
   T112 --> T140
+  T141[T141 split carries supply and money] --> T111
+  T141 --> T112
   T23 --> T26[T26 scenario docs+examples]
   T29 --> T26
   T22 --> T28[T28 nightly soak gate]
@@ -963,13 +965,13 @@ Nations and Area map → [full entry](tasks/T110.md) · [#568](https://github.co
 
 #### T111 The Unit map's Army orders, each in its own dialog
 
-Army orders → [full entry](tasks/T111.md) · [#569](https://github.com/diegoami/imperial_conquest_2/issues/569)
+Army orders (Split army's units, supply and money need T141, from GPT-6 Sol's review of PR #734) → [full entry](tasks/T111.md) · [#569](https://github.com/diegoami/imperial_conquest_2/issues/569)
 
 ---
 
 #### T112 The Unit map's Fleet and City orders, and the selected unit's command strip
 
-Fleet and City orders, command strip → [full entry](tasks/T112.md) · [#570](https://github.com/diegoami/imperial_conquest_2/issues/570)
+Fleet and City orders, command strip (Split fleet's supply and money need T141) → [full entry](tasks/T112.md) · [#570](https://github.com/diegoami/imperial_conquest_2/issues/570)
 
 ---
 
@@ -1141,6 +1143,12 @@ Information panels (bug #718, folding #614, the gap analysis of 2026-10-05; star
 
 ---
 
+#### T141 Split army and Split fleet carry units or ships, supply and money in one command
+
+Split allocation (correction task from GPT-6 Sol's review of PR #734, T111's R1; T111 and T112 merge after it) → [full entry](tasks/T141.md) · [#735](https://github.com/diegoami/imperial_conquest_2/issues/735)
+
+---
+
 #### T25 Battle result, diplomacy, and hotseat handoff screens
 
 Godot screens → [full entry](tasks/T25.md) · [#25](https://github.com/diegoami/imperial_conquest_2/issues/25)
@@ -1281,8 +1289,8 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T108](#t108-disband-a-recruitment-slot) | Disband a recruitment slot | M4 | Sonnet | Medium | **Opus**/Medium | — | [#566](https://github.com/diegoami/imperial_conquest_2/issues/566) |
 | [T109](#t109-the-strategy-menus-dialogs-taxation-balance-sheet-recruit-unit-and-build-fleet) | Strategy dialogs | M18 | Sonnet | High | **Opus**/Medium + human | T100, T103, T104, T108, bug #519's fix | [#567](https://github.com/diegoami/imperial_conquest_2/issues/567) |
 | [T110](#t110-the-nations-and-area-map-menus-the-viewed-nation-highlights-and-find-a-city) | Nations and Area map | M18 | Sonnet | High | **Opus**/Medium + human | T100, T102 | [#568](https://github.com/diegoami/imperial_conquest_2/issues/568) |
-| [T111](#t111-the-unit-maps-army-orders-each-in-its-own-dialog) | Army orders | M18 | Sonnet | High | **Opus**/Medium + human | T100, T105, T106, T107, T114, T117, T134 | [#569](https://github.com/diegoami/imperial_conquest_2/issues/569) |
-| [T112](#t112-the-unit-maps-fleet-and-city-orders-and-the-selected-units-command-strip) | Fleet and City orders, command strip | M18 | Sonnet | High | **Opus**/Medium + human | T111, T114 | [#570](https://github.com/diegoami/imperial_conquest_2/issues/570) |
+| [T111](#t111-the-unit-maps-army-orders-each-in-its-own-dialog) | Army orders | M18 | Sonnet | High | **Opus**/Medium + human | T100, T105, T106, T107, T114, T117, T134, T141 | [#569](https://github.com/diegoami/imperial_conquest_2/issues/569) |
+| [T112](#t112-the-unit-maps-fleet-and-city-orders-and-the-selected-units-command-strip) | Fleet and City orders, command strip | M18 | Sonnet | High | **Opus**/Medium + human | T111, T114, T141 | [#570](https://github.com/diegoami/imperial_conquest_2/issues/570) |
 | [T113](#t113-mercenaries-on-the-map-show-mercenaries-and-recruit-mercenaries) | Mercenaries on the map | M18 | Sonnet | Medium | **Opus**/Medium + human | T76, T110, T112 | [#571](https://github.com/diegoami/imperial_conquest_2/issues/571) |
 | [T114](#t114-join-armies-join-fleets-and-transfer-ships-take-their-partner-one-tile-away) | Join and transfer at distance 1, split one tile away | — | Sonnet | High | **Opus**/Medium | T93 | [#633](https://github.com/diegoami/imperial_conquest_2/issues/633) |
 | [T115](#t115-in-classical-faithful-recruiting-and-fortifying-can-put-the-treasury-into-debt) | Faithful recruit and fortify into debt | — | Sonnet | Medium | **Opus**/Medium | — | [#634](https://github.com/diegoami/imperial_conquest_2/issues/634) |
@@ -1311,3 +1319,4 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T138](#t138-the-games-end-is-shown-on-the-screen) | Game's end screen | M18 | Sonnet | High | Sol + human | T116 | [#708](https://github.com/diegoami/imperial_conquest_2/issues/708) |
 | [T139](#t139-a-post-battle-offer-of-peace-is-answered-in-the-godot-app) | Peace offer window | M18 | Sonnet | Medium | Sol + human | T116, T138 | [#727](https://github.com/diegoami/imperial_conquest_2/issues/727) |
 | [T140](#t140-the-information-panels-show-the-originals-fields) | Information panels | M18 | Sonnet | High | Sol + human | T109, T112 | [#728](https://github.com/diegoami/imperial_conquest_2/issues/728) |
+| [T141](#t141-split-army-and-split-fleet-carry-units-or-ships-supply-and-money-in-one-command) | Split allocation | M18 | Sonnet | Medium | Sol | — | [#735](https://github.com/diegoami/imperial_conquest_2/issues/735) |
