@@ -177,6 +177,7 @@
       every value without the Godot SDK. No `using Godot` anywhere; never a second, hand-maintained copy.
     -->
     <Compile Include="../../godot/Screens/GameEndViewModel.cs" Link="Ui/Screens/GameEndViewModel.cs" />
+    <Compile Include="../../godot/Screens/PeaceOfferViewModel.cs" Link="Ui/Screens/PeaceOfferViewModel.cs" />
 
     <!--
       T111 (tests/IC2.Engine.Tests/Ui/ArmyDialogModelsTests.cs): the same seam once more.
