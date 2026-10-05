@@ -93,8 +93,13 @@ public partial class SupplyDialog : Control
         _providerList = new ItemList { CustomMinimumSize = new Vector2(0, 120) };
         _providerList.ItemSelected += index =>
         {
+            if (index < 0 || index >= _model.Providers.Count)
+            {
+                return;
+            }
+
             _model.SelectProvider((int)index);
-            UpdateFigures();
+            UpdateProviderDetails();
         };
         column.AddChild(_providerList);
 
@@ -122,6 +127,11 @@ public partial class SupplyDialog : Control
         column.AddChild(_viaPicker);
         _viaPicker.ItemSelected += index =>
         {
+            if (index < 0 || index >= _model.MoneyViaChoices.Count)
+            {
+                return;
+            }
+
             var choice = _model.MoneyViaChoices[(int)index];
             _model.SelectVia(choice.FleetId);
         };
@@ -274,22 +284,7 @@ public partial class SupplyDialog : Control
             _providerList.Select(_model.SelectedProviderIndex);
         }
 
-        var selected = _model.SelectedProvider;
-        var paid = selected is { IsFree: false };
-        foreach (var button in _paidOnlyButtons)
-        {
-            button.Disabled = !paid;
-        }
-
-        _providerKindLabel.Text = selected is null
-            ? "No provider."
-            : selected.IsFree
-                ? "Free at your own city or fleet."
-                : $"Paid — {_model.StagedCostTalents} talents for {_model.StagedTons} tons.";
-
-        _stagedLabel.Text = selected is { IsFree: false }
-            ? $"Staged {_model.StagedTons} t  ·  Cost {_model.StagedCostTalents} talents"
-            : string.Empty;
+        UpdateProviderDetails();
 
         _moneyLabel.Text =
             $"National balance {_model.NationalTreasury}  ·  Army money {_model.ArmyMoney}";
@@ -310,5 +305,26 @@ public partial class SupplyDialog : Control
         }
 
         _viaPicker.Select(viaIndex);
+    }
+
+    /// <summary>The provider-dependent labels and the paid-only buttons — no list rebuild, so it is safe to call from the list's own selection signal.</summary>
+    private void UpdateProviderDetails()
+    {
+        var selected = _model.SelectedProvider;
+        var paid = selected is { IsFree: false };
+        foreach (var button in _paidOnlyButtons)
+        {
+            button.Disabled = !paid;
+        }
+
+        _providerKindLabel.Text = selected is null
+            ? "No provider."
+            : selected.IsFree
+                ? "Free at your own city or fleet."
+                : $"Paid — {_model.StagedCostTalents} talents for {_model.StagedTons} tons.";
+
+        _stagedLabel.Text = selected is { IsFree: false }
+            ? $"Staged {_model.StagedTons} t  ·  Cost {_model.StagedCostTalents} talents"
+            : string.Empty;
     }
 }
