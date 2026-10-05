@@ -80,7 +80,7 @@ It also contains the **AI-to-AI reparation trigger** the project has been huntin
 
 ### 1.9 Victory condition and end year **[confirmed]**
 
-`THumanFalls_InitializeForm` tests `cityCount < 334` versus *"You have conquerred the Mediterranean, a unique achievement."* — the original's win condition is **holding every city on the map**. The same screen compares the current year against **250 BC** and reports the reign length as `270 − year`, confirming the 270 BC start and a candidate hard end year.
+`THumanFalls_InitializeForm` tests `cityCount < 334` versus *"You have conquerred the Mediterranean, a unique achievement."* — the original's win condition is **holding every city on the map**. The same screen compares the current year against **250 BC** and reports the reign length as `270 − year` (as *"Your N years in power"* only below 269 BC, *"Your  short time in power"* otherwise), confirming the 270 BC start. 250 BC is a real end: the turn-start check fires on it and a staged play shows the window for each human seat in turn **[Wine candidate: [`2026-10-05-end-of-game-screens.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-05-end-of-game-screens.md), research `d1b5983`, staged states]**.
 
 ### 1.10 Smaller confirmed details with no home in the design
 
@@ -230,7 +230,7 @@ The original gives every army and fleet its own **supply stock** and its own **m
 
 > **User's decision: ship both, `classical-faithful` keeping the original's only win condition as its default.** `improved` defaults to domination-over-hostiles or score-at-turn-limit with a shorter default turn limit; either way the player can still pick any shipped victory condition per scenario. See `game-design.md`'s `victory.default` flag.
 
-That is the original's only win (334 of 334 cities), with a candidate hard end at 250 BC — roughly 20 in-game years. Faithful, but a very long and very demanding goal.
+That is the original's only win (334 of 334 cities), with a hard end at 250 BC — 20 in-game years (a Wine candidate, §1.9). Faithful, but a very long and very demanding goal.
 
 ### Q6. Reproduce the original's human-versus-AI asymmetries? — **ANSWERED: `classical-faithful` reproduces them, `improved` normalises them**
 
