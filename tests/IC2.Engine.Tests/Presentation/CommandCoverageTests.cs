@@ -125,10 +125,14 @@ public sealed class CommandCoverageTests
     /// </summary>
     internal static readonly Dictionary<string, string> VerbByKind = new(StringComparer.Ordinal)
     {
+        ["armies.army-transfer"] = "army-transfer",
         ["armies.disband-army"] = "disband-army",
+        ["armies.disband-unit"] = "disband-unit",
         ["armies.join-armies"] = "join-armies",
         ["armies.join-units"] = "join-units",
+        ["armies.rename-unit"] = "rename-unit",
         ["armies.split-army"] = "split-army",
+        ["armies.split-unit"] = "split-unit",
         ["battle.attack-army"] = "attack-army",
         ["battle.attack-fleet"] = "attack-fleet",
         ["battle.besiege-city"] = "besiege-city",
@@ -140,6 +144,8 @@ public sealed class CommandCoverageTests
         ["diplomacy.propose-alliance"] = "propose-alliance",
         ["diplomacy.propose-trade"] = "propose-trade",
         ["economy.buy-supply"] = "buy",
+        ["economy.set-tax"] = "set-tax",
+        ["economy.transfer-money"] = "transfer-money",
         ["movement.move-army"] = "move",
         ["naval.buy-fleet-supply"] = "buy-fleet-supply",
         ["naval.disembark-army"] = "disembark-army",

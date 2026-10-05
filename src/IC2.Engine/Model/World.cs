@@ -459,6 +459,24 @@ public sealed record TileType(
 /// <c>nation-tax-base-and-city-economy-fields.md</c>).
 /// </param>
 /// <param name="MobilizedPercent">Starting <see cref="Model.NationState.MobilizedPercent"/>, 0–100.</param>
+/// <param name="GlyphColorHex">
+/// The foreground colour the original draws this nation's marker glyph in — its background is
+/// <see cref="ColorHex"/> (T97, <c>2026-09-29-nation-marker-colours.md</c>). Optional and trailing
+/// deliberately: every pre-T97 construction (tests, the toy world) keeps compiling and loading with
+/// it absent, and a nation without one draws a black or white glyph chosen by its background's
+/// luminance.
+/// </param>
+/// <param name="BattleColorsHex">
+/// The nation's three tactical-battle icon colours, as three <c>#RRGGBB</c> strings in the original's
+/// substitution order (<c>2026-10-04-decompiled-tactical-battle-rules.md</c> §10: <c>FUN_0044A6C8</c>
+/// replaces a battle icon's purple <c>0x800080</c>, white and blue with the nation record's
+/// <c>+0x424</c>, <c>+0x428</c> and <c>+0x42C</c>). Optional, because a scenario authored before T122
+/// has none and nothing reads the field yet: T128 recolours the 5 × 3 unit icons from this list, and
+/// defining the fallback for a nation without one is T128's to settle, not implemented here. Declared
+/// before <see cref="GlyphColorHex"/> so that adding it to the committed world data appends a property
+/// without rewriting the line that already closes each nation object — the T122 export's own
+/// "additions only" invariant.
+/// </param>
 public sealed record NationDefinition(
     string Id,
     string Name,
@@ -472,7 +490,9 @@ public sealed record NationDefinition(
     int TaxRatePercent,
     int MobilizedPercent,
     int Population,
-    [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
+    [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null,
+    ValueList<string>? BattleColorsHex = null,
+    string? GlyphColorHex = null);
 
 /// <summary>A city as the world defines it at scenario start.</summary>
 /// <param name="Owner">The nation that currently controls the city (city record <c>+6</c>).</param>

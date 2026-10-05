@@ -30,6 +30,26 @@ them, and the user decides from T59's scorecard. Task T58, [#251](https://github
 > corrected where it appears. The departures T63 decided on purpose remain: one draw per unit instead
 > of the original's fixed 20 per slot (Decision 6), and a besieger emptied by its own casualties does
 > not capture (Decision 3).
+>
+> **Corrected 2026-10-04** by the static decompile of the whole tactical battle module
+> ([`2026-10-04-decompiled-tactical-battle-rules.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-04-decompiled-tactical-battle-rules.md), research `f5c8579`, with correction notes
+> on the cited reports in `b5db496`; code-level, not yet checked in play). Four facts changed, each
+> corrected where it is stated, and the candidates are again not redesigned:
+> - **K15's values were the wrong table.** The 25 values of §4.3 as first published are two AI tables
+>   (placement formations and type order); the melee code reads DAT `0x1F7A6`. §4.3 now gives the real
+>   matrix. The three merged rulesets carry the real values since T120
+>   ([#654](https://github.com/diegoami/imperial_conquest_2/issues/654)), and T121
+>   ([#655](https://github.com/diegoami/imperial_conquest_2/issues/655)) re-ran T59's measurements
+>   ([#250](https://github.com/diegoami/imperial_conquest_2/issues/250)) on them; C1 changed with
+>   `bc1a843` (T88), not the matrix, and its draw-formula diagnostic is stale (#659).
+> - **D07 is settled, and the placeholder departs.** The ±2/−3 comparison is `troops div loss`, not power.
+> - **D06 is settled, and the placeholder departs.** A shot is legal at Chebyshev distance `≤ range`,
+>   adjacent included, and doubles when `distance < range`: only archers, at distance 1.
+> - **The driver is no longer undecompiled (§2.2, §6.2).** `FUN_0043a31c` is the AI's movement
+>   half-round, and placement, first mover, target choice and movement (D01–D05) now have the
+>   original's own rules (report §2, §3, §7); §10's first four rows are found. The original also has no turn
+>   limit and no retreat (report §8), so C2's round cap (D09) and C5's withdrawal remain departures, as
+>   they were designed to be.
 
 The candidates are numbered **C1–C5 in the order T58's Done-when 1 lists them**: baseline, the
 original's tactical model run headless, type-weighted instant, round-based, and morale-and-retreat.
@@ -347,15 +367,15 @@ search.
 | K12 | cascade: every surviving friend `m −= 6` | 6 | [confirmed, decompiled; **never observed**] [`rout`][rout] Next checks 2 | C2, C5 |
 | K13 | cascade removal: a friend is removed if its `m < 30` after the −6. **One level only**: the friend goes straight to `FUN_00438f78` (troops 0, square cleared), so it starts no cascade of its own and earns the enemy no +5 | 30 | [confirmed, decompiled] [`rout`][rout] consequence 3, corrected in research `eb1c886` (it first said *"recursively"*) | C2, C5 |
 | K14 | reward, once per rout that `FUN_00438fb0` itself decides: every live enemy `m = min(99, m + 5)`, and its target is cleared if it was the routed unit | 5, 99 | [confirmed, decompiled] [`rout`][rout] | C2, C5 |
-| K15 | effectiveness matrix `value[attackerType][defenderType]` | the 25 values in §4.3 | [confirmed] values: [`combat-type-effectiveness-matrix.md`][matrix]; orientation: [`rout`][rout] §"axis ambiguity, resolved". In the ruleset as `combat.detailedResolver.typeEffectiveness` | C2, C3, C4, C5 |
+| K15 | effectiveness matrix `value[attackerType][defenderType]` | the 25 values in §4.3 | [confirmed] values: [`2026-10-04-decompiled-tactical-battle-rules.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-04-decompiled-tactical-battle-rules.md) §5 (DAT `0x1F7A6`), which corrects [`combat-type-effectiveness-matrix.md`][matrix]; orientation: [`rout`][rout] §"axis ambiguity, resolved". In the ruleset as `combat.detailedResolver.typeEffectiveness`, which has held the real values since T120 ([#654](https://github.com/diegoami/imperial_conquest_2/issues/654)) | C2, C3, C4, C5 |
 | K16 | melee exchange (`FUN_004393ec`) | the formula in §4.4: `/2000`, `+12`, `/12`, `/10`, `+1`, cap 30,000, cap `troops × 4 / 10`, `+1` | [confirmed] [`formula`][formula] §"Melee" plus its 2026-09 update; the 40% cap is exact on 11 observations, both sides ([`rout`][rout]). `/2000`, `+12`, 40%, `+1` and 30,000 are in `combat.detailedResolver` | C2, C5 |
 | K17 | focus factor `defFactor = min(4, focusCount)`; attacker loss × `(5 − d)/5`, defender loss × `(2d + 5)/5` | 4 | [confirmed] [`rout`][rout] §"Two small corrections" (`FUN_00448fd0` is `min`) | C2, C5 |
 | K18 | quality term in both power expressions: `q × 10 + m` | 10 | [confirmed] [`rout`][rout] | C2, C5 (with `m`); C3, C4 (with `M`, a departure) |
-| K19 | tactical morale per melee exchange: `+2` to the better side, `−3` to the other; upper clamp 99 | +2, −3, 99 | [confirmed] [`formula`][formula], [`morale-array`][morale-array]. The *comparison* that picks "the better side" is not given: see D07 | C2, C5 |
+| K19 | tactical morale per melee exchange: `+2` to the better side, `−3` to the other; upper clamp 99 | +2, −3, 99 | [confirmed] [`formula`][formula], [`morale-array`][morale-array]. The comparison is now read from code: see D07 | C2, C5 |
 | K20 | shooting vulnerability `vuln[targetType]`, `+0x20` | LI 18 · HI 2 · A 18 · LC 15 · HC 4 | [confirmed] [`rout`][rout] §"`+0x20` … identified". **In no ruleset**, so it is a candidate-local constant (§3) | C2, C3, C4, C5 |
 | K21 | shooting exchange (`FUN_0043845c`, `FUN_0043910c`) | the formula in §4.4: `× 5 + 150000`, `×2` in range, `min(shooter/3, target/2)`, `+1` | [confirmed] [`rout`][rout]. `×2` is `combat.detailedResolver.inRangeShotMultiplier` | C2, C4 (base only), C5 |
 | K22 | shooting morale hit `m −= min(3, loss × 35 / (troopsAfter + 1))` | 35, 3 | [confirmed] [`rout`][rout] §"Two small corrections" | C2, C5 |
-| K23 | `shots[type]`, `+0x1C`, a per-battle ammunition pool | LI 7 · HI 0 · A 25 · LC 9 · HC 0 | [confirmed] value: [`unit-table`][unit-table]. [derived] per-battle pool: the info panel read `Shots 19` mid-battle for an archer unit ([`rome-gaul`][rome-gaul]) | C2, C3, C4, C5 |
+| K23 | `shots[type]`, `+0x1C`, a per-battle ammunition pool | LI 7 · HI 0 · A 25 · LC 9 · HC 0 | [confirmed] value: [`unit-table`][unit-table]. [confirmed: code, static] per-battle pool: set at copy-in and never refilled by the half-round setup ([`2026-10-04-decompiled-tactical-battle-rules.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-04-decompiled-tactical-battle-rules.md) §1, §3); first [derived] from the info panel's `Shots 19` mid-battle for an archer unit ([`rome-gaul`][rome-gaul]); [Wine candidate] the saves' slot `+16` starts at 7, 0, 25, 9, 0 by type and falls as a unit shoots ([`2026-10-04-tactical-battle-sweep.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-04-tactical-battle-sweep.md) B2) | C2, C3, C4, C5 |
 | K24 | `range[type]`, `+0x1E` | LI 1 · HI 0 · A 2 · LC 1 · HC 0 | [confirmed] [`unit-table`][unit-table]; read by the shooting code for the doubling test | C2, C5 |
 | K25 | `moves[type]`, `+0x18` | LI 4 · HI 2 · A 4 · LC 6 · HC 5 | [confirmed] value: [`unit-table`][unit-table]. **[derived]** as tactical moves per turn: the info panel shows a `Moves` line per unit, and two heavy-infantry panels read `2 moves`, matching `+0x18 = 2` ([`battle-observation.md`][observation] 00:22, 08:04). An archer panel reads `Moves 4`, matching `+0x18 = 4` ([`rome-gaul`][rome-gaul]) | C2, C5 |
 | K26 | initial tactical morale `m = Random(q × 4) + M` | 4 | [confirmed] formula: [`morale-array`][morale-array] §"The morale formula" (`FUN_00437de4`), which now names the added term `armyMorale`, the strategic morale `+14` (`DAT_0047C1FA`); [`supply-morale`][supply-morale]'s morale-write index lists this seeding (lines 38135/38162). The clamp is `[60, 90]`: see D08 | C2, C5 |
@@ -381,8 +401,8 @@ none" means the search found nothing in any of them.
 | D03 | Target selection | Each unit targets the nearest live enemy by Chebyshev distance. Ties go to the lowest enemy slot index. The target is re-chosen whenever it is cleared (K14) or the target is no longer live. | **[designed]** Searched for target selection: none. `FUN_0043a31c`, the untraced branch of the AI dispatch, may or may not be the AI's move mode ([`formula`][formula] Next checks 3). The info panel's *"Unit set to attack"* ([`rome-gaul`][rome-gaul]) confirms that a target *field* exists (`DAT_004a0356`, [`morale-array`][morale-array]), not the choice rule. | C2, C5 |
 | D04 | Movement | A unit moves up to `moves[type]` (K25) steps. Each step goes to the 8-neighbour square that is in bounds, empty, and minimises Chebyshev distance to the target. Ties are broken in the fixed order N, NE, E, SE, S, SW, W, NW, with "N" meaning toward the enemy home row. Movement stops once the unit is adjacent to its target (distance 1) or no step reduces the distance. One unit per square. | **[designed]** Searched for grid movement or pathing rules: none (the entry-points report lists *"movement ranges"* as still to recover). | C2, C5 |
 | D05 | One action per unit per side-turn | In slot order, each live unit does exactly one of the following, in this priority order. **(a)** If it is adjacent to its target, it is queued for this side-turn's melee pass. **(b)** Otherwise, if `shots > 0` (K23), `range > 0` (K24) and distance ≤ `range + 1`, it shoots its target once (D11). **(c)** Otherwise, it moves (D04), and if it ends adjacent to its target it is queued for melee. After all units have acted, the melee pass runs `FUN_004393ec` once over the queued attackers in slot order. | **[designed]** except the batched melee pass, which is **[confirmed]**: `FUN_004393ec` *"iterates the same up-to-20 unit slots; for each attacker with a live assigned target"* ([`formula`][formula]). Searched for the move/shoot/attack priority: none. | C2, C5 |
-| D06 | Shooting distance and doubling | A shot is legal at Chebyshev distance `2 … range + 1`. It is doubled (K21) when `distance − 1 < range`, i.e. when the number of empty squares between the two units is less than `range`. | **[open]** The report's code says `if (gridDistance(shooter, target) < range[shooterType]) base *= 2` ([`rout`][rout]). `gridDistance` is not defined in any report, and nor is a maximum shooting distance. **[designed]** placeholder as stated. **Its consequence, stated plainly:** light infantry and light cavalry (`range 1`) never get the doubled shot under this placeholder, and only archers do, at distance 2. The literal Chebyshev reading (`distance < range`) would never double a legal shot at all, because an adjacent unit melees (D05). Neither reading is shown to be the original's, since the evidence does not settle what `gridDistance` measures. | C2, C5 |
-| D07 | "Better side" in the ±2/−3 rule | The attacker gets `+2` and the defender `−3` when `atkPower ≥ defPower` (the two K16 powers of that exchange). Otherwise the attacker gets `−3` and the defender `+2`. | **[designed]** reading of a confirmed rule. The report says only *"whichever side had the better troops/power ratio"* ([`formula`][formula]). Searched for the exact operands: none. | C2, C5 |
+| D06 | Shooting distance and doubling | A shot is legal at Chebyshev distance `2 … range + 1`. It is doubled (K21) when `distance − 1 < range`, i.e. when the number of empty squares between the two units is less than `range`. | **[open]** The report's code says `if (gridDistance(shooter, target) < range[shooterType]) base *= 2` ([`rout`][rout]). `gridDistance` is not defined in any report, and nor is a maximum shooting distance. **[designed]** placeholder as stated. **Its consequence, stated plainly:** light infantry and light cavalry (`range 1`) never get the doubled shot under this placeholder, and only archers do, at distance 2. The literal Chebyshev reading (`distance < range`) would never double a legal shot at all, because an adjacent unit melees (D05). Neither reading is shown to be the original's, since the evidence does not settle what `gridDistance` measures. **Settled 2026-10-04, and the placeholder departs:** `gridDistance` is Chebyshev, a shot is legal at distance `≤ range` with adjacent targets allowed, and it doubles when `distance < range`, so only archers double, at distance 1 **[confirmed: code, static: [`2026-10-04-decompiled-tactical-battle-rules.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-04-decompiled-tactical-battle-rules.md) §4]**. | C2, C5 |
+| D07 | "Better side" in the ±2/−3 rule | The attacker gets `+2` and the defender `−3` when `atkPower ≥ defPower` (the two K16 powers of that exchange). Otherwise the attacker gets `−3` and the defender `+2`. | **[designed]** reading of a confirmed rule. The report says only *"whichever side had the better troops/power ratio"* ([`formula`][formula]). Searched for the exact operands: none. **Settled 2026-10-04, and the placeholder departs:** the side with the smaller `troops div loss` (the larger fraction lost) takes `−3`, the other `+2`, ties against the attacker **[confirmed: code, static: [`2026-10-04-decompiled-tactical-battle-rules.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-04-decompiled-tactical-battle-rules.md) §5]**. | C2, C5 |
 | D08 | Tactical morale clamps | Initial `m = max(60, min(90, Random(q × 4) + M))`, with `M` taken after K27's +3. During the battle, `m` is clamped to `[0, 99]`. | **[confirmed]** initial clamp `[60, 90]`. The sum goes through `min(90, ·)` (`FUN_00448fd0`) and then `max(60, ·)` (`FUN_00448fd8`), at `0x00438029`–`0x0043804d` (side A) and `0x0043813e`–`0x00438162` (side B) ([`morale-array`][morale-array] §"The morale formula", corrected in research `1762c84`). The earlier *"upper bounds ≈ 90 then 60"* was the same two calls misread, and this row's former placeholder (90 upper, 0 lower) is withdrawn. The row keeps its D-number so that references stay valid. The in-battle upper bound 99 is confirmed (K19, K14). The in-battle 0 floor stays **[designed]**, and it never binds **[derived]**: every decrement is followed by a rout check (K09 removes any unit at `m ≤ 19`) or, for the cascade, by K13's `< 30` removal. | C2, C5 |
 | D09 | Round cap | 100 rounds (one round is one turn per side). At the cap, the side with the greater `liveP` (D34) wins, with ties to the defender (K05). Under C2, the loser's live units are then destroyed. Under C5, the loser performs an ordered withdrawal (§6.5). | **[designed]** The original has no cap: it fights until a side has no live units (K32). A headless run needs a cap so that a battle always terminates. Searched for surrender or timeout rules: `TBattleMap_Surrender` exists as a human action ([`entry-points`][entry-points]) and has no AI trigger. | C2, C5 |
 | D10 | Rout-check order after a melee exchange | Attacker first, then defender. | **[designed]** The report says the check is called *"on both participants"* ([`rout`][rout]), not in which order. | C2, C5 |
@@ -409,15 +429,22 @@ none" means the search found nothing in any of them.
 ### 4.3 The effectiveness matrix (K15)
 
 `value[attackerType][defenderType]`, read row-major from the DAT
-**[confirmed: [`matrix`][matrix]; orientation: [`rout`][rout]]**:
+**[confirmed: code and the DAT loader, static: [`2026-10-04-decompiled-tactical-battle-rules.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-04-decompiled-tactical-battle-rules.md) §5; orientation: [`rout`][rout]]**:
 
 | Attacker ↓ / Defender → | LI | HI | A | LC | HC |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| **LI** | 4 | 1 | 0 | 3 | 0 |
-| **HI** | 1 | 4 | 3 | 3 | 4 |
-| **A** | 0 | 1 | 3 | 0 | 1 |
-| **LC** | 4 | 4 | 3 | 1 | 0 |
-| **HC** | 1 | 4 | 3 | 0 | 2 |
+| **LI** | 15 | 4 | 20 | 5 | 3 |
+| **HI** | 60 | 5 | 65 | 15 | 8 |
+| **A** | 10 | 3 | 18 | 5 | 3 |
+| **LC** | 25 | 8 | 28 | 15 | 8 |
+| **HC** | 18 | 12 | 20 | 12 | 8 |
+
+The table first published here (and in [`matrix`][matrix]) held other values: they are the AI
+placement formations and the AI type order, not the melee matrix. The merged rulesets carry the real
+values since T120 ([#654](https://github.com/diegoami/imperial_conquest_2/issues/654)), and T121
+([#655](https://github.com/diegoami/imperial_conquest_2/issues/655)) re-ran T59's implementation and
+measurements on them; C1 changed with `bc1a843` (T88), not the matrix, and its draw-formula
+diagnostic is stale (#659).
 
 ### 4.4 The exchange formulas (K16–K22), transcribed
 
@@ -1338,9 +1365,10 @@ band.
   losing more than about 70% of its troops in a single round. At D31's pace, P-scale battles do not
   do that. C4's endings are therefore `collapse` (or `cap`) in essentially every battle. This follows
   from C4 being an army-morale model, and it is stated here so that it is not read as a discovery.
-  **Measured, 2026-09-23 (T59, #250, 33dc106): the prediction did not hold.** C4 **passes** EN-b
-  (0.8223), because 17.8% of its battles end at the 30-round cap rather than by collapse; it fails EN-a
-  instead. See [`auto-resolve-tournament-results.md`](auto-resolve-tournament-results.md).
+  **Measured on the real matrix (T121, [#655](https://github.com/diegoami/imperial_conquest_2/issues/655)): the prediction holds.** C4 **fails** EN-b
+  (1.0000): every P-scale battle ends in collapse and none at the cap, so it passes EN-a. T59's first
+  measurement (#250, 33dc106) had C4 passing EN-b (0.8223, 17.8% at the cap), but it read the AI tables
+  in place of the melee matrix (T120). See [`auto-resolve-tournament-results.md`](auto-resolve-tournament-results.md).
 - **C5, expected direction only (not a construction result):** the withdrawal test (60% relative
   strength, from round 3) pushes C5's endings toward `withdrawal`. Whether that pushes it past EN-b's
   0.90 is what T59 measures.
@@ -1564,10 +1592,10 @@ session's call, and T59 does not need any of them to run.
 
 | Item | Replaces | Where to look |
 | --- | --- | --- |
-| The tactical AI's move and target rules: `FUN_00439ce8`'s untraced branch `FUN_0043a31c` (an AI mode or the human-move path, still open), and wherever the AI's choices actually live | D03, D04, D05 | [`formula`][formula] Next checks 3 |
-| `FUN_004381a4`'s type-order lookup table and column block | D01 | [`formula`][formula] §"The AI dispatch chain" |
-| `gridDistance` inside `FUN_0043845c`, and any maximum shooting distance | D06 | [`rout`][rout] §"`+0x20` … identified" |
-| The operands of the ±2/−3 comparison in `FUN_004393ec` | D07 | [`formula`][formula] §"Melee" |
+| The tactical AI's move and target rules: `FUN_00439ce8`'s untraced branch `FUN_0043a31c` (an AI mode or the human-move path, still open), and wherever the AI's choices actually live | D03, D04, D05 | [`formula`][formula] Next checks 3. **Found 2026-10-04:** `FUN_0043a31c` is the AI general's movement half-round ([report](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-04-decompiled-tactical-battle-rules.md) §3, §7) |
+| `FUN_004381a4`'s type-order lookup table and column block | D01 | [`formula`][formula] §"The AI dispatch chain". **Found 2026-10-04:** five formations at `0x479078` and the type order at `0x4790A0` ([report](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-04-decompiled-tactical-battle-rules.md) §2, §7) |
+| `gridDistance` inside `FUN_0043845c`, and any maximum shooting distance | D06 | [`rout`][rout] §"`+0x20` … identified". **Found 2026-10-04:** Chebyshev, legal at `≤ range` ([report](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-04-decompiled-tactical-battle-rules.md) §1, §4) |
+| The operands of the ±2/−3 comparison in `FUN_004393ec` | D07 | [`formula`][formula] §"Melee". **Found 2026-10-04:** `troops div loss` ([report](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-04-decompiled-tactical-battle-rules.md) §5) |
 | `FUN_00438420`'s body (`focusCount`) | D12 | [`rout`][rout] §"Two small corrections" |
 | The cascade's −6 and +5, observed rather than only decompiled | (strengthens K12–K14) | [`rout`][rout] Next checks 2 |
 | `FUN_0040284c`, the RNG's range semantics | (strengthens the `Random(n)` reading, §3) | [`formula`][formula] §"What this does not establish" |

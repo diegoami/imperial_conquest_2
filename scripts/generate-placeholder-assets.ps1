@@ -27,7 +27,7 @@ if (!(Test-Path $OutputPath)) {
 }
 
 # Create subdirectories
-foreach ($dir in @('units', 'army', 'fleet', 'city', 'terrain', 'sfx')) {
+foreach ($dir in @('units', 'army', 'fleet', 'city', 'terrain', 'sfx', 'ui')) {
     $subdir = Join-Path -Path $OutputPath -ChildPath $dir
     if (!(Test-Path $subdir)) {
         $null = New-Item -ItemType Directory -Path $subdir -Force
@@ -84,6 +84,110 @@ function New-PlaceholderBMP {
             $pixelData[$idx] = $Red;   $idx++
         }
         $idx += $rowPadding  # padding bytes stay zero
+    }
+
+    $allBytes = $fileHeader + $infoHeader + $pixelData
+    [System.IO.File]::WriteAllBytes($Path, $allBytes)
+}
+
+# Toolbar-command stand-ins (T101): 32-bit BGRA with a transparent background, because every
+# ui.command.* key is a 32-bit BGRA icon under section 1.2's chrome rule. The pattern is a
+# SHA-256-derived identicon (an 8x8 mirrored grid of 4x4 cells) in two flat colours, so each
+# key gets a different geometric pattern with no font rendering (fonts differ between
+# machines). Everything is integer byte arithmetic - no GDI+, no drawing API, no RNG - so the
+# output is byte-identical across runs and machines.
+function New-PlaceholderSpriteBMP {
+    param(
+        [string]$Path,
+        [string]$Key
+    )
+
+    $width = 32
+    $height = 32
+    $bytesPerPixel = 4
+    $rowSize = $width * $bytesPerPixel  # 128, already 4-byte aligned
+    $pixelDataSize = [uint32]($rowSize * $height)
+    $pixelDataOffset = [uint32]54
+    $fileSize = [uint32]($pixelDataOffset + $pixelDataSize)
+
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    $hash = $sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($Key))
+
+    # The left four columns of an 8x8 cell grid come from 32 hash bits; the right four are a
+    # mirror of them. The colours come from other hash bytes, so the pattern and the palette
+    # are both derived from the key.
+    $filled = New-Object 'bool[,]' 8, 8
+    $anyFilled = $false
+    for ($cy = 0; $cy -lt 8; $cy++) {
+        for ($cx = 0; $cx -lt 4; $cx++) {
+            $bitIndex = $cy * 4 + $cx
+            $byteIndex = 3 + [int][math]::Floor($bitIndex / 8)
+            $bit = ($hash[$byteIndex] -shr ($bitIndex % 8)) -band 1
+            $value = ($bit -eq 1)
+            $filled[$cx, $cy] = $value
+            $filled[(7 - $cx), $cy] = $value
+            if ($value) { $anyFilled = $true }
+        }
+    }
+    if (-not $anyFilled) {
+        $filled[0, 0] = $true
+        $filled[7, 0] = $true
+    }
+    $anyEmpty = $false
+    for ($cy = 0; $cy -lt 8; $cy++) {
+        for ($cx = 0; $cx -lt 8; $cx++) {
+            if (-not $filled[$cx, $cy]) { $anyEmpty = $true }
+        }
+    }
+    if (-not $anyEmpty) {
+        $filled[0, 0] = $false
+        $filled[7, 0] = $false
+    }
+
+    $red1 = 80 + [int]($hash[8] % 176)
+    $green1 = 80 + [int]($hash[9] % 176)
+    $blue1 = 80 + [int]($hash[10] % 176)
+    $red2 = 40 + [int]($hash[11] % 176)
+    $green2 = 40 + [int]($hash[12] % 176)
+    $blue2 = 40 + [int]($hash[13] % 176)
+
+    # BITMAPFILEHEADER (14 bytes)
+    $fileHeader = [byte[]]@(0x42, 0x4D)  # "BM"
+    $fileHeader += [BitConverter]::GetBytes($fileSize)
+    $fileHeader += [byte[]]@(0, 0, 0, 0)  # reserved
+    $fileHeader += [BitConverter]::GetBytes($pixelDataOffset)
+
+    # BITMAPINFOHEADER (40 bytes): 32 bits per pixel, BI_RGB; the unused byte is alpha.
+    $infoHeader = [BitConverter]::GetBytes([uint32]40)
+    $infoHeader += [BitConverter]::GetBytes([int32]$width)
+    $infoHeader += [BitConverter]::GetBytes([int32]$height)            # positive => bottom-up
+    $infoHeader += [BitConverter]::GetBytes([uint16]1)                 # color planes
+    $infoHeader += [BitConverter]::GetBytes([uint16]32)                # bits per pixel
+    $infoHeader += [BitConverter]::GetBytes([uint32]0)                 # BI_RGB, no compression
+    $infoHeader += [BitConverter]::GetBytes($pixelDataSize)
+    $infoHeader += [BitConverter]::GetBytes([int32]0)                  # X pixels/metre
+    $infoHeader += [BitConverter]::GetBytes([int32]0)                  # Y pixels/metre
+    $infoHeader += [BitConverter]::GetBytes([uint32]0)                 # colors used
+    $infoHeader += [BitConverter]::GetBytes([uint32]0)                 # important colors
+
+    # Pixel array: BGRA, bottom-up rows (no padding at 32bpp). Transparent background, two
+    # flat colours in a checker within the filled cells.
+    $pixelData = New-Object byte[] $pixelDataSize
+    for ($y = 0; $y -lt $height; $y++) {
+        $rowIndex = $height - 1 - $y
+        for ($x = 0; $x -lt $width; $x++) {
+            $cellX = [int][math]::Floor($x / 4)
+            $cellY = [int][math]::Floor($y / 4)
+            if ($filled[$cellX, $cellY]) {
+                $idx = ($rowIndex * $rowSize) + ($x * $bytesPerPixel)
+                if ((($cellX + $cellY) % 2) -eq 0) {
+                    $pixelData[$idx] = $blue1; $pixelData[$idx + 1] = $green1; $pixelData[$idx + 2] = $red1
+                } else {
+                    $pixelData[$idx] = $blue2; $pixelData[$idx + 1] = $green2; $pixelData[$idx + 2] = $red2
+                }
+                $pixelData[$idx + 3] = 255
+            }
+        }
     }
 
     $allBytes = $fileHeader + $infoHeader + $pixelData
@@ -184,6 +288,30 @@ foreach ($file in $bmpMappings.Keys) {
     Write-Host "  + $file"
 }
 
+# Toolbar-command keys (T101): 9 main-toolbar commands, 12 Area-map strip commands and 15
+# unit-map strip commands, in AssetKeys.cs order. The file name follows section 1.5's
+# convention: `ui.command.<id>.icon` -> `ui/command_<id>.bmp`.
+$uiCommands = @(
+    "open", "save", "end_turn", "news", "relations", "taxation", "balance_sheet",
+    "recruit_unit", "build_fleet",
+    "show_cities", "show_capital", "show_armies", "show_fleets", "show_all",
+    "show_mercs_light_infantry", "show_mercs_heavy_infantry", "show_mercs_archers",
+    "show_mercs_light_cavalry", "show_mercs_heavy_cavalry", "show_mercs_all", "find_city",
+    "army_supply", "army_recruit_mercenaries", "army_transfer_unit", "army_split",
+    "army_join", "army_change_units", "army_disband",
+    "fleet_supply", "fleet_repair", "fleet_transfer_ships", "fleet_split", "fleet_join",
+    "fleet_scuttle", "city_fortify", "cancel_selection"
+)
+
+Write-Host "Generating toolbar-command placeholder icons..."
+foreach ($command in $uiCommands) {
+    $key = "ui.command.$command.icon"
+    $file = "ui/command_$command.bmp"
+    $fullPath = Join-Path -Path $OutputPath -ChildPath $file
+    New-PlaceholderSpriteBMP -Path $fullPath -Key $key
+    Write-Host "  + $file"
+}
+
 Write-Host "Generating WAV files..."
 foreach ($sfx in @("city_captured", "battle", "unit_move")) {
     $filepath = Join-Path -Path $OutputPath -ChildPath "sfx/$sfx.wav"
@@ -217,6 +345,10 @@ foreach ($terrain in @("plain", "desert", "forest", "mountain", "river", "sea_co
 
 foreach ($sfx in @("city_captured", "battle", "unit_move")) {
     $manifest.assets["sfx.$sfx"] = "sfx/$sfx.wav"
+}
+
+foreach ($command in $uiCommands) {
+    $manifest.assets["ui.command.$command.icon"] = "ui/command_$command.bmp"
 }
 
 $manifestPath = Join-Path -Path $OutputPath -ChildPath "manifest.json"

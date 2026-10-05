@@ -449,8 +449,8 @@ naval.buy-fleet-supply accepted.
 > repair-fleet mac-fleet-1 1
 naval.repair-fleet accepted.
 
-> scuttle-fleet mac-fleet-1
-naval.scuttle-fleet accepted.
+> split-fleet mac-fleet-1 mac-fleet-keep 10
+naval.split-fleet accepted.
 
 > end
 Macedonia (macedonia) ends its turn.
@@ -893,6 +893,42 @@ News log:
   Week  3      Autumn      270BC
    
   Week  5      Autumn      270BC
+
+> set-tax 20
+economy.set-tax accepted.
+
+> transfer-money mac-fleet-1 100
+economy.transfer-money accepted.
+
+> transfer-money mac-fleet-1 -50 via mac-fleet-keep
+economy.transfer-money accepted.
+
+> scuttle-fleet mac-fleet-1
+naval.scuttle-fleet accepted.
+
+> transfer-money army-8 100
+economy.transfer-money accepted.
+
+> transfer-money army-8 -50
+economy.transfer-money accepted.
+
+> move army-8 136 42
+army-8 moved from (136,51) to (136,42), spending 10 of 10 moves.
+
+> move mac-marines 137 41
+mac-marines moved from (144,40) to (137,41), spending 9 of 9 moves.
+
+> army-transfer army-8 mac-marines supply=10 money=20
+armies.army-transfer accepted.
+
+> split-unit mac-marines 0 1000
+armies.split-unit accepted.
+
+> rename-unit mac-marines 0 LegioX
+armies.rename-unit accepted.
+
+> disband-unit mac-marines 1
+armies.disband-unit accepted.
 
 > quit
 Goodbye.

@@ -87,8 +87,8 @@ reason to guess PNG back in now without it.
 
 ### 1.2 Visual assets: colour depth and transparency
 
-The shipped placeholder pack is uniformly **24-bit RGB, no alpha channel** — confirmed by reading every
-placeholder file's own DIB header (`width=32, height=32, bitCount=24, compression=0`). That is correct
+The shipped placeholder pack's marker, unit and terrain images are **24-bit RGB, no alpha channel** — confirmed by reading every
+such placeholder file's own DIB header (`width=32, height=32, bitCount=24, compression=0`). Its 36 `ui.command.*` toolbar stand-ins are 32-bit BGRA, under the chrome rule (§1.3, §4.7). That is correct
 for a **terrain tile**, which always fully covers its grid cell.
 
 **Correction (rework round 1): every marker examined in the corpus is fully opaque, and the previous
@@ -120,7 +120,9 @@ anything in this document's sources.
 
 **The actual argument for 32-bit BGRA, stated as what it is**: a forward-looking `[designed]` choice for
 the *new* renderer, not a claim about the original's fidelity. `AssetPack`/`AssetLoader` are already
-built for T47 and T48 to draw markers as discrete shapes composited over terrain, not as full
+built — as a key→path manifest map and a missing-file validator, not drawing code (`#176` N14:
+substance right, attribution loose) — for T47 and T48 to draw markers as discrete shapes composited
+over terrain, not as full
 terrain-tile backgrounds — and while the original's own convention for the *tiles this document has
 direct evidence of* happens to be fully opaque, that is a fact about the original, not a constraint this
 new renderer must repeat. A future glyph that *isn't* a plain square (a rounder icon, a banner, anything
@@ -252,10 +254,20 @@ Two different code paths already exist, for two different moments, and they must
 
 ## 2. The sixteen-nation palette
 
+> **Superseded for nations by the original's own colours (T97, 2026-09-29).** The original draws each nation's
+> marker as a square in a **background** colour with the glyph in a **foreground** colour, one pair per nation, all
+> from the 16-colour Windows palette: the research report
+> [`2026-09-29-nation-marker-colours.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-09-29-nation-marker-colours.md).
+> The designed palette below optimised distinctness but coloured the glyph alone, so its greens vanished on the green map
+> (the user's visual review). Since T97 (PR #539), the game and the inspector read the report's pairs (`colorHex` the background,
+> `glyphColorHex` the foreground). This section stays as the record of the designed alternative, including the Rome change
+> below, which T97 also supersedes: the original's Rome is purple with a blue glyph.
+
 ### 2.1 Why this section exists: the current offenders
 
-Sixteen nations need sixteen distinguishable colours. Today the game has **two** palettes, and neither
-is fit for purpose. `godot/MapViewer.cs`'s `OwnerColor` (`:595-614`) is the one already in play, in
+Sixteen nations need sixteen distinguishable colours. When this section was written the game had **two** palettes, and neither
+was fit for purpose. **From T94 (PR #500) until T97 (PR #539), `godot/MapViewer.cs`'s `OwnerColor` carried §2.3's sixteen values and its dark-glyph list,
+and from fix 525 (PR #527) until T97 the classical world's `colorHex` carried them too. Since T97 both carry the original's background and foreground pairs (above).** The table below is the old `OwnerColor` (`:595-614`), the one then in play, in
 `NationCatalog`'s index order (`0`=Rome … `15`=Thracia, confirmed against `NationCatalog.cs` and the
 DAT's own 16-name nation table at stride 1,055, `investigations/dat-file-layout.md:120-124`):
 
@@ -319,7 +331,7 @@ below wherever it is applied, per DoD 8's folded follow-up (`#154`, T24 DoD 7).
 
 | Index | Nation | Hex | RGB | Relative luminance | Glyph |
 | ---: | --- | --- | --- | ---: | --- |
-| 0 | Rome | `#4C0D19` | (76, 13, 25) | 0.019 | light |
+| 0 | Rome | `#D32F2F` | (211, 47, 47) | 0.161 | light |
 | 1 | Carthage | `#DDB69C` | (221, 182, 156) | 0.512 | **dark** |
 | 2 | Seleucid | `#671E0B` | (103, 30, 11) | 0.038 | light |
 | 3 | Ptolemaic | `#E1EC25` | (225, 236, 37) | 0.761 | **dark** |
@@ -335,6 +347,10 @@ below wherever it is applied, per DoD 8's folded follow-up (`#154`, T24 DoD 7).
 | 13 | Armenia | `#D760E8` | (215, 96, 232) | 0.286 | **dark** |
 | 14 | Media | `#581B45` | (88, 27, 69) | 0.033 | light |
 | 15 | Thracia | `#D46CBB` | (212, 108, 187) | 0.283 | **dark** |
+
+**Rome, changed by the user's decision of 2026-09-29:** the optimiser's `#4C0D19` (a very dark maroon,
+luminance 0.019) read as nearly black on the map, and the user chose a strong red, `#D32F2F`. It stays distinct from
+Seleucid's dark rust `#671E0B`, Armenia's violet and Thracia's pink, and keeps the light glyph (0.161 < 0.190).
 
 **Relative luminance** uses the standard sRGB-to-linear + WCAG luminance formula
 (`0.2126R + 0.7152G + 0.0722B` in linear space).
@@ -356,9 +372,9 @@ and this document's own first-round `{1, 3, 5, 7, 9}`.
 **Where this lands**: `NationDefinition.ColorHex` (`src/IC2.Engine/Model/World.cs:215`) is the one field
 both `MapViewer.cs`'s `OwnerColor` and the Godot slice's `NationColor` (`godot/Slice/Slice.cs:270-276`,
 which explicitly reads `World.NationById(id).ColorHex` and is the helper T48 says to reuse instead of
-copying `OwnerColor`) are meant to converge on. Today only the two-nation toy world sets `ColorHex`
-(`data/worlds/toy-3city.json:178,199`, arbitrary placeholder values); no task has yet populated it for the
-sixteen real nations. **This table is that population**, ready for T29 (or whichever task first writes
+copying `OwnerColor`) are meant to converge on. The two-nation toy world keeps arbitrary placeholder values
+(`data/worlds/toy-3city.json:178,199`); the sixteen real nations carry this table since fix 525 (PR #527), and
+`scripts/export-classical-world.cs` emits it. **This table is that population**, ready for T29 (or whichever task first writes
 `data/worlds/classical-mediterranean.json`) to use verbatim, and for T24's folded follow-up (`#154`) to
 apply to `MapViewer.cs`'s `OwnerColor` and its `:178` light-colour list — which becomes indices
 `{1, 3, 4, 5, 7, 9, 13, 15}`, replacing `{4, 5, 7, 8, 13, 14}`.
@@ -425,12 +441,18 @@ way the autumn frame draws it over a city.
 
 **What the glyph itself shows, with the cursor and halo set aside**: a **ship silhouette** — a hull, a
 mast with a horizontal yardarm/crossbar near the top, and a forked shape at the base reading as an
-anchor — rendered in white against the black cursor fill behind it in this one observed instance.
+anchor — rendered in white against a black interior in this one observed instance. **The black's
+attribution is left open** (corrected, `#176` N12: this passage previously attributed it to "the
+black cursor fill," but the same selection cursor over Felsina — §1.2's own evidence — is a *hollow
+outline*, so the black is more plausibly the marker's own fill than the cursor's), and the
+upper-quadrant masses flanking the mast read plausibly as **sails** — if they are, the "hull, mast
+with crossbar, anchor" enumeration above omits them; recorded here rather than guessed either way.
 **The corpus contains exactly one fleet marker, and it is the selected one**: nothing in this document's
 sources shows an *unselected* fleet, so its true field colour (presumably Carthage's own nation colour,
 by analogy with the army and city markers, but not directly observable here) and its border shape (a
 plain square, matching every other confirmed marker, or something else) are **not established** by this
-citation. Depict the ship silhouette itself — hull, mast with crossbar, anchor — at increasing size/count
+citation. Depict the ship silhouette itself — hull, mast with crossbar, the sail-like upper masses,
+anchor — at increasing size/count
 across the three tiers, on the tier's own nation-coloured square background (matching the army and city
 convention, §1.2), **without** a diamond outline or a cursor halo, which belong to the game's selection
 UI, not to any one marker type.
@@ -478,19 +500,27 @@ search result was false, and I re-ran it by eye, at 6–10x pixel zoom, tile by 
 round 2): the first correction (round 1) itself undercounted — there are four distinct shapes, not
 three, because the "house" is actually two different sprites, not one house at a shared size.**
 
-- **A small house**: a compact peaked roof over a narrower body with **two plain vertical window/door
-  bars**, no internal subdivision — the more common of the two house variants, in every nation colour
-  sampled (e.g. cyan glyph on a dark-maroon tile, magenta glyph on cyan, white glyph on purple, gold
-  glyph on navy — all in `screenshots-processed/1_rome_270_summer_7_1.png`).
-- **A large house**: a wider body under a broader, more angled roofline with a small chimney tick, and a
-  **2×2 grid of windows** — four separate panes divided by a visible cross-frame, not two plain bars.
-  Confirmed directly, side by side with a small house at identical zoom: a cyan-on-maroon large house at
-  one map location and a cyan-on-maroon small house elsewhere in the same screenshot
-  (`screenshots-processed/1_rome_270_summer_7_1.png`) are unmistakably different sprites, not the same
-  shape at two scales — the large one has genuine additional structure (the window grid), matching the
-  "same motif, bigger, with more detail" pattern §3 sets out for armies and fleets. This is the
-  strongest visual hint the corpus holds about what the variant code might select, and a description
-  that collapses it into "one or two vertical bars" loses it.
+- **A small house**: a compact peaked roof over a narrower body with **two window/door openings per
+  row** — with a central divider and a pane-shape change (corrected, `#176` N11: this passage
+  previously said "no internal subdivision," which overstated it) — the more common of the two house
+  variants, in every nation colour sampled (e.g. cyan glyph on a dark-maroon tile, magenta glyph on
+  cyan, white glyph on purple, gold glyph on navy — all in
+  `screenshots-processed/1_rome_270_summer_7_1.png`). Body 10×6 px, with a chimney tick on the
+  roofline — **both** houses carry one (corrected, `#176` N11: the tick was previously listed as a
+  large-house feature only).
+- **A large house**: a wider body under a broader, more angled roofline with a small chimney tick, and
+  **two rows of five window openings** — about ten panes in total: 3 + 2 either side of a central
+  divider, with an open band between the rows (corrected, `#176` N11: previously "a 2×2 grid of
+  windows — four separate panes divided by a visible cross-frame," which the pixels contradict).
+  Body 14×8 px. Confirmed directly, side by side with a small house at identical zoom: a
+  cyan-on-maroon large house at one map location and a cyan-on-maroon small house elsewhere in the
+  same screenshot (`screenshots-processed/1_rome_270_summer_7_1.png`) are unmistakably different
+  sprites, not the same shape at two scales — the large one has genuine additional structure (the
+  denser window rows), and the measured dimensions confirm it independently: a 1.4× scale-up of the
+  small house's 10×6 px body with 2 openings per row would give two *wider* openings, not five
+  narrower ones in two rows — matching the "same motif, bigger, with more detail" pattern §3 sets out
+  for armies and fleets. This is the strongest visual hint the corpus holds about what the variant
+  code might select, and a description that collapses it into "one or two vertical bars" loses it.
 - **A columned temple with a stepped triangular pediment and four columns** (corrected from "three": the
   column band reads two outer pairs of white members flanking a wider central gap, four members in
   total, not three), structurally distinct from either house — not a recolour, a different silhouette —
@@ -517,8 +547,9 @@ variants is a sharper statement of the open question than three against five: it
 variant this document has not seen an example of, rather than two.
 
 **Depiction for an artist, kept deliberately general given the above**: draw at least the four shapes
-directly observed — a small house, a large house (the same motif, scaled up and given a real window
-grid, not just a bigger copy of the small one), a columned temple, and a walled castle — as the working
+directly observed — a small house, a large house (the same motif, scaled up and given its denser
+two-row window pattern, not just a bigger copy of the small one), a columned temple, and a walled
+castle — as the working
 example of the kind of variety the five-variant code plausibly selects between, each recognisable at
 32×32 and each distinct from the others in silhouette, not just colour, matching `MapViewer.cs`'s own
 synthetic `DrawCity` glyph shape (`:179-182`, three line segments forming a roofline-and-walls
@@ -670,6 +701,23 @@ section actually require:
   in the published mockup. **No new asset key is required for any current DoD.** If a future task wants a
   visual flourish (a victory/defeat banner), that is a new gap to record *then*, tagged `[designed]` at
   that point — inventing one now would be art direction this document is not supposed to specify.
+- **The original's tactical battle screen: what it draws, for whichever task builds one.** No current
+  DoD needs these, and no key is proposed here; the inventory is recorded so that the task that builds
+  a battlefield ([#496](https://github.com/diegoami/imperial_conquest_2/issues/496)) starts from it
+  **[confirmed: code and the `TBATTLEMAP` resource, static, not yet compared with the running game:
+  [`2026-10-04-decompiled-tactical-battle-rules.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-04-decompiled-tactical-battle-rules.md) §10]**:
+  - **15 unit icons, 32 × 32**: the five unit types at **three sizes** each (small, medium, large),
+    the size being `min(2, troops div (standardBattalionSize div 3))` and recomputed after every loss.
+    These are not §4.1's five strategic icons: §4.1's roster is complete for the strategic map only.
+  - **Three recolourable regions per icon**: purple `0x800080`, white and blue are replaced by the
+    nation's three colours (nation `+0x424`, `+0x428`, `+0x42C`), once per side; the green dotted cell
+    border is kept. Which colours each nation has was not read.
+  - **One ground tile** (grass with brown contour lines; the battlefield has no terrain) and **one
+    selection cursor** (drawn with an erase raster op). There is no routed, selected or wounded image:
+    a routed unit's cell becomes empty ground.
+  - **Eight 20 × 20 toolbar glyphs**: Unit moves, Friendly units, Enemy units, Cancel selection, End
+    turn, Change pauses, Computer general on, Surrender.
+  - The board is 14 × 12 cells of 32 px, a 448 × 414 client area.
 - **T17/T18 fortification and siege states: no sprite is confirmed needed, from the one data point
   available.** Checked the original's own screenshots directly — **correction (rework round 1): the
   citation named the wrong file.** Felsina at 51% fortification is in
@@ -701,14 +749,22 @@ section actually require:
     filter); a grey ship/anchor icon (fleet filter); a small combined soldier-and-house icon (a combined
     filter); five plain geometric overlay toggles (`+`, `×`, `#`, an outlined diamond, an outlined
     circle); a combined multi-symbol icon (toggle-all); and a gold coin (an economy/money overlay).
-  - The **unit-map toolbar** in `screenshots/1_cartago_271_spring_3_1.png` carries **7 buttons**, all
-    fleet-order commands on a teal background: ship-with-cargo-and-marker (load an army), ship ringed
-    with dots (repair), **two ships inside a bracket/frame** (join fleets — corrected, rework round 2:
-    this was previously described as "ship with a '1' and split arrows"), **a single ship bisected by a
-    vertical bar** (split fleet — corrected; previously described as "two ships either side of a
-    divider," which is the button this description belongs to, not the one before it), ship with a plus
-    sign (build/add ships), a tilted beached ship over a blue line (scuttle), and a plain white circle
-    (clear filter).
+  - The **unit-map toolbar** in `screenshots/1_cartago_271_spring_3_1.png` carries **7 buttons** on a
+    teal background. The code read for the audit settles the **list of six fleet orders** — Supply,
+    Repair, Transfer ships, Split, Join, Scuttle — as `[derived: code]`. Matching those six orders to
+    the seven buttons is **provisional, inferred from icon shape**, not verified. The audit's own
+    wording calls the ship with cargo and a marker and the ship with a plus sign **the likely match** —
+    Supply fleet and Transfer ships respectively (§3.3) — while the ship ringed with dots is **Repair
+    fleet**, the two ships inside a bracket/frame are **Join fleets** (corrected, rework round 2:
+    previously mis-described as "ship with a '1' and split arrows"), the single ship bisected by a
+    vertical bar is **Split fleet** (corrected; previously described as "two ships either side of a
+    divider," a description that belongs to the Join button, not this one), and the tilted beached ship
+    over a blue line is **Scuttle fleet** — those four matches remain **provisional, inferred from icon
+    shape**, not verified. The seventh, white circle is outside the fleet group: most likely the
+    unit-map strip's 15th button, Cancel selection, which the fleet strip's tooltips name
+    **[Wine candidate: [`2026-10-02-fleet-orders-live.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-02-fleet-orders-live.md)]** (audit §3.3); T101's
+    `ui.command.cancel_selection.icon` is `[designed]` for that slot. The pixel descriptions beside
+    each are verified (`#176` N13).
 
   That is **13 + 7 = 20 buttons across the two toolbars I actually counted** (corrected, rework round 2:
   previously miscounted as "at least 18," an arithmetic error against this section's own enumeration),
@@ -718,14 +774,58 @@ section actually require:
   This is a floor, not a ceiling — I checked two toolbar rows in two screenshots, not the full menu
   surface `menu-and-toolbar-inventory.md` itself says is still incompletely mapped. **The "no new asset
   needed" conclusion in this bullet's first draft cannot stand against this evidence.** Recorded here as
-  a real, still only partially enumerated gap: a `ui.toolbar.*` or `ui.command.*` category (naming left
-  to whichever task first wires the toolbar, since committing to specific key names without also wiring
-  their commands would be presumptuous) covering at minimum the type-filter icons beyond the five already
-  in `AssetKeys` (a temple/capital filter, a fleet filter distinct from `fleet.tier*`, a combined-unit
-  filter), the geometric overlay toggles, an economy/money icon, and the seven fleet-order command icons.
-  Producing the exhaustive, authoritative version of this list is `menu-and-toolbar-inventory.md`'s own
-  job — this section records that the gap is real and roughly this size, not a substitute for that
-  report's own complete inventory.
+  a real gap. T101 adopted the `ui.command.<id>.icon` naming for **36 pictorial toolbar commands**,
+  equal to the audit's §3.5 total although not its per-strip split (the audit's table gives 9 / 13 / 14
+  plus one [open]). This catalogue regroups the same total as 9 on the main toolbar, 12 on the Area-map
+  strip and 15 on the unit-map strip: it drops the Area-map strip's ToggleMap and gold-coin buttons,
+  because what they do is [open] (audit §1.5, §3.2), and adds `find_city` — the audit §3.2 names that
+  sole candidate for what the coin means — and `cancel_selection`. The 16 nation buttons and All
+  nations are colour swatches (§2's palette) and get no key; `cancel_selection` is `[designed]`: the
+  unit-map strip's 15th button is most likely Cancel selection, a Wine candidate (audit §3.3). Every key is
+  `ui.command.<id>.icon`, 32×32 32-bit BGRA with straight alpha (§1.2, §1.3).
+  A later command that gains a toolbar icon extends this table and `AssetKeys` together.
+
+**The 36 toolbar-command keys and their commands (T101).** Each depiction is `[designed]` — the
+original's own art cannot ship, so every icon is new work; the command each key serves is the audit's.
+
+| Key | Command | Depiction |
+| --- | --- | --- |
+| `ui.command.open.icon` | Open | an open folder |
+| `ui.command.save.icon` | Save | a floppy disk |
+| `ui.command.end_turn.icon` | End turn | an hourglass |
+| `ui.command.news.icon` | News | a rolled scroll |
+| `ui.command.relations.icon` | International relations | two clasped hands |
+| `ui.command.taxation.icon` | Taxation | a coin purse with coins |
+| `ui.command.balance_sheet.icon` | Balance sheet | a two-pan balance scale |
+| `ui.command.recruit_unit.icon` | Recruit unit | a crested soldier's helmet |
+| `ui.command.build_fleet.icon` | Build fleet | a ship's hull on a wooden slipway with a hammer, no water |
+| `ui.command.show_cities.icon` | Show cities | a house with a pitched roof |
+| `ui.command.show_capital.icon` | Show capital | a crown above a columned building |
+| `ui.command.show_armies.icon` | Show armies | a round shield with a spear |
+| `ui.command.show_fleets.icon` | Show fleets | a sailing ship in side view |
+| `ui.command.show_all.icon` | Show all | a house, a crown, a shield and a ship together |
+| `ui.command.show_mercs_light_infantry.icon` | Show mercenaries Light infantry | a throwing javelin |
+| `ui.command.show_mercs_heavy_infantry.icon` | Show mercenaries Heavy infantry | a large round shield |
+| `ui.command.show_mercs_archers.icon` | Show mercenaries Archers | a bow with an arrow |
+| `ui.command.show_mercs_light_cavalry.icon` | Show mercenaries Light cavalry | a horse's head |
+| `ui.command.show_mercs_heavy_cavalry.icon` | Show mercenaries Heavy cavalry | an armoured rider on a horse |
+| `ui.command.show_mercs_all.icon` | Show mercenaries All mercenaries | a cluster of crossed weapons |
+| `ui.command.find_city.icon` | Find a city | a magnifying glass over a house |
+| `ui.command.army_supply.icon` | Army Supply army | a woven supply basket with grain |
+| `ui.command.army_recruit_mercenaries.icon` | Army Recruit mercenaries | a helmet with a stack of coins |
+| `ui.command.army_transfer_unit.icon` | Army Transfer unit | two arrows pointing in opposite directions |
+| `ui.command.army_split.icon` | Army Split army | one arrow branching into two |
+| `ui.command.army_join.icon` | Army Join armies | two arrows merging into one |
+| `ui.command.army_change_units.icon` | Army Change units | two curved arrows forming a cycle |
+| `ui.command.army_disband.icon` | Army Disband army | a broken sword |
+| `ui.command.fleet_supply.icon` | Fleet Supply fleet | a supply amphora over a wave |
+| `ui.command.fleet_repair.icon` | Fleet Repair fleet | a hammer crossed with a wrench |
+| `ui.command.fleet_transfer_ships.icon` | Fleet Transfer ships | two arrows in opposite directions over a wave |
+| `ui.command.fleet_split.icon` | Fleet Split fleet | one arrow branching into two over a wave |
+| `ui.command.fleet_join.icon` | Fleet Join fleets | two arrows merging into one over a wave |
+| `ui.command.fleet_scuttle.icon` | Fleet Scuttle fleet | an anchor with a downward arrow |
+| `ui.command.city_fortify.icon` | City Fortify city | a crenellated castle wall with a tower |
+| `ui.command.cancel_selection.icon` | Cancel selection | a circle with a diagonal slash |
 - **T24 diplomacy relation grid (peace/trade/alliance/war): no new asset — text/colour, per the cited
   report.** `game-design.md` §UI item 4 describes it as *"the original's peace/trade/ally/war grid...
   reused as-is"* from `menu-and-toolbar-inventory.md`'s International Relations screen — a grid, not an
@@ -739,8 +839,9 @@ section actually require:
 
 **Net finding for this section — corrected, rework round 1**: this section's first draft concluded that
 every UI-chrome callout resolves to "no new asset required." That conclusion does not survive checking
-the evidence it claimed to have checked: the **T24 toolbar** gap is real, and enumerable at 20 buttons
-(13 + 7, corrected rework round 2) across two toolbar rows this document counted directly. Two
+the evidence it claimed to have checked: the **T24 toolbar** gap is real: 20 buttons (13 + 7, corrected
+rework round 2) across the two toolbar rows this document counted directly, and **36 pictorial commands**
+on the audit's full count (9 + 12 + 15, T101's catalogue above). Two
 resolutions still hold on inspection
 — **T16/T25 battle-screen iconography** (a text/numeric summary, nothing icon-shaped named anywhere) and
 **T17/T18 fortification/siege state** (no visual difference confirmed for the one city checked, though
@@ -773,9 +874,10 @@ this task's Owns list to change.
 
 ## 6. Existing keys — machine-checked ground truth
 
-The exact 25 keys `AssetKeys.AllKeys` yields today, one per line, in the same six-group order as
-`AssetKeys.cs` itself. This block is read verbatim by `AssetSpecificationCoverageTests.cs`; do not
-reformat it without updating that test's expectations.
+The exact 61 keys `AssetKeys.AllKeys` yields today (the 25 original keys plus T101's 36 toolbar
+commands), one per line, in the same seven-group order as `AssetKeys.cs` itself. This block is read
+verbatim by `AssetSpecificationCoverageTests.cs`; do not reformat it without updating that test's
+expectations.
 
 ```text
 unit.light_infantry.icon
@@ -803,6 +905,42 @@ terrain.sea_deep.tile
 sfx.city_captured
 sfx.battle
 sfx.unit_move
+ui.command.open.icon
+ui.command.save.icon
+ui.command.end_turn.icon
+ui.command.news.icon
+ui.command.relations.icon
+ui.command.taxation.icon
+ui.command.balance_sheet.icon
+ui.command.recruit_unit.icon
+ui.command.build_fleet.icon
+ui.command.show_cities.icon
+ui.command.show_capital.icon
+ui.command.show_armies.icon
+ui.command.show_fleets.icon
+ui.command.show_all.icon
+ui.command.show_mercs_light_infantry.icon
+ui.command.show_mercs_heavy_infantry.icon
+ui.command.show_mercs_archers.icon
+ui.command.show_mercs_light_cavalry.icon
+ui.command.show_mercs_heavy_cavalry.icon
+ui.command.show_mercs_all.icon
+ui.command.find_city.icon
+ui.command.army_supply.icon
+ui.command.army_recruit_mercenaries.icon
+ui.command.army_transfer_unit.icon
+ui.command.army_split.icon
+ui.command.army_join.icon
+ui.command.army_change_units.icon
+ui.command.army_disband.icon
+ui.command.fleet_supply.icon
+ui.command.fleet_repair.icon
+ui.command.fleet_transfer_ships.icon
+ui.command.fleet_split.icon
+ui.command.fleet_join.icon
+ui.command.fleet_scuttle.icon
+ui.command.city_fortify.icon
+ui.command.cancel_selection.icon
 ```
 
 ---

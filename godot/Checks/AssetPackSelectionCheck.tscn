@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Checks/AssetPackSelectionCheck.cs" id="1_asset_pack_selection_check"]
+
+[node name="AssetPackSelectionCheck" type="Node"]
+script = ExtResource("1_asset_pack_selection_check")

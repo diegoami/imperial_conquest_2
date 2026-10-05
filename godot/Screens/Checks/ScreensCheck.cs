@@ -51,9 +51,11 @@ public partial class ScreensCheck : Node
         {
             CheckBattleResultScreenOpensFromAScriptedDestroyedFixture();
             CheckBattleResultScreenOpensFromAScriptedScatteredFixture();
+            CheckAnEmptiedBesiegersScreenShowsTheWipedOutLineNotANegativeShortfall();
             CheckDiplomacyScreenOpensFromAScriptedState();
             CheckHotseatHandoffScreenOpensBlindAndNotBlindFromAScriptedState();
             CheckAttackThroughMainGameScreenOpensTheBattleResultScreen();
+            CheckAFailedSiegeShowsBothSidesAndTheCitysAttrition();
             CheckTwoBattlesInOneEndShowBothBattleResultOverlaysInTurn();
             CheckDiplomacyControlOpensTheGridThroughMainGameScreen();
             CheckEndingATurnInTwoHumanHotseatShowsTheHandoff();
@@ -101,6 +103,38 @@ public partial class ScreensCheck : Node
         Check(
             screen.FateLabel.Text.Contains("Scattered", StringComparison.Ordinal),
             $"the battle-result screen shows 'Scattered' for a scattered-loser fixture (got '{screen.FateLabel.Text}')");
+
+        screen.Close();
+        RemoveChild(screen);
+        screen.QueueFree();
+    }
+
+    /// <summary>
+    /// bug #499 rework round 1 (B1): the T63 N7 state scripted — the attacker out-powered the city
+    /// (300 against 200) but the defender is reported the winner because the besieger's own losses
+    /// emptied it. The screen must render the wiped-out line, never the first round's
+    /// "The attack fell short by -100: 300 against 200."
+    /// </summary>
+    private void CheckAnEmptiedBesiegersScreenShowsTheWipedOutLineNotANegativeShortfall()
+    {
+        var screen = new BattleResultScreen
+        {
+            Session = ToySession(),
+            Result = BattleResultViewModel.FromResult(MakeEmptiedBesiegerResult()),
+        };
+        AddChild(screen);
+
+        const string wipedOutLine =
+            "Strong enough (300 against 200), but the besieging army was wiped out by its own losses, so the city held.";
+        var text = LabelText(screen);
+
+        Check(
+            text.Contains(wipedOutLine, StringComparison.Ordinal),
+            $"bug #499 B1: an emptied besieger's screen says the army was wiped out and the city held, "
+            + $"as exactly '{wipedOutLine}'");
+        Check(
+            !text.Contains("-100", StringComparison.Ordinal),
+            "bug #499 B1: the emptied besieger's screen never shows a negative shortfall");
 
         screen.Close();
         RemoveChild(screen);
@@ -169,6 +203,134 @@ public partial class ScreensCheck : Node
 
         RemoveChild(mainGame);
         mainGame.QueueFree();
+    }
+
+    /// <summary>
+    /// bug #499's own reproduction, driven by the battle the user played: Rome's army-0 beside Felsina
+    /// (Gaul) — a siege the attacker loses, 20,720 attack against 34,050 defense. A failed siege costs
+    /// the besieger its own attrition through <c>BattleCasualties</c> (1,872 troops on this scenario's
+    /// seed), but the unchanged screen printed only the winner's figure ("Gaul's casualties: 0"), never
+    /// the city's own before/after erosion, and never how far short the attack fell. This opens the real
+    /// <see cref="BattleResultScreen"/> through <see cref="MainGameScreen.SubmitForCheck"/> and reads
+    /// every rendered <see cref="Label"/>.
+    /// </summary>
+    /// <remarks>
+    /// Written to compile and run against the screen <em>before</em> this bug's fix — where the text
+    /// assertions below fail — and against the fixed screen, where they pass; that is why it walks the
+    /// labels generically instead of reading fields the fix adds.
+    /// </remarks>
+    private void CheckAFailedSiegeShowsBothSidesAndTheCitysAttrition()
+    {
+        var resolved = GameDataContext.Repository.Resolve("classical-mediterranean");
+
+        // army-0's shipped (100,37) is six tiles from Felsina (98,31); put it directly south of the
+        // city, the adjacent tile the triage reproduction used. The user plays Rome, so rome's seat is
+        // switched to human — the same "scenario variant in code" seam
+        // CheckEndingATurnInTwoHumanHotseatShowsTheHandoff uses.
+        var romeArmy = resolved.World.StartingArmies.Single(a => a.Id == "army-0") with { X = 98, Y = 32 };
+        var world = resolved.World with
+        {
+            StartingArmies = ValueList.From(
+                resolved.World.StartingArmies.Select(a => a.Id == "army-0" ? romeArmy : a)),
+        };
+        var scenario = resolved.Scenario with
+        {
+            Seats = ValueList.From(resolved.Scenario.Seats.Select(s =>
+                s.Nation == "rome" ? s with { Control = SeatControl.Human } : s)),
+        };
+
+        var mainGame = new MainGameScreen
+        {
+            Session = new GameSession(world, resolved.Ruleset, scenario),
+            RepositoryRoot = GameDataContext.RepositoryRoot,
+        };
+        AddChild(mainGame);
+
+        mainGame.SubmitForCheck("besiege-city army-0 felsina");
+
+        Check(
+            mainGame.ActiveOverlay is BattleResultScreen,
+            $"bug #499: besieging Felsina through MainGameScreen opens the battle-result screen "
+            + $"(got {mainGame.ActiveOverlay?.GetType().Name ?? "null"})");
+
+        if (mainGame.ActiveOverlay is not BattleResultScreen screen)
+        {
+            RemoveChild(mainGame);
+            mainGame.QueueFree();
+            return;
+        }
+
+        var result = screen.Result;
+
+        Check(
+            result.Kind == BattleKind.Siege && !result.AttackerWon,
+            $"bug #499: the battle this screen shows is a failed siege (kind {result.Kind}, winner {result.Winner})");
+
+        Check(
+            result.LoserId == "army-0" && result.WinnerCasualties == 0 && result.LoserCasualties > 0,
+            $"bug #499's unverified claim, established from the real battle: the failed siege puts the "
+            + $"besieger's own attrition in LoserCasualties (army-0 lost {result.LoserCasualties}; the "
+            + $"defending city's side lost {result.WinnerCasualties})");
+
+        var text = LabelText(screen);
+        var winnerName = screen.Session.State.NationById(result.WinnerNationId)?.Name ?? result.WinnerNationId;
+        var loserName = screen.Session.State.NationById(result.LoserNationId)?.Name ?? result.LoserNationId;
+
+        Check(
+            text.Contains($"{winnerName}'s casualties: {result.WinnerCasualties}", StringComparison.Ordinal)
+            && text.Contains($"{loserName}'s casualties: {result.LoserCasualties}", StringComparison.Ordinal),
+            $"bug #499: the screen shows both sides' casualties "
+            + $"('{winnerName}'s casualties: {result.WinnerCasualties}' and "
+            + $"'{loserName}'s casualties: {result.LoserCasualties}')");
+
+        var shortfallLine =
+            $"The attack fell short by {result.DefenderPower - result.AttackerPower}: "
+            + $"{result.AttackerPower} against {result.DefenderPower}.";
+        Check(
+            text.Contains(shortfallLine, StringComparison.Ordinal),
+            $"bug #499: the screen says the attack fell short, with both powers, as exactly "
+            + $"'{shortfallLine}'");
+
+        Check(
+            text.Contains($"loyalty {result.CityLoyaltyBefore} -> {result.CityLoyaltyAfter}", StringComparison.Ordinal)
+            && text.Contains(
+                $"fortification {result.CityFortificationPercentBefore}% -> {result.CityFortificationPercentAfter}%",
+                StringComparison.Ordinal)
+            && text.Contains(
+                $"population {result.CityPopulationThousandsBefore}k -> {result.CityPopulationThousandsAfter}k",
+                StringComparison.Ordinal),
+            $"bug #499: the screen shows the city's before/after loyalty, fortification and population "
+            + $"({result.CityLoyaltyBefore} -> {result.CityLoyaltyAfter}, "
+            + $"{result.CityFortificationPercentBefore}% -> {result.CityFortificationPercentAfter}%, "
+            + $"{result.CityPopulationThousandsBefore}k -> {result.CityPopulationThousandsAfter}k)");
+
+        screen.Close();
+        RemoveChild(mainGame);
+        mainGame.QueueFree();
+    }
+
+    /// <summary>
+    /// Every <see cref="Label"/>'s text under <paramref name="node"/>, newline-joined — the generic read
+    /// this bug's check uses so the same code compiles and runs against the screen before the fix.
+    /// </summary>
+    private static string LabelText(Node node)
+    {
+        var builder = new System.Text.StringBuilder();
+        AppendLabelText(node, builder);
+        return builder.ToString();
+    }
+
+    private static void AppendLabelText(Node node, System.Text.StringBuilder builder)
+    {
+        foreach (var child in node.GetChildren())
+        {
+            if (child is Label label)
+            {
+                builder.AppendLine(label.Text);
+            }
+
+            AppendLabelText(child, builder);
+        }
     }
 
     /// <summary>
@@ -379,6 +541,45 @@ public partial class ScreensCheck : Node
         Scatter: fate == LoserFate.Scattered
             ? new ScatterOutcome(FromX: 4, FromY: 2, ToX: 5, ToY: 3, RequestedDistance: 2, ActualDistance: 2)
             : null);
+
+    /// <summary>
+    /// bug #499 rework B1's own fixture: the shape <c>InstantBattleResolver.ResolveSiege</c> produces for
+    /// T63's N7 state — 300 attack against 200 defence, reported as a defender win because the besieger's
+    /// own attrition emptied it. Scripted here by hand because <c>godot/IC2.MapViewer.csproj</c> cannot
+    /// reference the xunit test assembly that owns <c>CaptureTestbed</c>; the real-resolver assertion lives
+    /// in <c>tests/IC2.Engine.Tests/Ui/Screens/BattleResultWordingTests.cs</c>.
+    /// </summary>
+    private static BattleResult MakeEmptiedBesiegerResult() => new(
+        Kind: BattleKind.Siege,
+        AttackerId: "army",
+        DefenderId: "c1",
+        AttackerNationId: "north",
+        DefenderNationId: "south",
+        AttackerPower: 300,
+        DefenderPower: 200,
+        Winner: BattleSide.Defender,
+        AppliedDefeatOutcome: null,
+        LoserFate: LoserFate.Unaffected,
+        WinnerCasualties: 0,
+        LoserCasualties: 8,
+        UnitCasualties: ValueList<UnitCasualty>.Empty,
+        Promotions: ValueList<UnitPromotion>.Empty,
+        AbsorbedMoney: 0,
+        AbsorbedSupplyTons: 0,
+        WinnerUnityDelta: 0,
+        LoserUnityDelta: 0,
+        WinnerShipsLost: 0,
+        WinnerConditionLost: 0,
+        WinnerUnitsLost: 0,
+        PeaceTreatyFired: false,
+        PeaceTreatyOffered: false,
+        Scatter: null,
+        CityLoyaltyBefore: 0,
+        CityLoyaltyAfter: 0,
+        CityFortificationPercentBefore: 0,
+        CityFortificationPercentAfter: 0,
+        CityPopulationThousandsBefore: 1,
+        CityPopulationThousandsAfter: 1);
 
     private bool Check(bool condition, string description)
     {

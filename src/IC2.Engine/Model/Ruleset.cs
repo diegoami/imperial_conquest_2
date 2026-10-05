@@ -164,6 +164,18 @@ public sealed record CalendarRules(
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>One row of the unit-type stat table.</summary>
+/// <param name="ShotVulnerability">
+/// The original unit-type table's per-type shooting-vulnerability weight at stat <c>+0x20</c>
+/// (light infantry 18, heavy infantry 2, archers 18, light cavalry 15, heavy cavalry 4), read for
+/// the <em>target's</em> type by the tactical battle's shot formula (the <c>vuln[type_t]</c> term of
+/// <c>docs/game-design.md</c> §Combat, "The tactical battle"). T122 carries it as a field so T123
+/// and T124 read it rather than writing a literal, per design principle 1. The shipped instant
+/// resolver never reads it. <strong>[confirmed: code, static,
+/// <c>2026-10-04-decompiled-tactical-battle-rules.md</c> §4]</strong> for the tactical shot formula's
+/// use. The field's identity is earlier: <c>battle-replayed-rout-mechanic-and-combat-constants.md</c>
+/// read <c>+0x20</c> as the shooting vulnerability, and <c>unit-type-stat-table-in-dat.md</c> carries
+/// an Update saying the same.
+/// </param>
 public sealed record UnitTypeRules(
     string Id,
     string Name,
@@ -175,6 +187,7 @@ public sealed record UnitTypeRules(
     int RecruitCost,
     int QuarterlyPrice,
     int CombatPowerWeight,
+    int ShotVulnerability,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>The move cost this ruleset charges for one tile type.</summary>
@@ -352,9 +365,22 @@ public sealed record TerrainRules(
 /// siblings — numerically identical in the report's own rebirth listing, so no new field is added for
 /// them.
 /// </para>
+/// <para>
+/// <strong>T103's two bounds</strong> (<c>docs/tasks/T103.md</c> "A command sets the nation's tax rate"):
+/// <see cref="TaxRateMinPercent"/> and <see cref="TaxRateMaxPercent"/>. The
+/// original's <c>TChangeTax</c> slider reports minimum 0 and maximum 40, line size 1 and page size 5
+/// <strong>[Wine candidate: 2026-10-02-unit-map-mouse-orders-and-tax-range.md, (g)]</strong>; the
+/// 5-per-Page step belongs to the dialog (T109), so only the two inclusive bounds are ruleset fields.
+/// 20, the <see cref="RebirthTaxRatePercent"/> reset, sits inside the range. These are the dialog's own
+/// bounds, distinct from the population-growth formula's <c>/120</c> divisor
+/// (<see cref="PopulationGrowthTaxDivisor"/>) — the original's AI may set a rate above 40, which is not
+/// this command's concern.
+/// </para>
 /// </remarks>
 public sealed record EconomyRules(
     int TaxRateDivisor,
+    int TaxRateMinPercent,
+    int TaxRateMaxPercent,
     int ShipUpkeepPerQuarter,
     int MobilizationDecayPerQuarter,
     int UnityCap,
@@ -904,6 +930,7 @@ public sealed record CombatRules(
     NavalCombatRules Naval,
     ScatteredDefeatRules ScatteredDefeat,
     DetailedResolverRules DetailedResolver,
+    TacticalBattleRules Tactical,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>The naval variant of the instant resolver.</summary>
@@ -948,6 +975,194 @@ public sealed record DetailedResolverRules(
     ValueList<string> TypeEffectivenessOrder,
     ValueList<ValueList<int>> TypeEffectiveness,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
+
+/// <summary>
+/// Every gameplay constant of the original tactical battle (<c>TBattleMap</c>), the 14 × 12 grid battle
+/// that <c>docs/game-design.md</c> §Combat, "The tactical battle" specifies for v0.5.0 <em>Battles</em>.
+/// The shipped instant resolver never reads this block; T123 (the battle engine) and T124 (the computer
+/// general) do, per design principle 1. The field names are <strong>[designed]</strong>; every value is
+/// <strong>[confirmed: code, static]</strong> from
+/// <c>2026-10-04-decompiled-tactical-battle-rules.md</c> (research <c>f5c8579</c>, corrected in
+/// <c>b5db496</c>), with the section named on each field's own provenance note.
+/// </summary>
+/// <param name="BoardWidth">Board width in cells, <c>x = 0 … this − 1</c> (report §1).</param>
+/// <param name="BoardHeight">Board height in cells, <c>y = 0 … this − 1</c> (report §1).</param>
+/// <param name="HomeRows">
+/// The attacker's placement rows are <c>y &lt; this</c> and the defender's are
+/// <c>y &gt; BoardHeight − this − 1</c>, i.e. <c>y &gt; 8</c> for the shipped 12-row board (report §2).
+/// </param>
+/// <param name="CopyInColumns">
+/// The attacker's copy-in position for army slot <c>s</c> is <c>(s mod this, s div this)</c>, and the
+/// defender's is <c>(s mod this, BoardHeight − 1 − s div this)</c> (report §2).
+/// </param>
+/// <param name="ComputerArmyMoraleBonus">
+/// On copy-in, a computer-controlled side's strategic army morale (<c>+14</c>) gains this, unclamped and
+/// persisted (report §2).
+/// </param>
+/// <param name="MoraleQualityFactor">
+/// Copy-in battle morale is <c>max(MoraleMin, min(MoraleMax, Random(quality × this) + armyMorale))</c>
+/// (report §2).
+/// </param>
+/// <param name="MoraleMin">The lower clamp of the copy-in battle-morale formula (report §2).</param>
+/// <param name="MoraleMax">The upper clamp of the copy-in battle-morale formula (report §2).</param>
+/// <param name="SlowAdvanceMoves">
+/// A computer-controlled side's non-exempt unit gets this many moves instead of its type's stat while
+/// <c>dmin &gt; SlowAdvanceMinDistance</c> and the half-round counter is below
+/// <c>SlowAdvanceHalfRounds</c> (report §3).
+/// </param>
+/// <param name="SlowAdvanceMinDistance">
+/// The slow advance applies while the nearest-enemy distance <c>dmin</c> is greater than this (report
+/// §3).
+/// </param>
+/// <param name="SlowAdvanceHalfRounds">
+/// The slow advance applies while the half-round counter (read before its own increment) is below this
+/// (report §3).
+/// </param>
+/// <param name="SlowAdvanceExemptType">
+/// The unit-type id exempt from the slow advance — heavy infantry (report §3).
+/// </param>
+/// <param name="ShotTroopsFactor">
+/// The shooter's own troops term in the shot bound's denominator,
+/// <c>troops_s × this + ShotDivisorBase</c> (report §4).
+/// </param>
+/// <param name="ShotDivisorBase">
+/// The constant added to <c>troops_s × ShotTroopsFactor</c> in the shot bound's denominator (report §4).
+/// </param>
+/// <param name="ShotShooterTroopsDivisor">
+/// The shot bound's shooter-side cap, <c>troops_s div this</c> (report §4).
+/// </param>
+/// <param name="ShotTargetTroopsDivisor">
+/// The shot bound's target-side cap, <c>troops_t div this</c> (report §4).
+/// </param>
+/// <param name="ShotMoraleNumerator">
+/// The numerator of the target's morale loss, <c>min(ShotMoraleCap, loss × this div (troops_t + 1))</c>
+/// (report §6).
+/// </param>
+/// <param name="ShotMoraleCap">The cap on that shot morale loss (report §6).</param>
+/// <param name="MeleeFocusCap">
+/// The focus count <c>f</c> is the number of the side's slots targeting the defender, capped at this
+/// (report §5).
+/// </param>
+/// <param name="MeleeAttackerExchangeDivisor">
+/// The attacker's exchange bound <c>nA = ((troops_a × D) div A) div this + 1</c> (report §5).
+/// </param>
+/// <param name="MeleeDefenderExchangeDivisor">
+/// The defender's exchange bound <c>nD = ((troops_d × A) div D) div this + 1</c> (report §5).
+/// </param>
+/// <param name="MoraleWinnerDelta">
+/// The morale change for the side that lost the smaller fraction of its troops in a melee exchange
+/// (report §5).
+/// </param>
+/// <param name="MoraleLoserDelta">
+/// The (negative) morale change for the other side; ties go against the attacker (report §5).
+/// </param>
+/// <param name="MoraleCap">The cap every tactical morale gain is clamped to (report §5, §6).</param>
+/// <param name="RoutTroopsDivisor">
+/// A unit is removed outright below <c>standardBattalionSize / this</c> troops (report §6).
+/// </param>
+/// <param name="RoutMoraleAutomatic">
+/// A unit at or below this morale is removed outright (report §6).
+/// </param>
+/// <param name="RoutMoraleSafe">
+/// A unit above this morale is never removed by the draw test (report §6).
+/// </param>
+/// <param name="RoutDrawThreshold">
+/// In the <c>RoutMoraleAutomatic … RoutMoraleSafe</c> band, the unit is removed unless
+/// <c>Random(morale) + Random(morale) &gt; this</c> (report §6).
+/// </param>
+/// <param name="RoutFriendPenalty">
+/// Every live friendly unit loses this morale when a unit routs; a friend dragged below
+/// <c>RoutCascadeBelow</c> is removed with no further cascade (report §6).
+/// </param>
+/// <param name="RoutCascadeBelow">The friendly-morale threshold of that one-level cascade (report §6).</param>
+/// <param name="RoutEnemyBonus">
+/// Every live enemy gains this morale, capped at <c>MoraleCap</c>, when a unit routs (report §6).
+/// </param>
+/// <param name="PlacementFormations">
+/// The computer general's placement table (<c>Form</c>, DAT <c>0x1F3B8</c>): five rows of four unit-type
+/// ids, the block order for columns <c>3g+1 … 3g+3</c>; a heavy-infantry block also places that side's
+/// archers after it (report §2).
+/// </param>
+/// <param name="TypeOrder">
+/// The computer general takes types in this order each movement half-round; the report's
+/// <c>0x4790A0</c> order, heavy infantry first and archers last (report §7).
+/// </param>
+/// <param name="TargetPreferences">
+/// The computer general's per-type target preference lists; a type with no entry takes any live enemy
+/// (report §7).
+/// </param>
+/// <param name="ScoreDivisor">
+/// The target score is <c>troops × quality × morale × M[theirs][mine] div this</c> (report §7).
+/// </param>
+/// <param name="ClaimLimit">
+/// The focus count <c>c</c> (focus count plus claims) below which the score is divided by <c>c + 1</c>;
+/// at or above it, the score is doubled (report §7).
+/// </param>
+/// <param name="ArcherEngageDistance">
+/// Archers with shots engage, instead of moving, at a Chebyshev distance strictly below this (report §7).
+/// </param>
+/// <param name="ApproachBoxRadius">
+/// The <c>(2r+1)²</c> approach box's radius per unit type, in <c>unitTypes</c> order: archers 2, every
+/// other type 1 (report §7).
+/// </param>
+/// <param name="FlankFlipChanceDenominator">
+/// A flanking unit's horizontal direction is flipped on <c>Random(this) = 0</c> (report §7).
+/// </param>
+/// <param name="DangerQualityDivisor">
+/// The last-move danger term <c>S = (troops × quality div this) × morale × M[mine][theirs]</c> (report
+/// §3, "Movement", computer-controlled only).
+/// </param>
+public sealed record TacticalBattleRules(
+    int BoardWidth,
+    int BoardHeight,
+    int HomeRows,
+    int CopyInColumns,
+    int ComputerArmyMoraleBonus,
+    int MoraleQualityFactor,
+    int MoraleMin,
+    int MoraleMax,
+    int SlowAdvanceMoves,
+    int SlowAdvanceMinDistance,
+    int SlowAdvanceHalfRounds,
+    string SlowAdvanceExemptType,
+    int ShotTroopsFactor,
+    int ShotDivisorBase,
+    int ShotShooterTroopsDivisor,
+    int ShotTargetTroopsDivisor,
+    int ShotMoraleNumerator,
+    int ShotMoraleCap,
+    int MeleeFocusCap,
+    int MeleeAttackerExchangeDivisor,
+    int MeleeDefenderExchangeDivisor,
+    int MoraleWinnerDelta,
+    int MoraleLoserDelta,
+    int MoraleCap,
+    int RoutTroopsDivisor,
+    int RoutMoraleAutomatic,
+    int RoutMoraleSafe,
+    int RoutDrawThreshold,
+    int RoutFriendPenalty,
+    int RoutCascadeBelow,
+    int RoutEnemyBonus,
+    ValueList<ValueList<string>> PlacementFormations,
+    ValueList<string> TypeOrder,
+    ValueList<TypeTargetPreference> TargetPreferences,
+    int ScoreDivisor,
+    int ClaimLimit,
+    int ArcherEngageDistance,
+    ValueList<int> ApproachBoxRadius,
+    int FlankFlipChanceDenominator,
+    int DangerQualityDivisor,
+    [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
+
+/// <summary>
+/// One unit type's ordered target preferences for the tactical battle's computer general: the type it
+/// commands, and the enemy type ids it prefers, in order. An empty <see cref="Prefers"/> means the
+/// type takes any live enemy. [designed: the field shape; confirmed: report §7's preference table].
+/// </summary>
+public sealed record TypeTargetPreference(
+    string Type,
+    ValueList<string> Prefers);
 
 /// <summary>
 /// Siege resolution — the third variant of the instant resolver. The defender-strength sum, decompiled

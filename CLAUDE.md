@@ -11,7 +11,7 @@ Read [`docs/operating-guide.md`](docs/operating-guide.md) before doing anything.
 7. **Relay review findings in full**: the whole list, linked or verbatim, never a subset.
 8. **Merge only with an approving review and green CI.** T16 and T22 also need the user's thumbs-up.
 9. **Commit and push research-repo work without asking.**
-10. **At session start**, check the triage queue (`gh issue list --label triage:needed --state open`) and any task left in flight (`status:in-progress`, `in-review`, `rework`, `escalated`), and tell the user where things stand. A task carrying another machine's `machine:*` label is that machine's: report it, never resume it ([build-process.md §8](docs/build-process.md#8-two-machines)).
+10. **At session start**, check the triage queue (`gh issue list --label triage:needed --state open`) and any task left in flight (`status:in-progress`, `in-review`, `rework`, `escalated`), and tell the user where things stand. A task carrying another machine's `machine:*` label is that machine's: report it, never resume it ([build-process.md §8](docs/build-process.md#8-two-machines)). Also count the **unevaluated research reports** with `bash scripts/unevaluated-reports.sh` ([evidence-pipeline.md](docs/evidence-pipeline.md#what-triggers-it)). Report the count in the session-start message only, never in a document, and offer to run `/process-evidence` when it is not zero. If the script fails, report the failure and go on: it blocks nothing.
 
 ---
 
@@ -79,8 +79,22 @@ Agreed on [#264](https://github.com/diegoami/imperial_conquest_2/issues/264), wh
 
 ---
 
-## Until v0.4.0
+## Model choice
 
-This section is deleted in the v0.4.0 release docs pass ([release-plan.md §5](docs/release-plan.md#5-release-checklist)).
+17. **Check quota before choosing a model** (harness_imperial L50). Before choosing, recommending or
+    delegating to a model (an OpenCode implementer or reviewer, a Claude agent or subagent), check
+    how much quota its provider has left with quota-tracker (`curl -s localhost:8765/avoid`;
+    [docs/environment.md](docs/environment.md)). A provider whose status is `exhausted` is not used
+    until it is usable again: take the next model of the chain whose provider has quota, pass it
+    explicitly (`-Reviewer`/`-Model`, or the Agent call's model), and say so in the run's report or
+    the PR body ("GLM skipped: zai exhausted until 21:40; reviewed by Luna"). Where the service does
+    not answer, go on without it and count a usage-limit error as `exhausted`. Model ids come from the
+    provider's live list (`opencode models <provider>`), never memory. Heavy models run at `medium`
+    effort rather than `high`, or lighter when medium is not needed (the user's decision of
+    2026-10-05).
 
-17. **Play first.** Until v0.4.0 is tagged, the next ready task of the UI chain (T24, then T25, then T27) is taken before any engine task, and only defects that break play become tasks or folds; everything else is labelled `post-v0.4.0` ([build-process.md §4.8](docs/build-process.md#48-the-playability-gate-until-v040), [§8](docs/build-process.md#8-two-machines)).
+18. **The light OpenAI model, and the reviewer `luna`, is GPT-5.6 Luna** (harness_imperial L51) on
+    the direct OpenAI route: `openai/gpt-5.6-luna`, effort `high`, on its own weekly pool. It is not
+    GPT-6 Luna (`openai/gpt-6-luna`), which draws on OpenAI's main pool with Sol and is never the
+    reviewer. Never use a Luna on OpenCode Go (`opencode-go/…`): a proxy behind it returns
+    `Bad Request` in long agent loops.

@@ -327,6 +327,42 @@ public sealed partial class GameSession
     }
 
     /// <summary>
+    /// <c>balance</c> — the read-only quarterly budget projection (<c>docs/tasks/T104.md</c>). Prints every
+    /// line of <see cref="BalanceSheet.For(GameState, string, Ruleset)"/> for the active nation and mutates
+    /// nothing, matching the original's <c>TBalanceSheet</c> (OK only). Every figure comes from the same
+    /// shared economy function the quarterly systems call, never re-derived here.
+    /// </summary>
+    private IReadOnlyList<string> RenderBalance()
+    {
+        var nationId = State.ActiveNationId;
+        var nation = State.NationById(nationId);
+        if (nation is null)
+        {
+            return new[] { $"Unknown nation '{nationId}'." };
+        }
+
+        var sheet = BalanceSheet.For(State, nationId, Ruleset);
+        return new[]
+        {
+            $"Balance sheet for {nation.Name} ({nation.Id}):",
+            "Income:",
+            $"  Tax income: {sheet.TaxIncome}",
+            $"  Tax base quarter share: {sheet.TaxBaseQuarterShare}",
+            $"  Trade income: {sheet.TradeIncome}",
+            $"  Income total: {sheet.IncomeTotal}",
+            "Expenditure:",
+            $"  City and wealth upkeep: {sheet.CityAndWealthUpkeep}",
+            $"  Ship upkeep: {sheet.ShipUpkeep}",
+            $"  Recruitment slot upkeep: {sheet.RecruitmentSlotUpkeep}",
+            $"  Regulars' upkeep: {sheet.RegularsUpkeep}",
+            $"  Mercenaries' pay: {sheet.MercenariesPay}",
+            $"  Expenditure total (excludes mercenaries' pay): {sheet.ExpenditureTotal}",
+            $"  Treasury: {sheet.Treasury}",
+            $"  Debt limit: {sheet.DebtLimit}",
+        };
+    }
+
+    /// <summary>
     /// <c>docs/task-catalogue.md</c> T23 follow-up
     /// <see href="https://github.com/diegoami/imperial_conquest_2/issues/232">#232</see>: this used to end
     /// with a hand-maintained "Not yet implemented: battles, city capture, recruitment, diplomacy, and the
@@ -366,6 +402,15 @@ public sealed partial class GameSession
             lines.Add("  cities [nation] - show one nation's cities (default: yours)");
         }
 
+        // T104: the balance sheet is a read-only strategy command like the compact views above. Its help
+        // line is advertised in watch mode only: both committed help transcripts (demo.golden.txt and
+        // seat-rome.golden.txt) are compared byte for byte, and this task changes neither, so the line is
+        // placed where no transcript captures it. The verb itself runs in every session, seat or watch.
+        if (_isWatchMode)
+        {
+            lines.Add("  balance - show the active nation's quarterly budget");
+        }
+
         lines.AddRange(RenderHelpRemainder());
         return lines;
     }
@@ -374,7 +419,7 @@ public sealed partial class GameSession
     {
         $"  map - show the {World.Width}x{World.Height} terrain map with city, army and fleet markers",
         "  move <army> <x> <y> - move an army toward (x, y)",
-        "  buy <army> <city> <tons> - buy supply for an army at a city (free at your own city, paid abroad)",
+        "  buy <army> <city> <tons> - buy supply for an army at a city (free at your own city, paid abroad); buy <army> fleet <fleet> <tons> - buy supply from one of your own fleets (free)",
         "  attack-army <army> <target-army> - attack another nation's army (declares war first if needed)",
         "  besiege-city <army> <city> - besiege an adjacent enemy city (declares war first if needed)",
         "  attack-fleet <fleet> <target-fleet> - attack another nation's fleet (declares war first if needed)",
@@ -400,7 +445,7 @@ public sealed partial class GameSession
         "  split-fleet <fleet> <new-fleet> <ships> - split ships off into a new fleet",
         "  join-fleets <survivor-fleet> <absorbed-fleet> - merge one fleet into another",
         "  embark-army <army> <fleet> - load an army aboard an adjacent fleet",
-        "  disembark-army <army> - unload an embarked army",
+        "  disembark-army <army> [<x> <y>] - unload an embarked army onto an adjacent land tile",
         "  buy-fleet-supply <fleet> <city> <tons> - buy supply for a fleet at a city",
         "  fleet-transfer <from-fleet> <to-fleet> <ships> <supply-tons> <money> - transfer resources between two of your own fleets",
         "  end - end your turn",

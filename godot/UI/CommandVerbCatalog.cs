@@ -54,17 +54,21 @@ public static class CommandVerbCatalog
     /// <summary>Verbs that print nothing to accept or reject — no outcome to judge.</summary>
     public static readonly IReadOnlySet<string> ReadOnlyVerbs = new HashSet<string>(StringComparer.Ordinal)
     {
-        "end", "status", "news", "quit", "help", "armies", "cities", "map",
+        "end", "status", "news", "balance", "quit", "help", "armies", "cities", "map",
     };
 
     /// <summary>This catalogue's own curated verb map — see this class's own remarks for why it is
     /// manually maintained rather than parsed from <c>GameSession.cs</c>.</summary>
     public static readonly IReadOnlyDictionary<string, string> VerbByKind = new Dictionary<string, string>(StringComparer.Ordinal)
     {
+        ["armies.army-transfer"] = "army-transfer",
         ["armies.disband-army"] = "disband-army",
+        ["armies.disband-unit"] = "disband-unit",
         ["armies.join-armies"] = "join-armies",
         ["armies.join-units"] = "join-units",
+        ["armies.rename-unit"] = "rename-unit",
         ["armies.split-army"] = "split-army",
+        ["armies.split-unit"] = "split-unit",
         ["battle.attack-army"] = "attack-army",
         ["battle.attack-fleet"] = "attack-fleet",
         ["battle.besiege-city"] = "besiege-city",
@@ -76,6 +80,8 @@ public static class CommandVerbCatalog
         ["diplomacy.propose-alliance"] = "propose-alliance",
         ["diplomacy.propose-trade"] = "propose-trade",
         ["economy.buy-supply"] = "buy",
+        ["economy.set-tax"] = "set-tax",
+        ["economy.transfer-money"] = "transfer-money",
         ["movement.move-army"] = "move",
         ["naval.buy-fleet-supply"] = "buy-fleet-supply",
         ["naval.disembark-army"] = "disembark-army",

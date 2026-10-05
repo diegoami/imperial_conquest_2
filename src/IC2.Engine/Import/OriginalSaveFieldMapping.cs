@@ -204,6 +204,12 @@ public static class OriginalSaveFieldMapping
             "T86 (PR #393 review round 1, N1): -> GameState.Neighbours, seeded from every nation's own " +
             "save-file mask rather than the world's startingNeighbours -- a save may carry a mask a " +
             "conquest has already merged, which the world's own fixed field never reflects."),
+        new FieldMapping(typeof(NationRecord), nameof(NationRecord.BattleColors), FieldMappingKind.Derived,
+            "T122: not a game-state field. The nation record's +0x424 / +0x428 / +0x42C battle-icon " +
+            "colours are read only by the T29/T122 world exporter (-> the world's " +
+            "nations[].battleColorsHex), never by OriginalSaveImporter; the DAT stores none of the " +
+            "three, so the exporter reads them from the start save. Classified Derived, like Source, " +
+            "because nothing in the imported GameState holds them."),
 
         // ---- ArmyRecord / ArmyUnit -> ArmyState / UnitSlot (Done-when 6, 8)
         new FieldMapping(typeof(ArmyRecord), nameof(ArmyRecord.Index), FieldMappingKind.Mapped, "-> ArmyState.Id (\"army-{index}\"), and every cross-table army reference."),

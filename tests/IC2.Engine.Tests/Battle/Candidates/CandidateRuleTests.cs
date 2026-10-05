@@ -97,9 +97,18 @@ public class CandidateRuleTests
     [InlineData(2UL)]
     public void C4_stops_at_round_30_exactly(ulong seed)
     {
-        // Light infantry and archers score 0 against each other in the matrix (K15), so after three fire rounds
-        // the shock rounds deal only the +12 floor and neither pool can break: the battle runs to the cap.
-        var battle = Battle(Army(70, Unit("light_infantry", 15_000)), Army(70, Unit("archers", 15_000)));
+        // The real matrix (DAT 0x1F7A6, report §5): M[HI][HC] = 8 and M[HC][HI] = 12 are the smallest
+        // pair of cross values for two distinct types, so both moral pools survive the 27 shock rounds.
+        // Neither type shoots (heavy infantry has 0 shots, heavy cavalry 0 shots), so the three fire
+        // rounds deal nothing. With quality 0 the quality term q×10 is zero, and a shock round's power
+        // for a side with mbar of M · 1000, troops T and pool m is (K16/D31):
+        //     mbar · T · max(m, 0) / 2,000,000 + 12
+        // The heavy cavalry's attack (mbar 12,000, T = 15,000, m = 3) is at most
+        //     12,000 · 15,000 · 3 / 2,000,000 + 12 = 270 + 12 = 282,
+        // and the heavy infantry's is 8,000 · 15,000 · 3 / 2,000,000 + 12 = 192; the larger loss in one
+        // round is 282 · (5 + 9) / 60 = 65 troops. The pool pays 200 · 65 / 15,000 = 0.86, which
+        // truncates to 0, so neither pool drops and the battle runs to the cap.
+        var battle = Battle(Army(3, Unit("heavy_infantry", 15_000, quality: 0)), Army(3, Unit("heavy_cavalry", 15_000, quality: 0)));
         var outcome = new RoundBasedCandidate().Resolve(battle, new SplitMix64Rng(seed), recordEvents: true);
 
         Assert.Equal(CandidateEnding.Cap, outcome.Ending);
@@ -111,11 +120,16 @@ public class CandidateRuleTests
     [Fact]
     public void C3_zeroes_a_winner_unit_left_below_its_strength_floor()
     {
-        // The light-infantry unit starts 20 above its floor of 600 (K08). Its loss is at most
-        // troops / 105 × 40 × W / Wbar — far less than 620 — so only the floor can take it to 0.
+        // The light-infantry unit starts 20 above its floor of 600 (K08). The real matrix (DAT 0x1F7A6,
+        // report §5) makes its exposure W_LI = 1000 + 1000 × M[HI][LI] = 1000 + 60,000 = 61,000, against
+        // W_HI = 1000 + 1000 × M[HI][HI] = 6,000 and Wbar = (6,000 × 6,000 + 620 × 61,000) / 6,620 = 11,151.
+        // The winner's casualty ratio is (defender power × 40 / attacker power); here it is 12, so the
+        // light infantry loses (620 / 105) × 12 × 61,000 / 11,151 = 5 × 12 × 61,000 / 11,151 = 328 troops,
+        // leaving 292 — below its floor, so only the floor can take it to 0. The heavy infantry is not
+        // itself near its floor (240), so it survives.
         var battle = Battle(
             Army(59, Unit("heavy_infantry", 6_000), Unit("light_infantry", 620)),
-            Army(59, Unit("heavy_infantry", 5_000)));
+            Army(59, Unit("heavy_infantry", 1_000)));
 
         for (ulong seed = 0; seed < 5; seed++)
         {

@@ -135,11 +135,71 @@ graph TD
   T24 --> T94[T94 main screen follow-ups]
   T94 --> T27
   T24 --> T95[T95 save and resume]
+  T96[T96 last-command label]
+  T97[T97 nation marker colours]
+  T98[T98 OpenCode scripts on 2.x]
+  T99[T99 map-click orders]
+  T101[T101 toolbar icon keys]
+  T99 --> T100[T100 menu bar and toolbars]
+  T101 --> T100
+  T100 --> T102[T102 overview mini-map]
+  T103[T103 set tax rate]
+  T104[T104 balance sheet]
+  T105[T105 treasury-purse transfer]
+  T106[T106 army-to-army transfer]
+  T107[T107 change units]
+  T108[T108 disband a recruitment slot]
+  T100 --> T109[T109 Strategy dialogs]
+  T103 --> T109
+  T104 --> T109
+  T108 --> T109
+  T100 --> T110[T110 Nations and Area map]
+  T102 --> T110
+  T100 --> T111[T111 Army orders]
+  T105 --> T111
+  T106 --> T111
+  T107 --> T111
+  T111 --> T112[T112 Fleet and City orders, command strip]
+  T76 --> T113[T113 mercenaries on the map]
+  T110 --> T113
+  T112 --> T113
+  T93 --> T114[T114 join and transfer at distance 1]
+  T114 --> T111
+  T114 --> T112
+  T115[T115 faithful recruit and fortify into debt]
+  T25 --> T116[T116 AI-phase battles at the turn start]
+  T106 --> T117[T117 army transfer rebalances supply]
+  T117 --> T111
+  T118[T118 End turn box]
+  T119[T119 faithful turn-order shuffle]
+  T120[T120 real melee matrix] --> T121[T121 tournament re-run]
+  T122[T122 tactical ruleset data] --> T123[T123 tactical battle engine]
+  T123 --> T124[T124 tactical computer general]
+  T123 --> T125[T125 tactical battle in the session]
+  T124 --> T125
+  T125 --> T126[T126 AI-phase tactical battles]
+  T116 --> T126
+  T125 --> T127[T127 battle screen]
+  T128[T128 battle assets] --> T127
+  T126 --> T127
+  T122 --> T128
+  T125 --> T129
+  T125 --> T130[T130 improved tactical rules]
+  T129 --> T130
+  T123 --> T129[T129 tactical golden master]
+  T124 --> T129
+  T132[T132 hideable info panel]
+  T134[T134 Supply army] --> T111
+  T135[T135 refused attack declares no war]
+  T136[T136 disband lowers mobilisation]
+  T137[T137 resumed first end news]
+  T116 --> T138[T138 game's end screen]
   T23 --> T26[T26 scenario docs+examples]
   T29 --> T26
   T22 --> T28[T28 nightly soak gate]
   T25 --> T27[T27 packaging]
   T26 --> T27
+  T27 --> T131[T131 release assets]
 
   T16 --> T54[T54 attack + siege commands]
   T17 --> T54
@@ -249,6 +309,7 @@ Conventions used by every entry:
 
 - **Branch**: `task/T<nn>-<slug>`. One branch per task, never reused.
 - **Owns**: the only paths the implementer may create or modify, besides its own tests. Anything else → escalate; a defect in another task's files → the bug list ([build-process.md §4.6](build-process.md#46-bugs-and-follow-ups)). A parenthesis narrows a shared file to the part the task may change — for example `Ruleset.cs` (the `NavalRules` record only); ruleset schema changes follow [build-process.md §2.6](build-process.md#2-how-the-build-avoids-conflicts).
+- **Scope**: opens with one line, `Protects: …`, naming what the task exists to protect (a guard, check, invariant, rule value or file), so a review brief's "Blocking means" item 2 can name it. On a guard task (one whose failure lets a wrong result or a forbidden action through) it lists the forbidden actions or results the guard must stop. Required for entries written from 2026-10-04 (harness lesson L47); older entries gain it when next amended.
 - **Done when**: each line is a single assertion an agent can check by running a command. A DoD line is **immutable to the implementer** — see [build-process.md §4.3](build-process.md#43-the-dod-is-not-negotiable-by-an-agent).
 - Numbers cited without a report name are already cited in `game-design.md`/`design-audit.md` at the referenced milestone.
 
@@ -806,6 +867,264 @@ Save and resume → [full entry](tasks/T95.md) · [#469](https://github.com/dieg
 
 ---
 
+#### T96 The last-command label: visible, the command's own outcome, its last lines
+
+Last-command label (correction task for bug #484) → [full entry](tasks/T96.md) · [#522](https://github.com/diegoami/imperial_conquest_2/issues/522)
+
+---
+
+#### T97 Nation markers as the original draws them: a background square and a foreground glyph per nation
+
+Nation marker colours → [full entry](tasks/T97.md) · [#532](https://github.com/diegoami/imperial_conquest_2/issues/532)
+
+---
+
+#### T98 The OpenCode scripts on the 2.x CLI
+
+OpenCode scripts on 2.x (after bug #540) → [full entry](tasks/T98.md) · [#541](https://github.com/diegoami/imperial_conquest_2/issues/541)
+
+---
+
+#### T99 Orders on the map: click a unit, then its target
+
+Map-click orders → [full entry](tasks/T99.md) · [#557](https://github.com/diegoami/imperial_conquest_2/issues/557)
+
+---
+
+#### T100 The menu bar and the main toolbar, driven by one command table
+
+Menu bar and toolbars → [full entry](tasks/T100.md) · [#558](https://github.com/diegoami/imperial_conquest_2/issues/558)
+
+---
+
+#### T101 Asset keys for the toolbar icons
+
+Toolbar icon keys → [full entry](tasks/T101.md) · [#559](https://github.com/diegoami/imperial_conquest_2/issues/559)
+
+---
+
+#### T102 The overview mini-map
+
+Overview mini-map → [full entry](tasks/T102.md) · [#560](https://github.com/diegoami/imperial_conquest_2/issues/560)
+
+---
+
+#### T103 A command sets the nation's tax rate
+
+Set the tax rate (bug #468; the range 0–40, a Wine candidate) → [full entry](tasks/T103.md) · [#561](https://github.com/diegoami/imperial_conquest_2/issues/561)
+
+---
+
+#### T104 The balance sheet: a read-only projection of the quarter's budget
+
+Balance sheet → [full entry](tasks/T104.md) · [#562](https://github.com/diegoami/imperial_conquest_2/issues/562)
+
+---
+
+#### T105 A command moves money between the treasury and a purse
+
+Treasury-purse transfer → [full entry](tasks/T105.md) · [#563](https://github.com/diegoami/imperial_conquest_2/issues/563)
+
+---
+
+#### T106 Army-to-army transfer of units, supply and money
+
+Army-to-army transfer → [full entry](tasks/T106.md) · [#564](https://github.com/diegoami/imperial_conquest_2/issues/564)
+
+---
+
+#### T107 Change units: split, rename and disband a single unit
+
+Change units → [full entry](tasks/T107.md) · [#565](https://github.com/diegoami/imperial_conquest_2/issues/565)
+
+---
+
+#### T108 Disband a recruitment slot
+
+Disband a recruitment slot (after a research read) → [full entry](tasks/T108.md) · [#566](https://github.com/diegoami/imperial_conquest_2/issues/566)
+
+---
+
+#### T109 The Strategy menu's dialogs: Taxation, Balance sheet, Recruit unit and Build fleet
+
+Strategy dialogs → [full entry](tasks/T109.md) · [#567](https://github.com/diegoami/imperial_conquest_2/issues/567)
+
+---
+
+#### T110 The Nations and Area map menus: the viewed nation, highlights and Find a city
+
+Nations and Area map → [full entry](tasks/T110.md) · [#568](https://github.com/diegoami/imperial_conquest_2/issues/568)
+
+---
+
+#### T111 The Unit map's Army orders, each in its own dialog
+
+Army orders → [full entry](tasks/T111.md) · [#569](https://github.com/diegoami/imperial_conquest_2/issues/569)
+
+---
+
+#### T112 The Unit map's Fleet and City orders, and the selected unit's command strip
+
+Fleet and City orders, command strip → [full entry](tasks/T112.md) · [#570](https://github.com/diegoami/imperial_conquest_2/issues/570)
+
+---
+
+#### T113 Mercenaries on the map: Show mercenaries and Recruit mercenaries
+
+Mercenaries on the map (after T76) → [full entry](tasks/T113.md) · [#571](https://github.com/diegoami/imperial_conquest_2/issues/571)
+
+---
+
+#### T114 Join armies, Join fleets and Transfer ships take their partner one tile away
+
+Join and transfer at distance 1 (correction task for bug #555, after T93; it folds bugs #584 and #596, the split's placement, by the user's decision of 2026-10-05) → [full entry](tasks/T114.md) · [#633](https://github.com/diegoami/imperial_conquest_2/issues/633)
+
+---
+
+#### T115 In `classical-faithful`, recruiting and fortifying can put the treasury into debt
+
+Faithful recruit and fortify into debt (correction task for bug #549) → [full entry](tasks/T115.md) · [#634](https://github.com/diegoami/imperial_conquest_2/issues/634)
+
+---
+
+#### T116 A battle fought against a human seat in the AI phase is shown at that seat's turn start
+
+AI-phase battles at the turn start (#603) → [full entry](tasks/T116.md) · [#635](https://github.com/diegoami/imperial_conquest_2/issues/635)
+
+---
+
+#### T117 Army-to-army transfer rebalances supply as the original's `OK` does, and never refuses on capacity
+
+Army transfer rebalances supply (correction task for bug #619, folds #620 N2 and N8) → [full entry](tasks/T117.md) · [#636](https://github.com/diegoami/imperial_conquest_2/issues/636)
+
+---
+
+#### T118 The "End turn ?" box: the original's six checks, for human seats
+
+End turn box (correction task for bug #586) → [full entry](tasks/T118.md) · [#637](https://github.com/diegoami/imperial_conquest_2/issues/637)
+
+---
+
+#### T119 In `classical-faithful`, New Game shuffles the turn order with the original's algorithm
+
+Faithful turn-order shuffle (#602) → [full entry](tasks/T119.md) · [#638](https://github.com/diegoami/imperial_conquest_2/issues/638)
+
+---
+
+#### T120 The rulesets carry the original's melee matrix, DAT `0x1F7A6`, and the corpus states the tactical morale rules as the code has them
+
+Real melee matrix (correction task for bugs #647 and #649) → [full entry](tasks/T120.md) · [#654](https://github.com/diegoami/imperial_conquest_2/issues/654). It is an exception to the playability gate (§4.8), by the user's decision of 2026-10-04: neither bug breaks play, but the tactical battle (now v0.6.0) and T121 build on the real values.
+
+---
+
+#### T121 Re-run the auto-resolve tournament on the original's melee matrix
+
+Tournament re-run (after T120) → [full entry](tasks/T121.md) · [#655](https://github.com/diegoami/imperial_conquest_2/issues/655). With T120, it is an exception to the playability gate (§4.8), by the user's decision of 2026-10-04.
+
+---
+
+#### T122 The tactical battle's constants and computer-general tables as ruleset data
+
+Tactical battle constants as ruleset data (#496) → [full entry](tasks/T122.md) · #663
+
+---
+
+#### T123 The tactical battle's rules engine: a port of the decompiled `TBattleMap`
+
+Tactical battle rules engine, a port of `TBattleMap` (#496) → [full entry](tasks/T123.md) · #664
+
+---
+
+#### T124 The tactical battle's computer general: placement, target choice and the three movement passes
+
+Tactical battle computer general (#496) → [full entry](tasks/T124.md) · #665
+
+---
+
+#### T125 A human's attack on an army opens the tactical battle in the session and the CLI, and its result is written back
+
+Tactical battle wired into the session and the CLI (#496) → [full entry](tasks/T125.md) · #666
+
+---
+
+#### T126 An AI seat's attack on a human's army opens the tactical battle during the AI phase
+
+AI-phase battles against a human on the board (#496, the user's decision of 2026-10-04) → [full entry](tasks/T126.md) · #667
+
+---
+
+#### T127 The Godot battle screen and the *Battle ended* window
+
+Godot battle screen and *Battle ended* window (#496) → [full entry](tasks/T127.md) · #668
+
+---
+
+#### T128 The battle screen's assets: 15 recolourable unit icons, the ground tile, the cursor and the toolbar glyphs
+
+Battle screen assets (#496) → [full entry](tasks/T128.md) · #669
+
+---
+
+#### T129 The tactical battle's golden master: the port replays the original's recorded battles half-round by half-round
+
+Tactical battle golden master against the original's recorded battles (#496) → [full entry](tasks/T129.md) · #670
+
+---
+
+#### T130 The `improved` ruleset's tactical battle: save at a half-round's start, the quirks fixed, a half-round cap, no slow advance, and retreat losses and scatter for the loser
+
+`improved`'s tactical rules (#496, the user's decisions of 2026-10-04) → [full entry](tasks/T130.md) · #674
+
+---
+
+#### T131 Every release carries Windows assets: the zip and the installer, built by a release workflow
+
+Release assets (the user's decision of 2026-10-04: every milestone and fix release gets a Windows zip and installer; it was to run right after T132, the user's decision of 2026-10-04; since the user's decision of 2026-10-05, "Gate first", it waits behind the v0.5.0 gate unless the user lists it) → [full entry](tasks/T131.md) · #688
+
+---
+
+#### T132 The right-hand info panel can be hidden and shown again
+
+Hideable info panel (the user's request of 2026-10-04 after playing v0.4.0, the first item of `v0.4.1`) → [full entry](tasks/T132.md) · [#690](https://github.com/diegoami/imperial_conquest_2/issues/690). A v0.4.x item, so it bypasses the playability gate (§4.8); `v0.4.1` is cut as soon as it merges ([release-plan.md §2.2.1](release-plan.md#221-v04x-patches)).
+
+---
+
+#### T133 CI runs on pushes to release branches
+
+CI on maintenance lines (the first item of the `release/0.4` line, [release-plan.md §2.2.2](release-plan.md#222-two-release-lines-a-maintenance-branch-per-patched-minor)) → [full entry](tasks/T133.md) · [#696](https://github.com/diegoami/imperial_conquest_2/issues/696)
+
+---
+
+#### T134 Supply army: the Army menu's Supply army dialog, replacing the city panel's supply slider
+
+Supply army (the user's decision of 2026-10-04, *"put Supply army on 0.4.2 as its own task"*: split out of T111, a `v0.4.2` item on the `release/0.4` line, ported forward to `main`; it absorbs bug #697) → [full entry](tasks/T134.md) · [#698](https://github.com/diegoami/imperial_conquest_2/issues/698)
+
+---
+
+#### T135 An attack that is refused declares no war
+
+Refused attack declares no war (correction task for bug #579, the v0.5.0 triage of 2026-10-05) → [full entry](tasks/T135.md) · [#705](https://github.com/diegoami/imperial_conquest_2/issues/705)
+
+---
+
+#### T136 Disbanding a regular unit lowers the nation's mobilisation
+
+Disband lowers mobilisation (correction task for bug #631, the v0.5.0 triage of 2026-10-05) → [full entry](tasks/T136.md) · [#706](https://github.com/diegoami/imperial_conquest_2/issues/706)
+
+---
+
+#### T137 A resumed session's first `end` shows the same News as an uninterrupted one
+
+Resumed first end news (correction task for item 1 of the T95 follow-up #487, the v0.5.0 triage of 2026-10-05; in no release gate, `post-v0.5.0`, by the user's decision of 2026-10-05, it starts after the `v0.5.0` tag) → [full entry](tasks/T137.md) · [#707](https://github.com/diegoami/imperial_conquest_2/issues/707)
+
+---
+
+#### T138 The game's end is shown on the screen
+
+Game's end screen (bug #701, the v0.5.0 triage of 2026-10-05) → [full entry](tasks/T138.md) · [#708](https://github.com/diegoami/imperial_conquest_2/issues/708)
+
+---
+
 #### T25 Battle result, diplomacy, and hotseat handoff screens
 
 Godot screens → [full entry](tasks/T25.md) · [#25](https://github.com/diegoami/imperial_conquest_2/issues/25)
@@ -931,3 +1250,46 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T93](#t93-an-army-embarks-from-a-tile-next-to-its-fleet) | Embark from an adjacent tile | — | Sonnet | Medium | **Opus**/Medium | T80 | [#456](https://github.com/diegoami/imperial_conquest_2/issues/456) |
 | [T94](#t94-godot-main-screen-follow-ups-size-markers-palette-malformed-save-handling-load-seat) | Main screen follow-ups | M18 | Sonnet | Medium | Sonnet/High + human | T24 | [#464](https://github.com/diegoami/imperial_conquest_2/issues/464) |
 | [T95](#t95-save-and-resume-a-game) | Save and resume | — | Sonnet | High | **Opus**/Medium + human | T24 | [#469](https://github.com/diegoami/imperial_conquest_2/issues/469) |
+| [T96](#t96-the-last-command-label-visible-the-commands-own-outcome-its-last-lines) | Last-command label | — | Sonnet | Medium | **Opus**/Medium + human | — | [#522](https://github.com/diegoami/imperial_conquest_2/issues/522) |
+| [T97](#t97-nation-markers-as-the-original-draws-them-a-background-square-and-a-foreground-glyph-per-nation) | Nation marker colours | — | Sonnet | Medium | **Opus**/Medium + human | — | [#532](https://github.com/diegoami/imperial_conquest_2/issues/532) |
+| [T98](#t98-the-opencode-scripts-on-the-2x-cli) | OpenCode scripts on 2.x | — | Sonnet | Medium | **Opus**/Medium | bug #540 | [#541](https://github.com/diegoami/imperial_conquest_2/issues/541) |
+| [T99](#t99-orders-on-the-map-click-a-unit-then-its-target) | Map-click orders | M18 | Sonnet | High | **Opus**/Medium + human | — | [#557](https://github.com/diegoami/imperial_conquest_2/issues/557) |
+| [T100](#t100-the-menu-bar-and-the-main-toolbar-driven-by-one-command-table) | Menu bar and toolbars | M18 | Sonnet | High | **Opus**/Medium + human | T99, T101 | [#558](https://github.com/diegoami/imperial_conquest_2/issues/558) |
+| [T101](#t101-asset-keys-for-the-toolbar-icons) | Toolbar icon keys | M18 | Sonnet | Medium | **Opus**/Medium + human | — | [#559](https://github.com/diegoami/imperial_conquest_2/issues/559) |
+| [T102](#t102-the-overview-mini-map) | Overview mini-map | M18 | Sonnet | Medium | **Opus**/Medium + human | T100 | [#560](https://github.com/diegoami/imperial_conquest_2/issues/560) |
+| [T103](#t103-a-command-sets-the-nations-tax-rate) | Set the tax rate | M3 | Sonnet | Medium | **Opus**/Medium | — | [#561](https://github.com/diegoami/imperial_conquest_2/issues/561) |
+| [T104](#t104-the-balance-sheet-a-read-only-projection-of-the-quarters-budget) | Balance sheet | M3 | Sonnet | Medium | **Opus**/Medium | — | [#562](https://github.com/diegoami/imperial_conquest_2/issues/562) |
+| [T105](#t105-a-command-moves-money-between-the-treasury-and-a-purse) | Treasury-purse transfer | M3 | Sonnet | Medium | **Opus**/Medium | — | [#563](https://github.com/diegoami/imperial_conquest_2/issues/563) |
+| [T106](#t106-army-to-army-transfer-of-units-supply-and-money) | Army-to-army transfer | M14 | Sonnet | High | **Opus**/Medium | — | [#564](https://github.com/diegoami/imperial_conquest_2/issues/564) |
+| [T107](#t107-change-units-split-rename-and-disband-a-single-unit) | Change units | M14 | Sonnet | Medium | **Opus**/Medium | — | [#565](https://github.com/diegoami/imperial_conquest_2/issues/565) |
+| [T108](#t108-disband-a-recruitment-slot) | Disband a recruitment slot | M4 | Sonnet | Medium | **Opus**/Medium | — | [#566](https://github.com/diegoami/imperial_conquest_2/issues/566) |
+| [T109](#t109-the-strategy-menus-dialogs-taxation-balance-sheet-recruit-unit-and-build-fleet) | Strategy dialogs | M18 | Sonnet | High | **Opus**/Medium + human | T100, T103, T104, T108, bug #519's fix | [#567](https://github.com/diegoami/imperial_conquest_2/issues/567) |
+| [T110](#t110-the-nations-and-area-map-menus-the-viewed-nation-highlights-and-find-a-city) | Nations and Area map | M18 | Sonnet | High | **Opus**/Medium + human | T100, T102 | [#568](https://github.com/diegoami/imperial_conquest_2/issues/568) |
+| [T111](#t111-the-unit-maps-army-orders-each-in-its-own-dialog) | Army orders | M18 | Sonnet | High | **Opus**/Medium + human | T100, T105, T106, T107, T114, T117, T134 | [#569](https://github.com/diegoami/imperial_conquest_2/issues/569) |
+| [T112](#t112-the-unit-maps-fleet-and-city-orders-and-the-selected-units-command-strip) | Fleet and City orders, command strip | M18 | Sonnet | High | **Opus**/Medium + human | T111, T114 | [#570](https://github.com/diegoami/imperial_conquest_2/issues/570) |
+| [T113](#t113-mercenaries-on-the-map-show-mercenaries-and-recruit-mercenaries) | Mercenaries on the map | M18 | Sonnet | Medium | **Opus**/Medium + human | T76, T110, T112 | [#571](https://github.com/diegoami/imperial_conquest_2/issues/571) |
+| [T114](#t114-join-armies-join-fleets-and-transfer-ships-take-their-partner-one-tile-away) | Join and transfer at distance 1, split one tile away | — | Sonnet | High | **Opus**/Medium | T93 | [#633](https://github.com/diegoami/imperial_conquest_2/issues/633) |
+| [T115](#t115-in-classical-faithful-recruiting-and-fortifying-can-put-the-treasury-into-debt) | Faithful recruit and fortify into debt | — | Sonnet | Medium | **Opus**/Medium | — | [#634](https://github.com/diegoami/imperial_conquest_2/issues/634) |
+| [T116](#t116-a-battle-fought-against-a-human-seat-in-the-ai-phase-is-shown-at-that-seats-turn-start) | AI-phase battles at the turn start | M18 | Sonnet | Medium | **Opus**/Medium + human | — | [#635](https://github.com/diegoami/imperial_conquest_2/issues/635) |
+| [T117](#t117-army-to-army-transfer-rebalances-supply-as-the-originals-ok-does-and-never-refuses-on-capacity) | Army transfer rebalances supply | — | Sonnet | Medium | **Opus**/Medium | T106 | [#636](https://github.com/diegoami/imperial_conquest_2/issues/636) |
+| [T118](#t118-the-end-turn--box-the-originals-six-checks-for-human-seats) | End turn box | M18 | Sonnet | High | **Opus**/Medium + human | — | [#637](https://github.com/diegoami/imperial_conquest_2/issues/637) |
+| [T119](#t119-in-classical-faithful-new-game-shuffles-the-turn-order-with-the-originals-algorithm) | Faithful turn-order shuffle | — | Sonnet | High | **Opus**/Medium | — | [#638](https://github.com/diegoami/imperial_conquest_2/issues/638) |
+| [T120](#t120-the-rulesets-carry-the-originals-melee-matrix-dat-0x1f7a6-and-the-corpus-states-the-tactical-morale-rules-as-the-code-has-them) | Real melee matrix | — | Sonnet | High | **Opus**/High | — | [#654](https://github.com/diegoami/imperial_conquest_2/issues/654) |
+| [T121](#t121-re-run-the-auto-resolve-tournament-on-the-originals-melee-matrix) | Tournament re-run | — | Sonnet | High | **Opus**/Medium | T120 | [#655](https://github.com/diegoami/imperial_conquest_2/issues/655) |
+| [T122](#t122-the-tactical-battles-constants-and-computer-general-tables-as-ruleset-data) | Tactical ruleset data | M21 | Sonnet | High | **Opus**/Medium | — | #663 |
+| [T123](#t123-the-tactical-battles-rules-engine-a-port-of-the-decompiled-tbattlemap) | Tactical battle engine | M21 | **Opus** | High | Sol + Luna pair + ultra | T122 | #664 |
+| [T124](#t124-the-tactical-battles-computer-general-placement-target-choice-and-the-three-movement-passes) | Tactical computer general | M21 | **Opus** | High | Sol + Luna pair | T123 | #665 |
+| [T125](#t125-a-humans-attack-on-an-army-opens-the-tactical-battle-in-the-session-and-the-cli-and-its-result-is-written-back) | Tactical battle in the session | M21 | **Opus** | High | Sol + Luna pair | T123, T124 | #666 |
+| [T126](#t126-an-ai-seats-attack-on-a-humans-army-opens-the-tactical-battle-during-the-ai-phase) | AI-phase tactical battles | M21 | **Opus** | High | Sol + Luna pair | T125, T116 | #667 |
+| [T127](#t127-the-godot-battle-screen-and-the-battle-ended-window) | Battle screen | M21, M18 | Sonnet | High | **Opus**/Medium + human | T125, T126, T128 | #668 |
+| [T128](#t128-the-battle-screens-assets-15-recolourable-unit-icons-the-ground-tile-the-cursor-and-the-toolbar-glyphs) | Battle assets | M21 | Sonnet | Medium | **Opus**/Medium + human | T122 | #669 |
+| [T129](#t129-the-tactical-battles-golden-master-the-port-replays-the-originals-recorded-battles-half-round-by-half-round) | Tactical golden master | M21 | Sonnet | High | **Opus**/High | T123, T124, T125 | #670 |
+| [T130](#t130-the-improved-rulesets-tactical-battle-save-at-a-half-rounds-start-the-quirks-fixed-a-half-round-cap-no-slow-advance-and-retreat-losses-and-scatter-for-the-loser) | Improved tactical rules | M21 | **Opus** | High | Sol + Luna pair | T125, T129 | #674 |
+| [T131](#t131-every-release-carries-windows-assets-the-zip-and-the-installer-built-by-a-release-workflow) | Release assets | M20 | Sonnet | High | Sol | — | #688 |
+| [T132](#t132-the-right-hand-info-panel-can-be-hidden-and-shown-again) | Hideable info panel | M18 | Sonnet | Medium | Sol + human | — | [#690](https://github.com/diegoami/imperial_conquest_2/issues/690) |
+| [T133](#t133-ci-runs-on-pushes-to-release-branches) | CI on release branches | M20 | Sonnet | Low | Sol | — | [#696](https://github.com/diegoami/imperial_conquest_2/issues/696) |
+| [T134](#t134-supply-army-the-army-menus-supply-army-dialog-replacing-the-city-panels-supply-slider) | Supply army | M18 | Sonnet | Medium | Sol + human | — | [#698](https://github.com/diegoami/imperial_conquest_2/issues/698) |
+| [T135](#t135-an-attack-that-is-refused-declares-no-war) | Refused attack declares no war | — | Sonnet | Medium | Sol | — | [#705](https://github.com/diegoami/imperial_conquest_2/issues/705) |
+| [T136](#t136-disbanding-a-regular-unit-lowers-the-nations-mobilisation) | Disband lowers mobilisation | M14 | Sonnet | Low | Sol | — | [#706](https://github.com/diegoami/imperial_conquest_2/issues/706) |
+| [T137](#t137-a-resumed-sessions-first-end-shows-the-same-news-as-an-uninterrupted-one) | Resumed first end news | — | Sonnet | Medium | Sol | — | [#707](https://github.com/diegoami/imperial_conquest_2/issues/707) |
+| [T138](#t138-the-games-end-is-shown-on-the-screen) | Game's end screen | M18 | Sonnet | High | Sol + human | T116 | [#708](https://github.com/diegoami/imperial_conquest_2/issues/708) |

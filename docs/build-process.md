@@ -79,8 +79,8 @@ Every system is written against these interfaces and registers itself, so no two
 | Role | Who | What it does |
 | --- | --- | --- |
 | **Main session** | The session the user talks to, on Opus | Plans and runs the build. It owns the task entries (`docs/tasks/T<nn>.md`, indexed by [task-catalogue.md](task-catalogue.md)) and this document: scope, Definitions of Done, dependencies and order. It triages bugs and follow-ups, coordinates `/process-evidence`, and brings design questions and escalations to the user. **It runs tasks with `/run-task`** ([Appendix C](#appendix-c-the-run-task-skill)): it dispatches the implementer, then an independent reviewer, relays rework, merges approved PRs, and applies the doc claims each merge makes stale. |
-| **Implementer** | A subagent, model per the catalogue | One task, one branch, one PR, **in its own worktree**. Writes code and tests, runs the DoD commands, pushes work in progress as it goes, and opens the PR with evidence and a "Docs affected" list. |
-| **Reviewer** | A subagent, a different model per [§3.4](#34-why-the-reviewers-model-differs-from-the-implementers) | Independently re-runs the DoD commands at the PR head **in its own worktree**, audits provenance and scope, posts its findings as a PR comment, and applies `status:approved` or `status:rework`. It is never the agent that implemented. |
+| **Implementer** | An OpenCode run (`scripts/external-implement.ps1`) on the model the entry names, the cheap tier by default; a Claude subagent only on an architecture task ([§3.3](#33-model-selection)) | One task, one branch, one PR, **in its own worktree**. Writes code and tests, runs the DoD commands, pushes work in progress as it goes, and opens the PR with evidence and a "Docs affected" list. |
+| **Reviewer** | An OpenCode run (`scripts/external-review.ps1`) or a Claude subagent, by the PR's review tier, never of the implementer's model family ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers)) | Independently re-runs the DoD commands at the PR head **in its own worktree**, audits provenance and scope, posts its findings as a PR comment, and applies `status:approved` or `status:rework` (with two or three reviews, the main session applies it from all of them). It is never the agent that implemented. |
 | **Researcher** | Opus subagents | Evidence work in the research repository: the two `/process-evidence` stages ([evidence-pipeline.md](evidence-pipeline.md)) and targeted research passes. |
 
 **Only one task is in flight at a time per machine** ([§8](#8-two-machines)): its implementer, then its reviewer, then any rework. Pipeline agents never work in the main checkout (`C:\Users\diego\projects\imperial_conquest_2`). Each creates its own worktree ([§7](#7-concurrency-single-instance-and-local-only)). The main checkout belongs to the main session.
@@ -98,8 +98,9 @@ Every system is written against these interfaces and registers itself, so no two
 
 Models are chosen per task, in the task's entry, by what an error would cost:
 
-- **Opus** where an error is not local: the domain model and the engine seams, which every task consumes; battle resolution, the most integer-semantics-sensitive code in the project; the AI, whose hardest failure is a soak that never terminates; and a correction whose evidence is still open when its entry is written.
-- **Sonnet** for everything else: the design document says what to build, and the hard part is building it correctly. Medium when the evidence is fully pinned in the entry; High when the task reads a format off decompiled code, widens the shared domain model, or reworks merged rules code; Low for a test-only correction.
+- **OpenCode Go, by default** (the user's decision of 2026-09-28: Claude credit is the scarce resource; moved from OpenCode Zen to OpenCode Go, `opencode-go/…`, on 2026-10-01, fix #551). `-Model auto` runs `deepseek-flash` (DeepSeek V4.1 Flash, effort `high`) alone, the user's decision of 2026-10-01 (fix 575): one OpenCode model, then Claude Sonnet. GLM ended long implementer runs early (#557, #562), and Go's Luna failed long runs with `Bad Request` (#553). All OpenCode runs use effort `high`, not `max`. No free or Zen model is used. An entry that still says Sonnet reads as the default.
+- **No larger OpenCode tier for implementers** (the user's decision of 2026-10-01, fix 573): a High-effort entry, an entry that says Opus and is not an architecture task, and a task that failed a rework round all run `deepseek-flash`, then Claude Sonnet. `glm`, `glm-flash` and `luna` stay valid as an explicit `-Model` value. The reviewer is set by the PR's review tier ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers), the user's decision of 2026-10-03): Luna for a simple PR only, GPT-6 Sol for a complex one, a cold Claude Opus for a very complex one (Sol plus the OpenCode pair when Claude implemented it). An entry's **Reviewer** field, and the catalogue index's Reviewer column, were written under the earlier rule and now name only the tier's default (an "Opus" there is the very complex tier's reviewer, or the fallback); the tier rule decides, and a `+ human visual review` or `+ ultra` suffix still applies. A "Luna pair" in an entry or the index reads as the OpenCode pair (the user's decision of 2026-10-04).
+- **Claude Opus only on an architecture task**, where an error is not local: the domain model and the engine seams, battle resolution, the AI (T02, T03, T16, T22). Sonnet implements only as the fallback when OpenCode is unavailable (the script exits 3), and then for every task OpenCode would have run, whatever model the entry names (the user's decision of 2026-09-29); otherwise it reviews only as the OpenCode pair's fallback second reviewer ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers)); structural tasks are complex and go to GPT-6 Sol.
 - **Haiku** is retired (the user's decision of 2026-09-27) and is never assigned; a task small enough for Haiku is cheap enough on Sonnet (incident 4). Two tasks merged on Haiku before that, T36 and T77.
 - **Fable** for pure templates and configuration, never for anything that must compile against the domain model.
 
@@ -109,16 +110,45 @@ Models are chosen per task, in the task's entry, by what an error would cost:
 2. **Cost asymmetry.** Reviewing a diff costs a fraction of producing it, so moving the reviewer up one tier is cheap leverage.
 3. **Task fit.** The reviewer's job is close reading and verification: "does this constant match the report it cites? does this integer division truncate the way Delphi's did?"
 
-| Implementer | Reviewer | Plus |
-| --- | --- | --- |
-| Opus, on an architecture task (T02, T03, T16, T22) | Opus / High | `/code-review --effort ultra` ([§3.5](#35-where-the-code-review-skill-fits)), and the external reviewer (`scripts/external-review.ps1`) as the different model |
-| Sonnet, on a fidelity-critical task (a rule's constants or integer semantics) | **Opus / Medium** | — |
-| Sonnet, widening the shared domain model | **Opus / High** | — |
-| Opus, on a correction whose evidence is still open when its entry is written | **Sonnet / High**, a different model; or the pair the entry names, with its reason | — |
-| Sonnet, on a structural task (scaffolding, CLI, UI, data files, docs) | Sonnet / High | human visual review on the Godot screens ([§9](#9-standing-governance-decisions) Q-B) |
-| Fable, and the two tasks merged on Haiku | Sonnet / Medium | — |
+**The review tiers** (the user's decision of 2026-10-03, which replaces the Claude Opus reviewer every code PR had since 2026-10-02). Before a PR is reviewed, the main session sets its tier ([Appendix C](#appendix-c-the-run-task-skill) step 2 for a task or a fix, [§4.9](#49-plan-prs-two-tiers) for a plan PR): Jev classifies it with `scripts/jev/review-complexity.json`, and the main session confirms or overrides the answer, acting on it alone at a probability of 0.9 or above (operating-guide §3's Jev preference). The tier is set once per PR; a rework round's re-review keeps it, and may raise it, never lower it (a re-check of named fixes goes to a cheaper reviewer, below).
 
-Each task's entry names its own pair; the table is the rule the entry applies. An entry may raise the reviewer one tier above its row, and says why.
+| Tier | Which PRs | Reviewed by |
+| --- | --- | --- |
+| **Simple** | A documentation PR that changes no task contract: evidence-only doc claims, and routine-tier bookkeeping ([§4.9](#49-plan-prs-two-tiers): the catalogue's stub, index row and graph edges to merged tasks, a "never in flight with" constraint, a merge-after on an already merged task) when it is reviewed at all. A routine-tier fold that adds Done-when lines, and an Owns amendment, change a task's contract and are **complex** | Luna alone (`external-review.ps1 -Reviewer auto`), the only tier Luna reviews (the user's decision of 2026-10-04: Luna reviews only small, simple PRs); when the OpenAI account is out of quota, GLM-5.3, then DeepSeek V4 Pro (below); a cold Claude Opus on any other exit 3 |
+| **Complex** | Every task or fix PR, and every plan PR that adds or changes a task contract or edits a process document, unless it is very complex | GPT-6 Sol (`-Reviewer sol`, `openai/gpt-6-sol`) at `low` effort, or `medium` where below justifies it, never `high`, whoever implemented it unless OpenAI did. When Sol cannot review: its substitutes (below: GLM-5.3, then DeepSeek V4 Pro), then a cold Claude Opus unless Claude implemented, and escalation if it did. An OpenAI implementer: a cold Claude Opus directly |
+| **Very complex** | A task or fix PR that meets a very-complex criterion below | A cold Claude Opus, unless Claude (Sonnet or Opus) implemented it: then Sol at `medium` **and** the OpenCode pair, three reviews; when Sol cannot review (the OpenAI account out of quota, or any other cause), the pair alone, two reviews, and escalation if the pair fails (the user's decision of 2026-10-04) |
+
+**The OpenCode pair** (the Luna pair until the user's decision of 2026-10-04, which took Luna off every review but the simple tier's) is two independent reviews from two model **families**, neither of them the implementer's nor OpenAI: GLM-5.3 (`-Reviewer glm`, `zai-coding-plan/glm-5.3`: GLM runs on the Z.AI Coding Plan since the user's decision of 2026-10-04, outside OpenCode Go) and DeepSeek V4 Pro (`-Reviewer deepseek-pro`, `opencode-go/deepseek-v4-pro`; V4.1 Flash, `-Reviewer deepseek`, stays a valid reviewer but is not the pair's, the user's decision of 2026-10-03). Both must approve. When the implementer's family excludes one of them, or one exits 3, Claude Sonnet (a subagent on [Appendix B](#appendix-b-reviewer-prompt-template)) takes its place, unless Claude implemented the PR; then the pair has failed. It is used on a very complex PR that Claude implemented, beside Sol, where its two reviews are always GLM-5.3 and DeepSeek V4 Pro. **A PR with two or three reviews** is labelled by the main session, not by a reviewer: each run goes without `-ApplyLabel` (a Claude reviewer's brief says not to label), and the main session applies `status:approved` only when every review approves, `status:rework` when any asks for rework, relaying every review in full ([§4.4](#44-rework)), and escalates on any `user decision`.
+
+**The families** (the user's decision of 2026-10-03): OpenAI is `luna` and `sol`; GLM is `glm` and `glm-flash`; DeepSeek is `deepseek`, `deepseek-pro` and `deepseek-flash`; Claude is Sonnet and Opus; MiMo has no reviewer. What follows from them: an OpenAI implementer (`luna`) excludes Sol, so its complex and very complex reviews are both a cold Claude Opus; a Claude implementer (the Sonnet fallback, or Opus on an architecture task) is never reviewed by Opus or Sonnet, so its complex review is Sol and falls back to Sol's substitutes (below), and its very complex review is Sol plus the OpenCode pair, or the pair alone when Sol cannot review. When no reviewer of a permitted family can run (a Claude implementer while OpenCode is unavailable), the main session escalates ([§4.5](#45-when-to-escalate-to-the-user)) rather than break the family rule. [Appendix C](#appendix-c-the-run-task-skill) step 2 spells out every path as commands.
+
+**The criteria Jev scores** (the user's decisions of 2026-10-03: the scope of simple and complex, the very-complex triggers (a)–(g) with their size limits, and High effort alone not being one). A task or fix PR is never simple, and a plan PR is never very complex.
+- **Simple**: the PR's `--stat` touches nothing under `src/`, `tests/`, `godot/`, `scripts/`, `data/`, `.github/` or `.opencode/`; it adds no task, changes no task's Owns, Scope or Done-when line, adds no dependency on an unmerged task (a merge-after on an already merged task is bookkeeping), and does not edit this document, `operating-guide.md` or `CLAUDE.md`. A routine-tier fold that adds Done-when lines is therefore complex.
+- **Very complex**: at least one of (a) an architecture task (T02, T03, T16, T22) or an Ultrahigh effort; (b) a new subsystem: a new project, a new top-level folder under `src/IC2.Engine/` or `src/IC2.Data/`, or a new turn-pipeline phase; (c) a save-format or serialization change: the save reader or writer, the JSON round-trip, a schema version, or a field added to a serialized model type; (d) a widening of the shared domain model (`src/IC2.Engine/Model/`) that other tasks build on; (e) a change to a battle resolver's or the AI's outcomes under a seed that re-baselines existing seeded expectations (values in `tests/fixtures/corpus.json` or `expected-corpus-outcomes.json`, existing golden lines, a soak or a seeded measurement) rather than only adding new ones; (f) a correction task whose entry says its evidence is still open; (g) size: an Owns list of more than 15 files, or a `--stat` of more than 20 files or 1,500 changed lines outside `tests/fixtures/`. A High-effort entry alone is complex, not very complex: 59 of the catalogue's 120 entries are High, and counting them would bring Opus back to half the code PRs.
+- **Complex**: everything else.
+
+**Sol's effort and use** (the user's decision of 2026-10-03: "we use Sol sparingly, never with effort high, at most medium and even better light"). Sol runs at `low` effort (`external-review.ps1` gives `sol` the variant `low` by default; `-Effort` admits only `low` and `medium`, so `high` and above cannot be passed). It runs at `medium` only where it earns it: a very complex PR in which Sol takes part (one that Claude implemented), and a complex PR whose earlier low-effort Sol review missed something a later review found. Sol runs only where the tier names it: the first review of a complex PR, and the very complex Claude-implemented case. **A re-check of named fixes** (the one-line confirmation after `approve after named fixes`, or a rework re-review that only checks the named findings) goes to a cheaper reviewer of a permitted family, with the earlier reviews linked: Luna on a simple PR; on a complex or very complex PR, the first of GLM-5.3 and DeepSeek V4 Pro that the implementer's family does not exclude (the user's decision of 2026-10-04); it goes back to Sol only when the fixes rewrote more than the named findings.
+
+**When Sol cannot review** (the user's policy of 2026-10-03). Sol is the hard tiers' reviewer: wherever a complex or very complex review names Sol, a substitute takes it rather than the review waiting, unless the user says to wait. It supersedes (the user's decision of 2026-10-03), for the order of fallbacks, the "Sol, then a cold Claude Opus" of the user's first rule that day: Sol's substitutes come first, and a cold Claude Opus comes after them, only when Claude did not implement the PR; when Claude did, the main session escalates ([§4.5](#45-when-to-escalate-to-the-user)) and never falls back to a Claude reviewer.
+1. **Diagnose.** When Sol (or Luna) exits 3, read the run's files, which the script keeps on a failure and names in its output, and the newest OpenCode log under `%USERPROFILE%\.local\share\ic2-opencode-1x\data\opencode\log\`. Read quota-tracker first (`curl -s localhost:8765/quota/openai?refresh`, [environment.md](environment.md)). Sol's `7d` window at 95% or more, or the text **`The usage limit has been reached`** (or OpenAI's `insufficient_quota`), means Sol is out of quota. Luna (GPT-5.6 Luna) has its own `gpt-5.6-luna:7d` window and stays usable while it is under 95%, so an answer from Luna proves nothing about Sol. Any other cause, or the user asking to avoid Sol's cost, means only Sol is unavailable, and Luna can still review a simple PR. A hard review's substitutes are the same either way; the diagnosis is recorded (step 4) and decides the simple tier's fallback.
+2. **Substitutes, in order**, each skipped when it shares the implementer's family:
+
+   | Situation | Hard review (complex, very complex) | Easy review (simple) |
+   | --- | --- | --- |
+   | Only Sol is unavailable | GLM-5.3 (`-Reviewer glm`), then DeepSeek V4 Pro (`-Reviewer deepseek-pro`, `opencode-go/deepseek-v4-pro`), with the reason in its header | Luna, as usual |
+   | The OpenAI account is out of quota | GLM-5.3, then DeepSeek V4 Pro | GLM-5.3, then DeepSeek V4 Pro |
+   | The implementer is GLM | DeepSeek V4 Pro | DeepSeek V4 Pro when OpenAI is out of quota |
+   | The implementer is DeepSeek (the default `deepseek-flash`) | GLM-5.3 | GLM-5.3 when OpenAI is out of quota |
+
+   Luna is a light reviewer and never takes Sol's place on a hard review (the user's decision of 2026-10-04: Luna reviews only small, simple PRs). On a very complex PR that Claude implemented, Sol runs first and the pair is dispatched only once Sol's outcome is known (its review posted, or an exit 3 diagnosed), so no review is posted before the count is settled. Sol posted: the pair follows, three reviews. Sol out, whether only Sol or the whole OpenAI account (a quota outage): no reviewer of a third family is left to stand in for Sol, since the pair already holds GLM and DeepSeek and Claude implemented, so GLM-5.3 and DeepSeek V4 Pro review alone, two reviews (the user's decision of 2026-10-04, which extends to every cause the two-review form confirmed for a quota outage on 2026-10-03). The PR escalates when fewer reviews than that can run.
+3. **How a substitute runs.** Probe it first with `-WhatIf` (below). Reuse Sol's brief unchanged except that its header line names the substitute ("T<nn> review (GLM)"), one sentence says it reviews in Sol's place and why, and Sol's earlier reviews on the PR are linked so that it re-takes their attacks. A brief for GLM or DeepSeek is never shortened: it always carries the "Blocking means" section written for that PR and the "Report every blocking finding in this one review" section, both in full, whether the model reviews a plan PR, stands in for Sol, is a pair member or re-checks named fixes (the user's decision of 2026-10-04: GLM especially has struggled to report every blocking item). Run it; move to the next substitute only on exit 3 (exit 4 is read and decided, as always).
+4. **Record it.** For a task PR, the main session commits a one-line note to the Reviewer field of `docs/tasks/T<nn>.md` on `main`, as a routine doc claim ("Docs: T<nn> reviewer"), with the date, the substitute and the reason; a fix or a plan PR records it in the tier comment. It also appends one entry to the wiki's [Model trials](https://github.com/diegoami/imperial_conquest_2/wiki/Model-trials) page (append-only, like Process incidents): the error, the probe results, the substitute, and what it caught or missed against Sol's earlier rounds.
+5. **Probes.** The free probe is `pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer <x> -ExcludeModel <implemented by> -BriefFile <brief> -WhatIf`: it runs the family check first (a reviewer of the implementer's family is refused with exit 1), then checks the CLI and the argument line, and bills nothing; it does not reach the provider, so a green probe says nothing about quota. When a quota diagnosis needs the provider, the one-prompt probe bills a little: with `XDG_DATA_HOME` set to `%USERPROFILE%\.local\share\ic2-opencode-1x\data` and stdin closed (operating-guide §3 says why), `$null | opencode run --model openai/gpt-5.6-luna "Reply with the word OK."`; an `OK` means Luna is served. Quota is read first and for free from quota-tracker ([environment.md](environment.md), CLAUDE.md rule 17): GPT-5.6 Luna has its own weekly window (`gpt-5.6-luna:7d`), so Luna answering no longer proves Sol has quota; Sol's is openai's `7d` window.
+6. **Prevention.** One provider's quota must never block a hard PR's last review: before every complex or very complex review, not at session start (the user's decision of 2026-10-03) ([Appendix C](#appendix-c-the-run-task-skill) step 2c), the main session runs the `-WhatIf` probes of `sol`, `glm` and `deepseek-pro`, and a red probe is fixed, or recorded in the tier comment, before it is needed.
+
+Unchanged by the tier: `/code-review --effort ultra` on the four architecture PRs and at rework round 2 ([§3.5](#35-where-the-code-review-skill-fits)), the user's own ultra review of T16 and T22, and the human visual review of the Godot screens ([§9](#9-standing-governance-decisions) Q-B). A machine's model order may swap a tier's Claude form for its OpenCode form when Claude credit is short (Opus for Sol plus the OpenCode pair), and never lowers a tier.
+
+**The reviewer's model family is never the implementer's.** `scripts/external-review.ps1 -ExcludeModel <name>` (the name on `external-implement.ps1`'s `implemented by:` line, or a `model:<name>` label on the PR or issue) drops every reviewer of that family from the chain and refuses an explicit `-Reviewer` of it; when no model is left, the script exits 3 and the tier's fallback takes the review. The script has no Claude reviewer: `-ExcludeModel sonnet` or `opus` names the Claude family and excludes no OpenCode reviewer, so a Claude implementer's runs pass it like any other, and the main session never picks Sonnet or Opus to review that PR; `model:sonnet` and `model:opus` labels exclude nothing.
 
 ### 3.5 Where the `/code-review` skill fits
 
@@ -160,9 +190,9 @@ issue status:ready, every merge-after dependency merged
 
 ### 4.2 What the reviewer checks
 
-Before the gates, **gate 0: the reviewer proves it is looking at the right code** — its HEAD equals the PR's head, and its `origin/main...HEAD` file list equals the PR's own file list, with both pasted into the review ([Appendix B](#appendix-b-reviewer-prompt-template); incident 5). An empty diff means the wrong tree. Every finding must name a file from that diff; anything else is a separate report.
+Before the gates, **gate 0: the reviewer proves it is looking at the right code** — its HEAD equals the PR's head, and its `origin/main...HEAD` file list (`origin/release/0.4...HEAD` for a PR against a maintenance line, [release-plan.md §2.2.2](release-plan.md#222-two-release-lines-a-maintenance-branch-per-patched-minor)) equals the PR's own file list, with both pasted into the review ([Appendix B](#appendix-b-reviewer-prompt-template); incident 5). An empty diff means the wrong tree. Every finding must name a file from that diff; anything else is a separate report.
 
-Five gates, in order. Any failure means `status:rework`.
+Five gates, in order. Any failure means `status:rework`. **What makes a finding blocking** is spelled out in every review brief, in a "Blocking means" section written for that task ([Appendix B](#appendix-b-reviewer-prompt-template); harness lesson L47, adopted by the user's decision of 2026-10-04). The rule it encodes: **a proven way past what the task protects is blocking**, never "follow-up hardening". The boundary of what a task protects is set before review, in its entry's `Protects:` line (which may name what it explicitly does not cover); a review cannot reclassify a proven bypass inside that boundary. In the harness's PR 29 replay a reviewer proved three bypasses of the guard under review, rated them all non-blocking and approved, while two other reviewers asked for rework on the same head. Every brief, a plan PR's included, also carries the section "Report every blocking finding in this one review", pasted in full right after "Blocking means" ([Appendix B](#appendix-b-reviewer-prompt-template); the user's decision of 2026-10-04, after a reviewer in ic2-conquest PR #38 asked for rework eight times, one blocking finding per round): one review lists every blocking finding, numbered R1, R2, …, and says "Final pass done" just before its closing verdict.
 
 1. **DoD, independently reproduced.** The reviewer runs the commands itself at the PR head. The PR body's evidence is a convenience, never the proof. A DoD line with no runnable check is itself a finding.
 2. **Provenance.** Every constant traces to a `tests/fixtures` entry, a cited report, or a `docs/investigations/` document. Any `[designed]` value must say *what was searched and came up empty* (`design-audit.md` §4.5).
@@ -206,6 +236,8 @@ When the reviewer asks for changes, the main session:
 
 The implementer pushes to the same branch, and the main session dispatches the reviewer again.
 
+**One blocker per round** (the user's decision of 2026-10-04): when a reviewer names exactly one blocking finding in each of two rounds running, the main session stops after the second, goes through the whole diff itself for the same class of problem, and records the pattern on the wiki's [Model trials](https://github.com/diegoami/imperial_conquest_2/wiki/Model-trials) page ([Appendix C](#appendix-c-the-run-task-skill) step 3). What the sweep finds goes where that review's findings go: into the next rework; at `review-round:2`, into the escalation comment; on a `fix` at `review-round:1`, into the correction task's entry.
+
 **Rework round 2 is the last.** A review that fails while the issue carries `review-round:2` escalates ([§4.5](#45-when-to-escalate-to-the-user)). For a `fix` ([§4.10](#410-the-fix-lane)), round 1 is the last: a review that fails while the issue carries `review-round:1` files a correction task instead of escalating.
 
 ### 4.5 When to escalate to the user
@@ -235,7 +267,7 @@ Everything else merges without the user, subject to [§9](#9-standing-governance
 
 1. **Suspend.** The task that found it goes to `status:blocked` and its issue says "suspended on #N". It doesn't touch the upstream Owns list.
 2. **File.** The defect becomes a GitHub issue labelled `bug` and `triage:needed`. It states what is wrong, the exact evidence, and the affected files or fields. If it blocks tasks, its body opens with `Blocks: T<nn>[, T<nn>]`.
-3. **Plan.** The main session triages it. It picks one of:
+3. **Plan.** The main session triages it. A new bug arrives at triage with Jev's proposed `fix`-versus-task label and playability answer ([operating-guide.md §3](operating-guide.md#3-standing-user-preferences)), which the main session confirms or overrides. It picks one of:
    - a **fix** ([§4.10](#410-the-fix-lane)): when the fix stays within the files the bug names and changes no rule's outcome. No catalogue entry, no `T` number; the bug issue is the contract;
    - a **correction task**: the next free `T` number, in full catalogue shape, when the fix needs its own Owns list, model and reviewer;
    - **folding it into an upcoming task's DoD**: the default for small fixes and for follow-ups, folded into the next task that touches those files. **A task at `status:ready` gains no new DoD items** (the user's decision of 2026-09-28): a later finding folds into a follow-on task, or a new one, never into a ready task's entry;
@@ -252,23 +284,32 @@ Everything else merges without the user, subject to [§9](#9-standing-governance
 
 In the same turn as the merge, the main session:
 
-1. **Unblocks.** Every `status:blocked` task whose merge-after dependencies are now all merged, and which isn't suspended on an open bug, becomes `status:ready`. **Until v0.4.0 is tagged, the next task is the next ready task of the UI chain, T24, then T25, then T27**, taken before any engine task, on whichever machine is running ([§8](#8-two-machines)). The rule names the chain, not the label: a `lane:ui` task labelled `post-v0.4.0`, such as T51, is not part of it.
+1. **Unblocks.** Every `status:blocked` task whose merge-after dependencies are now all merged, and which isn't suspended on an open bug, becomes `status:ready`. **Until v0.5.0 is tagged, the next task is the next ready task of the v0.5.0 gate**, once its labels have moved ([release-plan.md §2](release-plan.md#2-the-release-ladder), "The labels move first"), taken before any other task, on whichever machine is running ([§8](#8-two-machines), "Which task next").
 2. **Files the follow-up** ([§4.6](#46-bugs-and-follow-ups)), if the review had non-blocking findings, and proposes where each item folds.
 3. **Makes any Owns widening durable.** A widening recorded by an issue comment ([§4.2](#42-what-the-reviewer-checks) gate 4) is added to the task's entry, `docs/tasks/T<nn>.md`, in this step's `Docs:` commit, so a later disjointness check ([§8](#8-two-machines)) reads the entry, not a comment.
    **Records the PR's "Docs affected" list**, and applies only what would otherwise leave a document **factually wrong**: a formula the code now implements differently, an `[open]` item the merge closed, a mis-attributed citation. Those go straight to `main` in a small `Docs:` commit, because a wrong provenance claim is what the review gates exist to catch. **Everything else waits for the release docs pass** ([release-plan.md §5](release-plan.md#5-release-checklist)): re-wording, counts, narrative and anything about where the build stands. The living pages are in the [wiki](https://github.com/diegoami/imperial_conquest_2/wiki), where they carry no contractual force (incident 10).
 4. **Cleans up** the agents' worktrees for the task.
 5. **Reports to the user**: the merge commit, what the review found, the follow-ups filed, and what is ready next.
 
-### 4.8 The playability gate, until v0.4.0
+### 4.8 The playability gate, until v0.5.0
 
-Adopted 2026-09-28 by the user's decision, to reach v0.4.0, the playable Godot UI. **Until v0.4.0 is tagged, a bug or follow-up becomes a correction task or a fold only if it breaks play**:
-- a crash;
-- an AI stall;
-- an unwinnable game;
-- a save that will not load;
-- an order that can never succeed.
+Adopted 2026-09-28 by the user's decision, to reach v0.4.0, the playable Godot UI, and extended to v0.5.0 by the user's decisions of 2026-10-03 (v0.4.0 was tagged on 2026-09-28, and the label was renamed from `post-v0.4.0` to `post-v0.5.0`). **Redefined on 2026-10-04**, when the user, after playing v0.4.1, made v0.5.0 the playable release: *"go with A, make 0.5.0 playable and move battles to 0.6.0"* ([release-plan.md §2](release-plan.md#2-the-release-ladder)). The gate ends at the v0.5.0 tag. Until then, it sorts every bug and follow-up into two classes.
 
-Everything else keeps its issue open, loses `triage:needed`, and gains the label `post-v0.4.0`. Evidence findings outside that class are recorded in the research repository, with an issue here labelled `post-v0.4.0` that points at the report. No catalogue entry is written for them until the tag. After the tag, the `post-v0.4.0` issues are triaged under [§4.6](#46-bugs-and-follow-ups) as usual. Until v0.4.0, the fix lane ([§4.10](#410-the-fix-lane)) takes only bugs in this class, and a fix never goes ahead of a ready UI-chain task ([§8](#8-two-machines)).
+**`release:v0.5.0`: it breaks play, or it blocks a normal game.** Such an item becomes a correction task, a fold or a fix ([§4.6](#46-bugs-and-follow-ups), [§4.10](#410-the-fix-lane)) and is labelled `release:v0.5.0`, so the v0.5.0 gate waits for it. It **breaks play** when it is a crash, an AI stall, a save that will not load, or an order that can never succeed. It **blocks a normal game** when it fails one of these three tests:
+
+1. **An order the original has cannot be issued, or does nothing.** An order of the original's menus, toolbar, dialogs or map clicks (the UI command audit's rows, [`original-ui-command-audit.md`](investigations/original-ui-command-audit.md); `GameCommandTable`'s rows) has no working path in the Godot app, or its path is refused, ignored or clamped to no effect in a state where the original carries it out. A control that offers a choice the original does not, so that the order fails, counts (bug [#697](https://github.com/diegoami/imperial_conquest_2/issues/697)'s slider, which lists armies too far away to buy). *Not* this test: an order that works but looks different (layout, wording, step size, a missing keyboard shortcut); a gap in the CLI only; the three seat commands T100 left out.
+2. **Feedback is missing or wrong, so that play is guesswork.** After an order, an end of turn or an AI phase, a player who uses only the Godot app cannot tell from the screen whether the order took effect, why it was refused, or what changed. Examples: a refusal shown nowhere; a figure on a panel that is wrong for the rule the engine applies (an army's supply, purse, troops or moves, a city's stock or loyalty, the treasury); a battle, capture, defection, elimination, deposition or the game's end that happens with no report on screen; one of the original's *End turn* warnings missing. *Not* this test: a difference of wording or format, a missing flavour text, the news log's layout, and a fact the original also hides.
+3. **A rule makes a normal game unwinnable, or makes a choice in it pointless.** Under either shipped preset, a human seat that plays sensibly cannot reach the scenario's victory condition, or loses, or is stopped, for a reason the original does not have: an order refused where the original allows it (T115's treasury, which the original lets run into debt), a resource that cannot be replenished, an AI seat that never acts or never ends. *Not* this test: a constant or formula that differs from the original's but whose effect stays inside normal play (a casualty a few percent off, a price off by rounding). Such a difference stays `post-v0.5.0` unless the user decides otherwise.
+
+**A normal game** is a human seat, or hotseat seats, in a shipped scenario under either shipped preset, played through the Godot app's menus, toolbars, map clicks and dialogs, from New Game or a Load, to the scenario's victory condition or the seat's fall. The CLI, an imported original save, a custom world and a soak run are not normal games for this test.
+
+**`post-v0.5.0`: everything else.** It keeps its issue open, loses `triage:needed`, and gains the label `post-v0.5.0`. Evidence findings outside the first class are recorded in the research repository, with an issue here labelled `post-v0.5.0` that points at the report. No catalogue entry is written for them until the v0.5.0 tag, except where the user decides otherwise (as for T114–T119 at the triage of 2026-10-03). After the tag, the `post-v0.5.0` issues are triaged under [§4.6](#46-bugs-and-follow-ups) as usual.
+
+**How an item is sorted.** At triage, the main session asks Jev the playability question on the issue's title and body ([operating-guide.md §3](operating-guide.md#3-standing-user-preferences)), applies the three tests itself, and confirms or overrides Jev's answer. It labels a clear case. It brings a borderline case to the user as a question, one per issue, with the test it half-meets. An item the user calls a blocker is `release:v0.5.0` whatever the tests say.
+
+**The triage pass, once.** After the plan PR that adopted this redefinition merges, the main session runs one pass over **every** open issue labelled `post-v0.5.0`, sorting each as above. An issue that moves gets `release:v0.5.0`, loses `post-v0.5.0`, gets one comment naming the test it fails and this section, and is then triaged under §4.6 into a fix, a fold or a correction task. An issue that stays gets no comment. The borderline issues go to the user together, at the end of the pass, each as its own question. **The v0.5.0 cut waits for every answer**: no `v0.5.0` tag is cut while a borderline question from the pass, or from any later triage under this section, is unanswered, so no issue that might block a normal game is left unclassified at the tag ([release-plan.md §5](release-plan.md#5-release-checklist)). The pass's result lives on the issues' labels and comments; no document records it ([§5](#5-status-lives-on-github)). The research session's gap check (the original against the clone, outside the battle) files its findings as issues, and each is sorted the same way when it arrives.
+
+Until v0.5.0, the fix lane ([§4.10](#410-the-fix-lane)) takes only bugs in the first class, and a fix never goes ahead of a ready v0.5.0 gate task unless it is in the gate itself ([§8](#8-two-machines)). **An item the user puts on a v0.4.x patch list bypasses this gate** (the user's decision of 2026-10-04): it becomes a task or a fix at once, labelled with its patch's `release:v0.4.x` label, and ships in that patch ([release-plan.md §2.2.1](release-plan.md#221-v04x-patches)).
 
 ### 4.9 Plan PRs: two tiers
 
@@ -284,18 +325,19 @@ A plan PR is any PR that changes `docs/tasks/**`, `task-catalogue.md`, `release-
   The title starts `Plan (routine):`. A fold adds Done-when lines, so a DoD changes here without a fresh decision by the user ([§4.3](#43-the-dod-is-not-negotiable-by-an-agent)): the decision is this tier, made once. A routine-tier PR is merged by the session that opened it, on either machine.
 - **Contract tier: a cross-session review merges it.** Everything else: a new task; a change to an existing Done-when line's assertion, or its removal; a Scope change; a merge-after dependency on an unmerged task; a change to `release-plan.md`'s gates; any edit to this document, `operating-guide.md` or `CLAUDE.md`; and any routine-tier change the main session is unsure about. The title starts `Plan:`.
 
-  **How a contract-tier PR merges** (the user's decision of 2026-09-28). The session that opened it never reviews it. A different session reviews it, in this order of preference: another main session ([§8](#8-two-machines)), then the external reviewer (`scripts/external-review.ps1`, operating-guide §3); when neither is available, the PR waits as a `user decision`. The reviewer posts one comment whose second line is the verdict. On **approve**, the opener merges after green CI. On **approve after named fixes**, the opener applies them, replies with one comment mapping each finding to its change, and the reviewer answers that reply with one line confirming them; then the opener merges. If a fix is missing or wrong, the reviewer names the unresolved finding and the opener gets one more round; a second miss makes the verdict `user decision`. The user reads the merge in the opener's next report, and a revert is one contract-tier PR. **The user merges only when the verdict says `user decision`**: a design question, a release gate, a `[designed]` value, a change to Q-A to Q-G, anything [§4.5](#45-when-to-escalate-to-the-user) escalates, or something the reviewer cannot verify. A reviewer that would need the user for part of a PR says so in the verdict, and the whole PR waits.
+  **How a contract-tier PR merges** (the user's decision of 2026-09-28). The session that opened it never reviews it. A different session reviews it, by its review tier ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers), the user's decision of 2026-10-03): a contract-tier plan PR is **complex**, so GPT-6 Sol through `scripts/external-review.ps1 -Reviewer sol` at `low` effort (`medium` only where §3.4 justifies it, never `high`), then, when Sol cannot review, GLM-5.3, then DeepSeek V4 Pro, each skipped when it shares the plan PR author's family, never Luna (the user's decisions of 2026-10-04); an evidence-only doc-claim PR, and routine-tier bookkeeping, when reviewed at all, are **simple**, so Luna alone (`-Reviewer auto`); a routine-tier fold that adds Done-when lines, or an Owns amendment, changes a task's contract and is **complex** when it is reviewed (the review tier says who reviews; it does not take away the routine tier's merge on the opener's authority). Jev proposes the tier and the main session confirms it. When none of Sol, GLM-5.3 and DeepSeek V4 Pro can run (each exits 3, or OpenCode is suspended for reviews after two failures of the same cause, operating-guide §3), a cold Claude Opus reviewer that the main session dispatches in its own worktree counts as the cross-session review, and so does another main session's review ([§8](#8-two-machines)), which now takes the Opus fallback's place rather than coming first, but only when Claude did not write the plan PR: both are Claude reviews, and the family rule ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers)) excludes them. A plan PR that Claude wrote (a main session or a Claude subagent) then waits as a `user decision`, escalated ([§4.5](#45-when-to-escalate-to-the-user)) with the failures recorded; any plan PR waits so when no permitted reviewer can run (the user's decision of 2026-10-04). The main session records every fallback in the PR comment. The reviewer posts one comment whose second line is the verdict. On **approve**, the opener merges after green CI. On **approve after named fixes**, the opener applies them, replies with one comment mapping each finding to its change, and the reviewer answers that reply with one line confirming them; then the opener merges. If a fix is missing or wrong, the reviewer names the unresolved finding and the opener gets one more round; a second miss makes the verdict `user decision`. The user reads the merge in the opener's next report, and a revert is one contract-tier PR. **The user merges only when the verdict says `user decision`**: a design question, a release gate, a `[designed]` value, a change to Q-A to Q-G, anything [§4.5](#45-when-to-escalate-to-the-user) escalates, or something the reviewer cannot verify. A reviewer that would need the user for part of a PR says so in the verdict, and the whole PR waits.
 
 A routine PR the user later disagrees with is reverted by a contract-tier PR. That is the tier's cost, and cheaper than the wait it replaces (incident 12).
 
 ### 4.10 The fix lane
 
-A bug qualifies for the fix lane when its fix **stays within the files the bug names and changes no rule's outcome**: it corrects a message, a guard, a rejection, a parser, a view, a validation, a test, a save path or a data file's provenance. A change that alters what a rule computes, a gameplay constant, a resolver's result or an AI decision is a correction task under [§4.6](#46-bugs-and-follow-ups) step 3, however small. The main session decides at triage and labels the bug `fix` and `status:ready`. The test the triager applies from the bug, and the reviewer checks from the diff: **a fix changes no ruleset key, no `tests/fixtures/corpus.json` value, no seeded measurement, and no CLI golden line outside the bug's own reproduction.** If it would, it is a correction task; the list above is examples, not the test. Until v0.4.0 the lane takes only bugs in [§4.8](#48-the-playability-gate-until-v040)'s class.
+A bug qualifies for the fix lane when its fix **stays within the files the bug names and changes no rule's outcome**: it corrects a message, a guard, a rejection, a parser, a view, a validation, a test, a save path or a data file's provenance. A change that alters what a rule computes, a gameplay constant, a resolver's result or an AI decision is a correction task under [§4.6](#46-bugs-and-follow-ups) step 3, however small. The main session decides at triage and labels the bug `fix` and `status:ready`. The test the triager applies from the bug, and the reviewer checks from the diff: **a fix changes no ruleset key, no `tests/fixtures/corpus.json` value, no seeded measurement, and no CLI golden line outside the bug's own reproduction.** If it would, it is a correction task; the list above is examples, not the test. Until v0.5.0 the lane takes only bugs in [§4.8](#48-the-playability-gate-until-v050)'s class.
 
 A fix:
 - **has no catalogue entry and no `T` number.** The bug issue is the contract. Its Owns is the files the bug names, read from the issue body, plus gate 4's implicit set ([§4.2](#42-what-the-reviewer-checks)); once the PR exists, its file list is the authority for [§8](#8-two-machines)'s disjointness check; its DoD is the bug's reproduction turned into a test that fails before the change and passes after it, plus a green `dotnet build IC2.sln` and `dotnet test IC2.sln`.
 - **runs through the same labels as a task** (`status:in-progress`, `in-review`, `approved` or `rework`, `merged`), the same `machine:*` claim, and `local-only` or `single-instance` where they apply. It is the machine's one task while it runs ([§7](#7-concurrency-single-instance-and-local-only), [§8](#8-two-machines)), and its files must be disjoint from every task in flight.
-- **is dispatched by `/run-task #<issue>`** ([Appendix C](#appendix-c-the-run-task-skill)): implementer Sonnet/Medium in worktree `ic2-work\fix-<issue>` on branch `fix/<issue>-<slug>`, with the bug body in place of the task entry in Appendix A's brief, commit subject `fix <issue>: <subject>` (no `#`, so the squash closes nothing early), PR body `Closes #<issue>` as Appendix A already allows, reviewer Opus/Medium at gates 0, 1, 3 and 4 plus a read of the diff. Gate 2 reduces to confirming no constant changed; the mutation protocol does not apply.
+- **is dispatched by `/run-task #<issue>`** ([Appendix C](#appendix-c-the-run-task-skill)): implementer the default OpenCode chain (`deepseek-flash`, then Claude Sonnet, [§3.3](#33-model-selection)) in worktree `ic2-work\fix-<issue>` on branch `fix/<issue>-<slug>`, with the bug body in place of the task entry in Appendix A's brief, commit subject `fix <issue>: <subject>` (no `#`, so the squash closes nothing early), PR body `Closes #<issue>` as Appendix A already allows, reviewer by the PR's review tier ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers): complex at least, so GPT-6 Sol by default) at gates 0, 1, 3 and 4 plus a read of the diff. Gate 2 reduces to confirming no constant changed; the mutation protocol does not apply.
+- **on a maintenance line** (a bug labelled for a `v0.4.x`, [release-plan.md §2.2.2](release-plan.md#222-two-release-lines-a-maintenance-branch-per-patched-minor)) branches from `origin/release/0.4`, targets it with `--base release/0.4`, says `Refs #<issue>` in place of `Closes`, and is then ported forward to `main` by a cherry-pick PR that closes the issue. A v0.4.x task runs the same way. [Appendix C](#appendix-c-the-run-task-skill) lists the overrides.
 - **gets one rework round** ([§4.4](#44-rework)). A review that fails while the issue carries `review-round:1` turns it into a correction task: the main session files the task at the contract tier, keeps the branch, and stops.
 
 Why the lane exists: incident 12.
@@ -373,7 +415,7 @@ Retired labels from the orchestrator era: `docs:pending`, `orchestrator:pause`, 
   `git diff --name-only origin/main...HEAD`. The main session checks that block before it relays a
   review or merges a PR: a report without it, or one naming the main checkout, is not acted on.
 - **Agents work in their own worktrees**, never in the main checkout:
-  - An implementer runs `git -C C:\Users\diego\projects\imperial_conquest_2 worktree add C:\Users\diego\projects\ic2-work\T<nn> task/T<nn>-<slug>`, creating the branch from `origin/main` if it doesn't exist yet.
+  - For an OpenCode implementer, `scripts/external-implement.ps1` creates the worktree and branch before the run. A Claude implementer runs `git -C C:\Users\diego\projects\imperial_conquest_2 worktree add C:\Users\diego\projects\ic2-work\T<nn> task/T<nn>-<slug>`, creating the branch from `origin/main` if it doesn't exist yet.
   - A reviewer checks out the PR head detached, in `...\ic2-work\T<nn>-review`.
   - An implementer detaches its worktree (`git checkout --detach`) before it finishes, so the branch is free for the next checkout.
 - **`local-only` tasks** need the user's original DAT and saves via `assets.local.ini`. The file is git-ignored, so the agent copies it from the main checkout into its worktree's root. The tasks that launch Godot need a Godot install. These tests **skip explicitly** when the prerequisite is absent, so CI on GitHub's runners stays green.
@@ -429,7 +471,7 @@ be in flight together only when:
 When both PRs touch a shared file anyway, the second to merge brings `main` in and re-runs CI. It never
 force-pushes.
 
-**Which task next, until v0.4.0** (the user's decision of 2026-09-28). When a main session looks for its next task, it takes the next ready task of the UI chain, **T24, then T25, then T27**, before any engine task, on whichever machine is running. The rule names the chain, not the `lane:ui` label: a `lane:ui` task labelled `post-v0.4.0`, such as T51, is not part of it. No machine is bound to the UI lane. `single-instance` still means only one Godot task is in flight, so a second machine that comes online while a chain task runs takes engine tasks. A chain task is never left at `status:ready` while a machine dispatches an engine task, unless the user says so on the issue. A `fix` ([§4.10](#410-the-fix-lane)) counts as an engine task here.
+**Which task next, until v0.5.0** (the user's decision of 2026-10-05, *"Gate first"*; it replaces the UI chain, T24, then T25, then T27, which ran first until v0.4.0 by the user's decisions of 2026-09-28 and 2026-10-03). The rule takes effect once the main session has applied the label moves the plan PR of 2026-10-04 lists under "After the merge" ([release-plan.md §2](release-plan.md#2-the-release-ladder), "The labels move first"); that is the first step after that PR merges. From then on, when a main session looks for its next task, it takes the next ready task or fix labelled `release:v0.5.0` before any other task, on whichever machine is running. Two kinds of item may run alongside the gate, never displacing a gate task that is ready and disjoint: a v0.4.x patch item (a task or fix labelled `release:v0.4.x`, such as T133 and T134, and whatever the user lists after playing a v0.4.x), on the `release/0.4` line ([release-plan.md §2.2.2](release-plan.md#222-two-release-lines-a-maintenance-branch-per-patched-minor)); and a task the user names on its issue. Every other task waits until the tag, T131 included unless the user lists it. No machine is bound to a lane. `single-instance` still means only one Godot task is in flight, so a second machine that comes online while a Godot gate task runs takes the next ready gate task that is not `single-instance`, or a v0.4.x item. A `fix` labelled `release:v0.5.0` counts as a gate task here.
 
 **Who does what.**
 - **Each machine merges only the PRs of tasks it claimed**, after its own review and green CI (§4),
@@ -472,7 +514,7 @@ Decided by the user; in force until changed.
 - **Q-A, merge autonomy.** The main session squash-merges any PR that has an approving review and green CI without asking, **except** the architecture PRs T16 and T22. Those wait for the user's thumbs-up and the user's own `/code-review --effort ultra`. T02 and T03 are already merged.
 - **Q-B, Godot visual review.** T24 and T25 post a screenshot of every new screen to their PR as they land, and "looks right" is the user's call on each one. The published mockup (`game-design.md` §UI) is the layout intent.
 - **Q-C, cost profile.**
-  - Opus implements the tasks [§3.3](#33-model-selection)'s criteria name, and reviews the fidelity-critical PRs ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers)).
+  - Opus implements the tasks [§3.3](#33-model-selection)'s criteria name, and reviews the very complex PRs that Claude did not implement ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers)'s review tiers, the user's decision of 2026-10-03; it reviewed the fidelity-critical PRs before).
   - `/code-review --effort ultra` runs on the architecture PRs.
   - One task is in flight at a time per machine; two machines may run two file-disjoint tasks at once (§8).
   - There is no orchestrator layer and no per-merge documentation agent (incident 13).
@@ -508,7 +550,9 @@ that directory: it is the main session's checkout. Work in your own worktree:
       git -C C:\Users\diego\projects\imperial_conquest_2 worktree add -b task/T<nn>-<slug> C:\Users\diego\projects\ic2-work\T<nn> origin/main
       git -C C:\Users\diego\projects\ic2-work\T<nn> push -u origin task/T<nn>-<slug>
   - <local-only tasks only> copy C:\Users\diego\projects\imperial_conquest_2\assets.local.ini into
-    the worktree root. It is git-ignored; never commit it.
+    the worktree root. It is git-ignored; never commit it. (For an OpenCode run this setup is
+    already done: `scripts/external-implement.ps1` created the worktree and `-LocalOnly` copied the
+    file, so skip this whole block.)
 
 SAY WHERE YOU ARE WORKING. Your very first tool call, before reading anything, prints these four
 lines, and your final report repeats them:
@@ -522,10 +566,21 @@ If the first line is C:\Users\diego\projects\imperial_conquest_2, you are in the
 checkout: STOP and fix that before doing anything else. Nothing you spawn inherits your shell
 directory, so always pass `git -C <your worktree>` explicitly rather than relying on `cd`.
 
+STAY INSIDE YOUR WORKTREE. Once it exists (the setup block above is the only exception, and an
+OpenCode run skips it), never read, list, write or run anything by a path outside it: not
+%TEMP% or $env:TEMP, not ~ or $env:USERPROFILE, not C:\Program Files, not the NuGet cache, not the
+main checkout, and not another worktree. OpenCode's permission guard auto-rejects such a call, and
+the rejection ENDS your run, stranding any unpushed work (issue #501). Invoke tools by name from
+PATH (`dotnet`, `git`, `gh`, `python`, and `godot` in bash or `godot.cmd` in PowerShell), and never
+inspect their installs. Scratch files go inside your worktree, under the git-ignored `rendered/`
+or deleted before you commit, and never in TEMP (the user's rule of 2026-09-29). A mutation check
+runs in place and uncommitted: mutate, rebuild clean, test, then `git checkout -- <file>`, touch
+it, rebuild clean and test again (§4.2 gate 5).
+
 Never use `git stash`: the stash is shared by every worktree in the repository, so another
-agent's push or pop can swap entries with yours. To test the base without your change, add a
-detached worktree at origin/main under C:\Users\diego\projects\ic2-work\ and remove it afterwards;
-to set work aside, commit it.
+agent's push or pop can swap entries with yours. To test the base without your change, commit
+your work, `git -C <your worktree> checkout --detach origin/main`, test, and check your branch out
+again; to set work aside, commit it.
 
 Your task entry is reproduced in full at the end of this brief — it is the contract, and you
 should not need to open the catalogue at all. If you do need a different entry, extract that one
@@ -616,10 +671,17 @@ Nothing you spawn inherits your shell directory: a forked skill or agent starts 
 CHECKOUT, not here. So pass `git -C <your worktree>` explicitly rather than relying on `cd`, and
 see gate 5 before considering any forked tool.
 
+Scratch files, a mutation copy included, go inside your own worktrees under
+C:\Users\diego\projects\ic2-work\ (the git-ignored `rendered/` is the place), never in TEMP (the
+user's rule of 2026-09-29). An OpenCode reviewer (`scripts/external-review.ps1`) may not reach
+outside the worktree the script made for it at all: its permission guard rejects the call, and the
+rejection ends the review (issue #501).
+
 Never use `git stash`: the stash is shared by every worktree in the repository, so another
-agent's push or pop can swap entries with yours. To test the base without your change, add a
-detached worktree at origin/main under C:\Users\diego\projects\ic2-work\ and remove it afterwards;
-to set work aside, commit it.
+agent's push or pop can swap entries with yours. To test the base without the change, in your own
+worktree: `git -C <your worktree> checkout --detach origin/main`, test, then
+`git -C <your worktree> checkout --detach <the PR head>`, and confirm HEAD equals the PR's
+headRefOid again (gate 0) before you write any finding.
 
 The task entry is reproduced in full at the end of this brief; you should not need to open the
 catalogue. Read docs/build-process.md §4.2 "What the reviewer checks", docs/game-design.md
@@ -636,8 +698,8 @@ Run five gates, in order. Any failure is status:rework:
  3. Determinism. No System.Random, wall clock, Guid.NewGuid or order-dependent iteration in
     gameplay paths. Randomness goes through IRng, and a test proves seeded reproducibility.
  4. Scope. Every changed file is inside the task's declared Owns list. A file outside it is a
-    finding even if the change is good. Any diff to a Markdown file under docs/ (docs/**/*.md, including docs/tasks/) is an
-    automatic rework. The PR's
+    finding even if the change is good. Any diff to a Markdown file under docs/ (docs/**/*.md, including docs/tasks/) that
+    the Owns list does not name is an automatic rework. The PR's
     "Docs affected" list matches what the diff actually changes.
  5. Correctness. Sweep the diff for ordinary bugs YOURSELF, in your own context: read it hunk by
     hunk, plus the surrounding code it doesn't show, and hunt integer truncation and operation
@@ -662,10 +724,44 @@ Run five gates, in order. Any failure is status:rework:
 
 A defect you find in ANOTHER task's already-merged code is not a finding against this PR. Report
 it separately in your summary, so the main session files it as a bug (build-process.md §4.6).
-Mark each finding as blocking (fails a gate) or non-blocking.
+Mark each finding as blocking or non-blocking, by this section:
+
+Blocking means (any one is enough; a blocking finding means rework, never approve):
+1. A Done-when line fails, or cannot be run as written.
+2. What this task protects can be got past: <the main session names it, from the Scope's
+   "Protects:" line: the guard, check, invariant, rule value or file the task exists to protect;
+   on a guard task, the list of forbidden actions or results it must stop. An entry written
+   before 2026-10-04 has no such line: the main session derives it from the entry's Scope and
+   Done-when and writes "(derived by the main session)" after it. For a fix, it is the bug's
+   reproduction: the wrong result the bug describes must not recur by any path>. A bypass you proved
+   is blocking, even when it looks like an edge case. Never rate it "follow-up hardening" or
+   "outside the threat model": the boundary is the one named here, set before review, and only a
+   path this item explicitly excludes is outside it.
+3. Behaviour the task forbids, or behaviour nobody asked for, inside a file the task requires.
+4. Any failure of the gates this brief asks for (gates 2 to 5; a fix-lane brief asks for gates
+   3 and 4 plus a read of the diff, and only those count here): a constant with no evidence; a
+   random draw outside IRng or an order-dependent result; a file outside Owns, including a
+   docs/**/*.md file the Owns list does not name; a test that passes with the behaviour deleted; a comment or doc claim that asserts
+   behaviour no test or report supports; a status written into a document.
+Not blocking: wording and style that assert nothing false. A defect in code the PR did not change
+is not a finding against this PR: report it separately for the bug list (§4.6).
+When unsure, rate it blocking and say why. An approve with a proven bypass is the costliest
+mistake a review can make.
+
+## Report every blocking finding in this one review
+
+This review is your only pass before the author fixes. Do not stop at the first blocking finding: finish reading the whole diff and the task file, check every Done-when line and every item under "Blocking means", and report all blocking findings together.
+
+- Before you write the verdict, make one last pass over the full diff for anything you have not yet rated, and say "Final pass done" as the last line before the verdict.
+- Number the findings R1, R2, … in order of severity. A finding you held back because an earlier one was already blocking is a review defect: if two problems share a cause, list both and say so.
+- Do not rely on a later round. The author fixes everything you list, and the next review checks those fixes and new code only, not anything you saw but did not report.
+- If you ran out of time or context before covering the whole diff, say which files or sections you did not cover. Do not approve in that case.
 
 Post your findings as a PR comment (`gh pr comment <pr> --body-file ...`): specific, actionable,
-with file and line, covering all five gates explicitly. Never put close/closes/fix/fixes/resolve/
+with file and line, covering all five gates explicitly, numbered R1, R2, … as the section above
+says. Its last two lines are "Final pass done" and then the verdict (approve, approve after named
+fixes, rework, or user decision); an OpenCode reviewer also puts the verdict on line 2, and
+"Final pass done" goes just before the closing verdict, never before line 2's. Never put close/closes/fix/fixes/resolve/
 resolves directly before "#<n>" in it: GitHub closes whatever it names, so write "bug #276". Then apply the label yourself:
   all five gates pass → gh issue edit <issue> --add-label status:approved --remove-label status:in-review
   any gate fails      → gh issue edit <issue> --add-label status:rework --remove-label status:in-review
@@ -705,8 +801,8 @@ check holds as written; the bug body replaces the task entry in Appendix A's bri
 files it names plus gate 4's implicit set; DoD = the bug's reproduction as a test that fails
 before and passes after, plus green build and test; worktree ic2-work\fix-<issue>, branch
 fix/<issue>-<slug>, commit subject "fix <issue>: <subject>" (no #), PR body "Closes #<issue>";
-implementer Sonnet/Medium; reviewer Opus/Medium with the line "Fix lane: gates 0, 1, 3 and 4
-plus a read of the diff; no mutation protocol" at the top of its brief. In step 3, a failing
+implementer the default, as step 1 says (deepseek-flash, then Claude Sonnet); reviewer by step 2's tier (complex at least) with the line "Fix lane:
+gates 0, 1, 3 and 4 plus a read of the diff; no mutation protocol" at the top of its brief. In step 3, a failing
 review while the issue carries review-round:1 files a correction task at the contract tier and
 stops; there is no review-round:2. In step 4 the follow-up issue is "#<issue> follow-up", and
 the docs item applies only if the review named a claim.
@@ -716,13 +812,148 @@ the docs item applies only if the review named a claim.
    `gh issue list --label triage:needed --state open`: triage anything that names this
    task, or ask the user. Confirm every merge-after dependency is status:merged and the issue is
    status:ready. Don't start a local-only or single-instance task whose prerequisite is missing.
-1. IMPLEMENT. Label status:in-progress. Dispatch the implementer: Agent(general-purpose, model =
-   the catalogue's, run_in_background, prompt = build-process.md Appendix A filled in from the
-   task entry, plus any review URLs from an earlier attempt). Wait for its completion
-   notification; don't poll. If it reports a defect in merged code, go to step 5 (bug).
-2. REVIEW. Check the PR exists and CI has run. Label status:in-review. Dispatch the reviewer:
-   Agent(model = the catalogue's reviewer model, prompt = Appendix B filled in). Wait.
+   Run `bash scripts/unevaluated-reports.sh` (evidence-pipeline.md, "What triggers it"); the
+   session-start count may be stale. If a listed report concerns a rule the task's Owns or Scope
+   touches (the report's title or key terms match the task's), hold the task, tell the user why,
+   and run /process-evidence first. A report that does not concern this task never holds it, and
+   a failed script holds nothing: report the failure and go on.
+1. IMPLEMENT. Label status:in-progress. Fill build-process.md Appendix A from the task entry
+   (plus any review URLs from an earlier attempt). Then, by the entry's model (§3.3: Sonnet reads
+   as the default, and so do a non-architecture Opus and a High-effort entry; a fix or a Low-effort task
+   is the default too):
+   - an OpenCode model (luna, glm-flash, deepseek-flash, glm, mimo-pro, mimo-flash): write the brief to a file and run
+     `pwsh scripts/external-implement.ps1 -Task T<nn> -Slug <slug> -Issue <n> -Model auto
+     -BriefFile <file>` (`-Fix <issue>` for a fix; `-LocalOnly` where the label says). `-Model auto`
+     (the default) runs deepseek-flash alone; pass an explicit `-Model
+     <model>` only when the entry names another model (glm, luna, ...), which then runs alone. It creates
+     the worktree and branch, runs OpenCode there, and returns with the PR number or a warning;
+     read its tail. Run it in the background and watch it (operating-guide §3): the session must
+     start and keep making progress; on a failure read its stderr and the OpenCode log, record the
+     cause in one comment, and fall back at once (exit 3: Claude Sonnet).
+   - a Claude model: Agent(general-purpose, model = the catalogue's, run_in_background, prompt =
+     the brief). Wait for its completion notification; don't poll.
+   If the implementer reports a defect in merged code, go to step 5 (bug).
+2. REVIEW. Check the PR exists and CI has run. Label status:in-review. Set the review tier, then
+   dispatch by it (build-process.md §3.4, the user's decision of 2026-10-03; a plan PR is
+   reviewed per §4.9, not here).
+   a. CLASSIFY. Build the state file and ask Jev (for a fix, write "PR kind: fix" and the bug
+      body, `gh issue view <issue> --json body --jq .body`, in place of the entry):
+        mkdir -p rendered/review-tier
+        git fetch -q origin pull/<pr>/head
+        { echo "PR kind: task"; cat docs/tasks/T<nn>.md; echo; echo "--- git diff --stat ---";
+          git diff --stat origin/main...FETCH_HEAD; } > rendered/review-tier/<pr>.txt
+        pwsh scripts/jev-ask.ps1 -StateFile rendered/review-tier/<pr>.txt -QuestionsFile scripts/jev/review-complexity.json
+   b. CONFIRM. Bucket act (probability 0.9 or above): take Jev's tier unless §3.4's criteria say
+      otherwise; bucket claude: decide by §3.4's criteria. A task or fix PR is never simple,
+      whatever Jev says. A failed Jev call blocks nothing: decide by the criteria. Record the tier,
+      Jev's answer and probability, and any override in one PR comment.
+   c. WHO IMPLEMENTED, AND PROBES. IMPL is the name on external-implement.ps1's "implemented by:"
+      line (deepseek-flash, glm, luna, ...), or sonnet or opus when Claude implemented (the Sonnet
+      fallback, or Opus on an architecture task). Families: OpenAI = luna, sol; GLM = glm,
+      glm-flash; DeepSeek = deepseek, deepseek-pro, deepseek-flash; Claude = sonnet, opus. Every
+      script run passes `-ExcludeModel <IMPL>` (sonnet and opus are accepted and exclude no
+      OpenCode reviewer); never pick a reviewer of IMPL's family, Claude included. Each brief is
+      Appendix B filled in, written to rendered/review-tier/<pr>-<reviewer>.md (before dispatch,
+      `grep -n '<the main session' <brief>` must print nothing: item 2 of its "Blocking means" is
+      named, never left as the placeholder), its first line the
+      header "T<nn> review (<Name>)", <Name> being Sol, Luna, GLM, DeepSeek or DeepSeek Pro
+      (always pass -Reviewer, never a -ModelIds override). A brief for GLM or DeepSeek is never
+      shortened: it always carries both sections in full, "Blocking means" written for this PR
+      and "Report every blocking finding in this one review", for a substitute, a pair member and
+      a re-check alike (the user's decision of 2026-10-04). Before a complex or very complex
+      review (not at session start; the user's decision of 2026-10-03), probe Sol's substitutes so
+      that one provider's quota cannot block it:
+        pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer sol -ExcludeModel <IMPL> -BriefFile rendered/review-tier/<pr>-sol.md -WhatIf
+        pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer glm -ExcludeModel <IMPL> -BriefFile rendered/review-tier/<pr>-sol.md -WhatIf
+        pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer deepseek-pro -ExcludeModel <IMPL> -BriefFile rendered/review-tier/<pr>-sol.md -WhatIf
+      They bill nothing. -WhatIf runs the family check first: exit 1 "Refused" means that
+      reviewer is of IMPL's family and is skipped, which is not a red probe; exit 0 means the CLI,
+      the argument line and the family are fine, not that the provider will serve the run. Note
+      a red probe (any other failure) in the tier comment. Run every review
+      script in the background and watch it (operating-guide §3). While OpenCode is suspended for
+      reviews (two failures of the same cause), treat every script command below as exit 3.
+   d. DISPATCH. The commands:
+        SOL    pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer sol -Effort low -ExcludeModel <IMPL> -BriefFile rendered/review-tier/<pr>-sol.md -Issue <n> -ApplyLabel
+               (-Effort medium only for a very complex PR that Claude implemented, or a complex
+               PR whose earlier low-effort Sol review missed what a later review found; never
+               high: the user's decision of 2026-10-03, "Sol sparingly, at most medium")
+        LUNA   pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer luna -ExcludeModel <IMPL> -BriefFile rendered/review-tier/<pr>-luna.md
+        GLM    pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer glm -ExcludeModel <IMPL> -BriefFile rendered/review-tier/<pr>-glm.md
+        DSP    pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer deepseek-pro -ExcludeModel <IMPL> -BriefFile rendered/review-tier/<pr>-deepseek-pro.md
+        SUB x  pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer x -ExcludeModel <IMPL> -BriefFile rendered/review-tier/<pr>-x-for-sol.md -Issue <n> -ApplyLabel
+               (x is glm or deepseek-pro, never luna: Luna reviews only the simple tier, the
+               user's decision of 2026-10-04; the brief is Sol's, unchanged except that its
+               header names x, one sentence says it
+               reviews in Sol's place and why, and Sol's earlier reviews on the PR are linked so it
+               re-takes their attacks; probe x with -WhatIf first)
+        OPUS   Agent(model opus, prompt = Appendix B filled in): a cold reviewer, which applies the label
+        SONNET Agent(model sonnet, prompt = Appendix B filled in, plus "Do not apply a status label;
+               the main session applies it from every review.")
+      A trailing "-" (SOL-, SUB- x) means the same command without -Issue <n> -ApplyLabel: one of
+      several reviews.
+      QUOTA FIRST (harness_imperial L50, the user's decision of 2026-10-05): before choosing or
+      dispatching any model, run `curl -s localhost:8765/avoid` (docs/environment.md). A reviewer or
+      implementer whose provider is listed there (openai for sol, by its `7d` window; openai for luna, by its own `gpt-5.6-luna:7d` window; zai for glm, glm-flash;
+      opencode_go for deepseek*, mimo*; claude for sonnet, opus) is skipped as if it had exited 3 (luna only when its own window is at 95% or more),
+      and the next one of its chain runs, passed explicitly; the tier comment or PR body says so
+      ("GLM skipped: zai exhausted until 21:40; reviewed by Sol"). Luna is GPT-5.6 Luna on its own
+      weekly pool: it stays usable while `curl -s localhost:8765/quota/openai` shows its
+      `gpt-5.6-luna:7d` window under 95%, even when openai is exhausted. If the service does not
+      answer (`curl -sf localhost:8765/health`), go on without it and count a usage-limit error as
+      exhausted.
+      DIAGNOSE, when SOL or LUNA exits 3: search the files the script kept and named, and the newest
+      log in %USERPROFILE%\.local\share\ic2-opencode-1x\data\opencode\log\, for "The usage limit has
+      been reached" (or "insufficient_quota", or Z.AI's "Usage limit reached for 5 hour"), and read
+      `curl -s localhost:8765/quota/openai?refresh`. Sol's 7d window at 95% or more, or the text
+      found, means QUOTA (Sol is out); otherwise SOL-ONLY. Luna's own window decides only Luna.
+      SOL'S SUBSTITUTES, skipping any of IMPL's family, the next only on exit 3:
+        SOL-ONLY (or the user asked to avoid Sol's cost) and QUOTA alike: SUB glm, then SUB
+        deepseek-pro. The diagnosis is recorded, and decides only the simple tier's fallback.
+      After the last one: OPUS when IMPL is not Claude; escalate (step 5) when it is (the user's
+      decision of 2026-10-03). Never wait for
+      Sol unless the user says to.
+      THE PAIR (the OpenCode pair, the Luna pair until the user's decision of 2026-10-04; no Luna):
+      run GLM and DSP, skipping IMPL's family; SONNET takes the place of the one skipped or of one
+      that exits 3, unless IMPL is Claude. The pair has failed when it cannot reach two reviews.
+      - complex, IMPL DeepSeek, GLM or MiMo: SOL. Exit 3: DIAGNOSE, then SOL'S SUBSTITUTES, then
+        OPUS.
+      - complex, IMPL Claude: SOL. Exit 3: DIAGNOSE, then SOL'S SUBSTITUTES, then escalate.
+      - complex or very complex, IMPL OpenAI (luna): OPUS.
+      - very complex, IMPL not Claude: OPUS.
+      - very complex, IMPL Claude (the user's decision of 2026-10-03), in this order:
+        1. Run SOL- alone (with -Effort medium) and wait for its outcome. Start nothing else yet.
+        2. SOL- posted: run THE PAIR. Count: SOL- + GLM + DSP = three.
+        3. SOL- exits 3: DIAGNOSE (for the record). SOL-ONLY and QUOTA alike: run THE PAIR alone;
+           no third family is left to stand in for Sol. Count: two (the user's decision of
+           2026-10-04).
+        4. Escalate (step 5) when the count cannot be reached: THE PAIR fails.
+      Labels: with one review, its reviewer labels (SOL, SUB x or OPUS). With two or three, the
+      main session labels: status:approved only when every review approves, status:rework when any
+      asks for rework (step 3 relays every review in full), and it escalates on any user decision.
+      RECORD a substitute: for a task, commit on main a one-line note in docs/tasks/T<nn>.md's
+      Reviewer field ("2026-MM-DD: <substitute> reviewed in Sol's place: <reason>"), subject
+      "Docs: T<nn> reviewer", a routine doc claim; for a fix, put it in the tier comment. Append
+      one entry to the wiki page Model trials: the error, the probe results, the substitute, and
+      what it caught or missed against Sol's earlier rounds.
+   Exit 5 means GitHub did not take the comment (gh pr comment failed twice, or returned no
+   comment URL; bug #645): nothing was posted and no label was set; read the saved file the
+   script names (rendered\review-not-posted-pr<pr>-<reviewer>-<time>.md), post it by hand with
+   `gh pr comment <pr> --body-file <that file>`, and act on its verdict as if the script had.
+   Exit 4 means a review was posted flagged (cut off, verdict unreadable, or findings after the
+   closing verdict) and no label was set: read it on the PR and decide (count it by its content,
+   or run that path's next reviewer). Exit 1 with "Refused" means a reviewer of IMPL's family was
+   named: fix the command. A rework round's re-review keeps the tier and its reviewers, except
+   Sol, which runs only where the tier names it (the user's decision of 2026-10-03): a re-check
+   of named fixes (the one-line confirmation after "approve after named fixes", or a rework
+   re-review that only checks the named findings) goes, with the earlier reviews linked in its
+   brief, to LUNA on a simple PR, and on a complex or very complex PR to the first of GLM and DSP
+   that IMPL's family does not exclude (the user's decision of 2026-10-04), and back to
+   SOL only when the fixes rewrote more than the named findings.
 3. DECIDE on the label the reviewer applied:
+   - Before acting on an approve that carries "not blocking" findings, read every one. If one is a
+     proven way past what the brief's "Blocking means" item 2 names, treat the review as rework:
+     say so on the PR, set status:rework, and record it on the wiki page Model trials (harness
+     lesson L47, the user's decision of 2026-10-04).
    - status:approved: wait for CI green. If the branch is behind main, run
      `gh pr update-branch <pr>` and wait for green again. For T16 and T22, stop and get the
      user's thumbs-up first. Then `gh pr merge <pr> --squash --delete-branch`, label
@@ -735,7 +966,16 @@ the docs item applies only if the review named a claim.
      every finding names a file in the PR's diff (`gh pr view <pr> --json files`). A review naming
      files outside it reviewed the wrong tree: discard it, say so, and re-dispatch the reviewer.
      Never relay it to the implementer.
-     Then, if the issue carries review-round:2, escalate (step 5). Otherwise set the next round
+     ONE BLOCKER PER ROUND, checked first: if this review and the one before it each named
+     exactly one blocking finding (two rounds running), stop: go through the whole diff yourself
+     for the same class of problem, mark what you find as the main session's findings, and
+     append the pattern to the wiki page Model trials: the reviewer, the PR, the rounds and the
+     class (the user's decision of 2026-10-04). Your findings go with the review's, on whichever
+     path follows: into this rework; at review-round:2, into the escalation comment; on a fix at
+     review-round:1, into the correction task's entry.
+     Then, on a fix whose issue carries review-round:1, file the correction task at the contract tier
+     with the review's findings and yours, keep the branch, and stop (§4.10: a fix gets one rework
+     round). Otherwise, if the issue carries review-round:2, escalate (step 5). Otherwise set the next round
      (none → review-round:1 → review-round:2) and send the implementer the FULL review comment
      URL: SendMessage if it is reachable, else a fresh implementer resuming the branch. Then go
      back to step 2.
@@ -753,6 +993,17 @@ the docs item applies only if the review named a claim.
    - Bug in merged code (§4.6): label the task status:blocked with "suspended on #N". File the
      bug (bug, triage:needed; the body opens "Blocks: T<nn>"). Triage it, or bring it to the
      user. Stop the run.
+
+A MAINTENANCE-LINE ITEM (a task or fix labelled release:v0.4.x after v0.4.1, release-plan.md
+§2.2.2) runs through the same steps with these overrides. Before step 1, the main session creates
+and pushes its branch from origin/release/0.4 (git branch <branch> origin/release/0.4; git push -u
+origin <branch>), so every implementer resumes it. In Appendix A's and B's briefs, in gate 0 and in
+step 2's state file, every origin/main reads origin/release/0.4, and the brief's first line says so.
+The PR is opened with --base release/0.4 and says "Refs #<issue>", never "Closes". In step 3, the
+merge is followed at once by the forward port: a port/<issue>-<slug> branch from origin/main with
+git cherry-pick -x <the squash commit>, a PR against main saying "Closes #<issue>", reviewed per
+release-plan §2.2.2 and merged on an approving review and green CI. The issue is status:merged when
+the port merges, or when the recorded no-port reason has been told to the user.
 
 Never: merge without an approving review and green CI; weaken a DoD; let the implementing agent
 review its own PR; force-push; delete a task branch that holds unmerged work; patch a defect in

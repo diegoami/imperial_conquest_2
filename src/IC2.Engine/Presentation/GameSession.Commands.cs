@@ -4,6 +4,7 @@ using IC2.Engine.Battle.Commands;
 using IC2.Engine.Cities.Orders;
 using IC2.Engine.Core;
 using IC2.Engine.Diplomacy.Commands;
+using IC2.Engine.Economy.Commands;
 using IC2.Engine.Model;
 using IC2.Engine.Naval.Commands;
 using IC2.Engine.News;
@@ -293,6 +294,44 @@ public sealed partial class GameSession
         return IssueCommand(new JoinUnitsCommand(State.ActiveNationId, tokens[1], first, second));
     }
 
+    private IReadOnlyList<string> HandleSplitUnit(string[] tokens)
+    {
+        if (tokens.Length != 4
+            || !int.TryParse(tokens[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var unitIndex)
+            || !int.TryParse(tokens[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var troops))
+        {
+            return new[] { "Usage: split-unit <army> <unit-index> <troops>" };
+        }
+
+        return IssueCommand(new SplitUnitCommand(State.ActiveNationId, tokens[1], unitIndex, troops));
+    }
+
+    private IReadOnlyList<string> HandleRenameUnit(string[] tokens)
+    {
+        if (tokens.Length < 4
+            || !int.TryParse(tokens[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var unitIndex))
+        {
+            return new[] { "Usage: rename-unit <army> <unit-index> <name>" };
+        }
+
+        // The name is free text and may contain spaces ("Legio I"); the tokenizer splits only on spaces, so
+        // runs of spaces collapse to one on rejoin. A tab survives the split and is rejected anyway by
+        // RenameUnitCommandHandler.IsValidName, as is a leading or trailing space.
+        var name = string.Join(' ', tokens[3..]);
+        return IssueCommand(new RenameUnitCommand(State.ActiveNationId, tokens[1], unitIndex, name));
+    }
+
+    private IReadOnlyList<string> HandleDisbandUnit(string[] tokens)
+    {
+        if (tokens.Length != 3
+            || !int.TryParse(tokens[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var unitIndex))
+        {
+            return new[] { "Usage: disband-unit <army> <unit-index>" };
+        }
+
+        return IssueCommand(new DisbandUnitCommand(State.ActiveNationId, tokens[1], unitIndex));
+    }
+
     private IReadOnlyList<string> HandleSplitArmy(string[] tokens)
     {
         if (tokens.Length != 4
@@ -303,6 +342,82 @@ public sealed partial class GameSession
 
         return IssueCommand(
             new SplitArmyCommand(State.ActiveNationId, tokens[1], tokens[2], ValueList.Of(unitIndex)));
+    }
+
+    /// <summary>
+    /// <c>army-transfer &lt;from&gt; &lt;to&gt; [units=&lt;i,j,...&gt;] [supply=&lt;tons&gt;]
+    /// [money=&lt;talents&gt;]</c> — <c>docs/tasks/T106.md</c>. Only the option syntax is parsed here (each
+    /// option once, whole numbers, comma-separated non-negative unit indexes); everything the rules
+    /// disallow — an unknown or foreign army, a distance other than 1, an out-of-range unit index, a
+    /// source that cannot cover the move, and every receiving cap — is enforced by
+    /// <see cref="IC2.Engine.Armies.Commands.ArmyTransferCommandHandler"/>, so this method never restates it.
+    /// </summary>
+    private IReadOnlyList<string> HandleArmyTransfer(string[] tokens)
+    {
+        const string usage =
+            "Usage: army-transfer <from> <to> [units=<i,j,...>] [supply=<tons>] [money=<talents>]";
+
+        if (tokens.Length < 3)
+        {
+            return new[] { usage };
+        }
+
+        var unitIndexes = new List<int>();
+        var supplyTons = 0;
+        var money = 0;
+        var seenOptions = new HashSet<string>(StringComparer.Ordinal);
+
+        for (var i = 3; i < tokens.Length; i++)
+        {
+            var separator = tokens[i].IndexOf('=', StringComparison.Ordinal);
+            if (separator <= 0 || separator == tokens[i].Length - 1)
+            {
+                return new[] { usage };
+            }
+
+            var key = tokens[i][..separator];
+            var value = tokens[i][(separator + 1)..];
+            if (!seenOptions.Add(key))
+            {
+                return new[] { usage };
+            }
+
+            switch (key)
+            {
+                case "units":
+                    foreach (var part in value.Split(','))
+                    {
+                        if (!int.TryParse(part, NumberStyles.Integer, CultureInfo.InvariantCulture, out var index)
+                            || index < 0)
+                        {
+                            return new[] { usage };
+                        }
+
+                        unitIndexes.Add(index);
+                    }
+
+                    break;
+                case "supply":
+                    if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out supplyTons))
+                    {
+                        return new[] { usage };
+                    }
+
+                    break;
+                case "money":
+                    if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out money))
+                    {
+                        return new[] { usage };
+                    }
+
+                    break;
+                default:
+                    return new[] { usage };
+            }
+        }
+
+        return IssueCommand(new ArmyTransferCommand(
+            State.ActiveNationId, tokens[1], tokens[2], ValueList.From(unitIndexes), supplyTons, money));
     }
 
     // ---- cities ----
@@ -316,6 +431,50 @@ public sealed partial class GameSession
         }
 
         return IssueCommand(new OrderCityCommand(State.ActiveNationId, tokens[1], tokens[2], points));
+    }
+
+    // ---- economy ----
+
+    /// <summary>
+    /// <c>set-tax &lt;percent&gt;</c> — <c>docs/tasks/T103.md</c>. The only parse-level rule is that the
+    /// percent is a whole integer: a blank or non-numeric argument never reaches the command layer and
+    /// prints the usage line instead, leaving the state untouched. The inclusive 0–40 range is the
+    /// ruleset's own <c>economy</c> bounds and is enforced by
+    /// <see cref="IC2.Engine.Economy.Commands.SetTaxRateCommandHandler"/>, so this method never restates it.
+    /// </summary>
+    private IReadOnlyList<string> HandleSetTax(string[] tokens)
+    {
+        if (tokens.Length != 2
+            || !int.TryParse(tokens[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var percent))
+        {
+            return new[] { "Usage: set-tax <percent>" };
+        }
+
+        return IssueCommand(new SetTaxRateCommand(State.ActiveNationId, percent));
+    }
+
+    /// <summary>
+    /// <c>transfer-money &lt;unit&gt; &lt;amount&gt; [via &lt;fleet&gt;]</c> — <c>docs/tasks/T105.md</c>.
+    /// The amount is a signed whole integer; a blank or non-numeric one never reaches the command layer and
+    /// prints the usage line instead, leaving the state untouched. Everything else — whether the id is an
+    /// army or fleet, whether it and the <c>via</c> fleet are the issuing nation's own, and the signed
+    /// amount's 1,000 ceiling — is enforced by
+    /// <see cref="IC2.Engine.Economy.Commands.TransferMoneyCommandHandler"/>, so this method never restates it.
+    /// </summary>
+    private IReadOnlyList<string> HandleTransferMoney(string[] tokens)
+    {
+        // transfer-money <unit> <amount>            (3 tokens)
+        // transfer-money <unit> <amount> via <fleet> (5 tokens)
+        var viaSyntaxOk = tokens.Length == 3
+            || (tokens.Length == 5 && string.Equals(tokens[3], "via", StringComparison.Ordinal));
+        if (!viaSyntaxOk
+            || !int.TryParse(tokens[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var amount))
+        {
+            return new[] { "Usage: transfer-money <unit> <amount> [via <fleet>]" };
+        }
+
+        var viaFleetId = tokens.Length == 5 ? tokens[4] : null;
+        return IssueCommand(new TransferMoneyCommand(State.ActiveNationId, tokens[1], amount, viaFleetId));
     }
 
     // ---- diplomacy ----
@@ -482,14 +641,38 @@ public sealed partial class GameSession
         return IssueCommand(new EmbarkArmyCommand(State.ActiveNationId, tokens[1], tokens[2]));
     }
 
+    /// <summary>
+    /// <c>disembark-army &lt;army&gt; [&lt;x&gt; &lt;y&gt;]</c> — bug #594. The two-token form names no
+    /// landing tile: an AI seat's own automatic branch then picks one, while a human seat is still refused
+    /// with <see cref="IC2.Engine.Naval.Commands.DisembarkArmyRejections.LandingTileRequired"/> exactly as
+    /// before. The four-token form names the landing tile, which the engine's own adjacency and passability
+    /// gates still check — this parser restates neither. A malformed tile (non-numeric, a missing
+    /// coordinate, or a negative one — bug #594 rework R1) never reaches the command layer and prints the
+    /// usage line instead.
+    /// </summary>
     private IReadOnlyList<string> HandleDisembarkArmy(string[] tokens)
     {
-        if (tokens.Length != 2)
+        if (tokens.Length == 2)
         {
-            return new[] { "Usage: disembark-army <army>" };
+            return IssueCommand(new DisembarkArmyCommand(State.ActiveNationId, tokens[1], null, null));
         }
 
-        return IssueCommand(new DisembarkArmyCommand(State.ActiveNationId, tokens[1], null, null));
+        // Bug #594 rework R1: int.TryParse accepts int.MinValue, and that negative coordinate then reaches
+        // LandingTile.ChebyshevDistance, where Math.Abs(int.MinValue) throws OverflowException out of Submit.
+        // A landing tile is a non-negative map index, so refuse a negative coordinate here, at the parser
+        // boundary, and print the usage line instead. A positive off-map tile is left to the engine's own
+        // distance and passability gates, which reject it cleanly (and no non-negative pair can overflow the
+        // subtraction).
+        if (tokens.Length != 4
+            || !int.TryParse(tokens[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var x)
+            || !int.TryParse(tokens[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var y)
+            || x < 0
+            || y < 0)
+        {
+            return new[] { "Usage: disembark-army <army> [<x> <y>]" };
+        }
+
+        return IssueCommand(new DisembarkArmyCommand(State.ActiveNationId, tokens[1], x, y));
     }
 
     private IReadOnlyList<string> HandleBuyFleetSupply(string[] tokens)

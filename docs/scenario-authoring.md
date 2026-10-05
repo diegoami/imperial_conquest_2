@@ -116,6 +116,8 @@ Each nation in `nations` is an object with:
 | `id` | string | Yes | Unique identifier (e.g., "rome", "gaul", "egypt"). |
 | `name` | string | Yes | Display name (e.g., "Roman Republic"). |
 | `colorHex` | string | Yes | Hex color code for the nation (e.g., "#c62828"). |
+| `glyphColorHex` | string | No | Hex color code for the glyph drawn on the nation's markers (e.g., "#0000FF"); `colorHex` is the background square. |
+| `battleColorsHex` | array of strings | No | The nation's three tactical-battle icon colours as `#RRGGBB` strings, in the original's substitution order (the nation record's `+0x424`, `+0x428` and `+0x42C`; T128 recolours the 5 × 3 unit icons from this list). |
 | `leaderName` | string | Yes | Name of the nation's leader. |
 | `capitalCityId` | string | Yes | The `id` of the city that is this nation's capital (must resolve to a city in `cities`). |
 | `treasury` | integer | Yes | Starting treasury (gold coins). |
@@ -308,6 +310,7 @@ The `unitTypes` array is a list of unit stat rows. Each unit type is an object w
 | `recruitCost` | integer | Yes | Talents charged to place a standing-recruitment order for one battalion. |
 | `quarterlyPrice` | integer | Yes | Quarterly upkeep cost (talents), and the same price a mercenary hire uses. |
 | `combatPowerWeight` | integer | Yes | Per-unit weight this type contributes to a field battle's power calculation (`Strength/ArmyPower.cs`). |
+| `shotVulnerability` | integer | Yes | The original unit-type table's `+0x20` shooting-vulnerability weight, read for the *target's* type by the tactical battle's shot formula (`combat.tactical`). Light infantry 18, heavy infantry 2, archers 18, light cavalry 15, heavy cavalry 4. |
 | `_provenance` | object | No | Provenance map. |
 
 ### Terrain rules
@@ -330,6 +333,8 @@ objects documented in their own subsections below.
 | Field | Type | Range / unit | Meaning |
 |-------|------|--------------|---------|
 | `taxRateDivisor` | integer | divisor | `TaxIncome`: quarterly tax income = `taxBase × taxRatePercent / this`. |
+| `taxRateMinPercent` | integer | whole percent | `SetTaxRateCommandHandler`: the lowest rate `set-tax` accepts — the original `TChangeTax` slider's minimum. |
+| `taxRateMaxPercent` | integer | whole percent | `SetTaxRateCommandHandler`: the highest rate `set-tax` accepts — the original `TChangeTax` slider's maximum. |
 | `shipUpkeepPerQuarter` | integer | talents/ship | `ShipUpkeep`: quarterly fleet upkeep = `ships × this`. |
 | `mobilizationDecayPerQuarter` | integer | percentage points | `NationUnityUpdate.DecayMobilization`: mobilization lost each quarter, floored at 0. |
 | `unityCap` | integer | 0–this | The upper clamp every unity-changing formula in the engine respects. |
@@ -553,6 +558,7 @@ two nested groups for the naval variant and the reserved "detailed" resolver.
 | `naval` | object | — | The naval variant of the instant resolver. See "Naval combat" below. |
 | `scatteredDefeat` | object | — | The `improved` ruleset's alternative to annihilating the loser. See "Scattered defeat" below. |
 | `detailedResolver` | object | — | Reserved constants for an optional, not-yet-wired resolver. See "Detailed resolver (reserved)" below. |
+| `tactical` | object | — | Every constant of the v0.6.0 tactical battle (the ported `TBattleMap`). See "Tactical battle" below. |
 | `_provenance` | object | No | Provenance map. |
 
 #### Naval combat (`combat.naval`)
@@ -600,6 +606,57 @@ consume them does not exist yet.
 | `inRangeShotMultiplier` | integer | Reserved: a multiplier applied to shots within range. |
 | `typeEffectivenessOrder` | array of strings | Reserved: unit-type ids giving the row/column order of `typeEffectiveness`. |
 | `typeEffectiveness` | array of arrays of integers | Reserved: a square matrix of effectiveness multipliers, indexed by `typeEffectivenessOrder`. |
+| `_provenance` | object | Provenance map. |
+
+#### Tactical battle (`combat.tactical`)
+
+`TacticalBattleRules`: every gameplay constant of the original's 14 × 12 grid battle (`TBattleMap`),
+transcribed from `2026-10-04-decompiled-tactical-battle-rules.md`. Read by the v0.6.0 tactical battle
+(T123, T124), never by the shipped instant resolver. Field names are designed; every value is
+confirmed from the report section named in each field's own provenance note.
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `boardWidth` | integer | Board width in cells (14). |
+| `boardHeight` | integer | Board height in cells (12). |
+| `homeRows` | integer | The attacker places in `y < this`, the defender in `y > boardHeight − this − 1` (3). |
+| `copyInColumns` | integer | Copy-in stride: `(s mod this, s div this)` for the attacker, mirrored for the defender (13). |
+| `computerArmyMoraleBonus` | integer | Strategic army morale a computer-controlled side gains at copy-in (3). |
+| `moraleQualityFactor` | integer | `Random(quality × this)` in the copy-in morale formula (4). |
+| `moraleMin` | integer | Lower clamp of the copy-in battle morale (60). |
+| `moraleMax` | integer | Upper clamp of the copy-in battle morale (90). |
+| `slowAdvanceMoves` | integer | Moves a computer-controlled non-heavy-infantry unit gets during the slow advance (1). |
+| `slowAdvanceMinDistance` | integer | The slow advance applies while the nearest-enemy distance is greater than this (2). |
+| `slowAdvanceHalfRounds` | integer | The slow advance applies while the half-round counter is below this (10). |
+| `slowAdvanceExemptType` | string | The unit-type id exempt from the slow advance (`"heavy_infantry"`). |
+| `shotTroopsFactor` | integer | `troops_s × this` in the shot denominator (5). |
+| `shotDivisorBase` | integer | The constant term added to the shot denominator (150000). |
+| `shotShooterTroopsDivisor` | integer | `troops_s div this` cap of the shot bound (3). |
+| `shotTargetTroopsDivisor` | integer | `troops_t div this` cap of the shot bound (2). |
+| `shotMoraleNumerator` | integer | `(loss × this) div (troops_t + 1)` of a shot's target morale loss (35). |
+| `shotMoraleCap` | integer | The cap on that morale loss (3). |
+| `meleeFocusCap` | integer | The cap on the melee focus count `f` (4). |
+| `meleeAttackerExchangeDivisor` | integer | The `div this` in the attacker's exchange bound `nA` (12). |
+| `meleeDefenderExchangeDivisor` | integer | The `div this` in the defender's exchange bound `nD` (10). |
+| `moraleWinnerDelta` | integer | Morale gained by the side that lost the smaller troop fraction (2). |
+| `moraleLoserDelta` | integer | Morale lost by the other side, ties against the attacker (−3). |
+| `moraleCap` | integer | Cap on every tactical morale gain (99). |
+| `routTroopsDivisor` | integer | A unit below `standardBattalionSize div this` troops is removed (25). |
+| `routMoraleAutomatic` | integer | Morale at or below which a unit is removed without a draw (19). |
+| `routMoraleSafe` | integer | Morale above which the rout draw never removes the unit (39). |
+| `routDrawThreshold` | integer | The `Random(m) + Random(m)` threshold of the rout draw (29). |
+| `routFriendPenalty` | integer | Morale every live friend loses when a unit routs (6). |
+| `routCascadeBelow` | integer | A friend dragged below this morale is removed, one cascade level deep (30). |
+| `routEnemyBonus` | integer | Morale every live enemy gains when a unit routs (5). |
+| `placementFormations` | array of arrays of strings | The computer general's placement table: five rows of four unit-type ids, in block order. |
+| `typeOrder` | array of strings | The computer general's per-half-round unit-type order. |
+| `targetPreferences` | array of objects | The computer general's target preferences. Each entry has `type` (a unit-type id) and `prefers` (an ordered list of enemy unit-type ids; an entry absent means any enemy). |
+| `scoreDivisor` | integer | Divisor of the computer general's target score (10000). |
+| `claimLimit` | integer | The claim count below which the score is divided by `c + 1`, otherwise doubled (4). |
+| `archerEngageDistance` | integer | Distance strictly below which archers engage instead of moving (3). |
+| `approachBoxRadius` | array of integers | The approach-box radius per unit type, in `unitTypes` order (archers 2, others 1). |
+| `flankFlipChanceDenominator` | integer | `Random(this) = 0` flips a flank's horizontal direction (3). |
+| `dangerQualityDivisor` | integer | `quality div this` in the computer general's last-move danger term (100). |
 | `_provenance` | object | Provenance map. |
 
 ### Siege rules

@@ -35,19 +35,60 @@ public static class NationTreasuryCredit
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(ruleset);
 
-        var economy = ruleset.Economy;
-        var cityCount = state.CountCitiesOwnedBy(nation.Id);
-        var tradeIncome = TradeIncome(nation, state, ruleset);
-
         return TaxIncome.Compute(nation.TaxBase, nation.TaxRatePercent, ruleset)
-               + (nation.TaxBase / economy.TreasuryCreditTaxBaseQuarterShareDivisor)
-               - (cityCount * economy.TreasuryCreditPerCityUpkeep)
-               - (nation.Wealth / economy.TreasuryCreditWealthDivisor)
-               + tradeIncome;
+               + TaxBaseQuarterShare(nation, ruleset)
+               - CityAndWealthUpkeep(nation, state, ruleset)
+               + TradeIncome(nation, state, ruleset);
     }
 
-    private static int TradeIncome(NationState nation, GameState state, Ruleset ruleset)
+    /// <summary>
+    /// The credit's <c>taxBase / 4</c> income term, shared with the balance-sheet projection
+    /// (<c>docs/tasks/T104.md</c>) so the two can never restate the formula differently.
+    /// </summary>
+    /// <param name="nation">The nation whose tax base is read.</param>
+    /// <param name="ruleset">
+    /// Supplies <see cref="EconomyRules.TreasuryCreditTaxBaseQuarterShareDivisor"/> — never a C# literal.
+    /// </param>
+    public static int TaxBaseQuarterShare(NationState nation, Ruleset ruleset)
     {
+        ArgumentNullException.ThrowIfNull(nation);
+        ArgumentNullException.ThrowIfNull(ruleset);
+        return nation.TaxBase / ruleset.Economy.TreasuryCreditTaxBaseQuarterShareDivisor;
+    }
+
+    /// <summary>
+    /// The credit's two deduction terms, <c>cityCount × 7</c> and <c>wealth / 20000</c>, as one shared
+    /// figure — the balance-sheet projection lists them as its single "city and wealth upkeep" line
+    /// (<c>docs/tasks/T104.md</c>), and the credit subtracts exactly this value.
+    /// </summary>
+    /// <param name="nation">The nation whose wealth is read.</param>
+    /// <param name="state">Supplies the live city count.</param>
+    /// <param name="ruleset">
+    /// Supplies <see cref="EconomyRules.TreasuryCreditPerCityUpkeep"/> and
+    /// <see cref="EconomyRules.TreasuryCreditWealthDivisor"/> — never a C# literal.
+    /// </param>
+    public static int CityAndWealthUpkeep(NationState nation, GameState state, Ruleset ruleset)
+    {
+        ArgumentNullException.ThrowIfNull(nation);
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(ruleset);
+
+        var economy = ruleset.Economy;
+        return (state.CountCitiesOwnedBy(nation.Id) * economy.TreasuryCreditPerCityUpkeep)
+               + (nation.Wealth / economy.TreasuryCreditWealthDivisor);
+    }
+
+    /// <summary>
+    /// The credit's trade term: <c>Σ</c> over partners at trade or alliance of that partner's own tax base
+    /// divided by <see cref="EconomyRules.TradeIncomeTaxBaseDivisor"/>. Shared with the balance-sheet
+    /// projection (<c>docs/tasks/T104.md</c>), which lists it as its own "trade income" line.
+    /// </summary>
+    public static int TradeIncome(NationState nation, GameState state, Ruleset ruleset)
+    {
+        ArgumentNullException.ThrowIfNull(nation);
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(ruleset);
+
         var stateCodes = ruleset.Diplomacy.StateCodes;
         var divisor = ruleset.Economy.TradeIncomeTaxBaseDivisor;
         var total = 0;

@@ -37,6 +37,7 @@
       "recruitCost": 2,
       "quarterlyPrice": 1,
       "combatPowerWeight": 20,
+      "shotVulnerability": 18,
       "_provenance": {
         "moves": "confirmed: unit-type-stat-table-in-dat.md — unit-type table +0x18. T04 fixtures corpus id: 'unitType.lightInfantry.moves'.",
         "standardBattalionSize": "confirmed: unit-type-stat-table-in-dat.md — +0x1A. T04 fixtures corpus id: 'unitType.lightInfantry.battalionSize'.",
@@ -44,7 +45,8 @@
         "range": "confirmed: unit-type-stat-table-in-dat.md — +0x1E. T04 fixtures corpus id: 'unitType.lightInfantry.range'.",
         "recruitCost": "confirmed: unit-type-stat-table-in-dat.md — +0x22, the initial recruit cost. T04 fixtures corpus id: 'unitType.lightInfantry.recruitCostInitial'.",
         "quarterlyPrice": "confirmed: unit-type-stat-table-in-dat.md — +0x24, the quarterly price used by upkeep and mercenary hire. T04 fixtures corpus id: 'unitType.lightInfantry.recruitCostQuarterly'.",
-        "combatPowerWeight": "confirmed: decompiled-unit-map-orders-and-record-fields.md — +0x26, identified there as the per-type combat-power weight used by field-battle strength. T04 fixtures corpus id: 'unitType.lightInfantry.powerWeight'."
+        "combatPowerWeight": "confirmed: decompiled-unit-map-orders-and-record-fields.md — +0x26, identified there as the per-type combat-power weight used by field-battle strength. T04 fixtures corpus id: 'unitType.lightInfantry.powerWeight'.",
+        "shotVulnerability": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §4 — the unit-type table's +0x20 shooting-vulnerability weight, read for the target's type by the tactical shot formula. T04 fixtures corpus id: 'unitType.lightInfantry.shotVulnerability'."
       }
     },
     {
@@ -58,6 +60,7 @@
       "recruitCost": 20,
       "quarterlyPrice": 2,
       "combatPowerWeight": 100,
+      "shotVulnerability": 2,
       "_provenance": {
         "moves": "confirmed: unit-type-stat-table-in-dat.md T04 fixtures corpus id: 'unitType.heavyInfantry.moves'.",
         "standardBattalionSize": "confirmed: unit-type-stat-table-in-dat.md T04 fixtures corpus id: 'unitType.heavyInfantry.battalionSize'.",
@@ -65,6 +68,7 @@
         "recruitCost": "confirmed: unit-type-stat-table-in-dat.md T04 fixtures corpus id: 'unitType.heavyInfantry.recruitCostInitial'.",
         "quarterlyPrice": "confirmed: unit-type-stat-table-in-dat.md T04 fixtures corpus id: 'unitType.heavyInfantry.recruitCostQuarterly'.",
         "combatPowerWeight": "confirmed: decompiled-unit-map-orders-and-record-fields.md T04 fixtures corpus id: 'unitType.heavyInfantry.powerWeight'.",
+        "shotVulnerability": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §4 — the unit-type table's +0x20 shooting-vulnerability weight, read for the target's type by the tactical shot formula. T04 fixtures corpus id: 'unitType.heavyInfantry.shotVulnerability'.",
         "range": "T04 fixtures corpus id: 'unitType.heavyInfantry.range'."
       }
     },
@@ -79,6 +83,7 @@
       "recruitCost": 4,
       "quarterlyPrice": 1,
       "combatPowerWeight": 40,
+      "shotVulnerability": 18,
       "_provenance": {
         "moves": "confirmed: unit-type-stat-table-in-dat.md T04 fixtures corpus id: 'unitType.archers.moves'.",
         "standardBattalionSize": "confirmed: unit-type-stat-table-in-dat.md T04 fixtures corpus id: 'unitType.archers.battalionSize'.",
@@ -86,7 +91,8 @@
         "range": "confirmed: unit-type-stat-table-in-dat.md T04 fixtures corpus id: 'unitType.archers.range'.",
         "recruitCost": "confirmed: unit-type-stat-table-in-dat.md T04 fixtures corpus id: 'unitType.archers.recruitCostInitial'.",
         "quarterlyPrice": "confirmed: unit-type-stat-table-in-dat.md T04 fixtures corpus id: 'unitType.archers.recruitCostQuarterly'.",
-        "combatPowerWeight": "confirmed: decompiled-unit-map-orders-and-record-fields.md T04 fixtures corpus id: 'unitType.archers.powerWeight'."
+        "combatPowerWeight": "confirmed: decompiled-unit-map-orders-and-record-fields.md T04 fixtures corpus id: 'unitType.archers.powerWeight'.",
+        "shotVulnerability": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §4 — the unit-type table's +0x20 shooting-vulnerability weight, read for the target's type by the tactical shot formula. T04 fixtures corpus id: 'unitType.archers.shotVulnerability'."
       }
     },
     {
@@ -100,6 +106,7 @@
       "recruitCost": 15,
       "quarterlyPrice": 3,
       "combatPowerWeight": 60,
+      "shotVulnerability": 15,
       "_provenance": {
         "moves": "confirmed: unit-type-stat-table-in-dat.md T04 fixtures corpus id: 'unitType.lightCavalry.moves'.",
         "standardBattalionSize": "confirmed: unit-type-stat-table-in-dat.md T04 fixtures corpus id: 'unitType.lightCavalry.battalionSize'.",
@@ -107,7 +114,8 @@
         "range": "confirmed: unit-type-stat-table-in-dat.md T04 fixtures corpus id: 'unitType.lightCavalry.range'.",
         "recruitCost": "confirmed: unit-type-stat-table-in-dat.md — independently solved from two save-diffs in decompiled-recruitment-cost-formula.md before the table was found. T04 fixtures corpus id: 'unitType.lightCavalry.recruitCostInitial'.",
         "quarterlyPrice": "confirmed: unit-type-stat-table-in-dat.md T04 fixtures corpus id: 'unitType.lightCavalry.recruitCostQuarterly'.",
-        "combatPowerWeight": "confirmed: decompiled-unit-map-orders-and-record-fields.md T04 fixtures corpus id: 'unitType.lightCavalry.powerWeight'."
+        "combatPowerWeight": "confirmed: decompiled-unit-map-orders-and-record-fields.md T04 fixtures corpus id: 'unitType.lightCavalry.powerWeight'.",
+        "shotVulnerability": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §4 — the unit-type table's +0x20 shooting-vulnerability weight, read for the target's type by the tactical shot formula. T04 fixtures corpus id: 'unitType.lightCavalry.shotVulnerability'."
       }
     },
     {
@@ -121,6 +129,7 @@
       "recruitCost": 30,
       "quarterlyPrice": 4,
       "combatPowerWeight": 120,
+      "shotVulnerability": 4,
       "_provenance": {
         "moves": "confirmed: unit-type-stat-table-in-dat.md T04 fixtures corpus id: 'unitType.heavyCavalry.moves'.",
         "standardBattalionSize": "confirmed: unit-type-stat-table-in-dat.md T04 fixtures corpus id: 'unitType.heavyCavalry.battalionSize'.",
@@ -128,6 +137,7 @@
         "recruitCost": "confirmed: unit-type-stat-table-in-dat.md T04 fixtures corpus id: 'unitType.heavyCavalry.recruitCostInitial'.",
         "quarterlyPrice": "confirmed: unit-type-stat-table-in-dat.md T04 fixtures corpus id: 'unitType.heavyCavalry.recruitCostQuarterly'.",
         "combatPowerWeight": "confirmed: decompiled-unit-map-orders-and-record-fields.md T04 fixtures corpus id: 'unitType.heavyCavalry.powerWeight'.",
+        "shotVulnerability": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §4 — the unit-type table's +0x20 shooting-vulnerability weight, read for the target's type by the tactical shot formula. T04 fixtures corpus id: 'unitType.heavyCavalry.shotVulnerability'.",
         "range": "T04 fixtures corpus id: 'unitType.heavyCavalry.range'."
       }
     }
@@ -204,6 +214,8 @@
   },
   "economy": {
     "taxRateDivisor": 100,
+    "taxRateMinPercent": 0,
+    "taxRateMaxPercent": 40,
     "shipUpkeepPerQuarter": 3,
     "mobilizationDecayPerQuarter": 3,
     "unityCap": 990,
@@ -358,6 +370,8 @@
     "famineLoyaltyLossAmount": 1,
     "_provenance": {
       "taxRateDivisor": "confirmed: decompiled-quarterly-billing-and-economy.md and decompiled-fleet-tax-and-mercenary-formulas.md — income = nationTaxBase × taxRate / 100.",
+      "taxRateMinPercent": "derived: 2026-10-02-unit-map-mouse-orders-and-tax-range.md §(g) (Wine candidate) — the original's TChangeTax slider reports minimum 0, read live from the control (TBM_GETRANGEMIN). The range is the dialog's own, not the DAT's or the T04 fixtures corpus's; a Wine-only observation until the desktop original confirms it.",
+      "taxRateMaxPercent": "derived: 2026-10-02-unit-map-mouse-orders-and-tax-range.md §(g) (Wine candidate) — the same slider reports maximum 40 (TBM_GETRANGEMAX), which the report states is the control's real maximum, not the driver's assumption; OK at the top end writes 40 to nation +0x44A. Wine-only until the desktop original confirms it.",
       "shipUpkeepPerQuarter": "confirmed: fleet-order-at-caere.md and decompiled-fleet-tax-and-mercenary-formulas.md — ships cost 3 talents each per quarter. T04 fixtures corpus id: 'economy.shipUpkeepPerQuarter'.",
       "mobilizationDecayPerQuarter": "confirmed: city-population-growth.md — renamed from unityDecayPerQuarter (bug #68): FUN_00451b40's nation-loop '-3' is applied to mobilization (+0x442), not unity; 71 of 80 nation-quarters matched exactly across 5 quarter pairs, the other 9 being AIs recruiting or disbanding in the round. decompiled-quarterly-billing-and-economy.md's original 'unity decays 3 per quarter, clamped at 0' misattributed the field. T04 fixtures corpus id: 'economy.mobilizationDecayPerQuarter'.",
       "unityCap": "confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md — the instant resolver clamps the winner's unity with min(990, ...); city-population-growth.md's own quarterly unity update (T35) clamps to this same cap.",
@@ -616,39 +630,39 @@
       ],
       "typeEffectiveness": [
         [
+          15,
           4,
-          1,
-          0,
-          3,
-          0
+          20,
+          5,
+          3
         ],
         [
-          1,
-          4,
-          3,
-          3,
-          4
+          60,
+          5,
+          65,
+          15,
+          8
         ],
         [
-          0,
-          1,
+          10,
           3,
-          0,
-          1
+          18,
+          5,
+          3
         ],
         [
-          4,
-          4,
-          3,
-          1,
-          0
+          25,
+          8,
+          28,
+          15,
+          8
         ],
         [
-          1,
-          4,
-          3,
-          0,
-          2
+          18,
+          12,
+          20,
+          12,
+          8
         ]
       ],
       "_provenance": {
@@ -658,8 +672,108 @@
         "meleeBasePowerFloor": "confirmed: combat-type-effectiveness-matrix.md, quoting decompiled-combat-formula-structure.md — the melee power term ends '+ 12', so a zero-effectiveness matchup still deals minimum damage.",
         "meleePowerDivisor": "confirmed: combat-type-effectiveness-matrix.md — (matrix × troops × qualityTerm) / 2000 + 12.",
         "inRangeShotMultiplier": "confirmed: decompiled-combat-formula-structure.md — shots that are in range are doubled.",
-        "typeEffectiveness": "confirmed: combat-type-effectiveness-matrix.md — the 25 values are read directly from the DAT file immediately after the unit-type table, and the row/attacker versus column/defender orientation is now confirmed rather than a candidate: the report's own caveat is resolved by re-reading the melee function's index arithmetic, a 10-byte row stride indexed by the attacker's type and a 2-byte column stride indexed by the defender's type, both type fields independently confirmed because they also index the unit-type name table (see battle-replayed-rout-mechanic-and-combat-constants.md; bug #327). Rows are read here as the attacker, matching the confirmed orientation; typeEffectivenessOrder records which axis order the rows and columns use. Identical to classical-faithful.json -- this is not one of the improved column's flag-gated fields.",
+        "typeEffectiveness": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §5 — the 25 values are the melee matrix the code reads from DAT_0047946C, which the DAT loader fills from DAT offset 0x1F7A6; the earlier values, read from DAT 0x1F3B8, were two other tables (the AI placement formations at 0x479078 and the AI type order at 0x4790A0). Row = attacker and column = defender, unchanged from bug #327's confirmed orientation; typeEffectivenessOrder records which axis order the rows and columns use. Identical to classical-faithful.json -- this is not one of the improved column's flag-gated fields.",
         "_group": "This whole block belongs to the optional 'detailed' resolver held in reserve by docs/game-design.md §Combat. The shipped instant resolver does not read any of it; it is carried here so that adding the reserve resolver later is a ruleset change rather than a model change."
+      }
+    },
+    "tactical": {
+      "boardWidth": 14,
+      "boardHeight": 12,
+      "homeRows": 3,
+      "copyInColumns": 13,
+      "computerArmyMoraleBonus": 3,
+      "moraleQualityFactor": 4,
+      "moraleMin": 60,
+      "moraleMax": 90,
+      "slowAdvanceMoves": 1,
+      "slowAdvanceMinDistance": 2,
+      "slowAdvanceHalfRounds": 10,
+      "slowAdvanceExemptType": "heavy_infantry",
+      "shotTroopsFactor": 5,
+      "shotDivisorBase": 150000,
+      "shotShooterTroopsDivisor": 3,
+      "shotTargetTroopsDivisor": 2,
+      "shotMoraleNumerator": 35,
+      "shotMoraleCap": 3,
+      "meleeFocusCap": 4,
+      "meleeAttackerExchangeDivisor": 12,
+      "meleeDefenderExchangeDivisor": 10,
+      "moraleWinnerDelta": 2,
+      "moraleLoserDelta": -3,
+      "moraleCap": 99,
+      "routTroopsDivisor": 25,
+      "routMoraleAutomatic": 19,
+      "routMoraleSafe": 39,
+      "routDrawThreshold": 29,
+      "routFriendPenalty": 6,
+      "routCascadeBelow": 30,
+      "routEnemyBonus": 5,
+      "placementFormations": [
+        ["heavy_cavalry", "heavy_infantry", "light_infantry", "light_cavalry"],
+        ["light_infantry", "heavy_infantry", "heavy_cavalry", "light_cavalry"],
+        ["light_cavalry", "heavy_cavalry", "light_infantry", "heavy_infantry"],
+        ["light_cavalry", "light_infantry", "heavy_infantry", "heavy_cavalry"],
+        ["heavy_cavalry", "light_cavalry", "heavy_infantry", "light_infantry"]
+      ],
+      "typeOrder": [
+        "heavy_infantry",
+        "heavy_cavalry",
+        "light_cavalry",
+        "light_infantry",
+        "archers"
+      ],
+      "targetPreferences": [
+        { "type": "light_infantry", "prefers": ["archers", "light_infantry"] },
+        { "type": "heavy_infantry", "prefers": ["heavy_infantry"] },
+        { "type": "heavy_cavalry", "prefers": ["heavy_infantry"] }
+      ],
+      "scoreDivisor": 10000,
+      "claimLimit": 4,
+      "archerEngageDistance": 3,
+      "approachBoxRadius": [1, 1, 2, 1, 1],
+      "flankFlipChanceDenominator": 3,
+      "dangerQualityDivisor": 100,
+      "_provenance": {
+        "boardWidth": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §1 — the battle grid is 14 × 12 cells, x 0–13 and y 0–11.",
+        "boardHeight": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §1 — the grid's twelve rows, y 0–11.",
+        "homeRows": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §2 — the attacker places in y < 3 and the defender in y > 8.",
+        "copyInColumns": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §2 — copy-in is (s mod 13, s div 13) for the attacker and (s mod 13, 11 − s div 13) for the defender.",
+        "computerArmyMoraleBonus": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §2 — a computer-controlled side's strategic army morale +14 gains 3 at copy-in, unclamped and persisted.",
+        "moraleQualityFactor": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §2 — copy-in morale = max(60, min(90, Random(quality × 4) + armyMorale)).",
+        "moraleMin": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §2 — the 60 lower clamp of the copy-in battle morale.",
+        "moraleMax": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §2 — the 90 upper clamp of the copy-in battle morale.",
+        "slowAdvanceMoves": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §3 — a non-heavy-infantry computer unit gets 1 move while dmin > 2 and the counter is below 10.",
+        "slowAdvanceMinDistance": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §3 — the computer's slow advance applies while the nearest-enemy distance is greater than 2.",
+        "slowAdvanceHalfRounds": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §3 — the slow advance applies while the half-round counter, read before its own increment, is below 10.",
+        "slowAdvanceExemptType": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §3 — heavy infantry is exempt from the slow advance and always receives its full move allowance.",
+        "shotTroopsFactor": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §4 — the shot denominator is troops_s × 5 + 150000.",
+        "shotDivisorBase": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §4 — the 150000 constant term of the shot denominator.",
+        "shotShooterTroopsDivisor": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §4 — n = min(base, min(troops_s div 3, troops_t div 2)) + 1.",
+        "shotTargetTroopsDivisor": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §4 — the troops_t div 2 term of the same min.",
+        "shotMoraleNumerator": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §4, §6 — a shot costs the target min(3, (loss × 35) div (troops_t + 1)) morale.",
+        "shotMoraleCap": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §6 — the 3 cap of a shot's target morale loss.",
+        "meleeFocusCap": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §5 — f = min(4, the number of the side's slots, alive or not, targeting the defender).",
+        "meleeAttackerExchangeDivisor": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §5 — nA = ((troops_a × D) div A) div 12 + 1.",
+        "meleeDefenderExchangeDivisor": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §5 — nD = ((troops_d × A) div D) div 10 + 1.",
+        "moraleWinnerDelta": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §5 — the side that lost the smaller fraction of its troops gains 2 morale.",
+        "moraleLoserDelta": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §5 — the other side takes −3; ties go against the attacker.",
+        "moraleCap": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §5, §6 — every tactical morale gain is clamped at 99.",
+        "routTroopsDivisor": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §6 — a unit below standardBattalionSize div 25 troops is removed outright.",
+        "routMoraleAutomatic": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §6 — a unit at morale ≤ 19 is removed without a draw.",
+        "routMoraleSafe": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §6 — above 39 morale a unit is never removed by the two-draw test.",
+        "routDrawThreshold": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §6 — in the 20–39 band the unit is kept only while Random(m) + Random(m) > 29.",
+        "routFriendPenalty": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §6 — every live friendly unit loses 6 morale when a unit routs.",
+        "routCascadeBelow": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §6 — a friend dragged below 30 morale is removed, one cascade level deep with no further cascade.",
+        "routEnemyBonus": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §6 — every live enemy gains 5 morale, capped at 99, when a unit routs.",
+        "placementFormations": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §2 — the Form table at DAT 0x1F3B8, five rows of four unit-type ids in block order (columns 3g+1 … 3g+3); a heavy-infantry block also places that side's archers after it.",
+        "typeOrder": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §7 — the computer general takes types in the order the DAT's 0x4790A0 gives: heavy infantry, heavy cavalry, light cavalry, light infantry, archers.",
+        "targetPreferences": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §7 — light infantry prefers archers then light infantry; heavy infantry and heavy cavalry prefer heavy infantry; a type with no entry takes any live enemy.",
+        "scoreDivisor": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §7 — the target score is troops × quality × morale × M[theirs][mine] div 10000.",
+        "claimLimit": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §7 — below a claim count of 4 the score is divided by c + 1, otherwise it is doubled.",
+        "archerEngageDistance": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §7 — archers with shots engage, rather than move, at a distance strictly below 3.",
+        "approachBoxRadius": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §7 — the approach box radius r is 2 for archers and 1 for every other type, in unitTypes order.",
+        "flankFlipChanceDenominator": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §7 — Random(3) = 0 flips the flank's horizontal direction.",
+        "dangerQualityDivisor": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §3 — the last-move danger term S = (troops × quality div 100) × morale × M[mine][theirs]."
       }
     },
     "_provenance": {
@@ -1024,7 +1138,7 @@
   },
   "_provenance": {
     "id": "One of the two shipped presets (docs/game-design.md §'Two shipped presets'). Task T36 authors this as a variant of T29's classical-faithful export with the 'improved' column applied — same data as classical-faithful.json except where the flags above select an alternate rule.",
-    "unitTypes": "confirmed: unit-type-stat-table-in-dat.md — the five unit types and their stat table, transcribed whole (identical to classical-faithful.json). The list is data, not a fixed size: a ruleset may define any number of unit types. One field of the original table is deliberately NOT carried: +0x20 is the per-type shooting-vulnerability weight, read for the target's type (Light inf 18, Heavy inf 2, Archers 18, Light cav 15, Heavy cav 4) [confirmed: battle-replayed-rout-mechanic-and-combat-constants.md (https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/battle-replayed-rout-mechanic-and-combat-constants.md)]. It is now identified but held in reserve for a future optional 'detailed' resolver (docs/game-design.md §Combat) rather than carried as a UnitTypeRules field, since the shipped instant resolver never reads it; adding the field belongs to whichever future task builds that resolver, not to an open-identity question.",
+    "unitTypes": "confirmed: unit-type-stat-table-in-dat.md — the five unit types and their stat table, transcribed whole (identical to classical-faithful.json). The list is data, not a fixed size: a ruleset may define any number of unit types. The table's per-type shooting-vulnerability weight (+0x20, read for the target's type: light infantry 18, heavy infantry 2, archers 18, light cavalry 15, heavy cavalry 4) is now each row's shotVulnerability [confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §4 for the tactical shot formula's use; the field's identity is earlier — battle-replayed-rout-mechanic-and-combat-constants.md identified +0x20 as the shooting vulnerability, and unit-type-stat-table-in-dat.md carries an Update saying the same]. The shipped instant resolver never reads it; the tactical battle (docs/game-design.md §Combat) does.",
     "archerUnitTypeId": "confirmed: original unit type code 2 is the archer type, IC2.Data.UnitCatalog maps it to the id 'archers' [decompiled-unit-map-orders-and-record-fields.md — \"archers counted ×3\", type table \"Ar 3,500\"]. Identical to classical-faithful.json -- this is not one of the improved column's flag-gated fields. The pointer itself is [designed]: nothing in UnitTypeRules marks a type as the one the siege formula triples, so T54 searched the whole of this record for an existing pointer field, found none, and carried the id as a call-site constant (BattleCommandRuleset.ArcherUnitTypeId) instead (bug #221 N1). T66 adds this field so the id lives in ruleset data like every other constant; both shipped rulesets and Armies/ArmyNaming's canonical type list already agree on 'archers'."
   }
 }

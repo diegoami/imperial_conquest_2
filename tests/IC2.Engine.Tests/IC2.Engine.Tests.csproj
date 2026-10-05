@@ -76,6 +76,98 @@
     <Compile Include="../../godot/Screens/BattleResultViewModel.cs" Link="Ui/Screens/BattleResultViewModel.cs" />
     <Compile Include="../../godot/Screens/DiplomacyGridViewModel.cs" Link="Ui/Screens/DiplomacyGridViewModel.cs" />
     <Compile Include="../../godot/Screens/HotseatHandoffDetector.cs" Link="Ui/Screens/HotseatHandoffDetector.cs" />
+
+    <!--
+      T94 (tests/IC2.Engine.Tests/Ui/**): the same seam, for the two Godot-free classes this task
+      adds under godot/Assets/**. MapMarkerKeys.cs resolves a marker's asset-pack icon from the live
+      GameState/ruleset (DoD 1 and folded #454 item 2), and AssetPackManifestLoader.cs is the
+      "degrade without throwing on a malformed manifest" half of AssetPackTextureLoader (folded #454
+      item 1, which cannot be linked directly because AssetPackTextureLoader.cs references Godot).
+      Neither has a `using Godot` anywhere; never a second, hand-maintained copy of either.
+    -->
+    <Compile Include="../../godot/Assets/MapMarkerKeys.cs" Link="Ui/MapMarkerKeys.cs" />
+    <Compile Include="../../godot/Assets/AssetPackManifestLoader.cs" Link="Ui/AssetPackManifestLoader.cs" />
+
+    <!--
+      T94 rework round 1 (N3): MarkerTint.cs is the owner-tint half — the Godot-free HTML colour parse
+      GameMapView builds every marker's modulate colour from, so a test can assert the exact components
+      a texture is tinted with instead of leaving tinting to the visual sign-off alone. No `using Godot`
+      anywhere; never a second, hand-maintained copy.
+    -->
+    <Compile Include="../../godot/Assets/MarkerTint.cs" Link="Ui/MarkerTint.cs" />
+
+    <!--
+      Fix #513 (tests/IC2.Engine.Tests/Ui/**): the same seam again. RecruitmentPanelViewModel.cs is the
+      Godot-free model behind the city panel's "In training here" list, the nation overview's
+      "Regiments in training" list and the army panel's mobilize choice, so the fix's own test can
+      assert all three against a real GameState. No `using Godot` anywhere; never a second,
+      hand-maintained copy.
+    -->
+    <Compile Include="../../godot/UI/RecruitmentPanelViewModel.cs" Link="Ui/RecruitmentPanelViewModel.cs" />
+
+    <!--
+      Fix #484 (tests/IC2.Engine.Tests/Ui/**): the same seam once more. CommandOutcomeText.cs is the
+      Godot-free shared rule behind the main game screen's last-command label and T95's Save
+      confirmation label (the last non-empty line of GameSession.Submit's output), so the fix's own
+      reproduction can assert what the label shows against real Submit output. No `using Godot`
+      anywhere; never a second, hand-maintained copy.
+    -->
+    <Compile Include="../../godot/UI/CommandOutcomeText.cs" Link="Ui/CommandOutcomeText.cs" />
+
+    <!--
+      T99 (tests/IC2.Engine.Tests/Ui/MapClickRulesTests.cs): the same seam once more. MapClickRules.cs is
+      the Godot-free click decision table behind the Unit map's click handling (one row per row of the
+      UI command audit's §2.1), so a correction from the original exploration in flight lands there and
+      nowhere else. No `using Godot` anywhere; never a second, hand-maintained copy.
+    -->
+    <Compile Include="../../godot/UI/MapClickRules.cs" Link="Ui/MapClickRules.cs" />
+    <Compile Include="../../godot/UI/SidePanelToggle.cs" Link="Ui/SidePanelToggle.cs" />
+
+    <!--
+      T100 (tests/IC2.Engine.Tests/Ui/GameCommandTableTests.cs): the same seam once more.
+      GameCommandTable.cs is the one table behind the menu bar and the main toolbar - each command's
+      id, menu (and submenu), caption, icon key, shortcut and whether this task wires it - so a plain
+      xunit test can assert the table's exact contents without the Godot SDK. No `using Godot`
+      anywhere; never a second, hand-maintained copy.
+    -->
+    <Compile Include="../../godot/UI/GameCommandTable.cs" Link="Ui/GameCommandTable.cs" />
+
+    <!--
+      T102 (tests/IC2.Engine.Tests/Ui/AreaMapGeometryTests.cs): the same seam once more.
+      AreaMapGeometry.cs is the Godot-free arithmetic behind the overview mini-map — the tile-to-pixel
+      mapping and the order map's visible tile rectangle mapped onto the mini-map and clamped — so a
+      plain xunit test can pin it without the Godot SDK. No `using Godot` anywhere; never a second,
+      hand-maintained copy.
+    -->
+    <Compile Include="../../godot/UI/AreaMapGeometry.cs" Link="Ui/AreaMapGeometry.cs" />
+
+    <!--
+      T110 (tests/IC2.Engine.Tests/Ui/AreaMapHighlightsTests.cs and NationStatusModelTests.cs): the same
+      seam once more. AreaMapHighlights.cs is the Godot-free rule for which tiles each Area-map Show
+      entry marks, and NationStatusModel.cs is the Godot-free status panel's lines for any nation, so
+      plain xunit tests can pin both against a real GameState without the Godot SDK. Neither has a
+      `using Godot` anywhere; never a second, hand-maintained copy.
+    -->
+    <Compile Include="../../godot/UI/AreaMapHighlights.cs" Link="Ui/AreaMapHighlights.cs" />
+    <Compile Include="../../godot/UI/NationStatusModel.cs" Link="Ui/NationStatusModel.cs" />
+
+    <!--
+      Fix #519 (tests/IC2.Engine.Tests/Ui/RecruitTroopBoundsTests.cs): the same seam once more.
+      RecruitTroopBounds.cs is the Godot-free rule behind the city panel's recruit troop box — its
+      min, max, default, step and page step for one unit type, read from the ruleset's own standard
+      battalion size — so a plain xunit test can pin every type's bounds without the Godot SDK. No
+      `using Godot` anywhere; never a second, hand-maintained copy.
+    -->
+    <Compile Include="../../godot/UI/RecruitTroopBounds.cs" Link="Ui/RecruitTroopBounds.cs" />
+
+    <!--
+      T134 (tests/IC2.Engine.Tests/Ui/SupplyDialogModelTests.cs): the same seam once more.
+      SupplyDialogModel.cs is the Godot-free model behind the Army menu's Supply army dialog — its
+      provider list, the free and paid panels' limits and step clamps, and the buy/transfer-money
+      command lines it composes — so a plain xunit test can pin the clamps and the composed lines
+      without the Godot SDK. No `using Godot` anywhere; never a second, hand-maintained copy.
+    -->
+    <Compile Include="../../godot/UI/Dialogs/SupplyDialogModel.cs" Link="Ui/SupplyDialogModel.cs" />
   </ItemGroup>
 
 </Project>

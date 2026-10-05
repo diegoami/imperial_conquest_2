@@ -62,18 +62,9 @@ public sealed class QuarterlyEconomySystem : IQuarterBoundaryHandler
         var ruleset = context.Ruleset;
         var state = context.State;
 
-        // 1a: ships, every launched fleet, no balance check.
-        var shipUpkeepByNation = new Dictionary<string, int>(StringComparer.Ordinal);
-        foreach (var fleet in state.Fleets)
-        {
-            if (fleet.IsUnderConstruction)
-            {
-                continue;
-            }
-
-            var charge = ShipUpkeep.Compute(fleet.Ships, ruleset);
-            shipUpkeepByNation[fleet.Nation] = shipUpkeepByNation.GetValueOrDefault(fleet.Nation) + charge;
-        }
+        // 1a: ships, every launched fleet, no balance check. The per-nation aggregation is
+        // ShipUpkeep.ComputeForNation, so the balance-sheet projection shares the same function rather
+        // than restating which fleets are billed (docs/tasks/T104.md).
 
         // 1b: armies, in army-index order -- regulars to the treasury, mercenaries to the army's own
         // purse, with desertion on an empty purse.
@@ -104,7 +95,7 @@ public sealed class QuarterlyEconomySystem : IQuarterBoundaryHandler
         var updatedNations = new List<NationState>(state.Nations.Count);
         foreach (var nation in state.Nations)
         {
-            var shipCharge = shipUpkeepByNation.GetValueOrDefault(nation.Id);
+            var shipCharge = ShipUpkeep.ComputeForNation(state, nation.Id, ruleset);
             var armyCharge = regularUpkeepByNation.GetValueOrDefault(nation.Id);
             var garrisonCharge = GarrisonUpkeep.Compute(nation.RecruitmentSlots, ruleset);
 

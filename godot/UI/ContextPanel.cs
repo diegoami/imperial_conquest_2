@@ -19,9 +19,9 @@ namespace IC2.Slice.UI;
 /// <c>src/IC2.Engine/Cities/Orders</c> ever writes it — there is no command that sets a nation's tax
 /// rate. This panel shows the value; it has no control to change it.</description></item>
 /// <item><description><strong>No dedicated army-to-army transfer.</strong> Fleets have
-/// <c>FleetToFleetTransferCommand</c>; armies have no equivalent, so this panel's own army "transfer"
-/// action is the same supply purchase (<c>economy.buy-supply</c>) the city panel's own troop/money
-/// slider already uses, not a fabricated new command.</description></item>
+/// <c>FleetToFleetTransferCommand</c>; armies have no equivalent, so an army's own supply transfer is the
+/// Army menu's Supply army dialog (<c>economy.buy-supply</c>), not a fabricated new command. The city
+/// panel's old troop/money slider was removed by T134 in favour of that dialog.</description></item>
 /// </list>
 /// </remarks>
 public partial class ContextPanel : Control
@@ -45,6 +45,13 @@ public partial class ContextPanel : Control
 
     private VBoxContainer _content = null!;
     private Selection _selection = Selection.None();
+    private string? _viewedNationId;
+    private bool _viewedNationSet;
+
+    /// <summary>The status lines the last status-panel rebuild rendered — the panel's own output, not a
+    /// re-run of <see cref="NationStatusModel.Build"/>. Empty for All nations and for the "No nation."
+    /// branch; a check reads it to prove what the panel actually shows.</summary>
+    private IReadOnlyList<NationStatusLine> _viewedNationLines = Array.Empty<NationStatusLine>();
 
     public override void _Ready()
     {
@@ -69,6 +76,39 @@ public partial class ContextPanel : Control
         Rebuild();
     }
 
+    /// <summary>
+    /// T110: shows the <em>viewed</em> nation's status panel — <see langword="null"/> is the original's
+    /// All nations selection, which shows no status panel. <see cref="MainGameScreen"/> calls this from
+    /// the Nations menu and the nation swatches.
+    /// </summary>
+    public void SetViewedNation(string? nationId)
+    {
+        _viewedNationId = nationId;
+        _viewedNationSet = true;
+        _selection = Selection.None();
+        Rebuild();
+    }
+
+    /// <summary>The nation whose status panel is currently shown, or <see langword="null"/> when a unit
+    /// is selected or the view is All nations — what <c>NationsAreaMapCheck</c> asserts.</summary>
+    public string? StatusNationIdForCheck =>
+        _selection.Kind == SelectionKind.None ? EffectiveViewedNationId() : null;
+
+    /// <summary>Whether the panel is showing the All nations view (no status panel).</summary>
+    public bool ShowsAllNationsForCheck =>
+        _selection.Kind == SelectionKind.None && EffectiveViewedNationId() is null;
+
+    /// <summary>The status lines the panel actually rendered for the viewed nation, or
+    /// <see langword="null"/> when a selection (a city, army, fleet or unit list) is showing instead.
+    /// This is the panel's own output, so a check can assert the public-facts rule at the panel rather
+    /// than re-running <see cref="NationStatusModel.Build"/>.</summary>
+    public IReadOnlyList<NationStatusLine>? ViewedNationLinesForCheck =>
+        _selection.Kind == SelectionKind.None ? _viewedNationLines : null;
+
+    /// <summary>Whether the viewed nation's rendered status panel carries a line with this key.</summary>
+    public bool HasViewedNationLineForCheck(string key) =>
+        ViewedNationLinesForCheck?.Any(line => string.Equals(line.Key, key, StringComparison.Ordinal)) == true;
+
     public void ShowCity(string cityId)
     {
         _selection = Selection.ForCity(cityId);
@@ -84,6 +124,18 @@ public partial class ContextPanel : Control
     public void ShowFleet(string fleetId)
     {
         _selection = Selection.ForFleet(fleetId);
+        Rebuild();
+    }
+
+    /// <summary>
+    /// T99, the user's two-button decision of 2026-10-01: shows the clicked entity's unit list — a
+    /// city's garrison, an army's units, or a fleet's ships and any army aboard — without making it
+    /// the map's selection. <see cref="MainGameScreen"/> wires
+    /// <see cref="GameMapView.UnitListRequested"/> to this.
+    /// </summary>
+    public void ShowUnitList(MapEntityKind entity, string id)
+    {
+        _selection = Selection.ForUnitList(entity, id);
         Rebuild();
     }
 
@@ -110,15 +162,31 @@ public partial class ContextPanel : Control
             case SelectionKind.Fleet when Session.State.FleetById(_selection.Id!) is { } fleet:
                 BuildFleetPanel(fleet);
                 break;
+            case SelectionKind.UnitList:
+                BuildUnitListPanel(_selection.Entity, _selection.Id!);
+                break;
             default:
-                BuildNationOverview();
+                BuildViewedNationPanel();
                 break;
         }
     }
 
     private void Heading(string text) => _content.AddChild(UiKit.MakeLabel(text, 20, UiKit.AccentColor));
 
-    private void Fact(string text) => _content.AddChild(UiKit.MakeLabel(text, 14, UiKit.TextColor));
+    /// <summary>
+    /// Fix #491: an unwrapped <see cref="Label"/>'s minimum size is its full single-line text width, so
+    /// a long stats/Troops line (<c>"5000x heavy_infantry, ..."</c>) forced this panel's
+    /// <see cref="VBoxContainer"/> — and with it <c>MainGameScreen</c>'s 340&#160;px
+    /// <c>CustomMinimumSize</c> panel — wider than the viewport, pushing the panel (and its order
+    /// buttons) off-screen. <see cref="Note"/> already wraps for exactly this reason; <c>Fact</c> now
+    /// does the same, which lets the panel settle back to its 340&#160;px floor.
+    /// </summary>
+    private void Fact(string text)
+    {
+        var label = UiKit.MakeLabel(text, 14, UiKit.TextColor);
+        label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _content.AddChild(label);
+    }
 
     private void Note(string text)
     {
@@ -127,25 +195,69 @@ public partial class ContextPanel : Control
         _content.AddChild(label);
     }
 
-    private void BuildNationOverview()
+    /// <summary>
+    /// Fix #491: a <see cref="Button"/>'s own minimum width is likewise its unclipped label's full
+    /// width ("Attack (click a target on the map)" is longer than the 340&#160;px panel itself), which
+    /// forced the panel wide even after <see cref="Fact"/> started wrapping. Every button this panel
+    /// adds goes through here instead of a bare <c>UiKit.MakeButton</c> call, so it clips to whatever
+    /// width the panel actually settles at rather than demanding more.
+    /// </summary>
+    private void AddButton(string text, Action onPressed, bool enabled = true)
     {
-        var nation = Session.State.NationById(Session.State.ActiveNationId);
-        Heading("Nation Overview");
-        if (nation is null)
+        var button = UiKit.MakeButton(text, onPressed);
+        button.ClipText = true;
+        button.Disabled = !enabled;
+        _content.AddChild(button);
+    }
+
+    /// <summary>
+    /// T110: the viewed nation's status panel, or the All nations view when the viewed nation is null.
+    /// The own nation's lines come from <see cref="NationStatusModel"/> with the full confirmed list; a
+    /// foreign nation's are its public facts only (the user's decision of 2026-10-01).
+    /// </summary>
+    private void BuildViewedNationPanel()
+    {
+        var viewed = EffectiveViewedNationId();
+        _viewedNationLines = Array.Empty<NationStatusLine>();
+        if (viewed is null)
         {
-            Note("No active nation.");
+            Heading("All nations");
+            Note("Every nation's highlights are shown. Choose a nation for its status panel.");
+            Note("Select a city, army or fleet on the map for its own details.");
             return;
         }
 
-        Fact($"{nation.Name}");
-        Fact($"Treasury: {nation.Treasury}");
-        Fact($"Unity: {nation.Unity}");
-        Fact($"Wealth: {nation.Wealth}");
-        Fact($"Tax base: {nation.TaxBase}  ·  Tax rate: {nation.TaxRatePercent}%");
-        Fact($"Population: {nation.Population}");
-        Fact($"Cities: {Session.State.Cities.Count(c => c.Owner == nation.Id)}");
-        Note("Select a city, army or fleet on the map for its own actions.");
+        var nation = Session.State.NationById(viewed);
+        if (nation is null)
+        {
+            Heading("Nation Overview");
+            Note("No nation.");
+            return;
+        }
+
+        Heading("Nation Overview");
+        Fact(nation.Name);
+        _viewedNationLines = NationStatusModel.Build(
+            Session.State, Session.Ruleset, viewed, viewerNationId: Session.State.ActiveNationId);
+        foreach (var line in _viewedNationLines)
+        {
+            if (string.Equals(line.Key, NationStatusModel.TrainingHeaderKey, StringComparison.Ordinal))
+            {
+                _content.AddChild(UiKit.MakeLabel(line.Text, 15, UiKit.TextColor));
+            }
+            else
+            {
+                Fact(line.Text);
+            }
+        }
+
+        Note("Select a city, army or fleet on the map for its own details.");
     }
+
+    /// <summary>The viewed nation once <see cref="SetViewedNation"/> has run; before that, the active
+    /// seat's nation, so the panel's first paint is unchanged.</summary>
+    private string? EffectiveViewedNationId() =>
+        _viewedNationSet ? _viewedNationId : Session.State.ActiveNationId;
 
     private void BuildCityPanel(CityState city)
     {
@@ -158,6 +270,23 @@ public partial class ContextPanel : Control
         Fact($"Tax rate: {(owner?.TaxRatePercent.ToString() ?? "?")}%  (display-only — no command sets it; see this class's remarks)");
 
         Fact($"Garrison: {(city.Garrison.Count == 0 ? "none" : string.Join(", ", city.Garrison.Select(u => $"{u.Troops}x {u.UnitTypeId}")))}");
+
+        // Fix #513, Defect 1: the regiments this city is training, among everything else the panel says
+        // about the city. Shown for any owner's city (a captured city's queue has been cleared by the
+        // engine, but the panel never invents that); only the commands below are gated on the active seat.
+        var inTraining = RecruitmentPanelViewModel.TrainingAtCity(Session.State, Session.Ruleset, city.Owner, city.Id);
+        _content.AddChild(UiKit.MakeLabel("In training here", 15, UiKit.TextColor));
+        if (inTraining.Count == 0)
+        {
+            Note("No regiment is training here.");
+        }
+        else
+        {
+            foreach (var regiment in inTraining)
+            {
+                Fact($"{regiment.UnitTypeId} — {regiment.Troops} troops — {regiment.ReadinessText}");
+            }
+        }
 
         if (!string.Equals(city.Owner, Session.State.ActiveNationId, StringComparison.Ordinal))
         {
@@ -176,71 +305,97 @@ public partial class ContextPanel : Control
 
         _content.AddChild(typePicker);
 
-        var troopSpin = new SpinBox { MinValue = 10, MaxValue = 2000, Step = 10, Value = 200 };
+        // Fix #519: the box's range is the selected type's own standard battalion (max) and a fifth of
+        // it (min and default), read from the session's ruleset — never the invented 10..2000 literal
+        // this used to carry. The step is the original dialog's 100; its page keys move 1,000.
+        var troopSpin = new SpinBox();
+        void ApplyTroopBounds()
+        {
+            var index = typePicker.Selected < 0 ? 0 : typePicker.Selected;
+            var bounds = RecruitTroopBounds.For(Session.Ruleset, UnitTypes[index].Id);
+            troopSpin.MinValue = bounds.Minimum;
+            troopSpin.MaxValue = bounds.Maximum;
+            troopSpin.Step = bounds.Step;
+            troopSpin.Value = bounds.DefaultValue;
+        }
+
+        ApplyTroopBounds();
+        typePicker.ItemSelected += _ => ApplyTroopBounds();
+
+        // Godot's SpinBox has no page-key handling (Range.Page belongs to ScrollBar/Slider only), so
+        // PageUp/PageDown are handled on the box's own LineEdit. Accepting the event keeps the LineEdit
+        // from also moving its caret on the same key.
+        troopSpin.GetLineEdit().GuiInput += @event =>
+        {
+            if (@event is not InputEventKey { Pressed: true, Echo: false } key)
+            {
+                return;
+            }
+
+            if (key.IsAction("ui_page_up"))
+            {
+                troopSpin.Value += RecruitTroopBounds.PageStepSize;
+                troopSpin.AcceptEvent();
+            }
+            else if (key.IsAction("ui_page_down"))
+            {
+                troopSpin.Value -= RecruitTroopBounds.PageStepSize;
+                troopSpin.AcceptEvent();
+            }
+        };
+
         _content.AddChild(troopSpin);
 
-        _content.AddChild(UiKit.MakeButton("Recruit", () =>
+        AddButton("Recruit", () =>
         {
             var unitTypeId = UnitTypes[typePicker.Selected].Id;
             Issue($"recruit-standing {city.Id} {unitTypeId} {(int)troopSpin.Value}");
-        }));
+        });
 
         _content.AddChild(new HSeparator());
         _content.AddChild(UiKit.MakeLabel("Fortify", 15, UiKit.TextColor));
         var fortifyPoints = new SpinBox { MinValue = 1, MaxValue = 100, Step = 1, Value = 10 };
         _content.AddChild(fortifyPoints);
-        _content.AddChild(UiKit.MakeButton("Order Fortification", () =>
-            Issue($"order-city {city.Id} fortify {(int)fortifyPoints.Value}")));
-
-        _content.AddChild(new HSeparator());
-        _content.AddChild(UiKit.MakeLabel("Supply transfer (troop/money slider)", 15, UiKit.TextColor));
-
-        var ownArmies = Session.State.Armies.Where(a => a.Nation == city.Owner).ToList();
-        if (ownArmies.Count == 0)
-        {
-            Note("No own army to transfer supply to.");
-            return;
-        }
-
-        var armyPicker = new OptionButton();
-        foreach (var army in ownArmies)
-        {
-            armyPicker.AddItem(army.Id);
-        }
-
-        _content.AddChild(armyPicker);
-
-        var tonsSlider = new HSlider { MinValue = 0, MaxValue = 50, Step = 1, Value = 5, CustomMinimumSize = new Vector2(180, 0) };
-        var tonsLabel = UiKit.MakeLabel("5 tons", 12, UiKit.MutedTextColor);
-        tonsSlider.ValueChanged += value => tonsLabel.Text = $"{(int)value} tons";
-        _content.AddChild(tonsSlider);
-        _content.AddChild(tonsLabel);
-
-        _content.AddChild(UiKit.MakeButton("Transfer Supply", () =>
-        {
-            var armyId = ownArmies[armyPicker.Selected].Id;
-            Issue($"buy {armyId} {city.Id} {(int)tonsSlider.Value}");
-        }));
+        AddButton("Order Fortification", () =>
+            Issue($"order-city {city.Id} fortify {(int)fortifyPoints.Value}"));
     }
 
     private void BuildArmyPanel(ArmyState army)
     {
         Heading($"Army — {army.Id}");
         Fact($"Nation: {DisplayNation(army.Nation)}  ·  Position: ({army.X}, {army.Y})");
-        Fact($"Moves: {army.Moves}  ·  Morale: {army.Morale}  ·  Money: {army.Money}  ·  Supply: {army.SupplyTons}t");
-        Fact($"Troops: {(army.Units.Count == 0 ? "none" : string.Join(", ", army.Units.Select(u => $"{u.Troops}x {u.UnitTypeId}")))}");
 
         if (!string.Equals(army.Nation, Session.State.ActiveNationId, StringComparison.Ordinal))
         {
+            // T99, the original's own foreign-army fog [confirmed: ptolemy-run-ui-inventory-and-leader-draw.md
+            // §5]: a foreign army's moves, morale, money and supply are withheld — the panel names each
+            // withheld field but shows no number for it. Fleets and cities are unchanged. The exact
+            // glyph the original used is not transcribed in the audit, so naming the withholding is
+            // this panel's own [designed] rendering of the confirmed rule.
+            Fact("Moves: withheld  ·  Morale: withheld  ·  Money: withheld  ·  Supply: withheld");
+            Fact($"Troops: {(army.Units.Count == 0 ? "none" : string.Join(", ", army.Units.Select(u => $"{u.Troops}x {u.UnitTypeId}")))}");
             Note("Only the active seat's own armies can be ordered.");
             return;
         }
 
+        Fact($"Moves: {army.Moves}  ·  Morale: {army.Morale}  ·  Money: {army.Money}  ·  Supply: {army.SupplyTons}t");
+        Fact($"Troops: {(army.Units.Count == 0 ? "none" : string.Join(", ", army.Units.Select(u => $"{u.Troops}x {u.UnitTypeId}")))}");
+
         _content.AddChild(new HSeparator());
-        _content.AddChild(UiKit.MakeButton("Move (click a tile on the map)", () => MapView.BeginMoveOrder(army.Id)));
-        _content.AddChild(UiKit.MakeButton("Attack (click a target on the map)", () => MapView.BeginAttackOrder(army.Id)));
-        _content.AddChild(UiKit.MakeButton("Mobilize first ready slot", () => MobilizeFirstReadySlot(army.Id)));
-        _content.AddChild(UiKit.MakeButton("Disband", () => Issue($"disband-army {army.Id}")));
+
+        // Fix #513, Defect 2: the choice is the engine's own readiness gate, so the button can only
+        // issue "mobilize <a ready index>" -- and says why it is disabled when nothing is ready.
+        var mobilize = RecruitmentPanelViewModel.ChooseMobilization(Session.State, Session.Ruleset, army.Nation);
+        AddButton(
+            "Mobilize first ready slot",
+            () => MobilizeFirstReadySlot(army.Id, mobilize.SlotIndex!.Value),
+            mobilize.IsEnabled);
+        if (!mobilize.IsEnabled)
+        {
+            Note(mobilize.Reason!);
+        }
+
+        AddButton("Disband", () => Issue($"disband-army {army.Id}"));
     }
 
     private void BuildFleetPanel(FleetState fleet)
@@ -259,30 +414,96 @@ public partial class ContextPanel : Control
         var repairPoints = new SpinBox { MinValue = 1, MaxValue = 100, Step = 1, Value = 10 };
         _content.AddChild(UiKit.MakeLabel("Repair points", 13, UiKit.MutedTextColor));
         _content.AddChild(repairPoints);
-        _content.AddChild(UiKit.MakeButton("Repair", () => Issue($"repair-fleet {fleet.Id} {(int)repairPoints.Value}")));
-        _content.AddChild(UiKit.MakeButton("Scuttle", () => Issue($"scuttle-fleet {fleet.Id}")));
+        AddButton("Repair", () => Issue($"repair-fleet {fleet.Id} {(int)repairPoints.Value}"));
+        AddButton("Scuttle", () => Issue($"scuttle-fleet {fleet.Id}"));
     }
 
     /// <summary>
-    /// Mobilizes recruitment slot 0 — <strong>[designed]</strong>: <c>mobilize</c> takes a bare slot
-    /// index (<c>MobilizeRecruitSlotCommand</c>), not a "ready" flag this panel could filter on, so
-    /// "first" is simply index 0; whether that slot is actually ready is exactly what
-    /// <c>MobilizeRecruitSlotCommandHandler</c>'s own rejection reports back through
-    /// <see cref="Issue"/> when it is not.
+    /// T99's unit-list view — what the original's right button shows
+    /// (<c>ShowCityUnits</c>/<c>ShowArmyUnits</c>/<c>ShowFleetUnits</c>, audit §2.1): a city's garrison,
+    /// an army's units, or a fleet's ships and any army aboard. It is the panel's one view that is
+    /// <em>not</em> a selection: the map's selection, and any order armed by it, are untouched.
     /// </summary>
-    private void MobilizeFirstReadySlot(string newArmyName)
+    private void BuildUnitListPanel(MapEntityKind entity, string id)
     {
-        var nation = Session.State.NationById(Session.State.ActiveNationId);
-        if (nation is null || nation.RecruitmentSlots.Count == 0)
+        switch (entity)
         {
-            CommandIssued?.Invoke(new[] { "No recruitment slot to mobilize." });
-            return;
+            case MapEntityKind.City when Session.State.CityById(id) is { } city:
+                Heading($"Units — {city.Name}");
+                Fact($"Owner: {DisplayNation(city.Owner)}  ·  Population: {city.PopulationThousands}k");
+                Note("The garrison:");
+                ListUnitSlots(city.Garrison);
+                return;
+
+            case MapEntityKind.Army when Session.State.ArmyById(id) is { } army:
+                Heading($"Units — {army.Id}");
+                Fact($"Nation: {DisplayNation(army.Nation)}  ·  Position: ({army.X}, {army.Y})");
+                Note("The army's units:");
+                ListUnitSlots(army.Units);
+                return;
+
+            case MapEntityKind.Fleet when Session.State.FleetById(id) is { } fleet:
+                Heading($"Units — {fleet.Id}");
+                Fact($"Nation: {DisplayNation(fleet.Nation)}  ·  Position: ({fleet.X}, {fleet.Y})");
+                Fact($"Ships: {fleet.Ships}  ·  Condition: {fleet.ConditionPercent}%");
+                if (fleet.CarriedArmyId is { } aboard && Session.State.ArmyById(aboard) is { } carried)
+                {
+                    Note($"The army aboard ({carried.Id}):");
+                    ListUnitSlots(carried.Units);
+                }
+                else
+                {
+                    Note("No army aboard.");
+                }
+
+                return;
+
+            default:
+                Heading("Units");
+                Note("Nothing is here.");
+                return;
+        }
+    }
+
+    /// <summary>One line per unit slot — the list shape the original's unit list shows.</summary>
+    private void ListUnitSlots(IEnumerable<UnitSlot> slots)
+    {
+        var any = false;
+        foreach (var slot in slots)
+        {
+            any = true;
+            Fact($"{slot.Troops}x {slot.UnitTypeId}{(string.IsNullOrEmpty(slot.Name) ? string.Empty : $" — {slot.Name}")}");
         }
 
-        Issue($"mobilize 0 {newArmyName}-recruit");
+        if (!any)
+        {
+            Note("None.");
+        }
+    }
+
+    /// <summary>
+    /// Mobilizes <paramref name="slotIndex"/> — the first slot <see cref="MobilizationReadiness"/> says
+    /// this seat may actually mobilize, chosen by
+    /// <see cref="RecruitmentPanelViewModel.ChooseMobilization"/> in <see cref="BuildArmyPanel"/>.
+    /// </summary>
+    /// <remarks>
+    /// <strong>Fix #513, Defect 2.</strong> The old button issued <c>mobilize 0 …</c> whatever slot 0's
+    /// state was, so an order given while slot 0 was still training was refused — and #484 made the
+    /// refusal silent. This method now only ever receives an index the engine's own gate accepted; when
+    /// none is ready, <see cref="BuildArmyPanel"/> disables the button and shows
+    /// <see cref="MobilizeChoice.Reason"/> instead of issuing anything.
+    /// </remarks>
+    /// <param name="newArmyName">The army id prefix; the engine appends <c>-recruit</c> (see
+    /// <see cref="BuildArmyPanel"/>).</param>
+    /// <param name="slotIndex">The index into the nation's <see cref="NationState.RecruitmentSlots"/>.</param>
+    private void MobilizeFirstReadySlot(string newArmyName, int slotIndex)
+    {
+        Issue($"mobilize {slotIndex} {newArmyName}-recruit");
     }
 
     private string DisplayNation(string nationId) => Session.State.NationById(nationId)?.Name ?? nationId;
+
+    private string CityName(string cityId) => Session.State.CityById(cityId)?.Name ?? cityId;
 
     private void Issue(string commandLine)
     {
@@ -298,16 +519,22 @@ public partial class ContextPanel : Control
         City,
         Army,
         Fleet,
+
+        /// <summary>T99: the right button's unit-list view — a city's garrison, an army's units, or a fleet's ships and any army aboard.</summary>
+        UnitList,
     }
 
-    private readonly record struct Selection(SelectionKind Kind, string? Id)
+    private readonly record struct Selection(SelectionKind Kind, MapEntityKind Entity, string? Id)
     {
-        public static Selection None() => new(SelectionKind.None, null);
+        public static Selection None() => new(SelectionKind.None, MapEntityKind.City, null);
 
-        public static Selection ForCity(string id) => new(SelectionKind.City, id);
+        public static Selection ForCity(string id) => new(SelectionKind.City, MapEntityKind.City, id);
 
-        public static Selection ForArmy(string id) => new(SelectionKind.Army, id);
+        public static Selection ForArmy(string id) => new(SelectionKind.Army, MapEntityKind.Army, id);
 
-        public static Selection ForFleet(string id) => new(SelectionKind.Fleet, id);
+        public static Selection ForFleet(string id) => new(SelectionKind.Fleet, MapEntityKind.Fleet, id);
+
+        public static Selection ForUnitList(MapEntityKind entity, string id) =>
+            new(SelectionKind.UnitList, entity, id);
     }
 }
