@@ -46,10 +46,13 @@ namespace IC2.Engine.Ai;
 /// <see cref="AiResupplyPass"/>'s embarked-army rule, bug #759.)
 /// </para>
 /// <para>
-/// <strong>The money gate reads the entry purse.</strong> See
-/// <see cref="Run(GameState, Ruleset, string, IReadOnlyDictionary{string, int})"/>: the original
-/// captures <c>money = army.money</c> once at <c>FUN_0044E41C</c>'s entry, before the city loop's
-/// resupply spends it; <c>AiTurn</c> therefore passes each army's purse from before its turn's resupply.
+/// <strong>The money gate reads the entry purse.</strong> The original captures <c>money = army.money</c>
+/// once at <c>FUN_0044E41C</c>'s entry, before the city loop's resupply spends it, and gates the hire on
+/// that captured value. This pass captures that same value for each army before that army's own first
+/// resupply, so a resupply it performs itself never moves the hire across the <c>more than 50</c>
+/// boundary. The optional <c>moneyAtTurnStart</c> snapshot therefore only matters to a caller that has
+/// itself resupplied the army before calling in; see
+/// <see cref="Run(GameState, Ruleset, string, IReadOnlyDictionary{string, int})"/>.
 /// </para>
 /// <para>
 /// <strong>Why a pass and not a command or a scored candidate.</strong> The hire is not one of the
@@ -104,13 +107,13 @@ public static class AiMercenaryHirePass
     /// <param name="ruleset">Supplies both radii, the money threshold, the war code and the unit cap.</param>
     /// <param name="nationId">The nation whose armies resupply and hire.</param>
     /// <param name="moneyAtTurnStart">
-    /// Each army's purse <em>before</em> the turn's resupply, keyed by army id, or <see langword="null"/>
-    /// when the caller has not advanced the state since turn start. The original captures
-    /// <c>money = army.money</c> once at <c>FUN_0044E41C</c>'s entry and gates the hire on that captured
-    /// value, before the city loop in which resupply spends the purse; the AI turn therefore passes this
-    /// snapshot so a foreign resupply that takes a 51-talent purse to 49 does not silently move the hire
-    /// across its own <c>more than 50</c> boundary. A direct caller that passes nothing gates on the
-    /// army's current purse, which is the same thing when no resupply has run.
+    /// Each army's purse <em>before</em> the turn's resupply, keyed by army id, or <see langword="null"/>.
+    /// The pass captures each army's entry purse itself, before that army's own first resupply, so this
+    /// snapshot only matters to a caller that has already resupplied the army and needs the hire gated on
+    /// the original's pre-resupply <c>money = army.money</c> value (a 51-talent purse taken to 49 by
+    /// resupply must still hire). The AI turn passes it for that reason; it is redundant for a caller that
+    /// calls <see cref="Run(GameState, Ruleset, string, IReadOnlyDictionary{string, int})"/> on the
+    /// untouched turn-start state.
     /// </param>
     /// <exception cref="ArgumentNullException"><paramref name="state"/> or <paramref name="ruleset"/> is null.</exception>
     /// <exception cref="ArgumentException"><paramref name="nationId"/> is null or whitespace.</exception>
@@ -338,6 +341,11 @@ public static class AiMercenaryHirePass
                && relations.Get(nationId, otherId) == warCode;
     }
 
+    /// <summary>
+    /// A city's live offers in slot-index order, the order the original's <c>i = 201 … 250</c> sweep and
+    /// the player's <c>HireMercenaryCommandHandler.FindChosenCity</c> both use. Ordering here means an
+    /// unsorted pool cannot change which offers an army takes when it can fill only some of them.
+    /// </summary>
     private static List<MercenaryPoolSlot> PoolSlotsAt(GameState state, CityState city)
     {
         var slots = new List<MercenaryPoolSlot>();
@@ -349,7 +357,7 @@ public static class AiMercenaryHirePass
             }
         }
 
-        return slots;
+        return slots.OrderBy(slot => slot.SlotIndex).ToList();
     }
 
     private static ValueList<T> ReplaceById<T>(ValueList<T> items, T replacement, Func<T, string> idOf)

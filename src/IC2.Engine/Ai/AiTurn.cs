@@ -125,9 +125,10 @@ public static class AiTurn
         // R1: the original's FUN_0044E41C is one loop per army over the cities, and each in-range city
         // iteration resupplies the army (FUN_0044f6d8) before hiring at that city. AiMercenaryHirePass.Run
         // reproduces that loop, so the hire at an earlier city raises the troop count a later city's
-        // resupply sees. It captures each army's purse once at that army's entry, before any resupply
-        // spends it; the snapshot below hands it that entry purse, so a foreign resupply that takes a
-        // 51-talent purse to 49 does not move the hire across its own "more than 50" boundary.
+        // resupply sees. The pass captures each army's entry purse itself, before that army's own first
+        // resupply, so it already gates the hire on the pre-resupply purse here; the snapshot below only
+        // matters to a caller that resupplies the army before calling the pass, and is kept because that
+        // caller exists (AiMercenaryHirePassTests.The_money_gate_reads_the_entry_purse_not_the_post_resupply_one).
         var moneyAtTurnStart = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var army in state.Armies)
         {

@@ -216,6 +216,25 @@ public sealed class AiMercenaryHirePassTests
         Assert.Equal(0, AiMercenaryHirePass.Run(atNineteen, Ruleset, ArmyNation).OffersHired);
     }
 
+    /// <summary>
+    /// N2: as the player's <c>FindChosenCity</c> guards, the AI hires a city's offers in slot-index order,
+    /// not in <see cref="GameState.MercenaryPool"/> list order. With an 18-unit army (room for exactly two)
+    /// and an unsorted pool of slots 7, 5 and 6, slot order leaves slot 7 behind; list order would leave
+    /// slot 6.
+    /// </summary>
+    [Fact]
+    public void The_ai_hires_a_citys_offers_in_slot_index_order()
+    {
+        var state = StateWithOffer(
+            14, 12, unitCount: 18,
+            pool: new[] { Offer(7, 14, 12), Offer(5, 14, 12), Offer(6, 14, 12) });
+
+        var result = AiMercenaryHirePass.Run(state, Ruleset, ArmyNation);
+
+        Assert.Equal(2, result.OffersHired);
+        Assert.Equal(7, Assert.Single(result.State.MercenaryPool).SlotIndex);
+    }
+
     [Fact]
     public void The_ai_hire_charges_nothing_and_ignores_the_100k_troop_cap()
     {
@@ -384,6 +403,29 @@ public sealed class AiMercenaryHirePassTests
     }
 
     /// <summary>
+    /// R1, round 3: the same 100-troop army and 5,000-troop offer, but the offer city is the army's only
+    /// supply city and holds 10,000 tons. The resupply inside that one city iteration comes before the
+    /// hire there, so it fills to <c>cap(100)</c> = 1 ton and only then takes the offer: the army ends at
+    /// 5,100 troops and 1 ton. Hiring before resupplying in the same iteration would fill to
+    /// <c>cap(5,100)</c> = 51 instead, and the ordering test above cannot tell the two apart.
+    /// </summary>
+    [Fact]
+    public void The_resupply_at_the_offer_city_precedes_its_hire()
+    {
+        var before = SameCitySupplyProbeState();
+        Assert.Equal(100, before.ArmyById("ai-army")!.TotalTroops);
+        Assert.Equal(0, before.ArmyById("ai-army")!.SupplyTons);
+
+        var driven = AiScriptedStates.DriveOneTurn(before, seed: 1);
+
+        var after = driven.Outcome.State.ArmyById("ai-army")!;
+        Assert.Equal(100 + 5000, after.TotalTroops);
+        Assert.Equal(1, after.SupplyTons);
+        Assert.Equal(SupplyCapacity.ArmyCapacityTons(100, Ruleset), after.SupplyTons);
+        Assert.Empty(driven.Outcome.State.MercenaryPool);
+    }
+
+    /// <summary>
     /// The R1 probe fixture: one north AI army of 100 troops at (10,10) with 1,000 money and no supply;
     /// city 0 is north's own at (12,10) with no stock and a 5,000-troop offer; city 1 is north's own depot
     /// at (13,10) with 10,000 tons. Both are within radius 4, and north is at war with south so the "at
@@ -419,5 +461,23 @@ public sealed class AiMercenaryHirePassTests
         };
 
         return AiScriptedStates.WithActiveSeat(state, ArmyNation);
+    }
+
+    /// <summary>
+    /// The round-3 R1 probe: <see cref="InterleavedSupplyProbeState"/> with the depot removed and its
+    /// 10,000 tons given to the offer city itself, so that one city is the army's only supply. Everything
+    /// else — the 100-troop army, the 5,000-troop offer, the war and the radius — is unchanged, and the
+    /// offer city stays first in city order.
+    /// </summary>
+    private static GameState SameCitySupplyProbeState()
+    {
+        var state = InterleavedSupplyProbeState();
+        var cities = state.Cities
+            .Where(c => !string.Equals(c.Id, "depot", StringComparison.Ordinal))
+            .Select(c => string.Equals(c.Id, "offer-city", StringComparison.Ordinal)
+                ? c with { SupplyTons = 10000 }
+                : c);
+
+        return state with { Cities = ValueList.From(cities) };
     }
 }
