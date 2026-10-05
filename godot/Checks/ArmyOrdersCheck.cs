@@ -76,6 +76,7 @@ public partial class ArmyOrdersCheck : Control
         _steps.Add(DisbandYes);
         _steps.Add(SplitCarriedArmy);
         _steps.Add(QualityCaptions);
+        _steps.Add(NoDisbandButton);
         _steps.Add(Finish);
     }
 
@@ -272,6 +273,19 @@ public partial class ArmyOrdersCheck : Control
             && unitListLabels.Any(text => text.Contains("(average)", StringComparison.Ordinal))
             && unitListLabels.Any(text => text.Contains("(very good)", StringComparison.Ordinal)),
             "the unit list shows each unit's quality caption");
+    }
+
+    /// <summary>Done-when 5: the context panel's army Disband button is gone.</summary>
+    private void NoDisbandButton()
+    {
+        _mainGame.ContextPanel.ShowArmy(QualityArmyId);
+        var disband = ButtonsUnder(_mainGame.ContextPanel)
+            .Select(button => button.Text)
+            .Where(text => text.Contains("Disband", StringComparison.Ordinal))
+            .ToList();
+        Check(
+            disband.Count == 0,
+            $"no ContextPanel button reads Disband (found {string.Join(", ", disband)})");
     }
 
     private void Finish()

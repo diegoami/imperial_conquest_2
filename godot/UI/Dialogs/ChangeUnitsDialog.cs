@@ -40,9 +40,11 @@ public partial class ChangeUnitsDialog : Control
     private ItemList _unitList = null!;
     private Label _replyLabel = null!;
     private Control _renamePanel = null!;
+    private Label _renameCurrentLabel = null!;
     private LineEdit _renameEdit = null!;
     private Control _splitPanel = null!;
-    private SpinBox _splitSpin = null!;
+    private SpinBox _splitThousands = null!;
+    private SpinBox _splitHundreds = null!;
 
     /// <summary>The live model, exposed so a headless check can read the army's units.</summary>
     public ChangeUnitsModel ModelForCheck => _model;
@@ -123,6 +125,9 @@ public partial class ChangeUnitsDialog : Control
     {
         var panel = new VBoxContainer();
         panel.AddChild(UiKit.MakeLabel("Rename unit", 15, UiKit.TextColor));
+        _renameCurrentLabel = UiKit.MakeLabel(string.Empty, 13, UiKit.MutedTextColor);
+        panel.AddChild(_renameCurrentLabel);
+        panel.AddChild(UiKit.MakeLabel("New name", 13, UiKit.MutedTextColor));
         _renameEdit = new LineEdit { CustomMinimumSize = new Vector2(320, 0) };
         panel.AddChild(_renameEdit);
         var row = new HBoxContainer();
@@ -145,15 +150,24 @@ public partial class ChangeUnitsDialog : Control
     {
         var panel = new VBoxContainer();
         panel.AddChild(UiKit.MakeLabel("Split unit", 15, UiKit.TextColor));
-        _splitSpin = new SpinBox { MinValue = 1, MaxValue = 1_000_000, Step = 100, Value = 100 };
-        panel.AddChild(_splitSpin);
+
+        var spinners = new HBoxContainer();
+        spinners.AddThemeConstantOverride("separation", 8);
+        panel.AddChild(spinners);
+        spinners.AddChild(UiKit.MakeLabel("1000s", 13, UiKit.MutedTextColor));
+        _splitThousands = new SpinBox { MinValue = 0, MaxValue = 1_000, Step = 1_000 };
+        spinners.AddChild(_splitThousands);
+        spinners.AddChild(UiKit.MakeLabel("100s", 13, UiKit.MutedTextColor));
+        _splitHundreds = new SpinBox { MinValue = 0, MaxValue = 900, Step = 100, Value = 100 };
+        spinners.AddChild(_splitHundreds);
+
         var row = new HBoxContainer();
         panel.AddChild(row);
         row.AddChild(UiKit.MakeButton("Split", () =>
         {
             if (FirstSelected() is { } index)
             {
-                SubmitIfAny(_model.SplitUnitLine(index, (int)_splitSpin.Value));
+                SubmitIfAny(_model.SplitUnitLine(index, SplitTroops()));
             }
 
             panel.Visible = false;
@@ -163,6 +177,9 @@ public partial class ChangeUnitsDialog : Control
         return panel;
     }
 
+    /// <summary>The two split spinners' sum, in troops — the original's 1000s and 100s boxes.</summary>
+    private int SplitTroops() => (int)_splitThousands.Value + (int)_splitHundreds.Value;
+
     private void ShowRenamePanel()
     {
         if (FirstSelected() is not { } index)
@@ -170,7 +187,9 @@ public partial class ChangeUnitsDialog : Control
             return;
         }
 
-        _renameEdit.Text = Session.State.ArmyById(ArmyId)?.Units[index].Name ?? string.Empty;
+        var current = Session.State.ArmyById(ArmyId)?.Units[index].Name ?? string.Empty;
+        _renameCurrentLabel.Text = $"Current name: {current}";
+        _renameEdit.Text = current;
         _renamePanel.Visible = true;
         _splitPanel.Visible = false;
     }

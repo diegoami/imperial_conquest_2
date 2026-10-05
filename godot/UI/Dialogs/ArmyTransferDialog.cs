@@ -46,6 +46,8 @@ public partial class ArmyTransferDialog : Control
     private ItemList _selectedList = null!;
     private ItemList _partnerList = null!;
     private Label _figuresLabel = null!;
+    private SpinBox _supplySpin = null!;
+    private SpinBox _moneySpin = null!;
     private Label _supplyLabel = null!;
     private Label _moneyLabel = null!;
     private Label _replyLabel = null!;
@@ -162,11 +164,12 @@ public partial class ArmyTransferDialog : Control
         row.AddThemeConstantOverride("separation", 6);
         row.AddChild(UiKit.MakeLabel("Supply", 14, UiKit.TextColor));
         row.AddChild(UiKit.MakeButton("-100 t", () => PressSupply(-ArmyDialogModels.SupplyLargeStepTons)));
-        row.AddChild(UiKit.MakeButton("-10 t", () => PressSupply(-ArmyDialogModels.SupplyStepTons)));
+        _supplySpin = new SpinBox { Step = ArmyDialogModels.SupplyStepTons, CustomMinimumSize = new Vector2(120, 0) };
+        _supplySpin.ValueChanged += _ => SpinSupply();
+        row.AddChild(_supplySpin);
+        row.AddChild(UiKit.MakeButton("+100 t", () => PressSupply(ArmyDialogModels.SupplyLargeStepTons)));
         _supplyLabel = UiKit.MakeLabel(string.Empty, 13, UiKit.MutedTextColor);
         row.AddChild(_supplyLabel);
-        row.AddChild(UiKit.MakeButton("+10 t", () => PressSupply(ArmyDialogModels.SupplyStepTons)));
-        row.AddChild(UiKit.MakeButton("+100 t", () => PressSupply(ArmyDialogModels.SupplyLargeStepTons)));
         return row;
     }
 
@@ -176,12 +179,35 @@ public partial class ArmyTransferDialog : Control
         row.AddThemeConstantOverride("separation", 6);
         row.AddChild(UiKit.MakeLabel("Money", 14, UiKit.TextColor));
         row.AddChild(UiKit.MakeButton("-100", () => PressMoney(-ArmyDialogModels.MoneyLargeStepTalents)));
-        row.AddChild(UiKit.MakeButton("-10", () => PressMoney(-ArmyDialogModels.MoneyStepTalents)));
+        _moneySpin = new SpinBox { Step = ArmyDialogModels.MoneyStepTalents, CustomMinimumSize = new Vector2(120, 0) };
+        _moneySpin.ValueChanged += _ => SpinMoney();
+        row.AddChild(_moneySpin);
+        row.AddChild(UiKit.MakeButton("+100", () => PressMoney(ArmyDialogModels.MoneyLargeStepTalents)));
         _moneyLabel = UiKit.MakeLabel(string.Empty, 13, UiKit.MutedTextColor);
         row.AddChild(_moneyLabel);
-        row.AddChild(UiKit.MakeButton("+10", () => PressMoney(ArmyDialogModels.MoneyStepTalents)));
-        row.AddChild(UiKit.MakeButton("+100", () => PressMoney(ArmyDialogModels.MoneyLargeStepTalents)));
         return row;
+    }
+
+    private void SpinSupply()
+    {
+        if (_updatingSpinners)
+        {
+            return;
+        }
+
+        _model.AdjustSupply((int)_supplySpin.Value - _model.SupplyNet);
+        Refresh();
+    }
+
+    private void SpinMoney()
+    {
+        if (_updatingSpinners)
+        {
+            return;
+        }
+
+        _model.AdjustMoney((int)_moneySpin.Value - _model.MoneyNet);
+        Refresh();
     }
 
     private void TransferSelected(bool isSelectedSide)
@@ -366,6 +392,15 @@ public partial class ArmyTransferDialog : Control
 
         Fill(_selectedList, Rows(isSelectedSide: true));
         Fill(_partnerList, Rows(isSelectedSide: false));
+
+        _updatingSpinners = true;
+        _supplySpin.MinValue = -_model.MaxSupplyBack;
+        _supplySpin.MaxValue = _model.MaxSupplyToPartner;
+        _supplySpin.Value = _model.SupplyNet;
+        _moneySpin.MinValue = -_model.MaxMoneyBack;
+        _moneySpin.MaxValue = _model.MaxMoneyToPartner;
+        _moneySpin.Value = _model.MoneyNet;
+        _updatingSpinners = false;
 
         _supplyLabel.Text = NetLabel("Supply", _model.SupplyNet, _model.MaxSupplyToPartner, _model.MaxSupplyBack);
         _moneyLabel.Text = NetLabel("Money", _model.MoneyNet, _model.MaxMoneyToPartner, _model.MaxMoneyBack);
