@@ -53,13 +53,15 @@ public sealed record AiTurnOutcome(
 /// behaviour a test pins never depends on a draw.
 /// </para>
 /// <para>
-/// <strong>Nothing here edits the state directly except the resupply pass.</strong> Every decision goes
-/// out as a command through <see cref="ICommandDispatch"/>, which is the seam
+/// <strong>Only the two unconditional up-front passes edit the state directly.</strong> Every decision
+/// goes out as a command through <see cref="ICommandDispatch"/>, which is the seam
 /// <see cref="SystemContext.Commands"/> exists for: "<em>an AI that wrote to the state directly would
 /// skip every legality check a human seat's order goes through, and would leave no command log for a
-/// replay to follow</em>". The resupply pass is the exception because T38 delivered automatic resupply as
-/// a pure function with no command of its own, and inventing one would be a new command type outside this
-/// task's Owns list.
+/// replay to follow</em>". <see cref="AiResupplyPass"/> is the exception because T38 delivered automatic
+/// resupply as a pure function with no command of its own, and T76's <see cref="AiMercenaryHirePass"/> is
+/// the same shape for the computer nation's free mercenary hire: both are unconditional within their
+/// gates rather than scored decisions, and inventing commands for them would be new command types
+/// outside those tasks' Owns lists.
 /// </para>
 /// <para>
 /// <strong>The declare-then-attack pair is verified twice.</strong>
@@ -119,6 +121,16 @@ public static class AiTurn
             personality.ExpansionDrivePermille,
             personality.LoyaltyToAlliancesPermille));
 
+        // R3: the original's FUN_0044E41C captures each army's money once at entry, before the per-city
+        // loop resupplies. AiResupplyPass runs first here, so snapshot every army's purse before it and
+        // hand the snapshot to the hire pass -- otherwise a foreign resupply that takes a 51-talent
+        // purse to 49 would move the hire across its own "more than 50" boundary.
+        var moneyAtTurnStart = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var army in state.Armies)
+        {
+            moneyAtTurnStart[army.Id] = army.Money;
+        }
+
         var resupply = AiResupplyPass.Run(state, ruleset, nationId);
         state = resupply.State;
         log.Add(resupply.Describe());
@@ -126,7 +138,7 @@ public static class AiTurn
         // T76: the computer nation's automatic mercenary hire, the other half of FUN_0044E41C. It runs
         // once, up front, for every army, outside the greedy candidate loop -- it is unconditional within
         // its gates, not a scored decision. Zero random draws (see AiMercenaryHirePass).
-        var mercenaryHire = AiMercenaryHirePass.Run(state, ruleset, nationId);
+        var mercenaryHire = AiMercenaryHirePass.Run(state, ruleset, nationId, moneyAtTurnStart);
         state = mercenaryHire.State;
         log.Add(mercenaryHire.Describe());
 

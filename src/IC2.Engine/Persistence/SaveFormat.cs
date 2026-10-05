@@ -35,9 +35,11 @@ public static class SaveFormat
     /// being optional at the <c>GameState</c>/<c>NationState</c> level (both are — see each field's own
     /// remarks) to carry an older save through unmodified; version 4 (T76) gives every occupied
     /// <c>mercenaryPool</c> slot the <c>x</c>/<c>y</c> city-tile position the original always carried
-    /// <c>[confirmed: decompiled-mercenary-offer-list-and-position.md §4]</c>, defaulting a pre-T76 save's
-    /// entries to the DAT's own never-filled <c>(0, 0)</c> because the position was not persisted before
-    /// this version. <see cref="SaveMigrations"/> carries the real version-1-to-2, version-2-to-3 and
+    /// <c>[confirmed: decompiled-mercenary-offer-list-and-position.md §4]</c>. A pre-T76 save cannot
+    /// supply it — its version-3 schema holds neither the tile nor a template the tile could be derived
+    /// from, so a migrated entry is defaulted to the DAT's own never-filled <c>(0, 0)</c>
+    /// <c>[designed]</c>, and an imported then saved game has no reachable offer until T56's restock
+    /// rewrites the pair. <see cref="SaveMigrations"/> carries the real version-1-to-2, version-2-to-3 and
     /// version-3-to-4 steps; the version-1 step is exercised by
     /// <c>tests/fixtures/saves/toy-3city-turn-10.v1.json</c> — a save written by this task's own
     /// version-1 code, committed before this constant became 2.

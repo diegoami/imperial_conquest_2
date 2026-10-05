@@ -2,6 +2,7 @@ using IC2.Engine.Core;
 using IC2.Engine.Model;
 using IC2.Engine.Recruitment.Commands;
 using IC2.Engine.Tests.Cities.Capture;
+using IC2.Engine.Tests.Core;
 using IC2.Engine.Tests.Fixtures;
 using Xunit;
 
@@ -374,5 +375,85 @@ public sealed class HireMercenaryCommandHandlerTests
 
         Assert.Equal(HireMercenaryRejections.EnemyCity, result.Code);
         Assert.Same(before, result.State);
+    }
+
+    /// <summary>
+    /// R5: the enemy-city refusal sits after the 20-unit and 100,000-troop refusals, as the original's
+    /// <c>TUnitMap_RecruitMercenaries</c> checks them first. A full army standing next to an at-war offer
+    /// city must still return the pre-T76 <see cref="HireMercenaryRejections.OverArmyUnitCap"/>, not the
+    /// new enemy-city code.
+    /// </summary>
+    [Fact]
+    public void A_full_army_next_to_an_enemy_offer_city_is_refused_by_the_unit_cap_first()
+    {
+        var dispatcher = RecruitmentTestbed.Dispatcher();
+        var initial = RecruitmentTestbed.InitialState();
+        var army = ArmyWithUnits(20);
+        var withArmy = initial with { Armies = ValueList.From(initial.Armies.Append(army)) };
+        var withEnemyTown = WithCityAt(withArmy, "enemy-town", 4, 2, "south");
+        var atWar = withEnemyTown with
+        {
+            Relations = withEnemyTown.Relations.WithRelation(
+                "north", "south", RecruitmentTestbed.Ruleset.Diplomacy.StateCodes.War),
+        };
+        var offer = new MercenaryPoolSlot(SlotIndex: 42, X: 4, Y: 2, NameLabel: 3, UnitTypeId: "light_infantry", Troops: 10, Quality: 5);
+        var before = RecruitmentTestbed.WithMercenaryPool(atWar, offer);
+
+        var result = dispatcher.Dispatch(before, new HireMercenaryCommand(before.ActiveNationId, army.Id, offer.SlotIndex));
+
+        Assert.Equal(HireMercenaryRejections.OverArmyUnitCap, result.Code);
+        Assert.Same(before, result.State);
+    }
+
+    /// <summary>
+    /// R4: the human seat's range is read from the ruleset, never written as a literal. Raise
+    /// <c>mercenaryHireRangeHumanSeat</c> to 2 and the same Portus offer at Chebyshev distance 2 from
+    /// north-army-1 is accepted; a handler hard-coding <c>== 1</c> rejects it with
+    /// <see cref="HireMercenaryRejections.NoAdjacentOffer"/>.
+    /// </summary>
+    [Fact]
+    public void The_human_range_comes_from_the_ruleset_not_a_literal()
+    {
+        var ruleset = RecruitmentTestbed.Ruleset;
+        Assert.Equal(1, ruleset.Recruitment.MercenaryHireRangeHumanSeat);
+
+        var widened = ruleset with
+        {
+            Recruitment = ruleset.Recruitment with { MercenaryHireRangeHumanSeat = 2 },
+        };
+        var dispatcher = new CommandDispatcher(
+            SystemRegistry.FromEngineAssembly(), widened, CoreTestbed.Toy.World, NullEventSink.Instance);
+
+        var offer = SmallOffer(39, 5, 2); // Portus, Chebyshev distance 2 from (3,2).
+        Assert.Equal(2, System.Math.Max(System.Math.Abs(5 - 3), System.Math.Abs(2 - 2)));
+        var before = RecruitmentTestbed.WithMercenaryPool(RecruitmentTestbed.InitialState(), offer);
+
+        var result = dispatcher.Dispatch(before, new HireMercenaryCommand(before.ActiveNationId, "north-army-1", offer.SlotIndex));
+
+        Assert.True(result.IsAccepted, result.ToString());
+    }
+
+    /// <summary>
+    /// R8: <c>FUN_004498D8</c> skips an adjacent offer whose tile holds no city and keeps looking, so a
+    /// higher-numbered adjacent offer on a city still wins. If the off-city slot (4, at (3,1)) were
+    /// chosen anyway, <c>CityAt</c> would resolve to no city and the on-city Arx offer (9, at (2,1))
+    /// would be unreachable.
+    /// </summary>
+    [Fact]
+    public void An_adjacent_offer_with_no_city_is_skipped_and_the_next_adjacent_offer_on_a_city_wins()
+    {
+        var dispatcher = RecruitmentTestbed.Dispatcher();
+        var initial = RecruitmentTestbed.InitialState();
+        var offCity = SmallOffer(4, 3, 1);   // adjacent to north-army-1 at (3,2), but no city on (3,1).
+        var onCity = SmallOffer(9, 2, 1);    // Arx: adjacent too, and on a city tile.
+        var before = RecruitmentTestbed.WithMercenaryPool(initial, offCity, onCity);
+
+        // The lower-numbered, off-city offer maps onto Arx's tile instead, because Arx is the chosen city.
+        var offCityResult = dispatcher.Dispatch(before, new HireMercenaryCommand(before.ActiveNationId, "north-army-1", offCity.SlotIndex));
+        Assert.Equal(HireMercenaryRejections.OfferNotAdjacentCity, offCityResult.Code);
+
+        // The on-city offer is reachable only because the off-city one was skipped rather than chosen.
+        var onCityResult = dispatcher.Dispatch(before, new HireMercenaryCommand(before.ActiveNationId, "north-army-1", onCity.SlotIndex));
+        Assert.True(onCityResult.IsAccepted, onCityResult.ToString());
     }
 }

@@ -254,6 +254,92 @@ public sealed class AiMercenaryHirePassTests
     }
 
     /// <summary>
+    /// R7: an embarked army sits on its fleet's tile (<c>EmbarkArmyCommandHandler</c> copies the fleet's
+    /// <c>X</c>/<c>Y</c> onto it; only <c>CoveredTileCode</c> carries the <c>-1</c> sentinel), and
+    /// <c>FUN_0044E41C</c> runs for every army of the acting nation — so it hires like any other. The
+    /// original applies no fleet-capacity check here either
+    /// <strong>[confirmed: decompiled-mercenary-offer-list-and-position.md §3;
+    /// 2026-10-05-split-army-aboard-a-fleet.md]</strong>.
+    /// </summary>
+    [Fact]
+    public void An_embarked_army_hires_like_any_other()
+    {
+        var state = StateWithOffer(14, 12, armyMoney: 1000, pool: new[] { Offer(5, 14, 12) });
+        var army = state.ArmyById("ai-army")!;
+        state = state with
+        {
+            Armies = ValueList.Of(army with { AboardFleetId = "ai-fleet", CoveredTileCode = null }),
+        };
+
+        var result = AiMercenaryHirePass.Run(state, Ruleset, ArmyNation);
+
+        Assert.Equal(1, result.OffersHired);
+        Assert.Empty(result.State.MercenaryPool);
+        Assert.True(result.State.ArmyById("ai-army")!.IsEmbarked);
+    }
+
+    /// <summary>
+    /// R3: the original captures the army's money once at <c>FUN_0044E41C</c>'s entry, before resupply
+    /// spends it, and gates the hire on that captured value. A 51-talent army that buys 10 tons at a
+    /// foreign city (5 tons per talent) drops to 49, but still hires because the entry purse was above
+    /// 50; gating on the post-resupply purse alone would wrongly block it.
+    /// </summary>
+    [Fact]
+    public void The_money_gate_reads_the_entry_purse_not_the_post_resupply_one()
+    {
+        var state = MoneyGateState();
+        var moneyAtTurnStart = new Dictionary<string, int>(StringComparer.Ordinal) { ["ai-army"] = 51 };
+
+        var resupplied = AiResupplyPass.Run(state, Ruleset, ArmyNation);
+        Assert.Equal(49, resupplied.State.ArmyById("ai-army")!.Money); // 10 tons / 5 tons per talent.
+
+        // With the entry purse the hire happens; on the post-resupply purse alone it would not.
+        Assert.Equal(1, AiMercenaryHirePass.Run(resupplied.State, Ruleset, ArmyNation, moneyAtTurnStart).OffersHired);
+        Assert.Equal(0, AiMercenaryHirePass.Run(resupplied.State, Ruleset, ArmyNation).OffersHired);
+    }
+
+    /// <summary>
+    /// R3, end to end: a real AI turn passes the entry-purse snapshot to the hire pass, so the same
+    /// 51-talent army that resupplies down to 49 still hires. Reverting <see cref="AiTurn"/> to the
+    /// snapshot-less call makes this assert zero hires.
+    /// </summary>
+    [Fact]
+    public void A_full_ai_turn_gates_the_hire_on_the_entry_purse()
+    {
+        var state = MoneyGateState();
+
+        var driven = AiScriptedStates.DriveOneTurn(state, seed: 1);
+
+        Assert.Equal(49, driven.Outcome.State.ArmyById("ai-army")!.Money);
+        Assert.Empty(driven.Outcome.State.MercenaryPool);
+        Assert.Contains(
+            driven.Outcome.Log, l => l.StartsWith("mercenary hire: 1", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// The R3 fixture: a 5,000-troop north AI army holding 51 money and no supply, four tiles from the
+    /// peaceful south offer city whose 100 tons it buys from, while north is at war with the third
+    /// nation east. At 5 tons per talent the purchase costs 2 talents and leaves 49.
+    /// </summary>
+    private static GameState MoneyGateState()
+    {
+        var state = StateWithOffer(
+            14, 12, cityOwner: "south", armyMoney: 51, pool: new[] { Offer(5, 14, 12) });
+        var army = state.ArmyById("ai-army")!;
+        state = state with
+        {
+            Armies = ValueList.Of(
+                army with { Units = ValueList.Of(CaptureTestbed.Unit("light_infantry", 5000)) }),
+            Cities = ValueList.From(state.Cities.Select(
+                c => string.Equals(c.Id, "offer-city", StringComparison.Ordinal)
+                    ? c with { SupplyTons = 100 }
+                    : c)),
+        };
+
+        return AiScriptedStates.WithActiveSeat(state, ArmyNation);
+    }
+
+    /// <summary>
     /// Done-when 5: the pass adds zero random draws, so the same fixed seed reproduces the same turn and
     /// log exactly. Two independent streams from seed 7, one driven turn each, must agree.
     /// </summary>

@@ -414,4 +414,25 @@ public class OriginalSaveImportRealSaveTests
         Assert.Equal(24, fleet.ConstructionTicksRemaining);
         Assert.Equal(RealGameData.World.Cities[166].Id, fleet.BuildCityId);
     }
+
+    [SkippableFact]
+    public void The_import_maps_a_mercenary_offers_city_tile()
+    {
+        // R6: T76 maps MercenaryRecord.X/Y onto MercenaryPoolSlot.X/Y, but nothing exercised the mapping
+        // -- replacing it with X:0, Y:0 left the whole suite green. The documented Felsina case (slot 33
+        // at (98, 31) in 1_rome_270_winter_1, mercenary-pool-record.md) is asserted directly, so the
+        // mapping is load-bearing.
+        Skip.IfNot(LocalOriginalAssets.IsConfigured, LocalOriginalAssets.SkipReason);
+        const string fileName = "1_rome_270_winter_1.sav";
+        var path = OriginalFixture.TryResolve(fileName);
+        Skip.If(path is null, $"'{fileName}' is not present in the configured corpus on this machine.");
+
+        var result = ImportFixture(fileName);
+
+        var slot = result.Save.State.MercenaryPool.Single(s => s.SlotIndex == 33);
+        Assert.Equal(98, slot.X);
+        Assert.Equal(31, slot.Y);
+        Assert.Equal(6438, slot.Troops);
+        Assert.Equal(11, slot.NameLabel);
+    }
 }

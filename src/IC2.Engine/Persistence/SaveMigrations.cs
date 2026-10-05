@@ -146,12 +146,18 @@ internal static class SaveMigrations
     /// <summary>
     /// Version 3 to version 4 (T76): gives every occupied mercenary-pool slot the <c>x</c>/<c>y</c>
     /// city-tile position <see cref="MercenaryPoolSlot"/> now carries. A pre-T76 save never persisted it,
-    /// so the only value the step can honestly supply is the DAT's own never-filled default,
-    /// <c>(0, 0)</c> <strong>[confirmed: decompiled-mercenary-offer-list-and-position.md §4]</strong> —
-    /// a slot whose tile is no city resolves to no reachable offer until the quarterly restock (T56)
-    /// rewrites it, which is exactly what the original's own stale position does. An entry that already
-    /// carries either coordinate is left untouched, so a save written by a later version that gained
-    /// another field here re-runs this step harmlessly.
+    /// and no source can recover where an offer stood: searched
+    /// <c>decompiled-mercenary-offer-list-and-position.md</c> (its §4 confirms the DAT ships its 50 live
+    /// slots <em>empty</em> as <c>(0, 0, …)</c> and that every live offer sits on a city tile) and this
+    /// save format's own version-3 schema (which carries neither the tile nor any template the tile could
+    /// be derived from), and found no recoverable position for a v3 save's occupied slot. The step
+    /// therefore supplies <c>(0, 0)</c> as a <strong>[designed]</strong> fallback — the value the
+    /// original's own never-filled slots hold, chosen because it is the one pair the format already uses
+    /// for "no offer here". <strong>Consequence:</strong> such a slot's tile is no city, so it resolves to
+    /// no reachable offer from a human order or the AI hire until the quarterly restock (T56) rewrites the
+    /// pair; an imported then saved pre-T76 game therefore has no reachable offer until T56 runs. An entry
+    /// that already carries either coordinate is left untouched, so a save written by a later version that
+    /// gained another field here re-runs this step harmlessly.
     /// </summary>
     /// <exception cref="MalformedGameDataException">
     /// The envelope is not a well-formed version-3 save (<c>state.mercenaryPool</c> is not a JSON array),

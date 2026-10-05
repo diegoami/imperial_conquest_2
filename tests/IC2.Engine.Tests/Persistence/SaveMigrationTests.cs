@@ -297,9 +297,11 @@ public sealed class SaveMigrationTests
 
     /// <summary>
     /// A version-3 save's occupied mercenary slots have no position; the migration supplies the DAT's own
-    /// never-filled default <c>(0, 0)</c>, because the value was not persisted before this version
-    /// <strong>[confirmed: decompiled-mercenary-offer-list-and-position.md §4]</strong>. Without the step,
-    /// <see cref="SchemaValidator"/> would reject the missing required fields instead of loading.
+    /// never-filled default <c>(0, 0)</c> as a <strong>[designed]</strong> fallback, because the value was
+    /// not persisted before this version and a v3 save carries no source from which the real tile could be
+    /// recovered; the consequence is that such an offer is unreachable until T56's restock rewrites it.
+    /// Without the step, <see cref="SchemaValidator"/> would reject the missing required fields instead
+    /// of loading.
     /// </summary>
     [Fact]
     public void MigratingAVersion3EnvelopeGivesMercenaryPoolSlotsTheDefaultPosition()
