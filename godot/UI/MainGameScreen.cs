@@ -99,6 +99,13 @@ public partial class MainGameScreen : Control
     /// interactive. Exposed for <c>godot/Screens/Checks/**</c> and <c>godot/Checks/MenuBarCheck.cs</c>.</summary>
     public Control? ActiveOverlay { get; private set; }
 
+    /// <summary>
+    /// T134: the last screen-level message shown when Supply army opened nothing — the "select an army"
+    /// or "no provider" line. Distinct from a command's own outcome (it is not a command), so the
+    /// headless check can read it without a <see cref="CommandIssued"/> firing.
+    /// </summary>
+    public string LastMessageForCheck => _lastCommandLabel.Text;
+
     private bool _hintsEnabled = true;
 
     // T132: the right-hand column and the narrow button on its left edge that hides and shows it. The
@@ -129,6 +136,12 @@ public partial class MainGameScreen : Control
     private string? _lastKnownActiveNationId;
     private int _lastKnownTurnIndex;
     private bool _lastKnownActiveWasHuman;
+
+    // T134: the current map selection, so the Army menu's Supply army entry can act on the selected army
+    // (or the army a selected fleet carries). The context panel owns the view; this is only the id pair
+    // the command needs, kept in step with the map's own selection events.
+    private string? _selectedArmyId;
+    private string? _selectedFleetId;
 
     public override void _Ready()
     {
@@ -244,10 +257,30 @@ public partial class MainGameScreen : Control
         _newsLog = new NewsLogPanel { Session = Session, CustomMinimumSize = new Vector2(0, 200) };
         root.AddChild(_newsLog);
 
-        _mapView.CitySelected += id => _contextPanel.ShowCity(id);
-        _mapView.ArmySelected += id => _contextPanel.ShowArmy(id);
-        _mapView.FleetSelected += id => _contextPanel.ShowFleet(id);
-        _mapView.SelectionCleared += () => _contextPanel.ShowNationOverview();
+        _mapView.CitySelected += id =>
+        {
+            _selectedArmyId = null;
+            _selectedFleetId = null;
+            _contextPanel.ShowCity(id);
+        };
+        _mapView.ArmySelected += id =>
+        {
+            _selectedArmyId = id;
+            _selectedFleetId = null;
+            _contextPanel.ShowArmy(id);
+        };
+        _mapView.FleetSelected += id =>
+        {
+            _selectedArmyId = null;
+            _selectedFleetId = id;
+            _contextPanel.ShowFleet(id);
+        };
+        _mapView.SelectionCleared += () =>
+        {
+            _selectedArmyId = null;
+            _selectedFleetId = null;
+            _contextPanel.ShowNationOverview();
+        };
         _mapView.CommandIssued += OnCommandIssued;
         _contextPanel.CommandIssued += OnCommandIssued;
 
@@ -331,6 +364,10 @@ public partial class MainGameScreen : Control
 
         // Unit map: Cancel selection is T99's own handler (Shift+X already reaches it too).
         CommandTable.Bind("unit_map.cancel_selection", () => _mapView.ClearSelection());
+
+        // T134: Army -> Supply army opens the SupplyDialog for the selected army (or the army a selected
+        // fleet carries), or shows one of the two messages and opens nothing.
+        CommandTable.Bind("unit_map.army_supply", OpenSupplyArmyDialog);
 
         // Help: the new page, the hints toggle, and the about box.
         CommandTable.Bind("help.topics", ShowHelpPage);
@@ -662,6 +699,87 @@ public partial class MainGameScreen : Control
 
         _mapView.CentreOnTile(city.X, city.Y);
         _areaMapView.SetFindCityHighlight(cityId);
+    }
+
+    /// <summary>
+    /// T134: selects an army exactly as a map click's <see cref="GameMapView.ArmySelected"/> does — the
+    /// state <see cref="OpenSupplyArmyDialog"/> reads — so <c>godot/Checks/SupplyArmyCheck.cs</c> can
+    /// drive the dialog from the menu without a map click's foreign-army attack prompt. The same
+    /// check-seam convention <see cref="SubmitForCheck"/> establishes.
+    /// </summary>
+    public void SelectArmyForCheck(string armyId)
+    {
+        _selectedArmyId = armyId;
+        _selectedFleetId = null;
+        _contextPanel.ShowArmy(armyId);
+    }
+
+    /// <summary>
+    /// T134: the Army menu's Supply army entry. Acts on the selected army, or on the army a selected fleet
+    /// carries [confirmed: code, the prologue of each <c>TUnitMap_*</c> army order]. With no own army
+    /// selected it shows the select-an-army message; with no provider within one tile it shows the
+    /// no-provider message; either way it opens nothing and issues nothing.
+    /// </summary>
+    private void OpenSupplyArmyDialog()
+    {
+        var army = SelectedArmyOrCarried();
+        if (army is null || !string.Equals(army.Nation, Session.State.ActiveNationId, StringComparison.Ordinal))
+        {
+            ShowScreenMessage("Select one of your armies first.");
+            return;
+        }
+
+        if (IC2.Engine.Economy.SupplyProviders.ForArmy(Session.State, army.Id, Session.Ruleset).Count == 0)
+        {
+            ShowScreenMessage("No city or fleet of yours, or of a nation at peace with you, within one tile.");
+            return;
+        }
+
+        var dialog = new SupplyDialog
+        {
+            Session = Session,
+            ArmyId = army.Id,
+            Submit = SubmitFromSupplyDialog,
+        };
+        dialog.Closed += () => CloseOverlay(dialog);
+        ShowOverlay(dialog);
+    }
+
+    /// <summary>The selected army, or the army the selected fleet carries, or <see langword="null"/>.</summary>
+    private ArmyState? SelectedArmyOrCarried()
+    {
+        if (_selectedArmyId is not null)
+        {
+            return Session.State.ArmyById(_selectedArmyId);
+        }
+
+        if (_selectedFleetId is not null
+            && Session.State.FleetById(_selectedFleetId)?.CarriedArmyId is { } carried)
+        {
+            return Session.State.ArmyById(carried);
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Submits one line the Supply dialog composed through <see cref="GameSession.Submit"/> and
+    /// <see cref="OnCommandIssued"/> — the same path every other control's command takes, so
+    /// <see cref="CommandIssued"/> counts it exactly once.
+    /// </summary>
+    private IReadOnlyList<string> SubmitFromSupplyDialog(string line)
+    {
+        var lines = Session.Submit(line).Lines;
+        OnCommandIssued(lines);
+        return lines;
+    }
+
+    /// <summary>Shows a screen-level message without issuing a command — see <see cref="LastMessageForCheck"/>.</summary>
+    private void ShowScreenMessage(string message)
+    {
+        _lastCommandLabel.Text = message;
+        _lastCommandLabel.TooltipText = message;
+        UpdateLastCommandLinesSkipped();
     }
 
     private void ShowHelpPage()
