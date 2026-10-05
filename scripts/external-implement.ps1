@@ -165,13 +165,14 @@ $chain = if ($Model -eq 'auto') { @('deepseek-flash', 'qwen-flash') } else { @($
 # Each chain model's route: quota-tracker's /avoid is read once (-Route auto); a silent tracker keeps
 # the usual route. An auto chain drops a model with no route that has quota, or one an explicit
 # -Route does not serve; an explicit -Model the route does not serve is refused.
-$quota = if ($Route -eq 'auto') { Get-QuotaAvoid } else { [pscustomobject]@{ Answered = $false; Providers = @() } }
+$quota = Get-QuotaAvoid
 $resolved = @{}
 $kept = @()
 foreach ($m in $chain) {
     $r = Resolve-OpenCodeRoute -Usual $models[$m] -Alibaba $alibabaIds[$m] -Route $Route -Answered $quota.Answered -Avoid $quota.Providers
     if ($r.Refused -and $Model -ne 'auto') { [Console]::Error.WriteLine("Refused: ${m}: $($r.Why)."); exit 1 }
     if ($r.Refused -or ($r.Avoided -and $Model -eq 'auto')) { Write-Host "skipped: $m ($($r.Why))"; continue }
+    if ($r.Avoided) { Write-Warning "${m}: $($r.Why); it runs because -Model names it (the main session's choice)." }
     $resolved[$m] = $r
     $kept += $m
     Write-Host "route: $m on $($r.Route) ($($r.Model)): $($r.Why)"

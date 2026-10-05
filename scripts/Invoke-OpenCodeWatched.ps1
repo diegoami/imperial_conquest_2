@@ -380,7 +380,11 @@ function Resolve-OpenCodeFullPath([string] $Path) {
 }
 
 function Initialize-OpenCodeDataHome {
-    param([int] $Major = 1)
+    param([int] $Major = 1, [switch] $NoAuthCopy)
+    # -NoAuthCopy (an Alibaba Token Plan run, the owner's decision of 2026-10-05): auth.json is not
+    # copied at all, since that provider authenticates by ALIBABA_TOKEN_PLAN_API_KEY alone and an
+    # auth.json entry for it would override the variable. auth.json is never read, parsed or edited
+    # to filter it; other providers keep the copy below unchanged.
     # Issue #540: gives every OpenCode process this script starts its OWN data, cache and state
     # directories, so the OpenCode desktop app (which shares ~/.local/share/opencode/ and moved
     # opencode.db to its 2.x schema on 2026-10-01, which the npm CLI 1.18 cannot read: "no such
@@ -433,7 +437,9 @@ function Initialize-OpenCodeDataHome {
     foreach ($d in @($dataDir, $dirs.XDG_CACHE_HOME, $dirs.XDG_STATE_HOME)) { New-Item -ItemType Directory -Force -Path $d | Out-Null }
     if (-not (Test-Path -LiteralPath $marker)) { [System.IO.File]::WriteAllText($marker, "$Major") }
     $dst = Join-Path $dataDir 'auth.json'
-    if (Test-Path -LiteralPath $src) {
+    if ($NoAuthCopy) {
+        $auth = 'auth.json not copied (Alibaba Token Plan: the environment variable authenticates)'
+    } elseif (Test-Path -LiteralPath $src) {
         if (-not (Test-Path -LiteralPath $dst) -or (Get-Item -LiteralPath $src).LastWriteTimeUtc -gt (Get-Item -LiteralPath $dst).LastWriteTimeUtc) {
             Copy-Item -LiteralPath $src -Destination $dst -Force
             $auth = 'auth.json copied'
@@ -530,7 +536,12 @@ function Get-OpenCodeRouteName([string] $ModelId) {
 function Get-QuotaAvoid {
     # quota-tracker's /avoid: the providers out of quota. Answered is $false when the service does not
     # answer, and the callers then keep each model's usual route.
+    # IC2_QUOTA_AVOID, when set, stands in for the service (a test hook for -SelfTest: a comma list
+    # of provider names, or 'none'); it is never set in normal use.
     param([string] $Url = 'http://localhost:8765/avoid', [int] $TimeoutSec = 5)
+    if ($env:IC2_QUOTA_AVOID) {
+        return [pscustomobject]@{ Answered = $true; Providers = @($env:IC2_QUOTA_AVOID -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -and $_ -ne 'none' }) }
+    }
     try { $r = Invoke-RestMethod -Uri $Url -TimeoutSec $TimeoutSec -ErrorAction Stop }
     catch { return [pscustomobject]@{ Answered = $false; Providers = @() } }
     $names = @(@($r) | ForEach-Object { if ($_ -is [string]) { $_ } elseif ($_ -and $_.provider) { [string]$_.provider } } | Where-Object { $_ })
@@ -542,7 +553,7 @@ function Resolve-OpenCodeRoute {
     # -Route auto takes the usual route unless quota-tracker's /avoid lists its provider, then the
     # Alibaba id when Alibaba itself is not avoided; Avoided says no route of the model has quota.
     # When the tracker did not answer (-Answered:$false) the usual route is kept. An explicit -Route
-    # the model has no id for is Refused.
+    # the model has no id for is Refused; an explicit -Route whose provider /avoid lists is Avoided.
     param([string] $Usual, [string] $Alibaba, [string] $Route = 'auto', [bool] $Answered = $false, [string[]] $Avoid = @())
     $usualRoute = Get-OpenCodeRouteName $Usual
     $out = { param($r, $m, $why, $avoided, $refused) [pscustomobject]@{ Route = $r; Model = $m; Why = $why; Avoided = [bool]$avoided; Refused = [bool]$refused } }
@@ -553,8 +564,12 @@ function Resolve-OpenCodeRoute {
         if ($Alibaba -and $usualRoute -ne 'alibaba' -and $Avoid -notcontains 'alibaba') { return (& $out 'alibaba' $Alibaba "$provider is avoided (quota-tracker)" $false $false) }
         return (& $out $usualRoute $Usual "$provider is avoided (quota-tracker) and no other route of this model has quota" $true $false)
     }
-    if ($Route -eq $usualRoute) { return (& $out $usualRoute $Usual "-Route $Route" $false $false) }
-    if ($Route -eq 'alibaba' -and $Alibaba) { return (& $out 'alibaba' $Alibaba '-Route alibaba' $false $false) }
+    $forced = if ($Route -eq $usualRoute) { $Usual } elseif ($Route -eq 'alibaba' -and $Alibaba) { $Alibaba } else { $null }
+    if ($forced) {
+        $provider = $script:OpenCodeRouteQuotaProvider[$Route]
+        $avoided = $Answered -and $provider -and $Avoid -contains $provider
+        return (& $out $Route $forced $(if ($avoided) { "-Route $Route, but $provider is avoided (quota-tracker)" } else { "-Route $Route" }) $avoided $false)
+    }
     $known = @($usualRoute) + $(if ($Alibaba -and $usualRoute -ne 'alibaba') { @('alibaba') } else { @() })
     return (& $out $null $null "-Route $Route does not serve this model (its routes: $($known -join ', '))" $false $true)
 }
@@ -605,7 +620,7 @@ function Invoke-OpenCodeWatched {
         # Not an infrastructure failure: no other model or retry fixes it, so the caller stops.
         throw [System.InvalidOperationException]::new("Alibaba Token Plan: ALIBABA_TOKEN_PLAN_API_KEY is set neither in this process nor in the user environment, so $Model would fail 'Provider not found'. Set the user variable (never in an auth.json). Nothing was started.")
     }
-    $state = Initialize-OpenCodeDataHome -Major $cli.Major
+    $state = Initialize-OpenCodeDataHome -Major $cli.Major -NoAuthCopy:$isAlibaba
     if ($Model -like 'opencode-go/*') {
         # Before the run, so a missing Go login stops here with its cause instead of a "Provider not found" run.
         $goIn = Join-Path $state.Root 'go-login-check.in.txt'

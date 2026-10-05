@@ -113,7 +113,9 @@
     (opencode_go, zai), then the Alibaba Token Plan's id for the same model; when the tracker does not
     answer, the usual route. go, zai or alibaba force one; a named reviewer that route does not serve
     is refused (exit 1). Qwen is always alibaba, luna and sol always openai, glm-flash always zai. The
-    route is printed, and named in the posted review's signature line.
+    route is printed, and named in the posted review's signature line. A reviewer none of whose
+    routes has quota (/avoid lists them all, or a forced -Route's provider) is skipped, and with none
+    left the script exits 3 with the cause.
 .PARAMETER BriefFile
     The filled reviewer brief. Its first line must be the review header the model is to print,
     for example "Plan review (Luna)" or "T94 review (DeepSeek)". With -Reviewer auto, the text in
@@ -594,6 +596,24 @@ function Invoke-ReviewParserSelfTest {
     $lunaRouteCode = $LASTEXITCODE
     Remove-Item -LiteralPath $probeBrief -Force -ErrorAction SilentlyContinue
     $ruleChecks += [pscustomobject]@{ Name = "-WhatIf -Reviewer qwen -ExcludeModel qwen-flash is refused with exit 1 (got $qwenCode)"; Ok = ($qwenCode -eq 1) }
+    $r = & $rt 'deepseek-pro' 'alibaba' $true @('alibaba')
+    $ruleChecks += [pscustomobject]@{ Name = '-Route alibaba with alibaba avoided: deepseek-pro is Avoided'; Ok = ($r.Avoided -and -not $r.Refused) }
+    # Sol's review of PR 783, R2 and R4: the reviewer path acts on /avoid (IC2_QUOTA_AVOID stands in
+    # for the service), and a -WhatIf without -ExcludeModel succeeds.
+    $probeBrief = Join-Path $probeDir "selftest-brief-$([guid]::NewGuid().ToString('N').Substring(0, 8)).md"
+    Set-Content -LiteralPath $probeBrief -Value "T0 review (Luna)`nself-test probe brief" -Encoding utf8
+    $probe = { param($avoid, [string[]] $more) $saved = $env:IC2_QUOTA_AVOID; $env:IC2_QUOTA_AVOID = $avoid
+        try { $o = (& pwsh -NoProfile -File $PSCommandPath -Pr 1 -BriefFile $probeBrief -WhatIf @more 2>&1 | Out-String); [pscustomobject]@{ Code = $LASTEXITCODE; Out = $o } }
+        finally { if ($null -eq $saved) { Remove-Item Env:IC2_QUOTA_AVOID -ErrorAction SilentlyContinue } else { $env:IC2_QUOTA_AVOID = $saved } } }
+    $p = & $probe 'none' @('-Reviewer', 'luna')
+    $ruleChecks += [pscustomobject]@{ Name = "-WhatIf -Reviewer luna without -ExcludeModel exits 0 (got $($p.Code))"; Ok = ($p.Code -eq 0) }
+    $p = & $probe 'alibaba' @('-Reviewer', 'qwen')
+    $ruleChecks += [pscustomobject]@{ Name = "-WhatIf -Reviewer qwen with alibaba avoided exits 3 (got $($p.Code))"; Ok = ($p.Code -eq 3) }
+    $p = & $probe 'zai,alibaba' @('-Reviewer', 'glm')
+    $ruleChecks += [pscustomobject]@{ Name = "-WhatIf -Reviewer glm with zai and alibaba avoided exits 3 (got $($p.Code))"; Ok = ($p.Code -eq 3) }
+    $p = & $probe 'zai' @('-Reviewer', 'glm')
+    $ruleChecks += [pscustomobject]@{ Name = "-WhatIf -Reviewer glm with zai avoided runs alibaba-token-plan/glm-5.3 (got $($p.Code))"; Ok = ($p.Code -eq 0 -and $p.Out -like '*alibaba-token-plan/glm-5.3*') }
+    Remove-Item -LiteralPath $probeBrief -Force -ErrorAction SilentlyContinue
     $ruleChecks += [pscustomobject]@{ Name = "-WhatIf -Reviewer luna -Route alibaba is refused with exit 1 (got $lunaRouteCode)"; Ok = ($lunaRouteCode -eq 1) }
     foreach ($c in $ruleChecks) {
         $n++
@@ -755,20 +775,30 @@ if (-not $chain) {
     [Console]::Error.WriteLine("OpenCode unavailable: no reviewer model left after excluding the implementer's ($($implementers -join ', ')). Nothing posted.")
     exit 3
 }
-# The route of each chain reviewer (the user's decision of 2026-10-05): -Route auto reads
-# quota-tracker's /avoid once and moves DeepSeek or GLM to the Alibaba Token Plan when its usual
-# provider is avoided; a tracker that does not answer keeps the usual route. An explicit -Route that a
-# named reviewer has no id for is refused (exit 1).
-$quota = if ($Route -eq 'auto') { Get-QuotaAvoid } else { [pscustomobject]@{ Answered = $false; Providers = @() } }
+# The route of each chain reviewer (the user's decision of 2026-10-05). quota-tracker's /avoid is read
+# once: -Route auto moves DeepSeek or GLM to the Alibaba Token Plan when its usual provider is
+# avoided, unless Alibaba is avoided too; a tracker that does not answer keeps the usual route. A
+# reviewer none of whose routes has quota (Qwen with alibaba avoided; GLM or DeepSeek with both its
+# provider and alibaba avoided; a forced -Route whose provider is avoided) is dropped, as Appendix C's
+# QUOTA FIRST skips it, and when none is left the script exits 3 with the cause, so the main session
+# takes the next reviewer. An explicit -Route that a named reviewer has no id for is refused (exit 1).
+$quota = Get-QuotaAvoid
 $resolved = @{}
+$routeSkips = @()
 foreach ($name in $chain) {
     $r = Resolve-OpenCodeRoute -Usual $models[$name] -Alibaba $alibabaIds[$name] -Route $Route -Answered $quota.Answered -Avoid $quota.Providers
     if ($r.Refused) {
         [Console]::Error.WriteLine("Refused: $($displayNames[$name]): $($r.Why). Nothing posted.")
         exit 1
     }
+    if ($r.Avoided) { Write-Host "skipped: $($displayNames[$name]) ($($r.Why))"; $routeSkips += "$($displayNames[$name]): $($r.Why)"; continue }
     $resolved[$name] = $r
     Write-Host "route: $($displayNames[$name]) on $($r.Route) ($($r.Model)): $($r.Why)"
+}
+$chain = @($chain | Where-Object { $resolved.ContainsKey($_) })
+if (-not $chain) {
+    [Console]::Error.WriteLine("OpenCode unavailable: no reviewer with quota ($($routeSkips -join '; ')). Nothing posted.")
+    exit 3
 }
 # OpenCode not installed or not found, or a major version this script has no arguments for (only 1.x
 # and 2.x), is the same signal as every model failing: exit 3. The version is read once (T98).
