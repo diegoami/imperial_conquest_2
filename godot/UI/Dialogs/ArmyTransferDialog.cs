@@ -230,8 +230,46 @@ public partial class ArmyTransferDialog : Control
         }
     }
 
-    private void DisbandSelected(TransferRow row) =>
-        SubmitIfAny($"disband-unit {row.ArmyId} {row.SourceIndex}");
+    private void DisbandSelected(TransferRow row)
+    {
+        var lines = Submit($"disband-unit {row.ArmyId} {row.SourceIndex}");
+        _replyLabel.Text = lines.Skip(1).FirstOrDefault(text => text.Length > 0) ?? string.Empty;
+
+        // The unit is gone from the live state, so rebuild the model and the display lists from it
+        // (any staging is dropped, exactly as a fresh dialog would open).
+        if (!RebuildFromState())
+        {
+            Closed?.Invoke();
+            return;
+        }
+
+        Refresh();
+    }
+
+    /// <summary>Re-reads both armies from the live state; false when either is gone.</summary>
+    private bool RebuildFromState()
+    {
+        var selected = Session.State.ArmyById(ArmyId);
+        var partner = Session.State.ArmyById(PartnerId);
+        if (selected is null || partner is null)
+        {
+            return false;
+        }
+
+        _model = ArmyTransferModel.ForArmies(selected, partner, Session.Ruleset);
+        _rows.Clear();
+        for (var i = 0; i < selected.Units.Count; i++)
+        {
+            _rows.Add(new TransferRow(selected.Id, i, selected.Units[i], OnPartnerSide: false));
+        }
+
+        for (var i = 0; i < partner.Units.Count; i++)
+        {
+            _rows.Add(new TransferRow(partner.Id, i, partner.Units[i], OnPartnerSide: true));
+        }
+
+        return true;
+    }
 
     /// <summary>
     /// Flips one row between the two lists, keeping the model's staged set in step: a row of the

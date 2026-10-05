@@ -247,6 +247,14 @@ public partial class ArmyOrdersCheck : Control
         Check(
             dialog.ModelForCheck.ArmyId == CarriedArmyId,
             "the split model is built for the carried army");
+
+        // The order the dialog would submit names the army aboard. The engine's own SplitArmyCommand
+        // refuses an embarked army (its own defensive rule), which the UI does not work around.
+        dialog.StageUnitForCheck(0);
+        var composed = dialog.ModelForCheck.ComposeOk();
+        Check(
+            composed is not null && composed.StartsWith($"split-army {CarriedArmyId} ", StringComparison.Ordinal),
+            $"the split order names the army aboard ('{composed}')");
         dialog.CancelForCheck();
     }
 
