@@ -1,8 +1,10 @@
 using IC2.Engine.Economy;
 using IC2.Engine.Model;
 using IC2.Engine.Presentation;
+using IC2.Engine.Serialization;
 using IC2.Engine.Tests.Core;
 using Xunit;
+using ModelTestPaths = IC2.Engine.Tests.Model.TestPaths;
 
 namespace IC2.Engine.Tests.Presentation;
 
@@ -13,65 +15,66 @@ namespace IC2.Engine.Tests.Presentation;
 /// </summary>
 public sealed class HumanMoveResupplyTests
 {
-    private const string ArmyId = "north-army-1";
+    // ---- Done-when 1 and 2 on the shipped presets: a real, nonzero move on classical-mediterranean ----
 
-    private static GameSession DrainedSession(HumanMoveResupplyPolicy policy)
+    private static GameSession PresetSession(string rulesetFile)
     {
-        var toy = CoreTestbed.Toy;
-        var ruleset = toy.Ruleset with { Flags = toy.Ruleset.Flags with { HumanMoveResupply = policy } };
-        var scenario = toy.Scenario with
-        {
-            Seats = ValueList.From(
-                toy.Scenario.Seats.Select(seat => seat with { Control = SeatControl.Human, Personality = null })),
-        };
-        var session = new GameSession(toy.World, ruleset, scenario);
-        session.Submit($"move {ArmyId} 4 3"); // adjoins portus (own) and meridia (foreign).
-        for (var i = 0; i < 12; i++)
-        {
-            session.Submit("end");
-        }
-
-        Assert.Equal(0, session.State.ArmyById(ArmyId)!.SupplyTons);
+        var classical = GameDataRepository.Load(ModelTestPaths.DataRoot).Resolve("classical-mediterranean");
+        var ruleset = rulesetFile == "classical-faithful"
+            ? classical.Ruleset
+            : GameDataLoader.LoadFile<Ruleset>(Path.Combine(ModelTestPaths.DataRoot, "rulesets", rulesetFile + ".json"));
+        var session = new GameSession(
+            classical.World, ruleset, classical.Scenario, seedOverride: 3, humanSeatNationId: "macedonia");
+        session.Submit("split-army army-8 mac-marines 1"); // mac-marines (146,41): supply 0, purse 0, beside Thessalonica.
+        session.Submit("end"); // a fresh turn: the split army starts with no moves left.
         return session;
     }
 
-    [Fact]
-    public void Under_never_a_move_beside_an_own_city_with_stock_changes_nothing_but_the_move()
-    {
-        var session = DrainedSession(HumanMoveResupplyPolicy.Never);
-        var before = session.State;
-        var army = before.ArmyById(ArmyId)!;
-        Assert.True(army.Money < 500);
-        Assert.Contains(before.Cities, c => c.Owner == army.Nation && c.SupplyTons > 0);
+    private const string MarinesMove = "move mac-marines 145 41"; // one tile west; (145,41) adjoins Thessalonica (146,42).
 
-        var lines = session.Submit($"move {ArmyId} 4 3").Lines;
+    [Fact]
+    public void Classical_faithful_a_real_move_beside_an_own_city_with_stock_changes_nothing_but_the_move()
+    {
+        var session = PresetSession("classical-faithful");
+        Assert.Equal(HumanMoveResupplyPolicy.Never, session.Ruleset.Flags.HumanMoveResupply);
+        var before = session.State;
+        var army = before.ArmyById("mac-marines")!;
+        Assert.True(army.Money < 500);
+        Assert.True(army.SupplyTons < SupplyCapacity.ArmyCapacityTons(army.TotalTroops, session.Ruleset));
+        Assert.True(before.CityById("thessalonica")!.SupplyTons > 0);
+
+        var lines = session.Submit(MarinesMove).Lines;
 
         var after = session.State;
-        var moved = after.ArmyById(ArmyId)!;
+        var moved = after.ArmyById("mac-marines")!;
+        Assert.True((145, 41) == (moved.X, moved.Y), string.Join(" / ", lines));
         Assert.Equal(army.SupplyTons, moved.SupplyTons);
         Assert.Equal(army.Money, moved.Money);
         Assert.Equal(before.Cities.Select(c => c.SupplyTons), after.Cities.Select(c => c.SupplyTons));
         Assert.Equal(before.Nations.Select(n => n.Treasury), after.Nations.Select(n => n.Treasury));
-        Assert.Contains(lines, l => l.StartsWith($"{ArmyId} moved from (4,3) to (4,3), spending ", StringComparison.Ordinal));
+        Assert.Contains(lines, l => l.StartsWith("mac-marines moved from (146,41) to (145,41), spending ", StringComparison.Ordinal));
     }
 
     [Fact]
-    public void Under_againstNonHostileCity_the_same_move_resupplies_as_AutomaticResupply_computes()
+    public void Improved_the_same_real_move_resupplies_as_AutomaticResupply_computes()
     {
-        var session = DrainedSession(HumanMoveResupplyPolicy.AgainstNonHostileCity);
+        var session = PresetSession("improved");
+        Assert.Equal(HumanMoveResupplyPolicy.AgainstNonHostileCity, session.Ruleset.Flags.HumanMoveResupply);
         var before = session.State;
-        var army = before.ArmyById(ArmyId)!;
-        var city = before.CityById("portus")!;
+        var army = before.ArmyById("mac-marines")!;
+        var city = before.CityById("thessalonica")!;
         var expected = AutomaticResupply.ForArmy(
-            army, city, before.NationById(army.Nation)!, before.NationById(city.Owner)!, session.Ruleset);
+            army with { X = 145, Y = 41 }, city, before.NationById(army.Nation)!, before.NationById(city.Owner)!, session.Ruleset);
         Assert.True(expected.AdmittedTons > 0);
 
-        session.Submit($"move {ArmyId} 4 3");
+        session.Submit(MarinesMove);
 
         var after = session.State;
-        Assert.Equal(expected.Army.SupplyTons, after.ArmyById(ArmyId)!.SupplyTons);
-        Assert.Equal(expected.Army.Money, after.ArmyById(ArmyId)!.Money);
-        Assert.Equal(expected.City.SupplyTons, after.CityById("portus")!.SupplyTons);
+        Assert.Equal((145, 41), (after.ArmyById("mac-marines")!.X, after.ArmyById("mac-marines")!.Y));
+        Assert.Equal(expected.Army.SupplyTons, after.ArmyById("mac-marines")!.SupplyTons);
+        Assert.Equal(expected.Army.Money, after.ArmyById("mac-marines")!.Money);
+        Assert.Equal(expected.City.SupplyTons, after.CityById("thessalonica")!.SupplyTons);
         Assert.Equal(expected.ArmyNation.Treasury, after.NationById(army.Nation)!.Treasury);
+        Assert.Equal(expected.CityNation.Treasury, after.NationById(city.Owner)!.Treasury);
     }
 }
