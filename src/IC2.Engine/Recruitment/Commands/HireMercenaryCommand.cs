@@ -149,8 +149,8 @@ public static class HireMercenaryRejections
 /// <param name="HireGate">
 /// The minimum purse the hiring army's own money had to hold for the hire to pass —
 /// <see cref="MercenaryHireCost.Compute"/>'s value. <strong>Not money paid</strong>: an accepted hire
-/// debits no purse and no treasury (T143, bug #755). The name changed from <c>TalentsPaid</c> so a reader
-/// cannot take it for a debit; the type and the domain-event name are unchanged.
+/// debits no purse and no treasury (T143, bug #755). The field is named for the gate so no reader can
+/// take it for a debit; the type and the domain-event name are unchanged.
 /// </param>
 [DomainEvent("recruitment.mercenary-hired")]
 public sealed record MercenaryHired(
