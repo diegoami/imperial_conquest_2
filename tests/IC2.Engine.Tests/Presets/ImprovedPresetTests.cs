@@ -159,6 +159,7 @@ public class ImprovedPresetTests
             "flags.combatOnDefeat",
             "flags.faithfulThawColumnBug",
             "flags.bugPolicySiegeRatioClamp",
+            "flags.unaffordableRecruitAndFortify",
             "victory.defaultCondition",
             "victory.defaultTurnLimit",
         };

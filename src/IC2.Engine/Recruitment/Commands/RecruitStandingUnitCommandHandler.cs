@@ -34,6 +34,14 @@ namespace IC2.Engine.Recruitment.Commands;
 /// first when a nation is both broke and full is not recorded anywhere, and no test here asserts an
 /// ordering between them.
 /// </para>
+/// <para>
+/// <strong>Bug #549, T115 — the treasury check is a ruleset flag.</strong> The original's
+/// <c>TArmyRecruits.RecruitUnit</c> (<c>0x454E78</c>) checks no balance and takes the cost anyway, so
+/// <see cref="RulesetFlags.UnaffordableRecruitAndFortify"/> <c>allowDebt</c> (<c>classical-faithful</c>)
+/// accepts the order and lets the treasury end below zero; <c>refuse</c> (<c>improved</c>, the toy
+/// ruleset) rejects it with <see cref="RecruitStandingUnitRejections.InsufficientTreasury"/>. The full cost
+/// is taken when the order is placed under either value.
+/// </para>
 /// </remarks>
 [CommandHandler]
 public sealed class RecruitStandingUnitCommandHandler : ICommandHandler<RecruitStandingUnitCommand>
@@ -82,7 +90,8 @@ public sealed class RecruitStandingUnitCommandHandler : ICommandHandler<RecruitS
         }
 
         var cost = StandingRecruitmentCost.InitialCost(command.Troops, command.UnitTypeId, context.Ruleset);
-        if (nation.Treasury < cost)
+        if (context.Ruleset.Flags.UnaffordableRecruitAndFortify == UnaffordableOrderPolicy.Refuse
+            && nation.Treasury < cost)
         {
             return CommandOutcome.Reject(
                 RecruitStandingUnitRejections.InsufficientTreasury,

@@ -46,7 +46,11 @@ public static class RecruitStandingUnitRejections
     /// <summary>The requested troop count is not positive.</summary>
     public static readonly RejectionCode InvalidTroops = new("recruitment.invalid-troops");
 
-    /// <summary>The issuing nation's treasury cannot afford the order's <see cref="StandingRecruitmentCost.InitialCost"/>.</summary>
+    /// <summary>
+    /// The issuing nation's treasury cannot afford the order's <see cref="StandingRecruitmentCost.InitialCost"/>
+    /// and the ruleset's <see cref="RulesetFlags.UnaffordableRecruitAndFortify"/> is <c>refuse</c>
+    /// (<c>allowDebt</c> accepts the order instead).
+    /// </summary>
     public static readonly RejectionCode InsufficientTreasury = new("recruitment.insufficient-treasury");
 
     /// <summary>

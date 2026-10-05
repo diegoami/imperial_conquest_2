@@ -913,6 +913,7 @@ are just two settings of this record.
 | `combatOnDefeat` | enum | `"destroyed"`, `"scatter"` | Whether a battle's loser is destroyed outright (original) or survives reduced and scatters (`combat.scatteredDefeat`). |
 | `faithfulThawColumnBug` | boolean | — | `true` reproduces the confirmed bug where the quarterly diplomatic thaw only ever touches the first `diplomacy.faithfulThawColumnLimit` of each nation's 16 relation columns; `false` thaws every column. |
 | `bugPolicySiegeRatioClamp` | enum | `"reproduce16BitClamp"`, `"clamp32Bit"` | Whether the siege attrition ratio and erosion ratio term reproduce the original's signed 16-bit wraparound (`classical-faithful`) or are computed in ordinary 32-bit arithmetic, never wrapping (`improved`). |
+| `unaffordableRecruitAndFortify` | enum | `"allowDebt"`, `"refuse"` | What a standing-unit recruitment order and a city fortification order do when the treasury cannot cover the cost: `allowDebt` (`classical-faithful`) takes the full cost and lets the treasury end below zero, as the original does; `refuse` (`improved`, and the small test ruleset) rejects the order. No other order reads it. |
 | `_provenance` | object | No | Provenance map. |
 
 ---

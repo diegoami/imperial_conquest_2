@@ -96,6 +96,7 @@ public class ExportedRulesetTests
         Assert.Equal(SeatAsymmetryModel.Faithful, ruleset.Flags.SeatAsymmetry);
         Assert.Equal(DefeatOutcome.Destroyed, ruleset.Flags.CombatOnDefeat);
         Assert.True(ruleset.Flags.FaithfulThawColumnBug);
+        Assert.Equal(UnaffordableOrderPolicy.AllowDebt, ruleset.Flags.UnaffordableRecruitAndFortify);
     }
 
     private static HashSet<string> LoadCorpusIds()
