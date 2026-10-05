@@ -63,6 +63,22 @@ public sealed class SplitFleetCommandHandler : ICommandHandler<SplitFleetCommand
                 SplitFleetRejections.DuplicateFleetId, $"Fleet id '{command.NewFleetId}' is already in use.");
         }
 
+        // Each allocation is between 0 and what the parent fleet holds — the Split fleet dialog's own
+        // spinner bounds (SplitFleetCommand's remarks). No capacity rebalance and no purse bound applies.
+        if (command.SupplyTonsToNewFleet < 0 || command.SupplyTonsToNewFleet > fleet.SupplyTons)
+        {
+            return CommandOutcome.Reject(
+                SplitFleetRejections.InvalidSupplyAllocation,
+                $"Cannot move {command.SupplyTonsToNewFleet} supply tons to the new fleet; fleet '{fleet.Id}' holds {fleet.SupplyTons}.");
+        }
+
+        if (command.MoneyToNewFleet < 0 || command.MoneyToNewFleet > fleet.Money)
+        {
+            return CommandOutcome.Reject(
+                SplitFleetRejections.InvalidMoneyAllocation,
+                $"Cannot move {command.MoneyToNewFleet} money to the new fleet; fleet '{fleet.Id}' holds {fleet.Money}.");
+        }
+
         // The new fleet stands one tile from the parent, not on it (bugs #584, #596), by the same 3×3
         // last-qualifying-cell scan the army split uses, restricted to fleet-passable water.
         if (SplitPlacement.FleetCell(state, context.World, new GridPoint(fleet.X, fleet.Y)) is not { } newCell)
@@ -72,7 +88,12 @@ public sealed class SplitFleetCommandHandler : ICommandHandler<SplitFleetCommand
                 $"Fleet '{fleet.Id}' has no free adjacent tile for the new fleet.");
         }
 
-        var remainingFleet = fleet with { Ships = fleet.Ships - command.ShipsToNewFleet };
+        var remainingFleet = fleet with
+        {
+            Ships = fleet.Ships - command.ShipsToNewFleet,
+            SupplyTons = fleet.SupplyTons - command.SupplyTonsToNewFleet,
+            Money = fleet.Money - command.MoneyToNewFleet,
+        };
         var newFleet = new FleetState(
             Id: command.NewFleetId,
             Nation: fleet.Nation,
@@ -81,8 +102,8 @@ public sealed class SplitFleetCommandHandler : ICommandHandler<SplitFleetCommand
             Moves: 0,
             Ships: command.ShipsToNewFleet,
             ConditionPercent: fleet.ConditionPercent,
-            Money: 0,
-            SupplyTons: 0,
+            Money: command.MoneyToNewFleet,
+            SupplyTons: command.SupplyTonsToNewFleet,
             ConstructionTicksRemaining: null,
             BuildCityId: null,
             CarriedArmyId: null,

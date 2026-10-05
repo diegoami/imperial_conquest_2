@@ -11,9 +11,16 @@ namespace IC2.Engine.Naval.Commands;
 /// the new fleet's money or supply the way the army-side split's real observed example does (see
 /// <c>pending-offer-block-army-split-and-naupactus.md</c>, T15's), and
 /// <c>mobilization-movement-and-city-capture-modes.md</c> — the other report the T14 entry names for
-/// this area — is silent on fleet splitting entirely, so both start at 0
+/// this area — is silent on fleet splitting entirely, so the two allocation fields default to 0
 /// <c>[designed, no confirmed field-init evidence for a fleet split's money/supply]</c>: what was
-/// searched is exactly those two reports, and neither states what the original initialises. The new
+/// searched is exactly those two reports, and neither states what the original initialises. The original's
+/// Split fleet dialog is a two-column table of the first and the second fleet's ships, supply and money,
+/// with 1s/10s arrows for ships and 10s/100s for supply and money
+/// <strong>[Wine candidate: <c>2026-10-02-fleet-orders-live.md</c> (research <c>38b4c01</c>),
+/// <c>T_SPLIT_FLEET.SAV</c>; <c>TFleetToFleet</c> is opened by Split fleet]</strong>, so
+/// <see cref="SupplyTonsToNewFleet"/> and <see cref="MoneyToNewFleet"/> model the spinners' committed
+/// values, each between 0 and what the parent holds. There is no capacity rebalance and no purse bound
+/// <c>[designed: <c>TFleetToFleet_OK</c> is unread, and <c>fleet-transfer</c> applies neither]</c>. The new
 /// fleet stands one tile from the parent (bugs #584 and #596) so it can rejoin immediately.
 /// </summary>
 /// <remarks>
@@ -40,7 +47,21 @@ namespace IC2.Engine.Naval.Commands;
 /// </remarks>
 /// <param name="NewFleetId">The new fleet's id — see <see cref="OrderFleetCommand.NewFleetId"/>'s remarks.</param>
 /// <param name="ShipsToNewFleet">How many ships move to the new fleet; the rest stay with <see cref="FleetId"/>.</param>
-public sealed record SplitFleetCommand(string IssuingNationId, string FleetId, string NewFleetId, int ShipsToNewFleet) : ICommand
+/// <param name="SupplyTonsToNewFleet">
+/// Supply tons moved from the parent fleet's stock to the new fleet's, between 0 and what the parent holds
+/// (<see cref="SplitFleetRejections.InvalidSupplyAllocation"/>). Defaults to 0; no rebalance applies.
+/// </param>
+/// <param name="MoneyToNewFleet">
+/// Talents moved from the parent fleet's purse to the new fleet's, between 0 and what the parent holds
+/// (<see cref="SplitFleetRejections.InvalidMoneyAllocation"/>). Defaults to 0; no purse bound applies.
+/// </param>
+public sealed record SplitFleetCommand(
+    string IssuingNationId,
+    string FleetId,
+    string NewFleetId,
+    int ShipsToNewFleet,
+    int SupplyTonsToNewFleet = 0,
+    int MoneyToNewFleet = 0) : ICommand
 {
     /// <inheritdoc/>
     public string Kind => "naval.split-fleet";
@@ -66,6 +87,18 @@ public static class SplitFleetRejections
 
     /// <summary><paramref name="SplitFleetCommand.ShipsToNewFleet"/> is not between 1 and ships − 1.</summary>
     public static readonly RejectionCode InvalidShipCount = new("naval.invalid-ship-count");
+
+    /// <summary>
+    /// <see cref="SplitFleetCommand.SupplyTonsToNewFleet"/> is negative or more than the parent fleet
+    /// holds — the dialog's supply spinner bound.
+    /// </summary>
+    public static readonly RejectionCode InvalidSupplyAllocation = new("naval.invalid-supply-allocation");
+
+    /// <summary>
+    /// <see cref="SplitFleetCommand.MoneyToNewFleet"/> is negative or more than the parent fleet holds —
+    /// the dialog's money spinner bound.
+    /// </summary>
+    public static readonly RejectionCode InvalidMoneyAllocation = new("naval.invalid-money-allocation");
 
     /// <summary>The requested new fleet id already names an existing fleet.</summary>
     public static readonly RejectionCode DuplicateFleetId = new("naval.duplicate-fleet-id");

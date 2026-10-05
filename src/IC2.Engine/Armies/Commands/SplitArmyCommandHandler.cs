@@ -1,4 +1,5 @@
 using IC2.Engine.Core;
+using IC2.Engine.Economy;
 using IC2.Engine.Model;
 using IC2.Engine.Movement;
 
@@ -84,6 +85,17 @@ public sealed class SplitArmyCommandHandler : ICommandHandler<SplitArmyCommand>
                 $"Cannot move {command.MoneyToNewArmy} money to the new army; army '{army.Id}' holds {army.Money}.");
         }
 
+        // The purse bound is the dialog's money stepper's ceiling: the new army opens with 0, so its bound
+        // is min(step, purseCapPerUnit - 0, money(parent)). The parent half is the InvalidMoneyAllocation
+        // check just above; this is the cap half (SplitArmyCommand's remarks, T141).
+        var purseCap = context.Ruleset.Economy.PurseCapPerUnit;
+        if (command.MoneyToNewArmy > purseCap)
+        {
+            return CommandOutcome.Reject(
+                SplitArmyRejections.PurseCapExceeded,
+                $"The new army can hold {purseCap} money, not {command.MoneyToNewArmy}.");
+        }
+
         if (command.SupplyTonsToNewArmy < 0 || command.SupplyTonsToNewArmy > army.SupplyTons)
         {
             return CommandOutcome.Reject(
@@ -110,6 +122,33 @@ public sealed class SplitArmyCommandHandler : ICommandHandler<SplitArmyCommand>
             (selected.Contains(i) ? movedUnits : keptUnits).Add(army.Units[i]);
         }
 
+        // TArmyToArmy_OK's rebalance, run after the units, supply and money are moved (SplitArmyCommand's
+        // remarks, [confirmed: code, pending-offer-block-army-split-and-naupactus.md items 1-2]). A is the
+        // parent, B the new army: capA = troops(A) div 100 pushes A's excess to B, then capB =
+        // troops(B) div 100 (including step 1's push) sends B's excess back to A. Supply is conserved
+        // exactly; money is never rebalanced. It runs on every accepted split, a supply=0 one included,
+        // because splitting troops off lowers the parent's capacity.
+        var parentTroops = SumTroops(keptUnits);
+        var newTroops = SumTroops(movedUnits);
+        var parentSupply = army.SupplyTons - command.SupplyTonsToNewArmy;
+        var newSupply = command.SupplyTonsToNewArmy;
+
+        var capacityParent = SupplyCapacity.ArmyCapacityTons(parentTroops, context.Ruleset);
+        if (parentSupply > capacityParent)
+        {
+            var excess = parentSupply - capacityParent;
+            parentSupply = capacityParent;
+            newSupply += excess;
+        }
+
+        var capacityNew = SupplyCapacity.ArmyCapacityTons(newTroops, context.Ruleset);
+        if (newSupply > capacityNew)
+        {
+            var excess = newSupply - capacityNew;
+            newSupply = capacityNew;
+            parentSupply += excess;
+        }
+
         // seatAsymmetry gating (design-audit.md Q6, SplitArmyCommand's own remarks): classical-faithful
         // gives a human seat 0 moves and an AI seat 1; improved generalises the AI's value to every seat.
         var seatIsAi = context.IssuingNation.Control == SeatControl.Ai;
@@ -121,7 +160,7 @@ public sealed class SplitArmyCommandHandler : ICommandHandler<SplitArmyCommand>
         {
             Units = ValueList.From(keptUnits),
             Money = army.Money - command.MoneyToNewArmy,
-            SupplyTons = army.SupplyTons - command.SupplyTonsToNewArmy,
+            SupplyTons = parentSupply,
         };
 
         var newArmy = new ArmyState(
@@ -132,7 +171,7 @@ public sealed class SplitArmyCommandHandler : ICommandHandler<SplitArmyCommand>
             Moves: newArmyMoves,
             Morale: rules.NewArmyMorale,
             Money: command.MoneyToNewArmy,
-            SupplyTons: command.SupplyTonsToNewArmy,
+            SupplyTons: newSupply,
             CoveredTileCode: SplitPlacement.TerrainCodeAt(context.World, newCell),
             AboardFleetId: null,
             Units: ValueList.From(movedUnits));
@@ -142,5 +181,16 @@ public sealed class SplitArmyCommandHandler : ICommandHandler<SplitArmyCommand>
             .Append(newArmy);
 
         return CommandOutcome.Accept(state with { Armies = ValueList.From(updatedArmies) });
+    }
+
+    private static int SumTroops(List<UnitSlot> units)
+    {
+        var total = 0;
+        foreach (var unit in units)
+        {
+            total += unit.Troops;
+        }
+
+        return total;
     }
 }

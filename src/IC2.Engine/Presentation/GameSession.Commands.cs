@@ -332,16 +332,90 @@ public sealed partial class GameSession
         return IssueCommand(new DisbandUnitCommand(State.ActiveNationId, tokens[1], unitIndex));
     }
 
+    /// <summary>
+    /// <c>split-army &lt;army&gt; &lt;new-army&gt; &lt;i,j,…&gt; [supply=&lt;tons&gt;] [money=&lt;talents&gt;]</c> —
+    /// <c>docs/tasks/T141.md</c>. Only the option syntax is parsed here: the third token is a
+    /// comma-separated list of non-negative unit indexes (a single index still parses), and
+    /// <c>supply=</c>/<c>money=</c> are whole non-negative numbers, each at most once, both defaulting to
+    /// 0. Everything the rules disallow — an unknown, foreign or embarked army, the minimum-unit and
+    /// 198-army caps, an out-of-range index, amounts beyond the parent's stock or the receiver's purse
+    /// bound, and the placement scan — is enforced by
+    /// <see cref="IC2.Engine.Armies.Commands.SplitArmyCommandHandler"/> (which also runs the original's
+    /// supply rebalance), so this method never restates it.
+    /// </summary>
     private IReadOnlyList<string> HandleSplitArmy(string[] tokens)
     {
-        if (tokens.Length != 4
-            || !int.TryParse(tokens[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var unitIndex))
+        const string usage =
+            "Usage: split-army <army> <new-army> <i,j,...> [supply=<tons>] [money=<talents>]";
+
+        if (tokens.Length < 4 || !TryParseUnitIndexes(tokens[3], out var unitIndexes))
         {
-            return new[] { "Usage: split-army <army> <new-army> <unit-index>" };
+            return new[] { usage };
         }
 
-        return IssueCommand(
-            new SplitArmyCommand(State.ActiveNationId, tokens[1], tokens[2], ValueList.Of(unitIndex)));
+        var supplyTons = 0;
+        var money = 0;
+        var seenOptions = new HashSet<string>(StringComparer.Ordinal);
+
+        for (var i = 4; i < tokens.Length; i++)
+        {
+            var separator = tokens[i].IndexOf('=', StringComparison.Ordinal);
+            if (separator <= 0 || separator == tokens[i].Length - 1)
+            {
+                return new[] { usage };
+            }
+
+            var key = tokens[i][..separator];
+            var value = tokens[i][(separator + 1)..];
+            if (!seenOptions.Add(key))
+            {
+                return new[] { usage };
+            }
+
+            switch (key)
+            {
+                case "supply":
+                    if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out supplyTons)
+                        || supplyTons < 0)
+                    {
+                        return new[] { usage };
+                    }
+
+                    break;
+                case "money":
+                    if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out money)
+                        || money < 0)
+                    {
+                        return new[] { usage };
+                    }
+
+                    break;
+                default:
+                    return new[] { usage };
+            }
+        }
+
+        return IssueCommand(new SplitArmyCommand(
+            State.ActiveNationId, tokens[1], tokens[2], ValueList.From(unitIndexes),
+            MoneyToNewArmy: money, SupplyTonsToNewArmy: supplyTons));
+
+        // Kept local to this method: Owns permits changes here only within HandleSplitArmy.
+        static bool TryParseUnitIndexes(string value, out List<int> indexes)
+        {
+            indexes = new List<int>();
+            foreach (var part in value.Split(','))
+            {
+                if (!int.TryParse(part, NumberStyles.Integer, CultureInfo.InvariantCulture, out var index)
+                    || index < 0)
+                {
+                    return false;
+                }
+
+                indexes.Add(index);
+            }
+
+            return true;
+        }
     }
 
     /// <summary>
@@ -649,15 +723,71 @@ public sealed partial class GameSession
         return IssueCommand(new ScuttleFleetCommand(State.ActiveNationId, tokens[1]));
     }
 
+    /// <summary>
+    /// <c>split-fleet &lt;fleet&gt; &lt;new-fleet&gt; &lt;ships&gt; [supply=&lt;tons&gt;] [money=&lt;talents&gt;]</c> —
+    /// <c>docs/tasks/T141.md</c>. Only the option syntax is parsed here, exactly as
+    /// <see cref="HandleSplitArmy"/> does: <c>supply=</c>/<c>money=</c> are whole non-negative numbers,
+    /// each at most once, both defaulting to 0. Everything the rules disallow — an unknown or foreign
+    /// fleet, an under-construction or army-carrying fleet, the minimum-ship and ship-count rules, amounts
+    /// beyond the parent's stock, and the placement scan — is enforced by
+    /// <see cref="IC2.Engine.Naval.Commands.SplitFleetCommandHandler"/>, so this method never restates it.
+    /// </summary>
     private IReadOnlyList<string> HandleSplitFleet(string[] tokens)
     {
-        if (tokens.Length != 4
+        const string usage =
+            "Usage: split-fleet <fleet> <new-fleet> <ships> [supply=<tons>] [money=<talents>]";
+
+        if (tokens.Length < 4
             || !int.TryParse(tokens[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var shipsToNewFleet))
         {
-            return new[] { "Usage: split-fleet <fleet> <new-fleet> <ships>" };
+            return new[] { usage };
         }
 
-        return IssueCommand(new SplitFleetCommand(State.ActiveNationId, tokens[1], tokens[2], shipsToNewFleet));
+        var supplyTons = 0;
+        var money = 0;
+        var seenOptions = new HashSet<string>(StringComparer.Ordinal);
+
+        for (var i = 4; i < tokens.Length; i++)
+        {
+            var separator = tokens[i].IndexOf('=', StringComparison.Ordinal);
+            if (separator <= 0 || separator == tokens[i].Length - 1)
+            {
+                return new[] { usage };
+            }
+
+            var key = tokens[i][..separator];
+            var value = tokens[i][(separator + 1)..];
+            if (!seenOptions.Add(key))
+            {
+                return new[] { usage };
+            }
+
+            switch (key)
+            {
+                case "supply":
+                    if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out supplyTons)
+                        || supplyTons < 0)
+                    {
+                        return new[] { usage };
+                    }
+
+                    break;
+                case "money":
+                    if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out money)
+                        || money < 0)
+                    {
+                        return new[] { usage };
+                    }
+
+                    break;
+                default:
+                    return new[] { usage };
+            }
+        }
+
+        return IssueCommand(new SplitFleetCommand(
+            State.ActiveNationId, tokens[1], tokens[2], shipsToNewFleet,
+            SupplyTonsToNewFleet: supplyTons, MoneyToNewFleet: money));
     }
 
     private IReadOnlyList<string> HandleJoinFleets(string[] tokens)
