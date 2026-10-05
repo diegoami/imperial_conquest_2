@@ -440,23 +440,23 @@ public sealed partial class GameSession
         return IssueCommand(new ArmyTransferCommand(
             State.ActiveNationId, tokens[1], tokens[2], ValueList.From(unitIndexes), supplyTons, money,
             ValueList.From(backUnitIndexes), backSupplyTons, backMoney));
-    }
 
-    /// <summary>Parses a comma-separated list of non-negative whole unit indexes into <paramref name="into"/>.</summary>
-    private static bool TryParseUnitIndexes(string value, List<int> into)
-    {
-        foreach (var part in value.Split(','))
+        // Kept local to this method: Owns permits changes here only within HandleArmyTransfer.
+        static bool TryParseUnitIndexes(string value, List<int> into)
         {
-            if (!int.TryParse(part, NumberStyles.Integer, CultureInfo.InvariantCulture, out var index)
-                || index < 0)
+            foreach (var part in value.Split(','))
             {
-                return false;
+                if (!int.TryParse(part, NumberStyles.Integer, CultureInfo.InvariantCulture, out var index)
+                    || index < 0)
+                {
+                    return false;
+                }
+
+                into.Add(index);
             }
 
-            into.Add(index);
+            return true;
         }
-
-        return true;
     }
 
     // ---- cities ----
