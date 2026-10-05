@@ -1210,15 +1210,29 @@ public sealed partial class GameSession
             return new[] { WatchModeRejectionLine("Purchase") };
         }
 
-        if (tokens.Length != 4
-            || !int.TryParse(tokens[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var tons))
+        // The 4-token city form is unchanged.
+        if (tokens.Length == 4
+            && int.TryParse(tokens[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var tons))
         {
-            return new[] { "Usage: buy <army> <city> <tons>" };
+            return BuyAtCity(tokens[1], tokens[2], tons);
         }
 
-        var armyId = tokens[1];
-        var cityId = tokens[2];
+        // T134: the 5-token fleet form -- buy <army> fleet <fleet> <tons> -- reaches the
+        // BuySupplyCommand.ProviderFleetId direction #147 folded in (T46 Done-when 11) but which this
+        // session never built. A fleet provider is free (BuySupplyCommand's own [open] payment leg).
+        if (tokens.Length == 5
+            && string.Equals(tokens[2], "fleet", StringComparison.Ordinal)
+            && int.TryParse(tokens[4], NumberStyles.Integer, CultureInfo.InvariantCulture, out var fleetTons))
+        {
+            return BuyFromFleet(tokens[1], tokens[3], fleetTons);
+        }
 
+        return new[] { "Usage: buy <army> <city> <tons>" };
+    }
+
+    /// <summary>The 4-token <c>buy &lt;army&gt; &lt;city&gt; &lt;tons&gt;</c> form — unchanged since T41.</summary>
+    private IReadOnlyList<string> BuyAtCity(string armyId, string cityId, int tons)
+    {
         var command = new BuySupplyCommand(State.ActiveNationId, armyId, cityId, tons);
         var result = _dispatcher.Dispatch(State, command);
 
@@ -1236,6 +1250,30 @@ public sealed partial class GameSession
         return new[]
         {
             $"{armyId} bought {purchased.AdmittedTons} tons of supply at {cityId}, {costText}.",
+        };
+    }
+
+    /// <summary>
+    /// T134: the 5-token <c>buy &lt;army&gt; fleet &lt;fleet&gt; &lt;tons&gt;</c> form — the Army menu's
+    /// Supply army dialog reaching a fleet provider. The command's own handler moves tons only and pays
+    /// nobody, so the reply line says <c>free</c>.
+    /// </summary>
+    private IReadOnlyList<string> BuyFromFleet(string armyId, string fleetId, int tons)
+    {
+        var command = new BuySupplyCommand(State.ActiveNationId, armyId, CityId: null, tons, fleetId);
+        var result = _dispatcher.Dispatch(State, command);
+
+        if (result.IsRejected)
+        {
+            return new[] { $"Purchase rejected ({result.Code}): {result.Rejection!.Message}" };
+        }
+
+        State = NewsLogWriter.Append(result.State, result.Events, Ruleset.NewsLog);
+
+        var purchased = result.Events.OfType<ArmySupplyPurchasedFromFleet>().First();
+        return new[]
+        {
+            $"{armyId} bought {purchased.AdmittedTons} tons of supply from fleet {fleetId}, free.",
         };
     }
 

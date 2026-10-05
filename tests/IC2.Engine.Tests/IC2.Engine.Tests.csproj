@@ -159,6 +159,15 @@
       `using Godot` anywhere; never a second, hand-maintained copy.
     -->
     <Compile Include="../../godot/UI/RecruitTroopBounds.cs" Link="Ui/RecruitTroopBounds.cs" />
+
+    <!--
+      T134 (tests/IC2.Engine.Tests/Ui/SupplyDialogModelTests.cs): the same seam once more.
+      SupplyDialogModel.cs is the Godot-free model behind the Army menu's Supply army dialog — its
+      provider list, the free and paid panels' limits and step clamps, and the buy/transfer-money
+      command lines it composes — so a plain xunit test can pin the clamps and the composed lines
+      without the Godot SDK. No `using Godot` anywhere; never a second, hand-maintained copy.
+    -->
+    <Compile Include="../../godot/UI/Dialogs/SupplyDialogModel.cs" Link="Ui/SupplyDialogModel.cs" />
   </ItemGroup>
 
 </Project>
