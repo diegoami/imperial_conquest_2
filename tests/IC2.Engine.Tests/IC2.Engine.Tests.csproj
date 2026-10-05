@@ -76,6 +76,7 @@
     <Compile Include="../../godot/Screens/BattleResultViewModel.cs" Link="Ui/Screens/BattleResultViewModel.cs" />
     <Compile Include="../../godot/Screens/DiplomacyGridViewModel.cs" Link="Ui/Screens/DiplomacyGridViewModel.cs" />
     <Compile Include="../../godot/Screens/HotseatHandoffDetector.cs" Link="Ui/Screens/HotseatHandoffDetector.cs" />
+    <Compile Include="../../godot/Screens/BattleReportRouter.cs" Link="Ui/Screens/BattleReportRouter.cs" />
 
     <!--
       T94 (tests/IC2.Engine.Tests/Ui/**): the same seam, for the two Godot-free classes this task
