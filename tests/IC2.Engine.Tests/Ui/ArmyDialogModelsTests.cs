@@ -274,18 +274,22 @@ public sealed class ArmyDialogModelsTests
     }
 
     [Fact]
-    public void Split_army_is_refused_aboard_a_fleet_and_composes_nothing()
+    public void Split_army_aboard_a_fleet_is_offered_and_composes_one_split_army()
     {
         var session = Session();
         var aboard = session.State.ArmyById(ThreeUnitArmyId)! with { AboardFleetId = "some-fleet" };
         var model = SplitArmyModel.ForArmy(session.State, aboard, session.Ruleset, ThreeUnitNewArmyId);
 
-        Assert.True(model.IsAboard);
-        Assert.False(model.CanSplit);
-        Assert.Equal(ArmyDialogModels.SplitAboardRefusal, model.RefusalMessage);
-        Assert.Equal("An army aboard a fleet cannot be split.", model.RefusalMessage);
+        Assert.True(model.CanSplit);
+        Assert.Null(model.RefusalMessage);
         model.StageUnit(0);
-        Assert.Null(model.ComposeOk());
+        Assert.Equal($"split-army {ThreeUnitArmyId} {ThreeUnitNewArmyId} 0", model.ComposeOk());
+
+        // A one-unit army aboard still gets T111's one-unit refusal.
+        var lonely = session.State.ArmyById(OneUnitArmyId)! with { AboardFleetId = "some-fleet" };
+        var lonelyModel = SplitArmyModel.ForArmy(session.State, lonely, session.Ruleset, NewArmyId);
+        Assert.False(lonelyModel.CanSplit);
+        Assert.Equal(ArmyDialogModels.SplitOneUnitRefusal, lonelyModel.RefusalMessage);
     }
 
     [Fact]

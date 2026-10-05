@@ -808,9 +808,10 @@ public partial class MainGameScreen : Control
     }
 
     /// <summary>
-    /// T111: the Army menu's Split army entry. The dialog needs two or more units; it composes one
+    /// T111/T142: the Army menu's Split army entry. The dialog needs two or more units; it composes one
     /// <c>split-army</c> (units, supply and money) and the engine places the new army. An army aboard a
-    /// fleet shows its refusal instead.
+    /// fleet is offered the same split as one on land; when no free land cell exists for the new army the
+    /// screen opens no dialog and says why.
     /// </summary>
     private void OpenSplitArmyDialog()
     {
@@ -821,11 +822,13 @@ public partial class MainGameScreen : Control
             return;
         }
 
-        // An army aboard a fleet (or a carrying fleet selected) opens no dialog and submits nothing: the
-        // engine refuses its split (armies.army-embarked, [designed]).
-        if (army.IsEmbarked)
+        // The engine places the new army on the scan's cell, centred on the army's own tile or, aboard a
+        // fleet, on the carrying fleet's tile (SplitPlacement.ArmyCellFor). With no free land cell it
+        // creates nothing and opens no dialog; the screen says why [designed, the user's decision of
+        // 2026-10-05].
+        if (SplitPlacement.ArmyCellFor(Session.State, Session.World, army) is null)
         {
-            ShowScreenMessage(ArmyDialogModels.SplitAboardRefusal);
+            ShowScreenMessage(ArmyDialogModels.SplitNoFreeTileMessage);
             return;
         }
 

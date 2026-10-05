@@ -22,8 +22,8 @@ namespace IC2.Slice.UI;
 /// </para>
 /// <para>
 /// Rules live in the Godot-free <see cref="SplitArmyModel"/>; this control owns widgets and the submit
-/// callback. An army aboard a fleet never reaches the dialog: <see cref="MainGameScreen"/> shows the
-/// refusal and submits nothing.
+/// callback. An army aboard a fleet reaches the dialog exactly as one on land does (T142); the screen
+/// opens no dialog and says why when no free land cell exists for the new army.
 /// </para>
 /// </remarks>
 public partial class SplitArmyDialog : Control

@@ -60,10 +60,12 @@ public static class ArmyDialogModels
     public const string SplitOneUnitRefusal = "You can not split an army containing only 1 unit.";
 
     /// <summary>
-    /// What Split army says, and does nothing else, for an army aboard a fleet (or a carrying fleet
-    /// selected) <c>[designed wording; the engine's own refusal is <c>armies.army-embarked</c>]</c>.
+    /// What the game screen says, and does nothing else, when Split army finds no free land cell for the
+    /// new army — the original creates nothing and says nothing, so this one message is the clone's
+    /// deliberate difference <c>[designed wording, the user's decision of 2026-10-05]</c>. The engine
+    /// keeps its own <c>armies.no-free-adjacent-tile</c> refusal for a <c>split-army</c> that reaches it.
     /// </summary>
-    public const string SplitAboardRefusal = "An army aboard a fleet cannot be split.";
+    public const string SplitNoFreeTileMessage = "There is no free land next to this army for a new army.";
 
     /// <summary>
     /// The quality caption the army panel and the unit list print for a raw quality tier — the roster's
@@ -313,8 +315,9 @@ public sealed class ArmyTransferModel
 /// least one unit (the engine's <c>armies.invalid-unit-selection</c>), so the last unit cannot be staged.
 /// </para>
 /// <para>
-/// <strong>An army aboard a fleet</strong> is refused (<see cref="ArmyDialogModels.SplitAboardRefusal"/>)
-/// <c>[designed, no confirmed evidence either way]</c>, as <c>SplitArmyCommand</c>'s remarks say.
+/// <strong>An army aboard a fleet</strong> is offered the same split as one on land — the engine carries
+/// it out on the carrying fleet's tile (<c>SplitPlacement.ArmyCellFor</c>, T142)
+/// <c>[derived: code, 2026-10-05-split-army-aboard-a-fleet.md, rules 1-2]</c>.
 /// </para>
 /// <para>
 /// <strong>Disband</strong> under either list submits <c>disband-unit &lt;army&gt; &lt;index&gt;</c> at
@@ -361,25 +364,20 @@ public sealed class SplitArmyModel
     /// <summary>The army's live unit count.</summary>
     public int UnitCount => _army.Units.Count;
 
-    /// <summary>Whether the army is aboard a fleet, which the engine refuses to split.</summary>
-    public bool IsAboard => _army.IsEmbarked;
-
     /// <summary>
-    /// Whether the split can be offered: not aboard a fleet, at least <see cref="MinUnits"/> units and the
-    /// nation below its <see cref="ArmyManagementRules.MaxArmies"/> cap.
+    /// Whether the split can be offered: at least <see cref="MinUnits"/> units and the nation below its
+    /// <see cref="ArmyManagementRules.MaxArmies"/> cap.
     /// </summary>
     public bool CanSplit =>
-        !IsAboard && _army.Units.Count >= MinUnits && _nationArmyCount < _ruleset.ArmyManagement.MaxArmies;
+        _army.Units.Count >= MinUnits && _nationArmyCount < _ruleset.ArmyManagement.MaxArmies;
 
     /// <summary>The refusal the dialog shows when <see cref="CanSplit"/> is false, or <see langword="null"/>.</summary>
     public string? RefusalMessage =>
         CanSplit
             ? null
-            : IsAboard
-                ? ArmyDialogModels.SplitAboardRefusal
-                : _army.Units.Count < MinUnits
-                    ? ArmyDialogModels.SplitOneUnitRefusal
-                    : "You have reached your limit of armies.";
+            : _army.Units.Count < MinUnits
+                ? ArmyDialogModels.SplitOneUnitRefusal
+                : "You have reached your limit of armies.";
 
     /// <summary>Indexes into A's own list (as it stands now) staged for the new army, ascending.</summary>
     public IReadOnlyList<int> StagedUnits => _staged;
