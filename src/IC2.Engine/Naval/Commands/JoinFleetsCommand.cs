@@ -3,10 +3,12 @@ using IC2.Engine.Core;
 namespace IC2.Engine.Naval.Commands;
 
 /// <summary>
-/// Joins two of the issuing nation's own, co-located fleets — <c>docs/task-catalogue.md</c> "T14 Naval",
-/// Done-when 5 and 6: combined ships capped at 100, refused while either carries an army. Ships,
-/// supplies and money add; the survivor's moves are zeroed; <paramref name="AbsorbedFleetId"/> is
-/// deleted.
+/// Joins two of the issuing nation's own fleets at Chebyshev distance exactly 1 —
+/// <c>docs/task-catalogue.md</c> "T14 Naval", Done-when 5 and 6: combined ships capped at 100, refused
+/// while either carries an army. Ships, supplies and money add; the survivor's moves are zeroed;
+/// <paramref name="AbsorbedFleetId"/> is deleted. The one-tile partner rule is the fleet twin
+/// <c>FUN_00449DD8</c> of the army gate <c>FUN_00449D64</c> (<strong>[derived: code]</strong>, audit
+/// §1.6).
 /// </summary>
 public sealed record JoinFleetsCommand(string IssuingNationId, string SurvivingFleetId, string AbsorbedFleetId) : ICommand
 {
@@ -23,8 +25,12 @@ public static class JoinFleetsRejections
     /// <summary>Either named fleet belongs to a nation other than the one issuing the command.</summary>
     public static readonly RejectionCode NotYourFleet = new("naval.not-your-fleet");
 
-    /// <summary>The two fleets are not on the same tile.</summary>
-    public static readonly RejectionCode NotCoLocated = new("naval.not-co-located");
+    /// <summary>
+    /// The two fleets are not at Chebyshev distance exactly 1 — the original's partner rule
+    /// (<c>FUN_00449DD8</c>, <strong>[derived: code]</strong>; audit §1.6). Distance 0 and distance 2
+    /// are both rejected.
+    /// </summary>
+    public static readonly RejectionCode NotAdjacent = new("naval.not-adjacent");
 
     /// <summary>
     /// A fleet carrying an army refuses repair, scuttle, split and join —

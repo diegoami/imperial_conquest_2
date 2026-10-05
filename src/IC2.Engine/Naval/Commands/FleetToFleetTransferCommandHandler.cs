@@ -1,6 +1,7 @@
 using IC2.Engine.Core;
 using IC2.Engine.Economy;
 using IC2.Engine.Model;
+using IC2.Engine.Movement;
 
 namespace IC2.Engine.Naval.Commands;
 
@@ -59,10 +60,14 @@ public sealed class FleetToFleetTransferCommandHandler : ICommandHandler<FleetTo
                 FleetToFleetTransferRejections.UnderConstruction, "Neither fleet may still be under construction.");
         }
 
-        if (source.X != target.X || source.Y != target.Y)
+        // The original's partner rule: Chebyshev distance exactly 1 (FUN_00449DD8 for fleets, through
+        // FUN_004492A0's distance == 1) [derived: code; audit §1.6]. Exactly, so distance 0 and distance
+        // 2 are both refused.
+        if (LandingTile.ChebyshevDistance(new GridPoint(source.X, source.Y), new GridPoint(target.X, target.Y)) != 1)
         {
             return CommandOutcome.Reject(
-                FleetToFleetTransferRejections.NotCoLocated, "Both fleets must be on the same tile to transfer.");
+                FleetToFleetTransferRejections.NotAdjacent,
+                $"Fleets '{source.Id}' and '{target.Id}' must be exactly one tile apart.");
         }
 
         // DoD 2 (T14 round-2 review, B6): refuse outright rather than delete a carrier out from under an

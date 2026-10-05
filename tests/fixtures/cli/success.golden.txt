@@ -77,19 +77,19 @@ News:
   Seleucid destroys army of Ptolemaic.
 
 > move mac-marines 144 40
-mac-marines moved from (145,40) to (144,40), spending 1 of 9 moves.
+mac-marines moved from (145,41) to (144,40), spending 1 of 9 moves.
 
 > buy mac-marines pella 5
 mac-marines bought 1 tons of supply at pella, free at your own city.
 
 > move mac-spare 145 41
-mac-spare moved from (145,40) to (145,41), spending 1 of 9 moves.
+mac-spare moved from (144,41) to (145,41), spending 1 of 9 moves.
 
 > disband-army mac-spare
 armies.disband-army accepted.
 
 > move mac-detached 157 31
-mac-detached moved from (145,40) to (153,34), spending 9 of 9 moves.
+mac-detached moved from (146,41) to (154,34), spending 9 of 9 moves.
 
 > move army-8 135 52
 army-8 moved from (145,40) to (140,46), spending 8 of 10 moves.
@@ -232,7 +232,7 @@ News:
   Week  1      Summer      270BC
 
 > move mac-sac-1 151 31
-mac-sac-1 moved from (136,51) to (139,47), spending 9 of 9 moves.
+mac-sac-1 moved from (137,52) to (140,47), spending 8 of 9 moves.
 
 > end
 Macedonia (macedonia) ends its turn.
@@ -260,7 +260,7 @@ News:
   Week  3      Summer      270BC
 
 > move mac-sac-1 151 31
-mac-sac-1 moved from (139,47) to (144,41), spending 8 of 9 moves.
+mac-sac-1 moved from (140,47) to (145,40), spending 9 of 9 moves.
 
 > end
 Macedonia (macedonia) ends its turn.
@@ -287,7 +287,7 @@ News:
   Week  5      Summer      270BC
 
 > move mac-sac-1 151 31
-mac-sac-1 moved from (144,41) to (146,38), spending 7 of 10 moves.
+mac-sac-1 moved from (145,40) to (147,37), spending 9 of 9 moves.
 
 > end
 Macedonia (macedonia) ends its turn.
@@ -313,7 +313,7 @@ News:
   Week  7      Summer      270BC
 
 > move mac-sac-1 151 31
-mac-sac-1 moved from (146,38) to (149,34), spending 10 of 10 moves.
+mac-sac-1 moved from (147,37) to (150,32), spending 8 of 9 moves.
 
 > end
 Macedonia (macedonia) ends its turn.
@@ -339,7 +339,7 @@ News:
   Week  9      Summer      270BC
 
 > move mac-sac-1 151 31
-mac-sac-1 moved from (149,34) to (150,32), spending 2 of 10 moves.
+mac-sac-1 moved from (150,32) to (150,32), spending 0 of 10 moves.
 
 > end
 Macedonia (macedonia) ends its turn.
@@ -420,7 +420,7 @@ Bithynia (bithynia) takes its turn: 1 order issued.
 Galatia (galatia) takes its turn: 9 orders issued.
 Armenia (armenia) takes its turn: 5 orders issued.
 Media (media) takes its turn: 8 orders issued.
-Thracia (thracia) takes its turn: 8 orders issued.
+Thracia (thracia) takes its turn: 7 orders issued.
   Weather: storm-damages-fleet (week 1).
 Rome (rome) takes its turn: 1 order issued.
 Carthage (carthage) takes its turn: 1 order issued.
@@ -464,7 +464,7 @@ Bithynia (bithynia) takes its turn: 1 order issued.
 Galatia (galatia) takes its turn: 2 orders issued.
 Armenia (armenia) takes its turn: 0 orders issued.
 Media (media) takes its turn: 1 order issued.
-Thracia (thracia) takes its turn: 1 order issued.
+Thracia (thracia) takes its turn: 2 orders issued.
 Rome (rome) takes its turn: 1 order issued.
 Carthage (carthage) takes its turn: 1 order issued.
 Seleucid (seleucid) takes its turn: 1 order issued.
@@ -474,9 +474,6 @@ News:
    
   Week  5      Autumn      270BC
 
-> accept-offer
-diplomacy.accept-pending-offer accepted.
-
 > status
 Week 5, Autumn 270 BC (turn 14). Active seat: Macedonia (macedonia).
 
@@ -485,18 +482,18 @@ Nations:
   Carthage (carthage, ai): treasury 2641, unity 746, tax 5%
   Seleucid (seleucid, ai): treasury 5240, unity 744, tax 18%
   Ptolemaic (ptolemaic, ai): treasury -260, unity 685, tax 13%
-  Macedonia (macedonia, human): treasury 98, unity 817, tax 15%
-  Numidia (numidia, ai): treasury 37, unity 665, tax 5%
+  Macedonia (macedonia, human): treasury 99, unity 817, tax 15%
+  Numidia (numidia, ai): treasury 43, unity 665, tax 5%
   Gaul (gaul, ai): treasury 1238, unity 610, tax 10%
   Greece (greece, ai): treasury 25, unity 578, tax 5%
   Celtiberia (celtiberia, ai): treasury -22, unity 752, tax 15%
   Illyria (illyria, ai): treasury 34, unity 736, tax 5%
-  Dacia (dacia, ai): treasury 30, unity 653, tax 5%
+  Dacia (dacia, ai): treasury 28, unity 653, tax 5%
   Bithynia (bithynia, ai): treasury -100, unity 632, tax 12%
   Galatia (galatia, ai): treasury 31, unity 759, tax 14%
   Armenia (armenia, ai): treasury 63, unity 702, tax 8%
-  Media (media, ai): treasury 38, unity 715, tax 10%
-  Thracia (thracia, ai): treasury 42, unity 789, tax 9%
+  Media (media, ai): treasury 39, unity 715, tax 10%
+  Thracia (thracia, ai): treasury 40, unity 789, tax 9%
 
 Armies:
   army-0 (Rome) @ (100,37): 23700 troops in 6 units, supply 237t (100%), morale 70, moves 9
@@ -512,7 +509,7 @@ Armies:
   army-11 (Bithynia) @ (196,33): 33600 troops in 8 units, supply 301t (89%), morale 70, moves 9
   army-12 (Galatia) @ (209,48): 19300 troops in 5 units, supply 0t (0%), morale 51, moves 9
   army-13 (Media) @ (299,59): 37700 troops in 9 units, supply 359t (95%), morale 70, moves 9
-  army-14 (Thracia) @ (152,32): 10642 troops in 4 units, supply 101t (94%), morale 60, moves 10
+  army-14 (Thracia) @ (152,32): 11154 troops in 4 units, supply 106t (95%), morale 60, moves 10
   mac-marines (Macedonia) @ (144,40): 6400 troops in 2 units, supply 0t (0%), morale 51, moves 9
 
 Cities:
@@ -576,7 +573,7 @@ Cities:
   taurasia "Taurasia" @ (84,27), owner Gaul: supply 210t, loyalty 57, fortification 22%
   capsa "Capsa" @ (85,89), owner Numidia: supply 300t, loyalty 67, fortification 46%
   vindonissa "Vindonissa" @ (87,17), owner Gaul: supply 180t, loyalty 72, fortification 42%
-  ghadames "Ghadames" @ (87,119), owner Numidia: supply 100t, loyalty 73, fortification 42%
+  ghadames "Ghadames" @ (87,119), owner Numidia: supply 100t, loyalty 73, fortification 40%
   corales "Corales" @ (88,61), owner Carthage: supply 270t, loyalty 82, fortification 57%
   thugga "Thugga" @ (88,80), owner Carthage: supply 660t, loyalty 86, fortification 73%
   genua "Genua" @ (89,30), owner Greece: supply 300t, loyalty 71, fortification 69%
@@ -624,7 +621,7 @@ Cities:
   vegia "Vegia" @ (113,31), owner Illyria: supply 160t, loyalty 85, fortification 63%
   paestum "Paestum" @ (113,54), owner Rome: supply 200t, loyalty 95, fortification 58%
   messana "Messana" @ (113,63), owner Greece: supply 210t, loyalty 66, fortification 74%
-  ghirza "Ghirza" @ (113,110), owner Numidia: supply 140t, loyalty 81, fortification 60%
+  ghirza "Ghirza" @ (113,110), owner Numidia: supply 140t, loyalty 81, fortification 61%
   misurata "Misurata" @ (114,96), owner Carthage: supply 550t, loyalty 80, fortification 65%
   luceria "Luceria" @ (115,48), owner Rome: supply 390t, loyalty 95, fortification 77%
   rhegium "Rhegium" @ (115,63), owner Rome: supply 270t, loyalty 68, fortification 44%
@@ -643,7 +640,7 @@ Cities:
   charax "Charax" @ (124,105), owner Carthage: supply 440t, loyalty 76, fortification 43%
   brundisium "Brundisium" @ (127,52), owner Rome: supply 290t, loyalty 76, fortification 38%
   scodra "Scodra" @ (128,39), owner Illyria: supply 480t, loyalty 87, fortification 73%
-  solva "Solva" @ (129,12), owner Dacia: supply 150t, loyalty 79, fortification 57%
+  solva "Solva" @ (129,12), owner Dacia: supply 150t, loyalty 79, fortification 58%
   epidamnus "Epidamnus" @ (129,43), owner Illyria: supply 450t, loyalty 72, fortification 68%
   lissus "Lissus" @ (130,46), owner Illyria: supply 190t, loyalty 69, fortification 52%
   dimale "Dimale" @ (131,50), owner Illyria: supply 120t, loyalty 80, fortification 54%
@@ -673,7 +670,7 @@ Cities:
   demetrias "Demetrias" @ (147,53), owner Macedonia: supply 410t, loyalty 65, fortification 89%
   argos "Argos" @ (147,65), owner Greece: supply 650t, loyalty 80, fortification 72%
   sparta "Sparta" @ (147,69), owner Greece: supply 770t, loyalty 91, fortification 67%
-  ulpia-traiana "Ulpia Traiana" @ (148,24), owner Dacia: supply 130t, loyalty 76, fortification 64%
+  ulpia-traiana "Ulpia Traiana" @ (148,24), owner Dacia: supply 130t, loyalty 76, fortification 63%
   corinth "Corinth" @ (148,62), owner Greece: supply 590t, loyalty 84, fortification 66%
   amphipolis "Amphipolis" @ (149,40), owner Macedonia: supply 510t, loyalty 78, fortification 96%
   thebes "Thebes" @ (149,59), owner Greece: supply 520t, loyalty 87, fortification 62%
@@ -828,7 +825,7 @@ Cities:
   ur "Ur" @ (279,104), owner Seleucid: supply 820t, loyalty 64, fortification 36%
   nehardea "Nehardea" @ (280,91), owner Seleucid: supply 750t, loyalty 54, fortification 22%
   tiflis "Tiflis" @ (281,19), owner Media: supply 440t, loyalty 70, fortification 80%
-  ani "Ani" @ (282,33), owner Media: supply 190t, loyalty 69, fortification 50%
+  ani "Ani" @ (282,33), owner Media: supply 190t, loyalty 69, fortification 49%
   bisitun "Bisitun" @ (282,69), owner Seleucid: supply 920t, loyalty 76, fortification 54%
   al-hira "Al Hira" @ (284,92), owner Seleucid: supply 580t, loyalty 60, fortification 41%
   artaxata "Artaxata" @ (286,26), owner Media: supply 380t, loyalty 72, fortification 91%
@@ -841,7 +838,7 @@ Cities:
   charax-2 "Charax" @ (298,102), owner Seleucid: supply 1200t, loyalty 58, fortification 41%
   kangavar "Kangavar" @ (300,58), owner Media: supply 570t, loyalty 81, fortification 53%
   bahman "Bahman" @ (302,105), owner Seleucid: supply 720t, loyalty 64, fortification 27%
-  derbend "Derbend" @ (303,12), owner Media: supply 180t, loyalty 64, fortification 68%
+  derbend "Derbend" @ (303,12), owner Media: supply 180t, loyalty 64, fortification 69%
   ivanikarkh "Ivanikarkh" @ (303,86), owner Seleucid: supply 460t, loyalty 67, fortification 54%
   nahr-tire "Nahr Tire" @ (303,101), owner Seleucid: supply 810t, loyalty 55, fortification 40%
   susa "Susa" @ (304,90), owner Seleucid: supply 970t, loyalty 79, fortification 65%
@@ -932,22 +929,21 @@ armies.disband-unit accepted.
 
 > end
 Macedonia (macedonia) ends its turn.
-Numidia (numidia) takes its turn: 1 order issued.
+Numidia (numidia) takes its turn: 2 orders issued.
 Gaul (gaul) takes its turn: 1 order issued.
 Greece (greece) takes its turn: 0 orders issued.
 Celtiberia (celtiberia) takes its turn: 1 order issued.
-Illyria (illyria) takes its turn: 1 order issued.
+Illyria (illyria) takes its turn: 0 orders issued.
 Dacia (dacia) takes its turn: 0 orders issued.
 Bithynia (bithynia) takes its turn: 1 order issued.
 Galatia (galatia) takes its turn: 1 order issued.
 Armenia (armenia) takes its turn: 0 orders issued.
-Media (media) takes its turn: 1 order issued.
+Media (media) takes its turn: 0 orders issued.
 Thracia (thracia) takes its turn: 1 order issued.
-  Weather: drought-reduces-supply (week 5).
 Rome (rome) takes its turn: 1 order issued.
 Carthage (carthage) takes its turn: 1 order issued.
 Seleucid (seleucid) takes its turn: 1 order issued.
-Ptolemaic (ptolemaic) takes its turn: 1 order issued.
+Ptolemaic (ptolemaic) takes its turn: 0 orders issued.
 Now: Week 7, Autumn 270 BC. Active seat: Macedonia (macedonia).
 News:
    
@@ -970,6 +966,7 @@ Armenia (armenia) takes its turn: 0 orders issued.
 Media (media) takes its turn: 0 orders issued.
 Thracia (thracia) takes its turn: 1 order issued.
   Weather: storm-damages-fleet (week 7).
+  Weather: storm-damages-fleet (week 7).
 Rome (rome) takes its turn: 1 order issued.
 Carthage (carthage) takes its turn: 1 order issued.
 Seleucid (seleucid) takes its turn: 1 order issued.
@@ -978,6 +975,9 @@ Now: Week 9, Autumn 270 BC. Active seat: Macedonia (macedonia).
 News:
    
   Week  9      Autumn      270BC
+
+> accept-offer
+diplomacy.accept-pending-offer accepted.
 
 > move army-8 148 40
 army-8 moved from (141,40) to (148,40), spending 7 of 10 moves.

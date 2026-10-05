@@ -1,5 +1,6 @@
 using IC2.Engine.Core;
 using IC2.Engine.Model;
+using IC2.Engine.Movement;
 
 namespace IC2.Engine.Armies.Commands;
 
@@ -90,6 +91,18 @@ public sealed class SplitArmyCommandHandler : ICommandHandler<SplitArmyCommand>
                 $"Cannot move {command.SupplyTonsToNewArmy} supply tons to the new army; army '{army.Id}' holds {army.SupplyTons}.");
         }
 
+        // The new unit stands one tile from the parent, not on it (bugs #584, #596): the same
+        // FUN_004492C0 scan MobilizationArmyCreation uses for a mobilized recruit, centred on the
+        // parent's own tile. FUN_00449F08 signals failure through its out-parameter when no cell
+        // qualifies, so the split is refused rather than leaving the new army on an occupied or
+        // impassable cell [designed: what the original's split shows then is unread].
+        if (SplitPlacement.ArmyCell(state, context.World, new GridPoint(army.X, army.Y)) is not { } newCell)
+        {
+            return CommandOutcome.Reject(
+                SplitArmyRejections.NoFreeAdjacentTile,
+                $"Army '{army.Id}' has no free adjacent tile for the new army.");
+        }
+
         var movedUnits = new List<UnitSlot>(selected.Count);
         var keptUnits = new List<UnitSlot>(army.Units.Count - selected.Count);
         for (var i = 0; i < army.Units.Count; i++)
@@ -114,13 +127,13 @@ public sealed class SplitArmyCommandHandler : ICommandHandler<SplitArmyCommand>
         var newArmy = new ArmyState(
             Id: command.NewArmyId,
             Nation: army.Nation,
-            X: army.X,
-            Y: army.Y,
+            X: newCell.X,
+            Y: newCell.Y,
             Moves: newArmyMoves,
             Morale: rules.NewArmyMorale,
             Money: command.MoneyToNewArmy,
             SupplyTons: command.SupplyTonsToNewArmy,
-            CoveredTileCode: army.CoveredTileCode,
+            CoveredTileCode: SplitPlacement.TerrainCodeAt(context.World, newCell),
             AboardFleetId: null,
             Units: ValueList.From(movedUnits));
 

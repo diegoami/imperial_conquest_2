@@ -32,7 +32,7 @@ public sealed class FleetToFleetTransferCommandHandlerTests
     {
         var state = NavalTestbed.InitialState();
         var source = Fleet("xfer-src", 3, 3, ships: 30, supply: 100, money: 50);
-        var target = Fleet("xfer-dst", 3, 3, ships: 20, supply: 10, money: 5);
+        var target = Fleet("xfer-dst", 4, 3, ships: 20, supply: 10, money: 5);
         state = state with { Fleets = ValueList.Of(source, target) };
 
         var dispatcher = NavalTestbed.RealEngineDispatcher();
@@ -68,7 +68,7 @@ public sealed class FleetToFleetTransferCommandHandlerTests
         var state = NavalTestbed.InitialState();
         var carryingSource = Fleet("xfer-carrying-src", 3, 3, ships: 10, supply: 20, money: 10, carriedArmyId: "aboard-army");
         var army = Army("aboard-army", carryingSource.Id);
-        var plainTarget = Fleet("xfer-plain-dst", 3, 3, ships: 5);
+        var plainTarget = Fleet("xfer-plain-dst", 4, 3, ships: 5);
         state = state with { Fleets = ValueList.Of(carryingSource, plainTarget), Armies = ValueList.Of(army) };
 
         var dispatcher = NavalTestbed.RealEngineDispatcher();
@@ -99,7 +99,7 @@ public sealed class FleetToFleetTransferCommandHandlerTests
         // The reciprocal case: carrying fleet as the *target* is refused too.
         var otherTarget = Fleet("xfer-carrying-dst", 3, 3, ships: 5, carriedArmyId: "aboard-army-2");
         var otherArmy = Army("aboard-army-2", otherTarget.Id);
-        var plainSource = Fleet("xfer-plain-src", 3, 3, ships: 10);
+        var plainSource = Fleet("xfer-plain-src", 4, 3, ships: 10);
         var state2 = NavalTestbed.InitialState() with
         {
             Fleets = ValueList.Of(plainSource, otherTarget),
@@ -123,7 +123,7 @@ public sealed class FleetToFleetTransferCommandHandlerTests
     {
         var state = NavalTestbed.InitialState();
         var source = Fleet("xfer-empty-src", 3, 3, ships: 30, supply: 100, money: 50);
-        var target = Fleet("xfer-empty-dst", 3, 3, ships: 20, supply: 10, money: 5);
+        var target = Fleet("xfer-empty-dst", 4, 3, ships: 20, supply: 10, money: 5);
         state = state with { Fleets = ValueList.Of(source, target) };
 
         var dispatcher = NavalTestbed.RealEngineDispatcher();
@@ -181,7 +181,7 @@ public sealed class FleetToFleetTransferCommandHandlerTests
         var state = NavalTestbed.InitialState();
         var rules = NavalTestbed.Ruleset.Naval;
         var source = Fleet("xfer-cap-src", 3, 3, ships: sourceShips);
-        var target = Fleet("xfer-cap-dst", 3, 3, ships: targetShips);
+        var target = Fleet("xfer-cap-dst", 4, 3, ships: targetShips);
         state = state with { Fleets = ValueList.Of(source, target) };
 
         Assert.InRange(shipsToMove, 1, sourceShips); // sanity: the scenario itself must be well-formed.
@@ -208,7 +208,7 @@ public sealed class FleetToFleetTransferCommandHandlerTests
     {
         var state = NavalTestbed.InitialState();
         var source = Fleet("xfer-short-src", 3, 3, ships: 10, supply: 5, money: 2);
-        var target = Fleet("xfer-short-dst", 3, 3, ships: 10);
+        var target = Fleet("xfer-short-dst", 4, 3, ships: 10);
         state = state with { Fleets = ValueList.Of(source, target) };
 
         var dispatcher = NavalTestbed.RealEngineDispatcher();
@@ -235,7 +235,7 @@ public sealed class FleetToFleetTransferCommandHandlerTests
         var state = NavalTestbed.InitialState();
         var treasuryBefore = state.NationById(NationId)!.Treasury;
         var source = Fleet("xfer-purse-src", 3, 3, ships: 10, money: 900);
-        var target = Fleet("xfer-purse-dst", 3, 3, ships: 10, money: 900);
+        var target = Fleet("xfer-purse-dst", 4, 3, ships: 10, money: 900);
         state = state with { Fleets = ValueList.Of(source, target) };
 
         var dispatcher = NavalTestbed.RealEngineDispatcher();
@@ -259,7 +259,7 @@ public sealed class FleetToFleetTransferCommandHandlerTests
         var state = NavalTestbed.InitialState();
         var treasuryBefore = state.NationById(NationId)!.Treasury;
         var source = Fleet("xfer-purse-disband-src", 3, 3, ships: 10, money: 900);
-        var target = Fleet("xfer-purse-disband-dst", 3, 3, ships: 10, money: 900);
+        var target = Fleet("xfer-purse-disband-dst", 4, 3, ships: 10, money: 900);
         state = state with { Fleets = ValueList.Of(source, target) };
 
         var dispatcher = NavalTestbed.RealEngineDispatcher();
@@ -272,9 +272,9 @@ public sealed class FleetToFleetTransferCommandHandlerTests
         Assert.Equal(treasuryBefore + 800, result.State.NationById(NationId)!.Treasury);
     }
 
-    /// <summary>Fleets belonging to another nation, not co-located, or under construction all refuse.</summary>
+    /// <summary>Fleets belonging to another nation, not adjacent, or under construction all refuse.</summary>
     [Fact]
-    public void NotYourFleet_NotCoLocated_AndUnderConstruction_AllRefuse()
+    public void NotYourFleet_NotAdjacent_AndUnderConstruction_AllRefuse()
     {
         var state = NavalTestbed.InitialState();
         var foreign = Fleet("xfer-foreign", 3, 3, ships: 10, nation: OtherNationId);
@@ -288,8 +288,8 @@ public sealed class FleetToFleetTransferCommandHandlerTests
         var notYours = dispatcher.Dispatch(state, new FleetToFleetTransferCommand(NationId, foreign.Id, mine.Id, 1, 0, 0));
         Assert.Equal(FleetToFleetTransferRejections.NotYourFleet, notYours.Code);
 
-        var notCoLocated = dispatcher.Dispatch(state, new FleetToFleetTransferCommand(NationId, mine.Id, elsewhere.Id, 1, 0, 0));
-        Assert.Equal(FleetToFleetTransferRejections.NotCoLocated, notCoLocated.Code);
+        var notAdjacent = dispatcher.Dispatch(state, new FleetToFleetTransferCommand(NationId, mine.Id, elsewhere.Id, 1, 0, 0));
+        Assert.Equal(FleetToFleetTransferRejections.NotAdjacent, notAdjacent.Code);
 
         var underConstruction = dispatcher.Dispatch(state, new FleetToFleetTransferCommand(NationId, mine.Id, building.Id, 1, 0, 0));
         Assert.Equal(FleetToFleetTransferRejections.UnderConstruction, underConstruction.Code);

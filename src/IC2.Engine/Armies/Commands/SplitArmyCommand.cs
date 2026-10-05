@@ -10,7 +10,9 @@ namespace IC2.Engine.Armies.Commands;
 /// enforces the 198-army cap, and gives the new army morale 59 and — <c>seatAsymmetry</c>-gated
 /// (<c>design-audit.md</c> Q6) — 0 moves for a human seat / 1 move for an AI seat under
 /// <c>classical-faithful</c>, the same starting moves for every seat under <c>improved</c>. Troops and
-/// units conserve exactly across the two resulting armies.
+/// units conserve exactly across the two resulting armies. The new army stands one tile from the parent
+/// (bugs #584 and #596), on the last qualifying cell of the 3×3 block around it, so a fresh split can
+/// rejoin its parent immediately.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -20,6 +22,22 @@ namespace IC2.Engine.Armies.Commands;
 /// morale 59." Troop/unit conservation and morale 59 are cross-checked against a real observed split —
 /// 75,536 troops / 16 units → 37,081 + 38,455 and 9 + 7 — in
 /// <c>pending-offer-block-army-split-and-naupactus.md</c>.
+/// </para>
+/// <para>
+/// <strong>Where the new army stands.</strong> <c>FUN_00449F08</c> places the army it creates with
+/// <c>FUN_004492C0</c>'s 3×3 scan, keeping the last qualifying cell — the scan
+/// <see cref="MobilizationArmyCreation"/> reproduces for a mobilized recruit, which the code report
+/// confirms (<c>decompiled-mobilization-and-mercenary-restock.md</c> §3). That a split army is placed
+/// by the same scan is <strong>[derived: code]</strong>: the report reads that <c>TUnitMap_SplitArmy</c>
+/// creates its army with <c>FUN_00449F08</c> ("Split army uses the same form"), and the scan reproduces
+/// both observed split placements — <c>(100,37) → (101,38)</c> and <c>(92,27) → (93,28)</c>, each a
+/// <c>(+1, +1)</c> south-east step. When no cell qualifies the split is refused with
+/// <see cref="SplitArmyRejections.NoFreeAdjacentTile"/> <c>[designed]</c>: <c>FUN_00449F08</c> pre-sets
+/// its out-parameter to −1 so its caller can detect failure
+/// (<c>army-moves-field-signed-and-the-ffff-underflow.md</c>), but what the original's split shows then
+/// is unread. Wine candidates for the two observations:
+/// <c>2026-10-02-unit-map-mouse-orders-and-tax-range.md</c> observation (e) and its review, and
+/// <c>2026-10-02-fleet-orders-live.md</c>.
 /// </para>
 /// <para>
 /// <strong>Money and supplies are a requested allocation, not the constant <c>FUN_00449F08</c> writes.</strong>
@@ -106,4 +124,10 @@ public static class SplitArmyRejections
 
     /// <summary><see cref="SplitArmyCommand.SupplyTonsToNewArmy"/> is negative or more than the parent holds.</summary>
     public static readonly RejectionCode InvalidSupplyAllocation = new("armies.invalid-supply-allocation");
+
+    /// <summary>
+    /// No cell in the parent army's 3×3 block is free ground for the new army —
+    /// <c>FUN_00449F08</c>'s scan finding nothing. See <see cref="SplitArmyCommand"/>'s remarks.
+    /// </summary>
+    public static readonly RejectionCode NoFreeAdjacentTile = new("armies.no-free-adjacent-tile");
 }

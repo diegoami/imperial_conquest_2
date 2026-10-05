@@ -3,16 +3,19 @@ using IC2.Engine.Core;
 namespace IC2.Engine.Armies.Commands;
 
 /// <summary>
-/// Joins two of the issuing nation's own, co-located armies — <c>docs/task-catalogue.md</c> "T15 Army
-/// and unit management", Done-when 1: combined units capped at 20, combined troops capped at 100,000,
-/// refused while either army is aboard a fleet. Units, supplies and money pool onto
-/// <paramref name="SurvivingArmyId"/>; the survivor's moves are zeroed; <paramref name="AbsorbedArmyId"/>
-/// is deleted.
+/// Joins two of the issuing nation's own armies at Chebyshev distance exactly 1 —
+/// <c>docs/task-catalogue.md</c> "T15 Army and unit management", Done-when 1: combined units capped at
+/// 20, combined troops capped at 100,000, refused while either army is aboard a fleet. Units, supplies
+/// and money pool onto <paramref name="SurvivingArmyId"/>; the survivor's moves are zeroed;
+/// <paramref name="AbsorbedArmyId"/> is deleted.
 /// </summary>
 /// <remarks>
 /// <c>TUnitMap_JoinArmies</c> (<c>0x004472FC</c>) <strong>[confirmed:
 /// decompiled-unit-map-orders-and-record-fields.md]</strong>: "Both armies must be the active nation's
-/// and co-located. Neither may be aboard a fleet (<c>army[+8] == -1</c> → <em>"An army on a fleet cannot
+/// and exactly one tile apart, the partner rule <c>FUN_00449D64</c> reads through
+/// <c>FUN_004492A0</c>'s <c>distance == 1</c> (<strong>[derived: code]</strong> for Join armies'
+/// use of it; the report reads it as Transfer unit's gate — audit §1.6). Neither may be aboard a fleet
+/// (<c>army[+8] == -1</c> → <em>"An army on a fleet cannot
 /// be combined with another."</em>). Combined units ≤ 20, combined troops ≤ 100,000. Units are moved one
 /// at a time, supplies and money add, the emptied army is deleted, and the survivor's moves are zeroed."
 /// <para>
@@ -47,8 +50,12 @@ public static class JoinArmiesRejections
     /// <summary>Either named army belongs to a nation other than the one issuing the command.</summary>
     public static readonly RejectionCode NotYourArmy = new("armies.not-your-army");
 
-    /// <summary>The two armies are not on the same tile.</summary>
-    public static readonly RejectionCode NotCoLocated = new("armies.not-co-located");
+    /// <summary>
+    /// The two armies are not at Chebyshev distance exactly 1 — the original's partner rule
+    /// (<c>FUN_00449D64</c>; <strong>[derived: code]</strong> for Join armies' use of it, audit §1.6).
+    /// Distance 0 and distance 2 are both rejected.
+    /// </summary>
+    public static readonly RejectionCode NotAdjacent = new("armies.not-adjacent");
 
     /// <summary>
     /// <em>"An army on a fleet cannot be combined with another."</em> — neither army may be aboard a

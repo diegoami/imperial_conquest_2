@@ -13,14 +13,30 @@ namespace IC2.Engine.Naval.Commands;
 /// <c>mobilization-movement-and-city-capture-modes.md</c> — the other report the T14 entry names for
 /// this area — is silent on fleet splitting entirely, so both start at 0
 /// <c>[designed, no confirmed field-init evidence for a fleet split's money/supply]</c>: what was
-/// searched is exactly those two reports, and neither states what the original initialises.
+/// searched is exactly those two reports, and neither states what the original initialises. The new
+/// fleet stands one tile from the parent (bugs #584 and #596) so it can rejoin immediately.
 /// </summary>
 /// <remarks>
+/// <para>
+/// <strong>Where the new fleet stands.</strong> The army creator <c>FUN_00449F08</c> places its new
+/// unit with <c>FUN_004492C0</c>'s 3×3 last-qualifying-cell scan
+/// (<c>decompiled-mobilization-and-mercenary-restock.md</c> §3, confirmed for mobilisation, and reached
+/// by the army split by the same form). Which routine places a split fleet is unread, so this uses the
+/// same scan restricted to <see cref="Model.TileType.PassableByFleets"/> water — <c>[designed]</c> by
+/// analogy. It fits the one observation: fleet 2 at <c>(101,46)</c> splits to fleet 5 at
+/// <c>(101,47)</c>, the last sea cell of the block, where <c>(+1, +1)</c> is land. When no cell
+/// qualifies the split is refused with <see cref="SplitFleetRejections.NoFreeAdjacentTile"/>
+/// <c>[designed]</c>; what the original's split shows then is unread. Wine candidates:
+/// <c>2026-10-02-unit-map-mouse-orders-and-tax-range.md</c> observation (e) and its review, and
+/// <c>2026-10-02-fleet-orders-live.md</c> (<c>T_SPLIT_FLEET.SAV</c>).
+/// </para>
+/// <para>
 /// <c>[open]</c> (first review, N8): the confirmed report also states split "can fail with 'You can not
 /// make any more fleets at this time.' (fleet-table cap)" — a global cap on the number of live fleet
 /// records, distinct from <see cref="Model.NavalRules.SplitMinShips"/>. No report gives the cap's actual
 /// value (the army table's analogous 198-army cap is confirmed and is T15's, not transferable here
 /// without evidence), so this handler does not invent one. Flagged rather than implemented.
+/// </para>
 /// </remarks>
 /// <param name="NewFleetId">The new fleet's id — see <see cref="OrderFleetCommand.NewFleetId"/>'s remarks.</param>
 /// <param name="ShipsToNewFleet">How many ships move to the new fleet; the rest stay with <see cref="FleetId"/>.</param>
@@ -56,4 +72,10 @@ public static class SplitFleetRejections
 
     /// <summary>The fleet is under construction and cannot be split.</summary>
     public static readonly RejectionCode UnderConstruction = new("naval.under-construction");
+
+    /// <summary>
+    /// No cell in the parent fleet's 3×3 block is free water for the new fleet — the placement scan
+    /// finding nothing. See <see cref="SplitFleetCommand"/>'s remarks.
+    /// </summary>
+    public static readonly RejectionCode NoFreeAdjacentTile = new("naval.no-free-adjacent-tile");
 }

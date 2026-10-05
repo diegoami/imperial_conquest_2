@@ -1,6 +1,8 @@
 using IC2.Engine.Core;
 using IC2.Engine.Economy;
 using IC2.Engine.Model;
+using IC2.Engine.Movement;
+using IC2.Engine.Naval;
 
 namespace IC2.Engine.Armies.Commands;
 
@@ -47,10 +49,14 @@ public sealed class JoinArmiesCommandHandler : ICommandHandler<JoinArmiesCommand
                 JoinArmiesRejections.ArmyEmbarked, "An army on a fleet cannot be combined with another.");
         }
 
-        if (survivor.X != absorbed.X || survivor.Y != absorbed.Y)
+        // The original's partner rule: Chebyshev distance exactly 1, the same gate T106's
+        // ArmyTransferCommandHandler applies (FUN_00449D64 through FUN_004492A0's distance == 1).
+        // Exactly, so distance 0 and distance 2 are both refused.
+        if (LandingTile.ChebyshevDistance(new GridPoint(survivor.X, survivor.Y), new GridPoint(absorbed.X, absorbed.Y)) != 1)
         {
             return CommandOutcome.Reject(
-                JoinArmiesRejections.NotCoLocated, "Both armies must be on the same tile to join.");
+                JoinArmiesRejections.NotAdjacent,
+                $"Armies '{survivor.Id}' and '{absorbed.Id}' must be exactly one tile apart.");
         }
 
         var rules = context.Ruleset.ArmyManagement;

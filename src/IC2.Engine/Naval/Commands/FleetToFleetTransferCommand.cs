@@ -4,9 +4,11 @@ namespace IC2.Engine.Naval.Commands;
 
 /// <summary>
 /// <c>TUnitMap_FleetToFleetTransfer</c> (<c>0x004479F4</c>) → <c>TFleetToFleet</c>: moves ships, supply
-/// tons and money from one of the issuing nation's own, co-located fleets to another, refusing while
-/// either carries an army — <c>docs/task-catalogue.md</c> "T46 Fleet-to-fleet transfer, and the supply
-/// path that keeps fleets alive" (issue #148), Done-when 1-5.
+/// tons and money from one of the issuing nation's own fleets to another at Chebyshev distance exactly
+/// 1, refusing while either carries an army — <c>docs/task-catalogue.md</c> "T46 Fleet-to-fleet
+/// transfer, and the supply path that keeps fleets alive" (issue #148), Done-when 1-5. The one-tile
+/// partner rule is the fleet twin <c>FUN_00449DD8</c> of the army gate <c>FUN_00449D64</c>
+/// (<strong>[derived: code]</strong>, audit §1.6).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -97,8 +99,12 @@ public static class FleetToFleetTransferRejections
     /// <summary>Either fleet is still under construction.</summary>
     public static readonly RejectionCode UnderConstruction = new("naval.under-construction");
 
-    /// <summary>The two fleets are not on the same tile.</summary>
-    public static readonly RejectionCode NotCoLocated = new("naval.not-co-located");
+    /// <summary>
+    /// The two fleets are not at Chebyshev distance exactly 1 — the original's partner rule
+    /// (<c>FUN_00449DD8</c>, <strong>[derived: code]</strong>; audit §1.6). Distance 0 and distance 2
+    /// are both rejected.
+    /// </summary>
+    public static readonly RejectionCode NotAdjacent = new("naval.not-adjacent");
 
     /// <summary>
     /// A fleet carrying an army refuses transfer, like every sibling order — <c>docs/task-catalogue.md</c>
