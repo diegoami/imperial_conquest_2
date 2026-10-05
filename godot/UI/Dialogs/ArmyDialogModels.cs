@@ -195,6 +195,12 @@ public sealed class ArmyTransferModel
         }
     }
 
+    /// <summary>Puts back one of A's staged units (the dialog's second Transfer on it).</summary>
+    public void UnstageUnitToPartner(int selectedIndex) => _unitsToPartner.Remove(selectedIndex);
+
+    /// <summary>Puts back one of B's staged units (the dialog's second Transfer on it).</summary>
+    public void UnstageUnitBack(int partnerIndex) => _unitsBack.Remove(partnerIndex);
+
     /// <summary>
     /// One press of a supply arrow: moves <paramref name="delta"/>, clamped to the giver's own stock and
     /// the receiver's room on that side. A press of 0 does nothing.

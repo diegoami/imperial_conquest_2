@@ -373,13 +373,13 @@ public partial class ContextPanel : Control
             // glyph the original used is not transcribed in the audit, so naming the withholding is
             // this panel's own [designed] rendering of the confirmed rule.
             Fact("Moves: withheld  ·  Morale: withheld  ·  Money: withheld  ·  Supply: withheld");
-            Fact($"Troops: {(army.Units.Count == 0 ? "none" : string.Join(", ", army.Units.Select(u => $"{u.Troops}x {u.UnitTypeId}")))}");
+            Fact($"Troops: {FormatUnits(army.Units)}");
             Note("Only the active seat's own armies can be ordered.");
             return;
         }
 
         Fact($"Moves: {army.Moves}  ·  Morale: {army.Morale}  ·  Money: {army.Money}  ·  Supply: {army.SupplyTons}t");
-        Fact($"Troops: {(army.Units.Count == 0 ? "none" : string.Join(", ", army.Units.Select(u => $"{u.Troops}x {u.UnitTypeId}")))}");
+        Fact($"Troops: {FormatUnits(army.Units)}");
 
         _content.AddChild(new HSeparator());
 
@@ -395,7 +395,9 @@ public partial class ContextPanel : Control
             Note(mobilize.Reason!);
         }
 
-        AddButton("Disband", () => Issue($"disband-army {army.Id}"));
+        // T111: the army panel's Disband button is gone — the Army menu's Disband army entry (with
+        // T99's confirmation prompt) is now the one path to disband-army. The city panel's Recruit
+        // section and the army panel's Mobilize button go with T109.
     }
 
     private void BuildFleetPanel(FleetState fleet)
@@ -472,7 +474,8 @@ public partial class ContextPanel : Control
         foreach (var slot in slots)
         {
             any = true;
-            Fact($"{slot.Troops}x {slot.UnitTypeId}{(string.IsNullOrEmpty(slot.Name) ? string.Empty : $" — {slot.Name}")}");
+            Fact($"{slot.Troops}x {slot.UnitTypeId} ({ArmyDialogModels.QualityCaption(slot.Quality)})"
+                + (string.IsNullOrEmpty(slot.Name) ? string.Empty : $" — {slot.Name}"));
         }
 
         if (!any)
@@ -480,6 +483,16 @@ public partial class ContextPanel : Control
             Note("None.");
         }
     }
+
+    /// <summary>
+    /// One army's units as the panel's Troops line shows them — troops, type, and T111's regiment quality
+    /// caption next to both, folded in by the user's decision of 2026-10-02.
+    /// </summary>
+    private static string FormatUnits(IReadOnlyList<UnitSlot> units) =>
+        units.Count == 0
+            ? "none"
+            : string.Join(", ", units.Select(u =>
+                $"{u.Troops}x {u.UnitTypeId} ({ArmyDialogModels.QualityCaption(u.Quality)})"));
 
     /// <summary>
     /// Mobilizes <paramref name="slotIndex"/> — the first slot <see cref="MobilizationReadiness"/> says
