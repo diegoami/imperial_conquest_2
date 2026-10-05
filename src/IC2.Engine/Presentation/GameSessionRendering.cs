@@ -419,7 +419,7 @@ public sealed partial class GameSession
     {
         $"  map - show the {World.Width}x{World.Height} terrain map with city, army and fleet markers",
         "  move <army> <x> <y> - move an army toward (x, y)",
-        "  buy <army> <city> <tons> - buy supply for an army at a city (free at your own city, paid abroad)",
+        "  buy <army> <city> <tons> - buy supply for an army at a city (free at your own city, paid abroad); buy <army> fleet <fleet> <tons> - buy supply from one of your own fleets (free)",
         "  attack-army <army> <target-army> - attack another nation's army (declares war first if needed)",
         "  besiege-city <army> <city> - besiege an adjacent enemy city (declares war first if needed)",
         "  attack-fleet <fleet> <target-fleet> - attack another nation's fleet (declares war first if needed)",
