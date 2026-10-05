@@ -615,6 +615,34 @@ function Invoke-ReviewParserSelfTest {
     $ruleChecks += [pscustomobject]@{ Name = "-WhatIf -Reviewer glm with zai avoided runs alibaba-token-plan/glm-5.3 (got $($p.Code))"; Ok = ($p.Code -eq 0 -and $p.Out -like '*alibaba-token-plan/glm-5.3*') }
     Remove-Item -LiteralPath $probeBrief -Force -ErrorAction SilentlyContinue
     $ruleChecks += [pscustomobject]@{ Name = "-WhatIf -Reviewer luna -Route alibaba is refused with exit 1 (got $lunaRouteCode)"; Ok = ($lunaRouteCode -eq 1) }
+    # The owner's decision of 2026-10-05: Alibaba runs have their own data folder, never holding an
+    # auth.json. Exercised on a scratch root (IC2_OPENCODE_DATA_HOME) with a dummy auth source.
+    $d = Get-OpenCodeDataDirs -Root 'C:\r'
+    $da = Get-OpenCodeDataDirs -Root 'C:\r' -Alibaba
+    $ruleChecks += [pscustomobject]@{ Name = 'Alibaba runs use <root>\data-alibaba; others <root>\data; cache and state shared'; Ok = ($d.XDG_DATA_HOME -eq 'C:\r\data' -and $da.XDG_DATA_HOME -eq 'C:\r\data-alibaba' -and $da.XDG_CACHE_HOME -eq $d.XDG_CACHE_HOME -and $da.XDG_STATE_HOME -eq $d.XDG_STATE_HOME) }
+    $scratch = Join-Path $probeDir "selftest-datahome-$([guid]::NewGuid().ToString('N').Substring(0, 8))"
+    $fakeAuth = Join-Path $scratch 'source-auth.json'
+    New-Item -ItemType Directory -Force -Path $scratch | Out-Null
+    Set-Content -LiteralPath $fakeAuth -Value '{}' -Encoding utf8
+    $savedEnv = @{ IC2_OPENCODE_DATA_HOME = $env:IC2_OPENCODE_DATA_HOME; IC2_OPENCODE_AUTH_SOURCE = $env:IC2_OPENCODE_AUTH_SOURCE }
+    $env:IC2_OPENCODE_DATA_HOME = $scratch; $env:IC2_OPENCODE_AUTH_SOURCE = $fakeAuth
+    $alibabaAuth = Join-Path $scratch 'data-alibaba\opencode\auth.json'
+    try {
+        $st = Initialize-OpenCodeDataHome -Major 1 -Alibaba 6>$null
+        $xdg = $env:XDG_DATA_HOME
+        Restore-OpenCodeDataHome $st
+        $ruleChecks += [pscustomobject]@{ Name = 'an Alibaba run creates data-alibaba, points XDG_DATA_HOME at it, and copies no auth.json'; Ok = ($xdg -eq (Join-Path $scratch 'data-alibaba') -and (Test-Path -LiteralPath (Join-Path $scratch 'data-alibaba\opencode')) -and -not (Test-Path -LiteralPath $alibabaAuth)) }
+        $st = Initialize-OpenCodeDataHome -Major 1 6>$null
+        Restore-OpenCodeDataHome $st
+        $ruleChecks += [pscustomobject]@{ Name = 'another provider still copies auth.json into data, never into data-alibaba'; Ok = ((Test-Path -LiteralPath (Join-Path $scratch 'data\opencode\auth.json')) -and -not (Test-Path -LiteralPath $alibabaAuth)) }
+        Set-Content -LiteralPath $alibabaAuth -Value '{}' -Encoding utf8
+        $stopped = $false
+        try { $st = Initialize-OpenCodeDataHome -Major 1 -Alibaba 6>$null; Restore-OpenCodeDataHome $st } catch { $stopped = -not (Test-OpenCodeInfraFailure $_) -and $_.Exception.Message -like '*holds an auth.json*' }
+        $ruleChecks += [pscustomobject]@{ Name = 'an auth.json in data-alibaba stops the run (not an infrastructure failure)'; Ok = $stopped }
+    } finally {
+        foreach ($k in $savedEnv.Keys) { if ($null -eq $savedEnv[$k]) { [System.Environment]::SetEnvironmentVariable($k, $null, 'Process') } else { [System.Environment]::SetEnvironmentVariable($k, $savedEnv[$k], 'Process') } }
+        Remove-Item -LiteralPath $scratch -Recurse -Force -ErrorAction SilentlyContinue
+    }
     foreach ($c in $ruleChecks) {
         $n++
         if (-not $c.Ok) { $failed++ }

@@ -380,11 +380,13 @@ function Resolve-OpenCodeFullPath([string] $Path) {
 }
 
 function Initialize-OpenCodeDataHome {
-    param([int] $Major = 1, [switch] $NoAuthCopy)
-    # -NoAuthCopy (an Alibaba Token Plan run, the owner's decision of 2026-10-05): auth.json is not
-    # copied at all, since that provider authenticates by ALIBABA_TOKEN_PLAN_API_KEY alone and an
-    # auth.json entry for it would override the variable. auth.json is never read, parsed or edited
-    # to filter it; other providers keep the copy below unchanged.
+    param([int] $Major = 1, [switch] $Alibaba)
+    # -Alibaba (an alibaba-token-plan/* run, the owner's decisions of 2026-10-05): the run gets its own
+    # data folder, <root>\data-alibaba (Get-OpenCodeDataDirs), which never holds an auth.json: that
+    # provider authenticates by ALIBABA_TOKEN_PLAN_API_KEY alone, and an auth.json entry for it would
+    # override the variable. Nothing is copied into it, and a run finding an auth.json there stops
+    # (the file is never read, parsed or edited). Cache and state stay the root's. Other providers
+    # keep <root>\data and the auth.json copy below unchanged.
     # Issue #540: gives every OpenCode process this script starts its OWN data, cache and state
     # directories, so the OpenCode desktop app (which shares ~/.local/share/opencode/ and moved
     # opencode.db to its 2.x schema on 2026-10-01, which the npm CLI 1.18 cannot read: "no such
@@ -404,7 +406,7 @@ function Initialize-OpenCodeDataHome {
     # model is called. Returns what Restore-OpenCodeDataHome needs; the caller restores in a
     # `finally`, so the calling process's own XDG_* variables are back after the run.
     $root = if ($env:IC2_OPENCODE_DATA_HOME) { Resolve-OpenCodeFullPath $env:IC2_OPENCODE_DATA_HOME } else { Join-Path $HOME ".local\share\ic2-opencode-${Major}x" }
-    $dirs = [ordered]@{ XDG_DATA_HOME = (Join-Path $root 'data'); XDG_CACHE_HOME = (Join-Path $root 'cache'); XDG_STATE_HOME = (Join-Path $root 'state') }
+    $dirs = Get-OpenCodeDataDirs -Root $root -Alibaba:$Alibaba
     $dataDir = Join-Path $dirs.XDG_DATA_HOME 'opencode'
     $src = if ($env:IC2_OPENCODE_AUTH_SOURCE) { Resolve-OpenCodeFullPath $env:IC2_OPENCODE_AUTH_SOURCE } else { Join-Path $HOME '.local\share\opencode\auth.json' }
     $marker = Join-Path $root 'schema-major.txt'
@@ -421,7 +423,7 @@ function Initialize-OpenCodeDataHome {
     # starts, only for 1.x, and only when the old folder exists and the new one does not (so it is
     # idempotent, and never merges two databases). The move is atomic: it either happens whole or not at all.
     $oldDir = Join-Path $root 'opencode'
-    if ($Major -eq 1 -and (Test-Path -LiteralPath $oldDir) -and -not (Test-Path -LiteralPath $dataDir)) {
+    if (-not $Alibaba -and $Major -eq 1 -and (Test-Path -LiteralPath $oldDir) -and -not (Test-Path -LiteralPath $dataDir)) {
         try {
             New-Item -ItemType Directory -Force -Path $dirs.XDG_DATA_HOME | Out-Null
             # ONE atomic rename, never Move-Item: when a file inside is open (SQLite holds the database
@@ -437,8 +439,12 @@ function Initialize-OpenCodeDataHome {
     foreach ($d in @($dataDir, $dirs.XDG_CACHE_HOME, $dirs.XDG_STATE_HOME)) { New-Item -ItemType Directory -Force -Path $d | Out-Null }
     if (-not (Test-Path -LiteralPath $marker)) { [System.IO.File]::WriteAllText($marker, "$Major") }
     $dst = Join-Path $dataDir 'auth.json'
-    if ($NoAuthCopy) {
-        $auth = 'auth.json not copied (Alibaba Token Plan: the environment variable authenticates)'
+    if ($Alibaba) {
+        if (Test-Path -LiteralPath $dst) {
+            # Not an infrastructure failure: no other model or retry fixes it, so the caller stops.
+            throw [System.InvalidOperationException]::new("Alibaba Token Plan: the Alibaba runs' data folder $dataDir holds an auth.json; it must hold none (an alibaba-token-plan entry there overrides ALIBABA_TOKEN_PLAN_API_KEY). It was not read. Remove it, or tell the owner. Nothing was started.")
+        }
+        $auth = 'no auth.json (Alibaba Token Plan: ALIBABA_TOKEN_PLAN_API_KEY authenticates)'
     } elseif (Test-Path -LiteralPath $src) {
         if (-not (Test-Path -LiteralPath $dst) -or (Get-Item -LiteralPath $src).LastWriteTimeUtc -gt (Get-Item -LiteralPath $dst).LastWriteTimeUtc) {
             Copy-Item -LiteralPath $src -Destination $dst -Force
@@ -456,6 +462,14 @@ function Initialize-OpenCodeDataHome {
     }
     Write-Host "opencode: data directory $dataDir (XDG_DATA_HOME=$($dirs.XDG_DATA_HOME), XDG_CACHE_HOME=$($dirs.XDG_CACHE_HOME), XDG_STATE_HOME=$($dirs.XDG_STATE_HOME); $auth)"
     return [pscustomobject]@{ Root = $root; DataDir = $dataDir; Saved = $saved }
+}
+
+function Get-OpenCodeDataDirs {
+    # The XDG directories of a run under -Root: <root>\data, or <root>\data-alibaba for an Alibaba
+    # Token Plan run (its own data folder, never holding an auth.json); cache and state are shared.
+    param([string] $Root, [switch] $Alibaba)
+    $data = Join-Path $Root $(if ($Alibaba) { 'data-alibaba' } else { 'data' })
+    return [ordered]@{ XDG_DATA_HOME = $data; XDG_CACHE_HOME = (Join-Path $Root 'cache'); XDG_STATE_HOME = (Join-Path $Root 'state') }
 }
 
 function Test-OpenCodeGoLogin {
@@ -511,7 +525,7 @@ function Get-AlibabaFailure([string] $Text, [string] $DataDir) {
     # The two Alibaba errors that no other model or retry can fix (docs/environment.md): the message
     # to stop with, or $null. Read from OpenCode's stderr only, never from the model's words.
     if ($Text -match 'Invalid API[- ]?key') {
-        return "Alibaba Token Plan: 'Invalid API-key'. The auth.json in $DataDir (or the default one it is copied from, ~\.local\share\opencode\auth.json, or IC2_OPENCODE_AUTH_SOURCE) most likely holds a stale alibaba-token-plan entry, which overrides ALIBABA_TOKEN_PLAN_API_KEY (it was not read here). Remove that entry by hand, or tell the owner; never put the key in an auth.json. Not retried."
+        return "Alibaba Token Plan: 'Invalid API-key'. Look for a stale alibaba-token-plan key that overrides ALIBABA_TOKEN_PLAN_API_KEY: an auth.json in $DataDir (the Alibaba runs' own data folder, which must hold none) or a provider key in ~\.config\opencode\opencode.json (neither was read here). Remove it by hand, or tell the owner; never put the key in an auth.json. Not retried."
     }
     if ($Text -match 'Provider not found:?\s*alibaba-token-plan') {
         return "Alibaba Token Plan: 'Provider not found'. ALIBABA_TOKEN_PLAN_API_KEY is not in the OpenCode process's environment (on Windows it is a user variable; in WSL it comes from ~/.config/ai-keys.env, loaded by ~/.bashrc and ~/.profile, or from WSLENV for commands started from Windows). Restart the session or shell so it picks it up; if it is still missing, tell the owner. Not retried."
@@ -620,7 +634,7 @@ function Invoke-OpenCodeWatched {
         # Not an infrastructure failure: no other model or retry fixes it, so the caller stops.
         throw [System.InvalidOperationException]::new("Alibaba Token Plan: ALIBABA_TOKEN_PLAN_API_KEY is set neither in this process nor in the user environment, so $Model would fail 'Provider not found'. Set the user variable (never in an auth.json). Nothing was started.")
     }
-    $state = Initialize-OpenCodeDataHome -Major $cli.Major -NoAuthCopy:$isAlibaba
+    $state = Initialize-OpenCodeDataHome -Major $cli.Major -Alibaba:$isAlibaba
     if ($Model -like 'opencode-go/*') {
         # Before the run, so a missing Go login stops here with its cause instead of a "Provider not found" run.
         $goIn = Join-Path $state.Root 'go-login-check.in.txt'
