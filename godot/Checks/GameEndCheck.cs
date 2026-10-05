@@ -127,7 +127,10 @@ public partial class GameEndCheck : Node
 
         try
         {
-            mainGame.SubmitForCheck("end"); // south ends; north's AI turn besieges Meridia and takes it.
+            // south ends; north's AI turn besieges Meridia and takes it, from the menu item.
+            Check(
+                mainGame.CommandTable.TryInvoke("game.end_turn"),
+                "conquered: the Game -> End turn menu item is bound and ends the turn");
 
             Check(
                 mainGame.ActiveOverlay is BattleResultScreen,
@@ -177,7 +180,10 @@ public partial class GameEndCheck : Node
 
         try
         {
-            mainGame.SubmitForCheck("end"); // south ends; north's AI turn takes Meridia and south falls.
+            // south ends; north's AI turn takes Meridia and south falls, from the menu item.
+            Check(
+                mainGame.CommandTable.TryInvoke("game.end_turn"),
+                "hotseat: the Game -> End turn menu item is bound and ends the turn");
 
             var fall = mainGame.Session.LastSeatFalls.SingleOrDefault();
             Check(
