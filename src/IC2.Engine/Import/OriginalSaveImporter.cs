@@ -420,6 +420,8 @@ public static class OriginalSaveImporter
 
             mercenaryPool.Add(new MercenaryPoolSlot(
                 SlotIndex: m.Index,
+                X: m.X,
+                Y: m.Y,
                 NameLabel: m.Label,
                 UnitTypeId: UnitTypeIdFor(m.TypeCode, documentPath),
                 Troops: m.Troops,

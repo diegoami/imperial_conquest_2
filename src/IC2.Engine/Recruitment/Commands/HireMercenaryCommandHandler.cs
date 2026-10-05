@@ -1,5 +1,7 @@
 using IC2.Engine.Core;
 using IC2.Engine.Model;
+using IC2.Engine.Movement;
+using IC2.Engine.Naval;
 
 namespace IC2.Engine.Recruitment.Commands;
 
@@ -37,6 +39,38 @@ public sealed class HireMercenaryCommandHandler : ICommandHandler<HireMercenaryC
             return CommandOutcome.Reject(
                 HireMercenaryRejections.UnknownPoolSlot,
                 $"Mercenary pool slot {command.PoolSlotIndex} has no offer to hire.");
+        }
+
+        // T76: the player's position gate. FUN_00449D08 takes the first live offer, in slot order, at
+        // Chebyshev distance exactly 1 from the army and uses its city; TRecruitMercs_InitializeForm then
+        // lists only the live offers on that city's tile. With no adjacent offer the order is a silent
+        // no-op. [confirmed: decompiled-mercenary-offer-list-and-position.md §1-§2]
+        var chosenCity = FindChosenCity(state, army);
+        if (chosenCity is null)
+        {
+            return CommandOutcome.Reject(
+                HireMercenaryRejections.NoAdjacentOffer,
+                $"Army '{army.Id}' at ({army.X},{army.Y}) is not adjacent to any mercenary offer's city.");
+        }
+
+        if (slot.X != chosenCity.X || slot.Y != chosenCity.Y)
+        {
+            return CommandOutcome.Reject(
+                HireMercenaryRejections.OfferNotAdjacentCity,
+                $"Mercenary pool slot {slot.SlotIndex} sits on ({slot.X},{slot.Y}), not on the chosen "
+                + $"city '{chosenCity.Id}' at ({chosenCity.X},{chosenCity.Y}).");
+        }
+
+        // The original's own refusal "You cannot recruit from an enemy city.": relation[city.owner][me]
+        // == war. [confirmed: decompiled-mercenary-offer-list-and-position.md §1]
+        if (state.Relations.IndexOf(command.IssuingNationId) >= 0
+            && state.Relations.IndexOf(chosenCity.Owner) >= 0
+            && state.Relations.Get(command.IssuingNationId, chosenCity.Owner)
+               == context.Ruleset.Diplomacy.StateCodes.War)
+        {
+            return CommandOutcome.Reject(
+                HireMercenaryRejections.EnemyCity,
+                $"'{chosenCity.Id}' belongs to '{chosenCity.Owner}', at war with '{command.IssuingNationId}'.");
         }
 
         var cost = MercenaryHireCost.Compute(slot.Troops, slot.UnitTypeId, slot.Quality, context.Ruleset);
@@ -113,6 +147,52 @@ public sealed class HireMercenaryCommandHandler : ICommandHandler<HireMercenaryC
             if (slot.SlotIndex == slotIndex)
             {
                 return slot;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// The city of the first live offer, in slot order, at Chebyshev distance exactly 1 from the army —
+    /// the original's <c>FUN_00449D08</c> / <c>FUN_004498D8</c> pair, which skips an adjacent offer whose
+    /// tile holds no city and keeps looking
+    /// <strong>[confirmed: decompiled-mercenary-offer-list-and-position.md §1]</strong>.
+    /// </summary>
+    private static CityState? FindChosenCity(GameState state, ArmyState army)
+    {
+        MercenaryPoolSlot? chosen = null;
+        foreach (var slot in state.MercenaryPool)
+        {
+            if (chosen is not null && slot.SlotIndex >= chosen.SlotIndex)
+            {
+                continue;
+            }
+
+            if (!IsAdjacent(army, slot))
+            {
+                continue;
+            }
+
+            if (CityAt(state, slot.X, slot.Y) is not null)
+            {
+                chosen = slot;
+            }
+        }
+
+        return chosen is null ? null : CityAt(state, chosen.X, chosen.Y);
+    }
+
+    private static bool IsAdjacent(ArmyState army, MercenaryPoolSlot slot) =>
+        LandingTile.ChebyshevDistance(new GridPoint(army.X, army.Y), new GridPoint(slot.X, slot.Y)) == 1;
+
+    private static CityState? CityAt(GameState state, int x, int y)
+    {
+        foreach (var city in state.Cities)
+        {
+            if (city.X == x && city.Y == y)
+            {
+                return city;
             }
         }
 

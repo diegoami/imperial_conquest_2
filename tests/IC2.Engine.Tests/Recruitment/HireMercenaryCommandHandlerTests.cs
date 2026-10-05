@@ -1,6 +1,7 @@
 using IC2.Engine.Core;
 using IC2.Engine.Model;
 using IC2.Engine.Recruitment.Commands;
+using IC2.Engine.Tests.Cities.Capture;
 using IC2.Engine.Tests.Fixtures;
 using Xunit;
 
@@ -17,15 +18,18 @@ namespace IC2.Engine.Tests.Recruitment;
 public sealed class HireMercenaryCommandHandlerTests
 {
     // mercenary-pool-record.md's confirmed Felsina offer: x=98, y=31, label=11 ("Gallic"), type 0 (light
-    // infantry), troops 6,438, quality 8 ("very good").
+    // infantry), troops 6,438, quality 8 ("very good"). T76 (#330): the toy world has no Felsina, so the
+    // offer's tile is placed on the toy world's Arx (2,1) -- the one city tile at Chebyshev distance 1
+    // from north-army-1 at (3,2), which the player's adjacency rule now requires.
     private static MercenaryPoolSlot FelsinaOffer => new(
-        SlotIndex: 33, NameLabel: 11, UnitTypeId: "light_infantry", Troops: 6438, Quality: 8);
+        SlotIndex: 33, X: 2, Y: 1, NameLabel: 11, UnitTypeId: "light_infantry", Troops: 6438, Quality: 8);
 
-    // A second, unrelated offer that must survive a Felsina hire untouched — otherwise a hire that
+    // A second, unrelated offer that must survive a Felsina hire untouched -- otherwise a hire that
     // clears the whole pool instead of just the hired slot would pass undetected (build-process.md
-    // §4.2 gate 5's two-entity probe; the same gap that blocked T39's mercenary desertion).
+    // §4.2 gate 5's two-entity probe; the same gap that blocked T39's mercenary desertion). At Portus
+    // (5,2), Chebyshev distance 2 from north-army-1, so it is not a second adjacent offer.
     private static MercenaryPoolSlot OtherOffer => new(
-        SlotIndex: 7, NameLabel: 3, UnitTypeId: "heavy_infantry", Troops: 2000, Quality: 5);
+        SlotIndex: 7, X: 5, Y: 2, NameLabel: 3, UnitTypeId: "heavy_infantry", Troops: 2000, Quality: 5);
 
     [Fact]
     public void Felsina_hire_costs_the_confirmed_formula_debits_the_army_purse_and_empties_the_pool_slot()
@@ -163,7 +167,7 @@ public sealed class HireMercenaryCommandHandlerTests
         Assert.Equal(18_500, army.TotalTroops);
 
         var richArmy = army with { Money = 1000 }; // plenty to afford the hire itself.
-        var bigOffer = new MercenaryPoolSlot(SlotIndex: 5, NameLabel: 7, UnitTypeId: "light_infantry", Troops: 90_000, Quality: 6);
+        var bigOffer = new MercenaryPoolSlot(SlotIndex: 5, X: 2, Y: 1, NameLabel: 7, UnitTypeId: "light_infantry", Troops: 90_000, Quality: 6);
         var before = RecruitmentTestbed.WithMercenaryPool(
             RecruitmentTestbed.WithArmy(initial, richArmy), bigOffer);
 
@@ -183,7 +187,7 @@ public sealed class HireMercenaryCommandHandlerTests
     /// </summary>
     private static ArmyState ArmyWithUnits(int unitCount, string id = "unit-cap-army") =>
         new(
-            id, "north", 0, 0, Moves: 5, Morale: 68, Money: 1000, SupplyTons: 0,
+            id, "north", 3, 2, Moves: 5, Morale: 68, Money: 1000, SupplyTons: 0,
             CoveredTileCode: 2, AboardFleetId: null,
             Units: ValueList.From(Enumerable.Range(0, unitCount)
                 .Select(i => new UnitSlot(0, "light_infantry", 10, 6, $"filler {i}"))));
@@ -196,7 +200,7 @@ public sealed class HireMercenaryCommandHandlerTests
         var dispatcher = RecruitmentTestbed.Dispatcher();
         var initial = RecruitmentTestbed.InitialState();
         var army = ArmyWithUnits(startingUnits);
-        var offer = new MercenaryPoolSlot(SlotIndex: 40, NameLabel: 3, UnitTypeId: "light_infantry", Troops: 10, Quality: 5);
+        var offer = new MercenaryPoolSlot(SlotIndex: 40, X: 2, Y: 1, NameLabel: 3, UnitTypeId: "light_infantry", Troops: 10, Quality: 5);
         var before = RecruitmentTestbed.WithMercenaryPool(
             initial with { Armies = ValueList.From(initial.Armies.Append(army)) }, offer);
 
@@ -216,7 +220,7 @@ public sealed class HireMercenaryCommandHandlerTests
         var dispatcher = RecruitmentTestbed.Dispatcher();
         var initial = RecruitmentTestbed.InitialState();
         var army = ArmyWithUnits(20);
-        var offer = new MercenaryPoolSlot(SlotIndex: 41, NameLabel: 3, UnitTypeId: "light_infantry", Troops: 10, Quality: 5);
+        var offer = new MercenaryPoolSlot(SlotIndex: 41, X: 2, Y: 1, NameLabel: 3, UnitTypeId: "light_infantry", Troops: 10, Quality: 5);
         var before = RecruitmentTestbed.WithMercenaryPool(
             initial with { Armies = ValueList.From(initial.Armies.Append(army)) }, offer);
 
@@ -243,7 +247,7 @@ public sealed class HireMercenaryCommandHandlerTests
         var army = initial.ArmyById("north-army-1")!;
         var embarkedUnits = ValueList.Of(new UnitSlot(0, "light_infantry", 4000, 6, "Test Battalion"));
         var embarkedArmy = army with { Money = 100, CoveredTileCode = null, AboardFleetId = fleet.Id, Units = embarkedUnits };
-        var smallOffer = new MercenaryPoolSlot(SlotIndex: 9, NameLabel: 3, UnitTypeId: "light_infantry", Troops: 2000, Quality: 5);
+        var smallOffer = new MercenaryPoolSlot(SlotIndex: 9, X: 2, Y: 1, NameLabel: 3, UnitTypeId: "light_infantry", Troops: 2000, Quality: 5);
         var before = RecruitmentTestbed.WithMercenaryPool(
             RecruitmentTestbed.WithArmy(initial, embarkedArmy), smallOffer);
 
@@ -253,6 +257,122 @@ public sealed class HireMercenaryCommandHandlerTests
         var result = dispatcher.Dispatch(before, new HireMercenaryCommand(before.ActiveNationId, army.Id, smallOffer.SlotIndex));
 
         Assert.Equal(HireMercenaryRejections.FleetNoSpace, result.Code);
+        Assert.Same(before, result.State);
+    }
+
+    // ---- T76 (#330, bug #325): the player's position gate ----
+
+    /// <summary>A city on <paramref name="state"/> at (<paramref name="x"/>,<paramref name="y"/>) owned by <paramref name="owner"/>.</summary>
+    private static GameState WithCityAt(GameState state, string id, int x, int y, string owner) =>
+        state with
+        {
+            Cities = ValueList.From(state.Cities.Append(CaptureTestbed.City(
+                id, id, x, y, owner, owner, loyalty: 50, fortificationCode: 0,
+                populationThousands: 10, maxPopulationThousands: 20, tribute: 0))),
+        };
+
+    private static MercenaryPoolSlot SmallOffer(int slotIndex, int x, int y) =>
+        new(SlotIndex: slotIndex, X: x, Y: y, NameLabel: 3, UnitTypeId: "light_infantry", Troops: 10, Quality: 5);
+
+    /// <summary>
+    /// Distance 1: an offer on a city tile adjacent to the army is reachable. north-army-1 sits at
+    /// (3,2) and the toy world's Arx is at (2,1) — Chebyshev distance exactly 1.
+    /// </summary>
+    [Fact]
+    public void An_offer_on_an_adjacent_city_tile_is_accepted()
+    {
+        var dispatcher = RecruitmentTestbed.Dispatcher();
+        var before = RecruitmentTestbed.WithMercenaryPool(RecruitmentTestbed.InitialState(), SmallOffer(39, 2, 1));
+
+        var result = dispatcher.Dispatch(before, new HireMercenaryCommand(before.ActiveNationId, "north-army-1", 39));
+
+        Assert.True(result.IsAccepted, result.ToString());
+    }
+
+    /// <summary>
+    /// Distance 0: an offer on the army's own tile is not adjacent. A city is placed on that tile too, so
+    /// the test would pass only if the gate were mistakenly "at most 1" — which the original's
+    /// <c>FUN_004492A0</c> is not.
+    /// </summary>
+    [Fact]
+    public void An_offer_on_the_armys_own_tile_is_rejected_as_not_adjacent()
+    {
+        var dispatcher = RecruitmentTestbed.Dispatcher();
+        var initial = RecruitmentTestbed.InitialState();
+        var army = initial.ArmyById("north-army-1")!;
+        var withCity = WithCityAt(initial, "camp", army.X, army.Y, "north");
+        var before = RecruitmentTestbed.WithMercenaryPool(withCity, SmallOffer(39, army.X, army.Y));
+
+        var result = dispatcher.Dispatch(before, new HireMercenaryCommand(before.ActiveNationId, army.Id, 39));
+
+        Assert.Equal(HireMercenaryRejections.NoAdjacentOffer, result.Code);
+        Assert.Same(before, result.State);
+    }
+
+    /// <summary>
+    /// Distance 2: Portus sits two tiles east of north-army-1, so its offer is out of reach.
+    /// </summary>
+    [Fact]
+    public void An_offer_two_tiles_away_is_rejected_as_not_adjacent()
+    {
+        var dispatcher = RecruitmentTestbed.Dispatcher();
+        var before = RecruitmentTestbed.WithMercenaryPool(RecruitmentTestbed.InitialState(), SmallOffer(39, 5, 2));
+        Assert.Equal(2, System.Math.Max(System.Math.Abs(5 - 3), System.Math.Abs(2 - 2)));
+
+        var result = dispatcher.Dispatch(before, new HireMercenaryCommand(before.ActiveNationId, "north-army-1", 39));
+
+        Assert.Equal(HireMercenaryRejections.NoAdjacentOffer, result.Code);
+        Assert.Same(before, result.State);
+    }
+
+    /// <summary>
+    /// Two offer cities both adjacent to one army: <c>FUN_00449D08</c> picks the first live offer in slot
+    /// order (slot 5, on the added east-town at (4,2)) and the dialog lists only that city's tile, so the
+    /// lower-numbered <em>other</em> city's offer (Arx, slot 9) cannot be hired. The two cities are
+    /// Chebyshev distance 2 apart, the only shape in which the original's collision can happen.
+    /// </summary>
+    [Fact]
+    public void Only_the_first_adjacent_live_offers_city_is_available()
+    {
+        var dispatcher = RecruitmentTestbed.Dispatcher();
+        var initial = RecruitmentTestbed.InitialState();
+        var army = initial.ArmyById("north-army-1")!;
+        Assert.Equal(2, System.Math.Max(System.Math.Abs(4 - 2), System.Math.Abs(2 - 1)));
+
+        var withEastTown = WithCityAt(initial, "east-town", 4, 2, "north");
+        var firstOffer = SmallOffer(5, 4, 2);   // east-town: the lowest live slot, so its city is chosen.
+        var secondOffer = SmallOffer(9, 2, 1);  // Arx: adjacent too, but not on the chosen city.
+        var before = RecruitmentTestbed.WithMercenaryPool(withEastTown, firstOffer, secondOffer);
+
+        var second = dispatcher.Dispatch(before, new HireMercenaryCommand(before.ActiveNationId, army.Id, secondOffer.SlotIndex));
+        Assert.Equal(HireMercenaryRejections.OfferNotAdjacentCity, second.Code);
+        Assert.Same(before, second.State);
+
+        var first = dispatcher.Dispatch(before, new HireMercenaryCommand(before.ActiveNationId, army.Id, firstOffer.SlotIndex));
+        Assert.True(first.IsAccepted, first.ToString());
+    }
+
+    /// <summary>
+    /// An offer on an adjacent city whose owner is at war with the hiring nation is refused with the
+    /// order's own <c>"You cannot recruit from an enemy city."</c> gate.
+    /// </summary>
+    [Fact]
+    public void An_offer_on_a_city_at_war_with_the_hiring_nation_is_rejected()
+    {
+        var dispatcher = RecruitmentTestbed.Dispatcher();
+        var initial = RecruitmentTestbed.InitialState();
+        var army = initial.ArmyById("north-army-1")!;
+        var withEnemyTown = WithCityAt(initial, "enemy-town", 4, 2, "south");
+        var atWar = withEnemyTown with
+        {
+            Relations = withEnemyTown.Relations.WithRelation(
+                "north", "south", RecruitmentTestbed.Ruleset.Diplomacy.StateCodes.War),
+        };
+        var before = RecruitmentTestbed.WithMercenaryPool(atWar, SmallOffer(39, 4, 2));
+
+        var result = dispatcher.Dispatch(before, new HireMercenaryCommand(before.ActiveNationId, army.Id, 39));
+
+        Assert.Equal(HireMercenaryRejections.EnemyCity, result.Code);
         Assert.Same(before, result.State);
     }
 }

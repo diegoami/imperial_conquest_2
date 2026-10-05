@@ -627,11 +627,35 @@ public sealed record WeatherEffectRule(
 /// <c>recruitment.mobilizationCapPercent</c> and <c>error.mobilizationAlready100</c>)
 /// <strong>[confirmed: decompiled-mobilization-and-mercenary-restock.md §5]</strong>.
 /// </param>
+/// <param name="MercenaryHireRangeHumanSeat">
+/// The Chebyshev distance from the army at which a human seat's mercenary order finds an offer —
+/// <c>1</c>, and the original's test is <c>d == 1</c>, not <c>d &lt;= 1</c>
+/// (<c>FUN_004492A0</c>: <c>FUN_00449018(a, b) == 1</c>), the same "exactly 1" gate as mobilization's
+/// receiving army <strong>[confirmed: decompiled-mercenary-offer-list-and-position.md §1]</strong>.
+/// <see cref="Recruitment.Commands.HireMercenaryCommandHandler"/> compares for equality against this
+/// field, never "at most".
+/// </param>
+/// <param name="MercenaryHireRangeAiSeat">
+/// The Chebyshev radius within which a computer nation's automatic hire (<c>FUN_0044E41C</c>) reaches a
+/// city's offers — <c>4</c>, from the original's <c>d &lt; 5</c> branch, deliberately one smaller than
+/// mobilization's own AI radius of <c>5</c> (<c>d &lt; 6</c>)
+/// <strong>[confirmed: decompiled-mercenary-offer-list-and-position.md §3]</strong>. The AI compares
+/// with "at most", because that branch is an inequality.
+/// </param>
+/// <param name="MercenaryAiHireMinMoney">
+/// The army purse an AI seat must hold <em>more</em> than before its automatic hire does anything —
+/// <c>50</c> (<c>FUN_0044E41C</c>'s <c>money &gt; 50</c>, checked once at entry and never deducted)
+/// <strong>[confirmed: decompiled-mercenary-offer-list-and-position.md §3]</strong>. The hire itself
+/// charges nothing; the threshold is only a gate.
+/// </param>
 public sealed record RecruitmentRules(
     int TroopsPerCostUnit,
     int MercenaryPoolSlots,
     int MercenaryHireTroopDivisor,
     int MercenaryUpkeepQualityDivisor,
+    int MercenaryHireRangeHumanSeat,
+    int MercenaryHireRangeAiSeat,
+    int MercenaryAiHireMinMoney,
     int MaxSlots,
     int MobilizationQualityDivisor,
     int MobilizationMinStateCodeHumanSeat,

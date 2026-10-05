@@ -123,6 +123,13 @@ public static class AiTurn
         state = resupply.State;
         log.Add(resupply.Describe());
 
+        // T76: the computer nation's automatic mercenary hire, the other half of FUN_0044E41C. It runs
+        // once, up front, for every army, outside the greedy candidate loop -- it is unconditional within
+        // its gates, not a scored decision. Zero random draws (see AiMercenaryHirePass).
+        var mercenaryHire = AiMercenaryHirePass.Run(state, ruleset, nationId);
+        state = mercenaryHire.State;
+        log.Add(mercenaryHire.Describe());
+
         var issued = 0;
         var rejected = 0;
         var mismatches = 0;

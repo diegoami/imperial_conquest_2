@@ -273,15 +273,14 @@ public static class OriginalSaveFieldMapping
         new FieldMapping(typeof(RecruitmentEntry), nameof(RecruitmentEntry.Troops), FieldMappingKind.Mapped, "-> RecruitmentSlot.Troops."),
         new FieldMapping(typeof(RecruitmentEntry), nameof(RecruitmentEntry.CityIndex), FieldMappingKind.Mapped, "-> RecruitmentSlot.TargetCityId."),
 
-        // ---- MercenaryRecord -> MercenaryPoolSlot (the user's waiver: X/Y, docs/tasks/T21.md "Mercenary position")
+        // ---- MercenaryRecord -> MercenaryPoolSlot
         new FieldMapping(typeof(MercenaryRecord), nameof(MercenaryRecord.Index), FieldMappingKind.Mapped, "-> MercenaryPoolSlot.SlotIndex."),
-        new FieldMapping(typeof(MercenaryRecord), nameof(MercenaryRecord.X), FieldMappingKind.DeclaredUnmapped,
-            "MercenaryPoolSlot has no position field. The user's narrow waiver of Done-when 2 for this " +
-            "field (docs/tasks/T21.md 'Mercenary position', #321): position gating hiring is now known " +
-            "(decompiled-mercenary-offer-list-and-position.md) but adding the field and the rule is bug " +
-            "#325, a post-v0.3.0 correction, not this task's."),
-        new FieldMapping(typeof(MercenaryRecord), nameof(MercenaryRecord.Y), FieldMappingKind.DeclaredUnmapped,
-            "As MercenaryRecord.X -- same waiver, same reason, same bug #325."),
+        new FieldMapping(typeof(MercenaryRecord), nameof(MercenaryRecord.X), FieldMappingKind.Mapped,
+            "-> MercenaryPoolSlot.X. T76 (#330, bug #325): T21's narrow declared-unmapped waiver for this " +
+            "field is removed now that the slot carries the offer's city tile " +
+            "(decompiled-mercenary-offer-list-and-position.md)."),
+        new FieldMapping(typeof(MercenaryRecord), nameof(MercenaryRecord.Y), FieldMappingKind.Mapped,
+            "-> MercenaryPoolSlot.Y, the same city tile as MercenaryRecord.X (T76, #330, bug #325)."),
         new FieldMapping(typeof(MercenaryRecord), nameof(MercenaryRecord.Label), FieldMappingKind.Mapped, "-> MercenaryPoolSlot.NameLabel."),
         new FieldMapping(typeof(MercenaryRecord), nameof(MercenaryRecord.TypeCode), FieldMappingKind.Mapped, "-> MercenaryPoolSlot.UnitTypeId, via UnitTypeIdFor."),
         new FieldMapping(typeof(MercenaryRecord), nameof(MercenaryRecord.Troops), FieldMappingKind.Mapped, "-> MercenaryPoolSlot.Troops."),

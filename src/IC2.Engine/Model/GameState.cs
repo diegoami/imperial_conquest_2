@@ -329,11 +329,24 @@ public sealed record FleetState(
 /// One occupied slot of the mercenary pool. Empty slots are simply absent; the pool's total slot count
 /// is <see cref="RecruitmentRules.MercenaryPoolSlots"/>, ruleset data rather than a constant here.
 /// </summary>
+/// <param name="SlotIndex">The slot's own index in the original's 50-entry 201..250 live table.</param>
+/// <param name="X">
+/// The <c>x</c> of the city tile this offer sits on (record <c>+0</c>). The quarterly restock is the only
+/// runtime writer, and it copies the pair from the DAT's 201-entry template table, so <strong>every offer
+/// sits on a city tile</strong>; neither hire routine ever writes it, so an empty slot keeps its last
+/// position <strong>[confirmed: decompiled-mercenary-offer-list-and-position.md §4]</strong>.
+/// </param>
+/// <param name="Y">
+/// The <c>y</c> of the same tile (record <c>+2</c>) <strong>[confirmed:
+/// decompiled-mercenary-offer-list-and-position.md §4]</strong>.
+/// </param>
 /// <param name="NameLabel">
 /// The mercenary name-table index, copied into the hired unit's <see cref="UnitSlot.MercenaryLabel"/>.
 /// </param>
 public sealed record MercenaryPoolSlot(
     int SlotIndex,
+    int X,
+    int Y,
     int NameLabel,
     string UnitTypeId,
     int Troops,

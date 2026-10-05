@@ -76,8 +76,8 @@ public static class ToyFixtures
             : nation);
 
         var mercenaryPool = ValueList.Of(
-            new MercenaryPoolSlot(SlotIndex: 0, NameLabel: 3, UnitTypeId: "light_infantry", Troops: 6438, Quality: 8),
-            new MercenaryPoolSlot(SlotIndex: 7, NameLabel: 30, UnitTypeId: "light_cavalry", Troops: 2100, Quality: 6));
+            new MercenaryPoolSlot(SlotIndex: 0, X: 2, Y: 1, NameLabel: 3, UnitTypeId: "light_infantry", Troops: 6438, Quality: 8),
+            new MercenaryPoolSlot(SlotIndex: 7, X: 5, Y: 2, NameLabel: 30, UnitTypeId: "light_cavalry", Troops: 2100, Quality: 6));
 
         var relations = initial.Relations
             .WithRelation("north", "south", ruleset.Diplomacy.StateCodes.War)

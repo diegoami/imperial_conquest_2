@@ -12,9 +12,9 @@ namespace IC2.Engine.Persistence;
 /// </summary>
 /// <remarks>
 /// Each step takes the envelope at version <c>N</c> and returns it re-shaped as version <c>N + 1</c>,
-/// touching only what that version actually changed — <see cref="MigrateV1ToV2"/> and
-/// <see cref="MigrateV2ToV3"/> are the two steps so far, because <see cref="SaveFormat.CurrentVersion"/>
-/// has only ever been 1, 2 or 3.
+/// touching only what that version actually changed — <see cref="MigrateV1ToV2"/>,
+/// <see cref="MigrateV2ToV3"/> and <see cref="MigrateV3ToV4"/> are the three steps so far, because
+/// <see cref="SaveFormat.CurrentVersion"/> has only ever been 1, 2, 3 or 4.
 /// </remarks>
 internal static class SaveMigrations
 {
@@ -47,6 +47,7 @@ internal static class SaveMigrations
             {
                 1 => MigrateV1ToV2(documentPath, current),
                 2 => MigrateV2ToV3(documentPath, current, expectedWorld),
+                3 => MigrateV3ToV4(documentPath, current),
 
                 // Nothing this build can step forward from -- either a version below
                 // SaveFormat.MinimumSupportedVersion (zero, negative, or otherwise never shipped), or
@@ -140,5 +141,61 @@ internal static class SaveMigrations
         }
 
         return v3;
+    }
+
+    /// <summary>
+    /// Version 3 to version 4 (T76): gives every occupied mercenary-pool slot the <c>x</c>/<c>y</c>
+    /// city-tile position <see cref="MercenaryPoolSlot"/> now carries. A pre-T76 save never persisted it,
+    /// so the only value the step can honestly supply is the DAT's own never-filled default,
+    /// <c>(0, 0)</c> <strong>[confirmed: decompiled-mercenary-offer-list-and-position.md §4]</strong> —
+    /// a slot whose tile is no city resolves to no reachable offer until the quarterly restock (T56)
+    /// rewrites it, which is exactly what the original's own stale position does. An entry that already
+    /// carries either coordinate is left untouched, so a save written by a later version that gained
+    /// another field here re-runs this step harmlessly.
+    /// </summary>
+    /// <exception cref="MalformedGameDataException">
+    /// The envelope is not a well-formed version-3 save (<c>state.mercenaryPool</c> is not a JSON array),
+    /// or one of its entries is not a JSON object.
+    /// </exception>
+    private static JsonObject MigrateV3ToV4(string documentPath, JsonObject v3)
+    {
+        var v4 = (JsonObject)v3.DeepClone();
+        v4[SaveFormat.VersionField] = 4;
+
+        var save = EnvelopeJson.RequireObject(documentPath, v4, SaveFormat.PayloadField, "the version-3 envelope");
+        var state = EnvelopeJson.RequireObject(documentPath, save, "state", "the version-3 save");
+
+        if (!state.TryGetPropertyValue("mercenaryPool", out var poolNode) || poolNode is null)
+        {
+            return v4;
+        }
+
+        if (poolNode is not JsonArray pool)
+        {
+            throw new MalformedGameDataException(
+                documentPath, "'state.mercenaryPool' must be a JSON array.");
+        }
+
+        foreach (var slotNode in pool)
+        {
+            if (slotNode is not JsonObject slot)
+            {
+                throw new MalformedGameDataException(
+                    documentPath,
+                    "every 'state.mercenaryPool' entry must be a JSON object describing MercenaryPoolSlot.");
+            }
+
+            if (!slot.ContainsKey("x"))
+            {
+                slot["x"] = 0;
+            }
+
+            if (!slot.ContainsKey("y"))
+            {
+                slot["y"] = 0;
+            }
+        }
+
+        return v4;
     }
 }
