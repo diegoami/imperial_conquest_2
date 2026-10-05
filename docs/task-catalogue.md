@@ -200,6 +200,10 @@ graph TD
   T112 --> T140
   T141[T141 split carries supply and money] --> T111
   T141 --> T112
+  T111 --> T142[T142 split aboard a fleet, scan order]
+  T76 --> T143[T143 mercenary hire is a gate]
+  T143 --> T113
+  T144[T144 human move resupply flag]
   T23 --> T26[T26 scenario docs+examples]
   T29 --> T26
   T22 --> T28[T28 nightly soak gate]
@@ -977,7 +981,7 @@ Fleet and City orders, command strip (Split fleet's supply and money need T141) 
 
 #### T113 Mercenaries on the map: Show mercenaries and Recruit mercenaries
 
-Mercenaries on the map (after T76; a city's right click lists its mercenaries, the user's decision of 2026-10-05) → [full entry](tasks/T113.md) · [#571](https://github.com/diegoami/imperial_conquest_2/issues/571)
+Mercenaries on the map (after T76 and T143; a city's right click lists its mercenaries, the user's decision of 2026-10-05) → [full entry](tasks/T113.md) · [#571](https://github.com/diegoami/imperial_conquest_2/issues/571)
 
 ---
 
@@ -1149,6 +1153,24 @@ Split allocation (correction task from GPT-6 Sol's review of PR #734, T111's R1;
 
 ---
 
+#### T142 An army aboard a fleet can be split, and the 3 × 3 placement scans nest x outer
+
+Split aboard a fleet, scan order (correction task for bugs #753 and #754, from research `9ae8924`; it merges after T111 and removes T111's aboard refusal, the user's decision of 2026-10-05) → [full entry](tasks/T142.md) · [#766](https://github.com/diegoami/imperial_conquest_2/issues/766)
+
+---
+
+#### T143 Hiring a mercenary takes nothing: the price is only a minimum purse
+
+Mercenary hire is a gate (correction task for bug #755, from research `9ae8924`; after T76, and T113 merges after it) → [full entry](tasks/T143.md) · [#767](https://github.com/diegoami/imperial_conquest_2/issues/767)
+
+---
+
+#### T144 A human army's move resupplies it only under `improved`
+
+Human move resupply flag (correction task for bug #756, from research `9ae8924`; the preset split is the user's decision of 2026-10-05) → [full entry](tasks/T144.md) · [#768](https://github.com/diegoami/imperial_conquest_2/issues/768)
+
+---
+
 #### T25 Battle result, diplomacy, and hotseat handoff screens
 
 Godot screens → [full entry](tasks/T25.md) · [#25](https://github.com/diegoami/imperial_conquest_2/issues/25)
@@ -1291,7 +1313,7 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T110](#t110-the-nations-and-area-map-menus-the-viewed-nation-highlights-and-find-a-city) | Nations and Area map | M18 | Sonnet | High | **Opus**/Medium + human | T100, T102 | [#568](https://github.com/diegoami/imperial_conquest_2/issues/568) |
 | [T111](#t111-the-unit-maps-army-orders-each-in-its-own-dialog) | Army orders | M18 | Sonnet | High | **Opus**/Medium + human | T100, T105, T106, T107, T114, T117, T134, T141 | [#569](https://github.com/diegoami/imperial_conquest_2/issues/569) |
 | [T112](#t112-the-unit-maps-fleet-and-city-orders-and-the-selected-units-command-strip) | Fleet and City orders, command strip | M18 | Sonnet | High | **Opus**/Medium + human | T111, T114, T141 | [#570](https://github.com/diegoami/imperial_conquest_2/issues/570) |
-| [T113](#t113-mercenaries-on-the-map-show-mercenaries-and-recruit-mercenaries) | Mercenaries on the map | M18 | Sonnet | Medium | **Opus**/Medium + human | T76, T110, T112 | [#571](https://github.com/diegoami/imperial_conquest_2/issues/571) |
+| [T113](#t113-mercenaries-on-the-map-show-mercenaries-and-recruit-mercenaries) | Mercenaries on the map | M18 | Sonnet | Medium | **Opus**/Medium + human | T76, T110, T112, T143 | [#571](https://github.com/diegoami/imperial_conquest_2/issues/571) |
 | [T114](#t114-join-armies-join-fleets-and-transfer-ships-take-their-partner-one-tile-away) | Join and transfer at distance 1, split one tile away | — | Sonnet | High | **Opus**/Medium | T93 | [#633](https://github.com/diegoami/imperial_conquest_2/issues/633) |
 | [T115](#t115-in-classical-faithful-recruiting-and-fortifying-can-put-the-treasury-into-debt) | Faithful recruit and fortify into debt | — | Sonnet | Medium | **Opus**/Medium | — | [#634](https://github.com/diegoami/imperial_conquest_2/issues/634) |
 | [T116](#t116-a-battle-fought-against-a-human-seat-in-the-ai-phase-is-shown-at-that-seats-turn-start) | AI-phase battles at the turn start | M18 | Sonnet | Medium | **Opus**/Medium + human | — | [#635](https://github.com/diegoami/imperial_conquest_2/issues/635) |
@@ -1320,3 +1342,6 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T139](#t139-a-post-battle-offer-of-peace-is-answered-in-the-godot-app) | Peace offer window | M18 | Sonnet | Medium | Sol + human | T116, T138, bug #746's fix | [#727](https://github.com/diegoami/imperial_conquest_2/issues/727) |
 | [T140](#t140-the-information-panels-show-the-originals-fields) | Information panels | M18 | Sonnet | High | Sol + human | T109, T112 | [#728](https://github.com/diegoami/imperial_conquest_2/issues/728) |
 | [T141](#t141-split-army-and-split-fleet-carry-units-or-ships-supply-and-money-in-one-command) | Split allocation | M18 | Sonnet | Medium | Sol | — | [#735](https://github.com/diegoami/imperial_conquest_2/issues/735) |
+| [T142](#t142-an-army-aboard-a-fleet-can-be-split-and-the-3--3-placement-scans-nest-x-outer) | Split aboard a fleet, scan order | M14 | Sonnet | Medium | Sol | T111 | [#766](https://github.com/diegoami/imperial_conquest_2/issues/766) |
+| [T143](#t143-hiring-a-mercenary-takes-nothing-the-price-is-only-a-minimum-purse) | Mercenary hire is a gate | M4 | Sonnet | Low | Sol | T76 | [#767](https://github.com/diegoami/imperial_conquest_2/issues/767) |
+| [T144](#t144-a-human-armys-move-resupplies-it-only-under-improved) | Human move resupply flag | M3 | Sonnet | Low | Sol | — | [#768](https://github.com/diegoami/imperial_conquest_2/issues/768) |
