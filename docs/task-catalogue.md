@@ -977,7 +977,7 @@ Mercenaries on the map (after T76) → [full entry](tasks/T113.md) · [#571](htt
 
 #### T114 Join armies, Join fleets and Transfer ships take their partner one tile away
 
-Join and transfer at distance 1 (correction task for bug #555, after T93; it folds bugs #584 and #596, the split's placement, by the v0.5.0 triage of 2026-10-05) → [full entry](tasks/T114.md) · [#633](https://github.com/diegoami/imperial_conquest_2/issues/633)
+Join and transfer at distance 1 (correction task for bug #555, after T93; it folds bugs #584 and #596, the split's placement, by the user's decision of 2026-10-05) → [full entry](tasks/T114.md) · [#633](https://github.com/diegoami/imperial_conquest_2/issues/633)
 
 ---
 
@@ -1115,7 +1115,7 @@ Disband lowers mobilisation (correction task for bug #631, the v0.5.0 triage of 
 
 #### T137 A resumed session's first `end` shows the same News as an uninterrupted one
 
-Resumed first end news (correction task for item 1 of the T95 follow-up #487, the v0.5.0 triage of 2026-10-05) → [full entry](tasks/T137.md) · [#707](https://github.com/diegoami/imperial_conquest_2/issues/707)
+Resumed first end news (correction task for item 1 of the T95 follow-up #487, the v0.5.0 triage of 2026-10-05; in no release gate, `post-v0.5.0`, by the user's decision of 2026-10-05, it starts after the `v0.5.0` tag) → [full entry](tasks/T137.md) · [#707](https://github.com/diegoami/imperial_conquest_2/issues/707)
 
 ---
 
