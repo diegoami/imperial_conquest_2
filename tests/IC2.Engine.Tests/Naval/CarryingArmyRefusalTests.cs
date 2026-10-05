@@ -28,8 +28,10 @@ public sealed class CarryingArmyRefusalTests
             Money: 100, SupplyTons: 100, ConstructionTicksRemaining: null, BuildCityId: null,
             CarriedArmyId: CarriedArmyId, CoveredTileCode: null);
 
+        // One tile from the carrying fleet (Join fleets' own distance-1 partner rule), so the join
+        // test below meets the carrying-army refusal rather than the distance gate.
         var other = new FleetState(
-            OtherFleetId, NationId, arx.X, arx.Y, Moves: 5, Ships: 30, ConditionPercent: 90,
+            OtherFleetId, NationId, arx.X + 1, arx.Y, Moves: 5, Ships: 30, ConditionPercent: 90,
             Money: 0, SupplyTons: 0, ConstructionTicksRemaining: null, BuildCityId: null,
             CarriedArmyId: null, CoveredTileCode: null);
 

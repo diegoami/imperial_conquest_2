@@ -1,5 +1,7 @@
+using IC2.Engine.Armies;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
+using IC2.Engine.Movement;
 
 namespace IC2.Engine.Naval.Commands;
 
@@ -61,12 +63,21 @@ public sealed class SplitFleetCommandHandler : ICommandHandler<SplitFleetCommand
                 SplitFleetRejections.DuplicateFleetId, $"Fleet id '{command.NewFleetId}' is already in use.");
         }
 
+        // The new fleet stands one tile from the parent, not on it (bugs #584, #596), by the same 3×3
+        // last-qualifying-cell scan the army split uses, restricted to fleet-passable water.
+        if (SplitPlacement.FleetCell(state, context.World, new GridPoint(fleet.X, fleet.Y)) is not { } newCell)
+        {
+            return CommandOutcome.Reject(
+                SplitFleetRejections.NoFreeAdjacentTile,
+                $"Fleet '{fleet.Id}' has no free adjacent tile for the new fleet.");
+        }
+
         var remainingFleet = fleet with { Ships = fleet.Ships - command.ShipsToNewFleet };
         var newFleet = new FleetState(
             Id: command.NewFleetId,
             Nation: fleet.Nation,
-            X: fleet.X,
-            Y: fleet.Y,
+            X: newCell.X,
+            Y: newCell.Y,
             Moves: 0,
             Ships: command.ShipsToNewFleet,
             ConditionPercent: fleet.ConditionPercent,
@@ -75,7 +86,7 @@ public sealed class SplitFleetCommandHandler : ICommandHandler<SplitFleetCommand
             ConstructionTicksRemaining: null,
             BuildCityId: null,
             CarriedArmyId: null,
-            CoveredTileCode: fleet.CoveredTileCode);
+            CoveredTileCode: SplitPlacement.TerrainCodeAt(context.World, newCell));
 
         var updatedFleets = state.Fleets
             .Select(f => string.Equals(f.Id, fleet.Id, StringComparison.Ordinal) ? remainingFleet : f)

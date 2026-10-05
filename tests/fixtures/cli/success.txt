@@ -53,7 +53,6 @@ buy-fleet-supply mac-fleet-1 amphipolis 5
 repair-fleet mac-fleet-1 1
 split-fleet mac-fleet-1 mac-fleet-keep 10
 end
-accept-offer
 status
 news
 set-tax 20
@@ -71,6 +70,7 @@ disband-unit mac-marines 1
 end
 move army-8 141 40
 end
+accept-offer
 move army-8 148 40
 embark-army army-8 mac-fleet-keep
 disembark-army army-8 148 40

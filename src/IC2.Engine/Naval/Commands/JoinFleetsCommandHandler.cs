@@ -1,6 +1,7 @@
 using IC2.Engine.Core;
 using IC2.Engine.Economy;
 using IC2.Engine.Model;
+using IC2.Engine.Movement;
 
 namespace IC2.Engine.Naval.Commands;
 
@@ -62,10 +63,14 @@ public sealed class JoinFleetsCommandHandler : ICommandHandler<JoinFleetsCommand
                 JoinFleetsRejections.UnderConstruction, "Neither fleet may still be under construction.");
         }
 
-        if (survivor.X != absorbed.X || survivor.Y != absorbed.Y)
+        // The original's partner rule: Chebyshev distance exactly 1, the fleet twin (FUN_00449DD8) of
+        // the army gate FUN_00449D64 reads through FUN_004492A0's distance == 1 [derived: code; audit
+        // §1.6]. Exactly, so distance 0 and distance 2 are both refused.
+        if (LandingTile.ChebyshevDistance(new GridPoint(survivor.X, survivor.Y), new GridPoint(absorbed.X, absorbed.Y)) != 1)
         {
             return CommandOutcome.Reject(
-                JoinFleetsRejections.NotCoLocated, "Both fleets must be on the same tile to join.");
+                JoinFleetsRejections.NotAdjacent,
+                $"Fleets '{survivor.Id}' and '{absorbed.Id}' must be exactly one tile apart.");
         }
 
         if (survivor.IsCarryingArmy || absorbed.IsCarryingArmy)

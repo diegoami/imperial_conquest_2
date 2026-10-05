@@ -22,7 +22,7 @@ public sealed class JoinArmiesCommandHandlerTests
         var state = WithArmies(
             InitialState(),
             Army("join-a", NorthNationId, 3, 3, Units(18)),
-            Army("join-b", NorthNationId, 3, 3, Units(1, "v")));
+            Army("join-b", NorthNationId, 4, 3, Units(1, "v")));
 
         var result = Dispatcher().Dispatch(state, new JoinArmiesCommand(NorthNationId, "join-a", "join-b"));
 
@@ -37,7 +37,7 @@ public sealed class JoinArmiesCommandHandlerTests
         var state = WithArmies(
             InitialState(),
             Army("join-c", NorthNationId, 3, 3, Units(19)),
-            Army("join-d", NorthNationId, 3, 3, Units(1, "v")));
+            Army("join-d", NorthNationId, 4, 3, Units(1, "v")));
 
         var result = Dispatcher().Dispatch(state, new JoinArmiesCommand(NorthNationId, "join-c", "join-d"));
 
@@ -51,7 +51,7 @@ public sealed class JoinArmiesCommandHandlerTests
         var state = WithArmies(
             InitialState(),
             Army("join-e", NorthNationId, 3, 3, Units(20)),
-            Army("join-f", NorthNationId, 3, 3, Units(1, "v")));
+            Army("join-f", NorthNationId, 4, 3, Units(1, "v")));
 
         var result = Dispatcher().Dispatch(state, new JoinArmiesCommand(NorthNationId, "join-e", "join-f"));
 
@@ -68,7 +68,7 @@ public sealed class JoinArmiesCommandHandlerTests
         var state = WithArmies(
             InitialState(),
             Army("join-g", NorthNationId, 3, 3, new[] { RegularUnit("g0", troops: 60_000) }),
-            Army("join-h", NorthNationId, 3, 3, new[] { RegularUnit("h0", troops: 40_001) }));
+            Army("join-h", NorthNationId, 4, 3, new[] { RegularUnit("h0", troops: 40_001) }));
 
         var result = Dispatcher().Dispatch(state, new JoinArmiesCommand(NorthNationId, "join-g", "join-h"));
 
@@ -82,7 +82,7 @@ public sealed class JoinArmiesCommandHandlerTests
         var state = WithArmies(
             InitialState(),
             Army("join-i", NorthNationId, 3, 3, new[] { RegularUnit("i0", troops: 60_000) }),
-            Army("join-j", NorthNationId, 3, 3, new[] { RegularUnit("j0", troops: 40_000) }));
+            Army("join-j", NorthNationId, 4, 3, new[] { RegularUnit("j0", troops: 40_000) }));
 
         var result = Dispatcher().Dispatch(state, new JoinArmiesCommand(NorthNationId, "join-i", "join-j"));
 
@@ -105,7 +105,7 @@ public sealed class JoinArmiesCommandHandlerTests
     }
 
     [Fact]
-    public void Join_NotCoLocated_IsRejected()
+    public void Join_NotAdjacent_IsRejected()
     {
         var state = WithArmies(
             InitialState(),
@@ -115,7 +115,7 @@ public sealed class JoinArmiesCommandHandlerTests
         var result = Dispatcher().Dispatch(state, new JoinArmiesCommand(NorthNationId, "join-m", "join-n"));
 
         Assert.True(result.IsRejected);
-        Assert.Equal(JoinArmiesRejections.NotCoLocated, result.Code);
+        Assert.Equal(JoinArmiesRejections.NotAdjacent, result.Code);
     }
 
     [Fact]
@@ -124,7 +124,7 @@ public sealed class JoinArmiesCommandHandlerTests
         var state = WithArmies(
             InitialState(),
             Army("join-o", NorthNationId, 3, 3, Units(1), moves: 5, money: 156, supplyTons: 40),
-            Army("join-p", NorthNationId, 3, 3, Units(1, "v"), moves: 5, money: 100, supplyTons: 12));
+            Army("join-p", NorthNationId, 4, 3, Units(1, "v"), moves: 5, money: 100, supplyTons: 12));
 
         var result = Dispatcher().Dispatch(state, new JoinArmiesCommand(NorthNationId, "join-o", "join-p"));
 
@@ -148,7 +148,7 @@ public sealed class JoinArmiesCommandHandlerTests
         var state = WithArmies(
             InitialState(),
             Army("join-q", NorthNationId, 3, 3, Units(1), money: 900),
-            Army("join-r", NorthNationId, 3, 3, Units(1, "v"), money: 900));
+            Army("join-r", NorthNationId, 4, 3, Units(1, "v"), money: 900));
         var treasuryBefore = state.NationById(NorthNationId)!.Treasury;
 
         var result = Dispatcher().Dispatch(state, new JoinArmiesCommand(NorthNationId, "join-q", "join-r"));
@@ -170,7 +170,7 @@ public sealed class JoinArmiesCommandHandlerTests
         var state = WithArmies(
             InitialState(),
             Army("join-s", NorthNationId, 3, 3, Units(1)),
-            Army("join-t", NorthNationId, 3, 3, Units(1, "v")),
+            Army("join-t", NorthNationId, 4, 3, Units(1, "v")),
             bystander);
 
         var result = Dispatcher().Dispatch(state, new JoinArmiesCommand(NorthNationId, "join-s", "join-t"));
@@ -185,7 +185,7 @@ public sealed class JoinArmiesCommandHandlerTests
         var state = WithArmies(
             InitialState(),
             Army("join-u", NorthNationId, 3, 3, Units(1)),
-            Army("join-v", SouthNationId, 3, 3, Units(1, "v")));
+            Army("join-v", SouthNationId, 4, 3, Units(1, "v")));
 
         var result = Dispatcher().Dispatch(state, new JoinArmiesCommand(NorthNationId, "join-u", "join-v"));
 

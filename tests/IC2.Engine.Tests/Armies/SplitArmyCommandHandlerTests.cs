@@ -38,7 +38,10 @@ public sealed class SplitArmyCommandHandlerTests
         Assert.Equal(75_536, allUnits.Sum(u => u.Troops));
         Assert.Equal(16, allUnits.Count);
 
-        return Army("split-parent", NorthNationId, 88, 26, allUnits, moves: 5, morale: 66);
+        // The toy map is 8x6, so the parent stands at (3,3) -- the published Romans stood at (88,26)
+        // on the classical map, but this test is about troop/unit conservation, not the tile. (3,3) has
+        // a free neighbour, which the folded placement rule now needs.
+        return Army("split-parent", NorthNationId, 3, 3, allUnits, moves: 5, morale: 66);
     }
 
     [Fact]

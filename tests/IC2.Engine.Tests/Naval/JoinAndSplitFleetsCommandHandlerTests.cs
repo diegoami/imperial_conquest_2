@@ -22,7 +22,7 @@ public sealed class JoinAndSplitFleetsCommandHandlerTests
     {
         var state = NavalTestbed.InitialState();
         var a = Fleet("join-a", 3, 3, 60, supply: 10, money: 20);
-        var b = Fleet("join-b", 3, 3, 40, supply: 5, money: 8);
+        var b = Fleet("join-b", 4, 3, 40, supply: 5, money: 8);
         state = state with { Fleets = ValueList.Of(a, b) };
 
         var dispatcher = NavalTestbed.RealEngineDispatcher();
@@ -42,7 +42,7 @@ public sealed class JoinAndSplitFleetsCommandHandlerTests
     {
         var state = NavalTestbed.InitialState();
         var a = Fleet("join-c", 3, 3, 60);
-        var b = Fleet("join-d", 3, 3, 41);
+        var b = Fleet("join-d", 4, 3, 41);
         state = state with { Fleets = ValueList.Of(a, b) };
 
         var dispatcher = NavalTestbed.RealEngineDispatcher();
@@ -65,7 +65,7 @@ public sealed class JoinAndSplitFleetsCommandHandlerTests
         var state = NavalTestbed.InitialState();
         var treasuryBefore = state.NationById(NationId)!.Treasury;
         var a = Fleet("join-purse-a", 3, 3, 10, money: 900);
-        var b = Fleet("join-purse-b", 3, 3, 10, money: 900);
+        var b = Fleet("join-purse-b", 4, 3, 10, money: 900);
         state = state with { Fleets = ValueList.Of(a, b) };
 
         var dispatcher = NavalTestbed.RealEngineDispatcher();
@@ -84,7 +84,7 @@ public sealed class JoinAndSplitFleetsCommandHandlerTests
     public void Split_FleetWithExactlyTwentyShips_IsAccepted()
     {
         var state = NavalTestbed.InitialState();
-        var fleet = Fleet("split-a", 3, 3, 20, supply: 8, money: 4);
+        var fleet = Fleet("split-a", 3, 5, 20, supply: 8, money: 4);
         state = state with { Fleets = ValueList.Of(fleet) };
 
         var dispatcher = NavalTestbed.RealEngineDispatcher();
