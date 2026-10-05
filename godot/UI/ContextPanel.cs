@@ -19,9 +19,9 @@ namespace IC2.Slice.UI;
 /// <c>src/IC2.Engine/Cities/Orders</c> ever writes it — there is no command that sets a nation's tax
 /// rate. This panel shows the value; it has no control to change it.</description></item>
 /// <item><description><strong>No dedicated army-to-army transfer.</strong> Fleets have
-/// <c>FleetToFleetTransferCommand</c>; armies have no equivalent, so this panel's own army "transfer"
-/// action is the same supply purchase (<c>economy.buy-supply</c>) the city panel's own troop/money
-/// slider already uses, not a fabricated new command.</description></item>
+/// <c>FleetToFleetTransferCommand</c>; armies have no equivalent, so an army's own supply transfer is the
+/// Army menu's Supply army dialog (<c>economy.buy-supply</c>), not a fabricated new command. The city
+/// panel's old troop/money slider was removed by T134 in favour of that dialog.</description></item>
 /// </list>
 /// </remarks>
 public partial class ContextPanel : Control
