@@ -90,12 +90,21 @@ public sealed class OrderCityCommandHandler : ICommandHandler<OrderCityCommand>
 
         // Find the nation and check treasury
         var nation = state.NationById(command.IssuingNationId);
-        if (nation is null || nation.Treasury < totalCost)
+        if (nation is null)
         {
-            var availableTreasury = nation?.Treasury ?? 0;
             return CommandOutcome.Reject(
                 CityOrderRejections.InsufficientTreasury,
-                $"Insufficient treasury ({availableTreasury}) for {command.OrderId} order costing {totalCost} talents.");
+                $"Insufficient treasury (0) for {command.OrderId} order costing {totalCost} talents.");
+        }
+
+        // Bug #549, T115: classical-faithful lets the treasury go below zero (the Fortify dialog's OK
+        // checks no balance); improved refuses an order the treasury cannot cover.
+        if (context.Ruleset.Flags.UnaffordableRecruitAndFortify == UnaffordableOrderPolicy.Refuse
+            && nation.Treasury < totalCost)
+        {
+            return CommandOutcome.Reject(
+                CityOrderRejections.InsufficientTreasury,
+                $"Insufficient treasury ({nation.Treasury}) for {command.OrderId} order costing {totalCost} talents.");
         }
 
         // Apply the order

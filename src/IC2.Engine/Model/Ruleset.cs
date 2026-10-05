@@ -1920,6 +1920,15 @@ public sealed record AiWeightsRules(
 /// (<see cref="SiegeRatioClampPolicy.Reproduce16BitClamp"/>); <c>improved</c> computes both in ordinary
 /// 32-bit arithmetic (<see cref="SiegeRatioClampPolicy.Clamp32Bit"/>), never wrapping.
 /// </param>
+/// <param name="UnaffordableRecruitAndFortify">
+/// Bug #549, T115: what a standing-unit recruitment order and a city fortification order do when the
+/// issuing nation's treasury cannot cover the cost. Only these two orders read it — buying supply,
+/// building, repairing or scuttling a fleet, hiring a mercenary and every purse transfer keep their own
+/// checks under both values. <c>classical-faithful</c> is <see cref="UnaffordableOrderPolicy.AllowDebt"/>
+/// (<c>TArmyRecruits.RecruitUnit</c> at <c>0x454E78</c> and the Fortify dialog's <c>OK</c> at
+/// <c>0x4407E4</c> check no balance <strong>[derived: decompiled]</strong>); <c>improved</c> is
+/// <see cref="UnaffordableOrderPolicy.Refuse"/>.
+/// </param>
 public sealed record RulesetFlags(
     DiplomacyModel DiplomacyModel,
     EconomyPurseModel EconomyPurses,
@@ -1927,6 +1936,7 @@ public sealed record RulesetFlags(
     DefeatOutcome CombatOnDefeat,
     bool FaithfulThawColumnBug,
     SiegeRatioClampPolicy BugPolicySiegeRatioClamp,
+    UnaffordableOrderPolicy UnaffordableRecruitAndFortify,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>How faithfully diplomacy follows the original (audit Q3).</summary>
@@ -1976,6 +1986,21 @@ public enum SiegeRatioClampPolicy
 
     /// <summary>Compute both values in ordinary 32-bit arithmetic, never wrapping.</summary>
     Clamp32Bit,
+}
+
+/// <summary>
+/// What a recruitment or fortification order does when the treasury cannot cover it (bug #549, T115).
+/// </summary>
+public enum UnaffordableOrderPolicy
+{
+    /// <summary>
+    /// Take the full cost when the order is placed and let the treasury end below zero, as the original
+    /// does (it checks no balance for either order).
+    /// </summary>
+    AllowDebt,
+
+    /// <summary>Refuse the order with its insufficient-treasury rejection and leave the state unchanged.</summary>
+    Refuse,
 }
 
 /// <summary>What happens to the losing side of a field or naval battle.</summary>

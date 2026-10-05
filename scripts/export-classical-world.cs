@@ -621,6 +621,18 @@ rulesetNode["description"] =
     "corpus gives that constant its own id. Its flags reproduce the original faithfully; the " +
     "'improved' preset (task T36) is this file with docs/game-design.md's 'improved' column applied.";
 
+// ---- Bug #549, T115: the one flag whose value differs between toy-ruleset.json and this file. The
+// toy ruleset is "refuse" (the CLI demo's orders must stay refused rather than put its only human seat
+// into debt), classical-faithful is "allowDebt", so the exporter owns this value and its note exactly
+// as it owns id/name/description above, and never copies the toy's.
+rulesetNode["flags"]!["unaffordableRecruitAndFortify"] = "allowDebt";
+((JsonObject)rulesetNode["flags"]!["_provenance"]!)["unaffordableRecruitAndFortify"] =
+    "bug #549, T115, user's decision of 2026-10-01 (PR #550 comment): the original checks no balance for a " +
+    "recruitment (TArmyRecruits.RecruitUnit 0x454E78, 2026-09-29-which-cities-may-recruit-and-troop-amounts.md §2) " +
+    "or a fortification (the Fortify dialog's OK 0x4407E4, 2026-09-29-fortification-orders-cost-rate-and-the-100-bug.md §1) " +
+    "[derived: decompiled], so classical-faithful allows the debt (allowDebt) and improved refuses an order the " +
+    "treasury cannot cover (refuse). Only these two orders read this flag.";
+
 // ---- Review round 1 B1, corrected by round 2 R1-B1: _provenance.id is the one provenance key
 // that describes the file itself -- what ruleset this is and why it exists -- so, unlike every
 // other provenance string, it genuinely cannot be written preset-neutrally: toy-ruleset.json's own
