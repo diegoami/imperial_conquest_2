@@ -1,6 +1,7 @@
 using Godot;
 using IC2.Engine.Model;
 using IC2.Engine.Presentation;
+using IC2.Slice.Screens;
 using IC2.Slice.UI;
 
 namespace IC2.Slice.Checks;
@@ -471,6 +472,17 @@ public partial class MapClickCheck : Control
         // The attack resolves a battle, whose result screen is modal over the map; close it so the
         // later clicks are a real player's clicks on an interactive map.
         CloseAnyOverlay();
+
+        // T139: this attack raises the post-battle offer of peace, whose window follows the battle
+        // window. Answer it through its real No button so the war goes on and the later steps run on
+        // an interactive map.
+        Check(
+            _mainGame.ActiveOverlay is PeaceOfferScreen,
+            $"the Offer of peace window follows the battle window (got {_mainGame.ActiveOverlay?.GetType().Name ?? "no overlay"})");
+        if (_mainGame.ActiveOverlay is { } peaceWindow && FindButton(peaceWindow, "No") is { } no)
+        {
+            PressButton(no);
+        }
     }
 
     // ---- Done-when 6, first key: Esc ----
