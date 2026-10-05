@@ -80,7 +80,7 @@ It also contains the **AI-to-AI reparation trigger** the project has been huntin
 
 ### 1.9 Victory condition and end year **[confirmed]**
 
-`THumanFalls_InitializeForm` tests `cityCount < 334` versus *"You have conquerred the Mediterranean, a unique achievement."* — the original's win condition is **holding every city on the map**. The same screen compares the current year against **250 BC** and reports the reign length as `270 − year` (as *"Your N years in power"* only below 269 BC, *"Your  short time in power"* otherwise), confirming the 270 BC start. 250 BC is a real end: the turn-start check fires on it and a staged play shows the window for each human seat in turn **[Wine candidate: [`2026-10-05-end-of-game-screens.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-05-end-of-game-screens.md), research `d1b5983`, staged states]**.
+`THumanFalls_InitializeForm` tests `cityCount < 334` versus *"You have conquerred the Mediterranean, a unique achievement."* — the original's win condition is **holding every city on the map**. The same screen compares the current year against **250 BC** and reports the reign length as `270 − year` (as *"Your N years in power"* only below 269 BC, *"Your  short time in power"* otherwise), confirming the 270 BC start. The turn-start check `FUN_00452034` tests the year against 250 BC **[derived: decompile, :55032–55036]**, and 250 BC is a real end: a staged play shows the window for each human seat in turn **[Wine candidate: [`2026-10-05-end-of-game-screens.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-05-end-of-game-screens.md), research `d1b5983`, staged states]**.
 
 ### 1.10 Smaller confirmed details with no home in the design
 
