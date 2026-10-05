@@ -120,7 +120,7 @@ public sealed class PeaceTreatyOfferTests
 
     /// <summary>
     /// Rework round 1 (B4)'s own fixture: the mirror image of <see cref="OfferFixture"/>, so the human is
-    /// the treaty's <em>winner</em> instead of its loser -- <c>PeaceTreatyOfferDialogText</c>'s "After
+    /// the treaty's <em>winner</em> instead of its loser -- <c>PeaceTreatyOfferDialogLines</c>'s "After
     /// losing to you in battle, ... willing to end ..." branch (GameSession.cs, review round 1's own
     /// wording line) is otherwise never exercised by any test in this file. <c>north-army-1</c> is given
     /// <c>south-army-1</c>'s own shipped composition (strong) and vice versa, and the untouched reserve
@@ -183,8 +183,66 @@ public sealed class PeaceTreatyOfferTests
             output.Lines,
             l => l.Contains("After losing to you in battle", StringComparison.Ordinal)
                  && l.Contains("Southern League", StringComparison.Ordinal)
-                 && l.Contains("willing to end the war", StringComparison.Ordinal));
+                 && l.Contains("willing to end their war with you", StringComparison.Ordinal));
         Assert.DoesNotContain(output.Lines, l => l.Contains("After defeating you in battle", StringComparison.Ordinal));
+    }
+
+    private static readonly string[] BoxTailLines =
+    {
+        "An honourable peace with no reparations or penalties",
+        "If the peace terms are acceptable click YES.",
+        "Otherwise to continue the war click NO.",
+    };
+
+    /// <summary>Bug #746: the offer is the original's whole "Offer of peace" box, in order (human lost).</summary>
+    [Fact]
+    public void TheOffer_WhenTheHumanLost_IsTheBoxsFourLinesInOrder()
+    {
+        var session = OfferFixture();
+        session.Submit("declare-war south");
+        var output = session.Submit("end");
+        var winner = session.State.NationById("south")!;
+        var expected = new[]
+        {
+            $"After defeating you in battle {winner.Name} are willing to end their war with you, if you agree to the terms below.",
+        }.Concat(BoxTailLines).ToArray();
+
+        var at = output.Lines.ToList().IndexOf(expected[0]);
+        Assert.True(at >= 0, "the offer sentence is printed");
+        Assert.Equal(expected, output.Lines.Skip(at).Take(4).ToArray());
+        Assert.Equal(expected, GameSession.PeaceTreatyOfferDialogLines(winner, session.State.NationById("north")!));
+    }
+
+    /// <summary>Bug #746 R1: the exposed lines cannot be mutated through a cast.</summary>
+    [Fact]
+    public void TheOfferLines_AreReadOnly()
+    {
+        var session = OfferFixture();
+        var lines = GameSession.PeaceTreatyOfferDialogLines(
+            session.State.NationById("south")!, session.State.NationById("north")!);
+
+        Assert.False(lines is string[]);
+        var asList = Assert.IsAssignableFrom<IList<string>>(lines);
+        Assert.True(asList.IsReadOnly);
+        Assert.Throws<NotSupportedException>(() => asList[0] = "x");
+    }
+
+    /// <summary>Bug #746: the offer is the original's whole box, in order (human won).</summary>
+    [Fact]
+    public void TheOffer_WhenTheHumanWon_IsTheBoxsFourLinesInOrder()
+    {
+        var session = HumanWinsOfferFixture();
+        var output = session.Submit("attack-army north-army-1 south-army-1");
+        var loser = session.State.NationById("south")!;
+        var expected = new[]
+        {
+            $"After losing to you in battle {loser.Name} are willing to end their war with you, if you agree to the terms below.",
+        }.Concat(BoxTailLines).ToArray();
+
+        var at = output.Lines.ToList().IndexOf(expected[0]);
+        Assert.True(at >= 0, "the offer sentence is printed");
+        Assert.Equal(expected, output.Lines.Skip(at).Take(4).ToArray());
+        Assert.Equal(expected, GameSession.PeaceTreatyOfferDialogLines(session.State.NationById("north")!, loser));
     }
 
     /// <summary>
@@ -208,7 +266,7 @@ public sealed class PeaceTreatyOfferTests
         Assert.Contains(
             afterAiTurn.Lines,
             l => l.Contains("After defeating you in battle", StringComparison.Ordinal)
-                 && l.Contains("willing to end the war", StringComparison.Ordinal));
+                 && l.Contains("willing to end their war with you", StringComparison.Ordinal));
         Assert.Contains(
             afterAiTurn.Lines,
             l => l.Contains("peace-yes", StringComparison.Ordinal) && l.Contains("peace-no", StringComparison.Ordinal));
@@ -361,14 +419,14 @@ public sealed class PeaceTreatyOfferTests
         Assert.Contains(
             afterAiTurn.Lines,
             l => l.Contains("After defeating you in battle", StringComparison.Ordinal)
-                 && l.Contains("willing to end the war", StringComparison.Ordinal));
+                 && l.Contains("willing to end their war with you", StringComparison.Ordinal));
         Assert.Equal("east", session.State.ActiveNationId);
 
         // East, still at its own prompt with north's own offer untouched and unanswered, loses its own
         // battle against south -- before this fix, the one shared slot was already occupied, so this
         // would have raised nothing at all.
         var eastBattle = session.Submit("attack-army east-weak south-army-1");
-        Assert.Contains(eastBattle.Lines, l => l.Contains("willing to end the war", StringComparison.Ordinal));
+        Assert.Contains(eastBattle.Lines, l => l.Contains("willing to end their war with you", StringComparison.Ordinal));
         Assert.Contains(
             eastBattle.Lines,
             l => l.Contains("peace-yes", StringComparison.Ordinal) && l.Contains("peace-no", StringComparison.Ordinal));
@@ -406,7 +464,7 @@ public sealed class PeaceTreatyOfferTests
         Assert.Contains(
             afterAiTurn.Lines,
             l => l.Contains("After defeating you in battle", StringComparison.Ordinal)
-                 && l.Contains("willing to end the war", StringComparison.Ordinal));
+                 && l.Contains("willing to end their war with you", StringComparison.Ordinal));
         Assert.Equal("east", session.State.ActiveNationId);
 
         // East eliminates north -- arx is north's only city (portus already went to east). The generic
@@ -436,7 +494,7 @@ public sealed class PeaceTreatyOfferTests
         var laterBattle = session.Submit("attack-army east-weak south-army-1");
         Assert.Contains(
             laterBattle.Lines,
-            l => l.Contains("willing to end the war", StringComparison.Ordinal));
+            l => l.Contains("willing to end their war with you", StringComparison.Ordinal));
         Assert.Contains(
             laterBattle.Lines,
             l => l.Contains("peace-yes", StringComparison.Ordinal) && l.Contains("peace-no", StringComparison.Ordinal));
@@ -562,7 +620,7 @@ public sealed class PeaceTreatyOfferTests
         Assert.Contains(
             afterAiTurn.Lines,
             l => l.Contains("After defeating you in battle", StringComparison.Ordinal)
-                 && l.Contains("willing to end the war", StringComparison.Ordinal));
+                 && l.Contains("willing to end their war with you", StringComparison.Ordinal));
         Assert.Equal("east", session.State.ActiveNationId);
 
         // North's own debt is real now, but this lap's rotation already passed it by (it went first,
@@ -605,7 +663,7 @@ public sealed class PeaceTreatyOfferTests
         Assert.Contains(
             afterAiTurn.Lines,
             l => l.Contains("After defeating you in battle", StringComparison.Ordinal)
-                 && l.Contains("willing to end the war", StringComparison.Ordinal));
+                 && l.Contains("willing to end their war with you", StringComparison.Ordinal));
         Assert.Equal("east", session.State.ActiveNationId);
 
         // East's "no" does not decline north's treaty on its behalf.
@@ -729,7 +787,7 @@ public sealed class PeaceTreatyOfferTests
 
         Assert.Contains(
             first.Lines,
-            l => l.Contains("willing to end the war", StringComparison.Ordinal));
+            l => l.Contains("willing to end their war with you", StringComparison.Ordinal));
         Assert.Contains(
             first.Lines,
             l => l.Contains("peace-yes", StringComparison.Ordinal) && l.Contains("peace-no", StringComparison.Ordinal));
@@ -754,7 +812,7 @@ public sealed class PeaceTreatyOfferTests
             output.Lines,
             l => l.Contains("After defeating you in battle", StringComparison.Ordinal)
                  && l.Contains("Southern League", StringComparison.Ordinal)
-                 && l.Contains("willing to end the war", StringComparison.Ordinal));
+                 && l.Contains("willing to end their war with you", StringComparison.Ordinal));
         Assert.Contains(
             output.Lines, l => l.Contains("peace-yes", StringComparison.Ordinal) && l.Contains("peace-no", StringComparison.Ordinal));
 
@@ -895,7 +953,7 @@ public sealed class PeaceTreatyOfferTests
 
         var secondBattle = session.Submit("attack-army north-army-2 south-army-2");
         Assert.DoesNotContain(secondBattle.Lines, l => l.Contains("Type 'peace-yes'", StringComparison.Ordinal));
-        Assert.DoesNotContain(secondBattle.Lines, l => l.Contains("willing to end the war", StringComparison.Ordinal));
+        Assert.DoesNotContain(secondBattle.Lines, l => l.Contains("willing to end their war with you", StringComparison.Ordinal));
 
         // The still-pending offer is the first battle's -- answering it now still works.
         var answer = session.Submit("peace-yes");

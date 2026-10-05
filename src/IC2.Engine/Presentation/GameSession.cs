@@ -268,6 +268,103 @@ public sealed partial class GameSession
     }
 
     /// <summary>
+    /// T138: every human seat that fell while the current <see cref="Submit"/> call ran, accumulated at
+    /// the session's own fall sites (<see cref="DepositActiveHumanSeatIfItShouldFallAtTurnStart"/>,
+    /// <see cref="AppendFallMessagesForNewlyLostHumanSeats"/> and
+    /// <see cref="AnnounceAndAdoptWatchModeIfSeatIsLost"/>) and drained into
+    /// <see cref="SessionOutput.SeatFalls"/> by every <see cref="Submit"/> return path. A construction-time
+    /// prelude (<see cref="AdvanceToHumanSeat"/>) can populate this before any <see cref="Submit"/> call
+    /// exists — those falls are flushed on the very first call, the same way <see cref="_pendingPrelude"/>'s
+    /// own lines and <see cref="_pendingBattleResults"/> are.
+    /// </summary>
+    private readonly List<SeatFall> _pendingSeatFalls = new();
+
+    /// <summary>
+    /// Drains <see cref="_pendingSeatFalls"/> for one <see cref="Submit"/> return — called at every return
+    /// path in <see cref="Submit"/>, exactly as <see cref="SessionOutput.SeatFalls"/> requires. Returns an
+    /// empty array (not merely an empty list) when nothing is pending, matching
+    /// <see cref="SessionOutput.SeatFalls"/>'s own default.
+    /// </summary>
+    private IReadOnlyList<SeatFall> FlushPendingSeatFalls()
+    {
+        if (_pendingSeatFalls.Count == 0)
+        {
+            LastSeatFalls = Array.Empty<SeatFall>();
+            return LastSeatFalls;
+        }
+
+        var flushed = _pendingSeatFalls.ToArray();
+        _pendingSeatFalls.Clear();
+        LastSeatFalls = flushed;
+        return flushed;
+    }
+
+    /// <summary>
+    /// T138: records one human seat's fall, once per call — <see cref="SeatFall"/>'s own remarks for what
+    /// it carries and why. <paramref name="fallen"/> must be the nation exactly as it stands at the fall
+    /// (see each caller): the pre-<c>FUN_0044C8F0</c> nation for a deposition, the post-capture one for a
+    /// conquest, because <c>TPremierForm_HumanLeaderFalls</c> opens the window before the deposition's own
+    /// writes. A nation already recorded this call is a no-op, so the same fall reported by more than one
+    /// of the session's own paths (a <c>--seat</c> seat caught by both
+    /// <see cref="AppendFallMessagesForNewlyLostHumanSeats"/> and
+    /// <see cref="AnnounceAndAdoptWatchModeIfSeatIsLost"/>) yields one <see cref="SeatFall"/>.
+    /// </summary>
+    private void RecordSeatFall(NationState fallen)
+    {
+        foreach (var already in _pendingSeatFalls)
+        {
+            if (string.Equals(already.NationId, fallen.Id, StringComparison.Ordinal))
+            {
+                return;
+            }
+        }
+
+        var (reason, conqueror) = FallReasonOf(fallen);
+        var endCityCount = State.Cities.Count(
+            c => string.Equals(c.Owner, fallen.Id, StringComparison.Ordinal));
+        _pendingSeatFalls.Add(new SeatFall(
+            fallen.Id,
+            reason,
+            conqueror,
+            FallMessageFor(reason, conqueror),
+            fallen.Population,
+            endCityCount,
+            fallen.Treasury));
+    }
+
+    /// <summary>
+    /// T138: which of the original's five branches a fall takes, and the conqueror when there is one —
+    /// the one classification <see cref="HumanLeaderFallsMessage"/> and <see cref="RecordSeatFall"/> both
+    /// read, in the original's own priority order (total conquest, the hard end year, then — only when the
+    /// seat was <em>not</em> conquered — unpopularity or unpaid upkeep, conquered otherwise).
+    /// <c>THumanFalls_InitializeForm</c> :56391–56404; see <see cref="HumanLeaderFallsMessage"/>'s own
+    /// remarks for the full citation.
+    /// </summary>
+    private (SeatFallReason Reason, string? ConquerorNationId) FallReasonOf(NationState fallen)
+    {
+        var totalCities = State.Cities.Count;
+        var ownedByFallen = State.Cities.Count(c => string.Equals(c.Owner, fallen.Id, StringComparison.Ordinal));
+        if (totalCities > 0 && ownedByFallen >= totalCities)
+        {
+            return (SeatFallReason.AllCities, null);
+        }
+
+        if (State.Calendar.YearBc <= Ruleset.Victory.HardEndYearBc)
+        {
+            return (SeatFallReason.HardEndYear, null);
+        }
+
+        if (fallen.ConqueredBy is null)
+        {
+            return fallen.Unity < Ruleset.Economy.DebtUnityThreshold
+                ? (SeatFallReason.Unpopularity, null)
+                : (SeatFallReason.Unpaid, null);
+        }
+
+        return (SeatFallReason.Conquered, fallen.ConqueredBy);
+    }
+
+    /// <summary>
     /// Scans <paramref name="events"/> for a <see cref="Battle.PeaceTreatyOffered"/> this session should
     /// show, and records which human seat it is addressed to. Appends the dialog text and how to answer it
     /// to <paramref name="lines"/>, the same way every other line this call produced is appended. A no-op
@@ -335,7 +432,7 @@ public sealed partial class GameSession
 
             _pendingPeaceTreatyOffers[offeredHuman.Id] = new PendingPeaceTreatyOffer(
                 offered.WinnerNationId, offered.LoserNationId, offeredHuman.Id);
-            lines.Add(PeaceTreatyOfferDialogText(winner, loser));
+            lines.AddRange(PeaceTreatyOfferDialogLines(winner, loser));
             lines.Add("Type 'peace-yes' to accept or 'peace-no' to decline.");
         }
     }
@@ -367,27 +464,29 @@ public sealed partial class GameSession
     }
 
     /// <summary>
-    /// The offer's own wording, addressed to the human's side either way — the confirmed prefixes
-    /// <strong>[confirmed: decompiled-war-cascade-and-peace-paths.md §2.3]</strong>,
-    /// <c>TBattlePols_InitializeForm</c>'s "*After defeating you in battle &lt;W&gt; are willing to end
-    /// …*" (winner AI) or "*After losing to you in battle &lt;L&gt; are willing to end …*" (winner human).
-    /// The report's own ellipsis is exactly that — the words after "willing to end" are not read from the
-    /// decompile. <strong>[designed]</strong> (rework round 1, N6; corrected rework round 2, N-c): ", "
-    /// and "the war." complete the sentence here rather than leaving it truncated. Searched for a fuller
-    /// quote in <c>design-audit.md</c> §1.7 ("Post-battle peace negotiation, including a human-vs-human
-    /// variant" — the closest entry to this dialog) and this task's own source report; neither carries the
-    /// completed sentence, so this fills it rather than shipping a dangling ellipsis in the CLI's own
-    /// output. This is a plain completion, not a claim that it is the <em>only</em> one the ellipsis could
-    /// hide: report §2.3 itself says "the dialog previews the terms", and design-audit §1.7 quotes
-    /// <c>TBattlePols</c>'s own honourable-terms line ("An honourable peace with no reparations or
-    /// penalties"), so a terms preview is plausible wording this search did not rule out — only that
-    /// neither source states it for <em>this</em> sentence, so guessing at unconfirmed preview wording
-    /// would be worse than the plain completion used here.
+    /// The offer's text as the original's whole "Offer of peace" box, as ordered lines (bug #746): the offer
+    /// sentence addressed to the human's side either way, the terms line, then the two click prompts. The
+    /// box's reparation lines are always empty in the original and are not supplied; its title is the
+    /// window's. Each line is read from the box's painted text in the original's screenshots
+    /// <strong>[Wine candidate: research report 2026-10-05-battle-peace-offer.md, "For the clone: the facts
+    /// to copy", item 1]</strong>. The terms line ends with the full word "penalties" where the original's
+    /// box clips it (the user's decision of 2026-10-05; design-audit.md §1.7 quotes
+    /// <c>TBattlePols</c>'s line in full). The CLI prints each line; the Offer of peace window reads them as
+    /// typed data and displays them unchanged.
     /// </summary>
-    private static string PeaceTreatyOfferDialogText(NationState winner, NationState loser) =>
-        winner.Control == SeatControl.Human
-            ? $"After losing to you in battle, {loser.Name} are willing to end the war."
-            : $"After defeating you in battle, {winner.Name} are willing to end the war.";
+    /// <param name="winner">The battle's winner.</param>
+    /// <param name="loser">The battle's loser.</param>
+    /// <returns>The box's lines, in order.</returns>
+    public static IReadOnlyList<string> PeaceTreatyOfferDialogLines(NationState winner, NationState loser) =>
+        Array.AsReadOnly(new[]
+        {
+            winner.Control == SeatControl.Human
+                ? $"After losing to you in battle {loser.Name} are willing to end their war with you, if you agree to the terms below."
+                : $"After defeating you in battle {winner.Name} are willing to end their war with you, if you agree to the terms below.",
+            "An honourable peace with no reparations or penalties",
+            "If the peace terms are acceptable click YES.",
+            "Otherwise to continue the war click NO.",
+        });
 
     /// <summary>Builds a session over a resolved world/ruleset/scenario, optionally overriding the seed.</summary>
     /// <param name="world">The loaded world.</param>
@@ -643,6 +742,8 @@ public sealed partial class GameSession
         _pendingPeaceTreatyOffers.Clear();
         _pendingBattleResults.Clear();
         LastBattles = Array.Empty<Battle.BattleResult>();
+        _pendingSeatFalls.Clear();
+        LastSeatFalls = Array.Empty<SeatFall>();
     }
 
     /// <summary>
@@ -727,6 +828,12 @@ public sealed partial class GameSession
         // post-fall unity of 549 would select.
         var message = HumanLeaderFallsMessage(nation);
 
+        // T138: the fall is recorded from the pre-fall nation, the same one the message above is built
+        // from -- TPremierForm_HumanLeaderFalls opens the window before FUN_0044C8F0's own writes, so the
+        // window's end figures are the treasury and unity the nation actually held (see SeatFall's own
+        // remarks). A no-op if some other path already recorded this same seat this call.
+        RecordSeatFall(nation);
+
         var deposed = Deposition.ApplyEffects(nation, Ruleset) with { Control = SeatControl.Ai };
         var relations = Deposition.ResetRelations(State.Relations, nation.Id, Ruleset);
         var updatedNations = State.Nations.Select(n =>
@@ -765,27 +872,24 @@ public sealed partial class GameSession
     /// </remarks>
     private string HumanLeaderFallsMessage(NationState fallen)
     {
-        var totalCities = State.Cities.Count;
-        var ownedByFallen = State.Cities.Count(c => string.Equals(c.Owner, fallen.Id, StringComparison.Ordinal));
-        if (totalCities > 0 && ownedByFallen >= totalCities)
-        {
-            return "You have conquerred the Mediterranean, a unique achievement.";
-        }
-
-        if (State.Calendar.YearBc <= Ruleset.Victory.HardEndYearBc)
-        {
-            return "You have reached the end of your allotted 20 years.";
-        }
-
-        if (fallen.ConqueredBy is null)
-        {
-            return fallen.Unity < Ruleset.Economy.DebtUnityThreshold
-                ? "Your unpopularity has forced the army to overthrow you."
-                : "Your army have deposed you because they have not been paid.";
-        }
-
-        return $"Your nation has been conquerred by {NationDisplay(fallen.ConqueredBy)}.";
+        var (reason, conqueror) = FallReasonOf(fallen);
+        return FallMessageFor(reason, conqueror);
     }
+
+    /// <summary>
+    /// The text for one already-classified fall — <see cref="HumanLeaderFallsMessage"/>'s five strings,
+    /// character for character (the two corpus literals included), kept in one place so
+    /// <see cref="RecordSeatFall"/>'s own <see cref="SeatFall.Text"/> is the very line the session printed.
+    /// </summary>
+    private string FallMessageFor(SeatFallReason reason, string? conqueror) => reason switch
+    {
+        SeatFallReason.AllCities => "You have conquerred the Mediterranean, a unique achievement.",
+        SeatFallReason.HardEndYear => "You have reached the end of your allotted 20 years.",
+        SeatFallReason.Unpopularity => "Your unpopularity has forced the army to overthrow you.",
+        SeatFallReason.Unpaid => "Your army have deposed you because they have not been paid.",
+        SeatFallReason.Conquered => $"Your nation has been conquerred by {NationDisplay(conqueror!)}.",
+        _ => throw new ArgumentOutOfRangeException(nameof(reason), reason, "Unknown seat fall reason."),
+    };
 
     /// <summary>
     /// T87, DoD 3: shows the fall message for any nation in <paramref name="before"/> that was
@@ -809,6 +913,7 @@ public sealed partial class GameSession
             var now = State.NationById(previously.Id);
             if (now is not null && (now.Eliminated || now.Control != SeatControl.Human))
             {
+                RecordSeatFall(now);
                 lines.Add(HumanLeaderFallsMessage(now));
             }
         }
@@ -887,6 +992,24 @@ public sealed partial class GameSession
     public IReadOnlyList<Battle.BattleResult> LastBattles { get; private set; } = Array.Empty<Battle.BattleResult>();
 
     /// <summary>
+    /// T138: the same <see cref="SeatFall"/> list the most recent <see cref="Submit"/> call returned as
+    /// <see cref="SessionOutput.SeatFalls"/> — mirrored here for exactly the reason <see cref="LastBattles"/>
+    /// is (a UI that only sees a command's rendered lines can still ask "what fell on that call"), and for
+    /// the game-end screen <c>MainGameScreen.OnCommandIssued</c> reads. Empty before the first
+    /// <see cref="Submit"/> call, and again whenever that call recorded no fall.
+    /// </summary>
+    public IReadOnlyList<SeatFall> LastSeatFalls { get; private set; } = Array.Empty<SeatFall>();
+
+    /// <summary>
+    /// T138: whether no human seat can give orders any more — the game is over, as
+    /// <see cref="AnnounceGameOverIfNoHumanSeatRemains"/> sets it, or a <c>--seat</c>-style session's own
+    /// seat is lost and the session is in watch mode (<see cref="_seatLost"/>). The game-end window's own
+    /// "The game is over." line and its Main menu / View map buttons read this; it changes no rule and
+    /// stops no turn the engine was not already stopping.
+    /// </summary>
+    public bool IsGameOver => _gameOver || _seatLost;
+
+    /// <summary>
     /// Parses and runs one command line, returning what to print and whether the session should stop.
     /// </summary>
     /// <param name="rawLine">One line of input, exactly as read from the script or the console.</param>
@@ -910,7 +1033,7 @@ public sealed partial class GameSession
         if (trimmed.Length == 0)
         {
             lines.Add(string.Empty);
-            return new SessionOutput(lines, shouldExit, FlushPendingBattleResults());
+            return new SessionOutput(lines, shouldExit, FlushPendingBattleResults(), FlushPendingSeatFalls(), IsGameOver);
         }
 
         // T87 rework round 2, R2: DoD 2's own "before it can issue an order" also covers the moment
@@ -926,7 +1049,7 @@ public sealed partial class GameSession
         {
             lines.Add("The game is over. No further commands are accepted.");
             lines.Add(string.Empty);
-            return new SessionOutput(lines, true, FlushPendingBattleResults());
+            return new SessionOutput(lines, true, FlushPendingBattleResults(), FlushPendingSeatFalls(), IsGameOver);
         }
 
         var tokens = trimmed.Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -1093,7 +1216,7 @@ public sealed partial class GameSession
         // T87, DoD 3: whichever command's own processing first found no human seat left (an "end" that
         // played the last human seat's fall, or a human-issued capture that eliminated the last other
         // human seat) also ends the session -- the same signal `quit` already uses.
-        return new SessionOutput(lines, shouldExit || _gameOver, FlushPendingBattleResults());
+        return new SessionOutput(lines, shouldExit || _gameOver, FlushPendingBattleResults(), FlushPendingSeatFalls(), IsGameOver);
     }
 
     private IReadOnlyList<string> HandleMove(string[] tokens)
@@ -1467,6 +1590,13 @@ public sealed partial class GameSession
         }
 
         _seatLost = true;
+
+        // T138: the CLI's own seat is a fall site too -- the same once-per-call record the other paths
+        // make, so a fall this method alone notices is still on the game-end screen. An elimination or
+        // deposition already recorded by AppendFallMessagesForNewlyLostHumanSeats /
+        // DepositActiveHumanSeatIfItShouldFallAtTurnStart is a no-op here.
+        RecordSeatFall(nation);
+
         lines.Add(
             nation.Eliminated
                 ? $"{NationDisplay(_humanSeatNationId)} has fallen: {HumanLeaderFallsMessage(nation)} "
