@@ -198,14 +198,14 @@ public partial class ArmyTransferDialog : Control
 
     private void DisbandSelected(bool isSelectedSide)
     {
-        var row = SelectedRow(isSelectedSide);
-        if (row is null)
+        if (SelectedRow(isSelectedSide) is { } row)
         {
-            return;
+            DisbandSelected(row);
         }
-
-        SubmitIfAny($"disband-unit {row.ArmyId} {row.SourceIndex}");
     }
+
+    private void DisbandSelected(TransferRow row) =>
+        SubmitIfAny($"disband-unit {row.ArmyId} {row.SourceIndex}");
 
     /// <summary>
     /// Flips one row between the two lists, keeping the model's staged set in step: a row of the
@@ -270,31 +270,39 @@ public partial class ArmyTransferDialog : Control
         Refresh();
     }
 
-    /// <summary>Selects a displayed unit row, the way a click does — a check's own seam.</summary>
-    public void SelectRowForCheck(bool onPartnerSide, int listIndex)
+    /// <summary>
+    /// Transfers the unit at <paramref name="sourceIndex"/> of <paramref name="armyId"/> to the other
+    /// list, exactly as pressing Transfer on it does — a check addresses a unit by its source, not by a
+    /// display position that the staging itself can shift.
+    /// </summary>
+    public bool TransferBySourceForCheck(string armyId, int sourceIndex)
     {
-        var list = onPartnerSide ? _partnerList : _selectedList;
-        var rows = Rows(isSelectedSide: !onPartnerSide);
-        if (listIndex < 0 || listIndex >= rows.Count)
+        var row = _rows.FirstOrDefault(
+            candidate => string.Equals(candidate.ArmyId, armyId, StringComparison.Ordinal)
+                && candidate.SourceIndex == sourceIndex);
+        if (row is null)
         {
-            return;
+            return false;
         }
 
-        list.Select(listIndex);
+        Toggle(row);
+        Refresh();
+        return true;
     }
 
-    /// <summary>Transfers the selected row on the given side, exactly as its button does.</summary>
-    public void TransferRowForCheck(bool onPartnerSide, int listIndex)
+    /// <summary>Disbands the unit at <paramref name="sourceIndex"/>, exactly as its Disband button does.</summary>
+    public bool DisbandBySourceForCheck(string armyId, int sourceIndex)
     {
-        SelectRowForCheck(onPartnerSide, listIndex);
-        TransferSelected(isSelectedSide: !onPartnerSide);
-    }
+        var row = _rows.FirstOrDefault(
+            candidate => string.Equals(candidate.ArmyId, armyId, StringComparison.Ordinal)
+                && candidate.SourceIndex == sourceIndex);
+        if (row is null)
+        {
+            return false;
+        }
 
-    /// <summary>Disbands the selected row on the given side, exactly as its button does.</summary>
-    public void DisbandRowForCheck(bool onPartnerSide, int listIndex)
-    {
-        SelectRowForCheck(onPartnerSide, listIndex);
-        DisbandSelected(isSelectedSide: !onPartnerSide);
+        DisbandSelected(row);
+        return true;
     }
 
     /// <summary>One press of a supply arrow, exactly as the buttons do.</summary>
@@ -309,7 +317,11 @@ public partial class ArmyTransferDialog : Control
     /// <summary>Cancel, exactly as its button does: nothing is submitted.</summary>
     public void CancelForCheck() => Cancel();
 
-    private void Ok() => SubmitIfAny(_model.ComposeOk());
+    private void Ok()
+    {
+        SubmitIfAny(_model.ComposeOk());
+        Closed?.Invoke();
+    }
 
     private void Cancel()
     {
