@@ -68,4 +68,10 @@ army-transfer army-8 mac-marines supply=10 money=20
 split-unit mac-marines 0 1000
 rename-unit mac-marines 0 LegioX
 disband-unit mac-marines 1
+end
+move army-8 141 40
+end
+move army-8 148 40
+embark-army army-8 mac-fleet-keep
+disembark-army army-8 148 40
 quit

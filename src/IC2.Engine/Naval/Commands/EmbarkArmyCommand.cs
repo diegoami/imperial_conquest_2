@@ -62,8 +62,8 @@ public static class EmbarkArmyRejections
     /// <summary>Either the army or the fleet belongs to a nation other than the one issuing the command.</summary>
     public static readonly RejectionCode NotYours = new("naval.not-yours");
 
-    /// <summary>The army and the fleet are not on the same tile.</summary>
-    public static readonly RejectionCode NotCoLocated = new("naval.not-co-located");
+    /// <summary>The army is not adjacent to the fleet (within <c>Economy.CommandAdjacencyRadiusTiles</c>, per T93).</summary>
+    public static readonly RejectionCode NotAdjacent = new("naval.not-adjacent");
 
     /// <summary>The fleet is still under construction.</summary>
     public static readonly RejectionCode UnderConstruction = new("naval.under-construction");

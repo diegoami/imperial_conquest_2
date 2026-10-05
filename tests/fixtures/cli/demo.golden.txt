@@ -152,7 +152,7 @@ naval.split-fleet rejected (naval.too-few-ships-to-split): Fleet 'north-fleet-1'
 naval.join-fleets rejected (naval.unknown-fleet): 'north-fleet-3' is not a known fleet.
 
 > embark-army north-army-1 north-fleet-1
-naval.embark-army rejected (naval.not-co-located): The army and the fleet must be on the same tile to embark.
+naval.embark-army rejected (naval.not-adjacent): Army 'north-army-1' at (4, 3) is not adjacent to fleet 'north-fleet-1' at (0, 3).
 
 > disembark-army north-army-1
 naval.disembark-army rejected (naval.army-not-embarked): Army 'north-army-1' is not aboard a fleet.
