@@ -1,5 +1,6 @@
 using IC2.Engine.Ai;
 using IC2.Engine.Core;
+using IC2.Engine.Economy;
 using IC2.Engine.Model;
 using IC2.Engine.Tests.Battle.Commands;
 using IC2.Engine.Tests.Cities.Capture;
@@ -356,5 +357,67 @@ public sealed class AiMercenaryHirePassTests
         Assert.Equal(first.Outcome.State, second.Outcome.State);
         Assert.Equal(first.Outcome.Log, second.Outcome.Log);
         Assert.Empty(first.Outcome.State.MercenaryPool);
+    }
+
+    /// <summary>
+    /// R1: the original resupplies and hires inside the same city iteration
+    /// (<c>FUN_0044E41C</c>, report §3), so a hire at an earlier city raises the troop count that a later
+    /// city's resupply sees. A 100-troop army (cap 1 ton) hires a 5,000-troop offer at city 0, whose own
+    /// stock is empty, then reaches the depot at city 1 with 5,100 troops and fills to
+    /// <c>cap(5,100)</c> = 51 tons. Running every resupply before every hire would cap the army at its
+    /// pre-hire 1 ton and leave it at 1.
+    /// </summary>
+    [Fact]
+    public void A_hire_before_a_later_supply_city_fills_the_army_to_its_new_capacity()
+    {
+        var before = InterleavedSupplyProbeState();
+        Assert.Equal(100, before.ArmyById("ai-army")!.TotalTroops);
+        Assert.Equal(0, before.ArmyById("ai-army")!.SupplyTons);
+
+        var driven = AiScriptedStates.DriveOneTurn(before, seed: 1);
+
+        var after = driven.Outcome.State.ArmyById("ai-army")!;
+        Assert.Equal(100 + 5000, after.TotalTroops);
+        Assert.Equal(51, after.SupplyTons);
+        Assert.Equal(SupplyCapacity.ArmyCapacityTons(after.TotalTroops, Ruleset), after.SupplyTons);
+        Assert.Empty(driven.Outcome.State.MercenaryPool);
+    }
+
+    /// <summary>
+    /// The R1 probe fixture: one north AI army of 100 troops at (10,10) with 1,000 money and no supply;
+    /// city 0 is north's own at (12,10) with no stock and a 5,000-troop offer; city 1 is north's own depot
+    /// at (13,10) with 10,000 tons. Both are within radius 4, and north is at war with south so the "at
+    /// war with someone" gate holds. City order puts the offer before the depot.
+    /// </summary>
+    private static GameState InterleavedSupplyProbeState()
+    {
+        var nations = new[]
+        {
+            AiScriptedStates.AiNation("north", AiScriptedStates.DefaultPersonality, treasury: 5000),
+            AiScriptedStates.AiNation("south", AiScriptedStates.DefaultPersonality, treasury: 5000),
+        };
+
+        var cities = new[]
+        {
+            CaptureTestbed.City("offer-city", "Offer City", 12, 10, "north", "north", 80, 0, 100, 200, 10),
+            CaptureTestbed.City("depot", "Depot", 13, 10, "north", "north", 80, 0, 100, 200, 10)
+                with { SupplyTons = 10000 },
+            CaptureTestbed.City("south-home", "South Home", 30, 30, "south", "south", 80, 0, 100, 200, 10),
+        };
+
+        var army = CaptureTestbed.Army(
+                "ai-army", ArmyNation, 10, 10, morale: 60,
+                CaptureTestbed.Unit("light_infantry", 100))
+            with { Money = 1000, SupplyTons = 0 };
+
+        var state = BattleCommandTestbed.StateWith(nations, cities, new[] { army });
+        state = state with
+        {
+            MercenaryPool = ValueList.Of(Offer(5, 12, 10, troops: 5000)),
+            Relations = state.Relations.WithRelation(
+                "north", "south", Ruleset.Diplomacy.StateCodes.War),
+        };
+
+        return AiScriptedStates.WithActiveSeat(state, ArmyNation);
     }
 }
