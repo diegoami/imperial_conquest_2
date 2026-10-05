@@ -18,10 +18,12 @@ namespace IC2.Slice.UI;
 /// is read all over the economy systems but nothing in <c>src/IC2.Engine/Economy/Commands</c> or
 /// <c>src/IC2.Engine/Cities/Orders</c> ever writes it — there is no command that sets a nation's tax
 /// rate. This panel shows the value; it has no control to change it.</description></item>
-/// <item><description><strong>No dedicated army-to-army transfer.</strong> Fleets have
-/// <c>FleetToFleetTransferCommand</c>; armies have no equivalent, so an army's own supply transfer is the
-/// Army menu's Supply army dialog (<c>economy.buy-supply</c>), not a fabricated new command. The city
-/// panel's old troop/money slider was removed by T134 in favour of that dialog.</description></item>
+/// <item><description><strong>The army panel is information only.</strong> T111 moved its Disband
+/// button into the Army menu's Disband army entry (with T99's confirmation prompt), so the panel now
+/// renders no order button of its own beyond T109's Mobilize. An army's own supply transfer is the Army
+/// menu's Supply army dialog (<c>economy.buy-supply</c>, T134), and its units, supply and money move
+/// between two adjacent armies through the Army menu's Transfer unit dialog
+/// (<c>armies.army-transfer</c>, T106/T117).</description></item>
 /// </list>
 /// </remarks>
 public partial class ContextPanel : Control
@@ -373,13 +375,13 @@ public partial class ContextPanel : Control
             // glyph the original used is not transcribed in the audit, so naming the withholding is
             // this panel's own [designed] rendering of the confirmed rule.
             Fact("Moves: withheld  ·  Morale: withheld  ·  Money: withheld  ·  Supply: withheld");
-            Fact($"Troops: {(army.Units.Count == 0 ? "none" : string.Join(", ", army.Units.Select(u => $"{u.Troops}x {u.UnitTypeId}")))}");
+            Fact($"Troops: {FormatUnits(army.Units)}");
             Note("Only the active seat's own armies can be ordered.");
             return;
         }
 
         Fact($"Moves: {army.Moves}  ·  Morale: {army.Morale}  ·  Money: {army.Money}  ·  Supply: {army.SupplyTons}t");
-        Fact($"Troops: {(army.Units.Count == 0 ? "none" : string.Join(", ", army.Units.Select(u => $"{u.Troops}x {u.UnitTypeId}")))}");
+        Fact($"Troops: {FormatUnits(army.Units)}");
 
         _content.AddChild(new HSeparator());
 
@@ -395,7 +397,9 @@ public partial class ContextPanel : Control
             Note(mobilize.Reason!);
         }
 
-        AddButton("Disband", () => Issue($"disband-army {army.Id}"));
+        // T111: the army panel's Disband button is gone — the Army menu's Disband army entry (with
+        // T99's confirmation prompt) is now the one path to disband-army. The city panel's Recruit
+        // section and the army panel's Mobilize button go with T109.
     }
 
     private void BuildFleetPanel(FleetState fleet)
@@ -472,7 +476,8 @@ public partial class ContextPanel : Control
         foreach (var slot in slots)
         {
             any = true;
-            Fact($"{slot.Troops}x {slot.UnitTypeId}{(string.IsNullOrEmpty(slot.Name) ? string.Empty : $" — {slot.Name}")}");
+            Fact($"{slot.Troops}x {slot.UnitTypeId} ({ArmyDialogModels.QualityCaption(slot.Quality)})"
+                + (string.IsNullOrEmpty(slot.Name) ? string.Empty : $" — {slot.Name}"));
         }
 
         if (!any)
@@ -480,6 +485,16 @@ public partial class ContextPanel : Control
             Note("None.");
         }
     }
+
+    /// <summary>
+    /// One army's units as the panel's Troops line shows them — troops, type, and T111's regiment quality
+    /// caption next to both, folded in by the user's decision of 2026-10-02.
+    /// </summary>
+    private static string FormatUnits(IReadOnlyList<UnitSlot> units) =>
+        units.Count == 0
+            ? "none"
+            : string.Join(", ", units.Select(u =>
+                $"{u.Troops}x {u.UnitTypeId} ({ArmyDialogModels.QualityCaption(u.Quality)})"));
 
     /// <summary>
     /// Mobilizes <paramref name="slotIndex"/> — the first slot <see cref="MobilizationReadiness"/> says
