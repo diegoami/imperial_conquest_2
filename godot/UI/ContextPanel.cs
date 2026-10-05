@@ -358,36 +358,6 @@ public partial class ContextPanel : Control
         _content.AddChild(fortifyPoints);
         AddButton("Order Fortification", () =>
             Issue($"order-city {city.Id} fortify {(int)fortifyPoints.Value}"));
-
-        _content.AddChild(new HSeparator());
-        _content.AddChild(UiKit.MakeLabel("Supply transfer (troop/money slider)", 15, UiKit.TextColor));
-
-        var ownArmies = Session.State.Armies.Where(a => a.Nation == city.Owner).ToList();
-        if (ownArmies.Count == 0)
-        {
-            Note("No own army to transfer supply to.");
-            return;
-        }
-
-        var armyPicker = new OptionButton();
-        foreach (var army in ownArmies)
-        {
-            armyPicker.AddItem(army.Id);
-        }
-
-        _content.AddChild(armyPicker);
-
-        var tonsSlider = new HSlider { MinValue = 0, MaxValue = 50, Step = 1, Value = 5, CustomMinimumSize = new Vector2(180, 0) };
-        var tonsLabel = UiKit.MakeLabel("5 tons", 12, UiKit.MutedTextColor);
-        tonsSlider.ValueChanged += value => tonsLabel.Text = $"{(int)value} tons";
-        _content.AddChild(tonsSlider);
-        _content.AddChild(tonsLabel);
-
-        AddButton("Transfer Supply", () =>
-        {
-            var armyId = ownArmies[armyPicker.Selected].Id;
-            Issue($"buy {armyId} {city.Id} {(int)tonsSlider.Value}");
-        });
     }
 
     private void BuildArmyPanel(ArmyState army)
