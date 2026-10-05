@@ -809,7 +809,8 @@ public partial class MainGameScreen : Control
 
     /// <summary>
     /// T111: the Army menu's Split army entry. The dialog needs two or more units; it composes one
-    /// <c>split-army</c> and the engine places the new army.
+    /// <c>split-army</c> (units, supply and money) and the engine places the new army. An army aboard a
+    /// fleet shows its refusal instead.
     /// </summary>
     private void OpenSplitArmyDialog()
     {
@@ -817,6 +818,14 @@ public partial class MainGameScreen : Control
         if (army is null)
         {
             ShowScreenMessage(SelectArmyMessage);
+            return;
+        }
+
+        // An army aboard a fleet (or a carrying fleet selected) opens no dialog and submits nothing: the
+        // engine refuses its split (armies.army-embarked, [designed]).
+        if (army.IsEmbarked)
+        {
+            ShowScreenMessage(ArmyDialogModels.SplitAboardRefusal);
             return;
         }
 

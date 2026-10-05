@@ -25,6 +25,8 @@ public sealed class ArmyDialogModelsTests
     private const string ArmyBId = "t111-b";
     private const string OneUnitArmyId = "t111-lonely";
     private const string NewArmyId = "t111-a-split";
+    private const string ThreeUnitArmyId = "t111-three";
+    private const string ThreeUnitNewArmyId = "t111-three-split";
 
     private static readonly Lazy<ResolvedScenario> LazyClassical = new(
         () => GameDataRepository.Load(ModelTestPaths.DataRoot).Resolve("classical-mediterranean"));
@@ -50,6 +52,14 @@ public sealed class ArmyDialogModelsTests
             Units: ValueList.Of(new[]
             {
                 new UnitSlot(0, "light_cavalry", 4_000, 7, "3rd Lancers Battalion"),
+            })));
+        armies.Add(new StartingArmy(
+            ThreeUnitArmyId, NationId, X: 112, Y: 110, Morale: 70, Money: 300, SupplyTons: 200, Moves: 8,
+            Units: ValueList.Of(new[]
+            {
+                new UnitSlot(0, "heavy_infantry", 5_000, 6, "5th Legion"),
+                new UnitSlot(0, "archers", 3_000, 8, "6th Bowmen"),
+                new UnitSlot(0, "light_cavalry", 2_000, 7, "7th Riders"),
             })));
         armies.Add(new StartingArmy(
             OneUnitArmyId, NationId, X: 110, Y: 110, Morale: 70, Money: 0, SupplyTons: 0, Moves: 8,
@@ -169,16 +179,144 @@ public sealed class ArmyDialogModelsTests
     }
 
     [Fact]
-    public void Split_army_stages_one_unit_and_composes_one_split_army()
+    public void Split_army_moving_two_units_with_supply_and_money_composes_exactly_one_split_army()
+    {
+        var session = Session();
+        var army = session.State.ArmyById(ThreeUnitArmyId)!;
+        var model = SplitArmyModel.ForArmy(session.State, army, session.Ruleset, ThreeUnitNewArmyId);
+
+        Assert.True(model.CanSplit);
+        Assert.Null(model.ComposeOk()); // nothing staged yet.
+
+        model.StageUnit(2);
+        model.StageUnit(0);
+        model.AdjustSupply(ArmyDialogModels.SupplyStepTons);
+        model.AdjustSupply(ArmyDialogModels.SupplyStepTons);
+        model.AdjustMoney(ArmyDialogModels.MoneyLargeStepTalents);
+        model.AdjustMoney(ArmyDialogModels.MoneyStepTalents);
+
+        Assert.Equal(
+            $"split-army {ThreeUnitArmyId} {ThreeUnitNewArmyId} 0,2 supply=20 money=110",
+            model.ComposeOk());
+
+        // The engine's own validator accepts exactly that one line: both units and the money land in
+        // the new army, and the two armies' supply total is unchanged by the engine's rebalance.
+        var totalSupplyBefore = army.SupplyTons;
+        var output = session.Submit(model.ComposeOk()!);
+        Assert.Contains(output.Lines, line => line.Contains("armies.split-army accepted", StringComparison.Ordinal));
+        var parent = session.State.ArmyById(ThreeUnitArmyId)!;
+        var child = session.State.ArmyById(ThreeUnitNewArmyId)!;
+        Assert.Equal(new[] { "archers" }, parent.Units.Select(u => u.UnitTypeId).ToArray());
+        Assert.Equal(
+            new[] { "heavy_infantry", "light_cavalry" },
+            child.Units.Select(u => u.UnitTypeId).OrderBy(t => t, StringComparer.Ordinal).ToArray());
+        Assert.Equal(110, child.Money);
+        Assert.Equal(300 - 110, parent.Money);
+        Assert.Equal(totalSupplyBefore, parent.SupplyTons + child.SupplyTons);
+    }
+
+    [Fact]
+    public void Split_army_spinners_clamp_to_the_new_armys_room_and_to_the_purse()
+    {
+        // A is rich: more supply and money than the new army can take.
+        var session = Session(aSupply: 200, aMoney: 5_000);
+        var army = session.State.ArmyById(ArmyAId)!;
+        var rich = army with { Money = 5_000, SupplyTons = 5_000 };
+        var model = SplitArmyModel.ForArmy(session.State, rich, session.Ruleset, NewArmyId);
+
+        // No unit staged: the new army has no room, so supply cannot move; money is bound by the purse.
+        model.AdjustSupply(ArmyDialogModels.SupplyLargeStepTons);
+        Assert.Equal(0, model.Supply);
+
+        model.StageUnit(1); // archers, 3,000 troops: room = 3000 div 100 + 1.
+        var room = IC2.Engine.Economy.SupplyCapacity.ArmyDialogCapacityTons(3_000, session.Ruleset);
+        Assert.Equal(room, model.NewArmyRoom);
+        for (var i = 0; i < 50; i++)
+        {
+            model.AdjustSupply(ArmyDialogModels.SupplyLargeStepTons);
+            model.AdjustMoney(ArmyDialogModels.MoneyLargeStepTalents);
+        }
+
+        Assert.Equal(room, model.Supply);
+        Assert.Equal(session.Ruleset.Economy.PurseCapPerUnit, model.Money);
+        Assert.Equal(1_000, model.Money);
+
+        // A poor giver bounds both too: A's own supply and money.
+        var poor = army with { Money = 40, SupplyTons = 15 };
+        var poorModel = SplitArmyModel.ForArmy(session.State, poor, session.Ruleset, NewArmyId);
+        poorModel.StageUnit(1);
+        for (var i = 0; i < 10; i++)
+        {
+            poorModel.AdjustSupply(ArmyDialogModels.SupplyStepTons);
+            poorModel.AdjustMoney(ArmyDialogModels.MoneyStepTalents);
+        }
+
+        Assert.Equal(15, poorModel.Supply);
+        Assert.Equal(40, poorModel.Money);
+
+        // Putting the unit back drops the room, so the staged supply follows it down.
+        model.UnstageUnit(1);
+        Assert.Equal(0, model.Supply);
+    }
+
+    [Fact]
+    public void Split_army_keeps_one_unit_in_the_selected_army()
     {
         var session = Session();
         var model = SplitArmyModel.ForArmy(
             session.State, session.State.ArmyById(ArmyAId)!, session.Ruleset, NewArmyId);
 
-        Assert.True(model.CanSplit);
-        model.StageUnit(1);
-        Assert.Equal($"split-army {ArmyAId} {NewArmyId} 1", model.ComposeOk());
+        model.StageUnit(0);
+        model.StageUnit(1); // would leave the selected army empty: ignored.
+
+        Assert.Equal(new[] { 0 }, model.StagedUnits.ToArray());
+        Assert.Equal($"split-army {ArmyAId} {NewArmyId} 0", model.ComposeOk());
+    }
+
+    [Fact]
+    public void Split_army_is_refused_aboard_a_fleet_and_composes_nothing()
+    {
+        var session = Session();
+        var aboard = session.State.ArmyById(ThreeUnitArmyId)! with { AboardFleetId = "some-fleet" };
+        var model = SplitArmyModel.ForArmy(session.State, aboard, session.Ruleset, ThreeUnitNewArmyId);
+
+        Assert.True(model.IsAboard);
+        Assert.False(model.CanSplit);
+        Assert.Equal(ArmyDialogModels.SplitAboardRefusal, model.RefusalMessage);
+        Assert.Equal("An army aboard a fleet cannot be split.", model.RefusalMessage);
+        model.StageUnit(0);
+        Assert.Null(model.ComposeOk());
+    }
+
+    [Fact]
+    public void Split_army_cancel_composes_nothing()
+    {
+        var session = Session();
+        var model = SplitArmyModel.ForArmy(
+            session.State, session.State.ArmyById(ThreeUnitArmyId)!, session.Ruleset, ThreeUnitNewArmyId);
+        model.StageUnit(0);
+        model.AdjustMoney(ArmyDialogModels.MoneyStepTalents);
+
         Assert.Null(model.Cancel());
+    }
+
+    [Fact]
+    public void Split_army_disband_under_either_list_composes_disband_unit_with_the_selected_armys_index()
+    {
+        var session = Session();
+        var army = session.State.ArmyById(ThreeUnitArmyId)!;
+        var model = SplitArmyModel.ForArmy(session.State, army, session.Ruleset, ThreeUnitNewArmyId);
+        model.StageUnit(2);
+
+        // An unstaged unit (index 1) and a staged one (index 2): both name the selected army's index.
+        Assert.Equal($"disband-unit {ThreeUnitArmyId} 1", model.DisbandLine(1));
+        Assert.Equal($"disband-unit {ThreeUnitArmyId} 2", model.DisbandLine(2));
+
+        // Disbanding the staged unit 0 drops it from the staging and shifts unit 2 down to index 1.
+        model.StageUnit(0);
+        var after = army with { Units = ValueList.From(army.Units.Where((_, i) => i != 0).ToList()) };
+        model.ApplyDisband(0, after);
+        Assert.Equal(new[] { 1 }, model.StagedUnits.ToArray());
     }
 
     // ---- Done-when 1: Join armies with no partner ----

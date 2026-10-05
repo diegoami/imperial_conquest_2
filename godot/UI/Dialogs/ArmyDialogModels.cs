@@ -60,6 +60,12 @@ public static class ArmyDialogModels
     public const string SplitOneUnitRefusal = "You can not split an army containing only 1 unit.";
 
     /// <summary>
+    /// What Split army says, and does nothing else, for an army aboard a fleet (or a carrying fleet
+    /// selected) <c>[designed wording; the engine's own refusal is <c>armies.army-embarked</c>]</c>.
+    /// </summary>
+    public const string SplitAboardRefusal = "An army aboard a fleet cannot be split.";
+
+    /// <summary>
     /// The quality caption the army panel and the unit list print for a raw quality tier — the roster's
     /// own words for 5–9, and the tier's number below 5 (see this class's remarks).
     /// </summary>
@@ -291,18 +297,39 @@ public sealed class ArmyTransferModel
 }
 
 /// <summary>
-/// The Split army dialog's Godot-free model. It needs at least two units
-/// (<see cref="ArmyManagementRules.SplitMinUnits"/>); the original's refusal is
-/// <see cref="ArmyDialogModels.SplitOneUnitRefusal"/>. The new army is placed by the engine
-/// (<c>docs/tasks/T111.md</c>: the dialog doesn't place it), and the engine's <c>split-army</c> CLI takes
-/// a single unit index, so the dialog moves the one unit named here.
+/// The Split army dialog's Godot-free model. The dialog is the original's army-to-army form
+/// (<c>TArmyToArmy</c>, titled <em>"Split army"</em>): A is the selected army and B the new army, which
+/// opens with no units, supply or money. The units staged to B's list, and the supply and money moved
+/// to it, compose <em>one</em> <c>split-army</c> on <c>OK</c> (<c>docs/tasks/T141.md</c>'s form).
 /// </summary>
+/// <remarks>
+/// <para>
+/// <strong>Limits</strong> <c>[confirmed: code, 2026-10-03-army-to-army-ok-supply-rebalancing.md,
+/// "Split army uses the same form", and item 6]</c>: the supply spinner moves
+/// <c>min(step, B's room, A's supply)</c> with B's room <c>troops div 100 + 1 − supply</c> (B's troops
+/// being the staged units', its supply 0), and the money spinner
+/// <c>min(step, 1000 − B's money, A's money)</c> with the 1,000 read from
+/// <see cref="EconomyRules.PurseCapPerUnit"/>. Both steps are 10 and 100. The selected army keeps at
+/// least one unit (the engine's <c>armies.invalid-unit-selection</c>), so the last unit cannot be staged.
+/// </para>
+/// <para>
+/// <strong>An army aboard a fleet</strong> is refused (<see cref="ArmyDialogModels.SplitAboardRefusal"/>)
+/// <c>[designed, no confirmed evidence either way]</c>, as <c>SplitArmyCommand</c>'s remarks say.
+/// </para>
+/// <para>
+/// <strong>Disband</strong> under either list submits <c>disband-unit &lt;army&gt; &lt;index&gt;</c> at
+/// once, the index being the selected army's own index of that unit; <see cref="ApplyDisband"/> then
+/// re-reads the army and drops a staged unit from the staging.
+/// </para>
+/// </remarks>
 public sealed class SplitArmyModel
 {
     private readonly Ruleset _ruleset;
-    private readonly ArmyState _army;
     private readonly int _nationArmyCount;
-    private int? _unitIndexToNewArmy;
+    private ArmyState _army;
+    private readonly List<int> _staged = new();
+    private int _supply;
+    private int _money;
 
     private SplitArmyModel(ArmyState army, Ruleset ruleset, string newArmyId, int nationArmyCount)
     {
@@ -322,10 +349,10 @@ public sealed class SplitArmyModel
         return new SplitArmyModel(army, ruleset, newArmyId, count);
     }
 
-    /// <summary>The army being split.</summary>
+    /// <summary>The army being split (A).</summary>
     public string ArmyId => _army.Id;
 
-    /// <summary>The new army's id, chosen by the dialog.</summary>
+    /// <summary>The new army's id (B), chosen by the dialog.</summary>
     public string NewArmyId { get; }
 
     /// <summary>The split floor, from the ruleset's own <see cref="ArmyManagementRules.SplitMinUnits"/>.</summary>
@@ -334,41 +361,138 @@ public sealed class SplitArmyModel
     /// <summary>The army's live unit count.</summary>
     public int UnitCount => _army.Units.Count;
 
+    /// <summary>Whether the army is aboard a fleet, which the engine refuses to split.</summary>
+    public bool IsAboard => _army.IsEmbarked;
+
     /// <summary>
-    /// Whether the split can be offered: at least <see cref="MinUnits"/> units and the nation below its
-    /// <see cref="ArmyManagementRules.MaxArmies"/> cap.
+    /// Whether the split can be offered: not aboard a fleet, at least <see cref="MinUnits"/> units and the
+    /// nation below its <see cref="ArmyManagementRules.MaxArmies"/> cap.
     /// </summary>
     public bool CanSplit =>
-        _army.Units.Count >= MinUnits && _nationArmyCount < _ruleset.ArmyManagement.MaxArmies;
+        !IsAboard && _army.Units.Count >= MinUnits && _nationArmyCount < _ruleset.ArmyManagement.MaxArmies;
 
     /// <summary>The refusal the dialog shows when <see cref="CanSplit"/> is false, or <see langword="null"/>.</summary>
     public string? RefusalMessage =>
         CanSplit
             ? null
-            : _army.Units.Count < MinUnits
-                ? ArmyDialogModels.SplitOneUnitRefusal
-                : "You have reached your limit of armies.";
+            : IsAboard
+                ? ArmyDialogModels.SplitAboardRefusal
+                : _army.Units.Count < MinUnits
+                    ? ArmyDialogModels.SplitOneUnitRefusal
+                    : "You have reached your limit of armies.";
 
-    /// <summary>Stages one unit (index into the army's list) for the new army; the last call wins.</summary>
+    /// <summary>Indexes into A's own list (as it stands now) staged for the new army, ascending.</summary>
+    public IReadOnlyList<int> StagedUnits => _staged;
+
+    /// <summary>The supply staged toward the new army, in tons.</summary>
+    public int Supply => _supply;
+
+    /// <summary>The money staged toward the new army, in talents.</summary>
+    public int Money => _money;
+
+    /// <summary>The new army's room for supply: <c>troops div 100 + 1 − 0</c>, from the staged units.</summary>
+    public int NewArmyRoom =>
+        _staged.Count == 0
+            ? 0
+            : SupplyCapacity.ArmyDialogCapacityTons(
+                _staged.Sum(i => _army.Units[i].Troops), _ruleset);
+
+    /// <summary>The most supply that can move: <c>min(A's supply, B's room)</c>.</summary>
+    public int MaxSupply => Math.Max(0, Math.Min(_army.SupplyTons, NewArmyRoom));
+
+    /// <summary>The most money that can move: <c>min(A's money, 1000 − B's money)</c> (B's money is 0).</summary>
+    public int MaxMoney => Math.Max(0, Math.Min(_army.Money, _ruleset.Economy.PurseCapPerUnit));
+
+    /// <summary>
+    /// Stages one of A's units for the new army. Out-of-range and already-staged indexes are ignored,
+    /// and so is the unit that would leave A empty.
+    /// </summary>
     public void StageUnit(int index)
     {
-        if (index < 0 || index >= _army.Units.Count)
+        if (index < 0 || index >= _army.Units.Count || _staged.Contains(index)
+            || _staged.Count + 1 >= _army.Units.Count)
         {
             return;
         }
 
-        _unitIndexToNewArmy = index;
+        _staged.Add(index);
+        _staged.Sort();
+        Reclamp();
     }
 
-    /// <summary>The staged unit index, or <see langword="null"/> when none is staged.</summary>
-    public int? UnitIndexToNewArmy => _unitIndexToNewArmy;
+    /// <summary>Puts a staged unit back in A's list.</summary>
+    public void UnstageUnit(int index)
+    {
+        _staged.Remove(index);
+        Reclamp();
+    }
 
-    /// <summary><c>OK</c>: one <c>split-army</c> with the staged unit, or <see langword="null"/> when none is staged.</summary>
-    public string? ComposeOk() =>
-        _unitIndexToNewArmy is { } index ? $"split-army {ArmyId} {NewArmyId} {index}" : null;
+    /// <summary>One press of a supply arrow, clamped to <c>[0, <see cref="MaxSupply"/>]</c>.</summary>
+    public void AdjustSupply(int delta) => _supply = Math.Clamp(_supply + delta, 0, MaxSupply);
+
+    /// <summary>One press of a money arrow, clamped to <c>[0, <see cref="MaxMoney"/>]</c>.</summary>
+    public void AdjustMoney(int delta) => _money = Math.Clamp(_money + delta, 0, MaxMoney);
+
+    /// <summary>
+    /// <c>OK</c>: exactly one <c>split-army</c> with every staged unit and the staged supply and money,
+    /// or <see langword="null"/> when the split is refused or no unit is staged.
+    /// </summary>
+    public string? ComposeOk()
+    {
+        if (!CanSplit || _staged.Count == 0)
+        {
+            return null;
+        }
+
+        var line = $"split-army {ArmyId} {NewArmyId} "
+            + string.Join(',', _staged.Select(i => i.ToString(CultureInfo.InvariantCulture)));
+        if (_supply > 0)
+        {
+            line += $" supply={_supply}";
+        }
+
+        if (_money > 0)
+        {
+            line += $" money={_money}";
+        }
+
+        return line;
+    }
 
     /// <summary><c>Cancel</c>: nothing is submitted.</summary>
     public string? Cancel() => null;
+
+    /// <summary>
+    /// A Disband under either list: <c>disband-unit</c> naming the selected army's own index of the unit.
+    /// </summary>
+    public string DisbandLine(int armyIndex) => $"disband-unit {ArmyId} {armyIndex}";
+
+    /// <summary>
+    /// After a <c>disband-unit</c> on <paramref name="removedIndex"/> succeeded: takes the refreshed army,
+    /// drops the unit from the staging if it was staged, and shifts the later staged indexes down.
+    /// </summary>
+    public void ApplyDisband(int removedIndex, ArmyState refreshed)
+    {
+        ArgumentNullException.ThrowIfNull(refreshed);
+        _army = refreshed;
+        _staged.Remove(removedIndex);
+        for (var i = 0; i < _staged.Count; i++)
+        {
+            if (_staged[i] > removedIndex)
+            {
+                _staged[i]--;
+            }
+        }
+
+        _staged.RemoveAll(i => i >= _army.Units.Count);
+        Reclamp();
+    }
+
+    private void Reclamp()
+    {
+        _supply = Math.Clamp(_supply, 0, MaxSupply);
+        _money = Math.Clamp(_money, 0, MaxMoney);
+    }
 }
 
 /// <summary>
