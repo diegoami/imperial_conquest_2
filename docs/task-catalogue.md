@@ -204,6 +204,9 @@ graph TD
   T76 --> T143[T143 mercenary hire is a gate]
   T143 --> T113
   T144[T144 human move resupply flag]
+  T111 --> T145[T145 End of Game window text]
+  T139 --> T145
+  T145 --> T146[T146 leader names, fallen seat]
   T23 --> T26[T26 scenario docs+examples]
   T29 --> T26
   T22 --> T28[T28 nightly soak gate]
@@ -255,6 +258,7 @@ graph TD
   T79[T79 AI weights as data]
   T80[T80 CLI demo: every order succeeds]
   T81[T81 rough sea]
+  T76 --> T81
   T69 --> T82[T82 AI diplomacy fidelity]
   T83[T83 CLI --seat]
   T84[T84 elimination forces] --> T69
@@ -299,7 +303,7 @@ Waves are dependency layers, not concurrent batches: execution is serial, one co
 | 17 | T93 | T93 (bug #453) follows T80: it removes T80's #453 exception from the coverage test. |
 | 18 | T94 | T94 follows T24, which it was split from (2026-09-28), and precedes T27. It is never in flight with T25; both work under `godot/**`. |
 | 19 | T95 | T95 (bug #467) follows T24, whose Load screen it wires. It is never in flight with T25 or T94. |
-| — | T53, T61, T64, T70, T71, T73, T77, T78, T80, T81, T83, T84 | No merge-after dependency: each runs whenever the queue allows. T77 runs after T21 and before the v0.3.0 freeze (the user's decision of 2026-09-24). T64 must merge before T21 (the user's decision of 2026-09-23), and so must T73 (the user's decision of 2026-09-24 on #321). T67 and T71 both work in `Persistence/**` tests, so they are never in flight together.. Of the 2026-09-25 triage's tasks: T78 is never in flight with T75, T76 or T79; T79 never with T66, T67, T76 or T78; T81 never with T67, T71, T75, T76 or T78; and T80 (v0.4.0) is best merged before T24. T83 is never in flight with T80. T84 must merge before T69 (the user's decision of 2026-09-25 on #366), and is never in flight with T66, T79 or T82. |
+| — | T53, T61, T64, T70, T71, T73, T77, T78, T80, T83, T84 | No merge-after dependency: each runs whenever the queue allows. T77 runs after T21 and before the v0.3.0 freeze (the user's decision of 2026-09-24). T64 must merge before T21 (the user's decision of 2026-09-23), and so must T73 (the user's decision of 2026-09-24 on #321). T67 and T71 both work in `Persistence/**` tests, so they are never in flight together.. Of the 2026-09-25 triage's tasks: T78 is never in flight with T75, T76 or T79; T79 never with T66, T67, T76 or T78; T81 never with T67, T71, T75, T76 or T78, and it merges after T76 (the plan of 2026-10-05, for its Done-when 6); and T80 (v0.4.0) is best merged before T24. T83 is never in flight with T80. T84 must merge before T69 (the user's decision of 2026-09-25 on #366), and is never in flight with T66, T79 or T82. |
 
 **Critical path**: `T01 → T02 → T03 → T06 → T32 → T08 → T38 → T14 → T16 → T17 → T29 → T36 → T24 → T25 → T27` — 15 tasks — with `T08 → T35 → T17` and `T31 → T33 → T16` as parallel edges into it; T29 also waits for T15 and T19, and `T17 → T23 → T24` runs one task shorter. The AI chain (`… → T17 → T18 → T22 → T28`, and now `T22 → T55 → T57 → T60`, as long as the critical path at 15 tasks) runs alongside it with the most slack and the most uncertain duration, which argues for not deferring T22.
 
@@ -1161,13 +1165,25 @@ Split aboard a fleet, scan order (correction task for bugs #753 and #754, from r
 
 #### T143 Hiring a mercenary takes nothing: the price is only a minimum purse
 
-Mercenary hire is a gate (correction task for bug #755, from research `9ae8924`; after T76, and T113 merges after it) → [full entry](tasks/T143.md) · [#767](https://github.com/diegoami/imperial_conquest_2/issues/767)
+Mercenary hire is a gate (correction task for bug #755, from research `9ae8924`, which also folds bug #769, the low-supply refusal; after T76, and T113 merges after it) → [full entry](tasks/T143.md) · [#767](https://github.com/diegoami/imperial_conquest_2/issues/767)
 
 ---
 
 #### T144 A human army's move resupplies it only under `improved`
 
 Human move resupply flag (correction task for bug #756, from research `9ae8924`; the preset split is the user's decision of 2026-10-05) → [full entry](tasks/T144.md) · [#768](https://github.com/diegoami/imperial_conquest_2/issues/768)
+
+---
+
+#### T145 The End of Game window shows the original's text
+
+End of Game window text (correction task for bug #761, from research `d1b5983`; it merges after T111 and T139, and T146 after it; the user's decisions of 2026-10-05 keep the conquered seat's Cities at 0 and T138's buttons) → [full entry](tasks/T145.md) · [#770](https://github.com/diegoami/imperial_conquest_2/issues/770)
+
+---
+
+#### T146 Leaders are drawn from the original's names, and a fallen seat's changes
+
+Leader names, fallen seat (correction task for bugs #762 and #763, from research `d1b5983`; the pool is exported from the DAT, the user's decision of 2026-10-05; it merges after T145) → [full entry](tasks/T146.md) · [#771](https://github.com/diegoami/imperial_conquest_2/issues/771)
 
 ---
 
@@ -1281,7 +1297,7 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T78](#t78-test-and-import-hygiene-guard-precision-scratch-isolation-untested-boundaries-and-a-tombstoned-fleets-cargo) | Test + import hygiene | — | Sonnet | Medium | **Opus**/Medium | — | [#354](https://github.com/diegoami/imperial_conquest_2/issues/354) |
 | [T79](#t79-the-ais-weights-become-ruleset-data) | AI weights as data | — | Sonnet | Medium | **Opus**/Medium | T91 | [#355](https://github.com/diegoami/imperial_conquest_2/issues/355) |
 | [T80](#t80-the-cli-demo-every-order-succeeds-once-and-no-command-type-can-be-left-out) | CLI demo: every order succeeds | M18 | Sonnet | High | **Opus**/Medium | — | [#356](https://github.com/diegoami/imperial_conquest_2/issues/356) |
-| [T81](#t81-weather-paints-rough-sea-the-weekly-overlay-its-effects-on-fleets-and-its-place-in-the-save) | Rough sea | — | **Opus** | High | Sonnet/High | — | [#358](https://github.com/diegoami/imperial_conquest_2/issues/358) |
+| [T81](#t81-weather-paints-rough-sea-the-weekly-overlay-its-effects-on-fleets-and-its-place-in-the-save) | Rough sea | — | **Opus** | High | Sonnet/High | T76 | [#358](https://github.com/diegoami/imperial_conquest_2/issues/358) |
 | [T82](#t82-ai-diplomacy-as-the-original-has-it-its-own-treaties-its-offers-to-a-human-and-never-turning-on-an-ally) | AI diplomacy fidelity | — | Sonnet | High | **Opus**/Medium | T69 | [#359](https://github.com/diegoami/imperial_conquest_2/issues/359) |
 | [T83](#t83-play-any-nation-from-the-cli---seat-a-steady-turn-loop-and-compact-status-views) | CLI --seat | M18 | Sonnet | Medium | **Opus**/Medium | — | [#362](https://github.com/diegoami/imperial_conquest_2/issues/362) |
 | [T84](#t84-an-eliminated-nations-forces-are-disbanded-as-the-original-does) | Elimination forces | — | Sonnet | High | **Opus**/Medium | — | [#369](https://github.com/diegoami/imperial_conquest_2/issues/369) |
@@ -1345,3 +1361,5 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T142](#t142-an-army-aboard-a-fleet-can-be-split-and-the-3--3-placement-scans-nest-x-outer) | Split aboard a fleet, scan order | M14 | Sonnet | Medium | Sol | T111 | [#766](https://github.com/diegoami/imperial_conquest_2/issues/766) |
 | [T143](#t143-hiring-a-mercenary-takes-nothing-the-price-is-only-a-minimum-purse) | Mercenary hire is a gate | M4 | Sonnet | Low | Sol | T76 | [#767](https://github.com/diegoami/imperial_conquest_2/issues/767) |
 | [T144](#t144-a-human-armys-move-resupplies-it-only-under-improved) | Human move resupply flag | M3 | Sonnet | Low | Sol | — | [#768](https://github.com/diegoami/imperial_conquest_2/issues/768) |
+| [T145](#t145-the-end-of-game-window-shows-the-originals-text) | End of Game window text | M18 | Sonnet | Medium | Sol + human | T111, T139 | [#770](https://github.com/diegoami/imperial_conquest_2/issues/770) |
+| [T146](#t146-leaders-are-drawn-from-the-originals-names-and-a-fallen-seats-changes) | Leader names, fallen seat | M12 | Sonnet | Medium | Sol | T145 | [#771](https://github.com/diegoami/imperial_conquest_2/issues/771) |
