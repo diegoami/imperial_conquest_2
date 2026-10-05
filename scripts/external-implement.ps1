@@ -60,9 +60,9 @@
     The filled Appendix A brief.
 .PARAMETER Model
     auto (default: deepseek-flash alone, then the main session runs Claude Sonnet; issue #575
-    keeps one OpenCode model per role before Claude), or one model alone: luna (GPT-6 Luna at
-    high effort, direct OpenAI via the machine's OpenAI login), glm-flash (GLM-5.3 Flash at
-    high), glm (GLM-5.3 at high, only selected explicitly), deepseek-flash (DeepSeek V4.1 Flash
+    keeps one OpenCode model per role before Claude), or one model alone: luna (GPT-5.6 Luna at
+    high effort, `openai/gpt-5.6-luna`, direct OpenAI via the machine's OpenAI login), glm-flash
+    (GLM-5.3 Flash at high), glm (GLM-5.3 at low, a heavy model run light; only selected explicitly), deepseek-flash (DeepSeek V4.1 Flash
     at high, proven on this repository in #279), mimo-pro, or mimo-flash.
 .PARAMETER LocalOnly
     Copy assets.local.ini from the main checkout into the worktree.

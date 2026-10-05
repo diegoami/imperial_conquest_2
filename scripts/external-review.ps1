@@ -79,8 +79,9 @@
     the user's decision of 2026-10-05), via the machine's OpenAI login (never a Luna on OpenCode Go:
     Go's proxied `opencode-go/gpt-6-luna` returned Bad Request in long runs, #553); sol is
     `openai/gpt-6-sol` on the same login; deepseek-pro is `opencode-go/deepseek-v4-pro`. An OpenAI
-    run that fails with "The usage limit has been reached" means the OpenAI account is out of
-    quota, Luna included (build-process.md §3.4).
+    run that fails with "The usage limit has been reached" means that model's OpenAI quota is out.
+    GPT-5.6 Luna draws on its own weekly window, separate from Sol's: read quota-tracker
+    (docs/environment.md) rather than probing Luna (build-process.md §3.4).
     `opencode models` shows what this machine has.
     OpenCode reads CLAUDE.md as its instructions file when no AGENTS.md exists; that is
     harmless here (the reviewer gets the token-economy rules) and no AGENTS.md is added.
