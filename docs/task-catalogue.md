@@ -1139,7 +1139,7 @@ Peace offer window (bug #717, the gap analysis of 2026-10-05) → [full entry](t
 
 #### T140 The information panels show the original's fields
 
-Information panels (bug #718, folding #614, the gap analysis of 2026-10-05; starts after a research read of the Information window's word bands) → [full entry](tasks/T140.md) · [#728](https://github.com/diegoami/imperial_conquest_2/issues/728)
+Information panels (bug #718, folding #614, the gap analysis of 2026-10-05; its rules from the research read `2026-10-05-information-window-fields-and-bands.md`, research `929c4d1`) → [full entry](tasks/T140.md) · [#728](https://github.com/diegoami/imperial_conquest_2/issues/728)
 
 ---
 

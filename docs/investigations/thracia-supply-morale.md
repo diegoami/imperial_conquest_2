@@ -99,10 +99,14 @@ Three details worth keeping:
 
 - **The percentage is computed after consumption**, so the value that drives the change is the value
   the save then shows. That is what makes the table below predictable turn-for-turn.
-- **51 and 70 are the real bounds of the field.** They are not arbitrary: the army panel prints
-  morale as a tier via `moraleNames[(v - 51) >> 2]` with a `v - 48` fallback below 51
+- **51 and 70 are the supply rule's bounds, not the field's.** The army panel prints morale as a
+  tier via `moraleNames[(v - 51) >> 2]` with a `v - 48` fallback below 51
   (`TInformation_ShowArmyDetails`, `all_app_functions.txt:41052-41058`, string table
-  `DAT_00479428`, 11-byte entries). `51 … 70` is exactly five 4-wide tiers. A fresh army from
+  `DAT_00479428`, 11-byte entries), but that table has **six** words: 71–74 print *excellent* and
+  75 and above prints nothing, and saves reach 72 and 73, so `51 … 70` is not the whole range
+  **[derived: code; Wine candidate: [`2026-10-05-information-window-fields-and-bands.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-05-information-window-fields-and-bands.md)
+  "Morale", research `929c4d1`, a provisional report; [design-audit.md §2.9a](../design-audit.md)]**.
+  This bullet previously called them the field's bounds and "exactly five 4-wide tiers". A fresh army from
   `TUnitMap_SplitArmy` starts at **59** (`all_app_functions.txt:48739`), mid-range.
 - **The decay is asymmetric with the regen — 2:1.** An army recovers morale half as fast as it loses
   it. Climbing from the 51 floor back to the 70 ceiling takes 19 turns of good supply; falling from
