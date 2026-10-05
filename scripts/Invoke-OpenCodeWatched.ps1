@@ -547,6 +547,39 @@ function Get-AlibabaRunFailure($Run, [string] $DataDir) {
     return (Get-AlibabaFailure (Get-OpenCodeErrorLines $Run.StdErr) $DataDir)
 }
 
+# --- The free OpenRouter models (the owner's decision of 2026-10-06, docs/environment.md) ---------
+# Advisory-only extra reviewers. They share one allowance (1,000 requests a day, about 20 a minute,
+# across every free model; each agent step is one request), and a rate limit is skipped, never retried.
+function Get-OpenRouterFreeRequests {
+    # quota-tracker's /quota/openrouter: how many free-model requests are left today. Answered is
+    # $false when the service does not answer or carries no free_model_daily_requests (an advisory
+    # review is optional, so the caller then skips it). IC2_QUOTA_FREE_REQUESTS, when set, stands in
+    # for the service (a test hook for -SelfTest: a number, or 'none' for a silent tracker); it is
+    # never set in normal use.
+    param([string] $Url = 'http://localhost:8765/quota/openrouter', [int] $TimeoutSec = 5)
+    $silent = [pscustomobject]@{ Answered = $false; Remaining = $null }
+    if ($env:IC2_QUOTA_FREE_REQUESTS) {
+        if ($env:IC2_QUOTA_FREE_REQUESTS -eq 'none') { return $silent }
+        return [pscustomobject]@{ Answered = $true; Remaining = [int]$env:IC2_QUOTA_FREE_REQUESTS }
+    }
+    try { $r = Invoke-RestMethod -Uri $Url -TimeoutSec $TimeoutSec -ErrorAction Stop } catch { return $silent }
+    $f = $r.free_model_daily_requests
+    if ($null -eq $f) { return $silent }
+    # Seen 2026-10-06 as { used, limit, remaining }; a bare number is taken as the remaining count.
+    $remaining = if ($f -is [ValueType]) { $f } elseif ($null -ne $f.remaining) { $f.remaining } elseif ($null -ne $f.limit -and $null -ne $f.used) { $f.limit - $f.used } else { $null }
+    if ($null -eq $remaining) { return $silent }
+    return [pscustomobject]@{ Answered = $true; Remaining = [int]$remaining }
+}
+
+function Get-OpenCodeRateLimit([string] $Text) {
+    # The rate-limit error in OpenCode's own error lines (Get-OpenCodeErrorLines: only its "Error: "
+    # lines, never the model's words), or $null: a 429, "rate limit" or "Too Many Requests".
+    $lines = Get-OpenCodeErrorLines $Text
+    $m = [regex]::Match($lines, '(?im)^.*(\b429\b|rate[- _]?limit|too many requests).*$')
+    if ($m.Success) { return $m.Value.Trim() }
+    return $null
+}
+
 # --- Routes and quota-tracker (CLAUDE.md rule 17, docs/environment.md) ----------------------------
 # A route is the provider a model name runs through. The usual route comes from the name's model id;
 # DeepSeek and GLM also run on the Alibaba Token Plan (the user's decision of 2026-10-05).
