@@ -533,6 +533,20 @@ function Get-AlibabaFailure([string] $Text, [string] $DataDir) {
     return $null
 }
 
+function Get-OpenCodeErrorLines([string] $Text) {
+    # OpenCode's own error lines: it prints a failed request on stderr as a line starting "Error: "
+    # (observed 2026-10-06 on 1.x: "Error: Invalid API-key provided. ..." after the "> build · <model>"
+    # header, and "Error: {" for an unknown model or a missing key). Only those lines are returned, so
+    # nothing the model wrote is matched; stdout, the model's formatted reply, is never read here.
+    return (@(($Text -split "`r?`n") | Where-Object { $_ -match '^\s*Error: ' }) -join "`n")
+}
+
+function Get-AlibabaRunFailure($Run, [string] $DataDir) {
+    # The Alibaba stop message for a finished run, whatever its exit code (an exit 0 with the error
+    # on stderr included), from OpenCode's own error lines only; or $null.
+    return (Get-AlibabaFailure (Get-OpenCodeErrorLines $Run.StdErr) $DataDir)
+}
+
 # --- Routes and quota-tracker (CLAUDE.md rule 17, docs/environment.md) ----------------------------
 # A route is the provider a model name runs through. The usual route comes from the name's model id;
 # DeepSeek and GLM also run on the Alibaba Token Plan (the user's decision of 2026-10-05).
@@ -659,12 +673,13 @@ function Invoke-OpenCodeWatched {
         } catch {
             # An Alibaba key error that surfaced as an infrastructure failure (an exit without a
             # session carries the stderr tail) stops the caller instead of advancing its chain.
-            $why = if ($isAlibaba) { Get-AlibabaFailure $_.Exception.Message $state.DataDir }
+            $why = if ($isAlibaba) { Get-AlibabaFailure (Get-OpenCodeErrorLines $_.Exception.Message) $state.DataDir }
             if ($why) { throw [System.InvalidOperationException]::new($why) }
             throw
         }
-        if ($isAlibaba -and $run.ExitCode -ne 0) {
-            $why = Get-AlibabaFailure $run.StdErr $state.DataDir
+        # Checked whatever the exit code (Sol's round-2 review of PR 783, R3).
+        if ($isAlibaba) {
+            $why = Get-AlibabaRunFailure $run $state.DataDir
             if ($why) { throw [System.InvalidOperationException]::new($why) }
         }
         return $run

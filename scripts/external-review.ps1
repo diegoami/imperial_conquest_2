@@ -615,6 +615,12 @@ function Invoke-ReviewParserSelfTest {
     $ruleChecks += [pscustomobject]@{ Name = "-WhatIf -Reviewer glm with zai avoided runs alibaba-token-plan/glm-5.3 (got $($p.Code))"; Ok = ($p.Code -eq 0 -and $p.Out -like '*alibaba-token-plan/glm-5.3*') }
     Remove-Item -LiteralPath $probeBrief -Force -ErrorAction SilentlyContinue
     $ruleChecks += [pscustomobject]@{ Name = "-WhatIf -Reviewer luna -Route alibaba is refused with exit 1 (got $lunaRouteCode)"; Ok = ($lunaRouteCode -eq 1) }
+    # Sol's round-2 review of PR 783, R3: OpenCode's own stderr error line stops an Alibaba run even at
+    # exit 0; the model's words (stdout, or a stderr line that is not OpenCode's "Error: " line) never do.
+    $okRun = [pscustomobject]@{ ExitCode = 0; StdOut = 'review text'; StdErr = "`n> build · qwen3.8-flash`n`nError: Invalid API-key provided. For details, see the docs" }
+    $quoteRun = [pscustomobject]@{ ExitCode = 0; StdOut = "Error: Invalid API-key provided`nProvider not found: alibaba-token-plan"; StdErr = "> build · qwen3.8-flash`nthe model said Invalid API-key" }
+    $ruleChecks += [pscustomobject]@{ Name = 'an exit-0 Alibaba run with "Error: Invalid API-key" on stderr stops'; Ok = ((Get-AlibabaRunFailure $okRun 'X') -like '*Invalid API-key*') }
+    $ruleChecks += [pscustomobject]@{ Name = 'the error text in the model''s output (stdout, or a non-Error stderr line) does not stop a run'; Ok = ($null -eq (Get-AlibabaRunFailure $quoteRun 'X')) }
     # The owner's decision of 2026-10-05: Alibaba runs have their own data folder, never holding an
     # auth.json. Exercised on a scratch root (IC2_OPENCODE_DATA_HOME) with a dummy auth source.
     $d = Get-OpenCodeDataDirs -Root 'C:\r'
