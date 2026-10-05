@@ -1,4 +1,5 @@
 using IC2.Engine.Core;
+using IC2.Engine.Economy;
 using IC2.Engine.Model;
 using IC2.Engine.Movement;
 using IC2.Engine.Naval;
@@ -6,12 +7,55 @@ using IC2.Engine.Naval;
 namespace IC2.Engine.Recruitment.Commands;
 
 /// <summary>
-/// Wires <see cref="MercenaryHireCost.Compute"/> behind the command seam — <c>docs/task-catalogue.md</c>
-/// "T13 Recruitment and mercenaries", Done-when 2 and 4.
+/// Wires <see cref="MercenaryHireCost.Compute"/> behind the command seam as a <strong>minimum-purse
+/// gate</strong> — <c>docs/task-catalogue.md</c> "T13 Recruitment and mercenaries", Done-when 2 and 4.
 /// </summary>
+/// <remarks>
+/// <para>
+/// <strong>T143 (bug #755): the price is a gate, not a charge.</strong> An accepted hire appends the
+/// hired unit and consumes the pool slot, and changes no purse and no treasury. The value
+/// <see cref="MercenaryHireCost.Compute"/> returns is only the minimum the army's own purse must hold;
+/// the first money a mercenary actually costs is its quarterly <see cref="Economy.ArmyUpkeep"/> pay,
+/// which this handler does not touch
+/// <strong>[derived: code, <c>TRecruitMercs_RecruitMercUnit</c> @ <c>00441360</c> refuses when
+/// <c>purse &lt; (troops × price[type] div 1000) × quality</c> (:43633-43639), and nothing in the
+/// function writes the purse or the treasury (:43618-43701); Wine candidate: two hires left army 1's
+/// purse at 30 and the treasury at 2,270 both times, <c>Q4_03</c> → <c>Q4_04</c> → <c>Q4_06</c>,
+/// release <c>run-exp-v050-rules</c>]</strong>. Both presets charge nothing
+/// (<c>flags.economyPurses</c> is not read here).
+/// </para>
+/// <para>
+/// <strong>Bug #769: the original's low-supply refusal.</strong> Between the enemy-city refusal and the
+/// embarked fleet's capacity check the order tests the army's supplies:
+/// </para>
+/// <code>
+/// if (army.supplies * 10000 / total &lt; 15) "No mercenaries will join an army with so few supplies.";
+/// </code>
+/// <para>
+/// where <c>total</c> is the army's troops <em>before</em> the hire, in integer arithmetic
+/// <strong>[confirmed: code, <c>TUnitMap_RecruitMercenaries</c> @ <c>0x00446FF4</c>, :46858–46925]</strong>.
+/// The order's own sequence is 20 units, more than 100,000 troops, an enemy city, the supplies, then the
+/// fleet; the clone's order already differs elsewhere (its purse, troop and unit caps come before the
+/// enemy city), so the new refusal is placed only to stay after the enemy city and before the fleet
+/// <strong>[derived: the report's order, mapped onto the clone's]</strong>. An army with no troops is
+/// refused without dividing — the original's <c>div</c> by zero is no rule to copy
+/// <strong>[designed: a hand-built or imported state can reach it, and the engine's own paths cannot]</strong>.
+/// </para>
+/// </remarks>
 [CommandHandler]
 public sealed class HireMercenaryCommandHandler : ICommandHandler<HireMercenaryCommand>
 {
+    /// <summary>
+    /// The original's mercenary supply floor: a hire is refused when the army's supply percentage,
+    /// <c>supplies × 10000 / troops</c>, is below this
+    /// <strong>[confirmed: code, decompiled-mercenary-offer-list-and-position.md §1,
+    /// <c>TUnitMap_RecruitMercenaries</c> @ <c>0x00446FF4</c>: <c>army.supplies*10000/total &lt; 15</c>]</strong>.
+    /// The <c>10000</c> is <see cref="EconomyRules.SupplyPercentNumerator"/> through
+    /// <see cref="SupplyCapacity.PercentFull"/>; the <c>15</c> has no ruleset field and this task's Owns
+    /// forbids adding one, so it is carried here with its provenance rather than invented.
+    /// </summary>
+    private const int MinimumSupplyPercentForHire = 15;
+
     /// <inheritdoc/>
     public CommandOutcome Handle(HireMercenaryCommand command, CommandContext context)
     {
@@ -62,8 +106,11 @@ public sealed class HireMercenaryCommandHandler : ICommandHandler<HireMercenaryC
                 + $"city '{chosenCity.Id}' at ({chosenCity.X},{chosenCity.Y}).");
         }
 
-        var cost = MercenaryHireCost.Compute(slot.Troops, slot.UnitTypeId, slot.Quality, context.Ruleset);
-        if (army.Money < cost)
+        // Bug #755/T143: this is the minimum purse the hire must pass, not a charge. The hire below
+        // writes no Money at all; the value travels on the event as HireGate so no reader mistakes it
+        // for talents paid.
+        var hireGate = MercenaryHireCost.Compute(slot.Troops, slot.UnitTypeId, slot.Quality, context.Ruleset);
+        if (army.Money < hireGate)
         {
             return CommandOutcome.Reject(
                 HireMercenaryRejections.InsufficientMoney,
@@ -104,6 +151,22 @@ public sealed class HireMercenaryCommandHandler : ICommandHandler<HireMercenaryC
                 $"'{chosenCity.Id}' belongs to '{chosenCity.Owner}', at war with '{command.IssuingNationId}'.");
         }
 
+        // Bug #769: the original's supply floor, tested after the enemy city and before the fleet. The
+        // percentage is the one SupplyCapacity.PercentFull computes (supplies × the ruleset's numerator
+        // / troops, the panel's own readout); 15 is the constant the original compares against and has
+        // no ruleset field, which this task's Owns forbids adding
+        // [confirmed: decompiled-mercenary-offer-list-and-position.md §1,
+        // TUnitMap_RecruitMercenaries @ 0x00446FF4, :46858-46925]. total is read before the hire.
+        var totalTroopsBeforeHire = army.TotalTroops;
+        if (totalTroopsBeforeHire == 0
+            || SupplyCapacity.PercentFull(army.SupplyTons, totalTroopsBeforeHire, context.Ruleset)
+               < MinimumSupplyPercentForHire)
+        {
+            return CommandOutcome.Reject(
+                HireMercenaryRejections.TooFewSupplies,
+                "No mercenaries will join an army with so few supplies.");
+        }
+
         if (army.IsEmbarked)
         {
             var fleet = state.FleetById(army.AboardFleetId!);
@@ -123,16 +186,17 @@ public sealed class HireMercenaryCommandHandler : ICommandHandler<HireMercenaryC
             Quality: slot.Quality,
             Name: $"Mercenary unit (label {slot.NameLabel})");
 
+        // Bug #755/T143: the hire takes nothing from the purse or the treasury. The army changes only
+        // by its new unit.
         var updatedArmy = army with
         {
-            Money = army.Money - cost,
             Units = ValueList.From(army.Units.Append(hiredUnit)),
         };
 
         var updatedPool = state.MercenaryPool.Where(s => s.SlotIndex != slot.SlotIndex);
 
         context.Events.Publish(new MercenaryHired(
-            army.Nation, army.Id, slot.SlotIndex, slot.UnitTypeId, slot.Troops, slot.Quality, cost));
+            army.Nation, army.Id, slot.SlotIndex, slot.UnitTypeId, slot.Troops, slot.Quality, hireGate));
 
         var updatedArmies = state.Armies.Select(a =>
             string.Equals(a.Id, army.Id, StringComparison.Ordinal) ? updatedArmy : a);

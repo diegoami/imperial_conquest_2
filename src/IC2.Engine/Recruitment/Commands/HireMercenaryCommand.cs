@@ -3,21 +3,26 @@ using IC2.Engine.Core;
 namespace IC2.Engine.Recruitment.Commands;
 
 /// <summary>
-/// Hires one offer from the 50-slot mercenary pool into the issuing nation's own army, paid from that
+/// Hires one offer from the 50-slot mercenary pool into the issuing nation's own army, gated by that
 /// army's own money purse, never the national treasury — <c>docs/task-catalogue.md</c> "T13 Recruitment
 /// and mercenaries", Done-when 2.
 /// </summary>
 /// <remarks>
 /// Wraps <c>TRecruitMercs_RecruitMercUnit</c> (<c>0x00441360</c>)
-/// <strong>[confirmed: decompiled-unit-map-orders-and-record-fields.md]</strong> for the hire cost, the
-/// army-purse debit and the <c>Label</c> copy. On acceptance the pool slot is consumed (modelled as
+/// <strong>[confirmed: decompiled-unit-map-orders-and-record-fields.md]</strong> for the <c>Label</c>
+/// copy. On acceptance the pool slot is consumed (modelled as
 /// removed from <see cref="Model.GameState.MercenaryPool"/>, the same "empty slots are simply absent"
 /// convention <see cref="Model.MercenaryPoolSlot"/>'s own remarks describe for this model)
 /// <strong>[confirmed: mercenary-pool-record.md's <c>winter_3</c> save pair, and in code by
 /// decompiled-fleet-tax-and-mercenary-formulas.md's <c>0xFFFF</c> sentinel write]</strong>. The hired
 /// unit is appended to the army with its pool <c>Label</c> copied into the new
-/// <see cref="Model.UnitSlot.MercenaryLabel"/> marker, and <see cref="MercenaryHireCost.Compute"/> is
-/// debited from the army's own <see cref="Model.ArmyState.Money"/>.
+/// <see cref="Model.UnitSlot.MercenaryLabel"/> marker; <strong>no purse and no treasury moves</strong>.
+/// <see cref="MercenaryHireCost.Compute"/> is the <em>minimum</em> the army's own
+/// <see cref="Model.ArmyState.Money"/> must hold for the hire to be allowed, not a charge: T143
+/// (bug #755) turns the one-time debit the clone used to apply into the gate the original has, and the
+/// first money a mercenary costs is its quarterly <c>ArmyUpkeep</c> pay
+/// <strong>[derived: code, <c>TRecruitMercs_RecruitMercUnit</c>: the gate is at :43633-43639 and nothing
+/// in :43618-43701 writes the purse or the treasury]</strong>.
 /// <para>
 /// <strong>T76 adds the position gate the original has</strong>
 /// <strong>[confirmed: decompiled-mercenary-offer-list-and-position.md §1, §2]</strong>: the ordering
@@ -80,6 +85,17 @@ public static class HireMercenaryRejections
     public static readonly RejectionCode EnemyCity = new("mercenary.enemy-city");
 
     /// <summary>
+    /// Bug #769: the army holds too few supplies for any mercenary to join it — the order's own
+    /// <c>army.supplies*10000/total &lt; 15</c> refusal, <em>"No mercenaries will join an army with so
+    /// few supplies."</em> <strong>[confirmed: decompiled-mercenary-offer-list-and-position.md §1,
+    /// <c>TUnitMap_RecruitMercenaries</c> @ <c>0x00446FF4</c>, :46858–46925]</strong>. The code string is
+    /// <strong>[designed]</strong>, the refusal itself is the original's. An army with no troops is
+    /// refused the same way without dividing <strong>[designed: the original's <c>div</c> by zero is no
+    /// rule to copy]</strong>.
+    /// </summary>
+    public static readonly RejectionCode TooFewSupplies = new("mercenary.too-few-supplies");
+
+    /// <summary>
     /// The hiring army's own purse cannot afford <see cref="MercenaryHireCost.Compute"/> — the confirmed
     /// dialog refusal <em>"Your army has too little money to pay these mercenaries."</em>
     /// (<c>tests/fixtures/corpus.json</c> <c>error.mercenaryInsufficientMoney</c>).
@@ -130,7 +146,12 @@ public static class HireMercenaryRejections
 /// <param name="UnitTypeId">The hired unit's type.</param>
 /// <param name="Troops">The hired unit's troop count.</param>
 /// <param name="Quality">The hired unit's quality tier.</param>
-/// <param name="TalentsPaid">Talents debited from the army's own purse.</param>
+/// <param name="HireGate">
+/// The minimum purse the hiring army's own money had to hold for the hire to pass —
+/// <see cref="MercenaryHireCost.Compute"/>'s value. <strong>Not money paid</strong>: an accepted hire
+/// debits no purse and no treasury (T143, bug #755). The name changed from <c>TalentsPaid</c> so a reader
+/// cannot take it for a debit; the type and the domain-event name are unchanged.
+/// </param>
 [DomainEvent("recruitment.mercenary-hired")]
 public sealed record MercenaryHired(
     string NationId,
@@ -139,4 +160,4 @@ public sealed record MercenaryHired(
     string UnitTypeId,
     int Troops,
     int Quality,
-    int TalentsPaid) : DomainEvent;
+    int HireGate) : DomainEvent;
