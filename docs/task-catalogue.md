@@ -190,6 +190,10 @@ graph TD
   T124 --> T129
   T132[T132 hideable info panel]
   T134[T134 Supply army] --> T111
+  T135[T135 refused attack declares no war]
+  T136[T136 disband lowers mobilisation]
+  T137[T137 resumed first end news]
+  T116 --> T138[T138 game's end screen]
   T23 --> T26[T26 scenario docs+examples]
   T29 --> T26
   T22 --> T28[T28 nightly soak gate]
@@ -973,7 +977,7 @@ Mercenaries on the map (after T76) → [full entry](tasks/T113.md) · [#571](htt
 
 #### T114 Join armies, Join fleets and Transfer ships take their partner one tile away
 
-Join and transfer at distance 1 (correction task for bug #555, after T93) → [full entry](tasks/T114.md) · [#633](https://github.com/diegoami/imperial_conquest_2/issues/633)
+Join and transfer at distance 1 (correction task for bug #555, after T93; it folds bugs #584 and #596, the split's placement, by the user's decision of 2026-10-05) → [full entry](tasks/T114.md) · [#633](https://github.com/diegoami/imperial_conquest_2/issues/633)
 
 ---
 
@@ -1094,6 +1098,30 @@ CI on maintenance lines (the first item of the `release/0.4` line, [release-plan
 #### T134 Supply army: the Army menu's Supply army dialog, replacing the city panel's supply slider
 
 Supply army (the user's decision of 2026-10-04, *"put Supply army on 0.4.2 as its own task"*: split out of T111, a `v0.4.2` item on the `release/0.4` line, ported forward to `main`; it absorbs bug #697) → [full entry](tasks/T134.md) · [#698](https://github.com/diegoami/imperial_conquest_2/issues/698)
+
+---
+
+#### T135 An attack that is refused declares no war
+
+Refused attack declares no war (correction task for bug #579, the v0.5.0 triage of 2026-10-05) → [full entry](tasks/T135.md) · [#705](https://github.com/diegoami/imperial_conquest_2/issues/705)
+
+---
+
+#### T136 Disbanding a regular unit lowers the nation's mobilisation
+
+Disband lowers mobilisation (correction task for bug #631, the v0.5.0 triage of 2026-10-05) → [full entry](tasks/T136.md) · [#706](https://github.com/diegoami/imperial_conquest_2/issues/706)
+
+---
+
+#### T137 A resumed session's first `end` shows the same News as an uninterrupted one
+
+Resumed first end news (correction task for item 1 of the T95 follow-up #487, the v0.5.0 triage of 2026-10-05; in no release gate, `post-v0.5.0`, by the user's decision of 2026-10-05, it starts after the `v0.5.0` tag) → [full entry](tasks/T137.md) · [#707](https://github.com/diegoami/imperial_conquest_2/issues/707)
+
+---
+
+#### T138 The game's end is shown on the screen
+
+Game's end screen (bug #701, the v0.5.0 triage of 2026-10-05) → [full entry](tasks/T138.md) · [#708](https://github.com/diegoami/imperial_conquest_2/issues/708)
 
 ---
 
@@ -1240,7 +1268,7 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T111](#t111-the-unit-maps-army-orders-each-in-its-own-dialog) | Army orders | M18 | Sonnet | High | **Opus**/Medium + human | T100, T105, T106, T107, T114, T117, T134 | [#569](https://github.com/diegoami/imperial_conquest_2/issues/569) |
 | [T112](#t112-the-unit-maps-fleet-and-city-orders-and-the-selected-units-command-strip) | Fleet and City orders, command strip | M18 | Sonnet | High | **Opus**/Medium + human | T111, T114 | [#570](https://github.com/diegoami/imperial_conquest_2/issues/570) |
 | [T113](#t113-mercenaries-on-the-map-show-mercenaries-and-recruit-mercenaries) | Mercenaries on the map | M18 | Sonnet | Medium | **Opus**/Medium + human | T76, T110, T112 | [#571](https://github.com/diegoami/imperial_conquest_2/issues/571) |
-| [T114](#t114-join-armies-join-fleets-and-transfer-ships-take-their-partner-one-tile-away) | Join and transfer at distance 1 | — | Sonnet | Medium | **Opus**/Medium | T93 | [#633](https://github.com/diegoami/imperial_conquest_2/issues/633) |
+| [T114](#t114-join-armies-join-fleets-and-transfer-ships-take-their-partner-one-tile-away) | Join and transfer at distance 1, split one tile away | — | Sonnet | High | **Opus**/Medium | T93 | [#633](https://github.com/diegoami/imperial_conquest_2/issues/633) |
 | [T115](#t115-in-classical-faithful-recruiting-and-fortifying-can-put-the-treasury-into-debt) | Faithful recruit and fortify into debt | — | Sonnet | Medium | **Opus**/Medium | — | [#634](https://github.com/diegoami/imperial_conquest_2/issues/634) |
 | [T116](#t116-a-battle-fought-against-a-human-seat-in-the-ai-phase-is-shown-at-that-seats-turn-start) | AI-phase battles at the turn start | M18 | Sonnet | Medium | **Opus**/Medium + human | — | [#635](https://github.com/diegoami/imperial_conquest_2/issues/635) |
 | [T117](#t117-army-to-army-transfer-rebalances-supply-as-the-originals-ok-does-and-never-refuses-on-capacity) | Army transfer rebalances supply | — | Sonnet | Medium | **Opus**/Medium | T106 | [#636](https://github.com/diegoami/imperial_conquest_2/issues/636) |
@@ -1261,3 +1289,7 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T132](#t132-the-right-hand-info-panel-can-be-hidden-and-shown-again) | Hideable info panel | M18 | Sonnet | Medium | Sol + human | — | [#690](https://github.com/diegoami/imperial_conquest_2/issues/690) |
 | [T133](#t133-ci-runs-on-pushes-to-release-branches) | CI on release branches | M20 | Sonnet | Low | Sol | — | [#696](https://github.com/diegoami/imperial_conquest_2/issues/696) |
 | [T134](#t134-supply-army-the-army-menus-supply-army-dialog-replacing-the-city-panels-supply-slider) | Supply army | M18 | Sonnet | Medium | Sol + human | — | [#698](https://github.com/diegoami/imperial_conquest_2/issues/698) |
+| [T135](#t135-an-attack-that-is-refused-declares-no-war) | Refused attack declares no war | — | Sonnet | Medium | Sol | — | [#705](https://github.com/diegoami/imperial_conquest_2/issues/705) |
+| [T136](#t136-disbanding-a-regular-unit-lowers-the-nations-mobilisation) | Disband lowers mobilisation | M14 | Sonnet | Low | Sol | — | [#706](https://github.com/diegoami/imperial_conquest_2/issues/706) |
+| [T137](#t137-a-resumed-sessions-first-end-shows-the-same-news-as-an-uninterrupted-one) | Resumed first end news | — | Sonnet | Medium | Sol | — | [#707](https://github.com/diegoami/imperial_conquest_2/issues/707) |
+| [T138](#t138-the-games-end-is-shown-on-the-screen) | Game's end screen | M18 | Sonnet | High | Sol + human | T116 | [#708](https://github.com/diegoami/imperial_conquest_2/issues/708) |
