@@ -100,7 +100,8 @@
     (exit 3) when quota-tracker's /quota/openrouter does not answer or free_model_daily_requests has
     50 or fewer left, and when OpenCode's own stderr "Error: " line shows a 429 or rate limit
     ("rate-limited, skipped", never retried). Nothing private reaches it: a brief naming
-    ic2-test-fixtures, assets.local.ini, IC2_FIXTURES_DIR or a .dat path is refused (exit 1), as is
+    ic2-test-fixtures, assets.local.ini, IC2_FIXTURES_DIR, a .dat or .sav path, a secret prefix, a key assignment, a long
+    high-entropy string or a key variable's value is refused (exit 1, naming the rule only), as is
     -FixturesDir, and its OpenCode runs without IC2_FIXTURES_DIR (docs/environment.md).
     OpenCode reads CLAUDE.md as its instructions file when no AGENTS.md exists; that is
     harmless here (the reviewer gets the token-economy rules) and no AGENTS.md is added.
@@ -667,11 +668,33 @@ function Invoke-ReviewParserSelfTest {
     $ruleChecks += [pscustomobject]@{ Name = 'advisory ids: nemotron, north-mini, inkling, laguna are the four free OpenRouter models'; Ok = ($models['nemotron'] -eq 'openrouter/nvidia/nemotron-3-ultra-550b-a55b:free' -and $models['north-mini'] -eq 'openrouter/cohere/north-mini-code:free' -and $models['inkling'] -eq 'openrouter/thinkingmachines/inkling:free' -and $models['laguna'] -eq 'openrouter/poolside/laguna-s-2.1:free' -and ((@($advisoryReviewers) | Sort-Object) -join ',') -eq 'inkling,laguna,nemotron,north-mini') }
     $ruleChecks += [pscustomobject]@{ Name = 'advisory reviewers are in no family (they never exclude and are never excluded)'; Ok = (@($advisoryReviewers | Where-Object { $reviewerOf.ContainsKey($_) -or $excludeSet -contains $_ }).Count -eq 0 -and @($reviewerOf.Keys | Where-Object { @($reviewerOf[$_]) | Where-Object { $advisoryReviewers -contains $_ } }).Count -eq 0) }
     $ruleChecks += [pscustomobject]@{ Name = 'advisory header: "Plan review (Nemotron)" -> "Plan review (Nemotron, advisory — not counted)"'; Ok = ((Get-AdvisoryHeader 'Plan review (Nemotron)' 'Nemotron') -eq 'Plan review (Nemotron, advisory — not counted)' -and (Get-AdvisoryHeader 'T94 review (Luna)' 'North Mini') -eq 'T94 review (North Mini, advisory — not counted)') }
-    $leakChecks = @{ 'clone diegoami/ic2-test-fixtures first' = 'ic2-test-fixtures'; 'see assets.local.ini' = 'assets.local.ini'; 'set IC2_FIXTURES_DIR' = 'IC2_FIXTURES_DIR'; 'read C:\games\IC\SAVE01.DAT' = 'C:\games\IC\SAVE01.DAT' }
-    foreach ($k in $leakChecks.Keys) {
-        $ruleChecks += [pscustomobject]@{ Name = "brief guard catches '$($leakChecks[$k])'"; Ok = (@(Get-AdvisoryBriefLeaks $k) -contains $leakChecks[$k]) }
+    # Fake secrets only, assembled at run time so no key-shaped literal sits in the file.
+    $fakeOr = 'sk-or-v1-' + ('ab12' * 16)
+    $fakeMixed = 'Zq9' + ('xY7wK2aP4mR8tB1n' * 2)
+    $fakeHex32 = 'deadbeef' * 4
+    $leakChecks = [ordered]@{
+        'clone diegoami/ic2-test-fixtures first' = 'ic2-test-fixtures'
+        'see assets.local.ini' = 'assets.local.ini'
+        'set IC2_FIXTURES_DIR' = 'IC2_FIXTURES_DIR'
+        'read C:\games\IC\SAVE01.DAT' = 'a .dat path'
+        'compare with C:\saves\turn12.SAV first' = 'a .sav path'
+        "use $fakeOr for the call" = 'a secret prefix (sk-, ghp_, AKIA, Bearer, ...)'
+        ('the header is Authorization: Bearer ' + ('Abc123' * 3)) = 'a secret prefix (sk-, ghp_, AKIA, Bearer, ...)'
+        ('OPENROUTER_API_KEY=' + ('q' * 12)) = 'a key, token, secret or password assignment'
+        "the value is $fakeMixed" = 'a long high-entropy string'
+        "a 32-hex blob $fakeHex32" = 'a long high-entropy string'
     }
-    $ruleChecks += [pscustomobject]@{ Name = 'brief guard passes a public brief (data folder, update, metadata)'; Ok = (@(Get-AdvisoryBriefLeaks "T0 review (Nemotron)`nCheck data/worlds and the update path; metadata only.").Count -eq 0) }
+    foreach ($k in $leakChecks.Keys) {
+        $hits = @(Get-AdvisoryBriefLeaks $k)
+        # The guard names the rule and never echoes the matched text.
+        $ruleChecks += [pscustomobject]@{ Name = "brief guard: $($leakChecks[$k])"; Ok = ($hits -contains $leakChecks[$k] -and -not ($hits | Where-Object { $k.Contains($_) -and $_ -notin 'ic2-test-fixtures', 'assets.local.ini', 'IC2_FIXTURES_DIR' })) }
+    }
+    $savedFake = $env:IC2_SELFTEST_FAKE_API_KEY
+    $env:IC2_SELFTEST_FAKE_API_KEY = 'fake' + ('k3y' * 4)
+    try { $hits = @(Get-AdvisoryBriefLeaks "paste $($env:IC2_SELFTEST_FAKE_API_KEY) here") } finally { $env:IC2_SELFTEST_FAKE_API_KEY = $savedFake }
+    $ruleChecks += [pscustomobject]@{ Name = 'brief guard: the literal value of a key variable in the environment'; Ok = ($hits -contains 'the value of IC2_SELFTEST_FAKE_API_KEY') }
+    $shaBrief = "T0 review (Nemotron)`nHEAD $('0123456789abcdef0123' * 2) (a commit), blob $('fedcba9876543210' * 4) (a SHA-256), short 7a8574d,`ntitle ic2-pr785-nemotron-44da75032926, path C:/Users/diego/projects/ic2-work/590-external-review-deadbeef, scripts/Invoke-OpenCodeWatched.ps1.`nCheck data/worlds, the update path and the key: what blocks; metadata only; Get-OpenCodeRunArguments; the risk-assessment.`nTests AttritionPhasesAcceptRegistrationWithNeitherT08NorT14Present and On_the_configured_machine_thracia_is_at_index_5_of_16_in_the_named_save, branch T142-split-aboard-and-scan-order, DoD01_AnExactTieAtSeaGoesToTheDefender."
+    $ruleChecks += [pscustomobject]@{ Name = 'brief guard passes a public brief (a 40-hex SHA, a 64-hex hash, paths, prose about keys)'; Ok = (@(Get-AdvisoryBriefLeaks $shaBrief).Count -eq 0) }
     # The 429 rule: OpenCode's own stderr "Error: " line (a fake run here), whatever the exit code; never the model's words.
     $limitRun = [pscustomobject]@{ ExitCode = 0; StdOut = 'review text'; StdErr = "> build · nvidia/nemotron-3-ultra-550b-a55b:free`n`nError: 429 Too Many Requests: free-models-per-min" }
     $limitRun1 = [pscustomobject]@{ ExitCode = 1; StdOut = ''; StdErr = 'Error: Rate limit exceeded: free-models-per-day' }
@@ -835,13 +858,44 @@ function Publish-ReviewComment {
 # --- Advisory reviewers (the free OpenRouter models; the owner's decision of 2026-10-06) ------------
 function Get-AdvisoryBriefLeaks([string] $Text) {
     # What in a brief must never reach a free model (its provider may log and train on prompts): the
-    # private fixtures repository, the local asset config, the fixtures variable, or a .dat path (the
-    # original game's DAT and saves). Returns the matches; empty means the brief may go.
+    # private fixtures repository, the local asset config, the fixtures variable, a .dat or .sav path
+    # (the original game's DAT and saves), and anything key-like (Sol's review of PR 785, R1 and R2).
+    # Returns the NAMES of the rules that matched, never the matched text (a key must not be echoed);
+    # empty means the brief may go. The brief is the only leak path: the model reads nothing else
+    # private (the repository and its PRs are public).
     $found = @()
     foreach ($needle in 'ic2-test-fixtures', 'assets.local.ini', 'IC2_FIXTURES_DIR') {
         if ($Text -match [regex]::Escape($needle)) { $found += $needle }
     }
-    foreach ($m in [regex]::Matches($Text, '(?i)[\w\\/:.~-]*\.dat\b')) { $found += $m.Value }
+    if ($Text -match '(?i)\.dat\b') { $found += 'a .dat path' }
+    if ($Text -match '(?i)\.sav\b') { $found += 'a .sav path' }
+    # Common secret prefixes, with a body after them (the bare prefix in prose passes).
+    if ($Text -cmatch '(?<![\w-])(sk-ant-|sk-or-|sk-|ghp_|gho_|ghs_|github_pat_|xox[abp]-)[A-Za-z0-9_-]{8,}' -or
+        $Text -cmatch '(?<![A-Za-z0-9])AKIA[A-Z0-9]{16}' -or $Text -match '(?i)\bBearer\s+[A-Za-z0-9._~+/=-]{8,}') { $found += 'a secret prefix (sk-, ghp_, AKIA, Bearer, ...)' }
+    # An assignment to a key, token, secret or password name.
+    if ($Text -cmatch '\b[A-Z0-9_]*(KEY|TOKEN|SECRET|PASSWORD)\s*[:=]\s*[''"]?[^\s''"]{8,}' -or
+        $Text -match '(?i)\b\w*(api[_-]?key|access[_-]?token|secret|password)\s*[:=]\s*[''"]?[^\s''"]{8,}') { $found += 'a key, token, secret or password assignment' }
+    # A long high-entropy run: 32+ characters of base64/hex alphabet. Pure hex passes only at 40 (a git
+    # SHA) or 64 (a SHA-256). Any other run is risky when it mixes upper case, lower case and digits AND
+    # has 5 or more upper-upper, upper-digit or digit-upper neighbours: a random 32-character base64
+    # string has about 9.6 (94.5% have 5 or more), while none of the 323 mixed identifiers in this
+    # repository's docs, scripts and tests (test names, branch names; measured 2026-10-06) has 5.
+    foreach ($m in [regex]::Matches($Text, '[A-Za-z0-9+=_-]{32,}')) {
+        $v = $m.Value
+        $risky = if ($v -match '^[0-9a-fA-F]+$') { $v.Length -ne 40 -and $v.Length -ne 64 }
+            elseif (-not ($v -cmatch '[A-Z]' -and $v -cmatch '[a-z]' -and $v -match '[0-9]')) { $false }
+            else { ([regex]::Matches($v, '(?=([A-Z][A-Z0-9]|[0-9][A-Z]))')).Count -ge 5 }
+        if ($risky) { $found += 'a long high-entropy string'; break }
+    }
+    # The literal value of any key variable this process or the user environment holds (compared, never printed).
+    $keyNames = @('ALIBABA_TOKEN_PLAN_API_KEY', 'OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'GH_TOKEN', 'GITHUB_TOKEN', 'ZAI_API_KEY')
+    $keyNames += @([System.Environment]::GetEnvironmentVariables('Process').Keys | Where-Object { $_ -match '(KEY|TOKEN|SECRET|PASSWORD)$' })
+    foreach ($k in @($keyNames | Select-Object -Unique)) {
+        foreach ($scope in 'Process', 'User') {
+            $val = try { [System.Environment]::GetEnvironmentVariable($k, $scope) } catch { $null }
+            if ($val -and $val.Length -ge 8 -and $Text.Contains($val)) { $found += "the value of $k" }
+        }
+    }
     return @($found | Select-Object -Unique)
 }
 
