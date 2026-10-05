@@ -10,7 +10,7 @@ Commands:
   disband-army <army> - disband an army near one of your own cities
   join-armies <survivor-army> <absorbed-army> - merge one army into another
   join-units <army> <unit-index> <unit-index> - merge two of an army's own unit slots
-  split-army <army> <new-army> <unit-index> - split one unit slot off into a new army
+  split-army <army> <new-army> <i,j,...> [supply=<tons>] [money=<talents>] - split units, supply and money off into a new army
   order-city <city> <order-id> <points> - place a standing order on one of your own cities
   declare-war <nation> - declare war on another nation
   make-peace <nation> - propose peace with a nation you are at war with
@@ -26,7 +26,7 @@ Commands:
   order-fleet <city> <ships> <new-fleet> - order a new fleet built at a coastal city
   repair-fleet <fleet> <points> - spend repair points on a fleet's condition
   scuttle-fleet <fleet> - scuttle one of your own fleets
-  split-fleet <fleet> <new-fleet> <ships> - split ships off into a new fleet
+  split-fleet <fleet> <new-fleet> <ships> [supply=<tons>] [money=<talents>] - split ships, supply and money off into a new fleet
   join-fleets <survivor-fleet> <absorbed-fleet> - merge one fleet into another
   embark-army <army> <fleet> - load an army aboard an adjacent fleet
   disembark-army <army> [<x> <y>] - unload an embarked army onto an adjacent land tile

@@ -83,7 +83,7 @@ mac-marines moved from (145,41) to (144,40), spending 1 of 9 moves.
 mac-marines bought 1 tons of supply at pella, free at your own city.
 
 > move mac-spare 145 41
-mac-spare moved from (144,41) to (145,41), spending 1 of 9 moves.
+mac-spare moved from (144,41) to (145,41), spending 1 of 10 moves.
 
 > disband-army mac-spare
 armies.disband-army accepted.
@@ -503,7 +503,7 @@ Armies:
   army-4 (Seleucid) @ (221,70): 36504 troops in 11 units, supply 365t (99%), morale 70, moves 9
   army-5 (Seleucid) @ (174,40): 36640 troops in 9 units, supply 366t (99%), morale 70, moves 9
   army-7 (Ptolemaic) @ (191,94): 56400 troops in 10 units, supply 564t (100%), morale 70, moves 8
-  army-8 (Macedonia) @ (136,51): 4525 troops in 2 units, supply 45t (99%), morale 70, moves 10
+  army-8 (Macedonia) @ (136,51): 4525 troops in 2 units, supply 3t (6%), morale 68, moves 9
   army-9 (Gaul) @ (92,34): 40500 troops in 8 units, supply 385t (95%), morale 70, moves 8
   army-10 (Celtiberia) @ (46,64): 33000 troops in 7 units, supply 314t (95%), morale 70, moves 9
   army-11 (Bithynia) @ (196,33): 33600 troops in 8 units, supply 301t (89%), morale 70, moves 9
@@ -910,13 +910,13 @@ economy.transfer-money accepted.
 economy.transfer-money accepted.
 
 > move army-8 136 42
-army-8 moved from (136,51) to (136,42), spending 10 of 10 moves.
+army-8 moved from (136,51) to (136,43), spending 9 of 9 moves.
 
 > move mac-marines 137 41
 mac-marines moved from (144,40) to (137,41), spending 9 of 9 moves.
 
 > army-transfer army-8 mac-marines supply=10 money=20
-armies.army-transfer accepted.
+armies.army-transfer rejected (armies.army-transfer-not-adjacent): Armies 'army-8' and 'mac-marines' must be exactly one tile apart.
 
 > split-unit mac-marines 0 1000
 armies.split-unit accepted.
@@ -929,7 +929,7 @@ armies.disband-unit accepted.
 
 > end
 Macedonia (macedonia) ends its turn.
-Numidia (numidia) takes its turn: 2 orders issued.
+Numidia (numidia) takes its turn: 1 order issued.
 Gaul (gaul) takes its turn: 1 order issued.
 Greece (greece) takes its turn: 0 orders issued.
 Celtiberia (celtiberia) takes its turn: 1 order issued.
@@ -940,6 +940,7 @@ Galatia (galatia) takes its turn: 1 order issued.
 Armenia (armenia) takes its turn: 0 orders issued.
 Media (media) takes its turn: 0 orders issued.
 Thracia (thracia) takes its turn: 1 order issued.
+  Weather: storm-damages-fleet (week 5).
 Rome (rome) takes its turn: 1 order issued.
 Carthage (carthage) takes its turn: 1 order issued.
 Seleucid (seleucid) takes its turn: 1 order issued.
@@ -950,11 +951,11 @@ News:
   Week  7      Autumn      270BC
 
 > move army-8 141 40
-army-8 moved from (136,42) to (141,40), spending 7 of 10 moves.
+army-8 moved from (136,43) to (141,40), spending 6 of 9 moves.
 
 > end
 Macedonia (macedonia) ends its turn.
-Numidia (numidia) takes its turn: 0 orders issued.
+Numidia (numidia) takes its turn: 1 order issued.
 Gaul (gaul) takes its turn: 1 order issued.
 Greece (greece) takes its turn: 0 orders issued.
 Celtiberia (celtiberia) takes its turn: 1 order issued.
@@ -965,6 +966,8 @@ Galatia (galatia) takes its turn: 1 order issued.
 Armenia (armenia) takes its turn: 0 orders issued.
 Media (media) takes its turn: 0 orders issued.
 Thracia (thracia) takes its turn: 1 order issued.
+  Weather: drought-reduces-supply (week 7).
+  Weather: storm-damages-fleet (week 7).
   Weather: storm-damages-fleet (week 7).
   Weather: storm-damages-fleet (week 7).
 Rome (rome) takes its turn: 1 order issued.
@@ -977,7 +980,7 @@ News:
   Week  9      Autumn      270BC
 
 > accept-offer
-diplomacy.accept-pending-offer accepted.
+diplomacy.accept-pending-offer rejected (diplomacy.no-pending-offer): There is no pending offer to accept.
 
 > move army-8 148 40
 army-8 moved from (141,40) to (148,40), spending 7 of 10 moves.
