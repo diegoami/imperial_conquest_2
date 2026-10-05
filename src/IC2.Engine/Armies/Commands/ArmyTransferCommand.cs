@@ -4,58 +4,77 @@ using IC2.Engine.Model;
 namespace IC2.Engine.Armies.Commands;
 
 /// <summary>
-/// Moves the listed units, and the given supply and money, from one of the issuing nation's own armies
-/// to another at Chebyshev distance exactly 1 — <c>docs/tasks/T106.md</c> "Army-to-army transfer of units,
-/// supply and money", the original's <c>TUnitMap_ArmyToArmyTransfer</c> / <c>TArmyToArmy</c> dialog.
+/// Moves the listed units, and the given supply and money, between two of the issuing nation's own armies
+/// at Chebyshev distance exactly 1 — <c>docs/tasks/T106.md</c> "Army-to-army transfer of units, supply and
+/// money", corrected by <c>docs/tasks/T117.md</c> to the original's <c>TUnitMap_ArmyToArmyTransfer</c> /
+/// <c>TArmyToArmy</c> dialog and its single <c>OK</c> commit. The command carries both directions of that
+/// one dialog: <see cref="UnitIndexes"/>/<see cref="SupplyTons"/>/<see cref="Money"/> go from
+/// <see cref="FromArmyId"/> (A, the selected army) to <see cref="ToArmyId"/> (B, its partner), and the
+/// <c>Back…</c> fields go from B to A.
 /// </summary>
 /// <remarks>
 /// <para>
+/// <strong>One command is one dialog <c>OK</c>, both ways</strong> [designed: the user's decision of
+/// 2026-10-03, with the code evidence below; one <c>OK</c> in the original commits the whole dialog].
+/// In the original A is the army selected when the order was given and B is its partner, and one
+/// <c>OK</c> commits every change at once; here A is the first named army and B the second. An order with
+/// only the A-to-B options is exactly T106's order, so every existing script line still parses.
+/// </para>
+/// <para>
 /// <strong>The original moves units, supply and money in one dialog, and conserves them exactly</strong>
 /// [confirmed: <c>army-to-army-transfer-confirmed.md</c>] — six units (27,705 troops) and 70 talents moved
-/// Rome army 2 → army 0 in one sitting, and both troops and money were exactly reciprocal. To move the
-/// other way, swap <see cref="FromArmyId"/> and <see cref="ToArmyId"/>; the dialog's <c>10s</c>/<c>100s</c>
-/// steppers are a UI detail of the same direction-per-call shape.
+/// Rome army 2 → army 0 in one sitting, and both troops and money were exactly reciprocal.
 /// </para>
 /// <para>
-/// <strong>The receiving army keeps the army rules the Join armies limits come from</strong>
-/// [confirmed: <c>decompiled-unit-map-orders-and-record-fields.md</c>]: at most
+/// <strong>After the move, <c>OK</c> rebalances supply and merges an emptied army</strong> [confirmed:
+/// <c>2026-10-03-army-to-army-ok-supply-rebalancing.md</c> (research <c>a380a8e</c>), <c>TArmyToArmy_OK</c>
+/// <c>:44572–44649</c>]. With <c>capA = troops(A) div 100</c> and <c>capB = troops(B) div 100</c>
+/// (<see cref="Economy.SupplyCapacity.ArmyCapacityTons"/>, no dialog bonus): A's supply above <c>capA</c>
+/// goes to B, then B's above <c>capB</c> goes back to A. So supply is conserved exactly, and when both end
+/// over capacity B ends at exactly <c>capB</c> while A keeps everything else, above its own capacity. An
+/// army left with no units is merged into the other and disbanded, taking all its supply and money
+/// uncapped. The steps run once, after both directions are written, on every accepted transfer — a
+/// money-only or unit-only order included. <c>OK</c> refuses nothing on capacity: the dialog's supply
+/// spinner room, <c>troops div 100 + 1</c>, is that dialog's own bound, not this command's.
+/// </para>
+/// <para>
+/// <strong>The 20-unit and 100,000-troop limits are the Join armies rules</strong> [confirmed:
+/// <c>decompiled-unit-map-orders-and-record-fields.md</c>]: at most
 /// <see cref="Model.ArmyManagementRules.MaxUnitsPerArmy"/> units and
-/// <see cref="Model.ArmyManagementRules.MaxTroopsPerArmy"/> troops. Supply capacity and the purse cap are
-/// reused from where the engine already computes them
-/// (<see cref="Economy.SupplyCapacity.ArmyDialogCapacityTons"/>,
-/// <see cref="Model.EconomyRules.PurseCapPerUnit"/>), never re-derived here. Whether <c>TArmyToArmy</c>
-/// itself enforces any of these is <c>[open]</c> — neither report reads a cap in its code — so these are
-/// the task's own enforcement, not a claim about the original.
+/// <see cref="Model.ArmyManagementRules.MaxTroopsPerArmy"/> troops, applied to each army's composition
+/// after both directions. They and <see cref="Model.EconomyRules.PurseCapPerUnit"/> never re-derive a
+/// literal here. Money is never rebalanced: the purse cap is the dialog's money stepper,
+/// <c>min(step, 1000 − money(receiver), money(giver))</c>, so it bounds only money moved between two
+/// surviving armies, and the emptied-army merge pools a purse uncapped.
 /// </para>
 /// <para>
-/// <strong>An army left with no units is merged and disbanded</strong> [confirmed from code:
-/// <c>army-to-army-transfer-confirmed.md</c>, the <c>OK</c> paragraph; the branch was not exercised in the
-/// observed saves]. Its supply and money pool into the other army, exactly as
-/// <c>JoinArmiesCommandHandler</c> pools them, and the emptied army is removed.
-/// </para>
-/// <para>
-/// <strong>Not in scope.</strong> The report's supply-rebalancing branch in <c>TArmyToArmy_OK</c>
-/// (<c>FUN_0044a698</c>), not observed triggering, is not implemented; the dialog's single-unit Disband is
-/// T107's <c>disband-unit</c>. An army aboard a fleet is not addressed — the reports are silent and the
-/// task leaves it to the distance rule (see this task's PR body).
+/// <strong>Not in scope.</strong> The dialog's single-unit Disband is T107's <c>disband-unit</c>. An army
+/// aboard a fleet is not addressed — the reports are silent and the task leaves it to the distance rule
+/// (see this task's PR body); only the now-dangling back-reference is dropped.
 /// </para>
 /// </remarks>
 /// <param name="IssuingNationId">The nation issuing the order; both armies must be its own.</param>
-/// <param name="FromArmyId">The army giving up the listed units, supply and money.</param>
-/// <param name="ToArmyId">The receiving army, at Chebyshev distance exactly 1 from the source.</param>
+/// <param name="FromArmyId">A: the army giving up the listed units, supply and money, at Chebyshev distance exactly 1 from B.</param>
+/// <param name="ToArmyId">B: the receiving army, and the giver of the <c>Back…</c> fields.</param>
 /// <param name="UnitIndexes">
-/// Indexes into <paramref name="FromArmyId"/>'s own <see cref="Model.ArmyState.Units"/> list, moved in the
-/// source list's order. May be empty when only supply or money moves.
+/// Indexes into <paramref name="FromArmyId"/>'s own <see cref="Model.ArmyState.Units"/> list, moved A → B in
+/// the source list's order. May be empty when only supply or money moves.
 /// </param>
-/// <param name="SupplyTons">Supply tons to move; non-negative and at most the source's own stock.</param>
-/// <param name="Money">Talents to move; non-negative and at most the source's own purse.</param>
+/// <param name="SupplyTons">Supply tons to move A → B; non-negative and at most A's own stock.</param>
+/// <param name="Money">Talents to move A → B; non-negative and at most A's own purse.</param>
+/// <param name="BackUnitIndexes">Indexes into B's own unit list, moved B → A, in B's list order.</param>
+/// <param name="BackSupplyTons">Supply tons to move B → A; non-negative and at most B's own stock.</param>
+/// <param name="BackMoney">Talents to move B → A; non-negative and at most B's own purse.</param>
 public sealed record ArmyTransferCommand(
     string IssuingNationId,
     string FromArmyId,
     string ToArmyId,
     ValueList<int> UnitIndexes,
     int SupplyTons,
-    int Money) : ICommand
+    int Money,
+    ValueList<int> BackUnitIndexes,
+    int BackSupplyTons,
+    int BackMoney) : ICommand
 {
     /// <inheritdoc/>
     public string Kind => "armies.army-transfer";
@@ -79,7 +98,7 @@ public static class ArmyTransferRejections
     /// </summary>
     public static readonly RejectionCode NotAdjacent = new("armies.army-transfer-not-adjacent");
 
-    /// <summary>A requested unit index is outside the source army's own unit list.</summary>
+    /// <summary>A requested unit index is outside the giving army's own unit list.</summary>
     public static readonly RejectionCode UnknownUnitIndex = new("armies.army-transfer-unknown-unit-index");
 
     /// <summary>The same unit index is listed more than once.</summary>
@@ -88,33 +107,29 @@ public static class ArmyTransferRejections
     /// <summary>A requested amount is negative, or the order moves nothing at all.</summary>
     public static readonly RejectionCode InvalidAmount = new("armies.army-transfer-invalid-amount");
 
-    /// <summary>The source army does not have enough supply to move the requested tons.</summary>
+    /// <summary>A giving army does not have enough supply to move the requested tons.</summary>
     public static readonly RejectionCode InsufficientSupply = new("armies.army-transfer-insufficient-supply");
 
-    /// <summary>The source army does not have enough money to move the requested talents.</summary>
+    /// <summary>A giving army does not have enough money to move the requested talents.</summary>
     public static readonly RejectionCode InsufficientMoney = new("armies.army-transfer-insufficient-money");
 
     /// <summary>
-    /// The receiving army would hold more than
-    /// <see cref="Model.ArmyManagementRules.MaxUnitsPerArmy"/> units — the Join armies limit.
+    /// Either army would hold more than
+    /// <see cref="Model.ArmyManagementRules.MaxUnitsPerArmy"/> units after both directions — the Join
+    /// armies limit.
     /// </summary>
     public static readonly RejectionCode CombinedUnitsTooLarge = new("armies.army-transfer-units-too-large");
 
     /// <summary>
-    /// The receiving army would hold more than
-    /// <see cref="Model.ArmyManagementRules.MaxTroopsPerArmy"/> troops — the Join armies limit.
+    /// Either army would hold more than
+    /// <see cref="Model.ArmyManagementRules.MaxTroopsPerArmy"/> troops after both directions — the Join
+    /// armies limit.
     /// </summary>
     public static readonly RejectionCode CombinedTroopsTooLarge = new("armies.army-transfer-troops-too-large");
 
     /// <summary>
-    /// The receiving army's supply would exceed its capacity
-    /// (<see cref="Economy.SupplyCapacity.ArmyDialogCapacityTons"/>) after the transfer.
-    /// </summary>
-    public static readonly RejectionCode SupplyExceedsCapacity = new("armies.army-transfer-supply-too-large");
-
-    /// <summary>
-    /// The receiving army's purse would exceed <see cref="Model.EconomyRules.PurseCapPerUnit"/> after the
-    /// transfer.
+    /// An army that receives money between two surviving armies would exceed
+    /// <see cref="Model.EconomyRules.PurseCapPerUnit"/> — the dialog's money stepper.
     /// </summary>
     public static readonly RejectionCode PurseCapExceeded = new("armies.army-transfer-purse-cap-exceeded");
 }

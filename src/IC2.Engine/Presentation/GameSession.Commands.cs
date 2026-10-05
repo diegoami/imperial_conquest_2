@@ -345,17 +345,20 @@ public sealed partial class GameSession
     }
 
     /// <summary>
-    /// <c>army-transfer &lt;from&gt; &lt;to&gt; [units=&lt;i,j,...&gt;] [supply=&lt;tons&gt;]
-    /// [money=&lt;talents&gt;]</c> — <c>docs/tasks/T106.md</c>. Only the option syntax is parsed here (each
-    /// option once, whole numbers, comma-separated non-negative unit indexes); everything the rules
-    /// disallow — an unknown or foreign army, a distance other than 1, an out-of-range unit index, a
-    /// source that cannot cover the move, and every receiving cap — is enforced by
+    /// <c>army-transfer &lt;selected&gt; &lt;partner&gt; [units=&lt;i,j,...&gt;] [supply=&lt;tons&gt;]
+    /// [money=&lt;talents&gt;] [back-units=&lt;i,j,...&gt;] [back-supply=&lt;tons&gt;]
+    /// [back-money=&lt;talents&gt;]</c> — <c>docs/tasks/T106.md</c> corrected by T117 to the original's one
+    /// dialog <c>OK</c>, which carries both directions. Only the option syntax is parsed here (each option
+    /// once, whole numbers, comma-separated non-negative unit indexes); everything the rules disallow — an
+    /// unknown or foreign army, a distance other than 1, an out-of-range unit index, a giver that cannot
+    /// cover the move, a composition cap, and the purse cap — is enforced by
     /// <see cref="IC2.Engine.Armies.Commands.ArmyTransferCommandHandler"/>, so this method never restates it.
     /// </summary>
     private IReadOnlyList<string> HandleArmyTransfer(string[] tokens)
     {
         const string usage =
-            "Usage: army-transfer <from> <to> [units=<i,j,...>] [supply=<tons>] [money=<talents>]";
+            "Usage: army-transfer <selected> <partner> [units=<i,j,...>] [supply=<tons>] [money=<talents>] "
+            + "[back-units=<i,j,...>] [back-supply=<tons>] [back-money=<talents>]";
 
         if (tokens.Length < 3)
         {
@@ -365,6 +368,9 @@ public sealed partial class GameSession
         var unitIndexes = new List<int>();
         var supplyTons = 0;
         var money = 0;
+        var backUnitIndexes = new List<int>();
+        var backSupplyTons = 0;
+        var backMoney = 0;
         var seenOptions = new HashSet<string>(StringComparer.Ordinal);
 
         for (var i = 3; i < tokens.Length; i++)
@@ -385,20 +391,28 @@ public sealed partial class GameSession
             switch (key)
             {
                 case "units":
-                    foreach (var part in value.Split(','))
+                    if (!TryParseUnitIndexes(value, unitIndexes))
                     {
-                        if (!int.TryParse(part, NumberStyles.Integer, CultureInfo.InvariantCulture, out var index)
-                            || index < 0)
-                        {
-                            return new[] { usage };
-                        }
+                        return new[] { usage };
+                    }
 
-                        unitIndexes.Add(index);
+                    break;
+                case "back-units":
+                    if (!TryParseUnitIndexes(value, backUnitIndexes))
+                    {
+                        return new[] { usage };
                     }
 
                     break;
                 case "supply":
                     if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out supplyTons))
+                    {
+                        return new[] { usage };
+                    }
+
+                    break;
+                case "back-supply":
+                    if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out backSupplyTons))
                     {
                         return new[] { usage };
                     }
@@ -411,13 +425,38 @@ public sealed partial class GameSession
                     }
 
                     break;
+                case "back-money":
+                    if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out backMoney))
+                    {
+                        return new[] { usage };
+                    }
+
+                    break;
                 default:
                     return new[] { usage };
             }
         }
 
         return IssueCommand(new ArmyTransferCommand(
-            State.ActiveNationId, tokens[1], tokens[2], ValueList.From(unitIndexes), supplyTons, money));
+            State.ActiveNationId, tokens[1], tokens[2], ValueList.From(unitIndexes), supplyTons, money,
+            ValueList.From(backUnitIndexes), backSupplyTons, backMoney));
+
+        // Kept local to this method: Owns permits changes here only within HandleArmyTransfer.
+        static bool TryParseUnitIndexes(string value, List<int> into)
+        {
+            foreach (var part in value.Split(','))
+            {
+                if (!int.TryParse(part, NumberStyles.Integer, CultureInfo.InvariantCulture, out var index)
+                    || index < 0)
+                {
+                    return false;
+                }
+
+                into.Add(index);
+            }
+
+            return true;
+        }
     }
 
     // ---- cities ----
