@@ -123,7 +123,7 @@ public sealed class SplitArmyCommandHandler : ICommandHandler<SplitArmyCommand>
         }
 
         // TArmyToArmy_OK's rebalance, run after the units, supply and money are moved (SplitArmyCommand's
-        // remarks, [confirmed: code, pending-offer-block-army-split-and-naupactus.md items 1-2]). A is the
+        // remarks, [confirmed: code, 2026-10-03-army-to-army-ok-supply-rebalancing.md items 1-2, research repo a380a8e]). A is the
         // parent, B the new army: capA = troops(A) div 100 pushes A's excess to B, then capB =
         // troops(B) div 100 (including step 1's push) sends B's excess back to A. Supply is conserved
         // exactly; money is never rebalanced. It runs on every accepted split, a supply=0 one included,
