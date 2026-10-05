@@ -18,10 +18,12 @@ namespace IC2.Slice.UI;
 /// is read all over the economy systems but nothing in <c>src/IC2.Engine/Economy/Commands</c> or
 /// <c>src/IC2.Engine/Cities/Orders</c> ever writes it — there is no command that sets a nation's tax
 /// rate. This panel shows the value; it has no control to change it.</description></item>
-/// <item><description><strong>No dedicated army-to-army transfer.</strong> Fleets have
-/// <c>FleetToFleetTransferCommand</c>; armies have no equivalent, so an army's own supply transfer is the
-/// Army menu's Supply army dialog (<c>economy.buy-supply</c>), not a fabricated new command. The city
-/// panel's old troop/money slider was removed by T134 in favour of that dialog.</description></item>
+/// <item><description><strong>The army panel is information only.</strong> T111 moved its Disband
+/// button into the Army menu's Disband army entry (with T99's confirmation prompt), so the panel now
+/// renders no order button of its own beyond T109's Mobilize. An army's own supply transfer is the Army
+/// menu's Supply army dialog (<c>economy.buy-supply</c>, T134), and its units, supply and money move
+/// between two adjacent armies through the Army menu's Transfer unit dialog
+/// (<c>armies.army-transfer</c>, T106/T117).</description></item>
 /// </list>
 /// </remarks>
 public partial class ContextPanel : Control
