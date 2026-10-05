@@ -316,7 +316,7 @@ Items 1–17 and 20 are checkable by an agent. Items 18–19 are the only human 
 | `release:v0.2.0` | #13–#17, #63 (T35), #78 (T38), #81 (T39) |
 | `release:v0.3.0` | #18–#23, #32 (T29), #64 (T36), #70 (T37) |
 | `release:v0.4.0` | #24, #25, #26 |
-| `release:v0.5.0` | #317 (T72), #330 (T76), #456 (T93), #566 (T108), #567 (T109), #569–#571 (T111–T113), #633–#637 (T114–T118), #705, #706 and #708 (T135, T136 and T138), #727 and #728 (T139 and T140), and every issue the post-v0.5.0 triage adds ([§2](#2-the-release-ladder)); applied by the main session after the plan PR of 2026-10-04 merges (§2's notes, "The labels move first") |
+| `release:v0.5.0` | #317 (T72), #330 (T76), #456 (T93), #566 (T108), #567 (T109), #569–#571 (T111–T113), #633–#637 (T114–T118), #705, #706 and #708 (T135, T136 and T138), #727 and #728 (T139 and T140), the triage's issues #315, #537, #579, #584, #596, #631, #701, #710, #717, #718 and #614, and every further issue the post-v0.5.0 triage adds ([§2](#2-the-release-ladder)); applied by the main session after the plan PR of 2026-10-04 merges (§2's notes, "The labels move first") |
 | `release:v0.6.0` | T122–T130's issues (#663 … #670, #674), moved from `release:v0.5.0` in the same step |
 | `release:v1.0.0` | #27, #28 |
 
