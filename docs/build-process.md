@@ -828,8 +828,16 @@ the docs item applies only if the review named a claim.
      <model>` only when the entry names another model (glm, luna, ...), which then runs alone. It creates
      the worktree and branch, runs OpenCode there, and returns with the PR number or a warning;
      read its tail. Run it in the background and watch it (operating-guide §3): the session must
-     start and keep making progress; on a failure read its stderr and the OpenCode log, record the
-     cause in one comment, and fall back at once (exit 3: Claude Sonnet).
+     start and keep making progress. On a failure, READ BEFORE RETRY (CLAUDE.md rule 19, the
+     owner's rule of 2026-10-05): before retrying the run, re-routing it to another model, or calling
+     it a failure, read its stderr, the OpenCode log and its final message, with
+     `python scripts/read-opencode-session.py <ses_…>` (the id is the
+     `opencode: session ses_… started` line that scripts/external-implement.ps1 and
+     scripts/external-review.ps1 print; for a Claude agent, read its hand-back in full). A run that
+     stopped and reported a blocker is not an early end: post its report on the task's issue and
+     answer it (amend the task, decide, or escalate) instead of re-running it on another model.
+     Only a run that really ended early or failed falls back: record the cause in one comment, then
+     fall back (exit 3: Claude Sonnet).
    - a Claude model: Agent(general-purpose, model = the catalogue's, run_in_background, prompt =
      the brief). Wait for its completion notification; don't poll.
    If the implementer reports a defect in merged code, go to step 5 (bug).

@@ -98,3 +98,22 @@ Agreed on [#264](https://github.com/diegoami/imperial_conquest_2/issues/264), wh
     GPT-6 Luna (`openai/gpt-6-luna`), which draws on OpenAI's main pool with Sol and is never the
     reviewer. Never use a Luna on OpenCode Go (`opencode-go/…`): a proxy behind it returns
     `Bad Request` in long agent loops.
+
+---
+
+## Delegated runs
+
+19. **Read what a delegated run returned before you retry it, re-route it or call it a failure.
+    Never retry blind** (the owner's rule of 2026-10-05).
+    - **OpenCode runs** (`scripts/external-implement.ps1`, `scripts/external-review.ps1`): an exit
+      with no PR or no posted review looks the same for an early end and for a run that stopped and
+      reported a blocker, and the log's tail shows only the last tool output, not the model's final
+      message. Read the final message from the session record:
+      `python scripts/read-opencode-session.py <ses_…>` (the id is the log's
+      `opencode: session ses_… started` line). It opens the database read-only; never read
+      `auth.json` beside it.
+    - **Claude agents**: read the agent's final report (its hand-back) in full before acting.
+    - **A run that stopped and reported gets an answer**: amend the task, decide, or escalate, and
+      post the report on the task's issue so it is kept.
+    - Treat any earlier "model X ends runs early" verdict as unconfirmed until its runs' final
+      messages have been read.
