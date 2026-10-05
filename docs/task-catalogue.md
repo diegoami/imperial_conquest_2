@@ -189,6 +189,7 @@ graph TD
   T123 --> T129[T129 tactical golden master]
   T124 --> T129
   T132[T132 hideable info panel]
+  T134[T134 Supply army] --> T111
   T23 --> T26[T26 scenario docs+examples]
   T29 --> T26
   T22 --> T28[T28 nightly soak gate]
@@ -1008,7 +1009,7 @@ Faithful turn-order shuffle (#602) → [full entry](tasks/T119.md) · [#638](htt
 
 #### T120 The rulesets carry the original's melee matrix, DAT `0x1F7A6`, and the corpus states the tactical morale rules as the code has them
 
-Real melee matrix (correction task for bugs #647 and #649) → [full entry](tasks/T120.md) · [#654](https://github.com/diegoami/imperial_conquest_2/issues/654). It is an exception to the playability gate (§4.8), by the user's decision of 2026-10-04: neither bug breaks play, but the v0.5.0 battle and T121 build on the real values.
+Real melee matrix (correction task for bugs #647 and #649) → [full entry](tasks/T120.md) · [#654](https://github.com/diegoami/imperial_conquest_2/issues/654). It is an exception to the playability gate (§4.8), by the user's decision of 2026-10-04: neither bug breaks play, but the tactical battle (now v0.6.0) and T121 build on the real values.
 
 ---
 
@@ -1074,7 +1075,7 @@ Tactical battle golden master against the original's recorded battles (#496) →
 
 #### T131 Every release carries Windows assets: the zip and the installer, built by a release workflow
 
-Release assets (the user's decision of 2026-10-04: every milestone and fix release gets a Windows zip and installer; the highest priority; it runs right after T132, the user's decision of 2026-10-04) → [full entry](tasks/T131.md) · #688
+Release assets (the user's decision of 2026-10-04: every milestone and fix release gets a Windows zip and installer; it was to run right after T132, the user's decision of 2026-10-04; since the user's decision of 2026-10-05, "Gate first", it waits behind the v0.5.0 gate unless the user lists it) → [full entry](tasks/T131.md) · #688
 
 ---
 
@@ -1087,6 +1088,12 @@ Hideable info panel (the user's request of 2026-10-04 after playing v0.4.0, the 
 #### T133 CI runs on pushes to release branches
 
 CI on maintenance lines (the first item of the `release/0.4` line, [release-plan.md §2.2.2](release-plan.md#222-two-release-lines-a-maintenance-branch-per-patched-minor)) → [full entry](tasks/T133.md) · [#696](https://github.com/diegoami/imperial_conquest_2/issues/696)
+
+---
+
+#### T134 Supply army: the Army menu's Supply army dialog, replacing the city panel's supply slider
+
+Supply army (the user's decision of 2026-10-04, *"put Supply army on 0.4.2 as its own task"*: split out of T111, a `v0.4.2` item on the `release/0.4` line, ported forward to `main`; it absorbs bug #697) → [full entry](tasks/T134.md) · [#698](https://github.com/diegoami/imperial_conquest_2/issues/698)
 
 ---
 
@@ -1230,7 +1237,7 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T108](#t108-disband-a-recruitment-slot) | Disband a recruitment slot | M4 | Sonnet | Medium | **Opus**/Medium | — | [#566](https://github.com/diegoami/imperial_conquest_2/issues/566) |
 | [T109](#t109-the-strategy-menus-dialogs-taxation-balance-sheet-recruit-unit-and-build-fleet) | Strategy dialogs | M18 | Sonnet | High | **Opus**/Medium + human | T100, T103, T104, T108, bug #519's fix | [#567](https://github.com/diegoami/imperial_conquest_2/issues/567) |
 | [T110](#t110-the-nations-and-area-map-menus-the-viewed-nation-highlights-and-find-a-city) | Nations and Area map | M18 | Sonnet | High | **Opus**/Medium + human | T100, T102 | [#568](https://github.com/diegoami/imperial_conquest_2/issues/568) |
-| [T111](#t111-the-unit-maps-army-orders-each-in-its-own-dialog) | Army orders | M18 | Sonnet | High | **Opus**/Medium + human | T100, T105, T106, T107, T114, T117 | [#569](https://github.com/diegoami/imperial_conquest_2/issues/569) |
+| [T111](#t111-the-unit-maps-army-orders-each-in-its-own-dialog) | Army orders | M18 | Sonnet | High | **Opus**/Medium + human | T100, T105, T106, T107, T114, T117, T134 | [#569](https://github.com/diegoami/imperial_conquest_2/issues/569) |
 | [T112](#t112-the-unit-maps-fleet-and-city-orders-and-the-selected-units-command-strip) | Fleet and City orders, command strip | M18 | Sonnet | High | **Opus**/Medium + human | T111, T114 | [#570](https://github.com/diegoami/imperial_conquest_2/issues/570) |
 | [T113](#t113-mercenaries-on-the-map-show-mercenaries-and-recruit-mercenaries) | Mercenaries on the map | M18 | Sonnet | Medium | **Opus**/Medium + human | T76, T110, T112 | [#571](https://github.com/diegoami/imperial_conquest_2/issues/571) |
 | [T114](#t114-join-armies-join-fleets-and-transfer-ships-take-their-partner-one-tile-away) | Join and transfer at distance 1 | — | Sonnet | Medium | **Opus**/Medium | T93 | [#633](https://github.com/diegoami/imperial_conquest_2/issues/633) |
@@ -1253,3 +1260,4 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T131](#t131-every-release-carries-windows-assets-the-zip-and-the-installer-built-by-a-release-workflow) | Release assets | M20 | Sonnet | High | Sol | — | #688 |
 | [T132](#t132-the-right-hand-info-panel-can-be-hidden-and-shown-again) | Hideable info panel | M18 | Sonnet | Medium | Sol + human | — | [#690](https://github.com/diegoami/imperial_conquest_2/issues/690) |
 | [T133](#t133-ci-runs-on-pushes-to-release-branches) | CI on release branches | M20 | Sonnet | Low | Sol | — | [#696](https://github.com/diegoami/imperial_conquest_2/issues/696) |
+| [T134](#t134-supply-army-the-army-menus-supply-army-dialog-replacing-the-city-panels-supply-slider) | Supply army | M18 | Sonnet | Medium | Sol + human | — | [#698](https://github.com/diegoami/imperial_conquest_2/issues/698) |

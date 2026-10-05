@@ -23,7 +23,7 @@ gains a field or a flag, and nothing in the game calls the candidates.
 > (bug [#659](https://github.com/diegoami/imperial_conquest_2/issues/659); Done-when 3). C2's and C5's
 > D06 (shooting distance) and D07 (morale comparison) are still the `[designed]` placeholders
 > ([`auto-resolve-approaches.md`](auto-resolve-approaches.md)'s correction of 2026-10-04;
-> [#648](https://github.com/diegoami/imperial_conquest_2/issues/648)), superseded by the v0.5.0 port of
+> [#648](https://github.com/diegoami/imperial_conquest_2/issues/648)), superseded by the v0.6.0 port of
 > `TBattleMap`, so C2's and C5's numbers measure the real matrix but not the original's tactical morale
 > and shooting rules.
 

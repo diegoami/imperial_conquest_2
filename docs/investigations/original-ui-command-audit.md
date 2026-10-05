@@ -310,7 +310,7 @@ fleet group, most likely the 15th button above, Cancel selection [Wine candidate
 
 ### 3.4 Battle toolbar
 
-**In scope for v0.5.0 *Battles*** ([game-design.md](../game-design.md), Combat, "The tactical battle", and
+**In scope for v0.6.0 *Battles* (v0.5.0 until the user's decision of 2026-10-04)** ([game-design.md](../game-design.md), Combat, "The tactical battle", and
 "User interface", item 3; T127 builds the screen). The battle window has no menu and a toolbar of **eight
 buttons**, in this order: *Unit moves*, *Friendly units*, *Enemy units*, *Cancel selection*, *End turn*,
 *Change pauses*, *Computer general on*, *Surrender* **[confirmed: code and the `TBATTLEMAP` resource, static,
