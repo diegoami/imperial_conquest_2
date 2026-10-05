@@ -251,7 +251,7 @@ Since [T99](https://github.com/diegoami/imperial_conquest_2/issues/557) (PR #576
   shows the clicked city's, army's or fleet's unit list and changes nothing else (`GameMapView.cs:422`).
 - **Fleets have map orders**: `move-fleet`, `attack-fleet`, `embark-army` and `disembark-army` are composed by the
   click. The engine's embark succeeds from a tile next to the fleet since [T93](https://github.com/diegoami/imperial_conquest_2/issues/456)
-  (which closed [#453](https://github.com/diegoami/imperial_conquest_2/issues/453)); Godot's `CommandVerbCatalog.ConfirmedUnreachable` still lists both verbs (726).
+  (which closed [#453](https://github.com/diegoami/imperial_conquest_2/issues/453)); Godot's `CommandVerbCatalog.ConfirmedUnreachable` still lists both verbs ([#726](https://github.com/diegoami/imperial_conquest_2/issues/726)).
 - **An attack on a nation not at war asks first**, through `ConfirmPrompt` (`MainGameScreen.cs:985`), with Yes and
   No. A refused attack still commits the war ([#579](https://github.com/diegoami/imperial_conquest_2/issues/579), T135),
   and No drops the selection ([#583](https://github.com/diegoami/imperial_conquest_2/issues/583)).
