@@ -58,16 +58,4 @@ public partial class PeaceOfferScreen : Control
             content.AddChild(button);
         }
     }
-
-    /// <summary>Presses the button with <paramref name="label"/> as a click would; for the check.</summary>
-    public void PressForCheck(string label)
-    {
-        var index = _buttons.FindIndex(b => b.Text == label);
-        if (index < 0)
-        {
-            throw new ArgumentException($"No button '{label}'.", nameof(label));
-        }
-
-        Answered?.Invoke(Model.Buttons[index].Command);
-    }
 }

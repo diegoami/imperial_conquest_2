@@ -94,7 +94,7 @@ public partial class PeaceOfferCheck : Node
         Check(!newsBefore.Contains(line), "(a) the agreed-war news line is not in the log before the answer");
 
         var countBefore = issued.Count;
-        window.PressForCheck("Yes");
+        PressButton(window, "Yes");
 
         Check(issued.Count == countBefore + 1, $"(a) Yes is counted once at CommandIssued ({issued.Count - countBefore})");
         Check(issued.Count > 0 && issued[^1].Any(l => l.Contains("accepted", StringComparison.Ordinal)), "(a) the reply line shows the engine's acceptance");
@@ -130,7 +130,7 @@ public partial class PeaceOfferCheck : Node
 
         var newsBefore = NewsTexts(session);
         var countBefore = issued.Count;
-        window.PressForCheck("No");
+        PressButton(window, "No");
 
         Check(issued.Count == countBefore + 1, $"(b) No is counted once at CommandIssued ({issued.Count - countBefore})");
         Check(mainGame.ActiveOverlay is null, $"(b) the window closes on the answer (got {Describe(mainGame)})");
@@ -177,7 +177,7 @@ public partial class PeaceOfferCheck : Node
             "(c) a human loss uses the 'After defeating you' wording");
 
         var countBefore = issued.Count;
-        window.PressForCheck("Yes");
+        PressButton(window, "Yes");
         Check(issued.Count == countBefore + 1, $"(c) the answer is counted once ({issued.Count - countBefore})");
         Check(!session.HasPendingPeaceOffers && mainGame.ActiveOverlay is null, "(c) answered: no offer, no overlay");
         Dispose(mainGame);
@@ -219,7 +219,11 @@ public partial class PeaceOfferCheck : Node
         Check(
             mainGame.ActiveOverlay is PeaceOfferScreen,
             $"hotseat: rome's peace window follows its battle windows (got {Describe(mainGame)})");
-        (mainGame.ActiveOverlay as PeaceOfferScreen)?.PressForCheck("No");
+        if (mainGame.ActiveOverlay is PeaceOfferScreen hotWindow)
+        {
+            PressButton(hotWindow, "No");
+        }
+
         Check(!session.HasPendingPeaceOffers, "hotseat: answered, nothing pending");
         Dispose(mainGame);
     }
@@ -271,6 +275,14 @@ public partial class PeaceOfferCheck : Node
         Check(
             mainGame.SaveConfirmationText.StartsWith("Saved to", StringComparison.Ordinal),
             $"{prefix}File -> Save then writes a save (got '{mainGame.SaveConfirmationText}')");
+    }
+
+    /// <summary>Fires the laid-out button's own <c>pressed</c> signal, as a click does (R1).</summary>
+    private void PressButton(PeaceOfferScreen window, string label)
+    {
+        var button = window.Buttons.FirstOrDefault(b => b.Text == label);
+        Check(button is not null, $"the window has a '{label}' button to press");
+        button?.EmitSignal(BaseButton.SignalName.Pressed);
     }
 
     private static string[] NewsTexts(GameSession session) =>
