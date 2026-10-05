@@ -213,6 +213,20 @@ public sealed class PeaceTreatyOfferTests
         Assert.Equal(expected, GameSession.PeaceTreatyOfferDialogLines(winner, session.State.NationById("north")!));
     }
 
+    /// <summary>Bug #746 R1: the exposed lines cannot be mutated through a cast.</summary>
+    [Fact]
+    public void TheOfferLines_AreReadOnly()
+    {
+        var session = OfferFixture();
+        var lines = GameSession.PeaceTreatyOfferDialogLines(
+            session.State.NationById("south")!, session.State.NationById("north")!);
+
+        Assert.False(lines is string[]);
+        var asList = Assert.IsAssignableFrom<IList<string>>(lines);
+        Assert.True(asList.IsReadOnly);
+        Assert.Throws<NotSupportedException>(() => asList[0] = "x");
+    }
+
     /// <summary>Bug #746: the offer is the original's whole box, in order (human won).</summary>
     [Fact]
     public void TheOffer_WhenTheHumanWon_IsTheBoxsFourLinesInOrder()

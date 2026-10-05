@@ -478,7 +478,7 @@ public sealed partial class GameSession
     /// <param name="loser">The battle's loser.</param>
     /// <returns>The box's lines, in order.</returns>
     public static IReadOnlyList<string> PeaceTreatyOfferDialogLines(NationState winner, NationState loser) =>
-        new[]
+        Array.AsReadOnly(new[]
         {
             winner.Control == SeatControl.Human
                 ? $"After losing to you in battle {loser.Name} are willing to end their war with you, if you agree to the terms below."
@@ -486,7 +486,7 @@ public sealed partial class GameSession
             "An honourable peace with no reparations or penalties",
             "If the peace terms are acceptable click YES.",
             "Otherwise to continue the war click NO.",
-        };
+        });
 
     /// <summary>Builds a session over a resolved world/ruleset/scenario, optionally overriding the seed.</summary>
     /// <param name="world">The loaded world.</param>
