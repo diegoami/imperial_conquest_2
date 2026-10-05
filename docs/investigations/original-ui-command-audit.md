@@ -250,8 +250,8 @@ Since [T99](https://github.com/diegoami/imperial_conquest_2/issues/557) (PR #576
   tables: a left click selects an own unit or city, moves, attacks, besieges, embarks or disembarks; a right click
   shows the clicked city's, army's or fleet's unit list and changes nothing else (`GameMapView.cs:422`).
 - **Fleets have map orders**: `move-fleet`, `attack-fleet`, `embark-army` and `disembark-army` are composed by the
-  click. Embark and disembark can't succeed yet (`CommandVerbCatalog.ConfirmedUnreachable`;
-  [#453](https://github.com/diegoami/imperial_conquest_2/issues/453), planned as [T93](https://github.com/diegoami/imperial_conquest_2/issues/456)).
+  click. The engine's embark succeeds from a tile next to the fleet since [T93](https://github.com/diegoami/imperial_conquest_2/issues/456)
+  (which closed [#453](https://github.com/diegoami/imperial_conquest_2/issues/453)); Godot's `CommandVerbCatalog.ConfirmedUnreachable` still lists both verbs (726).
 - **An attack on a nation not at war asks first**, through `ConfirmPrompt` (`MainGameScreen.cs:985`), with Yes and
   No. A refused attack still commits the war ([#579](https://github.com/diegoami/imperial_conquest_2/issues/579), T135),
   and No drops the selection ([#583](https://github.com/diegoami/imperial_conquest_2/issues/583)).
@@ -364,7 +364,7 @@ catalogued in [asset-specification.md §4.7](../asset-specification.md#47-chrome
 Join armies, Join fleets and Transfer ships each take their partner at Chebyshev distance **exactly 1** in the
 original (§1.6, `FUN_00449D64`/`FUN_00449DD8`). The clone's commands require the **same tile**:
 `JoinArmiesCommandHandler.cs:53`, `JoinFleetsCommandHandler.cs:68` and `FleetToFleetTransferCommandHandler.cs:65`.
-This is the gate that made embarking unreachable ([#453](https://github.com/diegoami/imperial_conquest_2/issues/453)).
+This was the gate that made embarking unreachable ([#453](https://github.com/diegoami/imperial_conquest_2/issues/453)), until T93 let an army embark from a tile next to its fleet.
 The clone's army walk refuses a tile with another army on it (`MoveArmyCommandHandler.IsBlocked`, ~:86), so
 in play the only way two armies share a tile may be a fresh split. The original's split places the new army one
 step diagonally, at distance 1 **[Wine candidate: [`2026-10-02-unit-map-mouse-orders-and-tax-range.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-02-unit-map-mouse-orders-and-tax-range.md)]**, so its partner is in reach at once; the clone's split puts it on the
