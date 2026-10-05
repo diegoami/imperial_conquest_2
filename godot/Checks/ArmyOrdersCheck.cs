@@ -11,9 +11,9 @@ namespace IC2.Slice.Checks;
 /// T111 Done-when 2, 3, 7 and 8: the real <see cref="MainGameScreen"/> on a scripted classical state
 /// with adjacent Roman armies, a Roman city and a Roman fleet. Every Army entry is opened from the menu
 /// and commits through the engine: Transfer unit moves a unit to the partner and a two-way transfer
-/// submits exactly one command; Split army adds an army; Join armies leaves one army; Change units
+/// submits exactly one command; Split army moves two units with supply and money into a new army; Disband in the split dialog removes a unit; Join armies leaves one army; Change units
 /// renames a unit; Disband army removes the army only after Yes. With a fleet carrying an army selected,
-/// Split army targets the army aboard. The check also reads the regiment quality captions off the
+/// Change units renames a unit of the army aboard, and Split army opens no dialog for it and submits nothing. The check also reads the regiment quality captions off the
 /// laid-out army panel and unit list. Run headless via:
 /// <code>
 /// godot --headless --path godot res://Checks/ArmyOrdersCheck.tscn --quit-after 900
@@ -35,6 +35,7 @@ public partial class ArmyOrdersCheck : Control
     private const string TransferTwoWayA = "t111-t2-a";
     private const string TransferTwoWayB = "t111-t2-b";
     private const string SplitArmyId = "t111-split";
+    private const string SplitDisbandArmyId = "t111-split-disband";
     private const string JoinA = "t111-join-a";
     private const string JoinB = "t111-join-b";
     private const string ChangeArmyId = "t111-change";
@@ -70,10 +71,12 @@ public partial class ArmyOrdersCheck : Control
         _steps.Add(OpenTransferOneWay);
         _steps.Add(OpenTransferTwoWay);
         _steps.Add(SplitArmy);
+        _steps.Add(SplitArmyDisband);
         _steps.Add(JoinArmies);
         _steps.Add(ChangeUnits);
         _steps.Add(DisbandNo);
         _steps.Add(DisbandYes);
+        _steps.Add(ChangeUnitsOfCarriedArmy);
         _steps.Add(SplitCarriedArmy);
         _steps.Add(QualityCaptions);
         _steps.Add(NoDisbandButton);
@@ -107,8 +110,8 @@ public partial class ArmyOrdersCheck : Control
         Check(AdjacentArmies(TransferTwoWayA, TransferTwoWayB), "the two-way transfer pair is adjacent");
         Check(AdjacentArmies(JoinA, JoinB), "the join pair is adjacent");
         Check(
-            _session.State.ArmyById(SplitArmyId)!.Units.Count >= 2,
-            "the split army has two or more units");
+            _session.State.ArmyById(SplitArmyId)!.Units.Count >= 3,
+            "the split army has three units");
         Check(_splitTileDescription.Length > 0, $"the split army stands on free ground: {_splitTileDescription}");
     }
 
@@ -157,23 +160,96 @@ public partial class ArmyOrdersCheck : Control
             "B's unit ends in A");
     }
 
+    /// <summary>
+    /// Done-when 2: Split army moving two units, supply and money, as one <c>split-army</c>. The new army
+    /// holds exactly those two units and that money, and its supply — read after T141's rebalance — leaves
+    /// the two armies' total unchanged.
+    /// </summary>
     private void SplitArmy()
     {
         _mainGame.SelectArmyForCheck(SplitArmyId);
         var before = _commandsSeen;
+        var parentBefore = _session.State.ArmyById(SplitArmyId)!;
+        var movedUnits = new[] { parentBefore.Units[0], parentBefore.Units[2] };
+        var supplyTotal = parentBefore.SupplyTons;
+        var moneyTotal = parentBefore.Money;
         Check(_mainGame.MenuBar.PressItemForCheck("unit_map.army_split"), "Split army is wired from the menu");
         Check(_mainGame.ActiveOverlay is SplitArmyDialog, "Split army opens its dialog");
+        Check(_commandsSeen == before, "opening Split army issues no command");
 
         var dialog = (SplitArmyDialog)_mainGame.ActiveOverlay!;
         Check(dialog.ModelForCheck.CanSplit, "the split dialog offers the split");
-        dialog.StageUnitForCheck(1);
+        dialog.StageUnitForCheck(0);
+        dialog.StageUnitForCheck(2);
+        dialog.PressSupplyForCheck(ArmyDialogModels.SupplyStepTons);
+        dialog.PressSupplyForCheck(ArmyDialogModels.SupplyStepTons);
+        dialog.PressMoneyForCheck(ArmyDialogModels.MoneyLargeStepTalents);
+        Check(dialog.ModelForCheck.Supply == 20 && dialog.ModelForCheck.Money == 100, "the spinners moved 20 t and 100 talents");
         dialog.OkForCheck();
 
         Check(_commandsSeen == before + 1, $"Split army submits exactly one command ({_commandsSeen - before})");
-        Check(_session.State.ArmyById($"{SplitArmyId}-split") is not null, "Split army adds an army");
+        var child = _session.State.ArmyById($"{SplitArmyId}-split");
+        var parent = _session.State.ArmyById(SplitArmyId)!;
+        Check(child is not null, "Split army adds an army");
+        if (child is null)
+        {
+            return;
+        }
+
         Check(
-            _session.State.ArmyById($"{SplitArmyId}-split")!.Units.Count == 1,
-            "the new army holds the staged unit");
+            child.Units.Count == 2 && movedUnits.All(unit => child.Units.Contains(unit)),
+            "the new army holds exactly the two staged units");
+        Check(
+            parent.Units.Count == 1 && parent.Units[0] == parentBefore.Units[1],
+            "the selected army keeps the unit that stayed");
+        Check(child.Money == 100 && parent.Money == moneyTotal - 100, "the new army holds the 100 talents moved");
+        Check(
+            child.SupplyTons + parent.SupplyTons == supplyTotal,
+            $"the two armies' supply total is unchanged ({parent.SupplyTons} + {child.SupplyTons} vs {supplyTotal})");
+    }
+
+    /// <summary>
+    /// Done-when 2: a Disband inside the split dialog, under each list — once on an unstaged unit and once
+    /// on a staged one — removes that unit from the selected army and counts one command per press.
+    /// </summary>
+    private void SplitArmyDisband()
+    {
+        _mainGame.SelectArmyForCheck(SplitDisbandArmyId);
+        Check(_mainGame.MenuBar.PressItemForCheck("unit_map.army_split"), "Split army opens for the disband army");
+        var dialog = (SplitArmyDialog)_mainGame.ActiveOverlay!;
+        var original = _session.State.ArmyById(SplitDisbandArmyId)!.Units.ToList();
+
+        // Under the selected army's own list: an unstaged unit (index 3).
+        var before = _commandsSeen;
+        dialog.DisbandForCheck(3);
+        var afterFirst = _session.State.ArmyById(SplitDisbandArmyId)!;
+        Check(_commandsSeen == before + 1, $"Disband under the army's list counts one command ({_commandsSeen - before})");
+        Check(
+            afterFirst.Units.Count == original.Count - 1 && !afterFirst.Units.Contains(original[3]),
+            "the unstaged unit is gone from the selected army");
+
+        // Under the new army's list: a staged unit (index 1), which also leaves the staging.
+        dialog.StageUnitForCheck(1);
+        dialog.StageUnitForCheck(2);
+        before = _commandsSeen;
+        dialog.DisbandForCheck(1);
+        var afterSecond = _session.State.ArmyById(SplitDisbandArmyId)!;
+        Check(_commandsSeen == before + 1, $"Disband under the new army's list counts one command ({_commandsSeen - before})");
+        Check(
+            afterSecond.Units.Count == original.Count - 2 && !afterSecond.Units.Contains(original[1]),
+            "the staged unit is gone from the selected army");
+        Check(
+            dialog.ModelForCheck.StagedUnits.Count == 1
+            && afterSecond.Units[dialog.ModelForCheck.StagedUnits[0]] == original[2],
+            "the staging re-reads its indexes from the new state");
+
+        before = _commandsSeen;
+        dialog.CancelForCheck();
+        Check(_commandsSeen == before, "Cancel submits nothing");
+        Check(
+            _session.State.ArmyById(SplitDisbandArmyId)!.Units.Count == original.Count - 2
+            && _session.State.ArmyById($"{SplitDisbandArmyId}-split") is null,
+            "Cancel leaves the disbands in place and adds no army");
     }
 
     private void JoinArmies()
@@ -234,28 +310,54 @@ public partial class ArmyOrdersCheck : Control
         Check(_session.State.ArmyById(DisbandArmyId) is null, "the army is gone after Yes");
     }
 
+    /// <summary>Done-when 3: with the carrying fleet selected, Change units renames a unit of the army aboard.</summary>
+    private void ChangeUnitsOfCarriedArmy()
+    {
+        _mainGame.SelectFleetForCheck(CarryFleetId);
+        var before = _commandsSeen;
+        Check(
+            _mainGame.MenuBar.PressItemForCheck("unit_map.army_change_units"),
+            "Change units opens with a fleet selected");
+        Check(_mainGame.ActiveOverlay is ChangeUnitsDialog, "Change units opens its dialog for the carried army");
+
+        var dialog = (ChangeUnitsDialog)_mainGame.ActiveOverlay!;
+        Check(dialog.ArmyId == CarriedArmyId, $"Change units targets the army aboard ({dialog.ArmyId})");
+        dialog.RenameUnitForCheck(0, "Legio Aboard");
+
+        Check(_commandsSeen == before + 1, $"the rename is one command ({_commandsSeen - before})");
+        Check(
+            _session.State.ArmyById(CarriedArmyId)!.Units[0].Name == "Legio Aboard",
+            "the army aboard carries the new unit name");
+        dialog.CancelForCheck();
+    }
+
+    /// <summary>
+    /// Done-when 3: Split army on the army aboard opens no dialog, says it cannot be split and submits
+    /// nothing, leaving the army aboard unchanged.
+    /// </summary>
     private void SplitCarriedArmy()
     {
         _mainGame.SelectFleetForCheck(CarryFleetId);
-        Check(_mainGame.MenuBar.PressItemForCheck("unit_map.army_split"), "Split army opens with a fleet selected");
-        Check(_mainGame.ActiveOverlay is SplitArmyDialog, "Split army opens its dialog for the carried army");
+        var before = _commandsSeen;
+        var armiesBefore = _session.State.Armies.Count;
+        var aboardBefore = _session.State.ArmyById(CarriedArmyId)!;
 
-        var dialog = (SplitArmyDialog)_mainGame.ActiveOverlay!;
+        Check(_mainGame.MenuBar.PressItemForCheck("unit_map.army_split"), "Split army is pressed with a fleet selected");
+        Check(_mainGame.ActiveOverlay is null, "Split army opens no dialog for the army aboard");
         Check(
-            dialog.ArmyId == CarriedArmyId,
-            $"Split army targets the army aboard, not the fleet ({dialog.ArmyId})");
+            _mainGame.LastMessageForCheck == ArmyDialogModels.SplitAboardRefusal,
+            $"Split army says the army aboard cannot be split ('{_mainGame.LastMessageForCheck}')");
+        Check(_commandsSeen == before, $"Split army submits nothing ({_commandsSeen - before})");
         Check(
-            dialog.ModelForCheck.ArmyId == CarriedArmyId,
-            "the split model is built for the carried army");
+            _session.State.Armies.Count == armiesBefore && _session.State.ArmyById(CarriedArmyId) == aboardBefore,
+            "the army aboard is unchanged");
 
-        // The order the dialog would submit names the army aboard. The engine's own SplitArmyCommand
-        // refuses an embarked army (its own defensive rule), which the UI does not work around.
-        dialog.StageUnitForCheck(0);
-        var composed = dialog.ModelForCheck.ComposeOk();
+        // The same when the aboard army itself is the selection.
+        _mainGame.SelectArmyForCheck(CarriedArmyId);
+        _mainGame.MenuBar.PressItemForCheck("unit_map.army_split");
         Check(
-            composed is not null && composed.StartsWith($"split-army {CarriedArmyId} ", StringComparison.Ordinal),
-            $"the split order names the army aboard ('{composed}')");
-        dialog.CancelForCheck();
+            _mainGame.ActiveOverlay is null && _commandsSeen == before,
+            "Split army on the selected aboard army also opens nothing and submits nothing");
     }
 
     /// <summary>
@@ -384,7 +486,12 @@ public partial class ArmyOrdersCheck : Control
         armies.Add(RomanArmy(TransferOneWayB, 100, 99, ("light_cavalry", 4_000, 7)));
         armies.Add(RomanArmy(TransferTwoWayA, 102, 100, ("heavy_infantry", 5_000, 6), ("archers", 3_000, 8)));
         armies.Add(RomanArmy(TransferTwoWayB, 102, 99, ("light_cavalry", 4_000, 7)));
-        armies.Add(RomanArmy(SplitArmyId, splitTile.X, splitTile.Y, ("heavy_infantry", 5_000, 6), ("archers", 3_000, 8)));
+        armies.Add(RomanArmy(
+            SplitArmyId, splitTile.X, splitTile.Y,
+            ("heavy_infantry", 5_000, 6), ("archers", 3_000, 8), ("light_cavalry", 2_000, 7)));
+        armies.Add(RomanArmy(
+            SplitDisbandArmyId, 95, 100,
+            ("heavy_infantry", 5_000, 6), ("archers", 3_000, 8), ("light_cavalry", 2_000, 7), ("light_infantry", 1_000, 6)));
         armies.Add(RomanArmy(JoinA, 104, 104, ("heavy_infantry", 5_000, 6)));
         armies.Add(RomanArmy(JoinB, 104, 105, ("archers", 3_000, 6)));
         armies.Add(RomanArmy(ChangeArmyId, 95, 110, ("heavy_infantry", 5_000, 6), ("archers", 3_000, 8)));
