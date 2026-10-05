@@ -19,9 +19,11 @@ namespace IC2.Engine.Armies;
 /// <c>(+1, +1)</c> from the parent — <c>(100,37) → (101,38)</c> in <c>E_AFTER_SPLIT.SAV</c> and
 /// <c>(92,27) → (93,28)</c> a turn apart in the <c>1_rome_270_winter</c> pair — which is the last cell
 /// of the scan. That a split army uses the same creator is <strong>[derived]</strong>; the scan itself
-/// is <strong>[confirmed: code]</strong>
-/// (<c>2026-10-05-split-army-aboard-a-fleet.md</c>, rule 2, <c>:47942-47943</c> and
-/// <c>:47960-47962</c>). For an embarked army the scan's centre is the carrying fleet's tile
+/// is <strong>[confirmed: code, for mobilisation, <c>decompiled-mobilization-and-mercenary-restock.md</c>
+/// §3]</strong>, and this task reads its nesting from <strong>[derived: code,
+/// <c>2026-10-05-split-army-aboard-a-fleet.md</c> (research 9ae8924, provisional), rule 2,
+/// <c>:47942-47943</c> and <c>:47960-47962</c>]</strong>. For an embarked army the scan's centre is the
+/// carrying fleet's tile
 /// (<c>state.FleetById(army.AboardFleetId)</c>'s <c>X</c>, <c>Y</c>); <see cref="ArmyCellFor"/> resolves
 /// the centre and returns <see langword="null"/> for a dangling link. A cell qualifies for an army when
 /// <see cref="LandingTile.IsPassableForArmy"/> holds and nothing occupies it — the same occupancy set
@@ -40,9 +42,10 @@ namespace IC2.Engine.Armies;
 /// <para>
 /// <strong><c>x</c> outer, <c>dy</c> inner.</strong> <c>FUN_004492C0</c> scans <c>dx</c> over
 /// <c>−1, 0, +1</c> in the outer loop and <c>dy</c> over <c>−1, 0, +1</c> in the inner loop and keeps
-/// the <em>last</em> cell that qualifies <strong>[confirmed: code,
-/// <c>2026-10-05-split-army-aboard-a-fleet.md</c>, rule 2, <c>:47942-47943</c> and
-/// <c>:47960-47962</c>]</strong>, so when the south-east cell is blocked the new army goes to
+/// the <em>last</em> cell that qualifies <strong>[derived: code,
+/// <c>2026-10-05-split-army-aboard-a-fleet.md</c> (research 9ae8924, provisional), rule 2,
+/// <c>:47942-47943</c> and <c>:47960-47962</c>]</strong>, so when the south-east cell is blocked the new
+/// army goes to
 /// <c>(+1, 0)</c>, not <c>(0, +1)</c>. When <c>(+1, +1)</c> is free the two nestings agree, which is
 /// why the observed splits do not separate them. The engine's other 3×3 scans
 /// (<see cref="LandingTile.FirstAdjacentLandTile"/>, <c>CoastalCity.FirstAdjacentSeaTile</c>) are not

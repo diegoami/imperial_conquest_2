@@ -32,7 +32,8 @@ namespace IC2.Engine.Armies.Commands;
 /// creates its army with <c>FUN_00449F08</c> ("Split army uses the same form"), and the scan reproduces
 /// both observed split placements — <c>(100,37) → (101,38)</c> and <c>(92,27) → (93,28)</c>, each a
 /// <c>(+1, +1)</c> south-east step. The scan nests <c>x</c> outer, <c>dy</c> inner
-/// <strong>[confirmed: code, 2026-10-05-split-army-aboard-a-fleet.md, rule 2]</strong>, so when
+/// <strong>[derived: code, 2026-10-05-split-army-aboard-a-fleet.md (research 9ae8924, provisional),
+/// rule 2, <c>:47942-47943</c> and <c>:47960-47962</c>]</strong>, so when
 /// <c>(+1, +1)</c> is blocked the new army stands at <c>(+1, 0)</c>. When no cell qualifies the original
 /// creates nothing, opens no dialog and says nothing <strong>[derived: code, the same report, rule 3]</strong>;
 /// the clone refuses a <c>split-army</c> that reaches the engine with
@@ -65,9 +66,10 @@ namespace IC2.Engine.Armies.Commands;
 /// <para>
 /// <strong>An army aboard a fleet splits like one on land.</strong> <c>TUnitMap_SplitArmy</c> checks only
 /// the owner and more than one unit; it has no embarked test, unlike Join armies' own refusal
-/// <strong>[confirmed: code, 2026-10-05-split-army-aboard-a-fleet.md, rule 1, <c>TUnitMap_SplitArmy</c>
-/// @ <c>0044755C</c> (<c>:47039</c> and <c>:47041-47044</c>) with <c>JoinArmiesRejections.ArmyEmbarked</c>
-/// for contrast]</strong>. The placement scan's centre is the carrying fleet's tile
+/// <strong>[derived: code, 2026-10-05-split-army-aboard-a-fleet.md (research 9ae8924, provisional),
+/// rule 1, <c>TUnitMap_SplitArmy</c> @ <c>0044755C</c> (<c>:47039</c> and <c>:47041-47044</c>) with
+/// <c>JoinArmiesRejections.ArmyEmbarked</c> for contrast]</strong>. The placement scan's centre is the
+/// carrying fleet's tile
 /// (<see cref="SplitPlacement.ArmyCellFor"/>), the new army takes the qualifying land cell and is
 /// <em>not</em> aboard, and the parent keeps its remaining units aboard the same fleet with the fleet's
 /// link unchanged <strong>[derived: code, <c>FUN_00449F08</c> asks <c>FUN_004492C0(position, 1)</c> with

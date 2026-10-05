@@ -64,6 +64,8 @@ public static class ArmyDialogModels
     /// new army — the original creates nothing and says nothing, so this one message is the clone's
     /// deliberate difference <c>[designed wording, the user's decision of 2026-10-05]</c>. The engine
     /// keeps its own <c>armies.no-free-adjacent-tile</c> refusal for a <c>split-army</c> that reaches it.
+    /// Only an army that could otherwise split (two or more units, below the army cap) reaches this
+    /// pre-check; a one-unit or over-cap army opens the dialog and gets T111's own refusal first.
     /// </summary>
     public const string SplitNoFreeTileMessage = "There is no free land next to this army for a new army.";
 

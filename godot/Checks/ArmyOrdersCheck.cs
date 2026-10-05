@@ -48,6 +48,8 @@ public partial class ArmyOrdersCheck : Control
     private const string NoFreeLandArmyId = "t111-no-free-land";
     private const string NoFreeLandAboardArmyId = "t111-no-free-aboard";
     private const string NoFreeLandFleetId = "t111-no-free-fleet";
+    private const string NoFreeLandOneUnitArmyId = "t111-no-free-one-unit";
+    private const string NoFreeLandOneUnitFleetId = "t111-no-free-one-fleet";
     private const string Rome = "rome";
 
     private MainGameScreen _mainGame = null!;
@@ -87,6 +89,7 @@ public partial class ArmyOrdersCheck : Control
         _steps.Add(SplitCarriedArmyFromArmy);
         _steps.Add(SplitNoFreeLandArmy);
         _steps.Add(SplitNoFreeLandAboard);
+        _steps.Add(SplitNoFreeLandOneUnit);
         _steps.Add(QualityCaptions);
         _steps.Add(NoDisbandButton);
         _steps.Add(Finish);
@@ -588,6 +591,35 @@ public partial class ArmyOrdersCheck : Control
     }
 
     /// <summary>
+    /// R2 (Opus review of PR #784): a one-unit army with no free land cell gets T111's own one-unit
+    /// refusal before the no-free-land pre-check — the original checks the unit count first — so the
+    /// dialog opens and says why, and nothing is submitted.
+    /// </summary>
+    private void SplitNoFreeLandOneUnit()
+    {
+        _mainGame.SelectArmyForCheck(NoFreeLandOneUnitArmyId);
+        var before = _commandsSeen;
+        Check(
+            IC2.Engine.Armies.SplitPlacement.ArmyCellFor(
+                _session.State, _session.World, _session.State.ArmyById(NoFreeLandOneUnitArmyId)!) is null,
+            "the one-unit aboard army has no free land cell");
+        Check(
+            _mainGame.MenuBar.PressItemForCheck("unit_map.army_split"),
+            "Split army is pressed on the one-unit army with no free land cell");
+        Check(
+            _mainGame.ActiveOverlay is SplitArmyDialog,
+            "Split army opens the dialog for a one-unit army even with no free land cell");
+        var dialog = (SplitArmyDialog)_mainGame.ActiveOverlay!;
+        Check(
+            dialog.ModelForCheck.RefusalMessage == ArmyDialogModels.SplitOneUnitRefusal,
+            $"the one-unit army gets T111's refusal ('{dialog.ModelForCheck.RefusalMessage}')");
+        Check(
+            _commandsSeen == before,
+            $"Split army submits nothing for the one-unit army ({_commandsSeen - before})");
+        dialog.CancelForCheck();
+    }
+
+    /// <summary>
     /// Done-when 7: the army panel and the unit list each print every unit's regiment quality caption.
     /// The army's units span tiers 5 (poor), 6 (average) and 8 (very good).
     /// </summary>
@@ -705,6 +737,12 @@ public partial class ArmyOrdersCheck : Control
             occupied.Add((fleet.X, fleet.Y));
         }
 
+        // The two-unit aboard no-free-land fixture claims (2,2); keep the one-unit fixture's own open-sea
+        // search off that tile.
+        occupied.Add((2, 2));
+        var landlessTile = FindLandlessTile(resolved.World, occupied)
+            ?? throw new InvalidOperationException("No open-sea tile on the classical map fits a landless army.");
+
         var splitTile = FindSplitTile(resolved.World, occupied)
             ?? throw new InvalidOperationException("No tile on the classical map fits a split army.");
 
@@ -752,6 +790,11 @@ public partial class ArmyOrdersCheck : Control
             NoFreeLandAboardArmyId, 2, 2,
             ("heavy_infantry", 5_000, 6), ("archers", 3_000, 8)));
 
+        // R2 (Opus review of PR #784): one unit and no free land cell. The original checks the unit count
+        // before the placement, so this army must get T111's one-unit refusal, not the no-free-tile message.
+        armies.Add(RomanArmy(
+            NoFreeLandOneUnitArmyId, landlessTile.X, landlessTile.Y, ("light_infantry", 1_000, 6)));
+
         var cities = resolved.World.Cities.ToList();
         cities.Add(new CityDefinition(
             DisbandCityId, "T111 disband city", X: 91, Y: 90, Owner: Rome, Allegiance: Rome,
@@ -763,6 +806,9 @@ public partial class ArmyOrdersCheck : Control
             CarryFleetId, Rome, 100, 120, Ships: 10, ConditionPercent: 100, Money: 0, SupplyTons: 300, Moves: 8));
         fleets.Add(new StartingFleet(
             NoFreeLandFleetId, Rome, 2, 2, Ships: 10, ConditionPercent: 100, Money: 0, SupplyTons: 300, Moves: 8));
+        fleets.Add(new StartingFleet(
+            NoFreeLandOneUnitFleetId, Rome, landlessTile.X, landlessTile.Y,
+            Ships: 10, ConditionPercent: 100, Money: 0, SupplyTons: 300, Moves: 8));
 
         var world = resolved.World with
         {
@@ -776,7 +822,7 @@ public partial class ArmyOrdersCheck : Control
         var initial = new GameSession(
             world, resolved.Ruleset, resolved.Scenario, seedOverride: 1, humanSeatNationId: Rome);
 
-        // Embark both carried armies by resuming a save that carries the links (bug #453's unreachable
+        // Embark the carried armies by resuming a save that carries the links (bug #453's unreachable
         // embark).
         var state = initial.State;
         var embarkedArmies = state.Armies
@@ -790,6 +836,11 @@ public partial class ArmyOrdersCheck : Control
                 {
                     AboardFleetId = NoFreeLandFleetId, CoveredTileCode = null, X = 2, Y = 2,
                 },
+                NoFreeLandOneUnitArmyId => a with
+                {
+                    AboardFleetId = NoFreeLandOneUnitFleetId, CoveredTileCode = null,
+                    X = landlessTile.X, Y = landlessTile.Y,
+                },
                 _ => a,
             })
             .ToList();
@@ -798,6 +849,10 @@ public partial class ArmyOrdersCheck : Control
             {
                 CarryFleetId => f with { CarriedArmyId = CarriedArmyId, X = 100, Y = 120 },
                 NoFreeLandFleetId => f with { CarriedArmyId = NoFreeLandAboardArmyId, X = 2, Y = 2 },
+                NoFreeLandOneUnitFleetId => f with
+                {
+                    CarriedArmyId = NoFreeLandOneUnitArmyId, X = landlessTile.X, Y = landlessTile.Y,
+                },
                 _ => f,
             })
             .ToList();
@@ -857,6 +912,57 @@ public partial class ArmyOrdersCheck : Control
                             return (x, y);
                         }
                     }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// The first unoccupied map tile whose eight neighbours include no army-passable cell — an open-sea
+    /// tile, so an army aboard a fleet there has no free land cell (the R2 one-unit fixture). The centre
+    /// itself is not tested: the split scan only offers the neighbours.
+    /// </summary>
+    private static (int X, int Y)? FindLandlessTile(World world, HashSet<(int X, int Y)> occupied)
+    {
+        for (var y = 0; y < world.Height; y++)
+        {
+            for (var x = 0; x < world.Width; x++)
+            {
+                if (occupied.Contains((x, y)))
+                {
+                    continue;
+                }
+
+                var landless = true;
+                for (var dy = -1; dy <= 1 && landless; dy++)
+                {
+                    for (var dx = -1; dx <= 1; dx++)
+                    {
+                        if (dx == 0 && dy == 0)
+                        {
+                            continue;
+                        }
+
+                        var nx = x + dx;
+                        var ny = y + dy;
+                        if (nx < 0 || ny < 0 || nx >= world.Width || ny >= world.Height)
+                        {
+                            continue;
+                        }
+
+                        if (LandingTile.IsPassableForArmy(new GridPoint(nx, ny), world))
+                        {
+                            landless = false;
+                            break;
+                        }
+                    }
+                }
+
+                if (landless)
+                {
+                    return (x, y);
                 }
             }
         }

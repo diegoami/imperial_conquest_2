@@ -48,8 +48,9 @@ namespace IC2.Engine.Armies;
 /// <strong>The scan nests <c>x</c> outer, <c>dy</c> inner.</strong> <c>FUN_004492c0</c> scans
 /// <c>dx</c> over <c>−1, 0, +1</c> in the outer loop and <c>dy</c> over <c>−1, 0, +1</c> in the inner
 /// loop and keeps the last cell whose map code is in <c>[2, 11]</c>
-/// <strong>[confirmed: code, 2026-10-05-split-army-aboard-a-fleet.md, rule 2, <c>:47942-47943</c> and
-/// <c>:47960-47962</c>]</strong>. So the new army appears at the city's south-east neighbour whenever
+/// <strong>[derived: code, 2026-10-05-split-army-aboard-a-fleet.md (research 9ae8924, provisional),
+/// rule 2, <c>:47942-47943</c> and <c>:47960-47962</c>]</strong>. So the new army appears at the city's
+/// south-east neighbour whenever
 /// that cell qualifies — which is exactly what the corpus pair shows: Rome is <c>(101, 43)</c> and the
 /// new army 14 stands at <c>(102, 44)</c> — and, when the south-east cell is blocked, at <c>(+1, 0)</c>,
 /// not the <c>(0, +1)</c> a row-major <c>dy</c>-outer scan would give. Both observed placements have

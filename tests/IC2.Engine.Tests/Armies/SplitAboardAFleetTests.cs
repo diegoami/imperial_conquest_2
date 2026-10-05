@@ -2,6 +2,7 @@ using IC2.Engine.Armies;
 using IC2.Engine.Armies.Commands;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
+using IC2.Engine.Movement;
 using IC2.Engine.Serialization;
 using IC2.Engine.Tests.Core;
 using Xunit;
@@ -107,6 +108,37 @@ public sealed class SplitAboardAFleetTests
         Assert.Equal(100, remaining.Money);
         Assert.Equal("carry-fleet", remaining.AboardFleetId);
         Assert.Equal("aboard-parent", result.State.FleetById("carry-fleet")!.CarriedArmyId);
+    }
+
+    /// <summary>
+    /// The scan is centred on the carrying fleet's tile, not on the army's own X/Y. A save whose aboard
+    /// army's coordinates disagree with its fleet's (the mutual link, not the coordinates, is what
+    /// validation checks): a scan centred on the army's own (2,2) — open sea with no land neighbour —
+    /// would find nothing, so the fleet-centred (102,47) pins the contract's <c>FleetById(...)</c> centre.
+    /// </summary>
+    [Fact]
+    public void The_scan_is_centred_on_the_carrying_fleet_not_on_the_armys_own_coordinates()
+    {
+        var state = WithRomeControl(
+            ClassicalInitial() with
+            {
+                Armies = ValueList.Of(
+                    AboardArmy(
+                        "misplaced-parent", "rome", "carry-fleet", 2, 2, money: 0, supply: 0,
+                        Unit("light_infantry", 5_000, "a"),
+                        Unit("light_infantry", 3_000, "b"),
+                        Unit("light_infantry", 2_700, "c")),
+                    LandArmy("misplaced-other-1", "rome", 102, 45, Unit("light_infantry", 1_000, "x")),
+                    LandArmy("misplaced-other-2", "rome", 102, 44, Unit("light_infantry", 1_000, "y"))),
+                Fleets = ValueList.Of(Fleet("carry-fleet", "rome", 101, 46, "misplaced-parent")),
+            },
+            SeatControl.Human);
+
+        Assert.Null(SplitPlacement.ArmyCell(state, Classical.World, new GridPoint(2, 2)));
+        var cell = SplitPlacement.ArmyCellFor(state, Classical.World, state.ArmyById("misplaced-parent")!);
+        Assert.NotNull(cell);
+        Assert.Equal(102, cell!.Value.X);
+        Assert.Equal(47, cell.Value.Y);
     }
 
     [Fact]

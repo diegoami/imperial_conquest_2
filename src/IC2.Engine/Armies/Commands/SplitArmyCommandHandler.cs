@@ -100,7 +100,8 @@ public sealed class SplitArmyCommandHandler : ICommandHandler<SplitArmyCommand>
         // The new unit stands one tile from the parent (bugs #584, #596): the same FUN_004492C0 scan
         // MobilizationArmyCreation uses for a mobilized recruit. Its centre is the parent's own tile, or
         // the carrying fleet's tile when the parent is embarked (SplitPlacement.ArmyCellFor,
-        // [confirmed: code, 2026-10-05-split-army-aboard-a-fleet.md, rule 2]). FUN_00449F08 signals
+        // [derived: code, 2026-10-05-split-army-aboard-a-fleet.md (research 9ae8924, provisional),
+        // rule 2, :48724]). FUN_00449F08 signals
         // failure through its out-parameter when no cell qualifies, so the split is refused rather than
         // leaving the new army on an occupied or impassable cell; a dangling fleet link has no centre and
         // is refused the same way [designed: such a link has no tile].
