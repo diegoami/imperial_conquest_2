@@ -160,6 +160,7 @@ public class ImprovedPresetTests
             "flags.faithfulThawColumnBug",
             "flags.bugPolicySiegeRatioClamp",
             "flags.unaffordableRecruitAndFortify",
+            "flags.humanMoveResupply",
             "victory.defaultCondition",
             "victory.defaultTurnLimit",
         };

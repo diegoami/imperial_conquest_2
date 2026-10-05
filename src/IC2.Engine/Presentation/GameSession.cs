@@ -1281,7 +1281,9 @@ public sealed partial class GameSession
         // task by T38's own remarks ("wiring the trigger... is T23's"). T22's own AI resupply pass
         // (Ai/AiResupplyPass.cs) is the AI's separate trigger for the same pure function; this is the
         // human seat's, composed here rather than inside MoveArmyCommandHandler, which is outside this
-        // task's Owns list beyond the #226 terrain fix.
+        // task's Owns list beyond the #226 terrain fix. Bug #756, T144: only under the ruleset's
+        // humanMoveResupply = againstNonHostileCity (improved); classical-faithful's never is the original,
+        // where only the AI resupplies.
         ApplyAutomaticResupplyIfAgainstANonHostileCity(armyId);
 
         return new[]
@@ -1297,10 +1299,16 @@ public sealed partial class GameSession
     /// order, the same tie-break <see cref="Armies.Commands.DisbandArmyCommandHandler"/> uses) adjacent to
     /// the army's post-move position whose owner is not at war with the army's own nation -- the army's
     /// own city, or any nation still at peace -- and runs <see cref="AutomaticResupply.ForArmy"/> against
-    /// it. A no-op when no such city adjoins the army's final tile.
+    /// it. A no-op when no such city adjoins the army's final tile, and always under the ruleset's
+    /// <see cref="HumanMoveResupplyPolicy.Never"/> (bug #756, T144).
     /// </summary>
     private void ApplyAutomaticResupplyIfAgainstANonHostileCity(string armyId)
     {
+        if (Ruleset.Flags.HumanMoveResupply != HumanMoveResupplyPolicy.AgainstNonHostileCity)
+        {
+            return;
+        }
+
         var army = State.ArmyById(armyId);
         if (army is null || army.IsEmbarked)
         {
