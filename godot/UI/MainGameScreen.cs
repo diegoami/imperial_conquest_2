@@ -133,6 +133,10 @@ public partial class MainGameScreen : Control
 
     private readonly Queue<Engine.Battle.BattleResult> _pendingBattleOverlays = new();
 
+    // T138: one window per human seat that fell on the last Submit call, in the order the engine recorded
+    // them. Drained by ShowNextOverlay after the call's battle windows and before a hotseat hand-off.
+    private readonly Queue<SeatFall> _pendingGameEndOverlays = new();
+
     // T116: the rule that decides which of a Submit call's battles are shown now and which are held,
     // per seat, until that seat's own turn start. Holds only battle results; the human-seat list is read
     // from Session.State on each call (see OnCommandIssued), so a seat deposed mid-game is dropped.
@@ -988,6 +992,13 @@ public partial class MainGameScreen : Control
             _pendingBattleOverlays.Enqueue(battle);
         }
 
+        // T138: one game-end window per human seat that fell on this call, in order. A fall in the
+        // construction-time prelude arrives here on the first command too, the same way the battles do.
+        foreach (var fall in Session.LastSeatFalls)
+        {
+            _pendingGameEndOverlays.Enqueue(fall);
+        }
+
         ShowNextOverlay();
     }
 
@@ -1105,10 +1116,22 @@ public partial class MainGameScreen : Control
 
     private void ShowNextOverlay()
     {
-        // T116: the handoff comes first, then the battles routed to the seat it hands to. The handoff
-        // screen's own Continue calls back here, so the battles returned by the router are shown after
-        // the "pass the device" screen hides the outgoing seat's view -- and a held battle is released
-        // ahead of the call's own battles because the router orders it that way.
+        // T138: a fall window comes after this call's battle windows and before a hotseat hand-off
+        // (docs/tasks/T138.md's scope item 4), so the player whose seat fell sees the battle that caused
+        // it and then the fall, before the device is passed. With no fall queued, T116's own order stands
+        // unchanged: the hand-off first, then the battles routed to the seat it hands to.
+        if (_pendingGameEndOverlays.Count > 0)
+        {
+            if (_pendingBattleOverlays.Count > 0)
+            {
+                ShowBattleResultOverlay(_pendingBattleOverlays.Dequeue());
+                return;
+            }
+
+            ShowGameEndOverlay(_pendingGameEndOverlays.Dequeue());
+            return;
+        }
+
         if (CheckForHotseatHandoff())
         {
             return;
@@ -1118,6 +1141,31 @@ public partial class MainGameScreen : Control
         {
             ShowBattleResultOverlay(_pendingBattleOverlays.Dequeue());
         }
+    }
+
+    /// <summary>
+    /// T138: opens the game-end window for one fallen seat, from the engine's own <see cref="SeatFall"/>
+    /// and the nation's live start figures. The window's own Main menu exits to the main menu exactly as
+    /// File → Close does (no confirmation — nothing is left to lose); its View map / Continue closes the
+    /// window and lets <see cref="ShowNextOverlay"/> carry on with the hotseat hand-off and any battles.
+    /// </summary>
+    private void ShowGameEndOverlay(SeatFall fall)
+    {
+        if (Session.State.NationById(fall.NationId) is not { } nation)
+        {
+            return;
+        }
+
+        var model = GameEndViewModel.FromFall(
+            fall, nation, Session.Ruleset, Session.State.Calendar.YearBc, Session.IsGameOver);
+        var screen = new GameEndScreen { Model = model };
+        screen.MainMenuRequested += () => OwningAppRoot?.ShowMainMenu();
+        screen.Closed += () =>
+        {
+            CloseOverlay(screen);
+            ShowNextOverlay();
+        };
+        ShowOverlay(screen);
     }
 
     private void ShowBattleResultOverlay(Engine.Battle.BattleResult battle)
