@@ -64,7 +64,7 @@
     The model family that implemented the PR never reviews it: -ExcludeModel (or, when that is not
     given, a model:<name> label on the PR or on -Issue naming an OpenCode model) drops every
     reviewer of that family from the chain (OpenAI: luna, sol; GLM: glm, glm-flash; DeepSeek:
-    deepseek, deepseek-pro, deepseek-flash), and an explicit -Reviewer of that family is refused with exit 1.
+    deepseek, deepseek-pro, deepseek-flash; Qwen: qwen, qwen-flash), and an explicit -Reviewer of that family is refused with exit 1.
     If every model fails, the chain stops early, the exclusion leaves no model, or OpenCode is not
     installed, nothing is posted and the script exits 3 ("OpenCode unavailable: ...");
     build-process.md §4.9 says what the main session does then. An explicit -Reviewer runs only
@@ -83,6 +83,12 @@
     GPT-5.6 Luna draws on its own weekly window, separate from Sol's: read quota-tracker
     (docs/environment.md) rather than probing Luna (build-process.md §3.4).
     `opencode models` shows what this machine has.
+    The Alibaba Token Plan (`alibaba-token-plan/…`, the user's decision of 2026-10-05) carries the
+    Qwen family, qwen (`qwen3.8-max`) and qwen-flash (`qwen3.8-flash`), and a second route for
+    deepseek (`deepseek-v4.1-flash`), deepseek-pro (`deepseek-v4-pro`) and glm (`glm-5.3`); -Route
+    picks it. Its key is the user variable ALIBABA_TOKEN_PLAN_API_KEY, loaded into this process when
+    missing and never printed; "Invalid API-key" or "Provider not found" from it stops the script
+    (exit 1, not 3) with the cause, never a retry (docs/environment.md).
     OpenCode reads CLAUDE.md as its instructions file when no AGENTS.md exists; that is
     harmless here (the reviewer gets the token-economy rules) and no AGENTS.md is added.
 
@@ -98,7 +104,16 @@
     low by default and medium with -Effort medium, never higher (the user's decision of 2026-10-03).
     sol (GPT-6 Sol) is the complex tier's reviewer; luna with glm or deepseek-pro, in two runs, is the
     Luna pair; glm, then deepseek-pro (DeepSeek V4 Pro, `opencode-go/deepseek-v4-pro`), then luna
-    are Sol's substitutes when it cannot review (build-process.md §3.4).
+    are Sol's substitutes when it cannot review (build-process.md §3.4), then qwen (Qwen3.8 Max at
+    low). qwen-flash (Qwen3.8 Flash at medium; it offers low, medium and xhigh) is the last re-check
+    reviewer of named fixes.
+.PARAMETER Route
+    Which provider DeepSeek and GLM run through: auto (the default) takes the usual one (OpenCode Go
+    for deepseek and deepseek-pro, Z.AI for glm) unless quota-tracker's /avoid lists it
+    (opencode_go, zai), then the Alibaba Token Plan's id for the same model; when the tracker does not
+    answer, the usual route. go, zai or alibaba force one; a named reviewer that route does not serve
+    is refused (exit 1). Qwen is always alibaba, luna and sol always openai, glm-flash always zai. The
+    route is printed, and named in the posted review's signature line.
 .PARAMETER BriefFile
     The filled reviewer brief. Its first line must be the review header the model is to print,
     for example "Plan review (Luna)" or "T94 review (DeepSeek)". With -Reviewer auto, the text in
@@ -132,8 +147,8 @@
     runs or a reply streams, so this must exceed the longest single step of a review.
 .PARAMETER ExcludeModel
     The model that implemented the PR, as external-implement.ps1 names it on its "implemented by:"
-    line (deepseek-flash, glm-flash, glm, luna, mimo-pro, mimo-flash; or a reviewer name, sol
-    included). Every reviewer of the same family is dropped from the chain (deepseek-flash is
+    line (deepseek-flash, glm-flash, glm, luna, qwen-flash, mimo-pro, mimo-flash; or a reviewer
+    name, sol and qwen included). Every reviewer of the same family is dropped from the chain (deepseek-flash is
     DeepSeek, as are deepseek and deepseek-pro; luna and sol are both OpenAI). A deepseek-flash
     implementer never collides with the Luna or Sol reviewer; a luna implementer excludes both, so -Reviewer auto leaves no OpenCode
     reviewer, the script exits 3 and a cold Claude Opus reviews. sonnet and opus name a Claude
@@ -160,7 +175,7 @@
 [CmdletBinding()]
 param(
     [int] $Pr,
-    [ValidateSet('auto', 'glm-flash', 'glm', 'luna', 'sol', 'deepseek', 'deepseek-pro')] [string] $Reviewer = 'auto',
+    [ValidateSet('auto', 'glm-flash', 'glm', 'luna', 'sol', 'deepseek', 'deepseek-pro', 'qwen', 'qwen-flash')] [string] $Reviewer = 'auto',
     [string] $BriefFile,
     [int] $Issue,
     [switch] $ApplyLabel,
@@ -171,13 +186,16 @@ param(
     [int] $StartupTimeoutSec = 180,
     [int] $TotalTimeoutSec = 3600,
     [int] $IdleTimeoutSec = 600,
-    [ValidateSet('deepseek-flash', 'glm-flash', 'glm', 'luna', 'sol', 'mimo-pro', 'mimo-flash', 'deepseek', 'deepseek-pro', 'sonnet', 'opus')] [string] $ExcludeModel,
+    [ValidateSet('deepseek-flash', 'glm-flash', 'glm', 'luna', 'sol', 'mimo-pro', 'mimo-flash', 'deepseek', 'deepseek-pro', 'qwen', 'qwen-flash', 'sonnet', 'opus')] [string] $ExcludeModel,
     [hashtable] $ModelIds,
-    [ValidateSet('low', 'medium')] [string] $Effort
+    [ValidateSet('low', 'medium')] [string] $Effort,
+    [ValidateSet('auto', 'go', 'zai', 'alibaba')] [string] $Route = 'auto'
 )
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Invoke-OpenCodeWatched.ps1')
+# The Alibaba Token Plan's key comes from the user environment when this process predates it (never printed).
+$null = Import-AlibabaTokenPlanKey
 
 # --- Review completeness (issue #575) ---------------------------------------------------------
 # A review is never thrown away; the script only refuses to act on what it cannot read. A review
@@ -502,6 +520,7 @@ function Invoke-ReviewParserSelfTest {
     $ruleChecks += [pscustomobject]@{ Name = 'a deepseek-flash implementer excludes neither luna nor sol'; Ok = (@($reviewerOf['deepseek-flash']) -notcontains 'luna' -and @($reviewerOf['deepseek-flash']) -notcontains 'sol') }
     # PR #642 review R6: the family check uses one helper, and runs before -WhatIf returns.
     $ruleChecks += [pscustomobject]@{ Name = 'Get-ExcludedReviewers: a luna implementer excludes sol'; Ok = ((Get-ExcludedReviewers @('luna')) -contains 'sol') }
+    $ruleChecks += [pscustomobject]@{ Name = 'Get-ExcludedReviewers: no implementer (-WhatIf without -ExcludeModel) excludes nothing'; Ok = (@(Get-ExcludedReviewers $null).Count -eq 0) }
     $ruleChecks += [pscustomobject]@{ Name = 'Get-ExcludedReviewers: a sonnet implementer excludes nothing'; Ok = (@(Get-ExcludedReviewers @('sonnet')).Count -eq 0) }
     $probeDir = Join-Path (Split-Path $PSScriptRoot -Parent) 'rendered'
     New-Item -ItemType Directory -Force -Path $probeDir | Out-Null
@@ -537,6 +556,45 @@ function Invoke-ReviewParserSelfTest {
     $ruleChecks += [pscustomobject]@{ Name = 'a deepseek-flash implementer excludes deepseek and deepseek-pro'; Ok = ((@($reviewerOf['deepseek-flash']) | Sort-Object) -join ',' -eq 'deepseek,deepseek-pro') }
     $ruleChecks += [pscustomobject]@{ Name = 'a glm implementer excludes neither deepseek-pro nor luna'; Ok = (@($reviewerOf['glm']) -notcontains 'deepseek-pro' -and @($reviewerOf['glm']) -notcontains 'luna') }
     $ruleChecks += [pscustomobject]@{ Name = 'a deepseek-pro implementer is accepted and excludes its family'; Ok = ($excludeSet -contains 'deepseek-pro' -and (@($reviewerOf['deepseek-pro']) | Sort-Object) -join ',' -eq 'deepseek,deepseek-pro') }
+    # The Qwen family and the Alibaba routes (the user's decision of 2026-10-05).
+    $ruleChecks += [pscustomobject]@{ Name = 'qwen is alibaba-token-plan/qwen3.8-max at low, shown as Qwen'; Ok = ($models['qwen'] -eq 'alibaba-token-plan/qwen3.8-max' -and $variants['qwen'] -eq 'low' -and $displayNames['qwen'] -eq 'Qwen') }
+    $ruleChecks += [pscustomobject]@{ Name = 'qwen-flash is alibaba-token-plan/qwen3.8-flash at medium, shown as Qwen Flash'; Ok = ($models['qwen-flash'] -eq 'alibaba-token-plan/qwen3.8-flash' -and $variants['qwen-flash'] -eq 'medium' -and $displayNames['qwen-flash'] -eq 'Qwen Flash') }
+    foreach ($q in 'qwen', 'qwen-flash') {
+        $ruleChecks += [pscustomobject]@{ Name = "a $q implementer is accepted and excludes qwen and qwen-flash"; Ok = ($excludeSet -contains $q -and (@($reviewerOf[$q]) | Sort-Object) -join ',' -eq 'qwen,qwen-flash') }
+    }
+    $ruleChecks += [pscustomobject]@{ Name = 'no other family excludes a Qwen reviewer'; Ok = (@($reviewerOf.Keys | Where-Object { $_ -notlike 'qwen*' } | Where-Object { @($reviewerOf[$_]) -match '^qwen' }).Count -eq 0) }
+    $ruleChecks += [pscustomobject]@{ Name = 'Alibaba ids: deepseek-v4.1-flash, deepseek-v4-pro, glm-5.3; none for glm-flash, luna, sol'; Ok = ($alibabaIds['deepseek'] -eq 'alibaba-token-plan/deepseek-v4.1-flash' -and $alibabaIds['deepseek-pro'] -eq 'alibaba-token-plan/deepseek-v4-pro' -and $alibabaIds['glm'] -eq 'alibaba-token-plan/glm-5.3' -and -not $alibabaIds['glm-flash'] -and -not $alibabaIds['luna'] -and -not $alibabaIds['sol']) }
+    $rt = { param($name, $route, $answered, $avoid) Resolve-OpenCodeRoute -Usual $models[$name] -Alibaba $alibabaIds[$name] -Route $route -Answered $answered -Avoid $avoid }
+    $r = & $rt 'deepseek-pro' 'auto' $true @()
+    $ruleChecks += [pscustomobject]@{ Name = 'route auto, nothing avoided: deepseek-pro stays on go'; Ok = ($r.Route -eq 'go' -and $r.Model -eq 'opencode-go/deepseek-v4-pro') }
+    $r = & $rt 'deepseek-pro' 'auto' $true @('opencode_go')
+    $ruleChecks += [pscustomobject]@{ Name = 'route auto, opencode_go avoided: deepseek-pro moves to alibaba'; Ok = ($r.Route -eq 'alibaba' -and $r.Model -eq 'alibaba-token-plan/deepseek-v4-pro' -and -not $r.Avoided) }
+    $r = & $rt 'glm' 'auto' $true @('zai')
+    $ruleChecks += [pscustomobject]@{ Name = 'route auto, zai avoided: glm moves to alibaba glm-5.3'; Ok = ($r.Route -eq 'alibaba' -and $r.Model -eq 'alibaba-token-plan/glm-5.3') }
+    $r = & $rt 'glm' 'auto' $true @('zai', 'alibaba')
+    $ruleChecks += [pscustomobject]@{ Name = 'route auto, zai and alibaba avoided: glm is Avoided on zai'; Ok = ($r.Route -eq 'zai' -and $r.Avoided) }
+    $r = & $rt 'glm' 'auto' $false @()
+    $ruleChecks += [pscustomobject]@{ Name = 'route auto, tracker silent: glm keeps zai'; Ok = ($r.Route -eq 'zai' -and $r.Model -eq 'zai-coding-plan/glm-5.3' -and -not $r.Avoided) }
+    $r = & $rt 'glm-flash' 'auto' $true @('zai')
+    $ruleChecks += [pscustomobject]@{ Name = 'route auto, zai avoided: glm-flash has no Alibaba id and is Avoided'; Ok = ($r.Route -eq 'zai' -and $r.Avoided) }
+    $r = & $rt 'deepseek' 'alibaba' $false @()
+    $ruleChecks += [pscustomobject]@{ Name = '-Route alibaba: deepseek runs alibaba deepseek-v4.1-flash'; Ok = ($r.Model -eq 'alibaba-token-plan/deepseek-v4.1-flash') }
+    $r = & $rt 'glm' 'go' $false @()
+    $ruleChecks += [pscustomobject]@{ Name = '-Route go is refused for glm'; Ok = ($r.Refused) }
+    $r = & $rt 'luna' 'alibaba' $false @()
+    $ruleChecks += [pscustomobject]@{ Name = '-Route alibaba is refused for luna'; Ok = ($r.Refused) }
+    $r = & $rt 'qwen' 'auto' $true @('opencode_go', 'zai')
+    $ruleChecks += [pscustomobject]@{ Name = 'route auto: qwen is always alibaba'; Ok = ($r.Route -eq 'alibaba' -and $r.Model -eq 'alibaba-token-plan/qwen3.8-max' -and -not $r.Avoided) }
+    $ruleChecks += [pscustomobject]@{ Name = 'Alibaba errors: Invalid API-key and Provider not found stop the run; others do not'; Ok = ((Get-AlibabaFailure 'Error: Invalid API-key provided' 'X') -like '*auth.json in X*' -and (Get-AlibabaFailure 'Error: Provider not found: alibaba-token-plan' 'X') -like '*Provider not found*' -and $null -eq (Get-AlibabaFailure 'Error: rate limited' 'X')) }
+    $probeBrief = Join-Path $probeDir "selftest-brief-$([guid]::NewGuid().ToString('N').Substring(0, 8)).md"
+    Set-Content -LiteralPath $probeBrief -Value "T0 review (Qwen)`nself-test probe brief" -Encoding utf8
+    $null = & pwsh -NoProfile -File $PSCommandPath -Pr 1 -Reviewer qwen -ExcludeModel qwen-flash -BriefFile $probeBrief -WhatIf 2>&1
+    $qwenCode = $LASTEXITCODE
+    $null = & pwsh -NoProfile -File $PSCommandPath -Pr 1 -Reviewer luna -Route alibaba -BriefFile $probeBrief -WhatIf 2>&1
+    $lunaRouteCode = $LASTEXITCODE
+    Remove-Item -LiteralPath $probeBrief -Force -ErrorAction SilentlyContinue
+    $ruleChecks += [pscustomobject]@{ Name = "-WhatIf -Reviewer qwen -ExcludeModel qwen-flash is refused with exit 1 (got $qwenCode)"; Ok = ($qwenCode -eq 1) }
+    $ruleChecks += [pscustomobject]@{ Name = "-WhatIf -Reviewer luna -Route alibaba is refused with exit 1 (got $lunaRouteCode)"; Ok = ($lunaRouteCode -eq 1) }
     foreach ($c in $ruleChecks) {
         $n++
         if (-not $c.Ok) { $failed++ }
@@ -566,6 +624,10 @@ $models = @{
     # §3.4 "When Sol cannot review"); `opencode models opencode-go --verbose` lists its variants as
     # high and max, so it runs at high like the others.
     'deepseek-pro' = 'opencode-go/deepseek-v4-pro'
+    # The Qwen family, on the Alibaba Token Plan only (the user's decision of 2026-10-05): qwen is
+    # Qwen3.8 Max, a heavy reviewer; qwen-flash is Qwen3.8 Flash, the light re-check reviewer.
+    qwen         = 'alibaba-token-plan/qwen3.8-max'
+    'qwen-flash' = 'alibaba-token-plan/qwen3.8-flash'
 }
 if ($ModelIds) { foreach ($k in $ModelIds.Keys) { $models[$k] = $ModelIds[$k] } }
 # Provider-specific variant. Invoke-OpenCodeWatched passes it by the CLI's major version (1.x
@@ -575,8 +637,19 @@ if ($ModelIds) { foreach ($k in $ModelIds.Keys) { $models[$k] = $ModelIds[$k] } 
 # decision of 2026-10-03; its variants are none, low, medium, high, xhigh and max). -Effort's
 # ValidateSet admits only low and medium, and it changes sol's variant alone.
 function Get-SolVariant([string] $Requested) { if ($Requested) { return $Requested } return 'low' }
-$variants = @{ 'glm-flash' = 'high'; glm = 'low'; luna = 'high'; sol = (Get-SolVariant $Effort); deepseek = ''; 'deepseek-pro' = 'high' }
-$displayNames = @{ 'glm-flash' = 'GLM Flash'; glm = 'GLM'; luna = 'Luna'; sol = 'Sol'; deepseek = 'DeepSeek'; 'deepseek-pro' = 'DeepSeek Pro' }
+# Qwen3.8 Max and Flash offer low, medium and xhigh (`opencode models alibaba-token-plan --verbose`,
+# 2026-10-05): qwen, heavy, runs at low; qwen-flash at medium (it has no high, and xhigh is overkill).
+$variants = @{ 'glm-flash' = 'high'; glm = 'low'; luna = 'high'; sol = (Get-SolVariant $Effort); deepseek = ''; 'deepseek-pro' = 'high'; qwen = 'low'; 'qwen-flash' = 'medium' }
+$displayNames = @{ 'glm-flash' = 'GLM Flash'; glm = 'GLM'; luna = 'Luna'; sol = 'Sol'; deepseek = 'DeepSeek'; 'deepseek-pro' = 'DeepSeek Pro'; qwen = 'Qwen'; 'qwen-flash' = 'Qwen Flash' }
+# The Alibaba Token Plan route of the DeepSeek and GLM reviewers (the user's decision of 2026-10-05):
+# the same model, so the same name and family, on another provider. -Route picks it (auto: when
+# quota-tracker's /avoid lists the usual provider, opencode_go or zai). The variants are the same
+# (Alibaba's deepseek-v4-pro offers high and max, glm-5.3 low, high and max). No light GLM on Alibaba.
+$alibabaIds = @{
+    deepseek       = 'alibaba-token-plan/deepseek-v4.1-flash'
+    'deepseek-pro' = 'alibaba-token-plan/deepseek-v4-pro'
+    glm            = 'alibaba-token-plan/glm-5.3'
+}
 # The reviewer's model family is never the implementer's (build-process.md §3.4). The implementing
 # model comes from -ExcludeModel, else from a model:<name> label on the PR or its issue that names an
 # OpenCode model (model:opus and model:sonnet name Claude, which is not in this chain). Implementer
@@ -594,13 +667,19 @@ $reviewerOf = @{
     'glm'            = @('glm-flash', 'glm')
     'luna'           = @('luna', 'sol')
     'sol'            = @('luna', 'sol')
+    # Qwen is its own family (the user's decision of 2026-10-05): a Qwen implementer excludes both
+    # Qwen reviewers, and Qwen reviews any other family's PR.
+    'qwen'           = @('qwen', 'qwen-flash')
+    'qwen-flash'     = @('qwen', 'qwen-flash')
     'sonnet'         = @()
     'opus'           = @()
 }
 
 function Get-ExcludedReviewers([string[]] $Implementers) {
     # The reviewer names the implementers' families exclude (build-process.md §3.4).
-    return @($Implementers | ForEach-Object { $reviewerOf[$_] } | Where-Object { $_ } | Select-Object -Unique)
+    # Null names are skipped: -WhatIf without -ExcludeModel passes no implementer, which PowerShell
+    # binds as one $null, and indexing the map with it threw (every such -WhatIf exited 1).
+    return @($Implementers | Where-Object { $_ } | ForEach-Object { $reviewerOf[$_] } | Where-Object { $_ } | Select-Object -Unique)
 }
 
 function Publish-ReviewComment {
@@ -662,7 +741,7 @@ $implementers = if ($ExcludeModel) { @($ExcludeModel) } elseif ($WhatIf) { @() }
     $labels = @(gh pr view $Pr --json labels --jq '.labels[].name' 2>$null)
     if ($Issue) { $labels += @(gh issue view $Issue --json labels --jq '.labels[].name' 2>$null) }
     @($labels | Where-Object { $_ -match '^model:(.+)$' } | ForEach-Object { $_.Substring(6) } |
-        Where-Object { $_ -in 'deepseek-flash', 'glm-flash', 'glm', 'luna', 'sol', 'mimo-pro', 'mimo-flash', 'deepseek', 'deepseek-pro' } | Select-Object -Unique)
+        Where-Object { $_ -in 'deepseek-flash', 'glm-flash', 'glm', 'luna', 'sol', 'mimo-pro', 'mimo-flash', 'deepseek', 'deepseek-pro', 'qwen', 'qwen-flash' } | Select-Object -Unique)
 }
 if ($WhatIf -and -not $ExcludeModel) { Write-Host 'family not checked: pass -ExcludeModel <implemented by> to check it.' }
 $excluded = Get-ExcludedReviewers $implementers
@@ -676,6 +755,21 @@ if (-not $chain) {
     [Console]::Error.WriteLine("OpenCode unavailable: no reviewer model left after excluding the implementer's ($($implementers -join ', ')). Nothing posted.")
     exit 3
 }
+# The route of each chain reviewer (the user's decision of 2026-10-05): -Route auto reads
+# quota-tracker's /avoid once and moves DeepSeek or GLM to the Alibaba Token Plan when its usual
+# provider is avoided; a tracker that does not answer keeps the usual route. An explicit -Route that a
+# named reviewer has no id for is refused (exit 1).
+$quota = if ($Route -eq 'auto') { Get-QuotaAvoid } else { [pscustomobject]@{ Answered = $false; Providers = @() } }
+$resolved = @{}
+foreach ($name in $chain) {
+    $r = Resolve-OpenCodeRoute -Usual $models[$name] -Alibaba $alibabaIds[$name] -Route $Route -Answered $quota.Answered -Avoid $quota.Providers
+    if ($r.Refused) {
+        [Console]::Error.WriteLine("Refused: $($displayNames[$name]): $($r.Why). Nothing posted.")
+        exit 1
+    }
+    $resolved[$name] = $r
+    Write-Host "route: $($displayNames[$name]) on $($r.Route) ($($r.Model)): $($r.Why)"
+}
 # OpenCode not installed or not found, or a major version this script has no arguments for (only 1.x
 # and 2.x), is the same signal as every model failing: exit 3. The version is read once (T98).
 try { $cli = Get-OpenCodeCli } catch {
@@ -687,7 +781,7 @@ if ($WhatIf) {
     # No PR fetch, no worktree, no OpenCode, no billing: only the argument line each chain reviewer would get.
     foreach ($name in $chain) {
         Write-Host "would attempt: $($displayNames[$name])"
-        $null = Invoke-OpenCodeWatched -WhatIf -Agent 'external-reviewer' -Model $models[$name] -Variant $variants[$name] -Prompt $brief `
+        $null = Invoke-OpenCodeWatched -WhatIf -Agent 'external-reviewer' -Model $resolved[$name].Model -Variant $variants[$name] -Prompt $brief `
             -WorkDir (Get-Location).Path -Title "ic2-pr$Pr-$name"
     }
     exit 0
@@ -725,12 +819,13 @@ function Invoke-ReviewAttempt([string] $Name) {
     # One model, once. Returns Ok + Review + Verdict (+ Flagged/FlagNote), or Ok = $false + a short
     # Reason for an infrastructure failure. No review at all (no header line anywhere) is the only
     # failure class here (issue #575); an unreadable or cut-off review is flagged, not failed.
-    $model = $models[$Name]
+    $model = $resolved[$Name].Model
+    $route = $resolved[$Name].Route
     $variant = $variants[$Name]
     $header = if ($Reviewer -eq 'auto') { $briefHeader -replace '\([^()]*\)\s*$', "($($displayNames[$Name]))" } else { $briefHeader }
     $rules = Get-ReviewOutputRules -Header $header -Worktree $worktree -HeadSha $headSha
     $prompt = $header + "`n" + $briefRest + $rules
-    $fail = { param($reason, $detail) [pscustomobject]@{ Ok = $false; Name = $Name; Model = $model; Header = $header; Reason = $reason; Detail = $detail } }
+    $fail = { param($reason, $detail) [pscustomobject]@{ Ok = $false; Name = $Name; Model = $model; Route = $route; Header = $header; Reason = $reason; Detail = $detail } }
 
     New-ReviewWorktree
     # 2. Run OpenCode in the worktree, watched. `opencode run [message..]` is non-interactive;
@@ -772,7 +867,7 @@ function Invoke-ReviewAttempt([string] $Name) {
     # rework R4). The posting path and the self-test share Remove-ClosingKeywordHash.
     $rewritten = Remove-ClosingKeywordHash $review
     if ($rewritten -ne $review) { Write-Host "note: rewrote closing keyword(s) in the review (e.g. 'fixes #551' -> 'fixes 551') so it can be posted." }
-    return [pscustomobject]@{ Ok = $true; Name = $Name; Model = $model; Header = $header; Review = $rewritten; Verdict = $parsed.Verdict; Flagged = $parsed.Flagged; FlagNote = $parsed.FlagNote }
+    return [pscustomobject]@{ Ok = $true; Name = $Name; Model = $model; Route = $route; Header = $header; Review = $rewritten; Verdict = $parsed.Verdict; Flagged = $parsed.Flagged; FlagNote = $parsed.FlagNote }
 }
 
 $result = $null
@@ -783,7 +878,7 @@ try {
     $n = 0
     foreach ($name in $chain) {
         $n++
-        Write-Host "attempt $n/$($chain.Count): $($displayNames[$name]) ($($models[$name]))$(if ($variants[$name]) { " with variant $($variants[$name])" }), OpenCode $($cli.Version)"
+        Write-Host "attempt $n/$($chain.Count): $($displayNames[$name]) ($($resolved[$name].Model), route $($resolved[$name].Route))$(if ($variants[$name]) { " with variant $($variants[$name])" }), OpenCode $($cli.Version)"
         $attempt = Invoke-ReviewAttempt $name
         if ($attempt.Ok) { $result = $attempt; break }
         Write-Host "attempt $n/$($chain.Count): $($displayNames[$name]) failed: $($attempt.Reason)"
@@ -811,7 +906,7 @@ try {
                 $review = $lines -join "`n"
             }
         }
-        $body = $review + "`n`n— $($displayNames[$result.Name]), via scripts/external-review.ps1 ($($result.Model))"
+        $body = $review + "`n`n— $($displayNames[$result.Name]), via scripts/external-review.ps1 ($($result.Model), route $($result.Route))"
         if ($result.Flagged) {
             # Never act on what cannot be read: post it (so it is not thrown away) with the note
             # first, apply no label, and tell the main session to read it and decide.

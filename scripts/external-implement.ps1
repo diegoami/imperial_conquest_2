@@ -21,8 +21,10 @@
       4. checks the outcome: a PR exists for the branch, the worktree is clean and pushed, and
          it is detached so the branch is free for the reviewer; saves the run's output next to
          the worktree as <name>.implementer.log and prints its tail.
-    With -Model auto (the default) the chain is deepseek-flash alone (issue #575: one OpenCode
-    model per role before Claude), then the main session runs Claude Sonnet. GLM left the
+    With -Model auto (the default) the chain is deepseek-flash (on OpenCode Go, or on the Alibaba
+    Token Plan when quota-tracker's /avoid lists opencode_go), then qwen-flash (Qwen3.8 Flash, Alibaba),
+    then the main session runs Claude Sonnet (the user's decision of 2026-10-05, which extends issue
+    #575's one OpenCode model per role). A chain model none of whose routes has quota is skipped. GLM left the
     implementer side on 2026-10-01 (issue #573): GLM-5.3 ended T99's implementer run early,
     mid-exploration, with no error (#557), while DeepSeek V4.1 Flash implemented T97 in one go.
     glm, glm-flash and luna stay valid as explicit -Model values, and no default path picks them.
@@ -47,6 +49,10 @@
     Model names -> OpenCode model ids (`opencode models` lists what this machine has). The runs
     are on OpenCode Go, `opencode-go/…`, per the user's decision of 2026-10-01 (issue #551), except
     luna: the direct OpenAI route, `openai/gpt-5.6-luna`, via the machine's OpenAI login (issue #575).
+    The Alibaba Token Plan (`alibaba-token-plan/…`, the user's decision of 2026-10-05) carries
+    qwen-flash and a second route for deepseek-flash and glm (-Route). Its key is the user variable
+    ALIBABA_TOKEN_PLAN_API_KEY, loaded into this process when missing and never printed; "Invalid
+    API-key" or "Provider not found" from it stops the script (exit 1) with the cause, never a retry.
 
 .PARAMETER Task
     T<nn>, for a task. Mutually exclusive with -Fix.
@@ -59,11 +65,19 @@
 .PARAMETER BriefFile
     The filled Appendix A brief.
 .PARAMETER Model
-    auto (default: deepseek-flash alone, then the main session runs Claude Sonnet; issue #575
-    keeps one OpenCode model per role before Claude), or one model alone: luna (GPT-5.6 Luna at
+    auto (default: deepseek-flash, then qwen-flash, then the main session runs Claude Sonnet), or
+    one model alone: qwen-flash (Qwen3.8 Flash at medium, `alibaba-token-plan/qwen3.8-flash`; it
+    offers low, medium and xhigh), luna (GPT-5.6 Luna at
     high effort, `openai/gpt-5.6-luna`, direct OpenAI via the machine's OpenAI login), glm-flash
     (GLM-5.3 Flash at high), glm (GLM-5.3 at low, a heavy model run light; only selected explicitly), deepseek-flash (DeepSeek V4.1 Flash
     at high, proven on this repository in #279), mimo-pro, or mimo-flash.
+.PARAMETER Route
+    Which provider deepseek-flash and glm run through: auto (the default) takes the usual one
+    (OpenCode Go, Z.AI) unless quota-tracker's /avoid lists it, then the Alibaba Token Plan's id for
+    the same model (`deepseek-v4.1-flash`, `glm-5.3`); when the tracker does not answer, the usual
+    route. go, zai or alibaba force one: an explicit -Model that route does not serve is refused (exit
+    1), and an auto chain drops such a model. The route is printed, logged and named on the
+    "implemented by:" line.
 .PARAMETER LocalOnly
     Copy assets.local.ini from the main checkout into the worktree.
 .PARAMETER FixturesDir
@@ -95,7 +109,8 @@ param(
     [Parameter(Mandatory)] [string] $Slug,
     [int] $Issue,
     [Parameter(Mandatory)] [string] $BriefFile,
-    [ValidateSet('auto', 'luna', 'glm-flash', 'glm', 'deepseek-flash', 'mimo-pro', 'mimo-flash')] [string] $Model = 'auto',
+    [ValidateSet('auto', 'luna', 'glm-flash', 'glm', 'deepseek-flash', 'qwen-flash', 'mimo-pro', 'mimo-flash')] [string] $Model = 'auto',
+    [ValidateSet('auto', 'go', 'zai', 'alibaba')] [string] $Route = 'auto',
     [switch] $LocalOnly,
     [string] $FixturesDir,
     [int] $StartupTimeoutSec = 180,
@@ -107,6 +122,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Invoke-OpenCodeWatched.ps1')
+# The Alibaba Token Plan's key comes from the user environment when this process predates it (never printed).
+$null = Import-AlibabaTokenPlanKey
 
 # On 2026-10-01 the user moved the OpenCode runs from OpenCode Zen to OpenCode Go (issue #551):
 # every id is `opencode-go/…` and no Zen model is used, the free ones included. The one exception
@@ -126,17 +143,40 @@ $models = @{
     'deepseek-flash'  = 'opencode-go/deepseek-v4.1-flash'
     'mimo-pro'        = 'opencode-go/mimo-v2.6-pro'
     'mimo-flash'      = 'opencode-go/mimo-v2.6-flash'
+    # Qwen3.8 Flash on the Alibaba Token Plan (the user's decision of 2026-10-05).
+    'qwen-flash'      = 'alibaba-token-plan/qwen3.8-flash'
+}
+# The Alibaba Token Plan route of the same models (-Route; the user's decision of 2026-10-05).
+$alibabaIds = @{
+    'deepseek-flash' = 'alibaba-token-plan/deepseek-v4.1-flash'
+    'glm'            = 'alibaba-token-plan/glm-5.3'
 }
 if ($ModelIds) { foreach ($k in $ModelIds.Keys) { $models[$k] = $ModelIds[$k] } }
 # Provider-specific variant. Invoke-OpenCodeWatched passes it by the CLI's major version (1.x
 # `--variant v`, 2.x the model's `#v` suffix). Empty means none. Effort is `high` everywhere (issue #575: `max`
 # is overkill); luna was already high.
 # Heavy models run light (the user's decision of 2026-10-05): glm at low (GLM-5.3 has no medium).
-$variants = @{ 'luna' = 'high'; 'glm-flash' = 'high'; 'glm' = 'low'; 'deepseek-flash' = 'high'; 'mimo-pro' = ''; 'mimo-flash' = '' }
-# The fallback chain (the user's decision of 2026-10-01, issue #575): DeepSeek V4.1 Flash alone,
-# then the main session runs Claude Sonnet. One OpenCode model per role before Claude. An
-# explicit -Model runs that model alone.
-$chain = if ($Model -eq 'auto') { @('deepseek-flash') } else { @($Model) }
+# qwen-flash at medium: Qwen3.8 Flash offers low, medium and xhigh, no high.
+$variants = @{ 'luna' = 'high'; 'glm-flash' = 'high'; 'glm' = 'low'; 'deepseek-flash' = 'high'; 'qwen-flash' = 'medium'; 'mimo-pro' = ''; 'mimo-flash' = '' }
+# The fallback chain (the user's decision of 2026-10-05, after issue #575's of 2026-10-01): DeepSeek
+# V4.1 Flash (Go, or Alibaba when Go is avoided), then Qwen3.8 Flash, then the main session runs
+# Claude Sonnet. An explicit -Model runs that model alone.
+$chain = if ($Model -eq 'auto') { @('deepseek-flash', 'qwen-flash') } else { @($Model) }
+# Each chain model's route: quota-tracker's /avoid is read once (-Route auto); a silent tracker keeps
+# the usual route. An auto chain drops a model with no route that has quota, or one an explicit
+# -Route does not serve; an explicit -Model the route does not serve is refused.
+$quota = if ($Route -eq 'auto') { Get-QuotaAvoid } else { [pscustomobject]@{ Answered = $false; Providers = @() } }
+$resolved = @{}
+$kept = @()
+foreach ($m in $chain) {
+    $r = Resolve-OpenCodeRoute -Usual $models[$m] -Alibaba $alibabaIds[$m] -Route $Route -Answered $quota.Answered -Avoid $quota.Providers
+    if ($r.Refused -and $Model -ne 'auto') { [Console]::Error.WriteLine("Refused: ${m}: $($r.Why)."); exit 1 }
+    if ($r.Refused -or ($r.Avoided -and $Model -eq 'auto')) { Write-Host "skipped: $m ($($r.Why))"; continue }
+    $resolved[$m] = $r
+    $kept += $m
+    Write-Host "route: $m on $($r.Route) ($($r.Model)): $($r.Why)"
+}
+$chain = $kept
 
 if (-not $Task -and -not $Fix) { throw 'Give -Task T<nn> or -Fix <issue>.' }
 if ($Task -and $Fix) { throw '-Task and -Fix are mutually exclusive.' }
@@ -149,12 +189,16 @@ try { $cli = Get-OpenCodeCli } catch {
     [Console]::Error.WriteLine("OpenCode unavailable: $($_.Exception.Message) The task falls back to Claude Sonnet (operating-guide §3).")
     exit 3
 }
+if (-not $chain) {
+    [Console]::Error.WriteLine("OpenCode unavailable: no chain model has a route with quota (quota-tracker /avoid: $($quota.Providers -join ', ')). The task falls back to Claude Sonnet (operating-guide §3).")
+    exit 3
+}
 if ($WhatIf) {
     # No worktree, no OpenCode, no billing: only the argument line each chain model would get.
     $whatIfPrompt = Get-Content -Raw -LiteralPath $BriefFile
     foreach ($m in $chain) {
         Write-Host "would attempt: $m"
-        $null = Invoke-OpenCodeWatched -WhatIf -Agent 'external-implementer' -Model $models[$m] -Variant $variants[$m] -Prompt $whatIfPrompt `
+        $null = Invoke-OpenCodeWatched -WhatIf -Agent 'external-implementer' -Model $resolved[$m].Model -Variant $variants[$m] -Prompt $whatIfPrompt `
             -WorkDir (Get-Location).Path -Title "ic2-$(if ($Task) { $Task } else { "fix-$Fix" })-$m"
     }
     exit 0
@@ -249,10 +293,10 @@ $implementedBy = $null
 $attempt = 0
 foreach ($m in $chain) {
     $attempt++
-    Write-Host "attempt $attempt/$($chain.Count): $m ($($models[$m]))$(if ($variants[$m]) { " with variant $($variants[$m])" }), OpenCode $($cli.Version)"
+    Write-Host "attempt $attempt/$($chain.Count): $m ($($resolved[$m].Model), route $($resolved[$m].Route))$(if ($variants[$m]) { " with variant $($variants[$m])" }), OpenCode $($cli.Version)"
     $reason = $null
     try {
-        $run = Invoke-OpenCodeWatched -Agent 'external-implementer' -Model $models[$m] -Variant $variants[$m] -Prompt $prompt -WorkDir $worktree -Title "ic2-$name-$m" `
+        $run = Invoke-OpenCodeWatched -Agent 'external-implementer' -Model $resolved[$m].Model -Variant $variants[$m] -Prompt $prompt -WorkDir $worktree -Title "ic2-$name-$m" `
             -StartupTimeoutSec $StartupTimeoutSec -TotalTimeoutSec $TotalTimeoutSec -IdleTimeoutSec $IdleTimeoutSec
         $output = $run.Output
         # A rejected tool call ends the run (issue #501): exit 0 under 1.x, exit 1 under 2.x. It is
@@ -266,7 +310,7 @@ foreach ($m in $chain) {
         if (-not (Test-OpenCodeInfraFailure $_)) { throw }
         $reason = $_.Exception.Data['Reason']; $output = $_.Exception.Message
     }
-    Add-Content -LiteralPath $log -Value "=== $m ($($models[$m])): $(if ($reason) { "failed: $reason" } else { 'ran' }) ===`n$output" -Encoding utf8
+    Add-Content -LiteralPath $log -Value "=== $m ($($resolved[$m].Model), route $($resolved[$m].Route)): $(if ($reason) { "failed: $reason" } else { 'ran' }) ===`n$output" -Encoding utf8
     if (-not $reason) { $implementedBy = $m; break }
     Write-Warning "$m failed: $reason"
     $failures += "${m}: $reason"
@@ -293,7 +337,7 @@ if (-not $implementedBy) {
 }
 if ($failures) { Write-Host "fell back: $($failures -join '; ')" }
 # The reviewer must not be this model: pass it to external-review.ps1 as -ExcludeModel.
-Write-Host "implemented by: $implementedBy ($($models[$implementedBy]))"
+Write-Host "implemented by: $implementedBy ($($resolved[$implementedBy].Model), route $($resolved[$implementedBy].Route))"
 
 # 4. The outcome. The PR is the deliverable; a clean, pushed, detached worktree is the handover.
 git -C $repo fetch -q origin

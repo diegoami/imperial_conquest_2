@@ -485,6 +485,80 @@ function Restore-OpenCodeDataHome($State) {
     }
 }
 
+# --- The Alibaba Token Plan (the user's decision of 2026-10-05, docs/environment.md) --------------
+# Provider `alibaba-token-plan`. Its key is the Windows USER environment variable
+# ALIBABA_TOKEN_PLAN_API_KEY, never an auth.json entry: a key in auth.json overrides the variable and
+# breaks the provider ("Invalid API-key"). A process started before the variable was set lacks it
+# ("Provider not found"), so both runner scripts call Import-AlibabaTokenPlanKey first. The key is
+# never printed, copied to a file or logged.
+function Import-AlibabaTokenPlanKey {
+    # Copies ALIBABA_TOKEN_PLAN_API_KEY from the user environment into this process when the process
+    # lacks it, so OpenCode's child processes inherit it. Returns whether the process has it now.
+    if ([System.Environment]::GetEnvironmentVariable('ALIBABA_TOKEN_PLAN_API_KEY', 'Process')) { return $true }
+    $value = try { [System.Environment]::GetEnvironmentVariable('ALIBABA_TOKEN_PLAN_API_KEY', 'User') } catch { $null }
+    if (-not $value) { return $false }
+    [System.Environment]::SetEnvironmentVariable('ALIBABA_TOKEN_PLAN_API_KEY', $value, 'Process')
+    return $true
+}
+
+function Get-AlibabaFailure([string] $Text, [string] $DataDir) {
+    # The two Alibaba errors that no other model or retry can fix (docs/environment.md): the message
+    # to stop with, or $null. Read from OpenCode's stderr only, never from the model's words.
+    if ($Text -match 'Invalid API[- ]?key') {
+        return "Alibaba Token Plan: 'Invalid API-key'. The auth.json in $DataDir (or the default one it is copied from, ~\.local\share\opencode\auth.json, or IC2_OPENCODE_AUTH_SOURCE) most likely holds a stale alibaba-token-plan entry, which overrides ALIBABA_TOKEN_PLAN_API_KEY (it was not read here). Remove that entry by hand, or tell the owner; never put the key in an auth.json. Not retried."
+    }
+    if ($Text -match 'Provider not found:?\s*alibaba-token-plan') {
+        return "Alibaba Token Plan: 'Provider not found'. ALIBABA_TOKEN_PLAN_API_KEY is not in the OpenCode process's environment (on Windows it is a user variable; in WSL it comes from ~/.config/ai-keys.env, loaded by ~/.bashrc and ~/.profile, or from WSLENV for commands started from Windows). Restart the session or shell so it picks it up; if it is still missing, tell the owner. Not retried."
+    }
+    return $null
+}
+
+# --- Routes and quota-tracker (CLAUDE.md rule 17, docs/environment.md) ----------------------------
+# A route is the provider a model name runs through. The usual route comes from the name's model id;
+# DeepSeek and GLM also run on the Alibaba Token Plan (the user's decision of 2026-10-05).
+$script:OpenCodeRouteQuotaProvider = @{ go = 'opencode_go'; zai = 'zai'; alibaba = 'alibaba'; openai = 'openai' }
+
+function Get-OpenCodeRouteName([string] $ModelId) {
+    # The route of a model id: go, zai, alibaba, openai, or the id's provider prefix.
+    if ($ModelId -like 'opencode-go/*') { return 'go' }
+    if ($ModelId -like 'zai-coding-plan/*') { return 'zai' }
+    if ($ModelId -like 'alibaba-token-plan/*') { return 'alibaba' }
+    if ($ModelId -like 'openai/*') { return 'openai' }
+    return ($ModelId -split '/')[0]
+}
+
+function Get-QuotaAvoid {
+    # quota-tracker's /avoid: the providers out of quota. Answered is $false when the service does not
+    # answer, and the callers then keep each model's usual route.
+    param([string] $Url = 'http://localhost:8765/avoid', [int] $TimeoutSec = 5)
+    try { $r = Invoke-RestMethod -Uri $Url -TimeoutSec $TimeoutSec -ErrorAction Stop }
+    catch { return [pscustomobject]@{ Answered = $false; Providers = @() } }
+    $names = @(@($r) | ForEach-Object { if ($_ -is [string]) { $_ } elseif ($_ -and $_.provider) { [string]$_.provider } } | Where-Object { $_ })
+    return [pscustomobject]@{ Answered = $true; Providers = $names }
+}
+
+function Resolve-OpenCodeRoute {
+    # Which model id a name runs on. -Usual is its usual id, -Alibaba its Alibaba id when it has one.
+    # -Route auto takes the usual route unless quota-tracker's /avoid lists its provider, then the
+    # Alibaba id when Alibaba itself is not avoided; Avoided says no route of the model has quota.
+    # When the tracker did not answer (-Answered:$false) the usual route is kept. An explicit -Route
+    # the model has no id for is Refused.
+    param([string] $Usual, [string] $Alibaba, [string] $Route = 'auto', [bool] $Answered = $false, [string[]] $Avoid = @())
+    $usualRoute = Get-OpenCodeRouteName $Usual
+    $out = { param($r, $m, $why, $avoided, $refused) [pscustomobject]@{ Route = $r; Model = $m; Why = $why; Avoided = [bool]$avoided; Refused = [bool]$refused } }
+    if ($Route -eq 'auto') {
+        if (-not $Answered) { return (& $out $usualRoute $Usual 'quota-tracker did not answer: the usual route' $false $false) }
+        $provider = $script:OpenCodeRouteQuotaProvider[$usualRoute]
+        if (-not $provider -or $Avoid -notcontains $provider) { return (& $out $usualRoute $Usual 'the usual route' $false $false) }
+        if ($Alibaba -and $usualRoute -ne 'alibaba' -and $Avoid -notcontains 'alibaba') { return (& $out 'alibaba' $Alibaba "$provider is avoided (quota-tracker)" $false $false) }
+        return (& $out $usualRoute $Usual "$provider is avoided (quota-tracker) and no other route of this model has quota" $true $false)
+    }
+    if ($Route -eq $usualRoute) { return (& $out $usualRoute $Usual "-Route $Route" $false $false) }
+    if ($Route -eq 'alibaba' -and $Alibaba) { return (& $out 'alibaba' $Alibaba '-Route alibaba' $false $false) }
+    $known = @($usualRoute) + $(if ($Alibaba -and $usualRoute -ne 'alibaba') { @('alibaba') } else { @() })
+    return (& $out $null $null "-Route $Route does not serve this model (its routes: $($known -join ', '))" $false $true)
+}
+
 function Invoke-OpenCodeWatched {
     [CmdletBinding()]
     param(
@@ -526,6 +600,11 @@ function Invoke-OpenCodeWatched {
         Write-Host "  would run: $line <prompt, $($Prompt.Length) characters>"
         return [pscustomobject]@{ WhatIf = $true; Exe = $cli.Exe; Version = $cli.Version; Major = $cli.Major; ArgumentLine = "$line <prompt>"; Arguments = $ocArgs }
     }
+    $isAlibaba = $Model -like 'alibaba-token-plan/*'
+    if ($isAlibaba -and -not (Import-AlibabaTokenPlanKey)) {
+        # Not an infrastructure failure: no other model or retry fixes it, so the caller stops.
+        throw [System.InvalidOperationException]::new("Alibaba Token Plan: ALIBABA_TOKEN_PLAN_API_KEY is set neither in this process nor in the user environment, so $Model would fail 'Provider not found'. Set the user variable (never in an auth.json). Nothing was started.")
+    }
     $state = Initialize-OpenCodeDataHome -Major $cli.Major
     if ($Model -like 'opencode-go/*') {
         # Before the run, so a missing Go login stops here with its cause instead of a "Provider not found" run.
@@ -545,8 +624,21 @@ function Invoke-OpenCodeWatched {
     $state.Saved['PWD'] = [System.Environment]::GetEnvironmentVariable('PWD', 'Process')
     [System.Environment]::SetEnvironmentVariable('PWD', $WorkDir, 'Process')
     try {
-        return Invoke-OpenCodeRun -Cli $cli -RunArguments $ocArgs -Agent $Agent -Prompt $Prompt -WorkDir $WorkDir -Title $fullTitle `
-            -StartupTimeoutSec $StartupTimeoutSec -TotalTimeoutSec $TotalTimeoutSec -IdleTimeoutSec $IdleTimeoutSec -PollSec $PollSec -LogDir $LogDir
+        try {
+            $run = Invoke-OpenCodeRun -Cli $cli -RunArguments $ocArgs -Agent $Agent -Prompt $Prompt -WorkDir $WorkDir -Title $fullTitle `
+                -StartupTimeoutSec $StartupTimeoutSec -TotalTimeoutSec $TotalTimeoutSec -IdleTimeoutSec $IdleTimeoutSec -PollSec $PollSec -LogDir $LogDir
+        } catch {
+            # An Alibaba key error that surfaced as an infrastructure failure (an exit without a
+            # session carries the stderr tail) stops the caller instead of advancing its chain.
+            $why = if ($isAlibaba) { Get-AlibabaFailure $_.Exception.Message $state.DataDir }
+            if ($why) { throw [System.InvalidOperationException]::new($why) }
+            throw
+        }
+        if ($isAlibaba -and $run.ExitCode -ne 0) {
+            $why = Get-AlibabaFailure $run.StdErr $state.DataDir
+            if ($why) { throw [System.InvalidOperationException]::new($why) }
+        }
+        return $run
     } finally {
         Restore-OpenCodeDataHome $state
     }
