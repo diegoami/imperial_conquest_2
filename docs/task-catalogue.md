@@ -1155,19 +1155,19 @@ Split allocation (correction task from GPT-6 Sol's review of PR #734, T111's R1;
 
 #### T142 An army aboard a fleet can be split, and the 3 × 3 placement scans nest x outer
 
-Split aboard a fleet, scan order (correction task for bugs #753 and #754, from research `9ae8924`; it merges after T111 and removes T111's aboard refusal, the user's decision of 2026-10-05) → [full entry](tasks/T142.md) · bugs [#753](https://github.com/diegoami/imperial_conquest_2/issues/753), [#754](https://github.com/diegoami/imperial_conquest_2/issues/754)
+Split aboard a fleet, scan order (correction task for bugs #753 and #754, from research `9ae8924`; it merges after T111 and removes T111's aboard refusal, the user's decision of 2026-10-05) → [full entry](tasks/T142.md) · [#766](https://github.com/diegoami/imperial_conquest_2/issues/766)
 
 ---
 
 #### T143 Hiring a mercenary takes nothing: the price is only a minimum purse
 
-Mercenary hire is a gate (correction task for bug #755, from research `9ae8924`; after T76, and T113 merges after it) → [full entry](tasks/T143.md) · bug [#755](https://github.com/diegoami/imperial_conquest_2/issues/755)
+Mercenary hire is a gate (correction task for bug #755, from research `9ae8924`; after T76, and T113 merges after it) → [full entry](tasks/T143.md) · [#767](https://github.com/diegoami/imperial_conquest_2/issues/767)
 
 ---
 
 #### T144 A human army's move resupplies it only under `improved`
 
-Human move resupply flag (correction task for bug #756, from research `9ae8924`; the preset split is the user's decision of 2026-10-05) → [full entry](tasks/T144.md) · bug [#756](https://github.com/diegoami/imperial_conquest_2/issues/756)
+Human move resupply flag (correction task for bug #756, from research `9ae8924`; the preset split is the user's decision of 2026-10-05) → [full entry](tasks/T144.md) · [#768](https://github.com/diegoami/imperial_conquest_2/issues/768)
 
 ---
 
@@ -1342,6 +1342,6 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T139](#t139-a-post-battle-offer-of-peace-is-answered-in-the-godot-app) | Peace offer window | M18 | Sonnet | Medium | Sol + human | T116, T138, bug #746's fix | [#727](https://github.com/diegoami/imperial_conquest_2/issues/727) |
 | [T140](#t140-the-information-panels-show-the-originals-fields) | Information panels | M18 | Sonnet | High | Sol + human | T109, T112 | [#728](https://github.com/diegoami/imperial_conquest_2/issues/728) |
 | [T141](#t141-split-army-and-split-fleet-carry-units-or-ships-supply-and-money-in-one-command) | Split allocation | M18 | Sonnet | Medium | Sol | — | [#735](https://github.com/diegoami/imperial_conquest_2/issues/735) |
-| [T142](#t142-an-army-aboard-a-fleet-can-be-split-and-the-3--3-placement-scans-nest-x-outer) | Split aboard a fleet, scan order | M14 | Sonnet | Medium | Sol | T111 | bugs [#753](https://github.com/diegoami/imperial_conquest_2/issues/753), [#754](https://github.com/diegoami/imperial_conquest_2/issues/754) |
-| [T143](#t143-hiring-a-mercenary-takes-nothing-the-price-is-only-a-minimum-purse) | Mercenary hire is a gate | M4 | Sonnet | Low | Sol | T76 | bug [#755](https://github.com/diegoami/imperial_conquest_2/issues/755) |
-| [T144](#t144-a-human-armys-move-resupplies-it-only-under-improved) | Human move resupply flag | M3 | Sonnet | Low | Sol | — | bug [#756](https://github.com/diegoami/imperial_conquest_2/issues/756) |
+| [T142](#t142-an-army-aboard-a-fleet-can-be-split-and-the-3--3-placement-scans-nest-x-outer) | Split aboard a fleet, scan order | M14 | Sonnet | Medium | Sol | T111 | [#766](https://github.com/diegoami/imperial_conquest_2/issues/766) |
+| [T143](#t143-hiring-a-mercenary-takes-nothing-the-price-is-only-a-minimum-purse) | Mercenary hire is a gate | M4 | Sonnet | Low | Sol | T76 | [#767](https://github.com/diegoami/imperial_conquest_2/issues/767) |
+| [T144](#t144-a-human-armys-move-resupplies-it-only-under-improved) | Human move resupply flag | M3 | Sonnet | Low | Sol | — | [#768](https://github.com/diegoami/imperial_conquest_2/issues/768) |
