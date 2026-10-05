@@ -132,6 +132,11 @@ public partial class MainGameScreen : Control
     private Label _lastCommandLabel = null!;
 
     private readonly Queue<Engine.Battle.BattleResult> _pendingBattleOverlays = new();
+
+    // T116: the rule that decides which of a Submit call's battles are shown now and which are held,
+    // per seat, until that seat's own turn start. Holds only battle results; the human-seat list is read
+    // from Session.State on each call (see OnCommandIssued), so a seat deposed mid-game is dropped.
+    private readonly BattleReportRouter _battleReportRouter = new();
     private readonly ButtonGroup _nationSwatchGroup = new();
     private string? _lastKnownActiveNationId;
     private int _lastKnownTurnIndex;
@@ -966,7 +971,19 @@ public partial class MainGameScreen : Control
         // seat's own battle played within an "end" -- queues its own BattleResultScreen. Shown one at a
         // time (ShowNextOverlay drains the queue as each is closed), so more than one battle in a single
         // "end" never stacks silently.
-        foreach (var battle in Session.LastBattles)
+        //
+        // T116: which of those battles are shown now is the router's call. A battle fought against a
+        // human seat that is not active once this call returns is held for that seat and released at its
+        // own turn start; a battle with no human side, a human's own attack, or one against the seat this
+        // call returns to, is shown now. The human seats come from the live state, never the scenario's
+        // static seats, so a seat deposed or eliminated mid-call T87-style is already gone.
+        var humanSeatIds = Session.State.Nations
+            .Where(n => n.Control == SeatControl.Human)
+            .Select(n => n.Id)
+            .ToList();
+        var battlesToShowNow = _battleReportRouter.Route(
+            Session.LastBattles, humanSeatIds, Session.State.ActiveNationId);
+        foreach (var battle in battlesToShowNow)
         {
             _pendingBattleOverlays.Enqueue(battle);
         }
@@ -1088,13 +1105,19 @@ public partial class MainGameScreen : Control
 
     private void ShowNextOverlay()
     {
-        if (_pendingBattleOverlays.Count > 0)
+        // T116: the handoff comes first, then the battles routed to the seat it hands to. The handoff
+        // screen's own Continue calls back here, so the battles returned by the router are shown after
+        // the "pass the device" screen hides the outgoing seat's view -- and a held battle is released
+        // ahead of the call's own battles because the router orders it that way.
+        if (CheckForHotseatHandoff())
         {
-            ShowBattleResultOverlay(_pendingBattleOverlays.Dequeue());
             return;
         }
 
-        CheckForHotseatHandoff();
+        if (_pendingBattleOverlays.Count > 0)
+        {
+            ShowBattleResultOverlay(_pendingBattleOverlays.Dequeue());
+        }
     }
 
     private void ShowBattleResultOverlay(Engine.Battle.BattleResult battle)
@@ -1111,10 +1134,19 @@ public partial class MainGameScreen : Control
     /// <summary>
     /// T25 (plan #474, docs/game-design.md item 5): shows <see cref="HotseatHandoffScreen"/> whenever
     /// <see cref="HotseatHandoffDetector.Detect"/> finds that play just passed from one human seat to a
-    /// different one. Called once every queued battle overlay has been dismissed (<see cref="ShowNextOverlay"/>),
-    /// so a battle a human's own turn just resolved is always seen before the handoff that follows it.
+    /// different one.
     /// </summary>
-    private void CheckForHotseatHandoff()
+    /// <remarks>
+    /// <strong>T116 reordering.</strong> This now runs <em>before</em> a queued battle overlay rather
+    /// than after every one of them (<see cref="ShowNextOverlay"/>), so the "pass the device" screen is
+    /// what an incoming human seat sees first and a battle the AI phase fought against it is shown once
+    /// it continues — never to the seat that just ended its turn. The handoff's own Continue calls
+    /// <see cref="ShowNextOverlay"/> again to drain the battles the router released for this seat; the
+    /// tracking fields are updated here on every call, so that second pass finds no new handoff. Returns
+    /// whether a handoff was shown, so the caller can defer the battles until Continue.
+    /// </remarks>
+    /// <returns><see langword="true"/> when a handoff screen was opened; otherwise <see langword="false"/>.</returns>
+    private bool CheckForHotseatHandoff()
     {
         var info = HotseatHandoffDetector.Detect(
             Session.State, Session.Scenario, _lastKnownActiveNationId, _lastKnownActiveWasHuman);
@@ -1125,7 +1157,7 @@ public partial class MainGameScreen : Control
 
         if (info is null)
         {
-            return;
+            return false;
         }
 
         var calendar = Session.State.Calendar;
@@ -1134,8 +1166,13 @@ public partial class MainGameScreen : Control
             Info = info,
             CalendarLine = $"Week {calendar.Week}, {calendar.YearBc} BC (turn {calendar.TurnIndex})",
         };
-        screen.Continued += () => CloseOverlay(screen);
+        screen.Continued += () =>
+        {
+            CloseOverlay(screen);
+            ShowNextOverlay();
+        };
         ShowOverlay(screen);
+        return true;
     }
 
     /// <summary>
