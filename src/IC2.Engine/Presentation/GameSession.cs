@@ -464,6 +464,34 @@ public sealed partial class GameSession
     }
 
     /// <summary>
+    /// Whether any post-battle offer of peace is pending for any human seat — the same condition
+    /// <c>save</c> refuses on (<c>docs/tasks/T139.md</c>). A read; it changes nothing.
+    /// </summary>
+    public bool HasPendingPeaceOffers => _pendingPeaceTreatyOffers.Count > 0;
+
+    /// <summary>
+    /// The post-battle offer of peace pending for <paramref name="nationId"/>'s human seat, or
+    /// <see langword="null"/> when there is none (<c>docs/tasks/T139.md</c>). The lines are
+    /// <see cref="PeaceTreatyOfferDialogLines"/>'s, unchanged. A read; it changes nothing.
+    /// </summary>
+    /// <param name="nationId">The human seat's nation id.</param>
+    public PendingPeaceOffer? PendingPeaceOfferFor(string nationId)
+    {
+        if (!_pendingPeaceTreatyOffers.TryGetValue(nationId, out var pending)
+            || State.NationById(pending.WinnerNationId) is not { } winner
+            || State.NationById(pending.LoserNationId) is not { } loser)
+        {
+            return null;
+        }
+
+        return new PendingPeaceOffer(
+            pending.OfferedHumanNationId,
+            pending.WinnerNationId,
+            pending.LoserNationId,
+            PeaceTreatyOfferDialogLines(winner, loser));
+    }
+
+    /// <summary>
     /// The offer's text as the original's whole "Offer of peace" box, as ordered lines (bug #746): the offer
     /// sentence addressed to the human's side either way, the terms line, then the two click prompts. The
     /// box's reparation lines are always empty in the original and are not supplied; its title is the

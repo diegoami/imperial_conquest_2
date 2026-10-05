@@ -1031,6 +1031,20 @@ public partial class MainGameScreen : Control
     /// </summary>
     private void SaveToFile(string path)
     {
+        // T139 [designed wording]: in a hotseat game an offer of peace held for a seat that is not the
+        // active one refuses the save, as the engine's `save` does. Say whose answer is owed, and submit
+        // nothing. The active seat's own offer is shown as a window before the player can reach Save, so
+        // that case is left to the engine's own refusal line.
+        if (Session.HasPendingPeaceOffers
+            && Session.PendingPeaceOfferFor(Session.State.ActiveNationId) is null
+            && Session.State.Nations.FirstOrDefault(
+                n => Session.PendingPeaceOfferFor(n.Id) is not null) is { } owing)
+        {
+            _saveConfirmationLabel.Text =
+                $"{owing.Name} must answer an offer of peace at its turn before the game can be saved.";
+            return;
+        }
+
         LastSavedPath = path;
 
         var output = Session.Submit($"save {path}");
@@ -1320,7 +1334,33 @@ public partial class MainGameScreen : Control
         if (_pendingBattleOverlays.Count > 0)
         {
             ShowBattleResultOverlay(_pendingBattleOverlays.Dequeue());
+            return;
         }
+
+        // T139: the active seat's own offer of peace comes after its battle windows. An offer is raised
+        // by the battle that precedes it, so by now the battle window has been shown and closed; one for
+        // a seat that is not active waits in the engine until that seat's turn.
+        if (ActiveOverlay is not PeaceOfferScreen
+            && Session.PendingPeaceOfferFor(Session.State.ActiveNationId) is { } offer)
+        {
+            ShowPeaceOfferOverlay(offer);
+        }
+    }
+
+    /// <summary>
+    /// T139: opens the Offer of peace window for the active seat's pending offer. It has no Close; the
+    /// answer is submitted through <see cref="OnCommandIssued"/>, so <see cref="CommandIssued"/> counts it
+    /// once and the reply line shows as any command's does.
+    /// </summary>
+    private void ShowPeaceOfferOverlay(PendingPeaceOffer offer)
+    {
+        var screen = new PeaceOfferScreen { Model = PeaceOfferViewModel.FromOffer(offer) };
+        screen.Answered += command =>
+        {
+            CloseOverlay(screen);
+            OnCommandIssued(Session.Submit(command).Lines);
+        };
+        ShowOverlay(screen);
     }
 
     /// <summary>
