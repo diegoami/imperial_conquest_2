@@ -36,10 +36,11 @@ public partial class ContextPanelWidthCheck : Control
     private const string LongTroopsArmyId = "north-army-1";
 
     // T99: "Move" and "Attack" went with the button-armed pending action — orders are map clicks now.
-    // The army panel's remaining order buttons, all still laid out inside the viewport.
+    // T111: the army panel's Disband button is gone (the Army menu's Disband army entry replaces it), so
+    // Mobilize first ready slot is the army panel's only remaining order button. (T109 removes it too.)
     private static readonly string[] OrderButtonLabels =
     {
-        "Mobilize first ready slot", "Disband",
+        "Mobilize first ready slot",
     };
 
     private MainGameScreen _mainGame = null!;

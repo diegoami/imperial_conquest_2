@@ -206,17 +206,17 @@ public sealed class GameCommandTable
             new GameCommandRow("area_map.find_city", "Area map", null, "Find a city", "ui.command.find_city.icon", null, Wired: true),
         });
 
-        // ---- Unit map (audit §1.6); T134 wires Supply army too, so Cancel selection is no longer the
-        // only wired row here ----
+        // ---- Unit map (audit §1.6); T134 wires Supply army and T111 the other Army entries, so only
+        // Recruit mercenaries (T113, after T76) and the Fleet/City rows stay disabled ----
         rows.AddRange(new[]
         {
             new GameCommandRow("unit_map.army_supply", "Unit map", "Army", "Supply army", "ui.command.army_supply.icon", null, Wired: true),
             new GameCommandRow("unit_map.army_recruit_mercenaries", "Unit map", "Army", "Recruit mercenaries", "ui.command.army_recruit_mercenaries.icon", null, Wired: false),
-            new GameCommandRow("unit_map.army_transfer_unit", "Unit map", "Army", "Transfer unit", "ui.command.army_transfer_unit.icon", null, Wired: false),
-            new GameCommandRow("unit_map.army_split", "Unit map", "Army", "Split army", "ui.command.army_split.icon", null, Wired: false),
-            new GameCommandRow("unit_map.army_join", "Unit map", "Army", "Join armies", "ui.command.army_join.icon", null, Wired: false),
-            new GameCommandRow("unit_map.army_change_units", "Unit map", "Army", "Change units", "ui.command.army_change_units.icon", null, Wired: false),
-            new GameCommandRow("unit_map.army_disband", "Unit map", "Army", "Disband army", "ui.command.army_disband.icon", null, Wired: false),
+            new GameCommandRow("unit_map.army_transfer_unit", "Unit map", "Army", "Transfer unit", "ui.command.army_transfer_unit.icon", null, Wired: true),
+            new GameCommandRow("unit_map.army_split", "Unit map", "Army", "Split army", "ui.command.army_split.icon", null, Wired: true),
+            new GameCommandRow("unit_map.army_join", "Unit map", "Army", "Join armies", "ui.command.army_join.icon", null, Wired: true),
+            new GameCommandRow("unit_map.army_change_units", "Unit map", "Army", "Change units", "ui.command.army_change_units.icon", null, Wired: true),
+            new GameCommandRow("unit_map.army_disband", "Unit map", "Army", "Disband army", "ui.command.army_disband.icon", null, Wired: true),
             new GameCommandRow("unit_map.fleet_supply", "Unit map", "Fleet", "Supply fleet", "ui.command.fleet_supply.icon", null, Wired: false),
             new GameCommandRow("unit_map.fleet_repair", "Unit map", "Fleet", "Repair fleet", "ui.command.fleet_repair.icon", null, Wired: false),
             new GameCommandRow("unit_map.fleet_transfer_ships", "Unit map", "Fleet", "Transfer ships", "ui.command.fleet_transfer_ships.icon", null, Wired: false),

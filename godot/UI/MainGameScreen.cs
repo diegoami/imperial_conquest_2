@@ -1,4 +1,5 @@
 using Godot;
+using IC2.Engine.Armies;
 using IC2.Engine.Model;
 using IC2.Engine.Presentation;
 using IC2.Slice.Assets;
@@ -378,6 +379,15 @@ public partial class MainGameScreen : Control
         // fleet carries), or shows one of the two messages and opens nothing.
         CommandTable.Bind("unit_map.army_supply", OpenSupplyArmyDialog);
 
+        // T111: the rest of the Army submenu. Transfer unit and Split army open their dialogs; Join
+        // armies submits at once with the game's own partner; Change units opens its dialog; Disband army
+        // asks first. Recruit mercenaries stays disabled (T113, after T76).
+        CommandTable.Bind("unit_map.army_transfer_unit", OpenArmyTransferDialog);
+        CommandTable.Bind("unit_map.army_split", OpenSplitArmyDialog);
+        CommandTable.Bind("unit_map.army_join", JoinArmiesFromMenu);
+        CommandTable.Bind("unit_map.army_change_units", OpenChangeUnitsDialog);
+        CommandTable.Bind("unit_map.army_disband", ConfirmDisbandArmy);
+
         // Help: the new page, the hints toggle, and the about box.
         CommandTable.Bind("help.topics", ShowHelpPage);
         CommandTable.Bind("help.show_hints", ToggleHints);
@@ -724,6 +734,18 @@ public partial class MainGameScreen : Control
     }
 
     /// <summary>
+    /// T111: selects a fleet exactly as a map click's <see cref="GameMapView.FleetSelected"/> does, so
+    /// <c>godot/Checks/ArmyOrdersCheck.cs</c> can prove the Army entries act on the army a selected
+    /// fleet carries.
+    /// </summary>
+    public void SelectFleetForCheck(string fleetId)
+    {
+        _selectedArmyId = null;
+        _selectedFleetId = fleetId;
+        _contextPanel.ShowFleet(fleetId);
+    }
+
+    /// <summary>
     /// T134: the Army menu's Supply army entry. Acts on the selected army, or on the army a selected fleet
     /// carries [confirmed: code, the prologue of each <c>TUnitMap_*</c> army order]. With no own army
     /// selected it shows the select-an-army message; with no provider within one tile it shows the
@@ -748,10 +770,168 @@ public partial class MainGameScreen : Control
         {
             Session = Session,
             ArmyId = army.Id,
-            Submit = SubmitFromSupplyDialog,
+            Submit = SubmitFromDialog,
         };
         dialog.Closed += () => CloseOverlay(dialog);
         ShowOverlay(dialog);
+    }
+
+    /// <summary>
+    /// T111: the Army menu's Transfer unit entry. Acts on the selected army (or the army a selected fleet
+    /// carries); the partner is the game's own pick, <see cref="AdjacentPartner.Army"/>. With no partner
+    /// it shows <see cref="ArmyDialogModels.NoPartnerMessage"/> and opens nothing.
+    /// </summary>
+    private void OpenArmyTransferDialog()
+    {
+        var army = OwnSelectedArmy();
+        if (army is null)
+        {
+            ShowScreenMessage(SelectArmyMessage);
+            return;
+        }
+
+        if (AdjacentPartner.Army(Session.State, army.Id) is not { } partner)
+        {
+            ShowScreenMessage(ArmyDialogModels.NoPartnerMessage);
+            return;
+        }
+
+        var dialog = new ArmyTransferDialog
+        {
+            Session = Session,
+            ArmyId = army.Id,
+            PartnerId = partner.Id,
+            Submit = SubmitFromDialog,
+        };
+        dialog.Closed += () => CloseOverlay(dialog);
+        ShowOverlay(dialog);
+    }
+
+    /// <summary>
+    /// T111: the Army menu's Split army entry. The dialog needs two or more units; it composes one
+    /// <c>split-army</c> (units, supply and money) and the engine places the new army. An army aboard a
+    /// fleet shows its refusal instead.
+    /// </summary>
+    private void OpenSplitArmyDialog()
+    {
+        var army = OwnSelectedArmy();
+        if (army is null)
+        {
+            ShowScreenMessage(SelectArmyMessage);
+            return;
+        }
+
+        // An army aboard a fleet (or a carrying fleet selected) opens no dialog and submits nothing: the
+        // engine refuses its split (armies.army-embarked, [designed]).
+        if (army.IsEmbarked)
+        {
+            ShowScreenMessage(ArmyDialogModels.SplitAboardRefusal);
+            return;
+        }
+
+        var dialog = new SplitArmyDialog
+        {
+            Session = Session,
+            ArmyId = army.Id,
+            NewArmyId = NextSplitArmyId(army.Id),
+            Submit = SubmitFromDialog,
+        };
+        dialog.Closed += () => CloseOverlay(dialog);
+        ShowOverlay(dialog);
+    }
+
+    /// <summary>
+    /// T111: the Army menu's Join armies entry — no dialog. It takes <see cref="AdjacentPartner.Army"/>
+    /// and submits <c>join-armies</c>; with no partner it shows the same message Transfer unit does.
+    /// </summary>
+    private void JoinArmiesFromMenu()
+    {
+        var army = OwnSelectedArmy();
+        if (army is null)
+        {
+            ShowScreenMessage(SelectArmyMessage);
+            return;
+        }
+
+        var partner = AdjacentPartner.Army(Session.State, army.Id);
+        if (ArmyDialogModels.JoinArmiesLine(army.Id, partner) is not { } line)
+        {
+            ShowScreenMessage(ArmyDialogModels.NoPartnerMessage);
+            return;
+        }
+
+        SubmitForCheck(line);
+    }
+
+    /// <summary>T111: the Army menu's Change units entry.</summary>
+    private void OpenChangeUnitsDialog()
+    {
+        var army = OwnSelectedArmy();
+        if (army is null)
+        {
+            ShowScreenMessage(SelectArmyMessage);
+            return;
+        }
+
+        var dialog = new ChangeUnitsDialog
+        {
+            Session = Session,
+            ArmyId = army.Id,
+            Submit = SubmitFromDialog,
+        };
+        dialog.Closed += () => CloseOverlay(dialog);
+        ShowOverlay(dialog);
+    }
+
+    /// <summary>
+    /// T111: the Army menu's Disband army entry — T99's <see cref="ConfirmPrompt"/> first, then
+    /// <c>disband-army</c> only on Yes. The engine keeps its own rule that this works only next to one
+    /// of the nation's own cities.
+    /// </summary>
+    private void ConfirmDisbandArmy()
+    {
+        var army = OwnSelectedArmy();
+        if (army is null)
+        {
+            ShowScreenMessage(SelectArmyMessage);
+            return;
+        }
+
+        var prompt = new ConfirmPrompt { Question = $"Disband army {army.Id}?" };
+        prompt.Confirmed += () =>
+        {
+            CloseOverlay(prompt);
+            SubmitForCheck(ArmyDialogModels.DisbandArmyLine(army.Id));
+        };
+        prompt.Refused += () => CloseOverlay(prompt);
+        ShowOverlay(prompt);
+    }
+
+    /// <summary>The message the Army entries show when no own army (or carried army) is selected.</summary>
+    private const string SelectArmyMessage = "Select one of your armies first.";
+
+    /// <summary>The selected army when it is the active seat's own, or <see langword="null"/> — a foreign
+    /// or missing army disables T111's entries.</summary>
+    private ArmyState? OwnSelectedArmy()
+    {
+        var army = SelectedArmyOrCarried();
+        return army is not null
+            && string.Equals(army.Nation, Session.State.ActiveNationId, StringComparison.Ordinal)
+            ? army
+            : null;
+    }
+
+    /// <summary>A new army id that does not collide with an existing one, for the split dialog.</summary>
+    private string NextSplitArmyId(string armyId)
+    {
+        var candidate = $"{armyId}-split";
+        var suffix = 2;
+        while (Session.State.ArmyById(candidate) is not null)
+        {
+            candidate = $"{armyId}-split-{suffix++}";
+        }
+
+        return candidate;
     }
 
     /// <summary>The selected army, or the army the selected fleet carries, or <see langword="null"/>.</summary>
@@ -772,11 +952,11 @@ public partial class MainGameScreen : Control
     }
 
     /// <summary>
-    /// Submits one line the Supply dialog composed through <see cref="GameSession.Submit"/> and
+    /// Submits one line an Army dialog composed through <see cref="GameSession.Submit"/> and
     /// <see cref="OnCommandIssued"/> — the same path every other control's command takes, so
     /// <see cref="CommandIssued"/> counts it exactly once.
     /// </summary>
-    private IReadOnlyList<string> SubmitFromSupplyDialog(string line)
+    private IReadOnlyList<string> SubmitFromDialog(string line)
     {
         var lines = Session.Submit(line).Lines;
         OnCommandIssued(lines);
