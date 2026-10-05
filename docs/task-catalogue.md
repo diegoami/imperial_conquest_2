@@ -194,6 +194,10 @@ graph TD
   T136[T136 disband lowers mobilisation]
   T137[T137 resumed first end news]
   T116 --> T138[T138 game's end screen]
+  T116 --> T139[T139 peace offer window]
+  T138 --> T139
+  T109 --> T140[T140 information panels]
+  T112 --> T140
   T23 --> T26[T26 scenario docs+examples]
   T29 --> T26
   T22 --> T28[T28 nightly soak gate]
@@ -971,7 +975,7 @@ Fleet and City orders, command strip → [full entry](tasks/T112.md) · [#570](h
 
 #### T113 Mercenaries on the map: Show mercenaries and Recruit mercenaries
 
-Mercenaries on the map (after T76) → [full entry](tasks/T113.md) · [#571](https://github.com/diegoami/imperial_conquest_2/issues/571)
+Mercenaries on the map (after T76; a city's right click lists its mercenaries, the user's decision of 2026-10-05) → [full entry](tasks/T113.md) · [#571](https://github.com/diegoami/imperial_conquest_2/issues/571)
 
 ---
 
@@ -1122,6 +1126,18 @@ Resumed first end news (correction task for item 1 of the T95 follow-up #487, th
 #### T138 The game's end is shown on the screen
 
 Game's end screen (bug #701, the v0.5.0 triage of 2026-10-05) → [full entry](tasks/T138.md) · [#708](https://github.com/diegoami/imperial_conquest_2/issues/708)
+
+---
+
+#### T139 A post-battle offer of peace is answered in the Godot app
+
+Peace offer window (bug #717, the gap analysis of 2026-10-05) → [full entry](tasks/T139.md) · [#727](https://github.com/diegoami/imperial_conquest_2/issues/727)
+
+---
+
+#### T140 The information panels show the original's fields
+
+Information panels (bug #718, folding #614, the gap analysis of 2026-10-05; starts after a research read of the Information window's word bands) → [full entry](tasks/T140.md) · [#728](https://github.com/diegoami/imperial_conquest_2/issues/728)
 
 ---
 
@@ -1293,3 +1309,5 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T136](#t136-disbanding-a-regular-unit-lowers-the-nations-mobilisation) | Disband lowers mobilisation | M14 | Sonnet | Low | Sol | — | [#706](https://github.com/diegoami/imperial_conquest_2/issues/706) |
 | [T137](#t137-a-resumed-sessions-first-end-shows-the-same-news-as-an-uninterrupted-one) | Resumed first end news | — | Sonnet | Medium | Sol | — | [#707](https://github.com/diegoami/imperial_conquest_2/issues/707) |
 | [T138](#t138-the-games-end-is-shown-on-the-screen) | Game's end screen | M18 | Sonnet | High | Sol + human | T116 | [#708](https://github.com/diegoami/imperial_conquest_2/issues/708) |
+| [T139](#t139-a-post-battle-offer-of-peace-is-answered-in-the-godot-app) | Peace offer window | M18 | Sonnet | Medium | Sol + human | T116, T138 | [#727](https://github.com/diegoami/imperial_conquest_2/issues/727) |
+| [T140](#t140-the-information-panels-show-the-originals-fields) | Information panels | M18 | Sonnet | High | Sol + human | T109, T112 | [#728](https://github.com/diegoami/imperial_conquest_2/issues/728) |
