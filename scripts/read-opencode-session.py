@@ -7,10 +7,11 @@ external-review.ps1 log. The database is opened read-only; auth.json beside it i
 """
 import json
 import os
+import re
 import sqlite3
 import sys
 
-if len(sys.argv) < 2 or not sys.argv[1].startswith('ses_'):
+if len(sys.argv) < 2 or not re.fullmatch(r'ses_[A-Za-z0-9]+', sys.argv[1]):
     sys.exit(__doc__)
 sys.stdout.reconfigure(encoding='utf-8')
 root = os.environ.get('IC2_OPENCODE_DATA') or os.path.join(
