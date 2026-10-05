@@ -1075,7 +1075,7 @@ Tactical battle golden master against the original's recorded battles (#496) →
 
 #### T131 Every release carries Windows assets: the zip and the installer, built by a release workflow
 
-Release assets (the user's decision of 2026-10-04: every milestone and fix release gets a Windows zip and installer; the highest priority; it runs right after T132, the user's decision of 2026-10-04) → [full entry](tasks/T131.md) · #688
+Release assets (the user's decision of 2026-10-04: every milestone and fix release gets a Windows zip and installer; it was to run right after T132, the user's decision of 2026-10-04; since the user's decision of 2026-10-05, "Gate first", it waits behind the v0.5.0 gate unless the user lists it) → [full entry](tasks/T131.md) · #688
 
 ---
 
