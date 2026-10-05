@@ -31,14 +31,14 @@ namespace IC2.Engine.Armies.Commands;
 /// money and supplies); this command deliberately does neither.
 /// </para>
 /// <para>
-/// <strong><c>RemoveUnit</c> is not built.</strong> The report's opening list names ten
-/// <c>TUnitMap_*</c> methods including <c>ChangeUnitDetails</c>, and the task entry's Scope names
-/// <c>RemoveUnit</c> as a fifth dialog method distinct from <c>Disband</c>, but the evidence reads it as a
-/// list helper rather than an order: <c>army-to-army-transfer-confirmed.md</c> records that <c>MoveUnit</c>
-/// "calls <c>RemoveUnit</c> to drop it from the source's displayed list". The report's own "Change unit
-/// details" row names only the four, while the audit's §1.6 row
-/// (<c>original-ui-command-audit.md:142</c>) does list <c>RemoveUnit</c> among five methods. With no
-/// evidence of an order body, this task leaves it unbuilt rather than guessing (see the task's PR body).
+/// <strong><c>RemoveUnit</c> lowers the nation's mobilisation</strong>
+/// <c>[confirmed: code, 2026-10-03-army-to-army-ok-supply-rebalancing.md, "A disband inside the dialog
+/// changes mobilisation", RemoveUnit :44466-44507]</c>: disbanding a <em>regular</em> unit lowers its
+/// nation's mobilisation by <c>troops x 1000 div wealth + 1</c>, floored at 0 (the inverse of mobilising;
+/// <c>MobilizationRate.AfterOrderCancelled</c>). A mercenary unit's disband changes no nation field. The
+/// confirmed reading is the <em>Army to army transfer</em> dialog's Disband; whether <c>TChangeArmyUnits</c>'s
+/// own Disband also lowers mobilisation is unread, and the rule is applied to this one verb by design
+/// <c>[designed]</c>, because the clone cannot tell the two dialogs apart.
 /// </para>
 /// </remarks>
 /// <param name="IssuingNationId">The nation issuing the order; the army must be its own.</param>

@@ -1,5 +1,6 @@
 using IC2.Engine.Core;
 using IC2.Engine.Model;
+using IC2.Engine.Recruitment;
 
 namespace IC2.Engine.Armies.Commands;
 
@@ -44,6 +45,7 @@ public sealed class DisbandUnitCommandHandler : ICommandHandler<DisbandUnitComma
                 $"Army '{army.Id}' has only one unit; use disband-army to disband the whole army.");
         }
 
+        var removed = army.Units[command.UnitIndex];
         var updatedUnits = new List<UnitSlot>(army.Units.Count - 1);
         for (var i = 0; i < army.Units.Count; i++)
         {
@@ -60,6 +62,23 @@ public sealed class DisbandUnitCommandHandler : ICommandHandler<DisbandUnitComma
         var updatedArmies = state.Armies.Select(a =>
             string.Equals(a.Id, army.Id, StringComparison.Ordinal) ? updatedArmy : a);
 
-        return CommandOutcome.Accept(state with { Armies = ValueList.From(updatedArmies) });
+        var next = state with { Armies = ValueList.From(updatedArmies) };
+
+        // A regular unit's disband lowers the nation's mobilisation (RemoveUnit, 2026-10-03 report); a
+        // mercenary's changes no nation field. The rule is MobilizationRate's, read and not edited.
+        var nation = state.NationById(command.IssuingNationId);
+        if (!removed.IsMercenary && nation is not null)
+        {
+            var lowered = MobilizationRate.AfterOrderCancelled(
+                nation.MobilizedPercent, removed.Troops, nation.Wealth, context.Ruleset.Recruitment);
+            var updatedNation = nation with { MobilizedPercent = lowered };
+            next = next with
+            {
+                Nations = ValueList.From(state.Nations.Select(n =>
+                    string.Equals(n.Id, nation.Id, StringComparison.Ordinal) ? updatedNation : n)),
+            };
+        }
+
+        return CommandOutcome.Accept(next);
     }
 }
