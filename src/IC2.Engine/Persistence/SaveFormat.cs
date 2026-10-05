@@ -38,8 +38,10 @@ public static class SaveFormat
     /// <c>[confirmed: decompiled-mercenary-offer-list-and-position.md §4]</c>. A pre-T76 save cannot
     /// supply it — its version-3 schema holds neither the tile nor a template the tile could be derived
     /// from, so a migrated entry is defaulted to the DAT's own never-filled <c>(0, 0)</c>
-    /// <c>[designed]</c>, and an imported then saved game has no reachable offer until T56's restock
-    /// rewrites the pair. <see cref="SaveMigrations"/> carries the real version-1-to-2, version-2-to-3 and
+    /// <c>[designed]</c>. In every shipped world — <c>classical-mediterranean</c>, <c>example-tiny-duel</c>
+    /// and <c>toy-3city</c>, none of which has a city at <c>(0, 0)</c> — that makes the offer unreachable
+    /// until T56's restock rewrites the pair; a scenario with a city at <c>(0, 0)</c> would instead make it
+    /// live on that city. <see cref="SaveMigrations"/> carries the real version-1-to-2, version-2-to-3 and
     /// version-3-to-4 steps; the version-1 step is exercised by
     /// <c>tests/fixtures/saves/toy-3city-turn-10.v1.json</c> — a save written by this task's own
     /// version-1 code, committed before this constant became 2.

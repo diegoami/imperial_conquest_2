@@ -329,7 +329,7 @@ public sealed class HireMercenaryCommandHandlerTests
     /// <summary>
     /// Two offer cities both adjacent to one army: <c>FUN_00449D08</c> picks the first live offer in slot
     /// order (slot 5, on the added east-town at (4,2)) and the dialog lists only that city's tile, so the
-    /// lower-numbered <em>other</em> city's offer (Arx, slot 9) cannot be hired. The two cities are
+    /// higher-numbered <em>other</em> city's offer (Arx, slot 9) cannot be hired. The two cities are
     /// Chebyshev distance 2 apart, the only shape in which the original's collision can happen.
     /// </summary>
     [Fact]
