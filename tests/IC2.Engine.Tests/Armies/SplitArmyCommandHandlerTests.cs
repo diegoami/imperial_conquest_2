@@ -9,8 +9,8 @@ namespace IC2.Engine.Tests.Armies;
 /// <c>docs/task-catalogue.md</c> "T15 Army and unit management", Done-when 2: split requires ≥ 2 units,
 /// enforces the 198-army cap, gives the new army morale 59 and <c>seatAsymmetry</c>-gated starting moves,
 /// conserves troops and units exactly (the real 75,536/16 → 37,081+38,455/9+7 split), and takes a
-/// requested money/supply allocation (the real 256 → 156/100 split, and the 0-by-default case,
-/// asserted separately per the entry's own instruction).
+/// requested money/supply allocation (the real 256 → 156/100 split, and the 0-by-default case, with the
+/// rebalance T141 adds, asserted separately per the entry's own instruction).
 /// </summary>
 public sealed class SplitArmyCommandHandlerTests
 {
@@ -94,23 +94,27 @@ public sealed class SplitArmyCommandHandlerTests
     }
 
     [Fact]
-    public void Split_WithNoRequestedAllocation_DefaultsToZeroForTheNewArmy()
+    public void Split_WithNoRequestedAllocation_MoneyDefaultsToZeroAndSupplyRebalances()
     {
         var parent = Army("split-default", NorthNationId, 3, 3,
             new[] { RegularUnit("a"), RegularUnit("b") }, money: 256, supplyTons: 40);
         var state = WithArmies(InitialState(), parent);
 
-        // MoneyToNewArmy / SupplyTonsToNewArmy omitted -- the command's own declared defaults.
+        // MoneyToNewArmy / SupplyTonsToNewArmy omitted -- the command's own declared defaults are 0. The
+        // rebalance then runs (T141): 1,000-troop armies cap at 10 t each, so the parent's 40 t cannot stay
+        // with it; it ends at 10 + 10 with the overflow returned by step 2, and the parent keeps 30.
         var command = new SplitArmyCommand(NorthNationId, "split-default", "split-default-new", ValueList.Of(1));
 
         var result = Dispatcher().Dispatch(state, command);
 
         Assert.True(result.IsAccepted, result.ToString());
         var created = result.State.ArmyById("split-default-new")!;
-        Assert.Equal(0, created.Money);
-        Assert.Equal(0, created.SupplyTons);
-        Assert.Equal(256, result.State.ArmyById("split-default")!.Money);
-        Assert.Equal(40, result.State.ArmyById("split-default")!.SupplyTons);
+        var remaining = result.State.ArmyById("split-default")!;
+        Assert.Equal(0, created.Money); // money is never rebalanced.
+        Assert.Equal(256, remaining.Money);
+        Assert.Equal(10, created.SupplyTons);
+        Assert.Equal(30, remaining.SupplyTons);
+        Assert.Equal(40, created.SupplyTons + remaining.SupplyTons); // conserved exactly.
     }
 
     [Theory]

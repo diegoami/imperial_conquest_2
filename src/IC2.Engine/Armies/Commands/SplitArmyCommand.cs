@@ -45,9 +45,20 @@ namespace IC2.Engine.Armies.Commands;
 /// what the original's <c>TSplitArmyUnit</c> dialog <em>opens</em> with, a two-pane transfer screen with
 /// money and supply spinners the player can move before committing; a real observed split moved 256
 /// talents to 156 (parent) / 100 (new army). <see cref="MoneyToNewArmy"/> and
-/// <see cref="SupplyTonsToNewArmy"/> model exactly that: they default to 0 (the dialog's opening state),
-/// are validated against what the parent actually holds, and are subtracted from the parent and credited
-/// to the new army exactly — the two totals conserve, they are never a constant.
+/// <see cref="SupplyTonsToNewArmy"/> model exactly that: they default to 0 (the dialog's opening state)
+/// and are validated against what the parent actually holds — money additionally against the receiving
+/// army's <see cref="Model.EconomyRules.PurseCapPerUnit"/> bound, the dialog's money stepper, refused with
+/// <see cref="SplitArmyRejections.PurseCapExceeded"/> — then subtracted from the parent and credited to the
+/// new army exactly; the two money totals conserve, they are never a constant.
+/// </para>
+/// <para>
+/// <strong>Supply is rebalanced after the move, the original's own <c>TArmyToArmy_OK</c>.</strong>
+/// <strong>[confirmed: code, 2026-10-03-army-to-army-ok-supply-rebalancing.md items 1–2, research repo a380a8e, <c>:44572–44649</c>]</strong>: with A the parent
+/// and B the new army, <c>capA = troops(A) div 100</c> first pushes A's excess down to B, then
+/// <c>capB = troops(B) div 100</c> (including what step 1 pushed) sends B's excess back to A. It runs on
+/// every accepted split, one with <c>supply=0</c> included, because splitting troops off lowers the
+/// parent's capacity. Supply is conserved exactly; when both end over capacity B ends at <c>capB</c> and
+/// the parent keeps the rest. Money is never rebalanced.
 /// </para>
 /// <para>
 /// <strong>Embarked armies are refused (not evidenced either way).</strong> No report states what
@@ -78,8 +89,15 @@ namespace IC2.Engine.Armies.Commands;
 /// move to the new army. Must name between 1 and <c>Units.Count − 1</c> distinct, in-range indices, so
 /// both the parent and the new army end up with at least one unit.
 /// </param>
-/// <param name="MoneyToNewArmy">Talents moved from the parent's purse to the new army's. Defaults to 0.</param>
-/// <param name="SupplyTonsToNewArmy">Supply tons moved from the parent's stock to the new army's. Defaults to 0.</param>
+    /// <param name="MoneyToNewArmy">
+    /// Talents moved from the parent's purse to the new army's. Defaults to 0, bounded above by the
+    /// receiving army's <see cref="Model.EconomyRules.PurseCapPerUnit"/> (the dialog's money stepper), and
+    /// never rebalanced.
+    /// </param>
+    /// <param name="SupplyTonsToNewArmy">
+    /// Supply tons moved from the parent's stock to the new army's, before the handler's own
+    /// <c>TArmyToArmy_OK</c> rebalance. Defaults to 0.
+    /// </param>
 public sealed record SplitArmyCommand(
     string IssuingNationId,
     string ArmyId,
@@ -124,6 +142,13 @@ public static class SplitArmyRejections
 
     /// <summary><see cref="SplitArmyCommand.SupplyTonsToNewArmy"/> is negative or more than the parent holds.</summary>
     public static readonly RejectionCode InvalidSupplyAllocation = new("armies.invalid-supply-allocation");
+
+    /// <summary>
+    /// The new army would hold more than <see cref="Model.EconomyRules.PurseCapPerUnit"/> talents — the
+    /// dialog's money stepper, the same purse bound the transfer keeps
+    /// (<see cref="ArmyTransferRejections.PurseCapExceeded"/>).
+    /// </summary>
+    public static readonly RejectionCode PurseCapExceeded = new("armies.split-army-purse-cap-exceeded");
 
     /// <summary>
     /// No cell in the parent army's 3×3 block is free ground for the new army —
