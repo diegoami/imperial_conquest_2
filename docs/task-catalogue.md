@@ -1317,6 +1317,6 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T136](#t136-disbanding-a-regular-unit-lowers-the-nations-mobilisation) | Disband lowers mobilisation | M14 | Sonnet | Low | Sol | — | [#706](https://github.com/diegoami/imperial_conquest_2/issues/706) |
 | [T137](#t137-a-resumed-sessions-first-end-shows-the-same-news-as-an-uninterrupted-one) | Resumed first end news | — | Sonnet | Medium | Sol | — | [#707](https://github.com/diegoami/imperial_conquest_2/issues/707) |
 | [T138](#t138-the-games-end-is-shown-on-the-screen) | Game's end screen | M18 | Sonnet | High | Sol + human | T116 | [#708](https://github.com/diegoami/imperial_conquest_2/issues/708) |
-| [T139](#t139-a-post-battle-offer-of-peace-is-answered-in-the-godot-app) | Peace offer window | M18 | Sonnet | Medium | Sol + human | T116, T138 | [#727](https://github.com/diegoami/imperial_conquest_2/issues/727) |
+| [T139](#t139-a-post-battle-offer-of-peace-is-answered-in-the-godot-app) | Peace offer window | M18 | Sonnet | Medium | Sol + human | T116, T138, bug #746's fix | [#727](https://github.com/diegoami/imperial_conquest_2/issues/727) |
 | [T140](#t140-the-information-panels-show-the-originals-fields) | Information panels | M18 | Sonnet | High | Sol + human | T109, T112 | [#728](https://github.com/diegoami/imperial_conquest_2/issues/728) |
 | [T141](#t141-split-army-and-split-fleet-carry-units-or-ships-supply-and-money-in-one-command) | Split allocation | M18 | Sonnet | Medium | Sol | — | [#735](https://github.com/diegoami/imperial_conquest_2/issues/735) |
