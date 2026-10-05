@@ -33,12 +33,20 @@ public static class SaveFormat
     /// version 3 (T86) makes the nested state's own <c>nations[].conqueredBy</c> and
     /// <c>state.neighbours</c> fields explicit on every migrated envelope, rather than relying on their
     /// being optional at the <c>GameState</c>/<c>NationState</c> level (both are — see each field's own
-    /// remarks) to carry an older save through unmodified. <see cref="SaveMigrations"/> carries the real
-    /// version-1-to-2 and version-2-to-3 steps; the version-1 step is exercised by
+    /// remarks) to carry an older save through unmodified; version 4 (T76) gives every occupied
+    /// <c>mercenaryPool</c> slot the <c>x</c>/<c>y</c> city-tile position the original always carried
+    /// <c>[confirmed: decompiled-mercenary-offer-list-and-position.md §4]</c>. A pre-T76 save cannot
+    /// supply it — its version-3 schema holds neither the tile nor a template the tile could be derived
+    /// from, so a migrated entry is defaulted to the DAT's own never-filled <c>(0, 0)</c>
+    /// <c>[designed]</c>. In every shipped world — <c>classical-mediterranean</c>, <c>example-tiny-duel</c>
+    /// and <c>toy-3city</c>, none of which has a city at <c>(0, 0)</c> — that makes the offer unreachable
+    /// until T56's restock rewrites the pair; a scenario with a city at <c>(0, 0)</c> would instead make it
+    /// live on that city. <see cref="SaveMigrations"/> carries the real version-1-to-2, version-2-to-3 and
+    /// version-3-to-4 steps; the version-1 step is exercised by
     /// <c>tests/fixtures/saves/toy-3city-turn-10.v1.json</c> — a save written by this task's own
     /// version-1 code, committed before this constant became 2.
     /// </summary>
-    public const int CurrentVersion = 3;
+    public const int CurrentVersion = 4;
 
     /// <summary>
     /// The lowest save format version this build has ever shipped and can migrate from

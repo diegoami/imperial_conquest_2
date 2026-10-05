@@ -32,8 +32,8 @@ public sealed record AiTurnOutcome(
     bool HitActionCap);
 
 /// <summary>
-/// One AI seat's turn: the resupply pass, then a greedy loop of "score every candidate, take the best,
-/// look again".
+/// One AI seat's turn: the interleaved army resupply-and-hire step, the fleet resupply, then a greedy loop
+/// of "score every candidate, take the best, look again".
 /// </summary>
 /// <remarks>
 /// <para>
@@ -53,13 +53,16 @@ public sealed record AiTurnOutcome(
 /// behaviour a test pins never depends on a draw.
 /// </para>
 /// <para>
-/// <strong>Nothing here edits the state directly except the resupply pass.</strong> Every decision goes
-/// out as a command through <see cref="ICommandDispatch"/>, which is the seam
+/// <strong>Only the two unconditional up-front passes edit the state directly.</strong> Every decision
+/// goes out as a command through <see cref="ICommandDispatch"/>, which is the seam
 /// <see cref="SystemContext.Commands"/> exists for: "<em>an AI that wrote to the state directly would
 /// skip every legality check a human seat's order goes through, and would leave no command log for a
-/// replay to follow</em>". The resupply pass is the exception because T38 delivered automatic resupply as
-/// a pure function with no command of its own, and inventing one would be a new command type outside this
-/// task's Owns list.
+/// replay to follow</em>". The two exceptions are both T38's automatic resupply and T76's mercenary hire,
+/// which are pure functions with no command of their own: <see cref="AiMercenaryHirePass"/> reproduces
+/// the original's single <c>FUN_0044E41C</c> step — each army's resupply and hire interleaved city by
+/// city — and <see cref="AiResupplyPass"/> runs the fleet half of automatic resupply. Both are
+/// unconditional within their gates rather than scored decisions, and inventing commands for them would
+/// be new command types outside those tasks' Owns lists.
 /// </para>
 /// <para>
 /// <strong>The declare-then-attack pair is verified twice.</strong>
@@ -119,9 +122,44 @@ public static class AiTurn
             personality.ExpansionDrivePermille,
             personality.LoyaltyToAlliancesPermille));
 
-        var resupply = AiResupplyPass.Run(state, ruleset, nationId);
-        state = resupply.State;
-        log.Add(resupply.Describe());
+        // R1: the original's FUN_0044E41C is one loop per army over the cities, and each in-range city
+        // iteration resupplies the army (FUN_0044f6d8) before hiring at that city. AiMercenaryHirePass.Run
+        // reproduces that loop, so the hire at an earlier city raises the troop count a later city's
+        // resupply sees. The pass captures each army's entry purse itself, before that army's own first
+        // resupply, so it already gates the hire on the pre-resupply purse here; the snapshot below only
+        // matters to a caller that resupplies the army before calling the pass, and is kept because that
+        // caller exists (AiMercenaryHirePassTests.The_money_gate_reads_the_entry_purse_not_the_post_resupply_one).
+        var moneyAtTurnStart = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var army in state.Armies)
+        {
+            moneyAtTurnStart[army.Id] = army.Money;
+        }
+
+        var mercenary = AiMercenaryHirePass.Run(state, ruleset, nationId, moneyAtTurnStart);
+        state = mercenary.State;
+
+        // The hire pass already ran every army's resupply, interleaved city by city. Only the fleet half
+        // of AiResupplyPass is left, so slice the armies out and let its own army loop do nothing. Its
+        // cities, fleets and nations are this state's own, so merge those fields back and keep the armies
+        // the hire pass produced.
+        var fleetResupply = AiResupplyPass.Run(
+            state with { Armies = ValueList<ArmyState>.Empty }, ruleset, nationId);
+        state = state with
+        {
+            Cities = fleetResupply.State.Cities,
+            Fleets = fleetResupply.State.Fleets,
+            Nations = fleetResupply.State.Nations,
+        };
+
+        // One resupply line, the same shape AiResupplyPass reported before T76, now summing the army half
+        // done inside the hire pass and the fleet half done here.
+        log.Add(Inv(
+            "resupply: {0} army transfers, {1} fleet transfers, {2} tons, {3} talents",
+            mercenary.ArmyTransfers,
+            fleetResupply.FleetTransfers,
+            mercenary.TonsMoved + fleetResupply.TonsMoved,
+            mercenary.TalentsPaid + fleetResupply.TalentsPaid));
+        log.Add(mercenary.Describe());
 
         var issued = 0;
         var rejected = 0;

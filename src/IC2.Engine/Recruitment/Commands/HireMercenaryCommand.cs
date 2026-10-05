@@ -18,6 +18,18 @@ namespace IC2.Engine.Recruitment.Commands;
 /// unit is appended to the army with its pool <c>Label</c> copied into the new
 /// <see cref="Model.UnitSlot.MercenaryLabel"/> marker, and <see cref="MercenaryHireCost.Compute"/> is
 /// debited from the army's own <see cref="Model.ArmyState.Money"/>.
+/// <para>
+/// <strong>T76 adds the position gate the original has</strong>
+/// <strong>[confirmed: decompiled-mercenary-offer-list-and-position.md §1, §2]</strong>: the ordering
+/// command <c>TUnitMap_RecruitMercenaries</c> calls <c>FUN_00449D08</c>, which takes the first live
+/// offer <em>in slot order</em> at Chebyshev distance <strong>exactly 1</strong> from the army and uses
+/// that offer's city; the dialog then lists only the live offers on that one city's tile. An army that
+/// is not adjacent to any offer's city does nothing at all — no message. The handler replays that shape:
+/// it rejects with <see cref="HireMercenaryRejections.NoAdjacentOffer"/> when no live offer is adjacent,
+/// with <see cref="HireMercenaryRejections.OfferNotAdjacentCity"/> when the named offer is not on the
+/// chosen city's tile, and with <see cref="HireMercenaryRejections.EnemyCity"/> when that city's owner
+/// is at war with the hiring nation (the order's own <c>relation[city.owner][me] == 3</c> refusal).
+/// </para>
 /// </remarks>
 /// <param name="ArmyId">The hiring army — must be the issuing nation's own.</param>
 /// <param name="PoolSlotIndex">
@@ -44,6 +56,28 @@ public static class HireMercenaryRejections
     /// <see cref="Model.GameState.MercenaryPool"/> — never offered, or already hired/expired.
     /// </summary>
     public static readonly RejectionCode UnknownPoolSlot = new("mercenary.unknown-pool-slot");
+
+    /// <summary>
+    /// No live offer lies at Chebyshev distance exactly 1 from the army — <c>FUN_00449D08</c> returned
+    /// no city, so the original's order does nothing and shows no message
+    /// <strong>[confirmed: decompiled-mercenary-offer-list-and-position.md §1]</strong>.
+    /// </summary>
+    public static readonly RejectionCode NoAdjacentOffer = new("mercenary.no-adjacent-offer");
+
+    /// <summary>
+    /// The named offer is live and its tile may even be adjacent, but it is not on the <em>chosen</em>
+    /// city's tile — the city of the first live offer in slot order at distance 1. The original's dialog
+    /// lists only offers on that one city's tile, so a second adjacent offer city's offers cannot be
+    /// picked <strong>[confirmed: decompiled-mercenary-offer-list-and-position.md §1, §2]</strong>.
+    /// </summary>
+    public static readonly RejectionCode OfferNotAdjacentCity = new("mercenary.offer-not-on-adjacent-city");
+
+    /// <summary>
+    /// The offer's city owner is at war with the hiring nation — the order's own
+    /// <c>relation[city.owner][me] == 3</c> refusal, <em>"You cannot recruit from an enemy city."</em>
+    /// <strong>[confirmed: decompiled-mercenary-offer-list-and-position.md §1]</strong>.
+    /// </summary>
+    public static readonly RejectionCode EnemyCity = new("mercenary.enemy-city");
 
     /// <summary>
     /// The hiring army's own purse cannot afford <see cref="MercenaryHireCost.Compute"/> — the confirmed

@@ -12,9 +12,9 @@ namespace IC2.Engine.Persistence;
 /// </summary>
 /// <remarks>
 /// Each step takes the envelope at version <c>N</c> and returns it re-shaped as version <c>N + 1</c>,
-/// touching only what that version actually changed — <see cref="MigrateV1ToV2"/> and
-/// <see cref="MigrateV2ToV3"/> are the two steps so far, because <see cref="SaveFormat.CurrentVersion"/>
-/// has only ever been 1, 2 or 3.
+/// touching only what that version actually changed — <see cref="MigrateV1ToV2"/>,
+/// <see cref="MigrateV2ToV3"/> and <see cref="MigrateV3ToV4"/> are the three steps so far, because
+/// <see cref="SaveFormat.CurrentVersion"/> has only ever been 1, 2, 3 or 4.
 /// </remarks>
 internal static class SaveMigrations
 {
@@ -47,6 +47,7 @@ internal static class SaveMigrations
             {
                 1 => MigrateV1ToV2(documentPath, current),
                 2 => MigrateV2ToV3(documentPath, current, expectedWorld),
+                3 => MigrateV3ToV4(documentPath, current),
 
                 // Nothing this build can step forward from -- either a version below
                 // SaveFormat.MinimumSupportedVersion (zero, negative, or otherwise never shipped), or
@@ -140,5 +141,70 @@ internal static class SaveMigrations
         }
 
         return v3;
+    }
+
+    /// <summary>
+    /// Version 3 to version 4 (T76): gives every occupied mercenary-pool slot the <c>x</c>/<c>y</c>
+    /// city-tile position <see cref="MercenaryPoolSlot"/> now carries. A pre-T76 save never persisted it,
+    /// and no source can recover where an offer stood: searched
+    /// <c>decompiled-mercenary-offer-list-and-position.md</c> (its §4 confirms the DAT ships its 50 live
+    /// slots <em>empty</em> as <c>(0, 0, …)</c> and that every live offer sits on a city tile) and this
+    /// save format's own version-3 schema (which carries neither the tile nor any template the tile could
+    /// be derived from), and found no recoverable position for a v3 save's occupied slot. The step
+    /// therefore supplies <c>(0, 0)</c> as a <strong>[designed]</strong> fallback — the value the
+    /// original's own never-filled slots hold, chosen because it is the one pair the format already uses
+    /// for "no offer here". <strong>Consequence:</strong> in every shipped world the pair resolves to a
+    /// tile with no city — none of <c>classical-mediterranean</c>, <c>example-tiny-duel</c> and
+    /// <c>toy-3city</c> has a city at <c>(0, 0)</c> — so the slot is no reachable offer from a human order
+    /// or the AI hire until the quarterly restock (T56) rewrites the pair, and an imported then saved
+    /// pre-T76 game has no reachable offer until T56 runs. That is a property of the shipped worlds, not
+    /// of the encoding: a scenario with a city at <c>(0, 0)</c> would make every migrated offer live on
+    /// that city. An entry that already carries either coordinate is left untouched, so a save written by a
+    /// later version that gained another field here re-runs this step harmlessly.
+    /// </summary>
+    /// <exception cref="MalformedGameDataException">
+    /// The envelope is not a well-formed version-3 save (<c>state.mercenaryPool</c> is not a JSON array),
+    /// or one of its entries is not a JSON object.
+    /// </exception>
+    private static JsonObject MigrateV3ToV4(string documentPath, JsonObject v3)
+    {
+        var v4 = (JsonObject)v3.DeepClone();
+        v4[SaveFormat.VersionField] = 4;
+
+        var save = EnvelopeJson.RequireObject(documentPath, v4, SaveFormat.PayloadField, "the version-3 envelope");
+        var state = EnvelopeJson.RequireObject(documentPath, save, "state", "the version-3 save");
+
+        if (!state.TryGetPropertyValue("mercenaryPool", out var poolNode) || poolNode is null)
+        {
+            return v4;
+        }
+
+        if (poolNode is not JsonArray pool)
+        {
+            throw new MalformedGameDataException(
+                documentPath, "'state.mercenaryPool' must be a JSON array.");
+        }
+
+        foreach (var slotNode in pool)
+        {
+            if (slotNode is not JsonObject slot)
+            {
+                throw new MalformedGameDataException(
+                    documentPath,
+                    "every 'state.mercenaryPool' entry must be a JSON object describing MercenaryPoolSlot.");
+            }
+
+            if (!slot.ContainsKey("x"))
+            {
+                slot["x"] = 0;
+            }
+
+            if (!slot.ContainsKey("y"))
+            {
+                slot["y"] = 0;
+            }
+        }
+
+        return v4;
     }
 }

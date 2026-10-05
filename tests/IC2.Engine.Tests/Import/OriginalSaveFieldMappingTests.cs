@@ -66,14 +66,16 @@ public class OriginalSaveFieldMappingTests
     }
 
     [Fact]
-    public void The_declared_unmapped_set_is_exactly_the_users_three_narrow_waivers()
+    public void The_declared_unmapped_set_is_exactly_the_remaining_narrow_waiver()
     {
-        // docs/tasks/T21.md: the user's waiver of Done-when 2's "zero unmapped fields" is narrow --
+        // docs/tasks/T21.md: the user's waiver of Done-when 2's "zero unmapped fields" was narrow --
         // MercenaryRecord.X/Y ("Mercenary position", #321) and WorldPrefix.Cells ("The map grid's
         // overlay", the T21 escalation, extended round 3 -- the property carries a dynamic, seasonal
-        // code-1 overlay GameState cannot hold; #339 is its correction). A fourth DeclaredUnmapped entry
-        // must fail this test rather than silently widen the waiver, and so must losing one of these
-        // three (e.g. WorldPrefix.Cells reverting to a Derived misclassification, round 2's mistake).
+        // code-1 overlay GameState cannot hold; #339 is its correction). T76 (#330, bug #325) added
+        // MercenaryPoolSlot's own city-tile position, so MercenaryRecord.X/Y are now Mapped and the
+        // waiver is down to that one field. An extra DeclaredUnmapped entry must still fail this test
+        // rather than silently widen the waiver, and so must losing the last one (e.g. WorldPrefix.Cells
+        // reverting to a Derived misclassification, round 2's mistake).
         var declaredUnmapped = All
             .Where(m => m.Kind == FieldMappingKind.DeclaredUnmapped)
             .Select(m => m.QualifiedName)
@@ -81,7 +83,7 @@ public class OriginalSaveFieldMappingTests
             .ToList();
 
         Assert.Equal(
-            new[] { "MercenaryRecord.X", "MercenaryRecord.Y", "WorldPrefix.Cells" },
+            new[] { "WorldPrefix.Cells" },
             declaredUnmapped);
     }
 

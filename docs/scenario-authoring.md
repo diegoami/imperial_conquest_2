@@ -464,6 +464,9 @@ The `recruitment` object (`RecruitmentRules`) covers standing recruitment, mobil
 | `mercenaryPoolSlots` | integer | count | Size of the mercenary hiring pool. |
 | `mercenaryHireTroopDivisor` | integer | divisor | Divisor used when computing troops for a mercenary hire. |
 | `mercenaryUpkeepQualityDivisor` | integer | divisor | Divisor used when computing a mercenary unit's quarterly upkeep from its quality. |
+| `mercenaryHireRangeHumanSeat` | integer | tiles (Chebyshev, `==`) | Distance from the army at which a human seat's mercenary order finds a live offer's city — the original's `d == 1`, not "at most". |
+| `mercenaryHireRangeAiSeat` | integer | tiles (Chebyshev, `<=`) | The radius within which a computer nation's automatic hire reaches a city's offers — one smaller than `mobilizationReceivingArmyRangeAiSeat`. |
+| `mercenaryAiHireMinMoney` | integer | talents | The army purse an AI seat must hold more than before its automatic hire does anything; the hire itself charges nothing. |
 | `maxSlots` | integer | count (40 shipped) | Size of a nation's recruitment-slot table — a compacted list; occupying the last slot refuses further orders ("You have reached your limit of 40 units."). |
 | `mobilizationQualityDivisor` | integer | divisor | The permanent quality a mobilized recruit is born with = `stateCode / this`, truncating toward zero. |
 | `mobilizationMinStateCodeHumanSeat` | integer | state-code units | Lowest recruitment-slot state code a human seat may mobilize. |

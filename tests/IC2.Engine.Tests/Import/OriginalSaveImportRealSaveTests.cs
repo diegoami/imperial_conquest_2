@@ -83,21 +83,21 @@ public class OriginalSaveImportRealSaveTests
 
     [SkippableTheory]
     [MemberData(nameof(RepresentativeSample))]
-    public void Import_report_claims_exactly_the_three_declared_unmapped_fields(string fileName)
+    public void Import_report_claims_exactly_the_declared_unmapped_fields(string fileName)
     {
-        // Done-when 2, as narrowed by the user's two waivers (docs/tasks/T21.md "Mercenary position",
-        // #321, and "The map grid's overlay", the T21 escalation, round 3): the report's UnmappedFields
-        // is derived from OriginalSaveFieldMapping (review B1), and the only entries it can ever carry
-        // are exactly the two waived MercenaryRecord fields plus WorldPrefix.Cells (the saved map grid's
-        // dynamic, seasonal code-1 overlay, which GameState cannot hold -- bug #339 is its correction).
-        // A fourth entry appearing here means a field IC2.Data now parses stopped being mapped, and this
-        // test must fail; so must losing one of these three.
+        // Done-when 2, as narrowed by the user's remaining waiver (docs/tasks/T21.md "The map grid's
+        // overlay", the T21 escalation, round 3): the report's UnmappedFields is derived from
+        // OriginalSaveFieldMapping (review B1). T76 (#330, bug #325) added MercenaryPoolSlot's own
+        // city-tile position, so the only entry it can now ever carry is WorldPrefix.Cells (the saved map
+        // grid's dynamic, seasonal code-1 overlay, which GameState cannot hold -- bug #339 is its
+        // correction). An extra entry appearing here means a field IC2.Data now parses stopped being
+        // mapped, and this test must fail; so must losing that last one.
         Skip.IfNot(LocalOriginalAssets.IsConfigured, LocalOriginalAssets.SkipReason);
 
         var result = ImportFixture(fileName);
 
         Assert.Equal(
-            new[] { "MercenaryRecord.X", "MercenaryRecord.Y", "WorldPrefix.Cells" },
+            new[] { "WorldPrefix.Cells" },
             result.Report.UnmappedFields.OrderBy(f => f, StringComparer.Ordinal));
     }
 
@@ -413,5 +413,24 @@ public class OriginalSaveImportRealSaveTests
         Assert.Equal(0, fleet.Y);
         Assert.Equal(24, fleet.ConstructionTicksRemaining);
         Assert.Equal(RealGameData.World.Cities[166].Id, fleet.BuildCityId);
+    }
+
+    [SkippableFact]
+    public void The_import_maps_a_mercenary_offers_city_tile()
+    {
+        // R6: T76 maps MercenaryRecord.X/Y onto MercenaryPoolSlot.X/Y, but nothing exercised the mapping
+        // -- replacing it with X:0, Y:0 left the whole suite green. The documented Felsina case (slot 33
+        // at (98, 31) in 1_rome_270_winter_1, mercenary-pool-record.md) is asserted directly, so the
+        // mapping is load-bearing.
+        Skip.IfNot(LocalOriginalAssets.IsConfigured, LocalOriginalAssets.SkipReason);
+        const string fileName = "1_rome_270_winter_1.sav";
+        var path = OriginalFixture.TryResolve(fileName);
+        Skip.If(path is null, $"'{fileName}' is not present in the configured corpus on this machine.");
+
+        var result = ImportFixture(fileName);
+
+        var slot = result.Save.State.MercenaryPool.Single(s => s.SlotIndex == 33);
+        Assert.Equal(98, slot.X);
+        Assert.Equal(31, slot.Y);
     }
 }
