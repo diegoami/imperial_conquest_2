@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Checks/AiPhaseBattleCheck.cs" id="1_ai_phase_battle_check"]
+
+[node name="AiPhaseBattleCheck" type="Node"]
+script = ExtResource("1_ai_phase_battle_check")
