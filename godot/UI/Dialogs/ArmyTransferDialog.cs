@@ -314,7 +314,14 @@ public partial class ArmyTransferDialog : Control
     private TransferRow? SelectedRow(bool isSelectedSide)
     {
         var list = isSelectedSide ? _selectedList : _partnerList;
-        var selected = (int)list.GetSelectedItems().FirstOrDefault();
+        var picked = list.GetSelectedItems();
+        if (picked.Length == 0)
+        {
+            // Nothing selected: Transfer and Disband do nothing (FirstOrDefault would have read row 0).
+            return null;
+        }
+
+        var selected = picked[0];
         var rows = Rows(isSelectedSide);
         return selected >= 0 && selected < rows.Count ? rows[selected] : null;
     }
@@ -368,6 +375,12 @@ public partial class ArmyTransferDialog : Control
         DisbandSelected(row);
         return true;
     }
+
+    /// <summary>The selected army's list widget, so a check can select a row the way a click does.</summary>
+    public ItemList SelectedListForCheck => _selectedList;
+
+    /// <summary>The partner's list widget, so a check can select a row the way a click does.</summary>
+    public ItemList PartnerListForCheck => _partnerList;
 
     /// <summary>One press of a supply arrow, exactly as the buttons do.</summary>
     public void PressSupplyForCheck(int delta) => PressSupply(delta);

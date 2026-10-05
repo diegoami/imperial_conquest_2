@@ -72,6 +72,7 @@ public partial class ArmyOrdersCheck : Control
         _steps.Add(OpenTransferTwoWay);
         _steps.Add(SplitArmy);
         _steps.Add(SplitArmyDisband);
+        _steps.Add(TransferEmptySelection);
         _steps.Add(JoinArmies);
         _steps.Add(ChangeUnits);
         _steps.Add(DisbandNo);
@@ -210,7 +211,10 @@ public partial class ArmyOrdersCheck : Control
 
     /// <summary>
     /// Done-when 2: a Disband inside the split dialog, under each list — once on an unstaged unit and once
-    /// on a staged one — removes that unit from the selected army and counts one command per press.
+    /// on a staged one — removes that unit from the selected army and counts one command per press. The
+    /// real Disband buttons are pressed (found in the laid-out dialog, fired through their own
+    /// <c>pressed</c> signal) on a row selected in the list, so removing a button, or breaking the
+    /// selection-to-index mapping, fails this check. A press with nothing selected does nothing.
     /// </summary>
     private void SplitArmyDisband()
     {
@@ -219,20 +223,54 @@ public partial class ArmyOrdersCheck : Control
         var dialog = (SplitArmyDialog)_mainGame.ActiveOverlay!;
         var original = _session.State.ArmyById(SplitDisbandArmyId)!.Units.ToList();
 
-        // Under the selected army's own list: an unstaged unit (index 3).
+        var disbandButtons = ButtonsUnder(dialog).Where(button => button.Text == "Disband").ToList();
+        var transferButtons = ButtonsUnder(dialog).Where(button => button.Text == "Transfer").ToList();
+        Check(
+            disbandButtons.Count == 2 && transferButtons.Count == 2,
+            $"the split dialog has a Disband and a Transfer button under each list ({disbandButtons.Count}, {transferButtons.Count})");
+        if (disbandButtons.Count != 2 || transferButtons.Count != 2)
+        {
+            dialog.CancelForCheck();
+            return;
+        }
+
+        // Nothing selected: Disband and Transfer under either list do nothing.
         var before = _commandsSeen;
-        dialog.DisbandForCheck(3);
+        dialog.ArmyListForCheck.DeselectAll();
+        dialog.NewArmyListForCheck.DeselectAll();
+        foreach (var button in disbandButtons.Concat(transferButtons))
+        {
+            button.EmitSignal(BaseButton.SignalName.Pressed);
+        }
+
+        Check(_commandsSeen == before, $"Disband and Transfer with no selected row submit nothing ({_commandsSeen - before})");
+        Check(
+            _session.State.ArmyById(SplitDisbandArmyId)!.Units.Count == original.Count
+            && dialog.ModelForCheck.StagedUnits.Count == 0,
+            "Disband and Transfer with no selected row change and stage nothing");
+
+        // Under the selected army's own list: select the row of unit 3 (row 3, nothing staged), press Disband.
+        dialog.ArmyListForCheck.Select(3);
+        before = _commandsSeen;
+        disbandButtons[0].EmitSignal(BaseButton.SignalName.Pressed);
         var afterFirst = _session.State.ArmyById(SplitDisbandArmyId)!;
         Check(_commandsSeen == before + 1, $"Disband under the army's list counts one command ({_commandsSeen - before})");
         Check(
             afterFirst.Units.Count == original.Count - 1 && !afterFirst.Units.Contains(original[3]),
             "the unstaged unit is gone from the selected army");
 
-        // Under the new army's list: a staged unit (index 1), which also leaves the staging.
-        dialog.StageUnitForCheck(1);
-        dialog.StageUnitForCheck(2);
+        // Stage units 1 and 2 with the real Transfer button, then Disband the staged row of unit 1.
+        dialog.ArmyListForCheck.Select(1);
+        transferButtons[0].EmitSignal(BaseButton.SignalName.Pressed);
+        dialog.ArmyListForCheck.Select(1); // unit 2 is now row 1 of the unstaged list [0, 2].
+        transferButtons[0].EmitSignal(BaseButton.SignalName.Pressed);
+        Check(
+            dialog.ModelForCheck.StagedUnits.SequenceEqual(new[] { 1, 2 }),
+            "Transfer under the army's list stages the selected rows");
+
+        dialog.NewArmyListForCheck.Select(0); // the staged row of unit 1.
         before = _commandsSeen;
-        dialog.DisbandForCheck(1);
+        disbandButtons[1].EmitSignal(BaseButton.SignalName.Pressed);
         var afterSecond = _session.State.ArmyById(SplitDisbandArmyId)!;
         Check(_commandsSeen == before + 1, $"Disband under the new army's list counts one command ({_commandsSeen - before})");
         Check(
@@ -250,6 +288,32 @@ public partial class ArmyOrdersCheck : Control
             _session.State.ArmyById(SplitDisbandArmyId)!.Units.Count == original.Count - 2
             && _session.State.ArmyById($"{SplitDisbandArmyId}-split") is null,
             "Cancel leaves the disbands in place and adds no army");
+    }
+
+    /// <summary>
+    /// The Transfer unit dialog's Disband and Transfer buttons with nothing selected do nothing — the
+    /// empty selection must not fall back to row 0.
+    /// </summary>
+    private void TransferEmptySelection()
+    {
+        _mainGame.SelectArmyForCheck(TransferTwoWayA);
+        Check(_mainGame.MenuBar.PressItemForCheck("unit_map.army_transfer_unit"), "Transfer unit opens for the empty-selection press");
+        var dialog = (ArmyTransferDialog)_mainGame.ActiveOverlay!;
+        var before = _commandsSeen;
+        var unitsBefore = _session.State.ArmyById(TransferTwoWayA)!.Units.Count;
+        dialog.SelectedListForCheck.DeselectAll();
+        dialog.PartnerListForCheck.DeselectAll();
+        foreach (var button in ButtonsUnder(dialog).Where(b => b.Text is "Disband" or "Transfer"))
+        {
+            button.EmitSignal(BaseButton.SignalName.Pressed);
+        }
+
+        Check(_commandsSeen == before, $"Transfer unit's Disband and Transfer with no selection submit nothing ({_commandsSeen - before})");
+        Check(
+            dialog.ModelForCheck.UnitsToPartner.Count == 0 && dialog.ModelForCheck.UnitsBack.Count == 0,
+            "Transfer unit's buttons with no selection stage nothing");
+        Check(_session.State.ArmyById(TransferTwoWayA)!.Units.Count == unitsBefore, "no unit was disbanded");
+        dialog.CancelForCheck();
     }
 
     private void JoinArmies()

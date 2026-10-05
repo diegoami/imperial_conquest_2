@@ -276,6 +276,12 @@ public partial class SplitArmyDialog : Control
         Refresh();
     }
 
+    /// <summary>The selected army's list widget, so a check can select a row the way a click does.</summary>
+    public ItemList ArmyListForCheck => _armyList;
+
+    /// <summary>The new army's list widget, so a check can select a row the way a click does.</summary>
+    public ItemList NewArmyListForCheck => _newArmyList;
+
     /// <summary>Stages a unit exactly as pressing Transfer on it does — a check's seam.</summary>
     public void StageUnitForCheck(int index)
     {
