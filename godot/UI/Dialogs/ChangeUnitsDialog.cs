@@ -225,6 +225,9 @@ public partial class ChangeUnitsDialog : Control
 
     // ---- check seams: the same composition and submit the buttons use ----
 
+    /// <summary>The unit list widget, so a check can clear or set the selection the way a click does.</summary>
+    public ItemList UnitListForCheck => _unitList;
+
     /// <summary>Selects a unit row by index, the way a click does.</summary>
     public void SelectUnitForCheck(int index)
     {

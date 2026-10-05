@@ -75,6 +75,7 @@ public partial class ArmyOrdersCheck : Control
         _steps.Add(TransferEmptySelection);
         _steps.Add(JoinArmies);
         _steps.Add(ChangeUnits);
+        _steps.Add(ChangeUnitsEmptySelection);
         _steps.Add(DisbandNo);
         _steps.Add(DisbandYes);
         _steps.Add(ChangeUnitsOfCarriedArmy);
@@ -345,6 +346,34 @@ public partial class ArmyOrdersCheck : Control
         Check(
             _session.State.ArmyById(ChangeArmyId)!.Units[1].Name == "Legio I",
             "the unit carries the new name");
+        dialog.CancelForCheck();
+    }
+
+    /// <summary>
+    /// Change units' real buttons with nothing selected (Rename unit, Split unit, Join units, Disband, and
+    /// the Rename and Split panels' own buttons) submit nothing and change nothing.
+    /// </summary>
+    private void ChangeUnitsEmptySelection()
+    {
+        _mainGame.SelectArmyForCheck(ChangeArmyId);
+        Check(_mainGame.MenuBar.PressItemForCheck("unit_map.army_change_units"), "Change units opens for the empty-selection press");
+        var dialog = (ChangeUnitsDialog)_mainGame.ActiveOverlay!;
+        var before = _commandsSeen;
+        var armyBefore = _session.State.ArmyById(ChangeArmyId)!;
+
+        var buttons = ButtonsUnder(dialog)
+            .Where(button => button.Text is "Rename unit" or "Split unit" or "Join units" or "Disband" or "Rename" or "Split")
+            .ToList();
+        Check(buttons.Count == 6, $"Change units has its six selection-reading buttons ({buttons.Count})");
+
+        dialog.UnitListForCheck.DeselectAll();
+        foreach (var button in buttons)
+        {
+            button.EmitSignal(BaseButton.SignalName.Pressed);
+        }
+
+        Check(_commandsSeen == before, $"Change units' buttons with no selected unit submit nothing ({_commandsSeen - before})");
+        Check(_session.State.ArmyById(ChangeArmyId)! == armyBefore, "Change units' buttons with no selected unit change nothing");
         dialog.CancelForCheck();
     }
 
