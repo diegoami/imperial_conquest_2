@@ -917,6 +917,7 @@ are just two settings of this record.
 | `faithfulThawColumnBug` | boolean | — | `true` reproduces the confirmed bug where the quarterly diplomatic thaw only ever touches the first `diplomacy.faithfulThawColumnLimit` of each nation's 16 relation columns; `false` thaws every column. |
 | `bugPolicySiegeRatioClamp` | enum | `"reproduce16BitClamp"`, `"clamp32Bit"` | Whether the siege attrition ratio and erosion ratio term reproduce the original's signed 16-bit wraparound (`classical-faithful`) or are computed in ordinary 32-bit arithmetic, never wrapping (`improved`). |
 | `unaffordableRecruitAndFortify` | enum | `"allowDebt"`, `"refuse"` | What a standing-unit recruitment order and a city fortification order do when the treasury cannot cover the cost: `allowDebt` (`classical-faithful`) takes the full cost and lets the treasury end below zero, as the original does; `refuse` (`improved`, and the small test ruleset) rejects the order. No other order reads it. |
+| `humanMoveResupply` | enum | `"never"`, `"againstNonHostileCity"` | Whether a human army's move also resupplies it: `never` (`classical-faithful`) runs no automatic resupply on a move, as the original, where only the AI resupplies; `againstNonHostileCity` (`improved`) resupplies an army whose move ends next to a city whose owner is not at war with it, against the first such city. Only the session's `move` reads it; the AI's resupply, buying supply and the Supply army dialog do not. |
 | `_provenance` | object | No | Provenance map. |
 
 ---

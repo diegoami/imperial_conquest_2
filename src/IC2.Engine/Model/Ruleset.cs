@@ -1953,6 +1953,15 @@ public sealed record AiWeightsRules(
 /// <c>0x4407E4</c> check no balance <strong>[derived: decompiled]</strong>); <c>improved</c> is
 /// <see cref="UnaffordableOrderPolicy.Refuse"/>.
 /// </param>
+/// <param name="HumanMoveResupply">
+/// Bug #756, T144: whether a human army's move also resupplies it. Read only by <c>GameSession</c>'s
+/// <c>move</c> handler; the AI's resupply pass, buying supply and the Supply army dialog never read it.
+/// <c>classical-faithful</c> is <see cref="HumanMoveResupplyPolicy.Never"/>: the original's
+/// <c>FUN_0044F6D8</c> is reached only by the AI's per-army pass and the walk's tail, never by a human click
+/// <strong>[derived: code, research 9ae8924, provisional]</strong>; <c>improved</c> is
+/// <see cref="HumanMoveResupplyPolicy.AgainstNonHostileCity"/>, a designed convenience kept by the user's
+/// decision of 2026-10-05.
+/// </param>
 public sealed record RulesetFlags(
     DiplomacyModel DiplomacyModel,
     EconomyPurseModel EconomyPurses,
@@ -1961,6 +1970,7 @@ public sealed record RulesetFlags(
     bool FaithfulThawColumnBug,
     SiegeRatioClampPolicy BugPolicySiegeRatioClamp,
     UnaffordableOrderPolicy UnaffordableRecruitAndFortify,
+    HumanMoveResupplyPolicy HumanMoveResupply,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>How faithfully diplomacy follows the original (audit Q3).</summary>
@@ -2025,6 +2035,19 @@ public enum UnaffordableOrderPolicy
 
     /// <summary>Refuse the order with its insufficient-treasury rejection and leave the state unchanged.</summary>
     Refuse,
+}
+
+/// <summary>Whether a human army's move runs the automatic resupply (bug #756, T144).</summary>
+public enum HumanMoveResupplyPolicy
+{
+    /// <summary>A human army's move never resupplies it, as the original.</summary>
+    Never,
+
+    /// <summary>
+    /// A move ending next to a city whose owner is not at war with the army's nation resupplies the army
+    /// against the first such city in list order.
+    /// </summary>
+    AgainstNonHostileCity,
 }
 
 /// <summary>What happens to the losing side of a field or naval battle.</summary>
