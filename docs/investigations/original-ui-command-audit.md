@@ -368,7 +368,7 @@ its new unit one tile away.
 This was the gate that made embarking unreachable ([#453](https://github.com/diegoami/imperial_conquest_2/issues/453)), until T93 let an army embark from a tile next to its fleet.
 The clone's army walk refuses a tile with another army on it (`MoveArmyCommandHandler.IsBlocked`, ~:86), so
 in play the only way two armies share a tile may be a fresh split. The original's split places the new army one
-step diagonally, at distance 1 **[Wine candidate: [`2026-10-02-unit-map-mouse-orders-and-tax-range.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-02-unit-map-mouse-orders-and-tax-range.md)]**, so its partner is in reach at once; the clone's split put it on the on the
+step diagonally, at distance 1 **[Wine candidate: [`2026-10-02-unit-map-mouse-orders-and-tax-range.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-02-unit-map-mouse-orders-and-tax-range.md)]**, so its partner is in reach at once; the clone's split put it on the
 parent's tile ([#584](https://github.com/diegoami/imperial_conquest_2/issues/584)) until T114 placed it one tile away. Split fleet is the same: the original puts the new fleet on an adjacent
 tile, and Join fleets and Transfer ships then work between the two **[Wine candidate: [`2026-10-02-fleet-orders-live.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-02-fleet-orders-live.md)]**; the clone put it on the parent's
 tile ([#596](https://github.com/diegoami/imperial_conquest_2/issues/596)) until T114. This audit does not file the defect. Under
