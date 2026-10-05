@@ -35,6 +35,7 @@ move mac-sac-1 151 31
 end
 move mac-sac-1 151 31
 end
+accept-offer
 move mac-sac-1 151 31
 end
 attack-army mac-sac-1 army-14
@@ -62,15 +63,16 @@ scuttle-fleet mac-fleet-1
 transfer-money army-8 100
 transfer-money army-8 -50
 move army-8 136 42
+buy mac-marines pella 5
+transfer-money mac-marines 100
 move mac-marines 137 42
-army-transfer army-8 mac-marines supply=2 money=20
+army-transfer mac-marines army-8 supply=2 money=20
 split-unit mac-marines 0 1000
 rename-unit mac-marines 0 LegioX
 disband-unit mac-marines 1
 end
 move army-8 142 42
 end
-accept-offer
 move army-8 148 40
 embark-army army-8 mac-fleet-keep
 disembark-army army-8 148 40
