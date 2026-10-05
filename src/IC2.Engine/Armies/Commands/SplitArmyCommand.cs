@@ -53,7 +53,7 @@ namespace IC2.Engine.Armies.Commands;
 /// </para>
 /// <para>
 /// <strong>Supply is rebalanced after the move, the original's own <c>TArmyToArmy_OK</c>.</strong>
-/// <strong>[confirmed: code, the same report, items 1–2, <c>:44572–44649</c>]</strong>: with A the parent
+/// <strong>[confirmed: code, 2026-10-03-army-to-army-ok-supply-rebalancing.md items 1–2, research repo a380a8e, <c>:44572–44649</c>]</strong>: with A the parent
 /// and B the new army, <c>capA = troops(A) div 100</c> first pushes A's excess down to B, then
 /// <c>capB = troops(B) div 100</c> (including what step 1 pushed) sends B's excess back to A. It runs on
 /// every accepted split, one with <c>supply=0</c> included, because splitting troops off lowers the
