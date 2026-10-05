@@ -110,7 +110,7 @@ Agreed on [#264](https://github.com/diegoami/imperial_conquest_2/issues/264), wh
       reported a blocker, and the log's tail shows only the last tool output, not the model's final
       message. Read the final message from the session record:
       `python scripts/read-opencode-session.py <ses_…>` (the id is the log's
-      `opencode: session ses_… started` line). It opens the database read-only; never read
+      `opencode: session ses_… started` line; add `--alibaba` for an `alibaba-token-plan/…` run). It opens the database read-only; never read
       `auth.json` beside it.
     - **Claude agents**: read the agent's final report (its hand-back) in full before acting.
     - **A run that stopped and reported gets an answer**: amend the task, decide, or escalate, and
