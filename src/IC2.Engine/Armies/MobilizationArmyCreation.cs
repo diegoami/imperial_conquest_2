@@ -45,19 +45,19 @@ namespace IC2.Engine.Armies;
 /// types cite the same range: "the army step guard accepts cell codes 2..11 only").
 /// </para>
 /// <para>
-/// <strong>Which of <c>dx</c> and <c>dy</c> is the inner loop is <c>[derived]</c>, not confirmed.</strong>
-/// The report gives the scan as "<c>dx, dy</c> in <c>{-1, 0, 1}</c> … taking the last match" and does
-/// not say which index varies fastest; the decompilation of <c>FUN_004492c0</c> is not quoted in it,
-/// and searching the report, <c>mobilization-movement-and-city-capture-modes.md</c> and
-/// <c>rivers-and-map-markers.md</c> turned up no statement of the order. <strong>It does not matter for
-/// the corpus case</strong>: both nestings visit <c>(+1, +1)</c> last, so both reproduce
-/// <c>(102, 44)</c>, which is the only placement the evidence fixes. The two <em>do</em> disagree on
-/// the fallback when the south-east cell is occupied — row-major (this implementation) falls back to
-/// <c>(0, +1)</c>, column-major would fall back to <c>(+1, 0)</c> — and
-/// <c>MobilizationArmyCreationTests.An_occupied_cell_does_not_qualify_and_the_scan_falls_back_to_the_one_before_it</c>
-/// pins this engine's answer so the choice is visible and checkable, not so that it is evidenced.
-/// Row-major is chosen because every other 3×3 scan in this engine already uses it
-/// (<see cref="LandingTile.FirstAdjacentLandTile"/>, <c>CoastalCity.FirstAdjacentSeaTile</c>).
+/// <strong>The scan nests <c>x</c> outer, <c>dy</c> inner.</strong> <c>FUN_004492c0</c> scans
+/// <c>dx</c> over <c>−1, 0, +1</c> in the outer loop and <c>dy</c> over <c>−1, 0, +1</c> in the inner
+/// loop and keeps the last cell whose map code is in <c>[2, 11]</c>
+/// <strong>[confirmed: code, 2026-10-05-split-army-aboard-a-fleet.md, rule 2, <c>:47942-47943</c> and
+/// <c>:47960-47962</c>]</strong>. So the new army appears at the city's south-east neighbour whenever
+/// that cell qualifies — which is exactly what the corpus pair shows: Rome is <c>(101, 43)</c> and the
+/// new army 14 stands at <c>(102, 44)</c> — and, when the south-east cell is blocked, at <c>(+1, 0)</c>,
+/// not the <c>(0, +1)</c> a row-major <c>dy</c>-outer scan would give. Both observed placements have
+/// <c>(+1, +1)</c> free, so they do not separate the two nestings. This is the opposite of
+/// <see cref="LandingTile.FirstAdjacentLandTile"/>'s first-match convention, so that helper is
+/// deliberately not reused; only its <see cref="LandingTile.IsPassableForArmy"/> predicate is, which is
+/// this engine's form of "map code in <c>[2, 11]</c>" (<c>data/worlds/toy-3city.json</c>'s own tile
+/// types cite the same range: "the army step guard accepts cell codes 2..11 only").
 /// </para>
 /// <para>
 /// <strong>Why an occupied cell is excluded</strong> — <c>[confirmed]</c>, by the same report: the
@@ -130,8 +130,8 @@ public static class MobilizationArmyCreation
 
     /// <summary>
     /// The cell a new army is placed on: the <em>last</em> cell of the 3×3 block centred on
-    /// <paramref name="city"/>, scanned row-major, that an army may stand on and nothing occupies.
-    /// <see langword="null"/> when no cell qualifies.
+    /// <paramref name="city"/>, scanned with <c>x</c> outer and <c>dy</c> inner, that an army may stand on
+    /// and nothing occupies. <see langword="null"/> when no cell qualifies.
     /// </summary>
     /// <param name="state">The live state, read for occupancy.</param>
     /// <param name="world">The world, read for terrain and bounds.</param>
@@ -143,15 +143,16 @@ public static class MobilizationArmyCreation
         ArgumentNullException.ThrowIfNull(city);
 
         GridPoint? chosen = null;
-        for (var dy = -1; dy <= 1; dy++)
+        for (var dx = -1; dx <= 1; dx++)
         {
-            for (var dx = -1; dx <= 1; dx++)
+            for (var dy = -1; dy <= 1; dy++)
             {
                 var candidate = new GridPoint(city.X + dx, city.Y + dy);
                 if (LandingTile.IsPassableForArmy(candidate, world) && !IsOccupied(state, candidate))
                 {
                     // No break, and no early return: the last qualifying cell wins, which for a city
-                    // with open ground all round is (+1, +1), its south-east neighbour.
+                    // with open ground all round is (+1, +1), its south-east neighbour. x is the outer
+                    // loop, so the fallback when the south-east cell is blocked is (+1, 0).
                     chosen = candidate;
                 }
             }

@@ -31,11 +31,13 @@ namespace IC2.Engine.Armies.Commands;
 /// by the same scan is <strong>[derived: code]</strong>: the report reads that <c>TUnitMap_SplitArmy</c>
 /// creates its army with <c>FUN_00449F08</c> ("Split army uses the same form"), and the scan reproduces
 /// both observed split placements — <c>(100,37) → (101,38)</c> and <c>(92,27) → (93,28)</c>, each a
-/// <c>(+1, +1)</c> south-east step. When no cell qualifies the split is refused with
-/// <see cref="SplitArmyRejections.NoFreeAdjacentTile"/> <c>[designed]</c>: <c>FUN_00449F08</c> pre-sets
-/// its out-parameter to −1 so its caller can detect failure
-/// (<c>army-moves-field-signed-and-the-ffff-underflow.md</c>), but what the original's split shows then
-/// is unread. Wine candidates for the two observations:
+/// <c>(+1, +1)</c> south-east step. The scan nests <c>x</c> outer, <c>dy</c> inner
+/// <strong>[confirmed: code, 2026-10-05-split-army-aboard-a-fleet.md, rule 2]</strong>, so when
+/// <c>(+1, +1)</c> is blocked the new army stands at <c>(+1, 0)</c>. When no cell qualifies the original
+/// creates nothing, opens no dialog and says nothing <strong>[derived: code, the same report, rule 3]</strong>;
+/// the clone refuses a <c>split-army</c> that reaches the engine with
+/// <see cref="SplitArmyRejections.NoFreeAdjacentTile"/>, and the Godot game screen says why before it
+/// opens the dialog <c>[designed]</c>. Wine candidates for the two observations:
 /// <c>2026-10-02-unit-map-mouse-orders-and-tax-range.md</c> observation (e) and its review, and
 /// <c>2026-10-02-fleet-orders-live.md</c>.
 /// </para>
@@ -61,13 +63,20 @@ namespace IC2.Engine.Armies.Commands;
 /// the parent keeps the rest. Money is never rebalanced.
 /// </para>
 /// <para>
-/// <strong>Embarked armies are refused (not evidenced either way).</strong> No report states what
-/// happens when a <c>TUnitMap_SplitArmy</c> target is aboard a fleet, and a fleet's
-/// <see cref="Model.FleetState.CarriedArmyId"/> can name only one army — splitting one in two while
-/// embarked would leave the new army with no map cell and no carrying fleet, an unreachable, dangling
-/// entity of exactly the shape <c>docs/build-process.md</c> §4.2 gate 5's delete-then-dangle sweep looks
-/// for. Refused defensively, the same direction <c>JoinArmiesCommand</c> and <c>EmbarkArmyCommand</c>
-/// already take for an embarked army, <c>[designed, no confirmed evidence either way]</c>.
+/// <strong>An army aboard a fleet splits like one on land.</strong> <c>TUnitMap_SplitArmy</c> checks only
+/// the owner and more than one unit; it has no embarked test, unlike Join armies' own refusal
+/// <strong>[confirmed: code, 2026-10-05-split-army-aboard-a-fleet.md, rule 1, <c>TUnitMap_SplitArmy</c>
+/// @ <c>0044755C</c> (<c>:47039</c> and <c>:47041-47044</c>) with <c>JoinArmiesRejections.ArmyEmbarked</c>
+/// for contrast]</strong>. The placement scan's centre is the carrying fleet's tile
+/// (<see cref="SplitPlacement.ArmyCellFor"/>), the new army takes the qualifying land cell and is
+/// <em>not</em> aboard, and the parent keeps its remaining units aboard the same fleet with the fleet's
+/// link unchanged <strong>[derived: code, <c>FUN_00449F08</c> asks <c>FUN_004492C0(position, 1)</c> with
+/// the fleet's tile (<c>:48724</c>), sets the <c>+0x8</c> cell word (<c>:48736</c>), and the army is not
+/// aboard; Wine candidate: the new army stood on land at (102,47), not aboard, and army 0 stayed aboard
+/// with 2 units and 5,700 troops]</strong>. <c>JoinArmiesCommand</c> and <c>EmbarkArmyCommand</c> keep
+/// their own aboard refusals. With an embarked army whose fleet does not exist (a dangling link), the
+/// split is refused with <see cref="SplitArmyRejections.NoFreeAdjacentTile"/>
+/// <c>[designed: such a link has no tile; no new rejection code]</c>.
 /// </para>
 /// <para>
 /// <strong>The <c>improved</c> starting-moves value.</strong> <c>docs/game-design.md</c>'s
@@ -118,9 +127,6 @@ public static class SplitArmyRejections
 
     /// <summary>The named army belongs to a nation other than the one issuing the command.</summary>
     public static readonly RejectionCode NotYourArmy = new("armies.not-your-army");
-
-    /// <summary>The army is aboard a fleet — see <see cref="SplitArmyCommand"/>'s remarks.</summary>
-    public static readonly RejectionCode ArmyEmbarked = new("armies.army-embarked");
 
     /// <summary>The army has fewer than <see cref="Model.ArmyManagementRules.SplitMinUnits"/> units.</summary>
     public static readonly RejectionCode TooFewUnitsToSplit = new("armies.too-few-units-to-split");

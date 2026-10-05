@@ -201,20 +201,6 @@ public sealed class SplitArmyCommandHandlerTests
         Assert.Equal(SplitArmyRejections.DuplicateArmyId, result.Code);
     }
 
-    [Fact]
-    public void Split_EmbarkedArmy_IsRejected()
-    {
-        var parent = Army("split-embarked", NorthNationId, 3, 3,
-            new[] { RegularUnit("a"), RegularUnit("b") }, coveredTileCode: null, aboardFleetId: "some-fleet");
-        var state = WithArmies(InitialState(), parent);
-
-        var result = Dispatcher().Dispatch(
-            state, new SplitArmyCommand(NorthNationId, "split-embarked", "split-embarked-new", ValueList.Of(1)));
-
-        Assert.True(result.IsRejected);
-        Assert.Equal(SplitArmyRejections.ArmyEmbarked, result.Code);
-    }
-
     [Theory]
     [InlineData(-1, 0)]
     [InlineData(300, 0)] // more than the parent's 256.

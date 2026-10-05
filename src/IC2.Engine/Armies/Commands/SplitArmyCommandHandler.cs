@@ -30,12 +30,6 @@ public sealed class SplitArmyCommandHandler : ICommandHandler<SplitArmyCommand>
                 $"Army '{army.Id}' belongs to '{army.Nation}', not '{command.IssuingNationId}'.");
         }
 
-        if (army.IsEmbarked)
-        {
-            return CommandOutcome.Reject(
-                SplitArmyRejections.ArmyEmbarked, $"Army '{army.Id}' is aboard a fleet and cannot be split.");
-        }
-
         var rules = context.Ruleset.ArmyManagement;
         if (army.Units.Count < rules.SplitMinUnits)
         {
@@ -103,12 +97,14 @@ public sealed class SplitArmyCommandHandler : ICommandHandler<SplitArmyCommand>
                 $"Cannot move {command.SupplyTonsToNewArmy} supply tons to the new army; army '{army.Id}' holds {army.SupplyTons}.");
         }
 
-        // The new unit stands one tile from the parent, not on it (bugs #584, #596): the same
-        // FUN_004492C0 scan MobilizationArmyCreation uses for a mobilized recruit, centred on the
-        // parent's own tile. FUN_00449F08 signals failure through its out-parameter when no cell
-        // qualifies, so the split is refused rather than leaving the new army on an occupied or
-        // impassable cell [designed: what the original's split shows then is unread].
-        if (SplitPlacement.ArmyCell(state, context.World, new GridPoint(army.X, army.Y)) is not { } newCell)
+        // The new unit stands one tile from the parent (bugs #584, #596): the same FUN_004492C0 scan
+        // MobilizationArmyCreation uses for a mobilized recruit. Its centre is the parent's own tile, or
+        // the carrying fleet's tile when the parent is embarked (SplitPlacement.ArmyCellFor,
+        // [confirmed: code, 2026-10-05-split-army-aboard-a-fleet.md, rule 2]). FUN_00449F08 signals
+        // failure through its out-parameter when no cell qualifies, so the split is refused rather than
+        // leaving the new army on an occupied or impassable cell; a dangling fleet link has no centre and
+        // is refused the same way [designed: such a link has no tile].
+        if (SplitPlacement.ArmyCellFor(state, context.World, army) is not { } newCell)
         {
             return CommandOutcome.Reject(
                 SplitArmyRejections.NoFreeAdjacentTile,
