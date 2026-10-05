@@ -432,7 +432,7 @@ public sealed partial class GameSession
 
             _pendingPeaceTreatyOffers[offeredHuman.Id] = new PendingPeaceTreatyOffer(
                 offered.WinnerNationId, offered.LoserNationId, offeredHuman.Id);
-            lines.Add(PeaceTreatyOfferDialogText(winner, loser));
+            lines.AddRange(PeaceTreatyOfferDialogLines(winner, loser));
             lines.Add("Type 'peace-yes' to accept or 'peace-no' to decline.");
         }
     }
@@ -464,27 +464,29 @@ public sealed partial class GameSession
     }
 
     /// <summary>
-    /// The offer's own wording, addressed to the human's side either way — the confirmed prefixes
-    /// <strong>[confirmed: decompiled-war-cascade-and-peace-paths.md §2.3]</strong>,
-    /// <c>TBattlePols_InitializeForm</c>'s "*After defeating you in battle &lt;W&gt; are willing to end
-    /// …*" (winner AI) or "*After losing to you in battle &lt;L&gt; are willing to end …*" (winner human).
-    /// The report's own ellipsis is exactly that — the words after "willing to end" are not read from the
-    /// decompile. <strong>[designed]</strong> (rework round 1, N6; corrected rework round 2, N-c): ", "
-    /// and "the war." complete the sentence here rather than leaving it truncated. Searched for a fuller
-    /// quote in <c>design-audit.md</c> §1.7 ("Post-battle peace negotiation, including a human-vs-human
-    /// variant" — the closest entry to this dialog) and this task's own source report; neither carries the
-    /// completed sentence, so this fills it rather than shipping a dangling ellipsis in the CLI's own
-    /// output. This is a plain completion, not a claim that it is the <em>only</em> one the ellipsis could
-    /// hide: report §2.3 itself says "the dialog previews the terms", and design-audit §1.7 quotes
-    /// <c>TBattlePols</c>'s own honourable-terms line ("An honourable peace with no reparations or
-    /// penalties"), so a terms preview is plausible wording this search did not rule out — only that
-    /// neither source states it for <em>this</em> sentence, so guessing at unconfirmed preview wording
-    /// would be worse than the plain completion used here.
+    /// The offer's text as the original's whole "Offer of peace" box, as ordered lines (bug #746): the offer
+    /// sentence addressed to the human's side either way, the terms line, then the two click prompts. The
+    /// box's reparation lines are always empty in the original and are not supplied; its title is the
+    /// window's. Each line is read from the box's painted text in the original's screenshots
+    /// <strong>[Wine candidate: research report 2026-10-05-battle-peace-offer.md, "For the clone: the facts
+    /// to copy", item 1]</strong>. The terms line ends with the full word "penalties" where the original's
+    /// box clips it (the user's decision of 2026-10-05; design-audit.md §1.7 quotes
+    /// <c>TBattlePols</c>'s line in full). The CLI prints each line; the Offer of peace window reads them as
+    /// typed data and displays them unchanged.
     /// </summary>
-    private static string PeaceTreatyOfferDialogText(NationState winner, NationState loser) =>
-        winner.Control == SeatControl.Human
-            ? $"After losing to you in battle, {loser.Name} are willing to end the war."
-            : $"After defeating you in battle, {winner.Name} are willing to end the war.";
+    /// <param name="winner">The battle's winner.</param>
+    /// <param name="loser">The battle's loser.</param>
+    /// <returns>The box's lines, in order.</returns>
+    public static IReadOnlyList<string> PeaceTreatyOfferDialogLines(NationState winner, NationState loser) =>
+        new[]
+        {
+            winner.Control == SeatControl.Human
+                ? $"After losing to you in battle {loser.Name} are willing to end their war with you, if you agree to the terms below."
+                : $"After defeating you in battle {winner.Name} are willing to end their war with you, if you agree to the terms below.",
+            "An honourable peace with no reparations or penalties",
+            "If the peace terms are acceptable click YES.",
+            "Otherwise to continue the war click NO.",
+        };
 
     /// <summary>Builds a session over a resolved world/ruleset/scenario, optionally overriding the seed.</summary>
     /// <param name="world">The loaded world.</param>

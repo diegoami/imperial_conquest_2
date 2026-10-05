@@ -366,7 +366,10 @@ News:
 
 > attack-army mac-sac-1 army-14
 battle.attack-army accepted.
-After defeating you in battle, Thracia are willing to end the war.
+After defeating you in battle Thracia are willing to end their war with you, if you agree to the terms below.
+An honourable peace with no reparations or penalties
+If the peace terms are acceptable click YES.
+Otherwise to continue the war click NO.
 Type 'peace-yes' to accept or 'peace-no' to decline.
 
 > peace-yes
