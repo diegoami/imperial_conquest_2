@@ -116,6 +116,15 @@
     <Compile Include="../../godot/UI/CommandOutcomeText.cs" Link="Ui/CommandOutcomeText.cs" />
 
     <!--
+      T147 (bug #781 point 4, tests/IC2.Engine.Tests/Ui/CommandOutcomeWordingTests.cs): the same seam once
+      more. CommandOutcomeWording.cs is the Godot-free map from an engine command kind to the readable
+      line the main game screen's output area shows in place of "{kind} accepted.", so a plain xunit test
+      can pin every app-issuable kind without the Godot SDK. No `using Godot` anywhere; never a second,
+      hand-maintained copy.
+    -->
+    <Compile Include="../../godot/UI/CommandOutcomeWording.cs" Link="Ui/CommandOutcomeWording.cs" />
+
+    <!--
       T99 (tests/IC2.Engine.Tests/Ui/MapClickRulesTests.cs): the same seam once more. MapClickRules.cs is
       the Godot-free click decision table behind the Unit map's click handling (one row per row of the
       UI command audit's §2.1), so a correction from the original exploration in flight lands there and

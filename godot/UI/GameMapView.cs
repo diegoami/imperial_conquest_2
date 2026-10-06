@@ -152,6 +152,22 @@ public partial class GameMapView : Control
     private MapClickOutcome? _pendingConfirmedAttack;
     private bool _fittedOnce;
 
+    // T147 (bug #781 point 1): once the player has zoomed or panned, the view is theirs, so a later resize
+    // keeps its centre instead of re-fitting. Until then every resize re-fits, so a window maximised after
+    // the first frame no longer keeps the first (letterboxing) fit.
+    private bool _userAdjustedView;
+
+    // The size at the last layout, so a resize can read the tile that was at the control's centre before
+    // the new size arrived and put it back at the new centre.
+    private Vector2 _lastSize;
+
+    // T147 (bug #781 point 1, Sol R2): a genuine window/root resize changes the container this control
+    // sits in, so this control's rect changes with its parent's. A sibling's layout change (T132's
+    // side-panel toggle, the news log) changes only this control's rect and leaves the parent's alone.
+    // Comparing the parent's size is the explicit protection the toggle's exact zoom and pan need
+    // (godot/Checks/SidePanelToggleCheck.cs) without stopping the re-fit on a real window resize.
+    private Vector2 _lastParentSize;
+
     public override void _Ready()
     {
         FocusMode = FocusModeEnum.All;
@@ -185,21 +201,73 @@ public partial class GameMapView : Control
             return;
         }
 
+        var parentSize = ParentControlSize();
+        var parentResized = !parentSize.IsEqualApprox(_lastParentSize);
+
         if (!_fittedOnce)
         {
+            // The first real layout: the control was (0,0) when Attach ran.
             FitToView();
             _fittedOnce = true;
         }
+        else if (!parentResized)
+        {
+            // A sibling's layout changed this control's rect (the side panel/column toggling, the news
+            // log) but the window/root did not resize. T132 protects the side-panel toggle's exact zoom
+            // and pan (godot/Checks/SidePanelToggleCheck.cs), so nothing about the view moves here;
+            // NotifyViewChanged below still tells the mini-map its rect changed.
+        }
+        else if (_userAdjustedView)
+        {
+            // The player has zoomed or panned: a resize keeps the tile under the view's centre, so it
+            // never scrolls the view the player set up.
+            KeepViewCentreAcrossResize();
+        }
         else
         {
-            // B1 (T102 review): VisibleTileRect depends on Size, and project.godot sets
-            // window/stretch/aspect "expand", so a later resize (a window resize or maximise) changes
-            // the visible tile rectangle even though the player's own zoom and pan did not. Announce
-            // it so the mini-map's view rectangle follows; without this the rectangle goes stale.
-            NotifyViewChanged();
+            // T147 (bug #781 point 1, Sol R2): the view is still the automatic fit, so it is redone on
+            // every window/root resize -- shrinking as well as growing -- and always covers the new rect.
+            FitToView();
         }
 
-        QueueRedraw();
+        _lastParentSize = parentSize;
+        _lastSize = Size;
+
+        // B1 (T102 review): VisibleTileRect depends on Size, and project.godot sets
+        // window/stretch/aspect "expand", so a later resize (a window resize or maximise) changes
+        // the visible tile rectangle even though the player's own zoom and pan did not. Announce
+        // it so the mini-map's view rectangle follows; without this the rectangle goes stale.
+        NotifyViewChanged();
+    }
+
+    /// <summary>The immediate parent's size when it is a <see cref="Control"/>, else zero.</summary>
+    private Vector2 ParentControlSize() =>
+        GetParent() is Control parent ? parent.Size : Vector2.Zero;
+
+    /// <summary>
+    /// T147 (bug #781 point 1): after the player has zoomed or panned, a resize keeps the view's tile
+    /// centre. The zoom is never allowed below the new size's cover zoom, so a window that grew cannot
+    /// expose background; growing the zoom around the centre keeps the same tile under the centre.
+    /// </summary>
+    private void KeepViewCentreAcrossResize()
+    {
+        if (_lastSize.X <= 0 || _lastSize.Y <= 0)
+        {
+            FitToView();
+            return;
+        }
+
+        var oldTileSize = BaseTileSize * _zoom;
+        var centreTile = ((_lastSize / 2f) - _pan) / oldTileSize;
+
+        var minimum = MinimumZoom();
+        if (_zoom < minimum)
+        {
+            _zoom = minimum;
+        }
+
+        _pan = (Size / 2f) - (centreTile * (BaseTileSize * _zoom));
+        ClampPanToView();
     }
 
     /// <summary>Loads (or reloads) this view against a fresh session — called once by
@@ -225,12 +293,15 @@ public partial class GameMapView : Control
             onFailure: key => GD.PushWarning($"T24 map: asset pack could not resolve or load '{key}'; falling back to the coloured marker."));
 
         BakeTerrainTexture();
+        _userAdjustedView = false;
         if (Size.X > 0 && Size.Y > 0)
         {
             FitToView();
             _fittedOnce = true;
         }
 
+        _lastSize = Size;
+        _lastParentSize = ParentControlSize();
         QueueRedraw();
     }
 
@@ -304,7 +375,10 @@ public partial class GameMapView : Control
         }
 
         var tileSize = BaseTileSize * _zoom;
+        // T147 (bug #781 point 1, Sol R3): a re-centre clamps like every other pan path, so it can never
+        // expose background; the tile is brought as close to the control's centre as the clamp allows.
         _pan = (Size / 2f) - (new Vector2(x + 0.5f, y + 0.5f) * tileSize);
+        ClampPanToView();
         NotifyViewChanged();
     }
 
@@ -385,11 +459,48 @@ public partial class GameMapView : Control
             return;
         }
 
+        // T147 (bug #781 point 1): the default fit covers the control rather than letterboxing it --
+        // the larger of the two ratios, so no background shows on either axis. The overflow is reachable
+        // by the existing pan, clamped by ClampPanToView so the map's edge cannot leave the control's.
         var mapSize = new Vector2(world.Width, world.Height) * BaseTileSize;
-        _zoom = Mathf.Clamp(Mathf.Min(viewport.X / mapSize.X, viewport.Y / mapSize.Y), MinZoom, MaxZoom);
+        _zoom = Mathf.Clamp(CoverZoom(viewport), MinZoom, MaxZoom);
         var scaledSize = mapSize * _zoom;
         _pan = (viewport - scaledSize) / 2f;
+        ClampPanToView();
         NotifyViewChanged();
+    }
+
+    /// <summary>The zoom at which the map exactly covers <paramref name="viewport"/> on its tighter axis.</summary>
+    private float CoverZoom(Vector2 viewport) =>
+        _session is null
+            ? 1f
+            : Mathf.Max(
+                viewport.X / (_session.World.Width * BaseTileSize),
+                viewport.Y / (_session.World.Height * BaseTileSize));
+
+    /// <summary>
+    /// T147 (bug #781 point 1): the smallest zoom the player may reach — the cover zoom for the current
+    /// size, so the background can never show. Clamped into the same [<see cref="MinZoom"/>,
+    /// <see cref="MaxZoom"/>] range the fit uses.
+    /// </summary>
+    private float MinimumZoom() => Mathf.Min(Mathf.Clamp(CoverZoom(Size), MinZoom, MaxZoom), MaxZoom);
+
+    /// <summary>
+    /// T147 (bug #781 point 1): keeps the map's edge at the control's edge, so panning can never expose
+    /// background. On an axis the map cannot cover (a map smaller than the control at <see cref="MaxZoom"/>)
+    /// the map is centred on that axis instead.
+    /// </summary>
+    private void ClampPanToView()
+    {
+        if (_session is null)
+        {
+            return;
+        }
+
+        var scaledSize = new Vector2(_session.World.Width, _session.World.Height) * BaseTileSize * _zoom;
+        _pan = new Vector2(
+            scaledSize.X >= Size.X ? Mathf.Clamp(_pan.X, Size.X - scaledSize.X, 0f) : (Size.X - scaledSize.X) / 2f,
+            scaledSize.Y >= Size.Y ? Mathf.Clamp(_pan.Y, Size.Y - scaledSize.Y, 0f) : (Size.Y - scaledSize.Y) / 2f);
     }
 
     public override void _GuiInput(InputEvent @event)
@@ -433,6 +544,10 @@ public partial class GameMapView : Control
                     _dragMoved = true;
                 }
 
+                // T147 (bug #781 point 1): a drag is the player's own pan — clamp it so no background shows
+                // and stop the automatic re-fit on later resizes.
+                _userAdjustedView = true;
+                ClampPanToView();
                 NotifyViewChanged();
                 AcceptEvent();
                 break;
@@ -441,7 +556,9 @@ public partial class GameMapView : Control
 
     private void Zoom(Vector2 cursor, float factor)
     {
-        var nextZoom = Mathf.Clamp(_zoom * factor, MinZoom, MaxZoom);
+        // T147 (bug #781 point 1): the zoom-out limit is the cover zoom, so a wheel-out can never expose
+        // background, and the player's own zoom ends the automatic re-fit on later resizes.
+        var nextZoom = Mathf.Clamp(_zoom * factor, MinimumZoom(), MaxZoom);
         if (Mathf.Abs(nextZoom - _zoom) < 0.0001f)
         {
             return;
@@ -450,6 +567,8 @@ public partial class GameMapView : Control
         var normalized = (cursor - _pan) / _zoom;
         _zoom = nextZoom;
         _pan = cursor - normalized * _zoom;
+        _userAdjustedView = true;
+        ClampPanToView();
         NotifyViewChanged();
     }
 

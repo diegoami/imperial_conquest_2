@@ -1,3 +1,4 @@
+using IC2.Engine.Model;
 using IC2.Engine.Presentation;
 using IC2.Engine.Serialization;
 using IC2.Slice.UI;
@@ -255,6 +256,89 @@ public sealed class CommandOutcomeTextTests
         Assert.Equal("recruitment.recruit-standing-unit accepted.", label);
         Assert.DoesNotContain(preludeLines, line => label.Contains(line, StringComparison.Ordinal));
         Assert.DoesNotContain("takes its turn", label, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// T147 (bug #781 point 3): an order that raises a post-battle peace offer carries the offer's own
+    /// dialog lines and the CLI's <c>"Type 'peace-yes'…"</c> prompt in its rendered output. When the app
+    /// holds that offer (the window is the way to answer), the block drops both and keeps the order's own
+    /// line; with no pending offer nothing is dropped. The offer's lines come from the engine's own
+    /// builder, <see cref="GameSession.PeaceTreatyOfferDialogLines"/>, and the filter finds the prompt by
+    /// its place after them, never by a copied string.
+    /// </summary>
+    [Fact]
+    public void A_pending_offers_dialog_lines_and_the_prompt_that_follows_them_are_dropped()
+    {
+        var session = RomeSession();
+        var winner = session.State.NationById(RomeId)!;
+        var loser = session.State.NationById("carthage")!;
+        var offer = GameSession.PeaceTreatyOfferDialogLines(winner, loser);
+
+        // The prompt is the engine's inline literal (GameSession.CapturePeaceTreatyOfferIfAny); a test may
+        // spell it out to build the input, the filter never does.
+        const string prompt = "Type 'peace-yes' to accept or 'peace-no' to decline.";
+        var sample = new List<string>
+        {
+            "> attack-army army-0 army-2",
+            "battle.attack-army accepted.",
+            string.Empty,
+            offer[0],
+            offer[1],
+            offer[2],
+            offer[3],
+            prompt,
+            string.Empty,
+        };
+
+        var filtered = CommandOutcomeText.OutcomeBlock(sample, new[] { offer });
+        Assert.Equal("battle.attack-army accepted.", filtered);
+
+        var unfiltered = CommandOutcomeText.OutcomeBlock(sample, null);
+        Assert.Equal(
+            string.Join('\n', new[] { "battle.attack-army accepted." }.Concat(offer).Append(prompt)),
+            unfiltered);
+        Assert.Contains(prompt, unfiltered, StringComparison.Ordinal);
+        Assert.Contains(offer[0], unfiltered, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Sol's review R1: the news log is a ring buffer, so a count-based "the entries after the previous
+    /// count" range finds <em>nothing</em> once the buffer is full — the exact ordinary-long-game case
+    /// that hid an accepted order's news line. <see cref="CommandOutcomeText.NewsAddedSince"/> compares
+    /// by reference, so the order's own appended entry is found whether the log has room or is full.
+    /// </summary>
+    [Fact]
+    public void A_full_news_log_still_reports_an_orders_own_added_entry()
+    {
+        var rules = Classical().Ruleset.NewsLog;
+        var full = NewsLog.Empty;
+        for (var i = 0; i < rules.RingBufferSlots; i++)
+        {
+            full = full.Append(new NewsEntry($"Retained {i}"), rules);
+        }
+
+        Assert.Equal(rules.RingBufferSlots, full.Slots.Count);
+
+        const string addedText = "Rome and Carthage have agreed to end their war.";
+        var after = full.Append(new NewsEntry(addedText), rules);
+
+        // The ring buffer really stayed full, so a count-based range would be empty.
+        Assert.Equal(rules.RingBufferSlots, after.Slots.Count);
+        Assert.Equal(new[] { addedText }, CommandOutcomeText.NewsAddedSince(full.Slots, after.Slots));
+    }
+
+    /// <summary>
+    /// Sol's review R1, the other direction text equality would get wrong: an appended line that repeats
+    /// a retained one is still this command's own addition, so it must be reported once.
+    /// </summary>
+    [Fact]
+    public void An_appended_news_entry_that_repeats_a_retained_line_is_still_reported()
+    {
+        var rules = Classical().Ruleset.NewsLog;
+        var previous = NewsLog.Empty.Append(new NewsEntry("same text"), rules);
+        var after = previous.Append(new NewsEntry("same text"), rules);
+
+        Assert.Equal(new[] { "same text" }, CommandOutcomeText.NewsAddedSince(previous.Slots, after.Slots));
     }
 
     private static int FindNewsHeader(IReadOnlyList<string> lines)

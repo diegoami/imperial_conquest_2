@@ -1,3 +1,5 @@
+using IC2.Engine.Model;
+
 namespace IC2.Slice.UI;
 
 /// <summary>
@@ -54,7 +56,25 @@ public static class CommandOutcomeText
     /// line after the echo instead; and <see cref="string.Empty"/> when there is no non-blank line at all
     /// — never <see langword="null"/>.
     /// </summary>
-    public static string OutcomeBlock(IReadOnlyList<string> lines)
+    public static string OutcomeBlock(IReadOnlyList<string> lines) => OutcomeBlock(lines, null);
+
+    /// <summary>
+    /// <see cref="OutcomeBlock(IReadOnlyList{string})"/>, with T147 (bug #781 point 3): when
+    /// <paramref name="pendingPeaceOfferLineSets"/> holds a pending offer's dialog lines (as
+    /// <c>GameSession.PendingPeaceOfferFor</c> reports them, built by
+    /// <see cref="IC2.Engine.Presentation.GameSession.PeaceTreatyOfferDialogLines"/>), those lines and the
+    /// single line that follows them — the CLI's <c>"Type 'peace-yes'…"</c> prompt, which has no builder —
+    /// are dropped from the block, because the Offer of peace window is the way the app answers. The prompt
+    /// is identified by its place after the offer's own lines, never by a copied string.
+    /// </summary>
+    /// <param name="lines">One <c>Submit</c> call's rendered lines.</param>
+    /// <param name="pendingPeaceOfferLineSets">
+    /// The pending offers' own <c>PendingPeaceOffer.Lines</c>, one list per offer, or <see langword="null"/>
+    /// when the app holds no offer (nothing is dropped).
+    /// </param>
+    public static string OutcomeBlock(
+        IReadOnlyList<string> lines,
+        IReadOnlyList<IReadOnlyList<string>>? pendingPeaceOfferLineSets)
     {
         ArgumentNullException.ThrowIfNull(lines);
 
@@ -88,9 +108,19 @@ public static class CommandOutcomeText
             }
         }
 
+        var hadNonBlank = block.Count > 0;
+        block = DropPeaceOfferLines(block, pendingPeaceOfferLineSets);
+
         if (block.Count > 0)
         {
             return string.Join('\n', block);
+        }
+
+        // Everything the order printed was the pending offer's own lines (now the window's to show), so
+        // the output area is empty -- never fall back onto the prompt the filter just dropped.
+        if (hadNonBlank)
+        {
+            return string.Empty;
         }
 
         for (var i = lines.Count - 1; i >= start; i--)
@@ -102,5 +132,113 @@ public static class CommandOutcomeText
         }
 
         return string.Empty;
+    }
+
+    /// <summary>
+    /// T147 (bug #781 point 4): the news entries <paramref name="current"/> holds that the command did
+    /// not have before it ran — the entries an order added to <see cref="NewsLog"/>, in order, trimmed,
+    /// with whitespace-only spacers dropped.
+    /// </summary>
+    /// <remarks>
+    /// <strong>The comparison is by reference, never by slot count or text.</strong>
+    /// <see cref="NewsLog.Append"/> evicts the oldest entry once the ring buffer is full, so the log's
+    /// count stops growing and a count-based range (<c>for (i = previousCount; i &lt; current.Count; …)</c>)
+    /// finds none of a later order's additions (Sol's review R1). The retained entries are the same
+    /// <see cref="NewsEntry"/> objects the previous log held — <c>Append</c> copies
+    /// <see cref="NewsLog.Slots"/> by reference — so a reference set finds exactly what a command
+    /// appended at any fullness. Text equality would be wrong in the other direction: an appended line
+    /// can repeat a retained one, and the repeated line is still this command's own addition.
+    /// </remarks>
+    /// <param name="previous">The log's slots before the command ran.</param>
+    /// <param name="current">The log's slots after it ran.</param>
+    public static IReadOnlyList<string> NewsAddedSince(
+        IReadOnlyList<NewsEntry> previous,
+        IReadOnlyList<NewsEntry> current)
+    {
+        ArgumentNullException.ThrowIfNull(previous);
+        ArgumentNullException.ThrowIfNull(current);
+
+        var retained = new HashSet<NewsEntry>(previous, ReferenceEqualityComparer.Instance);
+        var added = new List<string>();
+        foreach (var entry in current)
+        {
+            if (retained.Contains(entry))
+            {
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(entry.Text))
+            {
+                added.Add(entry.Text.Trim());
+            }
+        }
+
+        return added;
+    }
+
+    /// <summary>
+    /// Drops each pending offer's own dialog lines and the line the engine prints immediately after them
+    /// (the CLI prompt the window replaces). Matching is by the offer's own builder output, never by a
+    /// copied prompt string; the prompt is found by its place after the offer's last line.
+    /// </summary>
+    private static List<string> DropPeaceOfferLines(
+        List<string> block,
+        IReadOnlyList<IReadOnlyList<string>>? pendingPeaceOfferLineSets)
+    {
+        if (pendingPeaceOfferLineSets is null || pendingPeaceOfferLineSets.Count == 0 || block.Count == 0)
+        {
+            return block;
+        }
+
+        var drop = new bool[block.Count];
+        foreach (var offerLines in pendingPeaceOfferLineSets)
+        {
+            if (offerLines is null || offerLines.Count == 0)
+            {
+                continue;
+            }
+
+            for (var i = 0; i + offerLines.Count <= block.Count; i++)
+            {
+                var matches = true;
+                for (var j = 0; j < offerLines.Count; j++)
+                {
+                    if (!string.Equals(block[i + j], offerLines[j].Trim(), StringComparison.Ordinal))
+                    {
+                        matches = false;
+                        break;
+                    }
+                }
+
+                if (!matches)
+                {
+                    continue;
+                }
+
+                for (var j = 0; j < offerLines.Count; j++)
+                {
+                    drop[i + j] = true;
+                }
+
+                // The very next line is the engine's own "Type 'peace-yes'…" prompt.
+                if (i + offerLines.Count < block.Count)
+                {
+                    drop[i + offerLines.Count] = true;
+                }
+
+                i += offerLines.Count - 1;
+            }
+        }
+
+        var kept = new List<string>(block.Count);
+        for (var i = 0; i < block.Count; i++)
+        {
+            if (!drop[i])
+            {
+                kept.Add(block[i]);
+            }
+        }
+
+        return kept;
     }
 }

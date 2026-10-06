@@ -35,6 +35,7 @@ public partial class PeaceOfferCheck : Node
         try
         {
             CheckHumanWinsThenYes();
+            CheckFullNewsLogThenYes();
             CheckHumanWinsThenNo();
             CheckAiPhaseOfferIsAnsweredAtTurnStart();
             CheckHotseatSaveAndOrder();
@@ -87,6 +88,14 @@ public partial class PeaceOfferCheck : Node
             offer.Lines[0].StartsWith("After losing to you in battle", StringComparison.Ordinal),
             "(a) a human win uses the 'After losing to you' wording");
 
+        // T147 (bug #781 point 3): the order that raised the offer leaves the offer's own lines and the
+        // CLI prompt out of the output area -- the window is the way to answer.
+        var afterAttack = mainGame.LastCommandText;
+        Check(
+            !afterAttack.Contains("peace-yes", StringComparison.Ordinal)
+            && offer.Lines.All(dialogLine => !afterAttack.Contains(dialogLine, StringComparison.Ordinal)),
+            $"(a) the output area shows neither the CLI prompt nor the offer's own lines (got '{afterAttack}')");
+
         var newsBefore = NewsTexts(session);
         var winner = session.State.NationById(offer.WinnerNationId)!.Name;
         var loser = session.State.NationById(offer.LoserNationId)!.Name;
@@ -99,6 +108,18 @@ public partial class PeaceOfferCheck : Node
         Check(issued.Count == countBefore + 1, $"(a) Yes is counted once at CommandIssued ({issued.Count - countBefore})");
         Check(issued.Count > 0 && issued[^1].Any(l => l.Contains("accepted", StringComparison.Ordinal)), "(a) the reply line shows the engine's acceptance");
         Check(mainGame.ActiveOverlay is null, $"(a) the window closes on the answer (got {Describe(mainGame)})");
+
+        // T147 (bug #781 point 4): Yes shows a readable line for its command kind and the news the answer
+        // added, never the raw result key.
+        Check(
+            mainGame.LastCommandText.Contains("You accepted the peace treaty.", StringComparison.Ordinal),
+            $"(a) after Yes the label shows the readable wording (got '{mainGame.LastCommandText}')");
+        Check(
+            mainGame.LastCommandText.Contains(line, StringComparison.Ordinal),
+            $"(a) after Yes the label shows the agreed-war news line (got '{mainGame.LastCommandText}')");
+        Check(
+            !mainGame.LastCommandText.Contains("diplomacy.accept-peace-treaty accepted.", StringComparison.Ordinal),
+            $"(a) after Yes the label never shows the raw result key (got '{mainGame.LastCommandText}')");
         Check(
             session.State.Relations.Get("rome", "carthage") == cooldown
             && session.State.Relations.Get("carthage", "rome") == cooldown,
@@ -108,6 +129,52 @@ public partial class PeaceOfferCheck : Node
         Check(!session.HasPendingPeaceOffers, "(a) no offer is pending after Yes");
 
         CheckSaveWrites(mainGame, "(a) ");
+        Dispose(mainGame);
+    }
+
+    /// <summary>
+    /// Sol's review R1: the news log is a ring buffer, so once it is full its slot count stops growing
+    /// and a count-based "the entries after the previous count" range finds none of the accepted
+    /// order's news. Starting from a deliberately full log, the same attack/offer/Yes as (a) must still
+    /// show the agreed-war news line below the readable wording.
+    /// </summary>
+    private void CheckFullNewsLogThenYes()
+    {
+        var (mainGame, _) = Build(HumanWinsSession(fullNewsLog: true), "t147-full");
+        var session = mainGame.Session;
+        var capacity = session.Ruleset.NewsLog.RingBufferSlots;
+
+        Check(
+            session.State.NewsLog.Slots.Count == capacity,
+            $"(full log) the news log starts full ({session.State.NewsLog.Slots.Count} of {capacity} slots)");
+
+        mainGame.SubmitForCheck("attack-army army-0 army-2");
+        (mainGame.ActiveOverlay as BattleResultScreen)?.Close();
+
+        var offer = session.PendingPeaceOfferFor("rome");
+        if (offer is null || mainGame.ActiveOverlay is not PeaceOfferScreen window)
+        {
+            Check(false, $"(full log) a peace window opens (got {Describe(mainGame)})");
+            return;
+        }
+
+        var winner = session.State.NationById(offer.WinnerNationId)!.Name;
+        var loser = session.State.NationById(offer.LoserNationId)!.Name;
+        var line = $"{winner} and {loser} have agreed to end their war.";
+
+        PressButton(window, "Yes");
+
+        Check(
+            mainGame.LastCommandText.Contains("You accepted the peace treaty.", StringComparison.Ordinal),
+            $"(full log) after Yes the label shows the readable wording (got '{mainGame.LastCommandText}')");
+        Check(
+            mainGame.LastCommandText.Contains(line, StringComparison.Ordinal),
+            $"(full log) after Yes the label still shows the added news line through a full ring buffer "
+            + $"(got '{mainGame.LastCommandText}')");
+        Check(
+            session.State.NewsLog.Slots.Count == capacity,
+            $"(full log) the log stays full after the answer ({session.State.NewsLog.Slots.Count} slots)");
+
         Dispose(mainGame);
     }
 
@@ -308,7 +375,11 @@ public partial class PeaceOfferCheck : Node
     }
 
     /// <summary>Rome (human) beats a weak carthage army; carthage's power outside the fight exceeds rome's.</summary>
-    private static GameSession HumanWinsSession()
+    /// <param name="fullNewsLog">
+    /// Sol's review R1: when true the world starts with a completely full ring buffer, so the news
+    /// additions of the accepted peace cannot be found by any count-based range.
+    /// </param>
+    private static GameSession HumanWinsSession(bool fullNewsLog = false)
     {
         var (resolved, ruleset) = Load();
         var war = ruleset.Diplomacy.StateCodes.War;
@@ -327,7 +398,24 @@ public partial class PeaceOfferCheck : Node
             StartingRelations = resolved.World.StartingRelations!.WithRelation("rome", "carthage", war),
             StartingArmies = ValueList.From(armies),
         };
+        if (fullNewsLog)
+        {
+            world = world with { StartingNews = FullNewsLog(ruleset) };
+        }
+
         return new GameSession(world, ruleset, scenario, seedOverride: Seed);
+    }
+
+    /// <summary>A ring buffer filled to its ruleset capacity with ordinary printable-ASCII lines.</summary>
+    private static NewsLog FullNewsLog(Ruleset ruleset)
+    {
+        var log = NewsLog.Empty;
+        for (var i = 0; i < ruleset.NewsLog.RingBufferSlots; i++)
+        {
+            log = log.Append(new NewsEntry($"Earlier report {i}"), ruleset.NewsLog);
+        }
+
+        return log;
     }
 
     /// <summary>Carthage's AI attacks rome's weak army; rome's power outside the fight exceeds carthage's.</summary>
