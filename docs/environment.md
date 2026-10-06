@@ -18,6 +18,7 @@ The service is read-only, on localhost, with no authentication. Results are cach
 - `curl -s localhost:8765/avoid` lists the providers that are out of quota, with when each is usable again.
 - `curl -s 'localhost:8765/usage?since=7d'` sums the recorded usage; `curl -s 'localhost:8765/usage/sessions?since=7d&model=…&effort=…'` lists it per session. Both filter by `provider`, `model` and `effort`; `since` takes `90m`, `24h`, `7d`, `4w` or `all`.
 - Add `?refresh` to bypass the cache.
+- **Pricing windows** (CLAUDE.md rule 20, the owner's decision of 2026-10-06): `curl -s localhost:8765/quota/alibaba | jq .pricing` gives Alibaba's discount window (`discount_now`, `next_change_at`, `discount_pct` per model: 22:00–08:00 UTC+8 daily, Qwen and DeepSeek models only, not GLM); `curl -s localhost:8765/quota/zai | jq .pricing` gives Z.ai's peak (`peak_now`, `next_change_at`, `multiplier`: Mon–Fri 14:00–18:00 UTC+8, `glm-5.3` at 3× quota at peak; `promo_off_peak_until` is the end of a promotion that keeps every hour off-peak, 2026-10-07 16:00 UTC). `next_change_at` and `promo_off_peak_until` are Unix times.
 
 Each provider reports these fields:
 
