@@ -338,6 +338,26 @@ public partial class GameMapView : Control
         Zoom(Size / 2f, MaxZoom / _zoom);
     }
 
+    /// <summary>
+    /// T148: sets the exact drawn cell size (in screen pixels) through the same clamp-and-announce path
+    /// every zoom uses. <c>godot/Checks/TerrainTilesCheck.cs</c> needs the two sides of
+    /// <see cref="IC2.Slice.Assets.TerrainTileKeys.TilePixelThreshold"/> (12 px and 11.9 px) and the
+    /// 32 px the visual-review screenshots use, none of which the wheel's 1.15 factor can reach, and
+    /// the check must not know <see cref="BaseTileSize"/>. Check-only; the app never calls it.
+    /// </summary>
+    public void SetDrawnCellPixelsForCheck(float cellPixels)
+    {
+        if (_session is null || Size.X <= 0 || Size.Y <= 0)
+        {
+            return;
+        }
+
+        _zoom = Mathf.Clamp(cellPixels / BaseTileSize, MinimumZoom(), MaxZoom);
+        _userAdjustedView = true;
+        ClampPanToView();
+        NotifyViewChanged();
+    }
+
     /// <summary>The rect <see cref="_Draw"/> would draw the terrain texture in at the current zoom and
     /// pan — exposed so <c>godot/Checks/MapClipCheck.cs</c> can prove the maximum-zoom case really does
     /// draw past this control's own rect (the bug's precondition), not merely that clipping is enabled.</summary>

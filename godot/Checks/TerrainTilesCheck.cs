@@ -1,5 +1,6 @@
 using Godot;
 using IC2.Engine.Assets;
+using IC2.Engine.Model;
 using IC2.Engine.Presentation;
 using IC2.Slice.Assets;
 using IC2.Slice.UI;
@@ -19,17 +20,21 @@ namespace IC2.Slice.Checks;
 /// and a coastal land cell;</item>
 /// <item>at exactly 12 px a cell the tile path is used (<c>UsesTiles</c>), at 11.9 px the flat-colour
 /// path is, and the tile keys do not change with the path;</item>
-/// <item>the drawn terrain rectangle is still exactly <c>W × H × 12</c> at 12 px (the MapClipCheck
+/// <item>the drawn terrain rectangle is still exactly <c>W × H × cell</c> (the MapClipCheck
 /// contract);</item>
 /// <item><see cref="GameMapView.TerrainMemoryBytesForCheck"/> stays under 64 MB after drawing the whole
 /// map at 12 px and then at 72 px a cell.</item>
 /// </list>
-/// The zoom a case needs is reached by sizing the control to the whole map at that cell size: the
-/// view's own fit then gives exactly that <c>BaseTileSize × zoom</c>, the same way the app's first
-/// layout does, so the check exercises the real draw rather than poking at a private field. The
-/// threshold is the single <see cref="TerrainTileKeys.TilePixelThreshold"/> the draw itself reads, so
-/// mutating it makes this check fail (the PR's mutation proof).
+/// The threshold is the single <see cref="TerrainTileKeys.TilePixelThreshold"/> the draw itself reads,
+/// so mutating it makes this check fail (the PR's mutation proof).
 /// </summary>
+/// <remarks>
+/// The same scene also captures the Done-when 4 visual-review screenshots when
+/// <c>IC2_SCREENSHOT_DIR</c> is set: a windowed run at 2560 × 1351 (headless screenshots do not work,
+/// issue #156) saves the Mediterranean at the default fit, Italy and Greece at 32 px a cell, and a
+/// Nile river course at 32 px a cell. It is the same real <see cref="GameMapView"/> the headless run
+/// asserts on, so the screenshots and the checks cannot drift apart.
+/// </remarks>
 public partial class TerrainTilesCheck : Control
 {
     private const long MemoryLimitBytes = 64L * 1024 * 1024;
@@ -57,6 +62,13 @@ public partial class TerrainTilesCheck : Control
     private (int X, int Y) _riverCode8;
     private (int X, int Y) _coastalLand;
 
+    // Screenshot mode (DoD 4).
+    private string _screenshotDirectory = string.Empty;
+    private bool _screenshotMode;
+    private (int X, int Y) _rome;
+    private (int X, int Y) _athens;
+    private (int X, int Y) _nile;
+
     private int _frame;
     private int _step;
 
@@ -77,57 +89,24 @@ public partial class TerrainTilesCheck : Control
         _session = new GameSession(world, resolved.Ruleset, resolved.Scenario);
         _repositoryRoot = GameDataContext.RepositoryRoot;
 
-        _map = new GameMapView();
+        _map = new GameMapView { Size = Size };
         AddChild(_map);
 
         // Load the session and bake once so the scripted cells can be found from the same decode the
         // draw and the click path use.
         _map.Attach(_session, _repositoryRoot);
-        FindScriptedCells();
 
-        // The key mapping and the threshold do not need a rendered frame: TerrainKeysForCheck reads
-        // the view's own state. Drive those cases synchronously.
-        RunKeysAtCellSize(KeysCell, expectTiles: true);
-        RunKeysAtCellSize(ThresholdCell, expectTiles: true);
-        RunKeysAtCellSize(BelowThresholdCell, expectTiles: false);
-
-        // The memory cases do: size the control to the whole map at 12 px and let the real _Draw run.
-        SetWholeMapCell(WholeMapCell);
-    }
-
-    /// <summary>
-    /// Returns a world that has at least one deep-sea cell (code 1). If the shipped grid already has
-    /// one it is returned unchanged; otherwise the first sea cell (code 0) is rewritten to code 1 and
-    /// the grid is re-encoded as the engine's own little-endian 16-bit base64.
-    /// </summary>
-    private static IC2.Engine.Model.World EnsureADeepSeaCell(IC2.Engine.Model.World world)
-    {
-        var cells = world.Terrain.Decode(world.Width, world.Height);
-        if (Array.IndexOf(cells, 1) >= 0)
+        var screenshotDirectory = System.Environment.GetEnvironmentVariable("IC2_SCREENSHOT_DIR");
+        if (!string.IsNullOrWhiteSpace(screenshotDirectory))
         {
-            return world;
+            _screenshotMode = true;
+            _screenshotDirectory = screenshotDirectory;
+            Directory.CreateDirectory(_screenshotDirectory);
+            SetupScreenshotTour();
+            return;
         }
 
-        var seaIndex = Array.IndexOf(cells, 0);
-        if (seaIndex < 0)
-        {
-            return world;
-        }
-
-        cells[seaIndex] = 1;
-        var bytes = new byte[cells.Length * 2];
-        for (var i = 0; i < cells.Length; i++)
-        {
-            bytes[i * 2] = (byte)(cells[i] & 0xFF);
-            bytes[i * 2 + 1] = (byte)((cells[i] >> 8) & 0xFF);
-        }
-
-        var grid = new IC2.Engine.Model.TerrainGrid(
-            IC2.Engine.Model.TerrainEncoding.Base64,
-            Runs: null,
-            Data: Convert.ToBase64String(bytes),
-            DataFile: null);
-        return world with { Terrain = grid };
+        RunHeadlessChecks();
     }
 
     public override void _Process(double delta)
@@ -136,6 +115,12 @@ public partial class TerrainTilesCheck : Control
 
         try
         {
+            if (_screenshotMode)
+            {
+                ScreenshotStep();
+                return;
+            }
+
             switch (_step)
             {
                 case 0 when _frame >= SettleFrames:
@@ -147,9 +132,7 @@ public partial class TerrainTilesCheck : Control
 
                 case 1 when _frame >= SettleFrames:
                     CheckMemory(MaxZoomCell);
-                    var exitCode = _ok ? 0 : 1;
-                    GD.Print($"TerrainTilesCheck: exiting with code {exitCode}.");
-                    GetTree().Quit(exitCode);
+                    Finish();
                     break;
             }
         }
@@ -158,6 +141,22 @@ public partial class TerrainTilesCheck : Control
             GD.PrintErr($"TerrainTilesCheck: unhandled exception: {ex}");
             GetTree().Quit(1);
         }
+    }
+
+    // --- Done-when 3: keys, threshold and memory ---------------------------------------------
+
+    private void RunHeadlessChecks()
+    {
+        FindScriptedCells();
+
+        // The key mapping and the threshold do not need a rendered frame: TerrainKeysForCheck reads
+        // the view's own state. Drive those cases synchronously.
+        RunKeysAtCellSize(KeysCell, expectTiles: true);
+        RunKeysAtCellSize(ThresholdCell, expectTiles: true);
+        RunKeysAtCellSize(BelowThresholdCell, expectTiles: false);
+
+        // The memory cases do: size the control to the whole map at 12 px and let the real _Draw run.
+        SetWholeMapCell(WholeMapCell);
     }
 
     /// <summary>
@@ -176,7 +175,7 @@ public partial class TerrainTilesCheck : Control
 
     private void RunKeysAtCellSize(float cellPixels, bool expectTiles)
     {
-        SetWholeMapCell(cellPixels);
+        _map.SetDrawnCellPixelsForCheck(cellPixels);
 
         var world = _session.World;
         var rect = _map.TerrainDrawRectForCheck;
@@ -228,6 +227,109 @@ public partial class TerrainTilesCheck : Control
             $"after drawing the whole map at {cellPixels} px a cell the terrain draw holds "
             + $"{bytes} bytes, under the 64 MB limit ({MemoryLimitBytes})");
     }
+
+    // --- Done-when 4: the visual-review screenshots ------------------------------------------
+
+    private void SetupScreenshotTour()
+    {
+        _rome = FindCity("Rome");
+        _athens = FindCity("Athens");
+        _nile = FindNearestRiverCell(FindCity("Memphis"));
+
+        // The map control fills the window, so the default fit is the app's own first fit.
+        _map.Size = Size;
+        _map.Attach(_session, _repositoryRoot);
+        _frame = 0;
+        _step = 20;
+    }
+
+    private void ScreenshotStep()
+    {
+        switch (_step)
+        {
+            case 20 when _frame >= SettleFrames:
+                Capture("01-mediterranean-default-fit.png");
+                _map.SetDrawnCellPixelsForCheck(KeysCell);
+                _map.CentreOnTile(_rome.X, _rome.Y);
+                _frame = 0;
+                _step = 21;
+                break;
+
+            case 21 when _frame >= SettleFrames:
+                Capture("02-italy-32px.png");
+                _map.CentreOnTile(_athens.X, _athens.Y);
+                _frame = 0;
+                _step = 22;
+                break;
+
+            case 22 when _frame >= SettleFrames:
+                Capture("03-greece-32px.png");
+                _map.CentreOnTile(_nile.X, _nile.Y);
+                _frame = 0;
+                _step = 23;
+                break;
+
+            case 23 when _frame >= SettleFrames:
+                Capture("04-nile-river-32px.png");
+                GD.Print("TerrainTilesCheck: screenshot tour done.");
+                GetTree().Quit(0);
+                break;
+        }
+    }
+
+    private void Capture(string fileName)
+    {
+        var path = Path.Combine(_screenshotDirectory, fileName);
+        var image = GetViewport().GetTexture().GetImage();
+        var error = image.SavePng(path);
+        GD.Print(error == Error.Ok
+            ? $"TerrainTilesCheck: saved {path}"
+            : $"TerrainTilesCheck: could not save {path}: {error}");
+    }
+
+    private (int X, int Y) FindCity(string name)
+    {
+        var city = _session.World.Cities.FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.Ordinal));
+        return city is null ? (-1, -1) : (city.X, city.Y);
+    }
+
+    /// <summary>The river cell (codes 6–11) nearest <paramref name="near"/>, for the Nile screenshot.</summary>
+    private (int X, int Y) FindNearestRiverCell((int X, int Y) near)
+    {
+        var world = _session.World;
+        var cells = world.Terrain.Decode(world.Width, world.Height);
+        var best = (-1, -1);
+        var bestDistance = int.MaxValue;
+        for (var y = 0; y < world.Height; y++)
+        {
+            for (var x = 0; x < world.Width; x++)
+            {
+                var code = cells[(y * world.Width) + x];
+                if (code is < 6 or > 11)
+                {
+                    continue;
+                }
+
+                var distance = Math.Abs(x - near.X) + Math.Abs(y - near.Y);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    best = (x, y);
+                }
+            }
+        }
+
+        return best;
+    }
+
+    private void Finish()
+    {
+        var exitCode = _ok ? 0 : 1;
+        GD.Print($"TerrainTilesCheck: exiting with code {exitCode}.");
+        GetTree().Quit(exitCode);
+    }
+
+    // --- Shared helpers ----------------------------------------------------------------------
 
     /// <summary>
     /// The Done-when 1 shore rule, re-derived here from the raw codes so the check does not simply
@@ -320,6 +422,41 @@ public partial class TerrainTilesCheck : Control
         }
 
         return (-1, -1);
+    }
+
+    /// <summary>
+    /// Returns a world that has at least one deep-sea cell (code 1). If the shipped grid already has
+    /// one it is returned unchanged; otherwise the first sea cell (code 0) is rewritten to code 1 and
+    /// the grid is re-encoded as the engine's own little-endian 16-bit base64.
+    /// </summary>
+    private static World EnsureADeepSeaCell(World world)
+    {
+        var cells = world.Terrain.Decode(world.Width, world.Height);
+        if (Array.IndexOf(cells, 1) >= 0)
+        {
+            return world;
+        }
+
+        var seaIndex = Array.IndexOf(cells, 0);
+        if (seaIndex < 0)
+        {
+            return world;
+        }
+
+        cells[seaIndex] = 1;
+        var bytes = new byte[cells.Length * 2];
+        for (var i = 0; i < cells.Length; i++)
+        {
+            bytes[i * 2] = (byte)(cells[i] & 0xFF);
+            bytes[i * 2 + 1] = (byte)((cells[i] >> 8) & 0xFF);
+        }
+
+        var grid = new TerrainGrid(
+            TerrainEncoding.Base64,
+            Runs: null,
+            Data: Convert.ToBase64String(bytes),
+            DataFile: null);
+        return world with { Terrain = grid };
     }
 
     private void Check(bool condition, string description)
