@@ -270,11 +270,34 @@ public partial class AreaMapCheck : Control
         var centreY = Mathf.FloorToInt(visible.Position.Y + (visible.Size.Y / 2f));
         var distance = Mathf.Max(Mathf.Abs(centreX - _rome.X), Mathf.Abs(centreY - _rome.Y));
 
-        // The positive control: this distance can only be small because the pushed click landed.
+        // The user's decision (issue #786): no background ever shows, so a re-centre brings the tile as
+        // close to the view's centre as the no-background clamp allows. The tile is always inside the
+        // visible rect; on an axis with scroll room left the visible centre is within one tile of the
+        // tile; on an axis the clamp pins, the view sits at the clamp's limit nearest the tile.
+        var world = _mainGame.Session.World;
+        var clamped = new Vector2(
+            Mathf.Clamp((_rome.X + 0.5f) - (visible.Size.X / 2f), 0f, Mathf.Max(0f, world.Width - visible.Size.X)),
+            Mathf.Clamp((_rome.Y + 0.5f) - (visible.Size.Y / 2f), 0f, Mathf.Max(0f, world.Height - visible.Size.Y)));
+        var tileInsideView = visible.Position.X <= _rome.X
+            && visible.Position.X + visible.Size.X >= _rome.X + 1f
+            && visible.Position.Y <= _rome.Y
+            && visible.Position.Y + visible.Size.Y >= _rome.Y + 1f;
+        var noBackground = visible.Position.X >= -0.01f
+            && visible.Position.Y >= -0.01f
+            && visible.Position.X + visible.Size.X <= world.Width + 0.01f
+            && visible.Position.Y + visible.Size.Y <= world.Height + 0.01f;
+        var centred = distance <= 1;
+        var pinnedAtClampLimit = Mathf.Abs(visible.Position.X - clamped.X) <= 0.01f
+            && Mathf.Abs(visible.Position.Y - clamped.Y) <= 0.01f;
+
+        // The positive control: this can only hold because the pushed click landed.
         Check(
-            distance <= 1,
-            $"a real-input click on the mini-map at Rome re-centres the order map on Rome "
-            + $"(centre tile ({centreX},{centreY}), Rome ({_rome.X},{_rome.Y}), Chebyshev {distance})");
+            tileInsideView && (centred || (pinnedAtClampLimit && noBackground)),
+            $"a real-input click on the mini-map at Rome re-centres the order map on Rome as far as the "
+            + $"no-background clamp allows (centre tile ({centreX},{centreY}), Rome ({_rome.X},{_rome.Y}), "
+            + $"Chebyshev {distance}"
+            + (centred ? ", centred" : $", pinned at the clamp {visible.Position}, no background")
+            + ")");
         Check(
             (centreX, centreY) != _centreBeforeMiniMapClick,
             $"the mini-map click actually moved the order map "

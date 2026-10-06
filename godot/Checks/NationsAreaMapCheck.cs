@@ -612,11 +612,33 @@ public partial class NationsAreaMapCheck : Control
         var centreY = Mathf.FloorToInt(visible.Position.Y + (visible.Size.Y / 2f));
         var distance = Mathf.Max(Mathf.Abs(centreX - _carthageCapital.X), Mathf.Abs(centreY - _carthageCapital.Y));
 
+        // The user's decision (issue #786): no background ever shows, so Find a city brings the tile as
+        // close to the view's centre as the no-background clamp allows. The tile is always inside the
+        // visible rect; on an axis with scroll room left the visible centre is within one tile of the
+        // tile; on an axis the clamp pins, the view sits at the clamp's limit nearest the tile.
+        var world = _mainGame.Session.World;
+        var clamped = new Vector2(
+            Mathf.Clamp((_carthageCapital.X + 0.5f) - (visible.Size.X / 2f), 0f, Mathf.Max(0f, world.Width - visible.Size.X)),
+            Mathf.Clamp((_carthageCapital.Y + 0.5f) - (visible.Size.Y / 2f), 0f, Mathf.Max(0f, world.Height - visible.Size.Y)));
+        var tileInsideView = visible.Position.X <= _carthageCapital.X
+            && visible.Position.X + visible.Size.X >= _carthageCapital.X + 1f
+            && visible.Position.Y <= _carthageCapital.Y
+            && visible.Position.Y + visible.Size.Y >= _carthageCapital.Y + 1f;
+        var noBackground = visible.Position.X >= -0.01f
+            && visible.Position.Y >= -0.01f
+            && visible.Position.X + visible.Size.X <= world.Width + 0.01f
+            && visible.Position.Y + visible.Size.Y <= world.Height + 0.01f;
+        var centred = distance <= 1;
+        var pinnedAtClampLimit = Mathf.Abs(visible.Position.X - clamped.X) <= 0.01f
+            && Mathf.Abs(visible.Position.Y - clamped.Y) <= 0.01f;
+
         Check(
-            distance <= 1,
-            $"Find a city centres the order map on Carthage's capital within one tile "
-            + $"(centre ({centreX},{centreY}), capital ({_carthageCapital.X},{_carthageCapital.Y}), "
-            + $"Chebyshev {distance})");
+            tileInsideView && (centred || (pinnedAtClampLimit && noBackground)),
+            $"Find a city centres the order map on Carthage's capital as far as the no-background clamp "
+            + $"allows (centre ({centreX},{centreY}), capital ({_carthageCapital.X},{_carthageCapital.Y}), "
+            + $"Chebyshev {distance}"
+            + (centred ? ", centred" : $", pinned at the clamp {visible.Position}, no background")
+            + ")");
         Check(
             _mainGame.AreaMapView.HighlightTilesForCheck.Contains((_carthageCapital.X, _carthageCapital.Y)),
             "the chosen city's tile is in the mini-map's highlight set");
