@@ -309,13 +309,13 @@ public sealed partial class GameSession
     /// <see cref="AppendFallMessagesForNewlyLostHumanSeats"/> and
     /// <see cref="AnnounceAndAdoptWatchModeIfSeatIsLost"/>) yields one <see cref="SeatFall"/>.
     /// </summary>
-    private void RecordSeatFall(NationState fallen)
+    private bool RecordSeatFall(NationState fallen, int? endTreasury = null)
     {
         foreach (var already in _pendingSeatFalls)
         {
             if (string.Equals(already.NationId, fallen.Id, StringComparison.Ordinal))
             {
-                return;
+                return false;
             }
         }
 
@@ -331,7 +331,43 @@ public sealed partial class GameSession
             State.Calendar.YearBc,
             fallen.Wealth,
             endCityCount,
-            fallen.Treasury));
+            // T146: for an elimination the caller passes the treasury before the capture's own credit
+            // (see AppendFallMessagesForNewlyLostHumanSeats); every other fall records the value the
+            // nation carries at the fall, which is already pre-write.
+            endTreasury ?? fallen.Treasury));
+        return true;
+    }
+
+    /// <summary>
+    /// T146: redraws one just-recorded fallen seat's leader from its world pool, from the fall's own
+    /// stream (<see cref="LeaderSuccession.FallStream"/> — the root seed and the calendar, so a resume
+    /// derives the same name). A world without a pool (the toy world) leaves the leader unchanged, so
+    /// those sessions are untouched. Called once per fallen seat per call, from
+    /// <see cref="RecordSeatFall"/>'s own "did this call record it" result, so a fall reported by more
+    /// than one path redraws once. The window's <see cref="SeatFall.LeaderName"/> was copied before
+    /// this, so it keeps the pre-fall leader.
+    /// </summary>
+    private void RedrawFallenLeader(string nationId)
+    {
+        var pool = LeaderSuccession.PoolFor(World, nationId);
+        if (pool is null)
+        {
+            return;
+        }
+
+        var nation = State.NationById(nationId);
+        if (nation is null)
+        {
+            return;
+        }
+
+        var stream = LeaderSuccession.FallStream(State.RandomSeed, nationId, State.Calendar);
+        var redrawn = LeaderSuccession.ApplyFall(nation, pool, stream);
+        State = State with
+        {
+            Nations = ValueList.From(State.Nations.Select(n =>
+                string.Equals(n.Id, nationId, StringComparison.Ordinal) ? redrawn : n)),
+        };
     }
 
     /// <summary>
@@ -579,6 +615,11 @@ public sealed partial class GameSession
 
         var initial = GameStateFactory.CreateInitial(world, ruleset, scenario);
         State = seedOverride.HasValue ? initial with { RandomSeed = seedOverride.Value } : initial;
+
+        // T146: the New Game leader draw, after the seed override and before any seat is advanced, so
+        // the fall sites below redraw from the same world pool the New Game used. Its own stream, so no
+        // other seeded outcome moves; a world without a pool draws nothing.
+        State = NewGameLeaders.Apply(State, World);
 
         // T87 rework round 1 (bug #380, review B4): this used to run only for a --seat session
         // (_humanSeatNationId is not null), so a plain hotseat session's own first turn-order seat was
@@ -862,13 +903,20 @@ public sealed partial class GameSession
         // from -- TPremierForm_HumanLeaderFalls opens the window before FUN_0044C8F0's own writes, so the
         // window's end figures are the treasury and unity the nation actually held (see SeatFall's own
         // remarks). A no-op if some other path already recorded this same seat this call.
-        RecordSeatFall(nation);
+        var recorded = RecordSeatFall(nation);
 
         var deposed = Deposition.ApplyEffects(nation, Ruleset) with { Control = SeatControl.Ai };
         var relations = Deposition.ResetRelations(State.Relations, nation.Id, Ruleset);
         var updatedNations = State.Nations.Select(n =>
             string.Equals(n.Id, nation.Id, StringComparison.Ordinal) ? deposed : n);
         State = State with { Nations = ValueList.From(updatedNations), Relations = relations };
+
+        // T146: after the window's figures are recorded (above), the fall redraws the leader from the
+        // nation's world pool. The message line above names no leader, so it is unaffected.
+        if (recorded)
+        {
+            RedrawFallenLeader(nation.Id);
+        }
 
         lines.Add(message);
     }
@@ -943,7 +991,18 @@ public sealed partial class GameSession
             var now = State.NationById(previously.Id);
             if (now is not null && (now.Eliminated || now.Control != SeatControl.Human))
             {
-                RecordSeatFall(now);
+                // T146: an elimination now applies Deposition.FallTreasury's credit inside the capture,
+                // so the post-command nation's treasury is post-credit. The window opens before that
+                // write (TPremierForm_HumanLeaderFalls :50787 vs FUN_0044C8F0 :50795), so the end
+                // treasury is the nation's pre-fall value: `previously` is the state immediately before
+                // the turn/command that eliminated it, and nothing else in that span credits a human
+                // loser's treasury. The fall then redraws the leader from the world pool.
+                var recorded = RecordSeatFall(now, endTreasury: previously.Treasury);
+                if (recorded)
+                {
+                    RedrawFallenLeader(now.Id);
+                }
+
                 lines.Add(HumanLeaderFallsMessage(now));
             }
         }
@@ -1633,7 +1692,13 @@ public sealed partial class GameSession
         // make, so a fall this method alone notices is still on the game-end screen. An elimination or
         // deposition already recorded by AppendFallMessagesForNewlyLostHumanSeats /
         // DepositActiveHumanSeatIfItShouldFallAtTurnStart is a no-op here.
-        RecordSeatFall(nation);
+        // T146: and the leader redraw follows the same once-per-call rule -- if another path already
+        // recorded this seat this call, it already redrew.
+        var recorded = RecordSeatFall(nation);
+        if (recorded)
+        {
+            RedrawFallenLeader(nation.Id);
+        }
 
         lines.Add(
             nation.Eliminated

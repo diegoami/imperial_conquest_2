@@ -1,4 +1,5 @@
 using System.Reflection;
+using IC2.Engine.Economy;
 using IC2.Engine.Model;
 using IC2.Engine.Presentation;
 using IC2.Engine.Serialization;
@@ -170,7 +171,12 @@ public sealed class SeatFallOutputTests
 
             var southNow = session.State.NationById("south")!;
             Assert.Equal(southNow.Wealth, fall.EndWealth);
-            Assert.Equal(southNow.Treasury, fall.EndTreasury);
+            // T146: the conquest now credits a human loser's treasury inside the capture
+            // (Deposition.FallTreasury), so the state's treasury is post-credit while the window's
+            // recorded figure stays the pre-fall one. The relation below pins that exactly.
+            Assert.Equal(Deposition.FallTreasury(fall.EndTreasury, Toy.Ruleset), southNow.Treasury);
+            Assert.NotEqual(southNow.Treasury, fall.EndTreasury);
+            // The toy world carries no leader pool, so the fall leaves the leader unchanged.
             Assert.Equal(southNow.LeaderName, fall.LeaderName);
             Assert.Equal(session.State.Calendar.YearBc, fall.YearBc);
             Assert.True(round2.GameOver);

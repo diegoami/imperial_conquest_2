@@ -1,3 +1,4 @@
+using IC2.Engine.Economy;
 using IC2.Engine.Model;
 
 namespace IC2.Engine.Cities.Capture;
@@ -97,6 +98,13 @@ public static class NationElimination
             Eliminated = true,
             Unity = ruleset.Capture.EliminationUnityReset,
             ConqueredBy = conquerorId,
+            // T146: FUN_0044BED8 (defection) calls FUN_0044C8F0 for a human loser, whose treasury write is
+            // `treasury < 0 ? 0 : treasury + 1000` (decompiled-elimination-cleanup.md §3, :50802-50805),
+            // shared here through Deposition.FallTreasury. A computer loser is never handed to that
+            // routine and keeps its treasury, exactly as before.
+            Treasury = nation.Control == SeatControl.Human
+                ? Deposition.FallTreasury(nation.Treasury, ruleset)
+                : nation.Treasury,
             // T87 rework round 1 (bug #441, folded from review B3/B8): both elimination paths call
             // FUN_0044C8F0 for a human seat (decompiled-elimination-cleanup.md §3's own callers list:
             // "FUN_0044BED8 (0x0044C13C) and FUN_0044C528 (0x0044C81E), human-only in both"), which

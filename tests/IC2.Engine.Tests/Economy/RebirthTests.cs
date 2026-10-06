@@ -74,6 +74,33 @@ public sealed class RebirthTests
         rng.AssertAllDrawsConsumed();
     }
 
+    /// <summary>
+    /// T146 Done-when 6: with a pool, rebirth's one existing draw selects and writes that entry (no
+    /// retry, no second draw); without one the same fixture's draw is still made and the leader is
+    /// unchanged.
+    /// </summary>
+    [Fact]
+    public void With_a_pool_the_one_draw_writes_its_entry_and_the_draw_count_is_unchanged()
+    {
+        var dead = CaptureTestbed.Nation("dead", unity: 0, eliminated: true);
+        var owner = CaptureTestbed.Nation("owner", unity: 600);
+        var cities = Enumerable.Range(0, 8).Select(i => QualifyingCity($"q{i}", "owner", "dead")).ToList();
+        var state = EliminationForcesTestbed.StateWith(new[] { dead, owner }, cities);
+        var pool = ValueList.Of(Enumerable.Range(0, 12).Select(i => $"leader-{i}").ToArray());
+
+        var rng = new ScriptedRng(nextIntDraws: new[] { 5 }, expectedNextIntBounds: new[] { 12 });
+        var result = Rebirth.Run(state, Ruleset, dead, NullEventSink.Instance, rng, pool);
+
+        rng.AssertAllDrawsConsumed();
+        Assert.Equal(pool[5], result.NationById("dead")!.LeaderName);
+
+        // Without a pool the same fixture still makes exactly one draw, and the leader is unchanged.
+        var noPoolRng = new ScriptedRng(nextIntDraws: new[] { 5 }, expectedNextIntBounds: new[] { 12 });
+        var noPool = Rebirth.Run(state, Ruleset, dead, NullEventSink.Instance, noPoolRng);
+        noPoolRng.AssertAllDrawsConsumed();
+        Assert.Equal(dead.LeaderName, noPool.NationById("dead")!.LeaderName);
+    }
+
     // ---------------------------------------------------------------------------------------------
     // Every reset field, the defections and the capital choice, in one fixture.
     // ---------------------------------------------------------------------------------------------

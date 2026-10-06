@@ -60,11 +60,24 @@ public sealed class AiDepositionHandler : IQuarterBoundaryHandler
                 continue;
             }
 
+            // T146: FUN_0044c8f0 writes the news line with the OLD leader, then repeats Random(12) until
+            // the drawn name differs from it. So capture the old leader first, publish the event with it
+            // below, and redraw from the nation's own per-event stream -- never context.Rng, which would
+            // move every later quarterly draw in a seeded run where a nation falls. A world without a
+            // pool (the toy world) leaves the leader unchanged.
+            var oldLeader = nation.LeaderName;
             var deposed = Deposition.ApplyEffects(nation, ruleset);
+            var pool = LeaderSuccession.PoolFor(context.World, nation.Id);
+            if (pool is not null)
+            {
+                deposed = LeaderSuccession.ApplyDeposition(
+                    deposed, pool, LeaderSuccession.DepositionStream(state.RandomSeed, nation.Id, state.Calendar));
+            }
+
             updatedNations.Add(deposed);
             relations = Deposition.ResetRelations(relations, nation.Id, ruleset);
 
-            context.Events.Publish(new AiLeaderDeposed(deposed.Name, deposed.LeaderName));
+            context.Events.Publish(new AiLeaderDeposed(deposed.Name, oldLeader));
         }
 
         return state with { Nations = ValueList.From(updatedNations), Relations = relations };
