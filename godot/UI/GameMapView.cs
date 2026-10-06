@@ -154,6 +154,7 @@ public partial class GameMapView : Control
     private ImageTexture? _splatTextureA;
     private ImageTexture? _splatTextureB;
     private readonly Texture2D?[] _surfaceTextures = new Texture2D?[6];
+    private ColorRect? _backgroundCanvas;
     private ColorRect? _surfaceCanvas;
     private ShaderMaterial? _surfaceMaterial;
     private TerrainSurfaceState _drawnSurface;
@@ -558,6 +559,21 @@ public partial class GameMapView : Control
     /// </summary>
     private void EnsureSurfaceCanvas()
     {
+        // The map always covers the control (T147's cover zoom), so the background is normally
+        // invisible; it is still drawn as its own behind-parent child so a world too small to cover
+        // the control shows the background rather than the cleared frame.
+        if (_backgroundCanvas is null)
+        {
+            _backgroundCanvas = new ColorRect
+            {
+                Name = "TerrainBackground",
+                Color = BackgroundColor,
+                MouseFilter = MouseFilterEnum.Ignore,
+                ShowBehindParent = true,
+            };
+            AddChild(_backgroundCanvas);
+        }
+
         if (_surfaceCanvas is not null)
         {
             return;
@@ -1141,6 +1157,11 @@ public partial class GameMapView : Control
             return;
         }
 
+        if (_backgroundCanvas is not null)
+        {
+            _backgroundCanvas.Size = Size;
+        }
+
         var world = _session.World;
         var tileSize = BaseTileSize * _zoom;
         var mapRect = new Rect2(_pan, new Vector2(world.Width, world.Height) * tileSize);
@@ -1164,7 +1185,6 @@ public partial class GameMapView : Control
                 _surfaceCanvas.Visible = false;
             }
 
-            DrawRect(new Rect2(Vector2.Zero, Size), BackgroundColor);
             if (_terrainTexture is not null)
             {
                 DrawTextureRect(_terrainTexture, mapRect, false);
