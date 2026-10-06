@@ -89,7 +89,7 @@ How it ranks:
 2. Status: `ok` before `low`.
 3. Headroom divided by the cost factor now: Alibaba's discount, or Z.ai's peak or off-peak multiplier.
 
-An exhausted provider makes a model unavailable, unless the model has an Alibaba route with quota or is `luna` (its own window). The implementer's family is left out of a review. When the tracker is silent, the ranking is by strength alone. The scripts' `auto` defaults are unchanged; any other model is named explicitly.
+An exhausted provider, or one an answering tracker does not report, makes a model unavailable, unless the model has an Alibaba route with quota or is `luna` (its own window). An unknown headroom is scored `?` and ranked after every measured one. The implementer's family is left out of a review. When the tracker is silent, the ranking is by strength alone. The scripts' `auto` defaults are unchanged; any other model is named explicitly.
 
 ### Model strength
 

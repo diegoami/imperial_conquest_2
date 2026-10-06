@@ -22,7 +22,8 @@
     model's peak or off-peak multiplier; otherwise 1). A provider that is exhausted, or that /quota
     reports at 95% or more, makes the model unavailable, unless the model has an Alibaba route with
     quota (it is then ranked on that route) or it is luna, which has its own weekly window
-    (`gpt-5.6-luna:7d`). When the tracker does not answer, the candidates are ranked by fit alone
+    (`gpt-5.6-luna:7d`). A provider the answering tracker does not report is unavailable too, and
+    an unknown headroom is scored '?' and ranked after every measured one. When the tracker does not answer, the candidates are ranked by fit alone
     and marked "quota unknown" (CLAUDE.md rule 17: never block on it).
 .PARAMETER Role
     implementer or reviewer.
@@ -132,9 +133,13 @@ function Get-RouteState {
     $s = [ordered]@{ Route = $route; Model = $ModelId; Provider = $provider; Available = $true; Status = 'unknown'; Headroom = $null; Cost = 1.0; Notes = @() }
     if ($null -eq $Quota) { $s.Notes += 'quota unknown'; return [pscustomobject]$s }
     $q = $Quota[$provider]
-    if (-not $q) { $s.Notes += "$provider not in quota-tracker"; return [pscustomobject]$s }
+    # A provider the answering tracker does not report was not checked: unavailable, never ranked
+    # as if it had quota (#815 review, R1).
+    if (-not $q) { $s.Available = $false; $s.Notes += "$provider not reported by quota-tracker"; return [pscustomobject]$s }
     $s.Status = [string]$q.status
-    $s.Headroom = [double]$q.headroom_pct
+    # Unknown headroom stays $null (score '?', ranked after every measured score), never a measured 0
+    # (#815 review, R2).
+    if ($null -ne $q.headroom_pct) { $s.Headroom = [double]$q.headroom_pct }
     if ($Name -eq 'luna') {
         # GPT-5.6 Luna draws on its own weekly window (docs/environment.md).
         $w = @($q.windows) | Where-Object { $_.name -eq 'gpt-5.6-luna:7d' } | Select-Object -First 1
@@ -162,7 +167,7 @@ function Get-RouteState {
             $s.Notes += $(if ($p.peak_now) { "peak $($s.Cost)x until $(Format-Clock $p.next_change_at)" } else { "off-peak $($s.Cost)x" })
         }
     }
-    $s.Notes += "$provider $($s.Headroom)% headroom"
+    $s.Notes += $(if ($null -ne $s.Headroom) { "$provider $($s.Headroom)% headroom" } else { "$provider headroom unknown" })
     return [pscustomobject]$s
 }
 
@@ -202,7 +207,7 @@ function Get-ModelRanking {
         }
     }
     $ranked = @($rows | Where-Object { $_.Available -and -not $_.Excluded -and $_.Fit -lt 9 } |
-            Sort-Object Fit, Low, @{ Expression = { if ($null -eq $_.Score) { 0 } else { $_.Score } }; Descending = $true }, Name)
+            Sort-Object Fit, Low, @{ Expression = { $null -eq $_.Score } }, @{ Expression = { if ($null -eq $_.Score) { 0 } else { $_.Score } }; Descending = $true }, Name)
     return [pscustomobject]@{
         Role = $Role; Tier = $Tier; Excluded = $excluded; Ranked = $ranked
         Unavailable = @($rows | Where-Object { -not $_.Available -and -not $_.Excluded })
@@ -261,6 +266,13 @@ function Invoke-ChooserSelfTest {
     $checks += [pscustomobject]@{ Name = 'tracker silent: every rated candidate is ranked, marked quota unknown'; Ok = ($r.Ranked.Count -gt 0 -and @($r.Ranked | Where-Object { $_.Reasons -notlike '*quota unknown*' }).Count -eq 0) }
     $r = & $rank 'implementer' 'simple' $null (& $base)
     $checks += [pscustomobject]@{ Name = "a model rated off is never ranked (mimo-pro, mimo-flash)"; Ok = ((& $names $r) -notcontains 'mimo-pro' -and (& $names $r) -notcontains 'mimo-flash') }
+    $q = & $base; $q.Remove('minimax')
+    $r = & $rank 'reviewer' 'complex' $null $q
+    $checks += [pscustomobject]@{ Name = 'a provider missing from an answering /quota: mm-m3 is unavailable, not ranked (#815 R1)'; Ok = ((& $names $r) -notcontains 'mm-m3' -and @($r.Unavailable | ForEach-Object Name) -contains 'mm-m3') }
+    $r = & $rank 'reviewer' 'complex' $null (& $base @{ minimax = [pscustomobject]@{ provider = 'minimax'; status = 'ok'; windows = @() } })
+    $mm = $r.Ranked | Where-Object Name -eq 'mm-m3'
+    $heavyScored = @($r.Ranked | Where-Object { $_.Strength -eq 'heavy' -and $null -ne $_.Score })
+    $checks += [pscustomobject]@{ Name = 'no headroom_pct: mm-m3 keeps a null score and ranks after every measured heavy model (#815 R2)'; Ok = ($mm -and $null -eq $mm.Headroom -and $null -eq $mm.Score -and (& $names $r).IndexOf('mm-m3') -eq $heavyScored.Count) }
     $r = & $rank 'reviewer' 'complex' $null (& $base @{ alibaba = (& $p 'alibaba' 15 'low' @{ pricing = (& $alibabaPricing $false) }) })
     $checks += [pscustomobject]@{ Name = 'a low provider ranks after an ok one of the same fit'; Ok = ((& $names $r).IndexOf('qwen') -gt (& $names $r).IndexOf('mm-m3')) }
     $failed = 0
