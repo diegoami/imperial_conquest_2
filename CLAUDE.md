@@ -99,6 +99,16 @@ Agreed on [#264](https://github.com/diegoami/imperial_conquest_2/issues/264), wh
     reviewer. Never use a Luna on OpenCode Go (`opencode-go/…`): a proxy behind it returns
     `Bad Request` in long agent loops.
 
+20. **Use the providers' pricing windows deliberately, not by chance** (the owner's decision of
+    2026-10-06). Before starting a run on an Alibaba Qwen or DeepSeek route (`ali-qwen-*`,
+    `ali-deepseek-*`; `-Route alibaba` or a `qwen*` model), read
+    `curl -s localhost:8765/quota/alibaba | jq .pricing`: when `discount_now` is false, prefer
+    another entry for a long run, or start it after `next_change_at`. Alibaba's GLM (`ali-glm`) has
+    no discount, so the time does not matter for it. Likewise read
+    `curl -s localhost:8765/quota/zai | jq .pricing`: when `peak_now` is true (weekday afternoons
+    UTC+8, from 8 October), `glm-5.3` costs 3× quota, so prefer `ali-glm` or another provider for a
+    long run then. If the tracker does not answer, run as usual; never block on it.
+
 ---
 
 ## Delegated runs
