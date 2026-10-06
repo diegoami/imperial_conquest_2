@@ -673,27 +673,33 @@ function Invoke-ReviewParserSelfTest {
     $fakeMixed = 'Zq9' + ('xY7wK2aP4mR8tB1n' * 2)
     $fakeHex32 = 'deadbeef' * 4
     $leakChecks = [ordered]@{
-        'clone diegoami/ic2-test-fixtures first' = 'ic2-test-fixtures'
-        'see assets.local.ini' = 'assets.local.ini'
-        'set IC2_FIXTURES_DIR' = 'IC2_FIXTURES_DIR'
+        'clone diegoami/ic2-test-fixtures first' = 'the private fixtures repository'
+        'see assets.local.ini' = 'the local asset config'
+        'set IC2_FIXTURES_DIR' = 'the fixtures directory variable'
         'read C:\games\IC\SAVE01.DAT' = 'a .dat path'
         'compare with C:\saves\turn12.SAV first' = 'a .sav path'
         "use $fakeOr for the call" = 'a secret prefix (sk-, ghp_, AKIA, Bearer, ...)'
         ('the header is Authorization: Bearer ' + ('Abc123' * 3)) = 'a secret prefix (sk-, ghp_, AKIA, Bearer, ...)'
         ('OPENROUTER_API_KEY=' + ('q' * 12)) = 'a key, token, secret or password assignment'
+        'OPENROUTER_API_KEY=x' = 'a key, token, secret or password assignment'
+        'PASSWORD=""' = 'a key, token, secret or password assignment'
+        "db_password: ''" = 'a key, token, secret or password assignment'
         "the value is $fakeMixed" = 'a long high-entropy string'
         "a 32-hex blob $fakeHex32" = 'a long high-entropy string'
     }
     foreach ($k in $leakChecks.Keys) {
         $hits = @(Get-AdvisoryBriefLeaks $k)
         # The guard names the rule and never echoes the matched text.
-        $ruleChecks += [pscustomobject]@{ Name = "brief guard: $($leakChecks[$k])"; Ok = ($hits -contains $leakChecks[$k] -and -not ($hits | Where-Object { $k.Contains($_) -and $_ -notin 'ic2-test-fixtures', 'assets.local.ini', 'IC2_FIXTURES_DIR' })) }
+        $ruleChecks += [pscustomobject]@{ Name = "brief guard: $($leakChecks[$k])"; Ok = ($hits -contains $leakChecks[$k] -and -not ($hits | Where-Object { $k.Contains($_) })) }
     }
     $savedFake = $env:IC2_SELFTEST_FAKE_API_KEY
     $env:IC2_SELFTEST_FAKE_API_KEY = 'fake' + ('k3y' * 4)
     try { $hits = @(Get-AdvisoryBriefLeaks "paste $($env:IC2_SELFTEST_FAKE_API_KEY) here") } finally { $env:IC2_SELFTEST_FAKE_API_KEY = $savedFake }
     $ruleChecks += [pscustomobject]@{ Name = 'brief guard: the literal value of a key variable in the environment'; Ok = ($hits -contains 'the value of IC2_SELFTEST_FAKE_API_KEY') }
     $shaBrief = "T0 review (Nemotron)`nHEAD $('0123456789abcdef0123' * 2) (a commit), blob $('fedcba9876543210' * 4) (a SHA-256), short 7a8574d,`ntitle ic2-pr785-nemotron-44da75032926, path C:/Users/diego/projects/ic2-work/590-external-review-deadbeef, scripts/Invoke-OpenCodeWatched.ps1.`nCheck data/worlds, the update path and the key: what blocks; metadata only; Get-OpenCodeRunArguments; the risk-assessment.`nTests AttritionPhasesAcceptRegistrationWithNeitherT08NorT14Present and On_the_configured_machine_thracia_is_at_index_5_of_16_in_the_named_save, branch T142-split-aboard-and-scan-order, DoD01_AnExactTieAtSeaGoesToTheDefender."
+    $defaultLimits = Get-AdvisoryTimeouts @{} 600 3600
+    $givenLimits = Get-AdvisoryTimeouts @{ IdleTimeoutSec = 900 } 900 3600
+    $ruleChecks += [pscustomobject]@{ Name = 'advisory timeouts: 300 s idle and 1800 s total by default, an explicit value kept'; Ok = ($defaultLimits.Idle -eq 300 -and $defaultLimits.Total -eq 1800 -and $givenLimits.Idle -eq 900 -and $givenLimits.Total -eq 1800) }
     $ruleChecks += [pscustomobject]@{ Name = 'brief guard passes a public brief (a 40-hex SHA, a 64-hex hash, paths, prose about keys)'; Ok = (@(Get-AdvisoryBriefLeaks $shaBrief).Count -eq 0) }
     # The 429 rule: OpenCode's own stderr "Error: " line (a fake run here), whatever the exit code; never the model's words.
     $limitRun = [pscustomobject]@{ ExitCode = 0; StdOut = 'review text'; StdErr = "> build · nvidia/nemotron-3-ultra-550b-a55b:free`n`nError: 429 Too Many Requests: free-models-per-min" }
@@ -864,17 +870,24 @@ function Get-AdvisoryBriefLeaks([string] $Text) {
     # empty means the brief may go. The brief is the only leak path: the model reads nothing else
     # private (the repository and its PRs are public).
     $found = @()
-    foreach ($needle in 'ic2-test-fixtures', 'assets.local.ini', 'IC2_FIXTURES_DIR') {
-        if ($Text -match [regex]::Escape($needle)) { $found += $needle }
+    # Each rule's name differs from the text it matches (Luna's re-check of PR 785, R2).
+    $named = [ordered]@{
+        'ic2-test-fixtures' = 'the private fixtures repository'
+        'assets.local.ini'  = 'the local asset config'
+        'IC2_FIXTURES_DIR'  = 'the fixtures directory variable'
+    }
+    foreach ($needle in $named.Keys) {
+        if ($Text -match [regex]::Escape($needle)) { $found += $named[$needle] }
     }
     if ($Text -match '(?i)\.dat\b') { $found += 'a .dat path' }
     if ($Text -match '(?i)\.sav\b') { $found += 'a .sav path' }
     # Common secret prefixes, with a body after them (the bare prefix in prose passes).
     if ($Text -cmatch '(?<![\w-])(sk-ant-|sk-or-|sk-|ghp_|gho_|ghs_|github_pat_|xox[abp]-)[A-Za-z0-9_-]{8,}' -or
         $Text -cmatch '(?<![A-Za-z0-9])AKIA[A-Z0-9]{16}' -or $Text -match '(?i)\bBearer\s+[A-Za-z0-9._~+/=-]{8,}') { $found += 'a secret prefix (sk-, ghp_, AKIA, Bearer, ...)' }
-    # An assignment to a key, token, secret or password name.
-    if ($Text -cmatch '\b[A-Z0-9_]*(KEY|TOKEN|SECRET|PASSWORD)\s*[:=]\s*[''"]?[^\s''"]{8,}' -or
-        $Text -match '(?i)\b\w*(api[_-]?key|access[_-]?token|secret|password)\s*[:=]\s*[''"]?[^\s''"]{8,}') { $found += 'a key, token, secret or password assignment' }
+    # An assignment to a key, token, secret or password name, whatever its value, an empty one included
+    # (Luna's re-check of PR 785, R1: `OPENROUTER_API_KEY=x` and `PASSWORD=""` passed an 8-character floor).
+    if ($Text -cmatch '\b[A-Z0-9_]*(KEY|TOKEN|SECRET|PASSWORD)\s*[:=]' -or
+        $Text -match '(?i)\b\w*(api[_-]?key|access[_-]?token|secret|password)\s*[:=]') { $found += 'a key, token, secret or password assignment' }
     # A long high-entropy run: 32+ characters of base64/hex alphabet. Pure hex passes only at 40 (a git
     # SHA) or 64 (a SHA-256). Any other run is risky when it mixes upper case, lower case and digits AND
     # has 5 or more upper-upper, upper-digit or digit-upper neighbours: a random 32-character base64
@@ -903,6 +916,17 @@ function Get-AdvisoryHeader([string] $BriefHeader, [string] $DisplayName) {
     # The posted header of an advisory review: the brief's header with its final parentheses naming
     # the model and saying the review is not counted, e.g. "Plan review (Nemotron, advisory — not counted)".
     return ($BriefHeader -replace '\([^()]*\)\s*$', "($DisplayName, advisory — not counted)")
+}
+
+function Get-AdvisoryTimeouts([hashtable] $Bound, [int] $Idle, [int] $Total) {
+    # An advisory run's idle and total limits: 300 s and 1800 s unless given explicitly (the owner's
+    # decision of 2026-10-06). OpenCode retries a rate-limited call inside the run, which the script
+    # cannot stop; the session's `updated` time does not advance meanwhile, so the shorter idle limit
+    # ends such a run sooner and spends fewer of the shared free requests.
+    return [pscustomobject]@{
+        Idle  = if ($Bound.ContainsKey('IdleTimeoutSec')) { $Idle } else { 300 }
+        Total = if ($Bound.ContainsKey('TotalTimeoutSec')) { $Total } else { 1800 }
+    }
 }
 
 function Get-AdvisoryRunSkip($Run) {
@@ -972,6 +996,9 @@ if ($isAdvisory) {
         [Console]::Error.WriteLine("Refused: the brief for advisory reviewer $Reviewer names private material ($($leaks -join ', ')); a free provider may log and train on prompts. Remove it from the brief. Nothing posted.")
         exit 1
     }
+    $advisoryLimits = Get-AdvisoryTimeouts $PSBoundParameters $IdleTimeoutSec $TotalTimeoutSec
+    $IdleTimeoutSec = $advisoryLimits.Idle
+    $TotalTimeoutSec = $advisoryLimits.Total
 }
 if ($ApplyLabel -and -not $Issue) { throw '-ApplyLabel needs -Issue.' }
 # The family check runs before the OpenCode probe and before -WhatIf returns (PR #642 review R6), so
