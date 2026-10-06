@@ -23,10 +23,34 @@
   },
   "ids": {
     "gpt-mini": "openai/<id from opencode models openai>",
-    "gpt": "openai/<id from opencode models openai>"
+    "gpt": "openai/<id from opencode models openai>",
+    "mm-m3": "minimax/MiniMax-M3",
+    "mm-m2.7": "minimax/MiniMax-M2.7",
+    "ali-deepseek-pro": "alibaba-token-plan/deepseek-v4-pro-0813",
+    "ali-deepseek-flash": "alibaba-token-plan/deepseek-v4.1-flash",
+    "ali-glm": "alibaba-token-plan/glm-5.3"
   },
   "variants": {
     "gpt-mini": "",
-    "gpt": "high"
-  }
+    "gpt": "high",
+    "mm-m3": "thinking",
+    "ali-deepseek-pro": "high",
+    "ali-deepseek-flash": "high",
+    "ali-glm": "low"
+  },
+  "vendors": {
+    "mm-m3": "minimax",
+    "mm-m2.7": "minimax",
+    "ali-deepseek-pro": "deepseek",
+    "ali-deepseek-flash": "deepseek",
+    "ali-glm": "glm"
+  },
+  "display": {
+    "mm-m3": "MiniMax M3",
+    "mm-m2.7": "MiniMax M2.7",
+    "ali-deepseek-pro": "DeepSeek Pro (Alibaba)",
+    "ali-deepseek-flash": "DeepSeek Flash (Alibaba)",
+    "ali-glm": "GLM (Alibaba)"
+  },
+  "_comment_2026_10_06": "MiniMax (minimax.io Token Plan; key: the minimax entry in the data folder's auth.json) and the rest of the Alibaba Token Plan (key: ALIBABA_TOKEN_PLAN_API_KEY) registered by the owner's decision of 2026-10-06; no chain uses them until /model-order places them. Probes answered ok on 2026-10-06 19:43:30-19:43:53 +02:00. deepseek-v4-pro-0813 is dated because only it gets Alibaba's night discount; never Alibaba's Kimi or MiniMax (Team-only). vendors keeps ali-* in their model's family. See docs/environment.md (#814)."
 }
