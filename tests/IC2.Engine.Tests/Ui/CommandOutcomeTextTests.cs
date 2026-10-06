@@ -1,3 +1,4 @@
+using IC2.Engine.Model;
 using IC2.Engine.Presentation;
 using IC2.Engine.Serialization;
 using IC2.Slice.UI;
@@ -298,6 +299,46 @@ public sealed class CommandOutcomeTextTests
             unfiltered);
         Assert.Contains(prompt, unfiltered, StringComparison.Ordinal);
         Assert.Contains(offer[0], unfiltered, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Sol's review R1: the news log is a ring buffer, so a count-based "the entries after the previous
+    /// count" range finds <em>nothing</em> once the buffer is full — the exact ordinary-long-game case
+    /// that hid an accepted order's news line. <see cref="CommandOutcomeText.NewsAddedSince"/> compares
+    /// by reference, so the order's own appended entry is found whether the log has room or is full.
+    /// </summary>
+    [Fact]
+    public void A_full_news_log_still_reports_an_orders_own_added_entry()
+    {
+        var rules = Classical().Ruleset.NewsLog;
+        var full = NewsLog.Empty;
+        for (var i = 0; i < rules.RingBufferSlots; i++)
+        {
+            full = full.Append(new NewsEntry($"Retained {i}"), rules);
+        }
+
+        Assert.Equal(rules.RingBufferSlots, full.Slots.Count);
+
+        const string addedText = "Rome and Carthage have agreed to end their war.";
+        var after = full.Append(new NewsEntry(addedText), rules);
+
+        // The ring buffer really stayed full, so a count-based range would be empty.
+        Assert.Equal(rules.RingBufferSlots, after.Slots.Count);
+        Assert.Equal(new[] { addedText }, CommandOutcomeText.NewsAddedSince(full.Slots, after.Slots));
+    }
+
+    /// <summary>
+    /// Sol's review R1, the other direction text equality would get wrong: an appended line that repeats
+    /// a retained one is still this command's own addition, so it must be reported once.
+    /// </summary>
+    [Fact]
+    public void An_appended_news_entry_that_repeats_a_retained_line_is_still_reported()
+    {
+        var rules = Classical().Ruleset.NewsLog;
+        var previous = NewsLog.Empty.Append(new NewsEntry("same text"), rules);
+        var after = previous.Append(new NewsEntry("same text"), rules);
+
+        Assert.Equal(new[] { "same text" }, CommandOutcomeText.NewsAddedSince(previous.Slots, after.Slots));
     }
 
     private static int FindNewsHeader(IReadOnlyList<string> lines)

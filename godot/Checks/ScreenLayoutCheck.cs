@@ -65,9 +65,15 @@ public partial class ScreenLayoutCheck : Control
             _steps.Add(() => AssertMapCoversScreen("at 1500x850"));
             _steps.Add(() => Size = LargeSize);
             _steps.Add(() => AssertMapCoversScreen("at 2560x1351"));
+            // Sol R2: shrink the unadjusted view back before any pan -- every resize re-fits, shrinking
+            // as well as growing.
+            _steps.Add(() => Size = SmallSize);
+            _steps.Add(() => AssertMapCoversScreen("at 1500x850 after an unadjusted shrink"));
+            _steps.Add(() => Size = LargeSize);
             _steps.Add(PanMap);
             _steps.Add(() => Size = SmallSize);
             _steps.Add(AssertViewCentreKept);
+            _steps.Add(CentreOnCornerTile);
             _steps.Add(Teardown);
 
             // ---- Done-when 2: every window opens centred, at both sizes ----
@@ -194,6 +200,28 @@ public partial class ScreenLayoutCheck : Control
             $"after a resize the panned view centre is kept within one map cell "
             + $"({after} vs {_centreBeforeResize})");
         AssertMapCoversScreen("after the panned resize", expectCoverFit: false);
+    }
+
+    /// <summary>
+    /// Sol R3: <see cref="GameMapView.CentreOnTile"/> clamps like every other pan path, so centring the
+    /// map's corner tile can never expose background. The tile is brought as close to the control's
+    /// centre as the clamp allows; this asserts the no-background half, which is the boundary R3 names.
+    /// </summary>
+    private void CentreOnCornerTile()
+    {
+        if (_mainGame is null)
+        {
+            return;
+        }
+
+        var map = _mainGame.MapView;
+        map.CentreOnTile(0, 0);
+
+        var mapRect = new Rect2(Vector2.Zero, map.Size);
+        Check(
+            map.TerrainDrawRectForCheck.Encloses(mapRect),
+            $"after centring the corner tile (0,0) the drawn map still contains the control's whole "
+            + $"rect {mapRect} (no background visible, got {map.TerrainDrawRectForCheck})");
     }
 
     // ---- Done-when 2 ----

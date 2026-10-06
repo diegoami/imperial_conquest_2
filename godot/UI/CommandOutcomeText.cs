@@ -1,3 +1,5 @@
+using IC2.Engine.Model;
+
 namespace IC2.Slice.UI;
 
 /// <summary>
@@ -130,6 +132,48 @@ public static class CommandOutcomeText
         }
 
         return string.Empty;
+    }
+
+    /// <summary>
+    /// T147 (bug #781 point 4): the news entries <paramref name="current"/> holds that the command did
+    /// not have before it ran — the entries an order added to <see cref="NewsLog"/>, in order, trimmed,
+    /// with whitespace-only spacers dropped.
+    /// </summary>
+    /// <remarks>
+    /// <strong>The comparison is by reference, never by slot count or text.</strong>
+    /// <see cref="NewsLog.Append"/> evicts the oldest entry once the ring buffer is full, so the log's
+    /// count stops growing and a count-based range (<c>for (i = previousCount; i &lt; current.Count; …)</c>)
+    /// finds none of a later order's additions (Sol's review R1). The retained entries are the same
+    /// <see cref="NewsEntry"/> objects the previous log held — <c>Append</c> copies
+    /// <see cref="NewsLog.Slots"/> by reference — so a reference set finds exactly what a command
+    /// appended at any fullness. Text equality would be wrong in the other direction: an appended line
+    /// can repeat a retained one, and the repeated line is still this command's own addition.
+    /// </remarks>
+    /// <param name="previous">The log's slots before the command ran.</param>
+    /// <param name="current">The log's slots after it ran.</param>
+    public static IReadOnlyList<string> NewsAddedSince(
+        IReadOnlyList<NewsEntry> previous,
+        IReadOnlyList<NewsEntry> current)
+    {
+        ArgumentNullException.ThrowIfNull(previous);
+        ArgumentNullException.ThrowIfNull(current);
+
+        var retained = new HashSet<NewsEntry>(previous, ReferenceEqualityComparer.Instance);
+        var added = new List<string>();
+        foreach (var entry in current)
+        {
+            if (retained.Contains(entry))
+            {
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(entry.Text))
+            {
+                added.Add(entry.Text.Trim());
+            }
+        }
+
+        return added;
     }
 
     /// <summary>

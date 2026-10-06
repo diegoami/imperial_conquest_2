@@ -132,10 +132,12 @@ public partial class MainGameScreen : Control
     private NewsLogPanel _newsLog = null!;
     private Label _lastCommandLabel = null!;
 
-    // T147 (bug #781 point 4): how many State.NewsLog entries existed after the previous command, so the
-    // output area can show the entries this command added (the peace treaty's "have agreed to end their
-    // war." line among them). Every command path funnels through OnCommandIssued, which updates it.
-    private int _newsSlotCountBeforeCommand;
+    // T147 (bug #781 point 4): the NewsLog slots after the previous command, so the output area can show
+    // the entries this command added (the peace treaty's "have agreed to end their war." line among
+    // them). Every command path funnels through OnCommandIssued, which updates it. The entries compare
+    // by reference, not by count: NewsLog.Append evicts once the ring buffer is full, so a full log's
+    // count never grows and a count-based range would hide every later order's news (Sol's review R1).
+    private IReadOnlyList<NewsEntry> _newsEntriesBeforeCommand = Array.Empty<NewsEntry>();
 
     private readonly Queue<Engine.Battle.BattleResult> _pendingBattleOverlays = new();
 
@@ -315,8 +317,8 @@ public partial class MainGameScreen : Control
         WireNationSwatches();
 
         // T147 (bug #781 point 4): the news log as the first command finds it; a command's own additions
-        // are the entries after this point.
-        _newsSlotCountBeforeCommand = Session.State.NewsLog.Slots.Count;
+        // are the entries not among these (compared by reference, see the field).
+        _newsEntriesBeforeCommand = Session.State.NewsLog.Slots;
 
         _mapView.Attach(Session, RepositoryRoot);
         _areaMapView.Attach(Session, _mapView);
@@ -1166,15 +1168,8 @@ public partial class MainGameScreen : Control
         // round and a rejected order keep today's block, and nothing else moves.
         if (!string.Equals(outcome, rawOutcome, StringComparison.Ordinal))
         {
-            var added = new List<string>();
-            for (var i = _newsSlotCountBeforeCommand; i < Session.State.NewsLog.Slots.Count; i++)
-            {
-                var text = Session.State.NewsLog.Slots[i].Text;
-                if (!string.IsNullOrWhiteSpace(text))
-                {
-                    added.Add(text.Trim());
-                }
-            }
+            var added = CommandOutcomeText.NewsAddedSince(
+                _newsEntriesBeforeCommand, Session.State.NewsLog.Slots);
 
             if (added.Count > 0)
             {
@@ -1184,7 +1179,7 @@ public partial class MainGameScreen : Control
             }
         }
 
-        _newsSlotCountBeforeCommand = Session.State.NewsLog.Slots.Count;
+        _newsEntriesBeforeCommand = Session.State.NewsLog.Slots;
 
         _lastCommandLabel.Text = outcome;
         _lastCommandLabel.TooltipText = outcome;

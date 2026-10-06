@@ -161,6 +161,13 @@ public partial class GameMapView : Control
     // the new size arrived and put it back at the new centre.
     private Vector2 _lastSize;
 
+    // T147 (bug #781 point 1, Sol R2): a genuine window/root resize changes the container this control
+    // sits in, so this control's rect changes with its parent's. A sibling's layout change (T132's
+    // side-panel toggle, the news log) changes only this control's rect and leaves the parent's alone.
+    // Comparing the parent's size is the explicit protection the toggle's exact zoom and pan need
+    // (godot/Checks/SidePanelToggleCheck.cs) without stopping the re-fit on a real window resize.
+    private Vector2 _lastParentSize;
+
     public override void _Ready()
     {
         FocusMode = FocusModeEnum.All;
@@ -194,40 +201,36 @@ public partial class GameMapView : Control
             return;
         }
 
+        var parentSize = ParentControlSize();
+        var parentResized = !parentSize.IsEqualApprox(_lastParentSize);
+
         if (!_fittedOnce)
         {
             // The first real layout: the control was (0,0) when Attach ran.
             FitToView();
             _fittedOnce = true;
         }
-        else if (_zoom < MinimumZoom())
+        else if (!parentResized)
         {
-            // T147 (bug #781 point 1): the new rect is no longer covered at the current zoom (the
-            // 1500x850 start size maximised to 2560x1351 is the user's case). The fit is redone until the
-            // player zooms or pans; after that, the view centre is kept.
-            if (_userAdjustedView)
-            {
-                KeepViewCentreAcrossResize();
-            }
-            else
-            {
-                FitToView();
-            }
+            // A sibling's layout changed this control's rect (the side panel/column toggling, the news
+            // log) but the window/root did not resize. T132 protects the side-panel toggle's exact zoom
+            // and pan (godot/Checks/SidePanelToggleCheck.cs), so nothing about the view moves here;
+            // NotifyViewChanged below still tells the mini-map its rect changed.
         }
         else if (_userAdjustedView)
         {
-            // The player has zoomed or panned and the current zoom still covers the new rect: keep the
-            // tile under the centre, so a resize never scrolls the view the player set up.
+            // The player has zoomed or panned: a resize keeps the tile under the view's centre, so it
+            // never scrolls the view the player set up.
             KeepViewCentreAcrossResize();
         }
         else
         {
-            // A sibling's layout changed this control's rect (the side panel/column toggling, the news
-            // log) but the current zoom is still big enough to cover it. T132 protects the side-panel
-            // toggle's exact zoom and pan (godot/Checks/SidePanelToggleCheck.cs), so nothing about the
-            // view moves here; NotifyViewChanged below still tells the mini-map its rect changed.
+            // T147 (bug #781 point 1, Sol R2): the view is still the automatic fit, so it is redone on
+            // every window/root resize -- shrinking as well as growing -- and always covers the new rect.
+            FitToView();
         }
 
+        _lastParentSize = parentSize;
         _lastSize = Size;
 
         // B1 (T102 review): VisibleTileRect depends on Size, and project.godot sets
@@ -236,6 +239,10 @@ public partial class GameMapView : Control
         // it so the mini-map's view rectangle follows; without this the rectangle goes stale.
         NotifyViewChanged();
     }
+
+    /// <summary>The immediate parent's size when it is a <see cref="Control"/>, else zero.</summary>
+    private Vector2 ParentControlSize() =>
+        GetParent() is Control parent ? parent.Size : Vector2.Zero;
 
     /// <summary>
     /// T147 (bug #781 point 1): after the player has zoomed or panned, a resize keeps the view's tile
@@ -294,6 +301,7 @@ public partial class GameMapView : Control
         }
 
         _lastSize = Size;
+        _lastParentSize = ParentControlSize();
         QueueRedraw();
     }
 
@@ -367,10 +375,10 @@ public partial class GameMapView : Control
         }
 
         var tileSize = BaseTileSize * _zoom;
-        // An explicit re-centre (the Area map's click, Find a city) wins over the no-background clamp:
-        // the covered fit has no overflow on the tighter axis, so clamping would stop the map centring
-        // on the requested tile at all (T147, Done-when 5's AreaMapCheck/NationsAreaMapCheck).
+        // T147 (bug #781 point 1, Sol R3): a re-centre clamps like every other pan path, so it can never
+        // expose background; the tile is brought as close to the control's centre as the clamp allows.
         _pan = (Size / 2f) - (new Vector2(x + 0.5f, y + 0.5f) * tileSize);
+        ClampPanToView();
         NotifyViewChanged();
     }
 
