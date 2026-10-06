@@ -42,9 +42,10 @@ public sealed class MobilizationArmyCreationTests
     }
 
     /// <summary>
-    /// An occupied south-east neighbour drops out of the scan and the cell before it wins — the last
-    /// <em>qualifying</em> cell, not the last cell. Driven three ways: an army standing there, the
-    /// same army embarked (which covers no map cell and so does not block), and a city there.
+    /// An occupied south-east neighbour drops out of the scan and the last qualifying cell of the
+    /// <c>x</c>-outer scan wins — <c>(+1, 0)</c> here, not row-major <c>(0, +1)</c>. Driven three ways: an
+    /// army standing there, the same army embarked (which covers no map cell and so does not block), and
+    /// a city there.
     /// </summary>
     [Fact]
     public void An_occupied_cell_does_not_qualify_and_the_scan_falls_back_to_the_one_before_it()
@@ -52,14 +53,14 @@ public sealed class MobilizationArmyCreationTests
         var state = EmptyMap();
         var arx = state.CityById("arx")!;
         var southEast = new GridPoint(arx.X + 1, arx.Y + 1);
-        var previous = new GridPoint(arx.X, arx.Y + 1);
+        var lastBeforeIt = new GridPoint(arx.X + 1, arx.Y);
 
         var blockingArmy = ArmiesTestbed.Army(
             "blocker", ArmiesTestbed.NorthNationId, southEast.X, southEast.Y,
             new[] { ArmiesTestbed.RegularUnit("1st Foot Battalion") });
 
         Assert.Equal(
-            previous,
+            lastBeforeIt,
             MobilizationArmyCreation.PlacementCell(ArmiesTestbed.WithArmies(state, blockingArmy), World, arx));
 
         // An embarked army covers no map cell, so it does not block -- the same convention
@@ -71,7 +72,7 @@ public sealed class MobilizationArmyCreationTests
 
         var blockingCity = state.CityById("meridia")! with { X = southEast.X, Y = southEast.Y };
         Assert.Equal(
-            previous,
+            lastBeforeIt,
             MobilizationArmyCreation.PlacementCell(ArmiesTestbed.WithCity(state, blockingCity), World, arx));
     }
 

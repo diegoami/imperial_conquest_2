@@ -72,7 +72,7 @@ public sealed class SplitPlacementTests
     }
 
     [Fact]
-    public void An_army_on_the_south_east_neighbour_pushes_the_new_army_to_zero_plus_one()
+    public void An_army_on_the_south_east_neighbour_pushes_the_new_army_to_plus_one_zero()
     {
         var parent = TwoUnitArmy("army-blocked-se", NorthNationId, 4, 0);
         var blocker = TwoUnitArmy("army-blocker", NorthNationId, 5, 1);
@@ -80,19 +80,19 @@ public sealed class SplitPlacementTests
 
         var cell = SplitPlacement.ArmyCell(state, World, new GridPoint(parent.X, parent.Y));
 
-        Assert.Equal(new GridPoint(4, 1), cell); // (0, +1)
+        Assert.Equal(new GridPoint(5, 0), cell); // (+1, 0): the x-outer fallback, not row-major's (0, +1).
     }
 
     [Fact]
-    public void A_sea_south_east_neighbour_pushes_the_new_army_to_zero_plus_one()
+    public void A_sea_south_east_neighbour_pushes_the_new_army_to_plus_one_zero()
     {
-        // Around (5,3) the (+1,+1) cell (6,4) is sea, so the scan falls back to (5,4).
+        // Around (5,3) the (+1,+1) cell (6,4) is sea, so the x-outer scan falls back to (6,3).
         var parent = TwoUnitArmy("army-blocked-sea", NorthNationId, 5, 3);
         var state = WithArmies(InitialState(), parent);
 
         var cell = SplitPlacement.ArmyCell(state, World, new GridPoint(parent.X, parent.Y));
 
-        Assert.Equal(new GridPoint(5, 4), cell);
+        Assert.Equal(new GridPoint(6, 3), cell);
         Assert.False(World.TileTypeByCode(TerrainCode(World, 6, 4))!.PassableByArmies);
     }
 

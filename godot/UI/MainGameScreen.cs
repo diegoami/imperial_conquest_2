@@ -808,9 +808,10 @@ public partial class MainGameScreen : Control
     }
 
     /// <summary>
-    /// T111: the Army menu's Split army entry. The dialog needs two or more units; it composes one
-    /// <c>split-army</c> (units, supply and money) and the engine places the new army. An army aboard a
-    /// fleet shows its refusal instead.
+    /// T111/T142: the Army menu's Split army entry. The dialog needs two or more units and the nation
+    /// below its army cap; it composes one <c>split-army</c> (units, supply and money) and the engine
+    /// places the new army. An army aboard a fleet is offered the same split as one on land; when a
+    /// splittable army has no free land cell for the new army the screen opens no dialog and says why.
     /// </summary>
     private void OpenSplitArmyDialog()
     {
@@ -821,11 +822,19 @@ public partial class MainGameScreen : Control
             return;
         }
 
-        // An army aboard a fleet (or a carrying fleet selected) opens no dialog and submits nothing: the
-        // engine refuses its split (armies.army-embarked, [designed]).
-        if (army.IsEmbarked)
+        // The original checks the unit count (and T111 its army cap) before it scans for a tile, so
+        // T111's own refusal is shown inside the dialog for a one-unit or over-cap army even when no land
+        // is free; only a splittable army gets the no-free-tile pre-check.
+        var newArmyId = NextSplitArmyId(army.Id);
+        var split = SplitArmyModel.ForArmy(Session.State, army, Session.Ruleset, newArmyId);
+        if (split.CanSplit
+            && SplitPlacement.ArmyCellFor(Session.State, Session.World, army) is null)
         {
-            ShowScreenMessage(ArmyDialogModels.SplitAboardRefusal);
+            // The engine places the new army on the scan's cell, centred on the army's own tile or, aboard
+            // a fleet, on the carrying fleet's tile (SplitPlacement.ArmyCellFor). With no free land cell it
+            // creates nothing and opens no dialog; the screen says why [designed, the user's decision of
+            // 2026-10-05].
+            ShowScreenMessage(ArmyDialogModels.SplitNoFreeTileMessage);
             return;
         }
 
@@ -833,7 +842,7 @@ public partial class MainGameScreen : Control
         {
             Session = Session,
             ArmyId = army.Id,
-            NewArmyId = NextSplitArmyId(army.Id),
+            NewArmyId = newArmyId,
             Submit = SubmitFromDialog,
         };
         dialog.Closed += () => CloseOverlay(dialog);

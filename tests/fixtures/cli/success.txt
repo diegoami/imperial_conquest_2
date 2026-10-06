@@ -13,7 +13,8 @@ declare-war armenia
 end
 move mac-marines 144 42
 buy mac-marines pella 5
-move mac-spare 145 41
+move mac-spare 147 40
+move mac-spare 147 41
 disband-army mac-spare
 move mac-detached 157 31
 move army-8 135 52
@@ -35,7 +36,6 @@ move mac-sac-1 151 31
 end
 move mac-sac-1 151 31
 end
-accept-offer
 move mac-sac-1 151 31
 end
 attack-army mac-sac-1 army-14
@@ -54,6 +54,7 @@ buy-fleet-supply mac-fleet-1 amphipolis 5
 repair-fleet mac-fleet-1 1
 split-fleet mac-fleet-1 mac-fleet-keep 10
 end
+accept-offer
 status
 news
 set-tax 20
