@@ -14,9 +14,10 @@
 
     Invoke-OpenCodeWatched:
       1. passes `--title <Title>-<random token>`, unique per run, so the run's session can be found;
-      2. starts the real opencode.exe (not the npm shim) with stdin from an EMPTY FILE, so it reads
-         end-of-file at once, and stdout and stderr redirected to files, which it reads back as
-         UTF-8 (so an em dash survives);
+      2. starts the real opencode.exe (not the npm shim) with stdin from a FILE holding the prompt
+         (never the command line, which Windows caps at 32,767 characters; Get-OpenCodeRunInvocation),
+         so it reads the whole prompt and then end-of-file, and stdout and stderr redirected to
+         files, which it reads back as UTF-8 (so an em dash survives);
       3. polls `opencode session list --format json` (run in -WorkDir, because the list is scoped
          to that directory's project) every -PollSec until a session with exactly that title, in
          -WorkDir, created after the start, appears. Each lookup is bounded by the time left. If
@@ -243,6 +244,19 @@ function Get-OpenCodeRunArguments {
     else { $a += @('--model', $Model); if ($Variant) { $a += @('--variant', $Variant) } }
     if ($Title) { $a += @('--title', $Title) }
     return $a
+}
+
+function Get-OpenCodeRunInvocation([string[]] $RunArguments, [string] $Prompt) {
+    # How a run gets its prompt: through STDIN, from a file, never on the command line. Windows caps
+    # a command line at 32,767 characters, and a brief that pastes a whole task entry and a review
+    # crossed it three times on 2026-10-06. `opencode run` reads a non-terminal stdin to its end and
+    # takes it as the message, on 1.x and 2.x alike, and the file's end gives it the end-of-file it
+    # waits for (the 2026-09-28 hangs). Measured 2026-10-06 on 1.18.34: a 39,111-character prompt
+    # whose only instruction came after 39,000 characters of padding was followed. The 32,000 guard
+    # stays for what is still on the command line (the flags, the model, the title).
+    $line = (@($RunArguments) | ForEach-Object { ConvertTo-OpenCodeArgument $_ }) -join ' '
+    if ($line.Length -gt 32000) { throw "The opencode command line is $($line.Length) characters; Windows allows 32767." }
+    return [pscustomobject]@{ ArgumentLine = $line; StdIn = $Prompt; Delivery = "stdin, $($Prompt.Length) characters" }
 }
 
 function Get-OpenCodeListArguments([int] $Major) {
@@ -671,10 +685,10 @@ function Invoke-OpenCodeWatched {
     $fullTitle = "$Title-$titleToken"
     $ocArgs = Get-OpenCodeRunArguments -Major $cli.Major -WorkDir $WorkDir -Agent $Agent -Model $Model -Variant $Variant -Title $fullTitle
     if ($WhatIf) {
-        $line = ($ocArgs | ForEach-Object { ConvertTo-OpenCodeArgument $_ }) -join ' '
+        $inv = Get-OpenCodeRunInvocation -RunArguments $ocArgs -Prompt $Prompt
         Write-Host "opencode $($cli.Version) ($($cli.Exe); $($cli.Why)), working directory $WorkDir"
-        Write-Host "  would run: $line <prompt, $($Prompt.Length) characters>"
-        return [pscustomobject]@{ WhatIf = $true; Exe = $cli.Exe; Version = $cli.Version; Major = $cli.Major; ArgumentLine = "$line <prompt>"; Arguments = $ocArgs }
+        Write-Host "  would run: $($inv.ArgumentLine) <prompt via $($inv.Delivery)>"
+        return [pscustomobject]@{ WhatIf = $true; Exe = $cli.Exe; Version = $cli.Version; Major = $cli.Major; ArgumentLine = $inv.ArgumentLine; Arguments = $ocArgs; PromptDelivery = $inv.Delivery }
     }
     $isAlibaba = $Model -like 'alibaba-token-plan/*'
     if ($isAlibaba -and -not (Import-AlibabaTokenPlanKey)) {
@@ -732,24 +746,25 @@ function Invoke-OpenCodeRun {
     $errFile = Join-Path $LogDir "$Title.err.txt"
     $inFile = Join-Path $LogDir "$Title.in.txt"
     $exportFile = Join-Path $LogDir "$Title.export.json"
-    # stdin is an EMPTY FILE, never the caller's: `opencode run` reads a non-terminal stdin to its
-    # end before it creates a session, so an inherited pipe that never closes hangs it at "init"
-    # (both 2026-09-28 hangs). An empty file gives it end-of-file at once.
+    # stdin is a FILE, never the caller's: `opencode run` reads a non-terminal stdin to its end
+    # before it creates a session, so an inherited pipe that never closes hangs it at "init" (both
+    # 2026-09-28 hangs). The run's stdin is the prompt file, whose end is that end-of-file; the
+    # helper commands (session list, export) get the empty $inFile.
     [System.IO.File]::WriteAllText($inFile, '')
-
-    $all = @($RunArguments) + @($Prompt)
-    $argLine = ($all | ForEach-Object { ConvertTo-OpenCodeArgument $_ }) -join ' '
-    if ($argLine.Length -gt 32000) { throw "The opencode command line is $($argLine.Length) characters; Windows allows 32767. Shorten the brief." }
+    $promptFile = Join-Path $LogDir "$Title.prompt.txt"
+    $inv = Get-OpenCodeRunInvocation -RunArguments $RunArguments -Prompt $Prompt
+    [System.IO.File]::WriteAllText($promptFile, $inv.StdIn, [System.Text.UTF8Encoding]::new($false))
+    $argLine = $inv.ArgumentLine
 
     $startedMs = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
     $clock = [System.Diagnostics.Stopwatch]::StartNew()
     Write-Host "opencode: running $($Cli.Version) ($($Cli.Major).x arguments) from $exe ($($Cli.Why))"
     $p = Start-Process -FilePath $exe -ArgumentList $argLine -WorkingDirectory $WorkDir -NoNewWindow -PassThru `
-        -RedirectStandardInput $inFile -RedirectStandardOutput $outFile -RedirectStandardError $errFile
+        -RedirectStandardInput $promptFile -RedirectStandardOutput $outFile -RedirectStandardError $errFile
     $null = $p.Handle   # keeps the handle, so ExitCode is readable after the exit
-    Write-Host "opencode: pid $($p.Id), session title $Title, output $outFile"
+    Write-Host "opencode: pid $($p.Id), session title $Title, output $outFile, prompt via $($inv.Delivery)"
 
-    $files = @($outFile, $errFile, $inFile)
+    $files = @($outFile, $errFile, $inFile, $promptFile)
     $startupMs = [long][Math]::Min($StartupTimeoutSec, $TotalTimeoutSec) * 1000
     $totalMs = [long]$TotalTimeoutSec * 1000
     try {

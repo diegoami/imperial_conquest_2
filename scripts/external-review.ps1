@@ -14,8 +14,9 @@
          a path of its own, so two reviews of one PR never touch each other's tree;
       2. runs `opencode run` there with the .opencode/agents/external-reviewer.md agent and the
          model of the reviewer, feeding it the brief plus the output rules. The run is watched
-         (scripts/Invoke-OpenCodeWatched.ps1) with stdin closed, because `opencode run` waits for
-         stdin's end-of-file before it creates a session (the cause of the 2026-09-28 hangs). If
+         (scripts/Invoke-OpenCodeWatched.ps1) with the prompt on stdin, from a file, never on the
+         command line (Windows caps it at 32,767 characters); the file's end is the end-of-file
+         `opencode run` waits for before it creates a session (the 2026-09-28 hangs). If
          OpenCode creates no session within -StartupTimeoutSec, its session makes no progress
          for -IdleTimeoutSec, or it does not finish within -TotalTimeoutSec, its process tree is
          killed;
@@ -701,6 +702,19 @@ function Invoke-ReviewParserSelfTest {
     $givenLimits = Get-AdvisoryTimeouts @{ IdleTimeoutSec = 900 } 900 3600
     $ruleChecks += [pscustomobject]@{ Name = 'advisory timeouts: 300 s idle and 1800 s total by default, an explicit value kept'; Ok = ($defaultLimits.Idle -eq 300 -and $defaultLimits.Total -eq 1800 -and $givenLimits.Idle -eq 900 -and $givenLimits.Total -eq 1800) }
     $ruleChecks += [pscustomobject]@{ Name = 'brief guard passes a public brief (a 40-hex SHA, a 64-hex hash, paths, prose about keys)'; Ok = (@(Get-AdvisoryBriefLeaks $shaBrief).Count -eq 0) }
+    # The prompt goes through stdin, never the command line (Windows' 32,767-character cap blocked
+    # three dispatches on 2026-10-06): a 40,000-character prompt, with quotes, an em dash and a
+    # trailing instruction, leaves the argument line short and arrives whole on stdin, on 1.x and 2.x.
+    $bigPrompt = 'Header — "quoted" text.' + "`n" + ('x' * 40000) + "`nThe last line is the instruction."
+    $deliveryOk = $true
+    foreach ($major in 1, 2) {
+        $runArgs = Get-OpenCodeRunArguments -Major $major -WorkDir 'C:\w' -Agent 'external-reviewer' -Model 'openai/gpt-6-sol' -Variant 'low' -Title 'ic2-pr1-sol-abc'
+        $inv = Get-OpenCodeRunInvocation -RunArguments $runArgs -Prompt $bigPrompt
+        if ($inv.StdIn -cne $bigPrompt -or $inv.ArgumentLine.Length -gt 400 -or $inv.ArgumentLine.Contains('xxxx') -or $inv.Delivery -notlike 'stdin*') { $deliveryOk = $false }
+    }
+    $ruleChecks += [pscustomobject]@{ Name = 'a 40,000-character prompt goes through stdin, not the command line (1.x and 2.x)'; Ok = $deliveryOk }
+    $guardOk = try { $null = Get-OpenCodeRunInvocation -RunArguments @('run', '--title', ('t' * 33000)) -Prompt 'p'; $false } catch { $_.Exception.Message -like '*32767*' }
+    $ruleChecks += [pscustomobject]@{ Name = 'the 32,000 guard still stops an over-long command line'; Ok = $guardOk }
     # The 429 rule: OpenCode's own stderr "Error: " line (a fake run here), whatever the exit code; never the model's words.
     $limitRun = [pscustomobject]@{ ExitCode = 0; StdOut = 'review text'; StdErr = "> build · nvidia/nemotron-3-ultra-550b-a55b:free`n`nError: 429 Too Many Requests: free-models-per-min" }
     $limitRun1 = [pscustomobject]@{ ExitCode = 1; StdOut = ''; StdErr = 'Error: Rate limit exceeded: free-models-per-day' }
