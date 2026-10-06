@@ -130,6 +130,18 @@ public static class ConquestCascade
         // now reads 0 troops" is to hold none at all (NationState.RecruitmentSlots' own doc comment:
         // "Empty slots are simply absent").
         var finalLoser = stateAfterNeighbours.NationById(loserId)!;
+        var loserWasHuman = finalLoser.Control == SeatControl.Human;
+
+        // T146 (Opus review R1): TPremierForm_HumanLeaderFalls opens the window before FUN_0044C8F0's own
+        // treasury write, so the loser's pre-credit balance is carried out as an event before that write.
+        // The session's RecordSeatFall reads this carrier rather than a turn-start snapshot, which the same
+        // turn's quarterly billing (upkeep, Order 0) may already have moved away from. A computer loser
+        // publishes nothing -- the original never hands one to the routine (below).
+        if (loserWasHuman)
+        {
+            events.Publish(new HumanSeatFallTreasury(loserId, finalLoser.Treasury));
+        }
+
         finalLoser = finalLoser with
         {
             Eliminated = true,
@@ -137,6 +149,13 @@ public static class ConquestCascade
             Unity = rules.EliminationUnityReset,
             CapitalCityId = null,
             RecruitmentSlots = ValueList<RecruitmentSlot>.Empty,
+            // T146: FUN_0044C528 (conquest) calls FUN_0044C8F0 for a human loser (the same routine
+            // NationElimination.ApplyIfLastCityLost already calls for the defection path), whose treasury
+            // write is `treasury < 0 ? 0 : treasury + 1000` -- shared here through Deposition.FallTreasury,
+            // never a literal. A computer loser is never handed to that routine and keeps its treasury.
+            // The winner's own copy above (step 3) read the pre-credit treasury, so it gains 315 from a
+            // human loser of 315, not 1,315.
+            Treasury = loserWasHuman ? Deposition.FallTreasury(finalLoser.Treasury, ruleset) : finalLoser.Treasury,
             // T87 rework round 2 (bug #441's other half, R1): FUN_0044C528 (conquest) calls FUN_0044C8F0
             // for a human loser too, the same as FUN_0044BED8 (defection) -- decompiled-elimination-cleanup.md
             // §3's own callers list is "human-only in both". NationElimination.ApplyIfLastCityLost already

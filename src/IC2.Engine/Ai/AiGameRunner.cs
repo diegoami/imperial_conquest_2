@@ -137,6 +137,9 @@ public static class AiGameRunner
         var coordinator = new TurnCoordinator(registry, ruleset, world, NullEventSink.Instance, dispatcher);
 
         var state = GameStateFactory.CreateInitial(world, ruleset, scenario) with { RandomSeed = seed };
+        // T146: the New Game leader draw, from the state's own seed -- the same draw GameSession's New
+        // Game constructor makes. A world without a leader-name pool (the toy world) draws nothing.
+        state = NewGameLeaders.Apply(state, world);
 
         var transcript = new List<string>
         {

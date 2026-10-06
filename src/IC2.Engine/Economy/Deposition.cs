@@ -13,22 +13,17 @@ namespace IC2.Engine.Economy;
 /// <strong>[confirmed: upkeep-payment-and-desertion.md]</strong> throughout, except the relation reset,
 /// which is <c>[derived]</c> (code-only; neither sampled deposition held such a relation). The rename of
 /// the deposed leader ("a different random name from the nation's 12-name table") is <em>not</em>
-/// implemented here — Done-when 7 leaves it a known-open data gap: the name pool lives only in the DAT,
-/// and <see cref="Model.NationState.LeaderName"/> is left unchanged.
+/// implemented here, because it belongs to each caller's own draw: T146 exports the 16 × 12 name pool
+/// (<see cref="Model.NationDefinition.LeaderNames"/>, DAT <c>0x2089A</c>) and draws it in
+/// <see cref="LeaderSuccession"/> — the human fall's two draws at
+/// <see cref="Presentation.GameSession"/>'s fall sites, the computer deposition's retry loop in
+/// <see cref="AiDepositionHandler"/>, and rebirth's one draw in <see cref="Rebirth"/>. This type still
+/// leaves <see cref="Model.NationState.LeaderName"/> untouched; <see cref="ApplyEffects"/> only computes
+/// the unity and treasury halves (the latter through <see cref="FallTreasury"/>).
 /// <para>
-/// <strong>The new-leader step stays <c>[open]</c> — the user's own decision of 2026-09-27, on #389,
-/// after T87's implementation (plan PR #438).</strong> T87 re-checked this gap and it still stands: the
-/// 16 × 12 name pool is in the DAT at <c>0x2089A</c>, but neither <c>World.cs</c>'s own
-/// <see cref="Model.NationDefinition"/> nor any research report gives the twelve names any nation actually
-/// draws from — <c>upkeep-payment-and-desertion.md</c> and <c>decompiled-quarterly-rebellion.md</c> both
-/// state the mechanic ("a different random name from the nation's 12-name table" / "one <c>Random(12)</c>
-/// from the nation's 12 names") without transcribing the table itself, which is exactly the "lives only in
-/// the DAT" gap this remark already named. <see cref="Model.World"/> is outside this task's Owns list in
-/// any case (T87's Scope: <c>HumanDepositionSystem.cs</c>/<c>AiDepositionHandler.cs</c>/this file, never
-/// <c>Model/World.cs</c>), so even with the data in hand this would need a separate, later export task.
-/// Reported rather than invented: no placeholder name pool is added here, and both the fall
-/// (<see cref="ApplyEffects"/>) and rebirth (<see cref="Rebirth"/>) leave <see cref="Model.NationState.LeaderName"/>
-/// exactly as it was.
+/// <strong>The new-leader step is no longer <c>[open]</c>.</strong> T87 (the user's decision of
+/// 2026-09-27, on #389) left the name a known-open data gap because the 16 × 12 pool lived only in the
+/// DAT; T146's export adds it to the world and draws it as the original does.
 /// </para>
 /// </remarks>
 public static class Deposition
@@ -96,9 +91,27 @@ public static class Deposition
 
         var economy = ruleset.Economy;
         var newUnity = Math.Max(nation.Unity, Math.Min(economy.DepositionUnityCeiling, nation.Unity + economy.DepositionUnityGainAmount));
-        var newTreasury = nation.Treasury < 0 ? 0 : nation.Treasury + economy.DepositionTreasuryCredit;
+        var newTreasury = FallTreasury(nation.Treasury, ruleset);
 
         return nation with { Unity = newUnity, Treasury = newTreasury };
+    }
+
+    /// <summary>
+    /// T146: the treasury half of <c>FUN_0044c8f0</c>'s fall write — <c>treasury &lt; 0 ? 0 :
+    /// treasury + DepositionTreasuryCredit</c> (<c>decompiled-elimination-cleanup.md</c> §3, the
+    /// :50802–50805 write) — shared by <see cref="ApplyEffects"/> (a human's fall or an AI's
+    /// deposition) and by the two capture paths that eliminate a <em>human</em> loser
+    /// (<see cref="IC2.Engine.Cities.Capture.ConquestCascade"/> step 7 and
+    /// <see cref="IC2.Engine.Cities.Capture.NationElimination.ApplyIfLastCityLost"/>), which call the
+    /// same routine for a human in the original. A computer loser is never handed to it, so those paths
+    /// apply it only when the loser's control was <see cref="SeatControl.Human"/>.
+    /// </summary>
+    /// <param name="treasury">The treasury before the credit.</param>
+    /// <param name="ruleset">Supplies <see cref="EconomyRules.DepositionTreasuryCredit"/> — never a C# literal.</param>
+    public static int FallTreasury(int treasury, Ruleset ruleset)
+    {
+        ArgumentNullException.ThrowIfNull(ruleset);
+        return treasury < 0 ? 0 : treasury + ruleset.Economy.DepositionTreasuryCredit;
     }
 
     /// <summary>

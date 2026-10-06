@@ -36,27 +36,21 @@ namespace IC2.Engine.Economy;
 /// capital is chosen from among the cities the reborn nation now owns.
 /// </para>
 /// <para>
-/// <strong>The new leader stays <c>[open]</c> (the user's decision of 2026-09-27), but its draw is now
-/// consumed (review round 1, N1, the user's decision of the same date).</strong> The report: "one
-/// <c>Random(12)</c> from the nation's 12 names, with no 'differs from the current name' retry" —
-/// unconditional, unlike the fall's own retry-until-differs draw (see <see cref="Deposition"/>'s own
-/// remarks on why that one stays unmade). The 16 × 12 name pool is in the DAT at <c>0x2089A</c>, but the
-/// world data this engine loads carries one <see cref="NationState.LeaderName"/> per nation — the gap
-/// T39's own Done-when 7 already recorded (see <see cref="Deposition"/>'s own remarks, which T87
-/// re-checked and found still open). Exporting the pool is a later export task's own work;
-/// <see cref="NationState.LeaderName"/> is left unchanged here, and no name is invented. But the original
-/// still draws once, unconditionally, before doing anything else — every later draw in the same quarter
-/// (a later city's own loyalty draws, another rebellion or rebirth) sits at a stream position downstream
-/// of this one in the original, so silently skipping it here would desynchronise this engine's own
-/// sequence from the original's the very first time a rebirth happens. <see cref="Run"/> therefore makes
-/// the one <see cref="IRng.NextInt(int)"/> call the original makes, against <see cref="LeaderNamePoolSize"/>,
-/// and discards the result outright — the draw is real, only the name it would have picked is not, which
-/// is the "consumed but not decided" shape Done-when 4 asks for, not the invented stream consumption this
-/// build's own random-draw rule warns against (nothing here <em>reads</em> the drawn value, so nothing is
-/// invented from it). <see cref="LeaderNamePoolSize"/> (12) is the DAT's own fixed name-pool width, not a
-/// gameplay balance number a ruleset could tune — no scenario this engine loads carries a pool to draw
-/// from in the first place — so it stays a local constant here, the same treatment <c>RngStreams</c>' own
-/// algorithm constants get, never a <see cref="EconomyRules"/> field.
+/// <strong>T146: the new leader is now drawn and written when the world carries a pool; the draw itself
+/// is unchanged.</strong> The report: "one <c>Random(12)</c> from the nation's 12 names, with no 'differs
+/// from the current name' retry" — unconditional, unlike the fall's own retry-until-differs draw. T87
+/// (the user's decision of 2026-09-27, on #389) originally left the name <c>[open]</c> and merely
+/// consumed the draw; T146 exports the pool (<see cref="NationDefinition.LeaderNames"/>, DAT
+/// <c>0x2089A</c>) and <see cref="Run"/> now writes the entry the draw selects through
+/// <see cref="LeaderSuccession.ApplyRebirth"/>. A world without a pool (the toy and example worlds)
+/// keeps the old behaviour exactly: the one <see cref="IRng.NextInt(int)"/> call is still made against
+/// <see cref="LeaderNamePoolSize"/> and discarded, and <see cref="NationState.LeaderName"/> is left
+/// unchanged. Either way the draw count and place are unchanged, so the shared quarterly stream's
+/// position — every later draw in the same quarter (a later city's own loyalty draws, another rebellion
+/// or rebirth) sits downstream of it — is not disturbed. <see cref="LeaderNamePoolSize"/> (12) remains
+/// the DAT's own fixed name-pool width for the no-pool case, not a gameplay balance number a ruleset
+/// could tune, so it stays a local constant here, the same treatment <c>RngStreams</c>' own algorithm
+/// constants get, never a <see cref="EconomyRules"/> field.
 /// </para>
 /// <para>
 /// <strong>Relations are not fully reproduced here — review round 1, N2: unlike deposition and
@@ -95,11 +89,11 @@ namespace IC2.Engine.Economy;
 /// <c>EliminationForces.Dispose</c> call, never handed to the receiver, so the claim holds for those two.
 /// </para>
 /// <para>
-/// <strong>No decision-making draw.</strong> The report's own "Random draws: none in <c>FUN_0044C204</c>
-/// itself" covers the rebellion decision, and this method's own test (the qualifying-city count against a
-/// fixed threshold) and every reset field are equally deterministic — the sole draw rebirth itself makes
-/// in the original is the leader name, which this method now also draws (see above) but never reads: it
-/// decides nothing here and picks no name.
+/// <strong>The one draw is the leader name.</strong> The report's own "Random draws: none in
+/// <c>FUN_0044C204</c> itself" covers the rebellion decision, and this method's own test (the
+/// qualifying-city count against a fixed threshold) and every reset field are equally deterministic — the
+/// sole draw rebirth itself makes in the original is the leader name, which this method makes once and
+/// (T146) writes when the world carries a pool.
 /// </para>
 /// </remarks>
 public static class Rebirth
@@ -111,11 +105,11 @@ public static class Rebirth
     /// </summary>
     /// <remarks>
     /// Review round 2, N-a (the user's own decision on #389): stays a cited C# constant here, not an
-    /// <see cref="EconomyRules"/> field — this task's own ruleset grant is limited to the six rebirth
-    /// keys the reset writes actually use, and a name-pool <em>width</em> with no pool behind it in any
-    /// scenario this engine loads is not something a ruleset author could meaningfully tune anyway. It
-    /// becomes derivable from the exported pool itself, not ruleset data, once a later export task adds
-    /// that pool (see this type's own remarks on why exporting it is outside this task's Owns list).
+    /// <see cref="EconomyRules"/> field — a name-pool <em>width</em> is not a gameplay balance number a
+    /// ruleset author could meaningfully tune. T146 now exports the pool
+    /// (<see cref="NationDefinition.LeaderNames"/>) and the pool's own <c>Count</c> is the bound whenever
+    /// one is given; this constant is the bound only for the no-pool worlds (the toy and example worlds),
+    /// where it keeps the one draw the original makes and the name unchanged, exactly as before.
     /// </remarks>
     private const int LeaderNamePoolSize = 12;
 
@@ -128,11 +122,20 @@ public static class Rebirth
     /// <param name="deadNation">The nation named by the rebelling city's own allegiance; must have <c>Unity &lt;= 0</c>.</param>
     /// <param name="events">Where <see cref="CityCaptureResolver.Defect"/>'s own per-city defection news is published.</param>
     /// <param name="rng">
-    /// Review round 1, N1: the one <see cref="IRng.NextInt(int)"/> call this method makes and discards, for
-    /// the leader-name draw the original always makes here — see this type's own remarks.
+    /// Review round 1, N1: the one <see cref="IRng.NextInt(int)"/> call the original always makes here for
+    /// the leader-name draw. T146: the draw writes the name it selects when a pool is given, and is still
+    /// made and discarded when none is — see this type's own remarks.
+    /// </param>
+    /// <param name="leaderNames">
+    /// T146: the reborn nation's exported leader-name pool, or <see langword="null"/> when its world
+    /// carries none. Given a pool, this method's one existing draw selects an entry and writes it; given
+    /// none, the draw is still made and discarded and <see cref="NationState.LeaderName"/> is left
+    /// unchanged, exactly as before. See this type's own remarks on the leader step.
     /// </param>
     /// <returns><paramref name="state"/> itself, unchanged, if fewer than the required count of cities qualify.</returns>
-    public static GameState Run(GameState state, Ruleset ruleset, NationState deadNation, IEventSink events, IRng rng)
+    public static GameState Run(
+        GameState state, Ruleset ruleset, NationState deadNation, IEventSink events, IRng rng,
+        ValueList<string>? leaderNames = null)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(ruleset);
@@ -158,19 +161,27 @@ public static class Rebirth
         }
 
         // Review round 1, N1: the one leader-name draw the original always makes once rebirth actually
-        // proceeds (report §4, "one Random(12) from the nation's 12 names") -- made here, against
-        // LeaderNamePoolSize, and discarded outright. See this type's own remarks on why the draw itself
-        // is kept (to hold this engine's own random sequence in step with the original's) while the name
-        // it would pick is not (NationState.LeaderName stays [open], per DoD 1).
-        _ = rng.NextInt(LeaderNamePoolSize);
+        // proceeds (report §4, "one Random(12) from the nation's 12 names"). T146: with a pool the draw
+        // now writes the name it selects (no retry -- the report gives none); without one it is still
+        // made against LeaderNamePoolSize and discarded, so the draw count and the shared stream's
+        // position are unchanged either way. See this type's own remarks.
+        string rebornLeader;
+        if (leaderNames is { } pool)
+        {
+            rebornLeader = LeaderSuccession.ApplyRebirth(deadNation, pool, rng).LeaderName;
+        }
+        else
+        {
+            _ = rng.NextInt(LeaderNamePoolSize);
+            rebornLeader = deadNation.LeaderName;
+        }
 
         // The reset fields (report §4): unity, conquered-by, treasury, tax base, tax rate, mobilization,
         // every recruitment slot's own troops, and Eliminated cleared. City count needs no field of its
         // own -- this engine's own city count is always derived live from GameState.Cities, never stored,
         // so it is already 0 the moment every one of the dead nation's cities is gone, with nothing left
-        // to reset. LeaderName is deliberately left unchanged (see this type's own remarks). Wealth is
-        // deliberately left as the quarterly loop already zeroed it (report: "does not reset wealth...
-        // which the moves then refill").
+        // to reset. Wealth is deliberately left as the quarterly loop already zeroed it (report: "does
+        // not reset wealth... which the moves then refill").
         var reborn = deadNation with
         {
             Unity = economy.RebirthUnity,
@@ -181,6 +192,7 @@ public static class Rebirth
             MobilizedPercent = economy.RebirthMobilizedPercent,
             RecruitmentSlots = ValueList.From(deadNation.RecruitmentSlots.Select(slot => slot with { Troops = 0 })),
             Eliminated = false,
+            LeaderName = rebornLeader,
         };
 
         state = state with { Nations = CityCaptureResolver.ReplaceNation(state.Nations, reborn) };

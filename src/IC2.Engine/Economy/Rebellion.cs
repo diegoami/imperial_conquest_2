@@ -70,13 +70,14 @@ public static class Rebellion
 
         return string.Equals(city.Owner, city.Allegiance, StringComparison.Ordinal)
             ? RunOwnerIsAllegiance(state, world, ruleset, city, events)
-            : RunOwnerNotAllegiance(state, ruleset, city, events, rng);
+            : RunOwnerNotAllegiance(state, world, ruleset, city, events, rng);
     }
 
     /// <summary>
     /// (a)/(b) <c>[confirmed]</c>: the owner is not the city's allegiance nation.
     /// </summary>
-    private static GameState RunOwnerNotAllegiance(GameState state, Ruleset ruleset, CityState city, IEventSink events, IRng rng)
+    private static GameState RunOwnerNotAllegiance(
+        GameState state, World world, Ruleset ruleset, CityState city, IEventSink events, IRng rng)
     {
         var allegiance = state.NationById(city.Allegiance);
 
@@ -98,7 +99,10 @@ public static class Rebellion
 
         if (allegiance.Unity <= 0)
         {
-            return Rebirth.Run(state, ruleset, allegiance, events, rng);
+            // T146: the reborn nation's own leader-name pool from the world, so Rebirth.Run's one draw
+            // writes the name it selects; a world without a pool passes null and Rebirth.Run leaves the
+            // leader unchanged, as before.
+            return Rebirth.Run(state, ruleset, allegiance, events, rng, LeaderSuccession.PoolFor(world, allegiance.Id));
         }
 
         // (b): no war, no distance, no AI check -- the allegiance nation may be human.

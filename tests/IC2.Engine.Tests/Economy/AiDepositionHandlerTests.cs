@@ -68,6 +68,63 @@ public sealed class AiDepositionHandlerTests
         Assert.Equal(before, after.NationById("south"));
     }
 
+    // ---- T146 Done-when 5: the deposed leader redraw -------------------------------------------
+
+    private static ValueList<string> Pool() =>
+        ValueList.Of(Enumerable.Range(0, 12).Select(i => $"leader-{i}").ToArray());
+
+    private static World SouthPoolWorld(ValueList<string> pool) =>
+        EconomyTestbed.Toy.World with
+        {
+            Nations = ValueList.From(EconomyTestbed.Toy.World.Nations.Select(n =>
+                n.Id == "south" ? n with { LeaderNames = pool } : n)),
+        };
+
+    [Fact]
+    public void A_deposed_computer_nation_redraws_from_its_pool_and_the_event_carries_the_old_leader()
+    {
+        var state = WithSouth(treasury: -21_000, unity: 470, wealth: 0) with { RandomSeed = 7 };
+        var before = state.NationById("south")!;
+        var sink = new RecordingEventSink();
+        var rng = new ScriptedRng(
+            nextChanceDraws: new[] { true },
+            expectedNextChanceOdds: new[] { (1, EconomyTestbed.Ruleset.Economy.DepositionRandomDivisor) });
+
+        // Review N4: put the old leader at the index the deposition stream's own first draw would
+        // select, so the "differs from the old one" assertion is only true because of the retry loop --
+        // with an old leader outside the pool it held regardless.
+        var probe = LeaderSuccession.DepositionStream(state.RandomSeed, "south", state.Calendar);
+        var firstIndex = probe.NextInt(12);
+        var pool = ValueList.Of(Enumerable.Range(0, 12)
+            .Select(i => i == firstIndex ? before.LeaderName : $"leader-{i}")
+            .ToArray());
+
+        var after = new AiDepositionHandler().OnQuarterBoundary(
+            new QuarterBoundaryContext(state, EconomyTestbed.Ruleset, SouthPoolWorld(pool), 0, rng, sink));
+
+        var south = after.NationById("south")!;
+        Assert.Contains(south.LeaderName, pool);
+        Assert.NotEqual(before.LeaderName, south.LeaderName);
+
+        var published = Assert.Single(sink.Events.OfType<AiLeaderDeposed>());
+        Assert.Equal(before.LeaderName, published.LeaderName);
+    }
+
+    [Fact]
+    public void With_scripted_draws_4_4_9_from_a_leader_at_pool_4_the_new_leader_is_pool_9_after_three_draws()
+    {
+        var pool = Pool();
+        var nation = EconomyTestbed.InitialState().NationById("south")! with { LeaderName = pool[4] };
+        var rng = new ScriptedRng(
+            nextIntDraws: new[] { 4, 4, 9 },
+            expectedNextIntBounds: new[] { 12, 12, 12 });
+
+        var result = LeaderSuccession.ApplyDeposition(nation, pool, rng);
+
+        rng.AssertAllDrawsConsumed();
+        Assert.Equal(pool[9], result.LeaderName);
+    }
+
     [Fact]
     public void OnQuarterBoundary_AHumanControlledNation_IsNeverConsideredHere()
     {

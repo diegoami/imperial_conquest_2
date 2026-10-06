@@ -88,6 +88,49 @@ public static class GameDataValidation
             {
                 throw new UnresolvedReferenceException(documentPath, "city", capital);
             }
+
+            // T146: a nation's leader pool, when present, must be a drawable 12-name table. The 12 is
+            // the DAT pool's own fixed width -- DatLayout.LeaderPoolNamesPerNation (16 x 12 x 26,
+            // docs/investigations/dat-file-layout.md's read-order row) -- a structural fact of the
+            // exported pool rather than a ruleset-tunable rule, so it is a local constant here rather
+            // than a Ruleset field. DatLayout is internal to IC2.Data, so this namespace cannot
+            // reference the constant directly; it is restated here against that cited source.
+            if (nation.LeaderNames is { } leaderNames)
+            {
+                const int leaderNamePoolSize = 12;
+                if (leaderNames.Count != leaderNamePoolSize)
+                {
+                    throw new MalformedGameDataException(
+                        documentPath,
+                        $"nation '{nation.Id}' has {leaderNames.Count} leaderNames; a leader pool has exactly {leaderNamePoolSize}.");
+                }
+
+                var distinct = new HashSet<string>(StringComparer.Ordinal);
+                for (var i = 0; i < leaderNames.Count; i++)
+                {
+                    if (string.IsNullOrWhiteSpace(leaderNames[i]))
+                    {
+                        throw new MalformedGameDataException(
+                            documentPath, $"nation '{nation.Id}' has an empty leader name at index {i}.");
+                    }
+
+                    distinct.Add(leaderNames[i]);
+                }
+
+                if (distinct.Count < 2)
+                {
+                    throw new MalformedGameDataException(
+                        documentPath,
+                        $"nation '{nation.Id}' has 12 identical leader names; a fall could never draw a different one.");
+                }
+
+                if (!distinct.Contains(nation.LeaderName))
+                {
+                    throw new MalformedGameDataException(
+                        documentPath,
+                        $"nation '{nation.Id}' leaderName '{nation.LeaderName}' is not one of its leaderNames pool.");
+                }
+            }
         }
 
         foreach (var city in world.Cities)

@@ -1,6 +1,7 @@
 using System.Globalization;
 using IC2.Engine.Battle;
 using IC2.Engine.Battle.Commands;
+using IC2.Engine.Cities.Capture;
 using IC2.Engine.Core;
 using IC2.Engine.Diplomacy.Commands;
 using IC2.Engine.Economy;
@@ -235,15 +236,41 @@ public sealed partial class GameSession
     private readonly List<Battle.BattleResult> _pendingBattleResults = new();
 
     /// <summary>
+    /// T146 (Opus review R1): the pre-credit treasury of every human loser a capture path eliminated since
+    /// the last fall was recorded, keyed by nation id. Collected from the capture paths' own
+    /// <see cref="HumanSeatFallTreasury"/> event by <see cref="CaptureBattleResultsIfAny"/> — no snapshot of
+    /// the whole turn, so a same-turn quarterly billing write (upkeep) between the snapshot and the fall
+    /// cannot corrupt it. <see cref="RecordSeatFall"/> consumes an entry when it records that nation's
+    /// fall; a nation with no entry (a deposition, or a fall no capture reported) keeps reading
+    /// <see cref="NationState.Treasury"/> itself. The first carrier for a nation wins — a defection that
+    /// eliminates the seat and a later, already-eliminated conquest trigger for the same nation put the
+    /// true pre-credit figure (the defection's) first.
+    /// </summary>
+    private readonly Dictionary<string, int> _pendingFallTreasuries = new(StringComparer.Ordinal);
+
+    /// <summary>
     /// Appends every <see cref="Battle.BattleResult"/> found in <paramref name="events"/> to
-    /// <see cref="_pendingBattleResults"/> — see that field's own remarks for the call sites and why. A
-    /// no-op for any event stream that resolved no battle, which is most of them.
+    /// <see cref="_pendingBattleResults"/>, and every <see cref="HumanSeatFallTreasury"/> to
+    /// <see cref="_pendingFallTreasuries"/> — see each field's own remarks for the call sites and why. A
+    /// no-op for any event stream that resolved no battle and eliminated no human, which is most of them.
+    /// Called before <see cref="AppendFallMessagesForNewlyLostHumanSeats"/> so a fall's record sees its
+    /// carrier.
     /// </summary>
     private void CaptureBattleResultsIfAny(IEnumerable<DomainEvent> events)
     {
-        foreach (var resolved in events.OfType<Battle.BattleResolved>())
+        foreach (var domainEvent in events)
         {
-            _pendingBattleResults.Add(resolved.Result);
+            switch (domainEvent)
+            {
+                case Battle.BattleResolved resolved:
+                    _pendingBattleResults.Add(resolved.Result);
+                    break;
+                case HumanSeatFallTreasury fallTreasury:
+                    // Keep the first carrier for a nation: the true pre-credit figure belongs to whichever
+                    // path actually applied FUN_0044C8F0's credit first.
+                    _pendingFallTreasuries.TryAdd(fallTreasury.NationId, fallTreasury.TreasuryBeforeCredit);
+                    break;
+            }
         }
     }
 
@@ -287,6 +314,12 @@ public sealed partial class GameSession
     /// </summary>
     private IReadOnlyList<SeatFall> FlushPendingSeatFalls()
     {
+        // T146 (Opus review R1): a carrier
+        // (HumanSeatFallTreasury) collected but not consumed by a recorded fall in this call must not
+        // outlive it and be read by a later call's fall for the same nation. Checked here rather than only
+        // in RecordSeatFall, since this runs once at every Submit return, after every record.
+        _pendingFallTreasuries.Clear();
+
         if (_pendingSeatFalls.Count == 0)
         {
             LastSeatFalls = Array.Empty<SeatFall>();
@@ -303,21 +336,32 @@ public sealed partial class GameSession
     /// T138: records one human seat's fall, once per call — <see cref="SeatFall"/>'s own remarks for what
     /// it carries and why. <paramref name="fallen"/> must be the nation exactly as it stands at the fall
     /// (see each caller): the pre-<c>FUN_0044C8F0</c> nation for a deposition, the post-capture one for a
-    /// conquest, because <c>TPremierForm_HumanLeaderFalls</c> opens the window before the deposition's own
-    /// writes. A nation already recorded this call is a no-op, so the same fall reported by more than one
-    /// of the session's own paths (a <c>--seat</c> seat caught by both
-    /// <see cref="AppendFallMessagesForNewlyLostHumanSeats"/> and
+    /// conquest, because <c>TPremierForm_HumanLeaderFalls</c> opens the window before the fall's own
+    /// writes. For the treasury, the capture paths publish the pre-credit figure as
+    /// <see cref="HumanSeatFallTreasury"/> (T146, Opus review R1), which
+    /// <see cref="CaptureBattleResultsIfAny"/> has already collected by the time this runs; a fall with no
+    /// carrier (a deposition) records <see cref="NationState.Treasury"/> as it stands. A nation already
+    /// recorded this call is a no-op, so the same fall reported by more than one of the session's own paths
+    /// (a <c>--seat</c> seat caught by both <see cref="AppendFallMessagesForNewlyLostHumanSeats"/> and
     /// <see cref="AnnounceAndAdoptWatchModeIfSeatIsLost"/>) yields one <see cref="SeatFall"/>.
     /// </summary>
-    private void RecordSeatFall(NationState fallen)
+    private bool RecordSeatFall(NationState fallen)
     {
         foreach (var already in _pendingSeatFalls)
         {
             if (string.Equals(already.NationId, fallen.Id, StringComparison.Ordinal))
             {
-                return;
+                return false;
             }
         }
+
+        // T146 (Opus review R1): the capture's own pre-credit carrier wins when one was published; a
+        // turn-start snapshot cannot be trusted, since the same turn's quarterly billing may have moved the
+        // treasury between it and the fall. A deposition publishes none and records the live value.
+        var endTreasury = _pendingFallTreasuries.TryGetValue(fallen.Id, out var preCredit)
+            ? preCredit
+            : fallen.Treasury;
+        _pendingFallTreasuries.Remove(fallen.Id);
 
         var (reason, conqueror) = FallReasonOf(fallen);
         var endCityCount = State.Cities.Count(
@@ -331,7 +375,40 @@ public sealed partial class GameSession
             State.Calendar.YearBc,
             fallen.Wealth,
             endCityCount,
-            fallen.Treasury));
+            endTreasury));
+        return true;
+    }
+
+    /// <summary>
+    /// T146: redraws one just-recorded fallen seat's leader from its world pool, from the fall's own
+    /// stream (<see cref="LeaderSuccession.FallStream"/> — the root seed and the calendar, so a resume
+    /// derives the same name). A world without a pool (the toy world) leaves the leader unchanged, so
+    /// those sessions are untouched. Called once per fallen seat per call, from
+    /// <see cref="RecordSeatFall"/>'s own "did this call record it" result, so a fall reported by more
+    /// than one path redraws once. The window's <see cref="SeatFall.LeaderName"/> was copied before
+    /// this, so it keeps the pre-fall leader.
+    /// </summary>
+    private void RedrawFallenLeader(string nationId)
+    {
+        var pool = LeaderSuccession.PoolFor(World, nationId);
+        if (pool is null)
+        {
+            return;
+        }
+
+        var nation = State.NationById(nationId);
+        if (nation is null)
+        {
+            return;
+        }
+
+        var stream = LeaderSuccession.FallStream(State.RandomSeed, nationId, State.Calendar);
+        var redrawn = LeaderSuccession.ApplyFall(nation, pool, stream);
+        State = State with
+        {
+            Nations = ValueList.From(State.Nations.Select(n =>
+                string.Equals(n.Id, nationId, StringComparison.Ordinal) ? redrawn : n)),
+        };
     }
 
     /// <summary>
@@ -579,6 +656,11 @@ public sealed partial class GameSession
 
         var initial = GameStateFactory.CreateInitial(world, ruleset, scenario);
         State = seedOverride.HasValue ? initial with { RandomSeed = seedOverride.Value } : initial;
+
+        // T146: the New Game leader draw, after the seed override and before any seat is advanced, so
+        // the fall sites below redraw from the same world pool the New Game used. Its own stream, so no
+        // other seeded outcome moves; a world without a pool draws nothing.
+        State = NewGameLeaders.Apply(State, World);
 
         // T87 rework round 1 (bug #380, review B4): this used to run only for a --seat session
         // (_humanSeatNationId is not null), so a plain hotseat session's own first turn-order seat was
@@ -862,13 +944,20 @@ public sealed partial class GameSession
         // from -- TPremierForm_HumanLeaderFalls opens the window before FUN_0044C8F0's own writes, so the
         // window's end figures are the treasury and unity the nation actually held (see SeatFall's own
         // remarks). A no-op if some other path already recorded this same seat this call.
-        RecordSeatFall(nation);
+        var recorded = RecordSeatFall(nation);
 
         var deposed = Deposition.ApplyEffects(nation, Ruleset) with { Control = SeatControl.Ai };
         var relations = Deposition.ResetRelations(State.Relations, nation.Id, Ruleset);
         var updatedNations = State.Nations.Select(n =>
             string.Equals(n.Id, nation.Id, StringComparison.Ordinal) ? deposed : n);
         State = State with { Nations = ValueList.From(updatedNations), Relations = relations };
+
+        // T146: after the window's figures are recorded (above), the fall redraws the leader from the
+        // nation's world pool. The message line above names no leader, so it is unaffected.
+        if (recorded)
+        {
+            RedrawFallenLeader(nation.Id);
+        }
 
         lines.Add(message);
     }
@@ -943,7 +1032,17 @@ public sealed partial class GameSession
             var now = State.NationById(previously.Id);
             if (now is not null && (now.Eliminated || now.Control != SeatControl.Human))
             {
-                RecordSeatFall(now);
+                // T146 (Opus review R1): the end treasury comes from the capture's own
+                // HumanSeatFallTreasury carrier, collected by CaptureBattleResultsIfAny before this method
+                // runs -- never from `previously`, the whole turn's starting snapshot, which the same
+                // turn's earlier quarterly billing (upkeep, Order 0) can already have moved (the reviewer's
+                // 450-snapshot / 354-real probe). The fall then redraws the leader from the world pool.
+                var recorded = RecordSeatFall(now);
+                if (recorded)
+                {
+                    RedrawFallenLeader(now.Id);
+                }
+
                 lines.Add(HumanLeaderFallsMessage(now));
             }
         }
@@ -1633,7 +1732,13 @@ public sealed partial class GameSession
         // make, so a fall this method alone notices is still on the game-end screen. An elimination or
         // deposition already recorded by AppendFallMessagesForNewlyLostHumanSeats /
         // DepositActiveHumanSeatIfItShouldFallAtTurnStart is a no-op here.
-        RecordSeatFall(nation);
+        // T146: and the leader redraw follows the same once-per-call rule -- if another path already
+        // recorded this seat this call, it already redrew.
+        var recorded = RecordSeatFall(nation);
+        if (recorded)
+        {
+            RedrawFallenLeader(nation.Id);
+        }
 
         lines.Add(
             nation.Eliminated
@@ -1735,9 +1840,12 @@ public sealed partial class GameSession
         // before this same call (review B2's own probe), which its removal still correctly closes --
         // nationsBeforeThisSeatsTurn's own live comparison below only ever fires for a seat that
         // demonstrably was human just before this call, never unconditionally.
+        // T146 (Opus review R1): collected before the fall sweep below, so a just-eliminated human seat's
+        // own pre-credit treasury carrier reaches RecordSeatFall -- see _pendingFallTreasuries's remarks.
+        // It appends no line, so moving it above the fall sweep changes nothing a caller sees.
+        CaptureBattleResultsIfAny(result.Events);
         AppendFallMessagesForNewlyLostHumanSeats(lines, nationsBeforeThisSeatsTurn);
         CapturePeaceTreatyOfferIfAny(lines, result.Events);
-        CaptureBattleResultsIfAny(result.Events);
 
         if (!AnnounceAndAdoptWatchModeIfSeatIsLost(lines) && !AnnounceGameOverIfNoHumanSeatRemains(lines))
         {

@@ -64,10 +64,10 @@ namespace IC2.Engine.Ai;
 /// </para>
 /// <para>
 /// <strong>It draws no randomness.</strong> Every qualifying offer is hired in a fixed order (armies in
-/// <see cref="GameState.Armies"/> order, then cities in <see cref="GameState.Cities"/> order, then pool
-/// slots in <see cref="GameState.MercenaryPool"/> order), so it adds zero draws to an AI turn and a
-/// fixed-seed replay is identical by construction. <see cref="Result.Describe"/> names the counts for the
-/// per-seed log.
+/// <see cref="GameState.Armies"/> order, then cities in <see cref="GameState.Cities"/> order, then the
+/// city's pool slots in <see cref="MercenaryPoolSlot.SlotIndex"/> order — <c>PoolSlotsAt</c> orders them
+/// by slot index since T76), so it adds zero draws to an AI turn and a fixed-seed replay is identical by
+/// construction. <see cref="Result.Describe"/> names the counts for the per-seed log.
 /// </para>
 /// <para>
 /// <strong>The 19-unit quirk is reproduced.</strong> The original computes the army's first free slot

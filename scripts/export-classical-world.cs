@@ -54,6 +54,9 @@ var fleetTable = SaveFleetTable.Parse(datBytes);
 // T75: the starting relation matrix (nationTable.Nations[i].Relations) and the news seed both come
 // from this same T73 parse -- SaveNewsLog.Parse for the seed, never typed by hand.
 var newsLog = SaveNewsLog.Parse(datBytes);
+// T146: the leader-name pool (16 x 12 x 26 bytes at DAT 0x2089A), straight through IC2.Data's own
+// DatLeaderPool parse -- never typed by hand, the same rule every other DAT-sourced value here follows.
+var leaderPool = DatLeaderPool.Parse(datBytes);
 
 // ---- DoD 1: cross-check against IC2.Data's own parse, never re-derived independently -------
 // WorldPrefix.Parse and SaveNationTable.Parse are exactly "T30's DAT nation-table parse" the
@@ -80,6 +83,20 @@ for (ushort i = 0; i < nationTable.Nations.Count; i++)
     }
 }
 Console.WriteLine($"DoD 1 cross-check OK: {prefix.Cities.Count} cities, {nationTable.Nations.Count} nations, {WorldPrefix.MapWidth}x{WorldPrefix.MapHeight} map, names match NationCatalog in order.");
+
+// T146: the pool's own shape, checked before it is written out -- one 12-name list per DAT nation,
+// each name non-empty, so a DatLeaderPool that silently parsed the wrong stride cannot ship a world.
+if (leaderPool.Pools.Count != nationTable.Nations.Count)
+    throw new InvalidOperationException(
+        $"Expected {nationTable.Nations.Count} leader pools; DatLeaderPool gave {leaderPool.Pools.Count}.");
+for (var i = 0; i < leaderPool.Pools.Count; i++)
+{
+    if (leaderPool[i].Count != DatLeaderPool.NamesPerNation)
+        throw new InvalidOperationException($"Nation {i} ({nationTable.Nations[i].Name}) has {leaderPool[i].Count} leader names, not {DatLeaderPool.NamesPerNation}.");
+    if (leaderPool[i].Any(string.IsNullOrWhiteSpace))
+        throw new InvalidOperationException($"Nation {i} ({nationTable.Nations[i].Name}) has an empty leader name.");
+}
+Console.WriteLine($"T146 leader pool: {leaderPool.Pools.Count} nations x 12 names from DAT 0x2089A.");
 
 // ============================================================================================
 // 2. Ids. Deterministic, derived only from DAT content (never a random or ordering-dependent
@@ -239,9 +256,9 @@ static TileType TileType(string id, int code, string name, bool passableByArmies
 // ============================================================================================
 // 5. Nations. Every numeric field is the DAT nation record, taken straight from
 //    SaveNationTable.Parse (T30) -- DoD 9's tax base is exported as stored, never recomputed.
-//    Leader names and the human-player flag are New Game state, not world data (DoD 2): every
-//    nation gets an explicit, non-DAT placeholder leader name, and no field here claims DAT
-//    provenance for it.
+//    T146: the leader-name POOL is world data and comes straight from DatLeaderPool.Parse (DAT
+//    0x2089A, 16 x 12 x 26); each nation's leaderName is its pool's index-0 name. The human-player
+//    flag remains New Game state, not world data.
 // ============================================================================================
 // The original's own marker colours (T97, superseding T49's designed palette): every city, army and
 // fleet marker is a square filled with the owner's *background* colour, with the glyph drawn on it in
@@ -300,12 +317,20 @@ for (var i = 0; i < 16; i++)
         .Select(c => $"#{c & 0xFF:X2}{(c >> 8) & 0xFF:X2}{(c >> 16) & 0xFF:X2}")
         .ToArray());
 
+    // T146: this nation's own 12-name pool, in the DAT's pool order (DatLeaderPool is indexed by the
+    // same DAT nation order the nation table uses). leaderName is its index-0 name -- the name a state
+    // carries before any New Game draw (GameStateFactory.CreateInitial and OriginalSaveImporter's own
+    // fallback). The index-0 convention is [designed]: the cited documents pin the pool and the draw,
+    // not which name a state holds before it, so the provenance below tags the choice designed even
+    // though the name's text is DAT-confirmed. The full list is exported as leaderNames for the New
+    // Game and fall draws.
+    var leaderNames = leaderPool[i];
     nationDefs[i] = new NationDefinition(
         Id: nationIds[i],
         Name: n.Name,
         ColorHex: palette[i],
         GlyphColorHex: glyphPalette[i],
-        LeaderName: "(unassigned -- drawn at New Game)",
+        LeaderName: leaderNames[0],
         CapitalCityId: capitalId,
         Treasury: n.Treasury,
         Unity: n.UnityValue,
@@ -315,12 +340,14 @@ for (var i = 0; i < 16; i++)
         MobilizedPercent: n.MobilizedPercent,
         Population: population,
         BattleColorsHex: battleColorsHex,
+        LeaderNames: ValueList.Of(leaderNames.ToArray()),
         Provenance: ProvenanceMap.Of(
             ("name", "confirmed: T30's DAT nation-table parse (IC2.Data.SaveNationTable.Parse), DAT 0x1B100; cross-checked against NationCatalog -- docs/investigations/dat-file-layout.md."),
             ("colorHex", "confirmed: 2026-09-29-nation-marker-colours.md -- the report's background-square colour for this nation (read from the user's 2026-09-29 screenshot strip, cross-checked against the pre-T94 research inspector's OwnerColor table); replaces T49's designed palette."),
             ("battleColorsHex", "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §10 -- FUN_0044A6C8 substitutes a battle icon's purple 0x800080, white and blue with the nation record's +0x424, +0x428 and +0x42C. The SAV holds the three words in a 12-byte block between its recruitment queue (+0x2E4..+0x424) and wealth (+0x430); the DAT has no such block (its queue +0x2C9..+0x409 runs straight into wealth), and no nation's triple occurs anywhere in the DAT's bytes, so the values are read from the +0x424/+0x428/+0x42C words of the start save 1_rome_270_winter_11.sav."),
             ("glyphColorHex", "confirmed: 2026-09-29-nation-marker-colours.md -- the report's foreground glyph colour for this nation, the first record of it."),
-            ("leaderName", "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one."),
+            ("leaderName", "designed: the nation's own leader-name pool's index-0 entry. The name's text is confirmed at DAT 0x2089A (16 x 12 x 26 bytes) through IC2.Data.DatLeaderPool.Parse -- docs/investigations/dat-file-layout.md, 'leader-name pool, 16 x 12 x 26 bytes'; 2026-10-03-new-game-turn-order-shuffle.md (research 871ca91) and decompiled-new-game-mercenary-fill.md pin the offset. Which name a state carries before the New Game draw is not in any source: those documents describe the pool and the draw, not a pre-draw convention; this index-0 choice is this task's own (the name GameStateFactory.CreateInitial and OriginalSaveImporter fall back on), so the choice is tagged [designed] while the name's text stays DAT-confirmed."),
+            ("leaderNames", "confirmed: the nation's 12-candidate leader-name pool in DAT order, DAT 0x2089A, through IC2.Data.DatLeaderPool.Parse -- docs/investigations/dat-file-layout.md's read-order row and FUN_00448aa4's strcpy(record + 0x0b, leaderPool + i * 0x1a). 2026-10-03-new-game-turn-order-shuffle.md (research 871ca91) replays the pool against the saved leaders, and decompiled-new-game-mercenary-fill.md pins the offset by the loader's sequential reads (0x1FCD6 + 0xBC4 + 0x1380 + 0x988 = 0x225A2)."),
             ("capitalCityId", "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse."),
             ("treasury", "confirmed: DAT nation record +0x40d, T30's parse."),
             ("unity", "confirmed: DAT nation record +0x411, T30's parse."),
@@ -703,13 +730,9 @@ if (ruleset.NewsLog.SeasonNames.Count != ruleset.Calendar.SeasonsPerYear)
     throw new InvalidOperationException(
         $"newsLog.seasonNames has {ruleset.NewsLog.SeasonNames.Count} entries but calendar.seasonsPerYear is {ruleset.Calendar.SeasonsPerYear}.");
 
-// ---- DoD 2 safety net: no leader string in the export may claim DAT provenance -----------------
-foreach (var nation in world.Nations)
-{
-    var source = nation.Provenance?.SourceFor("leaderName") ?? "";
-    if (source.Contains("confirmed", StringComparison.OrdinalIgnoreCase) && source.Contains("DAT", StringComparison.Ordinal))
-        throw new InvalidOperationException($"Nation '{nation.Id}' leaderName provenance appears to claim DAT provenance: \"{source}\"");
-}
+// T146: T29's old "DoD 2 safety net" forbade a DAT-sourced leader string; it is gone because the
+// leader-name pool is now world data exported from DAT 0x2089A (see the nation block's own provenance
+// and ExportedWorldTests' pool assertions). The human-player flag remains New Game state.
 
 // ---- Review round 1 B1 safety net: _provenance.id round-trips to exactly the exporter-owned text
 // set above, not toy-ruleset.json's own "not one of the two shipped presets" identity note (which
@@ -722,9 +745,10 @@ if (ruleset.Provenance?.SourceFor("id") != classicalFaithfulIdProvenance)
         $"\"{ruleset.Provenance?.SourceFor("id")}\"");
 
 // ============================================================================================
-// 10. Scenario: seats every nation (AI by default -- New Game assigns human seats and leaders),
-//     references the exported world and ruleset. Turn order and leader names are not fixed here,
-//     for the same reason DoD 8 gives.
+// 10. Scenario: seats every nation (AI by default -- New Game assigns the human seats),
+//     references the exported world and ruleset. Turn order and the per-nation leader DRAW are not
+//     fixed here: the world now carries the leader-name pool (T146) and NewGameLeaders draws from it
+//     when a game starts, exactly as the original's FUN_00448aa4 does.
 // ============================================================================================
 var seats = nationIds.Select(id => new Seat(Nation: id, Control: SeatControl.Ai, Personality: null)).ToArray();
 var scenario = new Scenario(
@@ -1229,6 +1253,12 @@ internal static class RulesetCorpusMap
         ("naval.zeroSupplyMovesPenalty", "fleet.condition.zeroSupplyMovesLoss"),
         ("newsLog.messageByteLength", "newsMessage.weekHeader"),
         ("newsLog.ringBufferSlots", "caps.maxNewsSlots"),
+        // T146 (T76 follow-up #774 item 3): the three T76-added recruitment constants that had a
+        // corpus id but no map row, so the exporter cited their values but never cross-checked them.
+        // The values already agree (50, 4, 1); these rows make the cross-check real.
+        ("recruitment.mercenaryAiHireMinMoney", "mercenary.aiHireMoneyThreshold"),
+        ("recruitment.mercenaryHireRangeAiSeat", "mercenary.aiHireRadius"),
+        ("recruitment.mercenaryHireRangeHumanSeat", "mercenary.playerHireRange"),
         ("recruitment.mercenaryHireTroopDivisor", "mercenary.hireCostFormula"),
         ("recruitment.mercenaryPoolSlots", "caps.maxMercenarySlots"),
         ("recruitment.mercenaryUpkeepQualityDivisor", "mercenary.upkeepFormula"),

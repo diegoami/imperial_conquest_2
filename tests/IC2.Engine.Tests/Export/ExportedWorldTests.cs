@@ -60,22 +60,62 @@ public class ExportedWorldTests
     }
 
     /// <summary>
-    /// DoD 2: no <c>leaderName</c> in the export may claim DAT provenance -- leader names are New
-    /// Game state (<c>TPremierForm_NewGame</c>'s <c>FUN_00448aa4</c>), not world data.
+    /// T146 Done-when 1: every one of the 16 nations carries its 12-name leader pool from the DAT
+    /// (<c>0x2089A</c>), <c>leaderName</c> is that pool's index-0 name, and both provenance notes cite
+    /// the offset. Replaces T29's old <c>No_leaderName_provenance_claims_DAT_provenance</c>, which
+    /// asserted the opposite (the pool is now world data).
     /// </summary>
     [Fact]
-    public void No_leaderName_provenance_claims_DAT_provenance()
+    public void Every_nation_carries_its_12_name_DAT_leader_pool()
     {
         var world = Load();
+        Assert.Equal(16, world.Nations.Count);
 
         foreach (var nation in world.Nations)
         {
-            var source = nation.Provenance?.SourceFor("leaderName");
-            Assert.False(string.IsNullOrEmpty(source), $"Nation '{nation.Id}' has no leaderName provenance at all.");
-            Assert.False(
-                source!.Contains("confirmed", StringComparison.OrdinalIgnoreCase) && source.Contains("DAT", StringComparison.Ordinal),
-                $"Nation '{nation.Id}' leaderName provenance claims DAT provenance: \"{source}\"");
+            var names = nation.LeaderNames;
+            Assert.NotNull(names);
+            Assert.Equal(12, names!.Count);
+            Assert.All(names, name => Assert.False(string.IsNullOrWhiteSpace(name),
+                $"Nation '{nation.Id}' has an empty leader name."));
+            Assert.Equal(names[0], nation.LeaderName);
+
+            var leaderSource = nation.Provenance?.SourceFor("leaderName");
+            Assert.False(string.IsNullOrEmpty(leaderSource), $"Nation '{nation.Id}' has no leaderName provenance.");
+            Assert.Contains("0x2089A", leaderSource, StringComparison.Ordinal);
+            // Review R6: the index-0 pre-draw convention is not in any cited source, so the note is
+            // tagged [designed] (the name's text stays DAT-confirmed at the offset above).
+            Assert.StartsWith("designed:", leaderSource, StringComparison.Ordinal);
+
+            var poolSource = nation.Provenance?.SourceFor("leaderNames");
+            Assert.False(string.IsNullOrEmpty(poolSource), $"Nation '{nation.Id}' has no leaderNames provenance.");
+            Assert.Contains("0x2089A", poolSource, StringComparison.Ordinal);
         }
+    }
+
+    /// <summary>
+    /// T146 Done-when 1: the report's own observed names are in their nations' pools, and Carthage's and
+    /// Ptolemaic's pinned indices hold. The observed names are the turn-order report's seed-12345 replay
+    /// (<c>2026-10-03-new-game-turn-order-shuffle.md</c>): Rome's <em>Appius Claudius</em>,
+    /// <em>Antiochus</em>, <em>Publius Scipio</em> and <em>Licinus Crassus</em>; Gaul's <em>Hengest</em>,
+    /// <em>Arminius</em>, <em>Brennus</em> and <em>Horsa</em>; Carthage's index 6 <em>Agis</em> and the
+    /// Ptolemaic index 5 <em>Thutmose</em>.
+    /// </summary>
+    [Fact]
+    public void The_observed_names_are_in_their_nations_pools()
+    {
+        var world = Load();
+
+        var rome = world.Nations.Single(n => n.Id == "rome").LeaderNames!;
+        foreach (var expected in new[] { "Appius Claudius", "Antiochus", "Publius Scipio", "Licinus Crassus" })
+            Assert.Contains(expected, rome);
+
+        var gaul = world.Nations.Single(n => n.Id == "gaul").LeaderNames!;
+        foreach (var expected in new[] { "Hengest", "Arminius", "Brennus", "Horsa" })
+            Assert.Contains(expected, gaul);
+
+        Assert.Equal("Agis", world.Nations.Single(n => n.Id == "carthage").LeaderNames![6]);
+        Assert.Equal("Thutmose", world.Nations.Single(n => n.Id == "ptolemaic").LeaderNames![5]);
     }
 
     /// <summary>

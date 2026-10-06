@@ -1,3 +1,5 @@
+using IC2.Engine.Core;
+using IC2.Engine.Economy;
 using IC2.Engine.Model;
 
 namespace IC2.Engine.Cities.Capture;
@@ -79,8 +81,16 @@ public static class NationElimination
     /// The (possibly updated) nation, and whether this call is what eliminated it — as opposed to it
     /// already being eliminated, or still owning at least one city.
     /// </returns>
+    /// <param name="events">
+    /// T146 (Opus review R1): where a human loser's pre-credit treasury is published as
+    /// <see cref="HumanSeatFallTreasury"/>, immediately before <see cref="Deposition.FallTreasury"/> writes
+    /// its own <c>+1000</c>. Optional so the callers outside this task that only assert the returned nation
+    /// (the existing <c>EliminationTests</c>) need no change; the production defection call site passes the
+    /// same sink it already publishes <see cref="CityDefectsToNation"/> through. A computer loser publishes
+    /// nothing.
+    /// </param>
     public static (NationState Nation, bool JustEliminated) ApplyIfLastCityLost(
-        GameState state, NationState nation, Ruleset ruleset, string conquerorId)
+        GameState state, NationState nation, Ruleset ruleset, string conquerorId, IEventSink? events = null)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(nation);
@@ -92,11 +102,25 @@ public static class NationElimination
             return (nation, false);
         }
 
+        // T146 (Opus review R1): the same pre-credit carrier the conquest path publishes, before the write
+        // below -- the session's window records this, not a turn-start snapshot.
+        if (nation.Control == SeatControl.Human)
+        {
+            events?.Publish(new HumanSeatFallTreasury(nation.Id, nation.Treasury));
+        }
+
         var eliminated = nation with
         {
             Eliminated = true,
             Unity = ruleset.Capture.EliminationUnityReset,
             ConqueredBy = conquerorId,
+            // T146: FUN_0044BED8 (defection) calls FUN_0044C8F0 for a human loser, whose treasury write is
+            // `treasury < 0 ? 0 : treasury + 1000` (decompiled-elimination-cleanup.md §3, :50802-50805),
+            // shared here through Deposition.FallTreasury. A computer loser is never handed to that
+            // routine and keeps its treasury, exactly as before.
+            Treasury = nation.Control == SeatControl.Human
+                ? Deposition.FallTreasury(nation.Treasury, ruleset)
+                : nation.Treasury,
             // T87 rework round 1 (bug #441, folded from review B3/B8): both elimination paths call
             // FUN_0044C8F0 for a human seat (decompiled-elimination-cleanup.md §3's own callers list:
             // "FUN_0044BED8 (0x0044C13C) and FUN_0044C528 (0x0044C81E), human-only in both"), which
