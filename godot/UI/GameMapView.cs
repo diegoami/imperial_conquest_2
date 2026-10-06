@@ -154,6 +154,10 @@ public partial class GameMapView : Control
     private ImageTexture? _splatTextureA;
     private ImageTexture? _splatTextureB;
     private readonly Texture2D?[] _surfaceTextures = new Texture2D?[6];
+
+    // T148 (the Opus review of PR #806, N2): the river chains are geometry of the world, not of the
+    // frame — built once at Attach, so no _Draw ever rescans the grid for them.
+    private IReadOnlyList<RiverChain>? _riverChains;
     private ColorRect? _backgroundCanvas;
     private ColorRect? _surfaceCanvas;
     private ShaderMaterial? _surfaceMaterial;
@@ -374,11 +378,21 @@ public partial class GameMapView : Control
     public TerrainSurfaceState TerrainSurfaceForCheck => _drawnSurface;
 
     /// <summary>
+    /// T148 Done-when 3: the source of the shader the surface material actually uses, so the check can
+    /// assert the sampler hints (<c>repeat_enable</c> and a mipmapped linear filter on the six surface
+    /// samplers, <c>repeat_disable</c> on the two splat samplers) from the drawn material and not from a
+    /// file another process could have edited. Empty when there is no surface material.
+    /// </summary>
+    public string TerrainSurfaceShaderCodeForCheck => _surfaceMaterial?.Shader?.Code ?? string.Empty;
+
+    /// <summary>
     /// T148 Done-when 3: the bytes the terrain draw holds alive right now — width × height × 4 for the
     /// flat-colour fallback, each splat texture and each mipmapped surface texture (a mipmapped one
-    /// counted with its whole chain, × 4/3). The draw retains no <see cref="Image"/> after upload, so each
-    /// texture is counted once. Used by <c>godot/Checks/TerrainSurfaceCheck.cs</c> to prove the whole
-    /// terrain draw stays under 24 MB.
+    /// counted with its whole chain, × 4/3), and the managed buffers the draw keeps after upload: the
+    /// splat map's two baked byte arrays and the decoded cell grid (the Opus review of PR #806, N1 —
+    /// they stay alive, so they are counted). The draw retains no <see cref="Image"/> after upload, so
+    /// each texture is counted once. Used by <c>godot/Checks/TerrainSurfaceCheck.cs</c> to prove the
+    /// whole terrain draw stays under 24 MB.
     /// </summary>
     public long TerrainMemoryBytesForCheck
     {
@@ -390,6 +404,16 @@ public partial class GameMapView : Control
             foreach (var texture in _surfaceTextures)
             {
                 total += Bytes(texture, mipmapped: true);
+            }
+
+            if (_splatMap is not null)
+            {
+                total += _splatMap.SplatA.LongLength + _splatMap.SplatB.LongLength;
+            }
+
+            if (_terrainCells is not null)
+            {
+                total += 4L * _terrainCells.Length;
             }
 
             return total;
@@ -533,8 +557,13 @@ public partial class GameMapView : Control
 
         _splatMap = TerrainSplatMap.Bake(_session.World);
 
+        // T148 (the Opus review of PR #806, N2): the chains are built here, once, not in _Draw.
+        _riverChains = TerrainSplatMap.BuildRiverChains(
+            _terrainCells!, _session.World.Width, _session.World.Height);
+
         // The splat lattice as two RGBA8 textures. The source Images are not retained: the textures own
-        // their pixels, and TerrainMemoryBytesForCheck counts only what stays alive.
+        // their pixels, and TerrainMemoryBytesForCheck counts what stays alive — which includes the
+        // baked byte arrays the splat map itself keeps.
         var splatImageA = Image.CreateFromData(
             _splatMap.LatticeWidth, _splatMap.LatticeHeight, false, Image.Format.Rgba8, _splatMap.SplatA);
         var splatImageB = Image.CreateFromData(
@@ -586,6 +615,12 @@ public partial class GameMapView : Control
         }
 
         _surfaceMaterial = new ShaderMaterial { Shader = shader };
+
+        // Wrapping and filtering of the texture uniforms come from the shader's own sampler hints
+        // (repeat_enable + filter_linear_mipmap on the six surfaces, repeat_disable on the two
+        // splats — the Opus review of the splatting round, R1: relying on this CanvasItem's
+        // TextureRepeat was the blur, because that flag does not apply to uniform samplers). The
+        // item's own flags stay set for the canvas_item built-in texture and are harmless here.
         _surfaceCanvas = new ColorRect
         {
             Name = "TerrainSurface",
@@ -618,44 +653,42 @@ public partial class GameMapView : Control
         _surfaceMaterial.SetShaderParameter("surface_scale", SurfaceCellsPerRepeat);
     }
 
-    /// <summary>The cells one surface-texture repeat spans in the shader — a few cells keeps the far zoom calm.</summary>
-    private const float SurfaceCellsPerRepeat = 6f;
+    /// <summary>
+    /// The cells one surface-texture repeat spans in the shader. The user's decision of 2026-10-06 at
+    /// the visual review of the splatting round ("it is definitely too blurry") set 2 to 3 cells; 2.5
+    /// sits inside it and keeps one 256-px texture at roughly its native size for a cell drawn at
+    /// about 100 px, with mipmaps carrying the rest.
+    /// </summary>
+    private const float SurfaceCellsPerRepeat = 2.5f;
 
     /// <summary>
-    /// T148: draws the river strokes over the surface, in the water colour, about a fifth of a cell wide
-    /// with a one-pixel minimum, once a cell is drawn at 4 px or more. Each stroke is a quadratic Bézier
-    /// from exit midpoint to exit midpoint through its cell centre; neighbouring cells' strokes share an
-    /// end on the shared edge, so a river reads as one continuous line.
+    /// T148: draws the river chains over the surface, in the water colour, about a fifth of a cell wide
+    /// with a one-pixel minimum, once a cell is drawn at 4 px or more. Each chain is the polyline
+    /// <see cref="TerrainSplatMap.BuildRiverChains"/> fitted through its cells' centres (built once at
+    /// <see cref="Attach"/>, the Opus review of PR #806 N2) — one continuous, tangent-continuous curve
+    /// per river, so a river meanders instead of running along cell mid-lines.
     /// </summary>
-    private void DrawRivers(World world, float tileSize)
+    private void DrawRivers(float tileSize)
     {
-        if (_terrainCells is null || tileSize < 4f)
-        {
-            return;
-        }
-
-        var strokes = TerrainSplatMap.RiverStrokes(_terrainCells, world.Width, world.Height);
-        if (strokes.Count == 0)
+        if (_riverChains is null || tileSize < 4f)
         {
             return;
         }
 
         var colour = TerrainColorsByName["River"];
         var width = Mathf.Max(tileSize * 0.2f, 1f);
-        var points = new Vector2[8];
-        foreach (var stroke in strokes)
+        foreach (var chain in _riverChains)
         {
-            for (var k = 0; k < points.Length; k++)
+            var polyline = chain.Polyline;
+            if (polyline.Count < 2)
             {
-                var t = k / (points.Length - 1f);
-                var inverse = 1f - t;
-                var x = (inverse * inverse * stroke.Start.X)
-                    + (2f * inverse * t * stroke.Control.X)
-                    + (t * t * stroke.End.X);
-                var y = (inverse * inverse * stroke.Start.Y)
-                    + (2f * inverse * t * stroke.Control.Y)
-                    + (t * t * stroke.End.Y);
-                points[k] = _pan + (new Vector2(x, y) * tileSize);
+                continue;
+            }
+
+            var points = new Vector2[polyline.Count];
+            for (var k = 0; k < polyline.Count; k++)
+            {
+                points[k] = _pan + (new Vector2(polyline[k].X, polyline[k].Y) * tileSize);
             }
 
             DrawPolyline(points, colour, width, true);
@@ -1193,7 +1226,7 @@ public partial class GameMapView : Control
             _drawnSurface = new TerrainSurfaceState(TerrainSurfaceKind.FlatFallback, ResolvedSurfaceKeys());
         }
 
-        DrawRivers(world, tileSize);
+        DrawRivers(tileSize);
 
         // T110: the map always draws every layer. The bottom toolbar's Cities/Armies/Fleets toggles hid
         // them, which the original never does; the Area map's Show entries paint highlights instead, so

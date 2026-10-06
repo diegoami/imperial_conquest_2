@@ -132,7 +132,9 @@ public static class AssetKeys
     // seamless 256x256 24-bit BMP texture for a terrain class, sampled in world space and blended
     // per pixel by godot/UI/TerrainSurface.gdshader through godot/Assets/TerrainSplatMap.cs, so the
     // surface has no cell grid, terrains fade into each other and coasts are irregular. The seven
-    // `terrain.*.tile` keys above stay unchanged for the flat fallback and the Area map.
+    // `terrain.*.tile` keys above stay unchanged: both packs still ship them, though nothing draws
+    // them today — the flat-colour fallback bakes its own per-cell colours and the Area map keeps
+    // flat colours (the Opus review of PR #806, R2: the earlier comment claimed those two used them).
 
     /// <summary>Seamless surface texture for plain (and river) terrain.</summary>
     public const string TerrainPlainSurface = "terrain.plain.surface";

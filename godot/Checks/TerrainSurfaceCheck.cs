@@ -21,7 +21,10 @@ namespace IC2.Slice.Checks;
 /// code, never the configured material;</item>
 /// <item>with a scratch pack missing one surface key, the draw records the flat-colour fallback
 /// instead;</item>
-/// <item><see cref="GameMapView.TerrainMemoryBytesForCheck"/> stays under 24 MB.</item>
+/// <item>the drawn material's shader source declares <c>repeat_enable</c> with a mipmapped linear
+/// filter on the six surface samplers and <c>repeat_disable</c> on the two splat samplers;</item>
+/// <item><see cref="GameMapView.TerrainMemoryBytesForCheck"/>, counting every texture the draw keeps
+/// plus the splat map's baked byte arrays, stays under 24 MB.</item>
 /// </list>
 /// The scene also captures the Done-when 4 visual-review screenshots when <c>IC2_SCREENSHOT_DIR</c> is
 /// set: a windowed run at 2560 × 1351 (headless screenshots do not work, issue #156) saves the
@@ -142,6 +145,59 @@ public partial class TerrainSurfaceCheck : Control
             Check(state.BoundSurfaceKeys.Contains(key),
                 $"the shader surface binds {key}");
         }
+
+        CheckSamplerHints();
+    }
+
+    /// <summary>
+    /// T148 Done-when 3, read from the shader source the drawn material actually uses (the Opus review
+    /// of the splatting round, R1): the six surface samplers must declare <c>repeat_enable</c> and a
+    /// mipmapped linear filter, the two splat samplers <c>repeat_disable</c>. Without the former every
+    /// terrain past the first repeat is its texture's clamped edge texel — the blur; with the latter the
+    /// splat's outer half-sample blends the opposite map edge into it.
+    /// </summary>
+    private void CheckSamplerHints()
+    {
+        var code = _map.TerrainSurfaceShaderCodeForCheck;
+        Check(code.Length > 0, "the drawn material carries a shader to read its sampler hints from");
+        if (code.Length == 0)
+        {
+            return;
+        }
+
+        foreach (var sampler in new[] { "tex_plain", "tex_desert", "tex_forest", "tex_mountain", "tex_shallow", "tex_deep" })
+        {
+            var declaration = SamplerDeclaration(code, sampler);
+            Check(declaration is not null
+                    && declaration.Contains("repeat_enable", StringComparison.Ordinal)
+                    && declaration.Contains("filter_linear_mipmap", StringComparison.Ordinal),
+                $"the surface sampler {sampler} declares repeat_enable and filter_linear_mipmap "
+                + $"(got {(declaration ?? "no declaration")})");
+        }
+
+        foreach (var sampler in new[] { "splat_a", "splat_b" })
+        {
+            var declaration = SamplerDeclaration(code, sampler);
+            Check(declaration is not null
+                    && declaration.Contains("repeat_disable", StringComparison.Ordinal),
+                $"the splat sampler {sampler} declares repeat_disable "
+                + $"(got {(declaration ?? "no declaration")})");
+        }
+    }
+
+    private static string? SamplerDeclaration(string code, string samplerName)
+    {
+        foreach (var rawLine in code.Split('\n'))
+        {
+            var line = rawLine.Trim();
+            if (line.StartsWith("uniform sampler2D ", StringComparison.Ordinal)
+                && line.Contains(samplerName, StringComparison.Ordinal))
+            {
+                return line;
+            }
+        }
+
+        return null;
     }
 
     private void CheckFallbackSurface()

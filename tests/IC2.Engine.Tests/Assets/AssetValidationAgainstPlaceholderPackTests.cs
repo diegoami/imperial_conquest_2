@@ -45,17 +45,19 @@ public sealed class AssetValidationAgainstPlaceholderPackTests
 
 /// <summary>
 /// T148 Done-when 2's surface rule, shared by both packs: every <c>terrain.*.surface</c> key resolves
-/// to a 256 × 256 uncompressed 24-bit BMP whose left and right edge columns, and top and bottom rows,
-/// have a mean absolute difference under 6 of 255 per channel — the mechanical proof that the texture
-/// tiles. The authored pack's textures are conformed to this by
-/// <c>scripts/generate-authored-assets.py</c>; the placeholder pack's are procedural stand-ins with an
-/// exactly periodic pattern.
+/// to a 256 × 256 uncompressed 24-bit BMP that <em>tiles</em> — for each of the six (axis, channel)
+/// pairs (left|right columns and top|bottom rows, per R/G/B) the mean absolute difference is under 15
+/// of 255, asserted separately and never pooled (the Opus review of the splatting round, R3; the bar
+/// moved from 6 to 15 by the user's decisions of 2026-10-06 at the visual review, because detailed
+/// textures differ more than 6 at a natural wrap). The authored pack's textures are conformed to this
+/// by <c>scripts/generate-authored-assets.py</c>; the placeholder pack's are procedural stand-ins with
+/// an exactly periodic pattern.
 /// </summary>
 internal static class TerrainSurfaceConformance
 {
     private const int SurfaceSize = 256;
     private const int BmpHeaderSize = 54;
-    private const double EdgeDifferenceLimit = 6.0;
+    private const double EdgeDifferenceLimit = 15.0;
 
     public static void AssertEverySurfaceKeyResolvesAndTiles(string packDirectory)
     {
@@ -77,10 +79,19 @@ internal static class TerrainSurfaceConformance
             var bytes = File.ReadAllBytes(fullPath);
             AssertBmp256Structure(bytes, key);
 
-            var difference = EdgeMeanAbsoluteDifference(bytes);
-            Assert.True(difference < EdgeDifferenceLimit,
-                $"{key}: the surface does not tile — its edge mean absolute difference is "
-                + $"{difference:F2}, expected under {EdgeDifferenceLimit} of 255");
+            // The six (axis, channel) means asserted SEPARATELY (the Opus review, R3): pooling them
+            // would let a texture with a visible seam in one channel and clean edges elsewhere pass.
+            var (horizontal, vertical) = EdgeDifferencesPerChannel(bytes);
+            for (var channel = 0; channel < 3; channel++)
+            {
+                var channelName = ChannelName(channel);
+                Assert.True(horizontal[channel] < EdgeDifferenceLimit,
+                    $"{key}: the surface does not tile — the left/right edge columns differ by "
+                    + $"{horizontal[channel]:F2} in {channelName}, expected under {EdgeDifferenceLimit} of 255");
+                Assert.True(vertical[channel] < EdgeDifferenceLimit,
+                    $"{key}: the surface does not tile — the top/bottom rows differ by "
+                    + $"{vertical[channel]:F2} in {channelName}, expected under {EdgeDifferenceLimit} of 255");
+            }
         }
     }
 
@@ -110,33 +121,48 @@ internal static class TerrainSurfaceConformance
         Assert.Equal(expectedPixelDataSize, bytes.Length - BmpHeaderSize);
     }
 
-    /// <summary>The mean absolute difference, over the three channels and both axes, between the left
-    /// and right edge columns and between the top and bottom rows. BMP rows are bottom-up, but the
-    /// edge columns are the same at any row and the top/bottom rows are symmetric, so the file's own
-    /// row 0 and row 255 are compared as-is.</summary>
-    private static double EdgeMeanAbsoluteDifference(byte[] bytes)
+    /// <summary>
+    /// The mean absolute difference per channel (BMP byte order: B, G, R) between the left and right
+    /// edge columns (horizontal) and between the top and bottom rows (vertical). BMP rows are
+    /// bottom-up, but the edge columns are the same at any row and the top/bottom rows are symmetric,
+    /// so the file's own row 0 and row 255 are compared as-is. Each of the six values is asserted
+    /// against the limit separately — never pooled (the Opus review of the splatting round, R3).
+    /// </summary>
+    private static (double[] Horizontal, double[] Vertical) EdgeDifferencesPerChannel(byte[] bytes)
     {
         const int rowSize = SurfaceSize * 3;
-        double total = 0;
-        var count = 0;
+        var horizontal = new double[3];
+        var vertical = new double[3];
 
         for (var row = 0; row < SurfaceSize; row++)
         {
             var rowStart = BmpHeaderSize + (row * rowSize);
             for (var c = 0; c < 3; c++)
             {
-                total += Math.Abs(bytes[rowStart + c] - bytes[rowStart + ((SurfaceSize - 1) * 3) + c]);
-                count++;
+                horizontal[c] += Math.Abs(bytes[rowStart + c] - bytes[rowStart + ((SurfaceSize - 1) * 3) + c]);
             }
         }
 
         var topStart = BmpHeaderSize + ((SurfaceSize - 1) * rowSize);
         for (var x = 0; x < rowSize; x++)
         {
-            total += Math.Abs(bytes[BmpHeaderSize + x] - bytes[topStart + x]);
-            count++;
+            var c = x % 3;
+            vertical[c] += Math.Abs(bytes[BmpHeaderSize + x] - bytes[topStart + x]);
         }
 
-        return total / count;
+        for (var c = 0; c < 3; c++)
+        {
+            horizontal[c] /= SurfaceSize;
+            vertical[c] /= SurfaceSize;
+        }
+
+        return (horizontal, vertical);
     }
+
+    private static string ChannelName(int channel) => channel switch
+    {
+        0 => "blue",
+        1 => "green",
+        _ => "red",
+    };
 }
