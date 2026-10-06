@@ -274,10 +274,19 @@ public partial class SidePanelToggleCheck : Control
         CheckNoCommands("after showing with an army selected");
     }
 
+    /// <summary>
+    /// Whether the panel is showing an army's own view. T111 moved the army orders — Disband among
+    /// them — out of this panel and into their own dialogs, so the old Disband-button probe no longer
+    /// exists. The army panel's one stable marker is its heading, <c>"Army — {army.Id}"</c>
+    /// (<see cref="ContextPanel.BuildArmyPanel"/>), the same heading <c>MapClickCheck</c> already keys
+    /// on. A selected unit is not a nation status panel, so the two nation accessors remain as a guard
+    /// against the All-nations and nation-overview views.
+    /// </summary>
     private bool ShowsArmyView() =>
         _mainGame.ContextPanel.StatusNationIdForCheck is null
         && !_mainGame.ContextPanel.ShowsAllNationsForCheck
-        && FindButtons(_mainGame.ContextPanel).Any(b => b.Text.StartsWith("Disband", StringComparison.Ordinal));
+        && AllLabels(_mainGame.ContextPanel).Any(
+            label => label.Text.StartsWith("Army — ", StringComparison.Ordinal));
 
     private void OpenOverlay()
     {
@@ -355,22 +364,6 @@ public partial class SidePanelToggleCheck : Control
 
     private static bool Inside(Rect2 r, Vector2 v) =>
         r.Position.X >= -0.5f && r.Position.Y >= -0.5f && r.End.X <= v.X + 0.5f && r.End.Y <= v.Y + 0.5f;
-
-    private static IEnumerable<Button> FindButtons(Node root)
-    {
-        foreach (var child in root.GetChildren())
-        {
-            if (child is Button button)
-            {
-                yield return button;
-            }
-
-            foreach (var nested in FindButtons(child))
-            {
-                yield return nested;
-            }
-        }
-    }
 
     private void Check(bool condition, string description)
     {
