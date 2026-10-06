@@ -131,6 +131,17 @@ public static class ConquestCascade
         // "Empty slots are simply absent").
         var finalLoser = stateAfterNeighbours.NationById(loserId)!;
         var loserWasHuman = finalLoser.Control == SeatControl.Human;
+
+        // T146 (Opus review R1): TPremierForm_HumanLeaderFalls opens the window before FUN_0044C8F0's own
+        // treasury write, so the loser's pre-credit balance is carried out as an event before that write.
+        // The session's RecordSeatFall reads this carrier rather than a turn-start snapshot, which the same
+        // turn's quarterly billing (upkeep, Order 0) may already have moved away from. A computer loser
+        // publishes nothing -- the original never hands one to the routine (below).
+        if (loserWasHuman)
+        {
+            events.Publish(new HumanSeatFallTreasury(loserId, finalLoser.Treasury));
+        }
+
         finalLoser = finalLoser with
         {
             Eliminated = true,

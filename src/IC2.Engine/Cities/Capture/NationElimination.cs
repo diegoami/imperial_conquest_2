@@ -1,3 +1,4 @@
+using IC2.Engine.Core;
 using IC2.Engine.Economy;
 using IC2.Engine.Model;
 
@@ -80,8 +81,16 @@ public static class NationElimination
     /// The (possibly updated) nation, and whether this call is what eliminated it — as opposed to it
     /// already being eliminated, or still owning at least one city.
     /// </returns>
+    /// <param name="events">
+    /// T146 (Opus review R1): where a human loser's pre-credit treasury is published as
+    /// <see cref="HumanSeatFallTreasury"/>, immediately before <see cref="Deposition.FallTreasury"/> writes
+    /// its own <c>+1000</c>. Optional so the callers outside this task that only assert the returned nation
+    /// (the existing <c>EliminationTests</c>) need no change; the production defection call site passes the
+    /// same sink it already publishes <see cref="CityDefectsToNation"/> through. A computer loser publishes
+    /// nothing.
+    /// </param>
     public static (NationState Nation, bool JustEliminated) ApplyIfLastCityLost(
-        GameState state, NationState nation, Ruleset ruleset, string conquerorId)
+        GameState state, NationState nation, Ruleset ruleset, string conquerorId, IEventSink? events = null)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(nation);
@@ -91,6 +100,13 @@ public static class NationElimination
         if (nation.Eliminated || state.CountCitiesOwnedBy(nation.Id) > 0)
         {
             return (nation, false);
+        }
+
+        // T146 (Opus review R1): the same pre-credit carrier the conquest path publishes, before the write
+        // below -- the session's window records this, not a turn-start snapshot.
+        if (nation.Control == SeatControl.Human)
+        {
+            events?.Publish(new HumanSeatFallTreasury(nation.Id, nation.Treasury));
         }
 
         var eliminated = nation with

@@ -170,4 +170,75 @@ public sealed class ConqueredHumanTreasuryTests
             Assert.Contains(south.LeaderName, pool);
         });
     }
+
+    /// <summary>
+    /// T146 rework round 1 (Opus review R1, the reviewer's own exact probe): the ending seat's own turn can
+    /// eliminate it inside the same <c>RunTurn</c> that also runs the quarterly tick — quarterly billing
+    /// (upkeep, Order 0) moves the treasury, then the rebellion (Order 100) defects the last city away and
+    /// applies the fall's own <c>+1000</c>. The game-end window opens before that credit, so
+    /// <see cref="SeatFall.EndTreasury"/> must be south's post-upkeep, pre-credit 354 — never 450, its
+    /// value at the whole turn's start, which was the snapshot the earlier revision wrongly read.
+    /// </summary>
+    /// <remarks>
+    /// The fixture is <c>SeatCliTests.ATurnEndingSeatsOwnRoundScopedQuarterTick_CanEliminateItThatSameEnd</c>
+    /// reproduced here (that file is not this task's to change): "meridia" is south's only city but not its
+    /// capital, with allegiance "north" and loyalty 5, and the ruleset's own
+    /// <see cref="CalendarRules.StartWeek"/> is moved to <see cref="CalendarRules.SeasonAdvanceFromWeek"/>
+    /// so the very first round already wraps the quarter boundary.
+    /// </remarks>
+    [Fact(Timeout = 15000)]
+    public async Task A_human_seat_eliminated_by_the_quarters_rebellion_records_the_pre_credit_treasury()
+    {
+        await Task.Run(() =>
+        {
+            var toy = CoreTestbed.Toy;
+            var ownerNation = new NationDefinition(
+                Id: "owner", Name: "Ownership League", ColorHex: "#795548", LeaderName: "Toy Leader of Ownership",
+                CapitalCityId: "portus", Treasury: 400, Unity: 600, Wealth: 300, TaxBase: 100, TaxRatePercent: 15,
+                MobilizedPercent: 10, Population: 80);
+            var portusToOwner = toy.World.Cities.Single(c => c.Id == "portus") with { Owner = "owner", Allegiance = "owner" };
+            var meridiaRebellionCandidate = toy.World.Cities.Single(c => c.Id == "meridia") with
+            {
+                Allegiance = "north",
+                Loyalty = 5,
+            };
+            var southNoCapital = toy.World.NationById("south")! with { CapitalCityId = null };
+
+            var world = toy.World with
+            {
+                Nations = ValueList.From(
+                    toy.World.Nations.Select(n => n.Id == "south" ? southNoCapital : n).Append(ownerNation)),
+                Cities = ValueList.From(
+                    toy.World.Cities.Select(c => c.Id switch
+                    {
+                        "portus" => portusToOwner,
+                        "meridia" => meridiaRebellionCandidate,
+                        _ => c,
+                    })),
+                TurnOrder = ValueList.Of("owner", "north", "south"),
+            };
+            var ruleset = toy.Ruleset with
+            {
+                Calendar = toy.Ruleset.Calendar with { StartWeek = toy.Ruleset.Calendar.SeasonAdvanceFromWeek },
+            };
+            var scenario = toy.Scenario with
+            {
+                Seats = ValueList.From(
+                    toy.Scenario.Seats.Select(s => s.Nation == "south" ? s with { Control = SeatControl.Human, Personality = null } : s)
+                        .Append(new Seat("owner", SeatControl.Ai))),
+            };
+            var session = new GameSession(world, ruleset, scenario);
+
+            session.Submit("end"); // north's own turn: nothing for it to do, pauses on south next.
+            var southEnd = session.Submit("end"); // south's own end, which is the round's last seat too.
+
+            Assert.True(session.State.NationById("south")!.Eliminated);
+            var fall = Assert.Single(southEnd.SeatFalls);
+            Assert.Equal("south", fall.NationId);
+            // 354, not 450: the pre-credit treasury after the same turn's quarterly billing, before the
+            // rebellion's own +1000 credit.
+            Assert.Equal(354, fall.EndTreasury);
+            Assert.Equal(1_354, session.State.NationById("south")!.Treasury);
+        });
+    }
 }

@@ -297,7 +297,7 @@ public static class CityCaptureResolver
         var newState = state with { Cities = ReplaceCity(state.Cities, transferredCity) };
 
         var (oldOwnerAfterElimination, oldOwnerEliminated) =
-            NationElimination.ApplyIfLastCityLost(newState, transferredOldOwner, ruleset, conquerorId: newOwnerId);
+            NationElimination.ApplyIfLastCityLost(newState, transferredOldOwner, ruleset, conquerorId: newOwnerId, events: events);
 
         newState = newState with
         {

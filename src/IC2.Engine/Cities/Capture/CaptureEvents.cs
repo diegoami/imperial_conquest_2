@@ -65,3 +65,23 @@ public sealed record NationConquered(string ConqueringNation, string ConqueredNa
 /// <param name="CityName">The new capital's display name.</param>
 [DomainEvent("nation.capital-moved", NewsWorthy = true)]
 public sealed record NationCapitalMoved(string Nation, string CityName) : DomainEvent;
+
+/// <summary>
+/// T146 (Opus review R1): a <em>human</em> seat lost its last city, carrying the treasury it held
+/// <em>before</em> <c>FUN_0044C8F0</c>'s own <c>treasury + 1000</c> credit. Published by both elimination
+/// paths — <see cref="ConquestCascade"/> (step 7) and <see cref="NationElimination.ApplyIfLastCityLost"/> —
+/// immediately before each applies <c>Deposition.FallTreasury</c>. The presentation layer's
+/// <c>GameSession</c> collects it (the way it collects <c>BattleResolved</c>) so the game-end window's
+/// <c>SeatFall.EndTreasury</c> records the figure <c>TPremierForm_HumanLeaderFalls</c> opened on, not the
+/// post-credit value the elimination just wrote.
+/// </summary>
+/// <remarks>
+/// Explicitly <strong>not news-worthy</strong> (<see cref="DomainEventAttribute.NewsWorthy"/> defaults to
+/// false): it renders no line, it is a carrier from the capture to the session's own window, exactly like
+/// <c>Battle.BattleResolved</c>'s result rather than its own news line. A computer loser publishes
+/// nothing — the original never hands one to the routine.
+/// </remarks>
+/// <param name="NationId">The eliminated human nation's id.</param>
+/// <param name="TreasuryBeforeCredit">Its treasury immediately before the fall's own <c>+1000</c> credit.</param>
+[DomainEvent("nation.human-seat-fall-treasury")]
+public sealed record HumanSeatFallTreasury(string NationId, int TreasuryBeforeCredit) : DomainEvent;
