@@ -90,6 +90,14 @@
     <Compile Include="../../godot/Assets/AssetPackManifestLoader.cs" Link="Ui/AssetPackManifestLoader.cs" />
 
     <!--
+      T148 (tests/IC2.Engine.Tests/Ui/TerrainSplatMapTests.cs): the same seam, for the Godot-free
+      terrain-grid-to-surface-weights function godot/UI/GameMapView.cs bakes and
+      godot/UI/TerrainSurface.gdshader samples, plus the river strokes the map draws over it. No
+      `using Godot` anywhere; never a second, hand-maintained copy.
+    -->
+    <Compile Include="../../godot/Assets/TerrainSplatMap.cs" Link="Ui/TerrainSplatMap.cs" />
+
+    <!--
       T94 rework round 1 (N3): MarkerTint.cs is the owner-tint half — the Godot-free HTML colour parse
       GameMapView builds every marker's modulate colour from, so a test can assert the exact components
       a texture is tinted with instead of leaving tinting to the visual sign-off alone. No `using Godot`

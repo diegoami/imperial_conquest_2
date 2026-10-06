@@ -126,6 +126,32 @@ public static class AssetKeys
     /// <summary>Tile sprite for deep sea terrain.</summary>
     public const string TerrainSeaDeepTile = "terrain.sea_deep.tile";
 
+    // ===== Terrain surfaces =====
+    //
+    // T148 (the user's rescope of 2026-10-06): the map is painted, not tiled. Each of these is one
+    // seamless 256x256 24-bit BMP texture for a terrain class, sampled in world space and blended
+    // per pixel by godot/UI/TerrainSurface.gdshader through godot/Assets/TerrainSplatMap.cs, so the
+    // surface has no cell grid, terrains fade into each other and coasts are irregular. The seven
+    // `terrain.*.tile` keys above stay unchanged for the flat fallback and the Area map.
+
+    /// <summary>Seamless surface texture for plain (and river) terrain.</summary>
+    public const string TerrainPlainSurface = "terrain.plain.surface";
+
+    /// <summary>Seamless surface texture for desert terrain.</summary>
+    public const string TerrainDesertSurface = "terrain.desert.surface";
+
+    /// <summary>Seamless surface texture for forest terrain.</summary>
+    public const string TerrainForestSurface = "terrain.forest.surface";
+
+    /// <summary>Seamless surface texture for mountain terrain.</summary>
+    public const string TerrainMountainSurface = "terrain.mountain.surface";
+
+    /// <summary>Seamless surface texture for shallow sea terrain.</summary>
+    public const string TerrainSeaShallowSurface = "terrain.sea_shallow.surface";
+
+    /// <summary>Seamless surface texture for deep sea terrain.</summary>
+    public const string TerrainSeaDeepSurface = "terrain.sea_deep.surface";
+
     // ===== Sound effects =====
 
     /// <summary>Sound effect played when a city is captured.</summary>
@@ -308,6 +334,14 @@ public static class AssetKeys
             yield return TerrainRiverTile;
             yield return TerrainSeaCoastalTile;
             yield return TerrainSeaDeepTile;
+
+            // Terrain surfaces (T148)
+            yield return TerrainPlainSurface;
+            yield return TerrainDesertSurface;
+            yield return TerrainForestSurface;
+            yield return TerrainMountainSurface;
+            yield return TerrainSeaShallowSurface;
+            yield return TerrainSeaDeepSurface;
 
             // Sound effects
             yield return SfxCityCaptured;

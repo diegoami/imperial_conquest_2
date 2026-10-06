@@ -49,6 +49,7 @@ public sealed class AssetPackTextureLoader
 {
     private readonly AssetKeyResolver _resolver;
     private readonly Dictionary<string, Texture2D?> _textureCache = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Texture2D?> _surfaceCache = new(StringComparer.Ordinal);
 
     private AssetPackTextureLoader(AssetKeyResolver resolver, string packId)
     {
@@ -140,6 +141,39 @@ public sealed class AssetPackTextureLoader
         }
 
         _textureCache[assetKey] = texture;
+        return texture;
+    }
+
+    /// <summary>
+    /// T148: resolves a <c>terrain.*.surface</c> key to a mipmapped texture for the surface shader, in a
+    /// cache separate from <see cref="TryGetTexture"/> (which is unchanged). The texture is drawn with
+    /// <c>texture_repeat</c> set on the owning CanvasItem, so the sampler wraps in world space; mipmaps
+    /// keep the far zoom calm. Returns <see langword="null"/> for a missing key or unreadable file,
+    /// exactly as <see cref="TryGetTexture"/> does.
+    /// </summary>
+    public Texture2D? TryGetSurfaceTexture(string assetKey)
+    {
+        if (_surfaceCache.TryGetValue(assetKey, out var cached))
+        {
+            return cached;
+        }
+
+        Texture2D? texture = null;
+        if (_resolver.TryResolveFile(assetKey, out var fullPath))
+        {
+            var image = new Image();
+            if (image.Load(fullPath) == Error.Ok)
+            {
+                image.GenerateMipmaps();
+                texture = ImageTexture.CreateFromImage(image);
+            }
+            else
+            {
+                _resolver.ReportFailureOnce(assetKey);
+            }
+        }
+
+        _surfaceCache[assetKey] = texture;
         return texture;
     }
 }
