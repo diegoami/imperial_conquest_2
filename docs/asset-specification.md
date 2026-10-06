@@ -178,21 +178,22 @@ line, not a constraint this document derived from anywhere.
 
 The shipped placeholder stubs (`sfx/battle.wav`, `sfx/city_captured.wav`, `sfx/unit_move.wav`) are each a
 1-second, mono, 44,100 Hz, 16-bit PCM WAV — confirmed by reading each file's own `fmt ` chunk. The
-original's own `WAVS/SOUND1.WAV`…`SOUND10.WAV` are the same technical shape — mono, 44,100 Hz, 16-bit
-PCM — just far shorter and more varied in length (0.02 s to 1.41 s across the ten files, read directly
-from each file's `data` chunk frame count). **[confirmed: direct inspection of the files under the
-directory `assets.local.ini` names]**
+original's own `SOUND1.WAV`…`SOUND10.WAV` are mono and short (0.02 s to 1.41 s), but not one format: as
+shipped, eight are 8-bit PCM (seven at 11,025 Hz, `SOUND8` at 5,512 Hz) and two (`SOUND2`, `SOUND9`) are
+16-bit at 22,050 Hz. The `WAVS/` folder under the directory `assets.local.ini` names holds working copies
+converted to 16-bit, 44,100 Hz; the shipped files are its sibling `WAVS - Copy/` **[confirmed: each of the
+twenty files' `fmt ` chunk and `data` frame count; the same formats in the research report
+[`2026-10-06-sound-events.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/8da1588/docs/reports/2026-10-06-sound-events.md),
+research `8da1588`, "The ten sounds"]**.
 
-**Decision: new sound effects ship as mono, 44,100 Hz, 16-bit PCM WAV**, matching both the existing
-placeholder stubs (so the pipeline stays one format) and the original's own technical envelope (so a
-faithful re-recording does not need resampling). Duration is content-appropriate and short — the
+**Decision: new sound effects ship as mono, 44,100 Hz, 16-bit PCM WAV**, matching the existing
+placeholder stubs (so the pipeline stays one format). Duration is content-appropriate and short — the
 original's own range (well under 1.5 s per effect) is the guide, not a hard cap; nothing in the engine
 reads WAV duration.
 
-**What the original's ten files actually trigger is not established, and is recorded as a gap in
-§4.6**, not guessed at here: the `WAVS/` folder carries no filenames or notes correlating `SOUND1`…
-`SOUND10` to a game event, and neither `docs/reports/` nor `docs/investigations/` (searched for `SOUND`
-and `.WAV`) resolves it either. **[designed, search stated — see §4.6]**
+**What the original's ten files trigger is read from code** and listed in §4.6: one function,
+`TPremierForm_MakeSound`, plays `SOUND<n>.WAV` for its argument 1–10 through a synchronous `PlaySoundA`,
+from 16 call sites **[derived: code, [`2026-10-06-sound-events.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/8da1588/docs/reports/2026-10-06-sound-events.md), research `8da1588`; not heard in play]**.
 
 ### 1.5 Naming and folder convention
 
@@ -660,32 +661,44 @@ sprites, tagged `[designed]` (searched `game-design.md`, `design-audit.md` and `
 existing river-tile-variant convention and found none — the six-way connectivity split above is `[confirmed]` from the code and the world data; only *whether a sprite renderer needs six sprites* is
 new, and follows directly from that confirmed fact).
 
-### 4.6 Sound effects — three silent stubs, and the mapping gap
+### 4.6 Sound effects — three silent stubs, and the original's ten sounds
 
 | Key | Trigger | First needed by | Exists today |
 | --- | --- | --- | --- |
-| `sfx.city_captured` | A city changes owner by force (`"falls to"`) | Not wired by any task's DoD yet | Yes (silent stub) |
-| `sfx.battle` | A battle resolves | Not wired by any task's DoD yet | Yes (silent stub) |
-| `sfx.unit_move` | An army or fleet completes a move order | Not wired by any task's DoD yet | Yes (silent stub) |
+| `sfx.city_captured` | A city changes owner by force (`"falls to"`) | [T149](tasks/T149.md) | Yes (silent stub) |
+| `sfx.battle` | A battle resolves | [T149](tasks/T149.md) | Yes (silent stub) |
+| `sfx.unit_move` | An army or fleet completes a move order | [T149](tasks/T149.md) | Yes (silent stub) |
 
-Searched `task-catalogue.md` in full for `sound`/`sfx`: no task's Done-when line currently plays any of
-these three, or any other sound — the three stubs exist as placeholder-generator output, never called.
-**[confirmed by search — see task-catalogue.md's own text: "the sounds beyond three stubs" names this
-exact gap]**
+No merged code plays any sound. [T149](tasks/T149.md) ships these three keys and seven new ones, and
+wires all but the three tactical-battle keys (`sfx.battle_arrows`, `sfx.battle_javelin`, `sfx.battle_melee`) to
+the original's events below; those three wait for the tactical battle screen (v0.6.0).
 
-**The mapping gap** (§1.4): the original's `WAVS/SOUND1.WAV`…`SOUND10.WAV` carry no filename-to-event
-correlation anywhere in the local corpus or in `docs/reports/`/`docs/investigations/`. `[designed, search
-stated]` — determining which of the ten corresponds to, say, "city captured" versus "battle" versus a
-UI click would require capturing audio from a live session at the moment each event fires, which is
-outside this pass; it is recorded here as unresolved rather than guessed.
+**The original's ten sounds and their events** (§1.4) **[derived: code, [`2026-10-06-sound-events.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/8da1588/docs/reports/2026-10-06-sound-events.md), research `8da1588`; none heard in play]**. `TPremierForm_MakeSound` (`0x0045BF28`) plays `SOUND<n>.WAV` from the folder `WAVS\`, through `PlaySoundA(path, NULL, 0)`: synchronous, so each sound stalls the game until it ends, and never looped. It has 16 call sites, and every one of the ten sounds is used:
 
-**Candidate additional sfx keys — none required by any current task, all `[designed]`, listed so a
-future task doesn't have to rediscover the need**: a distinct naval-loss sting (the confirmed *"A fleet
-belonging to X is lost at sea"* news line, `design-audit.md` §1.2/§2.9a, has no accompanying sound
-today), a diplomacy-proposal alert (T19 DoD 10's modal *"X wants to trade/ally"* dialog), a turn/round-end
-chime, and a command-rejected error tone. None of these has RE evidence for *whether* the original had a
-distinct sound at all beyond the ten undifferentiated files above; each would be a new UI/audio-design
-choice for whichever task first wires audio playback, not a fidelity requirement.
+| Sound | Events |
+| --- | --- |
+| 1 | an army steps one tile on the unit map, only while the current seat is human; a tactical-battle unit is placed (either side) or moves one cell |
+| 2 | a fleet steps one tile, only while the current seat is human |
+| 3 | archers shoot (tactical battle) |
+| 4 | light infantry or light cavalry throw (tactical battle) |
+| 5 | a human sets a melee target; each melee exchange (tactical battle) |
+| 6 | a siege fails |
+| 7 | a city is taken |
+| 8 | a fleet battle (a fleet is sunk); a fleet lost in a storm; a human scuttles a fleet |
+| 9 | a field battle between two computer nations (a human's own field battle opens the tactical screen instead, and its end window plays nothing) |
+| 10 | a nation is conquered |
+
+Sounds 6 to 10 play whoever is involved, the computer's turns included, and the tactical-battle sounds
+for both sides. The original has **no sound
+option**: no menu item, no flag and no setting. Nothing silences it: with a missing `WAVS\` folder, `PlaySoundA`
+(flags 0, no `SND_NODEFAULT`) plays the Windows default sound for every event instead **[derived: code and form resources, the same report; the default
+sound is the documented `PlaySound` behaviour, not observed]**.
+
+**Candidate additional sfx keys — none required by any current task, all `[designed]`**: a diplomacy-proposal
+alert (T19 DoD 10's modal *"X wants to trade/ally"* dialog), a turn/round-end chime, and a command-rejected
+error tone. The original plays none of these: its 16 call sites are every sound it makes **[derived: code,
+the same report]**, so each would be the clone's own UI/audio-design choice, not a fidelity requirement.
+(The naval loss at sea, *"A fleet belonging to X is lost at sea"*, does have one: sound 8, above.)
 
 ### 4.7 Chrome with no key today — the main-screen, dialog, and battle-result gaps
 
@@ -957,7 +970,7 @@ Every depiction claim above traces to one of:
   sections, `investigations/dat-file-layout.md`), several already cited by `game-design.md`/
   `design-audit.md` and re-cited here for the same claim, not re-derived independently.
 - **An explicit `[designed]` tag** stating what was searched and came up empty, per `design-audit.md`
-  §4.5, everywhere one appears above (desert tile colour, UI-chrome pixel size, the sfx-mapping gap, the
+  §4.5, everywhere one appears above (desert tile colour, UI-chrome pixel size, the
   candidate new sfx keys, the optional siege/fortification overlay, the capital's distinguishing mark as
   a fallback rather than a finding, and — new in rework round 2 — §1.2's 32-bit BGRA decision itself,
   now stated as a forward-looking design choice for the new renderer rather than a fidelity claim about
