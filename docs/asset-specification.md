@@ -669,8 +669,9 @@ new, and follows directly from that confirmed fact).
 | `sfx.battle` | A battle resolves | [T149](tasks/T149.md) | Yes (silent stub) |
 | `sfx.unit_move` | An army or fleet completes a move order | [T149](tasks/T149.md) | Yes (silent stub) |
 
-No merged code plays any sound. [T149](tasks/T149.md) wires these three keys, and seven new ones, to
-the original's events below.
+No merged code plays any sound. [T149](tasks/T149.md) ships these three keys and seven new ones, and
+wires all but the three tactical-battle keys (`sfx.battle_arrows`, `sfx.battle_javelin`, `sfx.battle_melee`) to
+the original's events below; those three wait for the tactical battle screen (v0.6.0).
 
 **The original's ten sounds and their events** (§1.4) **[derived: code, [`2026-10-06-sound-events.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/8da1588/docs/reports/2026-10-06-sound-events.md), research `8da1588`; none heard in play]**. `TPremierForm_MakeSound` (`0x0045BF28`) plays `SOUND<n>.WAV` from the folder `WAVS\`, through `PlaySoundA(path, NULL, 0)`: synchronous, so each sound stalls the game until it ends, and never looped. It has 16 call sites, and every one of the ten sounds is used:
 
@@ -689,8 +690,8 @@ the original's events below.
 
 Sounds 6 to 10 play whoever is involved, the computer's turns included, and the tactical-battle sounds
 for both sides. The original has **no sound
-option**: no menu item, no flag and no setting; only a missing `WAVS\` folder silences it, and then Windows
-plays its default sound for every event **[derived: code and form resources, the same report; the default
+option**: no menu item, no flag and no setting. Nothing silences it: with a missing `WAVS\` folder, `PlaySoundA`
+(flags 0, no `SND_NODEFAULT`) plays the Windows default sound for every event instead **[derived: code and form resources, the same report; the default
 sound is the documented `PlaySound` behaviour, not observed]**.
 
 **Candidate additional sfx keys — none required by any current task, all `[designed]`**: a diplomacy-proposal
