@@ -1477,6 +1477,37 @@ public partial class MainGameScreen : Control
         ActiveOverlay = overlay;
         overlay.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(overlay);
+
+        // The overlay's own full-rect geometry is correct the moment it is parented, but the containers
+        // inside it have not run their deferred layout pass yet: the panel would sit at (0,0) until the
+        // next frame. One pass of the sort notification gives every container (and every autowrapping
+        // label) its width; a label reports its wrapped height only once it has been given a width, so
+        // each one's cached minimum size is then invalidated and a second pass sorts the panel to its real
+        // size and centres it. This is the deferred pass Godot runs on the next frame, run now, so a panel
+        // is centred on the frame its window opens (T147, bug #781 point 2).
+        static IEnumerable<Label> AllLabels(Node node)
+        {
+            foreach (var child in node.GetChildren())
+            {
+                if (child is Label label)
+                {
+                    yield return label;
+                }
+
+                foreach (var nested in AllLabels(child))
+                {
+                    yield return nested;
+                }
+            }
+        }
+
+        overlay.PropagateNotification((int)Container.NotificationSortChildren);
+        foreach (var label in AllLabels(overlay))
+        {
+            label.UpdateMinimumSize();
+        }
+
+        overlay.PropagateNotification((int)Container.NotificationSortChildren);
     }
 
     private void CloseOverlay(Control overlay)
