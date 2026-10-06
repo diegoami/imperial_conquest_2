@@ -80,20 +80,39 @@ public partial class GameEndCheck : Node
 
             if (mainGame.ActiveOverlay is GameEndScreen screen && fall is not null)
             {
+                var nation = mainGame.Session.State.NationById("north")!;
+                var ruleset = mainGame.Session.Ruleset;
+                var startYearBc = ruleset.Calendar.StartYearBc;
+
                 Check(
                     screen.TitleLabel.Text == "End of Game",
                     $"every city: the title is 'End of Game' (got '{screen.TitleLabel.Text}')");
                 Check(
+                    screen.LeaderLineLabel.Text
+                        == $"The game is over for {fall.LeaderName} the leader of {nation.Name}.",
+                    $"every city: the first line names the leader at the fall (got '{screen.LeaderLineLabel.Text}')");
+                Check(
                     screen.BodyLabel.Text == "You have conquerred the Mediterranean, a unique achievement.",
                     $"every city: the body is the engine's conquest text (got '{screen.BodyLabel.Text}')");
 
-                var nation = mainGame.Session.State.NationById("north")!;
+                var expectedYearsLine = fall.YearBc < startYearBc - 1
+                    ? $"Your {startYearBc - fall.YearBc} years in power in {nation.Name} produced these changes."
+                    : $"Your  short time in power in {nation.Name} produced these changes.";
+                Check(
+                    screen.YearsLabel.Text == expectedYearsLine,
+                    $"every city: the years line is the original's (got '{screen.YearsLabel.Text}')");
+
+                var startWealth = nation.PopulationAtStart * ruleset.Economy.WealthPerPopulationThousand;
                 var expected = new[]
                 {
-                    nation.Name, "Start", "End",
-                    "Population", nation.PopulationAtStart.ToString(), fall.EndPopulation.ToString(),
-                    "Cities", nation.CityCountAtStart.ToString(), fall.EndCityCount.ToString(),
-                    "Money", nation.TreasuryAtStart.ToString(), fall.EndTreasury.ToString(),
+                    $"{nation.Name} in {startYearBc} BC.",
+                    $"{nation.Name} in {fall.YearBc} BC.",
+                    $"Population{GameEndViewModel.FormatNumber(startWealth)}",
+                    $"Population{GameEndViewModel.FormatNumber(fall.EndWealth)}",
+                    $"Cities   {nation.CityCountAtStart}",
+                    $"Cities   {fall.EndCityCount}",
+                    $"Treasury {GameEndViewModel.FormatNumber(nation.TreasuryAtStart)} talents",
+                    $"Treasury {GameEndViewModel.FormatNumber(fall.EndTreasury)} talents",
                 };
                 Check(
                     screen.TableCells().SequenceEqual(expected),
@@ -150,9 +169,13 @@ public partial class GameEndCheck : Node
                 Check(
                     screen.BodyLabel.Text == "Your nation has been conquerred by Northern League (north).",
                     $"conquered: the body names the captor (got '{screen.BodyLabel.Text}')");
+                var south = mainGame.Session.State.NationById("south")!;
+                var fall = mainGame.Session.LastSeatFalls.Single();
                 Check(
-                    screen.GameOverLabel is not null && screen.GameOverLabel.Text == "The game is over.",
-                    "conquered: the last human seat's fall reads 'The game is over.'");
+                    screen.LeaderLineLabel.Text
+                        == $"The game is over for {fall.LeaderName} the leader of {south.Name}.",
+                    $"conquered: the first line names the seat's leader at the fall "
+                    + $"(got '{screen.LeaderLineLabel.Text}')");
                 Check(
                     screen.Model.Buttons.SequenceEqual(new[] { GameEndButton.MainMenu, GameEndButton.ViewMap }),
                     "conquered: the last seat gets Main menu and View map");

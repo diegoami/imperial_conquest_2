@@ -5,9 +5,11 @@ using IC2.Slice.UI;
 namespace IC2.Slice.Screens;
 
 /// <summary>
-/// The original's own end-of-game window, <c>THumanFalls</c> — <c>docs/tasks/T138.md</c>: one window per
-/// fallen human seat, titled "End of Game", showing the reason text the engine already printed, the
-/// leader's years in power and a start-against-end table of the nation's population, cities and money.
+/// The original's own end-of-game window, <c>THumanFalls</c> — <c>docs/tasks/T138.md</c>, corrected to the
+/// original's text by <c>docs/tasks/T145.md</c>: one window per fallen human seat, titled "End of Game",
+/// showing the first line naming the leader at the fall, the reason text the engine already printed, the
+/// leader's years in power and a two-column start-against-end table of the nation's wealth (under
+/// "Population"), cities and treasury.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -17,10 +19,10 @@ namespace IC2.Slice.Screens;
 /// string this screen renders.
 /// </para>
 /// <para>
-/// <strong>[derived: form]</strong> for the title, the years line and the table of population, cities and
-/// money; the layout, the label wording and the game-over line are <c>docs/tasks/T138.md</c>'s own
-/// <em>[designed]</em> defaults, each changeable at the visual review. The body text is the engine's,
-/// unchanged.
+/// <strong>[derived: code, <c>THumanFalls_InitializeForm</c>]</strong> for the caption, the first line,
+/// the years line and the two-column table of wealth, cities and treasury; the layout is
+/// <c>docs/tasks/T145.md</c>'s own default, changeable at the visual review. The reason text is the
+/// engine's, unchanged.
 /// </para>
 /// </remarks>
 public partial class GameEndScreen : Control
@@ -36,16 +38,16 @@ public partial class GameEndScreen : Control
     /// <summary>Exposed for <c>godot/Checks/GameEndCheck.cs</c> to assert the rendered text.</summary>
     public Label TitleLabel { get; private set; } = null!;
 
-    /// <summary>Exposed for the same reason as <see cref="TitleLabel"/>.</summary>
-    public Label BodyLabel { get; private set; } = null!;
+    /// <summary>The window's first line, naming the leader at the fall.</summary>
+    public Label LeaderLineLabel { get; private set; } = null!;
 
-    /// <summary>The "The game is over." line, present only when the model carries one.</summary>
-    public Label? GameOverLabel { get; private set; }
+    /// <summary>The reason text, the engine's own line.</summary>
+    public Label BodyLabel { get; private set; } = null!;
 
     /// <summary>Exposed for the same reason as <see cref="TitleLabel"/>.</summary>
     public Label YearsLabel { get; private set; } = null!;
 
-    /// <summary>The laid-out start-against-end grid — its header row plus one row per figure.</summary>
+    /// <summary>The laid-out start-against-end grid — two column titles then three rows of two cells.</summary>
     public GridContainer Table { get; private set; } = null!;
 
     private readonly List<Label> _tableLabels = new();
@@ -58,29 +60,24 @@ public partial class GameEndScreen : Control
         TitleLabel = UiKit.MakeLabel(Model.Title, 22, UiKit.AccentColor);
         content.AddChild(TitleLabel);
 
+        LeaderLineLabel = UiKit.MakeLabel(Model.LeaderLine, 16, UiKit.TextColor);
+        content.AddChild(LeaderLineLabel);
+
         BodyLabel = UiKit.MakeLabel(Model.Body, 16, UiKit.TextColor);
         content.AddChild(BodyLabel);
-
-        if (Model.GameOverLine is { } gameOver)
-        {
-            GameOverLabel = UiKit.MakeLabel(gameOver, 16, UiKit.TextColor);
-            content.AddChild(GameOverLabel);
-        }
 
         YearsLabel = UiKit.MakeLabel(Model.YearsLine, 14, UiKit.MutedTextColor);
         content.AddChild(YearsLabel);
 
         content.AddChild(new HSeparator());
 
-        Table = new GridContainer { Columns = 3 };
-        AddTableCell(Model.NationName, UiKit.TextColor);
-        AddTableCell("Start", UiKit.MutedTextColor);
-        AddTableCell("End", UiKit.MutedTextColor);
-        foreach (var row in Model.Rows)
+        Table = new GridContainer { Columns = 2 };
+        AddTableCell(Model.StartTitle, UiKit.TextColor);
+        AddTableCell(Model.EndTitle, UiKit.TextColor);
+        for (var i = 0; i < Model.StartRows.Count; i++)
         {
-            AddTableCell(row.Label, UiKit.MutedTextColor);
-            AddTableCell(row.Start.ToString(), UiKit.TextColor);
-            AddTableCell(row.End.ToString(), UiKit.TextColor);
+            AddTableCell(Model.StartRows[i], UiKit.TextColor);
+            AddTableCell(Model.EndRows[i], UiKit.TextColor);
         }
 
         content.AddChild(Table);
@@ -98,8 +95,8 @@ public partial class GameEndScreen : Control
         }
     }
 
-    /// <summary>Every laid-out table cell's text, header row first — the check reads what is drawn, not
-    /// the model a second time.</summary>
+    /// <summary>Every laid-out table cell's text in layout order — both titles, then each row's left and
+    /// right cells. The check reads what is drawn, not the model a second time.</summary>
     public IReadOnlyList<string> TableCells() => _tableLabels.Select(label => label.Text).ToArray();
 
     /// <summary>

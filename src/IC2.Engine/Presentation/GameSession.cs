@@ -327,7 +327,9 @@ public sealed partial class GameSession
             reason,
             conqueror,
             FallMessageFor(reason, conqueror),
-            fallen.Population,
+            fallen.LeaderName,
+            State.Calendar.YearBc,
+            fallen.Wealth,
             endCityCount,
             fallen.Treasury));
     }
