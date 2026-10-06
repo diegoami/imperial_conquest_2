@@ -449,12 +449,19 @@ def conform_ui(img: Image.Image) -> bytes:
 
 def conform_overlay(img: Image.Image) -> bytes:
     """A shore overlay (`terrain.shore.*`, T148): key the magenta background out to alpha
-    exactly like a sprite, but do NOT crop or silhouettes — a shore band's position inside
-    the tile is its meaning (the task requires every opaque pixel within 10 px of the named
-    edge), so the full frame is kept and only the scale is normalized. 32-bit BGRA with
-    straight alpha, docs/asset-specification.md 1.2."""
+    exactly like a sprite, but do NOT crop or neutralise the colours — a shore band's position
+    inside the tile is its meaning (the task requires every opaque pixel within 10 px of the
+    named edge), so the full frame is kept. The alpha is made binary at the same
+    SOLID_ALPHA_CUTOFF a sprite uses, so the faint partial-alpha chroma ripple a model leaves
+    across the background keys cleanly out to fully transparent instead of hazing the land tile
+    under the overlay. Straight alpha, 32-bit BGRA (docs/asset-specification.md 1.2)."""
     keyed = key_magenta(img)
     small = keyed.resize((SIZE, SIZE), LANCZOS)  # RGBA resizes premultiplied
+    pixels = small.load()
+    for y in range(SIZE):
+        for x in range(SIZE):
+            r, g, b, a = pixels[x, y]
+            pixels[x, y] = (r, g, b, 255) if a >= SOLID_ALPHA_CUTOFF else (0, 0, 0, 0)
     return bmp_bytes(small, 32)
 
 

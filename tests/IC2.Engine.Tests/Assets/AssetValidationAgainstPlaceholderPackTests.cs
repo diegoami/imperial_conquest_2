@@ -125,8 +125,9 @@ internal static class TerrainPackConformance
     /// <summary>
     /// A shore overlay is 32-bit BGRA: its background is transparent somewhere (so the land tile
     /// shows through) and its opaque band lies within 10 px of the edge the key names — north
-    /// <c>y ≤ 9</c>, south <c>y ≥ 22</c>, west <c>x ≤ 9</c>, east <c>x ≥ 22</c> in top-down pixels.
-    /// A BMP stores rows bottom-up, so the DIB row is <c>height − 1 − fileRow</c>.
+    /// <c>y ≤ 10</c>, south <c>y ≥ 21</c>, west <c>x ≤ 10</c>, east <c>x ≥ 21</c> in top-down pixels
+    /// (a pixel on row 0 is 0 px from the edge, row 10 is 10 px from it). A BMP stores rows
+    /// bottom-up, so the DIB row is <c>height − 1 − fileRow</c>.
     /// </summary>
     private static void AssertShoreOverlayFitsItsEdge(byte[] bytes, string key)
     {
@@ -153,10 +154,10 @@ internal static class TerrainPackConformance
 
             var within = edge switch
             {
-                "n" => y <= 9,
-                "s" => y >= 22,
-                "w" => x <= 9,
-                _ => x >= 22,
+                "n" => y <= 10,
+                "s" => y >= 21,
+                "w" => x <= 10,
+                _ => x >= 21,
             };
             if (!within)
             {
