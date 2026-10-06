@@ -47,7 +47,7 @@ The scripts' names are `-Reviewer` / `-Model` values for `scripts/external-revie
 
 Heavy models run at `medium` rather than `high`, or lighter when medium is not needed (the user's decision of 2026-10-05). Where a model offers no `medium`, the table names the variant chosen.
 
-**Names in `models.local.json` only** (the owner's decision of 2026-10-06). These are registered in `models.local.json`'s `ids`, `variants` and `vendors` maps, for the model order ([`/model-order`](../.claude/skills/model-order/SKILL.md)). `external-review.ps1` and `external-implement.ps1` do not accept them as `-Reviewer` or `-Model` values yet. No chain uses them until the owner places them.
+**MiniMax and the Alibaba names** (the owner's decision of 2026-10-06). `external-review.ps1` (`-Reviewer`, `-ExcludeModel`) and `external-implement.ps1` (`-Model`) accept these names. No `auto` chain picks them: the main session names one explicitly, choosing case by case from quota-tracker and the model's strength. A `minimax/…` model's quota provider is `minimax`, so `/avoid` gates it like the others.
 
 | Name | Id | Variant | Family | Key | Quota |
 | --- | --- | --- | --- | --- | --- |
@@ -59,7 +59,7 @@ Heavy models run at `medium` rather than `high`, or lighter when medium is not n
 
 - **MiniMax is a vendor of its own.** It can review work by GLM, DeepSeek, Qwen, OpenAI or Claude models independently. `/quota/minimax` has a `5h` and a `7d` window. A one-prompt check, which bills a little: in PowerShell, `$env:XDG_DATA_HOME = "$env:USERPROFILE\.local\share\ic2-opencode-1x\data"`, then `$null | opencode run -m minimax/MiniMax-M3 --variant thinking "Reply with just: ok"`.
 - **The `ali-*` names keep their model's family** (`vendors`), so `ali-glm` never reviews GLM's work and `ali-deepseek-*` never reviews DeepSeek's.
-- **`ali-deepseek-pro` uses the dated `deepseek-v4-pro-0813`**, because only the dated id gets the night discount. The scripts' Alibaba route for `deepseek-pro` still uses the undated `deepseek-v4-pro`.
+- **`ali-deepseek-pro` uses the dated `deepseek-v4-pro-0813`**, because only the dated id gets the night discount. The scripts' Alibaba route for `deepseek-pro` (`-Route alibaba`, or `auto` when OpenCode Go is avoided) uses it too.
 - All five answered a probe on 2026-10-06, 19:43–19:44 CEST.
 
 Facts that affect availability:

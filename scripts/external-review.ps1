@@ -66,7 +66,8 @@
     The model family that implemented the PR never reviews it: -ExcludeModel (or, when that is not
     given, a model:<name> label on the PR or on -Issue naming an OpenCode model) drops every
     reviewer of that family from the chain (OpenAI: luna, sol; GLM: glm, glm-flash; DeepSeek:
-    deepseek, deepseek-pro, deepseek-flash; Qwen: qwen, qwen-flash), and an explicit -Reviewer of that family is refused with exit 1.
+    deepseek, deepseek-pro, deepseek-flash, ali-deepseek-pro, ali-deepseek-flash; GLM also ali-glm; Qwen:
+    qwen, qwen-flash; MiniMax: mm-m3, mm-m2.7), and an explicit -Reviewer of that family is refused with exit 1.
     If every model fails, the chain stops early, the exclusion leaves no model, or OpenCode is not
     installed, nothing is posted and the script exits 3 ("OpenCode unavailable: ...");
     build-process.md §4.9 says what the main session does then. An explicit -Reviewer runs only
@@ -193,7 +194,7 @@
 [CmdletBinding()]
 param(
     [int] $Pr,
-    [ValidateSet('auto', 'glm-flash', 'glm', 'luna', 'sol', 'deepseek', 'deepseek-pro', 'qwen', 'qwen-flash', 'nemotron', 'north-mini', 'inkling', 'laguna')] [string] $Reviewer = 'auto',
+    [ValidateSet('auto', 'glm-flash', 'glm', 'luna', 'sol', 'deepseek', 'deepseek-pro', 'qwen', 'qwen-flash', 'mm-m3', 'mm-m2.7', 'ali-deepseek-pro', 'ali-deepseek-flash', 'ali-glm', 'nemotron', 'north-mini', 'inkling', 'laguna')] [string] $Reviewer = 'auto',
     [string] $BriefFile,
     [int] $Issue,
     [switch] $ApplyLabel,
@@ -204,7 +205,7 @@ param(
     [int] $StartupTimeoutSec = 180,
     [int] $TotalTimeoutSec = 3600,
     [int] $IdleTimeoutSec = 600,
-    [ValidateSet('deepseek-flash', 'glm-flash', 'glm', 'luna', 'sol', 'mimo-pro', 'mimo-flash', 'deepseek', 'deepseek-pro', 'qwen', 'qwen-flash', 'sonnet', 'opus')] [string] $ExcludeModel,
+    [ValidateSet('deepseek-flash', 'glm-flash', 'glm', 'luna', 'sol', 'mimo-pro', 'mimo-flash', 'deepseek', 'deepseek-pro', 'qwen', 'qwen-flash', 'mm-m3', 'mm-m2.7', 'ali-deepseek-pro', 'ali-deepseek-flash', 'ali-glm', 'sonnet', 'opus')] [string] $ExcludeModel,
     [hashtable] $ModelIds,
     [ValidateSet('low', 'medium')] [string] $Effort,
     [ValidateSet('auto', 'go', 'zai', 'alibaba')] [string] $Route = 'auto'
@@ -571,9 +572,9 @@ function Invoke-ReviewParserSelfTest {
     # Sol's substitutes (the user's policy of 2026-10-03): deepseek-pro is DeepSeek V4 Pro on Go, in
     # the DeepSeek family.
     $ruleChecks += [pscustomobject]@{ Name = 'deepseek-pro is opencode-go/deepseek-v4-pro at high, shown as DeepSeek Pro'; Ok = ($models['deepseek-pro'] -eq 'opencode-go/deepseek-v4-pro' -and $variants['deepseek-pro'] -eq 'high' -and $displayNames['deepseek-pro'] -eq 'DeepSeek Pro') }
-    $ruleChecks += [pscustomobject]@{ Name = 'a deepseek-flash implementer excludes deepseek and deepseek-pro'; Ok = ((@($reviewerOf['deepseek-flash']) | Sort-Object) -join ',' -eq 'deepseek,deepseek-pro') }
+    $ruleChecks += [pscustomobject]@{ Name = 'a deepseek-flash implementer excludes deepseek, deepseek-pro and the ali-deepseek names'; Ok = ((@($reviewerOf['deepseek-flash']) | Sort-Object) -join ',' -eq 'ali-deepseek-flash,ali-deepseek-pro,deepseek,deepseek-pro') }
     $ruleChecks += [pscustomobject]@{ Name = 'a glm implementer excludes neither deepseek-pro nor luna'; Ok = (@($reviewerOf['glm']) -notcontains 'deepseek-pro' -and @($reviewerOf['glm']) -notcontains 'luna') }
-    $ruleChecks += [pscustomobject]@{ Name = 'a deepseek-pro implementer is accepted and excludes its family'; Ok = ($excludeSet -contains 'deepseek-pro' -and (@($reviewerOf['deepseek-pro']) | Sort-Object) -join ',' -eq 'deepseek,deepseek-pro') }
+    $ruleChecks += [pscustomobject]@{ Name = 'a deepseek-pro implementer is accepted and excludes its family'; Ok = ($excludeSet -contains 'deepseek-pro' -and (@($reviewerOf['deepseek-pro']) | Sort-Object) -join ',' -eq 'ali-deepseek-flash,ali-deepseek-pro,deepseek,deepseek-pro') }
     # The Qwen family and the Alibaba routes (the user's decision of 2026-10-05).
     $ruleChecks += [pscustomobject]@{ Name = 'qwen is alibaba-token-plan/qwen3.8-max at low, shown as Qwen'; Ok = ($models['qwen'] -eq 'alibaba-token-plan/qwen3.8-max' -and $variants['qwen'] -eq 'low' -and $displayNames['qwen'] -eq 'Qwen') }
     $ruleChecks += [pscustomobject]@{ Name = 'qwen-flash is alibaba-token-plan/qwen3.8-flash at medium, shown as Qwen Flash'; Ok = ($models['qwen-flash'] -eq 'alibaba-token-plan/qwen3.8-flash' -and $variants['qwen-flash'] -eq 'medium' -and $displayNames['qwen-flash'] -eq 'Qwen Flash') }
@@ -581,12 +582,27 @@ function Invoke-ReviewParserSelfTest {
         $ruleChecks += [pscustomobject]@{ Name = "a $q implementer is accepted and excludes qwen and qwen-flash"; Ok = ($excludeSet -contains $q -and (@($reviewerOf[$q]) | Sort-Object) -join ',' -eq 'qwen,qwen-flash') }
     }
     $ruleChecks += [pscustomobject]@{ Name = 'no other family excludes a Qwen reviewer'; Ok = (@($reviewerOf.Keys | Where-Object { $_ -notlike 'qwen*' } | Where-Object { @($reviewerOf[$_]) -match '^qwen' }).Count -eq 0) }
-    $ruleChecks += [pscustomobject]@{ Name = 'Alibaba ids: deepseek-v4.1-flash, deepseek-v4-pro, glm-5.3; none for glm-flash, luna, sol'; Ok = ($alibabaIds['deepseek'] -eq 'alibaba-token-plan/deepseek-v4.1-flash' -and $alibabaIds['deepseek-pro'] -eq 'alibaba-token-plan/deepseek-v4-pro' -and $alibabaIds['glm'] -eq 'alibaba-token-plan/glm-5.3' -and -not $alibabaIds['glm-flash'] -and -not $alibabaIds['luna'] -and -not $alibabaIds['sol']) }
+    $ruleChecks += [pscustomobject]@{ Name = 'Alibaba ids: deepseek-v4.1-flash, deepseek-v4-pro-0813, glm-5.3; none for glm-flash, luna, sol'; Ok = ($alibabaIds['deepseek'] -eq 'alibaba-token-plan/deepseek-v4.1-flash' -and $alibabaIds['deepseek-pro'] -eq 'alibaba-token-plan/deepseek-v4-pro-0813' -and $alibabaIds['glm'] -eq 'alibaba-token-plan/glm-5.3' -and -not $alibabaIds['glm-flash'] -and -not $alibabaIds['luna'] -and -not $alibabaIds['sol']) }
     $rt = { param($name, $route, $answered, $avoid) Resolve-OpenCodeRoute -Usual $models[$name] -Alibaba $alibabaIds[$name] -Route $route -Answered $answered -Avoid $avoid }
+    # MiniMax and the ali-* names (the owner's decision of 2026-10-06).
+    $ruleChecks += [pscustomobject]@{ Name = 'mm-m3 is minimax/MiniMax-M3 at thinking, mm-m2.7 minimax/MiniMax-M2.7 with no variant'; Ok = ($models['mm-m3'] -eq 'minimax/MiniMax-M3' -and $variants['mm-m3'] -eq 'thinking' -and $models['mm-m2.7'] -eq 'minimax/MiniMax-M2.7' -and $variants['mm-m2.7'] -eq '') }
+    $ruleChecks += [pscustomobject]@{ Name = 'ali-deepseek-pro is deepseek-v4-pro-0813 at high, ali-deepseek-flash deepseek-v4.1-flash at high, ali-glm glm-5.3 at low'; Ok = ($models['ali-deepseek-pro'] -eq 'alibaba-token-plan/deepseek-v4-pro-0813' -and $variants['ali-deepseek-pro'] -eq 'high' -and $models['ali-deepseek-flash'] -eq 'alibaba-token-plan/deepseek-v4.1-flash' -and $variants['ali-deepseek-flash'] -eq 'high' -and $models['ali-glm'] -eq 'alibaba-token-plan/glm-5.3' -and $variants['ali-glm'] -eq 'low') }
+    foreach ($m in 'mm-m3', 'mm-m2.7') {
+        $ruleChecks += [pscustomobject]@{ Name = "a $m implementer is accepted and excludes mm-m3 and mm-m2.7 only"; Ok = ($excludeSet -contains $m -and (@($reviewerOf[$m]) | Sort-Object) -join ',' -eq 'mm-m2.7,mm-m3') }
+    }
+    $ruleChecks += [pscustomobject]@{ Name = 'no other family excludes a MiniMax reviewer'; Ok = (@($reviewerOf.Keys | Where-Object { $_ -notlike 'mm-*' } | Where-Object { @($reviewerOf[$_]) -match '^mm-' }).Count -eq 0) }
+    $ruleChecks += [pscustomobject]@{ Name = 'a glm implementer excludes ali-glm, an ali-glm implementer glm and glm-flash'; Ok = (@($reviewerOf['glm']) -contains 'ali-glm' -and (@($reviewerOf['ali-glm']) | Sort-Object) -join ',' -eq 'ali-glm,glm,glm-flash') }
+    $ruleChecks += [pscustomobject]@{ Name = 'an ali-deepseek-flash implementer is accepted and excludes deepseek and deepseek-pro'; Ok = ($excludeSet -contains 'ali-deepseek-flash' -and @($reviewerOf['ali-deepseek-flash']) -contains 'deepseek' -and @($reviewerOf['ali-deepseek-flash']) -contains 'deepseek-pro') }
+    $r = & $rt 'mm-m3' 'auto' $true @('minimax')
+    $ruleChecks += [pscustomobject]@{ Name = 'route auto, minimax avoided: mm-m3 has no other route and is Avoided'; Ok = ($r.Route -eq 'minimax' -and $r.Avoided) }
+    $r = & $rt 'mm-m3' 'auto' $true @('opencode_go', 'zai')
+    $ruleChecks += [pscustomobject]@{ Name = 'route auto, minimax not avoided: mm-m3 runs minimax/MiniMax-M3'; Ok = ($r.Route -eq 'minimax' -and $r.Model -eq 'minimax/MiniMax-M3' -and -not $r.Avoided) }
+    $r = & $rt 'ali-glm' 'auto' $true @('alibaba')
+    $ruleChecks += [pscustomobject]@{ Name = 'route auto, alibaba avoided: ali-glm is Avoided'; Ok = ($r.Route -eq 'alibaba' -and $r.Avoided) }
     $r = & $rt 'deepseek-pro' 'auto' $true @()
     $ruleChecks += [pscustomobject]@{ Name = 'route auto, nothing avoided: deepseek-pro stays on go'; Ok = ($r.Route -eq 'go' -and $r.Model -eq 'opencode-go/deepseek-v4-pro') }
     $r = & $rt 'deepseek-pro' 'auto' $true @('opencode_go')
-    $ruleChecks += [pscustomobject]@{ Name = 'route auto, opencode_go avoided: deepseek-pro moves to alibaba'; Ok = ($r.Route -eq 'alibaba' -and $r.Model -eq 'alibaba-token-plan/deepseek-v4-pro' -and -not $r.Avoided) }
+    $ruleChecks += [pscustomobject]@{ Name = 'route auto, opencode_go avoided: deepseek-pro moves to alibaba'; Ok = ($r.Route -eq 'alibaba' -and $r.Model -eq 'alibaba-token-plan/deepseek-v4-pro-0813' -and -not $r.Avoided) }
     $r = & $rt 'glm' 'auto' $true @('zai')
     $ruleChecks += [pscustomobject]@{ Name = 'route auto, zai avoided: glm moves to alibaba glm-5.3'; Ok = ($r.Route -eq 'alibaba' -and $r.Model -eq 'alibaba-token-plan/glm-5.3') }
     $r = & $rt 'glm' 'auto' $true @('zai', 'alibaba')
@@ -784,6 +800,15 @@ $models = @{
     # Qwen3.8 Max, a heavy reviewer; qwen-flash is Qwen3.8 Flash, the light re-check reviewer.
     qwen         = 'alibaba-token-plan/qwen3.8-max'
     'qwen-flash' = 'alibaba-token-plan/qwen3.8-flash'
+    # MiniMax, a vendor of its own on the minimax.io Token Plan (provider `minimax`, its key in the data
+    # folder's auth.json), and the Alibaba Token Plan's DeepSeek and GLM under names of their own (the
+    # owner's decision of 2026-10-06). The ali-* names are their model's family (below); ali-deepseek-pro
+    # is the dated deepseek-v4-pro-0813, the id Alibaba's night discount applies to.
+    'mm-m3'              = 'minimax/MiniMax-M3'
+    'mm-m2.7'            = 'minimax/MiniMax-M2.7'
+    'ali-deepseek-pro'   = 'alibaba-token-plan/deepseek-v4-pro-0813'
+    'ali-deepseek-flash' = 'alibaba-token-plan/deepseek-v4.1-flash'
+    'ali-glm'            = 'alibaba-token-plan/glm-5.3'
     # The free OpenRouter models, ADVISORY ONLY (the owner's decision of 2026-10-06, build-process.md
     # §3.4): a second opinion next to a counted reviewer, never counted, never labelling, never a
     # family's reviewer. nemotron (Nemotron 3 Ultra) is the stronger one; north-mini (Cohere North
@@ -814,15 +839,18 @@ function Get-SolVariant([string] $Requested) { if ($Requested) { return $Request
 # The advisory models (`opencode models openrouter --verbose`, 2026-10-06): Nemotron 3 Ultra offers
 # medium and high, North Mini and Laguna low, medium and high, Inkling none to max. The heavy ones run at
 # medium; North Mini, light, at high, as the other light reviewers do.
-$variants = @{ 'glm-flash' = 'high'; glm = 'low'; luna = 'high'; sol = (Get-SolVariant $Effort); deepseek = ''; 'deepseek-pro' = 'high'; qwen = 'low'; 'qwen-flash' = 'medium'; nemotron = 'medium'; 'north-mini' = 'high'; inkling = 'medium'; laguna = 'medium' }
-$displayNames = @{ 'glm-flash' = 'GLM Flash'; glm = 'GLM'; luna = 'Luna'; sol = 'Sol'; deepseek = 'DeepSeek'; 'deepseek-pro' = 'DeepSeek Pro'; qwen = 'Qwen'; 'qwen-flash' = 'Qwen Flash'; nemotron = 'Nemotron'; 'north-mini' = 'North Mini'; inkling = 'Inkling'; laguna = 'Laguna' }
+# MiniMax-M3 offers none and thinking (thinking); MiniMax-M2.7 none. deepseek-v4-pro-0813 offers high and
+# max, deepseek-v4.1-flash and glm-5.3 low, high and max (`opencode models --verbose`, 2026-10-06).
+$variants = @{ 'glm-flash' = 'high'; glm = 'low'; luna = 'high'; sol = (Get-SolVariant $Effort); deepseek = ''; 'deepseek-pro' = 'high'; qwen = 'low'; 'qwen-flash' = 'medium'; 'mm-m3' = 'thinking'; 'mm-m2.7' = ''; 'ali-deepseek-pro' = 'high'; 'ali-deepseek-flash' = 'high'; 'ali-glm' = 'low'; nemotron = 'medium'; 'north-mini' = 'high'; inkling = 'medium'; laguna = 'medium' }
+$displayNames = @{ 'glm-flash' = 'GLM Flash'; glm = 'GLM'; luna = 'Luna'; sol = 'Sol'; deepseek = 'DeepSeek'; 'deepseek-pro' = 'DeepSeek Pro'; qwen = 'Qwen'; 'qwen-flash' = 'Qwen Flash'; 'mm-m3' = 'MiniMax M3'; 'mm-m2.7' = 'MiniMax M2.7'; 'ali-deepseek-pro' = 'DeepSeek Pro (Alibaba)'; 'ali-deepseek-flash' = 'DeepSeek Flash (Alibaba)'; 'ali-glm' = 'GLM (Alibaba)'; nemotron = 'Nemotron'; 'north-mini' = 'North Mini'; inkling = 'Inkling'; laguna = 'Laguna' }
 # The Alibaba Token Plan route of the DeepSeek and GLM reviewers (the user's decision of 2026-10-05):
 # the same model, so the same name and family, on another provider. -Route picks it (auto: when
 # quota-tracker's /avoid lists the usual provider, opencode_go or zai). The variants are the same
 # (Alibaba's deepseek-v4-pro offers high and max, glm-5.3 low, high and max). No light GLM on Alibaba.
 $alibabaIds = @{
     deepseek       = 'alibaba-token-plan/deepseek-v4.1-flash'
-    'deepseek-pro' = 'alibaba-token-plan/deepseek-v4-pro'
+    # The dated id: only it gets the night discount (the owner's decision of 2026-10-06).
+    'deepseek-pro' = 'alibaba-token-plan/deepseek-v4-pro-0813'
     glm            = 'alibaba-token-plan/glm-5.3'
 }
 # The reviewer's model family is never the implementer's (build-process.md §3.4). The implementing
@@ -835,17 +863,23 @@ $alibabaIds = @{
 # sol or luna is refused. A Claude implementer (sonnet, opus) excludes no OpenCode reviewer: the
 # Claude family has no reviewer here, and the main session keeps Claude off that PR's review.
 $reviewerOf = @{
-    'deepseek-flash' = @('deepseek', 'deepseek-pro')
-    'deepseek'       = @('deepseek', 'deepseek-pro')
-    'deepseek-pro'   = @('deepseek', 'deepseek-pro')
-    'glm-flash'      = @('glm-flash', 'glm')
-    'glm'            = @('glm-flash', 'glm')
+    'deepseek-flash'     = @('deepseek', 'deepseek-pro', 'ali-deepseek-pro', 'ali-deepseek-flash')
+    'deepseek'           = @('deepseek', 'deepseek-pro', 'ali-deepseek-pro', 'ali-deepseek-flash')
+    'deepseek-pro'       = @('deepseek', 'deepseek-pro', 'ali-deepseek-pro', 'ali-deepseek-flash')
+    'ali-deepseek-pro'   = @('deepseek', 'deepseek-pro', 'ali-deepseek-pro', 'ali-deepseek-flash')
+    'ali-deepseek-flash' = @('deepseek', 'deepseek-pro', 'ali-deepseek-pro', 'ali-deepseek-flash')
+    'glm-flash'          = @('glm-flash', 'glm', 'ali-glm')
+    'glm'                = @('glm-flash', 'glm', 'ali-glm')
+    'ali-glm'            = @('glm-flash', 'glm', 'ali-glm')
     'luna'           = @('luna', 'sol')
     'sol'            = @('luna', 'sol')
     # Qwen is its own family (the user's decision of 2026-10-05): a Qwen implementer excludes both
     # Qwen reviewers, and Qwen reviews any other family's PR.
     'qwen'           = @('qwen', 'qwen-flash')
     'qwen-flash'     = @('qwen', 'qwen-flash')
+    # MiniMax is its own family (the owner's decision of 2026-10-06): it reviews any other family's PR.
+    'mm-m3'          = @('mm-m3', 'mm-m2.7')
+    'mm-m2.7'        = @('mm-m3', 'mm-m2.7')
     'sonnet'         = @()
     'opus'           = @()
 }
@@ -1023,7 +1057,7 @@ $implementers = if ($ExcludeModel) { @($ExcludeModel) } elseif ($WhatIf) { @() }
     $labels = @(gh pr view $Pr --json labels --jq '.labels[].name' 2>$null)
     if ($Issue) { $labels += @(gh issue view $Issue --json labels --jq '.labels[].name' 2>$null) }
     @($labels | Where-Object { $_ -match '^model:(.+)$' } | ForEach-Object { $_.Substring(6) } |
-        Where-Object { $_ -in 'deepseek-flash', 'glm-flash', 'glm', 'luna', 'sol', 'mimo-pro', 'mimo-flash', 'deepseek', 'deepseek-pro', 'qwen', 'qwen-flash' } | Select-Object -Unique)
+        Where-Object { $_ -in 'deepseek-flash', 'glm-flash', 'glm', 'luna', 'sol', 'mimo-pro', 'mimo-flash', 'deepseek', 'deepseek-pro', 'qwen', 'qwen-flash', 'mm-m3', 'mm-m2.7', 'ali-deepseek-pro', 'ali-deepseek-flash', 'ali-glm' } | Select-Object -Unique)
 }
 if ($WhatIf -and -not $ExcludeModel) { Write-Host 'family not checked: pass -ExcludeModel <implemented by> to check it.' }
 $excluded = Get-ExcludedReviewers $implementers
