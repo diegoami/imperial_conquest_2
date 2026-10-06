@@ -33,9 +33,10 @@ public enum SeatFallReason
 
 /// <summary>
 /// One human seat's fall, as the engine reports it for one <see cref="GameSession.Submit"/> call —
-/// <c>docs/tasks/T138.md</c>, "The engine exposes the falls": the seat, the reason, the conqueror when
-/// there is one, the text <see cref="GameSession"/> already printed for it, and the nation's end figures
-/// (population, city count, treasury) taken at the fall.
+/// <c>docs/tasks/T138.md</c>, "The engine exposes the falls", extended by <c>docs/tasks/T145.md</c>: the
+/// seat, the reason, the conqueror when there is one, the text <see cref="GameSession"/> already printed
+/// for it, the leader and calendar year at the fall, and the nation's end figures (wealth, city count,
+/// treasury) taken at the fall.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -64,7 +65,20 @@ public enum SeatFallReason
 /// The exact line <see cref="GameSession"/> printed for this fall when it happened — one of
 /// <c>HumanLeaderFallsMessage</c>'s five strings, character for character, misspellings included.
 /// </param>
-/// <param name="EndPopulation">The nation's population at the fall.</param>
+/// <param name="LeaderName">
+/// The nation's leader at the fall, copied before any later write, so a replacement leader (T146) never
+/// shows in the window that reports this fall. The original reads it from nation <c>+0x0B</c> before
+/// <c>FUN_00449078</c> redraws it <strong>[confirmed: 2026-10-05-end-of-game-screens.md, "What the window
+/// writes", <c>lbl_result1</c>]</strong>.
+/// </param>
+/// <param name="YearBc">The calendar year at the fall, which the window's end column title and years line
+/// read (nation record <c>DAT_004A0332</c> in the original).</param>
+/// <param name="EndWealth">
+/// The nation's <see cref="Model.NationState.Wealth"/> at the fall — the field the original's window
+/// prints under <c>Population</c> (nation <c>+0x430</c>), not
+/// <see cref="Model.NationState.Population">Population</see>
+/// <strong>[confirmed: 2026-10-05-end-of-game-screens.md, "What the window writes", <c>lbl_pop2</c>]</strong>.
+/// </param>
 /// <param name="EndCityCount">
 /// How many cities of <see cref="Model.GameState.Cities"/> it owned at the fall (0 for a conquest, whose
 /// elimination is the loss of its last city).
@@ -75,6 +89,8 @@ public sealed record SeatFall(
     SeatFallReason Reason,
     string? ConquerorNationId,
     string Text,
-    int EndPopulation,
+    string LeaderName,
+    int YearBc,
+    int EndWealth,
     int EndCityCount,
     int EndTreasury);

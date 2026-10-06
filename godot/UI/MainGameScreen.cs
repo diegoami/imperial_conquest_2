@@ -1386,7 +1386,7 @@ public partial class MainGameScreen : Control
         }
 
         var model = GameEndViewModel.FromFall(
-            fall, nation, Session.Ruleset, Session.State.Calendar.YearBc, Session.IsGameOver);
+            fall, nation, Session.Ruleset, Session.IsGameOver);
         var screen = new GameEndScreen { Model = model };
         screen.MainMenuRequested += () => OwningAppRoot?.ShowMainMenu();
         screen.Closed += () =>

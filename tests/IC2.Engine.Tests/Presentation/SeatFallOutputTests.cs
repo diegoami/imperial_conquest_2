@@ -48,7 +48,9 @@ public sealed class SeatFallOutputTests
         Assert.Null(fall.ConquerorNationId);
         Assert.Equal("You have conquerred the Mediterranean, a unique achievement.", fall.Text);
         Assert.Contains(fall.Text, output.Lines);
-        Assert.Equal(northAtStart.Population, fall.EndPopulation);
+        Assert.Equal(fall.LeaderName, session.State.NationById("north")!.LeaderName);
+        Assert.Equal(session.State.Calendar.YearBc, fall.YearBc);
+        Assert.Equal(northAtStart.Wealth, fall.EndWealth);
         Assert.Equal(3, fall.EndCityCount);
         Assert.Equal(northAtStart.Treasury, fall.EndTreasury);
         Assert.True(output.GameOver);
@@ -77,7 +79,9 @@ public sealed class SeatFallOutputTests
         Assert.Equal(SeatFallReason.HardEndYear, fall.Reason);
         Assert.Equal("You have reached the end of your allotted 20 years.", fall.Text);
         Assert.Contains(fall.Text, output.Lines);
-        Assert.Equal(northAtStart.Population, fall.EndPopulation);
+        Assert.Equal(fall.LeaderName, session.State.NationById("north")!.LeaderName);
+        Assert.Equal(session.State.Calendar.YearBc, fall.YearBc);
+        Assert.Equal(northAtStart.Wealth, fall.EndWealth);
         Assert.Equal(2, fall.EndCityCount);
         Assert.True(output.GameOver);
     }
@@ -105,7 +109,9 @@ public sealed class SeatFallOutputTests
         Assert.Contains(fall.Text, output.Lines);
         Assert.Equal(500, fall.EndTreasury);
         Assert.NotEqual(session.State.NationById("north")!.Treasury, fall.EndTreasury);
-        Assert.Equal(northAtStart.Population, fall.EndPopulation);
+        Assert.Equal(fall.LeaderName, session.State.NationById("north")!.LeaderName);
+        Assert.Equal(session.State.Calendar.YearBc, fall.YearBc);
+        Assert.Equal(northAtStart.Wealth, fall.EndWealth);
         Assert.True(output.GameOver);
     }
 
@@ -119,6 +125,7 @@ public sealed class SeatFallOutputTests
     public void A_treasury_below_the_debt_limit_yields_Unpaid()
     {
         var session = SessionWithNorth(n => n with { Unity = 600, Treasury = -1_000 });
+        var northAtStart = Toy.World.NationById("north")!;
 
         var output = session.Submit("status");
 
@@ -128,6 +135,9 @@ public sealed class SeatFallOutputTests
         Assert.Contains(fall.Text, output.Lines);
         Assert.Equal(-1_000, fall.EndTreasury);
         Assert.Equal(0, session.State.NationById("north")!.Treasury);
+        Assert.Equal(fall.LeaderName, session.State.NationById("north")!.LeaderName);
+        Assert.Equal(session.State.Calendar.YearBc, fall.YearBc);
+        Assert.Equal(northAtStart.Wealth, fall.EndWealth);
         Assert.True(output.GameOver);
     }
 
@@ -159,8 +169,10 @@ public sealed class SeatFallOutputTests
             Assert.Equal(0, fall.EndCityCount);
 
             var southNow = session.State.NationById("south")!;
-            Assert.Equal(southNow.Population, fall.EndPopulation);
+            Assert.Equal(southNow.Wealth, fall.EndWealth);
             Assert.Equal(southNow.Treasury, fall.EndTreasury);
+            Assert.Equal(southNow.LeaderName, fall.LeaderName);
+            Assert.Equal(session.State.Calendar.YearBc, fall.YearBc);
             Assert.True(round2.GameOver);
         });
     }
@@ -237,6 +249,10 @@ public sealed class SeatFallOutputTests
             var fall = Assert.Single(round2.SeatFalls);
             Assert.Equal("south", fall.NationId);
             Assert.Equal(SeatFallReason.Conquered, fall.Reason);
+            var southNow = session.State.NationById("south")!;
+            Assert.Equal(southNow.Wealth, fall.EndWealth);
+            Assert.Equal(southNow.LeaderName, fall.LeaderName);
+            Assert.Equal(session.State.Calendar.YearBc, fall.YearBc);
             Assert.True(round2.GameOver);
         });
     }
