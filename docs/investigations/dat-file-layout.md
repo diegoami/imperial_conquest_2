@@ -123,7 +123,7 @@ Dacia, Bithynia, Galatia, Armenia, Media, Thracia`, in `NationCatalog`'s exact o
 treasury/unity/capital/cities read 2,200 / 821 / 85 / 25 at those offsets, matching the values
 `SaveNationTable` reads from the session's first save.
 
-### Leader names and the human-player flag are genuinely not in the file [confirmed]
+### The drawn leader names and the human-player flag are genuinely not in the file [confirmed]
 
 `FUN_00448aa4` — the *other* helper `TPremierForm_NewGame` calls — writes exactly the fields the DAT
 omits, per nation, at in-memory stride `0x494`:
@@ -143,8 +143,9 @@ single-human starts share one order whoever is human (Rome 12th for seed 12345),
 start is the world as the AI seats before it have left it **[Wine candidate:
 [`2026-10-02-start-as-each-nation.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-02-start-as-each-nation.md)]**.
 
-This matters for **T29**: a DAT export cannot source leader names or seat assignment from the DAT,
-because the original does not either. They are New Game state, not world data.
+This matters for **T29**: a DAT export cannot source the drawn leader names or seat assignment from the DAT,
+because the original does not either. They are New Game state, not world data. The 12-name **candidate pool**
+at `0x2089A` is in the file, and since T146 the exporter writes it as each nation's `leaderNames`.
 
 ## The parse sweep: every file, every parser [confirmed]
 
@@ -185,8 +186,9 @@ part the two formats genuinely share.
    T30 is therefore real parsing work, not a "fails cleanly, source nations elsewhere" fix.
 2. **The DAT is not SAV-shaped and cannot be reached by adjusting the SAV locator.** `[confirmed]` —
    no count words anywhere, and a nation record missing 117 bytes in five separate places.
-3. **Leader names and the human-player flag are not in the DAT.** `[confirmed]` — both are written by
-   `FUN_00448aa4` at New Game, the leader by a 1-in-12 draw from the pool at `0x2089A`.
+3. **The drawn leader names and the human-player flag are not in the DAT.** `[confirmed]` — both are written by
+   `FUN_00448aa4` at New Game, the leader by a 1-in-12 draw from the pool at `0x2089A`, which is in the DAT
+   and which T146 exports.
 4. **3 of 51 saves fail, all on the same `0xFFFF` army tombstone**, one record each, always with
    valid coordinates. `[confirmed]` — the remaining 48 parse clean through all seven parsers.
 5. **The whole 140,706-byte file is accounted for.** `[confirmed]` — the read sequence sums to the
