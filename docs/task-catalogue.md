@@ -207,6 +207,7 @@ graph TD
   T111 --> T145[T145 End of Game window text]
   T139 --> T145
   T145 --> T146[T146 leader names, fallen seat]
+  T142 --> T147[T147 game screen layout]
   T23 --> T26[T26 scenario docs+examples]
   T29 --> T26
   T22 --> T28[T28 nightly soak gate]
@@ -1183,7 +1184,13 @@ End of Game window text (correction task for bug #761, from research `d1b5983`; 
 
 #### T146 Leaders are drawn from the original's names, and a fallen seat's changes
 
-Leader names, fallen seat (correction task for bugs #762 and #763, from research `d1b5983`; the pool is exported from the DAT, the user's decision of 2026-10-05; it merges after T145) → [full entry](tasks/T146.md) · [#771](https://github.com/diegoami/imperial_conquest_2/issues/771)
+Leader names, fallen seat (correction task for bugs #762 and #763, from research `d1b5983`; the pool is exported from the DAT, the user's decision of 2026-10-05; it merges after T145; it also takes T76's follow-up, #774 items 1 and 3) → [full entry](tasks/T146.md) · [#771](https://github.com/diegoami/imperial_conquest_2/issues/771)
+
+---
+
+#### T147 The game screen: the map fills its area, windows open centred, and the output area reads as the app's
+
+Game screen layout (correction task for bug #781, from the user's visual review of T139; all four points in the v0.5.0 gate by the user's decision of 2026-10-06; godot/ only; it merges after T142) → [full entry](tasks/T147.md) · [#786](https://github.com/diegoami/imperial_conquest_2/issues/786)
 
 ---
 
@@ -1363,3 +1370,4 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T144](#t144-a-human-armys-move-resupplies-it-only-under-improved) | Human move resupply flag | M3 | Sonnet | Low | Sol | — | [#768](https://github.com/diegoami/imperial_conquest_2/issues/768) |
 | [T145](#t145-the-end-of-game-window-shows-the-originals-text) | End of Game window text | M18 | Sonnet | Medium | Sol + human | T111, T139 | [#770](https://github.com/diegoami/imperial_conquest_2/issues/770) |
 | [T146](#t146-leaders-are-drawn-from-the-originals-names-and-a-fallen-seats-changes) | Leader names, fallen seat | M12 | Sonnet | Medium | Sol | T145 | [#771](https://github.com/diegoami/imperial_conquest_2/issues/771) |
+| [T147](#t147-the-game-screen-the-map-fills-its-area-windows-open-centred-and-the-output-area-reads-as-the-apps) | Game screen layout | M18 | Sonnet | Medium | Sol + human | T142 | [#786](https://github.com/diegoami/imperial_conquest_2/issues/786) |
