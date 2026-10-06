@@ -6,7 +6,7 @@ What this machine provides to the build, beyond the toolchain that [operating-gu
 
 Adopted from harness_imperial (L50) by the user's decision of 2026-10-05; [CLAUDE.md](../CLAUDE.md) rules 17 and 18 apply it.
 
-A local service, quota-tracker, reports how much subscription quota is left on these providers: claude, openai (the ChatGPT plan, used through OpenCode), zai (the GLM Coding Plan), opencode_go (OpenCode Go), alibaba (the Alibaba Token Plan, OpenCode provider `alibaba-token-plan`) and openrouter (prepaid credit). Check it before choosing, recommending or delegating to a model, whenever you need to know whether a provider can be used right now.
+A local service, quota-tracker, reports how much subscription quota is left on these providers: claude, openai (the ChatGPT plan, used through OpenCode), zai (the GLM Coding Plan), opencode_go (OpenCode Go), alibaba (the Alibaba Token Plan, OpenCode provider `alibaba-token-plan`), minimax (the minimax.io Token Plan, OpenCode provider `minimax`) and openrouter (prepaid credit). Check it before choosing, recommending or delegating to a model, whenever you need to know whether a provider can be used right now.
 
 ### Querying
 
@@ -42,9 +42,25 @@ The scripts' names are `-Reviewer` / `-Model` values for `scripts/external-revie
 | zai | `glm`: `zai-coding-plan/glm-5.3`, effort `low` (it offers only `low`, `high` and `max`) | `glm-flash`: `zai-coding-plan/glm-5.3-flash`, effort `high` |
 | opencode_go | `deepseek-pro`: `opencode-go/deepseek-v4-pro`, effort `high` (it offers only `high` and `max`) | `deepseek-flash`: `opencode-go/deepseek-v4.1-flash` |
 | alibaba | `qwen`: `alibaba-token-plan/qwen3.8-max`, effort `low` (it offers `low`, `medium`, `xhigh`); and, as the second route of the same names, `deepseek-pro`: `alibaba-token-plan/deepseek-v4-pro` (`high`) and `glm`: `alibaba-token-plan/glm-5.3` (`low`) | `qwen-flash`: `alibaba-token-plan/qwen3.8-flash`, effort `medium` (no `high`); `deepseek-flash` / `deepseek`: `alibaba-token-plan/deepseek-v4.1-flash`. No light GLM (Z.AI has `glm-5.3-flash`) |
+| minimax | `mm-m3`: `minimax/MiniMax-M3`, variant `thinking` (it offers only `none` and `thinking`) | `mm-m2.7`: `minimax/MiniMax-M2.7` (no variants) |
 | openrouter | `openrouter/deepseek/deepseek-v4-pro` (no script name yet) | `openrouter/deepseek/deepseek-v4.1-flash` (no script name yet) |
 
 Heavy models run at `medium` rather than `high`, or lighter when medium is not needed (the user's decision of 2026-10-05). Where a model offers no `medium`, the table names the variant chosen.
+
+**Names in `models.local.json` only** (the owner's decision of 2026-10-06). These are registered in `models.local.json`'s `ids`, `variants` and `vendors` maps, for the model order ([`/model-order`](../.claude/skills/model-order/SKILL.md)). `external-review.ps1` and `external-implement.ps1` do not accept them as `-Reviewer` or `-Model` values yet. No chain uses them until the owner places them.
+
+| Name | Id | Variant | Family | Key | Quota |
+| --- | --- | --- | --- | --- | --- |
+| `mm-m3` | `minimax/MiniMax-M3` | `thinking` (of `none`, `thinking`) | minimax | the `minimax` entry in the usual data folder's `auth.json`, set by the owner | `/quota/minimax` |
+| `mm-m2.7` | `minimax/MiniMax-M2.7` | none (it offers none) | minimax | as above | `/quota/minimax` |
+| `ali-deepseek-pro` | `alibaba-token-plan/deepseek-v4-pro-0813` | `high` (of `high`, `max`) | deepseek | `ALIBABA_TOKEN_PLAN_API_KEY` ([below](#the-alibaba-token-plan)) | `/quota/alibaba` |
+| `ali-deepseek-flash` | `alibaba-token-plan/deepseek-v4.1-flash` | `high` (of `low`, `high`, `max`) | deepseek | as above | `/quota/alibaba` |
+| `ali-glm` | `alibaba-token-plan/glm-5.3` | `low` (of `low`, `high`, `max`) | glm | as above | `/quota/alibaba` |
+
+- **MiniMax is a vendor of its own.** It can review work by GLM, DeepSeek, Qwen, OpenAI or Claude models independently. `/quota/minimax` has a `5h` and a `7d` window. A one-prompt check, which bills a little: in PowerShell, `$env:XDG_DATA_HOME = "$env:USERPROFILE\.local\share\ic2-opencode-1x\data"`, then `$null | opencode run -m minimax/MiniMax-M3 --variant thinking "Reply with just: ok"`.
+- **The `ali-*` names keep their model's family** (`vendors`), so `ali-glm` never reviews GLM's work and `ali-deepseek-*` never reviews DeepSeek's.
+- **`ali-deepseek-pro` uses the dated `deepseek-v4-pro-0813`**, because only the dated id gets the night discount. The scripts' Alibaba route for `deepseek-pro` still uses the undated `deepseek-v4-pro`.
+- All five answered a probe on 2026-10-06, 19:43–19:44 CEST.
 
 Facts that affect availability:
 
@@ -84,9 +100,10 @@ Adopted by the owner's decision of 2026-10-06, as a supplement only: for smaller
 Adopted by the owner's decision of 2026-10-05, for three uses: the DeepSeek route when OpenCode Go is low, Qwen as a model family of its own (implementer `qwen-flash`, reviewers `qwen` and `qwen-flash`), and GLM-5.3 when Z.AI is out.
 
 - **One pool.** Every model draws on one monthly credit pool: `curl -s localhost:8765/quota/alibaba`, window `month`; the provider is `alibaba` in `/avoid`, `/best` and `/quota`.
-- **Night discount**, 22:00–08:00 UTC+8 (14:00–00:00 UTC): DeepSeek costs 50% fewer credits and Qwen 60% fewer. Long, deferrable runs on Alibaba are cheaper then.
+- **Night discount**, 22:00–08:00 UTC+8 (14:00–00:00 UTC; 16:00–02:00 in European summer time, 15:00–01:00 in winter): `qwen3.8-max` and `qwen3.8-flash` cost 60% fewer credits, and `deepseek-v4-pro-0813` and `deepseek-v4.1-flash` 50% fewer. `glm-5.3` gets no discount. Prefer long, deferrable Qwen and DeepSeek runs on Alibaba while `pricing.discount_now` is true (CLAUDE.md rule 20).
+- **Z.ai's peak**, from 8 October 2026: `glm-5.3` costs 3× quota Mon–Fri 14:00–18:00 UTC+8 (08:00–12:00 in European summer time). While `/quota/zai`'s `pricing.peak_now` is true, prefer `ali-glm` or another provider for long runs.
+- **Never use** Kimi or MiniMax on Alibaba: they are Team-edition only and fail on this plan. MiniMax runs on its own provider, `minimax`.
 - **Routes.** `external-review.ps1` and `external-implement.ps1` take `-Route auto|go|zai|alibaba`. `auto` (the default) runs DeepSeek on OpenCode Go and GLM on Z.AI unless `/avoid` lists `opencode_go` or `zai`, and then the same model on Alibaba; when the tracker does not answer, the usual route. The name and the family do not change with the route. The route is printed, logged, and named on the posted review's signature line and the "implemented by:" line.
-- **Never use** Kimi or MiniMax on Alibaba: they are Team-plan only.
 - **The key** is the environment variable `ALIBABA_TOKEN_PLAN_API_KEY`, a Windows **user** variable. Both scripts copy it from the user environment into their own process when the process lacks it (a session started before it was set), never printing it. It never goes into any `auth.json`: a key there overrides the variable and can break the provider. A run on an `alibaba-token-plan/…` model gets its own OpenCode data folder, `%USERPROFILE%\.local\share\ic2-opencode-1x\data-alibaba` (beside the other providers' `data`; cache and state are shared), created when missing; nothing is copied into it, and a run that finds an `auth.json` there stops without reading it (the owner's decision of 2026-10-05). Runs on other providers keep `data` and its copied `auth.json` as before. An Alibaba run's session is read with `python scripts/read-opencode-session.py <ses_…> --alibaba`, and its OpenCode log is under `data-alibaba\opencode\log\`. Never print, copy or log it, and never read an `auth.json`.
 
 Errors from it are never retried blind; the scripts stop (exit 1, not the chain's exit 3) with the cause:
