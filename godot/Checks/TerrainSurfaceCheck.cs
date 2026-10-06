@@ -329,6 +329,18 @@ public partial class TerrainSurfaceCheck : Control
         const float probeCell = 32f;
         const float surfaceCellsPerRepeat = 2.5f; // GameMapView.SurfaceCellsPerRepeat
 
+        // The windowed run renders under the project's canvas_items stretch (base 1500 × 850), so a
+        // logical pixel is not a physical one. Done-when 4 measures the screenshot's pixel columns as
+        // 32 px a cell, so size the probe's cell in logical units such that it lands on exactly 32
+        // screen pixels: logicalCell = 32 / (window height / base viewport height), the uniform
+        // canvas_items scale (window/size/stretch/aspect = expand keeps the origin at the top-left).
+        var viewportSize = GetViewport().GetVisibleRect().Size;
+        var windowSize = DisplayServer.WindowGetSize();
+        var physicalScale = viewportSize.Y > 0f ? windowSize.Y / viewportSize.Y : 1f;
+        var logicalCell = probeCell / physicalScale;
+        GD.Print($"TerrainSurfaceCheck: rim probe cell {probeCell} px, canvas scale {physicalScale:F4}, "
+            + $"logical cell {logicalCell:F4}, probe {gridWidth * logicalCell:F1} × {gridHeight * logicalCell:F1} logical.");
+
         var cells = new int[gridWidth * gridHeight];
         for (var y = 0; y < gridHeight; y++)
         {
@@ -374,7 +386,7 @@ public partial class TerrainSurfaceCheck : Control
         {
             Name = "RimProbe",
             Position = Vector2.Zero,
-            Size = new Vector2(gridWidth * probeCell, gridHeight * probeCell),
+            Size = new Vector2(gridWidth * logicalCell, gridHeight * logicalCell),
             Color = new Color(1f, 1f, 1f, 1f),
             MouseFilter = MouseFilterEnum.Ignore,
             Material = material,
