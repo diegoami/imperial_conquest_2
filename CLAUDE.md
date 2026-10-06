@@ -84,7 +84,10 @@ Agreed on [#264](https://github.com/diegoami/imperial_conquest_2/issues/264), wh
 17. **Check quota before choosing a model** (harness_imperial L50). Before choosing, recommending or
     delegating to a model (an OpenCode implementer or reviewer, a Claude agent or subagent), check
     how much quota its provider has left with quota-tracker (`curl -s localhost:8765/avoid`;
-    [docs/environment.md](docs/environment.md)). A provider whose status is `exhausted` is not used
+    [docs/environment.md](docs/environment.md)). There is no fixed model order: choose case by case,
+    and `pwsh scripts/Choose-Model.ps1 -Role <implementer|reviewer> [-Tier …] [-ExcludeModel …]` ranks
+    the candidates by quota, pricing and strength (the owner's decision of 2026-10-06; it chooses
+    nothing). A provider whose status is `exhausted` is not used
     until it is usable again: take the next model of the chain whose provider has quota, pass it
     explicitly (`-Reviewer`/`-Model`, or the Agent call's model), and say so in the run's report or
     the PR body ("GLM skipped: zai exhausted until 21:40; reviewed by Luna"). Where the service does
