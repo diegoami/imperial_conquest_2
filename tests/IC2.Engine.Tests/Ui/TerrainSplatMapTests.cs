@@ -7,14 +7,14 @@ using ModelTestPaths = IC2.Engine.Tests.Model.TestPaths;
 namespace IC2.Engine.Tests.Ui;
 
 /// <summary>
-/// <c>docs/tasks/T148.md</c> (as amended by plan PRs #807 and #808) Done-when 1:
+/// <c>docs/tasks/T148.md</c> (as amended by plan PRs #807, #808 and #811) Done-when 1:
 /// <see cref="TerrainSplatMap"/> turns the world's terrain grid into the six per-pixel surface weights
 /// the shader samples — a 4 × 4-per-cell bake whose channels are named, the cell's own class winning at
-/// its centre and in the mean of its four inner samples, a quarter-cell blend across every edge,
-/// shallow sea within one cell of land, a deterministic displacement whose published octaves are the
-/// ones in use and never cross a cell centre — and gives each river chain one smooth polyline sampled
-/// every 0.1 cell of arc length, confluences visibly joining. Godot-free, so it is exercised here
-/// directly rather than through the headless map check.
+/// its centre and in the mean of its four inner samples, a smoothed-then-sharpened border that turns a
+/// one-cell staircase into a straight line, shallow sea within one cell of land, bounded deterministic
+/// field noise — and gives each river chain one smooth, corner-cut polyline sampled every 0.1 cell of
+/// arc length, confluences visibly joining. Godot-free, so it is exercised here directly rather than
+/// through the headless map check.
 /// </summary>
 public sealed class TerrainSplatMapTests
 {
@@ -143,10 +143,9 @@ public sealed class TerrainSplatMapTests
 
     /// <summary>
     /// Done-when 1: two samples on either side of a plain–forest edge blend both classes, each side's
-    /// own class winning. The quarter-cell blend band is [edge − 0.25, edge + 0.25] before displacement;
-    /// the displacement (attenuated but not zero near an edge) can push a candidate out of the band or
-    /// across the edge, so the test scans the flank of a long scripted edge and takes the first sample
-    /// that lands inside the band on its own side — deterministic, since the noise is a pure function.
+    /// own class winning. The border is no longer a fixed-width blend band but a smoothed-then-sharpened
+    /// field, so the test scans the flank of a long scripted edge for the first sample that lands on its
+    /// own side with the neighbour still present — deterministic, since the field is a pure function.
     /// </summary>
     [Fact]
     public void Two_samples_across_a_plain_forest_edge_blend_with_each_side_winning()
@@ -218,131 +217,110 @@ public sealed class TerrainSplatMapTests
         Assert.Equal(first.SplatB, second.SplatB);
     }
 
-    /// <summary>Done-when 1: the displacement never exceeds 0.45 cell — over the classical world's
-    /// extent with a cell's margin around it.</summary>
-    [Fact]
-    public void The_displacement_never_exceeds_the_ceiling()
-    {
-        for (var y = -1f; y <= ClassicalHeight + 1f; y += 0.137f)
-        {
-            for (var x = -1f; x <= ClassicalWidth + 1f; x += 0.113f)
-            {
-                var displacement = TerrainSplatMap.Displacement(x, y);
-                var magnitude = MathF.Sqrt((displacement.X * displacement.X) + (displacement.Y * displacement.Y));
-                Assert.True(
-                    magnitude <= TerrainSplatMap.DisplacementCeilingCells,
-                    $"displacement magnitude {magnitude} at ({x}, {y}) exceeds {TerrainSplatMap.DisplacementCeilingCells}");
-            }
-        }
-    }
-
     /// <summary>
-    /// Done-when 1, the noise (the Opus review of the splatting round, R2): <c>Displacement</c> equals
-    /// the envelope times the sum of the published octave contributions at 1,000 fixed sample points
-    /// spread over the classical world — so the octaves the file names are the ones in use.
+    /// Done-when 1, the field noise: at 1,000 fixed sample points every class's noise is within
+    /// ±<see cref="TerrainSplatMap.FieldNoiseBoundCells"/>, and two calls return the identical value —
+    /// a pure function of position and a constant seed, never a random draw.
     /// </summary>
     [Fact]
-    public void Displacement_is_the_envelope_times_the_sum_of_the_published_octaves()
+    public void The_field_noise_is_bounded_and_identical_on_two_calls()
     {
         foreach (var (x, y) in FixedSamplePoints(1_000))
         {
-            var total = TerrainSplatMap.Displacement(x, y);
-            var envelope = TerrainSplatMap.CentreEnvelope(x, y);
-            var sumX = 0f;
-            var sumY = 0f;
-            for (var index = 0; index < TerrainSplatMap.OctaveCount; index++)
+            foreach (var cls in Enum.GetValues<TerrainSurfaceClass>())
             {
-                var octave = TerrainSplatMap.OctaveDisplacement(index, x, y);
-                sumX += octave.X;
-                sumY += octave.Y;
+                var noise = TerrainSplatMap.ClassNoise(cls, x, y);
+                Assert.InRange(noise, -TerrainSplatMap.FieldNoiseBoundCells, TerrainSplatMap.FieldNoiseBoundCells);
+                Assert.Equal(noise, TerrainSplatMap.ClassNoise(cls, x, y));
             }
-
-            Assert.True(
-                MathF.Abs(total.X - (envelope * sumX)) < 1e-6f && MathF.Abs(total.Y - (envelope * sumY)) < 1e-6f,
-                $"displacement ({total.X}, {total.Y}) != envelope {envelope} × octave sum ({sumX}, {sumY}) at ({x}, {y})");
         }
     }
 
     /// <summary>
-    /// Done-when 1: the octave constants include a low-frequency term with a period of 3 to 4 cells
-    /// whose contribution reaches a magnitude of at least 0.1 cell at some sample point (a real,
-    /// nonzero term), and the amplitudes sum to at most 0.45 cell.
+    /// Done-when 1, no stair-steps: on an 80 × 80 grid whose cell (x, y) is plain when x + y &lt; 40 and
+    /// sea otherwise (a diagonal one-cell staircase), the plain weight crosses 0.5 exactly once on each
+    /// of the 30 lines through (5 + k, 35 − k) in the direction (1, 1)/√2, and the 30 crossings lie
+    /// within 0.08 cell of their least-squares straight line — an unsmoothed staircase deviates by about
+    /// 0.35.
     /// </summary>
     [Fact]
-    public void A_low_frequency_octave_of_three_to_four_cells_actually_moves_the_coast()
+    public void A_diagonal_staircase_coast_blurs_into_a_straight_line()
     {
-        var lowFrequency = -1;
-        for (var index = 0; index < TerrainSplatMap.OctaveCount; index++)
+        const int width = 80;
+        const int height = 80;
+        var cells = new int[width * height];
+        for (var y = 0; y < height; y++)
         {
-            var period = TerrainSplatMap.OctavePeriodCellsAt(index);
-            if (period >= 3f && period <= 4f)
+            for (var x = 0; x < width; x++)
             {
-                lowFrequency = index;
-                break;
+                cells[(y * width) + x] = x + y < 40 ? 2 : 0;
             }
         }
 
-        Assert.True(lowFrequency >= 0, "no displacement octave has a period of 3 to 4 cells");
-
-        var amplitudeSum = 0f;
-        for (var index = 0; index < TerrainSplatMap.OctaveCount; index++)
+        var direction = 1f / MathF.Sqrt(2f);
+        var crossings = new List<(float X, float Y)>();
+        for (var k = 0; k < 30; k++)
         {
-            amplitudeSum += TerrainSplatMap.OctaveAmplitudeCellsAt(index);
+            var px = 5f + k;
+            var py = 35f - k;
+            var t = FindPlainCrossing(cells, width, height, px, py, direction, direction, $"the diagonal line {k}");
+            crossings.Add((px + (t * direction), py + (t * direction)));
         }
 
-        Assert.True(amplitudeSum <= TerrainSplatMap.DisplacementCeilingCells,
-            $"octave amplitudes sum to {amplitudeSum}, over {TerrainSplatMap.DisplacementCeilingCells}");
-
-        var reached = false;
-        var worst = 0f;
-        for (var y = 0.25f; y < ClassicalHeight && !reached; y += 0.5f)
-        {
-            for (var x = 0.25f; x < ClassicalWidth; x += 0.5f)
-            {
-                var octave = TerrainSplatMap.OctaveDisplacement(lowFrequency, x, y);
-                worst = MathF.Max(worst, MathF.Sqrt((octave.X * octave.X) + (octave.Y * octave.Y)));
-                if (worst >= 0.1f)
-                {
-                    reached = true;
-                    break;
-                }
-            }
-        }
-
-        Assert.True(reached,
-            $"the low-frequency octave's contribution never reaches 0.1 cell (best {worst:F4})");
+        AssertLineDeviation(crossings, 0.08f, "the diagonal staircase's 0.5 crossings");
     }
 
     /// <summary>
-    /// Done-when 1 (Sol's review of PR 808, R5): for every classical-world cell the displaced position
-    /// of its centre and of each of its four inner bake samples lies within 0.1 cell of the undisplaced
-    /// one — the centre envelope, over all 44,800 cells.
+    /// Done-when 1, no stair-steps: the same test on an 80 × 80 grid with plain for y &lt; 40 and sea for
+    /// y ≥ 40, with vertical lines through (25 + k, 40), gives crossings within 0.08 cell of their
+    /// least-squares line.
     /// </summary>
     [Fact]
-    public void The_envelope_holds_every_centre_and_inner_sample_within_a_tenth_of_a_cell()
+    public void A_straight_staircase_coast_blurs_into_a_straight_line()
     {
-        for (var cellY = 0; cellY < ClassicalHeight; cellY++)
+        const int width = 80;
+        const int height = 80;
+        var cells = new int[width * height];
+        for (var y = 0; y < height; y++)
         {
-            for (var cellX = 0; cellX < ClassicalWidth; cellX++)
+            for (var x = 0; x < width; x++)
             {
-                AssertEnvelopeHolds(cellX + 0.5f, cellY + 0.5f, $"centre of ({cellX}, {cellY})");
-                for (var j = 1; j <= 2; j++)
-                {
-                    for (var i = 1; i <= 2; i++)
-                    {
-                        var x = cellX + ((i + 0.5f) / TerrainSplatMap.SamplesPerCell);
-                        var y = cellY + ((j + 0.5f) / TerrainSplatMap.SamplesPerCell);
-                        AssertEnvelopeHolds(x, y, $"inner sample ({i}, {j}) of cell ({cellX}, {cellY})");
-                    }
-                }
+                cells[(y * width) + x] = y < 40 ? 2 : 0;
             }
         }
+
+        var crossings = new List<(float X, float Y)>();
+        for (var k = 0; k < 30; k++)
+        {
+            var px = 25f + k;
+            var t = FindPlainCrossing(cells, width, height, px, 40f, 0f, 1f, $"the vertical line {k}");
+            crossings.Add((px, 40f + t));
+        }
+
+        AssertLineDeviation(crossings, 0.08f, "the straight staircase's 0.5 crossings");
+    }
+
+    /// <summary>
+    /// Done-when 1: a lone plain cell surrounded by sea keeps plain as its highest weight at its centre —
+    /// the centre pin, so a one-cell island or a narrow strait never loses its own terrain.
+    /// </summary>
+    [Fact]
+    public void A_lone_plain_cell_keeps_plain_as_its_highest_weight_at_its_centre()
+    {
+        const int width = 9;
+        const int height = 9;
+        var cells = new int[width * height];
+        Array.Fill(cells, 0);
+        cells[(4 * width) + 4] = 2;
+
+        var weights = TerrainSplatMap.WeightsAt(cells, width, height, 4.5f, 4.5f);
+        AssertOwnClassWins(TerrainSurfaceClass.Plain, weights, "a lone plain cell's centre");
     }
 
     /// <summary>
     /// Done-when 1, rivers: the scripted chain (0,0)=6, (1,0)=6, (2,0)=10, (2,1)=7, (2,2)=8, (3,2)=6,
-    /// (4,2)=6 is exactly one chain; its polyline passes within 0.2 cell of each of the seven centres,
-    /// its 0.1-cell samples turn less than 30°, its endpoints are (0,0)'s west and (4,2)'s east exit
+    /// (4,2)=6 is exactly one chain; its polyline passes within 0.25 cell of each of the seven centres,
+    /// its 0.1-cell samples turn less than 20°, its endpoints are (0,0)'s west and (4,2)'s east exit
     /// midpoints within 0.01 (unlinked exits end the chain), and two calls give identical polylines.
     /// </summary>
     [Fact]
@@ -360,6 +338,8 @@ public sealed class TerrainSplatMapTests
 
         var chains = TerrainSplatMap.BuildRiverChains(cells, 6, 4);
         Assert.Single(chains);
+        Assert.Equal(0, chains[0].JoinStartPoints);
+        Assert.Equal(0, chains[0].JoinEndPoints);
         var line = chains[0].Polyline;
 
         (float X, float Y)[] centres =
@@ -369,7 +349,7 @@ public sealed class TerrainSplatMapTests
         foreach (var centre in centres)
         {
             var distance = MinDistanceToPolyline(line, new SplatPoint(centre.X, centre.Y));
-            Assert.True(distance <= 0.2f, $"the polyline stays within 0.2 of the centre ({centre.X}, {centre.Y}) (got {distance:F3})");
+            Assert.True(distance <= 0.25f, $"the polyline stays within 0.25 of the centre ({centre.X}, {centre.Y}) (got {distance:F3})");
         }
 
         Assert.True(line.Count > 10, $"the polyline of a seven-cell river has {line.Count} points");
@@ -384,11 +364,7 @@ public sealed class TerrainSplatMapTests
             }
         }
 
-        for (var k = 1; k < line.Count - 1; k++)
-        {
-            var turn = TurnAngleDegrees(line[k - 1], line[k], line[k + 1]);
-            Assert.True(turn < 30f, $"the direction turns {turn:F1}° between segments at point {k}, expected under 30°");
-        }
+        AssertTurnsUnder(line, 20.0, 0, 0, "the scripted river");
 
         AssertClose(new SplatPoint(0f, 0.5f), line[0], "the chain starts at (0,0)'s west exit midpoint");
         AssertClose(new SplatPoint(5f, 2.5f), line[^1], "the chain ends at (4,2)'s east exit midpoint");
@@ -397,6 +373,36 @@ public sealed class TerrainSplatMapTests
         Assert.Equal(
             chains[0].Polyline.Select(p => (p.X, p.Y)),
             again[0].Polyline.Select(p => (p.X, p.Y)));
+    }
+
+    /// <summary>
+    /// Done-when 1 (the Opus review of round 2, R1): a chain ending on a bend, (0,0)=6, (1,0)=10,
+    /// (1,1)=7, turns by less than 20° per segment through its last centre and reaches exactly its two
+    /// exit midpoints — the round-2 off-by-one kinked the last centre of every such chain.
+    /// </summary>
+    [Fact]
+    public void A_chain_ending_on_a_bend_keeps_a_continuous_tangent_through_its_last_centre()
+    {
+        var cells = new int[4 * 3];
+        Array.Fill(cells, 2);
+        cells[0] = 6;
+        cells[1] = 10;
+        cells[(1 * 4) + 1] = 7;
+
+        var chains = TerrainSplatMap.BuildRiverChains(cells, 4, 3);
+        Assert.Single(chains);
+        var line = chains[0].Polyline;
+
+        (float X, float Y)[] centres = [(0.5f, 0.5f), (1.5f, 0.5f), (1.5f, 1.5f)];
+        foreach (var centre in centres)
+        {
+            var distance = MinDistanceToPolyline(line, new SplatPoint(centre.X, centre.Y));
+            Assert.True(distance <= 0.25f, $"the bend-ending polyline stays within 0.25 of ({centre.X}, {centre.Y}) (got {distance:F3})");
+        }
+
+        AssertTurnsUnder(line, 20.0, 0, 0, "the bend-ending chain");
+        AssertClose(new SplatPoint(0f, 0.5f), line[0], "the bend-ending chain starts at its west exit midpoint");
+        AssertClose(new SplatPoint(1.5f, 2f), line[^1], "the bend-ending chain ends at its south exit midpoint");
     }
 
     /// <summary>
@@ -429,6 +435,7 @@ public sealed class TerrainSplatMapTests
         Assert.Contains(
             tributary.Polyline,
             point => Distance(point, new SplatPoint(1.5f, 1f)) <= 0.01f);
+        Assert.True(tributary.JoinEndPoints > 0, "the tributary carries its confluence joining segment");
 
         var last = tributary.Polyline[^1];
         var distance = MinDistanceToPolyline(main.Polyline, last);
@@ -439,7 +446,7 @@ public sealed class TerrainSplatMapTests
     }
 
     /// <summary>
-    /// Done-when 1: on the classical world every river cell lies within 0.2 cell of some chain's
+    /// Done-when 1: on the classical world every river cell lies within 0.25 cell of some chain's
     /// polyline — no river cell is left undrawn.
     /// </summary>
     [Fact]
@@ -465,26 +472,70 @@ public sealed class TerrainSplatMapTests
                 foreach (var chain in chains)
                 {
                     best = Math.Min(best, MinDistanceToPolyline(chain.Polyline, centre));
-                    if (best <= 0.2)
+                    if (best <= 0.25)
                     {
                         break;
                     }
                 }
 
-                Assert.True(best <= 0.2, $"river cell ({x}, {y}) code {code} is {best:F3} from every chain");
+                Assert.True(best <= 0.25, $"river cell ({x}, {y}) code {code} is {best:F3} from every chain");
             }
         }
     }
 
-    private static void AssertEnvelopeHolds(float x, float y, string where)
+    /// <summary>
+    /// Done-when 1 (the Opus review of round 2, R2): on the classical world every chain turns by less
+    /// than 20° between consecutive 0.1-cell segments, a confluence's joining segment excepted. The
+    /// joining segment is a straight run that leaves the smoothed curve at the exit midpoint; its
+    /// terminal point is tested on its own (within 0.05 cell of the receiving chain's polyline), and the
+    /// single turn at the join's junction is not part of the bound.
+    /// </summary>
+    [Fact]
+    public void Every_classical_chain_turns_under_twenty_degrees_a_segment()
     {
-        var displacement = TerrainSplatMap.Displacement(x, y);
-        var moved = MathF.Sqrt((displacement.X * displacement.X) + (displacement.Y * displacement.Y));
-        Assert.True(moved <= 0.1f, $"{where}: displaced {moved:F4}, expected at most 0.1");
+        var world = Repository.Resolve("classical-mediterranean").World;
+        var cells = world.Terrain.Decode(world.Width, world.Height);
+        var chains = TerrainSplatMap.BuildRiverChains(cells, world.Width, world.Height);
+        Assert.NotEmpty(chains);
+
+        foreach (var chain in chains)
+        {
+            AssertTurnsUnder(chain.Polyline, 20.0, chain.JoinStartPoints, chain.JoinEndPoints, "a classical chain");
+
+            // The joining segment is tested on its own: its terminal point lies on the receiving chain.
+            if (chain.JoinEndPoints > 0)
+            {
+                AssertJoinTouchesAChain(chains, chain, chain.Polyline[^1]);
+            }
+
+            if (chain.JoinStartPoints > 0)
+            {
+                AssertJoinTouchesAChain(chains, chain, chain.Polyline[0]);
+            }
+        }
     }
 
-    /// <summary>The 1,000 fixed sample points Done-when 1 names, spread deterministically over the
-    /// classical world by two irrational strides (no RNG; the same set every run).</summary>
+    private static void AssertJoinTouchesAChain(
+        IReadOnlyList<RiverChain> chains, RiverChain own, SplatPoint joinPoint)
+    {
+        var best = double.MaxValue;
+        foreach (var other in chains)
+        {
+            if (ReferenceEquals(other, own))
+            {
+                continue;
+            }
+
+            best = Math.Min(best, MinDistanceToPolyline(other.Polyline, joinPoint));
+        }
+
+        Assert.True(best <= 0.05, $"a joining segment's terminal point is {best:F4} from every other chain, expected ≤ 0.05");
+    }
+
+    /// <summary>
+    /// The 1,000 fixed sample points Done-when 1 names, spread deterministically over the classical
+    /// world by two irrational strides (no RNG; the same set every run).
+    /// </summary>
     private static IEnumerable<(float X, float Y)> FixedSamplePoints(int count)
     {
         for (var i = 0; i < count; i++)
@@ -492,6 +543,93 @@ public sealed class TerrainSplatMapTests
             var fx = (i * 0.6180339887498949d) % 1.0d;
             var fy = (i * 0.7548776662457773d) % 1.0d;
             yield return ((float)(fx * ClassicalWidth), (float)(fy * ClassicalHeight));
+        }
+    }
+
+    /// <summary>
+    /// Walks a sample line and returns the parameter t (in cells from the line's named point, along
+    /// (dx, dy)) at which the plain weight crosses 0.5, by linear interpolation between the two samples
+    /// that bracket it. Asserts the crossing happens exactly once.
+    /// </summary>
+    private static float FindPlainCrossing(
+        int[] cells, int width, int height, float px, float py, float dx, float dy, string where)
+    {
+        float? previousT = null;
+        float? previousWeight = null;
+        float? crossing = null;
+        var crossings = 0;
+        const int steps = 600;
+        for (var step = 0; step <= steps; step++)
+        {
+            var t = -1.5f + (step * 0.005f);
+            var weight = TerrainSplatMap.WeightsAt(cells, width, height, px + (t * dx), py + (t * dy)).Plain;
+            if (previousWeight is { } pw && previousT is { } pt)
+            {
+                if ((pw - 0.5f) * (weight - 0.5f) < 0f)
+                {
+                    crossings++;
+                    var fraction = (0.5f - pw) / (weight - pw);
+                    crossing = pt + (fraction * (t - pt));
+                }
+            }
+
+            previousT = t;
+            previousWeight = weight;
+        }
+
+        Assert.True(crossings == 1, $"{where}: the plain weight crosses 0.5 {crossings} times, expected exactly once");
+        return crossing!.Value;
+    }
+
+    /// <summary>Fits a least-squares straight line to the points and asserts every point's perpendicular
+    /// distance from it is at most <paramref name="tolerance"/>.</summary>
+    private static void AssertLineDeviation(List<(float X, float Y)> points, float tolerance, string where)
+    {
+        Assert.True(points.Count >= 2, $"{where}: too few points to fit a line");
+        var n = points.Count;
+        var meanX = points.Average(p => (double)p.X);
+        var meanY = points.Average(p => (double)p.Y);
+        double sxx = 0;
+        double sxy = 0;
+        double syy = 0;
+        foreach (var (x, y) in points)
+        {
+            sxx += (x - meanX) * (x - meanX);
+            sxy += (x - meanX) * (y - meanY);
+            syy += (y - meanY) * (y - meanY);
+        }
+
+        // Principal axis of the point cloud: the least-squares straight line through it.
+        var angle = 0.5 * Math.Atan2(2 * sxy, sxx - syy);
+        var nx = -Math.Sin(angle);
+        var ny = Math.Cos(angle);
+        var worst = 0.0;
+        foreach (var (x, y) in points)
+        {
+            var deviation = Math.Abs((nx * (x - meanX)) + (ny * (y - meanY)));
+            worst = Math.Max(worst, deviation);
+        }
+
+        Assert.True(worst <= tolerance, $"{where}: the worst perpendicular deviation is {worst:F4} cell, over {tolerance}");
+    }
+
+    /// <summary>Asserts every consecutive-segment turn of the polyline is under <paramref name="limit"/>
+    /// degrees, skipping the two join junctions (a start join's is at index JoinStartPoints, an end
+    /// join's at Count − 1 − JoinEndPoints) that the Done-when exempts.</summary>
+    private static void AssertTurnsUnder(
+        IReadOnlyList<SplatPoint> line, double limit, int joinStartPoints, int joinEndPoints, string where)
+    {
+        var endJunction = line.Count - 1 - joinEndPoints;
+        for (var k = 1; k < line.Count - 1; k++)
+        {
+            if (k == joinStartPoints || (joinEndPoints > 0 && k == endJunction))
+            {
+                continue;
+            }
+
+            var turn = TurnAngleDegrees(line[k - 1], line[k], line[k + 1]);
+            Assert.True(turn < limit,
+                $"{where}: the direction turns {turn:F1}° between segments at point {k}, expected under {limit}°");
         }
     }
 

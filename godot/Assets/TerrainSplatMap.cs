@@ -43,7 +43,23 @@ public readonly record struct SurfaceWeights(
 /// river with no gap.
 /// </summary>
 /// <param name="Polyline">The curve's points, in order, from the chain's start to its end.</param>
-public sealed record RiverChain(IReadOnlyList<SplatPoint> Polyline);
+public sealed record RiverChain(IReadOnlyList<SplatPoint> Polyline)
+{
+    /// <summary>
+    /// The number of leading points of <see cref="Polyline"/> that belong to a confluence joining
+    /// segment (0 when the start does not join a receiving chain). The joining segment leaves the
+    /// tangent-continuous curve at the start exit midpoint, so Done-when 1 exempts it from the
+    /// per-segment turn bound and tests it separately; exposing the count is how the test knows which
+    /// turns are the join's.
+    /// </summary>
+    public int JoinStartPoints { get; init; }
+
+    /// <summary>
+    /// The number of trailing points of <see cref="Polyline"/> that belong to a confluence joining
+    /// segment (0 when the end does not join a receiving chain). See <see cref="JoinStartPoints"/>.
+    /// </summary>
+    public int JoinEndPoints { get; init; }
+}
 
 /// <summary>
 /// T148 "The map's surface is painted, not tiled" — the one place that turns the world's terrain grid
@@ -65,27 +81,29 @@ public sealed record RiverChain(IReadOnlyList<SplatPoint> Polyline);
 /// Opus review of PR #806's R9 note).
 /// </para>
 /// <para>
-/// <strong>The continuous function and the bake.</strong> <see cref="WeightsAt(float,float)"/> is a
-/// smooth field over map coordinates: each cell contributes a bilinear tent of half-width
-/// <see cref="TentHalfWidthCells"/> cell centred on its centre, so a class fades into its neighbour
-/// over <see cref="BlendWidthPerSideCells"/> — a quarter of a cell — on each side of the shared edge
-/// (crisp, not soft: the user's decision of 2026-10-06). The sample position is displaced by a fixed,
-/// deterministic value noise of <see cref="OctaveCount"/> octaves
-/// (<see cref="OctavePeriodCellsAt"/> and <see cref="OctaveAmplitudeCellsAt"/>), including a
-/// low-frequency octave of period 3.5 cells so a diagonal coast becomes a wavy line rather than a cell
-/// staircase, attenuated near every cell's centre by the smooth <see cref="CentreEnvelope"/>: within
-/// <see cref="EnvelopeInnerRadiusCells"/> of a centre the displacement is zero, so the cell's own class
-/// wins at its centre and in the mean of its four inner baked samples (0.18 cell from the centre,
-/// 0.375 from every edge), which is what the linear-filtered shader reads there. <see cref="Bake"/>
-/// evaluates the function on a lattice of 4 × 4 samples per cell at the quarter-cell centres.
+/// <strong>Blending: smooth, then threshold</strong> (the user's decision of 2026-10-06 at the
+/// escalation of rework round 2). <see cref="WeightsAt(float,float)"/> is a smooth field over map
+/// coordinates. For each class it first computes a <em>smoothed membership field</em>: the
+/// Gaussian-weighted share (<see cref="SmoothingSigmaCells"/>, cells within
+/// <see cref="SmoothingReachCells"/>) of the cells whose class it is — so a one-cell staircase blurs
+/// into a smooth diagonal. A small deterministic noise (<see cref="FieldNoiseBoundCells"/> per class)
+/// keeps smooth borders off a ruler. A <em>centre pin</em> (<see cref="CentrePinStrength"/>,
+/// <see cref="CentrePinRadiusCells"/>) then adds, for the class of the cell containing the point, a
+/// smooth bump that is largest at that cell's centre and zero beyond the radius, big enough that the
+/// cell's own class always wins at its centre — a lone cell of one class reads as a small rounded patch
+/// rather than vanishing. The weights are those fields sharpened by a softmax at
+/// <see cref="SoftmaxSteepness"/>, whose 10 %-to-90 % transition is well under
+/// <see cref="SoftmaxTransitionCells"/>, so borders stay crisp while following the smoothed shape.
 /// </para>
 /// <para>
-/// <strong>Rivers.</strong> <see cref="BuildRiverChains"/> links orthogonally adjacent river cells
-/// whose exits face each other across their shared edge, follows each chain cell to cell, and fits one
-/// smooth chordal Catmull-Rom curve through the chain — from the start's exit midpoint, THROUGH the
-/// river cells' centres (they are interpolation nodes, so the curve passes exactly through every cell's
-/// centre), to the end's exit midpoint — with a deterministic wobble of at most
-/// <see cref="WobbleAmplitudeCells"/> cell, faded to zero near an open chain's ends.
+/// <strong>Rivers.</strong> <see cref="BuildRiverChains"/> links orthogonally adjacent river cells whose
+/// exits face each other across their shared edge, follows each chain cell to cell, and fits one
+/// tangent-continuous curve through the chain — from the start's exit midpoint, THROUGH a circular
+/// fillet of radius <see cref="RiverCornerRadiusCells"/> at every river cell's centre (so the curve cuts
+/// the corner instead of passing through it at an angle), to the end's exit midpoint — plus a gentle
+/// deterministic wobble of at most <see cref="RiverWobbleAmplitudeCells"/> cell, faded to zero near an
+/// open chain's ends. The curve passes within <see cref="RiverMaxCentreDistanceCells"/> of every river
+/// cell's centre and turns by well under 20° between consecutive 0.1-cell samples.
 /// </para>
 /// <para>
 /// <strong>Deterministic, no random draw.</strong> The only "randomness" is the hash of integer lattice
@@ -100,84 +118,82 @@ public sealed class TerrainSplatMap
     public const int SamplesPerCell = 4;
 
     /// <summary>
-    /// How far each side of a shared edge a terrain fades into its neighbour, in cells — a quarter of
-    /// a cell (crisp, not soft: the user's decision of 2026-10-06 at the visual review of the
-    /// splatting round).
+    /// The Gaussian smoothing length of the membership fields, in cells (T148 Scope "smooth, then
+    /// threshold": σ = 0.6 cell, the user's decision of 2026-10-06 at the escalation of rework round 2).
     /// </summary>
-    public const float BlendWidthPerSideCells = 0.25f;
+    public const float SmoothingSigmaCells = 0.6f;
+
+    /// <summary>The half-width, in cells, of the window each membership field sums over. A cell
+    /// farther than this has a Gaussian weight below 2e-5 and is left out.</summary>
+    public const int SmoothingReachCells = 2;
 
     /// <summary>
-    /// The half-width of one cell's contribution tent, in cells: its own half-cell plus the blend band
-    /// (<see cref="BlendWidthPerSideCells"/>) on each side, so the fade zones of the two cells across
-    /// an edge overlap over exactly the blend width.
+    /// The most the deterministic field noise adds to (or removes from) one class's field, in field
+    /// units (T148 Scope: at most 0.06 per class). It keeps a smooth border off a ruler without moving
+    /// it noticeably — the softened border's gradient is far steeper than this.
     /// </summary>
-    public const float TentHalfWidthCells = 0.5f + BlendWidthPerSideCells;
+    public const float FieldNoiseBoundCells = 0.06f;
+
+    /// <summary>The period, in cells, of the field noise: long, so a border wanders gently rather than
+    /// being roughened.</summary>
+    public const float FieldNoisePeriodCells = 7f;
 
     /// <summary>
-    /// The displacement ceiling of T148's splat noise, in cells. <see cref="Displacement"/> stays
-    /// under it by construction: the octave amplitudes sum to
-    /// <see cref="DisplacementAmplitudeSumCells"/> per axis, so the magnitude is bounded by √2 times
-    /// that — 0.438 cell, under the ceiling — and the envelope never exceeds 1.
+    /// The height of the centre pin's bump at a cell's centre, added to that cell's class field (T148
+    /// Scope "the cell's own terrain wins at its centre"). With σ = 0.6, a lone cell of one class loses
+    /// its smoothed share to its surroundings (about 0.31 to 0.69) but wins again once this is added.
     /// </summary>
-    public const float DisplacementCeilingCells = 0.45f;
+    public const float CentrePinStrength = 1f;
 
-    /// <summary>The number of displacement octaves.</summary>
-    public const int OctaveCount = 3;
+    /// <summary>The distance, in cells, beyond which the centre pin is exactly zero (T148 Scope). The
+    /// four inner bake samples of a cell sit 0.177 cell from its centre, inside this bump.</summary>
+    public const float CentrePinRadiusCells = 0.35f;
 
-    /// <summary>The largest displacement per axis the octaves add up to, in cells: the sum of the
-    /// octave amplitudes.</summary>
-    public const float DisplacementAmplitudeSumCells =
-        Octave0AmplitudeCells + Octave1AmplitudeCells + Octave2AmplitudeCells;
+    /// <summary>
+    /// The softmax steepness that sharpens the smoothed fields into weights (T148 Scope "sharpened by a
+    /// softmax"). Chosen for a crisp border: the 10 %-to-90 % transition is about
+    /// <see cref="SoftmaxTransitionCells"/> cell, not the blur the user rejected.
+    /// </summary>
+    public const float SoftmaxSteepness = 50f;
 
-    /// <summary>Period, in cells, of the low-frequency octave — the 3-to-4-cell term that makes a
-    /// diagonal coast a wavy line rather than a cell staircase (T148 Scope).</summary>
-    public const float Octave0PeriodCells = 3.5f;
-
-    /// <summary>Amplitude, in cells, of the low-frequency octave.</summary>
-    public const float Octave0AmplitudeCells = 0.15f;
-
-    /// <summary>Period, in cells, of the middle octave.</summary>
-    public const float Octave1PeriodCells = 1.2f;
-
-    /// <summary>Amplitude, in cells, of the middle octave.</summary>
-    public const float Octave1AmplitudeCells = 0.1f;
-
-    /// <summary>Period, in cells, of the fine octave.</summary>
-    public const float Octave2PeriodCells = 0.5f;
-
-    /// <summary>Amplitude, in cells, of the fine octave.</summary>
-    public const float Octave2AmplitudeCells = 0.06f;
-
-    /// <summary>Within this Euclidean distance, in cells, of the nearest cell centre the displacement
-    /// envelope is zero — so a cell centre and its four inner bake samples (0.18 cell away) never
-    /// move, which is the centre rule made geometric (Sol's review of PR 808, R5, asks at most 0.1
-    /// cell within 0.2 cell of a centre; this gives exactly 0).</summary>
-    public const float EnvelopeInnerRadiusCells = 0.2f;
-
-    /// <summary>At least this far from the nearest cell centre the envelope is 1 and the full noise
-    /// applies; between the two radii it rises smoothly (smoothstep).</summary>
-    public const float EnvelopeOuterRadiusCells = 0.45f;
+    /// <summary>The 10 %-to-90 % transition width, in cells, the softmax produces on a straight border:
+    /// 2·ln(9) / (<see cref="SoftmaxSteepness"/> × the border's field gradient). Recorded so the
+    /// constant's meaning is measurable.</summary>
+    public const float SoftmaxTransitionCells = 0.073f;
 
     /// <summary>The arc-length spacing, in cells, between consecutive points of a river chain's
     /// polyline (T148 Done-when 1: sampled every 0.1 cell of arc length).</summary>
     public const float RiverPolylineStepCells = 0.1f;
 
-    /// <summary>The largest river-chain wobble, in cells (T148 Scope: at most 0.15 cell, so the curve
-    /// still passes within 0.2 cell of every river cell's centre).</summary>
-    public const float WobbleAmplitudeCells = 0.12f;
+    /// <summary>
+    /// The radius, in cells, of the circular fillet the river curve cuts at each river cell's centre
+    /// (T148 Scope: the curve cuts corners instead of passing exactly through every centre). It is
+    /// capped by the available segment lengths; at 0.4 cell a fillet stays 0.166 cell from the centre
+    /// and bounds the curvature to 0.1/0.4 cell per sample, 14.3° — under the 20° the Done-when allows.
+    /// </summary>
+    public const float RiverCornerRadiusCells = 0.4f;
 
-    /// <summary>The wobble's noise period, in cells — smooth enough that 0.1-cell chords of the curve
-    /// never turn more than 30°.</summary>
-    public const float WobblePeriodCells = 2.5f;
+    /// <summary>The largest distance, in cells, the fitted river curve keeps from a river cell's centre:
+    /// the fillet's 0.166 plus the wobble's magnitude, under the 0.25 the Done-when requires.</summary>
+    public const float RiverMaxCentreDistanceCells = 0.23f;
 
-    /// <summary>Within this arc length of an open chain's start or end the wobble fades linearly to
-    /// zero, so the polyline's endpoints are exactly the chain's exit midpoints.</summary>
-    public const float WobbleEndFadeCells = 0.5f;
+    /// <summary>The largest river-chain wobble per axis, in cells (T148 Scope: at most 0.1 cell), a
+    /// deterministic value noise faded to zero at an open chain's ends so its endpoints stay exact.</summary>
+    public const float RiverWobbleAmplitudeCells = 0.04f;
 
-    private const int NoiseSeedX = 1013;
-    private const int NoiseSeedY = 2027;
+    /// <summary>The wobble's noise period, in cells — long enough that 0.1-cell chords of the curve stay
+    /// far under the 20° the Done-when allows.</summary>
+    public const float RiverWobblePeriodCells = 5f;
+
+    /// <summary>Within this arc length of an open chain's start or end the wobble fades linearly to zero,
+    /// so the polyline's endpoints are exactly the chain's exit midpoints.</summary>
+    public const float RiverWobbleEndFadeCells = 0.5f;
+
+    private const int NoiseSeedBase = 1013;
+    private const int NoiseSeedStride = 101;
     private const int WobbleSeedX = 4421;
     private const int WobbleSeedY = 5531;
+    private const float TwoSigmaSquared = 2f * SmoothingSigmaCells * SmoothingSigmaCells;
 
     private readonly int _width;
     private readonly int _height;
@@ -225,24 +241,6 @@ public sealed class TerrainSplatMap
         AssetKeys.TerrainMountainSurface,
         AssetKeys.TerrainSeaShallowSurface,
         AssetKeys.TerrainSeaDeepSurface,
-    };
-
-    /// <summary>The period, in cells, of displacement octave <paramref name="index"/>.</summary>
-    public static float OctavePeriodCellsAt(int index) => index switch
-    {
-        0 => Octave0PeriodCells,
-        1 => Octave1PeriodCells,
-        2 => Octave2PeriodCells,
-        _ => throw new ArgumentOutOfRangeException(nameof(index), "there are three displacement octaves"),
-    };
-
-    /// <summary>The amplitude, in cells, of displacement octave <paramref name="index"/>.</summary>
-    public static float OctaveAmplitudeCellsAt(int index) => index switch
-    {
-        0 => Octave0AmplitudeCells,
-        1 => Octave1AmplitudeCells,
-        2 => Octave2AmplitudeCells,
-        _ => throw new ArgumentOutOfRangeException(nameof(index), "there are three displacement octaves"),
     };
 
     /// <summary>Bakes the map's terrain grid.</summary>
@@ -301,45 +299,43 @@ public sealed class TerrainSplatMap
 
     /// <summary>
     /// The six weights at a map point for a raw grid — the static half <see cref="WeightsAt(float,float)"/>
-    /// delegates to, so the bake and the continuous function cannot drift.
+    /// delegates to, so the bake and the continuous function cannot drift. The smoothed membership
+    /// fields, the field noise and the centre pin feed a softmax (see the class remarks).
     /// </summary>
     public static SurfaceWeights WeightsAt(int[] cells, int width, int height, float x, float y)
     {
         ArgumentNullException.ThrowIfNull(cells);
 
-        var displacement = Displacement(x, y);
-        var sampleX = x + displacement.X;
-        var sampleY = y + displacement.Y;
-
-        Span<float> weights = stackalloc float[6];
+        Span<float> fields = stackalloc float[6];
         var total = 0f;
+        var cellX = (int)MathF.Floor(x);
+        var cellY = (int)MathF.Floor(y);
 
-        var centreX = (int)MathF.Floor(sampleX);
-        var centreY = (int)MathF.Floor(sampleY);
-        for (var cy = centreY - 1; cy <= centreY + 1; cy++)
+        for (var cy = cellY - SmoothingReachCells; cy <= cellY + SmoothingReachCells; cy++)
         {
-            var yFactor = 1f - (MathF.Abs(sampleY - (cy + 0.5f)) / TentHalfWidthCells);
-            if (yFactor <= 0f)
+            if (cy < 0 || cy >= height)
             {
                 continue;
             }
 
-            for (var cx = centreX - 1; cx <= centreX + 1; cx++)
+            for (var cx = cellX - SmoothingReachCells; cx <= cellX + SmoothingReachCells; cx++)
             {
-                var xFactor = 1f - (MathF.Abs(sampleX - (cx + 0.5f)) / TentHalfWidthCells);
-                if (xFactor <= 0f)
+                if (cx < 0 || cx >= width)
                 {
                     continue;
                 }
 
-                if (cx < 0 || cx >= width || cy < 0 || cy >= height)
+                var dx = x - (cx + 0.5f);
+                var dy = y - (cy + 0.5f);
+                var distanceSquared = (dx * dx) + (dy * dy);
+                if (distanceSquared > SmoothingReachCells * SmoothingReachCells)
                 {
                     continue;
                 }
 
-                var weight = xFactor * yFactor;
-                weights[(int)ClassOf(cells, width, height, cx, cy)] += weight;
+                var weight = MathF.Exp(-distanceSquared / TwoSigmaSquared);
                 total += weight;
+                fields[(int)ClassOf(cells, width, height, cx, cy)] += weight;
             }
         }
 
@@ -348,13 +344,79 @@ public sealed class TerrainSplatMap
             return default;
         }
 
+        for (var c = 0; c < 6; c++)
+        {
+            fields[c] = (fields[c] / total) + ClassNoise((TerrainSurfaceClass)c, x, y);
+        }
+
+        if (cellX >= 0 && cellX < width && cellY >= 0 && cellY < height)
+        {
+            var ccx = (cellX + 0.5f) - x;
+            var ccy = (cellY + 0.5f) - y;
+            var centreDistance = MathF.Sqrt((ccx * ccx) + (ccy * ccy));
+            fields[(int)ClassOf(cells, width, height, cellX, cellY)] += CentrePin(centreDistance);
+        }
+
+        return Softmax(fields);
+    }
+
+    /// <summary>
+    /// The deterministic field noise one class adds at a map point, in field units, in
+    /// [−<see cref="FieldNoiseBoundCells"/>, +<see cref="FieldNoiseBoundCells"/>]. A pure function of
+    /// position and the class's constant seed; never a random draw.
+    /// </summary>
+    public static float ClassNoise(TerrainSurfaceClass cls, float x, float y)
+    {
+        var index = (int)cls;
+        var nx = (x / FieldNoisePeriodCells) + (index * 13.7f);
+        var ny = (y / FieldNoisePeriodCells) - (index * 7.3f);
+        return ValueNoise(nx, ny, NoiseSeedBase + (index * NoiseSeedStride)) * FieldNoiseBoundCells;
+    }
+
+    /// <summary>
+    /// The centre pin's bump at a distance <paramref name="distanceCells"/> from a cell's centre, in
+    /// field units: <see cref="CentrePinStrength"/> at the centre, smoothly zero at
+    /// <see cref="CentrePinRadiusCells"/> (a C1 smoothstep, so the field has no crease).
+    /// </summary>
+    public static float CentrePin(float distanceCells)
+    {
+        if (distanceCells >= CentrePinRadiusCells)
+        {
+            return 0f;
+        }
+
+        var t = 1f - (distanceCells / CentrePinRadiusCells);
+        return CentrePinStrength * t * t * (3f - (2f * t));
+    }
+
+    private static SurfaceWeights Softmax(ReadOnlySpan<float> fields)
+    {
+        var max = float.NegativeInfinity;
+        for (var c = 0; c < 6; c++)
+        {
+            if (fields[c] > max)
+            {
+                max = fields[c];
+            }
+        }
+
+        Span<float> exponentials = stackalloc float[6];
+        var total = 0f;
+        for (var c = 0; c < 6; c++)
+        {
+            // The max is subtracted so a large steepness cannot overflow; the absent classes sit near
+            // zero while the present ones sit near one, so the shift changes nothing but the scale.
+            exponentials[c] = MathF.Exp(SoftmaxSteepness * (fields[c] - max));
+            total += exponentials[c];
+        }
+
         return new SurfaceWeights(
-            weights[0] / total,
-            weights[1] / total,
-            weights[2] / total,
-            weights[3] / total,
-            weights[4] / total,
-            weights[5] / total);
+            exponentials[0] / total,
+            exponentials[1] / total,
+            exponentials[2] / total,
+            exponentials[3] / total,
+            exponentials[4] / total,
+            exponentials[5] / total);
     }
 
     /// <summary>
@@ -422,72 +484,12 @@ public sealed class TerrainSplatMap
     public static bool IsRiverCode(int code) => code is >= 6 and <= 11;
 
     /// <summary>
-    /// Displacement octave <paramref name="index"/> at a map point, in cells: that octave's amplitude
-    /// times its own value-noise field (−1..1) evaluated at the point over the octave's period, on two
-    /// independent fields for the two axes — the envelope-free contribution
-    /// <see cref="Displacement"/> multiplies by the <see cref="CentreEnvelope"/>. Pure function of
-    /// position and constant seeds.
-    /// </summary>
-    public static SplatPoint OctaveDisplacement(int index, float x, float y)
-    {
-        var period = OctavePeriodCellsAt(index);
-        var amplitude = OctaveAmplitudeCellsAt(index);
-        var seedOffset = index * 101;
-        var nx = ValueNoise(x / period, y / period, NoiseSeedX + seedOffset);
-        var ny = ValueNoise((x / period) + 37.3f, (y / period) - 11.7f, NoiseSeedY + seedOffset);
-        return new SplatPoint(nx * amplitude, ny * amplitude);
-    }
-
-    /// <summary>
-    /// The total displacement of the sampling position at a map point, in cells: the
-    /// <see cref="CentreEnvelope"/> times the sum of the <see cref="OctaveCount"/> octave
-    /// contributions — exactly what <see cref="Displacement"/> computes, which Done-when 1 asserts at
-    /// fixed sample points so the published octaves are the ones in use. Its magnitude never exceeds
-    /// <see cref="DisplacementCeilingCells"/>. Pure function of position and constant seeds; never a
-    /// random draw.
-    /// </summary>
-    public static SplatPoint Displacement(float x, float y)
-    {
-        var envelope = CentreEnvelope(x, y);
-        var sumX = 0f;
-        var sumY = 0f;
-        for (var index = 0; index < OctaveCount; index++)
-        {
-            var octave = OctaveDisplacement(index, x, y);
-            sumX += octave.X;
-            sumY += octave.Y;
-        }
-
-        return new SplatPoint(envelope * sumX, envelope * sumY);
-    }
-
-    /// <summary>
-    /// The smooth attenuation of the displacement near cell centres, in [0, 1]: zero within
-    /// <see cref="EnvelopeInnerRadiusCells"/> of the nearest cell centre (so a centre sample and the
-    /// cell's four inner bake samples never move), rising with smoothstep to 1 at
-    /// <see cref="EnvelopeOuterRadiusCells"/>.
-    /// </summary>
-    public static float CentreEnvelope(float x, float y)
-    {
-        // The centre of the cell containing the point is at most 0.5 cell away on each axis, so it is
-        // the nearest cell centre in Euclidean distance too.
-        var dx = MathF.Abs(x - (MathF.Floor(x) + 0.5f));
-        var dy = MathF.Abs(y - (MathF.Floor(y) + 0.5f));
-        var distance = MathF.Sqrt((dx * dx) + (dy * dy));
-        var t = Math.Clamp(
-            (distance - EnvelopeInnerRadiusCells) / (EnvelopeOuterRadiusCells - EnvelopeInnerRadiusCells),
-            0f,
-            1f);
-        return t * t * (3f - (2f * t));
-    }
-
-    /// <summary>
     /// The river chains of a grid: two orthogonally adjacent river cells are <em>linked</em> when each
     /// has an exit toward the other across their shared edge; a cell has at most two links, so the
     /// links form simple paths (and possibly closed loops, drawn as closed curves). Each chain becomes
-    /// one <see cref="RiverChain"/>: a chordal Catmull-Rom curve through the chain's cell centres — an
-    /// open chain from its start exit's midpoint to its end exit's midpoint — wobbled by at most
-    /// <see cref="WobbleAmplitudeCells"/> cell and resampled every
+    /// one <see cref="RiverChain"/>: a tangent-continuous curve through the chain's cell centres — cut by
+    /// a circular fillet at each centre — open from its start exit's midpoint to its end exit's
+    /// midpoint, wobbled by at most <see cref="RiverWobbleAmplitudeCells"/> cell and resampled every
     /// <see cref="RiverPolylineStepCells"/> cell of arc length. An unlinked exit facing another river
     /// cell (a confluence the codes cannot encode) ends the chain at that exit's midpoint and continues
     /// it with a short straight segment to the nearest point of that cell's chain polyline.
@@ -561,22 +563,24 @@ public sealed class TerrainSplatMap
         {
             var chain = built[c];
             var polyline = new List<SplatPoint>(chain.Polyline);
+            var joinStart = 0;
+            var joinEnd = 0;
 
             if (chain.StartExit is { } startExit
                 && TryReceiverCell(cells, width, height, chainOfCell, c, chain.Path[0], startExit, out var startReceiver))
             {
                 var from = ExitMidpoint(chain.Path[0].X, chain.Path[0].Y, startExit);
-                PrependStraight(polyline, from, NearestPointOnPolyline(built[startReceiver].Polyline, from));
+                joinStart = PrependStraight(polyline, from, NearestPointOnPolyline(built[startReceiver].Polyline, from));
             }
 
             if (chain.EndExit is { } endExit
                 && TryReceiverCell(cells, width, height, chainOfCell, c, chain.Path[^1], endExit, out var endReceiver))
             {
                 var from = ExitMidpoint(chain.Path[^1].X, chain.Path[^1].Y, endExit);
-                AppendStraight(polyline, from, NearestPointOnPolyline(built[endReceiver].Polyline, from));
+                joinEnd = AppendStraight(polyline, from, NearestPointOnPolyline(built[endReceiver].Polyline, from));
             }
 
-            chains.Add(new RiverChain(polyline));
+            chains.Add(new RiverChain(polyline) { JoinStartPoints = joinStart, JoinEndPoints = joinEnd });
         }
 
         return chains;
@@ -745,130 +749,182 @@ public sealed class TerrainSplatMap
     }
 
     /// <summary>
-    /// The polyline of one chain: a chordal Catmull-Rom curve through <paramref name="nodes"/>, warped
-    /// by the deterministic river wobble (zero at an open chain's endpoints, full from
-    /// <see cref="WobbleEndFadeCells"/> of arc length inwards), resampled every
+    /// The polyline of one chain: the corner-cutting fillet curve through <paramref name="nodes"/>
+    /// (see <see cref="RoundPolyline"/>), warped by the deterministic river wobble, resampled every
     /// <see cref="RiverPolylineStepCells"/> cell of arc length between the exact endpoints.
     /// </summary>
     private static List<SplatPoint> SampleChainCurve(List<SplatPoint> nodes, bool closed)
     {
-        var dense = SampleCatmullRom(nodes, closed);
-        var total = ArcLength(dense);
-        var warped = new List<SplatPoint>(dense.Count);
+        var dense = ApplyWobble(RoundPolyline(nodes, closed), closed);
+        return ResampleByArcLength(dense, RiverPolylineStepCells, closed);
+    }
+
+    /// <summary>
+    /// The corner-cutting curve through <paramref name="nodes"/>: at every interior vertex a circular
+    /// fillet of radius up to <see cref="RiverCornerRadiusCells"/> replaces the sharp corner, and every
+    /// straight run stays a straight run. The fillet is tangent to both neighbouring segments, so the
+    /// curve is tangent-continuous; its radius is capped by the segment lengths so neighbouring fillets
+    /// never overlap. An open chain keeps its two endpoints exactly; a closed loop closes on itself.
+    /// </summary>
+    private static List<SplatPoint> RoundPolyline(IReadOnlyList<SplatPoint> nodes, bool closed)
+    {
+        var count = nodes.Count;
+        var result = new List<SplatPoint>();
+        if (count < 3)
+        {
+            result.AddRange(nodes);
+            if (closed && count > 1)
+            {
+                result.Add(nodes[0]);
+            }
+
+            return result;
+        }
+
+        if (!closed)
+        {
+            result.Add(nodes[0]);
+        }
+
+        var first = closed ? 0 : 1;
+        var last = closed ? count - 1 : count - 2;
+        for (var i = first; i <= last; i++)
+        {
+            var prev = nodes[closed ? ((i - 1 + count) % count) : i - 1];
+            var v = nodes[i];
+            var next = nodes[closed ? ((i + 1) % count) : i + 1];
+
+            var inLength = (float)Distance(prev, v);
+            var outLength = (float)Distance(v, next);
+            if (inLength <= 1e-6 || outLength <= 1e-6)
+            {
+                result.Add(v);
+                continue;
+            }
+
+            var ux = (v.X - prev.X) / inLength;
+            var uy = (v.Y - prev.Y) / inLength;
+            var wx = (next.X - v.X) / outLength;
+            var wy = (next.Y - v.Y) / outLength;
+            var dot = Math.Clamp((ux * wx) + (uy * wy), -1f, 1f);
+            var phi = MathF.Acos(dot);
+            if (phi < 1e-3f)
+            {
+                // Straight through: the centre is already on the curve.
+                result.Add(v);
+                continue;
+            }
+
+            var halfTan = MathF.Tan(phi / 2f);
+            var prevFilleted = closed || i - 1 >= 1;
+            var nextFilleted = closed || i + 1 <= count - 2;
+            var capIn = (prevFilleted ? 0.45f : 0.9f) * inLength;
+            var capOut = (nextFilleted ? 0.45f : 0.9f) * outLength;
+            var tangentDistance = MathF.Min(RiverCornerRadiusCells * halfTan, MathF.Min(capIn, capOut));
+            if (tangentDistance <= 1e-4f)
+            {
+                result.Add(v);
+                continue;
+            }
+
+            var radius = tangentDistance / halfTan;
+            var pIn = new SplatPoint(v.X - (ux * tangentDistance), v.Y - (uy * tangentDistance));
+            var pOut = new SplatPoint(v.X + (wx * tangentDistance), v.Y + (wy * tangentDistance));
+
+            // The fillet centre lies on the interior angle bisector, at radius / cos(phi / 2) from the
+            // vertex.
+            var bx = -ux + wx;
+            var by = -uy + wy;
+            var bisectorLength = MathF.Sqrt((bx * bx) + (by * by));
+            if (bisectorLength <= 1e-6f)
+            {
+                result.Add(v);
+                continue;
+            }
+
+            bx /= bisectorLength;
+            by /= bisectorLength;
+            var centreDistance = radius / MathF.Cos(phi / 2f);
+            var ox = v.X + (bx * centreDistance);
+            var oy = v.Y + (by * centreDistance);
+
+            result.Add(pIn);
+            AppendArc(result, ox, oy, radius, pIn, pOut);
+            result.Add(pOut);
+        }
+
+        if (!closed)
+        {
+            result.Add(nodes[^1]);
+        }
+        else
+        {
+            result.Add(result[0]);
+        }
+
+        return result;
+    }
+
+    /// <summary>Appends the interior points of the circular arc centred on (ox, oy) from
+    /// <paramref name="from"/> to <paramref name="to"/>; the caller adds the two endpoints.</summary>
+    private static void AppendArc(List<SplatPoint> result, float ox, float oy, float radius, SplatPoint from, SplatPoint to)
+    {
+        var start = MathF.Atan2(from.Y - oy, from.X - ox);
+        var end = MathF.Atan2(to.Y - oy, to.X - ox);
+        var sweep = end - start;
+        while (sweep > MathF.PI)
+        {
+            sweep -= 2f * MathF.PI;
+        }
+
+        while (sweep < -MathF.PI)
+        {
+            sweep += 2f * MathF.PI;
+        }
+
+        var steps = Math.Max(2, (int)MathF.Ceiling(MathF.Abs(sweep) * radius / 0.02f));
+        for (var k = 1; k < steps; k++)
+        {
+            var angle = start + (sweep * k / steps);
+            result.Add(new SplatPoint(ox + (radius * MathF.Cos(angle)), oy + (radius * MathF.Sin(angle))));
+        }
+    }
+
+    /// <summary>The deterministic wobble of the river curve, in cells, faded to zero at an open chain's
+    /// ends so its first and last points stay exactly its exit midpoints.</summary>
+    private static List<SplatPoint> ApplyWobble(List<SplatPoint> points, bool closed)
+    {
+        var total = ArcLength(points);
+        var result = new List<SplatPoint>(points.Count);
         var travelled = 0d;
-        for (var i = 0; i < dense.Count; i++)
+        for (var i = 0; i < points.Count; i++)
         {
             if (i > 0)
             {
-                travelled += Distance(dense[i - 1], dense[i]);
+                travelled += Distance(points[i - 1], points[i]);
             }
 
             var fade = closed
                 ? 1f
-                : Math.Clamp((float)(Math.Min(travelled, total - travelled) / WobbleEndFadeCells), 0f, 1f);
-            var wobble = WobbleAt(dense[i]);
-            warped.Add(new SplatPoint(
-                dense[i].X + (wobble.X * fade),
-                dense[i].Y + (wobble.Y * fade)));
+                : Math.Clamp((float)(Math.Min(travelled, total - travelled) / RiverWobbleEndFadeCells), 0f, 1f);
+            var wobble = WobbleAt(points[i]);
+            result.Add(new SplatPoint(
+                points[i].X + (wobble.X * fade),
+                points[i].Y + (wobble.Y * fade)));
         }
 
-        return ResampleByArcLength(warped, RiverPolylineStepCells);
+        return result;
     }
 
     private static SplatPoint WobbleAt(SplatPoint p) => new(
-        ValueNoise(p.X / WobblePeriodCells, p.Y / WobblePeriodCells, WobbleSeedX) * WobbleAmplitudeCells,
-        ValueNoise((p.X / WobblePeriodCells) + 19.7f, (p.Y / WobblePeriodCells) - 7.3f, WobbleSeedY)
-            * WobbleAmplitudeCells);
-
-    /// <summary>
-    /// Dense samples of the chordal Catmull-Rom curve through <paramref name="nodes"/>: the curve
-    /// interpolates every node (so it passes exactly through each river cell's centre), tangents scaled
-    /// by the node chord lengths; a closed curve wraps its nodes and ends where it starts.
-    /// </summary>
-    private static List<SplatPoint> SampleCatmullRom(List<SplatPoint> nodes, bool closed)
-    {
-        var count = nodes.Count;
-        var samples = new List<SplatPoint>();
-
-        SplatPoint NodeAt(int i) => closed
-            ? nodes[((i % count) + count) % count]
-            : nodes[Math.Clamp(i, 0, count - 1)];
-
-        var chord = new double[count];
-        var segments = closed ? count : count - 1;
-        for (var i = 0; i < segments; i++)
-        {
-            chord[i] = Distance(nodes[i], NodeAt(i + 1));
-        }
-
-        for (var i = 0; i < segments; i++)
-        {
-            var p0 = NodeAt(i);
-            var p1 = NodeAt(i + 1);
-            var h = chord[i];
-            var previousChord = chord[((i - 1) + segments) % segments];
-
-            SplatPoint tangent;
-            SplatPoint tangentNext;
-            if (closed)
-            {
-                tangent = ChordalTangent(NodeAt(i - 1), NodeAt(i + 1), previousChord + h);
-                tangentNext = ChordalTangent(NodeAt(i), NodeAt(i + 2), h + chord[(i + 1) % segments]);
-            }
-            else if (i == 0)
-            {
-                // One-sided at an open chain's first endpoint: along the chain.
-                tangent = ChordalTangent(p0, p1, h);
-                tangentNext = segments == 1
-                    ? ChordalTangent(p0, p1, h)
-                    : ChordalTangent(p0, NodeAt(2), h + chord[1]);
-            }
-            else if (i == segments - 1)
-            {
-                tangent = ChordalTangent(NodeAt(i - 2), p1, previousChord + h);
-                tangentNext = ChordalTangent(p0, p1, h);
-            }
-            else
-            {
-                tangent = ChordalTangent(NodeAt(i - 1), NodeAt(i + 1), previousChord + h);
-                tangentNext = ChordalTangent(p0, NodeAt(i + 2), h + chord[i + 1]);
-            }
-
-            var steps = Math.Max(2, (int)Math.Ceiling(h / 0.02));
-            for (var k = 0; k < steps; k++)
-            {
-                var u = k / (double)steps;
-                samples.Add(Hermite(p0, tangent, p1, tangentNext, u, h));
-            }
-        }
-
-        samples.Add(closed ? nodes[0] : nodes[^1]);
-        return samples;
-    }
-
-    private static SplatPoint ChordalTangent(SplatPoint before, SplatPoint after, double span) => span <= 0.0
-        ? new SplatPoint(0f, 0f)
-        : new SplatPoint(
-            (float)((after.X - before.X) / span),
-            (float)((after.Y - before.Y) / span));
-
-    private static SplatPoint Hermite(
-        SplatPoint p0, SplatPoint m0, SplatPoint p1, SplatPoint m1, double u, double h)
-    {
-        var uu = u * u;
-        var uuu = uu * u;
-        var h00 = (2d * uuu) - (3d * uu) + 1d;
-        var h10 = uuu - (2d * uu) + u;
-        var h01 = (-2d * uuu) + (3d * uu);
-        var h11 = uuu - uu;
-        return new SplatPoint(
-            (float)((p0.X * h00) + ((m0.X * h * h10) + (p1.X * h01)) + (m1.X * h * h11)),
-            (float)((p0.Y * h00) + ((m0.Y * h * h10) + (p1.Y * h01)) + (m1.Y * h * h11)));
-    }
+        ValueNoise(p.X / RiverWobblePeriodCells, p.Y / RiverWobblePeriodCells, WobbleSeedX) * RiverWobbleAmplitudeCells,
+        ValueNoise((p.X / RiverWobblePeriodCells) + 19.7f, (p.Y / RiverWobblePeriodCells) - 7.3f, WobbleSeedY)
+            * RiverWobbleAmplitudeCells);
 
     /// <summary>Points every <paramref name="step"/> of arc length along the polyline, starting and
-    /// ending at its exact endpoints (the last gap may be shorter than the step).</summary>
-    private static List<SplatPoint> ResampleByArcLength(List<SplatPoint> points, float step)
+    /// ending at its exact endpoints (the last gap may be shorter than the step). A closed polyline
+    /// closes on its first point.</summary>
+    private static List<SplatPoint> ResampleByArcLength(List<SplatPoint> points, float step, bool closed)
     {
         var result = new List<SplatPoint> { points[0] };
         if (points.Count < 2)
@@ -896,7 +952,7 @@ public sealed class TerrainSplatMap
             travelled += segment;
         }
 
-        var last = points[^1];
+        var last = closed ? points[0] : points[^1];
         if (Distance(result[^1], last) > 1e-4)
         {
             result.Add(last);
@@ -905,16 +961,24 @@ public sealed class TerrainSplatMap
         return result;
     }
 
-    private static void AppendStraight(List<SplatPoint> polyline, SplatPoint from, SplatPoint to)
+    /// <summary>Appends a straight run from the polyline's end (<paramref name="from"/>) to
+    /// <paramref name="to"/>, every <see cref="RiverPolylineStepCells"/> or so, and returns how many
+    /// points were added (the join's size for Done-when 1's exemption).</summary>
+    private static int AppendStraight(List<SplatPoint> polyline, SplatPoint from, SplatPoint to)
     {
         var steps = Math.Max(1, (int)Math.Round(Distance(from, to) / RiverPolylineStepCells));
         for (var k = 1; k <= steps; k++)
         {
             polyline.Add(k == steps ? to : Lerp(from, to, k / (float)steps));
         }
+
+        return steps;
     }
 
-    private static void PrependStraight(List<SplatPoint> polyline, SplatPoint from, SplatPoint to)
+    /// <summary>Prepends a straight run from the polyline's start (<paramref name="from"/>) back to
+    /// <paramref name="to"/>, every <see cref="RiverPolylineStepCells"/> or so, and returns how many
+    /// points were added (the join's size for Done-when 1's exemption).</summary>
+    private static int PrependStraight(List<SplatPoint> polyline, SplatPoint from, SplatPoint to)
     {
         var steps = Math.Max(1, (int)Math.Round(Distance(from, to) / RiverPolylineStepCells));
         var prefix = new List<SplatPoint>(steps);
@@ -924,6 +988,7 @@ public sealed class TerrainSplatMap
         }
 
         polyline.InsertRange(0, prefix);
+        return steps;
     }
 
     /// <summary>The nearest point of a polyline to <paramref name="from"/>: the projection onto one of
