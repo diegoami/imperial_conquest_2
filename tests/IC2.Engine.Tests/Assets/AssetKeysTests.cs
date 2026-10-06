@@ -119,18 +119,49 @@ public class AssetKeysTests
     }
 
     /// <summary>
-    /// T101 DoD 1: <see cref="AssetKeys.AllKeys"/> yields exactly the 25 pre-T101 keys plus the
-    /// 36 <c>ui.command.*</c> keys (audit §3.5: 9 main, 12 Area-map, 15 unit-map), and nothing
-    /// else.
+    /// T101 DoD 1, widened by T148: <see cref="AssetKeys.AllKeys"/> yields exactly the 25 pre-T101
+    /// keys plus the 36 <c>ui.command.*</c> keys (audit §3.5: 9 main, 12 Area-map, 15 unit-map) plus
+    /// T148's 28 terrain keys, and nothing else.
     /// </summary>
     [Fact]
     public void AllKeys_HasExactlyThePreT101AndToolbarCommandKeys()
     {
         var allKeys = AssetKeys.AllKeys.ToList();
 
-        Assert.Equal(61, allKeys.Count);
-        Assert.Equal(25, allKeys.Count(k => !k.StartsWith("ui.command.", StringComparison.Ordinal)));
+        Assert.Equal(89, allKeys.Count);
+        Assert.Equal(53, allKeys.Count(k => !k.StartsWith("ui.command.", StringComparison.Ordinal)));
         Assert.Equal(36, allKeys.Count(k => k.StartsWith("ui.command.", StringComparison.Ordinal)));
+    }
+
+    /// <summary>
+    /// T148 DoD 1: the exact string of each of the 28 new terrain keys — three variants of each of the
+    /// six variant-bearing types, the six river connectivity pieces (in the order
+    /// <c>MapViewer.DrawRiver</c> reads codes 6–11) and the four shore overlays — so a rename fails
+    /// here instead of changing what the map resolves. The seven pre-existing terrain keys stay
+    /// untouched.
+    /// </summary>
+    [Fact]
+    public void T148_NewTerrainKeys_AreExactlyTheTwentyEightAddedKeys()
+    {
+        var expected = new[]
+        {
+            "terrain.plain.tile.2", "terrain.plain.tile.3", "terrain.plain.tile.4",
+            "terrain.desert.tile.2", "terrain.desert.tile.3", "terrain.desert.tile.4",
+            "terrain.forest.tile.2", "terrain.forest.tile.3", "terrain.forest.tile.4",
+            "terrain.mountain.tile.2", "terrain.mountain.tile.3", "terrain.mountain.tile.4",
+            "terrain.sea_coastal.tile.2", "terrain.sea_coastal.tile.3", "terrain.sea_coastal.tile.4",
+            "terrain.sea_deep.tile.2", "terrain.sea_deep.tile.3", "terrain.sea_deep.tile.4",
+            "terrain.river.ew", "terrain.river.ns", "terrain.river.en",
+            "terrain.river.es", "terrain.river.ws", "terrain.river.wn",
+            "terrain.shore.n", "terrain.shore.e", "terrain.shore.s", "terrain.shore.w",
+        };
+
+        Assert.Equal(28, expected.Length);
+        Assert.Equal(
+            expected.OrderBy(k => k, StringComparer.Ordinal),
+            AssetKeys.TerrainKeysAddedByT148.OrderBy(k => k, StringComparer.Ordinal));
+        Assert.DoesNotContain("terrain.river.tile", AssetKeys.TerrainKeysAddedByT148);
+        Assert.All(expected, key => Assert.Contains(key, AssetKeys.AllKeys));
     }
 
     /// <summary>

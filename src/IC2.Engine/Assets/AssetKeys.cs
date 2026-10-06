@@ -126,6 +126,118 @@ public static class AssetKeys
     /// <summary>Tile sprite for deep sea terrain.</summary>
     public const string TerrainSeaDeepTile = "terrain.sea_deep.tile";
 
+    // ===== T148: terrain tile variants, river connectivity pieces and shore overlays =====
+    //
+    // The seven keys above are the flat, one-per-tile-type sprites. T148 draws the map from per-cell
+    // tiles and adds: three extra variants per land/sea type (the existing `.tile` is variant 1), one
+    // piece per river connectivity code 6..11, and four 32-bit shore overlays composited over a land
+    // cell whose neighbour is sea. The mapping from a grid cell to these keys is
+    // godot/Assets/TerrainTileKeys.cs; asset-specification.md 4.5 records the river gap this closes.
+
+    /// <summary>Terrain tile variant 2 for plain terrain.</summary>
+    public const string TerrainPlainTile2 = "terrain.plain.tile.2";
+
+    /// <summary>Terrain tile variant 3 for plain terrain.</summary>
+    public const string TerrainPlainTile3 = "terrain.plain.tile.3";
+
+    /// <summary>Terrain tile variant 4 for plain terrain.</summary>
+    public const string TerrainPlainTile4 = "terrain.plain.tile.4";
+
+    /// <summary>Terrain tile variant 2 for desert terrain.</summary>
+    public const string TerrainDesertTile2 = "terrain.desert.tile.2";
+
+    /// <summary>Terrain tile variant 3 for desert terrain.</summary>
+    public const string TerrainDesertTile3 = "terrain.desert.tile.3";
+
+    /// <summary>Terrain tile variant 4 for desert terrain.</summary>
+    public const string TerrainDesertTile4 = "terrain.desert.tile.4";
+
+    /// <summary>Terrain tile variant 2 for forest terrain.</summary>
+    public const string TerrainForestTile2 = "terrain.forest.tile.2";
+
+    /// <summary>Terrain tile variant 3 for forest terrain.</summary>
+    public const string TerrainForestTile3 = "terrain.forest.tile.3";
+
+    /// <summary>Terrain tile variant 4 for forest terrain.</summary>
+    public const string TerrainForestTile4 = "terrain.forest.tile.4";
+
+    /// <summary>Terrain tile variant 2 for mountain terrain.</summary>
+    public const string TerrainMountainTile2 = "terrain.mountain.tile.2";
+
+    /// <summary>Terrain tile variant 3 for mountain terrain.</summary>
+    public const string TerrainMountainTile3 = "terrain.mountain.tile.3";
+
+    /// <summary>Terrain tile variant 4 for mountain terrain.</summary>
+    public const string TerrainMountainTile4 = "terrain.mountain.tile.4";
+
+    /// <summary>Terrain tile variant 2 for shallow sea terrain.</summary>
+    public const string TerrainSeaCoastalTile2 = "terrain.sea_coastal.tile.2";
+
+    /// <summary>Terrain tile variant 3 for shallow sea terrain.</summary>
+    public const string TerrainSeaCoastalTile3 = "terrain.sea_coastal.tile.3";
+
+    /// <summary>Terrain tile variant 4 for shallow sea terrain.</summary>
+    public const string TerrainSeaCoastalTile4 = "terrain.sea_coastal.tile.4";
+
+    /// <summary>Terrain tile variant 2 for deep sea terrain.</summary>
+    public const string TerrainSeaDeepTile2 = "terrain.sea_deep.tile.2";
+
+    /// <summary>Terrain tile variant 3 for deep sea terrain.</summary>
+    public const string TerrainSeaDeepTile3 = "terrain.sea_deep.tile.3";
+
+    /// <summary>Terrain tile variant 4 for deep sea terrain.</summary>
+    public const string TerrainSeaDeepTile4 = "terrain.sea_deep.tile.4";
+
+    /// <summary>River piece: east–west (grid code 6).</summary>
+    public const string TerrainRiverEw = "terrain.river.ew";
+
+    /// <summary>River piece: north–south (grid code 7).</summary>
+    public const string TerrainRiverNs = "terrain.river.ns";
+
+    /// <summary>River piece: east + north (grid code 8).</summary>
+    public const string TerrainRiverEn = "terrain.river.en";
+
+    /// <summary>River piece: east + south (grid code 9).</summary>
+    public const string TerrainRiverEs = "terrain.river.es";
+
+    /// <summary>River piece: west + south (grid code 10).</summary>
+    public const string TerrainRiverWs = "terrain.river.ws";
+
+    /// <summary>River piece: west + north (grid code 11).</summary>
+    public const string TerrainRiverWn = "terrain.river.wn";
+
+    /// <summary>Shore overlay along a land cell's north edge (32-bit BGRA).</summary>
+    public const string TerrainShoreN = "terrain.shore.n";
+
+    /// <summary>Shore overlay along a land cell's east edge (32-bit BGRA).</summary>
+    public const string TerrainShoreE = "terrain.shore.e";
+
+    /// <summary>Shore overlay along a land cell's south edge (32-bit BGRA).</summary>
+    public const string TerrainShoreS = "terrain.shore.s";
+
+    /// <summary>Shore overlay along a land cell's west edge (32-bit BGRA).</summary>
+    public const string TerrainShoreW = "terrain.shore.w";
+
+    /// <summary>
+    /// T148: the 28 terrain keys this task added — the three extra variants of each of the six
+    /// variant-bearing types, the six river connectivity pieces and the four shore overlays. Exposed
+    /// so tests can name them exactly, and so <c>AssetSpecificationCoverageTests</c> can treat them
+    /// as the one documented gap: <c>docs/asset-specification.md</c> 6's machine-checked ground-truth
+    /// block is a Markdown file a task branch must not edit, so it names them only once the main
+    /// session applies the PR's "Docs affected" pass. The existing seven keys are not in this list.
+    /// </summary>
+    public static IReadOnlyList<string> TerrainKeysAddedByT148 { get; } = new[]
+    {
+        TerrainPlainTile2, TerrainPlainTile3, TerrainPlainTile4,
+        TerrainDesertTile2, TerrainDesertTile3, TerrainDesertTile4,
+        TerrainForestTile2, TerrainForestTile3, TerrainForestTile4,
+        TerrainMountainTile2, TerrainMountainTile3, TerrainMountainTile4,
+        TerrainSeaCoastalTile2, TerrainSeaCoastalTile3, TerrainSeaCoastalTile4,
+        TerrainSeaDeepTile2, TerrainSeaDeepTile3, TerrainSeaDeepTile4,
+        TerrainRiverEw, TerrainRiverNs, TerrainRiverEn, TerrainRiverEs, TerrainRiverWs, TerrainRiverWn,
+        TerrainShoreN, TerrainShoreE, TerrainShoreS, TerrainShoreW,
+    };
+
     // ===== Sound effects =====
 
     /// <summary>Sound effect played when a city is captured.</summary>
@@ -308,6 +420,12 @@ public static class AssetKeys
             yield return TerrainRiverTile;
             yield return TerrainSeaCoastalTile;
             yield return TerrainSeaDeepTile;
+
+            // Terrain variants, river pieces and shore overlays (T148)
+            foreach (var key in TerrainKeysAddedByT148)
+            {
+                yield return key;
+            }
 
             // Sound effects
             yield return SfxCityCaptured;
