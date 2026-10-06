@@ -208,6 +208,8 @@ graph TD
   T139 --> T145
   T145 --> T146[T146 leader names, fallen seat]
   T142 --> T147[T147 game screen layout]
+  T147 --> T148[T148 terrain tiles]
+  T147 --> T149[T149 sound effects]
   T23 --> T26[T26 scenario docs+examples]
   T29 --> T26
   T22 --> T28[T28 nightly soak gate]
@@ -1194,6 +1196,18 @@ Game screen layout (correction task for bug #781, from the user's visual review 
 
 ---
 
+#### T148 The map draws terrain from tiles: varied land and sea, joined rivers, shores
+
+Terrain tiles (correction task for bug #789; in the v0.5.0 gate and scoped by the user's decisions of 2026-10-06; generated art; it merges after T147) → [full entry](tasks/T148.md) · [#791](https://github.com/diegoami/imperial_conquest_2/issues/791)
+
+---
+
+#### T149 The game plays sounds at the original's events, generated with ElevenLabs
+
+Sound effects (correction task for bug #790, from research `8da1588`; in the v0.5.0 gate by the user's decision of 2026-10-06; it merges after T147) → [full entry](tasks/T149.md) · [#792](https://github.com/diegoami/imperial_conquest_2/issues/792)
+
+---
+
 #### T25 Battle result, diplomacy, and hotseat handoff screens
 
 Godot screens → [full entry](tasks/T25.md) · [#25](https://github.com/diegoami/imperial_conquest_2/issues/25)
@@ -1371,3 +1385,5 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T145](#t145-the-end-of-game-window-shows-the-originals-text) | End of Game window text | M18 | Sonnet | Medium | Sol + human | T111, T139 | [#770](https://github.com/diegoami/imperial_conquest_2/issues/770) |
 | [T146](#t146-leaders-are-drawn-from-the-originals-names-and-a-fallen-seats-changes) | Leader names, fallen seat | M12 | Sonnet | Medium | Sol | T145 | [#771](https://github.com/diegoami/imperial_conquest_2/issues/771) |
 | [T147](#t147-the-game-screen-the-map-fills-its-area-windows-open-centred-and-the-output-area-reads-as-the-apps) | Game screen layout | M18 | Sonnet | Medium | Sol + human | T142 | [#786](https://github.com/diegoami/imperial_conquest_2/issues/786) |
+| [T148](#t148-the-map-draws-terrain-from-tiles-varied-land-and-sea-joined-rivers-shores) | Terrain tiles | M18 | Sonnet | Medium | Sol + human | T147 | [#791](https://github.com/diegoami/imperial_conquest_2/issues/791) |
+| [T149](#t149-the-game-plays-sounds-at-the-originals-events-generated-with-elevenlabs) | Sound effects | M18 | Sonnet | Medium | Sol + human | T147 | [#792](https://github.com/diegoami/imperial_conquest_2/issues/792) |
