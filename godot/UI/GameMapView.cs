@@ -369,21 +369,12 @@ public partial class GameMapView : Control
     /// T148: the keys the terrain draw would use for cell (<paramref name="x"/>, <paramref name="y"/>)
     /// at the current zoom — the tile path's base and variant keys and its shore overlays, with
     /// <see cref="TerrainCellKeys.UsesTiles"/> reporting which of the two terrain paths the draw is on.
-    /// Read-only; <c>godot/Checks/TerrainTilesCheck.cs</c> asserts the mapping and the threshold through
-    /// it, and the keys are <see cref="IC2.Slice.Assets.TerrainTileKeys"/>'s own decision, never a
-    /// second copy here.
+    /// Read-only; <c>godot/Checks/TerrainTilesCheck.cs</c> asserts the mapping and the
+    /// <see cref="IC2.Slice.Assets.TerrainTileKeys.TilePixelThreshold"/> boundary through it (driving
+    /// the exact drawn cell size with <see cref="SetDrawnCellPixelsForCheck"/>), and the keys are
+    /// <see cref="IC2.Slice.Assets.TerrainTileKeys"/>'s own decision, never a second copy here.
     /// </summary>
-    public TerrainCellKeys TerrainKeysForCheck(int x, int y) =>
-        TerrainKeysForCheck(x, y, BaseTileSize * _zoom);
-
-    /// <summary>
-    /// T148: the same read-only report as <see cref="TerrainKeysForCheck(int,int)"/>, but evaluated
-    /// against an explicit drawn cell size. The tile/flat boundary is exactly
-    /// <see cref="IC2.Slice.Assets.TerrainTileKeys.TilePixelThreshold"/>; the check needs the 12 px
-    /// and 11.9 px cases, which the wheel's 1.15 zoom factor cannot reach, and the draw and this
-    /// overload compare against the same one constant.
-    /// </summary>
-    public TerrainCellKeys TerrainKeysForCheck(int x, int y, float drawnCellPixels)
+    public TerrainCellKeys TerrainKeysForCheck(int x, int y)
     {
         if (_session is null || _terrainCells is null)
         {
@@ -398,7 +389,7 @@ public partial class GameMapView : Control
 
         var code = _terrainCells[(y * world.Width) + x];
         return new TerrainCellKeys(
-            UsesTiles: drawnCellPixels >= IC2.Slice.Assets.TerrainTileKeys.TilePixelThreshold,
+            UsesTiles: BaseTileSize * _zoom >= IC2.Slice.Assets.TerrainTileKeys.TilePixelThreshold,
             TileKey: IC2.Slice.Assets.TerrainTileKeys.KeyForCode(code),
             VariantTileKey: IC2.Slice.Assets.TerrainTileKeys.VariantKeyForCode(code, x, y),
             ShoreKeys: IC2.Slice.Assets.TerrainTileKeys.ShoreKeysFor(
