@@ -110,7 +110,7 @@ param(
     [Parameter(Mandatory)] [string] $Slug,
     [int] $Issue,
     [Parameter(Mandatory)] [string] $BriefFile,
-    [ValidateSet('auto', 'luna', 'glm-flash', 'glm', 'deepseek-flash', 'qwen-flash', 'mimo-pro', 'mimo-flash')] [string] $Model = 'auto',
+    [ValidateSet('auto', 'luna', 'glm-flash', 'glm', 'deepseek-flash', 'qwen-flash', 'mm-m3', 'mm-m2.7', 'ali-deepseek-flash', 'ali-deepseek-pro', 'ali-glm', 'mimo-pro', 'mimo-flash')] [string] $Model = 'auto',
     [ValidateSet('auto', 'go', 'zai', 'alibaba')] [string] $Route = 'auto',
     [switch] $LocalOnly,
     [string] $FixturesDir,
@@ -146,6 +146,13 @@ $models = @{
     'mimo-flash'      = 'opencode-go/mimo-v2.6-flash'
     # Qwen3.8 Flash on the Alibaba Token Plan (the user's decision of 2026-10-05).
     'qwen-flash'      = 'alibaba-token-plan/qwen3.8-flash'
+    # MiniMax (minimax.io Token Plan, provider `minimax`) and the Alibaba Token Plan's DeepSeek and GLM
+    # under names of their own (the owner's decision of 2026-10-06); explicit -Model values only.
+    'mm-m3'              = 'minimax/MiniMax-M3'
+    'mm-m2.7'            = 'minimax/MiniMax-M2.7'
+    'ali-deepseek-flash' = 'alibaba-token-plan/deepseek-v4.1-flash'
+    'ali-deepseek-pro'   = 'alibaba-token-plan/deepseek-v4-pro-0813'
+    'ali-glm'            = 'alibaba-token-plan/glm-5.3'
 }
 # The Alibaba Token Plan route of the same models (-Route; the user's decision of 2026-10-05).
 $alibabaIds = @{
@@ -158,7 +165,7 @@ if ($ModelIds) { foreach ($k in $ModelIds.Keys) { $models[$k] = $ModelIds[$k] } 
 # is overkill); luna was already high.
 # Heavy models run light (the user's decision of 2026-10-05): glm at low (GLM-5.3 has no medium).
 # qwen-flash at medium: Qwen3.8 Flash offers low, medium and xhigh, no high.
-$variants = @{ 'luna' = 'high'; 'glm-flash' = 'high'; 'glm' = 'low'; 'deepseek-flash' = 'high'; 'qwen-flash' = 'medium'; 'mimo-pro' = ''; 'mimo-flash' = '' }
+$variants = @{ 'luna' = 'high'; 'glm-flash' = 'high'; 'glm' = 'low'; 'deepseek-flash' = 'high'; 'qwen-flash' = 'medium'; 'mm-m3' = 'thinking'; 'mm-m2.7' = ''; 'ali-deepseek-flash' = 'high'; 'ali-deepseek-pro' = 'high'; 'ali-glm' = 'low'; 'mimo-pro' = ''; 'mimo-flash' = '' }
 # The fallback chain (the user's decision of 2026-10-05, after issue #575's of 2026-10-01): DeepSeek
 # V4.1 Flash (Go, or Alibaba when Go is avoided), then Qwen3.8 Flash, then the main session runs
 # Claude Sonnet. An explicit -Model runs that model alone.
