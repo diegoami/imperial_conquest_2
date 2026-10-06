@@ -32,7 +32,7 @@ gh issue list --label triage:needed --state open         # untriaged bugs and fo
   - Its local checkout is `C:\Users\diego\projects\RE-imperial-conquest-2`. Run `git pull --ff-only` before writing to it.
   - For static-analysis work, start from its `docs/decompilation-plan.md`, the live record of what has been decompiled.
 - **The bot repository**, [`diegoami/ic2-conquest`](https://github.com/diegoami/ic2-conquest): a bot that plays the original headless under Wine, in WSL on the desktop (`/home/diego/projects/ic2-conquest`).
-  - The user's IC2 CONQUEST EXPLORE session there runs [stage 0 experiments](evidence-pipeline.md#the-stages) from requests the main session writes and the user relays.
+  - The user's IC2 CONQUEST EXPLORE session there runs [stage 0 experiments](evidence-pipeline.md#the-stages) from requests the main session sends it directly through Remote Control (`SendMessage`; the user relays one only when that session is not reachable; the user's decision of 2026-10-06).
   - Its results reach this repository only as research reports, through the research repository's findings intake. Nothing here reads its drafts or writes to it.
 
 | Document | What it is |
