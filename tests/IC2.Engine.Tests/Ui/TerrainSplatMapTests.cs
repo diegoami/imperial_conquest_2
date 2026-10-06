@@ -7,14 +7,15 @@ using ModelTestPaths = IC2.Engine.Tests.Model.TestPaths;
 namespace IC2.Engine.Tests.Ui;
 
 /// <summary>
-/// <c>docs/tasks/T148.md</c> (as amended by plan PRs #807, #808 and #811) Done-when 1:
+/// <c>docs/tasks/T148.md</c> (as amended by plan PRs #807, #808, #811 and #813) Done-when 1:
 /// <see cref="TerrainSplatMap"/> turns the world's terrain grid into the six per-pixel surface weights
 /// the shader samples — a 4 × 4-per-cell bake whose channels are named, the cell's own class winning at
-/// its centre and in the mean of its four inner samples, a smoothed-then-sharpened border that turns a
-/// one-cell staircase into a straight line, shallow sea within one cell of land, bounded deterministic
-/// field noise — and gives each river chain one smooth, corner-cut polyline sampled every 0.1 cell of
-/// arc length, confluences visibly joining. Godot-free, so it is exercised here directly rather than
-/// through the headless map check.
+/// its centre both in the continuous function and in the Catmull-Rom bicubic the shader actually reads,
+/// a smoothed-then-sharpened border (0.15 ± 0.02 cell wide) that turns a one-cell staircase into a
+/// straight line, shallow sea within one cell of land, bounded deterministic field noise — and gives
+/// each river chain one smooth, corner-cut polyline sampled uniformly every 0.1 cell of arc length,
+/// confluences visibly joining. Godot-free, so it is exercised here directly rather than through the
+/// headless map check.
 /// </summary>
 public sealed class TerrainSplatMapTests
 {
@@ -71,6 +72,9 @@ public sealed class TerrainSplatMapTests
                 AssertWithinThree(expected.Forest, actual.Forest, $"forest at ({x}, {y})");
                 AssertWithinThree(expected.Mountain, actual.Mountain, $"mountain at ({x}, {y})");
                 AssertWithinThree(expected.Shallow, actual.Shallow, $"shallow at ({x}, {y})");
+                // Done-when 1 (the Opus review of round 3, N4): all six channels, deep sea included —
+                // a desert/forest channel swap was already caught, a deep/shallow one was not.
+                AssertWithinThree(expected.Deep, actual.Deep, $"deep at ({x}, {y})");
             }
         }
     }
@@ -98,11 +102,12 @@ public sealed class TerrainSplatMapTests
     /// <summary>
     /// Done-when 1, the centre rule: over all 44,800 classical-world cells the cell's own class has the
     /// highest weight in <see cref="TerrainSplatMap.WeightsAt(float,float)"/> at the cell centre, and in
-    /// the mean of the cell's four inner baked samples (which is what the linear-filtered shader reads at
-    /// the centre). A port therefore sits on its own terrain and a coastline never crosses a centre.
+    /// <see cref="TerrainSplatMap.SampleBicubic(float,float)"/> at that centre — the kernel the shader
+    /// actually reads there, its real output and overshoot included. A port therefore sits on its own
+    /// terrain and a coastline never crosses a centre.
     /// </summary>
     [Fact]
-    public void The_cells_own_class_wins_at_its_centre_in_the_function_and_in_the_inner_samples()
+    public void The_cells_own_class_wins_at_its_centre_in_the_function_and_in_the_bicubic_sample()
     {
         var world = Repository.Resolve("classical-mediterranean").World;
         var cells = world.Terrain.Decode(world.Width, world.Height);
@@ -115,28 +120,11 @@ public sealed class TerrainSplatMapTests
                 var own = TerrainSplatMap.ClassOf(cells, world.Width, world.Height, x, y);
 
                 var atCentre = map.WeightsAt(x + 0.5f, y + 0.5f);
-                AssertOwnClassWins(own, atCentre, $"function at the centre of cell ({x}, {y})");
+                AssertOwnClassWins(own, atCentre, $"the function at the centre of cell ({x}, {y})");
 
-                // The four inner samples are quarter indices 1 and 2 in each axis: at cell centres the
-                // linear-filtered shader reads exactly their mean.
-                var mean = new float[6];
-                for (var j = 1; j <= 2; j++)
-                {
-                    for (var i = 1; i <= 2; i++)
-                    {
-                        var sample = WeightsAtCellQuarter(map, x, y, i, j);
-                        mean[0] += sample.Plain;
-                        mean[1] += sample.Desert;
-                        mean[2] += sample.Forest;
-                        mean[3] += sample.Mountain;
-                        mean[4] += sample.Shallow;
-                        mean[5] += sample.Deep;
-                    }
-                }
-
-                var meanWeights = new SurfaceWeights(
-                    mean[0] / 4f, mean[1] / 4f, mean[2] / 4f, mean[3] / 4f, mean[4] / 4f, mean[5] / 4f);
-                AssertOwnClassWins(own, meanWeights, $"mean of the four inner samples of cell ({x}, {y})");
+                // What the shader reads at the centre, through the Catmull-Rom kernel over the bake.
+                var sampled = map.SampleBicubic(x + 0.5f, y + 0.5f);
+                AssertOwnClassWins(own, sampled, $"SampleBicubic at the centre of cell ({x}, {y})");
             }
         }
     }
@@ -219,8 +207,9 @@ public sealed class TerrainSplatMapTests
 
     /// <summary>
     /// Done-when 1, the field noise: at 1,000 fixed sample points every class's noise is within
-    /// ±<see cref="TerrainSplatMap.FieldNoiseBoundCells"/>, and two calls return the identical value —
-    /// a pure function of position and a constant seed, never a random draw.
+    /// ±0.06 (the literal bound the Done-when names, not the constant: the Opus review of round 3, N1),
+    /// and two calls return the identical value — a pure function of position and a constant seed,
+    /// never a random draw.
     /// </summary>
     [Fact]
     public void The_field_noise_is_bounded_and_identical_on_two_calls()
@@ -230,7 +219,7 @@ public sealed class TerrainSplatMapTests
             foreach (var cls in Enum.GetValues<TerrainSurfaceClass>())
             {
                 var noise = TerrainSplatMap.ClassNoise(cls, x, y);
-                Assert.InRange(noise, -TerrainSplatMap.FieldNoiseBoundCells, TerrainSplatMap.FieldNoiseBoundCells);
+                Assert.InRange(noise, -0.06f, 0.06f);
                 Assert.Equal(noise, TerrainSplatMap.ClassNoise(cls, x, y));
             }
         }
@@ -239,9 +228,12 @@ public sealed class TerrainSplatMapTests
     /// <summary>
     /// Done-when 1, no stair-steps: on an 80 × 80 grid whose cell (x, y) is plain when x + y &lt; 40 and
     /// sea otherwise (a diagonal one-cell staircase), the plain weight crosses 0.5 exactly once on each
-    /// of the 30 lines through (5 + k, 35 − k) in the direction (1, 1)/√2, and the 30 crossings lie
-    /// within 0.08 cell of their least-squares straight line — an unsmoothed staircase deviates by about
-    /// 0.35.
+    /// of **300** lines, the k-th through (5 + 0.1k, 35 − 0.1k) in the direction (1, 1)/√2 — the
+    /// stair-step's every phase at 0.1-cell spacing, not only its corners (the Opus review of round 3,
+    /// R1: the 30 integer-corner lines all sampled the same phase and could not see the smoothing) —
+    /// and the 300 crossings lie within 0.08 cell of their least-squares straight line. With the
+    /// sampling ±1.5 cell and every sample at least 3.9 cells inside the grid, the smoothing's 2-cell
+    /// reach never reads the world's edge.
     /// </summary>
     [Fact]
     public void A_diagonal_staircase_coast_blurs_into_a_straight_line()
@@ -259,10 +251,10 @@ public sealed class TerrainSplatMapTests
 
         var direction = 1f / MathF.Sqrt(2f);
         var crossings = new List<(float X, float Y)>();
-        for (var k = 0; k < 30; k++)
+        for (var k = 0; k < 300; k++)
         {
-            var px = 5f + k;
-            var py = 35f - k;
+            var px = 5f + (0.1f * k);
+            var py = 35f - (0.1f * k);
             var t = FindPlainCrossing(cells, width, height, px, py, direction, direction, $"the diagonal line {k}");
             crossings.Add((px + (t * direction), py + (t * direction)));
         }
@@ -272,8 +264,9 @@ public sealed class TerrainSplatMapTests
 
     /// <summary>
     /// Done-when 1, no stair-steps: the same test on an 80 × 80 grid with plain for y &lt; 40 and sea for
-    /// y ≥ 40, with vertical lines through (25 + k, 40), gives crossings within 0.08 cell of their
-    /// least-squares line.
+    /// y ≥ 40, with 300 vertical lines through (25 + 0.1k, 40), gives crossings within 0.08 cell of
+    /// their least-squares line (the straight coast is already straight without smoothing, but the test
+    /// still catches a doubled noise bound: the Opus review of round 3, N1).
     /// </summary>
     [Fact]
     public void A_straight_staircase_coast_blurs_into_a_straight_line()
@@ -290,14 +283,89 @@ public sealed class TerrainSplatMapTests
         }
 
         var crossings = new List<(float X, float Y)>();
-        for (var k = 0; k < 30; k++)
+        for (var k = 0; k < 300; k++)
         {
-            var px = 25f + k;
+            var px = 25f + (0.1f * k);
             var t = FindPlainCrossing(cells, width, height, px, 40f, 0f, 1f, $"the vertical line {k}");
             crossings.Add((px, 40f + t));
         }
 
         AssertLineDeviation(crossings, 0.08f, "the straight staircase's 0.5 crossings");
+    }
+
+    /// <summary>
+    /// Done-when 1, the border width (the Opus review of round 3, R2): across the same straight coast,
+    /// the distance between the points where the plain weight is 0.9 and 0.1 is 0.15 ± 0.02 cell. The
+    /// softmax steepness is the one constant that sets it; before the round-4 fix it measured 0.062.
+    /// </summary>
+    [Fact]
+    public void The_border_across_the_straight_coast_is_fifteen_hundredths_of_a_cell_wide()
+    {
+        const int width = 80;
+        const int height = 80;
+        var cells = new int[width * height];
+        for (var y = 0; y < height; y++)
+        {
+            for (var x = 0; x < width; x++)
+            {
+                cells[(y * width) + x] = y < 40 ? 2 : 0;
+            }
+        }
+
+        var width09To01 = BorderWidthAt(cells, width, height, 40.5f);
+        Assert.True(
+            MathF.Abs(width09To01 - 0.15f) <= 0.02f,
+            $"the plain weight 0.9-to-0.1 border width is {width09To01:F4} cell, expected 0.15 ± 0.02");
+    }
+
+    /// <summary>
+    /// Done-when 1 (Sol's review of PR 813, R2): the surf constant is at most 0.15, and the shader takes
+    /// the rim tint, its mix factor and the surf from uniforms — bound by GameMapView from
+    /// TerrainSplatMap's public constants — not from literals. The splat sampling is the named bicubic
+    /// function, so the lattice's zig-zag is smoothed (the Opus review of round 4's R2).
+    /// </summary>
+    [Fact]
+    public void The_shore_constants_are_bounded_and_the_shader_reads_them_as_uniforms()
+    {
+        Assert.True(
+            TerrainSplatMap.SurfStrength <= 0.15f,
+            $"the surf strength {TerrainSplatMap.SurfStrength} must be at most 0.15");
+        Assert.InRange(TerrainSplatMap.ShallowToneDown, 0f, 1f);
+        Assert.InRange(TerrainSplatMap.ShallowTintR, 0f, 1f);
+        Assert.InRange(TerrainSplatMap.ShallowTintG, 0f, 1f);
+        Assert.InRange(TerrainSplatMap.ShallowTintB, 0f, 1f);
+
+        var shaderPath = Path.Combine(ModelTestPaths.RepositoryRoot, "godot", "UI", "TerrainSurface.gdshader");
+        var code = File.ReadAllText(shaderPath);
+        Assert.Contains("uniform vec3 shallow_tint", code);
+        Assert.Contains("uniform float shallow_tone_down", code);
+        Assert.Contains("uniform float surf_strength", code);
+
+        // The fragment must USE the uniforms, so changing the C# constant changes the draw.
+        Assert.Contains("mix(texture(tex_shallow, surface_uv).rgb, shallow_tint, shallow_tone_down)", code);
+        Assert.Contains("surf_strength)", code);
+
+        // The two splat textures are read through the named Catmull-Rom bicubic function, not the
+        // bilinear texture() call the round-3 review measured the zig-zag from.
+        Assert.Contains("sample_splat_bicubic(splat_a, UV)", code);
+        Assert.Contains("sample_splat_bicubic(splat_b, UV)", code);
+    }
+
+    /// <summary>
+    /// Done-when 1: the shader's bicubic kernel is the separable Catmull-Rom the entry names — at a
+    /// sample gap's midpoint the four per-axis weights are −1/16, 9/16, 9/16, −1/16 — and the C# mirror
+    /// reproduces the shader's arithmetic.
+    /// </summary>
+    [Fact]
+    public void The_bicubic_kernel_is_the_catmull_rom_the_entry_names()
+    {
+        var shaderPath = Path.Combine(ModelTestPaths.RepositoryRoot, "godot", "UI", "TerrainSurface.gdshader");
+        var code = File.ReadAllText(shaderPath);
+        Assert.Contains("vec4 cubic_weights(float t)", code);
+        Assert.Contains("-0.5 * t3 + t2 - 0.5 * t", code);
+        Assert.Contains("1.5 * t3 - 2.5 * t2 + 1.0", code);
+        Assert.Contains("-1.5 * t3 + 2.0 * t2 + 0.5 * t", code);
+        Assert.Contains("0.5 * t3 - 0.5 * t2", code);
     }
 
     /// <summary>
@@ -319,7 +387,7 @@ public sealed class TerrainSplatMapTests
 
     /// <summary>
     /// Done-when 1, rivers: the scripted chain (0,0)=6, (1,0)=6, (2,0)=10, (2,1)=7, (2,2)=8, (3,2)=6,
-    /// (4,2)=6 is exactly one chain; its polyline passes within 0.25 cell of each of the seven centres,
+    /// (4,2)=6 is exactly one chain; its polyline passes within 0.35 cell of each of the seven centres,
     /// its 0.1-cell samples turn less than 20°, its endpoints are (0,0)'s west and (4,2)'s east exit
     /// midpoints within 0.01 (unlinked exits end the chain), and two calls give identical polylines.
     /// </summary>
@@ -349,7 +417,7 @@ public sealed class TerrainSplatMapTests
         foreach (var centre in centres)
         {
             var distance = MinDistanceToPolyline(line, new SplatPoint(centre.X, centre.Y));
-            Assert.True(distance <= 0.25f, $"the polyline stays within 0.25 of the centre ({centre.X}, {centre.Y}) (got {distance:F3})");
+            Assert.True(distance <= 0.35f, $"the polyline stays within 0.35 of the centre ({centre.X}, {centre.Y}) (got {distance:F3})");
         }
 
         Assert.True(line.Count > 10, $"the polyline of a seven-cell river has {line.Count} points");
@@ -357,11 +425,10 @@ public sealed class TerrainSplatMapTests
         {
             var gap = Distance(line[k], line[k + 1]);
             Assert.True(gap <= 0.11f, $"consecutive points {k} are {gap:F4} apart, over 0.11");
-            if (k < line.Count - 2)
-            {
-                Assert.True(gap >= TerrainSplatMap.RiverPolylineStepCells - 0.01f,
-                    $"consecutive points {k} are {gap:F4} apart, under the 0.1 ± 0.01 sample spacing");
-            }
+            // Done-when 1: the spacing is uniform, so the LAST gap is inside 0.1 ± 0.01 too (the Opus
+            // review of round 3, R3: the old walk appended a short last gap).
+            Assert.True(gap >= TerrainSplatMap.RiverPolylineStepCells - 0.01f,
+                $"consecutive points {k} are {gap:F4} apart, under the 0.1 ± 0.01 sample spacing");
         }
 
         AssertTurnsUnder(line, 20.0, 0, 0, "the scripted river");
@@ -397,7 +464,7 @@ public sealed class TerrainSplatMapTests
         foreach (var centre in centres)
         {
             var distance = MinDistanceToPolyline(line, new SplatPoint(centre.X, centre.Y));
-            Assert.True(distance <= 0.25f, $"the bend-ending polyline stays within 0.25 of ({centre.X}, {centre.Y}) (got {distance:F3})");
+            Assert.True(distance <= 0.35f, $"the bend-ending polyline stays within 0.35 of ({centre.X}, {centre.Y}) (got {distance:F3})");
         }
 
         AssertTurnsUnder(line, 20.0, 0, 0, "the bend-ending chain");
@@ -446,7 +513,7 @@ public sealed class TerrainSplatMapTests
     }
 
     /// <summary>
-    /// Done-when 1: on the classical world every river cell lies within 0.25 cell of some chain's
+    /// Done-when 1: on the classical world every river cell lies within 0.35 cell of some chain's
     /// polyline — no river cell is left undrawn.
     /// </summary>
     [Fact]
@@ -472,15 +539,45 @@ public sealed class TerrainSplatMapTests
                 foreach (var chain in chains)
                 {
                     best = Math.Min(best, MinDistanceToPolyline(chain.Polyline, centre));
-                    if (best <= 0.25)
+                    if (best <= 0.35)
                     {
                         break;
                     }
                 }
 
-                Assert.True(best <= 0.25, $"river cell ({x}, {y}) code {code} is {best:F3} from every chain");
+                Assert.True(best <= 0.35, $"river cell ({x}, {y}) code {code} is {best:F3} from every chain");
             }
         }
+    }
+
+    /// <summary>
+    /// Done-when 1: the river wobble is the 0.1–0.15-cell meander the user asked for, not the old
+    /// invisible 0.04 — the amplitude constant is inside that range and the fitted classical chains
+    /// really reach 0.1 cell of displacement somewhere (the Opus review of round 3's visual note: the
+    /// old 0.04-cell wobble was about 1.3 px at 32 px a cell and invisible).
+    /// </summary>
+    [Fact]
+    public void The_classical_rivers_wobble_visibly_within_the_designed_band()
+    {
+        Assert.InRange(TerrainSplatMap.RiverWobbleAmplitudeCells, 0.1f, 0.15f);
+        Assert.InRange(TerrainSplatMap.RiverWobblePeriodCells, 2f, 4f);
+
+        var world = Repository.Resolve("classical-mediterranean").World;
+        var cells = world.Terrain.Decode(world.Width, world.Height);
+        var chains = TerrainSplatMap.BuildRiverChains(cells, world.Width, world.Height);
+        Assert.NotEmpty(chains);
+
+        var best = 0.0;
+        foreach (var chain in chains)
+        {
+            foreach (var point in chain.Polyline)
+            {
+                var offset = TerrainSplatMap.WobbleAt(point);
+                best = Math.Max(best, Math.Sqrt((offset.X * offset.X) + (offset.Y * offset.Y)));
+            }
+        }
+
+        Assert.True(best >= 0.1, $"the largest wobble offset on the classical chains is {best:F4} cell, under 0.1");
     }
 
     /// <summary>
@@ -543,6 +640,47 @@ public sealed class TerrainSplatMapTests
             var fx = (i * 0.6180339887498949d) % 1.0d;
             var fy = (i * 0.7548776662457773d) % 1.0d;
             yield return ((float)(fx * ClassicalWidth), (float)(fy * ClassicalHeight));
+        }
+    }
+
+    /// <summary>
+    /// The 0.9-to-0.1 width, in cells, of the plain weight across the straight coast at column
+    /// <paramref name="x"/>: the distance between the 0.9 and 0.1 level crossings found by linear
+    /// interpolation on a 0.005-cell vertical walk.
+    /// </summary>
+    private static float BorderWidthAt(int[] cells, int width, int height, float x)
+    {
+        const float high = 0.9f;
+        const float low = 0.1f;
+        float? yHigh = null;
+        float? yLow = null;
+        float? previousY = null;
+        float? previousWeight = null;
+        for (var step = 0; step <= 800; step++)
+        {
+            var y = 38f + (step * 0.005f);
+            var weight = TerrainSplatMap.WeightsAt(cells, width, height, x, y).Plain;
+            if (previousWeight is { } pw && previousY is { } py)
+            {
+                CaptureCrossing(pw, weight, py, y, high, ref yHigh);
+                CaptureCrossing(pw, weight, py, y, low, ref yLow);
+            }
+
+            previousY = y;
+            previousWeight = weight;
+        }
+
+        Assert.True(yHigh.HasValue && yLow.HasValue, "both the 0.9 and the 0.1 plain-weight crossings exist");
+        return MathF.Abs(yLow!.Value - yHigh!.Value);
+    }
+
+    private static void CaptureCrossing(
+        float previousWeight, float weight, float previousY, float y, float level, ref float? captured)
+    {
+        if (captured is null && (previousWeight - level) * (weight - level) < 0f)
+        {
+            var fraction = (level - previousWeight) / (weight - previousWeight);
+            captured = previousY + (fraction * (y - previousY));
         }
     }
 
@@ -698,18 +836,6 @@ public sealed class TerrainSplatMapTests
         TerrainSurfaceClass.Shallow => weights.Shallow,
         _ => weights.Deep,
     };
-
-    private static SurfaceWeights WeightsAtCellQuarter(TerrainSplatMap map, int x, int y, int i, int j)
-    {
-        ReadSample(map, (x * 4) + i, (y * 4) + j, out var sample);
-        return new SurfaceWeights(
-            sample.Plain / 255f,
-            sample.Desert / 255f,
-            sample.Forest / 255f,
-            sample.Mountain / 255f,
-            sample.Shallow / 255f,
-            sample.Deep / 255f);
-    }
 
     private static void ReadSample(TerrainSplatMap map, int i, int j, out SampleBytes sample)
     {

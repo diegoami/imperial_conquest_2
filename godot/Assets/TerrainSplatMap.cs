@@ -92,8 +92,18 @@ public sealed record RiverChain(IReadOnlyList<SplatPoint> Polyline)
 /// smooth bump that is largest at that cell's centre and zero beyond the radius, big enough that the
 /// cell's own class always wins at its centre — a lone cell of one class reads as a small rounded patch
 /// rather than vanishing. The weights are those fields sharpened by a softmax at
-/// <see cref="SoftmaxSteepness"/>, whose 10 %-to-90 % transition is well under
-/// <see cref="SoftmaxTransitionCells"/>, so borders stay crisp while following the smoothed shape.
+/// <see cref="SoftmaxSteepness"/>, whose 10 %-to-90 % transition is
+/// <see cref="SoftmaxTransitionCells"/> cell wide on a straight coast (Done-when 1 measures it), so
+/// borders stay crisp while following the smoothed shape.
+/// </para>
+/// <para>
+/// <strong>What the shader samples.</strong> The bake is read with the separable Catmull-Rom cubic over
+/// the 4 × 4 lattice (<see cref="SampleBicubic(float,float)"/> mirrors the shader exactly in C#), so the
+/// lattice's zig-zag along a crisp border is smoothed instead of being shown as the bilinear stair-step.
+/// The shore's rim tint, its mix factor and the surf's maximum lightening are public constants here
+/// (<see cref="ShallowTintR"/>, <see cref="ShallowTintG"/>, <see cref="ShallowTintB"/>,
+/// <see cref="ShallowToneDown"/>, <see cref="SurfStrength"/>) that <c>GameMapView</c> passes to the
+/// shader as uniforms — one source of truth for the rim.
 /// </para>
 /// <para>
 /// <strong>Rivers.</strong> <see cref="BuildRiverChains"/> links orthogonally adjacent river cells whose
@@ -151,15 +161,39 @@ public sealed class TerrainSplatMap
 
     /// <summary>
     /// The softmax steepness that sharpens the smoothed fields into weights (T148 Scope "sharpened by a
-    /// softmax"). Chosen for a crisp border: the 10 %-to-90 % transition is about
-    /// <see cref="SoftmaxTransitionCells"/> cell, not the blur the user rejected.
+    /// softmax"). Chosen so the 10 %-to-90 % transition across a straight coast is
+    /// <see cref="SoftmaxTransitionCells"/> cell — the entry's "about 0.15 cell" (the Opus review of
+    /// round 3, R2: a steepness of 50 gave 0.062 cell, which the 4 × 4 lattice could not hold and which
+    /// doubled the drawn contour's zig-zag).
     /// </summary>
-    public const float SoftmaxSteepness = 50f;
+    public const float SoftmaxSteepness = 20f;
 
-    /// <summary>The 10 %-to-90 % transition width, in cells, the softmax produces on a straight border:
-    /// 2·ln(9) / (<see cref="SoftmaxSteepness"/> × the border's field gradient). Recorded so the
-    /// constant's meaning is measurable.</summary>
-    public const float SoftmaxTransitionCells = 0.073f;
+    /// <summary>The measured 10 %-to-90 % transition width, in cells, the softmax produces across a
+    /// straight coast: the softmax transition is 2·ln(9) / (<see cref="SoftmaxSteepness"/> × the
+    /// border's field gradient); this records the 0.157 cell steepness 20 measures to (Done-when 1's
+    /// border-width test asserts 0.15 ± 0.02), not a derivation.</summary>
+    public const float SoftmaxTransitionCells = 0.157f;
+
+    /// <summary>The rim tint the shader mixes the shallow surface toward, so the shallow rim reads
+    /// darker rather than as the bright cyan of round 2 (the user's decision of 2026-10-06 at the second
+    /// escalation). Passed to the shader as a uniform, not repeated as a literal.</summary>
+    public const float ShallowTintR = 0.07f;
+
+    /// <summary>The rim tint's green, see <see cref="ShallowTintR"/>.</summary>
+    public const float ShallowTintG = 0.24f;
+
+    /// <summary>The rim tint's blue, see <see cref="ShallowTintR"/>.</summary>
+    public const float ShallowTintB = 0.32f;
+
+    /// <summary>How far the shader mixes the shallow surface toward <see cref="ShallowTintR"/> (and its
+    /// G/B): high enough that the authored rim's Rec. 709 luminance is well under twice the deep sea's,
+    /// so even with the surf below the rendered ratio Done-when 4 measures stays under 2.</summary>
+    public const float ShallowToneDown = 0.85f;
+
+    /// <summary>The most the surf band lightens the sea, in mix fraction (the user's decision of
+    /// 2026-10-06 at the escalation of rework round 2: at most 15 %, not round 2's 35 % toward
+    /// near-white). Passed to the shader as a uniform.</summary>
+    public const float SurfStrength = 0.15f;
 
     /// <summary>The arc-length spacing, in cells, between consecutive points of a river chain's
     /// polyline (T148 Done-when 1: sampled every 0.1 cell of arc length).</summary>
@@ -174,16 +208,18 @@ public sealed class TerrainSplatMap
     public const float RiverCornerRadiusCells = 0.4f;
 
     /// <summary>The largest distance, in cells, the fitted river curve keeps from a river cell's centre:
-    /// the fillet's 0.166 plus the wobble's magnitude, under the 0.25 the Done-when requires.</summary>
-    public const float RiverMaxCentreDistanceCells = 0.23f;
+    /// the fillet's 0.166 plus the wobble's magnitude, under the 0.35 the Done-when requires.</summary>
+    public const float RiverMaxCentreDistanceCells = 0.34f;
 
-    /// <summary>The largest river-chain wobble per axis, in cells (T148 Scope: at most 0.1 cell), a
+    /// <summary>The largest river-chain wobble per axis, in cells (T148 Scope: 0.1 to 0.15 cell, the
+    /// user's decision of 2026-10-06 at the second escalation, so the meander is visible). A
     /// deterministic value noise faded to zero at an open chain's ends so its endpoints stay exact.</summary>
-    public const float RiverWobbleAmplitudeCells = 0.04f;
+    public const float RiverWobbleAmplitudeCells = 0.11f;
 
-    /// <summary>The wobble's noise period, in cells — long enough that 0.1-cell chords of the curve stay
-    /// far under the 20° the Done-when allows.</summary>
-    public const float RiverWobblePeriodCells = 5f;
+    /// <summary>The wobble's noise period, in cells — 2 to 4 per the entry (the user's decision of
+    /// 2026-10-06 at the second escalation), long enough that 0.1-cell chords of the curve stay far
+    /// under the 20° the Done-when allows.</summary>
+    public const float RiverWobblePeriodCells = 4f;
 
     /// <summary>Within this arc length of an open chain's start or end the wobble fades linearly to zero,
     /// so the polyline's endpoints are exactly the chain's exit midpoints.</summary>
@@ -296,6 +332,65 @@ public sealed class TerrainSplatMap
     /// [x, x + 1) × [y, y + 1), so its centre is (x + 0.5, y + 0.5)).
     /// </summary>
     public SurfaceWeights WeightsAt(float x, float y) => WeightsAt(_cells, _width, _height, x, y);
+
+    /// <summary>
+    /// The baked weights the shader reads at a map point, in cells: the two RGBA8 splat textures
+    /// interpolated with the separable <strong>Catmull-Rom</strong> cubic over the 4 × 4 lattice (per
+    /// axis the weights are −1/16, 9/16, 9/16, −1/16 at a sample gap's midpoint), exactly mirroring the
+    /// shader's own <c>sample_splat_bicubic</c> — including its edge clamp (the splat samplers declare
+    /// <c>repeat_disable</c>). Read this at a cell's centre for the centre rule Done-when 1 asserts on
+    /// the kernel's real output, overshoot included.
+    /// </summary>
+    public SurfaceWeights SampleBicubic(float x, float y)
+    {
+        // Lattice sample index space: sample i sits at map coordinate (i + 0.5) / SamplesPerCell, so
+        // x * SamplesPerCell − 0.5 = i exactly at a sample and 4·cellX + 1.5 at a cell's centre.
+        var sx = (x * SamplesPerCell) - 0.5f;
+        var sy = (y * SamplesPerCell) - 0.5f;
+        var i0 = (int)MathF.Floor(sx);
+        var j0 = (int)MathF.Floor(sy);
+
+        var latticeWidth = LatticeWidth;
+        var latticeHeight = LatticeHeight;
+        Span<float> wx = stackalloc float[4];
+        Span<float> wy = stackalloc float[4];
+        CubicWeights(sx - i0, wx);
+        CubicWeights(sy - j0, wy);
+
+        Span<float> channels = stackalloc float[6];
+        for (var j = 0; j < 4; j++)
+        {
+            var yy = Math.Clamp(j0 - 1 + j, 0, latticeHeight - 1);
+            for (var i = 0; i < 4; i++)
+            {
+                var xx = Math.Clamp(i0 - 1 + i, 0, latticeWidth - 1);
+                var offset = ((yy * latticeWidth) + xx) * 4;
+                var w = wx[i] * wy[j];
+                channels[0] += w * (SplatA[offset] / 255f);
+                channels[1] += w * (SplatA[offset + 1] / 255f);
+                channels[2] += w * (SplatA[offset + 2] / 255f);
+                channels[3] += w * (SplatA[offset + 3] / 255f);
+                channels[4] += w * (SplatB[offset] / 255f);
+                channels[5] += w * (SplatB[offset + 1] / 255f);
+            }
+        }
+
+        return new SurfaceWeights(
+            channels[0], channels[1], channels[2], channels[3], channels[4], channels[5]);
+    }
+
+    /// <summary>The Catmull-Rom cubic weights for the four taps around t ∈ [0, 1), in tap order
+    /// i0 − 1, i0, i0 + 1, i0 + 2. At t = 0.5 they are the kernel the entry names: −1/16, 9/16, 9/16,
+    /// −1/16.</summary>
+    private static void CubicWeights(float t, Span<float> weights)
+    {
+        var t2 = t * t;
+        var t3 = t2 * t;
+        weights[0] = (-0.5f * t3) + t2 - (0.5f * t);
+        weights[1] = (1.5f * t3) - (2.5f * t2) + 1f;
+        weights[2] = (-1.5f * t3) + (2f * t2) + (0.5f * t);
+        weights[3] = (0.5f * t3) - (0.5f * t2);
+    }
 
     /// <summary>
     /// The six weights at a map point for a raw grid — the static half <see cref="WeightsAt(float,float)"/>
@@ -916,14 +1011,20 @@ public sealed class TerrainSplatMap
         return result;
     }
 
-    private static SplatPoint WobbleAt(SplatPoint p) => new(
+    /// <summary>The deterministic wobble offset, in cells per axis, at a point on the fitted curve
+    /// (before the end fade): ≤ <see cref="RiverWobbleAmplitudeCells"/> per axis. Public so Done-when 1
+    /// can prove the amplitude reaches 0.1 cell on some chain; a pure function of position and constant
+    /// seeds.</summary>
+    public static SplatPoint WobbleAt(SplatPoint p) => new(
         ValueNoise(p.X / RiverWobblePeriodCells, p.Y / RiverWobblePeriodCells, WobbleSeedX) * RiverWobbleAmplitudeCells,
         ValueNoise((p.X / RiverWobblePeriodCells) + 19.7f, (p.Y / RiverWobblePeriodCells) - 7.3f, WobbleSeedY)
             * RiverWobbleAmplitudeCells);
 
     /// <summary>Points every <paramref name="step"/> of arc length along the polyline, starting and
-    /// ending at its exact endpoints (the last gap may be shorter than the step). A closed polyline
-    /// closes on its first point.</summary>
+    /// ending at its exact endpoints, with a <strong>uniform</strong> gap L / round(L / step) (L the
+    /// total length), so the last gap is the same size as the rest and stays inside the Done-when's
+    /// 0.1 ± 0.01 spacing (the Opus review of round 3, R3: the old walk appended a short last gap, its
+    /// smallest 0.0026 cell). A closed polyline closes on its first point.</summary>
     private static List<SplatPoint> ResampleByArcLength(List<SplatPoint> points, float step, bool closed)
     {
         var result = new List<SplatPoint> { points[0] };
@@ -932,28 +1033,41 @@ public sealed class TerrainSplatMap
             return result;
         }
 
-        var travelled = 0d;
-        var nextTarget = (double)step;
-        for (var i = 1; i < points.Count; i++)
+        var segments = closed ? points.Count : points.Count - 1;
+        var total = 0d;
+        for (var i = 0; i < segments; i++)
         {
-            var segment = Distance(points[i - 1], points[i]);
+            var next = closed && i == points.Count - 1 ? points[0] : points[i + 1];
+            total += Distance(points[i], next);
+        }
+
+        var count = Math.Max(1, (int)Math.Round(total / step));
+        var target = total / count;
+        var travelled = 0d;
+        var nextTarget = target;
+        for (var i = 0; i < segments && result.Count <= count; i++)
+        {
+            var a = points[i];
+            var b = closed && i == points.Count - 1 ? points[0] : points[i + 1];
+            var segment = Distance(a, b);
             if (segment <= 1e-9)
             {
                 continue;
             }
 
-            while (nextTarget <= travelled + segment)
+            // A tolerance so a target that falls exactly on the segment's end still lands on it.
+            while (nextTarget <= travelled + segment + 1e-9 && result.Count <= count)
             {
                 var t = (nextTarget - travelled) / segment;
-                result.Add(Lerp(points[i - 1], points[i], (float)t));
-                nextTarget += step;
+                result.Add(t >= 1.0 - 1e-9 ? b : Lerp(a, b, (float)t));
+                nextTarget += target;
             }
 
             travelled += segment;
         }
 
         var last = closed ? points[0] : points[^1];
-        if (Distance(result[^1], last) > 1e-4)
+        if (Distance(result[^1], last) > 1e-5)
         {
             result.Add(last);
         }

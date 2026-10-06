@@ -651,6 +651,18 @@ public partial class GameMapView : Control
         _surfaceMaterial.SetShaderParameter("tex_deep", _surfaceTextures[5]);
         _surfaceMaterial.SetShaderParameter("world_size", new Vector2(_session.World.Width, _session.World.Height));
         _surfaceMaterial.SetShaderParameter("surface_scale", SurfaceCellsPerRepeat);
+
+        // T148 Done-when 1 (Sol's review of PR 813, R2): the rim's tint, its mix factor and the surf's
+        // maximum lightening come from TerrainSplatMap's public constants — one source of truth, not a
+        // second set of literals here or in the shader.
+        _surfaceMaterial.SetShaderParameter(
+            "shallow_tint",
+            new Vector3(
+                TerrainSplatMap.ShallowTintR,
+                TerrainSplatMap.ShallowTintG,
+                TerrainSplatMap.ShallowTintB));
+        _surfaceMaterial.SetShaderParameter("shallow_tone_down", TerrainSplatMap.ShallowToneDown);
+        _surfaceMaterial.SetShaderParameter("surf_strength", TerrainSplatMap.SurfStrength);
     }
 
     /// <summary>

@@ -22,14 +22,17 @@ namespace IC2.Slice.Checks;
 /// <item>with a scratch pack missing one surface key, the draw records the flat-colour fallback
 /// instead;</item>
 /// <item>the drawn material's shader source declares <c>repeat_enable</c> with a mipmapped linear
-/// filter on the six surface samplers and <c>repeat_disable</c> on the two splat samplers;</item>
+/// filter on the six surface samplers, <c>repeat_disable</c> on the two splat samplers, and names the
+/// bicubic splat sampling function;</item>
 /// <item><see cref="GameMapView.TerrainMemoryBytesForCheck"/>, counting every texture the draw keeps
 /// plus the splat map's baked byte arrays, stays under 24 MB.</item>
 /// </list>
 /// The scene also captures the Done-when 4 visual-review screenshots when <c>IC2_SCREENSHOT_DIR</c> is
 /// set: a windowed run at 2560 × 1351 (headless screenshots do not work, issue #156) saves the
-/// Mediterranean at the default fit, Italy and Greece at 32 px a cell, and a Nile river course at 32 px
-/// a cell.
+/// Mediterranean at the default fit, Italy and Greece at 32 px a cell, a Nile river course at 32 px
+/// a cell, and <c>05-rim-probe.png</c> — a scripted 40 × 20 grid, plain in columns 0–19 and sea in
+/// columns 20–39, drawn through the same shader at exactly 32 px a cell with the grid's top-left cell
+/// at the screen's top-left, which <c>scripts/measure-rim.py</c> reads.
 /// </summary>
 public partial class TerrainSurfaceCheck : Control
 {
@@ -183,6 +186,15 @@ public partial class TerrainSurfaceCheck : Control
                 $"the splat sampler {sampler} declares repeat_disable "
                 + $"(got {(declaration ?? "no declaration")})");
         }
+
+        // T148 Done-when 3 (the Opus review of round 4's R2): the splat sampling must be the named
+        // Catmull-Rom bicubic function, not the bilinear texture() call whose lattice zig-zag the round-3
+        // review measured.
+        Check(code.Contains("sample_splat_bicubic", StringComparison.Ordinal),
+            "the shader source names the bicubic splat sampling function");
+        Check(code.Contains("sample_splat_bicubic(splat_a", StringComparison.Ordinal)
+                && code.Contains("sample_splat_bicubic(splat_b", StringComparison.Ordinal),
+            "the shader samples both splat textures through the bicubic function");
     }
 
     private static string? SamplerDeclaration(string code, string samplerName)
@@ -289,10 +301,84 @@ public partial class TerrainSurfaceCheck : Control
 
             case 23 when _frame >= SettleFrames:
                 Capture("04-nile-river-32px.png");
+                BuildRimProbe();
+                _frame = 0;
+                _step = 24;
+                break;
+
+            case 24 when _frame >= SettleFrames:
+                Capture("05-rim-probe.png");
                 GD.Print("TerrainSurfaceCheck: screenshot tour done.");
                 GetTree().Quit(0);
                 break;
         }
+    }
+
+    /// <summary>
+    /// T148 Done-when 4: the rim probe — a scripted 40 × 20 grid, plain (code 2) in columns 0–19 and sea
+    /// (code 0) in columns 20–39, drawn through the surface shader at exactly 32 px a cell with the
+    /// grid's top-left at the screen's top-left. It is built here, on the check's own CanvasItem, rather
+    /// than through <see cref="GameMapView"/> (whose draw is tied to a real world), but it uses the same
+    /// <c>res://UI/TerrainSurface.gdshader</c> and binds the same uniforms from
+    /// <see cref="TerrainSplatMap"/>'s constants, so the render is the drawn rim.
+    /// </summary>
+    private void BuildRimProbe()
+    {
+        const int gridWidth = 40;
+        const int gridHeight = 20;
+        const float probeCell = 32f;
+        const float surfaceCellsPerRepeat = 2.5f; // GameMapView.SurfaceCellsPerRepeat
+
+        var cells = new int[gridWidth * gridHeight];
+        for (var y = 0; y < gridHeight; y++)
+        {
+            for (var x = 0; x < gridWidth; x++)
+            {
+                cells[(y * gridWidth) + x] = x < 20 ? 2 : 0;
+            }
+        }
+
+        var splat = TerrainSplatMap.Bake(gridWidth, gridHeight, cells);
+        var shader = GD.Load<Shader>("res://UI/TerrainSurface.gdshader");
+        var material = new ShaderMaterial { Shader = shader };
+        var imageA = Image.CreateFromData(
+            splat.LatticeWidth, splat.LatticeHeight, false, Image.Format.Rgba8, splat.SplatA);
+        var imageB = Image.CreateFromData(
+            splat.LatticeWidth, splat.LatticeHeight, false, Image.Format.Rgba8, splat.SplatB);
+        material.SetShaderParameter("splat_a", ImageTexture.CreateFromImage(imageA));
+        material.SetShaderParameter("splat_b", ImageTexture.CreateFromImage(imageB));
+
+        var loader = AssetPackTextureLoader.TryLoadPack(_repositoryRoot, null, message => GD.PrintErr(message));
+        var samplerNames = new[] { "tex_plain", "tex_desert", "tex_forest", "tex_mountain", "tex_shallow", "tex_deep" };
+        for (var i = 0; i < TerrainSplatMap.SurfaceKeysByClass.Count; i++)
+        {
+            material.SetShaderParameter(
+                samplerNames[i], loader?.TryGetSurfaceTexture(TerrainSplatMap.SurfaceKeysByClass[i]));
+        }
+
+        material.SetShaderParameter("world_size", new Vector2(gridWidth, gridHeight));
+        material.SetShaderParameter("surface_scale", surfaceCellsPerRepeat);
+        material.SetShaderParameter(
+            "shallow_tint",
+            new Vector3(
+                TerrainSplatMap.ShallowTintR,
+                TerrainSplatMap.ShallowTintG,
+                TerrainSplatMap.ShallowTintB));
+        material.SetShaderParameter("shallow_tone_down", TerrainSplatMap.ShallowToneDown);
+        material.SetShaderParameter("surf_strength", TerrainSplatMap.SurfStrength);
+
+        // The map view is hidden so the probe fills the top-left corner; the screenshot captures the
+        // whole viewport, and measure-rim.py reads only the probe's region.
+        _map.Visible = false;
+        AddChild(new ColorRect
+        {
+            Name = "RimProbe",
+            Position = Vector2.Zero,
+            Size = new Vector2(gridWidth * probeCell, gridHeight * probeCell),
+            Color = new Color(1f, 1f, 1f, 1f),
+            MouseFilter = MouseFilterEnum.Ignore,
+            Material = material,
+        });
     }
 
     private void Capture(string fileName)

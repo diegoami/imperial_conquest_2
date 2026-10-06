@@ -377,7 +377,7 @@
     {
       "key": "terrain.desert.surface",
       "kind": "surface",
-      "prompt": "A seamless top-down terrain texture of arid desert for a strategy map: a uniform olive-to-tan sandy base with only very subtle, soft-edged tonal dappling and a few faint, low-contrast sand ripples, evenly and flatly lit, the same tone continuing across the whole square frame edge to edge with no clear centre and no repeating motif, designed to tile seamlessly in every direction. No sky, no horizon, no border, no frame, no text, no shadow from any direction, no dark cross, no grid, no lines, no large contrasting patches.",
+      "prompt": "A seamless top-down terrain texture of arid desert for a strategy map: an olive-to-tan sandy base with irregular, non-repeating dune shapes in soft-edged tan and lighter sand, scattered without any regular arrangement, gently and flatly lit from directly above, the same tone continuing across the whole square frame edge to edge with no clear centre and no repeating motif, designed to tile seamlessly in every direction. No sky, no horizon, no border, no frame, no text, no shadow from any direction, no dark cross, no grid, no lines, no diagonal streaks, no parallel ripples, no regular stripes, no repeating motif, no large contrasting patches.",
       "source": "docs/asset-specification.md 4.5 terrain palette (the plain bright green, the forest darker green, the mountain grey rock with snow, the desert olive-to-tan, lighter shallow and darker deep water)"
     },
     {
