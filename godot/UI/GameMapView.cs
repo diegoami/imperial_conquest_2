@@ -664,9 +664,9 @@ public partial class GameMapView : Control
     /// <summary>
     /// T148: draws the river chains over the surface, in the water colour, about a fifth of a cell wide
     /// with a one-pixel minimum, once a cell is drawn at 4 px or more. Each chain is the polyline
-    /// <see cref="TerrainSplatMap.BuildRiverChains"/> fitted through its cells' centres (built once at
-    /// <see cref="Attach"/>, the Opus review of PR #806 N2) — one continuous, tangent-continuous curve
-    /// per river, so a river meanders instead of running along cell mid-lines.
+    /// <see cref="TerrainSplatMap.BuildRiverChains"/> fitted — a tangent-continuous curve that cuts a
+    /// circular fillet at each river cell's centre — built once at <see cref="Attach"/> (the Opus review
+    /// of PR #806 N2), so a river is one smooth stroke rather than a run of tight quarter-arc corners.
     /// </summary>
     private void DrawRivers(float tileSize)
     {

@@ -24,17 +24,20 @@ uniform float surface_scale = 2.5;            // cells spanned by one surface-te
                                               // the user's decision of 2026-10-06; GameMapView binds it)
 
 // The shore band: where land and sea weights are both present, a narrow sand band toward the land and
-// surf toward the sea, so coasts read without shore tiles. The surf is toned down — a light rim, not
-// bright cyan (the user's decision of 2026-10-06 at the visual review of the splatting round).
+// surf toward the sea, so coasts read without shore tiles. The surf lightens the sea by at most 15%
+// (the user's decision of 2026-10-06 at the escalation of rework round 2; the round-2 surf mixed up to
+// 35% toward near-white).
 uniform float shore_threshold = 0.25;
 uniform float shore_strength = 0.35;
+uniform float surf_strength = 0.15;
 uniform vec3 sand_color = vec3(0.82, 0.72, 0.50);
 uniform vec3 surf_color = vec3(0.88, 0.94, 0.95);
 
-// The shallow sea is toned down the same way: pulled toward this muted aqua before blending, so a thin
-// rim reads light rather than the bright cyan the review rejected.
+// The shallow rim is mixed toward a deep teal rather than a light tint, so it reads darker, not as the
+// bright cyan the round-2 review measured (the user's decision of 2026-10-06 at the escalation of
+// rework round 2).
 uniform float shallow_tone_down = 0.35;
-uniform vec3 shallow_tint = vec3(0.62, 0.78, 0.80);
+uniform vec3 shallow_tint = vec3(0.10, 0.35, 0.42);
 
 void fragment() {
     vec4 first = texture(splat_a, UV);
@@ -56,7 +59,7 @@ void fragment() {
     float sea = second.r + second.g;
     float shore = clamp(min(land, sea) / shore_threshold, 0.0, 1.0);
     colour = mix(colour, sand_color, shore * clamp(land - sea, 0.0, 1.0) * shore_strength);
-    colour = mix(colour, surf_color, shore * clamp(sea - land, 0.0, 1.0) * shore_strength);
+    colour = mix(colour, surf_color, shore * clamp(sea - land, 0.0, 1.0) * surf_strength);
 
     COLOR = vec4(colour, 1.0);
 }
