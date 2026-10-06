@@ -1,5 +1,4 @@
 using Godot;
-using IC2.Engine.Assets;
 using IC2.Engine.Model;
 using IC2.Engine.Presentation;
 using IC2.Slice.Assets;
@@ -144,12 +143,6 @@ public partial class GameMapView : Control
     private bool _dragging;
     private bool _dragMoved;
     private ImageTexture? _terrainTexture;
-
-    // T148: the resolved terrain-draw textures, held so TerrainMemoryBytesForCheck can report the
-    // terrain draw's own footprint. Every entry is a 32x32 Texture2D from the pack loader (the
-    // loader's own cache is what resolves it); _terrainTexture is the whole-map flat-colour texture
-    // the sub-threshold path draws. No Image is retained: the draw keeps textures only.
-    private readonly Dictionary<string, Texture2D> _terrainTiles = new(StringComparer.Ordinal);
     private int[]? _terrainCells;
 
     private string? _selectedCityId;
@@ -338,89 +331,12 @@ public partial class GameMapView : Control
         Zoom(Size / 2f, MaxZoom / _zoom);
     }
 
-    /// <summary>
-    /// T148: sets the exact drawn cell size (in screen pixels) through the same clamp-and-announce path
-    /// every zoom uses. <c>godot/Checks/TerrainTilesCheck.cs</c> needs the two sides of
-    /// <see cref="IC2.Slice.Assets.TerrainTileKeys.TilePixelThreshold"/> (12 px and 11.9 px) and the
-    /// 32 px the visual-review screenshots use, none of which the wheel's 1.15 factor can reach, and
-    /// the check must not know <see cref="BaseTileSize"/>. Check-only; the app never calls it.
-    /// </summary>
-    public void SetDrawnCellPixelsForCheck(float cellPixels)
-    {
-        if (_session is null || Size.X <= 0 || Size.Y <= 0)
-        {
-            return;
-        }
-
-        _zoom = Mathf.Clamp(cellPixels / BaseTileSize, MinimumZoom(), MaxZoom);
-        _userAdjustedView = true;
-        ClampPanToView();
-        NotifyViewChanged();
-    }
-
     /// <summary>The rect <see cref="_Draw"/> would draw the terrain texture in at the current zoom and
     /// pan — exposed so <c>godot/Checks/MapClipCheck.cs</c> can prove the maximum-zoom case really does
     /// draw past this control's own rect (the bug's precondition), not merely that clipping is enabled.</summary>
     public Rect2 TerrainDrawRectForCheck => _session is null
         ? new Rect2(_pan, Vector2.Zero)
         : new Rect2(_pan, new Vector2(_session.World.Width, _session.World.Height) * BaseTileSize * _zoom);
-
-    /// <summary>
-    /// T148: the keys the terrain draw would use for cell (<paramref name="x"/>, <paramref name="y"/>)
-    /// at the current zoom — the tile path's base and variant keys and its shore overlays, with
-    /// <see cref="TerrainCellKeys.UsesTiles"/> reporting which of the two terrain paths the draw is on.
-    /// Read-only; <c>godot/Checks/TerrainTilesCheck.cs</c> asserts the mapping and the
-    /// <see cref="IC2.Slice.Assets.TerrainTileKeys.TilePixelThreshold"/> boundary through it (driving
-    /// the exact drawn cell size with <see cref="SetDrawnCellPixelsForCheck"/>), and the keys are
-    /// <see cref="IC2.Slice.Assets.TerrainTileKeys"/>'s own decision, never a second copy here.
-    /// </summary>
-    public TerrainCellKeys TerrainKeysForCheck(int x, int y)
-    {
-        if (_session is null || _terrainCells is null)
-        {
-            return new TerrainCellKeys(false, null, null, Array.Empty<string>());
-        }
-
-        var world = _session.World;
-        if (x < 0 || x >= world.Width || y < 0 || y >= world.Height)
-        {
-            return new TerrainCellKeys(false, null, null, Array.Empty<string>());
-        }
-
-        var code = _terrainCells[(y * world.Width) + x];
-        return new TerrainCellKeys(
-            UsesTiles: BaseTileSize * _zoom >= IC2.Slice.Assets.TerrainTileKeys.TilePixelThreshold,
-            TileKey: IC2.Slice.Assets.TerrainTileKeys.KeyForCode(code),
-            VariantTileKey: IC2.Slice.Assets.TerrainTileKeys.VariantKeyForCode(code, x, y),
-            ShoreKeys: IC2.Slice.Assets.TerrainTileKeys.ShoreKeysFor(
-                world, _terrainCells, world.Width, world.Height, x, y));
-    }
-
-    /// <summary>
-    /// T148 DoD 3: the bytes the terrain draw holds alive right now — the sum, over the flat-colour
-    /// texture and every resolved tile/variant/river/overlay texture, of width × height × 4. The draw
-    /// retains no <see cref="Image"/> (each texture comes from the pack loader already built), so each
-    /// is counted once. Used by <c>godot/Checks/TerrainTilesCheck.cs</c> to prove the whole-map draw
-    /// stays under 64 MB at 12 px and at 72 px a cell.
-    /// </summary>
-    public long TerrainMemoryBytesForCheck
-    {
-        get
-        {
-            var total = 0L;
-            if (_terrainTexture is not null)
-            {
-                total += (long)_terrainTexture.GetWidth() * _terrainTexture.GetHeight() * 4;
-            }
-
-            foreach (var texture in _terrainTiles.Values)
-            {
-                total += (long)texture.GetWidth() * texture.GetHeight() * 4;
-            }
-
-            return total;
-        }
-    }
 
     /// <summary>
     /// T102: the tile rectangle the order map currently shows, in tile coordinates — the inverse of
@@ -524,98 +440,6 @@ public partial class GameMapView : Control
         }
 
         _terrainTexture = ImageTexture.CreateFromImage(image);
-    }
-
-    /// <summary>
-    /// T148: the tile path of the terrain draw. Every cell intersecting this control's rect is drawn
-    /// from its variant tile (or the base, or the generic river fallback, or the flat-colour pixel),
-    /// with each sea-facing shore overlay composited over it. Culling to the visible rect keeps the
-    /// draw to what the control can show at 72 px a cell, and to the tens of thousands of cells the
-    /// whole map is at 12 px — the paired memory bound is
-    /// <see cref="TerrainMemoryBytesForCheck"/>.
-    /// </summary>
-    private void DrawTerrainTiles(World world, int[] cells, float tileSize)
-    {
-        var width = world.Width;
-        var height = world.Height;
-        var firstX = Mathf.Max(0, Mathf.FloorToInt(-_pan.X / tileSize));
-        var firstY = Mathf.Max(0, Mathf.FloorToInt(-_pan.Y / tileSize));
-        var lastX = Mathf.Min(width - 1, Mathf.CeilToInt((Size.X - _pan.X) / tileSize) - 1);
-        var lastY = Mathf.Min(height - 1, Mathf.CeilToInt((Size.Y - _pan.Y) / tileSize) - 1);
-
-        for (var y = firstY; y <= lastY; y++)
-        {
-            for (var x = firstX; x <= lastX; x++)
-            {
-                var rect = new Rect2(_pan + new Vector2(x, y) * tileSize, new Vector2(tileSize, tileSize));
-                var code = cells[(y * width) + x];
-                var tile = ResolveCellTile(code, x, y);
-                if (tile is not null)
-                {
-                    DrawTextureRect(tile, rect, false);
-                }
-                else if (_terrainTexture is not null)
-                {
-                    // A key the pack lacks, and no fallback beyond it: the flat-colour pixel for this
-                    // cell, exactly what the sub-threshold path would have drawn for the whole map.
-                    DrawTextureRectRegion(_terrainTexture, rect, new Rect2(x, y, 1, 1));
-                }
-
-                foreach (var shoreKey in TerrainTileKeys.ShoreKeysFor(world, cells, width, height, x, y))
-                {
-                    if (ResolveTerrainTile(shoreKey) is { } shore)
-                    {
-                        DrawTextureRect(shore, rect, false);
-                    }
-                }
-            }
-        }
-    }
-
-    /// <summary>
-    /// T148: the tile a cell draws — the position-chosen variant first, then its base key (so a pack
-    /// missing a variant still draws variant 1), then the generic <c>terrain.river.tile</c> for a
-    /// missing river piece. <see langword="null"/> when even the base is absent, which the caller
-    /// renders as the flat colour.
-    /// </summary>
-    private Texture2D? ResolveCellTile(int code, int x, int y)
-    {
-        var variantKey = TerrainTileKeys.VariantKeyForCode(code, x, y);
-        if (variantKey is not null && ResolveTerrainTile(variantKey) is { } variant)
-        {
-            return variant;
-        }
-
-        var baseKey = TerrainTileKeys.KeyForCode(code);
-        if (baseKey is not null && ResolveTerrainTile(baseKey) is { } baseTexture)
-        {
-            return baseTexture;
-        }
-
-        return baseKey is not null && TerrainTileKeys.IsRiverPieceKey(baseKey)
-            ? ResolveTerrainTile(AssetKeys.TerrainRiverTile)
-            : null;
-    }
-
-    /// <summary>
-    /// T148: resolves and caches one terrain texture through the map's one pack loader. Misses are not
-    /// kept here (the loader caches them itself), so <see cref="TerrainMemoryBytesForCheck"/> counts
-    /// exactly the textures the draw holds.
-    /// </summary>
-    private Texture2D? ResolveTerrainTile(string key)
-    {
-        if (_terrainTiles.TryGetValue(key, out var cached))
-        {
-            return cached;
-        }
-
-        var texture = _assetLoader?.TryGetTexture(key);
-        if (texture is not null)
-        {
-            _terrainTiles[key] = texture;
-        }
-
-        return texture;
     }
 
     private void FitToView()
@@ -1097,19 +921,7 @@ public partial class GameMapView : Control
         if (_terrainTexture is not null)
         {
             var mapRect = new Rect2(_pan, new Vector2(world.Width, world.Height) * tileSize);
-            // T148: at or above the tile threshold the terrain draws per visible cell from the pack's
-            // 32x32 tiles (with the shore overlays and the variant chosen by position); below it the
-            // whole-map one-pixel-per-cell texture is stretched exactly as before. The drawn rectangle
-            // is mapRect either way -- the per-cell path covers it cell by cell -- so MapClipCheck's
-            // TerrainDrawRectForCheck contract is unchanged.
-            if (tileSize >= IC2.Slice.Assets.TerrainTileKeys.TilePixelThreshold && _terrainCells is not null)
-            {
-                DrawTerrainTiles(world, _terrainCells, tileSize);
-            }
-            else
-            {
-                DrawTextureRect(_terrainTexture, mapRect, false);
-            }
+            DrawTextureRect(_terrainTexture, mapRect, false);
         }
 
         // T110: the map always draws every layer. The bottom toolbar's Cities/Armies/Fleets toggles hid
@@ -1267,22 +1079,3 @@ public partial class GameMapView : Control
 
     private static Color ToColor(MarkerTint tint) => new(tint.Red, tint.Green, tint.Blue, tint.Alpha);
 }
-
-/// <summary>
-/// T148: the terrain keys <see cref="GameMapView.TerrainKeysForCheck(int,int)"/> reports for one cell —
-/// which path the draw is on, the base (connectivity) tile key, the variant-applied tile key the draw
-/// resolves, and the shore overlays the cell draws. A read-only report; nothing in the draw reads it.
-/// </summary>
-/// <param name="UsesTiles">
-/// Whether the cell is drawn from the pack's tiles (<see langword="true"/>) or from the whole-map
-/// flat-colour texture (<see langword="false"/>), i.e. whether the drawn cell size reached
-/// <see cref="IC2.Slice.Assets.TerrainTileKeys.TilePixelThreshold"/>.
-/// </param>
-/// <param name="TileKey">The code's own base tile key (<see cref="IC2.Slice.Assets.TerrainTileKeys.KeyForCode"/>).</param>
-/// <param name="VariantTileKey">The position-chosen variant key the draw resolves first.</param>
-/// <param name="ShoreKeys">The cell's sea-facing shore overlays, in north, east, south, west order.</param>
-public sealed record TerrainCellKeys(
-    bool UsesTiles,
-    string? TileKey,
-    string? VariantTileKey,
-    IReadOnlyList<string> ShoreKeys);

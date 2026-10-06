@@ -90,14 +90,6 @@
     <Compile Include="../../godot/Assets/AssetPackManifestLoader.cs" Link="Ui/AssetPackManifestLoader.cs" />
 
     <!--
-      T148 (tests/IC2.Engine.Tests/Ui/TerrainTileKeysTests.cs): the same seam, for the Godot-free
-      mapping from a terrain cell (its code, position and neighbours) to its tile key, variant and
-      shore overlays that godot/UI/GameMapView.cs draws through. No `using Godot` anywhere; never a
-      second, hand-maintained copy.
-    -->
-    <Compile Include="../../godot/Assets/TerrainTileKeys.cs" Link="Ui/TerrainTileKeys.cs" />
-
-    <!--
       T94 rework round 1 (N3): MarkerTint.cs is the owner-tint half — the Godot-free HTML colour parse
       GameMapView builds every marker's modulate colour from, so a test can assert the exact components
       a texture is tinted with instead of leaving tinting to the visual sign-off alone. No `using Godot`

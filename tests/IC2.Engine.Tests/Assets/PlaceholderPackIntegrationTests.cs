@@ -265,10 +265,8 @@ public class PlaceholderPackIntegrationTests
 
             // T101: the ui.command.* stand-ins are 32-bit BGRA (section 1.2's chrome rule and
             // the key's own format); the pre-T101 placeholder markers and tiles stay their
-            // shipped 24-bit shape. T148: a terrain.shore.* overlay is 32-bit BGRA with
-            // transparency, because it composites over a land tile (T148 Done-when 2).
-            var expectedBitCount = key.StartsWith("ui.command.", StringComparison.Ordinal)
-                || key.StartsWith("terrain.shore.", StringComparison.Ordinal) ? 32 : 24;
+            // shipped 24-bit shape.
+            var expectedBitCount = key.StartsWith("ui.command.", StringComparison.Ordinal) ? 32 : 24;
             ValidateBMPStructure(fullPath, key, expectedBitCount);
         }
     }

@@ -194,69 +194,6 @@ function New-PlaceholderSpriteBMP {
     [System.IO.File]::WriteAllBytes($Path, $allBytes)
 }
 
-# T148 shore overlays: 32-bit BGRA with a transparent background and a 6 px opaque band of sand
-# (plus a 1 px white surf line at its outer edge) along the edge the key names. Six px keeps every
-# opaque pixel within the 10 px the task requires of a shore overlay. The band is written in DIB
-# coordinates and mapped to the bottom-up file rows, so "n" is the top row of the displayed tile.
-function New-PlaceholderShoreBMP {
-    param(
-        [string]$Path,
-        [string]$Edge
-    )
-
-    $width = 32
-    $height = 32
-    $bytesPerPixel = 4
-    $rowSize = $width * $bytesPerPixel  # 128, already 4-byte aligned
-    $pixelDataSize = [uint32]($rowSize * $height)
-    $pixelDataOffset = [uint32]54
-    $fileSize = [uint32]($pixelDataOffset + $pixelDataSize)
-
-    $fileHeader = [byte[]]@(0x42, 0x4D)  # "BM"
-    $fileHeader += [BitConverter]::GetBytes($fileSize)
-    $fileHeader += [byte[]]@(0, 0, 0, 0)  # reserved
-    $fileHeader += [BitConverter]::GetBytes($pixelDataOffset)
-
-    $infoHeader = [BitConverter]::GetBytes([uint32]40)
-    $infoHeader += [BitConverter]::GetBytes([int32]$width)
-    $infoHeader += [BitConverter]::GetBytes([int32]$height)            # positive => bottom-up
-    $infoHeader += [BitConverter]::GetBytes([uint16]1)                 # color planes
-    $infoHeader += [BitConverter]::GetBytes([uint16]32)                # bits per pixel
-    $infoHeader += [BitConverter]::GetBytes([uint32]0)                 # BI_RGB, no compression
-    $infoHeader += [BitConverter]::GetBytes($pixelDataSize)
-    $infoHeader += [BitConverter]::GetBytes([int32]0)
-    $infoHeader += [BitConverter]::GetBytes([int32]0)
-    $infoHeader += [BitConverter]::GetBytes([uint32]0)
-    $infoHeader += [BitConverter]::GetBytes([uint32]0)
-
-    $pixelData = New-Object byte[] $pixelDataSize
-    for ($y = 0; $y -lt $height; $y++) {
-        $rowIndex = $height - 1 - $y
-        for ($x = 0; $x -lt $width; $x++) {
-            $distance = switch ($Edge) {
-                "n" { $y }
-                "s" { $height - 1 - $y }
-                "w" { $x }
-                "e" { $width - 1 - $x }
-                default { 99 }
-            }
-            if ($distance -gt 5) { continue }
-            $idx = ($rowIndex * $rowSize) + ($x * $bytesPerPixel)
-            if ($distance -eq 0) {
-                # white surf line at the outer edge
-                $pixelData[$idx] = 255; $pixelData[$idx + 1] = 255; $pixelData[$idx + 2] = 255
-            } else {
-                # sand (BGR): a placeholder stand-in for the authored sand-and-surf band
-                $pixelData[$idx] = 128; $pixelData[$idx + 1] = 178; $pixelData[$idx + 2] = 194
-            }
-            $pixelData[$idx + 3] = 255
-        }
-    }
-
-    $allBytes = $fileHeader + $infoHeader + $pixelData
-    [System.IO.File]::WriteAllBytes($Path, $allBytes)
-}
-
 function New-SilentWAV {
     param([string]$Path)
 
@@ -315,33 +252,6 @@ $colors = @{
     "river" = @(64, 164, 223)
     "coastal" = @(100, 149, 237)
     "deep" = @(30, 100, 180)
-    # T148 variants: each type's three extra variants are flat stand-ins, slightly offset from
-    # variant 1 so a pack consumer can tell them apart; the authored pack supplies the real detail.
-    "plain2" = @(134, 228, 134)
-    "plain3" = @(154, 248, 154)
-    "plain4" = @(124, 218, 124)
-    "desert2" = @(200, 170, 130)
-    "desert3" = @(220, 190, 150)
-    "desert4" = @(190, 160, 120)
-    "forest2" = @(44, 149, 44)
-    "forest3" = @(24, 129, 24)
-    "forest4" = @(54, 159, 54)
-    "mountain2" = @(138, 138, 138)
-    "mountain3" = @(118, 118, 118)
-    "mountain4" = @(148, 148, 148)
-    "coastal2" = @(110, 159, 247)
-    "coastal3" = @(90, 139, 227)
-    "coastal4" = @(120, 169, 255)
-    "deep2" = @(40, 110, 190)
-    "deep3" = @(20, 90, 170)
-    "deep4" = @(50, 120, 200)
-    # T148 river connectivity pieces (codes 6..11): flat blue stand-ins, one shade each.
-    "river_ew" = @(64, 164, 223)
-    "river_ns" = @(54, 154, 213)
-    "river_en" = @(74, 174, 233)
-    "river_es" = @(44, 144, 203)
-    "river_ws" = @(84, 184, 243)
-    "river_wn" = @(94, 194, 253)
 }
 
 Write-Host "Generating BMP files..."
@@ -369,48 +279,12 @@ $bmpMappings = @{
     "terrain/river.bmp" = $colors["river"]
     "terrain/sea_coastal.bmp" = $colors["coastal"]
     "terrain/sea_deep.bmp" = $colors["deep"]
-    # T148: the three extra variants of each variant-bearing type. The file name mirrors the
-    # authored generator's asset_relpath (`terrain.<type>.tile.<n>` -> terrain/<type>_<n>.bmp).
-    "terrain/plain_2.bmp" = $colors["plain2"]
-    "terrain/plain_3.bmp" = $colors["plain3"]
-    "terrain/plain_4.bmp" = $colors["plain4"]
-    "terrain/desert_2.bmp" = $colors["desert2"]
-    "terrain/desert_3.bmp" = $colors["desert3"]
-    "terrain/desert_4.bmp" = $colors["desert4"]
-    "terrain/forest_2.bmp" = $colors["forest2"]
-    "terrain/forest_3.bmp" = $colors["forest3"]
-    "terrain/forest_4.bmp" = $colors["forest4"]
-    "terrain/mountain_2.bmp" = $colors["mountain2"]
-    "terrain/mountain_3.bmp" = $colors["mountain3"]
-    "terrain/mountain_4.bmp" = $colors["mountain4"]
-    "terrain/sea_coastal_2.bmp" = $colors["coastal2"]
-    "terrain/sea_coastal_3.bmp" = $colors["coastal3"]
-    "terrain/sea_coastal_4.bmp" = $colors["coastal4"]
-    "terrain/sea_deep_2.bmp" = $colors["deep2"]
-    "terrain/sea_deep_3.bmp" = $colors["deep3"]
-    "terrain/sea_deep_4.bmp" = $colors["deep4"]
-    # T148: the six river connectivity pieces (grid codes 6..11).
-    "terrain/river_ew.bmp" = $colors["river_ew"]
-    "terrain/river_ns.bmp" = $colors["river_ns"]
-    "terrain/river_en.bmp" = $colors["river_en"]
-    "terrain/river_es.bmp" = $colors["river_es"]
-    "terrain/river_ws.bmp" = $colors["river_ws"]
-    "terrain/river_wn.bmp" = $colors["river_wn"]
 }
 
 foreach ($file in $bmpMappings.Keys) {
     $color = $bmpMappings[$file]
     $fullPath = Join-Path -Path $OutputPath -ChildPath $file
     New-PlaceholderBMP -Path $fullPath -Red $color[0] -Green $color[1] -Blue $color[2]
-    Write-Host "  + $file"
-}
-
-# T148 shore overlays: one per cardinal edge, a transparent tile with a sand/surf band along it.
-Write-Host "Generating terrain shore overlays..."
-foreach ($edge in @("n", "e", "s", "w")) {
-    $file = "terrain/shore_$edge.bmp"
-    $fullPath = Join-Path -Path $OutputPath -ChildPath $file
-    New-PlaceholderShoreBMP -Path $fullPath -Edge $edge
     Write-Host "  + $file"
 }
 
@@ -467,23 +341,6 @@ $manifest.assets["city.capital.icon"] = "city/capital.bmp"
 
 foreach ($terrain in @("plain", "desert", "forest", "mountain", "river", "sea_coastal", "sea_deep")) {
     $manifest.assets["terrain.$terrain.tile"] = "terrain/$terrain.bmp"
-}
-
-# T148: the three extra variants of each variant-bearing type.
-foreach ($terrain in @("plain", "desert", "forest", "mountain", "sea_coastal", "sea_deep")) {
-    for ($variant = 2; $variant -le 4; $variant++) {
-        $manifest.assets["terrain.$terrain.tile.$variant"] = "terrain/${terrain}_$variant.bmp"
-    }
-}
-
-# T148: the six river connectivity pieces (grid codes 6..11, in MapViewer.DrawRiver order).
-foreach ($piece in @("ew", "ns", "en", "es", "ws", "wn")) {
-    $manifest.assets["terrain.river.$piece"] = "terrain/river_$piece.bmp"
-}
-
-# T148: the four shore overlays, one per cardinal edge.
-foreach ($edge in @("n", "e", "s", "w")) {
-    $manifest.assets["terrain.shore.$edge"] = "terrain/shore_$edge.bmp"
 }
 
 foreach ($sfx in @("city_captured", "battle", "unit_move")) {

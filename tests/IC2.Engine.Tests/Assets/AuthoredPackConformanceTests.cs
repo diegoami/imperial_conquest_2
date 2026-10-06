@@ -153,18 +153,6 @@ public sealed class AuthoredPackConformanceTests
         }
     }
 
-    /// <summary>
-    /// T148 Done-when 2, authored half: every terrain key resolves and every file conforms — 24-bit
-    /// for a base, variant or river tile, 32-bit BGRA with a transparent background and an opaque band
-    /// within 10 px of its named edge for a shore overlay. The rule itself is
-    /// <see cref="TerrainPackConformance"/>, shared with the placeholder pack's test.
-    /// </summary>
-    [Fact]
-    public void AuthoredPack_TerrainKeys_ResolveAndConformToTheTerrainFormat()
-    {
-        TerrainPackConformance.AssertEveryTerrainKeyResolvesAndConforms(AuthoredPackDirectory);
-    }
-
     [Fact]
     public void AuthoredPack_SpriteAssets_CarryTransparencyAndALightNeutralSilhouette()
     {
@@ -315,14 +303,12 @@ public sealed class AuthoredPackConformanceTests
     }
 
     /// <summary>
-    /// The kind implied by the key's own first segment: terrain tiles are opaque 24-bit, terrain
-    /// shore overlays are transparent 32-bit, sfx are WAV, and everything else (unit icons and
-    /// army/fleet/city markers) are transparent 32-bit BGRA sprites - the same split
-    /// <c>scripts/generate-authored-assets.py</c> conforms by.
+    /// The kind implied by the key's own first segment: terrain tiles are opaque 24-bit, sfx are
+    /// WAV, and everything else (unit icons and army/fleet/city markers) are transparent 32-bit
+    /// BGRA sprites - the same split <c>scripts/generate-authored-assets.py</c> conforms by.
     /// </summary>
     private static string ExpectedKind(string key) => key switch
     {
-        _ when key.StartsWith("terrain.shore.", StringComparison.Ordinal) => "overlay",
         _ when key.StartsWith("terrain.", StringComparison.Ordinal) => "tile",
         _ when key.StartsWith("sfx.", StringComparison.Ordinal) => "sfx",
         _ when key.StartsWith("ui.command.", StringComparison.Ordinal) => "ui",
@@ -330,9 +316,7 @@ public sealed class AuthoredPackConformanceTests
     };
 
     private static int ExpectedBitCount(string key) =>
-        key.StartsWith("terrain.shore.", StringComparison.Ordinal) ? 32
-        : key.StartsWith("terrain.", StringComparison.Ordinal) ? 24
-        : 32;
+        key.StartsWith("terrain.", StringComparison.Ordinal) ? 24 : 32;
 
     /// <summary>
     /// Parses a BMP's own headers and recomputes every field independently, in the style of

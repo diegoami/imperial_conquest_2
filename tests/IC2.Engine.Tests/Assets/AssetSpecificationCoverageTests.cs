@@ -23,11 +23,6 @@ namespace IC2.Engine.Tests.Assets;
 /// keys) are deliberately outside this block: this test only requires the *existing* keys - all 61
 /// after T101 - to round-trip, and a proposed key must not affect it either way.
 /// </para>
-/// <para>
-/// T148 turns the river-variant gap into 28 real terrain keys. The block is updated with them by the
-/// main session's "Docs affected" pass (a task branch must not edit this Markdown file), so until it
-/// lands they are the one named exception; the same assertions keep holding afterwards.
-/// </para>
 /// </remarks>
 public class AssetSpecificationCoverageTests
 {
@@ -47,15 +42,7 @@ public class AssetSpecificationCoverageTests
     public void EveryAssetKeysConstant_AppearsInTheGroundTruthBlock()
     {
         var documented = ReadGroundTruthKeys();
-
-        // T148 adds 28 real terrain keys (variants, river pieces and shore overlays) and closes the
-        // "river tile variants" gap the class remarks name, but docs/asset-specification.md is a
-        // Markdown file a task branch must not edit. They are updated into the §6 block by the main
-        // session's "Docs affected" pass; until then they are the one named exception, and once the
-        // block carries them these assertions still hold (the exception only removes them from the
-        // "missing" set).
-        var pendingDocPass = new HashSet<string>(AssetKeys.TerrainKeysAddedByT148, StringComparer.Ordinal);
-        var engineKeys = AssetKeys.AllKeys.Where(k => !pendingDocPass.Contains(k)).ToList();
+        var engineKeys = AssetKeys.AllKeys.ToList();
 
         var missingFromDoc = engineKeys.Where(k => !documented.Contains(k)).ToList();
 
@@ -90,12 +77,7 @@ public class AssetSpecificationCoverageTests
 
         Assert.Equal(documented.Count, documented.Distinct(StringComparer.Ordinal).Count());
         Assert.All(documented, key => Assert.False(string.IsNullOrWhiteSpace(key)));
-
-        // T148's 28 new terrain keys are added to the block by the main session's docs pass, so the
-        // block may be short by exactly that many until it lands; the two tests above still pin both
-        // directions, and the bound holds whether or not the pass has happened.
-        var pendingDocPass = AssetKeys.TerrainKeysAddedByT148.Count;
-        Assert.InRange(documented.Count, engineKeyCount - pendingDocPass, engineKeyCount);
+        Assert.Equal(engineKeyCount, documented.Count);
     }
 
     /// <summary>
