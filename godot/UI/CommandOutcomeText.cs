@@ -106,11 +106,19 @@ public static class CommandOutcomeText
             }
         }
 
+        var hadNonBlank = block.Count > 0;
         block = DropPeaceOfferLines(block, pendingPeaceOfferLineSets);
 
         if (block.Count > 0)
         {
             return string.Join('\n', block);
+        }
+
+        // Everything the order printed was the pending offer's own lines (now the window's to show), so
+        // the output area is empty -- never fall back onto the prompt the filter just dropped.
+        if (hadNonBlank)
+        {
+            return string.Empty;
         }
 
         for (var i = lines.Count - 1; i >= start; i--)
