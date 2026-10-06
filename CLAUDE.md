@@ -105,8 +105,9 @@ Agreed on [#264](https://github.com/diegoami/imperial_conquest_2/issues/264), wh
     `curl -s localhost:8765/quota/alibaba | jq .pricing`: when `discount_now` is false, prefer
     another entry for a long run, or start it after `next_change_at`. Alibaba's GLM (`ali-glm`) has
     no discount, so the time does not matter for it. Likewise read
-    `curl -s localhost:8765/quota/zai | jq .pricing`: when `peak_now` is true (weekday afternoons
-    UTC+8, from 8 October), `glm-5.3` costs 3× quota, so prefer `ali-glm` or another provider for a
+    `curl -s localhost:8765/quota/zai | jq .pricing`: when `peak_now` is true (Mon–Fri 14:00–18:00
+    UTC+8; a promotion keeps it off-peak until the tracker's `promo_off_peak_until`, 2026-10-07 16:00
+    UTC, so peaks start on 8 October, as the owner's note says), `glm-5.3` costs 3× quota, so prefer `ali-glm` or another provider for a
     long run then. If the tracker does not answer, run as usual; never block on it.
 
 ---
