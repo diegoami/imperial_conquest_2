@@ -135,8 +135,11 @@ public sealed class AuthoredPackConformanceTests
     {
         var pack = AssetLoader.LoadManifest(Path.Combine(AuthoredPackDirectory, "manifest.json"));
 
+        // Surfaces are 256x256, not 32x32, so they are checked by their own test below rather than by
+        // this 32x32 structure check.
         var imageKeys = AssetKeys.AllKeys
-            .Where(k => !k.StartsWith("sfx.", StringComparison.Ordinal))
+            .Where(k => !k.StartsWith("sfx.", StringComparison.Ordinal)
+                     && !k.EndsWith(".surface", StringComparison.Ordinal))
             .ToList();
 
         Assert.NotEmpty(imageKeys);
@@ -151,6 +154,17 @@ public sealed class AuthoredPackConformanceTests
             // army/fleet/city markers) is 32-bit BGRA - docs/asset-specification.md 1.2.
             ValidateBmpStructure(File.ReadAllBytes(fullPath), key, ExpectedBitCount(key));
         }
+    }
+
+    /// <summary>
+    /// T148 Done-when 2, authored half: every surface key resolves to a 256 × 256 24-bit BMP that tiles
+    /// (edge mean absolute difference under 6 of 255). The rule is
+    /// <see cref="TerrainSurfaceConformance"/>, shared with the placeholder pack's test.
+    /// </summary>
+    [Fact]
+    public void AuthoredPack_SurfaceKeys_ResolveAndTile()
+    {
+        TerrainSurfaceConformance.AssertEverySurfaceKeyResolvesAndTiles(AuthoredPackDirectory);
     }
 
     [Fact]
@@ -309,6 +323,7 @@ public sealed class AuthoredPackConformanceTests
     /// </summary>
     private static string ExpectedKind(string key) => key switch
     {
+        _ when key.EndsWith(".surface", StringComparison.Ordinal) => "surface",
         _ when key.StartsWith("terrain.", StringComparison.Ordinal) => "tile",
         _ when key.StartsWith("sfx.", StringComparison.Ordinal) => "sfx",
         _ when key.StartsWith("ui.command.", StringComparison.Ordinal) => "ui",

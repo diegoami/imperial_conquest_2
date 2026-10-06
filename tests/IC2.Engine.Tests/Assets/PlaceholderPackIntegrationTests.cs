@@ -249,10 +249,13 @@ public class PlaceholderPackIntegrationTests
         var manifestPath = Path.Combine(_placeholderPackDir, "manifest.json");
         var pack = AssetLoader.LoadManifest(manifestPath);
 
-        // Every image key in the pack (all 22 icon/tile keys), not just a sample - a bug in the
-        // generator's shared BMP-writing code affects every file it writes, not a chosen few.
+        // Every image key in the pack, not just a sample - a bug in the generator's shared
+        // BMP-writing code affects every file it writes, not a chosen few. T148's terrain surfaces
+        // are 256x256, not 32x32, and are checked by TerrainSurfaceConformance in
+        // AssetValidationAgainstPlaceholderPackTests instead.
         var imageAssets = AssetKeys.AllKeys
-            .Where(key => !key.StartsWith("sfx.", StringComparison.Ordinal))
+            .Where(key => !key.StartsWith("sfx.", StringComparison.Ordinal)
+                       && !key.EndsWith(".surface", StringComparison.Ordinal))
             .ToArray();
 
         // Act & Assert

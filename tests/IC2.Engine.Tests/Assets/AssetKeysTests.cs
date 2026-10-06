@@ -119,18 +119,48 @@ public class AssetKeysTests
     }
 
     /// <summary>
-    /// T101 DoD 1: <see cref="AssetKeys.AllKeys"/> yields exactly the 25 pre-T101 keys plus the
-    /// 36 <c>ui.command.*</c> keys (audit §3.5: 9 main, 12 Area-map, 15 unit-map), and nothing
-    /// else.
+    /// T101 DoD 1, widened by T148: <see cref="AssetKeys.AllKeys"/> yields exactly the 25 pre-T101
+    /// keys, T148's six terrain surface keys and the 36 <c>ui.command.*</c> keys (audit §3.5: 9 main,
+    /// 12 Area-map, 15 unit-map), and nothing else.
     /// </summary>
     [Fact]
     public void AllKeys_HasExactlyThePreT101AndToolbarCommandKeys()
     {
         var allKeys = AssetKeys.AllKeys.ToList();
 
-        Assert.Equal(61, allKeys.Count);
-        Assert.Equal(25, allKeys.Count(k => !k.StartsWith("ui.command.", StringComparison.Ordinal)));
+        Assert.Equal(67, allKeys.Count);
+        Assert.Equal(31, allKeys.Count(k => !k.StartsWith("ui.command.", StringComparison.Ordinal)));
         Assert.Equal(36, allKeys.Count(k => k.StartsWith("ui.command.", StringComparison.Ordinal)));
+    }
+
+    /// <summary>
+    /// T148 DoD 2: the exact string of each of the six new terrain surface keys, so a rename fails here
+    /// instead of changing what the map resolves. The seven pre-existing terrain tile keys are
+    /// untouched and are not repeated here.
+    /// </summary>
+    [Fact]
+    public void T148_SurfaceKeys_AreExactlyTheSixAddedKeys()
+    {
+        var expected = new[]
+        {
+            "terrain.plain.surface",
+            "terrain.desert.surface",
+            "terrain.forest.surface",
+            "terrain.mountain.surface",
+            "terrain.sea_shallow.surface",
+            "terrain.sea_deep.surface",
+        };
+
+        Assert.Equal(6, expected.Length);
+        Assert.All(expected, key => Assert.Contains(key, AssetKeys.AllKeys));
+        Assert.DoesNotContain("terrain.plain.tile", expected);
+
+        Assert.Equal(AssetKeys.TerrainPlainSurface, expected[0]);
+        Assert.Equal(AssetKeys.TerrainDesertSurface, expected[1]);
+        Assert.Equal(AssetKeys.TerrainForestSurface, expected[2]);
+        Assert.Equal(AssetKeys.TerrainMountainSurface, expected[3]);
+        Assert.Equal(AssetKeys.TerrainSeaShallowSurface, expected[4]);
+        Assert.Equal(AssetKeys.TerrainSeaDeepSurface, expected[5]);
     }
 
     /// <summary>
