@@ -49,7 +49,34 @@ Facts that affect availability:
 
 - **GPT-5.6 Luna has its own weekly limit.** For light work, openai stays usable while the `gpt-5.6-luna:7d` window in `/quota/openai` is under 95%, even when openai itself is exhausted.
 - **openrouter is prepaid credit.** Its windows never reset, and `remaining_usd` is the balance.
+- **openrouter's free models have their own allowance**, separate from the credit: `free_model_daily_requests` in `/quota/openrouter` (`used`, `limit`, `remaining`). See [The free OpenRouter models](#the-free-openrouter-models-advisory-only).
 - **GLM's Coding Plan also has a 5-hour window.** When it runs out, an OpenCode run fails with "Usage limit reached for 5 hour" (seen on 2026-10-04); the `5h` window in `/quota/zai` shows it beforehand.
+
+### The free OpenRouter models (advisory only)
+
+Adopted by the owner's decision of 2026-10-06, as a supplement only: for smaller tasks and additional reviews, a second opinion next to a regular model, never the main model for important work.
+
+| Script name | Model | Effort | Notes |
+| --- | --- | --- | --- |
+| `nemotron` | `openrouter/nvidia/nemotron-3-ultra-550b-a55b:free` | `medium` (it offers `medium`, `high`) | the stronger one |
+| `north-mini` | `openrouter/cohere/north-mini-code:free` | `high` (light) | coding-focused, faster |
+| `inkling` | `openrouter/thinkingmachines/inkling:free` | `medium` | through OpenCode only, not the raw API |
+| `laguna` | `openrouter/poolside/laguna-s-2.1:free` | `medium` | often rate-limited |
+
+- **Advisory only.** In `scripts/external-review.ps1` they are `-Reviewer` values whose comment is headed "<Task or Plan> review (<Name>, advisory — not counted)". They never apply a status label (`-ApplyLabel` is refused, exit 1), never count toward a review tier, and belong to no model family, so they never exclude and are never excluded. No implementer script offers them. Their output is checked like any unreviewed contribution ([build-process.md §3.4](build-process.md#34-why-the-reviewers-model-differs-from-the-implementers)).
+- **One shared allowance**: 1,000 requests a day and about 20 a minute across every free model, and each agent step is one request, so one review can take tens. Read what is left with `curl -s localhost:8765/quota/openrouter` (`free_model_daily_requests.remaining`). The script skips an advisory run (exit 3) when 50 or fewer are left, or when the tracker does not answer.
+- **A 429 is skipped, never retried.** Free models come and go and get rate-limited. A 429 or rate-limit error in OpenCode's own `Error: ` stderr lines (never the model's words) ends the run with exit 3, "rate-limited, skipped".
+- **Shorter limits** (the owner's decision of 2026-10-06). OpenCode retries a rate-limited call inside the run, and the script cannot stop that. While it retries, the session's `updated` time stands still, so an advisory run is killed after **300 s idle** (not 600) and **1800 s in all** (not 3600) unless `-IdleTimeoutSec` or `-TotalTimeoutSec` is passed. A run killed this way exits 3 like any infrastructure failure and is not retried.
+- **Nothing private reaches them.** Free providers may log and train on prompts. This repository and `diegoami/imperial-conquest-2-research` are public; the private fixtures repository `diegoami/ic2-test-fixtures`, the original game's DAT and saves, `assets.local.ini` and any key never go to these models. The script refuses (exit 1) a brief that contains any of the following. The refusal names only the rule that matched and never echoes the matched text:
+  - `ic2-test-fixtures`, `assets.local.ini` or `IC2_FIXTURES_DIR`;
+  - a `.dat` or `.sav` path or save name;
+  - a common secret prefix (`sk-`, `sk-or-`, `sk-ant-`, `ghp_`, `gho_`, `github_pat_`, `xoxb-`, `AKIA…`, `Bearer …`);
+  - an assignment to a `…KEY`, `…TOKEN`, `…SECRET` or `…PASSWORD` name, whatever its value, an empty one included;
+  - a long high-entropy string (a 40-hex commit id and a 64-hex hash pass);
+  - the literal value of a key variable in the environment (`ALIBABA_TOKEN_PLAN_API_KEY`, `OPENROUTER_API_KEY` and any `…KEY`/`…TOKEN`/`…SECRET`/`…PASSWORD` variable, compared without printing).
+
+  It also refuses `-FixturesDir` and runs OpenCode without `IC2_FIXTURES_DIR`. **The brief is the only leak path the guard covers**: the model is told to read the PR, which is public on GitHub like the rest of this repository, and its agent cannot reach outside its worktree. So keep the brief to public material, and never paste a fixture's content, a save's bytes or a log that may carry a key into it.
+- **The key** is OpenRouter's entry in the copied `auth.json` of the usual data folder (`…\ic2-opencode-1x\data`); the owner sets it. Never read or print it. A check, which spends one free request: in PowerShell, `$env:XDG_DATA_HOME = "$env:USERPROFILE\.local\share\ic2-opencode-1x\data"`, then `opencode models openrouter | Select-String ':free'` and `$null | opencode run -m openrouter/nvidia/nemotron-3-ultra-550b-a55b:free "Reply with just: ok"`.
 
 ### The Alibaba Token Plan
 

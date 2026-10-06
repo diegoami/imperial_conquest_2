@@ -47,7 +47,8 @@
     rendered\review-not-posted-pr<pr>-<reviewer>-<time>.md, applies no label and exits 5: the main
     session reads the saved file and posts it by hand. Exit codes: 0 posted (and labelled with
     -ApplyLabel), 1 refused or a defect, 3 no review (OpenCode unavailable or every model failed),
-    4 posted flagged with no label, 5 not posted, saved.
+    4 posted flagged with no label, 5 not posted, saved. An advisory reviewer skipped for its quota
+    or a rate limit also exits 3.
     With -Reviewer auto (the default) the chain is Luna alone on `openai/gpt-5.6-luna` (issue #575:
     one OpenCode model per role before Claude), the simple tier's reviewer; on its failure the
     script exits 3 and the main session runs a cold Claude Opus reviewer. The main session picks
@@ -89,6 +90,19 @@
     picks it. Its key is the user variable ALIBABA_TOKEN_PLAN_API_KEY, loaded into this process when
     missing and never printed; "Invalid API-key" or "Provider not found" from it stops the script
     (exit 1, not 3) with the cause, never a retry (docs/environment.md).
+    The free OpenRouter models are ADVISORY reviewers only (the owner's decision of 2026-10-06,
+    build-process.md §3.4): nemotron (`openrouter/nvidia/nemotron-3-ultra-550b-a55b:free`, the
+    stronger), north-mini (`openrouter/cohere/north-mini-code:free`, coding-focused, faster), inkling
+    (`openrouter/thinkingmachines/inkling:free`) and laguna (`openrouter/poolside/laguna-s-2.1:free`,
+    often rate-limited). An advisory run posts its comment headed "<Task or Plan> review (<Name>,
+    advisory — not counted)", never applies a label (-ApplyLabel is refused, exit 1), counts toward no
+    review tier, and is in no model family (it never excludes and is never excluded). It is skipped
+    (exit 3) when quota-tracker's /quota/openrouter does not answer or free_model_daily_requests has
+    50 or fewer left, and when OpenCode's own stderr "Error: " line shows a 429 or rate limit
+    ("rate-limited, skipped", never retried). Nothing private reaches it: a brief naming
+    ic2-test-fixtures, assets.local.ini, IC2_FIXTURES_DIR, a .dat or .sav path, a secret prefix, a key assignment, a long
+    high-entropy string or a key variable's value is refused (exit 1, naming the rule only), as is
+    -FixturesDir, and its OpenCode runs without IC2_FIXTURES_DIR (docs/environment.md).
     OpenCode reads CLAUDE.md as its instructions file when no AGENTS.md exists; that is
     harmless here (the reviewer gets the token-economy rules) and no AGENTS.md is added.
 
@@ -106,7 +120,8 @@
     Luna pair; glm, then deepseek-pro (DeepSeek V4 Pro, `opencode-go/deepseek-v4-pro`), then luna
     are Sol's substitutes when it cannot review (build-process.md §3.4), then qwen (Qwen3.8 Max at
     low). qwen-flash (Qwen3.8 Flash at medium; it offers low, medium and xhigh) is the last re-check
-    reviewer of named fixes.
+    reviewer of named fixes. nemotron, north-mini, inkling and laguna are the advisory free
+    OpenRouter models (see above): an extra, uncounted second opinion, never a tier's reviewer.
 .PARAMETER Route
     Which provider DeepSeek and GLM run through: auto (the default) takes the usual one (OpenCode Go
     for deepseek and deepseek-pro, Z.AI for glm) unless quota-tracker's /avoid lists it
@@ -177,7 +192,7 @@
 [CmdletBinding()]
 param(
     [int] $Pr,
-    [ValidateSet('auto', 'glm-flash', 'glm', 'luna', 'sol', 'deepseek', 'deepseek-pro', 'qwen', 'qwen-flash')] [string] $Reviewer = 'auto',
+    [ValidateSet('auto', 'glm-flash', 'glm', 'luna', 'sol', 'deepseek', 'deepseek-pro', 'qwen', 'qwen-flash', 'nemotron', 'north-mini', 'inkling', 'laguna')] [string] $Reviewer = 'auto',
     [string] $BriefFile,
     [int] $Issue,
     [switch] $ApplyLabel,
@@ -649,6 +664,79 @@ function Invoke-ReviewParserSelfTest {
         foreach ($k in $savedEnv.Keys) { if ($null -eq $savedEnv[$k]) { [System.Environment]::SetEnvironmentVariable($k, $null, 'Process') } else { [System.Environment]::SetEnvironmentVariable($k, $savedEnv[$k], 'Process') } }
         Remove-Item -LiteralPath $scratch -Recurse -Force -ErrorAction SilentlyContinue
     }
+    # --- Advisory reviewers: the free OpenRouter models (the owner's decision of 2026-10-06) -----------
+    $ruleChecks += [pscustomobject]@{ Name = 'advisory ids: nemotron, north-mini, inkling, laguna are the four free OpenRouter models'; Ok = ($models['nemotron'] -eq 'openrouter/nvidia/nemotron-3-ultra-550b-a55b:free' -and $models['north-mini'] -eq 'openrouter/cohere/north-mini-code:free' -and $models['inkling'] -eq 'openrouter/thinkingmachines/inkling:free' -and $models['laguna'] -eq 'openrouter/poolside/laguna-s-2.1:free' -and ((@($advisoryReviewers) | Sort-Object) -join ',') -eq 'inkling,laguna,nemotron,north-mini') }
+    $ruleChecks += [pscustomobject]@{ Name = 'advisory reviewers are in no family (they never exclude and are never excluded)'; Ok = (@($advisoryReviewers | Where-Object { $reviewerOf.ContainsKey($_) -or $excludeSet -contains $_ }).Count -eq 0 -and @($reviewerOf.Keys | Where-Object { @($reviewerOf[$_]) | Where-Object { $advisoryReviewers -contains $_ } }).Count -eq 0) }
+    $ruleChecks += [pscustomobject]@{ Name = 'advisory header: "Plan review (Nemotron)" -> "Plan review (Nemotron, advisory — not counted)"'; Ok = ((Get-AdvisoryHeader 'Plan review (Nemotron)' 'Nemotron') -eq 'Plan review (Nemotron, advisory — not counted)' -and (Get-AdvisoryHeader 'T94 review (Luna)' 'North Mini') -eq 'T94 review (North Mini, advisory — not counted)') }
+    # Fake secrets only, assembled at run time so no key-shaped literal sits in the file.
+    $fakeOr = 'sk-or-v1-' + ('ab12' * 16)
+    $fakeMixed = 'Zq9' + ('xY7wK2aP4mR8tB1n' * 2)
+    $fakeHex32 = 'deadbeef' * 4
+    $leakChecks = [ordered]@{
+        'clone diegoami/ic2-test-fixtures first' = 'the private fixtures repository'
+        'see assets.local.ini' = 'the local asset config'
+        'set IC2_FIXTURES_DIR' = 'the fixtures directory variable'
+        'read C:\games\IC\SAVE01.DAT' = 'a .dat path'
+        'compare with C:\saves\turn12.SAV first' = 'a .sav path'
+        "use $fakeOr for the call" = 'a secret prefix (sk-, ghp_, AKIA, Bearer, ...)'
+        ('the header is Authorization: Bearer ' + ('Abc123' * 3)) = 'a secret prefix (sk-, ghp_, AKIA, Bearer, ...)'
+        ('OPENROUTER_API_KEY=' + ('q' * 12)) = 'a key, token, secret or password assignment'
+        'OPENROUTER_API_KEY=x' = 'a key, token, secret or password assignment'
+        'PASSWORD=""' = 'a key, token, secret or password assignment'
+        "db_password: ''" = 'a key, token, secret or password assignment'
+        "the value is $fakeMixed" = 'a long high-entropy string'
+        "a 32-hex blob $fakeHex32" = 'a long high-entropy string'
+    }
+    foreach ($k in $leakChecks.Keys) {
+        $hits = @(Get-AdvisoryBriefLeaks $k)
+        # The guard names the rule and never echoes the matched text.
+        $ruleChecks += [pscustomobject]@{ Name = "brief guard: $($leakChecks[$k])"; Ok = ($hits -contains $leakChecks[$k] -and -not ($hits | Where-Object { $k.Contains($_) })) }
+    }
+    $savedFake = $env:IC2_SELFTEST_FAKE_API_KEY
+    $env:IC2_SELFTEST_FAKE_API_KEY = 'fake' + ('k3y' * 4)
+    try { $hits = @(Get-AdvisoryBriefLeaks "paste $($env:IC2_SELFTEST_FAKE_API_KEY) here") } finally { $env:IC2_SELFTEST_FAKE_API_KEY = $savedFake }
+    $ruleChecks += [pscustomobject]@{ Name = 'brief guard: the literal value of a key variable in the environment'; Ok = ($hits -contains 'the value of IC2_SELFTEST_FAKE_API_KEY') }
+    $shaBrief = "T0 review (Nemotron)`nHEAD $('0123456789abcdef0123' * 2) (a commit), blob $('fedcba9876543210' * 4) (a SHA-256), short 7a8574d,`ntitle ic2-pr785-nemotron-44da75032926, path C:/Users/diego/projects/ic2-work/590-external-review-deadbeef, scripts/Invoke-OpenCodeWatched.ps1.`nCheck data/worlds, the update path and the key: what blocks; metadata only; Get-OpenCodeRunArguments; the risk-assessment.`nTests AttritionPhasesAcceptRegistrationWithNeitherT08NorT14Present and On_the_configured_machine_thracia_is_at_index_5_of_16_in_the_named_save, branch T142-split-aboard-and-scan-order, DoD01_AnExactTieAtSeaGoesToTheDefender."
+    $defaultLimits = Get-AdvisoryTimeouts @{} 600 3600
+    $givenLimits = Get-AdvisoryTimeouts @{ IdleTimeoutSec = 900 } 900 3600
+    $ruleChecks += [pscustomobject]@{ Name = 'advisory timeouts: 300 s idle and 1800 s total by default, an explicit value kept'; Ok = ($defaultLimits.Idle -eq 300 -and $defaultLimits.Total -eq 1800 -and $givenLimits.Idle -eq 900 -and $givenLimits.Total -eq 1800) }
+    $ruleChecks += [pscustomobject]@{ Name = 'brief guard passes a public brief (a 40-hex SHA, a 64-hex hash, paths, prose about keys)'; Ok = (@(Get-AdvisoryBriefLeaks $shaBrief).Count -eq 0) }
+    # The 429 rule: OpenCode's own stderr "Error: " line (a fake run here), whatever the exit code; never the model's words.
+    $limitRun = [pscustomobject]@{ ExitCode = 0; StdOut = 'review text'; StdErr = "> build · nvidia/nemotron-3-ultra-550b-a55b:free`n`nError: 429 Too Many Requests: free-models-per-min" }
+    $limitRun1 = [pscustomobject]@{ ExitCode = 1; StdOut = ''; StdErr = 'Error: Rate limit exceeded: free-models-per-day' }
+    $quoteRun = [pscustomobject]@{ ExitCode = 0; StdOut = "Error: 429 Too Many Requests`nrate limit"; StdErr = "> build · x`nthe model said 429 and rate limit" }
+    $ruleChecks += [pscustomobject]@{ Name = 'an advisory run with "Error: 429" on stderr (exit 0 or 1) is rate-limited'; Ok = ((Get-AdvisoryRunSkip $limitRun) -like '*429*' -and (Get-AdvisoryRunSkip $limitRun1) -like '*Rate limit*') }
+    $ruleChecks += [pscustomobject]@{ Name = 'a 429 in the model''s output (stdout, or a non-Error stderr line) is not a rate limit'; Ok = ($null -eq (Get-AdvisoryRunSkip $quoteRun)) }
+    $ruleChecks += [pscustomobject]@{ Name = 'an infrastructure failure whose stderr tail carries "Error: 429" is rate-limited'; Ok = ((Get-OpenCodeRateLimit "OpenCode exited with 1 without creating a session. stderr tail:`nError: 429 Too Many Requests") -like '*429*') }
+    $nr = Get-NoReviewExit @([pscustomobject]@{ Name = 'nemotron'; Reason = 'rate-limited, skipped'; Detail = 'Error: 429' }) $true ''
+    $ruleChecks += [pscustomobject]@{ Name = 'a rate-limited advisory run exits 3 "rate-limited, skipped", one attempt only'; Ok = ($nr.Code -eq 3 -and $nr.Message -like '*rate-limited, skipped*' -and $nr.Message -like '*not retried*') }
+    # The live refusals and the quota floor, through -WhatIf (IC2_QUOTA_FREE_REQUESTS stands in for
+    # quota-tracker's /quota/openrouter, IC2_QUOTA_AVOID for /avoid).
+    $advProbe = { param([string] $free, [string] $briefText, [string[]] $more)
+        $f = Join-Path $probeDir "selftest-brief-$([guid]::NewGuid().ToString('N').Substring(0, 8)).md"
+        Set-Content -LiteralPath $f -Value $briefText -Encoding utf8
+        $saved = @{ IC2_QUOTA_FREE_REQUESTS = $env:IC2_QUOTA_FREE_REQUESTS; IC2_QUOTA_AVOID = $env:IC2_QUOTA_AVOID }
+        $env:IC2_QUOTA_FREE_REQUESTS = $free; $env:IC2_QUOTA_AVOID = 'none'
+        try { $o = (& pwsh -NoProfile -File $PSCommandPath -Pr 1 -BriefFile $f -WhatIf @more 2>&1 | Out-String); [pscustomobject]@{ Code = $LASTEXITCODE; Out = $o } }
+        finally {
+            foreach ($k in $saved.Keys) { [System.Environment]::SetEnvironmentVariable($k, $saved[$k], 'Process') }
+            Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue
+        } }
+    $okBrief = "Plan review (Nemotron)`nself-test probe brief"
+    $p = & $advProbe '500' $okBrief @('-Reviewer', 'nemotron', '-Issue', '1', '-ApplyLabel')
+    $ruleChecks += [pscustomobject]@{ Name = "-Reviewer nemotron -ApplyLabel is refused with exit 1 (got $($p.Code))"; Ok = ($p.Code -eq 1 -and $p.Out -like '*never applies a status label*') }
+    $p = & $advProbe '500' $okBrief @('-Reviewer', 'laguna', '-FixturesDir', 'C:\x')
+    $ruleChecks += [pscustomobject]@{ Name = "-Reviewer laguna -FixturesDir is refused with exit 1 (got $($p.Code))"; Ok = ($p.Code -eq 1) }
+    $p = & $advProbe '500' "Plan review (Nemotron)`nrun the tests against ic2-test-fixtures" @('-Reviewer', 'north-mini')
+    $ruleChecks += [pscustomobject]@{ Name = "a brief naming ic2-test-fixtures is refused for north-mini with exit 1 (got $($p.Code))"; Ok = ($p.Code -eq 1 -and $p.Out -like '*private material*') }
+    $p = & $advProbe '50' $okBrief @('-Reviewer', 'nemotron')
+    $ruleChecks += [pscustomobject]@{ Name = "50 free requests left (the floor): advisory skipped with exit 3 (got $($p.Code))"; Ok = ($p.Code -eq 3) }
+    $p = & $advProbe 'none' $okBrief @('-Reviewer', 'nemotron')
+    $ruleChecks += [pscustomobject]@{ Name = "quota-tracker silent: advisory skipped with exit 3 (got $($p.Code))"; Ok = ($p.Code -eq 3) }
+    $p = & $advProbe '51' $okBrief @('-Reviewer', 'inkling')
+    $ruleChecks += [pscustomobject]@{ Name = "51 free requests left: -WhatIf -Reviewer inkling exits 0 on openrouter (got $($p.Code))"; Ok = ($p.Code -eq 0 -and $p.Out -like '*openrouter/thinkingmachines/inkling:free*') }
+    $p = & $advProbe '500' $okBrief @('-Reviewer', 'nemotron', '-ExcludeModel', 'luna')
+    $ruleChecks += [pscustomobject]@{ Name = "-Reviewer nemotron -ExcludeModel luna is not excluded (got $($p.Code))"; Ok = ($p.Code -eq 0) }
     foreach ($c in $ruleChecks) {
         $n++
         if (-not $c.Ok) { $failed++ }
@@ -682,7 +770,23 @@ $models = @{
     # Qwen3.8 Max, a heavy reviewer; qwen-flash is Qwen3.8 Flash, the light re-check reviewer.
     qwen         = 'alibaba-token-plan/qwen3.8-max'
     'qwen-flash' = 'alibaba-token-plan/qwen3.8-flash'
+    # The free OpenRouter models, ADVISORY ONLY (the owner's decision of 2026-10-06, build-process.md
+    # §3.4): a second opinion next to a counted reviewer, never counted, never labelling, never a
+    # family's reviewer. nemotron (Nemotron 3 Ultra) is the stronger one; north-mini (Cohere North
+    # Mini Code) is coding-focused and faster; inkling (Thinking Machines Inkling, through OpenCode
+    # only) and laguna (Poolside Laguna S 2.1, often rate-limited) are also usable.
+    nemotron     = 'openrouter/nvidia/nemotron-3-ultra-550b-a55b:free'
+    'north-mini' = 'openrouter/cohere/north-mini-code:free'
+    inkling      = 'openrouter/thinkingmachines/inkling:free'
+    laguna       = 'openrouter/poolside/laguna-s-2.1:free'
 }
+# The advisory reviewers (above). Not in any family of $reviewerOf below: they never exclude and are
+# never excluded (no implementer runs on a free model), auto never picks them, and -ApplyLabel,
+# -FixturesDir and a brief naming private material are refused for them (exit 1).
+$advisoryReviewers = @('nemotron', 'north-mini', 'inkling', 'laguna')
+# Below this many free-model requests left today (quota-tracker /quota/openrouter), an advisory run is
+# skipped (exit 3): one review takes tens of requests, and the allowance is shared.
+$advisoryFloor = 50
 if ($ModelIds) { foreach ($k in $ModelIds.Keys) { $models[$k] = $ModelIds[$k] } }
 # Provider-specific variant. Invoke-OpenCodeWatched passes it by the CLI's major version (1.x
 # `--variant v`, 2.x the model's `#v` suffix). Empty means none. Effort is `high` everywhere (issue #575: `max` is
@@ -693,8 +797,11 @@ if ($ModelIds) { foreach ($k in $ModelIds.Keys) { $models[$k] = $ModelIds[$k] } 
 function Get-SolVariant([string] $Requested) { if ($Requested) { return $Requested } return 'low' }
 # Qwen3.8 Max and Flash offer low, medium and xhigh (`opencode models alibaba-token-plan --verbose`,
 # 2026-10-05): qwen, heavy, runs at low; qwen-flash at medium (it has no high, and xhigh is overkill).
-$variants = @{ 'glm-flash' = 'high'; glm = 'low'; luna = 'high'; sol = (Get-SolVariant $Effort); deepseek = ''; 'deepseek-pro' = 'high'; qwen = 'low'; 'qwen-flash' = 'medium' }
-$displayNames = @{ 'glm-flash' = 'GLM Flash'; glm = 'GLM'; luna = 'Luna'; sol = 'Sol'; deepseek = 'DeepSeek'; 'deepseek-pro' = 'DeepSeek Pro'; qwen = 'Qwen'; 'qwen-flash' = 'Qwen Flash' }
+# The advisory models (`opencode models openrouter --verbose`, 2026-10-06): Nemotron 3 Ultra offers
+# medium and high, North Mini and Laguna low, medium and high, Inkling none to max. The heavy ones run at
+# medium; North Mini, light, at high, as the other light reviewers do.
+$variants = @{ 'glm-flash' = 'high'; glm = 'low'; luna = 'high'; sol = (Get-SolVariant $Effort); deepseek = ''; 'deepseek-pro' = 'high'; qwen = 'low'; 'qwen-flash' = 'medium'; nemotron = 'medium'; 'north-mini' = 'high'; inkling = 'medium'; laguna = 'medium' }
+$displayNames = @{ 'glm-flash' = 'GLM Flash'; glm = 'GLM'; luna = 'Luna'; sol = 'Sol'; deepseek = 'DeepSeek'; 'deepseek-pro' = 'DeepSeek Pro'; qwen = 'Qwen'; 'qwen-flash' = 'Qwen Flash'; nemotron = 'Nemotron'; 'north-mini' = 'North Mini'; inkling = 'Inkling'; laguna = 'Laguna' }
 # The Alibaba Token Plan route of the DeepSeek and GLM reviewers (the user's decision of 2026-10-05):
 # the same model, so the same name and family, on another provider. -Route picks it (auto: when
 # quota-tracker's /avoid lists the usual provider, opencode_go or zai). The variants are the same
@@ -754,6 +861,92 @@ function Publish-ReviewComment {
     return $null
 }
 
+# --- Advisory reviewers (the free OpenRouter models; the owner's decision of 2026-10-06) ------------
+function Get-AdvisoryBriefLeaks([string] $Text) {
+    # What in a brief must never reach a free model (its provider may log and train on prompts): the
+    # private fixtures repository, the local asset config, the fixtures variable, a .dat or .sav path
+    # (the original game's DAT and saves), and anything key-like (Sol's review of PR 785, R1 and R2).
+    # Returns the NAMES of the rules that matched, never the matched text (a key must not be echoed);
+    # empty means the brief may go. The brief is the only leak path: the model reads nothing else
+    # private (the repository and its PRs are public).
+    $found = @()
+    # Each rule's name differs from the text it matches (Luna's re-check of PR 785, R2).
+    $named = [ordered]@{
+        'ic2-test-fixtures' = 'the private fixtures repository'
+        'assets.local.ini'  = 'the local asset config'
+        'IC2_FIXTURES_DIR'  = 'the fixtures directory variable'
+    }
+    foreach ($needle in $named.Keys) {
+        if ($Text -match [regex]::Escape($needle)) { $found += $named[$needle] }
+    }
+    if ($Text -match '(?i)\.dat\b') { $found += 'a .dat path' }
+    if ($Text -match '(?i)\.sav\b') { $found += 'a .sav path' }
+    # Common secret prefixes, with a body after them (the bare prefix in prose passes).
+    if ($Text -cmatch '(?<![\w-])(sk-ant-|sk-or-|sk-|ghp_|gho_|ghs_|github_pat_|xox[abp]-)[A-Za-z0-9_-]{8,}' -or
+        $Text -cmatch '(?<![A-Za-z0-9])AKIA[A-Z0-9]{16}' -or $Text -match '(?i)\bBearer\s+[A-Za-z0-9._~+/=-]{8,}') { $found += 'a secret prefix (sk-, ghp_, AKIA, Bearer, ...)' }
+    # An assignment to a key, token, secret or password name, whatever its value, an empty one included
+    # (Luna's re-check of PR 785, R1: `OPENROUTER_API_KEY=x` and `PASSWORD=""` passed an 8-character floor).
+    if ($Text -cmatch '\b[A-Z0-9_]*(KEY|TOKEN|SECRET|PASSWORD)\s*[:=]' -or
+        $Text -match '(?i)\b\w*(api[_-]?key|access[_-]?token|secret|password)\s*[:=]') { $found += 'a key, token, secret or password assignment' }
+    # A long high-entropy run: 32+ characters of base64/hex alphabet. Pure hex passes only at 40 (a git
+    # SHA) or 64 (a SHA-256). Any other run is risky when it mixes upper case, lower case and digits AND
+    # has 5 or more upper-upper, upper-digit or digit-upper neighbours: a random 32-character base64
+    # string has about 9.6 (94.5% have 5 or more), while none of the 323 mixed identifiers in this
+    # repository's docs, scripts and tests (test names, branch names; measured 2026-10-06) has 5.
+    foreach ($m in [regex]::Matches($Text, '[A-Za-z0-9+=_-]{32,}')) {
+        $v = $m.Value
+        $risky = if ($v -match '^[0-9a-fA-F]+$') { $v.Length -ne 40 -and $v.Length -ne 64 }
+            elseif (-not ($v -cmatch '[A-Z]' -and $v -cmatch '[a-z]' -and $v -match '[0-9]')) { $false }
+            else { ([regex]::Matches($v, '(?=([A-Z][A-Z0-9]|[0-9][A-Z]))')).Count -ge 5 }
+        if ($risky) { $found += 'a long high-entropy string'; break }
+    }
+    # The literal value of any key variable this process or the user environment holds (compared, never printed).
+    $keyNames = @('ALIBABA_TOKEN_PLAN_API_KEY', 'OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'GH_TOKEN', 'GITHUB_TOKEN', 'ZAI_API_KEY')
+    $keyNames += @([System.Environment]::GetEnvironmentVariables('Process').Keys | Where-Object { $_ -match '(KEY|TOKEN|SECRET|PASSWORD)$' })
+    foreach ($k in @($keyNames | Select-Object -Unique)) {
+        foreach ($scope in 'Process', 'User') {
+            $val = try { [System.Environment]::GetEnvironmentVariable($k, $scope) } catch { $null }
+            if ($val -and $val.Length -ge 8 -and $Text.Contains($val)) { $found += "the value of $k" }
+        }
+    }
+    return @($found | Select-Object -Unique)
+}
+
+function Get-AdvisoryHeader([string] $BriefHeader, [string] $DisplayName) {
+    # The posted header of an advisory review: the brief's header with its final parentheses naming
+    # the model and saying the review is not counted, e.g. "Plan review (Nemotron, advisory — not counted)".
+    return ($BriefHeader -replace '\([^()]*\)\s*$', "($DisplayName, advisory — not counted)")
+}
+
+function Get-AdvisoryTimeouts([hashtable] $Bound, [int] $Idle, [int] $Total) {
+    # An advisory run's idle and total limits: 300 s and 1800 s unless given explicitly (the owner's
+    # decision of 2026-10-06). OpenCode retries a rate-limited call inside the run, which the script
+    # cannot stop; the session's `updated` time does not advance meanwhile, so the shorter idle limit
+    # ends such a run sooner and spends fewer of the shared free requests.
+    return [pscustomobject]@{
+        Idle  = if ($Bound.ContainsKey('IdleTimeoutSec')) { $Idle } else { 300 }
+        Total = if ($Bound.ContainsKey('TotalTimeoutSec')) { $Total } else { 1800 }
+    }
+}
+
+function Get-AdvisoryRunSkip($Run) {
+    # A finished advisory run's rate limit (a 429 in OpenCode's own stderr error lines, whatever the
+    # exit code), or $null. A rate-limited advisory run is skipped (exit 3), never retried.
+    return (Get-OpenCodeRateLimit $Run.StdErr)
+}
+
+function Get-NoReviewExit($Failures, [bool] $Advisory, [string] $SameCause) {
+    # The message and exit code when no review came back: always 3; an advisory run that was rate
+    # limited says so ("rate-limited, skipped") rather than "OpenCode unavailable".
+    $reasons = ($Failures | ForEach-Object { "$($displayNames[$_.Name]): $($_.Reason)" }) -join '; '
+    if ($SameCause) { $reasons = "same failure twice: $SameCause ($reasons)" }
+    $limited = @($Failures | Where-Object { $_.Reason -eq 'rate-limited, skipped' })
+    if ($Advisory -and $limited) {
+        return [pscustomobject]@{ Code = 3; Message = "Advisory review skipped: $($displayNames[$limited[0].Name]) rate-limited, skipped ($($limited[0].Detail)); not retried. Nothing posted." }
+    }
+    return [pscustomobject]@{ Code = 3; Message = "OpenCode unavailable: $reasons. Nothing posted." }
+}
+
 if ($SelfTest) { exit (Invoke-ReviewParserSelfTest) }
 if (-not $Pr) { throw '-Pr is required (or use -SelfTest).' }
 if (-not $BriefFile) { throw '-BriefFile is required.' }
@@ -786,6 +979,27 @@ $briefLines = $brief -split "`r?`n"
 $briefHeader = $briefLines[0].Trim()
 $briefRest = ($briefLines | Select-Object -Skip 1) -join "`n"
 if ($briefHeader -notmatch 'review \(') { throw "The brief's first line must be the review header, e.g. 'Plan review (Luna)'; got: $briefHeader" }
+$isAdvisory = $advisoryReviewers -contains $Reviewer
+if ($isAdvisory) {
+    # An advisory review is never counted and never labels (build-process.md §3.4), and nothing private
+    # reaches a free model: refused before anything runs.
+    if ($ApplyLabel) {
+        [Console]::Error.WriteLine("Refused: -Reviewer $Reviewer is an advisory reviewer (a free OpenRouter model): it never applies a status label, so -ApplyLabel is not accepted. Nothing posted.")
+        exit 1
+    }
+    if ($FixturesDir) {
+        [Console]::Error.WriteLine("Refused: -Reviewer $Reviewer is an advisory reviewer (a free OpenRouter model): the private fixtures never reach it, so -FixturesDir is not accepted. Nothing posted.")
+        exit 1
+    }
+    $leaks = Get-AdvisoryBriefLeaks $brief
+    if ($leaks) {
+        [Console]::Error.WriteLine("Refused: the brief for advisory reviewer $Reviewer names private material ($($leaks -join ', ')); a free provider may log and train on prompts. Remove it from the brief. Nothing posted.")
+        exit 1
+    }
+    $advisoryLimits = Get-AdvisoryTimeouts $PSBoundParameters $IdleTimeoutSec $TotalTimeoutSec
+    $IdleTimeoutSec = $advisoryLimits.Idle
+    $TotalTimeoutSec = $advisoryLimits.Total
+}
 if ($ApplyLabel -and -not $Issue) { throw '-ApplyLabel needs -Issue.' }
 # The family check runs before the OpenCode probe and before -WhatIf returns (PR #642 review R6), so
 # a green -WhatIf probe also says the reviewer is permitted for -ExcludeModel's implementer. Without
@@ -816,6 +1030,20 @@ if (-not $chain) {
 # provider and alibaba avoided; a forced -Route whose provider is avoided) is dropped, as Appendix C's
 # QUOTA FIRST skips it, and when none is left the script exits 3 with the cause, so the main session
 # takes the next reviewer. An explicit -Route that a named reviewer has no id for is refused (exit 1).
+if ($isAdvisory) {
+    # The free models share one daily allowance; an advisory review is optional, so a tracker that does
+    # not answer, or an allowance at or below the floor, skips it (exit 3).
+    $free = Get-OpenRouterFreeRequests
+    if (-not $free.Answered) {
+        [Console]::Error.WriteLine("Advisory review skipped: quota-tracker did not answer with OpenRouter's free_model_daily_requests (localhost:8765/quota/openrouter). Nothing posted.")
+        exit 3
+    }
+    if ($free.Remaining -le $advisoryFloor) {
+        [Console]::Error.WriteLine("Advisory review skipped: $($free.Remaining) free-model requests left today, at or below the floor of $advisoryFloor. Nothing posted.")
+        exit 3
+    }
+    Write-Host "advisory: $($displayNames[$Reviewer]), not counted toward any review tier; $($free.Remaining) free-model requests left today (floor $advisoryFloor)."
+}
 $quota = Get-QuotaAvoid
 $resolved = @{}
 $routeSkips = @()
@@ -886,7 +1114,8 @@ function Invoke-ReviewAttempt([string] $Name) {
     $model = $resolved[$Name].Model
     $route = $resolved[$Name].Route
     $variant = $variants[$Name]
-    $header = if ($Reviewer -eq 'auto') { $briefHeader -replace '\([^()]*\)\s*$', "($($displayNames[$Name]))" } else { $briefHeader }
+    # An advisory model is told the plain "(<Name>)" header; the posted one says advisory (below).
+    $header = if ($Reviewer -eq 'auto' -or $isAdvisory) { $briefHeader -replace '\([^()]*\)\s*$', "($($displayNames[$Name]))" } else { $briefHeader }
     $rules = Get-ReviewOutputRules -Header $header -Worktree $worktree -HeadSha $headSha
     $prompt = $header + "`n" + $briefRest + $rules
     $fail = { param($reason, $detail) [pscustomobject]@{ Ok = $false; Name = $Name; Model = $model; Route = $route; Header = $header; Reason = $reason; Detail = $detail } }
@@ -908,9 +1137,16 @@ function Invoke-ReviewAttempt([string] $Name) {
         # Only OpenCode's own failures (not found, no session, idle, no exit, exited without a session)
         # advance the chain. Anything else is a defect here: rethrown, exit non-zero, not 3.
         if (-not (Test-OpenCodeInfraFailure $_)) { throw }
+        # An advisory run that hit the free models' rate limit is skipped, never retried.
+        $limit = if ($isAdvisory) { Get-OpenCodeRateLimit $_.Exception.Message }
+        if ($limit) { return (& $fail 'rate-limited, skipped' $limit) }
         return (& $fail $_.Exception.Data['Reason'] $_.Exception.Message)
     }
     $output = $run.Output
+    if ($isAdvisory) {
+        $limit = Get-AdvisoryRunSkip $run
+        if ($limit) { return (& $fail 'rate-limited, skipped' $limit) }
+    }
     # A rejected tool call ends the run (issue #501): exit 0 under 1.x, exit 1 under 2.x. It is named by its
     # path, and checked first so the 2.x exit 1 does not hide it as a plain "exit 1".
     if ($run.PermissionRejected) { return (& $fail "permission rejected: $($run.PermissionRejected)" "OpenCode's permission guard auto-rejected a tool call ($($run.PermissionRejected)), which ended the run. For external_directory, the reviewer reached outside its worktree. Output:`n$output") }
@@ -939,6 +1175,9 @@ $failures = @()
 $sameCause = $null
 try {
     if ($FixturesDir) { $env:IC2_FIXTURES_DIR = $FixturesDir }
+    # An advisory run's OpenCode gets no fixtures variable (restored in the finally below).
+    $savedFixtures = $env:IC2_FIXTURES_DIR
+    if ($isAdvisory) { Remove-Item Env:IC2_FIXTURES_DIR -ErrorAction SilentlyContinue }
     $n = 0
     foreach ($name in $chain) {
         $n++
@@ -976,6 +1215,13 @@ try {
             # first, apply no label, and tell the main session to read it and decide.
             $body = "> Note from scripts/external-review.ps1: $($result.FlagNote)`n`n$body"
         }
+        if ($isAdvisory) {
+            # The comment is headed as advisory, and its signature says it is not counted.
+            $advisoryHeader = Get-AdvisoryHeader $briefHeader $displayNames[$result.Name]
+            $body += "; advisory, not counted toward any review tier"
+            if ($result.Flagged) { $body = "$advisoryHeader`n`n$body" }
+            else { $bl = $body -split "`r?`n"; $bl[0] = $advisoryHeader; $body = $bl -join "`n" }
+        }
         if ($DryRun) {
             Write-Output $body
             if ($result.Flagged) { Write-Host 'dry run: no label would be applied; the script would exit 4.' }
@@ -997,7 +1243,7 @@ try {
                 Write-Host "posted with the note line ($script:postedUrl); no label applied ($($result.FlagNote)). Read it and decide."
             } else {
                 Write-Host "posted: $(($review -split "`r?`n")[0]) / $($result.Verdict) ($script:postedUrl)"
-                if ($ApplyLabel) {
+                if ($ApplyLabel -and -not $isAdvisory) {
                     if ($result.Verdict -eq 'approve') {
                         gh issue edit $Issue --add-label status:approved --remove-label status:in-review | Out-Null
                     } elseif ($result.Verdict -eq 'rework' -or $result.Verdict -eq 'approve after named fixes') {
@@ -1013,13 +1259,13 @@ try {
 finally {
     # 5. Clean up: this invocation's tree only.
     if ($script:worktreeCreated) { git -C $repo worktree remove --force $worktree 2>$null }
+    if ($isAdvisory -and $null -ne $savedFixtures) { $env:IC2_FIXTURES_DIR = $savedFixtures }
 }
 
 if (-not $result) {
-    $reasons = ($failures | ForEach-Object { "$($displayNames[$_.Name]): $($_.Reason)" }) -join '; '
-    if ($sameCause) { $reasons = "same failure twice: $sameCause ($reasons)" }
-    [Console]::Error.WriteLine("OpenCode unavailable: $reasons. Nothing posted.")
-    exit 3
+    $noReview = Get-NoReviewExit $failures $isAdvisory $sameCause
+    [Console]::Error.WriteLine($noReview.Message)
+    exit $noReview.Code
 }
 if ($script:savedReview) {
     [Console]::Error.WriteLine("Review on PR #$Pr was NOT posted (gh pr comment failed twice); no label applied. Read $script:savedReview and post it by hand (exit 5).")

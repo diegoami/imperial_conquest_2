@@ -153,6 +153,8 @@ Unchanged by the tier: `/code-review --effort ultra` on the four architecture PR
 
 **The reviewer's model family is never the implementer's.** `scripts/external-review.ps1 -ExcludeModel <name>` (the name on `external-implement.ps1`'s `implemented by:` line, or a `model:<name>` label on the PR or issue) drops every reviewer of that family from the chain and refuses an explicit `-Reviewer` of it; when no model is left, the script exits 3 and the tier's fallback takes the review. The script has no Claude reviewer: `-ExcludeModel sonnet` or `opus` names the Claude family and excludes no OpenCode reviewer, so a Claude implementer's runs pass it like any other, and the main session never picks Sonnet or Opus to review that PR; `model:sonnet` and `model:opus` labels exclude nothing.
 
+**Advisory reviews** (the owner's decision of 2026-10-06). The main session **may** add an advisory review on a small PR or a plan PR as a second opinion, from one of the free OpenRouter models: `-Reviewer nemotron` (the stronger), `north-mini` (coding-focused, faster), `inkling` or `laguna` ([environment.md](environment.md#the-free-openrouter-models-advisory-only)). It runs after, or beside, the tier's own reviews and never replaces one: it is never counted toward a tier, never labels (`-ApplyLabel` is refused), and is in no family, so it never stands in for a family's reviewer. Its comment is headed "<Task or Plan> review (<Name>, advisory — not counted)". A finding in it is weighed like any unreviewed contribution: the main session verifies a claimed defect before relaying it as a finding. The script skips it (exit 3) when the shared free allowance is at 50 requests or fewer, when quota-tracker does not answer, or on a 429 (never retried), kills it after 300 s idle or 1800 s in all (OpenCode retries a rate-limited call inside the run, and the script cannot stop that), and refuses a brief that names the private fixtures, `assets.local.ini`, `IC2_FIXTURES_DIR`, a `.dat` or `.sav` path, or anything key-like ([environment.md](environment.md#the-free-openrouter-models-advisory-only) lists the rules); nothing private ever goes into its brief.
+
 ### 3.5 Where the `/code-review` skill fits
 
 The purpose-built reviewer agent is the **default gate**, not `/code-review`. Three of the five review checks are project-specific:
@@ -908,6 +910,9 @@ the docs item applies only if the review named a claim.
                header names x, one sentence says it
                reviews in Sol's place and why, and Sol's earlier reviews on the PR are linked so it
                re-takes their attacks; probe x with -WhatIf first)
+        ADV x  pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer x -BriefFile rendered/review-tier/<pr>-x.md
+               (x is nemotron, north-mini, inkling or laguna: an ADVISORY review, optional, never
+               -Issue/-ApplyLabel; see ADVISORY below)
         OPUS   Agent(model opus, prompt = Appendix B filled in): a cold reviewer, which applies the label
         SONNET Agent(model sonnet, prompt = Appendix B filled in, plus "Do not apply a status label;
                the main session applies it from every review.")
@@ -955,6 +960,13 @@ the docs item applies only if the review named a claim.
       Labels: with one review, its reviewer labels (SOL, SUB x or OPUS). With two or three, the
       main session labels: status:approved only when every review approves, status:rework when any
       asks for rework (step 3 relays every review in full), and it escalates on any user decision.
+      ADVISORY (the owner's decision of 2026-10-06): on a small PR or a plan PR the main session
+      MAY add ADV x as a second opinion, after or beside the tier's reviews. It is never counted,
+      never labels, never replaces a family's review, and its brief carries nothing private (the
+      script refuses one naming ic2-test-fixtures, assets.local.ini, IC2_FIXTURES_DIR, a .dat or
+      .sav path, or anything key-like: docs/environment.md lists the rules). Its findings are weighed like any unreviewed contribution: verify a claimed defect
+      before relaying it as a finding. Exit 3 (free allowance at 50 or fewer, tracker silent, or
+      "rate-limited, skipped") means no advisory review: go on without it, never retry.
       RECORD a substitute: for a task, commit on main a one-line note in docs/tasks/T<nn>.md's
       Reviewer field ("2026-MM-DD: <substitute> reviewed in Sol's place: <reason>"), subject
       "Docs: T<nn> reviewer", a routine doc claim; for a fix, put it in the tier comment. Append
