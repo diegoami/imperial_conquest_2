@@ -87,6 +87,14 @@ public partial class PeaceOfferCheck : Node
             offer.Lines[0].StartsWith("After losing to you in battle", StringComparison.Ordinal),
             "(a) a human win uses the 'After losing to you' wording");
 
+        // T147 (bug #781 point 3): the order that raised the offer leaves the offer's own lines and the
+        // CLI prompt out of the output area -- the window is the way to answer.
+        var afterAttack = mainGame.LastCommandText;
+        Check(
+            !afterAttack.Contains("peace-yes", StringComparison.Ordinal)
+            && offer.Lines.All(dialogLine => !afterAttack.Contains(dialogLine, StringComparison.Ordinal)),
+            $"(a) the output area shows neither the CLI prompt nor the offer's own lines (got '{afterAttack}')");
+
         var newsBefore = NewsTexts(session);
         var winner = session.State.NationById(offer.WinnerNationId)!.Name;
         var loser = session.State.NationById(offer.LoserNationId)!.Name;
@@ -99,6 +107,18 @@ public partial class PeaceOfferCheck : Node
         Check(issued.Count == countBefore + 1, $"(a) Yes is counted once at CommandIssued ({issued.Count - countBefore})");
         Check(issued.Count > 0 && issued[^1].Any(l => l.Contains("accepted", StringComparison.Ordinal)), "(a) the reply line shows the engine's acceptance");
         Check(mainGame.ActiveOverlay is null, $"(a) the window closes on the answer (got {Describe(mainGame)})");
+
+        // T147 (bug #781 point 4): Yes shows a readable line for its command kind and the news the answer
+        // added, never the raw result key.
+        Check(
+            mainGame.LastCommandText.Contains("You accepted the peace treaty.", StringComparison.Ordinal),
+            $"(a) after Yes the label shows the readable wording (got '{mainGame.LastCommandText}')");
+        Check(
+            mainGame.LastCommandText.Contains(line, StringComparison.Ordinal),
+            $"(a) after Yes the label shows the agreed-war news line (got '{mainGame.LastCommandText}')");
+        Check(
+            !mainGame.LastCommandText.Contains("diplomacy.accept-peace-treaty accepted.", StringComparison.Ordinal),
+            $"(a) after Yes the label never shows the raw result key (got '{mainGame.LastCommandText}')");
         Check(
             session.State.Relations.Get("rome", "carthage") == cooldown
             && session.State.Relations.Get("carthage", "rome") == cooldown,

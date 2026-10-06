@@ -257,6 +257,49 @@ public sealed class CommandOutcomeTextTests
         Assert.DoesNotContain("takes its turn", label, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// T147 (bug #781 point 3): an order that raises a post-battle peace offer carries the offer's own
+    /// dialog lines and the CLI's <c>"Type 'peace-yes'…"</c> prompt in its rendered output. When the app
+    /// holds that offer (the window is the way to answer), the block drops both and keeps the order's own
+    /// line; with no pending offer nothing is dropped. The offer's lines come from the engine's own
+    /// builder, <see cref="GameSession.PeaceTreatyOfferDialogLines"/>, and the filter finds the prompt by
+    /// its place after them, never by a copied string.
+    /// </summary>
+    [Fact]
+    public void A_pending_offers_dialog_lines_and_the_prompt_that_follows_them_are_dropped()
+    {
+        var session = RomeSession();
+        var winner = session.State.NationById(RomeId)!;
+        var loser = session.State.NationById("carthage")!;
+        var offer = GameSession.PeaceTreatyOfferDialogLines(winner, loser);
+
+        // The prompt is the engine's inline literal (GameSession.CapturePeaceTreatyOfferIfAny); a test may
+        // spell it out to build the input, the filter never does.
+        const string prompt = "Type 'peace-yes' to accept or 'peace-no' to decline.";
+        var sample = new List<string>
+        {
+            "> attack-army army-0 army-2",
+            "battle.attack-army accepted.",
+            string.Empty,
+            offer[0],
+            offer[1],
+            offer[2],
+            offer[3],
+            prompt,
+            string.Empty,
+        };
+
+        var filtered = CommandOutcomeText.OutcomeBlock(sample, new[] { offer });
+        Assert.Equal("battle.attack-army accepted.", filtered);
+
+        var unfiltered = CommandOutcomeText.OutcomeBlock(sample, null);
+        Assert.Equal(
+            string.Join('\n', new[] { "battle.attack-army accepted." }.Concat(offer).Append(prompt)),
+            unfiltered);
+        Assert.Contains(prompt, unfiltered, StringComparison.Ordinal);
+        Assert.Contains(offer[0], unfiltered, StringComparison.Ordinal);
+    }
+
     private static int FindNewsHeader(IReadOnlyList<string> lines)
     {
         for (var i = 0; i < lines.Count; i++)

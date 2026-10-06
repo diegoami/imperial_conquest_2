@@ -132,6 +132,11 @@ public partial class MainGameScreen : Control
     private NewsLogPanel _newsLog = null!;
     private Label _lastCommandLabel = null!;
 
+    // T147 (bug #781 point 4): how many State.NewsLog entries existed after the previous command, so the
+    // output area can show the entries this command added (the peace treaty's "have agreed to end their
+    // war." line among them). Every command path funnels through OnCommandIssued, which updates it.
+    private int _newsSlotCountBeforeCommand;
+
     private readonly Queue<Engine.Battle.BattleResult> _pendingBattleOverlays = new();
 
     // T138: one window per human seat that fell on the last Submit call, in the order the engine recorded
@@ -308,6 +313,10 @@ public partial class MainGameScreen : Control
 
         BindCommands();
         WireNationSwatches();
+
+        // T147 (bug #781 point 4): the news log as the first command finds it; a command's own additions
+        // are the entries after this point.
+        _newsSlotCountBeforeCommand = Session.State.NewsLog.Slots.Count;
 
         _mapView.Attach(Session, RepositoryRoot);
         _areaMapView.Attach(Session, _mapView);
@@ -1137,7 +1146,46 @@ public partial class MainGameScreen : Control
         // through here.
         CommandIssued?.Invoke(lines);
 
-        var outcome = CommandOutcomeText.OutcomeBlock(lines);
+        // T147 (bug #781 point 3): the active human seat's pending offer is the one its window answers, so
+        // the offer's own dialog lines and the CLI prompt that follows them are left out of the output
+        // area; the window shows them instead.
+        var pendingOffers = new List<IReadOnlyList<string>>();
+        foreach (var nation in Session.State.Nations)
+        {
+            if (Session.PendingPeaceOfferFor(nation.Id) is { } offer)
+            {
+                pendingOffers.Add(offer.Lines);
+            }
+        }
+
+        var rawOutcome = CommandOutcomeText.OutcomeBlock(lines, pendingOffers);
+        var outcome = CommandOutcomeWording.Apply(rawOutcome);
+
+        // T147 (bug #781 point 4): below an accepted order's readable line, the news entries the order
+        // added to State.NewsLog. Only an order whose acceptance the app rewrote gets them; an "end"
+        // round and a rejected order keep today's block, and nothing else moves.
+        if (!string.Equals(outcome, rawOutcome, StringComparison.Ordinal))
+        {
+            var added = new List<string>();
+            for (var i = _newsSlotCountBeforeCommand; i < Session.State.NewsLog.Slots.Count; i++)
+            {
+                var text = Session.State.NewsLog.Slots[i].Text;
+                if (!string.IsNullOrWhiteSpace(text))
+                {
+                    added.Add(text.Trim());
+                }
+            }
+
+            if (added.Count > 0)
+            {
+                outcome = outcome.Length == 0
+                    ? string.Join('\n', added)
+                    : outcome + "\n" + string.Join('\n', added);
+            }
+        }
+
+        _newsSlotCountBeforeCommand = Session.State.NewsLog.Slots.Count;
+
         _lastCommandLabel.Text = outcome;
         _lastCommandLabel.TooltipText = outcome;
         UpdateLastCommandLinesSkipped();

@@ -54,7 +54,25 @@ public static class CommandOutcomeText
     /// line after the echo instead; and <see cref="string.Empty"/> when there is no non-blank line at all
     /// — never <see langword="null"/>.
     /// </summary>
-    public static string OutcomeBlock(IReadOnlyList<string> lines)
+    public static string OutcomeBlock(IReadOnlyList<string> lines) => OutcomeBlock(lines, null);
+
+    /// <summary>
+    /// <see cref="OutcomeBlock(IReadOnlyList{string})"/>, with T147 (bug #781 point 3): when
+    /// <paramref name="pendingPeaceOfferLineSets"/> holds a pending offer's dialog lines (as
+    /// <c>GameSession.PendingPeaceOfferFor</c> reports them, built by
+    /// <see cref="IC2.Engine.Presentation.GameSession.PeaceTreatyOfferDialogLines"/>), those lines and the
+    /// single line that follows them — the CLI's <c>"Type 'peace-yes'…"</c> prompt, which has no builder —
+    /// are dropped from the block, because the Offer of peace window is the way the app answers. The prompt
+    /// is identified by its place after the offer's own lines, never by a copied string.
+    /// </summary>
+    /// <param name="lines">One <c>Submit</c> call's rendered lines.</param>
+    /// <param name="pendingPeaceOfferLineSets">
+    /// The pending offers' own <c>PendingPeaceOffer.Lines</c>, one list per offer, or <see langword="null"/>
+    /// when the app holds no offer (nothing is dropped).
+    /// </param>
+    public static string OutcomeBlock(
+        IReadOnlyList<string> lines,
+        IReadOnlyList<IReadOnlyList<string>>? pendingPeaceOfferLineSets)
     {
         ArgumentNullException.ThrowIfNull(lines);
 
@@ -88,6 +106,8 @@ public static class CommandOutcomeText
             }
         }
 
+        block = DropPeaceOfferLines(block, pendingPeaceOfferLineSets);
+
         if (block.Count > 0)
         {
             return string.Join('\n', block);
@@ -102,5 +122,71 @@ public static class CommandOutcomeText
         }
 
         return string.Empty;
+    }
+
+    /// <summary>
+    /// Drops each pending offer's own dialog lines and the line the engine prints immediately after them
+    /// (the CLI prompt the window replaces). Matching is by the offer's own builder output, never by a
+    /// copied prompt string; the prompt is found by its place after the offer's last line.
+    /// </summary>
+    private static List<string> DropPeaceOfferLines(
+        List<string> block,
+        IReadOnlyList<IReadOnlyList<string>>? pendingPeaceOfferLineSets)
+    {
+        if (pendingPeaceOfferLineSets is null || pendingPeaceOfferLineSets.Count == 0 || block.Count == 0)
+        {
+            return block;
+        }
+
+        var drop = new bool[block.Count];
+        foreach (var offerLines in pendingPeaceOfferLineSets)
+        {
+            if (offerLines is null || offerLines.Count == 0)
+            {
+                continue;
+            }
+
+            for (var i = 0; i + offerLines.Count <= block.Count; i++)
+            {
+                var matches = true;
+                for (var j = 0; j < offerLines.Count; j++)
+                {
+                    if (!string.Equals(block[i + j], offerLines[j].Trim(), StringComparison.Ordinal))
+                    {
+                        matches = false;
+                        break;
+                    }
+                }
+
+                if (!matches)
+                {
+                    continue;
+                }
+
+                for (var j = 0; j < offerLines.Count; j++)
+                {
+                    drop[i + j] = true;
+                }
+
+                // The very next line is the engine's own "Type 'peace-yes'…" prompt.
+                if (i + offerLines.Count < block.Count)
+                {
+                    drop[i + offerLines.Count] = true;
+                }
+
+                i += offerLines.Count - 1;
+            }
+        }
+
+        var kept = new List<string>(block.Count);
+        for (var i = 0; i < block.Count; i++)
+        {
+            if (!drop[i])
+            {
+                kept.Add(block[i]);
+            }
+        }
+
+        return kept;
     }
 }

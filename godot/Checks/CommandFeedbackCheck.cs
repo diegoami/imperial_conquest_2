@@ -200,18 +200,22 @@ public partial class CommandFeedbackCheck : Control
     private void CheckAcceptedOrder()
     {
         const string AcceptedLine = "recruitment.recruit-standing-unit accepted.";
+
+        // T147 (bug #781 point 4): the engine's own output still carries the raw acceptance line, but the
+        // app's label shows the readable wording for the command kind, not the key.
+        const string ReadableLine = "Unit recruited.";
         Check(
             _acceptedLines.Contains(AcceptedLine, StringComparer.Ordinal),
             "the accepted order's real output carries its acceptance line");
         Check(
-            _mainGame.LastCommandText == AcceptedLine,
-            $"an accepted order's label shows its acceptance line (got '{_mainGame.LastCommandText}')");
+            _mainGame.LastCommandText == ReadableLine,
+            $"an accepted order's label shows its readable wording (got '{_mainGame.LastCommandText}')");
         CheckVisibleGeometry("an accepted order");
         CheckLinesMapOneToOne("an accepted order");
         CheckTooltipCarriesTheWholeBlock();
         Check(
-            VisibleLines().SequenceEqual(new[] { AcceptedLine }),
-            $"an accepted order's visible line is its acceptance line (got '{string.Join("|", VisibleLines())}')");
+            VisibleLines().SequenceEqual(new[] { ReadableLine }),
+            $"an accepted order's visible line is its readable wording (got '{string.Join("|", VisibleLines())}')");
     }
 
     private void CheckRejectedOrder()
