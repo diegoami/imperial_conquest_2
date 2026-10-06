@@ -69,6 +69,51 @@ Facts that affect availability:
 - **openrouter's free models have their own allowance**, separate from the credit: `free_model_daily_requests` in `/quota/openrouter` (`used`, `limit`, `remaining`). See [The free OpenRouter models](#the-free-openrouter-models-advisory-only).
 - **GLM's Coding Plan also has a 5-hour window.** When it runs out, an OpenCode run fails with "Usage limit reached for 5 hour" (seen on 2026-10-04); the `5h` window in `/quota/zai` shows it beforehand.
 
+### Choosing a model: no fixed order
+
+There is no fixed model order (the owner's decision of 2026-10-06). The main session chooses each run's model case by case, from live quota and the model's strength. `scripts/Choose-Model.ps1` does the mechanical half and chooses nothing:
+
+- `pwsh scripts/Choose-Model.ps1 -Role reviewer -Tier complex -ExcludeModel <implementer>` prints the candidates best first, each with its reasons.
+- `-Pick` prints the top name only.
+- `-SelfTest` checks the ranking on fixture quotas.
+
+What it reads:
+
+- **Names, ids, variants and families:** from `external-review.ps1` and `external-implement.ps1` themselves, so it never drifts from them.
+- **Strength:** from the table below.
+- **Quota:** quota-tracker's `/quota`, including the Alibaba discount and the Z.ai peak.
+
+How it ranks:
+
+1. The fit to the tier. `complex` puts heavy models first, `simple` light ones. `very-complex` ranks as `complex` and notes [build-process.md §3.4](build-process.md#34-why-the-reviewers-model-differs-from-the-implementers)'s Claude Opus reviewer.
+2. Status: `ok` before `low`.
+3. Headroom divided by the cost factor now: Alibaba's discount, or Z.ai's peak or off-peak multiplier.
+
+An exhausted provider, or one an answering tracker does not report, makes a model unavailable, unless the model has an Alibaba route with quota or is `luna` (its own window). An unknown headroom is scored `?` and ranked after every measured one. The implementer's family is left out of a review. When the tracker is silent, the ranking is by strength alone. The scripts' `auto` defaults are unchanged; any other model is named explicitly.
+
+### Model strength
+
+The chooser's table, edited by the owner. `heavy` and `light` follow [Models per provider](#models-per-provider-and-this-repositorys-names-for-them); `off` is never ranked. A name either script accepts and this table lacks is listed as unrated and never ranked; the chooser's self-test fails on it.
+
+| Name | Strength | Notes |
+| --- | --- | --- |
+| `sol` | heavy | GPT-6 Sol; the complex tier's reviewer (§3.4) |
+| `luna` | light | GPT-5.6 Luna; the simple tier's reviewer; its own weekly window |
+| `glm` | heavy | GLM-5.3 on Z.ai |
+| `ali-glm` | heavy | GLM-5.3 on Alibaba, no discount; the Z.ai peak's alternative |
+| `glm-flash` | light | GLM-5.3 Flash on Z.ai |
+| `deepseek-pro` | heavy | DeepSeek V4 Pro on Go (Alibaba when Go is avoided) |
+| `ali-deepseek-pro` | heavy | DeepSeek V4 Pro 0813 on Alibaba, night discount |
+| `deepseek` | light | DeepSeek V4.1 Flash, the reviewer name |
+| `deepseek-flash` | light | DeepSeek V4.1 Flash, the implementer name |
+| `ali-deepseek-flash` | light | DeepSeek V4.1 Flash on Alibaba, night discount |
+| `qwen` | heavy | Qwen3.8 Max on Alibaba, night discount |
+| `qwen-flash` | light | Qwen3.8 Flash on Alibaba, night discount |
+| `mm-m3` | heavy | MiniMax M3, a family of its own |
+| `mm-m2.7` | light | MiniMax M2.7 |
+| `mimo-pro` | off | not on OpenCode Go's plan |
+| `mimo-flash` | off | not on OpenCode Go's plan |
+
 ### The free OpenRouter models (advisory only)
 
 Adopted by the owner's decision of 2026-10-06, as a supplement only: for smaller tasks and additional reviews, a second opinion next to a regular model, never the main model for important work.
