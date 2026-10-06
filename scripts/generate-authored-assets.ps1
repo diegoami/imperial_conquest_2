@@ -15,7 +15,7 @@ only, not a build or CI dependency).
 .EXAMPLE
 ./scripts/generate-authored-assets.ps1                    # dry run: prompts, counts, models, cost
 ./scripts/generate-authored-assets.ps1 --key army.tier1.icon   # real run: regenerate one key
-./scripts/generate-authored-assets.ps1 --all              # real run: the full pack (22 billable images)
+./scripts/generate-authored-assets.ps1 --all              # real run: the full pack (86 billable images)
 ./scripts/generate-authored-assets.ps1 --reconform        # OFFLINE and free: rebuild the pack from rendered/authored-raw/
 #>
 param(

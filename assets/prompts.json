@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "description": "T51: one prompt per AssetKeys constant, authored from docs/asset-specification.md (T49). Sprite prompts bake in the neutral-silhouette style the generator keys out to alpha: a light/white subject on a solid flat pure magenta (#FF00FF) chroma-key background, which the generator keys out by hue (a hue test cannot hit a light or grey subject). The sixteen-nation palette (asset-specification.md 2.3) is applied at DRAW time by tinting, not baked into the sprites, because the keys are one per tier, not one per nation. Terrain prompts are full-frame opaque tiles. sfx prompts describe short sound cues, synthesized locally (no image API produces audio). Every prompt describes a generic ancient-Mediterranean subject and never references the original game, its art, its name or its screenshots (T51 DoD 7).",
+  "description": "T51: one prompt per AssetKeys constant, authored from docs/asset-specification.md (T49). Sprite prompts bake in the neutral-silhouette style the generator keys out to alpha: a light/white subject on a solid flat pure magenta (#FF00FF) chroma-key background, which the generator keys out by hue (a hue test cannot hit a light or grey subject). The sixteen-nation palette (asset-specification.md 2.3) is applied at DRAW time by tinting, not baked into the sprites, because the keys are one per tier, not one per nation. Terrain tile prompts are full-frame opaque tiles; the four T148 shore-overlay prompts use the same magenta chroma key as a marker, which the generator keys out to a 32-bit transparent overlay drawn over a land cell. sfx prompts describe short sound cues, synthesized locally (no image API produces audio). Every prompt describes a generic ancient-Mediterranean subject and never references the original game, its art, its name or its screenshots (T51 DoD 7).",
   "prompts": [
     {
       "key": "unit.light_infantry.icon",
@@ -99,10 +99,46 @@
       "source": "docs/asset-specification.md 4.5 terrain tiles table: 'Grassland - bright green base with a brown undulating ridge line and scattered dark-green/red speckles'"
     },
     {
+      "key": "terrain.plain.tile.2",
+      "kind": "tile",
+      "prompt": "Open grassland, variant 2: the same bright green base as the plain tile, with a single soft brown ridge line running diagonally across the tile and a scattering of small dark-green and olive speckles. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
+      "source": "docs/asset-specification.md 4.5 terrain tiles table (plain); T148 [designed]: a second plain variant differing in detail, not colour"
+    },
+    {
+      "key": "terrain.plain.tile.3",
+      "kind": "tile",
+      "prompt": "Open grassland, variant 3: the same bright green base as the plain tile, with two gentle brown contour lines crossing the tile and a few small red and dark-green speckles. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
+      "source": "docs/asset-specification.md 4.5 terrain tiles table (plain); T148 [designed]: a third plain variant differing in detail, not colour"
+    },
+    {
+      "key": "terrain.plain.tile.4",
+      "kind": "tile",
+      "prompt": "Open grassland, variant 4: the same bright green base as the plain tile, with a low brown ridge line along one side and sparse dark-green speckles. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
+      "source": "docs/asset-specification.md 4.5 terrain tiles table (plain); T148 [designed]: a fourth plain variant differing in detail, not colour"
+    },
+    {
       "key": "terrain.desert.tile",
       "kind": "tile",
       "prompt": "Arid desert: an olive-tan sandy base with an olive cast rather than a bright yellow, gentle dune ridges in a slightly darker olive, and sparse darker speckles. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
       "source": "docs/asset-specification.md 4.5: 'Arid terrain in an olive-to-tan range ... the area map's #808000 olive band is the corpus's only colour evidence and should be the starting point, not an unrelated tan/yellow guess'"
+    },
+    {
+      "key": "terrain.desert.tile.2",
+      "kind": "tile",
+      "prompt": "Arid desert, variant 2: the same olive-tan sandy base as the desert tile, with long low dune ridges running parallel across the tile in a slightly darker olive. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
+      "source": "docs/asset-specification.md 4.5 (desert); T148 [designed]: a second desert variant differing in detail, not colour"
+    },
+    {
+      "key": "terrain.desert.tile.3",
+      "kind": "tile",
+      "prompt": "Arid desert, variant 3: the same olive-tan sandy base as the desert tile, with a few small dune crescents in a slightly darker olive and sparse darker speckles. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
+      "source": "docs/asset-specification.md 4.5 (desert); T148 [designed]: a third desert variant differing in detail, not colour"
+    },
+    {
+      "key": "terrain.desert.tile.4",
+      "kind": "tile",
+      "prompt": "Arid desert, variant 4: the same olive-tan sandy base as the desert tile, with subtle diagonal dune lines in a slightly darker olive and a few darker speckles. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
+      "source": "docs/asset-specification.md 4.5 (desert); T148 [designed]: a fourth desert variant differing in detail, not colour"
     },
     {
       "key": "terrain.forest.tile",
@@ -111,16 +147,46 @@
       "source": "docs/asset-specification.md 4.5 terrain tiles table: 'Wooded terrain - green base with a dense tree/brush motif'"
     },
     {
+      "key": "terrain.forest.tile.2",
+      "kind": "tile",
+      "prompt": "Dense woodland, variant 2: the same green base as the forest tile, with a clump of round-topped trees in the centre and a few bushes at the edges, in two shades of green. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
+      "source": "docs/asset-specification.md 4.5 (forest); T148 [designed]: a second forest variant differing in detail, not colour"
+    },
+    {
+      "key": "terrain.forest.tile.3",
+      "kind": "tile",
+      "prompt": "Dense woodland, variant 3: the same green base as the forest tile, with scattered round-topped trees of two sizes and low brush between them, in two shades of green. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
+      "source": "docs/asset-specification.md 4.5 (forest); T148 [designed]: a third forest variant differing in detail, not colour"
+    },
+    {
+      "key": "terrain.forest.tile.4",
+      "kind": "tile",
+      "prompt": "Dense woodland, variant 4: the same green base as the forest tile, with a line of round-topped trees along one side and low brush across the rest, in two shades of green. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
+      "source": "docs/asset-specification.md 4.5 (forest); T148 [designed]: a fourth forest variant differing in detail, not colour"
+    },
+    {
       "key": "terrain.mountain.tile",
       "kind": "tile",
       "prompt": "Mountain range: a grey base with jagged black peaks, white snow caps on the peaks and a dark red-brown foothill band along the lower edge of the tile. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
       "source": "docs/asset-specification.md 4.5 terrain tiles table: 'Mountainous terrain - grey base, jagged black peaks, white snow caps, a dark red-brown foothill band'"
     },
     {
-      "key": "terrain.river.tile",
+      "key": "terrain.mountain.tile.2",
       "kind": "tile",
-      "prompt": "A river reach crossing flat grassland: a broad blue water band flowing straight across the middle of the tile with lighter ripple highlights, green banks above and below the water. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
-      "source": "docs/asset-specification.md 4.5 terrain tiles table: 'A river-bearing tile' - one static sprite for the six-way river connectivity problem is the gap 4.5 itself records; a single straight horizontal reach is this pack's designed choice"
+      "prompt": "Mountain range, variant 2: the same grey base as the mountain tile, with one large central peak with a jagged black outline and a white snow cap over a dark red-brown foothill band along the lower edge. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
+      "source": "docs/asset-specification.md 4.5 (mountain); T148 [designed]: a second mountain variant differing in detail, not colour"
+    },
+    {
+      "key": "terrain.mountain.tile.3",
+      "kind": "tile",
+      "prompt": "Mountain range, variant 3: the same grey base as the mountain tile, with three smaller jagged black peaks in a row, white snow caps on them and a dark red-brown foothill band along the lower edge. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
+      "source": "docs/asset-specification.md 4.5 (mountain); T148 [designed]: a third mountain variant differing in detail, not colour"
+    },
+    {
+      "key": "terrain.mountain.tile.4",
+      "kind": "tile",
+      "prompt": "Mountain range, variant 4: the same grey base as the mountain tile, with a broad ridge of several overlapping jagged black peaks, white snow caps and a dark red-brown foothill band along the lower edge. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
+      "source": "docs/asset-specification.md 4.5 (mountain); T148 [designed]: a fourth mountain variant differing in detail, not colour"
     },
     {
       "key": "terrain.sea_coastal.tile",
@@ -129,10 +195,112 @@
       "source": "docs/asset-specification.md 4.5 terrain tiles table: 'Shallow/coastal sea - lighter blue, wave motif'"
     },
     {
+      "key": "terrain.sea_coastal.tile.2",
+      "kind": "tile",
+      "prompt": "Shallow coastal sea, variant 2: the same light blue water as the coastal sea tile, with gentle wave crests spaced widely apart in lighter and darker blue. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
+      "source": "docs/asset-specification.md 4.5 (coastal sea); T148 [designed]: a second coastal variant differing in detail, not colour"
+    },
+    {
+      "key": "terrain.sea_coastal.tile.3",
+      "kind": "tile",
+      "prompt": "Shallow coastal sea, variant 3: the same light blue water as the coastal sea tile, with a diagonal line of small wave crests in lighter and darker blue. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
+      "source": "docs/asset-specification.md 4.5 (coastal sea); T148 [designed]: a third coastal variant differing in detail, not colour"
+    },
+    {
+      "key": "terrain.sea_coastal.tile.4",
+      "kind": "tile",
+      "prompt": "Shallow coastal sea, variant 4: the same light blue water as the coastal sea tile, with two short wave crests in one corner in lighter and darker blue. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
+      "source": "docs/asset-specification.md 4.5 (coastal sea); T148 [designed]: a fourth coastal variant differing in detail, not colour"
+    },
+    {
       "key": "terrain.sea_deep.tile",
       "kind": "tile",
       "prompt": "Deep open sea: dark blue water with the same gentle repeating wave motif in slightly lighter blue. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
       "source": "docs/asset-specification.md 4.5 terrain tiles table: 'Deep sea - darker blue, same wave motif'"
+    },
+    {
+      "key": "terrain.sea_deep.tile.2",
+      "kind": "tile",
+      "prompt": "Deep open sea, variant 2: the same dark blue water as the deep sea tile, with widely spaced gentle wave crests in slightly lighter blue. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
+      "source": "docs/asset-specification.md 4.5 (deep sea); T148 [designed]: a second deep-sea variant differing in detail, not colour"
+    },
+    {
+      "key": "terrain.sea_deep.tile.3",
+      "kind": "tile",
+      "prompt": "Deep open sea, variant 3: the same dark blue water as the deep sea tile, with a diagonal line of small wave crests in slightly lighter blue. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
+      "source": "docs/asset-specification.md 4.5 (deep sea); T148 [designed]: a third deep-sea variant differing in detail, not colour"
+    },
+    {
+      "key": "terrain.sea_deep.tile.4",
+      "kind": "tile",
+      "prompt": "Deep open sea, variant 4: the same dark blue water as the deep sea tile, with a few small wave crests in one corner in slightly lighter blue. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
+      "source": "docs/asset-specification.md 4.5 (deep sea); T148 [designed]: a fourth deep-sea variant differing in detail, not colour"
+    },
+    {
+      "key": "terrain.river.ew",
+      "kind": "tile",
+      "prompt": "A river reach crossing flat grassland, running straight from the middle of the left edge to the middle of the right edge: a broad horizontal blue water band with lighter ripple highlights, green banks above and below it, and the water's ends meeting the exact midpoints of the left and right edges so adjoining river tiles join. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
+      "source": "docs/asset-specification.md 4.5's river gap, closed by T148: grid code 6 is east+west (MapViewer.cs DrawRiver); the course meets the edge midpoints so neighbouring pieces join"
+    },
+    {
+      "key": "terrain.river.ns",
+      "kind": "tile",
+      "prompt": "A river reach crossing flat grassland, running straight from the middle of the top edge to the middle of the bottom edge: a broad vertical blue water band with lighter ripple highlights, green banks to either side, and the water's ends meeting the exact midpoints of the top and bottom edges so adjoining river tiles join. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
+      "source": "docs/asset-specification.md 4.5's river gap, closed by T148: grid code 7 is north+south (MapViewer.cs DrawRiver); the course meets the edge midpoints so neighbouring pieces join"
+    },
+    {
+      "key": "terrain.river.en",
+      "kind": "tile",
+      "prompt": "A river bend crossing flat grassland, curving from the middle of the right edge to the middle of the top edge: a blue water band with lighter ripple highlights, green banks, and the water's ends meeting the exact midpoints of the right and top edges so adjoining river tiles join. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
+      "source": "docs/asset-specification.md 4.5's river gap, closed by T148: grid code 8 is east+north (MapViewer.cs DrawRiver); the course meets the edge midpoints so neighbouring pieces join"
+    },
+    {
+      "key": "terrain.river.es",
+      "kind": "tile",
+      "prompt": "A river bend crossing flat grassland, curving from the middle of the right edge to the middle of the bottom edge: a blue water band with lighter ripple highlights, green banks, and the water's ends meeting the exact midpoints of the right and bottom edges so adjoining river tiles join. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
+      "source": "docs/asset-specification.md 4.5's river gap, closed by T148: grid code 9 is east+south (MapViewer.cs DrawRiver); the course meets the edge midpoints so neighbouring pieces join"
+    },
+    {
+      "key": "terrain.river.ws",
+      "kind": "tile",
+      "prompt": "A river bend crossing flat grassland, curving from the middle of the left edge to the middle of the bottom edge: a blue water band with lighter ripple highlights, green banks, and the water's ends meeting the exact midpoints of the left and bottom edges so adjoining river tiles join. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
+      "source": "docs/asset-specification.md 4.5's river gap, closed by T148: grid code 10 is west+south (MapViewer.cs DrawRiver); the course meets the edge midpoints so neighbouring pieces join"
+    },
+    {
+      "key": "terrain.river.wn",
+      "kind": "tile",
+      "prompt": "A river bend crossing flat grassland, curving from the middle of the left edge to the middle of the top edge: a blue water band with lighter ripple highlights, green banks, and the water's ends meeting the exact midpoints of the left and top edges so adjoining river tiles join. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
+      "source": "docs/asset-specification.md 4.5's river gap, closed by T148: grid code 11 is west+north (MapViewer.cs DrawRiver); the course meets the edge midpoints so neighbouring pieces join"
+    },
+    {
+      "key": "terrain.river.tile",
+      "kind": "tile",
+      "prompt": "A river reach crossing flat grassland: a broad blue water band flowing straight across the middle of the tile with lighter ripple highlights, green banks above and below the water. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
+      "source": "docs/asset-specification.md 4.5 terrain tiles table: 'A river-bearing tile' - the generic fallback for a pack that lacks one of the six T148 connectivity pieces; a single straight horizontal reach is this pack's designed choice"
+    },
+    {
+      "key": "terrain.shore.n",
+      "kind": "overlay",
+      "prompt": "A shore overlay for a top-down strategy map: a narrow band of pale sand with a thin line of white surf running along the top edge of the square, and the rest of the tile left as a solid, flat, pure magenta (#FF00FF) chroma-key background filling the whole frame, with a clear magenta margin of about one twentieth of the tile along every edge. The sand and surf band sits just inside the top margin, within the outer quarter of the square, and the magenta is flat with no gradient, no shadow and no shading and never appears on the sand; no border, no frame, no text.",
+      "source": "docs/tasks/T148.md [designed]: a 32-bit BGRA shore overlay drawn over a land cell whose north neighbour is sea; asset-specification.md 1.2's chroma-key convention for a non-tile asset"
+    },
+    {
+      "key": "terrain.shore.e",
+      "kind": "overlay",
+      "prompt": "A shore overlay for a top-down strategy map: a narrow band of pale sand with a thin line of white surf running along the right edge of the square, and the rest of the tile left as a solid, flat, pure magenta (#FF00FF) chroma-key background filling the whole frame, with a clear magenta margin of about one twentieth of the tile along every edge. The sand and surf band sits just inside the right margin, within the outer quarter of the square, and the magenta is flat with no gradient, no shadow and no shading and never appears on the sand; no border, no frame, no text.",
+      "source": "docs/tasks/T148.md [designed]: a 32-bit BGRA shore overlay drawn over a land cell whose east neighbour is sea; asset-specification.md 1.2's chroma-key convention for a non-tile asset"
+    },
+    {
+      "key": "terrain.shore.s",
+      "kind": "overlay",
+      "prompt": "A shore overlay for a top-down strategy map: a narrow band of pale sand with a thin line of white surf running along the bottom edge of the square, and the rest of the tile left as a solid, flat, pure magenta (#FF00FF) chroma-key background filling the whole frame, with a clear magenta margin of about one twentieth of the tile along every edge. The sand and surf band sits just inside the bottom margin, within the outer quarter of the square, and the magenta is flat with no gradient, no shadow and no shading and never appears on the sand; no border, no frame, no text.",
+      "source": "docs/tasks/T148.md [designed]: a 32-bit BGRA shore overlay drawn over a land cell whose south neighbour is sea; asset-specification.md 1.2's chroma-key convention for a non-tile asset"
+    },
+    {
+      "key": "terrain.shore.w",
+      "kind": "overlay",
+      "prompt": "A shore overlay for a top-down strategy map: a narrow band of pale sand with a thin line of white surf running along the left edge of the square, and the rest of the tile left as a solid, flat, pure magenta (#FF00FF) chroma-key background filling the whole frame, with a clear magenta margin of about one twentieth of the tile along every edge. The sand and surf band sits just inside the left margin, within the outer quarter of the square, and the magenta is flat with no gradient, no shadow and no shading and never appears on the sand; no border, no frame, no text.",
+      "source": "docs/tasks/T148.md [designed]: a 32-bit BGRA shore overlay drawn over a land cell whose west neighbour is sea; asset-specification.md 1.2's chroma-key convention for a non-tile asset"
     },
     {
       "key": "sfx.city_captured",
