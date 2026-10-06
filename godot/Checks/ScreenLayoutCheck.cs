@@ -58,20 +58,29 @@ public partial class ScreenLayoutCheck : Control
     {
         Size = SmallSize;
 
-        // ---- Done-when 1: the map fills its area ----
-        _steps.Add(BuildMapGame);
-        _steps.Add(() => AssertMapCoversScreen("at 1500x850"));
-        _steps.Add(() => Size = LargeSize);
-        _steps.Add(() => AssertMapCoversScreen("at 2560x1351"));
-        _steps.Add(PanMap);
-        _steps.Add(() => Size = SmallSize);
-        _steps.Add(AssertViewCentreKept);
-        _steps.Add(Teardown);
-
-        // ---- Done-when 2: every window opens centred, at both sizes ----
-        foreach (var size in new[] { SmallSize, LargeSize })
+        if (DisplayServer.GetName() == "headless")
         {
-            AddOverlayCases(size);
+            // ---- Done-when 1: the map fills its area ----
+            _steps.Add(BuildMapGame);
+            _steps.Add(() => AssertMapCoversScreen("at 1500x850"));
+            _steps.Add(() => Size = LargeSize);
+            _steps.Add(() => AssertMapCoversScreen("at 2560x1351"));
+            _steps.Add(PanMap);
+            _steps.Add(() => Size = SmallSize);
+            _steps.Add(AssertViewCentreKept);
+            _steps.Add(Teardown);
+
+            // ---- Done-when 2: every window opens centred, at both sizes ----
+            foreach (var size in new[] { SmallSize, LargeSize })
+            {
+                AddOverlayCases(size);
+            }
+        }
+        else
+        {
+            // Done-when 6: a short windowed run saves the visual review's screenshots. Headless
+            // screenshots do not work (issue #156), so this half only ever runs in a real window.
+            AddVisualReviewCaptureSteps();
         }
 
         _steps.Add(Finish);
@@ -101,7 +110,6 @@ public partial class ScreenLayoutCheck : Control
 
     private void BuildMapGame()
     {
-        Size = SmallSize;
         var resolved = GameDataContext.Repository.Resolve("classical-mediterranean");
         _mainGame = new MainGameScreen
         {
@@ -279,6 +287,76 @@ public partial class ScreenLayoutCheck : Control
         _mainGame.QueueFree();
         _mainGame = null;
     }
+
+    // ---- Done-when 6: the windowed visual-review screenshots ----
+
+    private void AddVisualReviewCaptureSteps()
+    {
+        _steps.Add(() =>
+        {
+            // The app lays out at the viewport's logical size (1610x850 for a 2560x1351 window with
+            // stretch aspect "expand"), so the review captures that, not the raw window pixels.
+            Size = GetViewport().GetVisibleRect().Size;
+            BuildMapGame();
+        });
+        _steps.Add(() => Capture("01-map-default-fit.png"));
+
+        _steps.Add(() =>
+        {
+            Teardown();
+            _mainGame = new MainGameScreen { Session = HumanWinsSession(), RepositoryRoot = GameDataContext.RepositoryRoot };
+            _mainGame.SetAnchorsPreset(LayoutPreset.FullRect);
+            AddChild(_mainGame);
+        });
+        _steps.Add(() => _mainGame!.SubmitForCheck("attack-army army-0 army-2"));
+        _steps.Add(() => Capture("02-battle-result.png"));
+        _steps.Add(() => (_mainGame!.ActiveOverlay as BattleResultScreen)?.Close());
+        _steps.Add(() => Capture("03-offer-of-peace.png"));
+        _steps.Add(PressOfferYes);
+        _steps.Add(() => Capture("04-output-after-yes.png"));
+    }
+
+    private void PressOfferYes()
+    {
+        if (_mainGame?.ActiveOverlay is not PeaceOfferScreen window)
+        {
+            Check(false, "visual review: the Offer of peace window is open before Yes");
+            return;
+        }
+
+        var yes = window.Buttons.FirstOrDefault(button => button.Text == "Yes");
+        if (yes is null)
+        {
+            Check(false, "visual review: the Offer of peace window has a Yes button");
+            return;
+        }
+
+        // The laid-out button's own pressed signal, exactly as PeaceOfferCheck answers it.
+        yes.EmitSignal(BaseButton.SignalName.Pressed);
+    }
+
+    private void Capture(string fileName)
+    {
+        Directory.CreateDirectory(ReviewDirectory);
+        var path = Path.Combine(ReviewDirectory, fileName);
+
+        var overlay = _mainGame?.ActiveOverlay;
+        var panel = overlay is null ? null : FindFirst<PanelContainer>(overlay);
+        GD.Print(
+            $"INFO: {fileName}: viewport {GetViewport().GetVisibleRect().Size} window {GetWindow().Size} "
+            + $"root {Size} main {_mainGame?.GetGlobalRect().ToString() ?? "null"} "
+            + $"overlay {overlay?.GetGlobalRect().ToString() ?? "null"} "
+            + $"panel {panel?.GetGlobalRect().ToString() ?? "null"}");
+
+        var image = GetViewport().GetTexture().GetImage();
+        var error = image.SavePng(path);
+        GD.Print(error == Error.Ok
+            ? $"ScreenLayoutCheck: saved {path}"
+            : $"ScreenLayoutCheck: could not save {path}: {error}");
+    }
+
+    /// <summary>The worktree's own <c>rendered/</c> (the Godot project's parent), git-ignored scratch.</summary>
+    private static string ReviewDirectory => ProjectSettings.GlobalizePath("res://../rendered");
 
     private void Finish()
     {
