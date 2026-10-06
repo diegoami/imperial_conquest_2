@@ -146,10 +146,12 @@ public sealed class AssetPackTextureLoader
 
     /// <summary>
     /// T148: resolves a <c>terrain.*.surface</c> key to a mipmapped texture for the surface shader, in a
-    /// cache separate from <see cref="TryGetTexture"/> (which is unchanged). The texture is drawn with
-    /// <c>texture_repeat</c> set on the owning CanvasItem, so the sampler wraps in world space; mipmaps
-    /// keep the far zoom calm. Returns <see langword="null"/> for a missing key or unreadable file,
-    /// exactly as <see cref="TryGetTexture"/> does.
+    /// cache separate from <see cref="TryGetTexture"/> (which is unchanged). Wrapping and filtering are
+    /// the shader's decision — the surface samplers declare <c>repeat_enable</c> and
+    /// <c>filter_linear_mipmap</c> (the Opus review of the splatting round, R1: the CanvasItem's
+    /// <c>texture_repeat</c> flag does not reach uniform samplers); this method generates the mipmap
+    /// chain those hints sample, which keeps the far zoom calm. Returns <see langword="null"/> for a
+    /// missing key or unreadable file, exactly as <see cref="TryGetTexture"/> does.
     /// </summary>
     public Texture2D? TryGetSurfaceTexture(string assetKey)
     {

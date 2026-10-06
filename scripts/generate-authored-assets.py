@@ -433,64 +433,45 @@ def conform_tile(img: Image.Image) -> bytes:
 def make_seamless(img: Image.Image) -> Image.Image:
     """Make an image tile without a visible seam (docs/asset-specification.md 1.2, 4.5).
 
-    Offsetting by half the image puts its original border in the middle and makes the outer
-    edge join two originally adjacent pixels, so the tile wraps smoothly; the discontinuity
-    the offset creates in the middle is then cross-faded away with the un-offset image, whose
-    centre is smooth there. The result tiles in both directions whatever the model returned.
+    Two half-size offset-and-cross-fade passes, one per axis, and nothing else — no edge fade
+    and no mirroring toward the opposite edge (the Opus review of the splatting round, R4: the
+    earlier `_fade_edges` step pulled every repeat border toward mirror symmetry, and the
+    product-of-ramps mask it ran after left the offset's own "+" seam visible along its arms).
+
+    Pass 1 offsets by half the width and cross-fades the resulting central vertical seam with
+    the un-offset image; pass 2 does the same along the height on the result. Each pass uses a
+    mask that depends only on its own axis — a triangle, zero at that axis's borders (where the
+    offset image's edges are source-adjacent pixels, so the tile wraps there) and full at its
+    centre (where the original is smooth across the seam). A mask of one axis alone is never
+    near zero along the other axis's seam, so no "+" remains; and because pass 2's mask is
+    constant along every column, it mixes the same source rows at the left and right borders,
+    which is why pass 1's column wrap survives it. The result tiles in both directions whatever
+    the model returned.
     """
     width, height = img.size
-    rolled = ImageChops.offset(img, width // 2, height // 2)
-
-    # A triangular mask peaking at the centre (255) and zero at the borders, as the product
-    # of one vertical and one horizontal ramp. At the borders the result is `rolled` (whose
-    # opposite edges are adjacent source pixels, so it tiles); at the centre it is `img`
-    # (whose centre is smooth), and in between the two cross-fade.
-    vertical = Image.linear_gradient("L").resize((width, height), BOX).point(
-        lambda v: 255 - abs(2 * v - 255))
-    horizontal = vertical.rotate(90, expand=True)
-    mask = ImageChops.multiply(vertical, horizontal)
-    blended = Image.composite(img.convert("RGB"), rolled.convert("RGB"), mask)
-
-    # The offset alone leaves the new border joining two originally adjacent pixels; a detailed
-    # texture (a forest canopy) can still differ there by more than the pack test's tolerance.
-    # Cross-fade a band at each edge with the opposite edge until the outermost lines agree, so
-    # the seam's mean absolute difference is essentially zero whatever the model returned.
-    return _fade_edges(blended)
+    return _crossfade_seam(_crossfade_seam(img, width // 2, 0), 0, height // 2)
 
 
-def _fade_edges(img: Image.Image) -> Image.Image:
-    """Cross-fade the outer band of each edge with the opposite edge so opposite edges match.
-
-    At the outermost line the two edges become their average (left == right, top == bottom); the
-    effect falls off linearly over the band, so the texture is unchanged in its interior.
-    """
+def _crossfade_seam(img: Image.Image, dx: int, dy: int) -> Image.Image:
+    """`img` cross-faded with itself offset by (dx, dy) — one axis only (exactly one of dx, dy
+    nonzero) by half the image. The triangular mask peaks along the seam the offset puts in the
+    middle (keeping `img`, smooth there) and reaches zero at the borders (keeping the offset
+    image, whose borders are adjacent source pixels and so wrap)."""
     width, height = img.size
-    band = max(1, min(width, height) // 8)
-    pixels = img.load()
+    rolled = ImageChops.offset(img, dx, dy)
 
-    for y in range(height):
-        for offset in range(band):
-            left = pixels[offset, y]
-            right = pixels[width - 1 - offset, y]
-            average = tuple((left[c] + right[c]) / 2 for c in range(3))
-            weight = 1.0 - (offset / band)
-            pixels[offset, y] = tuple(
-                int(round((left[c] * (1 - weight)) + (average[c] * weight))) for c in range(3))
-            pixels[width - 1 - offset, y] = tuple(
-                int(round((right[c] * (1 - weight)) + (average[c] * weight))) for c in range(3))
-
-    for x in range(width):
-        for offset in range(band):
-            top = pixels[x, offset]
-            bottom = pixels[x, height - 1 - offset]
-            average = tuple((top[c] + bottom[c]) / 2 for c in range(3))
-            weight = 1.0 - (offset / band)
-            pixels[x, offset] = tuple(
-                int(round((top[c] * (1 - weight)) + (average[c] * weight))) for c in range(3))
-            pixels[x, height - 1 - offset] = tuple(
-                int(round((bottom[c] * (1 - weight)) + (average[c] * weight))) for c in range(3))
-
-    return img
+    # Triangle along the OFFSET axis only: 0 at that axis's borders, 255 at its centre,
+    # constant along the other axis — which is what keeps the first pass's column wrap alive
+    # through the second. (Image.linear_gradient ramps along y, and a rotate would transpose a
+    # non-square image, so the ramp is built directly.)
+    if dx:
+        mask = Image.new("L", (width, 1))
+        mask.putdata([255 - abs(2 * x - (width - 1)) for x in range(width)])
+    else:
+        mask = Image.new("L", (1, height))
+        mask.putdata([255 - abs(2 * y - (height - 1)) for y in range(height)])
+    return Image.composite(img.convert("RGB"), rolled.convert("RGB"),
+                           mask.resize((width, height), BOX))
 
 
 def conform_surface(img: Image.Image) -> bytes:
@@ -498,8 +479,28 @@ def conform_surface(img: Image.Image) -> bytes:
     resize to 256x256 with a high-quality filter, and write a 24-bit BGR BMP - the six surface
     textures the splatting shader samples (docs/asset-specification.md 1.2, 4.5)."""
     seamless = make_seamless(img.convert("RGB"))
-    resized = seamless.resize((SURFACE_SIZE, SURFACE_SIZE), LANCZOS)
-    return bmp_bytes(resized, 24, expected_size=SURFACE_SIZE)
+    return bmp_bytes(downscale_seamless(seamless), 24, expected_size=SURFACE_SIZE)
+
+
+def downscale_seamless(img: Image.Image) -> Image.Image:
+    """A seamless (wrapping) image down to 256x256 with TOROIDAL taps.
+
+    A plain resize reads past each edge with clamped repeats. On a texture that wraps that is
+    wrong at the very two columns (and rows) that must agree: the left edge column gets a tap
+    window clamped inside the image and the right edge column a mirror of it, so their difference
+    - the wrap seam the pack test measures - keeps a few times the contrast of an ordinary
+    adjacent-column pair (the mountain's snow flecks measured 15-19 at the border against 12 in
+    the interior, where the Done-when 2 bar of 15 was set for natural wraps). The make_seamless
+    passes have just made this image periodic, so the resample should read its neighbour across
+    the border: tile it 3x3, resize the whole, and take the middle copy - every output pixel,
+    the two edge columns included, then averages the content a plain interior pixel averages."""
+    width, height = img.size
+    tiled = Image.new("RGB", (width * 3, height * 3))
+    for ty in range(3):
+        for tx in range(3):
+            tiled.paste(img, (tx * width, ty * height))
+    shrunk = tiled.resize((SURFACE_SIZE * 3, SURFACE_SIZE * 3), LANCZOS)
+    return shrunk.crop((SURFACE_SIZE, SURFACE_SIZE, SURFACE_SIZE * 2, SURFACE_SIZE * 2))
 
 
 def conform_ui_icon(img: Image.Image) -> Image.Image:
@@ -1171,23 +1172,32 @@ def self_check() -> list:
            surface_header["image_size"] == SURFACE_SIZE * SURFACE_SIZE * 3
            == len(surface_bmp) - 54)
 
-    def _edge_mean_difference(bmp: bytes) -> float:
+    def _edge_mean_difference_per_channel(bmp: bytes) -> list:
+        """The same six values the C# pack test asserts (T148 Done-when 2, the Opus review's R3):
+        the mean absolute difference per channel between the left and right edge columns and
+        between the top and bottom rows — never pooled."""
         row_size = SURFACE_SIZE * 3  # 256*3 is a multiple of 4, so no row padding
-        total = 0
+        horizontal = [0.0, 0.0, 0.0]
         for y in range(SURFACE_SIZE):
             row = 54 + (SURFACE_SIZE - 1 - y) * row_size  # BMP rows are bottom-up
             left = bmp[row:row + 3]
             right = bmp[row + row_size - 3:row + row_size]
-            total += sum(abs(left[c] - right[c]) for c in range(3))
-        # Plus the top and bottom rows, in display order.
+            for c in range(3):
+                horizontal[c] += abs(left[c] - right[c])
+        vertical = [0.0, 0.0, 0.0]
         top = 54 + (SURFACE_SIZE - 1) * row_size
         bottom = 54
-        total += sum(abs(bmp[top + x] - bmp[bottom + x]) for x in range(row_size))
-        return total / (SURFACE_SIZE * 3 + row_size)
+        for x in range(row_size):
+            vertical[x % 3] += abs(bmp[top + x] - bmp[bottom + x])
+        for c in range(3):
+            horizontal[c] /= SURFACE_SIZE
+            vertical[c] /= SURFACE_SIZE
+        return [("left/right", c, horizontal[c]) for c in range(3)] + [
+            ("top/bottom", c, vertical[c]) for c in range(3)]
 
-    surface_edge = _edge_mean_difference(surface_bmp)
-    _check(failures, "surface: the seam is cross-faded (left/right and top/bottom edge mean "
-           "difference under 6 of 255)", surface_edge < 6.0, f"{surface_edge:.2f}")
+    for axis, channel, edge in _edge_mean_difference_per_channel(surface_bmp):
+        _check(failures, f"surface: the seam is cross-faded ({axis} channel {channel} edge mean "
+               "difference under 15 of 255, the pack test's bar)", edge < 15.0, f"{edge:.2f}")
 
     # WAV synthesis round-trip: the synthesized cue is a real RIFF/WAVE with the
     # par. 1.4 envelope (mono, 44100 Hz, 16-bit PCM).

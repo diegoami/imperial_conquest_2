@@ -389,7 +389,7 @@
     {
       "key": "terrain.mountain.surface",
       "kind": "surface",
-      "prompt": "A seamless top-down terrain texture of a mountain range for a strategy map, seen straight down from above: a grey rocky base with jagged darker ridges, scattered pale snow flecks and a little dark rock, evenly and flatly lit, the motif continuing across the whole square frame edge to edge with no clear centre, designed to tile seamlessly in every direction. No sky, no horizon, no landscape profile, no border, no frame, no text, no shadow from any direction.",
+      "prompt": "A seamless top-down terrain texture of a mountain range for a strategy map, seen straight down from above: grey rock in large broad slabs and gentle bands with scattered soft-edged pale snow flecks, evenly and flatly lit, the motif continuing across the whole square frame edge to edge with no clear centre, designed to tile seamlessly in every direction. Large simple shapes, no fine grain, no speckle noise, no sky, no horizon, no landscape profile, no border, no frame, no text, no shadow from any direction.",
       "source": "docs/asset-specification.md 4.5 terrain palette (the plain bright green, the forest darker green, the mountain grey rock with snow, the desert olive-to-tan, lighter shallow and darker deep water)"
     },
     {
