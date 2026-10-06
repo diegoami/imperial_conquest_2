@@ -80,6 +80,21 @@ internal static class DatLayout
     // §1, "The loader reads it: FUN_004481A0".
     internal const int NationNeighbourOffset = 0x02B; // 43 decimal == NationRelationOffset + 32
 
+    // ---- The leader-name pool: DAT offset 0x2089A, 16 x 12 x 26 bytes (T146) ----
+    // "leader-name pool, 16 x 12 x 26 bytes" is the DAT loader's own read-order table row
+    // (FUN_004481A0, DAT 0x2089A, 4,992 bytes into DAT_0049dc68) in
+    // docs/investigations/dat-file-layout.md. The three shape constants are the row's own numbers:
+    // 16 nations (DAT nation order, the same order the nation table uses), 12 candidates each, and a
+    // 26-byte record copied whole by FUN_00448aa4's `strcpy(record + 0x0b, leaderPool + i * 0x1a)`.
+    // The record length is a constant here rather than a running-sum derivation: the loader reads the
+    // pool as one flat 4,992-byte block, so 4,992 / 16 / 12 = 26 is the only record length the file
+    // can have, and the copy's own `i * 0x1a` (26) pins it directly. T146 review B2 measured every one
+    // of the 192 names as NUL-terminated within its own 26-byte slot (longest 21 characters).
+    internal const int LeaderPoolStart = 0x2089A;
+    internal const int LeaderPoolNationCount = 16;
+    internal const int LeaderPoolNamesPerNation = 12;
+    internal const int LeaderPoolNameRecordLength = 26;
+
     // ---- The news log's DAT seed: the file's last 2,440 bytes (T73, bug #321) ----
     // "The DAT loader reads the last 2,440 bytes of the DAT (0x21C1A) straight into all 40 slots
     // (news_log_decomp.txt line 230: Read(&DAT_0049f994, 0x988))... FUN_00448AA4 then sets

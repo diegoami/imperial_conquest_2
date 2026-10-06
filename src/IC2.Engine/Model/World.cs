@@ -477,6 +477,16 @@ public sealed record TileType(
 /// without rewriting the line that already closes each nation object — the T122 export's own
 /// "additions only" invariant.
 /// </param>
+/// <param name="LeaderNames">
+/// T146: the nation's 12-candidate leader-name pool, in the DAT's own pool order
+/// (<c>docs/investigations/dat-file-layout.md</c>, DAT <c>0x2089A</c>, 16 × 12 × 26 bytes), exported
+/// through <c>IC2.Data.DatLeaderPool</c>. The New Game draw (<c>NewGameLeaders</c>) picks one of these
+/// per nation; a nation's fall or rebirth redraws from it (<c>LeaderSuccession</c>). Optional and
+/// trailing: a scenario authored before T146 (the toy and example worlds) carries no pool, and the
+/// engine's draws leave such a nation's fixed <see cref="LeaderName"/> unchanged. When present it has
+/// exactly 12 non-empty names, at least two distinct, and <see cref="LeaderName"/> is one of them
+/// (<c>GameDataValidation</c>).
+/// </param>
 public sealed record NationDefinition(
     string Id,
     string Name,
@@ -492,7 +502,8 @@ public sealed record NationDefinition(
     int Population,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null,
     ValueList<string>? BattleColorsHex = null,
-    string? GlyphColorHex = null);
+    string? GlyphColorHex = null,
+    ValueList<string>? LeaderNames = null);
 
 /// <summary>A city as the world defines it at scenario start.</summary>
 /// <param name="Owner">The nation that currently controls the city (city record <c>+6</c>).</param>

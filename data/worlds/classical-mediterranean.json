@@ -137,7 +137,7 @@
       "id": "rome",
       "name": "Rome",
       "colorHex": "#800080",
-      "leaderName": "(unassigned -- drawn at New Game)",
+      "leaderName": "Antigonus",
       "capitalCityId": "rome",
       "treasury": 2200,
       "unity": 821,
@@ -151,7 +151,8 @@
         "colorHex": "confirmed: 2026-09-29-nation-marker-colours.md -- the report's background-square colour for this nation (read from the user's 2026-09-29 screenshot strip, cross-checked against the pre-T94 research inspector's OwnerColor table); replaces T49's designed palette.",
         "battleColorsHex": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §10 -- FUN_0044A6C8 substitutes a battle icon's purple 0x800080, white and blue with the nation record's +0x424, +0x428 and +0x42C. The SAV holds the three words in a 12-byte block between its recruitment queue (+0x2E4..+0x424) and wealth (+0x430); the DAT has no such block (its queue +0x2C9..+0x409 runs straight into wealth), and no nation's triple occurs anywhere in the DAT's bytes, so the values are read from the +0x424/+0x428/+0x42C words of the start save 1_rome_270_winter_11.sav.",
         "glyphColorHex": "confirmed: 2026-09-29-nation-marker-colours.md -- the report's foreground glyph colour for this nation, the first record of it.",
-        "leaderName": "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one.",
+        "leaderName": "confirmed: the nation's own leader-name pool's index-0 entry, DAT 0x2089A (16 x 12 x 26 bytes), through IC2.Data.DatLeaderPool.Parse -- docs/investigations/dat-file-layout.md, 'leader-name pool, 16 x 12 x 26 bytes'; 2026-10-03-new-game-turn-order-shuffle.md (research 871ca91) and decompiled-new-game-mercenary-fill.md pin the offset. It is the name a state carries before any New Game draw (GameStateFactory.CreateInitial, OriginalSaveImporter's fallback).",
+        "leaderNames": "confirmed: the nation's 12-candidate leader-name pool in DAT order, DAT 0x2089A, through IC2.Data.DatLeaderPool.Parse -- docs/investigations/dat-file-layout.md's read-order row and FUN_00448aa4's strcpy(record + 0x0b, leaderPool + i * 0x1a). 2026-10-03-new-game-turn-order-shuffle.md (research 871ca91) replays the pool against the saved leaders, and decompiled-new-game-mercenary-fill.md pins the offset by the loader's sequential reads (0x1FCD6 + 0xBC4 + 0x1380 + 0x988 = 0x225A2).",
         "capitalCityId": "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse.",
         "treasury": "confirmed: DAT nation record +0x40d, T30's parse.",
         "unity": "confirmed: DAT nation record +0x411, T30's parse.",
@@ -166,13 +167,27 @@
         "#FFFFFF",
         "#0000FF"
       ],
-      "glyphColorHex": "#0000FF"
+      "glyphColorHex": "#0000FF",
+      "leaderNames": [
+        "Antigonus",
+        "Lucius Papirius",
+        "Antiochus",
+        "Appius Claudius",
+        "Regulus",
+        "Marcus Portius",
+        "Publius Scipio",
+        "Quintus Fabius",
+        "Marcus Claudius",
+        "Flamininus",
+        "Tiberius Gracchus",
+        "Licinus Crassus"
+      ]
     },
     {
       "id": "carthage",
       "name": "Carthage",
       "colorHex": "#FF0000",
-      "leaderName": "(unassigned -- drawn at New Game)",
+      "leaderName": "Hamilcar Barca",
       "capitalCityId": "carthago",
       "treasury": 11000,
       "unity": 719,
@@ -186,7 +201,8 @@
         "colorHex": "confirmed: 2026-09-29-nation-marker-colours.md -- the report's background-square colour for this nation (read from the user's 2026-09-29 screenshot strip, cross-checked against the pre-T94 research inspector's OwnerColor table); replaces T49's designed palette.",
         "battleColorsHex": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §10 -- FUN_0044A6C8 substitutes a battle icon's purple 0x800080, white and blue with the nation record's +0x424, +0x428 and +0x42C. The SAV holds the three words in a 12-byte block between its recruitment queue (+0x2E4..+0x424) and wealth (+0x430); the DAT has no such block (its queue +0x2C9..+0x409 runs straight into wealth), and no nation's triple occurs anywhere in the DAT's bytes, so the values are read from the +0x424/+0x428/+0x42C words of the start save 1_rome_270_winter_11.sav.",
         "glyphColorHex": "confirmed: 2026-09-29-nation-marker-colours.md -- the report's foreground glyph colour for this nation, the first record of it.",
-        "leaderName": "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one.",
+        "leaderName": "confirmed: the nation's own leader-name pool's index-0 entry, DAT 0x2089A (16 x 12 x 26 bytes), through IC2.Data.DatLeaderPool.Parse -- docs/investigations/dat-file-layout.md, 'leader-name pool, 16 x 12 x 26 bytes'; 2026-10-03-new-game-turn-order-shuffle.md (research 871ca91) and decompiled-new-game-mercenary-fill.md pin the offset. It is the name a state carries before any New Game draw (GameStateFactory.CreateInitial, OriginalSaveImporter's fallback).",
+        "leaderNames": "confirmed: the nation's 12-candidate leader-name pool in DAT order, DAT 0x2089A, through IC2.Data.DatLeaderPool.Parse -- docs/investigations/dat-file-layout.md's read-order row and FUN_00448aa4's strcpy(record + 0x0b, leaderPool + i * 0x1a). 2026-10-03-new-game-turn-order-shuffle.md (research 871ca91) replays the pool against the saved leaders, and decompiled-new-game-mercenary-fill.md pins the offset by the loader's sequential reads (0x1FCD6 + 0xBC4 + 0x1380 + 0x988 = 0x225A2).",
         "capitalCityId": "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse.",
         "treasury": "confirmed: DAT nation record +0x40d, T30's parse.",
         "unity": "confirmed: DAT nation record +0x411, T30's parse.",
@@ -201,13 +217,27 @@
         "#000000",
         "#FFFFFF"
       ],
-      "glyphColorHex": "#FFFFFF"
+      "glyphColorHex": "#FFFFFF",
+      "leaderNames": [
+        "Hamilcar Barca",
+        "Hannibal",
+        "Hasdrubal",
+        "Kaleus",
+        "Glaucus",
+        "Hanno",
+        "Agis",
+        "Apollonius",
+        "Callimachus",
+        "Donatus",
+        "Mustansir",
+        "Malinke"
+      ]
     },
     {
       "id": "seleucid",
       "name": "Seleucid",
       "colorHex": "#808000",
-      "leaderName": "(unassigned -- drawn at New Game)",
+      "leaderName": "Seleucus Callinicus",
       "capitalCityId": "antioch",
       "treasury": 2700,
       "unity": 668,
@@ -221,7 +251,8 @@
         "colorHex": "confirmed: 2026-09-29-nation-marker-colours.md -- the report's background-square colour for this nation (read from the user's 2026-09-29 screenshot strip, cross-checked against the pre-T94 research inspector's OwnerColor table); replaces T49's designed palette.",
         "battleColorsHex": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §10 -- FUN_0044A6C8 substitutes a battle icon's purple 0x800080, white and blue with the nation record's +0x424, +0x428 and +0x42C. The SAV holds the three words in a 12-byte block between its recruitment queue (+0x2E4..+0x424) and wealth (+0x430); the DAT has no such block (its queue +0x2C9..+0x409 runs straight into wealth), and no nation's triple occurs anywhere in the DAT's bytes, so the values are read from the +0x424/+0x428/+0x42C words of the start save 1_rome_270_winter_11.sav.",
         "glyphColorHex": "confirmed: 2026-09-29-nation-marker-colours.md -- the report's foreground glyph colour for this nation, the first record of it.",
-        "leaderName": "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one.",
+        "leaderName": "confirmed: the nation's own leader-name pool's index-0 entry, DAT 0x2089A (16 x 12 x 26 bytes), through IC2.Data.DatLeaderPool.Parse -- docs/investigations/dat-file-layout.md, 'leader-name pool, 16 x 12 x 26 bytes'; 2026-10-03-new-game-turn-order-shuffle.md (research 871ca91) and decompiled-new-game-mercenary-fill.md pin the offset. It is the name a state carries before any New Game draw (GameStateFactory.CreateInitial, OriginalSaveImporter's fallback).",
+        "leaderNames": "confirmed: the nation's 12-candidate leader-name pool in DAT order, DAT 0x2089A, through IC2.Data.DatLeaderPool.Parse -- docs/investigations/dat-file-layout.md's read-order row and FUN_00448aa4's strcpy(record + 0x0b, leaderPool + i * 0x1a). 2026-10-03-new-game-turn-order-shuffle.md (research 871ca91) replays the pool against the saved leaders, and decompiled-new-game-mercenary-fill.md pins the offset by the loader's sequential reads (0x1FCD6 + 0xBC4 + 0x1380 + 0x988 = 0x225A2).",
         "capitalCityId": "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse.",
         "treasury": "confirmed: DAT nation record +0x40d, T30's parse.",
         "unity": "confirmed: DAT nation record +0x411, T30's parse.",
@@ -236,13 +267,27 @@
         "#FFFFFF",
         "#800000"
       ],
-      "glyphColorHex": "#800000"
+      "glyphColorHex": "#800000",
+      "leaderNames": [
+        "Seleucus Callinicus",
+        "Antiochus Theos",
+        "Antiochus",
+        "Gilgamesh",
+        "Sargon",
+        "Naramsin",
+        "Shalmaneser",
+        "Tiglathpileser",
+        "Sennacherib",
+        "Cambyses",
+        "Darius",
+        "Seleucis Nicator"
+      ]
     },
     {
       "id": "ptolemaic",
       "name": "Ptolemaic",
       "colorHex": "#000080",
-      "leaderName": "(unassigned -- drawn at New Game)",
+      "leaderName": "Ptolemy Soter",
       "capitalCityId": "alexandria",
       "treasury": 4900,
       "unity": 691,
@@ -256,7 +301,8 @@
         "colorHex": "confirmed: 2026-09-29-nation-marker-colours.md -- the report's background-square colour for this nation (read from the user's 2026-09-29 screenshot strip, cross-checked against the pre-T94 research inspector's OwnerColor table); replaces T49's designed palette.",
         "battleColorsHex": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §10 -- FUN_0044A6C8 substitutes a battle icon's purple 0x800080, white and blue with the nation record's +0x424, +0x428 and +0x42C. The SAV holds the three words in a 12-byte block between its recruitment queue (+0x2E4..+0x424) and wealth (+0x430); the DAT has no such block (its queue +0x2C9..+0x409 runs straight into wealth), and no nation's triple occurs anywhere in the DAT's bytes, so the values are read from the +0x424/+0x428/+0x42C words of the start save 1_rome_270_winter_11.sav.",
         "glyphColorHex": "confirmed: 2026-09-29-nation-marker-colours.md -- the report's foreground glyph colour for this nation, the first record of it.",
-        "leaderName": "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one.",
+        "leaderName": "confirmed: the nation's own leader-name pool's index-0 entry, DAT 0x2089A (16 x 12 x 26 bytes), through IC2.Data.DatLeaderPool.Parse -- docs/investigations/dat-file-layout.md, 'leader-name pool, 16 x 12 x 26 bytes'; 2026-10-03-new-game-turn-order-shuffle.md (research 871ca91) and decompiled-new-game-mercenary-fill.md pin the offset. It is the name a state carries before any New Game draw (GameStateFactory.CreateInitial, OriginalSaveImporter's fallback).",
+        "leaderNames": "confirmed: the nation's 12-candidate leader-name pool in DAT order, DAT 0x2089A, through IC2.Data.DatLeaderPool.Parse -- docs/investigations/dat-file-layout.md's read-order row and FUN_00448aa4's strcpy(record + 0x0b, leaderPool + i * 0x1a). 2026-10-03-new-game-turn-order-shuffle.md (research 871ca91) replays the pool against the saved leaders, and decompiled-new-game-mercenary-fill.md pins the offset by the loader's sequential reads (0x1FCD6 + 0xBC4 + 0x1380 + 0x988 = 0x225A2).",
         "capitalCityId": "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse.",
         "treasury": "confirmed: DAT nation record +0x40d, T30's parse.",
         "unity": "confirmed: DAT nation record +0x411, T30's parse.",
@@ -271,13 +317,27 @@
         "#FFFFFF",
         "#FF00FF"
       ],
-      "glyphColorHex": "#FF00FF"
+      "glyphColorHex": "#FF00FF",
+      "leaderNames": [
+        "Ptolemy Soter",
+        "Ptolemy Philadelphus",
+        "Ptolemy Euergetes",
+        "Hyrcanus",
+        "Cleopatra",
+        "Thutmose",
+        "Menes",
+        "Zoser",
+        "Semempsis",
+        "Sesostris",
+        "Amosis",
+        "Necho"
+      ]
     },
     {
       "id": "macedonia",
       "name": "Macedonia",
       "colorHex": "#FFFFFF",
-      "leaderName": "(unassigned -- drawn at New Game)",
+      "leaderName": "Cassander",
       "capitalCityId": "pella",
       "treasury": 775,
       "unity": 838,
@@ -291,7 +351,8 @@
         "colorHex": "confirmed: 2026-09-29-nation-marker-colours.md -- the report's background-square colour for this nation (read from the user's 2026-09-29 screenshot strip, cross-checked against the pre-T94 research inspector's OwnerColor table); replaces T49's designed palette.",
         "battleColorsHex": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §10 -- FUN_0044A6C8 substitutes a battle icon's purple 0x800080, white and blue with the nation record's +0x424, +0x428 and +0x42C. The SAV holds the three words in a 12-byte block between its recruitment queue (+0x2E4..+0x424) and wealth (+0x430); the DAT has no such block (its queue +0x2C9..+0x409 runs straight into wealth), and no nation's triple occurs anywhere in the DAT's bytes, so the values are read from the +0x424/+0x428/+0x42C words of the start save 1_rome_270_winter_11.sav.",
         "glyphColorHex": "confirmed: 2026-09-29-nation-marker-colours.md -- the report's foreground glyph colour for this nation, the first record of it.",
-        "leaderName": "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one.",
+        "leaderName": "confirmed: the nation's own leader-name pool's index-0 entry, DAT 0x2089A (16 x 12 x 26 bytes), through IC2.Data.DatLeaderPool.Parse -- docs/investigations/dat-file-layout.md, 'leader-name pool, 16 x 12 x 26 bytes'; 2026-10-03-new-game-turn-order-shuffle.md (research 871ca91) and decompiled-new-game-mercenary-fill.md pin the offset. It is the name a state carries before any New Game draw (GameStateFactory.CreateInitial, OriginalSaveImporter's fallback).",
+        "leaderNames": "confirmed: the nation's 12-candidate leader-name pool in DAT order, DAT 0x2089A, through IC2.Data.DatLeaderPool.Parse -- docs/investigations/dat-file-layout.md's read-order row and FUN_00448aa4's strcpy(record + 0x0b, leaderPool + i * 0x1a). 2026-10-03-new-game-turn-order-shuffle.md (research 871ca91) replays the pool against the saved leaders, and decompiled-new-game-mercenary-fill.md pins the offset by the loader's sequential reads (0x1FCD6 + 0xBC4 + 0x1380 + 0x988 = 0x225A2).",
         "capitalCityId": "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse.",
         "treasury": "confirmed: DAT nation record +0x40d, T30's parse.",
         "unity": "confirmed: DAT nation record +0x411, T30's parse.",
@@ -306,13 +367,27 @@
         "#0000FF",
         "#808080"
       ],
-      "glyphColorHex": "#0000FF"
+      "glyphColorHex": "#0000FF",
+      "leaderNames": [
+        "Cassander",
+        "Demetrius Poliorcetes",
+        "Demetrius",
+        "Antigonus Doson",
+        "Philip",
+        "Alexander",
+        "Perseus",
+        "Eupalinus",
+        "Dionysius",
+        "Antipater",
+        "Polysperchon",
+        "Andracmon"
+      ]
     },
     {
       "id": "numidia",
       "name": "Numidia",
       "colorHex": "#00FF00",
-      "leaderName": "(unassigned -- drawn at New Game)",
+      "leaderName": "Jugurtha",
       "capitalCityId": "gemellae",
       "treasury": 410,
       "unity": 619,
@@ -326,7 +401,8 @@
         "colorHex": "confirmed: 2026-09-29-nation-marker-colours.md -- the report's background-square colour for this nation (read from the user's 2026-09-29 screenshot strip, cross-checked against the pre-T94 research inspector's OwnerColor table); replaces T49's designed palette.",
         "battleColorsHex": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §10 -- FUN_0044A6C8 substitutes a battle icon's purple 0x800080, white and blue with the nation record's +0x424, +0x428 and +0x42C. The SAV holds the three words in a 12-byte block between its recruitment queue (+0x2E4..+0x424) and wealth (+0x430); the DAT has no such block (its queue +0x2C9..+0x409 runs straight into wealth), and no nation's triple occurs anywhere in the DAT's bytes, so the values are read from the +0x424/+0x428/+0x42C words of the start save 1_rome_270_winter_11.sav.",
         "glyphColorHex": "confirmed: 2026-09-29-nation-marker-colours.md -- the report's foreground glyph colour for this nation, the first record of it.",
-        "leaderName": "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one.",
+        "leaderName": "confirmed: the nation's own leader-name pool's index-0 entry, DAT 0x2089A (16 x 12 x 26 bytes), through IC2.Data.DatLeaderPool.Parse -- docs/investigations/dat-file-layout.md, 'leader-name pool, 16 x 12 x 26 bytes'; 2026-10-03-new-game-turn-order-shuffle.md (research 871ca91) and decompiled-new-game-mercenary-fill.md pin the offset. It is the name a state carries before any New Game draw (GameStateFactory.CreateInitial, OriginalSaveImporter's fallback).",
+        "leaderNames": "confirmed: the nation's 12-candidate leader-name pool in DAT order, DAT 0x2089A, through IC2.Data.DatLeaderPool.Parse -- docs/investigations/dat-file-layout.md's read-order row and FUN_00448aa4's strcpy(record + 0x0b, leaderPool + i * 0x1a). 2026-10-03-new-game-turn-order-shuffle.md (research 871ca91) replays the pool against the saved leaders, and decompiled-new-game-mercenary-fill.md pins the offset by the loader's sequential reads (0x1FCD6 + 0xBC4 + 0x1380 + 0x988 = 0x225A2).",
         "capitalCityId": "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse.",
         "treasury": "confirmed: DAT nation record +0x40d, T30's parse.",
         "unity": "confirmed: DAT nation record +0x411, T30's parse.",
@@ -341,13 +417,27 @@
         "#000000",
         "#808080"
       ],
-      "glyphColorHex": "#008080"
+      "glyphColorHex": "#008080",
+      "leaderNames": [
+        "Jugurtha",
+        "Sulla",
+        "Abu-Simbel",
+        "Megabyzus",
+        "Sefu",
+        "Akhenaten",
+        "Almoravids",
+        "Askia",
+        "Kabarega",
+        "Idris",
+        "Mzilikazi",
+        "Msiri"
+      ]
     },
     {
       "id": "gaul",
       "name": "Gaul",
       "colorHex": "#800000",
-      "leaderName": "(unassigned -- drawn at New Game)",
+      "leaderName": "Ariovistus",
       "capitalCityId": "nimes",
       "treasury": 315,
       "unity": 577,
@@ -361,7 +451,8 @@
         "colorHex": "confirmed: 2026-09-29-nation-marker-colours.md -- the report's background-square colour for this nation (read from the user's 2026-09-29 screenshot strip, cross-checked against the pre-T94 research inspector's OwnerColor table); replaces T49's designed palette.",
         "battleColorsHex": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §10 -- FUN_0044A6C8 substitutes a battle icon's purple 0x800080, white and blue with the nation record's +0x424, +0x428 and +0x42C. The SAV holds the three words in a 12-byte block between its recruitment queue (+0x2E4..+0x424) and wealth (+0x430); the DAT has no such block (its queue +0x2C9..+0x409 runs straight into wealth), and no nation's triple occurs anywhere in the DAT's bytes, so the values are read from the +0x424/+0x428/+0x42C words of the start save 1_rome_270_winter_11.sav.",
         "glyphColorHex": "confirmed: 2026-09-29-nation-marker-colours.md -- the report's foreground glyph colour for this nation, the first record of it.",
-        "leaderName": "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one.",
+        "leaderName": "confirmed: the nation's own leader-name pool's index-0 entry, DAT 0x2089A (16 x 12 x 26 bytes), through IC2.Data.DatLeaderPool.Parse -- docs/investigations/dat-file-layout.md, 'leader-name pool, 16 x 12 x 26 bytes'; 2026-10-03-new-game-turn-order-shuffle.md (research 871ca91) and decompiled-new-game-mercenary-fill.md pin the offset. It is the name a state carries before any New Game draw (GameStateFactory.CreateInitial, OriginalSaveImporter's fallback).",
+        "leaderNames": "confirmed: the nation's 12-candidate leader-name pool in DAT order, DAT 0x2089A, through IC2.Data.DatLeaderPool.Parse -- docs/investigations/dat-file-layout.md's read-order row and FUN_00448aa4's strcpy(record + 0x0b, leaderPool + i * 0x1a). 2026-10-03-new-game-turn-order-shuffle.md (research 871ca91) replays the pool against the saved leaders, and decompiled-new-game-mercenary-fill.md pins the offset by the loader's sequential reads (0x1FCD6 + 0xBC4 + 0x1380 + 0x988 = 0x225A2).",
         "capitalCityId": "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse.",
         "treasury": "confirmed: DAT nation record +0x40d, T30's parse.",
         "unity": "confirmed: DAT nation record +0x411, T30's parse.",
@@ -376,13 +467,27 @@
         "#00FFFF",
         "#808080"
       ],
-      "glyphColorHex": "#00FFFF"
+      "glyphColorHex": "#00FFFF",
+      "leaderNames": [
+        "Ariovistus",
+        "Cassivellaunus",
+        "Cymbeline",
+        "Arminius",
+        "Caractacus",
+        "Brennus",
+        "Hengest",
+        "Odoacer",
+        "Gundebald",
+        "Aetius",
+        "Horsa",
+        "Vercingetorix"
+      ]
     },
     {
       "id": "greece",
       "name": "Greece",
       "colorHex": "#00FFFF",
-      "leaderName": "(unassigned -- drawn at New Game)",
+      "leaderName": "Agathocles",
       "capitalCityId": "athens",
       "treasury": 920,
       "unity": 532,
@@ -396,7 +501,8 @@
         "colorHex": "confirmed: 2026-09-29-nation-marker-colours.md -- the report's background-square colour for this nation (read from the user's 2026-09-29 screenshot strip, cross-checked against the pre-T94 research inspector's OwnerColor table); replaces T49's designed palette.",
         "battleColorsHex": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §10 -- FUN_0044A6C8 substitutes a battle icon's purple 0x800080, white and blue with the nation record's +0x424, +0x428 and +0x42C. The SAV holds the three words in a 12-byte block between its recruitment queue (+0x2E4..+0x424) and wealth (+0x430); the DAT has no such block (its queue +0x2C9..+0x409 runs straight into wealth), and no nation's triple occurs anywhere in the DAT's bytes, so the values are read from the +0x424/+0x428/+0x42C words of the start save 1_rome_270_winter_11.sav.",
         "glyphColorHex": "confirmed: 2026-09-29-nation-marker-colours.md -- the report's foreground glyph colour for this nation, the first record of it.",
-        "leaderName": "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one.",
+        "leaderName": "confirmed: the nation's own leader-name pool's index-0 entry, DAT 0x2089A (16 x 12 x 26 bytes), through IC2.Data.DatLeaderPool.Parse -- docs/investigations/dat-file-layout.md, 'leader-name pool, 16 x 12 x 26 bytes'; 2026-10-03-new-game-turn-order-shuffle.md (research 871ca91) and decompiled-new-game-mercenary-fill.md pin the offset. It is the name a state carries before any New Game draw (GameStateFactory.CreateInitial, OriginalSaveImporter's fallback).",
+        "leaderNames": "confirmed: the nation's 12-candidate leader-name pool in DAT order, DAT 0x2089A, through IC2.Data.DatLeaderPool.Parse -- docs/investigations/dat-file-layout.md's read-order row and FUN_00448aa4's strcpy(record + 0x0b, leaderPool + i * 0x1a). 2026-10-03-new-game-turn-order-shuffle.md (research 871ca91) replays the pool against the saved leaders, and decompiled-new-game-mercenary-fill.md pins the offset by the loader's sequential reads (0x1FCD6 + 0xBC4 + 0x1380 + 0x988 = 0x225A2).",
         "capitalCityId": "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse.",
         "treasury": "confirmed: DAT nation record +0x40d, T30's parse.",
         "unity": "confirmed: DAT nation record +0x411, T30's parse.",
@@ -411,13 +517,27 @@
         "#000000",
         "#FF00FF"
       ],
-      "glyphColorHex": "#FF00FF"
+      "glyphColorHex": "#FF00FF",
+      "leaderNames": [
+        "Agathocles",
+        "Pyrrhus",
+        "Antigonus Gonatas",
+        "Hiero",
+        "Solon",
+        "Peisistratus",
+        "Hippias",
+        "Hipparchus",
+        "Themistocles",
+        "Cimon",
+        "Pericles",
+        "Pergamus"
+      ]
     },
     {
       "id": "celtiberia",
       "name": "Celtiberia",
       "colorHex": "#FFFF00",
-      "leaderName": "(unassigned -- drawn at New Game)",
+      "leaderName": "Pisidian",
       "capitalCityId": "numantia",
       "treasury": 440,
       "unity": 713,
@@ -431,7 +551,8 @@
         "colorHex": "confirmed: 2026-09-29-nation-marker-colours.md -- the report's background-square colour for this nation (read from the user's 2026-09-29 screenshot strip, cross-checked against the pre-T94 research inspector's OwnerColor table); replaces T49's designed palette.",
         "battleColorsHex": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §10 -- FUN_0044A6C8 substitutes a battle icon's purple 0x800080, white and blue with the nation record's +0x424, +0x428 and +0x42C. The SAV holds the three words in a 12-byte block between its recruitment queue (+0x2E4..+0x424) and wealth (+0x430); the DAT has no such block (its queue +0x2C9..+0x409 runs straight into wealth), and no nation's triple occurs anywhere in the DAT's bytes, so the values are read from the +0x424/+0x428/+0x42C words of the start save 1_rome_270_winter_11.sav.",
         "glyphColorHex": "confirmed: 2026-09-29-nation-marker-colours.md -- the report's foreground glyph colour for this nation, the first record of it.",
-        "leaderName": "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one.",
+        "leaderName": "confirmed: the nation's own leader-name pool's index-0 entry, DAT 0x2089A (16 x 12 x 26 bytes), through IC2.Data.DatLeaderPool.Parse -- docs/investigations/dat-file-layout.md, 'leader-name pool, 16 x 12 x 26 bytes'; 2026-10-03-new-game-turn-order-shuffle.md (research 871ca91) and decompiled-new-game-mercenary-fill.md pin the offset. It is the name a state carries before any New Game draw (GameStateFactory.CreateInitial, OriginalSaveImporter's fallback).",
+        "leaderNames": "confirmed: the nation's 12-candidate leader-name pool in DAT order, DAT 0x2089A, through IC2.Data.DatLeaderPool.Parse -- docs/investigations/dat-file-layout.md's read-order row and FUN_00448aa4's strcpy(record + 0x0b, leaderPool + i * 0x1a). 2026-10-03-new-game-turn-order-shuffle.md (research 871ca91) replays the pool against the saved leaders, and decompiled-new-game-mercenary-fill.md pins the offset by the loader's sequential reads (0x1FCD6 + 0xBC4 + 0x1380 + 0x988 = 0x225A2).",
         "capitalCityId": "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse.",
         "treasury": "confirmed: DAT nation record +0x40d, T30's parse.",
         "unity": "confirmed: DAT nation record +0x411, T30's parse.",
@@ -446,13 +567,27 @@
         "#000000",
         "#FF0000"
       ],
-      "glyphColorHex": "#FF0000"
+      "glyphColorHex": "#FF0000",
+      "leaderNames": [
+        "Pisidian",
+        "Gelo",
+        "Ecgfrith",
+        "Aedan",
+        "Talorcan",
+        "Eanfrith",
+        "Bruidemac",
+        "Alcuin",
+        "Octavian",
+        "Sergius",
+        "Lucius",
+        "Claudius"
+      ]
     },
     {
       "id": "illyria",
       "name": "Illyria",
       "colorHex": "#000080",
-      "leaderName": "(unassigned -- drawn at New Game)",
+      "leaderName": "Xanthippus",
       "capitalCityId": "scodra",
       "treasury": 580,
       "unity": 690,
@@ -466,7 +601,8 @@
         "colorHex": "confirmed: 2026-09-29-nation-marker-colours.md -- the report's background-square colour for this nation (read from the user's 2026-09-29 screenshot strip, cross-checked against the pre-T94 research inspector's OwnerColor table); replaces T49's designed palette.",
         "battleColorsHex": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §10 -- FUN_0044A6C8 substitutes a battle icon's purple 0x800080, white and blue with the nation record's +0x424, +0x428 and +0x42C. The SAV holds the three words in a 12-byte block between its recruitment queue (+0x2E4..+0x424) and wealth (+0x430); the DAT has no such block (its queue +0x2C9..+0x409 runs straight into wealth), and no nation's triple occurs anywhere in the DAT's bytes, so the values are read from the +0x424/+0x428/+0x42C words of the start save 1_rome_270_winter_11.sav.",
         "glyphColorHex": "confirmed: 2026-09-29-nation-marker-colours.md -- the report's foreground glyph colour for this nation, the first record of it.",
-        "leaderName": "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one.",
+        "leaderName": "confirmed: the nation's own leader-name pool's index-0 entry, DAT 0x2089A (16 x 12 x 26 bytes), through IC2.Data.DatLeaderPool.Parse -- docs/investigations/dat-file-layout.md, 'leader-name pool, 16 x 12 x 26 bytes'; 2026-10-03-new-game-turn-order-shuffle.md (research 871ca91) and decompiled-new-game-mercenary-fill.md pin the offset. It is the name a state carries before any New Game draw (GameStateFactory.CreateInitial, OriginalSaveImporter's fallback).",
+        "leaderNames": "confirmed: the nation's 12-candidate leader-name pool in DAT order, DAT 0x2089A, through IC2.Data.DatLeaderPool.Parse -- docs/investigations/dat-file-layout.md's read-order row and FUN_00448aa4's strcpy(record + 0x0b, leaderPool + i * 0x1a). 2026-10-03-new-game-turn-order-shuffle.md (research 871ca91) replays the pool against the saved leaders, and decompiled-new-game-mercenary-fill.md pins the offset by the loader's sequential reads (0x1FCD6 + 0xBC4 + 0x1380 + 0x988 = 0x225A2).",
         "capitalCityId": "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse.",
         "treasury": "confirmed: DAT nation record +0x40d, T30's parse.",
         "unity": "confirmed: DAT nation record +0x411, T30's parse.",
@@ -481,13 +617,27 @@
         "#808000",
         "#00FFFF"
       ],
-      "glyphColorHex": "#808000"
+      "glyphColorHex": "#808000",
+      "leaderNames": [
+        "Xanthippus",
+        "Agis",
+        "Cleomenes",
+        "Kallinos",
+        "Milo",
+        "Protagoras",
+        "Pausanias",
+        "Epaminondas",
+        "Lysander",
+        "Agesilaus",
+        "Pytheas",
+        "Philemon"
+      ]
     },
     {
       "id": "dacia",
       "name": "Dacia",
       "colorHex": "#008000",
-      "leaderName": "(unassigned -- drawn at New Game)",
+      "leaderName": "Cecrops",
       "capitalCityId": "sirmium",
       "treasury": 180,
       "unity": 607,
@@ -501,7 +651,8 @@
         "colorHex": "confirmed: 2026-09-29-nation-marker-colours.md -- the report's background-square colour for this nation (read from the user's 2026-09-29 screenshot strip, cross-checked against the pre-T94 research inspector's OwnerColor table); replaces T49's designed palette.",
         "battleColorsHex": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §10 -- FUN_0044A6C8 substitutes a battle icon's purple 0x800080, white and blue with the nation record's +0x424, +0x428 and +0x42C. The SAV holds the three words in a 12-byte block between its recruitment queue (+0x2E4..+0x424) and wealth (+0x430); the DAT has no such block (its queue +0x2C9..+0x409 runs straight into wealth), and no nation's triple occurs anywhere in the DAT's bytes, so the values are read from the +0x424/+0x428/+0x42C words of the start save 1_rome_270_winter_11.sav.",
         "glyphColorHex": "confirmed: 2026-09-29-nation-marker-colours.md -- the report's foreground glyph colour for this nation, the first record of it.",
-        "leaderName": "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one.",
+        "leaderName": "confirmed: the nation's own leader-name pool's index-0 entry, DAT 0x2089A (16 x 12 x 26 bytes), through IC2.Data.DatLeaderPool.Parse -- docs/investigations/dat-file-layout.md, 'leader-name pool, 16 x 12 x 26 bytes'; 2026-10-03-new-game-turn-order-shuffle.md (research 871ca91) and decompiled-new-game-mercenary-fill.md pin the offset. It is the name a state carries before any New Game draw (GameStateFactory.CreateInitial, OriginalSaveImporter's fallback).",
+        "leaderNames": "confirmed: the nation's 12-candidate leader-name pool in DAT order, DAT 0x2089A, through IC2.Data.DatLeaderPool.Parse -- docs/investigations/dat-file-layout.md's read-order row and FUN_00448aa4's strcpy(record + 0x0b, leaderPool + i * 0x1a). 2026-10-03-new-game-turn-order-shuffle.md (research 871ca91) replays the pool against the saved leaders, and decompiled-new-game-mercenary-fill.md pins the offset by the loader's sequential reads (0x1FCD6 + 0xBC4 + 0x1380 + 0x988 = 0x225A2).",
         "capitalCityId": "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse.",
         "treasury": "confirmed: DAT nation record +0x40d, T30's parse.",
         "unity": "confirmed: DAT nation record +0x411, T30's parse.",
@@ -516,13 +667,27 @@
         "#000000",
         "#FFFF00"
       ],
-      "glyphColorHex": "#FFFF00"
+      "glyphColorHex": "#FFFF00",
+      "leaderNames": [
+        "Cecrops",
+        "Pindar",
+        "Stilicho",
+        "Theodoric",
+        "Gaiseric",
+        "Childeric",
+        "Euric",
+        "Clovis",
+        "Hunneric",
+        "Vortigern",
+        "Theuderich",
+        "Theudebert"
+      ]
     },
     {
       "id": "bithynia",
       "name": "Bithynia",
       "colorHex": "#008080",
-      "leaderName": "(unassigned -- drawn at New Game)",
+      "leaderName": "Eumenes",
       "capitalCityId": "sinope",
       "treasury": 550,
       "unity": 654,
@@ -536,7 +701,8 @@
         "colorHex": "confirmed: 2026-09-29-nation-marker-colours.md -- the report's background-square colour for this nation (read from the user's 2026-09-29 screenshot strip, cross-checked against the pre-T94 research inspector's OwnerColor table); replaces T49's designed palette.",
         "battleColorsHex": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §10 -- FUN_0044A6C8 substitutes a battle icon's purple 0x800080, white and blue with the nation record's +0x424, +0x428 and +0x42C. The SAV holds the three words in a 12-byte block between its recruitment queue (+0x2E4..+0x424) and wealth (+0x430); the DAT has no such block (its queue +0x2C9..+0x409 runs straight into wealth), and no nation's triple occurs anywhere in the DAT's bytes, so the values are read from the +0x424/+0x428/+0x42C words of the start save 1_rome_270_winter_11.sav.",
         "glyphColorHex": "confirmed: 2026-09-29-nation-marker-colours.md -- the report's foreground glyph colour for this nation, the first record of it.",
-        "leaderName": "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one.",
+        "leaderName": "confirmed: the nation's own leader-name pool's index-0 entry, DAT 0x2089A (16 x 12 x 26 bytes), through IC2.Data.DatLeaderPool.Parse -- docs/investigations/dat-file-layout.md, 'leader-name pool, 16 x 12 x 26 bytes'; 2026-10-03-new-game-turn-order-shuffle.md (research 871ca91) and decompiled-new-game-mercenary-fill.md pin the offset. It is the name a state carries before any New Game draw (GameStateFactory.CreateInitial, OriginalSaveImporter's fallback).",
+        "leaderNames": "confirmed: the nation's 12-candidate leader-name pool in DAT order, DAT 0x2089A, through IC2.Data.DatLeaderPool.Parse -- docs/investigations/dat-file-layout.md's read-order row and FUN_00448aa4's strcpy(record + 0x0b, leaderPool + i * 0x1a). 2026-10-03-new-game-turn-order-shuffle.md (research 871ca91) replays the pool against the saved leaders, and decompiled-new-game-mercenary-fill.md pins the offset by the loader's sequential reads (0x1FCD6 + 0xBC4 + 0x1380 + 0x988 = 0x225A2).",
         "capitalCityId": "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse.",
         "treasury": "confirmed: DAT nation record +0x40d, T30's parse.",
         "unity": "confirmed: DAT nation record +0x411, T30's parse.",
@@ -551,13 +717,27 @@
         "#000000",
         "#0000FF"
       ],
-      "glyphColorHex": "#0000FF"
+      "glyphColorHex": "#0000FF",
+      "leaderNames": [
+        "Eumenes",
+        "Anaximander",
+        "Stesichorus",
+        "Histaeus",
+        "Aristagoras",
+        "Anaxagoras",
+        "Hippodamus",
+        "Alcibiades",
+        "Pelopidas",
+        "Diogenes",
+        "Pharnaces",
+        "Prusus"
+      ]
     },
     {
       "id": "galatia",
       "name": "Galatia",
       "colorHex": "#0000FF",
-      "leaderName": "(unassigned -- drawn at New Game)",
+      "leaderName": "Croesus",
       "capitalCityId": "ancyra",
       "treasury": 440,
       "unity": 728,
@@ -571,7 +751,8 @@
         "colorHex": "confirmed: 2026-09-29-nation-marker-colours.md -- the report's background-square colour for this nation (read from the user's 2026-09-29 screenshot strip, cross-checked against the pre-T94 research inspector's OwnerColor table); replaces T49's designed palette.",
         "battleColorsHex": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §10 -- FUN_0044A6C8 substitutes a battle icon's purple 0x800080, white and blue with the nation record's +0x424, +0x428 and +0x42C. The SAV holds the three words in a 12-byte block between its recruitment queue (+0x2E4..+0x424) and wealth (+0x430); the DAT has no such block (its queue +0x2C9..+0x409 runs straight into wealth), and no nation's triple occurs anywhere in the DAT's bytes, so the values are read from the +0x424/+0x428/+0x42C words of the start save 1_rome_270_winter_11.sav.",
         "glyphColorHex": "confirmed: 2026-09-29-nation-marker-colours.md -- the report's foreground glyph colour for this nation, the first record of it.",
-        "leaderName": "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one.",
+        "leaderName": "confirmed: the nation's own leader-name pool's index-0 entry, DAT 0x2089A (16 x 12 x 26 bytes), through IC2.Data.DatLeaderPool.Parse -- docs/investigations/dat-file-layout.md, 'leader-name pool, 16 x 12 x 26 bytes'; 2026-10-03-new-game-turn-order-shuffle.md (research 871ca91) and decompiled-new-game-mercenary-fill.md pin the offset. It is the name a state carries before any New Game draw (GameStateFactory.CreateInitial, OriginalSaveImporter's fallback).",
+        "leaderNames": "confirmed: the nation's 12-candidate leader-name pool in DAT order, DAT 0x2089A, through IC2.Data.DatLeaderPool.Parse -- docs/investigations/dat-file-layout.md's read-order row and FUN_00448aa4's strcpy(record + 0x0b, leaderPool + i * 0x1a). 2026-10-03-new-game-turn-order-shuffle.md (research 871ca91) replays the pool against the saved leaders, and decompiled-new-game-mercenary-fill.md pins the offset by the loader's sequential reads (0x1FCD6 + 0xBC4 + 0x1380 + 0x988 = 0x225A2).",
         "capitalCityId": "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse.",
         "treasury": "confirmed: DAT nation record +0x40d, T30's parse.",
         "unity": "confirmed: DAT nation record +0x411, T30's parse.",
@@ -586,13 +767,27 @@
         "#000000",
         "#00FFFF"
       ],
-      "glyphColorHex": "#00FFFF"
+      "glyphColorHex": "#00FFFF",
+      "leaderNames": [
+        "Croesus",
+        "Herostratus",
+        "Ariarathes",
+        "Alaric",
+        "Gunderic",
+        "Gunthemunde",
+        "Thrasamunde",
+        "Chlodomer",
+        "Chlothar",
+        "Mopsus",
+        "Androcles",
+        "Nicomede"
+      ]
     },
     {
       "id": "armenia",
       "name": "Armenia",
       "colorHex": "#FF00FF",
-      "leaderName": "(unassigned -- drawn at New Game)",
+      "leaderName": "Kikkuli",
       "capitalCityId": "erivan",
       "treasury": 530,
       "unity": 660,
@@ -606,7 +801,8 @@
         "colorHex": "confirmed: 2026-09-29-nation-marker-colours.md -- the report's background-square colour for this nation (read from the user's 2026-09-29 screenshot strip, cross-checked against the pre-T94 research inspector's OwnerColor table); replaces T49's designed palette.",
         "battleColorsHex": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §10 -- FUN_0044A6C8 substitutes a battle icon's purple 0x800080, white and blue with the nation record's +0x424, +0x428 and +0x42C. The SAV holds the three words in a 12-byte block between its recruitment queue (+0x2E4..+0x424) and wealth (+0x430); the DAT has no such block (its queue +0x2C9..+0x409 runs straight into wealth), and no nation's triple occurs anywhere in the DAT's bytes, so the values are read from the +0x424/+0x428/+0x42C words of the start save 1_rome_270_winter_11.sav.",
         "glyphColorHex": "confirmed: 2026-09-29-nation-marker-colours.md -- the report's foreground glyph colour for this nation, the first record of it.",
-        "leaderName": "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one.",
+        "leaderName": "confirmed: the nation's own leader-name pool's index-0 entry, DAT 0x2089A (16 x 12 x 26 bytes), through IC2.Data.DatLeaderPool.Parse -- docs/investigations/dat-file-layout.md, 'leader-name pool, 16 x 12 x 26 bytes'; 2026-10-03-new-game-turn-order-shuffle.md (research 871ca91) and decompiled-new-game-mercenary-fill.md pin the offset. It is the name a state carries before any New Game draw (GameStateFactory.CreateInitial, OriginalSaveImporter's fallback).",
+        "leaderNames": "confirmed: the nation's 12-candidate leader-name pool in DAT order, DAT 0x2089A, through IC2.Data.DatLeaderPool.Parse -- docs/investigations/dat-file-layout.md's read-order row and FUN_00448aa4's strcpy(record + 0x0b, leaderPool + i * 0x1a). 2026-10-03-new-game-turn-order-shuffle.md (research 871ca91) replays the pool against the saved leaders, and decompiled-new-game-mercenary-fill.md pins the offset by the loader's sequential reads (0x1FCD6 + 0xBC4 + 0x1380 + 0x988 = 0x225A2).",
         "capitalCityId": "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse.",
         "treasury": "confirmed: DAT nation record +0x40d, T30's parse.",
         "unity": "confirmed: DAT nation record +0x411, T30's parse.",
@@ -621,13 +817,27 @@
         "#000000",
         "#FF0000"
       ],
-      "glyphColorHex": "#FF0000"
+      "glyphColorHex": "#FF0000",
+      "leaderNames": [
+        "Kikkuli",
+        "Adadnirari",
+        "Assurnasirpal",
+        "Mesa",
+        "Nabopolassar",
+        "Pheidon",
+        "Diodotos",
+        "Simon",
+        "Phraates",
+        "Ardashir",
+        "Triopas",
+        "Lugalzaggisi"
+      ]
     },
     {
       "id": "media",
       "name": "Media",
       "colorHex": "#FF0000",
-      "leaderName": "(unassigned -- drawn at New Game)",
+      "leaderName": "Arsaces",
       "capitalCityId": "ecbatana",
       "treasury": 760,
       "unity": 682,
@@ -641,7 +851,8 @@
         "colorHex": "confirmed: 2026-09-29-nation-marker-colours.md -- the report's background-square colour for this nation (read from the user's 2026-09-29 screenshot strip, cross-checked against the pre-T94 research inspector's OwnerColor table); replaces T49's designed palette.",
         "battleColorsHex": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §10 -- FUN_0044A6C8 substitutes a battle icon's purple 0x800080, white and blue with the nation record's +0x424, +0x428 and +0x42C. The SAV holds the three words in a 12-byte block between its recruitment queue (+0x2E4..+0x424) and wealth (+0x430); the DAT has no such block (its queue +0x2C9..+0x409 runs straight into wealth), and no nation's triple occurs anywhere in the DAT's bytes, so the values are read from the +0x424/+0x428/+0x42C words of the start save 1_rome_270_winter_11.sav.",
         "glyphColorHex": "confirmed: 2026-09-29-nation-marker-colours.md -- the report's foreground glyph colour for this nation, the first record of it.",
-        "leaderName": "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one.",
+        "leaderName": "confirmed: the nation's own leader-name pool's index-0 entry, DAT 0x2089A (16 x 12 x 26 bytes), through IC2.Data.DatLeaderPool.Parse -- docs/investigations/dat-file-layout.md, 'leader-name pool, 16 x 12 x 26 bytes'; 2026-10-03-new-game-turn-order-shuffle.md (research 871ca91) and decompiled-new-game-mercenary-fill.md pin the offset. It is the name a state carries before any New Game draw (GameStateFactory.CreateInitial, OriginalSaveImporter's fallback).",
+        "leaderNames": "confirmed: the nation's 12-candidate leader-name pool in DAT order, DAT 0x2089A, through IC2.Data.DatLeaderPool.Parse -- docs/investigations/dat-file-layout.md's read-order row and FUN_00448aa4's strcpy(record + 0x0b, leaderPool + i * 0x1a). 2026-10-03-new-game-turn-order-shuffle.md (research 871ca91) replays the pool against the saved leaders, and decompiled-new-game-mercenary-fill.md pins the offset by the loader's sequential reads (0x1FCD6 + 0xBC4 + 0x1380 + 0x988 = 0x225A2).",
         "capitalCityId": "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse.",
         "treasury": "confirmed: DAT nation record +0x40d, T30's parse.",
         "unity": "confirmed: DAT nation record +0x411, T30's parse.",
@@ -656,13 +867,27 @@
         "#C0C0C0",
         "#800080"
       ],
-      "glyphColorHex": "#800080"
+      "glyphColorHex": "#800080",
+      "leaderNames": [
+        "Arsaces",
+        "Mithridates",
+        "Ctesiphon",
+        "Mis-anni-padda",
+        "Mes-kalam-dug",
+        "Samsuiluna",
+        "Nebuchadnezzar",
+        "Hatshepsut",
+        "Samuramat",
+        "Cyrus",
+        "Xerxes",
+        "Artaxerxes"
+      ]
     },
     {
       "id": "thracia",
       "name": "Thracia",
       "colorHex": "#808080",
-      "leaderName": "(unassigned -- drawn at New Game)",
+      "leaderName": "Lysimachus",
       "capitalCityId": "byzantium",
       "treasury": 520,
       "unity": 703,
@@ -676,7 +901,8 @@
         "colorHex": "confirmed: 2026-09-29-nation-marker-colours.md -- the report's background-square colour for this nation (read from the user's 2026-09-29 screenshot strip, cross-checked against the pre-T94 research inspector's OwnerColor table); replaces T49's designed palette.",
         "battleColorsHex": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §10 -- FUN_0044A6C8 substitutes a battle icon's purple 0x800080, white and blue with the nation record's +0x424, +0x428 and +0x42C. The SAV holds the three words in a 12-byte block between its recruitment queue (+0x2E4..+0x424) and wealth (+0x430); the DAT has no such block (its queue +0x2C9..+0x409 runs straight into wealth), and no nation's triple occurs anywhere in the DAT's bytes, so the values are read from the +0x424/+0x428/+0x42C words of the start save 1_rome_270_winter_11.sav.",
         "glyphColorHex": "confirmed: 2026-09-29-nation-marker-colours.md -- the report's foreground glyph colour for this nation, the first record of it.",
-        "leaderName": "designed: not in the DAT. TPremierForm_NewGame's FUN_00448aa4 draws a leader at New Game from a 12-candidate-per-nation pool at DAT 0x2089A -- docs/investigations/dat-file-layout.md. This placeholder carries no DAT provenance; DoD 2 asserts no leader string in this export claims one.",
+        "leaderName": "confirmed: the nation's own leader-name pool's index-0 entry, DAT 0x2089A (16 x 12 x 26 bytes), through IC2.Data.DatLeaderPool.Parse -- docs/investigations/dat-file-layout.md, 'leader-name pool, 16 x 12 x 26 bytes'; 2026-10-03-new-game-turn-order-shuffle.md (research 871ca91) and decompiled-new-game-mercenary-fill.md pin the offset. It is the name a state carries before any New Game draw (GameStateFactory.CreateInitial, OriginalSaveImporter's fallback).",
+        "leaderNames": "confirmed: the nation's 12-candidate leader-name pool in DAT order, DAT 0x2089A, through IC2.Data.DatLeaderPool.Parse -- docs/investigations/dat-file-layout.md's read-order row and FUN_00448aa4's strcpy(record + 0x0b, leaderPool + i * 0x1a). 2026-10-03-new-game-turn-order-shuffle.md (research 871ca91) replays the pool against the saved leaders, and decompiled-new-game-mercenary-fill.md pins the offset by the loader's sequential reads (0x1FCD6 + 0xBC4 + 0x1380 + 0x988 = 0x225A2).",
         "capitalCityId": "confirmed: DAT nation record capital-city-index field (+0x415), T30's parse.",
         "treasury": "confirmed: DAT nation record +0x40d, T30's parse.",
         "unity": "confirmed: DAT nation record +0x411, T30's parse.",
@@ -691,7 +917,21 @@
         "#FFFFFF",
         "#000000"
       ],
-      "glyphColorHex": "#000000"
+      "glyphColorHex": "#000000",
+      "leaderNames": [
+        "Lysimachus",
+        "Medon",
+        "Atreus",
+        "Hesiod",
+        "Candaules",
+        "Gyges",
+        "Anacreon",
+        "Miltiades",
+        "Xenophon",
+        "Nearchus",
+        "Alkelas",
+        "Attalus"
+      ]
     }
   ],
   "cities": [
