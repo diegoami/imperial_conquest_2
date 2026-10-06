@@ -194,17 +194,38 @@ public partial class GameMapView : Control
             return;
         }
 
-        if (!_userAdjustedView)
+        if (!_fittedOnce)
         {
-            // T147 (bug #781 point 1): the fit is redone on every resize until the player zooms or pans.
-            // The old "fit once" left the 1500x850 start size's fit in place when the window was
-            // maximised to 2560x1351.
+            // The first real layout: the control was (0,0) when Attach ran.
             FitToView();
             _fittedOnce = true;
         }
+        else if (_zoom < MinimumZoom())
+        {
+            // T147 (bug #781 point 1): the new rect is no longer covered at the current zoom (the
+            // 1500x850 start size maximised to 2560x1351 is the user's case). The fit is redone until the
+            // player zooms or pans; after that, the view centre is kept.
+            if (_userAdjustedView)
+            {
+                KeepViewCentreAcrossResize();
+            }
+            else
+            {
+                FitToView();
+            }
+        }
+        else if (_userAdjustedView)
+        {
+            // The player has zoomed or panned and the current zoom still covers the new rect: keep the
+            // tile under the centre, so a resize never scrolls the view the player set up.
+            KeepViewCentreAcrossResize();
+        }
         else
         {
-            KeepViewCentreAcrossResize();
+            // A sibling's layout changed this control's rect (the side panel/column toggling, the news
+            // log) but the current zoom is still big enough to cover it. T132 protects the side-panel
+            // toggle's exact zoom and pan (godot/Checks/SidePanelToggleCheck.cs), so nothing about the
+            // view moves here; NotifyViewChanged below still tells the mini-map its rect changed.
         }
 
         _lastSize = Size;
@@ -346,8 +367,10 @@ public partial class GameMapView : Control
         }
 
         var tileSize = BaseTileSize * _zoom;
+        // An explicit re-centre (the Area map's click, Find a city) wins over the no-background clamp:
+        // the covered fit has no overflow on the tighter axis, so clamping would stop the map centring
+        // on the requested tile at all (T147, Done-when 5's AreaMapCheck/NationsAreaMapCheck).
         _pan = (Size / 2f) - (new Vector2(x + 0.5f, y + 0.5f) * tileSize);
-        ClampPanToView();
         NotifyViewChanged();
     }
 
