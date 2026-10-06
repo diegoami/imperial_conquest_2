@@ -313,6 +313,40 @@ public sealed class RebirthTests
         Assert.Equal(0, afterB.NationById("dead-b")!.Unity);
     }
 
+    /// <summary>
+    /// Review R5: <see cref="Rebellion.Run"/>'s own branch (a) is the hand-off that passes the reborn
+    /// nation's pool to <see cref="Rebirth.Run"/>; the direct <see cref="Rebirth.Run"/> tests above never
+    /// exercise it (passing <see langword="null"/> in its place left the suite green). A pool in the
+    /// world makes the reborn nation's leader the entry this one draw selects.
+    /// </summary>
+    [Fact]
+    public void Rebellion_passes_the_reborn_nations_pool_so_its_one_draw_writes_that_entry()
+    {
+        var dead = CaptureTestbed.Nation("dead-a", unity: 0, eliminated: true);
+        var owner = CaptureTestbed.Nation("owner", unity: 600);
+        var cities = Enumerable.Range(0, 8).Select(i => QualifyingCity($"a{i}", "owner", "dead-a")).ToList();
+        var state = EliminationForcesTestbed.StateWith(new[] { dead, owner }, cities);
+
+        var pool = ValueList.Of(Enumerable.Range(0, 12).Select(i => $"leader-{i}").ToArray());
+        // Rebellion reads the dead nation's pool from the world, so the world must carry "dead-a" (the
+        // toy world has only north/south) -- appended with the pool and no capital so its own geography
+        // fallback is never reached in branch (a).
+        var world = EconomyTestbed.Toy.World with
+        {
+            Nations = ValueList.From(EconomyTestbed.Toy.World.Nations.Append(
+                EconomyTestbed.Toy.World.Nations[0] with
+                {
+                    Id = "dead-a", Name = "Dead A", LeaderName = pool[0], LeaderNames = pool, CapitalCityId = null,
+                })),
+        };
+
+        var rng = new ScriptedRng(nextIntDraws: new[] { 5 }, expectedNextIntBounds: new[] { 12 });
+        var after = Rebellion.Run(state, world, Ruleset, cities[0], NullEventSink.Instance, rng);
+
+        rng.AssertAllDrawsConsumed();
+        Assert.Equal(pool[5], after.NationById("dead-a")!.LeaderName);
+    }
+
     // ---------------------------------------------------------------------------------------------
     // No armies or fleets added; T84's own deletions stay deleted.
     // ---------------------------------------------------------------------------------------------

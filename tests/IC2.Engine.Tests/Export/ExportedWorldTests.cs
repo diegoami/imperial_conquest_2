@@ -83,6 +83,9 @@ public class ExportedWorldTests
             var leaderSource = nation.Provenance?.SourceFor("leaderName");
             Assert.False(string.IsNullOrEmpty(leaderSource), $"Nation '{nation.Id}' has no leaderName provenance.");
             Assert.Contains("0x2089A", leaderSource, StringComparison.Ordinal);
+            // Review R6: the index-0 pre-draw convention is not in any cited source, so the note is
+            // tagged [designed] (the name's text stays DAT-confirmed at the offset above).
+            Assert.StartsWith("designed:", leaderSource, StringComparison.Ordinal);
 
             var poolSource = nation.Provenance?.SourceFor("leaderNames");
             Assert.False(string.IsNullOrEmpty(poolSource), $"Nation '{nation.Id}' has no leaderNames provenance.");

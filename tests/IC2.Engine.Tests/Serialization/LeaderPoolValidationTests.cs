@@ -40,32 +40,46 @@ public class LeaderPoolValidationTests
     [Fact]
     public void Eleven_names_fails_naming_the_nation()
     {
-        var names = ValueList.Of(Enumerable.Range(0, 11).Select(i => $"pool-name-{i}").ToArray());
+        // The nation's own leaderName is inside the 11, so the count check is the only one that can
+        // fire -- otherwise the leaderName-membership check below would mask it (review R3).
+        var leader = ToyWorld().NationById("north")!.LeaderName;
+        var names = ValueList.Of(
+            new[] { leader }.Concat(Enumerable.Range(0, 10).Select(i => $"pool-name-{i}")).ToArray());
 
         var ex = Assert.Throws<MalformedGameDataException>(() =>
             GameDataValidation.Validate(DocumentPath, WithNorthPool(names)));
         Assert.Contains("north", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("has 11 leaderNames", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
     public void An_empty_name_fails_naming_the_nation()
     {
-        var names = TwelveDistinct();
+        // Twelve names including the leader, so the count, distinct and membership checks all pass and
+        // only the empty-name check can fire (review R3).
+        var leader = ToyWorld().NationById("north")!.LeaderName;
+        var names = ValueList.Of(
+            new[] { leader }.Concat(Enumerable.Range(0, 11).Select(i => $"pool-name-{i}")).ToArray());
         var withEmpty = ValueList.Of(names.Select((n, i) => i == 3 ? "" : n).ToArray());
 
         var ex = Assert.Throws<MalformedGameDataException>(() =>
             GameDataValidation.Validate(DocumentPath, WithNorthPool(withEmpty)));
         Assert.Contains("north", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("empty leader name at index 3", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
     public void Twelve_identical_names_fails_naming_the_nation()
     {
-        var names = ValueList.Of(Enumerable.Repeat("same", 12).ToArray());
+        // All twelve are the nation's own leaderName, so the membership check passes and only the
+        // distinctness check can fire (review R3).
+        var leader = ToyWorld().NationById("north")!.LeaderName;
+        var names = ValueList.Of(Enumerable.Repeat(leader, 12).ToArray());
 
         var ex = Assert.Throws<MalformedGameDataException>(() =>
             GameDataValidation.Validate(DocumentPath, WithNorthPool(names)));
         Assert.Contains("north", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("identical leader names", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]

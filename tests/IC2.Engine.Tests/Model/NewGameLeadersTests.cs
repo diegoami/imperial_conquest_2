@@ -1,3 +1,4 @@
+using IC2.Engine.Ai;
 using IC2.Engine.Model;
 using IC2.Engine.Persistence;
 using IC2.Engine.Presentation;
@@ -98,6 +99,28 @@ public sealed class NewGameLeadersTests
             second.State.Nations.Select(n => n.LeaderName).ToArray());
     }
 
+    /// <summary>
+    /// Review R5: <see cref="AiGameRunner"/> is one of the two places a game starts, so it must make the
+    /// New Game draw from its own seed -- the call site had no test, and removing it left the suite green.
+    /// </summary>
+    [Fact]
+    public void AiGameRunner_draws_the_New_Game_leaders_from_its_seed()
+    {
+        var (world, ruleset, scenario) = Classical();
+        const ulong seed = 12345;
+
+        var expected = NewGameLeaders.Apply(
+            GameStateFactory.CreateInitial(world, ruleset, scenario) with { RandomSeed = seed }, world);
+
+        var result = AiGameRunner.Run(world, ruleset, scenario, seed, turnCap: 1);
+
+        Assert.Equal(16, world.Nations.Count);
+        for (var i = 0; i < world.Nations.Count; i++)
+        {
+            Assert.Equal(expected.Nations[i].LeaderName, result.FinalState.Nations[i].LeaderName);
+        }
+    }
+
     [Fact]
     public void A_save_and_resume_keeps_the_leaders_and_draws_nothing()
     {
@@ -105,11 +128,31 @@ public sealed class NewGameLeadersTests
         var session = new GameSession(world, ruleset, scenario, seedOverride: 12345);
         var leaders = session.State.Nations.Select(n => n.LeaderName).ToArray();
 
+        // Review R4: set every saved leader one pool entry past the seed's own draw, so a resume that
+        // (wrongly) redrew would produce the draw's name again and fail the assertion below -- with the
+        // seed's own leaders the redraw is invisible.
+        var altered = session.State with
+        {
+            Nations = ValueList.From(session.State.Nations.Select(n =>
+            {
+                var pool = world.NationById(n.Id)!.LeaderNames!;
+                var index = 0;
+                while (index < pool.Count && pool[index] != n.LeaderName)
+                {
+                    index++;
+                }
+
+                return n with { LeaderName = pool[(index + 1) % pool.Count] };
+            })),
+        };
+        var alteredLeaders = altered.Nations.Select(n => n.LeaderName).ToArray();
+        Assert.NotEqual(leaders, alteredLeaders);
+
         var save = new SaveGame(
-            GameDataSchema.CurrentVersion, "t146-save", "T146", scenario.Id, world.Id, ruleset.Id, session.State);
+            GameDataSchema.CurrentVersion, "t146-save", "T146", scenario.Id, world.Id, ruleset.Id, altered);
         var loaded = SaveManager.Load("t146-save.json", SaveManager.Serialize(save), world, ruleset);
         var resumed = new GameSession(world, ruleset, scenario, loaded);
 
-        Assert.Equal(leaders, resumed.State.Nations.Select(n => n.LeaderName).ToArray());
+        Assert.Equal(alteredLeaders, resumed.State.Nations.Select(n => n.LeaderName).ToArray());
     }
 }

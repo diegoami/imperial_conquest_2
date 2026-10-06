@@ -83,13 +83,21 @@ public sealed class AiDepositionHandlerTests
     [Fact]
     public void A_deposed_computer_nation_redraws_from_its_pool_and_the_event_carries_the_old_leader()
     {
-        var pool = Pool();
         var state = WithSouth(treasury: -21_000, unity: 470, wealth: 0) with { RandomSeed = 7 };
         var before = state.NationById("south")!;
         var sink = new RecordingEventSink();
         var rng = new ScriptedRng(
             nextChanceDraws: new[] { true },
             expectedNextChanceOdds: new[] { (1, EconomyTestbed.Ruleset.Economy.DepositionRandomDivisor) });
+
+        // Review N4: put the old leader at the index the deposition stream's own first draw would
+        // select, so the "differs from the old one" assertion is only true because of the retry loop --
+        // with an old leader outside the pool it held regardless.
+        var probe = LeaderSuccession.DepositionStream(state.RandomSeed, "south", state.Calendar);
+        var firstIndex = probe.NextInt(12);
+        var pool = ValueList.Of(Enumerable.Range(0, 12)
+            .Select(i => i == firstIndex ? before.LeaderName : $"leader-{i}")
+            .ToArray());
 
         var after = new AiDepositionHandler().OnQuarterBoundary(
             new QuarterBoundaryContext(state, EconomyTestbed.Ruleset, SouthPoolWorld(pool), 0, rng, sink));

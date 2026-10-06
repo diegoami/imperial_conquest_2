@@ -177,9 +177,10 @@ public sealed class LeaderSuccessionTests
     {
         var toy = CoreTestbed.Toy;
         var ruleset = toy.Ruleset;
+        const ulong seed = 12345;
 
-        var leader = toy.World.NationById("north")!.LeaderName;
-        var names = ValueList.Of(new[] { leader }.Concat(Enumerable.Range(0, 11).Select(i => $"leader-{i}")).ToArray());
+        var oldLeader = toy.World.NationById("north")!.LeaderName;
+        var names = ValueList.Of(new[] { oldLeader }.Concat(Enumerable.Range(0, 11).Select(i => $"leader-{i}")).ToArray());
         var unity = ruleset.Economy.DebtUnityThreshold - 50;
 
         var world = toy.World with
@@ -193,14 +194,26 @@ public sealed class LeaderSuccessionTests
                 n.Id == "north" ? n with { LeaderNames = null } : n)),
         };
 
-        var session = new GameSession(world, ruleset, toy.Scenario);
+        // Review N6/R2: the session's New Game draw is deterministic in the seed, so the pre-fall leader
+        // is computed here, never assumed to be the toy world's own (which held only by a draw of 0).
+        var initial = GameStateFactory.CreateInitial(world, ruleset, toy.Scenario) with { RandomSeed = seed };
+        var preFall = NewGameLeaders.Apply(initial, world).NationById("north")!.LeaderName;
+
+        var session = new GameSession(world, ruleset, toy.Scenario, seedOverride: seed);
         var output = session.Submit("status");
 
         var fall = Assert.Single(output.SeatFalls);
         Assert.Equal("north", fall.NationId);
-        Assert.Equal(leader, fall.LeaderName); // the window's pre-fall leader
-        var redrawn = session.State.NationById("north")!.LeaderName;
-        Assert.Contains(redrawn, names);
+        Assert.Equal(preFall, fall.LeaderName); // the window's pre-fall leader
+
+        // Review R2: pin the redraw the fall's own stream (root seed + calendar) selects, on a seed
+        // where it differs from the pre-fall leader, so deleting RedrawFallenLeader fails this test
+        // (without the pin, the New Game draw alone satisfies a mere "is in the pool" assertion).
+        var preFallNation = session.State.NationById("north")! with { LeaderName = fall.LeaderName };
+        var expected = LeaderSuccession.ApplyFall(
+            preFallNation, names, LeaderSuccession.FallStream(seed, "north", session.State.Calendar)).LeaderName;
+        Assert.NotEqual(fall.LeaderName, expected);
+        Assert.Equal(expected, session.State.NationById("north")!.LeaderName);
 
         // The CLI lines do not depend on the pool: the same fall on the same world without one prints
         // exactly the same lines.

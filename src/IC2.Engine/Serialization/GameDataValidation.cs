@@ -90,10 +90,11 @@ public static class GameDataValidation
             }
 
             // T146: a nation's leader pool, when present, must be a drawable 12-name table. The 12 is
-            // the DAT pool's own fixed width (DatLayout.LeaderPoolNamesPerNation, 16 x 12 x 26), a
-            // structural fact of the export rather than a ruleset-tunable rule — held as a local so
-            // the model/serialization namespace's no-numeric-constant guard (NoHardcodedConstantsTests
-            // check 3, which reads fields by reflection) does not see it.
+            // the DAT pool's own fixed width -- DatLayout.LeaderPoolNamesPerNation (16 x 12 x 26,
+            // docs/investigations/dat-file-layout.md's read-order row) -- a structural fact of the
+            // exported pool rather than a ruleset-tunable rule, so it is a local constant here rather
+            // than a Ruleset field. DatLayout is internal to IC2.Data, so this namespace cannot
+            // reference the constant directly; it is restated here against that cited source.
             if (nation.LeaderNames is { } leaderNames)
             {
                 const int leaderNamePoolSize = 12;
