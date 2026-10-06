@@ -13,8 +13,9 @@
       2. copies assets.local.ini into the worktree for a -LocalOnly task;
       3. runs `opencode run` there with the .opencode/agents/external-implementer.md agent and
          the chosen model, feeding it the brief plus the run rules. The run is watched
-         (scripts/Invoke-OpenCodeWatched.ps1) with stdin closed, because `opencode run` waits for
-         stdin's end-of-file before it creates a session (the cause of the 2026-09-28 hangs). If
+         (scripts/Invoke-OpenCodeWatched.ps1) with the prompt on stdin, from a file, never on the
+         command line (Windows caps it at 32,767 characters); the file's end is the end-of-file
+         `opencode run` waits for before it creates a session (the 2026-09-28 hangs). If
          OpenCode creates no session within -StartupTimeoutSec, its session makes no progress
          for -IdleTimeoutSec, or it does not finish within -TotalTimeoutSec, its process tree is
          killed;
@@ -270,9 +271,10 @@ RUN RULES (from scripts/external-implement.ps1; they override the brief where th
 "@
 $prompt = $brief + $rules
 if ($FixturesDir) { $env:IC2_FIXTURES_DIR = $FixturesDir }
-# The run is watched (scripts/Invoke-OpenCodeWatched.ps1). It starts OpenCode with stdin CLOSED
-# (an empty file): `opencode run` creates no session until stdin's end-of-file, so an inherited
-# pipe hung both 2026-09-28 runs. No session within StartupTimeoutSec, a session idle for
+# The run is watched (scripts/Invoke-OpenCodeWatched.ps1). It starts OpenCode with the prompt on
+# stdin, from a file (never the command line, capped at 32,767 characters): `opencode run` creates
+# no session until stdin's end-of-file, which the file's end gives, where an inherited pipe hung
+# both 2026-09-28 runs. No session within StartupTimeoutSec, a session idle for
 # IdleTimeoutSec, or no exit within TotalTimeoutSec kills its process tree. The helper reads the
 # output as UTF-8.
 # The next model runs only on an infrastructure failure (no session, idle, no exit, an exit
