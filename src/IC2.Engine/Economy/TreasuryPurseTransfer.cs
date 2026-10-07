@@ -195,6 +195,15 @@ public static class TreasuryPurseTransfer
             step = Math.Min(step, Math.Max(0, sourceMoney));
         }
 
+        // A clamped-to-nothing transfer moves nothing and touches nothing — it returns the accounts
+        // as they stand even when one sits outside the field's range (a hand-built negative purse):
+        // this is not a credit, and the field bound below must not rewrite a balance the dialog never
+        // moved. TreasuryPurseTransferTests pins both directions against a non-positive source.
+        if (step == 0)
+        {
+            return (sourceMoney, targetMoney, 0);
+        }
+
         var updatedTarget = PurseAccounting.Credit(targetMoney, step);
         var applied = updatedTarget - targetMoney;
 

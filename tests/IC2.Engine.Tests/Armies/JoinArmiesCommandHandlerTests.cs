@@ -137,25 +137,71 @@ public sealed class JoinArmiesCommandHandlerTests
     }
 
     /// <summary>
-    /// The purse cap (T08 Done-when 6, "the purse cap of 1,000 is enforced on every path that credits a
-    /// purse" — see <c>JoinArmiesCommand</c>'s remarks): a pooled purse above
-    /// <see cref="EconomyRules.PurseCapPerUnit"/> is clamped, with the excess credited to the issuing
-    /// nation's treasury rather than destroyed, exactly like <c>JoinFleetsCommandHandler</c> (T14).
+    /// T72 (bug #315), Done-when 3: a join of 800 + 600 gives 1,400 — the pooled purse adds UNCAPPED.
+    /// Row 7 of <c>2026-10-05-army-purse-writes-and-the-1000-cap.md</c> reads <c>TUnitMap_JoinArmies</c>
+    /// :46992-46993 as <c>kept.purse += partner.purse</c> [derived], 1,000 + 1,000 gave 2,000 in play
+    /// [Wine candidates <c>Q1_05_before_join.SAV</c> → <c>Q1_06_after_join.SAV</c>], and no treasury is
+    /// touched — the pre-T72 behaviour (clamp at 1,000, excess 800 to the treasury) fails this test, and
+    /// was the bug: it cut IP016-style over-1,000 purses on the next join.
     /// </summary>
     [Fact]
-    public void Join_PooledMoneyAboveThePurseCap_IsClampedAndTheExcessCreditedToTheTreasury()
+    public void Join_PooledMoneyAboveOneThousand_AddsUncapped_AndNoTreasuryIsTouched()
     {
         var state = WithArmies(
             InitialState(),
-            Army("join-q", NorthNationId, 3, 3, Units(1), money: 900),
-            Army("join-r", NorthNationId, 4, 3, Units(1, "v"), money: 900));
+            Army("join-q", NorthNationId, 3, 3, Units(1), money: 800),
+            Army("join-r", NorthNationId, 4, 3, Units(1, "v"), money: 600));
         var treasuryBefore = state.NationById(NorthNationId)!.Treasury;
 
         var result = Dispatcher().Dispatch(state, new JoinArmiesCommand(NorthNationId, "join-q", "join-r"));
 
         Assert.True(result.IsAccepted, result.ToString());
-        Assert.Equal(1000, result.State.ArmyById("join-q")!.Money);
-        Assert.Equal(treasuryBefore + 800, result.State.NationById(NorthNationId)!.Treasury);
+        Assert.Equal(1400, result.State.ArmyById("join-q")!.Money); // 800 + 600, not cut to 1,000.
+        Assert.Equal(treasuryBefore, result.State.NationById(NorthNationId)!.Treasury); // the join moves money between the two army records only.
+    }
+
+    /// <summary>
+    /// The same uncapped pool with two purses the pre-T72 test put at 900 each: 1,800 rides the survivor,
+    /// the treasury unmoved (T72 recomputes the pre-T72 pin "clamped, excess 800 credited to the treasury"
+    /// from the path's real rule, row 7 — the old pin was evidence of the bug, not of correct behaviour).
+    /// </summary>
+    [Fact]
+    public void Join_PooledMoneyAtNinetyEach_AddsUncappedToEighteenHundred()
+    {
+        var state = WithArmies(
+            InitialState(),
+            Army("join-s", NorthNationId, 3, 3, Units(1), money: 900),
+            Army("join-t", NorthNationId, 4, 3, Units(1, "v"), money: 900));
+        var treasuryBefore = state.NationById(NorthNationId)!.Treasury;
+
+        var result = Dispatcher().Dispatch(state, new JoinArmiesCommand(NorthNationId, "join-s", "join-t"));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        Assert.Equal(1800, result.State.ArmyById("join-s")!.Money);
+        Assert.Equal(treasuryBefore, result.State.NationById(NorthNationId)!.Treasury);
+    }
+
+    /// <summary>
+    /// Done-when 4: no purse leaves the field's range. The original's join is a 16-bit add that wraps
+    /// above 32,767, possibly to a negative purse (row 7 [derived: code, not played]); the clone enforces
+    /// <c>0 … 32,767</c> instead [designed: the user's 2026-10-05 choice, PR #758's R2 resolution] — the
+    /// sum lands at 32,767 and the excess goes NOWHERE (this path touches no treasury in the original,
+    /// so there is nothing to credit it to; see <c>JoinArmiesCommandHandler</c>'s remark).
+    /// </summary>
+    [Fact]
+    public void Join_PooledMoneyAboveTheFieldRange_LandsAtThirtyTwoThousandSevenHundredSixtySeven()
+    {
+        var state = WithArmies(
+            InitialState(),
+            Army("join-u", NorthNationId, 3, 3, Units(1), money: 32000),
+            Army("join-v", NorthNationId, 4, 3, Units(1, "w"), money: 2000));
+        var treasuryBefore = state.NationById(NorthNationId)!.Treasury;
+
+        var result = Dispatcher().Dispatch(state, new JoinArmiesCommand(NorthNationId, "join-u", "join-v"));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        Assert.Equal(32767, result.State.ArmyById("join-u")!.Money); // 34,000 clamped to the signed 16-bit field, no wrap.
+        Assert.Equal(treasuryBefore, result.State.NationById(NorthNationId)!.Treasury); // the 233-talent excess goes nowhere.
     }
 
     /// <summary>

@@ -461,12 +461,15 @@ public sealed class TransferMoneyCommandTests
     }
 
     /// <summary>
-    /// Review round 1, N5: a positive move into a purse already over the cap must apply nothing rather
-    /// than let <see cref="PurseAccounting.Credit"/>'s clamp-<em>down</em> move money backwards into the
-    /// treasury. The result is asserted against <see cref="TreasuryPurseTransfer"/>'s own result.
+    /// T72 (bug #757, folded in): this replaces the T105 round-1 N5 pin "applies nothing". The original's
+    /// dialog arrow is <em>signed</em> — a positive move into a purse already over the cap moves
+    /// <c>1000 − purse</c> back out: the purse falls to exactly the cap and the treasury gains the excess
+    /// (<c>2026-10-05-army-purse-writes-and-the-1000-cap.md</c> row 1; in play <c>Q1_06_after_join.SAV</c>
+    /// → <c>Q1b_01_after_one_up_click.SAV</c>). A "+10" into a 1,090 purse pulls 90 out. The result is
+    /// asserted against <see cref="TreasuryPurseTransfer"/>'s own result.
     /// </summary>
     [Fact]
-    public void PositiveMove_IntoAPurseAlreadyOverTheCap_AppliesNothing()
+    public void PositiveMove_IntoAPurseAlreadyOverTheCap_PullsBackToTheCap()
     {
         var army = Army("over-cap-army", "north", x: 3, y: 2, money: 1090);
         var state = WithNorthTreasury(EconomyTestbed.InitialState() with
@@ -482,11 +485,12 @@ public sealed class TransferMoneyCommandTests
         var result = Dispatcher().Dispatch(state, new TransferMoneyCommand("north", army.Id, 10));
 
         Assert.True(result.IsAccepted, result.ToString());
-        Assert.Equal(0, expected.AppliedTalents);
+        Assert.Equal(-90, expected.AppliedTalents);
         Assert.Equal(expected.Army.Money, result.State.ArmyById(army.Id)!.Money);
         Assert.Equal(expected.Nation.Treasury, result.State.NationById("north")!.Treasury);
-        Assert.Equal(1090, result.State.ArmyById(army.Id)!.Money);
-        Assert.Equal(500, result.State.NationById("north")!.Treasury);
+        Assert.Equal(1000, result.State.ArmyById(army.Id)!.Money);
+        Assert.Equal(590, result.State.NationById("north")!.Treasury); // 500 + the 90 pulled back, conserved.
+        Assert.Equal(500 + 1090, result.State.NationById("north")!.Treasury + result.State.ArmyById(army.Id)!.Money);
     }
 
     // ---- Done-when 6 ----

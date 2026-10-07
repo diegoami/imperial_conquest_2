@@ -8,7 +8,13 @@ namespace IC2.Engine.Tests.Economy;
 /// <c>docs/task-catalogue.md</c> "T38 Supply dialog follow-ups, treasury ↔ purse transfers, and
 /// automatic resupply" (issue #78), Done-when 6: <c>TAFSupply_ChangeMoney</c> moves talents between the
 /// national treasury and an army's or fleet's own purse, in either direction, never taking more than the
-/// source holds and never taking a purse above 1,000.
+/// source holds and never ending a purse above 1,000 through a positive request.
+/// T72 (bug #757, folded in): the positive arrow is SIGNED like the original's — a request into a purse
+/// already above 1,000 moves <c>1000 − purse</c> (negative), the purse falls to exactly 1,000 and the
+/// treasury gains the excess (2026-10-05-army-purse-writes-and-the-1000-cap.md rows 1 and 2:
+/// <c>step := min(step, 1000 − purse)</c>, "no floor at 0"; in play, one "+100" click from the joined
+/// 2,000 moved −1,000 [Wine candidates <c>Q1_06_after_join.SAV</c> → <c>Q1b_01_after_one_up_click.SAV</c>]),
+/// replacing the T105 round-1 N5 guard that applied nothing in that case.
 /// </summary>
 public sealed class TreasuryPurseTransferTests
 {
@@ -90,6 +96,64 @@ public sealed class TreasuryPurseTransferTests
         Assert.Equal(100, result.AppliedTalents); // only 100 of the 500 requested fits under the 1,000 cap.
         Assert.Equal(1000, result.Army.Money);
         Assert.Equal(4900, result.Nation.Treasury); // the treasury pays for only what actually moved.
+    }
+
+    /// <summary>
+    /// T72, Done-when 3 (the bug #757 case, folded in): the dialog's arrow is signed — a request of 100
+    /// into a 2,000 purse moves <c>min(100, 1000 − 2000) = −1,000</c>, leaving the purse at exactly 1,000
+    /// and raising the treasury by 1,000 (2026-10-05 report row 1 [derived:
+    /// <c>TAFSupply_ChangeMoney</c> :43118-43122]; in play <c>Q1_06_after_join.SAV</c> →
+    /// <c>Q1b_01_after_one_up_click.SAV</c>, treasury 201 → 1,201). It fails on pre-T72 <c>main</c>,
+    /// where the N5 guard applied nothing: purse stayed 2,000, treasury 201.
+    /// </summary>
+    [Fact]
+    public void TransferWithArmy_PositiveRequestIntoPurseAboveCap_PullsBackToCapAndFeedsTreasury()
+    {
+        var nation = Nation(treasury: 201);
+        var army = Army(money: 2000);
+
+        var result = TreasuryPurseTransfer.TransferWithArmy(nation, army, talentsIntoPurse: 100, EconomyTestbed.Ruleset);
+
+        Assert.Equal(-1000, result.AppliedTalents); // negative into a positive request: the signed arrow.
+        Assert.Equal(1000, result.Army.Money); // falls to exactly the cap.
+        Assert.Equal(1201, result.Nation.Treasury); // 201 + 1,000: the treasury gains the excess, conserved.
+        Assert.Equal(nation.Treasury + army.Money, result.Nation.Treasury + result.Army.Money); // conservation.
+    }
+
+    /// <summary>
+    /// The signed pull-back moves <c>min(step, 1000 − purse)</c> — when the purse sits only 90 above the
+    /// cap, one "+10" click pulls 90 out, not 10 in (row 1's step rule, [derived]).
+    /// </summary>
+    [Fact]
+    public void TransferWithArmy_SmallRequestIntoPurseSlightlyOverCap_PullsBackTheDifference()
+    {
+        var nation = Nation(treasury: 500);
+        var army = Army(money: 1090);
+
+        var result = TreasuryPurseTransfer.TransferWithArmy(nation, army, talentsIntoPurse: 10, EconomyTestbed.Ruleset);
+
+        Assert.Equal(-90, result.AppliedTalents);
+        Assert.Equal(1000, result.Army.Money);
+        Assert.Equal(590, result.Nation.Treasury);
+        Assert.Equal(nation.Treasury + army.Money, result.Nation.Treasury + result.Army.Money); // conservation.
+    }
+
+    /// <summary>
+    /// Row 2: the "down" arrow drains a purse with no cap logic on money leaving it — a 1,500 purse asked
+    /// for −100 simply pays 100 to the treasury (it is the pull-back path, row 1, that touches the cap).
+    /// </summary>
+    [Fact]
+    public void TransferWithArmy_NegativeRequestFromOverCapPurse_DrainsNormally()
+    {
+        var nation = Nation(treasury: 500);
+        var army = Army(money: 1500);
+
+        var result = TreasuryPurseTransfer.TransferWithArmy(nation, army, talentsIntoPurse: -100, EconomyTestbed.Ruleset);
+
+        Assert.Equal(-100, result.AppliedTalents);
+        Assert.Equal(1400, result.Army.Money); // drained, not cut to the cap.
+        Assert.Equal(600, result.Nation.Treasury);
+        Assert.Equal(nation.Treasury + army.Money, result.Nation.Treasury + result.Army.Money); // conservation.
     }
 
     /// <summary>
