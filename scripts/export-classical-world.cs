@@ -842,8 +842,16 @@ static void AnnotateProvenance(JsonObject parent, string key, string suffix)
         parent["_provenance"] = provenance;
     }
 
+    // Bug #795: toy-ruleset.json's source note for a key may already carry this exact citation
+    // (T146's three mercenary rows do), in which case appending it again would repeat it in the
+    // regenerated classical-faithful.json. Only append a citation the existing text does not already
+    // carry; never reorder or rewrite an existing note.
+    var citation = suffix.TrimStart();
     var existing = provenance[key]?.GetValue<string>();
-    provenance[key] = string.IsNullOrEmpty(existing) ? suffix.TrimStart() : existing + suffix;
+    if (string.IsNullOrEmpty(existing))
+        provenance[key] = citation;
+    else if (!existing.Contains(citation, StringComparison.Ordinal))
+        provenance[key] = existing + suffix;
 }
 
 static string FindThisFileDirectory([System.Runtime.CompilerServices.CallerFilePath] string path = "") =>
