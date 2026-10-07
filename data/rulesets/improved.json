@@ -1126,6 +1126,18 @@
       "ownTradeSwapScore": "[designed]: score for the AI's own trade-partner-swap candidate, slightly below ownTradeScore since a swap is a smaller net gain than a fresh partner. Moved from a standalone C# constant (AiDiplomacyPhase.OwnTradeSwapScore, T82 #377) for the same reason as ownWarDeclarationScore above. The original's AI turn is now decompiled (research 2026-10-07-strategic-ai-turn.md), but this block stays the clone's own design."
     }
   },
+  "endTurnWarnings": {
+    "armySupplyThresholdNumerator": 500,
+    "fleetSupplyShipsDivisor": 5,
+    "repairConditionThreshold": 65,
+    "maximumLines": 5,
+    "_provenance": {
+      "armySupplyThresholdNumerator": "confirmed: 2026-10-03-end-turn-warning-box.md — the original tests 500 × supply < troops, below 20% of capacity.",
+      "fleetSupplyShipsDivisor": "confirmed: 2026-10-03-end-turn-warning-box.md — the original tests fleet supplies < ships div 5.",
+      "repairConditionThreshold": "confirmed: 2026-10-03-end-turn-warning-box.md — a fleet below condition 65 adds the repair line only after another warning opens the box.",
+      "maximumLines": "confirmed: 2026-10-03-end-turn-warning-box.md — FUN_004597D8 keeps at most five warning lines in the form."
+    }
+  },
   "flags": {
     "diplomacyModel": "confirmedStateMachineWithOpinionScore",
     "economyPurses": "centralTreasury",
@@ -1135,6 +1147,7 @@
     "bugPolicySiegeRatioClamp": "clamp32Bit",
     "unaffordableRecruitAndFortify": "refuse",
     "humanMoveResupply": "againstNonHostileCity",
+    "endTurnWarningScope": "everyUnit",
     "_provenance": {
       "diplomacyModel": "docs/game-design.md §'Two shipped presets' (answers design-audit.md Q3) — use the confirmed state machine plus an AI opinion-score layer on top of it, keeping every confirmed rule intact and only adding the genuinely-missing piece (the AI's willingness). classical-faithful uses the confirmed model exactly as coded.",
       "economyPurses": "docs/game-design.md §'Two shipped presets' (answers design-audit.md Q4) — centralise supply and mercenary purchases to the national treasury, trading logistical depth for less micromanagement. classical-faithful keeps the per-army/per-fleet purses (cap 1,000) exactly as coded.",
@@ -1143,7 +1156,8 @@
       "faithfulThawColumnBug": "docs/task-catalogue.md T19 DoD 9 (Q8) — the 8-column thaw bug flag, by its exact name; false when the 8-column thaw bug is fixed, true when reproducing (classical-faithful).",
       "bugPolicySiegeRatioClamp": "confirmed: decompiled-defection-and-siege-attrition.md §'FUN_0044b27c, instruction by instruction', research 3f6ca09; bug #290/B1, extended 2026-09-23 by the user (D-A) to the erosion's own wrap. FUN_00448FD0 (0x00448FD0, min) and FUN_00448FD8 (0x00448FD8, max) are 'CMP DX,AX; JG/JL; MOV EAX,EDX' — a SIGNED comparison of the low 16 bits (JG/JL, never JA/JB) — and this ONE policy switch governs BOTH terms that pass through those two helpers at the same call site: the attrition ratio's own clamp(1,15) input, and (D-A) the erosion's own field x def/atk ratio term inside FUN_0044B230. docs/game-design.md §'Two shipped presets', docs/tasks/T63.md Decision 1 (D-A) — this preset (clamp32Bit) computes both terms in ordinary 32-bit arithmetic, never wrapping, unlike the faithful preset's reproduce16BitClamp, which reproduces the original's 16-bit signed wrap for both.",
       "unaffordableRecruitAndFortify": "bug #549, T115, user's decision of 2026-10-01 (PR #550 comment): the original checks no balance for a recruitment (TArmyRecruits.RecruitUnit 0x454E78, 2026-09-29-which-cities-may-recruit-and-troop-amounts.md §2) or a fortification (the Fortify dialog's OK 0x4407E4, 2026-09-29-fortification-orders-cost-rate-and-the-100-bug.md §1) [derived: decompiled], so classical-faithful allows the debt (allowDebt) and improved refuses an order the treasury cannot cover (refuse). Only these two orders read this flag.",
-      "humanMoveResupply": "bug #756, the user's decision of 2026-10-05 (comment on #756), research report 2026-10-05-army-purse-writes-and-the-1000-cap.md 'Reachability of row 10' (research 9ae8924, provisional): in the original only the AI resupplies an army (FUN_0044F6D8 is called by the AI's per-army pass FUN_0044E41C and by the walk's tail FUN_0044D734, which a human click on a city marker never reaches) [derived: code]. classical-faithful runs no automatic resupply on a human army's move (never); improved keeps it against the first non-hostile adjacent city (againstNonHostileCity) [designed: a convenience, T23 Done-when 2]. Only GameSession's move reads this flag; the AI's resupply pass, buying supply and the Supply army dialog do not."
+      "humanMoveResupply": "bug #756, the user's decision of 2026-10-05 (comment on #756), research report 2026-10-05-army-purse-writes-and-the-1000-cap.md 'Reachability of row 10' (research 9ae8924, provisional): in the original only the AI resupplies an army (FUN_0044F6D8 is called by the AI's per-army pass FUN_0044E41C and by the walk's tail FUN_0044D734, which a human click on a city marker never reaches) [derived: code]. classical-faithful runs no automatic resupply on a human army's move (never); improved keeps it against the first non-hostile adjacent city (againstNonHostileCity) [designed: a convenience, T23 Done-when 2]. Only GameSession's move reads this flag; the AI's resupply pass, buying supply and the Supply army dialog do not.",
+      "endTurnWarningScope": "designed: docs/game-design.md §'Two shipped presets' and the user's decision of 2026-10-03 — improved checks every own unit, whether or not it has acted."
     }
   },
   "_provenance": {
