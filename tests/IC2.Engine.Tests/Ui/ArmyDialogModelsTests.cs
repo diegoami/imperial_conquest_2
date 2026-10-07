@@ -380,6 +380,32 @@ public sealed class ArmyDialogModelsTests
         Assert.Single(session.State.ArmyById(ArmyAId)!.Units);
     }
 
+    [Fact]
+    public void Change_units_disband_orders_pin_the_empty_single_and_duplicate_selections()
+    {
+        var session = Session();
+        var threeUnit = ChangeUnitsModel.ForArmy(session.State.ArmyById(ThreeUnitArmyId)!);
+
+        // Nothing selected: Yes composes no order at all (the dialog returns before it prompts).
+        Assert.Empty(threeUnit.DisbandOrders(Array.Empty<int>(), confirmed: true));
+
+        // One selected unit: exactly one order, that unit's own index.
+        Assert.Equal(
+            new[] { $"disband-unit {ThreeUnitArmyId} 1" },
+            threeUnit.DisbandOrders(new[] { 1 }, confirmed: true).ToArray());
+
+        // A duplicate selection collapses to one order per unit; the surviving multi-selection is still
+        // highest index first. Without Distinct, the duplicate 1 would produce a second disband-unit 1.
+        Assert.Equal(
+            new[]
+            {
+                $"disband-unit {ThreeUnitArmyId} 2",
+                $"disband-unit {ThreeUnitArmyId} 1",
+                $"disband-unit {ThreeUnitArmyId} 0",
+            },
+            threeUnit.DisbandOrders(new[] { 0, 1, 1, 2 }, confirmed: true).ToArray());
+    }
+
     // ---- Done-when 7: the quality captions ----
 
     [Theory]

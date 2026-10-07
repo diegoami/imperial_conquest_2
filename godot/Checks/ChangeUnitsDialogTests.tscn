@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Checks/ChangeUnitsDialogTests.cs" id="1_change_units_dialog_tests"]
+
+[node name="ChangeUnitsDialogTests" type="Control"]
+script = ExtResource("1_change_units_dialog_tests")
