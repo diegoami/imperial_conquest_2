@@ -867,9 +867,9 @@ The `victory` object (`VictoryRules`): which victory condition a scenario gets w
 ### AI weights rules
 
 The `ai` object (`AiWeightsRules`): the heuristic AI's scoring constants. **Every field here is
-`[designed]`, and that is the expected answer** — the original's own AI lives in unnamed, un-decompiled
-code and is out of scope for reverse-engineering by standing project decision
-(`docs/design-audit.md` §1). Every field is an integer (`int` or `long`, never a floating-point type), on
+`[designed]`, and that is the expected answer** — the original's own strategic turn is decompiled
+(research `2026-10-07-strategic-ai-turn.md`) but runs on fixed phases and thresholds with no scoring
+block, so these constants remain the clone's own design. Every field is an integer (`int` or `long`, never a floating-point type), on
 one shared scale, so the AI's determinism guarantee never depends on floating-point rounding.
 
 | Field | Type | Range / unit | Meaning |
@@ -959,8 +959,8 @@ convention used by `data/scenarios/example-classical-improved.json`).
 ### AI personality
 
 If a nation is controlled by the AI, the `personality` object defines its behavior. Every value here is
-`[designed]` (`docs/design-audit.md` §1: the original's AI is out of scope for reverse-engineering by
-standing decision), so a personality is never a "confirmed" claim about the original game.
+`[designed]` — the original's AI, now decompiled (research `2026-10-07-strategic-ai-turn.md`), carries
+no per-nation personality parameters at all — so a personality is never a "confirmed" claim about the original game.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|

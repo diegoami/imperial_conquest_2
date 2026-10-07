@@ -157,7 +157,7 @@
     "worldId": "designed: references the shipped classical-mediterranean world",
     "rulesetId": "designed: uses the improved ruleset, which selects friendlier/designed alternatives where the design audit found a faithful-vs-improved fork",
     "seats": "designed: demonstrates mixed human and AI seating on the classical world, with Rome as human player and all other nations as AI opponents with varying personalities",
-    "seats[carthage].personality": "designed: example/[designed] aggressive, expansionist trader profile — the original's own AI is out of scope for reverse-engineering (docs/design-audit.md §1), so this is not a claim about the original game",
+    "seats[carthage].personality": "designed: example/[designed] aggressive, expansionist trader profile — the original's own AI, now decompiled (research 2026-10-07-strategic-ai-turn.md), carries no per-nation personality at all, so this is not a claim about the original game",
     "seats[seleucid].personality": "designed: example/[designed] balanced profile, not a claim about the original game",
     "seats[ptolemaic].personality": "designed: example/[designed] cautious, alliance-favouring profile, not a claim about the original game",
     "seats[macedonia].personality": "designed: example/[designed] balanced profile, not a claim about the original game",
