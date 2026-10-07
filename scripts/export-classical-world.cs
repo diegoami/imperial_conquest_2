@@ -31,6 +31,34 @@ using IC2.Data;
 using IC2.Engine.Model;
 using IC2.Engine.Serialization;
 
+// ============================================================================================
+// Bug #795 R2: a small, DAT-free probe so the regression test can drive AnnotateProvenance
+// directly on toy inputs (tests/IC2.Engine.Tests/Export/ProvenanceCitationTests.cs) instead of
+// only inspecting the committed output. It runs before anything reads the original game files and
+// prints one JSON object of key -> resulting provenance string. Usage:
+//   dotnet run scripts/export-classical-world.cs -- --provenance-probe <cases.json>
+// where <cases.json> is { "<key>": { "existing": "...", "suffix": " T04 fixtures corpus id: '...'." } }.
+// This does not change the export itself: the shipped files are still produced only by the normal
+// run below, and nothing here is written.
+// ============================================================================================
+if (args.Length == 2 && string.Equals(args[0], "--provenance-probe", StringComparison.Ordinal))
+{
+    var probeCases = JsonNode.Parse(File.ReadAllText(args[1]))!.AsObject();
+    var probeResults = new JsonObject();
+    foreach (var (probeKey, probeSpec) in probeCases)
+    {
+        var probeParent = new JsonObject();
+        var probeExisting = probeSpec!["existing"]!.GetValue<string>();
+        if (!string.IsNullOrEmpty(probeExisting))
+            probeParent["_provenance"] = new JsonObject { [probeKey] = probeExisting };
+        AnnotateProvenance(probeParent, probeKey, probeSpec["suffix"]!.GetValue<string>());
+        probeResults[probeKey] = ((JsonObject)probeParent["_provenance"]!)[probeKey]!.GetValue<string>();
+    }
+
+    Console.WriteLine(probeResults.ToJsonString());
+    return;
+}
+
 var scriptDir = AppContext.BaseDirectory; // not reliable for file-based apps; use source path instead
 var repoRoot = Path.GetFullPath(Path.Combine(FindThisFileDirectory(), ".."));
 
@@ -845,13 +873,37 @@ static void AnnotateProvenance(JsonObject parent, string key, string suffix)
     // Bug #795: toy-ruleset.json's source note for a key may already carry this exact citation
     // (T146's three mercenary rows do), in which case appending it again would repeat it in the
     // regenerated classical-faithful.json. Only append a citation the existing text does not already
-    // carry; never reorder or rewrite an existing note.
+    // carry as a complete citation of its own; never reorder or rewrite an existing note.
     var citation = suffix.TrimStart();
     var existing = provenance[key]?.GetValue<string>();
     if (string.IsNullOrEmpty(existing))
         provenance[key] = citation;
-    else if (!existing.Contains(citation, StringComparison.Ordinal))
+    else if (!CarriesCompleteCitation(existing, citation))
         provenance[key] = existing + suffix;
+}
+
+/// <summary>
+/// Whether <paramref name="note"/> already carries <paramref name="citation"/> as a citation of its
+/// own: an occurrence bounded by the start/end of the note or whitespace. A note that merely contains
+/// the citation's text inside a longer run of characters is not carrying it (bug #795 R1), so the
+/// citation is still appended -- a plain <c>Contains</c> substring check would wrongly suppress that
+/// append.
+/// </summary>
+static bool CarriesCompleteCitation(string note, string citation)
+{
+    var index = note.IndexOf(citation, StringComparison.Ordinal);
+    while (index >= 0)
+    {
+        var startsAtBoundary = index == 0 || char.IsWhiteSpace(note[index - 1]);
+        var end = index + citation.Length;
+        var endsAtBoundary = end == note.Length || char.IsWhiteSpace(note[end]);
+        if (startsAtBoundary && endsAtBoundary)
+            return true;
+
+        index = note.IndexOf(citation, index + 1, StringComparison.Ordinal);
+    }
+
+    return false;
 }
 
 static string FindThisFileDirectory([System.Runtime.CompilerServices.CallerFilePath] string path = "") =>
