@@ -225,8 +225,9 @@ public partial class OrderCoverageCheck : Node
     /// <summary>
     /// Whether <paramref name="outputLines"/> reads as an accepted outcome for <paramref name="verb"/>/
     /// <paramref name="kind"/> — the same rule <c>SuccessScriptTests.BlockLooksAccepted</c> applies:
-    /// <c>move</c>/<c>buy</c> keep their own bespoke wording (T41's contract); every other kind shares
-    /// the generic renderer's exact <c>"{kind} accepted."</c> line. A plain <c>Contains</c> check, not a
+    /// <c>move</c>/<c>buy</c> keep their own bespoke wording (T41's contract) and <c>transfer-money</c>
+    /// its own since fix #710; every other kind shares the generic renderer's exact
+    /// <c>"{kind} accepted."</c> line. A plain <c>Contains</c> check, not a
     /// <c>" rejected"</c> short-circuit: that also catches a <c>Usage:</c> line or an <c>Unknown
     /// command</c> reply, neither of which contains the word "rejected" at all but is not an accepted
     /// outcome either.
@@ -240,6 +241,7 @@ public partial class OrderCoverageCheck : Node
             "move" => outcome.Contains("moved from (", StringComparison.Ordinal),
             "buy" => outcome.Contains("bought ", StringComparison.Ordinal)
                 && outcome.Contains(" tons of supply", StringComparison.Ordinal),
+            "transfer-money" => outcome.Contains(" talents from ", StringComparison.Ordinal),
             _ => outcome.Contains($"{kind} accepted.", StringComparison.Ordinal),
         };
     }

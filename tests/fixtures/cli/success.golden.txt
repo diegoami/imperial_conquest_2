@@ -899,19 +899,19 @@ News log:
 economy.set-tax accepted.
 
 > transfer-money mac-fleet-1 100
-economy.transfer-money accepted.
+mac-fleet-1 received 100 talents from the treasury.
 
 > transfer-money mac-fleet-1 -50 via mac-fleet-keep
-economy.transfer-money accepted.
+fleet mac-fleet-keep received 50 talents from mac-fleet-1.
 
 > scuttle-fleet mac-fleet-1
 naval.scuttle-fleet accepted.
 
 > transfer-money army-8 100
-economy.transfer-money accepted.
+army-8 received 100 talents from the treasury.
 
 > transfer-money army-8 -50
-economy.transfer-money accepted.
+the treasury received 50 talents from army-8.
 
 > move army-8 136 42
 army-8 moved from (136,51) to (136,43), spending 9 of 9 moves.
@@ -920,7 +920,7 @@ army-8 moved from (136,51) to (136,43), spending 9 of 9 moves.
 mac-marines bought 5 tons of supply at pella, free at your own city.
 
 > transfer-money mac-marines 100
-economy.transfer-money accepted.
+mac-marines received 100 talents from the treasury.
 
 > move mac-marines 137 42
 mac-marines moved from (144,42) to (137,42), spending 9 of 9 moves.

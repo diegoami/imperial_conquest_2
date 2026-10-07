@@ -587,8 +587,78 @@ public sealed partial class GameSession
         }
 
         var viaFleetId = tokens.Length == 5 ? tokens[4] : null;
-        return IssueCommand(new TransferMoneyCommand(State.ActiveNationId, tokens[1], amount, viaFleetId));
+        return TransferMoney(new TransferMoneyCommand(State.ActiveNationId, tokens[1], amount, viaFleetId));
     }
+
+    /// <summary>
+    /// Dispatches one <see cref="TransferMoneyCommand"/> and renders the player-facing reply — fix #710.
+    /// The reply names the amount actually moved (never the requested one as if it had happened), the
+    /// funding and receiving purses, and, when the move was clamped, the amount asked for and the reason.
+    /// <c>move</c> and <c>buy</c> are the session's other bespoke renderers; every other verb keeps the
+    /// generic <c>"{kind} accepted."</c>.
+    /// </summary>
+    /// <remarks>
+    /// <strong>The amount actually applied is the receiving purse's own before/after delta.</strong>
+    /// <see cref="IC2.Engine.Economy.TreasuryPurseTransfer"/> is money-conserving, so that delta is exactly
+    /// what left the funding side; the handler's own <c>AppliedTalents</c> is not returned to the session
+    /// seam, so the delta is read off the two states instead of widening that seam. A rejection keeps the
+    /// generic line <see cref="IssueCommand"/> would print.
+    /// </remarks>
+    private IReadOnlyList<string> TransferMoney(TransferMoneyCommand command)
+    {
+        if (IsWatchModeActive)
+        {
+            return new[] { WatchModeRejectionLine(command.Kind) };
+        }
+
+        var destinationBefore = MoneyOf(State, command.UnitId);
+        var fundingBefore = command.Amount > 0
+            ? command.ViaFleetId is null
+                ? State.NationById(command.IssuingNationId)?.Treasury ?? 0
+                : MoneyOf(State, command.ViaFleetId)
+            : destinationBefore;
+
+        var result = _dispatcher.Dispatch(State, command);
+        if (result.IsRejected)
+        {
+            return new[] { $"{command.Kind} rejected ({result.Code}): {result.Rejection!.Message}" };
+        }
+
+        State = NewsLogWriter.Append(result.State, result.Events, Ruleset.NewsLog);
+        var moved = MoneyOf(result.State, command.UnitId) - destinationBefore;
+
+        return new[] { DescribeTransferMoney(command, moved, fundingBefore) };
+    }
+
+    /// <summary>
+    /// The one sentence the session prints for an accepted <c>transfer-money</c> — fix #710. Always
+    /// <c>"&lt;to&gt; received &lt;moved&gt; talents from &lt;from&gt;"</c> (written from the receiving side,
+    /// so both purses are named without a direction branch), with the requested amount and the clamp's
+    /// reason appended when the source's balance or the receiving purse's cap limited it.
+    /// </summary>
+    private string DescribeTransferMoney(TransferMoneyCommand command, int moved, int fundingBefore)
+    {
+        var counterparty = command.ViaFleetId is null ? "the treasury" : $"fleet {command.ViaFleetId}";
+        var positive = command.Amount > 0;
+        var from = positive ? counterparty : command.UnitId;
+        var to = positive ? command.UnitId : counterparty;
+        var requested = Math.Abs(command.Amount);
+
+        if (moved == command.Amount)
+        {
+            return $"{to} received {requested} talents from {from}.";
+        }
+
+        var movedMagnitude = Math.Abs(moved);
+        var reason = requested > Math.Max(0, fundingBefore)
+            ? $"{from} held {fundingBefore}"
+            : $"{to} is at its {Ruleset.Economy.PurseCapPerUnit}-talent cap";
+        return $"{to} received {movedMagnitude} of {requested} requested talents from {from} ({reason}).";
+    }
+
+    /// <summary>The purse balance of an army or fleet id, or 0 when the id is neither.</summary>
+    private static int MoneyOf(GameState state, string unitId) =>
+        state.ArmyById(unitId)?.Money ?? state.FleetById(unitId)?.Money ?? 0;
 
     // ---- diplomacy ----
 
