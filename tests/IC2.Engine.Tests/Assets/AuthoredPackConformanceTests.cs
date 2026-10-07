@@ -158,7 +158,7 @@ public sealed class AuthoredPackConformanceTests
 
     /// <summary>
     /// T148 Done-when 2, authored half: every surface key resolves to a 256 × 256 24-bit BMP that tiles
-    /// (edge mean absolute difference under 6 of 255). The rule is
+    /// (edge mean absolute difference under 15 of 255). The rule is
     /// <see cref="TerrainSurfaceConformance"/>, shared with the placeholder pack's test.
     /// </summary>
     [Fact]

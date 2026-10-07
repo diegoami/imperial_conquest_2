@@ -153,7 +153,20 @@ public class AssetKeysTests
 
         Assert.Equal(6, expected.Length);
         Assert.All(expected, key => Assert.Contains(key, AssetKeys.AllKeys));
-        Assert.DoesNotContain("terrain.plain.tile", expected);
+
+        // N1 (round-5 review): the six surface keys are additions beside the seven terrain tile
+        // keys, not replacements. Assert the tiles against the real key list, not the local array.
+        var tileKeys = new[]
+        {
+            AssetKeys.TerrainPlainTile,
+            AssetKeys.TerrainDesertTile,
+            AssetKeys.TerrainForestTile,
+            AssetKeys.TerrainMountainTile,
+            AssetKeys.TerrainRiverTile,
+            AssetKeys.TerrainSeaCoastalTile,
+            AssetKeys.TerrainSeaDeepTile,
+        };
+        Assert.All(tileKeys, key => Assert.Contains(key, AssetKeys.AllKeys));
 
         Assert.Equal(AssetKeys.TerrainPlainSurface, expected[0]);
         Assert.Equal(AssetKeys.TerrainDesertSurface, expected[1]);
