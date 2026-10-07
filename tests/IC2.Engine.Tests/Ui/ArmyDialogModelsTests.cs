@@ -354,6 +354,32 @@ public sealed class ArmyDialogModelsTests
         Assert.Equal("Legio I", session.State.ArmyById(ArmyAId)!.Units[1].Name);
     }
 
+    [Fact]
+    public void Change_units_disband_asks_the_original_prompt_and_composes_one_order_per_selected_unit()
+    {
+        var session = Session();
+        var model = ChangeUnitsModel.ForArmy(session.State.ArmyById(ArmyAId)!);
+
+        // The prompt's own text, the original's singular for one unit and plural above it.
+        Assert.Equal("Are you sure you want to disband 1 unit.", ChangeUnitsModel.DisbandPromptText(1));
+        Assert.Equal("Are you sure you want to disband 2 units.", ChangeUnitsModel.DisbandPromptText(2));
+
+        // Two selected units: Yes composes one disband order each, highest index first so the earlier
+        // removals do not shift the later ones; No composes none.
+        int[] selected = { 0, 1 };
+        var yes = model.DisbandOrders(selected, confirmed: true);
+        Assert.Equal(new[] { $"disband-unit {ArmyAId} 1", $"disband-unit {ArmyAId} 0" }, yes.ToArray());
+        Assert.Empty(model.DisbandOrders(selected, confirmed: false));
+
+        // The engine accepts both orders in that order, leaving the army with its last unit.
+        foreach (var line in yes)
+        {
+            session.Submit(line);
+        }
+
+        Assert.Single(session.State.ArmyById(ArmyAId)!.Units);
+    }
+
     // ---- Done-when 7: the quality captions ----
 
     [Theory]
