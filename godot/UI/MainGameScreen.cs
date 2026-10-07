@@ -354,7 +354,17 @@ public partial class MainGameScreen : Control
         // moved into the toolbar above (File -> Save, Game -> End turn), which run the same handlers.
         // The confirmation/refusal line stays here (T95's own narrow "a Save action" grant owns it, and
         // fix #484 keeps it even though the shared last-command label now shows the same text).
+        //
+        // Fix #537: a Save's confirmation carries the whole user:// path; as a plain label it set the
+        // row's -- and so the root's -- minimum width to ~1730px, past the viewport, cropping the
+        // context panel. It now ellipsizes like _lastCommandLabel (clip + TrimEllipsis, full text in
+        // the tooltip) and expands into the free space the spacer leaves, so it is clipped to the bar
+        // rather than collapsing to its near-zero clipped minimum.
         _saveConfirmationLabel = UiKit.MakeLabel(string.Empty, 14, UiKit.MutedTextColor);
+        _saveConfirmationLabel.ClipText = true;
+        _saveConfirmationLabel.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
+        _saveConfirmationLabel.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _saveConfirmationLabel.HorizontalAlignment = HorizontalAlignment.Right;
         row.AddChild(_saveConfirmationLabel);
 
         return bar;
@@ -1060,8 +1070,10 @@ public partial class MainGameScreen : Control
             && Session.State.Nations.FirstOrDefault(
                 n => Session.PendingPeaceOfferFor(n.Id) is not null) is { } owing)
         {
-            _saveConfirmationLabel.Text =
+            var refusal =
                 $"{owing.Name} must answer an offer of peace at its turn before the game can be saved.";
+            _saveConfirmationLabel.Text = refusal;
+            _saveConfirmationLabel.TooltipText = refusal;
             return;
         }
 
@@ -1069,7 +1081,9 @@ public partial class MainGameScreen : Control
 
         var output = Session.Submit($"save {path}");
         OnCommandIssued(output.Lines);
-        _saveConfirmationLabel.Text = CommandOutcomeText.OutcomeBlock(output.Lines);
+        var confirmation = CommandOutcomeText.OutcomeBlock(output.Lines);
+        _saveConfirmationLabel.Text = confirmation;
+        _saveConfirmationLabel.TooltipText = confirmation;
     }
 
     /// <summary>
@@ -1102,6 +1116,21 @@ public partial class MainGameScreen : Control
     /// save's real outcome after the fix.
     /// </summary>
     public string SaveConfirmationText => _saveConfirmationLabel.Text;
+
+    /// <summary>
+    /// Fix #537: T95's Save confirmation label's own laid-out size, and the minimum width the top bar
+    /// row derives from it. Exposed so <c>godot/Checks/CommandFeedbackCheck.cs</c> can record exactly
+    /// which label a Save widens the root with, rather than only the root's combined minimum.
+    /// </summary>
+    public Vector2 SaveConfirmationLabelSize => _saveConfirmationLabel.Size;
+
+    /// <summary>Fix #537: the minimum width <see cref="_saveConfirmationLabel"/> asks of its parent row,
+    /// the value that used to widen the whole screen past the viewport. Exposed for the same check.</summary>
+    public Vector2 SaveConfirmationLabelMinimumSize => _saveConfirmationLabel.GetCombinedMinimumSize();
+
+    /// <summary>Fix #537: the tooltip on <see cref="_saveConfirmationLabel"/>, which carries the full,
+    /// un-ellipsized Save outcome once the label ellipsizes. Exposed for the same check.</summary>
+    public string SaveConfirmationTooltip => _saveConfirmationLabel.TooltipText;
 
     /// <summary>
     /// Presses the "Save" button exactly as a real click would — public for the same reason
