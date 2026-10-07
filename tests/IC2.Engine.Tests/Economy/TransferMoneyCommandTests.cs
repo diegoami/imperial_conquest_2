@@ -90,12 +90,12 @@ public sealed class TransferMoneyCommandTests
         Assert.Equal(100, beforeArmy.Money);
 
         var intoPurse = session.Submit($"transfer-money {armyId} 100");
-        Assert.Contains("economy.transfer-money accepted.", intoPurse.Lines);
+        Assert.Contains($"{armyId} received 100 talents from the treasury.", intoPurse.Lines);
         Assert.Equal(beforeArmy.Money + 100, session.State.ArmyById(armyId)!.Money);
         Assert.Equal(beforeNation.Treasury - 100, session.State.NationById("rome")!.Treasury);
 
         var back = session.Submit($"transfer-money {armyId} -50");
-        Assert.Contains("economy.transfer-money accepted.", back.Lines);
+        Assert.Contains($"the treasury received 50 talents from {armyId}.", back.Lines);
         Assert.Equal(beforeArmy.Money + 50, session.State.ArmyById(armyId)!.Money);
         Assert.Equal(beforeNation.Treasury - 50, session.State.NationById("rome")!.Treasury);
 
@@ -119,12 +119,12 @@ public sealed class TransferMoneyCommandTests
         Assert.Equal(0, beforeFleet.Money);
 
         var intoPurse = session.Submit("transfer-money north-fleet-1 100");
-        Assert.Contains("economy.transfer-money accepted.", intoPurse.Lines);
+        Assert.Contains("north-fleet-1 received 100 talents from the treasury.", intoPurse.Lines);
         Assert.Equal(beforeFleet.Money + 100, session.State.FleetById("north-fleet-1")!.Money);
         Assert.Equal(beforeNation.Treasury - 100, session.State.NationById("north")!.Treasury);
 
         var back = session.Submit("transfer-money north-fleet-1 -50");
-        Assert.Contains("economy.transfer-money accepted.", back.Lines);
+        Assert.Contains("the treasury received 50 talents from north-fleet-1.", back.Lines);
         Assert.Equal(beforeFleet.Money + 50, session.State.FleetById("north-fleet-1")!.Money);
         Assert.Equal(beforeNation.Treasury - 50, session.State.NationById("north")!.Treasury);
 

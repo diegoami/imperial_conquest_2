@@ -203,7 +203,8 @@ public sealed class SuccessScriptTests
     /// Whether <paramref name="block"/>'s own outcome reads as an accepted command for <em>its own
     /// verb</em> — the generic renderer's exact <c>"{kind} accepted."</c>, where <c>kind</c> is the kind
     /// <see cref="KindByVerb"/> says this block's own verb maps to (never any other kind's line, composed
-    /// or not), or <c>move</c>/<c>buy</c>'s own bespoke wording. Rejected outright, regardless of verb, if
+    /// or not), or <c>move</c>/<c>buy</c>/<c>transfer-money</c>'s own bespoke wording. Rejected outright,
+    /// regardless of verb, if
     /// the outcome contains <c>" rejected"</c> anywhere — the composed
     /// <c>diplomacy.declare-war accepted (composed ahead of the attack).</c> line
     /// <c>attack-army</c>/<c>besiege-city</c>/<c>attack-fleet</c> print ahead of their own outcome must
@@ -236,6 +237,12 @@ public sealed class SuccessScriptTests
         {
             return block.Outcome.Contains("bought ", StringComparison.Ordinal)
                 && block.Outcome.Contains(" tons of supply", StringComparison.Ordinal);
+        }
+
+        // Fix #710: transfer-money's bespoke reply names what moved ("... received N talents from X.").
+        if (block.Verb == "transfer-money")
+        {
+            return block.Outcome.Contains(" talents from ", StringComparison.Ordinal);
         }
 
         return KindByVerb.TryGetValue(block.Verb, out var kind)

@@ -281,10 +281,10 @@ public sealed class CommandCoverageTests
 
     /// <summary>
     /// Whether some block whose own prompt verb is <paramref name="verb"/> shows an accepted outcome for
-    /// <paramref name="kind"/>. <c>move</c> and <c>buy</c> keep <c>GameSession.Commands</c>'s own bespoke
-    /// wording (T41's contract: see that file's own remarks), so their accepted line is not
-    /// <c>"{kind} accepted."</c>; every other kind shares the one generic renderer's exact,
-    /// full-stop-terminated line — a composed declare-war line reads
+    /// <paramref name="kind"/>. <c>move</c>, <c>buy</c> and <c>transfer-money</c> keep
+    /// <c>GameSession.Commands</c>'s own bespoke wording (T41's contract; fix #710 for the last), so their
+    /// accepted line is not <c>"{kind} accepted."</c>; every other kind shares the one generic renderer's
+    /// exact, full-stop-terminated line — a composed declare-war line reads
     /// <c>"...accepted (composed ahead of the attack)."</c>, which does not contain
     /// <c>"...accepted."</c> as a substring, so it cannot false-positive a plain <c>declare-war</c> line
     /// even before the per-block verb attribution is taken into account (B1's own belt and suspenders).
@@ -303,6 +303,7 @@ public sealed class CommandCoverageTests
                 "move" => block.Outcome.Contains("moved from (", StringComparison.Ordinal),
                 "buy" => block.Outcome.Contains("bought ", StringComparison.Ordinal)
                     && block.Outcome.Contains(" tons of supply", StringComparison.Ordinal),
+                "transfer-money" => block.Outcome.Contains(" talents from ", StringComparison.Ordinal),
                 _ => block.Outcome.Contains($"{kind} accepted.", StringComparison.Ordinal),
             };
 

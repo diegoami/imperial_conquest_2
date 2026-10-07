@@ -42,7 +42,7 @@ News log:
   Southern League sinks fleet of Northern League.
 
 > transfer-money north-army-1 100
-economy.transfer-money accepted.
+north-army-1 received 100 talents from the treasury.
 
 > quit
 Goodbye.
