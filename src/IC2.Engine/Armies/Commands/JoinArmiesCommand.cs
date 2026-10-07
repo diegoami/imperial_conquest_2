@@ -19,15 +19,23 @@ namespace IC2.Engine.Armies.Commands;
 /// be combined with another."</em>). Combined units ≤ 20, combined troops ≤ 100,000. Units are moved one
 /// at a time, supplies and money add, the emptied army is deleted, and the survivor's moves are zeroed."
 /// <para>
-/// <strong>The pooled purse is capped, same as <c>JoinFleetsCommand</c> (T14).</strong> <c>[derived]</c>:
-/// "T08 Economy, supply, and purses" Done-when 6 already establishes the cap's scope — "the purse cap of
-/// 1,000 is enforced on every path that credits a purse" — and this command is exactly such a path, so an
-/// uncapped pooled purse would be the actual defect, not a free choice between two equal options. Any
-/// excess over <see cref="Model.EconomyRules.PurseCapPerUnit"/> moves to the issuing nation's treasury,
-/// the same "excess moves to the treasury, never destroyed" hygiene <c>JoinFleetsCommandHandler</c>
-/// applies, so the join still conserves money exactly (army purse + treasury), never a plain uncapped
-/// sum. Supplies have no such cap in the confirmed report or anywhere else in this ruleset's army fields,
-/// so they are a plain, uncapped sum, exactly as decompiled.
+/// <strong>The pooled purse adds UNCAPPED (T72, bug #315).</strong> Row 7 of
+/// <c>2026-10-05-army-purse-writes-and-the-1000-cap.md</c> reads <c>TUnitMap_JoinArmies</c> at
+/// <c>:46992-46993</c> as <c>kept.purse += partner.purse</c>, a 16-bit add with no cap <c>[derived]</c>,
+/// and 1,000 + 1,000 gave <strong>2,000</strong> in play <c>[Wine candidate: Q1_05_before_join.SAV →
+/// Q1_06_after_join.SAV]</c>; the same report's answer names the clone's cap at 1,000 on Join armies as
+/// "not in the original". The cited <c>decompiled-unit-map-orders-and-record-fields.md</c> row — whose
+/// join's caps are 20 units and 100,000 troops — says "supplies and money add", no money cap, and
+/// <c>IP016.sav</c> army 1 holds 1,066 (bug #315): this is the path that makes such a purse. T08's
+/// Done-when 6 wording ("enforced on every path that credits a purse") is superseded by that report —
+/// see <see cref="IC2.Engine.Economy.PurseAccounting"/>'s remarks for which three paths do cap. No treasury is
+/// touched here: the original's join moves money only between the two army records, so — unlike the
+/// capped dialog paths — there is no "excess to the treasury" hygiene. The field's own bound still
+/// holds: the 16-bit add that could exceed 32,767 is enforced to
+/// <see cref="IC2.Engine.Economy.PurseAccounting.PurseFieldMax"/> and the excess goes NOWHERE
+/// <c>[designed: the user's
+/// 2026-10-05 choice not to reproduce the original's wrap, PR #758's R2 resolution; the original's wrap
+/// is row 7, derived: code, not played]</c>. Supplies, likewise uncapped, are a plain sum as decompiled.
 /// </para>
 /// </remarks>
 /// <param name="SurvivingArmyId">The army that receives the absorbed army's units, money and supplies.</param>

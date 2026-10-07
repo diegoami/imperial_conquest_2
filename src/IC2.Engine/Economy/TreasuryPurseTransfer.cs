@@ -12,9 +12,17 @@ namespace IC2.Engine.Economy;
 /// <remarks>
 /// <para>
 /// <strong>What is confirmed</strong>: <c>decompiled-unit-map-orders-and-record-fields.md</c> establishes
-/// that <c>TAFSupply_ChangeMoney</c> caps a purse at <see cref="EconomyRules.PurseCapPerUnit"/>
-/// (<c>caps.maxPurseTalents</c> in the fixtures corpus) — the same cap <see cref="PurseAccounting.Credit"/>
-/// already enforces on every other purse-crediting path, reused here rather than re-implemented.
+/// that <c>TAFSupply_ChangeMoney</c> caps a purse at <see cref="EconomyRules.PurseCapPerUnit"/>, and
+/// <c>2026-10-05-army-purse-writes-and-the-1000-cap.md</c> (research 9ae8924) reads the clamp exactly:
+/// rows 1 and 2 (lines 43101-43170) — a positive arrow step is <c>min(step, 1000 − receiving purse)</c>
+/// with <strong>no floor at 0</strong>, so an over-cap purse gets a <em>negative</em> step and is pulled
+/// back to exactly 1,000 while the provider gains the excess — seen in play: from a joined purse of
+/// 2,000, one "+100" click left the purse at 1,000 and raised the treasury by 1,000 (Wine candidate
+/// <c>Q1_06_after_join.SAV</c> → <c>Q1b_01_after_one_up_click.SAV</c>). This is one of only three paths
+/// that cap a purse in the original (<see cref="PurseAccounting"/>'s remarks name the other two), so the
+/// clamp lives <em>here</em>, in the dialog's own writer — not in <see cref="PurseAccounting.Credit"/>,
+/// which the uncapped paths use. T72 (bug #757, folded in) replaced the T105 round-1 N5 guard — which
+/// applied nothing to a positive request into an over-cap purse — with the original's signed arrow.
 /// </para>
 /// <para>
 /// <strong>What neither report states, and this deliberately does not invent</strong>: whether the
@@ -47,11 +55,12 @@ namespace IC2.Engine.Economy;
 /// </para>
 /// <para>
 /// <strong>Conservation</strong>: the amount actually applied is derived from the receiving purse's own
-/// before/after balance (via <see cref="PurseAccounting.Credit"/>, which enforces the cap), and the funding
-/// account moves by exactly that applied amount in the opposite direction — so both
-/// <c>nation.Treasury + unit.Money</c> (the treasury paths) and
+/// before/after balance (the signed <c>min(step, cap − receiver)</c> below, landed through
+/// <see cref="PurseAccounting.Credit"/>), and the other account moves by exactly that applied amount in
+/// the opposite direction — so both <c>nation.Treasury + unit.Money</c> (the treasury paths) and
 /// <c>fromMoney + toMoney</c> (the <c>via</c>-fleet <see cref="TransferBetweenPurses"/> path) are invariant
-/// across the call.
+/// across the call, including the pull-back: the excess a receiver above 1,000 sheds is exactly what the
+/// provider gains (report row 1; <c>Q1_06</c> → <c>Q1b_01</c>: purse −1,000, treasury +1,000).
 /// </para>
 /// </remarks>
 public static class TreasuryPurseTransfer
@@ -74,9 +83,13 @@ public static class TreasuryPurseTransfer
     /// <param name="army">The army.</param>
     /// <param name="talentsIntoPurse">
     /// The requested move. Positive moves talents from the treasury to the purse, clamped so the treasury
-    /// is never taken below zero (never more than it holds); negative moves talents from the purse to the
-    /// treasury, clamped so the purse is never taken below zero. Either direction is further clamped so
-    /// the purse never exceeds <see cref="EconomyRules.PurseCapPerUnit"/>.
+    /// is never drained below zero (never more than it holds) — and, when the purse already sits above
+    /// <see cref="EconomyRules.PurseCapPerUnit"/>, the original's arrow is signed: the request turns into
+    /// <c>PurseCapPerUnit − purse</c> (negative), the purse falls to exactly the cap and the excess is
+    /// credited to the treasury. Negative moves talents from the purse to the treasury, clamped so the
+    /// purse is never taken below zero; a purse above the cap drains normally, untouched by the clamp.
+    /// Either way the purse never ends above <see cref="EconomyRules.PurseCapPerUnit"/> through a
+    /// positive request.
     /// </param>
     /// <param name="ruleset">Supplies <see cref="EconomyRules.PurseCapPerUnit"/> — never a C# literal.</param>
     public static ArmyResult TransferWithArmy(NationState nation, ArmyState army, int talentsIntoPurse, Ruleset ruleset)
@@ -137,8 +150,9 @@ public static class TreasuryPurseTransfer
         // T105 review round 1, B1: ApplyTransfer caps its *target* argument, but on a negative request the
         // named unit funds and the via fleet receives, so the cap landed on the funder and the receiving
         // fromMoney could climb past PurseCapPerUnit. Route a negative request with the two purses
-        // swapped, so whichever purse receives is the one Credit caps, then map the pair back and negate
-        // the applied amount. The treasury paths are unaffected — the treasury has no cap.
+        // swapped, so whichever purse receives is the one the dialog's signed clamp caps (and pulls back
+        // to the cap if already over it — T72, bug #757), then map the pair back and negate the applied
+        // amount. The treasury paths are unaffected — the treasury has no cap.
         if (talentsIntoTo < 0)
         {
             var (negativeUpdatedTo, negativeUpdatedFrom, appliedIntoFrom) =
@@ -151,52 +165,60 @@ public static class TreasuryPurseTransfer
     }
 
     /// <summary>
-    /// The one place the source-balance clamp and the receiving-purse cap are combined: a positive
-    /// <paramref name="talentsIntoTarget"/> is funded by <paramref name="sourceMoney"/>, a negative one by
-    /// <paramref name="targetMoney"/>, and the receiving side is capped by
-    /// <see cref="PurseAccounting.Credit"/>. Every public transfer above pairs its two accounts and calls
-    /// this — the rule is not copied per direction.
+    /// The one place the dialog's signed money arrow and the source-balance clamp are combined: a positive
+    /// <paramref name="talentsIntoTarget"/> is funded by <paramref name="sourceMoney"/> and lands on the
+    /// receiving purse through the dialog's own clamp,
+    /// <c>min(request, PurseCapPerUnit − targetMoney)</c> — signed, with no floor at 0, exactly
+    /// <c>TAFSupply_ChangeMoney</c>'s step (2026-10-05 report rows 1 and 2), so a purse already above the
+    /// cap is pulled back to it and the provider gains the difference; a negative request is funded by
+    /// the purse itself and clamped to its balance. Every public transfer above pairs its two accounts
+    /// and calls this — the rule is not copied per direction.
     /// </summary>
     private static (int SourceMoney, int TargetMoney, int AppliedTalents) ApplyTransfer(
         int sourceMoney, int targetMoney, int talentsIntoTarget, Ruleset ruleset)
     {
-        var clampedRequest = ClampToSource(talentsIntoTarget, sourceMoney, targetMoney);
-        var updatedTarget = PurseAccounting.Credit(targetMoney, clampedRequest, ruleset);
-        var applied = updatedTarget - targetMoney;
+        // T72 (bug #757, folded in): this replaced the T105 round-1 N5 guard, which applied nothing when
+        // a positive request met a purse already above PurseCapPerUnit. The original applies the SIGNED
+        // arrow: from 2,000, one "+100" click moved min(100, 1000 − 2000) = −1,000, the purse fell to
+        // 1,000 and the treasury rose by 1,000 [Wine candidate: Q1_06_after_join.SAV →
+        // Q1b_01_after_one_up_click.SAV; the rule is row 1 [derived: TAFSupply_ChangeMoney :43118-43122]].
+        var step = talentsIntoTarget > 0
+            ? Math.Min(talentsIntoTarget, ruleset.Economy.PurseCapPerUnit - targetMoney)
+            : ClampFundingPurse(talentsIntoTarget, targetMoney);
 
-        // T105 review round 1, N5: a target that already sits above PurseCapPerUnit is clamped back down to
-        // the cap by Credit even for a positive request, which would make `applied` negative and move
-        // money out of the target and into the source. A request to move money *in* must never move it
-        // backwards: apply nothing in that case.
-        if (clampedRequest > 0 && applied < 0)
+        // Never drains a funding source below zero — but the clamp bites only when money leaves the
+        // source: a signed pull-back (a positive request into an over-cap purse turns the step negative)
+        // feeds the source, and the original checks no balance of it at all ("no check of the treasury's
+        // sign", row 1).
+        if (step > 0)
         {
-            updatedTarget = targetMoney;
-            applied = 0;
+            step = Math.Min(step, Math.Max(0, sourceMoney));
         }
 
+        var updatedTarget = PurseAccounting.Credit(targetMoney, step);
+        var applied = updatedTarget - targetMoney;
+
+        // `step` is ≤ PurseCapPerUnit − targetMoney on every positive request and ≥ −targetMoney on
+        // every negative one, so targetMoney + step always lands inside the purse field's range and
+        // Credit's bound never rewrites `applied` here: the two accounts conserve exactly, pull-back
+        // included.
         return (sourceMoney - applied, updatedTarget, applied);
     }
 
     /// <summary>
-    /// Never takes more than the source holds: a positive request (the first account funds the second) is
-    /// capped at the first's own balance; a negative request (the second funds the first) is capped at the
-    /// second's own balance. The first account is the treasury — or a funding purse for
-    /// <see cref="TransferBetweenPurses"/> — and the second is always the receiving purse.
+    /// The negative request is funded by the receiving purse itself (the dialog's "down" arrow, row 2:
+    /// <c>step := min(step, purse)</c>): never takes more than that purse holds, so the purse never ends
+    /// below zero through this path — and a purse above the cap simply drains, the cap not applying to
+    /// money leaving it. The drain case of a positive request is clamped in <see cref="ApplyTransfer"/>
+    /// against the funding account, which is the treasury — or a funding purse for
+    /// <see cref="TransferBetweenPurses"/>.
     /// </summary>
     /// <remarks>
-    /// Review round 1, B1: a negative source balance must clamp the request to zero, not pass it
-    /// through unchanged. <c>Math.Min(requested, treasury)</c> with a negative <paramref name="treasury"/>
-    /// returned the (negative) treasury itself for a positive request — moving money <em>out of</em> the
-    /// purse when the caller asked to move it <em>in</em>, and by however negative the treasury happened
-    /// to be, not by the requested amount. The source's own balance is floored at zero before either
-    /// clamp: a source that holds nothing (or less) can supply nothing, in either direction, rather than
-    /// reversing the transfer. <see cref="TreasuryPurseTransferTests"/> pins both directions against a
-    /// non-positive source.
+    /// T105 review round 1, B1 (kept): a non-positive funding account must clamp to zero, not pass the
+    /// request through — a source that holds nothing (or less) can supply nothing rather than reverse
+    /// the transfer. <see cref="TreasuryPurseTransferTests"/> pins both directions against a non-positive
+    /// source.
     /// </remarks>
-    private static int ClampToSource(int requested, int treasury, int purse) => requested switch
-    {
-        > 0 => Math.Min(requested, Math.Max(0, treasury)),
-        < 0 => Math.Max(requested, -Math.Max(0, purse)),
-        _ => 0,
-    };
+    private static int ClampFundingPurse(int requested, int purse) =>
+        Math.Max(requested, -Math.Max(0, purse));
 }

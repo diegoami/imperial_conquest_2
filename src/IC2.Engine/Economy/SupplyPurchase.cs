@@ -54,8 +54,15 @@ namespace IC2.Engine.Economy;
 /// <para>
 /// <strong>Purse model flag (<c>docs/design-audit.md</c> Q4)</strong>: under
 /// <see cref="EconomyPurseModel.PerUnitPurses"/> (<c>classical-faithful</c>) the debit lands on the
-/// buying army's or fleet's own purse, through <see cref="PurseAccounting.Credit"/> so the 1,000-talent
-/// cap is enforced on this path exactly as on every other purse-crediting path. Under
+/// buying army's or fleet's own purse, through <see cref="PurseAccounting.Credit"/> — and this path has
+/// <em>no 1,000 cap</em> (T72, bug #315): Buy supplies is report row 3 of
+/// <c>2026-10-05-army-purse-writes-and-the-1000-cap.md</c>, one of the paths that add to a purse without
+/// any cap. A positive amount only ever subtracts (<c>purse − amount div 5</c>, and the <c>purse × 5</c>
+/// affordability clamp keeps the result at or above 0, exactly as the row's own "positive amounts only
+/// subtract, never below 0" says), and a negative amount — the over-full army's giveback — <em>raises</em>
+/// the purse by <c>−amount div 5</c> with no cap: 10,000 troops, 206 supplies and purse 1,000 end at
+/// <strong>1,021</strong> [derived: row 3's worked example], not at 1,000 as the old capped model cut
+/// them. A 1,066-talent purse (IP016's army 1, bug #315) pays its purchases exactly: 1,066 − cost. Under
 /// <see cref="EconomyPurseModel.CentralTreasury"/> (<c>improved</c>) the same debit lands on the buying
 /// nation's treasury instead, with no per-unit purse touched at all, and the money-based room cap does not
 /// apply (the treasury has no confirmed cap, so none is invented for it) — the selling nation's treasury is
@@ -166,12 +173,12 @@ public static class SupplyPurchase
         if (talents != 0)
         {
             // Review round 1, N2: the seller's treasury moves by the buyer's own *applied* delta, not by
-            // the nominal `talents` -- on a refund (talents < 0, the over-capacity giveback), the purse's
-            // 1,000 cap can admit less than the full refund, and crediting the seller for the nominal
-            // amount while the buyer received less would leak the difference out of the game. Computing
-            // the buyer's actual delta first and mirroring exactly that onto the seller keeps the books
-            // exact in every case, and matches the ordinary (uncapped) path exactly when the cap never
-            // binds.
+            // the nominal `talents`. T72 removed the 1,000 cap from this path (report row 3 of
+            // 2026-10-05-army-purse-writes-and-the-1000-cap.md never caps the buy-supplies debit or its
+            // giveback refund), so the mirror is exact on every ordinary purchase and refund; it now
+            // guards only Credit's field-range bound, where a hand-built state at the top of the purse
+            // field could take less than the nominal refund. Computing the buyer's actual delta first
+            // and mirroring exactly that onto the seller keeps the books conservative in every case.
             int buyerDelta;
             if (ruleset.Flags.EconomyPurses == EconomyPurseModel.CentralTreasury)
             {
@@ -180,7 +187,7 @@ public static class SupplyPurchase
             }
             else
             {
-                var creditedMoney = PurseAccounting.Credit(updatedArmy.Money, -talents, ruleset);
+                var creditedMoney = PurseAccounting.Credit(updatedArmy.Money, -talents);
                 buyerDelta = creditedMoney - updatedArmy.Money;
                 updatedArmy = updatedArmy with { Money = creditedMoney };
             }
@@ -260,7 +267,8 @@ public static class SupplyPurchase
         if (talents != 0)
         {
             // Review round 1, N2 (see BuyForArmy): the seller's treasury moves by the buyer's own
-            // applied delta, so a refund the purse cap partially rejects does not leak the difference.
+            // applied delta -- exact on every ordinary path since T72 removed the cap here, and the
+            // mirror now guards only Credit's field-range bound at the top of the purse field.
             int buyerDelta;
             if (ruleset.Flags.EconomyPurses == EconomyPurseModel.CentralTreasury)
             {
@@ -269,7 +277,7 @@ public static class SupplyPurchase
             }
             else
             {
-                var creditedMoney = PurseAccounting.Credit(updatedFleet.Money, -talents, ruleset);
+                var creditedMoney = PurseAccounting.Credit(updatedFleet.Money, -talents);
                 buyerDelta = creditedMoney - updatedFleet.Money;
                 updatedFleet = updatedFleet with { Money = creditedMoney };
             }
