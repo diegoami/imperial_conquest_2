@@ -849,7 +849,7 @@ size together in one marker code; these are the size-band thresholds a renderer 
 |-------|------|--------------|---------|
 | `armyTroopTierThresholds` | array of integers | troop counts | Ascending thresholds splitting armies into size tiers (e.g. `[25000, 50000]` — 3 tiers). |
 | `fleetShipTierThresholds` | array of integers | ship counts | Same, for fleets. |
-| `cityPopulationTierThresholds` | array of integers | population thresholds | Same, for cities — ships empty in the shipped rulesets: a 5-value city-marker display axis is evidenced, but no decompiled banding function or boundary values exist yet. Do not invent thresholds here. |
+| `cityPopulationTierThresholds` | array of integers | population (thousands) | Same, for cities — **four** tiers, confirmed 2026-10-07 by `2026-10-07-city-marker-variants.md` (writer `FUN_0044a794`, thresholds 25/50/100; variant 4, the capital, is a separate key). Still ships empty in the shipped rulesets: the pack has three city tier keys against the four confirmed tiers, so filling `[25, 50, 100]` waits on the fourth key (bug [#818](https://github.com/diegoami/imperial_conquest_2/issues/818)). |
 | `_provenance` | object | No | Provenance map. |
 
 ### Victory rules

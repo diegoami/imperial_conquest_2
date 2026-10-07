@@ -386,19 +386,21 @@ apply to `MapViewer.cs`'s `OwnerColor` and its `:178` light-colour list — whic
 
 ---
 
-## 3. Army, fleet and city marker variants: confirmed for two of three, open for the third
+## 3. Army, fleet and city marker variants: confirmed for all three families
 
 **Correction (rework round 1): this section previously extended a size-tier reading to cities on the
 strength of a mid-task correction that turned out to be wrong on both the variant count (three, not
 five) and the occupied code range (180-wide, not 80-wide) — see §3.3.** What holds, confirmed directly
-from the decompilation for **armies and fleets only**: each is a genuine three-band size split, and the
+from the decompilation for **armies and fleets**: each is a genuine three-band size split, and the
 single most useful thing to tell an artist about *those two* families is that **a size tier is the same
 subject drawn larger/heavier, not a different unit** — a `tier2` icon should read, at a glance, as "a
 bigger version of `tier1`," exactly what the placeholder pack's own `ArmyTierIcons_ArePixelDifferent`-
-style tests require (visually distinct, but the same family). **Cities do not get that same "three
-sizes" framing** — §3.3 below has the corrected picture: five confirmed map-code variants, an open
-question about what they mean, and direct evidence the original draws more than one distinct building
-shape, not one shape at three sizes.
+style tests require (visually distinct, but the same family). **Cities now get the same framing at four
+sizes plus one distinct marker** — settled 2026-10-07 by
+`2026-10-07-city-marker-variants.md` (decompilation plan item 16, resolved): of the five confirmed
+map-code variants, **0–3 are population tiers** (split at 25/50/100 thousand) and **4 is the national
+capital** — a separate subject, not a fifth size — with direct evidence (unchanged) that the original
+draws more than one distinct building shape. §3.3 has the full picture.
 
 ### 3.1 Armies — three bands, thresholds confirmed
 
@@ -426,7 +428,10 @@ marker = owner + (s < 25 ? 300 : s < 50 ? 316 : 332)
 **[confirmed]** — `fleet.tier1.icon` = **under 25 ships**, `fleet.tier2.icon` = **25–49**,
 `fleet.tier3.icon` = **≥ 50**. Cross-checked against two real fleets: a 90-ship fleet reads marker `333`
 (band 332 + owner 1, Carthage) and a 70-ship fleet reads `335` (band 332 + owner 3, Ptolemaic) — both
-correctly in the ≥ 50 band.
+correctly in the ≥ 50 band. The writer and its every caller are now decompiled in full
+(`2026-10-07-city-marker-variants.md` **[confirmed: decompile]**: `FUN_0044a878` recomputes the band
+wherever a fleet's ship count changes — joins and splits, construction completion, storm damage, the
+AI merge — which is what produces the `333`/`335` codes cross-checked above).
 
 **Correction (rework round 1): the depiction below previously cited a screenshot with no fleet in it,
 and misdescribed the glyph.** The 90-ship Carthaginian fleet cross-checked above is the one visible on
@@ -462,7 +467,7 @@ across the three tiers, on the tier's own nation-coloured square background (mat
 convention, §1.2), **without** a diamond outline or a cursor halo, which belong to the game's selection
 UI, not to any one marker type.
 
-### 3.3 Cities — five confirmed map-code variants; meaning open; direct evidence of more than one glyph shape
+### 3.3 Cities — five confirmed map-code variants: four population tiers plus the capital; more than one glyph shape confirmed
 
 **Correction (rework round 1, superseding this section's first draft in full).** The first draft of this
 section was built on a mid-task correction that was itself wrong on two points, both now fixed upstream
@@ -488,14 +493,27 @@ upstream, in the research repo, not repeated here as new derivations.
 
 **So: the original has five city map-code variants, not three.** The placeholder pack ships four keys
 (`city.tier1/2/3.icon` + `city.capital.icon`). **Five confirmed variants against four shipped keys is
-itself the gap this section now records**, rather than closing early the way the first draft did. This
-document does not know, and does not guess, whether the fifth variant is a fourth population tier, a
-distinct building type orthogonal to size, the capital flag folded into the same code space, or
-something else — `rivers-and-map-markers.md` states plainly that "the variant's meaning (city size, icon,
-or another display category) still needs confirmation," and that is exactly where it stays until
-decompilation plan item 16 (rewritten per `c3cb609`) settles it. **Do not copy the army/fleet troop/ship
-thresholds onto cities** — a population number attached to a city tier here would be invented, not
-designed-with-reasoning, and no specific threshold is given.
+itself the gap this section now records**, rather than closing early the way the first draft did.
+**Resolved (2026-10-07): the variant's meaning is settled** — decompilation plan item 16, closed by
+`2026-10-07-city-marker-variants.md`. **Variants 0–3 are population size tiers**: unsigned thresholds on
+the city's current population in thousands — `< 25`, `25–49`, `50–99`, `≥ 100` — written by the
+original's marker writer `FUN_0044a794` **[confirmed: decompile]**. **Variant 4 is the national
+capital**: the writer refuses to touch a capital (the `FUN_0044b8d0` gate), and the variant-4 marker is
+written by the capital-relocation and rebirth paths instead; in eighteen saves every live nation's
+capital city and only those carry variant 4 **[confirmed: decompile + saves]**. Two consequences an
+artist and an implementer both need:
+
+- **The city thresholds are confirmed numbers, not inventions**: 25/50/100 thousand, from the same
+  decompiled writer as the army and fleet bands — this section's earlier "do not copy the army/fleet
+  troop/ship thresholds onto cities" warning is superseded (the city split adds a third boundary, 100,
+  that the army/fleet bands lack, giving **four** tiers where they have three).
+- **The tier is refreshed only when a city changes owner, never by growth**: the writer's callers are
+  the ownership-change paths (siege transfer, transfer/defection, elimination, conquest) and nothing in
+  the weekly or quarterly tick calls it, so a city that grows past a threshold keeps its old, smaller
+  icon until captured — the long-run saves hold variant-0 cities at population 26–28, above the
+  variant-1 threshold **[confirmed: decompile + saves]**. A capital keeps its variant-4 marker
+  regardless of population; whether the clone reproduces this staleness or consciously refreshes live
+  is a design decision recorded as bug [#818](https://github.com/diegoami/imperial_conquest_2/issues/818).
 
 **Direct evidence, from looking again at the corpus myself: the original draws more than one city
 building shape, correcting this section's first draft outright.** The first draft's capital-glyph
@@ -540,16 +558,17 @@ three, because the "house" is actually two different sprites, not one house at a
 That is **four distinct building shapes**, not one uniform glyph and not three — direct, first-hand
 confirmation (not merely a report citation) that the original's city iconography varies by more than
 colour, and a second, independent line of evidence for the same conclusion the five-variant map code
-already implies. **What this does not establish**: which shape (if any) is reserved for capital status
-specifically, as opposed to being what a population tier or the still-unconfirmed fifth variant selects.
-I cannot tell, from a screenshot alone and without the underlying save data, whether the purple
-temple-tile or the red castle-tile is that nation's *capital*, a large city, or simply a different
-nation's standard style — correlating a specific tile's variant code, its `PopulationThousands`, and its
-`CapitalCityId` flag is exactly decompilation plan item 16's job, not something derivable by eye. So:
-**five confirmed variants, four confirmed distinct glyph shapes, meaning of both still open — this is
-not "three sizes," and this document does not resolve it.** Four observed sprites against five confirmed
-variants is a sharper statement of the open question than three against five: it leaves exactly one
-variant this document has not seen an example of, rather than two.
+already implies. **What this does not establish**: which glyph shape the original draws for which
+variant. The variant *code's* meaning is now settled above (`2026-10-07-city-marker-variants.md`), but
+no screenshot or decompile cited here ties a specific sprite — small house, large house, temple, castle
+— to a specific tier or to the capital, so whether the purple temple-tile or the red castle-tile is that
+nation's *capital*, a large city, or simply a different nation's standard style is still not derivable
+by eye. So: **five confirmed variants with a confirmed meaning (four population tiers plus the
+capital), four confirmed distinct glyph shapes, the shape-to-variant mapping still open — this is not
+"three sizes," and the shapes are not yet assignable to tiers.** Four observed sprites against five
+confirmed variants leaves exactly one variant this document has not seen an example of; which of the
+observed shapes (if any) is the capital's, and which variant the unseen fifth shape belongs to, the
+corpus does not say.
 
 **Depiction for an artist, kept deliberately general given the above**: draw at least the four shapes
 directly observed — a small house, a large house (the same motif, scaled up and given its denser
@@ -560,11 +579,12 @@ example of the kind of variety the five-variant code plausibly selects between, 
 synthetic `DrawCity` glyph shape (`:179-182`, three line segments forming a roofline-and-walls
 silhouette — the generic case, closest to the small house) as the baseline `city.tier1/2/3.icon` keys
 already draw from. **Do not assume `tier1`→small house, `tier2`→large house, `tier3`→temple/castle or
-any other specific mapping** — that would assert a meaning this section explicitly does not have
-evidence for. The capital (`city.capital.icon`) may or may not correspond to one of these four shapes;
-until plan item 16 settles it, giving it a distinguishing mark (a raised banner, a distinct roofline)
-layered on whichever tier's icon it draws from remains this document's own `[designed]` fallback, stated
-as a fallback rather than as a finding about the original.
+any other specific mapping** — the tiers' *meaning* is now confirmed (population bands at 25/50/100
+thousand, per `2026-10-07-city-marker-variants.md`), but which glyph shape each variant draws is not,
+so an ordering of the shapes by tier would still be a guess. The capital draws its own variant (4), not
+a population tier; whether any of these four observed shapes is the capital's glyph is unknown, so
+giving `city.capital.icon` a distinguishing mark (a raised banner, a distinct roofline) remains this
+document's own `[designed]` fallback, stated as a fallback rather than as a finding about the original.
 
 ---
 
@@ -605,12 +625,13 @@ needed by T48, then T24. Exists today.
 `city.tier1.icon`, `city.tier2.icon`, `city.tier3.icon`, `city.capital.icon` — depiction guidance in
 §3.3. First needed by T48, then T24. Exists today, **but §3.3's own gap applies here directly**: the
 original's confirmed map-code encoding has **five** variants (`rivers-and-map-markers.md`, 334/334
-cities), not the four this group's keys provide for, and the variant's meaning is unconfirmed
-(decompilation plan item 16). This is not a call to add a fifth key — that is T11's list, and inventing
-a mapping from an unconfirmed variant to a new constant would be worse than the gap itself — it is the
-gap DoD 1 asks this document to record: **four shipped keys may not be enough once the fifth variant's
-meaning is known**, and whoever settles plan item 16 should re-open this section rather than assume the
-existing four already cover it.
+cities) — **four population tiers at 25/50/100 thousand plus the capital**, meaning settled 2026-10-07
+by `2026-10-07-city-marker-variants.md` — not the four this group's keys provide for. The missing key
+is now specific: a **fourth population-tier icon**, not an unknown-meaning variant. Adding it is T11's
+list to change, and the engine's marker seam and both packs cap at three tier keys today (bug
+[#818](https://github.com/diegoami/imperial_conquest_2/issues/818)), so the gap DoD 1 asked this
+document to record stands until that lands: **four shipped keys are not enough for the five confirmed
+variants.**
 
 ### 4.5 Terrain tiles — complete; the game map paints the surfaces, the river gap closed by strokes
 
