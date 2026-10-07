@@ -539,4 +539,30 @@ public sealed class ChangeUnitsModel
 
     /// <summary>Disband composes <c>disband-unit</c>.</summary>
     public string DisbandUnitLine(int unitIndex) => $"disband-unit {ArmyId} {unitIndex}";
+
+    /// <summary>
+    /// The prompt the Disband button asks before it acts: the original's own text, singular for one
+    /// selected unit and plural above it <c>[derived: code,
+    /// 2026-10-05-refusal-texts-and-conditions.md, row P08]</c>.
+    /// </summary>
+    public static string DisbandPromptText(int selectedCount) =>
+        $"Are you sure you want to disband {selectedCount} unit{(selectedCount > 1 ? "s" : string.Empty)}.";
+
+    /// <summary>
+    /// The orders the Disband button submits once its prompt is answered: one <c>disband-unit</c> per
+    /// selected unit, <em>highest index first</em> so an earlier removal never shifts a later index, and
+    /// none at all when the player answered No. The engine still refuses each order it would refuse today
+    /// (a last unit, an unknown army).
+    /// </summary>
+    public IReadOnlyList<string> DisbandOrders(IReadOnlyList<int> selectedIndexes, bool confirmed)
+    {
+        ArgumentNullException.ThrowIfNull(selectedIndexes);
+        return confirmed
+            ? selectedIndexes
+                .Distinct()
+                .OrderByDescending(unitIndex => unitIndex)
+                .Select(DisbandUnitLine)
+                .ToArray()
+            : Array.Empty<string>();
+    }
 }
