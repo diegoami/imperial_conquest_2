@@ -1015,7 +1015,28 @@ public partial class MainGameScreen : Control
         ShowOverlay(about);
     }
 
-    private void OnEndTurnPressed() => SubmitForCheck("end");
+    private void OnEndTurnPressed()
+    {
+        var warnings = EndTurnWarnings.For(
+            Session.State,
+            Session.World,
+            Session.Ruleset,
+            Session.State.ActiveNationId);
+        if (!warnings.OpensBox)
+        {
+            SubmitForCheck("end");
+            return;
+        }
+
+        var box = new EndTurnBox { WarningLines = warnings.Lines };
+        box.EndTurnRequested += () =>
+        {
+            CloseOverlay(box);
+            SubmitForCheck("end");
+        };
+        box.MakeMoreMovesRequested += () => CloseOverlay(box);
+        ShowOverlay(box);
+    }
 
     /// <summary>
     /// The Save command (File → Save, and the toolbar's Save button) — <c>docs/tasks/T95.md</c> (#467), Done-when 1: writes the current game to a
