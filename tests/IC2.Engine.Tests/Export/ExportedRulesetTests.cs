@@ -98,6 +98,7 @@ public class ExportedRulesetTests
         Assert.True(ruleset.Flags.FaithfulThawColumnBug);
         Assert.Equal(UnaffordableOrderPolicy.AllowDebt, ruleset.Flags.UnaffordableRecruitAndFortify);
         Assert.Equal(HumanMoveResupplyPolicy.Never, ruleset.Flags.HumanMoveResupply);
+        Assert.Equal(EndTurnWarningScope.NotActedOnly, ruleset.Flags.EndTurnWarningScope);
     }
 
     private static HashSet<string> LoadCorpusIds()

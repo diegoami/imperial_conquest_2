@@ -275,6 +275,7 @@ A ruleset file is stored under `data/rulesets/` as a JSON file. It defines all g
 | `mapMarkers` | object | Yes | Map marker configuration. |
 | `victory` | object | Yes | Victory condition thresholds and parameters. |
 | `ai` | object | Yes | AI weights and heuristics. |
+| `endTurnWarnings` | object | Yes | End turn warning thresholds and line cap. See "End turn warnings" below. |
 | `flags` | object | Yes | Feature flags selecting formula variants. See "Flags" below. |
 | `_provenance` | object | No | Provenance map. |
 
@@ -903,6 +904,20 @@ one shared scale, so the AI's determinism guarantee never depends on floating-po
 | `ownTradeSwapScore` | long | score | Score for the AI's own trade-partner-swap candidate, slightly below `ownTradeScore`. |
 | `_provenance` | object | No | Provenance map. |
 
+### End turn warnings
+
+The `endTurnWarnings` object (`EndTurnWarningRules`) contains the record-level values used by the
+original End turn gate and warning form. The not-acted recomputation reuses the economy supply-morale
+values and the fleet allowance values described by the `naval` table.
+
+| Field | Type | Range / unit | Meaning |
+|-------|------|--------------|---------|
+| `armySupplyThresholdNumerator` | integer | numerator | An army warns when `this × supplyTons < totalTroops` (below 20% of its capacity). |
+| `fleetSupplyShipsDivisor` | integer | divisor | A fleet warns when `supplyTons < ships / this`. |
+| `repairConditionThreshold` | integer | condition % | A fleet below this condition adds its repair line only when another warning has opened the box. |
+| `maximumLines` | integer | lines | Maximum warning lines shown in one End turn box; lines are not de-duplicated. |
+| `_provenance` | object | — | Provenance map. |
+
 ### Flags
 
 The `flags` object (`RulesetFlags`): the formula-variant selectors. Each one picks between the original's
@@ -919,6 +934,7 @@ are just two settings of this record.
 | `bugPolicySiegeRatioClamp` | enum | `"reproduce16BitClamp"`, `"clamp32Bit"` | Whether the siege attrition ratio and erosion ratio term reproduce the original's signed 16-bit wraparound (`classical-faithful`) or are computed in ordinary 32-bit arithmetic, never wrapping (`improved`). |
 | `unaffordableRecruitAndFortify` | enum | `"allowDebt"`, `"refuse"` | What a standing-unit recruitment order and a city fortification order do when the treasury cannot cover the cost: `allowDebt` (`classical-faithful`) takes the full cost and lets the treasury end below zero, as the original does; `refuse` (`improved`, and the small test ruleset) rejects the order. No other order reads it. |
 | `humanMoveResupply` | enum | `"never"`, `"againstNonHostileCity"` | Whether a human army's move also resupplies it: `never` (`classical-faithful`) runs no automatic resupply on a move, as the original, where only the AI resupplies; `againstNonHostileCity` (`improved`) resupplies an army whose move ends next to a city whose owner is not at war with it, against the first such city. Only the session's `move` reads it; the AI's resupply, buying supply and the Supply army dialog do not. |
+| `endTurnWarningScope` | enum | `"notActedOnly"`, `"everyUnit"` | Whether End turn checks only units whose recomputed weekly allowance is untouched (`classical-faithful`) or every own unit (`improved`). |
 | `_provenance` | object | No | Provenance map. |
 
 ---
