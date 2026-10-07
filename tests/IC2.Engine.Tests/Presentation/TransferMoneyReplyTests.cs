@@ -1,6 +1,7 @@
 using IC2.Engine.Model;
 using IC2.Engine.Presentation;
 using IC2.Engine.Tests.Core;
+using IC2.Slice.UI;
 using Xunit;
 
 namespace IC2.Engine.Tests.Presentation;
@@ -111,6 +112,25 @@ public sealed class TransferMoneyReplyTests
             + $"(fleet {ViaFleetId} is at its {cap}-talent cap).",
             output.Lines);
         Assert.DoesNotContain(RawLine, string.Join("\n", output.Lines));
+    }
+
+    /// <summary>
+    /// The screen's bottom status line rewrites only the engine's generic <c>"accepted."</c> lines (T147's
+    /// <see cref="CommandOutcomeWording"/>); the new reply is not one, so it reaches that line verbatim
+    /// instead of being replaced by the old per-kind fallback. Pinned so a later change cannot silently
+    /// put a placeholder back over the amount.
+    /// </summary>
+    [Fact]
+    public void TheScreenStatusLine_ShowsTheRichReplyVerbatim()
+    {
+        var reply = $"{ArmyId} received 0 of 10 requested talents from fleet {ViaFleetId} "
+            + $"(fleet {ViaFleetId} held 0).";
+
+        Assert.Equal(reply, CommandOutcomeWording.ReadableLine(reply));
+
+        // The old per-kind fallback still exists for the engine's generic line; it is simply no longer
+        // what the session prints for a transfer.
+        Assert.Equal("Money transferred.", CommandOutcomeWording.ReadableLine(RawLine));
     }
 
     private static GameSession SessionWithViaFleet(int y, int money)
