@@ -187,8 +187,23 @@ public sealed class EndTurnWarningsTests
         var fleetMoved = state with { Fleets = ValueList.Of(fleet), Armies = ValueList<ArmyState>.Empty };
         Assert.Empty(Query(world, fleetMoved, faithful));
 
+        // The aboard army is checked only through its fleet: a moved fleet exempts the starving army
+        // it carries, and the army loop skips embarked armies outright.
+        var aboard = Army(50_000, supply: 99) with { AboardFleetId = "north-fleet-1", CoveredTileCode = null };
+        var fleetCarrying = fleet with { CarriedArmyId = aboard.Id };
+        var movedFleetWithStarvingCargo = state with
+        {
+            Armies = ValueList.Of(aboard),
+            Fleets = ValueList.Of(fleetCarrying),
+        };
+        Assert.Empty(Query(world, movedFleetWithStarvingCargo, faithful));
+
         var (improvedWorld, _, improved) = Fixture(EndTurnWarningScope.EveryUnit);
-        Assert.NotEmpty(Query(improvedWorld, state with { Armies = ValueList.Of(movedArmy), Fleets = ValueList.Of(fleet) }, improved));
+        Assert.NotEmpty(Query(improvedWorld, state with
+        {
+            Armies = ValueList.Of(movedArmy, aboard),
+            Fleets = ValueList.Of(fleetCarrying),
+        }, improved));
     }
 
     [Fact]
