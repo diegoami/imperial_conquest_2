@@ -90,6 +90,65 @@ function New-PlaceholderBMP {
     [System.IO.File]::WriteAllBytes($Path, $allBytes)
 }
 
+# T148 surface stand-ins: 256x256 24-bit BMPs with a gentle periodic pattern, the drop-in for the
+# authored pack's six seamless surfaces. The pattern uses whole 256-px sine periods, so its left and
+# right columns (and top and bottom rows) are exactly equal and it tiles with no seam. 24-bit per
+# docs/asset-specification.md 1.2; the authored pack supplies the real detail.
+function New-PlaceholderSurfaceBMP {
+    param(
+        [string]$Path,
+        [int]$Red,
+        [int]$Green,
+        [int]$Blue
+    )
+
+    $width = 256
+    $height = 256
+    $bytesPerPixel = 3
+    $rowSize = $width * $bytesPerPixel  # 768, already 4-byte aligned
+    $pixelDataSize = [uint32]($rowSize * $height)
+    $pixelDataOffset = [uint32]54
+    $fileSize = [uint32]($pixelDataOffset + $pixelDataSize)
+
+    $fileHeader = [byte[]]@(0x42, 0x4D)  # "BM"
+    $fileHeader += [BitConverter]::GetBytes($fileSize)
+    $fileHeader += [byte[]]@(0, 0, 0, 0)  # reserved
+    $fileHeader += [BitConverter]::GetBytes($pixelDataOffset)
+
+    $infoHeader = [BitConverter]::GetBytes([uint32]40)
+    $infoHeader += [BitConverter]::GetBytes([int32]$width)
+    $infoHeader += [BitConverter]::GetBytes([int32]$height)            # positive => bottom-up
+    $infoHeader += [BitConverter]::GetBytes([uint16]1)                 # color planes
+    $infoHeader += [BitConverter]::GetBytes([uint16]24)                # bits per pixel
+    $infoHeader += [BitConverter]::GetBytes([uint32]0)                 # BI_RGB, no compression
+    $infoHeader += [BitConverter]::GetBytes($pixelDataSize)
+    $infoHeader += [BitConverter]::GetBytes([int32]0)
+    $infoHeader += [BitConverter]::GetBytes([int32]0)
+    $infoHeader += [BitConverter]::GetBytes([uint32]0)
+    $infoHeader += [BitConverter]::GetBytes([uint32]0)
+
+    $pixelData = New-Object byte[] $pixelDataSize
+    $twoPi = 2.0 * [Math]::PI
+    for ($y = 0; $y -lt $height; $y++) {
+        $rowIndex = $height - 1 - $y
+        for ($x = 0; $x -lt $width; $x++) {
+            # Whole periods in 256 px: the pattern is exactly periodic, so the tile's opposite
+            # edges are byte-identical.
+            $wave = [Math]::Sin($twoPi * $x / $width) * [Math]::Cos($twoPi * $y / $height)
+            $r = [Math]::Max(0, [Math]::Min(255, [int]($Red + 18 * $wave)))
+            $g = [Math]::Max(0, [Math]::Min(255, [int]($Green + 18 * $wave)))
+            $b = [Math]::Max(0, [Math]::Min(255, [int]($Blue + 18 * $wave)))
+            $idx = ($rowIndex * $rowSize) + ($x * $bytesPerPixel)
+            $pixelData[$idx] = [byte]$b
+            $pixelData[$idx + 1] = [byte]$g
+            $pixelData[$idx + 2] = [byte]$r
+        }
+    }
+
+    $allBytes = $fileHeader + $infoHeader + $pixelData
+    [System.IO.File]::WriteAllBytes($Path, $allBytes)
+}
+
 # Toolbar-command stand-ins (T101): 32-bit BGRA with a transparent background, because every
 # ui.command.* key is a 32-bit BGRA icon under section 1.2's chrome rule. The pattern is a
 # SHA-256-derived identicon (an 8x8 mirrored grid of 4x4 cells) in two flat colours, so each
@@ -288,6 +347,24 @@ foreach ($file in $bmpMappings.Keys) {
     Write-Host "  + $file"
 }
 
+# T148: the six seamless surface textures, one 256x256 24-bit procedural BMP per surface class.
+Write-Host "Generating terrain surface stand-ins..."
+$surfaceColors = @{
+    "plain" = $colors["plain"]
+    "desert" = $colors["desert"]
+    "forest" = $colors["forest"]
+    "mountain" = $colors["mountain"]
+    "sea_shallow" = $colors["coastal"]
+    "sea_deep" = $colors["deep"]
+}
+foreach ($surface in $surfaceColors.Keys) {
+    $color = $surfaceColors[$surface]
+    $file = "terrain/${surface}_surface.bmp"
+    $fullPath = Join-Path -Path $OutputPath -ChildPath $file
+    New-PlaceholderSurfaceBMP -Path $fullPath -Red $color[0] -Green $color[1] -Blue $color[2]
+    Write-Host "  + $file"
+}
+
 # Toolbar-command keys (T101): 9 main-toolbar commands, 12 Area-map strip commands and 15
 # unit-map strip commands, in AssetKeys.cs order. The file name follows section 1.5's
 # convention: `ui.command.<id>.icon` -> `ui/command_<id>.bmp`.
@@ -341,6 +418,11 @@ $manifest.assets["city.capital.icon"] = "city/capital.bmp"
 
 foreach ($terrain in @("plain", "desert", "forest", "mountain", "river", "sea_coastal", "sea_deep")) {
     $manifest.assets["terrain.$terrain.tile"] = "terrain/$terrain.bmp"
+}
+
+# T148: the six seamless surface textures.
+foreach ($surface in @("plain", "desert", "forest", "mountain", "sea_shallow", "sea_deep")) {
+    $manifest.assets["terrain.$surface.surface"] = "terrain/${surface}_surface.bmp"
 }
 
 foreach ($sfx in @("city_captured", "battle", "unit_move")) {

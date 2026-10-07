@@ -74,6 +74,7 @@ except ImportError:  # pragma: no cover - environment guard
 # --- Constants (docs/asset-specification.md par. 1) --------------------------------------
 
 SIZE = 32  # par. 1.3: 32x32 for every map-grid and marker asset
+SURFACE_SIZE = 256  # par. 1.2 and T148: a seamless surface texture is 256x256
 DEFAULT_ENDPOINT = "https://openrouter.ai/api/v1"
 DEFAULT_CONFIG_NAME = "assets-generator.local.ini"
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -119,7 +120,7 @@ BOX = getattr(getattr(Image, "Resampling", Image), "BOX")
 ESTIMATED_PROMPT_TOKENS = 120
 ESTIMATED_IMAGE_OUTPUT_TOKENS = 1300
 
-VALID_KINDS = ("sprite", "ui", "tile", "sfx")
+VALID_KINDS = ("sprite", "ui", "tile", "surface", "sfx")
 
 
 # --- Key conventions (docs/asset-specification.md par. 1.5) ------------------------------
@@ -132,6 +133,8 @@ def kind_for_key(key: str) -> str:
     sprite, but pictorial and full-colour rather than a neutral silhouette, because the
     draw-time nation tint applies to markers only (docs/asset-specification.md 4.7).
     """
+    if key.startswith("terrain.") and key.endswith(".surface"):
+        return "surface"
     if key.startswith("terrain."):
         return "tile"
     if key.startswith("sfx."):
@@ -164,10 +167,10 @@ def asset_relpath(key: str) -> str:
 # --- BITMAPFILEHEADER + 40-byte BITMAPINFOHEADER, bottom-up rows, BI_RGB, 4-byte padding) ---
 
 
-def bmp_bytes(img: Image.Image, bit_count: int) -> bytes:
-    """Serialize a 32x32 image as an uncompressed BMP: 24-bit BGR or 32-bit BGRA."""
-    if img.size != (SIZE, SIZE):
-        raise ValueError(f"expected {SIZE}x{SIZE}, got {img.size}")
+def bmp_bytes(img: Image.Image, bit_count: int, expected_size: int = SIZE) -> bytes:
+    """Serialize an image as an uncompressed BMP: 24-bit BGR or 32-bit BGRA."""
+    if img.size != (expected_size, expected_size):
+        raise ValueError(f"expected {expected_size}x{expected_size}, got {img.size}")
     width, height = img.size
     bytes_per_pixel = bit_count // 8
     row_unpadded = width * bytes_per_pixel
@@ -425,6 +428,79 @@ def conform_tile(img: Image.Image) -> bytes:
     always fully covers its grid cell)."""
     img = img.convert("RGB").resize((SIZE, SIZE), LANCZOS)
     return bmp_bytes(img, 24)
+
+
+def make_seamless(img: Image.Image) -> Image.Image:
+    """Make an image tile without a visible seam (docs/asset-specification.md 1.2, 4.5).
+
+    Two half-size offset-and-cross-fade passes, one per axis, and nothing else — no edge fade
+    and no mirroring toward the opposite edge (the Opus review of the splatting round, R4: the
+    earlier `_fade_edges` step pulled every repeat border toward mirror symmetry, and the
+    product-of-ramps mask it ran after left the offset's own "+" seam visible along its arms).
+
+    Pass 1 offsets by half the width and cross-fades the resulting central vertical seam with
+    the un-offset image; pass 2 does the same along the height on the result. Each pass uses a
+    mask that depends only on its own axis — a triangle, zero at that axis's borders (where the
+    offset image's edges are source-adjacent pixels, so the tile wraps there) and full at its
+    centre (where the original is smooth across the seam). A mask of one axis alone is never
+    near zero along the other axis's seam, so no "+" remains; and because pass 2's mask is
+    constant along every column, it mixes the same source rows at the left and right borders,
+    which is why pass 1's column wrap survives it. The result tiles in both directions whatever
+    the model returned.
+    """
+    width, height = img.size
+    return _crossfade_seam(_crossfade_seam(img, width // 2, 0), 0, height // 2)
+
+
+def _crossfade_seam(img: Image.Image, dx: int, dy: int) -> Image.Image:
+    """`img` cross-faded with itself offset by (dx, dy) — one axis only (exactly one of dx, dy
+    nonzero) by half the image. The triangular mask peaks along the seam the offset puts in the
+    middle (keeping `img`, smooth there) and reaches zero at the borders (keeping the offset
+    image, whose borders are adjacent source pixels and so wrap)."""
+    width, height = img.size
+    rolled = ImageChops.offset(img, dx, dy)
+
+    # Triangle along the OFFSET axis only: 0 at that axis's borders, 255 at its centre,
+    # constant along the other axis — which is what keeps the first pass's column wrap alive
+    # through the second. (Image.linear_gradient ramps along y, and a rotate would transpose a
+    # non-square image, so the ramp is built directly.)
+    if dx:
+        mask = Image.new("L", (width, 1))
+        mask.putdata([255 - abs(2 * x - (width - 1)) for x in range(width)])
+    else:
+        mask = Image.new("L", (1, height))
+        mask.putdata([255 - abs(2 * y - (height - 1)) for y in range(height)])
+    return Image.composite(img.convert("RGB"), rolled.convert("RGB"),
+                           mask.resize((width, height), BOX))
+
+
+def conform_surface(img: Image.Image) -> bytes:
+    """A seamless terrain surface (`terrain.*.surface`, T148): offset-and-cross-fade the seam,
+    resize to 256x256 with a high-quality filter, and write a 24-bit BGR BMP - the six surface
+    textures the splatting shader samples (docs/asset-specification.md 1.2, 4.5)."""
+    seamless = make_seamless(img.convert("RGB"))
+    return bmp_bytes(downscale_seamless(seamless), 24, expected_size=SURFACE_SIZE)
+
+
+def downscale_seamless(img: Image.Image) -> Image.Image:
+    """A seamless (wrapping) image down to 256x256 with TOROIDAL taps.
+
+    A plain resize reads past each edge with clamped repeats. On a texture that wraps that is
+    wrong at the very two columns (and rows) that must agree: the left edge column gets a tap
+    window clamped inside the image and the right edge column a mirror of it, so their difference
+    - the wrap seam the pack test measures - keeps a few times the contrast of an ordinary
+    adjacent-column pair (the mountain's snow flecks measured 15-19 at the border against 12 in
+    the interior, where the Done-when 2 bar of 15 was set for natural wraps). The make_seamless
+    passes have just made this image periodic, so the resample should read its neighbour across
+    the border: tile it 3x3, resize the whole, and take the middle copy - every output pixel,
+    the two edge columns included, then averages the content a plain interior pixel averages."""
+    width, height = img.size
+    tiled = Image.new("RGB", (width * 3, height * 3))
+    for ty in range(3):
+        for tx in range(3):
+            tiled.paste(img, (tx * width, ty * height))
+    shrunk = tiled.resize((SURFACE_SIZE * 3, SURFACE_SIZE * 3), LANCZOS)
+    return shrunk.crop((SURFACE_SIZE, SURFACE_SIZE, SURFACE_SIZE * 2, SURFACE_SIZE * 2))
 
 
 def conform_ui_icon(img: Image.Image) -> Image.Image:
@@ -1073,6 +1149,56 @@ def self_check() -> list:
     _check(failures, "tile: pixel array is 3072 bytes",
            tile_header["image_size"] == SIZE * SIZE * 3 == len(tile_bmp) - 54)
 
+    # Synthetic surface (terrain.*.surface, T148): a 256x256 picture with a hard edge through
+    # the middle, so a conform that did NOT make it seamless would leave a large left/right and
+    # top/bottom edge difference. The conform must offset-and-cross-fade that away and emit a
+    # 256x256 24-bit BMP. The C# pack test re-checks the committed files by the same edge rule.
+    surface_source = Image.new("RGB", (256, 256))
+    surface_pixels = surface_source.load()
+    for sy in range(256):
+        for sx in range(256):
+            # A continuous but NON-periodic-in-256 texture, so its own left/right and top/bottom
+            # borders do not match (the seam a model texture has); the conform must remove it.
+            wave_value = math.sin(2 * math.pi * sx / 180.0) * math.cos(2 * math.pi * sy / 140.0)
+            value = int(128 + (90 * wave_value))
+            surface_pixels[sx, sy] = (value, max(0, min(255, value + 30)), max(0, min(255, value - 20)))
+    surface_bmp = conform_surface(surface_source)
+    surface_header = _parse_bmp_header(surface_bmp)
+    _check(failures, "surface: 256x256",
+           (surface_header["width"], surface_header["height"]) == (SURFACE_SIZE, SURFACE_SIZE),
+           f"{surface_header['width']}x{surface_header['height']}")
+    _check(failures, "surface: 24-bit opaque", surface_header["bit_count"] == 24)
+    _check(failures, "surface: pixel array is 196608 bytes",
+           surface_header["image_size"] == SURFACE_SIZE * SURFACE_SIZE * 3
+           == len(surface_bmp) - 54)
+
+    def _edge_mean_difference_per_channel(bmp: bytes) -> list:
+        """The same six values the C# pack test asserts (T148 Done-when 2, the Opus review's R3):
+        the mean absolute difference per channel between the left and right edge columns and
+        between the top and bottom rows — never pooled."""
+        row_size = SURFACE_SIZE * 3  # 256*3 is a multiple of 4, so no row padding
+        horizontal = [0.0, 0.0, 0.0]
+        for y in range(SURFACE_SIZE):
+            row = 54 + (SURFACE_SIZE - 1 - y) * row_size  # BMP rows are bottom-up
+            left = bmp[row:row + 3]
+            right = bmp[row + row_size - 3:row + row_size]
+            for c in range(3):
+                horizontal[c] += abs(left[c] - right[c])
+        vertical = [0.0, 0.0, 0.0]
+        top = 54 + (SURFACE_SIZE - 1) * row_size
+        bottom = 54
+        for x in range(row_size):
+            vertical[x % 3] += abs(bmp[top + x] - bmp[bottom + x])
+        for c in range(3):
+            horizontal[c] /= SURFACE_SIZE
+            vertical[c] /= SURFACE_SIZE
+        return [("left/right", c, horizontal[c]) for c in range(3)] + [
+            ("top/bottom", c, vertical[c]) for c in range(3)]
+
+    for axis, channel, edge in _edge_mean_difference_per_channel(surface_bmp):
+        _check(failures, f"surface: the seam is cross-faded ({axis} channel {channel} edge mean "
+               "difference under 15 of 255, the pack test's bar)", edge < 15.0, f"{edge:.2f}")
+
     # WAV synthesis round-trip: the synthesized cue is a real RIFF/WAVE with the
     # par. 1.4 envelope (mono, 44100 Hz, 16-bit PCM).
     wav = wav_bytes(synth_unit_move())
@@ -1277,11 +1403,11 @@ def manifest_document(entries: list) -> dict:
         "name": "Authored Asset Pack",
         "description": (
             "Generated by scripts/generate-authored-assets.py from assets/prompts.json "
-            "(T51): image-model sprites and terrain tiles conformed to "
-            "docs/asset-specification.md par. 1 (32x32 BMP; 24-bit opaque terrain; "
-            "32-bit BGRA sprites keyed to alpha, tinted per nation at draw time), plus "
-            "locally synthesized sound cues. The same shape as the placeholder pack's "
-            "manifest."
+            "(T51): image-model sprites, terrain tiles and seamless 256x256 surface textures "
+            "conformed to docs/asset-specification.md par. 1 (32x32 BMP; 24-bit opaque terrain "
+            "tiles; 32-bit BGRA sprites keyed to alpha, tinted per nation at draw time; "
+            "256x256 24-bit seamless surfaces), plus locally synthesized sound cues. The same "
+            "shape as the placeholder pack's manifest."
         ),
         "assets": {entry["key"]: asset_relpath(entry["key"]) for entry in entries},
     }
@@ -1369,8 +1495,9 @@ def dry_run(config: dict, entries: list, selection: list, models: list | None) -
     print(f"  Billable images this selection would request: {len(image_keys)} "
           f"({sum(1 for e in image_keys if e['kind'] == 'sprite')} sprites -> 32-bit BGRA "
           f"+ {sum(1 for e in image_keys if e['kind'] == 'ui')} toolbar icons -> 32-bit BGRA "
-          f"+ {sum(1 for e in image_keys if e['kind'] == 'tile')} terrain tiles -> 24-bit "
-          "opaque)")
+          f"+ {sum(1 for e in image_keys if e['kind'] == 'tile')} terrain tiles -> 24-bit opaque "
+          f"+ {sum(1 for e in image_keys if e['kind'] == 'surface')} surface textures -> "
+          "256x256 24-bit seamless)")
     print(f"  Not billed: {len(sfx_keys)} sfx synthesized locally "
           "(deterministic, free)")
 
@@ -1632,8 +1759,9 @@ def generate_selection(config: dict, selection: list, out_dir: str, raw_dir: str
                   f"{kept}{cost_note}; nothing was written to the pack for it; "
                   "continuing with the next key.", file=sys.stderr)
             continue
+        out_size = SURFACE_SIZE if kind == "surface" else SIZE
         print(f"  generated {relpath} (source {image.size[0]}x{image.size[1]} kept at "
-              f"{os.path.relpath(raw_path, REPO_ROOT)} -> {SIZE}x{SIZE} {depth}"
+              f"{os.path.relpath(raw_path, REPO_ROOT)} -> {out_size}x{out_size} {depth}"
               f"{' overwrote' if existed else ''}{cost_note})")
         generated += 1
     return generated, failed
@@ -1662,6 +1790,8 @@ def conform_image(kind: str, image: Image.Image) -> tuple:
         return conform_sprite(image), "32-bit BGRA"
     if kind == "ui":
         return conform_ui(image), "32-bit BGRA (full-colour icon)"
+    if kind == "surface":
+        return conform_surface(image), "256x256 24-bit opaque (seamless)"
     return conform_tile(image), "24-bit opaque"
 
 
@@ -1705,8 +1835,9 @@ def run_reconform(entries: list, selection: list, out_dir: str, raw_dir: str,
                     handle.write(bmp)
             done.append(key)
             verb = "reconformed" if write else "would reconform"
+            out_size = SURFACE_SIZE if kind == "surface" else SIZE
             print(f"  {verb} {relpath} ({image.size[0]}x{image.size[1]} -> "
-                  f"{SIZE}x{SIZE} {depth})")
+                  f"{out_size}x{out_size} {depth})")
         if write:
             manifest_path = write_manifest(out_dir, entries)
             print(f"  wrote {os.path.relpath(manifest_path, REPO_ROOT)}")
@@ -1740,9 +1871,9 @@ def main(argv: list | None = None) -> int:
                         help="force a dry run even with --key/--all (the default without "
                              "them)")
     parser.add_argument("--all", action="store_true",
-                        help="REAL RUN: regenerate every key (58 billable images: 15 sprites, "
-                             "36 toolbar icons, 7 terrain tiles; 3 sfx synthesized locally, not "
-                             "billed)")
+                        help="REAL RUN: regenerate every key (64 billable images: 15 sprites, "
+                             "36 toolbar icons, 7 terrain tiles, 6 surface textures; 3 sfx "
+                             "synthesized locally, not billed)")
     parser.add_argument("--key", action="append", default=[], metavar="AssetKey",
                         help="REAL RUN: regenerate only this key (repeatable). Any "
                              "selection without --dry-run is a billable run.")

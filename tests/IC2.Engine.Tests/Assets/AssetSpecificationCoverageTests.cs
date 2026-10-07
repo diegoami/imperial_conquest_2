@@ -19,9 +19,9 @@ namespace IC2.Engine.Tests.Assets;
 /// misspelled "existing" key claimed in the document fails exactly as loudly as a missing one.
 /// </para>
 /// <para>
-/// Gap/candidate keys discussed elsewhere in the document (river tile variants, candidate new sfx
-/// keys) are deliberately outside this block: this test only requires the *existing* keys - all 61
-/// after T101 - to round-trip, and a proposed key must not affect it either way.
+/// Gap/candidate keys discussed elsewhere in the document (candidate new sfx keys) are deliberately
+/// outside this block: this test only requires the *existing* keys - all 67 after T101 and T148 - to
+/// round-trip, and a proposed key must not affect it either way.
 /// </para>
 /// </remarks>
 public class AssetSpecificationCoverageTests

@@ -367,6 +367,42 @@
       "kind": "ui",
       "prompt": "A simple pictorial user-interface toolbar icon showing a circle with a diagonal slash. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
       "source": "docs/asset-specification.md 4.7 toolbar icon table: 'Cancel selection - a circle with a diagonal slash' [designed] - the source game's own art cannot ship"
+    },
+    {
+      "key": "terrain.plain.surface",
+      "kind": "surface",
+      "prompt": "A seamless top-down terrain texture of calm open grassland for a strategy map: a bright green grassy surface with only a few soft, broad, faint lighter-green tonal variations and scattered subtle darker-green flecks, evenly and flatly lit, the motif continuing across the whole square frame edge to edge with no clear centre, designed to tile seamlessly in every direction. No sky, no horizon, no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.5 terrain palette (the plain bright green, the forest darker green, the mountain grey rock with snow, the desert olive-to-tan, lighter shallow and darker deep water)"
+    },
+    {
+      "key": "terrain.desert.surface",
+      "kind": "surface",
+      "prompt": "A seamless top-down terrain texture of arid desert for a strategy map: an olive-to-tan sandy base with irregular, non-repeating dune shapes in soft-edged tan and lighter sand, scattered without any regular arrangement, gently and flatly lit from directly above, the same tone continuing across the whole square frame edge to edge with no clear centre and no repeating motif, designed to tile seamlessly in every direction. No sky, no horizon, no border, no frame, no text, no shadow from any direction, no dark cross, no grid, no lines, no diagonal streaks, no parallel ripples, no regular stripes, no repeating motif, no large contrasting patches.",
+      "source": "docs/asset-specification.md 4.5 terrain palette (the plain bright green, the forest darker green, the mountain grey rock with snow, the desert olive-to-tan, lighter shallow and darker deep water)"
+    },
+    {
+      "key": "terrain.forest.surface",
+      "kind": "surface",
+      "prompt": "A seamless top-down terrain texture of dense woodland for a strategy map: a darker green base seen straight down, densely covered with the round-topped crowns of many trees and a little dark undergrowth between them, evenly and flatly lit, the motif continuing across the whole square frame edge to edge with no clear centre, designed to tile seamlessly in every direction. No sky, no horizon, no border, no frame, no text, no shadow from any direction.",
+      "source": "docs/asset-specification.md 4.5 terrain palette (the plain bright green, the forest darker green, the mountain grey rock with snow, the desert olive-to-tan, lighter shallow and darker deep water)"
+    },
+    {
+      "key": "terrain.mountain.surface",
+      "kind": "surface",
+      "prompt": "A seamless top-down terrain texture of a mountain range for a strategy map, seen straight down from above: grey rock in large broad slabs and gentle bands with scattered soft-edged pale snow flecks, evenly and flatly lit, the motif continuing across the whole square frame edge to edge with no clear centre, designed to tile seamlessly in every direction. Large simple shapes, no fine grain, no speckle noise, no sky, no horizon, no landscape profile, no border, no frame, no text, no shadow from any direction.",
+      "source": "docs/asset-specification.md 4.5 terrain palette (the plain bright green, the forest darker green, the mountain grey rock with snow, the desert olive-to-tan, lighter shallow and darker deep water)"
+    },
+    {
+      "key": "terrain.sea_shallow.surface",
+      "kind": "surface",
+      "prompt": "A seamless top-down terrain texture of shallow coastal sea for a strategy map: lighter blue water with a gentle repeating wave pattern and soft lighter flecks, evenly and flatly lit, the motif continuing across the whole square frame edge to edge with no clear centre, designed to tile seamlessly in every direction. No sky, no horizon, no shoreline, no border, no frame, no text, no shadow from any direction.",
+      "source": "docs/asset-specification.md 4.5 terrain palette (the plain bright green, the forest darker green, the mountain grey rock with snow, the desert olive-to-tan, lighter shallow and darker deep water)"
+    },
+    {
+      "key": "terrain.sea_deep.surface",
+      "kind": "surface",
+      "prompt": "A seamless top-down terrain texture of deep open sea for a strategy map: darker blue water with the same gentle repeating wave pattern and a few soft darker flecks, evenly and flatly lit, the motif continuing across the whole square frame edge to edge with no clear centre, designed to tile seamlessly in every direction. No sky, no horizon, no shoreline, no border, no frame, no text, no shadow from any direction.",
+      "source": "docs/asset-specification.md 4.5 terrain palette (the plain bright green, the forest darker green, the mountain grey rock with snow, the desert olive-to-tan, lighter shallow and darker deep water)"
     }
   ]
 }

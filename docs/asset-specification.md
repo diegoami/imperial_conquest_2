@@ -887,10 +887,10 @@ this task's Owns list to change.
 
 ## 6. Existing keys — machine-checked ground truth
 
-The exact 61 keys `AssetKeys.AllKeys` yields today (the 25 original keys plus T101's 36 toolbar
-commands), one per line, in the same seven-group order as `AssetKeys.cs` itself. This block is read
-verbatim by `AssetSpecificationCoverageTests.cs`; do not reformat it without updating that test's
-expectations.
+The exact 67 keys `AssetKeys.AllKeys` yields today (the 25 original keys, T148's six seamless
+terrain surface keys and T101's 36 toolbar commands), one per line, in the same eight-group order as
+`AssetKeys.cs` itself. This block is read verbatim by `AssetSpecificationCoverageTests.cs`; do not
+reformat it without updating that test's expectations.
 
 ```text
 unit.light_infantry.icon
@@ -915,6 +915,12 @@ terrain.mountain.tile
 terrain.river.tile
 terrain.sea_coastal.tile
 terrain.sea_deep.tile
+terrain.plain.surface
+terrain.desert.surface
+terrain.forest.surface
+terrain.mountain.surface
+terrain.sea_shallow.surface
+terrain.sea_deep.surface
 sfx.city_captured
 sfx.battle
 sfx.unit_move

@@ -145,6 +145,24 @@ public partial class GameMapView : Control
     private ImageTexture? _terrainTexture;
     private int[]? _terrainCells;
 
+    // T148 "The map's surface is painted, not tiled": the baked splat lattice and the six seamless
+    // surface textures the shader blends, held so TerrainMemoryBytesForCheck can report the terrain
+    // draw's own footprint. _surfaceCanvas is the child CanvasItem (show-behind-parent, so the markers
+    // still draw over it) that carries the surface shader; it is null when the shader or a texture is
+    // missing, and the draw falls back to the flat-colour texture.
+    private TerrainSplatMap? _splatMap;
+    private ImageTexture? _splatTextureA;
+    private ImageTexture? _splatTextureB;
+    private readonly Texture2D?[] _surfaceTextures = new Texture2D?[6];
+
+    // T148 (the Opus review of PR #806, N2): the river chains are geometry of the world, not of the
+    // frame — built once at Attach, so no _Draw ever rescans the grid for them.
+    private IReadOnlyList<RiverChain>? _riverChains;
+    private ColorRect? _backgroundCanvas;
+    private ColorRect? _surfaceCanvas;
+    private ShaderMaterial? _surfaceMaterial;
+    private TerrainSurfaceState _drawnSurface;
+
     private string? _selectedCityId;
     private string? _selectedArmyId;
     private string? _selectedFleetId;
@@ -293,6 +311,7 @@ public partial class GameMapView : Control
             onFailure: key => GD.PushWarning($"T24 map: asset pack could not resolve or load '{key}'; falling back to the coloured marker."));
 
         BakeTerrainTexture();
+        ResolveSurfaceResources();
         _userAdjustedView = false;
         if (Size.X > 0 && Size.Y > 0)
         {
@@ -329,6 +348,87 @@ public partial class GameMapView : Control
         }
 
         Zoom(Size / 2f, MaxZoom / _zoom);
+    }
+
+    /// <summary>
+    /// T148: sets the exact drawn cell size (in screen pixels) through the same clamp-and-announce path
+    /// every zoom uses. <c>godot/Checks/TerrainSurfaceCheck.cs</c> and the visual-review screenshot tour
+    /// need the 32 px a cell the review uses, which the wheel's 1.15 factor cannot reach; the check must
+    /// not know <see cref="BaseTileSize"/>. Check-only; the app never calls it.
+    /// </summary>
+    public void SetDrawnCellPixelsForCheck(float cellPixels)
+    {
+        if (_session is null || Size.X <= 0 || Size.Y <= 0)
+        {
+            return;
+        }
+
+        _zoom = Mathf.Clamp(cellPixels / BaseTileSize, MinimumZoom(), MaxZoom);
+        _userAdjustedView = true;
+        ClampPanToView();
+        NotifyViewChanged();
+    }
+
+    /// <summary>
+    /// T148 Done-when 3: the surface the last <see cref="_Draw"/> actually drew — the shader path (with
+    /// the six surface keys bound) or the flat-colour fallback — recorded in <see cref="_Draw"/> itself and
+    /// never recomputed from configuration, so the check asserts the drawn code, not the configured
+    /// material. Read-only.
+    /// </summary>
+    public TerrainSurfaceState TerrainSurfaceForCheck => _drawnSurface;
+
+    /// <summary>
+    /// T148 Done-when 3: the source of the shader the surface material actually uses, so the check can
+    /// assert the sampler hints (<c>repeat_enable</c> and a mipmapped linear filter on the six surface
+    /// samplers, <c>repeat_disable</c> on the two splat samplers) from the drawn material and not from a
+    /// file another process could have edited. Empty when there is no surface material.
+    /// </summary>
+    public string TerrainSurfaceShaderCodeForCheck => _surfaceMaterial?.Shader?.Code ?? string.Empty;
+
+    /// <summary>
+    /// T148 Done-when 3: the bytes the terrain draw holds alive right now — width × height × 4 for the
+    /// flat-colour fallback, each splat texture and each mipmapped surface texture (a mipmapped one
+    /// counted with its whole chain, × 4/3), and the managed buffers the draw keeps after upload: the
+    /// splat map's two baked byte arrays and the decoded cell grid (the Opus review of PR #806, N1 —
+    /// they stay alive, so they are counted). The draw retains no <see cref="Image"/> after upload, so
+    /// each texture is counted once. Used by <c>godot/Checks/TerrainSurfaceCheck.cs</c> to prove the
+    /// whole terrain draw stays under 24 MB.
+    /// </summary>
+    public long TerrainMemoryBytesForCheck
+    {
+        get
+        {
+            var total = Bytes(_terrainTexture, mipmapped: false);
+            total += Bytes(_splatTextureA, mipmapped: false);
+            total += Bytes(_splatTextureB, mipmapped: false);
+            foreach (var texture in _surfaceTextures)
+            {
+                total += Bytes(texture, mipmapped: true);
+            }
+
+            if (_splatMap is not null)
+            {
+                total += _splatMap.SplatA.LongLength + _splatMap.SplatB.LongLength;
+            }
+
+            if (_terrainCells is not null)
+            {
+                total += 4L * _terrainCells.Length;
+            }
+
+            return total;
+        }
+    }
+
+    private static long Bytes(Texture2D? texture, bool mipmapped)
+    {
+        if (texture is null)
+        {
+            return 0;
+        }
+
+        var baseBytes = (long)texture.GetWidth() * texture.GetHeight() * 4;
+        return mipmapped ? (baseBytes * 4) / 3 : baseBytes;
     }
 
     /// <summary>The rect <see cref="_Draw"/> would draw the terrain texture in at the current zoom and
@@ -440,6 +540,193 @@ public partial class GameMapView : Control
         }
 
         _terrainTexture = ImageTexture.CreateFromImage(image);
+    }
+
+    /// <summary>
+    /// T148: bakes the splat lattice, resolves the six surface textures through the pack loader and sets
+    /// up the shader child. A missing shader or texture leaves the matching slot null, and the draw then
+    /// falls back to the flat-colour texture. Called once per <see cref="Attach"/> (the world does not
+    /// change under a view).
+    /// </summary>
+    private void ResolveSurfaceResources()
+    {
+        if (_session is null)
+        {
+            return;
+        }
+
+        _splatMap = TerrainSplatMap.Bake(_session.World);
+
+        // T148 (the Opus review of PR #806, N2): the chains are built here, once, not in _Draw.
+        _riverChains = TerrainSplatMap.BuildRiverChains(
+            _terrainCells!, _session.World.Width, _session.World.Height);
+
+        // The splat lattice as two RGBA8 textures. The source Images are not retained: the textures own
+        // their pixels, and TerrainMemoryBytesForCheck counts what stays alive — which includes the
+        // baked byte arrays the splat map itself keeps.
+        var splatImageA = Image.CreateFromData(
+            _splatMap.LatticeWidth, _splatMap.LatticeHeight, false, Image.Format.Rgba8, _splatMap.SplatA);
+        var splatImageB = Image.CreateFromData(
+            _splatMap.LatticeWidth, _splatMap.LatticeHeight, false, Image.Format.Rgba8, _splatMap.SplatB);
+        _splatTextureA = ImageTexture.CreateFromImage(splatImageA);
+        _splatTextureB = ImageTexture.CreateFromImage(splatImageB);
+
+        for (var i = 0; i < TerrainSplatMap.SurfaceKeysByClass.Count; i++)
+        {
+            _surfaceTextures[i] = _assetLoader?.TryGetSurfaceTexture(TerrainSplatMap.SurfaceKeysByClass[i]);
+        }
+
+        EnsureSurfaceCanvas();
+        BindSurfaceUniforms();
+    }
+
+    /// <summary>
+    /// T148: the child CanvasItem the surface shader draws on. It sits behind its parent
+    /// (<see cref="CanvasItem.ShowBehindParent"/>) so the markers this view draws in <c>_Draw</c> stay on
+    /// top, and it inherits the parent's own <see cref="Control.ClipContents"/> so zoomed in it cannot
+    /// spill over the toolbar (bug #498).
+    /// </summary>
+    private void EnsureSurfaceCanvas()
+    {
+        // The map always covers the control (T147's cover zoom), so the background is normally
+        // invisible; it is still drawn as its own behind-parent child so a world too small to cover
+        // the control shows the background rather than the cleared frame.
+        if (_backgroundCanvas is null)
+        {
+            _backgroundCanvas = new ColorRect
+            {
+                Name = "TerrainBackground",
+                Color = BackgroundColor,
+                MouseFilter = MouseFilterEnum.Ignore,
+                ShowBehindParent = true,
+            };
+            AddChild(_backgroundCanvas);
+        }
+
+        if (_surfaceCanvas is not null)
+        {
+            return;
+        }
+
+        var shader = GD.Load<Shader>("res://UI/TerrainSurface.gdshader");
+        if (shader is null)
+        {
+            return;
+        }
+
+        _surfaceMaterial = new ShaderMaterial { Shader = shader };
+
+        // Wrapping and filtering of the texture uniforms come from the shader's own sampler hints
+        // (repeat_enable + filter_linear_mipmap on the six surfaces, repeat_disable on the two
+        // splats — the Opus review of the splatting round, R1: relying on this CanvasItem's
+        // TextureRepeat was the blur, because that flag does not apply to uniform samplers). The
+        // item's own flags stay set for the canvas_item built-in texture and are harmless here.
+        _surfaceCanvas = new ColorRect
+        {
+            Name = "TerrainSurface",
+            Color = new Color(1f, 1f, 1f, 1f),
+            MouseFilter = MouseFilterEnum.Ignore,
+            ShowBehindParent = true,
+            TextureRepeat = TextureRepeatEnum.Enabled,
+            TextureFilter = TextureFilterEnum.LinearWithMipmaps,
+            Material = _surfaceMaterial,
+        };
+        AddChild(_surfaceCanvas);
+    }
+
+    private void BindSurfaceUniforms()
+    {
+        if (_surfaceMaterial is null || _session is null || _splatMap is null)
+        {
+            return;
+        }
+
+        _surfaceMaterial.SetShaderParameter("splat_a", _splatTextureA);
+        _surfaceMaterial.SetShaderParameter("splat_b", _splatTextureB);
+        _surfaceMaterial.SetShaderParameter("tex_plain", _surfaceTextures[0]);
+        _surfaceMaterial.SetShaderParameter("tex_desert", _surfaceTextures[1]);
+        _surfaceMaterial.SetShaderParameter("tex_forest", _surfaceTextures[2]);
+        _surfaceMaterial.SetShaderParameter("tex_mountain", _surfaceTextures[3]);
+        _surfaceMaterial.SetShaderParameter("tex_shallow", _surfaceTextures[4]);
+        _surfaceMaterial.SetShaderParameter("tex_deep", _surfaceTextures[5]);
+        _surfaceMaterial.SetShaderParameter("world_size", new Vector2(_session.World.Width, _session.World.Height));
+        _surfaceMaterial.SetShaderParameter("surface_scale", SurfaceCellsPerRepeat);
+
+        // T148 Done-when 1 (Sol's review of PR 813, R2): the rim's tint, its mix factor and the surf's
+        // maximum lightening come from TerrainSplatMap's public constants — one source of truth, not a
+        // second set of literals here or in the shader.
+        _surfaceMaterial.SetShaderParameter(
+            "shallow_tint",
+            new Vector3(
+                TerrainSplatMap.ShallowTintR,
+                TerrainSplatMap.ShallowTintG,
+                TerrainSplatMap.ShallowTintB));
+        _surfaceMaterial.SetShaderParameter("shallow_tone_down", TerrainSplatMap.ShallowToneDown);
+        _surfaceMaterial.SetShaderParameter("surf_strength", TerrainSplatMap.SurfStrength);
+    }
+
+    /// <summary>
+    /// The cells one surface-texture repeat spans in the shader. The user's decision of 2026-10-06 at
+    /// the visual review of the splatting round ("it is definitely too blurry") set 2 to 3 cells; 2.5
+    /// sits inside it and keeps one 256-px texture at roughly its native size for a cell drawn at
+    /// about 100 px, with mipmaps carrying the rest.
+    /// </summary>
+    private const float SurfaceCellsPerRepeat = 2.5f;
+
+    /// <summary>
+    /// T148: draws the river chains over the surface, in the water colour, about a fifth of a cell wide
+    /// with a one-pixel minimum, once a cell is drawn at 4 px or more. Each chain is the polyline
+    /// <see cref="TerrainSplatMap.BuildRiverChains"/> fitted — a tangent-continuous curve that cuts a
+    /// circular fillet at each river cell's centre — built once at <see cref="Attach"/> (the Opus review
+    /// of PR #806 N2), so a river is one smooth stroke rather than a run of tight quarter-arc corners.
+    /// </summary>
+    private void DrawRivers(float tileSize)
+    {
+        if (_riverChains is null || tileSize < 4f)
+        {
+            return;
+        }
+
+        var colour = TerrainColorsByName["River"];
+        var width = Mathf.Max(tileSize * 0.2f, 1f);
+        foreach (var chain in _riverChains)
+        {
+            var polyline = chain.Polyline;
+            if (polyline.Count < 2)
+            {
+                continue;
+            }
+
+            var points = new Vector2[polyline.Count];
+            for (var k = 0; k < polyline.Count; k++)
+            {
+                points[k] = _pan + (new Vector2(polyline[k].X, polyline[k].Y) * tileSize);
+            }
+
+            DrawPolyline(points, colour, width, true);
+        }
+    }
+
+    /// <summary>Whether every surface resource the shader path needs resolved.</summary>
+    private bool SurfaceReady =>
+        _surfaceCanvas is not null
+        && _surfaceMaterial is not null
+        && _splatTextureA is not null
+        && _splatTextureB is not null
+        && _surfaceTextures.All(texture => texture is not null);
+
+    private IReadOnlyList<string> ResolvedSurfaceKeys()
+    {
+        var keys = new List<string>(6);
+        for (var i = 0; i < TerrainSplatMap.SurfaceKeysByClass.Count; i++)
+        {
+            if (_surfaceTextures[i] is not null)
+            {
+                keys.Add(TerrainSplatMap.SurfaceKeysByClass[i]);
+            }
+        }
+
+        return keys;
     }
 
     private void FitToView()
@@ -908,21 +1195,50 @@ public partial class GameMapView : Control
 
     public override void _Draw()
     {
-        DrawRect(new Rect2(Vector2.Zero, Size), BackgroundColor);
-
         if (_session is null)
         {
+            DrawRect(new Rect2(Vector2.Zero, Size), BackgroundColor);
+            _drawnSurface = TerrainSurfaceState.None;
             return;
+        }
+
+        if (_backgroundCanvas is not null)
+        {
+            _backgroundCanvas.Size = Size;
         }
 
         var world = _session.World;
         var tileSize = BaseTileSize * _zoom;
+        var mapRect = new Rect2(_pan, new Vector2(world.Width, world.Height) * tileSize);
 
-        if (_terrainTexture is not null)
+        // T148: one shader pass over the whole terrain rectangle when every surface resource resolved;
+        // otherwise the flat-colour texture is drawn exactly as before. The recorded state is what the
+        // draw actually did, never a recomputation from the configured material.
+        if (SurfaceReady)
         {
-            var mapRect = new Rect2(_pan, new Vector2(world.Width, world.Height) * tileSize);
-            DrawTextureRect(_terrainTexture, mapRect, false);
+            BindSurfaceUniforms();
+            _surfaceCanvas!.Position = mapRect.Position;
+            _surfaceCanvas.Size = mapRect.Size;
+            _surfaceCanvas.Visible = true;
+            _drawnSurface = new TerrainSurfaceState(
+                TerrainSurfaceKind.Shader, TerrainSplatMap.SurfaceKeysByClass);
         }
+        else
+        {
+            if (_surfaceCanvas is not null)
+            {
+                _surfaceCanvas.Visible = false;
+            }
+
+            if (_terrainTexture is not null)
+            {
+                DrawTextureRect(_terrainTexture, mapRect, false);
+            }
+
+            _drawnSurface = new TerrainSurfaceState(TerrainSurfaceKind.FlatFallback, ResolvedSurfaceKeys());
+        }
+
+        DrawRivers(tileSize);
 
         // T110: the map always draws every layer. The bottom toolbar's Cities/Armies/Fleets toggles hid
         // them, which the original never does; the Area map's Show entries paint highlights instead, so
@@ -1078,4 +1394,29 @@ public partial class GameMapView : Control
     }
 
     private static Color ToColor(MarkerTint tint) => new(tint.Red, tint.Green, tint.Blue, tint.Alpha);
+}
+
+/// <summary>The two terrain paths <see cref="GameMapView._Draw"/> can record having drawn.</summary>
+public enum TerrainSurfaceKind
+{
+    /// <summary>Before <c>Attach</c>, or with no session: nothing was drawn.</summary>
+    None,
+
+    /// <summary>The surface shader drew the whole terrain rectangle from the six seamless textures.</summary>
+    Shader,
+
+    /// <summary>The flat-colour texture drew instead (a shader or surface texture was missing).</summary>
+    FlatFallback,
+}
+
+/// <summary>
+/// T148 Done-when 3: what the last <see cref="GameMapView._Draw"/> actually drew — the kind, the surface
+/// keys that were bound, and whether the shader material was configured. Recorded in <c>_Draw</c>, never
+/// recomputed, so a check asserts the drawn code rather than the configured resource.
+/// </summary>
+public readonly record struct TerrainSurfaceState(TerrainSurfaceKind Kind, IReadOnlyList<string> BoundSurfaceKeys)
+{
+    /// <summary>The state before any draw: nothing drawn, no keys bound.</summary>
+    public static TerrainSurfaceState None { get; } =
+        new(TerrainSurfaceKind.None, Array.Empty<string>());
 }
