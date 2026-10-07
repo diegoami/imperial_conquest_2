@@ -1104,6 +1104,21 @@ public partial class MainGameScreen : Control
     public string SaveConfirmationText => _saveConfirmationLabel.Text;
 
     /// <summary>
+    /// Fix #537: T95's Save confirmation label's own laid-out size, and the minimum width the top bar
+    /// row derives from it. Exposed so <c>godot/Checks/CommandFeedbackCheck.cs</c> can record exactly
+    /// which label a Save widens the root with, rather than only the root's combined minimum.
+    /// </summary>
+    public Vector2 SaveConfirmationLabelSize => _saveConfirmationLabel.Size;
+
+    /// <summary>Fix #537: the minimum width <see cref="_saveConfirmationLabel"/> asks of its parent row,
+    /// the value that used to widen the whole screen past the viewport. Exposed for the same check.</summary>
+    public Vector2 SaveConfirmationLabelMinimumSize => _saveConfirmationLabel.GetCombinedMinimumSize();
+
+    /// <summary>Fix #537: the tooltip on <see cref="_saveConfirmationLabel"/>, which carries the full,
+    /// un-ellipsized Save outcome once the label ellipsizes. Exposed for the same check.</summary>
+    public string SaveConfirmationTooltip => _saveConfirmationLabel.TooltipText;
+
+    /// <summary>
     /// Presses the "Save" button exactly as a real click would — public for the same reason
     /// <see cref="SubmitForCheck"/> and <see cref="LoadGameScreen.ContinueForCheck"/> are: a headless
     /// check drives the real handler, not a simulated mouse click at hardcoded coordinates.

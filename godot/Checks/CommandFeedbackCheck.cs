@@ -347,6 +347,29 @@ public partial class CommandFeedbackCheck : Control
         Check(
             _mainGame.LastCommandText == _mainGame.SaveConfirmationText,
             "the shared last-command label shows the Save's own outcome too");
+
+        // Fix #537 (T96's review of PR #535, report S1): the confirmation carries the whole user://
+        // path, and before the fix that long single line set this label's -- and so the top bar row's
+        // and the root's -- minimum width to ~1730px, past the 1500px viewport, cropping the context
+        // panel. Record both the label and the root, then hold the root at or below the viewport.
+        var viewportWidth = GetViewport().GetVisibleRect().Size.X;
+        var labelSize = _mainGame.SaveConfirmationLabelSize;
+        var labelMin = _mainGame.SaveConfirmationLabelMinimumSize;
+        var rootMin = _rootBox.GetCombinedMinimumSize();
+        GD.Print(
+            $"INFO: after a Save: labelSize=({labelSize.X}, {labelSize.Y}), "
+            + $"labelMin=({labelMin.X}, {labelMin.Y}), rootMin=({rootMin.X}, {rootMin.Y}), "
+            + $"viewportWidth={viewportWidth}px");
+        Check(
+            rootMin.X <= viewportWidth,
+            $"a Save's confirmation does not widen the root past the viewport "
+            + $"(viewport {viewportWidth}px, rootMin.X {rootMin.X}px)");
+
+        // Fix #537's chosen convention (the same one _lastCommandLabel uses): the label ellipsizes its
+        // long text, and the full path stays reachable in the tooltip.
+        Check(
+            _mainGame.SaveConfirmationTooltip == _mainGame.SaveConfirmationText,
+            "the Save confirmation's ellipsized text keeps its whole path in the tooltip");
     }
 
     private void CheckFinalEndVisual()
