@@ -4,6 +4,7 @@ using IC2.Engine.Economy;
 using IC2.Engine.Model;
 using IC2.Engine.Tests.Battle.Commands;
 using IC2.Engine.Tests.Cities.Capture;
+using IC2.Engine.Tests.Model;
 using Xunit;
 
 namespace IC2.Engine.Tests.Ai;
@@ -479,5 +480,45 @@ public sealed class AiMercenaryHirePassTests
                 : c);
 
         return state with { Cities = ValueList.From(cities) };
+    }
+
+    /// <summary>
+    /// Bug #796: the class remark's fixed-order sentence once read "... by slot index since T76), so it
+    /// adds zero draws", a closing parenthesis orphaned from the ordering list it belonged to. A comment
+    /// asserts nothing at runtime, so only a test that reads the source can guard its wording: this test
+    /// fails while the orphan is present and passes once it is gone. The balance check keeps a fix from
+    /// simply deleting the parenthesis and leaving the opening one unmatched.
+    /// </summary>
+    [Fact]
+    public void The_class_remark_has_no_orphaned_closing_parenthesis_after_the_T76_note()
+    {
+        var source = File.ReadAllText(Path.Combine(
+            TestPaths.RepositoryRoot, "src", "IC2.Engine", "Ai", "AiMercenaryHirePass.cs"));
+
+        var remark = RemarkBlock(source);
+
+        // The rationale is still there, so the check below cannot pass on a deleted note.
+        Assert.Contains("PoolSlotsAt", remark, StringComparison.Ordinal);
+        Assert.Contains("since T76", remark, StringComparison.Ordinal);
+
+        // The bug: the ")" that closes the fixed-order list sat after the em-dash note instead.
+        Assert.DoesNotContain("since T76), so it adds zero draws", remark, StringComparison.Ordinal);
+
+        // A closing parenthesis belongs to the list it closes, so the remark stays balanced.
+        Assert.Equal(
+            remark.Count(c => c == '('),
+            remark.Count(c => c == ')'));
+    }
+
+    /// <summary>The class-level <c>&lt;remarks&gt;</c> block of a source file, opening tag included.</summary>
+    private static string RemarkBlock(string source)
+    {
+        const string Open = "/// <remarks>";
+        const string Close = "/// </remarks>";
+        var start = source.IndexOf(Open, StringComparison.Ordinal);
+        Assert.True(start >= 0, "AiMercenaryHirePass.cs has no <remarks> block.");
+        var end = source.IndexOf(Close, start, StringComparison.Ordinal);
+        Assert.True(end > start, "AiMercenaryHirePass.cs's <remarks> block is not closed.");
+        return source[start..(end + Close.Length)];
     }
 }
