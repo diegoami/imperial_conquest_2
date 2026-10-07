@@ -1834,10 +1834,11 @@ public sealed record VictoryRules(
 /// <remarks>
 /// <para>
 /// <strong>Every field is <c>[designed]</c>, and that is the expected answer.</strong>
-/// <c>docs/game-design.md</c> §AI and <c>docs/design-audit.md</c> §1 record the original's AI as "lives
-/// in unnamed AI-only code" and out of scope for reverse-engineering by the project's own standing
-/// decision. Nothing here is transcribed from a decompile and nothing here claims to be — each field's
-/// own <c>_provenance</c> entry says what it weighs and repeats that the original's AI is out of scope.
+/// The original's strategic AI turn is decompiled since research
+/// <c>2026-10-07-strategic-ai-turn.md</c> (<c>FUN_0044fa20</c>: four fixed phases, per unit, no scoring
+/// block), but this block remains the clone's own design. Nothing here is transcribed from a decompile
+/// and nothing here claims to be — each field's own <c>_provenance</c> entry says what it weighs and
+/// repeats that the block is the clone's own design.
 /// </para>
 /// <para>
 /// <strong>Everything is an integer</strong> (<see cref="int"/> or <see cref="long"/>, never
