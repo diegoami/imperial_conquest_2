@@ -354,7 +354,17 @@ public partial class MainGameScreen : Control
         // moved into the toolbar above (File -> Save, Game -> End turn), which run the same handlers.
         // The confirmation/refusal line stays here (T95's own narrow "a Save action" grant owns it, and
         // fix #484 keeps it even though the shared last-command label now shows the same text).
+        //
+        // Fix #537: a Save's confirmation carries the whole user:// path; as a plain label it set the
+        // row's -- and so the root's -- minimum width to ~1730px, past the viewport, cropping the
+        // context panel. It now ellipsizes like _lastCommandLabel (clip + TrimEllipsis, full text in
+        // the tooltip) and expands into the free space the spacer leaves, so it is clipped to the bar
+        // rather than collapsing to its near-zero clipped minimum.
         _saveConfirmationLabel = UiKit.MakeLabel(string.Empty, 14, UiKit.MutedTextColor);
+        _saveConfirmationLabel.ClipText = true;
+        _saveConfirmationLabel.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
+        _saveConfirmationLabel.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _saveConfirmationLabel.HorizontalAlignment = HorizontalAlignment.Right;
         row.AddChild(_saveConfirmationLabel);
 
         return bar;
@@ -1060,8 +1070,10 @@ public partial class MainGameScreen : Control
             && Session.State.Nations.FirstOrDefault(
                 n => Session.PendingPeaceOfferFor(n.Id) is not null) is { } owing)
         {
-            _saveConfirmationLabel.Text =
+            var refusal =
                 $"{owing.Name} must answer an offer of peace at its turn before the game can be saved.";
+            _saveConfirmationLabel.Text = refusal;
+            _saveConfirmationLabel.TooltipText = refusal;
             return;
         }
 
@@ -1069,7 +1081,9 @@ public partial class MainGameScreen : Control
 
         var output = Session.Submit($"save {path}");
         OnCommandIssued(output.Lines);
-        _saveConfirmationLabel.Text = CommandOutcomeText.OutcomeBlock(output.Lines);
+        var confirmation = CommandOutcomeText.OutcomeBlock(output.Lines);
+        _saveConfirmationLabel.Text = confirmation;
+        _saveConfirmationLabel.TooltipText = confirmation;
     }
 
     /// <summary>
