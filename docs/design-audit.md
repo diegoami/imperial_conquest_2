@@ -224,9 +224,9 @@ The confirmed model is: 4 states, symmetric matrix, max 3 trade partners, negati
 
 ### Q4. Keep per-army and per-fleet money purses? — **ANSWERED: ship both, as the same ruleset flag family**
 
-> **User's decision: ship both.** `classical-faithful` keeps the per-army/per-fleet purses (cap 1,000) exactly as coded. `improved` centralises supply and mercenary purchases to the national treasury, trading logistical depth for less micromanagement. See `game-design.md`'s `economy.purses` flag.
+> **User's decision: ship both.** `classical-faithful` keeps the per-army/per-fleet purses exactly as coded — capped at 1,000 only on the money dialogs' arrows and the AI own-city refill, every other add uncapped (T72, [#317](https://github.com/diegoami/imperial_conquest_2/issues/317)). `improved` centralises supply and mercenary purchases to the national treasury, trading logistical depth for less micromanagement. See `game-design.md`'s `economy.purses` flag.
 
-The original gives every army and fleet its own **supply stock** and its own **money purse (cap 1,000)**. Buying supply and hiring mercenaries spend *that* purse, not the national treasury, and the purchase price is paid to whoever owns the selling city — real logistical depth and real micromanagement, since an army far from home can be unable to afford supply even when the treasury is full.
+The original gives every army and fleet its own **supply stock** and its own **money purse**, capped at 1,000 only on the money dialogs' arrows and the AI own-city refill (§1.3; T72, [#317](https://github.com/diegoami/imperial_conquest_2/issues/317)). Buying supply and hiring mercenaries spend *that* purse, not the national treasury, and the purchase price is paid to whoever owns the selling city — real logistical depth and real micromanagement, since an army far from home can be unable to afford supply even when the treasury is full.
 
 ### Q5. Should "conquer every city" be the shipped default victory condition? — **ANSWERED: yes, as the `classical-faithful` default; `improved` defaults friendlier**
 
