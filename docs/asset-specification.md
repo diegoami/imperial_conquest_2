@@ -137,6 +137,10 @@ tag is the one just stated.
 **Decision**:
 - **Terrain tiles**: 24-bit RGB, no alpha (fully opaque, unchanged from today, and matching the
   original's own fully-opaque tile convention).
+- **Terrain surface textures** (the six `terrain.*.surface` keys, [T148](tasks/T148.md)): **24-bit
+  RGB, no alpha, 256 × 256 pixels each** — the same fully-opaque convention as the tiles, but not
+  §1.3's 32×32 grid assets: a surface texture spans several cells (2–3 per repeat) and is blended
+  per pixel by the game map's shader.
 - **Every marker/icon/chrome asset that is not a full-tile background** (unit icons, army/fleet/city
   tier markers, and every UI-chrome key in §4.7): **32-bit BGRA, straight (non-premultiplied) alpha** —
   the standard 32-bit `BI_RGB` BMP variant most image editors export when "transparency" is checked, with
@@ -608,7 +612,7 @@ gap DoD 1 asks this document to record: **four shipped keys may not be enough on
 meaning is known**, and whoever settles plan item 16 should re-open this section rather than assume the
 existing four already cover it.
 
-### 4.5 Terrain tiles — complete for today's renderer, one real gap underneath
+### 4.5 Terrain tiles — complete; the game map paints the surfaces, the river gap closed by strokes
 
 | Key | Depicts | First needed by | Exists today |
 | --- | --- | --- | --- |
@@ -660,6 +664,8 @@ this task's Owns list); this is recorded as a finding for whichever task first d
 sprites, tagged `[designed]` (searched `game-design.md`, `design-audit.md` and `MapViewer.cs` for an
 existing river-tile-variant convention and found none — the six-way connectivity split above is `[confirmed]` from the code and the world data; only *whether a sprite renderer needs six sprites* is
 new, and follows directly from that confirmed fact).
+
+**Resolved by [T148](tasks/T148.md) (merged)**: the game map never draws terrain per cell — it blends the six `terrain.*.surface` textures (§6) through a splat map baked from the terrain grid — and rivers are drawn as smooth strokes whose chains follow exactly these six connectivity codes, so no river tile variants are needed. The seven `terrain.*.tile` keys remain, for the flat-colour fallback and the Area map.
 
 ### 4.6 Sound effects — three silent stubs, and the original's ten sounds
 
