@@ -7,18 +7,26 @@ namespace IC2.Engine.Naval.Commands;
 
 /// <summary><c>TUnitMap_JoinFleets</c>.</summary>
 /// <remarks>
-/// <strong>The pooled purse is capped (T50 Done-when 4, issue #165 item 3).</strong> <c>[derived]</c>: "T08
-/// Economy, supply, and purses" Done-when 6 is an already-merged contract that establishes the cap's
-/// scope — "the purse cap of 1,000 is enforced on every path that credits a purse" — and this merge (T14)
-/// is exactly such a path, so leaving it uncapped is the actual defect, not a free stylistic choice
-/// between two otherwise-equal options. The decision made here is <em>enforce</em>, not <em>leave alone</em>,
-/// to match that already-merged contract, the same way <see cref="Economy.TreasuryPurseTransfer"/> and
-/// <see cref="Economy.AutomaticResupply"/> already do. Any excess over
-/// <see cref="EconomyRules.PurseCapPerUnit"/> moves to the issuing nation's treasury — the same
-/// "excess over the cap moves to the treasury" hygiene <see cref="Economy.AutomaticResupply"/> already
-/// applies — so the join conserves money exactly rather than discarding it: two 900-talent purses still
-/// sum to 1,800 total, now split 1,000 aboard the survivor and 800 credited to the treasury, instead of
-/// letting the survivor alone hold all 1,800.
+/// <para>
+/// <strong>The pooled purse adds UNCAPPED (T72, bug #315; supersedes T50 Done-when 4's capped reading,
+/// which rested on T08's "every path that credits a purse" wording — see
+/// <see cref="Economy.PurseAccounting"/>'s remarks for the three paths that really do cap).</strong>
+/// The purse at 2026-10-05-army-purse-writes-and-the-1000-cap.md covers only the army record (its method
+/// lists the army's <c>+0x0C</c> references), so the fleet join was not settled by it, and T72's
+/// research check of Done-when 1 ran on <c>decompiled-unit-map-orders-and-record-fields.md</c>: its
+/// Fleet orders row reads <c>TUnitMap_JoinFleets</c> (<c>0x00447A48</c>) — "ships, supplies and money
+/// add; the survivor's moves are zeroed; the absorbed fleet is deleted", with the combined-ships bound
+/// named (<c>&lt; 100</c>) and no money cap named, though the same report names the 1,000 clamp exactly
+/// where it lives (its Supply section: "TAFSupply_ChangeMoney ... capped at 1,000 money per army or
+/// fleet") <c>[derived: the decompiled row; no play evidence exists yet for the fleet join's purse — the
+/// 2026-10-02-fleet-orders-live.md join run used fleets whose purses were 0]</c>. So a fleet join is
+/// the naval twin of the army join's row 7 (TUnitMap_JoinArmies :46992-46993, 1,000 + 1,000 = 2,000
+/// [Wine candidates Q1_05/Q1_06]): a plain add, no 1,000 clamp, and no treasury diversion — the
+/// original's join touches no treasury. The field bound still holds: a sum above
+/// <see cref="Economy.PurseAccounting.PurseFieldMax"/> lands at 32,767 and the excess goes NOWHERE, the
+/// original's 16-bit wrap deliberately not reproduced [designed: the user's 2026-10-05 choice, PR #758's
+/// R2 resolution].
+/// </para>
 /// </remarks>
 [CommandHandler]
 public sealed class JoinFleetsCommandHandler : ICommandHandler<JoinFleetsCommand>
@@ -88,19 +96,19 @@ public sealed class JoinFleetsCommandHandler : ICommandHandler<JoinFleetsCommand
                 $"There are more than {rules.JoinMaxShips} ships in these fleets combined.");
         }
 
-        // The purse cap (see this type's remarks): pool both fleets' money, then clamp to
-        // EconomyRules.PurseCapPerUnit exactly as PurseAccounting.Credit does everywhere else a purse is
-        // credited, sending anything the cap turns away to the issuing nation's own treasury so it is
-        // moved, never destroyed.
-        var pooledMoney = survivor.Money + absorbed.Money;
-        var cappedMoney = PurseAccounting.Credit(survivor.Money, absorbed.Money, context.Ruleset);
-        var excessToTreasury = pooledMoney - cappedMoney;
+        // T72 (bug #315): the join's pooled purse is an UNCAPPED add, the naval twin of
+        // JoinArmiesCommandHandler's row 7 (see this type's remarks for the TUnitMap_JoinFleets reading
+        // and the research check). No 1,000 clamp and no treasury diversion — the original's fleet join
+        // moves money only between the two fleet records. PurseAccounting.Credit enforces only the
+        // field's 0 … 32,767: a sum above it lands at 32,767 and the excess goes NOWHERE, the original's
+        // 16-bit wrap deliberately not reproduced [designed: the user's 2026-10-05 choice, PR #758's R2
+        // resolution].
 
         var joined = survivor with
         {
             Ships = combinedShips,
             SupplyTons = survivor.SupplyTons + absorbed.SupplyTons,
-            Money = cappedMoney,
+            Money = PurseAccounting.Credit(survivor.Money, absorbed.Money),
             Moves = 0,
         };
 
@@ -108,19 +116,6 @@ public sealed class JoinFleetsCommandHandler : ICommandHandler<JoinFleetsCommand
             .Where(f => !string.Equals(f.Id, absorbed.Id, StringComparison.Ordinal))
             .Select(f => string.Equals(f.Id, survivor.Id, StringComparison.Ordinal) ? joined : f);
 
-        if (excessToTreasury == 0)
-        {
-            return CommandOutcome.Accept(state with { Fleets = ValueList.From(updatedFleets) });
-        }
-
-        var updatedNation = context.IssuingNation with { Treasury = context.IssuingNation.Treasury + excessToTreasury };
-        var updatedNations = state.Nations.Select(n =>
-            string.Equals(n.Id, updatedNation.Id, StringComparison.Ordinal) ? updatedNation : n);
-
-        return CommandOutcome.Accept(state with
-        {
-            Fleets = ValueList.From(updatedFleets),
-            Nations = ValueList.From(updatedNations),
-        });
+        return CommandOutcome.Accept(state with { Fleets = ValueList.From(updatedFleets) });
     }
 }

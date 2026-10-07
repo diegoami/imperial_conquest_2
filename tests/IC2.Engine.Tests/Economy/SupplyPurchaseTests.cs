@@ -414,6 +414,61 @@ public sealed class SupplyPurchaseTests
         Assert.Equal(seller.Treasury - 19, result.SellingCityNation.Treasury); // the seller pays the refund back.
     }
 
+    /// <summary>
+    /// T72 (bug #315), Done-when 3: a purchase from a 1,066 purse leaves exactly 1,066 − cost. Buy
+    /// supplies is row 3 of <c>2026-10-05-army-purse-writes-and-the-1000-cap.md</c> — a path that caps
+    /// nothing: "positive amounts only subtract, never below 0", and the old
+    /// <c>PurseAccounting.Credit</c> clamp silently cut the purse to 1,000 ON TOP OF the cost (1,066 − 20
+    /// became 1,000, spending 66 more than the 20-talent price). This army: 20,000 troops (dialog capacity
+    /// 201), 100 t held → room 101; it buys 100 t at a foreign city: cost 100/5 = 20 talents, purse
+    /// 1,066 → 1,046 exactly; the seller gains exactly the 20 paid.
+    /// </summary>
+    [Fact]
+    public void BuyForArmy_FromAnOverCapPurse_DebitsExactlyTheCost()
+    {
+        var units = ValueList.Of(new UnitSlot(0, "light_infantry", 20_000, 6, "Battalion"));
+        var army = new ArmyState("a1", "north", 0, 0, 9, 60, 1066, 100, null, null, units); // capacity 201, room 101.
+        var city = new CityState("c1", "Test City", 0, 0, "south", "south", 80, 1000, 100, 10, 10, 0, false, ValueList<UnitSlot>.Empty);
+        var buyer = new NationState("north", "North", "#000", "Leader", null, SeatControl.Human, null, 500, 600, 0, 0, 15, 0, 100, 100, 500, 1, ValueList<RecruitmentSlot>.Empty, false);
+        var seller = new NationState("south", "South", "#000", "Leader", null, SeatControl.Ai, null, 500, 600, 0, 0, 15, 0, 100, 100, 500, 1, ValueList<RecruitmentSlot>.Empty, false);
+
+        var result = SupplyPurchase.BuyForArmy(army, city, buyer, seller, tons: 100, EconomyTestbed.Ruleset);
+
+        Assert.Equal(100, result.AdmittedTons);
+        Assert.Equal(20, result.TalentsPaid);
+        Assert.Equal(1046, result.Army.Money); // 1,066 − 20, exact: the purse is NOT cut to the 1,000 dialog clamp.
+        Assert.Equal(seller.Treasury + 20, result.SellingCityNation.Treasury); // the seller is paid exactly the debited 20 (buyerDelta mirror).
+        Assert.Equal(army.Money - 20, result.Army.Money); // conservation on the purse side.
+    }
+
+    /// <summary>
+    /// T72, Done-when 3 — the report's row 3 worked example, reproduced exactly: an over-full army of
+    /// 10,000 troops holding 206 supplies at purse 1,000 (dialog capacity 100 + 1 = 101, room
+    /// <c>101 − 206 = −105</c>) pressed against a foreign city gives 105 tons back, the seller pays
+    /// <c>105 div 5 = 21</c>, and the purse RISES to 1,021 with no cap [derived:
+    /// <c>2026-10-05-army-purse-writes-and-the-1000-cap.md</c> row 3 — "the purse becomes 1,021"]. The
+    /// pre-T72 clamp kept it at 1,000 and moved nothing extra, leaking the 21-talent refund out of the
+    /// game through the seller mirror.
+    /// </summary>
+    [Fact]
+    public void BuyForArmy_PaidGivebackByOverFullArmy_RaisesPurseUncappedTo1021()
+    {
+        var units = ValueList.Of(new UnitSlot(0, "light_infantry", 10_000, 6, "Over-Supplied Battalion"));
+        var army = new ArmyState("a1", "north", 0, 0, 9, 60, 1000, 206, null, null, units); // room 101 − 206 = −105.
+        var city = new CityState("c1", "Test City", 0, 0, "south", "south", 80, 1000, 100, 10, 10, 0, false, ValueList<UnitSlot>.Empty);
+        var buyer = new NationState("north", "North", "#000", "Leader", null, SeatControl.Human, null, 500, 600, 0, 0, 15, 0, 100, 100, 500, 1, ValueList<RecruitmentSlot>.Empty, false);
+        var seller = new NationState("south", "South", "#000", "Leader", null, SeatControl.Ai, null, 500, 600, 0, 0, 15, 0, 100, 100, 500, 1, ValueList<RecruitmentSlot>.Empty, false);
+
+        var result = SupplyPurchase.BuyForArmy(army, city, buyer, seller, tons: 100, EconomyTestbed.Ruleset);
+
+        Assert.Equal(-105, result.AdmittedTons); // the room, not floored (row 3's negative case).
+        Assert.Equal(-21, result.TalentsPaid); // −105 / 5 truncates toward zero to −21.
+        Assert.Equal(1021, result.Army.Money); // RISES uncapped: 1,000 + 21 = 1,021, the report's own figure.
+        Assert.Equal(101, result.Army.SupplyTons); // 206 − 105.
+        Assert.Equal(1105, result.City.SupplyTons); // the city takes the 105 tons back.
+        Assert.Equal(seller.Treasury - 21, result.SellingCityNation.Treasury); // the seller pays the refund: conserved, nothing leaked.
+    }
+
     /// <summary>Review round 2, NB4: a caller passing a nation that is not the army's own must be rejected, not silently misattributed.</summary>
     [Fact]
     public void BuyForArmy_BuyerNationMismatchesArmysNation_Throws()

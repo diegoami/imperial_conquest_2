@@ -224,10 +224,15 @@ public sealed class FleetToFleetTransferCommandHandlerTests
     }
 
     /// <summary>
-    /// T50 Done-when 4 (issue #165 item 3): the target's pooled purse is capped at
-    /// <c>EconomyRules.PurseCapPerUnit</c> (1,000) on the partial-transfer path, same as
-    /// <see cref="JoinFleetsCommandHandler"/>'s equivalent fix -- the excess is credited to the (shared)
-    /// issuing nation's treasury, not destroyed.
+    /// T72 Done-when 3, <c>[open]</c>: the target's pooled purse stays capped at
+    /// <c>EconomyRules.PurseCapPerUnit</c> (1,000) on the partial-transfer path with the excess credited to
+    /// the (shared) issuing nation's treasury — TODAY'S BEHAVIOUR, deliberately KEPT: <c>TFleetToFleet</c>'s
+    /// money-line arithmetic is settled by no report (the 2026-10-05 purse report names the path not-settled;
+    /// the unit-map report only calls the dialog "the naval twin of TArmyToArmy"; the refusal-texts report
+    /// reads "the dialogs clamp the value" without the rule; <c>all_app_functions.txt</c>/Ghidra unreachable
+    /// from the implementer — see <c>FleetToFleetTransferCommandHandler</c>'s remarks for the full search).
+    /// An unsettled writer keeps its behaviour rather than being changed on a guess; unlike the joins (which
+    /// T72 uncapped on the decompiled rows) this clamp stays where it is, in this writer.
     /// </summary>
     [Fact]
     public void PartialTransfer_MoneyAboveThePurseCap_IsClampedAndTheExcessCreditedToTheTreasury()
@@ -250,8 +255,10 @@ public sealed class FleetToFleetTransferCommandHandlerTests
 
     /// <summary>
     /// T50 Done-when 4, the disband path: the source's full remaining money still pools into the survivor
-    /// (DoD 3's own rule, untouched), but the survivor's own purse is still capped, with the excess
-    /// credited to the treasury exactly as the partial-transfer path above.
+    /// (DoD 3's own rule, untouched), but the survivor's own purse is still capped -- kept behaviour,
+    /// <c>[open]</c> exactly as the partial-transfer path above (T72: <c>TFleetToFleet</c> is not settled
+    /// by the searched evidence), with the excess credited to the treasury so money is conserved on the
+    /// kept rule.
     /// </summary>
     [Fact]
     public void DisbandingTransfer_MoneyAboveThePurseCap_IsClampedAndTheExcessCreditedToTheTreasury()
@@ -270,6 +277,65 @@ public sealed class FleetToFleetTransferCommandHandlerTests
         Assert.Null(result.State.FleetById(source.Id)); // disbanded, as DoD 3 requires.
         Assert.Equal(1000, result.State.FleetById(target.Id)!.Money); // capped, not 1,800.
         Assert.Equal(treasuryBefore + 800, result.State.NationById(NationId)!.Treasury);
+    }
+
+    /// <summary>
+    /// T72 Done-when 3: a fleet-to-fleet transfer INTO a purse near 1,000 (direction one). 950 + 100:
+    /// the kept [open] clamp lands the survivor at 1,000, only 50 of the moved money fits, the other 50
+    /// is the treasury's, and the source is charged its full 100 (see
+    /// <c>FleetToFleetTransferCommandHandler</c>'s remarks — the behaviour a pre-T72 <c>Credit</c> also
+    /// applied; conserved exactly: 1,000 + 50 = 950 + 100).
+    /// </summary>
+    [Fact]
+    public void PartialTransfer_IntoAPurseNearTheCap_KeepsTheClamp_AndConserves()
+    {
+        var state = NavalTestbed.InitialState();
+        var treasuryBefore = state.NationById(NationId)!.Treasury;
+        var source = Fleet("xfer-dir1-src", 3, 3, ships: 10, money: 100);
+        var target = Fleet("xfer-dir1-dst", 4, 3, ships: 10, money: 950);
+        state = state with { Fleets = ValueList.Of(source, target) };
+
+        var dispatcher = NavalTestbed.RealEngineDispatcher();
+        var result = dispatcher.Dispatch(
+            state, new FleetToFleetTransferCommand(NationId, source.Id, target.Id, Ships: 1, SupplyTons: 0, Money: 100));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        Assert.Equal(0, result.State.FleetById(source.Id)!.Money);
+        Assert.Equal(1000, result.State.FleetById(target.Id)!.Money); // stops at 1,000.
+        Assert.Equal(treasuryBefore + 50, result.State.NationById(NationId)!.Treasury); // the part that did not fit.
+        Assert.Equal(
+            source.Money + target.Money + treasuryBefore,
+            result.State.FleetById(source.Id)!.Money + result.State.FleetById(target.Id)!.Money + result.State.NationById(NationId)!.Treasury);
+    }
+
+    /// <summary>
+    /// T72 Done-when 3: a fleet-to-fleet transfer INTO a purse above 1,000 (direction two — the named
+    /// fleet funds and the other receives, the reverse of the test above). A 1,066 receiver taking 50:
+    /// the kept [open] behaviour clamps the pooled 1,116 back to 1,000 and credits the whole 116 over
+    /// the cap to the treasury, charging the source its full 50 (conserved: 1,066 + 50 = 1,000 + 116).
+    /// The original's <c>TFleetToFleet</c> money-line rule is [open] — see the handler's remarks — so
+    /// this pins today's behaviour, kept on purpose, not a guess at the original's.
+    /// </summary>
+    [Fact]
+    public void PartialTransfer_IntoAPurseAboveTheCap_KeepsTheClamp_AndConserves()
+    {
+        var state = NavalTestbed.InitialState();
+        var treasuryBefore = state.NationById(NationId)!.Treasury;
+        var source = Fleet("xfer-dir2-src", 3, 3, ships: 10, money: 50);
+        var target = Fleet("xfer-dir2-dst", 4, 3, ships: 10, money: 1066);
+        state = state with { Fleets = ValueList.Of(source, target) };
+
+        var dispatcher = NavalTestbed.RealEngineDispatcher();
+        var result = dispatcher.Dispatch(
+            state, new FleetToFleetTransferCommand(NationId, source.Id, target.Id, Ships: 1, SupplyTons: 0, Money: 50));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        Assert.Equal(0, result.State.FleetById(source.Id)!.Money);
+        Assert.Equal(1000, result.State.FleetById(target.Id)!.Money); // 1,116 pooled, kept clamp pulls to 1,000.
+        Assert.Equal(treasuryBefore + 116, result.State.NationById(NationId)!.Treasury); // the whole excess over the cap, conserved.
+        Assert.Equal(
+            source.Money + target.Money + treasuryBefore,
+            result.State.FleetById(source.Id)!.Money + result.State.FleetById(target.Id)!.Money + result.State.NationById(NationId)!.Treasury);
     }
 
     /// <summary>Fleets belonging to another nation, not adjacent, or under construction all refuse.</summary>

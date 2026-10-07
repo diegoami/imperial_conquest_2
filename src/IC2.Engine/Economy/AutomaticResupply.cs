@@ -40,6 +40,14 @@ namespace IC2.Engine.Economy;
 /// <see cref="TreasuryPurseTransfer"/>'s manual dialog transfer, which clamps because nothing in either
 /// report says a *player-driven* request may overdraw the treasury the way this *automatic* rule's own
 /// literal wording does.
+/// <strong>T72 keeps this whole own-city block exactly as written [confirmed:
+/// 2026-10-05-army-purse-writes-and-the-1000-cap.md row 10, lines 53092-53103]</strong>: the
+/// excess-over-<see cref="EconomyRules.PurseCapPerUnit"/> sweep to the treasury is one of only three
+/// paths in the original that cap a purse at 1,000 (that report's own answer), so unlike the purchase
+/// and join paths this writer keeps its cap — a 1,066-talent purse resupplied at an own city falls to
+/// 1,000 and the treasury rises by 66, and the grant under
+/// <see cref="EconomyRules.AutoResupplyPurseTopUpThreshold"/> is a plain add (a 499-talent purse with a
+/// positive treasury ends at 999).
 /// </para>
 /// <para>
 /// <strong>Foreign city: paid, no purse hygiene, <c>[derived]</c>.</strong> The tons are additionally
@@ -51,6 +59,11 @@ namespace IC2.Engine.Economy;
 /// use as *this* cap sits in the same derived section as the purse rule above. Under
 /// <see cref="EconomyPurseModel.CentralTreasury"/> there is no per-unit purse to cap the tons by, so
 /// (exactly as <see cref="SupplyPurchase"/>) no cap is invented for the treasury side.
+/// <strong>T72 makes the purse arithmetic on this path exact</strong> [row 10, lines 53106-53110]:
+/// <c>purse -= tons div 5</c> is a plain debit — it never cuts an over-1,000 purse down to the cap as
+/// the old <see cref="PurseAccounting.Credit"/> did (a 1,066 purse paying 20 talents keeps 1,046), and
+/// a <em>negative</em> <c>tons</c> — an over-full army giving supply back — <em>raises</em> the purse
+/// with no cap, exactly as the dialog's row 3 does for the same signed case.
 /// </para>
 /// </remarks>
 public static class AutomaticResupply
@@ -131,8 +144,11 @@ public static class AutomaticResupply
         if (talents != 0)
         {
             // Review round 1, N2 (see SupplyPurchase.BuyForArmy's identical fix): mirror the buyer's own
-            // applied delta onto the seller's treasury, not the nominal `talents`, so a giveback the
-            // purse cap partially rejects does not leak the difference out of the game.
+            // applied delta onto the seller's treasury, not the nominal `talents` -- exact on every
+            // ordinary path since T72 removed the 1,000 cap from this row (row 10 of
+            // 2026-10-05-army-purse-writes-and-the-1000-cap.md: `purse -= tons div 5`, and a negative
+            // `tons` — an over-full army — raises the purse with no cap), and it now guards only
+            // Credit's field-range bound against a hand-built state.
             int buyerDelta;
             if (ruleset.Flags.EconomyPurses == EconomyPurseModel.CentralTreasury)
             {
@@ -141,7 +157,7 @@ public static class AutomaticResupply
             }
             else
             {
-                var creditedMoney = PurseAccounting.Credit(updatedArmy.Money, -talents, ruleset);
+                var creditedMoney = PurseAccounting.Credit(updatedArmy.Money, -talents);
                 buyerDelta = creditedMoney - updatedArmy.Money;
                 updatedArmy = updatedArmy with { Money = creditedMoney };
             }
@@ -217,7 +233,8 @@ public static class AutomaticResupply
         if (talents != 0)
         {
             // Review round 1, N2 (see ForArmy): mirror the buyer's own applied delta onto the seller's
-            // treasury, not the nominal `talents`.
+            // treasury, not the nominal `talents` -- exact since T72 removed the cap from this row, it
+            // guards only Credit's field-range bound (see ForArmy).
             int buyerDelta;
             if (ruleset.Flags.EconomyPurses == EconomyPurseModel.CentralTreasury)
             {
@@ -226,7 +243,7 @@ public static class AutomaticResupply
             }
             else
             {
-                var creditedMoney = PurseAccounting.Credit(updatedFleet.Money, -talents, ruleset);
+                var creditedMoney = PurseAccounting.Credit(updatedFleet.Money, -talents);
                 buyerDelta = creditedMoney - updatedFleet.Money;
                 updatedFleet = updatedFleet with { Money = creditedMoney };
             }
@@ -260,9 +277,12 @@ public static class AutomaticResupply
             // unconditional grant ("purse gains 500 from the treasury"), with no clamping instruction,
             // so a treasury of 1 still funds the full grant and is left negative. Not the same clamp
             // TreasuryPurseTransfer applies to its own, differently-sourced transfer; see this class's
-            // remarks.
+            // remarks. T72 notes: the grant only reaches purses under AutoResupplyPurseTopUpThreshold,
+            // so it lands under PurseCapPerUnit by construction in the shipped rulesets (500 grant to a
+            // purse under 500: max 999 of 1,000) -- Credit is only the plain field-range-checked add
+            // here, exactly row 10's uncapped "purse += 500" (2026-10-05 report).
             var grant = ruleset.Economy.AutoResupplyPurseTopUpAmount;
-            return (withMoney(unit, PurseAccounting.Credit(purse, grant, ruleset)), nation with { Treasury = nation.Treasury - grant });
+            return (withMoney(unit, PurseAccounting.Credit(purse, grant)), nation with { Treasury = nation.Treasury - grant });
         }
 
         return (unit, nation);

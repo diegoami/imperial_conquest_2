@@ -53,14 +53,19 @@ public sealed class JoinAndSplitFleetsCommandHandlerTests
     }
 
     /// <summary>
-    /// T50 Done-when 4 (issue #165 item 3): the pooled purse is capped at
-    /// <c>EconomyRules.PurseCapPerUnit</c> (1,000), same as every other purse-crediting path, instead of
-    /// letting the survivor hold the full, uncapped sum. Two fleets each legally holding 900 talents leave
-    /// a survivor at the 1,000 cap, with the 800-talent excess credited to the issuing nation's treasury
-    /// -- moved, not destroyed.
+    /// T72 (bug #315), Done-when 3: a fleet join adds the purses UNCAPPED -- 900 + 900 leaves the survivor
+    /// at 1,800 and touches no treasury. T72's research check (Done-when 1) settled the path on the
+    /// <c>decompiled-unit-map-orders-and-record-fields.md</c> Fleet-orders row: <c>TUnitMap_JoinFleets</c>
+    /// (<c>0x00447A48</c>) -- "ships, supplies and money add", its <c>&lt; 100</c>-ships bound named, no
+    /// money cap named [derived; the 2026-10-05 purse report left this fleet path not-settled and the live
+    /// 2026-10-02 join run had 0-purse fleets], the naval twin of the army join's row 7 (1,000 + 1,000 =
+    /// 2,000 [Wine candidates Q1_05/Q1_06]). The pre-T72 pin (survivor at the 1,000 cap, excess 800 to the
+    /// treasury -- T50 Done-when 4, resting on T08's "every path" wording that the 2026-10-05 report
+    /// corrects) was evidence of the bug, not of correct behaviour, and is recomputed here from the path's
+    /// real rule.
     /// </summary>
     [Fact]
-    public void Join_PooledMoneyAboveThePurseCap_IsClampedAndTheExcessCreditedToTheTreasury()
+    public void Join_PooledMoneyAboveOneThousand_AddsUncapped_AndNoTreasuryIsTouched()
     {
         var state = NavalTestbed.InitialState();
         var treasuryBefore = state.NationById(NationId)!.Treasury;
@@ -73,11 +78,48 @@ public sealed class JoinAndSplitFleetsCommandHandlerTests
 
         Assert.True(result.IsAccepted, result.ToString());
         var survivor = result.State.FleetById(a.Id)!;
-        Assert.Equal(1000, survivor.Money); // capped, not 1,800.
+        Assert.Equal(1800, survivor.Money); // 900 + 900, not cut to 1,000.
         Assert.Null(result.State.FleetById(b.Id));
 
-        // Conserved: nothing created, nothing destroyed -- the 800-talent excess moved to the treasury.
-        Assert.Equal(treasuryBefore + 800, result.State.NationById(NationId)!.Treasury);
+        Assert.Equal(treasuryBefore, result.State.NationById(NationId)!.Treasury); // no diversion: the join moves money between the two fleet records only.
+    }
+
+    /// <summary>Done-when 3: the fleet join of 800 + 600 gives 1,400, matching the army join's case.</summary>
+    [Fact]
+    public void Join_PooledMoneyAtEightHundredAndSixHundred_GivesFourteenHundred()
+    {
+        var state = NavalTestbed.InitialState();
+        var a = Fleet("join-purse-c", 3, 3, 10, money: 800);
+        var b = Fleet("join-purse-d", 4, 3, 10, money: 600);
+        state = state with { Fleets = ValueList.Of(a, b) };
+
+        var dispatcher = NavalTestbed.RealEngineDispatcher();
+        var result = dispatcher.Dispatch(state, new JoinFleetsCommand(NationId, a.Id, b.Id));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        Assert.Equal(1400, result.State.FleetById(a.Id)!.Money);
+    }
+
+    /// <summary>
+    /// Done-when 4: the fleet purse is the same signed 16-bit field (the sweep bounds both army and fleet
+    /// at 0..32,767); a sum above it lands at 32,767 and the excess goes NOWHERE -- the original's wrap is
+    /// deliberately not reproduced [designed: the user's 2026-10-05 choice, PR #758's R2 resolution].
+    /// </summary>
+    [Fact]
+    public void Join_PooledMoneyAboveTheFieldRange_LandsAtThirtyTwoThousandSevenHundredSixtySeven()
+    {
+        var state = NavalTestbed.InitialState();
+        var treasuryBefore = state.NationById(NationId)!.Treasury;
+        var a = Fleet("join-purse-e", 3, 3, 10, money: 32000);
+        var b = Fleet("join-purse-f", 4, 3, 10, money: 2000);
+        state = state with { Fleets = ValueList.Of(a, b) };
+
+        var dispatcher = NavalTestbed.RealEngineDispatcher();
+        var result = dispatcher.Dispatch(state, new JoinFleetsCommand(NationId, a.Id, b.Id));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        Assert.Equal(32767, result.State.FleetById(a.Id)!.Money); // 34,000 clamped, no wrap.
+        Assert.Equal(treasuryBefore, result.State.NationById(NationId)!.Treasury); // the excess goes nowhere.
     }
 
     [Fact]

@@ -7,15 +7,33 @@ namespace IC2.Engine.Naval.Commands;
 
 /// <summary>See <see cref="FleetToFleetTransferCommand"/> for the full rule and its provenance.</summary>
 /// <remarks>
-/// <strong>The target's pooled purse is capped, on both the disband and the partial-transfer path (T50
-/// Done-when 4, issue #165 item 3).</strong> <c>[derived]</c>, same reasoning as
-/// <see cref="JoinFleetsCommandHandler"/>'s own remarks: "T08 Economy, supply, and purses" Done-when 6 is
-/// an already-merged contract that makes the cap's scope explicit ("enforced on every path that credits a
-/// purse"), so this transfer's target purse is in scope too, and the decision made here is to
-/// enforce it rather than leave it be — matching <see cref="Economy.TreasuryPurseTransfer"/> and <see cref="Economy.AutomaticResupply"/>,
-/// which already do. Any excess over <see cref="EconomyRules.PurseCapPerUnit"/> moves to the issuing
-/// nation's treasury (both fleets already share one nation, checked above), the same hygiene
-/// <see cref="Economy.AutomaticResupply"/> applies, so money is conserved rather than destroyed.
+/// <para>
+/// <strong>The target's pooled purse stays capped at 1,000 on both the disband and the partial-transfer
+/// path — <c>[open]</c>, behaviour deliberately kept (T72, Done-when 1).</strong> The cap here is NOT
+/// settled by the evidence T72 searched, and an unsettled writer keeps today's behaviour rather than
+/// being changed on a guess. What was searched:
+/// <c>2026-10-05-army-purse-writes-and-the-1000-cap.md</c> (research 9ae8924) — it lists the army
+/// purse's 53 references and reads the fleet purse only in <c>TAFSupply_ChangeMoney</c> (its rows 1 and
+/// 2: the fleet's purse IS capped at 1,000 by the Supply army dialog's arrow, <c>min(step, 1000 −
+/// fleet's purse)</c>) and explicitly leaves "Join fleets and the fleet-to-fleet transfer
+/// (<c>TFleetToFleet</c>)" not settled;
+/// <c>decompiled-unit-map-orders-and-record-fields.md</c> — its fleet-orders row calls the dialog "the
+/// naval twin of <c>TArmyToArmy</c>", and <c>TArmyToArmy_ChangeMoney</c>'s arrow (row 4) caps its
+/// receiver at <c>min(step, 1000 − receiver)</c>, but <c>TFleetToFleet</c>'s own money-line arithmetic
+/// was never read into a report;
+/// <c>2026-10-05-refusal-texts-and-conditions.md</c> — <c>TFleetToFleet</c> has no message-box calls:
+/// "the dialogs clamp the value [derived, by absence]", without the clamp's rule; and
+/// <c>2026-10-02-fleet-orders-live.md</c> — the live transfer run moved ships only, both fleets' purses
+/// were untouched (0/0 and not re-read for money). A targeted re-read of <c>all_app_functions.txt</c>
+/// (<c>%LOCALAPPDATA%\ReTools\</c> on the research machine — not present in this worktree, not mirrored
+/// in the research repository) and Ghidra were both out of reach from this implementer's environment, so
+/// this stays <c>[open]</c>: the T50/T14 behaviour — pool into the receiver, clamp at
+/// <see cref="EconomyRules.PurseCapPerUnit"/>, credit the excess to the (shared) issuing nation's
+/// treasury, so money is conserved rather than destroyed — is kept verbatim, and this is the file's own
+/// clamp, not one relocated from another writer. If research settles the <c>TFleetToFleet</c> arrow, the
+/// answer decides whether the receiver keeps a plain min-clamp, the dialog's signed pull-back
+/// (<see cref="Economy.TreasuryPurseTransfer"/>), or no cap at all.
+/// </para>
 /// </remarks>
 [CommandHandler]
 public sealed class FleetToFleetTransferCommandHandler : ICommandHandler<FleetToFleetTransferCommand>
@@ -132,11 +150,12 @@ public sealed class FleetToFleetTransferCommandHandler : ICommandHandler<FleetTo
             // fleet is annihilated. The naval twin of the confirmed army-to-army auto-disband-on-empty
             // mechanism; see this command's remarks.
             //
-            // The purse cap (see this type's remarks): clamp the pooled money to
-            // EconomyRules.PurseCapPerUnit, same as PurseAccounting.Credit, crediting any excess to the
-            // (shared) issuing nation's treasury instead of dropping it.
+            // [open] kept behaviour (see this type's remarks): clamp the pooled money to
+            // EconomyRules.PurseCapPerUnit here, in this writer, exactly as PurseAccounting.Credit's
+            // pre-T72 clamp did — crediting any excess to the (shared) issuing nation's treasury
+            // instead of dropping it, so money is conserved on the kept behaviour.
             var pooledMoney = target.Money + source.Money;
-            var cappedTargetMoney = PurseAccounting.Credit(target.Money, source.Money, context.Ruleset);
+            var cappedTargetMoney = Math.Min(pooledMoney, context.Ruleset.Economy.PurseCapPerUnit);
             var excessToTreasury = pooledMoney - cappedTargetMoney;
 
             var pooledTarget = target with
@@ -172,9 +191,11 @@ public sealed class FleetToFleetTransferCommandHandler : ICommandHandler<FleetTo
             });
         }
 
-        // The purse cap (see this type's remarks), on the partial-transfer path too.
+        // [open] kept behaviour (see this type's remarks), on the partial-transfer path too: this
+        // writer's own min-clamp at PurseCapPerUnit, exactly the pre-T72 credit, excess conserved to
+        // the treasury.
         var pooledTargetMoney = target.Money + command.Money;
-        var cappedMoney = PurseAccounting.Credit(target.Money, command.Money, context.Ruleset);
+        var cappedMoney = Math.Min(pooledTargetMoney, context.Ruleset.Economy.PurseCapPerUnit);
         var partialExcessToTreasury = pooledTargetMoney - cappedMoney;
 
         var updatedSource = source with
