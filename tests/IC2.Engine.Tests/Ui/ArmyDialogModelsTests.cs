@@ -354,6 +354,58 @@ public sealed class ArmyDialogModelsTests
         Assert.Equal("Legio I", session.State.ArmyById(ArmyAId)!.Units[1].Name);
     }
 
+    [Fact]
+    public void Change_units_disband_asks_the_original_prompt_and_composes_one_order_per_selected_unit()
+    {
+        var session = Session();
+        var model = ChangeUnitsModel.ForArmy(session.State.ArmyById(ArmyAId)!);
+
+        // The prompt's own text, the original's singular for one unit and plural above it.
+        Assert.Equal("Are you sure you want to disband 1 unit.", ChangeUnitsModel.DisbandPromptText(1));
+        Assert.Equal("Are you sure you want to disband 2 units.", ChangeUnitsModel.DisbandPromptText(2));
+
+        // Two selected units: Yes composes one disband order each, highest index first so the earlier
+        // removals do not shift the later ones; No composes none.
+        int[] selected = { 0, 1 };
+        var yes = model.DisbandOrders(selected, confirmed: true);
+        Assert.Equal(new[] { $"disband-unit {ArmyAId} 1", $"disband-unit {ArmyAId} 0" }, yes.ToArray());
+        Assert.Empty(model.DisbandOrders(selected, confirmed: false));
+
+        // The engine accepts both orders in that order, leaving the army with its last unit.
+        foreach (var line in yes)
+        {
+            session.Submit(line);
+        }
+
+        Assert.Single(session.State.ArmyById(ArmyAId)!.Units);
+    }
+
+    [Fact]
+    public void Change_units_disband_orders_pin_the_empty_single_and_duplicate_selections()
+    {
+        var session = Session();
+        var threeUnit = ChangeUnitsModel.ForArmy(session.State.ArmyById(ThreeUnitArmyId)!);
+
+        // Nothing selected: Yes composes no order at all (the dialog returns before it prompts).
+        Assert.Empty(threeUnit.DisbandOrders(Array.Empty<int>(), confirmed: true));
+
+        // One selected unit: exactly one order, that unit's own index.
+        Assert.Equal(
+            new[] { $"disband-unit {ThreeUnitArmyId} 1" },
+            threeUnit.DisbandOrders(new[] { 1 }, confirmed: true).ToArray());
+
+        // A duplicate selection collapses to one order per unit; the surviving multi-selection is still
+        // highest index first. Without Distinct, the duplicate 1 would produce a second disband-unit 1.
+        Assert.Equal(
+            new[]
+            {
+                $"disband-unit {ThreeUnitArmyId} 2",
+                $"disband-unit {ThreeUnitArmyId} 1",
+                $"disband-unit {ThreeUnitArmyId} 0",
+            },
+            threeUnit.DisbandOrders(new[] { 0, 1, 1, 2 }, confirmed: true).ToArray());
+    }
+
     // ---- Done-when 7: the quality captions ----
 
     [Theory]

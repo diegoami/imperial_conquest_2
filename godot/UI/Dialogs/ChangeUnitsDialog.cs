@@ -211,11 +211,39 @@ public partial class ChangeUnitsDialog : Control
 
     private void DisbandSelected()
     {
-        if (FirstSelected() is { } index)
+        var selected = _unitList.GetSelectedItems();
+        if (selected.Length == 0)
         {
-            SubmitIfAny(_model.DisbandUnitLine(index));
+            return;
+        }
+
+        // The original asks first and acts on every selected unit [derived: code, row P08]. The text and
+        // the one-order-per-unit composition are the model's; this dialog only wires the prompt.
+        var prompt = new ConfirmPrompt { Question = ChangeUnitsModel.DisbandPromptText(selected.Length) };
+        prompt.Confirmed += () =>
+        {
+            DismissPrompt(prompt);
+            SubmitDisbandOrders(selected, confirmed: true);
+        };
+        prompt.Refused += () =>
+        {
+            DismissPrompt(prompt);
+            SubmitDisbandOrders(selected, confirmed: false);
+        };
+        AddChild(prompt);
+        prompt.SetAnchorsPreset(LayoutPreset.FullRect);
+    }
+
+    /// <summary>Submits the orders the model composes for the answered prompt; No composes none.</summary>
+    private void SubmitDisbandOrders(IReadOnlyList<int> selectedIndexes, bool confirmed)
+    {
+        foreach (var line in _model.DisbandOrders(selectedIndexes, confirmed))
+        {
+            SubmitIfAny(line);
         }
     }
+
+    private static void DismissPrompt(ConfirmPrompt prompt) => prompt.QueueFree();
 
     private int? FirstSelected()
     {
@@ -246,9 +274,6 @@ public partial class ChangeUnitsDialog : Control
     /// <summary>Joins two units, exactly as the Join units button does.</summary>
     public void JoinUnitsForCheck(int firstIndex, int secondIndex) =>
         SubmitIfAny(_model.JoinUnitsLine(firstIndex, secondIndex));
-
-    /// <summary>Disbands one unit, exactly as the Disband button does.</summary>
-    public void DisbandUnitForCheck(int index) => SubmitIfAny(_model.DisbandUnitLine(index));
 
     /// <summary>OK, exactly as its button does: close, submitting nothing further.</summary>
     public void OkForCheck() => Cancel();
