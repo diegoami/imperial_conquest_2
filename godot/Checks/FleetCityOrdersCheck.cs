@@ -534,7 +534,7 @@ public partial class FleetCityOrdersCheck : Control
         cities.Add(City(ScuttleCityId, "T112 Scuttle Port", scuttleCoastal.Lx, scuttleCoastal.Ly));
 
         var fleets = world.StartingFleets.ToList();
-        fleets.Add(Fleet(SupplyFleetId, coastal.Wx, coastal.Wy, ships: 30, condition: 70, supply: 300, money: 100));
+        fleets.Add(Fleet(SupplyFleetId, coastal.Wx, coastal.Wy, ships: 30, condition: 70, supply: 100, money: 100));
         fleets.Add(Fleet(PartnerFleetId, coastal.W2x, coastal.W2y, ships: 20, condition: 100, supply: 200, money: 50));
         fleets.Add(Fleet(SplitFleetId, split.X, split.Y, ships: 30, condition: 100, supply: 200, money: 100));
         fleets.Add(Fleet(JoinAId, join.A.X, join.A.Y, ships: 10, condition: 100, supply: 50, money: 0));
