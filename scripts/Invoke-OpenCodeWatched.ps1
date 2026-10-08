@@ -172,8 +172,9 @@ function Get-OpenCodeOutsidePathsInText([string] $Text) {
 
 function Get-OpenCodeToolInvocations($Node, $Acc) {
     # Fills $Acc with every { Tool; Input } pair in a session export. A tool part carries its
-    # arguments in .state.input (1.x and 2.x); some shapes carry .input directly. Recursive because
-    # the export nests messages[].parts[], and the part's own shape is not guaranteed across CLIs.
+    # arguments in .state.input (the recorded shape); .state.args, .input and .args are accepted
+    # too, because the export's exact nesting differs between CLIs. Recursive because the export
+    # nests messages[].parts[], and the part's own shape is not guaranteed across versions.
     if ($null -eq $Node) { return }
     if ($Node -is [string]) { return }
     if ($Node -is [System.Collections.IDictionary]) {
@@ -188,11 +189,29 @@ function Get-OpenCodeToolInvocations($Node, $Acc) {
     $names = @($props | ForEach-Object Name)
     if ($names -contains 'tool') {
         $input = $null
-        if ($names -contains 'state' -and $Node.state) { $input = $Node.state.input }
-        elseif ($names -contains 'input') { $input = $Node.input }
-        if ($input) { $Acc.Add([pscustomobject]@{ Tool = [string]$Node.tool; Input = $input }) }
+        foreach ($path in @(@('state', 'input'), @('state', 'args'), @('input'), @('args'))) {
+            $v = $Node
+            foreach ($seg in $path) { if ($null -eq $v) { break }; $v = $v.$seg }
+            if ($v) { $input = $v; break }
+        }
+        # A string input is a serialized argument object in some exports.
+        if ($input -is [string]) {
+            try { $parsed = $input | ConvertFrom-Json; if ($parsed) { $input = $parsed } } catch { }
+        }
+        if ($input -and $input -isnot [string]) { $Acc.Add([pscustomobject]@{ Tool = [string]$Node.tool; Input = $input }) }
     }
     foreach ($p in $props) { Get-OpenCodeToolInvocations $p.Value $Acc }
+}
+
+function Get-OpenCodeInputText($Value) {
+    # A tool input field as text: a string as it is, an array joined (some CLIs pass a command as
+    # ["bash", "-lc", "..."]), anything else $null.
+    if ($null -eq $Value) { return $null }
+    if ($Value -is [string]) { return $Value }
+    if ($Value -is [System.Collections.IEnumerable] -and $Value -isnot [System.Collections.IDictionary]) {
+        return (@($Value | ForEach-Object { [string]$_ }) -join ' ')
+    }
+    return $null
 }
 
 function Get-OpenCodeOutsidePaths([string] $ExportFile) {
@@ -212,13 +231,13 @@ function Get-OpenCodeOutsidePaths([string] $ExportFile) {
         $texts = @()
         switch -Regex ($ti.Tool) {
             '^(bash|shell)$' {
-                foreach ($k in 'command', 'cmd') { if ($input.$k) { $texts += [string]$input.$k } }
+                foreach ($k in 'command', 'cmd') { $t = Get-OpenCodeInputText $input.$k; if ($t) { $texts += $t } }
             }
             '^(read|write|edit)$' {
-                foreach ($k in 'filePath', 'file_path', 'path') { if ($input.$k) { $texts += [string]$input.$k } }
+                foreach ($k in 'filePath', 'file_path', 'path') { $t = Get-OpenCodeInputText $input.$k; if ($t) { $texts += $t } }
             }
             '^(list|glob|grep)$' {
-                foreach ($k in 'path', 'filePath', 'file_path') { if ($input.$k) { $texts += [string]$input.$k } }
+                foreach ($k in 'path', 'filePath', 'file_path') { $t = Get-OpenCodeInputText $input.$k; if ($t) { $texts += $t } }
             }
         }
         foreach ($text in $texts) {
