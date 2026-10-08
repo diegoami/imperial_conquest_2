@@ -63,6 +63,7 @@ public partial class FleetCityOrdersCheck : Control
         _steps.Add(SplitFleet);
         _steps.Add(JoinFleets);
         _steps.Add(ScuttleNo);
+        _steps.Add(ScuttleYes);
         _steps.Add(FortifyCity);
         _steps.Add(StripSharesTheRepairHandler);
         _steps.Add(NoContextPanelCommandButton);
@@ -258,6 +259,31 @@ public partial class FleetCityOrdersCheck : Control
         Check(_commandsSeen == before, $"No submits nothing ({_commandsSeen - before})");
         Check(_session.State.FleetById(ScuttleFleetId) is not null, "the fleet survives No");
         Check(_mainGame.ActiveOverlay is null, "No closes the prompt");
+    }
+
+    /// <summary>Done-when 3: Scuttle fleet with Yes removes the fleet and conserves its money and
+    /// supplies (to the treasury and the adjacent own city).</summary>
+    private void ScuttleYes()
+    {
+        _mainGame.SelectFleetForCheck(ScuttleFleetId);
+        var before = _commandsSeen;
+        var fleet = _session.State.FleetById(ScuttleFleetId)!;
+        var treasuryBefore = _session.State.NationById(Rome)!.Treasury;
+        var citySupplyBefore = _session.State.CityById(ScuttleCityId)!.SupplyTons;
+
+        Check(_mainGame.MenuBar.PressItemForCheck("unit_map.fleet_scuttle"), "Scuttle fleet asks again");
+        Check(_mainGame.ActiveOverlay is ConfirmPrompt, "Scuttle fleet asks first on the Yes path");
+
+        PressPromptAnswer("Yes");
+
+        Check(_commandsSeen == before + 1, $"Yes submits one command ({_commandsSeen - before})");
+        Check(_session.State.FleetById(ScuttleFleetId) is null, "the fleet is gone after Yes");
+        Check(
+            _session.State.NationById(Rome)!.Treasury == treasuryBefore + fleet.Money,
+            "the fleet's money went to the treasury");
+        Check(
+            _session.State.CityById(ScuttleCityId)!.SupplyTons == citySupplyBefore + fleet.SupplyTons,
+            "the fleet's supplies went to the city");
     }
 
     /// <summary>Done-when 3: Fortify city commits through the engine and the city's word moves.</summary>
