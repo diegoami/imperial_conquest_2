@@ -928,17 +928,15 @@ the docs item applies only if the review named a claim.
                the main session applies it from every review.")
       A trailing "-" (SOL-, SUB- x) means the same command without -Issue <n> -ApplyLabel: one of
       several reviews.
-      QUOTA FIRST (harness_imperial L50, the user's decision of 2026-10-05): before choosing or
-      dispatching any model, run `curl -s localhost:8765/avoid` (docs/environment.md). A reviewer or
-      implementer whose provider is listed there (openai for sol, by its `7d` window; openai for luna, by its own `gpt-5.6-luna:7d` window; zai for glm, glm-flash;
-      opencode_go for deepseek*, mimo*; alibaba for qwen*; claude for sonnet, opus) is skipped as if it had exited 3 (luna only when its own window is at 95% or more;
-      glm and deepseek* only when alibaba is listed too, since -Route auto moves them there),
-      and the next one of its chain runs, passed explicitly; the tier comment or PR body says so
-      ("GLM skipped: zai exhausted until 21:40; reviewed by Sol"). Luna is GPT-5.6 Luna on its own
-      weekly pool: it stays usable while `curl -s localhost:8765/quota/openai` shows its
-      `gpt-5.6-luna:7d` window under 95%, even when openai is exhausted. If the service does not
-      answer (`curl -sf localhost:8765/health`), go on without it and count a usage-limit error as
-      exhausted.
+      QUOTA FIRST (CLAUDE.md rule 17, the user's decision of 2026-10-08, which replaces the /avoid
+      check of 2026-10-05): before choosing or dispatching any model, read quota-tracker's
+      `/recommend?tier=heavy` (implementers) or `tier=light` (Sol's substitutes), take its `ranking`
+      in order with rule 17's exclusions, pass the choice explicitly, and log the chosen row's
+      `reasons`. A provider in `skipped` is passed over as if it had exited 3, and the tier comment
+      or PR body says so. Luna stays the simple tier's reviewer while its own `gpt-5.6-luna:7d`
+      window (`curl -s localhost:8765/quota/openai`) is under 95%. If the service does not answer,
+      restart it (`systemctl --user restart quota-tracker`), wait and retry; if it still fails, ask
+      the user instead of guessing.
       DIAGNOSE, when SOL or LUNA exits 3: search the files the script kept and named, and the newest
       log in %USERPROFILE%\.local\share\ic2-opencode-1x\data\opencode\log\, for "The usage limit has
       been reached" (or "insufficient_quota", or Z.AI's "Usage limit reached for 5 hour"), and read
