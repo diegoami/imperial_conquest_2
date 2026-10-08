@@ -240,6 +240,9 @@ function Get-Recommendation {
         # delimiter and `$RecommendUrl` ends up empty. Concatenation is unambiguous.
         $callUrl = "$RecommendUrl" + '?tier=' + "$Tier"
         try {
+            # 5 s per call: the tracker is a local service that answers in well under a second, so
+            # 5 s only bounds a hung socket; the loading retry (-RecommendPollSec, up to 180 s in
+            # all) is what waits for a slow start (GLM's re-check R3).
             $raw = Invoke-RestMethod -Uri $callUrl -TimeoutSec 5 -ErrorAction Stop
         } catch {
             if ($_.Exception.InnerException) {

@@ -305,7 +305,9 @@ function Invoke-ImplementerSelfTest {
     #    CHOOSER_META by Get-ChooserPick's caller. Simulate the full path: parse a canned
     #    JSON row, build the meta, call Format-ImplementerAttempt. This proves the
     #    function takes the same shape that the real run path passes to it.
-    $cannedJson = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot '..\rendered\compact-heavy.json')
+    # The canned response is embedded (GLM's re-check R1): a git-ignored fixture file would not
+    # exist in a clean checkout, and the self-test must run anywhere.
+    $cannedJson = '{"note":null,"ranking":[{"provider":"minimax","model":"MiniMax-M3","score":1263,"confidence":"ok","reasons":["7d: about 7,080 spare calls before the reset (~1,263/day) after demand and a 5% reserve"]}],"skipped":[]}'
     $parsed = $cannedJson | ConvertFrom-Json
     $row = $parsed.ranking | Where-Object { $_.provider -eq 'minimax' } | Select-Object -First 1
     $rowMeta = [pscustomobject]@{
@@ -323,7 +325,9 @@ function Invoke-ImplementerSelfTest {
         "[{0,2}/{1}] {2}  -- {3}" -f $i, $checks.Count, $status, $c.Name | Write-Host
         if (-not $c.Ok) { $failed++ }
     }
-    "self-test: $($checks.Count - $failed)/$($checks.Count) passed"
+    # Written to the host, not the output stream (GLM's re-check R2): returning both the line and
+    # the count made the caller compare a string with 0 and exit 1 on a full pass.
+    Write-Host "self-test: $($checks.Count - $failed)/$($checks.Count) passed"
     return [int]$failed
 }
 
