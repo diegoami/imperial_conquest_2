@@ -411,7 +411,7 @@ marker = owner + (t < 25 ? 200 : t < 50 ? 216 : 232)
 ```
 
 **[confirmed]** — `army.tier1.icon` = **under 25,000 troops**, `army.tier2.icon` = **25,000–49,999**,
-`army.tier3.icon` = **≥ 50,000**. Depict the same army silhouette at increasing size/weight (more
+`army.tier3.icon` = **≥ 50,000**. The boundaries are also seen in play: armies of 24,999 / 25,000 / 49,999 / 50,000 troops leave map words owner + 200 / 216 / 216 / 232 **[confirmed: Wine candidate, [`2026-10-08-army-marker-size-band-on-the-map.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-08-army-marker-size-band-on-the-map.md), research `be0691a`]**. That run read the map word only; whether the original draws a different glyph per band on screen was not compared there, so the per-tier artwork below rests on the decompiled code, not on a seen icon. Depict the same army silhouette at increasing size/weight (more
 figures, a denser formation, a larger banner) across the three tiers — cite the original's own red/purple
 unit-map glyph for the shape family (`screenshots-processed/1_rome_270_summer_7_1.png`,
 `screenshots-processed/1_rome_270_autumn_7_1.png`: a small upright figure pictogram on a nation-coloured
