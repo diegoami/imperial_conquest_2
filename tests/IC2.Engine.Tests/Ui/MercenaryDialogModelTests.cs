@@ -1,4 +1,5 @@
 using IC2.Engine.Model;
+using IC2.Engine.Presentation;
 using IC2.Engine.Serialization;
 using IC2.Engine.Tests.Core;
 using IC2.Slice.UI;
@@ -28,6 +29,7 @@ namespace IC2.Engine.Tests.Ui;
 public sealed class MercenaryDialogModelTests
 {
     private const string RomeId = "rome";
+    private const string CarthageId = "carthage";
     private const string ArmyId = "t113-army";
     private const string CityAtArmyId = "t113-city";
     private const string HireCityId = "t113-hire-city";
@@ -316,5 +318,168 @@ public sealed class MercenaryDialogModelTests
         // A model that multiplied in int would wrap the intermediate to negative; the divide then
         // yields a wrong (and possibly negative) int. The widened path divides the long product.
         Assert.Equal((int)(product / 1000), MercenaryDialogModel.DisplayedQuarterlyCost(troops, price, quality));
+    }
+
+    /// <summary>
+    /// R3 (review round 1): the menu's pre-open refusal for an army already at the 20-unit cap is
+    /// the engine's own message ("This army already has 20 units."). The dialog stays closed; the
+    /// offers still exist on the city.
+    /// </summary>
+    [Fact]
+    public void Pre_open_refusal_for_army_at_20_units_carries_the_engine_message()
+    {
+        var (state, ruleset) = Scripted(armyUnitCount: 20);
+        var model = MercenaryDialogModel.ForArmy(state, ArmyId, ruleset);
+
+        Assert.NotEmpty(model.Offers);
+        Assert.False(model.DialogOpens);
+        Assert.Equal("This army already has 20 units.", model.PreOpenRefusalMessage);
+    }
+
+    /// <summary>
+    /// R3 (review round 1): with no offer city in reach, the model returns no offers and no
+    /// pre-open refusal message — the menu's silent no-op. The brief pins this as
+    /// <c>"nothing, no message"</c>; the model surfaces the empty list, the menu does not ask for
+    /// a message.
+    /// </summary>
+    [Fact]
+    public void Pre_open_refusal_is_silent_when_no_offer_city_in_reach()
+    {
+        var (state, ruleset) = Scripted();
+        var arranged = state with
+        {
+            Armies = ValueList.From(state.Armies.Select(a => a with { X = 12, Y = 12 })), // > 1 tile away
+        };
+
+        var model = MercenaryDialogModel.ForArmy(arranged, ArmyId, ruleset);
+        Assert.Empty(model.Offers);
+        Assert.False(model.DialogOpens);
+        Assert.Null(model.PreOpenRefusalMessage);
+    }
+
+    /// <summary>
+    /// R3 (review round 1): the 100,000-troop pre-open refusal reports
+    /// <c>"This army cannot get any bigger."</c>. The model picks it over the 20-unit cap (an army
+    /// past the troop cap with a full unit count lands on the cap check first; the test stages the
+    /// army one unit below the cap so the troop cap is the only refusal that fires).
+    /// </summary>
+    [Fact]
+    public void Pre_open_refusal_for_army_over_100k_troops_carries_the_engine_message()
+    {
+        var initial = CoreTestbed.InitialState();
+        var army = new ArmyState(
+            ArmyId, RomeId, X: 5, Y: 5, Moves: 4, Morale: 70, Money: 100, SupplyTons: 100_000,
+            CoveredTileCode: null, AboardFleetId: null,
+            Units: ValueList.From(Enumerable.Range(0, 19).Select(index =>
+                new UnitSlot(0, "light_infantry", 6_000, 6, $"T113 unit {index}"))));
+        var city = new CityState(
+            CityAtArmyId, "T113 city", X: 4, Y: 5, Owner: RomeId, Allegiance: RomeId,
+            Loyalty: 90, SupplyTons: 100, FortificationCode: 0,
+            PopulationThousands: 100, MaxPopulationThousands: 100, Tribute: 0, UnderSiege: false,
+            Garrison: ValueList<UnitSlot>.Empty);
+        var offer = new MercenaryPoolSlot(
+            1, X: 4, Y: 5, NameLabel: 0, UnitTypeId: "light_infantry", Troops: 1, Quality: 8);
+
+        var state = initial with
+        {
+            Armies = ValueList.From(new[] { army }),
+            Cities = ValueList.From(new[] { city }),
+            MercenaryPool = ValueList.From(new[] { offer }),
+        };
+
+        var model = MercenaryDialogModel.ForArmy(state, ArmyId, ClassicalRuleset);
+        Assert.False(model.DialogOpens);
+        Assert.Equal("This army cannot get any bigger.", model.PreOpenRefusalMessage);
+    }
+
+    /// <summary>
+    /// R3 (review round 1): the enemy-city pre-open refusal reports
+    /// <c>"You cannot recruit from an enemy city."</c>. The chosen city is owned by a nation at
+    /// war with the hiring nation; the offers exist on it, but the menu refuses. The classical
+    /// scenario's Rome–Carthage relation is set to war via the matrix's own
+    /// <see cref="DiplomaticRelations.WithRelation"/> helper — the engine's own path, never an
+    /// invented one.
+    /// </summary>
+    [Fact]
+    public void Pre_open_refusal_for_an_enemy_city_carries_the_engine_message()
+    {
+        var classical = GameDataRepository.Load(ModelTestPaths.DataRoot).Resolve("classical-mediterranean");
+        var session = new GameSession(
+            classical.World, classical.Ruleset, classical.Scenario, seedOverride: 1, humanSeatNationId: RomeId);
+        var initial = session.State;
+        var ruleset = classical.Ruleset;
+
+        var army = new ArmyState(
+            "t113-army-enemy", RomeId, X: 100, Y: 37, Moves: 4, Morale: 70, Money: 100, SupplyTons: 100,
+            CoveredTileCode: null, AboardFleetId: null,
+            Units: ValueList.From(new[] { new UnitSlot(0, "light_infantry", 100, 6, "T113 enemy seed") }));
+
+        // A Rome-owned city one tile away, and a Carthage-owned city at the same tile offset. The
+        // script ensures the chosen city is the Carthage one (lower slot index of an offer on its
+        // tile).
+        var romeCity = new CityState(
+            "t113-enemy-rome-city", "T113 enemy rome city", X: 99, Y: 37, Owner: RomeId, Allegiance: RomeId,
+            Loyalty: 90, SupplyTons: 100, FortificationCode: 0,
+            PopulationThousands: 100, MaxPopulationThousands: 100, Tribute: 0, UnderSiege: false,
+            Garrison: ValueList<UnitSlot>.Empty);
+        var carthageCity = new CityState(
+            "t113-enemy-carthage-city", "T113 enemy carthage city", X: 99, Y: 38, Owner: CarthageId, Allegiance: CarthageId,
+            Loyalty: 90, SupplyTons: 100, FortificationCode: 0,
+            PopulationThousands: 100, MaxPopulationThousands: 100, Tribute: 0, UnderSiege: false,
+            Garrison: ValueList<UnitSlot>.Empty);
+
+        var offers = new List<MercenaryPoolSlot>
+        {
+            new(1, 99, 38, 0, "light_infantry", 100, 8), // on the Carthage city
+        };
+
+        var warCode = ruleset.Diplomacy.StateCodes.War;
+        var atWar = initial.Relations.WithRelation(RomeId, CarthageId, warCode);
+
+        var state = initial with
+        {
+            Armies = ValueList.From(initial.Armies.Concat(new[] { army })),
+            Cities = ValueList.From(initial.Cities.Concat(new[] { romeCity, carthageCity })),
+            MercenaryPool = ValueList.From(offers),
+            Relations = atWar,
+        };
+
+        var model = MercenaryDialogModel.ForArmy(state, army.Id, ruleset);
+        Assert.False(model.DialogOpens);
+        Assert.Equal("You cannot recruit from an enemy city.", model.PreOpenRefusalMessage);
+    }
+
+    /// <summary>
+    /// R3 (review round 1): the supplies-floor pre-open refusal reports
+    /// <c>"No mercenaries will join an army with so few supplies."</c>. The chosen city is friendly
+    /// and the offers exist; the army has supplies below <c>15 × troops / 10000</c>.
+    /// </summary>
+    [Fact]
+    public void Pre_open_refusal_for_low_supplies_carries_the_engine_message()
+    {
+        var initial = CoreTestbed.InitialState();
+        // 10,000 troops, 1 supply ton: 1 × 10000 / 10000 = 1, well under the 15 floor.
+        var army = new ArmyState(
+            ArmyId, RomeId, X: 5, Y: 5, Moves: 4, Morale: 70, Money: 100, SupplyTons: 1,
+            CoveredTileCode: null, AboardFleetId: null,
+            Units: ValueList.From(new[] { new UnitSlot(0, "light_infantry", 10_000, 6, "T113 seed") }));
+        var city = new CityState(
+            CityAtArmyId, "T113 city", X: 4, Y: 5, Owner: RomeId, Allegiance: RomeId,
+            Loyalty: 90, SupplyTons: 100, FortificationCode: 0,
+            PopulationThousands: 100, MaxPopulationThousands: 100, Tribute: 0, UnderSiege: false,
+            Garrison: ValueList<UnitSlot>.Empty);
+        var offer = new MercenaryPoolSlot(
+            1, X: 4, Y: 5, NameLabel: 0, UnitTypeId: "light_infantry", Troops: 100, Quality: 8);
+
+        var state = initial with
+        {
+            Armies = ValueList.From(new[] { army }),
+            Cities = ValueList.From(new[] { city }),
+            MercenaryPool = ValueList.From(new[] { offer }),
+        };
+
+        var model = MercenaryDialogModel.ForArmy(state, ArmyId, ClassicalRuleset);
+        Assert.False(model.DialogOpens);
+        Assert.Equal("No mercenaries will join an army with so few supplies.", model.PreOpenRefusalMessage);
     }
 }

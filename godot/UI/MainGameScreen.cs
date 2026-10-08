@@ -1059,10 +1059,15 @@ public partial class MainGameScreen : Control
 
     /// <summary>
     /// T113: the Army menu's Recruit mercenaries entry. Opens the dialog for the chosen city (T76's
-    /// adjacency rule, read by the model's <see cref="MercenaryDialogModel.ForArmy"/>), or shows one
-    /// of two messages and opens nothing when no own army is selected or the dialog's own
-    /// dialog-opens gate is closed (no offer in reach, or already at 20 units). The dialog itself
-    /// adds no refusal of its own — the engine's gates report theirs through the screen's reply.
+    /// adjacency rule, read by the model's <see cref="MercenaryDialogModel.ForArmy"/>), or shows the
+    /// engine's pre-open refusal message and opens nothing when the dialog's own dialog-opens gate
+    /// is closed. With no offer city in reach (the original's first refusal — nothing, no message,
+    /// derived: <c>TUnitMap_RecruitMercenaries</c> @ <c>0x00446FF4</c>) this entry silently returns:
+    /// the model decides it from the live pool, the menu never gets a status line, and the dialog
+    /// stays closed. With at least one offer but one of the other pre-open refusals (20 units,
+    /// 100,000 troops, enemy city, supplies, fleet capacity), the matching engine message is shown
+    /// and the dialog stays closed. The dialog itself adds no refusal of its own — the engine's
+    /// per-hire gates report theirs through the dialog's reply line.
     /// </summary>
     private void OpenRecruitMercenariesDialog()
     {
@@ -1074,12 +1079,18 @@ public partial class MainGameScreen : Control
         }
 
         var model = MercenaryDialogModel.ForArmy(Session.State, army.Id, Session.Ruleset);
+
+        if (model.Offers.Count == 0)
+        {
+            // T113 R3: the original's "no offer in reach" refusal is a silent no-op — derived from
+            // the order's handler as the brief's Hazards pin it. The menu shows no message, the
+            // dialog stays closed, and the player's own army/orders are unchanged.
+            return;
+        }
+
         if (!model.DialogOpens)
         {
-            ShowScreenMessage(
-                model.Offers.Count == 0
-                    ? "No mercenary offers are within reach of this army."
-                    : "This army already has 20 units.");
+            ShowScreenMessage(model.PreOpenRefusalMessage ?? "This army cannot recruit mercenaries.");
             return;
         }
 

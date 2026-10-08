@@ -92,6 +92,11 @@ public sealed class MercenaryDialogModel
     private (int X, int Y) _cityTile;
     private string? _cityName;
     private int _hiringArmyIdSlotCap;
+    private string? _preOpenRefusal;
+    private int _armyTroopsBefore;
+    private int _armySupplyTons;
+    private string? _armyAboardFleetId;
+    private string _armyNationId = string.Empty;
 
     private MercenaryDialogModel(GameState state, Ruleset ruleset)
     {
@@ -183,7 +188,16 @@ public sealed class MercenaryDialogModel
     /// (T76's engine order — exception 7 in the brief's stacking), the dialog adds nothing for it.
     /// </summary>
     public bool DialogOpens =>
-        ArmyId is not null && _offers.Count > 0 && ArmyUnitsBefore < _hiringArmyIdSlotCap;
+        ArmyId is not null && _offers.Count > 0 && _preOpenRefusal is null;
+
+    /// <summary>
+    /// The pre-open refusal the menu entry should show, in the order the brief pins
+    /// (<c>TUnitMap_RecruitMercenaries</c> @ <c>0x00446FF4</c>): 20-unit cap, 100,000 troops, enemy
+    /// city, supplies, fleet capacity. <see langword="null"/> when every pre-open check passes (the
+    /// dialog may open) or when no offers are in reach (the silent no-op the brief pins, separate
+    /// from this list). The engine's per-hire refusals live in the dialog itself.
+    /// </summary>
+    public string? PreOpenRefusalMessage => _preOpenRefusal;
 
     /// <summary>
     /// Whether a hire of <paramref name="offer"/> would push the army to <see cref="MaxUnitsPerArmy"/>
@@ -223,6 +237,10 @@ public sealed class MercenaryDialogModel
 
         ArmyId = army.Id;
         ArmyUnitsBefore = army.Units.Count;
+        _armyTroopsBefore = army.TotalTroops;
+        _armySupplyTons = army.SupplyTons;
+        _armyAboardFleetId = army.AboardFleetId;
+        _armyNationId = army.Nation;
         var chosen = FindChosenCity(state, army);
         if (chosen is null)
         {
@@ -231,6 +249,7 @@ public sealed class MercenaryDialogModel
 
         AdoptCity(state, chosen);
         LoadOffers(state);
+        _preOpenRefusal = EvaluatePreOpenRefusal(state, army, chosen);
     }
 
     private void LoadForCity(GameState state, string cityId)
@@ -347,6 +366,76 @@ public sealed class MercenaryDialogModel
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// The original's pre-open refusals, in the brief's order
+    /// (<c>TUnitMap_RecruitMercenaries</c> @ <c>0x00446FF4</c>):
+    /// 20-unit cap ("This army already has 20 units."),
+    /// 100,000-troop cap ("This army cannot get any bigger."),
+    /// enemy city ("You cannot recruit from an enemy city."),
+    /// supplies floor ("No mercenaries will join an army with so few supplies."),
+    /// embarked-fleet capacity ("Your fleet cannot carry any more troops.").
+    /// Each refusal mirrors the engine's gate in <see cref="IC2.Engine.Recruitment.Commands.HireMercenaryCommandHandler"/>
+    /// — the engine still re-checks on the per-hire path, so the menu's refusal is the same code
+    /// string in shape, never its own. Returns <see langword="null"/> when every pre-open gate
+    /// passes (the dialog may open) and <paramref name="army"/> / <paramref name="chosen"/> are live.
+    /// </summary>
+    private string? EvaluatePreOpenRefusal(GameState state, ArmyState army, CityState chosen)
+    {
+        if (army.Units.Count >= _hiringArmyIdSlotCap)
+        {
+            return $"This army already has {_hiringArmyIdSlotCap} units.";
+        }
+
+        if (army.TotalTroops > _ruleset.ArmyManagement.MaxTroopsPerArmy)
+        {
+            return "This army cannot get any bigger.";
+        }
+
+        if (IsAtWar(state, army.Nation, chosen.Owner))
+        {
+            return "You cannot recruit from an enemy city.";
+        }
+
+        // Bug #769's <c>army.supplies*10000/total &lt; 15</c> rule: the order reads supplies *before*
+        // the hire. An army with zero troops is refused without dividing (the original's div-by-zero
+        // is no rule to copy — [designed]).
+        if (army.TotalTroops == 0
+            || (long)army.SupplyTons * 10000 / army.TotalTroops < 15)
+        {
+            return "No mercenaries will join an army with so few supplies.";
+        }
+
+        if (!string.IsNullOrEmpty(army.AboardFleetId))
+        {
+            var fleet = state.FleetById(army.AboardFleetId);
+            if (fleet is not null)
+            {
+                var capacity = (long)fleet.Ships * _ruleset.Naval.TransportTroopsPerShip;
+                if (army.TotalTroops > capacity)
+                {
+                    return "Your fleet cannot carry any more troops.";
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private bool IsAtWar(GameState state, string nationA, string nationB)
+    {
+        if (string.Equals(nationA, nationB, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (state.Relations.IndexOf(nationA) < 0 || state.Relations.IndexOf(nationB) < 0)
+        {
+            return false;
+        }
+
+        return state.Relations.Get(nationA, nationB) == _ruleset.Diplomacy.StateCodes.War;
     }
 
     // Local copy of the divisor the engine reads as MercenaryHireTroopDivisor (1000, from
