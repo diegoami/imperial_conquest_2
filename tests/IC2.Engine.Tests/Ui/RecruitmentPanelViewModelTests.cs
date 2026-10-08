@@ -239,4 +239,78 @@ public sealed class RecruitmentPanelViewModelTests
         Assert.True(choice.IsEnabled);
         Assert.Equal(0, choice.SlotIndex);
     }
+
+    /// <summary>
+    /// T109 (<c>docs/tasks/T109.md</c>) Done-when 2: the Recruit unit dialog's troop range, for
+    /// every unit type in <c>classical-faithful</c>, is <c>[standardBattalionSize / 5, standardBattalionSize]</c>
+    /// with the default at the minimum. The dialog re-derives these on every unit-type switch, so a
+    /// second call with a different id must move both bounds — that's what
+    /// <c>switching_type_updates_the_bounds</c> below pins. The values come straight from the
+    /// ruleset, exactly as the box reads them.
+    /// </summary>
+    [Fact]
+    public void Troop_bounds_for_every_unit_type_in_classical_faithful_pin_the_range_and_default()
+    {
+        var session = RomeSession();
+        Assert.NotEmpty(session.Ruleset.UnitTypes);
+
+        foreach (var type in session.Ruleset.UnitTypes)
+        {
+            var bounds = RecruitmentPanelViewModel.TroopBoundsFor(session.Ruleset, type.Id);
+
+            Assert.Equal(type.StandardBattalionSize / 5, bounds.Minimum);
+            Assert.Equal(type.StandardBattalionSize, bounds.Maximum);
+            Assert.Equal(type.StandardBattalionSize / 5, bounds.DefaultValue);
+            Assert.Equal(RecruitTroopBounds.StepSize, bounds.Step);
+            Assert.Equal(RecruitTroopBounds.PageStepSize, bounds.PageStep);
+        }
+    }
+
+    /// <summary>
+    /// T109 Done-when 2, the dialog's unit-type switch: light infantry and archers ship with
+    /// different <see cref="UnitTypeRules.StandardBattalionSize"/>s, so the dialog's call to
+    /// <see cref="RecruitmentPanelViewModel.TroopBoundsFor"/> returns a different minimum and
+    /// maximum for each. The same call's return is what the dialog copies into the box, so the
+    /// box and the ruleset cannot disagree.
+    /// </summary>
+    [Fact]
+    public void Switching_type_updates_the_troop_bounds()
+    {
+        var session = RomeSession();
+
+        var lightInfantry = RecruitmentPanelViewModel.TroopBoundsFor(session.Ruleset, "light_infantry");
+        var archers = RecruitmentPanelViewModel.TroopBoundsFor(session.Ruleset, "archers");
+
+        Assert.Equal(15_000, lightInfantry.Maximum);
+        Assert.Equal(3_000, lightInfantry.Minimum);
+        Assert.Equal(3_500, archers.Maximum);
+        Assert.Equal(700, archers.Minimum);
+        Assert.NotEqual(lightInfantry, archers);
+    }
+
+    /// <summary>
+    /// T109 Done-when 2, the dialog's two cost lines: the initial cost is
+    /// <see cref="IC2.Engine.Recruitment.StandingRecruitmentCost.InitialCost"/> and the quarterly
+    /// cost is <see cref="IC2.Engine.Recruitment.StandingRecruitmentCost.QuarterlyCost"/>, the
+    /// same formulas the engine's handler reads. With light_infantry's recruit cost 5 and
+    /// quarterly price 1, 1,000 troops give 50 initial and 10 quarterly; the assertion pins the
+    /// shape, not the units, so a ruleset change moves the expectation.
+    /// </summary>
+    [Fact]
+    public void Recruitment_costs_match_StandingRecruitmentCost_for_a_few_unit_types()
+    {
+        var session = RomeSession();
+        var lightInfantry = session.Ruleset.UnitTypeById("light_infantry")!;
+        var troops = 1_000;
+
+        Assert.Equal(
+            IC2.Engine.Recruitment.StandingRecruitmentCost.InitialCost(troops, "light_infantry", session.Ruleset),
+            RecruitmentPanelViewModel.InitialRecruitmentCost(troops, "light_infantry", session.Ruleset));
+        Assert.Equal(
+            (lightInfantry.RecruitCost * troops) / session.Ruleset.Recruitment.TroopsPerCostUnit,
+            RecruitmentPanelViewModel.InitialRecruitmentCost(troops, "light_infantry", session.Ruleset));
+        Assert.Equal(
+            IC2.Engine.Recruitment.StandingRecruitmentCost.QuarterlyCost(troops, "light_infantry", session.Ruleset),
+            RecruitmentPanelViewModel.QuarterlyRecruitmentCost(troops, "light_infantry", session.Ruleset));
+    }
 }

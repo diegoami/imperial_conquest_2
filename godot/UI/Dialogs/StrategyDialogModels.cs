@@ -457,3 +457,195 @@ public sealed record UnderConstructionFleet(
     int Ships,
     int WeeksRemaining,
     string CityName);
+
+/// <summary>
+/// The Recruit unit dialog's Godot-free model — the active nation's own cities, the five unit-type
+/// buttons, the troop range and the initial and quarterly cost, the regiment list for the chosen
+/// city, the line each action submits, and the receiving army (or a new army's id) the engine will
+/// use for a mobilization. The Godot control (<see cref="RecruitUnitDialog"/>) owns widgets and
+/// submits; this type owns every value the dialog renders.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <strong>The unit type list is the ruleset's own regular unit types.</strong> The original's five
+/// type buttons are the five regular types the ruleset ships (light and heavy infantry, archers,
+/// light and heavy cavalry, in <see cref="Ruleset.UnitTypes"/> order). T113 picked those five
+/// from the roster (<c>2026-10-05-player-facing-feature-inventory.md</c>, row S05); the dialog
+/// does the same rather than name a literal array.
+/// </para>
+/// <para>
+/// <strong>The troop box is <see cref="RecruitTroopBounds"/>.</strong> Fix #519's bug carried the
+/// bounds across to the dialog: the box's minimum and maximum are
+/// <c>standardBattalionSize / 5</c> and <c>standardBattalionSize</c> for the selected type, the
+/// default is the minimum, the arrow step is 100 and the page step is 1,000. Switching the unit
+/// type re-applies the new type's bounds (PR #550's decision, the user's 2026-10-01 amendment).
+/// </para>
+/// <para>
+/// <strong>The "Mobilize" target is the engine's own pick.</strong> The brief asks the dialog to
+/// say where the regiment will appear: the army
+/// <see cref="IC2.Engine.Armies.MobilizationReceivingArmy.Find"/> names, or a new army at the
+/// city (issue #520 item 5). The dialog reads the helper's answer — a created army needs an id
+/// the engine will accept, and the dialog invents one the same way
+/// <see cref="IC2.Engine.Armies.MobilizationArmyCreation.Create"/> would have used.
+/// </para>
+/// <para>
+/// <strong>The treasury check is a preset difference.</strong> <c>classical-faithful</c> lets the
+/// order put the treasury into debt, as the original does; <c>improved</c> refuses it (bug
+/// #549, T115). The dialog never adds an affordability check of its own; the engine's per-hire
+/// refusal is the engine's, shown in the dialog's reply line.
+/// </para>
+/// </remarks>
+public sealed class RecruitUnitDialogModel
+{
+    private readonly GameState _state;
+    private readonly Ruleset _ruleset;
+    private readonly World _world;
+
+    private RecruitUnitDialogModel(GameState state, Ruleset ruleset, World world)
+    {
+        _state = state;
+        _ruleset = ruleset;
+        _world = world;
+        Nation = state.NationById(state.ActiveNationId)
+            ?? throw new ArgumentException(
+                $"Active nation '{state.ActiveNationId}' is not in the state.", nameof(state));
+    }
+
+    /// <summary>The Recruit unit dialog's model for the active seat's nation.</summary>
+    public static RecruitUnitDialogModel ForActiveNation(GameState state, Ruleset ruleset, World world)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(ruleset);
+        ArgumentNullException.ThrowIfNull(world);
+        return new RecruitUnitDialogModel(state, ruleset, world);
+    }
+
+    /// <summary>The nation whose cities the dialog recruits at — the active seat.</summary>
+    public NationState Nation { get; }
+
+    /// <summary>The five unit-type buttons, in the ruleset's own order.</summary>
+    public IReadOnlyList<UnitTypeRules> UnitTypes => _ruleset.UnitTypes;
+
+    /// <summary>The nation's own cities, in the world's order — the list the dialog offers.</summary>
+    public IReadOnlyList<CityState> OwnedCities
+    {
+        get
+        {
+            var list = new List<CityState>();
+            foreach (var city in _state.Cities)
+            {
+                if (string.Equals(city.Owner, Nation.Id, StringComparison.Ordinal))
+                {
+                    list.Add(city);
+                }
+            }
+
+            return list;
+        }
+    }
+
+    /// <summary>The default city on first open — the first owned city in the world's order.</summary>
+    public CityState? DefaultCity => OwnedCities.Count > 0 ? OwnedCities[0] : null;
+
+    /// <summary>The selected unit type's display name, or the id when the ruleset has no record.</summary>
+    public string UnitTypeName(string unitTypeId) =>
+        _ruleset.UnitTypeById(unitTypeId)?.Name ?? unitTypeId;
+
+    /// <summary>
+    /// The troop box's bounds for <paramref name="unitTypeId"/>, read from
+    /// <see cref="RecruitTroopBounds.For"/> — the same seam the city panel's recruit box already
+    /// uses (fix #519).
+    /// </summary>
+    public RecruitTroopBounds TroopBoundsFor(string unitTypeId) =>
+        RecruitTroopBounds.For(_ruleset, unitTypeId);
+
+    /// <summary>The one-time cost for <paramref name="troops"/> troops of <paramref name="unitTypeId"/>.</summary>
+    public int InitialCostFor(int troops, string unitTypeId) =>
+        StandingRecruitmentCost.InitialCost(troops, unitTypeId, _ruleset);
+
+    /// <summary>The recurring quarterly cost for <paramref name="troops"/> troops of <paramref name="unitTypeId"/>.</summary>
+    public int QuarterlyCostFor(int troops, string unitTypeId) =>
+        StandingRecruitmentCost.QuarterlyCost(troops, unitTypeId, _ruleset);
+
+    /// <summary>
+    /// The training regiments at <paramref name="cityId"/>, in slot order, with the engine's own
+    /// readiness — the same list the city panel's "In training here" already shows
+    /// (<see cref="RecruitmentPanelViewModel.TrainingAtCity"/>).
+    /// </summary>
+    public IReadOnlyList<TrainingRegimentView> TrainingAtCity(string cityId) =>
+        RecruitmentPanelViewModel.TrainingAtCity(_state, _ruleset, Nation.Id, cityId);
+
+    /// <summary>
+    /// The <c>recruit-standing</c> line the Recruit unit button submits, with the chosen city, type
+    /// and troop count. The engine's
+    /// <see cref="IC2.Engine.Recruitment.Commands.RecruitStandingUnitCommandHandler"/> reads the
+    /// tokens back and applies its own refusals (the slot-table cap, the treasury check, the
+    /// <c>classical-faithful</c> debt allowance).
+    /// </summary>
+    public string RecruitStandingLine(string cityId, string unitTypeId, int troops) =>
+        $"{StrategyDialogModels.RecruitStandingCommandVerb} {cityId} {unitTypeId} {troops.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+
+    /// <summary>
+    /// The <c>mobilize</c> line the Mobilize button submits, with the slot index of the chosen
+    /// regiment and the id the engine will create the new army under (when no existing army will
+    /// take the unit; the engine ignores the id when one will). The id is named by the dialog —
+    /// not the engine — because <c>docs/game-design.md</c> principle 4 says a generated id would
+    /// not replay identically.
+    /// </summary>
+    public string MobilizeLine(int slotIndex, string newArmyId) =>
+        $"{StrategyDialogModels.MobilizeCommandVerb} {slotIndex.ToString(System.Globalization.CultureInfo.InvariantCulture)} {newArmyId}";
+
+    /// <summary>The <c>disband-slot</c> line the Disband button submits, with the slot index.</summary>
+    public string DisbandSlotLine(int slotIndex) =>
+        $"{StrategyDialogModels.DisbandSlotCommandVerb} {slotIndex.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+
+    /// <summary>
+    /// Where the regiment of <paramref name="slotIndex"/> will appear when mobilized — the
+    /// <see cref="IC2.Engine.Armies.MobilizationReceivingArmy.Find"/> answer, or
+    /// <see langword="null"/> when the engine will create a new army (in which case the dialog
+    /// also shows a fresh id the engine can use).
+    /// </summary>
+    public MobilizationTarget MobilizationTargetFor(int slotIndex, string newArmyId)
+    {
+        var nationSlots = Nation.RecruitmentSlots;
+        if (slotIndex < 0 || slotIndex >= nationSlots.Count)
+        {
+            return new MobilizationTarget(null, newArmyId, false);
+        }
+
+        var slot = nationSlots[slotIndex];
+        var city = _state.CityById(slot.TargetCityId);
+        if (city is null)
+        {
+            return new MobilizationTarget(null, newArmyId, false);
+        }
+
+        var choice = IC2.Engine.Armies.MobilizationReceivingArmy.Find(_state, city, Nation, _ruleset, slot.Troops);
+        if (choice is null)
+        {
+            return new MobilizationTarget(null, newArmyId, false);
+        }
+
+        return new MobilizationTarget(choice.Army.Id, newArmyId, false);
+    }
+
+    /// <summary>The nation's recruitment slots, in slot order — what the dialog's "in training" list reads.</summary>
+    public IReadOnlyList<RecruitmentSlot> Slots => Nation.RecruitmentSlots;
+}
+
+/// <summary>
+/// The place a mobilize order's regiment will end up — the receiving army's id when an existing
+/// army will take it, or <see langword="null"/> when the engine will create a new one. The dialog
+/// shows this in the Mobilize prompt so the player knows where the unit is heading (issue #520
+/// item 5).
+/// </summary>
+/// <param name="ReceivingArmyId">
+/// The id of the army that will take the unit, or <see langword="null"/> when the engine will
+/// create a new army beside the city.
+/// </param>
+/// <param name="NewArmyId">
+/// The id the dialog will hand the engine for a created army. Ignored when
+/// <paramref name="ReceivingArmyId"/> is not <see langword="null"/>; the engine's first match
+/// always wins.
+/// </param>
+public sealed record MobilizationTarget(string? ReceivingArmyId, string NewArmyId, bool IsNewArmy);

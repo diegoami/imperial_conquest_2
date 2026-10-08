@@ -169,13 +169,13 @@ public sealed class GameCommandTable
             // ---- Game (audit §1.2); the three seat commands are out (T100 Scope) ----
             new("game.end_turn", "Game", null, "End turn", "ui.command.end_turn.icon", null, Wired: true),
 
-            // ---- Strategy (audit §1.3); only News and International relations are wired here ----
+            // ---- Strategy (audit §1.3); all six are wired here ----
             new("strategy.news", "Strategy", null, "News", "ui.command.news.icon", null, Wired: true),
             new("strategy.relations", "Strategy", null, "International relations", "ui.command.relations.icon", null, Wired: true),
-            new("strategy.taxation", "Strategy", null, "Taxation", "ui.command.taxation.icon", null, Wired: false),
-            new("strategy.balance_sheet", "Strategy", null, "Balance sheet", "ui.command.balance_sheet.icon", null, Wired: false),
-            new("strategy.recruit_unit", "Strategy", null, "Recruit unit", "ui.command.recruit_unit.icon", null, Wired: false),
-            new("strategy.build_fleet", "Strategy", null, "Build fleet", "ui.command.build_fleet.icon", null, Wired: false),
+            new("strategy.taxation", "Strategy", null, "Taxation", "ui.command.taxation.icon", null, Wired: true),
+            new("strategy.balance_sheet", "Strategy", null, "Balance sheet", "ui.command.balance_sheet.icon", null, Wired: true),
+            new("strategy.recruit_unit", "Strategy", null, "Recruit unit", "ui.command.recruit_unit.icon", null, Wired: true),
+            new("strategy.build_fleet", "Strategy", null, "Build fleet", "ui.command.build_fleet.icon", null, Wired: true),
         };
 
         // ---- Nations (audit §1.4): the original's own 16, in the shipped world's order, plus All nations ----

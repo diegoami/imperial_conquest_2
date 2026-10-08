@@ -70,11 +70,12 @@ public sealed record MobilizeChoice(int? SlotIndex, string? Reason)
     public static MobilizeChoice None(string reason) => new(null, reason);
 }
 
-/// <summary>
-/// Fix #513's Godot-free view of a nation's training regiments — the model behind the city panel's
-/// "In training here" list, the nation overview's "Regiments in training" list, and the army panel's
-/// mobilize choice.
-/// </summary>
+    /// <summary>
+    /// Fix #513's Godot-free view of a nation's training regiments — the model behind the city panel's
+    /// "In training here" list, the nation overview's "Regiments in training" list, the army panel's
+    /// mobilize choice, and the Strategy menu's <c>Recruit unit</c> dialog's troop box
+    /// (<see cref="TroopBoundsFor"/>, T109).
+    /// </summary>
 /// <remarks>
 /// <para>
 /// Deliberately <strong>Godot-free</strong> (no <c>using Godot</c>), so it is exercised by a plain
@@ -98,6 +99,41 @@ public static class RecruitmentPanelViewModel
 
     /// <summary>The reason shown when the nation holds slots but none has reached its mobilization threshold.</summary>
     public const string NoReadySlotReason = "No recruitment slot is ready.";
+
+    /// <summary>
+    /// The Recruit unit dialog's troop box bounds for <paramref name="unitTypeId"/>, read from the
+    /// ruleset's own <see cref="UnitTypeRules.StandardBattalionSize"/> — the same seam
+    /// <see cref="RecruitTroopBounds"/> established (fix #519). T109's dialog uses it so the box's
+    /// minimum, maximum, default, step and page step move with the ruleset, and a unit-type switch
+    /// re-applies the new type's bounds.
+    /// </summary>
+    public static RecruitTroopBounds TroopBoundsFor(Ruleset ruleset, string unitTypeId) =>
+        RecruitTroopBounds.For(ruleset, unitTypeId);
+
+    /// <summary>
+    /// The Recruit unit dialog's <em>initial</em> cost figure for <paramref name="troops"/> troops of
+    /// <paramref name="unitTypeId"/>, read from
+    /// <see cref="IC2.Engine.Recruitment.StandingRecruitmentCost.InitialCost"/>. T109's dialog
+    /// shows it in its "Cost" box.
+    /// </summary>
+    public static int InitialRecruitmentCost(int troops, string unitTypeId, Ruleset ruleset) =>
+        IC2.Engine.Recruitment.StandingRecruitmentCost.InitialCost(troops, unitTypeId, ruleset);
+
+    /// <summary>
+    /// The Recruit unit dialog's <em>quarterly</em> cost figure for <paramref name="troops"/>
+    /// troops of <paramref name="unitTypeId"/>, read from
+    /// <see cref="IC2.Engine.Recruitment.StandingRecruitmentCost.QuarterlyCost"/>. T109's dialog
+    /// shows it in its "quarterly" line.
+    /// </summary>
+    public static int QuarterlyRecruitmentCost(int troops, string unitTypeId, Ruleset ruleset) =>
+        IC2.Engine.Recruitment.StandingRecruitmentCost.QuarterlyCost(troops, unitTypeId, ruleset);
+
+    /// <summary>
+    /// The unit types the Recruit unit dialog offers — the ruleset's own
+    /// <see cref="Ruleset.UnitTypes"/>, in the ruleset's order. The dialog's five type buttons
+    /// draw on this list.
+    /// </summary>
+    public static IReadOnlyList<UnitTypeRules> UnitTypes(Ruleset ruleset) => ruleset.UnitTypes;
 
     /// <summary>Every regiment this nation is training at <paramref name="cityId"/>, in slot order.</summary>
     /// <param name="state">The live state.</param>
