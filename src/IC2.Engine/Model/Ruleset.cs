@@ -70,6 +70,7 @@ public sealed record Ruleset(
     MapMarkerRules MapMarkers,
     VictoryRules Victory,
     AiWeightsRules Ai,
+    EndTurnWarningRules EndTurnWarnings,
     RulesetFlags Flags,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null) : IVersionedDocument
 {
@@ -510,6 +511,24 @@ public sealed record SupplyMoraleRules(
     int BaseMovesMax,
     int MovesTroopDivisor,
     int MovesReductionCap,
+    [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
+
+/// <summary>
+/// The end-turn warning box's record-level thresholds and line cap, transcribed from the original
+/// end-turn gate and form resource.
+/// </summary>
+/// <param name="ArmySupplyThresholdNumerator">
+/// The numerator in the army warning test: <c>this × supply &lt; troops</c>, equivalent to below 20%
+/// of the army's <c>troops / 100</c> capacity.
+/// </param>
+/// <param name="FleetSupplyShipsDivisor">The divisor in the fleet warning test: <c>supply &lt; ships / this</c>.</param>
+/// <param name="RepairConditionThreshold">A fleet below this condition adds the repair line only to an already-open box.</param>
+/// <param name="MaximumLines">The maximum number of warning lines shown in one box.</param>
+public sealed record EndTurnWarningRules(
+    int ArmySupplyThresholdNumerator,
+    int FleetSupplyShipsDivisor,
+    int RepairConditionThreshold,
+    int MaximumLines,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>
@@ -1972,6 +1991,7 @@ public sealed record RulesetFlags(
     SiegeRatioClampPolicy BugPolicySiegeRatioClamp,
     UnaffordableOrderPolicy UnaffordableRecruitAndFortify,
     HumanMoveResupplyPolicy HumanMoveResupply,
+    EndTurnWarningScope EndTurnWarningScope,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>How faithfully diplomacy follows the original (audit Q3).</summary>
@@ -2049,6 +2069,16 @@ public enum HumanMoveResupplyPolicy
     /// against the first such city in list order.
     /// </summary>
     AgainstNonHostileCity,
+}
+
+/// <summary>Which own units the End turn warning query examines.</summary>
+public enum EndTurnWarningScope
+{
+    /// <summary>Examine only units whose recomputed weekly allowance still equals their stored moves.</summary>
+    NotActedOnly,
+
+    /// <summary>Examine every own launched fleet and army, whether or not it has moved.</summary>
+    EveryUnit,
 }
 
 /// <summary>What happens to the losing side of a field or naval battle.</summary>

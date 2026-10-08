@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Checks/EndTurnBoxScreenshotTour.cs" id="1_end_turn_box_screenshot_tour"]
+
+[node name="EndTurnBoxScreenshotTour" type="Control"]
+script = ExtResource("1_end_turn_box_screenshot_tour")

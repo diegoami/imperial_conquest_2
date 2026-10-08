@@ -161,6 +161,7 @@ public class ImprovedPresetTests
             "flags.bugPolicySiegeRatioClamp",
             "flags.unaffordableRecruitAndFortify",
             "flags.humanMoveResupply",
+            "flags.endTurnWarningScope",
             "victory.defaultCondition",
             "victory.defaultTurnLimit",
         };
