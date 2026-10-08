@@ -23,7 +23,9 @@ permission:
     # does every other outside path. The two godot lines below keep the #856 anchor; the bin line
     # already covers them.
     "C:?Users?diego?.local?bin?*": allow
-    "C:?Users?diego?AppData?Local?Temp?opencode?*": allow
+    # The whole TEMP folder (/tmp under Git Bash), not only TEMP\opencode: a run must never end
+    # because it writes scratch there (the user's decision of 2026-10-08, bug #875).
+    "C:?Users?diego?AppData?Local?Temp?*": allow
     "C:?Users?diego?.local?bin?godot.cmd": allow
     "C:?Users?diego?.local?bin?godot.exe": allow
     # Last match wins, so the denies that follow override the allows above whenever a path
