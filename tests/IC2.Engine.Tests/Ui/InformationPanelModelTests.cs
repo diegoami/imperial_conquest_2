@@ -522,6 +522,37 @@ public sealed class InformationPanelModelTests
     // Fleet panel
     // ========================================================================
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void A_foreign_armys_unit_types_follow_one_blank_line_with_or_without_terrain(bool covered)
+    {
+        // A06/A07: the blank line "b" sits between the facts (and Terrain, when there is one) and the
+        // five unit types on the foreign panel as on the own one. A keyed lookup cannot see it.
+        var session = RomeSession();
+        var state = session.State;
+        var arranged = state with
+        {
+            Armies = ValueList.From(state.Armies.Select(a =>
+                string.Equals(a.Id, CarthaginianArmyId, StringComparison.Ordinal)
+                    ? a with { CoveredTileCode = covered ? 0 : null }
+                    : a)),
+        };
+        var army = arranged.ArmyById(CarthaginianArmyId)!;
+
+        var keys = InformationPanelModel.ForeignArmy(arranged, session.World, session.Ruleset, army)
+            .Select(line => line.Key)
+            .ToList();
+
+        var firstType = keys.IndexOf(InformationPanelModel.ArmyUnitTypeKeyPrefix + InformationPanelModel.UnitTypeIds[0]);
+        Assert.True(firstType > 1);
+        Assert.Equal(InformationPanelModel.ArmyBlankKey, keys[firstType - 1]);
+        Assert.Equal(
+            covered ? InformationPanelModel.ArmyTerrainKey : InformationPanelModel.ArmyMoneyKey,
+            keys[firstType - 2]);
+        Assert.Single(keys, key => key == InformationPanelModel.ArmyBlankKey);
+    }
+
     [Fact]
     public void An_own_fleet_panel_lists_moves_repair_supply_percent_capacity_and_sea()
     {

@@ -80,6 +80,9 @@ public static class NationStatusModel
     /// <summary>Prefix of the per-nation relation lines, then the other nation's id.</summary>
     public const string RelationKeyPrefix = "relation.";
 
+    /// <summary>N10's blank line above the INTERNATIONAL RELATIONS heading, on both panels.</summary>
+    public const string RelationsSpacerKey = "relations_spacer";
+
     /// <summary>The "Regiments in training" section header — own nation only.</summary>
     public const string TrainingHeaderKey = "training_header";
 
@@ -149,6 +152,7 @@ public static class NationStatusModel
         }
 
         // N10: spacer and heading.
+        lines.Add(new NationStatusLine(RelationsSpacerKey, string.Empty));
         lines.Add(new NationStatusLine("international_relations_header", "INTERNATIONAL RELATIONS"));
 
         // N11, N12: one row per other nation. Relation 0 and below print just the name; relations 1, 2, 3

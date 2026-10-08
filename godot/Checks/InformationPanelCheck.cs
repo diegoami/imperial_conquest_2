@@ -68,6 +68,8 @@ public partial class InformationPanelCheck : Control
     private const int ForeignFleetTileY = 62;
     private const int CarryingFleetTileX = 100;
     private const int CarryingFleetTileY = 47;
+    private const int CarthagoCityTileX = 93;
+    private const int CarthagoCityTileY = 78;
 
     private MainGameScreen _mainGame = null!;
     private GameMapView _map = null!;
@@ -146,6 +148,7 @@ public partial class InformationPanelCheck : Control
             (BetweenStepsFrames, AssertCarriedArmyPanelIsWithheld),
             (BetweenStepsFrames, ChooseCarthageFromMenu),
             (BetweenStepsFrames, AssertForeignNationPanel),
+            (BetweenStepsFrames, ClickCarthagoCity),
             (BetweenStepsFrames, AssertPanelShowsForeignTributeWordForCarthago),
             (BetweenStepsFrames, ChooseRomeBackFromMenu),
             (BetweenStepsFrames, AssertOwnNationPanelAndRomeCityPanel),
@@ -452,12 +455,13 @@ public partial class InformationPanelCheck : Control
             "the foreign Treasury line carries no digits");
     }
 
+    private void ClickCarthagoCity() => LeftClick(CarthagoCityTileX, CarthagoCityTileY);
+
     private void AssertPanelShowsForeignTributeWordForCarthago()
     {
-        // Clicking Carthago while Rome is the active seat shows the foreign city panel — the tribute
-        // word and a blank supply line. A real map click on Carthago's tile (93, 78) drives it.
-        _mainGame.ContextPanel.ShowCity(CarthagoCityId);
-
+        // The left click on Carthago's tile (93, 78), one step earlier, while Rome is the active seat
+        // shows the foreign city panel: the tribute word and a blank supply line (Sol's final-round R2:
+        // the step used to call ContextPanel.ShowCity directly, which bypassed the map input path).
         var city = _mainGame.Session.State.CityById(CarthagoCityId)!;
         Check(PanelShowsHeading("City — Carthago"), "Carthago's city panel is shown under Carthage viewed");
 

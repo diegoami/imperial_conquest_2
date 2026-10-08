@@ -283,14 +283,11 @@ public static class InformationPanelModel
         var lines = new List<InformationPanelLine>();
         AddArmyHeaderAndFacts(state, ruleset, army, includeFacts: false, lines);
 
-        var blankBeforeTerrain = AddArmyTerrain(state, world, army, lines);
+        AddArmyTerrain(state, world, army, lines);
 
-        if (!blankBeforeTerrain)
-        {
-            // No Terrain line (an embarked army), but the separator still renders before the unit
-            // types — exactly the A06 "every later line moves up one" the research read documents.
-            lines.Add(BlankLine());
-        }
+        // Blank line "b" before the five type lines, with or without a Terrain line (an embarked
+        // army has none, and every later line moves up one, A06), as on the own army's panel.
+        lines.Add(BlankLine());
 
         AddUnitTypeLines(army, lines);
         lines.Add(new InformationPanelLine(

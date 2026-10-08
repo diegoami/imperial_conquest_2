@@ -191,6 +191,25 @@ public sealed class NationStatusModelTests
     /// panel. The Treasury row is now present on both panels; the foreign branch shows a blank
     /// value, the own branch shows the value with the ' talents' suffix.
     /// </summary>
+    [Theory]
+    [InlineData(RomeId)]
+    [InlineData(CarthageId)]
+    public void A_blank_line_precedes_the_international_relations_heading(string viewed)
+    {
+        // N10: the spacer, then the heading, right after Treasury, on the own and the foreign panel.
+        var session = RomeSession();
+        var keys = NationStatusModel.Build(session.State, session.Ruleset, viewed, viewerNationId: RomeId)
+            .Select(line => line.Key)
+            .ToList();
+
+        var heading = keys.IndexOf("international_relations_header");
+        Assert.True(heading > 1);
+        Assert.Equal(NationStatusModel.RelationsSpacerKey, keys[heading - 1]);
+        Assert.Equal(NationStatusModel.TreasuryKey, keys[heading - 2]);
+        var spacer = NationStatusModel.Build(session.State, session.Ruleset, viewed, viewerNationId: RomeId)[heading - 1];
+        Assert.Equal(string.Empty, spacer.Text);
+    }
+
     [Fact]
     public void The_same_nation_as_the_own_nation_carries_the_full_list()
     {
