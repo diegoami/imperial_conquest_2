@@ -257,8 +257,14 @@ try { $cli = Get-OpenCodeCli } catch {
     exit 3
 }
 if (-not $chain) {
-    [Console]::Error.WriteLine("OpenCode unavailable: no chain model has a route with quota (quota-tracker /avoid: $($quota.Providers -join ', ')). The task falls back to Claude Sonnet (operating-guide §3).")
-    exit 3
+    # T150 Done-when 2 (rework R2): a chain spent entirely on quota skips is not an exit-3 case any
+    # more. -WhatIf prints why along with the rest of the what-if block (the brief path and the
+    # simulated substitute); a real run falls through to the worktree setup and the substitute path
+    # at the bottom, which calls Choose-Model for an implementer of a family that the chain did
+    # not burn. If that chooser returns none, exit 3 fires at the bottom with this reason in the
+    # message.
+    $chainGoneReason = "no chain model has a route with quota (quota-tracker /avoid: $($quota.Providers -join ', '))"
+    Write-Host $chainGoneReason
 }
 foreach ($tool in 'gh', 'git') { if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) { throw "$tool is not on PATH." } }
 
@@ -496,13 +502,38 @@ if (-not $implementedBy) {
 }
 if (-not $implementedBy) {
     # Not Write-Error: under ErrorActionPreference Stop it would end the script with exit 1, not 3.
-    $why = if ($sameCause) { "same failure twice: $sameCause ($($failures -join '; '))" } else { $failures -join '; ' }
+    $why = if ($chainGoneReason) { $chainGoneReason }
+           elseif ($sameCause) { "same failure twice: $sameCause ($($failures -join '; '))" }
+           elseif ($failures) { $failures -join '; ' }
+           else { 'the chain and the substitute are both unavailable' }
     [Console]::Error.WriteLine("OpenCode unavailable: $why. The task falls back to Claude Sonnet (operating-guide §3). Log: $log")
-    exit 3
+    $openCodeUnavailable = $true
 }
-if ($failures) { Write-Host "fell back: $($failures -join '; ')" }
-# The reviewer must not be this model: pass it to external-review.ps1 as -ExcludeModel.
-Write-Host "implemented by: $implementedBy ($($resolved[$implementedBy].Model), route $($resolved[$implementedBy].Route))"
+
+# Done-when 3 (rework R3): the "Outside paths touched" report comes after the run, on success,
+# on a chain-spent failure, and on a run that completed without opening a PR. The exit code is
+# unchanged (3 for the failure above, 1 for "no PR" below, 0 otherwise); the report is only
+# appended to the PR body when a PR exists, but it is always printed.
+$outsideBody = if ($finalRun -and $finalRun.OutsidePathsKnown) {
+    $paths = @($finalRun.OutsidePaths)
+    if ($paths.Count -eq 0) { 'none' } else { (@($paths | ForEach-Object { "- $_" }) -join "`n") }
+}
+else { 'unknown: the session export failed' }
+Write-Host 'Outside paths touched:'
+Write-Host $outsideBody
+
+# Done-when 2: the "Implementer attempts" body for the PR section. $implementedBy is set when the
+# run produced a PR-worthy outcome (no, absent, or whoever failed); the PR body section is only
+# meaningful when one was produced, but the body is built unconditionally so the Write-Host +
+# Set-PullRequestSection below are the only branching.
+$attemptBody = $null
+if ($implementedBy) {
+    $attemptLines = @($attempts | ForEach-Object {
+            "- $($_.Model) ($($_.Route)): $($_.Class)$(if ($_.Why) { " -- $($_.Why)" })"
+        })
+    $attemptLines += "ran: $implementedBy ($($resolved[$implementedBy].Model), route $($resolved[$implementedBy].Route))"
+    $attemptBody = $attemptLines -join "`n"
+}
 
 # 4. The outcome. The PR is the deliverable; a clean, pushed, detached worktree is the handover.
 git -C $repo fetch -q origin
@@ -515,26 +546,24 @@ if ($local -ne $remote) { Write-Warning "the worktree's HEAD ($local) is not pus
 git -C $worktree checkout -q --detach
 Write-Host '--- tail of the run ---'
 ($output -split "`r?`n" | Select-Object -Last 40) -join "`n" | Write-Host
-if (-not $pr) { Write-Error "No open PR for $branch. Read $log; resume with the same command once the cause is known."; exit 1 }
-Write-Host "PR: $pr"
 
-# Done-when 2 and 3: the two sections this run writes into the PR body, once it exists.
+# Append the two sections to the PR body when one exists. The body is built before the exit so a
+# no-PR run or a chain-spent failure still gets the "Outside paths touched" line above (R3 rework).
+# The Implementer attempts section is only written when something actually implemented ($attemptBody
+# is non-null); the Outside paths touched section is written whenever the PR exists, so a failed run
+# that completed still leaves the report on the PR.
 $prNumber = 0
 try { $prNumber = [int](($pr | ConvertFrom-Json).number) } catch { }
 if ($prNumber -gt 0) {
-    $attemptLines = @($attempts | ForEach-Object {
-            "- $($_.Model) ($($_.Route)): $($_.Class)$(if ($_.Why) { " -- $($_.Why)" })"
-        })
-    $attemptLines += "ran: $implementedBy ($($resolved[$implementedBy].Model), route $($resolved[$implementedBy].Route))"
-    Set-PullRequestSection -Pr $prNumber -Heading 'Implementer attempts' -Body ($attemptLines -join "`n") -Worktree $worktree
-
-    if ($finalRun -and $finalRun.OutsidePathsKnown) {
-        $paths = @($finalRun.OutsidePaths)
-        if ($paths.Count -eq 0) { $outsideBody = 'none' } else { $outsideBody = (@($paths | ForEach-Object { "- $_" }) -join "`n") }
-    } else {
-        $outsideBody = 'unknown: the session export failed'
-    }
-    Write-Host 'Outside paths touched:'
-    Write-Host $outsideBody
+    if ($attemptBody) { Set-PullRequestSection -Pr $prNumber -Heading 'Implementer attempts' -Body $attemptBody -Worktree $worktree }
     Set-PullRequestSection -Pr $prNumber -Heading 'Outside paths touched' -Body $outsideBody -Worktree $worktree
 }
+
+# Exit codes: unchanged from before.
+if ($openCodeUnavailable) { exit 3 }
+if ($failures) { Write-Host "fell back: $($failures -join '; ')" }
+# The reviewer must not be this model: pass it to external-review.ps1 as -ExcludeModel.
+Write-Host "implemented by: $implementedBy ($($resolved[$implementedBy].Model), route $($resolved[$implementedBy].Route))"
+if (-not $pr) { Write-Error "No open PR for $branch. Read $log; resume with the same command once the cause is known."; exit 1 }
+Write-Host "PR: $pr"
+exit 0
