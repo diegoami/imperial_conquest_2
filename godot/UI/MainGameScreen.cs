@@ -71,6 +71,9 @@ public partial class MainGameScreen : Control
     /// <c>godot/Checks/MapClipCheck.cs</c> to read the moved Save/End turn buttons.</summary>
     public CommandToolbar Toolbar { get; private set; } = null!;
 
+    /// <summary>T112: the Unit map's context strip. Exposed for <c>godot/Checks/FleetCityOrdersCheck.cs</c>.</summary>
+    public UnitCommandStrip CommandStrip => _commandStrip;
+
     /// <summary>T110: the overview mini-map, with its highlight layer. Exposed so
     /// <c>godot/Checks/NationsAreaMapCheck.cs</c> can read the highlight set.</summary>
     public AreaMapView AreaMapView => _areaMapView;
@@ -160,6 +163,12 @@ public partial class MainGameScreen : Control
     private string? _selectedArmyId;
     private string? _selectedFleetId;
 
+    // T112: the selected city, so the City menu's Fortify city entry and the command strip can act on it.
+    private string? _selectedCityId;
+
+    // T112: the Unit map's context strip, placed below the main toolbar.
+    private UnitCommandStrip _commandStrip = null!;
+
     public override void _Ready()
     {
         UiKit.ApplyBackground(this, UiKit.Background);
@@ -188,6 +197,11 @@ public partial class MainGameScreen : Control
             AssetLoader = assetLoader,
         };
         root.AddChild(Toolbar);
+
+        // T112: the Unit map's context strip — the selected unit's own group, shown below the main
+        // toolbar. It is hidden while nothing (or a foreign unit) is selected.
+        _commandStrip = new UnitCommandStrip { Table = CommandTable, AssetLoader = assetLoader };
+        root.AddChild(_commandStrip);
 
         root.AddChild(BuildTopBar());
 
@@ -278,25 +292,33 @@ public partial class MainGameScreen : Control
         {
             _selectedArmyId = null;
             _selectedFleetId = null;
+            _selectedCityId = id;
             _contextPanel.ShowCity(id);
+            UpdateCommandStrip();
         };
         _mapView.ArmySelected += id =>
         {
             _selectedArmyId = id;
             _selectedFleetId = null;
+            _selectedCityId = null;
             _contextPanel.ShowArmy(id);
+            UpdateCommandStrip();
         };
         _mapView.FleetSelected += id =>
         {
             _selectedArmyId = null;
             _selectedFleetId = id;
+            _selectedCityId = null;
             _contextPanel.ShowFleet(id);
+            UpdateCommandStrip();
         };
         _mapView.SelectionCleared += () =>
         {
             _selectedArmyId = null;
             _selectedFleetId = null;
+            _selectedCityId = null;
             _contextPanel.ShowNationOverview();
+            UpdateCommandStrip();
         };
         _mapView.CommandIssued += OnCommandIssued;
         _contextPanel.CommandIssued += OnCommandIssued;
@@ -408,6 +430,18 @@ public partial class MainGameScreen : Control
         CommandTable.Bind("unit_map.army_join", JoinArmiesFromMenu);
         CommandTable.Bind("unit_map.army_change_units", OpenChangeUnitsDialog);
         CommandTable.Bind("unit_map.army_disband", ConfirmDisbandArmy);
+
+        // T112: the Fleet submenu. Supply fleet and the three dialogs open overlays; Join fleets submits at
+        // once with the game's own partner; Scuttle fleet asks first.
+        CommandTable.Bind("unit_map.fleet_supply", OpenSupplyFleetDialog);
+        CommandTable.Bind("unit_map.fleet_repair", OpenRepairFleetDialog);
+        CommandTable.Bind("unit_map.fleet_transfer_ships", OpenFleetTransferDialog);
+        CommandTable.Bind("unit_map.fleet_split", OpenSplitFleetDialog);
+        CommandTable.Bind("unit_map.fleet_join", JoinFleetsFromMenu);
+        CommandTable.Bind("unit_map.fleet_scuttle", ConfirmScuttleFleet);
+
+        // T112: the City submenu's one entry.
+        CommandTable.Bind("unit_map.city_fortify", OpenFortifyCityDialog);
 
         // Help: the new page, the hints toggle, and the about box.
         CommandTable.Bind("help.topics", ShowHelpPage);
@@ -751,7 +785,9 @@ public partial class MainGameScreen : Control
     {
         _selectedArmyId = armyId;
         _selectedFleetId = null;
+        _selectedCityId = null;
         _contextPanel.ShowArmy(armyId);
+        UpdateCommandStrip();
     }
 
     /// <summary>
@@ -763,7 +799,22 @@ public partial class MainGameScreen : Control
     {
         _selectedArmyId = null;
         _selectedFleetId = fleetId;
+        _selectedCityId = null;
         _contextPanel.ShowFleet(fleetId);
+        UpdateCommandStrip();
+    }
+
+    /// <summary>
+    /// T112: selects a city exactly as a map click's <see cref="GameMapView.CitySelected"/> does, so
+    /// <c>godot/Checks/FleetCityOrdersCheck.cs</c> can drive Fortify city from the menu.
+    /// </summary>
+    public void SelectCityForCheck(string cityId)
+    {
+        _selectedArmyId = null;
+        _selectedFleetId = null;
+        _selectedCityId = cityId;
+        _contextPanel.ShowCity(cityId);
+        UpdateCommandStrip();
     }
 
     /// <summary>
@@ -939,6 +990,242 @@ public partial class MainGameScreen : Control
 
     /// <summary>The message the Army entries show when no own army (or carried army) is selected.</summary>
     private const string SelectArmyMessage = "Select one of your armies first.";
+
+    /// <summary>T112: the message the Fleet entries show when no own fleet is selected.</summary>
+    private const string SelectFleetMessage = "Select one of your fleets first.";
+
+    /// <summary>T112: the message the City entry shows when no own city is selected.</summary>
+    private const string SelectCityMessage = "Select one of your cities first.";
+
+    /// <summary>T112: the Fleet menu's Supply fleet entry — TAFSupply's fleet half.</summary>
+    private void OpenSupplyFleetDialog()
+    {
+        var fleet = OwnSelectedFleet();
+        if (fleet is null)
+        {
+            ShowScreenMessage(SelectFleetMessage);
+            return;
+        }
+
+        var dialog = new SupplyDialog
+        {
+            Session = Session,
+            FleetId = fleet.Id,
+            Submit = SubmitFromDialog,
+        };
+        dialog.Closed += () => CloseOverlay(dialog);
+        ShowOverlay(dialog);
+    }
+
+    /// <summary>T112: the Fleet menu's Repair fleet entry.</summary>
+    private void OpenRepairFleetDialog()
+    {
+        var fleet = OwnSelectedFleet();
+        if (fleet is null)
+        {
+            ShowScreenMessage(SelectFleetMessage);
+            return;
+        }
+
+        var dialog = new RepairDialog
+        {
+            Session = Session,
+            FleetId = fleet.Id,
+            Submit = SubmitFromDialog,
+        };
+        dialog.Closed += () => CloseOverlay(dialog);
+        ShowOverlay(dialog);
+    }
+
+    /// <summary>
+    /// T112: the Fleet menu's Transfer ships entry. The partner is the game's own pick,
+    /// <see cref="AdjacentPartner.Fleet"/>; with none it opens no dialog, submits nothing and shows the
+    /// clone's no-partner message.
+    /// </summary>
+    private void OpenFleetTransferDialog()
+    {
+        var fleet = OwnSelectedFleet();
+        if (fleet is null)
+        {
+            ShowScreenMessage(SelectFleetMessage);
+            return;
+        }
+
+        if (AdjacentPartner.Fleet(Session.State, fleet.Id) is not { } partner)
+        {
+            ShowScreenMessage(FleetCityDialogModels.NoPartnerMessage);
+            return;
+        }
+
+        var dialog = new FleetTransferDialog
+        {
+            Session = Session,
+            FleetId = fleet.Id,
+            PartnerId = partner.Id,
+            Submit = SubmitFromDialog,
+        };
+        dialog.Closed += () => CloseOverlay(dialog);
+        ShowOverlay(dialog);
+    }
+
+    /// <summary>T112: the Fleet menu's Split fleet entry.</summary>
+    private void OpenSplitFleetDialog()
+    {
+        var fleet = OwnSelectedFleet();
+        if (fleet is null)
+        {
+            ShowScreenMessage(SelectFleetMessage);
+            return;
+        }
+
+        var dialog = new SplitFleetDialog
+        {
+            Session = Session,
+            FleetId = fleet.Id,
+            NewFleetId = NextSplitFleetId(fleet.Id),
+            Submit = SubmitFromDialog,
+        };
+        dialog.Closed += () => CloseOverlay(dialog);
+        ShowOverlay(dialog);
+    }
+
+    /// <summary>
+    /// T112: the Fleet menu's Join fleets entry — no dialog. It takes <see cref="AdjacentPartner.Fleet"/>
+    /// and submits <c>join-fleets</c> when the combined ships are within the cap; otherwise it shows the
+    /// no-partner or combined-ships message.
+    /// </summary>
+    private void JoinFleetsFromMenu()
+    {
+        var fleet = OwnSelectedFleet();
+        if (fleet is null)
+        {
+            ShowScreenMessage(SelectFleetMessage);
+            return;
+        }
+
+        var model = FleetJoinModel.ForFleet(
+            fleet, AdjacentPartner.Fleet(Session.State, fleet.Id), Session.Ruleset);
+        if (model.ComposeOk() is not { } line)
+        {
+            ShowScreenMessage(model.RefusalMessage ?? FleetCityDialogModels.NoPartnerMessage);
+            return;
+        }
+
+        SubmitForCheck(line);
+    }
+
+    /// <summary>T112: the Fleet menu's Scuttle fleet entry — T99's confirmation prompt first, then
+    /// <c>scuttle-fleet</c> only on Yes.</summary>
+    private void ConfirmScuttleFleet()
+    {
+        var fleet = OwnSelectedFleet();
+        if (fleet is null)
+        {
+            ShowScreenMessage(SelectFleetMessage);
+            return;
+        }
+
+        var prompt = new ConfirmPrompt { Question = FleetCityDialogModels.ScuttlePromptText };
+        prompt.Confirmed += () =>
+        {
+            CloseOverlay(prompt);
+            SubmitForCheck(FleetCityDialogModels.ScuttleFleetLine(fleet.Id));
+        };
+        prompt.Refused += () => CloseOverlay(prompt);
+        ShowOverlay(prompt);
+    }
+
+    /// <summary>T112: the City menu's Fortify city entry.</summary>
+    private void OpenFortifyCityDialog()
+    {
+        var city = OwnSelectedCity();
+        if (city is null)
+        {
+            ShowScreenMessage(SelectCityMessage);
+            return;
+        }
+
+        var dialog = new FortifyDialog
+        {
+            Session = Session,
+            CityId = city.Id,
+            Submit = SubmitFromDialog,
+        };
+        dialog.Closed += () => CloseOverlay(dialog);
+        ShowOverlay(dialog);
+    }
+
+    /// <summary>A new fleet id that does not collide with an existing one, for the split dialog.</summary>
+    private string NextSplitFleetId(string fleetId)
+    {
+        var candidate = $"{fleetId}-split";
+        var suffix = 2;
+        while (Session.State.FleetById(candidate) is not null)
+        {
+            candidate = $"{fleetId}-split-{suffix++}";
+        }
+
+        return candidate;
+    }
+
+    /// <summary>The selected fleet when it is the active seat's own, or <see langword="null"/>.</summary>
+    private FleetState? OwnSelectedFleet()
+    {
+        if (_selectedFleetId is null)
+        {
+            return null;
+        }
+
+        var fleet = Session.State.FleetById(_selectedFleetId);
+        return fleet is not null
+            && string.Equals(fleet.Nation, Session.State.ActiveNationId, StringComparison.Ordinal)
+            ? fleet
+            : null;
+    }
+
+    /// <summary>The selected city when it is the active seat's own, or <see langword="null"/>.</summary>
+    private CityState? OwnSelectedCity()
+    {
+        if (_selectedCityId is null)
+        {
+            return null;
+        }
+
+        var city = Session.State.CityById(_selectedCityId);
+        return city is not null
+            && string.Equals(city.Owner, Session.State.ActiveNationId, StringComparison.Ordinal)
+            ? city
+            : null;
+    }
+
+    /// <summary>
+    /// T112: re-reads the map selection and tells the command strip which group to show — the selected
+    /// own army, own fleet (with the army group too when it carries one), own city, or nothing for a
+    /// foreign unit, a missing one, or no selection.
+    /// </summary>
+    private void UpdateCommandStrip()
+    {
+        var selection = UnitStripSelection.None;
+        if (_selectedArmyId is { } armyId && Session.State.ArmyById(armyId) is { } army
+            && string.Equals(army.Nation, Session.State.ActiveNationId, StringComparison.Ordinal))
+        {
+            selection = UnitStripSelection.OwnArmy;
+        }
+        else if (_selectedFleetId is { } fleetId && Session.State.FleetById(fleetId) is { } fleet
+            && string.Equals(fleet.Nation, Session.State.ActiveNationId, StringComparison.Ordinal))
+        {
+            selection = fleet.IsCarryingArmy
+                ? UnitStripSelection.OwnFleetCarryingArmy
+                : UnitStripSelection.OwnFleet;
+        }
+        else if (_selectedCityId is { } cityId && Session.State.CityById(cityId) is { } city
+            && string.Equals(city.Owner, Session.State.ActiveNationId, StringComparison.Ordinal))
+        {
+            selection = UnitStripSelection.OwnCity;
+        }
+
+        _commandStrip.SetSelection(selection);
+    }
 
     /// <summary>The selected army when it is the active seat's own, or <see langword="null"/> — a foreign
     /// or missing army disables T111's entries.</summary>
@@ -1197,6 +1484,9 @@ public partial class MainGameScreen : Control
         // input path -- map click, context-panel button, End Turn, SubmitForCheck, Save -- funnels
         // through here.
         CommandIssued?.Invoke(lines);
+
+        // T112: a command can delete or capture the selected unit, so the strip re-reads the selection.
+        UpdateCommandStrip();
 
         // T147 (bug #781 point 3): the active human seat's pending offer is the one its window answers, so
         // the offer's own dialog lines and the CLI prompt that follows them are left out of the output

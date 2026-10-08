@@ -69,6 +69,7 @@ public sealed class SupplyDialogModel
 
     private readonly Ruleset _ruleset;
     private readonly string _armyId;
+    private readonly string? _fleetId;
     private readonly List<SupplyProviderChoice> _providers = new();
     private readonly List<MoneyViaChoice> _viaChoices = new();
     private int _selectedProviderIndex;
@@ -81,6 +82,14 @@ public sealed class SupplyDialogModel
         Refresh(state, army);
     }
 
+    private SupplyDialogModel(GameState state, FleetState fleet, Ruleset ruleset)
+    {
+        _ruleset = ruleset;
+        _armyId = fleet.Id;
+        _fleetId = fleet.Id;
+        Refresh(state, fleet);
+    }
+
     /// <summary>Builds the dialog's model for <paramref name="army"/> on the live <paramref name="state"/>.</summary>
     public static SupplyDialogModel ForArmy(GameState state, ArmyState army, Ruleset ruleset)
     {
@@ -90,8 +99,26 @@ public sealed class SupplyDialogModel
         return new SupplyDialogModel(state, army, ruleset);
     }
 
-    /// <summary>The buying army's id.</summary>
+    /// <summary>
+    /// Builds the dialog's model for a <strong>fleet</strong> on the live <paramref name="state"/> — T112's
+    /// fleet half of the original's one <c>TAFSupply</c> window. The providers are the cities within one
+    /// tile whose owner is not at war (the only kind the <c>buy-fleet-supply</c> parser accepts; see the
+    /// remarks on <see cref="BuyLine"/>), and the money panel moves talents between the fleet's purse and
+    /// the treasury or a co-located own fleet.
+    /// </summary>
+    public static SupplyDialogModel ForFleet(GameState state, FleetState fleet, Ruleset ruleset)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(fleet);
+        ArgumentNullException.ThrowIfNull(ruleset);
+        return new SupplyDialogModel(state, fleet, ruleset);
+    }
+
+    /// <summary>The buying army's — or fleet's — id.</summary>
     public string ArmyId => _armyId;
+
+    /// <summary>Whether this model is the fleet half of the dialog.</summary>
+    public bool IsFleet => _fleetId is not null;
 
     /// <summary>The provider rows, cities first, in the state's own order.</summary>
     public IReadOnlyList<SupplyProviderChoice> Providers => _providers;
@@ -106,16 +133,25 @@ public sealed class SupplyDialogModel
     public SupplyProviderChoice? SelectedProvider =>
         _providers.Count == 0 ? null : _providers[_selectedProviderIndex];
 
-    /// <summary>The army's own supply stock, tons.</summary>
-    public int ArmySupplyTons { get; private set; }
+    /// <summary>The buying army's or fleet's own supply stock, tons.</summary>
+    public int UnitSupplyTons { get; private set; }
 
-    /// <summary>The army's room, <c>capacity − supply</c>, never floored at 0 [confirmed: code].</summary>
-    public int ArmyRoomTons { get; private set; }
+    /// <summary>The buying army's or fleet's room, <c>capacity − supply</c>.</summary>
+    public int UnitRoomTons { get; private set; }
 
-    /// <summary>The army's own purse.</summary>
-    public int ArmyMoney { get; private set; }
+    /// <summary>The buying army's or fleet's own purse.</summary>
+    public int UnitMoney { get; private set; }
 
-    /// <summary>The army's nation's treasury.</summary>
+    /// <summary>The army's own supply stock — T134's name for <see cref="UnitSupplyTons"/>.</summary>
+    public int ArmySupplyTons => UnitSupplyTons;
+
+    /// <summary>The army's room — T134's name for <see cref="UnitRoomTons"/>. Never floored at 0.</summary>
+    public int ArmyRoomTons => UnitRoomTons;
+
+    /// <summary>The army's own purse — T134's name for <see cref="UnitMoney"/>.</summary>
+    public int ArmyMoney => UnitMoney;
+
+    /// <summary>The buying nation's treasury.</summary>
     public int NationalTreasury { get; private set; }
 
     /// <summary>How many tons the paid panel has staged — 0 on the free path.</summary>
@@ -253,9 +289,9 @@ public sealed class SupplyDialogModel
             _selectedProviderIndex = 0;
         }
 
-        ArmySupplyTons = army.SupplyTons;
-        ArmyMoney = army.Money;
-        ArmyRoomTons = SupplyCapacity.ArmyDialogCapacityTons(army.TotalTroops, _ruleset) - army.SupplyTons;
+        UnitSupplyTons = army.SupplyTons;
+        UnitMoney = army.Money;
+        UnitRoomTons = SupplyCapacity.ArmyDialogCapacityTons(army.TotalTroops, _ruleset) - army.SupplyTons;
         NationalTreasury = state.NationById(army.Nation)?.Treasury ?? 0;
 
         _viaChoices.Clear();
@@ -280,8 +316,90 @@ public sealed class SupplyDialogModel
         _stagedTons = 0;
     }
 
+    /// <summary>
+    /// Re-reads the figures for the <strong>fleet</strong> half — T112. The providers are the cities
+    /// within one tile whose owner is not at war with the fleet's nation; the <c>via</c> picker lists the
+    /// treasury and every other own fleet within one tile (the fleet's own id is excluded: the engine
+    /// refuses a <c>via</c> that names the moved unit itself).
+    /// </summary>
+    /// <remarks>
+    /// <strong>No fleet provider is listed.</strong> The engine's <c>buy-fleet-supply</c> command and
+    /// handler support a provider fleet as well as a provider city, but
+    /// <c>GameSession</c>'s own <c>buy-fleet-supply &lt;fleet&gt; &lt;city&gt; &lt;tons&gt;</c> parser
+    /// builds only the city-provider form, so a provider fleet could not be committed from this screen.
+    /// Listing one would offer a purchase the game cannot carry out, so it is left out here and the gap
+    /// is reported on the task rather than invented around.
+    /// </remarks>
+    public void Refresh(GameState state, FleetState fleet)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(fleet);
+
+        var radius = _ruleset.Economy.CommandAdjacencyRadiusTiles;
+        var fleetTile = new GridPoint(fleet.X, fleet.Y);
+        _providers.Clear();
+        foreach (var city in state.Cities)
+        {
+            if (LandingTile.ChebyshevDistance(fleetTile, new GridPoint(city.X, city.Y)) > radius)
+            {
+                continue;
+            }
+
+            if (state.NationById(city.Owner) is null)
+            {
+                continue;
+            }
+
+            var isOwnCity = string.Equals(city.Owner, fleet.Nation, StringComparison.Ordinal);
+            if (!isOwnCity && state.Relations.Get(fleet.Nation, city.Owner) == _ruleset.Diplomacy.StateCodes.War)
+            {
+                continue;
+            }
+
+            var (label, stock) = LabelForCity(state, city.Id);
+            _providers.Add(new SupplyProviderChoice(SupplyProviderKind.City, city.Id, label, stock, isOwnCity));
+        }
+
+        if (_selectedProviderIndex >= _providers.Count)
+        {
+            _selectedProviderIndex = 0;
+        }
+
+        UnitSupplyTons = fleet.SupplyTons;
+        UnitMoney = fleet.Money;
+        UnitRoomTons = SupplyCapacity.FleetCapacityTons(fleet.Ships, _ruleset) - fleet.SupplyTons;
+        NationalTreasury = state.NationById(fleet.Nation)?.Treasury ?? 0;
+
+        _viaChoices.Clear();
+        _viaChoices.Add(new MoneyViaChoice("Treasury", null));
+        foreach (var via in state.Fleets)
+        {
+            if (string.Equals(via.Id, fleet.Id, StringComparison.Ordinal)
+                || !string.Equals(via.Nation, fleet.Nation, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (LandingTile.ChebyshevDistance(fleetTile, new GridPoint(via.X, via.Y)) > radius)
+            {
+                continue;
+            }
+
+            _viaChoices.Add(new MoneyViaChoice(via.Id, via.Id));
+        }
+
+        _stagedTons = 0;
+    }
+
     private string BuyLine(SupplyProviderChoice provider, int tons)
     {
+        if (_fleetId is { } fleetId)
+        {
+            // The fleet half: buy-fleet-supply only reaches a city provider — see Refresh(GameState,
+            // FleetState)'s remarks.
+            return $"buy-fleet-supply {fleetId} {provider.Id} {tons}";
+        }
+
         var providerToken = provider.Kind == SupplyProviderKind.Fleet ? $"fleet {provider.Id}" : provider.Id;
         return $"buy {_armyId} {providerToken} {tons}";
     }
