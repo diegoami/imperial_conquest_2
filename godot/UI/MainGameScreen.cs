@@ -584,10 +584,15 @@ public partial class MainGameScreen : Control
                 && string.Equals(r.Caption, popup.GetItemText(i), StringComparison.Ordinal));
             if (row is not null)
             {
-                // B3: GameMenuBar adds every item plain (AddItem), so a check mark is never drawn until
-                // the item is made checkable. The 17 Nations entries (16 nations + All nations) are a
-                // radio group: exactly one is checked, the viewed nation. SetItemAsRadioCheckable resets
-                // the checked flag, so it must run before SetItemChecked.
+                // B3 (#614): GameMenuBar adds every item plain (PopupMenu.add_item rather than
+                // add_check_item), so a check mark is never drawn until the item is made
+                // checkable — `SetItemChecked` on an item that's not checkable is a Godot 4
+                // silent no-op, not a state to draw later. The 17 Nations entries
+                // (16 nations + All nations) are a radio group, so exactly one is checked
+                // (the viewed nation). `SetItemAsRadioCheckable` is the call that both marks an
+                // item radio-checkable and resets its checked flag — it must run before
+                // `SetItemChecked`, in this order, otherwise the previous checked item stays
+                // drawn alongside the new one.
                 popup.SetItemAsRadioCheckable(i, true);
                 popup.SetItemChecked(i, string.Equals(row.Id, currentRow, StringComparison.Ordinal));
             }

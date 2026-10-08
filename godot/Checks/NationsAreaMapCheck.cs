@@ -514,7 +514,10 @@ public partial class NationsAreaMapCheck : Control
 
     private void PrepareHighlightRefreshAfterEnd()
     {
-        _mainGame.MenuBar.PressItemForCheck("nations.rome");
+        // #614: All nations viewed before the end, so AI armies' new positions must show up in the
+        // painted highlight set after the command — a stale picture that only repaints the
+        // previously viewed nation's armies would not match the live set.
+        _mainGame.MenuBar.PressItemForCheck("nations.all");
         foreach (var kind in Enum.GetValues<AreaMapHighlightKind>())
         {
             _mainGame.AreaMapView.SetHighlight(kind, false);
@@ -524,8 +527,9 @@ public partial class NationsAreaMapCheck : Control
         _mainGame.AreaMapView.SetHighlight(AreaMapHighlightKind.Armies, true);
 
         Check(
-            string.Equals(_mainGame.ViewedNationId, RomeId, StringComparison.Ordinal),
-            "B1's scenario views Rome before the command");
+            _mainGame.ViewedNationId is null,
+            "B1's scenario views All nations before the command (so the painted set must match "
+            + $"the all-nations live set, got '{_mainGame.ViewedNationId ?? "<all>"}')");
     }
 
     private void IssueEndTurnForHighlightRefresh()
