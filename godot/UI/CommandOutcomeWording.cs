@@ -65,6 +65,7 @@ public static class CommandOutcomeWording
             // Recruitment and city orders (the context panel).
             ["recruitment.recruit-standing-unit"] = "Unit recruited.",
             ["recruitment.mobilize-recruit-slot"] = "Recruitment slot mobilized.",
+            ["recruitment.disband-recruitment-slot"] = "Recruitment slot disbanded.",
             ["city.order"] = "City order given.",
             ["naval.repair-fleet"] = "Fleet repaired.",
             ["naval.scuttle-fleet"] = "Fleet scuttled.",

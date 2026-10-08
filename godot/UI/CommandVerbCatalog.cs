@@ -96,6 +96,7 @@ public static class CommandVerbCatalog
         ["recruitment.hire-mercenary"] = "hire-mercenary",
         ["recruitment.mobilize-recruit-slot"] = "mobilize",
         ["recruitment.recruit-standing-unit"] = "recruit-standing",
+        ["recruitment.disband-recruitment-slot"] = "disband-slot",
     };
 
     /// <summary>The inverse of <see cref="VerbByKind"/> — one verb, one kind, so the lookup direction a

@@ -63,13 +63,14 @@ public static class MobilizationRate
     /// <summary>The nation's mobilization percentage after it cancels a recruitment order.</summary>
     /// <remarks>
     /// Exactly symmetric to <see cref="AfterOrderPlaced"/>, floored at <c>0</c> rather than capped —
-    /// the original's <c>FUN_00448fd8</c> (<c>max</c>) against <c>0</c>. <strong>No command cancels a
-    /// standing recruitment order yet</strong>: the original's cancel path is
-    /// <c>TArmyRecruits_DisbandUnits</c>'s recruit-list half, and this engine's
+    /// the original's <c>FUN_00448fd8</c> (<c>max</c>) against <c>0</c>. Its caller is
+    /// <see cref="Commands.DisbandRecruitmentSlotCommand"/>, the original's cancel path
+    /// <c>TArmyRecruits_DisbandUnits</c>'s recruit-list half; this engine's
     /// <see cref="Armies.Commands.DisbandArmyCommand"/> disbands an army on the map, which is a
-    /// different order. The half of the confirmed rule that has a caller is wired to it; this half
-    /// ships beside it, tested, so the cancel command finds the rule already written rather than
-    /// re-deriving it.
+    /// different order. The symmetry with the placement holds only while the placement did not hit
+    /// its <see cref="Model.RecruitmentRules.MobilizationCapPercent"/> and the nation's wealth is
+    /// unchanged in between: the rise is capped at 100 and this fall is not, so from 99 an order
+    /// whose step is 2 gives 100 and its disband gives 98 <c>[derived]</c>.
     /// </remarks>
     /// <param name="mobilizedPercent">The percentage before the cancellation.</param>
     /// <param name="troops">The cancelled order's troop count.</param>

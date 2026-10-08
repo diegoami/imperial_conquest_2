@@ -77,4 +77,6 @@ end
 move army-8 148 40
 embark-army army-8 mac-fleet-keep
 disembark-army army-8 148 40
+recruit-standing pella light_infantry 200
+disband-slot 0
 quit

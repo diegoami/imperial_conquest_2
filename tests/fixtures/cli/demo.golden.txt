@@ -22,6 +22,7 @@ Commands:
   mobilize <slot-index> <new-army> - mobilize a ready recruitment slot into an army unit
   hire-mercenary <army> <pool-slot-index> - hire a mercenary unit from the mercenary pool
   recruit-standing <city> <unit-type> <troops> - recruit a standing unit at one of your own cities
+  disband-slot <slot-index> - disband one of your recruitment slots (the price paid is lost; the mobilisation it added falls back)
   move-fleet <fleet> <x> <y> - move a fleet toward (x, y)
   order-fleet <city> <ships> <new-fleet> - order a new fleet built at a coastal city
   repair-fleet <fleet> <points> - spend repair points on a fleet's condition
