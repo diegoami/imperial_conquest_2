@@ -489,19 +489,21 @@ public partial class NationsAreaMapCheck : Control
         _mainGame.MenuBar.PressItemForCheck("area_map.show_all"),
         "the Area map's Show all entry is enabled and takes a press");
 
-    private void AssertShowAllUnion()
+private void AssertShowAllUnion()
     {
         var expected = AreaMapHighlights.AllTiles(_mainGame.Session.State, RomeId);
         var actual = _mainGame.AreaMapView.HighlightTilesForCheck;
 
+        // T113 (Scope): Show all is the four-stock union (audit §1.5), not the wider enum's every
+        // value; the mercenary layers each have their own "All mercenaries" union.
         Check(
-            Enum.GetValues<AreaMapHighlightKind>().All(_mainGame.AreaMapView.ActiveHighlightsForCheck.Contains),
+            AreaMapHighlights.StockShowAllKinds().All(_mainGame.AreaMapView.ActiveHighlightsForCheck.Contains),
             "the UI's Show all turned every one of the four layers on");
         Check(
             actual.Count == expected.Count && expected.All(actual.Contains),
             $"the UI's Show all equals AreaMapHighlights.AllTiles for Rome "
             + $"(mini {actual.Count} tiles, expected {expected.Count})");
-
+    
         var popup = _mainGame.MenuBar.MenuForCheck("Area map")!;
         foreach (var caption in new[] { "Show cities", "Show capital", "Show armies", "Show fleets", "Show all" })
         {
