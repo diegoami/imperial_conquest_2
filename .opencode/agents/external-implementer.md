@@ -26,6 +26,15 @@ permission:
     "C:?Users?diego?AppData?Local?Temp?opencode?*": allow
     "C:?Users?diego?.local?bin?godot.cmd": allow
     "C:?Users?diego?.local?bin?godot.exe": allow
+    # Last match wins, so the denies that follow override the allows above whenever a path
+    # traverses out of either allowed root. `*` matches any segment, so the first three rules
+    # catch `C:\…\bin\..\share\…` and the third `…\Temp\opencode\..\..\..\..\..\Windows\win.ini`
+    # (R1 and M1 of rework round 2, the main session's proof), in either separator. Everything
+    # outside either root still asks.
+    "*?..?*": deny
+    "*/../*": deny
+    "*?..": deny
+    "*../*": deny
   task:
     "*": deny
   bash:
