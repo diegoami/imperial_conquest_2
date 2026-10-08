@@ -172,6 +172,10 @@ jobs:
       - name: Every headless check scene
         run: |
           set -uo pipefail
+          # Actions runs this step as `bash -e`: turn errexit off so one failed scene does not skip
+          # the rest, and the summary at the end names every failure. The final `test` still fails
+          # the step when any scene did.
+          set +e
           skip=""
           failed=0
           run=0
