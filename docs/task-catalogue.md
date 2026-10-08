@@ -213,6 +213,7 @@ graph TD
   T150[T150 implementer churn]
   T150 --> T151[T151 keep worktrees]
   T150 --> T152[T152 recommend]
+  T152 --> T153[T153 guard sees bash]
   T23 --> T26[T26 scenario docs+examples]
   T29 --> T26
   T22 --> T28[T28 nightly soak gate]
@@ -1229,6 +1230,12 @@ Model choice from /recommend (process tooling, the user's decision of 2026-10-08
 
 ---
 
+#### T153 The guard and the run report see every path outside the worktree, bash commands included
+
+Guard sees bash (process tooling, from bug #875, the user's decision of 2026-10-08; in the v0.5.0 gate; it merges after T152) → [full entry](tasks/T153.md) · [#876](https://github.com/diegoami/imperial_conquest_2/issues/876)
+
+---
+
 #### T25 Battle result, diplomacy, and hotseat handoff screens
 
 Godot screens → [full entry](tasks/T25.md) · [#25](https://github.com/diegoami/imperial_conquest_2/issues/25)
@@ -1411,3 +1418,4 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T150](#t150-an-implementer-run-survives-a-benign-outside-path-keeps-its-brief-and-has-a-second-family-to-fall-back-on) | Implementer churn | none | Sonnet | Medium | Sol | PR #856 | [#854](https://github.com/diegoami/imperial_conquest_2/issues/854) |
 | [T151](#t151-a-failed-run-keeps-its-work-and-its-worktree-worktrees-are-cleaned-up-on-a-schedule) | Keep worktrees | none | Sonnet | Medium | Sol | T150 | [#862](https://github.com/diegoami/imperial_conquest_2/issues/862) |
 | [T152](#t152-the-dispatch-scripts-take-the-model-from-quota-trackers-recommend) | Model choice from /recommend | none | Sonnet | Medium | Sol | T150 | [#866](https://github.com/diegoami/imperial_conquest_2/issues/866) |
+| [T153](#t153-the-guard-and-the-run-report-see-every-path-outside-the-worktree-bash-commands-included) | Guard sees bash | none | Sonnet | Medium | Sol | T152 | [#876](https://github.com/diegoami/imperial_conquest_2/issues/876) |
