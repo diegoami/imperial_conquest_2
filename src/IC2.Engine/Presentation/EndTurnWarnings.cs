@@ -40,6 +40,7 @@ public static class EndTurnWarnings
         }
 
         var lines = new List<string>(ruleset.EndTurnWarnings.MaximumLines);
+        var opensBox = false;
         var ownedCities = state.Cities
             .Where(city => string.Equals(city.Owner, nationId, StringComparison.Ordinal))
             .ToArray();
@@ -60,11 +61,13 @@ public static class EndTurnWarnings
 
             if (ownsCity && NeedsArmySupplies(army, ruleset))
             {
+                opensBox = true;
                 Add(lines, ruleset, ArmyNeedsSupplies);
             }
 
             if (CannotPayMercenaries(army, ruleset))
             {
+                opensBox = true;
                 Add(lines, ruleset, ArmyCannotPayMercenaries);
             }
         }
@@ -82,20 +85,24 @@ public static class EndTurnWarnings
                 continue;
             }
 
-            // The repair line is informational, never a trigger. The original paints it here, before
-            // this fleet's trigger lines, only after an earlier check has already opened the box.
-            if (fleet.ConditionPercent < ruleset.EndTurnWarnings.RepairConditionThreshold && lines.Count != 0)
+            // The repair line is informational, never a trigger. The original builds the box's lines
+            // only once the gate has opened the box, and paints the repair line before this fleet's
+            // trigger lines there whichever of the six checks opened it. So it is added here whenever
+            // the box opens, not only when an earlier line already sits in the buffer.
+            if (fleet.ConditionPercent < ruleset.EndTurnWarnings.RepairConditionThreshold)
             {
                 Add(lines, ruleset, FleetNeedsRepairing);
             }
 
             if (!HasOwnCityNearby(fleet, ownedCities, ruleset))
             {
+                opensBox = true;
                 Add(lines, ruleset, FleetNotDocked);
             }
 
             if (ownsPort && fleet.SupplyTons < fleet.Ships / ruleset.EndTurnWarnings.FleetSupplyShipsDivisor)
             {
+                opensBox = true;
                 Add(lines, ruleset, FleetNeedsSupplies);
             }
 
@@ -106,16 +113,19 @@ public static class EndTurnWarnings
 
             if (ownsPort && NeedsArmySupplies(carriedArmy, ruleset))
             {
+                opensBox = true;
                 Add(lines, ruleset, ArmyNeedsSupplies);
             }
 
             if (CannotPayMercenaries(carriedArmy, ruleset))
             {
+                opensBox = true;
                 Add(lines, ruleset, ArmyCannotPayMercenaries);
             }
         }
 
-        return new Result(lines);
+        // A condition-64 fleet on its own adds only the repair line, which never opens the box.
+        return opensBox ? new Result(lines) : new Result(Array.Empty<string>());
     }
 
     private static bool IsChecked(ArmyState army, Ruleset ruleset)

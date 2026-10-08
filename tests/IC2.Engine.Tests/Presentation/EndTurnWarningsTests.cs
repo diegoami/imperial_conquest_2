@@ -172,6 +172,54 @@ public sealed class EndTurnWarningsTests
     }
 
     [Fact]
+    public void Repair_line_appears_when_the_fleet_is_its_own_first_trigger()
+    {
+        var (world, state, ruleset) = Fixture();
+        var noArmies = ValueList<ArmyState>.Empty;
+        var fleet = state.Fleets[0];
+
+        // A single condition-64 fleet with no preceding army, opened by its own not-docked check:
+        // the repair line must still lead its block. This is the case the earlier tests missed.
+        var notDocked = fleet with { X = 0, Y = 3, SupplyTons = 2, ConditionPercent = 64 };
+        var result = Query(world, state with { Armies = noArmies, Fleets = ValueList.Of(notDocked) }, ruleset);
+        Assert.Equal(
+            new[] { EndTurnWarnings.FleetNeedsRepairing, EndTurnWarnings.FleetNotDocked },
+            result);
+
+        // The same fleet docked with low supply: its own supply check is the first trigger, and the
+        // repair line still comes first.
+        var lowSupply = fleet with { X = 3, Y = 2, SupplyTons = 1, ConditionPercent = 64 };
+        result = Query(world, state with { Armies = noArmies, Fleets = ValueList.Of(lowSupply) }, ruleset);
+        Assert.Equal(
+            new[] { EndTurnWarnings.FleetNeedsRepairing, EndTurnWarnings.FleetNeedsSupplies },
+            result);
+
+        // An aboard army that cannot pay is the first trigger: the repair line still leads.
+        var cargo = Army(50_000, supply: 100) with
+        {
+            Money = -1,
+            AboardFleetId = "north-fleet-1",
+            CoveredTileCode = null,
+        };
+        var carrier = fleet with
+        {
+            X = 3,
+            Y = 2,
+            SupplyTons = 2,
+            ConditionPercent = 64,
+            CarriedArmyId = cargo.Id,
+        };
+        result = Query(world, state with { Armies = ValueList.Of(cargo), Fleets = ValueList.Of(carrier) }, ruleset);
+        Assert.Equal(
+            new[] { EndTurnWarnings.FleetNeedsRepairing, EndTurnWarnings.ArmyCannotPayMercenaries },
+            result);
+
+        // With no other check firing the box stays closed and the repair line is not returned.
+        var quiet = fleet with { X = 3, Y = 2, SupplyTons = 2, ConditionPercent = 64 };
+        Assert.Empty(Query(world, state with { Armies = noArmies, Fleets = ValueList.Of(quiet) }, ruleset));
+    }
+
+    [Fact]
     public void Faithful_filter_uses_recomputed_allowance_and_improved_checks_every_unit()
     {
         var (world, state, faithful) = Fixture(EndTurnWarningScope.NotActedOnly);
