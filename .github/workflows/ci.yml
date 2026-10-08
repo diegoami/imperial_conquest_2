@@ -165,6 +165,16 @@ jobs:
       # each run must also print its own "<Name>: exiting with code 0." line, and any "FAIL" line
       # fails it too. A new *Check.tscn is picked up by the glob, so it cannot be forgotten.
       #
+      # The frame budget is a watchdog, not a target: every scene's own completion marker is the
+      # pass/fail test (a scene whose assertions pass prints its marker within a fraction of the
+      # budget; the budget only fires for a hung scene). Gate 2 needs a source for the threshold:
+      # measured from godot-headless run 37823235606 on this PR (24 scenes, 99 s total,
+      # 2026-10-08T18:19:04Z onwards), PeaceOfferCheck was the slowest at 8.4 s; 900 frames is
+      # the worst-case 15 s at 60 FPS, ~80% over the slowest scene, so a regression that doubles
+      # a scene's work still terminates in budget. The previous CI ran the three T24/T25 scenes
+      # at --quit-after 600 individually; when T150's glob picked up further scenes from later
+      # tasks (they run more assertions to cover their own DoD), 600 left no headroom, hence 900.
+      #
       # A scene that cannot run on this runner (it needs assets.local.ini or the private fixtures)
       # is listed below as one "<Name>=<reason>" line and skipped. The list is empty: every scene
       # runs from this checkout alone, building its state from the committed world. The list is in
