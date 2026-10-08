@@ -577,7 +577,7 @@ directory, so always pass `git -C <your worktree>` explicitly rather than relyin
 
 STAY INSIDE YOUR WORKTREE. Once it exists (the setup block above is the only exception, and an
 OpenCode run skips it), never read, list, write or run anything by a path outside it: not
-%TEMP% or $env:TEMP, not ~ or $env:USERPROFILE, not C:\Program Files, not the NuGet cache, not the
+~ or $env:USERPROFILE (TEMP is the exception, see below), not C:\Program Files, not the NuGet cache, not the
 main checkout, and not another worktree. OpenCode's permission guard auto-rejects such a call, and
 the rejection ENDS your run, stranding any unpushed work (issue #501). Invoke tools by name from
 PATH (`dotnet`, `git`, `gh`, `python`, and `godot` in bash or `godot.cmd` in PowerShell), and never
@@ -586,7 +586,9 @@ inspect their installs. Outside the worktree the guard allows only the tool shim
 longer ends the run, but it is still against this rule, and the run's report lists every outside
 path it touched.
 Scratch files go inside your worktree, under the git-ignored `rendered/`
-or deleted before you commit, and never in TEMP (the user's rule of 2026-09-29). A mutation check
+or deleted before you commit; TEMP is allowed too (the user's decision of 2026-10-08, replacing
+the "never in TEMP" rule of 2026-09-29), but until T153 lands only `%TEMP%\opencode\` is open to
+the guard, and the TEMP root still ends the run. A mutation check
 runs in place and uncommitted: mutate, rebuild clean, test, then `git checkout -- <file>`, touch
 it, rebuild clean and test again (§4.2 gate 5).
 
@@ -689,8 +691,8 @@ CHECKOUT, not here. So pass `git -C <your worktree>` explicitly rather than rely
 see gate 5 before considering any forked tool.
 
 Scratch files, a mutation copy included, go inside your own worktrees under
-C:\Users\diego\projects\ic2-work\ (the git-ignored `rendered/` is the place), never in TEMP (the
-user's rule of 2026-09-29). An OpenCode reviewer (`scripts/external-review.ps1`) may not reach
+C:\Users\diego\projects\ic2-work\ (the git-ignored `rendered/` is the place) or in TEMP (since the user's decision of 2026-10-08, once T153 lands; it
+replaces the user's rule of 2026-09-29). An OpenCode reviewer (`scripts/external-review.ps1`) may not reach
 outside the worktree the script made for it, except the tool shims in `C:\Users\diego\.local\bin\` (the Godot
 shim among them) and `%TEMP%\opencode\`, with `..` paths denied (T150): its permission guard rejects
 any other call, and the rejection ends the review (issue #501).
