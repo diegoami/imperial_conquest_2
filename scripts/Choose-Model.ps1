@@ -1,53 +1,127 @@
 <#
 .SYNOPSIS
-    Ranks the OpenCode models for one run by live quota, pricing and strength. Chooses nothing.
+    Picks the model the OpenCode dispatcher should run, by quota-tracker's /recommend.
 .DESCRIPTION
-    There is no fixed model order (the owner's decision of 2026-10-06). The main session chooses a
-    model case by case; this script does the mechanical half, deterministically, and prints the
-    candidates best first, each with its reasons. The main session decides and passes the name to
-    external-implement.ps1 -Model or external-review.ps1 -Reviewer. Nothing is run, posted or billed.
+    Quota-tracker (/recommend?tier=heavy|light) ranks the live candidates for one tier. This
+    chooser maps each row's provider to an alias the dispatch script accepts, applies the
+    family's and the orchestrator's exclusions (CLAUDE.md rule 17), and prints the ordered
+    list with reasons. T150's chain-spent substitute uses it too: -SubstituteFamilies drops
+    every named family AND the whole OpenAI family (Luna and Sol), so the substitute is never
+    OpenAI.
 
-    Where each input comes from, so nothing here can drift from the scripts that run the models:
-    - names, ids, variants, the Alibaba routes and the model families: read from
-      external-review.ps1 (the reviewer names, $reviewerOf) and external-implement.ps1 (the
-      implementer names) by parsing them, never executing them;
-    - strength (heavy, light or off): the "Model strength" table in docs/environment.md, which the
-      owner edits; a name missing from it is listed as unrated and never ranked;
-    - quota and pricing: quota-tracker's /quota, one call. Alibaba's night discount and Z.ai's peak
-      come from each provider's `pricing` block.
+    The mapping (per role, the owner's table):
+      implementer (heavy):
+          minimax     → mm-m3
+          zai         → glm
+          opencode_go → deepseek-flash
+          claude      → Claude Sonnet (the script's exit-3 fallback, not an OpenCode alias;
+                       it stands in only when nothing else is left, per rule 17)
+          openai      → unmapped for implementer (OpenAI never implements; Sol/Luna stay
+                       free to review)
+      reviewer (light, Sol's substitutes):
+          zai         → glm
+          opencode_go → deepseek-pro
+          alibaba     → qwen (when it appears)
+          openai      → unmapped for reviewer (Luna and Sol reach a review through §3.4's
+                       tier rules, never through the ranking)
+          claude      → unmapped for reviewer (Claude reviews only when the main session
+                       passes -Reviewer <sonnet|opus> explicitly, and the &lt;complex&gt;
+                       tier rule sends the very-complex PR to a cold Claude Opus)
 
-    Ranking: first the fit to the tier (-Tier complex: heavy before light; simple: light before
-    heavy; `off` never ranks), then quota status (ok before low), then the score, the model's
-    headroom divided by its cost factor now (Alibaba's discount: 1 - pct/100; Z.ai: the
-    model's peak or off-peak multiplier; otherwise 1). A provider that is exhausted, or that /quota
-    reports at 95% or more, makes the model unavailable, unless the model has an Alibaba route with
-    quota (it is then ranked on that route) or it is luna, which has its own weekly window
-    (`gpt-5.6-luna:7d`). A provider the answering tracker does not report is unavailable too, and
-    an unknown headroom is scored '?' and ranked after every measured one. When the tracker does not answer, the candidates are ranked by fit alone
-    and marked "quota unknown" (CLAUDE.md rule 17: never block on it).
+    A row's provider with no alias for the role is printed `unmapped for &lt;role&gt;: &lt;provider&gt;`
+    with score, confidence, and reasons; it is never picked.
+
+    Exclusions, in order (Done-when 2):
+      1. -ExcludeFamily &lt;name&gt;[,&lt;name&gt;] drops every candidate whose family
+         contains a named name. The family is the union of all the alias / OpenCode route
+         names that map to the same model, so naming any member drops the whole family.
+      2. -ExcludeModel &lt;name&gt;: for a reviewer role, drops the implementer's whole
+         family (a reviewer is never of the implementer's family, §3.4). -ExcludeModel on
+         an implementer role is a no-op; the chain is the implementer's own family.
+      3. claude (sonnet, opus) is dropped while any other candidate has a positive score
+         (rule 17: Claude is the orchestrator). When Claude is the only candidate left,
+         the chooser returns the script's exit-3 fallback.
+      4. The substitute filter (-SubstituteFamilies &lt;name&gt;[,&lt;name&gt;]) drops
+         every named family AND the whole OpenAI family (luna, sol), whether or not they
+         failed. This is T150's chain-spent substitute rule.
+      5. A row whose score is negative is ranked after every non-negative one and is chosen
+         only when nothing else is left. A row whose `usable` is false (the tracker
+         reported it unusable) is skipped.
+
+    Quota-tracker (Done-when 5):
+      - The /recommend call is the only network call. -RecommendFile &lt;json&gt; replaces
+        it for tests (a canned response); -RecommendUrl &lt;url&gt; is the live URL
+        (default http://localhost:8765/recommend); -RecommendRetryWaitSec &lt;seconds&gt;
+        caps the wait (default 180); -RecommendPollSec &lt;seconds&gt; is the sleep
+        between retries (default 5 — 36 polls within the 3-minute limit; R5 rework).
+      - `note` says the statistics are loading and `ranking` is empty: wait and retry,
+        sleep -RecommendPollSec seconds, until -RecommendRetryWaitSec seconds have
+        passed; then exit 3.
+      - The service does not answer: exit 3 immediately with the WSL restart command.
+        Never fall back to percentages.
+
+    The tier (Done-when 1): -Role implementer always queries &tier=heavy; -Role reviewer
+    always queries &tier=light. -Tier remains accepted and printed so the log records it
+    (e.g. "very-complex: §3.4 sends this tier to a cold Claude Opus reviewer; the
+    ranking is for the OpenCode reviews beside it").
+
+    Output:
+      Without -Pick, the chooser prints, for each row that survives the exclusions, in
+      this order:
+        - a one-line summary (rank, alias when mapped, provider, model, score,
+          confidence, the reasons joined, and "reasons:" plus the array);
+        - `unmapped for &lt;role&gt;: &lt;provider&gt;` for any row whose provider has no
+          alias for the role;
+        - `skipped: &lt;provider&gt; -- &lt;why&gt;` for every entry in /recommend's
+          `skipped` list (when the canned response or the live one carries one);
+        - `unavailable: &lt;provider&gt; -- &lt;why&gt;` for rows whose `usable` is false
+          (Done-when 6: a row the tracker marked unusable or that turned out negative
+          only after the script mapped it).
+      With -Pick, the FIRST non-empty line is `CHOOSER_META=&lt;json&gt;` describing the
+      chosen row (name, provider, model, score, confidence, reasons), and the LAST
+      non-empty line is the chosen OpenCode alias (preserved from the pre-T152 contract
+      that external-implement.ps1 parses by taking the last non-empty line). Exit 3 when
+      no candidate has an alias.
+
 .PARAMETER Role
-    implementer or reviewer.
+    implementer or reviewer (required, except for -SelfTest).
 .PARAMETER Tier
-    simple or complex (build-process.md §3.4's review tier; for an implementer, the task's weight).
-    Default: complex for a reviewer, simple for an implementer. very-complex ranks as complex and
-    notes that §3.4 sends that tier to a cold Claude Opus reviewer.
+    simple, complex or very-complex (§3.4). Recorded in the log; it does not select the
+    /recommend tier (the role does). Default: complex for a reviewer, no default for an
+    implementer (the verbose log says "the tier is what the task catalogue records").
 .PARAMETER ExcludeModel
-    The implementer's name, for a reviewer: its whole family is excluded (build-process.md §3.4).
+    The implementer's name, for a reviewer; its whole family is excluded.
 .PARAMETER ExcludeFamily
-    One or more model names (T150 Done-when 2): every candidate of each named model's family is
-    dropped, for either role. The family is read from the same map -ExcludeModel uses, so naming any
-    member (mm-m3, deepseek-flash, ali-glm, ...) drops the whole family. Used by
-    external-implement.ps1 to pick an implementer from a different family once the chain is spent.
+    One or more model names (comma-separated or repeated); every candidate of each named
+    model's family is dropped (T150 Done-when 2).
+.PARAMETER SubstituteFamilies
+    T150's chain-spent substitute filter: drops every named family AND the whole OpenAI
+    family (luna, sol), whether or not it failed. The dispatch script calls this when
+    the chain is spent.
 .PARAMETER Pick
-    Prints only the best name (exit 3 when no candidate is available).
-.PARAMETER QuotaFile
-    Reads /quota's JSON from a file instead of the service (a test hook).
+    Prints only the chosen alias as the last non-empty line; above it, a single
+    `CHOOSER_META=&lt;json&gt;` line for the dispatch script. Exit 3 when no candidate
+    has an alias.
+.PARAMETER RecommendFile
+    Reads /recommend's JSON from a file instead of the service (a test hook). With a
+    canned file, no network is touched.
+.PARAMETER RecommendUrl
+    The /recommend endpoint. Default `http://localhost:8765/recommend`. A closed local
+    port (e.g. http://localhost:1) simulates a silent service.
+.PARAMETER RecommendRetryWaitSec
+    Seconds to wait / retry on a `loading` note (default 180). A test shortens it.
+.PARAMETER RecommendPollSec
+    Seconds to sleep between retries on a `loading` note (default 5; 36 polls within the
+    3-minute limit set by the task entry). A test shortens it.
 .PARAMETER SelfTest
-    Runs the built-in checks on fixture quotas; no service is called.
+    Runs the built-in checks on canned responses; no network is touched.
+
 .EXAMPLE
     pwsh scripts/Choose-Model.ps1 -Role reviewer -Tier complex -ExcludeModel deepseek-flash
 .EXAMPLE
     pwsh scripts/Choose-Model.ps1 -Role implementer -Pick
+.EXAMPLE
+    pwsh scripts/Choose-Model.ps1 -Role reviewer -ExcludeModel glm -RecommendFile rendered/light.json
 #>
 [CmdletBinding()]
 param(
@@ -55,290 +129,680 @@ param(
     [ValidateSet('simple', 'complex', 'very-complex')] [string] $Tier,
     [string] $ExcludeModel,
     [string[]] $ExcludeFamily,
+    [string[]] $SubstituteFamilies,
     [switch] $Pick,
-    [string] $QuotaFile,
+    [string] $RecommendFile,
+    [string] $RecommendUrl = 'http://localhost:8765/recommend',
+    [int] $RecommendRetryWaitSec = 180,
+    [int] $RecommendPollSec = 5,
     [switch] $SelfTest
 )
 
 $ErrorActionPreference = 'Stop'
-. (Join-Path $PSScriptRoot 'Invoke-OpenCodeWatched.ps1')
 
-function Get-AssignedLiteral {
-    # The value of `$<Name> = <literal>` at a script's top level, evaluated on its own (hashtable and
-    # array literals only; Get-SolVariant is stubbed for the reviewer's $variants).
-    param([System.Management.Automation.Language.Ast] $Ast, [string] $Name)
-    $node = $Ast.Find({ param($n)
-            $n -is [System.Management.Automation.Language.AssignmentStatementAst] -and
-            $n.Left -is [System.Management.Automation.Language.VariableExpressionAst] -and
-            $n.Left.VariablePath.UserPath -eq $Name -and $n.Parent.Parent -eq $Ast }, $false)
-    if (-not $node) { throw "`$$Name not found at the top level of $($Ast.Extent.File)." }
-    $text = "function Get-SolVariant { param(`$r) 'low' }; `$Effort = `$null; " + $node.Right.Extent.Text
-    return (& ([scriptblock]::Create($text)))
+# The owners' mapping tables, one per role (Done-when 1). A provider not in the table has
+# no alias for the role; the row is printed `unmapped for <role>: <provider>` and skipped.
+# `claude` in the implementer role is the script's exit-3 Claude Sonnet fallback, not an
+# OpenCode alias; the picker emits it only when nothing else is left.
+$ImplementerAliases = @{
+    'minimax'     = 'mm-m3'
+    'zai'         = 'glm'
+    'opencode_go' = 'deepseek-flash'
+}
+$ReviewerAliases = @{
+    'zai'         = 'glm'
+    'opencode_go' = 'deepseek-pro'
+    'alibaba'     = 'qwen'
+}
+# `claude` in implementer is special. Any candidate's family an OpenCode dispatch map
+# drops: implementer `claude` falls back to Claude Sonnet (the main session), no OpenCode
+# alias; reviewer `claude` has no alias (it's not in the table, so it's "unmapped for
+# reviewer").
+$ImplementerFallback = '__CLAUDE_SONNET_FALLBACK__'
+
+# The family of each model name. For our provider → alias tables, the family is the
+# whole role's alias table plus OpenAI (the Luna / Sol pair), since the dispatch script
+# keys the family only by name (a reviewer "excludeModel deepseek-flash" excludes every
+# DeepSeek alias).
+$FamilyOfName = @{
+    'mm-m3'               = 'mm-m3'
+    'mm-m2.7'             = 'mm-m3'
+    'glm'                 = 'glm'
+    'glm-flash'           = 'glm'
+    'ali-glm'             = 'glm'
+    'deepseek-flash'      = 'deepseek-flash'
+    'ali-deepseek-flash'  = 'deepseek-flash'
+    'deepseek'            = 'deepseek-flash'
+    'ali-deepseek-pro'    = 'deepseek-flash'
+    'deepseek-pro'        = 'deepseek-flash'
+    'qwen'                = 'qwen'
+    'qwen-flash'          = 'qwen'
+    'claude'              = 'claude'      # the implementer `claude` row → fallback
+    'sonnet'              = 'claude'
+    'opus'                = 'claude'
+    'luna'                = 'openai'
+    'sol'                 = 'openai'
 }
 
-function Get-ValidateSetOf {
-    param([System.Management.Automation.Language.ScriptBlockAst] $Ast, [string] $Parameter)
-    $p = $Ast.ParamBlock.Parameters | Where-Object { $_.Name.VariablePath.UserPath -eq $Parameter }
-    $attr = $p.Attributes | Where-Object { $_.TypeName.Name -eq 'ValidateSet' }
-    return @($attr.PositionalArguments | ForEach-Object { $_.Value })
-}
-
-function Get-ChooserCatalog {
-    # Every name either script accepts, with its id, variant, Alibaba id and family.
-    param([string] $ScriptDir = $PSScriptRoot)
-    $parse = { param($f) [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $ScriptDir $f), [ref]$null, [ref]$null) }
-    $rev = & $parse 'external-review.ps1'
-    $imp = & $parse 'external-implement.ps1'
-    $advisory = @(Get-AssignedLiteral $rev 'advisoryReviewers')
-    $sets = @{
-        reviewer    = @(Get-ValidateSetOf $rev 'Reviewer' | Where-Object { $_ -ne 'auto' -and $advisory -notcontains $_ })
-        implementer = @(Get-ValidateSetOf $imp 'Model' | Where-Object { $_ -ne 'auto' })
-    }
-    $tables = @{
-        reviewer    = @{ Ids = (Get-AssignedLiteral $rev 'models'); Variants = (Get-AssignedLiteral $rev 'variants'); Alibaba = (Get-AssignedLiteral $rev 'alibabaIds') }
-        implementer = @{ Ids = (Get-AssignedLiteral $imp 'models'); Variants = (Get-AssignedLiteral $imp 'variants'); Alibaba = (Get-AssignedLiteral $imp 'alibabaIds') }
-    }
-    return [pscustomobject]@{ Sets = $sets; Tables = $tables; ReviewerOf = (Get-AssignedLiteral $rev 'reviewerOf'); Advisory = $advisory }
-}
-
-function Get-ModelStrength {
-    # name -> heavy | light | off, from docs/environment.md's "Model strength" table.
-    param([string] $DocFile = (Join-Path (Split-Path $PSScriptRoot -Parent) 'docs/environment.md'))
-    $out = @{}
-    $in = $false
-    foreach ($line in [System.IO.File]::ReadAllLines($DocFile)) {
-        if ($line -match '^#{2,4} ') { $in = $line -match 'Model strength'; continue }
-        if ($in -and $line -match '^\|\s*`([^`]+)`\s*\|\s*(heavy|light|off)\s*\|') { $out[$Matches[1]] = $Matches[2] }
-    }
-    return $out
-}
-
-function Get-QuotaSnapshot {
-    # /quota as provider -> entry, or $null when the tracker does not answer.
-    param([string] $File)
-    try {
-        $raw = if ($File) { Get-Content -Raw -LiteralPath $File | ConvertFrom-Json } else { Invoke-RestMethod -Uri 'http://localhost:8765/quota' -TimeoutSec 5 -ErrorAction Stop }
-    } catch { return $null }
-    $map = @{}
-    foreach ($e in @($raw)) { if ($e.provider) { $map[[string]$e.provider] = $e } }
-    return $map
-}
-
-function Format-Clock([object] $Unix) {
-    if (-not $Unix) { return '?' }
-    return [DateTimeOffset]::FromUnixTimeSeconds([long]$Unix).ToLocalTime().ToString('ddd HH:mm')
-}
-
-function Get-RouteState {
-    # One route of one model: available, headroom, status, cost factor and its reasons.
-    param([string] $Name, [string] $ModelId, [hashtable] $Quota)
-    $route = Get-OpenCodeRouteName $ModelId
-    $provider = $script:OpenCodeRouteQuotaProvider[$route]
-    if (-not $provider) { $provider = $route }
-    $base = ($ModelId -split '/', 2)[1]
-    $s = [ordered]@{ Route = $route; Model = $ModelId; Provider = $provider; Available = $true; Status = 'unknown'; Headroom = $null; Cost = 1.0; Notes = @() }
-    if ($null -eq $Quota) { $s.Notes += 'quota unknown'; return [pscustomobject]$s }
-    $q = $Quota[$provider]
-    # A provider the answering tracker does not report was not checked: unavailable, never ranked
-    # as if it had quota (#815 review, R1).
-    if (-not $q) { $s.Available = $false; $s.Notes += "$provider not reported by quota-tracker"; return [pscustomobject]$s }
-    $s.Status = [string]$q.status
-    # Unknown headroom stays $null (score '?', ranked after every measured score), never a measured 0
-    # (#815 review, R2).
-    if ($null -ne $q.headroom_pct) { $s.Headroom = [double]$q.headroom_pct }
-    if ($Name -eq 'luna') {
-        # GPT-5.6 Luna draws on its own weekly window (docs/environment.md).
-        $w = @($q.windows) | Where-Object { $_.name -eq 'gpt-5.6-luna:7d' } | Select-Object -First 1
-        if ($w) {
-            $s.Headroom = 100 - [double]$w.used_pct
-            $s.Status = if ($w.used_pct -ge 95) { 'exhausted' } elseif ($w.used_pct -ge 80) { 'low' } else { 'ok' }
-            $provider = 'Luna window'
-        }
-    }
-    if ($s.Status -in 'exhausted', 'error', 'not_configured') {
-        $s.Available = $false
-        $s.Notes += $(if ($s.Status -eq 'exhausted') { "$provider exhausted, back $(Format-Clock $q.available_at)" } else { "$provider $($s.Status)" })
-        return [pscustomobject]$s
-    }
-    $p = $q.pricing
-    if ($p -and $p.PSObject.Properties['discount_pct']) {
-        $pct = $p.discount_pct.PSObject.Properties[$base]
-        if ($pct -and $p.discount_now) { $s.Cost = 1 - [double]$pct.Value / 100; $s.Notes += "discount $($pct.Value)% until $(Format-Clock $p.next_change_at)" }
-        elseif ($pct) { $s.Notes += "no discount until $(Format-Clock $p.next_change_at)" }
-    }
-    if ($p -and $p.PSObject.Properties['multiplier']) {
-        $m = $p.multiplier.PSObject.Properties[$base]
-        if ($m) {
-            $s.Cost = [double]$(if ($p.peak_now) { $m.Value.peak } else { $m.Value.off_peak })
-            $s.Notes += $(if ($p.peak_now) { "peak $($s.Cost)x until $(Format-Clock $p.next_change_at)" } else { "off-peak $($s.Cost)x" })
-        }
-    }
-    $s.Notes += $(if ($null -ne $s.Headroom) { "$provider $($s.Headroom)% headroom" } else { "$provider headroom unknown" })
-    return [pscustomobject]$s
-}
-
-function Get-FamilyKey {
-    # A model's family, as the sorted names of the same family the map gives. Every reviewer name,
-    # and every implementer name the map carries (the ali-* and mm-* names included), returns its
-    # family's members; a name the map does not carry (mimo-pro, mimo-flash, off) is its own family.
-    param($Catalog, [string] $Name)
-    if ($Catalog.ReviewerOf.ContainsKey($Name)) {
-        $members = @($Catalog.ReviewerOf[$Name] | Where-Object { $_ })
-        if ($members.Count -gt 0) { return (($members | Sort-Object) -join ',') }
-    }
+function Get-FamilyForName([string] $Name) {
+    if ($FamilyOfName.ContainsKey($Name)) { return $FamilyOfName[$Name] }
     return $Name
 }
 
-function Get-ModelRanking {
+function Get-ImplementerAlias([string] $Provider) {
+    if ($Provider -eq 'claude') { return $ImplementerFallback }
+    if ($ImplementerAliases.ContainsKey($Provider)) { return $ImplementerAliases[$Provider] }
+    return $null
+}
+
+function Get-ReviewerAlias([string] $Provider) {
+    if ($ReviewerAliases.ContainsKey($Provider)) { return $ReviewerAliases[$Provider] }
+    return $null
+}
+
+function Test-RecommendationLoading {
+    # True when the /recommend payload says statistics are still loading and no rows are
+    # ranked yet. Lives on its own so the SelfTest can prove the loading branch with a
+    # canned object (no fixture file written to disk).
+    param($Recommend)
+    if ($Recommend.note -and $Recommend.note -match 'loading' -and -not @($Recommend.ranking).Count) {
+        return $true
+    }
+    return $false
+}
+
+function Get-Recommendation {
+    # One network/file call. -RetryWaitSec caps the loading-note wait.
+    # On a "loading" note with empty ranking: sleep -PollSec seconds, retry, until
+    # -RetryWaitSec seconds have passed (default 5 s × 180 s = 36 polls within the
+    # 3-minute limit set by the task entry; R5 rework documents the 5-second poll and
+    # makes it a parameter so the SelfTest can shorten it).
+    # On any connection error or the tracker not answering: throw 'tracker_silent' so the
+    # caller prints the WSL restart command and exits 3.
+    # On a successful JSON: return the raw object.
+    param(
+        [string] $RecommendFile,
+        [string] $RecommendUrl = 'http://localhost:8765/recommend',
+        [int]    $RetryWaitSec = 180,
+        [int]    $PollSec = 5,
+        [string] $Tier
+    )
+    $deadline = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() + $RetryWaitSec
+    while ($true) {
+        if ($RecommendFile) {
+            $raw = Get-Content -Raw -LiteralPath $RecommendFile | ConvertFrom-Json
+            # A canned file is one-shot: no retry, no live connection to probe.
+            if (Test-RecommendationLoading $raw) { throw 'tracker_loading' }
+            return $raw
+        }
+        # Concatenation, not `"$RecommendUrl?tier=$Tier"`. PowerShell parses the latter as
+        # `$RecommendUrl` followed by `?tier=$Tier`, where `?tier=` is read as a help-query
+        # delimiter and `$RecommendUrl` ends up empty. Concatenation is unambiguous.
+        $callUrl = "$RecommendUrl" + '?tier=' + "$Tier"
+        try {
+            # 5 s per call: the tracker is a local service that answers in well under a second, so
+            # 5 s only bounds a hung socket; the loading retry (-RecommendPollSec, up to 180 s in
+            # all) is what waits for a slow start (GLM's re-check R3).
+            $raw = Invoke-RestMethod -Uri $callUrl -TimeoutSec 5 -ErrorAction Stop
+        } catch {
+            if ($_.Exception.InnerException) {
+                $reason = $_.Exception.InnerException.Message
+                if ($_.Exception.InnerException.InnerException) { $reason += ' / ' + $_.Exception.InnerException.InnerException.Message }
+            } else { $reason = $_.Exception.Message }
+            Write-Warning "/recommend call failed: $reason"
+            throw 'tracker_silent'
+        }
+        if (Test-RecommendationLoading $raw) {
+            if ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds() -ge $deadline) {
+                throw 'tracker_loading'
+            }
+            Start-Sleep -Seconds $PollSec
+            continue
+        }
+        return $raw
+    }
+}
+
+function Get-FamiliesFromNames([string[]] $Names) {
+    # Each entry in $Names is a model name. Commas are split too because
+    # `pwsh -File ... -ExcludeFamily a,b` binds the whole list as one string; an unsplit
+    # entry would name no family and exclude nothing.
+    $keys = @{}
+    foreach ($n in $Names) {
+        foreach ($part in (@([string]$n) -split ',')) {
+            $part = $part.Trim()
+            if ($part) { $keys[(Get-FamilyForName $part)] = $true }
+        }
+    }
+    return @($keys.Keys | Sort-Object)
+}
+
+function Get-FamilyForAliasTable($Table) {
+    # The family of every alias in a provider → alias table. Used by -ExcludeModel and
+    # -ExcludeFamily; the family key is the alias that the dispatch script uses.
+    $families = @{}
+    foreach ($alias in $Table.Values) { $families[$alias] = (Get-FamilyForName $alias) }
+    return $families
+}
+
+function Resolve-Chosen {
     param(
         [Parameter(Mandatory)] [string] $Role,
         [string] $Tier,
         [string] $ExcludeModel,
         [string[]] $ExcludeFamily,
-        [hashtable] $Quota,
-        [Parameter(Mandatory)] $Catalog,
-        [Parameter(Mandatory)] [hashtable] $Strength
+        [string[]] $SubstituteFamilies,
+        [Parameter(Mandatory)] $Recommend
     )
-    if (-not $Tier) { $Tier = if ($Role -eq 'reviewer') { 'complex' } else { 'simple' } }
-    $want = if ($Tier -eq 'simple') { 'light' } else { 'heavy' }
-    $excluded = @()
-    if ($Role -eq 'reviewer' -and $ExcludeModel) {
-        if (-not $Catalog.ReviewerOf.ContainsKey($ExcludeModel)) { throw "Unknown -ExcludeModel '$ExcludeModel'. Known: $(@($Catalog.ReviewerOf.Keys | Sort-Object) -join ', ')." }
-        $excluded = @($Catalog.ReviewerOf[$ExcludeModel])
+
+    $recRanking = @($Recommend.ranking)
+    $recSkipped = @($Recommend.skipped)
+    # -SubstituteFamilies: every named family's name plus luna and sol (the OpenAI family).
+    # The dispatch script passes the failed families; we add the OpenAI family explicitly
+    # here so the chooser owns the rule (T150 Done-when 2, the user's amendment of
+    # 2026-10-08).
+    $subFamilies = @()
+    if ($SubstituteFamilies) {
+        $subFamilies = @(Get-FamiliesFromNames $SubstituteFamilies) + @('openai') | Select-Object -Unique
     }
-    # T150 Done-when 2: -ExcludeFamily drops every candidate whose family is in the list. The family
-    # is read from the same map -ExcludeModel uses, so naming any member identifies its whole family.
     $familyExcluded = @()
     if ($ExcludeFamily) {
-        $keys = @{}
-        # Each entry is a model name; commas are split too, because `pwsh -File ... -ExcludeFamily
-        # a,b` binds the whole list as one string (external-implement's -SimulateFailed has the
-        # same shape), and an unsplit entry would name no family and exclude nothing.
-        foreach ($f in $ExcludeFamily) {
-            foreach ($part in (@([string]$f) -split ',')) {
-                $part = $part.Trim()
-                if ($part) { $keys[(Get-FamilyKey $Catalog $part)] = $true }
+        $familyExcluded = @(Get-FamiliesFromNames $ExcludeFamily)
+    }
+    # -ExcludeModel (reviewer only): the implementer's whole family.
+    $excludeModelFamilies = @()
+    if ($Role -eq 'reviewer' -and $ExcludeModel) {
+        # The reviewer table maps providers to aliases; the family key for the model the
+        # main session passes (an implementer name) is read straight from $FamilyOfName.
+        $excludeModelFamilies = @(Get-FamilyForName $ExcludeModel)
+    }
+
+    $table = if ($Role -eq 'implementer') { $ImplementerAliases } else { $ReviewerAliases }
+    $aliasFamily = Get-FamilyForAliasTable $table
+    # Also include the OpenAI family in the reviewer family map, so -ExcludeFamily luna
+    # drops both luna and sol when the reviewer table doesn't list them by alias (those
+    # aliases land via openai's unmapped rule, so we map them too).
+    if ($Role -eq 'reviewer') {
+        $aliasFamily['luna'] = 'openai'
+        $aliasFamily['sol']  = 'openai'
+    }
+    if ($Role -eq 'implementer') {
+        # luna / sol have no implementer alias; the OpenAI family stays unmapped.
+        $aliasFamily['luna'] = 'openai'
+        $aliasFamily['sol']  = 'openai'
+    }
+
+    # A row carries TWO family identifiers:
+#   - Family: prefer the implementer-side alias's family (so a reviewer -ExcludeModel
+#     mm-m3 drops a minimax row — the implementer side is what -ExcludeModel names).
+#     Fall back to the role-side alias's family for providers that have no implementer
+#     alias (e.g. alibaba has no implementer alias, so reviewer alibaba's family is the
+#     reviewer-side qwen's family — R1 rework).
+#   - RoleFamily: the role-side alias's family (so a reviewer -ExcludeFamily qwen drops
+#     the alibaba row even when the implementer side has no alias).
+# claude in the implementer role carries the Sonnet-fallback sentinel, and its family
+# is 'claude' in both columns.
+    $rows = foreach ($r in $recRanking) {
+        $provider = [string]$r.provider
+        $score    = if ($null -eq $r.score) { $null } else { [double]$r.score }
+        $conf     = if ($null -eq $r.confidence) { '?' } else { [string]$r.confidence }
+        $reasons  = @($r.reasons)
+        $usable   = -not ($r.PSObject.Properties['usable'] -and -not [bool]$r.usable)
+        $alias    = if ($Role -eq 'implementer') { Get-ImplementerAlias $provider } else { Get-ReviewerAlias $provider }
+        $implAlias = Get-ImplementerAlias $provider
+        $roleAlias = $alias
+        # Role-side family: alias's family, or provider for unmapped-for-role.
+        $roleFamily = if ($roleAlias -eq $ImplementerFallback) {
+            'claude'
+        } elseif ($roleAlias) {
+            (Get-FamilyForName $roleAlias)
+        } elseif ($provider -eq 'claude') {
+            'claude'
+        } else {
+            $provider
+        }
+        # Family (used by -ExcludeModel and as the printed family): prefer implementer
+        # alias's family (so -ExcludeModel names the implementer's family), fall back
+        # to the role-side family for providers with no implementer alias.
+        $family = if ($implAlias -eq $ImplementerFallback) {
+            'claude'
+        } elseif ($implAlias) {
+            (Get-FamilyForName $implAlias)
+        } elseif ($provider -eq 'claude') {
+            'claude'
+        } else {
+            $roleFamily
+        }
+        [pscustomobject]@{
+            Provider  = $provider; Model = [string]$r.model; Score = $score; Confidence = $conf
+            Reasons   = $reasons; Usable = [bool]$usable; Alias = $alias
+            Family = $family; RoleFamily = $roleFamily
+        }
+    }
+
+    # Apply exclusions in order (Done-when 2).
+    $excluded = New-Object System.Collections.Generic.List[object]
+    $filtered = @()
+    $claudeDroppedReason = $null
+    # Pass 1: family-level exclusions.
+    #   -ExcludeModel on reviewer: a reviewer -ExcludeModel <name> names an implementer
+    #     model; we drop rows whose Family (implementer-side, falling back to role-side)
+    #     matches the named implementer's family (so -ExcludeModel mm-m3 drops a minimax
+    #     row the implementer would have picked; -ExcludeModel qwen drops a reviewer
+    #     alibaba row whose role-side alias is qwen).
+    #   -ExcludeFamily <name>: drops rows whose RoleFamily matches (so a reviewer
+    #     -ExcludeFamily qwen drops a row whose reviewer alias is qwen, e.g. an alibaba
+    #     row — R1 rework).
+    #   -SubstituteFamilies <name>: same RoleFamily rule, with the OpenAI family added
+    #     automatically by the caller.
+    foreach ($row in $rows) {
+        $why = $null
+        if ($row.Family -in $excludeModelFamilies) {
+            $why = "the implementer's family ($($row.Family)) is excluded (-ExcludeModel $ExcludeModel)"
+        } elseif ($row.RoleFamily -in $familyExcluded) {
+            $why = "family $($row.RoleFamily) is excluded (-ExcludeFamily)"
+        } elseif ($row.RoleFamily -in $subFamilies) {
+            $why = "family $($row.RoleFamily) is excluded (the chain-spent substitute filter)"
+        }
+        if ($why) {
+            $excluded.Add([pscustomobject]@{ Provider = $row.Provider; Why = $why })
+            continue
+        }
+        $filtered += $row
+    }
+    # Pass 2: Claude is dropped when any other candidate has a positive score (strictly
+    # greater than zero — score 0 means an empty pool, not a positive spare-calls-per-day
+    # signal; Done-when 2's "positive" reads as the rubric's "spare calls per day" line, R2
+    # rework). When no other candidate has a positive score, Claude stands in (the script's
+    # exit-3 fallback).
+    if ($Role -eq 'implementer') {
+        $claudeRows = @($filtered | Where-Object { $_.Provider -eq 'claude' -and $_.Alias -eq $ImplementerFallback })
+        $nonClaudePositive = @($filtered | Where-Object { $_.Provider -ne 'claude' -and $_.Score -ne $null -and $_.Score -gt 0 } | Sort-Object Score -Descending | Select-Object -First 1)
+        $claudePositive    = @($claudeRows | Where-Object { $_.Score -ne $null -and $_.Score -gt 0 })
+        $claudeNegative    = @($claudeRows | Where-Object { $_.Score -ne $null -and $_.Score -lt 0 })
+        if ($nonClaudePositive) {
+            # Any positive non-Claude candidate is enough to drop Claude, regardless of
+            # Claude's own score: the rubric's "drop Claude while another has positive
+            # score" reads without a Claude-side condition.
+            $dropClaude = $true
+            $claudeDroppedReason = "Claude is the orchestrator and another candidate has a positive score ($($nonClaudePositive.Provider)), so Claude is dropped"
+        } elseif ($claudeNegative) {
+            # A negative-scoring Claude row is treated as a Claude row in the negative
+            # bucket, which already ranks last; drop it here without a "dropped because
+            # orchestrator" reason to avoid duplication.
+            $dropClaude = $false
+            foreach ($r in $claudeNegative) {
+                $excluded.Add([pscustomobject]@{ Provider = $r.Provider; Why = "Claude is the orchestrator; negative scores are ranked last" })
+                $filtered = @($filtered | Where-Object { $_ -ne $r })
+            }
+            $dropClaude = $false
+        } else { $dropClaude = $false }
+        if ($dropClaude) {
+            foreach ($r in $claudeRows) {
+                $excluded.Add([pscustomobject]@{ Provider = $r.Provider; Why = $claudeDroppedReason })
+                $filtered = @($filtered | Where-Object { $_ -ne $r })
             }
         }
-        $familyExcluded = @($keys.Keys | Sort-Object)
     }
-    $t = $Catalog.Tables[$Role]
-    $rows = foreach ($name in $Catalog.Sets[$Role]) {
-        $rating = if ($Strength.ContainsKey($name)) { $Strength[$name] } else { 'unrated' }
-        $state = Get-RouteState -Name $name -ModelId $t.Ids[$name] -Quota $Quota
-        $why = @()
-        if (-not $state.Available -and $t.Alibaba[$name] -and $state.Route -ne 'alibaba') {
-            $alt = Get-RouteState -Name $name -ModelId $t.Alibaba[$name] -Quota $Quota
-            if ($alt.Available) { $why += "usual route: $($state.Notes -join '; ')"; $state = $alt }
+    # Pass 3: unusable rows (the tracker reported usable: false) are skipped; a null score
+    # is treated as unknown (the tracker has no spare_calls; rank it after every measured
+    # one but before negative).
+    $usable = @()
+    foreach ($r in $filtered) {
+        if (-not $r.Usable) {
+            $excluded.Add([pscustomobject]@{ Provider = $r.Provider; Why = "the tracker marked this row as unusable" })
+            continue
         }
-        $lowFactor = if ($state.Status -eq 'low') { 1 } else { 0 }
-        $score = if ($null -ne $state.Headroom) { [math]::Round($state.Headroom / [math]::Max($state.Cost, 0.05), 1) } else { $null }
-        $family = Get-FamilyKey $Catalog $name
-        [pscustomobject]@{
-            Name = $name; Model = $state.Model; Variant = $t.Variants[$name]; Strength = $rating; Route = $state.Route
-            Status = $state.Status; Headroom = $state.Headroom; Cost = $state.Cost; Score = $score
-            Fit = $(if ($rating -eq $want) { 0 } elseif ($rating -in 'heavy', 'light') { 1 } else { 9 })
-            Low = $lowFactor; Available = $state.Available; Excluded = ($excluded -contains $name)
-            Family = $family; FamilyExcluded = ($familyExcluded -contains $family)
-            Reasons = (@($why) + @($state.Notes)) -join '; '
-        }
+        $usable += $r
     }
-    $ranked = @($rows | Where-Object { $_.Available -and -not $_.Excluded -and -not $_.FamilyExcluded -and $_.Fit -lt 9 } |
-            Sort-Object Fit, Low, @{ Expression = { $null -eq $_.Score } }, @{ Expression = { if ($null -eq $_.Score) { 0 } else { $_.Score } }; Descending = $true }, Name)
+    # Pass 4: ordering. Preserves the ranking order, except negative-score rows come last.
+    # Unknown-score (null) rows come after non-negative measured rows but before negative.
+    $ranking = @()
+    $nonNegative = @(); $unknown = @(); $negative = @()
+    foreach ($r in $usable) {
+        if ($null -eq $r.Score) { $unknown += $r }
+        elseif ($r.Score -ge 0) { $nonNegative += $r }
+        else { $negative += $r }
+    }
+    $ranking = $nonNegative + $unknown + $negative
+
+    # Pick the first row with an alias. claude fallback is a special alias.
+    $chosen = $null
+    foreach ($r in $ranking) {
+        if ($r.Alias) { $chosen = $r; break }
+    }
+
     return [pscustomobject]@{
-        Role = $Role; Tier = $Tier; Excluded = $excluded; FamilyExcluded = $familyExcluded; Ranked = $ranked
-        Unavailable = @($rows | Where-Object { -not $_.Available -and -not $_.Excluded -and -not $_.FamilyExcluded })
-        Unranked = @($rows | Where-Object { $_.Available -and -not $_.Excluded -and -not $_.FamilyExcluded -and $_.Fit -ge 9 })
-        Claude = $(if ($Quota -and $Quota['claude']) { $Quota['claude'] } else { $null })
+        Role = $Role; Tier = $Tier; ExcludeModelFamilies = $excludeModelFamilies
+        FamilyExcluded = $familyExcluded; SubstituteFamilies = $subFamilies
+        Chosen = $chosen; Ranking = $ranking; Excluded = $excluded
+        Recommendation = $Recommend
+        ClaudeDroppedReason = $claudeDroppedReason
     }
 }
 
-function Invoke-ChooserSelfTest {
-    $catalog = Get-ChooserCatalog
-    $strength = Get-ModelStrength
-    $now = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
-    $p = { param($name, $head, $status = 'ok', $extra = @{}) $o = [ordered]@{ provider = $name; status = $status; headroom_pct = $head; windows = @(); available_at = $now + 3600 }; foreach ($k in $extra.Keys) { $o[$k] = $extra[$k] }; [pscustomobject]$o }
-    $alibabaPricing = { param($on) [pscustomobject]@{ discount_now = $on; next_change_at = $now + 3600; discount_pct = [pscustomobject]@{ 'qwen3.8-max' = 60; 'qwen3.8-flash' = 60; 'deepseek-v4-pro-0813' = 50; 'deepseek-v4.1-flash' = 50 } } }
-    $zaiPricing = { param($peak) [pscustomobject]@{ peak_now = $peak; next_change_at = $now + 3600; multiplier = [pscustomobject]@{ 'glm-5.3' = [pscustomobject]@{ peak = 3.0; off_peak = 1.0 }; 'glm-5.3-flash' = [pscustomobject]@{ peak = 1.2; off_peak = 0.4 } } } }
-    $base = {
-        param($over = @{})
-        $q = @{
-            openai      = (& $p 'openai' 60 'ok' @{ windows = @([pscustomobject]@{ name = 'gpt-5.6-luna:7d'; used_pct = 10 }) })
-            zai         = (& $p 'zai' 60 'ok' @{ pricing = (& $zaiPricing $false) })
-            opencode_go = (& $p 'opencode_go' 60)
-            alibaba     = (& $p 'alibaba' 60 'ok' @{ pricing = (& $alibabaPricing $false) })
-            minimax     = (& $p 'minimax' 60)
-            claude      = (& $p 'claude' 60)
-        }
-        foreach ($k in $over.Keys) { $q[$k] = $over[$k] }
-        $q
+function Format-Reasons([object[]] $Reasons) {
+    if (-not $Reasons -or $Reasons.Count -eq 0) { return 'no reasons given' }
+    return ($Reasons -join '; ')
+}
+
+function Format-Score($Score) {
+    # The score is a .NET double that may be $null when the tracker reported no spare
+    # calls (an unknown pool size). Declaring `[double]` would coerce $null to 0 before
+    # the null check ran; `?` is what the unknown row's printed report needs.
+    if ($null -eq $Score) { return '?' }
+    return ('{0}' -f [double]$Score)
+}
+
+function Show-ChooserReport($Result) {
+    # The default human-readable report. Per row, the alias (when mapped), the provider,
+    # the model id, the score, the confidence, and the reasons.
+    $role = $Result.Role
+    $tier = $Result.Tier
+    if ($tier) {
+        "role $role, /recommend?tier=$(if ($role -eq 'implementer') { 'heavy' } else { 'light' }), reported tier: $tier"
+    } else {
+        "role $role, /recommend?tier=$(if ($role -eq 'implementer') { 'heavy' } else { 'light' })"
     }
-    $rank = { param($role, $tier, $ex, $q, $fam) Get-ModelRanking -Role $role -Tier $tier -ExcludeModel $ex -ExcludeFamily $fam -Quota $q -Catalog $catalog -Strength $strength }
-    $names = { param($r) @($r.Ranked | ForEach-Object Name) }
-    $checks = @()
-    foreach ($role in 'reviewer', 'implementer') {
-        $missing = @($catalog.Sets[$role] | Where-Object { -not $strength.ContainsKey($_) })
-        $checks += [pscustomobject]@{ Name = "every $role name has a row in docs/environment.md's Model strength table (missing: $($missing -join ', '))"; Ok = ($missing.Count -eq 0) }
-    }
-    $checks += [pscustomobject]@{ Name = 'the catalogue reads the five 2026-10-06 names from both scripts'; Ok = (@('mm-m3', 'mm-m2.7', 'ali-deepseek-pro', 'ali-deepseek-flash', 'ali-glm' | Where-Object { $catalog.Sets.reviewer -contains $_ -and $catalog.Sets.implementer -contains $_ }).Count -eq 5) }
-    $checks += [pscustomobject]@{ Name = 'advisory reviewers are never candidates'; Ok = (@($catalog.Sets.reviewer | Where-Object { $catalog.Advisory -contains $_ }).Count -eq 0) }
-    $r = & $rank 'reviewer' 'complex' 'deepseek-flash' (& $base)
-    $checks += [pscustomobject]@{ Name = 'a deepseek-flash implementer: no DeepSeek name is ranked'; Ok = (@(& $names $r | Where-Object { $_ -match 'deepseek' }).Count -eq 0) }
-    $checks += [pscustomobject]@{ Name = 'tier complex ranks every heavy model before any light one'; Ok = (@($r.Ranked | Select-Object -First (@($r.Ranked | Where-Object Strength -eq 'heavy').Count) | Where-Object Strength -ne 'heavy').Count -eq 0) }
-    $r = & $rank 'reviewer' 'simple' $null (& $base)
-    $checks += [pscustomobject]@{ Name = 'tier simple ranks a light model first'; Ok = ($r.Ranked[0].Strength -eq 'light') }
-    $r = & $rank 'reviewer' 'complex' $null (& $base @{ alibaba = (& $p 'alibaba' 60 'ok' @{ pricing = (& $alibabaPricing $true) }) })
-    $checks += [pscustomobject]@{ Name = 'Alibaba discount on: qwen (60% off) ranks above glm at equal headroom'; Ok = ((& $names $r).IndexOf('qwen') -lt (& $names $r).IndexOf('glm')) }
-    $r = & $rank 'reviewer' 'complex' $null (& $base @{ zai = (& $p 'zai' 60 'ok' @{ pricing = (& $zaiPricing $true) }) })
-    $checks += [pscustomobject]@{ Name = 'Z.ai peak: glm (3x) ranks below ali-glm'; Ok = ((& $names $r).IndexOf('glm') -gt (& $names $r).IndexOf('ali-glm')) }
-    $r = & $rank 'reviewer' 'complex' $null (& $base @{ zai = (& $p 'zai' 2 'exhausted') })
-    $g = $r.Ranked | Where-Object Name -eq 'glm'
-    $checks += [pscustomobject]@{ Name = 'zai exhausted: glm is ranked on its Alibaba route'; Ok = ($g -and $g.Route -eq 'alibaba' -and $g.Model -eq 'alibaba-token-plan/glm-5.3') }
-    $checks += [pscustomobject]@{ Name = 'zai exhausted: glm-flash (no Alibaba route) is unavailable'; Ok = (@($r.Unavailable | ForEach-Object Name) -contains 'glm-flash') }
-    $r = & $rank 'reviewer' 'simple' $null (& $base @{ openai = (& $p 'openai' 3 'exhausted' @{ windows = @([pscustomobject]@{ name = 'gpt-5.6-luna:7d'; used_pct = 10 }) }) })
-    $checks += [pscustomobject]@{ Name = 'openai exhausted, Luna window at 10%: luna stays available, sol does not'; Ok = ((& $names $r) -contains 'luna' -and (& $names $r) -notcontains 'sol') }
-    $r = & $rank 'reviewer' 'complex' $null (& $base @{ minimax = (& $p 'minimax' 1 'exhausted') })
-    $checks += [pscustomobject]@{ Name = 'minimax exhausted: mm-m3 is unavailable'; Ok = (@($r.Unavailable | ForEach-Object Name) -contains 'mm-m3' -and (& $names $r) -notcontains 'mm-m3') }
-    $r = & $rank 'reviewer' 'complex' $null $null
-    $checks += [pscustomobject]@{ Name = 'tracker silent: every rated candidate is ranked, marked quota unknown'; Ok = ($r.Ranked.Count -gt 0 -and @($r.Ranked | Where-Object { $_.Reasons -notlike '*quota unknown*' }).Count -eq 0) }
-    $r = & $rank 'implementer' 'simple' $null (& $base)
-    $checks += [pscustomobject]@{ Name = "a model rated off is never ranked (mimo-pro, mimo-flash)"; Ok = ((& $names $r) -notcontains 'mimo-pro' -and (& $names $r) -notcontains 'mimo-flash') }
-    $q = & $base; $q.Remove('minimax')
-    $r = & $rank 'reviewer' 'complex' $null $q
-    $checks += [pscustomobject]@{ Name = 'a provider missing from an answering /quota: mm-m3 is unavailable, not ranked (#815 R1)'; Ok = ((& $names $r) -notcontains 'mm-m3' -and @($r.Unavailable | ForEach-Object Name) -contains 'mm-m3') }
-    $r = & $rank 'reviewer' 'complex' $null (& $base @{ minimax = [pscustomobject]@{ provider = 'minimax'; status = 'ok'; windows = @() } })
-    $mm = $r.Ranked | Where-Object Name -eq 'mm-m3'
-    $heavyScored = @($r.Ranked | Where-Object { $_.Strength -eq 'heavy' -and $null -ne $_.Score })
-    $checks += [pscustomobject]@{ Name = 'no headroom_pct: mm-m3 keeps a null score and ranks after every measured heavy model (#815 R2)'; Ok = ($mm -and $null -eq $mm.Headroom -and $null -eq $mm.Score -and (& $names $r).IndexOf('mm-m3') -eq $heavyScored.Count) }
-    $r = & $rank 'reviewer' 'complex' $null (& $base @{ alibaba = (& $p 'alibaba' 15 'low' @{ pricing = (& $alibabaPricing $false) }) })
-    $checks += [pscustomobject]@{ Name = 'a low provider ranks after an ok one of the same fit'; Ok = ((& $names $r).IndexOf('qwen') -gt (& $names $r).IndexOf('mm-m3')) }
-    # T150 Done-when 2: -ExcludeFamily drops whole families, for either role.
-    foreach ($role in 'reviewer', 'implementer') {
-        $r = & $rank $role 'complex' $null (& $base) @('mm-m3', 'deepseek-flash')
-        $got = @(& $names $r)
-        $checks += [pscustomobject]@{ Name = "-ExcludeFamily on a $role ranking drops the mm-m3 and deepseek-flash families and still ranks others"; Ok = ($got.Count -gt 0 -and $got -notcontains 'mm-m3' -and $got -notcontains 'mm-m2.7' -and @($got | Where-Object { $_ -match 'deepseek' }).Count -eq 0) }
-    }
-    $r = & $rank 'implementer' 'complex' $null (& $base) @('mm-m3', 'deepseek-flash')
-    $checks += [pscustomobject]@{ Name = '-ExcludeFamily reports exactly the two family keys it dropped'; Ok = (@($r.FamilyExcluded).Count -eq 2 -and @($r.FamilyExcluded) -contains 'mm-m2.7,mm-m3' -and @($r.FamilyExcluded) -contains 'ali-deepseek-flash,ali-deepseek-pro,deepseek,deepseek-pro') }
-    # -ExcludeModel (reviewer) and -ExcludeFamily compose.
-    $r = & $rank 'reviewer' 'complex' 'luna' (& $base) @('glm-flash')
-    $got = @(& $names $r)
-    $checks += [pscustomobject]@{ Name = '-ExcludeModel and -ExcludeFamily compose'; Ok = ($got -notcontains 'luna' -and $got -notcontains 'sol' -and $got -notcontains 'glm-flash' -and $got -notcontains 'glm' -and $got -notcontains 'ali-glm') }
-    # T150 Done-when 2 (the user's amendment of 2026-10-08): naming 'luna' must exclude the whole
-    # OpenAI family in the family map (Sol included), so the substitute is never OpenAI.
-    $checks += [pscustomobject]@{ Name = "Get-FamilyKey for luna and sol both return 'luna,sol' (the OpenAI family)"; Ok = ((Get-FamilyKey $catalog 'luna') -eq 'luna,sol' -and (Get-FamilyKey $catalog 'sol') -eq 'luna,sol') }
-    $r = & $rank 'reviewer' 'complex' $null (& $base) @('luna')
-    $got = @(& $names $r)
-    $checks += [pscustomobject]@{ Name = "-ExcludeFamily luna on a reviewer ranking drops both luna and sol (the OpenAI family)"; Ok = ($got -notcontains 'luna' -and $got -notcontains 'sol') }
-    $checks += [pscustomobject]@{ Name = "-ExcludeFamily luna reports exactly the OpenAI family key 'luna,sol'"; Ok = (@($r.FamilyExcluded).Count -eq 1 -and [string]$r.FamilyExcluded[0] -eq 'luna,sol') }
-    # The implementer set has Luna but not Sol (Sol is a reviewer name); with Luna excluded and
-    # the family key naming Sol too, neither would be chosen.
-    $r = & $rank 'implementer' 'simple' $null (& $base) @('luna')
-    $got = @(& $names $r)
-    $checks += [pscustomobject]@{ Name = "-ExcludeFamily luna on an implementer ranking drops luna (no OpenAI candidate remains)"; Ok = ($got -notcontains 'luna') }
-    $failed = 0
+    if ($Result.ExcludeModelFamilies) { "implementer's family excluded: $($Result.ExcludeModelFamilies -join ', ')" }
+    if ($Result.FamilyExcluded) { "families excluded (-ExcludeFamily): $($Result.FamilyExcluded -join ', ')" }
+    if ($Result.SubstituteFamilies) { "substitute filter (dropped families): $($Result.SubstituteFamilies -join ', ')" }
+    if ($Result.ClaudeDroppedReason) { $Result.ClaudeDroppedReason }
     $i = 0
-    foreach ($c in $checks) { $i++; if (-not $c.Ok) { $failed++ }; '[{0}] {1}  check  -- {2}' -f $i, $(if ($c.Ok) { 'PASS' } else { 'FAIL' }), $c.Name }
+    foreach ($r in $Result.Ranking) {
+        $i++
+        $alias = if ($r.Alias) {
+            if ($r.Alias -eq $ImplementerFallback) { '<Claude Sonnet fallback>' } else { $r.Alias }
+        } else { '<unmapped>' }
+        '{0,2}. {1,-22} {2,-13} {3,-30} score {4,7} confidence {5,-5} reasons: {6}' -f $i, $alias, $r.Provider, $r.Model, (Format-Score $r.Score), $r.Confidence, (Format-Reasons $r.Reasons)
+    }
+    if (-not $Result.Ranking) { 'no candidate is available.' }
+    foreach ($r in $Result.Excluded) { "excluded: $($r.Provider) -- $($r.Why)" }
+    if ($Result.Recommendation -and $Result.Recommendation.skipped) {
+        foreach ($s in $Result.Recommendation.skipped) { "skipped: $($s.provider) -- $($s.why)" }
+    }
+}
+
+function Format-PickLine($Row) {
+    if (-not $Row) { return @() }
+    $alias = $Row.Alias
+    if (-not $alias) { return @() }
+    $name = if ($alias -eq $ImplementerFallback) { '<Claude Sonnet fallback>' } else { $alias }
+    $meta = [ordered]@{
+        name       = $name
+        family     = $Row.Family
+        provider   = $Row.Provider
+        model      = $Row.Model
+        score      = $Row.Score
+        confidence = $Row.Confidence
+        reasons    = @($Row.Reasons)
+    }
+    return @(
+        ('CHOOSER_META=' + (ConvertTo-Json -Compress -InputObject $meta)),
+        $alias
+    )
+}
+
+function Show-ChosenModel {
+    # The chosen model's row in the human-readable report (Done-when 4). Used by
+    # external-implement.ps1 when it has a CHOOSER_META payload and no live human reader.
+    param($Row)
+    if (-not $Row) { return }
+    $name = if ($Row.Alias -eq $ImplementerFallback) { '<Claude Sonnet fallback>' } else { $Row.Alias }
+    "chosen: $name ($($Row.Provider), $($Row.Model), score $(Format-Score $Row.Score), confidence $($Row.Confidence))"
+    "reasons:"
+    foreach ($r in $Row.Reasons) { "  - $r" }
+}
+
+function Get-CannedRecommend {
+    # A small builder for canned tests: returns a hashtable with `note`, `ranking`
+    # (a list of rows), and `skipped` (also a list of rows). Lets the SelfTest build the
+    # canned responses without writing JSON to disk.
+    param(
+        [string] $Note = $null,
+        [object[]] $Ranking = @(),
+        [object[]] $Skipped = @()
+    )
+    return [pscustomobject]@{ note = $Note; ranking = $Ranking; skipped = $Skipped }
+}
+
+function New-CannedRow {
+    # One /recommend row. Provider / model / score / confidence / reasons / usable.
+    # Score is untyped so a $null value can pass through unchanged (the tracker reports
+    # unknown pool sizes as score: null, and Format-Score / the chooser need that
+    # distinction).
+    param(
+        [Parameter(Mandatory)] [string] $Provider,
+        [string] $Model = 'model',
+        $Score                 = 0,
+        [string] $Confidence = 'ok',
+        [string[]] $Reasons = @('test'),
+        [bool] $Usable = $true
+    )
+    return [pscustomobject]@{
+        provider = $Provider; model = $Model; score = $Score
+        confidence = $Confidence; reasons = $Reasons; usable = $Usable
+    }
+}
+
+function New-CannedSkipped {
+    param([string] $Provider, [string] $Why = 'no reason given')
+    return [pscustomobject]@{ provider = $Provider; why = $Why }
+}
+
+function Test-PickAlias([object] $Result, [string] $Expected) {
+    if (-not $Result.Chosen) { return $false }
+    return $Result.Chosen.Alias -eq $Expected
+}
+
+function Invoke-ChooserSelfTest {
+    # The Done-when 6 cases, run with no network. Returns the number of failures (exit code).
+    $checks = New-Object System.Collections.Generic.List[object]
+    function Add-Check([string] $Name, [bool] $Ok) {
+        $checks.Add([pscustomobject]@{ Name = $Name; Ok = [bool]$Ok }) | Out-Null
+    }
+
+    # Case 1: per-role mapping plus an unmapped row.
+    # Implementer: minimax → mm-m3, zai → glm, opencode_go → deepseek-flash, openrouter unmapped.
+    $recImpl = Get-CannedRecommend -Ranking @(
+        (New-CannedRow -Provider 'minimax'     -Model 'MiniMax-M3'   -Score 1000),
+        (New-CannedRow -Provider 'zai'         -Model 'glm-5.3'      -Score 80),
+        (New-CannedRow -Provider 'opencode_go' -Model 'ds-flash'     -Score 30),
+        (New-CannedRow -Provider 'openrouter'  -Model 'ds-flash'     -Score 0)
+    )
+    $r = Resolve-Chosen -Role 'implementer' -Tier 'complex' -Recommend $recImpl
+    Add-Check 'mapping (implementer): minimax → mm-m3 is first; openrouter is unmapped' (Test-PickAlias $r 'mm-m3')
+    $unmapped = @($r.Ranking | Where-Object { -not $_.Alias })
+    Add-Check 'mapping (implementer): openrouter is in the list of unmapped rows' (@($unmapped | Where-Object { $_.Provider -eq 'openrouter' }).Count -eq 1)
+    # Reviewer: zai → glm, opencode_go → deepseek-pro, alibaba → qwen; openai unmapped.
+    $recRev = Get-CannedRecommend -Ranking @(
+        (New-CannedRow -Provider 'zai'         -Model 'glm-5.3'     -Score 1000),
+        (New-CannedRow -Provider 'opencode_go' -Model 'ds-pro'      -Score 80),
+        (New-CannedRow -Provider 'alibaba'     -Model 'qwen-max'    -Score 60),
+        (New-CannedRow -Provider 'openai'      -Model 'gpt-6-sol'   -Score 50),
+        (New-CannedRow -Provider 'claude'      -Model 'sonnet'      -Score 40),
+        (New-CannedRow -Provider 'openrouter'  -Model 'ds-flash'    -Score 20)
+    )
+    $r = Resolve-Chosen -Role 'reviewer' -Tier 'complex' -Recommend $recRev
+    Add-Check 'mapping (reviewer): zai → glm is first; openai and claude are unmapped (Luna/Sol/Claude are not in the table)' (Test-PickAlias $r 'glm')
+    $unmappedProviders = @($r.Ranking | Where-Object { -not $_.Alias } | ForEach-Object Provider) | Sort-Object
+    Add-Check "mapping (reviewer): unmapped providers are exactly claude, openai and openrouter" ([string]($unmappedProviders -join ',') -eq 'claude,openai,openrouter')
+
+    # Case 2: Claude dropped while another positive score exists; kept when alone.
+    $recClaude = Get-CannedRecommend -Ranking @(
+        (New-CannedRow -Provider 'claude'  -Model 'sonnet' -Score 2000),
+        (New-CannedRow -Provider 'minimax' -Model 'M3'      -Score 1000)
+    )
+    $r = Resolve-Chosen -Role 'implementer' -Tier 'complex' -Recommend $recClaude
+    Add-Check 'Claude dropped while another positive score exists' (-not $r.Chosen -or $r.Chosen.Provider -ne 'claude')
+    $claudeExcluded = @($r.Excluded | Where-Object { $_.Provider -eq 'claude' })
+    Add-Check 'Claude dropped: the excluded row mentions the orchestrator rule' ($claudeExcluded.Count -ge 1 -and $claudeExcluded[0].Why -match 'orchestrator')
+
+    # R2 boundary: a score of zero is NOT positive. With Claude positive and the only other
+    # candidate at 0, Claude stands in. With Claude at 0 and the only other candidate at
+    # any positive value, Claude is dropped (the rubric's "positive" reads as > 0).
+    $recClaudeZeroOther = Get-CannedRecommend -Ranking @(
+        (New-CannedRow -Provider 'claude'  -Model 'sonnet' -Score 100),
+        (New-CannedRow -Provider 'minimax' -Model 'M3'      -Score 0)
+    )
+    $r = Resolve-Chosen -Role 'implementer' -Tier 'complex' -Recommend $recClaudeZeroOther
+    Add-Check 'R2: Claude positive, other at 0 -> Claude stands in (zero is not positive)' ($r.Chosen -and $r.Chosen.Provider -eq 'claude')
+    Add-Check 'R2: Claude positive, other at 0 -> Claude is the script fallback (alias)' ($r.Chosen -and $r.Chosen.Alias -eq $ImplementerFallback)
+
+    $recClaudeZeroSelf = Get-CannedRecommend -Ranking @(
+        (New-CannedRow -Provider 'claude'  -Model 'sonnet' -Score 0),
+        (New-CannedRow -Provider 'minimax' -Model 'M3'      -Score 100)
+    )
+    $r = Resolve-Chosen -Role 'implementer' -Tier 'complex' -Recommend $recClaudeZeroSelf
+    Add-Check 'R2: Claude at 0, other positive -> Claude dropped' (-not ($r.Chosen -and $r.Chosen.Provider -eq 'claude'))
+    $claudeExcluded = @($r.Excluded | Where-Object { $_.Provider -eq 'claude' })
+    Add-Check 'R2: Claude at 0 dropped: the excluded row mentions the orchestrator rule' ($claudeExcluded.Count -ge 1 -and $claudeExcluded[0].Why -match 'orchestrator')
+
+    $recClaudeAlone = Get-CannedRecommend -Ranking @(
+        (New-CannedRow -Provider 'claude'  -Model 'sonnet' -Score 1500),
+        (New-CannedRow -Provider 'minimax' -Model 'M3'      -Score (-100))
+    )
+    $r = Resolve-Chosen -Role 'implementer' -Tier 'complex' -Recommend $recClaudeAlone
+    Add-Check 'Claude only-non-negative: it is the script fallback' ($r.Chosen -and $r.Chosen.Alias -eq $ImplementerFallback)
+
+    # Case 3: negative scores are ranked after non-negative ones.
+    $recNeg = Get-CannedRecommend -Ranking @(
+        (New-CannedRow -Provider 'opencode_go' -Model 'ds-flash' -Score (-500)),
+        (New-CannedRow -Provider 'minimax'     -Model 'M3'       -Score 1000),
+        (New-CannedRow -Provider 'zai'         -Model 'glm-5.3'  -Score 80),
+        (New-CannedRow -Provider 'alibaba'     -Model 'qwen'     -Score (-100))
+    )
+    $r = Resolve-Chosen -Role 'reviewer' -Tier 'simple' -Recommend $recNeg
+    $order = @($r.Ranking | ForEach-Object Provider)
+    Add-Check 'negative scores are ranked after every non-negative one' ($order -join ',' -eq 'minimax,zai,opencode_go,alibaba')
+    $picked = Resolve-Chosen -Role 'reviewer' -Tier 'simple' -Recommend $recNeg
+    Add-Check 'a negative score is chosen only when nothing else is left' (Test-PickAlias $picked 'glm')
+    $recOnlyNegative = Get-CannedRecommend -Ranking @(
+        (New-CannedRow -Provider 'opencode_go' -Model 'ds-flash' -Score (-500))
+    )
+    $rNeg = Resolve-Chosen -Role 'reviewer' -Tier 'simple' -Recommend $recOnlyNegative
+    Add-Check 'the only candidate is negative-scoring: it is still picked' (Test-PickAlias $rNeg 'deepseek-pro')
+
+    # Case 4: ExcludeFamily drops the named family.
+    $r = Resolve-Chosen -Role 'implementer' -Tier 'complex' -Recommend $recImpl -ExcludeFamily @('mm-m3')
+    $excluded = @($r.Excluded | Where-Object { $_.Provider -eq 'minimax' })
+    Add-Check '-ExcludeFamily mm-m3 drops the minimax family' ($excluded.Count -eq 1)
+    Add-Check '-ExcludeFamily mm-m3: the chooser falls through to glm' (Test-PickAlias $r 'glm')
+
+    # Case 5: ExcludeModel on reviewer drops the implementer's whole family.
+    $recDeepImpl = Get-CannedRecommend -Ranking @(
+        (New-CannedRow -Provider 'minimax' -Model 'M3'  -Score 1000),
+        (New-CannedRow -Provider 'zai'     -Model 'glm' -Score 80)
+    )
+    $rDeep = Resolve-Chosen -Role 'reviewer' -Tier 'complex' -ExcludeModel 'mm-m3' -Recommend $recDeepImpl
+    Add-Check '-ExcludeModel on reviewer drops minimax (the implementer)' (@($rDeep.Excluded | Where-Object { $_.Provider -eq 'minimax' }).Count -gt 0)
+    Add-Check "-ExcludeModel mm-m3: reviewer passes the DeepSeek/GLM row only; implementer's family excluded message printed" ($rDeep.ExcludeModelFamilies -contains 'mm-m3')
+
+    # R1 rework: a reviewer row from alibaba is assigned family 'alibaba' by the
+    # implementer-side alias table lookup, although its reviewer alias is qwen. The
+    # fix uses the role-side alias for the family. With -ExcludeModel qwen, the
+    # alibaba row must be dropped, and the chooser must NOT pick qwen.
+    $recAlibaba = Get-CannedRecommend -Ranking @(
+        (New-CannedRow -Provider 'alibaba' -Model 'qwen-max' -Score 1000),
+        (New-CannedRow -Provider 'zai'     -Model 'glm-5.3' -Score 80)
+    )
+    $rAli = Resolve-Chosen -Role 'reviewer' -Tier 'complex' -ExcludeModel 'qwen' -Recommend $recAlibaba
+    Add-Check 'R1: -ExcludeModel qwen drops the alibaba reviewer row' (@($rAli.Excluded | Where-Object { $_.Provider -eq 'alibaba' }).Count -gt 0)
+    Add-Check 'R1: -ExcludeModel qwen: the chooser falls through to glm (never qwen)' (Test-PickAlias $rAli 'glm')
+
+    # Case 6: SubstituteFamilies drops each named family AND the OpenAI family.
+    $recSub = Get-CannedRecommend -Ranking @(
+        (New-CannedRow -Provider 'openai'      -Model 'gpt-6-sol' -Score 1500),
+        (New-CannedRow -Provider 'minimax'     -Model 'M3'         -Score 1000 -Usable $false), # failed
+        (New-CannedRow -Provider 'zai'         -Model 'glm-5.3'   -Score 80)
+    )
+    $r = Resolve-Chosen -Role 'implementer' -Tier 'complex' -SubstituteFamilies @('mm-m3') -Recommend $recSub
+    $excludedProviders = @($r.Excluded | ForEach-Object Provider) | Sort-Object
+    Add-Check 'substitute filter: openai is dropped; minimax was marked unusable' (@($excludedProviders | Where-Object { $_ -in @('openai', 'minimax') }).Count -eq 2)
+    Add-Check 'substitute filter: zai / glm is the picked one' (Test-PickAlias $r 'glm')
+    # Without the failed minimax (usable), the openai row is still dropped by the
+    # substitute filter; the unmapped-for-implementer rule would already drop openai, so
+    # this is what the chain-spent substitute gets from Choose-Model: never OpenAI.
+    $recSub2 = Get-CannedRecommend -Ranking @(
+        (New-CannedRow -Provider 'openai'      -Model 'gpt-6-sol' -Score 1500),
+        (New-CannedRow -Provider 'minimax'     -Model 'M3'         -Score 1000),
+        (New-CannedRow -Provider 'zai'         -Model 'glm-5.3'   -Score 80)
+    )
+    $r2 = Resolve-Chosen -Role 'implementer' -Tier 'complex' -SubstituteFamilies @('mm-m3') -Recommend $recSub2
+    Add-Check 'substitute filter on a healthy minimax: openai still dropped, minimax still dropped' (-not ($r2.Chosen -and $r2.Chosen.Provider -in @('openai', 'minimax')))
+
+    # Case 7: reviewer substitute order (GLM, DeepSeek Pro, Qwen) with a canned light
+    # ranking that puts zai first: prints DeepSeek Pro then Qwen, never GLM and never
+    # openai. The dispatch script does its own picking; this is what gets logged.
+    $recRevSub = Get-CannedRecommend -Ranking @(
+        (New-CannedRow -Provider 'zai'         -Model 'glm-5.3'  -Score 1000),
+        (New-CannedRow -Provider 'opencode_go' -Model 'ds-pro'   -Score 800),
+        (New-CannedRow -Provider 'alibaba'     -Model 'qwen'     -Score 200),
+        (New-CannedRow -Provider 'openai'      -Model 'gpt-6-sol' -Score 150)
+    )
+    $r = Resolve-Chosen -Role 'reviewer' -Tier 'complex' -ExcludeModel 'glm' -Recommend $recRevSub
+    $aliases = @($r.Ranking | Where-Object Alias | ForEach-Object Alias)
+    Add-Check 'reviewer substitute order (ExcludeModel glm): DeepSeek Pro and Qwen, never GLM, never an OpenAI model' ([string]($aliases -join ',') -eq 'deepseek-pro,qwen')
+    $unmapped = @($r.Ranking | Where-Object { -not $_.Alias } | ForEach-Object Provider)
+    Add-Check 'reviewer substitute order: openai appears only in the unmapped-for-reviewer line' ([bool](@($unmapped | Where-Object { $_ -eq 'openai' }).Count -eq 1))
+
+    # Case 8: loading note → exit 3 with the "did not finish loading" message. The branch
+    # is exercised by calling Test-RecommendationLoading on a pre-built object (no fixture
+    # file written to disk; Done-when 6 / R4 rework).
+    $loadingObj = Get-CannedRecommend -Note 'statistics are loading; try again in a few seconds' -Ranking @()
+    Add-Check 'loading note (Test-RecommendationLoading) is true on a canned object with empty ranking' (Test-RecommendationLoading $loadingObj)
+    # The canned-file path's behaviour ("the canned file's note says loading, empty ranking,
+    # no live retry, throws tracker_loading") is exercised by routing the canned object
+    # through the same code a canned file would: no fixture on disk is needed.
+    $err = $null
+    try {
+        if (Test-RecommendationLoading $loadingObj) { throw 'tracker_loading' }
+    } catch { $err = $_ }
+    Add-Check 'loading note in canned input raises tracker_loading so the caller exits 3 with the wait message' ($err -and $err.Exception.Message -eq 'tracker_loading')
+
+    # Case 8b: a silent service (closed port) raises tracker_silent immediately so the
+    # caller can exit 3 with the WSL restart message.
+    $err = $null
+    try { Get-Recommendation -RecommendFile $null -RecommendUrl 'http://127.0.0.1:1/recommend' -RetryWaitSec 0 -Tier 'heavy' } catch { $err = $_ }
+    Add-Check 'silent service (closed port) raises tracker_silent so the caller exits 3 with the restart message' ($err.Exception.Message -eq 'tracker_silent')
+
+    # Case 9: the skipped list is printed with "why".
+    $recSk = Get-CannedRecommend -Ranking @(
+        (New-CannedRow -Provider 'minimax' -Model 'M3' -Score 1000)
+    ) -Skipped @(
+        (New-CannedSkipped -Provider 'openai' -Why 'OpenAI account out of quota')
+    )
+    $out = (& { Show-ChooserReport (Resolve-Chosen -Role 'implementer' -Tier 'complex' -Recommend $recSk) } | Out-String)
+    Add-Check 'skipped list: the report prints "<provider> -- <why>"' ($out -match 'skipped: openai -- OpenAI account out of quota')
+
+    # Case 10: unusable rows are reported as excluded.
+    $recUnu = Get-CannedRecommend -Ranking @(
+        (New-CannedRow -Provider 'minimax' -Model 'M3' -Score 1000 -Usable $false),
+        (New-CannedRow -Provider 'zai'     -Model 'glm' -Score 80)
+    )
+    $r = Resolve-Chosen -Role 'implementer' -Tier 'complex' -Recommend $recUnu
+    Add-Check 'unusable rows are reported as excluded' (@($r.Excluded | Where-Object { $_.Provider -eq 'minimax' -and $_.Why -match 'unusable' }).Count -eq 1)
+    Add-Check 'unusable dropped: zai/glm is the picked alias' (Test-PickAlias $r 'glm')
+
+    # Case 11 (R6 rework): Format-Score on $null returns "?", not "0" (the [double] cast
+    # used to coerce $null to 0 before the null check ran). Test both the formatter in
+    # isolation and a null-score row's printed report.
+    Add-Check 'R6: Format-Score on $null returns "?"' ((Format-Score $null) -eq '?')
+    Add-Check 'R6: Format-Score on a real 0 returns "0"'  ((Format-Score ([double]0)) -eq '0')
+    $recNull = Get-CannedRecommend -Ranking @(
+        (New-CannedRow -Provider 'openai' -Model 'gpt-5.6-luna' -Score $null -Reasons @('pool size unknown'))
+    )
+    $out = (& { Show-ChooserReport (Resolve-Chosen -Role 'reviewer' -Tier 'simple' -Recommend $recNull) } | Out-String)
+    Add-Check 'R6: a null-score row prints "score    ?" in the report, not "score 0"' ($out -match 'score\s+\?\s')
+
+    # Report.
+    $i = 0; $failed = 0
+    foreach ($c in $checks) {
+        $i++
+        $status = if ($c.Ok) { 'PASS' } else { 'FAIL' }
+        "[{0,2}/{1}] {2}  -- {3}" -f $i, $checks.Count, $status, $c.Name | Write-Host
+        if (-not $c.Ok) { $failed++ }
+    }
     "self-test: $($checks.Count - $failed)/$($checks.Count) passed"
     return [int]($failed -gt 0)
 }
@@ -346,24 +810,42 @@ function Invoke-ChooserSelfTest {
 if ($MyInvocation.InvocationName -eq '.') { return }
 if ($SelfTest) { $code = Invoke-ChooserSelfTest; $code[0..($code.Count - 2)]; exit $code[-1] }
 if (-not $Role) { throw 'Give -Role implementer or -Role reviewer (or -SelfTest).' }
+if ($Role -ne 'implementer' -and $Role -ne 'reviewer') { throw "-Role must be implementer or reviewer; got '$Role'." }
 
-$quota = Get-QuotaSnapshot -File $QuotaFile
-$result = Get-ModelRanking -Role $Role -Tier $Tier -ExcludeModel $ExcludeModel -ExcludeFamily $ExcludeFamily -Quota $quota -Catalog (Get-ChooserCatalog) -Strength (Get-ModelStrength)
+$tierForRecommend = if ($Role -eq 'implementer') { 'heavy' } else { 'light' }
+
+try {
+    $recommend = Get-Recommendation -RecommendFile $RecommendFile -RecommendUrl $RecommendUrl -RetryWaitSec $RecommendRetryWaitSec -PollSec $RecommendPollSec -Tier $tierForRecommend
+} catch {
+    $msg = $_.Exception.Message
+    if ($msg -eq 'tracker_loading') {
+        [Console]::Error.WriteLine("quota-tracker returned `note: statistics are loading` and an empty ranking for $RecommendWaitSec seconds. The script exits 3; the main session retries once the tracker has caught up.")
+        exit 3
+    }
+    if ($msg -eq 'tracker_silent') {
+        [Console]::Error.WriteLine("quota-tracker is not answering $RecommendUrl. Restart the WSL service: systemctl --user restart quota-tracker. The script exits 3; the main session retries once the tracker is back.")
+        exit 3
+    }
+    throw
+}
+
+$result = Resolve-Chosen -Role $Role -Tier $Tier -ExcludeModel $ExcludeModel -ExcludeFamily $ExcludeFamily -SubstituteFamilies $SubstituteFamilies -Recommend $recommend
+
 if ($Pick) {
-    if (-not $result.Ranked) { [Console]::Error.WriteLine('No candidate is available.'); exit 3 }
-    $result.Ranked[0].Name
+    if (-not $result.Chosen) {
+        [Console]::Error.WriteLine("Choose-Model.ps1: no candidate for $Role with the given exclusions.")
+        exit 3
+    }
+    $lines = Format-PickLine $result.Chosen
+    $lines | ForEach-Object { Write-Output $_ }
     exit 0
 }
-"role $($result.Role), tier $($result.Tier)$(if ($ExcludeModel) { "; implemented by $ExcludeModel, excluded: $($result.Excluded -join ', ')" })"
-if ($result.FamilyExcluded) { "families excluded: $($result.FamilyExcluded -join ', ')" }
-if ($null -eq $quota) { 'quota-tracker did not answer: ranked by strength alone (CLAUDE.md rule 17).' }
-if ($Tier -eq 'very-complex') { 'very complex: build-process.md §3.4 sends this tier to a cold Claude Opus reviewer; the ranking is for the OpenCode reviews beside it.' }
-$i = 0
-foreach ($r in $result.Ranked) {
-    $i++
-    '{0,2}. {1,-19} {2,-41} {3,-9} {4,-6} score {5,6}  {6}' -f $i, $r.Name, $r.Model, $(if ($r.Variant) { $r.Variant } else { '-' }), $r.Strength, $(if ($null -ne $r.Score) { $r.Score } else { '?' }), $r.Reasons
+
+Show-ChooserReport $result
+# The chosen row is the last word: Show-ChooserReport leaves the alias picker-only, but a
+# human reader wants the chosen row at the bottom. Add it inline so the report ends with
+# the chosen model.
+if ($result.Chosen) {
+    "---"
+    Show-ChosenModel $result.Chosen
 }
-if (-not $result.Ranked) { 'no candidate is available.' }
-foreach ($r in $result.Unavailable) { "unavailable: $($r.Name) ($($r.Reasons))" }
-foreach ($r in $result.Unranked) { "not ranked: $($r.Name) (strength $($r.Strength))" }
-if ($result.Claude) { "Claude (the fallback): $($result.Claude.status), $($result.Claude.headroom_pct)% headroom$(if ($result.Claude.status -eq 'exhausted') { ", back $(Format-Clock $result.Claude.available_at)" })" }
