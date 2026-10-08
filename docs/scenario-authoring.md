@@ -488,7 +488,7 @@ The `armyManagement` object (`ArmyManagementRules`): join/split caps and what a 
 |-------|------|--------------|---------|
 | `maxUnitsPerArmy` | integer | units | A join that would exceed this is refused. |
 | `maxTroopsPerArmy` | integer | troops | A join that would exceed this is refused. |
-| `maxArmies` | integer | count | A split (or mobilization) that would exceed this many armies in the nation's army table is refused. |
+| `maxArmies` | integer | count | A split (or mobilization) that would exceed this many armies in the game's army table, every nation's armies counted together, is refused. |
 | `splitMinUnits` | integer | units | An army with fewer than this many units cannot be split. |
 | `newArmyMorale` | integer | 0–100 | Strategic morale a newly split (or mobilized) army starts with. |
 | `newArmyMovesHumanSeat` | integer | moves | Starting moves for a new army split from a human-controlled nation. |
