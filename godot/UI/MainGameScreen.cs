@@ -427,9 +427,14 @@ public partial class MainGameScreen : Control
         // Game: the one command, the same handler the old top-bar button called.
         CommandTable.Bind("game.end_turn", OnEndTurnPressed);
 
-        // Strategy: News and International relations are the two whose screens already exist.
+        // Strategy: News and International relations are the two whose screens already exist; the
+        // other four (Taxation, Balance sheet, Recruit unit, Build fleet) open T109's dialogs.
         CommandTable.Bind("strategy.news", () => _newsLog.Toggle());
         CommandTable.Bind("strategy.relations", OpenDiplomacyScreen);
+        CommandTable.Bind("strategy.taxation", OpenTaxationDialog);
+        CommandTable.Bind("strategy.balance_sheet", OpenBalanceSheetDialog);
+        CommandTable.Bind("strategy.recruit_unit", OpenRecruitUnitDialog);
+        CommandTable.Bind("strategy.build_fleet", OpenBuildFleetDialog);
 
         // Unit map: Cancel selection is T99's own handler (Shift+X already reaches it too).
         CommandTable.Bind("unit_map.cancel_selection", () => _mapView.ClearSelection());
@@ -1098,6 +1103,70 @@ public partial class MainGameScreen : Control
         {
             Session = Session,
             ArmyId = army.Id,
+            Submit = SubmitFromDialog,
+        };
+        dialog.Closed += () => CloseOverlay(dialog);
+        ShowOverlay(dialog);
+    }
+
+    /// <summary>
+    /// T109: the Strategy menu's Taxation entry — opens the <see cref="TaxationDialog"/> overlay.
+    /// The dialog is the original's <c>TChangeTax</c>; its OK writes the rate through
+    /// <c>set-tax</c>, the same path every other dialog's command takes.
+    /// </summary>
+    private void OpenTaxationDialog()
+    {
+        var dialog = new TaxationDialog
+        {
+            Session = Session,
+            Submit = SubmitFromDialog,
+        };
+        dialog.Closed += () => CloseOverlay(dialog);
+        ShowOverlay(dialog);
+    }
+
+    /// <summary>
+    /// T109: the Strategy menu's Balance sheet entry — opens the <see cref="BalanceSheetDialog"/>
+    /// overlay. Read-only, OK only; the dialog renders <see cref="IC2.Engine.Economy.BalanceSheet.For"/>'s
+    /// own figures with the original's row captions.
+    /// </summary>
+    private void OpenBalanceSheetDialog()
+    {
+        var dialog = new BalanceSheetDialog
+        {
+            Session = Session,
+        };
+        dialog.Closed += () => CloseOverlay(dialog);
+        ShowOverlay(dialog);
+    }
+
+    /// <summary>
+    /// T109: the Strategy menu's Recruit unit entry — opens the <see cref="RecruitUnitDialog"/>
+    /// overlay. The dialog is the original's <c>TArmyRecruits</c> with Mobilize moved in by the
+    /// user's 2026-10-01 decision. Cities, type, troops, the three action buttons and the
+    /// disband confirmation all live in the dialog itself.
+    /// </summary>
+    private void OpenRecruitUnitDialog()
+    {
+        var dialog = new RecruitUnitDialog
+        {
+            Session = Session,
+            Submit = SubmitFromDialog,
+        };
+        dialog.Closed += () => CloseOverlay(dialog);
+        ShowOverlay(dialog);
+    }
+
+    /// <summary>
+    /// T109: the Strategy menu's Build fleet entry — opens the <see cref="BuildFleetDialog"/>
+    /// overlay. The dialog is the original's <c>TBuildFleet</c>; the clone closes on OK
+    /// (one order per OK, the user's 2026-10-02 decision) where the original stays open.
+    /// </summary>
+    private void OpenBuildFleetDialog()
+    {
+        var dialog = new BuildFleetDialog
+        {
+            Session = Session,
             Submit = SubmitFromDialog,
         };
         dialog.Closed += () => CloseOverlay(dialog);
