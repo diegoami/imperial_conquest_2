@@ -92,6 +92,10 @@ public partial class RecruitUnitDialog : Control
     /// <summary>The troop box's value, exposed for the headless check.</summary>
     public int TroopsForCheck => (int)_troops.Value;
 
+    /// <summary>The troop box's arrow step, as the real <see cref="SpinBox"/> carries it — for the
+    /// headless check, which asserts the shipped box really steps by the bounds' own step.</summary>
+    public double TroopStepForCheck => _troops.Step;
+
     /// <summary>The session's own reply line for the last command submitted from this dialog.</summary>
     public string ReplyForCheck => _replyLabel.Text;
 
@@ -376,6 +380,19 @@ public partial class RecruitUnitDialog : Control
         if (@event is InputEventKey { Pressed: true, Keycode: Key.Escape })
         {
             Cancel();
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+
+        // Page Up / Page Down move the troop box by the selected type's page step (1,000, fix #519),
+        // the same nudge the Taxation slider's page keys apply to its own step. The SpinBox's Page
+        // property is not used because Godot snaps a Range's value to multiples of its Page, which
+        // would break the bounds' own arithmetic; the handler clamps to the type's bounds instead.
+        if (@event is InputEventKey { Pressed: true, Keycode: Key.Pageup or Key.Pagedown } key)
+        {
+            var bounds = _model.TroopBoundsFor(_selectedUnitTypeId);
+            var delta = key.Keycode == Key.Pageup ? bounds.PageStep : -bounds.PageStep;
+            _troops.Value = Math.Clamp((int)_troops.Value + delta, bounds.Minimum, bounds.Maximum);
             GetViewport().SetInputAsHandled();
         }
     }

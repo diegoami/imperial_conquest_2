@@ -62,6 +62,13 @@ public partial class StrategyDialogsCheck : Control
 
     private int _commandsBeforeSession = 0;
 
+    // The Mobilize conservation record: the ready regiment's troops, where the engine's own pick
+    // says they will land, and what that army carried before the action.
+    private int _mobExpectedTroops;
+    private string? _mobReceivingArmyId;
+    private string _mobNewArmyId = string.Empty;
+    private int _mobTroopsBefore;
+
     public override void _Ready()
     {
         Size = GetViewport().GetVisibleRect().Size;
@@ -137,6 +144,7 @@ public partial class StrategyDialogsCheck : Control
             (BetweenStepsFrames, OpenRecruitUnitFromMenu),
             (BetweenStepsFrames, AssertRecruitUnitOpened),
             (BetweenStepsFrames, AssertRecruitUnitInitialState),
+            (BetweenStepsFrames, AssertTroopBoxPageKeys),
             (BetweenStepsFrames, SwitchUnitTypeUpdatesBounds),
             (BetweenStepsFrames, SubmitRecruitUnit),
             (BetweenStepsFrames, AssertRecruitUnitAddedSlot),
@@ -205,13 +213,37 @@ public partial class StrategyDialogsCheck : Control
     private void AssertTaxationPageKeyFive()
     {
         var dialog = (TaxationDialog)_mainGame.ActiveOverlay!;
-        var startRate = dialog.ModelForCheck.CurrentRate;
-        dialog.SetRateForCheck(startRate + 100);
-        Check(dialog.SliderValueForCheck == 40, $"the slider clamps at 40 from above (got {dialog.SliderValueForCheck})");
-        dialog.SetRateForCheck(startRate - 100);
-        Check(dialog.SliderValueForCheck == 0, $"the slider clamps at 0 from below (got {dialog.SliderValueForCheck})");
+        Check(
+            dialog.SliderStepForCheck == StrategyDialogModels.TaxArrowStep,
+            $"the Taxation slider's step is {StrategyDialogModels.TaxArrowStep} (got {dialog.SliderStepForCheck})");
+
+        // Real page-key events through the dialog's own _UnhandledInput, the same handler a live
+        // keypress reaches. Both boundaries and a mid-range pair, per Done-when 3.
         dialog.SetRateForCheck(39);
-        Check(dialog.SliderValueForCheck == 39, "the slider accepts 39");
+        PressKey(dialog, Key.Pageup);
+        Check(dialog.SliderValueForCheck == 40, $"a Page Up from 39 gives 40 (got {dialog.SliderValueForCheck})");
+
+        dialog.SetRateForCheck(0);
+        PressKey(dialog, Key.Pagedown);
+        Check(dialog.SliderValueForCheck == 0, $"a Page Down from 0 clamps at 0 (got {dialog.SliderValueForCheck})");
+
+        dialog.SetRateForCheck(20);
+        PressKey(dialog, Key.Pageup);
+        Check(dialog.SliderValueForCheck == 25, $"a Page Up from 20 gives 25 (got {dialog.SliderValueForCheck})");
+        PressKey(dialog, Key.Pagedown);
+        Check(dialog.SliderValueForCheck == 20, $"a Page Down from 25 gives 20 (got {dialog.SliderValueForCheck})");
+
+        dialog.SetRateForCheck(dialog.ModelForCheck.CurrentRate);
+    }
+
+    /// <summary>
+    /// Sends one real pressed <see cref="InputEventKey"/> through <paramref name="target"/>'s own
+    /// <c>_UnhandledInput</c> — the same entry point the viewport's input propagation ends at when a
+    /// player presses the key, so the check exercises the real handler, not a value write.
+    /// </summary>
+    private static void PressKey(Control target, Key key)
+    {
+        target._UnhandledInput(new InputEventKey { Keycode = key, Pressed = true });
     }
 
     private void SubmitTaxationFromMenu()
@@ -286,6 +318,45 @@ public partial class StrategyDialogsCheck : Control
         Check(!string.IsNullOrEmpty(dialog.SelectedUnitTypeForCheck), "a unit type is selected by default");
         var bounds = dialog.ModelForCheck.TroopBoundsFor(dialog.SelectedUnitTypeForCheck);
         Check(dialog.TroopsForCheck == bounds.DefaultValue, $"the troop box opens at the type's default ({dialog.TroopsForCheck} vs {bounds.DefaultValue})");
+    }
+
+    /// <summary>
+    /// Done-when 3's troop-box half of the page-key rule: the SpinBox's arrow step is the bounds' own
+    /// (100), and real Page Up / Page Down events through the dialog's own handler move the value by
+    /// the page step (1,000), clamped at both bounds.
+    /// </summary>
+    private void AssertTroopBoxPageKeys()
+    {
+        var dialog = (RecruitUnitDialog)_mainGame.ActiveOverlay!;
+        var bounds = dialog.ModelForCheck.TroopBoundsFor(dialog.SelectedUnitTypeForCheck);
+        Check(
+            dialog.TroopStepForCheck == bounds.Step,
+            $"the troop box's arrow step is {bounds.Step} (got {dialog.TroopStepForCheck})");
+
+        dialog.SetTroopsForCheck(bounds.Minimum);
+        PressKey(dialog, Key.Pageup);
+        Check(
+            dialog.TroopsForCheck == Math.Min(bounds.Minimum + bounds.PageStep, bounds.Maximum),
+            $"a Page Up from the minimum {bounds.Minimum} moves by the page step {bounds.PageStep} (got {dialog.TroopsForCheck})");
+
+        dialog.SetTroopsForCheck(bounds.Maximum);
+        PressKey(dialog, Key.Pageup);
+        Check(
+            dialog.TroopsForCheck == bounds.Maximum,
+            $"a Page Up at the maximum clamps at {bounds.Maximum} (got {dialog.TroopsForCheck})");
+
+        PressKey(dialog, Key.Pagedown);
+        Check(
+            dialog.TroopsForCheck == Math.Max(bounds.Maximum - bounds.PageStep, bounds.Minimum),
+            $"a Page Down from the maximum moves down by the page step (got {dialog.TroopsForCheck})");
+
+        dialog.SetTroopsForCheck(bounds.Minimum);
+        PressKey(dialog, Key.Pagedown);
+        Check(
+            dialog.TroopsForCheck == bounds.Minimum,
+            $"a Page Down at the minimum clamps at {bounds.Minimum} (got {dialog.TroopsForCheck})");
+
+        dialog.SetTroopsForCheck(bounds.DefaultValue);
     }
 
     private void SwitchUnitTypeUpdatesBounds()
@@ -368,6 +439,18 @@ public partial class StrategyDialogsCheck : Control
         }
 
         Check(readyIndex >= 0, "the new regiment is ready after 8 weeks");
+
+        // Record where the engine says the regiment will appear and what that army carries now, so
+        // the step after the action can prove the troops moved, not just that the slot disappeared.
+        var readyRow = rows[readyIndex];
+        _mobExpectedTroops = readyRow.Troops;
+        _mobNewArmyId = RecruitUnitDialogModel.NextArmyId(_session.State);
+        var target = dialog.ModelForCheck.MobilizationTargetFor(readyRow.SlotIndex, _mobNewArmyId);
+        _mobReceivingArmyId = target.ReceivingArmyId;
+        _mobTroopsBefore = _mobReceivingArmyId is null
+            ? 0
+            : _session.State.ArmyById(_mobReceivingArmyId)!.TotalTroops;
+
         dialog.SelectTrainingRowForCheck(readyIndex);
         var slotsBefore = _session.State.NationById(RomeId)!.RecruitmentSlots.Count;
         dialog.MobilizeForCheck();
@@ -377,13 +460,27 @@ public partial class StrategyDialogsCheck : Control
 
     private void AssertMobilizeMovedTroops()
     {
-        // After mobilization, the regiment's troops are now in an army: any active army at or near
-        // Rome carries them. The recruitment slot is gone. The original slot's troop count equals
-        // the sum of army unit-troop counts of the receiving army minus what it had before.
-        var armies = _session.State.Armies
-            .Where(a => string.Equals(a.Nation, RomeId, StringComparison.Ordinal))
-            .ToList();
-        Check(armies.Count > 0, "Rome owns at least one army after mobilization");
+        // Conservation: the regiment's troops left the slot and now sit in the army the engine's own
+        // MobilizationReceivingArmy pick named (or in the army it created beside the city). Slot
+        // removal alone would not prove the troops arrived.
+        if (_mobReceivingArmyId is { } armyId)
+        {
+            var army = _session.State.ArmyById(armyId);
+            Check(army is not null, $"the receiving army '{armyId}' still exists after mobilization");
+            Check(
+                army!.TotalTroops == _mobTroopsBefore + _mobExpectedTroops,
+                $"the receiving army '{armyId}' gained the regiment's {_mobExpectedTroops} troops "
+                + $"({_mobTroopsBefore} -> {army.TotalTroops})");
+        }
+        else
+        {
+            var army = _session.State.ArmyById(_mobNewArmyId);
+            Check(army is not null, $"mobilization created the new army '{_mobNewArmyId}' beside the city");
+            Check(
+                army?.TotalTroops == _mobExpectedTroops,
+                $"the new army '{_mobNewArmyId}' carries the regiment's {_mobExpectedTroops} troops "
+                + $"(got {army?.TotalTroops})");
+        }
     }
 
     // ---- Disband ----

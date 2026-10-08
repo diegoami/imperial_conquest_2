@@ -62,6 +62,10 @@ public partial class TaxationDialog : Control
     /// <summary>The slider's current value, exactly as the rendered widgets see it — for the headless check.</summary>
     public int SliderValueForCheck => (int)_slider.Value;
 
+    /// <summary>The slider's per-arrow step, as the real <see cref="Godot.Range"/> carries it — for the
+    /// headless check, which asserts the shipped slider really steps by 1.</summary>
+    public double SliderStepForCheck => _slider.Step;
+
     /// <summary>The session's own reply line for the last command submitted from this dialog.</summary>
     public string ReplyForCheck => _replyLabel.Text;
 

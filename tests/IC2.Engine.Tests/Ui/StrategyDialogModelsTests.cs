@@ -188,6 +188,39 @@ public sealed class StrategyDialogModelsTests
     }
 
     /// <summary>
+    /// Done-when 1, the third refusal — <em>"You cannot build a fleet at this time."</em> — on a
+    /// scripted state whose fleet table holds the original's full 99 entries
+    /// (<see cref="StrategyDialogModels.FleetTableCapacity"/>,
+    /// <c>docs/investigations/original-ui-command-audit.md</c> §1.3: "the fleet table is full at 99").
+    /// The nation still owns a free coastal city, so the first two refusals do not fire; only the
+    /// catch-all can answer.
+    /// </summary>
+    [Fact]
+    public void Build_fleet_refuses_with_the_catch_all_when_the_fleet_table_is_full()
+    {
+        var session = RomeSession();
+        var fleets = new List<FleetState>();
+        for (var i = 0; i < StrategyDialogModels.FleetTableCapacity; i++)
+        {
+            fleets.Add(new FleetState(
+                Id: $"t109-full-{i}", Nation: RomeId, X: 0, Y: 0, Moves: 0, Ships: 10, ConditionPercent: 100,
+                Money: 0, SupplyTons: 0, ConstructionTicksRemaining: null, BuildCityId: null,
+                CarriedArmyId: null, CoveredTileCode: null));
+        }
+
+        var state = session.State with
+        {
+            Fleets = ValueList.From(fleets),
+        };
+        var model = BuildFleetDialogModel.ForActiveNation(state, session.Ruleset, session.World);
+
+        Assert.NotEmpty(model.CoastalCities);
+        Assert.NotEmpty(model.FreeCoastalCities);
+        Assert.Equal(StrategyDialogModels.FleetTableCapacity, state.Fleets.Count);
+        Assert.Equal(StrategyDialogModels.CannotBuildFleetRefusal, model.PreOpenRefusalMessage);
+    }
+
+    /// <summary>
     /// Done-when 1, the "Only nations with coastal cities can build fleets" refusal for Dacia on the
     /// shipped <c>classical-mediterranean</c> start — the same refusal the report lists
     /// (<c>2026-10-02-start-as-each-nation.md</c>, table 1, row 10).

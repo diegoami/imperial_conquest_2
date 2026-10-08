@@ -108,18 +108,6 @@ public partial class ContextPanelWidthCheck : Control
             buttons.Count == 0,
             $"the panel renders no order button (found {buttons.Count}: {string.Join(", ", buttons.Select(b => b.Text))})");
 
-        // T109 Done-when 5: the city panel's Recruit section and the army panel's "Mobilize first
-        // ready slot" both moved to the Strategy menu's dialogs. The panel may carry other Labels
-        // (the city's "In training here" list, the army's "In training here" caption, etc.) but no
-        // Button reads "Recruit" or "Mobilize first ready slot".
-        var recButtons = buttons
-            .Where(button => button.Text.Contains("Recruit", StringComparison.Ordinal)
-                || button.Text.Contains("Mobilize first ready slot", StringComparison.Ordinal))
-            .ToList();
-        ok &= Check(
-            recButtons.Count == 0,
-            $"the panel renders no Recruit / Mobilize-first-ready-slot button (found {recButtons.Count}: {string.Join(", ", recButtons.Select(b => b.Text))})");
-
         return ok;
     }
 

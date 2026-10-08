@@ -106,12 +106,21 @@ public static class StrategyDialogModels
 
     /// <summary>
     /// The <em>You cannot build a fleet at this time.</em> refusal — the original's <c>TBuildFleet</c>
-    /// message for the catch-all that follows the first two
-    /// <strong>[derived: code, <c>TPremierForm_BuildNewFleet</c>; literal text: form]</strong>. The
-    /// dialog never composes this; the engine returns it for an order the dialog did not gate, and the
-    /// dialog shows whatever the engine says. The literal is here so a unit test can pin it.
+    /// catch-all, which fires when the fleet table is full
+    /// <strong>[derived: code, <c>TPremierForm_BuildNewFleet</c>; table capacity: form, see
+    /// <c>docs/investigations/original-ui-command-audit.md</c> §1.3, "the fleet table is full at
+    /// 99"]</strong>. The engine has no fleet-count cap of its own, so the dialog applies the original's
+    /// table capacity (<see cref="FleetTableCapacity"/>) as its pre-open gate, after the two specific
+    /// refusals.
     /// </summary>
     public const string CannotBuildFleetRefusal = "You cannot build a fleet at this time.";
+
+    /// <summary>
+    /// The original's fleet-table capacity: <c>TBuildFleet</c> refuses with the catch-all once the
+    /// table holds 99 fleets
+    /// <strong>[derived: code, form — <c>docs/investigations/original-ui-command-audit.md</c> §1.3]</strong>.
+    /// </summary>
+    public const int FleetTableCapacity = 99;
 
     /// <summary>
     /// The "Yes" button's caption on the Disband confirmation prompt — the original's
@@ -310,6 +319,11 @@ public sealed class BuildFleetDialogModel
             if (FreeCoastalCities.Count == 0)
             {
                 return StrategyDialogModels.NoFreeCoastalCityRefusal;
+            }
+
+            if (_state.Fleets.Count >= StrategyDialogModels.FleetTableCapacity)
+            {
+                return StrategyDialogModels.CannotBuildFleetRefusal;
             }
 
             return null;
