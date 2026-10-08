@@ -295,7 +295,7 @@ In the same turn as the merge, the main session:
 2. **Files the follow-up** ([§4.6](#46-bugs-and-follow-ups)), if the review had non-blocking findings, and proposes where each item folds.
 3. **Makes any Owns widening durable.** A widening recorded by an issue comment ([§4.2](#42-what-the-reviewer-checks) gate 4) is added to the task's entry, `docs/tasks/T<nn>.md`, in this step's `Docs:` commit, so a later disjointness check ([§8](#8-two-machines)) reads the entry, not a comment.
    **Records the PR's "Docs affected" list**, and applies only what would otherwise leave a document **factually wrong**: a formula the code now implements differently, an `[open]` item the merge closed, a mis-attributed citation. Those go straight to `main` in a small `Docs:` commit, because a wrong provenance claim is what the review gates exist to catch. **Everything else waits for the release docs pass** ([release-plan.md §5](release-plan.md#5-release-checklist)): re-wording, counts, narrative and anything about where the build stands. The living pages are in the [wiki](https://github.com/diegoami/imperial_conquest_2/wiki), where they carry no contractual force (incident 10).
-4. **Cleans up** the agents' worktrees for the task.
+4. **Leaves the agents' worktrees in place.** A worktree holds a run's diagnostics and any work it did not push, so nothing removes one at a merge or after a failure (the user's decision of 2026-10-08). They are removed on a schedule instead, by the main session, once they are safe to remove (merged or closed, nothing unpushed, nothing uncommitted).
 5. **Reports to the user**: the merge commit, what the review found, the follow-ups filed, and what is ready next.
 
 ### 4.8 The playability gate, until v0.5.0
@@ -781,8 +781,8 @@ resolves directly before "#<n>" in it: GitHub closes whatever it names, so write
   any gate fails      → gh issue edit <issue> --add-label status:rework --remove-label status:in-review
 Do NOT use `gh pr review`: every agent shares one GitHub account, and GitHub won't let an
 account review its own PR, so the label is the approval signal.
-Don't merge and don't fix the code yourself. When you finish, remove your worktree
-(`git -C C:\Users\diego\projects\imperial_conquest_2 worktree remove <path> --force`).
+Don't merge and don't fix the code yourself. When you finish, leave your worktree in place: the main
+session removes worktrees on a schedule, once they are safe to remove (§4.7).
 
 <task entry: the contents of docs/tasks/T<nn>.md, pasted in full —
  this is the contract, and the reason you should not need to open that file>
@@ -1032,7 +1032,8 @@ the docs item applies only if the review named a claim.
    - Follow-up: if the review had non-blocking findings, file one "T<nn> follow-up" issue
      (triage:needed, linking the reviews) and propose where each item folds.
    - Docs: apply the PR's "Docs affected" claims on main ("Docs: after T<nn>"). Write no status.
-   - Remove the task's worktrees under C:\Users\diego\projects\ic2-work\.
+   - Leave the task's worktrees under C:\Users\diego\projects\ic2-work\ in place: they are removed on
+     a schedule, once safe (§4.7 step 4).
    - Report: the merge commit, the review's findings, the follow-ups, and what's ready next.
 5. ESCALATE or BUG.
    - Escalate (build-process.md §4.5): label status:escalated, comment the evidence on the

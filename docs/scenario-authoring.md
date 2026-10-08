@@ -488,7 +488,7 @@ The `armyManagement` object (`ArmyManagementRules`): join/split caps and what a 
 |-------|------|--------------|---------|
 | `maxUnitsPerArmy` | integer | units | A join that would exceed this is refused. |
 | `maxTroopsPerArmy` | integer | troops | A join that would exceed this is refused. |
-| `maxArmies` | integer | count | A split (or mobilization) that would exceed this many armies in the nation's army table is refused. |
+| `maxArmies` | integer | count | A split (or mobilization) that would exceed this many armies in the game, every nation's armies counted together, is refused. In the original that global count is seen for Split army only **[confirmed, partial: Split army only, Mobilize and recruitment not run; Wine candidate: [`2026-10-08-split-army-198-armies-cap-in-play.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-08-split-army-198-armies-cap-in-play.md), research `11157ca`]**. |
 | `splitMinUnits` | integer | units | An army with fewer than this many units cannot be split. |
 | `newArmyMorale` | integer | 0–100 | Strategic morale a newly split (or mobilized) army starts with. |
 | `newArmyMovesHumanSeat` | integer | moves | Starting moves for a new army split from a human-controlled nation. |
