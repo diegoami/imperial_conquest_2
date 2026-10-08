@@ -293,6 +293,9 @@ public sealed class BuildFleetDialogModel
     /// <summary>The nation whose fleet the dialog orders — the active seat, never a foreign nation.</summary>
     public NationState Nation { get; }
 
+    /// <summary>The 10s spinner's step, and Page Up / Page Down's (row S06: 1s and 10s spinners).</summary>
+    public const int ShipPageStep = 10;
+
     /// <summary>The minimum ship count — the ruleset's <see cref="NavalRules.OrderMinShips"/>.</summary>
     public int MinShips => _ruleset.Naval.OrderMinShips;
 

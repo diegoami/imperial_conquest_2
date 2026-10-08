@@ -199,8 +199,35 @@ public sealed class StrategyDialogModelsTests
     public void Build_fleet_refuses_with_the_catch_all_when_the_fleet_table_is_full()
     {
         var session = RomeSession();
+        var state = session.State with { Fleets = ValueList.From(FullTableFleets(StrategyDialogModels.FleetTableCapacity)) };
+        var model = BuildFleetDialogModel.ForActiveNation(state, session.Ruleset, session.World);
+
+        Assert.NotEmpty(model.CoastalCities);
+        Assert.NotEmpty(model.FreeCoastalCities);
+        Assert.Equal(StrategyDialogModels.FleetTableCapacity, state.Fleets.Count);
+        Assert.Equal(StrategyDialogModels.CannotBuildFleetRefusal, model.PreOpenRefusalMessage);
+    }
+
+    /// <summary>
+    /// The cap's other side (Sol's re-check of PR 883, R3): one entry short of the full table, 98
+    /// fleets, an otherwise eligible nation may still order a fleet, so the refusal starts exactly at 99.
+    /// </summary>
+    [Fact]
+    public void Build_fleet_allows_an_order_one_entry_short_of_the_full_fleet_table()
+    {
+        var session = RomeSession();
+        var state = session.State with { Fleets = ValueList.From(FullTableFleets(StrategyDialogModels.FleetTableCapacity - 1)) };
+        var model = BuildFleetDialogModel.ForActiveNation(state, session.Ruleset, session.World);
+
+        Assert.Equal(98, state.Fleets.Count);
+        Assert.NotEmpty(model.FreeCoastalCities);
+        Assert.Null(model.PreOpenRefusalMessage);
+    }
+
+    private static List<FleetState> FullTableFleets(int count)
+    {
         var fleets = new List<FleetState>();
-        for (var i = 0; i < StrategyDialogModels.FleetTableCapacity; i++)
+        for (var i = 0; i < count; i++)
         {
             fleets.Add(new FleetState(
                 Id: $"t109-full-{i}", Nation: RomeId, X: 0, Y: 0, Moves: 0, Ships: 10, ConditionPercent: 100,
@@ -208,16 +235,7 @@ public sealed class StrategyDialogModelsTests
                 CarriedArmyId: null, CoveredTileCode: null));
         }
 
-        var state = session.State with
-        {
-            Fleets = ValueList.From(fleets),
-        };
-        var model = BuildFleetDialogModel.ForActiveNation(state, session.Ruleset, session.World);
-
-        Assert.NotEmpty(model.CoastalCities);
-        Assert.NotEmpty(model.FreeCoastalCities);
-        Assert.Equal(StrategyDialogModels.FleetTableCapacity, state.Fleets.Count);
-        Assert.Equal(StrategyDialogModels.CannotBuildFleetRefusal, model.PreOpenRefusalMessage);
+        return fleets;
     }
 
     /// <summary>

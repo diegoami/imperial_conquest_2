@@ -381,9 +381,14 @@ public partial class RecruitUnitDialog : Control
         {
             Cancel();
             GetViewport().SetInputAsHandled();
-            return;
         }
+    }
 
+    // Page Up / Page Down are taken in _Input, before the GUI: a focused control (the SpinBox's text
+    // field, the slider) would otherwise consume them and the handler would never run (Sol's
+    // re-check of PR 883, R1).
+    public override void _Input(InputEvent @event)
+    {
         // Page Up / Page Down move the troop box by the selected type's page step (1,000, fix #519),
         // the same nudge the Taxation slider's page keys apply to its own step. The SpinBox's Page
         // property is not used because Godot snaps a Range's value to multiples of its Page, which

@@ -114,7 +114,7 @@ public partial class TaxationDialog : Control
         // The slider: 1 per arrow (Godot's Step) and 5 per Page (handled by the key handler below,
         // not by the Range's Page — that snaps value to its multiples, which would break the brief's
         // "39 + 5 page = 40" rule). Min/max are the ruleset's inclusive bounds.
-        _slider = new Godot.Range
+        _slider = new HSlider
         {
             MinValue = _model.MinimumRate,
             MaxValue = _model.MaximumRate,
@@ -198,9 +198,14 @@ public partial class TaxationDialog : Control
         {
             Cancel();
             GetViewport().SetInputAsHandled();
-            return;
         }
+    }
 
+    // Page Up / Page Down are taken in _Input, before the GUI: a focused control (the SpinBox's text
+    // field, the slider) would otherwise consume them and the handler would never run (Sol's
+    // re-check of PR 883, R1).
+    public override void _Input(InputEvent @event)
+    {
         // Page Up / Page Down: the original's page size is 5 (Wine candidate). We don't set the
         // Range's Page property because Godot would snap the value to its multiples — 39 + 5 = 44
         // would clamp to 40, but 38 + 5 = 43 would clamp to 40 too, contradicting the brief's "39

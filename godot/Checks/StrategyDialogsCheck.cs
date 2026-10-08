@@ -165,6 +165,7 @@ public partial class StrategyDialogsCheck : Control
             // Build fleet
             (BetweenStepsFrames, OpenBuildFleetFromMenu),
             (BetweenStepsFrames, AssertBuildFleetOpened),
+            (BetweenStepsFrames, AssertShipTensSpinner),
             (BetweenStepsFrames, SubmitBuildFleet),
             (BetweenStepsFrames, AssertBuildFleetAddedUnderConstruction),
             (BetweenStepsFrames, OpenBuildFleetFromToolbar),
@@ -217,8 +218,6 @@ public partial class StrategyDialogsCheck : Control
             dialog.SliderStepForCheck == StrategyDialogModels.TaxArrowStep,
             $"the Taxation slider's step is {StrategyDialogModels.TaxArrowStep} (got {dialog.SliderStepForCheck})");
 
-        // Real page-key events through the dialog's own _UnhandledInput, the same handler a live
-        // keypress reaches. Both boundaries and a mid-range pair, per Done-when 3.
         dialog.SetRateForCheck(39);
         PressKey(dialog, Key.Pageup);
         Check(dialog.SliderValueForCheck == 40, $"a Page Up from 39 gives 40 (got {dialog.SliderValueForCheck})");
@@ -237,13 +236,41 @@ public partial class StrategyDialogsCheck : Control
     }
 
     /// <summary>
-    /// Sends one real pressed <see cref="InputEventKey"/> through <paramref name="target"/>'s own
-    /// <c>_UnhandledInput</c> — the same entry point the viewport's input propagation ends at when a
-    /// player presses the key, so the check exercises the real handler, not a value write.
+    /// Sends one real key press and release through the viewport (<c>Viewport.PushInput</c>), with
+    /// the dialog's value control focused as a player's click leaves it: the event passes the GUI's
+    /// focused control first, so a control that swallowed the key would fail the check (Sol's
+    /// re-check of PR 883, R1).
     /// </summary>
-    private static void PressKey(Control target, Key key)
+    private void PressKey(Control dialog, Key key)
     {
-        target._UnhandledInput(new InputEventKey { Keycode = key, Pressed = true });
+        var focus = ValueControlUnder(dialog);
+        Check(focus is not null, $"{dialog.GetType().Name} has a value control to focus");
+        focus?.GrabFocus();
+        var viewport = GetViewport();
+        viewport.PushInput(new InputEventKey { Keycode = key, PhysicalKeycode = key, Pressed = true });
+        viewport.PushInput(new InputEventKey { Keycode = key, PhysicalKeycode = key, Pressed = false });
+    }
+
+    /// <summary>The control a player edits the value in: the slider, or the SpinBox's text field.</summary>
+    private static Control? ValueControlUnder(Node root)
+    {
+        foreach (var child in root.GetChildren())
+        {
+            switch (child)
+            {
+                case HSlider slider:
+                    return slider;
+                case SpinBox spin:
+                    return spin.GetLineEdit();
+            }
+
+            if (ValueControlUnder(child) is { } found)
+            {
+                return found;
+            }
+        }
+
+        return null;
     }
 
     private void SubmitTaxationFromMenu()
@@ -536,6 +563,36 @@ public partial class StrategyDialogsCheck : Control
     private void AssertBuildFleetOpened()
     {
         Check(_mainGame.ActiveOverlay is BuildFleetDialog, "Build fleet opens its dialog");
+    }
+
+    private void AssertShipTensSpinner()
+    {
+        var dialog = (BuildFleetDialog)_mainGame.ActiveOverlay!;
+        var min = dialog.ModelForCheck.MinShips;
+        var max = dialog.ModelForCheck.MaxShips;
+        var step = BuildFleetDialogModel.ShipPageStep;
+        var up = ButtonsUnder(dialog).FirstOrDefault(b => b.Text == $"+{step}");
+        var down = ButtonsUnder(dialog).FirstOrDefault(b => b.Text == $"-{step}");
+        Check(up is not null && down is not null, $"Build fleet has the 10s spinner's -{step} and +{step} buttons");
+
+        dialog.SetShipsForCheck(min);
+        up?.EmitSignal(BaseButton.SignalName.Pressed);
+        Check(dialog.ShipsForCheck == min + step, $"+{step} from {min} gives {min + step} (got {dialog.ShipsForCheck})");
+        down?.EmitSignal(BaseButton.SignalName.Pressed);
+        down?.EmitSignal(BaseButton.SignalName.Pressed);
+        Check(dialog.ShipsForCheck == min, $"-{step} at {min} clamps at {min} (got {dialog.ShipsForCheck})");
+
+        dialog.SetShipsForCheck(max);
+        PressKey(dialog, Key.Pageup);
+        Check(dialog.ShipsForCheck == max, $"a Page Up at {max} clamps at {max} (got {dialog.ShipsForCheck})");
+        PressKey(dialog, Key.Pagedown);
+        Check(dialog.ShipsForCheck == max - step, $"a Page Down from {max} gives {max - step} (got {dialog.ShipsForCheck})");
+
+        dialog.SetShipsForCheck(min);
+        PressKey(dialog, Key.Pagedown);
+        Check(dialog.ShipsForCheck == min, $"a Page Down at {min} clamps at {min} (got {dialog.ShipsForCheck})");
+        PressKey(dialog, Key.Pageup);
+        Check(dialog.ShipsForCheck == min + step, $"a Page Up from {min} gives {min + step} (got {dialog.ShipsForCheck})");
     }
 
     private void SubmitBuildFleet()

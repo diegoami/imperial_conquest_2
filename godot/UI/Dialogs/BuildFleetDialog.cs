@@ -1,3 +1,4 @@
+using System;
 using Godot;
 using IC2.Engine.Presentation;
 
@@ -125,7 +126,17 @@ public partial class BuildFleetDialog : Control
             CustomMinimumSize = new Vector2(140, 0),
         };
         _ships.ValueChanged += _ => Refresh();
-        column.AddChild(_ships);
+
+        // The 1s spinner is the SpinBox's own arrows; the 10s spinner is the pair of buttons beside
+        // it and the Page Up / Page Down keys (row S06), clamped to the ruleset's bounds.
+        var shipRow = new HBoxContainer();
+        shipRow.AddThemeConstantOverride("separation", 6);
+        shipRow.AddChild(_ships);
+        var downTen = UiKit.MakeButton($"-{BuildFleetDialogModel.ShipPageStep}", () => StepShips(-BuildFleetDialogModel.ShipPageStep), 14);
+        shipRow.AddChild(downTen);
+        var upTen = UiKit.MakeButton($"+{BuildFleetDialogModel.ShipPageStep}", () => StepShips(BuildFleetDialogModel.ShipPageStep), 14);
+        shipRow.AddChild(upTen);
+        column.AddChild(shipRow);
 
         _costLabel = UiKit.MakeLabel(string.Empty, 14, UiKit.TextColor);
         column.AddChild(_costLabel);
@@ -252,4 +263,19 @@ public partial class BuildFleetDialog : Control
             GetViewport().SetInputAsHandled();
         }
     }
+
+    // Page Up / Page Down are taken in _Input, before the GUI: a focused control (the SpinBox's text
+    // field, the slider) would otherwise consume them and the handler would never run (Sol's
+    // re-check of PR 883, R1).
+    public override void _Input(InputEvent @event)
+    {
+        if (@event is InputEventKey { Pressed: true, Keycode: Key.Pageup or Key.Pagedown } key)
+        {
+            StepShips(key.Keycode == Key.Pageup ? BuildFleetDialogModel.ShipPageStep : -BuildFleetDialogModel.ShipPageStep);
+            GetViewport().SetInputAsHandled();
+        }
+    }
+
+    private void StepShips(int delta) =>
+        _ships.Value = Math.Clamp((int)_ships.Value + delta, _model.MinShips, _model.MaxShips);
 }
