@@ -935,15 +935,16 @@ the docs item applies only if the review named a claim.
       `/recommend?tier=heavy` (implementers) or `tier=light` (Sol's substitutes), take its `ranking`
       in order with rule 17's exclusions, pass the choice explicitly, and log the chosen row's
       `reasons`. A provider in `skipped` is passed over as if it had exited 3, and the tier comment
-      or PR body says so. Luna stays the simple tier's reviewer while its own `gpt-5.6-luna:7d`
-      window (`curl -s localhost:8765/quota/openai`) is under 95%. If the service does not answer,
+      or PR body says so. Luna stays the simple tier's reviewer on OpenAI's main window; when
+      OpenAI is exhausted it still runs if `curl -s localhost:8765/quota/openai` lists `gpt-5.6-luna`
+      under `when_exhausted.usable_models`. If the service does not answer,
       restart it (`systemctl --user restart quota-tracker`), wait and retry; if it still fails, ask
       the user instead of guessing.
       DIAGNOSE, when SOL or LUNA exits 3: search the files the script kept and named, and the newest
       log in %USERPROFILE%\.local\share\ic2-opencode-1x\data\opencode\log\, for "The usage limit has
       been reached" (or "insufficient_quota", or Z.AI's "Usage limit reached for 5 hour"), and read
       `curl -s localhost:8765/quota/openai?refresh`. Sol's 7d window at 95% or more, or the text
-      found, means QUOTA (Sol is out); otherwise SOL-ONLY. Luna's own window decides only Luna.
+      found, means QUOTA (Sol is out); otherwise SOL-ONLY. When OpenAI is exhausted, `when_exhausted.usable_models` decides whether Luna alone still runs.
       SOL'S SUBSTITUTES, skipping any of IMPL's family, the next only on exit 3:
         SOL-ONLY (or the user asked to avoid Sol's cost) and QUOTA alike: SUB glm, then SUB
         deepseek-pro, then SUB qwen (the user's decision of 2026-10-05). The diagnosis is recorded, and decides only the simple tier's fallback.

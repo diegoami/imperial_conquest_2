@@ -83,8 +83,8 @@
     Go's proxied `opencode-go/gpt-6-luna` returned Bad Request in long runs, #553); sol is
     `openai/gpt-6-sol` on the same login; deepseek-pro is `opencode-go/deepseek-v4-pro`. An OpenAI
     run that fails with "The usage limit has been reached" means that model's OpenAI quota is out.
-    GPT-5.6 Luna draws on its own weekly window, separate from Sol's: read quota-tracker
-    (docs/environment.md) rather than probing Luna (build-process.md §3.4).
+    GPT-5.6 Luna draws on OpenAI's main quota like Sol; when OpenAI is exhausted it still runs if
+    /quota/openai lists it under when_exhausted.usable_models (docs/environment.md).
     `opencode models` shows what this machine has.
     The Alibaba Token Plan (`alibaba-token-plan/…`, the user's decision of 2026-10-05) carries the
     Qwen family, qwen (`qwen3.8-max`) and qwen-flash (`qwen3.8-flash`), and a second route for
@@ -609,6 +609,12 @@ function Invoke-ReviewParserSelfTest {
     $ruleChecks += [pscustomobject]@{ Name = 'route auto, zai and alibaba avoided: glm is Avoided on zai'; Ok = ($r.Route -eq 'zai' -and $r.Avoided) }
     $r = & $rt 'glm' 'auto' $false @()
     $ruleChecks += [pscustomobject]@{ Name = 'route auto, tracker silent: glm keeps zai'; Ok = ($r.Route -eq 'zai' -and $r.Model -eq 'zai-coding-plan/glm-5.3' -and -not $r.Avoided) }
+    $r = Resolve-OpenCodeRoute -Usual $models['luna'] -Route 'auto' -Answered $true -Avoid @('openai')
+    $ruleChecks += [pscustomobject]@{ Name = 'route auto, openai exhausted, luna not listed usable: luna is Avoided'; Ok = ($r.Avoided) }
+    $r = Resolve-OpenCodeRoute -Usual $models['luna'] -Route 'auto' -Answered $true -Avoid @('openai') -UsableWhenExhausted @('gpt-5.6-luna')
+    $ruleChecks += [pscustomobject]@{ Name = 'route auto, openai exhausted, gpt-5.6-luna in when_exhausted.usable_models: luna runs'; Ok = (-not $r.Avoided -and $r.Model -eq 'openai/gpt-5.6-luna') }
+    $r = Resolve-OpenCodeRoute -Usual $models['sol'] -Route 'auto' -Answered $true -Avoid @('openai') -UsableWhenExhausted @('gpt-5.6-luna')
+    $ruleChecks += [pscustomobject]@{ Name = 'route auto, openai exhausted, only luna usable: sol stays Avoided'; Ok = ($r.Avoided) }
     $r = & $rt 'glm-flash' 'auto' $true @('zai')
     $ruleChecks += [pscustomobject]@{ Name = 'route auto, zai avoided: glm-flash has no Alibaba id and is Avoided'; Ok = ($r.Route -eq 'zai' -and $r.Avoided) }
     $r = & $rt 'deepseek' 'alibaba' $false @()
@@ -1096,7 +1102,7 @@ $quota = Get-QuotaAvoid
 $resolved = @{}
 $routeSkips = @()
 foreach ($name in $chain) {
-    $r = Resolve-OpenCodeRoute -Usual $models[$name] -Alibaba $alibabaIds[$name] -Route $Route -Answered $quota.Answered -Avoid $quota.Providers
+    $r = Resolve-OpenCodeRoute -Usual $models[$name] -Alibaba $alibabaIds[$name] -Route $Route -Answered $quota.Answered -Avoid $quota.Providers -UsableWhenExhausted $quota.Usable
     if ($r.Refused) {
         [Console]::Error.WriteLine("Refused: $($displayNames[$name]): $($r.Why). Nothing posted.")
         exit 1

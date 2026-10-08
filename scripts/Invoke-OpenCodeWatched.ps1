@@ -731,15 +731,27 @@ function Get-QuotaAvoid {
     # quota-tracker's /avoid: the providers out of quota. Answered is $false when the service does not
     # answer, and the callers then keep each model's usual route.
     # IC2_QUOTA_AVOID, when set, stands in for the service (a test hook for -SelfTest: a comma list
-    # of provider names, or 'none'); it is never set in normal use.
+    # of provider names, or 'none'); it is never set in normal use. IC2_QUOTA_USABLE likewise stands
+    # in for /quota/openai's when_exhausted.usable_models (a comma list of model names).
+    # Usable: the models an exhausted provider still serves. Luna uses OpenAI's main quota like Sol,
+    # and only when OpenAI is exhausted does its own limit matter: /quota/openai then lists
+    # "gpt-5.6-luna" under when_exhausted.usable_models (the user's decision of 2026-10-09).
     param([string] $Url = 'http://localhost:8765/avoid', [int] $TimeoutSec = 5)
     if ($env:IC2_QUOTA_AVOID) {
-        return [pscustomobject]@{ Answered = $true; Providers = @($env:IC2_QUOTA_AVOID -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -and $_ -ne 'none' }) }
+        $usable = @(if ($env:IC2_QUOTA_USABLE) { $env:IC2_QUOTA_USABLE -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ } })
+        return [pscustomobject]@{ Answered = $true; Providers = @($env:IC2_QUOTA_AVOID -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -and $_ -ne 'none' }); Usable = $usable }
     }
     try { $r = Invoke-RestMethod -Uri $Url -TimeoutSec $TimeoutSec -ErrorAction Stop }
-    catch { return [pscustomobject]@{ Answered = $false; Providers = @() } }
+    catch { return [pscustomobject]@{ Answered = $false; Providers = @(); Usable = @() } }
     $names = @(@($r) | ForEach-Object { if ($_ -is [string]) { $_ } elseif ($_ -and $_.provider) { [string]$_.provider } } | Where-Object { $_ })
-    return [pscustomobject]@{ Answered = $true; Providers = $names }
+    $usable = @()
+    if ($names -contains 'openai') {
+        try {
+            $q = Invoke-RestMethod -Uri ($Url -replace '/avoid$', '/quota/openai') -TimeoutSec $TimeoutSec -ErrorAction Stop
+            if ($q.when_exhausted -and $q.when_exhausted.usable_models) { $usable = @($q.when_exhausted.usable_models | ForEach-Object { [string]$_ }) }
+        } catch { $usable = @() }
+    }
+    return [pscustomobject]@{ Answered = $true; Providers = $names; Usable = $usable }
 }
 
 function Resolve-OpenCodeRoute {
@@ -748,7 +760,14 @@ function Resolve-OpenCodeRoute {
     # Alibaba id when Alibaba itself is not avoided; Avoided says no route of the model has quota.
     # When the tracker did not answer (-Answered:$false) the usual route is kept. An explicit -Route
     # the model has no id for is Refused; an explicit -Route whose provider /avoid lists is Avoided.
-    param([string] $Usual, [string] $Alibaba, [string] $Route = 'auto', [bool] $Answered = $false, [string[]] $Avoid = @())
+    param([string] $Usual, [string] $Alibaba, [string] $Route = 'auto', [bool] $Answered = $false, [string[]] $Avoid = @(), [string[]] $UsableWhenExhausted = @())
+    # A model its exhausted provider still serves (when_exhausted.usable_models, e.g. gpt-5.6-luna) is
+    # not avoided: drop its provider from the avoid list for this one model.
+    $usualName = if ($Usual) { ($Usual -split '/')[-1] } else { '' }
+    if ($usualName -and @($UsableWhenExhausted) -contains $usualName) {
+        $usualProvider = $script:OpenCodeRouteQuotaProvider[(Get-OpenCodeRouteName $Usual)]
+        $Avoid = @($Avoid | Where-Object { $_ -ne $usualProvider })
+    }
     $usualRoute = Get-OpenCodeRouteName $Usual
     $out = { param($r, $m, $why, $avoided, $refused) [pscustomobject]@{ Route = $r; Model = $m; Why = $why; Avoided = [bool]$avoided; Refused = [bool]$refused } }
     if ($Route -eq 'auto') {

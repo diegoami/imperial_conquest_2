@@ -108,9 +108,11 @@ Agreed on [#264](https://github.com/diegoami/imperial_conquest_2/issues/264), wh
     exclusions and log the reasons themselves.
 
 18. **The light OpenAI model, and the reviewer `luna`, is GPT-5.6 Luna** (harness_imperial L51) on
-    the direct OpenAI route: `openai/gpt-5.6-luna`, effort `high`, on its own weekly pool. It is not
-    GPT-6 Luna (`openai/gpt-6-luna`), which draws on OpenAI's main pool with Sol and is never the
-    reviewer. Never use a Luna on OpenCode Go (`opencode-go/…`): a proxy behind it returns
+    the direct OpenAI route: `openai/gpt-5.6-luna`, effort `high`. It draws on OpenAI's main quota like
+    Sol, and is judged on that window. Only when OpenAI is exhausted does Luna's own limit matter:
+    `/quota/openai` then lists `gpt-5.6-luna` under `when_exhausted.usable_models`, and Luna alone
+    can still run (the user's decision of 2026-10-09; the scripts read that field). It is not
+    GPT-6 Luna (`openai/gpt-6-luna`), which is never the reviewer. Never use a Luna on OpenCode Go (`opencode-go/…`): a proxy behind it returns
     `Bad Request` in long agent loops.
 
 20. **Use the providers' pricing windows deliberately, not by chance** (the owner's decision of
