@@ -166,19 +166,46 @@ public sealed class MercenaryDialogModelTests
 
     /// <summary>
     /// Done-when 2, 6: the dialog's offers for an army are the live offers of the <em>first city at
-    /// distance exactly 1</em>, in slot order. With one city at distance exactly 1 from the army
-    /// holding two offers (slot 1 first, slot 2 with a <c>0xFFFF</c> hired-slot sentinel — invisible
-    /// to the model) the dialog shows the live one only, in slot order, and skips the sentinel.
+    /// distance exactly 1</em>, in slot order. The pool is fed to the model with two live offers
+    /// deliberately reversed in the pool (slot 4 first, slot 3 second) and a hired sentinel on
+    /// slot 5 in between; a model that read the pool in collection order would surface slot 4
+    /// first, which the original's "first live offer, in slot order" rule would never show.
     /// </summary>
     [Fact]
     public void Dialog_offers_are_the_chosen_citys_offers_in_slot_order_skipping_hired_sentinels()
     {
-        var (state, ruleset) = Scripted(insertSentinelAfter: true, armyX: 5, armyY: 5, cityX: 4, cityY: 5);
+        var initial = CoreTestbed.InitialState();
+        var army = new ArmyState(
+            ArmyId, RomeId, X: 5, Y: 5, Moves: 4, Morale: 70, Money: 0, SupplyTons: 100,
+            CoveredTileCode: null, AboardFleetId: null,
+            Units: ValueList.From(Enumerable.Range(0, 1).Select(index =>
+                new UnitSlot(0, "light_infantry", 100, 6, "T113 dialog seed"))));
+        var city = new CityState(
+            CityAtArmyId, "T113 dialog city", X: 4, Y: 5, Owner: RomeId, Allegiance: RomeId,
+            Loyalty: 90, SupplyTons: 100, FortificationCode: 0,
+            PopulationThousands: 100, MaxPopulationThousands: 100, Tribute: 0, UnderSiege: false,
+            Garrison: ValueList<UnitSlot>.Empty);
 
-        var model = MercenaryDialogModel.ForArmy(state, ArmyId, ruleset);
-        var offer = Assert.Single(model.Offers);
-        Assert.Equal(1, offer.SlotIndex);
-        Assert.Equal(MercenaryDialogModel.HiredSlotSentinelTroops, 0xFFFF);
+        // Two live offers reversed in the pool (slot 4 then slot 3) and the sentinel on slot 5.
+        var offers = new List<MercenaryPoolSlot>
+        {
+            new(4, 4, 5, 0, "archers", 2_000, 8),
+            new(5, 4, 5, 0, "heavy_cavalry",
+                MercenaryDialogModel.HiredSlotSentinelTroops, 9),
+            new(3, 4, 5, 0, "light_infantry", 1_000, 6),
+        };
+
+        var state = initial with
+        {
+            Armies = ValueList.From(new[] { army }),
+            Cities = ValueList.Of(new[] { city }),
+            MercenaryPool = ValueList.From(offers),
+        };
+
+        var model = MercenaryDialogModel.ForArmy(state, ArmyId, ClassicalRuleset);
+        Assert.Equal(2, model.Offers.Count);
+        Assert.Equal(new[] { 3, 4 }, model.Offers.Select(o => o.SlotIndex));
+        Assert.DoesNotContain(model.Offers, o => o.Troops == MercenaryDialogModel.HiredSlotSentinelTroops);
     }
 
     /// <summary>
