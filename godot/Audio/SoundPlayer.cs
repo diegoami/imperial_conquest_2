@@ -48,6 +48,7 @@ public sealed partial class SoundPlayer : Node
     private readonly Dictionary<string, AudioStreamPlayer> _players = new(StringComparer.Ordinal);
     private readonly Queue<QueuedCue> _stepQueue = new();
     private readonly HashSet<string> _currentlyPlaying = new(StringComparer.Ordinal);
+    private readonly List<string> _queuedForCheck = new();
     private readonly Node _stepTimerParent;
     private SceneTreeTimer? _stepTimer;
     private bool _muted;
@@ -57,6 +58,28 @@ public sealed partial class SoundPlayer : Node
     {
         get => _muted;
         set => _muted = value;
+    }
+
+    /// <summary>
+    /// T149 DoD 4: every cue <see cref="Play"/> has enqueued since the last call, in enqueue
+    /// order. Aimed at the headless Godot check <c>godot/Checks/SoundCuesCheck.cs</c>, which
+    /// needs a way to read "what would have been played" without depending on Godot's audio
+    /// output (the headless audio driver is <c>Dummy</c>). Drains as it reads, so a second
+    /// call after a quiet command returns an empty list. Production callers should not touch
+    /// this; the player plays the cues regardless of the queue, so reading the queue is a
+    /// pure assertion tool.
+    /// </summary>
+    public IReadOnlyList<string> QueuedForCheck
+    {
+        get
+        {
+            lock (_queuedForCheck)
+            {
+                var snapshot = _queuedForCheck.ToArray();
+                _queuedForCheck.Clear();
+                return snapshot;
+            }
+        }
     }
 
     /// <summary>
@@ -202,6 +225,10 @@ public sealed partial class SoundPlayer : Node
         {
             // A step cue is part of a run: it always queues, never restarts a playing step. The
             // timer fires one cue at a time so consecutive steps are 70 ms apart.
+            lock (_queuedForCheck)
+            {
+                _queuedForCheck.Add(key);
+            }
             _stepQueue.Enqueue(new QueuedCue(key, player));
             EnsureStepTimer();
             return;
@@ -215,6 +242,10 @@ public sealed partial class SoundPlayer : Node
             return;
         }
 
+        lock (_queuedForCheck)
+        {
+            _queuedForCheck.Add(key);
+        }
         _currentlyPlaying.Add(key);
         player.Play();
         // A one-shot cue plays out on Godot's own audio thread; we approximate the end with the
