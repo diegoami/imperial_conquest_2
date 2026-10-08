@@ -220,13 +220,18 @@ public sealed class MercenaryDialogModelTests
     /// <summary>
     /// Done-when 6 (the 2026-10-05 amendment): the model's city-side view reads exactly the live offers
     /// on the city's tile in slot order, and skips the <c>0xFFFF</c> hired-slot sentinel so the
-    /// listing cannot list a slot the player already hired out of.
+    /// listing cannot list a slot the player already hired out of. The pool is fed to the model with
+    /// the live slots deliberately reversed (slot 4 first, slot 3 second); a model that read the pool
+    /// in collection order would surface slot 4 first, which the original's "first live offer, in slot
+    /// order" rule would never show. The intermediate sentinel on slot 5 is in the middle and must
+    /// not appear either.
     /// </summary>
     [Fact]
-    public void City_listing_reads_the_offers_on_its_own_tile_and_skips_the_sentinel()
+    public void City_listing_reads_the_offers_on_its_own_tile_in_slot_order_skipping_the_sentinel()
     {
-        // A city at (10,10) with two offers on its tile (slots 3 and 4) plus a hired sentinel on
-        // slot 5. The listing shows slots 3 and 4 in slot order; slot 5's sentinel is not a line.
+        // A city at (10,10) with three offers on its tile: slot 4 (live), slot 5 (the 0xFFFF
+        // hired-slot sentinel), slot 3 (live). The pool is built with the live slots reversed so a
+        // "load in pool order" implementation surfaces slot 4 first and fails the test.
         var initial = CoreTestbed.InitialState();
         var city = new CityState(
             "t113-city-amend", "T113 amend city", X: 10, Y: 10, Owner: RomeId, Allegiance: RomeId,
@@ -236,10 +241,10 @@ public sealed class MercenaryDialogModelTests
 
         var offers = new List<MercenaryPoolSlot>
         {
-            new(3, 10, 10, 0, "light_infantry", 1_000, 6),
+            new(4, 10, 10, 0, "archers", 2_000, 8),
             new(5, 10, 10, 0, "heavy_cavalry",
                 MercenaryDialogModel.HiredSlotSentinelTroops, 9),
-            new(4, 10, 10, 0, "archers", 2_000, 8),
+            new(3, 10, 10, 0, "light_infantry", 1_000, 6),
         };
 
         var state = initial with
@@ -284,5 +289,32 @@ public sealed class MercenaryDialogModelTests
         var offer = model.Offers[0];
 
         Assert.Equal($"hire-mercenary {ArmyId} {offer.SlotIndex}", model.HireCommandLine(offer, ArmyId));
+    }
+
+    /// <summary>
+    /// R6 (review round 1): the dialog's "Quarterly cost" multiplication uses a wide intermediate
+    /// (<see cref="long"/>) before the divisor, so an offer whose <c>troops × price × quality</c>
+    /// exceeds <see cref="int.MaxValue"/> but whose divided result fits in <see cref="int"/> lands
+    /// as a positive, correct figure rather than wrapping negative. A model that multiplied in
+    /// <see cref="int"/> would wrap the intermediate to a negative number that the divide cannot
+    /// undo. The chosen boundary (<c>50,000,000 × 5 × 9 = 2,250,000,000 &gt; int.MaxValue</c>)
+    /// divides cleanly to 2,250,000, an int the displayed-cost box can carry.
+    /// </summary>
+    [Fact]
+    public void Displayed_quarterly_cost_uses_a_wide_intermediate_so_a_large_offer_does_not_wrap()
+    {
+        const int troops = 50_000_000;
+        const int price = 5;
+        const int quality = 9;
+        const long product = (long)troops * price * quality;
+
+        Assert.True(product > int.MaxValue,
+            $"the chosen boundary actually exceeds int.MaxValue at the multiplied step (product={product})");
+        Assert.True((int)(product / 1000) > 0,
+            "the chosen boundary divides into a positive int");
+
+        // A model that multiplied in int would wrap the intermediate to negative; the divide then
+        // yields a wrong (and possibly negative) int. The widened path divides the long product.
+        Assert.Equal((int)(product / 1000), MercenaryDialogModel.DisplayedQuarterlyCost(troops, price, quality));
     }
 }

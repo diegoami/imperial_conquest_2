@@ -163,14 +163,18 @@ public sealed class MercenaryDialogModel
     /// <summary>
     /// The dialog's "quarterly cost" box figure for <paramref name="offer"/> — the original's
     /// <em>displayed</em> shape <c>(troops × price × quality) div 1000</c>, computed here against the same
-    /// ruleset <see cref="IC2.Engine.Recruitment.MercenaryHireCost"/> reads.
+    /// ruleset <see cref="IC2.Engine.Recruitment.MercenaryHireCost"/> reads. The intermediate is widened to
+    /// <see cref="long"/> so a large offer (the ruleset has no per-offer cap, and a slot the engine
+    /// writes with a wide troop count would otherwise wrap before the divide and land negative or wrong)
+    /// cannot overflow: <c>troops × price × quality</c> at <c>int</c> width has only ~2.1e9 to share, and
+    /// the formula sits in the same envelope <see cref="MercenaryHireCost.Compute"/> itself relies on.
     /// </summary>
     public static int DisplayedQuarterlyCost(int troops, int price, int quality) =>
-        (troops * price * quality) / _RulesetMercenaryHireTroopDivisor;
+        (int)((long)troops * price * quality / _RulesetMercenaryHireTroopDivisor);
 
     /// <summary>The hire's gate, <c>(troops × price div 1000) × quality</c> — the engine's refusal threshold.</summary>
     public int HireGate(int troops, int price, int quality) =>
-        (troops * price) / _RulesetMercenaryHireTroopDivisor * quality;
+        (int)((long)troops * price / _RulesetMercenaryHireTroopDivisor * quality);
 
     /// <summary>
     /// Whether the dialog opens for this army: at least one offer in reach, and the army has not yet
@@ -252,6 +256,14 @@ public sealed class MercenaryDialogModel
     private void LoadOffers(GameState state)
     {
         _offers.Clear();
+
+        // Collect the live offers on this city's tile first, then sort by slot index. The engine's
+        // pool is a flat ValueList (insertion-ordered, not slot-ordered — bug #755's "empty slots are
+        // simply absent" model has no index sort either); the dialog and the city listing must list
+        // offers in slot order, exactly as the audit's "first live offer, in slot order" / T76's
+        // adjacency rule both read them. Sorting here means a city whose two live offers are slot 4
+        // first and slot 3 second in the pool is still shown as slot 3 then slot 4 in the listing.
+        var live = new List<MercenaryPoolSlot>();
         foreach (var slot in state.MercenaryPool)
         {
             if (slot.X != _cityTile.X || slot.Y != _cityTile.Y)
@@ -269,6 +281,13 @@ public sealed class MercenaryDialogModel
                 continue;
             }
 
+            live.Add(slot);
+        }
+
+        live.Sort((a, b) => a.SlotIndex.CompareTo(b.SlotIndex));
+
+        foreach (var slot in live)
+        {
             var typeName = _ruleset.UnitTypeById(slot.UnitTypeId)?.Name ?? slot.UnitTypeId;
             var price = _ruleset.UnitTypeById(slot.UnitTypeId)?.QuarterlyPrice ?? 0;
             _offers.Add(new MercenaryOfferLine(
