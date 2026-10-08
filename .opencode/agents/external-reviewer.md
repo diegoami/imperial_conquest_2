@@ -27,10 +27,11 @@ permission:
     "C:?Users?diego?.local?bin?godot.cmd": allow
     "C:?Users?diego?.local?bin?godot.exe": allow
     # Last match wins, so the denies that follow override the allows above whenever a path
-    # traverses out of either allowed root. `*` matches any segment, so the first three rules
-    # catch `C:\…\bin\..\share\…` and the third `…\Temp\opencode\..\..\..\..\..\Windows\win.ini`
-    # (R1 and M1 of rework round 2, the main session's proof), in either separator. Everything
-    # outside either root still asks.
+    # traverses out of either allowed root. `?` is OpenCode's single-char wildcard (so matches
+    # both `\` and `/`) and `*` matches any number of characters, so the four rules cover any
+    # `..` segment in either separator, anywhere in the path: `C:\…\bin\..\share\…` (R1),
+    # `…\Temp\opencode\..\..\..\..\..\Windows\win.ini` (M1), and the trailing `..` of an
+    # attempted `cd`. Everything outside either root still asks.
     "*?..?*": deny
     "*/../*": deny
     "*?..": deny
