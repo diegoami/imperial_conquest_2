@@ -16,6 +16,16 @@ permission:
     "*": ask
     "*?data?opencode?tool-output?*": allow
     "*?data?opencode?shell?*": allow
+    # Read-only access to the research repo's local checkout (the WSL research session's
+    # working tree, mirrored to Windows). Tells the agent which reports and citations the
+    # brief refers to without leaving the worktree to read the report; lets reviewers read
+    # the same reports the implementer cited. Last match wins, so this `allow` overrides
+    # the `*` `ask` for paths under it.
+    "*?RE-imperial-conquest-2?*": allow
+    # The agent needs to invoke godot for DoD #4 and #6 (headless Godot checks). godot.cmd and
+    # godot.exe live under C:\Users\diego\.local\bin\, which the worktree guard otherwise blocks.
+    # Narrow allow for godot only; the rest of .local\bin\ stays under the "ask" default.
+    "*?.local?bin?godot*": allow
   task:
     "*": deny
   bash:
