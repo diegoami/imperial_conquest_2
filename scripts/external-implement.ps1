@@ -285,9 +285,15 @@ if ($WhatIf) {
         # running anything. Commas are split because `pwsh -File ... -SimulateFailed a,b` binds the
         # whole list as one string.
         $failed = @($SimulateFailed | ForEach-Object { @([string]$_) -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+        # The script's actual rule always adds 'luna' (Done-when 2, the user's amendment of 2026-10-08),
+        # so the substitute is never from the OpenAI family. To make the rule visible, the check
+        # also prints what the substitute would have been without it.
+        $whyWithout = $null
+        $subWithout = Get-SubstituteModel -ExcludeFamilies $failed -Why ([ref]$whyWithout)
         $why = $null
-        $sub = Get-SubstituteModel -ExcludeFamilies $failed -Why ([ref]$why)
+        $sub = Get-SubstituteModel -ExcludeFamilies (@($failed + 'luna') | Select-Object -Unique) -Why ([ref]$why)
         Write-Host "simulate failed: $($failed -join ', ')"
+        if ($subWithout -and $subWithout -ne $sub) { Write-Host "without OpenAI exclusion, would have picked: $subWithout ($whyWithout)" }
         if ($sub) { Write-Host "would substitute: $sub ($why)" }
         else { Write-Host "would substitute: none ($why)" }
     }
@@ -435,7 +441,11 @@ Write-Host "run output: $log"
 # (checked above), so the worktree is at the starting commit. If Choose-Model returns nothing, exit 3
 # is unchanged.
 if (-not $implementedBy) {
-    $failedFamilies = @($attempts | Where-Object { $_.Class -ne 'ran' } | Select-Object -ExpandProperty Model -Unique)
+    # T150 Done-when 2 (the user's amendment of 2026-10-08): the substitute is never from the OpenAI
+    # family. Adding 'luna' is enough because its family key ('luna,sol', the join of
+    # $reviewerOf['luna']) drops both Luna and Sol; -ExcludeFamily would only add a duplicate
+    # otherwise, so a -Unique pass keeps the list clean.
+    $failedFamilies = @($attempts | Where-Object { $_.Class -ne 'ran' } | Select-Object -ExpandProperty Model -Unique) + 'luna' | Select-Object -Unique
     $subWhy = $null
     $substitute = Get-SubstituteModel -ExcludeFamilies $failedFamilies -Why ([ref]$subWhy)
     if (-not $substitute) {

@@ -324,6 +324,18 @@ function Invoke-ChooserSelfTest {
     $r = & $rank 'reviewer' 'complex' 'luna' (& $base) @('glm-flash')
     $got = @(& $names $r)
     $checks += [pscustomobject]@{ Name = '-ExcludeModel and -ExcludeFamily compose'; Ok = ($got -notcontains 'luna' -and $got -notcontains 'sol' -and $got -notcontains 'glm-flash' -and $got -notcontains 'glm' -and $got -notcontains 'ali-glm') }
+    # T150 Done-when 2 (the user's amendment of 2026-10-08): naming 'luna' must exclude the whole
+    # OpenAI family in the family map (Sol included), so the substitute is never OpenAI.
+    $checks += [pscustomobject]@{ Name = "Get-FamilyKey for luna and sol both return 'luna,sol' (the OpenAI family)"; Ok = ((Get-FamilyKey $catalog 'luna') -eq 'luna,sol' -and (Get-FamilyKey $catalog 'sol') -eq 'luna,sol') }
+    $r = & $rank 'reviewer' 'complex' $null (& $base) @('luna')
+    $got = @(& $names $r)
+    $checks += [pscustomobject]@{ Name = "-ExcludeFamily luna on a reviewer ranking drops both luna and sol (the OpenAI family)"; Ok = ($got -notcontains 'luna' -and $got -notcontains 'sol') }
+    $checks += [pscustomobject]@{ Name = "-ExcludeFamily luna reports exactly the OpenAI family key 'luna,sol'"; Ok = (@($r.FamilyExcluded).Count -eq 1 -and [string]$r.FamilyExcluded[0] -eq 'luna,sol') }
+    # The implementer set has Luna but not Sol (Sol is a reviewer name); with Luna excluded and
+    # the family key naming Sol too, neither would be chosen.
+    $r = & $rank 'implementer' 'simple' $null (& $base) @('luna')
+    $got = @(& $names $r)
+    $checks += [pscustomobject]@{ Name = "-ExcludeFamily luna on an implementer ranking drops luna (no OpenAI candidate remains)"; Ok = ($got -notcontains 'luna') }
     $failed = 0
     $i = 0
     foreach ($c in $checks) { $i++; if (-not $c.Ok) { $failed++ }; '[{0}] {1}  check  -- {2}' -f $i, $(if ($c.Ok) { 'PASS' } else { 'FAIL' }), $c.Name }
