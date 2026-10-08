@@ -187,9 +187,10 @@ public sealed class GameCommandTable
 
         rows.Add(new GameCommandRow("nations.all", "Nations", null, "All nations", null, null, Wired: true));
 
-        // ---- Area map (audit §1.5); T110 wires the five Show entries and Find a city. The six Show
-        // mercenaries entries stay disabled until T113: offers have no position in the engine yet
-        // (#325/#457), so every one of them is shown disabled, exactly as before. ----
+        // ---- Area map (audit §1.5); T110 wires the five Show entries and Find a city, T113 the
+        // six Show mercenaries entries (Light/Heavy infantry, Archers, Light/Heavy cavalry, All
+        // mercenaries). T113 lifts the offers' position gate (T76) and wires each type's layer
+        // and the union "All mercenaries" to T110's toggle machinery. ----
         rows.AddRange(new[]
         {
             new GameCommandRow("area_map.show_cities", "Area map", null, "Show cities", "ui.command.show_cities.icon", null, Wired: true),
@@ -197,21 +198,22 @@ public sealed class GameCommandTable
             new GameCommandRow("area_map.show_armies", "Area map", null, "Show armies", "ui.command.show_armies.icon", null, Wired: true),
             new GameCommandRow("area_map.show_fleets", "Area map", null, "Show fleets", "ui.command.show_fleets.icon", null, Wired: true),
             new GameCommandRow("area_map.show_all", "Area map", null, "Show all", "ui.command.show_all.icon", null, Wired: true),
-            new GameCommandRow("area_map.show_mercs_light_infantry", "Area map", "Show mercenaries", "Light infantry", "ui.command.show_mercs_light_infantry.icon", null, Wired: false),
-            new GameCommandRow("area_map.show_mercs_heavy_infantry", "Area map", "Show mercenaries", "Heavy infantry", "ui.command.show_mercs_heavy_infantry.icon", null, Wired: false),
-            new GameCommandRow("area_map.show_mercs_archers", "Area map", "Show mercenaries", "Archers", "ui.command.show_mercs_archers.icon", null, Wired: false),
-            new GameCommandRow("area_map.show_mercs_light_cavalry", "Area map", "Show mercenaries", "Light cavalry", "ui.command.show_mercs_light_cavalry.icon", null, Wired: false),
-            new GameCommandRow("area_map.show_mercs_heavy_cavalry", "Area map", "Show mercenaries", "Heavy cavalry", "ui.command.show_mercs_heavy_cavalry.icon", null, Wired: false),
-            new GameCommandRow("area_map.show_mercs_all", "Area map", "Show mercenaries", "All mercenaries", "ui.command.show_mercs_all.icon", null, Wired: false),
+            new GameCommandRow("area_map.show_mercs_light_infantry", "Area map", "Show mercenaries", "Light infantry", "ui.command.show_mercs_light_infantry.icon", null, Wired: true),
+            new GameCommandRow("area_map.show_mercs_heavy_infantry", "Area map", "Show mercenaries", "Heavy infantry", "ui.command.show_mercs_heavy_infantry.icon", null, Wired: true),
+            new GameCommandRow("area_map.show_mercs_archers", "Area map", "Show mercenaries", "Archers", "ui.command.show_mercs_archers.icon", null, Wired: true),
+            new GameCommandRow("area_map.show_mercs_light_cavalry", "Area map", "Show mercenaries", "Light cavalry", "ui.command.show_mercs_light_cavalry.icon", null, Wired: true),
+            new GameCommandRow("area_map.show_mercs_heavy_cavalry", "Area map", "Show mercenaries", "Heavy cavalry", "ui.command.show_mercs_heavy_cavalry.icon", null, Wired: true),
+            new GameCommandRow("area_map.show_mercs_all", "Area map", "Show mercenaries", "All mercenaries", "ui.command.show_mercs_all.icon", null, Wired: true),
             new GameCommandRow("area_map.find_city", "Area map", null, "Find a city", "ui.command.find_city.icon", null, Wired: true),
         });
 
         // ---- Unit map (audit §1.6); T134 wires Supply army, T111 the other Army entries, T112 the six
-        // Fleet orders and Fortify city, so only Recruit mercenaries (T113, after T76) stays disabled ----
+        // Fleet orders and Fortify city, T113 the Army -> Recruit mercenaries entry (after T76 +
+        // T143). ----
         rows.AddRange(new[]
         {
             new GameCommandRow("unit_map.army_supply", "Unit map", "Army", "Supply army", "ui.command.army_supply.icon", null, Wired: true),
-            new GameCommandRow("unit_map.army_recruit_mercenaries", "Unit map", "Army", "Recruit mercenaries", "ui.command.army_recruit_mercenaries.icon", null, Wired: false),
+            new GameCommandRow("unit_map.army_recruit_mercenaries", "Unit map", "Army", "Recruit mercenaries", "ui.command.army_recruit_mercenaries.icon", null, Wired: true),
             new GameCommandRow("unit_map.army_transfer_unit", "Unit map", "Army", "Transfer unit", "ui.command.army_transfer_unit.icon", null, Wired: true),
             new GameCommandRow("unit_map.army_split", "Unit map", "Army", "Split army", "ui.command.army_split.icon", null, Wired: true),
             new GameCommandRow("unit_map.army_join", "Unit map", "Army", "Join armies", "ui.command.army_join.icon", null, Wired: true),

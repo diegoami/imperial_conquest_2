@@ -205,6 +205,17 @@ public sealed class AreaMapHighlightsTests
     /// <c>NationsAreaMapCheck</c> additionally pins the <em>UI's</em> Show all to this same function.
     /// </summary>
     [Fact]
+    public void Show_all_is_exactly_the_four_stock_layers_and_no_mercenary_layer()
+    {
+        // GLM's re-check R2: written out literally, so a mercenary kind added to StockShowAllKinds
+        // fails here (the union test below builds its expectation from StockShowAllKinds itself).
+        Assert.Equal(
+            new[] { AreaMapHighlightKind.Cities, AreaMapHighlightKind.Capital, AreaMapHighlightKind.Armies, AreaMapHighlightKind.Fleets },
+            AreaMapHighlights.StockShowAllKinds().ToArray());
+        Assert.Empty(AreaMapHighlights.StockShowAllKinds().Intersect(AreaMapHighlights.MercenaryTypeKinds()));
+    }
+
+    [Fact]
     public void Show_all_is_the_union()
     {
         var session = RomeSession();
@@ -213,13 +224,90 @@ public sealed class AreaMapHighlightsTests
         foreach (var viewed in new string?[] { RomeId, null })
         {
             var expected = new HashSet<(int X, int Y)>();
-            foreach (var kind in Enum.GetValues<AreaMapHighlightKind>())
+            foreach (var kind in AreaMapHighlights.StockShowAllKinds())
             {
                 expected.UnionWith(AreaMapHighlights.TilesFor(state, kind, viewed));
             }
 
             AssertSameTiles(expected, AreaMapHighlights.AllTiles(state, viewed));
         }
+    }
+
+    /// <summary>
+    /// Done-when 1, the mercenary kinds: each "Show mercenaries → &lt;type&gt;" layer marks exactly the
+    /// live offers of that type, in pool-tile coordinates; the merged "All mercenaries" kind marks
+    /// every live offer tile; the <c>0xFFFF</c> hired-slot sentinel is skipped. Three types at three
+    /// tiles exercise the per-type filter, the union, and the sentinel alike; an empty pool shows an
+    /// empty set so the non-vacuous case is real, not just an accident of the engine start.
+    /// </summary>
+    [Fact]
+    public void Show_mercenaries_marks_each_types_offers_in_pool_tile_coordinates_and_all_mercenaries_unions_them()
+    {
+        var session = RomeSession();
+        var state = session.State;
+
+        // The shipped scenario starts with an empty mercenary pool (T56's quarterly restock never
+        // ran); this arrangement writes three offers at three tiles so the layer assertions are
+        // not vacuous. Slot 99 is the 0xFFFF hired-slot sentinel — must not be on any map. The
+        // scoped-tile sets are the tiles the layer highlights, not the unit types (the Done-when
+        // assertion is "each Show mercenaries entry marks exactly its type's offer tiles, and All
+        // marks all of them", language read on OfferTile(layer type) — and the layer's painted
+        // symbol is the type's own icon [designed], a separate decision).
+        var arranged = state with
+        {
+            MercenaryPool = ValueList.From(new[]
+            {
+                new MercenaryPoolSlot(10, X: 12, Y: 12, NameLabel: 0, UnitTypeId: "light_infantry", Troops: 1_000, Quality: 6),
+                new MercenaryPoolSlot(11, X: 13, Y: 13, NameLabel: 0, UnitTypeId: "heavy_cavalry", Troops: 500, Quality: 7),
+                new MercenaryPoolSlot(12, X: 14, Y: 14, NameLabel: 0, UnitTypeId: "archers", Troops: 700, Quality: 8),
+
+                // The hired-slot sentinel: 0xFFFF is not an offer; every layer must skip it.
+                new MercenaryPoolSlot(99, X: 99, Y: 99, NameLabel: 0,
+                    UnitTypeId: "heavy_infantry",
+                    Troops: 0xFFFF, Quality: 9),
+            }),
+        };
+
+        var lightInfantry = AreaMapHighlights.TilesFor(
+            arranged, AreaMapHighlightKind.MercenariesLightInfantry, viewedNationId: RomeId);
+        var heavyInfantry = AreaMapHighlights.TilesFor(
+            arranged, AreaMapHighlightKind.MercenariesHeavyInfantry, viewedNationId: RomeId);
+        var archers = AreaMapHighlights.TilesFor(
+            arranged, AreaMapHighlightKind.MercenariesArchers, viewedNationId: RomeId);
+        var lightCavalry = AreaMapHighlights.TilesFor(
+            arranged, AreaMapHighlightKind.MercenariesLightCavalry, viewedNationId: RomeId);
+        var heavyCavalry = AreaMapHighlights.TilesFor(
+            arranged, AreaMapHighlightKind.MercenariesHeavyCavalry, viewedNationId: RomeId);
+        var allMer = AreaMapHighlights.TilesFor(
+            arranged, AreaMapHighlightKind.MercenariesAll, viewedNationId: RomeId);
+
+        AssertSameTiles(new[] { (12, 12) }, lightInfantry);
+        AssertSameTiles(Array.Empty<(int X, int Y)>(), heavyInfantry);  // no slot — only a hired sentinel
+        AssertSameTiles(new[] { (14, 14) }, archers);
+        AssertSameTiles(Array.Empty<(int X, int Y)>(), lightCavalry);
+        AssertSameTiles(new[] { (13, 13) }, heavyCavalry);
+
+        var expectedAll = new HashSet<(int X, int Y)> { (12, 12), (13, 13), (14, 14) };
+        AssertSameTiles(expectedAll, allMer);
+
+        // The hired slot's pool tile is not on any layer.
+        Assert.DoesNotContain((99, 99), lightInfantry);
+        Assert.DoesNotContain((99, 99), allMer);
+
+        // The mercenary offers are not scoped by the viewed nation — every set is the same under
+        // "All nations" as under Rome.
+        var lightInfantryAllNations = AreaMapHighlights.TilesFor(
+            arranged, AreaMapHighlightKind.MercenariesLightInfantry, viewedNationId: null);
+        AssertSameTiles(lightInfantry, lightInfantryAllNations);
+
+        // The stocked pool (no offers): the union is empty, so the test's own setup is the only
+        // thing the assertion rests on.
+        var empty = state with
+        {
+            MercenaryPool = ValueList<MercenaryPoolSlot>.Empty,
+        };
+        Assert.Empty(AreaMapHighlights.TilesFor(
+            empty, AreaMapHighlightKind.MercenariesAll, viewedNationId: RomeId));
     }
 
     private static void AssertSameTiles(IEnumerable<(int X, int Y)> expected, IReadOnlySet<(int X, int Y)> actual)

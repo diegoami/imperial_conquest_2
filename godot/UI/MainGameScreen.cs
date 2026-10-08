@@ -327,7 +327,23 @@ public partial class MainGameScreen : Control
         // the panel (a city's garrison, an army's units, a fleet's ships and any army aboard) — a
         // panel view that is not a selection, so the map's own selection and any armed order are
         // untouched.
-        _mapView.UnitListRequested += (entity, id) => _contextPanel.ShowUnitList(entity, id);
+        // T113 (the 2026-10-05 amendment, also brief Done-when 6): a city's right click lists the
+        // mercenary offers on its tile rather than its garrison, matching the original's own
+        // `TInformation_ShowCityUnits` literal "Mercenaries at <city>" [Wine candidate: feature
+        // inventory row UM07; derived: code, the literals]. An army's or fleet's right click still
+        // lists its own units. The view and the dialog share `MercenaryDialogModel`, so the listing
+        // and the dialog cannot disagree.
+        _mapView.UnitListRequested += (entity, id) =>
+        {
+            if (entity == MapEntityKind.City)
+            {
+                _contextPanel.ShowMercenariesAtCity(id);
+            }
+            else
+            {
+                _contextPanel.ShowUnitList(entity, id);
+            }
+        };
 
         // T99, the original's attack prompt (audit §2.1, confirmed: a click against a nation the
         // seat is not at war with asks before it orders): the map raises it, this screen owns the
@@ -424,12 +440,13 @@ public partial class MainGameScreen : Control
 
         // T111: the rest of the Army submenu. Transfer unit and Split army open their dialogs; Join
         // armies submits at once with the game's own partner; Change units opens its dialog; Disband army
-        // asks first. Recruit mercenaries stays disabled (T113, after T76).
+        // asks first. Recruit mercenaries is T113 (now wired): opens the dialog for the chosen city.
         CommandTable.Bind("unit_map.army_transfer_unit", OpenArmyTransferDialog);
         CommandTable.Bind("unit_map.army_split", OpenSplitArmyDialog);
         CommandTable.Bind("unit_map.army_join", JoinArmiesFromMenu);
         CommandTable.Bind("unit_map.army_change_units", OpenChangeUnitsDialog);
         CommandTable.Bind("unit_map.army_disband", ConfirmDisbandArmy);
+        CommandTable.Bind("unit_map.army_recruit_mercenaries", OpenRecruitMercenariesDialog);
 
         // T112: the Fleet submenu. Supply fleet and the three dialogs open overlays; Join fleets submits at
         // once with the game's own partner; Scuttle fleet asks first.
@@ -460,8 +477,9 @@ public partial class MainGameScreen : Control
         }
 
         // T110: the Area map's five Show entries toggle their own highlight layer and its check marks;
-        // Find a city opens the TFindCity dialog. The Show mercenaries rows stay unwired (T113), so no
-        // handler is bound for them. They highlight and hide nothing.
+        // Find a city opens the TFindCity dialog. T113: the six Show mercenaries rows join them —
+//        each type toggles its own layer, "All mercenaries" toggles the five mercenary layers
+//        together (mirroring the audit's own "All mercenaries" union of the type bitmaps).
         CommandTable.Bind("area_map.show_cities", () =>
         {
             _areaMapView.ToggleHighlight(AreaMapHighlightKind.Cities);
@@ -485,6 +503,36 @@ public partial class MainGameScreen : Control
         CommandTable.Bind("area_map.show_all", () =>
         {
             _areaMapView.ToggleShowAll();
+            SyncShowChecks();
+        });
+        CommandTable.Bind("area_map.show_mercs_light_infantry", () =>
+        {
+            _areaMapView.ToggleHighlight(AreaMapHighlightKind.MercenariesLightInfantry);
+            SyncShowChecks();
+        });
+        CommandTable.Bind("area_map.show_mercs_heavy_infantry", () =>
+        {
+            _areaMapView.ToggleHighlight(AreaMapHighlightKind.MercenariesHeavyInfantry);
+            SyncShowChecks();
+        });
+        CommandTable.Bind("area_map.show_mercs_archers", () =>
+        {
+            _areaMapView.ToggleHighlight(AreaMapHighlightKind.MercenariesArchers);
+            SyncShowChecks();
+        });
+        CommandTable.Bind("area_map.show_mercs_light_cavalry", () =>
+        {
+            _areaMapView.ToggleHighlight(AreaMapHighlightKind.MercenariesLightCavalry);
+            SyncShowChecks();
+        });
+        CommandTable.Bind("area_map.show_mercs_heavy_cavalry", () =>
+        {
+            _areaMapView.ToggleHighlight(AreaMapHighlightKind.MercenariesHeavyCavalry);
+            SyncShowChecks();
+        });
+        CommandTable.Bind("area_map.show_mercs_all", () =>
+        {
+            _areaMapView.ToggleShowAllMercenaries();
             SyncShowChecks();
         });
         CommandTable.Bind("area_map.find_city", () => OpenFindCityDialog());
@@ -622,8 +670,9 @@ public partial class MainGameScreen : Control
                 continue;
             }
 
-            // B3: only the five Show entries are check items; Find a city stays a plain item so no
-            // check box is drawn beside it. Again the checkable flag resets the mark, so set it first.
+            // B3: only the eleven Show entries (five stock + six Show mercenaries) are check items;
+            // Find a city stays a plain item so no check box is drawn beside it. Again the checkable
+            // flag resets the mark, so set it first.
             if (IsShowEntry(row.Id))
             {
                 popup.SetItemAsCheckable(i, true);
@@ -632,13 +681,22 @@ public partial class MainGameScreen : Control
         }
     }
 
-    /// <summary>The five Area map Show entries — the ones that are check items, unlike Find a city.</summary>
+    /// <summary>
+    /// The Area map Show entries that are check items — the five stock (T110) and the six Show
+    /// mercenaries (T113). <c>Find a city</c> stays a plain item so no check box is drawn beside it.
+    /// </summary>
     private static bool IsShowEntry(string commandId) =>
         commandId is "area_map.show_cities"
             or "area_map.show_capital"
             or "area_map.show_armies"
             or "area_map.show_fleets"
-            or "area_map.show_all";
+            or "area_map.show_all"
+            or "area_map.show_mercs_light_infantry"
+            or "area_map.show_mercs_heavy_infantry"
+            or "area_map.show_mercs_archers"
+            or "area_map.show_mercs_light_cavalry"
+            or "area_map.show_mercs_heavy_cavalry"
+            or "area_map.show_mercs_all";
 
     private bool IsShowLayerOn(string commandId)
     {
@@ -649,7 +707,13 @@ public partial class MainGameScreen : Control
             "area_map.show_capital" => active.Contains(AreaMapHighlightKind.Capital),
             "area_map.show_armies" => active.Contains(AreaMapHighlightKind.Armies),
             "area_map.show_fleets" => active.Contains(AreaMapHighlightKind.Fleets),
-            "area_map.show_all" => Enum.GetValues<AreaMapHighlightKind>().All(active.Contains),
+            "area_map.show_all" => AreaMapHighlights.StockShowAllKinds().All(active.Contains),
+            "area_map.show_mercs_light_infantry" => active.Contains(AreaMapHighlightKind.MercenariesLightInfantry),
+            "area_map.show_mercs_heavy_infantry" => active.Contains(AreaMapHighlightKind.MercenariesHeavyInfantry),
+            "area_map.show_mercs_archers" => active.Contains(AreaMapHighlightKind.MercenariesArchers),
+            "area_map.show_mercs_light_cavalry" => active.Contains(AreaMapHighlightKind.MercenariesLightCavalry),
+            "area_map.show_mercs_heavy_cavalry" => active.Contains(AreaMapHighlightKind.MercenariesHeavyCavalry),
+            "area_map.show_mercs_all" => AreaMapHighlights.MercenaryTypeKinds().All(active.Contains),
             _ => false,
         };
     }
@@ -991,6 +1055,53 @@ public partial class MainGameScreen : Control
         };
         prompt.Refused += () => CloseOverlay(prompt);
         ShowOverlay(prompt);
+    }
+
+    /// <summary>
+    /// T113: the Army menu's Recruit mercenaries entry. Opens the dialog for the chosen city (T76's
+    /// adjacency rule, read by the model's <see cref="MercenaryDialogModel.ForArmy"/>), or shows the
+    /// engine's pre-open refusal message and opens nothing when the dialog's own dialog-opens gate
+    /// is closed. With no offer city in reach (the original's first refusal — nothing, no message,
+    /// derived: <c>TUnitMap_RecruitMercenaries</c> @ <c>0x00446FF4</c>) this entry silently returns:
+    /// the model decides it from the live pool, the menu never gets a status line, and the dialog
+    /// stays closed. With at least one offer but one of the other pre-open refusals (20 units,
+    /// 100,000 troops, enemy city, supplies, fleet capacity), the matching engine message is shown
+    /// and the dialog stays closed. The dialog itself adds no refusal of its own — the engine's
+    /// per-hire gates report theirs through the dialog's reply line.
+    /// </summary>
+    private void OpenRecruitMercenariesDialog()
+    {
+        var army = OwnSelectedArmy();
+        if (army is null)
+        {
+            ShowScreenMessage(SelectArmyMessage);
+            return;
+        }
+
+        var model = MercenaryDialogModel.ForArmy(Session.State, army.Id, Session.Ruleset);
+
+        if (model.Offers.Count == 0)
+        {
+            // T113 R3: the original's "no offer in reach" refusal is a silent no-op — derived from
+            // the order's handler as the brief's Hazards pin it. The menu shows no message, the
+            // dialog stays closed, and the player's own army/orders are unchanged.
+            return;
+        }
+
+        if (!model.DialogOpens)
+        {
+            ShowScreenMessage(model.PreOpenRefusalMessage ?? "This army cannot recruit mercenaries.");
+            return;
+        }
+
+        var dialog = new RecruitMercenariesDialog
+        {
+            Session = Session,
+            ArmyId = army.Id,
+            Submit = SubmitFromDialog,
+        };
+        dialog.Closed += () => CloseOverlay(dialog);
+        ShowOverlay(dialog);
     }
 
     /// <summary>The message the Army entries show when no own army (or carried army) is selected.</summary>

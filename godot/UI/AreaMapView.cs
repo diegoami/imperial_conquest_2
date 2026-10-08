@@ -1,4 +1,5 @@
 using Godot;
+using IC2.Engine.Assets;
 using IC2.Engine.Model;
 using IC2.Engine.Presentation;
 using IC2.Slice.Assets;
@@ -126,6 +127,14 @@ public partial class AreaMapView : Control
     /// opposed to <see cref="HighlightTilesForCheck"/>'s live set.</summary>
     private IReadOnlySet<(int X, int Y)> _lastDrawnHighlights = new HashSet<(int X, int Y)>();
 
+    /// <summary>The mercenary (tile, icon-key) pairs the last <see cref="_Draw"/> actually painted —
+    /// the per-type symbol layer, read so a check can prove a "Show mercenaries → Light infantry"
+    /// layer drew the light-infantry icon at its offer's tile and not, say, the heavy-cavalry icon.
+    /// Empty when no mercenary layer is on or no icon resolved (a missing texture leaves the
+    /// rectangle alone, so the pair is absent here too).</summary>
+    private IReadOnlyDictionary<(int X, int Y), string> _lastDrawnMercenaryIcons =
+        new Dictionary<(int X, int Y), string>();
+
     /// <summary>The geometry this mini-map is currently laid out with — exposed so the headless
     /// <c>godot/Checks/AreaMapCheck.cs</c> can send its click at a real tile's mini-map pixel.</summary>
     public AreaMapGeometry GeometryForCheck =>
@@ -150,6 +159,13 @@ public partial class AreaMapView : Control
     /// <see cref="HighlightTilesForCheck"/> is what catches a stale layer: the live set can move while
     /// the painted pixels still show the old tiles.</summary>
     public IReadOnlySet<(int X, int Y)> LastDrawnHighlightTilesForCheck => _lastDrawnHighlights;
+
+    /// <summary>The mercenary (tile, icon-key) pairs the last paint drew — the per-type symbol layer's
+    /// own output, so a check can read what was actually painted (not just which tiles were highlighted).
+    /// A missing icon omits the pair: the rectangle is still drawn by the highlight pass, but the
+    /// symbol pair is absent here.</summary>
+    public IReadOnlyDictionary<(int X, int Y), string> LastDrawnMercenaryIconsForCheck =>
+        _lastDrawnMercenaryIcons;
 
     /// <summary>The strip button for <paramref name="commandId"/>, or <see langword="null"/> when the
     /// strip does not carry it — exposed so <c>NationsAreaMapCheck</c> can click the real button.</summary>
@@ -271,12 +287,46 @@ public partial class AreaMapView : Control
     public void ToggleShowAll()
     {
         var allOn = true;
-        foreach (var kind in Enum.GetValues<AreaMapHighlightKind>())
+        foreach (var kind in AreaMapHighlights.StockShowAllKinds())
         {
             allOn &= _activeHighlights.Contains(kind);
         }
 
-        foreach (var kind in Enum.GetValues<AreaMapHighlightKind>())
+        foreach (var kind in AreaMapHighlights.StockShowAllKinds())
+        {
+            if (allOn)
+            {
+                _activeHighlights.Remove(kind);
+            }
+            else
+            {
+                _activeHighlights.Add(kind);
+            }
+        }
+
+        SyncStripStates();
+        QueueRedraw();
+    }
+
+    /// <summary>
+    /// Show mercenaries → All mercenaries: turns every one of the five type layers on, or (when they
+    /// are already all on) off — the original's "All mercenaries" union of the type bitmaps. Its own
+    /// entry, not a wider "show everything" the brief never asked for; "Show all" stays the
+    /// four-stock audit row.
+    /// </summary>
+    public void ToggleShowAllMercenaries()
+    {
+        var allOn = true;
+        foreach (var kind in AreaMapHighlights.MercenaryTypeKinds())
+        {
+            if (!_activeHighlights.Contains(kind))
+            {
+                allOn = false;
+                break;
+            }
+        }
+
+        foreach (var kind in AreaMapHighlights.MercenaryTypeKinds())
         {
             if (allOn)
             {
@@ -340,7 +390,13 @@ public partial class AreaMapView : Control
             or "area_map.show_capital"
             or "area_map.show_armies"
             or "area_map.show_fleets"
-            or "area_map.show_all";
+            or "area_map.show_all"
+            or "area_map.show_mercs_light_infantry"
+            or "area_map.show_mercs_heavy_infantry"
+            or "area_map.show_mercs_archers"
+            or "area_map.show_mercs_light_cavalry"
+            or "area_map.show_mercs_heavy_cavalry"
+            or "area_map.show_mercs_all";
 
     private static string IdFor(AreaMapHighlightKind kind) => kind switch
     {
@@ -348,13 +404,23 @@ public partial class AreaMapView : Control
         AreaMapHighlightKind.Capital => "area_map.show_capital",
         AreaMapHighlightKind.Armies => "area_map.show_armies",
         AreaMapHighlightKind.Fleets => "area_map.show_fleets",
+        AreaMapHighlightKind.MercenariesLightInfantry => "area_map.show_mercs_light_infantry",
+        AreaMapHighlightKind.MercenariesHeavyInfantry => "area_map.show_mercs_heavy_infantry",
+        AreaMapHighlightKind.MercenariesArchers => "area_map.show_mercs_archers",
+        AreaMapHighlightKind.MercenariesLightCavalry => "area_map.show_mercs_light_cavalry",
+        AreaMapHighlightKind.MercenariesHeavyCavalry => "area_map.show_mercs_heavy_cavalry",
+        AreaMapHighlightKind.MercenariesAll => "area_map.show_mercs_all",
         _ => throw new ArgumentOutOfRangeException(nameof(kind)),
     };
 
     private void SyncStripStates()
     {
+        // T113 (Scope): Show all is the four stock layers only — cities, capital, armies, fleets.
+        // It is *not* the union with the mercenary ones, mirroring the original's own
+        // <c>TAreaMap_ShowAll</c>; "All mercenaries" is its own row that toggles the five
+        // mercenary layers together. A unity verdict on Show all reads the four-stock union.
         var allOn = true;
-        foreach (var kind in Enum.GetValues<AreaMapHighlightKind>())
+        foreach (var kind in AreaMapHighlights.StockShowAllKinds())
         {
             var on = _activeHighlights.Contains(kind);
             allOn &= on;
@@ -367,6 +433,29 @@ public partial class AreaMapView : Control
         if (_stripButtons.TryGetValue("area_map.show_all", out var showAll))
         {
             showAll.ButtonPressed = allOn;
+        }
+
+        if (_stripButtons.TryGetValue("area_map.show_mercs_all", out var showAllMer))
+        {
+            var allMerOn = true;
+            foreach (var kind in AreaMapHighlights.MercenaryTypeKinds())
+            {
+                if (!_activeHighlights.Contains(kind))
+                {
+                    allMerOn = false;
+                    break;
+                }
+            }
+
+            showAllMer.ButtonPressed = allMerOn;
+        }
+
+        foreach (var kind in AreaMapHighlights.MercenaryTypeKinds())
+        {
+            if (_stripButtons.TryGetValue(IdFor(kind), out var button))
+            {
+                button.ButtonPressed = _activeHighlights.Contains(kind);
+            }
         }
     }
 
@@ -499,7 +588,114 @@ public partial class AreaMapView : Control
             DrawRect(tile, HighlightLineColor, false, 1f);
         }
 
+        // T113 (R1): on top of the rectangle for every active mercenary tile, paint the offer's own
+        // unit-type icon so the five types read distinctly on the mini-map (audit §1.5, the five
+        // bitmaps 4–8, the original's per-type glyph). A type-kind matches an offer's
+        // <see cref="Model.MercenaryPoolSlot.UnitTypeId"/>; "All mercenaries" matches every type. A
+        // missing icon (<see cref="AssetPackTextureLoader.TryGetTexture"/> returns null) leaves the
+        // rectangle alone — the same "degrade, don't throw" contract Slice.cs and the city/army
+        // markers use.
+        DrawMercenaryTypeIcons();
+
         var view = _viewRect;
         DrawRect(new Rect2(view.X, view.Y, view.Width, view.Height), ViewRectColor, false, 1.5f);
+    }
+
+    /// <summary>
+    /// The per-type symbol layer: for every active mercenary kind, draw that offer's
+    /// <c>unit.&lt;type&gt;.icon</c> at the offer's tile. The five type keys map to the five
+    /// <see cref="AssetKeys"/> constants (light infantry, heavy infantry, archers, light cavalry,
+    /// heavy cavalry); "All mercenaries" unions them by drawing every type's icon for every offer.
+    /// The hired-slot sentinel (<c>0xFFFF</c>) is never drawn.
+    /// </summary>
+    private void DrawMercenaryTypeIcons()
+    {
+        if (_session is null || AssetLoader is null)
+        {
+            return;
+        }
+
+        var allOn = _activeHighlights.Contains(AreaMapHighlightKind.MercenariesAll);
+        var liOn = _activeHighlights.Contains(AreaMapHighlightKind.MercenariesLightInfantry);
+        var hiOn = _activeHighlights.Contains(AreaMapHighlightKind.MercenariesHeavyInfantry);
+        var arOn = _activeHighlights.Contains(AreaMapHighlightKind.MercenariesArchers);
+        var lcOn = _activeHighlights.Contains(AreaMapHighlightKind.MercenariesLightCavalry);
+        var hcOn = _activeHighlights.Contains(AreaMapHighlightKind.MercenariesHeavyCavalry);
+        if (!allOn && !liOn && !hiOn && !arOn && !lcOn && !hcOn)
+        {
+            return;
+        }
+
+        var drawn = new Dictionary<(int X, int Y), string>();
+        var scale = _geometry!.Scale;
+        foreach (var slot in _session.State.MercenaryPool)
+        {
+            if (slot.Troops == AreaMapHighlights.HiredSlotSentinelTroops)
+            {
+                continue;
+            }
+
+            var iconKey = IconKeyForSlotType(slot.UnitTypeId, allOn, liOn, hiOn, arOn, lcOn, hcOn);
+            if (iconKey is null)
+            {
+                continue;
+            }
+
+            var texture = AssetLoader.TryGetTexture(iconKey);
+            if (texture is null)
+            {
+                continue;
+            }
+
+            drawn[(slot.X, slot.Y)] = iconKey;
+
+            var rect = new Rect2(
+                _geometry.TileToPixelX(slot.X),
+                _geometry.TileToPixelY(slot.Y),
+                scale,
+                scale);
+            DrawTextureRect(texture, rect, false);
+        }
+
+        _lastDrawnMercenaryIcons = drawn;
+    }
+
+    /// <summary>
+    /// Resolves the icon key for <paramref name="unitTypeId"/> given the active mercenary kinds — the
+    /// five <see cref="AssetKeys"/> <c>unit.&lt;type&gt;.icon</c> constants. The "All mercenaries"
+    /// kind matches every type; a specific type-kind only matches that type. Returns
+    /// <see langword="null"/> when no active kind matches (the offer is not drawn).
+    /// </summary>
+    private static string? IconKeyForSlotType(
+        string unitTypeId,
+        bool allOn,
+        bool liOn,
+        bool hiOn,
+        bool arOn,
+        bool lcOn,
+        bool hcOn)
+    {
+        if (allOn)
+        {
+            return unitTypeId switch
+            {
+                "light_infantry" => AssetKeys.UnitLightInfantryIcon,
+                "heavy_infantry" => AssetKeys.UnitHeavyInfantryIcon,
+                "archers" => AssetKeys.UnitArchersIcon,
+                "light_cavalry" => AssetKeys.UnitLightCavalryIcon,
+                "heavy_cavalry" => AssetKeys.UnitHeavyCavalryIcon,
+                _ => null,
+            };
+        }
+
+        return unitTypeId switch
+        {
+            "light_infantry" when liOn => AssetKeys.UnitLightInfantryIcon,
+            "heavy_infantry" when hiOn => AssetKeys.UnitHeavyInfantryIcon,
+            "archers" when arOn => AssetKeys.UnitArchersIcon,
+            "light_cavalry" when lcOn => AssetKeys.UnitLightCavalryIcon,
+            "heavy_cavalry" when hcOn => AssetKeys.UnitHeavyCavalryIcon,
+            _ => null,
+        };
     }
 }

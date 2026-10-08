@@ -149,8 +149,27 @@ public partial class ContextPanel : Control
         Rebuild();
     }
 
+    /// <summary>
+    /// T113, the city's right-click listing: shows the live mercenary offers on the right-clicked
+    /// city's tile, in slot order, in the unit-list view — same panel surface as
+    /// <see cref="ShowUnitList"/>, the heading "Mercenaries at &lt;city&gt;", one row per live offer
+    /// (type, troops, quality, quarterly cost), or "There are no mercenaries at &lt;city&gt;" with
+    /// none. <see cref="MainGameScreen"/> wires a city's right click to this in preference to
+    /// <see cref="ShowUnitList"/> (the 2026-10-05 amendment; the right click still selects nothing
+    /// and disarms no order, exactly as T99's path did).
+    /// </summary>
+    public void ShowMercenariesAtCity(string cityId)
+    {
+        _selection = Selection.ForUnitList(MapEntityKind.City, cityId);
+        _showMercenariesForCity = true;
+        Rebuild();
+    }
+
+    private bool _showMercenariesForCity;
+
     /// <summary>Re-reads the current selection's own state and rebuilds this panel's controls — call after
-    /// any command that might have changed what is selected (a city captured, an army disbanded, ...).</summary>
+    /// any command that might have changed what is selected (a city captured, an army disbanded, ...).
+    /// </summary>
     public void Refresh() => Rebuild();
 
     private void Rebuild()
@@ -164,18 +183,33 @@ public partial class ContextPanel : Control
         switch (_selection.Kind)
         {
             case SelectionKind.City when Session.State.CityById(_selection.Id!) is { } city:
+                _showMercenariesForCity = false;
                 BuildCityPanel(city);
                 break;
             case SelectionKind.Army when Session.State.ArmyById(_selection.Id!) is { } army:
+                _showMercenariesForCity = false;
                 BuildArmyPanel(army);
                 break;
             case SelectionKind.Fleet when Session.State.FleetById(_selection.Id!) is { } fleet:
+                _showMercenariesForCity = false;
                 BuildFleetPanel(fleet);
                 break;
             case SelectionKind.UnitList:
                 BuildUnitListPanel(_selection.Entity, _selection.Id!);
+                // T113 (2026-10-05 amendment): a right click on an army or a fleet still lists its own
+                // units — the mercenary listing is the city's case alone. Reset the flag for any
+                // non-city path so a stale Mercenaries view from a previous city click cannot leak into
+                // a following unit-list rebuild. BuildUnitListPanel reads the flag only inside the city
+                // case (the new branch at the top of its switch), so leaving it on for an army/fleet
+                // panel has no effect; resetting it is the cleaner explanation.
+                if (_selection.Entity != MapEntityKind.City)
+                {
+                    _showMercenariesForCity = false;
+                }
+
                 break;
             default:
+                _showMercenariesForCity = false;
                 BuildViewedNationPanel();
                 break;
         }
@@ -387,10 +421,22 @@ public partial class ContextPanel : Control
     /// an army's units, or a fleet's ships and any army aboard. It is the panel's one view that is
     /// <em>not</em> a selection: the map's selection, and any order armed by it, are untouched.
     /// </summary>
+    /// <remarks>
+    /// T113 (the 2026-10-05 amendment): the <see cref="MapEntityKind.City"/> case lists the city's
+    /// mercenary offers instead of its garrison when <see cref="_showMercenariesForCity"/> is set —
+    /// the user's right click on a city lists the mercenaries on offer there, matching the original's
+    /// <c>TInformation_ShowCityUnits</c> literal "Mercenaries at &lt;city&gt;" / "There are no
+    /// mercenaries at &lt;city&gt;" [Wine candidate: feature inventory row UM07, <c>FI_b1_25_city_right_click.png</c>;
+    /// derived: code, the literals]. The T99 garrison listing is unchanged for the left-click path.
+    /// </remarks>
     private void BuildUnitListPanel(MapEntityKind entity, string id)
     {
         switch (entity)
         {
+            case MapEntityKind.City when _showMercenariesForCity && Session.State.CityById(id) is { } mercCity:
+                BuildCityMercenaryListing(mercCity);
+                return;
+
             case MapEntityKind.City when Session.State.CityById(id) is { } city:
                 Heading($"Units — {city.Name}");
                 Fact($"Owner: {DisplayNation(city.Owner)}  ·  Population: {city.PopulationThousands}k");
@@ -425,6 +471,32 @@ public partial class ContextPanel : Control
                 Heading("Units");
                 Note("Nothing is here.");
                 return;
+        }
+    }
+
+    /// <summary>
+    /// The T113 (2026-10-05 amendment) city right-click listing: the live mercenary offers on the
+    /// city's tile, in slot order, with the columns the Recruit mercenaries dialog shows. With none,
+    /// the heading "There are no mercenaries at &lt;city&gt;". The model is
+    /// <see cref="MercenaryDialogModel.ForCity"/>; the view and the dialog read it through one path so
+    /// they cannot disagree between them.
+    /// </summary>
+    private void BuildCityMercenaryListing(CityState city)
+    {
+        var model = MercenaryDialogModel.ForCity(Session.State, city.Id, Session.Ruleset);
+        if (model.Offers.Count == 0)
+        {
+            Heading($"There are no mercenaries at {city.Name}");
+            return;
+        }
+
+        Heading($"Mercenaries at {city.Name}");
+        foreach (var offer in model.Offers)
+        {
+            Fact(
+                $"{offer.TypeName}  —  {offer.Troops.ToString(System.Globalization.CultureInfo.InvariantCulture)} troops"
+                + $"  —  {MercenaryDialogModel.QualityCaption(offer.Quality)}"
+                + $"  —  {offer.QuarterlyCostTalents.ToString(System.Globalization.CultureInfo.InvariantCulture)}/quarter");
         }
     }
 
