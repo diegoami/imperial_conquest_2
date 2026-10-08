@@ -386,10 +386,9 @@ public partial class InformationPanelCheck : Control
     private void AssertCarriedArmyPanelIsWithheld()
     {
         // R2: the carried army is foreign to Rome (Ptolemaic fleet + Ptolemaic army, Rome as the
-        // active seat). The active-seat fix classifies the carried army against ActiveNationId, not
-        // the fleet's owner; the four own-only lines are withheld per UM04.
-        Check(PanelHasLabel("Army of Ptolemaic"), "the carried army's panel reads 'Army of Ptolemaic'");
-        Check(PanelHasLabel("Moves: withheld"), "the carried army's panel withholds moves (active-seat rule)");
+        // active seat). The active-seat fix classifies the carried army against ActiveNationId,
+        // not the fleet's owner; the three own-only lines F09 keeps on a carried-army panel
+        // (Supply, Morale, Money) are withheld. Total troops still appears.
         Check(PanelHasLabel("Supply: withheld"), "the carried army's panel withholds supply (active-seat rule)");
         Check(PanelHasLabel("Morale: withheld"), "the carried army's panel withholds morale (active-seat rule)");
         Check(PanelHasLabel("Money: withheld"), "the carried army's panel withholds money (active-seat rule)");
@@ -397,6 +396,11 @@ public partial class InformationPanelCheck : Control
         Check(
             PanelHasLabel($"Total troops: {_mainGame.Session.State.ArmyById(PtolemyCargoArmyId)!.TotalTroops}"),
             "the carried army's panel still shows its own Total troops line");
+
+        // F09 omits No. of units, Regulars cost and Mercenary pay on a foreign carried army.
+        Check(!PanelHasLabelStartingWith("No. of units:"), "the foreign carried army's panel omits No. of units (F09)");
+        Check(!PanelHasLabelStartingWith("Regulars cost:"), "the foreign carried army's panel omits Regulars cost (F09)");
+        Check(!PanelHasLabelStartingWith("Mercenary pay:"), "the foreign carried army's panel omits Mercenary pay (F09)");
     }
 
     // ---- Foreign nation panel (Carthage viewed by Rome) ----
@@ -705,8 +709,23 @@ public partial class InformationPanelCheck : Control
             SupplyTons: 0,
             Moves: 25));
 
+        // The cargo army: built from army-2's own shape under a new id and a Ptolemaic nation
+        // label, the same pattern `MapClickCheck` uses. Only fields that exist on
+        // `StartingArmy` are set here (Id, Nation, X, Y); the embark link
+        // (AboardFleetId / CoveredTileCode) is set below on the ArmyState copy that the
+        // session derives from this list.
+        var startingArmies = resolved.World.StartingArmies.ToList();
+        startingArmies.Add(resolved.World.StartingArmies.Single(a => a.Id == "army-2") with
+        {
+            Id = PtolemyCargoArmyId,
+            Nation = "ptolemaic",
+            X = CarryingFleetTileX,
+            Y = CarryingFleetTileY,
+        });
+
         var world = resolved.World with
         {
+            StartingArmies = ValueList.From(startingArmies),
             StartingFleets = ValueList.From(fleets),
         };
 
@@ -714,10 +733,11 @@ public partial class InformationPanelCheck : Control
             world, resolved.Ruleset, resolved.Scenario,
             seedOverride: 1, humanSeatNationId: RomeId);
 
-        // Embark the cargo army on the carrying fleet. The cargo army is army-2's own shape (a
-        // Carthaginian army shape) with the Ptolemaic nation label, mirroring MapClickCheck's
-        // pattern; a real player couldn't build this, but the seam a loaded save gives is the same.
-        // CoveredTileCode is null exactly while AboardFleetId is set, as GameDataValidation requires.
+        // Embark the cargo army on the carrying fleet, and pin the fleet's CarriedArmyId.
+        // These are ArmyState / FleetState fields, not StartingArmy / StartingFleet fields —
+        // the `with` lives here, not in the StartingArmy / StartingFleet construction above.
+        // CoveredTileCode is null exactly while AboardFleetId is set, as GameDataValidation
+        // requires.
         var state = initial.State;
         var armies = state.Armies.Select(a => a.Id switch
         {
@@ -730,22 +750,6 @@ public partial class InformationPanelCheck : Control
             },
             _ => a,
         }).ToList();
-
-        // Add the cargo army to the world if it isn't already there. The shipped start does not
-        // include a "ptolemy-cargo-army"; create it from army-2's shape.
-        if (!armies.Any(a => a.Id == PtolemyCargoArmyId))
-        {
-            var template = resolved.World.StartingArmies.Single(a => a.Id == "army-2");
-            armies.Add(template with
-            {
-                Id = PtolemyCargoArmyId,
-                Nation = "ptolemaic",
-                X = CarryingFleetTileX,
-                Y = CarryingFleetTileY,
-                AboardFleetId = PtolemyCarryFleetId,
-                CoveredTileCode = null,
-            });
-        }
 
         var stateFleets = state.Fleets.Select(f => f.Id switch
         {
