@@ -204,6 +204,17 @@
       hand-maintained copy.
     -->
     <Compile Include="../../godot/UI/Dialogs/ArmyDialogModels.cs" Link="Ui/ArmyDialogModels.cs" />
+
+    <!--
+      T112 (tests/IC2.Engine.Tests/Ui/FleetCityDialogModelsTests.cs and UnitCommandStripTests.cs): the
+      same seam once more. FleetCityDialogModels.cs is the Godot-free model behind the Unit map's Fleet
+      and City dialogs — each dialog's limits and the command lines it composes — and
+      UnitCommandStripLayout.cs is the Godot-free "which buttons for which selection" table. A plain
+      xunit test can pin both without the Godot SDK. No `using Godot` anywhere; never a second,
+      hand-maintained copy.
+    -->
+    <Compile Include="../../godot/UI/Dialogs/FleetCityDialogModels.cs" Link="Ui/FleetCityDialogModels.cs" />
+    <Compile Include="../../godot/UI/UnitCommandStripLayout.cs" Link="Ui/UnitCommandStripLayout.cs" />
   </ItemGroup>
 
 </Project>
