@@ -390,7 +390,7 @@ Still genuinely **[designed]**: any numeric "opinion" score layered on top of th
 
 How faithfully to follow this model versus the opinion-score design was **open question Q3** in [design-audit.md](design-audit.md) — now answered: both, as the `diplomacy.model` ruleset flag (see "Two shipped presets" above).
 
-### AI — **[designed; three pieces are transcribed from the original — its diplomacy (T82, `FUN_0044FB7C`), the mercenary-hire pass (T76, `FUN_0044E41C`) and the resupply passes (T38, `FUN_0044F6D8`/`FUN_0044F7E4`)]**
+### AI — **[the AI economy, army and fleet passes are decompiled; whether `classical-faithful` should adopt the original's turn is an open question]**
 
 A rule-based (not ML) heuristic AI, tunable via per-nation "personality" parameters in scenario data (`aggression`, `expansionDrive`, `loyaltyToAlliances`, each 0–1) and, since T79, through the ruleset's `ai` block: the scoring weights and thresholds the phases below use, and the personality value an AI seat without one gets (`defaultPersonalityPermille`), each with its `_provenance`:
 
