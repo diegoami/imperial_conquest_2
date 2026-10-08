@@ -8,15 +8,17 @@ using ModelTestPaths = IC2.Engine.Tests.Model.TestPaths;
 namespace IC2.Engine.Tests.Ui;
 
 /// <summary>
-/// T110 (docs/tasks/T110.md, Done-when 2): the context panel's nation status panel against the live
-/// state. The own nation (Rome) carries the confirmed full list; a foreign nation (Carthage, with Rome
-/// as the viewer) carries public facts only.
+/// T140 (docs/tasks/T140.md, Done-when 3): the context panel's nation status panel against the live
+/// state. The own nation (Rome) carries the full list — Population read from <see cref="NationState.Wealth"/>
+/// (bug #742), Unity as a word, every relation in the matrix including the foreign-nation ones, and
+/// the training section. A foreign nation (Carthage, viewed by Rome) shows Population, Unity, Tax
+/// rate, every relation, with the conquered-nation row flagged red and the rest plain.
 /// </summary>
 /// <remarks>
-/// Every expected value is read from the same <see cref="GameSession"/> the panel would draw, so the test
-/// pins the model's own choice of fields rather than a hand-copied number. The absence assertions are the
-/// load-bearing half: they are what fail if a later change makes the foreign panel leak the own nation's
-/// facts.
+/// Every expected value is read from the same <see cref="GameSession"/> the panel would draw, so the
+/// test pins the model's own choice of fields rather than a hand-copied number. The foreign panel's
+/// "every relation" assertions are the load-bearing half: a future regression that drops the per-nation
+/// list to a single viewer cell breaks the foreign panel's row count.
 /// </remarks>
 public sealed class NationStatusModelTests
 {
@@ -33,9 +35,29 @@ public sealed class NationStatusModelTests
     private static IReadOnlyDictionary<string, string> ByKey(IReadOnlyList<NationStatusLine> lines) =>
         lines.ToDictionary(line => line.Key, line => line.Text, StringComparer.Ordinal);
 
-    /// <summary>Rome's own panel: the report §1 list, each value read from the state.</summary>
+    private static string ExpectedRelationWord(int value)
+    {
+        // The original's words (N11): 1 trade, 2 ally, 3 war; below or equal 0 and above 3 print nothing.
+        if (value <= 0 || value > 3)
+        {
+            return string.Empty;
+        }
+
+        return value switch
+        {
+            1 => "trade",
+            2 => "ally",
+            3 => "war",
+            _ => string.Empty,
+        };
+    }
+
+    /// <summary>
+    /// Rome's own panel: every key the new model emits, with each value read back from the live state
+    /// — the report §1 list, the research-read panels, and bug #742's Population = Wealth fix.
+    /// </summary>
     [Fact]
-    public void The_own_nations_panel_lists_the_confirmed_fields()
+    public void The_own_nations_panel_lists_the_research_read_full_list()
     {
         var session = RomeSession();
         var state = session.State;
@@ -48,24 +70,42 @@ public sealed class NationStatusModelTests
         Assert.Equal($"Leader: {rome.LeaderName}", byKey[NationStatusModel.LeaderKey]);
         Assert.Equal($"Capital: {capital.Name}", byKey[NationStatusModel.CapitalKey]);
         Assert.Equal($"Cities: {state.CountCitiesOwnedBy(RomeId)}", byKey[NationStatusModel.CitiesKey]);
-        Assert.Equal($"Population: {rome.Population}", byKey[NationStatusModel.PopulationKey]);
-        Assert.Equal($"Unity: {rome.Unity}", byKey[NationStatusModel.UnityKey]);
+
+        // N05: Population = the nation's stored wealth field (3000 × Σ city populations in
+        // thousands), per the research read; bug #742's fix.
+        Assert.Equal($"Population: {rome.Wealth}", byKey[NationStatusModel.PopulationKey]);
+        Assert.Equal(2_577_000, rome.Wealth);
+
+        // N06: Unity is the band word, not the number.
+        Assert.Equal($"Unity: {InformationWords.Unity(rome.Unity)}", byKey[NationStatusModel.UnityKey]);
+
         Assert.Equal($"Tax rate: {rome.TaxRatePercent}%", byKey[NationStatusModel.TaxRateKey]);
         Assert.Equal($"Mobilized: {rome.MobilizedPercent}%", byKey[NationStatusModel.MobilizedKey]);
         Assert.Equal($"Treasury: {rome.Treasury}", byKey[NationStatusModel.TreasuryKey]);
 
-        // Relations: one line per other nation (15 of the world's 16), each label read back from the
-        // live relation value through the ruleset's StateCodes. Asserting every line — not just a name
-        // prefix — is what makes a wrong value (M5, every relation forced to 0) fail.
-        var codes = session.Ruleset.Diplomacy.StateCodes;
+        // N11: every other nation has a relation row. The text uses the original's words
+        // (trade/ally/war) on a "Name: word" line, or just the name when the value is <= 0
+        // (peace, or a cooldown counter).
         var relationLines = lines.Where(line =>
             line.Key.StartsWith(NationStatusModel.RelationKeyPrefix, StringComparison.Ordinal)).ToList();
         Assert.Equal(state.Nations.Count - 1, relationLines.Count);
         foreach (var other in state.Nations.Where(nation => !string.Equals(nation.Id, RomeId, StringComparison.Ordinal)))
         {
-            Assert.Equal(
-                $"{other.Name}: {ExpectedRelationLabel(state.Relations.Get(RomeId, other.Id), codes)}",
-                byKey[NationStatusModel.RelationKeyPrefix + other.Id]);
+            var value = state.Relations.Get(RomeId, other.Id);
+            if (other.Eliminated)
+            {
+                // N12: the conquered-nation row is the line in red. The relation lookup is still
+                // there underneath, but the row's text is the conquerred line, not the relation.
+                var conqueror = state.NationById(other.ConqueredBy!)?.Name ?? string.Empty;
+                var expected = $"   ( {other.Name} conquerred by {conqueror} )";
+                Assert.Equal(expected, byKey[NationStatusModel.RelationKeyPrefix + other.Id]);
+            }
+            else
+            {
+                var word = ExpectedRelationWord(value);
+                var expectedText = word.Length == 0 ? other.Name : $"{other.Name}: {word}";
+                Assert.Equal(expectedText, byKey[NationStatusModel.RelationKeyPrefix + other.Id]);
+            }
         }
 
         // Bug #513's fix stays: the own panel carries the training section.
@@ -73,11 +113,12 @@ public sealed class NationStatusModelTests
     }
 
     /// <summary>
-    /// A foreign nation's panel (Carthage, viewed by Rome) holds its public facts and withholds every
-    /// one of the own-nation-only fields.
+    /// Carthage viewed by Rome — the foreign panel adds Population (Wealth), Unity (word), Tax rate
+    /// and the whole per-nation relations list, in place of the viewer's cell alone. Mobilized and
+    /// Treasury are blank; the training section is absent.
     /// </summary>
     [Fact]
-    public void A_foreign_nations_panel_shows_public_facts_only()
+    public void The_foreign_panel_lists_population_unity_tax_rate_and_every_relation()
     {
         var session = RomeSession();
         var state = session.State;
@@ -87,26 +128,43 @@ public sealed class NationStatusModelTests
         var lines = NationStatusModel.Build(state, session.Ruleset, CarthageId, viewerNationId: RomeId);
         var byKey = ByKey(lines);
 
-        // 1. Public facts: leader, capital, cities and the relation with the viewer's nation.
+        // Public facts the panel still carries.
         Assert.Equal($"Leader: {carthage.LeaderName}", byKey[NationStatusModel.LeaderKey]);
         Assert.Equal($"Capital: {capital.Name}", byKey[NationStatusModel.CapitalKey]);
         Assert.Equal($"Cities: {state.CountCitiesOwnedBy(CarthageId)}", byKey[NationStatusModel.CitiesKey]);
-        Assert.Equal(
-            $"Rome: {ExpectedRelationLabel(state.Relations.Get(CarthageId, RomeId), session.Ruleset.Diplomacy.StateCodes)}",
-            byKey[NationStatusModel.RelationKeyPrefix + RomeId]);
 
-        // 2. Only the one viewer relation, not the whole per-nation list.
-        Assert.Equal(1, lines.Count(line =>
-            line.Key.StartsWith(NationStatusModel.RelationKeyPrefix, StringComparison.Ordinal)));
+        // 2026-10-05 decision: Population, Unity and Tax rate join the foreign panel.
+        Assert.Equal($"Population: {carthage.Wealth}", byKey[NationStatusModel.PopulationKey]);
+        Assert.Equal($"Unity: {InformationWords.Unity(carthage.Unity)}", byKey[NationStatusModel.UnityKey]);
+        Assert.Equal($"Tax rate: {carthage.TaxRatePercent}%", byKey[NationStatusModel.TaxRateKey]);
 
-        // 3. Withheld: no treasury, tax rate, population, unity, mobilization or units in training.
+        // Every relation line is rendered (N11), not just the viewer cell (the 2026-10-01 default).
+        var relationLines = lines.Where(line =>
+            line.Key.StartsWith(NationStatusModel.RelationKeyPrefix, StringComparison.Ordinal)).ToList();
+        Assert.Equal(state.Nations.Count - 1, relationLines.Count);
+        foreach (var other in state.Nations.Where(nation => !string.Equals(nation.Id, CarthageId, StringComparison.Ordinal)))
+        {
+            var value = state.Relations.Get(CarthageId, other.Id);
+            if (other.Eliminated)
+            {
+                var conqueror = state.NationById(other.ConqueredBy!)?.Name ?? string.Empty;
+                Assert.Equal(
+                    $"   ( {other.Name} conquerred by {conqueror} )",
+                    byKey[NationStatusModel.RelationKeyPrefix + other.Id]);
+            }
+            else
+            {
+                var word = ExpectedRelationWord(value);
+                var expected = word.Length == 0 ? other.Name : $"{other.Name}: {word}";
+                Assert.Equal(expected, byKey[NationStatusModel.RelationKeyPrefix + other.Id]);
+            }
+        }
+
+        // Withheld: Mobilized, Treasury and the training section are absent from the foreign panel.
         foreach (var withheld in new[]
         {
-            NationStatusModel.TreasuryKey,
-            NationStatusModel.TaxRateKey,
-            NationStatusModel.PopulationKey,
-            NationStatusModel.UnityKey,
             NationStatusModel.MobilizedKey,
+            NationStatusModel.TreasuryKey,
             NationStatusModel.TrainingHeaderKey,
             NationStatusModel.TrainingNoneKey,
         })
@@ -119,9 +177,9 @@ public sealed class NationStatusModelTests
     }
 
     /// <summary>
-    /// The non-vacuous half of the foreign rule: Carthage's own panel (Carthage active) grows the full
-    /// list back, so the absence assertions above are about being foreign, not about the field ever being
-    /// absent.
+    /// A nation's own panel always carries the full list — even a foreign nation, when chosen as the
+    /// viewer. The Carthage-as-own assertion pins the same code path regardless of who selects the
+    /// panel.
     /// </summary>
     [Fact]
     public void The_same_nation_as_the_own_nation_carries_the_full_list()
@@ -138,37 +196,53 @@ public sealed class NationStatusModelTests
     }
 
     /// <summary>
-    /// The model's own relation wording, re-derived from the state value through the ruleset's
-    /// <see cref="RelationStateCodes"/> — the same four states plus the negative cooldown the model
-    /// documents. The assertion is against the state, not against a hand-copied word.
+    /// The eliminated row is flagged red (N12), every other relation row is plain. Mark a nation's
+    /// <see cref="NationState.Eliminated"/> and <see cref="NationState.ConqueredBy"/> on the live
+    /// state and assert the lines model emits.
     /// </summary>
-    private static string ExpectedRelationLabel(int value, RelationStateCodes codes)
+    [Fact]
+    public void A_conquered_nation_row_is_flagged_red_and_others_stay_plain()
     {
-        if (value < 0)
-        {
-            return $"Cooldown ({-value})";
-        }
+        var session = RomeSession();
+        var state = session.State;
+        var carthage = state.NationById(CarthageId)!;
+        var conqueror = state.NationById("rome")!;
 
-        if (value == codes.War)
+        var arranged = state with
         {
-            return "War";
-        }
+            Nations = ValueList.From(state.Nations.Select(n =>
+                string.Equals(n.Id, CarthageId, StringComparison.Ordinal)
+                    ? n with { Eliminated = true, ConqueredBy = conqueror.Id }
+                    : n)),
+        };
 
-        if (value == codes.Alliance)
-        {
-            return "Alliance";
-        }
+        var lines = NationStatusModel.Build(arranged, session.Ruleset, RomeId, viewerNationId: RomeId);
+        var conquered = lines.Single(line =>
+            string.Equals(line.Key, NationStatusModel.RelationKeyPrefix + CarthageId, StringComparison.Ordinal));
+        var other = lines.Where(line =>
+            line.Key.StartsWith(NationStatusModel.RelationKeyPrefix, StringComparison.Ordinal)
+            && !string.Equals(line.Key, NationStatusModel.RelationKeyPrefix + CarthageId, StringComparison.Ordinal))
+            .ToList();
 
-        if (value == codes.Trade)
-        {
-            return "Trade";
-        }
+        Assert.True(conquered.IsRed, "the conquered nation's relation row is flagged red (N12)");
+        Assert.Contains("conquerred", conquered.Text, StringComparison.Ordinal);
+        Assert.All(other, line => Assert.False(line.IsRed, $"non-conquered row '{line.Key}' is not red"));
+    }
 
-        if (value == codes.Peace)
-        {
-            return "Peace";
-        }
-
-        return $"Unknown ({value})";
+    /// <summary>
+    /// The model's separate relation-word rule on its own, restated from the research read — duplicated
+    /// here (the panel itself asserts on the panel's output) so a regression that swaps the helper for
+    /// the clone-ship Trade/Alliance/War words breaks one place, not every test.
+    /// </summary>
+    [Theory]
+    [InlineData(0, "")]
+    [InlineData(-1, "")]
+    [InlineData(1, "trade")]
+    [InlineData(2, "ally")]
+    [InlineData(3, "war")]
+    [InlineData(4, "")]
+    public void Relation_word_matches_the_original_band(int value, string word)
+    {
+        Assert.Equal(word, InformationWords.Relation(value));
     }
 }

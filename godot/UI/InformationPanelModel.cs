@@ -518,11 +518,20 @@ public static class InformationPanelModel
         else
         {
             // Foreign-fleet: Moves, Repair, Supply, Money are blank (research read F01–F08 + the
-            // foreign-fleet paragraph).
+            // foreign-fleet paragraph). Ships (F03), Capacity (F07) and Sea (F08) are always shown
+            // — see the unconditional F03/F07/F08 lines below.
             lines.Add(new InformationPanelLine(FleetMovesKey, "Moves:"));
             lines.Add(new InformationPanelLine(FleetRepairKey, "Repair:"));
             lines.Add(new InformationPanelLine(FleetSupplyKey, "Supply:"));
             lines.Add(new InformationPanelLine(FleetMoneyKey, "Money:"));
+        }
+
+        // F03 (always): Ships — shown on the foreign fleet, the own fleet, and the
+        // fleet-carrying-army block alike. The own fleet renders Ships as part of F02..F06 above,
+        // not as a duplicate line below; the foreign fleet renders it here.
+        if (!includeFacts)
+        {
+            lines.Add(new InformationPanelLine(FleetShipsKey, $"Ships: {fleet.Ships}"));
         }
 
         // F07 (always): Capacity = ships × TransportTroopsPerShip troops
