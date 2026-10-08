@@ -778,6 +778,73 @@ public sealed class InformationPanelModelTests
         Assert.DoesNotContain(slice, line => line.Key == InformationPanelModel.ArmyTerrainKey);
     }
 
+    /// <summary>
+    /// R2 of the R1 review: a Carthaginian fleet carrying a Carthaginian army, viewed by Rome. The
+    /// active seat (Rome) is the viewer, not the fleet's owner, so the embarked army is a foreign
+    /// army in the panel's eyes: Supply/Morale/Money are "withheld" captions, and there is no
+    /// No. of units / Regulars cost / Mercenary pay line. A regression that classifies against
+    /// the fleet's owner would render the full own-army block and expose Carthaginian facts to
+    /// Rome.
+    /// </summary>
+    [Fact]
+    public void A_foreign_fleet_carrying_its_own_army_withholds_the_embarked_armys_facts()
+    {
+        var session = RomeSession();
+        var state = session.State;
+        var army = Army(state, CarthaginianArmyId);
+        var ruleset = session.Ruleset;
+
+        // Build a Carthaginian fleet carrying Carthage's army-2, with Rome still the active seat
+        // (the RomeSession's seed places Rome as the human seat). The embarked army is foreign
+        // to Rome.
+        var arranged = state with
+        {
+            Fleets = ValueList.From(state.Fleets.Append(
+                new FleetState(
+                    Id: "carthage-fleet-army",
+                    Nation: CarthageId,
+                    X: 100, Y: 37,
+                    Moves: 25, Ships: 30, ConditionPercent: 85, Money: 200, SupplyTons: 120,
+                    ConstructionTicksRemaining: null, BuildCityId: null,
+                    CarriedArmyId: CarthaginianArmyId, CoveredTileCode: 0))),
+            Armies = ValueList.From(state.Armies.Select(a =>
+                string.Equals(a.Id, CarthaginianArmyId, StringComparison.Ordinal)
+                    ? a with { AboardFleetId = "carthage-fleet-army", CoveredTileCode = null }
+                    : a)),
+        };
+
+        var fleet = arranged.FleetById("carthage-fleet-army")!;
+        var lines = InformationPanelModel.ForeignFleet(arranged, session.World, ruleset, fleet);
+
+        // The "Army" header exists in the lines.
+        var headerIndex = -1;
+        for (var i = 0; i < lines.Count; i++)
+        {
+            if (string.Equals(lines[i].Key, InformationPanelModel.FleetArmyHeaderKey, StringComparison.Ordinal))
+            {
+                headerIndex = i;
+                break;
+            }
+        }
+
+        Assert.True(headerIndex >= 0, "the foreign fleet panel emits an 'Army' header for the embarked army");
+        var slice = lines.Skip(headerIndex + 1).ToList();
+
+        // The embarked army is foreign to Rome (the active seat): Supply, Morale, Money are
+        // "withheld" captions.
+        var supply = slice.Single(line => line.Key == InformationPanelModel.ArmySupplyKey);
+        var morale = slice.Single(line => line.Key == InformationPanelModel.ArmyMoraleKey);
+        var money = slice.Single(line => line.Key == InformationPanelModel.ArmyMoneyKey);
+        Assert.Equal("Supply: withheld", supply.Text);
+        Assert.Equal("Morale: withheld", morale.Text);
+        Assert.Equal("Money: withheld", money.Text);
+
+        // No No. of units, Regulars cost, Mercenary pay — those are own-only.
+        Assert.DoesNotContain(slice, line => line.Key == InformationPanelModel.ArmyNoOfUnitsKey);
+        Assert.DoesNotContain(slice, line => line.Key == InformationPanelModel.ArmyRegularsCostKey);
+        Assert.DoesNotContain(slice, line => line.Key == InformationPanelModel.ArmyMercenaryPayKey);
+    }
+
     // ========================================================================
     // Helpers — duplicated here only when the engine's own helper does not match.
     // ========================================================================

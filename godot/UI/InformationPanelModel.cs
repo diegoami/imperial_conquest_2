@@ -536,9 +536,13 @@ public static class InformationPanelModel
         lines.Add(new InformationPanelLine(FleetArmyHeaderKey, "Army"));
 
         // The embarked army panel starts at Supply, never at Moves, never at Terrain. Follow the
-        // army's own/foreign rule: foreign fleet → army as a foreign army (composition only).
-        var viewer = state.NationById(fleet.Nation);
-        var isOwn = viewer is not null && string.Equals(army.Nation, viewer.Id, StringComparison.Ordinal);
+        // army's own/foreign rule: the rule is decided against the ACTIVE SEAT, never against the
+        // fleet's owner. A Carthaginian fleet carrying a Carthaginian army, viewed by Rome, must
+        // withhold Supply, Morale, Money, unit count and upkeep just like a foreign army on land
+        // (R2 of the R1 review: the active seat is the only viewer the panel knows; otherwise
+        // Rome's view of a Carthaginian fleet exposes the embarked army's facts, which the
+        // original does not).
+        var isOwn = string.Equals(army.Nation, state.ActiveNationId, StringComparison.Ordinal);
         var armyLines = isOwn
             ? OwnArmyFromSupplyOn(state, world, ruleset, army)
             : ForeignArmyFromSupplyOn(state, world, ruleset, army);
