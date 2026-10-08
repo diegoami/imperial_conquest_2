@@ -210,6 +210,7 @@ graph TD
   T142 --> T147[T147 game screen layout]
   T147 --> T148[T148 terrain surface]
   T147 --> T149[T149 sound effects]
+  T150[T150 implementer churn]
   T23 --> T26[T26 scenario docs+examples]
   T29 --> T26
   T22 --> T28[T28 nightly soak gate]
@@ -1208,6 +1209,12 @@ Sound effects (correction task for bug #790, from research `8da1588`; in the v0.
 
 ---
 
+#### T150 An implementer run survives a benign outside path, keeps its brief, and has a second family to fall back on
+
+Implementer churn (process tooling, from the churn retrospective #854 after T140; in the v0.5.0 gate and ahead of every other gate task by the user's decision of 2026-10-08; it starts after plan PR #856) → [full entry](tasks/T150.md) · [#854](https://github.com/diegoami/imperial_conquest_2/issues/854)
+
+---
+
 #### T25 Battle result, diplomacy, and hotseat handoff screens
 
 Godot screens → [full entry](tasks/T25.md) · [#25](https://github.com/diegoami/imperial_conquest_2/issues/25)
@@ -1387,3 +1394,4 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T147](#t147-the-game-screen-the-map-fills-its-area-windows-open-centred-and-the-output-area-reads-as-the-apps) | Game screen layout | M18 | Sonnet | Medium | Sol + human | T142 | [#786](https://github.com/diegoami/imperial_conquest_2/issues/786) |
 | [T148](#t148-the-maps-surface-is-painted-not-tiled-blended-terrain-irregular-coasts-river-strokes) | Terrain surface | M18 | Sonnet | Medium | **Opus** + human | T147 | [#791](https://github.com/diegoami/imperial_conquest_2/issues/791) |
 | [T149](#t149-the-game-plays-sounds-at-the-originals-events-generated-with-elevenlabs) | Sound effects | M18 | Sonnet | Medium | Sol + human | T147 | [#792](https://github.com/diegoami/imperial_conquest_2/issues/792) |
+| [T150](#t150-an-implementer-run-survives-a-benign-outside-path-keeps-its-brief-and-has-a-second-family-to-fall-back-on) | Implementer churn | none | Sonnet | Medium | Sol | PR #856 | [#854](https://github.com/diegoami/imperial_conquest_2/issues/854) |

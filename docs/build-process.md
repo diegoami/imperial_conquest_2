@@ -241,6 +241,8 @@ When the reviewer asks for changes, the main session:
 
 The implementer pushes to the same branch, and the main session dispatches the reviewer again.
 
+**A brief never widens Owns** (the user's decision of 2026-10-08, from #854). When a finding can be fixed only in a file, or a part of a file, outside both the task's Owns and the implicit set that [§4.2](#42-what-the-reviewer-checks) gate 4 and [§4.3](#43-the-dod-is-not-negotiable-by-an-agent) let the main session widen by an issue comment (tests, fixtures, goldens, compile registrations), the main session first opens an Owns amendment ([§4.9](#49-plan-prs-two-tiers): routine when no other open task names the path, contract otherwise) and dispatches the rework only after it merges. The brief cites the merged amendment. On T140 a round-1 brief authorised an edit to `MapClickCheck.cs` without one. The review had it reverted, and the same check failed two rounds later (plan PR #855).
+
 **One blocker per round** (the user's decision of 2026-10-04): when a reviewer names exactly one blocking finding in each of two rounds running, the main session stops after the second, goes through the whole diff itself for the same class of problem, and records the pattern on the wiki's [Model trials](https://github.com/diegoami/imperial_conquest_2/wiki/Model-trials) page ([Appendix C](#appendix-c-the-run-task-skill) step 3). What the sweep finds goes where that review's findings go: into the next rework; at `review-round:2`, into the escalation comment; on a `fix` at `review-round:1`, into the correction task's entry.
 
 **Rework round 2 is the last.** A review that fails while the issue carries `review-round:2` escalates ([§4.5](#45-when-to-escalate-to-the-user)). For a `fix` ([§4.10](#410-the-fix-lane)), round 1 is the last: a review that fails while the issue carries `review-round:1` files a correction task instead of escalating.
@@ -583,6 +585,10 @@ Scratch files go inside your worktree, under the git-ignored `rendered/`
 or deleted before you commit, and never in TEMP (the user's rule of 2026-09-29). A mutation check
 runs in place and uncommitted: mutate, rebuild clean, test, then `git checkout -- <file>`, touch
 it, rebuild clean and test again (§4.2 gate 5).
+
+Your brief is the prompt you were given. Never re-read a brief file by a path outside your
+worktree: the main checkout's `rendered/` is outside it, and the guard ends the run there
+(T140, #854).
 
 Never use `git stash`: the stash is shared by every worktree in the repository, so another
 agent's push or pop can swap entries with yours. To test the base without your change, commit
