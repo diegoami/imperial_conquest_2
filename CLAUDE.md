@@ -103,9 +103,9 @@ Agreed on [#264](https://github.com/diegoami/imperial_conquest_2/issues/264), wh
     If the service does not answer, run `systemctl --user restart quota-tracker`, wait and retry; if
     it still fails, tell the user instead of guessing. Model ids come from the provider's live list
     (`opencode models <provider>`), never memory. Heavy models run at `medium` effort rather than
-    `high`, or lighter when medium is not needed (the user's decision of 2026-10-05). Until
-    [T152](docs/tasks/T152.md) lands, `scripts/Choose-Model.ps1` and `-Model auto` still rank the
-    old way: don't rely on them.
+    `high`, or lighter when medium is not needed (the user's decision of 2026-10-05). Since
+    [T152](docs/tasks/T152.md), `scripts/Choose-Model.ps1` and `-Model auto` rank by `/recommend` with these
+    exclusions and log the reasons themselves.
 
 18. **The light OpenAI model, and the reviewer `luna`, is GPT-5.6 Luna** (harness_imperial L51) on
     the direct OpenAI route: `openai/gpt-5.6-luna`, effort `high`, on its own weekly pool. It is not

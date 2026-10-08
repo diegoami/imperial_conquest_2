@@ -71,7 +71,7 @@ Facts that affect availability:
 
 ### Choosing a model: no fixed order
 
-**Superseded on 2026-10-08** (the user's decision, CLAUDE.md rule 17): the model comes from quota-tracker's `/recommend?tier=heavy|light`, never from headroom percentages. Until [T152](tasks/T152.md) lands, `scripts/Choose-Model.ps1` still ranks as this section describes, so don't use its ranking. The rest of this section is the pre-T152 behaviour, kept until T152's doc claims replace it.
+**Since T152 (2026-10-08, the user's decision, CLAUDE.md rule 17)** `scripts/Choose-Model.ps1` ranks by quota-tracker's `/recommend?tier=heavy|light`, never by headroom percentages: it maps each row's provider to an alias per role (an unmapped row is skipped), drops Claude while another candidate scores positive, keeps Luna and Sol out of implementation, puts a negative score last, prints each candidate's `score`, `confidence` and `reasons`, and stops with exit 3 when the tracker is loading too long or silent. `-RecommendFile` and `-RecommendUrl` make it testable offline (`-SelfTest`). The section below describes the pre-T152 chooser and is kept only for its history.
 
 There is no fixed model order (the owner's decision of 2026-10-06). The main session chooses each run's model case by case, from live quota and the model's strength. `scripts/Choose-Model.ps1` does the mechanical half and chooses nothing:
 
