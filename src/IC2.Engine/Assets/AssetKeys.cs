@@ -166,13 +166,13 @@ public static class AssetKeys
     // (8) and `sfx.nation_conquered` (10). The tactical-battle sounds (3-5) are generated and
     // shipped now, and nothing plays them yet (the tactical battle screen is post-v0.6.0, T125-T130).
 
-    /// <summary>Sound effect played when a city is captured (sound 7 in the original).</summary>
+    /// <summary>Sound effect played when a city is captured.</summary>
     public const string SfxCityCaptured = "sfx.city_captured";
 
-    /// <summary>Sound effect played when a field battle is resolved at once (sound 9).</summary>
+    /// <summary>Sound effect played during battle.</summary>
     public const string SfxBattle = "sfx.battle";
 
-    /// <summary>Sound effect played once per step when a human army moves on the map (sound 1).</summary>
+    /// <summary>Sound effect played when a unit moves.</summary>
     public const string SfxUnitMove = "sfx.unit_move";
 
     /// <summary>Sound effect played once per step when a human fleet moves on the map (sound 2).</summary>
