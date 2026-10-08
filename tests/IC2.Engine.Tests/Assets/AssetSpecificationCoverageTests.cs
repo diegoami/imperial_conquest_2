@@ -44,25 +44,11 @@ public class AssetSpecificationCoverageTests
         var documented = ReadGroundTruthKeys();
         var engineKeys = AssetKeys.AllKeys.ToList();
 
-        // T149: the seven new sfx.* keys are added to AssetKeys but not yet to the
-        // ground-truth block — the main session applies the §1.4 and §4.6 doc claims at merge
-        // time (build-process.md §4.7). The pre-T149 keys still round-trip exactly; the new ones
-        // are reported as a "to-add" list so a future main-session merge can add them.
-        var preT149EngineKeys = engineKeys
-            .Where(k => !T149NewSfxKeys.Contains(k))
-            .ToList();
-        var newKeysPendingDocUpdate = T149NewSfxKeys
-            .Where(k => !documented.Contains(k))
-            .ToList();
-
-        var missingFromDoc = preT149EngineKeys.Where(k => !documented.Contains(k)).ToList();
+        var missingFromDoc = engineKeys.Where(k => !documented.Contains(k)).ToList();
 
         Assert.True(missingFromDoc.Count == 0,
-            "Pre-T149 AssetKeys constants missing from docs/asset-specification.md §6: " +
+            "AssetKeys constants missing from docs/asset-specification.md §6: " +
             string.Join(", ", missingFromDoc));
-        Assert.True(newKeysPendingDocUpdate.Count == T149NewSfxKeys.Length,
-            "T149 added these seven sfx.* keys but the main session's merge-time doc update has not yet " +
-            "added them to docs/asset-specification.md §6: " + string.Join(", ", newKeysPendingDocUpdate));
     }
 
     [Fact]
@@ -81,31 +67,18 @@ public class AssetSpecificationCoverageTests
     [Fact]
     public void GroundTruthBlock_HasNoBlankOrDuplicateLines()
     {
-        // A cheap sanity check on the parse itself: distinct, non-empty keys. The block is
-        // structurally intact even when the engine has more keys than the block (T149 added
-        // seven sfx.* keys before the main session's merge-time doc update); the other two
-        // tests in this class pin that no pre-T149 key is missing and no doc line is stray.
+        // A cheap sanity check on the parse itself: distinct, non-empty keys, and — asserted
+        // directly here, not just implied by the other two tests — exactly as many of them as
+        // AssetKeys.AllKeys yields today. If this ever fails because a real key was added or
+        // removed, that is exactly the drift this test exists to catch: update AssetKeys.cs and
+        // this specification's §6 block together.
         var documented = ReadGroundTruthKeys();
+        var engineKeyCount = AssetKeys.AllKeys.Count();
 
         Assert.Equal(documented.Count, documented.Distinct(StringComparer.Ordinal).Count());
         Assert.All(documented, key => Assert.False(string.IsNullOrWhiteSpace(key)));
+        Assert.Equal(engineKeyCount, documented.Count);
     }
-
-    /// <summary>
-    /// T149: the seven sfx.* keys this task added. The main session applies the doc claims at
-    /// merge time (build-process.md §4.7), so this list is a marker the test can recognise
-    /// "engine ahead of spec" without flagging a regression.
-    /// </summary>
-    private static readonly string[] T149NewSfxKeys =
-    {
-        AssetKeys.SfxFleetMove,
-        AssetKeys.SfxBattleArrows,
-        AssetKeys.SfxBattleJavelin,
-        AssetKeys.SfxBattleMelee,
-        AssetKeys.SfxSiegeFailed,
-        AssetKeys.SfxFleetSunk,
-        AssetKeys.SfxNationConquered,
-    };
 
     /// <summary>
     /// Extracts the lines inside the specification's one <c>```text ... ```</c> fence (§6's ground

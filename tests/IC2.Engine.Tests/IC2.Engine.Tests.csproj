@@ -243,6 +243,15 @@
       the Godot SDK. No `using Godot` anywhere; never a second, hand-maintained copy.
     -->
     <Compile Include="../../godot/Audio/SoundCues.cs" Link="Ui/SoundCues.cs" />
+
+    <!--
+      T109 (tests/IC2.Engine.Tests/Ui/StrategyDialogModelsTests.cs): the same seam once more.
+      StrategyDialogModels.cs is the Godot-free model behind the four Strategy menu dialogs (Taxation,
+      Balance sheet, Recruit unit, Build fleet) — the tax preview against TaxIncome, the build-fleet
+      refusals and the cost, the recruit-unit cost preview, the command lines each dialog composes.
+      No `using Godot` anywhere; never a second, hand-maintained copy.
+    -->
+    <Compile Include="../../godot/UI/Dialogs/StrategyDialogModels.cs" Link="Ui/StrategyDialogModels.cs" />
   </ItemGroup>
 
 </Project>

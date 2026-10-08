@@ -459,7 +459,7 @@ foreach ($m in $chain) {
         $resolved[$m] = [pscustomobject]@{ Route = '-'; Model = '<Claude Sonnet fallback>'; Why = 'the chooser picked the Claude Sonnet fallback'; Avoided = $false; Refused = $false }
         continue
     }
-    $r = Resolve-OpenCodeRoute -Usual $models[$m] -Alibaba $alibabaIds[$m] -Route $Route -Answered $quota.Answered -Avoid $quota.Providers
+    $r = Resolve-OpenCodeRoute -Usual $models[$m] -Alibaba $alibabaIds[$m] -Route $Route -Answered $quota.Answered -Avoid $quota.Providers -UsableWhenExhausted $quota.Usable
     if ($r.Refused -and $Model -ne 'auto') { [Console]::Error.WriteLine("Refused: ${m}: $($r.Why)."); exit 1 }
     if ($r.Refused -or ($r.Avoided -and $Model -eq 'auto')) {
         Write-Host "skipped: $m ($($r.Why))"
@@ -765,7 +765,7 @@ if (-not $implementedBy) {
         if ($substitute -eq $script:ChooserClaudeSentinel) {
             $attempts += [pscustomobject]@{ Model = '<Claude Sonnet fallback>'; Route = '-'; Class = 'claude-fallback'; Why = ($subWhy -replace '^[^:]*: ', '') }
         } else {
-            $sr = Resolve-OpenCodeRoute -Usual $models[$substitute] -Alibaba $alibabaIds[$substitute] -Route $Route -Answered $quota.Answered -Avoid $quota.Providers
+            $sr = Resolve-OpenCodeRoute -Usual $models[$substitute] -Alibaba $alibabaIds[$substitute] -Route $Route -Answered $quota.Answered -Avoid $quota.Providers -UsableWhenExhausted $quota.Usable
             if ($sr.Refused) {
                 Write-Warning "substitute $substitute refused: $($sr.Why)"
                 $attempts += [pscustomobject]@{ Model = $substitute; Route = '-'; Class = 'quota-skip'; Why = $sr.Why }

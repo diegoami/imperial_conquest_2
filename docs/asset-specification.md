@@ -951,6 +951,13 @@ terrain.sea_deep.surface
 sfx.city_captured
 sfx.battle
 sfx.unit_move
+sfx.fleet_move
+sfx.battle_arrows
+sfx.battle_javelin
+sfx.battle_melee
+sfx.siege_failed
+sfx.fleet_sunk
+sfx.nation_conquered
 ui.command.open.icon
 ui.command.save.icon
 ui.command.end_turn.icon

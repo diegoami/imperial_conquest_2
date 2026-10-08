@@ -336,19 +336,16 @@ public sealed class AuthoredPackConformanceTests
             Assert.Equal(44100u, sampleRate);
             Assert.Equal(16, bitsPerSample);
 
-            // T149 (DoD 2): the authored file is at least 0.4 s (ElevenLabs' documented minimum
-            // duration_seconds is 0.5 s, with the script's leading-silence trim shaving up to ~30 ms
-            // off the start) and at most 2.0 s (the longest target in sound-prompts.json), and not
-            // silent (peak above -30 dBFS). The original's 0.02 s click (sound 1) is shorter than the
-            // API floor, so the clone's equivalent is a softened version of the same timbre - the
-            // report's character description, not its length.
+            // T149 Done-when 2: the authored file lasts between 0.02 s and 2.0 s and is not silent
+            // (peak above -30 dBFS). ElevenLabs' 0.5 s minimum keeps the generated files well inside
+            // the window; sfx.unit_move is a softened tick of the original's 0.02 s click's character.
             var dataIndex = IndexOf(bytes, "data"u8.ToArray());
             Assert.True(dataIndex >= 0, $"{key}: no data chunk found");
             var dataSize = BitConverter.ToUInt32(bytes, dataIndex + 4);
             var totalSamples = dataSize / 2; // 16-bit = 2 bytes per sample.
             var durationSeconds = (double)totalSamples / sampleRate;
-            Assert.True(durationSeconds >= 0.4 && durationSeconds <= 2.0,
-                $"{key}: duration {durationSeconds:F3}s is outside the 0.4 s - 2.0 s conformance window");
+            Assert.True(durationSeconds >= 0.02 && durationSeconds <= 2.0,
+                $"{key}: duration {durationSeconds:F3}s is outside the 0.02 s - 2.0 s conformance window (T149 Done-when 2)");
 
             var peak = 0;
             for (var i = dataIndex + 8; i + 1 < bytes.Length; i += 2)

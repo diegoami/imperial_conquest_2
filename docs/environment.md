@@ -64,7 +64,7 @@ Heavy models run at `medium` rather than `high`, or lighter when medium is not n
 
 Facts that affect availability:
 
-- **GPT-5.6 Luna has its own weekly limit.** For light work, openai stays usable while the `gpt-5.6-luna:7d` window in `/quota/openai` is under 95%, even when openai itself is exhausted.
+- **GPT-5.6 Luna uses OpenAI's main quota, like Sol** (the user's decision of 2026-10-09; `/quota/openai` no longer has a separate `gpt-5.6-luna:7d` window). Only when OpenAI is exhausted does Luna's own limit matter: `/quota/openai` then lists `gpt-5.6-luna` in `when_exhausted.usable_models`, and Luna alone can still run. `Get-QuotaAvoid` reads that field and `Resolve-OpenCodeRoute` lets Luna through.
 - **openrouter is prepaid credit.** Its windows never reset, and `remaining_usd` is the balance.
 - **openrouter's free models have their own allowance**, separate from the credit: `free_model_daily_requests` in `/quota/openrouter` (`used`, `limit`, `remaining`). See [The free OpenRouter models](#the-free-openrouter-models-advisory-only).
 - **GLM's Coding Plan also has a 5-hour window.** When it runs out, an OpenCode run fails with "Usage limit reached for 5 hour" (seen on 2026-10-04); the `5h` window in `/quota/zai` shows it beforehand.
