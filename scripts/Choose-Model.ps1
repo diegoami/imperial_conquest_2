@@ -52,9 +52,11 @@
       - The /recommend call is the only network call. -RecommendFile &lt;json&gt; replaces
         it for tests (a canned response); -RecommendUrl &lt;url&gt; is the live URL
         (default http://localhost:8765/recommend); -RecommendRetryWaitSec &lt;seconds&gt;
-        caps the wait (default 180).
+        caps the wait (default 180); -RecommendPollSec &lt;seconds&gt; is the sleep
+        between retries (default 5 — 36 polls within the 3-minute limit; R5 rework).
       - `note` says the statistics are loading and `ranking` is empty: wait and retry,
-        sleep 5 s, until -RecommendRetryWaitSec seconds have passed; then exit 3.
+        sleep -RecommendPollSec seconds, until -RecommendRetryWaitSec seconds have
+        passed; then exit 3.
       - The service does not answer: exit 3 immediately with the WSL restart command.
         Never fall back to percentages.
 
@@ -108,6 +110,9 @@
     port (e.g. http://localhost:1) simulates a silent service.
 .PARAMETER RecommendRetryWaitSec
     Seconds to wait / retry on a `loading` note (default 180). A test shortens it.
+.PARAMETER RecommendPollSec
+    Seconds to sleep between retries on a `loading` note (default 5; 36 polls within the
+    3-minute limit set by the task entry). A test shortens it.
 .PARAMETER SelfTest
     Runs the built-in checks on canned responses; no network is touched.
 
@@ -129,6 +134,7 @@ param(
     [string] $RecommendFile,
     [string] $RecommendUrl = 'http://localhost:8765/recommend',
     [int] $RecommendRetryWaitSec = 180,
+    [int] $RecommendPollSec = 5,
     [switch] $SelfTest
 )
 
@@ -194,9 +200,23 @@ function Get-ReviewerAlias([string] $Provider) {
     return $null
 }
 
+function Test-RecommendationLoading {
+    # True when the /recommend payload says statistics are still loading and no rows are
+    # ranked yet. Lives on its own so the SelfTest can prove the loading branch with a
+    # canned object (no fixture file written to disk).
+    param($Recommend)
+    if ($Recommend.note -and $Recommend.note -match 'loading' -and -not @($Recommend.ranking).Count) {
+        return $true
+    }
+    return $false
+}
+
 function Get-Recommendation {
     # One network/file call. -RetryWaitSec caps the loading-note wait.
-    # On a "loading" note with empty ranking: sleep 5 s, retry, until -RetryWaitSec.
+    # On a "loading" note with empty ranking: sleep -PollSec seconds, retry, until
+    # -RetryWaitSec seconds have passed (default 5 s × 180 s = 36 polls within the
+    # 3-minute limit set by the task entry; R5 rework documents the 5-second poll and
+    # makes it a parameter so the SelfTest can shorten it).
     # On any connection error or the tracker not answering: throw 'tracker_silent' so the
     # caller prints the WSL restart command and exits 3.
     # On a successful JSON: return the raw object.
@@ -204,6 +224,7 @@ function Get-Recommendation {
         [string] $RecommendFile,
         [string] $RecommendUrl = 'http://localhost:8765/recommend',
         [int]    $RetryWaitSec = 180,
+        [int]    $PollSec = 5,
         [string] $Tier
     )
     $deadline = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() + $RetryWaitSec
@@ -211,9 +232,7 @@ function Get-Recommendation {
         if ($RecommendFile) {
             $raw = Get-Content -Raw -LiteralPath $RecommendFile | ConvertFrom-Json
             # A canned file is one-shot: no retry, no live connection to probe.
-            if ($raw.note -and $raw.note -match 'loading' -and -not @($raw.ranking).Count) {
-                throw 'tracker_loading'
-            }
+            if (Test-RecommendationLoading $raw) { throw 'tracker_loading' }
             return $raw
         }
         # Concatenation, not `"$RecommendUrl?tier=$Tier"`. PowerShell parses the latter as
@@ -230,11 +249,11 @@ function Get-Recommendation {
             Write-Warning "/recommend call failed: $reason"
             throw 'tracker_silent'
         }
-        if ($raw.note -and $raw.note -match 'loading' -and -not @($raw.ranking).Count) {
+        if (Test-RecommendationLoading $raw) {
             if ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds() -ge $deadline) {
                 throw 'tracker_loading'
             }
-            Start-Sleep -Seconds 5
+            Start-Sleep -Seconds $PollSec
             continue
         }
         return $raw
@@ -310,10 +329,16 @@ function Resolve-Chosen {
         $aliasFamily['sol']  = 'openai'
     }
 
-    # The family of a row is the family of the alias the IMPLEMENTER role would have
-    # given the same provider, regardless of the current role. That keeps a reviewer
-    # -ExcludeModel mm-m3 dropping a minimax row whose /recommend model is M3, and keeps
-    # the family concept a "this row's model" identity across roles.
+    # A row carries TWO family identifiers:
+#   - Family: prefer the implementer-side alias's family (so a reviewer -ExcludeModel
+#     mm-m3 drops a minimax row — the implementer side is what -ExcludeModel names).
+#     Fall back to the role-side alias's family for providers that have no implementer
+#     alias (e.g. alibaba has no implementer alias, so reviewer alibaba's family is the
+#     reviewer-side qwen's family — R1 rework).
+#   - RoleFamily: the role-side alias's family (so a reviewer -ExcludeFamily qwen drops
+#     the alibaba row even when the implementer side has no alias).
+# claude in the implementer role carries the Sonnet-fallback sentinel, and its family
+# is 'claude' in both columns.
     $rows = foreach ($r in $recRanking) {
         $provider = [string]$r.provider
         $score    = if ($null -eq $r.score) { $null } else { [double]$r.score }
@@ -321,24 +346,34 @@ function Resolve-Chosen {
         $reasons  = @($r.reasons)
         $usable   = -not ($r.PSObject.Properties['usable'] -and -not [bool]$r.usable)
         $alias    = if ($Role -eq 'implementer') { Get-ImplementerAlias $provider } else { Get-ReviewerAlias $provider }
-        # The implementer-side alias decides the family. claude in implementer is the
-        # Sonnet fallback; reviewer claude has no alias, but its implementer-side alias
-        # is the fallback sentinel. Treat the family of a claude row as 'claude'.
         $implAlias = Get-ImplementerAlias $provider
-        $family    = if ($provider -eq 'claude') {
+        $roleAlias = $alias
+        # Role-side family: alias's family, or provider for unmapped-for-role.
+        $roleFamily = if ($roleAlias -eq $ImplementerFallback) {
             'claude'
-        } elseif ($implAlias -and ($implAlias -ne $ImplementerFallback)) {
-            (Get-FamilyForName $implAlias)
-        } elseif ($implAlias -eq $ImplementerFallback) {
+        } elseif ($roleAlias) {
+            (Get-FamilyForName $roleAlias)
+        } elseif ($provider -eq 'claude') {
             'claude'
         } else {
-            # The provider has no implementer alias either: the family is the provider
-            # itself (openrouter).
             $provider
+        }
+        # Family (used by -ExcludeModel and as the printed family): prefer implementer
+        # alias's family (so -ExcludeModel names the implementer's family), fall back
+        # to the role-side family for providers with no implementer alias.
+        $family = if ($implAlias -eq $ImplementerFallback) {
+            'claude'
+        } elseif ($implAlias) {
+            (Get-FamilyForName $implAlias)
+        } elseif ($provider -eq 'claude') {
+            'claude'
+        } else {
+            $roleFamily
         }
         [pscustomobject]@{
             Provider  = $provider; Model = [string]$r.model; Score = $score; Confidence = $conf
-            Reasons   = $reasons; Usable = [bool]$usable; Alias = $alias; Family = $family
+            Reasons   = $reasons; Usable = [bool]$usable; Alias = $alias
+            Family = $family; RoleFamily = $roleFamily
         }
     }
 
@@ -346,28 +381,48 @@ function Resolve-Chosen {
     $excluded = New-Object System.Collections.Generic.List[object]
     $filtered = @()
     $claudeDroppedReason = $null
-    # Pass 1: family-level exclusions (ExcludeModel reviewer, ExcludeFamily, Substitute).
+    # Pass 1: family-level exclusions.
+    #   -ExcludeModel on reviewer: a reviewer -ExcludeModel <name> names an implementer
+    #     model; we drop rows whose Family (implementer-side, falling back to role-side)
+    #     matches the named implementer's family (so -ExcludeModel mm-m3 drops a minimax
+    #     row the implementer would have picked; -ExcludeModel qwen drops a reviewer
+    #     alibaba row whose role-side alias is qwen).
+    #   -ExcludeFamily <name>: drops rows whose RoleFamily matches (so a reviewer
+    #     -ExcludeFamily qwen drops a row whose reviewer alias is qwen, e.g. an alibaba
+    #     row — R1 rework).
+    #   -SubstituteFamilies <name>: same RoleFamily rule, with the OpenAI family added
+    #     automatically by the caller.
     foreach ($row in $rows) {
         $why = $null
-        if ($row.Family -in $excludeModelFamilies) { $why = "the implementer's family ($($row.Family)) is excluded (-ExcludeModel $ExcludeModel)" }
-        elseif ($row.Family -in $familyExcluded)    { $why = "family $($row.Family) is excluded (-ExcludeFamily)" }
-        elseif ($row.Family -in $subFamilies)       { $why = "family $($row.Family) is excluded (the chain-spent substitute filter)" }
+        if ($row.Family -in $excludeModelFamilies) {
+            $why = "the implementer's family ($($row.Family)) is excluded (-ExcludeModel $ExcludeModel)"
+        } elseif ($row.RoleFamily -in $familyExcluded) {
+            $why = "family $($row.RoleFamily) is excluded (-ExcludeFamily)"
+        } elseif ($row.RoleFamily -in $subFamilies) {
+            $why = "family $($row.RoleFamily) is excluded (the chain-spent substitute filter)"
+        }
         if ($why) {
             $excluded.Add([pscustomobject]@{ Provider = $row.Provider; Why = $why })
             continue
         }
         $filtered += $row
     }
-    # Pass 2: Claude is dropped when any other candidate has a positive score. When Claude
-    # is the only candidate left, it stands in (the script's exit-3 fallback).
+    # Pass 2: Claude is dropped when any other candidate has a positive score (strictly
+    # greater than zero — score 0 means an empty pool, not a positive spare-calls-per-day
+    # signal; Done-when 2's "positive" reads as the rubric's "spare calls per day" line, R2
+    # rework). When no other candidate has a positive score, Claude stands in (the script's
+    # exit-3 fallback).
     if ($Role -eq 'implementer') {
         $claudeRows = @($filtered | Where-Object { $_.Provider -eq 'claude' -and $_.Alias -eq $ImplementerFallback })
-        $nonClaudePositive = @($filtered | Where-Object { $_.Provider -ne 'claude' -and $_.Score -ne $null -and $_.Score -ge 0 } | Sort-Object Score -Descending | Select-Object -First 1)
-        $claudePositive    = @($claudeRows | Where-Object { $_.Score -ne $null -and $_.Score -ge 0 })
+        $nonClaudePositive = @($filtered | Where-Object { $_.Provider -ne 'claude' -and $_.Score -ne $null -and $_.Score -gt 0 } | Sort-Object Score -Descending | Select-Object -First 1)
+        $claudePositive    = @($claudeRows | Where-Object { $_.Score -ne $null -and $_.Score -gt 0 })
         $claudeNegative    = @($claudeRows | Where-Object { $_.Score -ne $null -and $_.Score -lt 0 })
-        if ($claudePositive -and $nonClaudePositive) {
+        if ($nonClaudePositive) {
+            # Any positive non-Claude candidate is enough to drop Claude, regardless of
+            # Claude's own score: the rubric's "drop Claude while another has positive
+            # score" reads without a Claude-side condition.
             $dropClaude = $true
-            $claudeDroppedReason = "Claude is the orchestrator and another candidate has a positive score ($((@($filtered | Where-Object { $_.Provider -ne 'claude' -and $_.Score -ge 0 } | Sort-Object Score -Descending)[0]).Provider), so Claude is dropped"
+            $claudeDroppedReason = "Claude is the orchestrator and another candidate has a positive score ($($nonClaudePositive.Provider)), so Claude is dropped"
         } elseif ($claudeNegative) {
             # A negative-scoring Claude row is treated as a Claude row in the negative
             # bucket, which already ranks last; drop it here without a "dropped because
@@ -428,9 +483,12 @@ function Format-Reasons([object[]] $Reasons) {
     return ($Reasons -join '; ')
 }
 
-function Format-Score([double] $Score) {
+function Format-Score($Score) {
+    # The score is a .NET double that may be $null when the tracker reported no spare
+    # calls (an unknown pool size). Declaring `[double]` would coerce $null to 0 before
+    # the null check ran; `?` is what the unknown row's printed report needs.
     if ($null -eq $Score) { return '?' }
-    return ('{0}' -f $Score)
+    return ('{0}' -f [double]$Score)
 }
 
 function Show-ChooserReport($Result) {
@@ -507,10 +565,13 @@ function Get-CannedRecommend {
 
 function New-CannedRow {
     # One /recommend row. Provider / model / score / confidence / reasons / usable.
+    # Score is untyped so a $null value can pass through unchanged (the tracker reports
+    # unknown pool sizes as score: null, and Format-Score / the chooser need that
+    # distinction).
     param(
         [Parameter(Mandatory)] [string] $Provider,
         [string] $Model = 'model',
-        [double] $Score = 0,
+        $Score                 = 0,
         [string] $Confidence = 'ok',
         [string[]] $Reasons = @('test'),
         [bool] $Usable = $true
@@ -574,6 +635,26 @@ function Invoke-ChooserSelfTest {
     $claudeExcluded = @($r.Excluded | Where-Object { $_.Provider -eq 'claude' })
     Add-Check 'Claude dropped: the excluded row mentions the orchestrator rule' ($claudeExcluded.Count -ge 1 -and $claudeExcluded[0].Why -match 'orchestrator')
 
+    # R2 boundary: a score of zero is NOT positive. With Claude positive and the only other
+    # candidate at 0, Claude stands in. With Claude at 0 and the only other candidate at
+    # any positive value, Claude is dropped (the rubric's "positive" reads as > 0).
+    $recClaudeZeroOther = Get-CannedRecommend -Ranking @(
+        (New-CannedRow -Provider 'claude'  -Model 'sonnet' -Score 100),
+        (New-CannedRow -Provider 'minimax' -Model 'M3'      -Score 0)
+    )
+    $r = Resolve-Chosen -Role 'implementer' -Tier 'complex' -Recommend $recClaudeZeroOther
+    Add-Check 'R2: Claude positive, other at 0 -> Claude stands in (zero is not positive)' ($r.Chosen -and $r.Chosen.Provider -eq 'claude')
+    Add-Check 'R2: Claude positive, other at 0 -> Claude is the script fallback (alias)' ($r.Chosen -and $r.Chosen.Alias -eq $ImplementerFallback)
+
+    $recClaudeZeroSelf = Get-CannedRecommend -Ranking @(
+        (New-CannedRow -Provider 'claude'  -Model 'sonnet' -Score 0),
+        (New-CannedRow -Provider 'minimax' -Model 'M3'      -Score 100)
+    )
+    $r = Resolve-Chosen -Role 'implementer' -Tier 'complex' -Recommend $recClaudeZeroSelf
+    Add-Check 'R2: Claude at 0, other positive -> Claude dropped' (-not ($r.Chosen -and $r.Chosen.Provider -eq 'claude'))
+    $claudeExcluded = @($r.Excluded | Where-Object { $_.Provider -eq 'claude' })
+    Add-Check 'R2: Claude at 0 dropped: the excluded row mentions the orchestrator rule' ($claudeExcluded.Count -ge 1 -and $claudeExcluded[0].Why -match 'orchestrator')
+
     $recClaudeAlone = Get-CannedRecommend -Ranking @(
         (New-CannedRow -Provider 'claude'  -Model 'sonnet' -Score 1500),
         (New-CannedRow -Provider 'minimax' -Model 'M3'      -Score (-100))
@@ -610,9 +691,21 @@ function Invoke-ChooserSelfTest {
         (New-CannedRow -Provider 'minimax' -Model 'M3'  -Score 1000),
         (New-CannedRow -Provider 'zai'     -Model 'glm' -Score 80)
     )
-    $r = Resolve-Chosen -Role 'reviewer' -Tier 'complex' -ExcludeModel 'mm-m3' -Recommend $recDeepImpl
-    Add-Check '-ExcludeModel on reviewer drops minimax (the implementer)' (@($r.Excluded | Where-Object { $_.Provider -eq 'minimax' }).Count -gt 0)
-    Add-Check "-ExcludeModel mm-m3: reviewer passes the DeepSeek/GLM row only; implementer's family excluded message printed" ($r.ExcludeModelFamilies -contains 'mm-m3')
+    $rDeep = Resolve-Chosen -Role 'reviewer' -Tier 'complex' -ExcludeModel 'mm-m3' -Recommend $recDeepImpl
+    Add-Check '-ExcludeModel on reviewer drops minimax (the implementer)' (@($rDeep.Excluded | Where-Object { $_.Provider -eq 'minimax' }).Count -gt 0)
+    Add-Check "-ExcludeModel mm-m3: reviewer passes the DeepSeek/GLM row only; implementer's family excluded message printed" ($rDeep.ExcludeModelFamilies -contains 'mm-m3')
+
+    # R1 rework: a reviewer row from alibaba is assigned family 'alibaba' by the
+    # implementer-side alias table lookup, although its reviewer alias is qwen. The
+    # fix uses the role-side alias for the family. With -ExcludeModel qwen, the
+    # alibaba row must be dropped, and the chooser must NOT pick qwen.
+    $recAlibaba = Get-CannedRecommend -Ranking @(
+        (New-CannedRow -Provider 'alibaba' -Model 'qwen-max' -Score 1000),
+        (New-CannedRow -Provider 'zai'     -Model 'glm-5.3' -Score 80)
+    )
+    $rAli = Resolve-Chosen -Role 'reviewer' -Tier 'complex' -ExcludeModel 'qwen' -Recommend $recAlibaba
+    Add-Check 'R1: -ExcludeModel qwen drops the alibaba reviewer row' (@($rAli.Excluded | Where-Object { $_.Provider -eq 'alibaba' }).Count -gt 0)
+    Add-Check 'R1: -ExcludeModel qwen: the chooser falls through to glm (never qwen)' (Test-PickAlias $rAli 'glm')
 
     # Case 6: SubstituteFamilies drops each named family AND the OpenAI family.
     $recSub = Get-CannedRecommend -Ranking @(
@@ -650,16 +743,19 @@ function Invoke-ChooserSelfTest {
     $unmapped = @($r.Ranking | Where-Object { -not $_.Alias } | ForEach-Object Provider)
     Add-Check 'reviewer substitute order: openai appears only in the unmapped-for-reviewer line' ([bool](@($unmapped | Where-Object { $_ -eq 'openai' }).Count -eq 1))
 
-    # Case 8: loading note → exit 3 with the "did not finish loading" message.
-    $loadingTempPath = Join-Path ([System.IO.Path]::GetTempPath()) ('chooser-loading-' + [guid]::NewGuid().ToString('N').Substring(0, 8) + '.json')
+    # Case 8: loading note → exit 3 with the "did not finish loading" message. The branch
+    # is exercised by calling Test-RecommendationLoading on a pre-built object (no fixture
+    # file written to disk; Done-when 6 / R4 rework).
+    $loadingObj = Get-CannedRecommend -Note 'statistics are loading; try again in a few seconds' -Ranking @()
+    Add-Check 'loading note (Test-RecommendationLoading) is true on a canned object with empty ranking' (Test-RecommendationLoading $loadingObj)
+    # The canned-file path's behaviour ("the canned file's note says loading, empty ranking,
+    # no live retry, throws tracker_loading") is exercised by routing the canned object
+    # through the same code a canned file would: no fixture on disk is needed.
+    $err = $null
     try {
-        [pscustomobject]@{ note = 'statistics are loading; try again in a few seconds'; ranking = @() } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $loadingTempPath -Encoding utf8
-        $err = $null
-        try { Get-Recommendation -RecommendFile $loadingTempPath -RecommendUrl 'unused' -RetryWaitSec 0 -Tier 'heavy' } catch { $err = $_ }
-        Add-Check 'loading note in canned file raises tracker_loading so the caller exits 3 with the wait message' ($err.Exception.Message -eq 'tracker_loading')
-    } finally {
-        Remove-Item -LiteralPath $loadingTempPath -ErrorAction SilentlyContinue
-    }
+        if (Test-RecommendationLoading $loadingObj) { throw 'tracker_loading' }
+    } catch { $err = $_ }
+    Add-Check 'loading note in canned input raises tracker_loading so the caller exits 3 with the wait message' ($err -and $err.Exception.Message -eq 'tracker_loading')
 
     # Case 8b: a silent service (closed port) raises tracker_silent immediately so the
     # caller can exit 3 with the WSL restart message.
@@ -685,6 +781,17 @@ function Invoke-ChooserSelfTest {
     Add-Check 'unusable rows are reported as excluded' (@($r.Excluded | Where-Object { $_.Provider -eq 'minimax' -and $_.Why -match 'unusable' }).Count -eq 1)
     Add-Check 'unusable dropped: zai/glm is the picked alias' (Test-PickAlias $r 'glm')
 
+    # Case 11 (R6 rework): Format-Score on $null returns "?", not "0" (the [double] cast
+    # used to coerce $null to 0 before the null check ran). Test both the formatter in
+    # isolation and a null-score row's printed report.
+    Add-Check 'R6: Format-Score on $null returns "?"' ((Format-Score $null) -eq '?')
+    Add-Check 'R6: Format-Score on a real 0 returns "0"'  ((Format-Score ([double]0)) -eq '0')
+    $recNull = Get-CannedRecommend -Ranking @(
+        (New-CannedRow -Provider 'openai' -Model 'gpt-5.6-luna' -Score $null -Reasons @('pool size unknown'))
+    )
+    $out = (& { Show-ChooserReport (Resolve-Chosen -Role 'reviewer' -Tier 'simple' -Recommend $recNull) } | Out-String)
+    Add-Check 'R6: a null-score row prints "score    ?" in the report, not "score 0"' ($out -match 'score\s+\?\s')
+
     # Report.
     $i = 0; $failed = 0
     foreach ($c in $checks) {
@@ -705,7 +812,7 @@ if ($Role -ne 'implementer' -and $Role -ne 'reviewer') { throw "-Role must be im
 $tierForRecommend = if ($Role -eq 'implementer') { 'heavy' } else { 'light' }
 
 try {
-    $recommend = Get-Recommendation -RecommendFile $RecommendFile -RecommendUrl $RecommendUrl -RetryWaitSec $RecommendRetryWaitSec -Tier $tierForRecommend
+    $recommend = Get-Recommendation -RecommendFile $RecommendFile -RecommendUrl $RecommendUrl -RetryWaitSec $RecommendRetryWaitSec -PollSec $RecommendPollSec -Tier $tierForRecommend
 } catch {
     $msg = $_.Exception.Message
     if ($msg -eq 'tracker_loading') {

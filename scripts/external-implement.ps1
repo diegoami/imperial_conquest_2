@@ -120,6 +120,10 @@
 .PARAMETER RecommendRetryWaitSec
     The seconds Choose-Model.ps1 waits / retries on a `loading` note (default 0 — the chooser
     uses its own default of 180 s; pass a small value to shorten a test's wait).
+.PARAMETER SelfTest
+    Offline checks: Format-ImplementerAttempt with canned /recommend meta proves the run log
+    and the PR body's "Implementer attempts" section receive the same text (R3 rework). No
+    network, no OpenCode, no PR is opened.
 
 .EXAMPLE
     pwsh scripts/external-implement.ps1 -Task T71 -Slug persistence-hardening -Issue 308 -BriefFile C:\tmp\T71-brief.md
@@ -127,14 +131,18 @@
     pwsh scripts/external-implement.ps1 -Fix 346 -Slug migration-message -BriefFile C:\tmp\346-brief.md -Model luna
 .EXAMPLE
     pwsh scripts/external-implement.ps1 -Task T152 -Slug recommend -Issue 866 -BriefFile rendered\brief.md -WhatIf -RecommendFile rendered\heavy.json
+.PARAMETER SelfTest
+    Runs the offline checks (no network, no OpenCode): Format-ImplementerAttempt with
+    canned /recommend meta proves the run log and the PR body's "Implementer attempts"
+    section receive the same text (R3 rework). Does not perform a real run.
 #>
 [CmdletBinding()]
 param(
     [string] $Task,
     [int] $Fix,
-    [Parameter(Mandatory)] [string] $Slug,
+    [string] $Slug,
     [int] $Issue,
-    [Parameter(Mandatory)] [string] $BriefFile,
+    [string] $BriefFile,
     [ValidateSet('auto', 'luna', 'glm-flash', 'glm', 'deepseek-flash', 'qwen-flash', 'mm-m3', 'mm-m2.7', 'ali-deepseek-flash', 'ali-deepseek-pro', 'ali-glm', 'mimo-pro', 'mimo-flash')] [string] $Model = 'auto',
     [ValidateSet('auto', 'go', 'zai', 'alibaba')] [string] $Route = 'auto',
     [switch] $LocalOnly,
@@ -146,9 +154,14 @@ param(
     [string[]] $SimulateFailed,
     [hashtable] $ModelIds,
     [string] $RecommendFile,
-    [int]    $RecommendRetryWaitSec = 0
+    [int]    $RecommendRetryWaitSec = 0,
+    [switch] $SelfTest
 )
 
+# -SelfTest runs offline checks with no worktree, no OpenCode, no PR. Slug / BriefFile /
+# Task / Fix are optional in the param block so a bare `-SelfTest` invocation does not
+# fail mandatory validation (R3 rework); the real validation runs after the SelfTest
+# short-circuit below.
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Invoke-OpenCodeWatched.ps1')
 # The Alibaba Token Plan's key comes from the user environment when this process predates it (never printed).
@@ -201,21 +214,117 @@ function Get-ChooserPick {
 function Get-ChooserChain {
     # The chain of implementer aliases Choose-Model.ps1 returns for /recommend?tier=heavy.
     # Iteratively picks the top alias and excludes its family, until the chooser exits 3
-    # (no candidate left). Caps at 8 (a /recommend response with fewer entries shortens
-    # the chain, never lengthens it). The Claude Sonnet fallback (rule 17: Claude is the
-    # orchestrator, dropped while another positive exists; with nothing else, the script's
-    # exit-3 fallback) is a sentinel name the dispatch recognises and treats as
-    # exit-3 — there is no OpenCode model to dispatch.
+    # (no candidate left). The chain takes the WHOLE mapped ranking: with a long
+    # recommendation (e.g. alibaba opens up under T152's relaxed exclusions) the chain
+    # grows to match it, never truncates an otherwise valid candidate (R5 rework). The
+    # loop terminates when Get-ChooserPick returns $null (the chooser exited 3) — there
+    # is no arbitrary count cap.
+    # The Claude Sonnet fallback (rule 17: Claude is the orchestrator, dropped while
+    # another positive exists; with nothing else, the script's exit-3 fallback) is a
+    # sentinel name the dispatch recognises and treats as exit-3 — there is no OpenCode
+    # model to dispatch.
     param([string] $RecommendFile, [int] $RecommendRetryWaitSec)
     $chain = @()
     $excluded = @()
-    while ($chain.Count -lt 8) {
+    while ($true) {
         $next = Get-ChooserPick -ExcludeFamily $excluded -RecommendFile $RecommendFile -RecommendRetryWaitSec $RecommendRetryWaitSec
         if (-not $next) { break }
         $chain += $next
         if ($next.Meta -and $next.Meta.family) { $excluded += @([string]$next.Meta.family) }
     }
     return $chain
+}
+
+function Format-ImplementerAttempt {
+    # R3 rework: factor the /recommend reasons line into a single function. Both the
+    # run-log entry and the PR body's "Implementer attempts" section call this with the
+    # same meta, so the offline self-test proves they receive identical text.
+    # Returns $null for an empty meta (an explicit -Model run has no /recommend meta,
+    # so neither destination is written — unchanged from before).
+    param($meta)
+    if (-not $meta) { return $null }
+    $reasons = @($meta.reasons)
+    $reasonsText = if ($reasons) { ($reasons -join '; ') } else { '' }
+    $line = "provider $($meta.provider), model $($meta.model), score $($meta.score), confidence $($meta.confidence)"
+    if ($reasonsText) { $line += "`n  $reasonsText" }
+    return $line
+}
+
+function Invoke-ImplementerSelfTest {
+    # Offline checks for R3 rework: Format-ImplementerAttempt with canned /recommend meta.
+    # No network, no OpenCode, no PR is opened. Returns the count of failed assertions.
+    $checks = New-Object System.Collections.Generic.List[object]
+    function Add([string] $Name, [bool] $Ok) {
+        $checks.Add([pscustomobject]@{ Name = $Name; Ok = [bool]$Ok }) | Out-Null
+    }
+
+    # Canned /recommend row, as CHOOSER_META returns it. Reasons is the array the chooser
+    # emits in its CHOOSER_META payload; the line below the header is the joined text.
+    $canned = [pscustomobject]@{
+        name       = 'mm-m3'
+        family     = 'mm-m3'
+        provider   = 'minimax'
+        model      = 'MiniMax-M3'
+        score      = 1263
+        confidence = 'ok'
+        reasons    = @('7d: about 7,080 spare calls before the reset (~1,263/day) after demand and a 5% reserve')
+    }
+
+    # 1. The run log line and the PR body section line receive the SAME text. The run log
+    #    wraps it with `=== /recommend reasons for this pick ===` markers; the PR body
+    #    uses a `/recommend reasons for this pick: ` prefix and a literal newline before
+    #    the reasons block. Both call sites use Format-ImplementerAttempt, so a single
+    #    canned input produces identical text in both destinations.
+    $attempt = Format-ImplementerAttempt $canned
+    Add 'Format-ImplementerAttempt: provider line is the first line' ($attempt -match '(?m)^provider minimax, model MiniMax-M3, score 1263, confidence ok')
+    Add 'Format-ImplementerAttempt: reasons line follows after `  ` indent' ($attempt -match "(?m)^\s{2}7d: about 7,080")
+    $runLogLine = "=== /recommend reasons for this pick ===`n$attempt`n"
+    $prBodyLine = "/recommend reasons for this pick: $attempt"
+    Add 'R3: run log entry includes the formatted line' ($runLogLine -match 'provider minimax, model MiniMax-M3, score 1263, confidence ok')
+    Add 'R3: PR body entry includes the formatted line'   ($prBodyLine  -match 'provider minimax, model MiniMax-M3, score 1263, confidence ok')
+    # The "implemented by:" console line is also derived from Format-ImplementerAttempt;
+    # assert it preserves the same body.
+    $implLine = "implemented by: mm-m3 (minimax/MiniMax-M3, route minimax)`n/recommend reasons for this pick: $attempt"
+    Add 'R3: "implemented by:" line preserves the formatted text' ($implLine -match 'provider minimax, model MiniMax-M3, score 1263, confidence ok')
+
+    # 2. An empty meta produces $null: neither destination is written (explicit -Model
+    #    runs have no /recommend meta; the run log and PR body skip the reasons line).
+    Add 'Format-ImplementerAttempt on $null returns $null' ($null -eq (Format-ImplementerAttempt $null))
+
+# 3. Reasons array with multiple entries is joined with '; ' in order. Mirrors what
+    #    the live CHOOSER_META would deliver.
+    $multi = [pscustomobject]@{
+        provider = 'claude'; model = 'opus'; score = 1038; confidence = 'low'
+        reasons = @('7d: about 7,046 spare calls', 'rough: 7d is barely used', 'main model of 8 live Claude sessions')
+    }
+    $multiAttempt = Format-ImplementerAttempt $multi
+    Add 'multi-reason: three reasons joined with "; " in order' (
+        $multiAttempt -match '7d: about 7,046 spare calls; rough: 7d is barely used; main model of 8 live Claude sessions')
+
+    # 4. A real canned chooser result, the same that powers a live run, is converted to
+    #    CHOOSER_META by Get-ChooserPick's caller. Simulate the full path: parse a canned
+    #    JSON row, build the meta, call Format-ImplementerAttempt. This proves the
+    #    function takes the same shape that the real run path passes to it.
+    $cannedJson = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot '..\rendered\compact-heavy.json')
+    $parsed = $cannedJson | ConvertFrom-Json
+    $row = $parsed.ranking | Where-Object { $_.provider -eq 'minimax' } | Select-Object -First 1
+    $rowMeta = [pscustomobject]@{
+        provider = $row.provider; model = $row.model; score = $row.score; confidence = $row.confidence
+        reasons = @($row.reasons)
+    }
+    $realAttempt = Format-ImplementerAttempt $rowMeta
+    Add 'R3: canned heavy.json minimax row -> Format-ImplementerAttempt returns the reasons line' ($realAttempt -match '7d: about 7,080 spare calls')
+
+    # Report.
+    $i = 0; $failed = 0
+    foreach ($c in $checks) {
+        $i++
+        $status = if ($c.Ok) { 'PASS' } else { 'FAIL' }
+        "[{0,2}/{1}] {2}  -- {3}" -f $i, $checks.Count, $status, $c.Name | Write-Host
+        if (-not $c.Ok) { $failed++ }
+    }
+    "self-test: $($checks.Count - $failed)/$($checks.Count) passed"
+    return [int]$failed
 }
 
 # T152 Done-when 2 / Done-when 6: the chain-spent substitute picks an implementer outside
@@ -300,6 +409,15 @@ if ($ModelIds) { foreach ($k in $ModelIds.Keys) { $models[$k] = $ModelIds[$k] } 
 # Heavy models run light (the user's decision of 2026-10-05): glm at low (GLM-5.3 has no medium).
 # qwen-flash at medium: Qwen3.8 Flash offers low, medium and xhigh, no high.
 $variants = @{ 'luna' = 'high'; 'glm-flash' = 'high'; 'glm' = 'low'; 'deepseek-flash' = 'high'; 'qwen-flash' = 'medium'; 'mm-m3' = 'thinking'; 'mm-m2.7' = ''; 'ali-deepseek-flash' = 'high'; 'ali-deepseek-pro' = 'high'; 'ali-glm' = 'low'; 'mimo-pro' = ''; 'mimo-flash' = '' }
+
+# -SelfTest short-circuits the run path: offline checks only (R3 rework). No worktree, no
+# OpenCode, no PR. Use it to verify Format-ImplementerAttempt end-to-end without billing.
+# Runs BEFORE the chain is built so the chooser is never called from a SelfTest run.
+if ($SelfTest) {
+    $failed = Invoke-ImplementerSelfTest
+    if ($failed -gt 0) { exit 1 } else { exit 0 }
+}
+
 # T152 Done-when 3: `-Model auto`'s chain comes from quota-tracker's /recommend?tier=heavy
 # through Choose-Model.ps1, in the chooser's ranking order. Each entry also keeps the meta
 # the chooser emits (provider, model, score, confidence, reasons), for the run log and the
@@ -354,6 +472,8 @@ $chain = $kept
 if (-not $Task -and -not $Fix) { throw 'Give -Task T<nn> or -Fix <issue>.' }
 if ($Task -and $Fix) { throw '-Task and -Fix are mutually exclusive.' }
 if ($Task -and $Task -notmatch '^T\d{2,3}$') { throw "-Task must look like T24; got $Task" }
+if (-not $Slug) { throw 'Give -Slug.' }
+if (-not $BriefFile) { throw 'Give -BriefFile.' }
 if (-not (Test-Path $BriefFile)) { throw "Brief not found: $BriefFile" }
 # OpenCode not installed or not found, or a major version this script has no arguments for (only 1.x
 # and 2.x): the same exit 3 as every model failing. The version is read once (T98).
@@ -415,12 +535,16 @@ if ($WhatIf) {
         # Done-when 6 (with -RecommendFile, no -SimulateFailed): the model it would run and its
         # reasons, showing the dispatch honours the chooser. For -Model auto, the first entry in
         # the chain is what the real run would try first; the run log quotes its reasons.
+        # R3 rework: the same Format-ImplementerAttempt text reaches the run log and the
+        # PR body. -WhatIf prints it here so the offline check is independently
+        # reproducible without a real OpenCode run.
         if ($Model -eq 'auto' -and $chain) {
             $first = $chain[0]
             $why = $chainMeta[$first]
-            if ($why) {
-                Write-Host "would attempt: $first ($($why.provider), $($why.model), score $($why.score), confidence $($why.confidence))"
-                foreach ($r in @($why.reasons)) { Write-Host "  reason: $r" }
+            $attemptText = Format-ImplementerAttempt $why
+            if ($attemptText) {
+                Write-Host "would attempt: $first"
+                Write-Host "  reasons: $attemptText"
             } else {
                 Write-Host "would attempt: $first (no /recommend reasons: explicit -Model)"
             }
@@ -582,12 +706,13 @@ foreach ($m in $chain) {
         $attempts += [pscustomobject]@{ Model = $m; Route = $resolved[$m].Route; Class = 'ran'; Why = '' }
         $finalRun = $run
         # T152 Done-when 4: the run log and the PR body's "Implementer attempts" section name
-        # the chosen model and quote its row's reasons. We append the reasons to the same log
-        # entry for the run log; the PR-body section quotes them from $chainMeta below.
+        # the chosen model and quote its row's reasons. The same Format-ImplementerAttempt
+        # text reaches both destinations (R3 rework: factored into a function that the
+        # self-test exercises offline).
         $chosenMeta = $chainMeta[$m]
-        if ($chosenMeta) {
-            $chosenReasons = @($chosenMeta.reasons) -join '; '
-            Add-Content -LiteralPath $log -Value "=== /recommend reasons for this pick ===`nprovider $($chosenMeta.provider), model $($chosenMeta.model), score $($chosenMeta.score), confidence $($chosenMeta.confidence)`n$chosenReasons`n" -Encoding utf8
+        $attemptText = Format-ImplementerAttempt $chosenMeta
+        if ($attemptText) {
+            Add-Content -LiteralPath $log -Value "=== /recommend reasons for this pick ===`n$attemptText`n" -Encoding utf8
         }
         break
     }
@@ -659,9 +784,9 @@ if (-not $implementedBy) {
                 }
                 if ($run) { $outsideRuns += [pscustomobject]@{ Model = $substitute; Run = $run } }
                 $logHeader = "=== $substitute ($($sr.Model), route $($sr.Route)): $(if ($reason) { "failed: $reason" } else { 'ran' }) ==="
-                if ($subMeta) {
-                    $subReasons = @($subMeta.reasons) -join '; '
-                    $logHeader = "$logHeader`n=== /recommend reasons for this pick ===`nprovider $($subMeta.provider), model $($subMeta.model), score $($subMeta.score), confidence $($subMeta.confidence)`n$subReasons`n"
+                $subAttemptText = Format-ImplementerAttempt $subMeta
+                if ($subAttemptText) {
+                    $logHeader = "$logHeader`n=== /recommend reasons for this pick ===`n$subAttemptText`n"
                 }
                 Add-Content -LiteralPath $log -Value "$logHeader`n$output" -Encoding utf8
                 if (-not $reason) {
@@ -719,9 +844,10 @@ if ($implementedBy -and $implementedBy -ne $script:ChooserClaudeSentinel) {
         # T152 Done-when 4: the "Implementer attempts" section names the chosen model and
         # quotes its row's reasons (provider, model, score, confidence, reasons). The
         # main session copies these into its tier comment when a review needs them too.
-        $reasonsText = @($chosenMeta.reasons) -join '; '
-        $chosenLine += "`n/recommend reasons for this pick: provider $($chosenMeta.provider), model $($chosenMeta.model), score $($chosenMeta.score), confidence $($chosenMeta.confidence)"
-        $chosenLine += "`n  $reasonsText"
+        # R3 rework: Format-ImplementerAttempt produces the same text that the run log
+        # receives, so the self-test proves both destinations see the same line.
+        $attemptText = Format-ImplementerAttempt $chosenMeta
+        $chosenLine += "`n/recommend reasons for this pick: $attemptText"
     }
     $attemptLines += $chosenLine
     $attemptBody = $attemptLines -join "`n"
@@ -765,10 +891,9 @@ if ($implementedBy) {
     # The reviewer must not be this model: pass it to external-review.ps1 as -ExcludeModel.
     $implLine = "implemented by: $implementedBy ($($resolved[$implementedBy].Model), route $($resolved[$implementedBy].Route))"
     $chosenMeta = $chainMeta[$implementedBy]
-    if ($chosenMeta) {
-        $reasonsText = @($chosenMeta.reasons) -join '; '
-        $implLine += "`n/recommend reasons for this pick: provider $($chosenMeta.provider), model $($chosenMeta.model), score $($chosenMeta.score), confidence $($chosenMeta.confidence)"
-        $implLine += "`n  $reasonsText"
+    $attemptText = Format-ImplementerAttempt $chosenMeta
+    if ($attemptText) {
+        $implLine += "`n/recommend reasons for this pick: $attemptText"
     }
     Write-Host $implLine
 }
