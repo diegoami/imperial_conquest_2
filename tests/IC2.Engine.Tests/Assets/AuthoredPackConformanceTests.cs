@@ -363,7 +363,59 @@ public sealed class AuthoredPackConformanceTests
             var peakDbfs = 20.0 * Math.Log10((double)peak / 32767.0);
             Assert.True(peakDbfs >= -30.0,
                 $"{key}: peak {peakDbfs:F1} dBFS is below -30 dBFS - the file is effectively silent");
+
+            // T149 rework (the user's listening review, PR #886 U1): audibility on ordinary
+            // speakers. A file can be loud at peak and still inaudible: the shipped
+            // battle.wav peaked at -3 dBFS but ~95% of its energy sat at 60-120 Hz, a band
+            // laptop and desktop drivers barely reproduce. Two guards, both with a stated
+            // reason:
+            //   * at least 30% of the file's energy above 300 Hz - small drivers typically
+            //     roll off below ~300 Hz, so a file with almost no energy above that line is
+            //     inaudible on them; 30% keeps a genuine low-body sound (a horn, a splash)
+            //     while refusing a bass-only rumble;
+            //   * RMS above -30 dBFS - loudness the ear reads, not the one peak sample.
+            // The energy split is the same gentle one-pole low-pass the generator logs
+            // (scripts/generate-sounds.py's band_energy_shares): approximate by design, exact
+            // enough to separate a mid-range file from a sub-bass one.
+            var samples = new List<double>((int)totalSamples);
+            for (var i = dataIndex + 8; i + 1 < bytes.Length && samples.Count < totalSamples; i += 2)
+            {
+                samples.Add(BitConverter.ToInt16(bytes, i));
+            }
+
+            var totalEnergy = samples.Sum(s => s * s);
+            var lowPassEnergy = OnePoleLowPassEnergy(samples, (double)sampleRate, 300.0);
+            var above300Share = totalEnergy > 0 ? 1.0 - Math.Min(1.0, lowPassEnergy / totalEnergy) : 0.0;
+            Assert.True(above300Share >= 0.30,
+                $"{key}: only {above300Share:P0} of the file's energy is above 300 Hz - a bass-only file " +
+                "is inaudible on ordinary speakers (the user's listening review, PR #886 U1)");
+
+            var rms = Math.Sqrt(totalEnergy / samples.Count);
+            var rmsDbfs = 20.0 * Math.Log10(rms / 32767.0);
+            Assert.True(rmsDbfs > -30.0,
+                $"{key}: RMS {rmsDbfs:F1} dBFS is below -30 dBFS - the file is effectively silent to the ear");
         }
+    }
+
+    /// <summary>
+    /// Sum of squares of the signal low-passed at <paramref name="cutoffHz"/> with a one-pole
+    /// RC filter — the same split <c>scripts/generate-sounds.py</c>'s band-energy log uses, so
+    /// the generator's printed shares and this assertion agree.
+    /// </summary>
+    private static double OnePoleLowPassEnergy(List<double> samples, double sampleRate, double cutoffHz)
+    {
+        var dt = 1.0 / sampleRate;
+        var rc = 1.0 / (2.0 * Math.PI * cutoffHz);
+        var alpha = dt / (rc + dt);
+        var previous = 0.0;
+        double energy = 0;
+        foreach (var sample in samples)
+        {
+            previous += alpha * (sample - previous);
+            energy += previous * previous;
+        }
+
+        return energy;
     }
 
     /// <summary>

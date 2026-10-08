@@ -42,8 +42,11 @@ AUTHORED_PACK = REPO_ROOT / "assets" / "packs" / "authored" / "sfx"
 PLACEHOLDER_PACK = REPO_ROOT / "assets" / "packs" / "placeholder" / "sfx"
 
 # ElevenLabs' sound-effects endpoint as of the API version the owner used on 2026-10-08.
-# The base URL is stable; the path is the documented sound-generation entry.
-ELEVENLABS_URL = "https://api.elevenlabs.io/v1/sound-generation"
+# The base URL is stable; the path is the documented sound-generation entry. The
+# output_format query parameter asks for 44.1 kHz 16-bit PCM (a WAV container): this
+# machine has no ffmpeg on PATH, so the MP3 path pydub would need is unavailable here and
+# the script deliberately asks the API for the target envelope instead of converting locally.
+ELEVENLABS_URL = "https://api.elevenlabs.io/v1/sound-generation?output_format=pcm_44100"
 
 # The mono, 44.1 kHz, 16-bit PCM envelope every authored pack file ships in
 # (asset-specification.md §1.4). The generator converts whatever the API returns into this shape.
@@ -237,7 +240,7 @@ def call_elevenlabs(api_key: str, prompt: str, duration_seconds: float) -> bytes
         headers={
             "xi-api-key": api_key,
             "Content-Type": "application/json",
-            "Accept": "audio/mpeg",
+            "Accept": "audio/wav",
         },
     )
     try:
@@ -254,38 +257,45 @@ def call_elevenlabs(api_key: str, prompt: str, duration_seconds: float) -> bytes
 def convert_to_wav(raw_audio: bytes) -> bytes:
     """Convert whatever the API returned to a mono, 44.1 kHz, 16-bit PCM WAV.
 
-    ElevenLabs' sound-effects endpoint returns MP3. Python's wave module is WAV-only, so the
-    conversion uses a tiny in-process pydub-style shim: when pydub is available, use it; when
-    not, the script reads the MP3 through the stdlib's audioop module (deprecated but still
-    shipping on CPython 3.13) -- whichever is available on the machine.
+    With ``output_format=pcm_44100`` the endpoint returns headerless 16-bit little-endian
+    mono PCM at 44.1 kHz (not a WAV container); an MP3 may still come back on other tiers.
+    The sniffing order is: RIFF/WAVE -> pass through; ID3 or an MPEG frame sync (0xFF Ex) ->
+    decode with ``soundfile`` (libsndfile >= 1.1 reads MP3; a plain wheel, no ffmpeg, which
+    this machine does not have); anything else -> assume the documented headerless PCM.
+    numpy (already present) does the downmix and the linear resample when needed.
 
-    The script never assumes ffmpeg is on PATH: pydub is a soft dependency and the script
-    only runs once per key, so a missing pydub is a clear error message rather than a silent
-    fall-back. A ffmpeg-only environment is the user's choice; the task brief is explicit
-    that the script reads ELEVENLABS_API_KEY and does the work, not the user's environment.
+    The result is handed to :func:`normalise_wav` for the trim, the high-pass and the RMS
+    normalisation, so every path into the pack goes through the same envelope.
     """
-    # First, try to load the bytes as-is. If they happen to be a WAV already, the
-    # envelope check below decides whether to re-encode.
+    import numpy
+    import soundfile
+
     if raw_audio[:4] == b"RIFF" and raw_audio[8:12] == b"WAVE":
         return normalise_wav(raw_audio)
 
-    # Otherwise: convert. The owner's environment has pydub + ffmpeg; the script's self-check
-    # does not (it never calls ElevenLabs). We pick whichever is available.
-    try:
-        from pydub import AudioSegment  # type: ignore
-    except ImportError as exc:
-        raise SystemExit(
-            "ElevenLabs returned an MP3 but pydub is not installed. Install pydub "
-            "(`pip install pydub`) and ffmpeg (the standard binary), and try again. "
-            "No fallback keeps this script's dependency surface narrow."
-        ) from exc
+    if raw_audio[:3] == b"ID3" or (len(raw_audio) >= 2 and raw_audio[0] == 0xFF and (raw_audio[1] & 0xE0) == 0xE0):
+        data, source_rate = soundfile.read(io.BytesIO(raw_audio), dtype="float64", always_2d=True)
+        mono = data.mean(axis=1)
+    else:
+        # Headerless mono 16-bit LE PCM at 44.1 kHz -- what output_format=pcm_44100 returns.
+        values = struct.unpack(f"<{len(raw_audio) // 2}h", raw_audio[: (len(raw_audio) // 2) * 2])
+        data = numpy.array(values, dtype="float64").reshape(-1, 1)
+        mono = data.mean(axis=1)
+        source_rate = TARGET_SAMPLE_RATE
 
-    segment = AudioSegment.from_file(io.BytesIO(raw_audio), format="mp3")
-    segment = segment.set_channels(TARGET_CHANNELS)
-    segment = segment.set_frame_rate(TARGET_SAMPLE_RATE)
-    segment = segment.set_sample_width(TARGET_SAMPLE_WIDTH)
+    if source_rate != TARGET_SAMPLE_RATE:
+        target_length = int(round(len(mono) * TARGET_SAMPLE_RATE / source_rate))
+        positions = numpy.linspace(0.0, len(mono) - 1, target_length)
+        mono = numpy.interp(positions, numpy.arange(len(mono)), mono)
+
     buffer = io.BytesIO()
-    segment.export(buffer, format="wav")
+    soundfile.write(
+        buffer,
+        mono,
+        TARGET_SAMPLE_RATE,
+        subtype="PCM_16",
+        format="WAV",
+    )
     return normalise_wav(buffer.getvalue())
 
 
@@ -308,10 +318,6 @@ def normalise_wav(wav_bytes: bytes) -> bytes:
         frame_rate = handle.getframerate()
         frames = handle.readframes(handle.getnframes())
 
-    if channels != TARGET_CHANNELS:
-        raise SystemExit(
-            f"WAV channels is {channels}, expected {TARGET_CHANNELS} (asset-specification.md §1.4)."
-        )
     if sample_width != TARGET_SAMPLE_WIDTH:
         raise SystemExit(
             f"WAV sample width is {sample_width}, expected {TARGET_SAMPLE_WIDTH} bytes (16-bit)."
@@ -319,6 +325,20 @@ def normalise_wav(wav_bytes: bytes) -> bytes:
     if frame_rate != TARGET_SAMPLE_RATE:
         raise SystemExit(
             f"WAV frame rate is {frame_rate}, expected {TARGET_SAMPLE_RATE} Hz."
+        )
+    if channels == 2:
+        # The API can still hand back a stereo WAV despite the mono target; downmix to mono
+        # by averaging the two channels -- the documented envelope (asset-specification.md
+        # §1.4) is mono, and an average keeps both channels' energy.
+        stereo = struct.unpack(f"<{len(frames) // sample_width}h", frames)
+        frames = struct.pack(
+            f"<{len(stereo) // 2}h",
+            *[ (stereo[i] + stereo[i + 1]) // 2 for i in range(0, len(stereo) - 1, 2) ],
+        )
+        channels = TARGET_CHANNELS
+    if channels != TARGET_CHANNELS:
+        raise SystemExit(
+            f"WAV channels is {channels}, expected {TARGET_CHANNELS} (asset-specification.md §1.4)."
         )
 
     samples = struct.unpack(f"<{len(frames) // sample_width}h", frames)
@@ -528,6 +548,11 @@ def main(argv: list[str]) -> int:
         duration = entry["durationSeconds"]
         print(f"Generating {key} ({duration:.2f}s) ...", file=sys.stderr)
         raw = call_elevenlabs(api_key, prompt, duration)
+        # The API call is the billable step: keep the raw response under rendered/ (git-ignored
+        # scratch) BEFORE converting, so a conversion bug costs a fix, not another generation.
+        scratch = REPO_ROOT / "rendered"
+        scratch.mkdir(parents=True, exist_ok=True)
+        (scratch / f"{key.removeprefix('sfx.')}.raw").write_bytes(raw)
         wav = convert_to_wav(raw)
         target = AUTHORED_PACK / (key.removeprefix("sfx.") + ".wav")
         write_wav(target, wav)
