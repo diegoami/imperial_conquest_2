@@ -239,6 +239,47 @@ public sealed class FleetCityDialogModelsTests
         Assert.Equal(5, model.ShipsNet);
     }
 
+    // ---- Done-when 1: Transfer ships refuses a carrying fleet (T112 R1) ----
+
+    [Fact]
+    public void Transfer_ships_is_refused_while_either_fleet_carries_an_army()
+    {
+        var ruleset = ClassicalRuleset;
+
+        // The selected fleet carries, the partner is empty: the engine's own
+        // source.IsCarryingArmy || target.IsCarryingArmy predicate refuses.
+        var carryingSelected = State(
+            Fleet(ships: 30, supply: 300, money: 100, carriedArmyId: "t112-aboard"),
+            Fleet(PartnerId, x: 3, y: 3, ships: 20, supply: 200, money: 50));
+        var model = FleetTransferModel.ForFleets(
+            carryingSelected.FleetById(FleetId)!, carryingSelected.FleetById(PartnerId)!, ruleset);
+
+        Assert.True(model.EitherCarryingArmy);
+        Assert.Equal(FleetCityDialogModels.TransferCarryingArmyMessage, model.RefusalMessage);
+        Assert.Equal("Neither fleet may carry an army to transfer.", model.RefusalMessage);
+
+        // No arrow stages anything and OK composes nothing.
+        Assert.Equal(0, model.MaxShipsToPartner);
+        Assert.Equal(0, model.MaxSupplyToPartner);
+        Assert.Equal(0, model.MaxMoneyToPartner);
+        model.AdjustShips(5);
+        model.AdjustSupply(20);
+        model.AdjustMoney(10);
+        Assert.Empty(model.ComposeOk());
+
+        // The engine refuses whichever side carries: the partner carrying alone refuses too.
+        var carryingPartner = State(
+            Fleet(ships: 30, supply: 300, money: 100),
+            Fleet(PartnerId, x: 3, y: 3, ships: 20, supply: 200, money: 50, carriedArmyId: "t112-aboard-b"));
+        var back = FleetTransferModel.ForFleets(
+            carryingPartner.FleetById(FleetId)!, carryingPartner.FleetById(PartnerId)!, ruleset);
+
+        Assert.True(back.EitherCarryingArmy);
+        Assert.Equal(FleetCityDialogModels.TransferCarryingArmyMessage, back.RefusalMessage);
+        back.AdjustShips(5);
+        Assert.Empty(back.ComposeOk());
+    }
+
     // ---- Done-when 1: Fortify city's range and cost ----
 
     [Fact]

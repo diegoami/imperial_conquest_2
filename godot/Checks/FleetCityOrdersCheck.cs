@@ -10,13 +10,16 @@ namespace IC2.Slice.Checks;
 
 /// <summary>
 /// T112 Done-when 3, 4 and 5: the real <see cref="MainGameScreen"/> on a scripted classical state with
-/// two adjacent Roman fleets at a Roman city, plus a split fleet, a join pair and a scuttle fleet. Every
-/// Fleet entry is opened from the menu and commits through the engine: Supply fleet buys from the city,
+/// two adjacent Roman fleets at a Roman city, plus a split fleet, a join pair, a scuttle fleet and a
+/// carrying pair. Every Fleet entry is opened from the menu and commits through the engine: Supply
+/// fleet buys from the city,
 /// Repair fleet repairs and zeroes the moves, Transfer ships moves ships/supply/money to the partner,
 /// Split fleet adds a fleet holding exactly the staged ships/supply/money, Join fleets leaves one fleet,
 /// Scuttle fleet with <strong>No</strong> submits nothing, and Fortify city changes the city's
 /// fortification word. The check also proves the strip's Repair button and the menu entry run the same
-/// table handler, and that no <see cref="ContextPanel"/> button issues a command. Run headless via:
+/// table handler, and that no <see cref="ContextPanel"/> button issues a command. T112 R1 adds the
+/// carrying pair: Transfer ships is refused while either fleet carries an army and OK commits nothing.
+/// Run headless via:
 /// <code>
 /// godot --headless --path godot res://Checks/FleetCityOrdersCheck.tscn --quit-after 900
 /// </code>
@@ -32,6 +35,9 @@ public partial class FleetCityOrdersCheck : Control
     private const string SplitChildId = "t112-split-split";
     private const string JoinAId = "t112-join-a";
     private const string JoinBId = "t112-join-b";
+    private const string CarryingFleetId = "t112-carrying";
+    private const string CarryingPartnerId = "t112-carrying-partner";
+    private const string CarryingArmyId = "t112-carrying-army";
     private const string ScuttleFleetId = "t112-scuttle";
     private const string CityId = "t112-city";
     private const string ScuttleCityId = "t112-scuttle-city";
@@ -60,6 +66,8 @@ public partial class FleetCityOrdersCheck : Control
         _steps.Add(SupplyFleet);
         _steps.Add(RepairFleet);
         _steps.Add(TransferShips);
+        _steps.Add(EmbarkCarryingArmy);
+        _steps.Add(TransferShipsWhileCarrying);
         _steps.Add(SplitFleet);
         _steps.Add(JoinFleets);
         _steps.Add(ScuttleNo);
@@ -180,6 +188,62 @@ public partial class FleetCityOrdersCheck : Control
         Check(partnerAfter.Ships == partnerBefore.Ships + 5, "the partner gained five ships");
         Check(selectedAfter.SupplyTons == selectedBefore.SupplyTons - 20, "the selected fleet lost 20 tons");
         Check(partnerAfter.SupplyTons == partnerBefore.SupplyTons + 20, "the partner gained 20 tons");
+    }
+
+    /// <summary>
+    /// T112 R1: boards the scripted army on the carrier so the next step sees a carrying fleet. The army
+    /// stands on the land tile beside the carrier's water tile; <c>embark-army</c> is the engine's own
+    /// command, exactly as a player's embark click would run it.
+    /// </summary>
+    private void EmbarkCarryingArmy()
+    {
+        Check(!_session.State.FleetById(CarryingFleetId)!.IsCarryingArmy, "the carrier starts empty");
+        _mainGame.SelectFleetForCheck(CarryingFleetId);
+        var output = _mainGame.SubmitForCheck($"embark-army {CarryingArmyId} {CarryingFleetId}");
+        Check(
+            _session.State.FleetById(CarryingFleetId)!.IsCarryingArmy,
+            $"embark-army boards the scripted army on the carrier ({output.Count} output lines)");
+    }
+
+    /// <summary>
+    /// T112 R1: Transfer ships is refused while the selected fleet carries an army — the model composes
+    /// nothing and OK commits no command, leaving both fleets exactly as they were.
+    /// </summary>
+    private void TransferShipsWhileCarrying()
+    {
+        _mainGame.SelectFleetForCheck(CarryingFleetId);
+        var before = _commandsSeen;
+        var selectedBefore = _session.State.FleetById(CarryingFleetId)!;
+        var partnerBefore = _session.State.FleetById(CarryingPartnerId)!;
+
+        Check(
+            AdjacentPartner.Fleet(_session.State, CarryingFleetId)?.Id == CarryingPartnerId,
+            "the carrying pair's own partner is the scripted partner");
+
+        Check(
+            _mainGame.MenuBar.PressItemForCheck("unit_map.fleet_transfer_ships"),
+            "Transfer ships is wired from the menu for a carrying fleet");
+        Check(_mainGame.ActiveOverlay is FleetTransferDialog, "Transfer ships opens its dialog while carrying");
+        var dialog = (FleetTransferDialog)_mainGame.ActiveOverlay!;
+        Check(dialog.ModelForCheck.PartnerFleetId == CarryingPartnerId, "the carrying pair's partner is the game's pick");
+        Check(
+            dialog.ModelForCheck.RefusalMessage == FleetCityDialogModels.TransferCarryingArmyMessage,
+            $"the model shows the engine's carrying-army refusal ({dialog.ModelForCheck.RefusalMessage})");
+
+        dialog.AdjustShipsForCheck(5);
+        dialog.OkForCheck();
+
+        Check(_commandsSeen == before, $"OK composes no command ({_commandsSeen - before})");
+        var selectedAfter = _session.State.FleetById(CarryingFleetId)!;
+        var partnerAfter = _session.State.FleetById(CarryingPartnerId)!;
+        Check(
+            selectedAfter.Ships == selectedBefore.Ships
+            && partnerAfter.Ships == partnerBefore.Ships
+            && selectedAfter.CarriedArmyId == selectedBefore.CarriedArmyId,
+            "the carrying pair's ships and carried army are unchanged");
+
+        dialog.CancelForCheck();
+        Check(_mainGame.ActiveOverlay is null, "Cancel closes the refused transfer dialog");
     }
 
     /// <summary>
@@ -548,6 +612,14 @@ public partial class FleetCityOrdersCheck : Control
         taken.Add((scuttleCoastal.Wx, scuttleCoastal.Wy));
         taken.Add((scuttleCoastal.Lx, scuttleCoastal.Ly));
 
+        // T112 R1: the carrying pair — carrier at W, empty partner at the neighbour W2, and the army that
+        // boards it on the land tile L.
+        var carryingCoastal = FindCoastal()
+            ?? throw new InvalidOperationException("No third coastal water tile on the classical map.");
+        taken.Add((carryingCoastal.Wx, carryingCoastal.Wy));
+        taken.Add((carryingCoastal.Lx, carryingCoastal.Ly));
+        taken.Add((carryingCoastal.W2x, carryingCoastal.W2y));
+
         var split = FindSplit() ?? throw new InvalidOperationException("No water tile fits a split fleet.");
         taken.Add(split);
 
@@ -559,9 +631,18 @@ public partial class FleetCityOrdersCheck : Control
         cities.Add(City(CityId, "T112 Port", coastal.Lx, coastal.Ly));
         cities.Add(City(ScuttleCityId, "T112 Scuttle Port", scuttleCoastal.Lx, scuttleCoastal.Ly));
 
+        var armies = world.StartingArmies.ToList();
+        armies.Add(CarryingArmy(CarryingArmyId, carryingCoastal.Lx, carryingCoastal.Ly));
+
         var fleets = world.StartingFleets.ToList();
         fleets.Add(Fleet(SupplyFleetId, coastal.Wx, coastal.Wy, ships: 30, condition: 70, supply: 100, money: 100));
         fleets.Add(Fleet(PartnerFleetId, coastal.W2x, coastal.W2y, ships: 20, condition: 100, supply: 200, money: 50));
+        fleets.Add(Fleet(
+            CarryingFleetId, carryingCoastal.Wx, carryingCoastal.Wy,
+            ships: 30, condition: 100, supply: 100, money: 0));
+        fleets.Add(Fleet(
+            CarryingPartnerId, carryingCoastal.W2x, carryingCoastal.W2y,
+            ships: 20, condition: 100, supply: 100, money: 0));
         fleets.Add(Fleet(SplitFleetId, split.X, split.Y, ships: 30, condition: 100, supply: 200, money: 100));
         fleets.Add(Fleet(JoinAId, join.A.X, join.A.Y, ships: 10, condition: 100, supply: 50, money: 0));
         fleets.Add(Fleet(JoinBId, join.B.X, join.B.Y, ships: 10, condition: 100, supply: 50, money: 0));
@@ -572,6 +653,7 @@ public partial class FleetCityOrdersCheck : Control
         var customWorld = world with
         {
             Cities = ValueList.From(cities),
+            StartingArmies = ValueList.From(armies),
             StartingFleets = ValueList.From(fleets),
         };
 
@@ -586,6 +668,14 @@ public partial class FleetCityOrdersCheck : Control
     private static StartingFleet Fleet(
         string id, int x, int y, int ships, int condition, int supply, int money) => new(
         id, Rome, x, y, Ships: ships, ConditionPercent: condition, Money: money, SupplyTons: supply, Moves: 8);
+
+    /// <summary>The scripted army that boards the carrier — 1,000 troops, under the carrier's 15,000 capacity.</summary>
+    private static StartingArmy CarryingArmy(string id, int x, int y) => new(
+        id, Rome, x, y, Morale: 70, Money: 0, SupplyTons: 0, Moves: 8,
+        Units: ValueList.Of(new[]
+        {
+            new UnitSlot(0, "heavy_infantry", 1_000, 7, "T112 boarded battalion"),
+        }));
 
     private void Check(bool condition, string description)
     {

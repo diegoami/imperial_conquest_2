@@ -100,6 +100,11 @@ public static class FleetCityDialogModels
     public static string CombinedShipsTooLargeMessage(Ruleset ruleset) =>
         $"There are more than {ruleset.Naval.JoinMaxShips} ships in these fleets combined.";
 
+    /// <summary>Transfer ships' refusal while either fleet carries an army — the engine's own line in
+    /// <see cref="IC2.Engine.Naval.Commands.FleetToFleetTransferCommandHandler"/>'s
+    /// <c>FleetToFleetTransferRejections.CarryingArmy</c> branch.</summary>
+    public const string TransferCarryingArmyMessage = "Neither fleet may carry an army to transfer.";
+
     /// <summary>Scuttle fleet composes <c>scuttle-fleet</c>.</summary>
     public static string ScuttleFleetLine(string fleetId) => $"scuttle-fleet {fleetId}";
 }
@@ -367,8 +372,9 @@ public sealed class SplitFleetModel
 /// <para>
 /// The partner is <see cref="IC2.Engine.Armies.AdjacentPartner.Fleet"/> — the game's pick, never the
 /// player's. With no partner the model composes nothing and refuses with the clone's no-partner message;
-/// with the two fleets' combined ships above <see cref="NavalRules.JoinMaxShips"/> it refuses with the
-/// engine's own combined-ships line.
+/// while either fleet carries an army it refuses with the engine's own carrying-army line
+/// (<see cref="FleetCityDialogModels.TransferCarryingArmyMessage"/>); with the two fleets' combined ships
+/// above <see cref="NavalRules.JoinMaxShips"/> it refuses with the engine's own combined-ships line.
 /// </para>
 /// </remarks>
 public sealed class FleetTransferModel
@@ -408,13 +414,23 @@ public sealed class FleetTransferModel
     public bool CombinedShipsWithinCap =>
         _partner is null || _selected.Ships + _partner.Ships <= _ruleset.Naval.JoinMaxShips;
 
+    /// <summary>
+    /// Whether either fleet carries an army — <see cref="FleetState.IsCarryingArmy"/> on A or B, the same
+    /// predicate <see cref="IC2.Engine.Naval.Commands.FleetToFleetTransferCommandHandler"/> refuses on
+    /// (<c>source.IsCarryingArmy || target.IsCarryingArmy</c>).
+    /// </summary>
+    public bool EitherCarryingArmy =>
+        _selected.IsCarryingArmy || (_partner?.IsCarryingArmy ?? false);
+
     /// <summary>The refusal to show when the transfer cannot be composed, or <see langword="null"/>.</summary>
     public string? RefusalMessage =>
         _partner is null
             ? FleetCityDialogModels.NoPartnerMessage
-            : CombinedShipsWithinCap
-                ? null
-                : FleetCityDialogModels.CombinedShipsTooLargeMessage(_ruleset);
+            : EitherCarryingArmy
+                ? FleetCityDialogModels.TransferCarryingArmyMessage
+                : CombinedShipsWithinCap
+                    ? null
+                    : FleetCityDialogModels.CombinedShipsTooLargeMessage(_ruleset);
 
     /// <summary>The staged ship net: positive is A → B, negative is B → A.</summary>
     public int ShipsNet => _shipsNet;
@@ -427,27 +443,31 @@ public sealed class FleetTransferModel
 
     /// <summary>The most ships A can send B — leaving B within the join cap.</summary>
     public int MaxShipsToPartner =>
-        _partner is null || !CombinedShipsWithinCap
+        _partner is null || EitherCarryingArmy || !CombinedShipsWithinCap
             ? 0
             : Math.Max(0, Math.Min(_selected.Ships, _ruleset.Naval.JoinMaxShips - _partner.Ships));
 
     /// <summary>The most ships B can send A — leaving A within the join cap.</summary>
     public int MaxShipsBack =>
-        _partner is null || !CombinedShipsWithinCap
+        _partner is null || EitherCarryingArmy || !CombinedShipsWithinCap
             ? 0
             : Math.Max(0, Math.Min(_partner.Ships, _ruleset.Naval.JoinMaxShips - _selected.Ships));
 
     /// <summary>The most supply A can send B.</summary>
-    public int MaxSupplyToPartner => _partner is null || !CombinedShipsWithinCap ? 0 : Math.Max(0, _selected.SupplyTons);
+    public int MaxSupplyToPartner =>
+        _partner is null || EitherCarryingArmy || !CombinedShipsWithinCap ? 0 : Math.Max(0, _selected.SupplyTons);
 
     /// <summary>The most supply B can send A.</summary>
-    public int MaxSupplyBack => _partner is null || !CombinedShipsWithinCap ? 0 : Math.Max(0, _partner.SupplyTons);
+    public int MaxSupplyBack =>
+        _partner is null || EitherCarryingArmy || !CombinedShipsWithinCap ? 0 : Math.Max(0, _partner.SupplyTons);
 
     /// <summary>The most money A can send B.</summary>
-    public int MaxMoneyToPartner => _partner is null || !CombinedShipsWithinCap ? 0 : Math.Max(0, _selected.Money);
+    public int MaxMoneyToPartner =>
+        _partner is null || EitherCarryingArmy || !CombinedShipsWithinCap ? 0 : Math.Max(0, _selected.Money);
 
     /// <summary>The most money B can send A.</summary>
-    public int MaxMoneyBack => _partner is null || !CombinedShipsWithinCap ? 0 : Math.Max(0, _partner.Money);
+    public int MaxMoneyBack =>
+        _partner is null || EitherCarryingArmy || !CombinedShipsWithinCap ? 0 : Math.Max(0, _partner.Money);
 
     /// <summary>One press of a ship arrow, clamped to both directions' bounds.</summary>
     public void AdjustShips(int delta) =>
@@ -468,7 +488,7 @@ public sealed class FleetTransferModel
     /// </summary>
     public IReadOnlyList<string> ComposeOk()
     {
-        if (_partner is null || !CombinedShipsWithinCap
+        if (_partner is null || EitherCarryingArmy || !CombinedShipsWithinCap
             || (_shipsNet == 0 && _supplyNet == 0 && _moneyNet == 0))
         {
             return Array.Empty<string>();
