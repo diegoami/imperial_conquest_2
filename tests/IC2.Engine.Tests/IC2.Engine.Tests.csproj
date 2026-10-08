@@ -215,6 +215,16 @@
     -->
     <Compile Include="../../godot/UI/Dialogs/FleetCityDialogModels.cs" Link="Ui/FleetCityDialogModels.cs" />
     <Compile Include="../../godot/UI/UnitCommandStripLayout.cs" Link="Ui/UnitCommandStripLayout.cs" />
+
+    <!--
+      T140 (tests/IC2.Engine.Tests/Ui/InformationWordsTests.cs and InformationPanelModelTests.cs): the
+      same seam once more. InformationWords.cs is the Godot-free band table the city, army, fleet and
+      nation panels read for unity, loyalty, morale, foreign tribute, relation and sea words, and
+      InformationPanelModel.cs is the Godot-free model that emits each entity's information-panel lines
+      in the original's order. No `using Godot` anywhere; never a second, hand-maintained copy.
+    -->
+    <Compile Include="../../godot/UI/InformationWords.cs" Link="Ui/InformationWords.cs" />
+    <Compile Include="../../godot/UI/InformationPanelModel.cs" Link="Ui/InformationPanelModel.cs" />
   </ItemGroup>
 
 </Project>

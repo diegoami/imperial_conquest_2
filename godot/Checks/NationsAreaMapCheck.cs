@@ -58,6 +58,10 @@ public partial class NationsAreaMapCheck : Control
     /// <summary>The mini-map's draw count when the B1 scenario was arranged, compared after "end".</summary>
     private int _drawCountBeforeEnd;
 
+    /// <summary>The refresh step's mover: Rome's shipped army-0, at (100,37) with its full moves.</summary>
+    private const string MovedArmyId = "army-0";
+    private (int X, int Y)? _movedArmyFrom;
+
     /// <summary>The table's handler counter before the strip button click (N5).</summary>
     private int _stripIssuedBefore;
 
@@ -265,6 +269,9 @@ public partial class NationsAreaMapCheck : Control
 
     private void AssertCarthagePanelIsPublicOnly()
     {
+        // T140 (2026-10-05 decision): the foreign panel now adds Population (Wealth, row N05),
+        // Unity (a word, row N06) and Tax rate (row N07) — every other nation's relation in place
+        // of the viewer's cell alone. Mobilized (N08) and Treasury (N09) stay blank.
         var panel = _mainGame.ContextPanel;
         foreach (var shown in new[]
         {
@@ -272,19 +279,30 @@ public partial class NationsAreaMapCheck : Control
             NationStatusModel.CapitalKey,
             NationStatusModel.CitiesKey,
             NationStatusModel.CityNamesKey,
+            NationStatusModel.PopulationKey,
+            NationStatusModel.UnityKey,
+            NationStatusModel.TaxRateKey,
             NationStatusModel.RelationKeyPrefix + RomeId,
         })
         {
             Check(panel.HasViewedNationLineForCheck(shown), $"Carthage's foreign panel shows '{shown}'");
         }
 
+        // T140: the foreign panel keeps the Mobilized and Treasury rows, present and blank (N08–N09).
+        foreach (var (blank, caption) in new[]
+        {
+            (NationStatusModel.MobilizedKey, "Mobilized:"),
+            (NationStatusModel.TreasuryKey, "Treasury:"),
+        })
+        {
+            var line = panel.ViewedNationLinesForCheck?.FirstOrDefault(l => string.Equals(l.Key, blank, StringComparison.Ordinal));
+            Check(
+                line is not null && string.Equals(line.Text.Trim(), caption, StringComparison.Ordinal),
+                $"Carthage's foreign panel shows '{blank}' present and blank (got '{line?.Text}')");
+        }
+
         foreach (var withheld in new[]
         {
-            NationStatusModel.TreasuryKey,
-            NationStatusModel.TaxRateKey,
-            NationStatusModel.PopulationKey,
-            NationStatusModel.UnityKey,
-            NationStatusModel.MobilizedKey,
             NationStatusModel.TrainingHeaderKey,
             NationStatusModel.TrainingNoneKey,
         })
@@ -514,7 +532,10 @@ public partial class NationsAreaMapCheck : Control
 
     private void PrepareHighlightRefreshAfterEnd()
     {
-        _mainGame.MenuBar.PressItemForCheck("nations.rome");
+        // #614: All nations viewed before the end, so AI armies' new positions must show up in the
+        // painted highlight set after the command — a stale picture that only repaints the
+        // previously viewed nation's armies would not match the live set.
+        _mainGame.MenuBar.PressItemForCheck("nations.all");
         foreach (var kind in Enum.GetValues<AreaMapHighlightKind>())
         {
             _mainGame.AreaMapView.SetHighlight(kind, false);
@@ -524,22 +545,36 @@ public partial class NationsAreaMapCheck : Control
         _mainGame.AreaMapView.SetHighlight(AreaMapHighlightKind.Armies, true);
 
         Check(
-            string.Equals(_mainGame.ViewedNationId, RomeId, StringComparison.Ordinal),
-            "B1's scenario views Rome before the command");
+            _mainGame.ViewedNationId is null,
+            "B1's scenario views All nations before the command (so the painted set must match "
+            + $"the all-nations live set, got '{_mainGame.ViewedNationId ?? "<all>"}')");
     }
 
     private void IssueEndTurnForHighlightRefresh()
     {
         // The scenario's own SetHighlight queued a redraw; the plan waits before this step so it has
-        // settled, and only then is the draw count read. Otherwise the increase after "end" could be
-        // that queued redraw rather than the command's own refresh, and the check would pass vacuously.
+        // settled, and only then is the draw count read. Otherwise the increase after the command could
+        // be that queued redraw rather than the command's own refresh, and the check would pass vacuously.
+        //
+        // The command is a mid-turn move, not "end": a turn start re-views the active seat (B2), and
+        // that re-view queues a redraw of its own, so with "end" a skipped refresh still repainted
+        // and the equality could not fail (Sol's final-round R1 on PR #853). army-0 walks one tile
+        // north, (100,37) to (100,36), which changes the Armies layer's live set with no other redraw.
+        _movedArmyFrom = ArmyPosition(MovedArmyId);
         _drawCountBeforeEnd = _mainGame.AreaMapView.DrawCountForCheck;
-        _mainGame.SubmitForCheck("end");
+        _mainGame.SubmitForCheck($"move {MovedArmyId} 100 36");
         _expectedSessionCommands++;
     }
 
+    private (int X, int Y)? ArmyPosition(string id) =>
+        _mainGame.Session.State.ArmyById(id) is { } army ? (army.X, army.Y) : null;
+
     private void AssertHighlightRefreshAfterEnd()
     {
+        Check(
+            _movedArmyFrom == (100, 37) && ArmyPosition(MovedArmyId) == (100, 36),
+            $"the refresh step's move walked {MovedArmyId} from {_movedArmyFrom} to {ArmyPosition(MovedArmyId)}, "
+            + "so the live Armies set changed and only the command's refresh can repaint it");
         Check(
             _mainGame.AreaMapView.DrawCountForCheck > _drawCountBeforeEnd,
             $"the mini-map redrew after the command (draws {_drawCountBeforeEnd} -> "
@@ -549,10 +584,10 @@ public partial class NationsAreaMapCheck : Control
         var drawn = _mainGame.AreaMapView.LastDrawnHighlightTilesForCheck;
         Check(
             drawn.Count == live.Count && live.All(drawn.Contains),
-            $"the painted highlight set equals the live set after 'end' (drawn {drawn.Count}, live {live.Count})");
+            $"the painted highlight set equals the live set after the command (drawn {drawn.Count}, live {live.Count})");
         Check(
             _mainGame.AreaMapView.ActiveHighlightsForCheck.Contains(AreaMapHighlightKind.Armies),
-            "Show armies stayed on across the turn");
+            "Show armies stayed on across the command");
     }
 
     // ---- B2: every turn start re-views the active seat ----
