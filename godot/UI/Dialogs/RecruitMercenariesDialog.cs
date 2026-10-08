@@ -197,11 +197,12 @@ public partial class RecruitMercenariesDialog : Control
 
         _replyLabel.Text = lines.Skip(1).FirstOrDefault(text => text.Length > 0) ?? string.Empty;
 
-        // The dialog closes if the hire filled the army's 20th unit — the brief's "(derived: code,
-        // :43686, iVar3 == 0x13 ... TRecruitMercs_OK)" amendment. The model decides it from the live
-        // offers and the army's pre-hire unit count. Refresh and close accordingly.
+        // The dialog closes if an accepted hire filled the army's 20th unit (derived: code, :43686,
+        // TRecruitMercs_OK). It is decided from the army AFTER the submit (GLM's re-check R1): the
+        // refreshed model does not open for an army at 20 units, or with nothing left to hire, so a
+        // refused hire at 19 units leaves the dialog open.
         var refresh = MercenaryDialogModel.ForArmy(Session.State, ArmyId, Session.Ruleset);
-        if (!refresh.DialogOpens || _model.HireFillsCap(offer))
+        if (!refresh.DialogOpens)
         {
             Close();
         }

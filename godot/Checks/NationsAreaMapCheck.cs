@@ -489,7 +489,7 @@ public partial class NationsAreaMapCheck : Control
         _mainGame.MenuBar.PressItemForCheck("area_map.show_all"),
         "the Area map's Show all entry is enabled and takes a press");
 
-private void AssertShowAllUnion()
+    private void AssertShowAllUnion()
     {
         var expected = AreaMapHighlights.AllTiles(_mainGame.Session.State, RomeId);
         var actual = _mainGame.AreaMapView.HighlightTilesForCheck;
@@ -503,7 +503,7 @@ private void AssertShowAllUnion()
             actual.Count == expected.Count && expected.All(actual.Contains),
             $"the UI's Show all equals AreaMapHighlights.AllTiles for Rome "
             + $"(mini {actual.Count} tiles, expected {expected.Count})");
-    
+
         var popup = _mainGame.MenuBar.MenuForCheck("Area map")!;
         foreach (var caption in new[] { "Show cities", "Show capital", "Show armies", "Show fleets", "Show all" })
         {

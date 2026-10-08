@@ -205,6 +205,17 @@ public sealed class AreaMapHighlightsTests
     /// <c>NationsAreaMapCheck</c> additionally pins the <em>UI's</em> Show all to this same function.
     /// </summary>
     [Fact]
+    public void Show_all_is_exactly_the_four_stock_layers_and_no_mercenary_layer()
+    {
+        // GLM's re-check R2: written out literally, so a mercenary kind added to StockShowAllKinds
+        // fails here (the union test below builds its expectation from StockShowAllKinds itself).
+        Assert.Equal(
+            new[] { AreaMapHighlightKind.Cities, AreaMapHighlightKind.Capital, AreaMapHighlightKind.Armies, AreaMapHighlightKind.Fleets },
+            AreaMapHighlights.StockShowAllKinds().ToArray());
+        Assert.Empty(AreaMapHighlights.StockShowAllKinds().Intersect(AreaMapHighlights.MercenaryTypeKinds()));
+    }
+
+    [Fact]
     public void Show_all_is_the_union()
     {
         var session = RomeSession();

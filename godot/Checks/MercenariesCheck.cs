@@ -362,6 +362,22 @@ public partial class MercenariesCheck : Control
         Check(dialog.ModelForCheck.Offers.Count >= 1, "the 19-unit dialog has at least one offer");
 
         var offerSlot = dialog.ModelForCheck.Offers[0].SlotIndex;
+
+        // GLM's re-check R1: a REFUSED hire at 19 units must leave the dialog open. Drain the army's
+        // purse below any offer's gate, try the hire, and check the dialog and the unit count; then
+        // refill the purse for the accepted hire below.
+        var purse = _session.State.ArmyById(FullArmyId)!.Money;
+        _mainGame.SubmitForCheck($"transfer-money {FullArmyId} -{purse.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
+        Check(_session.State.ArmyById(FullArmyId)!.Money == 0, "the 19-unit army's purse is drained to 0");
+        dialog.SelectOfferForCheck(offerSlot);
+        dialog.HireSelectedForCheck();
+        Check(_mainGame.ActiveOverlay is RecruitMercenariesDialog,
+            "a refused hire at 19 units leaves the dialog open (GLM R1)");
+        Check(_session.State.ArmyById(FullArmyId)!.Units.Count == 19,
+            "the refused hire added no unit (still 19)");
+        _mainGame.SubmitForCheck($"transfer-money {FullArmyId} {purse.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
+        Check(_session.State.ArmyById(FullArmyId)!.Money == purse, $"the purse is refilled to {purse}");
+
         dialog.SelectOfferForCheck(offerSlot);
         dialog.HireSelectedForCheck();
 
