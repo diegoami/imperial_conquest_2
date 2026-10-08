@@ -5,16 +5,26 @@ T149: drive scripts/generate-sounds.py to produce the sfx.* WAVs.
 
 .DESCRIPTION
 The .ps1 wrapper exists so the operator can run a single, familiar PowerShell command instead
-of the python script directly. Every argument the python script accepts is forwarded unchanged
-("--key <sfx key>", "--all", "--self-check"); no argument triggers the dry run that prints
+of the python script directly. The documented flags ("--key <sfx key>", "--all", "--self-check")
+are declared as parameters and forwarded unchanged; no argument triggers the dry run that prints
 one line per key with its prompt and target duration and makes no network request.
 
-The .py does the real work -- the ElevenLabs call, the WAV conversion, the envelope check, the
-self-test. This .ps1 only locates python and forwards the arguments.
+The .py does the real work -- the ElevenLabs call, the WAV conversion, the high-pass and RMS
+normalisation, the envelope check, the self-test. This .ps1 only locates python and forwards
+the arguments.
 
 The ElevenLabs key is read from $env:ELEVENLABS_API_KEY by the .py (process, then Windows
 user scope, like OPENROUTER_API_KEY); this wrapper never sees the key, never logs it, and never
 writes it to a file.
+
+.PARAMETER Key
+The single sfx.* key to generate (forwards "--key <value>").
+
+.PARAMETER All
+Generate every sfx.* key (forwards "--all").
+
+.PARAMETER SelfCheck
+Run the offline conversion self-test (forwards "--self-check").
 
 .PARAMETER PythonExe
 Optional override of the python executable. Defaults to the first python on PATH, then
@@ -24,6 +34,9 @@ so any modern Python 3 will run the .py without an install step.
 
 [CmdletBinding()]
 param(
+    [string]$Key,
+    [switch]$All,
+    [switch]$SelfCheck,
     [string]$PythonExe
 )
 
@@ -52,9 +65,18 @@ if (-not $PythonExe) {
           "Install Python 3 and try again."
 }
 
+# The documented flags, accepted as parameters and forwarded unchanged (Sol's review of
+# PR #886, R1): a bare `pwsh scripts/generate-sounds.ps1 -SelfCheck` must reach the .py's
+# --self-check, not die in PowerShell's parameter binding.
 $forwarded = @()
-if ($args.Count -gt 0) {
-    $forwarded = @($args)
+if ($Key) {
+    $forwarded += @("--key", $Key)
+}
+if ($All) {
+    $forwarded += "--all"
+}
+if ($SelfCheck) {
+    $forwarded += "--self-check"
 }
 
 & $PythonExe $pythonScript @forwarded

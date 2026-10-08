@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 import io
 import json
+import math
 import os
 import struct
 import sys
@@ -60,6 +61,78 @@ TARGET_MAX_SECONDS = 2.0
 # (AuthoredPackConformanceTests' peak-above rule below this). This matches the file the API
 # returns when the prompt produced something quieter than expected, and is a hard fail.
 PEAK_DBFS_FLOOR = -30.0
+# T149 rework (the user's listening review, PR #886 U1): every shipped file's RMS lands near
+# -18 dBFS with its peak at or below -1 dBFS, and a gentle 120 Hz high-pass runs before the
+# normalisation so a bass-only result (battle.wav shipped ~95% of its energy at 60-120 Hz and
+# was inaudible on ordinary speakers) cannot survive the pipeline silently. -18 dBFS is a
+# commonly used programme loudness target for short effects; the -1 dBFS peak ceiling leaves
+# headroom for the DAC.
+RMS_DBFS_TARGET = -18.0
+PEAK_DBFS_CEILING = -1.0
+HIGHPASS_HZ = 120.0
+# Band edges for the band-energy log the pipeline prints per file (U1): below 120 Hz is the
+# inaudible-on-laptops band, above 300 Hz is the band small drivers reproduce well.
+AUDIBILITY_BAND_HZ = 300.0
+
+
+def _one_pole_highpass(samples: list[int], cutoff_hz: float) -> list[int]:
+    """A gentle 6 dB/octave one-pole high-pass (the classic RC filter).
+
+    Deliberately gentle: it removes the sub-bass the API's "distant rumble" results live in
+    without reshaping the mid range the listening review asked for.
+    """
+    dt = 1.0 / TARGET_SAMPLE_RATE
+    rc = 1.0 / (2.0 * math.pi * cutoff_hz)
+    alpha = rc / (rc + dt)
+    previous_input = float(samples[0])
+    previous_output = 0.0
+    result = []
+    for sample in samples:
+        value = float(sample)
+        output = alpha * (previous_output + value - previous_input)
+        result.append(int(round(output)))
+        previous_input = value
+        previous_output = output
+    return result
+
+
+def _one_pole_lowpass_energy(samples: list[int], cutoff_hz: float) -> float:
+    """Sum of squares of the signal low-passed at ``cutoff_hz`` (same one-pole family)."""
+    dt = 1.0 / TARGET_SAMPLE_RATE
+    rc = 1.0 / (2.0 * math.pi * cutoff_hz)
+    alpha = dt / (rc + dt)
+    previous_output = 0.0
+    energy = 0.0
+    for sample in samples:
+        output = previous_output + alpha * (float(sample) - previous_output)
+        energy += output * output
+        previous_output = output
+    return energy
+
+
+def band_energy_shares(samples: list[int]) -> tuple[float, float, float]:
+    """(below 120 Hz, 120-300 Hz, above 300 Hz) energy shares, via one-pole band splits.
+
+    A one-pole split is approximate, which is fine: the point is that a bass-only file shows
+    up in the run's log (the user's listening review found battle.wav inaudible precisely
+    because nothing printed this).
+    """
+    total = sum(float(s) * float(s) for s in samples)
+    if total <= 0.0:
+        return 0.0, 0.0, 0.0
+    low_120 = _one_pole_lowpass_energy(samples, HIGHPASS_HZ)
+    low_300 = _one_pole_lowpass_energy(samples, AUDIBILITY_BAND_HZ)
+    below = min(1.0, low_120 / total)
+    middle = min(1.0 - below, max(0.0, (low_300 - low_120) / total))
+    above = max(0.0, 1.0 - below - middle)
+    return below, middle, above
+
+
+def _rms_dbfs(samples: list[int]) -> float:
+    if not samples:
+        return float("-inf")
+    total = sum(float(s) * float(s) for s in samples) / len(samples)
+    return 10.0 * math.log10(total / (32767.0 * 32767.0)) if total > 0 else float("-inf")
 
 
 def load_prompts() -> list[dict]:
@@ -217,19 +290,14 @@ def convert_to_wav(raw_audio: bytes) -> bytes:
 
 
 def normalise_wav(wav_bytes: bytes) -> bytes:
-    """Trim leading silence, peak-normalise, and verify the file is mono 16-bit 44.1 kHz.
+    """Trim leading silence, high-pass at 120 Hz, RMS-normalise, and verify the envelope.
 
     Trimming is a peak-based search: samples whose absolute value is below 1% of the file's
-    peak are silence. The result is a 16-bit signed-integer range; the threshold scales with
-    the file's actual loudness, so a quiet sound and a loud sound both trim correctly.
-
-    Peak normalisation (gain to bring the file's peak to -3 dBFS) is applied before the
-    silence check: ElevenLabs' sound-generation API returns files that vary by 20 dB or more
-    across prompts (a quiet "wooden footstep" lands near -40 dBFS, while a noisy "metal clash"
-    lands near -6 dBFS), and the original's measured files themselves range from -19 dBFS
-    (sound 9) to -6 dBFS (sound 7) -- the report's row table. Without normalisation, a quiet
-    prompt's output fails the -30 dBFS conformance floor; with it, every shipped file plays
-    at the same perceptual level while the prompt still controls the timbre.
+    peak are silence. After the trim, a gentle one-pole high-pass at 120 Hz drops the sub-bass
+    band laptop and desktop speakers barely reproduce, and the RMS is normalised to
+    -18 dBFS with the peak held at or below -1 dBFS (the user's listening review of PR #886,
+    U1: peak-only normalisation shipped a battle.wav that was -3 dBFS at peak yet inaudible,
+    because ~95% of its energy sat at 60-120 Hz).
 
     The verification rejects a file outside the §1.4 envelope with a clear message -- a
     generator that produced the wrong format must not ship into the pack.
@@ -260,21 +328,10 @@ def normalise_wav(wav_bytes: bytes) -> bytes:
     if peak == 0:
         raise SystemExit("WAV is silent after the API call; refusing to write a silent file.")
 
-    # Peak-normalise: bring peak to -3 dBFS (peak / 32767 == 10^(-3/20) == 0.7079, target
-    # 0.7079 * 32767 == 23197). Multiplying by (target / peak) and clamping prevents overflow.
-    import math
-    target_peak = int(32767 * (10.0 ** (-3.0 / 20.0)))
-    gain = target_peak / peak
-    normalised = []
-    for sample in samples:
-        scaled = int(sample * gain)
-        if scaled > 32767:
-            scaled = 32767
-        elif scaled < -32768:
-            scaled = -32768
-        normalised.append(scaled)
-    samples = normalised
-    peak = max(abs(s) for s in samples)
+    # T149 rework (U1): trim first, then a gentle 120 Hz high-pass, then RMS-normalise with a
+    # peak ceiling. The old peak-normalise to -3 dBFS left bass-only files loud in numbers and
+    # inaudible on speakers; RMS loudness is what the ear (and the conformance test's audibility
+    # assertion) actually reads.
 
     # Trim leading silence: 1% of peak is "quiet enough to drop". A click at full scale
     # (the original's sound 1) is 0.05 s, so a few samples is the most this trims.
@@ -284,17 +341,58 @@ def normalise_wav(wav_bytes: bytes) -> bytes:
         if abs(sample) >= threshold:
             first_non_silent = index
             break
-    trimmed = samples[first_non_silent:]
+    trimmed = list(samples[first_non_silent:])
     if not trimmed:
-        trimmed = samples  # never write an empty file
+        trimmed = list(samples)  # never write an empty file
+
+    # Gentle high-pass: drop the sub-bass the API's "rumble" results concentrate in.
+    filtered = _one_pole_highpass(trimmed, HIGHPASS_HZ)
+    if max(abs(s) for s in filtered) == 0:
+        # The whole file was below the filter's band; keep the unfiltered signal so the
+        # audibility numbers below report it rather than writing an empty file.
+        filtered = trimmed
+
+    # RMS normalisation: bring the RMS to the -18 dBFS target, clamped so the peak stays at or
+    # below the -1 dBFS ceiling. A bass-heavy file whose crest factor is large simply lands
+    # quieter than the target -- the band-energy log below names it.
+    rms = math.sqrt(sum(float(s) * float(s) for s in filtered) / len(filtered))
+    peak_filtered = max(abs(s) for s in filtered)
+    if rms > 0:
+        rms_target = 32767.0 * (10.0 ** (RMS_DBFS_TARGET / 20.0))
+        peak_ceiling = 32767.0 * (10.0 ** (PEAK_DBFS_CEILING / 20.0))
+        gain = min(rms_target / rms, peak_ceiling / peak_filtered)
+        normalised = []
+        for sample in filtered:
+            scaled = int(round(sample * gain))
+            if scaled > 32767:
+                scaled = 32767
+            elif scaled < -32768:
+                scaled = -32768
+            normalised.append(scaled)
+        trimmed = normalised
+    else:
+        trimmed = filtered
+
+    peak = max(abs(s) for s in trimmed)
+    peak_dbfs = 20.0 * math.log10(peak / 32767.0) if peak > 0 else float("-inf")
 
     # Peak dBFS check -- a -30 dBFS file is, for the conformance test's purpose, silent.
-    peak_dbfs = 20.0 * math.log10(peak / 32767.0) if peak > 0 else float("-inf")
     if peak_dbfs < PEAK_DBFS_FLOOR:
         raise SystemExit(
             f"WAV peak is {peak_dbfs:.1f} dBFS, below the {PEAK_DBFS_FLOOR} dBFS floor; "
             f"refusing to write a near-silent file."
         )
+
+    # Band-energy log (U1): a bass-only result must show up in the run. The shares are of the
+    # pre-normalisation filtered signal's energy, which normalisation does not change.
+    below, middle, above = band_energy_shares(filtered)
+    print(
+        f"  band energy: {below * 100:.0f}% below {HIGHPASS_HZ:.0f} Hz, "
+        f"{middle * 100:.0f}% {HIGHPASS_HZ:.0f}-{AUDIBILITY_BAND_HZ:.0f} Hz, "
+        f"{above * 100:.0f}% above {AUDIBILITY_BAND_HZ:.0f} Hz; "
+        f"RMS {_rms_dbfs(trimmed):.1f} dBFS, peak {peak_dbfs:.1f} dBFS",
+        file=sys.stderr,
+    )
 
     buffer = io.BytesIO()
     with wave.open(buffer, "wb") as handle:
@@ -351,8 +449,13 @@ def self_check() -> int:
     """Synthesise a fixture WAV in memory, run it through the conversion pipeline, and assert
     it conforms to asset-specification.md §1.4. The check makes no network request, so it
     runs offline (DoD 3) and CI (where the API key is absent) can keep the build green.
+
+    Sol's review of PR #886 (R2): the fixture is 1.0 s, not 0.5 s. The pipeline trims leading
+    silence, so an exactly-minimum fixture lands below the 0.5 s check floor the moment any
+    leading samples are dropped; 1.0 s leaves room for the trim and still exercises the same
+    envelope bounds the real run enforces.
     """
-    duration = 0.5
+    duration = 1.0
     sample_count = int(duration * TARGET_SAMPLE_RATE)
     samples = []
     for index in range(sample_count):

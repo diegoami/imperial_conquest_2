@@ -2,12 +2,12 @@
   "prompts": [
     {
       "key": "sfx.unit_move",
-      "prompt": "single very short soft wooden footstep tick, dry, no reverb, 0.05 seconds",
+      "prompt": "single crisp wooden footstep on hard ground, sharp clear mid-frequency tick, dry, no reverb, 0.05 seconds",
       "durationSeconds": 0.5
     },
     {
       "key": "sfx.fleet_move",
-      "prompt": "single short oar dip into calm water, soft plip, 0.1 seconds",
+      "prompt": "one oar stroke: creaking wood and a bright splash against a hull, clear mid tones, 0.2 seconds",
       "durationSeconds": 0.5
     },
     {
@@ -27,27 +27,27 @@
     },
     {
       "key": "sfx.siege_failed",
-      "prompt": "battering ram hitting a heavy wooden city gate that holds, dull thuds, 0.5 seconds",
+      "prompt": "battering ram hitting a heavy wooden city gate that holds, sharp knock and splintering crack, clear mid tones, 0.5 seconds",
       "durationSeconds": 0.5
     },
     {
       "key": "sfx.city_captured",
-      "prompt": "stone city wall collapsing, rattle then a heavy rumbling crash, 0.8 seconds",
+      "prompt": "stone city wall collapsing, sharp cracks and clattering debris, bright and immediate, 0.8 seconds",
       "durationSeconds": 0.8
     },
     {
       "key": "sfx.fleet_sunk",
-      "prompt": "wooden ship sinking, short splash and falling gurgle, 0.5 seconds",
+      "prompt": "wooden ship breaking apart, planks splintering with a splash and gurgle, clear mid tones, 0.5 seconds",
       "durationSeconds": 0.5
     },
     {
       "key": "sfx.battle",
-      "prompt": "distant ancient battle, faint clash of metal echoing far away, quiet, 0.5 seconds",
+      "prompt": "close ancient battlefield, clashing steel swords and men shouting, bright and immediate, no rumble, 0.5 seconds",
       "durationSeconds": 0.5
     },
     {
       "key": "sfx.nation_conquered",
-      "prompt": "single low ancient war horn blast, solemn, steady note fading out, 1.5 seconds",
+      "prompt": "bright ancient war horn blast with clear mid-range harmonics, solemn, steady note fading out, 1.5 seconds",
       "durationSeconds": 1.5
     }
   ]
