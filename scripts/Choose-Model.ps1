@@ -33,6 +33,11 @@
     notes that §3.4 sends that tier to a cold Claude Opus reviewer.
 .PARAMETER ExcludeModel
     The implementer's name, for a reviewer: its whole family is excluded (build-process.md §3.4).
+.PARAMETER ExcludeFamily
+    One or more model names (T150 Done-when 2): every candidate of each named model's family is
+    dropped, for either role. The family is read from the same map -ExcludeModel uses, so naming any
+    member (mm-m3, deepseek-flash, ali-glm, ...) drops the whole family. Used by
+    external-implement.ps1 to pick an implementer from a different family once the chain is spent.
 .PARAMETER Pick
     Prints only the best name (exit 3 when no candidate is available).
 .PARAMETER QuotaFile
@@ -49,6 +54,7 @@ param(
     [ValidateSet('implementer', 'reviewer')] [string] $Role,
     [ValidateSet('simple', 'complex', 'very-complex')] [string] $Tier,
     [string] $ExcludeModel,
+    [string[]] $ExcludeFamily,
     [switch] $Pick,
     [string] $QuotaFile,
     [switch] $SelfTest
@@ -171,11 +177,24 @@ function Get-RouteState {
     return [pscustomobject]$s
 }
 
+function Get-FamilyKey {
+    # A model's family, as the sorted names of the same family the map gives. Every reviewer name,
+    # and every implementer name the map carries (the ali-* and mm-* names included), returns its
+    # family's members; a name the map does not carry (mimo-pro, mimo-flash, off) is its own family.
+    param($Catalog, [string] $Name)
+    if ($Catalog.ReviewerOf.ContainsKey($Name)) {
+        $members = @($Catalog.ReviewerOf[$Name] | Where-Object { $_ })
+        if ($members.Count -gt 0) { return (($members | Sort-Object) -join ',') }
+    }
+    return $Name
+}
+
 function Get-ModelRanking {
     param(
         [Parameter(Mandatory)] [string] $Role,
         [string] $Tier,
         [string] $ExcludeModel,
+        [string[]] $ExcludeFamily,
         [hashtable] $Quota,
         [Parameter(Mandatory)] $Catalog,
         [Parameter(Mandatory)] [hashtable] $Strength
@@ -186,6 +205,22 @@ function Get-ModelRanking {
     if ($Role -eq 'reviewer' -and $ExcludeModel) {
         if (-not $Catalog.ReviewerOf.ContainsKey($ExcludeModel)) { throw "Unknown -ExcludeModel '$ExcludeModel'. Known: $(@($Catalog.ReviewerOf.Keys | Sort-Object) -join ', ')." }
         $excluded = @($Catalog.ReviewerOf[$ExcludeModel])
+    }
+    # T150 Done-when 2: -ExcludeFamily drops every candidate whose family is in the list. The family
+    # is read from the same map -ExcludeModel uses, so naming any member identifies its whole family.
+    $familyExcluded = @()
+    if ($ExcludeFamily) {
+        $keys = @{}
+        # Each entry is a model name; commas are split too, because `pwsh -File ... -ExcludeFamily
+        # a,b` binds the whole list as one string (external-implement's -SimulateFailed has the
+        # same shape), and an unsplit entry would name no family and exclude nothing.
+        foreach ($f in $ExcludeFamily) {
+            foreach ($part in (@([string]$f) -split ',')) {
+                $part = $part.Trim()
+                if ($part) { $keys[(Get-FamilyKey $Catalog $part)] = $true }
+            }
+        }
+        $familyExcluded = @($keys.Keys | Sort-Object)
     }
     $t = $Catalog.Tables[$Role]
     $rows = foreach ($name in $Catalog.Sets[$Role]) {
@@ -198,20 +233,22 @@ function Get-ModelRanking {
         }
         $lowFactor = if ($state.Status -eq 'low') { 1 } else { 0 }
         $score = if ($null -ne $state.Headroom) { [math]::Round($state.Headroom / [math]::Max($state.Cost, 0.05), 1) } else { $null }
+        $family = Get-FamilyKey $Catalog $name
         [pscustomobject]@{
             Name = $name; Model = $state.Model; Variant = $t.Variants[$name]; Strength = $rating; Route = $state.Route
             Status = $state.Status; Headroom = $state.Headroom; Cost = $state.Cost; Score = $score
             Fit = $(if ($rating -eq $want) { 0 } elseif ($rating -in 'heavy', 'light') { 1 } else { 9 })
             Low = $lowFactor; Available = $state.Available; Excluded = ($excluded -contains $name)
+            Family = $family; FamilyExcluded = ($familyExcluded -contains $family)
             Reasons = (@($why) + @($state.Notes)) -join '; '
         }
     }
-    $ranked = @($rows | Where-Object { $_.Available -and -not $_.Excluded -and $_.Fit -lt 9 } |
+    $ranked = @($rows | Where-Object { $_.Available -and -not $_.Excluded -and -not $_.FamilyExcluded -and $_.Fit -lt 9 } |
             Sort-Object Fit, Low, @{ Expression = { $null -eq $_.Score } }, @{ Expression = { if ($null -eq $_.Score) { 0 } else { $_.Score } }; Descending = $true }, Name)
     return [pscustomobject]@{
-        Role = $Role; Tier = $Tier; Excluded = $excluded; Ranked = $ranked
-        Unavailable = @($rows | Where-Object { -not $_.Available -and -not $_.Excluded })
-        Unranked = @($rows | Where-Object { $_.Available -and -not $_.Excluded -and $_.Fit -ge 9 })
+        Role = $Role; Tier = $Tier; Excluded = $excluded; FamilyExcluded = $familyExcluded; Ranked = $ranked
+        Unavailable = @($rows | Where-Object { -not $_.Available -and -not $_.Excluded -and -not $_.FamilyExcluded })
+        Unranked = @($rows | Where-Object { $_.Available -and -not $_.Excluded -and -not $_.FamilyExcluded -and $_.Fit -ge 9 })
         Claude = $(if ($Quota -and $Quota['claude']) { $Quota['claude'] } else { $null })
     }
 }
@@ -236,7 +273,7 @@ function Invoke-ChooserSelfTest {
         foreach ($k in $over.Keys) { $q[$k] = $over[$k] }
         $q
     }
-    $rank = { param($role, $tier, $ex, $q) Get-ModelRanking -Role $role -Tier $tier -ExcludeModel $ex -Quota $q -Catalog $catalog -Strength $strength }
+    $rank = { param($role, $tier, $ex, $q, $fam) Get-ModelRanking -Role $role -Tier $tier -ExcludeModel $ex -ExcludeFamily $fam -Quota $q -Catalog $catalog -Strength $strength }
     $names = { param($r) @($r.Ranked | ForEach-Object Name) }
     $checks = @()
     foreach ($role in 'reviewer', 'implementer') {
@@ -275,6 +312,30 @@ function Invoke-ChooserSelfTest {
     $checks += [pscustomobject]@{ Name = 'no headroom_pct: mm-m3 keeps a null score and ranks after every measured heavy model (#815 R2)'; Ok = ($mm -and $null -eq $mm.Headroom -and $null -eq $mm.Score -and (& $names $r).IndexOf('mm-m3') -eq $heavyScored.Count) }
     $r = & $rank 'reviewer' 'complex' $null (& $base @{ alibaba = (& $p 'alibaba' 15 'low' @{ pricing = (& $alibabaPricing $false) }) })
     $checks += [pscustomobject]@{ Name = 'a low provider ranks after an ok one of the same fit'; Ok = ((& $names $r).IndexOf('qwen') -gt (& $names $r).IndexOf('mm-m3')) }
+    # T150 Done-when 2: -ExcludeFamily drops whole families, for either role.
+    foreach ($role in 'reviewer', 'implementer') {
+        $r = & $rank $role 'complex' $null (& $base) @('mm-m3', 'deepseek-flash')
+        $got = @(& $names $r)
+        $checks += [pscustomobject]@{ Name = "-ExcludeFamily on a $role ranking drops the mm-m3 and deepseek-flash families and still ranks others"; Ok = ($got.Count -gt 0 -and $got -notcontains 'mm-m3' -and $got -notcontains 'mm-m2.7' -and @($got | Where-Object { $_ -match 'deepseek' }).Count -eq 0) }
+    }
+    $r = & $rank 'implementer' 'complex' $null (& $base) @('mm-m3', 'deepseek-flash')
+    $checks += [pscustomobject]@{ Name = '-ExcludeFamily reports exactly the two family keys it dropped'; Ok = (@($r.FamilyExcluded).Count -eq 2 -and @($r.FamilyExcluded) -contains 'mm-m2.7,mm-m3' -and @($r.FamilyExcluded) -contains 'ali-deepseek-flash,ali-deepseek-pro,deepseek,deepseek-pro') }
+    # -ExcludeModel (reviewer) and -ExcludeFamily compose.
+    $r = & $rank 'reviewer' 'complex' 'luna' (& $base) @('glm-flash')
+    $got = @(& $names $r)
+    $checks += [pscustomobject]@{ Name = '-ExcludeModel and -ExcludeFamily compose'; Ok = ($got -notcontains 'luna' -and $got -notcontains 'sol' -and $got -notcontains 'glm-flash' -and $got -notcontains 'glm' -and $got -notcontains 'ali-glm') }
+    # T150 Done-when 2 (the user's amendment of 2026-10-08): naming 'luna' must exclude the whole
+    # OpenAI family in the family map (Sol included), so the substitute is never OpenAI.
+    $checks += [pscustomobject]@{ Name = "Get-FamilyKey for luna and sol both return 'luna,sol' (the OpenAI family)"; Ok = ((Get-FamilyKey $catalog 'luna') -eq 'luna,sol' -and (Get-FamilyKey $catalog 'sol') -eq 'luna,sol') }
+    $r = & $rank 'reviewer' 'complex' $null (& $base) @('luna')
+    $got = @(& $names $r)
+    $checks += [pscustomobject]@{ Name = "-ExcludeFamily luna on a reviewer ranking drops both luna and sol (the OpenAI family)"; Ok = ($got -notcontains 'luna' -and $got -notcontains 'sol') }
+    $checks += [pscustomobject]@{ Name = "-ExcludeFamily luna reports exactly the OpenAI family key 'luna,sol'"; Ok = (@($r.FamilyExcluded).Count -eq 1 -and [string]$r.FamilyExcluded[0] -eq 'luna,sol') }
+    # The implementer set has Luna but not Sol (Sol is a reviewer name); with Luna excluded and
+    # the family key naming Sol too, neither would be chosen.
+    $r = & $rank 'implementer' 'simple' $null (& $base) @('luna')
+    $got = @(& $names $r)
+    $checks += [pscustomobject]@{ Name = "-ExcludeFamily luna on an implementer ranking drops luna (no OpenAI candidate remains)"; Ok = ($got -notcontains 'luna') }
     $failed = 0
     $i = 0
     foreach ($c in $checks) { $i++; if (-not $c.Ok) { $failed++ }; '[{0}] {1}  check  -- {2}' -f $i, $(if ($c.Ok) { 'PASS' } else { 'FAIL' }), $c.Name }
@@ -287,13 +348,14 @@ if ($SelfTest) { $code = Invoke-ChooserSelfTest; $code[0..($code.Count - 2)]; ex
 if (-not $Role) { throw 'Give -Role implementer or -Role reviewer (or -SelfTest).' }
 
 $quota = Get-QuotaSnapshot -File $QuotaFile
-$result = Get-ModelRanking -Role $Role -Tier $Tier -ExcludeModel $ExcludeModel -Quota $quota -Catalog (Get-ChooserCatalog) -Strength (Get-ModelStrength)
+$result = Get-ModelRanking -Role $Role -Tier $Tier -ExcludeModel $ExcludeModel -ExcludeFamily $ExcludeFamily -Quota $quota -Catalog (Get-ChooserCatalog) -Strength (Get-ModelStrength)
 if ($Pick) {
     if (-not $result.Ranked) { [Console]::Error.WriteLine('No candidate is available.'); exit 3 }
     $result.Ranked[0].Name
     exit 0
 }
 "role $($result.Role), tier $($result.Tier)$(if ($ExcludeModel) { "; implemented by $ExcludeModel, excluded: $($result.Excluded -join ', ')" })"
+if ($result.FamilyExcluded) { "families excluded: $($result.FamilyExcluded -join ', ')" }
 if ($null -eq $quota) { 'quota-tracker did not answer: ranked by strength alone (CLAUDE.md rule 17).' }
 if ($Tier -eq 'very-complex') { 'very complex: build-process.md §3.4 sends this tier to a cold Claude Opus reviewer; the ranking is for the OpenCode reviews beside it.' }
 $i = 0

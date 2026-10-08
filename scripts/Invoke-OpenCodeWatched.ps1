@@ -130,6 +130,125 @@ function Get-OpenCodePermissionRejection([string] $Text) {
     return $found[$found.Count - 1].Groups['what'].Value
 }
 
+function Get-OpenCodeAllowedOutsideRoots {
+    # The two roots an OpenCode agent may touch outside its worktree (T150 Done-when 3), matching
+    # the two `external_directory` allows in .opencode/agents/external-{implementer,reviewer}.md.
+    # Neither holds a credential: ~\.local\bin is the tool-shims folder (gh, jq, godot, ...), and
+    # %TEMP%\opencode is where a run redirects scratch output. The rest of ~\.local, ~\.local\share
+    # (auth.json, opencode.db) included, is not allowed and so is never reported here.
+    $roots = @()
+    if ($env:USERPROFILE) { $roots += (Join-Path $env:USERPROFILE '.local\bin') }
+    if ($env:TEMP) { $roots += (Join-Path $env:TEMP 'opencode') }
+    return $roots
+}
+
+function Get-OpenCodeOutsidePathsInText([string] $Text) {
+    # Every path under an allowed root this text names, normalized to backslashes. The %TEMP% and
+    # $env:/~ spellings a command may use are expanded first, so a redirect written as
+    # %TEMP%\opencode\out.txt is recognized when the run did not spell the drive out.
+    if (-not $Text) { return @() }
+    $expanded = $Text
+    foreach ($pair in @(
+            @('${env:TEMP}', $env:TEMP), @('$env:TEMP', $env:TEMP),
+            @('${env:TMP}', $env:TMP), @('$env:TMP', $env:TMP),
+            @('%TEMP%', $env:TEMP), @('%TMP%', $env:TMP),
+            @('${env:USERPROFILE}', $env:USERPROFILE), @('$env:USERPROFILE', $env:USERPROFILE),
+            @('%USERPROFILE%', $env:USERPROFILE), @('~', $env:USERPROFILE))) {
+        if ($pair[0] -and $pair[1]) { $expanded = $expanded.Replace($pair[0], [string]$pair[1]) }
+    }
+    $expanded = $expanded.Replace('/', '\')
+    $found = New-Object System.Collections.Generic.List[string]
+    $trim = [char[]]@([char]39, [char]96, ';', ',', '|', '&', '>', '<', ')', '}', ']', '"')
+    foreach ($root in (Get-OpenCodeAllowedOutsideRoots)) {
+        $norm = $root.Replace('/', '\')
+        $pattern = [regex]::Escape($norm) + '([^\s"]*)'
+        foreach ($m in [regex]::Matches($expanded, $pattern, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)) {
+            $v = $m.Value.TrimEnd($trim)
+            if ($v -and -not $found.Contains($v)) { $found.Add($v) }
+        }
+    }
+    return @($found)
+}
+
+function Get-OpenCodeToolInvocations($Node, $Acc) {
+    # Fills $Acc with every { Tool; Input } pair in a session export. A tool part carries its
+    # arguments in .state.input (the recorded shape); .state.args, .input and .args are accepted
+    # too, because the export's exact nesting differs between CLIs. Recursive because the export
+    # nests messages[].parts[], and the part's own shape is not guaranteed across versions.
+    if ($null -eq $Node) { return }
+    if ($Node -is [string]) { return }
+    if ($Node -is [System.Collections.IDictionary]) {
+        foreach ($v in $Node.Values) { Get-OpenCodeToolInvocations $v $Acc }
+        return
+    }
+    if ($Node -is [System.Collections.IEnumerable]) {
+        foreach ($item in $Node) { Get-OpenCodeToolInvocations $item $Acc }
+        return
+    }
+    $props = @($Node.PSObject.Properties)
+    $names = @($props | ForEach-Object Name)
+    if ($names -contains 'tool') {
+        $input = $null
+        foreach ($path in @(@('state', 'input'), @('state', 'args'), @('input'), @('args'))) {
+            $v = $Node
+            foreach ($seg in $path) { if ($null -eq $v) { break }; $v = $v.$seg }
+            if ($v) { $input = $v; break }
+        }
+        # A string input is a serialized argument object in some exports.
+        if ($input -is [string]) {
+            try { $parsed = $input | ConvertFrom-Json; if ($parsed) { $input = $parsed } } catch { }
+        }
+        if ($input -and $input -isnot [string]) { $Acc.Add([pscustomobject]@{ Tool = [string]$Node.tool; Input = $input }) }
+    }
+    foreach ($p in $props) { Get-OpenCodeToolInvocations $p.Value $Acc }
+}
+
+function Get-OpenCodeInputText($Value) {
+    # A tool input field as text: a string as it is, an array joined (some CLIs pass a command as
+    # ["bash", "-lc", "..."]), anything else $null.
+    if ($null -eq $Value) { return $null }
+    if ($Value -is [string]) { return $Value }
+    if ($Value -is [System.Collections.IEnumerable] -and $Value -isnot [System.Collections.IDictionary]) {
+        return (@($Value | ForEach-Object { [string]$_ }) -join ' ')
+    }
+    return $null
+}
+
+function Get-OpenCodeOutsidePaths([string] $ExportFile) {
+    # The paths a run touched under the two allowed roots (T150 Done-when 3), read from its session
+    # export: a read/write/edit/list/glob/grep call's path argument, or a bash/shell call's command
+    # line. A path that appears only in the prompt or in tool output is not counted. Known is $false
+    # when the export is missing or unreadable, so the caller reports "unknown" instead of "none".
+    $result = [pscustomobject]@{ Known = $false; Paths = @() }
+    if (-not $ExportFile -or -not (Test-Path -LiteralPath $ExportFile)) { return $result }
+    try { $data = ([System.IO.File]::ReadAllText($ExportFile, [System.Text.Encoding]::UTF8)) | ConvertFrom-Json }
+    catch { return $result }
+    $invocations = New-Object System.Collections.Generic.List[object]
+    Get-OpenCodeToolInvocations $data $invocations
+    $paths = New-Object System.Collections.Generic.List[string]
+    foreach ($ti in $invocations) {
+        $input = $ti.Input
+        $texts = @()
+        switch -Regex ($ti.Tool) {
+            '^(bash|shell)$' {
+                foreach ($k in 'command', 'cmd') { $t = Get-OpenCodeInputText $input.$k; if ($t) { $texts += $t } }
+            }
+            '^(read|write|edit)$' {
+                foreach ($k in 'filePath', 'file_path', 'path') { $t = Get-OpenCodeInputText $input.$k; if ($t) { $texts += $t } }
+            }
+            '^(list|glob|grep)$' {
+                foreach ($k in 'path', 'filePath', 'file_path') { $t = Get-OpenCodeInputText $input.$k; if ($t) { $texts += $t } }
+            }
+        }
+        foreach ($text in $texts) {
+            foreach ($v in (Get-OpenCodeOutsidePathsInText $text)) {
+                if (-not $paths.Contains($v)) { $paths.Add($v) }
+            }
+        }
+    }
+    return [pscustomobject]@{ Known = $true; Paths = @($paths) }
+}
+
 function Get-OpenCodeEpochMs($Value) {
     # A session's `created` / `updated` as epoch milliseconds. 1.x and 2.x print a number (ms);
     # PowerShell 7's ConvertFrom-Json turns an ISO string into a DateTime, so that form is
@@ -837,6 +956,8 @@ function Invoke-OpenCodeRun {
     # name, is the fallback when it cannot.
     $exported = Export-OpenCodeSession -Cli $Cli -WorkDir $WorkDir -SessionId $session.id -OutFile $exportFile -InFile $inFile
     if ($exported) { Write-Host "opencode: transcript export $exportFile" } else { Write-Host "opencode: the session export failed (no transcript kept)" }
+    # T150 Done-when 3: the allowed outside paths this run touched, from the kept transcript.
+    $outside = Get-OpenCodeOutsidePaths $exportFile
     $requestedAgent = if ($Agent) { $Agent } else { $null }
     $sessionAgent = if ($requestedAgent -and $exported) { Get-OpenCodeSessionAgent $exportFile } else { $null }
     $agentFallback = if (-not $requestedAgent) { $false }
@@ -859,6 +980,10 @@ function Invoke-OpenCodeRun {
         Files     = if ($p.ExitCode -eq 0) { @() } else { $files }
         # The kept transcript (JSON), or $null when the export failed.
         ExportFile = if ($exported) { $exportFile } else { $null }
+        # The allowed outside paths this run touched (T150 Done-when 3); OutsidePathsKnown is $false
+        # when the export is missing or unreadable, and the caller then reports "unknown".
+        OutsidePaths = @($outside.Paths)
+        OutsidePathsKnown = $outside.Known
         Version   = $Cli.Version
         Seconds   = [int]$clock.Elapsed.TotalSeconds
     }

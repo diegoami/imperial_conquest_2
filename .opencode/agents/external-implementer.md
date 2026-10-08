@@ -16,11 +16,26 @@ permission:
     "*": ask
     "*?data?opencode?tool-output?*": allow
     "*?data?opencode?shell?*": allow
-    # The one exception to the worktree guard: the Godot shim the headless Done-when checks run
-    # (`godot` in bash, `godot.cmd` in PowerShell). Exactly the two files, either separator; the
-    # rest of ~\.local\bin and everything else outside the worktree stays under the `ask` above.
+    # T150's two narrow exceptions to the worktree guard (the user's decision of 2026-10-08): the
+    # tool shims on PATH (gh, jq, godot, ...) under ~\.local\bin, and the scratch folder a run may
+    # redirect output to, %TEMP%\opencode. Either separator. Neither holds a credential: the rest of
+    # ~\.local, ~\.local\share (auth.json, opencode.db) included, stays under the `ask` above, as
+    # does every other outside path. The two godot lines below keep the #856 anchor; the bin line
+    # already covers them.
+    "C:?Users?diego?.local?bin?*": allow
+    "C:?Users?diego?AppData?Local?Temp?opencode?*": allow
     "C:?Users?diego?.local?bin?godot.cmd": allow
     "C:?Users?diego?.local?bin?godot.exe": allow
+    # Last match wins, so the denies that follow override the allows above whenever a path
+    # traverses out of either allowed root. `?` is OpenCode's single-char wildcard (so matches
+    # both `\` and `/`) and `*` matches any number of characters, so the four rules cover any
+    # `..` segment in either separator, anywhere in the path: `C:\…\bin\..\share\…` (R1),
+    # `…\Temp\opencode\..\..\..\..\..\Windows\win.ini` (M1), and the trailing `..` of an
+    # attempted `cd`. Everything outside either root still asks.
+    "*?..?*": deny
+    "*/../*": deny
+    "*?..": deny
+    "*../*": deny
   task:
     "*": deny
   bash:

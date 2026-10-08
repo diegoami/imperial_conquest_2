@@ -158,23 +158,56 @@ jobs:
           godot --headless --path godot --quit-after 2 2>&1 | tee "$RUNNER_TEMP/main-scene.txt"
           ! grep -q 'SCRIPT ERROR' "$RUNNER_TEMP/main-scene.txt"
 
-      - name: T24 DoD 2, one order of each type through the command layer
+      # T150 Done-when 4: every check scene runs, not only the three T24/T25 ones this job used to
+      # name (OrderCoverageCheck is T24 DoD 2, RulesetFlowCheck T24 DoD 4, ScreensCheck T25). Each
+      # scene quits with its own exit code, so a failing assertion fails the step; and because
+      # `--quit-after` exits 0 for a scene that never reached _Ready, or outgrew its frame budget,
+      # each run must also print its own "<Name>: exiting with code 0." line, and any "FAIL" line
+      # fails it too. A new *Check.tscn is picked up by the glob, so it cannot be forgotten.
+      #
+      # The frame budget is a watchdog, not a target: every scene's own completion marker is the
+      # pass/fail test (a scene whose assertions pass prints its marker within a fraction of the
+      # budget; the budget only fires for a hung scene). Gate 2 needs a source for the threshold:
+      # measured from godot-headless run 37823235606 on this PR, whose check loop ran 24 scenes in
+      # about 78 s (first scene header 18:19:04.84Z to the 'check scenes run: 24; failed: 0' line
+      # 18:20:22.51Z, 2026-10-08), PeaceOfferCheck was the slowest at 8.4-8.6 s; 900 frames is
+      # the worst-case 15 s at 60 FPS, ~80% over the slowest scene, so a regression that doubles
+      # a scene's work still terminates in budget. The previous CI ran the three T24/T25 scenes
+      # at --quit-after 600 individually; when T150's glob picked up further scenes from later
+      # tasks (they run more assertions to cover their own DoD), 600 left no headroom, hence 900.
+      #
+      # A scene that cannot run on this runner (it needs assets.local.ini or the private fixtures)
+      # is listed below as one "<Name>=<reason>" line and skipped. The list is empty: every scene
+      # runs from this checkout alone, building its state from the committed world. The list is in
+      # the merging PR's body.
+      - name: Every headless check scene
         run: |
-          set -eo pipefail
-          godot --headless --path godot res://Checks/OrderCoverageCheck.tscn --quit-after 600 2>&1 | tee "$RUNNER_TEMP/order-coverage.txt"
-          grep -q 'OrderCoverageCheck: exiting with code 0.' "$RUNNER_TEMP/order-coverage.txt"
-
-      - name: T24 DoD 4, the New Game ruleset chooser
-        run: |
-          set -eo pipefail
-          godot --headless --path godot res://Checks/RulesetFlowCheck.tscn --quit-after 600 2>&1 | tee "$RUNNER_TEMP/ruleset-flow.txt"
-          grep -q 'RulesetFlowCheck: exiting with code 0.' "$RUNNER_TEMP/ruleset-flow.txt"
-
-      - name: T25, the three screens open from a scripted state
-        run: |
-          set -eo pipefail
-          godot --headless --path godot res://Screens/Checks/ScreensCheck.tscn --quit-after 600 2>&1 | tee "$RUNNER_TEMP/screens.txt"
-          grep -q 'ScreensCheck: exiting with code 0.' "$RUNNER_TEMP/screens.txt"
+          set -uo pipefail
+          # Actions runs this step as `bash -e`: turn errexit off so one failed scene does not skip
+          # the rest, and the summary at the end names every failure. The final `test` still fails
+          # the step when any scene did.
+          set +e
+          skip=""
+          failed=0
+          run=0
+          for scene in godot/Checks/*Check.tscn godot/Screens/Checks/*Check.tscn; do
+            name="$(basename "$scene" .tscn)"
+            reason="$(printf '%s\n' "$skip" | grep -m1 "^${name}=" || true)"
+            if [ -n "$reason" ]; then
+              echo "SKIP ${name}: ${reason#*=}"
+              continue
+            fi
+            run=$((run + 1))
+            log="$RUNNER_TEMP/check-${name}.txt"
+            echo "== ${name} =="
+            godot --headless --path godot "res://${scene#godot/}" --quit-after 900 2>&1 | tee "$log"
+            code="${PIPESTATUS[0]}"
+            if [ "$code" -ne 0 ]; then echo "FAIL ${name}: exit $code"; failed=$((failed + 1)); continue; fi
+            if ! grep -q "${name}: exiting with code 0." "$log"; then echo "FAIL ${name}: no completion marker"; failed=$((failed + 1)); continue; fi
+            if grep -q 'FAIL' "$log"; then echo "FAIL ${name}: a FAIL line"; failed=$((failed + 1)); continue; fi
+          done
+          echo "check scenes run: ${run}; failed: ${failed}"
+          test "$failed" -eq 0
 
       - name: T24 DoD 3, no headless churn left in the tree
         run: pwsh scripts/check-godot-churn.ps1
