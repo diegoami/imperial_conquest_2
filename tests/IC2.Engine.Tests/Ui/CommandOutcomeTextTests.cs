@@ -66,12 +66,12 @@ public sealed class CommandOutcomeTextTests
     }
 
     /// <summary>
-    /// The bug, rejected half: the label must show the rejection's own reason text. Rome's army-0 starts
-    /// far from Carthage's <c>misurata</c> (114, 96), and <c>AttackLegality</c> checks adjacency before
-    /// the war gate, so this siege is deterministically refused with <c>battle.siege-not-adjacent</c>.
-    /// Rome and Carthage start at peace, so <c>Submit</c> composes the declaration of war ahead of the
-    /// refusal — the block's first line, asserted separately below because the one-line rule of round 1
-    /// dropped it (review N3).
+    /// T135 (bug #579): the rejected half — the label must show the rejection's own reason text, and only
+    /// that. Rome's army-0 starts far from Carthage's <c>misurata</c> (114, 96), and <c>AttackLegality</c>
+    /// checks adjacency before the war gate, so this siege is deterministically refused with
+    /// <c>battle.siege-not-adjacent</c>. Rome and Carthage start at peace, so before T135 <c>Submit</c>
+    /// composed — and committed — the declaration of war ahead of the refusal; now nothing of it is
+    /// committed and the block is the rejection line alone.
     /// </summary>
     [Fact]
     public void A_rejected_order_shows_the_rejections_own_reason_text()
@@ -79,43 +79,50 @@ public sealed class CommandOutcomeTextTests
         var session = RomeSession();
         var output = session.Submit("besiege-city army-0 misurata");
 
-        Assert.Contains(
-            "diplomacy.declare-war accepted (composed ahead of the attack).", output.Lines, StringComparer.Ordinal);
+        Assert.DoesNotContain(
+            output.Lines, line => line.Contains("diplomacy.declare-war", StringComparison.Ordinal));
 
         var label = CommandOutcomeText.OutcomeBlock(output.Lines);
         var labelLines = label.Split('\n');
 
-        Assert.Equal("diplomacy.declare-war accepted (composed ahead of the attack).", labelLines[0]);
-        Assert.StartsWith("battle.besiege-city rejected (battle.siege-not-adjacent): ", labelLines[^1], StringComparison.Ordinal);
-        Assert.Contains("is not adjacent to 'misurata'", labelLines[^1], StringComparison.Ordinal);
+        Assert.Single(labelLines);
+        Assert.StartsWith("battle.besiege-city rejected (battle.siege-not-adjacent): ", labelLines[0], StringComparison.Ordinal);
+        Assert.Contains("is not adjacent to 'misurata'", labelLines[0], StringComparison.Ordinal);
         Assert.NotEqual(output.Lines[^1], label);
     }
 
     /// <summary>
-    /// Review N3, its own case: an attack on a nation Rome is not at war with. <c>Submit</c> composes
-    /// <c>diplomacy.declare-war</c> ahead of the attack and then reports the attack's own result, so the
-    /// label must show <em>both</em> lines — the declaration is part of the command's own outcome, and
-    /// round 1's "last non-empty line" showed only the second. Carthage's army-2 starts at (47, 62), far
-    /// from Rome's army-0 (100, 37), so the attack is refused with <c>battle.not-adjacent</c>.
+    /// T135: an <em>accepted</em> attack on a nation Rome is not at war with. A scripted world puts
+    /// Carthage's army-2 beside Rome's army-0 (the shipped positions are four tiles apart, and an attack
+    /// is an adjacency order), so <c>Submit</c> composes <c>diplomacy.declare-war</c> ahead of the attack,
+    /// which is then accepted — the label must show <em>both</em> lines. Round 1's "last non-empty line"
+    /// showed only the second; T135's refusal rule does not change this accepted case.
     /// </summary>
     [Fact]
     public void An_attack_that_composes_a_declaration_of_war_shows_both_its_lines()
     {
-        var session = RomeSession();
+        var classical = Classical();
+        var carthageArmy = classical.World.StartingArmies.Single(a => a.Id == "army-2") with { X = 99, Y = 37 };
+        var world = classical.World with
+        {
+            StartingArmies = ValueList.From(
+                classical.World.StartingArmies.Select(a => a.Id == "army-2" ? carthageArmy : a)),
+        };
+
+        var session = new GameSession(
+            world, classical.Ruleset, classical.Scenario, seedOverride: 1, humanSeatNationId: RomeId);
+
         var output = session.Submit("attack-army army-0 army-2");
 
         Assert.Contains(
             "diplomacy.declare-war accepted (composed ahead of the attack).", output.Lines, StringComparer.Ordinal);
-        Assert.Contains(
-            output.Lines,
-            line => line.StartsWith("battle.attack-army rejected (battle.not-adjacent): ", StringComparison.Ordinal)
-                && line.Contains("is not adjacent to 'army-2'", StringComparison.Ordinal));
+        Assert.Contains("battle.attack-army accepted.", output.Lines, StringComparer.Ordinal);
 
         var labelLines = CommandOutcomeText.OutcomeBlock(output.Lines).Split('\n');
 
         Assert.Equal(2, labelLines.Length);
         Assert.Equal("diplomacy.declare-war accepted (composed ahead of the attack).", labelLines[0]);
-        Assert.StartsWith("battle.attack-army rejected (battle.not-adjacent): ", labelLines[1], StringComparison.Ordinal);
+        Assert.Equal("battle.attack-army accepted.", labelLines[1]);
         Assert.Empty(output.Lines[^1]);
     }
 
