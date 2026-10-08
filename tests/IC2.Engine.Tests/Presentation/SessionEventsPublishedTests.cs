@@ -1,4 +1,6 @@
+using IC2.Engine.Ai;
 using IC2.Engine.Core;
+using IC2.Engine.Model;
 using IC2.Engine.Movement.Commands;
 using IC2.Engine.Presentation;
 using IC2.Engine.Tests.Core;
@@ -44,31 +46,71 @@ public sealed class SessionEventsPublishedTests
 
     /// <summary>
     /// T149 DoD 1, second half: one <c>end</c> in a game with two AI seats raises
-    /// <c>EventsPublished</c> exactly once, with both seats' <c>RunTurn</c> events in seat
-    /// order. The toy scenario's other two nations are both <c>ai</c>, so the first
-    /// <c>end</c> on the human seat plays both AI seats.
+    /// <c>EventsPublished</c> exactly once, with both seats' <c>RunTurn</c> events in seat order.
+    /// The toy scenario's two nations are flipped to <c>ai</c> (a watch-mode save, the same
+    /// construction the Godot check uses for a hand-shaped state), so the single <c>end</c> runs
+    /// both seats' AI turns. Sol's rework review of PR #886 (R5): the assertion pins the seat
+    /// identities and the batch order, so reversing the two AI batches cannot leave this green.
     /// </summary>
     [Fact]
     public void End_of_turn_with_two_AI_seats_raises_EventsPublished_with_both_seats_events_in_seat_order()
     {
-        var session = NewSession();
+        var toy = CoreTestbed.Toy;
+        var initial = GameStateFactory.CreateInitial(toy.World, toy.Ruleset, toy.Scenario);
+        var allAi = initial with
+        {
+            Nations = ValueList.From(
+                initial.Nations.Select(n => n with { Control = SeatControl.Ai }).ToList()),
+        };
+        var save = new SaveGame(
+            SchemaVersion: allAi.SchemaVersion, Id: "two-ai-seats", Label: "Two AI seats",
+            ScenarioId: allAi.ScenarioId, WorldId: allAi.WorldId, RulesetId: allAi.RulesetId,
+            State: allAi);
+        var session = new GameSession(toy.World, toy.Ruleset, toy.Scenario, save);
+
         var raises = new List<IReadOnlyList<DomainEvent>>();
         session.EventsPublished += events => raises.Add(events);
 
         session.Submit("end");
 
         Assert.Single(raises);
-        // Every seat's RunTurn published at least one event; both AI seats run, so we expect
-        // at least two AiTurnDecided (one per seat, in the order PlayUntilOneFullLapOrRepeat
-        // walked the turn order).
-        var aiTurnDecidedCount = raises[0].Count(e => e.GetType().Name == "AiTurnDecided");
-        Assert.True(aiTurnDecidedCount >= 2,
-            $"expected both AI seats' AiTurnDecided events; got {aiTurnDecidedCount}");
+        var events = raises[0];
 
-        // The events are in publication order: the first event belongs to the seat that ran first
-        // (the AI seat the turn order starts with, or the ending seat itself), and the last
-        // event belongs to the seat that ran last. The exact seat order is the scenario's own
-        // turn order; a single AiTurnDecided's <c>SeatId</c> matches one of the AI seat ids.
+        // The AiTurnDecided events appear once per AI seat, in the scenario's seat order
+        // (the same order PlayUntilOneFullLapOrRepeat walked), never in another order.
+        var expectedSeatOrder = toy.Scenario.Seats.Select(s => s.Nation).ToList();
+        var actualSeatOrder = events
+            .Where(e => e is AiTurnDecided)
+            .Cast<AiTurnDecided>()
+            .Select(e => e.NationId)
+            .ToList();
+        Assert.Equal(expectedSeatOrder, actualSeatOrder);
+
+        // Batch order (R5): every event between two consecutive AiTurnDecided events belongs to
+        // the seat whose AiTurnDecided closes its batch -- the AI seat's own RunTurn published
+        // its commands' events first and its AiTurnDecided last. Each seat's events are
+        // contiguous and carry that seat's NationId, so a reversal of the two AI batches fails.
+        var batchEnds = new List<(int Index, string Nation)>();
+        for (var index = 0; index < events.Count; index++)
+        {
+            if (events[index] is AiTurnDecided decided)
+            {
+                batchEnds.Add((index, decided.NationId));
+            }
+        }
+
+        Assert.Equal(expectedSeatOrder.Count, batchEnds.Count);
+        var batchStart = 0;
+        foreach (var (endIndex, nation) in batchEnds)
+        {
+            for (var index = batchStart; index <= endIndex; index++)
+            {
+                var nationId = events[index].GetType().GetProperty("NationId")?.GetValue(events[index]) as string;
+                Assert.Equal(nation, nationId);
+            }
+
+            batchStart = endIndex + 1;
+        }
     }
 
     /// <summary>
