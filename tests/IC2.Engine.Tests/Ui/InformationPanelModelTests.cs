@@ -483,6 +483,10 @@ public sealed class InformationPanelModelTests
         var state = session.State;
         var ruleset = session.Ruleset;
 
+        // The unit-quality key prefix is a literal — the test must compile against the pre-fix model
+        // so the "fails before" run reports a runtime assertion failure, not a compile error.
+        const string qualityKeyPrefix = "army.unit_quality.";
+
         // Arrange Rome's army-0 with three units of qualities 5, 6 and 8 — the same tiers the headless
         // ArmyOrdersCheck pins.
         var arranged = state with
@@ -516,9 +520,9 @@ public sealed class InformationPanelModelTests
         Assert.Equal(
             new[]
             {
-                InformationPanelModel.ArmyUnitQualityKeyPrefix + "0",
-                InformationPanelModel.ArmyUnitQualityKeyPrefix + "1",
-                InformationPanelModel.ArmyUnitQualityKeyPrefix + "2",
+                qualityKeyPrefix + "0",
+                qualityKeyPrefix + "1",
+                qualityKeyPrefix + "2",
             },
             qualityKeys);
 
@@ -564,11 +568,15 @@ public sealed class InformationPanelModelTests
         var ruleset = session.Ruleset;
         var army = Army(state, CarthaginianArmyId);
 
+        // The unit-quality key prefix is a literal — the test must compile against the pre-fix model
+        // so the "fails before" run reports a runtime assertion failure, not a compile error.
+        const string qualityKeyPrefix = "army.unit_quality.";
+
         var lines = InformationPanelModel.ForeignArmy(state, session.World, ruleset, army);
 
         // No key starting with the unit-quality prefix.
         Assert.DoesNotContain(lines, line =>
-            line.Key.StartsWith(InformationPanelModel.ArmyUnitQualityKeyPrefix, StringComparison.Ordinal));
+            line.Key.StartsWith(qualityKeyPrefix, StringComparison.Ordinal));
 
         // No "(caption)" substring either — the foreign panel never prints a quality tier.
         var captionSubstrings = new[] { "(poor)", "(average)", "(good)", "(very good)", "(elite)" };
