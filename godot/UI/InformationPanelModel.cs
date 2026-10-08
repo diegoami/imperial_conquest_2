@@ -67,6 +67,7 @@ public static class InformationPanelModel
     public const string ArmyRegularsCostKey = "army.regulars_cost";
     public const string ArmyMercenaryPayKey = "army.mercenary_pay";
     public const string ArmyBlankKey = "army.blank";
+    public const string ArmyUnitQualityKeyPrefix = "army.unit_quality.";
 
     // -- Fleet keys -----------------------------------------------------------
 
@@ -229,7 +230,11 @@ public static class InformationPanelModel
     // ============================================================================
 
     /// <summary>
-    /// The own-army panel's lines — rows A01–A11, in the original's order.
+    /// The own-army panel's lines — rows A01–A11, in the original's order, then a blank separator and
+    /// one regiment-quality line per unit (in slot order, the unit list's format
+    /// <c>"{troops}x {unitTypeId} ({QualityCaption(quality)})"</c>). The quality lines are the fix for
+    /// bug #861: T111's regiment quality on the army panel, applied to the own army only (a foreign
+    /// army's panel withholds its units, as before).
     /// </summary>
     public static IReadOnlyList<InformationPanelLine> OwnArmy(
         GameState state, World world, Ruleset ruleset, ArmyState army)
@@ -264,6 +269,18 @@ public static class InformationPanelModel
             ArmyRegularsCostKey, $"Regulars cost: {regulars} talents per quarter"));
         lines.Add(new InformationPanelLine(
             ArmyMercenaryPayKey, $"Mercenary pay: {mercs} talents per quarter"));
+
+        // Bug #861: below the original's lines, one regiment-quality line per unit in slot order, the
+        // unit list's own format. The blank separator above A12 keeps A01..A11 in the original's
+        // order unchanged, so T140's own panel is untouched.
+        lines.Add(BlankLine());
+        for (var i = 0; i < army.Units.Count; i++)
+        {
+            var slot = army.Units[i];
+            lines.Add(new InformationPanelLine(
+                ArmyUnitQualityKeyPrefix + i,
+                $"{slot.Troops}x {slot.UnitTypeId} ({ArmyDialogModels.QualityCaption(slot.Quality)})"));
+        }
 
         return lines;
     }
