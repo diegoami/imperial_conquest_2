@@ -815,7 +815,7 @@ check holds as written; the bug body replaces the task entry in Appendix A's bri
 files it names plus gate 4's implicit set; DoD = the bug's reproduction as a test that fails
 before and passes after, plus green build and test; worktree ic2-work\fix-<issue>, branch
 fix/<issue>-<slug>, commit subject "fix <issue>: <subject>" (no #), PR body "Closes #<issue>";
-implementer the default, as step 1 says (deepseek-flash, then qwen-flash, then Claude Sonnet); reviewer by step 2's tier (complex at least) with the line "Fix lane:
+implementer from quota-tracker's `/recommend`, as step 1 says; reviewer by step 2's tier (complex at least) with the line "Fix lane:
 gates 0, 1, 3 and 4 plus a read of the diff; no mutation protocol" at the top of its brief. In step 3, a failing
 review while the issue carries review-round:1 files a correction task at the contract tier and
 stops; there is no review-round:2. In step 4 the follow-up issue is "#<issue> follow-up", and
@@ -836,12 +836,11 @@ the docs item applies only if the review named a claim.
    as the default, and so do a non-architecture Opus and a High-effort entry; a fix or a Low-effort task
    is the default too):
    - an OpenCode model (luna, glm-flash, deepseek-flash, glm, qwen-flash, mimo-pro, mimo-flash): write the brief to a file and run
-     `pwsh scripts/external-implement.ps1 -Task T<nn> -Slug <slug> -Issue <n> -Model auto
-     -BriefFile <file>` (`-Fix <issue>` for a fix; `-LocalOnly` where the label says). `-Model auto`
-     (the default) runs deepseek-flash (on OpenCode Go, or on Alibaba when quota-tracker's /avoid
-     lists opencode_go: `-Route auto`, the default), then qwen-flash (Alibaba), skipping a model
-     with no route that has quota; pass an explicit `-Model
-     <model>` only when the entry names another model (glm, luna, ...), which then runs alone. It creates
+     `pwsh scripts/external-implement.ps1 -Task T<nn> -Slug <slug> -Issue <n> -Model <alias>
+     -BriefFile <file>` (`-Fix <issue>` for a fix; `-LocalOnly` where the label says), the alias taken
+     from quota-tracker's `/recommend?tier=heavy` with CLAUDE.md rule 17's exclusions (the user's
+     decision of 2026-10-08; `-Model auto`'s fixed chain ranks the old way until T152 lands, so don't
+     use it). Log the chosen row's `reasons` on the issue. It creates
      the worktree and branch, runs OpenCode there, and returns with the PR number or a warning;
      read its tail. Run it in the background and watch it (operating-guide §3): the session must
      start and keep making progress. On a failure, READ BEFORE RETRY (CLAUDE.md rule 19, the
