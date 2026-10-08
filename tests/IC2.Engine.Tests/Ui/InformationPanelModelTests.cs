@@ -465,6 +465,133 @@ public sealed class InformationPanelModelTests
     }
 
     // ========================================================================
+    // Bug #861: own army's panel shows the regiment quality captions under the original's lines
+    // ========================================================================
+
+    /// <summary>
+    /// Bug #861: below the original's A01–A11 lines (Mercenary pay last), the own army's panel adds a
+    /// blank separator and one regiment-quality line per unit in slot order. The captions read from
+    /// <see cref="ArmyDialogModels.QualityCaption"/>: tiers 5, 6 and 8 captioned <em>poor</em>,
+    /// <em>average</em> and <em>very good</em>, in the unit list's own
+    /// <c>"{troops}x {unitTypeId} ({caption})"</c> format. A foreign army's panel carries no quality
+    /// line — the units are withheld, as before.
+    /// </summary>
+    [Fact]
+    public void Own_army_panel_adds_a_blank_and_per_unit_quality_captions_after_the_original_lines()
+    {
+        var session = RomeSession();
+        var state = session.State;
+        var ruleset = session.Ruleset;
+
+        // The unit-quality key prefix is a literal — the test must compile against the pre-fix model
+        // so the "fails before" run reports a runtime assertion failure, not a compile error.
+        const string qualityKeyPrefix = "army.unit_quality.";
+
+        // Arrange Rome's army-0 with three units of qualities 5, 6 and 8 — the same tiers the headless
+        // ArmyOrdersCheck pins.
+        var arranged = state with
+        {
+            Armies = ValueList.From(state.Armies.Select(a =>
+                string.Equals(a.Id, RomanArmyId, StringComparison.Ordinal)
+                    ? a with
+                    {
+                        Units = ValueList.Of(
+                            new UnitSlot(MercenaryLabel: 0, UnitTypeId: "light_infantry", Troops: 2_000, Quality: 5, Name: "A"),
+                            new UnitSlot(MercenaryLabel: 0, UnitTypeId: "heavy_infantry", Troops: 5_000, Quality: 6, Name: "B"),
+                            new UnitSlot(MercenaryLabel: 0, UnitTypeId: "archers", Troops: 3_000, Quality: 8, Name: "C")),
+                    }
+                    : a)),
+        };
+        var army = arranged.ArmyById(RomanArmyId)!;
+
+        var lines = InformationPanelModel.OwnArmy(arranged, session.World, ruleset, army);
+
+        // The order: A01..A11, then a blank, then three quality lines.
+        var keys = lines.Select(line => line.Key).ToList();
+        var mercIndex = keys.IndexOf(InformationPanelModel.ArmyMercenaryPayKey);
+        Assert.True(mercIndex >= 0, "Mercenary pay is in the own army's lines");
+
+        // The blank line sits immediately after Mercenary pay, the original's last line.
+        Assert.Equal(InformationPanelModel.ArmyBlankKey, keys[mercIndex + 1]);
+
+        // Three quality keys, in slot order, immediately after the blank.
+        var qualityKeys = keys.Skip(mercIndex + 2).ToList();
+        Assert.Equal(3, qualityKeys.Count);
+        Assert.Equal(
+            new[]
+            {
+                qualityKeyPrefix + "0",
+                qualityKeyPrefix + "1",
+                qualityKeyPrefix + "2",
+            },
+            qualityKeys);
+
+        // The captions come from ArmyDialogModels.QualityCaption (5 → poor, 6 → average, 8 → very
+        // good), in the unit list's "{troops}x {unitTypeId} ({caption})" format, in slot order.
+        var texts = lines.Skip(mercIndex + 2).Select(line => line.Text).ToList();
+        Assert.Equal(
+            new[]
+            {
+                "2000x light_infantry (poor)",
+                "5000x heavy_infantry (average)",
+                "3000x archers (very good)",
+            },
+            texts);
+
+        // The original's order is preserved up to Mercenary pay (A01..A11). A06 (Terrain) is
+        // optional — the shipped classical state stages it for army-0, so it appears here.
+        var firstType = keys.IndexOf(
+            InformationPanelModel.ArmyUnitTypeKeyPrefix + InformationPanelModel.UnitTypeIds[0]);
+        Assert.True(firstType > 1, "the first unit-type line is preceded by the header and the blank");
+        Assert.Equal(InformationPanelModel.ArmyBlankKey, keys[firstType - 1]);
+
+        // The Mercenary pay line keeps its text exactly (no quality contamination).
+        var byKey = ByKey(lines);
+        var (regulars, mercs) = SumUpkeepByKind(army, ruleset);
+        Assert.Equal(
+            $"Mercenary pay: {mercs} talents per quarter",
+            byKey[InformationPanelModel.ArmyMercenaryPayKey]);
+        Assert.Equal(
+            $"Regulars cost: {regulars} talents per quarter",
+            byKey[InformationPanelModel.ArmyRegularsCostKey]);
+    }
+
+    /// <summary>
+    /// Bug #861, foreign-army half: the panel withholds the units (T99's withholding), so no
+    /// quality line is drawn on a foreign army's panel.
+    /// </summary>
+    [Fact]
+    public void Foreign_army_panel_carries_no_quality_line()
+    {
+        var session = RomeSession();
+        var state = session.State;
+        var ruleset = session.Ruleset;
+        var army = Army(state, CarthaginianArmyId);
+
+        // The unit-quality key prefix is a literal — the test must compile against the pre-fix model
+        // so the "fails before" run reports a runtime assertion failure, not a compile error.
+        const string qualityKeyPrefix = "army.unit_quality.";
+
+        var lines = InformationPanelModel.ForeignArmy(state, session.World, ruleset, army);
+
+        // No key starting with the unit-quality prefix.
+        Assert.DoesNotContain(lines, line =>
+            line.Key.StartsWith(qualityKeyPrefix, StringComparison.Ordinal));
+
+        // No "(caption)" substring either — the foreign panel never prints a quality tier.
+        var captionSubstrings = new[] { "(poor)", "(average)", "(good)", "(very good)", "(elite)" };
+        foreach (var line in lines)
+        {
+            foreach (var caption in captionSubstrings)
+            {
+                Assert.False(
+                    line.Text.Contains(caption, StringComparison.Ordinal),
+                    $"the foreign army's panel carries no '{caption}' caption (got '{line.Text}')");
+            }
+        }
+    }
+
+    // ========================================================================
     // Army panel — foreign
     // ========================================================================
 
