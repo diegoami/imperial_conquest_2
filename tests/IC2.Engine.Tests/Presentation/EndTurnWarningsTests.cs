@@ -194,6 +194,29 @@ public sealed class EndTurnWarningsTests
             new[] { EndTurnWarnings.FleetNeedsRepairing, EndTurnWarnings.FleetNeedsSupplies },
             result);
 
+        // An aboard army's own supply check (check 5) is the first trigger: the repair line still
+        // leads that fleet's block.
+        var starving = Army(50_000, supply: 99) with
+        {
+            AboardFleetId = "north-fleet-1",
+            CoveredTileCode = null,
+        };
+        var carrierWithStarvingCargo = fleet with
+        {
+            X = 3,
+            Y = 2,
+            SupplyTons = 2,
+            ConditionPercent = 64,
+            CarriedArmyId = starving.Id,
+        };
+        result = Query(
+            world,
+            state with { Armies = ValueList.Of(starving), Fleets = ValueList.Of(carrierWithStarvingCargo) },
+            ruleset);
+        Assert.Equal(
+            new[] { EndTurnWarnings.FleetNeedsRepairing, EndTurnWarnings.ArmyNeedsSupplies },
+            result);
+
         // An aboard army that cannot pay is the first trigger: the repair line still leads.
         var cargo = Army(50_000, supply: 100) with
         {
