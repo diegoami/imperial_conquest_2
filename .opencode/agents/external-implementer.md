@@ -26,6 +26,10 @@ permission:
     # The whole TEMP folder (/tmp under Git Bash), not only TEMP\opencode: a run must never end
     # because it writes scratch there (the user's decision of 2026-10-08, bug #875).
     "C:?Users?diego?AppData?Local?Temp?*": allow
+    # The null device (/dev/null, NUL; OpenCode asks for it as \\.\NUL\*):
+    # a redirect or cd there must never end a run (T108 died on `cd /dev/null`, 2026-10-08).
+    "??.?NUL*": allow
+    "*?dev?null*": allow
     "C:?Users?diego?.local?bin?godot.cmd": allow
     "C:?Users?diego?.local?bin?godot.exe": allow
     # Last match wins, so the denies that follow override the allows above whenever a path
