@@ -196,14 +196,24 @@
     <Compile Include="../../godot/Screens/GameEndViewModel.cs" Link="Ui/Screens/GameEndViewModel.cs" />
     <Compile Include="../../godot/Screens/PeaceOfferViewModel.cs" Link="Ui/Screens/PeaceOfferViewModel.cs" />
 
-    <!--
+<!--
       T111 (tests/IC2.Engine.Tests/Ui/ArmyDialogModelsTests.cs): the same seam once more.
       ArmyDialogModels.cs is the Godot-free model behind the Unit map's Army dialogs — each dialog's
-      limits and the command lines it composes, plus the regiment quality caption — so a plain xunit
-      test can pin them without the Godot SDK. No `using Godot` anywhere; never a second,
+      limits and the command lines it composes, plus the regiment quality caption — so a plain xunit test
+      can pin them without the Godot SDK. No `using Godot` anywhere; never a second,
       hand-maintained copy.
     -->
     <Compile Include="../../godot/UI/Dialogs/ArmyDialogModels.cs" Link="Ui/ArmyDialogModels.cs" />
+
+    <!--
+      T113 (tests/IC2.Engine.Tests/Ui/MercenaryDialogModelTests.cs): the same seam once more.
+      MercenaryDialogModel.cs is the Godot-free model behind the Recruit mercenaries dialog (the
+      Army -> Recruit mercenaries order) and the city's right-click mercenary listing (the 2026-10-05
+      amendment). It reads the engine's adjacency rule from T76's own hire handler and the type's
+      quarterly price from the ruleset, so the dialog and the listing cannot disagree between them.
+      No `using Godot` anywhere; never a second, hand-maintained copy.
+    -->
+    <Compile Include="../../godot/UI/Dialogs/MercenaryDialogModel.cs" Link="Ui/MercenaryDialogModel.cs" />
 
     <!--
       T112 (tests/IC2.Engine.Tests/Ui/FleetCityDialogModelsTests.cs and UnitCommandStripTests.cs): the
