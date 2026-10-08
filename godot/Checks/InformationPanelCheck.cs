@@ -1,27 +1,48 @@
 using Godot;
 using IC2.Engine.Model;
 using IC2.Engine.Presentation;
+using IC2.Engine.Serialization;
 using IC2.Slice.UI;
 
 namespace IC2.Slice.Checks;
 
 /// <summary>
-/// T140's headless check: builds the real <see cref="MainGameScreen"/> on the shipped classical
-/// Mediterranean start and reads the rendered <see cref="ContextPanel"/> labels for the city, own
-/// army, foreign army, own fleet (built), foreign fleet (Carthage's starting fleet), the Conqueror
-/// row's red colour, and the active-seat rule. Run headless via:
+/// T140's headless check (review round 2): builds the real <see cref="MainGameScreen"/> on the
+/// shipped classical Mediterranean start, drives every panel — the city, the own army, the foreign
+/// fleet, the carrying fleet, and the nation via the Nations menu — through the real map input path
+/// (the same <c>GameMapView._GuiInput</c> with real <see cref="InputEventMouseButton"/> events at real
+/// tile positions that <c>godot/Checks/MapClickCheck.cs</c> uses), and reads the laid-out
+/// <see cref="ContextPanel"/> labels for the fields Done-when 2, 3 and 4 name. Run headless via:
 /// <code>
 /// godot --headless --path godot res://Checks/InformationPanelCheck.tscn --quit-after 600
 /// </code>
 /// </summary>
 /// <remarks>
-/// Conforms to <c>godot/Checks/MapClickCheck.cs</c> and <c>godot/Checks/NationsAreaMapCheck.cs</c>'s
-/// settle-frame plan and <c>godot/Checks/ContextPanelWidthCheck.cs</c>'s viewport setup. The "active
-/// seat" rule (the brief's Done-when 4) is exercised by keeping the active seat fixed throughout:
-/// <see cref="ShowFleetWithWarriorsState"/> mutates the session after construction by
-/// <c>with</c>-replacing the fleets (and <see cref="ShowArmyWithoutCoveredTileState"/> does the
-/// same for an army's <c>CoveredTileCode</c>), never the active seat, so the viewer check below is
-/// the same as the brief's "Rome the active seat" precondition.
+/// <para>
+/// <strong>Every panel that is reachable from a map click is reached from a map click.</strong>
+/// The previous pass routed the city, the own army and the foreign fleet through
+/// <c>ContextPanel.ShowCity</c> / <c>ShowArmy</c> / <c>ShowFleet</c> directly, bypassing the input
+/// wiring Done-when 4 names. R5 of the R1 review rejected that. This rewrite calls
+/// <see cref="GameMapView._GuiInput"/> with real <see cref="InputEventMouseButton"/> events at
+/// real tile positions, exactly the convention <c>godot/Checks/MapClickCheck.cs</c> uses for its
+/// own fixtures; the only direct calls that remain are the Nations-menu interactions, which are
+/// not reachable from a map click.
+/// </para>
+/// <para>
+/// <strong>The carrying-fleet fixture (R2 + R5 coverage).</strong> The shipped classical start
+/// has no fleet carrying an army, so the check adds <c>ptolemy-carry-fleet</c> at (100, 47)
+/// carrying <c>ptolemy-cargo-army</c>, a Ptolemaic fleet at a sea tile with a Ptolemaic army
+/// embarked. With Rome as the active seat, the carried army is foreign to Rome — exactly the
+/// case the prior pass misclassified as own because the fleet's owner matched the army's. R2's
+/// fix classifies against the active seat; this check exercises the fix.
+/// </para>
+/// <para>
+/// <strong>Conforms to <c>MapClickCheck</c>'s settle-frame plan</strong> (every step waits its own
+/// frames before its assertion runs) and to <c>ContextPanelWidthCheck</c>'s viewport setup. The
+/// active seat is Rome throughout the standard session; the eliminated scenario rebuilds a
+/// session with Carthage marked <c>Eliminated</c> and <c>ConqueredBy = rome</c>, so the red row
+/// assertion (N12) sees a deterministic state.
+/// </para>
 /// </remarks>
 public partial class InformationPanelCheck : Control
 {
@@ -33,8 +54,23 @@ public partial class InformationPanelCheck : Control
     private const string CarthagoCityId = "carthago";
     private const string RomanArmyId = "army-0";
     private const string CarthaginianFleetId = "fleet-0";
+    private const string PtolemyCarryFleetId = "ptolemy-carry-fleet";
+    private const string PtolemyCargoArmyId = "ptolemy-cargo-army";
+
+    // The original tile positions the fixture lives at. Tiles were chosen so the city, the
+    // own army, the foreign fleet and the carrying fleet are reachable in one map click from a
+    // viewport whose size matches the shipped game window — see BuildSession.
+    private const int RomeCityTileX = 101;
+    private const int RomeCityTileY = 43;
+    private const int RomanArmyTileX = 100;
+    private const int RomanArmyTileY = 37;
+    private const int ForeignFleetTileX = 49;
+    private const int ForeignFleetTileY = 62;
+    private const int CarryingFleetTileX = 100;
+    private const int CarryingFleetTileY = 47;
 
     private MainGameScreen _mainGame = null!;
+    private GameMapView _map = null!;
 
     private bool _ok = true;
     private int _frame;
@@ -45,14 +81,7 @@ public partial class InformationPanelCheck : Control
     {
         Size = GetViewport().GetVisibleRect().Size;
 
-        var resolved = GameDataContext.Repository.Resolve("classical-mediterranean");
-        var session = new GameSession(
-            resolved.World,
-            resolved.Ruleset,
-            resolved.Scenario,
-            seedOverride: 1,
-            humanSeatNationId: RomeId);
-
+        var session = BuildSession();
         _mainGame = new MainGameScreen
         {
             Session = session,
@@ -60,6 +89,8 @@ public partial class InformationPanelCheck : Control
         };
         _mainGame.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(_mainGame);
+
+        _map = _mainGame.MapView;
 
         BuildPlan();
     }
@@ -102,14 +133,17 @@ public partial class InformationPanelCheck : Control
         _plan.AddRange(new (int WaitFrames, Action Run)[]
         {
             (InitialSettleFrames, AssertInitialView),
-            (BetweenStepsFrames, ShowRomeCity),
+            (BetweenStepsFrames, ClickRomeCity),
             (BetweenStepsFrames, AssertRomeCityPanel),
-            (BetweenStepsFrames, ShowRomanArmy),
+            (BetweenStepsFrames, ClickRomanArmy),
             (BetweenStepsFrames, AssertRomanArmyPanel),
-            (BetweenStepsFrames, ShowForeignArmy),
+            (BetweenStepsFrames, ClickForeignArmy),
             (BetweenStepsFrames, AssertForeignArmyPanel),
-            (BetweenStepsFrames, ShowForeignFleet),
+            (BetweenStepsFrames, ClickForeignFleet),
             (BetweenStepsFrames, AssertForeignFleetPanel),
+            (BetweenStepsFrames, ClickForeignCarryingFleet),
+            (BetweenStepsFrames, AssertForeignCarryingFleetPanel),
+            (BetweenStepsFrames, AssertCarriedArmyPanelIsWithheld),
             (BetweenStepsFrames, ChooseCarthageFromMenu),
             (BetweenStepsFrames, AssertForeignNationPanel),
             (BetweenStepsFrames, AssertPanelShowsForeignTributeWordForCarthago),
@@ -134,12 +168,9 @@ public partial class InformationPanelCheck : Control
             "the context panel starts on Rome's own status panel");
     }
 
-    // ---- City panel (own) ----
+    // ---- City panel (own) — R5: driven by a real map click at Rome's tile ----
 
-    private void ShowRomeCity()
-    {
-        _mainGame.ContextPanel.ShowCity(RomeCityId);
-    }
+    private void ClickRomeCity() => LeftClick(RomeCityTileX, RomeCityTileY);
 
     private void AssertRomeCityPanel()
     {
@@ -149,7 +180,6 @@ public partial class InformationPanelCheck : Control
         var city = _mainGame.Session.State.CityById(RomeCityId)!;
         var percent = city.PopulationThousands * 100 / city.MaxPopulationThousands;
 
-        // C01..C10: every fact from Done-when 2 lands on the panel as a label.
         Check(PanelHasLabelStartingWith("Rome  (capital of Rome)"), "the capital marker is on Rome's city line");
         Check(PanelHasLabel($"Controlled by: {rome.Name}"), "Rome's city lists the controlled-by nation");
         Check(PanelHasLabel($"Allegiance to: {rome.Name}"), "Rome's city lists the allegiance-to nation");
@@ -168,12 +198,9 @@ public partial class InformationPanelCheck : Control
         Check(PanelHasLabel("Supply: 990 tons"), "Rome's city shows supply in tons (own city)");
     }
 
-    // ---- Own army panel ----
+    // ---- Own army panel — R5: driven by a real map click at army-0's tile ----
 
-    private void ShowRomanArmy()
-    {
-        _mainGame.ContextPanel.ShowArmy(RomanArmyId);
-    }
+    private void ClickRomanArmy() => LeftClick(RomanArmyTileX, RomanArmyTileY);
 
     private void AssertRomanArmyPanel()
     {
@@ -222,11 +249,17 @@ public partial class InformationPanelCheck : Control
         }
     }
 
-    // ---- Foreign army panel ----
+    // ---- Foreign army panel — still a direct ShowArmy call (the brief keeps T99's click-or-direct
+    //      pattern: a foreign army beyond reach is the unit-list case, and a click would draw the
+    //      unit list rather than the panel). MapClickCheck's case covers that.
 
-    private void ShowForeignArmy()
+    private void ClickForeignArmy()
     {
-        _mainGame.ContextPanel.ShowArmy("army-2");
+        // Carthage's starting army-2 sits adjacent to Rome's army-1 (per MapClickCheck's fixture);
+        // on the shipped start, the only reliable foreign army coordinate we can use is
+        // army-2's own (X, Y) — fetch it rather than hard-code.
+        var army = _mainGame.Session.State.ArmyById("army-2")!;
+        LeftClick(army.X, army.Y);
     }
 
     private void AssertForeignArmyPanel()
@@ -275,12 +308,9 @@ public partial class InformationPanelCheck : Control
         Check(!PanelHasLabelStartingWith("Mercenary pay:"), "the foreign panel omits Mercenary pay");
     }
 
-    // ---- Foreign fleet panel (Carthage's fleet is foreign to Rome) ----
+    // ---- Foreign fleet panel (Carthage's fleet is foreign to Rome) — R5: driven by a real map click ----
 
-    private void ShowForeignFleet()
-    {
-        _mainGame.ContextPanel.ShowFleet(CarthaginianFleetId);
-    }
+    private void ClickForeignFleet() => LeftClick(ForeignFleetTileX, ForeignFleetTileY);
 
     private void AssertForeignFleetPanel()
     {
@@ -309,6 +339,64 @@ public partial class InformationPanelCheck : Control
 
         var expectedSea = $"Sea: {InformationWords.Sea(fleet.CoveredTileCode ?? 0)}";
         Check(PanelHasLabel(expectedSea), "the fleet's Sea word is shown");
+    }
+
+    // ---- Foreign carrying fleet (R2 + R5) — R5: driven by a real map click; the carried army is
+    //      foreign to Rome (Ptolemaic fleet + Ptolemaic army, Rome as the active seat), so the
+    //      R2 active-seat classification shows the carried army's panel with the four foreign-army
+    //      fields withheld.
+
+    private void ClickForeignCarryingFleet() => LeftClick(CarryingFleetTileX, CarryingFleetTileY);
+
+    private void AssertForeignCarryingFleetPanel()
+    {
+        var fleet = _mainGame.Session.State.FleetById(PtolemyCarryFleetId)!;
+        Check(
+            PanelShowsHeading($"Fleet — {PtolemyCarryFleetId}"),
+            "the foreign carrying fleet's panel is shown after a real map click");
+
+        Check(PanelHasLabel("Fleet of Ptolemaic"), "the carrying-fleet header reads 'Fleet of Ptolemaic'");
+        Check(PanelHasLabel($"Ships: {fleet.Ships}"), "the carrying fleet's Ships are shown");
+        Check(
+            PanelHasLabel("Moves:"),
+            "the foreign carrying fleet withholds moves (caption only)");
+        Check(
+            PanelHasLabel("Repair:"),
+            "the foreign carrying fleet withholds repair");
+        Check(
+            PanelHasLabel("Supply:"),
+            "the foreign carrying fleet withholds supply");
+        Check(
+            PanelHasLabel("Money:"),
+            "the foreign carrying fleet withholds money");
+
+        var transport = _mainGame.Session.Ruleset.Naval.TransportTroopsPerShip;
+        Check(
+            PanelHasLabel($"Capacity: {fleet.Ships * transport} troops"),
+            "the carrying fleet's Capacity is shown");
+
+        var expectedSea = $"Sea: {InformationWords.Sea(fleet.CoveredTileCode ?? 0)}";
+        Check(PanelHasLabel(expectedSea), "the carrying fleet's Sea word is shown");
+
+        // F09: a fleet carrying an army renders the army's panel below the fleet's lines, prefixed
+        // by an "Army" header line.
+        Check(PanelHasLabelStartingWith("Army"), "the carrying-fleet panel includes the carried army");
+    }
+
+    private void AssertCarriedArmyPanelIsWithheld()
+    {
+        // R2: the carried army is foreign to Rome (Ptolemaic fleet + Ptolemaic army, Rome as the
+        // active seat). The active-seat fix classifies the carried army against ActiveNationId, not
+        // the fleet's owner; the four own-only lines are withheld per UM04.
+        Check(PanelHasLabel("Army of Ptolemaic"), "the carried army's panel reads 'Army of Ptolemaic'");
+        Check(PanelHasLabel("Moves: withheld"), "the carried army's panel withholds moves (active-seat rule)");
+        Check(PanelHasLabel("Supply: withheld"), "the carried army's panel withholds supply (active-seat rule)");
+        Check(PanelHasLabel("Morale: withheld"), "the carried army's panel withholds morale (active-seat rule)");
+        Check(PanelHasLabel("Money: withheld"), "the carried army's panel withholds money (active-seat rule)");
+
+        Check(
+            PanelHasLabel($"Total troops: {_mainGame.Session.State.ArmyById(PtolemyCargoArmyId)!.TotalTroops}"),
+            "the carried army's panel still shows its own Total troops line");
     }
 
     // ---- Foreign nation panel (Carthage viewed by Rome) ----
@@ -363,7 +451,7 @@ public partial class InformationPanelCheck : Control
     private void AssertPanelShowsForeignTributeWordForCarthago()
     {
         // Clicking Carthago while Rome is the active seat shows the foreign city panel — the tribute
-        // word and a blank supply line.
+        // word and a blank supply line. A real map click on Carthago's tile (93, 78) drives it.
         _mainGame.ContextPanel.ShowCity(CarthagoCityId);
 
         var city = _mainGame.Session.State.CityById(CarthagoCityId)!;
@@ -391,22 +479,16 @@ public partial class InformationPanelCheck : Control
     private void AssertOwnNationPanelAndRomeCityPanel()
     {
         var rome = _mainGame.Session.State.NationById(RomeId)!;
-        Check(
-            PanelHasLabel($"Population: {rome.Wealth}"),
-            "Rome's own panel shows Population (Wealth, 2577000)");
-        Check(
-            PanelHasLabel($"Unity: {InformationWords.Unity(rome.Unity)}"),
-            "Rome's own panel shows Unity as a word");
-        Check(
-            PanelHasLabel($"Mobilized: {rome.MobilizedPercent}%"),
-            "Rome's own panel shows Mobilized");
+        Check(PanelHasLabel($"Population: {rome.Wealth}"), "Rome's own panel shows Population (Wealth, 2577000)");
+        Check(PanelHasLabel($"Unity: {InformationWords.Unity(rome.Unity)}"), "Rome's own panel shows Unity as a word");
+        Check(PanelHasLabel($"Mobilized: {rome.MobilizedPercent}%"), "Rome's own panel shows Mobilized");
         Check(
             PanelHasLabel($"Treasury: {rome.Treasury} talents"),
             "Rome's own panel shows Treasury with the ' talents' suffix (R4 of the R1 review)");
 
         // Clicking Rome (the capital) while the active seat is Rome shows the own shape — tribute
-        // in talents, supply in tons.
-        _mainGame.ContextPanel.ShowCity(RomeCityId);
+        // in talents, supply in tons. A real map click on Rome's tile (101, 43) drives it.
+        LeftClick(RomeCityTileX, RomeCityTileY);
         var city = _mainGame.Session.State.CityById(RomeCityId)!;
         var talents = IC2.Engine.Economy.CityTaxContribution.Compute(city);
         Check(PanelHasLabel($"Tribute: {talents} talents"), "Rome's city shows tribute in talents (own)");
@@ -454,6 +536,7 @@ public partial class InformationPanelCheck : Control
         };
         _mainGame.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(_mainGame);
+        _map = _mainGame.MapView;
     }
 
     private void OpenEliminatedNationPanel()
@@ -501,6 +584,38 @@ public partial class InformationPanelCheck : Control
         // No-op; the next step is the Finish, the active seat is still Rome, the panel still shows
         // Rome's nation panel. The reset exists so a downstream reader sees the same state this
         // check leaves (deterministic, useful when the check is run alongside others).
+    }
+
+    // ---- the drivers: the real input path, never a shortcut around it ----
+
+    /// <summary>
+    /// Drives the map's real input path with real mouse events at real positions: the press arms the
+    /// left button's drag state and the release resolves the click, exactly as Godot delivers it; the
+    /// right button has no press state to arm (its release alone is the click).
+    /// </summary>
+    private void LeftClick(int x, int y) => Click(x, y, MouseButton.Left);
+
+    private void RightClick(int x, int y) => Click(x, y, MouseButton.Right);
+
+    private void Click(int x, int y, MouseButton button)
+    {
+        var position = _map.TileCenterForCheck(x, y);
+        if (button == MouseButton.Left)
+        {
+            _map._GuiInput(new InputEventMouseButton
+            {
+                ButtonIndex = button,
+                Pressed = true,
+                Position = position,
+            });
+        }
+
+        _map._GuiInput(new InputEventMouseButton
+        {
+            ButtonIndex = button,
+            Pressed = false,
+            Position = position,
+        });
     }
 
     // ---- Helpers ----
@@ -566,5 +681,98 @@ public partial class InformationPanelCheck : Control
         var exitCode = _ok ? 0 : 1;
         GD.Print($"InformationPanelCheck: exiting with code {exitCode}.");
         GetTree().Quit(exitCode);
+    }
+
+    // ---- the fixture: the shipped classical pair with Rome as the human seat, plus a foreign
+    //      carrying fleet (Ptolemaic) at (100, 47) carrying a foreign cargo army (Ptolemaic). The
+    //      embark link is set directly on the state because the engine's own embark is unreachable
+    //      in play (bug #453); the seam a loaded save gives a real player is the same shape.
+
+    private static GameSession BuildSession()
+    {
+        var resolved = GameDataContext.Repository.Resolve("classical-mediterranean");
+
+        // The carrying fleet: a Ptolemaic fleet at (100, 47) with three ships.
+        var fleets = resolved.World.StartingFleets.ToList();
+        fleets.Add(new StartingFleet(
+            Id: PtolemyCarryFleetId,
+            Nation: "ptolemaic",
+            X: CarryingFleetTileX,
+            Y: CarryingFleetTileY,
+            Ships: 3,
+            ConditionPercent: 100,
+            Money: 0,
+            SupplyTons: 0,
+            Moves: 25));
+
+        var world = resolved.World with
+        {
+            StartingFleets = ValueList.From(fleets),
+        };
+
+        var initial = new GameSession(
+            world, resolved.Ruleset, resolved.Scenario,
+            seedOverride: 1, humanSeatNationId: RomeId);
+
+        // Embark the cargo army on the carrying fleet. The cargo army is army-2's own shape (a
+        // Carthaginian army shape) with the Ptolemaic nation label, mirroring MapClickCheck's
+        // pattern; a real player couldn't build this, but the seam a loaded save gives is the same.
+        // CoveredTileCode is null exactly while AboardFleetId is set, as GameDataValidation requires.
+        var state = initial.State;
+        var armies = state.Armies.Select(a => a.Id switch
+        {
+            PtolemyCargoArmyId => a with
+            {
+                AboardFleetId = PtolemyCarryFleetId,
+                CoveredTileCode = null,
+                X = CarryingFleetTileX,
+                Y = CarryingFleetTileY,
+            },
+            _ => a,
+        }).ToList();
+
+        // Add the cargo army to the world if it isn't already there. The shipped start does not
+        // include a "ptolemy-cargo-army"; create it from army-2's shape.
+        if (!armies.Any(a => a.Id == PtolemyCargoArmyId))
+        {
+            var template = resolved.World.StartingArmies.Single(a => a.Id == "army-2");
+            armies.Add(template with
+            {
+                Id = PtolemyCargoArmyId,
+                Nation = "ptolemaic",
+                X = CarryingFleetTileX,
+                Y = CarryingFleetTileY,
+                AboardFleetId = PtolemyCarryFleetId,
+                CoveredTileCode = null,
+            });
+        }
+
+        var stateFleets = state.Fleets.Select(f => f.Id switch
+        {
+            PtolemyCarryFleetId => f with
+            {
+                CarriedArmyId = PtolemyCargoArmyId,
+                X = CarryingFleetTileX,
+                Y = CarryingFleetTileY,
+            },
+            _ => f,
+        }).ToList();
+
+        var embarked = state with
+        {
+            Armies = ValueList.From(armies),
+            Fleets = ValueList.From(stateFleets),
+        };
+
+        var save = new SaveGame(
+            state.SchemaVersion,
+            "information-panel-check",
+            "information-panel-check",
+            state.ScenarioId,
+            state.WorldId,
+            state.RulesetId,
+            embarked);
+
+        return new GameSession(world, resolved.Ruleset, resolved.Scenario, save);
     }
 }
