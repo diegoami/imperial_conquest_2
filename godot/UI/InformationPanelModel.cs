@@ -113,13 +113,16 @@ public static class InformationPanelModel
         var owner = state.NationById(city.Owner);
 
         // C01: City + capital marker. The capital is a flag of any nation's CapitalCityId being this
-        // city; the name printed is the CONTROLLER, not the nation whose capital it is.
-        var capitalOwner = CapitalOwnerName(state, city.Id);
+        // city; the name printed is the CONTROLLER (city.Owner), not the nation whose capital it is.
+        // For a captured capital (e.g. Rome captures Carthago) Carthage's CapitalCityId still points to
+        // Carthago, but Carthago's controller is now Rome — the panel must read the controller.
+        var isCapital = state.Nations.Any(n =>
+            string.Equals(n.CapitalCityId, city.Id, StringComparison.Ordinal));
         lines.Add(new InformationPanelLine(
             CityNameKey,
-            capitalOwner is null
-                ? city.Name
-                : $"{city.Name}  (capital of {capitalOwner})"));
+            isCapital
+                ? $"{city.Name}  (capital of {(owner?.Name ?? city.Owner)})"
+                : city.Name));
 
         // C02 / C03: Controlled by / Allegiance to
         lines.Add(new InformationPanelLine(CityControlledByKey, $"Controlled by: {NationName(state, city.Owner)}"));
@@ -166,33 +169,13 @@ public static class InformationPanelModel
                 word.Length == 0 ? $"Tribute: {city.Tribute}" : $"Tribute: {word}"));
         }
 
-        // C10: Supply, own city only.
-        if (isOwn)
-        {
-            lines.Add(new InformationPanelLine(CitySupplyKey, $"Supply: {city.SupplyTons} tons"));
-        }
+        // C10: Supply — own city shows tons, foreign city shows the line blank (C10: "at any other
+        // city the line is blank"). The blank keeps the field's position in the original's order.
+        lines.Add(new InformationPanelLine(
+            CitySupplyKey,
+            isOwn ? $"Supply: {city.SupplyTons} tons" : "Supply:"));
 
         return lines;
-    }
-
-    /// <summary>
-    /// The name of the nation that owns this city's capital — <see cref="NationState.CapitalCityId"/>
-    /// is the nation's capital flag, not the city's owner. The capital-of &lt;name&gt; text reads the
-    /// <em>controller</em>, per row C01: "the nation named is the city's controller (CityState.Owner),
-    /// not the nation whose capital it is". Returns <see langword="null"/> when the city is no one's
-    /// capital.
-    /// </summary>
-    private static string? CapitalOwnerName(GameState state, string cityId)
-    {
-        foreach (var nation in state.Nations)
-        {
-            if (string.Equals(nation.CapitalCityId, cityId, StringComparison.Ordinal))
-            {
-                return nation.Name;
-            }
-        }
-
-        return null;
     }
 
     /// <summary>
@@ -497,13 +480,17 @@ public static class InformationPanelModel
         var owner = state.NationById(fleet.Nation);
         lines.Add(new InformationPanelLine(FleetOfKey, $"Fleet of {owner?.Name ?? fleet.Nation}"));
 
+        // F02: Moves — own fleet shows the count, foreign fleet shows the caption only (F01–F08).
+        lines.Add(new InformationPanelLine(
+            FleetMovesKey,
+            includeFacts ? $"Moves: {fleet.Moves}" : "Moves:"));
+
+        // F03: Ships — always shown, own and foreign alike (F03).
+        lines.Add(new InformationPanelLine(FleetShipsKey, $"Ships: {fleet.Ships}"));
+
         if (includeFacts)
         {
-            // F02
-            lines.Add(new InformationPanelLine(FleetMovesKey, $"Moves: {fleet.Moves}"));
-            // F03
-            lines.Add(new InformationPanelLine(FleetShipsKey, $"Ships: {fleet.Ships}"));
-            // F04
+            // F04: Repair
             lines.Add(new InformationPanelLine(FleetRepairKey, $"Repair: {fleet.ConditionPercent}%"));
             // F05: original's trunc(supplies × 100 / (ships × 8)). The ruleset ships FleetSupplyTonsPerShip = 8,
             // so this is trunc(supplyTons × 100 / FleetCapacityTons(ships)). Use the ruleset's value, not
@@ -517,21 +504,12 @@ public static class InformationPanelModel
         }
         else
         {
-            // Foreign-fleet: Moves, Repair, Supply, Money are blank (research read F01–F08 + the
-            // foreign-fleet paragraph). Ships (F03), Capacity (F07) and Sea (F08) are always shown
-            // — see the unconditional F03/F07/F08 lines below.
-            lines.Add(new InformationPanelLine(FleetMovesKey, "Moves:"));
+            // Foreign-fleet: Repair, Supply, Money are blank (F01–F08). The original's order keeps
+            // Ships between Moves and Repair, so the same field order applies to both panels — only
+            // the values change.
             lines.Add(new InformationPanelLine(FleetRepairKey, "Repair:"));
             lines.Add(new InformationPanelLine(FleetSupplyKey, "Supply:"));
             lines.Add(new InformationPanelLine(FleetMoneyKey, "Money:"));
-        }
-
-        // F03 (always): Ships — shown on the foreign fleet, the own fleet, and the
-        // fleet-carrying-army block alike. The own fleet renders Ships as part of F02..F06 above,
-        // not as a duplicate line below; the foreign fleet renders it here.
-        if (!includeFacts)
-        {
-            lines.Add(new InformationPanelLine(FleetShipsKey, $"Ships: {fleet.Ships}"));
         }
 
         // F07 (always): Capacity = ships × TransportTroopsPerShip troops

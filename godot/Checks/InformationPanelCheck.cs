@@ -364,8 +364,8 @@ public partial class InformationPanelCheck : Control
             PanelHasLabel(expectedTribute),
             "Carthago's city uses the tribute band word (foreign viewer)");
 
-        // C10 (foreign): no Supply line.
-        Check(!PanelHasLabelStartingWith("Supply:"), "Carthago's city omits Supply (foreign viewer)");
+        // C10 (foreign): Supply line is present but blank, keeping the field's position.
+        Check(PanelHasLabel("Supply:"), "Carthago's city shows a blank Supply line (foreign viewer)");
     }
 
     // ---- Back to Rome from the menu ----

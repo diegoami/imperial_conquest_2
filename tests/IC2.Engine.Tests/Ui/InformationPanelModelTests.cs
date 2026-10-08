@@ -123,7 +123,7 @@ public sealed class InformationPanelModelTests
     }
 
     [Fact]
-    public void A_foreign_city_carries_the_tribute_word_and_no_supply_line()
+    public void A_foreign_city_carries_the_tribute_word_and_a_blank_supply_line()
     {
         var session = RomeSession();
         var state = session.State;
@@ -140,8 +140,10 @@ public sealed class InformationPanelModelTests
             $"Tribute: {InformationWords.Tribute(tribute)}",
             byKey[InformationPanelModel.CityTributeKey]);
 
-        // C10: foreign city → no Supply line.
-        Assert.False(byKey.ContainsKey(InformationPanelModel.CitySupplyKey));
+        // C10: foreign city → Supply line present but blank (not omitted), keeping the field's
+        // position in the original's order.
+        Assert.True(byKey.ContainsKey(InformationPanelModel.CitySupplyKey));
+        Assert.Equal("Supply:", byKey[InformationPanelModel.CitySupplyKey]);
 
         // C01: capital-marker names the controller (Carthage), not Rome.
         Assert.Equal(city.Name + "  (capital of Carthage)", byKey[InformationPanelModel.CityNameKey]);
@@ -159,21 +161,24 @@ public sealed class InformationPanelModelTests
         var asForeign = InformationPanelModel.City(state, world, ruleset, carthago, viewerNationId: RomeId);
         var asOwn = InformationPanelModel.City(state, world, ruleset, carthago, viewerNationId: CarthageId);
 
-        // Rome-view: tribute word, no supply.
-        Assert.False(ByKey(asForeign).ContainsKey(InformationPanelModel.CitySupplyKey));
+        // Rome-view: tribute word and a blank Supply line.
+        var asForeignKey = ByKey(asForeign);
+        Assert.True(asForeignKey.ContainsKey(InformationPanelModel.CitySupplyKey));
+        Assert.Equal("Supply:", asForeignKey[InformationPanelModel.CitySupplyKey]);
         Assert.Contains(
             $"Tribute: {InformationWords.Tribute(carthago.Tribute)}",
-            ByKey(asForeign)[InformationPanelModel.CityTributeKey],
+            asForeignKey[InformationPanelModel.CityTributeKey],
             StringComparison.Ordinal);
 
         // Carthage-view: tribute in talents and supply in tons (the original's own-city shapes).
+        var asOwnKey = ByKey(asOwn);
         var talents = CityTaxContribution.Compute(carthago);
         Assert.Equal(
             $"Tribute: {talents} talents",
-            ByKey(asOwn)[InformationPanelModel.CityTributeKey]);
+            asOwnKey[InformationPanelModel.CityTributeKey]);
         Assert.Equal(
             $"Supply: {carthago.SupplyTons} tons",
-            ByKey(asOwn)[InformationPanelModel.CitySupplyKey]);
+            asOwnKey[InformationPanelModel.CitySupplyKey]);
     }
 
     [Fact]
@@ -293,6 +298,39 @@ public sealed class InformationPanelModelTests
             [InformationPanelModel.CityFortificationKey];
 
         Assert.StartsWith($"Fortification: {expected}", fortLine, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// R3: a captured capital. Carthage's CapitalCityId still points to Carthago, but Carthago's
+    /// controller is now Rome — the (capital of ...) marker must read the controller, not the
+    /// pointer-holder (C01: "the nation named is the city's controller (CityState.Owner), not the
+    /// nation whose capital it is"). The shipped state has no captured capitals, so the test arranges
+    /// one.
+    /// </summary>
+    [Fact]
+    public void A_captured_capital_marks_the_controller_not_the_pointer_holder()
+    {
+        var session = RomeSession();
+        var state = session.State;
+
+        // Rome owns Carthago; Carthage's CapitalCityId still equals Carthago. The marker must say
+        // "Carthago (capital of Rome)", not "Carthago (capital of Carthage)".
+        var arranged = state with
+        {
+            Cities = ValueList.From(state.Cities.Select(c =>
+                string.Equals(c.Id, CarthagoCityId, StringComparison.Ordinal)
+                    ? c with { Owner = RomeId }
+                    : c)),
+        };
+        var carthago = arranged.CityById(CarthagoCityId)!;
+
+        var lines = InformationPanelModel.City(
+            arranged, session.World, session.Ruleset, carthago, viewerNationId: RomeId);
+        var byKey = ByKey(lines);
+
+        Assert.Equal(
+            "Carthago  (capital of Rome)",
+            byKey[InformationPanelModel.CityNameKey]);
     }
 
     // ========================================================================
@@ -589,6 +627,95 @@ public sealed class InformationPanelModelTests
         Assert.Equal("Repair:", byKey[InformationPanelModel.FleetRepairKey]);
         Assert.Equal("Supply:", byKey[InformationPanelModel.FleetSupplyKey]);
         Assert.Equal("Money:", byKey[InformationPanelModel.FleetMoneyKey]);
+    }
+
+    /// <summary>
+    /// R5: a foreign fleet uses the same field order as an own fleet — Moves, Ships, Repair, Supply,
+    /// Money, Capacity, Sea — with the foreign-only values (Moves, Repair, Supply, Money) blank.
+    /// The own-fleet case is asserted position-by-position below; the foreign case asserts the same
+    /// shape on its own.
+    /// </summary>
+    [Fact]
+    public void An_own_fleet_and_a_foreign_fleet_share_the_same_field_order()
+    {
+        var session = RomeSession();
+        var state = session.State;
+        var ruleset = session.Ruleset;
+
+        // The classical start gives Rome no fleet; build one to exercise the own-fleet panel.
+        var arranged = state with
+        {
+            Fleets = ValueList.From(state.Fleets.Append(
+                new FleetState(
+                    Id: "rome-fleet-order",
+                    Nation: RomeId,
+                    X: 100, Y: 37,
+                    Moves: 25,
+                    Ships: 30,
+                    ConditionPercent: 85,
+                    Money: 200,
+                    SupplyTons: 120,
+                    ConstructionTicksRemaining: null,
+                    BuildCityId: null,
+                    CarriedArmyId: null,
+                    CoveredTileCode: 0))),
+        };
+
+        var ownLines = InformationPanelModel.OwnFleet(
+            arranged, session.World, ruleset, arranged.FleetById("rome-fleet-order")!);
+        var foreignLines = InformationPanelModel.ForeignFleet(
+            arranged, session.World, ruleset, Fleet(state, CarthaginianFleetId));
+
+        // The order of the named keys (F02..F08) on each panel.
+        var ownOrder = FieldOrder(ownLines, InformationPanelModel.FleetOfKey, InformationPanelModel.FleetArmyHeaderKey);
+        var foreignOrder = FieldOrder(foreignLines, InformationPanelModel.FleetOfKey, InformationPanelModel.FleetArmyHeaderKey);
+
+        var expected = new[]
+        {
+            InformationPanelModel.FleetMovesKey,
+            InformationPanelModel.FleetShipsKey,
+            InformationPanelModel.FleetRepairKey,
+            InformationPanelModel.FleetSupplyKey,
+            InformationPanelModel.FleetMoneyKey,
+            InformationPanelModel.FleetCapacityKey,
+            InformationPanelModel.FleetSeaKey,
+        };
+
+        Assert.Equal(expected, ownOrder);
+        Assert.Equal(expected, foreignOrder);
+    }
+
+    /// <summary>The keys in <paramref name="lines"/> that fall between <paramref name="startKey"/>
+    /// and <paramref name="stopKey"/> (exclusive), in the order they appear.</summary>
+    private static IReadOnlyList<string> FieldOrder(
+        IReadOnlyList<InformationPanelLine> lines, string? startKey, string? stopKey)
+    {
+        var started = startKey is null;
+        var result = new List<string>();
+        foreach (var line in lines)
+        {
+            if (!started && string.Equals(line.Key, startKey, StringComparison.Ordinal))
+            {
+                started = true;
+                continue;
+            }
+
+            if (started)
+            {
+                if (stopKey is not null && string.Equals(line.Key, stopKey, StringComparison.Ordinal))
+                {
+                    break;
+                }
+
+                if (line.Key.Length > 0
+                    && !string.Equals(line.Key, InformationPanelModel.ArmyBlankKey, StringComparison.Ordinal))
+                {
+                    result.Add(line.Key);
+                }
+            }
+        }
+
+        return result;
     }
 
     [Fact]

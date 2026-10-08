@@ -265,6 +265,9 @@ public partial class NationsAreaMapCheck : Control
 
     private void AssertCarthagePanelIsPublicOnly()
     {
+        // T140 (2026-10-05 decision): the foreign panel now adds Population (Wealth, row N05),
+        // Unity (a word, row N06) and Tax rate (row N07) — every other nation's relation in place
+        // of the viewer's cell alone. Mobilized (N08) and Treasury (N09) stay blank.
         var panel = _mainGame.ContextPanel;
         foreach (var shown in new[]
         {
@@ -272,6 +275,9 @@ public partial class NationsAreaMapCheck : Control
             NationStatusModel.CapitalKey,
             NationStatusModel.CitiesKey,
             NationStatusModel.CityNamesKey,
+            NationStatusModel.PopulationKey,
+            NationStatusModel.UnityKey,
+            NationStatusModel.TaxRateKey,
             NationStatusModel.RelationKeyPrefix + RomeId,
         })
         {
@@ -281,9 +287,6 @@ public partial class NationsAreaMapCheck : Control
         foreach (var withheld in new[]
         {
             NationStatusModel.TreasuryKey,
-            NationStatusModel.TaxRateKey,
-            NationStatusModel.PopulationKey,
-            NationStatusModel.UnityKey,
             NationStatusModel.MobilizedKey,
             NationStatusModel.TrainingHeaderKey,
             NationStatusModel.TrainingNoneKey,
