@@ -38,7 +38,11 @@
     stops that way, or OpenCode is not installed, it exits 3 ("OpenCode unavailable: ..."), and the task falls back to Claude Sonnet (operating-guide
     §3). An implementer that stops and reports has not failed: its OpenCode run exits 0, so it is
     never retried on another model; the script then exits 1 ("No open PR") and the main session
-    reads the report.
+    reads the report. Once every chain model has failed, the script asks Choose-Model.ps1 for an
+    implementer outside the failed families (Done-when 2) and runs it once before exit 3; it writes
+    the run's attempts and the allowed outside paths it touched into the PR body (Done-when 2, 3).
+    Before that, it copies -BriefFile into the worktree at rendered/brief.md and feeds the copy
+    (Done-when 1), so the prompt names no path outside the worktree.
     Before the run's tail it prints the model that ran ("implemented by: <name>"); the review passes it to
     external-review.ps1 as -ExcludeModel, so the reviewer is never the implementer's model.
     The script never merges, labels or reviews; the main session does those (Appendix C).
@@ -92,8 +96,13 @@
     killed (default 900; 0 disables). `updated` advances at each step boundary, not while a tool
     runs or a reply streams, so this must exceed the longest single step (a long generation).
 .PARAMETER WhatIf
-    Print each chain model's OpenCode argument line (the CLI's version decides its syntax) and exit 0,
-    without creating a worktree, starting a run or billing a model (it does start `opencode --version`, in its own scratch directories).
+    Print each chain model's OpenCode argument line (the CLI's version decides its syntax), print the
+    destination the brief would be copied to inside the worktree (Done-when 1), and exit 0, without
+    creating a worktree, starting a run or billing a model (it does start `opencode --version`, in its own scratch directories).
+.PARAMETER SimulateFailed
+    With -WhatIf: the implementer model names (comma-separated or repeated) to treat as failed for
+    the check. The script prints the substitute Choose-Model.ps1 would pick with those models'
+    families excluded, and why, without running anything (Done-when 2's check).
 .PARAMETER ModelIds
     Overrides of the model name -> model id map, e.g. @{ 'deepseek-flash' = 'opencode-go/deepseek-v4.2-flash' },
     for when `opencode models` shows a different id (or, in a test, a bad id to exercise the chain).
@@ -118,6 +127,7 @@ param(
     [int] $TotalTimeoutSec = 10800,
     [int] $IdleTimeoutSec = 900,
     [switch] $WhatIf,
+    [string[]] $SimulateFailed,
     [hashtable] $ModelIds
 )
 
@@ -125,6 +135,47 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Invoke-OpenCodeWatched.ps1')
 # The Alibaba Token Plan's key comes from the user environment when this process predates it (never printed).
 $null = Import-AlibabaTokenPlanKey
+
+function Get-SubstituteModel {
+    # T150 Done-when 2: once every model of the chain has failed, ask Choose-Model for an implementer
+    # outside those families. Returns the model name, or $null; -Why is filled either way. Run in
+    # process: Choose-Model returns before the rest of the script when dot-sourced, but here it is
+    # called normally, prints the name with -Pick (its `exit` ends only that script) and sets
+    # $LASTEXITCODE.
+    param([string[]] $ExcludeFamilies, [ref] $Why)
+    $chooser = Join-Path $PSScriptRoot 'Choose-Model.ps1'
+    if (-not (Test-Path -LiteralPath $chooser)) { $Why.Value = "Choose-Model.ps1 not found at $chooser"; return $null }
+    try { $out = & $chooser -Role implementer -ExcludeFamily $ExcludeFamilies -Pick 2>&1 }
+    catch { $Why.Value = "Choose-Model.ps1 failed: $($_.Exception.Message)"; return $null }
+    if ($LASTEXITCODE -ne 0) { $Why.Value = "Choose-Model.ps1 found no implementer outside $($ExcludeFamilies -join ', ')"; return $null }
+    $name = @($out) | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ } | Select-Object -Last 1
+    if (-not $name) { $Why.Value = 'Choose-Model.ps1 printed no model name'; return $null }
+    $Why.Value = "-ExcludeFamily $($ExcludeFamilies -join ',') on the implementer ranking picked $name"
+    return $name
+}
+
+function Set-PullRequestSection {
+    # Appends (or replaces) one "## <Heading>" section in the PR body (Done-when 2 and 3 write the
+    # "Implementer attempts" and "Outside paths touched" sections). The body is edited with
+    # gh pr edit, through a scratch file inside the worktree (a path outside it is refused).
+    param([int] $Pr, [string] $Heading, [string] $Body, [string] $Worktree)
+    $marker = "## $Heading"
+    $current = gh pr view $Pr --json body --jq '.body' 2>$null
+    if ($null -eq $current) { Write-Warning "could not read PR #$Pr's body; not adding '$Heading'"; return }
+    $lines = @($current -split "`r?`n")
+    $kept = New-Object System.Collections.Generic.List[string]
+    $skip = $false
+    foreach ($line in $lines) {
+        if ($line -match '^##\s') { $skip = ($line.Trim() -eq $marker) }
+        if (-not $skip) { $kept.Add($line) }
+    }
+    $newBody = (($kept -join "`n").TrimEnd()) + "`n`n$marker`n`n$Body`n"
+    $dir = Join-Path $Worktree 'rendered'
+    New-Item -ItemType Directory -Force -Path $dir | Out-Null
+    $file = Join-Path $dir 'pr-body.md'
+    [System.IO.File]::WriteAllText($file, $newBody, [System.Text.UTF8Encoding]::new($false))
+    gh pr edit $Pr --body-file $file | Out-Null
+}
 
 # On 2026-10-01 the user moved the OpenCode runs from OpenCode Zen to OpenCode Go (issue #551):
 # every id is `opencode-go/…` and no Zen model is used, the free ones included. The one exception
@@ -176,10 +227,17 @@ $chain = if ($Model -eq 'auto') { @('deepseek-flash', 'qwen-flash') } else { @($
 $quota = Get-QuotaAvoid
 $resolved = @{}
 $kept = @()
+# Done-when 2: every model this run tried, with its route and its failure class, for the PR body's
+# "Implementer attempts" section. A model an auto chain drops for quota is recorded here too.
+$attempts = @()
 foreach ($m in $chain) {
     $r = Resolve-OpenCodeRoute -Usual $models[$m] -Alibaba $alibabaIds[$m] -Route $Route -Answered $quota.Answered -Avoid $quota.Providers
     if ($r.Refused -and $Model -ne 'auto') { [Console]::Error.WriteLine("Refused: ${m}: $($r.Why)."); exit 1 }
-    if ($r.Refused -or ($r.Avoided -and $Model -eq 'auto')) { Write-Host "skipped: $m ($($r.Why))"; continue }
+    if ($r.Refused -or ($r.Avoided -and $Model -eq 'auto')) {
+        Write-Host "skipped: $m ($($r.Why))"
+        $attempts += [pscustomobject]@{ Model = $m; Route = '-'; Class = 'quota-skip'; Why = $r.Why }
+        continue
+    }
     if ($r.Avoided) { Write-Warning "${m}: $($r.Why); it runs because -Model names it (the main session's choice)." }
     $resolved[$m] = $r
     $kept += $m
@@ -202,16 +260,6 @@ if (-not $chain) {
     [Console]::Error.WriteLine("OpenCode unavailable: no chain model has a route with quota (quota-tracker /avoid: $($quota.Providers -join ', ')). The task falls back to Claude Sonnet (operating-guide §3).")
     exit 3
 }
-if ($WhatIf) {
-    # No worktree, no OpenCode, no billing: only the argument line each chain model would get.
-    $whatIfPrompt = Get-Content -Raw -LiteralPath $BriefFile
-    foreach ($m in $chain) {
-        Write-Host "would attempt: $m"
-        $null = Invoke-OpenCodeWatched -WhatIf -Agent 'external-implementer' -Model $resolved[$m].Model -Variant $variants[$m] -Prompt $whatIfPrompt `
-            -WorkDir (Get-Location).Path -Title "ic2-$(if ($Task) { $Task } else { "fix-$Fix" })-$m"
-    }
-    exit 0
-}
 foreach ($tool in 'gh', 'git') { if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) { throw "$tool is not on PATH." } }
 
 $repo = (Resolve-Path (git rev-parse --show-toplevel)).Path
@@ -224,6 +272,33 @@ if (-not (Test-Path -LiteralPath $agentFile)) { throw "Agent file not found: $ag
 if ($Task) { $name = $Task; $branch = "task/$Task-$Slug" } else { $name = "fix-$Fix"; $branch = "fix/$Fix-$Slug"; if (-not $Issue) { $Issue = $Fix } }
 $worktree = Join-Path $workRoot $name
 $log = Join-Path $workRoot "$name.implementer.log"
+# Done-when 1: the brief lives in the worktree. Its destination is fixed before the run, so -WhatIf
+# can print it and the real run copies it there before OpenCode starts.
+$briefPath = Join-Path $worktree 'rendered/brief.md'
+
+if ($WhatIf) {
+    # No worktree, no OpenCode, no billing: the argument line each chain model would get, and where
+    # the brief would be copied (Done-when 1).
+    Write-Host "brief: $BriefFile -> $briefPath"
+    if ($SimulateFailed) {
+        # Done-when 2's check: treat the named models as failed and show the substitute, without
+        # running anything. Commas are split because `pwsh -File ... -SimulateFailed a,b` binds the
+        # whole list as one string.
+        $failed = @($SimulateFailed | ForEach-Object { @([string]$_) -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+        $why = $null
+        $sub = Get-SubstituteModel -ExcludeFamilies $failed -Why ([ref]$why)
+        Write-Host "simulate failed: $($failed -join ', ')"
+        if ($sub) { Write-Host "would substitute: $sub ($why)" }
+        else { Write-Host "would substitute: none ($why)" }
+    }
+    $whatIfPrompt = Get-Content -Raw -LiteralPath $BriefFile
+    foreach ($m in $chain) {
+        Write-Host "would attempt: $m"
+        $null = Invoke-OpenCodeWatched -WhatIf -Agent 'external-implementer' -Model $resolved[$m].Model -Variant $variants[$m] -Prompt $whatIfPrompt `
+            -WorkDir (Get-Location).Path -Title "ic2-$(if ($Task) { $Task } else { "fix-$Fix" })-$m"
+    }
+    exit 0
+}
 
 # 1. The worktree and branch. Resume a pushed branch; otherwise start from origin/main and push.
 git -C $repo fetch -q origin
@@ -258,8 +333,14 @@ if (-not (git -C $worktree ls-files -- $agentRel)) {
     }
 }
 
-# 3. The run.
-$brief = Get-Content -Raw -LiteralPath $BriefFile
+# 3. The run. Done-when 1: copy the brief into the worktree (rendered/ is git-ignored there) and
+# feed the copy, so the prompt never names a path outside the worktree. An absolute -BriefFile in
+# the main checkout is replaced by the copy's path if the brief text named it.
+$renderedDir = Join-Path $worktree 'rendered'
+New-Item -ItemType Directory -Force -Path $renderedDir | Out-Null
+Copy-Item -LiteralPath $BriefFile -Destination $briefPath -Force
+$brief = Get-Content -Raw -LiteralPath $briefPath
+if ($brief.Contains($BriefFile)) { $brief = $brief.Replace($BriefFile, $briefPath) }
 $rules = @"
 
 ---
@@ -267,6 +348,8 @@ RUN RULES (from scripts/external-implement.ps1; they override the brief where th
 - Your worktree is $worktree on branch $branch, already created and pushed. Skip the brief's
   whole setup block (worktree and branch creation, and any assets.local.ini copy: -LocalOnly has
   already copied it); never run git worktree. Pass git -C "$worktree" explicitly.
+- Your brief is copied into your worktree at $briefPath (git-ignored). Read it there, never the
+  main checkout's copy.
 - Everything else in the brief is binding: Owns, Done-when, the rules for engine code, the PR
   body, the detach at the end, and the report.
 - The PR body's "Closes #$Issue" is the only place a closing keyword may precede #<n>.
@@ -299,6 +382,8 @@ $output = $null
 $lastClass = $null
 $sameCause = $null
 $implementedBy = $null
+# The finishing run's object, for the "Outside paths touched" section (Done-when 3).
+$finalRun = $null
 [System.IO.File]::WriteAllText($log, '')
 $attempt = 0
 foreach ($m in $chain) {
@@ -321,9 +406,18 @@ foreach ($m in $chain) {
         $reason = $_.Exception.Data['Reason']; $output = $_.Exception.Message
     }
     Add-Content -LiteralPath $log -Value "=== $m ($($resolved[$m].Model), route $($resolved[$m].Route)): $(if ($reason) { "failed: $reason" } else { 'ran' }) ===`n$output" -Encoding utf8
-    if (-not $reason) { $implementedBy = $m; break }
+    if (-not $reason) {
+        $implementedBy = $m
+        $attempts += [pscustomobject]@{ Model = $m; Route = $resolved[$m].Route; Class = 'ran'; Why = '' }
+        $finalRun = $run
+        break
+    }
     Write-Warning "$m failed: $reason"
     $failures += "${m}: $reason"
+    # Two consecutive attempts failing with one cause (two startup hangs, two idle kills) mean
+    # OpenCode itself is the problem, not the model: stop the chain (operating-guide §3).
+    $class = Get-OpenCodeFailureClass $reason
+    $attempts += [pscustomobject]@{ Model = $m; Route = $resolved[$m].Route; Class = $class; Why = $reason }
     git -C $repo fetch -q origin
     $prNow = gh pr list --head $branch --state open --json number --jq '.[0].number' 2>$null
     $leftWork = (git -C $worktree rev-parse HEAD) -ne $startSha -or
@@ -332,13 +426,64 @@ foreach ($m in $chain) {
     if ($leftWork) { [Console]::Error.WriteLine("$m failed ($reason) after committing, pushing or opening a PR on $branch; not retrying on another model. The main session decides. Log: $log"); exit 1 }
     git -C $worktree reset -q --hard $startSha
     git -C $worktree clean -q -fd
-    # Two consecutive attempts failing with one cause (two startup hangs, two idle kills) mean
-    # OpenCode itself is the problem, not the model: stop the chain (operating-guide §3).
-    $class = Get-OpenCodeFailureClass $reason
     if ($class -eq $lastClass) { $sameCause = $class; break }
     $lastClass = $class
 }
 Write-Host "run output: $log"
+# Done-when 2: every model of the chain failed (or was skipped for quota), so ask Choose-Model for
+# an implementer of another family and run it once. Nothing has been left behind by the failed runs
+# (checked above), so the worktree is at the starting commit. If Choose-Model returns nothing, exit 3
+# is unchanged.
+if (-not $implementedBy) {
+    $failedFamilies = @($attempts | Where-Object { $_.Class -ne 'ran' } | Select-Object -ExpandProperty Model -Unique)
+    $subWhy = $null
+    $substitute = Get-SubstituteModel -ExcludeFamilies $failedFamilies -Why ([ref]$subWhy)
+    if (-not $substitute) {
+        Write-Host "the chain is spent; no substitute: $subWhy"
+    } else {
+        Write-Host "the chain is spent; substitute: $subWhy"
+        $sr = Resolve-OpenCodeRoute -Usual $models[$substitute] -Alibaba $alibabaIds[$substitute] -Route $Route -Answered $quota.Answered -Avoid $quota.Providers
+        if ($sr.Refused) {
+            Write-Warning "substitute $substitute refused: $($sr.Why)"
+            $attempts += [pscustomobject]@{ Model = $substitute; Route = '-'; Class = 'quota-skip'; Why = $sr.Why }
+        } else {
+            if ($sr.Avoided) { Write-Warning "${substitute}: $($sr.Why); it runs anyway as the substitute." }
+            $attempt++
+            Write-Host "attempt $attempt (substitute): $substitute ($($sr.Model), route $($sr.Route))$(if ($variants[$substitute]) { " with variant $($variants[$substitute])" }), OpenCode $($cli.Version)"
+            $reason = $null
+            try {
+                $run = Invoke-OpenCodeWatched -Agent 'external-implementer' -Model $sr.Model -Variant $variants[$substitute] -Prompt $prompt -WorkDir $worktree -Title "ic2-$name-$substitute" `
+                    -StartupTimeoutSec $StartupTimeoutSec -TotalTimeoutSec $TotalTimeoutSec -IdleTimeoutSec $IdleTimeoutSec
+                $output = $run.Output
+                if ($run.PermissionRejected) { $reason = "permission rejected: $($run.PermissionRejected)" }
+                elseif ($run.ExitCode -ne 0) { $reason = "exit $($run.ExitCode)" }
+                elseif ($run.AgentFallback) { $reason = 'fell back to the default agent' }
+            } catch {
+                if (-not (Test-OpenCodeInfraFailure $_)) { throw }
+                $reason = $_.Exception.Data['Reason']; $output = $_.Exception.Message
+            }
+            Add-Content -LiteralPath $log -Value "=== $substitute ($($sr.Model), route $($sr.Route)): $(if ($reason) { "failed: $reason" } else { 'ran' }) ===`n$output" -Encoding utf8
+            if (-not $reason) {
+                $implementedBy = $substitute
+                $resolved[$substitute] = $sr
+                $attempts += [pscustomobject]@{ Model = $substitute; Route = $sr.Route; Class = 'ran'; Why = '' }
+                $finalRun = $run
+            } else {
+                Write-Warning "$substitute failed: $reason"
+                $failures += "${substitute}: $reason"
+                $attempts += [pscustomobject]@{ Model = $substitute; Route = $sr.Route; Class = (Get-OpenCodeFailureClass $reason); Why = $reason }
+                git -C $repo fetch -q origin
+                $prNow = gh pr list --head $branch --state open --json number --jq '.[0].number' 2>$null
+                $leftWork = (git -C $worktree rev-parse HEAD) -ne $startSha -or
+                    ((git -C $repo rev-parse "origin/$branch" 2>$null) -ne $startRemote) -or
+                    ($prNow -and $prNow -ne $startPr)
+                if ($leftWork) { [Console]::Error.WriteLine("$substitute failed ($reason) after committing, pushing or opening a PR on $branch; the main session decides. Log: $log"); exit 1 }
+                git -C $worktree reset -q --hard $startSha
+                git -C $worktree clean -q -fd
+            }
+        }
+    }
+}
 if (-not $implementedBy) {
     # Not Write-Error: under ErrorActionPreference Stop it would end the script with exit 1, not 3.
     $why = if ($sameCause) { "same failure twice: $sameCause ($($failures -join '; '))" } else { $failures -join '; ' }
@@ -362,3 +507,24 @@ Write-Host '--- tail of the run ---'
 ($output -split "`r?`n" | Select-Object -Last 40) -join "`n" | Write-Host
 if (-not $pr) { Write-Error "No open PR for $branch. Read $log; resume with the same command once the cause is known."; exit 1 }
 Write-Host "PR: $pr"
+
+# Done-when 2 and 3: the two sections this run writes into the PR body, once it exists.
+$prNumber = 0
+try { $prNumber = [int](($pr | ConvertFrom-Json).number) } catch { }
+if ($prNumber -gt 0) {
+    $attemptLines = @($attempts | ForEach-Object {
+            "- $($_.Model) ($($_.Route)): $($_.Class)$(if ($_.Why) { " -- $($_.Why)" })"
+        })
+    $attemptLines += "ran: $implementedBy ($($resolved[$implementedBy].Model), route $($resolved[$implementedBy].Route))"
+    Set-PullRequestSection -Pr $prNumber -Heading 'Implementer attempts' -Body ($attemptLines -join "`n") -Worktree $worktree
+
+    if ($finalRun -and $finalRun.OutsidePathsKnown) {
+        $paths = @($finalRun.OutsidePaths)
+        if ($paths.Count -eq 0) { $outsideBody = 'none' } else { $outsideBody = (@($paths | ForEach-Object { "- $_" }) -join "`n") }
+    } else {
+        $outsideBody = 'unknown: the session export failed'
+    }
+    Write-Host 'Outside paths touched:'
+    Write-Host $outsideBody
+    Set-PullRequestSection -Pr $prNumber -Heading 'Outside paths touched' -Body $outsideBody -Worktree $worktree
+}
