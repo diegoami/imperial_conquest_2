@@ -457,7 +457,7 @@ public partial class PeaceOfferCheck : Node
         army with { X = x, Y = y, Morale = morale, Units = units };
 
     private static StartingArmy Extra(string id, string nation, int x, int y) =>
-        new(id, nation, X: x, Y: y, Morale: 60, Money: 0, SupplyTons: 0, Moves: 8, Units: Units(150000, 6));
+        new(id, nation, X: x, Y: y, Morale: 60, Money: 0, SupplyTons: 300, Moves: 8, Units: Units(150000, 6));
 
     private sealed record ResolvedScenarioHolder(World World, Scenario Scenario);
 
