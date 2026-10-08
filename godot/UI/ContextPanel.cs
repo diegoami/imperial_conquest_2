@@ -169,25 +169,8 @@ public partial class ContextPanel : Control
 
     /// <summary>Re-reads the current selection's own state and rebuilds this panel's controls — call after
     /// any command that might have changed what is selected (a city captured, an army disbanded, ...).
-    /// <see cref="ShowMercenariesAtCity"/>'s flag is preserved across a refresh, so a hire that lands
-    /// and leaves the panel showing a city's mercenaries still does; a hire that lists an empty
-    /// re-reads the model and shows the empty message.</summary>
-    public void Refresh()
-    {
-        if (_showMercenariesForCity
-            && _selection.Kind == SelectionKind.UnitList
-            && _selection.Entity == MapEntityKind.City
-            && _selection.Id is { } cityId)
-        {
-            // After a refresh the mercenary listing should still reflect the live offers — the
-            // model's Refresh-style behaviour is to rebuild against the new state.
-            Rebuild();
-        }
-        else
-        {
-            Rebuild();
-        }
-    }
+    /// </summary>
+    public void Refresh() => Rebuild();
 
     private void Rebuild()
     {
