@@ -52,8 +52,10 @@ public partial class SoundCuesCheck : Control
     private bool _ok = true;
     private MainGameScreen _mainGame = null!;
     private MainGameScreen _moveMainGame = null!;
+    private MainGameScreen _noBlockingMainGame = null!;
     private SoundPlayer _player = null!;
     private SoundPlayer _movePlayer = null!;
+    private SoundPlayer _noBlockingPlayer = null!;
     private int _frame;
     private int _step;
     private double _captureWallSeconds;
@@ -61,6 +63,15 @@ public partial class SoundCuesCheck : Control
 
     private const string CaptureArmyId = "sound-cues-capture-army";
     private const string MoveArmyId = "sound-cues-move-army";
+    private const string NoBlockingArmyId = "sound-cues-no-blocking-army";
+    private const string NoBlockingCityId = "sound-cues-no-blocking-city";
+
+    /// <summary>How many ms <see cref="CheckNoBlocking"/> may take from the cue list's first
+    /// enqueue to the player's first playing-frame read, per Sol's review of PR 793 (R6).
+    /// The original <c>PlaySoundA</c> with <c>SND_SYNC</c> would block the game thread for the
+    /// full stream length (sound 10, 1.4 s); the clone's queue-then-play must finish in a
+    /// fraction of that, regardless of the stream's own duration.</summary>
+    private const double NoBlockingBudgetMs = 250.0;
 
     public override void _Ready()
     {
@@ -79,6 +90,16 @@ public partial class SoundCuesCheck : Control
         // sea (y=70+); (50, 35) is open land in the central mediterranean with no nearby cities.
         var enemyCity = new IC2.Engine.Model.CityState(
             Id: EnemyCityId, Name: "TestCity", X: 50, Y: 35,
+            Owner: "carthage", Allegiance: "carthage",
+            Loyalty: 100, SupplyTons: 100, FortificationCode: 0,
+            PopulationThousands: 10, MaxPopulationThousands: 20,
+            Tribute: 0, UnderSiege: false,
+            Garrison: IC2.Engine.Model.ValueList<IC2.Engine.Model.UnitSlot>.Empty);
+
+        // A second test city, far enough away that the no-blocking session's own army can
+        // besiege it without conflict. (70, 35) is open land in the same band.
+        var noBlockingCity = new IC2.Engine.Model.CityState(
+            Id: NoBlockingCityId, Name: "NoBlockingCity", X: 70, Y: 35,
             Owner: "carthage", Allegiance: "carthage",
             Loyalty: 100, SupplyTons: 100, FortificationCode: 0,
             PopulationThousands: 10, MaxPopulationThousands: 20,
@@ -106,6 +127,16 @@ public partial class SoundCuesCheck : Control
                     MercenaryLabel: 0, UnitTypeId: "heavy_infantry", Troops: 30000, Quality: 8,
                     Name: "Move Army")));
 
+        // No-blocking army: one cell west of the no-blocking city.
+        var noBlockingArmy = new IC2.Engine.Model.ArmyState(
+            Id: NoBlockingArmyId, Nation: HumanNation,
+            X: 69, Y: 35, Moves: 99, Morale: 80, Money: 0, SupplyTons: 0,
+            CoveredTileCode: 4, AboardFleetId: null,
+            Units: IC2.Engine.Model.ValueList.Of(
+                new IC2.Engine.Model.UnitSlot(
+                    MercenaryLabel: 0, UnitTypeId: "heavy_infantry", Troops: 30000, Quality: 8,
+                    Name: "NoBlocking Army")));
+
         // Add the city and army, and remove the shipped rome army so the cue list's human
         // filter sees only this one. Mark rome as the human seat so the GameSession's own
         // watch-mode gate (the brief DoD asks for a human command path) recognises the seat.
@@ -116,10 +147,10 @@ public partial class SoundCuesCheck : Control
         {
             Nations = IC2.Engine.Model.ValueList.From(nationsWithHumanSeat),
             Cities = IC2.Engine.Model.ValueList.From(
-                initial.Cities.Append(enemyCity)),
+                initial.Cities.Append(enemyCity).Append(noBlockingCity)),
             Armies = IC2.Engine.Model.ValueList.From(
                 initial.Armies.Where(a => a.Nation != HumanNation)
-                    .Append(captureArmy).Append(moveArmy)),
+                    .Append(captureArmy).Append(moveArmy).Append(noBlockingArmy)),
         };
 
         var save = new IC2.Engine.Model.SaveGame(
@@ -168,6 +199,28 @@ public partial class SoundCuesCheck : Control
         {
             var cues = SoundCues.ForEvents(events, moveSession.State);
             _movePlayer.Play(cues);
+        };
+
+        // A third, for the no-blocking half of DoD 4: the check synthesises a 2.0 s WAV
+        // (the worst-case stream length the API will produce) and binds it to
+        // sfx.city_captured on a private player, then submits an order that cues that key and
+        // measures the wall clock from the cue's first enqueue to the player's first
+        // playing-frame read. A passing run is a no-blocking proof.
+        var noBlockingSession = new GameSession(
+            classical.World, classical.Ruleset, classical.Scenario, save);
+        _noBlockingMainGame = new MainGameScreen { Session = noBlockingSession, RepositoryRoot = GameDataContext.RepositoryRoot };
+        _noBlockingMainGame.SetAnchorsPreset(LayoutPreset.FullRect);
+        AddChild(_noBlockingMainGame);
+
+        _noBlockingPlayer = new SoundPlayer(System.IO.Path.Combine(
+            GameDataContext.RepositoryRoot, "assets", "packs",
+            SettingsScreen.SelectedPackId ?? Assets.AssetPackManifestLoader.DefaultPackId));
+        AddChild(_noBlockingPlayer);
+        _noBlockingPlayer.BindStreamForTest(AssetKeys.SfxCityCaptured, SynthesiseSilentWav(durationSeconds: 2.0));
+        noBlockingSession.EventsPublished += events =>
+        {
+            var cues = SoundCues.ForEvents(events, noBlockingSession.State);
+            _noBlockingPlayer.Play(cues);
         };
     }
 
@@ -218,6 +271,7 @@ public partial class SoundCuesCheck : Control
 
                 case 4 when _frame >= OrderSettleFrames:
                     CheckMoveUnitMoveMuted();
+                    CheckNoBlocking();
                     Finish();
                     break;
             }
@@ -241,6 +295,19 @@ public partial class SoundCuesCheck : Control
     private void CaptureEnemyCity()
     {
         _mainGame.Session.Submit($"besiege-city {CaptureArmyId} {EnemyCityId}");
+    }
+
+    /// <summary>
+    /// Submits a besiege-city order through the no-blocking test's session. The city and army
+    /// are placed independently of the capture test (they share the same world but at
+    /// distinct coordinates), so the no-blocking cue list is the only one that fires.
+    /// </summary>
+    private void NoBlockingCaptureCity()
+    {
+        // For the no-blocking test we issue a fresh capture that the test's own session and
+        // player are wired to. The session's events list is the same one the cue list reads,
+        // so the cue fires on this session's player (the one with the 2.0 s stream).
+        _noBlockingMainGame.Session.Submit($"besiege-city {NoBlockingArmyId} {NoBlockingCityId}");
     }
 
     /// <summary>
@@ -288,6 +355,70 @@ public partial class SoundCuesCheck : Control
             queue.Count == 0,
             $"with Sound off, a human army's three-cell move queues nothing (got [{string.Join(", ", queue)}])");
         _ok &= ok;
+    }
+
+    /// <summary>
+    /// T149 DoD 4 (Sol's review of PR 793, R6): the original's <c>PlaySoundA(path, NULL, 0)</c> with
+    /// <c>SND_SYNC</c> blocked the game thread for every sound it played -- sound 10, the longest,
+    /// froze the game for 1.4 s. The clone's queue-then-play must not block: a 2.0 s stream the
+    /// check itself synthesises is bound to <c>sfx.city_captured</c> at startup, the
+    /// <see cref="GameSession.Submit"/> call that enqueues the cue returns, cue handling included, in
+    /// well under the original's stall window, and the player reports the stream as playing after
+    /// the return. A pass here is the proof the cue list does not copy the original's
+    /// synchronous path.
+    /// </summary>
+    private void CheckNoBlocking()
+    {
+        // The test's private session and player carry the 2.0 s stream bound to
+        // sfx.city_captured; the cue list reads that key and asks the player to play it.
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        NoBlockingCaptureCity();
+        stopwatch.Stop();
+
+        var elapsedMs = stopwatch.Elapsed.TotalMilliseconds;
+        var withinBudget = elapsedMs < NoBlockingBudgetMs;
+        var ok1 = Check(
+            withinBudget,
+            $"the Submit call that enqueues a 2.0 s sfx.city_captured cue returns within {NoBlockingBudgetMs:F0} ms "
+            + $"(elapsed {elapsedMs:F1} ms; the original's PlaySoundA would have stalled the thread for the full stream length)");
+        _ok &= ok1;
+
+        // Read the player's playing state immediately after the return. The 2.0 s stream is
+        // still rendering on Godot's audio thread, so AudioStreamPlayer.Playing is true.
+        // If the cue list had dropped the cue, the player would never have started, and
+        // Playing would be false -- exactly the failure mode the original's stall would have
+        // hidden by waiting.
+        var isPlaying = _noBlockingPlayer.IsPlayingForTest(AssetKeys.SfxCityCaptured);
+        var ok2 = Check(
+            isPlaying,
+            $"the 2.0 s sfx.city_captured stream is playing on the audio thread immediately after the Submit return "
+            + $"(IsPlaying={isPlaying})");
+        _ok &= ok2;
+    }
+
+    /// <summary>
+    /// Build a 2.0 s mono 44.1 kHz 16-bit WAV in memory with one non-zero sample at the start so the
+    /// peak check in <c>AssetLoader.LoadManifest</c>'s downstream code does not refuse it. The
+    /// exact contents do not matter: a 2.0 s empty stream would still take 2.0 s to play on Godot's
+    /// audio thread, which is the worst case the no-blocking test must cover.
+    /// </summary>
+    private static AudioStreamWav SynthesiseSilentWav(double durationSeconds)
+    {
+        const int sampleRate = 44100;
+        var sampleCount = (int)(durationSeconds * sampleRate);
+        var data = new byte[sampleCount * 2];
+        // Set the first sample to a non-zero value (a single click) so the file has a peak
+        // above 0; the rest is silence. The downstream test never reads the stream's
+        // content, only its duration and its playing state.
+        data[0] = 0x01;
+        data[1] = 0x00;
+        return new AudioStreamWav
+        {
+            Format = AudioStreamWav.FormatEnum.Format16Bits,
+            Stereo = false,
+            MixRate = sampleRate,
+            Data = data,
+        };
     }
 
     private void Finish()

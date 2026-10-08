@@ -61,6 +61,52 @@ public sealed partial class SoundPlayer : Node
     }
 
     /// <summary>
+    /// T149 DoD 4 (Sol's review of PR 793, R6): the headless <c>--audio-driver Dummy</c> check
+    /// synthesises a 2.0 s stream and binds it to <c>sfx.city_captured</c> through this method,
+    /// then times the <see cref="GameSession.Submit"/> call's wall clock to assert the
+    /// player's no-blocking property. The production player never calls this; the test does.
+    /// A key the player does not know about (no <see cref="AudioStreamPlayer"/> for it) silently
+    /// no-ops, exactly as <see cref="Play"/> does.
+    /// </summary>
+    public void BindStreamForTest(string key, AudioStreamWav stream)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(stream);
+
+        if (_players.TryGetValue(key, out var player))
+        {
+            player.Stream = stream;
+        }
+        else
+        {
+            var newPlayer = new AudioStreamPlayer { Name = key, Stream = stream, Bus = "Master" };
+            AddChild(newPlayer);
+            _players[key] = newPlayer;
+        }
+    }
+
+    /// <summary>
+    /// T149 DoD 4 (Sol's review of PR 793, R6): <see langword="true"/> when the
+    /// <see cref="AudioStreamPlayer"/> for <paramref name="key"/> exists and Godot's audio
+    /// thread currently reports it as playing. The check reads this after its <c>Submit</c>
+    /// returns to confirm a 2.0 s stream the cue list just enqueued really did start playing,
+    /// rather than being dropped or scheduled on a future frame.
+    /// </summary>
+    public bool IsPlayingForTest(string key)
+    {
+        if (!_players.TryGetValue(key, out var player))
+        {
+            return false;
+        }
+
+        // Godot's AudioStreamPlayer.Playing is true while a stream is rendering on the audio
+        // thread. A still-finished stream flips it back to false; the check asserts true here
+        // because the 2.0 s stream is still rendering at the moment the read happens.
+        var playingProperty = player.GetType().GetProperty("Playing");
+        return playingProperty?.GetValue(player) as bool? ?? false;
+    }
+
+    /// <summary>
     /// T149 DoD 4: every cue <see cref="Play"/> has enqueued since the last call, in enqueue
     /// order. Aimed at the headless Godot check <c>godot/Checks/SoundCuesCheck.cs</c>, which
     /// needs a way to read "what would have been played" without depending on Godot's audio
