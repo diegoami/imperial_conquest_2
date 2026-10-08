@@ -137,6 +137,22 @@ public sealed class MoveFleetCommandHandler : ICommandHandler<MoveFleetCommand>
                 : a)
             : state.Armies;
 
+        // T149: a fleet step is the original's `MakeSound(2)` trigger (the report's row 15, which gates
+        // the sound on "the current seat is human"). The cue list reads the nation id from this event
+        // and skips the play when the seat is computer-controlled. Published only on an accepted
+        // order, and only if the walk actually moved the fleet — a no-op walk (blocked path, fleet
+        // already at the target) does not raise the event, so the cue list does not either.
+        if (from.X != finalPosition.X || from.Y != finalPosition.Y)
+        {
+            context.Events.Publish(new FleetMoved(
+                FleetId: fleet.Id,
+                NationId: fleet.Nation,
+                FromX: from.X,
+                FromY: from.Y,
+                ToX: finalPosition.X,
+                ToY: finalPosition.Y));
+        }
+
         return CommandOutcome.Accept(state with
         {
             Fleets = ValueList.From(updatedFleets),

@@ -155,15 +155,47 @@ public static class AssetKeys
     public const string TerrainSeaDeepSurface = "terrain.sea_deep.surface";
 
     // ===== Sound effects =====
+    //
+    // T149 (correction task for bug #790): the ten sounds the original played, named per the mapping
+    // in the research report `2026-10-06-sound-events.md`. The three pre-existing keys keep their
+    // names and take the nearest original sound: `sfx.unit_move` is sound 1 (an army's step),
+    // `sfx.city_captured` sound 7 (a city taken) and `sfx.battle` sound 9 (a field battle resolved
+    // at once). Seven new keys, generated through ElevenLabs' sound-effects API on the owner's
+    // `ELEVENLABS_API_KEY` and shipped in both packs: `sfx.fleet_move` (sound 2), `sfx.battle_arrows`
+    // (3), `sfx.battle_javelin` (4), `sfx.battle_melee` (5), `sfx.siege_failed` (6), `sfx.fleet_sunk`
+    // (8) and `sfx.nation_conquered` (10). The tactical-battle sounds (3-5) are generated and
+    // shipped now, and nothing plays them yet (the tactical battle screen is post-v0.6.0, T125-T130).
 
-    /// <summary>Sound effect played when a city is captured.</summary>
+    /// <summary>Sound effect played when a city is captured (sound 7 in the original).</summary>
     public const string SfxCityCaptured = "sfx.city_captured";
 
-    /// <summary>Sound effect played during battle.</summary>
+    /// <summary>Sound effect played when a field battle is resolved at once (sound 9).</summary>
     public const string SfxBattle = "sfx.battle";
 
-    /// <summary>Sound effect played when a unit moves.</summary>
+    /// <summary>Sound effect played once per step when a human army moves on the map (sound 1).</summary>
     public const string SfxUnitMove = "sfx.unit_move";
+
+    /// <summary>Sound effect played once per step when a human fleet moves on the map (sound 2).</summary>
+    public const string SfxFleetMove = "sfx.fleet_move";
+
+    /// <summary>Tactical-battle sound: archers shoot (sound 3). Generated, not yet played.</summary>
+    public const string SfxBattleArrows = "sfx.battle_arrows";
+
+    /// <summary>Tactical-battle sound: light infantry or light cavalry throw javelins (sound 4).
+    /// Generated, not yet played.</summary>
+    public const string SfxBattleJavelin = "sfx.battle_javelin";
+
+    /// <summary>Tactical-battle sound: a melee clash (sound 5). Generated, not yet played.</summary>
+    public const string SfxBattleMelee = "sfx.battle_melee";
+
+    /// <summary>Sound effect played when a siege attempt fails to take the city (sound 6).</summary>
+    public const string SfxSiegeFailed = "sfx.siege_failed";
+
+    /// <summary>Sound effect played when a fleet is lost (battle, storm or scuttle) (sound 8).</summary>
+    public const string SfxFleetSunk = "sfx.fleet_sunk";
+
+    /// <summary>Sound effect played when a nation is conquered (sound 10).</summary>
+    public const string SfxNationConquered = "sfx.nation_conquered";
 
     // ===== Toolbar command icons (ui.command.*) =====
     //
@@ -349,6 +381,13 @@ public static class AssetKeys
             yield return SfxCityCaptured;
             yield return SfxBattle;
             yield return SfxUnitMove;
+            yield return SfxFleetMove;
+            yield return SfxBattleArrows;
+            yield return SfxBattleJavelin;
+            yield return SfxBattleMelee;
+            yield return SfxSiegeFailed;
+            yield return SfxFleetSunk;
+            yield return SfxNationConquered;
 
             // Toolbar command icons - main toolbar (9)
             yield return UiCommandOpenIcon;

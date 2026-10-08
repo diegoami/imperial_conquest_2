@@ -82,6 +82,11 @@ public sealed partial class GameSession
             return new[] { $"{command.Kind} rejected ({result.Code}): {result.Rejection!.Message}" };
         }
 
+        // T149: every accepted dispatch flows through EventsPublished (Sol's review of PR 793, R2/R4).
+        // Rejected commands do not raise events -- the dispatcher's contract discards a refused
+        // command's buffer before it ever reaches result.Events.
+        AccumulateEvents(result.Events);
+
         State = NewsLogWriter.Append(result.State, result.Events, Ruleset.NewsLog);
 
         var lines = new List<string> { $"{command.Kind} accepted." };
