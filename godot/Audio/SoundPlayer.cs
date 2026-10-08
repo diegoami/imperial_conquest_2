@@ -107,6 +107,24 @@ public sealed partial class SoundPlayer : Node
     }
 
     /// <summary>
+    /// T149 DoD 4 (Sol's review of PR #886, R3): the loaded stream for <paramref name="key"/>,
+    /// as the shipped-WAV loader (<see cref="LoadWavStream"/>) built it, or <see langword="null"/>
+    /// when the pack has no player for the key. The headless check reads this to assert
+    /// <c>Data</c> carries the file's PCM payload (its data chunk), not the whole RIFF file:
+    /// a loader that assigned the raw file bytes would hand Godot's audio thread a header
+    /// as samples, and the assertion catches it without needing audible output.
+    /// </summary>
+    public AudioStreamWav? StreamForCheck(string key)
+    {
+        if (!_players.TryGetValue(key, out var player))
+        {
+            return null;
+        }
+
+        return player.Stream as AudioStreamWav;
+    }
+
+    /// <summary>
     /// T149 DoD 4: every cue <see cref="Play"/> has enqueued since the last call, in enqueue
     /// order. Aimed at the headless Godot check <c>godot/Checks/SoundCuesCheck.cs</c>, which
     /// needs a way to read "what would have been played" without depending on Godot's audio
@@ -201,44 +219,63 @@ public sealed partial class SoundPlayer : Node
             return null;
         }
 
-        var fmtIndex = IndexOf(bytes, "fmt "u8.ToArray());
-        if (fmtIndex < 0)
+        // Walk the RIFF chunk list (Sol's review of PR #886, R3): AudioStreamWav.Data takes the
+        // PCM sample bytes, NOT the whole file. The shipped envelope (asset-specification.md
+        // §1.4) is mono 16-bit PCM 44.1 kHz, so fmt 's fields are read and cross-checked, and
+        // the data chunk's payload alone becomes Data.
+        var format = -1;
+        var channels = -1;
+        var sampleRate = -1;
+        var bitsPerSample = -1;
+        byte[]? pcm = null;
+        var offset = 12;
+        while (offset + 8 <= bytes.Length)
+        {
+            var chunkId = System.Text.Encoding.ASCII.GetString(bytes, offset, 4);
+            var chunkSize = BitConverter.ToInt32(bytes, offset + 4);
+            var payloadStart = offset + 8;
+            if (chunkSize < 0 || payloadStart + chunkSize > bytes.Length)
+            {
+                break;
+            }
+
+            if (chunkId == "fmt ")
+            {
+                format = BitConverter.ToInt16(bytes, payloadStart);
+                channels = BitConverter.ToInt16(bytes, payloadStart + 2);
+                sampleRate = BitConverter.ToInt32(bytes, payloadStart + 4);
+                bitsPerSample = BitConverter.ToInt16(bytes, payloadStart + 14);
+            }
+            else if (chunkId == "data")
+            {
+                pcm = new byte[chunkSize];
+                Array.Copy(bytes, payloadStart, pcm, 0, chunkSize);
+            }
+
+            // Chunks are word-aligned: skip the chunk plus a pad byte when its size is odd.
+            offset = payloadStart + chunkSize + (chunkSize % 2);
+        }
+
+        if (pcm is null || pcm.Length == 0)
         {
             return null;
         }
 
-        // 16-bit PCM: AudioStreamWav.Format.Format16Bits. mono + 44.1 kHz, as
-        // docs/asset-specification.md §1.4 requires — no other format is shipped, and any deviation
-        // is the generator's bug, surfaced through AuthoredPackConformanceTests.
-        var stream = new AudioStreamWav
+        // 1 = PCM (asset-specification.md §1.4: mono, 44,100 Hz, 16-bit). Any deviation is the
+        // generator's bug, surfaced through AuthoredPackConformanceTests; the loader still
+        // refuses to build a stream from it rather than play garbage.
+        if (format != 1 || channels != 1 || bitsPerSample != 16 || sampleRate <= 0)
+        {
+            return null;
+        }
+
+        return new AudioStreamWav
         {
             Format = AudioStreamWav.FormatEnum.Format16Bits,
             Stereo = false,
-            MixRate = 44100,
-            Data = bytes,
+            MixRate = sampleRate,
+            Data = pcm,
         };
-        return stream;
-    }
-
-    private static int IndexOf(byte[] haystack, byte[] needle)
-    {
-        for (var i = 0; i <= haystack.Length - needle.Length; i++)
-        {
-            var match = true;
-            for (var j = 0; j < needle.Length; j++)
-            {
-                if (haystack[i + j] != needle[j])
-                {
-                    match = false;
-                    break;
-                }
-            }
-            if (match)
-            {
-                return i;
-            }
-        }
-        return -1;
     }
 
     /// <summary>

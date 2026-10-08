@@ -1676,6 +1676,15 @@ public partial class MainGameScreen : Control
     }
 
     /// <summary>
+    /// T149 (Sol's review of PR #886, R4): the screen's own cue player, read-only, so a headless
+    /// check reads the production player the production subscription writes to — never a private
+    /// player with a check-made subscription beside it, which could pass while this screen's own
+    /// wiring was broken. The check-seam convention <see cref="SubmitForCheck"/> establishes,
+    /// applied to the audio slice this task owns.
+    /// </summary>
+    public Audio.SoundPlayer SoundPlayerForCheck => _soundPlayer;
+
+    /// <summary>
     /// T149: the one subscription on <see cref="GameSession.EventsPublished"/>. Reads the
     /// Godot-free <see cref="Audio.SoundCues"/> for the events one <see cref="GameSession.Submit"/>
     /// published, plays the resulting keys, and does nothing else — never a state read, never a

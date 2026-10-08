@@ -44,6 +44,13 @@ public partial class SettingsScreen : Control
     /// </summary>
     public static bool SoundEnabled { get; private set; } = true;
 
+    /// <summary>
+    /// T149 (Sol's review of PR #886, R4): the headless check's way to flip the Sound toggle
+    /// without driving the CheckBox, so <see cref="MainGameScreen"/>'s production subscription
+    /// (which reads <see cref="SoundEnabled"/> on every event) is what mutes the player.
+    /// </summary>
+    public static void SetSoundEnabledForCheck(bool enabled) => SoundEnabled = enabled;
+
     public override void _Ready()
     {
         UiKit.ApplyBackground(this, UiKit.Background);
