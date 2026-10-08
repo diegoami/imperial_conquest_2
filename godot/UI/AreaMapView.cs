@@ -271,12 +271,46 @@ public partial class AreaMapView : Control
     public void ToggleShowAll()
     {
         var allOn = true;
-        foreach (var kind in Enum.GetValues<AreaMapHighlightKind>())
+        foreach (var kind in AreaMapHighlights.StockShowAllKinds())
         {
             allOn &= _activeHighlights.Contains(kind);
         }
 
-        foreach (var kind in Enum.GetValues<AreaMapHighlightKind>())
+        foreach (var kind in AreaMapHighlights.StockShowAllKinds())
+        {
+            if (allOn)
+            {
+                _activeHighlights.Remove(kind);
+            }
+            else
+            {
+                _activeHighlights.Add(kind);
+            }
+        }
+
+        SyncStripStates();
+        QueueRedraw();
+    }
+
+    /// <summary>
+    /// Show mercenaries → All mercenaries: turns every one of the five type layers on, or (when they
+    /// are already all on) off — the original's "All mercenaries" union of the type bitmaps. Its own
+    /// entry, not a wider "show everything" the brief never asked for; "Show all" stays the
+    /// four-stock audit row.
+    /// </summary>
+    public void ToggleShowAllMercenaries()
+    {
+        var allOn = true;
+        foreach (var kind in AreaMapHighlights.MercenaryTypeKinds())
+        {
+            if (!_activeHighlights.Contains(kind))
+            {
+                allOn = false;
+                break;
+            }
+        }
+
+        foreach (var kind in AreaMapHighlights.MercenaryTypeKinds())
         {
             if (allOn)
             {
@@ -340,7 +374,13 @@ public partial class AreaMapView : Control
             or "area_map.show_capital"
             or "area_map.show_armies"
             or "area_map.show_fleets"
-            or "area_map.show_all";
+            or "area_map.show_all"
+            or "area_map.show_mercs_light_infantry"
+            or "area_map.show_mercs_heavy_infantry"
+            or "area_map.show_mercs_archers"
+            or "area_map.show_mercs_light_cavalry"
+            or "area_map.show_mercs_heavy_cavalry"
+            or "area_map.show_mercs_all";
 
     private static string IdFor(AreaMapHighlightKind kind) => kind switch
     {
@@ -348,13 +388,23 @@ public partial class AreaMapView : Control
         AreaMapHighlightKind.Capital => "area_map.show_capital",
         AreaMapHighlightKind.Armies => "area_map.show_armies",
         AreaMapHighlightKind.Fleets => "area_map.show_fleets",
+        AreaMapHighlightKind.MercenariesLightInfantry => "area_map.show_mercs_light_infantry",
+        AreaMapHighlightKind.MercenariesHeavyInfantry => "area_map.show_mercs_heavy_infantry",
+        AreaMapHighlightKind.MercenariesArchers => "area_map.show_mercs_archers",
+        AreaMapHighlightKind.MercenariesLightCavalry => "area_map.show_mercs_light_cavalry",
+        AreaMapHighlightKind.MercenariesHeavyCavalry => "area_map.show_mercs_heavy_cavalry",
+        AreaMapHighlightKind.MercenariesAll => "area_map.show_mercs_all",
         _ => throw new ArgumentOutOfRangeException(nameof(kind)),
     };
 
     private void SyncStripStates()
     {
+        // T113 (Scope): Show all is the four stock layers only — cities, capital, armies, fleets.
+        // It is *not* the union with the mercenary ones, mirroring the original's own
+        // <c>TAreaMap_ShowAll</c>; "All mercenaries" is its own row that toggles the five
+        // mercenary layers together. A unity verdict on Show all reads the four-stock union.
         var allOn = true;
-        foreach (var kind in Enum.GetValues<AreaMapHighlightKind>())
+        foreach (var kind in AreaMapHighlights.StockShowAllKinds())
         {
             var on = _activeHighlights.Contains(kind);
             allOn &= on;
@@ -367,6 +417,29 @@ public partial class AreaMapView : Control
         if (_stripButtons.TryGetValue("area_map.show_all", out var showAll))
         {
             showAll.ButtonPressed = allOn;
+        }
+
+        if (_stripButtons.TryGetValue("area_map.show_mercs_all", out var showAllMer))
+        {
+            var allMerOn = true;
+            foreach (var kind in AreaMapHighlights.MercenaryTypeKinds())
+            {
+                if (!_activeHighlights.Contains(kind))
+                {
+                    allMerOn = false;
+                    break;
+                }
+            }
+
+            showAllMer.ButtonPressed = allMerOn;
+        }
+
+        foreach (var kind in AreaMapHighlights.MercenaryTypeKinds())
+        {
+            if (_stripButtons.TryGetValue(IdFor(kind), out var button))
+            {
+                button.ButtonPressed = _activeHighlights.Contains(kind);
+            }
         }
     }
 
