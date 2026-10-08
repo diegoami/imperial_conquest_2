@@ -311,9 +311,12 @@ public partial class MenuBarCheck : Control
         // through the same disabled guard a real click does (PressItemForCheck refuses to emit when
         // the item is disabled).
         var disabledMenuRows = GameCommandTable.Rows.Where(row => !row.Wired).ToList();
+        // T109 wires the last four rows (the Strategy entries), so since T109 nothing is left unwired:
+        // the count is pinned at 0, and the sweep below stays in place for any row a later task adds
+        // unwired (it would then refuse its press, or this count would fail).
         Check(
-            disabledMenuRows.Count > 0,
-            $"the table has disabled menu entries to sweep ({disabledMenuRows.Count})");
+            disabledMenuRows.Count == 0,
+            $"since T109 every menu row is wired (unwired: {(disabledMenuRows.Count == 0 ? "<none>" : string.Join(", ", disabledMenuRows.Select(row => row.Id)))})");
 
         var menuPresses = disabledMenuRows
             .Where(row => _mainGame.MenuBar.PressItemForCheck(row.Id))
@@ -332,15 +335,15 @@ public partial class MenuBarCheck : Control
             .ToList();
         Check(nationRows.Count == 17, $"the table has 17 nation rows ({nationRows.Count})");
 
-        // T110 wires the 17 Nations rows and the five Area-map Show entries plus Find a city, so the only
-        // unwired rows with a toolbar button left are the four Strategy entries T109 wires. The count is
-        // updated here because T110's own Done-when 8 requires this check to stay green; the sweep's
-        // intent is unchanged (every unwired toolbar command is swept and must be disabled).
+        // T110 wired the 17 Nations rows and the five Area-map Show entries plus Find a city, and T109
+        // wires the four Strategy entries, the last unwired rows with a toolbar button: the count is 0
+        // since T109. The sweep's intent is unchanged (every unwired toolbar command is swept and must
+        // be disabled).
         _sweptToolbarRows = GameCommandTable.Rows
             .Where(row => !row.Wired && _mainGame.Toolbar.ButtonFor(row.Id) is not null)
             .ToList();
         Check(
-            _sweptToolbarRows.Count == 4,
+            _sweptToolbarRows.Count == 0,
             $"every unwired toolbar command is swept (got {_sweptToolbarRows.Count})");
 
         var unexpectedlyEnabled = _sweptToolbarRows
