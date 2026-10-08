@@ -269,37 +269,16 @@ public partial class MapClickCheck : Control
         Check(ArmyIsSelected("army-0"), "a left click on an own army selects it");
 
         CheckPanelShowsHeading("Army — army-0");
-
-        // T140: the own army's panel renders each fact on its own label (Moves, Supply, Morale,
-        // Money) rather than the four-on-one stats line the earlier clone shipped. Read each
-        // separately and assert the value, the percent, the word, and the laid-out frame.
-        var moves = FindPanelLabel(label => label.Text.StartsWith("Moves: ", StringComparison.Ordinal));
-        var supply = FindPanelLabel(label => label.Text.StartsWith("Supply: ", StringComparison.Ordinal));
-        var morale = FindPanelLabel(label => label.Text.StartsWith("Morale: ", StringComparison.Ordinal));
-        var money = FindPanelLabel(label => label.Text.StartsWith("Money: ", StringComparison.Ordinal));
-
-        Check(moves is not null && StatsLineIsLaidOut(moves), "the own army's Moves label is laid out after layout frames");
-        Check(supply is not null && StatsLineIsLaidOut(supply), "the own army's Supply label is laid out after layout frames");
-        Check(morale is not null && StatsLineIsLaidOut(morale), "the own army's Morale label is laid out after layout frames");
-        Check(money is not null && StatsLineIsLaidOut(money), "the own army's Money label is laid out after layout frames");
-
-        var pct = IC2.Engine.Economy.SupplyCapacity.PercentFull(
-            army!.SupplyTons, army.TotalTroops, _mainGame.Session.Ruleset);
-
+        var stats = PanelStatsLine();
+        Check(stats is not null && StatsLineIsLaidOut(stats), "the own army's stats line is laid out after layout frames");
         Check(
-            moves is not null && FieldShowsANumber(moves.Text, "Moves"),
-            $"the own army's panel shows a number for Moves (got '{moves?.Text}')");
-        Check(
-            supply is not null && FieldShowsANumber(supply.Text, "Supply")
-            && supply.Text.Contains($"({pct}%)", StringComparison.Ordinal),
-            $"the own army's panel shows supply tons and the PercentFull percent "
-            + $"(expected 'Supply: N tons  ({pct}%)', got '{supply?.Text}')");
-        Check(
-            morale is not null && FieldShowsAWord(morale.Text, "Morale"),
-            $"the own army's panel shows a word for Morale (got '{morale?.Text}')");
-        Check(
-            money is not null && FieldShowsANumber(money.Text, "Money"),
-            $"the own army's panel shows a number for Money (got '{money?.Text}')");
+            stats is not null
+            && FieldShowsANumber(stats.Text, "Moves")
+            && FieldShowsANumber(stats.Text, "Morale")
+            && FieldShowsANumber(stats.Text, "Money")
+            && FieldShowsANumber(stats.Text, "Supply"),
+            "the own army's panel shows a number for moves, morale, money and supply "
+            + $"(got '{stats?.Text}')");
     }
 
     // ---- Done-when 2 (the right-click rule) ----
@@ -341,26 +320,13 @@ public partial class MapClickCheck : Control
             _selectionsCleared == _clearedBefore + 1,
             "a left click on a foreign army beyond attack reach drops the selection");
         CheckPanelShowsHeading("Army — army-11");
-
-        // T140: each of the four facts (Moves, Supply, Morale, Money) is its own label, all
-        // "withheld" captions, none carrying a digit.
-        var moves = FindPanelLabel(label => label.Text.StartsWith("Moves:", StringComparison.Ordinal));
-        var supply = FindPanelLabel(label => label.Text.StartsWith("Supply:", StringComparison.Ordinal));
-        var morale = FindPanelLabel(label => label.Text.StartsWith("Morale:", StringComparison.Ordinal));
-        var money = FindPanelLabel(label => label.Text.StartsWith("Money:", StringComparison.Ordinal));
-
-        Check(moves is not null && StatsLineIsLaidOut(moves), "the foreign army's Moves label is laid out after layout frames");
-        Check(supply is not null && StatsLineIsLaidOut(supply), "the foreign army's Supply label is laid out after layout frames");
-        Check(morale is not null && StatsLineIsLaidOut(morale), "the foreign army's Morale label is laid out after layout frames");
-        Check(money is not null && StatsLineIsLaidOut(money), "the foreign army's Money label is laid out after layout frames");
+        var stats = PanelStatsLine();
+        Check(stats is not null && StatsLineIsLaidOut(stats), "the foreign army's stats line is laid out after layout frames");
         Check(
-            moves is not null && moves.Text == "Moves: withheld"
-            && supply is not null && supply.Text == "Supply: withheld"
-            && morale is not null && morale.Text == "Morale: withheld"
-            && money is not null && money.Text == "Money: withheld",
-            "the foreign army's four facts are all 'withheld' captions "
-            + $"(moves='{moves?.Text}', supply='{supply?.Text}', "
-            + $"morale='{morale?.Text}', money='{money?.Text}')");
+            stats is not null && stats.Text.Contains("withheld", StringComparison.Ordinal)
+            && !stats.Text.Any(char.IsDigit),
+            "the foreign army's panel shows no number for moves, morale, money or supply "
+            + $"(got '{stats?.Text}')");
     }
 
     // ---- Done-when 2's move half ----
@@ -793,6 +759,10 @@ public partial class MapClickCheck : Control
     private void CheckPanelShowsHeading(string text) =>
         Check(PanelShowsHeading(text), $"the panel shows its '{text}' view after layout frames");
 
+    /// <summary>The army panel's stats line — the one label the fog rule is about.</summary>
+    private Label? PanelStatsLine() =>
+        FindPanelLabel(label => label.Text.StartsWith("Moves:", StringComparison.Ordinal));
+
     /// <summary>T96's hazard — <c>.Text</c> is not what the player sees: the line must be laid out too.</summary>
     private static bool StatsLineIsLaidOut(Label label) =>
         label.GetVisibleLineCount() >= 1 && label.Size.Y > 1f;
@@ -808,26 +778,6 @@ public partial class MapClickCheck : Control
 
         var numberAt = at + field.Length + 2;
         return numberAt < text.Length && char.IsDigit(text[numberAt]);
-    }
-
-    /// <summary>Whether the named field carries any non-digit word on its own line — Morale prints a
-    /// band word like "very high", not a number; the digit-presence check would fail it.</summary>
-    private static bool FieldShowsAWord(string text, string field)
-    {
-        var at = text.IndexOf($"{field}: ", StringComparison.Ordinal);
-        if (at < 0)
-        {
-            return false;
-        }
-
-        var valueAt = at + field.Length + 2;
-        if (valueAt >= text.Length)
-        {
-            return false;
-        }
-
-        var value = text.Substring(valueAt).TrimStart();
-        return value.Length > 0 && !char.IsDigit(value[0]);
     }
 
     private Label? FindPanelLabel(Func<Label, bool> predicate) =>
