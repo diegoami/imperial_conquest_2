@@ -232,6 +232,22 @@ public partial class StrategyDialogsCheck : Control
         PressKey(dialog, Key.Pagedown);
         Check(dialog.SliderValueForCheck == 20, $"a Page Down from 25 gives 20 (got {dialog.SliderValueForCheck})");
 
+        // The visible HSlider's own arrow keys move by the step, 1, and stop at the bounds
+        // (Sol's round-2 review of PR 883, R1).
+        dialog.SetRateForCheck(39);
+        PressKey(dialog, Key.Right);
+        Check(dialog.SliderValueForCheck == 40, $"a Right arrow from 39 gives 40 (got {dialog.SliderValueForCheck})");
+        PressKey(dialog, Key.Right);
+        Check(dialog.SliderValueForCheck == 40, $"a Right arrow at 40 clamps at 40 (got {dialog.SliderValueForCheck})");
+        PressKey(dialog, Key.Left);
+        Check(dialog.SliderValueForCheck == 39, $"a Left arrow from 40 gives 39 (got {dialog.SliderValueForCheck})");
+
+        dialog.SetRateForCheck(1);
+        PressKey(dialog, Key.Left);
+        Check(dialog.SliderValueForCheck == 0, $"a Left arrow from 1 gives 0 (got {dialog.SliderValueForCheck})");
+        PressKey(dialog, Key.Left);
+        Check(dialog.SliderValueForCheck == 0, $"a Left arrow at 0 clamps at 0 (got {dialog.SliderValueForCheck})");
+
         dialog.SetRateForCheck(dialog.ModelForCheck.CurrentRate);
     }
 
@@ -539,6 +555,16 @@ public partial class StrategyDialogsCheck : Control
         // The prompt is a child of the dialog, the same seam ChangeUnitsDialogTests uses.
         var prompt = dialog.GetChildren().OfType<ConfirmPrompt>().FirstOrDefault();
         Check(prompt is ConfirmPrompt, "Disband opens the confirmation prompt");
+
+        // Real page keys while the prompt is open leave the troop box behind it alone (R2).
+        // From the minimum, one Page Up would move the box by the page step if the dialog took it.
+        var troopBounds = dialog.ModelForCheck.TroopBoundsFor(dialog.SelectedUnitTypeForCheck);
+        dialog.SetTroopsForCheck(troopBounds.Minimum);
+        var troopsBefore = dialog.TroopsForCheck;
+        PressKey(dialog, Key.Pageup);
+        Check(
+            dialog.TroopsForCheck == troopsBefore,
+            $"page keys with the Disband prompt open leave the troop box at {troopsBefore} (got {dialog.TroopsForCheck})");
         var yesButton = ButtonsUnder(prompt ?? (Node)dialog).FirstOrDefault(b => string.Equals(b.Text, "Yes", StringComparison.Ordinal));
         Check(yesButton is not null, "the prompt has a 'Yes' button");
         yesButton?.EmitSignal(BaseButton.SignalName.Pressed);

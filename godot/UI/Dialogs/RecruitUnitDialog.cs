@@ -389,6 +389,13 @@ public partial class RecruitUnitDialog : Control
     // re-check of PR 883, R1).
     public override void _Input(InputEvent @event)
     {
+        // The Disband prompt owns the keyboard while it is open: the troop box behind it must not
+        // move (Sol's round-2 review of PR 883, R2).
+        if (GetChildren().OfType<ConfirmPrompt>().Any(prompt => !prompt.IsQueuedForDeletion()))
+        {
+            return;
+        }
+
         // Page Up / Page Down move the troop box by the selected type's page step (1,000, fix #519),
         // the same nudge the Taxation slider's page keys apply to its own step. The SpinBox's Page
         // property is not used because Godot snaps a Range's value to multiples of its Page, which
