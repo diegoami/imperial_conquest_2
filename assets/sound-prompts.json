@@ -1,0 +1,54 @@
+{
+  "prompts": [
+    {
+      "key": "sfx.unit_move",
+      "prompt": "single very short soft wooden footstep tick, dry, no reverb, 0.05 seconds",
+      "durationSeconds": 0.5
+    },
+    {
+      "key": "sfx.fleet_move",
+      "prompt": "single short oar dip into calm water, soft plip, 0.1 seconds",
+      "durationSeconds": 0.5
+    },
+    {
+      "key": "sfx.battle_arrows",
+      "prompt": "ancient arrows flying past then striking a wooden shield, whoosh and thunk, 0.4 seconds",
+      "durationSeconds": 0.5
+    },
+    {
+      "key": "sfx.battle_javelin",
+      "prompt": "thrown javelin whizzing through the air, quick zip, 0.2 seconds",
+      "durationSeconds": 0.5
+    },
+    {
+      "key": "sfx.battle_melee",
+      "prompt": "two iron swords clashing once, bright metallic clang with short ring, 0.4 seconds",
+      "durationSeconds": 0.5
+    },
+    {
+      "key": "sfx.siege_failed",
+      "prompt": "battering ram hitting a heavy wooden city gate that holds, dull thuds, 0.5 seconds",
+      "durationSeconds": 0.5
+    },
+    {
+      "key": "sfx.city_captured",
+      "prompt": "stone city wall collapsing, rattle then a heavy rumbling crash, 0.8 seconds",
+      "durationSeconds": 0.8
+    },
+    {
+      "key": "sfx.fleet_sunk",
+      "prompt": "wooden ship sinking, short splash and falling gurgle, 0.5 seconds",
+      "durationSeconds": 0.5
+    },
+    {
+      "key": "sfx.battle",
+      "prompt": "distant ancient battle, faint clash of metal echoing far away, quiet, 0.5 seconds",
+      "durationSeconds": 0.5
+    },
+    {
+      "key": "sfx.nation_conquered",
+      "prompt": "single low ancient war horn blast, solemn, steady note fading out, 1.5 seconds",
+      "durationSeconds": 1.5
+    }
+  ]
+}
