@@ -284,10 +284,21 @@ public partial class NationsAreaMapCheck : Control
             Check(panel.HasViewedNationLineForCheck(shown), $"Carthage's foreign panel shows '{shown}'");
         }
 
+        // T140: the foreign panel keeps the Mobilized and Treasury rows, present and blank (N08–N09).
+        foreach (var (blank, caption) in new[]
+        {
+            (NationStatusModel.MobilizedKey, "Mobilized:"),
+            (NationStatusModel.TreasuryKey, "Treasury:"),
+        })
+        {
+            var line = panel.ViewedNationLinesForCheck?.FirstOrDefault(l => string.Equals(l.Key, blank, StringComparison.Ordinal));
+            Check(
+                line is not null && string.Equals(line.Text.Trim(), caption, StringComparison.Ordinal),
+                $"Carthage's foreign panel shows '{blank}' present and blank (got '{line?.Text}')");
+        }
+
         foreach (var withheld in new[]
         {
-            NationStatusModel.TreasuryKey,
-            NationStatusModel.MobilizedKey,
             NationStatusModel.TrainingHeaderKey,
             NationStatusModel.TrainingNoneKey,
         })

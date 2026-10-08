@@ -269,16 +269,17 @@ public partial class MapClickCheck : Control
         Check(ArmyIsSelected("army-0"), "a left click on an own army selects it");
 
         CheckPanelShowsHeading("Army — army-0");
-        var stats = PanelStatsLine();
-        Check(stats is not null && StatsLineIsLaidOut(stats), "the own army's stats line is laid out after layout frames");
-        Check(
-            stats is not null
-            && FieldShowsANumber(stats.Text, "Moves")
-            && FieldShowsANumber(stats.Text, "Morale")
-            && FieldShowsANumber(stats.Text, "Money")
-            && FieldShowsANumber(stats.Text, "Supply"),
-            "the own army's panel shows a number for moves, morale, money and supply "
-            + $"(got '{stats?.Text}')");
+        // T140: each fact is its own line, and morale is a word (the research read's bands).
+        foreach (var field in StatsFields)
+        {
+            var line = PanelFieldLine(field);
+            Check(line is not null && StatsLineIsLaidOut(line), $"the own army's {field} line is laid out after layout frames");
+            Check(
+                line is not null
+                && (field == "Morale" ? FieldShowsAWord(line.Text, field) : FieldShowsANumber(line.Text, field)),
+                $"the own army's panel shows {(field == "Morale" ? "a word" : "a number")} for {field} "
+                + $"(got '{line?.Text}')");
+        }
     }
 
     // ---- Done-when 2 (the right-click rule) ----
@@ -320,13 +321,15 @@ public partial class MapClickCheck : Control
             _selectionsCleared == _clearedBefore + 1,
             "a left click on a foreign army beyond attack reach drops the selection");
         CheckPanelShowsHeading("Army — army-11");
-        var stats = PanelStatsLine();
-        Check(stats is not null && StatsLineIsLaidOut(stats), "the foreign army's stats line is laid out after layout frames");
-        Check(
-            stats is not null && stats.Text.Contains("withheld", StringComparison.Ordinal)
-            && !stats.Text.Any(char.IsDigit),
-            "the foreign army's panel shows no number for moves, morale, money or supply "
-            + $"(got '{stats?.Text}')");
+        foreach (var field in StatsFields)
+        {
+            var line = PanelFieldLine(field);
+            Check(line is not null && StatsLineIsLaidOut(line), $"the foreign army's {field} line is laid out after layout frames");
+            Check(
+                line is not null && line.Text.Contains("withheld", StringComparison.Ordinal)
+                && !line.Text.Any(char.IsDigit),
+                $"the foreign army's panel shows no number for {field} (got '{line?.Text}')");
+        }
     }
 
     // ---- Done-when 2's move half ----
@@ -759,9 +762,12 @@ public partial class MapClickCheck : Control
     private void CheckPanelShowsHeading(string text) =>
         Check(PanelShowsHeading(text), $"the panel shows its '{text}' view after layout frames");
 
-    /// <summary>The army panel's stats line — the one label the fog rule is about.</summary>
-    private Label? PanelStatsLine() =>
-        FindPanelLabel(label => label.Text.StartsWith("Moves:", StringComparison.Ordinal));
+    /// <summary>The four army facts the fog rule is about, each on its own panel line since T140.</summary>
+    private static readonly string[] StatsFields = { "Moves", "Morale", "Money", "Supply" };
+
+    /// <summary>The army panel's line for one fact, found by its caption.</summary>
+    private Label? PanelFieldLine(string field) =>
+        FindPanelLabel(label => label.Text.StartsWith($"{field}: ", StringComparison.Ordinal));
 
     /// <summary>T96's hazard — <c>.Text</c> is not what the player sees: the line must be laid out too.</summary>
     private static bool StatsLineIsLaidOut(Label label) =>
@@ -778,6 +784,20 @@ public partial class MapClickCheck : Control
 
         var numberAt = at + field.Length + 2;
         return numberAt < text.Length && char.IsDigit(text[numberAt]);
+    }
+
+    /// <summary>Whether the line shows a word, not a number, right after the named field.</summary>
+    private static bool FieldShowsAWord(string text, string field)
+    {
+        var at = text.IndexOf($"{field}: ", StringComparison.Ordinal);
+        if (at < 0)
+        {
+            return false;
+        }
+
+        var wordAt = at + field.Length + 2;
+        return wordAt < text.Length && char.IsLetter(text[wordAt])
+            && !text.Substring(wordAt).StartsWith("withheld", StringComparison.Ordinal);
     }
 
     private Label? FindPanelLabel(Func<Label, bool> predicate) =>
