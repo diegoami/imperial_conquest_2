@@ -221,21 +221,20 @@ public partial class CommandFeedbackCheck : Control
     private void CheckRejectedOrder()
     {
         Check(
-            _rejectedLines.Contains(
+            !_rejectedLines.Contains(
                 "diplomacy.declare-war accepted (composed ahead of the attack).", StringComparer.Ordinal),
-            "the rejected order's real output carries the composed declaration of war");
+            "the rejected order's real output carries no composed declaration of war");
         Check(
-            _mainGame.LastCommandText.Split('\n').Length == 2,
-            $"a rejected order's label shows its whole own outcome, declaration and reason "
+            _mainGame.LastCommandText.Split('\n').Length == 1,
+            $"a rejected order's label shows its refusal alone "
             + $"(got '{_mainGame.LastCommandText}')");
 
         var visible = VisibleLines();
         Check(
-            visible.Length == 2
-            && visible[0] == "diplomacy.declare-war accepted (composed ahead of the attack)."
-            && visible[1].StartsWith("battle.besiege-city rejected (battle.siege-not-adjacent): ", StringComparison.Ordinal)
-            && visible[1].Contains("is not adjacent to 'misurata'", StringComparison.Ordinal),
-            $"a rejected order's visible lines are the declaration and the reason (got '{string.Join("|", visible)}')");
+            visible.Length == 1
+            && visible[0].StartsWith("battle.besiege-city rejected (battle.siege-not-adjacent): ", StringComparison.Ordinal)
+            && visible[0].Contains("is not adjacent to 'misurata'", StringComparison.Ordinal),
+            $"a rejected order's visible line is its refusal alone (got '{string.Join("|", visible)}')");
         CheckVisibleGeometry("a rejected order");
         CheckLinesMapOneToOne("a rejected order");
         CheckTooltipCarriesTheWholeBlock();

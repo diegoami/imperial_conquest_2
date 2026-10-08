@@ -57,52 +57,60 @@ public sealed class GameSessionCommandsTests
         return new GameSession(toy.World, toy.Ruleset, toy.Scenario, save);
     }
 
-    // ---- #221: the CLI composes DeclareWarCommand ahead of an attack, when the two nations are at peace ----
+    // ---- #221 / T135 (#579): the CLI composes DeclareWarCommand ahead of an ACCEPTED attack; a refused
+    // attack declares nothing, so no war is left in place ----
 
     [Fact]
-    public void Attack_army_composes_declare_war_when_the_two_nations_are_at_peace()
+    public void A_refused_army_attack_does_not_compose_declare_war()
     {
         var session = NewSession();
         Assert.NotEqual(
             session.Ruleset.Diplomacy.StateCodes.War, session.State.Relations.Get("north", "south"));
 
+        // north-army-1 (3,2) is four tiles from south-army-1 (4,4), so the attack is refused by its own
+        // adjacency gate; T135 keeps the state from before the order and commits no declaration.
         var output = session.Submit("attack-army north-army-1 south-army-1");
 
-        Assert.Contains(
-            output.Lines, line => line.Contains("diplomacy.declare-war accepted", StringComparison.Ordinal));
         Assert.DoesNotContain(
-            output.Lines, line => line.Contains("battle.not-at-war", StringComparison.Ordinal));
-        Assert.Equal(
+            output.Lines, line => line.Contains("diplomacy.declare-war", StringComparison.Ordinal));
+        Assert.Contains(
+            output.Lines,
+            line => line.Contains("battle.attack-army rejected (battle.not-adjacent)", StringComparison.Ordinal));
+        Assert.NotEqual(
             session.Ruleset.Diplomacy.StateCodes.War, session.State.Relations.Get("north", "south"));
     }
 
     [Fact]
-    public void Besiege_city_composes_declare_war_when_the_two_nations_are_at_peace()
+    public void A_refused_siege_does_not_compose_declare_war()
     {
         var session = NewSession();
 
+        // north-army-1 (3,2) is not adjacent to south's meridia (3,4).
         var output = session.Submit("besiege-city north-army-1 meridia");
 
-        Assert.Contains(
-            output.Lines, line => line.Contains("diplomacy.declare-war accepted", StringComparison.Ordinal));
         Assert.DoesNotContain(
-            output.Lines, line => line.Contains("battle.siege-not-at-war", StringComparison.Ordinal));
-        Assert.Equal(
+            output.Lines, line => line.Contains("diplomacy.declare-war", StringComparison.Ordinal));
+        Assert.Contains(
+            output.Lines,
+            line => line.Contains("battle.besiege-city rejected (battle.siege-not-adjacent)", StringComparison.Ordinal));
+        Assert.NotEqual(
             session.Ruleset.Diplomacy.StateCodes.War, session.State.Relations.Get("north", "south"));
     }
 
     [Fact]
-    public void Attack_fleet_composes_declare_war_when_the_two_nations_are_at_peace()
+    public void A_refused_fleet_attack_does_not_compose_declare_war()
     {
         var session = NewSession();
 
+        // north-fleet-1 (0,3) is not adjacent to south-fleet-1 (7,4).
         var output = session.Submit("attack-fleet north-fleet-1 south-fleet-1");
 
-        Assert.Contains(
-            output.Lines, line => line.Contains("diplomacy.declare-war accepted", StringComparison.Ordinal));
         Assert.DoesNotContain(
-            output.Lines, line => line.Contains("battle.fleet-not-at-war", StringComparison.Ordinal));
-        Assert.Equal(
+            output.Lines, line => line.Contains("diplomacy.declare-war", StringComparison.Ordinal));
+        Assert.Contains(
+            output.Lines,
+            line => line.Contains("battle.attack-fleet rejected (battle.fleet-not-adjacent)", StringComparison.Ordinal));
+        Assert.NotEqual(
             session.Ruleset.Diplomacy.StateCodes.War, session.State.Relations.Get("north", "south"));
     }
 

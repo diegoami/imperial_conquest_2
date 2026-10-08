@@ -173,11 +173,11 @@ public sealed partial class GameSession
     }
 
     /// <summary>
-    /// Composes T19's <see cref="DeclareWarCommand"/> ahead of an attack order when the two nations are
-    /// not already at war — <c>docs/task-catalogue.md</c> T23 Done-when 4, follow-up
-    /// <see href="https://github.com/diegoami/imperial_conquest_2/issues/221">#221</see>. The original
-    /// auto-declares war in the same click that orders the attack (<c>AttackLegality</c>'s own remarks:
-    /// "Attacking IS declaring war"); this engine spells that as two commands, because T54's own
+    /// Runs an attack, siege or fleet-attack order, composing T19's <see cref="DeclareWarCommand"/> ahead
+    /// of it when the two nations are not already at war — <c>docs/task-catalogue.md</c> T23 Done-when 4,
+    /// follow-up <see href="https://github.com/diegoami/imperial_conquest_2/issues/221">#221</see>. The
+    /// original auto-declares war in the same click that orders the attack (<c>AttackLegality</c>'s own
+    /// remarks: "Attacking IS declaring war"); this engine spells that as two commands, because T54's own
     /// decoupling guard refuses to let a file under <c>Battle/Commands</c> name the diplomacy namespace.
     /// This is where the two are composed back together — at the CLI boundary, which <em>can</em> see
     /// both. A caller that wants the declaration as its own order still has the standalone
@@ -186,37 +186,84 @@ public sealed partial class GameSession
     /// target is the issuing nation itself.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <strong>Review round 1, B2 (a regression this fixes): the watch-mode/seat-lost gate has to run
     /// before this method ever dispatches anything</strong>, not only before the attack/siege command that
     /// follows it. This method's own <see cref="_dispatcher"/> call is a second, separate dispatch outside
-    /// <see cref="IssueCommand"/>'s choke point — <see cref="HandleAttackArmy"/> and
-    /// <see cref="HandleBesiegeCity"/> both call this <em>before</em> their own <see cref="IssueCommand"/>
-    /// call, so gating only the attack/siege command itself left a live path for a watch-mode or seat-lost
-    /// session to still declare war "for free" ahead of a refused attack (proof, round 1's re-review: the
-    /// real CLI in watch mode accepted <c>diplomacy.declare-war</c> from <c>besiege-city</c> even though
-    /// the siege itself was correctly refused). Gating here, first, closes it at the source rather than
-    /// requiring every future caller of this method to remember to gate ahead of it.
+    /// <see cref="IssueCommand"/>'s choke point, so gating only the attack/siege command itself left a
+    /// live path for a watch-mode or seat-lost session to still declare war "for free" ahead of a refused
+    /// attack (proof, round 1's re-review: the real CLI in watch mode accepted
+    /// <c>diplomacy.declare-war</c> from <c>besiege-city</c> even though the siege itself was correctly
+    /// refused). Gating here, first, closes it at the source rather than requiring every future caller of
+    /// this method to remember to gate ahead of it.
+    /// </para>
+    /// <para>
+    /// <strong>T135 (bug <see href="https://github.com/diegoami/imperial_conquest_2/issues/579">#579</see>):
+    /// the declaration and the attack commit together or not at all.</strong> This method used to dispatch
+    /// the declaration, commit its state and news, and only then run the attack's own legality check — so
+    /// an attack the engine then refused (a siege on a non-adjacent city, an army that is not adjacent, a
+    /// fleet docked at its own city) left the war in place and cascaded it to the target's allies. It now
+    /// keeps the state from before the order, decides the declaration against that state, and runs the
+    /// attack against the candidate the declaration produced, so the attack's own war gate sees the war it
+    /// needs; if the attack is refused, nothing of the declaration is committed: the state is put back
+    /// (Hazards: restore, don't recompute) and the output is the attack's own rejection line alone, with no
+    /// declaration line. A refused command appends no news and captures no battle, and the session's own
+    /// event sink is a <see cref="NullEventSink"/>, so the restore leaves no other side effect to undo. The
+    /// original never declares a war its attack then refuses — its refusals all come before its prompt
+    /// (<c>TUnitMap_SelectUnit</c>); the engine's handlers also refuse cases the original has no branch for,
+    /// and for those this shape is <c>[designed]</c>.
+    /// </para>
     /// </remarks>
-    private void ComposeDeclareWarIfNeeded(string? targetNationId, List<string> lines)
+    /// <param name="command">The attack, siege or fleet-attack command to run.</param>
+    /// <param name="targetNationId">
+    /// The target's owner, resolved by the caller before the order; <see langword="null"/> when the target
+    /// does not resolve, in which case the attack's own gates report that.
+    /// </param>
+    /// <returns>The command's own outcome lines, with the composed declaration's line ahead of an accepted
+    /// attack's — or the rejection line alone when the attack is refused.</returns>
+    private IReadOnlyList<string> ComposeDeclareWarIfNeeded(ICommand command, string? targetNationId)
     {
-        if (IsWatchModeActive
-            || targetNationId is null
+        if (targetNationId is null
             || string.Equals(targetNationId, State.ActiveNationId, StringComparison.Ordinal)
             || IsAtWar(State.ActiveNationId, targetNationId))
         {
-            return;
+            return IssueCommand(command);
         }
 
+        if (IsWatchModeActive)
+        {
+            // The watch-mode/seat-lost rejection the attack itself would report; composed here so a gated
+            // session never even decides the declaration.
+            return IssueCommand(command);
+        }
+
+        var before = State;
         var declare = new DeclareWarCommand(State.ActiveNationId, targetNationId);
-        var declared = _dispatcher.Dispatch(State, declare);
+        var declared = _dispatcher.Dispatch(before, declare);
         if (declared.IsRejected)
         {
             // Left for the attack's own gates to report -- declaring war is not itself the order issued.
-            return;
+            return IssueCommand(command);
         }
 
         State = NewsLogWriter.Append(declared.State, declared.Events, Ruleset.NewsLog);
-        lines.Add($"{declare.Kind} accepted (composed ahead of the attack).");
+        var candidate = State;
+
+        var attackLines = IssueCommand(command);
+
+        // An accepted command always commits a state of its own (the dispatcher advances the random seed
+        // with a `with`-copy), so the session's own state still being the candidate means IssueCommand
+        // refused it and left the state exactly as it found it. Only then does the refusal have to undo the
+        // declaration: put the state from before the order back and report the attack's own line alone.
+        if (ReferenceEquals(State, candidate))
+        {
+            State = before;
+            return attackLines;
+        }
+
+        var lines = new List<string> { $"{declare.Kind} accepted (composed ahead of the attack)." };
+        lines.AddRange(attackLines);
+        return lines;
     }
 
     // ---- battle (T54) ----
@@ -228,10 +275,9 @@ public sealed partial class GameSession
             return new[] { "Usage: attack-army <army> <target-army>" };
         }
 
-        var lines = new List<string>();
-        ComposeDeclareWarIfNeeded(State.ArmyById(tokens[2])?.Nation, lines);
-        lines.AddRange(IssueCommand(new AttackArmyCommand(State.ActiveNationId, tokens[1], tokens[2])));
-        return lines;
+        return ComposeDeclareWarIfNeeded(
+            new AttackArmyCommand(State.ActiveNationId, tokens[1], tokens[2]),
+            State.ArmyById(tokens[2])?.Nation);
     }
 
     private IReadOnlyList<string> HandleBesiegeCity(string[] tokens)
@@ -241,10 +287,9 @@ public sealed partial class GameSession
             return new[] { "Usage: besiege-city <army> <city>" };
         }
 
-        var lines = new List<string>();
-        ComposeDeclareWarIfNeeded(State.CityById(tokens[2])?.Owner, lines);
-        lines.AddRange(IssueCommand(new BesiegeCityCommand(State.ActiveNationId, tokens[1], tokens[2])));
-        return lines;
+        return ComposeDeclareWarIfNeeded(
+            new BesiegeCityCommand(State.ActiveNationId, tokens[1], tokens[2]),
+            State.CityById(tokens[2])?.Owner);
     }
 
     private IReadOnlyList<string> HandleAttackFleet(string[] tokens)
@@ -254,10 +299,9 @@ public sealed partial class GameSession
             return new[] { "Usage: attack-fleet <fleet> <target-fleet>" };
         }
 
-        var lines = new List<string>();
-        ComposeDeclareWarIfNeeded(State.FleetById(tokens[2])?.Nation, lines);
-        lines.AddRange(IssueCommand(new AttackFleetCommand(State.ActiveNationId, tokens[1], tokens[2])));
-        return lines;
+        return ComposeDeclareWarIfNeeded(
+            new AttackFleetCommand(State.ActiveNationId, tokens[1], tokens[2]),
+            State.FleetById(tokens[2])?.Nation);
     }
 
     // ---- armies ----
