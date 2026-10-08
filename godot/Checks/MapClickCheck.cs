@@ -295,7 +295,7 @@ public partial class MapClickCheck : Control
             $"the own army's panel shows supply tons and the PercentFull percent "
             + $"(expected 'Supply: N tons  ({pct}%)', got '{supply?.Text}')");
         Check(
-            morale is not null && FieldShowsANumber(morale.Text, "Morale"),
+            morale is not null && FieldShowsAWord(morale.Text, "Morale"),
             $"the own army's panel shows a word for Morale (got '{morale?.Text}')");
         Check(
             money is not null && FieldShowsANumber(money.Text, "Money"),
@@ -808,6 +808,26 @@ public partial class MapClickCheck : Control
 
         var numberAt = at + field.Length + 2;
         return numberAt < text.Length && char.IsDigit(text[numberAt]);
+    }
+
+    /// <summary>Whether the named field carries any non-digit word on its own line — Morale prints a
+    /// band word like "very high", not a number; the digit-presence check would fail it.</summary>
+    private static bool FieldShowsAWord(string text, string field)
+    {
+        var at = text.IndexOf($"{field}: ", StringComparison.Ordinal);
+        if (at < 0)
+        {
+            return false;
+        }
+
+        var valueAt = at + field.Length + 2;
+        if (valueAt >= text.Length)
+        {
+            return false;
+        }
+
+        var value = text.Substring(valueAt).TrimStart();
+        return value.Length > 0 && !char.IsDigit(value[0]);
     }
 
     private Label? FindPanelLabel(Func<Label, bool> predicate) =>
