@@ -200,7 +200,12 @@ function Get-Recommendation {
     # On any connection error or the tracker not answering: throw 'tracker_silent' so the
     # caller prints the WSL restart command and exits 3.
     # On a successful JSON: return the raw object.
-    param([string] $RecommendFile, [string] $RecommendUrl, [int] $RetryWaitSec, [string] $Tier)
+    param(
+        [string] $RecommendFile,
+        [string] $RecommendUrl = 'http://localhost:8765/recommend',
+        [int]    $RetryWaitSec = 180,
+        [string] $Tier
+    )
     $deadline = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() + $RetryWaitSec
     while ($true) {
         if ($RecommendFile) {
@@ -211,9 +216,18 @@ function Get-Recommendation {
             }
             return $raw
         }
+        # Concatenation, not `"$RecommendUrl?tier=$Tier"`. PowerShell parses the latter as
+        # `$RecommendUrl` followed by `?tier=$Tier`, where `?tier=` is read as a help-query
+        # delimiter and `$RecommendUrl` ends up empty. Concatenation is unambiguous.
+        $callUrl = "$RecommendUrl" + '?tier=' + "$Tier"
         try {
-            $raw = Invoke-RestMethod -Uri "$RecommendUrl?tier=$Tier" -TimeoutSec 5 -ErrorAction Stop
+            $raw = Invoke-RestMethod -Uri $callUrl -TimeoutSec 5 -ErrorAction Stop
         } catch {
+            if ($_.Exception.InnerException) {
+                $reason = $_.Exception.InnerException.Message
+                if ($_.Exception.InnerException.InnerException) { $reason += ' / ' + $_.Exception.InnerException.InnerException.Message }
+            } else { $reason = $_.Exception.Message }
+            Write-Warning "/recommend call failed: $reason"
             throw 'tracker_silent'
         }
         if ($raw.note -and $raw.note -match 'loading' -and -not @($raw.ranking).Count) {

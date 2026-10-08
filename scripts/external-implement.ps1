@@ -22,29 +22,37 @@
       4. checks the outcome: a PR exists for the branch, the worktree is clean and pushed, and
          it is detached so the branch is free for the reviewer; saves the run's output next to
          the worktree as <name>.implementer.log and prints its tail.
-    With -Model auto (the default) the chain is deepseek-flash (on OpenCode Go, or on the Alibaba
-    Token Plan when quota-tracker's /avoid lists opencode_go), then qwen-flash (Qwen3.8 Flash, Alibaba),
-    then the main session runs Claude Sonnet (the user's decision of 2026-10-05, which extends issue
-    #575's one OpenCode model per role). A chain model none of whose routes has quota is skipped. GLM left the
-    implementer side on 2026-10-01 (issue #573): GLM-5.3 ended T99's implementer run early,
-    mid-exploration, with no error (#557), while DeepSeek V4.1 Flash implemented T97 in one go.
-    glm, glm-flash and luna stay valid as explicit -Model values, and no default path picks them.
-    The next model runs ONLY on an infrastructure failure (no session
-    in time, an idle session, no exit in time, a run that exits without a session, a non-zero exit, the
-    fallback-to-default-agent guard, a tool call the permission guard rejected -- issue #501), and only when the failed run left nothing behind: no new
-    commit, locally or on origin, and no new PR. Otherwise the script exits 1 and the main session
-    decides. Two consecutive attempts failing with the same cause (Get-OpenCodeFailureClass: two
-    startup hangs, two idle kills, ...) stop the chain early. When every model fails, the chain
-    stops that way, or OpenCode is not installed, it exits 3 ("OpenCode unavailable: ..."), and the task falls back to Claude Sonnet (operating-guide
-    §3). An implementer that stops and reports has not failed: its OpenCode run exits 0, so it is
+    With -Model auto (the default) the chain comes from quota-tracker's /recommend?tier=heavy
+    (T152; CLAUDE.md rule 17), through Choose-Model.ps1 (scripts/Choose-Model.ps1). Each model
+    is taken in the chooser's ranking order; an infrastructure failure advances to the next.
+    When every model fails, the chain stops that way, or OpenCode is not installed, it exits 3
+    ("OpenCode unavailable: ..."), and the task falls back to Claude Sonnet (operating-guide
+    §3). GLM left the implementer side on 2026-10-01 (issue #573): GLM-5.3 ended T99's
+    implementer run early, mid-exploration, with no error (#557), while DeepSeek V4.1 Flash
+    implemented T97 in one go. glm, glm-flash and luna stay valid as explicit -Model values, and
+    no default path picks them. An explicit -Model names that model alone (the same model the
+    main session passed). A chain model none of whose routes has quota is skipped, like before.
+    A chain model with no /recommend row is skipped too (the chooser ranks only what /recommend
+    ranks; a live /recommend response with fewer than the dispatch chain's old fixed models
+    shortens the chain, never lengthens it).
+    The next model runs ONLY on an infrastructure failure (no session in time, an idle session, no
+    exit in time, a run that exits without a session, a non-zero exit, the fallback-to-default-agent
+    guard, a tool call the permission guard rejected -- issue #501), and only when the failed run
+    left nothing behind: no new commit, locally or on origin, and no new PR. Otherwise the script
+    exits 1 and the main session decides. Two consecutive attempts failing with the same cause
+    (Get-OpenCodeFailureClass: two startup hangs, two idle kills, ...) stop the chain early.
+    An implementer that stops and reports has not failed: its OpenCode run exits 0, so it is
     never retried on another model; the script then exits 1 ("No open PR") and the main session
     reads the report. Once every chain model has failed, the script asks Choose-Model.ps1 for an
-    implementer outside the failed families (Done-when 2) and runs it once before exit 3; it writes
-    the run's attempts and the allowed outside paths it touched into the PR body (Done-when 2, 3).
+    implementer outside the failed families AND the OpenAI family (T150 Done-when 2; T152 Done-when
+    6) and runs it once before exit 3; it writes the run's attempts and the allowed outside paths
+    it touched into the PR body (Done-when 2, 3).
     Before that, it copies -BriefFile into the worktree at rendered/brief.md and feeds the copy
     (Done-when 1), so the prompt names no path outside the worktree.
-    Before the run's tail it prints the model that ran ("implemented by: <name>"); the review passes it to
-    external-review.ps1 as -ExcludeModel, so the reviewer is never the implementer's model.
+    Before the run's tail it prints the model that ran ("implemented by: <name>") and its /recommend
+    reasons, in the log and in the PR body's "Implementer attempts" section (Done-when 4); the
+    review passes it to external-review.ps1 as -ExcludeModel, so the reviewer is never the
+    implementer's model.
     The script never merges, labels or reviews; the main session does those (Appendix C).
     It runs on OpenCode 1.x (the npm CLI, the default) or 2.x (the desktop app's CLI, opt-in through
     IC2_OPENCODE_EXE): see
@@ -106,11 +114,19 @@
 .PARAMETER ModelIds
     Overrides of the model name -> model id map, e.g. @{ 'deepseek-flash' = 'opencode-go/deepseek-v4.2-flash' },
     for when `opencode models` shows a different id (or, in a test, a bad id to exercise the chain).
+.PARAMETER RecommendFile
+    A canned /recommend?tier=<heavy|light> JSON response, in place of quota-tracker's /recommend.
+    Picked up by Choose-Model.ps1 (Done-when 6). The test hook; live runs leave it empty.
+.PARAMETER RecommendRetryWaitSec
+    The seconds Choose-Model.ps1 waits / retries on a `loading` note (default 0 — the chooser
+    uses its own default of 180 s; pass a small value to shorten a test's wait).
 
 .EXAMPLE
     pwsh scripts/external-implement.ps1 -Task T71 -Slug persistence-hardening -Issue 308 -BriefFile C:\tmp\T71-brief.md
 .EXAMPLE
     pwsh scripts/external-implement.ps1 -Fix 346 -Slug migration-message -BriefFile C:\tmp\346-brief.md -Model luna
+.EXAMPLE
+    pwsh scripts/external-implement.ps1 -Task T152 -Slug recommend -Issue 866 -BriefFile rendered\brief.md -WhatIf -RecommendFile rendered\heavy.json
 #>
 [CmdletBinding()]
 param(
@@ -128,7 +144,9 @@ param(
     [int] $IdleTimeoutSec = 900,
     [switch] $WhatIf,
     [string[]] $SimulateFailed,
-    [hashtable] $ModelIds
+    [hashtable] $ModelIds,
+    [string] $RecommendFile,
+    [int]    $RecommendRetryWaitSec = 0
 )
 
 $ErrorActionPreference = 'Stop'
@@ -136,22 +154,87 @@ $ErrorActionPreference = 'Stop'
 # The Alibaba Token Plan's key comes from the user environment when this process predates it (never printed).
 $null = Import-AlibabaTokenPlanKey
 
-function Get-SubstituteModel {
-    # T150 Done-when 2: once every model of the chain has failed, ask Choose-Model for an implementer
-    # outside those families. Returns the model name, or $null; -Why is filled either way. Run in
-    # process: Choose-Model returns before the rest of the script when dot-sourced, but here it is
-    # called normally, prints the name with -Pick (its `exit` ends only that script) and sets
+function Get-ChooserPick {
+    # Calls Choose-Model.ps1 -Pick with -ExcludeFamily or -SubstituteFamilies applied.
+    # Returns:
+    #   - $null when the chooser exits 3 (no candidate);
+    #   - otherwise an object { Name, Meta } where Name is the OpenCode alias (e.g. 'mm-m3')
+    #     or the Claude Sonnet fallback sentinel and Meta is the CHOOSER_META payload
+    #     (provider, model, score, confidence, reasons and family, decoded from JSON).
+    # Run in process: Choose-Model returns before the rest of the script when dot-sourced,
+    # but here it is called normally; its `exit` ends only that script and sets
     # $LASTEXITCODE.
-    param([string[]] $ExcludeFamilies, [ref] $Why)
+    param(
+        [string[]] $ExcludeFamily = @(),
+        [string[]] $SubstituteFamilies = @(),
+        [string]   $RecommendFile = $null,
+        [int]      $RecommendRetryWaitSec = 0
+    )
     $chooser = Join-Path $PSScriptRoot 'Choose-Model.ps1'
-    if (-not (Test-Path -LiteralPath $chooser)) { $Why.Value = "Choose-Model.ps1 not found at $chooser"; return $null }
-    try { $out = & $chooser -Role implementer -ExcludeFamily $ExcludeFamilies -Pick 2>&1 }
-    catch { $Why.Value = "Choose-Model.ps1 failed: $($_.Exception.Message)"; return $null }
-    if ($LASTEXITCODE -ne 0) { $Why.Value = "Choose-Model.ps1 found no implementer outside $($ExcludeFamilies -join ', ')"; return $null }
-    $name = @($out) | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ } | Select-Object -Last 1
-    if (-not $name) { $Why.Value = 'Choose-Model.ps1 printed no model name'; return $null }
-    $Why.Value = "-ExcludeFamily $($ExcludeFamilies -join ',') on the implementer ranking picked $name"
-    return $name
+    if (-not (Test-Path -LiteralPath $chooser)) { return $null }
+    # Use a hashtable for splatting; PowerShell 7.6.6 on the OpenCode runner fails to
+    # splat an array of `-Name value` pairs into a `[CmdletBinding()]` script (each `-Name`
+    # is bound as the value of the previous positional parameter, then the script errors
+    # on `Role: -Role is not in the ValidateSet`). The hashtable form goes through
+    # parameter binding correctly.
+    $params = @{ Role = 'implementer'; Tier = 'complex'; Pick = $true }
+    if ($ExcludeFamily) { $params['ExcludeFamily'] = $ExcludeFamily -join ',' }
+    if ($SubstituteFamilies) { $params['SubstituteFamilies'] = $SubstituteFamilies -join ',' }
+    if ($RecommendFile) { $params['RecommendFile'] = $RecommendFile }
+    if ($RecommendRetryWaitSec -gt 0) { $params['RecommendRetryWaitSec'] = $RecommendRetryWaitSec }
+    try { $out = & $chooser @params 2>&1 }
+    catch { return $null }
+    if ($LASTEXITCODE -ne 0) { return $null }
+    $lines = @($out)
+    $meta = $null
+    foreach ($l in $lines) {
+        $trim = ([string]$l).Trim()
+        if ($trim -like 'CHOOSER_META=*') {
+            try { $meta = ($trim.Substring('CHOOSER_META='.Length) | ConvertFrom-Json) } catch { $meta = $null }
+        }
+    }
+    $name = @($lines) | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ -and ($_ -notlike 'CHOOSER_META=*') } | Select-Object -Last 1
+    if (-not $name) { return $null }
+    return [pscustomobject]@{ Name = $name; Meta = $meta }
+}
+
+function Get-ChooserChain {
+    # The chain of implementer aliases Choose-Model.ps1 returns for /recommend?tier=heavy.
+    # Iteratively picks the top alias and excludes its family, until the chooser exits 3
+    # (no candidate left). Caps at 8 (a /recommend response with fewer entries shortens
+    # the chain, never lengthens it). The Claude Sonnet fallback (rule 17: Claude is the
+    # orchestrator, dropped while another positive exists; with nothing else, the script's
+    # exit-3 fallback) is a sentinel name the dispatch recognises and treats as
+    # exit-3 — there is no OpenCode model to dispatch.
+    param([string] $RecommendFile, [int] $RecommendRetryWaitSec)
+    $chain = @()
+    $excluded = @()
+    while ($chain.Count -lt 8) {
+        $next = Get-ChooserPick -ExcludeFamily $excluded -RecommendFile $RecommendFile -RecommendRetryWaitSec $RecommendRetryWaitSec
+        if (-not $next) { break }
+        $chain += $next
+        if ($next.Meta -and $next.Meta.family) { $excluded += @([string]$next.Meta.family) }
+    }
+    return $chain
+}
+
+# T152 Done-when 2 / Done-when 6: the chain-spent substitute picks an implementer outside
+# the failed families AND the OpenAI family (the OpenAI drop is automatic inside
+# Choose-Model.ps1 once -SubstituteFamilies is passed). Returns the model alias, or $null;
+# -Why is filled either way.
+function Get-SubstituteModel {
+    param([string[]] $ExcludeFamilies, [ref] $Why, [string] $RecommendFile, [int] $RecommendRetryWaitSec)
+    $pick = Get-ChooserPick -SubstituteFamilies $ExcludeFamilies -RecommendFile $RecommendFile -RecommendRetryWaitSec $RecommendRetryWaitSec
+    if (-not $pick) {
+        $Why.Value = "Choose-Model.ps1 found no implementer outside $($ExcludeFamilies -join ', ')"
+        return $null
+    }
+    $Why.Value = "T150's chain-spent substitute, with families excluded ($($ExcludeFamilies -join ', ')), picked $($pick.Name)"
+    # The script's only consumer that uses meta strips it via .Name; it does not consume the
+    # meta here. The chain-spent path stores reasons in its attempts entry (Done-when 4),
+    # using the meta the chooser emits.
+    $script:LastSubstituteMeta = $pick.Meta
+    return $pick.Name
 }
 
 function Set-PullRequestSection {
@@ -217,10 +300,23 @@ if ($ModelIds) { foreach ($k in $ModelIds.Keys) { $models[$k] = $ModelIds[$k] } 
 # Heavy models run light (the user's decision of 2026-10-05): glm at low (GLM-5.3 has no medium).
 # qwen-flash at medium: Qwen3.8 Flash offers low, medium and xhigh, no high.
 $variants = @{ 'luna' = 'high'; 'glm-flash' = 'high'; 'glm' = 'low'; 'deepseek-flash' = 'high'; 'qwen-flash' = 'medium'; 'mm-m3' = 'thinking'; 'mm-m2.7' = ''; 'ali-deepseek-flash' = 'high'; 'ali-deepseek-pro' = 'high'; 'ali-glm' = 'low'; 'mimo-pro' = ''; 'mimo-flash' = '' }
-# The fallback chain (the user's decision of 2026-10-05, after issue #575's of 2026-10-01): DeepSeek
-# V4.1 Flash (Go, or Alibaba when Go is avoided), then Qwen3.8 Flash, then the main session runs
-# Claude Sonnet. An explicit -Model runs that model alone.
-$chain = if ($Model -eq 'auto') { @('deepseek-flash', 'qwen-flash') } else { @($Model) }
+# T152 Done-when 3: `-Model auto`'s chain comes from quota-tracker's /recommend?tier=heavy
+# through Choose-Model.ps1, in the chooser's ranking order. Each entry also keeps the meta
+# the chooser emits (provider, model, score, confidence, reasons), for the run log and the
+# PR body's "Implementer attempts" section (Done-when 4). An explicit -Model names that
+# model alone and has no meta.
+$chainPicks = if ($Model -eq 'auto') { Get-ChooserChain -RecommendFile $RecommendFile -RecommendRetryWaitSec $RecommendRetryWaitSec } else { @() }
+$chain = if ($Model -eq 'auto') { @($chainPicks | ForEach-Object Name) } else { @($Model) }
+# $chainMeta: alias name -> meta object, populated from the chooser for -Model auto. Used
+# by the run log ("=== <m>: ran — chosen: <alias> (<model>, <route>): <reasons>") and the
+# "Implementer attempts" section. An explicit -Model leaves no meta: the main session's
+# narrative names the model and the entry's evidence narrates the choice.
+$chainMeta = @{}
+foreach ($p in $chainPicks) { if ($p.Meta) { $chainMeta[$p.Name] = $p.Meta } }
+# The Claude Sonnet fallback sentinel the chooser emits when nothing else has a positive
+# score (rule 17, the orchestrator). The dispatch recognises it and exits 3 with the
+# Claude Sonnet fallback message (the main session runs Claude Sonnet, operating-guide §3).
+$script:ChooserClaudeSentinel = '__CLAUDE_SONNET_FALLBACK__'
 # Each chain model's route: quota-tracker's /avoid is read once (-Route auto); a silent tracker keeps
 # the usual route. An auto chain drops a model with no route that has quota, or one an explicit
 # -Route does not serve; an explicit -Model the route does not serve is refused.
@@ -231,6 +327,16 @@ $kept = @()
 # "Implementer attempts" section. A model an auto chain drops for quota is recorded here too.
 $attempts = @()
 foreach ($m in $chain) {
+    # T152 Done-when 3: the Claude Sonnet fallback sentinel (the chooser emits it when its
+    # only viable candidate is Claude) has no $models entry — the dispatch treats it as
+    # "exit 3, the main session runs Claude Sonnet", with a 'claude-fallback' class entry
+    # so the PR body's "Implementer attempts" section records it.
+    if ($m -eq $script:ChooserClaudeSentinel) {
+        Write-Host "chooser picked the Claude Sonnet fallback (rule 17, the orchestrator): nothing else has a positive score"
+        $attempts += [pscustomobject]@{ Model = '<Claude Sonnet fallback>'; Route = '-'; Class = 'claude-fallback'; Why = 'rule 17: the orchestrator is dropped while another positive exists; with nothing else, this is the script fallback' }
+        $resolved[$m] = [pscustomobject]@{ Route = '-'; Model = '<Claude Sonnet fallback>'; Why = 'the chooser picked the Claude Sonnet fallback'; Avoided = $false; Refused = $false }
+        continue
+    }
     $r = Resolve-OpenCodeRoute -Usual $models[$m] -Alibaba $alibabaIds[$m] -Route $Route -Answered $quota.Answered -Avoid $quota.Providers
     if ($r.Refused -and $Model -ne 'auto') { [Console]::Error.WriteLine("Refused: ${m}: $($r.Why)."); exit 1 }
     if ($r.Refused -or ($r.Avoided -and $Model -eq 'auto')) {
@@ -291,20 +397,41 @@ if ($WhatIf) {
         # running anything. Commas are split because `pwsh -File ... -SimulateFailed a,b` binds the
         # whole list as one string.
         $failed = @($SimulateFailed | ForEach-Object { @([string]$_) -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
-        # The script's actual rule always adds 'luna' (Done-when 2, the user's amendment of 2026-10-08),
-        # so the substitute is never from the OpenAI family. To make the rule visible, the check
-        # also prints what the substitute would have been without it.
+        # T150 Done-when 2 (the user's amendment of 2026-10-08), retold via T152: the substitute
+        # is never from the OpenAI family. -SubstituteFamilies makes the chooser add the openai
+        # family itself; the check here compares the substitute with and without that drop, so
+        # the rule is visible.
         $whyWithout = $null
-        $subWithout = Get-SubstituteModel -ExcludeFamilies $failed -Why ([ref]$whyWithout)
-        $why = $null
-        $sub = Get-SubstituteModel -ExcludeFamilies (@($failed + 'luna') | Select-Object -Unique) -Why ([ref]$why)
+        $subWithoutPick = Get-ChooserPick -ExcludeFamily $failed -RecommendFile $RecommendFile -RecommendRetryWaitSec $RecommendRetryWaitSec
+        $subWithout = if ($subWithoutPick) { $subWithoutPick.Name } else { $null }
+        $whyWithout = if ($subWithoutPick) { "-ExcludeFamily $($failed -join ',') on the implementer ranking picked $subWithout" } else { 'no implementer found' }
+        $subWhy = $null
+        $subPick = Get-SubstituteModel -ExcludeFamilies $failed -Why ([ref]$subWhy) -RecommendFile $RecommendFile -RecommendRetryWaitSec $RecommendRetryWaitSec
         Write-Host "simulate failed: $($failed -join ', ')"
-        if ($subWithout -and $subWithout -ne $sub) { Write-Host "without OpenAI exclusion, would have picked: $subWithout ($whyWithout)" }
-        if ($sub) { Write-Host "would substitute: $sub ($why)" }
-        else { Write-Host "would substitute: none ($why)" }
+        if ($subWithout -and $subWithout -ne $subPick) { Write-Host "without OpenAI exclusion, would have picked: $subWithout ($whyWithout)" }
+        if ($subPick) { Write-Host "would substitute: $subPick ($subWhy)" }
+        else { Write-Host "would substitute: none ($subWhy)" }
+    } else {
+        # Done-when 6 (with -RecommendFile, no -SimulateFailed): the model it would run and its
+        # reasons, showing the dispatch honours the chooser. For -Model auto, the first entry in
+        # the chain is what the real run would try first; the run log quotes its reasons.
+        if ($Model -eq 'auto' -and $chain) {
+            $first = $chain[0]
+            $why = $chainMeta[$first]
+            if ($why) {
+                Write-Host "would attempt: $first ($($why.provider), $($why.model), score $($why.score), confidence $($why.confidence))"
+                foreach ($r in @($why.reasons)) { Write-Host "  reason: $r" }
+            } else {
+                Write-Host "would attempt: $first (no /recommend reasons: explicit -Model)"
+            }
+        }
     }
     $whatIfPrompt = Get-Content -Raw -LiteralPath $BriefFile
     foreach ($m in $chain) {
+        if ($m -eq $script:ChooserClaudeSentinel) {
+            Write-Host "would attempt: <Claude Sonnet fallback> (no OpenCode run; rule 17 fallback)"
+            continue
+        }
         Write-Host "would attempt: $m"
         $null = Invoke-OpenCodeWatched -WhatIf -Agent 'external-implementer' -Model $resolved[$m].Model -Variant $variants[$m] -Prompt $whatIfPrompt `
             -WorkDir (Get-Location).Path -Title "ic2-$(if ($Task) { $Task } else { "fix-$Fix" })-$m"
@@ -417,6 +544,18 @@ function Format-OutsidePathsReport([object[]] $Runs) {
 
 $attempt = 0
 foreach ($m in $chain) {
+    # T152 Done-when 3: the chooser emits the Claude Sonnet fallback sentinel when no
+    # implementer has a positive score (rule 17, the orchestrator). No OpenCode model is
+    # run; the dispatch falls through to the "OpenCode unavailable" exit 3 path.
+    if ($m -eq $script:ChooserClaudeSentinel) {
+        $attempt++
+        $reasons = @((@($chainMeta[$script:ChooserClaudeSentinel]) | ForEach-Object { $_.reasons } | ForEach-Object { $_ }))
+        $whyText = if ($reasons) { $reasons -join '; ' } else { 'nothing else has a positive /recommend score; rule 17 fallback' }
+        Write-Host "attempt $attempt (no OpenCode run): <Claude Sonnet fallback> -- $whyText"
+        $failures += "<Claude Sonnet fallback>: $whyText"
+        $chainGoneReason = $whyText
+        break
+    }
     $attempt++
     Write-Host "attempt $attempt/$($chain.Count): $m ($($resolved[$m].Model), route $($resolved[$m].Route))$(if ($variants[$m]) { " with variant $($variants[$m])" }), OpenCode $($cli.Version)"
     $reason = $null
@@ -442,6 +581,14 @@ foreach ($m in $chain) {
         $implementedBy = $m
         $attempts += [pscustomobject]@{ Model = $m; Route = $resolved[$m].Route; Class = 'ran'; Why = '' }
         $finalRun = $run
+        # T152 Done-when 4: the run log and the PR body's "Implementer attempts" section name
+        # the chosen model and quote its row's reasons. We append the reasons to the same log
+        # entry for the run log; the PR-body section quotes them from $chainMeta below.
+        $chosenMeta = $chainMeta[$m]
+        if ($chosenMeta) {
+            $chosenReasons = @($chosenMeta.reasons) -join '; '
+            Add-Content -LiteralPath $log -Value "=== /recommend reasons for this pick ===`nprovider $($chosenMeta.provider), model $($chosenMeta.model), score $($chosenMeta.score), confidence $($chosenMeta.confidence)`n$chosenReasons`n" -Encoding utf8
+        }
         break
     }
     Write-Warning "$m failed: $reason"
@@ -467,57 +614,74 @@ Write-Host "run output: $log"
 # (checked above), so the worktree is at the starting commit. If Choose-Model returns nothing, exit 3
 # is unchanged.
 if (-not $implementedBy) {
-    # T150 Done-when 2 (the user's amendment of 2026-10-08): the substitute is never from the OpenAI
-    # family. Adding 'luna' is enough because its family key ('luna,sol', the join of
-    # $reviewerOf['luna']) drops both Luna and Sol; -ExcludeFamily would only add a duplicate
-    # otherwise, so a -Unique pass keeps the list clean.
-    $failedFamilies = @($attempts | Where-Object { $_.Class -ne 'ran' } | Select-Object -ExpandProperty Model -Unique) + 'luna' | Select-Object -Unique
+    # T150 Done-when 2 (the user's amendment of 2026-10-08), retold via T152: the substitute is
+    # never from the OpenAI family. Get-SubstituteModel passes -SubstituteFamilies, which makes
+    # Choose-Model.ps1 add the openai family itself; no 'luna' is appended here. A failed
+    # Claude-Sonnet-fallback sentinel (the chain stopped because no implementer has a positive
+    # score) is also excluded so the substitute doesn't re-pick it.
+    $failedFamilies = @($attempts | Where-Object { $_.Class -ne 'ran' -and $_.Class -ne 'claude-fallback' } | Select-Object -ExpandProperty Model -Unique) | Select-Object -Unique
     $subWhy = $null
-    $substitute = Get-SubstituteModel -ExcludeFamilies $failedFamilies -Why ([ref]$subWhy)
+    $substitute = Get-SubstituteModel -ExcludeFamilies $failedFamilies -Why ([ref]$subWhy) -RecommendFile $RecommendFile -RecommendRetryWaitSec $RecommendRetryWaitSec
+    $subMeta = $script:LastSubstituteMeta
     if (-not $substitute) {
         Write-Host "the chain is spent; no substitute: $subWhy"
     } else {
         Write-Host "the chain is spent; substitute: $subWhy"
-        $sr = Resolve-OpenCodeRoute -Usual $models[$substitute] -Alibaba $alibabaIds[$substitute] -Route $Route -Answered $quota.Answered -Avoid $quota.Providers
-        if ($sr.Refused) {
-            Write-Warning "substitute $substitute refused: $($sr.Why)"
-            $attempts += [pscustomobject]@{ Model = $substitute; Route = '-'; Class = 'quota-skip'; Why = $sr.Why }
+        if ($subMeta) {
+            Write-Host "  reason: provider $($subMeta.provider), model $($subMeta.model), score $($subMeta.score), confidence $($subMeta.confidence)"
+            foreach ($r in @($subMeta.reasons)) { Write-Host "  - $r" }
+        }
+        # T152 Done-when 3: the chooser can also pick the Claude Sonnet fallback as the
+        # substitute (no positive-scoring family left at all). The dispatch exits 3.
+        if ($substitute -eq $script:ChooserClaudeSentinel) {
+            $attempts += [pscustomobject]@{ Model = '<Claude Sonnet fallback>'; Route = '-'; Class = 'claude-fallback'; Why = ($subWhy -replace '^[^:]*: ', '') }
         } else {
-            if ($sr.Avoided) { Write-Warning "${substitute}: $($sr.Why); it runs anyway as the substitute." }
-            $attempt++
-            Write-Host "attempt $attempt (substitute): $substitute ($($sr.Model), route $($sr.Route))$(if ($variants[$substitute]) { " with variant $($variants[$substitute])" }), OpenCode $($cli.Version)"
-            $reason = $null
-            $run = $null
-            try {
-                $run = Invoke-OpenCodeWatched -Agent 'external-implementer' -Model $sr.Model -Variant $variants[$substitute] -Prompt $prompt -WorkDir $worktree -Title "ic2-$name-$substitute" `
-                    -StartupTimeoutSec $StartupTimeoutSec -TotalTimeoutSec $TotalTimeoutSec -IdleTimeoutSec $IdleTimeoutSec
-                $output = $run.Output
-                if ($run.PermissionRejected) { $reason = "permission rejected: $($run.PermissionRejected)" }
-                elseif ($run.ExitCode -ne 0) { $reason = "exit $($run.ExitCode)" }
-                elseif ($run.AgentFallback) { $reason = 'fell back to the default agent' }
-            } catch {
-                if (-not (Test-OpenCodeInfraFailure $_)) { throw }
-                $reason = $_.Exception.Data['Reason']; $output = $_.Exception.Message
-            }
-            if ($run) { $outsideRuns += [pscustomobject]@{ Model = $substitute; Run = $run } }
-            Add-Content -LiteralPath $log -Value "=== $substitute ($($sr.Model), route $($sr.Route)): $(if ($reason) { "failed: $reason" } else { 'ran' }) ===`n$output" -Encoding utf8
-            if (-not $reason) {
-                $implementedBy = $substitute
-                $resolved[$substitute] = $sr
-                $attempts += [pscustomobject]@{ Model = $substitute; Route = $sr.Route; Class = 'ran'; Why = '' }
-                $finalRun = $run
+            $sr = Resolve-OpenCodeRoute -Usual $models[$substitute] -Alibaba $alibabaIds[$substitute] -Route $Route -Answered $quota.Answered -Avoid $quota.Providers
+            if ($sr.Refused) {
+                Write-Warning "substitute $substitute refused: $($sr.Why)"
+                $attempts += [pscustomobject]@{ Model = $substitute; Route = '-'; Class = 'quota-skip'; Why = $sr.Why }
             } else {
-                Write-Warning "$substitute failed: $reason"
-                $failures += "${substitute}: $reason"
-                $attempts += [pscustomobject]@{ Model = $substitute; Route = $sr.Route; Class = (Get-OpenCodeFailureClass $reason); Why = $reason }
-                git -C $repo fetch -q origin
-                $prNow = gh pr list --head $branch --state open --json number --jq '.[0].number' 2>$null
-                $leftWork = (git -C $worktree rev-parse HEAD) -ne $startSha -or
-                    ((git -C $repo rev-parse "origin/$branch" 2>$null) -ne $startRemote) -or
-                    ($prNow -and $prNow -ne $startPr)
-                if ($leftWork) { [Console]::Error.WriteLine("$substitute failed ($reason) after committing, pushing or opening a PR on $branch; the main session decides. Log: $log"); exit 1 }
-                git -C $worktree reset -q --hard $startSha
-                git -C $worktree clean -q -fd
+                if ($sr.Avoided) { Write-Warning "${substitute}: $($sr.Why); it runs anyway as the substitute." }
+                $attempt++
+                Write-Host "attempt $attempt (substitute): $substitute ($($sr.Model), route $($sr.Route))$(if ($variants[$substitute]) { " with variant $($variants[$substitute])" }), OpenCode $($cli.Version)"
+                $reason = $null
+                $run = $null
+                try {
+                    $run = Invoke-OpenCodeWatched -Agent 'external-implementer' -Model $sr.Model -Variant $variants[$substitute] -Prompt $prompt -WorkDir $worktree -Title "ic2-$name-$substitute" `
+                        -StartupTimeoutSec $StartupTimeoutSec -TotalTimeoutSec $TotalTimeoutSec -IdleTimeoutSec $IdleTimeoutSec
+                    $output = $run.Output
+                    if ($run.PermissionRejected) { $reason = "permission rejected: $($run.PermissionRejected)" }
+                    elseif ($run.ExitCode -ne 0) { $reason = "exit $($run.ExitCode)" }
+                    elseif ($run.AgentFallback) { $reason = 'fell back to the default agent' }
+                } catch {
+                    if (-not (Test-OpenCodeInfraFailure $_)) { throw }
+                    $reason = $_.Exception.Data['Reason']; $output = $_.Exception.Message
+                }
+                if ($run) { $outsideRuns += [pscustomobject]@{ Model = $substitute; Run = $run } }
+                $logHeader = "=== $substitute ($($sr.Model), route $($sr.Route)): $(if ($reason) { "failed: $reason" } else { 'ran' }) ==="
+                if ($subMeta) {
+                    $subReasons = @($subMeta.reasons) -join '; '
+                    $logHeader = "$logHeader`n=== /recommend reasons for this pick ===`nprovider $($subMeta.provider), model $($subMeta.model), score $($subMeta.score), confidence $($subMeta.confidence)`n$subReasons`n"
+                }
+                Add-Content -LiteralPath $log -Value "$logHeader`n$output" -Encoding utf8
+                if (-not $reason) {
+                    $implementedBy = $substitute
+                    $resolved[$substitute] = $sr
+                    $attempts += [pscustomobject]@{ Model = $substitute; Route = $sr.Route; Class = 'ran'; Why = '' }
+                    $finalRun = $run
+                } else {
+                    Write-Warning "$substitute failed: $reason"
+                    $failures += "${substitute}: $reason"
+                    $attempts += [pscustomobject]@{ Model = $substitute; Route = $sr.Route; Class = (Get-OpenCodeFailureClass $reason); Why = $reason }
+                    git -C $repo fetch -q origin
+                    $prNow = gh pr list --head $branch --state open --json number --jq '.[0].number' 2>$null
+                    $leftWork = (git -C $worktree rev-parse HEAD) -ne $startSha -or
+                        ((git -C $repo rev-parse "origin/$branch" 2>$null) -ne $startRemote) -or
+                        ($prNow -and $prNow -ne $startPr)
+                    if ($leftWork) { [Console]::Error.WriteLine("$substitute failed ($reason) after committing, pushing or opening a PR on $branch; the main session decides. Log: $log"); exit 1 }
+                    git -C $worktree reset -q --hard $startSha
+                    git -C $worktree clean -q -fd
+                }
             }
         }
     }
@@ -545,11 +709,28 @@ Write-Host $outsideBody
 # meaningful when one was produced, but the body is built unconditionally so the Write-Host +
 # Set-PullRequestSection below are the only branching.
 $attemptBody = $null
-if ($implementedBy) {
+if ($implementedBy -and $implementedBy -ne $script:ChooserClaudeSentinel) {
     $attemptLines = @($attempts | ForEach-Object {
             "- $($_.Model) ($($_.Route)): $($_.Class)$(if ($_.Why) { " -- $($_.Why)" })"
         })
-    $attemptLines += "ran: $implementedBy ($($resolved[$implementedBy].Model), route $($resolved[$implementedBy].Route))"
+    $chosenMeta = $chainMeta[$implementedBy]
+    $chosenLine = "ran: $implementedBy ($($resolved[$implementedBy].Model), route $($resolved[$implementedBy].Route))"
+    if ($chosenMeta) {
+        # T152 Done-when 4: the "Implementer attempts" section names the chosen model and
+        # quotes its row's reasons (provider, model, score, confidence, reasons). The
+        # main session copies these into its tier comment when a review needs them too.
+        $reasonsText = @($chosenMeta.reasons) -join '; '
+        $chosenLine += "`n/recommend reasons for this pick: provider $($chosenMeta.provider), model $($chosenMeta.model), score $($chosenMeta.score), confidence $($chosenMeta.confidence)"
+        $chosenLine += "`n  $reasonsText"
+    }
+    $attemptLines += $chosenLine
+    $attemptBody = $attemptLines -join "`n"
+} elseif ($attempts) {
+    # A chain that ended on the Claude Sonnet fallback (no implementer has a positive score)
+    # still records the attempts on the PR body.
+    $attemptLines = @($attempts | ForEach-Object {
+            "- $($_.Model) ($($_.Route)): $($_.Class)$(if ($_.Why) { " -- $($_.Why)" })"
+        })
     $attemptBody = $attemptLines -join "`n"
 }
 
@@ -580,8 +761,17 @@ if ($prNumber -gt 0) {
 # Exit codes: unchanged from before.
 if ($openCodeUnavailable) { exit 3 }
 if ($failures) { Write-Host "fell back: $($failures -join '; ')" }
-# The reviewer must not be this model: pass it to external-review.ps1 as -ExcludeModel.
-Write-Host "implemented by: $implementedBy ($($resolved[$implementedBy].Model), route $($resolved[$implementedBy].Route))"
+if ($implementedBy) {
+    # The reviewer must not be this model: pass it to external-review.ps1 as -ExcludeModel.
+    $implLine = "implemented by: $implementedBy ($($resolved[$implementedBy].Model), route $($resolved[$implementedBy].Route))"
+    $chosenMeta = $chainMeta[$implementedBy]
+    if ($chosenMeta) {
+        $reasonsText = @($chosenMeta.reasons) -join '; '
+        $implLine += "`n/recommend reasons for this pick: provider $($chosenMeta.provider), model $($chosenMeta.model), score $($chosenMeta.score), confidence $($chosenMeta.confidence)"
+        $implLine += "`n  $reasonsText"
+    }
+    Write-Host $implLine
+}
 if (-not $pr) { Write-Error "No open PR for $branch. Read $log; resume with the same command once the cause is known."; exit 1 }
 Write-Host "PR: $pr"
 exit 0
