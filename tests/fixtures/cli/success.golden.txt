@@ -998,6 +998,12 @@ naval.embark-army accepted.
 > disembark-army army-8 148 40
 naval.disembark-army accepted.
 
+> recruit-standing pella light_infantry 200
+recruitment.recruit-standing-unit accepted.
+
+> disband-slot 0
+recruitment.disband-recruitment-slot accepted.
+
 > quit
 Goodbye.
 
