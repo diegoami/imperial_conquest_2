@@ -16,14 +16,11 @@ permission:
     "*": ask
     "*?data?opencode?tool-output?*": allow
     "*?data?opencode?shell?*": allow
-    # Read-only access to the research repo's local checkout (the WSL research session's
-    # working tree, mirrored to Windows). Lets the reviewer read the polished reports the
-    # implementer cited and the citations the task entry quotes, without leaving the
-    # worktree. Last match wins.
-    "*?RE-imperial-conquest-2?*": allow
-    # The reviewer runs godot for DoD gates (#4 and #6). godot.cmd and godot.exe live under
-    # C:\Users\diego\.local\bin\, which the worktree guard otherwise blocks.
-    "*?.local?bin?godot*": allow
+    # The one exception to the worktree guard: the Godot shim the headless Done-when checks run
+    # (`godot` in bash, `godot.cmd` in PowerShell). Exactly the two files, either separator; the
+    # rest of ~\.local\bin and everything else outside the worktree stays under the `ask` above.
+    "C:?Users?diego?.local?bin?godot.cmd": allow
+    "C:?Users?diego?.local?bin?godot.exe": allow
   task:
     "*": deny
   bash:
