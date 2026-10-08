@@ -396,12 +396,31 @@ $sameCause = $null
 $implementedBy = $null
 # The finishing run's object, for the "Outside paths touched" section (Done-when 3).
 $finalRun = $null
+# Done-when 3 (GLM's re-check R2): every attempt that returned a run, failed or not, is kept here,
+# so a failed run's touched outside paths are reported and "unknown" means only a failed export.
+$outsideRuns = @()
 [System.IO.File]::WriteAllText($log, '')
+function Format-OutsidePathsReport([object[]] $Runs) {
+    # One line per allowed outside path any attempt touched, with the attempt's model. "none" when every
+    # attempt's export was read and none touched one. "unknown" is printed only for an attempt whose
+    # export failed, and names that attempt. With no run at all (every attempt failed before OpenCode
+    # returned one), the report says so instead of blaming an export.
+    if (-not $Runs -or $Runs.Count -eq 0) { return 'unknown: no attempt returned a session (each failed before OpenCode finished)' }
+    $lines = @()
+    foreach ($r in $Runs) {
+        if (-not $r.Run.OutsidePathsKnown) { $lines += "- unknown for $($r.Model): the session export failed"; continue }
+        foreach ($p in @($r.Run.OutsidePaths)) { $lines += "- $p ($($r.Model))" }
+    }
+    if ($lines.Count -eq 0) { return 'none' }
+    return ($lines -join "`n")
+}
+
 $attempt = 0
 foreach ($m in $chain) {
     $attempt++
     Write-Host "attempt $attempt/$($chain.Count): $m ($($resolved[$m].Model), route $($resolved[$m].Route))$(if ($variants[$m]) { " with variant $($variants[$m])" }), OpenCode $($cli.Version)"
     $reason = $null
+    $run = $null
     try {
         $run = Invoke-OpenCodeWatched -Agent 'external-implementer' -Model $resolved[$m].Model -Variant $variants[$m] -Prompt $prompt -WorkDir $worktree -Title "ic2-$name-$m" `
             -StartupTimeoutSec $StartupTimeoutSec -TotalTimeoutSec $TotalTimeoutSec -IdleTimeoutSec $IdleTimeoutSec
@@ -417,6 +436,7 @@ foreach ($m in $chain) {
         if (-not (Test-OpenCodeInfraFailure $_)) { throw }
         $reason = $_.Exception.Data['Reason']; $output = $_.Exception.Message
     }
+    if ($run) { $outsideRuns += [pscustomobject]@{ Model = $m; Run = $run } }
     Add-Content -LiteralPath $log -Value "=== $m ($($resolved[$m].Model), route $($resolved[$m].Route)): $(if ($reason) { "failed: $reason" } else { 'ran' }) ===`n$output" -Encoding utf8
     if (-not $reason) {
         $implementedBy = $m
@@ -467,6 +487,7 @@ if (-not $implementedBy) {
             $attempt++
             Write-Host "attempt $attempt (substitute): $substitute ($($sr.Model), route $($sr.Route))$(if ($variants[$substitute]) { " with variant $($variants[$substitute])" }), OpenCode $($cli.Version)"
             $reason = $null
+            $run = $null
             try {
                 $run = Invoke-OpenCodeWatched -Agent 'external-implementer' -Model $sr.Model -Variant $variants[$substitute] -Prompt $prompt -WorkDir $worktree -Title "ic2-$name-$substitute" `
                     -StartupTimeoutSec $StartupTimeoutSec -TotalTimeoutSec $TotalTimeoutSec -IdleTimeoutSec $IdleTimeoutSec
@@ -478,6 +499,7 @@ if (-not $implementedBy) {
                 if (-not (Test-OpenCodeInfraFailure $_)) { throw }
                 $reason = $_.Exception.Data['Reason']; $output = $_.Exception.Message
             }
+            if ($run) { $outsideRuns += [pscustomobject]@{ Model = $substitute; Run = $run } }
             Add-Content -LiteralPath $log -Value "=== $substitute ($($sr.Model), route $($sr.Route)): $(if ($reason) { "failed: $reason" } else { 'ran' }) ===`n$output" -Encoding utf8
             if (-not $reason) {
                 $implementedBy = $substitute
@@ -514,11 +536,7 @@ if (-not $implementedBy) {
 # on a chain-spent failure, and on a run that completed without opening a PR. The exit code is
 # unchanged (3 for the failure above, 1 for "no PR" below, 0 otherwise); the report is only
 # appended to the PR body when a PR exists, but it is always printed.
-$outsideBody = if ($finalRun -and $finalRun.OutsidePathsKnown) {
-    $paths = @($finalRun.OutsidePaths)
-    if ($paths.Count -eq 0) { 'none' } else { (@($paths | ForEach-Object { "- $_" }) -join "`n") }
-}
-else { 'unknown: the session export failed' }
+$outsideBody = Format-OutsidePathsReport $outsideRuns
 Write-Host 'Outside paths touched:'
 Write-Host $outsideBody
 

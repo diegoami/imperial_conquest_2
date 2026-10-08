@@ -168,8 +168,9 @@ jobs:
       # The frame budget is a watchdog, not a target: every scene's own completion marker is the
       # pass/fail test (a scene whose assertions pass prints its marker within a fraction of the
       # budget; the budget only fires for a hung scene). Gate 2 needs a source for the threshold:
-      # measured from godot-headless run 37823235606 on this PR (24 scenes, 99 s total,
-      # 2026-10-08T18:19:04Z onwards), PeaceOfferCheck was the slowest at 8.4 s; 900 frames is
+      # measured from godot-headless run 37823235606 on this PR, whose check loop ran 24 scenes in
+      # about 78 s (first scene header 18:19:04.84Z to the 'check scenes run: 24; failed: 0' line
+      # 18:20:22.51Z, 2026-10-08), PeaceOfferCheck was the slowest at 8.4-8.6 s; 900 frames is
       # the worst-case 15 s at 60 FPS, ~80% over the slowest scene, so a regression that doubles
       # a scene's work still terminates in budget. The previous CI ran the three T24/T25 scenes
       # at --quit-after 600 individually; when T150's glob picked up further scenes from later
